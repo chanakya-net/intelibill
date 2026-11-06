@@ -1,0 +1,68 @@
+@if (status(); as credit) {
+  <section
+    class="flex flex-col gap-1 rounded-md border border-slate-200 px-3 py-2 text-xs"
+    [attr.aria-label]="'sales.newSale.credit.ariaLabel' | transloco"
+    data-testid="sale-credit-panel"
+  >
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="font-semibold">{{ policyLabelKey() | transloco }}</span>
+      @if (credit.availableCredit !== null) {
+        <span data-testid="sale-credit-available"
+          >{{ 'sales.newSale.credit.available' | transloco }}:
+          {{ 'common.currencySymbol' | transloco }}{{ credit.availableCredit | number: '1.2-2' }}</span
+        >
+      }
+      <span class="text-slate-500"
+        >{{ 'sales.newSale.credit.balance' | transloco }}:
+        {{ 'common.currencySymbol' | transloco }}{{ credit.currentExposure | number: '1.2-2' }}</span
+      >
+    </div>
+    @if (isAdvisory()) {
+      <small class="text-amber-700">{{ 'sales.newSale.credit.advisoryNotice' | transloco }}</small>
+    }
+    @if (isBlocked()) {
+      <small class="text-red-700" data-testid="sale-credit-blocked">{{
+        (credit.isActive ? 'sales.newSale.credit.errors.notExtended' : 'sales.newSale.credit.errors.inactive') | transloco
+      }}</small>
+    } @else if (exceedsLimit()) {
+      <small class="text-red-700" data-testid="sale-credit-exceeds">{{
+        'sales.newSale.credit.errors.limitExceeded' | transloco
+      }}</small>
+      @if (canOverride) {
+        @if (approved()) {
+          <div class="flex flex-wrap items-center gap-2" data-testid="sale-credit-approved">
+            <small class="text-emerald-700">{{ 'sales.newSale.credit.overrideApproved' | transloco }}</small>
+            <p-button
+              [label]="'sales.newSale.credit.withdrawOverride' | transloco"
+              size="small"
+              [text]="true"
+              (click)="onWithdraw()"
+            />
+          </div>
+        } @else {
+          <div class="flex flex-wrap items-end gap-2">
+            <label class="flex flex-1 flex-col gap-1 min-w-48">
+              <span class="text-slate-500">{{ 'sales.newSale.credit.overrideReason' | transloco }}</span>
+              <input
+                pInputText
+                type="text"
+                maxlength="500"
+                [ngModel]="reason()"
+                (ngModelChange)="onReasonChange($event)"
+                data-testid="sale-credit-override-reason"
+              />
+            </label>
+            <p-button
+              [label]="'sales.newSale.credit.approveOverride' | transloco"
+              size="small"
+              severity="warn"
+              [disabled]="reason().trim().length === 0"
+              (click)="onApprove()"
+              data-testid="sale-credit-approve"
+            />
+          </div>
+        }
+      }
+    }
+  </section>
+}

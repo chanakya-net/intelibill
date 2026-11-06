@@ -422,6 +422,24 @@ h1 {
   background: #8b5a05;
 }
 
+.statement-metric small.danger-dot::before {
+  background: #b42318;
+}
+
+.statement-metric small.credit-policy-note::before {
+  background: #8a7565;
+}
+
+.statement-metric small.credit-policy-note--advisory {
+  color: #8b5a05;
+  font-weight: 700;
+}
+
+.active-pill--inactive {
+  background: #ece4dd;
+  color: #5b4a3f;
+}
+
 .account-payment-strip {
   padding: 0.6rem 1rem 0.75rem;
 }
@@ -636,6 +654,11 @@ h1 {
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+.statement-type.overdue {
+  background: #b42318;
+  color: #fff;
 }
 
 .statement-type.payment {

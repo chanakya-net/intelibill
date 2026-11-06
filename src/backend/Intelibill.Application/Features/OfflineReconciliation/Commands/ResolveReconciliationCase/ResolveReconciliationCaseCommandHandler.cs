@@ -334,7 +334,9 @@ public sealed class ResolveReconciliationCaseCommandHandler(
                 submission.Id,
                 now,
                 activeRules.ToDictionary(rule => rule.Id),
-                lease),
+                lease,
+                // A reviewer is posting this sale now: its credit is the decision being made, not a new case.
+                CreditReviewed: true),
             cancellationToken);
 
         return outcome switch

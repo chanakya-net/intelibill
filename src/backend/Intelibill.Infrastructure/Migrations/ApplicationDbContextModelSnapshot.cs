@@ -413,6 +413,16 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasDefaultValue(0m)
                         .HasColumnName("credit_limit");
 
+                    b.Property<int>("CreditPolicyMode")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(3)
+                        .HasColumnName("credit_policy_mode");
+
+                    b.Property<int?>("CreditTermsDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("credit_terms_days");
+
                     b.Property<string>("Gstin")
                         .HasMaxLength(15)
                         .HasColumnType("character varying(15)")
@@ -461,7 +471,12 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasIndex("ShopId", "PhoneNumber")
                         .HasDatabaseName("ix_customers_shop_id_phone_number");
 
-                    b.ToTable("customers", (string)null);
+                    b.ToTable("customers", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_customers_credit_policy_mode", "credit_policy_mode IN (1, 2, 3)");
+
+                            t.HasCheckConstraint("ck_customers_credit_terms_days", "credit_terms_days IS NULL OR credit_terms_days BETWEEN 0 AND 365");
+                        });
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.CustomerLedgerEntry", b =>
@@ -3262,6 +3277,25 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasDefaultValue(0m)
                         .HasColumnName("credit_note_applied_amount");
 
+                    b.Property<Guid?>("CreditOverrideByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("credit_override_by_user_id");
+
+                    b.Property<decimal?>("CreditOverrideLimit")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("credit_override_limit");
+
+                    b.Property<decimal?>("CreditOverrideObservedExposure")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("credit_override_observed_exposure");
+
+                    b.Property<string>("CreditOverrideReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("credit_override_reason");
+
                     b.Property<Guid?>("CustomerId")
                         .HasColumnType("uuid")
                         .HasColumnName("customer_id");
@@ -3285,6 +3319,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("due_amount");
+
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("date")
+                        .HasColumnName("due_date");
 
                     b.Property<string>("IdempotencyKey")
                         .IsRequired()

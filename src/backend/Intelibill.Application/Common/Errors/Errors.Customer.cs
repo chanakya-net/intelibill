@@ -36,6 +36,9 @@ public static partial class Errors
         public static Error GstinStateMismatch =>
             Error.Validation("Customer.GstinStateMismatch", "The customer's GSTIN belongs to a different state than the one chosen.");
 
+        public static Error StatementWindowInvalid =>
+            Error.Validation("Customer.StatementWindowInvalid", "The statement start date must be on or before its end date.");
+
         public static Error ShopOwnerNotFound =>
             Error.Unexpected("Customer.ShopOwnerNotFound", "Unable to resolve the shop owner for customer operations.");
     }

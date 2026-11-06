@@ -71,6 +71,19 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
             .HasPrecision(18, 2)
             .IsRequired();
 
+        builder.Property(s => s.DueDate);
+
+        builder.Property(s => s.CreditOverrideReason)
+            .HasMaxLength(500);
+
+        builder.Property(s => s.CreditOverrideByUserId);
+
+        builder.Property(s => s.CreditOverrideObservedExposure)
+            .HasPrecision(18, 2);
+
+        builder.Property(s => s.CreditOverrideLimit)
+            .HasPrecision(18, 2);
+
         builder.Property(s => s.SubtotalBeforeDiscount)
             .HasPrecision(18, 2)
             .IsRequired();

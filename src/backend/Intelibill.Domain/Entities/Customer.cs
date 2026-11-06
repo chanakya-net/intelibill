@@ -1,4 +1,6 @@
+using ErrorOr;
 using Intelibill.Domain.Common;
+using Intelibill.Domain.Enums;
 
 namespace Intelibill.Domain.Entities;
 
@@ -16,6 +18,14 @@ public sealed class Customer : BaseEntity
 
     /// <summary>The buyer's GST state code; defaults to its GSTIN's state.</summary>
     public string? StateCode { get; private set; }
+
+    /// <summary>How new due is judged against <see cref="CreditLimit"/>.</summary>
+    public CreditPolicyMode CreditPolicyMode { get; private set; } = CreditPolicyMode.LegacyAdvisory;
+
+    /// <summary>Days after the issue date a due sale falls due; null when no terms were agreed.</summary>
+    public int? CreditTermsDays { get; private set; }
+
+    public const int MaxCreditTermsDays = 365;
 
     private Customer() { }
 
@@ -59,6 +69,26 @@ public sealed class Customer : BaseEntity
         CreditLimit = creditLimit;
         Gstin = Common.Gstin.Normalize(gstin);
         StateCode = ResolveStateCode(Gstin, stateCode);
+    }
+
+    /// <summary>
+    /// Sets the credit policy and terms against the current <see cref="CreditLimit"/>: an enforced
+    /// policy needs a positive limit, so a zero limit can never mean "unlimited".
+    /// </summary>
+    public ErrorOr<Success> SetCreditPolicy(CreditPolicyMode mode, int? creditTermsDays)
+    {
+        if (!Enum.IsDefined(mode))
+            return Errors.CustomerCredit.PolicyModeInvalid;
+
+        if (mode == CreditPolicyMode.Enforced && CreditLimit <= 0m)
+            return Errors.CustomerCredit.EnforcedPolicyRequiresLimit;
+
+        if (creditTermsDays is < 0 or > MaxCreditTermsDays)
+            return Errors.CustomerCredit.TermsDaysInvalid;
+
+        CreditPolicyMode = mode;
+        CreditTermsDays = creditTermsDays;
+        return Result.Success;
     }
 
     private static string? ResolveStateCode(string? gstin, string? stateCode) =>

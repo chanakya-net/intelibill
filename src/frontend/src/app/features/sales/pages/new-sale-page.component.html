@@ -275,6 +275,15 @@
           (creditNoteCustomerMismatchCancelled)="onCreditNoteCustomerMismatchCancelled()"
         />
 
+        <app-sale-credit-panel
+          [customerId]="vm.selectedCustomerId()"
+          [dueAmount]="vm.paymentForm.controls.dueAmount.value"
+          [isOfflineMode]="vm.isOfflineMode()"
+          [canOverride]="vm.canOverrideCredit()"
+          [serverError]="vm.serverError()"
+          (overrideChange)="vm.creditOverride.set($event)"
+        />
+
         <app-cart-checkout-summary
           [preview]="vm.checkoutPreview()"
           [loading]="vm.isPreviewLoading()"

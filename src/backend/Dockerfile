@@ -32,7 +32,10 @@ WORKDIR /app
 
 # Installed before the user switch, which needs root. libgssapi-krb5-2 is a
 # PostgreSQL connectivity dependency; curl serves the container health check.
+# apt/libapt-pkg are upgraded past CVE-2026-109518 (fixed in 2.8.4ubuntu0.1),
+# which the newest pinned base still ships; drop this once the base carries it.
 RUN apt-get update \
+    && apt-get install -y --no-install-recommends --only-upgrade apt libapt-pkg6.0t64 \
     && apt-get install -y --no-install-recommends libgssapi-krb5-2 curl \
     && rm -rf /var/lib/apt/lists/*
 

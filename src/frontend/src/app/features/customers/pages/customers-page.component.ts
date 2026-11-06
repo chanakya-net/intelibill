@@ -53,6 +53,7 @@ import {
   customerUsageLabel as deriveCustomerUsageLabel,
   customerUsagePercent as deriveCustomerUsagePercent,
 } from '../utils/customer-status.util';
+import { creditPolicyLabelKey, effectiveCreditPolicy } from '../utils/credit-policy.util';
 import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
 import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
@@ -182,7 +183,8 @@ export class CustomersPageComponent {
   readonly outstandingBalance = computed(() =>
     this.sumBy(this.customers(), (customer) => Math.max(0, customer.outstandingDue ?? 0)),
   );
-  readonly overdueCount = computed(
+  /** Customers who owe something. Not "overdue": that needs a due date, which only the statement knows. */
+  readonly outstandingCount = computed(
     () => this.customers().filter((customer) => (customer.outstandingDue ?? 0) > 0).length,
   );
   readonly totalCreditIssued = computed(() => this.sumBy(this.customers(), (customer) => customer.creditLimit ?? 0));
@@ -207,8 +209,8 @@ export class CustomersPageComponent {
       tone: 'terracotta',
     },
     {
-      labelKey: 'customers.summary.overdueCount',
-      value: this.overdueCount(),
+      labelKey: 'customers.summary.outstandingCount',
+      value: this.outstandingCount(),
       variant: 'count',
       tone: 'sage',
     },
@@ -269,15 +271,20 @@ export class CustomersPageComponent {
   readonly selectedAccountLifetimeRevenue = computed(() =>
     this.sumBy(this.selectedAccount()?.sales ?? [], (sale) => sale.totalAmount),
   );
-  readonly selectedAccountCreditLimit = computed(() => {
-    const account = this.selectedAccount();
-
-    if (!account) {
-      return 0;
-    }
-
-    return Math.max(account.outstandingDue, this.selectedAccountLifetimeRevenue());
-  });
+  /** The saved credit limit, exactly as configured; never derived from revenue or balance. */
+  readonly selectedAccountCreditLimit = computed(
+    () => this.selectedAccount()?.creditLimit ?? this.selectedAccountCustomer()?.creditLimit ?? 0,
+  );
+  readonly selectedAccountCreditPolicy = computed(() =>
+    effectiveCreditPolicy(this.selectedAccount()?.creditPolicyMode ?? this.selectedAccountCustomer()?.creditPolicyMode),
+  );
+  readonly selectedAccountCreditPolicyLabelKey = computed(() => creditPolicyLabelKey(this.selectedAccountCreditPolicy()));
+  /** Null when the limit is not enforced (legacy advisory), so nothing is promised that is not checked. */
+  readonly selectedAccountAvailableCredit = computed(() => this.selectedAccount()?.availableCredit ?? null);
+  readonly selectedAccountIsActive = computed(
+    () => this.selectedAccount()?.isActive ?? this.selectedAccountCustomer()?.isActive ?? true,
+  );
+  readonly selectedAccountOverdueAmount = computed(() => this.selectedAccount()?.overdueAmount ?? 0);
   readonly selectedAccountUsagePercent = computed(() => {
     const account = this.selectedAccount();
 
@@ -290,8 +297,11 @@ export class CustomersPageComponent {
       creditLimit: this.selectedAccountCreditLimit(),
     });
   });
-  readonly selectedAccountOpeningBalance = computed(() => this.selectedAccount()?.ledgerEntries.at(-1)?.runningBalance ?? 0);
-  readonly selectedAccountClosingBalance = computed(() => this.selectedAccount()?.outstandingDue ?? 0);
+  /** The server's balance before the statement window; never a displayed row's after-entry balance. */
+  readonly selectedAccountOpeningBalance = computed(() => this.selectedAccount()?.openingBalance ?? 0);
+  readonly selectedAccountClosingBalance = computed(
+    () => this.selectedAccount()?.closingBalance ?? this.selectedAccount()?.outstandingDue ?? 0,
+  );
   readonly selectedAccountLedgerRows = computed<AccountLedgerRow[]>(() => {
     const account = this.selectedAccount();
     if (!account) {

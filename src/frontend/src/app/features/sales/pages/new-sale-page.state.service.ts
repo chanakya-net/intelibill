@@ -20,7 +20,7 @@ import { ShopUpdatesSignalRService } from '../../../core/services/shop-updates-s
 import { CustomersFacade } from '../../customers/state/customers.facade';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
-import { PAYMENT_METHOD_VALUES, PaymentMethod, SellableDto } from '../services/sale.models';
+import { PAYMENT_METHOD_VALUES, PaymentMethod, SaleCreditOverride, SellableDto } from '../services/sale.models';
 import type {
   AppliedCreditNote,
   CreditNoteRedemptionRequest,
@@ -142,6 +142,8 @@ export abstract class NewSalePageStateService {
   protected isSyncingPaymentControls = false;
   readonly paymentMethodsForInput: readonly PaymentMethodOption[] = PAYMENT_METHOD_VALUES;
   readonly selectedCustomer = signal<CustomerDto | null>(null);
+  /** An owner's or manager's approval to exceed the selected customer's enforced credit limit. */
+  readonly creditOverride = signal<SaleCreditOverride | null>(null);
   readonly creditNoteCustomerMismatchWarning = signal(false);
   readonly creditNoteCustomerMismatchConfirmed = signal(false);
   readonly routeCustomerId = (this.route?.snapshot.queryParamMap.get('customerId') ?? '').trim();
@@ -316,6 +318,12 @@ export abstract class NewSalePageStateService {
   ];
 
   readonly canUseCredit = computed(() => !!this.selectedCustomerId());
+  /** Owners and managers may approve going over an enforced credit limit; the server checks again. */
+  readonly canOverrideCredit = computed(() => {
+    const session = this.authService.session();
+    const role = session?.shops?.find((shop) => shop.shopId === session.activeShopId)?.role;
+    return role === 'Owner' || role === 'Manager';
+  });
   readonly canSelectCreditPaymentMethod = computed(
     () => this.isOfflineMode() || this.canUseCredit(),
   );

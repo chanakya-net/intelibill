@@ -555,6 +555,61 @@ shop because the migrator is not BYPASSRLS. Re-run `scripts/db/backfill-payment-
 rollout for payments an older instance recorded during the deploy. Rollback = stop calling allocation and
 reversal; receipt facts stay.
 
+## Customer Credit Policy
+
+**Settings.** Every customer has a `CreditPolicyMode` (`customers.credit_policy_mode`): `NoCredit` (no
+new due), `Enforced` (new due refused once the account would exceed `credit_limit`; needs a limit above
+zero, so 0 never means "unlimited") or `LegacyAdvisory` (recorded before policies existed: the limit is
+shown, labelled, never enforced). The `AddCustomerCreditPolicyAndSaleDueDates` migration sets every
+existing customer to `LegacyAdvisory`; an API create without a mode is `LegacyAdvisory` too (an
+ambiguous request stays visibly unenforced), an edit without one keeps the stored mode and terms. The
+web app always sends an explicit mode and offers `LegacyAdvisory` only to keep it. Optional
+`credit_terms_days` (0–365). Only owners and managers may set or change limit, mode or terms, or
+reactivate a customer whose policy allows credit (`Customer.CreditSettingsChangeNotPermitted`, 403); a
+staff-created customer starts at `NoCredit`, and the web overlays show those fields read-only to staff.
+
+**Decision.** `CustomerCreditPolicy.Evaluate(state, exposure, newDue, override, role)` is pure. Exposure is
+the signed ledger balance (plan 25 model: unapplied payments and reversals counted once; a customer in
+credit has negative exposure). No new due → allowed. Inactive → 409 `Customer.CreditCustomerInactive`;
+`NoCredit` → 409 `Customer.CreditNotExtended` (neither can be overridden). `Enforced` over the limit →
+409 `Customer.CreditLimitExceeded` unless an override `{reason, observedExposure}` from an owner or
+manager approves it: staff → 403 `Customer.CreditOverrideNotPermitted`; exposure grown past what the
+approver saw → 409 `Customer.CreditOverrideStale`. `LegacyAdvisory` posts with a sale warning when it
+exceeds a positive limit.
+
+**Serialization.** `RecordSale` takes the customer row (`ICustomerRepository.LockForCreditAsync`,
+`FOR NO KEY UPDATE`, 5 s budget that is reset with `SET LOCAL lock_timeout TO DEFAULT` once granted) as
+the first lock of the posting transaction whenever the sale adds due, then re-reads the customer
+(`GetCurrentAsync`, untracked) and the balance and decides. Order: customer → invoice sequence → credit
+notes → batches, consistent with payments and returns (customer first). A customer edit is an `UPDATE`
+that conflicts with the same lock. Timeout → 409 `Customer.CreditBusy`. A retry whose sale committed
+while it waited replays instead of being judged again; the override is part of the idempotency hash
+(omitted when absent, so old hashes hold). The approval is audited on the sale
+(`credit_override_reason`, `_by_user_id`, `_observed_exposure` = what the approver saw, `_limit`).
+The checkout's credit panel fetches its preview again after any `Customer.Credit*` refusal and drops a
+stale approval. `GET customers/{id}/credit`
+(any member) is the checkout's advisory preview; it can be stale by the time the sale posts.
+
+**Due dates.** `Sale.DueDate` = IST business date of issue + the customer's terms, fixed at issue; null
+without terms or due and for every historical sale (never invented). Overdue ⇔ current outstanding > 0
+and due date before the as-of business date; without a due date the debt is outstanding, never
+overdue. `IInvoiceBalanceReader` returns the due date per invoice.
+
+**Statement.** `GET customers/{id}/account?from=&to=` adds `creditLimit` (saved, exactly), `isActive`,
+`creditPolicyMode`, `creditTermsDays`, `availableCredit` (null when advisory), `openingBalance` (signed
+entries before `from`), `closingBalance` (opening + window entries), `asOfBusinessDate`, `overdueAmount`
+(capped at what the account owes, since unallocated payments still pay it down; `from > to` → 400
+`Customer.StatementWindowInvalid`);
+sales add `dueDate`/`isOverdue`, entries `signedAmount`. Entries order by date, created-at, id.
+
+**Offline.** A bill issued offline is never refused for credit: the poster evaluates the same policy
+without a lock and, on a violation, posts with a warning and a `CustomerVariance` reconciliation issue
+(`offline_sync.credit_policy_violation`). A reviewer posting a held sale (`CreditReviewed`) files no
+new credit case. Offline devices cannot see other devices' due, so the limit is
+not a cross-device guarantee; per-device credit budgets are not built. The due date uses the terms known
+at sync. Ledger entry dates are still UTC dates while windows and due dates are IST business dates, so an
+entry between 00:00 and 05:30 IST falls on the previous statement day (pre-existing ledger convention).
+
 ## Return Accounting Exports
 
 **Snapshot.** Recording a return posts its accounting in the same save

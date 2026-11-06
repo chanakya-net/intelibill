@@ -1,6 +1,10 @@
 import { Customer } from '../services/customer.service';
 
-export type CustomerStatus = 'active' | 'inactive' | 'overdue' | 'inCredit';
+/**
+ * A customer's list status. `outstanding` means something is owed; it is not "overdue", which is a
+ * due-date fact only the account statement knows.
+ */
+export type CustomerStatus = 'active' | 'inactive' | 'outstanding' | 'inCredit';
 
 type CustomerStatusSource = Pick<Customer, 'isActive' | 'outstandingDue'>;
 type CustomerUsageSource = Pick<Customer, 'creditLimit' | 'outstandingDue'>;
@@ -13,7 +17,7 @@ export function customerStatus(customer: CustomerStatusSource): CustomerStatus {
   const outstandingDue = customer.outstandingDue ?? 0;
 
   if (outstandingDue > 0) {
-    return 'overdue';
+    return 'outstanding';
   }
 
   if (outstandingDue < 0) {
@@ -32,6 +36,7 @@ export function customerStatusClass(customer: CustomerStatusSource): string {
   return `status-badge--${status === 'inCredit' ? 'in-credit' : status}`;
 }
 
+/** Share of the saved credit limit in use; 0 when no limit is saved. */
 export function customerUsagePercent(customer: CustomerUsageSource): number {
   const creditLimit = customer.creditLimit ?? 0;
 

@@ -148,7 +148,7 @@ describe('CustomersPageComponent', () => {
                 summary: {
                   totalCustomers: 'Total Customers',
                   outstandingBalance: 'Outstanding Balance',
-                  overdueCount: 'Overdue Accounts',
+                  outstandingCount: 'Accounts With Outstanding',
                   totalCreditIssued: 'Total Credit Issued',
                   accountsWithCredit: 'Accounts With Credit',
                   monthlyRevenue: 'Monthly Revenue',
@@ -157,7 +157,7 @@ describe('CustomersPageComponent', () => {
                 statuses: {
                   active: 'Active',
                   inactive: 'Inactive',
-                  overdue: 'Overdue',
+                  outstanding: 'Outstanding',
                   inCredit: 'In Credit',
                 },
                 account: {
@@ -212,7 +212,8 @@ describe('CustomersPageComponent', () => {
     expect(facade.loadCustomers).toHaveBeenCalled();
     expect(component.totalCustomers()).toBe(3);
     expect(component.outstandingBalance()).toBe(120);
-    expect(component.overdueCount()).toBe(1);
+    // Owing something is "outstanding"; overdue needs a due date that has passed.
+    expect(component.outstandingCount()).toBe(1);
     expect(component.totalCreditIssued()).toBe(700);
     expect(component.accountsWithCredit()).toBe(2);
     expect(component.monthlyRevenue()).toBe(680);
@@ -235,7 +236,7 @@ describe('CustomersPageComponent', () => {
   it('derives customer status and usage from activity and outstanding due', () => {
     const customers = customersSignal();
 
-    expect(component.customerStatus(customers[0])).toBe('overdue');
+    expect(component.customerStatus(customers[0])).toBe('outstanding');
     expect(component.customerStatus(customers[1])).toBe('inCredit');
     expect(component.customerStatus(customers[2])).toBe('inactive');
     expect(component.customerUsagePercent(customers[0])).toBe(24);
@@ -315,5 +316,64 @@ describe('CustomersPageComponent', () => {
     } finally {
       shopRole = 'Manager';
     }
+  });
+
+  it('shows the saved credit limit, never lifetime revenue (RF1)', () => {
+    customerService.getCustomerAccount.mockReturnValueOnce(
+      of({
+        ...account,
+        outstandingDue: 500,
+        creditLimit: 2000,
+        creditPolicyMode: 'Enforced' as const,
+        availableCredit: 1500,
+        sales: [{ ...account.sales[0], totalAmount: 20000 }],
+      }),
+    );
+    component.onOpenCustomerAccount(customersSignal()[0]);
+
+    expect(component.selectedAccountLifetimeRevenue()).toBe(20000);
+    expect(component.selectedAccountCreditLimit()).toBe(2000);
+    expect(component.selectedAccountUsagePercent()).toBe(25);
+    expect(component.selectedAccountAvailableCredit()).toBe(1500);
+    expect(component.selectedAccountCreditPolicyLabelKey()).toBe('customers.creditPolicy.modes.Enforced');
+  });
+
+  it('labels a response without a policy as legacy advisory with no promised credit', () => {
+    component.onOpenCustomerAccount(customersSignal()[0]);
+
+    expect(component.selectedAccountCreditPolicy()).toBe('LegacyAdvisory');
+    expect(component.selectedAccountAvailableCredit()).toBeNull();
+  });
+
+  it('uses the server opening and closing balances, not a displayed row (RF5)', () => {
+    customerService.getCustomerAccount.mockReturnValueOnce(of({ ...account, openingBalance: 0, closingBalance: 150 }));
+    component.onOpenCustomerAccount(customersSignal()[0]);
+
+    // The oldest displayed row's after-entry balance is 120; the opening before the window is 0.
+    expect(component.selectedAccountOpeningBalance()).toBe(0);
+    expect(component.selectedAccountClosingBalance()).toBe(150);
+  });
+
+  it('marks only past-due invoices overdue and shows the inactive state (RF2)', () => {
+    customerService.getCustomerAccount.mockReturnValueOnce(
+      of({
+        ...account,
+        isActive: false,
+        overdueAmount: 70,
+        sales: [
+          { ...account.sales[0], dueDate: null, isOverdue: false },
+          { ...account.sales[1], dueDate: '2026-11-02', isOverdue: true },
+        ],
+      }),
+    );
+    component.onOpenCustomerAccount(customersSignal()[0]);
+    fixture.detectChanges();
+
+    const statuses = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('[data-testid="invoice-due-status"] .statement-type'),
+    ).map((badge) => badge.classList.contains('overdue'));
+    expect(statuses).toEqual([true, false]);
+    expect(component.selectedAccountOverdueAmount()).toBe(70);
+    expect(component.selectedAccountIsActive()).toBe(false);
   });
 });

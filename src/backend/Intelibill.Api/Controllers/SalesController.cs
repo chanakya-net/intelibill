@@ -6,6 +6,7 @@ using Intelibill.Api.PublicErrors;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
+using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetSales;
@@ -163,7 +164,10 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                 creditNoteAppliedAmount,
                 creditNoteRedemptions,
                 request.CreditNoteCustomerMismatchConfirmed,
-                request.PlaceOfSupplyStateCode),
+                request.PlaceOfSupplyStateCode,
+                request.CreditOverride is null
+                    ? null
+                    : new CreditOverrideRequest(request.CreditOverride.Reason, request.CreditOverride.ObservedExposure)),
             cancellationToken);
         return result.ToActionResult(sale => CreatedAtAction(nameof(RecordSale), sale));
     }

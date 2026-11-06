@@ -57,7 +57,10 @@ internal static class RecordSaleIdempotencyHasher
                     item.ClientLineKey,
                     Normalize(item.HsnCode));
             }).ToList(),
-            Normalize(command.PlaceOfSupplyStateCode));
+            Normalize(command.PlaceOfSupplyStateCode),
+            command.CreditOverride is null
+                ? null
+                : new RecordSaleCreditOverrideIdempotencyPayload(Normalize(command.CreditOverride.Reason), command.CreditOverride.ObservedExposure));
 
         var json = JsonSerializer.Serialize(payload, SerializerOptions);
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(json));
@@ -84,7 +87,13 @@ internal sealed record RecordSaleIdempotencyPayload(
     bool CreditNoteCustomerMismatchConfirmed,
     IReadOnlyList<RecordSaleItemIdempotencyPayload> Items,
     // Omitted when absent so requests that predate it keep their hash.
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? PlaceOfSupplyStateCode = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? PlaceOfSupplyStateCode = null,
+    // Omitted when absent, like the place of supply; an approved override is part of the request.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RecordSaleCreditOverrideIdempotencyPayload? CreditOverride = null);
+
+internal sealed record RecordSaleCreditOverrideIdempotencyPayload(
+    string? Reason,
+    decimal ObservedExposure);
 
 
 internal sealed record RecordSaleItemIdempotencyPayload(

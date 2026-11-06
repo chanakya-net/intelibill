@@ -20,6 +20,12 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
             .WithErrorCode(Errors.Sale.IdempotencyKeyTooLong.Code)
             .WithMessage(Errors.Sale.IdempotencyKeyTooLong.Description);
 
+        RuleFor(x => x.CreditOverride!.Reason)
+            .Must(reason => !string.IsNullOrWhiteSpace(reason) && reason.Trim().Length <= Customers.Services.CustomerCreditPolicy.MaxOverrideReasonLength)
+            .WithErrorCode(Errors.CustomerCredit.OverrideReasonRequired.Code)
+            .WithMessage(Errors.CustomerCredit.OverrideReasonRequired.Description)
+            .When(x => x.CreditOverride is not null);
+
         RuleFor(x => x.Items)
             .NotEmpty()
             .WithErrorCode(Errors.Sale.ItemsRequired.Code)

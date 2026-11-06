@@ -46,6 +46,8 @@ public sealed class GetCustomersQueryHandler(
             {
                 Gstin = c.Gstin,
                 StateCode = c.StateCode,
+                CreditPolicyMode = c.CreditPolicyMode,
+                CreditTermsDays = c.CreditTermsDays,
             };
         }).ToList();
     }

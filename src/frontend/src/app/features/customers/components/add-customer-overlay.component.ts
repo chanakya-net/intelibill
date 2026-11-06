@@ -1,4 +1,5 @@
-import { Component, EventEmitter, OnInit, Output, inject } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output, computed, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -11,7 +12,15 @@ import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
 
+import { AuthService } from '../../../core/auth/auth.service';
 import { CustomersFacade } from '../state/customers.facade';
+import {
+  MAX_CREDIT_TERMS_DAYS,
+  SELECTABLE_CREDIT_POLICIES,
+  creditPolicyLabelKey,
+  enforcedPolicyNeedsLimit,
+} from '../utils/credit-policy.util';
+import { CreditPolicyMode } from '../services/customer.service';
 import { InputValidators } from '../../../shared/forms/input-validation';
 import { GST_STATE_OPTIONS } from '../../../shared/gst/gst-state-codes';
 import {
@@ -52,6 +61,12 @@ export class AddCustomerOverlayComponent implements OnInit {
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly stateOptions = [...GST_STATE_OPTIONS];
+  readonly creditPolicyOptions = computed(() =>
+    SELECTABLE_CREDIT_POLICIES.map((value) => ({
+      value,
+      label: creditPolicyLabelKey(value),
+    })),
+  );
 
   readonly form = this.formBuilder.nonNullable.group(
     {
@@ -69,11 +84,37 @@ export class AddCustomerOverlayComponent implements OnInit {
           InputValidators.maxFractionDigits(2),
         ],
       ],
+      creditPolicyMode: ['NoCredit' as CreditPolicyMode, Validators.required],
+      creditTermsDays: [null as number | null, [Validators.min(0), Validators.max(MAX_CREDIT_TERMS_DAYS)]],
     },
-    { validators: InputValidators.gstinMatchesState('gstin', 'stateCode') },
+    {
+      validators: [
+        InputValidators.gstinMatchesState('gstin', 'stateCode'),
+        enforcedPolicyNeedsLimit('creditPolicyMode', 'creditLimit'),
+      ],
+    },
   );
 
+  readonly maxTermsDays = MAX_CREDIT_TERMS_DAYS;
+  private readonly authService = inject(AuthService);
+  /** Credit limit, policy and terms are an owner's or manager's decision; the server refuses staff too. */
+  readonly canEditCredit = computed(() => {
+    const session = this.authService.session();
+    const role = session?.shops?.find((shop) => shop.shopId === session.activeShopId)?.role;
+    return role === 'Owner' || role === 'Manager';
+  });
+  private readonly selectedPolicy = toSignal(this.form.controls.creditPolicyMode.valueChanges, {
+    initialValue: this.form.controls.creditPolicyMode.value,
+  });
+  /** Hint for the chosen policy, so a zero limit is never read as "unlimited". */
+  readonly creditPolicyHintKey = computed(() => `customers.creditPolicy.hints.${this.selectedPolicy()}`);
+
   ngOnInit(): void {
+    if (!this.canEditCredit()) {
+      this.form.controls.creditLimit.disable();
+      this.form.controls.creditPolicyMode.disable();
+      this.form.controls.creditTermsDays.disable();
+    }
     this.customersFacade.clearError();
     this.customersFacade.clearMutationStatus();
   }
@@ -102,6 +143,8 @@ export class AddCustomerOverlayComponent implements OnInit {
       address: this.nullableTrimmed(raw.address),
       isActive: raw.isActive,
       creditLimit: raw.creditLimit,
+      creditPolicyMode: raw.creditPolicyMode,
+      creditTermsDays: raw.creditTermsDays ?? null,
       gstin: this.nullableTrimmed(raw.gstin)?.toUpperCase() ?? null,
       // A cleared state select leaves null in the control.
       stateCode: raw.stateCode || null,

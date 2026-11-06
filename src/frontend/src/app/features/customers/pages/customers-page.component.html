@@ -161,7 +161,13 @@
           <div>
             <div class="account-status-row">
               <h2>{{ selectedAccount()!.name }}</h2>
-              <span class="active-pill">{{ 'customers.active' | transloco }}</span>
+              @if (selectedAccountIsActive()) {
+                <span class="active-pill">{{ 'customers.active' | transloco }}</span>
+              } @else {
+                <span class="active-pill active-pill--inactive" data-testid="account-inactive">{{
+                  'customers.inactive' | transloco
+                }}</span>
+              }
             </div>
             <p>
               {{ 'customers.account.subtitle' | transloco }}
@@ -190,6 +196,13 @@
             <small class="warning-dot"
               >{{ selectedAccountOpenInvoices().length }} {{ 'customers.account.openInvoices' | transloco }}</small
             >
+            @if (selectedAccountOverdueAmount() > 0) {
+              <small class="danger-dot" data-testid="overdue-amount"
+                >{{ 'customers.account.overdue' | transloco }}:
+                {{ 'common.currencySymbol' | transloco
+                }}{{ selectedAccountOverdueAmount() | number: '1.2-2' }}</small
+              >
+            }
             @if (selectedAccountUnallocatedCredit() > 0) {
               <small class="success-dot" data-testid="unallocated-credit"
                 >{{ 'customers.account.unallocatedCredit' | transloco }}:
@@ -201,13 +214,26 @@
 
           <article class="statement-metric">
             <span>{{ 'customers.creditLimit' | transloco }}</span>
-            <strong
+            <strong data-testid="account-credit-limit"
               >{{ 'common.currencySymbol' | transloco
               }}{{ selectedAccountCreditLimit() | number: '1.2-2' }}</strong
             >
             <small class="success-dot"
               >{{ selectedAccountUsagePercent() }}% {{ 'customers.usage' | transloco }}</small
             >
+            <small
+              class="credit-policy-note"
+              [class.credit-policy-note--advisory]="selectedAccountCreditPolicy() === 'LegacyAdvisory'"
+              data-testid="account-credit-policy"
+              >{{ selectedAccountCreditPolicyLabelKey() | transloco }}</small
+            >
+            @if (selectedAccountAvailableCredit() !== null) {
+              <small data-testid="account-available-credit"
+                >{{ 'customers.creditPolicy.available' | transloco }}:
+                {{ 'common.currencySymbol' | transloco
+                }}{{ selectedAccountAvailableCredit() | number: '1.2-2' }}</small
+              >
+            }
           </article>
 
           <article class="statement-metric">
@@ -329,6 +355,7 @@
                     <th>{{ 'customers.account.paidAgainstInvoice' | transloco }}</th>
                     <th>{{ 'customers.account.returnedAgainstInvoice' | transloco }}</th>
                     <th>{{ 'customers.account.currentOutstanding' | transloco }}</th>
+                    <th>{{ 'customers.account.dueDate' | transloco }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -346,6 +373,14 @@
                       <td class="money balance">
                         {{ 'common.currencySymbol' | transloco
                         }}{{ sale.currentOutstandingAmount ?? 0 | number: '1.2-2' }}
+                      </td>
+                      <td data-testid="invoice-due-status">
+                        @if (sale.dueDate) {
+                          {{ sale.dueDate | dateOnly: 'dd MMM yyyy' }}
+                        }
+                        <span class="statement-type" [class.overdue]="sale.isOverdue">{{
+                          (sale.isOverdue ? 'customers.account.overdue' : 'customers.account.outstanding') | transloco
+                        }}</span>
                       </td>
                     </tr>
                   }

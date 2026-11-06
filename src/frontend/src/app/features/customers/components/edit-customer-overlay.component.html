@@ -91,6 +91,53 @@
         </p-inputgroup>
       </label>
 
+      <div class="field">
+        <label for="edit-customer-credit-policy">
+          <span>{{ 'customers.creditPolicy.label' | transloco }}</span>
+        </label>
+        <p-select
+          inputId="edit-customer-credit-policy"
+          formControlName="creditPolicyMode"
+          [options]="creditPolicyOptions()"
+          optionLabel="label"
+          optionValue="value"
+          appendTo="body"
+          data-testid="credit-policy-select"
+        >
+          <ng-template #selectedItem let-option>
+            @if (option) {
+              {{ option.label | transloco }}
+            }
+          </ng-template>
+          <ng-template #item let-option>
+            {{ option.label | transloco }}
+          </ng-template>
+        </p-select>
+        <small class="field-hint">{{ creditPolicyHintKey() | transloco }}</small>
+        @if (!canEditCredit()) {
+          <small class="field-hint" data-testid="credit-staff-read-only">{{
+            'customers.creditPolicy.staffReadOnly' | transloco
+          }}</small>
+        }
+        @if (form.hasError('enforcedCreditRequiresLimit')) {
+          <small class="field-error">{{ 'customers.creditPolicy.enforcedNeedsLimit' | transloco }}</small>
+        }
+      </div>
+
+      <label>
+        <span>{{ 'customers.creditPolicy.termsDays' | transloco }}</span>
+        <p-inputNumber
+          formControlName="creditTermsDays"
+          [min]="0"
+          [max]="maxTermsDays"
+          [useGrouping]="false"
+          [showButtons]="false"
+          [placeholder]="'customers.creditPolicy.noTerms' | transloco"
+          data-testid="credit-terms-input"
+        />
+        <small class="field-hint">{{ 'customers.creditPolicy.termsHint' | transloco }}</small>
+      </label>
+
       <label class="toggle-row" for="isActive">
         <p-checkbox inputId="isActive" formControlName="isActive" [binary]="true"></p-checkbox>
         <span>{{ 'customers.isActive' | transloco }}</span>

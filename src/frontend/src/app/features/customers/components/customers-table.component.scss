@@ -189,7 +189,7 @@
   color: #8f5b41;
 }
 
-.status-badge--overdue {
+.status-badge--outstanding {
   border-color: #f1b39d;
   background: #fff1ea;
   color: #b23b1f;
@@ -377,4 +377,11 @@
   .desktop-table {
     display: block;
   }
+}
+
+.credit-policy-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #8a7565;
 }

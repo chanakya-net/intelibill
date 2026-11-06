@@ -556,13 +556,16 @@
         "BankTransfer": "Bank transfer",
         "Cheque": "Cheque",
         "UnknownRecordedMethod": "Not recorded"
-      }
+      },
+      "overdue": "Overdue",
+      "outstanding": "Outstanding",
+      "dueDate": "Due Date"
     },
     "searchPlaceholder": "Search customers by name, phone, or address...",
     "summary": {
       "totalCustomers": "Total Customers",
       "outstandingBalance": "Outstanding Balance",
-      "overdueCount": "Overdue Accounts",
+      "outstandingCount": "Accounts With Outstanding",
       "totalCreditIssued": "Total Credit Issued",
       "accountsWithCredit": "Accounts With Credit",
       "monthlyRevenue": "Monthly Revenue",
@@ -572,8 +575,8 @@
     "statuses": {
       "active": "Active",
       "inactive": "Inactive",
-      "overdue": "Overdue",
-      "inCredit": "In Credit"
+      "inCredit": "In Credit",
+      "outstanding": "Outstanding"
     },
     "usage": "Usage",
     "overdue": "Overdue",
@@ -593,6 +596,25 @@
     "validation": {
       "gstinInvalid": "Enter a valid GSTIN: check its characters and check digit.",
       "gstinStateMismatch": "The GSTIN's first two digits must match the selected state."
+    },
+    "creditPolicy": {
+      "label": "Credit policy",
+      "termsDays": "Credit terms (days)",
+      "noTerms": "No terms",
+      "termsHint": "Days the customer has to pay a due sale. Leave empty when no terms were agreed: such due is outstanding, never overdue.",
+      "enforcedNeedsLimit": "An enforced policy needs a credit limit above zero. Choose no credit instead.",
+      "available": "Available credit",
+      "modes": {
+        "NoCredit": "No credit",
+        "Enforced": "Enforced limit",
+        "LegacyAdvisory": "Legacy limit (not enforced)"
+      },
+      "hints": {
+        "NoCredit": "Every sale is paid in full; no new due can be added.",
+        "Enforced": "New due is refused once the account would go over the credit limit.",
+        "LegacyAdvisory": "Recorded before credit policies: the limit is shown but not enforced. Choose a policy to enforce it."
+      },
+      "staffReadOnly": "Only an owner or manager can change credit settings."
     }
   },
   "inventory": {
@@ -1133,7 +1155,11 @@
       "editFailed": "Unable to update customer.",
       "gstinInvalid": "The customer's GSTIN is not valid: check its characters and check digit.",
       "stateCodeInvalid": "Choose a valid state or union territory for the customer.",
-      "gstinStateMismatch": "The customer's GSTIN belongs to a different state than the one chosen."
+      "gstinStateMismatch": "The customer's GSTIN belongs to a different state than the one chosen.",
+      "creditSettingsChangeNotPermitted": "Only an owner or manager can set a customer's credit limit, policy or terms, or reactivate a customer who can take credit.",
+      "enforcedCreditRequiresLimit": "An enforced credit policy needs a credit limit above zero. Choose no credit instead.",
+      "creditTermsDaysInvalid": "Credit terms must be between 0 and 365 days.",
+      "creditPolicyModeInvalid": "Choose a credit policy: no credit or an enforced limit."
     },
     "sales": {
       "loadFailed": "Unable to load sales.",
@@ -1450,7 +1476,26 @@
           "uncertain": "Unconfirmed"
         }
       },
-      "draftSaveFailed": "This cart could not be saved on this device. Keep this page open until you complete the sale."
+      "draftSaveFailed": "This cart could not be saved on this device. Keep this page open until you complete the sale.",
+      "credit": {
+        "ariaLabel": "Customer credit",
+        "available": "Available credit",
+        "balance": "Current balance",
+        "advisoryNotice": "This limit is not enforced yet; ask an owner to choose a credit policy.",
+        "overrideReason": "Reason for going over the limit",
+        "approveOverride": "Approve override",
+        "withdrawOverride": "Withdraw",
+        "overrideApproved": "Override approved; the sale records your name and reason.",
+        "errors": {
+          "inactive": "This customer is inactive and cannot take new due. Collect the full amount.",
+          "notExtended": "This customer has no credit. Collect the full amount.",
+          "limitExceeded": "This due takes the customer over their credit limit. Collect more now, or ask an owner or manager to approve.",
+          "overrideNotPermitted": "Only an owner or manager can approve going over a credit limit.",
+          "overrideStale": "The customer's balance changed after the override was approved. Review and approve again.",
+          "overrideReasonRequired": "Give a reason (up to 500 characters) for going over the credit limit.",
+          "busy": "Another sale, payment or return for this customer is in progress. Try again."
+        }
+      }
     },
     "detail": {
       "title": "Sale Details",

@@ -4,7 +4,7 @@
       <article
         class="customer-card"
         [class.customer-card--inactive]="customerStatus(customer) === 'inactive'"
-        [class.customer-card--warning]="customerStatus(customer) === 'overdue'"
+        [class.customer-card--warning]="customerStatus(customer) === 'outstanding'"
         [class.customer-card--credit]="customerStatus(customer) === 'inCredit'"
       >
         <header class="customer-card__header">
@@ -45,6 +45,9 @@
               >{{ 'common.currencySymbol' | transloco
               }}{{ customer.creditLimit | number: '1.2-2' }}</strong
             >
+            <small class="credit-policy-label" data-testid="credit-policy-label">{{
+              creditPolicyLabelKey(customer.creditPolicyMode) | transloco
+            }}</small>
           </div>
         </div>
 
@@ -132,6 +135,9 @@
           </td>
           <td class="money">
             {{ 'common.currencySymbol' | transloco }}{{ customer.creditLimit | number: '1.2-2' }}
+            <small class="credit-policy-label">{{
+              creditPolicyLabelKey(customer.creditPolicyMode) | transloco
+            }}</small>
           </td>
           <td>
             <div class="usage-cell">

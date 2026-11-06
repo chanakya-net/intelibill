@@ -325,7 +325,7 @@ describe('Global i18n coverage', () => {
   const requiredCustomerKeys = [
     'customers.summary.totalCustomers',
     'customers.summary.outstandingBalance',
-    'customers.summary.overdueCount',
+    'customers.summary.outstandingCount',
     'customers.summary.totalCreditIssued',
     'customers.summary.accountsWithCredit',
     'customers.summary.monthlyRevenue',

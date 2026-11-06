@@ -967,6 +967,52 @@ public class SyncOfflineSalesCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenOfflineDueBreaksEnforcedLimit_PostsWithCreditReviewIssueAndDueDate()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var deviceId = "device-1";
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id);
+        var inventory = CreateInventory(shopId, item.Id);
+        var customer = Customer.Create(shopId, "Due Customer", "+919876543210", null, creditLimit: 100m);
+        Assert.False(customer.SetCreditPolicy(CreditPolicyMode.Enforced, 7).IsError);
+        var sale = CreateSale(
+            $"offline-{Guid.NewGuid():N}",
+            paymentMethod: PaymentMethod.Credit,
+            paidAmount: 0m,
+            dueAmount: 118m,
+            customerId: customer.Id,
+            items: [CreateLine(batch.Id)]);
+        var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
+
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>())
+            .Returns(CreateMemberUser(shopId));
+        StubLeases(shopId, deviceId, CreateLease(shopId, deviceId));
+        _customerResolver.ResolveAsync(shopId, customer.Id, sale.CustomerPhone, true, PaymentMethod.Credit, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
+        _customerLedgerEntryRepository.GetCustomerBalanceAsync(shopId, customer.Id, Arg.Any<CancellationToken>())
+            .Returns(0m);
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        // The bill was already issued offline: it posts, with the violation routed to review.
+        Assert.False(result.IsError);
+        var synced = Assert.Single(result.Value.Results);
+        Assert.Equal("SyncedWithWarnings", synced.Status);
+        Assert.Contains(synced.Warnings, warning => warning.Contains("Customer.CreditLimitExceeded", StringComparison.Ordinal));
+        await _reconciliationIssueRepository.Received().AddAsync(
+            Arg.Is<ReconciliationIssue>(issue =>
+                issue.IssueType == ReconciliationIssueType.CustomerVariance
+                && issue.Code == "offline_sync.credit_policy_violation"),
+            Arg.Any<CancellationToken>());
+        await _saleRepository.Received(1).AddAsync(
+            Arg.Is<Sale>(s => s.DueDate == Intelibill.Domain.Common.BusinessCalendar.DateOf(s.SoldAt).AddDays(7)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenDueSaleResolvesCustomer_AddsCustomerLedgerEntry()
     {
         var shopId = Guid.NewGuid();
