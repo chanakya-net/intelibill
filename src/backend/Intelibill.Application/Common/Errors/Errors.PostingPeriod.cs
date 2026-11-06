@@ -18,6 +18,9 @@ public static partial class Errors
                 "PostingPeriod.Closed",
                 $"{periodStart.ToString("MMMM yyyy", CultureInfo.InvariantCulture)} is closed. Ask an owner to reopen it before posting into it.");
 
+        public static Error Busy =>
+            Error.Conflict("PostingPeriod.Busy", "The posting period is being closed or reopened. Try again in a moment.");
+
         public static Error PeriodStartInvalid =>
             Error.Validation("PostingPeriod.PeriodStartInvalid", "The period must start on the first day of a month.");
 

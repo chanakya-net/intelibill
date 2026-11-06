@@ -16,6 +16,9 @@ public interface IOfflineSalePoster
     /// <summary>
     /// Adds the sale and everything it posts to the unit of work without saving. Lease, timing,
     /// issuer and invoice-number checks are the caller's. A rejected or held outcome adds nothing.
+    /// The caller must have a transaction open: the first statement is the posting period fence, whose
+    /// shared lock holds until that transaction ends. A closed month is held as
+    /// <see cref="ReconciliationIssueType.ClosedPeriodReview"/>; a busy one is rejected (retryable).
     /// </summary>
     Task<OfflineSalePostingOutcome> StageAsync(OfflineSalePostingRequest request, CancellationToken cancellationToken);
 }

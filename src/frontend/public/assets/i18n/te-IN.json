@@ -2028,7 +2028,8 @@
         "provenanceReview": "బిల్లు చేసినవారి సమీక్ష",
         "recoveryReview": "తిరిగి పొందిన ఇన్‌వాయిస్ సమీక్ష",
         "unknown": "ఇతర",
-        "documentReview": "GST పత్ర సమీక్ష"
+        "documentReview": "GST పత్ర సమీక్ష",
+        "closedPeriodReview": "మూసిన కాలం సమీక్ష"
       },
       "detail": {
         "title": "కేసు వివరాలు",

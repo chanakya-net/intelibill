@@ -4,6 +4,7 @@ using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.PostingPeriods.DTOs;
 using Intelibill.Application.Features.PostingPeriods.Services;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.PostingPeriods.Queries.GetPostingPeriods;
@@ -30,7 +31,7 @@ public sealed class GetPostingPeriodsQueryHandler(
         if (fiscalYear == 0)
         {
             var today = businessClock.Today(shop.BusinessTimeZoneId);
-            fiscalYear = today.Month >= 4 ? today.Year : today.Year - 1;
+            fiscalYear = FiscalYear.ForBusinessDate(today).StartYear;
         }
 
         if (fiscalYear is < 2000 or > 2999)

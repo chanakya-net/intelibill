@@ -6,12 +6,15 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Intelibill.Infrastructure.Services.Posting;
 
 /// <inheritdoc cref="IPostingPeriodPolicy"/>
 internal sealed class PostingPeriodPolicy(ApplicationDbContext context, IPostingPeriodRepository periods) : IPostingPeriodPolicy
 {
+    private const string LockTimeout = "5s";
+
     private sealed class PeriodRow
     {
         public Guid Id { get; set; }
@@ -24,7 +27,8 @@ internal sealed class PostingPeriodPolicy(ApplicationDbContext context, IPosting
         DateOnly businessDate,
         CancellationToken cancellationToken = default)
     {
-        if (context.Database.CurrentTransaction is null)
+        var npgsql = context.Database.IsNpgsql();
+        if (npgsql && context.Database.CurrentTransaction is null)
         {
             throw new InvalidOperationException(
                 "The posting period fence requires an open transaction. The shared lock it takes on the " +
@@ -34,26 +38,43 @@ internal sealed class PostingPeriodPolicy(ApplicationDbContext context, IPosting
 
         var (start, end) = PostingPeriod.MonthOf(businessDate);
 
-        // The row exists before it is locked, so a month nobody has touched cannot be closed under a
-        // posting: the close finds the same row and waits on it.
-        await periods.EnsureExistsAsync(shopId, start, end, cancellationToken);
-
         PeriodRow? row;
-        if (context.Database.IsNpgsql())
+        if (npgsql)
         {
-            // FOR SHARE: postings share the row with one another and exclude only a close or reopen.
-            row = (await context.Database
-                .SqlQuery<PeriodRow>($"SELECT id AS \"Id\", state AS \"State\" FROM posting_periods WHERE shop_id = {shopId} AND start_date = {start} FOR SHARE")
-                .ToListAsync(cancellationToken))
-                .SingleOrDefault();
+            await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {LockTimeout}, true)", cancellationToken);
+            try
+            {
+                // The row exists before it is locked, so a month nobody has touched cannot be closed under a
+                // posting: the close finds the same row and waits on it.
+                await periods.EnsureExistsAsync(shopId, start, end, cancellationToken);
+
+                // FOR SHARE: postings share the row with one another and exclude only a close or reopen.
+                row = (await context.Database
+                    .SqlQuery<PeriodRow>($"SELECT id AS \"Id\", state AS \"State\" FROM posting_periods WHERE shop_id = {shopId} AND start_date = {start} FOR SHARE")
+                    .ToListAsync(cancellationToken))
+                    .SingleOrDefault();
+            }
+            // Npgsql counts a lock timeout as transient, so the execution strategy hands it back wrapped.
+            catch (Exception ex) when ((ex as PostgresException ?? ex.InnerException as PostgresException)?.SqlState == PostgresErrorCodes.LockNotAvailable)
+            {
+                // The statement failed, so the transaction is now aborted; the caller rolls it back.
+                return Errors.PostingPeriod.Busy;
+            }
+
+            // The budget is for this lock only; later locks in the posting keep their own waits.
+            await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout TO DEFAULT", cancellationToken);
         }
         else
         {
-            row = await context.PostingPeriods
-                .AsNoTracking()
-                .Where(p => p.ShopId == shopId && p.StartDate == start)
-                .Select(p => new PeriodRow { Id = p.Id, State = (int)p.State })
-                .SingleOrDefaultAsync(cancellationToken);
+            await periods.EnsureExistsAsync(shopId, start, end, cancellationToken);
+            var tracked = context.PostingPeriods.Local.FirstOrDefault(p => p.ShopId == shopId && p.StartDate == start);
+            row = tracked is not null
+                ? new PeriodRow { Id = tracked.Id, State = (int)tracked.State }
+                : await context.PostingPeriods
+                    .AsNoTracking()
+                    .Where(p => p.ShopId == shopId && p.StartDate == start)
+                    .Select(p => new PeriodRow { Id = p.Id, State = (int)p.State })
+                    .SingleOrDefaultAsync(cancellationToken);
         }
 
         if (row is null)

@@ -11,6 +11,7 @@ using Intelibill.Application.Common.Posting;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -343,7 +344,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
 
         // Nothing existed before the fence; it created the row and holds it.
         var closing = Task.Run(() => SendAsync(shop, HttpMethod.Post, $"/api/posting-periods/{MonthKey(month)}/close", Transition("books final", "missing-row")));
-        await WaitUntilBlockedOnPeriodAsync();
+        await WaitUntilBlockedOnPeriodAsync(Waiter.Close);
         Assert.False(closing.IsCompleted);
 
         await posting.CommitAsync();
@@ -370,7 +371,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         {
             Assert.False((await posting.AuthorizeAsync(shop.ShopId, postingDate)).IsError);
             var closing = Task.Run(() => SendAsync(shop, HttpMethod.Post, $"/api/posting-periods/{MonthKey(month)}/close", Transition("books final", "race-a")));
-            await WaitUntilBlockedOnPeriodAsync();
+            await WaitUntilBlockedOnPeriodAsync(Waiter.Close);
             Assert.False(closing.IsCompleted);
 
             await posting.AddLedgerAsync(shop, customerId, postingDate);
@@ -408,7 +409,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
             await posting.CommitAsync();
             return lease;
         });
-        await WaitUntilBlockedOnPeriodAsync();
+        await WaitUntilBlockedOnPeriodAsync(Waiter.Posting);
         Assert.False(refusedPosting.IsCompleted);
 
         await closeTx.CommitAsync();
@@ -421,6 +422,136 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         Assert.Equal(receiptsBefore, await ScalarAsync<long>("SELECT count(*) FROM operation_receipts WHERE shop_id = @shop", ("shop", shop.ShopId)));
         Assert.Equal(3, await ScalarAsync<long>(
             "SELECT count(*) FROM posting_period_events WHERE shop_id = @shop", ("shop", shop.ShopId)));
+    }
+
+    [Fact]
+    public async Task OnlineSale_IntoAClosedMonth_IsRefusedBeforeAnyNumberOrLock()
+    {
+        using var shop = await OpenShopAsync();
+        var stock = await StockAsync(shop);
+        Clock.Set(Utc(2026, 6, 15, 6, 0));
+        await SellAsync(shop, stock);
+        Clock.Set(Utc(2026, 7, 2, 6, 0));
+        using (var closed = await SendAsync(shop, HttpMethod.Post, "/api/posting-periods/2026-06/close", Transition("books final", "sale-close")))
+            Assert.Equal(HttpStatusCode.OK, closed.StatusCode);
+
+        Clock.Set(Utc(2026, 6, 20, 6, 0));
+        var salesBefore = await ScalarAsync<long>("SELECT count(*) FROM sales WHERE shop_id = @shop", ("shop", shop.ShopId));
+        var sequenceBefore = await ScalarAsync<long>("SELECT coalesce(sum(next_number), 0) FROM invoice_sequences WHERE shop_id = @shop", ("shop", shop.ShopId));
+        using var refused = await SendAsync(shop, HttpMethod.Post, "/api/sales", SaleBody(stock));
+        var body = await refused.Content.ReadAsStringAsync();
+        Assert.True(refused.StatusCode == HttpStatusCode.Conflict, body);
+        Assert.Contains("PostingPeriod.Closed", body, StringComparison.Ordinal);
+
+        Assert.Equal(salesBefore, await ScalarAsync<long>("SELECT count(*) FROM sales WHERE shop_id = @shop", ("shop", shop.ShopId)));
+        Assert.Equal(sequenceBefore, await ScalarAsync<long>("SELECT coalesce(sum(next_number), 0) FROM invoice_sequences WHERE shop_id = @shop", ("shop", shop.ShopId)));
+    }
+
+    [Fact]
+    public async Task LateOfflineInvoice_RequiresExplicitResolution()
+    {
+        using var shop = await OpenShopAsync();
+        var stock = await StockAsync(shop);
+
+        // The till reserves its range on 28 June (valid to 5 July) and issues the invoice at 23:00 IST on 30 June.
+        Clock.Set(Utc(2026, 6, 28, 6, 0));
+        using var reserved = await SendAsync(shop, HttpMethod.Post, "/api/sales/invoice-leases/reserve", new { deviceId = "till-1", blockSize = 25 });
+        reserved.EnsureSuccessStatusCode();
+        var lease = await reserved.Content.ReadFromJsonAsync<JsonElement>();
+        var invoice = $"{lease.GetProperty("prefix").GetString()}{lease.GetProperty("rangeStart").GetInt32().ToString($"D{lease.GetProperty("numberPadding").GetInt32()}", CultureInfo.InvariantCulture)}";
+        var soldAt = Utc(2026, 6, 30, 17, 30);
+        var payload = OfflinePayload("late-1", invoice, stock, soldAt);
+
+        // June closes on 2 July, before the device syncs (still inside the lease and the skew rules).
+        Clock.Set(Utc(2026, 7, 2, 6, 0));
+        using (var closed = await SendAsync(shop, HttpMethod.Post, "/api/posting-periods/2026-06/close", Transition("books final", "late-close")))
+            Assert.Equal(HttpStatusCode.OK, closed.StatusCode);
+
+        var held = await OfflineSyncAsync(shop, payload);
+        Assert.Equal("NeedsReview", held.GetProperty("status").GetString());
+        Assert.Equal("PostingPeriod.Closed", held.GetProperty("errors")[0].GetProperty("code").GetString());
+        var caseId = held.GetProperty("reviewCaseId").GetGuid();
+        Assert.Equal(0, await ScalarAsync<long>("SELECT count(*) FROM sales WHERE shop_id = @shop", ("shop", shop.ShopId)));
+        Assert.Equal(0, await ScalarAsync<long>("SELECT count(*) FROM stock_transactions WHERE shop_id = @shop AND transaction_type = 'Out'", ("shop", shop.ShopId)));
+
+        using var detailResponse = await SendAsync(shop, HttpMethod.Get, $"/api/offline-reconciliation/{caseId}");
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("ClosedPeriodReview", detail.GetProperty("issueType").GetString());
+        Assert.Contains("RetryHistoricalLease", detail.GetProperty("availableActions").EnumerateArray().Select(a => a.GetString()));
+        var version = detail.GetProperty("version").GetUInt32();
+
+        // Replaying while the month is closed is refused and the case stays open.
+        using (var blocked = await ResolveRetryAsync(shop, caseId, version, "retry-closed"))
+        {
+            var blockedBody = await blocked.Content.ReadAsStringAsync();
+            Assert.True(blocked.StatusCode == HttpStatusCode.Conflict, blockedBody);
+            Assert.Contains("PostingPeriod.Closed", blockedBody, StringComparison.Ordinal);
+        }
+
+        Assert.Equal(0, await ScalarAsync<long>("SELECT count(*) FROM sales WHERE shop_id = @shop", ("shop", shop.ShopId)));
+        using (var again = await SendAsync(shop, HttpMethod.Get, $"/api/offline-reconciliation/{caseId}"))
+        {
+            var current = await again.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("Open", current.GetProperty("status").GetString());
+            version = current.GetProperty("version").GetUInt32();
+        }
+
+        // An owner reopens June; the same case now posts the original invoice on its original date.
+        using (var reopened = await SendAsync(shop, HttpMethod.Post, "/api/posting-periods/2026-06/reopen", Transition("late invoice", "late-reopen")))
+            Assert.Equal(HttpStatusCode.OK, reopened.StatusCode);
+        using (var retried = await ResolveRetryAsync(shop, caseId, version, "retry-open"))
+        {
+            var retriedBody = await retried.Content.ReadAsStringAsync();
+            Assert.True(retried.StatusCode == HttpStatusCode.OK, retriedBody);
+        }
+
+        Assert.Equal(invoice, await ScalarAsync<string>("SELECT invoice_number FROM sales WHERE shop_id = @shop", ("shop", shop.ShopId)));
+        Assert.Equal(new DateOnly(2026, 6, 30), await ScalarAsync<DateOnly>("SELECT business_date FROM sales WHERE shop_id = @shop", ("shop", shop.ShopId)));
+        Assert.Equal(soldAt, await ScalarAsync<DateTimeOffset>("SELECT sold_at FROM sales WHERE shop_id = @shop", ("shop", shop.ShopId)));
+    }
+
+    [Fact]
+    public async Task Fence_WaitingOnAClose_ReturnsBusyAfterTheBudget()
+    {
+        using var shop = await OpenShopAsync();
+        var month = ClosedMonth();
+        await using (var warm = await PostingTx.BeginAsync(_factory.Services, shop.ShopId))
+        {
+            Assert.False((await warm.AuthorizeAsync(shop.ShopId, month.AddDays(3))).IsError);
+            await warm.CommitAsync();
+        }
+
+        await using var closeTx = await PostingTx.BeginAsync(_factory.Services, shop.ShopId);
+        await closeTx.CloseAsync(shop, month);
+
+        await using var posting = await PostingTx.BeginAsync(_factory.Services, shop.ShopId);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        var result = await posting.AuthorizeAsync(shop.ShopId, month.AddDays(3));
+        watch.Stop();
+
+        Assert.True(result.IsError);
+        Assert.Equal(ErrorType.Conflict, result.FirstError.Type);
+        Assert.Equal("PostingPeriod.Busy", result.FirstError.Code);
+        Assert.InRange(watch.Elapsed, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(15));
+        await posting.RollbackAsync();
+        await closeTx.RollbackAsync();
+    }
+
+    [Fact]
+    public async Task Close_WaitingOnAPosting_ReturnsBusyAfterTheBudget()
+    {
+        using var shop = await OpenShopAsync();
+        var month = ClosedMonth();
+
+        await using var posting = await PostingTx.BeginAsync(_factory.Services, shop.ShopId);
+        Assert.False((await posting.AuthorizeAsync(shop.ShopId, month.AddDays(3))).IsError);
+
+        using var response = await SendAsync(shop, HttpMethod.Post, $"/api/posting-periods/{MonthKey(month)}/close", Transition("books final", "busy-close"))
+            .WaitAsync(TimeSpan.FromSeconds(30));
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Contains("PostingPeriod.Busy", body.RootElement.GetRawText(), StringComparison.Ordinal);
+        await posting.RollbackAsync();
     }
 
     [Fact]
@@ -447,7 +578,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
             await posting.AddLedgerAsync(shop, customerId, postingDate);
 
             closing = Task.Run(() => SendAsync(shop, HttpMethod.Post, $"/api/posting-periods/{MonthKey(month)}/close", Transition("books final", "late-a")));
-            await WaitUntilBlockedOnPeriodAsync();
+            await WaitUntilBlockedOnPeriodAsync(Waiter.Close);
             Assert.False(closing.IsCompleted);
 
             // Direct proof the close cannot take the row: a second locker with a short lock_timeout fails.
@@ -485,6 +616,90 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
             """,
             ("shop", shop.ShopId)));
     }
+
+    private static object SaleBody(Stock stock) => new
+    {
+        idempotencyKey = $"sale-{Guid.NewGuid():N}",
+        customerName = "Walk-in Customer",
+        customerPhone = "+919876543210",
+        paymentMethod = (int)PaymentMethod.Cash,
+        paidAmount = 118m,
+        dueAmount = 0m,
+        items = new[]
+        {
+            new
+            {
+                barcode = stock.Barcode,
+                batchNumber = "B-001",
+                itemName = stock.ItemName,
+                quantity = 1m,
+                costPrice = 80m,
+                salesPrice = 100m,
+                mrp = 120m,
+                taxRatePercent = 18m,
+                isPriceIncludingTax = false,
+                inventoryBatchId = stock.BatchId,
+            },
+        },
+    };
+
+    private static object OfflinePayload(string clientSaleId, string invoiceNumber, Stock stock, DateTimeOffset soldAt) => new
+    {
+        clientSaleId,
+        invoiceNumber,
+        soldAt,
+        paymentMethod = (int)PaymentMethod.Cash,
+        paidAmount = 118m,
+        dueAmount = 0m,
+        subtotalBeforeDiscount = 100m,
+        totalBeforeDiscount = 118m,
+        totalDiscountAmount = 0m,
+        totalTaxAmount = 18m,
+        totalAmount = 118m,
+        saleDiscountOverrideType = (int)InstantDiscountType.None,
+        saleDiscountOverrideValue = 0m,
+        items = new[]
+        {
+            new
+            {
+                barcode = stock.Barcode,
+                batchNumber = "B-001",
+                itemName = stock.ItemName,
+                quantity = 1m,
+                costPrice = 80m,
+                salesPrice = 100m,
+                mrp = 120m,
+                taxRatePercent = 18m,
+                isPriceIncludingTax = false,
+                inventoryBatchId = stock.BatchId,
+                preTaxAmountBeforeDiscount = 100m,
+                itemDiscountAmount = 0m,
+                saleDiscountAmount = 0m,
+                taxableAmount = 100m,
+                taxAmount = 18m,
+                totalAmount = 118m,
+                itemDiscountOverrideType = (int)InstantDiscountType.None,
+                itemDiscountOverrideValue = 0m,
+            },
+        },
+    };
+
+    private static async Task<JsonElement> OfflineSyncAsync(Shop shop, object sale)
+    {
+        using var response = await SendAsync(shop, HttpMethod.Post, "/api/sales/offline-sync", new { deviceId = "till-1", sales = new[] { sale } });
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.OK, content);
+        return JsonDocument.Parse(content).RootElement.GetProperty("results")[0].Clone();
+    }
+
+    private static Task<HttpResponseMessage> ResolveRetryAsync(Shop shop, Guid caseId, uint version, string operationId) =>
+        SendAsync(shop, HttpMethod.Post, $"/api/offline-reconciliation/{caseId}/resolve", new
+        {
+            operationId,
+            expectedVersion = version,
+            action = "RetryHistoricalLease",
+            reason = "Owner reopened the month for this invoice",
+        });
 
     private static DateOnly ClosedMonth() =>
         new DateOnly(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).AddMonths(-2);
@@ -540,9 +755,22 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
             "SELECT count(*) FROM customer_ledger_entries WHERE shop_id = @shop AND customer_id = @customer",
             ("shop", shop.ShopId), ("customer", customerId));
 
-    /// <summary>Waits until some session is parked on a lock while touching a posting period row.</summary>
-    private async Task WaitUntilBlockedOnPeriodAsync()
+    private enum Waiter
     {
+        /// <summary>A close or reopen: queued on the row's FOR UPDATE, or on the first-touch insert.</summary>
+        Close,
+
+        /// <summary>A posting fence: queued on the row's FOR SHARE, or on the first-touch insert.</summary>
+        Posting,
+    }
+
+    /// <summary>
+    /// Waits until a session is parked on a lock in the specific statement the given waiter runs, so an
+    /// unrelated waiter (another fence caller, a sale) can never satisfy it.
+    /// </summary>
+    private async Task WaitUntilBlockedOnPeriodAsync(Waiter waiter)
+    {
+        var lockStatement = waiter == Waiter.Close ? "%FROM posting_periods%FOR UPDATE%" : "%FROM posting_periods%FOR SHARE%";
         var deadline = DateTime.UtcNow.AddSeconds(20);
         while (DateTime.UtcNow < deadline)
         {
@@ -550,15 +778,17 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
                 """
                 SELECT count(*) FROM pg_stat_activity
                 WHERE datname = current_database() AND pid <> pg_backend_pid()
-                  AND wait_event_type = 'Lock' AND query ILIKE '%posting_periods%'
-                """);
+                  AND wait_event_type = 'Lock'
+                  AND (query ILIKE @lockStatement OR query ILIKE '%INSERT INTO posting_periods%')
+                """,
+                ("lockStatement", lockStatement));
             if (waiting > 0)
                 return;
 
             await Task.Delay(50);
         }
 
-        Assert.Fail("No session ever waited on a posting period lock.");
+        Assert.Fail($"No {waiter} session ever waited on a posting period lock.");
     }
 
     /// <summary>
@@ -606,7 +836,8 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
             var periods = _scope.ServiceProvider.GetRequiredService<IPostingPeriodRepository>();
             var (start, end) = PostingPeriod.MonthOf(month);
             await periods.EnsureExistsAsync(shop.ShopId, start, end);
-            var period = await periods.LockForTransitionAsync(shop.ShopId, start);
+            var locked = await periods.LockForTransitionAsync(shop.ShopId, start);
+            var period = locked.Period;
             Assert.NotNull(period);
             var closed = period.Close(shop.UserId, DateTimeOffset.UtcNow, DateOnly.FromDateTime(DateTime.UtcNow), "held close");
             Assert.False(closed.IsError);

@@ -43,6 +43,7 @@ public static class ReconciliationActionPolicy
         Errors.OfflineReconciliation.IssueTimeInFuture.Code,
         Errors.OfflineReconciliation.IssueFiscalYearMismatch.Code,
         Errors.OfflineReconciliation.IssuedAfterLeaseExpiry.Code,
+        Errors.PostingPeriod.Closed(default).Code,
     };
 
     /// <summary>The types an invoice is held under before posting; legacy ones of these carry no envelope.</summary>
@@ -54,6 +55,7 @@ public static class ReconciliationActionPolicy
         ReconciliationIssueType.IssueTimingReview,
         ReconciliationIssueType.ProvenanceReview,
         ReconciliationIssueType.RecoveryReview,
+        ReconciliationIssueType.ClosedPeriodReview,
     ];
 
     /// <param name="issue">The case.</param>

@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Services;
@@ -31,6 +32,7 @@ public sealed class RecordSaleCommandHandler
     private readonly ICustomerRepository customerRepository;
     private readonly IUserRepository userRepository;
     private readonly IBusinessClock businessClock;
+    private readonly IPostingPeriodPolicy postingPeriodPolicy;
 
     public RecordSaleCommandHandler(
         ISaleLineValidator saleLineValidator,
@@ -46,7 +48,8 @@ public sealed class RecordSaleCommandHandler
         IUnitOfWork unitOfWork,
         ICustomerRepository customerRepository,
         IUserRepository userRepository,
-        IBusinessClock businessClock)
+        IBusinessClock businessClock,
+        IPostingPeriodPolicy postingPeriodPolicy)
     {
         this.saleLineValidator = saleLineValidator;
         this.salePricingCalculator = salePricingCalculator;
@@ -62,6 +65,7 @@ public sealed class RecordSaleCommandHandler
         this.customerRepository = customerRepository;
         this.userRepository = userRepository;
         this.businessClock = businessClock;
+        this.postingPeriodPolicy = postingPeriodPolicy;
     }
 
     public async Task<ErrorOr<SaleDto>> HandleAsync(RecordSaleCommand command, CancellationToken cancellationToken)
@@ -191,6 +195,12 @@ public sealed class RecordSaleCommandHandler
             // the sale commits, and any refusal below rolls the counter back with everything else.
             await unitOfWork.BeginTransactionAsync(cancellationToken);
             transactionStarted = true;
+
+            // First statement of the posting: a closed month refuses the sale before the credit lock is
+            // taken or an invoice number is drawn, and the shared lock it takes holds until commit.
+            var periodOrError = await postingPeriodPolicy.AuthorizeForWriteAsync(command.ShopId, businessDay.Date, cancellationToken);
+            if (periodOrError.IsError)
+                return periodOrError.Errors;
 
             // The customer is the first lock, as for payments and returns: the credit decision is
             // made on the balance and settings committed now, and a second due sale for the same

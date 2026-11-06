@@ -1,6 +1,7 @@
 using System.Globalization;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Services;
@@ -31,6 +32,7 @@ public class SyncOfflineSalesCommandHandlerTests
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IOfflineSubmissionRepository _offlineSubmissionRepository = Substitute.For<IOfflineSubmissionRepository>();
     private readonly List<OfflineSubmission> _recordedSubmissions = [];
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private readonly FixedClock _clock = new(Now);
 
     // Fiscal year 2025-26 (1 April 2025 to 31 March 2026), matching the leases' "INV-2025-26-" prefix.
@@ -40,6 +42,8 @@ public class SyncOfflineSalesCommandHandlerTests
     {
         _varianceAnalyzer = new OfflineSaleVarianceAnalyzer(_reconciliationIssueRepository);
         StubRecordedEnvelope(candidate => candidate);
+        _postingPeriods.AuthorizeForWriteAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<ErrorOr<PostingPeriodLease>>(new PostingPeriodLease(Guid.NewGuid(), new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31))));
         _shopRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult<Shop?>(Shop.Create("Main", "42 MG Road", "Bengaluru", "Karnataka", "560001", null, null, null)));
         _customerResolver.ResolveAsync(
@@ -74,7 +78,8 @@ public class SyncOfflineSalesCommandHandlerTests
                 _stockTransactionRepository,
                 _shopRepository,
                 _varianceAnalyzer,
-                new BusinessClock(_clock)),
+                new BusinessClock(_clock),
+                _postingPeriods),
             _unitOfWork,
             _clock);
 
@@ -1671,7 +1676,7 @@ public class SyncOfflineSalesCommandHandlerTests
             .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
         SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
         var poster = new OfflineSalePoster(
-            _saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock));
+            _saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock), _postingPeriods);
 
         var outcome = await poster.StageAsync(
             new OfflineSalePostingRequest(
@@ -1791,7 +1796,7 @@ public class SyncOfflineSalesCommandHandlerTests
     }
 
     private OfflineSalePoster Poster() =>
-        new(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock));
+        new(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock), _postingPeriods);
 
     private static OfflineSalePostingRequest PostingRequest(Guid shopId, OfflineSaleSyncCommand sale, InvoiceLease lease) =>
         new(shopId, "device-1", sale.ClientSaleId, sale, "hash", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Now, new Dictionary<Guid, DiscountRule>(), lease);
@@ -1968,6 +1973,44 @@ public class SyncOfflineSalesCommandHandlerTests
         Assert.Equal(ReconciliationIssueType.IssueTimingReview, issue.IssueType);
         Assert.Equal(expectedCode, issue.Code);
         await AssertNothingPostedAsync();
+    }
+
+    [Fact]
+    public async Task ClosedPeriod_HoldsInvoice_AsClosedPeriodReview()
+    {
+        var issues = CaptureReconciliationIssues();
+        _postingPeriods.AuthorizeForWriteAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 1, 1))));
+
+        var result = await SyncAgainstHistoricalLeaseAsync(claimedSoldAt: Day(5), now: Day(5));
+
+        Assert.Equal("NeedsReview", result.Status);
+        Assert.Equal("PostingPeriod.Closed", Assert.Single(result.Errors).Code);
+        var issue = Assert.Single(issues);
+        Assert.Equal(ReconciliationIssueType.ClosedPeriodReview, issue.IssueType);
+        Assert.Equal("PostingPeriod.Closed", issue.Code);
+        Assert.Equal(issue.Id, result.ReviewCaseId);
+        Assert.Contains("January 2026", issue.Message);
+        Assert.Null(result.SaleId);
+        await AssertNothingPostedAsync();
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task BusyPeriod_RejectsInvoice_ForResend()
+    {
+        var issues = CaptureReconciliationIssues();
+        _postingPeriods.AuthorizeForWriteAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Busy));
+
+        var result = await SyncAgainstHistoricalLeaseAsync(claimedSoldAt: Day(5), now: Day(5));
+
+        Assert.Equal("PostingPeriod.Busy", Assert.Single(result.Errors).Code);
+        Assert.Null(result.ReviewCaseId);
+        Assert.Empty(issues);
+        await AssertNothingPostedAsync();
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]

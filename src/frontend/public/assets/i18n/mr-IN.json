@@ -2028,7 +2028,8 @@
         "provenanceReview": "बिल करणाऱ्याचे पुनरावलोकन",
         "recoveryReview": "परत मिळवलेल्या इनव्हॉइसचे पुनरावलोकन",
         "unknown": "इतर",
-        "documentReview": "GST दस्तऐवज पुनरावलोकन"
+        "documentReview": "GST दस्तऐवज पुनरावलोकन",
+        "closedPeriodReview": "बंद कालावधी पुनरावलोकन"
       },
       "detail": {
         "title": "प्रकरणाचे तपशील",

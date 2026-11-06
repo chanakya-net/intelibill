@@ -30,7 +30,7 @@ public sealed class PostingPeriodHandlerTests
         _period = PostingPeriod.Open(_shop.Id, June);
         _shops.GetByIdAsync(_shop.Id, Arg.Any<CancellationToken>()).Returns(_shop);
         _shops.GetActiveRoleAsync(_actor, _shop.Id, Arg.Any<CancellationToken>()).Returns(ShopRole.Owner);
-        _periods.LockForTransitionAsync(_shop.Id, June, Arg.Any<CancellationToken>()).Returns(_period);
+        _periods.LockForTransitionAsync(_shop.Id, June, Arg.Any<CancellationToken>()).Returns(new PostingPeriodLock(RowLockOutcome.Acquired, _period));
         _periods.GetEventsAsync(_shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(Array.Empty<PostingPeriodEvent>());
         _clock.UtcNow.Returns(new DateTimeOffset(2026, 7, 5, 6, 0, 0, TimeSpan.Zero));
@@ -67,9 +67,21 @@ public sealed class PostingPeriodHandlerTests
             Arg.Is<FinancialOperationScope>(s => s.ShopId == _shop.Id && s.OperationType == FinancialOperationType.PostingPeriodClose && s.Key == "k"),
             _actor, _shop.Id, Arg.Any<string>(),
             Arg.Any<Func<CancellationToken, Task<ErrorOr<PostingPeriodDto>>>>(), Arg.Any<CancellationToken>());
-        await _periods.Received(1).EnsureExistsAsync(_shop.Id, June, new DateOnly(2026, 6, 30), Arg.Any<CancellationToken>());
+        await _periods.Received(1).LockForTransitionAsync(_shop.Id, June, Arg.Any<CancellationToken>());
         await _periods.Received(1).AddEventAsync(Arg.Is<PostingPeriodEvent>(e => e.Reason == "done" && e.Action == PostingPeriodAction.Closed), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Close_WhenTheLockBudgetRunsOut_IsBusyAndWritesNothing()
+    {
+        _periods.LockForTransitionAsync(_shop.Id, June, Arg.Any<CancellationToken>()).Returns(new PostingPeriodLock(RowLockOutcome.TimedOut, null));
+
+        var result = await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, "done", "k"), default);
+
+        Assert.Equal("PostingPeriod.Busy", result.FirstError.Code);
+        Assert.Equal(ErrorType.Conflict, result.FirstError.Type);
+        await _periods.DidNotReceiveWithAnyArgs().AddEventAsync(default!, default);
     }
 
     [Fact]

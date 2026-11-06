@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Customers.Services;
@@ -34,6 +35,7 @@ public class RecordSaleCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IInvoiceNumberAllocator _invoiceNumberAllocator = Substitute.For<IInvoiceNumberAllocator>();
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private readonly ICustomerRepository _customerRepository = Substitute.For<ICustomerRepository>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
 
@@ -78,6 +80,8 @@ public class RecordSaleCommandHandlerTests
             .Returns(RowLockOutcome.Acquired);
         _customerRepository.GetCurrentAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<Customer?>(_currentCustomer ?? Customer.Create(ci.ArgAt<Guid>(0), "Credit", "+919000000000", null)));
+        _postingPeriods.AuthorizeForWriteAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Task.FromResult<ErrorOr<PostingPeriodLease>>(new PostingPeriodLease(Guid.NewGuid(), new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 31))));
         _unitOfWork.BeginTransactionAsync(Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
         _unitOfWork.CommitTransactionAsync(Arg.Any<CancellationToken>())
@@ -87,7 +91,7 @@ public class RecordSaleCommandHandlerTests
     }
 
     private RecordSaleCommandHandler CreateHandler() =>
-        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork, _customerRepository, _userRepository, new BusinessClock(_time));
+        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork, _customerRepository, _userRepository, new BusinessClock(_time), _postingPeriods);
 
     private readonly MutableTimeProvider _time = new();
 
@@ -107,6 +111,24 @@ public class RecordSaleCommandHandlerTests
         _customerResolver.ResolveAsync(shopId, customer.Id, null, true, PaymentMethod.Credit, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
         return (command, customer);
+    }
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesSale_BeforeCreditLockOrNumber()
+    {
+        _time.Now = DateTimeOffset.Parse("2026-10-20T20:30:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var (command, _) = ArrangeDueSale();
+        _postingPeriods.AuthorizeForWriteAsync(command.ShopId, new DateOnly(2026, 10, 21), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 10, 1))));
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        await _invoiceNumberAllocator.DidNotReceive().AllocateAsync(Arg.Any<InvoiceSeriesKey>(), Arg.Any<CancellationToken>());
+        await _customerRepository.DidNotReceive().LockForCreditAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received().RollbackTransactionAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]

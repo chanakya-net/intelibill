@@ -63,9 +63,12 @@ internal sealed class PostingPeriodTransitionRunner(
         Transition transition,
         CancellationToken cancellationToken)
     {
-        var (start, end) = PostingPeriod.MonthOf(periodStart);
-        await periodRepository.EnsureExistsAsync(shopId, start, end, cancellationToken);
-        var period = await periodRepository.LockForTransitionAsync(shopId, start, cancellationToken)
+        var (start, _) = PostingPeriod.MonthOf(periodStart);
+        var locked = await periodRepository.LockForTransitionAsync(shopId, start, cancellationToken);
+        if (locked.Outcome == RowLockOutcome.TimedOut)
+            return Errors.PostingPeriod.Busy;
+
+        var period = locked.Period
             ?? throw new InvalidOperationException("The posting period row was not visible after it was ensured.");
 
         // The period lock is held, so no posting commits meanwhile; authority is judged again against

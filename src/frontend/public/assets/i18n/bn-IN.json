@@ -2028,7 +2028,8 @@
         "provenanceReview": "বিলকারী পর্যালোচনা",
         "recoveryReview": "পুনরুদ্ধার করা ইনভয়েস পর্যালোচনা",
         "unknown": "অন্যান্য",
-        "documentReview": "GST নথি পর্যালোচনা"
+        "documentReview": "GST নথি পর্যালোচনা",
+        "closedPeriodReview": "বন্ধ সময়কাল পর্যালোচনা"
       },
       "detail": {
         "title": "কেসের বিবরণ",

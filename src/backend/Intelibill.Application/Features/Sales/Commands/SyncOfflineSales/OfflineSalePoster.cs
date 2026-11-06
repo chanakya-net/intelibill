@@ -4,6 +4,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Services;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -20,7 +21,8 @@ internal sealed class OfflineSalePoster(
     IStockTransactionRepository stockTransactionRepository,
     IShopRepository shopRepository,
     IOfflineSaleVarianceAnalyzer varianceAnalyzer,
-    IBusinessClock businessClock) : IOfflineSalePoster
+    IBusinessClock businessClock,
+    IPostingPeriodPolicy postingPeriodPolicy) : IOfflineSalePoster
 {
     public ErrorOr<Success> CheckStructure(OfflineSaleSyncCommand sale)
     {
@@ -66,6 +68,22 @@ internal sealed class OfflineSalePoster(
         var shop = await shopRepository.GetByIdAsync(shopId, cancellationToken);
         if (shop is null) return new OfflineSalePostingOutcome.Rejected(Errors.Shop.ShopNotFound);
         var businessDay = businessClock.GetBusinessDay(sale.SoldAt, shop.BusinessTimeZoneId);
+
+        // The first fenced statement: the claimed business date's month must be open. A closed month
+        // holds the invoice for review (it was issued offline and cannot simply be refused); a busy
+        // fence is retryable, so the device resends.
+        var period = await postingPeriodPolicy.AuthorizeForWriteAsync(shopId, businessDay.Date, cancellationToken);
+        if (period.IsError)
+        {
+            var periodError = period.FirstError;
+            if (periodError.Code == Errors.PostingPeriod.Closed(businessDay.Date).Code)
+            {
+                var closedMonth = periodError.Description;
+                return new OfflineSalePostingOutcome.Held(ReconciliationIssueType.ClosedPeriodReview, periodError, closedMonth, []);
+            }
+
+            return new OfflineSalePostingOutcome.Rejected(periodError);
+        }
 
         var invoiceNumber = (sale.InvoiceNumber ?? string.Empty).Trim();
 

@@ -55,6 +55,7 @@ public sealed class ReconciliationActionPolicyTests
     [InlineData(ReconciliationIssueType.IssueTimingReview, "OfflineReconciliation.IssueTimeInFuture")]
     [InlineData(ReconciliationIssueType.IssueTimingReview, "OfflineReconciliation.IssueFiscalYearMismatch")]
     [InlineData(ReconciliationIssueType.IssueTimingReview, "OfflineReconciliation.IssuedAfterLeaseExpiry")]
+    [InlineData(ReconciliationIssueType.ClosedPeriodReview, "PostingPeriod.Closed")]
     public void HeldEnvelope_WithAttributableUser_OffersRetryLinkAndEscalate(ReconciliationIssueType type, string code)
     {
         var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null);

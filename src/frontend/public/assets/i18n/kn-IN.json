@@ -2028,7 +2028,8 @@
         "provenanceReview": "ಬಿಲ್ ಮಾಡಿದವರ ಪರಿಶೀಲನೆ",
         "recoveryReview": "ಮರುಪಡೆದ ಇನ್‌ವಾಯ್ಸ್ ಪರಿಶೀಲನೆ",
         "unknown": "ಇತರೆ",
-        "documentReview": "GST ದಾಖಲೆ ಪರಿಶೀಲನೆ"
+        "documentReview": "GST ದಾಖಲೆ ಪರಿಶೀಲನೆ",
+        "closedPeriodReview": "ಮುಚ್ಚಿದ ಅವಧಿ ಪರಿಶೀಲನೆ"
       },
       "detail": {
         "title": "ಪ್ರಕರಣದ ವಿವರಗಳು",

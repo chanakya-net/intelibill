@@ -2028,7 +2028,8 @@
         "provenanceReview": "Biller review",
         "recoveryReview": "Recovered invoice review",
         "unknown": "Other",
-        "documentReview": "GST document review"
+        "documentReview": "GST document review",
+        "closedPeriodReview": "Closed period review"
       },
       "detail": {
         "title": "Case details",
