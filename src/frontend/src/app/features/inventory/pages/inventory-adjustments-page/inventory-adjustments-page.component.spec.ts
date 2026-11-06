@@ -493,4 +493,41 @@ describe('InventoryAdjustmentsPageComponent', () => {
     expect(opts[0].itemName).toBe('Rice');
     expect(opts[0].barcode).toBe('111');
   });
+
+  it('carries each batch item unit and precision into the adjustment options', () => {
+    fixture.detectChanges();
+    httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(
+      batches.map((batch) => ({ ...batch, uom: 'kg', quantityScale: 3 })),
+    );
+    httpMock
+      .expectOne((request) => request.url === `${API_BASE_URL}/inventory/adjustments`)
+      .flush({ items: [], totalCount: 0, pageNumber: 1, pageSize: 20 });
+
+    expect(component.adjustmentBatchOptions()[0]).toMatchObject({ uom: 'kg', quantityScale: 3 });
+  });
+
+  it('shows the localized precision refusal instead of the English server detail', () => {
+    fixture.detectChanges();
+    flushInitialLoad();
+    const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+
+    component.onSaveAdjustment({
+      batchId: 'batch-1',
+      direction: 'Decrease',
+      reason: 'Damaged',
+      quantity: 0.5,
+      performedAt: null,
+      notes: null,
+    });
+    httpMock
+      .expectOne(`${API_BASE_URL}/inventory/batches/batch-1/adjust`)
+      .flush(
+        { title: 'Inventory.QuantityPrecisionExceeded', detail: 'English server sentence' },
+        { status: 400, statusText: 'Bad Request' },
+      );
+
+    const shown = add.mock.calls.map(([message]) => JSON.stringify(message)).join();
+    expect(shown).toContain('inventory.quantityPrecisionExceeded');
+    expect(shown).not.toContain('English server sentence');
+  });
 });

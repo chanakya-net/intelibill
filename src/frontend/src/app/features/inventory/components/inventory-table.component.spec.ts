@@ -25,6 +25,9 @@ describe('InventoryTableComponent', () => {
       hsnCode: null,
       defaultTaxRatePercent: 0,
       defaultTaxIncluded: false,
+      unitCode: null,
+      quantityScale: 0,
+      unitReviewRequired: false,
     },
   ];
 
@@ -80,6 +83,24 @@ describe('InventoryTableComponent', () => {
     const host = fixture.nativeElement as HTMLElement;
     const paginator = host.querySelector('.mobile-grid-container p-paginator');
     expect(paginator).not.toBeNull();
+  });
+
+  it('flags items whose unit needs review', () => {
+    component.items = [{ ...mockItems[0], unitReviewRequired: true }];
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[data-testid="unit-review-badge"]'),
+    ).not.toBeNull();
+  });
+
+  it('shows no review badge for a classified unit', () => {
+    component.items = [{ ...mockItems[0], unitReviewRequired: false }];
+    fixture.detectChanges();
+
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector('[data-testid="unit-review-badge"]'),
+    ).toBeNull();
   });
 
   it('emits selected items when selection changes', () => {

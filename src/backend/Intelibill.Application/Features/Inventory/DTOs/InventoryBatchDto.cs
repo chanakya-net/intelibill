@@ -29,4 +29,6 @@ public sealed record InventoryBatchDto(
     PurchaseReceiptValueStatus? ReceiptStatus = null,
     decimal? ReceiptOriginalTotalCost = null,
     decimal? ReceiptTotalCost = null,
-    uint? ReceiptVersion = null);
+    uint? ReceiptVersion = null,
+    string? Uom = null,
+    int QuantityScale = 0);

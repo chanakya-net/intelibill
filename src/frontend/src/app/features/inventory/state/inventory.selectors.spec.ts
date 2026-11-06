@@ -29,6 +29,9 @@ const itemOne: Item = {
   hsnCode: '0401',
   defaultTaxRatePercent: 5,
   defaultTaxIncluded: false,
+  unitCode: null,
+  quantityScale: 0,
+  unitReviewRequired: false,
 };
 
 const itemTwo: Item = {
@@ -46,6 +49,9 @@ const itemTwo: Item = {
   hsnCode: null,
   defaultTaxRatePercent: 0,
   defaultTaxIncluded: false,
+  unitCode: null,
+  quantityScale: 0,
+  unitReviewRequired: false,
 };
 
 describe('inventory selectors', () => {

@@ -196,6 +196,10 @@ export class OfflineSaleStateService {
       hsnCode: b.hsnCode ?? null,
       expiryDate: b.expiryDate ?? null,
       lineType: 'goods',
+      uom: b.uom ?? '',
+      // A snapshot taken before units carries no precision: whole units, printed NOS, until it is refreshed.
+      quantityScale: b.quantityScale ?? 0,
+      documentUnit: b.documentUnit ?? 'NOS',
     }));
 
     const serviceResults: AvailableBatchDto[] = matchedServices.map((s) => ({
@@ -395,6 +399,7 @@ export class OfflineSaleStateService {
         SELLER_PROFILE_UNAVAILABLE: 'sales.newSale.offline.blockSellerProfileUnavailable',
         DOCUMENT_UNAVAILABLE: 'sales.newSale.offline.blockDocumentUnavailable',
         CUSTOMER_UNAVAILABLE: 'sales.newSale.offline.blockCustomerUnavailable',
+        QUANTITY_PRECISION_EXCEEDED: 'sales.newSale.offline.blockQuantityPrecision',
       };
 
       return {

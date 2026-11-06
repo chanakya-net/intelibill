@@ -226,6 +226,55 @@ public class SalesServicesTests
         Assert.Equal(Errors.Sale.InvalidLineType.Code, result.FirstError.Code);
     }
 
+    [Theory]
+    [InlineData("kg", "0.25", null)]
+    [InlineData("PCS", "0.5", "Sale.QuantityPrecisionExceeded")]
+    [InlineData("kg", "0.0001", "Sale.QuantityPrecisionExceeded")]
+    [InlineData("PCS", "2.0", null)]
+    public async Task SaleLineValidator_AppliesItemQuantityPolicy(string uom, string quantity, string? expectedError)
+    {
+        var shopId = Guid.NewGuid();
+        var item = Item.Create(shopId, "Rice", "desc", uom, "BC-001", true, Guid.NewGuid());
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+        var line = new RecordSaleItemCommand("BC-001", "B-01", "Rice", decimal.Parse(quantity, System.Globalization.CultureInfo.InvariantCulture), 80m, 100m, 120m, 18m, false, batch.Id);
+
+        var itemRepository = Substitute.For<IItemRepository>();
+        var batchRepository = Substitute.For<IInventoryBatchRepository>();
+        var inventoryRepository = Substitute.For<IInventoryRepository>();
+        batchRepository.GetByIdWithItemAsync(batch.Id, shopId, Arg.Any<CancellationToken>()).Returns(batch);
+        itemRepository.GetByIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns([item]);
+        inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns([inventory]);
+
+        var result = await new SaleLineValidator(itemRepository, batchRepository, inventoryRepository)
+            .ValidateLinesAsync(shopId, [line], [], CancellationToken.None);
+
+        if (expectedError is null)
+            Assert.False(result.IsError);
+        else
+            Assert.Equal(expectedError, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task SaleLineValidator_WhenServiceQuantityHasFourDecimals_ReturnsPrecisionError()
+    {
+        var shopId = Guid.NewGuid();
+        var service = Service.Create(shopId, "SVC-001", "Repair", null, 500m, null, 18m, false, true, Guid.NewGuid());
+        var serviceRepository = Substitute.For<IServiceRepository>();
+        serviceRepository.GetByIdAsync(service.Id, Arg.Any<CancellationToken>()).Returns(service);
+        var line = new RecordSaleItemCommand("", "", "Repair", 1.0005m, 0m, 500m, 0m, 18m, false, Guid.Empty, LineType: SaleLineType.Service, ServiceId: service.Id);
+
+        var result = await new SaleLineValidator(
+                Substitute.For<IItemRepository>(),
+                Substitute.For<IInventoryBatchRepository>(),
+                Substitute.For<IInventoryRepository>(),
+                serviceRepository)
+            .ValidateLinesAsync(shopId, [line], [], CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Sale.QuantityPrecisionExceeded", result.FirstError.Code);
+    }
+
     private static Item MakeItem(Guid shopId, string barcode, string name) =>
         Item.Create(shopId, name, "desc", "kg", barcode, true, Guid.NewGuid());
 

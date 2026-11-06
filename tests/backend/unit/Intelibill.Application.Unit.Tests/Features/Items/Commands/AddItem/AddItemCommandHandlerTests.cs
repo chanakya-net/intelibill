@@ -54,6 +54,9 @@ public class AddItemCommandHandlerTests
         Assert.Equal("10063090", result.Value.HsnCode);
         Assert.Equal(5m, result.Value.DefaultTaxRatePercent);
         Assert.False(result.Value.DefaultTaxIncluded);
+        Assert.Equal("KG", result.Value.UnitCode);
+        Assert.Equal(3, result.Value.QuantityScale);
+        Assert.False(result.Value.UnitReviewRequired);
         Assert.Equal(0m, result.Value.CurrentStock);
         Assert.Null(result.Value.UnitPrice);
         Assert.Equal(0m, result.Value.CurrentStockValue);

@@ -118,7 +118,7 @@ export function buildOfflineInvoiceDocument(input: OfflineInvoiceDocumentInput):
       lineNumber: index + 1,
       description: line.itemName,
       hsnOrSac: line.hsnCode,
-      uom: line.lineType === 'service' ? SERVICE_UOM : GOODS_UOM,
+      uom: line.lineType === 'service' ? SERVICE_UOM : (line.documentUnit ?? GOODS_UOM),
       quantity: line.quantity,
       unitPrice: line.salesPrice,
       discountAmount: addMoney(line.itemDiscountAmount, line.saleDiscountAmount),

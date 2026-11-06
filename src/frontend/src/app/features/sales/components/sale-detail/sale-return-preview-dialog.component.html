@@ -134,6 +134,8 @@
                         <input
                           type="number"
                           min="0"
+                          [step]="returnStep(item)"
+                          [attr.aria-invalid]="isReturnQuantityTooPrecise(item) ? 'true' : null"
                           [max]="item.returnableQuantity"
                           [disabled]="!(getDraft(item.saleItemId)?.selected ?? false)"
                           [value]="getDraft(item.saleItemId)?.quantity ?? 0"
@@ -147,6 +149,11 @@
                           +
                         </button>
                       </div>
+                      @if (isReturnQuantityTooPrecise(item)) {
+                        <small class="return-preview-field-error" role="alert">{{
+                          tooPreciseMessage(item)
+                        }}</small>
+                      }
                     </div>
 
                     <label class="return-preview-control">

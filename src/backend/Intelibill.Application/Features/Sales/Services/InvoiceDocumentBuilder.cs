@@ -12,12 +12,14 @@ namespace Intelibill.Application.Features.Sales.Services;
 /// <param name="PlaceOfSupplyStateCode">The state the supply is made in; the seller's state (a counter sale) when null.</param>
 /// <param name="IssuedAt">When the document was issued.</param>
 /// <param name="FiscalYear">The fiscal year its number belongs to.</param>
+/// <param name="DocumentUnits">Each goods item's printed unit (UQC) by item id; an item absent from it prints <c>NOS</c>.</param>
 public sealed record InvoiceIssueContext(
     InvoiceSellerProfile SellerProfile,
     Customer? Customer,
     string? PlaceOfSupplyStateCode,
     DateTimeOffset IssuedAt,
-    FiscalYear FiscalYear);
+    FiscalYear FiscalYear,
+    IReadOnlyDictionary<Guid, string>? DocumentUnits = null);
 
 /// <summary>
 /// Decides which document a priced sale may be issued as and freezes it. The capability matrix is
@@ -73,6 +75,9 @@ public static class InvoiceDocumentBuilder
     /// Builds the document for a priced sale whose number is already allocated, or the reason the
     /// sale cannot be issued. Amounts are taken from the sale as priced, never recomputed.
     /// </summary>
+    private static string GoodsUomOf(InvoiceIssueContext context, SaleItem line) =>
+        line.ItemId is { } itemId && context.DocumentUnits?.TryGetValue(itemId, out var unit) == true ? unit : GoodsUom;
+
     public static ErrorOr<IssuedInvoiceSnapshot> Build(InvoiceIssueContext context, Sale sale)
     {
         var profile = context.SellerProfile;
@@ -154,7 +159,7 @@ public static class InvoiceDocumentBuilder
                 i + 1,
                 line.LineName,
                 line.HsnCode,
-                line.LineType == SaleLineType.Goods ? GoodsUom : ServiceUom,
+                line.LineType == SaleLineType.Goods ? GoodsUomOf(context, line) : ServiceUom,
                 line.Quantity,
                 line.SalesPrice,
                 line.ItemDiscountAmount + line.SaleDiscountAmount,

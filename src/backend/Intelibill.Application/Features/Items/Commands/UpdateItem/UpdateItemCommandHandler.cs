@@ -4,6 +4,7 @@ using Intelibill.Domain.Events;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using Wolverine;
 
 namespace Intelibill.Application.Features.Items.Commands.UpdateItem;
@@ -48,10 +49,17 @@ public sealed class UpdateItemCommandHandler(
                 return Errors.Item.BarcodeAlreadyExists;
         }
 
+        var history = item.UnitReviewRequired || item.WouldChangeUnit(normalizedUom, command.QuantityScale)
+            ? await itemRepository.GetStockHistoryAsync(command.ActiveShopId, item.Id, cancellationToken)
+            : ItemStockHistory.None;
+
+        var unitChange = item.ChangeUnit(normalizedUom, command.QuantityScale, history);
+        if (unitChange.IsError)
+            return unitChange.Errors;
+
         item.Update(
             normalizedName,
             command.Description,
-            normalizedUom,
             normalizedBarcode,
             targetIsActive,
             command.ActorUserId,

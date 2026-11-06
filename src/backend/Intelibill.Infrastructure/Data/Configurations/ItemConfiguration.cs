@@ -8,7 +8,8 @@ internal sealed class ItemConfiguration : IEntityTypeConfiguration<Item>
 {
     public void Configure(EntityTypeBuilder<Item> builder)
     {
-        builder.ToTable("items");
+        builder.ToTable("items", t =>
+            t.HasCheckConstraint("ck_items_quantity_scale", "quantity_scale BETWEEN 0 AND 3"));
 
         builder.HasKey(i => i.Id);
 
@@ -47,6 +48,18 @@ internal sealed class ItemConfiguration : IEntityTypeConfiguration<Item>
             .HasDefaultValue(0m);
 
         builder.Property(i => i.DefaultTaxIncluded)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(i => i.UnitCode)
+            .HasMaxLength(8);
+
+        builder.Property(i => i.QuantityScale)
+            .IsRequired()
+            .HasColumnType("smallint")
+            .HasDefaultValue(0);
+
+        builder.Property(i => i.UnitReviewRequired)
             .IsRequired()
             .HasDefaultValue(false);
 

@@ -7,7 +7,7 @@
   @if (showGroupedSections && cartItems.length > 0 && serviceCartItems.length > 0) {
     <div class="cart-section">
       <h3 class="cart-section-title">{{ 'sales.newSale.goodsSection' | transloco }}</h3>
-      <p-table [value]="cartItems" styleClass="p-datatable-sm cart-table">
+      <p-table [value]="cartItems" [rowTrackBy]="trackLine" styleClass="p-datatable-sm cart-table">
         <ng-template pTemplate="header">
           <tr>
             <th>{{ 'inventory.name' | transloco }}</th>
@@ -82,16 +82,26 @@
                   icon="pi pi-minus"
                   severity="secondary"
                   [text]="true"
-                  [disabled]="item.quantity <= 1"
-                  (click)="decrease(item.clientLineKey, item.quantity)"
+                  [ariaLabel]="'sales.newSale.decreaseQuantity' | transloco: { item: item.itemName }"
+                  [disabled]="!canDecrease(item)"
+                  (click)="decrease(item)"
                 />
-                <span class="qty-value">{{ item.quantity }}</span>
+                <app-quantity-field
+                  [value]="item.quantity"
+                  [scale]="item.quantityScale"
+                  [max]="item.availableQuantity"
+                  [unitLabel]="item.uom"
+                  [inputId]="'cart-qty-' + item.clientLineKey"
+                  [ariaLabel]="'sales.newSale.quantityOf' | transloco: { item: item.itemName }"
+                  (committed)="setQuantity(item.clientLineKey, $event)"
+                />
                 <p-button
                   icon="pi pi-plus"
                   severity="secondary"
                   [text]="true"
+                  [ariaLabel]="'sales.newSale.increaseQuantity' | transloco: { item: item.itemName }"
                   [disabled]="!canIncrease(item)"
-                  (click)="increase(item.clientLineKey, item.quantity)"
+                  (click)="increase(item)"
                 />
               </div>
             </td>
@@ -186,7 +196,7 @@
 
     <div class="cart-section">
       <h3 class="cart-section-title">{{ 'sales.newSale.servicesSection' | transloco }}</h3>
-      <p-table [value]="serviceCartItems" styleClass="p-datatable-sm cart-table">
+      <p-table [value]="serviceCartItems" [rowTrackBy]="trackLine" styleClass="p-datatable-sm cart-table">
         <ng-template pTemplate="header">
           <tr>
             <th>{{ 'inventory.name' | transloco }}</th>
@@ -210,14 +220,12 @@
               </div>
             </td>
             <td>
-              <input
-                pInputText
-                type="number"
-                [ngModel]="item.quantity"
-                [ngModelOptions]="{ standalone: true }"
-                (ngModelChange)="quantityChanged.emit({ itemId: item.clientLineKey, qty: $event })"
-                [min]="1"
-                step="1"
+              <app-quantity-field
+                [value]="item.quantity"
+                [scale]="0"
+                [inputId]="'cart-qty-' + item.clientLineKey"
+                [ariaLabel]="'sales.newSale.quantityOf' | transloco: { item: item.serviceName }"
+                (committed)="setQuantity(item.clientLineKey, $event)"
               />
             </td>
             <td>
@@ -258,7 +266,7 @@
     </div>
   } @else {
     @if (cartItems.length > 0) {
-      <p-table [value]="cartItems" styleClass="p-datatable-sm cart-table">
+      <p-table [value]="cartItems" [rowTrackBy]="trackLine" styleClass="p-datatable-sm cart-table">
         <ng-template pTemplate="header">
           <tr>
             <th>{{ 'inventory.name' | transloco }}</th>
@@ -333,16 +341,26 @@
                   icon="pi pi-minus"
                   severity="secondary"
                   [text]="true"
-                  [disabled]="item.quantity <= 1"
-                  (click)="decrease(item.clientLineKey, item.quantity)"
+                  [ariaLabel]="'sales.newSale.decreaseQuantity' | transloco: { item: item.itemName }"
+                  [disabled]="!canDecrease(item)"
+                  (click)="decrease(item)"
                 />
-                <span class="qty-value">{{ item.quantity }}</span>
+                <app-quantity-field
+                  [value]="item.quantity"
+                  [scale]="item.quantityScale"
+                  [max]="item.availableQuantity"
+                  [unitLabel]="item.uom"
+                  [inputId]="'cart-qty-' + item.clientLineKey"
+                  [ariaLabel]="'sales.newSale.quantityOf' | transloco: { item: item.itemName }"
+                  (committed)="setQuantity(item.clientLineKey, $event)"
+                />
                 <p-button
                   icon="pi pi-plus"
                   severity="secondary"
                   [text]="true"
+                  [ariaLabel]="'sales.newSale.increaseQuantity' | transloco: { item: item.itemName }"
                   [disabled]="!canIncrease(item)"
-                  (click)="increase(item.clientLineKey, item.quantity)"
+                  (click)="increase(item)"
                 />
               </div>
             </td>
@@ -444,7 +462,7 @@
         </ng-template>
       </p-table>
     } @else {
-      <p-table [value]="serviceCartItems" styleClass="p-datatable-sm cart-table">
+      <p-table [value]="serviceCartItems" [rowTrackBy]="trackLine" styleClass="p-datatable-sm cart-table">
         <ng-template pTemplate="header">
           <tr>
             <th>{{ 'inventory.name' | transloco }}</th>
@@ -468,14 +486,12 @@
               </div>
             </td>
             <td>
-              <input
-                pInputText
-                type="number"
-                [ngModel]="item.quantity"
-                [ngModelOptions]="{ standalone: true }"
-                (ngModelChange)="quantityChanged.emit({ itemId: item.clientLineKey, qty: $event })"
-                [min]="1"
-                step="1"
+              <app-quantity-field
+                [value]="item.quantity"
+                [scale]="0"
+                [inputId]="'cart-qty-' + item.clientLineKey"
+                [ariaLabel]="'sales.newSale.quantityOf' | transloco: { item: item.serviceName }"
+                (committed)="setQuantity(item.clientLineKey, $event)"
               />
             </td>
             <td>

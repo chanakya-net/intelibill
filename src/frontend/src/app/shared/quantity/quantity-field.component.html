@@ -1,0 +1,26 @@
+@let unit = unitLabel() || ('common.quantity.defaultUnit' | transloco);
+<span class="quantity-field">
+  <input
+    pInputText
+    type="text"
+    class="quantity-field-input"
+    autocomplete="off"
+    [id]="inputId()"
+    [value]="text()"
+    [attr.inputmode]="inputMode()"
+    [attr.aria-label]="ariaLabel()"
+    [attr.aria-invalid]="error() ? 'true' : 'false'"
+    [attr.aria-describedby]="error() ? errorId() : null"
+    (input)="onInput($event)"
+    (blur)="commit()"
+    (keydown.enter)="onEnter($event)"
+  />
+  @if (unitLabel()) {
+    <span class="quantity-field-unit">{{ unitLabel() }}</span>
+  }
+</span>
+@if (error(); as currentError) {
+  <p class="quantity-field-error" role="alert" [id]="errorId()">
+    {{ errorKey(currentError) | transloco: { unit: unit, decimals: errorParams().decimals, step: errorParams().step, max: errorParams().max } }}
+  </p>
+}

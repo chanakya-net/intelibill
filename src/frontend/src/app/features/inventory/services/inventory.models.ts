@@ -13,6 +13,12 @@ export interface Item {
   readonly hsnCode: string | null;
   readonly defaultTaxRatePercent: number;
   readonly defaultTaxIncluded: boolean;
+  /** The catalog unit the label names (`quantity-units`), or null for a custom label. */
+  readonly unitCode: string | null;
+  /** Decimal places a quantity of this item may carry (0 = whole units, at most 3). */
+  readonly quantityScale: number;
+  /** A legacy item whose unit or precision could not be classified safely; an owner should review it. */
+  readonly unitReviewRequired: boolean;
 }
 
 export type ItemCatalogStatusFilter = 'all' | 'active' | 'inactive' | 'inStock' | 'runningLow' | 'critical';
@@ -50,6 +56,8 @@ export interface AddItemRequest {
   readonly isActive: boolean;
   readonly hsnCode: string | null;
   readonly defaultTaxRatePercent: number;
+  /** Precision of a custom unit label; omitted or null for a catalog unit, which has its own. */
+  readonly quantityScale?: number | null;
 }
 
 export interface UpdateItemRequest {
@@ -59,6 +67,8 @@ export interface UpdateItemRequest {
   readonly uom: string;
   readonly hsnCode: string | null;
   readonly defaultTaxRatePercent: number;
+  /** Precision of a custom unit label; omitted or null for a catalog unit, which has its own. */
+  readonly quantityScale?: number | null;
 }
 
 export interface AddInventoryBatchRowRequest {
@@ -162,6 +172,10 @@ export interface InventoryBatchDto {
   readonly receiptTotalCost: number | null;
   /** Receipt row version; a cost correction is accepted only against the version it was made at. */
   readonly receiptVersion: number | null;
+  /** The item's unit label; absent from an API that predates units. */
+  readonly uom?: string | null;
+  /** Decimal places the item's unit allows (0 = whole units); absent from an API that predates units. */
+  readonly quantityScale?: number;
 }
 
 export type PurchaseReceiptStatus = 'Resolved' | 'LegacyUnresolved';
@@ -371,6 +385,8 @@ export interface InventoryBatchOption {
   readonly batchNumber: string;
   readonly barcode: string;
   readonly quantity: number;
+  readonly uom?: string | null;
+  readonly quantityScale?: number;
 }
 
 export interface AdjustmentRowDto {
@@ -398,6 +414,12 @@ export interface AvailableBatchDto {
   readonly expiryDate: string | null;
   readonly lineType?: 'goods' | 'service';
   readonly serviceId?: string | null;
+  /** The item's unit label; absent on rows from an offline snapshot taken before units (treated as ''). */
+  readonly uom?: string;
+  /** Decimal places a quantity of the item may carry; absent means whole units only. */
+  readonly quantityScale?: number;
+  /** Unit code its documents print (offline snapshot rows only); absent means NOS. */
+  readonly documentUnit?: string;
 }
 
 export type BatchStatusFilter = 'all' | 'active' | 'voided';

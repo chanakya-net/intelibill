@@ -16,6 +16,18 @@ describe('AdjustmentRowFormComponent', () => {
       batchNumber: 'BATCH-001',
       barcode: '111',
       quantity: 10,
+      uom: 'PCS',
+      quantityScale: 0,
+    },
+    {
+      id: 'batch-kg',
+      label: 'BATCH-KG · Flour',
+      itemName: 'Flour',
+      batchNumber: 'BATCH-KG',
+      barcode: '333',
+      quantity: 5,
+      uom: 'kg',
+      quantityScale: 3,
     },
     {
       id: 'batch-empty',
@@ -96,7 +108,7 @@ describe('AdjustmentRowFormComponent', () => {
     const fixture = setup();
     const component = fixture.componentInstance;
 
-    component.onSelectBatch(batchOptions[1]);
+    component.onSelectBatch(batchOptions[2]);
 
     expect(component.selectedBatchDecreaseBlocked()).toBe(true);
     expect(component.adjustmentForm.invalid).toBe(true);
@@ -106,7 +118,7 @@ describe('AdjustmentRowFormComponent', () => {
     const fixture = setup();
     const component = fixture.componentInstance;
 
-    component.onSelectBatch(batchOptions[1]);
+    component.onSelectBatch(batchOptions[2]);
     component.adjustmentForm.controls.direction.setValue('Increase');
 
     expect(component.selectedBatchDecreaseBlocked()).toBe(false);
@@ -178,5 +190,63 @@ describe('AdjustmentRowFormComponent', () => {
     component.adjustmentForm.controls.notes.setValue('   ');
 
     expect(component.adjustmentForm.controls.notes.hasError('required')).toBe(true);
+  });
+
+  it('takes three decimals for a weighed item', () => {
+    const component = setup().componentInstance;
+    component.onSelectBatch(batchOptions[1]);
+
+    component.adjustmentForm.controls.quantity.setValue(0.125);
+
+    expect(component.adjustmentForm.controls.quantity.valid).toBe(true);
+    expect(component.adjustmentForm.controls.quantity.errors).toBeNull();
+  });
+
+  it('refuses a fraction of a whole-unit item without rounding it', () => {
+    const component = setup().componentInstance;
+    component.onSelectBatch(batchOptions[0]);
+
+    component.adjustmentForm.controls.quantity.setValue(0.5);
+
+    expect(component.adjustmentForm.controls.quantity.errors).toHaveProperty('maxFractionDigits');
+    expect(component.adjustmentForm.controls.quantity.value).toBe(0.5);
+    expect(component.quantityPrecisionError()).toEqual({
+      key: 'common.quantity.errors.tooPreciseWhole',
+      params: { unit: 'PCS', decimals: 0, step: '1' },
+    });
+  });
+
+  it('refuses a fourth decimal and names the unit and allowed decimals', () => {
+    const component = setup().componentInstance;
+    component.onSelectBatch(batchOptions[1]);
+
+    component.adjustmentForm.controls.quantity.setValue(0.1234);
+
+    expect(component.adjustmentForm.controls.quantity.invalid).toBe(true);
+    expect(component.quantityPrecisionError()).toEqual({
+      key: 'common.quantity.errors.tooPrecise',
+      params: { unit: 'kg', decimals: 3, step: '0.001' },
+    });
+  });
+
+  it('checks the precision again when the direction changes validators', () => {
+    const component = setup().componentInstance;
+    component.onSelectBatch(batchOptions[0]);
+    component.adjustmentForm.controls.quantity.setValue(2.5);
+    component.adjustmentForm.controls.direction.setValue('Increase');
+
+    expect(component.adjustmentForm.controls.quantity.errors).toHaveProperty('maxFractionDigits');
+  });
+
+  it('sends the typed quantity unrounded', () => {
+    const component = setup().componentInstance;
+    component.onSelectBatch(batchOptions[1]);
+    component.adjustmentForm.controls.quantity.setValue(0.125);
+    let emitted: { quantity: number } | undefined;
+    component.rowChange.subscribe((dto) => (emitted = dto));
+
+    component.onSave();
+
+    expect(emitted?.quantity).toBe(0.125);
   });
 });

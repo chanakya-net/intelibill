@@ -15,6 +15,12 @@ public static partial class Errors
         public static Error UomRequired =>
             Error.Validation("Item.UomRequired", "UOM is required.");
 
+        public static Error QuantityScaleInvalid =>
+            Error.Validation("Item.QuantityScaleInvalid", "Quantity decimal places must be between 0 and 3.");
+
+        public static Error QuantityScaleMismatch =>
+            Error.Validation("Item.QuantityScaleMismatch", "Quantity decimal places do not match the selected unit.");
+
         public static Error BarcodeAlreadyExists =>
             Error.Conflict("Item.BarcodeAlreadyExists", "An item with this barcode already exists in the active shop.");
 

@@ -17,6 +17,7 @@ public class PreviewSaleReturnQueryHandlerTests
     private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
+    private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
     private readonly ISaleReturnCalculator _calculator = new SaleReturnCalculator();
     private IReturnAccountingPolicy _accountingPolicy = new ProportionalLineTaxReturnAccountingPolicy();
 
@@ -28,7 +29,8 @@ public class PreviewSaleReturnQueryHandlerTests
             _saleReturnRepository,
             _inventoryBatchRepository,
             _customerLedgerEntryRepository,
-            _calculator),
+            _calculator,
+            _itemRepository),
             _accountingPolicy);
 
     [Theory]
@@ -417,15 +419,44 @@ public class PreviewSaleReturnQueryHandlerTests
         await _inventoryBatchRepository.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
     }
 
+    [Theory]
+    [InlineData("kg", "0.25", "0.1", null)]
+    [InlineData("kg", "1", "0.125", null)]
+    [InlineData("PCS", "5", "0.5", "SaleReturn.QuantityPrecisionExceeded")]
+    [InlineData("PCS", "0.5", "0.5", null)]
+    public async Task Handle_ReturnQuantity_FollowsItemScaleOrLegacySoldScale(string uom, string sold, string returned, string? expectedError)
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, soldQuantity: decimal.Parse(sold, System.Globalization.CultureInfo.InvariantCulture), itemUom: uom);
+        var query = Query(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id,
+            decimal.Parse(returned, System.Globalization.CultureInfo.InvariantCulture));
+
+        var result = await CreateHandler().Handle(query, CancellationToken.None);
+
+        if (expectedError is null)
+            Assert.False(result.IsError);
+        else
+            Assert.Contains(result.Errors, e => e.Code == expectedError);
+    }
+
     private SalePreviewFixture ArrangeSale(
         ShopRole role,
         DateOnly? expiryDate = null,
         decimal itemDiscountAmount = 0m,
-        decimal saleDiscountAmount = 0m)
+        decimal saleDiscountAmount = 0m,
+        decimal soldQuantity = 5m,
+        string? itemUom = null)
     {
         var user = User.CreateWithEmail("user@test.com", "hash", "Test", "User");
         var shop = Shop.Create("Shop", "Address", "City", "State", "560001", null, null, null);
         var itemId = Guid.NewGuid();
+        if (itemUom is not null)
+        {
+            var policyItem = Item.Create(shop.Id, "Item", "d", itemUom, "BC-001", true, user.Id);
+            itemId = policyItem.Id;
+            _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+                .Returns([policyItem]);
+        }
+
         var batch = InventoryBatch.Create(
             shop.Id,
             itemId,
@@ -446,7 +477,7 @@ public class PreviewSaleReturnQueryHandlerTests
             batch.Id,
             lineName: "Item",
             lineCode: "BC-001",
-            quantity: 5m,
+            quantity: soldQuantity,
             costPrice: 80m,
             salesPrice: 100m,
             mrp: 120m,

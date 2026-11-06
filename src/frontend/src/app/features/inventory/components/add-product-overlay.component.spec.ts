@@ -167,12 +167,61 @@ describe('AddProductOverlayComponent', () => {
           barcode: 'B001',
           description: 'Product description',
           uom: 'packet',
+          quantityScale: null,
           hsnCode: '0902',
           defaultTaxRatePercent: 5,
           isActive: true,
         },
       }),
     );
+  });
+
+  function fillValid(component: AddProductOverlayComponent, uom: string): void {
+    component.form.controls.name.setValue('Rice');
+    component.form.controls.barcode.setValue('B001');
+    component.form.controls.uom.setValue(uom);
+  }
+
+  function lastAddPayload(): { uom: string; quantityScale?: number | null } {
+    const call = dispatch.mock.calls
+      .map((c) => c[0] as { type: string; payload?: { uom: string; quantityScale?: number | null } })
+      .filter((a) => a.type === InventoryActions.addItemRequested.type)
+      .pop();
+    return call!.payload!;
+  }
+
+  it('sends quantityScale null for a catalog unit and disables the precision select', () => {
+    const component = setup();
+    fillValid(component, 'kg');
+
+    expect(component.form.controls.quantityScale.disabled).toBe(true);
+    expect(component.form.controls.quantityScale.value).toBe(3);
+
+    component.onSubmit();
+
+    expect(lastAddPayload().quantityScale).toBeNull();
+  });
+
+  it('sends the chosen precision for a custom unit', () => {
+    const component = setup();
+    fillValid(component, 'Bundle');
+    component.form.controls.quantityScale.setValue(2);
+
+    expect(component.form.controls.quantityScale.enabled).toBe(true);
+
+    component.onSubmit();
+
+    expect(lastAddPayload()).toMatchObject({ uom: 'Bundle', quantityScale: 2 });
+  });
+
+  it('re-enables the precision select when a catalog label becomes custom', () => {
+    const component = setup();
+    fillValid(component, 'pcs');
+    expect(component.form.controls.quantityScale.disabled).toBe(true);
+
+    component.form.controls.uom.setValue('Bundle');
+
+    expect(component.form.controls.quantityScale.enabled).toBe(true);
   });
 
   it('does not submit when HSN code or tax rate are invalid', () => {

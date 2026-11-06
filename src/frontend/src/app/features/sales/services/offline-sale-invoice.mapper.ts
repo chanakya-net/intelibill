@@ -1,3 +1,4 @@
+import { quantityScaleOf } from '../../../shared/quantity/quantity-input';
 import type { SaleDto } from './sale.models';
 import { OfflineQueuedSalePayload } from './offline-sale-core.types';
 
@@ -45,6 +46,9 @@ export function mapOfflineQueuedSaleToSaleDto(payload: OfflineQueuedSalePayload)
       hasPriceMismatch: false,
       returnedQuantity: 0,
       returnableQuantity: line.quantity,
+      // A queued line knows only the unit its document prints, and the precision its quantity was sold in.
+      uom: line.documentUnit ?? null,
+      quantityScale: quantityScaleOf(line.quantity),
       returnStatus: 'None',
       hsnCode: line.hsnCode,
     })),

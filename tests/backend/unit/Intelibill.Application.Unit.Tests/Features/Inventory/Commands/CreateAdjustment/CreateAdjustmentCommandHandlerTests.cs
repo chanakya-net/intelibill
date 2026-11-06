@@ -19,10 +19,13 @@ public sealed class CreateAdjustmentCommandHandlerTests
     private readonly IInventoryAdjustmentRepository _adjustmentRepository = Substitute.For<IInventoryAdjustmentRepository>();
     private readonly IInventoryAdjustmentNumberGenerator _numberGenerator = Substitute.For<IInventoryAdjustmentNumberGenerator>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
 
     public CreateAdjustmentCommandHandlerTests()
     {
         _numberGenerator.Generate(Arg.Any<DateTimeOffset?>()).Returns("ADJ-20260505-ABCDEF12");
+        _itemRepository.GetByIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(ci => new List<Item> { Item.Create(ci.ArgAt<Guid>(0), "Rice", "d", "kg", "BC-0", true, Guid.NewGuid()) });
     }
 
     [Fact]
@@ -278,6 +281,53 @@ public sealed class CreateAdjustmentCommandHandlerTests
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleAsync_WhenTheBatchItemIsMissing_RefusesWithoutPosting()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        var batch = InventoryBatch.Create(shop.Id, Guid.NewGuid(), "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _batchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns(new List<Item>());
+
+        var result = await CreateHandler().HandleAsync(
+            new CreateAdjustmentCommand(batch.Id, actor.Id, shop.Id, InventoryAdjustmentDirection.Decrease,
+                InventoryAdjustmentReason.Damaged, 1m, null, "Damaged"),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Inventory.ItemNotFound", result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("kg", 0.125, true)]
+    [InlineData("PCS", 0.5, false)]
+    public async Task HandleAsync_AppliesItemQuantityScale(string uom, double quantity, bool accepted)
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        var item = Item.Create(shop.Id, "Rice", "d", uom, "BC-1", true, actor.Id);
+        var batch = InventoryBatch.Create(shop.Id, item.Id, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+        var inventory = DomainInventory.Create(shop.Id, item.Id, 15m, 2m, 50m, actor.Id).Value;
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _batchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _inventoryRepository.GetByItemAsync(shop.Id, item.Id, Arg.Any<CancellationToken>()).Returns(inventory);
+        _itemRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns([item]);
+
+        var result = await CreateHandler().HandleAsync(
+            new CreateAdjustmentCommand(batch.Id, actor.Id, shop.Id, InventoryAdjustmentDirection.Decrease,
+                InventoryAdjustmentReason.Damaged, (decimal)quantity, null, "Damaged"),
+            CancellationToken.None);
+
+        Assert.Equal(accepted, !result.IsError);
+        if (!accepted)
+            Assert.Equal("Inventory.QuantityPrecisionExceeded", result.FirstError.Code);
+    }
+
     private CreateAdjustmentCommandHandler CreateHandler() =>
         new(
             _userRepository,
@@ -286,5 +336,6 @@ public sealed class CreateAdjustmentCommandHandlerTests
             _stockTransactionRepository,
             _adjustmentRepository,
             _numberGenerator,
-            _unitOfWork);
+            _unitOfWork,
+            _itemRepository);
 }

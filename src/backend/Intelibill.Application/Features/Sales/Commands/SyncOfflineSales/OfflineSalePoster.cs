@@ -150,7 +150,7 @@ internal sealed class OfflineSalePoster(
         var consumption = OfflineSaleSyncHelpers.BuildStockConsumptionPlan(shopId, recordedBy, clientSaleId, deviceId, vLines, warnings, pendingIssues);
         var saleEntity = Sale.Create(shopId, request.AttributedUserId, OfflineSaleSyncIdempotencyHasher.ComputeKey(deviceId, clientSaleId), request.PayloadHash, invoiceNumber, resolvedCust?.Id ?? sale.CustomerId, sale.CustomerName ?? resolvedCust?.Name, sale.CustomerPhone ?? resolvedCust?.PhoneNumber, sale.PaymentMethod, sale.SoldAt, sale.PaidAmount, sale.DueAmount, sale.TotalAmount, sale.TotalTaxAmount, saleItems, sale.SubtotalBeforeDiscount, sale.TotalBeforeDiscount, sale.TotalDiscountAmount, sale.ConfiguredSaleRuleId, sale.ConfiguredSaleRuleType, sale.ConfiguredSaleRulePercentage, sale.ConfiguredSaleRuleThresholdAmount, sale.SaleDiscountOverrideType, sale.SaleDiscountOverrideValue, SaleSource.Offline, clientSaleId, deviceId, request.Now, warnings);
 
-        await AttachDocumentAsync(request, saleEntity, resolvedCust, pendingIssues, cancellationToken);
+        await AttachDocumentAsync(request, saleEntity, resolvedCust, vLines, pendingIssues, cancellationToken);
 
         // Built before anything is staged so a refused entry leaves the unit of work untouched.
         CustomerLedgerEntry? dueEntry = null;
@@ -197,6 +197,7 @@ internal sealed class OfflineSalePoster(
         OfflineSalePostingRequest request,
         Sale saleEntity,
         Customer? customer,
+        IReadOnlyList<ValidatedSaleLine> validatedLines,
         List<ReconciliationIssue> pendingIssues,
         CancellationToken cancellationToken)
     {
@@ -216,7 +217,7 @@ internal sealed class OfflineSalePoster(
 
         var fiscalYear = lease is null ? FiscalYear.ForDate(saleEntity.SoldAt) : new FiscalYear(lease.FiscalYearStart);
         var document = profile.Then(p => InvoiceDocumentBuilder.Build(
-            new InvoiceIssueContext(p, customer, PlaceOfSupplyStateCode: null, saleEntity.SoldAt, fiscalYear),
+            new InvoiceIssueContext(p, customer, PlaceOfSupplyStateCode: null, saleEntity.SoldAt, fiscalYear, ValidatedSaleLines.DocumentUnitsOf(validatedLines)),
             saleEntity));
 
         if (!document.IsError)

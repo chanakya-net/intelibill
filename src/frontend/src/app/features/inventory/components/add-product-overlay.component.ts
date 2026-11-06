@@ -1,4 +1,4 @@
-import { Component, EventEmitter, OnInit, Output, inject, signal } from '@angular/core';
+import { Component, DestroyRef, EventEmitter, OnInit, Output, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -21,6 +21,11 @@ import { InventoryActions } from '../state/inventory.actions';
 import { InventoryService } from '../services/inventory.service';
 import type { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import { InputValidators } from '../../../shared/forms/input-validation';
+import {
+  ITEM_QUANTITY_SCALE_OPTIONS,
+  bindQuantityScaleToUnit,
+  quantityScaleToSend,
+} from './item-unit-scale';
 import {
   selectInventoryErrorMessage,
   selectInventorySubmitting,
@@ -50,6 +55,8 @@ export class AddProductOverlayComponent implements OnInit {
   private readonly store = inject(Store<RootState>);
   private readonly catalogSync = inject(ProductCatalogSyncService);
   private readonly inventoryService = inject(InventoryService);
+  private readonly destroyRef = inject(DestroyRef);
+  readonly scaleOptions = ITEM_QUANTITY_SCALE_OPTIONS;
 
   readonly isSubmitting = this.store.selectSignal(selectInventorySubmitting);
   readonly serverError = this.store.selectSignal(selectInventoryErrorMessage);
@@ -70,12 +77,14 @@ export class AddProductOverlayComponent implements OnInit {
     barcode: ['', InputValidators.requiredText(128)],
     description: ['', InputValidators.optionalText(1000)],
     uom: ['', InputValidators.requiredText(32)],
+    quantityScale: [0],
     hsnCode: ['', InputValidators.hsnSacCode()],
     defaultTaxRatePercent: [0, InputValidators.percentage()],
     isActive: [true],
   });
 
   ngOnInit(): void {
+    bindQuantityScaleToUnit(this.form.controls.uom, this.form.controls.quantityScale, this.destroyRef);
     this.store.dispatch(InventoryActions.clearError());
     this.store.dispatch(InventoryActions.clearMutationStatus());
   }
@@ -214,6 +223,10 @@ export class AddProductOverlayComponent implements OnInit {
           barcode: this.form.controls.barcode.value.trim(),
           description: this.nullableTrimmed(this.form.controls.description.value),
           uom: this.form.controls.uom.value.trim(),
+          quantityScale: quantityScaleToSend(
+            this.form.controls.uom.value,
+            this.form.controls.quantityScale.value,
+          ),
           hsnCode: this.nullableTrimmed(this.form.controls.hsnCode.value),
           defaultTaxRatePercent: Number(this.form.controls.defaultTaxRatePercent.value),
           isActive: this.form.controls.isActive.value,

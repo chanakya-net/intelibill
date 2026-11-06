@@ -1,6 +1,7 @@
 using FluentValidation;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Inventory.Commands.CreateAdjustment;
 
@@ -25,7 +26,7 @@ internal sealed class CreateAdjustmentCommandValidator : AbstractValidator<Creat
 
         RuleFor(x => x.Quantity)
             .GreaterThan(0).WithErrorCode(Errors.Inventory.QuantityMustBePositive.Code)
-            .Must(NotHaveMoreThanTwoDecimalPlaces)
+            .Must(NotHaveMoreThanThreeDecimalPlaces)
             .WithErrorCode(Errors.Inventory.AdjustmentQuantityScaleInvalid.Code)
             .WithMessage(Errors.Inventory.AdjustmentQuantityScaleInvalid.Description);
 
@@ -46,8 +47,8 @@ internal sealed class CreateAdjustmentCommandValidator : AbstractValidator<Creat
             .WithMessage(Errors.Inventory.AdjustmentNotesRequired.Description);
     }
 
-    private static bool NotHaveMoreThanTwoDecimalPlaces(decimal value) =>
-        decimal.Truncate(value * 100m) == value * 100m;
+    private static bool NotHaveMoreThanThreeDecimalPlaces(decimal value) =>
+        QuantityPolicy.FitsScale(value, QuantityUnits.MaxScale);
 
     private static bool IsReasonAllowedForDirection(InventoryAdjustmentDirection direction, InventoryAdjustmentReason reason)
     {

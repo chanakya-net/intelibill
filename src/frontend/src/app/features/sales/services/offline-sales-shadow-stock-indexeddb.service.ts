@@ -1,5 +1,8 @@
 import { Injectable } from '@angular/core';
 
+import { normalizeQuantity } from '../../../shared/quantity/quantity-input';
+import { QUANTITY_SCALE_MAX } from '../../../shared/quantity/quantity-units';
+
 export interface OfflineShadowStockRecord {
   readonly key: string;
   readonly shopId: string;
@@ -50,7 +53,8 @@ export class OfflineSalesShadowStockIndexedDbService {
     }
 
     const current = await this.ensureQuantity(shopId, deviceId, inventoryBatchId, 0);
-    const next = Math.max(0, current - Math.max(0, quantity));
+    // Stored quantities carry at most three decimals; the difference is taken without binary float noise.
+    const next = Math.max(0, normalizeQuantity(current - Math.max(0, quantity), QUANTITY_SCALE_MAX));
 
     await this.putRecord({
       key: this.buildKey(shopId, deviceId, inventoryBatchId),

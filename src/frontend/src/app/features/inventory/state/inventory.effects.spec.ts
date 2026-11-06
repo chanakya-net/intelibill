@@ -80,6 +80,9 @@ describe('InventoryEffects', () => {
         hsnCode: '0401',
         defaultTaxRatePercent: 5,
         defaultTaxIncluded: false,
+        unitCode: null,
+        quantityScale: 0,
+        unitReviewRequired: false,
       })
     );
 
@@ -116,6 +119,9 @@ describe('InventoryEffects', () => {
           hsnCode: '0401',
           defaultTaxRatePercent: 5,
           defaultTaxIncluded: false,
+          unitCode: null,
+          quantityScale: 0,
+          unitReviewRequired: false,
         },
       })
     );
@@ -149,6 +155,37 @@ describe('InventoryEffects', () => {
     );
   });
 
+  it.each([
+    ['Item.UnitChangeWithHistory', 'title', 'errors.items.unitChangeWithHistory'],
+    ['Item.QuantityScaleInvalid', 'errors', 'errors.items.quantityScaleInvalid'],
+    ['Item.QuantityScaleMismatch', 'errors', 'errors.items.quantityScaleMismatch'],
+    ['Item.UomRequired', 'errors', 'errors.items.uomRequired'],
+  ])('maps %s (%s) on add and update failures', async (code, where, key) => {
+    const body =
+      where === 'title'
+        ? { title: code }
+        : { title: 'Validation.Failed', errors: [{ code, description: 'English' }] };
+    inventoryService.addItem.mockReturnValue(throwError(() => ({ error: body })));
+    inventoryService.updateItem.mockReturnValue(throwError(() => ({ error: body })));
+
+    const added = firstValueFrom(effects.addItem$.pipe(take(1)));
+    actions$.next(
+      InventoryActions.addItemRequested({
+        payload: { name: 'M', barcode: 'B', description: null, uom: 'ltr', isActive: true, hsnCode: null, defaultTaxRatePercent: 0 },
+      })
+    );
+    await expect(added).resolves.toEqual(InventoryActions.addItemFailed({ errorMessage: key }));
+
+    const updated = firstValueFrom(effects.updateItem$.pipe(take(1)));
+    actions$.next(
+      InventoryActions.updateItemRequested({
+        itemId: 'i',
+        payload: { name: 'M', barcode: 'B', description: null, uom: 'ltr', hsnCode: null, defaultTaxRatePercent: 0 },
+      })
+    );
+    await expect(updated).resolves.toEqual(InventoryActions.updateItemFailed({ errorMessage: key }));
+  });
+
   it('loads items with query params and paginated response', async () => {
     inventoryService.getItems.mockReturnValue(
       of({
@@ -168,6 +205,9 @@ describe('InventoryEffects', () => {
             hsnCode: null,
             defaultTaxRatePercent: 0,
             defaultTaxIncluded: false,
+            unitCode: null,
+            quantityScale: 0,
+            unitReviewRequired: false,
           },
         ],
         totalCount: 12,
@@ -215,6 +255,9 @@ describe('InventoryEffects', () => {
             hsnCode: null,
             defaultTaxRatePercent: 0,
             defaultTaxIncluded: false,
+            unitCode: null,
+            quantityScale: 0,
+            unitReviewRequired: false,
           },
         ],
         totalCount: 12,
@@ -261,6 +304,9 @@ describe('InventoryEffects', () => {
         hsnCode: null,
         defaultTaxRatePercent: 0,
         defaultTaxIncluded: false,
+        unitCode: null,
+        quantityScale: 0,
+        unitReviewRequired: false,
       })
     );
 
@@ -283,6 +329,9 @@ describe('InventoryEffects', () => {
           hsnCode: null,
           defaultTaxRatePercent: 0,
           defaultTaxIncluded: false,
+          unitCode: null,
+          quantityScale: 0,
+          unitReviewRequired: false,
         },
       })
     );

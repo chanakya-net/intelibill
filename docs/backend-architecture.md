@@ -817,17 +817,71 @@ documents themselves are unchanged (backlog 17).
 legacy counter keys shop by shop (FORCE RLS) and replaces the per-shop-year index. Owners must declare a
 profile before their next sale or lease. Rolling back the API leaves snapshots as readable data; the
 migration's `Down` fails once a shop has opened a fiscal series beside its legacy counter, so roll
-forward. Out of scope: IRN e-invoicing and B2C dynamic QR, exports/SEZ, reverse charge, cess, per-item
-UOM, device-side GST printing, credit-note documents.
+forward. Out of scope: IRN e-invoicing and B2C dynamic QR, exports/SEZ, reverse charge, cess,
+device-side GST printing, credit-note documents. (Per-item units now live in § Quantity Precision.)
+
+## Quantity Precision
+
+- **The item owns its unit and scale.** `Item` carries `UnitCode`, `QuantityScale` (0 to 3) and
+  `UnitReviewRequired`. `QuantityUnits` (`Domain/ValueObjects`) is the catalog pinned by
+  `tests/contracts/quantity-units-v1.json`: a label (trimmed, upper-cased) matching an alias resolves to a
+  code with a fixed scale and document unit (UQC), for example `KG` is scale 3 and `KGS`, `PCS` is scale 0
+  and `NOS`, `G`, `ML` and `CM` are whole-number units. A custom label stores `UnitCode` null and the
+  merchant's `QuantityScale` (default 0). `Item.DocumentUnit` is computed: the catalog unit, else `NOS` at
+  scale 0 and `OTH` above. Storage stays `numeric(18,3)`; no migration changes a quantity.
+- **One policy.** `QuantityPolicy` allows at most 3 decimals and a scale of 0 to 3. Trailing zeros from
+  `numeric(18,3)` are not precision (`2.000` is a whole number). It returns generic `Quantity.*` errors and
+  never rounds, truncates or clamps what a person entered.
+- **Callers name the workflow.** Sale lines, sale returns, intake, counts and adjustments check the
+  resolved item's policy before building anything and translate the generic error into
+  `Sale.`, `SaleReturn.` or `Inventory.QuantityPrecisionExceeded`. FluentValidation failures answer
+  `Validation.Failed` with the code in `errors[].code`; handler errors answer the code as the `title`.
+  Offline sync runs the same sale line validator, so online and sync refuse over-precision identically.
+- **Returns.** The effective scale is `max(item scale, scale of the sold quantity)`, so a legacy
+  fractional line stays returnable even when the item is now classified whole-unit.
+- **Unit changes.** `Item.ChangeUnit(uom, quantityScale, history)` takes an `ItemStockHistory`
+  (movements, batches or sale lines exist). With history, changing the unit or scale is refused with 409
+  `Item.UnitChangeWithHistory`; a relabel that keeps code and scale (`kg` to `KGS`) is allowed. A legacy
+  item flagged `UnitReviewRequired` may be classified once to a scale that covers its on-hand
+  stock, which clears the flag. Saving a flagged item at the unit and scale it already has clears the flag
+  when that scale covers the stock on hand (otherwise the flag stays and the other edits save). An item
+  nobody has classified yet (`UnitCode` null) saved with a label naming the same catalog unit as its
+  stored label, at a catalog scale that covers the stock on hand, is classified, not changed: no 409.
+  The update handler loads the stock history for a flagged item too.
+- **Documents.** `InvoiceDocumentBuilder` prints the item's document unit on each goods line (`KGS`,
+  `MTR`, `NOS`), and a service line still prints `NA`. Offline sync takes the document unit from the live
+  `Item.DocumentUnit` at sync time, not the device's frozen value. The only case where a reprint can
+  differ from the device copy is a review-flagged legacy item reclassified between the offline sale and
+  its sync.
+- **Out of scope.** Purchase-order quantities stay integer (backlog 30); receiving a purchase order still
+  passes the item policy. Carton to piece conversion, scale integration and barcode-embedded weight
+  (backlog 28) are not advertised.
+
+**Rollout and rollback.** Migration `20261105155114_AddItemQuantityPrecision` adds `unit_code`,
+`quantity_scale` and `unit_review_required`, maps known labels through the catalog and flags an item
+classified whole-unit whose recorded quantities carry decimals. Defaults keep old instances working. Once
+every API instance runs the new version, run `scripts/db/backfill-item-quantity-precision.sql` once as
+the migrator role for items an old instance created in between (idempotent: an item with a `unit_code`
+is never touched). Both the migration and the script run shop by shop with `app.active_shop_id` set,
+because FORCE row level security binds the migrator as table owner; a backfill without a shop context
+updates no rows. `ItemQuantityPrecisionUpgradeTests` applies the migration and the script as a
+`NOSUPERUSER NOBYPASSRLS` owner role to prove it. Rollout window caveat: an old instance that relabels an
+already-mapped item (for example `kg` to `pcs`) updates `uom` but not `unit_code`, and the script skips the
+row because `unit_code` is set. Spot such rows with
+`SELECT id, uom, unit_code FROM items WHERE unit_code IS NOT NULL` compared against the catalog (a
+label that no longer resolves to its `unit_code`), and fix them by clearing `unit_code`, `quantity_scale`
+and `unit_review_required` on those rows (per shop context) before re-running the script; stocked items
+should be reviewed by the merchant rather than silently remapped. Rolling back means deploying the previous API: it ignores the new columns, fractional
+data stays valid in `numeric(18,3)`, and no quantity is downgraded.
 
 ## Test Structure
 
 | Suite | Path | Count |
 |---|---|---|
-| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 329 |
-| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1506 |
-| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 562 |
-| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 619 |
-| **Total** | | **3016** |
+| Domain unit | `tests/backend/unit/Intelibill.Domain.Unit.Tests/` | 354 |
+| Application unit | `tests/backend/unit/Intelibill.Application.Unit.Tests/` | 1563 |
+| API unit | `tests/backend/unit/Intelibill.Api.Unit.Tests/` | 576 |
+| Integration | `tests/backend/integration/Intelibill.Integration.Tests/` | 627 |
+| **Total** | | **3120** |
 
-Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 2397 passing.
+Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 2493 passing.

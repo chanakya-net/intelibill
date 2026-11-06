@@ -5,6 +5,7 @@ import { NewSalePageStateService } from './new-sale-page.state.service';
 import { sameOwner } from '../../../core/context/shop-scope';
 import type { CheckoutScope } from '../services/checkout-intent.service';
 import { SalePreviewDto } from '../services/sale.models';
+import { goodsSellableToBatch } from '../utils/sellable-goods.mapper';
 
 export abstract class NewSalePageLifecycleService extends NewSalePageStateService {
   onInit(): void {
@@ -277,22 +278,20 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
         if (sellables.length === 1) {
           const sellable = sellables[0];
           if (sellable.kind === 'Goods') {
-            const batch = {
-              barcode: sellable.barcode,
-              itemName: sellable.itemName,
-              batchNumber: sellable.batchNumber,
-              inventoryBatchId: sellable.inventoryBatchId,
-              quantity: sellable.quantity,
-              salesPrice: sellable.salesPrice,
-              mrp: sellable.mrp,
-              taxRatePercent: sellable.taxRatePercent,
-              taxIncluded: sellable.taxIncluded,
-              expiryDate: sellable.expiryDate,
-              hsnCode: sellable.hsnCode,
-            };
+            const batch = goodsSellableToBatch(sellable);
             const result = this.cartState.addBatchToCart(batch, 1);
             if (!result.added) {
-              this.batchSearchError.set('sales.newSale.exceedsStock');
+              if (
+                result.refusal === 'exceedsStock' &&
+                (batch.quantityScale ?? 0) > 0 &&
+                this.remainingStock(batch) > 0
+              ) {
+                // Less than one unit of a weighed item is left: let the cashier enter the part quantity.
+                this.availableBatches.set([batch]);
+                this.showBatchPicker.set(true);
+                return;
+              }
+              this.showQuantityRefusal(result.refusal ?? 'exceedsStock', batch);
               return;
             }
             if (result.addedLineKey) {
@@ -308,19 +307,7 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
             this.availableBatches.set(
               sellables
                 .filter((s): s is import('../services/sale.models').SellableGoodsDto => s.kind === 'Goods')
-                .map((s) => ({
-                  barcode: s.barcode,
-                  itemName: s.itemName,
-                  batchNumber: s.batchNumber,
-                  inventoryBatchId: s.inventoryBatchId,
-                  quantity: s.quantity,
-                  salesPrice: s.salesPrice,
-                  mrp: s.mrp,
-                  taxRatePercent: s.taxRatePercent,
-                  taxIncluded: s.taxIncluded,
-                  expiryDate: s.expiryDate,
-                  hsnCode: s.hsnCode,
-                })),
+                .map(goodsSellableToBatch),
             );
           } else {
             this.availableSellables.set(sellables);

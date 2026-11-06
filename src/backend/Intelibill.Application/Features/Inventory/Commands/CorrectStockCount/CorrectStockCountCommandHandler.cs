@@ -7,6 +7,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Inventory.Commands.CorrectStockCount;
@@ -36,7 +37,8 @@ public sealed class CorrectStockCountCommandHandler(
     IStockCountRepository stockCountRepository,
     IInventoryAdjustmentNumberGenerator adjustmentNumberGenerator,
     IUnitOfWork unitOfWork,
-    IFinancialOperationExecutor operationExecutor)
+    IFinancialOperationExecutor operationExecutor,
+    IItemRepository itemRepository)
 {
     private static readonly CorrectStockCountCommandValidator Validator = new();
 
@@ -96,6 +98,14 @@ public sealed class CorrectStockCountCommandHandler(
 
         if (batch.Version != command.ExpectedVersion)
             return Errors.Inventory.BatchVersionConflict;
+
+        var items = await itemRepository.GetByIdsAsync(command.ActiveShopId, [batch.ItemId], cancellationToken);
+        var item = items.Count > 0 ? items[0] : null;
+        if (item is null)
+            return Errors.Inventory.ItemNotFound;
+
+        if (!QuantityPolicy.FitsScale(command.CountedQuantity, item.QuantityScale))
+            return Errors.Inventory.QuantityPrecisionExceeded(item.Uom, item.QuantityScale);
 
         var inventory = await inventoryRepository.GetByItemAsync(command.ActiveShopId, batch.ItemId, cancellationToken);
         if (inventory is null)

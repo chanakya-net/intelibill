@@ -76,7 +76,12 @@ public sealed class RecordSaleCommandHandler
         if (validationResultOrError.IsError)
             return validationResultOrError.Errors;
 
-        var (validatedLines, itemNameById) = validationResultOrError.Value;
+        var validatedLines = validationResultOrError.Value.Lines;
+        var itemById = validatedLines
+            .Where(l => l.Item is not null)
+            .Select(l => l.Item!)
+            .DistinctBy(i => i.Id)
+            .ToDictionary(i => i.Id);
         var soldAt = DateTimeOffset.UtcNow;
         var effectiveSaleDiscount = command.SaleDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m);
         var pricingRequest = new SalePricingCalculationRequest(
@@ -207,7 +212,7 @@ public sealed class RecordSaleCommandHandler
 
             var sale = saleOrError.Value;
             var documentOrError = InvoiceDocumentBuilder.Build(
-                new InvoiceIssueContext(sellerProfile, resolvedCustomer, command.PlaceOfSupplyStateCode, soldAt, fiscalYear),
+                new InvoiceIssueContext(sellerProfile, resolvedCustomer, command.PlaceOfSupplyStateCode, soldAt, fiscalYear, ValidatedSaleLines.DocumentUnitsOf(validatedLines)),
                 sale);
             if (documentOrError.IsError)
                 return documentOrError.Errors;
@@ -275,7 +280,7 @@ public sealed class RecordSaleCommandHandler
             await unitOfWork.CommitTransactionAsync(cancellationToken);
             transactionCommitted = true;
 
-            return saleDtoBuilder.BuildSaleDto(sale, itemNameById, sale.Warnings, creditNoteRedemptionsOrError.Value);
+            return saleDtoBuilder.BuildSaleDto(sale, itemById, sale.Warnings, creditNoteRedemptionsOrError.Value);
         }
         catch (DbUpdateConcurrencyException exception) when (IsCreditNoteConcurrencyConflict(command, exception))
         {

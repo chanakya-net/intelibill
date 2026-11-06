@@ -84,7 +84,7 @@ public class ItemTests
         var item = Item.Create(Guid.NewGuid(), "Rice", null, "kg", "BAR001", true, Guid.NewGuid());
         item.ClearDomainEvents();
 
-        item.Update("Rice Updated", null, "kg", "BAR001", true, Guid.NewGuid());
+        item.Update("Rice Updated", null, "BAR001", true, Guid.NewGuid());
 
         Assert.Empty(item.DomainEvents);
     }

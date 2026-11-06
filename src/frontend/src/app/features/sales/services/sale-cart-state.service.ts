@@ -3,6 +3,8 @@ import { Injectable, inject, signal } from '@angular/core';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { ScopeOwner, sameOwner } from '../../../core/context/shop-scope';
 import { SalesCartDraftItem, SalesCartDraftServiceItem, SalesCartIndexedDbService } from '../../../core/storage/sales-cart-indexeddb.service';
+import { fitsQuantityScale, normalizeQuantity, quantityStep } from '../../../shared/quantity/quantity-input';
+import { QUANTITY_SCALE_MAX } from '../../../shared/quantity/quantity-units';
 import type { AvailableBatchDto } from '../../inventory/services/inventory.models';
 import type { SellableServiceDto, ServiceCartLine } from './sale.models';
 
@@ -10,9 +12,45 @@ export interface CartItem extends SalesCartDraftItem {}
 
 export type { ServiceCartLine } from './sale.models';
 
+/** What became of a requested quantity: applied, already so, or refused with the line left as it was. */
+export type QuantityChangeResult = 'ok' | 'unchanged' | 'notFound' | 'notPositive' | 'tooPrecise' | 'exceedsStock';
+
+export type QuantityRefusal = Extract<QuantityChangeResult, 'notPositive' | 'tooPrecise' | 'exceedsStock'>;
+
 export interface AddBatchResult {
   readonly added: boolean;
   readonly addedLineKey: string | null;
+  /** Why nothing was added, when the quantity itself was refused. */
+  readonly refusal?: QuantityRefusal;
+}
+
+/** Service lines are whole units in the cart. */
+const SERVICE_QUANTITY_SCALE = 0;
+
+/**
+ * A sum or difference of stored quantities (each at most three decimals) without binary float noise. It is taken at
+ * the storage scale, never the line's, so a value off the line's scale stays off it and is refused rather than rounded.
+ */
+function quantityArithmetic(value: number): number {
+  return normalizeQuantity(value, QUANTITY_SCALE_MAX);
+}
+
+/** Minus is offered while one unit less still leaves at least one step of the line's unit. */
+export function canDecreaseCartLine(line: Pick<CartItem, 'quantity' | 'quantityScale'>): boolean {
+  return quantityArithmetic(line.quantity - 1) >= quantityStep(line.quantityScale);
+}
+
+/** Plus is offered while one more unit is in stock. */
+export function canIncreaseCartLine(line: Pick<CartItem, 'quantity' | 'quantityScale' | 'availableQuantity'>): boolean {
+  return quantityArithmetic(line.quantity + 1) <= line.availableQuantity;
+}
+
+/** Why a quantity cannot stand for a line of this precision and stock, or null when it can. */
+function refuseQuantity(value: number, scale: number, available: number | null): QuantityRefusal | null {
+  if (!Number.isFinite(value) || value <= 0) return 'notPositive';
+  if (!fitsQuantityScale(value, scale)) return 'tooPrecise';
+  if (available !== null && value > available) return 'exceedsStock';
+  return null;
 }
 
 export interface CartDiscountAdjustment {
@@ -188,66 +226,67 @@ export class SaleCartStateService {
     return saved;
   }
 
+  /**
+   * Adds a quantity of a batch, onto its line when the batch is already in the cart. A quantity the batch's unit
+   * cannot hold, or more than its stock, adds nothing; the line takes the batch's current unit and precision.
+   */
   addBatchToCart(batch: AvailableBatchDto, quantityToAdd: number): AddBatchResult {
     const snapshotCostPrice = Number(batch.costPrice ?? 0);
-    let added = false;
-    let addedLineKey: string | null = null;
+    const unit = {
+      uom: batch.uom ?? '',
+      quantityScale: batch.quantityScale ?? 0,
+      documentUnit: batch.documentUnit ?? 'NOS',
+    };
+    const items = this.cart();
+    const existingIndex = items.findIndex((item) => item.inventoryBatchId === batch.inventoryBatchId);
+    const existing = existingIndex >= 0 ? items[existingIndex] : null;
+    const maxAvailable = existing ? Math.max(existing.availableQuantity, batch.quantity) : batch.quantity;
 
-    this.cart.update((items) => {
-      const existingIndex = items.findIndex(
-        (item) => item.inventoryBatchId === batch.inventoryBatchId,
-      );
+    const amountRefusal = refuseQuantity(quantityToAdd, unit.quantityScale, null);
+    if (amountRefusal) {
+      return { added: false, addedLineKey: null, refusal: amountRefusal };
+    }
 
-      if (existingIndex >= 0) {
-        const existing = items[existingIndex];
-        const maxAvailable = Math.max(existing.availableQuantity, batch.quantity);
-        const nextQuantity = existing.quantity + quantityToAdd;
-        if (nextQuantity > maxAvailable) {
-          return items;
-        }
+    const nextQuantity = existing ? quantityArithmetic(existing.quantity + quantityToAdd) : quantityToAdd;
+    const refusal = refuseQuantity(nextQuantity, unit.quantityScale, maxAvailable);
+    if (refusal) {
+      return { added: false, addedLineKey: null, refusal };
+    }
 
-        added = true;
-        return items.map((item, index) =>
+    if (existing) {
+      this.cart.set(
+        items.map((item, index) =>
           index === existingIndex
-            ? {
-                ...item,
-                quantity: nextQuantity,
-                availableQuantity: maxAvailable,
-              }
+            ? { ...item, ...unit, quantity: nextQuantity, availableQuantity: maxAvailable }
             : item,
-        );
-      }
+        ),
+      );
+      return { added: true, addedLineKey: null };
+    }
 
-      if (quantityToAdd > batch.quantity) {
-        return items;
-      }
-
-      added = true;
-      const clientLineKey = crypto.randomUUID();
-      addedLineKey = clientLineKey;
-      return [
-        ...items,
-        {
-          clientLineKey,
-          barcode: batch.barcode,
-          itemName: batch.itemName,
-          batchNumber: batch.batchNumber,
-          inventoryBatchId: batch.inventoryBatchId,
-          quantity: quantityToAdd,
-          availableQuantity: batch.quantity,
-          salesPrice: batch.salesPrice,
-          mrp: batch.mrp,
-          taxRatePercent: batch.taxRatePercent,
-          taxIncluded: batch.taxIncluded,
-          costPrice: Number.isFinite(snapshotCostPrice) ? this.roundAmount(snapshotCostPrice) : 0,
-          itemDiscountType: 0,
-          itemDiscountValue: 0,
-          hsnCode: this.normalizeHsnCode(batch.hsnCode),
-        },
-      ];
-    });
-
-    return { added, addedLineKey };
+    const clientLineKey = crypto.randomUUID();
+    this.cart.set([
+      ...items,
+      {
+        clientLineKey,
+        barcode: batch.barcode,
+        itemName: batch.itemName,
+        batchNumber: batch.batchNumber,
+        inventoryBatchId: batch.inventoryBatchId,
+        quantity: quantityToAdd,
+        availableQuantity: batch.quantity,
+        salesPrice: batch.salesPrice,
+        mrp: batch.mrp,
+        taxRatePercent: batch.taxRatePercent,
+        taxIncluded: batch.taxIncluded,
+        costPrice: Number.isFinite(snapshotCostPrice) ? this.roundAmount(snapshotCostPrice) : 0,
+        itemDiscountType: 0,
+        itemDiscountValue: 0,
+        hsnCode: this.normalizeHsnCode(batch.hsnCode),
+        ...unit,
+      },
+    ]);
+    return { added: true, addedLineKey: clientLineKey };
   }
 
   addServiceToCart(service: SellableServiceDto): string {
@@ -270,24 +309,48 @@ export class SaleCartStateService {
     return clientLineKey;
   }
 
+  /** One unit more, for every unit (one kilogram of a kg line), while that is in stock. */
   onIncreaseCartItem(index: number): void {
-    this.cart.update((items) =>
-      items.map((item, i) =>
-        i === index && item.quantity < item.availableQuantity
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      )
-    );
+    const item = this.cart()[index];
+    if (item && canIncreaseCartLine(item)) {
+      this.setQuantity(item.clientLineKey, quantityArithmetic(item.quantity + 1));
+    }
   }
 
+  /** One unit less, for every unit, while at least one step of the unit would remain. */
   onDecreaseCartItem(index: number): void {
-    this.cart.update((items) =>
-      items.map((item, i) =>
-        i === index && item.quantity > 1
-          ? { ...item, quantity: item.quantity - 1 }
-          : item
-      )
-    );
+    const item = this.cart()[index];
+    if (item && canDecreaseCartLine(item)) {
+      this.setQuantity(item.clientLineKey, quantityArithmetic(item.quantity - 1));
+    }
+  }
+
+  /**
+   * Sets a goods line to exactly this quantity in one change. A quantity that is not positive, needs more decimals
+   * than the line's unit allows, or exceeds its stock is refused and the line is left as it was: nothing is rounded,
+   * truncated or clamped.
+   */
+  setQuantity(lineKey: string, value: number): QuantityChangeResult {
+    const item = this.cart().find((line) => line.clientLineKey === lineKey);
+    if (!item) {
+      return 'notFound';
+    }
+
+    const refusal = refuseQuantity(value, item.quantityScale, item.availableQuantity);
+    if (refusal) {
+      return refusal;
+    }
+    if (value === item.quantity) {
+      return 'unchanged';
+    }
+
+    this.updateItem(lineKey, (line) => ({ ...line, quantity: value }));
+    return 'ok';
+  }
+
+  canDecreaseCartItem(index: number): boolean {
+    const item = this.cart()[index];
+    return !!item && canDecreaseCartLine(item);
   }
 
   onRemoveCartItem(index: number): void {
@@ -327,14 +390,25 @@ export class SaleCartStateService {
     );
   }
 
-  setServiceQuantity(clientLineKey: string, value: number): void {
-    const qty = Math.max(1, Math.trunc(Number(value)));
-    if (!Number.isFinite(qty)) return;
+  /** Sets a service line to exactly this whole quantity; a fraction or a non-positive value is refused, not truncated. */
+  setServiceQuantity(clientLineKey: string, value: number): QuantityChangeResult {
+    const item = this.serviceCart().find((line) => line.clientLineKey === clientLineKey);
+    if (!item) {
+      return 'notFound';
+    }
+
+    const refusal = refuseQuantity(value, SERVICE_QUANTITY_SCALE, null);
+    if (refusal) {
+      return refusal;
+    }
+    if (value === item.quantity) {
+      return 'unchanged';
+    }
+
     this.serviceCart.update((items) =>
-      items.map((item) =>
-        item.clientLineKey === clientLineKey ? { ...item, quantity: qty } : item
-      )
+      items.map((line) => (line.clientLineKey === clientLineKey ? { ...line, quantity: value } : line)),
     );
+    return 'ok';
   }
 
   onClearCart(): void {
@@ -424,7 +498,7 @@ export class SaleCartStateService {
   }
 
   canIncreaseCartItem(item: CartItem): boolean {
-    return item.quantity < item.availableQuantity;
+    return canIncreaseCartLine(item);
   }
 
   getLineSubtotal(item: CartItem): number {

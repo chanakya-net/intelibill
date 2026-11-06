@@ -29,7 +29,9 @@ public sealed record OfflineSellableBatchDto(
     decimal TaxRatePercent,
     bool TaxIncluded,
     bool PurchaseTaxIncluded,
-    DateOnly? ExpiryDate);
+    DateOnly? ExpiryDate,
+    int QuantityScale,
+    string DocumentUnit);
 
 /// <summary>
 /// A customer the device can bill offline. GSTIN, state and address are the buyer particulars an

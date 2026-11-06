@@ -81,6 +81,9 @@ public sealed class SearchSellablesQueryHandlerTests
         Assert.Equal(2, result.Value.Count);
         Assert.Equal(SellableKind.Goods, result.Value[0].Kind);
         Assert.Equal(batch.Id, result.Value[0].InventoryBatchId);
+        Assert.Equal(("kg", 3), (result.Value[0].Uom, result.Value[0].QuantityScale));
+        Assert.Null(result.Value[1].Uom);
+        Assert.Null(result.Value[1].QuantityScale);
         Assert.Equal(SellableKind.Service, result.Value[1].Kind);
         Assert.Equal(service.Id, result.Value[1].ServiceId);
 

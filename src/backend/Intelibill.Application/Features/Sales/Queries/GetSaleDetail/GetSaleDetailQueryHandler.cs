@@ -4,6 +4,7 @@ using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Queries.GetSaleDetail;
 
@@ -46,6 +47,7 @@ public sealed class GetSaleDetailQueryHandler(
             .ToList();
         var items = await itemRepository.GetByIdsAsync(query.ShopId, itemIds, cancellationToken);
         var itemNameById = items.ToDictionary(i => i.Id, i => i.Name);
+        var itemById = items.ToDictionary(i => i.Id);
 
         var saleReturns = await saleReturnRepository.GetBySaleAsync(query.ShopId, sale.Id, cancellationToken);
         var activeReturns = saleReturns
@@ -108,6 +110,14 @@ public sealed class GetSaleDetailQueryHandler(
                 TotalAmount = si.TotalAmount,
                 HsnCode = si.HsnCode,
                 SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
+                Uom = si.LineType == SaleLineType.Goods && si.ItemId.HasValue
+                    ? itemById.GetValueOrDefault(si.ItemId.Value)?.Uom
+                    : null,
+                QuantityScale = si.LineType == SaleLineType.Service
+                    ? QuantityUnits.MaxScale
+                    : QuantityPolicy.ReturnScale(
+                        si.ItemId.HasValue ? itemById.GetValueOrDefault(si.ItemId.Value)?.QuantityScale : null,
+                        si.Quantity),
                 }).ToList(),
             [])
         {

@@ -24,7 +24,9 @@ public sealed record SellableDto(
     string? Name = null,
     string? Description = null,
     decimal? Price = null,
-    string? HsnCode = null)
+    string? HsnCode = null,
+    string? Uom = null,
+    int? QuantityScale = null)
 {
     public static SellableDto FromInventoryBatch(
         Guid inventoryBatchId,
@@ -37,7 +39,9 @@ public sealed record SellableDto(
         decimal taxRatePercent,
         bool taxIncluded,
         bool purchaseTaxIncluded,
-        DateOnly? expiryDate) =>
+        DateOnly? expiryDate,
+        string? uom = null,
+        int? quantityScale = null) =>
         new(
             SellableKind.Goods,
             InventoryBatchId: inventoryBatchId,
@@ -50,7 +54,9 @@ public sealed record SellableDto(
             TaxRatePercent: taxRatePercent,
             TaxIncluded: taxIncluded,
             PurchaseTaxIncluded: purchaseTaxIncluded,
-            ExpiryDate: expiryDate);
+            ExpiryDate: expiryDate,
+            Uom: uom,
+            QuantityScale: quantityScale);
 
     public static SellableDto FromService(
         Guid serviceId,

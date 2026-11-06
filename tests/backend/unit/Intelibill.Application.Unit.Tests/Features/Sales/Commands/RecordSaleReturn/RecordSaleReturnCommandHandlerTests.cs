@@ -26,6 +26,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
     private readonly ICreditNoteCodeGenerator _creditNoteCodeGenerator = Substitute.For<ICreditNoteCodeGenerator>();
     private readonly ISaleReturnNumberGenerator _returnNumberGenerator = Substitute.For<ISaleReturnNumberGenerator>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
     private readonly ISaleReturnCalculator _calculator = new SaleReturnCalculator();
     private IReturnAccountingPolicy _accountingPolicy = new ProportionalLineTaxReturnAccountingPolicy();
 
@@ -46,7 +47,8 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 _saleReturnRepository,
                 _inventoryBatchRepository,
                 _customerLedgerEntryRepository,
-                _calculator),
+                _calculator,
+                _itemRepository),
             _returnNumberGenerator,
             _creditNoteCodeGenerator,
             _creditNoteRepository,

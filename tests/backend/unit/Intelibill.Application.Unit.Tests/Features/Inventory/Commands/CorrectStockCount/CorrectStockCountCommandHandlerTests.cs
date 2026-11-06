@@ -27,6 +27,7 @@ public sealed class CorrectStockCountCommandHandlerTests
     private readonly IInventoryAdjustmentNumberGenerator _numberGenerator = Substitute.For<IInventoryAdjustmentNumberGenerator>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly IFinancialOperationExecutor _operationExecutor = Substitute.For<IFinancialOperationExecutor>();
+    private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
 
     private readonly User _actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
     private readonly Shop _shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
@@ -37,6 +38,8 @@ public sealed class CorrectStockCountCommandHandlerTests
     public CorrectStockCountCommandHandlerTests()
     {
         _numberGenerator.Generate(Arg.Any<DateTimeOffset?>()).Returns("ADJ-20261101-ABCDEF12");
+        _itemRepository.GetByIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(ci => new List<Item> { Item.Create(ci.ArgAt<Guid>(0), "Rice", "d", "kg", "BC-0", true, Guid.NewGuid()) });
         _batch = InventoryBatch.Create(_shop.Id, _itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, _actor.Id).Value;
         _inventory = DomainInventory.Create(_shop.Id, _itemId, 15m, 2m, 50m, _actor.Id).Value;
         _batchRepository.GetByIdAsync(_batch.Id, Arg.Any<CancellationToken>()).Returns(_batch);
@@ -207,6 +210,45 @@ public sealed class CorrectStockCountCommandHandlerTests
             Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleAsync_WhenCountedQuantityExceedsItemScale_RefusesWithoutPosting()
+    {
+        UseRole(ShopRole.Manager);
+        var item = Item.Create(_shop.Id, "Soap", "d", "PCS", "BC-2", true, _actor.Id);
+        _itemRepository.GetByIdsAsync(_shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns([item]);
+
+        var result = await CreateHandler().HandleAsync(Command(2.5m), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Inventory.QuantityPrecisionExceeded", result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenTheBatchItemIsMissing_RefusesWithoutPosting()
+    {
+        UseRole(ShopRole.Manager);
+        _itemRepository.GetByIdsAsync(_shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns(new List<Item>());
+
+        var result = await CreateHandler().HandleAsync(Command(2.5m), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("Inventory.ItemNotFound", result.FirstError.Code);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCountedQuantityIsZeroOrFitsScale_IsAccepted()
+    {
+        UseRole(ShopRole.Manager);
+        var item = Item.Create(_shop.Id, "Soap", "d", "PCS", "BC-2", true, _actor.Id);
+        _itemRepository.GetByIdsAsync(_shop.Id, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns([item]);
+
+        var result = await CreateHandler().HandleAsync(Command(0m), CancellationToken.None);
+
+        Assert.False(result.IsError);
+    }
+
     private void UseRole(ShopRole role) =>
         _actor.AddShopMembership(ShopMembership.Create(_shop.Id, _actor.Id, role, true));
 
@@ -223,5 +265,6 @@ public sealed class CorrectStockCountCommandHandlerTests
             _stockCountRepository,
             _numberGenerator,
             _unitOfWork,
-            _operationExecutor);
+            _operationExecutor,
+            _itemRepository);
 }

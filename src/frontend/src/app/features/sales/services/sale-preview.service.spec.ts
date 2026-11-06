@@ -202,6 +202,17 @@ describe('SalePreviewService', () => {
     expect(service.extractPreviewErrorMessage({})).toBe('sales.newSale.previewError');
   });
 
+  it('explains a quantity the server refuses for its unit, whichever way the code arrives', () => {
+    const service = setup();
+    const handlerError = { error: { title: 'Sale.QuantityPrecisionExceeded', detail: "Quantity for 'X' is sold in PCS." } };
+    const validatorError = {
+      error: { title: 'Validation.Failed', errors: [{ code: 'Sale.QuantityPrecisionExceeded', description: 'English' }] },
+    };
+
+    expect(service.extractPreviewErrorMessage(handlerError)).toBe('sales.newSale.quantityPrecisionExceeded');
+    expect(service.extractPreviewErrorMessage(validatorError)).toBe('sales.newSale.quantityPrecisionExceeded');
+  });
+
   function makePreview(): SalePreviewDto {
     return {
       totalAmount: 100,
@@ -233,6 +244,9 @@ describe('SalePreviewService', () => {
       itemDiscountType: 0,
       itemDiscountValue: 0,
       hsnCode: null,
+      uom: 'PCS',
+      quantityScale: 0,
+      documentUnit: 'NOS',
     };
   }
 });

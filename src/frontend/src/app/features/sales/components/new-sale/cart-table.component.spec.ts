@@ -20,7 +20,40 @@ const item = {
   itemDiscountType: 0,
   itemDiscountValue: 0,
   hsnCode: '0902',
+  uom: 'PCS',
+  quantityScale: 0,
+  documentUnit: 'NOS',
 };
+
+const kgItem = {
+  ...item,
+  clientLineKey: 'line-kg',
+  itemName: 'Rice',
+  quantity: 1,
+  availableQuantity: 5,
+  uom: 'kg',
+  quantityScale: 3,
+  documentUnit: 'KGS',
+};
+
+const serviceLine = {
+  kind: 'service' as const,
+  clientLineKey: 'svc-line-1',
+  serviceId: 'svc-1',
+  serviceName: 'Repair',
+  serviceCode: 'R1',
+  quantity: 1,
+  unitPrice: 100,
+  taxRatePercent: 18,
+  taxIncluded: false,
+  hsnCode: null,
+};
+
+function typeAndCommit(input: HTMLInputElement, text: string): void {
+  input.value = text;
+  input.dispatchEvent(new Event('input'));
+  input.dispatchEvent(new Event('blur'));
+}
 
 describe('CartTableComponent', () => {
   it('renders empty cart state when no rows are present', () => {
@@ -118,13 +151,130 @@ describe('CartTableComponent', () => {
     fixture.componentInstance.itemRemoved.subscribe(removedSpy);
     fixture.detectChanges();
 
-    fixture.componentInstance.increase('line-1', 2);
-    fixture.componentInstance.decrease('line-1', 2);
+    fixture.componentInstance.increase(item as never);
+    fixture.componentInstance.decrease(item as never);
     fixture.componentInstance.remove('line-1');
 
     expect(quantitySpy).toHaveBeenCalledWith({ itemId: 'line-1', qty: 3 });
     expect(quantitySpy).toHaveBeenCalledWith({ itemId: 'line-1', qty: 1 });
     expect(removedSpy).toHaveBeenCalledWith('line-1');
+  });
+
+  it('emits quantityChanged once with the exact quantity the field committed', () => {
+    TestBed.configureTestingModule({
+      imports: [
+        CartTableComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
+    });
+
+    const fixture = TestBed.createComponent(CartTableComponent);
+    fixture.componentInstance.cartItems = [kgItem as never];
+    const quantitySpy = vi.fn<(event: CartQuantityChangedEvent) => void>();
+    fixture.componentInstance.quantityChanged.subscribe(quantitySpy);
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('app-quantity-field input') as HTMLInputElement;
+    expect(input.value).toBe('1');
+    expect(input.getAttribute('inputmode')).toBe('decimal');
+    expect(input.getAttribute('aria-label')).toBe('en.sales.newSale.quantityOf');
+    expect((fixture.nativeElement.textContent as string)).toContain('kg');
+
+    typeAndCommit(input, '0.25');
+
+    expect(quantitySpy).toHaveBeenCalledTimes(1);
+    expect(quantitySpy).toHaveBeenCalledWith({ itemId: 'line-kg', qty: 0.25 });
+  });
+
+  it('keeps the row, and so the focused control, when the line quantity changes', async () => {
+    TestBed.configureTestingModule({
+      imports: [
+        CartTableComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
+    });
+
+    const fixture = TestBed.createComponent(CartTableComponent);
+    fixture.componentInstance.cartItems = [kgItem as never];
+    fixture.detectChanges();
+    const before = fixture.nativeElement.querySelector('app-quantity-field input') as HTMLInputElement;
+
+    fixture.componentInstance.cartItems = [{ ...kgItem, quantity: 0.25 } as never];
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const after = fixture.nativeElement.querySelector('app-quantity-field input') as HTMLInputElement;
+
+    expect(after).toBe(before);
+    expect(after.value).toBe('0.25');
+  });
+
+  it('emits nothing for a quantity the unit cannot hold', () => {
+    TestBed.configureTestingModule({
+      imports: [
+        CartTableComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
+    });
+
+    const fixture = TestBed.createComponent(CartTableComponent);
+    fixture.componentInstance.cartItems = [item as never];
+    const quantitySpy = vi.fn<(event: CartQuantityChangedEvent) => void>();
+    fixture.componentInstance.quantityChanged.subscribe(quantitySpy);
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('app-quantity-field input') as HTMLInputElement;
+    typeAndCommit(input, '0.5');
+    fixture.detectChanges();
+
+    expect(quantitySpy).not.toHaveBeenCalled();
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+  });
+
+  it('steps a fractional line by one whole unit and disables minus below one step', () => {
+    TestBed.configureTestingModule({
+      imports: [
+        CartTableComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
+    });
+
+    const fixture = TestBed.createComponent(CartTableComponent);
+    const quantitySpy = vi.fn<(event: CartQuantityChangedEvent) => void>();
+    fixture.componentInstance.quantityChanged.subscribe(quantitySpy);
+
+    fixture.componentInstance.increase({ ...kgItem, quantity: 0.1 } as never);
+    fixture.componentInstance.decrease({ ...kgItem, quantity: 1.1 } as never);
+    fixture.componentInstance.decrease({ ...kgItem, quantity: 1 } as never);
+
+    expect(quantitySpy.mock.calls.map(([event]) => event.qty)).toEqual([1.1, 0.1]);
+    expect(fixture.componentInstance.canDecrease({ ...kgItem, quantity: 1 } as never)).toBe(false);
+    expect(fixture.componentInstance.canDecrease({ ...kgItem, quantity: 1.001 } as never)).toBe(true);
+    expect(fixture.componentInstance.canDecrease({ ...item, quantity: 1 } as never)).toBe(false);
+    expect(fixture.componentInstance.canDecrease({ ...item, quantity: 2 } as never)).toBe(true);
+  });
+
+  it('takes whole service quantities through the same field', () => {
+    TestBed.configureTestingModule({
+      imports: [
+        CartTableComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
+    });
+
+    const fixture = TestBed.createComponent(CartTableComponent);
+    fixture.componentInstance.serviceCartItems = [serviceLine as never];
+    const quantitySpy = vi.fn<(event: CartQuantityChangedEvent) => void>();
+    fixture.componentInstance.quantityChanged.subscribe(quantitySpy);
+    fixture.detectChanges();
+
+    const input = fixture.nativeElement.querySelector('app-quantity-field input') as HTMLInputElement;
+    expect(input.getAttribute('inputmode')).toBe('numeric');
+    typeAndCommit(input, '2.5');
+    typeAndCommit(input, '3');
+
+    expect(quantitySpy).toHaveBeenCalledTimes(1);
+    expect(quantitySpy).toHaveBeenCalledWith({ itemId: 'svc-line-1', qty: 3 });
   });
 
   it('normalizes tax rate to 2 decimal places before emitting', () => {

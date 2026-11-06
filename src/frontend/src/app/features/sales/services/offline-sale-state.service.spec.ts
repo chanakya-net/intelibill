@@ -21,6 +21,8 @@ describe('OfflineSaleStateService', () => {
   };
 
   const snapshotDb = {
+    getUsableBatches: vi.fn<OfflineSalesSnapshotIndexedDbService['getUsableBatches']>(),
+    getUsableServices: vi.fn<OfflineSalesSnapshotIndexedDbService['getUsableServices']>(),
     getUsableDiscountRules: vi.fn<OfflineSalesSnapshotIndexedDbService['getUsableDiscountRules']>(),
     getUsableCustomers: vi.fn<OfflineSalesSnapshotIndexedDbService['getUsableCustomers']>(),
     getUsableSnapshotInfo: vi.fn<OfflineSalesSnapshotIndexedDbService['getUsableSnapshotInfo']>(),
@@ -167,6 +169,9 @@ describe('OfflineSaleStateService', () => {
         itemDiscountType: 0,
         itemDiscountValue: 0,
         hsnCode: null,
+        uom: 'PCS',
+        quantityScale: 0,
+        documentUnit: 'NOS',
       }],
       {
         paymentMethod: 1,
@@ -184,6 +189,54 @@ describe('OfflineSaleStateService', () => {
     expect(preview.lines).toHaveLength(1);
     expect(preview.lines[0].configuredBatchRuleId).toBe('rule-1');
     expect(preview.lines[0].hasClientPriceMismatch).toBe(false);
+  });
+
+  it('sells an old snapshot batch without a precision as whole units printed NOS', async () => {
+    const batchRow = {
+      batchId: 'batch-old',
+      itemId: 'item-1',
+      itemName: 'Rice',
+      barcode: 'RICE',
+      uom: 'kg',
+      batchNumber: 'B1',
+      quantity: 10,
+      costPrice: 40,
+      mrp: 60,
+      salesPrice: 50,
+      taxRatePercent: 5,
+      taxIncluded: false,
+      purchaseTaxIncluded: false,
+    };
+    snapshotDb.getUsableBatches.mockResolvedValue([
+      batchRow,
+      { ...batchRow, batchId: 'batch-new', batchNumber: 'B2', quantityScale: 3, documentUnit: 'KGS' },
+    ]);
+    snapshotDb.getUsableServices.mockResolvedValue([]);
+
+    const service = setup();
+    const results = await service.searchOfflineCatalog('rice');
+
+    expect(results.find((row) => row.inventoryBatchId === 'batch-old')).toMatchObject({
+      uom: 'kg',
+      quantityScale: 0,
+      documentUnit: 'NOS',
+    });
+    expect(results.find((row) => row.inventoryBatchId === 'batch-new')).toMatchObject({
+      uom: 'kg',
+      quantityScale: 3,
+      documentUnit: 'KGS',
+    });
+  });
+
+  it('answers a part quantity an old snapshot cannot sell with its own message', async () => {
+    snapshotDb.getUsableCustomers.mockResolvedValue([]);
+    finalization.finalizeAndQueue.mockResolvedValue({ ok: false, reason: 'QUANTITY_PRECISION_EXCEEDED' });
+
+    const service = setup();
+    await service.refreshSnapshot();
+    const result = await service.submitOfflineSale(buildSubmitPayload(null));
+
+    expect(result).toEqual({ ok: false, errorKey: 'sales.newSale.offline.blockQuantityPrecision' });
   });
 
   it('submits a sale when payload is valid', async () => {

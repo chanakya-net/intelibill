@@ -92,6 +92,25 @@
         </div>
 
         <div class="field">
+          <label for="add-product-scale">{{ 'inventory.quantityScale.label' | transloco }}</label>
+          <select
+            id="add-product-scale"
+            class="w-full p-inputtext"
+            formControlName="quantityScale"
+            [attr.aria-describedby]="'add-product-scale-hint'"
+          >
+            @for (option of scaleOptions; track option.value) {
+              <option [ngValue]="option.value">{{ option.labelKey | transloco }}</option>
+            }
+          </select>
+          <small id="add-product-scale-hint" class="field-hint">{{
+            (form.controls.quantityScale.disabled
+              ? 'inventory.quantityScale.catalogHint'
+              : 'inventory.quantityScale.customHint') | transloco
+          }}</small>
+        </div>
+
+        <div class="field">
           <label for="add-product-hsn">{{ 'hsn.hsnCode' | transloco }}</label>
           <input
             id="add-product-hsn"

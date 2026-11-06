@@ -7,6 +7,11 @@ import {
   CURRENCY_INPUT_NUMBER_PT,
 } from '../../../shared/primeng-pt.config';
 import { InputValidators } from '../../../shared/forms/input-validation';
+import { fitsQuantityScale, normalizeQuantity, quantityStep } from '../../../shared/quantity/quantity-input';
+import { QuantityMessage, tooPreciseMessage } from '../../../shared/quantity/quantity-messages';
+import { TranslocoService } from '@ngneat/transloco';
+import { QUANTITY_SCALE_MAX } from '../../../shared/quantity/quantity-units';
+import { batchToGoodsSellable } from '../utils/sellable-goods.mapper';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { NetworkStatusService } from '../../../core/services/network-status.service';
@@ -23,7 +28,7 @@ import type {
   SalePreviewLineDto,
   ServiceCartLine,
 } from '../services/sale.models';
-import { SaleCartStateService, CartItem } from '../services/sale-cart-state.service';
+import { SaleCartStateService, CartItem, QuantityRefusal } from '../services/sale-cart-state.service';
 import { SaleService } from '../services/sale.service';
 import { CheckoutIntentService, CheckoutScope } from '../services/checkout-intent.service';
 import type { CheckoutIntent } from '../../../core/storage/checkout-intent-indexeddb.service';
@@ -34,6 +39,28 @@ import { CustomerDto } from '../components/new-sale/sale-customer-section.compon
 import { PaymentMethodOption } from '../components/new-sale/sale-payment-section.component';
 import { CreateSaleResponse } from '../components/new-sale/sale-confirmation-dialog.component';
 import { SyncStatus } from '../components/new-sale/offline-status-banner.component';
+
+/** Why the cart refused a quantity, as the message the page shows. */
+export const QUANTITY_REFUSAL_KEYS: Readonly<Record<QuantityRefusal, string>> = {
+  exceedsStock: 'sales.newSale.exceedsStock',
+  tooPrecise: 'sales.newSale.quantityPrecisionExceeded',
+  notPositive: 'common.quantity.errors.notPositive',
+};
+
+/** Every message the cart may show for a refused quantity, so a change that lands can clear exactly those. */
+export const QUANTITY_REFUSAL_MESSAGE_KEYS: ReadonlySet<string> = new Set([
+  ...Object.values(QUANTITY_REFUSAL_KEYS),
+  'common.quantity.errors.tooPrecise',
+  'common.quantity.errors.tooPreciseWhole',
+]);
+
+/** A line a refusal can name: its unit label (or the item's name when it has none) and its allowed decimals. */
+export interface QuantityRefusalLine {
+  readonly uom?: string | null;
+  readonly itemName?: string | null;
+  readonly serviceName?: string | null;
+  readonly quantityScale?: number | null;
+}
 
 const STALE_INTERVAL_4H = 4 * 60 * 60 * 1000;
 const MAX_OFFLINE_AGE_MS = 48 * 60 * 60 * 1000;
@@ -55,6 +82,7 @@ export abstract class NewSalePageStateService {
   protected readonly salePreview = inject(SalePreviewService);
   protected readonly shopUpdatesService = inject(ShopUpdatesSignalRService);
   protected readonly destroyRef = inject(DestroyRef);
+  protected readonly transloco = inject(TranslocoService);
   protected readonly injector = inject(Injector);
   protected readonly networkStatus = inject(NetworkStatusService);
   protected readonly offlineSaleState = inject(OfflineSaleStateService);
@@ -71,6 +99,8 @@ export abstract class NewSalePageStateService {
   readonly searchSuggestions = signal<string[]>([]);
   readonly isSearchingBatches = signal(false);
   readonly batchSearchError = signal('');
+  /** What the message in `batchSearchError` interpolates (the unit and its allowed decimals), when it names a unit. */
+  readonly batchSearchErrorParams = signal<QuantityMessage['params'] | null>(null);
   readonly availableBatches = signal<readonly AvailableBatchDto[]>([]);
   readonly availableSellables = signal<readonly SellableDto[]>([]);
   readonly pickerSellables = computed<readonly SellableDto[]>(() => {
@@ -78,22 +108,7 @@ export abstract class NewSalePageStateService {
     if (sellables.length > 0) {
       return sellables;
     }
-    return this.availableBatches().map(
-      (b): SellableDto => ({
-        kind: 'Goods',
-        inventoryBatchId: b.inventoryBatchId,
-        barcode: b.barcode,
-        itemName: b.itemName,
-        batchNumber: b.batchNumber,
-        quantity: b.quantity,
-        salesPrice: b.salesPrice,
-        mrp: b.mrp,
-        taxRatePercent: b.taxRatePercent,
-        taxIncluded: b.taxIncluded,
-        expiryDate: b.expiryDate,
-        hsnCode: b.hsnCode,
-      }),
-    );
+    return this.availableBatches().map(batchToGoodsSellable);
   });
   readonly quickProductTiles = computed(() => {
     const seenKeys = new Set<string>();
@@ -378,7 +393,8 @@ export abstract class NewSalePageStateService {
 
   readonly batchPickerForm = this.fb.nonNullable.group({
     batchNumber: [''],
-    quantity: [1, [Validators.required, Validators.min(1)]],
+    // Whether the quantity fits the picked item's unit is checked when it is added (onAddToCart).
+    quantity: [1, [Validators.required, Validators.min(quantityStep(QUANTITY_SCALE_MAX))]],
   });
 
   readonly customerForm = this.fb.nonNullable.group({
@@ -393,6 +409,63 @@ export abstract class NewSalePageStateService {
   });
 
   protected initialized = false;
+
+  protected quantityRefusalKey(refusal: QuantityRefusal): string {
+    return QUANTITY_REFUSAL_KEYS[refusal];
+  }
+
+  /** What is left of a batch after the quantity already in the cart for it. */
+  protected remainingStock(batch: Pick<AvailableBatchDto, 'inventoryBatchId' | 'quantity'>): number {
+    const line = this.cart().find((item) => item.inventoryBatchId === batch.inventoryBatchId);
+    const available = Math.max(line?.availableQuantity ?? 0, batch.quantity);
+    return normalizeQuantity(available - (line?.quantity ?? 0), QUANTITY_SCALE_MAX);
+  }
+
+  /**
+   * Shows why a quantity was refused. A too-precise quantity names the line's unit and the decimals it allows;
+   * without a line to name, the generic message is shown.
+   */
+  protected showQuantityRefusal(refusal: QuantityRefusal, line?: QuantityRefusalLine | null): void {
+    if (refusal === 'tooPrecise' && line) {
+      const message = tooPreciseMessage(
+        line.uom || line.itemName || line.serviceName || '',
+        line.quantityScale ?? 0,
+        this.transloco.getActiveLang(),
+      );
+      this.batchSearchErrorParams.set(message.params);
+      this.batchSearchError.set(message.key);
+      return;
+    }
+
+    this.batchSearchErrorParams.set(null);
+    this.batchSearchError.set(this.quantityRefusalKey(refusal));
+  }
+
+  /**
+   * The message for the server's answer. When the server refused a quantity's precision and exactly one cart line
+   * holds more decimals than its own unit allows, that line's unit is named; otherwise the generic text stays.
+   */
+  serverErrorMessage(): { readonly key: string; readonly params: QuantityMessage['params'] | null } {
+    const key = this.serverError() ?? '';
+    if (key !== QUANTITY_REFUSAL_KEYS.tooPrecise) {
+      return { key, params: null };
+    }
+
+    const lines: QuantityRefusalLine[] = this.cart()
+      .filter((item) => !fitsQuantityScale(item.quantity, item.quantityScale))
+      .map((item) => item);
+    lines.push(...this.serviceCart().filter((item) => !fitsQuantityScale(item.quantity, 0)));
+    if (lines.length !== 1) {
+      return { key, params: null };
+    }
+
+    const named = tooPreciseMessage(
+      lines[0].uom || lines[0].itemName || lines[0].serviceName || '',
+      lines[0].quantityScale ?? 0,
+      this.transloco.getActiveLang(),
+    );
+    return { key: named.key, params: named.params };
+  }
 
   protected readFacadeValue<T>(value: T | (() => T)): T {
     return typeof value === 'function' ? (value as () => T)() : value;

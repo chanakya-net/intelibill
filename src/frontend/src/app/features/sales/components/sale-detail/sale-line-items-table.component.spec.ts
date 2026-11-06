@@ -36,6 +36,8 @@ const makeItem = (overrides: Partial<SaleItemDto> = {}): SaleItemDto => ({
   returnedQuantity: 0,
   returnableQuantity: 2,
   returnStatus: 'Returnable',
+  uom: 'PCS',
+  quantityScale: 0,
   hsnCode: null,
   ...overrides,
 });

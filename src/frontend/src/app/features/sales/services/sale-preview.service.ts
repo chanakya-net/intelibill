@@ -6,6 +6,7 @@ import { NetworkStatusService } from '../../../core/services/network-status.serv
 import { CartItem } from './sale-cart-state.service';
 import type { InstantDiscountRequest, PreviewSaleRequest, SalePreviewDto, ServiceCartLine } from './sale.models';
 import { SaleService } from './sale.service';
+import { saleQuantityErrorKey } from '../utils/sale-quantity-error';
 
 type PreviewRequestResult =
   | { readonly requestId: number; readonly preview: SalePreviewDto; readonly failed?: false }
@@ -143,6 +144,11 @@ export class SalePreviewService {
   extractPreviewErrorMessage(error: unknown): string {
     if (typeof error !== 'object' || error === null) {
       return 'sales.newSale.previewError';
+    }
+
+    const quantityKey = saleQuantityErrorKey(error);
+    if (quantityKey) {
+      return quantityKey;
     }
 
     const errorLike = error as { error?: { detail?: unknown; title?: unknown; errors?: unknown } };

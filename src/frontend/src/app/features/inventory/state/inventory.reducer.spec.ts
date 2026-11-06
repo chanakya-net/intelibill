@@ -17,6 +17,9 @@ const milkItem: Item = {
   hsnCode: '0401',
   defaultTaxRatePercent: 5,
   defaultTaxIncluded: false,
+  unitCode: null,
+  quantityScale: 0,
+  unitReviewRequired: false,
 };
 
 describe('inventoryReducer', () => {

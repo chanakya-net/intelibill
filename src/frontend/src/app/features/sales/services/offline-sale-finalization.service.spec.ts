@@ -272,6 +272,61 @@ describe('OfflineSaleFinalizationService', () => {
     expect(shadowDb.ensureQuantity).toHaveBeenCalledTimes(1);
   });
 
+  it('sums 0.1 and 0.2 of one batch as exactly 0.3 of shadow stock', async () => {
+    const { service, snapshotDb, shadowDb } = setup();
+    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), quantityScale: 3, documentUnit: 'KGS' }]);
+    shadowDb.ensureQuantity.mockResolvedValue(0.3);
+
+    const result = await service.finalizeAndQueue(withQuantities(0.1, 0.2));
+
+    expect(result.ok).toBe(true);
+    expect(shadowDb.ensureQuantity).toHaveBeenCalledTimes(1);
+    expect(shadowDb.reduceQuantity).toHaveBeenNthCalledWith(1, 'shop-1', 'device-1', 'batch-1', 0.1);
+    expect(shadowDb.reduceQuantity).toHaveBeenNthCalledWith(2, 'shop-1', 'device-1', 'batch-1', 0.2);
+  });
+
+  it('freezes the snapshot document unit on each goods line', async () => {
+    const { service, snapshotDb, queueDb } = setup();
+    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), quantityScale: 3, documentUnit: 'KGS' }]);
+
+    const result = await service.finalizeAndQueue(withQuantities(0.25));
+
+    expect(result.ok).toBe(true);
+    const saved = queueDb.savePendingSale.mock.calls[0][0];
+    expect(saved.payload.pricing.lines[0]).toMatchObject({ quantity: 0.25, documentUnit: 'KGS' });
+    expect(saved.payload.document.lines[0]).toMatchObject({ uom: 'KGS', quantity: 0.25 });
+  });
+
+  it('prints NOS for a batch from a snapshot taken before units', async () => {
+    const { service, queueDb } = setup();
+
+    const result = await service.finalizeAndQueue(makeRequest());
+
+    expect(result.ok).toBe(true);
+    expect(queueDb.savePendingSale.mock.calls[0][0].payload.pricing.lines[0].documentUnit).toBe('NOS');
+  });
+
+  it('refuses a part quantity of a batch from a snapshot taken before units, before consuming a number', async () => {
+    const { service, leaseDb, queueDb, shadowDb } = setup();
+
+    const result = await service.finalizeAndQueue(withQuantities(0.5));
+
+    expect(result).toEqual({ ok: false, reason: 'QUANTITY_PRECISION_EXCEEDED' });
+    expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
+    expect(queueDb.savePendingSale).not.toHaveBeenCalled();
+    expect(shadowDb.reduceQuantity).not.toHaveBeenCalled();
+  });
+
+  it('refuses more decimals than the snapshot unit allows', async () => {
+    const { service, snapshotDb } = setup();
+    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), quantityScale: 3, documentUnit: 'KGS' }]);
+
+    await expect(service.finalizeAndQueue(withQuantities(0.0001))).resolves.toEqual({
+      ok: false,
+      reason: 'QUANTITY_PRECISION_EXCEEDED',
+    });
+  });
+
   it('requires cached customer when due amount exists', async () => {
     vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce('11111111-1111-4111-8111-111111111111');
     const { service, snapshotDb } = setup();
@@ -361,6 +416,23 @@ describe('OfflineSaleFinalizationService', () => {
             hsnCode: null as string | null,
           },
         ],
+      },
+    };
+  }
+
+  /** One line per quantity, all of batch-1, paid in full. */
+  function withQuantities(...quantities: number[]): OfflineFinalizeRequest {
+    const baseRequest = makeRequest();
+    return {
+      ...baseRequest,
+      pricingInput: {
+        ...baseRequest.pricingInput,
+        paidAmount: 1_000,
+        lines: quantities.map((quantity, index) => ({
+          ...baseRequest.pricingInput.lines[0],
+          clientLineId: `line-${index + 1}`,
+          quantity,
+        })),
       },
     };
   }

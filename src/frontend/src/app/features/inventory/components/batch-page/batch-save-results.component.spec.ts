@@ -186,4 +186,26 @@ describe('BatchSaveResultsComponent', () => {
       expect(btn.nativeElement.disabled).toBe(true);
     });
   });
+
+  it('shows a translated key for a quantity precision refusal instead of the server text', () => {
+    const fixture = setup();
+    fixture.componentInstance.saveSummary = {
+      requestedCount: 1,
+      successCount: 0,
+      failedCount: 1,
+      succeeded: [],
+      failed: [
+        {
+          clientRowId: 'row-1',
+          itemName: 'Rice',
+          barcode: 'B001',
+          errors: [{ code: 'Inventory.QuantityPrecisionExceeded', description: 'English server text' }],
+        },
+      ],
+    };
+
+    const text = fixture.componentInstance.failedRowErrorTextById().get('row-1');
+    expect(text).toContain('inventory.quantityPrecisionExceeded');
+    expect(text).not.toContain('English server text');
+  });
 });

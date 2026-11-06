@@ -20,7 +20,18 @@
     "remove": "Remove",
     "status": "Status",
     "void": "Void",
-    "required": "This field is required"
+    "required": "This field is required",
+    "quantity": {
+      "defaultUnit": "units",
+      "errors": {
+        "empty": "Enter a quantity.",
+        "invalid": "Enter digits only, with at most one decimal point.",
+        "notPositive": "Quantity must be greater than zero.",
+        "tooPreciseWhole": "Too many decimals for {{unit}}: whole numbers only.",
+        "tooPrecise": "Too many decimals for {{unit}}: up to {{decimals}} allowed, for example {{step}}.",
+        "exceedsMax": "Only {{max}} {{unit}} in stock."
+      }
+    }
   },
   "languages": {
     "en-IN": "English",
@@ -804,7 +815,23 @@
     "receiptCostVersionConflict": "This receipt changed after you opened it. The list is refreshed; open it again to make your correction.",
     "receiptCostEvidenceMissing": "The original receipt amount for this batch is not on record, so its cost cannot be corrected.",
     "receiptCostUnchanged": "The revised total is the same as the current total; there is nothing to correct.",
-    "receiptCostError": "Failed to correct the receipt cost"
+    "receiptCostError": "Failed to correct the receipt cost",
+    "quantityScale": {
+      "label": "Quantity precision",
+      "whole": "Whole numbers",
+      "oneDecimal": "1 decimal place (0.1)",
+      "twoDecimals": "2 decimal places (0.01)",
+      "threeDecimals": "3 decimal places (0.001)",
+      "catalogHint": "Fixed by this unit.",
+      "customHint": "How finely this unit can be sold or counted."
+    },
+    "unitReview": {
+      "badge": "Review unit",
+      "badgeHint": "This item's unit was set before quantity precision existed. Open it to choose how its quantity may be divided.",
+      "note": "This item's unit was set before quantity precision existed. Choose the precision that fits its unit; it must cover the stock on hand.",
+      "confirmNote": "This item's unit was set before quantity precision existed. Save to confirm its unit and precision."
+    },
+    "quantityPrecisionExceeded": "A quantity has more decimal places than its item's unit allows. Correct it and try again."
   },
   "hsn": {
     "suggestion": "HSN Suggestion",
@@ -1024,7 +1051,10 @@
       "itemNotFound": "The item no longer exists.",
       "barcodeAlreadyExists": "An item with this barcode already exists in this shop.",
       "preferredSupplierNotFound": "The preferred supplier was not found for this shop.",
-      "unableToUpdateItem": "Unable to update product right now. Please try again."
+      "unableToUpdateItem": "Unable to update product right now. Please try again.",
+      "unitChangeWithHistory": "This item already has stock or sales history, so its unit and precision cannot be changed.",
+      "quantityScaleInvalid": "Quantity precision must be between 0 and 3 decimal places.",
+      "quantityScaleMismatch": "This unit has a fixed precision. Leave the precision unchanged or use a custom unit name."
     },
     "shops": {
       "unableToLoadShops": "Unable to load your shops right now. Please try again.",
@@ -1223,8 +1253,12 @@
       "expiry": "Exp",
       "stock": "Stock",
       "quantity": "Quantity",
+      "quantityOf": "Quantity of {{item}}",
+      "increaseQuantity": "Add one unit of {{item}}",
+      "decreaseQuantity": "Remove one unit of {{item}}",
       "addToCart": "Add to Cart",
       "exceedsStock": "Quantity exceeds available stock.",
+      "quantityPrecisionExceeded": "A quantity has more decimal places than its item's unit allows. Correct it and try again.",
       "cart": "Cart",
       "goodsSection": "Goods",
       "servicesSection": "Services",
@@ -1320,6 +1354,7 @@
         "blockAuthGraceInvalid": "Offline session has expired. Please reconnect to continue.",
         "blockMissingItem": "One or more items are not in the offline catalog.",
         "blockInsufficientStock": "Insufficient offline stock for one or more items.",
+        "blockQuantityPrecision": "This offline catalog sells an item in whole units only. Refresh the offline catalog while online to sell part quantities.",
         "blockDueRequiresCustomer": "Select a customer from the list to record a credit/due sale offline.",
         "blockInvoiceUnavailable": "Invoice lease is exhausted or expired. Cannot complete offline sale.",
         "blockInvalidAmount": "One or more amounts are not valid numbers. Check quantities, prices and discounts.",
@@ -1691,7 +1726,11 @@
           "quantityRequired": "Enter quantity for {{ itemName }}.",
           "refundRequired": "Enter refund amount for {{ itemName }}.",
           "selectLine": "Select at least one return line.",
-          "selectedItem": "Selected item"
+          "selectedItem": "Selected item",
+          "tooPreciseWhole": "{{ itemName }}: quantity is in {{ unit }} and must be a whole number.",
+          "tooPreciseDecimals": "{{ itemName }}: quantity is in {{ unit }} and allows at most {{ decimals }} decimal places.",
+          "unitFallback": "this unit",
+          "serverQuantityPrecision": "A return quantity has more decimal places than its item's unit allows. Correct it and try again."
         }
       }
     },

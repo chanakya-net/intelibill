@@ -4,6 +4,7 @@ import { Store } from '@ngrx/store';
 import { catchError, map, of, switchMap, withLatestFrom } from 'rxjs';
 
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
+import { hasProblemCode } from '../../../shared/utils/problem-code.util';
 import { ShopsActions } from '../../shops/state/shops.actions';
 import { InventoryService } from '../services/inventory.service';
 import { InventoryActions } from './inventory.actions';
@@ -51,7 +52,7 @@ export class InventoryEffects {
           catchError((error: { error?: ApiErrorPayload }) =>
             of(
               InventoryActions.addItemFailed({
-                errorMessage: getAddItemErrorMessage(error.error),
+                errorMessage: getAddItemErrorMessage(error),
               })
             )
           )
@@ -77,7 +78,7 @@ export class InventoryEffects {
           catchError((error: { error?: ApiErrorPayload }) =>
             of(
               InventoryActions.updateItemFailed({
-                errorMessage: getUpdateItemErrorMessage(error.error),
+                errorMessage: getUpdateItemErrorMessage(error),
               })
             )
           )
@@ -107,8 +108,8 @@ function getLoadItemsErrorMessage(_: ApiErrorPayload | undefined): string {
   return 'errors.items.unableToLoadItems';
 }
 
-function getAddItemErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
+function getAddItemErrorMessage(response: unknown): string {
+  const title = (response as { error?: ApiErrorPayload } | null)?.error?.title ?? '';
 
   if (title === 'Shop.ActiveShopNotSelected') {
     return 'errors.items.activeShopNotSelected';
@@ -126,15 +127,16 @@ function getAddItemErrorMessage(error: ApiErrorPayload | undefined): string {
     return 'errors.items.barcodeRequired';
   }
 
-  if (title === 'Item.UomRequired') {
-    return 'errors.items.uomRequired';
+  const unitError = getItemUnitErrorMessage(response);
+  if (unitError) {
+    return unitError;
   }
 
   return 'errors.items.unableToAddItem';
 }
 
-function getUpdateItemErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
+function getUpdateItemErrorMessage(response: unknown): string {
+  const title = (response as { error?: ApiErrorPayload } | null)?.error?.title ?? '';
 
   if (title === 'Shop.ActiveShopNotSelected') {
     return 'errors.items.activeShopNotSelected';
@@ -160,9 +162,31 @@ function getUpdateItemErrorMessage(error: ApiErrorPayload | undefined): string {
     return 'errors.items.barcodeRequired';
   }
 
-  if (title === 'Item.UomRequired') {
-    return 'errors.items.uomRequired';
+  const unitError = getItemUnitErrorMessage(response);
+  if (unitError) {
+    return unitError;
   }
 
   return 'errors.items.unableToUpdateItem';
+}
+
+/** Unit and precision refusals: validators answer under errors[].code, handlers under the title. */
+function getItemUnitErrorMessage(response: unknown): string | null {
+  if (hasProblemCode(response, 'Item.UomRequired')) {
+    return 'errors.items.uomRequired';
+  }
+
+  if (hasProblemCode(response, 'Item.UnitChangeWithHistory')) {
+    return 'errors.items.unitChangeWithHistory';
+  }
+
+  if (hasProblemCode(response, 'Item.QuantityScaleInvalid')) {
+    return 'errors.items.quantityScaleInvalid';
+  }
+
+  if (hasProblemCode(response, 'Item.QuantityScaleMismatch')) {
+    return 'errors.items.quantityScaleMismatch';
+  }
+
+  return null;
 }

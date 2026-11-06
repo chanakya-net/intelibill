@@ -60,4 +60,28 @@ public static partial class Errors
         public static Error InvalidLineReferences =>
             Error.Validation("Sale.InvalidLineReferences", "Sale line references are invalid for the specified line type.");
     }
+
+    public static class Quantity
+    {
+        public const string PrecisionExceededCode = "Quantity.PrecisionExceeded";
+
+        public static Error NotPositive(string unitLabel) =>
+            Error.Validation("Quantity.NotPositive", $"Quantity in {unitLabel} must be greater than zero.");
+
+        public static Error PrecisionExceeded(decimal value, string unitLabel, int scale) =>
+            Error.Validation(
+                PrecisionExceededCode,
+                scale == 0
+                    ? $"Quantity {Format(value)} is not allowed: {unitLabel} is sold in whole units only."
+                    : $"Quantity {Format(value)} is not allowed: {unitLabel} allows at most {scale} decimal places.");
+
+        private static string Format(decimal value) =>
+            (value / 1.000000000000000000000000000000000m).ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    public static class ItemUnit
+    {
+        public static Error ChangeWithHistory =>
+            Error.Conflict("Item.UnitChangeWithHistory", "The unit cannot change to a different precision because the item already has stock history.");
+    }
 }

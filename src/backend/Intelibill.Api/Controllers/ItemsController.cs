@@ -130,7 +130,8 @@ public sealed class ItemsController : AuthenticatedControllerBase
                 request.Uom,
                 request.IsActive,
                 request.HsnCode,
-                request.DefaultTaxRatePercent),
+                request.DefaultTaxRatePercent,
+                request.QuantityScale),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -189,7 +190,8 @@ public sealed class ItemsController : AuthenticatedControllerBase
                 request.Uom,
                 request.HsnCode,
                 request.DefaultTaxRatePercent,
-                request.IsActive),
+                request.IsActive,
+                request.QuantityScale),
             cancellationToken);
 
         if (result.IsError)
@@ -206,7 +208,8 @@ public sealed record AddItemRequest(
     string Uom,
     bool IsActive,
     string? HsnCode,
-    decimal DefaultTaxRatePercent);
+    decimal DefaultTaxRatePercent,
+    int? QuantityScale = null);
 
 public sealed record UpdateItemRequest(
     string Name,
@@ -215,4 +218,5 @@ public sealed record UpdateItemRequest(
     string Uom,
     string? HsnCode,
     decimal DefaultTaxRatePercent,
-    bool? IsActive);
+    bool? IsActive,
+    int? QuantityScale = null);

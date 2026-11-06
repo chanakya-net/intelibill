@@ -65,6 +65,9 @@ describe('EditItemOverlayComponent', () => {
     hsnCode: '10063090',
     defaultTaxRatePercent: 5,
     defaultTaxIncluded: false,
+    unitCode: null,
+    quantityScale: 0,
+    unitReviewRequired: false,
   };
 
   function setup(item: Item = mockItem): EditItemOverlayComponent {
@@ -317,5 +320,135 @@ describe('EditItemOverlayComponent', () => {
     ).length;
 
     expect(callCount).toBe(0);
+  });
+
+  it('catalog label disables precision and omits quantityScale from the update', () => {
+    const component = setup({ ...mockItem, uom: 'kg', quantityScale: 3 });
+    component.ngOnInit();
+
+    expect(component.form.controls.quantityScale.disabled).toBe(true);
+    component.onSubmit();
+
+    const action = dispatch.mock.calls
+      .map((c) => c[0] as { type: string; payload?: { quantityScale?: number | null } })
+      .find((a) => a.type === InventoryActions.updateItemRequested.type);
+    expect(action?.payload?.quantityScale ?? null).toBeNull();
+  });
+
+  it('custom label sends the chosen precision on update', () => {
+    const component = setup({ ...mockItem, uom: 'Bundle', quantityScale: 1 });
+    component.ngOnInit();
+
+    expect(component.form.controls.quantityScale.value).toBe(1);
+    component.form.controls.quantityScale.setValue(2);
+    component.onSubmit();
+
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: InventoryActions.updateItemRequested.type,
+        payload: expect.objectContaining({ uom: 'Bundle', quantityScale: 2 }),
+      }),
+    );
+  });
+
+  it('shows the review note only while the unit needs review', () => {
+    TestBed.configureTestingModule({
+      imports: [
+        EditItemOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
+      providers: [
+        { provide: Store, useValue: store },
+        { provide: InventoryService, useValue: inventoryService },
+      ],
+    });
+    const fixture = TestBed.createComponent(EditItemOverlayComponent);
+    fixture.componentInstance.item = { ...mockItem, unitReviewRequired: true };
+    fixture.detectChanges();
+
+    expect(document.body.querySelector('[data-testid="unit-review-note"]')).not.toBeNull();
+  });
+
+  it('tells a flagged catalog-unit item that saving confirms its unit', () => {
+    TestBed.configureTestingModule({
+      imports: [
+        EditItemOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
+      providers: [
+        { provide: Store, useValue: store },
+        { provide: InventoryService, useValue: inventoryService },
+      ],
+    });
+    const fixture = TestBed.createComponent(EditItemOverlayComponent);
+    fixture.componentInstance.item = { ...mockItem, uom: 'PCS', quantityScale: 0, unitReviewRequired: true };
+    fixture.detectChanges();
+
+    const note = document.body.querySelector('[data-testid="unit-review-note"]');
+    expect(note?.textContent).toContain('inventory.unitReview.confirmNote');
+    expect(note?.textContent).not.toContain('inventory.unitReview.note');
+  });
+
+  it('asks a flagged custom-unit item to choose a precision', () => {
+    TestBed.configureTestingModule({
+      imports: [
+        EditItemOverlayComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
+      providers: [
+        { provide: Store, useValue: store },
+        { provide: InventoryService, useValue: inventoryService },
+      ],
+    });
+    const fixture = TestBed.createComponent(EditItemOverlayComponent);
+    fixture.componentInstance.item = { ...mockItem, uom: 'Strip', quantityScale: 0, unitReviewRequired: true };
+    fixture.detectChanges();
+
+    const note = document.body.querySelector('[data-testid="unit-review-note"]');
+    expect(note?.textContent).toContain('inventory.unitReview.note');
+  });
+
+  it('restores the previous custom precision when a catalog label is replaced by a custom one', () => {
+    const component = setup({ ...mockItem, uom: 'Bundle', quantityScale: 2 });
+    component.ngOnInit();
+
+    component.form.controls.uom.setValue('kg');
+    expect(component.form.controls.quantityScale.value).toBe(3);
+    component.form.controls.uom.setValue('Sack');
+
+    expect(component.form.controls.quantityScale.enabled).toBe(true);
+    expect(component.form.controls.quantityScale.value).toBe(2);
+  });
+
+  it('defaults to whole numbers when a catalog item is relabelled to a custom unit', () => {
+    const component = setup({ ...mockItem, uom: 'kg', quantityScale: 3 });
+    component.ngOnInit();
+
+    component.form.controls.uom.setValue('Sack');
+
+    expect(component.form.controls.quantityScale.value).toBe(0);
+  });
+
+  it('shows the server error message in the banner', () => {
+    errorSignal.set('errors.items.unitChangeWithHistory');
+    TestBed.configureTestingModule({
+      imports: [
+        EditItemOverlayComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { en: { errors: { items: { unitChangeWithHistory: 'Unit is locked.' } } } },
+          translocoConfig: { defaultLang: 'en', availableLangs: ['en'] },
+          preloadLangs: true,
+        }),
+      ],
+      providers: [
+        { provide: Store, useValue: store },
+        { provide: InventoryService, useValue: inventoryService },
+      ],
+    });
+    const fixture = TestBed.createComponent(EditItemOverlayComponent);
+    fixture.componentInstance.item = mockItem;
+    fixture.detectChanges();
+
+    expect(document.body.textContent).toContain('Unit is locked.');
   });
 });

@@ -556,7 +556,7 @@ public sealed class StockCorrectionInvariantTests(PostgreSqlTestFixture fixture)
             itemName = $"Item {barcode}",
             barcode,
             itemDescription = (string?)null,
-            uom = "pcs",
+            uom = quantity % 1 == 0 ? "pcs" : "kg",
             batchNumber,
             quantity,
             totalPurchaseCost = quantity * unitCost,

@@ -37,6 +37,7 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { AdjustmentRowFormComponent } from '../../components/adjustments/adjustment-row-form.component';
 import { AdjustmentSummaryComponent } from '../../components/adjustments/adjustment-summary.component';
 import { InputValidators } from '../../../../shared/forms/input-validation';
+import { hasProblemCode } from '../../../../shared/utils/problem-code.util';
 
 interface SelectOption<T extends string | boolean> {
   readonly label: string;
@@ -131,6 +132,8 @@ export class InventoryAdjustmentsPageComponent {
       batchNumber: batch.batchNumber,
       barcode: batch.barcode,
       quantity: batch.quantity,
+      uom: batch.uom,
+      quantityScale: batch.quantityScale,
     })),
   );
 
@@ -329,8 +332,9 @@ export class InventoryAdjustmentsPageComponent {
           this.loadBatches();
         },
         error: (err) => {
-          const detail =
-            err.error?.detail || this.translocoService.translate('inventory.adjustBatchError');
+          const detail = hasProblemCode(err, 'Inventory.QuantityPrecisionExceeded')
+            ? this.translocoService.translate('inventory.quantityPrecisionExceeded')
+            : err.error?.detail || this.translocoService.translate('inventory.adjustBatchError');
           this.messageService.add({
             severity: 'error',
             summary: this.translocoService.translate('common.error'),

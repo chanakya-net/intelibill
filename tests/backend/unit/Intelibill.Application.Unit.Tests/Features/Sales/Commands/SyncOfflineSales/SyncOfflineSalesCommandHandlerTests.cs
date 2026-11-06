@@ -242,6 +242,53 @@ public class SyncOfflineSalesCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenOfflineLineFractionsAWholeUnitItem_FailsWithQuantityPrecisionExceeded()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var deviceId = "device-1";
+        var item = Item.Create(shopId, "Rice", "desc", "PCS", "BC-001", true, Guid.NewGuid());
+        var batch = CreateBatch(shopId, item.Id);
+        var inventory = CreateInventory(shopId, item.Id);
+        var sale = CreateSale(
+            $"offline-{Guid.NewGuid():N}",
+            paidAmount: 59m,
+            items: [CreateLine(batch.Id, quantity: 0.5m)]);
+        var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
+
+        var itemRepository = Substitute.For<IItemRepository>();
+        var batchRepository = Substitute.For<IInventoryBatchRepository>();
+        var inventoryRepository = Substitute.For<IInventoryRepository>();
+        batchRepository.GetByIdWithItemAsync(batch.Id, shopId, Arg.Any<CancellationToken>()).Returns(batch);
+        itemRepository.GetByIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns([item]);
+        inventoryRepository.GetByItemIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns([inventory]);
+        var realValidator = new SaleLineValidator(itemRepository, batchRepository, inventoryRepository);
+        _saleLineValidator.ValidateLinesAsync(
+                shopId,
+                Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(),
+                Arg.Any<List<string>>(),
+                Arg.Any<CancellationToken>(),
+                Arg.Any<bool>())
+            .Returns(call => realValidator.ValidateLinesAsync(
+                call.ArgAt<Guid>(0),
+                call.ArgAt<IReadOnlyList<RecordSaleItemCommand>>(1),
+                call.ArgAt<List<string>>(2),
+                call.ArgAt<CancellationToken>(3),
+                call.ArgAt<bool>(4)));
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>())
+            .Returns(CreateMemberUser(shopId));
+        StubLeases(shopId, deviceId, CreateLease(shopId, deviceId));
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("failed", syncResult.Status);
+        Assert.Contains(syncResult.Errors, error => error.Code == "Sale.QuantityPrecisionExceeded");
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenOfflineLineAmountIsNegative_ReturnsFailedResult()
     {
         var shopId = Guid.NewGuid();
@@ -1611,6 +1658,29 @@ public class SyncOfflineSalesCommandHandlerTests
         Assert.Equal("Main Shop Pvt Ltd", document.Seller.LegalName);
         Assert.Equal([TaxComponentKind.Cgst, TaxComponentKind.Sgst], document.Totals.Components.Select(c => c.Kind));
         Assert.DoesNotContain(issues, i => i.IssueType == ReconciliationIssueType.DocumentReview);
+    }
+
+    [Fact]
+    public async Task StageAsync_WhenAWeighedQuantityIsSold_PostsItAndPrintsTheKilogramUnit()
+    {
+        var shopId = Guid.NewGuid();
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id, quantity: 5m);
+        var inventory = CreateInventory(shopId, item.Id, quantity: 5m);
+        var sale = CreateSale($"offline-{Guid.NewGuid():N}", "A/2526/000201", paidAmount: 29.5m, items: [CreateLine(batch.Id, quantity: 0.25m)]);
+        var lease = InvoiceLease.Create(shopId, Guid.NewGuid(), "device-1", 2025, "A/2526/", 201, 400, 6, Now.AddDays(-1), Now.AddDays(6), sellerProfile: FrozenProfile(TaxRegime.Regular, "Main Shop Pvt Ltd"));
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+        Sale? staged = null;
+        _saleRepository.When(r => r.AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>())).Do(call => staged = call.Arg<Sale>());
+        CaptureReconciliationIssues();
+
+        var outcome = await Poster().StageAsync(PostingRequest(shopId, sale, lease), CancellationToken.None);
+
+        Assert.IsType<OfflineSalePostingOutcome.Staged>(outcome);
+        var line = Assert.Single(staged!.InvoiceDocument!.Lines);
+        Assert.Equal("KGS", line.Uom);
+        Assert.Equal(0.25m, line.Quantity);
+        Assert.Equal(0.25m, Assert.Single(staged.Items).Quantity);
     }
 
     [Fact]

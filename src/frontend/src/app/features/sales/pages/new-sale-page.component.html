@@ -32,7 +32,8 @@
   }
 
   @if (vm.serverError()) {
-    <p class="error">{{ vm.serverError() | transloco }}</p>
+    @let serverMessage = vm.serverErrorMessage();
+    <p class="error">{{ serverMessage.key | transloco: serverMessage.params ?? {} }}</p>
   }
 
   @if (vm.pendingCheckouts().length > 0) {
@@ -140,7 +141,7 @@
 
         @if (vm.batchSearchError()) {
           <p class="error mt-2">
-            {{ vm.batchSearchError().startsWith('sales.') ? (vm.batchSearchError() | transloco) : vm.batchSearchError() }}
+            {{ vm.batchSearchError().startsWith('sales.') || vm.batchSearchError().startsWith('common.') ? (vm.batchSearchError() | transloco: (vm.batchSearchErrorParams() ?? {})) : vm.batchSearchError() }}
           </p>
         }
 
