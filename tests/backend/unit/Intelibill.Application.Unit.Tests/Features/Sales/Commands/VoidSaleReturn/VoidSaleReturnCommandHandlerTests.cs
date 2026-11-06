@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.VoidSaleReturn;
 using Intelibill.Application.Features.Sales.Services.Returns;
@@ -15,6 +16,7 @@ namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.VoidSaleRetu
 public sealed class VoidSaleReturnCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
@@ -36,7 +38,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
             _stockTransactionRepository,
             _customerLedgerEntryRepository,
             _creditNoteRepository,
-            new SaleReturnMutationCoordinator(_saleRepository, _unitOfWork),
+            new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork),
             _unitOfWork,
             new BusinessClock(_time));
 
@@ -472,4 +474,23 @@ public sealed class VoidSaleReturnCommandHandlerTests
         SaleReturn SaleReturn,
         InventoryBatch Batch,
         Intelibill.Domain.Entities.Inventory Inventory);
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesVoid_BeforeTheSaleLock()
+    {
+        _time.Now = DateTimeOffset.Parse("2026-10-20T20:30:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var fixture = Arrange(ShopRole.Owner, returnDueReductionAmount: 75m);
+        _postingPeriods.AuthorizeForWriteAsync(fixture.Shop.Id, new DateOnly(2026, 10, 21), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 10, 1))));
+
+        var result = await CreateHandler().HandleAsync(
+            new VoidSaleReturnCommand(fixture.User.Id, fixture.Shop.Id, fixture.SaleReturn.Id, "Duplicate return"),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        await _saleRepository.DidNotReceive().LockForReturnMutationAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        Assert.False(fixture.SaleReturn.IsVoided);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
 }

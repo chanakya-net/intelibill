@@ -1,3 +1,5 @@
+using Intelibill.Application.Unit.Tests.Common.Time;
+using Intelibill.Application.Common.Posting;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Services;
@@ -20,8 +22,10 @@ public class ReceivePurchaseOrderCommandHandlerTests
     private readonly IPurchaseOrderReceiptNumberGenerator _receiptNumberGenerator = Substitute.For<IPurchaseOrderReceiptNumberGenerator>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private ReceivePurchaseOrderCommandHandler CreateHandler() =>
-        new(_userRepository, _poRepository, _receiptRepository, _inboundProcessor, _receiptNumberGenerator, _unitOfWork);
+        new(_userRepository, _poRepository, _receiptRepository, _inboundProcessor, _receiptNumberGenerator, _unitOfWork,
+            BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock());
 
     private static (User actor, Shop shop) MakeActor(ShopRole role = ShopRole.Owner)
     {
@@ -344,5 +348,25 @@ public class ReceivePurchaseOrderCommandHandlerTests
         Assert.Equal(PurchaseOrderStatus.Received, result.Value.Status);
         Assert.Equal(1, result.Value.Lines.Single().ReceivedQuantity);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesReceipt_BeforeLockingTheOrder()
+    {
+        var (actor, shop) = MakeActor();
+        var po = MakePlacedPo(shop.Id, Guid.NewGuid());
+        var line = po.Lines[0];
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _postingPeriods.AuthorizeForWriteAsync(shop.Id, new DateOnly(2026, 6, 7), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 6, 1))));
+
+        var result = await CreateHandler().HandleAsync(MakeCommand(actor.Id, shop.Id, po, line.Id), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        await _poRepository.DidNotReceive().GetReceiptDetailForUpdateAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received().RollbackTransactionAsync(Arg.Any<CancellationToken>());
     }
 }

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.VoidBatch;
 using Intelibill.Domain.Entities;
@@ -362,6 +363,7 @@ public class VoidBatchCommandHandlerTests
         _purchaseReceiptValueRepository.Received(1).Update(receiptValue);
     }
 
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private VoidBatchCommandHandler CreateHandler() =>
         new(
             _userRepository,
@@ -375,5 +377,28 @@ public class VoidBatchCommandHandlerTests
             _unitOfWork,
             _messageBus,
             BusinessTestDoubles.AnyShop(),
+            _postingPeriods,
             BusinessTestDoubles.RealClock());
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesVoid_AndPublishesNothing()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        var batch = InventoryBatch.Create(shop.Id, Guid.NewGuid(), "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _postingPeriods.AuthorizeForWriteAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 7, 1))));
+
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        Assert.False(batch.IsVoided);
+        await _inventoryBatchRepository.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _messageBus.DidNotReceive().PublishAsync(Arg.Any<InventoryBatchVoidedDomainEvent>());
+    }
 }

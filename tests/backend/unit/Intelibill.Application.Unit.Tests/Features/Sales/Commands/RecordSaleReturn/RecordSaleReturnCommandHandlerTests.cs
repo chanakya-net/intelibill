@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.CreditNotes.Services;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
@@ -18,6 +19,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
 {
     private readonly IPaymentReceiptRepository _paymentReceiptRepository = Substitute.For<IPaymentReceiptRepository>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
@@ -63,7 +65,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             _saleReturnRepository,
             _customerLedgerEntryRepository,
             _accountingPolicy,
-            new SaleReturnMutationCoordinator(_saleRepository, _unitOfWork),
+            new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork),
             _unitOfWork,
             new BusinessClock(_time));
     }
@@ -1251,4 +1253,25 @@ public sealed class RecordSaleReturnCommandHandlerTests
         SaleItem SaleItem,
         InventoryBatch Batch,
         Intelibill.Domain.Entities.Inventory Inventory);
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesReturn_BeforeTheSaleLock()
+    {
+        _time.Now = DateTimeOffset.Parse("2026-10-20T20:30:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 300m, hasCustomer: true);
+        _postingPeriods.AuthorizeForWriteAsync(fixture.Shop.Id, new DateOnly(2026, 10, 21), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 10, 1))));
+
+        var result = await CreateHandler().HandleAsync(
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        await _saleRepository.DidNotReceive().LockForReturnMutationAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _saleReturnRepository.DidNotReceive().AddAsync(Arg.Any<SaleReturn>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received().RollbackTransactionAsync(Arg.Any<CancellationToken>());
+    }
 }

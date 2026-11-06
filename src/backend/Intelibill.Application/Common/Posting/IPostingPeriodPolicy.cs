@@ -24,6 +24,17 @@ public interface IPostingPeriodPolicy
         Guid shopId,
         DateOnly businessDate,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fences a posting that writes more than one business date (an expense correction voids a row
+    /// in one month and records its replacement in another). The distinct months are ensured and
+    /// share-locked in ascending start-date order, so two transactions touching the same two months
+    /// can never wait on each other. The first refusal is returned and nothing further is locked.
+    /// </summary>
+    Task<ErrorOr<IReadOnlyList<PostingPeriodLease>>> AuthorizeForWriteAsync(
+        Guid shopId,
+        IReadOnlyCollection<DateOnly> businessDates,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>The open month a posting was authorized against.</summary>

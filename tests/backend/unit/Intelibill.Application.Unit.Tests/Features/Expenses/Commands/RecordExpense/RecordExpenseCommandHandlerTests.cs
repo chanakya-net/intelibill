@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Expenses.Commands.RecordExpense;
 using Intelibill.Domain.Entities;
@@ -15,8 +16,9 @@ public class RecordExpenseCommandHandlerTests
     private readonly IExpenseRepository _expenseRepository = Substitute.For<IExpenseRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private RecordExpenseCommandHandler CreateHandler() =>
-        new(_userRepository, _categoryRepository, _expenseRepository, _unitOfWork);
+        new(_userRepository, _categoryRepository, _expenseRepository, _postingPeriods, _unitOfWork);
 
     private static RecordExpenseCommand CreateCommand(Guid userId, Guid shopId) =>
         new(userId, shopId, "Office Supplies", 250m, "Stationery Store", "Printer paper", new DateOnly(2026, 4, 15));
@@ -90,5 +92,25 @@ public class RecordExpenseCommandHandlerTests
         Assert.False(result.IsError);
         Assert.Equal(existingCategory.Id, result.Value.CategoryId);
         await _categoryRepository.Received(0).AddAsync(Arg.Any<ExpenseCategory>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesExpense_AndSavesNothing()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        _userRepository.GetByIdWithDetailsAsync(userId, Arg.Any<CancellationToken>()).Returns(CreateActor(userId, shopId, ShopRole.Owner));
+        _postingPeriods.AuthorizeForWriteAsync(shopId, new DateOnly(2026, 4, 15), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 4, 1))));
+
+        var result = await CreateHandler().HandleAsync(CreateCommand(userId, shopId), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        await _expenseRepository.DidNotReceive().AddAsync(Arg.Any<Expense>(), Arg.Any<CancellationToken>());
+        await _categoryRepository.DidNotReceive().AddAsync(Arg.Any<ExpenseCategory>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received().RollbackTransactionAsync(Arg.Any<CancellationToken>());
     }
 }

@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
@@ -23,6 +24,7 @@ public sealed class AddInventoryCommandHandler(
     IInventoryRepository inventoryRepository,
     IUnitOfWork unitOfWork,
     IShopRepository shopRepository,
+    IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock)
 {
     public async Task<ErrorOr<AddInventoryResultDto>> HandleAsync(AddInventoryCommand command, CancellationToken cancellationToken)
@@ -41,6 +43,27 @@ public sealed class AddInventoryCommandHandler(
         var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
         if (shop is null)
             return Errors.Shop.ShopNotFound;
+
+        var performedAt = (command.PerformedAt ?? businessClock.UtcNow).ToUniversalTime();
+        return await PostingTransaction.RunAsync(
+            unitOfWork,
+            ct => PostAsync(command, shop, performedAt, ct),
+            cancellationToken);
+    }
+
+    private async Task<ErrorOr<AddInventoryResultDto>> PostAsync(
+        AddInventoryCommand command,
+        Shop shop,
+        DateTimeOffset performedAt,
+        CancellationToken cancellationToken)
+    {
+        // The payable is dated by the business day of the receipt's performed time.
+        var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
+            command.ActiveShopId,
+            businessClock.GetBusinessDate(performedAt, shop.BusinessTimeZoneId),
+            cancellationToken);
+        if (fence.IsError)
+            return fence.Errors;
 
         var normalizedName = command.ItemName.Trim();
         var normalizedBarcode = command.Barcode.Trim();
@@ -135,7 +158,6 @@ public sealed class AddInventoryCommandHandler(
         var batch = batchResult.Value;
         await inventoryBatchRepository.AddAsync(batch, cancellationToken);
 
-        var performedAt = (command.PerformedAt ?? businessClock.UtcNow).ToUniversalTime();
         var stockTransactionResult = StockTransaction.Create(
             command.ActiveShopId,
             item.Id,

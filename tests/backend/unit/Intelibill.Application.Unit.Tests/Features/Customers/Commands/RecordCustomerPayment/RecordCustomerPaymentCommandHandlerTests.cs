@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Posting;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -33,10 +34,11 @@ public class RecordCustomerPaymentCommandHandlerTests
             .Returns(RowLockOutcome.Acquired);
     }
 
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private RecordCustomerPaymentCommandHandler CreateHandler() =>
         new(_userRepository, _customerRepository, _customerLedgerEntryRepository, _paymentReceiptRepository,
             _bankAccountRepository, new PaymentAllocationPlanner(_balanceReader),
-            new PaymentTransactionRunner(_executor, _unitOfWork), _unitOfWork,
+            new PaymentTransactionRunner(_executor, _unitOfWork), _postingPeriods, _unitOfWork,
             NullLogger<RecordCustomerPaymentCommandHandler>.Instance);
 
     private void ExecutorRunsAction() =>
@@ -335,5 +337,27 @@ public class RecordCustomerPaymentCommandHandlerTests
 
         Assert.Equal(expected, legacyHash);
         Assert.NotEqual(legacyHash, RecordCustomerPaymentCommandHandler.ComputeRequestHash(detailed, []));
+    }
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesPaymentOnItsPaymentDate_BeforeAnyLock()
+    {
+        var fixture = BuildFixture();
+        var paymentDate = new DateOnly(2026, 6, 25);
+        var command = new RecordCustomerPaymentCommand(
+            fixture.owner.Id, fixture.shop.Id, fixture.customer.Id, 120m, paymentDate, null);
+        _userRepository.GetByIdWithDetailsAsync(fixture.owner.Id, Arg.Any<CancellationToken>()).Returns(fixture.owner);
+        _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>()).Returns(fixture.customer);
+        _postingPeriods.AuthorizeForWriteAsync(fixture.shop.Id, paymentDate, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 6, 1))));
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        await _paymentReceiptRepository.DidNotReceiveWithAnyArgs().LockPartyAndTargetsAsync(default, default, default, default!, default);
+        await _customerLedgerEntryRepository.DidNotReceive().AddAsync(Arg.Any<CustomerLedgerEntry>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
     }
 }

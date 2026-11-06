@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.Customers.DTOs;
 using Intelibill.Application.Features.Payments.DTOs;
 using Intelibill.Application.Features.Payments.Services;
@@ -25,6 +26,7 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
     IBankAccountRepository bankAccountRepository,
     IPaymentAllocationPlanner allocationPlanner,
     IPaymentTransactionRunner transactionRunner,
+    IPostingPeriodPolicy postingPeriodPolicy,
     IUnitOfWork unitOfWork,
     ILogger<RecordCustomerPaymentCommandHandler> logger)
 {
@@ -104,6 +106,11 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
         IReadOnlyList<PaymentAllocationRequest> allocationRequests,
         CancellationToken cancellationToken)
     {
+        // The payment is dated by the caller; its month must be open, and stays so until this commits.
+        var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(command.ActiveShopId, command.PaymentDate, cancellationToken);
+        if (fence.IsError)
+            return fence.Errors;
+
         var lockOutcome = await paymentReceiptRepository.LockPartyAndTargetsAsync(
             command.ActiveShopId,
             PaymentPartyType.Customer,

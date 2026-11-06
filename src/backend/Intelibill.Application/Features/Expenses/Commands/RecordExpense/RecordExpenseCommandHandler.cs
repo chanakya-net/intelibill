@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.Expenses.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -12,6 +13,7 @@ public sealed class RecordExpenseCommandHandler(
     IUserRepository userRepository,
     IExpenseCategoryRepository expenseCategoryRepository,
     IExpenseRepository expenseRepository,
+    IPostingPeriodPolicy postingPeriodPolicy,
     IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<ExpenseDto>> HandleAsync(
@@ -28,6 +30,15 @@ public sealed class RecordExpenseCommandHandler(
 
         if (membership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Expense.Forbidden;
+
+        return await PostingTransaction.RunAsync(unitOfWork, ct => PostAsync(command, ct), cancellationToken);
+    }
+
+    private async Task<ErrorOr<ExpenseDto>> PostAsync(RecordExpenseCommand command, CancellationToken cancellationToken)
+    {
+        var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(command.ShopId, command.ExpenseDate, cancellationToken);
+        if (fence.IsError)
+            return fence.Errors;
 
         // Upsert category
         var categoryName = command.CategoryName.Trim();

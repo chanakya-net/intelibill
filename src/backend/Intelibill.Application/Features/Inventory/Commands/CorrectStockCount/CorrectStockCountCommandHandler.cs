@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Application.Common.Time;
@@ -41,6 +42,7 @@ public sealed class CorrectStockCountCommandHandler(
     IFinancialOperationExecutor operationExecutor,
     IItemRepository itemRepository,
     IShopRepository shopRepository,
+    IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock)
 {
     private static readonly CorrectStockCountCommandValidator Validator = new();
@@ -74,7 +76,7 @@ public sealed class CorrectStockCountCommandHandler(
 
         var operationKey = FinancialOperationHasher.NormalizeKey(command.OperationKey);
         if (operationKey is null)
-            return await CountAsync(batch, command, cancellationToken);
+            return await PostingTransaction.RunAsync(unitOfWork, ct => CountAsync(batch, command, ct), cancellationToken);
 
         var requestHash = FinancialOperationHasher.Compute(new StockCountPayload(
             command.BatchId,
@@ -96,6 +98,17 @@ public sealed class CorrectStockCountCommandHandler(
         CorrectStockCountCommand command,
         CancellationToken cancellationToken)
     {
+        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
+            command.ActiveShopId,
+            businessClock.Today(shop.BusinessTimeZoneId),
+            cancellationToken);
+        if (fence.IsError)
+            return fence.Errors;
+
         if (batch.IsVoided)
             return Errors.Inventory.BatchAlreadyVoided;
 
@@ -113,10 +126,6 @@ public sealed class CorrectStockCountCommandHandler(
         var inventory = await inventoryRepository.GetByItemAsync(command.ActiveShopId, batch.ItemId, cancellationToken);
         if (inventory is null)
             return Errors.Inventory.InventoryAggregateNotFound;
-
-        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
-        if (shop is null)
-            return Errors.Shop.ShopNotFound;
 
         var performedAt = businessClock.UtcNow;
         var businessDate = businessClock.GetBusinessDate(performedAt, shop.BusinessTimeZoneId);

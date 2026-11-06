@@ -448,6 +448,173 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
     }
 
     [Fact]
+    public async Task ClosedPeriod_BlocksBackdatedPost_AllowsLinkedCurrentCorrection()
+    {
+        using var shop = await OpenShopAsync();
+        var stock = await StockAsync(shop);
+        var customerId = await AddCustomerAsync(shop);
+        Clock.Set(Utc(2026, 6, 15, 6, 0));
+        var invoice = await SellAsync(shop, stock, customerId, paid: 18m);
+        Clock.Set(Utc(2026, 7, 2, 6, 0));
+        using (var closed = await SendAsync(shop, HttpMethod.Post, "/api/posting-periods/2026-06/close", Transition("books final", "linked-close")))
+            Assert.Equal(HttpStatusCode.OK, closed.StatusCode);
+
+        var juneSales = await JuneSalesDatasetAsync(shop);
+        var junePnl = await ProfitLossBodyAsync(shop, June1, June30);
+        var expensesBefore = await ScalarAsync<long>("SELECT count(*) FROM expenses WHERE shop_id = @shop", ("shop", shop.ShopId));
+        var receiptsBefore = await ScalarAsync<long>("SELECT count(*) FROM payment_receipts WHERE shop_id = @shop", ("shop", shop.ShopId));
+
+        // A backdated expense and a backdated customer payment are refused, with nothing written.
+        using (var expense = await SendAsync(shop, HttpMethod.Post, "/api/expenses",
+            new { categoryName = "Rent", amount = 500m, paidTo = "Landlord", description = (string?)null, expenseDate = "2026-06-20" }))
+        {
+            var body = await expense.Content.ReadAsStringAsync();
+            Assert.True(expense.StatusCode == HttpStatusCode.Conflict, body);
+            Assert.Contains("PostingPeriod.Closed", body, StringComparison.Ordinal);
+        }
+
+        using (var payment = await SendAsync(shop, HttpMethod.Post, $"/api/customers/{customerId}/payments",
+            new { amount = 50m, paymentDate = "2026-06-25", notes = (string?)null, operationKey = "june-backdated" }))
+        {
+            var body = await payment.Content.ReadAsStringAsync();
+            Assert.True(payment.StatusCode == HttpStatusCode.Conflict, body);
+            Assert.Contains("PostingPeriod.Closed", body, StringComparison.Ordinal);
+        }
+
+        using (var unkeyed = await SendAsync(shop, HttpMethod.Post, $"/api/customers/{customerId}/payments",
+            new { amount = 50m, paymentDate = "2026-06-25", notes = (string?)null }))
+            Assert.Equal(HttpStatusCode.Conflict, unkeyed.StatusCode);
+
+        Assert.Equal(expensesBefore, await ScalarAsync<long>("SELECT count(*) FROM expenses WHERE shop_id = @shop", ("shop", shop.ShopId)));
+        Assert.Equal(receiptsBefore, await ScalarAsync<long>("SELECT count(*) FROM payment_receipts WHERE shop_id = @shop", ("shop", shop.ShopId)));
+
+        // The same payment dated in the open month posts, and so does the return of the June sale today.
+        using (var current = await SendAsync(shop, HttpMethod.Post, $"/api/customers/{customerId}/payments",
+            new { amount = 50m, paymentDate = "2026-07-02", notes = (string?)null, operationKey = "july-current" }))
+            Assert.Equal(HttpStatusCode.OK, current.StatusCode);
+
+        var returnId = await ReturnAsync(shop, invoice);
+        var saleReturn = await QueryAsync(db => db.SaleReturns.AsNoTracking().Where(r => r.Id == returnId)
+            .Select(r => new { r.BusinessDate, r.SaleId }).SingleAsync());
+        Assert.Equal(July2, saleReturn.BusinessDate);
+        Assert.Equal(invoice, await QueryAsync(db => db.Sales.AsNoTracking().Where(x => x.Id == saleReturn.SaleId).Select(x => x.InvoiceNumber).SingleAsync()));
+
+        // June's books did not move.
+        Assert.Equal(juneSales, await JuneSalesDatasetAsync(shop));
+        Assert.Equal(junePnl, await ProfitLossBodyAsync(shop, June1, June30));
+    }
+
+    [Fact]
+    public async Task ExpenseCorrection_FencesBothMonths_InOrder()
+    {
+        using var shop = await OpenShopAsync();
+        Clock.Set(Utc(2026, 7, 2, 6, 0));
+
+        async Task<Guid> RecordAsync(string date)
+        {
+            using var response = await SendAsync(shop, HttpMethod.Post, "/api/expenses",
+                new { categoryName = "Rent", amount = 500m, paidTo = "Landlord", description = (string?)null, expenseDate = date });
+            var body = await response.Content.ReadAsStringAsync();
+            Assert.True(response.StatusCode == HttpStatusCode.Created, body);
+            return JsonDocument.Parse(body).RootElement.GetProperty("id").GetGuid();
+        }
+
+        Task<HttpResponseMessage> CorrectAsync(Guid id, string date) =>
+            SendAsync(shop, HttpMethod.Post, $"/api/expenses/{id}/correct",
+                new { categoryName = "Rent", amount = 600m, paidTo = "Landlord", description = (string?)null, expenseDate = date });
+
+        // Both months open: a June expense corrected into July succeeds.
+        var moved = await RecordAsync("2026-06-20");
+        using (var ok = await CorrectAsync(moved, "2026-07-02"))
+            Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
+        Assert.True(await ScalarAsync<bool>("SELECT is_voided FROM expenses WHERE id = @id", ("id", moved)));
+
+        // The original sits in a closed month: the correction is refused whatever its new date.
+        var stuck = await RecordAsync("2026-06-21");
+        using (var closed = await SendAsync(shop, HttpMethod.Post, "/api/posting-periods/2026-06/close", Transition("books final", "expense-close")))
+            Assert.Equal(HttpStatusCode.OK, closed.StatusCode);
+        using (var refused = await CorrectAsync(stuck, "2026-07-02"))
+        {
+            var body = await refused.Content.ReadAsStringAsync();
+            Assert.True(refused.StatusCode == HttpStatusCode.Conflict, body);
+            Assert.Contains("PostingPeriod.Closed", body, StringComparison.Ordinal);
+        }
+
+        Assert.False(await ScalarAsync<bool>("SELECT is_voided FROM expenses WHERE id = @id", ("id", stuck)));
+
+        // A new date in the closed month is refused too, for an original in an open month.
+        var open = await RecordAsync("2026-07-01");
+        using (var intoClosed = await CorrectAsync(open, "2026-06-30"))
+            Assert.Equal(HttpStatusCode.Conflict, intoClosed.StatusCode);
+        Assert.False(await ScalarAsync<bool>("SELECT is_voided FROM expenses WHERE id = @id", ("id", open)));
+    }
+
+    [Fact]
+    public async Task StockPostings_IntoAClosedMonth_AreRefused_PerRowForBulkIntake()
+    {
+        using var shop = await OpenShopAsync();
+        var stock = await StockAsync(shop);
+        Clock.Set(Utc(2026, 6, 15, 6, 0));
+        var invoice = await SellAsync(shop, stock);
+        Clock.Set(Utc(2026, 7, 2, 6, 0));
+        using (var closed = await SendAsync(shop, HttpMethod.Post, "/api/posting-periods/2026-06/close", Transition("books final", "stock-close")))
+            Assert.Equal(HttpStatusCode.OK, closed.StatusCode);
+
+        object Row(string id, string performedAt) => new
+        {
+            clientRowId = id,
+            itemName = $"Closed Item {id}",
+            barcode = $"CL-{Guid.NewGuid():N}",
+            itemDescription = (string?)null,
+            uom = "pcs",
+            batchNumber = $"CB-{id}",
+            quantity = 5m,
+            totalPurchaseCost = 400m,
+            mrp = 120m,
+            salesPrice = 100m,
+            taxRatePercent = 18m,
+            taxIncluded = false,
+            expiryDate = (DateOnly?)null,
+            manufacturingDate = (DateOnly?)null,
+            referenceNumber = (string?)null,
+            notes = (string?)null,
+            performedAt,
+        };
+
+        // Bulk intake fences per row: the June-dated row is held back, the July row commits.
+        using (var bulk = await SendAsync(shop, HttpMethod.Post, "/api/inventory/inbound/batch",
+            new { operationKey = "closed-bulk", items = new[] { Row("june", "2026-06-20T06:00:00Z"), Row("july", "2026-07-02T06:00:00Z") } }))
+        {
+            var body = await bulk.Content.ReadAsStringAsync();
+            Assert.True(bulk.IsSuccessStatusCode, body); // 207 when only some rows commit
+            var json = JsonDocument.Parse(body).RootElement;
+            Assert.Equal(1, json.GetProperty("successCount").GetInt32());
+            Assert.Equal("july", json.GetProperty("succeeded")[0].GetProperty("clientRowId").GetString());
+            Assert.Contains("PostingPeriod.Closed", json.GetProperty("failed").GetRawText(), StringComparison.Ordinal);
+        }
+
+        using (var single = await SendAsync(shop, HttpMethod.Post, "/api/inventory/inbound", Row("single", "2026-06-20T06:00:00Z")))
+            Assert.Equal(HttpStatusCode.Conflict, single.StatusCode);
+
+        Clock.Set(Utc(2026, 6, 20, 6, 0));
+        using (var adjust = await SendAsync(shop, HttpMethod.Post, $"/api/inventory/batches/{stock.BatchId}/adjust",
+            new { direction = (int)InventoryAdjustmentDirection.Decrease, reason = (int)InventoryAdjustmentReason.Damaged, quantity = 1m, performedAt = (DateTimeOffset?)null, notes = "x" }))
+            Assert.Equal(HttpStatusCode.Conflict, adjust.StatusCode);
+        using (var voided = await SendAsync(shop, HttpMethod.Post, $"/api/inventory/batches/{stock.BatchId}/void"))
+            Assert.Equal(HttpStatusCode.Conflict, voided.StatusCode);
+        using (var returned = await SendAsync(shop, HttpMethod.Post, $"/api/sales/{await SaleIdAsync(invoice)}/returns", new
+        {
+            payoutDestination = (int)ReturnPayoutDestination.Refund,
+            items = new[] { new { saleItemId = await SaleLineIdAsync(invoice), quantity = 1m, lineType = (int)SaleLineType.Goods, condition = (int)SaleReturnCondition.Restockable } },
+        }))
+        {
+            var body = await returned.Content.ReadAsStringAsync();
+            Assert.True(returned.StatusCode == HttpStatusCode.Conflict, body);
+            Assert.Contains("PostingPeriod.Closed", body, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public async Task LateOfflineInvoice_RequiresExplicitResolution()
     {
         using var shop = await OpenShopAsync();
@@ -924,6 +1091,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
     private static readonly DateOnly June1 = new(2026, 6, 1);
     private static readonly DateOnly June30 = new(2026, 6, 30);
     private static readonly DateOnly July1 = new(2026, 7, 1);
+    private static readonly DateOnly July2 = new(2026, 7, 2);
     private static readonly DateOnly July31 = new(2026, 7, 31);
     private static readonly DateOnly Aug1 = new(2026, 8, 1);
     private static readonly DateOnly Aug31 = new(2026, 8, 31);
@@ -1177,6 +1345,31 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         for (var row = header + 1; !sheet.Cell(row, 3).IsEmpty(); row++)
             rows.Add(new AdjustmentRow(sheet.Cell(row, 2).GetString(), sheet.Cell(row, 4).GetString()));
         return rows;
+    }
+
+    private Task<Guid> SaleIdAsync(string invoice) =>
+        QueryAsync(db => db.Sales.AsNoTracking().Where(x => x.InvoiceNumber == invoice).Select(x => x.Id).SingleAsync());
+
+    private Task<Guid> SaleLineIdAsync(string invoice) =>
+        QueryAsync(db => db.Sales.AsNoTracking().Where(x => x.InvoiceNumber == invoice).SelectMany(x => x.Items).Select(i => i.Id).SingleAsync());
+
+    private static async Task<string> ProfitLossBodyAsync(Shop shop, DateOnly from, DateOnly to)
+    {
+        using var response = await SendAsync(shop, HttpMethod.Get, $"/api/sales/profit-loss?from={from:yyyy-MM-dd}&to={to:yyyy-MM-dd}&pageSize=100");
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.OK, content);
+        return content;
+    }
+
+    /// <summary>Every cell of the June sales export, as text; equal before and after means the same totals.</summary>
+    private static async Task<IReadOnlyList<string>> JuneSalesDatasetAsync(Shop shop)
+    {
+        using var workbook = await WorkbookAsync(shop, June1, June30);
+        return workbook.Worksheets
+            .SelectMany(w => w.CellsUsed()
+                .Where(c => w.Cell(c.Address.RowNumber, 1).GetString() != "Generated:") // the export stamps when it ran
+                .Select(c => $"{w.Name}!{c.Address}={c.GetString()}"))
+            .ToList();
     }
 
     private async Task<T> QueryAsync<T>(Func<ApplicationDbContext, Task<T>> query)

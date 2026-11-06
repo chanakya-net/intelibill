@@ -1,5 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Posting;
+using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -14,6 +16,9 @@ public sealed class VoidAdjustmentCommandHandler(
     IInventoryBatchRepository inventoryBatchRepository,
     IInventoryRepository inventoryRepository,
     IStockTransactionRepository stockTransactionRepository,
+    IShopRepository shopRepository,
+    IPostingPeriodPolicy postingPeriodPolicy,
+    IBusinessClock businessClock,
     IUnitOfWork unitOfWork)
 {
     private static readonly VoidAdjustmentCommandValidator Validator = new();
@@ -40,6 +45,28 @@ public sealed class VoidAdjustmentCommandHandler(
 
         if (actorMembership.Role is not ShopRole.Owner)
             return Errors.Inventory.UserIsNotOwner;
+
+        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        return await PostingTransaction.RunAsync(
+            unitOfWork,
+            ct => VoidAsync(command, shop, ct),
+            cancellationToken);
+    }
+
+    private async Task<ErrorOr<VoidAdjustmentResultDto>> VoidAsync(
+        VoidAdjustmentCommand command,
+        Shop shop,
+        CancellationToken cancellationToken)
+    {
+        var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
+            command.ActiveShopId,
+            businessClock.Today(shop.BusinessTimeZoneId),
+            cancellationToken);
+        if (fence.IsError)
+            return fence.Errors;
 
         var adjustment = await inventoryAdjustmentRepository.GetByIdAsync(command.AdjustmentId, cancellationToken);
         if (adjustment is null || adjustment.ShopId != command.ActiveShopId)
@@ -69,7 +96,7 @@ public sealed class VoidAdjustmentCommandHandler(
         if (stockUpdate.IsError)
             return stockUpdate.Errors;
 
-        var voidedAt = DateTimeOffset.UtcNow;
+        var voidedAt = businessClock.UtcNow;
         var reversalQuantity = adjustment.Direction == InventoryAdjustmentDirection.Decrease
             ? adjustment.Quantity
             : -adjustment.Quantity;

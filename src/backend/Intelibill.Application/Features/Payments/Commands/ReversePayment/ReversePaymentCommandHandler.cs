@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.Payments.DTOs;
 using Intelibill.Application.Features.Payments.Services;
 using Intelibill.Application.Common.Time;
@@ -30,6 +31,7 @@ public sealed class ReversePaymentCommandHandler(
     PaymentReceiptDtoBuilder dtoBuilder,
     IUnitOfWork unitOfWork,
     IShopRepository shopRepository,
+    IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock)
 {
     public async Task<ErrorOr<PaymentReceiptDto>> HandleAsync(ReversePaymentCommand command, CancellationToken cancellationToken)
@@ -63,6 +65,16 @@ public sealed class ReversePaymentCommandHandler(
         Guid actorUserId,
         CancellationToken cancellationToken)
     {
+        var shop = await shopRepository.GetByIdAsync(receipt.ShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        // The reversal posts today, never into the month of the payment it undoes.
+        var businessDate = businessClock.Today(shop.BusinessTimeZoneId);
+        var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(receipt.ShopId, businessDate, cancellationToken);
+        if (fence.IsError)
+            return fence.Errors;
+
         // Party first: every allocation of this receipt also takes it, so the allocations read next
         // are complete; then the documents they settled, in the same order an allocation locks them.
         var ids = new[] { receipt.Id };
@@ -84,11 +96,6 @@ public sealed class ReversePaymentCommandHandler(
         if ((await receiptRepository.GetReversalsAsync(receipt.ShopId, ids, cancellationToken)).Count > 0)
             return Errors.Payment.AlreadyReversed;
 
-        var shop = await shopRepository.GetByIdAsync(receipt.ShopId, cancellationToken);
-        if (shop is null)
-            return Errors.Shop.ShopNotFound;
-
-        var businessDate = businessClock.Today(shop.BusinessTimeZoneId);
         var notes = $"Reversal of payment {receipt.Id:N}: {reason}";
         if (notes.Length > 255)
             notes = notes[..255];

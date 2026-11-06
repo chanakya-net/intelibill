@@ -1,3 +1,5 @@
+using Intelibill.Application.Unit.Tests.Common.Time;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.Inventory.Commands.VoidAdjustment;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Entities;
@@ -238,6 +240,7 @@ public sealed class VoidAdjustmentCommandHandlerTests
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private VoidAdjustmentCommandHandler CreateHandler() =>
         new(
             _userRepository,
@@ -245,6 +248,9 @@ public sealed class VoidAdjustmentCommandHandlerTests
             _batchRepository,
             _inventoryRepository,
             _stockTransactionRepository,
+            BusinessTestDoubles.AnyShop(),
+            _postingPeriods,
+            BusinessTestDoubles.RealClock(),
             _unitOfWork);
 
     private static InventoryAdjustment CreateAdjustment(
@@ -279,5 +285,24 @@ public sealed class VoidAdjustmentCommandHandlerTests
             actorId,
             "Stock count",
             actorId).Value;
+    }
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesVoid_AndLeavesTheAdjustmentActive()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _postingPeriods.AuthorizeForWriteAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 7, 1))));
+
+        var result = await CreateHandler().HandleAsync(
+            new VoidAdjustmentCommand(Guid.NewGuid(), actor.Id, shop.Id, "Entered twice"), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        await _adjustmentRepository.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

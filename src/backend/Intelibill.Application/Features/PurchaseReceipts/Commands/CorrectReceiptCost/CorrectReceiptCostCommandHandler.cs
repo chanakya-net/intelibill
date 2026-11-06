@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.PurchaseReceipts.DTOs;
 using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
@@ -37,6 +38,7 @@ public sealed class CorrectReceiptCostCommandHandler(
     IUnitOfWork unitOfWork,
     IFinancialOperationExecutor operationExecutor,
     IShopRepository shopRepository,
+    IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock)
 {
     private static readonly CorrectReceiptCostCommandValidator Validator = new();
@@ -71,7 +73,7 @@ public sealed class CorrectReceiptCostCommandHandler(
 
         var operationKey = FinancialOperationHasher.NormalizeKey(command.OperationKey);
         if (operationKey is null)
-            return await CorrectAsync(receipt, command, cancellationToken);
+            return await PostingTransaction.RunAsync(unitOfWork, ct => CorrectAsync(receipt, command, ct), cancellationToken);
 
         var requestHash = FinancialOperationHasher.Compute(new ReceiptCostCorrectionPayload(
             command.ReceiptValueId,
@@ -93,6 +95,17 @@ public sealed class CorrectReceiptCostCommandHandler(
         CorrectReceiptCostCommand command,
         CancellationToken cancellationToken)
     {
+        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
+            command.ActiveShopId,
+            businessClock.Today(shop.BusinessTimeZoneId),
+            cancellationToken);
+        if (fence.IsError)
+            return fence.Errors;
+
         if (!receipt.IsResolved || receipt.EffectiveTotalCost is not { } priorTotal)
             return Errors.PurchaseReceipt.EvidenceMissing;
 
@@ -118,10 +131,6 @@ public sealed class CorrectReceiptCostCommandHandler(
             cancellationToken)).GetValueOrDefault(receipt.Id);
         if (command.RevisedTotalCost < allocated)
             return Errors.Payment.CorrectionBelowAllocated(allocated);
-
-        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
-        if (shop is null)
-            return Errors.Shop.ShopNotFound;
 
         var applied = receipt.ApplyCostCorrection(command.RevisedTotalCost);
         if (applied.IsError)

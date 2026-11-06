@@ -22,6 +22,33 @@ internal sealed class PostingPeriodPolicy(ApplicationDbContext context, IPosting
         public int State { get; set; }
     }
 
+    public async Task<ErrorOr<IReadOnlyList<PostingPeriodLease>>> AuthorizeForWriteAsync(
+        Guid shopId,
+        IReadOnlyCollection<DateOnly> businessDates,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(businessDates);
+
+        // One date per month, lowest month first: the same global order for every transaction.
+        var ordered = businessDates
+            .Select(date => PostingPeriod.MonthOf(date).Start)
+            .Distinct()
+            .Order()
+            .ToList();
+
+        var leases = new List<PostingPeriodLease>(ordered.Count);
+        foreach (var monthStart in ordered)
+        {
+            var lease = await AuthorizeForWriteAsync(shopId, monthStart, cancellationToken);
+            if (lease.IsError)
+                return lease.Errors;
+
+            leases.Add(lease.Value);
+        }
+
+        return leases;
+    }
+
     public async Task<ErrorOr<PostingPeriodLease>> AuthorizeForWriteAsync(
         Guid shopId,
         DateOnly businessDate,

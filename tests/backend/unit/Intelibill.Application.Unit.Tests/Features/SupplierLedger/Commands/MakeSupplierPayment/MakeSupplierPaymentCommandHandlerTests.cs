@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Posting;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -34,10 +35,11 @@ public class MakeSupplierPaymentCommandHandlerTests
             .Returns(RowLockOutcome.Acquired);
     }
 
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private MakeSupplierPaymentCommandHandler CreateHandler() =>
         new(_userRepository, _supplierRepository, _ledgerRepository, _expenseCategoryRepository, _expenseRepository,
             _paymentReceiptRepository, _bankAccountRepository, new PaymentAllocationPlanner(_balanceReader),
-            new PaymentTransactionRunner(_executor, _unitOfWork), _unitOfWork,
+            new PaymentTransactionRunner(_executor, _unitOfWork), _postingPeriods, _unitOfWork,
             NullLogger<MakeSupplierPaymentCommandHandler>.Instance);
 
     private static (User owner, Shop shop, Supplier supplier) BuildOwnerShopSupplier()
@@ -250,5 +252,26 @@ public class MakeSupplierPaymentCommandHandlerTests
                 && r.PartyType == PaymentPartyType.Supplier
                 && r.Method == ReceiptTenderMethod.BankTransfer),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesPaymentOnItsPaymentDate_BeforeAnyLock()
+    {
+        var (owner, shop, supplier) = BuildOwnerShopSupplier();
+        var paymentDate = new DateOnly(2026, 6, 25);
+        _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
+        _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
+        _postingPeriods.AuthorizeForWriteAsync(shop.Id, paymentDate, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 6, 1))));
+
+        var result = await CreateHandler().HandleAsync(
+            BuildCommand(owner.Id, shop.Id, supplier.Id) with { PaymentDate = paymentDate }, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        await _paymentReceiptRepository.DidNotReceiveWithAnyArgs().LockPartyAndTargetsAsync(default, default, default, default!, default);
+        await _ledgerRepository.DidNotReceive().AddAsync(Arg.Any<SupplierLedgerEntry>(), Arg.Any<CancellationToken>());
+        await _expenseRepository.DidNotReceive().AddAsync(Arg.Any<Expense>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

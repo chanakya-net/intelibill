@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Common.Time;
@@ -35,6 +36,7 @@ public sealed class VoidBatchCommandHandler(
     IUnitOfWork unitOfWork,
     IMessageBus messageBus,
     IShopRepository shopRepository,
+    IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock)
 {
     public async Task<ErrorOr<VoidBatchResultDto>> HandleAsync(VoidBatchCommand command, CancellationToken cancellationToken)
@@ -49,6 +51,38 @@ public sealed class VoidBatchCommandHandler(
 
         if (actorMembership.Role is not ShopRole.Owner)
             return Errors.Inventory.UserIsNotOwner;
+
+        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        var result = await PostingTransaction.RunAsync(
+            unitOfWork,
+            ct => VoidAsync(command, shop, ct),
+            cancellationToken);
+        if (result.IsError)
+            return result.Errors;
+
+        // Published once the void is committed: a rolled-back void must not announce itself.
+        await messageBus.PublishAsync(
+            new InventoryBatchVoidedDomainEvent(
+                command.ActiveShopId,
+                result.Value.ItemId,
+                result.Value.BatchId));
+
+        return result.Value.Result;
+    }
+
+    private sealed record VoidOutcome(Guid ItemId, Guid BatchId, VoidBatchResultDto Result);
+
+    private async Task<ErrorOr<VoidOutcome>> VoidAsync(VoidBatchCommand command, Shop shop, CancellationToken cancellationToken)
+    {
+        var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
+            command.ActiveShopId,
+            businessClock.Today(shop.BusinessTimeZoneId),
+            cancellationToken);
+        if (fence.IsError)
+            return fence.Errors;
 
         var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
         if (batch is null || batch.ShopId != command.ActiveShopId)
@@ -81,10 +115,6 @@ public sealed class VoidBatchCommandHandler(
         var costPrice = batch.CostPrice;
         var supplierId = receiptValue?.SupplierId ?? batch.SupplierId;
         var itemId = batch.ItemId;
-
-        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
-        if (shop is null)
-            return Errors.Shop.ShopNotFound;
 
         batch.Void(command.ActorUserId);
         inventoryBatchRepository.Update(batch);
@@ -163,17 +193,10 @@ public sealed class VoidBatchCommandHandler(
             return Errors.Inventory.ConcurrentChange;
         }
 
-        await messageBus.PublishAsync(
-            new InventoryBatchVoidedDomainEvent(
-                command.ActiveShopId,
-                itemId,
-                batch.Id));
-
-        return new VoidBatchResultDto(
+        return new VoidOutcome(
+            itemId,
             batch.Id,
-            originalQuantity,
-            remainingQuantity,
-            ledgerReversalAmount);
+            new VoidBatchResultDto(batch.Id, originalQuantity, remainingQuantity, ledgerReversalAmount));
     }
 
     private async Task<bool> IsConsumedAsync(InventoryBatch batch, CancellationToken cancellationToken)
