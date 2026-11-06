@@ -23,7 +23,7 @@ internal sealed class InvoiceBalanceReader(ApplicationDbContext context) : IInvo
         var sales = await salesQuery
             .OrderBy(s => s.SoldAt)
             .ThenBy(s => s.InvoiceNumber)
-            .Select(s => new { s.Id, s.InvoiceNumber, s.SoldAt, s.DueAmount })
+            .Select(s => new { s.Id, s.InvoiceNumber, s.SoldAt, s.DueAmount, s.DueDate })
             .ToListAsync(cancellationToken);
         if (sales.Count == 0)
             return [];
@@ -50,7 +50,7 @@ internal sealed class InvoiceBalanceReader(ApplicationDbContext context) : IInvo
                     paid,
                     returnCredit,
                     Math.Max(0m, s.DueAmount - returnCredit - paid),
-                    DueDate: null);
+                    s.DueDate);
             })
             .ToList();
     }

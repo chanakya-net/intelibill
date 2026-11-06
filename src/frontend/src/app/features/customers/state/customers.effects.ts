@@ -70,6 +70,10 @@ const CUSTOMER_ERROR_KEYS: Readonly<Record<string, string>> = {
   'Customer.GstinInvalid': 'errors.customers.gstinInvalid',
   'Customer.StateCodeInvalid': 'errors.customers.stateCodeInvalid',
   'Customer.GstinStateMismatch': 'errors.customers.gstinStateMismatch',
+  'Customer.CreditSettingsChangeNotPermitted': 'errors.customers.creditSettingsChangeNotPermitted',
+  'Customer.EnforcedCreditRequiresLimit': 'errors.customers.enforcedCreditRequiresLimit',
+  'Customer.CreditTermsDaysInvalid': 'errors.customers.creditTermsDaysInvalid',
+  'Customer.CreditPolicyModeInvalid': 'errors.customers.creditPolicyModeInvalid',
 };
 
 function customerMutationErrorMessage(error: { error?: { title?: string; detail?: string } }, fallback: string): string {

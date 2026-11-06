@@ -16,7 +16,12 @@ public sealed partial record RecordSaleRequest(
     decimal CreditNoteAppliedAmount = 0m,
     IReadOnlyList<CreditNoteRedemptionRequest>? CreditNoteRedemptions = null,
     bool CreditNoteCustomerMismatchConfirmed = false,
-    string? PlaceOfSupplyStateCode = null);
+    string? PlaceOfSupplyStateCode = null,
+    CreditOverrideRequestBody? CreditOverride = null);
+
+/// <summary>An owner's or manager's approval to go over the customer's enforced credit limit.</summary>
+/// <param name="ObservedExposure">The account balance the approver saw; more due since then refuses the override.</param>
+public sealed record CreditOverrideRequestBody(string Reason, decimal ObservedExposure);
 
 public sealed record ReserveInvoiceLeaseRequest(
     string DeviceId,

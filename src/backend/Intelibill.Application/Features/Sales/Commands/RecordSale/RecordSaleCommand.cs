@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 
@@ -18,7 +19,8 @@ public sealed partial record RecordSaleCommand(
     decimal CreditNoteAppliedAmount = 0m,
     IReadOnlyList<CreditNoteRedemptionCommand>? CreditNoteRedemptions = null,
     bool CreditNoteCustomerMismatchConfirmed = false,
-    string? PlaceOfSupplyStateCode = null);
+    string? PlaceOfSupplyStateCode = null,
+    CreditOverrideRequest? CreditOverride = null);
 
 public sealed record RecordSaleItemCommand(
     string Barcode,

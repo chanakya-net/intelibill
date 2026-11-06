@@ -4,7 +4,10 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AddCustomerOverlayComponent } from './add-customer-overlay.component';
+import { AuthService } from '../../../core/auth/auth.service';
 import { CustomersFacade } from '../state/customers.facade';
+
+let overlayRole = 'Owner';
 
 describe('AddCustomerOverlayComponent', () => {
   function setup() {
@@ -21,7 +24,10 @@ describe('AddCustomerOverlayComponent', () => {
         AddCustomerOverlayComponent,
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
-      providers: [{ provide: CustomersFacade, useValue: facade }],
+      providers: [
+        { provide: CustomersFacade, useValue: facade },
+        { provide: AuthService, useValue: { session: () => ({ activeShopId: 'shop-1', shops: [{ shopId: 'shop-1', role: overlayRole }] }) } },
+      ],
     });
 
     const fixture = TestBed.createComponent(AddCustomerOverlayComponent);
@@ -53,9 +59,56 @@ describe('AddCustomerOverlayComponent', () => {
       address: null,
       isActive: true,
       creditLimit: 0,
+      creditPolicyMode: 'NoCredit',
+      creditTermsDays: null,
       gstin: null,
       stateCode: null,
     });
+  });
+
+  it('keeps credit settings read-only for staff and sends no credit', () => {
+    overlayRole = 'Staff';
+    try {
+      const { component, facade } = setup();
+      component.form.patchValue({ name: 'Alice', phoneNumber: '+919812345678' });
+
+      component.onSubmit();
+
+      expect(component.canEditCredit()).toBe(false);
+      expect(component.form.controls.creditLimit.disabled).toBe(true);
+      expect(facade.addCustomer).toHaveBeenCalledWith(
+        expect.objectContaining({ creditLimit: 0, creditPolicyMode: 'NoCredit', creditTermsDays: null }),
+      );
+    } finally {
+      overlayRole = 'Owner';
+    }
+  });
+
+  it('refuses an enforced policy without a limit, so zero never reads as unlimited', () => {
+    const { component, facade } = setup();
+    component.form.patchValue({ name: 'Alice', phoneNumber: '+919812345678', creditLimit: 0, creditPolicyMode: 'Enforced' });
+
+    component.onSubmit();
+
+    expect(component.form.hasError('enforcedCreditRequiresLimit')).toBe(true);
+    expect(facade.addCustomer).not.toHaveBeenCalled();
+  });
+
+  it('submits an enforced policy with agreed terms', () => {
+    const { component, facade } = setup();
+    component.form.patchValue({
+      name: 'Alice',
+      phoneNumber: '+919812345678',
+      creditLimit: 2000,
+      creditPolicyMode: 'Enforced',
+      creditTermsDays: 15,
+    });
+
+    component.onSubmit();
+
+    expect(facade.addCustomer).toHaveBeenCalledWith(
+      expect.objectContaining({ creditLimit: 2000, creditPolicyMode: 'Enforced', creditTermsDays: 15 }),
+    );
   });
 
   it('submits the GSTIN in capitals with its state', () => {

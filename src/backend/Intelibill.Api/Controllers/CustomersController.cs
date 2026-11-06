@@ -5,6 +5,7 @@ using Intelibill.Application.Features.Customers.Commands.EditCustomer;
 using Intelibill.Application.Features.Customers.Commands.RecordCustomerPayment;
 using Intelibill.Application.Features.Customers.DTOs;
 using Intelibill.Application.Features.Customers.Queries.GetCustomerAccount;
+using Intelibill.Application.Features.Customers.Queries.GetCustomerCredit;
 using Intelibill.Application.Features.Customers.Queries.GetCustomers;
 using Intelibill.Application.Features.Payments.DTOs;
 using Intelibill.Domain.Enums;
@@ -51,7 +52,10 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.IsActive,
                 request.CreditLimit,
                 request.Gstin,
-                request.StateCode),
+                request.StateCode,
+                request.CreditPolicyMode,
+                request.CreditTermsDays,
+                UserId),
             cancellationToken);
 
         return result.ToActionResult(customer => CreatedAtAction(nameof(GetCustomers), customer));
@@ -73,7 +77,10 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.IsActive,
                 request.CreditLimit,
                 request.Gstin,
-                request.StateCode),
+                request.StateCode,
+                request.CreditPolicyMode,
+                request.CreditTermsDays,
+                UserId),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -81,13 +88,32 @@ public sealed class CustomersController : AuthenticatedControllerBase
 
     [HttpGet("{customerId:guid}/account")]
     [Authorize(Policy = "OwnerOrManager")]
-    public async Task<IActionResult> GetCustomerAccount(Guid customerId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetCustomerAccount(
+        Guid customerId,
+        [FromQuery] DateOnly? from,
+        [FromQuery] DateOnly? to,
+        CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<CustomerAccountDto>>(
-            new GetCustomerAccountQuery(UserId!.Value, ActiveShopId!.Value, customerId),
+            new GetCustomerAccountQuery(UserId!.Value, ActiveShopId!.Value, customerId, from, to),
+            cancellationToken);
+
+        return result.ToActionResult(Ok);
+    }
+
+    /// <summary>The checkout's credit preview for a customer: policy, limit, balance and what is available.</summary>
+    [HttpGet("{customerId:guid}/credit")]
+    [Authorize(Policy = "OwnerManagerOrStaff")]
+    public async Task<IActionResult> GetCustomerCredit(Guid customerId, CancellationToken cancellationToken)
+    {
+        var shop = CheckShop();
+        if (shop is not null) return shop;
+
+        var result = await Bus.InvokeAsync<ErrorOr<CustomerCreditStatusDto>>(
+            new GetCustomerCreditQuery(ActiveShopId!.Value, customerId),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -126,7 +152,9 @@ public sealed record AddCustomerRequest(
     bool IsActive,
     decimal CreditLimit = 0m,
     string? Gstin = null,
-    string? StateCode = null);
+    string? StateCode = null,
+    CreditPolicyMode? CreditPolicyMode = null,
+    int? CreditTermsDays = null);
 
 public sealed record EditCustomerRequest(
     string Name,
@@ -135,7 +163,9 @@ public sealed record EditCustomerRequest(
     bool IsActive,
     decimal CreditLimit,
     string? Gstin = null,
-    string? StateCode = null);
+    string? StateCode = null,
+    CreditPolicyMode? CreditPolicyMode = null,
+    int? CreditTermsDays = null);
 
 /// <param name="OperationKey">
 /// Durable identity of this payment. A retry with the same key replays the committed result;

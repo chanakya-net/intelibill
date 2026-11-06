@@ -1,4 +1,5 @@
-import { Component, EventEmitter, OnInit, Output, inject, input } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output, computed, inject, input } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -11,8 +12,16 @@ import { InputTextModule } from 'primeng/inputtext';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SelectModule } from 'primeng/select';
 
-import { Customer } from '../services/customer.service';
+import { CreditPolicyMode, Customer } from '../services/customer.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import { CustomersFacade } from '../state/customers.facade';
+import {
+  MAX_CREDIT_TERMS_DAYS,
+  SELECTABLE_CREDIT_POLICIES,
+  effectiveCreditPolicy,
+  creditPolicyLabelKey,
+  enforcedPolicyNeedsLimit,
+} from '../utils/credit-policy.util';
 import { InputValidators } from '../../../shared/forms/input-validation';
 import { GST_STATE_OPTIONS } from '../../../shared/gst/gst-state-codes';
 import {
@@ -55,6 +64,17 @@ export class EditCustomerOverlayComponent implements OnInit {
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly stateOptions = [...GST_STATE_OPTIONS];
+  /** Legacy advisory can be kept while the owner reviews it, never newly chosen. */
+  readonly creditPolicyOptions = computed(() => {
+    const modes: CreditPolicyMode[] =
+      effectiveCreditPolicy(this.customer().creditPolicyMode) === 'LegacyAdvisory'
+        ? [...SELECTABLE_CREDIT_POLICIES, 'LegacyAdvisory']
+        : [...SELECTABLE_CREDIT_POLICIES];
+    return modes.map((value) => ({
+      value,
+      label: creditPolicyLabelKey(value),
+    }));
+  });
 
   readonly form = this.formBuilder.nonNullable.group(
     {
@@ -72,11 +92,37 @@ export class EditCustomerOverlayComponent implements OnInit {
           InputValidators.maxFractionDigits(2),
         ],
       ],
+      creditPolicyMode: ['NoCredit' as CreditPolicyMode, Validators.required],
+      creditTermsDays: [null as number | null, [Validators.min(0), Validators.max(MAX_CREDIT_TERMS_DAYS)]],
     },
-    { validators: InputValidators.gstinMatchesState('gstin', 'stateCode') },
+    {
+      validators: [
+        InputValidators.gstinMatchesState('gstin', 'stateCode'),
+        enforcedPolicyNeedsLimit('creditPolicyMode', 'creditLimit'),
+      ],
+    },
   );
 
+  readonly maxTermsDays = MAX_CREDIT_TERMS_DAYS;
+  private readonly authService = inject(AuthService);
+  /** Credit limit, policy and terms are an owner's or manager's decision; the server refuses staff too. */
+  readonly canEditCredit = computed(() => {
+    const session = this.authService.session();
+    const role = session?.shops?.find((shop) => shop.shopId === session.activeShopId)?.role;
+    return role === 'Owner' || role === 'Manager';
+  });
+  private readonly selectedPolicy = toSignal(this.form.controls.creditPolicyMode.valueChanges, {
+    initialValue: this.form.controls.creditPolicyMode.value,
+  });
+  /** Hint for the chosen policy, so a zero limit is never read as "unlimited". */
+  readonly creditPolicyHintKey = computed(() => `customers.creditPolicy.hints.${this.selectedPolicy()}`);
+
   ngOnInit(): void {
+    if (!this.canEditCredit()) {
+      this.form.controls.creditLimit.disable();
+      this.form.controls.creditPolicyMode.disable();
+      this.form.controls.creditTermsDays.disable();
+    }
     this.customersFacade.clearError();
     this.customersFacade.clearMutationStatus();
 
@@ -87,6 +133,8 @@ export class EditCustomerOverlayComponent implements OnInit {
       address: c.address ?? '',
       isActive: c.isActive,
       creditLimit: c.creditLimit,
+      creditPolicyMode: effectiveCreditPolicy(c.creditPolicyMode),
+      creditTermsDays: c.creditTermsDays ?? null,
       gstin: c.gstin ?? '',
       stateCode: c.stateCode ?? '',
     });
@@ -116,6 +164,8 @@ export class EditCustomerOverlayComponent implements OnInit {
       address: this.nullableTrimmed(raw.address),
       isActive: raw.isActive,
       creditLimit: raw.creditLimit,
+      creditPolicyMode: raw.creditPolicyMode,
+      creditTermsDays: raw.creditTermsDays ?? null,
       // The server keeps a field that is absent or null; an empty string is what clears it.
       gstin: this.nullableTrimmed(raw.gstin)?.toUpperCase() ?? '',
       // A cleared state select leaves null in the control.

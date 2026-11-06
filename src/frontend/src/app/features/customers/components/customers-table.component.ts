@@ -16,6 +16,7 @@ import {
   customerUsageLabel as deriveCustomerUsageLabel,
   customerUsagePercent as deriveCustomerUsagePercent,
 } from '../utils/customer-status.util';
+import { creditPolicyLabelKey } from '../utils/credit-policy.util';
 
 @Component({
   selector: 'app-customers-table',
@@ -38,6 +39,7 @@ export class CustomersTableComponent {
   readonly customerStatusClass = deriveCustomerStatusClass;
   readonly customerUsagePercent = deriveCustomerUsagePercent;
   readonly customerUsageLabel = deriveCustomerUsageLabel;
+  readonly creditPolicyLabelKey = creditPolicyLabelKey;
 
   get tableCustomers(): Customer[] {
     return [...this.customers];

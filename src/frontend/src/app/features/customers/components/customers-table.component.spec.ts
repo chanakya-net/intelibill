@@ -56,7 +56,7 @@ describe('CustomersTableComponent', () => {
                 statuses: {
                   active: 'Active',
                   inactive: 'Inactive',
-                  overdue: 'Overdue',
+                  outstanding: 'Outstanding',
                   inCredit: 'In Credit',
                 },
                 newTransaction: 'New Transaction',
@@ -92,7 +92,8 @@ describe('CustomersTableComponent', () => {
     const host = fixture.nativeElement as HTMLElement;
 
     expect(host.textContent).toContain('Alice Cooper');
-    expect(host.textContent).toContain('Overdue');
+    expect(host.textContent).toContain('Outstanding');
+    expect(host.textContent).not.toContain('Overdue');
     expect(host.textContent).toContain('In Credit');
 
     const usageBars = host.querySelectorAll('.usage-bar__fill');

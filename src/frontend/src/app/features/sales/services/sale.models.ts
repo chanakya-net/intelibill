@@ -256,6 +256,14 @@ export interface RecordSaleRequest {
   readonly creditNoteCustomerMismatchConfirmed?: boolean;
   /** GST state code of the place of supply; omitted or null means the seller's state (a counter sale). */
   readonly placeOfSupplyStateCode?: string | null;
+  /** An owner's or manager's approval to go over the customer's enforced credit limit. */
+  readonly creditOverride?: SaleCreditOverride | null;
+}
+
+/** Approval to exceed an enforced credit limit; refused once the balance grows past `observedExposure`. */
+export interface SaleCreditOverride {
+  readonly reason: string;
+  readonly observedExposure: number;
 }
 
 export interface ReserveInvoiceLeaseRequest {

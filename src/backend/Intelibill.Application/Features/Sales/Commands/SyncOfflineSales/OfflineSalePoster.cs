@@ -1,6 +1,7 @@
 using System.Globalization;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Domain.Entities;
@@ -67,6 +68,17 @@ internal sealed class OfflineSalePoster(
 
         var resolvedCust = customerRes.Value;
         OfflineSaleSyncHelpers.AddCustomerVarianceWarnings(shopId, recordedBy, clientSaleId, deviceId, sale, resolvedCust, warnings, pendingIssues);
+
+        // The bill was already issued offline, so it is never refused for credit here: a due the
+        // customer's policy would refuse online posts with a review case instead. Offline devices
+        // cannot see other devices' due, so the limit is not a guarantee across devices.
+        if (sale.DueAmount > 0m && resolvedCust is { IsActive: true } && !request.CreditReviewed)
+        {
+            var exposure = await customerLedgerEntryRepository.GetCustomerBalanceAsync(shopId, resolvedCust.Id, cancellationToken);
+            var credit = CustomerCreditPolicy.Evaluate(CustomerCreditState.Of(resolvedCust), exposure, sale.DueAmount, null, null);
+            if (credit.IsError)
+                OfflineSaleSyncHelpers.AddCreditPolicyViolation(shopId, recordedBy, clientSaleId, deviceId, resolvedCust, exposure, sale.DueAmount, credit.FirstError, warnings, pendingIssues);
+        }
 
         var lineCmds = new List<RecordSaleItemCommand>(sale.Items.Count);
         var lineByKey = new Dictionary<string, OfflineSaleSyncLineCommand>(sale.Items.Count);
@@ -150,6 +162,7 @@ internal sealed class OfflineSalePoster(
         var consumption = OfflineSaleSyncHelpers.BuildStockConsumptionPlan(shopId, recordedBy, clientSaleId, deviceId, vLines, warnings, pendingIssues);
         var saleEntity = Sale.Create(shopId, request.AttributedUserId, OfflineSaleSyncIdempotencyHasher.ComputeKey(deviceId, clientSaleId), request.PayloadHash, invoiceNumber, resolvedCust?.Id ?? sale.CustomerId, sale.CustomerName ?? resolvedCust?.Name, sale.CustomerPhone ?? resolvedCust?.PhoneNumber, sale.PaymentMethod, sale.SoldAt, sale.PaidAmount, sale.DueAmount, sale.TotalAmount, sale.TotalTaxAmount, saleItems, sale.SubtotalBeforeDiscount, sale.TotalBeforeDiscount, sale.TotalDiscountAmount, sale.ConfiguredSaleRuleId, sale.ConfiguredSaleRuleType, sale.ConfiguredSaleRulePercentage, sale.ConfiguredSaleRuleThresholdAmount, sale.SaleDiscountOverrideType, sale.SaleDiscountOverrideValue, SaleSource.Offline, clientSaleId, deviceId, request.Now, warnings);
 
+        saleEntity.ApplyCreditTerms(resolvedCust?.CreditTermsDays);
         await AttachDocumentAsync(request, saleEntity, resolvedCust, vLines, pendingIssues, cancellationToken);
 
         // Built before anything is staged so a refused entry leaves the unit of work untouched.

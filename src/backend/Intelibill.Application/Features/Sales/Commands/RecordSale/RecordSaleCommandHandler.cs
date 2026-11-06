@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Features.Sales.Services.Pricing;
@@ -26,6 +27,8 @@ public sealed class RecordSaleCommandHandler
     private readonly IShopRepository shopRepository;
     private readonly IInvoiceNumberAllocator invoiceNumberAllocator;
     private readonly IUnitOfWork unitOfWork;
+    private readonly ICustomerRepository customerRepository;
+    private readonly IUserRepository userRepository;
 
     public RecordSaleCommandHandler(
         ISaleLineValidator saleLineValidator,
@@ -38,7 +41,9 @@ public sealed class RecordSaleCommandHandler
         IStockTransactionRepository stockTransactionRepository,
         IShopRepository shopRepository,
         IInvoiceNumberAllocator invoiceNumberAllocator,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICustomerRepository customerRepository,
+        IUserRepository userRepository)
     {
         this.saleLineValidator = saleLineValidator;
         this.salePricingCalculator = salePricingCalculator;
@@ -51,6 +56,8 @@ public sealed class RecordSaleCommandHandler
         this.shopRepository = shopRepository;
         this.invoiceNumberAllocator = invoiceNumberAllocator;
         this.unitOfWork = unitOfWork;
+        this.customerRepository = customerRepository;
+        this.userRepository = userRepository;
     }
 
     public async Task<ErrorOr<SaleDto>> HandleAsync(RecordSaleCommand command, CancellationToken cancellationToken)
@@ -180,6 +187,24 @@ public sealed class RecordSaleCommandHandler
             await unitOfWork.BeginTransactionAsync(cancellationToken);
             transactionStarted = true;
 
+            // The customer is the first lock, as for payments and returns: the credit decision is
+            // made on the balance and settings committed now, and a second due sale for the same
+            // customer waits here until this one commits or rolls back.
+            CustomerCreditCheck? creditCheck = null;
+            if (command.DueAmount > 0m && resolvedCustomer is not null)
+            {
+                var creditOrError = await DecideCreditAsync(command, resolvedCustomer.Id, cancellationToken);
+                if (creditOrError.IsError)
+                    return creditOrError.Errors;
+
+                if (creditOrError.Value.Replay is { } replay)
+                    return replay;
+
+                creditCheck = creditOrError.Value;
+                if (creditCheck.Decision.ExceedsAdvisoryLimit)
+                    warnings.Add($"Customer due {creditCheck.Decision.ExposureAfter:0.00} exceeds the advisory credit limit {creditCheck.Decision.CreditLimit:0.00} (not enforced).");
+            }
+
             var invoiceNumberOrError = await invoiceNumberAllocator.AllocateAsync(series, cancellationToken);
             if (invoiceNumberOrError.IsError)
                 return invoiceNumberOrError.Errors;
@@ -218,6 +243,12 @@ public sealed class RecordSaleCommandHandler
                 return documentOrError.Errors;
 
             sale.AttachInvoiceDocument(documentOrError.Value);
+            if (creditCheck is not null)
+            {
+                sale.ApplyCreditTerms(creditCheck.CreditTermsDays);
+                if (creditCheck.Decision is { Kind: CreditDecisionKind.Overridden, Override: { } approved })
+                    sale.RecordCreditOverride(approved.Reason, command.ActorUserId, approved.ObservedExposure, creditCheck.Decision.CreditLimit);
+            }
 
             var creditNoteRedemptionsOrError = await RedeemCreditNotesAsync(
                 command.ShopId,
@@ -313,6 +344,63 @@ public sealed class RecordSaleCommandHandler
                 await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
             }
         }
+    }
+
+    private sealed record CustomerCreditCheck(CreditDecision Decision, int? CreditTermsDays, ErrorOr<SaleDto>? Replay = null);
+
+    /// <summary>
+    /// Locks the customer, then judges the new due on what is committed now. A retry of a sale that
+    /// committed while this request waited for the lock replays it instead of being judged again.
+    /// </summary>
+    private async Task<ErrorOr<CustomerCreditCheck>> DecideCreditAsync(
+        RecordSaleCommand command,
+        Guid customerId,
+        CancellationToken cancellationToken)
+    {
+        var lockOutcome = await customerRepository.LockForCreditAsync(command.ShopId, customerId, cancellationToken);
+        switch (lockOutcome)
+        {
+            case RowLockOutcome.Acquired:
+                break;
+            case RowLockOutcome.TimedOut:
+                return Errors.CustomerCredit.Busy;
+            default:
+                return Errors.Sale.CreditCustomerNotFound;
+        }
+
+        var normalizedKey = command.IdempotencyKey.Trim();
+        var replay = await TryGetReplayForIdempotentSaleAsync(
+            command.ShopId,
+            command.ActorUserId,
+            normalizedKey,
+            RecordSaleIdempotencyHasher.ComputeHash(command),
+            cancellationToken);
+        if (replay.HasValue)
+            return new CustomerCreditCheck(new CreditDecision(CreditDecisionKind.NoNewDue, 0m, 0m, 0m), null, replay.Value);
+
+        var customer = await customerRepository.GetCurrentAsync(command.ShopId, customerId, cancellationToken);
+        if (customer is null)
+            return Errors.Sale.CreditCustomerNotFound;
+
+        var exposure = await customerLedgerEntryRepository.GetCustomerBalanceAsync(command.ShopId, customerId, cancellationToken);
+
+        ShopRole? actorRole = null;
+        if (command.CreditOverride is not null)
+        {
+            var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);
+            actorRole = actor?.ShopMemberships.FirstOrDefault(m => m.ShopId == command.ShopId)?.Role;
+        }
+
+        var decision = CustomerCreditPolicy.Evaluate(
+            CustomerCreditState.Of(customer),
+            exposure,
+            command.DueAmount,
+            command.CreditOverride,
+            actorRole);
+        if (decision.IsError)
+            return decision.Errors;
+
+        return new CustomerCreditCheck(decision.Value, customer.CreditTermsDays);
     }
 
     private async Task<ErrorOr<IReadOnlyList<SaleCreditNoteRedemptionSummaryDto>>> LoadCreditNoteRedemptionsAsync(

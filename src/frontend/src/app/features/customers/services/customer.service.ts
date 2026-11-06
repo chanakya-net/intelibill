@@ -4,6 +4,12 @@ import { Observable } from 'rxjs';
 
 import { environment } from '../../../../environments/environment';
 
+/**
+ * How new due is judged against the saved credit limit. `LegacyAdvisory` is a setting recorded
+ * before credit policies existed: shown, never enforced, until an owner or manager chooses.
+ */
+export type CreditPolicyMode = 'NoCredit' | 'Enforced' | 'LegacyAdvisory';
+
 export interface Customer {
   customerId: string;
   name: string;
@@ -19,6 +25,10 @@ export interface Customer {
   gstin?: string | null;
   /** GST state code; absent only from responses that predate customer GST details. */
   stateCode?: string | null;
+  /** Absent only from responses that predate credit policies (treat as legacy advisory). */
+  creditPolicyMode?: CreditPolicyMode;
+  /** Agreed days to pay a due sale; null when no terms were agreed. */
+  creditTermsDays?: number | null;
 }
 
 export interface AddCustomerRequest {
@@ -29,6 +39,9 @@ export interface AddCustomerRequest {
   creditLimit: number;
   gstin: string | null;
   stateCode: string | null;
+  /** The web app always sends a policy; the API labels an absent one legacy advisory. */
+  creditPolicyMode?: CreditPolicyMode;
+  creditTermsDays?: number | null;
 }
 
 export interface EditCustomerRequest {
@@ -41,6 +54,9 @@ export interface EditCustomerRequest {
   gstin: string | null;
   /** An empty string clears the recorded state; null keeps it. */
   stateCode: string | null;
+  /** With terms: both are saved as sent (null terms = none). Absent keeps the stored policy and terms. */
+  creditPolicyMode?: CreditPolicyMode;
+  creditTermsDays?: number | null;
 }
 
 export interface CustomerAccountSale {
@@ -58,6 +74,10 @@ export interface CustomerAccountSale {
   returnCreditAmount?: number;
   /** What is still owed on this invoice today. */
   currentOutstandingAmount?: number;
+  /** When the due falls due, fixed at issue from agreed terms; null = no terms (outstanding, never overdue). */
+  dueDate?: string | null;
+  /** True only when something is still owed and the due date has passed. */
+  isOverdue?: boolean;
 }
 
 /** How the money moved, as the API names it. `UnknownRecordedMethod` = not recorded (legacy). */
@@ -86,6 +106,8 @@ export interface CustomerLedgerEntry {
   runningBalance: number;
   /** The payment receipt behind a `PaymentReceived` entry. */
   receiptId?: string | null;
+  /** The entry's effect on what is owed: positive = debit, negative = credit. */
+  signedAmount?: number;
 }
 
 /** Reads any wire form of a customer ledger entry type (enum name or number). */
@@ -125,6 +147,34 @@ export interface CustomerAccount {
   /** Payment money not applied to any invoice yet. */
   unallocatedCredit?: number;
   receipts?: PaymentReceiptSummary[];
+  /** The saved credit limit, exactly as configured. */
+  creditLimit?: number;
+  isActive?: boolean;
+  creditPolicyMode?: CreditPolicyMode;
+  creditTermsDays?: number | null;
+  /** New due the account can take now under an enforced policy; null when the limit is advisory. */
+  availableCredit?: number | null;
+  /** The balance before the statement window (0 when it starts at the beginning). */
+  openingBalance?: number;
+  /** Opening balance plus the window's signed entries. */
+  closingBalance?: number;
+  /** The business date overdue is judged on. */
+  asOfBusinessDate?: string;
+  /** Outstanding on invoices whose due date has passed. */
+  overdueAmount?: number;
+}
+
+/** The checkout's advisory credit preview; the server decides again when the sale posts. */
+export interface CustomerCreditStatus {
+  customerId: string;
+  isActive: boolean;
+  creditPolicyMode: CreditPolicyMode;
+  creditLimit: number;
+  creditTermsDays: number | null;
+  /** The signed account balance now (negative = the customer is in credit). */
+  currentExposure: number;
+  /** New due the account can take now; null when the limit is advisory (not enforced). */
+  availableCredit: number | null;
 }
 
 export interface PaymentAllocationRequest {
@@ -203,6 +253,11 @@ export class CustomerService {
 
   getCustomerAccount(customerId: string): Observable<CustomerAccount> {
     return this.http.get<CustomerAccount>(`${this.apiUrl}/${customerId}/account`);
+  }
+
+  /** The credit preview for checkout; any member may read it. */
+  getCustomerCredit(customerId: string): Observable<CustomerCreditStatus> {
+    return this.http.get<CustomerCreditStatus>(`${this.apiUrl}/${customerId}/credit`);
   }
 
   recordCustomerPayment(customerId: string, request: KeyedRecordCustomerPaymentRequest): Observable<CustomerLedgerEntry> {

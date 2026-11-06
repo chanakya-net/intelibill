@@ -1,4 +1,5 @@
 using FluentValidation;
+using DomainErrors = Intelibill.Domain.Common.Errors;
 using Gstin = Intelibill.Domain.Common.Gstin;
 using GstStateCodes = Intelibill.Domain.Common.GstStateCodes;
 using Intelibill.Application.Common.Errors;
@@ -41,6 +42,24 @@ public sealed class EditCustomerCommandValidator : AbstractValidator<EditCustome
             .LessThanOrEqualTo(99999999.99m)
             .WithErrorCode(Errors.Customer.CreditLimitInvalid.Code)
             .WithMessage(Errors.Customer.CreditLimitInvalid.Description);
+
+        RuleFor(x => x.CreditPolicyMode)
+            .IsInEnum()
+            .When(x => x.CreditPolicyMode is not null)
+            .WithErrorCode(DomainErrors.CustomerCredit.PolicyModeInvalid.Code)
+            .WithMessage(DomainErrors.CustomerCredit.PolicyModeInvalid.Description);
+
+        RuleFor(x => x.CreditTermsDays)
+            .InclusiveBetween(0, Intelibill.Domain.Entities.Customer.MaxCreditTermsDays)
+            .When(x => x.CreditTermsDays is not null)
+            .WithErrorCode(DomainErrors.CustomerCredit.TermsDaysInvalid.Code)
+            .WithMessage(DomainErrors.CustomerCredit.TermsDaysInvalid.Description);
+
+        RuleFor(x => x.CreditLimit)
+            .GreaterThan(0m)
+            .When(x => x.CreditPolicyMode == Intelibill.Domain.Enums.CreditPolicyMode.Enforced)
+            .WithErrorCode(DomainErrors.CustomerCredit.EnforcedPolicyRequiresLimit.Code)
+            .WithMessage(DomainErrors.CustomerCredit.EnforcedPolicyRequiresLimit.Description);
 
         RuleFor(x => x.Gstin)
             .Must(Gstin.IsValid)

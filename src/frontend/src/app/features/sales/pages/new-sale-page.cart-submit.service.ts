@@ -253,6 +253,8 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
       creditNoteAppliedAmount: creditNoteAmount,
       creditNoteRedemptions: this.buildCreditNoteRedemptions(),
       creditNoteCustomerMismatchConfirmed: this.creditNoteCustomerMismatchConfirmed() || undefined,
+      // Only with due on a chosen customer; the server judges it again under the customer's lock.
+      creditOverride: dueAmount > 0 && this.selectedCustomerId() ? (this.creditOverride() ?? undefined) : undefined,
     };
 
     this.isPreparingCheckout = true;

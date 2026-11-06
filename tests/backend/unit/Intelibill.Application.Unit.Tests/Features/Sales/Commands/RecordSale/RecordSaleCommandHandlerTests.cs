@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Services;
@@ -31,6 +32,11 @@ public class RecordSaleCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IInvoiceNumberAllocator _invoiceNumberAllocator = Substitute.For<IInvoiceNumberAllocator>();
+    private readonly ICustomerRepository _customerRepository = Substitute.For<ICustomerRepository>();
+    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+
+    /// <summary>The customer as the credit check reads it under the lock; a legacy-advisory customer when unset.</summary>
+    private Customer? _currentCustomer;
     private Shop _shop = DeclaredShop(TaxRegime.Regular, "29AAPFU0939F1ZR");
     private int _nextInvoiceNumber;
 
@@ -66,6 +72,10 @@ public class RecordSaleCommandHandlerTests
                     null,
                     []));
             });
+        _customerRepository.LockForCreditAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(RowLockOutcome.Acquired);
+        _customerRepository.GetCurrentAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Task.FromResult<Customer?>(_currentCustomer ?? Customer.Create(ci.ArgAt<Guid>(0), "Credit", "+919000000000", null)));
         _unitOfWork.BeginTransactionAsync(Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask);
         _unitOfWork.CommitTransactionAsync(Arg.Any<CancellationToken>())
@@ -75,7 +85,7 @@ public class RecordSaleCommandHandlerTests
     }
 
     private RecordSaleCommandHandler CreateHandler() =>
-        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork);
+        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork, _customerRepository, _userRepository);
 
     private static Shop DeclaredShop(TaxRegime regime, string? gstin)
     {
@@ -1242,5 +1252,200 @@ public class RecordSaleCommandHandlerTests
 
         Assert.False(result.IsError);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    private (RecordSaleCommand Command, Customer Customer) ArrangeCreditSale(
+        CreditPolicyMode mode,
+        decimal limit,
+        decimal currentBalance,
+        CreditOverrideRequest? creditOverride = null,
+        int? termsDays = null,
+        Guid? actorId = null)
+    {
+        var shopId = Guid.NewGuid();
+        var customer = Customer.Create(shopId, "Reg User", "+911234567890", null, true, limit);
+        Assert.False(customer.SetCreditPolicy(mode, termsDays).IsError);
+        _currentCustomer = customer;
+
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+
+        // qty=1, price=100, tax=18% → total=118, paid=78, due=40
+        var command = new RecordSaleCommand(actorId ?? Guid.NewGuid(), shopId, $"sale-{Guid.NewGuid():N}", customer.Id, null, null,
+            PaymentMethod.Credit, PaidAmount: 78m, DueAmount: 40m,
+            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id)],
+            CreditOverride: creditOverride);
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult([line], new Dictionary<Guid, string> { { item.Id, item.Name } }));
+        _customerResolver.ResolveAsync(shopId, customer.Id, null, true, PaymentMethod.Credit, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
+        _customerLedgerEntryRepository.GetCustomerBalanceAsync(shopId, customer.Id, Arg.Any<CancellationToken>())
+            .Returns(currentBalance);
+
+        return (command, customer);
+    }
+
+    private static User MemberWithRole(Guid shopId, ShopRole role)
+    {
+        var user = User.CreateWithEmail($"{role}@test.com".ToLowerInvariant(), "hash", role.ToString(), "User");
+        user.AddShopMembership(ShopMembership.Create(shopId, user.Id, role, role == ShopRole.Owner));
+        return user;
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenEnforcedLimitWouldBeExceeded_RefusesWithoutPosting()
+    {
+        var (command, _) = ArrangeCreditSale(CreditPolicyMode.Enforced, limit: 100m, currentBalance: 70m);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.CustomerCredit.LimitExceeded.Code, result.FirstError.Code);
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+        await _invoiceNumberAllocator.DidNotReceive().AllocateAsync(Arg.Any<InvoiceSeriesKey>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_LocksTheCustomerBeforeTakingAnInvoiceNumber()
+    {
+        var (command, customer) = ArrangeCreditSale(CreditPolicyMode.Enforced, limit: 100m, currentBalance: 60m);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Received.InOrder(() =>
+        {
+            _unitOfWork.BeginTransactionAsync(Arg.Any<CancellationToken>());
+            _customerRepository.LockForCreditAsync(command.ShopId, customer.Id, Arg.Any<CancellationToken>());
+            _customerLedgerEntryRepository.GetCustomerBalanceAsync(command.ShopId, customer.Id, Arg.Any<CancellationToken>());
+            _invoiceNumberAllocator.AllocateAsync(Arg.Any<InvoiceSeriesKey>(), Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCustomerLockTimesOut_ReturnsBusyWithoutPosting()
+    {
+        var (command, _) = ArrangeCreditSale(CreditPolicyMode.Enforced, limit: 100m, currentBalance: 0m);
+        _customerRepository.LockForCreditAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(RowLockOutcome.TimedOut);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.Equal(Errors.CustomerCredit.Busy.Code, result.FirstError.Code);
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenCustomerWasDeactivatedBeforeTheLock_RefusesTheDue()
+    {
+        var (command, customer) = ArrangeCreditSale(CreditPolicyMode.Enforced, limit: 100m, currentBalance: 0m);
+        var deactivated = Customer.Create(command.ShopId, customer.Name, customer.PhoneNumber, null, isActive: false, creditLimit: 100m);
+        Assert.False(deactivated.SetCreditPolicy(CreditPolicyMode.Enforced, null).IsError);
+        _currentCustomer = deactivated;
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.Equal(Errors.CustomerCredit.CustomerInactive.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenStaffOverridesTheLimit_IsRefused()
+    {
+        var actorId = Guid.NewGuid();
+        var (command, _) = ArrangeCreditSale(CreditPolicyMode.Enforced, 100m, 70m, new CreditOverrideRequest("regular", 70m), actorId: actorId);
+        var staff = MemberWithRole(command.ShopId, ShopRole.Staff);
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>()).Returns(staff);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.Equal(Errors.CustomerCredit.OverrideNotPermitted.Code, result.FirstError.Code);
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenManagerOverridesTheLimit_PostsAndAuditsTheApproval()
+    {
+        var actorId = Guid.NewGuid();
+        var (command, _) = ArrangeCreditSale(CreditPolicyMode.Enforced, 100m, 70m, new CreditOverrideRequest("  Festival order  ", 75m), actorId: actorId);
+        var manager = MemberWithRole(command.ShopId, ShopRole.Manager);
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>()).Returns(manager);
+        Sale? posted = null;
+        await _saleRepository.AddAsync(Arg.Do<Sale>(sale => posted = sale), Arg.Any<CancellationToken>());
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(posted);
+        Assert.Equal("Festival order", posted.CreditOverrideReason);
+        Assert.Equal(actorId, posted.CreditOverrideByUserId);
+        // What the approver saw, not the live balance it was checked against.
+        Assert.Equal(75m, posted.CreditOverrideObservedExposure);
+        Assert.Equal(100m, posted.CreditOverrideLimit);
+    }
+
+    [Fact]
+    public async Task HandleAsync_LegacyAdvisoryOverLimit_PostsWithAWarning()
+    {
+        var (command, _) = ArrangeCreditSale(CreditPolicyMode.LegacyAdvisory, 50m, 30m);
+        Sale? posted = null;
+        await _saleRepository.AddAsync(Arg.Do<Sale>(sale => posted = sale), Arg.Any<CancellationToken>());
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Contains(posted!.Warnings, w => w.Contains("advisory credit limit", StringComparison.Ordinal));
+        Assert.Null(posted.CreditOverrideReason);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithAgreedTerms_FixesTheDueDateFromTheIssueDate()
+    {
+        var (command, _) = ArrangeCreditSale(CreditPolicyMode.Enforced, 100m, 0m, termsDays: 15);
+        Sale? posted = null;
+        await _saleRepository.AddAsync(Arg.Do<Sale>(sale => posted = sale), Arg.Any<CancellationToken>());
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(Intelibill.Domain.Common.BusinessCalendar.DateOf(posted!.SoldAt).AddDays(15), posted.DueDate);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithoutTerms_LeavesNoDueDate()
+    {
+        var (command, _) = ArrangeCreditSale(CreditPolicyMode.Enforced, 100m, 0m);
+        Sale? posted = null;
+        await _saleRepository.AddAsync(Arg.Do<Sale>(sale => posted = sale), Arg.Any<CancellationToken>());
+
+        await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.Null(posted!.DueDate);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Validator_RefusesABlankOverrideReason_WithItsOwnCode(string reason)
+    {
+        var command = MakeCommand(Guid.NewGuid(), Guid.NewGuid()) with { CreditOverride = new CreditOverrideRequest(reason, 0m) };
+
+        var result = new RecordSaleCommandValidator().Validate(command);
+
+        Assert.Contains(result.Errors, e => e.ErrorCode == Errors.CustomerCredit.OverrideReasonRequired.Code);
+    }
+
+    [Fact]
+    public void IdempotencyHash_IncludesTheOverride_AndIgnoresItWhenAbsent()
+    {
+        var shopId = Guid.NewGuid();
+        var plain = MakeCommand(shopId, Guid.NewGuid());
+        var withOverride = plain with { CreditOverride = new CreditOverrideRequest("ok", 10m) };
+
+        Assert.NotEqual(RecordSaleIdempotencyHasher.ComputeHash(plain), RecordSaleIdempotencyHasher.ComputeHash(withOverride));
+        Assert.Equal(RecordSaleIdempotencyHasher.ComputeHash(plain), RecordSaleIdempotencyHasher.ComputeHash(plain with { CreditOverride = null }));
     }
 }

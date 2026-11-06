@@ -111,6 +111,37 @@ internal static class OfflineSaleSyncHelpers
         || line.TaxAmount < 0
         || line.TotalAmount < 0;
 
+    /// <summary>
+    /// Files the review case for an offline due the customer's credit policy would refuse online.
+    /// The message carries amounts only (no customer details beyond the name the case already shows).
+    /// </summary>
+    internal static void AddCreditPolicyViolation(
+        Guid shopId,
+        Guid actorUserId,
+        string clientSaleId,
+        string deviceId,
+        Customer customer,
+        decimal exposureBefore,
+        decimal newDue,
+        Error refusal,
+        List<string> warnings,
+        List<ReconciliationIssue> issues)
+    {
+        var message = string.Create(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"Offline due {newDue:0.00} for '{customer.Name}' breaks the customer's credit policy ({refusal.Code}): balance before {exposureBefore:0.00}, limit {customer.CreditLimit:0.00}.");
+        warnings.Add(message);
+        issues.Add(ReconciliationIssue.Create(
+            shopId,
+            null,
+            clientSaleId,
+            deviceId,
+            ReconciliationIssueType.CustomerVariance,
+            "offline_sync.credit_policy_violation",
+            message,
+            actorUserId));
+    }
+
     internal static void AddCustomerVarianceWarnings(
         Guid shopId,
         Guid actorUserId,

@@ -5,7 +5,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { EditCustomerOverlayComponent } from './edit-customer-overlay.component';
 import { Customer } from '../services/customer.service';
+import { AuthService } from '../../../core/auth/auth.service';
 import { CustomersFacade } from '../state/customers.facade';
+
+let overlayRole = 'Owner';
 
 describe('EditCustomerOverlayComponent', () => {
   function setup(customer: Customer) {
@@ -22,7 +25,10 @@ describe('EditCustomerOverlayComponent', () => {
         EditCustomerOverlayComponent,
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
-      providers: [{ provide: CustomersFacade, useValue: facade }],
+      providers: [
+        { provide: CustomersFacade, useValue: facade },
+        { provide: AuthService, useValue: { session: () => ({ activeShopId: 'shop-1', shops: [{ shopId: 'shop-1', role: overlayRole }] }) } },
+      ],
     });
 
     const fixture = TestBed.createComponent(EditCustomerOverlayComponent);
@@ -73,9 +79,33 @@ describe('EditCustomerOverlayComponent', () => {
       address: null,
       isActive: true,
       creditLimit: 2500,
+      creditPolicyMode: 'LegacyAdvisory',
+      creditTermsDays: null,
       gstin: '',
       stateCode: '',
     });
+  });
+
+  it('keeps legacy advisory selectable only for a customer already on it', () => {
+    const base: Customer = {
+      customerId: 'c9',
+      name: 'Legacy',
+      phoneNumber: '+919812345670',
+      address: null,
+      isActive: true,
+      creditLimit: 100,
+      purchaseCount: 0,
+      lifetimeRevenue: 0,
+      currentMonthRevenue: 0,
+    };
+    const legacy = setup(base);
+    expect(legacy.component.creditPolicyOptions().map((option) => option.value)).toEqual(['NoCredit', 'Enforced', 'LegacyAdvisory']);
+    expect(legacy.component.form.controls.creditPolicyMode.value).toBe('LegacyAdvisory');
+
+    TestBed.resetTestingModule();
+    const enforced = setup({ ...base, creditPolicyMode: 'Enforced', creditTermsDays: 30 });
+    expect(enforced.component.creditPolicyOptions().map((option) => option.value)).toEqual(['NoCredit', 'Enforced']);
+    expect(enforced.component.form.controls.creditTermsDays.value).toBe(30);
   });
 
   it('patches and resubmits the customer GSTIN and state', () => {
