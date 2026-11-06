@@ -48,6 +48,8 @@ CREATE POLICY <t>_shop_isolation ON <t>
 | `payment_allocations` | `payment_allocations_shop_isolation` | `shop_id` | `shop_id` leading |
 | `payment_receipts` | `payment_receipts_shop_isolation` | `shop_id` | `shop_id` leading |
 | `payment_reversals` | `payment_reversals_shop_isolation` | `shop_id` | `shop_id` leading |
+| `posting_period_events` | `posting_period_events_shop_isolation` | `shop_id` | `shop_id` leading |
+| `posting_periods` | `posting_periods_shop_isolation` | `shop_id` | `shop_id` leading |
 | `purchase_order_receipt_sequences` | `purchase_order_receipt_sequences_shop_isolation` | `shop_id` | `shop_id` leading |
 | `purchase_order_receipts` | `purchase_order_receipts_shop_isolation` | `shop_id` | `shop_id` leading |
 | `purchase_order_sequences` | `purchase_order_sequences_shop_isolation` | `shop_id` | `shop_id` leading |

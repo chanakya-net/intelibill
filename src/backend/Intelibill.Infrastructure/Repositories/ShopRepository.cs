@@ -51,6 +51,13 @@ internal sealed class ShopRepository(ApplicationDbContext context)
             .OrderByDescending(sm => sm.LastUsedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<ShopRole?> GetActiveRoleAsync(Guid userId, Guid shopId, CancellationToken cancellationToken = default) =>
+        await _context.ShopMemberships
+            .AsNoTracking()
+            .Where(sm => sm.UserId == userId && sm.ShopId == shopId && sm.Status == MembershipStatus.Active)
+            .Select(sm => (ShopRole?)sm.Role)
+            .FirstOrDefaultAsync(cancellationToken);
+
     public async Task<bool> UserHasMembershipAsync(Guid userId, Guid shopId, CancellationToken cancellationToken = default) =>
         await _context.ShopMemberships.AnyAsync(
             sm => sm.UserId == userId && sm.ShopId == shopId && sm.Status == MembershipStatus.Active,

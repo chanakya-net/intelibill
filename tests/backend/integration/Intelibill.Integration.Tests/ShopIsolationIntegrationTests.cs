@@ -211,6 +211,9 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
         public Task<ShopMembership?> GetMostRecentlyUsedMembershipAsync(Guid userId, CancellationToken cancellationToken = default)
             => Task.FromResult<ShopMembership?>(null);
 
+        public Task<ShopRole?> GetActiveRoleAsync(Guid userId, Guid shopId, CancellationToken cancellationToken = default)
+            => Task.FromResult<ShopRole?>(null);
+
         public Task<bool> UserHasMembershipAsync(Guid userId, Guid shopId, CancellationToken cancellationToken = default)
             => Task.FromResult(false);
 

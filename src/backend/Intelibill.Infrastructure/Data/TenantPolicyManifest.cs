@@ -102,6 +102,8 @@ public static class TenantPolicyManifest
         Tenant("payment_allocations"),
         Tenant("payment_receipts"),
         Tenant("payment_reversals"),
+        Tenant("posting_period_events"),
+        Tenant("posting_periods"),
         Tenant("purchase_order_receipt_sequences"),
         Tenant("purchase_order_receipts"),
         Tenant("purchase_receipt_cost_adjustments"),

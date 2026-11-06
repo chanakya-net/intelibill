@@ -66,6 +66,8 @@ public class ApplicationDbContext(
     public DbSet<PaymentReceipt> PaymentReceipts => Set<PaymentReceipt>();
     public DbSet<PaymentAllocation> PaymentAllocations => Set<PaymentAllocation>();
     public DbSet<PaymentReversal> PaymentReversals => Set<PaymentReversal>();
+    public DbSet<PostingPeriod> PostingPeriods => Set<PostingPeriod>();
+    public DbSet<PostingPeriodEvent> PostingPeriodEvents => Set<PostingPeriodEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -89,6 +91,12 @@ public class ApplicationDbContext(
 
             modelBuilder.Entity<PurchaseReceiptValue>()
                 .Property(r => r.Version)
+                .IsRowVersion()
+                .HasColumnName("xmin")
+                .HasColumnType("xid");
+
+            modelBuilder.Entity<PostingPeriod>()
+                .Property(p => p.Version)
                 .IsRowVersion()
                 .HasColumnName("xmin")
                 .HasColumnType("xid");
