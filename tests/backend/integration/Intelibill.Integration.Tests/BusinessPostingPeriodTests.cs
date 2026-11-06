@@ -499,6 +499,12 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         // An owner reopens June; the same case now posts the original invoice on its original date.
         using (var reopened = await SendAsync(shop, HttpMethod.Post, "/api/posting-periods/2026-06/reopen", Transition("late invoice", "late-reopen")))
             Assert.Equal(HttpStatusCode.OK, reopened.StatusCode);
+
+        // A device resend of the same envelope does not post past the open case.
+        var resent = await OfflineSyncAsync(shop, payload);
+        Assert.Equal("NeedsReview", resent.GetProperty("status").GetString());
+        Assert.Equal(caseId, resent.GetProperty("reviewCaseId").GetGuid());
+        Assert.Equal(0, await ScalarAsync<long>("SELECT count(*) FROM sales WHERE shop_id = @shop", ("shop", shop.ShopId)));
         using (var retried = await ResolveRetryAsync(shop, caseId, version, "retry-open"))
         {
             var retriedBody = await retried.Content.ReadAsStringAsync();
@@ -508,6 +514,37 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         Assert.Equal(invoice, await ScalarAsync<string>("SELECT invoice_number FROM sales WHERE shop_id = @shop", ("shop", shop.ShopId)));
         Assert.Equal(new DateOnly(2026, 6, 30), await ScalarAsync<DateOnly>("SELECT business_date FROM sales WHERE shop_id = @shop", ("shop", shop.ShopId)));
         Assert.Equal(soldAt, await ScalarAsync<DateTimeOffset>("SELECT sold_at FROM sales WHERE shop_id = @shop", ("shop", shop.ShopId)));
+    }
+
+    [Fact]
+    public async Task Fence_AndTransitionLock_PutBackTheCallersLockBudget()
+    {
+        using var shop = await OpenShopAsync();
+        var month = ClosedMonth();
+
+        await using (var withBudget = await PostingTx.BeginAsync(_factory.Services, shop.ShopId))
+        {
+            await withBudget.SetLockTimeoutAsync("7s");
+            Assert.False((await withBudget.AuthorizeAsync(shop.ShopId, month.AddDays(3))).IsError);
+            Assert.Equal("7s", await withBudget.LockTimeoutAsync());
+            await withBudget.RollbackAsync();
+        }
+
+        await using (var withDefault = await PostingTx.BeginAsync(_factory.Services, shop.ShopId))
+        {
+            var before = await withDefault.LockTimeoutAsync();
+            Assert.False((await withDefault.AuthorizeAsync(shop.ShopId, month.AddDays(3))).IsError);
+            Assert.Equal(before, await withDefault.LockTimeoutAsync());
+            await withDefault.RollbackAsync();
+        }
+
+        await using (var transition = await PostingTx.BeginAsync(_factory.Services, shop.ShopId))
+        {
+            await transition.SetLockTimeoutAsync("7s");
+            await transition.LockForTransitionAsync(shop.ShopId, month);
+            Assert.Equal("7s", await transition.LockTimeoutAsync());
+            await transition.RollbackAsync();
+        }
     }
 
     [Fact]
@@ -820,6 +857,19 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
 
         public Task<ErrorOr<PostingPeriodLease>> AuthorizeAsync(Guid shopId, DateOnly businessDate) =>
             _scope.ServiceProvider.GetRequiredService<IPostingPeriodPolicy>().AuthorizeForWriteAsync(shopId, businessDate);
+
+        public async Task<string> LockTimeoutAsync() =>
+            (await _db.Database.SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"").ToListAsync()).Single();
+
+        public async Task SetLockTimeoutAsync(string value) =>
+            await _db.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {value}, true)");
+
+        public async Task LockForTransitionAsync(Guid shopId, DateOnly month)
+        {
+            var (start, _) = PostingPeriod.MonthOf(month);
+            var locked = await _scope.ServiceProvider.GetRequiredService<IPostingPeriodRepository>().LockForTransitionAsync(shopId, start);
+            Assert.NotEqual(RowLockOutcome.TimedOut, locked.Outcome);
+        }
 
         public async Task AddLedgerAsync(Shop shop, Guid customerId, DateOnly date)
         {

@@ -43,7 +43,7 @@ public static class ReconciliationActionPolicy
         Errors.OfflineReconciliation.IssueTimeInFuture.Code,
         Errors.OfflineReconciliation.IssueFiscalYearMismatch.Code,
         Errors.OfflineReconciliation.IssuedAfterLeaseExpiry.Code,
-        Errors.PostingPeriod.Closed(default).Code,
+        Errors.PostingPeriod.ClosedCode,
     };
 
     /// <summary>The types an invoice is held under before posting; legacy ones of these carry no envelope.</summary>

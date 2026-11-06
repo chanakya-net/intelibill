@@ -13,9 +13,11 @@ public static partial class Errors
         public static Error OwnerOrManagerRequired =>
             Error.Forbidden("PostingPeriod.OwnerOrManagerRequired", "Only an owner or manager can view posting periods.");
 
+        public const string ClosedCode = "PostingPeriod.Closed";
+
         public static Error Closed(DateOnly periodStart) =>
             Error.Conflict(
-                "PostingPeriod.Closed",
+                ClosedCode,
                 $"{periodStart.ToString("MMMM yyyy", CultureInfo.InvariantCulture)} is closed. Ask an owner to reopen it before posting into it.");
 
         public static Error Busy =>

@@ -53,6 +53,10 @@ internal sealed class PostingPeriodRepository(ApplicationDbContext context) : IP
         if (context.Database.CurrentTransaction is null)
             throw new InvalidOperationException("The posting period lock must be taken inside a transaction.");
 
+        // The caller may already hold a budget of its own; put back exactly what was in force.
+        var previousTimeout = (await context.Database
+            .SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"")
+            .ToListAsync(cancellationToken)).Single();
         await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {LockTimeout}, true)", cancellationToken);
 
         List<PostingPeriod> rows;
@@ -73,7 +77,7 @@ internal sealed class PostingPeriodRepository(ApplicationDbContext context) : IP
             return new PostingPeriodLock(RowLockOutcome.TimedOut, null);
         }
 
-        await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout TO DEFAULT", cancellationToken);
+        await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {previousTimeout}, true)", cancellationToken);
         return rows.Count == 0 ? new PostingPeriodLock(RowLockOutcome.NotFound, null) : new PostingPeriodLock(RowLockOutcome.Acquired, rows[0]);
     }
 

@@ -76,11 +76,8 @@ internal sealed class OfflineSalePoster(
         if (period.IsError)
         {
             var periodError = period.FirstError;
-            if (periodError.Code == Errors.PostingPeriod.Closed(businessDay.Date).Code)
-            {
-                var closedMonth = periodError.Description;
-                return new OfflineSalePostingOutcome.Held(ReconciliationIssueType.ClosedPeriodReview, periodError, closedMonth, []);
-            }
+            if (periodError.Code == Errors.PostingPeriod.ClosedCode)
+                return new OfflineSalePostingOutcome.Held(ReconciliationIssueType.ClosedPeriodReview, periodError, periodError.Description, []);
 
             return new OfflineSalePostingOutcome.Rejected(periodError);
         }

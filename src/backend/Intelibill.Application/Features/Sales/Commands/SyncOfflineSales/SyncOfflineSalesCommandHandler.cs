@@ -20,6 +20,7 @@ public sealed class SyncOfflineSalesCommandHandler(
     ISaleRepository saleRepository,
     IDiscountRuleRepository discountRuleRepository,
     IOfflineSaleVarianceAnalyzer varianceAnalyzer,
+    IReconciliationIssueRepository reconciliationIssueRepository,
     IOfflineSalePoster salePoster,
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider)
@@ -119,6 +120,12 @@ public sealed class SyncOfflineSalesCommandHandler(
 
         if (await saleRepository.GetByInvoiceNumberAsync(command.ShopId, invNum, cancellationToken) is not null)
             return await HoldAsync(hold, null, ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceNumberAlreadyUsed, cancellationToken);
+
+        // An envelope already held for a closed period waits for an explicit resolution: reopening the
+        // month does not let a device resend post it past the open case.
+        if (await reconciliationIssueRepository.FindUnresolvedByEnvelopeAsync(command.ShopId, submission.Id, cancellationToken) is
+            { IssueType: ReconciliationIssueType.ClosedPeriodReview } pending)
+            return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Error.Conflict(pending.Code, pending.Message), pending.Id);
 
         // The fence inside StageAsync holds its shared lock on the period until this transaction ends,
         // so a close cannot commit between the check and the sale. Anything that does not post rolls

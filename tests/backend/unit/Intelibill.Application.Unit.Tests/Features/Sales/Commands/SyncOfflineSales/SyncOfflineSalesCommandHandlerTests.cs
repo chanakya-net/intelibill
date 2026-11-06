@@ -70,6 +70,7 @@ public class SyncOfflineSalesCommandHandlerTests
             _saleRepository,
             _discountRuleRepository,
             _varianceAnalyzer,
+            _reconciliationIssueRepository,
             new OfflineSalePoster(
                 _saleLineValidator,
                 _customerResolver,
@@ -1992,9 +1993,40 @@ public class SyncOfflineSalesCommandHandlerTests
         Assert.Equal(issue.Id, result.ReviewCaseId);
         Assert.Contains("January 2026", issue.Message);
         Assert.Null(result.SaleId);
+
+        // The number stays the device's: the hold carries it, and nothing touched the lease.
+        Assert.StartsWith("INV-2025-26-", issue.InvoiceNumber, StringComparison.Ordinal);
+        Assert.Equal(_recordedSubmissions.Single().InvoiceNumber, issue.InvoiceNumber);
+        Assert.All(_invoiceLeaseRepository.ReceivedCalls(), call => Assert.Equal(nameof(IInvoiceLeaseRepository.FindReservedRangeAsync), call.GetMethodInfo().Name));
         await AssertNothingPostedAsync();
         await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
         await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ResendWithOpenClosedPeriodCase_ReturnsSameCase_WithoutStaging()
+    {
+        var (shopId, actorId, deviceId) = (Guid.NewGuid(), Guid.NewGuid(), "device-1");
+        var sale = CreateSale($"offline-{Guid.NewGuid():N}", items: [CreateLine(Guid.NewGuid())]) with { SoldAt = Day(5) };
+        _clock.UtcNow = Day(5);
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>()).Returns(CreateMemberUser(shopId));
+        StubLeases(shopId, deviceId, CreateLease(shopId, deviceId, reservedAt: Day(1), expiresAt: Day(8)));
+        var openCase = ReconciliationIssue.Create(
+            shopId, null, sale.ClientSaleId, deviceId, ReconciliationIssueType.ClosedPeriodReview,
+            Errors.PostingPeriod.ClosedCode, "January 2026 is closed.", actorId);
+        _reconciliationIssueRepository.FindUnresolvedByEnvelopeAsync(shopId, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ReconciliationIssue?>(openCase));
+        var issues = CaptureReconciliationIssues();
+
+        var response = await CreateHandler().HandleAsync(new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]), CancellationToken.None);
+
+        var result = Assert.Single(response.Value.Results);
+        Assert.Equal("NeedsReview", result.Status);
+        Assert.Equal(openCase.Id, result.ReviewCaseId);
+        Assert.Empty(issues);
+        await AssertNothingPostedAsync();
+        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+        await _postingPeriods.DidNotReceive().AuthorizeForWriteAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

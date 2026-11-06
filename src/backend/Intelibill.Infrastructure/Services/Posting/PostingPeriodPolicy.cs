@@ -39,8 +39,13 @@ internal sealed class PostingPeriodPolicy(ApplicationDbContext context, IPosting
         var (start, end) = PostingPeriod.MonthOf(businessDate);
 
         PeriodRow? row;
+        string previousTimeout;
         if (npgsql)
         {
+            // The caller may already hold a budget of its own; put back exactly what was in force.
+            previousTimeout = (await context.Database
+                .SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"")
+                .ToListAsync(cancellationToken)).Single();
             await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {LockTimeout}, true)", cancellationToken);
             try
             {
@@ -61,8 +66,8 @@ internal sealed class PostingPeriodPolicy(ApplicationDbContext context, IPosting
                 return Errors.PostingPeriod.Busy;
             }
 
-            // The budget is for this lock only; later locks in the posting keep their own waits.
-            await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout TO DEFAULT", cancellationToken);
+            // The budget is for this lock only; later locks keep whatever the caller had set.
+            await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {previousTimeout}, true)", cancellationToken);
         }
         else
         {
