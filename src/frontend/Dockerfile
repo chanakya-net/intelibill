@@ -34,7 +34,12 @@ WORKDIR /app
 
 # The bundled server needs the Node executable only. Remove npm from the final
 # image so its unused package-management dependencies do not add attack surface.
-RUN rm -rf /usr/local/lib/node_modules/npm \
+# apt/libapt-pkg are upgraded past CVE-2026-109518 (fixed in 2.6.2), which the
+# pinned base still ships; drop this once the base carries it.
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends --only-upgrade apt libapt-pkg6.0 \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& rm -rf /usr/local/lib/node_modules/npm \
 	&& rm -f /usr/local/bin/npm /usr/local/bin/npx
 
 # The build bundles express and the proxy into server.mjs, leaving only Node

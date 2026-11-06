@@ -43,7 +43,10 @@ WORKDIR /app
 
 # Azure.Identity needs the system CA bundle; Npgsql's integrated authentication
 # dependencies load libgssapi even though production uses Entra access tokens.
+# apt/libapt-pkg are upgraded past CVE-2026-109518 (fixed in 2.8.4ubuntu0.1),
+# which the newest pinned base still ships; drop this once the base carries it.
 RUN apt-get update \
+    && apt-get install -y --no-install-recommends --only-upgrade apt libapt-pkg6.0t64 \
     && apt-get install -y --no-install-recommends ca-certificates libgssapi-krb5-2 \
     && rm -rf /var/lib/apt/lists/*
 
