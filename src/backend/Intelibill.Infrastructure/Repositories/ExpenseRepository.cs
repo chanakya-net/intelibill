@@ -12,6 +12,11 @@ public sealed class ExpenseRepository(ApplicationDbContext context) : IExpenseRe
             .Include(e => e.Category)
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
+    public async Task<IReadOnlyList<Expense>> GetCorrectionsOfAsync(Guid shopId, Guid originalExpenseId, CancellationToken cancellationToken) =>
+        await context.Expenses
+            .Where(e => e.ShopId == shopId && e.OriginalExpenseId == originalExpenseId)
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<Expense>> GetByShopAsync(Guid shopId, CancellationToken cancellationToken) =>
         await context.Expenses
             .Include(e => e.Category)

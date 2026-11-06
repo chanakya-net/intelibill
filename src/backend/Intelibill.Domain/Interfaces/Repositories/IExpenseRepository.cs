@@ -13,6 +13,9 @@ public interface IExpenseRepository
         int pageSize,
         CancellationToken cancellationToken);
     Task AddAsync(Expense expense, CancellationToken cancellationToken);
+
+    /// <summary>Expenses recorded as corrections of <paramref name="originalExpenseId"/> (one level).</summary>
+    Task<IReadOnlyList<Expense>> GetCorrectionsOfAsync(Guid shopId, Guid originalExpenseId, CancellationToken cancellationToken);
     void Update(Expense expense);
     Task<IReadOnlyList<Expense>> GetByShopAndDateAsync(Guid shopId, DateOnly reportingDay, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Expense>> GetByShopAndDateRangeAsync(Guid shopId, DateOnly startDate, DateOnly endDate, CancellationToken cancellationToken = default);

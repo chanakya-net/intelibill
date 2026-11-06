@@ -220,6 +220,79 @@ public sealed class PaymentAllocationTests(PostgreSqlTestFixture fixture) : IAsy
             "Payment.DocumentHasAllocations");
     }
 
+    [Fact]
+    public async Task AllocationToPurchaseReceipt_InvalidatesAStaleCorrectionAndFloorsItAtAllocated()
+    {
+        using var shop = await OpenShopAsync();
+        var supplierId = await AddSupplierAsync(shop);
+        var receiptValueId = await ReceiveStockAsync(shop, supplierId, 800m);
+        var versionBefore = await QueryAsync(db => db.PurchaseReceiptValues.Where(r => r.Id == receiptValueId).Select(r => r.Version).SingleAsync());
+
+        await AssertOkAsync(await SendAsync(shop, HttpMethod.Post, $"/api/suppliers/{supplierId}/payments", new
+        {
+            amount = 500m,
+            paymentDate = Today,
+            notes = (string?)null,
+            operationKey = $"sup-{Guid.NewGuid():N}",
+            allocations = new[] { Allocate(receiptValueId, 500m) },
+        }));
+
+        // A correction prepared before the allocation (or a void/reassignment that read the row
+        // before it) is now stale: the allocation moved the row version.
+        await AssertRefusedAsync(
+            await SendAsync(shop, HttpMethod.Post, $"/api/inventory/receipts/{receiptValueId}/cost-corrections", new
+            {
+                expectedVersion = versionBefore,
+                revisedTotalCost = 600m,
+                reason = "Supplier invoice",
+                operationKey = (string?)null,
+            }),
+            HttpStatusCode.Conflict,
+            "PurchaseReceipt.VersionConflict");
+
+        var current = await QueryAsync(db => db.PurchaseReceiptValues.Where(r => r.Id == receiptValueId).Select(r => r.Version).SingleAsync());
+        await AssertRefusedAsync(
+            await SendAsync(shop, HttpMethod.Post, $"/api/inventory/receipts/{receiptValueId}/cost-corrections", new
+            {
+                expectedVersion = current,
+                revisedTotalCost = 400m,
+                reason = "Supplier invoice",
+                operationKey = (string?)null,
+            }),
+            HttpStatusCode.Conflict,
+            "Payment.CorrectionBelowAllocated");
+    }
+
+    [Fact]
+    public async Task ReverseSupplierPayment_VoidsTheCorrectedExpenseToo()
+    {
+        using var shop = await OpenShopAsync();
+        var supplierId = await AddSupplierAsync(shop);
+        var paid = await ReadAsync(await SendAsync(shop, HttpMethod.Post, $"/api/suppliers/{supplierId}/payments", new
+        {
+            amount = 300m,
+            paymentDate = Today,
+            notes = (string?)null,
+            operationKey = $"sup-{Guid.NewGuid():N}",
+        }));
+        var receiptId = paid.GetProperty("receiptId").GetGuid();
+        var expenseId = (await QueryAsync(db => db.PaymentReceipts.Where(r => r.Id == receiptId).Select(r => r.ExpenseId).SingleAsync()))!.Value;
+
+        await AssertOkAsync(await SendAsync(shop, HttpMethod.Post, $"/api/expenses/{expenseId}/correct", new
+        {
+            categoryName = "Supplier Payments",
+            amount = 280m,
+            paidTo = "Supplier",
+            description = "Corrected amount",
+            expenseDate = Today,
+        }));
+
+        await AssertOkAsync(await ReverseAsync(shop, receiptId, "Cheque bounced", $"rev-{Guid.NewGuid():N}"));
+
+        var active = await QueryAsync(db => db.Expenses.CountAsync(e => !e.IsVoided && (e.Id == expenseId || e.OriginalExpenseId == expenseId)));
+        Assert.Equal(0, active);
+    }
+
     // ── Task 2: corrections and races ─────────────────────────────────────────
 
     [Fact]

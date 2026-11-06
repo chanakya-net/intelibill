@@ -130,9 +130,13 @@ internal sealed class PaymentReceiptRepository(ApplicationDbContext context)
                 }
                 else
                 {
-                    _ = await Context.Database
-                        .SqlQuery<Guid>($"SELECT id AS \"Value\" FROM purchase_receipt_values WHERE id = {targetId} AND shop_id = {shopId} FOR NO KEY UPDATE")
-                        .ToListAsync(cancellationToken);
+                    // A no-op UPDATE, not SELECT … FOR NO KEY UPDATE: it takes the same row lock and also
+                    // moves the row's xmin. Void, supplier reassignment and cost correction write this row
+                    // xmin-checked after checking it has no allocations, so one that read before this
+                    // commits fails its save as a concurrent change instead of stranding the allocation.
+                    _ = await Context.Database.ExecuteSqlAsync(
+                        $"UPDATE purchase_receipt_values SET status = status WHERE id = {targetId} AND shop_id = {shopId}",
+                        cancellationToken);
                 }
             }
         }

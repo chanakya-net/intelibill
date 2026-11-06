@@ -30,6 +30,7 @@ internal sealed class PaymentTransactionRunner(
 {
     private const string LockNotAvailable = "55P03";
     private const string DeadlockDetected = "40P01";
+    private const string UniqueViolation = "23505";
 
     public async Task<ErrorOr<T>> RunAsync<T>(
         FinancialOperationScope? scope,
@@ -54,7 +55,9 @@ internal sealed class PaymentTransactionRunner(
 
             return await RunUnkeyedAsync(action, cancellationToken);
         }
-        catch (Exception ex) when (SqlStateOf(ex) is LockNotAvailable or DeadlockDetected)
+        // A unique index (one reversal per receipt, one receipt per ledger entry) refusing a write
+        // that slipped past the locks is the same answer: someone else changed it; refresh and retry.
+        catch (Exception ex) when (SqlStateOf(ex) is LockNotAvailable or DeadlockDetected or UniqueViolation)
         {
             unitOfWork.ClearChanges();
             return Errors.Payment.Busy;

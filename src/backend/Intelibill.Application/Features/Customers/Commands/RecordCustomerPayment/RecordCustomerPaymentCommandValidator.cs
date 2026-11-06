@@ -23,6 +23,11 @@ public sealed class RecordCustomerPaymentCommandValidator : AbstractValidator<Re
             .WithErrorCode("Customer.PaymentNotesTooLong")
             .WithMessage("Payment notes must not exceed 255 characters.");
 
+        RuleFor(x => x.Amount)
+            .Must(amount => decimal.Round(amount, 2) == amount)
+            .WithErrorCode("Payment.AmountInvalid")
+            .WithMessage("Payment amount must have at most two decimals.");
+
         RuleFor(x => x.Method)
             .Must(method => method is null || Enum.IsDefined(method.Value))
             .WithErrorCode(Errors.Payment.MethodInvalid.Code)

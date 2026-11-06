@@ -266,9 +266,6 @@ export class CustomersPageComponent {
     );
   });
   readonly selectedAccountPurchaseCount = computed(() => this.selectedAccount()?.sales.length ?? 0);
-  readonly selectedAccountOverdueCount = computed(
-    () => this.selectedAccount()?.sales.filter((sale) => sale.dueAmount > 0).length ?? 0,
-  );
   readonly selectedAccountLifetimeRevenue = computed(() =>
     this.sumBy(this.selectedAccount()?.sales ?? [], (sale) => sale.totalAmount),
   );
@@ -597,14 +594,6 @@ export class CustomersPageComponent {
 
   tenderLabelKey(method: ReceiptTenderMethod): string {
     return `customers.account.tender.${method}`;
-  }
-
-  paymentTagSeverity(entryType: number): 'success' | 'danger' | 'info' {
-    return entryType === 2 ? 'success' : 'danger';
-  }
-
-  paymentTagLabel(entryType: number): string {
-    return entryType === 2 ? 'customers.account.paymentReceived' : 'customers.account.saleDue';
   }
 
   onStatusFilterChange(statusFilter: CustomerStatusFilter): void {

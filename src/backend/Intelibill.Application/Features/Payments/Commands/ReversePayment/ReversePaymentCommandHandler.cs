@@ -60,7 +60,14 @@ public sealed class ReversePaymentCommandHandler(
         Guid actorUserId,
         CancellationToken cancellationToken)
     {
+        // Party first: every allocation of this receipt also takes it, so the allocations read next
+        // are complete; then the documents they settled, in the same order an allocation locks them.
         var ids = new[] { receipt.Id };
+        var partyLocked = PaymentAuthorization.LockOutcome(await receiptRepository.LockPartyAndTargetsAsync(
+            receipt.ShopId, receipt.PartyType, receipt.PartyId, [], cancellationToken));
+        if (partyLocked.IsError)
+            return partyLocked.Errors;
+
         var allocations = await receiptRepository.GetAllocationsAsync(receipt.ShopId, ids, cancellationToken);
         var locked = PaymentAuthorization.LockOutcome(await receiptRepository.LockPartyAndTargetsAsync(
             receipt.ShopId,
@@ -102,14 +109,8 @@ public sealed class ReversePaymentCommandHandler(
             await supplierLedgerEntryRepository.AddAsync(entry.Value, cancellationToken);
             ledgerEntryId = entry.Value.Id;
 
-            if (receipt.ExpenseId is { } expenseId
-                && await expenseRepository.GetByIdAsync(expenseId, cancellationToken) is { IsVoided: false } expense
-                && expense.ShopId == receipt.ShopId)
-            {
-                // The payment was also booked as an expense; it no longer happened.
-                expense.MarkVoided();
-                expenseRepository.Update(expense);
-            }
+            if (receipt.ExpenseId is { } expenseId)
+                await VoidExpenseChainAsync(receipt.ShopId, expenseId, cancellationToken);
         }
 
         var reversal = PaymentReversal.Create(receipt, reason, ledgerEntryId, businessDate, actorUserId);
@@ -119,6 +120,32 @@ public sealed class ReversePaymentCommandHandler(
         await receiptRepository.AddReversalAsync(reversal.Value, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return await dtoBuilder.BuildAsync(receipt, cancellationToken);
+    }
+
+    /// <summary>
+    /// The payment was also booked as an expense; it no longer happened. An expense correction voids
+    /// the original and records a replacement, so the active expense may be further down the chain.
+    /// </summary>
+    private async Task VoidExpenseChainAsync(Guid shopId, Guid expenseId, CancellationToken cancellationToken)
+    {
+        var pending = new Queue<Guid>([expenseId]);
+        var seen = new HashSet<Guid>();
+        while (pending.TryDequeue(out var id))
+        {
+            if (!seen.Add(id))
+                continue;
+
+            if (await expenseRepository.GetByIdAsync(id, cancellationToken) is { } expense
+                && expense.ShopId == shopId
+                && !expense.IsVoided)
+            {
+                expense.MarkVoided();
+                expenseRepository.Update(expense);
+            }
+
+            foreach (var correction in await expenseRepository.GetCorrectionsOfAsync(shopId, id, cancellationToken))
+                pending.Enqueue(correction.Id);
+        }
     }
 
     private sealed record ReversalPayload(Guid ReceiptId, string Reason);
