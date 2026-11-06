@@ -168,7 +168,8 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
 
         Clock.Set(Utc(2026, 6, 15, 6, 0));
         var invoice = await SellAsync(shop, stock);
-        Clock.Set(Utc(2026, 7, 10, 6, 0));
+        // 20:00Z on 30 June is 01:30 IST on 1 July: July in the shop's zone, still June in UTC.
+        Clock.Set(Utc(2026, 6, 30, 20, 0));
         await ReturnAsync(shop, invoice);
 
         Assert.Equal([invoice], (await XlsxSaleNumbersAsync(shop, June1, June30)).ToArray());
@@ -187,9 +188,11 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
 
         Clock.Set(Utc(2026, 6, 15, 6, 0));
         var invoice = await SellAsync(shop, stock);
-        Clock.Set(Utc(2026, 7, 10, 6, 0));
+        // 20:00Z on 30 June is 01:30 IST on 1 July: July in the shop's zone, still June in UTC.
+        Clock.Set(Utc(2026, 6, 30, 20, 0));
         var returnId = await ReturnAsync(shop, invoice);
-        Clock.Set(Utc(2026, 8, 5, 6, 0));
+        // 19:00Z on 31 July is 00:30 IST on 1 August: August in the shop's zone, still July in UTC.
+        Clock.Set(Utc(2026, 7, 31, 19, 0));
         using (var voided = await SendAsync(shop, HttpMethod.Post, $"/api/sales/returns/{returnId}/void", new { reason = "Wrong invoice" }))
             Assert.Equal(HttpStatusCode.NoContent, voided.StatusCode);
 

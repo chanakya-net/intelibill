@@ -26,8 +26,8 @@ public sealed class ExportProfitLossQueryValidator : AbstractValidator<ExportPro
 
         RuleFor(x => x)
             .Must(HaveValidDateRange)
-            .WithErrorCode("Exports.ProfitLoss.InvalidDateRange")
-            .WithMessage("'from' date must be before or equal to 'to' date.");
+            .WithErrorCode(ProfitLossExportRange.ErrorCode)
+            .WithMessage(ProfitLossExportRange.Message);
     }
 
     private static bool BeSupportedFormat(string? format) =>
@@ -37,5 +37,5 @@ public sealed class ExportProfitLossQueryValidator : AbstractValidator<ExportPro
         type is null || AllowedTypes.Contains(type, StringComparer.OrdinalIgnoreCase);
 
     private static bool HaveValidDateRange(ExportProfitLossQuery query) =>
-        query.From is not { } from || query.To is not { } to || from <= to;
+        query.From is not { } from || query.To is not { } to || ProfitLossExportRange.IsValid(from, to);
 }

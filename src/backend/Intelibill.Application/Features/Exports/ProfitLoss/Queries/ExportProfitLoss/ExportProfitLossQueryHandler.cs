@@ -46,6 +46,11 @@ public sealed class ExportProfitLossQueryHandler(
 
         var to = query.To ?? businessClock.Today(shop.BusinessTimeZoneId);
         var from = query.From ?? to.AddDays(-6);
+        if (!ProfitLossExportRange.IsValid(from, to))
+        {
+            return Error.Validation(ProfitLossExportRange.ErrorCode, ProfitLossExportRange.Message);
+        }
+
         var report = await reportBuilder.BuildAsync(query.ShopId, shop.BusinessTimeZoneId, from, to, query.Type, query.Search, cancellationToken);
 
         var dataset = new ProfitLossExportDatasetDto(
