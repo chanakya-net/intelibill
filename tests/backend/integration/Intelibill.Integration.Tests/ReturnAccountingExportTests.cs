@@ -331,7 +331,7 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
 
     // ── Arrange ─────────────────────────────────────────────────────────────────
 
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+    private static DateOnly Today => BusinessDates.Today;
 
     private sealed record Shop(HttpClient Client, string Token) : IDisposable
     {

@@ -356,7 +356,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         using var client = CreateClient();
         var (token, _) = await RegisterAsync(client);
         var (_, ownerToken) = await CreateShopAsync(client, token, "PL Default Shop");
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = BusinessDates.Today;
 
         var barcode = UniqueBarcode();
         var batchId = await SetupInventoryAsync(client, ownerToken, barcode);
@@ -471,7 +471,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
 
         var sale1 = await CreateSaleAsync(client, ownerToken, barcode, batchId, "Alpha", DateTimeOffset.UtcNow.AddDays(-1));
         var sale2 = await CreateSaleAsync(client, ownerToken, barcode, batchId, "Beta");
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = BusinessDates.Today;
         var yesterday = today.AddDays(-1);
 
         var reportPage1 = await GetReportAsync(client, ownerToken, $"?from={yesterday:yyyy-MM-dd}&to={today:yyyy-MM-dd}&page=1&pageSize=1");
@@ -595,7 +595,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
             await CreateSaleAsync(client, ownerToken, barcode, batchId, $"Customer {index + 1}", DateTimeOffset.UtcNow.AddMinutes(-index));
         }
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = BusinessDates.Today;
         var response = await ExportProfitLossAsync(
             client,
             ownerToken,
@@ -634,7 +634,7 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         var response = await ExportProfitLossAsync(
             client,
             ownerToken,
-            $"?from={DateOnly.FromDateTime(DateTime.UtcNow):yyyy-MM-dd}&to={DateOnly.FromDateTime(DateTime.UtcNow):yyyy-MM-dd}&type=saleReturn&search={returnNumber}&format=xlsx");
+            $"?from={BusinessDates.Today:yyyy-MM-dd}&to={BusinessDates.Today:yyyy-MM-dd}&type=saleReturn&search={returnNumber}&format=xlsx");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 

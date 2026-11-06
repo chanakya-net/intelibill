@@ -183,7 +183,7 @@ public sealed class CustomerCreditPolicyTests(PostgreSqlTestFixture fixture) : I
         Assert.Equal(600m, account.GetProperty("outstandingDue").GetDecimal());
 
         // A window after every entry opens with all of them and has nothing in it.
-        var tomorrow = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(2).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        var tomorrow = BusinessDates.Today.AddDays(2).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
         var window = await ReadAsync(await SendAsync(shop, HttpMethod.Get, $"/api/customers/{customerId}/account?from={tomorrow}"));
         Assert.Equal(600m, window.GetProperty("openingBalance").GetDecimal());
         Assert.Equal(600m, window.GetProperty("closingBalance").GetDecimal());
@@ -200,7 +200,7 @@ public sealed class CustomerCreditPolicyTests(PostgreSqlTestFixture fixture) : I
 
     // ── Seeding and requests ──────────────────────────────────────────────────
 
-    private static string Today => DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+    private static string Today => BusinessDates.Today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 
     private sealed record StockBatch(Guid BatchId, string Barcode, string BatchNumber);
 
