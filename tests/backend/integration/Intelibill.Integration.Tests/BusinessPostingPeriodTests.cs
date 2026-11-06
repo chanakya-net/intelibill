@@ -906,7 +906,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         });
 
     private static DateOnly ClosedMonth() =>
-        new DateOnly(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).AddMonths(-2);
+        new DateOnly(BusinessDates.Today.Year, BusinessDates.Today.Month, 1).AddMonths(-2);
 
     private static string MonthKey(DateOnly month) => month.ToString("yyyy-MM", CultureInfo.InvariantCulture);
 
@@ -1056,7 +1056,7 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
             var locked = await periods.LockForTransitionAsync(shop.ShopId, start);
             var period = locked.Period;
             Assert.NotNull(period);
-            var closed = period.Close(shop.UserId, DateTimeOffset.UtcNow, DateOnly.FromDateTime(DateTime.UtcNow), "held close");
+            var closed = period.Close(shop.UserId, DateTimeOffset.UtcNow, BusinessDates.Today, "held close");
             Assert.False(closed.IsError);
             await periods.AddEventAsync(closed.Value);
             await _db.SaveChangesAsync();

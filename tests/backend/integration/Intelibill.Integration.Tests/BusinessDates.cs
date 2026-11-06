@@ -1,3 +1,5 @@
+using Intelibill.Domain.Common;
+
 namespace Intelibill.Integration.Tests;
 
 /// <summary>
@@ -7,10 +9,8 @@ namespace Intelibill.Integration.Tests;
 /// </summary>
 internal static class BusinessDates
 {
-    private static readonly TimeSpan IstOffset = TimeSpan.FromMinutes(330);
-
     public static DateOnly Of(DateTimeOffset instant) =>
-        DateOnly.FromDateTime(instant.ToOffset(IstOffset).DateTime);
+        BusinessCalendar.DateOf(instant);
 
     public static DateOnly Today => Of(DateTimeOffset.UtcNow);
 }
