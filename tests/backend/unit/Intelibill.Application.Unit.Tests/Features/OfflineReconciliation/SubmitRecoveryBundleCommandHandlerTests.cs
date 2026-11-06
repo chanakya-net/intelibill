@@ -702,6 +702,7 @@ public sealed class SubmitRecoveryBundleCommandHandlerTests
             null,
             PaymentMethod.Cash,
             Now.AddDays(-5),
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(Now.AddDays(-5)),
             118m,
             0m,
             118m,

@@ -418,6 +418,7 @@ public sealed class GetCreditNotePrintByCodeQueryHandlerTests
             saleId,
             returnNumber,
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             Guid.NewGuid(),
             null,
             0m,

@@ -150,6 +150,7 @@ public sealed class RecordSaleReturnCommandHandler(
             validated.Sale.Id,
             returnNumber,
             processedAt,
+            BusinessDay.InDefaultZone(processedAt),
             command.ActorUserId,
             command.Notes,
             validated.Calculation.TotalRefundAmount,

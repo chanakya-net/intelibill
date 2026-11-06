@@ -180,6 +180,7 @@ public class SalesExportDatasetBuilderTests
             sale.Id,
             "RET-001",
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             user.Id,
             null,
             150,
@@ -345,7 +346,7 @@ public class SalesExportDatasetBuilderTests
         var sale = AccountingSale(shop.Id, "INV-001", new DateTimeOffset(2026, 5, 2, 9, 0, 0, TimeSpan.Zero));
         var saleReturn = PostedReturn(sale, "RET-1", new DateTimeOffset(2026, 5, 4, 9, 0, 0, TimeSpan.Zero),
             approved: 118m, taxable: 100m, tax: 18m);
-        saleReturn.Void(new DateTimeOffset(2026, 5, 6, 9, 0, 0, TimeSpan.Zero), Guid.NewGuid(), "Entered twice");
+        saleReturn.Void(new DateTimeOffset(2026, 5, 6, 9, 0, 0, TimeSpan.Zero), global::Intelibill.Domain.Common.BusinessCalendar.DateOf(new DateTimeOffset(2026, 5, 6, 9, 0, 0, TimeSpan.Zero)), Guid.NewGuid(), "Entered twice");
         Arrange(shop, [sale], [saleReturn]);
 
         var result = await CreateBuilder().BuildAsync(shop, MakeUser(), MayFirst, MayLast, SalesExportLevel.Summary, CancellationToken.None);

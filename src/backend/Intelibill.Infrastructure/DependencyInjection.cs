@@ -177,6 +177,7 @@ public static class DependencyInjection
         }
 
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<Application.Common.Time.IBusinessClock, Services.Time.BusinessClock>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<LiveSessionValidator>();
         services.AddScoped<ILiveSessionAuthority>(sp => sp.GetRequiredService<LiveSessionValidator>());

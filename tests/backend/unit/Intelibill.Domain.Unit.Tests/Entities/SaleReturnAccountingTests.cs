@@ -187,7 +187,7 @@ public class SaleReturnAccountingTests
     public void PostAccounting_Voided_Refused()
     {
         var saleReturn = PartialRefund(dueReduction: 0m, payout: 50m, ReturnPayoutDestination.Refund);
-        Assert.False(saleReturn.Void(DateTimeOffset.UtcNow, Guid.NewGuid(), "Mistake").IsError);
+        Assert.False(saleReturn.Void(DateTimeOffset.UtcNow, global::Intelibill.Domain.Common.BusinessCalendar.DateOf(DateTimeOffset.UtcNow), Guid.NewGuid(), "Mistake").IsError);
 
         var result = saleReturn.PostAccounting(Snapshot(
             [new ReturnLineAccounting(SaleItemId, 42.37m, 7.63m, 0m)],
@@ -252,6 +252,7 @@ public class SaleReturnAccountingTests
             Guid.NewGuid(),
             "RET-20261103-ACC00001",
             new DateTimeOffset(2026, 11, 3, 10, 0, 0, TimeSpan.Zero),
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(new DateTimeOffset(2026, 11, 3, 10, 0, 0, TimeSpan.Zero)),
             Guid.NewGuid(),
             notes: null,
             totalRefundAmount: approved,

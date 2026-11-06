@@ -173,6 +173,7 @@ public sealed class GetDashboardQueryHandlerTests
             sale.Id,
             "RET-001",
             new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero),
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero)),
             Guid.NewGuid(),
             null,
             30m,

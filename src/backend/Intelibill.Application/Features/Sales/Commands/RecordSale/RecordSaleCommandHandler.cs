@@ -224,6 +224,7 @@ public sealed class RecordSaleCommandHandler
                 command.PaidAmount,
                 command.DueAmount,
                 soldAt,
+                new BusinessDay(Domain.Common.BusinessCalendar.DateOf(soldAt, Domain.Common.BusinessTimeZones.Resolve(shop.BusinessTimeZoneId)), shop.BusinessTimeZoneId),
                 pricing.ConfiguredSaleRule?.RuleId,
                 pricing.ConfiguredSaleRule?.RuleType,
                 pricing.ConfiguredSaleRule?.Percentage,

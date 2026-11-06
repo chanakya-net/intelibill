@@ -27,6 +27,7 @@ public sealed class GetSaleByReturnNumberQueryHandlerTests
             saleId,
             "RET-001",
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             user.Id,
             notes: null,
             totalRefundAmount: 0m,

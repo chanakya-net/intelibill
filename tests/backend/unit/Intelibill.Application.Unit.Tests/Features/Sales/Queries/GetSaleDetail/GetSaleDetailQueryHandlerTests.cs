@@ -118,6 +118,7 @@ public class GetSaleDetailQueryHandlerTests
             saleId,
             $"RET-{Guid.NewGuid():N}",
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             Guid.NewGuid(),
             "Customer returned items",
             totalRefundAmount: quantity * 100m,
@@ -131,7 +132,7 @@ public class GetSaleDetailQueryHandlerTests
             [line]).Value;
 
         if (voided)
-            saleReturn.Void(DateTimeOffset.UtcNow, Guid.NewGuid(), "Mistake");
+            saleReturn.Void(DateTimeOffset.UtcNow, global::Intelibill.Domain.Common.BusinessCalendar.DateOf(DateTimeOffset.UtcNow), Guid.NewGuid(), "Mistake");
 
         return saleReturn;
     }

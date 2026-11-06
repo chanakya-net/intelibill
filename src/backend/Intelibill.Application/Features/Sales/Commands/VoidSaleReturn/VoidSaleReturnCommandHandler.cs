@@ -152,7 +152,7 @@ public sealed class VoidSaleReturnCommandHandler(
             returnCreditReversal = ledgerResult.Value;
         }
 
-        var voidResult = saleReturn.Void(processedAt, command.ActorUserId, command.Reason);
+        var voidResult = saleReturn.Void(processedAt, Domain.Common.BusinessCalendar.DateOf(processedAt, Domain.Common.BusinessTimeZones.Resolve(saleReturn.BusinessTimeZoneId)), command.ActorUserId, command.Reason);
         if (voidResult.IsError)
             return voidResult.Errors;
 

@@ -38,6 +38,16 @@ internal sealed class SaleReturnConfiguration : IEntityTypeConfiguration<SaleRet
         builder.Property(r => r.ProcessedAt)
             .IsRequired();
 
+        builder.Property(r => r.BusinessDate)
+            .IsRequired();
+
+        builder.Property(r => r.BusinessTimeZoneId)
+            .HasColumnName("business_time_zone")
+            .IsRequired()
+            .HasMaxLength(64);
+
+        builder.Property(r => r.VoidedBusinessDate);
+
         builder.Property(r => r.ProcessedBy)
             .IsRequired();
 
@@ -109,6 +119,8 @@ internal sealed class SaleReturnConfiguration : IEntityTypeConfiguration<SaleRet
         builder.HasIndex(r => new { r.ShopId, r.ProcessedAt });
         builder.HasIndex(r => new { r.ShopId, r.IsVoided });
         builder.HasIndex(r => new { r.ShopId, r.VoidedAt });
+        builder.HasIndex(r => new { r.ShopId, r.BusinessDate });
+        builder.HasIndex(r => new { r.ShopId, r.VoidedBusinessDate });
 
         builder.HasOne<Shop>()
             .WithMany()

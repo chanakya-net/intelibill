@@ -3243,6 +3243,16 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("actor_user_id");
 
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<string>("BusinessTimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("business_time_zone");
+
                     b.Property<string>("ClientSaleId")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)")
@@ -3424,6 +3434,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasIndex("ShopId")
                         .HasDatabaseName("ix_sales_shop_id");
+
+                    b.HasIndex("ShopId", "BusinessDate")
+                        .HasDatabaseName("ix_sales_shop_id_business_date");
 
                     b.HasIndex("ShopId", "ConfiguredSaleRuleId")
                         .HasDatabaseName("ix_sales_shop_id_configured_sale_rule_id");
@@ -3672,6 +3685,16 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("adjustment_taxable_amount");
 
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<string>("BusinessTimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("business_time_zone");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -3761,6 +3784,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("voided_at");
 
+                    b.Property<DateOnly?>("VoidedBusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("voided_business_date");
+
                     b.Property<Guid?>("VoidedBy")
                         .HasColumnType("uuid")
                         .HasColumnName("voided_by");
@@ -3770,6 +3797,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasIndex("SaleId")
                         .HasDatabaseName("ix_sale_returns_sale_id");
+
+                    b.HasIndex("ShopId", "BusinessDate")
+                        .HasDatabaseName("ix_sale_returns_shop_id_business_date");
 
                     b.HasIndex("ShopId", "IsVoided")
                         .HasDatabaseName("ix_sale_returns_shop_id_is_voided");
@@ -3786,6 +3816,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasIndex("ShopId", "VoidedAt")
                         .HasDatabaseName("ix_sale_returns_shop_id_voided_at");
+
+                    b.HasIndex("ShopId", "VoidedBusinessDate")
+                        .HasDatabaseName("ix_sale_returns_shop_id_voided_business_date");
 
                     b.ToTable("sale_returns", null, t =>
                         {
@@ -4152,6 +4185,14 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasMaxLength(320)
                         .HasColumnType("character varying(320)")
                         .HasColumnName("address");
+
+                    b.Property<string>("BusinessTimeZoneId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasDefaultValue("Asia/Kolkata")
+                        .HasColumnName("business_time_zone");
 
                     b.Property<string>("City")
                         .IsRequired()

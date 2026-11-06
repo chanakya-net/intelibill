@@ -502,7 +502,7 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
     {
         var issue = Case(ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceLeaseNotFound.Code);
         var other = Sale.Create(
-            _shop.Id, _staff.Id, "key", "HASH", "INV-2026-27-000099", null, null, null, PaymentMethod.Cash, Now, 0m, 0m, 0m, 0m, [],
+            _shop.Id, _staff.Id, "key", "HASH", "INV-2026-27-000099", null, null, null, PaymentMethod.Cash, Now, global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(Now), 0m, 0m, 0m, 0m, [],
             source: SaleSource.Offline, clientSaleId: "client-2", deviceId: DeviceId, syncedAt: Now);
         _saleRepository.GetByIdAsync(other.Id, _shop.Id, Arg.Any<CancellationToken>()).Returns(other);
 
@@ -813,6 +813,7 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
             null,
             PaymentMethod.Cash,
             envelope.ClaimedSoldAt,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(envelope.ClaimedSoldAt),
             118m,
             0m,
             118m,

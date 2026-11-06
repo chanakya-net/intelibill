@@ -286,7 +286,7 @@ public class InvoiceDocumentBuilderTests
         decimal? paidOverride = null)
     {
         var total = paidOverride ?? lines.Sum(l => l.TotalAmount!.Value);
-        var sale = Sale.Record(shop.Id, Actor, "key", "hash", "A/2627/000001", lines, customer?.Id, customer?.Name, customer?.PhoneNumber, PaymentMethod.Cash, total, 0m, IssuedAt);
+        var sale = Sale.Record(shop.Id, Actor, "key", "hash", "A/2627/000001", lines, customer?.Id, customer?.Name, customer?.PhoneNumber, PaymentMethod.Cash, total, 0m, IssuedAt, global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(IssuedAt));
         Assert.False(sale.IsError, sale.IsError ? sale.FirstError.Code : null);
 
         var profile = InvoiceDocumentBuilder.CaptureSellerProfile(shop);

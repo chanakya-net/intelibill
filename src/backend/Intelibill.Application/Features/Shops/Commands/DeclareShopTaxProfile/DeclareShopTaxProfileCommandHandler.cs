@@ -74,6 +74,7 @@ public sealed class DeclareShopTaxProfileCommandHandler(
             primaryAccount?.AccountHolderName)
         {
             TaxProfile = ShopTaxProfileDto.From(shop),
+            BusinessTimeZoneId = shop.BusinessTimeZoneId,
         };
     }
 

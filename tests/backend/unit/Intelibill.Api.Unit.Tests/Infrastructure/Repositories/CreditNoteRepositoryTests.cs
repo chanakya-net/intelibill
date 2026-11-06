@@ -50,7 +50,8 @@ public sealed class CreditNoteRepositoryTests
 
         var saleReturn = SaleReturn.Record(
             shopId, sale.Id, returnNumber,
-            DateTimeOffset.UtcNow, Guid.NewGuid(), null,
+            DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow), Guid.NewGuid(), null,
             0m, 0m, 0m, null, 0m, 0m, null, null, []).Value;
         await context.SaleReturns.AddAsync(saleReturn);
 

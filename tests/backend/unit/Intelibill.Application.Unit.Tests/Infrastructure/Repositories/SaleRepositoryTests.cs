@@ -58,14 +58,15 @@ public sealed class SaleRepositoryTests
         var firstSaleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item A", "BC-A", 1m, 80m, 100m, 100m, 0m, false, false);
         var secondSaleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item B", "BC-B", 1m, 160m, 200m, 200m, 0m, false, false);
 
-        var firstSale = Sale.Create(shop.Id, actorId, "idem-1", "hash-1", "INV-001", null, null, null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 1, 9, 0, 0, TimeSpan.Zero), 100m, 0m, 100m, 0m, [firstSaleItem]);
-        var secondSale = Sale.Create(shop.Id, actorId, "idem-2", "hash-2", "INV-002", null, null, null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero), 200m, 0m, 200m, 0m, [secondSaleItem]);
+        var firstSale = Sale.Create(shop.Id, actorId, "idem-1", "hash-1", "INV-001", null, null, null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 1, 9, 0, 0, TimeSpan.Zero), global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(new DateTimeOffset(2026, 5, 1, 9, 0, 0, TimeSpan.Zero)), 100m, 0m, 100m, 0m, [firstSaleItem]);
+        var secondSale = Sale.Create(shop.Id, actorId, "idem-2", "hash-2", "INV-002", null, null, null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero), global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(new DateTimeOffset(2026, 5, 3, 9, 0, 0, TimeSpan.Zero)), 200m, 0m, 200m, 0m, [secondSaleItem]);
 
         var activeReturn = SaleReturn.Record(
             shop.Id,
             firstSale.Id,
             "RET-001",
             new DateTimeOffset(2026, 5, 2, 9, 0, 0, TimeSpan.Zero),
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(new DateTimeOffset(2026, 5, 2, 9, 0, 0, TimeSpan.Zero)),
             actorId,
             null,
             30m,
@@ -98,6 +99,7 @@ public sealed class SaleRepositoryTests
             secondSale.Id,
             "RET-002",
             new DateTimeOffset(2026, 5, 3, 12, 0, 0, TimeSpan.Zero),
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(new DateTimeOffset(2026, 5, 3, 12, 0, 0, TimeSpan.Zero)),
             actorId,
             null,
             999m,
@@ -124,7 +126,7 @@ public sealed class SaleRepositoryTests
                     0m,
                     null),
             ]).Value;
-        _ = voidedReturn.Void(new DateTimeOffset(2026, 5, 3, 13, 0, 0, TimeSpan.Zero), actorId, "Cancelled").Value;
+        _ = voidedReturn.Void(new DateTimeOffset(2026, 5, 3, 13, 0, 0, TimeSpan.Zero), global::Intelibill.Domain.Common.BusinessCalendar.DateOf(new DateTimeOffset(2026, 5, 3, 13, 0, 0, TimeSpan.Zero)), actorId, "Cancelled").Value;
 
         await context.AddRangeAsync(shop, firstSale, secondSale, activeReturn, voidedReturn);
         await context.SaveChangesAsync();
@@ -157,12 +159,13 @@ public sealed class SaleRepositoryTests
         var actorId = Guid.NewGuid();
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         var saleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item A", "BC-A", 1m, 80m, 100m, 100m, 0m, false, false);
-        var sale = Sale.Create(shop.Id, actorId, "idem-credit-note", "hash-credit-note", "INV-CN-001", null, null, null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 4, 9, 0, 0, TimeSpan.Zero), 100m, 0m, 100m, 0m, [saleItem]);
+        var sale = Sale.Create(shop.Id, actorId, "idem-credit-note", "hash-credit-note", "INV-CN-001", null, null, null, PaymentMethod.Cash, new DateTimeOffset(2026, 5, 4, 9, 0, 0, TimeSpan.Zero), global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(new DateTimeOffset(2026, 5, 4, 9, 0, 0, TimeSpan.Zero)), 100m, 0m, 100m, 0m, [saleItem]);
         var saleReturn = SaleReturn.Record(
             shop.Id,
             sale.Id,
             "RET-CN-001",
             new DateTimeOffset(2026, 5, 4, 10, 0, 0, TimeSpan.Zero),
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(new DateTimeOffset(2026, 5, 4, 10, 0, 0, TimeSpan.Zero)),
             actorId,
             null,
             100m,
@@ -228,6 +231,7 @@ public sealed class SaleRepositoryTests
             null,
             PaymentMethod.Cash,
             soldAt,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(soldAt),
             totalAmount,
             0m,
             totalAmount,

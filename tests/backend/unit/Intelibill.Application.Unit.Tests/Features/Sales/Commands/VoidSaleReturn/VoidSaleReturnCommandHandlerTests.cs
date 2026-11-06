@@ -168,7 +168,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
     public async Task HandleAsync_WhenAlreadyVoided_ReturnsValidationError()
     {
         var fixture = Arrange(ShopRole.Owner);
-        fixture.SaleReturn.Void(DateTimeOffset.UtcNow, fixture.User.Id, "Earlier void");
+        fixture.SaleReturn.Void(DateTimeOffset.UtcNow, global::Intelibill.Domain.Common.BusinessCalendar.DateOf(DateTimeOffset.UtcNow), fixture.User.Id, "Earlier void");
 
         var result = await CreateHandler().HandleAsync(
             new VoidSaleReturnCommand(fixture.User.Id, fixture.Shop.Id, fixture.SaleReturn.Id, "Duplicate return"),
@@ -411,6 +411,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
             sale.Id,
             "RET-20260505-VOID01",
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             user.Id,
             notes: null,
             totalRefundAmount: 220m,

@@ -1199,6 +1199,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             saleId,
             $"RET-{Guid.NewGuid():N}",
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             Guid.NewGuid(),
             notes: null,
             totalRefundAmount: quantity * 110m,

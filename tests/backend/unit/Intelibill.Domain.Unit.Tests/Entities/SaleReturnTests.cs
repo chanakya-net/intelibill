@@ -33,6 +33,7 @@ public class SaleReturnTests
             saleId,
             "RET-20260504-ABC123EF",
             processedAt,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(processedAt),
             actorUserId,
             notes: "  Damaged packet  ",
             totalRefundAmount: 118m,
@@ -79,6 +80,7 @@ public class SaleReturnTests
             Guid.NewGuid(),
             "RET-20260504-ABC123EF",
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             Guid.NewGuid(),
             notes: null,
             totalRefundAmount: 118m,
@@ -118,6 +120,7 @@ public class SaleReturnTests
             Guid.NewGuid(),
             "RET-20260504-ABC123EF",
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             Guid.NewGuid(),
             notes: null,
             totalRefundAmount: 80m,
@@ -157,6 +160,7 @@ public class SaleReturnTests
             Guid.NewGuid(),
             "RET-20260504-ABC123EF",
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             Guid.NewGuid(),
             notes: null,
             totalRefundAmount: 0m,
@@ -196,6 +200,7 @@ public class SaleReturnTests
             Guid.NewGuid(),
             "RET-20260504-ABC123EF",
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             Guid.NewGuid(),
             notes: "return",
             totalRefundAmount: 25m,
@@ -237,6 +242,7 @@ public class SaleReturnTests
             Guid.NewGuid(),
             "RET-20260504-ABC123EF",
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             Guid.NewGuid(),
             notes: "return",
             totalRefundAmount: 25m,
@@ -295,6 +301,7 @@ public class SaleReturnTests
             saleId,
             "RET-20260504-ABC123EF",
             processedAt,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(processedAt),
             processedBy,
             notes: "  Damaged packet  ",
             totalRefundAmount: 118m,
@@ -354,6 +361,7 @@ public class SaleReturnTests
             saleId,
             "RET-20260504-ABC123EF",
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             Guid.NewGuid(),
             notes: "line",
             totalRefundAmount: 200m,
@@ -394,6 +402,7 @@ public class SaleReturnTests
             Guid.NewGuid(),
             "RET-20260504-ABC123EF",
             processedAt,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(processedAt),
             Guid.NewGuid(),
             notes: null,
             totalRefundAmount: 0m,
@@ -406,7 +415,7 @@ public class SaleReturnTests
             customerBalanceAfter: null,
             []).Value;
 
-        var result = saleReturn.Void(voidedAt, voidedBy, "  Entry mistake  ");
+        var result = saleReturn.Void(voidedAt, global::Intelibill.Domain.Common.BusinessCalendar.DateOf(voidedAt), voidedBy, "  Entry mistake  ");
 
         Assert.False(result.IsError);
         Assert.True(saleReturn.IsVoided);

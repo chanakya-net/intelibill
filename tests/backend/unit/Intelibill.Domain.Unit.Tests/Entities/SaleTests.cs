@@ -62,7 +62,8 @@ public class SaleTests
             PaymentMethod.Cash,
             354m,
             0m,
-            soldAt);
+            soldAt,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(soldAt));
 
         Assert.False(result.IsError);
         var sale = result.Value;
@@ -135,7 +136,8 @@ public class SaleTests
             PaymentMethod.Cash,
             100m,
             0m,
-            soldAt);
+            soldAt,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(soldAt));
 
         Assert.False(result.IsError);
         var sale = result.Value;
@@ -181,7 +183,8 @@ public class SaleTests
             PaymentMethod.Cash,
             100m,
             0m,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow));
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Sale.InvalidLineReferences.Code, result.FirstError.Code);
@@ -220,7 +223,8 @@ public class SaleTests
             PaymentMethod.Cash,
             100.004m,
             0m,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow));
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Sale.PaidAndDueAmountMismatch.Code, result.FirstError.Code);
@@ -259,7 +263,8 @@ public class SaleTests
             PaymentMethod.Credit,
             118m,
             0m,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow));
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Sale.CreditRequiresDueAmount.Code, result.FirstError.Code);
@@ -281,7 +286,8 @@ public class SaleTests
             PaymentMethod.Cash,
             0m,
             0m,
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow));
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Sale.ItemsRequired.Code, result.FirstError.Code);
@@ -303,7 +309,7 @@ public class SaleTests
         var result = Sale.Record(
             shopId, Guid.NewGuid(), $"sale-{Guid.NewGuid():N}", "HASH-CREDIT",
             "INV-20260614-CRED0001", lines, null, null, null,
-            PaymentMethod.Cash, 136m, 0m, DateTimeOffset.UtcNow,
+            PaymentMethod.Cash, 136m, 0m, DateTimeOffset.UtcNow, global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             creditNoteAppliedAmount: 100m);
 
         Assert.False(result.IsError);
@@ -326,7 +332,7 @@ public class SaleTests
         var result = Sale.Record(
             shopId, Guid.NewGuid(), $"sale-{Guid.NewGuid():N}", "HASH-CREDIT-BAD",
             "INV-20260614-CRED0002", lines, null, null, null,
-            PaymentMethod.Cash, 136m, 0m, DateTimeOffset.UtcNow,
+            PaymentMethod.Cash, 136m, 0m, DateTimeOffset.UtcNow, global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             creditNoteAppliedAmount: 50m);
 
         Assert.True(result.IsError);
@@ -367,6 +373,7 @@ public class SaleTests
             256m,
             0m,
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             creditNoteAppliedAmount: -20m);
 
         Assert.True(result.IsError);

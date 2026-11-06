@@ -63,6 +63,14 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
         builder.Property(s => s.SoldAt)
             .IsRequired();
 
+        builder.Property(s => s.BusinessDate)
+            .IsRequired();
+
+        builder.Property(s => s.BusinessTimeZoneId)
+            .HasColumnName("business_time_zone")
+            .IsRequired()
+            .HasMaxLength(64);
+
         builder.Property(s => s.PaidAmount)
             .HasPrecision(18, 2)
             .IsRequired();
@@ -141,6 +149,7 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
 
         builder.HasIndex(s => s.ShopId);
         builder.HasIndex(s => new { s.ShopId, s.SoldAt });
+        builder.HasIndex(s => new { s.ShopId, s.BusinessDate });
         builder.HasIndex(s => new { s.ShopId, s.CustomerId });
         builder.HasIndex(s => new { s.ShopId, s.ConfiguredSaleRuleId });
 

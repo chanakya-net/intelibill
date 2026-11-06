@@ -213,6 +213,7 @@ public sealed class GetCreditNoteByCodeQueryHandlerTests
             sale.Id,
             "RET-001",
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             Guid.NewGuid(),
             null,
             0m,

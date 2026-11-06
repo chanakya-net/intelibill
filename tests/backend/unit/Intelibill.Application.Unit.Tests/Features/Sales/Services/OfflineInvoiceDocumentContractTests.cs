@@ -57,7 +57,8 @@ public class OfflineInvoiceDocumentContractTests
             PaymentMethod.Cash,
             lines.Sum(l => l.TotalAmount!.Value),
             0m,
-            issuedAt);
+            issuedAt,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(issuedAt));
         Assert.False(sale.IsError, sale.IsError ? sale.FirstError.Code : null);
 
         var result = InvoiceDocumentBuilder.Build(

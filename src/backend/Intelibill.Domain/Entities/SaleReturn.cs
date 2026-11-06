@@ -14,6 +14,11 @@ public sealed class SaleReturn : BaseEntity
     public Guid SaleId { get; private set; }
     public string ReturnNumber { get; private set; } = string.Empty;
     public DateTimeOffset ProcessedAt { get; private set; }
+
+    /// <summary>The date the return belongs to in the shop's zone when it was processed.</summary>
+    public DateOnly BusinessDate { get; private set; }
+
+    public string BusinessTimeZoneId { get; private set; } = BusinessTimeZones.DefaultId;
     public Guid ProcessedBy { get; private set; }
     public string? Notes { get; private set; }
     public decimal TotalRefundAmount { get; private set; }
@@ -26,6 +31,9 @@ public sealed class SaleReturn : BaseEntity
     public decimal? CustomerBalanceAfter { get; private set; }
     public bool IsVoided { get; private set; }
     public DateTimeOffset? VoidedAt { get; private set; }
+
+    /// <summary>The date the void belongs to, in the zone the return was processed in.</summary>
+    public DateOnly? VoidedBusinessDate { get; private set; }
     public Guid? VoidedBy { get; private set; }
     public string? VoidReason { get; private set; }
 
@@ -51,6 +59,7 @@ public sealed class SaleReturn : BaseEntity
         Guid saleId,
         string returnNumber,
         DateTimeOffset processedAt,
+        BusinessDay businessDay,
         Guid processedBy,
         string? notes,
         decimal totalRefundAmount,
@@ -123,6 +132,8 @@ public sealed class SaleReturn : BaseEntity
             SaleId = saleId,
             ReturnNumber = returnNumber.Trim(),
             ProcessedAt = processedAt,
+            BusinessDate = businessDay.Date,
+            BusinessTimeZoneId = businessDay.TimeZoneId,
             ProcessedBy = processedBy,
             Notes = NormalizeOptional(notes),
             TotalRefundAmount = totalRefundAmount,
@@ -140,7 +151,7 @@ public sealed class SaleReturn : BaseEntity
         return saleReturn;
     }
 
-    public ErrorOr<Success> Void(DateTimeOffset voidedAt, Guid voidedBy, string reason)
+    public ErrorOr<Success> Void(DateTimeOffset voidedAt, DateOnly voidedBusinessDate, Guid voidedBy, string reason)
     {
         if (IsVoided)
         {
@@ -154,6 +165,7 @@ public sealed class SaleReturn : BaseEntity
 
         IsVoided = true;
         VoidedAt = voidedAt;
+        VoidedBusinessDate = voidedBusinessDate;
         VoidedBy = voidedBy;
         VoidReason = reason.Trim();
 

@@ -554,7 +554,8 @@ public class RecordSaleCommandHandlerTests
             command.PaymentMethod,
             command.PaidAmount,
             command.DueAmount,
-            DateTimeOffset.UtcNow).Value;
+            DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow)).Value;
 
         _saleRepository.GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>())
             .Returns(sale);
@@ -613,7 +614,8 @@ public class RecordSaleCommandHandlerTests
             command.PaymentMethod,
             command.PaidAmount,
             command.DueAmount,
-            DateTimeOffset.UtcNow).Value;
+            DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow)).Value;
 
         _saleRepository.GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>())
             .Returns(sale);
@@ -693,7 +695,8 @@ public class RecordSaleCommandHandlerTests
             command.PaymentMethod,
             command.PaidAmount,
             command.DueAmount,
-            DateTimeOffset.UtcNow).Value;
+            DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow)).Value;
 
         _saleRepository.GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>())
             .Returns(sale);
@@ -752,7 +755,8 @@ public class RecordSaleCommandHandlerTests
             command.PaymentMethod,
             command.PaidAmount,
             command.DueAmount,
-            DateTimeOffset.UtcNow).Value;
+            DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow)).Value;
 
         _saleRepository.GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>())
             .Returns((Sale?)null, concurrentSale);
@@ -816,7 +820,8 @@ public class RecordSaleCommandHandlerTests
             command.PaymentMethod,
             command.PaidAmount,
             command.DueAmount,
-            DateTimeOffset.UtcNow).Value;
+            DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow)).Value;
 
         _saleRepository.GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>())
             .Returns((Sale?)null, concurrentSale);

@@ -84,7 +84,8 @@ public sealed class SaleLinePersistenceTests(PostgreSqlTestFixture fixture) : IA
             PaymentMethod.Cash,
             paidAmount: 100m,
             dueAmount: 0m,
-            soldAt).Value;
+            soldAt,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(soldAt)).Value;
 
         db.Sales.Add(sale);
         await db.SaveChangesAsync();
@@ -155,7 +156,8 @@ public sealed class SaleLinePersistenceTests(PostgreSqlTestFixture fixture) : IA
             PaymentMethod.Cash,
             paidAmount: 100m,
             dueAmount: 0m,
-            DateTimeOffset.UtcNow).Value;
+            DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow)).Value;
 
         db.Shops.Add(shop);
         db.Services.Add(service);

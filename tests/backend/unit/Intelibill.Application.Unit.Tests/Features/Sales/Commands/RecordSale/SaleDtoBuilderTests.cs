@@ -51,7 +51,8 @@ public class SaleDtoBuilderTests
             PaymentMethod.Cash,
             590m,
             0m,
-            DateTimeOffset.UtcNow).Value;
+            DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow)).Value;
     }
 
     private static Sale MakeMixedSale(Guid shopId, Guid actorId, Guid itemId, Guid serviceId)
@@ -107,7 +108,8 @@ public class SaleDtoBuilderTests
             PaymentMethod.Cash,
             536m,
             0m,
-            DateTimeOffset.UtcNow).Value;
+            DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow)).Value;
     }
 
     [Fact]

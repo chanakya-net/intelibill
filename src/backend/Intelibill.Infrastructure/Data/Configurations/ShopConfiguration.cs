@@ -49,6 +49,12 @@ internal sealed class ShopConfiguration : IEntityTypeConfiguration<Shop>
         builder.Property(s => s.StateCode)
             .HasMaxLength(2);
 
+        builder.Property(s => s.BusinessTimeZoneId)
+            .HasColumnName("business_time_zone")
+            .IsRequired()
+            .HasMaxLength(64)
+            .HasDefaultValue(BusinessTimeZones.DefaultId);
+
         builder.Property(s => s.TaxRegime)
             .IsRequired();
 

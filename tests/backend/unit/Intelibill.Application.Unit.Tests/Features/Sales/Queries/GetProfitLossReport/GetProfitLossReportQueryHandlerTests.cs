@@ -131,6 +131,7 @@ public class GetProfitLossReportQueryHandlerTests
             sale.Id,
             "RET-001",
             new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero),
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero)),
             Guid.NewGuid(),
             null,
             100m,
@@ -198,6 +199,7 @@ public class GetProfitLossReportQueryHandlerTests
             sale.Id,
             "RET-001",
             new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero),
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero)),
             Guid.NewGuid(),
             null,
             100m,
@@ -258,6 +260,7 @@ public class GetProfitLossReportQueryHandlerTests
             sale.Id,
             "RET-001",
             new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero),
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero)),
             Guid.NewGuid(),
             null,
             100m,
@@ -274,6 +277,7 @@ public class GetProfitLossReportQueryHandlerTests
             sale.Id,
             "RET-VOID",
             new DateTimeOffset(2026, 5, 4, 10, 0, 0, TimeSpan.Zero),
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(new DateTimeOffset(2026, 5, 4, 10, 0, 0, TimeSpan.Zero)),
             Guid.NewGuid(),
             null,
             100m,
@@ -285,7 +289,7 @@ public class GetProfitLossReportQueryHandlerTests
             null,
             null,
             [new SaleReturnLineInput(shop.Id, saleItem.Id, 1m, SaleReturnCondition.Restockable, 80m, 100m, 0m, false, 100m, 100m, 100m, 0m, null)]).Value;
-        voidedReturn.Void(new DateTimeOffset(2026, 5, 6, 12, 0, 0, TimeSpan.Zero), user.Id, "Mistake");
+        voidedReturn.Void(new DateTimeOffset(2026, 5, 6, 12, 0, 0, TimeSpan.Zero), global::Intelibill.Domain.Common.BusinessCalendar.DateOf(new DateTimeOffset(2026, 5, 6, 12, 0, 0, TimeSpan.Zero)), user.Id, "Mistake");
 
         var decrease = InventoryAdjustment.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "ADJ-LOSS", InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Damaged, 1m, 40m, 40m, 5m, 4m, 5m, 4m, new DateTimeOffset(2026, 5, 5, 10, 0, 0, TimeSpan.Zero), user.Id, null, user.Id).Value;
         var increase = InventoryAdjustment.Create(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "ADJ-GAIN", InventoryAdjustmentDirection.Increase, InventoryAdjustmentReason.FoundStock, 1m, 40m, 40m, 5m, 6m, 5m, 6m, new DateTimeOffset(2026, 5, 6, 10, 0, 0, TimeSpan.Zero), user.Id, null, user.Id).Value;
@@ -324,7 +328,7 @@ public class GetProfitLossReportQueryHandlerTests
         var membership = MakeMembership(shop.Id, user.Id);
         var sale = ReturnAccountingFixtures.Sale(shop.Id);
         var saleReturn = ReturnAccountingFixtures.Return(sale, approved: 118m, taxable: 100m, tax: 18m);
-        saleReturn.Void(new DateTimeOffset(2026, 7, 2, 9, 0, 0, TimeSpan.Zero), user.Id, "Wrong customer");
+        saleReturn.Void(new DateTimeOffset(2026, 7, 2, 9, 0, 0, TimeSpan.Zero), global::Intelibill.Domain.Common.BusinessCalendar.DateOf(new DateTimeOffset(2026, 7, 2, 9, 0, 0, TimeSpan.Zero)), user.Id, "Wrong customer");
         var from = new DateOnly(2026, 7, 1);
         var to = new DateOnly(2026, 7, 31);
 
