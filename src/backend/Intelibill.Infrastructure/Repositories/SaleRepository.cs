@@ -185,23 +185,39 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
             .Select(s => new { s.BusinessDate, s.TotalAmount })
             .ToListAsync(cancellationToken);
 
-        var returnAmountsByDay = await _context.SaleReturns
+        // A return offsets sales on its own business date even once voided; the void takes it back
+        // on the date it happened (the same reading the exports and the P&L use).
+        var returnRows = await _context.SaleReturns
             .AsNoTracking()
             .Where(r =>
                 r.ShopId == shopId
-                && !r.IsVoided
-                && r.BusinessDate >= startDate
-                && r.BusinessDate <= endDate)
-            .Select(r => new { r.BusinessDate, r.TotalRefundAmount })
+                && ((r.BusinessDate >= startDate && r.BusinessDate <= endDate)
+                    || (r.IsVoided
+                        && r.VoidedBusinessDate >= startDate
+                        && r.VoidedBusinessDate <= endDate)))
+            .Select(r => new { r.BusinessDate, r.IsVoided, r.VoidedBusinessDate, r.TotalRefundAmount })
             .ToListAsync(cancellationToken);
 
         var grossSalesByDay = salesByDay
             .GroupBy(s => s.BusinessDate)
             .ToDictionary(g => g.Key, g => g.Sum(x => x.TotalAmount));
 
-        var returnOffsetsByDay = returnAmountsByDay
-            .GroupBy(r => r.BusinessDate)
-            .ToDictionary(g => g.Key, g => g.Sum(x => x.TotalRefundAmount));
+        var returnOffsetsByDay = new Dictionary<DateOnly, decimal>();
+        foreach (var row in returnRows)
+        {
+            if (row.BusinessDate >= startDate && row.BusinessDate <= endDate)
+            {
+                returnOffsetsByDay[row.BusinessDate] = returnOffsetsByDay.GetValueOrDefault(row.BusinessDate) + row.TotalRefundAmount;
+            }
+
+            if (row.IsVoided
+                && row.VoidedBusinessDate is { } voidedOn
+                && voidedOn >= startDate
+                && voidedOn <= endDate)
+            {
+                returnOffsetsByDay[voidedOn] = returnOffsetsByDay.GetValueOrDefault(voidedOn) - row.TotalRefundAmount;
+            }
+        }
 
         return grossSalesByDay.Keys
             .Concat(returnOffsetsByDay.Keys)

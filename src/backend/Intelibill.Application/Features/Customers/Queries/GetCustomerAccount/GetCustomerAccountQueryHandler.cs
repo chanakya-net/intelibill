@@ -3,7 +3,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Customers.DTOs;
 using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Payments.Services;
-using BusinessCalendar = Intelibill.Domain.Common.BusinessCalendar;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
@@ -14,7 +14,9 @@ public sealed class GetCustomerAccountQueryHandler(
     ICustomerRepository customerRepository,
     ISaleRepository saleRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
-    IInvoiceBalanceReader invoiceBalanceReader)
+    IInvoiceBalanceReader invoiceBalanceReader,
+    IShopRepository shopRepository,
+    IBusinessClock businessClock)
 {
     public async Task<ErrorOr<CustomerAccountDto>> HandleAsync(GetCustomerAccountQuery query, CancellationToken cancellationToken)
     {
@@ -86,7 +88,21 @@ public sealed class GetCustomerAccountQueryHandler(
             .Where(e => e.EntryType == CustomerLedgerEntryType.PaymentReceived)
             .ToList();
 
-        var asOf = query.AsOf ?? BusinessCalendar.DateOf(DateTimeOffset.UtcNow);
+        // Without an explicit date, "overdue" is judged on today's date in the shop's own zone.
+        DateOnly asOf;
+        if (query.AsOf is { } requestedAsOf)
+        {
+            asOf = requestedAsOf;
+        }
+        else
+        {
+            var shop = await shopRepository.GetByIdAsync(query.ActiveShopId, cancellationToken);
+            if (shop is null)
+                return Errors.Shop.ShopNotFound;
+
+            asOf = businessClock.Today(shop.BusinessTimeZoneId);
+        }
+
         var saleDtos = sales.Select(s =>
         {
             var balance = invoiceBalances.GetValueOrDefault(s.Id);

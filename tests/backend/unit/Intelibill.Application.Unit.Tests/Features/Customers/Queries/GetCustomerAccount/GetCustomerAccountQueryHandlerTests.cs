@@ -4,6 +4,8 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
+using Intelibill.Application.Unit.Tests.Common.Time;
+using Intelibill.Infrastructure.Services.Time;
 using Intelibill.Application.Features.Payments.DTOs;
 using Intelibill.Application.Features.Payments.Services;
 
@@ -16,10 +18,14 @@ public class GetCustomerAccountQueryHandlerTests
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
 
+    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
+    private readonly MutableTimeProvider _time = new();
     private readonly IInvoiceBalanceReader _balanceReader = Substitute.For<IInvoiceBalanceReader>();
 
     public GetCustomerAccountQueryHandlerTests()
     {
+        _shopRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<Shop?>(Shop.Create("Main", "Address", "City", "State", "560001", null, null, null)));
         _balanceReader.GetForCustomerAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>?>(), Arg.Any<CancellationToken>())
             .Returns(Array.Empty<CustomerInvoiceBalanceDto>());
         _balanceReader.GetReceiptsAsync(Arg.Any<Guid>(), Arg.Any<PaymentPartyType>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
@@ -27,7 +33,8 @@ public class GetCustomerAccountQueryHandlerTests
     }
 
     private GetCustomerAccountQueryHandler CreateHandler() =>
-        new(_userRepository, _customerRepository, _saleRepository, _customerLedgerEntryRepository, _balanceReader);
+        new(_userRepository, _customerRepository, _saleRepository, _customerLedgerEntryRepository, _balanceReader,
+            _shopRepository, new BusinessClock(_time));
 
     private static (User owner, User manager, User staff, Shop shop, Customer customer) BuildFixture()
     {
@@ -307,6 +314,7 @@ public class GetCustomerAccountQueryHandlerTests
         IReadOnlyList<CustomerInvoiceBalanceDto>? balances = null)
     {
         _userRepository.GetByIdWithDetailsAsync(fixture.owner.Id, Arg.Any<CancellationToken>()).Returns(fixture.owner);
+        _shopRepository.GetByIdAsync(fixture.shop.Id, Arg.Any<CancellationToken>()).Returns(fixture.shop);
         _customerRepository.GetByShopAndIdAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>()).Returns(fixture.customer);
         _saleRepository.GetByCustomerAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>()).Returns(sales);
         _customerLedgerEntryRepository.GetByCustomerAsync(fixture.shop.Id, fixture.customer.Id, Arg.Any<CancellationToken>()).Returns(entries);
@@ -316,6 +324,21 @@ public class GetCustomerAccountQueryHandlerTests
         {
             _balanceReader.GetForCustomerAsync(fixture.shop.Id, fixture.customer.Id, null, Arg.Any<CancellationToken>()).Returns(balances);
         }
+    }
+
+    [Fact]
+    public async Task Without_an_as_of_date_the_account_is_judged_today_in_the_shops_zone()
+    {
+        // 20:30 UTC on 6 Nov is already 7 Nov in Kolkata but still 6 Nov in New York.
+        _time.Now = DateTimeOffset.Parse("2026-11-06T20:30:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var fixture = BuildFixture();
+        typeof(Shop).GetProperty(nameof(Shop.BusinessTimeZoneId))!.SetValue(fixture.shop, "America/New_York");
+        Arrange(fixture, [], []);
+
+        var result = await CreateHandler().HandleAsync(
+            new GetCustomerAccountQuery(fixture.owner.Id, fixture.shop.Id, fixture.customer.Id), CancellationToken.None);
+
+        Assert.Equal(new DateOnly(2026, 11, 6), result.Value.AsOfBusinessDate);
     }
 
     [Fact]

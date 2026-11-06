@@ -4,6 +4,8 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Application.Common.Posting;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Inventory.Commands.ReassignBatchSupplier;
@@ -16,6 +18,7 @@ public class ReassignBatchSupplierCommandHandlerTests
     private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly IPurchaseReceiptValueRepository _purchaseReceiptValueRepository = Substitute.For<IPurchaseReceiptValueRepository>();
     private readonly IPaymentReceiptRepository _paymentReceiptRepository = Substitute.For<IPaymentReceiptRepository>();
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     [Fact]
@@ -38,14 +41,7 @@ public class ReassignBatchSupplierCommandHandlerTests
         _supplierRepository.GetByIdAsync(systemSupplier.Id, Arg.Any<CancellationToken>()).Returns(systemSupplier);
         _supplierRepository.GetByIdAsync(realSupplier.Id, Arg.Any<CancellationToken>()).Returns(realSupplier);
 
-        var handler = new ReassignBatchSupplierCommandHandler(
-            _userRepository,
-            _inventoryBatchRepository,
-            _supplierLedgerEntryRepository,
-            _supplierRepository,
-            _purchaseReceiptValueRepository,
-            _paymentReceiptRepository,
-            _unitOfWork);
+        var handler = CreateHandler();
 
         var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, realSupplier.Id), CancellationToken.None);
 
@@ -104,7 +100,8 @@ public class ReassignBatchSupplierCommandHandlerTests
     }
 
     private ReassignBatchSupplierCommandHandler CreateHandler() =>
-        new(_userRepository, _inventoryBatchRepository, _supplierLedgerEntryRepository, _supplierRepository, _purchaseReceiptValueRepository, _paymentReceiptRepository, _unitOfWork);
+        new(_userRepository, _inventoryBatchRepository, _supplierLedgerEntryRepository, _supplierRepository, _purchaseReceiptValueRepository, _paymentReceiptRepository,
+            BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _unitOfWork);
 
     [Fact]
     public async Task HandleAsync_WhenFreeReceiptHasNoPayable_ReassignsBatchOnly()
@@ -125,14 +122,7 @@ public class ReassignBatchSupplierCommandHandlerTests
         _supplierRepository.GetByIdAsync(systemSupplier.Id, Arg.Any<CancellationToken>()).Returns(systemSupplier);
         _supplierRepository.GetByIdAsync(realSupplier.Id, Arg.Any<CancellationToken>()).Returns(realSupplier);
 
-        var handler = new ReassignBatchSupplierCommandHandler(
-            _userRepository,
-            _inventoryBatchRepository,
-            _supplierLedgerEntryRepository,
-            _supplierRepository,
-            _purchaseReceiptValueRepository,
-            _paymentReceiptRepository,
-            _unitOfWork);
+        var handler = CreateHandler();
 
         var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, realSupplier.Id), CancellationToken.None);
 
@@ -157,14 +147,7 @@ public class ReassignBatchSupplierCommandHandlerTests
         _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
         _supplierLedgerEntryRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns(Array.Empty<SupplierLedgerEntry>());
 
-        var handler = new ReassignBatchSupplierCommandHandler(
-            _userRepository,
-            _inventoryBatchRepository,
-            _supplierLedgerEntryRepository,
-            _supplierRepository,
-            _purchaseReceiptValueRepository,
-            _paymentReceiptRepository,
-            _unitOfWork);
+        var handler = CreateHandler();
 
         var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, Guid.NewGuid()), CancellationToken.None);
 
@@ -192,14 +175,7 @@ public class ReassignBatchSupplierCommandHandlerTests
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
         _supplierRepository.GetByIdAsync(newSupplier.Id, Arg.Any<CancellationToken>()).Returns(newSupplier);
 
-        var handler = new ReassignBatchSupplierCommandHandler(
-            _userRepository,
-            _inventoryBatchRepository,
-            _supplierLedgerEntryRepository,
-            _supplierRepository,
-            _purchaseReceiptValueRepository,
-            _paymentReceiptRepository,
-            _unitOfWork);
+        var handler = CreateHandler();
 
         var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, newSupplier.Id), CancellationToken.None);
 
@@ -216,18 +192,43 @@ public class ReassignBatchSupplierCommandHandlerTests
 
         _userRepository.GetByIdWithDetailsAsync(manager.Id, Arg.Any<CancellationToken>()).Returns(manager);
 
-        var handler = new ReassignBatchSupplierCommandHandler(
-            _userRepository,
-            _inventoryBatchRepository,
-            _supplierLedgerEntryRepository,
-            _supplierRepository,
-            _purchaseReceiptValueRepository,
-            _paymentReceiptRepository,
-            _unitOfWork);
+        var handler = CreateHandler();
 
         var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(manager.Id, shop.Id, Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Supplier.UserIsNotOwner.Code, result.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenAPostedEntryMonthIsClosed_ChangesNothing()
+    {
+        var owner = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        owner.AddShopMembership(ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true));
+        var systemSupplier = Supplier.CreateUnknownSystemSupplier(shop.Id);
+        var realSupplier = Supplier.Create(shop.Id, "Real Supplier", null, null, null, null, null, null, true, false, false);
+        var batch = InventoryBatch.Create(shop.Id, Guid.NewGuid(), "B-1", 5m, 10m, 15m, 14m, 5m, false, null, null, systemSupplier.Id, owner.Id).Value;
+        var goods = SupplierLedgerEntry.Create(shop.Id, systemSupplier.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, 50m, new DateOnly(2026, 6, 10), null, owner.Id).Value;
+        var correction = SupplierLedgerEntry.Create(shop.Id, systemSupplier.Id, batch.Id, SupplierLedgerEntryType.CostAdjusted, 5m, new DateOnly(2026, 7, 2), null, owner.Id).Value;
+        _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
+        _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _supplierLedgerEntryRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns(new[] { goods, correction });
+        _supplierRepository.GetByIdAsync(systemSupplier.Id, Arg.Any<CancellationToken>()).Returns(systemSupplier);
+        _supplierRepository.GetByIdAsync(realSupplier.Id, Arg.Any<CancellationToken>()).Returns(realSupplier);
+        _postingPeriods.AuthorizeForWriteAsync(
+                shop.Id,
+                Arg.Is<IReadOnlyCollection<DateOnly>>(d => d.Contains(new DateOnly(2026, 6, 10)) && d.Contains(new DateOnly(2026, 7, 2)) && d.Count == 3),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<IReadOnlyList<PostingPeriodLease>>>(
+                Errors.PostingPeriod.Closed(new DateOnly(2026, 6, 1))));
+
+        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, realSupplier.Id), CancellationToken.None);
+
+        Assert.Equal(Errors.PostingPeriod.ClosedCode, result.FirstError.Code);
+        Assert.Equal(systemSupplier.Id, goods.SupplierId);
+        Assert.Equal(systemSupplier.Id, correction.SupplierId);
+        Assert.Equal(systemSupplier.Id, batch.SupplierId);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

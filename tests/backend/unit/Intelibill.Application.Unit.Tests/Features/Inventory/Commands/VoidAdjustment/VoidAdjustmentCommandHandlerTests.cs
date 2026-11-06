@@ -288,21 +288,37 @@ public sealed class VoidAdjustmentCommandHandlerTests
     }
 
     [Fact]
-    public async Task ClosedPeriod_RefusesVoid_AndLeavesTheAdjustmentActive()
+    public async Task ClosedOriginalMonth_RefusesVoid_AndLeavesTheAdjustmentActive()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        var itemId = Guid.NewGuid();
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+        var inventory = DomainInventory.Create(shop.Id, itemId, 7m, 2m, 50m, actor.Id).Value;
+        // Performed 1 May 2026 (IST); today is later, so only the original month is closed.
+        var adjustment = CreateAdjustment(
+            shop.Id, itemId, batch.Id, actor.Id,
+            InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Damaged, 3m);
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _postingPeriods.AuthorizeForWriteAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 7, 1))));
+        _adjustmentRepository.GetByIdAsync(adjustment.Id, Arg.Any<CancellationToken>()).Returns(adjustment);
+        _batchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
+        _postingPeriods.AuthorizeForWriteAsync(
+                shop.Id,
+                Arg.Is<IReadOnlyCollection<DateOnly>>(d => d.Contains(new DateOnly(2026, 5, 1)) && d.Count == 2),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<IReadOnlyList<PostingPeriodLease>>>(
+                Errors.PostingPeriod.Closed(new DateOnly(2026, 5, 1))));
 
         var result = await CreateHandler().HandleAsync(
-            new VoidAdjustmentCommand(Guid.NewGuid(), actor.Id, shop.Id, "Entered twice"), CancellationToken.None);
+            new VoidAdjustmentCommand(adjustment.Id, actor.Id, shop.Id, "Entered twice"), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
-        await _adjustmentRepository.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        Assert.False(adjustment.IsVoided);
+        Assert.Equal(10m, batch.Quantity);
+        await _stockTransactionRepository.DidNotReceive().AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

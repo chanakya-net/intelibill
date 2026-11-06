@@ -62,6 +62,23 @@ public sealed class VoidSaleReturnCommandHandlerTests
         Assert.Equal(new DateOnly(2026, 10, 21), ledger!.EntryDate);
     }
 
+    [Fact]
+    public async Task HandleAsync_VoidsOnTheBusinessDateInTheShopsCurrentZone()
+    {
+        // 20:30 UTC on 20 Oct is 21 Oct in Kolkata (the zone the return was posted under) but
+        // 20 Oct in New York (the shop's zone now, the one the period fence uses).
+        _time.Now = DateTimeOffset.Parse("2026-10-20T20:30:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var fixture = Arrange(ShopRole.Owner, returnDueReductionAmount: 75m);
+        typeof(Shop).GetProperty(nameof(Shop.BusinessTimeZoneId))!.SetValue(fixture.Shop, "America/New_York");
+
+        var result = await CreateHandler().HandleAsync(
+            new VoidSaleReturnCommand(fixture.User.Id, fixture.Shop.Id, fixture.SaleReturn.Id, "Duplicate return"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(new DateOnly(2026, 10, 20), fixture.SaleReturn.VoidedBusinessDate);
+    }
+
     [Theory]
     [InlineData(ShopRole.Owner)]
     [InlineData(ShopRole.Manager)]

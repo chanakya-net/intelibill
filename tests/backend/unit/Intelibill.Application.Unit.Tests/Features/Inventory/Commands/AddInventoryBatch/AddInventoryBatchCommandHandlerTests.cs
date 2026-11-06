@@ -152,6 +152,19 @@ public class AddInventoryBatchCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenRowPeriodIsBusy_MarksItRetryable()
+    {
+        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Any<InboundRowOperation?>(), Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "111"), Arg.Any<CancellationToken>())
+            .Returns(Errors.PostingPeriod.Busy);
+
+        var result = await CreateHandler().HandleAsync(
+            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-2", "Sugar", "222")], "intake-1"),
+            CancellationToken.None);
+
+        Assert.True(Assert.Single(result.Value.Failed).Retryable);
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenRowIsInvalid_NeverRunsIt()
     {
         var invalid = CreateRow("row-1", "Rice", "111") with { Quantity = 0m };

@@ -59,20 +59,20 @@ public sealed class ReceivePurchaseOrderCommandHandler(
                 cancellationToken);
             if (fence.IsError)
             {
-                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                 return fence.Errors;
             }
 
             var po = await purchaseOrderRepository.GetReceiptDetailForUpdateAsync(command.ActiveShopId, command.PurchaseOrderId, cancellationToken);
             if (po is null)
             {
-                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                 return Errors.PurchaseOrder.NotFound;
             }
 
             if (po.Status is not (PurchaseOrderStatus.Placed or PurchaseOrderStatus.PartiallyReceived))
             {
-                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                 return Errors.PurchaseOrder.CannotReceiveInvalidStatus;
             }
 
@@ -82,19 +82,19 @@ public sealed class ReceivePurchaseOrderCommandHandler(
                 var poLine = po.Lines.FirstOrDefault(l => l.Id == lineInput.PurchaseOrderLineId);
                 if (poLine is null)
                 {
-                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                     return Errors.PurchaseOrder.ReceiptLineNotFound;
                 }
 
                 if (lineInput.Quantity <= 0)
                 {
-                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                     return Errors.PurchaseOrder.ReceiptQuantityInvalid;
                 }
 
                 if (lineInput.Quantity > poLine.RemainingQuantity)
                 {
-                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                     return Errors.PurchaseOrder.ReceiptQuantityOverRemaining;
                 }
 
@@ -106,7 +106,7 @@ public sealed class ReceivePurchaseOrderCommandHandler(
                 .Any(group => group.Key.BatchNumber.Length > 0 && group.Count() > 1);
             if (duplicateBatch)
             {
-                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                 return Errors.Inventory.BatchNumberAlreadyExists;
             }
 
@@ -157,7 +157,7 @@ public sealed class ReceivePurchaseOrderCommandHandler(
 
                 if (inboundResult.IsError)
                 {
-                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                     return inboundResult.Errors;
                 }
 
@@ -189,7 +189,7 @@ public sealed class ReceivePurchaseOrderCommandHandler(
         }
         catch
         {
-            await unitOfWork.RollbackTransactionAsync(cancellationToken);
+            await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
             throw;
         }
     }

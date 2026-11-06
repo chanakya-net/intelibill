@@ -448,6 +448,40 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
     }
 
     [Fact]
+    public async Task VoidingAJuneAdjustmentInJuly_IsRefused_WhenJuneIsClosed()
+    {
+        using var shop = await OpenShopAsync();
+        var stock = await StockAsync(shop);
+        Clock.Set(Utc(2026, 6, 20, 6, 0));
+        Guid adjustmentId;
+        using (var adjust = await SendAsync(shop, HttpMethod.Post, $"/api/inventory/batches/{stock.BatchId}/adjust",
+            new { direction = (int)InventoryAdjustmentDirection.Decrease, reason = (int)InventoryAdjustmentReason.Damaged, quantity = 1m, performedAt = (DateTimeOffset?)null, notes = "June wastage" }))
+        {
+            var body = await adjust.Content.ReadAsStringAsync();
+            Assert.True(adjust.StatusCode == HttpStatusCode.OK, body);
+            adjustmentId = JsonDocument.Parse(body).RootElement.GetProperty("adjustmentId").GetGuid();
+        }
+
+        Clock.Set(Utc(2026, 7, 2, 6, 0));
+        using (var closed = await SendAsync(shop, HttpMethod.Post, "/api/posting-periods/2026-06/close", Transition("books final", "adj-void-close")))
+            Assert.Equal(HttpStatusCode.OK, closed.StatusCode);
+
+        var junePnl = await ProfitLossBodyAsync(shop, June1, June30);
+        var quantityBefore = await ScalarAsync<decimal>("SELECT quantity FROM inventory_batches WHERE id = @id", ("id", stock.BatchId));
+
+        using (var voided = await SendAsync(shop, HttpMethod.Post, $"/api/inventory/adjustments/{adjustmentId}/void", new { reason = "Entered twice" }))
+        {
+            var body = await voided.Content.ReadAsStringAsync();
+            Assert.True(voided.StatusCode == HttpStatusCode.Conflict, body);
+            Assert.Contains("PostingPeriod.Closed", body, StringComparison.Ordinal);
+        }
+
+        Assert.False(await QueryAsync(db => db.InventoryAdjustments.AsNoTracking().Where(a => a.Id == adjustmentId).Select(a => a.IsVoided).SingleAsync()));
+        Assert.Equal(quantityBefore, await ScalarAsync<decimal>("SELECT quantity FROM inventory_batches WHERE id = @id", ("id", stock.BatchId)));
+        Assert.Equal(junePnl, await ProfitLossBodyAsync(shop, June1, June30));
+    }
+
+    [Fact]
     public async Task ClosedPeriod_BlocksBackdatedPost_AllowsLinkedCurrentCorrection()
     {
         using var shop = await OpenShopAsync();

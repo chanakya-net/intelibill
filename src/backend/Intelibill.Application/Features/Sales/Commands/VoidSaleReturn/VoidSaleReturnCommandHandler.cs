@@ -54,12 +54,13 @@ public sealed class VoidSaleReturnCommandHandler(
         return await mutationCoordinator.ExecuteAsync(
             command.ShopId,
             saleId.Value,
-            ct => VoidAsync(command, ct),
+            ct => VoidAsync(command, shop, ct),
             cancellationToken);
     }
 
     private async Task<ErrorOr<Success>> VoidAsync(
         VoidSaleReturnCommand command,
+        Shop shop,
         CancellationToken cancellationToken)
     {
         var saleReturn = await saleReturnRepository.GetByIdWithItemsAsync(
@@ -85,8 +86,9 @@ public sealed class VoidSaleReturnCommandHandler(
 
         var saleItemsById = sale.Items.ToDictionary(item => item.Id);
         var processedAt = businessClock.UtcNow;
-        // The void lands on the day it happened in the zone the return itself was posted under.
-        var voidDate = businessClock.GetBusinessDate(processedAt, saleReturn.BusinessTimeZoneId);
+        // The void lands on the day it happened in the shop's current zone, the one the coordinator
+        // fenced the period with.
+        var voidDate = businessClock.GetBusinessDate(processedAt, shop.BusinessTimeZoneId);
         var stockReversals = new List<StockTransaction>();
 
         foreach (var returnItem in saleReturn.Items.Where(item => item.Condition == SaleReturnCondition.Restockable))

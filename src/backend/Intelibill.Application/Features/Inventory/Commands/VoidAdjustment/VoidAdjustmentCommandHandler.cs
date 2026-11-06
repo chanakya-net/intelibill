@@ -61,19 +61,24 @@ public sealed class VoidAdjustmentCommandHandler(
         Shop shop,
         CancellationToken cancellationToken)
     {
-        var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
-            command.ActiveShopId,
-            businessClock.Today(shop.BusinessTimeZoneId),
-            cancellationToken);
-        if (fence.IsError)
-            return fence.Errors;
-
         var adjustment = await inventoryAdjustmentRepository.GetByIdAsync(command.AdjustmentId, cancellationToken);
         if (adjustment is null || adjustment.ShopId != command.ActiveShopId)
             return Errors.Inventory.AdjustmentNotFound;
 
         if (adjustment.IsVoided)
             return Errors.Inventory.AdjustmentAlreadyVoided;
+
+        // The reversal posts today, but it undoes a movement of the adjustment's own business
+        // month: both months must be open, lowest first.
+        var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
+            command.ActiveShopId,
+            [
+                businessClock.Today(shop.BusinessTimeZoneId),
+                businessClock.GetBusinessDate(adjustment.PerformedAt, shop.BusinessTimeZoneId),
+            ],
+            cancellationToken);
+        if (fence.IsError)
+            return fence.Errors;
 
         var batch = await inventoryBatchRepository.GetByIdAsync(adjustment.InventoryBatchId, cancellationToken);
         if (batch is null || batch.ShopId != command.ActiveShopId)

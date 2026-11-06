@@ -152,6 +152,35 @@ public sealed class SaleRepositoryTests
     }
 
     [Fact]
+    public async Task GetDailySalesTrendAsync_VoidedReturnOffsetsItsOwnDayAndIsReversedOnTheVoidDay()
+    {
+        await using var context = await CreateContextAsync();
+
+        var actorId = Guid.NewGuid();
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        var saleItem = SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item A", "BC-A", 1m, 80m, 100m, 100m, 0m, false, false);
+        var soldAt = new DateTimeOffset(2026, 5, 1, 9, 0, 0, TimeSpan.Zero);
+        var sale = Sale.Create(shop.Id, actorId, "idem-v", "hash-v", "INV-V", null, null, null, PaymentMethod.Cash, soldAt, global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(soldAt), 100m, 0m, 100m, 0m, [saleItem]);
+        var returnedAt = new DateTimeOffset(2026, 5, 2, 9, 0, 0, TimeSpan.Zero);
+        var saleReturn = SaleReturn.Record(
+            shop.Id, sale.Id, "RET-V", returnedAt, global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(returnedAt),
+            actorId, null, 30m, 0m, 30m, ReturnPayoutDestination.Refund, 30m, 0m, null, null,
+            [new SaleReturnLineInput(shop.Id, saleItem.Id, 1m, SaleReturnCondition.Restockable, 80m, 100m, 0m, false, 30m, 30m, 30m, 0m, null)]).Value;
+        var voidedAt = new DateTimeOffset(2026, 5, 4, 9, 0, 0, TimeSpan.Zero);
+        _ = saleReturn.Void(voidedAt, global::Intelibill.Domain.Common.BusinessCalendar.DateOf(voidedAt), actorId, "Cancelled").Value;
+
+        await context.AddRangeAsync(shop, sale, saleReturn);
+        await context.SaveChangesAsync();
+
+        var result = await new SaleRepository(context).GetDailySalesTrendAsync(
+            shop.Id, new DateOnly(2026, 5, 1), new DateOnly(2026, 5, 4), CancellationToken.None);
+
+        Assert.Equal(30m, result.Single(b => b.Date == new DateOnly(2026, 5, 2)).ReturnAmount);
+        Assert.Equal(-30m, result.Single(b => b.Date == new DateOnly(2026, 5, 4)).ReturnAmount);
+        Assert.Equal(0m, result.Sum(b => b.ReturnAmount));
+    }
+
+    [Fact]
     public async Task SaleReturn_PersistsPayoutDestination()
     {
         await using var context = await CreateContextAsync();
