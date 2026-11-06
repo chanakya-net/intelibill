@@ -5,6 +5,7 @@ using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Features.Sales.Services.Pricing;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -29,6 +30,7 @@ public sealed class RecordSaleCommandHandler
     private readonly IUnitOfWork unitOfWork;
     private readonly ICustomerRepository customerRepository;
     private readonly IUserRepository userRepository;
+    private readonly IBusinessClock businessClock;
 
     public RecordSaleCommandHandler(
         ISaleLineValidator saleLineValidator,
@@ -43,7 +45,8 @@ public sealed class RecordSaleCommandHandler
         IInvoiceNumberAllocator invoiceNumberAllocator,
         IUnitOfWork unitOfWork,
         ICustomerRepository customerRepository,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        IBusinessClock businessClock)
     {
         this.saleLineValidator = saleLineValidator;
         this.salePricingCalculator = salePricingCalculator;
@@ -58,6 +61,7 @@ public sealed class RecordSaleCommandHandler
         this.unitOfWork = unitOfWork;
         this.customerRepository = customerRepository;
         this.userRepository = userRepository;
+        this.businessClock = businessClock;
     }
 
     public async Task<ErrorOr<SaleDto>> HandleAsync(RecordSaleCommand command, CancellationToken cancellationToken)
@@ -89,7 +93,7 @@ public sealed class RecordSaleCommandHandler
             .Select(l => l.Item!)
             .DistinctBy(i => i.Id)
             .ToDictionary(i => i.Id);
-        var soldAt = DateTimeOffset.UtcNow;
+        var soldAt = businessClock.UtcNow;
         var effectiveSaleDiscount = command.SaleDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m);
         var pricingRequest = new SalePricingCalculationRequest(
             command.ShopId,
@@ -142,7 +146,8 @@ public sealed class RecordSaleCommandHandler
             return sellerProfileOrError.Errors;
 
         var sellerProfile = sellerProfileOrError.Value;
-        var fiscalYear = FiscalYear.ForDate(soldAt);
+        var businessDay = businessClock.GetBusinessDay(soldAt, shop.BusinessTimeZoneId);
+        var fiscalYear = FiscalYear.ForBusinessDate(businessDay.Date);
         var series = new InvoiceSeriesKey(shop.Id, shop.SellerRegistrationKey, sellerProfile.SeriesCode, fiscalYear);
 
         var saleLineInputs = validatedLines.Select((line, index) =>
@@ -224,7 +229,7 @@ public sealed class RecordSaleCommandHandler
                 command.PaidAmount,
                 command.DueAmount,
                 soldAt,
-                new BusinessDay(Domain.Common.BusinessCalendar.DateOf(soldAt, Domain.Common.BusinessTimeZones.Resolve(shop.BusinessTimeZoneId)), shop.BusinessTimeZoneId),
+                businessDay,
                 pricing.ConfiguredSaleRule?.RuleId,
                 pricing.ConfiguredSaleRule?.RuleType,
                 pricing.ConfiguredSaleRule?.Percentage,
@@ -238,7 +243,7 @@ public sealed class RecordSaleCommandHandler
 
             var sale = saleOrError.Value;
             var documentOrError = InvoiceDocumentBuilder.Build(
-                new InvoiceIssueContext(sellerProfile, resolvedCustomer, command.PlaceOfSupplyStateCode, soldAt, fiscalYear, ValidatedSaleLines.DocumentUnitsOf(validatedLines)),
+                new InvoiceIssueContext(sellerProfile, resolvedCustomer, command.PlaceOfSupplyStateCode, soldAt, fiscalYear, ValidatedSaleLines.DocumentUnitsOf(validatedLines), businessDay.Date),
                 sale);
             if (documentOrError.IsError)
                 return documentOrError.Errors;
@@ -299,7 +304,7 @@ public sealed class RecordSaleCommandHandler
                     sale.Id,
                     CustomerLedgerEntryType.SaleDue,
                     sale.DueAmount,
-                    DateOnly.FromDateTime(sale.SoldAt.UtcDateTime),
+                    sale.BusinessDate,
                     $"Due recorded from sale {sale.InvoiceNumber}",
                     command.ActorUserId);
                 if (ledgerResult.IsError)

@@ -6,6 +6,8 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
+using Intelibill.Application.Unit.Tests.Common.Time;
+using Intelibill.Infrastructure.Services.Time;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.VoidSaleReturn;
@@ -35,7 +37,28 @@ public sealed class VoidSaleReturnCommandHandlerTests
             _customerLedgerEntryRepository,
             _creditNoteRepository,
             new SaleReturnMutationCoordinator(_saleRepository, _unitOfWork),
-            _unitOfWork);
+            _unitOfWork,
+            new BusinessClock(_time));
+
+    private readonly MutableTimeProvider _time = new();
+
+    [Fact]
+    public async Task HandleAsync_VoidsOnTheBusinessDateOfTheVoidInstant()
+    {
+        _time.Now = DateTimeOffset.Parse("2026-10-20T20:30:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var fixture = Arrange(ShopRole.Owner, returnDueReductionAmount: 75m);
+        CustomerLedgerEntry? ledger = null;
+        await _customerLedgerEntryRepository.AddAsync(Arg.Do<CustomerLedgerEntry>(e => ledger = e), Arg.Any<CancellationToken>());
+
+        var result = await CreateHandler().HandleAsync(
+            new VoidSaleReturnCommand(fixture.User.Id, fixture.Shop.Id, fixture.SaleReturn.Id, "Duplicate return"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(_time.Now, fixture.SaleReturn.VoidedAt);
+        Assert.Equal(new DateOnly(2026, 10, 21), fixture.SaleReturn.VoidedBusinessDate);
+        Assert.Equal(new DateOnly(2026, 10, 21), ledger!.EntryDate);
+    }
 
     [Theory]
     [InlineData(ShopRole.Owner)]

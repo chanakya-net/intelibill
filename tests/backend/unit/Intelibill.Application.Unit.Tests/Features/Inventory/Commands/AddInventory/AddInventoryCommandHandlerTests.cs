@@ -6,6 +6,7 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Update;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using DomainInventory = Intelibill.Domain.Entities.Inventory;
@@ -212,7 +213,8 @@ public class AddInventoryCommandHandlerTests
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
-        var performedAt = new DateTimeOffset(2026, 5, 15, 9, 30, 0, TimeSpan.FromHours(5.5));
+        // 00:30 on 15 May in the shop zone is still 14 May in UTC: the ledger follows the shop day.
+        var performedAt = new DateTimeOffset(2026, 5, 15, 0, 30, 0, TimeSpan.FromHours(5.5));
         var expectedUtc = performedAt.ToUniversalTime();
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
@@ -230,7 +232,7 @@ public class AddInventoryCommandHandlerTests
             Arg.Is<StockTransaction>(t => t.PerformedAt == expectedUtc && t.PerformedAt.Offset == TimeSpan.Zero),
             Arg.Any<CancellationToken>());
         await _supplierLedgerEntryRepository.Received(1).AddAsync(
-            Arg.Is<SupplierLedgerEntry>(e => e.EntryDate == DateOnly.FromDateTime(expectedUtc.UtcDateTime)),
+            Arg.Is<SupplierLedgerEntry>(e => e.EntryDate == new DateOnly(2026, 5, 15)),
             Arg.Any<CancellationToken>());
     }
 
@@ -504,7 +506,7 @@ public class AddInventoryCommandHandlerTests
     }
 
     private AddInventoryCommandHandler CreateHandler() =>
-        new(_userRepository, _supplierRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _purchaseReceiptValueRepository, _inventoryRepository, _unitOfWork);
+        new(_userRepository, _supplierRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _purchaseReceiptValueRepository, _inventoryRepository, _unitOfWork, BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock());
 
     private void SetupSystemSupplierLookup()
     {

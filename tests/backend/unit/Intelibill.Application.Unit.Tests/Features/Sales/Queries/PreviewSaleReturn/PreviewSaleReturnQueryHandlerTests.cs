@@ -32,7 +32,8 @@ public class PreviewSaleReturnQueryHandlerTests
             _customerLedgerEntryRepository,
             _paymentReceiptRepository,
             _calculator,
-            _itemRepository),
+            _itemRepository,
+            new Intelibill.Infrastructure.Services.Time.BusinessClock(TimeProvider.System)),
             _accountingPolicy);
 
     [Theory]

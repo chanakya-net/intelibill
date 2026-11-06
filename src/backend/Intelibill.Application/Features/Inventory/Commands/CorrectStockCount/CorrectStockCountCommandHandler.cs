@@ -3,6 +3,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Features.Inventory.Services;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -38,7 +39,9 @@ public sealed class CorrectStockCountCommandHandler(
     IInventoryAdjustmentNumberGenerator adjustmentNumberGenerator,
     IUnitOfWork unitOfWork,
     IFinancialOperationExecutor operationExecutor,
-    IItemRepository itemRepository)
+    IItemRepository itemRepository,
+    IShopRepository shopRepository,
+    IBusinessClock businessClock)
 {
     private static readonly CorrectStockCountCommandValidator Validator = new();
 
@@ -111,7 +114,12 @@ public sealed class CorrectStockCountCommandHandler(
         if (inventory is null)
             return Errors.Inventory.InventoryAggregateNotFound;
 
-        var performedAt = DateTimeOffset.UtcNow;
+        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        var performedAt = businessClock.UtcNow;
+        var businessDate = businessClock.GetBusinessDate(performedAt, shop.BusinessTimeZoneId);
         var observedQuantity = batch.Quantity;
         var delta = command.CountedQuantity - observedQuantity;
 
@@ -119,7 +127,7 @@ public sealed class CorrectStockCountCommandHandler(
         StockTransaction? movement = null;
         if (delta != 0)
         {
-            var posted = PostDelta(batch, inventory, command, delta, performedAt);
+            var posted = PostDelta(batch, inventory, command, delta, performedAt, businessDate);
             if (posted.IsError)
                 return posted.Errors;
 
@@ -182,7 +190,8 @@ public sealed class CorrectStockCountCommandHandler(
         Domain.Entities.Inventory inventory,
         CorrectStockCountCommand command,
         decimal delta,
-        DateTimeOffset performedAt)
+        DateTimeOffset performedAt,
+        DateOnly businessDate)
     {
         var quantity = Math.Abs(delta);
         var direction = delta > 0 ? InventoryAdjustmentDirection.Increase : InventoryAdjustmentDirection.Decrease;
@@ -201,7 +210,7 @@ public sealed class CorrectStockCountCommandHandler(
         if (inventoryUpdate.IsError)
             return inventoryUpdate.Errors;
 
-        var adjustmentNumber = adjustmentNumberGenerator.Generate(performedAt);
+        var adjustmentNumber = adjustmentNumberGenerator.Generate(businessDate);
         var reason = command.Reason.Trim();
 
         var movement = StockTransaction.Create(

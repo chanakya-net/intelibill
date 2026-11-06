@@ -7,6 +7,7 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Update;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 
@@ -160,5 +161,7 @@ public sealed class CorrectReceiptCostCommandHandlerTests
             _ledgerRepository,
             _paymentReceiptRepository,
             _unitOfWork,
-            _operationExecutor);
+            _operationExecutor,
+            BusinessTestDoubles.AnyShop(),
+            BusinessTestDoubles.RealClock());
 }

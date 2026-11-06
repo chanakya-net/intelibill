@@ -4,6 +4,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Services;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -18,7 +19,8 @@ internal sealed class OfflineSalePoster(
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IStockTransactionRepository stockTransactionRepository,
     IShopRepository shopRepository,
-    IOfflineSaleVarianceAnalyzer varianceAnalyzer) : IOfflineSalePoster
+    IOfflineSaleVarianceAnalyzer varianceAnalyzer,
+    IBusinessClock businessClock) : IOfflineSalePoster
 {
     public ErrorOr<Success> CheckStructure(OfflineSaleSyncCommand sale)
     {
@@ -59,6 +61,12 @@ internal sealed class OfflineSalePoster(
         var deviceId = request.DeviceId;
         var clientSaleId = request.ClientSaleId;
         var recordedBy = request.RecordedByUserId;
+
+        // Read on the day the invoice was issued (the claimed time), never the day it synced.
+        var shop = await shopRepository.GetByIdAsync(shopId, cancellationToken);
+        if (shop is null) return new OfflineSalePostingOutcome.Rejected(Errors.Shop.ShopNotFound);
+        var businessDay = businessClock.GetBusinessDay(sale.SoldAt, shop.BusinessTimeZoneId);
+
         var invoiceNumber = (sale.InvoiceNumber ?? string.Empty).Trim();
 
         var warnings = new List<string>();
@@ -160,16 +168,16 @@ internal sealed class OfflineSalePoster(
         }
 
         var consumption = OfflineSaleSyncHelpers.BuildStockConsumptionPlan(shopId, recordedBy, clientSaleId, deviceId, vLines, warnings, pendingIssues);
-        var saleEntity = Sale.Create(shopId, request.AttributedUserId, OfflineSaleSyncIdempotencyHasher.ComputeKey(deviceId, clientSaleId), request.PayloadHash, invoiceNumber, resolvedCust?.Id ?? sale.CustomerId, sale.CustomerName ?? resolvedCust?.Name, sale.CustomerPhone ?? resolvedCust?.PhoneNumber, sale.PaymentMethod, sale.SoldAt, BusinessDay.InDefaultZone(sale.SoldAt), sale.PaidAmount, sale.DueAmount, sale.TotalAmount, sale.TotalTaxAmount, saleItems, sale.SubtotalBeforeDiscount, sale.TotalBeforeDiscount, sale.TotalDiscountAmount, sale.ConfiguredSaleRuleId, sale.ConfiguredSaleRuleType, sale.ConfiguredSaleRulePercentage, sale.ConfiguredSaleRuleThresholdAmount, sale.SaleDiscountOverrideType, sale.SaleDiscountOverrideValue, SaleSource.Offline, clientSaleId, deviceId, request.Now, warnings);
+        var saleEntity = Sale.Create(shopId, request.AttributedUserId, OfflineSaleSyncIdempotencyHasher.ComputeKey(deviceId, clientSaleId), request.PayloadHash, invoiceNumber, resolvedCust?.Id ?? sale.CustomerId, sale.CustomerName ?? resolvedCust?.Name, sale.CustomerPhone ?? resolvedCust?.PhoneNumber, sale.PaymentMethod, sale.SoldAt, businessDay, sale.PaidAmount, sale.DueAmount, sale.TotalAmount, sale.TotalTaxAmount, saleItems, sale.SubtotalBeforeDiscount, sale.TotalBeforeDiscount, sale.TotalDiscountAmount, sale.ConfiguredSaleRuleId, sale.ConfiguredSaleRuleType, sale.ConfiguredSaleRulePercentage, sale.ConfiguredSaleRuleThresholdAmount, sale.SaleDiscountOverrideType, sale.SaleDiscountOverrideValue, SaleSource.Offline, clientSaleId, deviceId, request.Now, warnings);
 
         saleEntity.ApplyCreditTerms(resolvedCust?.CreditTermsDays);
-        await AttachDocumentAsync(request, saleEntity, resolvedCust, vLines, pendingIssues, cancellationToken);
+        AttachDocument(request, shop, saleEntity, resolvedCust, vLines, pendingIssues);
 
         // Built before anything is staged so a refused entry leaves the unit of work untouched.
         CustomerLedgerEntry? dueEntry = null;
         if (saleEntity.DueAmount > 0 && saleEntity.CustomerId.HasValue)
         {
-            var ledger = CustomerLedgerEntry.Create(saleEntity.ShopId, saleEntity.CustomerId.Value, saleEntity.Id, CustomerLedgerEntryType.SaleDue, saleEntity.DueAmount, DateOnly.FromDateTime(saleEntity.SoldAt.UtcDateTime), $"Due recorded from sale {saleEntity.InvoiceNumber}", recordedBy);
+            var ledger = CustomerLedgerEntry.Create(saleEntity.ShopId, saleEntity.CustomerId.Value, saleEntity.Id, CustomerLedgerEntryType.SaleDue, saleEntity.DueAmount, saleEntity.BusinessDate, $"Due recorded from sale {saleEntity.InvoiceNumber}", recordedBy);
             if (ledger.IsError) return new OfflineSalePostingOutcome.Rejected(ledger.FirstError);
             dueEntry = ledger.Value;
         }
@@ -206,13 +214,13 @@ internal sealed class OfflineSalePoster(
     /// so a profile that cannot issue it does not stop the sale: it posts without a document and a
     /// review case records why.
     /// </summary>
-    private async Task AttachDocumentAsync(
+    private static void AttachDocument(
         OfflineSalePostingRequest request,
+        Shop shop,
         Sale saleEntity,
         Customer? customer,
         IReadOnlyList<ValidatedSaleLine> validatedLines,
-        List<ReconciliationIssue> pendingIssues,
-        CancellationToken cancellationToken)
+        List<ReconciliationIssue> pendingIssues)
     {
         var lease = request.Lease;
         ErrorOr<InvoiceSellerProfile> profile;
@@ -222,15 +230,12 @@ internal sealed class OfflineSalePoster(
         }
         else
         {
-            var shop = await shopRepository.GetByIdAsync(request.ShopId, cancellationToken);
-            profile = shop is null
-                ? Errors.Shop.ShopNotFound
-                : InvoiceDocumentBuilder.CaptureSellerProfile(shop).Then(current => current with { SeriesCode = string.Empty });
+            profile = InvoiceDocumentBuilder.CaptureSellerProfile(shop).Then(current => current with { SeriesCode = string.Empty });
         }
 
-        var fiscalYear = lease is null ? FiscalYear.ForDate(saleEntity.SoldAt) : new FiscalYear(lease.FiscalYearStart);
+        var fiscalYear = lease is null ? FiscalYear.ForBusinessDate(saleEntity.BusinessDate) : new FiscalYear(lease.FiscalYearStart);
         var document = profile.Then(p => InvoiceDocumentBuilder.Build(
-            new InvoiceIssueContext(p, customer, PlaceOfSupplyStateCode: null, saleEntity.SoldAt, fiscalYear, ValidatedSaleLines.DocumentUnitsOf(validatedLines)),
+            new InvoiceIssueContext(p, customer, PlaceOfSupplyStateCode: null, saleEntity.SoldAt, fiscalYear, ValidatedSaleLines.DocumentUnitsOf(validatedLines), saleEntity.BusinessDate),
             saleEntity));
 
         if (!document.IsError)

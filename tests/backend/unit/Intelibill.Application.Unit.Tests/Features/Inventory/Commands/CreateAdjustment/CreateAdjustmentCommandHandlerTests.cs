@@ -5,6 +5,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using NSubstitute;
 using DomainInventory = Intelibill.Domain.Entities.Inventory;
 
@@ -23,7 +24,7 @@ public sealed class CreateAdjustmentCommandHandlerTests
 
     public CreateAdjustmentCommandHandlerTests()
     {
-        _numberGenerator.Generate(Arg.Any<DateTimeOffset?>()).Returns("ADJ-20260505-ABCDEF12");
+        _numberGenerator.Generate(Arg.Any<DateOnly>()).Returns("ADJ-20260505-ABCDEF12");
         _itemRepository.GetByIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(ci => new List<Item> { Item.Create(ci.ArgAt<Guid>(0), "Rice", "d", "kg", "BC-0", true, Guid.NewGuid()) });
     }
@@ -128,7 +129,7 @@ public sealed class CreateAdjustmentCommandHandlerTests
         Assert.Equal(expectedUtc, result.Value.PerformedAt);
         Assert.Equal(TimeSpan.Zero, result.Value.PerformedAt.Offset);
 
-        _numberGenerator.Received(1).Generate(expectedUtc);
+        _numberGenerator.Received(1).Generate(new DateOnly(2026, 5, 15)); // the shop day, not the UTC day (14 May)
         await _stockTransactionRepository.Received(1).AddAsync(
             Arg.Is<StockTransaction>(t =>
                 t.PerformedAt == expectedUtc
@@ -337,5 +338,7 @@ public sealed class CreateAdjustmentCommandHandlerTests
             _adjustmentRepository,
             _numberGenerator,
             _unitOfWork,
-            _itemRepository);
+            _itemRepository,
+            BusinessTestDoubles.AnyShop(),
+            BusinessTestDoubles.RealClock());
 }

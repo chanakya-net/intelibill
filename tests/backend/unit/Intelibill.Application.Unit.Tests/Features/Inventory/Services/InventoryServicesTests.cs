@@ -4,6 +4,7 @@ using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Inventory.Services;
@@ -86,7 +87,7 @@ public class InventoryServicesTests
         var batchRepo = Substitute.For<IInventoryBatchRepository>();
         var txRepo = Substitute.For<IStockTransactionRepository>();
         var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
-        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>());
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock());
 
         var shopId = Guid.NewGuid();
         var itemId = Guid.NewGuid();
@@ -112,7 +113,7 @@ public class InventoryServicesTests
         var batchRepo = Substitute.For<IInventoryBatchRepository>();
         var txRepo = Substitute.For<IStockTransactionRepository>();
         var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
-        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>());
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock());
 
         var shopId = Guid.NewGuid();
         var itemId = Guid.NewGuid();
@@ -134,7 +135,7 @@ public class InventoryServicesTests
         var batchRepo = Substitute.For<IInventoryBatchRepository>();
         var txRepo = Substitute.For<IStockTransactionRepository>();
         var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
-        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>());
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock());
 
         var shopId = Guid.NewGuid();
         var itemId = Guid.NewGuid();
@@ -161,7 +162,7 @@ public class InventoryServicesTests
         var batchRepo = Substitute.For<IInventoryBatchRepository>();
         var txRepo = Substitute.For<IStockTransactionRepository>();
         var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
-        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>());
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock());
 
         var shopId = Guid.NewGuid();
         var itemId = Guid.NewGuid();
@@ -183,7 +184,7 @@ public class InventoryServicesTests
         var batchRepo = Substitute.For<IInventoryBatchRepository>();
         var txRepo = Substitute.For<IStockTransactionRepository>();
         var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
-        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>());
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock());
 
         var shopId = Guid.NewGuid();
         var itemId = Guid.NewGuid();
@@ -206,7 +207,7 @@ public class InventoryServicesTests
         var batchRepo = Substitute.For<IInventoryBatchRepository>();
         var txRepo = Substitute.For<IStockTransactionRepository>();
         var ledgerRepo = Substitute.For<ISupplierLedgerEntryRepository>();
-        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>());
+        var factory = new BatchFactory(batchRepo, txRepo, ledgerRepo, Substitute.For<IPurchaseReceiptValueRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock());
 
         var shopId = Guid.NewGuid();
         var itemId = Guid.NewGuid();

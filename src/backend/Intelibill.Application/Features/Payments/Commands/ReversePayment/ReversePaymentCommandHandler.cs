@@ -3,6 +3,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Features.Payments.DTOs;
 using Intelibill.Application.Features.Payments.Services;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -27,7 +28,9 @@ public sealed class ReversePaymentCommandHandler(
     IExpenseRepository expenseRepository,
     IPaymentTransactionRunner transactionRunner,
     PaymentReceiptDtoBuilder dtoBuilder,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IShopRepository shopRepository,
+    IBusinessClock businessClock)
 {
     public async Task<ErrorOr<PaymentReceiptDto>> HandleAsync(ReversePaymentCommand command, CancellationToken cancellationToken)
     {
@@ -81,7 +84,11 @@ public sealed class ReversePaymentCommandHandler(
         if ((await receiptRepository.GetReversalsAsync(receipt.ShopId, ids, cancellationToken)).Count > 0)
             return Errors.Payment.AlreadyReversed;
 
-        var businessDate = Intelibill.Domain.Common.BusinessCalendar.DateOf(DateTimeOffset.UtcNow);
+        var shop = await shopRepository.GetByIdAsync(receipt.ShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        var businessDate = businessClock.Today(shop.BusinessTimeZoneId);
         var notes = $"Reversal of payment {receipt.Id:N}: {reason}";
         if (notes.Length > 255)
             notes = notes[..255];

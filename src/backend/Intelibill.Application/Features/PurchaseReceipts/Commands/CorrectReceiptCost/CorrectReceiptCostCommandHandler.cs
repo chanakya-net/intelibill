@@ -2,6 +2,7 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Features.PurchaseReceipts.DTOs;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -34,7 +35,9 @@ public sealed class CorrectReceiptCostCommandHandler(
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
     IPaymentReceiptRepository paymentReceiptRepository,
     IUnitOfWork unitOfWork,
-    IFinancialOperationExecutor operationExecutor)
+    IFinancialOperationExecutor operationExecutor,
+    IShopRepository shopRepository,
+    IBusinessClock businessClock)
 {
     private static readonly CorrectReceiptCostCommandValidator Validator = new();
 
@@ -116,12 +119,16 @@ public sealed class CorrectReceiptCostCommandHandler(
         if (command.RevisedTotalCost < allocated)
             return Errors.Payment.CorrectionBelowAllocated(allocated);
 
+        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
         var applied = receipt.ApplyCostCorrection(command.RevisedTotalCost);
         if (applied.IsError)
             return applied.Errors;
 
         var delta = applied.Value;
-        var performedAt = DateTimeOffset.UtcNow;
+        var performedAt = businessClock.UtcNow;
         var reason = command.Reason.Trim();
 
         var ledgerEntry = SupplierLedgerEntry.Create(
@@ -130,7 +137,7 @@ public sealed class CorrectReceiptCostCommandHandler(
             batch.Id,
             SupplierLedgerEntryType.CostAdjusted,
             delta,
-            DateOnly.FromDateTime(performedAt.UtcDateTime),
+            businessClock.GetBusinessDate(performedAt, shop.BusinessTimeZoneId),
             Truncate($"Receipt cost corrected for batch {batch.BatchNumber}: {reason}", 255),
             command.ActorUserId);
         if (ledgerEntry.IsError)

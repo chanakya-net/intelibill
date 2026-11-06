@@ -7,6 +7,7 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Update;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Wolverine;
@@ -372,5 +373,7 @@ public class VoidBatchCommandHandlerTests
             _paymentReceiptRepository,
             _inventoryRepository,
             _unitOfWork,
-            _messageBus);
+            _messageBus,
+            BusinessTestDoubles.AnyShop(),
+            BusinessTestDoubles.RealClock());
 }

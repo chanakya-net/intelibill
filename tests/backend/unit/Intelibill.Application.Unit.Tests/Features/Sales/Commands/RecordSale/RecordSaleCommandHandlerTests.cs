@@ -13,6 +13,8 @@ using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Update;
+using Intelibill.Application.Unit.Tests.Common.Time;
+using Intelibill.Infrastructure.Services.Time;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.RecordSale;
@@ -85,7 +87,63 @@ public class RecordSaleCommandHandlerTests
     }
 
     private RecordSaleCommandHandler CreateHandler() =>
-        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork, _customerRepository, _userRepository);
+        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork, _customerRepository, _userRepository, new BusinessClock(_time));
+
+    private readonly MutableTimeProvider _time = new();
+
+    private (RecordSaleCommand Command, Customer Customer) ArrangeDueSale()
+    {
+        var shopId = _shop.Id;
+        var customer = Customer.Create(shopId, "Reg User", "+911234567890", null, true);
+        var item = MakeItem(shopId, "BC-001");
+        var batch = MakeBatch(shopId, item.Id, "B-01");
+        var inventory = MakeInventory(shopId, item.Id);
+        var command = new RecordSaleCommand(Guid.NewGuid(), shopId, $"sale-{Guid.NewGuid():N}", customer.Id, null, null,
+            PaymentMethod.Credit, PaidAmount: 78m, DueAmount: 40m,
+            [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id)]);
+        var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
+        _saleLineValidator.ValidateLinesAsync(shopId, Arg.Any<IReadOnlyList<RecordSaleItemCommand>>(), Arg.Any<List<string>>(), Arg.Any<CancellationToken>())
+            .Returns(new SaleLineValidationResult(new List<ValidatedSaleLine> { line }, new Dictionary<Guid, string> { { item.Id, item.Name } }));
+        _customerResolver.ResolveAsync(shopId, customer.Id, null, true, PaymentMethod.Credit, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
+        return (command, customer);
+    }
+
+    [Fact]
+    public async Task HandleAsync_PostsTheSaleAndItsDueOnTheShopBusinessDate()
+    {
+        _time.Now = DateTimeOffset.Parse("2026-10-20T20:30:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var (command, _) = ArrangeDueSale();
+        Sale? saved = null;
+        await _saleRepository.AddAsync(Arg.Do<Sale>(s => saved = s), Arg.Any<CancellationToken>());
+        CustomerLedgerEntry? ledger = null;
+        await _customerLedgerEntryRepository.AddAsync(Arg.Do<CustomerLedgerEntry>(e => ledger = e), Arg.Any<CancellationToken>());
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(_time.Now, saved!.SoldAt);
+        Assert.Equal(new DateOnly(2026, 10, 21), saved.BusinessDate);
+        Assert.Equal("Asia/Kolkata", saved.BusinessTimeZoneId);
+        Assert.Equal(new DateOnly(2026, 10, 21), ledger!.EntryDate);
+        Assert.Equal(new DateOnly(2026, 10, 21), result.Value.Document!.BusinessDate);
+    }
+
+    [Theory]
+    [InlineData("2026-03-31T18:30:00Z", 2026)]
+    [InlineData("2026-03-31T18:29:59Z", 2025)]
+    public async Task HandleAsync_AllocatesTheSeriesOfTheBusinessFiscalYear(string nowUtc, int expectedStartYear)
+    {
+        _time.Now = DateTimeOffset.Parse(nowUtc, System.Globalization.CultureInfo.InvariantCulture);
+        var (command, _, _) = ArrangeSingleLineSale();
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _invoiceNumberAllocator.Received(1).AllocateAsync(
+            Arg.Is<InvoiceSeriesKey>(key => key.FiscalYear == new FiscalYear(expectedStartYear)),
+            Arg.Any<CancellationToken>());
+    }
 
     private static Shop DeclaredShop(TaxRegime regime, string? gstin)
     {

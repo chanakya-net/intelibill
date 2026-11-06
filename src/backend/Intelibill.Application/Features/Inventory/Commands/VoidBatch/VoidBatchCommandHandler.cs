@@ -2,6 +2,7 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
 using Intelibill.Application.Features.Inventory.DTOs;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Events;
 using Intelibill.Domain.Enums;
@@ -32,7 +33,9 @@ public sealed class VoidBatchCommandHandler(
     IPaymentReceiptRepository paymentReceiptRepository,
     IInventoryRepository inventoryRepository,
     IUnitOfWork unitOfWork,
-    IMessageBus messageBus)
+    IMessageBus messageBus,
+    IShopRepository shopRepository,
+    IBusinessClock businessClock)
 {
     public async Task<ErrorOr<VoidBatchResultDto>> HandleAsync(VoidBatchCommand command, CancellationToken cancellationToken)
     {
@@ -79,10 +82,14 @@ public sealed class VoidBatchCommandHandler(
         var supplierId = receiptValue?.SupplierId ?? batch.SupplierId;
         var itemId = batch.ItemId;
 
+        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
         batch.Void(command.ActorUserId);
         inventoryBatchRepository.Update(batch);
 
-        var now = DateTimeOffset.UtcNow;
+        var now = businessClock.UtcNow;
         var stockTransactionResult = StockTransaction.Create(
             command.ActiveShopId,
             itemId,
@@ -124,7 +131,7 @@ public sealed class VoidBatchCommandHandler(
                 batch.Id,
                 SupplierLedgerEntryType.Reversal,
                 ledgerReversalAmount.Value,
-                DateOnly.FromDateTime(now.UtcDateTime),
+                businessClock.GetBusinessDate(now, shop.BusinessTimeZoneId),
                 "Batch voided — supplier ledger corrected",
                 command.ActorUserId);
 

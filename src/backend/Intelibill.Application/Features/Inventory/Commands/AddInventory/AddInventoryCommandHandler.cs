@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.DTOs;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -20,7 +21,9 @@ public sealed class AddInventoryCommandHandler(
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
     IPurchaseReceiptValueRepository purchaseReceiptValueRepository,
     IInventoryRepository inventoryRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IShopRepository shopRepository,
+    IBusinessClock businessClock)
 {
     public async Task<ErrorOr<AddInventoryResultDto>> HandleAsync(AddInventoryCommand command, CancellationToken cancellationToken)
     {
@@ -34,6 +37,10 @@ public sealed class AddInventoryCommandHandler(
 
         if (actorMembership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Inventory.UserIsNotOwnerOrManager;
+
+        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
 
         var normalizedName = command.ItemName.Trim();
         var normalizedBarcode = command.Barcode.Trim();
@@ -128,7 +135,7 @@ public sealed class AddInventoryCommandHandler(
         var batch = batchResult.Value;
         await inventoryBatchRepository.AddAsync(batch, cancellationToken);
 
-        var performedAt = (command.PerformedAt ?? DateTimeOffset.UtcNow).ToUniversalTime();
+        var performedAt = (command.PerformedAt ?? businessClock.UtcNow).ToUniversalTime();
         var stockTransactionResult = StockTransaction.Create(
             command.ActiveShopId,
             item.Id,
@@ -176,7 +183,7 @@ public sealed class AddInventoryCommandHandler(
                 batch.Id,
                 SupplierLedgerEntryType.GoodsReceived,
                 ledgerAmount,
-                DateOnly.FromDateTime(performedAt.UtcDateTime),
+                businessClock.GetBusinessDate(performedAt, shop.BusinessTimeZoneId),
                 isSystemSupplier ? "Receipt with no supplier assigned" : null,
                 command.ActorUserId);
 

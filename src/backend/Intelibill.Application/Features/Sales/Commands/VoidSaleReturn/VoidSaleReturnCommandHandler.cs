@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Services.Returns;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -19,7 +20,8 @@ public sealed class VoidSaleReturnCommandHandler(
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     ICreditNoteRepository creditNoteRepository,
     ISaleReturnMutationCoordinator mutationCoordinator,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IBusinessClock businessClock)
 {
     public async Task<ErrorOr<Success>> HandleAsync(
         VoidSaleReturnCommand command,
@@ -82,7 +84,9 @@ public sealed class VoidSaleReturnCommandHandler(
             return Errors.Sale.NotFound(saleReturn.SaleId);
 
         var saleItemsById = sale.Items.ToDictionary(item => item.Id);
-        var processedAt = DateTimeOffset.UtcNow;
+        var processedAt = businessClock.UtcNow;
+        // The void lands on the day it happened in the zone the return itself was posted under.
+        var voidDate = businessClock.GetBusinessDate(processedAt, saleReturn.BusinessTimeZoneId);
         var stockReversals = new List<StockTransaction>();
 
         foreach (var returnItem in saleReturn.Items.Where(item => item.Condition == SaleReturnCondition.Restockable))
@@ -143,7 +147,7 @@ public sealed class VoidSaleReturnCommandHandler(
                 sale.Id,
                 CustomerLedgerEntryType.ReturnCreditReversal,
                 saleReturn.DueReductionAmount,
-                DateOnly.FromDateTime(processedAt.UtcDateTime),
+                voidDate,
                 $"Void return credit from {saleReturn.ReturnNumber} for sale {sale.InvoiceNumber}",
                 command.ActorUserId);
             if (ledgerResult.IsError)
@@ -152,7 +156,7 @@ public sealed class VoidSaleReturnCommandHandler(
             returnCreditReversal = ledgerResult.Value;
         }
 
-        var voidResult = saleReturn.Void(processedAt, Domain.Common.BusinessCalendar.DateOf(processedAt, Domain.Common.BusinessTimeZones.Resolve(saleReturn.BusinessTimeZoneId)), command.ActorUserId, command.Reason);
+        var voidResult = saleReturn.Void(processedAt, voidDate, command.ActorUserId, command.Reason);
         if (voidResult.IsError)
             return voidResult.Errors;
 

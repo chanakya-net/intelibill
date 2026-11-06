@@ -9,6 +9,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Payments;
@@ -44,7 +45,8 @@ public class PaymentCommandHandlerTests
 
     private ReversePaymentCommandHandler ReverseHandler() => new(
         _users, _receipts, Substitute.For<ICustomerLedgerEntryRepository>(), Substitute.For<ISupplierLedgerEntryRepository>(),
-        Substitute.For<IExpenseRepository>(), new PaymentTransactionRunner(_executor, _unitOfWork), Builder(), _unitOfWork);
+        Substitute.For<IExpenseRepository>(), new PaymentTransactionRunner(_executor, _unitOfWork), Builder(), _unitOfWork,
+        BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock());
 
     [Theory]
     [InlineData(ShopRole.Manager)]

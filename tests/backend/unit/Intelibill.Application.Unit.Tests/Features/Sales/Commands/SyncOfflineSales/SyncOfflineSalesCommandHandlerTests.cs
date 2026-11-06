@@ -10,6 +10,7 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
+using Intelibill.Infrastructure.Services.Time;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.SyncOfflineSales;
@@ -39,6 +40,8 @@ public class SyncOfflineSalesCommandHandlerTests
     {
         _varianceAnalyzer = new OfflineSaleVarianceAnalyzer(_reconciliationIssueRepository);
         StubRecordedEnvelope(candidate => candidate);
+        _shopRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<Shop?>(Shop.Create("Main", "42 MG Road", "Bengaluru", "Karnataka", "560001", null, null, null)));
         _customerResolver.ResolveAsync(
                 Arg.Any<Guid>(),
                 Arg.Any<Guid?>(),
@@ -70,7 +73,8 @@ public class SyncOfflineSalesCommandHandlerTests
                 _customerLedgerEntryRepository,
                 _stockTransactionRepository,
                 _shopRepository,
-                _varianceAnalyzer),
+                _varianceAnalyzer,
+                new BusinessClock(_clock)),
             _unitOfWork,
             _clock);
 
@@ -1667,7 +1671,7 @@ public class SyncOfflineSalesCommandHandlerTests
             .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
         SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
         var poster = new OfflineSalePoster(
-            _saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer);
+            _saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock));
 
         var outcome = await poster.StageAsync(
             new OfflineSalePostingRequest(
@@ -1754,8 +1758,40 @@ public class SyncOfflineSalesCommandHandlerTests
         Assert.Equal(Errors.Invoice.CompositionCannotCollectTax.Code, review.Code);
     }
 
+    [Fact]
+    public async Task StageAsync_PostsOnTheBusinessDateOfTheClaimedSoldAtNotTheSyncTime()
+    {
+        var shopId = Guid.NewGuid();
+        var customer = Customer.Create(shopId, "Due Customer", "+919876543210", null);
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id, quantity: 5m);
+        var inventory = CreateInventory(shopId, item.Id, quantity: 5m);
+        var claimed = DateTimeOffset.Parse("2026-10-20T20:30:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var sale = CreateSale(
+            $"offline-{Guid.NewGuid():N}", "A/2526/000201", PaymentMethod.Credit, paidAmount: 0m, dueAmount: 118m,
+            customerId: customer.Id, items: [CreateLine(batch.Id)]) with { SoldAt = claimed };
+        var lease = CreateLease(shopId);
+        _clock.UtcNow = claimed.AddDays(3);
+        _customerResolver.ResolveAsync(shopId, customer.Id, sale.CustomerPhone, true, PaymentMethod.Credit, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+        Sale? staged = null;
+        _saleRepository.When(r => r.AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>())).Do(call => staged = call.Arg<Sale>());
+        CustomerLedgerEntry? ledger = null;
+        _customerLedgerEntryRepository.When(r => r.AddAsync(Arg.Any<CustomerLedgerEntry>(), Arg.Any<CancellationToken>()))
+            .Do(call => ledger = call.Arg<CustomerLedgerEntry>());
+        CaptureReconciliationIssues();
+
+        var outcome = await Poster().StageAsync(PostingRequest(shopId, sale, lease), CancellationToken.None);
+
+        Assert.IsType<OfflineSalePostingOutcome.Staged>(outcome);
+        Assert.Equal(new DateOnly(2026, 10, 21), staged!.BusinessDate);
+        Assert.Equal("Asia/Kolkata", staged.BusinessTimeZoneId);
+        Assert.Equal(new DateOnly(2026, 10, 21), ledger!.EntryDate);
+    }
+
     private OfflineSalePoster Poster() =>
-        new(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer);
+        new(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock));
 
     private static OfflineSalePostingRequest PostingRequest(Guid shopId, OfflineSaleSyncCommand sale, InvoiceLease lease) =>
         new(shopId, "device-1", sale.ClientSaleId, sale, "hash", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Now, new Dictionary<Guid, DiscountRule>(), lease);

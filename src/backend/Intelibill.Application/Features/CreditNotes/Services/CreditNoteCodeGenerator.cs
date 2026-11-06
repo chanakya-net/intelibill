@@ -1,3 +1,4 @@
+using System.Globalization;
 using Intelibill.Application.Common.Normalization;
 using Intelibill.Domain.Interfaces.Repositories;
 
@@ -13,11 +14,11 @@ public sealed class CreditNoteCodeGenerator : ICreditNoteCodeGenerator
         _repository = repository;
     }
 
-    public async Task<string> GenerateAsync(Guid shopId, CancellationToken cancellationToken = default)
+    public async Task<string> GenerateAsync(Guid shopId, DateOnly businessDate, CancellationToken cancellationToken = default)
     {
         for (int i = 0; i < MaxRetries; i++)
         {
-            var code = GenerateCode();
+            var code = GenerateCode(businessDate);
             var normalizedCode = CreditNoteCodeNormalizer.Normalize(code);
             var existing = await _repository.GetByCodeAsync(shopId, normalizedCode, cancellationToken);
             if (existing is null)
@@ -29,10 +30,9 @@ public sealed class CreditNoteCodeGenerator : ICreditNoteCodeGenerator
         throw new InvalidOperationException("Failed to generate unique credit note code after maximum retries.");
     }
 
-    private static string GenerateCode()
+    private static string GenerateCode(DateOnly businessDate)
     {
-        var timestamp = DateTimeOffset.UtcNow;
         var suffix = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
-        return $"CN-{timestamp.UtcDateTime:yyyyMMdd}-{suffix}";
+        return string.Create(CultureInfo.InvariantCulture, $"CN-{businessDate:yyyyMMdd}-{suffix}");
     }
 }

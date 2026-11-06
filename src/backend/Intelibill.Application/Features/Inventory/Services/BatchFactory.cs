@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -11,7 +12,9 @@ internal sealed class BatchFactory(
     IInventoryBatchRepository inventoryBatchRepository,
     IStockTransactionRepository stockTransactionRepository,
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
-    IPurchaseReceiptValueRepository purchaseReceiptValueRepository) : IBatchFactory
+    IPurchaseReceiptValueRepository purchaseReceiptValueRepository,
+    IShopRepository shopRepository,
+    IBusinessClock businessClock) : IBatchFactory
 {
     public async Task<ErrorOr<BatchCreationResult>> CreateBatchAsync(
         Guid shopId,
@@ -28,6 +31,10 @@ internal sealed class BatchFactory(
 
         if (existingBatch is not null && !existingBatch.IsVoided)
             return Errors.Inventory.BatchNumberAlreadyExists;
+
+        var shop = await shopRepository.GetByIdAsync(shopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
 
         var isSystemSupplier = row.SupplierId is null;
 
@@ -53,7 +60,7 @@ internal sealed class BatchFactory(
         var batch = batchResult.Value;
         await inventoryBatchRepository.AddAsync(batch, cancellationToken);
 
-        var performedAt = (row.PerformedAt ?? DateTimeOffset.UtcNow).ToUniversalTime();
+        var performedAt = (row.PerformedAt ?? businessClock.UtcNow).ToUniversalTime();
 
         var stockTransactionResult = StockTransaction.Create(
             shopId,
@@ -104,7 +111,7 @@ internal sealed class BatchFactory(
             batch.Id,
             SupplierLedgerEntryType.GoodsReceived,
             ledgerAmount,
-            DateOnly.FromDateTime(performedAt.UtcDateTime),
+            businessClock.GetBusinessDate(performedAt, shop.BusinessTimeZoneId),
             isSystemSupplier ? "Receipt with no supplier assigned" : null,
             actorUserId);
 

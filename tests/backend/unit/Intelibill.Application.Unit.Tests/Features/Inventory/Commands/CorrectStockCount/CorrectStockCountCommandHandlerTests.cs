@@ -10,6 +10,7 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Update;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using DomainInventory = Intelibill.Domain.Entities.Inventory;
@@ -37,7 +38,7 @@ public sealed class CorrectStockCountCommandHandlerTests
 
     public CorrectStockCountCommandHandlerTests()
     {
-        _numberGenerator.Generate(Arg.Any<DateTimeOffset?>()).Returns("ADJ-20261101-ABCDEF12");
+        _numberGenerator.Generate(Arg.Any<DateOnly>()).Returns("ADJ-20261101-ABCDEF12");
         _itemRepository.GetByIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(ci => new List<Item> { Item.Create(ci.ArgAt<Guid>(0), "Rice", "d", "kg", "BC-0", true, Guid.NewGuid()) });
         _batch = InventoryBatch.Create(_shop.Id, _itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, _actor.Id).Value;
@@ -266,5 +267,7 @@ public sealed class CorrectStockCountCommandHandlerTests
             _numberGenerator,
             _unitOfWork,
             _operationExecutor,
-            _itemRepository);
+            _itemRepository,
+            BusinessTestDoubles.AnyShop(),
+            BusinessTestDoubles.RealClock());
 }

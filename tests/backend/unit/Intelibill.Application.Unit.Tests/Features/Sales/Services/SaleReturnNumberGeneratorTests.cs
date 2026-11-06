@@ -5,13 +5,10 @@ namespace Intelibill.Application.Unit.Tests.Features.Sales.Services;
 public class SaleReturnNumberGeneratorTests
 {
     [Fact]
-    public void Generate_UsesReturnPrefixUtcDateAndEightCharacterSuffix()
+    public void Generate_UsesReturnPrefixBusinessDateAndEightCharacterSuffix()
     {
-        var generator = new SaleReturnNumberGenerator();
-        var now = new DateTimeOffset(2026, 5, 4, 10, 15, 0, TimeSpan.Zero);
+        var returnNumber = new SaleReturnNumberGenerator().Generate(new DateOnly(2026, 10, 21));
 
-        var returnNumber = generator.Generate(now);
-
-        Assert.Matches("^RET-20260504-[0-9A-F]{8}$", returnNumber);
+        Assert.Matches("^RET-20261021-[0-9A-F]{8}$", returnNumber);
     }
 }

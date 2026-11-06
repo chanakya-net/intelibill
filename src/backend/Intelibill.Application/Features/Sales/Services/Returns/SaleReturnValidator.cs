@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -16,7 +17,8 @@ internal sealed class SaleReturnValidator(
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IPaymentReceiptRepository paymentReceiptRepository,
     ISaleReturnCalculator saleReturnCalculator,
-    IItemRepository itemRepository)
+    IItemRepository itemRepository,
+    IBusinessClock businessClock)
     : ISaleReturnValidator
 {
     public async Task<ErrorOr<SaleReturnValidationResult>> ValidateAsync(
@@ -69,7 +71,7 @@ internal sealed class SaleReturnValidator(
             : (await itemRepository.GetByIdsAsync(request.ShopId, itemIds, cancellationToken))
                 .ToDictionary(i => i.Id, i => i.QuantityScale);
         var lineInputs = new List<ValidatedSaleReturnLine>();
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var today = businessClock.Today(shop.BusinessTimeZoneId);
 
         foreach (var item in request.Items)
         {
