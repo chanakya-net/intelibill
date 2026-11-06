@@ -477,7 +477,7 @@ and each return is voided at most once — whether the line is goods, a service 
 or not any stock row is written. A credit note is never both voided and redeemed.
 
 **Lock.** Recording a return and voiding one run through `ISaleReturnMutationCoordinator`: one
-transaction that first takes the sale's customer row (when the sale has one) and then the sale row,
+transaction that, after the period fence, first takes the sale's customer row (when the sale has one) and then the sale row,
 each with `SELECT … FOR NO KEY UPDATE` scoped by `shop_id` (`ISaleRepository.LockForReturnMutationAsync`),
 then validates and writes, and commits only on success. The customer lock is there because a due
 reduction is capped by the customer's balance across all their sales, so returns on two sales of one
@@ -487,7 +487,7 @@ preview stays advisory. `NO KEY UPDATE` keeps inserts that only reference the sa
 check) from queueing behind it. The void reads only the return's immutable sale id before the lock
 (`ISaleReturnRepository.GetSaleIdAsync`) and everything it decides on after.
 
-**Order.** customer → sale → that sale's credit notes (`GetBySaleReturnIdForUpdateWithRedemptionsAsync`) →
+**Order.** (period fence, taken first) → customer → sale → that sale's credit notes (`GetBySaleReturnIdForUpdateWithRedemptionsAsync`) →
 inventory batch and aggregate rows (locked by their `UPDATE` at save, `xmin`-checked). Redemption at
 checkout locks credit notes and then batches and never waits on the parent sale; `VoidCreditNote`
 locks only its note. Nothing locks a return or credit note and then waits on its sale.
@@ -579,9 +579,9 @@ exceeds a positive limit.
 
 **Serialization.** `RecordSale` takes the customer row (`ICustomerRepository.LockForCreditAsync`,
 `FOR NO KEY UPDATE`, 5 s budget that is reset with `SET LOCAL lock_timeout TO DEFAULT` once granted) as
-the first lock of the posting transaction whenever the sale adds due, then re-reads the customer
+the first business lock (after the operation receipt and the period fence) of the posting transaction whenever the sale adds due, then re-reads the customer
 (`GetCurrentAsync`, untracked) and the balance and decides. Order: customer → invoice sequence → credit
-notes → batches, consistent with payments and returns (customer first). A customer edit is an `UPDATE`
+notes → batches, consistent with payments and returns (customer first among business locks). A customer edit is an `UPDATE`
 that conflicts with the same lock. Timeout → 409 `Customer.CreditBusy`. A retry whose sale committed
 while it waited replays instead of being judged again; the override is part of the idempotency hash
 (omitted when absent, so old hashes hold). The approval is audited on the sale
@@ -926,7 +926,7 @@ device-side GST printing, credit-note documents. (Per-item units now live in § 
 
 ## Business Dates and Posting Periods
 
-**Shop zone.** `shops.business_time_zone_id` (`varchar(64)`, NOT NULL, default `Asia/Kolkata`) names the
+**Shop zone.** `shops.business_time_zone` (`varchar(64)`, NOT NULL, default `Asia/Kolkata`) names the
 zone a shop's days are read in. No API changes it in this release (`GET` shop returns it read-only), so
 every shop is on India time. `BusinessTimeZones.Resolve` caches zones; a host without tzdata still serves
 the default zone through its fixed UTC+05:30 offset (India keeps no DST), any other unknown id throws.
@@ -948,8 +948,11 @@ customer metrics over sales) use `IBusinessClock.GetUtcWindow(from, to, zone)` -
 [StartInclusive, EndExclusive)`: half-open, so the next day's midnight is never in two reports. No
 repository computes its own offset.
 
-**Fiscal year.** `FiscalYear.ForBusinessDate(businessDate)` wherever a sale is posted (invoice series,
-reservations, Tally); there is no second year calculation.
+**Fiscal year.** `FiscalYear.ForBusinessDate(businessDate)` picks the invoice series of an online sale
+and of an offline sale posted without a lease (the posting's own business date). Known limitation:
+invoice-lease reservation (`ReserveInvoiceLeaseCommandHandler`), the lease expiry cap and the offline
+timing check (`OfflineIssueTimingPolicy`) still use the IST `FiscalYear.ForDate(instant)`. The two
+agree while IST is the only zone and must be moved to the shop zone together when a second zone ships.
 
 **Posting periods.** A period is one calendar month of the business calendar: `posting_periods(shop_id,
 start_date, end_date, state Open|Closed, version xmin)`, unique `(shop_id, start_date)`, RLS-forced like
@@ -963,7 +966,7 @@ again under the period lock. Both need a `reason` (1-500 chars) and an `operatio
 `Operation.PayloadMismatch`). A month closes only after it ended (`EndDate < today` in the shop zone) ->
 409 `PostingPeriod.NotEnded`; closing a closed (or reopening an open) month -> 409
 `PostingPeriod.AlreadyClosed` / `AlreadyOpen`. Every transition appends a `posting_period_events` row
-(`PostingPeriodAction` Close|Reopen, reason, actor, time).
+(`PostingPeriodAction` Closed|Reopened, reason, actor, time).
 
 **Fence.** `IPostingPeriodPolicy.AuthorizeForWriteAsync(shopId, date)` (or a set of dates: distinct
 months, ascending, first error wins) needs an open transaction, ensures the row, sets a 5 s
@@ -972,19 +975,30 @@ Timeout (55P03) -> 409 `PostingPeriod.Busy`. The caller's own `lock_timeout` is 
 with `set_config(..., true)` afterwards, so a caller with a bigger budget keeps it. Close/reopen takes
 `FOR UPDATE` on the same row (first-touch insert inside the same budget), so a posting that passed the
 fence blocks the close until it commits, and a close that committed first refuses the posting: nothing
-commits into a month after its close. The fence is the **first business lock**. Order: operation receipt
-reservation -> period fence -> customer/supplier -> sale/payment receipt -> credit notes -> batches
-(consistent with Sale Return Serialization, Payment Receipts and Customer Credit Policy).
+commits into a month after its close. The fence comes before every business row lock, but after the
+operation receipt. Order: operation receipt reservation -> (reconciliation case row lock, for replays) ->
+period fence -> customer/supplier -> sale/payment receipt -> credit notes -> batches (the customer lock
+in Sale Return Serialization, Payment Receipts and Customer Credit Policy is the first *business* lock,
+not the first lock).
 
 **Fenced workflows (date checked).** Online sale and offline invoice staging (issue business date); sale
-return record and void, payment reversal, receipt cost correction, void batch, adjustment void, stock
-count (today); customer and supplier payment (`paymentDate`); expense record (`expenseDate`) and
-correction (both the original's and the new date's month); add inventory, each bulk-intake row, adjustment
-create and purchase-order receive (the business date of the instant actually written, which is the
-client-supplied `performedAt` / `receivedAt` when given, else now, so a backdated stamp cannot post into
-a closed month). Not fenced: payment allocations (they move no ledger date). A **return or void of a
-sale from a closed month is allowed**: it posts on today's date and references the original, so closed
-reports do not change.
+return record and void, payment reversal, receipt cost correction, void batch, stock count (today);
+adjustment void (today and the business date of the adjustment's `PerformedAt`); supplier payment
+reversal (today, plus the `ExpenseDate` of every expense in the chain it voids); supplier reassignment
+(today and the `EntryDate` of every GoodsReceived/CostAdjusted ledger entry it rewrites); customer and
+supplier payment (`paymentDate`); expense record (`expenseDate`) and correction (both the original's and
+the new date's month); add inventory, each bulk-intake row, adjustment create and purchase-order receive
+(the business date of the instant actually written, which is the client-supplied `performedAt` /
+`receivedAt` when given, else now, so a backdated stamp cannot post into a closed month). A resend that
+meets a busy fence in bulk intake is reported per row as retryable. A customer payment reversal posts a
+dated reversal entry (today) and is fenced on that date only. A correction of a closed month's posting
+(adjustment void, supplier payment reversal, supplier reassignment) is refused with `PostingPeriod.Closed`
+when the original's month is closed. A **return or void of a sale from a closed month is allowed**: it
+posts on today's date and references the original, so closed reports do not change.
+
+**Not fenced.** Payment allocations (they move no ledger date); credit-note void; the catch-up stock
+movement that a reconciliation `LinkStockCorrection` posts (dated today, so it can only land in a month
+that closes between the check and the write).
 
 **Late offline invoices.** An invoice keeps its issue time and business date. If its month is closed,
 `OfflineSalePoster` holds it as `ReconciliationIssueType.ClosedPeriodReview = 12` (code
@@ -995,10 +1009,15 @@ the replay re-runs the fence, so it succeeds (original number, original `sold_at
 date) only after an owner reopens the month, and answers 409 while closed. A busy fence rejects the
 invoice for a plain resend.
 
-**Rollout.** Migration `AddBusinessDatesAndShopTimeZone` adds the columns nullable, backfills existing
-rows (Asia/Kolkata), installs `BEFORE INSERT OR UPDATE` triggers that date rows written by pods that
-predate the columns (rolling deploy), then sets NOT NULL; `AddPostingPeriods` adds the two tables. Deploy
-migrations, then pods. Afterwards run `scripts/db/backfill-business-dates.sql` (shop by shop under RLS,
+**Rollout.** Migration `AddBusinessDatesAndShopTimeZone`, in this order: adds `shops.business_time_zone`
+(NOT NULL, default) and the nullable `business_date` / `business_time_zone` / `voided_business_date`
+columns, backfills existing rows (Asia/Kolkata) shop by shop, sets NOT NULL, installs
+`BEFORE INSERT OR UPDATE` triggers that date rows written by pods that predate the columns (rolling
+deploy), then adds the indexes; `AddPostingPeriods` adds the two tables. The whole migration is one
+transaction: the `ADD COLUMN` takes ACCESS EXCLUSIVE on `sales` and `sale_returns` and the backfill
+`UPDATE` runs under it, so sale and return writes block for the duration (fine at launch sizes). Deploy
+migrations, then pods. **Do not close any posting period until every pod runs this build:** pods of the
+previous build have no fence and would keep posting into a closed month. Afterwards run `scripts/db/backfill-business-dates.sql` (shop by shop under RLS,
 idempotent, a no-op when nothing is NULL). Nothing closes automatically; owners close months after review.
 Reports that straddled UTC/IST midnight may differ from previously published ones by early-morning sales:
 say so in release notes.
