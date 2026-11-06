@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Customers.DTOs;
+using Intelibill.Application.Features.Payments.Services;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
@@ -10,7 +11,8 @@ public sealed class GetCustomerAccountQueryHandler(
     IUserRepository userRepository,
     ICustomerRepository customerRepository,
     ISaleRepository saleRepository,
-    ICustomerLedgerEntryRepository customerLedgerEntryRepository)
+    ICustomerLedgerEntryRepository customerLedgerEntryRepository,
+    IInvoiceBalanceReader invoiceBalanceReader)
 {
     public async Task<ErrorOr<CustomerAccountDto>> HandleAsync(GetCustomerAccountQuery query, CancellationToken cancellationToken)
     {
@@ -32,6 +34,10 @@ public sealed class GetCustomerAccountQueryHandler(
         var sales = await saleRepository.GetByCustomerAsync(query.ActiveShopId, query.CustomerId, cancellationToken);
         var ledgerEntries = await customerLedgerEntryRepository.GetByCustomerAsync(query.ActiveShopId, query.CustomerId, cancellationToken);
         var outstandingDue = await customerLedgerEntryRepository.GetCustomerBalanceAsync(query.ActiveShopId, query.CustomerId, cancellationToken);
+        var invoiceBalances = (await invoiceBalanceReader.GetForCustomerAsync(query.ActiveShopId, query.CustomerId, null, cancellationToken))
+            .ToDictionary(b => b.SaleId);
+        var receipts = await invoiceBalanceReader.GetReceiptsAsync(query.ActiveShopId, PaymentPartyType.Customer, query.CustomerId, cancellationToken);
+        var receiptByLedgerEntry = receipts.ToDictionary(r => r.LedgerEntryId, r => r.ReceiptId);
 
         var ledgerChronological = ledgerEntries
             .OrderBy(e => e.EntryDate)
@@ -50,7 +56,8 @@ public sealed class GetCustomerAccountQueryHandler(
                 entry.Amount,
                 entry.EntryDate,
                 entry.Notes,
-                runningBalance));
+                runningBalance,
+                receiptByLedgerEntry.TryGetValue(entry.Id, out var receiptId) ? receiptId : null));
         }
 
         var orderedLedgerDtos = ledgerDtos
@@ -67,15 +74,24 @@ public sealed class GetCustomerAccountQueryHandler(
             customer.Name,
             customer.PhoneNumber,
             outstandingDue,
-            sales.Select(s => new CustomerAccountSaleDto(
-                s.Id,
-                s.InvoiceNumber,
-                s.PaymentMethod,
-                s.SoldAt,
-                s.PaidAmount,
-                s.DueAmount,
-                s.Items.Sum(i => i.TotalAmount))).ToList(),
+            sales.Select(s =>
+            {
+                var balance = invoiceBalances.GetValueOrDefault(s.Id);
+                return new CustomerAccountSaleDto(
+                    s.Id,
+                    s.InvoiceNumber,
+                    s.PaymentMethod,
+                    s.SoldAt,
+                    s.PaidAmount,
+                    s.DueAmount,
+                    s.Items.Sum(i => i.TotalAmount),
+                    balance?.AllocatedPaymentAmount ?? 0m,
+                    balance?.ReturnCreditAmount ?? 0m,
+                    balance?.OutstandingAmount ?? 0m);
+            }).ToList(),
             orderedLedgerDtos,
-            paymentHistory);
+            paymentHistory,
+            receipts.Sum(r => r.UnallocatedAmount),
+            receipts);
     }
 }

@@ -428,7 +428,7 @@ h1 {
 
 .statement-payment-form {
   display: grid;
-  grid-template-columns: minmax(10rem, 0.85fr) minmax(10rem, 0.8fr) minmax(14rem, 1fr) auto;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   gap: 0.6rem;
   align-items: end;
   margin-top: 0.4rem;
@@ -449,6 +449,103 @@ h1 {
 
 .statement-payment-form input {
   width: 100%;
+}
+
+.statement-select {
+  width: 100%;
+  min-height: 2.65rem;
+  padding: 0 0.75rem;
+  border: 1px solid #e4d5c5;
+  border-radius: 0.6rem;
+  background: #fffaf5;
+  color: #2b211a;
+  font: inherit;
+}
+
+.statement-allocation {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px dashed #e4d5c5;
+  border-radius: 0.75rem;
+  background: #fffaf5;
+}
+
+.statement-allocation .statement-allocation-toggle {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-weight: 700;
+}
+
+.statement-allocation .statement-allocation-toggle > span {
+  color: #2b211a;
+  font-size: 0.85rem;
+  text-transform: none;
+}
+
+.statement-allocation .statement-allocation-toggle input {
+  width: auto;
+}
+
+.statement-allocation ul {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.statement-allocation li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.statement-allocation small {
+  color: #6f6259;
+}
+
+.statement-error {
+  margin: 0;
+  padding: 0.75rem 1.5rem;
+  color: #b3261e;
+  font-weight: 700;
+}
+
+.statement-table tr.reversed td {
+  color: #8a7d73;
+  text-decoration: line-through;
+}
+
+.statement-reversal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: end;
+}
+
+.statement-reversal label {
+  display: grid;
+  flex: 1 1 16rem;
+  gap: 0.25rem;
+}
+
+.statement-reversal label > span {
+  color: #6f6259;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .statement-ledger {

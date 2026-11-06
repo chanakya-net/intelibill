@@ -3,11 +3,12 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
+import { of } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { FinancialOperationIntentService } from '../../../core/services/financial-operation-intent.service';
-import { Customer, CustomerService } from '../services/customer.service';
+import { Customer, CustomerAccount, CustomerService } from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
 import { CustomersPageComponent } from './customers-page.component';
 
@@ -15,6 +16,32 @@ const paymentIntents = {
   revision: signal(0),
   pending: vi.fn((): unknown => null),
   check: vi.fn(),
+  prepare: vi.fn((_scope: unknown, type: string, targetId: string, payload: unknown) => ({ type, targetId, payload, operationKey: 'op-1' })),
+  send: vi.fn((_scope: unknown, intent: { payload: unknown; operationKey: string }, request: (payload: unknown, key: string) => unknown) =>
+    request(intent.payload, intent.operationKey),
+  ),
+};
+
+let shopRole = 'Manager';
+
+const account: CustomerAccount = {
+  customerId: 'c1',
+  name: 'Alice Cooper',
+  phoneNumber: '9999999999',
+  outstandingDue: 150,
+  unallocatedCredit: 20,
+  sales: [
+    { saleId: 's-new', invoiceNumber: 'A/2627/000002', paymentMethod: 'Credit', soldAt: '2026-11-03T10:00:00Z', paidAmount: 0, dueAmount: 100, totalAmount: 100, allocatedPaymentAmount: 0, returnCreditAmount: 0, currentOutstandingAmount: 100 },
+    { saleId: 's-old', invoiceNumber: 'A/2627/000001', paymentMethod: 'Credit', soldAt: '2026-11-01T10:00:00Z', paidAmount: 0, dueAmount: 120, totalAmount: 120, allocatedPaymentAmount: 50, returnCreditAmount: 0, currentOutstandingAmount: 70 },
+  ],
+  ledgerEntries: [
+    { entryId: 'e3', saleId: null, entryType: 'PaymentReversal', amount: 30, entryDate: '2026-11-05', notes: null, runningBalance: 150 },
+    { entryId: 'e2', saleId: null, entryType: 'PaymentReceived', amount: 30, entryDate: '2026-11-04', notes: null, runningBalance: 120, receiptId: 'r1' },
+  ],
+  paymentHistory: [],
+  receipts: [
+    { receiptId: 'r1', amount: 30, method: 'Upi', externalReference: 'UPI-1', businessDate: '2026-11-04', isLegacy: false, isReversed: false, allocatedAmount: 10, unallocatedAmount: 20, ledgerEntryId: 'e2' },
+  ],
 };
 
 describe('CustomersPageComponent', () => {
@@ -72,8 +99,9 @@ describe('CustomersPageComponent', () => {
   };
 
   const customerService = {
-    getCustomerAccount: vi.fn(),
-    recordCustomerPayment: vi.fn(),
+    getCustomerAccount: vi.fn(() => of(account)),
+    recordCustomerPayment: vi.fn(() => of({})),
+    reversePayment: vi.fn(() => of({})),
   };
   const router = {
     navigate: vi.fn().mockResolvedValue(true),
@@ -162,7 +190,16 @@ describe('CustomersPageComponent', () => {
         { provide: CustomersFacade, useValue: facade },
         { provide: CustomerService, useValue: customerService },
         { provide: Router, useValue: router },
-        { provide: AuthService, useValue: { session: () => ({ user: { id: 'user-1' }, activeShopId: 'shop-1' }) } },
+        {
+          provide: AuthService,
+          useValue: {
+            session: () => ({
+              user: { id: 'user-1' },
+              activeShopId: 'shop-1',
+              shops: [{ shopId: 'shop-1', shopName: 'Main', role: shopRole, isDefault: true, lastUsedAt: null }],
+            }),
+          },
+        },
         { provide: FinancialOperationIntentService, useValue: paymentIntents },
       ],
     }).compileComponents();
@@ -212,5 +249,71 @@ describe('CustomersPageComponent', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/sales/new'], {
       queryParams: { customerId: 'c1' },
     });
+  });
+
+  it('sends the oldest-first allocation only when the operator accepts it', () => {
+    component.onOpenCustomerAccount(customersSignal()[0]);
+    component.paymentForm.patchValue({ amount: 100, method: 'Upi', externalReference: ' UPI-99 ' });
+
+    expect(component.allocationSuggestion().rows).toEqual([
+      { targetId: 's-old', amount: 70, invoiceNumber: 'A/2627/000001' },
+      { targetId: 's-new', amount: 30, invoiceNumber: 'A/2627/000002' },
+    ]);
+
+    component.onRecordPayment();
+    expect(customerService.recordCustomerPayment).toHaveBeenLastCalledWith('c1', expect.objectContaining({
+      amount: 100,
+      method: 'Upi',
+      externalReference: 'UPI-99',
+      allocations: [],
+      operationKey: 'op-1',
+    }));
+
+    component.paymentForm.patchValue({ amount: 100, applyOldestFirst: true });
+    component.onRecordPayment();
+    expect(customerService.recordCustomerPayment).toHaveBeenLastCalledWith('c1', expect.objectContaining({
+      allocations: [
+        { targetId: 's-old', amount: 70 },
+        { targetId: 's-new', amount: 30 },
+      ],
+    }));
+  });
+
+  it('shows current outstanding separately and books a payment reversal as a debit', () => {
+    component.onOpenCustomerAccount(customersSignal()[0]);
+
+    expect(component.selectedAccountOpenInvoices().map((sale) => sale.saleId)).toEqual(['s-old', 's-new']);
+    expect(component.selectedAccountUnallocatedCredit()).toBe(20);
+    const reversal = component.selectedAccountLedgerRows().find((row) => row.entry.entryId === 'e3')!;
+    expect(reversal.debit).toBe(30);
+    expect(reversal.credit).toBeNull();
+    expect(reversal.labelKey).toBe('customers.account.paymentReversal');
+  });
+
+  it('lets only an owner reverse a receipt, with a reason and a stable operation key', () => {
+    expect(component.isOwner()).toBe(false);
+    shopRole = 'Owner';
+    try {
+      const ownerFixture = TestBed.createComponent(CustomersPageComponent);
+      const owner = ownerFixture.componentInstance;
+      owner.onOpenCustomerAccount(customersSignal()[0]);
+      expect(owner.isOwner()).toBe(true);
+
+      owner.onStartReversal(account.receipts![0]);
+      owner.reversalReason.set('x');
+      owner.onConfirmReversal();
+      expect(owner.reversalError()).toBe('customers.account.reversalReasonRequired');
+      expect(customerService.reversePayment).not.toHaveBeenCalled();
+
+      owner.reversalReason.set('Wrong customer');
+      owner.onConfirmReversal();
+      expect(customerService.reversePayment).toHaveBeenCalledWith('r1', {
+        reason: 'Wrong customer',
+        operationKey: expect.stringMatching(/^reverse-/),
+      });
+      expect(owner.reversingReceiptId()).toBeNull();
+    } finally {
+      shopRole = 'Manager';
+    }
   });
 });

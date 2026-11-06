@@ -6,6 +6,8 @@ using Intelibill.Application.Features.Customers.Commands.RecordCustomerPayment;
 using Intelibill.Application.Features.Customers.DTOs;
 using Intelibill.Application.Features.Customers.Queries.GetCustomerAccount;
 using Intelibill.Application.Features.Customers.Queries.GetCustomers;
+using Intelibill.Application.Features.Payments.DTOs;
+using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
@@ -106,7 +108,11 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.Amount,
                 request.PaymentDate,
                 request.Notes,
-                request.OperationKey),
+                request.OperationKey,
+                request.Method,
+                request.BankAccountId,
+                request.ExternalReference,
+                request.Allocations),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -139,4 +145,8 @@ public sealed record RecordCustomerPaymentRequest(
     decimal Amount,
     DateOnly PaymentDate,
     string? Notes,
-    string? OperationKey = null);
+    string? OperationKey = null,
+    ReceiptTenderMethod? Method = null,
+    Guid? BankAccountId = null,
+    string? ExternalReference = null,
+    IReadOnlyList<PaymentAllocationRequest>? Allocations = null);

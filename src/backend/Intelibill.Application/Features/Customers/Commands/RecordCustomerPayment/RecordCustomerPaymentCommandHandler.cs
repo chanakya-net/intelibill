@@ -2,6 +2,8 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Features.Customers.DTOs;
+using Intelibill.Application.Features.Payments.DTOs;
+using Intelibill.Application.Features.Payments.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -10,12 +12,20 @@ using Microsoft.Extensions.Logging;
 
 namespace Intelibill.Application.Features.Customers.Commands.RecordCustomerPayment;
 
+/// <summary>
+/// Records money collected from a customer: one <c>PAYMENT_RECEIVED</c> ledger entry, the
+/// <see cref="PaymentReceipt"/> that explains it and any invoice allocations, in one transaction
+/// under the customer → invoice locks a sale return also takes.
+/// </summary>
 public sealed partial class RecordCustomerPaymentCommandHandler(
     IUserRepository userRepository,
     ICustomerRepository customerRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
+    IPaymentReceiptRepository paymentReceiptRepository,
+    IBankAccountRepository bankAccountRepository,
+    IPaymentAllocationPlanner allocationPlanner,
+    IPaymentTransactionRunner transactionRunner,
     IUnitOfWork unitOfWork,
-    IFinancialOperationExecutor operationExecutor,
     ILogger<RecordCustomerPaymentCommandHandler> logger)
 {
     public async Task<ErrorOr<CustomerLedgerEntryDto>> HandleAsync(
@@ -37,32 +47,81 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
         if (customer is null)
             return Errors.Customer.CustomerNotFound;
 
+        if (command.BankAccountId is { } bankAccountId)
+        {
+            var bankAccount = await bankAccountRepository.GetByIdAsync(bankAccountId, cancellationToken);
+            if (bankAccount is null || bankAccount.ShopId != command.ActiveShopId)
+                return Errors.Payment.BankAccountNotFound;
+        }
+
+        var allocations = command.Allocations ?? [];
         var operationKey = FinancialOperationHasher.NormalizeKey(command.OperationKey);
         if (operationKey is null)
         {
             LogUnkeyedPayment(command.ActiveShopId);
-            return await PostAsync(command, cancellationToken);
+            return await transactionRunner.RunAsync<CustomerLedgerEntryDto>(
+                scope: null, command.ActorUserId, command.CustomerId, requestHash: null,
+                ct => PostAsync(command, allocations, ct), cancellationToken);
         }
 
-        var requestHash = FinancialOperationHasher.Compute(new CustomerPaymentPayload(
-            command.CustomerId,
-            FinancialOperationHasher.NormalizeAmount(command.Amount),
-            command.PaymentDate,
-            string.IsNullOrWhiteSpace(command.Notes) ? null : command.Notes.Trim()));
-
-        return await operationExecutor.ExecuteAsync(
+        return await transactionRunner.RunAsync(
             new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.CustomerPayment, operationKey),
             command.ActorUserId,
             command.CustomerId,
-            requestHash,
-            ct => PostAsync(command, ct),
+            ComputeRequestHash(command, allocations),
+            ct => PostAsync(command, allocations, ct),
             cancellationToken);
+    }
+
+    /// <summary>
+    /// A request without receipt details hashes exactly as before receipts existed, so a client
+    /// retrying a payment it sent before this release still replays instead of conflicting.
+    /// </summary>
+    internal static string ComputeRequestHash(RecordCustomerPaymentCommand command, IReadOnlyList<PaymentAllocationRequest> allocations)
+    {
+        var notes = string.IsNullOrWhiteSpace(command.Notes) ? null : command.Notes.Trim();
+        var amount = FinancialOperationHasher.NormalizeAmount(command.Amount);
+        var reference = string.IsNullOrWhiteSpace(command.ExternalReference) ? null : command.ExternalReference.Trim();
+        if (command.Method is null && command.BankAccountId is null && reference is null && allocations.Count == 0)
+            return FinancialOperationHasher.Compute(new CustomerPaymentPayload(command.CustomerId, amount, command.PaymentDate, notes));
+
+        return FinancialOperationHasher.Compute(new CustomerReceiptPayload(
+            command.CustomerId,
+            amount,
+            command.PaymentDate,
+            notes,
+            command.Method,
+            command.BankAccountId,
+            reference,
+            allocations
+                .OrderBy(a => a.TargetId)
+                .Select(a => new AllocationPayload(a.TargetId, FinancialOperationHasher.NormalizeAmount(a.Amount)))
+                .ToList()));
     }
 
     private async Task<ErrorOr<CustomerLedgerEntryDto>> PostAsync(
         RecordCustomerPaymentCommand command,
+        IReadOnlyList<PaymentAllocationRequest> allocationRequests,
         CancellationToken cancellationToken)
     {
+        var lockOutcome = await paymentReceiptRepository.LockPartyAndTargetsAsync(
+            command.ActiveShopId,
+            PaymentPartyType.Customer,
+            command.CustomerId,
+            allocationRequests.Select(a => a.TargetId).ToList(),
+            cancellationToken);
+        switch (lockOutcome)
+        {
+            case RowLockOutcome.Acquired:
+                break;
+            case RowLockOutcome.NotFound:
+                return Errors.Customer.CustomerNotFound;
+            case RowLockOutcome.TimedOut:
+                return Errors.Payment.Busy;
+            default:
+                throw new InvalidOperationException($"Unknown payment lock outcome '{lockOutcome}'.");
+        }
+
         var paymentEntryResult = CustomerLedgerEntry.Create(
             command.ActiveShopId,
             command.CustomerId,
@@ -77,7 +136,33 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
             return paymentEntryResult.Errors;
 
         var paymentEntry = paymentEntryResult.Value;
+        var receiptResult = PaymentReceipt.Record(
+            command.ActiveShopId,
+            PaymentPartyType.Customer,
+            command.CustomerId,
+            command.Amount,
+            command.Method ?? ReceiptTenderMethod.UnknownRecordedMethod,
+            command.BankAccountId,
+            command.ExternalReference,
+            command.PaymentDate,
+            DateTimeOffset.UtcNow,
+            command.Notes,
+            paymentEntry.Id,
+            expenseId: null,
+            command.ActorUserId);
+        if (receiptResult.IsError)
+            return receiptResult.Errors;
+
+        var receipt = receiptResult.Value;
+        var allocations = await allocationPlanner.PlanAsync(receipt, 0m, allocationRequests, command.ActorUserId, cancellationToken);
+        if (allocations.IsError)
+            return allocations.Errors;
+
         await customerLedgerEntryRepository.AddAsync(paymentEntry, cancellationToken);
+        await paymentReceiptRepository.AddAsync(receipt, cancellationToken);
+        foreach (var allocation in allocations.Value)
+            await paymentReceiptRepository.AddAllocationAsync(allocation, cancellationToken);
+
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         var balance = await customerLedgerEntryRepository.GetCustomerBalanceAsync(command.ActiveShopId, command.CustomerId, cancellationToken);
@@ -89,7 +174,8 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
             paymentEntry.Amount,
             paymentEntry.EntryDate,
             paymentEntry.Notes,
-            balance);
+            balance,
+            receipt.Id);
     }
 
     [LoggerMessage(
@@ -98,4 +184,16 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
     private partial void LogUnkeyedPayment(Guid shopId);
 
     private sealed record CustomerPaymentPayload(Guid CustomerId, decimal Amount, DateOnly PaymentDate, string? Notes);
+
+    private sealed record CustomerReceiptPayload(
+        Guid CustomerId,
+        decimal Amount,
+        DateOnly PaymentDate,
+        string? Notes,
+        ReceiptTenderMethod? Method,
+        Guid? BankAccountId,
+        string? ExternalReference,
+        IReadOnlyList<AllocationPayload> Allocations);
+
+    private sealed record AllocationPayload(Guid TargetId, decimal Amount);
 }

@@ -32,6 +32,7 @@ public sealed class CorrectReceiptCostCommandHandler(
     IPurchaseReceiptCostAdjustmentRepository costAdjustmentRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
+    IPaymentReceiptRepository paymentReceiptRepository,
     IUnitOfWork unitOfWork,
     IFinancialOperationExecutor operationExecutor)
 {
@@ -104,6 +105,16 @@ public sealed class CorrectReceiptCostCommandHandler(
 
         if (receipt.SupplierId is not { } supplierId)
             return Errors.PurchaseReceipt.SupplierMissing;
+
+        // Payments already allocated to this receipt settled part of its payable; the payable cannot
+        // fall below them, or the supplier would show as overpaid on a receipt that was settled.
+        var allocated = (await paymentReceiptRepository.GetActiveAllocatedByTargetAsync(
+            receipt.ShopId,
+            PaymentAllocationTargetType.SupplierReceipt,
+            [receipt.Id],
+            cancellationToken)).GetValueOrDefault(receipt.Id);
+        if (command.RevisedTotalCost < allocated)
+            return Errors.Payment.CorrectionBelowAllocated(allocated);
 
         var applied = receipt.ApplyCostCorrection(command.RevisedTotalCost);
         if (applied.IsError)

@@ -5,7 +5,10 @@ public enum CustomerLedgerEntryType
     SaleDue = 1,
     PaymentReceived = 2,
     ReturnCredit = 3,
-    ReturnCreditReversal = 4
+    ReturnCreditReversal = 4,
+
+    /// <summary>Reverses a recorded payment: the customer owes the reversed amount again.</summary>
+    PaymentReversal = 5
 }
 
 public static class CustomerLedgerEntryTypeExtensions
@@ -16,6 +19,7 @@ public static class CustomerLedgerEntryTypeExtensions
         {
             CustomerLedgerEntryType.SaleDue => amount,
             CustomerLedgerEntryType.ReturnCreditReversal => amount,
+            CustomerLedgerEntryType.PaymentReversal => amount,
             CustomerLedgerEntryType.PaymentReceived => -amount,
             CustomerLedgerEntryType.ReturnCredit => -amount,
             _ => throw new ArgumentOutOfRangeException(nameof(entryType), entryType, null)

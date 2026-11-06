@@ -9,4 +9,5 @@ public sealed record CustomerLedgerEntryDto(
     decimal Amount,
     DateOnly EntryDate,
     string? Notes,
-    decimal RunningBalance);
+    decimal RunningBalance,
+    Guid? ReceiptId = null);

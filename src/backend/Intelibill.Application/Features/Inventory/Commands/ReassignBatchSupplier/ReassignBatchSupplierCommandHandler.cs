@@ -13,6 +13,7 @@ public sealed class ReassignBatchSupplierCommandHandler(
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
     ISupplierRepository supplierRepository,
     IPurchaseReceiptValueRepository purchaseReceiptValueRepository,
+    IPaymentReceiptRepository paymentReceiptRepository,
     IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<Success>> HandleAsync(ReassignBatchSupplierCommand command, CancellationToken cancellationToken)
@@ -40,6 +41,13 @@ public sealed class ReassignBatchSupplierCommandHandler(
         // Read before the ledger entries: a cost correction writes the receipt and the batch, so one
         // committing after these reads fails the save below instead of being left behind.
         var receiptValue = await purchaseReceiptValueRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
+        if (receiptValue is not null
+            && await paymentReceiptRepository.HasActiveAllocationsAsync(
+                command.ActiveShopId, PaymentAllocationTargetType.SupplierReceipt, receiptValue.Id, cancellationToken))
+        {
+            // The allocations belong to the current supplier's payments; moving the payable would strand them.
+            return Errors.Payment.DocumentHasAllocations;
+        }
 
         var batchEntries = await supplierLedgerEntryRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
         var goodsReceivedEntry = batchEntries.FirstOrDefault(e => e.EntryType == SupplierLedgerEntryType.GoodsReceived);

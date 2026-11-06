@@ -501,10 +501,59 @@ load, and `CreditNote.HasBeenRedeemed` also treats `AvailableBalance < OriginalA
 timeout on any of them answers 409 `SaleReturn.SaleBusy`. A batch changed underneath by a sale or count
 (`xmin`), a deadlock (40P01) or a serialization failure (40001) answers 409 `SaleReturn.ConcurrentChange`. Both roll back everything and are safe to retry after a refresh; the
 client never reposts on its own. `SaleReturnConcurrencyTests` races each pair on real PostgreSQL with
-a save barrier rather than sleeps. Customer payments do not take the customer lock yet (plan 25), so a
-payment racing a due-reducing return can still leave the balance below zero. Returns carry no
+a save barrier rather than sleeps. Customer payments and their allocations and reversals take the same
+customer → sale locks (see § Payment Receipts and Allocations), so a payment and a due-reducing return
+queue behind each other. Returns carry no
 operation key yet, so a resend after a lost response is a new return and is bounded only by
 entitlement.
+
+## Payment Receipts and Allocations
+
+**Facts.** Every customer collection and supplier payment posts, in one transaction, its ledger entry
+(`PAYMENT_RECEIVED` / `PAYMENT_MADE`, plus the supplier payment's linked expense) and one immutable
+`PaymentReceipt` (`payment_receipts`: party type and id, amount, `ReceiptTenderMethod`, optional bank
+account and external reference, business date, ledger entry, expense). `PaymentAllocation` rows
+(`payment_allocations`) say which customer invoice (`sales.id`) or supplier purchase receipt
+(`purchase_receipt_values.id`) it settled; whatever is not allocated stays visible as unallocated
+credit and is never attached to an invoice on its own. A UPI/card reference is cashier evidence only.
+
+**Projection.** `IInvoiceBalanceReader` is the one balance the account UI, the allocation rules and the
+return cap read. Invoice outstanding = `Sale.DueAmount` (issue-time, never rewritten) − active returns'
+`DueReductionAmount` − active allocations, floored at zero; purchase receipt outstanding = effective
+payable of a resolved, unvoided receipt − active allocations. An allocation is active while its receipt
+has no reversal. The account ledger balance equals Σ invoice outstanding − unallocated credit
+(`PaymentAllocationTests.AssertBalancesReconcileAsync`).
+
+**Commands.** `POST customers/{id}/payments` and `suppliers/{id}/payments` take optional `method`,
+`bankAccountId`, `externalReference` and `allocations`; an omitted method is `UnknownRecordedMethod`,
+never cash. A request without those fields hashes exactly as before, so a pre-release retry still
+replays. `POST payments/{id}/allocations` (owner/manager, optional `operationKey`) applies more of a
+receipt; `POST payments/{id}/reversal` (owner only, reason 3–255, required `operationKey`) reverses the
+whole receipt once: a linked `PAYMENT_REVERSAL` (customer) or `REVERSAL` (supplier) ledger entry puts
+the amount back, the supplier expense is voided, the allocations stop counting, the receipt row is never
+edited, and `payment_reversals.receipt_id` is unique. `GET payments/{id}` and `GET payments/balances`
+serve the printable detail and the open documents.
+
+**Locks.** `IPaymentTransactionRunner` runs keyed requests inside `IFinancialOperationExecutor` (replay
+serialization first) and unkeyed ones in a plain transaction; the action then takes the party row and
+its target rows sorted by id, `FOR NO KEY UPDATE` with a 5 s budget
+(`IPaymentReceiptRepository.LockPartyAndTargetsAsync`), the same customer → sale order a return uses.
+A lock timeout or deadlock answers 409 `Payment.Busy`. Allocation rules read outstanding under the lock
+(`IPaymentAllocationPlanner`): above outstanding → 409 `Payment.AllocationExceedsOutstanding`, above the
+receipt's unallocated amount → 409 `Payment.AllocationExceedsReceipt`, another party's or shop's
+document → 404 `Payment.AllocationTargetNotFound`.
+
+**Guards.** A return's due reduction is capped by `min(account balance, invoice outstanding)`, so a
+return on an invoice payments already settled pays out instead of cutting another invoice's debt. A
+purchase receipt with active allocations refuses void and supplier reassignment (409
+`Payment.DocumentHasAllocations`) and a cost correction below the allocated amount (409
+`Payment.CorrectionBelowAllocated`); those checks read before the write without the payment lock.
+
+**Legacy.** The `AddPaymentReceiptsAndAllocations` migration gives every existing ledger payment a
+receipt (`is_legacy`, `UNKNOWN_RECORDED_METHOD`, linked expense for suppliers, no allocation), shop by
+shop because the migrator is not BYPASSRLS. Re-run `scripts/db/backfill-payment-receipts.sql` once after
+rollout for payments an older instance recorded during the deploy. Rollback = stop calling allocation and
+reversal; receipt facts stay.
 
 ## Return Accounting Exports
 

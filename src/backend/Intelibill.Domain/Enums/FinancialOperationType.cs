@@ -26,4 +26,10 @@ public enum FinancialOperationType
 
     /// <summary>One support recovery bundle row submitted by an owner or manager.</summary>
     OfflineRecoverySubmission = 8,
+
+    /// <summary>One allocation of a recorded payment receipt to invoices or purchase receipts.</summary>
+    PaymentAllocation = 9,
+
+    /// <summary>One reversal of a recorded payment receipt.</summary>
+    PaymentReversal = 10,
 }

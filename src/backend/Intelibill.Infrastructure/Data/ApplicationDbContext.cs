@@ -63,6 +63,9 @@ public class ApplicationDbContext(
     public DbSet<PurchaseReceiptValue> PurchaseReceiptValues => Set<PurchaseReceiptValue>();
     public DbSet<PurchaseReceiptCostAdjustment> PurchaseReceiptCostAdjustments => Set<PurchaseReceiptCostAdjustment>();
     public DbSet<BatchPriceRevision> BatchPriceRevisions => Set<BatchPriceRevision>();
+    public DbSet<PaymentReceipt> PaymentReceipts => Set<PaymentReceipt>();
+    public DbSet<PaymentAllocation> PaymentAllocations => Set<PaymentAllocation>();
+    public DbSet<PaymentReversal> PaymentReversals => Set<PaymentReversal>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

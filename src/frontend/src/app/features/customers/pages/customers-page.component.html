@@ -188,8 +188,15 @@
               }}{{ selectedAccount()!.outstandingDue | number: '1.2-2' }}</strong
             >
             <small class="warning-dot"
-              >{{ selectedAccountOverdueCount() }} {{ 'customers.overdue' | transloco }}</small
+              >{{ selectedAccountOpenInvoices().length }} {{ 'customers.account.openInvoices' | transloco }}</small
             >
+            @if (selectedAccountUnallocatedCredit() > 0) {
+              <small class="success-dot" data-testid="unallocated-credit"
+                >{{ 'customers.account.unallocatedCredit' | transloco }}:
+                {{ 'common.currencySymbol' | transloco
+                }}{{ selectedAccountUnallocatedCredit() | number: '1.2-2' }}</small
+              >
+            }
           </article>
 
           <article class="statement-metric">
@@ -250,9 +257,52 @@
                 <input pInputText type="date" formControlName="paymentDate" />
               </label>
               <label>
+                <span>{{ 'customers.account.method' | transloco }}</span>
+                <select class="statement-select" formControlName="method" data-testid="payment-method">
+                  @for (method of tenderMethods; track method) {
+                    <option [value]="method">{{ tenderLabelKey(method) | transloco }}</option>
+                  }
+                </select>
+              </label>
+              <label>
+                <span>{{ 'customers.account.externalReference' | transloco }}</span>
+                <input
+                  pInputText
+                  type="text"
+                  formControlName="externalReference"
+                  maxlength="80"
+                  [placeholder]="'customers.account.externalReferenceHint' | transloco"
+                />
+              </label>
+              <label>
                 <span>{{ 'customers.account.notes' | transloco }}</span>
                 <input pInputText type="text" formControlName="notes" />
               </label>
+              @if (allocationSuggestion().rows.length > 0) {
+                <div class="statement-allocation" data-testid="allocation-suggestion">
+                  <label class="statement-allocation-toggle">
+                    <input type="checkbox" formControlName="applyOldestFirst" />
+                    <span>{{ 'customers.account.applyOldestFirst' | transloco }}</span>
+                  </label>
+                  <ul>
+                    @for (row of allocationSuggestion().rows; track row.targetId) {
+                      <li>
+                        <span class="reference">{{ row.invoiceNumber }}</span>
+                        <span class="money"
+                          >{{ 'common.currencySymbol' | transloco }}{{ row.amount | number: '1.2-2' }}</span
+                        >
+                      </li>
+                    }
+                  </ul>
+                  @if (allocationSuggestion().leftover > 0) {
+                    <small
+                      >{{ 'customers.account.leftoverCredit' | transloco }}:
+                      {{ 'common.currencySymbol' | transloco
+                      }}{{ allocationSuggestion().leftover | number: '1.2-2' }}</small
+                    >
+                  }
+                </div>
+              }
               <p-button
                 [label]="'customers.account.submitPayment' | transloco"
                 icon="pi pi-check"
@@ -263,6 +313,148 @@
             </form>
           }
         </section>
+
+        @if (selectedAccountOpenInvoices().length > 0) {
+          <section class="statement-ledger" [attr.aria-label]="'customers.account.openInvoices' | transloco">
+            <header>
+              <h3>{{ 'customers.account.openInvoices' | transloco }}</h3>
+            </header>
+            <div class="statement-table-wrap">
+              <table class="statement-table" data-testid="open-invoices">
+                <thead>
+                  <tr>
+                    <th>{{ 'customers.account.date' | transloco }}</th>
+                    <th>{{ 'customers.account.reference' | transloco }}</th>
+                    <th>{{ 'customers.account.originalDue' | transloco }}</th>
+                    <th>{{ 'customers.account.paidAgainstInvoice' | transloco }}</th>
+                    <th>{{ 'customers.account.returnedAgainstInvoice' | transloco }}</th>
+                    <th>{{ 'customers.account.currentOutstanding' | transloco }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (sale of selectedAccountOpenInvoices(); track sale.saleId) {
+                    <tr>
+                      <td>{{ sale.soldAt | date: 'dd MMM yyyy' }}</td>
+                      <td class="reference">{{ sale.invoiceNumber }}</td>
+                      <td class="money">{{ 'common.currencySymbol' | transloco }}{{ sale.dueAmount | number: '1.2-2' }}</td>
+                      <td class="money credit">
+                        {{ 'common.currencySymbol' | transloco }}{{ sale.allocatedPaymentAmount ?? 0 | number: '1.2-2' }}
+                      </td>
+                      <td class="money credit">
+                        {{ 'common.currencySymbol' | transloco }}{{ sale.returnCreditAmount ?? 0 | number: '1.2-2' }}
+                      </td>
+                      <td class="money balance">
+                        {{ 'common.currencySymbol' | transloco
+                        }}{{ sale.currentOutstandingAmount ?? 0 | number: '1.2-2' }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+        }
+
+        @if (selectedAccountReceipts().length > 0) {
+          <section class="statement-ledger" [attr.aria-label]="'customers.account.receipts' | transloco">
+            <header>
+              <h3>{{ 'customers.account.receipts' | transloco }}</h3>
+            </header>
+            @if (reversalError()) {
+              <p class="statement-error" role="alert">{{ reversalError() | transloco }}</p>
+            }
+            <div class="statement-table-wrap">
+              <table class="statement-table" data-testid="payment-receipts">
+                <thead>
+                  <tr>
+                    <th>{{ 'customers.account.date' | transloco }}</th>
+                    <th>{{ 'customers.account.method' | transloco }}</th>
+                    <th>{{ 'customers.account.externalReference' | transloco }}</th>
+                    <th>{{ 'customers.account.amount' | transloco }}</th>
+                    <th>{{ 'customers.account.unallocated' | transloco }}</th>
+                    <th>{{ 'customers.account.status' | transloco }}</th>
+                    @if (isOwner()) {
+                      <th><span class="sr-only">{{ 'customers.account.actions' | transloco }}</span></th>
+                    }
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (receipt of selectedAccountReceipts(); track receipt.receiptId) {
+                    <tr [class.reversed]="receipt.isReversed">
+                      <td>{{ receipt.businessDate | dateOnly: 'dd MMM yyyy' }}</td>
+                      <td>{{ tenderLabelKey(receipt.method) | transloco }}</td>
+                      <td class="reference">{{ receipt.externalReference ?? '—' }}</td>
+                      <td class="money">{{ 'common.currencySymbol' | transloco }}{{ receipt.amount | number: '1.2-2' }}</td>
+                      <td class="money">
+                        {{ 'common.currencySymbol' | transloco }}{{ receipt.unallocatedAmount | number: '1.2-2' }}
+                      </td>
+                      <td>
+                        <span class="statement-type" [class.payment]="!receipt.isReversed">
+                          {{
+                            (receipt.isReversed
+                              ? 'customers.account.statusReversed'
+                              : receipt.isLegacy
+                                ? 'customers.account.statusLegacy'
+                                : 'customers.account.statusPosted') | transloco
+                          }}
+                        </span>
+                      </td>
+                      @if (isOwner()) {
+                        <td>
+                          @if (!receipt.isReversed && reversingReceiptId() !== receipt.receiptId) {
+                            <p-button
+                              [label]="'customers.account.reverse' | transloco"
+                              severity="danger"
+                              [text]="true"
+                              size="small"
+                              (click)="onStartReversal(receipt)"
+                            />
+                          }
+                        </td>
+                      }
+                    </tr>
+                    @if (reversingReceiptId() === receipt.receiptId) {
+                      <tr class="statement-reversal-row">
+                        <td [attr.colspan]="isOwner() ? 7 : 6">
+                          <div class="statement-reversal">
+                            <label>
+                              <span>{{ 'customers.account.reversalReason' | transloco }}</span>
+                              <input
+                                pInputText
+                                type="text"
+                                maxlength="255"
+                                data-testid="reversal-reason"
+                                [ngModel]="reversalReason()"
+                                (ngModelChange)="reversalReason.set($event)"
+                                [ngModelOptions]="{ standalone: true }"
+                              />
+                            </label>
+                            <p-button
+                              [label]="'customers.account.confirmReversal' | transloco"
+                              severity="danger"
+                              size="small"
+                              [loading]="submittingReversal()"
+                              [disabled]="submittingReversal()"
+                              (click)="onConfirmReversal()"
+                            />
+                            <p-button
+                              [label]="'common.cancel' | transloco"
+                              severity="secondary"
+                              [text]="true"
+                              size="small"
+                              [disabled]="submittingReversal()"
+                              (click)="onCancelReversal()"
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    }
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+        }
 
         <section
           class="statement-ledger"
@@ -313,12 +505,8 @@
                     <td>{{ row.entry.entryDate | dateOnly: 'dd MMM yyyy' }}</td>
                     <td class="reference">{{ row.reference }}</td>
                     <td>
-                      <span class="statement-type" [class.payment]="row.kind === 'payment'">
-                        {{
-                          row.kind === 'payment'
-                            ? ('customers.account.paymentReceived' | transloco)
-                            : ('customers.account.saleDue' | transloco)
-                        }}
+                      <span class="statement-type" [class.payment]="row.credit !== null">
+                        {{ row.labelKey | transloco }}
                       </span>
                     </td>
                     <td class="money debit">

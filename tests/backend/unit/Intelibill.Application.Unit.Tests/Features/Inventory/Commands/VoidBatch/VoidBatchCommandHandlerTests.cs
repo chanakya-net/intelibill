@@ -16,6 +16,7 @@ namespace Intelibill.Application.Unit.Tests.Features.Inventory.Commands.VoidBatc
 
 public class VoidBatchCommandHandlerTests
 {
+    private readonly IPaymentReceiptRepository _paymentReceiptRepository = Substitute.For<IPaymentReceiptRepository>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
@@ -368,6 +369,7 @@ public class VoidBatchCommandHandlerTests
             _inventoryAdjustmentRepository,
             _supplierLedgerEntryRepository,
             _purchaseReceiptValueRepository,
+            _paymentReceiptRepository,
             _inventoryRepository,
             _unitOfWork,
             _messageBus);
