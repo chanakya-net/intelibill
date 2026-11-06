@@ -924,6 +924,91 @@ migration's `Down` fails once a shop has opened a fiscal series beside its legac
 forward. Out of scope: IRN e-invoicing and B2C dynamic QR, exports/SEZ, reverse charge, cess,
 device-side GST printing, credit-note documents. (Per-item units now live in § Quantity Precision.)
 
+## Business Dates and Posting Periods
+
+**Shop zone.** `shops.business_time_zone_id` (`varchar(64)`, NOT NULL, default `Asia/Kolkata`) names the
+zone a shop's days are read in. No API changes it in this release (`GET` shop returns it read-only), so
+every shop is on India time. `BusinessTimeZones.Resolve` caches zones; a host without tzdata still serves
+the default zone through its fixed UTC+05:30 offset (India keeps no DST), any other unknown id throws.
+`IBusinessClock` is the only source of "today" and of a posting's `BusinessDay(Date, TimeZoneId)`; code
+never adds a fixed offset itself (`BusinessCalendar` is the pure IST helper under it).
+
+**Stored business dates.** `sales.business_date` + `business_time_zone` and `sale_returns.business_date` +
+`business_time_zone` + nullable `voided_business_date` are written once, with the posting, from the shop's
+zone at that moment. Customer and supplier ledger `DateOnly`s come from the same date; user-entered
+payment and expense dates already are business dates and are never reinterpreted. Sale and return reports,
+exports and the P&L filter these columns with an inclusive `DateOnly`
+range, so a later zone change (or a tz rule change) can never move a posted fact between days or fiscal
+years. A sale at `2026-10-20T20:30:00Z` (02:00 IST) belongs to 21 October everywhere; `18:29:59Z` and
+`18:30:00Z` on 31 March fall in fiscal series `2526` and `2627`. Returns post on the date of their
+processing, a void posts a reversal on its own `voided_business_date`.
+
+**Windows for instants.** Tables that only have an instant (inventory adjustments, purchase orders,
+customer metrics over sales) use `IBusinessClock.GetUtcWindow(from, to, zone)` -> `UtcDateWindow
+[StartInclusive, EndExclusive)`: half-open, so the next day's midnight is never in two reports. No
+repository computes its own offset.
+
+**Fiscal year.** `FiscalYear.ForBusinessDate(businessDate)` wherever a sale is posted (invoice series,
+reservations, Tally); there is no second year calculation.
+
+**Posting periods.** A period is one calendar month of the business calendar: `posting_periods(shop_id,
+start_date, end_date, state Open|Closed, version xmin)`, unique `(shop_id, start_date)`, RLS-forced like
+every tenant table. All months start Open and no row exists until first touched: the fence and
+close/reopen both create the row on demand (`INSERT ... ON CONFLICT DO NOTHING`), so a missing row can
+never bypass the fence. `GET api/posting-periods?fiscalYear=` (owner/manager) lists the twelve months of
+the fiscal year (default: the current one). `POST api/posting-periods/{yyyy-MM}/close|reopen` is
+**Owner-only**, checked against the live membership (never the token's role claim) before the executor and
+again under the period lock. Both need a `reason` (1-500 chars) and an `operationKey` (executor types
+`PostingPeriodClose = 11`, `PostingPeriodReopen = 12`; resend replays, changed payload -> 409
+`Operation.PayloadMismatch`). A month closes only after it ended (`EndDate < today` in the shop zone) ->
+409 `PostingPeriod.NotEnded`; closing a closed (or reopening an open) month -> 409
+`PostingPeriod.AlreadyClosed` / `AlreadyOpen`. Every transition appends a `posting_period_events` row
+(`PostingPeriodAction` Close|Reopen, reason, actor, time).
+
+**Fence.** `IPostingPeriodPolicy.AuthorizeForWriteAsync(shopId, date)` (or a set of dates: distinct
+months, ascending, first error wins) needs an open transaction, ensures the row, sets a 5 s
+`lock_timeout`, takes `FOR SHARE` on the period and refuses a Closed one with 409 `PostingPeriod.Closed`.
+Timeout (55P03) -> 409 `PostingPeriod.Busy`. The caller's own `lock_timeout` is read first and put back
+with `set_config(..., true)` afterwards, so a caller with a bigger budget keeps it. Close/reopen takes
+`FOR UPDATE` on the same row (first-touch insert inside the same budget), so a posting that passed the
+fence blocks the close until it commits, and a close that committed first refuses the posting: nothing
+commits into a month after its close. The fence is the **first business lock**. Order: operation receipt
+reservation -> period fence -> customer/supplier -> sale/payment receipt -> credit notes -> batches
+(consistent with Sale Return Serialization, Payment Receipts and Customer Credit Policy).
+
+**Fenced workflows (date checked).** Online sale and offline invoice staging (issue business date); sale
+return record and void, payment reversal, receipt cost correction, void batch, adjustment void, stock
+count (today); customer and supplier payment (`paymentDate`); expense record (`expenseDate`) and
+correction (both the original's and the new date's month); add inventory, each bulk-intake row, adjustment
+create and purchase-order receive (the business date of the instant actually written, which is the
+client-supplied `performedAt` / `receivedAt` when given, else now, so a backdated stamp cannot post into
+a closed month). Not fenced: payment allocations (they move no ledger date). A **return or void of a
+sale from a closed month is allowed**: it posts on today's date and references the original, so closed
+reports do not change.
+
+**Late offline invoices.** An invoice keeps its issue time and business date. If its month is closed,
+`OfflineSalePoster` holds it as `ReconciliationIssueType.ClosedPeriodReview = 12` (code
+`PostingPeriod.Closed`, message names the month) with a review case: it is never redated and never
+renumbered, and no sale or stock posts. The envelope stays; a resend with an unresolved
+`ClosedPeriodReview` case returns that case and stages nothing. `RetryHistoricalLease` is offered for it;
+the replay re-runs the fence, so it succeeds (original number, original `sold_at`, original business
+date) only after an owner reopens the month, and answers 409 while closed. A busy fence rejects the
+invoice for a plain resend.
+
+**Rollout.** Migration `AddBusinessDatesAndShopTimeZone` adds the columns nullable, backfills existing
+rows (Asia/Kolkata), installs `BEFORE INSERT OR UPDATE` triggers that date rows written by pods that
+predate the columns (rolling deploy), then sets NOT NULL; `AddPostingPeriods` adds the two tables. Deploy
+migrations, then pods. Afterwards run `scripts/db/backfill-business-dates.sql` (shop by shop under RLS,
+idempotent, a no-op when nothing is NULL). Nothing closes automatically; owners close months after review.
+Reports that straddled UTC/IST midnight may differ from previously published ones by early-morning sales:
+say so in release notes.
+
+**Rollback.** Old code ignores the new columns and tables. Never recompute stored dates with the UTC
+convention; dropping the migrations drops the columns and tables, the instants are untouched.
+
+**Deferred.** Till close (plan 33 does not exist yet; the till-close vs period-close deadlock test moves
+there), a web UI for period close (API only for now), mobile, and per-shop zone selection.
+
 ## Quantity Precision
 
 - **The item owns its unit and scale.** `Item` carries `UnitCode`, `QuantityScale` (0 to 3) and
