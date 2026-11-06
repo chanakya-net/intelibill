@@ -18,12 +18,19 @@ export interface SupplierLedgerEntry {
   readonly amount: number;
   readonly entryDate: string;
   readonly notes: string | null;
+  /** The payment receipt behind a `PaymentMade` entry. */
+  readonly receiptId?: string | null;
 }
 
 export interface MakePaymentRequest {
   readonly amount: number;
   readonly paymentDate: string;
   readonly notes: string | null;
+  /** How the money moved; absent means not recorded (the API never assumes cash). */
+  readonly method?: 'Cash' | 'Upi' | 'Card' | 'BankTransfer' | 'Cheque' | null;
+  readonly externalReference?: string | null;
+  /** Purchase receipts (`purchaseReceiptValueId`) this payment settles. */
+  readonly allocations?: readonly { readonly targetId: string; readonly amount: number }[];
 }
 
 export interface KeyedMakePaymentRequest extends MakePaymentRequest {

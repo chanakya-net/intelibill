@@ -3,6 +3,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Features.SupplierLedger.DTOs;
 using Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPayment;
+using Intelibill.Application.Features.Payments.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -22,9 +23,22 @@ public class MakeSupplierPaymentCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly IFinancialOperationExecutor _executor = Substitute.For<IFinancialOperationExecutor>();
 
+    private readonly IPaymentReceiptRepository _paymentReceiptRepository = Substitute.For<IPaymentReceiptRepository>();
+    private readonly IBankAccountRepository _bankAccountRepository = Substitute.For<IBankAccountRepository>();
+    private readonly IInvoiceBalanceReader _balanceReader = Substitute.For<IInvoiceBalanceReader>();
+
+    public MakeSupplierPaymentCommandHandlerTests()
+    {
+        _paymentReceiptRepository
+            .LockPartyAndTargetsAsync(Arg.Any<Guid>(), Arg.Any<PaymentPartyType>(), Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(RowLockOutcome.Acquired);
+    }
+
     private MakeSupplierPaymentCommandHandler CreateHandler() =>
-        new(_userRepository, _supplierRepository, _ledgerRepository, _expenseCategoryRepository, _expenseRepository, _unitOfWork,
-            _executor, NullLogger<MakeSupplierPaymentCommandHandler>.Instance);
+        new(_userRepository, _supplierRepository, _ledgerRepository, _expenseCategoryRepository, _expenseRepository,
+            _paymentReceiptRepository, _bankAccountRepository, new PaymentAllocationPlanner(_balanceReader),
+            new PaymentTransactionRunner(_executor, _unitOfWork), _unitOfWork,
+            NullLogger<MakeSupplierPaymentCommandHandler>.Instance);
 
     private static (User owner, Shop shop, Supplier supplier) BuildOwnerShopSupplier()
     {
@@ -212,5 +226,29 @@ public class MakeSupplierPaymentCommandHandlerTests
 
         Assert.Equal(Errors.Supplier.SupplierNotFound.Code, result.FirstError.Code);
         Assert.Empty(_executor.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task HandleAsync_PostsReceiptLinkedToLedgerEntryAndExpense()
+    {
+        var (owner, shop, supplier) = BuildOwnerShopSupplier();
+        _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
+        _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
+        Expense? expense = null;
+        await _expenseRepository.AddAsync(Arg.Do<Expense>(e => expense = e), Arg.Any<CancellationToken>());
+
+        var command = BuildCommand(owner.Id, shop.Id, supplier.Id, 700m) with { Method = ReceiptTenderMethod.BankTransfer };
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(expense);
+        await _paymentReceiptRepository.Received(1).AddAsync(
+            Arg.Is<PaymentReceipt>(r =>
+                r.Id == result.Value.ReceiptId
+                && r.LedgerEntryId == result.Value.Id
+                && r.ExpenseId == expense!.Id
+                && r.PartyType == PaymentPartyType.Supplier
+                && r.Method == ReceiptTenderMethod.BankTransfer),
+            Arg.Any<CancellationToken>());
     }
 }

@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -36,7 +37,13 @@ import {
   CustomerAccountSale,
   CustomerLedgerEntry,
   CustomerService,
+  PaymentReceiptSummary,
+  RECORDABLE_TENDER_METHODS,
+  ReceiptTenderMethod,
   RecordCustomerPaymentRequest,
+  customerLedgerEntryKind,
+  isCustomerDebit,
+  suggestOldestFirstAllocations,
 } from '../services/customer.service';
 import { CustomersFacade } from '../state/customers.facade';
 import {
@@ -58,9 +65,18 @@ interface AccountLedgerRow {
   sale: CustomerAccountSale | null;
   reference: string;
   kind: 'purchase' | 'payment';
+  labelKey: string;
   debit: number | null;
   credit: number | null;
 }
+
+const LEDGER_LABEL_KEYS: Record<string, string> = {
+  SaleDue: 'customers.account.saleDue',
+  PaymentReceived: 'customers.account.paymentReceived',
+  ReturnCredit: 'customers.account.returnCredit',
+  ReturnCreditReversal: 'customers.account.returnCreditReversal',
+  PaymentReversal: 'customers.account.paymentReversal',
+};
 
 interface CustomerSummaryCard {
   readonly labelKey: string;
@@ -287,16 +303,19 @@ export class CustomersPageComponent {
 
     return account.ledgerEntries.map((entry) => {
       const sale = entry.saleId ? account.sales.find((item) => item.saleId === entry.saleId) ?? null : null;
-      const isPayment = this.isPaymentLedgerEntry(entry, sale);
-      const kind: AccountLedgerRow['kind'] = isPayment ? 'payment' : 'purchase';
+      const entryKind = customerLedgerEntryKind(entry.entryType);
+      const kind: AccountLedgerRow['kind'] =
+        entryKind === 'PaymentReceived' || entryKind === 'PaymentReversal' ? 'payment' : 'purchase';
+      const debit = isCustomerDebit(entry.entryType);
 
       return {
         entry,
         sale,
         reference: this.accountLedgerReference(entry, sale),
         kind,
-        debit: isPayment ? null : entry.amount,
-        credit: isPayment ? entry.amount : null,
+        labelKey: LEDGER_LABEL_KEYS[entryKind ?? 'SaleDue'] ?? 'customers.account.saleDue',
+        debit: debit ? entry.amount : null,
+        credit: debit ? null : entry.amount,
       };
     });
   });
@@ -314,8 +333,50 @@ export class CustomersPageComponent {
   readonly paymentForm = this.fb.nonNullable.group({
     amount: [0, [Validators.required, Validators.min(0.01)]],
     paymentDate: [formatLocalIsoDate(new Date()), Validators.required],
+    method: ['Cash' as ReceiptTenderMethod, Validators.required],
+    externalReference: ['', Validators.maxLength(80)],
     notes: ['', Validators.maxLength(255)],
+    applyOldestFirst: [false],
   });
+
+  readonly tenderMethods = RECORDABLE_TENDER_METHODS;
+  private readonly paymentFormValue = toSignal(this.paymentForm.valueChanges, {
+    initialValue: this.paymentForm.getRawValue(),
+  });
+
+  /** Invoices still owed today, oldest first, with what payments and returns already settled. */
+  readonly selectedAccountOpenInvoices = computed(() =>
+    [...(this.selectedAccount()?.sales ?? [])]
+      .filter((sale) => (sale.currentOutstandingAmount ?? 0) > 0)
+      .sort((a, b) => a.soldAt.localeCompare(b.soldAt)),
+  );
+  readonly selectedAccountUnallocatedCredit = computed(() => this.selectedAccount()?.unallocatedCredit ?? 0);
+  readonly selectedAccountReceipts = computed<readonly PaymentReceiptSummary[]>(() => this.selectedAccount()?.receipts ?? []);
+
+  /** The oldest-first allocation the operator may accept; nothing is allocated unless they tick it. */
+  readonly allocationSuggestion = computed(() => {
+    const amount = Number(this.paymentFormValue().amount ?? 0);
+    const sales = this.selectedAccount()?.sales ?? [];
+    const allocations = amount > 0 ? suggestOldestFirstAllocations(sales, amount) : [];
+    const allocated = allocations.reduce((total, allocation) => total + allocation.amount, 0);
+    const invoiceNumbers = new Map(sales.map((sale) => [sale.saleId, sale.invoiceNumber]));
+    return {
+      allocations,
+      rows: allocations.map((allocation) => ({ ...allocation, invoiceNumber: invoiceNumbers.get(allocation.targetId) ?? '' })),
+      leftover: Math.max(0, Math.round((amount - allocated) * 100) / 100),
+    };
+  });
+
+  readonly isOwner = computed(() => {
+    const session = this.authService.session();
+    return session?.shops?.find((shop) => shop.shopId === session.activeShopId)?.role === 'Owner';
+  });
+  readonly reversingReceiptId = signal<string | null>(null);
+  readonly reversalReason = signal('');
+  readonly submittingReversal = signal(false);
+  readonly reversalError = signal('');
+  /** One key per receipt until a reversal is confirmed, so a retry after a timeout replays instead of conflicting. */
+  private readonly reversalKeys = new Map<string, string>();
 
   constructor() {
     this.customersFacade.loadCustomers();
@@ -376,7 +437,8 @@ export class CustomersPageComponent {
     this.accountError.set('');
     this.accountLedgerFilter.set('all');
     this.showAccountOverlay.set(true);
-    this.paymentForm.patchValue({ amount: 0, notes: '' });
+    this.paymentForm.patchValue({ amount: 0, notes: '', externalReference: '', applyOldestFirst: false });
+    this.reversingReceiptId.set(null);
     this.loadCustomerAccount(customer.customerId);
   }
 
@@ -408,10 +470,14 @@ export class CustomersPageComponent {
 
     let intent: FinancialOperationIntent<RecordCustomerPaymentRequest>;
     try {
+      const controls = this.paymentForm.controls;
       intent = this.intents.prepare(this.paymentScope(), 'customer-payment', customer.customerId, {
-        amount: Number(this.paymentForm.controls.amount.value),
-        paymentDate: this.paymentForm.controls.paymentDate.value,
-        notes: this.paymentForm.controls.notes.value.trim() || null,
+        amount: Number(controls.amount.value),
+        paymentDate: controls.paymentDate.value,
+        notes: controls.notes.value.trim() || null,
+        method: controls.method.value,
+        externalReference: controls.externalReference.value.trim() || null,
+        allocations: controls.applyOldestFirst.value ? this.allocationSuggestion().allocations : [],
       });
     } catch {
       this.accountError.set('financialOperations.persistFailed');
@@ -463,7 +529,7 @@ export class CustomersPageComponent {
       )
       .subscribe({
         next: () => {
-          this.paymentForm.patchValue({ amount: 0, notes: '' });
+          this.paymentForm.patchValue({ amount: 0, notes: '', externalReference: '', applyOldestFirst: false });
           this.submittingPayment.set(false);
           this.loadCustomerAccount(customer.customerId);
           this.customersFacade.loadCustomers();
@@ -477,6 +543,60 @@ export class CustomersPageComponent {
           this.submittingPayment.set(false);
         },
       });
+  }
+
+  onStartReversal(receipt: PaymentReceiptSummary): void {
+    this.reversalError.set('');
+    this.reversalReason.set('');
+    this.reversingReceiptId.set(receipt.receiptId);
+  }
+
+  onCancelReversal(): void {
+    this.reversingReceiptId.set(null);
+    this.reversalReason.set('');
+    this.reversalError.set('');
+  }
+
+  onConfirmReversal(): void {
+    const customer = this.selectedAccountCustomer();
+    const receiptId = this.reversingReceiptId();
+    const reason = this.reversalReason().trim();
+    if (!customer || !receiptId) {
+      return;
+    }
+    if (reason.length < 3) {
+      this.reversalError.set('customers.account.reversalReasonRequired');
+      return;
+    }
+
+    const operationKey = this.reversalKeys.get(receiptId) ?? `reverse-${crypto.randomUUID()}`;
+    this.reversalKeys.set(receiptId, operationKey);
+    this.submittingReversal.set(true);
+    this.customerService.reversePayment(receiptId, { reason, operationKey }).subscribe({
+      next: () => {
+        this.reversalKeys.delete(receiptId);
+        this.submittingReversal.set(false);
+        this.onCancelReversal();
+        this.loadCustomerAccount(customer.customerId);
+        this.customersFacade.loadCustomers();
+      },
+      error: (error) => {
+        this.submittingReversal.set(false);
+        if (classifyFinancialOperationFailure(error) !== 'uncertain') {
+          // A definite refusal: a later attempt is a new decision with its own key.
+          this.reversalKeys.delete(receiptId);
+        }
+        this.reversalError.set(
+          classifyFinancialOperationFailure(error) === 'uncertain'
+            ? 'financialOperations.outcomeUnknown'
+            : error.error?.detail || 'customers.account.reversalFailed',
+        );
+      },
+    });
+  }
+
+  tenderLabelKey(method: ReceiptTenderMethod): string {
+    return `customers.account.tender.${method}`;
   }
 
   paymentTagSeverity(entryType: number): 'success' | 'danger' | 'info' {
@@ -517,10 +637,6 @@ export class CustomersPageComponent {
     }
 
     return `PAY-${entry.entryDate.replaceAll('-', '')}`;
-  }
-
-  private isPaymentLedgerEntry(entry: CustomerLedgerEntry, sale: CustomerAccountSale | null): boolean {
-    return entry.entryType === 2 || String(entry.entryType).toLowerCase() === 'paymentreceived' || sale === null;
   }
 
   private sumBy<T>(items: readonly T[], selector: (item: T) => number): number {

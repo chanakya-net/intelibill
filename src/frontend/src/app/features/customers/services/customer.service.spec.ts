@@ -3,7 +3,15 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { environment } from '../../../../environments/environment';
-import { AddCustomerRequest, CustomerService, EditCustomerRequest } from './customer.service';
+import {
+  AddCustomerRequest,
+  CustomerAccountSale,
+  CustomerService,
+  EditCustomerRequest,
+  customerLedgerEntryKind,
+  isCustomerDebit,
+  suggestOldestFirstAllocations,
+} from './customer.service';
 
 describe('CustomerService', () => {
   let service: CustomerService;
@@ -128,5 +136,81 @@ describe('CustomerService', () => {
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(payload);
     req.flush(ledgerEntry);
+  });
+
+  it('recordCustomerPayment sends the receipt method, reference and allocation targets', () => {
+    const payload = {
+      amount: 500,
+      paymentDate: '2026-11-06',
+      notes: null,
+      method: 'Upi' as const,
+      externalReference: 'UPI-4471',
+      allocations: [
+        { targetId: 's-old', amount: 300 },
+        { targetId: 's-new', amount: 150 },
+      ],
+      operationKey: 'pay-1',
+    };
+    service.recordCustomerPayment('c1', payload).subscribe();
+
+    const req = httpMock.expectOne(`${apiUrl}/c1/payments`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(payload);
+    req.flush({ entryId: 'e1', saleId: null, entryType: 'PaymentReceived', amount: 500, entryDate: '2026-11-06', notes: null, runningBalance: 0, receiptId: 'r1' });
+  });
+
+  it('reversePayment posts the reason and operation key to /payments/:id/reversal', () => {
+    service.reversePayment('r1', { reason: 'Wrong customer', operationKey: 'rev-1' }).subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/payments/r1/reversal`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ reason: 'Wrong customer', operationKey: 'rev-1' });
+    req.flush({});
+  });
+
+  it('getPaymentReceipt performs GET to /payments/:id', () => {
+    service.getPaymentReceipt('r1').subscribe();
+
+    const req = httpMock.expectOne(`${environment.apiBaseUrl}/payments/r1`);
+    expect(req.request.method).toBe('GET');
+    req.flush({});
+  });
+});
+
+describe('suggestOldestFirstAllocations', () => {
+  const sale = (saleId: string, soldAt: string, outstanding: number): CustomerAccountSale => ({
+    saleId,
+    invoiceNumber: saleId,
+    paymentMethod: 'Credit',
+    soldAt,
+    paidAmount: 0,
+    dueAmount: outstanding,
+    totalAmount: outstanding,
+    currentOutstandingAmount: outstanding,
+  });
+
+  it('settles the oldest open invoices first and leaves the rest unallocated', () => {
+    const sales = [sale('new', '2026-11-03T00:00:00Z', 100), sale('old', '2026-11-01T00:00:00Z', 70.5), sale('paid', '2026-10-01T00:00:00Z', 0)];
+
+    expect(suggestOldestFirstAllocations(sales, 120.25)).toEqual([
+      { targetId: 'old', amount: 70.5 },
+      { targetId: 'new', amount: 49.75 },
+    ]);
+    expect(suggestOldestFirstAllocations(sales, 500)).toEqual([
+      { targetId: 'old', amount: 70.5 },
+      { targetId: 'new', amount: 100 },
+    ]);
+    expect(suggestOldestFirstAllocations(sales, 0)).toEqual([]);
+  });
+});
+
+describe('customer ledger entry kinds', () => {
+  it('reads enum names and legacy numbers, and treats a payment reversal as a debit', () => {
+    expect(customerLedgerEntryKind('PaymentReversal')).toBe('PaymentReversal');
+    expect(customerLedgerEntryKind(2)).toBe('PaymentReceived');
+    expect(isCustomerDebit('PaymentReversal')).toBe(true);
+    expect(isCustomerDebit('SaleDue')).toBe(true);
+    expect(isCustomerDebit('PaymentReceived')).toBe(false);
+    expect(isCustomerDebit('ReturnCredit')).toBe(false);
   });
 });

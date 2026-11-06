@@ -1,6 +1,8 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Features.Payments.DTOs;
+using Intelibill.Application.Features.Payments.Services;
 using Intelibill.Application.Features.SupplierLedger.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -10,14 +12,22 @@ using Microsoft.Extensions.Logging;
 
 namespace Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPayment;
 
+/// <summary>
+/// Records money paid to a supplier: one <c>PAYMENT_MADE</c> ledger entry, its linked expense, the
+/// <see cref="PaymentReceipt"/> that explains both and any purchase-receipt allocations, in one
+/// transaction under the supplier → purchase receipt locks.
+/// </summary>
 public sealed partial class MakeSupplierPaymentCommandHandler(
     IUserRepository userRepository,
     ISupplierRepository supplierRepository,
     ISupplierLedgerEntryRepository ledgerRepository,
     IExpenseCategoryRepository expenseCategoryRepository,
     IExpenseRepository expenseRepository,
+    IPaymentReceiptRepository paymentReceiptRepository,
+    IBankAccountRepository bankAccountRepository,
+    IPaymentAllocationPlanner allocationPlanner,
+    IPaymentTransactionRunner transactionRunner,
     IUnitOfWork unitOfWork,
-    IFinancialOperationExecutor operationExecutor,
     ILogger<MakeSupplierPaymentCommandHandler> logger)
 {
     public async Task<ErrorOr<SupplierLedgerEntryDto>> HandleAsync(
@@ -39,32 +49,78 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
         if (supplier is null || supplier.ShopId != command.ActiveShopId)
             return Errors.Supplier.SupplierNotFound;
 
+        if (command.BankAccountId is { } bankAccountId)
+        {
+            var bankAccount = await bankAccountRepository.GetByIdAsync(bankAccountId, cancellationToken);
+            if (bankAccount is null || bankAccount.ShopId != command.ActiveShopId)
+                return Errors.Payment.BankAccountNotFound;
+        }
+
+        var allocations = command.Allocations ?? [];
         var operationKey = FinancialOperationHasher.NormalizeKey(command.OperationKey);
         if (operationKey is null)
         {
             LogUnkeyedPayment(command.ActiveShopId);
-            return await PostAsync(command, cancellationToken);
+            return await transactionRunner.RunAsync<SupplierLedgerEntryDto>(
+                scope: null, command.ActorUserId, command.SupplierId, requestHash: null,
+                ct => PostAsync(command, allocations, ct), cancellationToken);
         }
 
-        var requestHash = FinancialOperationHasher.Compute(new SupplierPaymentPayload(
-            command.SupplierId,
-            FinancialOperationHasher.NormalizeAmount(command.Amount),
-            command.PaymentDate,
-            string.IsNullOrWhiteSpace(command.Notes) ? null : command.Notes.Trim()));
-
-        return await operationExecutor.ExecuteAsync(
+        return await transactionRunner.RunAsync(
             new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.SupplierPayment, operationKey),
             command.ActorUserId,
             command.SupplierId,
-            requestHash,
-            ct => PostAsync(command, ct),
+            ComputeRequestHash(command, allocations),
+            ct => PostAsync(command, allocations, ct),
             cancellationToken);
+    }
+
+    /// <summary>A request without receipt details hashes exactly as before receipts existed.</summary>
+    internal static string ComputeRequestHash(MakeSupplierPaymentCommand command, IReadOnlyList<PaymentAllocationRequest> allocations)
+    {
+        var notes = string.IsNullOrWhiteSpace(command.Notes) ? null : command.Notes.Trim();
+        var amount = FinancialOperationHasher.NormalizeAmount(command.Amount);
+        var reference = string.IsNullOrWhiteSpace(command.ExternalReference) ? null : command.ExternalReference.Trim();
+        if (command.Method is null && command.BankAccountId is null && reference is null && allocations.Count == 0)
+            return FinancialOperationHasher.Compute(new SupplierPaymentPayload(command.SupplierId, amount, command.PaymentDate, notes));
+
+        return FinancialOperationHasher.Compute(new SupplierReceiptPayload(
+            command.SupplierId,
+            amount,
+            command.PaymentDate,
+            notes,
+            command.Method,
+            command.BankAccountId,
+            reference,
+            allocations
+                .OrderBy(a => a.TargetId)
+                .Select(a => new AllocationPayload(a.TargetId, FinancialOperationHasher.NormalizeAmount(a.Amount)))
+                .ToList()));
     }
 
     private async Task<ErrorOr<SupplierLedgerEntryDto>> PostAsync(
         MakeSupplierPaymentCommand command,
+        IReadOnlyList<PaymentAllocationRequest> allocationRequests,
         CancellationToken cancellationToken)
     {
+        var lockOutcome = await paymentReceiptRepository.LockPartyAndTargetsAsync(
+            command.ActiveShopId,
+            PaymentPartyType.Supplier,
+            command.SupplierId,
+            allocationRequests.Select(a => a.TargetId).ToList(),
+            cancellationToken);
+        switch (lockOutcome)
+        {
+            case RowLockOutcome.Acquired:
+                break;
+            case RowLockOutcome.NotFound:
+                return Errors.Supplier.SupplierNotFound;
+            case RowLockOutcome.TimedOut:
+                return Errors.Payment.Busy;
+            default:
+                throw new InvalidOperationException($"Unknown payment lock outcome '{lockOutcome}'.");
+        }
+
         var entryOrError = SupplierLedgerEntry.Create(
             command.ActiveShopId,
             command.SupplierId,
@@ -97,12 +153,38 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
             command.ActorUserId,
             entry.Id);
 
+        var receiptResult = PaymentReceipt.Record(
+            command.ActiveShopId,
+            PaymentPartyType.Supplier,
+            command.SupplierId,
+            command.Amount,
+            command.Method ?? ReceiptTenderMethod.UnknownRecordedMethod,
+            command.BankAccountId,
+            command.ExternalReference,
+            command.PaymentDate,
+            DateTimeOffset.UtcNow,
+            command.Notes,
+            entry.Id,
+            expense.Id,
+            command.ActorUserId);
+        if (receiptResult.IsError)
+            return receiptResult.Errors;
+
+        var receipt = receiptResult.Value;
+        var allocations = await allocationPlanner.PlanAsync(receipt, 0m, allocationRequests, command.ActorUserId, cancellationToken);
+        if (allocations.IsError)
+            return allocations.Errors;
+
         await ledgerRepository.AddAsync(entry, cancellationToken);
         await expenseRepository.AddAsync(expense, cancellationToken);
+        await paymentReceiptRepository.AddAsync(receipt, cancellationToken);
+        foreach (var allocation in allocations.Value)
+            await paymentReceiptRepository.AddAllocationAsync(allocation, cancellationToken);
+
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         var e = entry;
-        return new SupplierLedgerEntryDto(e.Id, e.SupplierId, e.EntryType, e.Amount, e.EntryDate, e.Notes);
+        return new SupplierLedgerEntryDto(e.Id, e.SupplierId, e.EntryType, e.Amount, e.EntryDate, e.Notes, receipt.Id);
     }
 
     [LoggerMessage(
@@ -111,4 +193,16 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
     private partial void LogUnkeyedPayment(Guid shopId);
 
     private sealed record SupplierPaymentPayload(Guid SupplierId, decimal Amount, DateOnly PaymentDate, string? Notes);
+
+    private sealed record SupplierReceiptPayload(
+        Guid SupplierId,
+        decimal Amount,
+        DateOnly PaymentDate,
+        string? Notes,
+        ReceiptTenderMethod? Method,
+        Guid? BankAccountId,
+        string? ExternalReference,
+        IReadOnlyList<AllocationPayload> Allocations);
+
+    private sealed record AllocationPayload(Guid TargetId, decimal Amount);
 }

@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Payments.DTOs;
+
 namespace Intelibill.Application.Features.Customers.DTOs;
 
 public sealed record CustomerAccountDto(
@@ -7,4 +9,6 @@ public sealed record CustomerAccountDto(
     decimal OutstandingDue,
     IReadOnlyList<CustomerAccountSaleDto> Sales,
     IReadOnlyList<CustomerLedgerEntryDto> LedgerEntries,
-    IReadOnlyList<CustomerLedgerEntryDto> PaymentHistory);
+    IReadOnlyList<CustomerLedgerEntryDto> PaymentHistory,
+    decimal UnallocatedCredit = 0m,
+    IReadOnlyList<PaymentReceiptSummaryDto>? Receipts = null);

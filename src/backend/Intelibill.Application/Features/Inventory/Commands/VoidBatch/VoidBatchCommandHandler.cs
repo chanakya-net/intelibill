@@ -29,6 +29,7 @@ public sealed class VoidBatchCommandHandler(
     IInventoryAdjustmentRepository inventoryAdjustmentRepository,
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
     IPurchaseReceiptValueRepository purchaseReceiptValueRepository,
+    IPaymentReceiptRepository paymentReceiptRepository,
     IInventoryRepository inventoryRepository,
     IUnitOfWork unitOfWork,
     IMessageBus messageBus)
@@ -64,6 +65,13 @@ public sealed class VoidBatchCommandHandler(
         // the reversal nets the payable to zero, posted to the supplier the receipt is owed to.
         // Receipts older than receipt values fall back to the unit cost they were posted with.
         var receiptValue = await purchaseReceiptValueRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
+        if (receiptValue is not null
+            && await paymentReceiptRepository.HasActiveAllocationsAsync(
+                command.ActiveShopId, PaymentAllocationTargetType.SupplierReceipt, receiptValue.Id, cancellationToken))
+        {
+            // Voiding would erase a payable that payments settled; reverse those payments first.
+            return Errors.Payment.DocumentHasAllocations;
+        }
 
         var remainingQuantity = batch.Quantity;
         var originalQuantity = batch.OriginalQuantity;

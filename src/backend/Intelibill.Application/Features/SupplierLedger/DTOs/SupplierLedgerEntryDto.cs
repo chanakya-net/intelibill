@@ -8,4 +8,5 @@ public sealed record SupplierLedgerEntryDto(
     SupplierLedgerEntryType EntryType,
     decimal Amount,
     DateOnly EntryDate,
-    string? Notes);
+    string? Notes,
+    Guid? ReceiptId = null);

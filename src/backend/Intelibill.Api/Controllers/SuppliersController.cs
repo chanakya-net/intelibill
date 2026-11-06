@@ -1,3 +1,5 @@
+using Intelibill.Domain.Enums;
+using Intelibill.Application.Features.Payments.DTOs;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Suppliers.Commands.AddSupplier;
@@ -132,7 +134,11 @@ public sealed class SuppliersController : AuthenticatedControllerBase
                 request.Amount,
                 request.PaymentDate,
                 request.Notes,
-                request.OperationKey),
+                request.OperationKey,
+                request.Method,
+                request.BankAccountId,
+                request.ExternalReference,
+                request.Allocations),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -169,4 +175,8 @@ public sealed record MakePaymentRequest(
     decimal Amount,
     DateOnly PaymentDate,
     string? Notes,
-    string? OperationKey = null);
+    string? OperationKey = null,
+    ReceiptTenderMethod? Method = null,
+    Guid? BankAccountId = null,
+    string? ExternalReference = null,
+    IReadOnlyList<PaymentAllocationRequest>? Allocations = null);

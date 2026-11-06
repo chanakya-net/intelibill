@@ -14,6 +14,7 @@ internal sealed class SaleReturnValidator(
     ISaleReturnRepository saleReturnRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
+    IPaymentReceiptRepository paymentReceiptRepository,
     ISaleReturnCalculator saleReturnCalculator,
     IItemRepository itemRepository)
     : ISaleReturnValidator
@@ -225,7 +226,16 @@ internal sealed class SaleReturnValidator(
                 shopId,
                 sale.CustomerId.Value,
                 cancellationToken);
-            return Math.Max(0m, balance);
+
+            // Payments allocated to this invoice already settled part of it; a return can only
+            // reduce what is still owed on the invoice itself, and never more than the account owes.
+            var allocated = (await paymentReceiptRepository.GetActiveAllocatedByTargetAsync(
+                shopId,
+                PaymentAllocationTargetType.CustomerInvoice,
+                [sale.Id],
+                cancellationToken)).GetValueOrDefault(sale.Id);
+            var invoiceOutstanding = sale.DueAmount - activeReturns.Sum(r => r.DueReductionAmount) - allocated;
+            return Math.Max(0m, Math.Min(balance, invoiceOutstanding));
         }
 
         return Math.Max(0m, sale.DueAmount - activeReturns.Sum(r => r.DueReductionAmount));

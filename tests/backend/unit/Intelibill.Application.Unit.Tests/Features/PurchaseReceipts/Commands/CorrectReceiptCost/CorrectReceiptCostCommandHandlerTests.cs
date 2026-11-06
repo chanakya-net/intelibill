@@ -14,6 +14,7 @@ namespace Intelibill.Application.Unit.Tests.Features.PurchaseReceipts.Commands.C
 
 public sealed class CorrectReceiptCostCommandHandlerTests
 {
+    private readonly IPaymentReceiptRepository _paymentReceiptRepository = Substitute.For<IPaymentReceiptRepository>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IPurchaseReceiptValueRepository _receiptRepository = Substitute.For<IPurchaseReceiptValueRepository>();
     private readonly IPurchaseReceiptCostAdjustmentRepository _adjustmentRepository = Substitute.For<IPurchaseReceiptCostAdjustmentRepository>();
@@ -157,6 +158,7 @@ public sealed class CorrectReceiptCostCommandHandlerTests
             _adjustmentRepository,
             _batchRepository,
             _ledgerRepository,
+            _paymentReceiptRepository,
             _unitOfWork,
             _operationExecutor);
 }

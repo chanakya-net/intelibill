@@ -4,6 +4,8 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
+using Intelibill.Application.Features.Payments.DTOs;
+using Intelibill.Application.Features.Payments.Services;
 
 namespace Intelibill.Application.Unit.Tests.Features.Customers.Queries.GetCustomerAccount;
 
@@ -14,8 +16,18 @@ public class GetCustomerAccountQueryHandlerTests
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
 
+    private readonly IInvoiceBalanceReader _balanceReader = Substitute.For<IInvoiceBalanceReader>();
+
+    public GetCustomerAccountQueryHandlerTests()
+    {
+        _balanceReader.GetForCustomerAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>?>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<CustomerInvoiceBalanceDto>());
+        _balanceReader.GetReceiptsAsync(Arg.Any<Guid>(), Arg.Any<PaymentPartyType>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<PaymentReceiptSummaryDto>());
+    }
+
     private GetCustomerAccountQueryHandler CreateHandler() =>
-        new(_userRepository, _customerRepository, _saleRepository, _customerLedgerEntryRepository);
+        new(_userRepository, _customerRepository, _saleRepository, _customerLedgerEntryRepository, _balanceReader);
 
     private static (User owner, User manager, User staff, Shop shop, Customer customer) BuildFixture()
     {

@@ -11,6 +11,7 @@ namespace Intelibill.Application.Unit.Tests.Features.Sales.Queries.PreviewSaleRe
 
 public class PreviewSaleReturnQueryHandlerTests
 {
+    private readonly IPaymentReceiptRepository _paymentReceiptRepository = Substitute.For<IPaymentReceiptRepository>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
@@ -29,6 +30,7 @@ public class PreviewSaleReturnQueryHandlerTests
             _saleReturnRepository,
             _inventoryBatchRepository,
             _customerLedgerEntryRepository,
+            _paymentReceiptRepository,
             _calculator,
             _itemRepository),
             _accountingPolicy);

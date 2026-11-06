@@ -58,7 +58,7 @@ public sealed class CustomerLedgerEntry : BaseEntity
             return Error.Validation("CustomerLedgerEntry.SaleIdRequired", "Sale id is required for sale due entries.");
         }
 
-        if (entryType == CustomerLedgerEntryType.PaymentReceived && saleId is not null)
+        if (entryType is (CustomerLedgerEntryType.PaymentReceived or CustomerLedgerEntryType.PaymentReversal) && saleId is not null)
         {
             return Error.Validation("CustomerLedgerEntry.SaleIdNotAllowed", "Sale id is not allowed for payment entries.");
         }

@@ -10,6 +10,7 @@ using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Application.Features.Items.Services;
 using Intelibill.Application.Features.OfflineReconciliation;
 using Intelibill.Application.Features.OfflineSalesSnapshot.Services;
+using Intelibill.Application.Features.Payments.Services;
 using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Services;
@@ -51,6 +52,10 @@ public static class DependencyInjection
         services.AddScoped<ISalePricingCalculator, SalePricingCalculator>();
 
         services.AddScoped<ICreditNoteCodeGenerator, CreditNoteCodeGenerator>();
+
+        services.AddScoped<IPaymentAllocationPlanner, PaymentAllocationPlanner>();
+        services.AddScoped<IPaymentTransactionRunner, PaymentTransactionRunner>();
+        services.AddScoped<PaymentReceiptDtoBuilder>();
 
         services.AddScoped<SaleDtoBuilder>();
         services.AddScoped<RecordSaleCommandHandler>();
