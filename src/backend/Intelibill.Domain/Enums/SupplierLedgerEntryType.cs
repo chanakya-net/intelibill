@@ -9,4 +9,5 @@ public enum SupplierLedgerEntryType
 
     /// <summary>Signed difference posted when a receipt's total cost is corrected.</summary>
     CostAdjusted = 5,
+    SupplierReturnCredit = 6,
 }

@@ -131,4 +131,18 @@ public sealed class RestrictedRoleRlsTests(PostgreSqlTestFixture fixture) : IAsy
         }
     }
 
+
+    [Theory]
+    [InlineData("supplier_returns")]
+    [InlineData("supplier_return_lines")]
+    [InlineData("supplier_return_credits")]
+    [InlineData("supplier_return_credit_lines")]
+    [InlineData("purchase_receipt_reversals")]
+    public async Task SupplierReturnTables_ForceBothTenantPolicies(string table)
+    {
+        await using var connection=await OpenRuntimeConnectionAsync();
+        await using var metadata=new NpgsqlCommand("select c.relrowsecurity and c.relforcerowsecurity and exists(select 1 from pg_policies p where p.tablename=c.relname and p.qual is not null and p.with_check is not null) from pg_class c where c.relname=@table",connection);
+        metadata.Parameters.AddWithValue("table",table); Assert.Equal(true,await metadata.ExecuteScalarAsync());
+        await using var select=new NpgsqlCommand($"select count(*) from {table}",connection);Assert.Equal(0L,await select.ExecuteScalarAsync());
+    }
 }

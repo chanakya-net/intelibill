@@ -106,6 +106,9 @@ public sealed class CorrectReceiptCostCommandHandler(
         if (fence.IsError)
             return fence.Errors;
 
+        if (receipt.HasSupplierReturns)
+            return Error.Conflict("PurchaseReceipt.HasSupplierReturns", "This receipt has supplier shipments; its cost cannot change.");
+
         if (!receipt.IsResolved || receipt.EffectiveTotalCost is not { } priorTotal)
             return Errors.PurchaseReceipt.EvidenceMissing;
 

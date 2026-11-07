@@ -69,6 +69,12 @@ public class ApplicationDbContext(
     public DbSet<PostingPeriod> PostingPeriods => Set<PostingPeriod>();
     public DbSet<PostingPeriodEvent> PostingPeriodEvents => Set<PostingPeriodEvent>();
 
+    public DbSet<SupplierReturn> SupplierReturns => Set<SupplierReturn>();
+    public DbSet<SupplierReturnLine> SupplierReturnLines => Set<SupplierReturnLine>();
+    public DbSet<SupplierReturnCredit> SupplierReturnCredits => Set<SupplierReturnCredit>();
+    public DbSet<SupplierReturnCreditLine> SupplierReturnCreditLines => Set<SupplierReturnCreditLine>();
+    public DbSet<PurchaseReceiptReversal> PurchaseReceiptReversals => Set<PurchaseReceiptReversal>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
@@ -94,6 +100,8 @@ public class ApplicationDbContext(
                 .IsRowVersion()
                 .HasColumnName("xmin")
                 .HasColumnType("xid");
+
+            modelBuilder.Entity<SupplierReturn>().Property(r => r.Version).IsRowVersion().HasColumnName("xmin").HasColumnType("xid");
 
             modelBuilder.Entity<PostingPeriod>()
                 .Property(p => p.Version)

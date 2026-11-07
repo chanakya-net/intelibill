@@ -102,6 +102,9 @@ public sealed class VoidBatchCommandHandler(
         // the reversal nets the payable to zero, posted to the supplier the receipt is owed to.
         // Receipts older than receipt values fall back to the unit cost they were posted with.
         var receiptValue = await purchaseReceiptValueRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
+        if (receiptValue?.HasSupplierReturns == true)
+            return Error.Conflict("PurchaseReceipt.HasSupplierReturns", "This receipt has supplier shipments and cannot be voided.");
+
         if (receiptValue is not null
             && await paymentReceiptRepository.HasActiveAllocationsAsync(
                 command.ActiveShopId, PaymentAllocationTargetType.SupplierReceipt, receiptValue.Id, cancellationToken))
@@ -214,7 +217,7 @@ public sealed class VoidBatchCommandHandler(
         var movements = await stockTransactionRepository.GetByBatchAsync(batch.ShopId, batch.Id, cancellationToken);
         return movements.Any(m =>
             m.TransactionType is StockTransactionType.Out or StockTransactionType.Ret or StockTransactionType.Rej
-                or StockTransactionType.Dmg or StockTransactionType.Stol
+                or StockTransactionType.Dmg or StockTransactionType.Stol or StockTransactionType.SupplierReturn
             && !(m.ReferenceNumber is { } reference
                 && (adjustmentNumbers.Contains(reference) || reference == UpdateInventoryBatchCommandHandler.CorrectionReference)));
     }

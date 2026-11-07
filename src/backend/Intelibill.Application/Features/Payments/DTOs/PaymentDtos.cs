@@ -28,7 +28,10 @@ public sealed record SupplierReceiptBalanceDto(
     DateTimeOffset ReceivedAt,
     decimal PayableAmount,
     decimal AllocatedPaymentAmount,
-    decimal OutstandingAmount);
+    decimal OutstandingAmount,
+    decimal ReturnCreditAmount = 0m,
+    decimal NetPayableAmount = 0m,
+    decimal SupplierCreditAmount = 0m);
 
 public sealed record PaymentAllocationDto(
     Guid AllocationId,

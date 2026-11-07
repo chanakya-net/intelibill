@@ -58,12 +58,15 @@ public sealed class SupplierLedgerEntry : BaseEntity
 
     private static ErrorOr<Success> Validate(SupplierLedgerEntryType entryType, Guid? batchId, decimal amount)
     {
+        if (entryType == SupplierLedgerEntryType.SupplierReturnCredit && amount >= 0)
+            return Error.Validation("SupplierLedgerEntry.CreditSignInvalid", "Supplier return credit must be negative.");
+
         if (amount == 0)
         {
             return Error.Validation("SupplierLedgerEntry.AmountZero", "Amount cannot be zero.");
         }
 
-        if (entryType is (SupplierLedgerEntryType.GoodsReceived or SupplierLedgerEntryType.CostAdjusted) && batchId is null)
+        if (entryType is (SupplierLedgerEntryType.GoodsReceived or SupplierLedgerEntryType.CostAdjusted or SupplierLedgerEntryType.SupplierReturnCredit) && batchId is null)
         {
             return Error.Validation("SupplierLedgerEntry.BatchRequired", "Batch is required for goods received and cost adjustment entries.");
         }

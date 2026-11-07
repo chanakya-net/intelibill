@@ -83,7 +83,7 @@ public sealed class StockTransaction : BaseEntity
         }
 
         var requiresPositive = transactionType is StockTransactionType.In or StockTransactionType.Ret;
-        var requiresNegative = transactionType is StockTransactionType.Out or StockTransactionType.Rej or StockTransactionType.Dmg or StockTransactionType.Stol;
+        var requiresNegative = transactionType is StockTransactionType.Out or StockTransactionType.Rej or StockTransactionType.Dmg or StockTransactionType.Stol or StockTransactionType.SupplierReturn;
 
         if (requiresPositive && quantity < 0)
         {

@@ -10,4 +10,5 @@ public enum StockTransactionType
     Dmg = 6,
     Stol = 7,
     Reversal = 8,
+    SupplierReturn = 9,
 }

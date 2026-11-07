@@ -32,6 +32,9 @@ public static class DependencyInjection
         services.AddScoped<IItemCatalogStreamingService, ItemCatalogStreamingService>();
         services.AddScoped<IOfflineSalesSnapshotStreamingService, OfflineSalesSnapshotStreamingService>();
 
+        services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.SupplierReturnService>();
+        services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.SupplierReturnCreditPoster>();
+
         services.AddScoped<IItemResolver, ItemResolver>();
         services.AddScoped<ISupplierResolver, SupplierResolver>();
         services.AddScoped<IBatchFactory, BatchFactory>();

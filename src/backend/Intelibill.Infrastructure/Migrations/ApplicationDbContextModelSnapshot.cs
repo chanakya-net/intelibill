@@ -2856,6 +2856,109 @@ namespace Intelibill.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseReceiptReversal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<string>("BusinessTimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("business_time_zone_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<decimal>("EffectiveAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("effective_amount");
+
+                    b.Property<Guid?>("PurchaseOrderReceiptId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("purchase_order_receipt_id");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("quantity");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ReceiptValueId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("receipt_value_id");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("reference");
+
+                    b.Property<DateTimeOffset>("ReversedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reversed_at");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<Guid>("StockTransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("stock_transaction_id");
+
+                    b.Property<Guid?>("SupplierLedgerEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_ledger_entry_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_purchase_receipt_reversals");
+
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_purchase_receipt_reversals_id_shop_id");
+
+                    b.HasIndex("ReceiptValueId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_purchase_receipt_reversals_receipt_value_id");
+
+                    b.HasIndex("ShopId")
+                        .HasDatabaseName("ix_purchase_receipt_reversals_shop_id");
+
+                    b.HasIndex("ReceiptValueId", "ShopId")
+                        .HasDatabaseName("ix_purchase_receipt_reversals_receipt_value_id_shop_id");
+
+                    b.HasIndex("StockTransactionId", "ShopId")
+                        .HasDatabaseName("ix_purchase_receipt_reversals_stock_transaction_id_shop_id");
+
+                    b.HasIndex("SupplierLedgerEntryId", "ShopId")
+                        .HasDatabaseName("ix_purchase_receipt_reversals_supplier_ledger_entry_id_shop_id");
+
+                    b.ToTable("purchase_receipt_reversals", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_purchase_receipt_reversals_amounts", "quantity > 0 AND effective_amount >= 0 AND ((effective_amount = 0 AND supplier_ledger_entry_id IS NULL) OR (effective_amount > 0 AND supplier_ledger_entry_id IS NOT NULL))");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseReceiptValue", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2875,6 +2978,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("effective_total_cost");
+
+                    b.Property<bool>("HasSupplierReturns")
+                        .HasColumnType("boolean")
+                        .HasColumnName("has_supplier_returns");
 
                     b.Property<Guid>("InventoryBatchId")
                         .HasColumnType("uuid")
@@ -2939,6 +3046,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_purchase_receipt_values");
+
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_purchase_receipt_values_id_shop_id");
 
                     b.HasIndex("PurchaseOrderReceiptLineId")
                         .HasDatabaseName("ix_purchase_receipt_values_purchase_order_receipt_line_id");
@@ -4719,6 +4829,9 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_stock_transactions");
 
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_stock_transactions_id_shop_id");
+
                     b.HasIndex("ItemId", "ShopId")
                         .HasDatabaseName("ix_stock_transactions_item_id_shop_id");
 
@@ -4735,7 +4848,7 @@ namespace Intelibill.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_stock_transactions_quantity_non_zero", "quantity <> 0");
 
-                            t.HasCheckConstraint("ck_stock_transactions_quantity_sign_by_type", "((transaction_type IN ('IN', 'RET') AND quantity > 0) OR (transaction_type IN ('OUT', 'REJ', 'DMG', 'STOL') AND quantity < 0) OR (transaction_type IN ('ADJ', 'REV')))");
+                            t.HasCheckConstraint("ck_stock_transactions_quantity_sign_by_type", "((transaction_type IN ('IN', 'RET') AND quantity > 0) OR (transaction_type IN ('OUT', 'REJ', 'DMG', 'STOL', 'SUPPLIER_RETURN') AND quantity < 0) OR (transaction_type IN ('ADJ', 'REV')))");
                         });
                 });
 
@@ -4811,6 +4924,9 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_suppliers");
 
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_suppliers_id_shop_id");
+
                     b.HasIndex("ShopId")
                         .HasDatabaseName("ix_suppliers_shop_id");
 
@@ -4855,8 +4971,8 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.Property<string>("EntryType")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
                         .HasColumnName("entry_type");
 
                     b.Property<string>("Notes")
@@ -4879,6 +4995,9 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_supplier_ledger_entries");
 
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_supplier_ledger_entries_id_shop_id");
+
                     b.HasIndex("BatchId")
                         .HasDatabaseName("ix_supplier_ledger_entries_batch_id");
 
@@ -4895,7 +5014,357 @@ namespace Intelibill.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_supplier_ledger_entries_amount_non_zero", "amount <> 0");
 
-                            t.HasCheckConstraint("ck_supplier_ledger_entries_batch_by_type", "((entry_type IN ('GOODS_RECEIVED', 'COST_ADJUSTED') AND batch_id IS NOT NULL) OR (entry_type IN ('PAYMENT_MADE', 'RECORD_ADJUSTED') AND batch_id IS NULL) OR (entry_type = 'REVERSAL'))");
+                            t.HasCheckConstraint("ck_supplier_ledger_entries_batch_by_type", "((entry_type IN ('GOODS_RECEIVED', 'COST_ADJUSTED', 'SUPPLIER_RETURN_CREDIT') AND batch_id IS NOT NULL) OR (entry_type IN ('PAYMENT_MADE', 'RECORD_ADJUSTED') AND batch_id IS NULL) OR (entry_type = 'REVERSAL'))");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.SupplierReturn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<string>("BusinessTimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("business_time_zone_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("ReturnNumber")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("return_number");
+
+                    b.Property<DateTimeOffset>("ShippedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("shipped_at");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<string>("ShopName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("shop_name");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_id");
+
+                    b.Property<string>("SupplierName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("supplier_name");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_supplier_returns");
+
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_supplier_returns_id_shop_id");
+
+                    b.HasIndex("ShopId", "ReturnNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_supplier_returns_shop_id_return_number");
+
+                    b.HasIndex("SupplierId", "ShopId")
+                        .HasDatabaseName("ix_supplier_returns_supplier_id_shop_id");
+
+                    b.HasIndex("ShopId", "SupplierId", "ShippedAt")
+                        .HasDatabaseName("ix_supplier_returns_shop_id_supplier_id_shipped_at");
+
+                    b.ToTable("supplier_returns", (string)null);
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.SupplierReturnCredit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<string>("BusinessTimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("business_time_zone_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<string>("SupplierReference")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("supplier_reference");
+
+                    b.Property<Guid>("SupplierReturnId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_return_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_supplier_return_credits");
+
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_supplier_return_credits_id_shop_id");
+
+                    b.HasIndex("ShopId")
+                        .HasDatabaseName("ix_supplier_return_credits_shop_id");
+
+                    b.HasIndex("SupplierReturnId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_supplier_return_credits_supplier_return_id");
+
+                    b.HasIndex("SupplierReturnId", "ShopId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_supplier_return_credits_supplier_return_id_shop_id");
+
+                    b.ToTable("supplier_return_credits", (string)null);
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.SupplierReturnCreditLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("AcceptedAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("accepted_amount");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("ReceiptValueId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("receipt_value_id");
+
+                    b.Property<Guid>("ReturnLineId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("return_line_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<Guid?>("SupplierLedgerEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_ledger_entry_id");
+
+                    b.Property<Guid>("SupplierReturnCreditId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_return_credit_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_supplier_return_credit_lines");
+
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_supplier_return_credit_lines_id_shop_id");
+
+                    b.HasIndex("ReturnLineId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_supplier_return_credit_lines_return_line_id");
+
+                    b.HasIndex("ShopId")
+                        .HasDatabaseName("ix_supplier_return_credit_lines_shop_id");
+
+                    b.HasIndex("ReceiptValueId", "ShopId")
+                        .HasDatabaseName("ix_supplier_return_credit_lines_receipt_value_id_shop_id");
+
+                    b.HasIndex("ReturnLineId", "ShopId")
+                        .HasDatabaseName("ix_supplier_return_credit_lines_return_line_id_shop_id");
+
+                    b.HasIndex("SupplierLedgerEntryId", "ShopId")
+                        .HasDatabaseName("ix_supplier_return_credit_lines_supplier_ledger_entry_id_shop_");
+
+                    b.HasIndex("SupplierReturnCreditId", "ShopId")
+                        .HasDatabaseName("ix_supplier_return_credit_lines_supplier_return_credit_id_shop");
+
+                    b.ToTable("supplier_return_credit_lines", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_supplier_return_credit_lines_amounts", "accepted_amount >= 0 AND ((accepted_amount = 0 AND supplier_ledger_entry_id IS NULL) OR (accepted_amount > 0 AND supplier_ledger_entry_id IS NOT NULL))");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.SupplierReturnLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<decimal>("EffectiveTotalCost")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("effective_total_cost");
+
+                    b.Property<Guid>("InventoryBatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("inventory_batch_id");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("item_name");
+
+                    b.Property<decimal>("ProposedCreditAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("proposed_credit_amount");
+
+                    b.Property<Guid?>("PurchaseOrderReceiptLineId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("purchase_order_receipt_line_id");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("quantity");
+
+                    b.Property<Guid>("ReceiptValueId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("receipt_value_id");
+
+                    b.Property<decimal>("ReceivedQuantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("received_quantity");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<string>("SourceReference")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("source_reference");
+
+                    b.Property<Guid>("StockTransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("stock_transaction_id");
+
+                    b.Property<Guid>("SupplierReturnId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_return_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("Uqc")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("uqc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_supplier_return_lines");
+
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_supplier_return_lines_id_shop_id");
+
+                    b.HasIndex("ShopId")
+                        .HasDatabaseName("ix_supplier_return_lines_shop_id");
+
+                    b.HasIndex("ReceiptValueId", "ShopId")
+                        .HasDatabaseName("ix_supplier_return_lines_receipt_value_id_shop_id");
+
+                    b.HasIndex("StockTransactionId", "ShopId")
+                        .HasDatabaseName("ix_supplier_return_lines_stock_transaction_id_shop_id");
+
+                    b.HasIndex("SupplierReturnId", "ReceiptValueId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_supplier_return_lines_supplier_return_id_receipt_value_id");
+
+                    b.HasIndex("SupplierReturnId", "ShopId")
+                        .HasDatabaseName("ix_supplier_return_lines_supplier_return_id_shop_id");
+
+                    b.HasIndex("InventoryBatchId", "ItemId", "ShopId")
+                        .HasDatabaseName("ix_supplier_return_lines_inventory_batch_id_item_id_shop_id");
+
+                    b.ToTable("supplier_return_lines", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_supplier_return_lines_amounts", "quantity > 0 AND quantity <= received_quantity AND proposed_credit_amount >= 0 AND effective_total_cost >= 0");
                         });
                 });
 
@@ -5577,6 +6046,39 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasConstraintName("fk_purchase_receipt_cost_adjustments_supplier_ledger_entries_s");
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseReceiptReversal", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_receipt_reversals_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.PurchaseReceiptValue", null)
+                        .WithMany()
+                        .HasForeignKey("ReceiptValueId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_receipt_reversals_purchase_receipt_values_receipt_");
+
+                    b.HasOne("Intelibill.Domain.Entities.StockTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("StockTransactionId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_purchase_receipt_reversals_stock_transactions_stock_transac");
+
+                    b.HasOne("Intelibill.Domain.Entities.SupplierLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierLedgerEntryId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_purchase_receipt_reversals_supplier_ledger_entries_supplier");
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseReceiptValue", b =>
                 {
                     b.HasOne("Intelibill.Domain.Entities.PurchaseOrderReceiptLine", null)
@@ -5950,6 +6452,125 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasConstraintName("fk_supplier_ledger_entries_suppliers_supplier_id");
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.SupplierReturn", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_supplier_returns_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_supplier_returns_suppliers_supplier_id_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.SupplierReturnCredit", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_supplier_return_credits_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.SupplierReturn", null)
+                        .WithOne("Credit")
+                        .HasForeignKey("Intelibill.Domain.Entities.SupplierReturnCredit", "SupplierReturnId", "ShopId")
+                        .HasPrincipalKey("Intelibill.Domain.Entities.SupplierReturn", "Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_supplier_return_credits_supplier_returns_supplier_return_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.SupplierReturnCreditLine", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_supplier_return_credit_lines_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.PurchaseReceiptValue", null)
+                        .WithMany()
+                        .HasForeignKey("ReceiptValueId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_supplier_return_credit_lines_purchase_receipt_values_receip");
+
+                    b.HasOne("Intelibill.Domain.Entities.SupplierReturnLine", null)
+                        .WithMany()
+                        .HasForeignKey("ReturnLineId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_supplier_return_credit_lines_supplier_return_lines_return_l");
+
+                    b.HasOne("Intelibill.Domain.Entities.SupplierLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("SupplierLedgerEntryId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_supplier_return_credit_lines_supplier_ledger_entries_suppli");
+
+                    b.HasOne("Intelibill.Domain.Entities.SupplierReturnCredit", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("SupplierReturnCreditId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_supplier_return_credit_lines_supplier_return_credits_suppli");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.SupplierReturnLine", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_supplier_return_lines_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.PurchaseReceiptValue", null)
+                        .WithMany()
+                        .HasForeignKey("ReceiptValueId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_supplier_return_lines_purchase_receipt_values_receipt_value");
+
+                    b.HasOne("Intelibill.Domain.Entities.StockTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("StockTransactionId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_supplier_return_lines_stock_transactions_stock_transaction_");
+
+                    b.HasOne("Intelibill.Domain.Entities.SupplierReturn", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("SupplierReturnId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_supplier_return_lines_supplier_returns_supplier_return_id_s");
+
+                    b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryBatchId", "ItemId", "ShopId")
+                        .HasPrincipalKey("Id", "ItemId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_supplier_return_lines_inventory_batches_inventory_batch_id_");
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.CreditNote", b =>
                 {
                     b.Navigation("Redemptions");
@@ -5996,6 +6617,18 @@ namespace Intelibill.Infrastructure.Migrations
             modelBuilder.Entity("Intelibill.Domain.Entities.Shop", b =>
                 {
                     b.Navigation("Memberships");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.SupplierReturn", b =>
+                {
+                    b.Navigation("Credit");
+
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.SupplierReturnCredit", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.User", b =>
