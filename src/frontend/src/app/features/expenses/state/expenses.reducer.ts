@@ -1,7 +1,12 @@
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
-import { ExpenseDto, ExpenseListItemDto } from '../services/expense.service';
+import {
+  DEFAULT_EXPENSE_QUERY,
+  ExpenseDto,
+  ExpenseListItemDto,
+  ExpenseListQuery,
+} from '../services/expense.service';
 import { ExpenseCategoryDto } from '../services/expense-category.service';
 import { ExpenseMutationType, ExpensesActions } from './expenses.actions';
 
@@ -9,11 +14,13 @@ export const expensesFeatureKey = 'expenses';
 
 export const expensesAdapter = createEntityAdapter<ExpenseListItemDto>({
   selectId: (expense) => expense.id,
-  sortComparer: (left, right) =>
-    new Date(right.expenseDate).getTime() - new Date(left.expenseDate).getTime(),
+  sortComparer: false,
 });
 
 export interface ExpensesState extends EntityState<ExpenseListItemDto> {
+  readonly query: ExpenseListQuery;
+  readonly requestId: string | null;
+  readonly listErrorMessage: string;
   readonly loadingExpenses: boolean;
   readonly submitting: boolean;
   readonly errorMessage: string;
@@ -29,6 +36,9 @@ export interface ExpensesState extends EntityState<ExpenseListItemDto> {
 }
 
 const initialState: ExpensesState = expensesAdapter.getInitialState({
+  query: DEFAULT_EXPENSE_QUERY,
+  requestId: null,
+  listErrorMessage: '',
   loadingExpenses: false,
   submitting: false,
   errorMessage: '',
@@ -45,26 +55,44 @@ const initialState: ExpensesState = expensesAdapter.getInitialState({
 
 export const expensesReducer = createReducer(
   initialState,
-  on(ExpensesActions.loadExpensesRequested, (state) => ({
-    ...state,
-    loadingExpenses: true,
-    errorMessage: '',
-  })),
-  on(ExpensesActions.loadExpensesSucceeded, (state, { expenses, totalCount, page, pageSize }) =>
-    expensesAdapter.setAll([...expenses], {
+  on(ExpensesActions.loadExpensesRequested, (state, { query, requestId }) =>
+    expensesAdapter.removeAll({
       ...state,
-      loadingExpenses: false,
+      query: { ...query },
+      requestId,
+      loadingExpenses: true,
+      totalCount: 0,
+      currentPage: query.page,
+      pageSize: query.pageSize,
       errorMessage: '',
-      totalCount,
-      currentPage: page,
-      pageSize,
-    })
+      listErrorMessage: '',
+    }),
   ),
-  on(ExpensesActions.loadExpensesFailed, (state, { errorMessage }) => ({
-    ...state,
-    loadingExpenses: false,
-    errorMessage,
-  })),
+  on(
+    ExpensesActions.loadExpensesSucceeded,
+    (state, { expenses, totalCount, page, pageSize, requestId }) =>
+      requestId !== state.requestId
+        ? state
+        : expensesAdapter.setAll([...expenses], {
+            ...state,
+            loadingExpenses: false,
+            errorMessage: '',
+            listErrorMessage: '',
+            totalCount,
+            currentPage: page,
+            pageSize,
+          }),
+  ),
+  on(ExpensesActions.loadExpensesFailed, (state, { errorMessage, requestId }) =>
+    requestId !== state.requestId
+      ? state
+      : {
+          ...state,
+          loadingExpenses: false,
+          errorMessage,
+          listErrorMessage: errorMessage,
+        },
+  ),
 
   on(ExpensesActions.loadExpenseDetailRequested, (state) => ({
     ...state,
@@ -157,7 +185,7 @@ export const expensesReducer = createReducer(
   on(ExpensesActions.clearExpenseDetail, (state) => ({
     ...state,
     selectedExpense: null,
-  }))
+  })),
 );
 
 export const expensesFeature = createFeature({

@@ -3,7 +3,12 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { EXPENSE_ENDPOINTS } from '../../../core/auth/auth.constants';
-import { ExpenseService, ExpenseDto, ExpenseListItemDto, PaginatedExpenses } from './expense.service';
+import {
+  ExpenseService,
+  ExpenseDto,
+  ExpenseListItemDto,
+  PaginatedExpenses,
+} from './expense.service';
 
 describe('ExpenseService', () => {
   function setup(): { service: ExpenseService; http: HttpTestingController } {
@@ -58,13 +63,18 @@ describe('ExpenseService', () => {
     const { service, http } = setup();
     const response = makePaginatedResponse();
 
-    service.getExpenses().subscribe((result) => {
+    service.getExpenses({ status: 'all', page: 1, pageSize: 20 }).subscribe((result) => {
       expect(result.items).toHaveLength(1);
       expect(result.items[0].id).toBe('exp-1');
       expect(result.totalCount).toBe(1);
     });
 
-    const req = http.expectOne((r) => r.url === EXPENSE_ENDPOINTS.list && r.params.get('page') === '1' && r.params.get('pageSize') === '20');
+    const req = http.expectOne(
+      (r) =>
+        r.url === EXPENSE_ENDPOINTS.list &&
+        r.params.get('page') === '1' &&
+        r.params.get('pageSize') === '20',
+    );
     expect(req.request.method).toBe('GET');
     req.flush(response);
     http.verify();
@@ -74,15 +84,19 @@ describe('ExpenseService', () => {
     const { service, http } = setup();
     const response = makePaginatedResponse();
 
-    service.getExpenses('rent', 2, 10).subscribe((result) => {
-      expect(result.items).toHaveLength(1);
-    });
+    service
+      .getExpenses({ search: 'rent', status: 'voided', page: 2, pageSize: 10 })
+      .subscribe((result) => {
+        expect(result.items).toHaveLength(1);
+      });
 
-    const req = http.expectOne((r) =>
-      r.url === EXPENSE_ENDPOINTS.list &&
-      r.params.get('search') === 'rent' &&
-      r.params.get('page') === '2' &&
-      r.params.get('pageSize') === '10'
+    const req = http.expectOne(
+      (r) =>
+        r.url === EXPENSE_ENDPOINTS.list &&
+        r.params.get('search') === 'rent' &&
+        r.params.get('status') === 'voided' &&
+        r.params.get('page') === '2' &&
+        r.params.get('pageSize') === '10',
     );
     expect(req.request.method).toBe('GET');
     req.flush(response);

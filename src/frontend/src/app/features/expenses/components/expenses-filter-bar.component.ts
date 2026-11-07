@@ -6,7 +6,7 @@ import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 
-export type ExpenseStatusFilter = 'all' | 'active' | 'voided';
+import { ExpenseStatusFilter } from '../services/expense.service';
 
 interface StatusOption {
   readonly label: string;
@@ -16,7 +16,14 @@ interface StatusOption {
 @Component({
   selector: 'app-expenses-filter-bar',
   standalone: true,
-  imports: [FormsModule, IconFieldModule, InputIconModule, InputTextModule, SelectModule, TranslocoPipe],
+  imports: [
+    FormsModule,
+    IconFieldModule,
+    InputIconModule,
+    InputTextModule,
+    SelectModule,
+    TranslocoPipe,
+  ],
   templateUrl: './expenses-filter-bar.component.html',
   styleUrl: './expenses-filter-bar.component.scss',
 })

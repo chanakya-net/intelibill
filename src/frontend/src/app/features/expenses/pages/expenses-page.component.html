@@ -4,19 +4,21 @@
       <p class="eyebrow">{{ 'expenses.expenseLedger' | transloco }}</p>
       <h1>{{ 'expenses.title' | transloco }}</h1>
       <p class="subtitle">{{ 'expenses.subtitle' | transloco }}</p>
-      <div class="expenses-hero__meta">
-        <span class="meta-chip meta-chip--primary">{{
-          'expenses.showingCount'
-            | transloco: { visible: filteredRowCount(), total: totalExpenses() }
-        }}</span>
-        <span class="meta-chip"
-          >{{ 'expenses.summary.pageAmount' | transloco }}: {{ 'common.currencySymbol' | transloco
-          }}{{ pageAmount() | number: '1.2-2' }}</span
-        >
-        <span class="meta-chip"
-          >{{ 'expenses.summary.activeCount' | transloco }}: {{ activeCount() }}</span
-        >
-      </div>
+      @if (!loading() && !listError()) {
+        <div class="expenses-hero__meta">
+          <span class="meta-chip meta-chip--primary">{{
+            'expenses.showingCount'
+              | transloco: { visible: filteredRowCount(), total: totalExpenses() }
+          }}</span>
+          <span class="meta-chip"
+            >{{ 'expenses.summary.pageAmount' | transloco }}:
+            {{ 'common.currencySymbol' | transloco }}{{ pageAmount() | number: '1.2-2' }}</span
+          >
+          <span class="meta-chip"
+            >{{ 'expenses.summary.activeCount' | transloco }}: {{ activeCount() }}</span
+          >
+        </div>
+      }
     </div>
 
     @if (canManageExpenses()) {
@@ -31,23 +33,32 @@
     }
   </header>
 
-  <div class="summary-grid" [attr.aria-label]="'expenses.summary.ariaLabel' | transloco">
-    @for (card of summaryCards(); track card.labelKey) {
-      <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
-        <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
-        <div class="summary-card__value">
-          @if (card.variant === 'money') {
-            {{ 'common.currencySymbol' | transloco }}{{ card.value | number: '1.2-2' }}
-          } @else {
-            {{ card.value | number: '1.0-0' }}
-          }
-        </div>
-      </article>
-    }
-  </div>
+  @if (!loading() && !listError()) {
+    <div class="summary-grid" [attr.aria-label]="'expenses.summary.ariaLabel' | transloco">
+      @for (card of summaryCards(); track card.labelKey) {
+        <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
+          <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
+          <div class="summary-card__value">
+            @if (card.variant === 'money') {
+              {{ 'common.currencySymbol' | transloco }}{{ card.value | number: '1.2-2' }}
+            } @else {
+              {{ card.value | number: '1.0-0' }}
+            }
+          </div>
+        </article>
+      }
+    </div>
+  }
 
-  @if (error()) {
-    <p class="error">{{ error() }}</p>
+  <app-expenses-filter-bar
+    [searchValue]="searchValue()"
+    [statusFilter]="statusFilter()"
+    (searchValueChange)="onSearchValueChange($event)"
+    (statusFilterChange)="onStatusFilterChange($event)"
+  />
+
+  @if (listError() || error()) {
+    <p class="error" role="alert">{{ listError() || error() }}</p>
   }
 
   @if (loading()) {
@@ -70,7 +81,7 @@
     </section>
   }
 
-  @if (!loading()) {
+  @if (!loading() && !listError()) {
     <section class="directory-panel">
       <header class="directory-panel__header">
         <div>
@@ -97,13 +108,6 @@
           }
         </div>
       </header>
-
-      <app-expenses-filter-bar
-        [searchValue]="searchValue()"
-        [statusFilter]="statusFilter()"
-        (searchValueChange)="onSearchValueChange($event)"
-        (statusFilterChange)="onStatusFilterChange($event)"
-      />
 
       <div class="directory-panel__surface">
         <app-expenses-table

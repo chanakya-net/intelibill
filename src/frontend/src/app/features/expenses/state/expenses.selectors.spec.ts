@@ -28,13 +28,13 @@ function buildState(expenses: ExpenseListItemDto[] = [], overrides = {}) {
 }
 
 describe('expenses selectors', () => {
-  it('selectAllExpenses returns all expenses sorted by expenseDate desc', () => {
+  it('selectAllExpenses preserves server expense ordering', () => {
     const older = makeExpense('e1');
     const newer = { ...makeExpense('e2'), expenseDate: '2026-04-21T00:00:00Z' };
     const state = buildState([older, newer]);
     const all = selectAllExpenses.projector(state);
-    expect(all[0].id).toBe('e2');
-    expect(all[1].id).toBe('e1');
+    expect(all[0].id).toBe('e1');
+    expect(all[1].id).toBe('e2');
   });
 
   it('selectExpensesLoading reflects state', () => {
@@ -80,7 +80,10 @@ describe('expenses selectors', () => {
   });
 
   it('selectLastMutationStatus reflects state', () => {
-    const state = buildState([], { lastMutationType: 'record-expense', lastMutationSucceeded: true });
+    const state = buildState([], {
+      lastMutationType: 'record-expense',
+      lastMutationSucceeded: true,
+    });
     expect(selectLastMutationStatus.projector(state)).toEqual({
       type: 'record-expense',
       succeeded: true,

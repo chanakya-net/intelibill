@@ -2,7 +2,10 @@ import { ExpensesActions } from './expenses.actions';
 import { expensesReducer, ExpensesState } from './expenses.reducer';
 import { ExpenseListItemDto } from '../services/expense.service';
 
-const makeExpense = (id: string, overrides: Partial<ExpenseListItemDto> = {}): ExpenseListItemDto => ({
+const makeExpense = (
+  id: string,
+  overrides: Partial<ExpenseListItemDto> = {},
+): ExpenseListItemDto => ({
   id,
   amount: 500,
   categoryName: 'Rent',
@@ -30,10 +33,35 @@ const makeExpenseDto = (id = 'exp-1') => ({
 describe('expensesReducer', () => {
   const initialState = expensesReducer(undefined, { type: '@@INIT' } as never);
 
+  it('ignores stale success and failure after a newer query', () => {
+    const query = { status: 'voided' as const, search: 'rent', page: 1, pageSize: 20 };
+    const pending = expensesReducer(
+      initialState,
+      ExpensesActions.loadExpensesRequested({ query, requestId: 'new' }),
+    );
+    const success = ExpensesActions.loadExpensesSucceeded({
+      requestId: 'old',
+      expenses: [makeExpense('old')],
+      totalCount: 1,
+      page: 1,
+      pageSize: 20,
+    });
+    expect(expensesReducer(pending, success)).toBe(pending);
+    expect(
+      expensesReducer(
+        pending,
+        ExpensesActions.loadExpensesFailed({ requestId: 'old', errorMessage: 'late' }),
+      ),
+    ).toBe(pending);
+  });
+
   it('sets loading state when load expenses is requested', () => {
     const next = expensesReducer(
       { ...initialState, errorMessage: 'existing error' },
-      ExpensesActions.loadExpensesRequested({})
+      ExpensesActions.loadExpensesRequested({
+        query: { status: 'all', page: 1, pageSize: 20 },
+        requestId: 'r1',
+      }),
     );
 
     expect(next.loadingExpenses).toBe(true);
@@ -43,8 +71,14 @@ describe('expensesReducer', () => {
   it('sets expenses when load succeeds', () => {
     const expenses = [makeExpense('e1'), makeExpense('e2')];
     const next = expensesReducer(
-      { ...initialState, loadingExpenses: true },
-      ExpensesActions.loadExpensesSucceeded({ expenses, totalCount: 2, page: 1, pageSize: 20 })
+      { ...initialState, loadingExpenses: true, requestId: 'r1' },
+      ExpensesActions.loadExpensesSucceeded({
+        requestId: 'r1',
+        expenses,
+        totalCount: 2,
+        page: 1,
+        pageSize: 20,
+      }),
     );
 
     expect(next.loadingExpenses).toBe(false);
@@ -57,8 +91,11 @@ describe('expensesReducer', () => {
 
   it('sets error when load fails', () => {
     const next = expensesReducer(
-      { ...initialState, loadingExpenses: true },
-      ExpensesActions.loadExpensesFailed({ errorMessage: 'Failed to load expenses' })
+      { ...initialState, loadingExpenses: true, requestId: 'r1' },
+      ExpensesActions.loadExpensesFailed({
+        requestId: 'r1',
+        errorMessage: 'Failed to load expenses',
+      }),
     );
 
     expect(next.loadingExpenses).toBe(false);
@@ -67,8 +104,12 @@ describe('expensesReducer', () => {
 
   it('sets loading detail state when load expense detail is requested', () => {
     const next = expensesReducer(
-      { ...initialState, errorMessage: 'existing error', selectedExpense: makeExpenseDto() as never },
-      ExpensesActions.loadExpenseDetailRequested({ expenseId: 'exp-1' })
+      {
+        ...initialState,
+        errorMessage: 'existing error',
+        selectedExpense: makeExpenseDto() as never,
+      },
+      ExpensesActions.loadExpenseDetailRequested({ expenseId: 'exp-1' }),
     );
 
     expect(next.loadingExpenseDetail).toBe(true);
@@ -80,7 +121,7 @@ describe('expensesReducer', () => {
     const expense = makeExpenseDto();
     const next = expensesReducer(
       { ...initialState, loadingExpenseDetail: true },
-      ExpensesActions.loadExpenseDetailSucceeded({ expense })
+      ExpensesActions.loadExpenseDetailSucceeded({ expense }),
     );
 
     expect(next.loadingExpenseDetail).toBe(false);
@@ -90,7 +131,7 @@ describe('expensesReducer', () => {
   it('sets error when load detail fails', () => {
     const next = expensesReducer(
       { ...initialState, loadingExpenseDetail: true },
-      ExpensesActions.loadExpenseDetailFailed({ errorMessage: 'Not found' })
+      ExpensesActions.loadExpenseDetailFailed({ errorMessage: 'Not found' }),
     );
 
     expect(next.loadingExpenseDetail).toBe(false);
@@ -100,7 +141,7 @@ describe('expensesReducer', () => {
   it('sets loading categories state when load categories is requested', () => {
     const next = expensesReducer(
       { ...initialState, errorMessage: 'existing error' },
-      ExpensesActions.loadCategoriesRequested()
+      ExpensesActions.loadCategoriesRequested(),
     );
 
     expect(next.loadingCategories).toBe(true);
@@ -111,7 +152,7 @@ describe('expensesReducer', () => {
     const categories = [{ id: 'cat-1', name: 'Rent' }];
     const next = expensesReducer(
       { ...initialState, loadingCategories: true },
-      ExpensesActions.loadCategoriesSucceeded({ categories })
+      ExpensesActions.loadCategoriesSucceeded({ categories }),
     );
 
     expect(next.loadingCategories).toBe(false);
@@ -121,7 +162,7 @@ describe('expensesReducer', () => {
   it('sets error when load categories fails', () => {
     const next = expensesReducer(
       { ...initialState, loadingCategories: true },
-      ExpensesActions.loadCategoriesFailed({ errorMessage: 'Failed to load categories' })
+      ExpensesActions.loadCategoriesFailed({ errorMessage: 'Failed to load categories' }),
     );
 
     expect(next.loadingCategories).toBe(false);
@@ -132,8 +173,14 @@ describe('expensesReducer', () => {
     const next = expensesReducer(
       initialState,
       ExpensesActions.recordExpenseRequested({
-        payload: { categoryName: 'Rent', amount: 500, paidTo: 'Landlord', description: null, expenseDate: '2026-04-20' },
-      })
+        payload: {
+          categoryName: 'Rent',
+          amount: 500,
+          paidTo: 'Landlord',
+          description: null,
+          expenseDate: '2026-04-20',
+        },
+      }),
     );
 
     expect(next.submitting).toBe(true);
@@ -145,7 +192,7 @@ describe('expensesReducer', () => {
     const expense = makeExpenseDto();
     const next = expensesReducer(
       { ...initialState, submitting: true },
-      ExpensesActions.recordExpenseSucceeded({ expense })
+      ExpensesActions.recordExpenseSucceeded({ expense }),
     );
 
     expect(next.submitting).toBe(false);
@@ -157,7 +204,7 @@ describe('expensesReducer', () => {
   it('sets error on record expense failed', () => {
     const next = expensesReducer(
       { ...initialState, submitting: true },
-      ExpensesActions.recordExpenseFailed({ errorMessage: 'Failed to record expense' })
+      ExpensesActions.recordExpenseFailed({ errorMessage: 'Failed to record expense' }),
     );
 
     expect(next.submitting).toBe(false);
@@ -171,8 +218,14 @@ describe('expensesReducer', () => {
       initialState,
       ExpensesActions.correctExpenseRequested({
         expenseId: 'exp-1',
-        payload: { categoryName: 'Rent', amount: 550, paidTo: 'Landlord', description: null, expenseDate: '2026-04-20' },
-      })
+        payload: {
+          categoryName: 'Rent',
+          amount: 550,
+          paidTo: 'Landlord',
+          description: null,
+          expenseDate: '2026-04-20',
+        },
+      }),
     );
 
     expect(next.submitting).toBe(true);
@@ -184,7 +237,7 @@ describe('expensesReducer', () => {
     const expense = makeExpenseDto();
     const next = expensesReducer(
       { ...initialState, submitting: true },
-      ExpensesActions.correctExpenseSucceeded({ expense })
+      ExpensesActions.correctExpenseSucceeded({ expense }),
     );
 
     expect(next.submitting).toBe(false);
@@ -196,7 +249,7 @@ describe('expensesReducer', () => {
   it('sets error on correct expense failed', () => {
     const next = expensesReducer(
       { ...initialState, submitting: true },
-      ExpensesActions.correctExpenseFailed({ errorMessage: 'Failed to correct expense' })
+      ExpensesActions.correctExpenseFailed({ errorMessage: 'Failed to correct expense' }),
     );
 
     expect(next.submitting).toBe(false);
@@ -209,7 +262,7 @@ describe('expensesReducer', () => {
     const expense = makeExpenseDto();
     const next = expensesReducer(
       { ...initialState, selectedExpense: expense as never },
-      ExpensesActions.clearExpenseDetail()
+      ExpensesActions.clearExpenseDetail(),
     );
 
     expect(next.selectedExpense).toBeNull();
@@ -218,7 +271,7 @@ describe('expensesReducer', () => {
   it('clears error on clearError', () => {
     const next = expensesReducer(
       { ...initialState, errorMessage: 'some error' },
-      ExpensesActions.clearError()
+      ExpensesActions.clearError(),
     );
 
     expect(next.errorMessage).toBe('');
@@ -227,7 +280,7 @@ describe('expensesReducer', () => {
   it('clears mutation status on clearMutationStatus', () => {
     const next = expensesReducer(
       { ...initialState, lastMutationType: 'record-expense', lastMutationSucceeded: true },
-      ExpensesActions.clearMutationStatus()
+      ExpensesActions.clearMutationStatus(),
     );
 
     expect(next.lastMutationType).toBeNull();

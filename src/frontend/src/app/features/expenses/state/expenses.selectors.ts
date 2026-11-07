@@ -8,52 +8,46 @@ export const { selectAll: selectAllExpenses } = expensesAdapter.getSelectors(sel
 
 export const selectExpensesLoading = createSelector(
   selectExpensesState,
-  (state) => state.loadingExpenses
+  (state) => state.loadingExpenses,
 );
 
 export const selectExpensesError = createSelector(
   selectExpensesState,
-  (state) => state.errorMessage
+  (state) => state.errorMessage,
 );
 
 export const selectSelectedExpense = createSelector(
   selectExpensesState,
-  (state) => state.selectedExpense
+  (state) => state.selectedExpense,
 );
 
 export const selectExpenseDetailLoading = createSelector(
   selectExpensesState,
-  (state) => state.loadingExpenseDetail
+  (state) => state.loadingExpenseDetail,
 );
 
-export const selectCategories = createSelector(
-  selectExpensesState,
-  (state) => state.categories
-);
+export const selectCategories = createSelector(selectExpensesState, (state) => state.categories);
 
 export const selectCategoriesLoading = createSelector(
   selectExpensesState,
-  (state) => state.loadingCategories
+  (state) => state.loadingCategories,
 );
 
-export const selectSubmitting = createSelector(
-  selectExpensesState,
-  (state) => state.submitting
-);
+export const selectSubmitting = createSelector(selectExpensesState, (state) => state.submitting);
 
-export const selectLastMutationStatus = createSelector(
-  selectExpensesState,
-  (state) => ({
-    type: state.lastMutationType,
-    succeeded: state.lastMutationSucceeded,
-  })
-);
+export const selectLastMutationStatus = createSelector(selectExpensesState, (state) => ({
+  type: state.lastMutationType,
+  succeeded: state.lastMutationSucceeded,
+}));
 
-export const selectPagination = createSelector(
+export const selectPagination = createSelector(selectExpensesState, (state) => ({
+  totalCount: state.totalCount,
+  currentPage: state.currentPage,
+  pageSize: state.pageSize,
+}));
+
+export const selectExpensesQuery = createSelector(selectExpensesState, (state) => state.query);
+export const selectExpensesListError = createSelector(
   selectExpensesState,
-  (state) => ({
-    totalCount: state.totalCount,
-    currentPage: state.currentPage,
-    pageSize: state.pageSize,
-  })
+  (state) => state.listErrorMessage,
 );

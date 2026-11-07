@@ -1,6 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { catchError, map, of, switchMap } from 'rxjs';
+import { catchError, map, of, switchMap, takeUntil } from 'rxjs';
+
+import { ShopContextActions } from '../../../core/context/shop-context.actions';
 
 import { ExpenseService } from '../services/expense.service';
 import { ExpenseCategoryService } from '../services/expense-category.service';
@@ -15,10 +17,11 @@ export class ExpensesEffects {
   loadExpenses$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ExpensesActions.loadExpensesRequested),
-      switchMap(({ search, page = 1, pageSize = 20 }) =>
-        this.expenseService.getExpenses(search, page, pageSize).pipe(
+      switchMap(({ query, requestId }) =>
+        this.expenseService.getExpenses(query).pipe(
           map((response) =>
             ExpensesActions.loadExpensesSucceeded({
+              requestId,
               expenses: response.items,
               totalCount: response.totalCount,
               page: response.pageNumber,
@@ -26,8 +29,14 @@ export class ExpensesEffects {
             }),
           ),
           catchError((error) =>
-            of(ExpensesActions.loadExpensesFailed({ errorMessage: getExpenseErrorMessage(error) })),
+            of(
+              ExpensesActions.loadExpensesFailed({
+                requestId,
+                errorMessage: getExpenseErrorMessage(error),
+              }),
+            ),
           ),
+          takeUntil(this.actions$.pipe(ofType(ShopContextActions.scopeChanged))),
         ),
       ),
     ),
