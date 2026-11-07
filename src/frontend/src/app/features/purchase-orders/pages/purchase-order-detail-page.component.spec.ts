@@ -151,6 +151,7 @@ describe('PurchaseOrderDetailPageComponent', () => {
                   stockTransaction: 'Stock transaction',
                   voided: 'Voided',
                 },
+                receiving: { recover: 'Recover receipt' },
                 receiveDialog: {
                   title: 'Receive purchase order',
                   line: 'Line',
@@ -176,17 +177,17 @@ describe('PurchaseOrderDetailPageComponent', () => {
                   deleteDraftTitle: 'Delete Draft',
                   deleteDraftBody: 'Are you sure you want to delete this draft purchase order?',
                   cancelReasonLabel: 'Reason (required)',
-                  closeReasonLabel: 'Close reason (required)'
-                }
-              }
-            }
+                  closeReasonLabel: 'Close reason (required)',
+                },
+              },
+            },
           },
           translocoConfig: {
             defaultLang: 'en',
             availableLangs: ['en'],
           },
-          preloadLangs: true
-        })
+          preloadLangs: true,
+        }),
       ],
       providers: [
         { provide: PurchaseOrdersFacade, useValue: facade },
@@ -213,7 +214,10 @@ describe('PurchaseOrderDetailPageComponent', () => {
             upsertEntry: vi.fn(),
           },
         },
-        { provide: InventoryService, useValue: { generateItemBarcode: () => of({ barcode: 'BAR-1' }), addItem: vi.fn() } },
+        {
+          provide: InventoryService,
+          useValue: { generateItemBarcode: () => of({ barcode: 'BAR-1' }), addItem: vi.fn() },
+        },
       ],
     });
   });
@@ -285,8 +289,9 @@ describe('PurchaseOrderDetailPageComponent', () => {
     const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
     fixture.detectChanges();
 
-    const editButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
-      .find((btn) => btn.textContent?.includes('Edit Purchase Order Draft'));
+    const editButton = Array.from(
+      fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+    ).find((btn) => btn.textContent?.includes('Edit Purchase Order Draft'));
     expect(editButton).toBeTruthy();
 
     editButton?.click();
@@ -338,8 +343,9 @@ describe('PurchaseOrderDetailPageComponent', () => {
     const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
     fixture.detectChanges();
 
-    const receiveButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
-      .find((btn) => btn.textContent?.includes('Receive')) as HTMLButtonElement;
+    const receiveButton = Array.from(
+      fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+    ).find((btn) => btn.textContent?.includes('Receive')) as HTMLButtonElement;
     expect(receiveButton).toBeTruthy();
 
     receiveButton.click();
@@ -349,29 +355,33 @@ describe('PurchaseOrderDetailPageComponent', () => {
     expect(dialog).toBeTruthy();
     const component = fixture.componentInstance as unknown as {
       receiveOrder: (purchaseOrderId: string, payload: unknown) => void;
+      showReceiveDialog: () => boolean;
     };
     const payload = {
       referenceNumber: null,
       notes: null,
       receivedAt: null,
-      lines: [{
-        purchaseOrderLineId: 'line-1',
-        barcode: 'IT-PO-001',
-        batchNumber: 'BATCH-1',
-        quantity: 1,
-        totalPurchaseCost: 50,
-        mrp: 60,
-        salesPrice: 55,
-        taxRatePercent: 0,
-        taxIncluded: false,
-        purchaseTaxIncluded: false,
-        expiryDate: null,
-        manufacturingDate: null,
-      }],
+      lines: [
+        {
+          purchaseOrderLineId: 'line-1',
+          barcode: 'IT-PO-001',
+          batchNumber: 'BATCH-1',
+          quantity: 1,
+          totalPurchaseCost: 50,
+          mrp: 60,
+          salesPrice: 55,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          purchaseTaxIncluded: false,
+          expiryDate: null,
+          manufacturingDate: null,
+        },
+      ],
     };
     component.receiveOrder('po-1', payload);
 
     expect(facade.receiveOrder).toHaveBeenCalledWith('po-1', payload);
+    expect(component.showReceiveDialog()).toBe(true);
   });
 
   it('hides cancel form for Placed order when Staff', () => {
@@ -394,9 +404,12 @@ describe('PurchaseOrderDetailPageComponent', () => {
 
     const host = fixture.nativeElement as HTMLElement;
     expect(host.textContent).toContain('Close Order');
-    const input = host.querySelector('input[placeholder="Close reason (required)"]') as HTMLInputElement;
-    const closeBtn = Array.from(host.querySelectorAll('button'))
-      .find((btn) => btn.textContent?.includes('Close Order')) as HTMLButtonElement;
+    const input = host.querySelector(
+      'input[placeholder="Close reason (required)"]',
+    ) as HTMLInputElement;
+    const closeBtn = Array.from(host.querySelectorAll('button')).find((btn) =>
+      btn.textContent?.includes('Close Order'),
+    ) as HTMLButtonElement;
 
     expect(closeBtn.disabled).toBe(true);
     input.value = 'Supplier short shipped';
@@ -411,32 +424,36 @@ describe('PurchaseOrderDetailPageComponent', () => {
     purchaseOrderSignal.set({
       ...selectedOrder,
       status: 'PartiallyReceived',
-      receipts: [{
-        receiptId: 'receipt-1',
-        receiptNumber: 'POR-2026-000001',
-        receivedAt: '2026-06-07T10:00:00Z',
-        referenceNumber: 'REF-1',
-        notes: null,
-        receivedByUserId: 'user-1',
-        receivedByDisplayName: null,
-        lines: [{
-          receiptLineId: 'receipt-line-1',
-          purchaseOrderLineId: 'line-1',
-          itemId: 'item-1',
-          inventoryBatchId: 'batch-1',
-          batchNumber: 'BATCH-1',
-          batchVoided: true,
-          stockTransactionId: 'stock-1',
-          quantity: 1,
-          totalPurchaseCost: 10,
-          unitCost: 10,
-          mrp: 12,
-          salesPrice: 11,
-          taxRatePercent: 5,
-          taxIncluded: false,
-          purchaseTaxIncluded: false,
-        }],
-      }],
+      receipts: [
+        {
+          receiptId: 'receipt-1',
+          receiptNumber: 'POR-2026-000001',
+          receivedAt: '2026-06-07T10:00:00Z',
+          referenceNumber: 'REF-1',
+          notes: null,
+          receivedByUserId: 'user-1',
+          receivedByDisplayName: null,
+          lines: [
+            {
+              receiptLineId: 'receipt-line-1',
+              purchaseOrderLineId: 'line-1',
+              itemId: 'item-1',
+              inventoryBatchId: 'batch-1',
+              batchNumber: 'BATCH-1',
+              batchVoided: true,
+              stockTransactionId: 'stock-1',
+              quantity: 1,
+              totalPurchaseCost: 10,
+              unitCost: 10,
+              mrp: 12,
+              salesPrice: 11,
+              taxRatePercent: 5,
+              taxIncluded: false,
+              purchaseTaxIncluded: false,
+            },
+          ],
+        },
+      ],
     });
 
     const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
@@ -468,16 +485,19 @@ describe('PurchaseOrderDetailPageComponent', () => {
     expect(host.textContent).toContain('Supplier unavailable');
   });
 
-  it.each(['Draft', 'Placed', 'Cancelled'] as const)('shows print action for %s order without mutation permission', (status) => {
-    canManagePurchaseOrdersSignal.set(false);
-    purchaseOrderSignal.set({ ...selectedOrder, status });
+  it.each(['Draft', 'Placed', 'Cancelled'] as const)(
+    'shows print action for %s order without mutation permission',
+    (status) => {
+      canManagePurchaseOrdersSignal.set(false);
+      purchaseOrderSignal.set({ ...selectedOrder, status });
 
-    const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
-    fixture.detectChanges();
+      const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+      fixture.detectChanges();
 
-    const host = fixture.nativeElement as HTMLElement;
-    expect(host.textContent).toContain('Print');
-  });
+      const host = fixture.nativeElement as HTMLElement;
+      expect(host.textContent).toContain('Print');
+    },
+  );
 
   it('opens print route in a new browser tab when print action is clicked', () => {
     canManagePurchaseOrdersSignal.set(false);
@@ -486,8 +506,9 @@ describe('PurchaseOrderDetailPageComponent', () => {
     const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
     fixture.detectChanges();
 
-    const printButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
-      .find((btn) => btn.textContent?.includes('Print'));
+    const printButton = Array.from(
+      fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+    ).find((btn) => btn.textContent?.includes('Print'));
     printButton?.click();
 
     expect(window.open).toHaveBeenCalledWith('/inventory/purchase-orders/po-1/print', '_blank');
@@ -504,8 +525,9 @@ describe('PurchaseOrderDetailPageComponent', () => {
     const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
     fixture.detectChanges();
 
-    const placeButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
-      .find((btn) => btn.textContent?.includes('Place Order'));
+    const placeButton = Array.from(
+      fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+    ).find((btn) => btn.textContent?.includes('Place Order'));
     placeButton?.click();
 
     expect(facade.placeOrder).toHaveBeenCalledWith('po-1');
@@ -520,8 +542,9 @@ describe('PurchaseOrderDetailPageComponent', () => {
     const confirmSpy = vi.spyOn(confirmationService, 'confirm');
     fixture.detectChanges();
 
-    const deleteButton = Array.from(fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>)
-      .find((btn) => btn.textContent?.includes('Delete Draft'));
+    const deleteButton = Array.from(
+      fixture.nativeElement.querySelectorAll('button') as NodeListOf<HTMLButtonElement>,
+    ).find((btn) => btn.textContent?.includes('Delete Draft'));
     deleteButton?.click();
 
     expect(confirmSpy).toHaveBeenCalled();
@@ -544,8 +567,9 @@ describe('PurchaseOrderDetailPageComponent', () => {
 
     const host = fixture.nativeElement as HTMLElement;
     const input = host.querySelector('input') as HTMLInputElement;
-    const cancelBtn = Array.from(host.querySelectorAll('button'))
-      .find((btn) => btn.textContent?.includes('Cancel Order')) as HTMLButtonElement;
+    const cancelBtn = Array.from(host.querySelectorAll('button')).find((btn) =>
+      btn.textContent?.includes('Cancel Order'),
+    ) as HTMLButtonElement;
 
     expect(cancelBtn).toBeTruthy();
     expect(cancelBtn.disabled).toBe(true); // initially disabled since reason is empty
@@ -566,4 +590,19 @@ describe('PurchaseOrderDetailPageComponent', () => {
     cancelBtn.click();
     expect(facade.cancelOrder).toHaveBeenCalledWith('po-1', { reason: 'Ordered wrong items' });
   });
+  it.each(['Received', 'Closed'] as const)(
+    'exposes recovery for a %s PO after reload',
+    (status) => {
+      purchaseOrderSignal.set({ ...selectedOrder, status });
+      const fixture = TestBed.createComponent(PurchaseOrderDetailPageComponent);
+      fixture.detectChanges();
+      const buttons = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')];
+      expect(
+        buttons.find((button) => button.textContent?.includes('Recover receipt')),
+      ).toBeTruthy();
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector('app-receive-purchase-order-dialog'),
+      ).toBeTruthy();
+    },
+  );
 });

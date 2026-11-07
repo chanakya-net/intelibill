@@ -9,11 +9,17 @@ import {
   PurchaseOrderDetail,
   PurchaseOrderListFilters,
   PurchaseOrderListItem,
-  ReceivePurchaseOrderRequest,
 } from '../services/purchase-order.service';
+import {
+  ReceivingCommand,
+  ReceivingCorrelation,
+  ReceivingOperationState,
+  receivingKey,
+} from '../services/receiving.models';
 import { PurchaseOrdersActions } from './purchase-orders.actions';
 import {
   selectAllPurchaseOrders,
+  selectReceivingOperations,
   selectCreateDraftSucceeded,
   selectPurchaseOrdersErrorMessage,
   selectPurchaseOrdersFilters,
@@ -28,14 +34,29 @@ import {
 export class PurchaseOrdersFacade {
   private readonly store = inject(Store);
 
-  readonly orders: Signal<readonly PurchaseOrderListItem[]> = this.store.selectSignal(selectAllPurchaseOrders);
-  readonly isLoadingList: Signal<boolean> = this.store.selectSignal(selectPurchaseOrdersLoadingList);
-  readonly isLoadingDetail: Signal<boolean> = this.store.selectSignal(selectPurchaseOrdersLoadingDetail);
+  readonly receivingOperations = this.store.selectSignal(selectReceivingOperations);
+
+  receivingState(correlation: ReceivingCorrelation): ReceivingOperationState | null {
+    return this.receivingOperations()[receivingKey(correlation)] ?? null;
+  }
+
+  readonly orders: Signal<readonly PurchaseOrderListItem[]> =
+    this.store.selectSignal(selectAllPurchaseOrders);
+  readonly isLoadingList: Signal<boolean> = this.store.selectSignal(
+    selectPurchaseOrdersLoadingList,
+  );
+  readonly isLoadingDetail: Signal<boolean> = this.store.selectSignal(
+    selectPurchaseOrdersLoadingDetail,
+  );
   readonly isSubmitting: Signal<boolean> = this.store.selectSignal(selectPurchaseOrdersSubmitting);
   readonly errorMessage: Signal<string> = this.store.selectSignal(selectPurchaseOrdersErrorMessage);
-  readonly selectedOrder: Signal<PurchaseOrderDetail | null> = this.store.selectSignal(selectSelectedPurchaseOrder);
+  readonly selectedOrder: Signal<PurchaseOrderDetail | null> = this.store.selectSignal(
+    selectSelectedPurchaseOrder,
+  );
   readonly createSucceeded: Signal<boolean> = this.store.selectSignal(selectCreateDraftSucceeded);
-  readonly filters: Signal<PurchaseOrderListFilters> = this.store.selectSignal(selectPurchaseOrdersFilters);
+  readonly filters: Signal<PurchaseOrderListFilters> = this.store.selectSignal(
+    selectPurchaseOrdersFilters,
+  );
   readonly pagination: Signal<{ totalCount: number; pageNumber: number; pageSize: number }> =
     this.store.selectSignal(selectPurchaseOrdersPagination);
 
@@ -43,12 +64,14 @@ export class PurchaseOrdersFacade {
     this.store.dispatch(
       PurchaseOrdersActions.loadPurchaseOrdersRequested({
         filters: { ...DEFAULT_PURCHASE_ORDER_LIST_FILTERS, ...this.filters(), ...filters },
-      })
+      }),
     );
   }
 
   loadDetail(purchaseOrderId: string): void {
-    this.store.dispatch(PurchaseOrdersActions.loadPurchaseOrderDetailRequested({ purchaseOrderId }));
+    this.store.dispatch(
+      PurchaseOrdersActions.loadPurchaseOrderDetailRequested({ purchaseOrderId }),
+    );
   }
 
   createDraft(payload: CreatePurchaseOrderDraftRequest): void {
@@ -75,8 +98,13 @@ export class PurchaseOrdersFacade {
     this.store.dispatch(PurchaseOrdersActions.closeOrderRequested({ purchaseOrderId, payload }));
   }
 
-  receiveOrder(purchaseOrderId: string, payload: ReceivePurchaseOrderRequest): void {
-    this.store.dispatch(PurchaseOrdersActions.receiveOrderRequested({ purchaseOrderId, payload }));
+  receiveOrder(purchaseOrderId: string, command: ReceivingCommand): void {
+    if (command.correlation.purchaseOrderId !== purchaseOrderId) return;
+    this.store.dispatch(PurchaseOrdersActions.receiveOrderRequested(command));
+  }
+
+  checkReceipt(correlation: ReceivingCorrelation): void {
+    this.store.dispatch(PurchaseOrdersActions.checkReceiptRequested({ correlation }));
   }
 
   clearDetail(): void {

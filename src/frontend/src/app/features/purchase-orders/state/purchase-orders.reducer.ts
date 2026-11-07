@@ -9,6 +9,8 @@ import {
 } from '../services/purchase-order.service';
 import { PurchaseOrdersActions } from './purchase-orders.actions';
 
+import { ReceivingOperationState, receivingKey } from '../services/receiving.models';
+
 export const purchaseOrdersFeatureKey = 'purchaseOrders';
 
 export const purchaseOrdersAdapter = createEntityAdapter<PurchaseOrderListItem>({
@@ -16,10 +18,12 @@ export const purchaseOrdersAdapter = createEntityAdapter<PurchaseOrderListItem>(
 });
 
 export interface PurchaseOrdersState extends EntityState<PurchaseOrderListItem> {
+  readonly receiving: Readonly<Record<string, ReceivingOperationState>>;
   readonly loadingList: boolean;
   readonly loadingDetail: boolean;
   readonly submitting: boolean;
   readonly errorMessage: string;
+  readonly detailPurchaseOrderId: string | null;
   readonly selectedOrder: PurchaseOrderDetail | null;
   readonly createSucceeded: boolean;
   readonly totalCount: number;
@@ -29,11 +33,13 @@ export interface PurchaseOrdersState extends EntityState<PurchaseOrderListItem> 
 }
 
 const initialState: PurchaseOrdersState = purchaseOrdersAdapter.getInitialState({
+  receiving: {},
   loadingList: false,
   loadingDetail: false,
   submitting: false,
   errorMessage: '',
   selectedOrder: null,
+  detailPurchaseOrderId: null,
   createSucceeded: false,
   totalCount: 0,
   currentPage: 1,
@@ -81,7 +87,7 @@ export const purchaseOrdersReducer = createReducer(
         page: result.pageNumber,
         pageSize: result.pageSize,
       },
-    })
+    }),
   ),
   on(PurchaseOrdersActions.loadPurchaseOrdersFailed, (state, { errorMessage }) => ({
     ...state,
@@ -89,17 +95,23 @@ export const purchaseOrdersReducer = createReducer(
     errorMessage,
   })),
 
-  on(PurchaseOrdersActions.loadPurchaseOrderDetailRequested, (state) => ({
+  on(PurchaseOrdersActions.loadPurchaseOrderDetailRequested, (state, { purchaseOrderId }) => ({
     ...state,
     loadingDetail: true,
-    selectedOrder: null,
+    detailPurchaseOrderId: purchaseOrderId,
+    selectedOrder:
+      state.selectedOrder?.purchaseOrderId === purchaseOrderId ? state.selectedOrder : null,
     errorMessage: '',
   })),
-  on(PurchaseOrdersActions.loadPurchaseOrderDetailSucceeded, (state, { order }) => ({
-    ...state,
-    loadingDetail: false,
-    selectedOrder: order,
-  })),
+  on(PurchaseOrdersActions.loadPurchaseOrderDetailSucceeded, (state, { order }) =>
+    state.detailPurchaseOrderId !== order.purchaseOrderId
+      ? state
+      : {
+          ...state,
+          loadingDetail: false,
+          selectedOrder: order,
+        },
+  ),
   on(PurchaseOrdersActions.loadPurchaseOrderDetailFailed, (state, { errorMessage }) => ({
     ...state,
     loadingDetail: false,
@@ -135,7 +147,7 @@ export const purchaseOrdersReducer = createReducer(
       ...state,
       submitting: false,
       selectedOrder: order,
-    })
+    }),
   ),
   on(PurchaseOrdersActions.updateDraftFailed, (state, { errorMessage }) => ({
     ...state,
@@ -153,7 +165,7 @@ export const purchaseOrdersReducer = createReducer(
       ...state,
       submitting: false,
       selectedOrder: order,
-    })
+    }),
   ),
   on(PurchaseOrdersActions.placeOrderFailed, (state, { errorMessage }) => ({
     ...state,
@@ -171,7 +183,7 @@ export const purchaseOrdersReducer = createReducer(
       ...state,
       submitting: false,
       selectedOrder: null,
-    })
+    }),
   ),
   on(PurchaseOrdersActions.deleteDraftFailed, (state, { errorMessage }) => ({
     ...state,
@@ -189,7 +201,7 @@ export const purchaseOrdersReducer = createReducer(
       ...state,
       submitting: false,
       selectedOrder: order,
-    })
+    }),
   ),
   on(PurchaseOrdersActions.cancelOrderFailed, (state, { errorMessage }) => ({
     ...state,
@@ -207,7 +219,7 @@ export const purchaseOrdersReducer = createReducer(
       ...state,
       submitting: false,
       selectedOrder: order,
-    })
+    }),
   ),
   on(PurchaseOrdersActions.closeOrderFailed, (state, { errorMessage }) => ({
     ...state,
@@ -215,27 +227,90 @@ export const purchaseOrdersReducer = createReducer(
     errorMessage,
   })),
 
-  on(PurchaseOrdersActions.receiveOrderRequested, (state) => ({
+  on(PurchaseOrdersActions.receiveOrderRequested, (state, { correlation }) => ({
     ...state,
-    submitting: true,
-    errorMessage: '',
+    receiving: {
+      ...state.receiving,
+      [receivingKey(correlation)]: {
+        correlation,
+        status: 'sending' as const,
+        errorMessage: '',
+        rowErrors: [],
+      },
+    },
   })),
-  on(PurchaseOrdersActions.receiveOrderSucceeded, (state, { order }) =>
-    purchaseOrdersAdapter.upsertOne(toListItem(order), {
-      ...state,
-      submitting: false,
-      selectedOrder: order,
-    })
+  on(PurchaseOrdersActions.checkReceiptRequested, (state, { correlation }) => ({
+    ...state,
+    receiving: {
+      ...state.receiving,
+      [receivingKey(correlation)]: {
+        correlation,
+        status: 'checking' as const,
+        errorMessage: '',
+        rowErrors: [],
+      },
+    },
+  })),
+  on(
+    PurchaseOrdersActions.receiveOrderSucceeded,
+    PurchaseOrdersActions.checkReceiptSucceeded,
+    (state, { correlation }) => {
+      if (!state.receiving[receivingKey(correlation)]) return state;
+      return {
+        ...state,
+        receiving: {
+          ...state.receiving,
+          [receivingKey(correlation)]: {
+            correlation,
+            status: 'confirmed' as const,
+            errorMessage: '',
+            rowErrors: [],
+          },
+        },
+      };
+    },
   ),
-  on(PurchaseOrdersActions.receiveOrderFailed, (state, { errorMessage }) => ({
-    ...state,
-    submitting: false,
-    errorMessage,
-  })),
+  on(
+    PurchaseOrdersActions.receiveOrderFailed,
+    (state, { correlation, outcome, errorMessage, rowErrors }) => {
+      if (!state.receiving[receivingKey(correlation)]) return state;
+      return {
+        ...state,
+        receiving: {
+          ...state.receiving,
+          [receivingKey(correlation)]: { correlation, status: outcome, errorMessage, rowErrors },
+        },
+      };
+    },
+  ),
+  on(
+    PurchaseOrdersActions.checkReceiptMissing,
+    PurchaseOrdersActions.checkReceiptFailed,
+    (state, action) => {
+      const { correlation } = action;
+      if (!state.receiving[receivingKey(correlation)]) return state;
+      return {
+        ...state,
+        receiving: {
+          ...state.receiving,
+          [receivingKey(correlation)]: {
+            correlation,
+            status: 'unknown' as const,
+            errorMessage:
+              'errorMessage' in action
+                ? action.errorMessage
+                : 'purchaseOrders.receiving.lookupMissing',
+            rowErrors: [],
+          },
+        },
+      };
+    },
+  ),
 
   on(PurchaseOrdersActions.clearDetail, (state) => ({
     ...state,
     selectedOrder: null,
+    detailPurchaseOrderId: null,
     loadingDetail: false,
   })),
   on(PurchaseOrdersActions.clearError, (state) => ({
@@ -245,7 +320,7 @@ export const purchaseOrdersReducer = createReducer(
   on(PurchaseOrdersActions.resetListFilters, (state) => ({
     ...state,
     filters: DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
-  }))
+  })),
 );
 
 export const purchaseOrdersFeature = createFeature({

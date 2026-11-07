@@ -38,4 +38,7 @@ public enum FinancialOperationType
 
     /// <summary>One reopening of a closed monthly posting period.</summary>
     PostingPeriodReopen = 12,
+
+    /// <summary>One atomic purchase order receipt, including all of its lots.</summary>
+    PurchaseOrderReceipt = 13,
 }

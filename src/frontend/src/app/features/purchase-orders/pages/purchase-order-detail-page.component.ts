@@ -14,11 +14,8 @@ import { TableModule } from 'primeng/table';
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import { ReceivePurchaseOrderDialogComponent } from '../components/receive-purchase-order-dialog.component';
 import { PurchaseOrderReceiptHistoryComponent } from '../components/purchase-order-receipt-history.component';
-import {
-  PurchaseOrderDetail,
-  PurchaseOrderStatus,
-  ReceivePurchaseOrderRequest,
-} from '../services/purchase-order.service';
+import { PurchaseOrderDetail, PurchaseOrderStatus } from '../services/purchase-order.service';
+import type { ReceivingCommand } from '../services/receiving.models';
 import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
 import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page.component';
 
@@ -78,10 +75,30 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
     tone: string;
   }> {
     return [
-      { labelKey: 'purchaseOrders.lineCount', value: order.lines.length, variant: 'count', tone: 'amber' },
-      { labelKey: 'purchaseOrders.summary.receivedProgress', value: 0, variant: 'progress', tone: 'terracotta' },
-      { labelKey: 'purchaseOrders.expectedTotal', value: order.expectedTotal, variant: 'money', tone: 'sage' },
-      { labelKey: 'purchaseOrders.receipts.title', value: order.receipts?.length ?? 0, variant: 'count', tone: 'ink' },
+      {
+        labelKey: 'purchaseOrders.lineCount',
+        value: order.lines.length,
+        variant: 'count',
+        tone: 'amber',
+      },
+      {
+        labelKey: 'purchaseOrders.summary.receivedProgress',
+        value: 0,
+        variant: 'progress',
+        tone: 'terracotta',
+      },
+      {
+        labelKey: 'purchaseOrders.expectedTotal',
+        value: order.expectedTotal,
+        variant: 'money',
+        tone: 'sage',
+      },
+      {
+        labelKey: 'purchaseOrders.receipts.title',
+        value: order.receipts?.length ?? 0,
+        variant: 'count',
+        tone: 'ink',
+      },
     ];
   }
 
@@ -145,8 +162,7 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
     this.closeReason = '';
   }
 
-  protected receiveOrder(purchaseOrderId: string, payload: ReceivePurchaseOrderRequest): void {
+  protected receiveOrder(purchaseOrderId: string, payload: ReceivingCommand): void {
     this.facade.receiveOrder(purchaseOrderId, payload);
-    this.showReceiveDialog.set(false);
   }
 }

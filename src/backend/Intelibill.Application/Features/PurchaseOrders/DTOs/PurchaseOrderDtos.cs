@@ -1,4 +1,5 @@
 using Intelibill.Domain.Enums;
+using System.Text.Json.Serialization;
 
 namespace Intelibill.Application.Features.PurchaseOrders.DTOs;
 
@@ -27,7 +28,8 @@ public sealed record PurchaseOrderReceiptLineDto(
     decimal SalesPrice,
     decimal TaxRatePercent,
     bool TaxIncluded,
-    bool PurchaseTaxIncluded);
+    bool PurchaseTaxIncluded,
+    Guid? ClientLineId = null);
 
 public sealed record PurchaseOrderReceiptDto(
     Guid ReceiptId,
@@ -60,7 +62,7 @@ public sealed record PurchaseOrderPagedResultDto(
 public sealed record PurchaseOrderDetailDto(
     Guid PurchaseOrderId,
     string PurchaseOrderNumber,
-    PurchaseOrderStatus Status,
+    [property: JsonConverter(typeof(JsonStringEnumConverter<PurchaseOrderStatus>))] PurchaseOrderStatus Status,
     Guid? SupplierId,
     DateOnly? OrderDate,
     DateOnly? ExpectedDeliveryDate,

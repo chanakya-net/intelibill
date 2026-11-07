@@ -379,3 +379,46 @@ with the same search/status/page size. Page 1 with no matches publishes normally
 Matching expenses counts the dataset; active amount, active/voided counts, and rows
 explicitly describe this page in all nine locales. Active amount continues excluding
 voided loaded rows and does not redefine accounting profit.
+
+
+## Purchase Receiving Lots and Recovery
+
+Both `/inventory/purchase-orders` and its detail route open the production receiving dialog.
+A PO line may have several physical lot rows, each with a stable client UUID. Grouped remaining
+quantity and duplicate item/trimmed batch validation apply across rows; PO quantities remain
+whole units. Receipt history renders one row per immutable receipt line with batch navigation,
+original quantity/cost and stock-movement source IDs. Batch labels remain current batch metadata.
+
+`ReceivingDraftService` stores one IndexedDB record in `intelibill-purchase-receiving` keyed by
+`[userId, shopId, purchaseOrderId]`. Editable fields and the exact pending request are claimed in
+one transaction; dispatch waits for transaction completion. Storage failure prevents sending.
+Revisions reject stale writers, and another tab cannot overwrite a pending/confirmed operation.
+Rows bind directly to their FormGroup so replacing/rehydrating the array cannot leave rendered
+inputs writing detached controls. PO refreshes update availability without rebuilding active input.
+
+Definitive rejection preserves editable values and maps row errors back to stable client identity.
+Sending restored after reload becomes unknown. Transport loss, 429/5xx, stale scope, payload
+mismatch, lookup errors/misses and denied recovery remain frozen and retain the same operation ID,
+client IDs and serialized payload. Check performs read-only operation lookup; Retry sends only the
+saved request. A miss never permits a fresh operation. Confirmation checks key and target, writes
+a confirmed tombstone plus immutable operation proof before cleanup, and refreshes live PO state
+because the replay response may contain an older PO snapshot.
+
+Receiving uses a controlled header Close button and Cancel action: both await the same async
+flush before hiding. Native PrimeNG close, Escape and mask dismissal are disabled. A failed closing
+flush keeps the dialog and unsaved fields visible/editable; restoring storage permits safe close
+and reopen. The custom header preserves PrimeNG's labelled title and translated close name.
+
+Receiving flushes on close/leave, detaches under its captured owner on scope transition, uses
+`beginMutation()` and `REQUEST_SCOPE`, and correlates outcomes by owner + epoch + PO + operation.
+An unrelated or late response cannot close or clear the active draft. Received and Closed orders
+retain a Recover receipt entry point even when no quantity remains. Returning to the original
+owner/shop restores pending work. Failed cleanup retains confirmed proof; it never resurrects an
+editable receipt. Do not delete these records or operation receipts during rollback. Rollout order
+is additive migration, replay-capable API, then web. Mobile and supplier-return UI are outside scope.
+
+Release coverage uses the built Angular app, real IndexedDB and deterministic API fixtures in
+`tests/ui-audit/release/purchase-receiving.spec.ts`. Fixture ledger counts establish UI behavior;
+`PurchaseOrdersControllerTests` against real PostgreSQL establishes atomic posting, replay and
+sale/cost-correction lineage. Build and run `bun run audit:ui:release` to exercise receiving and the
+existing protected-cache-isolation release scenarios together.

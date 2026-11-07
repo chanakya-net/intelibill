@@ -11,6 +11,8 @@ import {
   ReceivePurchaseOrderRequest,
 } from '../services/purchase-order.service';
 
+import type { ReceivingCorrelation, ReceivingRowError } from '../services/receiving.models';
+
 export const PurchaseOrdersActions = createActionGroup({
   source: 'PurchaseOrders',
   events: {
@@ -26,7 +28,10 @@ export const PurchaseOrdersActions = createActionGroup({
     'Create Draft Succeeded': props<{ order: PurchaseOrderDetail }>(),
     'Create Draft Failed': props<{ errorMessage: string }>(),
 
-    'Update Draft Requested': props<{ purchaseOrderId: string; payload: CreatePurchaseOrderDraftRequest }>(),
+    'Update Draft Requested': props<{
+      purchaseOrderId: string;
+      payload: CreatePurchaseOrderDraftRequest;
+    }>(),
     'Update Draft Succeeded': props<{ order: PurchaseOrderDetail }>(),
     'Update Draft Failed': props<{ errorMessage: string }>(),
 
@@ -38,17 +43,36 @@ export const PurchaseOrdersActions = createActionGroup({
     'Delete Draft Succeeded': props<{ purchaseOrderId: string }>(),
     'Delete Draft Failed': props<{ errorMessage: string }>(),
 
-    'Cancel Order Requested': props<{ purchaseOrderId: string; payload: CancelPurchaseOrderRequest }>(),
+    'Cancel Order Requested': props<{
+      purchaseOrderId: string;
+      payload: CancelPurchaseOrderRequest;
+    }>(),
     'Cancel Order Succeeded': props<{ order: PurchaseOrderDetail }>(),
     'Cancel Order Failed': props<{ errorMessage: string }>(),
 
-    'Close Order Requested': props<{ purchaseOrderId: string; payload: ClosePurchaseOrderRequest }>(),
+    'Close Order Requested': props<{
+      purchaseOrderId: string;
+      payload: ClosePurchaseOrderRequest;
+    }>(),
     'Close Order Succeeded': props<{ order: PurchaseOrderDetail }>(),
     'Close Order Failed': props<{ errorMessage: string }>(),
 
-    'Receive Order Requested': props<{ purchaseOrderId: string; payload: ReceivePurchaseOrderRequest }>(),
-    'Receive Order Succeeded': props<{ order: PurchaseOrderDetail }>(),
-    'Receive Order Failed': props<{ errorMessage: string }>(),
+    'Receive Order Requested': props<{
+      correlation: ReceivingCorrelation;
+      payload: ReceivePurchaseOrderRequest;
+      recovery: boolean;
+    }>(),
+    'Receive Order Succeeded': props<{ correlation: ReceivingCorrelation }>(),
+    'Receive Order Failed': props<{
+      correlation: ReceivingCorrelation;
+      outcome: 'rejected' | 'unknown';
+      errorMessage: string;
+      rowErrors: readonly ReceivingRowError[];
+    }>(),
+    'Check Receipt Requested': props<{ correlation: ReceivingCorrelation }>(),
+    'Check Receipt Succeeded': props<{ correlation: ReceivingCorrelation }>(),
+    'Check Receipt Missing': props<{ correlation: ReceivingCorrelation }>(),
+    'Check Receipt Failed': props<{ correlation: ReceivingCorrelation; errorMessage: string }>(),
 
     'Clear Detail': emptyProps(),
     'Clear Error': emptyProps(),

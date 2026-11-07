@@ -1,4 +1,8 @@
-import { purchaseOrdersReducer, PurchaseOrdersState, purchaseOrdersAdapter } from './purchase-orders.reducer';
+import {
+  purchaseOrdersReducer,
+  PurchaseOrdersState,
+  purchaseOrdersAdapter,
+} from './purchase-orders.reducer';
 import { PurchaseOrdersActions } from './purchase-orders.actions';
 import {
   DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
@@ -7,11 +11,13 @@ import {
 } from '../services/purchase-order.service';
 
 const initialState: PurchaseOrdersState = purchaseOrdersAdapter.getInitialState({
+  receiving: {},
   loadingList: false,
   loadingDetail: false,
   submitting: false,
   errorMessage: '',
   selectedOrder: null,
+  detailPurchaseOrderId: null,
   createSucceeded: false,
   totalCount: 0,
   currentPage: 1,
@@ -54,7 +60,7 @@ describe('purchaseOrdersReducer', () => {
   it('sets loadingList on load requested', () => {
     const next = purchaseOrdersReducer(
       initialState,
-      PurchaseOrdersActions.loadPurchaseOrdersRequested({ filters: { search: 'rice', page: 1 } })
+      PurchaseOrdersActions.loadPurchaseOrdersRequested({ filters: { search: 'rice', page: 1 } }),
     );
     expect(next.loadingList).toBe(true);
     expect(next.errorMessage).toBe('');
@@ -66,7 +72,7 @@ describe('purchaseOrdersReducer', () => {
       { ...initialState, loadingList: true },
       PurchaseOrdersActions.loadPurchaseOrdersSucceeded({
         result: { items: [mockListItem], totalCount: 1, pageNumber: 2, pageSize: 50 },
-      })
+      }),
     );
     expect(next.loadingList).toBe(false);
     const ids = next.ids as string[];
@@ -99,7 +105,7 @@ describe('purchaseOrdersReducer', () => {
           pageNumber: 1,
           pageSize: 20,
         },
-      })
+      }),
     );
 
     expect(next.ids).toEqual(['po-open', 'po-closed']);
@@ -108,7 +114,7 @@ describe('purchaseOrdersReducer', () => {
   it('sets error on load failed', () => {
     const next = purchaseOrdersReducer(
       initialState,
-      PurchaseOrdersActions.loadPurchaseOrdersFailed({ errorMessage: 'err' })
+      PurchaseOrdersActions.loadPurchaseOrdersFailed({ errorMessage: 'err' }),
     );
     expect(next.errorMessage).toBe('err');
     expect(next.loadingList).toBe(false);
@@ -117,7 +123,7 @@ describe('purchaseOrdersReducer', () => {
   it('sets loadingDetail on detail requested', () => {
     const next = purchaseOrdersReducer(
       initialState,
-      PurchaseOrdersActions.loadPurchaseOrderDetailRequested({ purchaseOrderId: 'po1' })
+      PurchaseOrdersActions.loadPurchaseOrderDetailRequested({ purchaseOrderId: 'po1' }),
     );
     expect(next.loadingDetail).toBe(true);
     expect(next.selectedOrder).toBeNull();
@@ -125,8 +131,8 @@ describe('purchaseOrdersReducer', () => {
 
   it('sets selectedOrder on detail succeeded', () => {
     const next = purchaseOrdersReducer(
-      { ...initialState, loadingDetail: true },
-      PurchaseOrdersActions.loadPurchaseOrderDetailSucceeded({ order: mockDetail })
+      { ...initialState, loadingDetail: true, detailPurchaseOrderId: mockDetail.purchaseOrderId },
+      PurchaseOrdersActions.loadPurchaseOrderDetailSucceeded({ order: mockDetail }),
     );
     expect(next.loadingDetail).toBe(false);
     expect(next.selectedOrder).toEqual(mockDetail);
@@ -135,7 +141,7 @@ describe('purchaseOrdersReducer', () => {
   it('sets createSucceeded on create succeeded', () => {
     const next = purchaseOrdersReducer(
       { ...initialState, submitting: true },
-      PurchaseOrdersActions.createDraftSucceeded({ order: mockDetail })
+      PurchaseOrdersActions.createDraftSucceeded({ order: mockDetail }),
     );
     expect(next.submitting).toBe(false);
     expect(next.createSucceeded).toBe(true);
@@ -145,7 +151,17 @@ describe('purchaseOrdersReducer', () => {
   it('sets submitting on update requested', () => {
     const next = purchaseOrdersReducer(
       initialState,
-      PurchaseOrdersActions.updateDraftRequested({ purchaseOrderId: 'po1', payload: { supplierId: null, orderDate: null, expectedDeliveryDate: null, supplierReferenceNumber: null, notes: 'Updated', lines: [] } })
+      PurchaseOrdersActions.updateDraftRequested({
+        purchaseOrderId: 'po1',
+        payload: {
+          supplierId: null,
+          orderDate: null,
+          expectedDeliveryDate: null,
+          supplierReferenceNumber: null,
+          notes: 'Updated',
+          lines: [],
+        },
+      }),
     );
     expect(next.submitting).toBe(true);
   });
@@ -154,7 +170,7 @@ describe('purchaseOrdersReducer', () => {
     const updatedDetail: PurchaseOrderDetail = { ...mockDetail, notes: 'Updated notes' };
     const next = purchaseOrdersReducer(
       { ...initialState, submitting: true },
-      PurchaseOrdersActions.updateDraftSucceeded({ order: updatedDetail })
+      PurchaseOrdersActions.updateDraftSucceeded({ order: updatedDetail }),
     );
     expect(next.submitting).toBe(false);
     expect(next.selectedOrder).toEqual(updatedDetail);
@@ -165,7 +181,7 @@ describe('purchaseOrdersReducer', () => {
   it('clears detail on clearDetail', () => {
     const next = purchaseOrdersReducer(
       { ...initialState, selectedOrder: mockDetail },
-      PurchaseOrdersActions.clearDetail()
+      PurchaseOrdersActions.clearDetail(),
     );
     expect(next.selectedOrder).toBeNull();
   });
@@ -183,7 +199,7 @@ describe('purchaseOrdersReducer', () => {
           pageSize: 50,
         },
       },
-      PurchaseOrdersActions.resetListFilters()
+      PurchaseOrdersActions.resetListFilters(),
     );
 
     expect(next.filters).toEqual(DEFAULT_PURCHASE_ORDER_LIST_FILTERS);
@@ -192,17 +208,21 @@ describe('purchaseOrdersReducer', () => {
   it('sets submitting on place requested', () => {
     const next = purchaseOrdersReducer(
       initialState,
-      PurchaseOrdersActions.placeOrderRequested({ purchaseOrderId: 'po1' })
+      PurchaseOrdersActions.placeOrderRequested({ purchaseOrderId: 'po1' }),
     );
     expect(next.submitting).toBe(true);
     expect(next.errorMessage).toBe('');
   });
 
   it('updates selectedOrder and upserts in adapter on place succeeded', () => {
-    const placedDetail: PurchaseOrderDetail = { ...mockDetail, status: 'Placed', cancellationReason: null };
+    const placedDetail: PurchaseOrderDetail = {
+      ...mockDetail,
+      status: 'Placed',
+      cancellationReason: null,
+    };
     const next = purchaseOrdersReducer(
       { ...initialState, submitting: true },
-      PurchaseOrdersActions.placeOrderSucceeded({ order: placedDetail })
+      PurchaseOrdersActions.placeOrderSucceeded({ order: placedDetail }),
     );
     expect(next.submitting).toBe(false);
     expect(next.selectedOrder?.status).toBe('Placed');
@@ -212,7 +232,7 @@ describe('purchaseOrdersReducer', () => {
   it('sets error on place failed', () => {
     const next = purchaseOrdersReducer(
       { ...initialState, submitting: true },
-      PurchaseOrdersActions.placeOrderFailed({ errorMessage: 'err.place' })
+      PurchaseOrdersActions.placeOrderFailed({ errorMessage: 'err.place' }),
     );
     expect(next.submitting).toBe(false);
     expect(next.errorMessage).toBe('err.place');
@@ -224,77 +244,98 @@ describe('purchaseOrdersReducer', () => {
       selectedOrder: mockDetail,
       submitting: true,
     });
-    const next = purchaseOrdersReducer(stateWithPo, PurchaseOrdersActions.deleteDraftSucceeded({ purchaseOrderId: 'po1' }));
+    const next = purchaseOrdersReducer(
+      stateWithPo,
+      PurchaseOrdersActions.deleteDraftSucceeded({ purchaseOrderId: 'po1' }),
+    );
     expect(next.submitting).toBe(false);
     expect(next.selectedOrder).toBeNull();
     expect(next.ids).not.toContain('po1');
   });
 
   it('updates selectedOrder on cancel succeeded', () => {
-    const cancelledDetail: PurchaseOrderDetail = { ...mockDetail, status: 'Cancelled', cancellationReason: 'Too late', };
+    const cancelledDetail: PurchaseOrderDetail = {
+      ...mockDetail,
+      status: 'Cancelled',
+      cancellationReason: 'Too late',
+    };
     const next = purchaseOrdersReducer(
       { ...initialState, submitting: true },
-      PurchaseOrdersActions.cancelOrderSucceeded({ order: cancelledDetail })
+      PurchaseOrdersActions.cancelOrderSucceeded({ order: cancelledDetail }),
     );
     expect(next.submitting).toBe(false);
     expect(next.selectedOrder?.status).toBe('Cancelled');
     expect(next.selectedOrder?.cancellationReason).toBe('Too late');
   });
 
-  it('sets submitting on receive requested', () => {
-    const next = purchaseOrdersReducer(
+  it('tracks receiving by owner, PO, epoch and operation and ignores unrelated completions', () => {
+    const correlation = {
+      scope: { userId: 'u', shopId: 's', epoch: 1 },
+      purchaseOrderId: 'po1',
+      operationId: 'op1',
+    };
+    const requested = purchaseOrdersReducer(
       initialState,
       PurchaseOrdersActions.receiveOrderRequested({
-        purchaseOrderId: 'po1',
-        payload: {
-          referenceNumber: null,
-          notes: null,
-          receivedAt: null,
-          lines: [{
-            purchaseOrderLineId: 'line-1',
-            barcode: 'IT-PO-001',
-            batchNumber: 'BATCH-1',
-            quantity: 1,
-            totalPurchaseCost: 10,
-            mrp: 12,
-            salesPrice: 11,
-            taxRatePercent: 0,
-            taxIncluded: false,
-            purchaseTaxIncluded: false,
-            expiryDate: null,
-            manufacturingDate: null,
-          }],
-        },
-      })
+        correlation,
+        payload: { referenceNumber: null, notes: null, receivedAt: null, lines: [] },
+        recovery: false,
+      }),
     );
-    expect(next.submitting).toBe(true);
-    expect(next.errorMessage).toBe('');
+    expect(Object.values(requested.receiving)[0].status).toBe('sending');
+    expect(
+      purchaseOrdersReducer(
+        requested,
+        PurchaseOrdersActions.receiveOrderSucceeded({
+          correlation: { ...correlation, operationId: 'other' },
+        }),
+      ),
+    ).toBe(requested);
+    expect(
+      purchaseOrdersReducer(
+        requested,
+        PurchaseOrdersActions.receiveOrderSucceeded({
+          correlation: { ...correlation, scope: { ...correlation.scope, epoch: 2 } },
+        }),
+      ),
+    ).toBe(requested);
+    const confirmed = purchaseOrdersReducer(
+      requested,
+      PurchaseOrdersActions.receiveOrderSucceeded({ correlation }),
+    );
+    expect(Object.values(confirmed.receiving)[0].status).toBe('confirmed');
+    expect(confirmed.selectedOrder).toBeNull(); // Receipt replay snapshots never replace live PO state.
+    const reset = purchaseOrdersReducer(undefined, { type: 'reset' });
+    expect(
+      purchaseOrdersReducer(reset, PurchaseOrdersActions.receiveOrderSucceeded({ correlation })),
+    ).toBe(reset);
   });
 
-  it('updates selectedOrder and upserts list entity on receive succeeded', () => {
-    const receivedDetail: PurchaseOrderDetail = {
-      ...mockDetail,
-      status: 'PartiallyReceived',
-      receivedQuantity: 1,
-      lines: [{ lineId: 'line-1', itemId: 'item-1', description: 'Widget', expectedQuantity: 2, receivedQuantity: 1, remainingQuantity: 1, unitCost: 50, lineTotal: 100 }],
+  it('keeps validation errors on the correlated receipt without completing another mutation', () => {
+    const correlation = {
+      scope: { userId: 'u', shopId: 's', epoch: 1 },
+      purchaseOrderId: 'po1',
+      operationId: 'op1',
     };
-    const next = purchaseOrdersReducer(
+    const state = purchaseOrdersReducer(
       { ...initialState, submitting: true },
-      PurchaseOrdersActions.receiveOrderSucceeded({ order: receivedDetail })
+      PurchaseOrdersActions.receiveOrderRequested({
+        correlation,
+        payload: { referenceNumber: null, notes: null, receivedAt: null, lines: [] },
+        recovery: false,
+      }),
     );
-    expect(next.submitting).toBe(false);
-    expect(next.selectedOrder).toEqual(receivedDetail);
-    expect(next.entities['po1']?.status).toBe('PartiallyReceived');
-    expect(next.entities['po1']?.receivedQuantity).toBe(1);
-  });
-
-  it('sets error on receive failed', () => {
-    const next = purchaseOrdersReducer(
-      { ...initialState, submitting: true },
-      PurchaseOrdersActions.receiveOrderFailed({ errorMessage: 'purchaseOrders.errors.unableToReceive' })
+    const failed = purchaseOrdersReducer(
+      state,
+      PurchaseOrdersActions.receiveOrderFailed({
+        correlation,
+        outcome: 'rejected',
+        errorMessage: 'purchaseOrders.errors.unableToReceive',
+        rowErrors: [],
+      }),
     );
-    expect(next.submitting).toBe(false);
-    expect(next.errorMessage).toBe('purchaseOrders.errors.unableToReceive');
+    expect(failed.submitting).toBe(true);
+    expect(Object.values(failed.receiving)[0].status).toBe('rejected');
   });
 
   it('preserves supplierName, supplierReference, and receivedQuantity in list entity after update/place/cancel', () => {
@@ -304,11 +345,11 @@ describe('purchaseOrdersReducer', () => {
       supplierReference: 'SUP-REF-001',
       receivedQuantity: 5,
     };
-    
+
     // Test update draft
     const state1 = purchaseOrdersReducer(
       initialState,
-      PurchaseOrdersActions.updateDraftSucceeded({ order: detail })
+      PurchaseOrdersActions.updateDraftSucceeded({ order: detail }),
     );
     const item1 = state1.entities['po1'];
     expect(item1?.supplierName).toBe('Acme Traders');
@@ -318,7 +359,7 @@ describe('purchaseOrdersReducer', () => {
     // Test place order
     const state2 = purchaseOrdersReducer(
       initialState,
-      PurchaseOrdersActions.placeOrderSucceeded({ order: { ...detail, status: 'Placed' } })
+      PurchaseOrdersActions.placeOrderSucceeded({ order: { ...detail, status: 'Placed' } }),
     );
     const item2 = state2.entities['po1'];
     expect(item2?.supplierName).toBe('Acme Traders');
@@ -328,11 +369,43 @@ describe('purchaseOrdersReducer', () => {
     // Test cancel order
     const state3 = purchaseOrdersReducer(
       initialState,
-      PurchaseOrdersActions.cancelOrderSucceeded({ order: { ...detail, status: 'Cancelled', cancellationReason: 'reason' } })
+      PurchaseOrdersActions.cancelOrderSucceeded({
+        order: { ...detail, status: 'Cancelled', cancellationReason: 'reason' },
+      }),
     );
     const item3 = state3.entities['po1'];
     expect(item3?.supplierName).toBe('Acme Traders');
     expect(item3?.supplierReference).toBe('SUP-REF-001');
     expect(item3?.receivedQuantity).toBe(5);
+  });
+  it('keeps the active order mounted during live detail refresh so receipt confirmation can close its dialog', () => {
+    const state = { ...initialState, selectedOrder: mockDetail };
+    const next = purchaseOrdersReducer(
+      state,
+      PurchaseOrdersActions.loadPurchaseOrderDetailRequested({
+        purchaseOrderId: mockDetail.purchaseOrderId,
+      }),
+    );
+    expect(next.selectedOrder).toBe(mockDetail);
+    expect(next.loadingDetail).toBe(true);
+    const other = purchaseOrdersReducer(
+      state,
+      PurchaseOrdersActions.loadPurchaseOrderDetailRequested({ purchaseOrderId: 'different-po' }),
+    );
+    expect(other.selectedOrder).toBeNull();
+  });
+  it('ignores a background A detail result while B owns the active detail request', () => {
+    const requested = purchaseOrdersReducer(
+      initialState,
+      PurchaseOrdersActions.loadPurchaseOrderDetailRequested({ purchaseOrderId: 'poB' }),
+    );
+    expect(
+      purchaseOrdersReducer(
+        requested,
+        PurchaseOrdersActions.loadPurchaseOrderDetailSucceeded({
+          order: { ...mockDetail, purchaseOrderId: 'poA' },
+        }),
+      ),
+    ).toBe(requested);
   });
 });

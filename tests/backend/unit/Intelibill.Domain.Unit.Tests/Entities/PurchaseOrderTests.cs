@@ -217,4 +217,19 @@ public class PurchaseOrderTests
 
         Assert.Throws<InvalidOperationException>(() => po.Cancel("Too late"));
     }
+    [Fact]
+    public void ReceiptLots_PreserveSuppliedIdentityAndGenerateLegacyFallback()
+    {
+        var receipt = PurchaseOrderReceipt.Create(Guid.NewGuid(), Guid.NewGuid(), "POR-1", DateTimeOffset.UtcNow, null, null, Guid.NewGuid());
+        var poLineId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var clientId = Guid.NewGuid();
+        var first = receipt.AddLine(poLineId, itemId, Guid.NewGuid(), Guid.NewGuid(), 4, 40, 30, 20, 5, false, true, clientId);
+        var second = receipt.AddLine(poLineId, itemId, Guid.NewGuid(), Guid.NewGuid(), 6, 90, 30, 20, 5, true, false);
+        Assert.Equal(clientId, first.ClientLineId);
+        Assert.Equal(second.Id, second.ClientLineId);
+        Assert.Equal(2, receipt.Lines.Count);
+        Assert.Equal(4, first.Quantity);
+        Assert.Equal(6, second.Quantity);
+    }
 }

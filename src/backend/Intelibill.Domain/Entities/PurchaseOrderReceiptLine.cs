@@ -4,6 +4,7 @@ namespace Intelibill.Domain.Entities;
 
 public sealed class PurchaseOrderReceiptLine : BaseEntity
 {
+    public Guid? ClientLineId { get; private set; }
     public Guid PurchaseOrderReceiptId { get; private set; }
     public Guid PurchaseOrderLineId { get; private set; }
     public Guid ItemId { get; private set; }
@@ -33,7 +34,8 @@ public sealed class PurchaseOrderReceiptLine : BaseEntity
         decimal salesPrice,
         decimal taxRatePercent,
         bool taxIncluded,
-        bool purchaseTaxIncluded)
+        bool purchaseTaxIncluded,
+        Guid? clientLineId = null)
     {
         if (quantity <= 0)
             throw new ArgumentOutOfRangeException(nameof(quantity), "Receipt quantity must be positive.");
@@ -47,7 +49,7 @@ public sealed class PurchaseOrderReceiptLine : BaseEntity
         if (salesPrice > mrp)
             throw new ArgumentOutOfRangeException(nameof(salesPrice), "Sales price cannot exceed MRP.");
 
-        return new PurchaseOrderReceiptLine
+        var line = new PurchaseOrderReceiptLine
         {
             PurchaseOrderReceiptId = purchaseOrderReceiptId,
             PurchaseOrderLineId = purchaseOrderLineId,
@@ -63,5 +65,7 @@ public sealed class PurchaseOrderReceiptLine : BaseEntity
             TaxIncluded = taxIncluded,
             PurchaseTaxIncluded = purchaseTaxIncluded,
         };
+        line.ClientLineId = clientLineId ?? line.Id;
+        return line;
     }
 }

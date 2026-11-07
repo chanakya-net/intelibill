@@ -1,5 +1,6 @@
 using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Application.Common.Posting;
+using Intelibill.Application.Common.Operations;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Services;
@@ -23,9 +24,20 @@ public class ReceivePurchaseOrderCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
-    private ReceivePurchaseOrderCommandHandler CreateHandler() =>
-        new(_userRepository, _poRepository, _receiptRepository, _inboundProcessor, _receiptNumberGenerator, _unitOfWork,
-            BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock());
+    private readonly IItemRepository _items = Substitute.For<IItemRepository>();
+    private readonly IFinancialOperationExecutor _operations = Substitute.For<IFinancialOperationExecutor>();
+    private ReceivePurchaseOrderCommandHandler CreateHandler()
+    {
+        _items.GetByIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>()).Returns(call =>
+            Task.FromResult<IReadOnlyList<Item>>(call.Arg<IReadOnlyList<Guid>>().Select(id =>
+            {
+                var item = Item.Create(call.Arg<Guid>(), "Widget", null, "pcs", id.ToString(), true, Guid.NewGuid());
+                typeof(Item).GetProperty("Id")!.SetValue(item, id);
+                return item;
+            }).ToList()));
+        return new(_userRepository, _poRepository, _receiptRepository, _inboundProcessor, _receiptNumberGenerator, _unitOfWork,
+            BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _items, _operations);
+    }
 
     private static (User actor, Shop shop) MakeActor(ShopRole role = ShopRole.Owner)
     {
@@ -86,6 +98,22 @@ public class ReceivePurchaseOrderCommandHandlerTests
         return new InboundInventoryLineResult(item, batch, stock, ledger, inventory);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReceiptLineMapping_RetainsClientIdentityAndLegacyFallback(bool supplied)
+    {
+        var (actor, shop) = MakeActor();
+        var po = MakePlacedPo(shop.Id, Guid.NewGuid());
+        var receipt = PurchaseOrderReceipt.Create(shop.Id, po.Id, "POR-1", DateTimeOffset.UtcNow, null, null, actor.Id);
+        var clientId = supplied ? Guid.NewGuid() : (Guid?)null;
+        var line = receipt.AddLine(po.Lines[0].Id, po.Lines[0].ItemId, Guid.NewGuid(), Guid.NewGuid(), 1, 10, 20, 15, 5, false, true, clientId);
+        po.AddReceipt(receipt);
+        var json = System.Text.Json.JsonSerializer.SerializeToElement(PurchaseOrderDtoMapper.ToDetail(po), System.Text.Json.JsonSerializerOptions.Web);
+        Assert.True(json.GetProperty("receipts")[0].GetProperty("lines")[0].TryGetProperty("clientLineId", out var id));
+        Assert.Equal(clientId ?? line.Id, id.GetGuid());
+    }
+
     [Fact]
     public async Task HandleAsync_WhenStaff_ReturnsForbidden()
     {
@@ -117,6 +145,7 @@ public class ReceivePurchaseOrderCommandHandlerTests
         Assert.Equal(Errors.PurchaseOrder.CannotReceiveInvalidStatus.Code, result.FirstError.Code);
         await _unitOfWork.Received(1).BeginTransactionAsync(Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+        _unitOfWork.Received(1).ClearChanges();
     }
 
     [Fact]
@@ -142,6 +171,7 @@ public class ReceivePurchaseOrderCommandHandlerTests
             Arg.Any<InventoryUpdateContext>(),
             Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+        _unitOfWork.Received(1).ClearChanges();
     }
 
     [Fact]
@@ -169,6 +199,7 @@ public class ReceivePurchaseOrderCommandHandlerTests
         Assert.True(result.IsError);
         Assert.Equal(Errors.Inventory.BatchNumberAlreadyExists.Code, result.FirstError.Code);
         await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+        _unitOfWork.Received(1).ClearChanges();
         await _receiptRepository.DidNotReceive().AddAsync(Arg.Any<PurchaseOrderReceipt>(), Arg.Any<CancellationToken>());
     }
 
@@ -298,28 +329,24 @@ public class ReceivePurchaseOrderCommandHandlerTests
             Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task HandleAsync_WhenDuplicateReceiptLine_ReturnsValidationWithoutTransaction()
+    [Theory]
+    [InlineData(6, 10)]
+    [InlineData(int.MaxValue, int.MaxValue)]
+    public async Task GroupedOverRemaining_RejectsEveryLotBeforeProcessing(int quantity, int remaining)
     {
         var (actor, shop) = MakeActor();
-        var po = MakePlacedPo(shop.Id, Guid.NewGuid());
+        var po = MakePlacedPo(shop.Id, Guid.NewGuid(), remaining);
         var line = po.Lines.Single();
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-
-        var command = MakeCommand(actor.Id, shop.Id, po, line.Id) with
-        {
-            Lines =
-            [
-                new ReceivePurchaseOrderLineInput(line.Id, "IT-PO-001", "B-1", 1, 10m, 12m, 11m, 5m, false, false, null, null),
-                new ReceivePurchaseOrderLineInput(line.Id, "IT-PO-002", "B-2", 1, 10m, 12m, 11m, 5m, false, false, null, null),
-            ],
-        };
-
+        _poRepository.GetReceiptDetailForUpdateAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
+        var command = MakeCommand(actor.Id, shop.Id, po, line.Id, quantity);
+        command = command with { Lines = [command.Lines[0], command.Lines[0] with { BatchNumber = "LOT-B" }] };
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
-
         Assert.True(result.IsError);
-        Assert.Equal(Errors.PurchaseOrder.DuplicateReceiptLine.Code, result.FirstError.Code);
-        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+        Assert.Equal(2, result.Errors.Count);
+        Assert.All(result.Errors, error => Assert.Equal(Errors.PurchaseOrder.ReceiptQuantityOverRemaining.Code, error.Code));
+        Assert.Equal(0, po.Lines.Single().ReceivedQuantity);
+        await _inboundProcessor.DidNotReceive().ProcessAsync(Arg.Any<Guid>(), Arg.Any<InboundInventoryLineInput>(), Arg.Any<Guid>(), Arg.Any<ItemResolutionContext>(), Arg.Any<InventoryUpdateContext>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

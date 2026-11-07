@@ -1,3 +1,4 @@
+import { REQUEST_SCOPE } from '../../../core/context/scoped-request';
 import { TestBed } from '@angular/core/testing';
 import { HttpClient } from '@angular/common/http';
 import { vi } from 'vitest';
@@ -26,10 +27,7 @@ describe('PurchaseOrderService', () => {
     http.delete.mockReset();
 
     TestBed.configureTestingModule({
-      providers: [
-        PurchaseOrderService,
-        { provide: HttpClient, useValue: http },
-      ],
+      providers: [PurchaseOrderService, { provide: HttpClient, useValue: http }],
     });
   });
 
@@ -67,11 +65,14 @@ describe('PurchaseOrderService', () => {
         orderDateTo: '2026-06-30',
         page: 2,
         pageSize: 50,
-      })
+      }),
     );
 
     expect(result).toEqual(response);
-    const [, options] = http.get.mock.calls[0] as [string, { params: { get: (name: string) => string | null } }];
+    const [, options] = http.get.mock.calls[0] as [
+      string,
+      { params: { get: (name: string) => string | null } },
+    ];
     expect(options.params.get('search')).toBe('rice');
     expect(options.params.get('status')).toBe('Draft');
     expect(options.params.get('order_date_from')).toBe('2026-06-01');
@@ -130,23 +131,20 @@ describe('PurchaseOrderService', () => {
         supplierName: 'Acme Traders',
         supplierReference: 'SUP-REF-001',
         lines: [],
-      })
+      }),
     );
 
     expect(result).toEqual(detail);
-    expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining('/purchase-orders'),
-      {
-        supplierId: null,
-        orderDate: null,
-        expectedDeliveryDate: null,
-        supplierReferenceNumber: null,
-        notes: null,
-        supplierName: 'Acme Traders',
-        supplierReference: 'SUP-REF-001',
-        lines: [],
-      }
-    );
+    expect(http.post).toHaveBeenCalledWith(expect.stringContaining('/purchase-orders'), {
+      supplierId: null,
+      orderDate: null,
+      expectedDeliveryDate: null,
+      supplierReferenceNumber: null,
+      notes: null,
+      supplierName: 'Acme Traders',
+      supplierReference: 'SUP-REF-001',
+      lines: [],
+    });
   });
 
   it('updateDraft calls PUT with payload', async () => {
@@ -202,20 +200,22 @@ describe('PurchaseOrderService', () => {
       referenceNumber: 'GRN-1',
       notes: 'Received at dock',
       receivedAt: null,
-      lines: [{
-        purchaseOrderLineId: 'line-1',
-        barcode: 'IT-PO-001',
-        batchNumber: 'BATCH-1',
-        quantity: 2,
-        totalPurchaseCost: 100,
-        mrp: 70,
-        salesPrice: 60,
-        taxRatePercent: 5,
-        taxIncluded: false,
-        purchaseTaxIncluded: true,
-        expiryDate: null,
-        manufacturingDate: null,
-      }],
+      lines: [
+        {
+          purchaseOrderLineId: 'line-1',
+          barcode: 'IT-PO-001',
+          batchNumber: 'BATCH-1',
+          quantity: 2,
+          totalPurchaseCost: 100,
+          mrp: 70,
+          salesPrice: 60,
+          taxRatePercent: 5,
+          taxIncluded: false,
+          purchaseTaxIncluded: true,
+          expiryDate: null,
+          manufacturingDate: null,
+        },
+      ],
     };
     http.post.mockReturnValue(of(detail));
 
@@ -223,6 +223,29 @@ describe('PurchaseOrderService', () => {
     const result = await firstValueFrom(service.receivePurchaseOrder('po2', payload));
 
     expect(result).toEqual(detail);
-    expect(http.post).toHaveBeenCalledWith(expect.stringContaining('/purchase-orders/po2/receipts'), payload);
+    expect(http.post).toHaveBeenCalledWith(
+      expect.stringContaining('/purchase-orders/po2/receipts'),
+      payload,
+    );
+  });
+  it('binds new sends and receipt lookups to the captured scope owner', () => {
+    const service = TestBed.inject(PurchaseOrderService);
+    const owner = { userId: 'u', shopId: 's' };
+    const payload = {
+      operationId: 'operation',
+      referenceNumber: null,
+      notes: null,
+      receivedAt: null,
+      lines: [],
+    };
+    http.post.mockReturnValue(of({}));
+    http.get.mockReturnValue(of({}));
+    service.receivePurchaseOrder('po', payload, owner);
+    expect(http.post.mock.calls[0][2].context.get(REQUEST_SCOPE)).toEqual(owner);
+    service.getReceiptOperation('operation', owner);
+    expect(http.get.mock.calls[0][0]).toContain(
+      '/financial-operations/purchase-order-receipt/operation',
+    );
+    expect(http.get.mock.calls[0][1].context.get(REQUEST_SCOPE)).toEqual(owner);
   });
 });

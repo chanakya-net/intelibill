@@ -52,7 +52,8 @@ public sealed class PurchaseOrderReceipt : BaseEntity
         decimal salesPrice,
         decimal taxRatePercent,
         bool taxIncluded,
-        bool purchaseTaxIncluded)
+        bool purchaseTaxIncluded,
+        Guid? clientLineId = null)
     {
         var line = PurchaseOrderReceiptLine.Create(
             Id,
@@ -66,7 +67,8 @@ public sealed class PurchaseOrderReceipt : BaseEntity
             salesPrice,
             taxRatePercent,
             taxIncluded,
-            purchaseTaxIncluded);
+            purchaseTaxIncluded,
+            clientLineId);
 
         _lines.Add(line);
         return line;

@@ -4,7 +4,8 @@ import {
   EventEmitter,
   Input,
   OnChanges,
-  OnInit,
+  OnDestroy,
+  effect,
   Output,
   SimpleChanges,
   inject,
@@ -23,15 +24,23 @@ import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
+import { ShopContextService } from '../../../core/context/shop-context.service';
+import type { ShopScope } from '../../../core/context/shop-scope';
+import { parseDateOnlyAsLocalDate } from '../../../shared/utils/date-time.util';
+import { ReceivingDraftService } from '../services/receiving-draft.service';
+import type {
+  ReceivingCommand,
+  ReceivingCorrelation,
+  ReceivingDraftRecord,
+  ReceivingEditableDraft,
+  ReceivingRowError,
+} from '../services/receiving.models';
+import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
 
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { InventoryBarcodeFieldComponent } from '../../inventory/components/barcode-field.component';
-import {
-  PurchaseOrderDetail,
-  PurchaseOrderLine,
-  ReceivePurchaseOrderRequest,
-} from '../services/purchase-order.service';
+import { PurchaseOrderDetail, PurchaseOrderLine } from '../services/purchase-order.service';
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 import { InventoryBatchDefaultsService } from '../../inventory/services/inventory-batch-defaults.service';
 import { InventoryService } from '../../inventory/services/inventory.service';
@@ -59,11 +68,58 @@ import { InputValidators } from '../../../shared/forms/input-validation';
   template: `
     <p-dialog
       [header]="'purchaseOrders.receiveDialog.title' | transloco"
-      [(visible)]="visible"
+      [visible]="visible"
+      [closable]="false"
+      [closeOnEscape]="false"
+      [dismissableMask]="false"
       [modal]="true"
       [style]="{ width: 'min(720px, 96vw)' }"
-      (onHide)="closed.emit()"
     >
+      <ng-template #header let-titleId="ariaLabelledBy">
+        <div class="receive-dialog-header">
+          <span [id]="titleId" class="p-dialog-title">{{
+            'purchaseOrders.receiveDialog.title' | transloco
+          }}</span>
+          <!-- Native close hides before onHide; only hide() can await/refuse a failed flush. -->
+          <button
+            pButton
+            type="button"
+            icon="pi pi-times"
+            severity="secondary"
+            text
+            rounded
+            [attr.aria-label]="'common.close' | transloco"
+            [disabled]="!canClose()"
+            (click)="hide()"
+          ></button>
+        </div>
+      </ng-template>
+      @if (status() === 'unknown') {
+        <p role="status">{{ 'purchaseOrders.receiving.unknown' | transloco }}</p>
+        <button
+          pButton
+          type="button"
+          [disabled]="busy()"
+          [label]="'purchaseOrders.receiving.check' | transloco"
+          (click)="checkReceipt()"
+        ></button>
+        <button
+          pButton
+          type="button"
+          [disabled]="busy()"
+          [label]="'purchaseOrders.receiving.retry' | transloco"
+          (click)="retryReceipt()"
+        ></button>
+      }
+      @if (status() === 'confirmed') {
+        <p role="status">{{ 'purchaseOrders.status.Received' | transloco }}</p>
+      }
+      @if (busy()) {
+        <p role="status">{{ 'purchaseOrders.receiving.sending' | transloco }}</p>
+      }
+      @if (errorMessage()) {
+        <p class="error" role="alert">{{ errorMessage() | transloco }}</p>
+      }
       <form class="receive-form" [formGroup]="form" (ngSubmit)="submit()">
         <label>
           {{ 'purchaseOrders.receiveDialog.reference' | transloco }}
@@ -83,9 +139,14 @@ import { InputValidators } from '../../../shared/forms/input-validation';
           />
         </label>
         <div class="receipt-lines" formArrayName="lines">
-          @for (index of filteredLineIndexes(); track index) {
+          @for (index of filteredLineIndexes(); track lines.at(index).controls.clientLineId.value) {
             @let row = lines.at(index);
-            <div class="receipt-row" data-testid="receipt-row" [formGroupName]="index">
+            <div class="receipt-row" data-testid="receipt-row" [formGroup]="row">
+              @for (error of errorsFor(row.controls.clientLineId.value); track $index) {
+                <p class="error" role="alert" [attr.data-field]="error.field">
+                  {{ error.messageKey | transloco }}
+                </p>
+              }
               <label>
                 {{ 'purchaseOrders.receiveDialog.line' | transloco }}
                 <p-select
@@ -123,6 +184,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
                       icon="pi pi-refresh"
                       severity="secondary"
                       text
+                      [disabled]="frozen()"
                       (click)="generateBatchNumber(index)"
                       [attr.aria-label]="
                         'purchaseOrders.receiveDialog.generateBatchNumber' | transloco
@@ -133,6 +195,10 @@ import { InputValidators } from '../../../shared/forms/input-validation';
               </label>
               <label>
                 {{ 'purchaseOrders.receiveDialog.quantity' | transloco }}
+                <span
+                  >{{ 'purchaseOrders.receiving.remaining' | transloco }}:
+                  {{ remainingFor(row.controls.purchaseOrderLineId.value) }}</span
+                >
                 <p-inputNumber formControlName="quantity" [min]="1" />
               </label>
               <label>
@@ -179,6 +245,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
                       severity="secondary"
                       text
                       [loading]="isTaxLookupLoading(index)"
+                      [disabled]="frozen()"
                       (click)="lookupTaxForLine(index)"
                       [attr.aria-label]="'purchaseOrders.receiveDialog.lookupTaxRate' | transloco"
                     ></button>
@@ -221,7 +288,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
                 severity="secondary"
                 [label]="'purchaseOrders.receiveDialog.removeLine' | transloco"
                 (click)="removeLine(index)"
-                [disabled]="lines.length === 1"
+                [disabled]="lines.length === 1 || frozen()"
               ></button>
             </div>
           }
@@ -230,18 +297,22 @@ import { InputValidators } from '../../../shared/forms/input-validation';
           pButton
           type="button"
           severity="secondary"
-          [label]="'purchaseOrders.receiveDialog.addLine' | transloco"
+          [label]="'purchaseOrders.receiving.addLot' | transloco"
           (click)="addLine()"
+          [disabled]="frozen()"
         ></button>
         @if (remainingError()) {
           <p class="error" role="alert">
             {{ 'purchaseOrders.receiveDialog.quantityOverRemaining' | transloco }}
           </p>
         }
-        @if (duplicateLineError()) {
+        @if (duplicateLotError()) {
           <p class="error" role="alert">
-            {{ 'purchaseOrders.receiveDialog.duplicateLine' | transloco }}
+            {{ 'purchaseOrders.receiving.duplicateLot' | transloco }}
           </p>
+        }
+        @if ((!lines.length || !canReceiveNew()) && !busy() && status() === 'editing') {
+          <p role="status">{{ 'purchaseOrders.receiving.noReceivable' | transloco }}</p>
         }
         <div class="actions">
           <button
@@ -250,6 +321,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
             severity="secondary"
             [label]="'purchaseOrders.actions.cancel' | transloco"
             (click)="hide()"
+            [disabled]="!canClose()"
           ></button>
           <button
             pButton
@@ -258,7 +330,8 @@ import { InputValidators } from '../../../shared/forms/input-validation';
             [disabled]="
               form.invalid ||
               remainingError() ||
-              duplicateLineError() ||
+              duplicateLotError() ||
+              frozen() ||
               lines.length === 0 ||
               submitting
             "
@@ -269,6 +342,13 @@ import { InputValidators } from '../../../shared/forms/input-validation';
   `,
   styles: [
     `
+      .receive-dialog-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 0.75rem;
+      }
       .receive-form {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -320,27 +400,78 @@ import { InputValidators } from '../../../shared/forms/input-validation';
     `,
   ],
 })
-export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
+export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly batchDefaults = inject(InventoryBatchDefaultsService);
   private readonly inventoryService = inject(InventoryService);
   private readonly catalogSync = inject(ProductCatalogSyncService);
+  private readonly drafts = inject(ReceivingDraftService);
+  private readonly context = inject(ShopContextService);
+  private readonly facade = inject(PurchaseOrdersFacade);
+  protected readonly status = signal<'editing' | 'sending' | 'unknown' | 'confirmed'>('editing');
+  protected readonly errorMessage = signal('');
+  protected readonly rowErrors = signal<readonly ReceivingRowError[]>([]);
+  protected readonly loading = signal(false);
+  private owner: ShopScope | null = null;
+  private record: ReceivingDraftRecord | null = null;
+  private readonly correlationSignal = signal<ReceivingCorrelation | null>(null);
+  private get correlation() {
+    return this.correlationSignal();
+  }
+  private set correlation(value: ReceivingCorrelation | null) {
+    this.correlationSignal.set(value);
+  }
+  private initializedPo = '';
+  private saveQueue: Promise<void> = Promise.resolve();
+  private saveFailed = false;
+  private valueChanges?: Subscription;
+  private unregisterLeave?: () => void;
+  private unregisterDetach?: () => void;
+  private generation = 0;
+  private closing = false;
+  private readonly revisions = new Map<string, number>();
+  private handlingResult = '';
+
+  constructor() {
+    effect(() => {
+      const correlation = this.correlation;
+      if (!correlation) return;
+      const result = this.facade.receivingState(correlation);
+      if (!result || !this.current() || this.handlingResult === JSON.stringify(result)) return;
+      this.handlingResult = JSON.stringify(result);
+      if (result.status === 'confirmed') {
+        this.status.set('confirmed');
+        void this.closeConfirmed();
+      } else if (result.status === 'rejected' || result.status === 'unknown') {
+        this.errorMessage.set(result.errorMessage);
+        this.rowErrors.set(result.rowErrors);
+        this.status.set(result.status === 'rejected' ? 'editing' : 'unknown');
+        void this.reloadSettled(result.status === 'rejected');
+      } else this.loading.set(true);
+    });
+  }
 
   @Input({ required: true }) order!: PurchaseOrderDetail;
-  @Input() visible = false;
+  private readonly visibleSignal = signal(false);
+  @Input() get visible(): boolean {
+    return this.visibleSignal();
+  }
+  set visible(value: boolean) {
+    this.visibleSignal.set(value);
+  }
   @Input() submitting = false;
   @Output() visibleChange = new EventEmitter<boolean>();
   @Output() closed = new EventEmitter<void>();
-  @Output() receive = new EventEmitter<ReceivePurchaseOrderRequest>();
+  @Output() receive = new EventEmitter<ReceivingCommand>();
 
   protected receivableLines: PurchaseOrderLine[] = [];
-  protected readonly taxLookupLoading = signal<Record<number, boolean>>({});
+  protected readonly taxLookupLoading = signal<Record<string, boolean>>({});
   protected readonly lineSearch = signal('');
-  protected readonly barcodeSuggestions = signal<Record<number, readonly string[]>>({});
-  protected readonly barcodeGenerating = signal<Record<number, boolean>>({});
-  protected readonly barcodeGenerateErrors = signal<Record<number, string>>({});
-  protected readonly barcodeReplaceConfirmVisible = signal<Record<number, boolean>>({});
-  private readonly pendingGeneratedBarcode = new Map<number, string>();
+  protected readonly barcodeSuggestions = signal<Record<string, readonly string[]>>({});
+  protected readonly barcodeGenerating = signal<Record<string, boolean>>({});
+  protected readonly barcodeGenerateErrors = signal<Record<string, string>>({});
+  protected readonly barcodeReplaceConfirmVisible = signal<Record<string, boolean>>({});
+  private readonly pendingGeneratedBarcode = new Map<string, string>();
 
   protected readonly form = this.fb.nonNullable.group({
     referenceNumber: [''],
@@ -354,18 +485,262 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
     return this.form.controls.lines;
   }
 
-  ngOnInit(): void {}
-
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['order'] && this.order) {
-      this.receivableLines = [
-        ...this.order.lines.filter((line) => (line.remainingQuantity ?? line.expectedQuantity) > 0),
-      ];
-      this.lines.clear();
-      this.receivableLines.forEach((line, index) => {
-        this.lines.push(this.createLineGroup(line));
-        void this.applyTaxDefault(index);
-      });
+    if (!this.order) return;
+    this.receivableLines = [...this.order.lines];
+    if (!this.canReceiveNew()) this.form.disable({ emitEvent: false });
+    if (this.visible && this.initializedPo !== this.order.purchaseOrderId) void this.initialize();
+  }
+
+  ngOnDestroy(): void {
+    void this.flush();
+    this.generation++;
+    this.valueChanges?.unsubscribe();
+    this.unregisterLeave?.();
+    this.unregisterDetach?.();
+  }
+
+  protected canClose(): boolean {
+    return !this.closing && (!this.loading() || !!this.record?.pending);
+  }
+
+  protected busy(): boolean {
+    return this.closing || this.loading() || this.status() === 'sending';
+  }
+  protected frozen(): boolean {
+    return this.closing || this.loading() || this.status() !== 'editing' || !this.canReceiveNew();
+  }
+  protected canReceiveNew(): boolean {
+    return this.order.status === 'Placed' || this.order.status === 'PartiallyReceived';
+  }
+  private current(): boolean {
+    return (
+      !!this.owner &&
+      this.context.isCurrent(this.owner) &&
+      this.context.epoch() === this.owner.epoch
+    );
+  }
+  protected errorsFor(id: string): readonly ReceivingRowError[] {
+    return this.rowErrors().filter((error) => error.clientLineId === id);
+  }
+
+  private async initialize(): Promise<void> {
+    this.valueChanges?.unsubscribe();
+    this.unregisterLeave?.();
+    this.unregisterDetach?.();
+    const generation = ++this.generation;
+    this.initializedPo = this.order.purchaseOrderId;
+    this.owner = this.context.scope();
+    this.record = null;
+    this.correlation = null;
+    this.loading.set(true);
+    this.status.set('editing');
+    this.saveFailed = false;
+    this.errorMessage.set('');
+    this.rowErrors.set([]);
+    this.lines.clear({ emitEvent: false });
+    this.order.lines
+      .filter((line) => this.remainingFor(line.lineId) > 0)
+      .forEach((line) => this.lines.push(this.createLineGroup(line), { emitEvent: false }));
+    this.form.disable({ emitEvent: false });
+    if (!this.owner) {
+      this.errorMessage.set('purchaseOrders.receiving.scopeError');
+      this.loading.set(false);
+      return;
+    }
+    const owner = this.owner;
+    const poId = this.initializedPo;
+    this.unregisterLeave = this.context.onLeave(async () => {
+      if (this.busy()) return false;
+      return this.flush();
+    });
+    this.unregisterDetach = this.context.onDetach(() => {
+      const saved = this.flush();
+      this.generation++;
+      this.visible = false;
+      this.form.disable({ emitEvent: false });
+      this.valueChanges?.unsubscribe();
+      this.owner = null;
+      this.lines.clear({ emitEvent: false });
+      this.form.reset({ referenceNumber: '', notes: '' }, { emitEvent: false });
+      return saved;
+    });
+    try {
+      const stored = await this.drafts.load(owner, poId);
+      if (generation !== this.generation || !this.current()) return;
+      this.record = stored;
+      this.revisions.set(JSON.stringify([owner.userId, owner.shopId, poId]), stored?.revision ?? 0);
+      if (stored) this.restore(stored.draft);
+      if (stored?.confirmedOperationId) {
+        this.status.set('confirmed');
+        this.form.disable({ emitEvent: false });
+      } else if (stored?.pending) {
+        this.status.set('unknown');
+        this.form.disable({ emitEvent: false });
+        this.correlation = {
+          scope: owner,
+          purchaseOrderId: poId,
+          operationId: stored.pending.operationId,
+        };
+      } else {
+        if (this.canReceiveNew()) this.form.enable({ emitEvent: false });
+        this.valueChanges = this.form.valueChanges.subscribe(() => this.queueSave());
+        if (!stored)
+          this.lines.controls.forEach((_, index) => {
+            void this.applyTaxDefault(index);
+          });
+      }
+    } catch {
+      if (generation === this.generation) {
+        this.saveFailed = true;
+        this.errorMessage.set('purchaseOrders.receiving.storageError');
+      }
+    } finally {
+      if (generation === this.generation) this.loading.set(false);
+    }
+  }
+
+  private restore(draft: ReceivingEditableDraft): void {
+    this.form.patchValue(
+      { referenceNumber: draft.referenceNumber, notes: draft.notes },
+      { emitEvent: false },
+    );
+    this.lines.clear({ emitEvent: false });
+    for (const line of draft.lines) {
+      const row = this.createLineGroup();
+      row.patchValue(
+        {
+          ...line,
+          quantity: line.quantity as number,
+          totalPurchaseCost: line.totalPurchaseCost as number,
+          mrp: line.mrp as number,
+          salesPrice: line.salesPrice as number,
+          taxRatePercent: line.taxRatePercent as number,
+          expiryDate: line.expiryDate ? parseDateOnlyAsLocalDate(line.expiryDate) : null,
+          manufacturingDate: line.manufacturingDate
+            ? parseDateOnlyAsLocalDate(line.manufacturingDate)
+            : null,
+        },
+        { emitEvent: false },
+      );
+      this.lines.push(row, { emitEvent: false });
+    }
+  }
+  private editable(): ReceivingEditableDraft {
+    const value = this.form.getRawValue();
+    return {
+      referenceNumber: value.referenceNumber,
+      notes: value.notes,
+      receivedAt: this.record?.draft.receivedAt ?? null,
+      lines: value.lines.map((line) => ({
+        ...line,
+        expiryDate: line.expiryDate ? formatLocalIsoDate(line.expiryDate) : null,
+        manufacturingDate: line.manufacturingDate
+          ? formatLocalIsoDate(line.manufacturingDate)
+          : null,
+      })),
+    };
+  }
+  private queueSave(): void {
+    if (!this.owner || this.status() !== 'editing' || this.loading()) return;
+    const draft = this.editable();
+    const owner = this.owner;
+    const poId = this.initializedPo;
+    const generation = this.generation;
+    const key = JSON.stringify([owner.userId, owner.shopId, poId]);
+    this.saveQueue = this.saveQueue.then(async () => {
+      try {
+        const saved = await this.drafts.save(owner, poId, draft, this.revisions.get(key) ?? 0);
+        this.revisions.set(key, saved.revision);
+        if (generation === this.generation) {
+          this.record = saved;
+          this.saveFailed = false;
+        }
+      } catch {
+        if (generation === this.generation) {
+          this.saveFailed = true;
+          this.errorMessage.set('purchaseOrders.receiving.storageError');
+        }
+      }
+    });
+  }
+  private async flush(): Promise<boolean> {
+    if (this.status() === 'editing' && !this.loading()) this.queueSave();
+    await this.saveQueue;
+    return !this.saveFailed;
+  }
+  private async reloadSettled(editable: boolean): Promise<void> {
+    const generation = this.generation;
+    this.loading.set(true);
+    try {
+      const record = await this.drafts.load(this.owner!, this.initializedPo);
+      if (generation !== this.generation || !this.current()) return;
+      this.record = record;
+      this.revisions.set(
+        JSON.stringify([this.owner!.userId, this.owner!.shopId, this.initializedPo]),
+        record?.revision ?? 0,
+      );
+      if (record?.confirmedOperationId === this.correlation?.operationId) {
+        this.status.set('confirmed');
+        await this.closeConfirmed();
+        return;
+      }
+      if (editable && !record?.pending && !record?.confirmedOperationId) {
+        this.form.enable({ emitEvent: false });
+        this.valueChanges?.unsubscribe();
+        this.valueChanges = this.form.valueChanges.subscribe(() => this.queueSave());
+      } else this.form.disable({ emitEvent: false });
+    } catch {
+      if (generation === this.generation) {
+        this.status.set('unknown');
+        this.errorMessage.set('purchaseOrders.receiving.storageError');
+      }
+    } finally {
+      if (generation === this.generation) this.loading.set(false);
+    }
+  }
+  private async closeConfirmed(): Promise<void> {
+    const owner = this.owner;
+    const poId = this.initializedPo;
+    const operationId = this.correlation?.operationId ?? this.record?.confirmedOperationId;
+    const generation = this.generation;
+    if (!owner || !operationId) return;
+    const sameLifetime = () =>
+      generation === this.generation &&
+      this.visible &&
+      this.current() &&
+      this.initializedPo === poId &&
+      (this.correlation?.operationId ?? this.record?.confirmedOperationId) === operationId;
+    if (!sameLifetime()) return;
+    this.loading.set(true);
+    let proven = false;
+    try {
+      const record = await this.drafts.load(owner, poId);
+      if (!sameLifetime()) return;
+      // A different live record is a replacement, never cleanup authority. If another tab has
+      // already deleted this tombstone, its immutable operation-specific proof is required.
+      proven = record
+        ? record.confirmedOperationId === operationId
+        : await this.drafts.isConfirmed(owner, poId, operationId);
+      if (!sameLifetime()) return;
+      if (!proven) {
+        this.status.set('unknown');
+        this.errorMessage.set('purchaseOrders.receiving.lookupFailed');
+        this.form.disable({ emitEvent: false });
+        return;
+      }
+      await this.drafts.clearConfirmed(owner, poId, operationId);
+      if (sameLifetime()) this.close();
+    } catch {
+      if (!sameLifetime()) return;
+      if (proven)
+        this.close(); // Failed cleanup retains the already verified tombstone/proof.
+      else {
+        this.status.set('unknown');
+        this.errorMessage.set('purchaseOrders.receiving.storageError');
+      }
+    } finally {
+      if (sameLifetime()) this.loading.set(false);
     }
   }
 
@@ -385,35 +760,43 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   }
 
   protected remainingError(): boolean {
-    return this.lines.controls.some((row) => {
-      const remaining = this.remainingFor(row.controls.purchaseOrderLineId.value);
-      return remaining > 0 && row.controls.quantity.value > remaining;
-    });
-  }
-
-  protected duplicateLineError(): boolean {
-    const selected = this.lines.controls
-      .map((row) => row.controls.purchaseOrderLineId.value)
-      .filter((lineId) => lineId);
-    return new Set(selected).size !== selected.length;
-  }
-
-  protected addLine(): void {
-    const selected = new Set(
-      this.lines.controls.map((row) => row.controls.purchaseOrderLineId.value),
-    );
-    const nextLine = this.receivableLines.find((line) => !selected.has(line.lineId));
-    if (nextLine) {
-      this.lines.push(this.createLineGroup(nextLine));
-      void this.applyTaxDefault(this.lines.length - 1);
+    const totals = new Map<string, number>();
+    for (const row of this.lines.controls) {
+      const id = row.controls.purchaseOrderLineId.value;
+      const quantity = row.controls.quantity.value;
+      if (!Number.isInteger(quantity) || quantity <= 0) return true;
+      totals.set(id, (totals.get(id) ?? 0) + quantity);
     }
+    return [...totals].some(([id, total]) => total > this.remainingFor(id));
+  }
+  protected duplicateLotError(): boolean {
+    const identities = this.lines.controls.map((row) =>
+      JSON.stringify([
+        this.findLine(row.controls.purchaseOrderLineId.value)?.itemId,
+        row.controls.batchNumber.value.trim(),
+      ]),
+    );
+    return new Set(identities).size !== identities.length;
+  }
+  protected addLine(): void {
+    if (this.frozen()) return;
+    const line =
+      this.findLine(this.lines.at(this.lines.length - 1)?.controls.purchaseOrderLineId.value) ??
+      this.receivableLines.find((line) => this.remainingFor(line.lineId) > 0);
+    if (!line) return;
+    const row = this.createLineGroup(line);
+    row.controls.quantity.setValue(1, { emitEvent: false });
+    row.controls.totalPurchaseCost.setValue(line.unitCost, { emitEvent: false });
+    this.lines.push(row);
+    void this.applyTaxDefault(this.lines.length - 1);
   }
 
   protected removeLine(index: number): void {
-    if (this.lines.length > 1) this.lines.removeAt(index);
+    if (!this.frozen() && this.lines.length > 1) this.lines.removeAt(index);
   }
 
   protected onLineSelectionChange(index: number): void {
+    if (this.frozen()) return;
     const row = this.lines.at(index);
     const line = this.findLine(row.controls.purchaseOrderLineId.value);
     if (!line) {
@@ -445,46 +828,57 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   }
 
   protected onBarcodeSelected(index: number, barcode: string): void {
+    if (this.frozen()) return;
     const row = this.lines.at(index);
     row.controls.barcode.setValue(barcode);
     row.controls.barcode.markAsDirty();
   }
 
   protected barcodeSuggestionsFor(index: number): string[] {
-    return [...(this.barcodeSuggestions()[index] ?? [])];
+    return [...(this.barcodeSuggestions()[this.rowKey(index)] ?? [])];
   }
 
   protected isBarcodeGenerating(index: number): boolean {
-    return this.barcodeGenerating()[index] ?? false;
+    return this.barcodeGenerating()[this.rowKey(index)] ?? false;
   }
 
   protected barcodeGenerateErrorFor(index: number): string {
-    return this.barcodeGenerateErrors()[index] ?? '';
+    return this.barcodeGenerateErrors()[this.rowKey(index)] ?? '';
   }
 
   protected isBarcodeReplaceConfirmVisible(index: number): boolean {
-    return this.barcodeReplaceConfirmVisible()[index] ?? false;
+    return this.barcodeReplaceConfirmVisible()[this.rowKey(index)] ?? false;
   }
 
   protected async generateBarcode(index: number): Promise<void> {
     const row = this.lines.at(index);
-    if (!row || this.barcodeGenerating()[index]) {
+    if (this.frozen() || !row || this.barcodeGenerating()[this.rowKey(index)]) {
       return;
     }
 
+    const original = row.getRawValue();
+    const generation = this.generation;
     this.setRecord(this.barcodeGenerating, index, true);
     this.setRecord(this.barcodeGenerateErrors, index, '');
     try {
       const barcode = (
         await firstValueFrom(this.inventoryService.generateItemBarcode())
       ).barcode.trim();
+      if (
+        this.frozen() ||
+        generation !== this.generation ||
+        !this.lines.controls.includes(row) ||
+        JSON.stringify(row.getRawValue()) !== JSON.stringify(original)
+      )
+        return;
+      index = this.lines.controls.indexOf(row);
       if (!barcode) {
         this.setRecord(this.barcodeGenerateErrors, index, 'inventory.generateBarcodeError');
         return;
       }
 
       if (row.controls.barcode.value.trim()) {
-        this.pendingGeneratedBarcode.set(index, barcode);
+        this.pendingGeneratedBarcode.set(this.rowKey(index), barcode);
         this.setRecord(this.barcodeReplaceConfirmVisible, index, true);
         return;
       }
@@ -492,30 +886,35 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
       row.controls.barcode.setValue(barcode);
       row.controls.barcode.markAsDirty();
     } catch {
-      this.setRecord(this.barcodeGenerateErrors, index, 'inventory.generateBarcodeError');
+      const live = this.lines.controls.indexOf(row);
+      if (live >= 0 && generation === this.generation && !this.frozen())
+        this.setRecord(this.barcodeGenerateErrors, live, 'inventory.generateBarcodeError');
     } finally {
-      this.setRecord(this.barcodeGenerating, index, false);
+      const live = this.lines.controls.indexOf(row);
+      if (live >= 0) this.setRecord(this.barcodeGenerating, live, false);
     }
   }
 
   protected confirmBarcodeReplace(index: number): void {
-    const barcode = this.pendingGeneratedBarcode.get(index);
+    if (this.frozen()) return;
+    const barcode = this.pendingGeneratedBarcode.get(this.rowKey(index));
     const row = this.lines.at(index);
     if (barcode && row) {
       row.controls.barcode.setValue(barcode);
       row.controls.barcode.markAsDirty();
       this.setRecord(this.barcodeGenerateErrors, index, '');
     }
-    this.pendingGeneratedBarcode.delete(index);
+    this.pendingGeneratedBarcode.delete(this.rowKey(index));
     this.setRecord(this.barcodeReplaceConfirmVisible, index, false);
   }
 
   protected cancelBarcodeReplace(index: number): void {
-    this.pendingGeneratedBarcode.delete(index);
+    this.pendingGeneratedBarcode.delete(this.rowKey(index));
     this.setRecord(this.barcodeReplaceConfirmVisible, index, false);
   }
 
   protected generateBatchNumber(index: number): void {
+    if (this.frozen()) return;
     const row = this.lines.at(index);
     row.controls.batchNumber.setValue(this.batchDefaults.generateBatchNumber());
     row.controls.batchNumber.markAsDirty();
@@ -526,13 +925,14 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   }
 
   protected isTaxLookupLoading(index: number): boolean {
-    return this.taxLookupLoading()[index] ?? false;
+    return this.taxLookupLoading()[this.rowKey(index)] ?? false;
   }
 
   private createLineGroup(line?: PurchaseOrderLine) {
     const remaining = line ? (line.remainingQuantity ?? line.expectedQuantity) : 1;
     return this.fb.nonNullable.group(
       {
+        clientLineId: [crypto.randomUUID() as string],
         purchaseOrderLineId: [line?.lineId ?? '', InputValidators.requiredText()],
         barcode: [line ? this.barcodeForLine(line) : '', InputValidators.requiredText(120)],
         batchNumber: [this.batchDefaults.generateBatchNumber(), InputValidators.requiredText(80)],
@@ -562,7 +962,11 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
   ): Promise<void> {
     const respectDirty = options.respectDirty ?? true;
     const row = this.lines.at(index);
-    if (!row || (respectDirty && row.controls.taxRatePercent.dirty)) {
+    if (
+      !row ||
+      this.status() !== 'editing' ||
+      (respectDirty && row.controls.taxRatePercent.dirty)
+    ) {
       return;
     }
 
@@ -572,9 +976,21 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
       return;
     }
 
+    const original = row.getRawValue();
+    const generation = this.generation;
     this.setTaxLookupLoading(index, true);
     try {
       const result = await this.batchDefaults.lookupHsn(productName);
+      if (
+        this.status() !== 'editing' ||
+        this.loading() ||
+        generation !== this.generation ||
+        !this.lines.controls.includes(row) ||
+        JSON.stringify(row.getRawValue()) !== JSON.stringify(original) ||
+        (respectDirty && row.controls.taxRatePercent.dirty)
+      )
+        return;
+      index = this.lines.controls.indexOf(row);
       const taxRatePercent = this.batchDefaults.getAutoTaxRatePercent(result);
       if (taxRatePercent !== null) {
         row.controls.taxRatePercent.setValue(taxRatePercent);
@@ -585,7 +1001,8 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
     } catch {
       // Keep manual tax entry available when lookup fails.
     } finally {
-      this.setTaxLookupLoading(index, false);
+      const live = this.lines.controls.indexOf(row);
+      if (live >= 0) this.setTaxLookupLoading(live, false);
     }
   }
 
@@ -603,56 +1020,133 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnInit {
     );
   }
 
+  private rowKey(index: number): string {
+    return this.lines.at(index)?.controls.clientLineId.value ?? '';
+  }
+
   private setRecord<T>(
-    target: { (): Record<number, T>; set(value: Record<number, T>): void },
+    target: { (): Record<string, T>; set(value: Record<string, T>): void },
     index: number,
     value: T | undefined,
   ): void {
+    const key = this.rowKey(index);
     const current = { ...target() };
     if (value === undefined || value === '' || value === false) {
-      delete current[index];
+      delete current[key];
     } else {
-      current[index] = value;
+      current[key] = value;
     }
     target.set(current);
   }
 
-  protected hide(): void {
+  protected async hide(): Promise<void> {
+    if (!this.visible || !this.canClose()) return;
+    const generation = this.generation;
+    const saving = this.flush();
+    this.closing = true;
+    const saved = await saving;
+    if (generation !== this.generation) return;
+    this.closing = false;
+    if (!saved || !this.canClose()) return;
+    // A restored, exact tombstone may be cleaned using its captured identity. An in-flight
+    // cleanup has not established that proof yet and must not gain authority from this close.
+    const owner = this.owner;
+    const poId = this.initializedPo;
+    const confirmedOperationId = this.record?.confirmedOperationId;
+    this.close();
+    if (owner && confirmedOperationId) {
+      try {
+        await this.drafts.clearConfirmed(owner, poId, confirmedOperationId);
+      } catch {
+        /* The tombstone remains safe. */
+      }
+    }
+  }
+  private close(): void {
+    this.generation++;
+    this.valueChanges?.unsubscribe();
+    this.unregisterLeave?.();
+    this.unregisterDetach?.();
+    this.correlation = null;
+    this.owner = null;
+    this.record = null;
+    this.initializedPo = '';
+    this.closing = false;
     this.visible = false;
+    this.lines.clear({ emitEvent: false });
+    this.form.reset({ referenceNumber: '', notes: '' }, { emitEvent: false });
     this.visibleChange.emit(false);
     this.closed.emit();
   }
-
-  protected submit(): void {
+  protected async submit(): Promise<void> {
     if (
+      this.frozen() ||
       this.form.invalid ||
       this.remainingError() ||
-      this.duplicateLineError() ||
-      this.lines.length === 0
+      this.duplicateLotError() ||
+      !this.lines.length ||
+      !this.owner ||
+      !this.current()
     )
       return;
-
-    const value = this.form.getRawValue();
+    this.loading.set(true);
+    this.form.disable({ emitEvent: false });
+    const generation = this.generation;
+    await this.saveQueue;
+    if (this.saveFailed) {
+      this.loading.set(false);
+      this.form.enable({ emitEvent: false });
+      return;
+    }
+    try {
+      const record = await this.drafts.prepare(
+        this.owner,
+        this.initializedPo,
+        this.editable(),
+        this.record?.revision ?? 0,
+      );
+      if (generation !== this.generation || !this.current()) return;
+      this.record = record;
+      this.restore(record.draft);
+      this.form.disable({ emitEvent: false });
+      if (!record.pending) return;
+      this.correlation = {
+        scope: this.owner,
+        purchaseOrderId: this.initializedPo,
+        operationId: record.pending.operationId,
+      };
+      this.handlingResult = '';
+      this.status.set('sending');
+      this.rowErrors.set([]);
+      this.errorMessage.set('');
+      this.receive.emit({
+        correlation: this.correlation,
+        payload: record.pending.payload,
+        recovery: record.pending.status === 'unknown',
+      });
+    } catch {
+      if (generation === this.generation && this.current()) {
+        this.errorMessage.set('purchaseOrders.receiving.storageError');
+        this.form.enable({ emitEvent: false });
+      }
+    } finally {
+      if (generation === this.generation) this.loading.set(false);
+    }
+  }
+  protected retryReceipt(): void {
+    if (this.busy() || !this.record?.pending || !this.correlation || !this.current()) return;
+    this.status.set('sending');
+    this.handlingResult = '';
     this.receive.emit({
-      referenceNumber: value.referenceNumber.trim() || null,
-      notes: value.notes.trim() || null,
-      receivedAt: null,
-      lines: value.lines.map((line) => ({
-        purchaseOrderLineId: line.purchaseOrderLineId,
-        barcode: line.barcode.trim(),
-        batchNumber: line.batchNumber.trim(),
-        quantity: line.quantity,
-        totalPurchaseCost: line.totalPurchaseCost,
-        mrp: line.mrp,
-        salesPrice: line.salesPrice,
-        taxRatePercent: line.taxRatePercent,
-        taxIncluded: line.taxIncluded,
-        purchaseTaxIncluded: line.purchaseTaxIncluded,
-        expiryDate: line.expiryDate ? formatLocalIsoDate(line.expiryDate) : null,
-        manufacturingDate: line.manufacturingDate
-          ? formatLocalIsoDate(line.manufacturingDate)
-          : null,
-      })),
+      correlation: this.correlation,
+      payload: this.record.pending.payload,
+      recovery: true,
     });
+  }
+  protected checkReceipt(): void {
+    if (this.busy() || !this.correlation || !this.current()) return;
+    this.loading.set(true);
+    this.handlingResult = '';
+    this.facade.checkReceipt(this.correlation);
   }
 }

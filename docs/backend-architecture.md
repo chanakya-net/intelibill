@@ -316,8 +316,9 @@ strings.
 
 A non-repeatable financial command carries an `operationKey` and runs through
 `IFinancialOperationExecutor` (`Infrastructure/Services/Operations/FinancialOperationExecutor.cs`).
-Adopted so far: customer payments (`customer-payment`) and supplier payments
-(`supplier-payment`). Sales keep their own `(shop, actor, idempotencyKey)` deduplication.
+Adopted flows include customer payments (`customer-payment`), supplier payments
+(`supplier-payment`) and PO receiving (`purchase-order-receipt`; see § Purchase Receipts, Price
+Revisions and Cost Corrections). Sales keep their own `(shop, actor, idempotencyKey)` deduplication.
 
 **Scope.** `operation_receipts` is unique on `(shop_id, operation_type, operation_key)` and not
 on the actor, so another owner or manager of the shop reconciles the same operation instead of
@@ -432,6 +433,41 @@ received quantity, supplier, source (`DIRECT_INBOUND` / `PURCHASE_ORDER` with th
 per-unit rounding remainder is not lost) and `effective_total_cost` (original plus corrections). Its
 `xmin` is the receipt version. `GET inventory/batches` returns `receiptValueId`, `receiptStatus`,
 `receiptOriginalTotalCost`, `receiptTotalCost` and `receiptVersion`.
+
+**PO lots and exact recovery.** `POST purchase-orders/{id}/receipts` accepts repeated PO-line
+IDs for distinct physical lots, optional `operationId` (UUID), and optional row `clientLineId`
+(UUID). Legacy requests without these fields remain accepted. PO quantities remain positive whole
+units; item quantity policy still applies. Under the PO lock, all referenced lines/items, grouped
+remaining quantities and scalar values are checked before any lot is processed. A remaining quantity of 10
+accepts A4+B6 and refuses A6+B6 atomically. Lot identity is shop + item + trimmed, case-sensitive
+batch number; repeated product barcodes are allowed. Handler failures add whitelisted
+`rowErrors` (code, field, client ID/index) to the existing problem envelope; validation paths such
+as `Lines[1].Quantity` remain supported. Tax-included and purchase-tax-included stay independent.
+
+Keyed receiving uses `FinancialOperationType.PurchaseOrderReceipt = 13`, lookup slug
+`purchase-order-receipt`, and the canonical UUID as the executor key. Authorization precedes
+reservation/replay; only a new callback checks PO eligibility and takes the posting-period fence
+then PO locks. Receipt, two or more lots, stock movements, original receipt values, payable and
+operation response commit together. The hash covers the target and ordered business rows, their
+client IDs, dates and both tax flags; trimmed text, decimal scale and UTC representations normalize.
+An omitted timestamp stays null in the hash and is resolved only on a new posting. Exact replay
+and read-only lookup work after the PO is Received/Closed or the original month closes; changed
+content under the same key answers 409 `Operation.PayloadMismatch`. A lookup 404 is unresolved.
+
+Receipt rows preserve original quantities/costs, PO/item/batch/stock-movement links and stable client
+identity through later sales and additive cost corrections. New rows without a supplied client ID
+use their receipt-line ID. Migration `20261107154602_AddPurchaseReceiptClientLineIdentity` adds
+only nullable `client_line_id`, backfills old rows from `id` under each shop's RLS context, and adds
+a partial unique receipt/client index. Null remains accepted during mixed-version rollout and maps
+to `receiptLineId` on reads. Receipt history's batch label is current metadata; this change does
+not introduce a historical label snapshot or a supplier-return subsystem.
+
+**Receiving rollout and rollback.** Run the migration job before new API pods, then deploy the
+new web build. API startup does not migrate. Once keyed receipts exist, retain the additive schema,
+operation records and a server capable of receipt replay/lookup during rollback. Hiding new lot or
+recovery UI requires a viable existing recovery path; never remove pending browser drafts or
+operation records, and never put a pre-replay API behind outstanding operations. Mobile has no new
+UI and retains its legacy wire contract. No deployment is performed by this change.
 
 **Price edits.** `PUT inventory/batches/{batchId}/prices` (owner/manager) takes a required
 `expectedVersion` (missing → 400 `Inventory.PriceVersionRequired`), MRP, sale price, tax rate and mode, optional batch number/expiry/manufacturing

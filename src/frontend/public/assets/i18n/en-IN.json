@@ -2703,7 +2703,25 @@
       "gstNumber": "GSTIN",
       "grandTotal": "Grand Total"
     },
-    "closeReason": "Close reason"
+    "closeReason": "Close reason",
+    "receiving": {
+      "unknown": "Receipt outcome is unknown. Keep this receipt frozen until it is confirmed. You can close safely and recover it later.",
+      "sending": "Saving or checking receipt…",
+      "check": "Check receipt",
+      "retry": "Retry same receipt",
+      "storageError": "Unable to save receiving work. Keep this dialog open and try again.",
+      "scopeError": "Return to the user and shop that own this receipt.",
+      "lookupMissing": "No committed receipt is visible yet. Keep the same receipt and check or retry.",
+      "lookupFailed": "Unable to check this receipt. Sign in with the same account and shop, then check again.",
+      "payloadMismatch": "This operation has different saved content. Keep it frozen and check the original receipt.",
+      "duplicateLot": "Use a different batch number for each lot of the same item.",
+      "invalidRow": "Check the values in this lot.",
+      "invalidQuantity": "Enter a positive whole quantity within the grouped remaining quantity.",
+      "addLot": "Add another lot",
+      "remaining": "Remaining for PO line",
+      "noReceivable": "There is no stock left to receive on this order. Any saved pending receipt can still be recovered here.",
+      "recover": "Recover receipt"
+    }
   },
   "identity": {
     "checkInbox": "Check your inbox",

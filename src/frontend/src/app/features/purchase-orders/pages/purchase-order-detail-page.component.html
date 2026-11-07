@@ -1,7 +1,7 @@
 <section class="po-page po-detail-page">
   <p-confirmDialog />
 
-  @if (facade.isLoadingDetail()) {
+  @if (facade.isLoadingDetail() && !facade.selectedOrder()) {
     <section class="directory-panel directory-panel--loading" aria-busy="true">
       <div class="loading">
         <p-progressSpinner />
@@ -91,13 +91,21 @@
         }
         @if (
           permissions.canManagePurchaseOrders() &&
-          (order.status === 'Placed' || order.status === 'PartiallyReceived')
+          (order.status === 'Placed' ||
+            order.status === 'PartiallyReceived' ||
+            order.status === 'Received' ||
+            order.status === 'Closed')
         ) {
           <button
             pButton
             type="button"
             icon="pi pi-inbox"
-            [label]="'purchaseOrders.actions.receive' | transloco"
+            [label]="
+              (order.status === 'Received' || order.status === 'Closed'
+                ? 'purchaseOrders.receiving.recover'
+                : 'purchaseOrders.actions.receive'
+              ) | transloco
+            "
             (click)="showReceiveDialog.set(true)"
           ></button>
         }
@@ -248,13 +256,15 @@
 
     @if (
       permissions.canManagePurchaseOrders() &&
-      (order.status === 'Placed' || order.status === 'PartiallyReceived')
+      (order.status === 'Placed' ||
+        order.status === 'PartiallyReceived' ||
+        order.status === 'Received' ||
+        order.status === 'Closed')
     ) {
       <app-receive-purchase-order-dialog
         [order]="order"
         [visible]="showReceiveDialog()"
         (visibleChange)="showReceiveDialog.set($event)"
-        [submitting]="facade.isSubmitting()"
         (receive)="receiveOrder(order.purchaseOrderId, $event)"
       />
     }

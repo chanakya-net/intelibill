@@ -217,10 +217,31 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
                     l.TaxIncluded,
                     l.PurchaseTaxIncluded,
                     l.ExpiryDate,
-                    l.ManufacturingDate)).ToList()),
+                    l.ManufacturingDate,
+                    l.ClientLineId)).ToList(),
+                request?.OperationId),
             cancellationToken);
 
-        return result.ToActionResult(Ok);
+        if (!result.IsError) return Ok(result.Value);
+        var problem = (ObjectResult)result.Errors.ToProblemResult();
+        if (problem.Value is ProblemDetails details)
+        {
+            details.Extensions["rowErrors"] = result.Errors.Select(error =>
+            {
+                var row = new Dictionary<string, object> { ["code"] = error.Code, ["description"] = error.Description };
+                if (error.Metadata is not null)
+                {
+                    if (error.Metadata.TryGetValue("clientLineId", out var id) && id is Guid clientId)
+                        row["clientLineId"] = clientId;
+                    if (error.Metadata.TryGetValue("lineIndex", out var index) && index is int lineIndex)
+                        row["lineIndex"] = lineIndex;
+                    if (error.Metadata.TryGetValue("field", out var field) && field is string fieldName)
+                        row["field"] = fieldName;
+                }
+                return row;
+            }).ToList();
+        }
+        return problem;
     }
 }
 
@@ -270,10 +291,12 @@ public sealed record ReceivePurchaseOrderLineRequest(
     bool TaxIncluded,
     bool PurchaseTaxIncluded,
     DateOnly? ExpiryDate,
-    DateOnly? ManufacturingDate);
+    DateOnly? ManufacturingDate,
+    Guid? ClientLineId = null);
 
 public sealed record ReceivePurchaseOrderRequest(
     string? ReferenceNumber,
     string? Notes,
     DateTimeOffset? ReceivedAt,
-    IReadOnlyList<ReceivePurchaseOrderLineRequest> Lines);
+    IReadOnlyList<ReceivePurchaseOrderLineRequest> Lines,
+    Guid? OperationId = null);
