@@ -19,7 +19,8 @@ public sealed record InvoiceIssueContext(
     string? PlaceOfSupplyStateCode,
     DateTimeOffset IssuedAt,
     FiscalYear FiscalYear,
-    IReadOnlyDictionary<Guid, string>? DocumentUnits = null);
+    IReadOnlyDictionary<Guid, string>? DocumentUnits = null,
+    DateOnly? BusinessDate = null);
 
 /// <summary>
 /// Decides which document a priced sale may be issued as and freezes it. The capability matrix is
@@ -188,7 +189,7 @@ public static class InvoiceDocumentBuilder
             IssuedInvoiceSnapshot.CurrentVersion,
             documentType,
             context.IssuedAt,
-            BusinessCalendar.DateOf(context.IssuedAt),
+            context.BusinessDate ?? BusinessCalendar.DateOf(context.IssuedAt),
             context.FiscalYear.StartYear,
             profile.SeriesCode,
             sale.InvoiceNumber,

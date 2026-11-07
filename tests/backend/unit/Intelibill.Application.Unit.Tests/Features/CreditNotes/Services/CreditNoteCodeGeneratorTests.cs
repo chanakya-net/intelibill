@@ -11,7 +11,7 @@ public class CreditNoteCodeGeneratorTests
     private static CreditNote CreateStubCreditNote() => CreditNote.Issue(Guid.NewGuid(), Guid.NewGuid(), 100m, "test", "CN-20260101-123456", null).Value;
 
     [Fact]
-    public async Task GenerateAsync_ReturnsCNPrefixUtcDateAndSixCharacterSuffix()
+    public async Task GenerateAsync_ReturnsCNPrefixBusinessDateAndSixCharacterSuffix()
     {
         var repo = Substitute.For<ICreditNoteRepository>();
         repo.GetByCodeAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
@@ -19,13 +19,13 @@ public class CreditNoteCodeGeneratorTests
         var generator = new CreditNoteCodeGenerator(repo);
 
         var shopId = Guid.NewGuid();
-        var code = await generator.GenerateAsync(shopId);
+        var code = await generator.GenerateAsync(shopId, new DateOnly(2026, 10, 21));
 
-        Assert.Matches("^CN-\\d{8}-[0-9A-F]{6}$", code);
+        Assert.Matches("^CN-20261021-[0-9A-F]{6}$", code);
     }
 
     [Fact]
-    public async Task GenerateAsync_UsesUtcDateInFormat()
+    public async Task GenerateAsync_UsesTheGivenBusinessDateInFormat()
     {
         var repo = Substitute.For<ICreditNoteRepository>();
         repo.GetByCodeAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
@@ -33,10 +33,9 @@ public class CreditNoteCodeGeneratorTests
         var generator = new CreditNoteCodeGenerator(repo);
 
         var shopId = Guid.NewGuid();
-        var code = await generator.GenerateAsync(shopId);
+        var code = await generator.GenerateAsync(shopId, new DateOnly(2026, 10, 21));
 
-        var datePart = code.Substring(3, 8);
-        Assert.Matches("^\\d{8}$", datePart);
+        Assert.Equal("20261021", code.Substring(3, 8));
     }
 
     [Fact]
@@ -48,7 +47,7 @@ public class CreditNoteCodeGeneratorTests
         var generator = new CreditNoteCodeGenerator(repo);
 
         var shopId = Guid.NewGuid();
-        var code = await generator.GenerateAsync(shopId);
+        var code = await generator.GenerateAsync(shopId, new DateOnly(2026, 10, 21));
 
         var suffix = code.Substring(12, 6);
         Assert.Equal(suffix, suffix.ToUpperInvariant());
@@ -73,7 +72,7 @@ public class CreditNoteCodeGeneratorTests
             });
 
         var generator = new CreditNoteCodeGenerator(repo);
-        var code = await generator.GenerateAsync(shopId);
+        var code = await generator.GenerateAsync(shopId, new DateOnly(2026, 10, 21));
 
         Assert.NotNull(code);
         Assert.Equal(2, callCount);
@@ -90,6 +89,6 @@ public class CreditNoteCodeGeneratorTests
 
         var generator = new CreditNoteCodeGenerator(repo);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => generator.GenerateAsync(shopId));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => generator.GenerateAsync(shopId, new DateOnly(2026, 10, 21)));
     }
 }

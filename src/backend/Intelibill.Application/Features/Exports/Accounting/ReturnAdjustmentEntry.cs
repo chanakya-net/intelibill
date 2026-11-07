@@ -5,10 +5,10 @@ namespace Intelibill.Application.Features.Exports.Accounting;
 
 public enum ReturnAdjustmentEntryKind
 {
-    /// <summary>The return as recorded, posted on the day it was processed.</summary>
+    /// <summary>The return as recorded, posted on its business date.</summary>
     Return = 1,
 
-    /// <summary>The return's void, posted on the day it was voided as the exact opposite of the return.</summary>
+    /// <summary>The return's void, posted on its void's business date as the exact opposite of the return.</summary>
     VoidReversal = 2,
 }
 
@@ -22,12 +22,15 @@ public enum ReturnAdjustmentEntryKind
 public sealed record ReturnAdjustmentEntry(
     ReturnAdjustmentEntryKind Kind,
     DateTimeOffset PostedAt,
+    DateOnly BusinessDate,
     Guid SaleReturnId,
     string ReturnNumber,
     DateTimeOffset ReturnProcessedAt,
+    DateOnly ReturnBusinessDate,
     Guid SaleId,
     string InvoiceNumber,
     DateTimeOffset InvoiceDate,
+    DateOnly InvoiceBusinessDate,
     string? CustomerName,
     ReturnAccountingStatus Status,
     string? PolicyVersion,

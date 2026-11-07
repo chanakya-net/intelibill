@@ -1,7 +1,9 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.PurchaseReceipts.DTOs;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -34,7 +36,10 @@ public sealed class CorrectReceiptCostCommandHandler(
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
     IPaymentReceiptRepository paymentReceiptRepository,
     IUnitOfWork unitOfWork,
-    IFinancialOperationExecutor operationExecutor)
+    IFinancialOperationExecutor operationExecutor,
+    IShopRepository shopRepository,
+    IPostingPeriodPolicy postingPeriodPolicy,
+    IBusinessClock businessClock)
 {
     private static readonly CorrectReceiptCostCommandValidator Validator = new();
 
@@ -68,7 +73,7 @@ public sealed class CorrectReceiptCostCommandHandler(
 
         var operationKey = FinancialOperationHasher.NormalizeKey(command.OperationKey);
         if (operationKey is null)
-            return await CorrectAsync(receipt, command, cancellationToken);
+            return await PostingTransaction.RunAsync(unitOfWork, ct => CorrectAsync(receipt, command, ct), cancellationToken);
 
         var requestHash = FinancialOperationHasher.Compute(new ReceiptCostCorrectionPayload(
             command.ReceiptValueId,
@@ -90,6 +95,17 @@ public sealed class CorrectReceiptCostCommandHandler(
         CorrectReceiptCostCommand command,
         CancellationToken cancellationToken)
     {
+        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
+            command.ActiveShopId,
+            businessClock.Today(shop.BusinessTimeZoneId),
+            cancellationToken);
+        if (fence.IsError)
+            return fence.Errors;
+
         if (!receipt.IsResolved || receipt.EffectiveTotalCost is not { } priorTotal)
             return Errors.PurchaseReceipt.EvidenceMissing;
 
@@ -121,7 +137,7 @@ public sealed class CorrectReceiptCostCommandHandler(
             return applied.Errors;
 
         var delta = applied.Value;
-        var performedAt = DateTimeOffset.UtcNow;
+        var performedAt = businessClock.UtcNow;
         var reason = command.Reason.Trim();
 
         var ledgerEntry = SupplierLedgerEntry.Create(
@@ -130,7 +146,7 @@ public sealed class CorrectReceiptCostCommandHandler(
             batch.Id,
             SupplierLedgerEntryType.CostAdjusted,
             delta,
-            DateOnly.FromDateTime(performedAt.UtcDateTime),
+            businessClock.GetBusinessDate(performedAt, shop.BusinessTimeZoneId),
             Truncate($"Receipt cost corrected for batch {batch.BatchNumber}: {reason}", 255),
             command.ActorUserId);
         if (ledgerEntry.IsError)

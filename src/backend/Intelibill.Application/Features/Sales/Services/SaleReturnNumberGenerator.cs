@@ -1,10 +1,9 @@
+using System.Globalization;
+
 namespace Intelibill.Application.Features.Sales.Services;
 
 public sealed class SaleReturnNumberGenerator : ISaleReturnNumberGenerator
 {
-    public string Generate(DateTimeOffset? now = null)
-    {
-        var timestamp = now ?? DateTimeOffset.UtcNow;
-        return $"RET-{timestamp.UtcDateTime:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}";
-    }
+    public string Generate(DateOnly businessDate) =>
+        string.Create(CultureInfo.InvariantCulture, $"RET-{businessDate:yyyyMMdd}-{Guid.NewGuid().ToString("N")[..8].ToUpperInvariant()}");
 }

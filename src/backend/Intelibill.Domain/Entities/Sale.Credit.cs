@@ -28,7 +28,7 @@ public sealed partial class Sale
         if (DueAmount <= 0m || creditTermsDays is null or < 0)
             return;
 
-        DueDate = BusinessCalendar.DateOf(SoldAt).AddDays(creditTermsDays.Value);
+        DueDate = BusinessDate.AddDays(creditTermsDays.Value);
     }
 
     /// <summary>Records who approved going over the limit, why, and what they saw.</summary>

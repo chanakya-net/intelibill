@@ -32,4 +32,10 @@ public enum FinancialOperationType
 
     /// <summary>One reversal of a recorded payment receipt.</summary>
     PaymentReversal = 10,
+
+    /// <summary>One close of a monthly posting period.</summary>
+    PostingPeriodClose = 11,
+
+    /// <summary>One reopening of a closed monthly posting period.</summary>
+    PostingPeriodReopen = 12,
 }

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Features.PurchaseReceipts.Commands.CorrectReceiptCost;
@@ -7,6 +8,7 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Update;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 
@@ -151,6 +153,7 @@ public sealed class CorrectReceiptCostCommandHandlerTests
     private CorrectReceiptCostCommand Command(decimal revised, uint? expectedVersion = null) =>
         new(_receipt.Id, _actor.Id, _shop.Id, expectedVersion ?? _receipt.Version, revised, "Supplier invoice", null);
 
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private CorrectReceiptCostCommandHandler CreateHandler() =>
         new(
             _userRepository,
@@ -160,5 +163,26 @@ public sealed class CorrectReceiptCostCommandHandlerTests
             _ledgerRepository,
             _paymentReceiptRepository,
             _unitOfWork,
-            _operationExecutor);
+            _operationExecutor,
+            BusinessTestDoubles.AnyShop(),
+            _postingPeriods,
+            BusinessTestDoubles.RealClock());
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesCorrection_WithoutPostingTheDelta()
+    {
+        UseRole(ShopRole.Owner);
+        _postingPeriods.AuthorizeForWriteAsync(_shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 7, 1))));
+
+        var result = await CreateHandler().HandleAsync(Command(1100m), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        Assert.Equal(1000m, _receipt.EffectiveTotalCost);
+        await _ledgerRepository.DidNotReceive().AddAsync(Arg.Any<SupplierLedgerEntry>(), Arg.Any<CancellationToken>());
+        await _adjustmentRepository.DidNotReceive().AddAsync(Arg.Any<PurchaseReceiptCostAdjustment>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+    }
 }

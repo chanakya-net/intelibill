@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Expenses.Commands.CorrectExpense;
 using Intelibill.Domain.Entities;
@@ -15,8 +16,9 @@ public class CorrectExpenseCommandHandlerTests
     private readonly IExpenseRepository _expenseRepository = Substitute.For<IExpenseRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private CorrectExpenseCommandHandler CreateHandler() =>
-        new(_userRepository, _categoryRepository, _expenseRepository, _unitOfWork);
+        new(_userRepository, _categoryRepository, _expenseRepository, _postingPeriods, _unitOfWork);
 
     private static CorrectExpenseCommand CreateCommand(Guid userId, Guid shopId, Guid originalId) =>
         new(userId, shopId, originalId, "Corrected Category", 300m, "Corrected Vendor", null, new DateOnly(2026, 4, 20));
@@ -88,5 +90,30 @@ public class CorrectExpenseCommandHandlerTests
         Assert.Equal(300m, result.Value.Amount);
         _expenseRepository.Received(1).Update(original);
         await _expenseRepository.Received(1).AddAsync(Arg.Any<Expense>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ClosedPeriod_OfTheOriginalDate_RefusesCorrection_AndVoidsNothing()
+    {
+        var userId = Guid.NewGuid();
+        var shopId = Guid.NewGuid();
+        var originalId = Guid.NewGuid();
+        var original = Expense.Create(shopId, Guid.NewGuid(), 100m, "Vendor", null, new DateOnly(2026, 3, 28), userId);
+        _userRepository.GetByIdWithDetailsAsync(userId, Arg.Any<CancellationToken>()).Returns(CreateActor(userId, shopId, ShopRole.Owner));
+        _expenseRepository.GetByIdAsync(originalId, Arg.Any<CancellationToken>()).Returns(original);
+        _postingPeriods.AuthorizeForWriteAsync(
+                shopId,
+                Arg.Is<IReadOnlyCollection<DateOnly>>(d => d.Count == 2 && d.Contains(new DateOnly(2026, 3, 28)) && d.Contains(new DateOnly(2026, 4, 20))),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<IReadOnlyList<PostingPeriodLease>>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 3, 1))));
+
+        var result = await CreateHandler().HandleAsync(CreateCommand(userId, shopId, originalId), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        _expenseRepository.DidNotReceive().Update(Arg.Any<Expense>());
+        await _expenseRepository.DidNotReceive().AddAsync(Arg.Any<Expense>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received().RollbackTransactionAsync(Arg.Any<CancellationToken>());
     }
 }

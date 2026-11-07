@@ -14,6 +14,8 @@ public sealed class SalesTallyXmlExportRendererTests
 {
     private static readonly DateTimeOffset SoldAt = new(2026, 5, 1, 10, 0, 0, TimeSpan.Zero);
     private static readonly DateTimeOffset ReturnedAt = new(2026, 5, 4, 12, 0, 0, TimeSpan.Zero);
+    private static readonly DateOnly SoldOn = new(2026, 5, 1);
+    private static readonly DateOnly ReturnedOn = new(2026, 5, 4);
 
     private readonly SalesTallyXmlExportRenderer _renderer = new(new AccountingVoucherValidator());
 
@@ -126,7 +128,7 @@ public sealed class SalesTallyXmlExportRendererTests
     public async Task RenderAsync_SaleJustAfterMidnightIst_IsDatedOnItsBusinessDay()
     {
         var sale = Sale("A/2728/000001", "Alice", "Cash", paid: 118m, due: 0m, (18m, 100m, 18m));
-        var early = sale.Summary with { SaleDate = new DateTimeOffset(2027, 3, 31, 19, 0, 0, TimeSpan.Zero) };
+        var early = sale.Summary with { SaleDate = new DateTimeOffset(2027, 3, 31, 19, 0, 0, TimeSpan.Zero), BusinessDate = new DateOnly(2027, 4, 1) };
 
         var voucher = SingleVoucher(Parse(await RenderAsync(Dataset([(early, sale.Lines)]))), "Sales");
 
@@ -246,9 +248,9 @@ public sealed class SalesTallyXmlExportRendererTests
     public async Task RenderAsync_ReturnReferencesTheInvoicesBusinessDate()
     {
         var sale = Sale("A/2728/000001", "Alice", "Cash", paid: 118m, due: 0m, (18m, 100m, 18m));
-        var early = sale.Summary with { SaleDate = new DateTimeOffset(2027, 3, 31, 19, 0, 0, TimeSpan.Zero) };
+        var early = sale.Summary with { SaleDate = new DateTimeOffset(2027, 3, 31, 19, 0, 0, TimeSpan.Zero), BusinessDate = new DateOnly(2027, 4, 1) };
         var entry = Return("RET-1", (early, sale.Lines), financial: 118m, taxable: 100m, tax: 18m, nonTax: 0m, Settle(ReturnSettlementKind.ExternalRefund, 118m))
-            with { PostedAt = new DateTimeOffset(2027, 4, 2, 20, 0, 0, TimeSpan.Zero) };
+            with { PostedAt = new DateTimeOffset(2027, 4, 2, 20, 0, 0, TimeSpan.Zero), BusinessDate = new DateOnly(2027, 4, 3) };
 
         var voucher = SingleVoucher(Parse(await RenderAsync(Dataset([(early, sale.Lines)], [entry]))), "Credit Note");
 
@@ -334,6 +336,7 @@ public sealed class SalesTallyXmlExportRendererTests
         {
             Kind = ReturnAdjustmentEntryKind.VoidReversal,
             PostedAt = new DateTimeOffset(2026, 6, 2, 9, 0, 0, TimeSpan.Zero),
+            BusinessDate = new DateOnly(2026, 6, 2),
             VoidReason = "Entered twice",
         };
 
@@ -467,11 +470,11 @@ public sealed class SalesTallyXmlExportRendererTests
         var taxable = lines.Sum(l => l.Taxable);
         var tax = lines.Sum(l => l.Tax);
         var summary = new SalesExportSummaryRowDto(
-            invoiceNumber, SoldAt, customerName, paymentMethod, paid, due, taxable + tax, 0m, taxable, tax, taxable + tax,
+            invoiceNumber, SoldAt, SoldOn, customerName, paymentMethod, paid, due, taxable + tax, 0m, taxable, tax, taxable + tax,
             null, 0m, 0m, 0m, taxable + tax, false, lines.Length);
         var lineRows = lines
             .Select(l => new SalesExportLineItemRowDto(
-                invoiceNumber, SoldAt, customerName, "Product", 1m, l.Taxable, 0m, 0m, l.Rate, l.Taxable, l.Tax, l.Taxable + l.Tax, false, 0m, null, null))
+                invoiceNumber, SoldAt, SoldOn, customerName, "Product", 1m, l.Taxable, 0m, 0m, l.Rate, l.Taxable, l.Tax, l.Taxable + l.Tax, false, 0m, null, null))
             .ToList();
         return (summary, lineRows);
     }
@@ -487,12 +490,15 @@ public sealed class SalesTallyXmlExportRendererTests
         new(
             ReturnAdjustmentEntryKind.Return,
             ReturnedAt,
+            ReturnedOn,
             Guid.NewGuid(),
             returnNumber,
             ReturnedAt,
+            ReturnedOn,
             Guid.NewGuid(),
             sale.Summary.InvoiceNumber,
             sale.Summary.SaleDate,
+            sale.Summary.BusinessDate,
             sale.Summary.CustomerName,
             ReturnAccountingStatus.Balanced,
             "proportional-line-tax/1",

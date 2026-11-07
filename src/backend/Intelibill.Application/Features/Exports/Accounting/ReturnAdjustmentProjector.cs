@@ -7,11 +7,11 @@ using Intelibill.Domain.ValueObjects;
 namespace Intelibill.Application.Features.Exports.Accounting;
 
 /// <summary>
-/// Turns returns into their dated accounting postings for a UTC date range: the return on the day
-/// it was processed, and its void, if any, as a reversal on the day it was voided. A return
+/// Turns returns into their dated accounting postings for a range of business dates: the return on
+/// its business date, and its void, if any, as a reversal on the void's business date. A return
 /// processed in June and voided in July posts its credit in June and its reversal in July; each
-/// export of either month shows only its own posting. Plan 27 replaces the UTC date with the shop's
-/// business date.
+/// export of either month shows only its own posting. The dates were stored when each posting was
+/// made, so a later change of the shop's time zone moves nothing.
 /// </summary>
 public static class ReturnAdjustmentProjector
 {
@@ -31,10 +31,10 @@ public static class ReturnAdjustmentProjector
             if (!salesById.TryGetValue(saleReturn.SaleId, out var sale))
                 continue;
 
-            if (InRange(saleReturn.ProcessedAt, from, to))
+            if (InRange(saleReturn.BusinessDate, from, to))
                 entries.Add(Entry(saleReturn, sale, creditNoteCodesById, ReturnAdjustmentEntryKind.Return));
 
-            if (saleReturn.IsVoided && saleReturn.VoidedAt is { } voidedAt && InRange(voidedAt, from, to))
+            if (saleReturn.IsVoided && saleReturn.VoidedAt is not null && saleReturn.VoidedBusinessDate is { } voidedOn && InRange(voidedOn, from, to))
                 entries.Add(Entry(saleReturn, sale, creditNoteCodesById, ReturnAdjustmentEntryKind.VoidReversal));
         }
 
@@ -102,12 +102,15 @@ public static class ReturnAdjustmentProjector
         return new ReturnAdjustmentEntry(
             kind,
             kind == ReturnAdjustmentEntryKind.VoidReversal ? saleReturn.VoidedAt!.Value : saleReturn.ProcessedAt,
+            kind == ReturnAdjustmentEntryKind.VoidReversal ? saleReturn.VoidedBusinessDate!.Value : saleReturn.BusinessDate,
             saleReturn.Id,
             saleReturn.ReturnNumber,
             saleReturn.ProcessedAt,
+            saleReturn.BusinessDate,
             sale.Id,
             sale.InvoiceNumber,
             sale.SoldAt,
+            sale.BusinessDate,
             sale.CustomerName,
             status,
             saleReturn.AccountingPolicyVersion,
@@ -137,9 +140,5 @@ public static class ReturnAdjustmentProjector
             .ToList();
     }
 
-    private static bool InRange(DateTimeOffset postedAt, DateOnly from, DateOnly to)
-    {
-        var date = DateOnly.FromDateTime(postedAt.UtcDateTime);
-        return date >= from && date <= to;
-    }
+    private static bool InRange(DateOnly date, DateOnly from, DateOnly to) => date >= from && date <= to;
 }

@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 
 namespace Intelibill.Domain.Interfaces.Repositories;
 
@@ -8,6 +9,8 @@ public interface IShopRepository : IRepository<Shop>
     Task<ShopMembership?> GetMembershipAsync(Guid userId, Guid shopId, CancellationToken cancellationToken = default);
     Task<ShopMembership?> GetDefaultMembershipAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<ShopMembership?> GetMostRecentlyUsedMembershipAsync(Guid userId, CancellationToken cancellationToken = default);
+    /// <summary>The user's role in the shop if their membership is active now, read untracked so it is never a stale cached copy.</summary>
+    Task<ShopRole?> GetActiveRoleAsync(Guid userId, Guid shopId, CancellationToken cancellationToken = default);
     Task<bool> UserHasMembershipAsync(Guid userId, Guid shopId, CancellationToken cancellationToken = default);
     Task ClearDefaultForUserAsync(Guid userId, CancellationToken cancellationToken = default);
     Task<Shop?> GetByIdWithMembersAsync(Guid shopId, CancellationToken cancellationToken = default);

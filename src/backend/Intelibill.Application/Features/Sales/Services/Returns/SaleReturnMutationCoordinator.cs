@@ -1,6 +1,8 @@
 using System.Data.Common;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Posting;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +11,9 @@ namespace Intelibill.Application.Features.Sales.Services.Returns;
 
 internal sealed class SaleReturnMutationCoordinator(
     ISaleRepository saleRepository,
+    IShopRepository shopRepository,
+    IPostingPeriodPolicy postingPeriodPolicy,
+    IBusinessClock businessClock,
     IUnitOfWork unitOfWork)
     : ISaleReturnMutationCoordinator
 {
@@ -28,6 +33,17 @@ internal sealed class SaleReturnMutationCoordinator(
         var failing = false;
         try
         {
+            // The fence comes first: before the sale lock, and so before any customer, credit note
+            // or batch lock the mutation takes after it.
+            var shop = await shopRepository.GetByIdAsync(shopId, cancellationToken);
+            if (shop is null)
+                return Errors.Shop.ShopNotFound;
+
+            var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
+                shopId, businessClock.Today(shop.BusinessTimeZoneId), cancellationToken);
+            if (fence.IsError)
+                return fence.Errors;
+
             var outcome = await saleRepository.LockForReturnMutationAsync(shopId, saleId, cancellationToken);
             switch (outcome)
             {

@@ -48,6 +48,8 @@ const ISSUE_TYPE_LABEL_KEYS: Readonly<Record<string, string>> = {
   RecoveryReview: 'sales.offlineReconciliation.issueTypes.recoveryReview',
   // Informational: a device-issued sale posted without a GST document because the shop's profile did not allow one.
   DocumentReview: 'sales.offlineReconciliation.issueTypes.documentReview',
+  // Held because the invoice's month is closed; posts after an owner reopens it.
+  ClosedPeriodReview: 'sales.offlineReconciliation.issueTypes.closedPeriodReview',
 };
 
 const RECOVERY_STATUS_LABEL_KEYS: Readonly<Record<RecoveryInvoiceStatus, string>> = {

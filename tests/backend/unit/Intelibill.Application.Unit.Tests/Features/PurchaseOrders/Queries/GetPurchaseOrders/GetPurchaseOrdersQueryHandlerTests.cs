@@ -1,9 +1,11 @@
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
 using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrders;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.PurchaseOrders.Queries.GetPurchaseOrders;
@@ -14,7 +16,7 @@ public class GetPurchaseOrdersQueryHandlerTests
     private readonly IPurchaseOrderRepository _poRepository = Substitute.For<IPurchaseOrderRepository>();
 
     private GetPurchaseOrdersQueryHandler CreateHandler() =>
-        new(_userRepository, _poRepository);
+        new(_userRepository, _poRepository, BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock());
 
     [Fact]
     public async Task HandleAsync_ValidMember_ReturnsList()
@@ -82,8 +84,9 @@ public class GetPurchaseOrdersQueryHandlerTests
                 filter.ShopId == shop.Id
                 && filter.Search == "rice"
                 && filter.Status == PurchaseOrderStatus.Draft
-                && filter.OrderDateFrom == new DateOnly(2026, 6, 1)
-                && filter.OrderDateTo == new DateOnly(2026, 6, 30)
+                && filter.CreatedWindow == new UtcDateWindow(
+                    new DateTimeOffset(2026, 5, 31, 18, 30, 0, TimeSpan.Zero),
+                    new DateTimeOffset(2026, 6, 30, 18, 30, 0, TimeSpan.Zero))
                 && filter.PageNumber == 1
                 && filter.PageSize == 100),
             Arg.Any<CancellationToken>());

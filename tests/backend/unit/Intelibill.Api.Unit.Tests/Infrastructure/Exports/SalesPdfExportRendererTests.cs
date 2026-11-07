@@ -23,7 +23,7 @@ public sealed class SalesPdfExportRendererTests
 
         var summaryRows = new List<SalesExportSummaryRowDto>
         {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 1200m, 0m, 1200m, 0m, 1000m, 180m, 1180m, null, 0m, 0m, 0m, 1180m, false, 2)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), new DateOnly(2026, 5, 1), "Alice", "Cash", 1200m, 0m, 1200m, 0m, 1000m, 180m, 1180m, null, 0m, 0m, 0m, 1180m, false, 2)
         };
 
         var dataset = new SalesExportDatasetDto(metadata, summaryRows, [], [], []);
@@ -51,12 +51,12 @@ public sealed class SalesPdfExportRendererTests
 
         var summaryRows = new List<SalesExportSummaryRowDto>
         {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 1200m, 0m, 1200m, 0m, 1000m, 180m, 1180m, null, 0m, 0m, 0m, 1180m, false, 2)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), new DateOnly(2026, 5, 1), "Alice", "Cash", 1200m, 0m, 1200m, 0m, 1000m, 180m, 1180m, null, 0m, 0m, 0m, 1180m, false, 2)
         };
 
         var lineItemRows = new List<SalesExportLineItemRowDto>
         {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Apple", 2m, 50m, 0m, 0m, 18m, 100m, 18m, 118m, false, 0m, null, null)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), new DateOnly(2026, 5, 1), "Alice", "Apple", 2m, 50m, 0m, 0m, 18m, 100m, 18m, 118m, false, 0m, null, null)
         };
 
         var dataset = new SalesExportDatasetDto(metadata, summaryRows, lineItemRows, [], []);
@@ -84,12 +84,12 @@ public sealed class SalesPdfExportRendererTests
 
         var summaryRows = new List<SalesExportSummaryRowDto>
         {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 200m, 50m, 250m, 0m, 250m, 50m, 300m, null, 0m, 0m, 0m, 300m, false, 1, 50m, "CN-001", 500m)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), new DateOnly(2026, 5, 1), "Alice", "Cash", 200m, 50m, 250m, 0m, 250m, 50m, 300m, null, 0m, 0m, 0m, 300m, false, 1, 50m, "CN-001", 500m)
         };
 
         var baselineRows = new List<SalesExportSummaryRowDto>
         {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 200m, 50m, 250m, 0m, 250m, 50m, 300m, null, 0m, 0m, 0m, 300m, false, 1)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), new DateOnly(2026, 5, 1), "Alice", "Cash", 200m, 50m, 250m, 0m, 250m, 50m, 300m, null, 0m, 0m, 0m, 300m, false, 1)
         };
 
         var creditDataset = new SalesExportDatasetDto(metadata, summaryRows, [], [], []);
@@ -113,7 +113,7 @@ public sealed class SalesPdfExportRendererTests
         var metadata = Metadata();
         var summaryRows = new List<SalesExportSummaryRowDto>
         {
-            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), "Alice", "Cash", 118m, 0m, 118m, 0m, 100m, 18m, 118m, "RET-001", 100m, 84.75m, 15.25m, 18m, true, 1, 0m, "CN-001", 60m)
+            new("INV-001", new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero), new DateOnly(2026, 5, 1), "Alice", "Cash", 118m, 0m, 118m, 0m, 100m, 18m, 118m, "RET-001", 100m, 84.75m, 15.25m, 18m, true, 1, 0m, "CN-001", 60m)
         };
 
         var baselineDataset = new SalesExportDatasetDto(metadata, summaryRows, [], [], []);
@@ -133,7 +133,7 @@ public sealed class SalesPdfExportRendererTests
     {
         var summaryRows = new List<SalesExportSummaryRowDto>
         {
-            new("INV-002", new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero), "Bob", "Cash", 236m, 0m, 236m, 0m, 200m, 36m, 236m, null, 0m, 0m, 0m, 236m, false, 1)
+            new("INV-002", new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero), new DateOnly(2026, 5, 3), "Bob", "Cash", 236m, 0m, 236m, 0m, 200m, 36m, 236m, null, 0m, 0m, 0m, 236m, false, 1)
         };
         var earlierSaleReturn = MixedReturn("INV-001");
         var needsReview = MixedReturn("INV-000") with
@@ -168,12 +168,15 @@ public sealed class SalesPdfExportRendererTests
         new(
             ReturnAdjustmentEntryKind.Return,
             new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero),
+            new DateOnly(2026, 5, 2),
             Guid.NewGuid(),
             "RET-001",
             new DateTimeOffset(2026, 5, 2, 11, 0, 0, TimeSpan.Zero),
+            new DateOnly(2026, 5, 2),
             Guid.NewGuid(),
             invoiceNumber,
             new DateTimeOffset(2026, 5, 1, 10, 0, 0, TimeSpan.Zero),
+            new DateOnly(2026, 5, 1),
             "Alice",
             ReturnAccountingStatus.Balanced,
             "proportional-line-tax/1",

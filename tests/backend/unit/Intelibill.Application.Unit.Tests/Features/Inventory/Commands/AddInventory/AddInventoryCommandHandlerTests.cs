@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
 using Intelibill.Domain.Entities;
@@ -6,6 +7,7 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Update;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using DomainInventory = Intelibill.Domain.Entities.Inventory;
@@ -212,7 +214,8 @@ public class AddInventoryCommandHandlerTests
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
-        var performedAt = new DateTimeOffset(2026, 5, 15, 9, 30, 0, TimeSpan.FromHours(5.5));
+        // 00:30 on 15 May in the shop zone is still 14 May in UTC: the ledger follows the shop day.
+        var performedAt = new DateTimeOffset(2026, 5, 15, 0, 30, 0, TimeSpan.FromHours(5.5));
         var expectedUtc = performedAt.ToUniversalTime();
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
@@ -230,7 +233,7 @@ public class AddInventoryCommandHandlerTests
             Arg.Is<StockTransaction>(t => t.PerformedAt == expectedUtc && t.PerformedAt.Offset == TimeSpan.Zero),
             Arg.Any<CancellationToken>());
         await _supplierLedgerEntryRepository.Received(1).AddAsync(
-            Arg.Is<SupplierLedgerEntry>(e => e.EntryDate == DateOnly.FromDateTime(expectedUtc.UtcDateTime)),
+            Arg.Is<SupplierLedgerEntry>(e => e.EntryDate == new DateOnly(2026, 5, 15)),
             Arg.Any<CancellationToken>());
     }
 
@@ -503,8 +506,9 @@ public class AddInventoryCommandHandlerTests
         Assert.Equal(2.5m, result.Value.BatchQuantity);
     }
 
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private AddInventoryCommandHandler CreateHandler() =>
-        new(_userRepository, _supplierRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _purchaseReceiptValueRepository, _inventoryRepository, _unitOfWork);
+        new(_userRepository, _supplierRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _purchaseReceiptValueRepository, _inventoryRepository, _unitOfWork, BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock());
 
     private void SetupSystemSupplierLookup()
     {
@@ -544,4 +548,28 @@ public class AddInventoryCommandHandlerTests
             ReferenceNumber: "PO-123",
             Notes: "Initial stock",
             PerformedAt: performedAt);
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesIntake_OnTheBusinessDateOfItsPerformedTime()
+    {
+        SetupSystemSupplierLookup();
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        // 2026-05-31 20:00 UTC is 1 June 01:30 in Asia/Kolkata.
+        _postingPeriods.AuthorizeForWriteAsync(shop.Id, new DateOnly(2026, 6, 1), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 6, 1))));
+
+        var result = await CreateHandler().HandleAsync(
+            CreateCommand(actor.Id, shop.Id, performedAt: new DateTimeOffset(2026, 5, 31, 20, 0, 0, TimeSpan.Zero)),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        await _inventoryBatchRepository.DidNotReceive().AddAsync(Arg.Any<InventoryBatch>(), Arg.Any<CancellationToken>());
+        await _supplierLedgerEntryRepository.DidNotReceive().AddAsync(Arg.Any<SupplierLedgerEntry>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+    }
 }

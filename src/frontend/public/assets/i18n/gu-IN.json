@@ -2028,7 +2028,8 @@
         "provenanceReview": "બિલ બનાવનારની સમીક્ષા",
         "recoveryReview": "પાછા મેળવેલા ઇન્વૉઇસની સમીક્ષા",
         "unknown": "અન્ય",
-        "documentReview": "GST દસ્તાવેજ સમીક્ષા"
+        "documentReview": "GST દસ્તાવેજ સમીક્ષા",
+        "closedPeriodReview": "બંધ સમયગાળા સમીક્ષા"
       },
       "detail": {
         "title": "કેસની વિગતો",

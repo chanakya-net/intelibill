@@ -272,7 +272,7 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
         await CreateDraftAsync(client, ownerToken, "Beta Oil");
 
         var createdAt = alphaDraft.GetProperty("createdAt").GetDateTimeOffset();
-        var orderDate = DateOnly.FromDateTime(createdAt.UtcDateTime);
+        var orderDate = BusinessDates.Of(createdAt);
         var poNumber = alphaDraft.GetProperty("purchaseOrderNumber").GetString()!;
 
         using var poNumberRequest = new HttpRequestMessage(

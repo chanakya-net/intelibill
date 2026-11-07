@@ -20,6 +20,7 @@ public sealed class SyncOfflineSalesCommandHandler(
     ISaleRepository saleRepository,
     IDiscountRuleRepository discountRuleRepository,
     IOfflineSaleVarianceAnalyzer varianceAnalyzer,
+    IReconciliationIssueRepository reconciliationIssueRepository,
     IOfflineSalePoster salePoster,
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider)
@@ -120,51 +121,86 @@ public sealed class SyncOfflineSalesCommandHandler(
         if (await saleRepository.GetByInvoiceNumberAsync(command.ShopId, invNum, cancellationToken) is not null)
             return await HoldAsync(hold, null, ReconciliationIssueType.InvoiceConflict, Errors.Sale.InvoiceNumberAlreadyUsed, cancellationToken);
 
-        var outcome = await salePoster.StageAsync(
-            new OfflineSalePostingRequest(
-                command.ShopId,
-                deviceId,
-                normalizedId,
-                sale,
-                hash,
-                AttributedUserId: command.ActorUserId,
-                RecordedByUserId: command.ActorUserId,
-                submission.Id,
-                now,
-                activeDiscountRulesById,
-                lease),
-            cancellationToken);
+        // An envelope already held for a closed period waits for an explicit resolution: reopening the
+        // month does not let a device resend post it past the open case.
+        if (await reconciliationIssueRepository.FindUnresolvedByEnvelopeAsync(command.ShopId, submission.Id, cancellationToken) is
+            { IssueType: ReconciliationIssueType.ClosedPeriodReview } pending)
+            return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Error.Conflict(pending.Code, pending.Message), pending.Id);
 
-        if (outcome is OfflineSalePostingOutcome.Rejected rejected)
-            return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, rejected.Error);
-        if (outcome is OfflineSalePostingOutcome.Held held)
-            return await HoldAsync(hold, null, held.IssueType, held.Error, cancellationToken, held.Message, held.Mismatches);
-
-        var staged = (OfflineSalePostingOutcome.Staged)outcome;
-        var saleEntity = staged.Sale;
-        submission.LinkSale(saleEntity.Id);
-
-        try { await unitOfWork.SaveChangesAsync(cancellationToken); }
-        catch (DbUpdateException ex)
+        // The fence inside StageAsync holds its shared lock on the period until this transaction ends,
+        // so a close cannot commit between the check and the sale. Anything that does not post rolls
+        // back first; a hold case is then filed and saved outside the rolled-back transaction.
+        await unitOfWork.BeginTransactionAsync(cancellationToken);
+        var open = true;
+        try
         {
-            unitOfWork.ClearChanges();
-            var concurrent = await saleRepository.GetByClientSaleIdAsync(command.ShopId, deviceId, normalizedId, cancellationToken);
-            if (concurrent is null)
+            var outcome = await salePoster.StageAsync(
+                new OfflineSalePostingRequest(
+                    command.ShopId,
+                    deviceId,
+                    normalizedId,
+                    sale,
+                    hash,
+                    AttributedUserId: command.ActorUserId,
+                    RecordedByUserId: command.ActorUserId,
+                    submission.Id,
+                    now,
+                    activeDiscountRulesById,
+                    lease),
+                cancellationToken);
+
+            if (outcome is not OfflineSalePostingOutcome.Staged staged)
             {
-                var saveErr = OfflineSaleSyncHelpers.GetSaveFailureError(ex);
-                if (saveErr.Code == Errors.Sale.InvoiceNumberAlreadyUsed.Code)
-                    return await HoldAsync(hold, null, ReconciliationIssueType.InvoiceConflict, saveErr, cancellationToken);
-                return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, saveErr);
+                await AbandonAsync(cancellationToken);
+                open = false;
+                return outcome is OfflineSalePostingOutcome.Held held
+                    ? await HoldAsync(hold, null, held.IssueType, held.Error, cancellationToken, held.Message, held.Mismatches)
+                    : OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, ((OfflineSalePostingOutcome.Rejected)outcome).Error);
             }
-            if (!string.Equals(concurrent.RequestHash, hash, StringComparison.Ordinal))
-                return await HoldAsync(hold, concurrent.Id, ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict, cancellationToken);
 
-            // The concurrent winner received the same envelope row and links it with its own sale.
-            return OfflineSaleSyncHelpers.BuildDuplicateResult(normalizedId, concurrent);
+            var saleEntity = staged.Sale;
+            submission.LinkSale(saleEntity.Id);
+
+            try
+            {
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+                await unitOfWork.CommitTransactionAsync(cancellationToken);
+                open = false;
+            }
+            catch (DbUpdateException ex)
+            {
+                await AbandonAsync(cancellationToken);
+                open = false;
+                var concurrent = await saleRepository.GetByClientSaleIdAsync(command.ShopId, deviceId, normalizedId, cancellationToken);
+                if (concurrent is null)
+                {
+                    var saveErr = OfflineSaleSyncHelpers.GetSaveFailureError(ex);
+                    if (saveErr.Code == Errors.Sale.InvoiceNumberAlreadyUsed.Code)
+                        return await HoldAsync(hold, null, ReconciliationIssueType.InvoiceConflict, saveErr, cancellationToken);
+                    return OfflineSaleSyncHelpers.BuildErrorResult(normalizedId, saveErr);
+                }
+                if (!string.Equals(concurrent.RequestHash, hash, StringComparison.Ordinal))
+                    return await HoldAsync(hold, concurrent.Id, ReconciliationIssueType.ValidationConflict, Errors.Sale.IdempotencyConflict, cancellationToken);
+
+                // The concurrent winner received the same envelope row and links it with its own sale.
+                return OfflineSaleSyncHelpers.BuildDuplicateResult(normalizedId, concurrent);
+            }
+
+            var warnings = staged.Warnings;
+            return new OfflineSaleSyncResultDto(normalizedId, warnings.Count > 0 ? StatusSyncedWithWarnings : StatusCreated, saleEntity.Id, saleEntity.InvoiceNumber, []) { Warnings = warnings };
         }
+        finally
+        {
+            if (open)
+                await AbandonAsync(CancellationToken.None);
+        }
+    }
 
-        var warnings = staged.Warnings;
-        return new OfflineSaleSyncResultDto(normalizedId, warnings.Count > 0 ? StatusSyncedWithWarnings : StatusCreated, saleEntity.Id, saleEntity.InvoiceNumber, []) { Warnings = warnings };
+    /// <summary>Rolls the posting transaction back and drops everything staged in it.</summary>
+    private async Task AbandonAsync(CancellationToken cancellationToken)
+    {
+        await unitOfWork.RollbackTransactionAsync(cancellationToken);
+        unitOfWork.ClearChanges();
     }
 
     /// <summary>

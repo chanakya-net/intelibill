@@ -253,6 +253,7 @@ public sealed class ReconciliationCaseMapperTests
             null,
             PaymentMethod.Cash,
             Now.AddHours(1),
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(Now.AddHours(1)),
             118m,
             0m,
             118m,

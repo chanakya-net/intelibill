@@ -3,6 +3,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.CreditNotes.Services;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Features.Sales.Services.Returns;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -23,7 +24,8 @@ public sealed class RecordSaleReturnCommandHandler(
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     IReturnAccountingPolicy returnAccountingPolicy,
     ISaleReturnMutationCoordinator mutationCoordinator,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IBusinessClock businessClock)
 {
     public Task<ErrorOr<Success>> HandleAsync(
         RecordSaleReturnCommand command,
@@ -78,8 +80,9 @@ public sealed class RecordSaleReturnCommandHandler(
         if (classification.IsError)
             return classification.Errors;
 
-        var processedAt = DateTimeOffset.UtcNow;
-        var returnNumber = saleReturnNumberGenerator.Generate(processedAt);
+        var processedAt = businessClock.UtcNow;
+        var businessDay = businessClock.GetBusinessDay(processedAt, validated.Shop.BusinessTimeZoneId);
+        var returnNumber = saleReturnNumberGenerator.Generate(businessDay.Date);
         var calculationBySaleItemId = validated.Calculation.Lines.ToDictionary(line => line.SaleItemId);
         var returnLines = new List<SaleReturnLineInput>();
 
@@ -150,6 +153,7 @@ public sealed class RecordSaleReturnCommandHandler(
             validated.Sale.Id,
             returnNumber,
             processedAt,
+            businessDay,
             command.ActorUserId,
             command.Notes,
             validated.Calculation.TotalRefundAmount,
@@ -174,7 +178,7 @@ public sealed class RecordSaleReturnCommandHandler(
                 validated.Sale.Id,
                 CustomerLedgerEntryType.ReturnCredit,
                 validated.Calculation.DueReductionAmount,
-                DateOnly.FromDateTime(processedAt.UtcDateTime),
+                businessDay.Date,
                 $"Return credit from {returnNumber} for sale {validated.Sale.InvoiceNumber}",
                 command.ActorUserId);
 
@@ -188,7 +192,7 @@ public sealed class RecordSaleReturnCommandHandler(
         if (command.PayoutDestination == ReturnPayoutDestination.CreditNote
             && validated.Calculation.PayoutAmount > 0m)
         {
-            var code = await creditNoteCodeGenerator.GenerateAsync(command.ShopId, cancellationToken);
+            var code = await creditNoteCodeGenerator.GenerateAsync(command.ShopId, businessDay.Date, cancellationToken);
             var reason = ResolveCreditNoteReason(command, returnNumber);
             var creditNoteResult = CreditNote.Issue(
                 command.ShopId,

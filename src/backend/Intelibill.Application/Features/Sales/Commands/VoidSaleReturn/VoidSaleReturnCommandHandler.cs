@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Services.Returns;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -19,7 +20,8 @@ public sealed class VoidSaleReturnCommandHandler(
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
     ICreditNoteRepository creditNoteRepository,
     ISaleReturnMutationCoordinator mutationCoordinator,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IBusinessClock businessClock)
 {
     public async Task<ErrorOr<Success>> HandleAsync(
         VoidSaleReturnCommand command,
@@ -52,12 +54,13 @@ public sealed class VoidSaleReturnCommandHandler(
         return await mutationCoordinator.ExecuteAsync(
             command.ShopId,
             saleId.Value,
-            ct => VoidAsync(command, ct),
+            ct => VoidAsync(command, shop, ct),
             cancellationToken);
     }
 
     private async Task<ErrorOr<Success>> VoidAsync(
         VoidSaleReturnCommand command,
+        Shop shop,
         CancellationToken cancellationToken)
     {
         var saleReturn = await saleReturnRepository.GetByIdWithItemsAsync(
@@ -82,7 +85,10 @@ public sealed class VoidSaleReturnCommandHandler(
             return Errors.Sale.NotFound(saleReturn.SaleId);
 
         var saleItemsById = sale.Items.ToDictionary(item => item.Id);
-        var processedAt = DateTimeOffset.UtcNow;
+        var processedAt = businessClock.UtcNow;
+        // The void lands on the day it happened in the shop's current zone, the one the coordinator
+        // fenced the period with.
+        var voidDate = businessClock.GetBusinessDate(processedAt, shop.BusinessTimeZoneId);
         var stockReversals = new List<StockTransaction>();
 
         foreach (var returnItem in saleReturn.Items.Where(item => item.Condition == SaleReturnCondition.Restockable))
@@ -143,7 +149,7 @@ public sealed class VoidSaleReturnCommandHandler(
                 sale.Id,
                 CustomerLedgerEntryType.ReturnCreditReversal,
                 saleReturn.DueReductionAmount,
-                DateOnly.FromDateTime(processedAt.UtcDateTime),
+                voidDate,
                 $"Void return credit from {saleReturn.ReturnNumber} for sale {sale.InvoiceNumber}",
                 command.ActorUserId);
             if (ledgerResult.IsError)
@@ -152,7 +158,7 @@ public sealed class VoidSaleReturnCommandHandler(
             returnCreditReversal = ledgerResult.Value;
         }
 
-        var voidResult = saleReturn.Void(processedAt, command.ActorUserId, command.Reason);
+        var voidResult = saleReturn.Void(processedAt, voidDate, command.ActorUserId, command.Reason);
         if (voidResult.IsError)
             return voidResult.Errors;
 

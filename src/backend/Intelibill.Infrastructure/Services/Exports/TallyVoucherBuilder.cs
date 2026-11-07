@@ -51,8 +51,8 @@ internal static class TallyVoucherBuilder
                 AddLine(lines, FormatGstLedgerName(taxGroup.Rate), taxGroup.Amount, isDebit: false);
         }
 
-        // Dated on the business calendar, so a sale just after midnight IST lands in its own day and fiscal year.
-        var date = BusinessCalendar.DateOf(summary.SaleDate);
+        // Dated on the sale's stored business date, so a sale just after local midnight lands in its own day and fiscal year.
+        var date = summary.BusinessDate;
         return new AccountingVoucher(summary.InvoiceNumber, "Sales", date, summary.InvoiceNumber, date, null, lines);
     }
 
@@ -82,15 +82,15 @@ internal static class TallyVoucherBuilder
         foreach (var settlement in entry.Settlements)
             AddLine(lines, SettlementLedgerName(settlement.Kind, entry.CustomerName), Math.Abs(settlement.Amount), !adjustmentSide);
 
-        // Business dates, like the sales voucher, so the reference date matches the invoice's own.
-        var date = BusinessCalendar.DateOf(entry.PostedAt);
+        // Stored business dates, like the sales voucher, so the reference date matches the invoice's own.
+        var date = entry.BusinessDate;
         return entry.IsReversal
             ? new AccountingVoucher(
                 ReversalVoucherNumber(entry.ReturnNumber),
                 ReversalVoucherType,
                 date,
                 entry.ReturnNumber,
-                BusinessCalendar.DateOf(entry.ReturnProcessedAt),
+                entry.ReturnBusinessDate,
                 $"Reversal of credit note {entry.ReturnNumber} for invoice {entry.InvoiceNumber}: return voided ({entry.VoidReason}).",
                 lines)
             : new AccountingVoucher(
@@ -98,7 +98,7 @@ internal static class TallyVoucherBuilder
                 ReturnVoucherType,
                 date,
                 entry.InvoiceNumber,
-                BusinessCalendar.DateOf(entry.InvoiceDate),
+                entry.InvoiceBusinessDate,
                 ReturnNarration(entry),
                 lines);
     }

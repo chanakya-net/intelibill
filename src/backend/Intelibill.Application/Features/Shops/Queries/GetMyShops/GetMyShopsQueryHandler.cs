@@ -17,7 +17,7 @@ public sealed class GetMyShopsQueryHandler(IUserRepository userRepository)
             .Where(sm => sm.Shop is not null)
             .OrderByDescending(sm => sm.IsDefault)
             .ThenByDescending(sm => sm.LastUsedAt)
-            .Select(sm => new UserShopDto(sm.ShopId, sm.Shop.Name, sm.Role.ToString(), sm.IsDefault, sm.LastUsedAt))
+            .Select(sm => new UserShopDto(sm.ShopId, sm.Shop.Name, sm.Role.ToString(), sm.IsDefault, sm.LastUsedAt, sm.Shop.BusinessTimeZoneId))
             .ToList();
 
         return shops;

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Posting;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -9,6 +10,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Payments;
@@ -42,9 +44,12 @@ public class PaymentCommandHandlerTests
     private PaymentReceiptDtoBuilder Builder() => new(
         _receipts, _balances, Substitute.For<ICustomerRepository>(), Substitute.For<ISupplierRepository>(), _users);
 
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
+    private readonly IExpenseRepository _expenses = Substitute.For<IExpenseRepository>();
     private ReversePaymentCommandHandler ReverseHandler() => new(
         _users, _receipts, Substitute.For<ICustomerLedgerEntryRepository>(), Substitute.For<ISupplierLedgerEntryRepository>(),
-        Substitute.For<IExpenseRepository>(), new PaymentTransactionRunner(_executor, _unitOfWork), Builder(), _unitOfWork);
+        _expenses, new PaymentTransactionRunner(_executor, _unitOfWork), Builder(), _unitOfWork,
+        BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock());
 
     [Theory]
     [InlineData(ShopRole.Manager)]
@@ -105,5 +110,56 @@ public class PaymentCommandHandlerTests
 
         var ok = await planner.PlanAsync(receipt, 60m, [new PaymentAllocationRequest(target, 40m)], Guid.NewGuid(), CancellationToken.None);
         Assert.Equal(40m, Assert.Single(ok.Value).Amount);
+    }
+
+    [Fact]
+    public async Task Reverse_ClosedPeriod_IsRefusedBeforeAnyPartyLock()
+    {
+        var owner = Member(ShopRole.Owner);
+        var receipt = StoredReceipt();
+        _executor.ExecuteAsync(
+                Arg.Any<FinancialOperationScope>(), Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<string>(),
+                Arg.Any<Func<CancellationToken, Task<ErrorOr.ErrorOr<PaymentReceiptDto>>>>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<Func<CancellationToken, Task<ErrorOr.ErrorOr<PaymentReceiptDto>>>>()(CancellationToken.None));
+        _postingPeriods.AuthorizeForWriteAsync(_shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 6, 1))));
+
+        var result = await ReverseHandler().HandleAsync(
+            new ReversePaymentCommand(owner.Id, _shop.Id, receipt.Id, "Wrong customer", "rev-1"), CancellationToken.None);
+
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        await _receipts.DidNotReceiveWithAnyArgs().LockPartyAndTargetsAsync(default, default, default, default!, default);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Reverse_SupplierPaymentWhoseExpenseMonthIsClosed_ChangesNothing()
+    {
+        var owner = Member(ShopRole.Owner);
+        var expense = Expense.Create(_shop.Id, Guid.NewGuid(), 100m, "Supplier", null, new DateOnly(2026, 6, 15), owner.Id);
+        var receipt = PaymentReceipt.Record(
+            _shop.Id, PaymentPartyType.Supplier, Guid.NewGuid(), 100m, ReceiptTenderMethod.Cash, null, null,
+            new DateOnly(2026, 6, 15), DateTimeOffset.UtcNow, null, Guid.NewGuid(), expense.Id, owner.Id).Value;
+        _receipts.GetByShopAndIdAsync(_shop.Id, receipt.Id, Arg.Any<CancellationToken>()).Returns(receipt);
+        _expenses.GetByIdAsync(expense.Id, Arg.Any<CancellationToken>()).Returns(expense);
+        _expenses.GetCorrectionsOfAsync(_shop.Id, expense.Id, Arg.Any<CancellationToken>()).Returns(Array.Empty<Expense>());
+        _executor.ExecuteAsync(
+                Arg.Any<FinancialOperationScope>(), Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<string>(),
+                Arg.Any<Func<CancellationToken, Task<ErrorOr.ErrorOr<PaymentReceiptDto>>>>(), Arg.Any<CancellationToken>())
+            .Returns(call => call.Arg<Func<CancellationToken, Task<ErrorOr.ErrorOr<PaymentReceiptDto>>>>()(CancellationToken.None));
+        _postingPeriods.AuthorizeForWriteAsync(
+                _shop.Id,
+                Arg.Is<IReadOnlyCollection<DateOnly>>(d => d.Count == 2 && d.Contains(new DateOnly(2026, 6, 15))),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<IReadOnlyList<PostingPeriodLease>>>(
+                Errors.PostingPeriod.Closed(new DateOnly(2026, 6, 1))));
+
+        var result = await ReverseHandler().HandleAsync(
+            new ReversePaymentCommand(owner.Id, _shop.Id, receipt.Id, "Wrong supplier", "rev-1"), CancellationToken.None);
+
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        Assert.False(expense.IsVoided);
+        await _receipts.DidNotReceiveWithAnyArgs().LockPartyAndTargetsAsync(default, default, default, default!, default);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.CreateAdjustment;
 using Intelibill.Application.Features.Inventory.Services;
@@ -5,6 +6,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using NSubstitute;
 using DomainInventory = Intelibill.Domain.Entities.Inventory;
 
@@ -23,7 +25,7 @@ public sealed class CreateAdjustmentCommandHandlerTests
 
     public CreateAdjustmentCommandHandlerTests()
     {
-        _numberGenerator.Generate(Arg.Any<DateTimeOffset?>()).Returns("ADJ-20260505-ABCDEF12");
+        _numberGenerator.Generate(Arg.Any<DateOnly>()).Returns("ADJ-20260505-ABCDEF12");
         _itemRepository.GetByIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(ci => new List<Item> { Item.Create(ci.ArgAt<Guid>(0), "Rice", "d", "kg", "BC-0", true, Guid.NewGuid()) });
     }
@@ -128,7 +130,7 @@ public sealed class CreateAdjustmentCommandHandlerTests
         Assert.Equal(expectedUtc, result.Value.PerformedAt);
         Assert.Equal(TimeSpan.Zero, result.Value.PerformedAt.Offset);
 
-        _numberGenerator.Received(1).Generate(expectedUtc);
+        _numberGenerator.Received(1).Generate(new DateOnly(2026, 5, 15)); // the shop day, not the UTC day (14 May)
         await _stockTransactionRepository.Received(1).AddAsync(
             Arg.Is<StockTransaction>(t =>
                 t.PerformedAt == expectedUtc
@@ -328,6 +330,7 @@ public sealed class CreateAdjustmentCommandHandlerTests
             Assert.Equal("Inventory.QuantityPrecisionExceeded", result.FirstError.Code);
     }
 
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private CreateAdjustmentCommandHandler CreateHandler() =>
         new(
             _userRepository,
@@ -337,5 +340,37 @@ public sealed class CreateAdjustmentCommandHandlerTests
             _adjustmentRepository,
             _numberGenerator,
             _unitOfWork,
-            _itemRepository);
+            _itemRepository,
+            BusinessTestDoubles.AnyShop(),
+            _postingPeriods,
+            BusinessTestDoubles.RealClock());
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesAdjustment_OnItsPerformedDate_AndChangesNothing()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        var itemId = Guid.NewGuid();
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+        var inventory = DomainInventory.Create(shop.Id, itemId, 15m, 2m, 50m, actor.Id).Value;
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _batchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
+        // 2026-05-31 20:00 UTC is 1 June 01:30 in Asia/Kolkata.
+        _postingPeriods.AuthorizeForWriteAsync(shop.Id, new DateOnly(2026, 6, 1), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 6, 1))));
+
+        var result = await CreateHandler().HandleAsync(
+            new CreateAdjustmentCommand(
+                batch.Id, actor.Id, shop.Id, InventoryAdjustmentDirection.Decrease, InventoryAdjustmentReason.Damaged,
+                3m, new DateTimeOffset(2026, 5, 31, 20, 0, 0, TimeSpan.Zero), "Damaged"),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        Assert.Equal(10m, batch.Quantity);
+        await _adjustmentRepository.DidNotReceive().AddAsync(Arg.Any<InventoryAdjustment>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
 }

@@ -1,7 +1,9 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Features.Inventory.Services;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -18,7 +20,10 @@ public sealed class CreateAdjustmentCommandHandler(
     IInventoryAdjustmentRepository inventoryAdjustmentRepository,
     IInventoryAdjustmentNumberGenerator adjustmentNumberGenerator,
     IUnitOfWork unitOfWork,
-    IItemRepository itemRepository)
+    IItemRepository itemRepository,
+    IShopRepository shopRepository,
+    IPostingPeriodPolicy postingPeriodPolicy,
+    IBusinessClock businessClock)
 {
     private static readonly CreateAdjustmentCommandValidator Validator = new();
 
@@ -45,6 +50,30 @@ public sealed class CreateAdjustmentCommandHandler(
         if (actorMembership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Inventory.UserIsNotOwnerOrManager;
 
+        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        var performedAt = (command.PerformedAt ?? businessClock.UtcNow).ToUniversalTime();
+        return await PostingTransaction.RunAsync(
+            unitOfWork,
+            ct => CreateAsync(command, shop, performedAt, ct),
+            cancellationToken);
+    }
+
+    private async Task<ErrorOr<InventoryAdjustmentResultDto>> CreateAsync(
+        CreateAdjustmentCommand command,
+        Shop shop,
+        DateTimeOffset performedAt,
+        CancellationToken cancellationToken)
+    {
+        var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
+            command.ActiveShopId,
+            businessClock.GetBusinessDate(performedAt, shop.BusinessTimeZoneId),
+            cancellationToken);
+        if (fence.IsError)
+            return fence.Errors;
+
         var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
         if (batch is null || batch.ShopId != command.ActiveShopId)
             return Errors.Inventory.BatchNotFound;
@@ -67,7 +96,6 @@ public sealed class CreateAdjustmentCommandHandler(
         if (command.Direction == InventoryAdjustmentDirection.Decrease && command.Quantity > batch.Quantity)
             return Errors.Inventory.AdjustmentQuantityExceedsBatchQuantity;
 
-        var performedAt = (command.PerformedAt ?? DateTimeOffset.UtcNow).ToUniversalTime();
         var batchQuantityBefore = batch.Quantity;
         var inventoryQuantityBefore = inventory.Quantity;
 
@@ -79,7 +107,7 @@ public sealed class CreateAdjustmentCommandHandler(
         if (inventoryUpdate.IsError)
             return inventoryUpdate.Errors;
 
-        var adjustmentNumber = adjustmentNumberGenerator.Generate(performedAt);
+        var adjustmentNumber = adjustmentNumberGenerator.Generate(businessClock.GetBusinessDate(performedAt, shop.BusinessTimeZoneId));
         var signedQuantity = command.Direction == InventoryAdjustmentDirection.Increase
             ? command.Quantity
             : -command.Quantity;

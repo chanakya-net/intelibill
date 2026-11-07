@@ -1,5 +1,6 @@
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -20,9 +21,6 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
     {
         _context = context;
     }
-
-    private static DateTime ToUtcStart(DateOnly utcDate) =>
-        DateTime.SpecifyKind(utcDate.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
 
     public async Task<Sale?> GetByIdAsync(Guid saleId, Guid shopId, CancellationToken cancellationToken = default) =>
         await DbSet
@@ -144,8 +142,7 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
         await DbSet
             .Include(s => s.Items)
             .Where(s => s.ShopId == shopId
-                && s.SoldAt >= ToUtcStart(reportingDay)
-                && s.SoldAt < ToUtcStart(reportingDay.AddDays(1)))
+                && s.BusinessDate == reportingDay)
             .OrderByDescending(s => s.SoldAt)
             .ToListAsync(cancellationToken);
 
@@ -153,8 +150,8 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
         await DbSet
             .Include(s => s.Items)
             .Where(s => s.ShopId == shopId
-                && s.SoldAt >= ToUtcStart(startDate)
-                && s.SoldAt < ToUtcStart(endDate.AddDays(1)))
+                && s.BusinessDate >= startDate
+                && s.BusinessDate <= endDate)
             .OrderByDescending(s => s.SoldAt)
             .ToListAsync(cancellationToken);
 
@@ -179,35 +176,48 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
         DateOnly endDate,
         CancellationToken cancellationToken = default)
     {
-        var start = ToUtcStart(startDate);
-        var exclusiveEnd = ToUtcStart(endDate.AddDays(1));
-
         var salesByDay = await DbSet
             .AsNoTracking()
             .Where(s =>
                 s.ShopId == shopId
-                && s.SoldAt >= start
-                && s.SoldAt < exclusiveEnd)
-            .Select(s => new { s.SoldAt, s.TotalAmount })
+                && s.BusinessDate >= startDate
+                && s.BusinessDate <= endDate)
+            .Select(s => new { s.BusinessDate, s.TotalAmount })
             .ToListAsync(cancellationToken);
 
-        var returnAmountsByDay = await _context.SaleReturns
+        // A return offsets sales on its own business date even once voided; the void takes it back
+        // on the date it happened (the same reading the exports and the P&L use).
+        var returnRows = await _context.SaleReturns
             .AsNoTracking()
             .Where(r =>
                 r.ShopId == shopId
-                && !r.IsVoided
-                && r.ProcessedAt >= start
-                && r.ProcessedAt < exclusiveEnd)
-            .Select(r => new { r.ProcessedAt, r.TotalRefundAmount })
+                && ((r.BusinessDate >= startDate && r.BusinessDate <= endDate)
+                    || (r.IsVoided
+                        && r.VoidedBusinessDate >= startDate
+                        && r.VoidedBusinessDate <= endDate)))
+            .Select(r => new { r.BusinessDate, r.IsVoided, r.VoidedBusinessDate, r.TotalRefundAmount })
             .ToListAsync(cancellationToken);
 
         var grossSalesByDay = salesByDay
-            .GroupBy(s => DateOnly.FromDateTime(s.SoldAt.UtcDateTime))
+            .GroupBy(s => s.BusinessDate)
             .ToDictionary(g => g.Key, g => g.Sum(x => x.TotalAmount));
 
-        var returnOffsetsByDay = returnAmountsByDay
-            .GroupBy(r => DateOnly.FromDateTime(r.ProcessedAt.UtcDateTime))
-            .ToDictionary(g => g.Key, g => g.Sum(x => x.TotalRefundAmount));
+        var returnOffsetsByDay = new Dictionary<DateOnly, decimal>();
+        foreach (var row in returnRows)
+        {
+            if (row.BusinessDate >= startDate && row.BusinessDate <= endDate)
+            {
+                returnOffsetsByDay[row.BusinessDate] = returnOffsetsByDay.GetValueOrDefault(row.BusinessDate) + row.TotalRefundAmount;
+            }
+
+            if (row.IsVoided
+                && row.VoidedBusinessDate is { } voidedOn
+                && voidedOn >= startDate
+                && voidedOn <= endDate)
+            {
+                returnOffsetsByDay[voidedOn] = returnOffsetsByDay.GetValueOrDefault(voidedOn) - row.TotalRefundAmount;
+            }
+        }
 
         return grossSalesByDay.Keys
             .Concat(returnOffsetsByDay.Keys)
@@ -224,15 +234,12 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
         SaleHistoryFilter filter,
         CancellationToken cancellationToken = default)
     {
-        var start = ToUtcStart(filter.StartDate);
-        var exclusiveEnd = ToUtcStart(filter.EndDate.AddDays(1));
-
         var query = _context.Sales
             .AsNoTracking()
             .Where(s =>
                 s.ShopId == filter.ShopId
-                && s.SoldAt >= start
-                && s.SoldAt < exclusiveEnd);
+                && s.BusinessDate >= filter.StartDate
+                && s.BusinessDate <= filter.EndDate);
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
@@ -365,15 +372,12 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
         DateOnly endDate,
         CancellationToken cancellationToken = default)
     {
-        var start = ToUtcStart(startDate);
-        var exclusiveEnd = ToUtcStart(endDate.AddDays(1));
-
         var salesInRange = _context.Sales
             .AsNoTracking()
             .Where(s =>
                 s.ShopId == shopId
-                && s.SoldAt >= start
-                && s.SoldAt < exclusiveEnd);
+                && s.BusinessDate >= startDate
+                && s.BusinessDate <= endDate);
 
         var invoiceCount = await salesInRange.CountAsync(cancellationToken);
         var grossSales = await salesInRange.SumAsync(s => (decimal?)s.TotalAmount, cancellationToken) ?? 0m;
@@ -396,8 +400,7 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
     public async Task<IReadOnlyDictionary<Guid, CustomerSalesMetricsReadModel>> GetCustomerSalesMetricsAsync(
         Guid shopId,
         IReadOnlyCollection<Guid> customerIds,
-        DateTime monthStartUtc,
-        DateTime nextMonthStartUtc,
+        UtcDateWindow month,
         CancellationToken cancellationToken = default)
     {
         if (customerIds.Count == 0)
@@ -405,8 +408,8 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
             return new Dictionary<Guid, CustomerSalesMetricsReadModel>();
         }
 
-        var startOffset = new DateTimeOffset(monthStartUtc);
-        var endOffset = new DateTimeOffset(nextMonthStartUtc);
+        var startOffset = month.StartInclusive;
+        var endOffset = month.EndExclusive;
 
         var metricsList = await DbSet
             .AsNoTracking()

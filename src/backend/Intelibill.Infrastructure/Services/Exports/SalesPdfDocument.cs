@@ -227,7 +227,7 @@ internal sealed class SalesPdfDocument : IDocument
                     rowIndex++;
                     var background = rowIndex % 2 == 0 ? Colors.Grey.Lighten5 : Colors.White;
 
-                    table.Cell().Element(c => TableCell(c, background)).Text(entry.PostedAt.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+                    table.Cell().Element(c => TableCell(c, background)).Text(entry.BusinessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
                     table.Cell().Element(c => TableCell(c, background)).Text(entry.Label);
                     table.Cell().Element(c => TableCell(c, background)).Text(entry.InvoiceNumber);
                     AmountCell(table, background, entry.OriginalReturnedGross);
@@ -275,7 +275,7 @@ internal sealed class SalesPdfDocument : IDocument
             var background = zebra ? Colors.Grey.Lighten5 : Colors.White;
 
             table.Cell().Element(c => TableCell(c, background)).Text(row.InvoiceNumber);
-            table.Cell().Element(c => TableCell(c, background)).Text(row.SaleDate.UtcDateTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+            table.Cell().Element(c => TableCell(c, background)).Text(row.BusinessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
             table.Cell().Element(c => TableCell(c, background)).Text(row.CustomerName ?? string.Empty);
             table.Cell().Element(c => TableCell(c, background).AlignRight()).Text(row.PaidAmount.ToString("N2", CultureInfo.InvariantCulture));
             table.Cell().Element(c => TableCell(c, background).AlignRight()).Text(row.DueAmount.ToString("N2", CultureInfo.InvariantCulture));

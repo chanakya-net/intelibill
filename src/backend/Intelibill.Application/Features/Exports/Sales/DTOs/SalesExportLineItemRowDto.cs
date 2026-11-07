@@ -5,6 +5,7 @@ namespace Intelibill.Application.Features.Exports.Sales.DTOs;
 public sealed record SalesExportLineItemRowDto(
     string InvoiceNumber,
     DateTimeOffset SaleDate,
+    DateOnly BusinessDate,
     string? CustomerName,
     string ItemName,
     decimal SalesQuantity,

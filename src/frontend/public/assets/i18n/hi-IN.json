@@ -2028,7 +2028,8 @@
         "provenanceReview": "बिल बनाने वाले की समीक्षा",
         "recoveryReview": "वापस लाए गए इनवॉइस की समीक्षा",
         "unknown": "अन्य",
-        "documentReview": "GST दस्तावेज़ समीक्षा"
+        "documentReview": "GST दस्तावेज़ समीक्षा",
+        "closedPeriodReview": "बंद अवधि समीक्षा"
       },
       "detail": {
         "title": "केस का विवरण",

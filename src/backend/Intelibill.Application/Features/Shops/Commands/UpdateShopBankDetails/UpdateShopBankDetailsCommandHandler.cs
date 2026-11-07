@@ -123,6 +123,7 @@ public sealed class UpdateShopBankDetailsCommandHandler(
             primaryAccount.AccountHolderName)
         {
             TaxProfile = ShopTaxProfileDto.From(shop),
+            BusinessTimeZoneId = shop.BusinessTimeZoneId,
         };
     }
 

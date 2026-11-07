@@ -5,6 +5,7 @@ namespace Intelibill.Application.Features.Exports.Sales.DTOs;
 public sealed record SalesExportSummaryRowDto(
     string InvoiceNumber,
     DateTimeOffset SaleDate,
+    DateOnly BusinessDate,
     string? CustomerName,
     string PaymentMethod,
     decimal PaidAmount,

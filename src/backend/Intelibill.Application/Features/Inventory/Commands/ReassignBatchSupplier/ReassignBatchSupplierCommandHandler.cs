@@ -1,5 +1,8 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Posting;
+using Intelibill.Application.Common.Time;
+using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -14,6 +17,9 @@ public sealed class ReassignBatchSupplierCommandHandler(
     ISupplierRepository supplierRepository,
     IPurchaseReceiptValueRepository purchaseReceiptValueRepository,
     IPaymentReceiptRepository paymentReceiptRepository,
+    IShopRepository shopRepository,
+    IPostingPeriodPolicy postingPeriodPolicy,
+    IBusinessClock businessClock,
     IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<Success>> HandleAsync(ReassignBatchSupplierCommand command, CancellationToken cancellationToken)
@@ -29,6 +35,21 @@ public sealed class ReassignBatchSupplierCommandHandler(
         if (actorMembership.Role != ShopRole.Owner)
             return Errors.Supplier.UserIsNotOwner;
 
+        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        return await PostingTransaction.RunAsync(
+            unitOfWork,
+            ct => ReassignAsync(command, shop, ct),
+            cancellationToken);
+    }
+
+    private async Task<ErrorOr<Success>> ReassignAsync(
+        ReassignBatchSupplierCommand command,
+        Shop shop,
+        CancellationToken cancellationToken)
+    {
         var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
         if (batch is null || batch.ShopId != command.ActiveShopId)
             return Errors.Inventory.BatchNotFound;
@@ -70,6 +91,18 @@ public sealed class ReassignBatchSupplierCommandHandler(
 
         if (newSupplier.IsSystem)
             return Errors.Supplier.CannotModifySystemSupplier;
+
+        // The posted entries move to another supplier in their own months, so every one of those
+        // months (and today, for the batch and receipt rows) must be open.
+        var rewrittenEntries = batchEntries
+            .Where(e => e.EntryType is SupplierLedgerEntryType.GoodsReceived or SupplierLedgerEntryType.CostAdjusted)
+            .ToList();
+        var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
+            command.ActiveShopId,
+            [businessClock.Today(shop.BusinessTimeZoneId), .. rewrittenEntries.Select(e => e.EntryDate)],
+            cancellationToken);
+        if (fence.IsError)
+            return fence.Errors;
 
         if (goodsReceivedEntry is not null)
         {

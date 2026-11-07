@@ -20,6 +20,9 @@ public sealed record ShopDetailsDto(
     string? AccountHolderName = null)
 {
     public ShopTaxProfileDto TaxProfile { get; init; } = ShopTaxProfileDto.Undeclared;
+
+    /// <summary>The IANA zone the shop reads its business dates in. Read-only.</summary>
+    public string BusinessTimeZoneId { get; init; } = Domain.Common.BusinessTimeZones.DefaultId;
 }
 
 public sealed record ShopTaxProfileDto(

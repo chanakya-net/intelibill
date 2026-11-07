@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.VoidSaleReturn;
 using Intelibill.Application.Features.Sales.Services.Returns;
@@ -6,6 +7,8 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
+using Intelibill.Application.Unit.Tests.Common.Time;
+using Intelibill.Infrastructure.Services.Time;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.VoidSaleReturn;
@@ -13,6 +16,7 @@ namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.VoidSaleRetu
 public sealed class VoidSaleReturnCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
@@ -34,8 +38,46 @@ public sealed class VoidSaleReturnCommandHandlerTests
             _stockTransactionRepository,
             _customerLedgerEntryRepository,
             _creditNoteRepository,
-            new SaleReturnMutationCoordinator(_saleRepository, _unitOfWork),
-            _unitOfWork);
+            new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork),
+            _unitOfWork,
+            new BusinessClock(_time));
+
+    private readonly MutableTimeProvider _time = new();
+
+    [Fact]
+    public async Task HandleAsync_VoidsOnTheBusinessDateOfTheVoidInstant()
+    {
+        _time.Now = DateTimeOffset.Parse("2026-10-20T20:30:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var fixture = Arrange(ShopRole.Owner, returnDueReductionAmount: 75m);
+        CustomerLedgerEntry? ledger = null;
+        await _customerLedgerEntryRepository.AddAsync(Arg.Do<CustomerLedgerEntry>(e => ledger = e), Arg.Any<CancellationToken>());
+
+        var result = await CreateHandler().HandleAsync(
+            new VoidSaleReturnCommand(fixture.User.Id, fixture.Shop.Id, fixture.SaleReturn.Id, "Duplicate return"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(_time.Now, fixture.SaleReturn.VoidedAt);
+        Assert.Equal(new DateOnly(2026, 10, 21), fixture.SaleReturn.VoidedBusinessDate);
+        Assert.Equal(new DateOnly(2026, 10, 21), ledger!.EntryDate);
+    }
+
+    [Fact]
+    public async Task HandleAsync_VoidsOnTheBusinessDateInTheShopsCurrentZone()
+    {
+        // 20:30 UTC on 20 Oct is 21 Oct in Kolkata (the zone the return was posted under) but
+        // 20 Oct in New York (the shop's zone now, the one the period fence uses).
+        _time.Now = DateTimeOffset.Parse("2026-10-20T20:30:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var fixture = Arrange(ShopRole.Owner, returnDueReductionAmount: 75m);
+        typeof(Shop).GetProperty(nameof(Shop.BusinessTimeZoneId))!.SetValue(fixture.Shop, "America/New_York");
+
+        var result = await CreateHandler().HandleAsync(
+            new VoidSaleReturnCommand(fixture.User.Id, fixture.Shop.Id, fixture.SaleReturn.Id, "Duplicate return"),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal(new DateOnly(2026, 10, 20), fixture.SaleReturn.VoidedBusinessDate);
+    }
 
     [Theory]
     [InlineData(ShopRole.Owner)]
@@ -168,7 +210,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
     public async Task HandleAsync_WhenAlreadyVoided_ReturnsValidationError()
     {
         var fixture = Arrange(ShopRole.Owner);
-        fixture.SaleReturn.Void(DateTimeOffset.UtcNow, fixture.User.Id, "Earlier void");
+        fixture.SaleReturn.Void(DateTimeOffset.UtcNow, global::Intelibill.Domain.Common.BusinessCalendar.DateOf(DateTimeOffset.UtcNow), fixture.User.Id, "Earlier void");
 
         var result = await CreateHandler().HandleAsync(
             new VoidSaleReturnCommand(fixture.User.Id, fixture.Shop.Id, fixture.SaleReturn.Id, "Duplicate return"),
@@ -411,6 +453,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
             sale.Id,
             "RET-20260505-VOID01",
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             user.Id,
             notes: null,
             totalRefundAmount: 220m,
@@ -448,4 +491,23 @@ public sealed class VoidSaleReturnCommandHandlerTests
         SaleReturn SaleReturn,
         InventoryBatch Batch,
         Intelibill.Domain.Entities.Inventory Inventory);
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesVoid_BeforeTheSaleLock()
+    {
+        _time.Now = DateTimeOffset.Parse("2026-10-20T20:30:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var fixture = Arrange(ShopRole.Owner, returnDueReductionAmount: 75m);
+        _postingPeriods.AuthorizeForWriteAsync(fixture.Shop.Id, new DateOnly(2026, 10, 21), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 10, 1))));
+
+        var result = await CreateHandler().HandleAsync(
+            new VoidSaleReturnCommand(fixture.User.Id, fixture.Shop.Id, fixture.SaleReturn.Id, "Duplicate return"),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        await _saleRepository.DidNotReceive().LockForReturnMutationAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        Assert.False(fixture.SaleReturn.IsVoided);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
 }

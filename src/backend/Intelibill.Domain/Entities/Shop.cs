@@ -21,6 +21,9 @@ public sealed class Shop : BaseEntity
     /// <summary>The GST state code of the place of business; null until a tax profile is declared.</summary>
     public string? StateCode { get; private set; }
 
+    /// <summary>The IANA zone the shop reads its business dates in.</summary>
+    public string BusinessTimeZoneId { get; private set; } = BusinessTimeZones.DefaultId;
+
     public TaxRegime TaxRegime { get; private set; }
 
     /// <summary>The series this shop numbers its documents in, unique for its registration and fiscal year.</summary>
@@ -66,6 +69,7 @@ public sealed class Shop : BaseEntity
             ContactPerson = NormalizeOptional(contactPerson),
             MobileNumber = NormalizeOptional(mobileNumber),
             GstNumber = NormalizeOptional(gstNumber),
+            BusinessTimeZoneId = BusinessTimeZones.DefaultId,
         };
     }
 

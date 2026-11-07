@@ -65,6 +65,7 @@ public sealed class GetShopDetailsQueryHandler(
             primaryAccount?.AccountHolderName)
         {
             TaxProfile = ShopTaxProfileDto.From(shop),
+            BusinessTimeZoneId = shop.BusinessTimeZoneId,
         };
     }
 }

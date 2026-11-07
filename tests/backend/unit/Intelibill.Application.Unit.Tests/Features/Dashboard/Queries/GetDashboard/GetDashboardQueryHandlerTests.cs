@@ -3,6 +3,8 @@ using Intelibill.Application.Features.Dashboard.DTOs;
 using Intelibill.Application.Features.Dashboard.Queries.GetDashboard;
 using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
+using Intelibill.Application.Unit.Tests.Common.Time;
+using BusinessTimeZones = Intelibill.Domain.Common.BusinessTimeZones;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -35,7 +37,8 @@ public sealed class GetDashboardQueryHandlerTests
         _profitLossReportBuilder = new ProfitLossReportBuilder(
             _saleRepository,
             new ReturnAdjustmentReader(_saleReturnRepository, _saleRepository, Substitute.For<ICreditNoteRepository>()),
-            _inventoryAdjustmentRepository);
+            _inventoryAdjustmentRepository,
+            BusinessTestDoubles.RealClock());
         _handler = new GetDashboardQueryHandler(
             _saleRepository,
             _expenseRepository,
@@ -44,7 +47,9 @@ public sealed class GetDashboardQueryHandlerTests
             _purchaseOrderRepository,
             _supplierLedgerEntryRepository,
             _inventoryRepository,
-            _profitLossReportBuilder);
+            _profitLossReportBuilder,
+            BusinessTestDoubles.AnyShop(),
+            BusinessTestDoubles.RealClock());
         ConfigureSummary(DefaultSummary);
         ConfigureLatestSales([]);
         ConfigureExpenseSum(0m);
@@ -173,6 +178,7 @@ public sealed class GetDashboardQueryHandlerTests
             sale.Id,
             "RET-001",
             new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero),
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(new DateTimeOffset(2026, 5, 3, 10, 0, 0, TimeSpan.Zero)),
             Guid.NewGuid(),
             null,
             30m,
@@ -208,9 +214,9 @@ public sealed class GetDashboardQueryHandlerTests
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([sale]);
         _saleReturnRepository.GetPostedInRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([saleReturn]);
-        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([adjustment]);
+        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shop.Id, BusinessTestDoubles.RealClock().GetUtcWindow(from, to, shop.BusinessTimeZoneId), Arg.Any<CancellationToken>()).Returns([adjustment]);
 
-        var expectedSummary = await _profitLossReportBuilder.BuildAsync(shop.Id, from, to, null, null, CancellationToken.None);
+        var expectedSummary = await _profitLossReportBuilder.BuildAsync(shop.Id, shop.BusinessTimeZoneId, from, to, null, null, CancellationToken.None);
         var result = await _handler.HandleAsync(query, CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -354,7 +360,7 @@ public sealed class GetDashboardQueryHandlerTests
     {
         var shopId = Guid.NewGuid();
         var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Manager");
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var today = BusinessTestDoubles.RealClock().Today(BusinessTimeZones.DefaultId);
         var expiringAlerts = new[]
         {
             new ExpiringBatchAlertReadModel(
@@ -400,7 +406,7 @@ public sealed class GetDashboardQueryHandlerTests
     {
         var shopId = Guid.NewGuid();
         var query = new GetDashboardQuery(Guid.NewGuid(), shopId, null, null, "Manager");
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var today = BusinessTestDoubles.RealClock().Today(BusinessTimeZones.DefaultId);
         ConfigureExpiringBatchAlerts(
             [
                 new ExpiringBatchAlertReadModel(
@@ -912,7 +918,7 @@ public sealed class GetDashboardQueryHandlerTests
             .Returns(Task.FromResult<IReadOnlyList<Sale>>(Array.Empty<Sale>()));
         _saleReturnRepository.GetPostedInRangeAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<SaleReturn>>(Array.Empty<SaleReturn>()));
-        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(Arg.Any<Guid>(), Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<InventoryAdjustment>>(Array.Empty<InventoryAdjustment>()));
     }
 

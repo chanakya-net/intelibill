@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Dashboard.DTOs;
 using Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 using Intelibill.Domain.Enums;
@@ -16,7 +17,9 @@ public sealed class GetDashboardQueryHandler(
     IPurchaseOrderRepository purchaseOrderRepository,
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
     IInventoryRepository inventoryRepository,
-    ProfitLossReportBuilder profitLossReportBuilder)
+    ProfitLossReportBuilder profitLossReportBuilder,
+    IShopRepository shopRepository,
+    IBusinessClock businessClock)
 {
     private const int MaxRangeDays = 90;
     private const int DefaultRangeDays = 29;
@@ -30,7 +33,11 @@ public sealed class GetDashboardQueryHandler(
         if (validationResult.IsError)
             return validationResult.Errors;
 
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+        var shop = await shopRepository.GetByIdAsync(query.ShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        var today = businessClock.Today(shop.BusinessTimeZoneId);
         var appliedTo = query.To ?? today;
         var appliedFrom = query.From ?? appliedTo.AddDays(-DefaultRangeDays);
         var previousPeriod = GetPreviousPeriodRange(appliedFrom, appliedTo);
@@ -49,6 +56,7 @@ public sealed class GetDashboardQueryHandler(
         var lowStockItemCount = await inventoryRepository.CountLowStockItemsByShopAsync(query.ShopId, cancellationToken);
         var profitLossReport = await profitLossReportBuilder.BuildAsync(
             query.ShopId,
+            shop.BusinessTimeZoneId,
             appliedFrom,
             appliedTo,
             type: null,
@@ -57,6 +65,7 @@ public sealed class GetDashboardQueryHandler(
         var lowStockAlerts = await inventoryRepository.GetTopLowStockAlertsAsync(query.ShopId, cancellationToken);
         var previousProfitLossReport = await profitLossReportBuilder.BuildAsync(
             query.ShopId,
+            shop.BusinessTimeZoneId,
             previousPeriod.From,
             previousPeriod.To,
             type: null,

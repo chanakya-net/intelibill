@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.CreditNotes.Services;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
@@ -8,6 +9,8 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
+using Intelibill.Application.Unit.Tests.Common.Time;
+using Intelibill.Infrastructure.Services.Time;
 using NSubstitute;
 
 namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.RecordSaleReturn;
@@ -16,6 +19,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
 {
     private readonly IPaymentReceiptRepository _paymentReceiptRepository = Substitute.For<IPaymentReceiptRepository>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
     private readonly ISaleReturnRepository _saleReturnRepository = Substitute.For<ISaleReturnRepository>();
@@ -33,7 +37,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
 
     public RecordSaleReturnCommandHandlerTests()
     {
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-TEST-DEFAULT");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-TEST-DEFAULT");
         _saleRepository.LockForReturnMutationAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(RowLockOutcome.Acquired);
     }
@@ -50,7 +54,8 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 _customerLedgerEntryRepository,
                 _paymentReceiptRepository,
                 _calculator,
-                _itemRepository),
+                _itemRepository,
+                new BusinessClock(_time)),
             _returnNumberGenerator,
             _creditNoteCodeGenerator,
             _creditNoteRepository,
@@ -60,8 +65,36 @@ public sealed class RecordSaleReturnCommandHandlerTests
             _saleReturnRepository,
             _customerLedgerEntryRepository,
             _accountingPolicy,
-            new SaleReturnMutationCoordinator(_saleRepository, _unitOfWork),
-            _unitOfWork);
+            new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork),
+            _unitOfWork,
+            new BusinessClock(_time));
+    }
+
+    private readonly MutableTimeProvider _time = new();
+
+    [Fact]
+    public async Task HandleAsync_PostsTheReturnNumberReturnAndLedgerOnTheShopBusinessDate()
+    {
+        _time.Now = DateTimeOffset.Parse("2026-10-20T20:30:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 300m, hasCustomer: true);
+        _customerLedgerEntryRepository.GetCustomerBalanceAsync(fixture.Shop.Id, fixture.Sale.CustomerId!.Value, Arg.Any<CancellationToken>())
+            .Returns(100m);
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20261021-BUSINESS");
+        SaleReturn? saved = null;
+        await _saleReturnRepository.AddAsync(Arg.Do<SaleReturn>(r => saved = r), Arg.Any<CancellationToken>());
+        CustomerLedgerEntry? ledger = null;
+        await _customerLedgerEntryRepository.AddAsync(Arg.Do<CustomerLedgerEntry>(e => ledger = e), Arg.Any<CancellationToken>());
+
+        var result = await CreateHandler().HandleAsync(
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        _returnNumberGenerator.Received(1).Generate(new DateOnly(2026, 10, 21));
+        Assert.Equal(new DateOnly(2026, 10, 21), saved!.BusinessDate);
+        Assert.Equal("Asia/Kolkata", saved.BusinessTimeZoneId);
+        Assert.Equal(_time.Now, saved.ProcessedAt);
+        Assert.Equal(new DateOnly(2026, 10, 21), ledger!.EntryDate);
     }
 
     [Fact]
@@ -127,7 +160,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
     public async Task HandleAsync_ForOwnerOrManager_RestocksAndRecordsReturnAtomically(ShopRole role)
     {
         var fixture = ArrangeSale(role);
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-ABC123EF");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20260505-ABC123EF");
 
         var result = await CreateHandler().HandleAsync(
             Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
@@ -157,8 +190,8 @@ public sealed class RecordSaleReturnCommandHandlerTests
     public async Task HandleAsync_WhenCreditNoteDestinationAndPaidReturn_CreatesCreditNoteForPayoutAmount()
     {
         var fixture = ArrangeSale(ShopRole.Owner);
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-CNPAID1");
-        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns("CN-20260614-ABC123");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20260505-CNPAID1");
+        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns("CN-20260614-ABC123");
 
         var result = await CreateHandler().HandleAsync(
             Command(
@@ -187,8 +220,8 @@ public sealed class RecordSaleReturnCommandHandlerTests
     {
         var fixture = ArrangeSale(ShopRole.Owner, hasCustomer: true);
         CreditNote? savedNote = null;
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-CNPOKER");
-        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns("CN-20260614-LINK01");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20260505-CNPOKER");
+        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns("CN-20260614-LINK01");
 
         _creditNoteRepository
             .AddAsync(Arg.Any<CreditNote>(), Arg.Any<CancellationToken>())
@@ -217,8 +250,8 @@ public sealed class RecordSaleReturnCommandHandlerTests
         var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 300m, hasCustomer: true);
         _customerLedgerEntryRepository.GetCustomerBalanceAsync(fixture.Shop.Id, fixture.Sale.CustomerId!.Value, Arg.Any<CancellationToken>())
             .Returns(100m);
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-CNDU001");
-        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns("CN-20260614-DEF456");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20260505-CNDU001");
+        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns("CN-20260614-DEF456");
 
         var result = await CreateHandler().HandleAsync(
             Command(
@@ -256,8 +289,8 @@ public sealed class RecordSaleReturnCommandHandlerTests
     public async Task HandleAsync_WhenCreditNoteExpiryMissing_PersistsNullExpiry()
     {
         var fixture = ArrangeSale(ShopRole.Owner);
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-CNEXP01");
-        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns("CN-20260614-GHI789");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20260505-CNEXP01");
+        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns("CN-20260614-GHI789");
 
         var result = await CreateHandler().HandleAsync(
             Command(
@@ -299,7 +332,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
     public async Task HandleAsync_WhenRefundExceedsDiscountedMaxWithReason_RecordsReturn()
     {
         var fixture = ArrangeSale(ShopRole.Owner, itemDiscountAmount: 50m, saleDiscountAmount: 25m);
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-OVERRIDE01");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20260505-OVERRIDE01");
 
         var result = await CreateHandler().HandleAsync(
             Command(
@@ -343,7 +376,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
     public async Task HandleAsync_ForWastageReturn_RecordsReturnWithoutRestockingOrStockTransaction()
     {
         var fixture = ArrangeSale(ShopRole.Owner);
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-WASTE001");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20260505-WASTE001");
 
         var result = await CreateHandler().HandleAsync(
             Command(
@@ -407,7 +440,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             [serviceItem]);
         _saleRepository.GetByIdAsync(sale.Id, fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
         _saleReturnRepository.GetBySaleAsync(fixture.Shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-SERVICE1");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20260505-SERVICE1");
 
         var result = await CreateHandler().HandleAsync(
             new RecordSaleReturnCommand(
@@ -471,7 +504,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
 
         _saleRepository.GetByIdAsync(sale.Id, fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
         _saleReturnRepository.GetBySaleAsync(fixture.Shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-SRVMIX1");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20260505-SRVMIX1");
 
         var result = await CreateHandler().HandleAsync(
             new RecordSaleReturnCommand(
@@ -550,7 +583,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
         _customerLedgerEntryRepository.GetCustomerBalanceAsync(shop.Id, customerId, Arg.Any<CancellationToken>())
             .Returns(150m);
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-SRVDUE1");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20260505-SRVDUE1");
 
         var result = await CreateHandler().HandleAsync(
             new RecordSaleReturnCommand(
@@ -688,7 +721,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         _saleRepository.GetByIdAsync(sale.Id, fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
         _saleReturnRepository.GetBySaleAsync(fixture.Shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
         _inventoryBatchRepository.GetByIdAsync(secondBatch.Id, Arg.Any<CancellationToken>()).Returns(secondBatch);
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-MIXED01");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20260505-MIXED01");
 
         var result = await CreateHandler().HandleAsync(
             new RecordSaleReturnCommand(
@@ -738,7 +771,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 300m, hasCustomer: true);
         _customerLedgerEntryRepository.GetCustomerBalanceAsync(fixture.Shop.Id, fixture.Sale.CustomerId!.Value, Arg.Any<CancellationToken>())
             .Returns(100m);
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-DUE001");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20260505-DUE001");
 
         var result = await CreateHandler().HandleAsync(
             Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
@@ -768,7 +801,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 0m, hasCustomer: true);
         _customerLedgerEntryRepository.GetCustomerBalanceAsync(fixture.Shop.Id, fixture.Sale.CustomerId!.Value, Arg.Any<CancellationToken>())
             .Returns(0m);
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-PAID001");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20260505-PAID001");
 
         var result = await CreateHandler().HandleAsync(
             Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
@@ -816,7 +849,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
     public async Task HandleAsync_WhenDueOverridePaysOutWhileDueRemainsWithReason_RecordsSplit()
     {
         var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 300m, hasCustomer: true);
-        _returnNumberGenerator.Generate(Arg.Any<DateTimeOffset>()).Returns("RET-20260505-SPLIT01");
+        _returnNumberGenerator.Generate(Arg.Any<DateOnly>()).Returns("RET-20260505-SPLIT01");
 
         var result = await CreateHandler().HandleAsync(
             Command(
@@ -921,7 +954,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 300m, hasCustomer: true);
         _customerLedgerEntryRepository.GetCustomerBalanceAsync(fixture.Shop.Id, fixture.Sale.CustomerId!.Value, Arg.Any<CancellationToken>())
             .Returns(100m);
-        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns("CN-20261103-MIX001");
+        _creditNoteCodeGenerator.GenerateAsync(fixture.Shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns("CN-20261103-MIX001");
         CustomerLedgerEntry? ledgerEntry = null;
         _customerLedgerEntryRepository.AddAsync(Arg.Any<CustomerLedgerEntry>(), Arg.Any<CancellationToken>())
             .Returns(Task.CompletedTask)
@@ -1199,6 +1232,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             saleId,
             $"RET-{Guid.NewGuid():N}",
             DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow),
             Guid.NewGuid(),
             notes: null,
             totalRefundAmount: quantity * 110m,
@@ -1219,4 +1253,25 @@ public sealed class RecordSaleReturnCommandHandlerTests
         SaleItem SaleItem,
         InventoryBatch Batch,
         Intelibill.Domain.Entities.Inventory Inventory);
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesReturn_BeforeTheSaleLock()
+    {
+        _time.Now = DateTimeOffset.Parse("2026-10-20T20:30:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var fixture = ArrangeSale(ShopRole.Owner, dueAmount: 300m, hasCustomer: true);
+        _postingPeriods.AuthorizeForWriteAsync(fixture.Shop.Id, new DateOnly(2026, 10, 21), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 10, 1))));
+
+        var result = await CreateHandler().HandleAsync(
+            Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, payoutDestination: ReturnPayoutDestination.Refund),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        await _saleRepository.DidNotReceive().LockForReturnMutationAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _saleReturnRepository.DidNotReceive().AddAsync(Arg.Any<SaleReturn>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received().RollbackTransactionAsync(Arg.Any<CancellationToken>());
+    }
 }

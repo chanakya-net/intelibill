@@ -1,4 +1,6 @@
 using ErrorOr;
+using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Customers.DTOs;
 using Intelibill.Domain.Interfaces.Repositories;
 
@@ -7,7 +9,9 @@ namespace Intelibill.Application.Features.Customers.Queries.GetCustomers;
 public sealed class GetCustomersQueryHandler(
     ICustomerRepository customerRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository,
-    ISaleRepository saleRepository)
+    ISaleRepository saleRepository,
+    IShopRepository shopRepository,
+    IBusinessClock businessClock)
 {
     public async Task<ErrorOr<IReadOnlyList<CustomerDto>>> HandleAsync(GetCustomersQuery query, CancellationToken cancellationToken)
     {
@@ -18,15 +22,19 @@ public sealed class GetCustomersQueryHandler(
             customerIds,
             cancellationToken);
 
-        var todayUtc = DateTimeOffset.UtcNow.UtcDateTime;
-        var monthStartUtc = new DateTime(todayUtc.Year, todayUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var nextMonthStartUtc = monthStartUtc.AddMonths(1);
+        var shop = await shopRepository.GetByIdAsync(query.ShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        // The month the shop is in now, read on its own calendar.
+        var today = businessClock.Today(shop.BusinessTimeZoneId);
+        var monthStart = new DateOnly(today.Year, today.Month, 1);
+        var month = businessClock.GetUtcWindow(monthStart, monthStart.AddMonths(1).AddDays(-1), shop.BusinessTimeZoneId);
 
         var metrics = await saleRepository.GetCustomerSalesMetricsAsync(
             query.ShopId,
             customerIds,
-            monthStartUtc,
-            nextMonthStartUtc,
+            month,
             cancellationToken);
 
         return customers.Select(c =>

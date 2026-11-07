@@ -1,5 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Posting;
+using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
 using Intelibill.Application.Features.PurchaseOrders.Services;
@@ -16,7 +18,10 @@ public sealed class ReceivePurchaseOrderCommandHandler(
     IPurchaseOrderReceiptRepository receiptRepository,
     IInboundInventoryLineProcessor inboundInventoryLineProcessor,
     IPurchaseOrderReceiptNumberGenerator receiptNumberGenerator,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IShopRepository shopRepository,
+    IPostingPeriodPolicy postingPeriodPolicy,
+    IBusinessClock businessClock)
 {
     public async Task<ErrorOr<PurchaseOrderDetailDto>> HandleAsync(
         ReceivePurchaseOrderCommand command,
@@ -39,20 +44,35 @@ public sealed class ReceivePurchaseOrderCommandHandler(
         if (command.Lines.Select(line => line.PurchaseOrderLineId).Distinct().Count() != command.Lines.Count)
             return Errors.PurchaseOrder.DuplicateReceiptLine;
 
-        var receivedAt = (command.ReceivedAt ?? DateTimeOffset.UtcNow).ToUniversalTime();
+        var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
+        if (shop is null)
+            return Errors.Shop.ShopNotFound;
+
+        var receivedAt = (command.ReceivedAt ?? businessClock.UtcNow).ToUniversalTime();
         await unitOfWork.BeginTransactionAsync(cancellationToken);
         try
         {
+            // Before the order row is locked; the goods-received payable is dated by receivedAt.
+            var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
+                command.ActiveShopId,
+                businessClock.GetBusinessDate(receivedAt, shop.BusinessTimeZoneId),
+                cancellationToken);
+            if (fence.IsError)
+            {
+                await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+                return fence.Errors;
+            }
+
             var po = await purchaseOrderRepository.GetReceiptDetailForUpdateAsync(command.ActiveShopId, command.PurchaseOrderId, cancellationToken);
             if (po is null)
             {
-                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                 return Errors.PurchaseOrder.NotFound;
             }
 
             if (po.Status is not (PurchaseOrderStatus.Placed or PurchaseOrderStatus.PartiallyReceived))
             {
-                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                 return Errors.PurchaseOrder.CannotReceiveInvalidStatus;
             }
 
@@ -62,19 +82,19 @@ public sealed class ReceivePurchaseOrderCommandHandler(
                 var poLine = po.Lines.FirstOrDefault(l => l.Id == lineInput.PurchaseOrderLineId);
                 if (poLine is null)
                 {
-                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                     return Errors.PurchaseOrder.ReceiptLineNotFound;
                 }
 
                 if (lineInput.Quantity <= 0)
                 {
-                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                     return Errors.PurchaseOrder.ReceiptQuantityInvalid;
                 }
 
                 if (lineInput.Quantity > poLine.RemainingQuantity)
                 {
-                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                     return Errors.PurchaseOrder.ReceiptQuantityOverRemaining;
                 }
 
@@ -86,7 +106,7 @@ public sealed class ReceivePurchaseOrderCommandHandler(
                 .Any(group => group.Key.BatchNumber.Length > 0 && group.Count() > 1);
             if (duplicateBatch)
             {
-                await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                 return Errors.Inventory.BatchNumberAlreadyExists;
             }
 
@@ -137,7 +157,7 @@ public sealed class ReceivePurchaseOrderCommandHandler(
 
                 if (inboundResult.IsError)
                 {
-                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
+                    await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
                     return inboundResult.Errors;
                 }
 
@@ -169,7 +189,7 @@ public sealed class ReceivePurchaseOrderCommandHandler(
         }
         catch
         {
-            await unitOfWork.RollbackTransactionAsync(cancellationToken);
+            await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
             throw;
         }
     }

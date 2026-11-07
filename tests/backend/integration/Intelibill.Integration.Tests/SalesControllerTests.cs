@@ -332,7 +332,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE sales SET sold_at = {soldAt.ToUniversalTime()} WHERE id = {saleId}");
+        await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE sales SET sold_at = {soldAt.ToUniversalTime()}, business_date = {DateOnly.FromDateTime(soldAt.ToOffset(TimeSpan.FromHours(5.5)).DateTime)} WHERE id = {saleId}");
     }
 
     private async Task RecordSimpleReturnAsync(HttpClient client, string token, Guid saleId, decimal refundAmount)

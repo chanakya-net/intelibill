@@ -274,7 +274,7 @@ public sealed class SalesExportsControllerTests(PostgreSqlTestFixture fixture) :
         var barcode = UniqueBarcode();
         await CreateSaleAsync(client, ownerScopedToken, barcode);
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var today = BusinessDates.Today;
         var response = await ExportSalesAsync(
             client,
             ownerScopedToken,
@@ -299,7 +299,7 @@ public sealed class SalesExportsControllerTests(PostgreSqlTestFixture fixture) :
         var barcode = UniqueBarcode();
         await CreateSaleAsync(client, ownerScopedToken, barcode);
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var today = BusinessDates.Today;
         var response = await ExportSalesAsync(
             client,
             manager.RoleToken,
@@ -323,7 +323,7 @@ public sealed class SalesExportsControllerTests(PostgreSqlTestFixture fixture) :
         var barcode = UniqueBarcode();
         await CreateSaleAsync(client, ownerScopedToken, barcode);
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var today = BusinessDates.Today;
         var defaultStartDate = today.AddDays(-29);
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/exports/sales?format=xlsx");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerScopedToken);
@@ -346,7 +346,7 @@ public sealed class SalesExportsControllerTests(PostgreSqlTestFixture fixture) :
         var ownerToken = await RegisterAsync(client);
         var (_, ownerScopedToken) = await CreateShopAsync(client, ownerToken, "Validation Shop");
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var today = BusinessDates.Today;
         var response = await ExportSalesAsync(
             client,
             ownerScopedToken,
@@ -365,7 +365,7 @@ public sealed class SalesExportsControllerTests(PostgreSqlTestFixture fixture) :
         var ownerToken = await RegisterAsync(client);
         var (_, ownerScopedToken) = await CreateShopAsync(client, ownerToken, "Validation Shop");
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var today = BusinessDates.Today;
         var response = await ExportSalesAsync(
             client,
             ownerScopedToken,
@@ -384,7 +384,7 @@ public sealed class SalesExportsControllerTests(PostgreSqlTestFixture fixture) :
         var ownerToken = await RegisterAsync(client);
         var (_, ownerScopedToken) = await CreateShopAsync(client, ownerToken, "Validation Shop");
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var today = BusinessDates.Today;
         var response = await ExportSalesAsync(
             client,
             ownerScopedToken,
@@ -403,7 +403,7 @@ public sealed class SalesExportsControllerTests(PostgreSqlTestFixture fixture) :
         var ownerToken = await RegisterAsync(client);
         var (_, ownerScopedToken) = await CreateShopAsync(client, ownerToken, "Validation Shop");
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var today = BusinessDates.Today;
         var response = await ExportSalesAsync(
             client,
             ownerScopedToken,
@@ -432,8 +432,8 @@ public sealed class SalesExportsControllerTests(PostgreSqlTestFixture fixture) :
         var barcode = UniqueBarcode();
         await CreateSaleAsync(client, ownerScopedToken, barcode);
 
-        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.Date).AddDays(-1);
-        var endDate = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var startDate = BusinessDates.Today.AddDays(-1);
+        var endDate = BusinessDates.Today;
         var response = await ExportSalesAsync(client, ownerScopedToken, format, "summary", startDate, endDate);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -489,8 +489,8 @@ public sealed class SalesExportsControllerTests(PostgreSqlTestFixture fixture) :
         var returnResponse = await client.SendAsync(returnRequest);
         returnResponse.EnsureSuccessStatusCode();
 
-        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.Date).AddDays(-1);
-        var endDate = DateOnly.FromDateTime(DateTime.UtcNow.Date);
+        var startDate = BusinessDates.Today.AddDays(-1);
+        var endDate = BusinessDates.Today;
         var response = await ExportSalesAsync(client, ownerScopedToken, "tallyXml", "summary", startDate, endDate);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

@@ -19,7 +19,8 @@ internal static class AuthShopSelection
                 sm.Shop?.Name ?? "Unknown Shop",
                 sm.Role.ToString(),
                 sm.IsDefault,
-                sm.LastUsedAt))
+                sm.LastUsedAt,
+                sm.Shop?.BusinessTimeZoneId ?? Domain.Common.BusinessTimeZones.DefaultId))
             .ToList();
 
     public static (Guid? ActiveShopId, string? ActiveShopRole, IReadOnlyList<UserShopDto> Shops) Resolve(User user, Guid? preferredShopId = null)
@@ -56,7 +57,8 @@ internal static class AuthShopSelection
                 sm.Shop?.Name ?? "Unknown Shop",
                 sm.Role.ToString(),
                 sm.IsDefault,
-                sm.LastUsedAt))
+                sm.LastUsedAt,
+                sm.Shop?.BusinessTimeZoneId ?? Domain.Common.BusinessTimeZones.DefaultId))
             .ToList();
 
         return (activeMembership.ShopId, activeMembership.Role.ToString(), shops);

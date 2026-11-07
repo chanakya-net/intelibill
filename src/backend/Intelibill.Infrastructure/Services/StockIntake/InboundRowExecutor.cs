@@ -1,10 +1,13 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Common.Posting;
+using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
+using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -41,7 +44,7 @@ internal sealed partial class InboundRowExecutor(
         var unitOfWork = services.GetRequiredService<IUnitOfWork>();
 
         if (operation is null)
-            return await ReceiveAsync(cancellationToken);
+            return await PostingTransaction.RunAsync(unitOfWork, ReceiveAsync, cancellationToken);
 
         // Only a failure inside the action is reported as retryable: the executor has not yet
         // committed and rolls the row back. A failure while reserving, completing or committing the
@@ -73,6 +76,19 @@ internal sealed partial class InboundRowExecutor(
 
         async Task<ErrorOr<AddInventoryResultDto>> ReceiveAsync(CancellationToken ct)
         {
+            // The row's own transaction (the executor's, or the plain one for an unkeyed row) carries
+            // the fence, so each row is authorized against its own business date, not once per manifest.
+            var shop = await services.GetRequiredService<IShopRepository>().GetByIdAsync(shopId, ct);
+            if (shop is null)
+                return Errors.Shop.ShopNotFound;
+
+            var clock = services.GetRequiredService<IBusinessClock>();
+            var postedAt = (row.PerformedAt ?? clock.UtcNow).ToUniversalTime();
+            var fence = await services.GetRequiredService<IPostingPeriodPolicy>().AuthorizeForWriteAsync(
+                shopId, clock.GetBusinessDate(postedAt, shop.BusinessTimeZoneId), ct);
+            if (fence.IsError)
+                return fence.Errors;
+
             var result = await processor.ProcessAsync(
                 shopId,
                 row,

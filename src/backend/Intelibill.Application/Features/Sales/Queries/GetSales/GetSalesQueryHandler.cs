@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Domain.Interfaces.Repositories;
 
@@ -8,7 +9,8 @@ namespace Intelibill.Application.Features.Sales.Queries.GetSales;
 public sealed class GetSalesQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
-    ISaleRepository saleRepository)
+    ISaleRepository saleRepository,
+    IBusinessClock businessClock)
 {
     private const int DefaultPageSize = 20;
     private const int MaxPageSize = 100;
@@ -30,7 +32,7 @@ public sealed class GetSalesQueryHandler(
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = businessClock.Today(shop.BusinessTimeZoneId);
         var startDate = query.From
             ?? (query.To.HasValue ? query.To.Value.AddDays(-(DefaultLookbackDays - 1)) : today.AddDays(-(DefaultLookbackDays - 1)));
         var endDate = query.To ?? today;

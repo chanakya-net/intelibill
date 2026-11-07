@@ -124,6 +124,8 @@ public static class DependencyInjection
         services.AddScoped<IStockCountRepository, StockCountRepository>();
         services.AddScoped<IPurchaseReceiptValueRepository, PurchaseReceiptValueRepository>();
         services.AddScoped<IPaymentReceiptRepository, PaymentReceiptRepository>();
+        services.AddScoped<IPostingPeriodRepository, PostingPeriodRepository>();
+        services.AddScoped<Application.Common.Posting.IPostingPeriodPolicy, Services.Posting.PostingPeriodPolicy>();
         services.AddScoped<IInvoiceBalanceReader, InvoiceBalanceReader>();
         services.AddScoped<IPurchaseReceiptCostAdjustmentRepository, PurchaseReceiptCostAdjustmentRepository>();
         services.AddScoped<IBatchPriceRevisionRepository, BatchPriceRevisionRepository>();
@@ -177,6 +179,7 @@ public static class DependencyInjection
         }
 
         services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<Application.Common.Time.IBusinessClock, Services.Time.BusinessClock>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<LiveSessionValidator>();
         services.AddScoped<ILiveSessionAuthority>(sp => sp.GetRequiredService<LiveSessionValidator>());

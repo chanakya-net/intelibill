@@ -266,9 +266,9 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
 
         // Sold and returned in June, voided in July.
         await ExecuteAsync(db => db.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE sales SET sold_at = {new DateTimeOffset(2026, 6, 10, 9, 0, 0, TimeSpan.Zero)} WHERE id = {sale.SaleId}"));
+            $"UPDATE sales SET sold_at = {new DateTimeOffset(2026, 6, 10, 9, 0, 0, TimeSpan.Zero)}, business_date = {new DateOnly(2026, 6, 10)} WHERE id = {sale.SaleId}"));
         await ExecuteAsync(db => db.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE sale_returns SET processed_at = {new DateTimeOffset(2026, 6, 12, 9, 0, 0, TimeSpan.Zero)}, voided_at = {new DateTimeOffset(2026, 7, 2, 9, 0, 0, TimeSpan.Zero)} WHERE id = {returnId}"));
+            $"UPDATE sale_returns SET processed_at = {new DateTimeOffset(2026, 6, 12, 9, 0, 0, TimeSpan.Zero)}, voided_at = {new DateTimeOffset(2026, 7, 2, 9, 0, 0, TimeSpan.Zero)}, business_date = {new DateOnly(2026, 6, 12)}, voided_business_date = {new DateOnly(2026, 7, 2)} WHERE id = {returnId}"));
         var returnNumber = (await LoadReturnAsync(returnId)).ReturnNumber;
 
         var june = await TallyVouchersAsync(shop, June1, June30);
@@ -331,7 +331,7 @@ public sealed class ReturnAccountingExportTests(PostgreSqlTestFixture fixture) :
 
     // ── Arrange ─────────────────────────────────────────────────────────────────
 
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+    private static DateOnly Today => BusinessDates.Today;
 
     private sealed record Shop(HttpClient Client, string Token) : IDisposable
     {

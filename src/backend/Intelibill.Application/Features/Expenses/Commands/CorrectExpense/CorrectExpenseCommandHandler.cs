@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.Expenses.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -12,6 +13,7 @@ public sealed class CorrectExpenseCommandHandler(
     IUserRepository userRepository,
     IExpenseCategoryRepository expenseCategoryRepository,
     IExpenseRepository expenseRepository,
+    IPostingPeriodPolicy postingPeriodPolicy,
     IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<ExpenseDto>> HandleAsync(
@@ -35,6 +37,21 @@ public sealed class CorrectExpenseCommandHandler(
 
         if (original.IsVoided)
             return Errors.Expense.AlreadyVoided;
+
+        return await PostingTransaction.RunAsync(unitOfWork, ct => CorrectAsync(command, original, ct), cancellationToken);
+    }
+
+    private async Task<ErrorOr<ExpenseDto>> CorrectAsync(
+        CorrectExpenseCommand command,
+        Expense original,
+        CancellationToken cancellationToken)
+    {
+        // The original is voided in its own month and the replacement lands in the new one: both
+        // must be open, taken lowest month first.
+        var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
+            command.ShopId, [original.ExpenseDate, command.ExpenseDate], cancellationToken);
+        if (fence.IsError)
+            return fence.Errors;
 
         // Void original
         original.MarkVoided();

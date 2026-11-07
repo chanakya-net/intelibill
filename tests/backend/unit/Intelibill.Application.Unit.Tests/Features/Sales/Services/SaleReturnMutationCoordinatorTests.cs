@@ -1,6 +1,8 @@
 using System.Data.Common;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Posting;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Application.Features.Sales.Services.Returns;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -18,7 +20,10 @@ public sealed class SaleReturnMutationCoordinatorTests
     private readonly Guid _saleId = Guid.NewGuid();
     private int _mutationRuns;
 
-    private SaleReturnMutationCoordinator CreateCoordinator() => new(_saleRepository, _unitOfWork);
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
+
+    private SaleReturnMutationCoordinator CreateCoordinator() =>
+        new(_saleRepository, BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _unitOfWork);
 
     private void LockReturns(RowLockOutcome outcome) =>
         _saleRepository.LockForReturnMutationAsync(_shopId, _saleId, Arg.Any<CancellationToken>()).Returns(outcome);
@@ -33,6 +38,23 @@ public sealed class SaleReturnMutationCoordinatorTests
                 return Task.FromResult(mutation());
             },
             CancellationToken.None);
+
+    [Fact]
+    public async Task ExecuteAsync_WhenThePeriodIsClosed_RefusesBeforeTheSaleLockAndMutation()
+    {
+        LockReturns(RowLockOutcome.Acquired);
+        _postingPeriods.AuthorizeForWriteAsync(_shopId, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 6, 1))));
+
+        var result = await RunAsync(() => Result.Success);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        Assert.Equal(0, _mutationRuns);
+        await _saleRepository.DidNotReceive().LockForReturnMutationAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received().RollbackTransactionAsync(Arg.Any<CancellationToken>());
+    }
 
     [Fact]
     public async Task ExecuteAsync_WhenMutationSucceeds_LocksInsideTransactionThenCommits()

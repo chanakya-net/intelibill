@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Domain.Interfaces.Repositories;
 
@@ -8,7 +9,8 @@ namespace Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 public sealed class GetProfitLossReportQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
-    ProfitLossReportBuilder reportBuilder)
+    ProfitLossReportBuilder reportBuilder,
+    IBusinessClock businessClock)
 {
     private const int DefaultPageSize = 20;
     private const int MaxPageSize = 100;
@@ -29,12 +31,12 @@ public sealed class GetProfitLossReportQueryHandler(
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = businessClock.Today(shop.BusinessTimeZoneId);
         var to = query.To ?? today;
         var from = query.From ?? to.AddDays(-6);
         var pageNumber = query.Page < 1 ? 1 : query.Page;
         var pageSize = query.PageSize < 1 ? DefaultPageSize : Math.Min(query.PageSize, MaxPageSize);
-        var report = await reportBuilder.BuildAsync(query.ShopId, from, to, query.Type, query.Search, cancellationToken);
+        var report = await reportBuilder.BuildAsync(query.ShopId, shop.BusinessTimeZoneId, from, to, query.Type, query.Search, cancellationToken);
 
         var pageItems = report.Items
             .Skip((pageNumber - 1) * pageSize)

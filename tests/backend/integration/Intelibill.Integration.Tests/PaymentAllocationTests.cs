@@ -492,7 +492,7 @@ public sealed class PaymentAllocationTests(PostgreSqlTestFixture fixture) : IAsy
 
     // ── Seeding and requests ──────────────────────────────────────────────────
 
-    private static string Today => DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+    private static string Today => BusinessDates.Today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
 
     private sealed class Shop(HttpClient client, string token) : IDisposable
     {

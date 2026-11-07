@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Exports.Sales.Services;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -19,6 +20,7 @@ public sealed class ExportSalesQueryHandler
     private readonly ISalesPdfExportRenderer _pdfRenderer;
     private readonly ISalesTallyXmlExportRenderer _tallyRenderer;
     private readonly IExportFileNameBuilder _fileNameBuilder;
+    private readonly IBusinessClock _businessClock;
 
     public ExportSalesQueryHandler(
         IUserRepository userRepository,
@@ -27,7 +29,8 @@ public sealed class ExportSalesQueryHandler
         ISalesExcelExportRenderer excelRenderer,
         ISalesPdfExportRenderer pdfRenderer,
         ISalesTallyXmlExportRenderer tallyRenderer,
-        IExportFileNameBuilder fileNameBuilder)
+        IExportFileNameBuilder fileNameBuilder,
+        IBusinessClock businessClock)
     {
         _userRepository = userRepository;
         _shopRepository = shopRepository;
@@ -36,6 +39,7 @@ public sealed class ExportSalesQueryHandler
         _pdfRenderer = pdfRenderer;
         _tallyRenderer = tallyRenderer;
         _fileNameBuilder = fileNameBuilder;
+        _businessClock = businessClock;
     }
 
     public async Task<ErrorOr<SalesExportResult>> Handle(
@@ -72,11 +76,16 @@ public sealed class ExportSalesQueryHandler
             ? SalesExportLevel.LineItems
             : query.Level;
 
+        var endDate = query.EndDate ?? _businessClock.Today(shop.BusinessTimeZoneId);
+        var startDate = query.StartDate ?? endDate.AddDays(-29);
+        if (SalesExportRange.Validate(startDate, endDate) is { } rangeFailure)
+            return Error.Validation("Export.InvalidDateRange", rangeFailure);
+
         var dataset = await _datasetBuilder.BuildAsync(
             shop,
             user,
-            query.StartDate,
-            query.EndDate,
+            startDate,
+            endDate,
             datasetLevel,
             cancellationToken);
 
@@ -112,8 +121,8 @@ public sealed class ExportSalesQueryHandler
             shop.Name,
             query.Format,
             query.Level,
-            query.StartDate,
-            query.EndDate);
+            startDate,
+            endDate);
 
         var contentType = _fileNameBuilder.GetContentType(query.Format);
 

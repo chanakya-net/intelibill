@@ -62,7 +62,8 @@ public sealed class GetSaleByIdempotencyKeyQueryHandlerTests
             PaymentMethod.Cash,
             118m,
             0m,
-            DateTimeOffset.UtcNow).Value;
+            DateTimeOffset.UtcNow,
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow)).Value;
     }
 
     [Fact]

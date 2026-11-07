@@ -29,4 +29,5 @@ public sealed record UserShopDto(
     string ShopName,
     string Role,
     bool IsDefault,
-    DateTimeOffset? LastUsedAt);
+    DateTimeOffset? LastUsedAt,
+    string BusinessTimeZoneId = Domain.Common.BusinessTimeZones.DefaultId);

@@ -15,4 +15,7 @@ public enum ReconciliationIssueType
 
     /// <summary>An offline sale posted without a GST document: the profile it was issued under could not issue one.</summary>
     DocumentReview = 11,
+
+    /// <summary>An offline invoice issued in a month that is now closed: it posts only after an owner reopens the month.</summary>
+    ClosedPeriodReview = 12,
 }

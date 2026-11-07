@@ -214,7 +214,9 @@ public sealed partial class AddInventoryBatchCommandHandler(
             row.ItemName,
             row.Barcode,
             errors.Select(error => new AddInventoryBatchRowErrorDto(error.Code, error.Description)).ToArray(),
-            Retryable: errors.Any(error => error.Code == Errors.Inventory.RowRetryable.Code));
+            Retryable: errors.Any(error =>
+                error.Code == Errors.Inventory.RowRetryable.Code
+                || error.Code == Errors.PostingPeriod.Busy.Code));
 
     private static RowPayload ToPayload(AddInventoryBatchRowCommand row) =>
         new(

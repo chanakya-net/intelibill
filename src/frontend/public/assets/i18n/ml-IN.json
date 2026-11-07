@@ -2028,7 +2028,8 @@
         "provenanceReview": "ബിൽ ചെയ്തയാളുടെ പരിശോധന",
         "recoveryReview": "വീണ്ടെടുത്ത ഇൻവോയ്സ് പരിശോധന",
         "unknown": "മറ്റുള്ളവ",
-        "documentReview": "GST രേഖ അവലോകനം"
+        "documentReview": "GST രേഖ അവലോകനം",
+        "closedPeriodReview": "അടച്ച കാലയളവ് അവലോകനം"
       },
       "detail": {
         "title": "കേസ് വിവരങ്ങൾ",

@@ -14,4 +14,22 @@ public static class BusinessCalendar
     /// <summary>The instant the given business date begins, in UTC (the only offset timestamptz stores).</summary>
     public static DateTimeOffset StartOf(DateOnly date) =>
         new DateTimeOffset(date.Year, date.Month, date.Day, 0, 0, 0, Offset).ToUniversalTime();
+
+    /// <summary>The business date an instant falls on in the given zone.</summary>
+    public static DateOnly DateOf(DateTimeOffset instant, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(zone);
+        return DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, zone).DateTime);
+    }
+
+    /// <summary>The instant the given business date begins in the given zone, in UTC.</summary>
+    public static DateTimeOffset StartOf(DateOnly date, TimeZoneInfo zone)
+    {
+        ArgumentNullException.ThrowIfNull(zone);
+        var local = date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified);
+        if (zone.IsInvalidTime(local))
+            local = local.AddHours(1);
+
+        return new DateTimeOffset(local, zone.GetUtcOffset(local)).ToUniversalTime();
+    }
 }

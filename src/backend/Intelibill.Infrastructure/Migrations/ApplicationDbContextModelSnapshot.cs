@@ -2257,6 +2257,117 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("phone_challenges", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.PostingPeriod", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<Guid?>("ClosedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("closed_by_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date")
+                        .HasColumnName("end_date");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("start_date");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_posting_periods");
+
+                    b.HasIndex("ShopId", "StartDate")
+                        .IsUnique()
+                        .HasDatabaseName("ix_posting_periods_shop_id_start_date");
+
+                    b.ToTable("posting_periods", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_posting_periods_range", "end_date >= start_date");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.PostingPeriodEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("integer")
+                        .HasColumnName("action");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<Guid>("PostingPeriodId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("posting_period_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_posting_period_events");
+
+                    b.HasIndex("PostingPeriodId")
+                        .HasDatabaseName("ix_posting_period_events_posting_period_id");
+
+                    b.HasIndex("ShopId", "PostingPeriodId", "OccurredAt")
+                        .HasDatabaseName("ix_posting_period_events_shop_id_posting_period_id_occurred_at");
+
+                    b.ToTable("posting_period_events", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseOrder", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3243,6 +3354,16 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("actor_user_id");
 
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<string>("BusinessTimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("business_time_zone");
+
                     b.Property<string>("ClientSaleId")
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)")
@@ -3424,6 +3545,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasIndex("ShopId")
                         .HasDatabaseName("ix_sales_shop_id");
+
+                    b.HasIndex("ShopId", "BusinessDate")
+                        .HasDatabaseName("ix_sales_shop_id_business_date");
 
                     b.HasIndex("ShopId", "ConfiguredSaleRuleId")
                         .HasDatabaseName("ix_sales_shop_id_configured_sale_rule_id");
@@ -3672,6 +3796,16 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("adjustment_taxable_amount");
 
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<string>("BusinessTimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("business_time_zone");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -3761,6 +3895,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("voided_at");
 
+                    b.Property<DateOnly?>("VoidedBusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("voided_business_date");
+
                     b.Property<Guid?>("VoidedBy")
                         .HasColumnType("uuid")
                         .HasColumnName("voided_by");
@@ -3770,6 +3908,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasIndex("SaleId")
                         .HasDatabaseName("ix_sale_returns_sale_id");
+
+                    b.HasIndex("ShopId", "BusinessDate")
+                        .HasDatabaseName("ix_sale_returns_shop_id_business_date");
 
                     b.HasIndex("ShopId", "IsVoided")
                         .HasDatabaseName("ix_sale_returns_shop_id_is_voided");
@@ -3786,6 +3927,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasIndex("ShopId", "VoidedAt")
                         .HasDatabaseName("ix_sale_returns_shop_id_voided_at");
+
+                    b.HasIndex("ShopId", "VoidedBusinessDate")
+                        .HasDatabaseName("ix_sale_returns_shop_id_voided_business_date");
 
                     b.ToTable("sale_returns", null, t =>
                         {
@@ -4152,6 +4296,14 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasMaxLength(320)
                         .HasColumnType("character varying(320)")
                         .HasColumnName("address");
+
+                    b.Property<string>("BusinessTimeZoneId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasDefaultValue("Asia/Kolkata")
+                        .HasColumnName("business_time_zone");
 
                     b.Property<string>("City")
                         .IsRequired()
@@ -5242,6 +5394,33 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_payment_reversals_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.PostingPeriod", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_posting_periods_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.PostingPeriodEvent", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.PostingPeriod", null)
+                        .WithMany()
+                        .HasForeignKey("PostingPeriodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_posting_period_events_posting_periods_posting_period_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_posting_period_events_shops_shop_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.PurchaseOrder", b =>

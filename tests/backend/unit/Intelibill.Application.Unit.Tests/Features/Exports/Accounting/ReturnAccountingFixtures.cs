@@ -60,6 +60,7 @@ internal static class ReturnAccountingFixtures
             sale.Id,
             returnNumber,
             processedAt ?? new DateTimeOffset(2026, 6, 12, 9, 0, 0, TimeSpan.Zero),
+            global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(processedAt ?? new DateTimeOffset(2026, 6, 12, 9, 0, 0, TimeSpan.Zero)),
             Guid.NewGuid(),
             notes: null,
             totalRefundAmount: approved,

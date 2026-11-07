@@ -23,25 +23,16 @@ public sealed class ExportSalesQueryValidator : AbstractValidator<ExportSalesQue
             .Must(l => SalesExportLevel.IsSupported(l))
             .WithMessage("Level must be one of: summary, lineItems");
 
-        RuleFor(x => x.StartDate)
-            .NotEmpty();
-
-        RuleFor(x => x.EndDate)
-            .NotEmpty();
-
+        // An omitted end is the shop's today and an omitted start is 29 days before the end; the
+        // handler resolves them and checks the resolved range with the same rules.
         RuleFor(x => x)
             .Custom((query, context) =>
             {
-                if (query.StartDate > query.EndDate)
-                {
-                    context.AddFailure(nameof(query.StartDate), "Start date must be on or before end date.");
-                }
+                if (query.StartDate is not { } start || query.EndDate is not { } end)
+                    return;
 
-                var daysDifference = (query.EndDate.ToDateTime(TimeOnly.MinValue) - query.StartDate.ToDateTime(TimeOnly.MinValue)).Days;
-                if (daysDifference > 366)
-                {
-                    context.AddFailure(nameof(query.StartDate), "Date range must not exceed 366 days.");
-                }
+                if (SalesExportRange.Validate(start, end) is { } failure)
+                    context.AddFailure(nameof(query.StartDate), failure);
             });
     }
 }

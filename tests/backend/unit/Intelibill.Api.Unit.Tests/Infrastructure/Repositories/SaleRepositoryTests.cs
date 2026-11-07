@@ -1,5 +1,6 @@
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
 using Intelibill.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -64,7 +65,7 @@ public sealed class SaleRepositoryTests
         var startUtc = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var nextStartUtc = startUtc.AddMonths(1);
 
-        var metrics = await repository.GetCustomerSalesMetricsAsync(shopId, [customerId], startUtc, nextStartUtc);
+        var metrics = await repository.GetCustomerSalesMetricsAsync(shopId, [customerId], new UtcDateWindow(startUtc, nextStartUtc));
 
         Assert.True(metrics.ContainsKey(customerId));
         var m = metrics[customerId];
@@ -130,7 +131,7 @@ public sealed class SaleRepositoryTests
         var startUtc = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var nextStartUtc = startUtc.AddMonths(1);
 
-        var metrics = await repository.GetCustomerSalesMetricsAsync(shopId, [customerId], startUtc, nextStartUtc);
+        var metrics = await repository.GetCustomerSalesMetricsAsync(shopId, [customerId], new UtcDateWindow(startUtc, nextStartUtc));
 
         Assert.True(metrics.ContainsKey(customerId));
         var m = metrics[customerId];
@@ -214,7 +215,7 @@ public sealed class SaleRepositoryTests
 
         var repository = new SaleRepository(context);
 
-        var metrics = await repository.GetCustomerSalesMetricsAsync(shopId, [customerId], monthStart, nextMonthStart);
+        var metrics = await repository.GetCustomerSalesMetricsAsync(shopId, [customerId], new UtcDateWindow(monthStart, nextMonthStart));
 
         Assert.True(metrics.ContainsKey(customerId));
         var m = metrics[customerId];

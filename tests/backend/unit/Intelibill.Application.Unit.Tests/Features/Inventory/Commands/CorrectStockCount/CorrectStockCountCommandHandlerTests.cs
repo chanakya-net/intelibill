@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Posting;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -10,6 +11,7 @@ using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Update;
+using Intelibill.Application.Unit.Tests.Common.Time;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using DomainInventory = Intelibill.Domain.Entities.Inventory;
@@ -37,7 +39,7 @@ public sealed class CorrectStockCountCommandHandlerTests
 
     public CorrectStockCountCommandHandlerTests()
     {
-        _numberGenerator.Generate(Arg.Any<DateTimeOffset?>()).Returns("ADJ-20261101-ABCDEF12");
+        _numberGenerator.Generate(Arg.Any<DateOnly>()).Returns("ADJ-20261101-ABCDEF12");
         _itemRepository.GetByIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(ci => new List<Item> { Item.Create(ci.ArgAt<Guid>(0), "Rice", "d", "kg", "BC-0", true, Guid.NewGuid()) });
         _batch = InventoryBatch.Create(_shop.Id, _itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, _actor.Id).Value;
@@ -255,6 +257,7 @@ public sealed class CorrectStockCountCommandHandlerTests
     private CorrectStockCountCommand Command(decimal counted, uint? expectedVersion = null) =>
         new(_batch.Id, _actor.Id, _shop.Id, expectedVersion ?? _batch.Version, counted, "Shelf count", null);
 
+    private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private CorrectStockCountCommandHandler CreateHandler() =>
         new(
             _userRepository,
@@ -266,5 +269,26 @@ public sealed class CorrectStockCountCommandHandlerTests
             _numberGenerator,
             _unitOfWork,
             _operationExecutor,
-            _itemRepository);
+            _itemRepository,
+            BusinessTestDoubles.AnyShop(),
+            _postingPeriods,
+            BusinessTestDoubles.RealClock());
+
+    [Fact]
+    public async Task ClosedPeriod_RefusesCount_UnkeyedAndKeyed_WithoutWriting()
+    {
+        UseRole(ShopRole.Manager);
+        _postingPeriods.AuthorizeForWriteAsync(_shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 7, 1))));
+
+        var result = await CreateHandler().HandleAsync(Command(8m), CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);
+        Assert.Equal(10m, _batch.Quantity);
+        await _stockCountRepository.DidNotReceive().AddAsync(Arg.Any<StockCount>(), Arg.Any<CancellationToken>());
+        await _stockTransactionRepository.DidNotReceive().AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+    }
 }

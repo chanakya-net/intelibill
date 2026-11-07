@@ -46,7 +46,7 @@ public class ReturnAdjustmentProjectorTests
     {
         var sale = Sale(ShopId);
         var saleReturn = Return(sale, approved: 118m, taxable: 100m, tax: 18m);
-        saleReturn.Void(new DateTimeOffset(2026, 7, 3, 9, 0, 0, TimeSpan.Zero), Guid.NewGuid(), "Entered twice");
+        saleReturn.Void(new DateTimeOffset(2026, 7, 3, 9, 0, 0, TimeSpan.Zero), global::Intelibill.Domain.Common.BusinessCalendar.DateOf(new DateTimeOffset(2026, 7, 3, 9, 0, 0, TimeSpan.Zero)), Guid.NewGuid(), "Entered twice");
 
         var june = Assert.Single(Project([saleReturn], sale, June1, June30));
         var july = Assert.Single(Project([saleReturn], sale, July1, July31));
@@ -167,7 +167,7 @@ public class ReturnAdjustmentProjectorTests
             ShopId, "INV-MULTI", null, null, null, PaymentMethod.Cash, new DateTimeOffset(2026, 6, 10, 9, 0, 0, TimeSpan.Zero),
             223m, 0m, 223m, 23m, [fivePercent, eighteenPercent]);
         var saleReturn = SaleReturn.Record(
-            ShopId, sale.Id, "RET-MULTI", new DateTimeOffset(2026, 6, 12, 9, 0, 0, TimeSpan.Zero), Guid.NewGuid(), null,
+            ShopId, sale.Id, "RET-MULTI", new DateTimeOffset(2026, 6, 12, 9, 0, 0, TimeSpan.Zero), global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(new DateTimeOffset(2026, 6, 12, 9, 0, 0, TimeSpan.Zero)), Guid.NewGuid(), null,
             223m, 0m, 223m, ReturnPayoutDestination.Refund, 200m, 23m, null, null,
             [
                 new SaleReturnLineInput(ShopId, fivePercent.Id, 1m, SaleReturnCondition.Restockable, 40m, 100m, 5m, false, 105m, 105m, 100m, 5m, null),
@@ -178,7 +178,7 @@ public class ReturnAdjustmentProjectorTests
             [new ReturnLineAccounting(fivePercent.Id, 100m, 5m, 0m), new ReturnLineAccounting(eighteenPercent.Id, 100m, 18m, 0m)],
             [new ReturnSettlementInput(ReturnSettlementKind.ExternalRefund, 223m)]).Value;
         Assert.False(saleReturn.PostAccounting(snapshot).IsError);
-        saleReturn.Void(new DateTimeOffset(2026, 7, 2, 9, 0, 0, TimeSpan.Zero), Guid.NewGuid(), "Entered twice");
+        saleReturn.Void(new DateTimeOffset(2026, 7, 2, 9, 0, 0, TimeSpan.Zero), global::Intelibill.Domain.Common.BusinessCalendar.DateOf(new DateTimeOffset(2026, 7, 2, 9, 0, 0, TimeSpan.Zero)), Guid.NewGuid(), "Entered twice");
 
         var june = Assert.Single(Project([saleReturn], sale, June1, June30));
         var july = Assert.Single(Project([saleReturn], sale, July1, July31));

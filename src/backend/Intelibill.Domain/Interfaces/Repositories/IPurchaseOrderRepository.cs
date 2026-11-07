@@ -1,3 +1,4 @@
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 
@@ -7,8 +8,7 @@ public sealed record PurchaseOrderListFilter(
     Guid ShopId,
     string? Search,
     PurchaseOrderStatus? Status,
-    DateOnly? OrderDateFrom,
-    DateOnly? OrderDateTo,
+    UtcDateWindow? CreatedWindow,
     int PageNumber,
     int PageSize);
 
