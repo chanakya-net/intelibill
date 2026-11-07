@@ -1,4 +1,5 @@
 <article class="invoice">
+  <app-sale-cancellation-record [cancellation]="sale.cancellation ?? null" />
   <!-- Header -->
   <header class="invoice__header">
     <ng-container *ngIf="sale.document as doc; else legacyHeader">

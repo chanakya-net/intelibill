@@ -29,14 +29,21 @@
   @if (economics(); as e) {
     <aside class="economics-notes" aria-live="polite">
       <p>{{ 'sales.profitLoss.economics.basis' | transloco }}</p>
-      <p>{{ ('sales.profitLoss.status.' + e.operatingProfitStatus) | transloco }}</p>
+      <p>{{ 'sales.profitLoss.status.' + e.operatingProfitStatus | transloco }}</p>
       @if (e.unclassifiedExpenseCount > 0) {
         <p>{{ 'sales.profitLoss.economics.unclassified' | transloco: { count: e.unclassifiedExpenseCount, amount: totalAmount(e.unclassifiedExpenseAmount) } }}
           <a href="/expenses">{{ 'sales.profitLoss.economics.reviewExpenses' | transloco }}</a>
         </p>
       }
-      <p>{{ 'sales.profitLoss.economics.returnWastage' | transloco }}: {{ totalAmount(e.returnedGoodsWastageIncludedInCogs) }}</p>
-      <ul>@for (limitation of e.limitations; track limitation) { <li>{{ ('sales.profitLoss.limitations.' + limitation) | transloco }}</li> }</ul>
+      <p>
+        {{ 'sales.profitLoss.economics.returnWastage' | transloco }}:
+        {{ totalAmount(e.returnedGoodsWastageIncludedInCogs) }}
+      </p>
+      <ul>
+        @for (limitation of e.limitations; track limitation) {
+          <li>{{ 'sales.profitLoss.limitations.' + limitation | transloco }}</li>
+        }
+      </ul>
     </aside>
   }
 
@@ -422,3 +429,10 @@
     }
   </section>
 </section>
+
+<p class="text-sm">
+  {{ 'sales.cancellation.summary' | transloco }}: ₹{{
+    summary()?.cancellationAmount ?? 0 | number: '1.2-2'
+  }}
+  · {{ summary()?.cancellationCount ?? 0 }}
+</p>

@@ -1,3 +1,4 @@
+import { SaleCancellationRecordComponent } from './sale-cancellation-record.component';
 import { CommonModule } from '@angular/common';
 import { Component, Input, inject } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
@@ -28,7 +29,7 @@ import {
 @Component({
   selector: 'app-sale-invoice-a4',
   standalone: true,
-  imports: [CommonModule, TranslocoPipe, DateOnlyPipe],
+  imports: [SaleCancellationRecordComponent, CommonModule, TranslocoPipe, DateOnlyPipe],
   templateUrl: './sale-invoice-a4.component.html',
   styleUrl: './sale-invoice-a4.component.scss',
 })

@@ -73,6 +73,7 @@ interface AccountLedgerRow {
 
 const LEDGER_LABEL_KEYS: Record<string, string> = {
   SaleDue: 'customers.account.saleDue',
+  SaleCancellationCredit: 'customers.account.saleCancellationCredit',
   PaymentReceived: 'customers.account.paymentReceived',
   ReturnCredit: 'customers.account.returnCredit',
   ReturnCreditReversal: 'customers.account.returnCreditReversal',
@@ -276,9 +277,13 @@ export class CustomersPageComponent {
     () => this.selectedAccount()?.creditLimit ?? this.selectedAccountCustomer()?.creditLimit ?? 0,
   );
   readonly selectedAccountCreditPolicy = computed(() =>
-    effectiveCreditPolicy(this.selectedAccount()?.creditPolicyMode ?? this.selectedAccountCustomer()?.creditPolicyMode),
+    effectiveCreditPolicy(
+      this.selectedAccount()?.creditPolicyMode ?? this.selectedAccountCustomer()?.creditPolicyMode,
+    ),
   );
-  readonly selectedAccountCreditPolicyLabelKey = computed(() => creditPolicyLabelKey(this.selectedAccountCreditPolicy()));
+  readonly selectedAccountCreditPolicyLabelKey = computed(() =>
+    creditPolicyLabelKey(this.selectedAccountCreditPolicy()),
+  );
   /** Null when the limit is not enforced (legacy advisory), so nothing is promised that is not checked. */
   readonly selectedAccountAvailableCredit = computed(() => this.selectedAccount()?.availableCredit ?? null);
   readonly selectedAccountIsActive = computed(
@@ -309,7 +314,9 @@ export class CustomersPageComponent {
     }
 
     return account.ledgerEntries.map((entry) => {
-      const sale = entry.saleId ? account.sales.find((item) => item.saleId === entry.saleId) ?? null : null;
+      const sale = entry.saleId
+        ? (account.sales.find((item) => item.saleId === entry.saleId) ?? null)
+        : null;
       const entryKind = customerLedgerEntryKind(entry.entryType);
       const kind: AccountLedgerRow['kind'] =
         entryKind === 'PaymentReceived' || entryKind === 'PaymentReversal' ? 'payment' : 'purchase';

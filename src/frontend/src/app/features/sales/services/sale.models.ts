@@ -1,3 +1,4 @@
+import type { SaleCancellationDto } from './sale-cancellation.models';
 // ─── Sellable DTOs (GET /api/sales/sellables) ───────────────────────────────
 
 export interface SellableGoodsDto {
@@ -182,7 +183,12 @@ export interface ProfitLossEconomicsDto extends Omit<ProfitLossRowEconomicsDto, 
   readonly operatingProfit: number | null;
   readonly unclassifiedExpenseCount: number;
   readonly unclassifiedExpenseAmount: number;
-  readonly operatingProfitStatus: 'Complete' | 'FilteredActivity' | 'UnclassifiedExpenses' | 'AccountingReview' | 'ServiceCostsUnmodeled';
+  readonly operatingProfitStatus:
+    | 'Complete'
+    | 'FilteredActivity'
+    | 'UnclassifiedExpenses'
+    | 'AccountingReview'
+    | 'ServiceCostsUnmodeled';
   readonly limitations: readonly string[];
 }
 
@@ -400,10 +406,17 @@ export interface SaleCreditNoteRedemptionDto {
 // ─── Issued GST document (snapshot version 2) ─────────────────────────────────
 // Frozen at posting; prints render only from it. Enums travel as their names.
 
-export type InvoiceDocumentType = 'TaxInvoice' | 'InvoiceCumBillOfSupply' | 'BillOfSupply' | 'Receipt';
+export type InvoiceDocumentType =
+  | 'TaxInvoice'
+  | 'InvoiceCumBillOfSupply'
+  | 'BillOfSupply'
+  | 'Receipt';
 export type InvoiceSellerTaxRegime = 'Regular' | 'Composition' | 'Unregistered';
 export type TaxComponentKind = 'Cgst' | 'Sgst' | 'Utgst' | 'Igst' | 'Cess';
-export type InvoiceDeclaration = 'CompositionTaxablePerson' | 'EInvoiceExemption' | 'NotRegisteredUnderGst';
+export type InvoiceDeclaration =
+  | 'CompositionTaxablePerson'
+  | 'EInvoiceExemption'
+  | 'NotRegisteredUnderGst';
 
 export interface TaxComponent {
   readonly kind: TaxComponentKind;
@@ -488,6 +501,9 @@ export interface InvoiceDocument {
 }
 
 export interface SaleDto {
+  readonly status?: 'Posted' | 'Cancelled';
+  readonly version?: number;
+  readonly cancellation?: SaleCancellationDto | null;
   readonly saleId: string;
   readonly invoiceNumber: string;
   readonly customerId: string | null;
@@ -511,9 +527,17 @@ export interface SaleDto {
   readonly isLegacyDocument: boolean;
 }
 
-export type SaleHistoryStatus = 'paid' | 'partiallyPaid' | 'refunded' | 'unknown' | 'returned';
+export type SaleHistoryStatus =
+  | 'paid'
+  | 'partiallyPaid'
+  | 'refunded'
+  | 'unknown'
+  | 'returned'
+  | 'cancelled';
 
 export interface SalesHistorySummaryDto {
+  readonly cancellationAmount?: number;
+  readonly cancellationCount?: number;
   readonly periodSales: number;
   readonly invoiceCount: number;
   readonly refundAmount: number;
@@ -619,6 +643,8 @@ export interface SaleReturnPreviewDto {
 }
 
 export interface SaleListItemDto {
+  readonly cancellationReference?: string | null;
+  readonly cancelledAt?: string | null;
   readonly saleId: string;
   readonly invoiceNumber: string;
   readonly customerId: string | null;
@@ -640,8 +666,17 @@ export interface SaleListItemDto {
   readonly creditNoteAppliedAmount: number;
 }
 
-export type ProfitLossReportRowType = 'Sale' | 'SaleReturn' | 'InventoryAdjustment';
-export type ProfitLossReportTypeFilter = 'all' | 'sale' | 'saleReturn' | 'inventoryAdjustment';
+export type ProfitLossReportRowType =
+  | 'Sale'
+  | 'SaleReturn'
+  | 'InventoryAdjustment'
+  | 'saleCancellation';
+export type ProfitLossReportTypeFilter =
+  | 'all'
+  | 'sale'
+  | 'saleReturn'
+  | 'inventoryAdjustment'
+  | 'saleCancellation';
 
 export interface ProfitLossReportItemDto {
   readonly economics?: ProfitLossRowEconomicsDto | null;
@@ -672,6 +707,8 @@ export interface ProfitLossReportQueryParams {
 }
 
 export interface ProfitLossSummaryDto {
+  readonly cancellationAmount?: number;
+  readonly cancellationCount?: number;
   readonly economics?: ProfitLossEconomicsDto | null;
   readonly netProfitAfterTax: number;
   readonly revenueIncludingTax: number;

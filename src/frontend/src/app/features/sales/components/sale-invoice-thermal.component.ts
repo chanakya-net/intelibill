@@ -1,3 +1,4 @@
+import { SaleCancellationRecordComponent } from './sale-cancellation-record.component';
 import { CommonModule } from '@angular/common';
 import {
   AfterViewInit,
@@ -42,7 +43,7 @@ const PX_TO_MM = 25.4 / 96;
 @Component({
   selector: 'app-sale-invoice-thermal',
   standalone: true,
-  imports: [CommonModule, TranslocoPipe, DateOnlyPipe],
+  imports: [SaleCancellationRecordComponent, CommonModule, TranslocoPipe, DateOnlyPipe],
   templateUrl: './sale-invoice-thermal.component.html',
   styleUrl: './sale-invoice-thermal.component.scss',
 })

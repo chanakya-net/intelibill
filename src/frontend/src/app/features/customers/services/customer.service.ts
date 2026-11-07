@@ -60,6 +60,8 @@ export interface EditCustomerRequest {
 }
 
 export interface CustomerAccountSale {
+  status?: 'Posted' | 'Cancelled';
+  cancellationCreditAmount?: number;
   saleId: string;
   invoiceNumber: string;
   paymentMethod: number | string;
@@ -81,11 +83,29 @@ export interface CustomerAccountSale {
 }
 
 /** How the money moved, as the API names it. `UnknownRecordedMethod` = not recorded (legacy). */
-export type ReceiptTenderMethod = 'Cash' | 'Upi' | 'Card' | 'BankTransfer' | 'Cheque' | 'UnknownRecordedMethod';
+export type ReceiptTenderMethod =
+  | 'Cash'
+  | 'Upi'
+  | 'Card'
+  | 'BankTransfer'
+  | 'Cheque'
+  | 'UnknownRecordedMethod';
 
-export const RECORDABLE_TENDER_METHODS: readonly ReceiptTenderMethod[] = ['Cash', 'Upi', 'Card', 'BankTransfer', 'Cheque'];
+export const RECORDABLE_TENDER_METHODS: readonly ReceiptTenderMethod[] = [
+  'Cash',
+  'Upi',
+  'Card',
+  'BankTransfer',
+  'Cheque',
+];
 
-export type CustomerLedgerEntryKind = 'SaleDue' | 'PaymentReceived' | 'ReturnCredit' | 'ReturnCreditReversal' | 'PaymentReversal';
+export type CustomerLedgerEntryKind =
+  | 'SaleDue'
+  | 'PaymentReceived'
+  | 'ReturnCredit'
+  | 'ReturnCreditReversal'
+  | 'PaymentReversal'
+  | 'SaleCancellationCredit';
 
 const LEDGER_ENTRY_KINDS: readonly CustomerLedgerEntryKind[] = [
   'SaleDue',
@@ -93,6 +113,7 @@ const LEDGER_ENTRY_KINDS: readonly CustomerLedgerEntryKind[] = [
   'ReturnCredit',
   'ReturnCreditReversal',
   'PaymentReversal',
+  'SaleCancellationCredit',
 ];
 
 export interface CustomerLedgerEntry {

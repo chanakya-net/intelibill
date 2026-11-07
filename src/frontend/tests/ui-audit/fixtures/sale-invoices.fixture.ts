@@ -1,3 +1,4 @@
+import { cancellationFixture } from '../../../src/app/features/sales/services/sale-cancellation.test-fixture';
 import type { Page, Route } from '@playwright/test';
 
 import type { SaleDto } from '../../../src/app/features/sales/services/sale.models';
@@ -375,3 +376,87 @@ async function fulfillJson(route: Route, body: unknown, status = 200): Promise<v
     body: JSON.stringify(body),
   });
 }
+
+/** Frozen online receipt used by cancellation dialog and both print layouts. */
+export const CANCELLATION_SALE: SaleDto = {
+  ...NORMAL_SALE,
+  saleId: 'sale-paid',
+  invoiceNumber: 'A/2627/000042',
+  status: 'Posted',
+  version: 7,
+  totalBeforeDiscount: 200,
+  totalAmount: 200,
+  totalTaxAmount: 0,
+  paidAmount: 80,
+  dueAmount: 120,
+  creditNoteRedemptions: [],
+  document: {
+    version: 2,
+    documentType: 'Receipt',
+    issuedAt: '2026-11-08T05:00:00Z',
+    businessDate: '2026-11-08',
+    fiscalYearStart: 2026,
+    seriesCode: 'A',
+    number: 'A/2627/000042',
+    seller: cancellationFixture.seller,
+    buyer: cancellationFixture.buyer,
+    placeOfSupplyStateCode: '29',
+    placeOfSupplyStateName: 'Karnataka',
+    isInterstate: false,
+    reverseCharge: false,
+    lines: [
+      {
+        lineNumber: 1,
+        description: 'Frozen item',
+        hsnOrSac: null,
+        uom: 'NOS',
+        quantity: 2,
+        unitPrice: 100,
+        discountAmount: 0,
+        taxableValue: 200,
+        taxRatePercent: 0,
+        isExempt: true,
+        taxComponents: [],
+        lineTotal: 200,
+      },
+    ],
+    totals: {
+      taxableValue: 0,
+      exemptValue: 200,
+      components: [],
+      totalTax: 0,
+      roundingAdjustment: 0,
+      invoiceTotal: 200,
+    },
+    declarations: ['NotRegisteredUnderGst'],
+    signatureMode: 'AuthorisedSignatory',
+    taxCalculation: 'component-split/1',
+  },
+  isLegacyDocument: false,
+  items: [
+    {
+      ...NORMAL_SALE.items[0],
+      saleItemId: 'sale-line',
+      itemName: 'Frozen item',
+      quantity: 2,
+      salesPrice: 100,
+      originalSalesPrice: 100,
+      finalSalesPrice: 100,
+      preTaxAmountBeforeDiscount: 200,
+      taxableAmount: 200,
+      taxAmount: 0,
+      totalAmount: 200,
+      taxRatePercent: 0,
+      returnableQuantity: 2,
+      uom: 'PCS',
+      quantityScale: 0,
+    },
+  ],
+  cancellation: null,
+};
+export const CANCELLED_SALE: SaleDto = {
+  ...CANCELLATION_SALE,
+  status: 'Cancelled',
+  cancellation: { ...cancellationFixture, saleId: CANCELLATION_SALE.saleId },
+  items: CANCELLATION_SALE.items.map((x) => ({ ...x, returnableQuantity: 0 })),
+};

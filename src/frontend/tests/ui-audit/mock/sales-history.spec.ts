@@ -1,3 +1,4 @@
+import { CANCELLATION_SALE, CANCELLED_SALE } from '../fixtures/sale-invoices.fixture';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { SUPPORTED_LANGUAGES } from '../../../src/app/core/i18n/language.constants';
@@ -221,6 +222,119 @@ test.describe('sales-history', () => {
       collector.dispose();
     }
   });
+});
+
+test('sale cancellation recovers exact frozen intent after reload and prints linked facts', async ({
+  page,
+}, testInfo) => {
+  await installSalesScenario(page, 'ready');
+  let cancelled = false;
+  let previewCalls = 0;
+  const sent: unknown[] = [];
+  const json = (route: Route, body: unknown, status = 200) =>
+    route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+  await page.route('**/api/sales/sale-paid', (route) =>
+    json(route, cancelled ? CANCELLED_SALE : CANCELLATION_SALE),
+  );
+  await page.route('**/api/sales/sale-paid/cancellation-preview', (route) => {
+    previewCalls++;
+    return json(route, {
+      saleId: 'sale-paid',
+      invoiceNumber: CANCELLATION_SALE.invoiceNumber,
+      document: CANCELLATION_SALE.document,
+      status: 'Posted',
+      expectedVersion: 7,
+      eligible: true,
+      postingEnabled: true,
+      businessDate: '2026-11-08',
+      reasons: [],
+      lines: [
+        {
+          saleItemId: 'sale-line',
+          itemId: 'item-1',
+          inventoryBatchId: 'batch-1',
+          quantity: 2,
+          description: 'Frozen item',
+          uqc: 'NOS',
+        },
+      ],
+      totalAmount: 200,
+      dueReductionAmount: 120,
+      cashRefundAmount: 80,
+      externalRefundAmount: 0,
+      creditRestorationAmount: 0,
+      requiresGoodsConfirmation: true,
+      requiresCashRefundConfirmation: true,
+    });
+  });
+  await page.route('**/api/sales/sale-paid/cancellations', (route) => {
+    sent.push(route.request().postDataJSON());
+    if (sent.length === 1) return route.abort('failed');
+    cancelled = true;
+    return json(route, CANCELLED_SALE.cancellation);
+  });
+  await page.route('**/api/financial-operations/sale-cancellation/**', (route) =>
+    json(route, { code: 'Operation.NotFound' }, 404),
+  );
+  await visitSales(page);
+  if(testInfo.project.name==='chromium-mobile'){for(const button of await page.locator('.status-filter button').all()){expect(await button.evaluate(x=>x.scrollWidth<=x.clientWidth+1)).toBe(true);}}
+  await page
+    .getByRole('button', { name: /view receipt/i })
+    .first()
+    .click();
+  await page.getByRole('button', { name: /Cancel sale/ }).click();
+  const dialog = page.getByTestId('sale-cancellation-dialog');
+  await expect(dialog).toContainText('Frozen item');
+  await expect(dialog).toContainText('120.00');
+  await expect(dialog).toContainText('80.00');
+  const submit = dialog.getByRole('button', { name: 'Confirm cancellation' });
+  await expect(submit).toBeDisabled();
+  await dialog.locator('textarea').fill('Duplicate online receipt');
+  await dialog.locator('input[type=checkbox]').nth(0).check();
+  await expect(submit).toBeDisabled();
+  await dialog.locator('input[type=checkbox]').nth(1).check();
+  await expect(submit).toBeEnabled();
+  await page.screenshot({ path: testInfo.outputPath('cancellation-dialog.png'), fullPage: true });
+  await submit.click();
+  await expect(dialog).toContainText('The outcome is unknown.');
+  await page.reload();
+  await page
+    .getByRole('button', { name: /view receipt/i })
+    .first()
+    .click();
+  await page.getByRole('button', { name: /Cancel sale/ }).click();
+  await expect(dialog).toContainText('Duplicate online receipt');
+  expect(previewCalls).toBe(1);
+  await dialog.getByRole('button', { name: 'Check status', exact: true }).click();
+  await expect(dialog).toContainText('The outcome is unknown.');
+  await expect(dialog.locator('textarea')).toHaveCount(0);
+  await page.screenshot({path:testInfo.outputPath('cancellation-recovery.png'),fullPage:true});
+  await dialog.getByRole('button', { name: 'Retry same operation', exact: true }).click();
+  await expect(page.locator('.sale-cancellation-record')).toContainText('SC-frozen');
+  expect(sent).toHaveLength(2);
+  expect(sent[1]).toEqual(sent[0]);
+  await expect(page.getByRole('button', { name: /Cancel sale/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Return items/ })).toHaveCount(0);
+  for (const template of ['a4', 'thermal']) {
+    await page.goto('/sales/sale-paid/print?template=' + template);
+    const reference = page.locator('.sale-cancellation-record');
+    await expect(reference).toContainText('SC-frozen');
+    await expect(reference).toContainText(
+      "Commercial cancellation record — not a GST credit note. Cash refund is recorded from the operator's confirmation.",
+    );
+    await expect(reference).toContainText('Frozen seller');
+    await page.emulateMedia({ media: 'print' });
+    if (template === 'thermal') {
+      const a = await reference.boundingBox();
+      const b = await page.locator('.thermal-invoice').boundingBox();
+      expect(a!.width).toBeLessThanOrEqual(b!.width);
+    }
+    await page.screenshot({
+      path: testInfo.outputPath('cancellation-' + template + '.png'),
+      fullPage: true,
+    });
+    await page.emulateMedia({ media: 'screen' });
+  }
 });
 
 async function openSales(page: Page, state: SalesState): Promise<void> {

@@ -557,7 +557,15 @@
 
   :host ::ng-deep .status-filter.p-selectbutton {
     width: 100%;
-    justify-content: space-between;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    border-radius: 1rem;
+  }
+
+  :host ::ng-deep .status-filter .p-togglebutton {
+    flex: 0 0 auto;
+    max-width: 100%;
+    white-space: normal;
   }
 
   :host ::ng-deep .ledger-table .col-customer,

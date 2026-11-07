@@ -474,4 +474,5 @@ describe('SalesPageComponent', () => {
       expect(searchActions.querySelector('.clear-filters-btn')).toBeTruthy();
     });
   });
+ it('keeps the cancelled filter when refreshing history after cancellation',()=>{const f=TestBed.createComponent(SalesPageComponent);const c=f.componentInstance;f.detectChanges();c.statusFilter.set('cancelled');f.detectChanges();salesFacade.loadSales.mockClear();c.refreshAfterCancellation();expect(salesFacade.loadSales).toHaveBeenLastCalledWith(expect.objectContaining({status:'cancelled'}));expect(c.statusLabelKey('cancelled')).toBe('sales.history.status.cancelled');});
 });

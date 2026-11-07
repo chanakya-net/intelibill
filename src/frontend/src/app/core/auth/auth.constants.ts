@@ -108,6 +108,10 @@ export const SALE_ENDPOINTS = {
   record: `${API_BASE_URL}/sales`,
   preview: `${API_BASE_URL}/sales/preview`,
   detail: (saleId: string) => `${API_BASE_URL}/sales/${saleId}`,
+  cancellationPreview: (saleId: string) =>
+    `${API_BASE_URL}/sales/${encodeURIComponent(saleId)}/cancellation-preview`,
+  cancellations: (saleId: string) =>
+    `${API_BASE_URL}/sales/${encodeURIComponent(saleId)}/cancellations`,
   byIdempotencyKey: (idempotencyKey: string) =>
     `${API_BASE_URL}/sales/by-idempotency-key/${encodeURIComponent(idempotencyKey)}`,
   profitLoss: `${API_BASE_URL}/sales/profit-loss`,

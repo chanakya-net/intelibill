@@ -362,8 +362,20 @@
                   @for (sale of selectedAccountOpenInvoices(); track sale.saleId) {
                     <tr>
                       <td>{{ sale.soldAt | date: 'dd MMM yyyy' }}</td>
-                      <td class="reference">{{ sale.invoiceNumber }}</td>
-                      <td class="money">{{ 'common.currencySymbol' | transloco }}{{ sale.dueAmount | number: '1.2-2' }}</td>
+                      <td class="reference">
+                        {{ sale.invoiceNumber }}
+                        @if (sale.status === 'Cancelled') {
+                          <small
+                            >{{ 'sales.cancellation.cancelled' | transloco }} ·
+                            {{ 'customers.account.saleCancellationCredit' | transloco }}:
+                            {{ sale.cancellationCreditAmount ?? 0 | number: '1.2-2' }}</small
+                          >
+                        }
+                      </td>
+                      <td class="money">
+                        {{ 'common.currencySymbol' | transloco
+                        }}{{ sale.dueAmount | number: '1.2-2' }}
+                      </td>
                       <td class="money credit">
                         {{ 'common.currencySymbol' | transloco }}{{ sale.allocatedPaymentAmount ?? 0 | number: '1.2-2' }}
                       </td>
@@ -419,9 +431,13 @@
                       <td>{{ receipt.businessDate | dateOnly: 'dd MMM yyyy' }}</td>
                       <td>{{ tenderLabelKey(receipt.method) | transloco }}</td>
                       <td class="reference">{{ receipt.externalReference ?? '—' }}</td>
-                      <td class="money">{{ 'common.currencySymbol' | transloco }}{{ receipt.amount | number: '1.2-2' }}</td>
                       <td class="money">
-                        {{ 'common.currencySymbol' | transloco }}{{ receipt.unallocatedAmount | number: '1.2-2' }}
+                        {{ 'common.currencySymbol' | transloco
+                        }}{{ receipt.amount | number: '1.2-2' }}
+                      </td>
+                      <td class="money">
+                        {{ 'common.currencySymbol' | transloco
+                        }}{{ receipt.unallocatedAmount | number: '1.2-2' }}
                       </td>
                       <td>
                         <span class="statement-type" [class.payment]="!receipt.isReversed">

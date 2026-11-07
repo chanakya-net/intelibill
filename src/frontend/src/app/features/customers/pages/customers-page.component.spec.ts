@@ -376,4 +376,5 @@ describe('CustomersPageComponent', () => {
     expect(component.selectedAccountOverdueAmount()).toBe(70);
     expect(component.selectedAccountIsActive()).toBe(false);
   });
+ it('shows cancellation credit separately and never reopens the original issue due',()=>{customerService.getCustomerAccount.mockReturnValueOnce(of({...account,sales:[{...account.sales[0],status:'Cancelled',cancellationCreditAmount:100,currentOutstandingAmount:0}],ledgerEntries:[{entryId:'cancel-credit',saleId:'s-new',entryType:'SaleCancellationCredit',amount:100,entryDate:'2026-11-08',notes:'SC-frozen',runningBalance:0}]}));component.onOpenCustomerAccount(customersSignal()[0]);expect(component.selectedAccountOpenInvoices()).toEqual([]);const row=component.selectedAccountLedgerRows()[0];expect(row.labelKey).toBe('customers.account.saleCancellationCredit');expect(row.credit).toBe(100);expect(row.debit).toBeNull();});
 });

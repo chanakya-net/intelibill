@@ -1,3 +1,5 @@
+import { SaleCancellationDialogComponent } from './sale-detail/sale-cancellation-dialog.component';
+import { SaleCancellationRecordComponent } from './sale-cancellation-record.component';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -19,6 +21,8 @@ import { SaleVoidReturnDialogComponent } from './sale-detail/sale-void-return-di
   selector: 'app-sale-detail-overlay',
   standalone: true,
   imports: [
+    SaleCancellationDialogComponent,
+    SaleCancellationRecordComponent,
     CommonModule,
     ButtonModule,
     DialogModule,
@@ -43,6 +47,7 @@ export class SaleDetailOverlayComponent {
   });
 
   @Input() visible = false;
+  @Output() readonly cancellationCompleted = new EventEmitter<void>();
   @Output() readonly visibleChange = new EventEmitter<boolean>();
 
   readonly sale = this.salesFacade.selectedSale;
@@ -50,6 +55,20 @@ export class SaleDetailOverlayComponent {
   readonly errorMessage = this.salesFacade.errorMessage;
 
   readonly showReturnPreview = signal(false);
+  readonly showCancellation = signal(false);
+  readonly canCancel = computed(
+    () =>
+      !!this.sale() &&
+      this.sale()?.status !== 'Cancelled' &&
+      !!this.sale()?.document &&
+      !!this.sale()?.version &&
+      ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()),
+  );
+  cancellationSaved(): void {
+    const id = this.sale()?.saleId;
+    if (id) this.salesFacade.loadSaleDetail(id);
+    this.cancellationCompleted.emit();
+  }
   readonly showVoidReturn = signal(false);
   readonly selectedReturnToVoid = signal<SaleReturnDto | null>(null);
 
@@ -85,11 +104,17 @@ export class SaleDetailOverlayComponent {
 
   readonly canPreviewReturns = computed(() => {
     const role = this.activeShopRole().toLowerCase();
-    return ['owner', 'manager', 'staff'].includes(role) && this.returnableItems().length > 0;
+    return (
+      this.sale()?.status !== 'Cancelled' &&
+      ['owner', 'manager', 'staff'].includes(role) &&
+      this.returnableItems().length > 0
+    );
   });
 
-  readonly canSubmitReturns = computed(() =>
-    ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()),
+  readonly canSubmitReturns = computed(
+    () =>
+      this.sale()?.status !== 'Cancelled' &&
+      ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()),
   );
 
   openReturnPreview(): void {
@@ -129,6 +154,7 @@ export class SaleDetailOverlayComponent {
 
   onClose(): void {
     this.closeReturnPreview();
+    this.showCancellation.set(false);
     this.closeVoidReturn();
     this.visibleChange.emit(false);
   }

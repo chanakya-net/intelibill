@@ -1,3 +1,4 @@
+import { cancellationFixture } from '../services/sale-cancellation.test-fixture';
 import { CommonModule } from '@angular/common';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { readFileSync } from 'node:fs';
@@ -1048,7 +1049,7 @@ describe('SaleInvoiceA4Component', () => {
       expect(totalsElement?.textContent).not.toContain('Discount: -₹150.00');
     });
 
-    it('does not present credit notes issued by this sale\'s returns as redeemed', () => {
+    it("does not present credit notes issued by this sale's returns as redeemed", () => {
       const sale = makeSale({
         creditNoteAppliedAmount: 150,
         creditNoteRedemptions: [{ creditNoteId: 'cn-1', code: 'CN-001', appliedAmount: 150 }],
@@ -1091,9 +1092,11 @@ describe('SaleInvoiceA4Component', () => {
 
       const totalsRows = fixture.nativeElement.querySelectorAll('.invoice__totals-row');
       const texts = Array.from(totalsRows).map((row: unknown) => (row as Element).textContent);
-      const discountIdx = texts.findIndex(t => typeof t === 'string' && t.includes('Discount'));
-      const settlementIdx = texts.findIndex(t => typeof t === 'string' && t.includes('Credit Note Settlement'));
-      const taxIdx = texts.findIndex(t => typeof t === 'string' && t.includes('Tax'));
+      const discountIdx = texts.findIndex((t) => typeof t === 'string' && t.includes('Discount'));
+      const settlementIdx = texts.findIndex(
+        (t) => typeof t === 'string' && t.includes('Credit Note Settlement'),
+      );
+      const taxIdx = texts.findIndex((t) => typeof t === 'string' && t.includes('Tax'));
 
       expect(settlementIdx).toBeGreaterThan(discountIdx);
       expect(taxIdx).toBeGreaterThan(settlementIdx);
@@ -1119,8 +1122,8 @@ describe('SaleInvoiceA4Component', () => {
       fixture.detectChanges();
 
       expect(fixture.nativeElement.querySelector('.invoice__legacy-note')?.textContent).toContain('is not a copy of a GST document');
-    });
 
+    });
   });
 
   describe('issued GST document', () => {
@@ -1425,5 +1428,45 @@ describe('SaleInvoiceA4Component', () => {
     expect(text).toContain('18.06');
     expect(text).toContain('CN-OFFLINE-0001');
     expect(fixture.nativeElement.querySelector('.invoice__legacy-note')).toBeNull();
+  });
+  it('preserves original amounts and appends frozen cancellation settlement facts', () => {
+    component.sale = makeSale({
+      status: 'Cancelled',
+      cancellation: cancellationFixture,
+      paidAmount: 80,
+      dueAmount: 120,
+      totalAmount: 200,
+    });
+    component.shop = makeShop({ name: 'Renamed live shop' });
+    fixture.detectChanges();
+    const fact = fixture.nativeElement.querySelector('.sale-cancellation-record');
+    expect(fact?.textContent).toContain('SC-frozen');
+    expect(fact?.textContent).not.toContain('3–255');
+    expect(fact?.textContent).toContain('Frozen seller');
+    expect(fact?.textContent).toContain('Frozen buyer');
+    expect(fact?.textContent).toContain('Frozen item');
+    expect(fact?.textContent).toContain('120.00');
+    expect(fact?.textContent).toContain('80.00');
+    expect(fact?.textContent).toContain(
+      "Commercial cancellation record — not a GST credit note. Cash refund is recorded from the operator's confirmation.",
+    );
+    expect(component.sale.paidAmount).toBe(80);
+    expect(component.sale.dueAmount).toBe(120);
+  });
+  it('omits cash-confirmation sentence for a pure-due cancellation', () => {
+    component.sale = makeSale({
+      status: 'Cancelled',
+      cancellation: {
+        ...cancellationFixture,
+        cashRefundAmount: 0,
+        cashRefundConfirmed: false,
+        dueReductionAmount: 200,
+      },
+    });
+    component.shop = makeShop();
+    fixture.detectChanges();
+    const text = fixture.nativeElement.querySelector('.sale-cancellation-record')?.textContent;
+    expect(text).toContain('Commercial cancellation record — not a GST credit note.');
+    expect(text).not.toContain('Cash refund is recorded');
   });
 });

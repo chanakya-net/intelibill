@@ -559,7 +559,8 @@
       },
       "overdue": "Overdue",
       "outstanding": "Outstanding",
-      "dueDate": "Due Date"
+      "dueDate": "Due Date",
+      "saleCancellationCredit": "Sale cancellation credit"
     },
     "searchPlaceholder": "Search customers by name, phone, or address...",
     "summary": {
@@ -1233,7 +1234,8 @@
         "paid": "Paid",
         "partiallyPaid": "Partially paid",
         "refunded": "Refunded",
-        "unknown": "Unknown"
+        "unknown": "Unknown",
+        "cancelled": "Cancelled"
       },
       "actions": {
         "viewReceipt": "View Receipt"
@@ -1639,7 +1641,8 @@
       "rowTypes": {
         "Sale": "Sale",
         "SaleReturn": "Sale return",
-        "InventoryAdjustment": "Inventory adjustment"
+        "InventoryAdjustment": "Inventory adjustment",
+        "saleCancellation": "Sale cancellation"
       },
       "noData": "No P&L data available",
       "reportingPeriod": "Reporting period: {{from}} - {{to}}",
@@ -1663,7 +1666,8 @@
           "all": "All",
           "sale": "Sale",
           "saleReturn": "Sale return",
-          "inventoryAdjustment": "Inventory adjustment"
+          "inventoryAdjustment": "Inventory adjustment",
+          "saleCancellation": "Sale cancellation"
         }
       },
       "table": {
@@ -2223,6 +2227,36 @@
         "issuerMismatch": "The recorded issuer has never been a member of this shop.",
         "notAuthorized": "Only an active owner or manager can import a support bundle."
       }
+    },
+    "cancellation": {
+      "title": "Cancel sale",
+      "cancelled": "Cancelled",
+      "restricted": "Only an owner or manager can cancel a sale.",
+      "operation": "Operation reference",
+      "reason": "Reason (3–255 characters)",
+      "postingDate": "Cancellation posting date",
+      "disabled": "New sale cancellation is disabled for this shop. Existing operations can still be checked or retried.",
+      "existingWorkflows": "Open sales and existing return/payment workflows",
+      "total": "Original total",
+      "dueReduction": "Customer due reduction",
+      "cashRefund": "Operator-confirmed cash refund",
+      "externalRefund": "External refund obligation",
+      "creditRestoration": "Applied credit requiring restoration",
+      "externalNotice": "External refund is not recorded by this cancellation workflow.",
+      "creditNotice": "Applied credit is not restored by this cancellation workflow.",
+      "goodsConfirmed": "I confirm all original goods were recovered in restockable condition.",
+      "cashConfirmed": "I confirm the exact cash amount has been paid back to the customer.",
+      "submit": "Confirm cancellation",
+      "unknown": "The outcome is unknown. Keep this operation reference. Check status or retry the same operation; a missing result does not mean it failed.",
+      "checkStatus": "Check status",
+      "retry": "Retry same operation",
+      "storageError": "The cancellation could not be stored safely. No new request can be sent. Keep any existing operation reference and try again.",
+      "rejected": "The request was refused. No cancellation was recorded. Review the reason and refresh the sale before editing.",
+      "confirmed": "This operation was confirmed in another tab. Close and refresh the sale.",
+      "original": "Original receipt",
+      "summary": "Sale cancellations (amount · count)",
+      "cashObligation": "Cash to pay back",
+      "reasonLabel": "Reason"
     }
   },
   "expenses": {

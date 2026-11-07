@@ -73,6 +73,10 @@ export class ProfitLossPageComponent {
     { label: 'sales.profitLoss.filters.type.sale', value: 'sale' as const },
     { label: 'sales.profitLoss.filters.type.saleReturn', value: 'saleReturn' as const },
     {
+      label: 'sales.profitLoss.filters.type.saleCancellation',
+      value: 'saleCancellation' as const,
+    },
+    {
       label: 'sales.profitLoss.filters.type.inventoryAdjustment',
       value: 'inventoryAdjustment' as const,
     },
