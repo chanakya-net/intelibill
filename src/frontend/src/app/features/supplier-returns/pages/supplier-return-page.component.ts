@@ -49,6 +49,8 @@ export class SupplierReturnPageComponent implements OnInit {
   readonly history = signal<SupplierReturnDetail[]>([]);
   readonly record = signal<SupplierReturnDraftRecord | null>(null);
   readonly busy = signal(false);
+  readonly previewing = signal(false);
+  private previewSequence = 0;
   readonly error = signal('');
   readonly status = signal('');
   readonly ready = signal(false);
@@ -92,13 +94,20 @@ export class SupplierReturnPageComponent implements OnInit {
   private get key() {
     return `${this.action}:${this.group ?? this.id}`;
   }
+  private storageReady = true;
   async ngOnInit() {
     this.scope = this.context.scope();
     if (!this.scope) return;
     this.action = this.route.snapshot.paramMap.has('returnId') ? 'credit' : 'shipment';
     this.target = this.group ?? this.id;
     await this.refresh();
+    this.ready.set(false);
+    this.busy.set(true);
     await this.restore();
+    if (this.current()) {
+      this.ready.set(this.storageReady);
+      this.busy.set(false);
+    }
   }
   private current() {
     return (
@@ -200,10 +209,51 @@ export class SupplierReturnPageComponent implements OnInit {
         for (const line of this.document()!.lines)
           this.credits[line.returnLineId] = line.proposedCreditAmount;
     } catch {
+      this.storageReady = false;
       this.error.set('supplierReturns.storageError');
       this.ready.set(false);
     }
   }
+  async previewLot(lot: PurchaseReceiptDetail): Promise<void> {
+    if (!this.scope || this.frozen() || this.busy()) return;
+    const quantity = this.quantities[lot.receiptValueId];
+    if (
+      !lot.supplierId ||
+      !validShipmentQuantity(quantity, lot.returnableQuantity, lot.quantityScale)
+    ) {
+      await this.save();
+      return;
+    }
+    const sequence = ++this.previewSequence;
+    const priorCredit = this.credits[lot.receiptValueId];
+    this.previewing.set(true);
+    try {
+      const preview = await firstValueFrom(
+        this.api.preview(this.scope, lot.supplierId, [
+          { receiptValueId: lot.receiptValueId, quantity },
+        ]),
+      );
+      if (
+        !this.current() ||
+        this.frozen() ||
+        sequence !== this.previewSequence ||
+        this.quantities[lot.receiptValueId] !== quantity
+      )
+        return;
+      const fresh = preview.lines[0];
+      this.lots.update((lots) =>
+        lots.map((value) => (value.receiptValueId === fresh.receiptValueId ? fresh : value)),
+      );
+      if (this.credits[lot.receiptValueId] === priorCredit)
+        this.credits[lot.receiptValueId] = fresh.suggestedCreditAmount;
+      await this.save();
+    } catch {
+      if (this.current()) this.error.set('supplierReturns.loadError');
+    } finally {
+      if (this.current() && sequence === this.previewSequence) this.previewing.set(false);
+    }
+  }
+
   private editable(): SupplierReturnEditableDraft {
     if (this.action === 'credit')
       return {
@@ -280,6 +330,7 @@ export class SupplierReturnPageComponent implements OnInit {
   }
 
   valid() {
+    if (this.previewing()) return false;
     if (this.reason.trim().length < 3 || this.reason.trim().length > 255) return false;
     if (this.action === 'credit')
       return (
@@ -326,6 +377,7 @@ export class SupplierReturnPageComponent implements OnInit {
       );
       if (!this.current()) return;
       this.record.set(prepared);
+      this.applyDraft(prepared.draft);
       await this.send(prepared, false);
     } catch {
       if (this.current()) this.error.set('supplierReturns.storageError');

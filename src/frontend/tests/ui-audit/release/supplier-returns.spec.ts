@@ -84,6 +84,15 @@ test.afterEach(async () => {
 async function setup(page: Page, role = 'Owner') {
   const value = session();
   value.shops.forEach((x) => (x.role = role));
+  await page.route('**/api/supplier-returns/preview', (route) => {
+    const input = route.request().postDataJSON();
+    return json(route, {
+      lines: input.lines.map((line: { receiptValueId: string; quantity: number }) => ({
+        ...receipt(line.receiptValueId),
+        suggestedCreditAmount: line.quantity * 100,
+      })),
+    });
+  });
   await page.addInitScript(
     (value) => localStorage.setItem('inventory.auth.session.local', JSON.stringify(value)),
     value,
@@ -98,6 +107,16 @@ test(
     let lot = receipt();
     await page.route('**/api/purchase-receipts/**', (r) => json(r, lot));
     await page.route('**/api/supplier-returns**', async (r) => {
+      if (r.request().url().endsWith('/preview'))
+        return json(r, {
+          lines: r
+            .request()
+            .postDataJSON()
+            .lines.map((line: { receiptValueId: string; quantity: number }) => ({
+              ...receipt(line.receiptValueId),
+              suggestedCreditAmount: line.quantity * 100,
+            })),
+        });
       if (r.request().method() === 'POST' && r.request().url().endsWith('/credit')) {
         doc = {
           ...doc,
@@ -128,6 +147,16 @@ test(
         };
         return json(r, doc);
       }
+      if (r.request().url().endsWith('/preview'))
+        return json(r, {
+          lines: r
+            .request()
+            .postDataJSON()
+            .lines.map((line: { receiptValueId: string; quantity: number }) => ({
+              ...receipt(line.receiptValueId),
+              suggestedCreditAmount: line.quantity * 100,
+            })),
+        });
       if (r.request().method() === 'POST') {
         const body = r.request().postDataJSON();
         expect(body.creditAccepted).toBe(false);
@@ -180,6 +209,16 @@ test('uncertain reload and lookup404 retry the exact frozen payload', async ({ p
     json(r, { code: 'Operation.NotFound' }, 404),
   );
   await page.route('**/api/supplier-returns**', async (r) => {
+    if (r.request().url().endsWith('/preview'))
+      return json(r, {
+        lines: r
+          .request()
+          .postDataJSON()
+          .lines.map((line: { receiptValueId: string; quantity: number }) => ({
+            ...receipt(line.receiptValueId),
+            suggestedCreditAmount: line.quantity * 100,
+          })),
+      });
     if (r.request().method() === 'POST') {
       payloads.push(r.request().postData()!);
       if (first) {

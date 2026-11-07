@@ -21,7 +21,7 @@
       <h2>{{ 'supplierReturns.acceptCredit' | transloco }}</h2>
       <p>{{ 'supplierReturns.noRefund' | transloco }}</p>
       <form (ngSubmit)="submit()">
-        <fieldset [disabled]="busy() || frozen()">
+        <fieldset [disabled]="busy() || frozen() || !ready()">
           <legend>{{ 'supplierReturns.agreedAmounts' | transloco }}</legend>
           @for (line of doc.lines; track line.returnLineId) {
             <label
@@ -91,17 +91,25 @@
     <p>{{ 'supplierReturns.noRefund' | transloco }}</p>
     @if (canShip()) {
       <nav [attr.aria-label]="'supplierReturns.receiptActions' | transloco">
-        <button type="button" [disabled]="busy() || frozen()" (click)="choose('shipment')">
+        <button
+          type="button"
+          [disabled]="busy() || frozen() || !ready()"
+          (click)="choose('shipment')"
+        >
           {{ 'supplierReturns.ship' | transloco }}
         </button>
         @if (owner()) {
-          <button type="button" [disabled]="busy() || frozen()" (click)="choose('reversal')">
+          <button
+            type="button"
+            [disabled]="busy() || frozen() || !ready()"
+            (click)="choose('reversal')"
+          >
             {{ (group ? 'supplierReturns.reverseGroup' : 'supplierReturns.reverse') | transloco }}
           </button>
         }
       </nav>
       <form (ngSubmit)="submit()">
-        <fieldset [disabled]="busy() || frozen()">
+        <fieldset [disabled]="busy() || frozen() || !ready()">
           <legend>
             {{
               (action === 'shipment' ? 'supplierReturns.ship' : 'supplierReturns.reverse')
@@ -136,7 +144,7 @@
                             : 0.001
                     "
                     [(ngModel)]="quantities[lot.receiptValueId]"
-                    (blur)="save()" /></label
+                    (change)="previewLot(lot)" /></label
                 ><label
                   >{{ 'supplierReturns.proposedCredit' | transloco
                   }}<input
