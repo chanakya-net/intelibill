@@ -14,7 +14,7 @@ internal sealed class SupplierLedgerEntryConfiguration : IEntityTypeConfiguratio
             tableBuilder.HasCheckConstraint("ck_supplier_ledger_entries_amount_non_zero", "amount <> 0");
             tableBuilder.HasCheckConstraint(
                 "ck_supplier_ledger_entries_batch_by_type",
-                "((entry_type IN ('GOODS_RECEIVED', 'COST_ADJUSTED') AND batch_id IS NOT NULL) OR (entry_type IN ('PAYMENT_MADE', 'RECORD_ADJUSTED') AND batch_id IS NULL) OR (entry_type = 'REVERSAL'))");
+                "((entry_type IN ('GOODS_RECEIVED', 'COST_ADJUSTED', 'SUPPLIER_RETURN_CREDIT') AND batch_id IS NOT NULL) OR (entry_type IN ('PAYMENT_MADE', 'RECORD_ADJUSTED') AND batch_id IS NULL) OR (entry_type = 'REVERSAL'))");
         });
 
         builder.HasKey(e => e.Id);
@@ -29,7 +29,7 @@ internal sealed class SupplierLedgerEntryConfiguration : IEntityTypeConfiguratio
 
         builder.Property(e => e.EntryType)
             .HasConversion(e => ToProviderValue(e), value => FromProviderValue(value))
-            .HasMaxLength(20)
+            .HasMaxLength(24)
             .IsRequired();
 
         builder.Property(e => e.Amount)
@@ -73,6 +73,7 @@ internal sealed class SupplierLedgerEntryConfiguration : IEntityTypeConfiguratio
             SupplierLedgerEntryType.RecordAdjusted => "RECORD_ADJUSTED",
             SupplierLedgerEntryType.Reversal => "REVERSAL",
             SupplierLedgerEntryType.CostAdjusted => "COST_ADJUSTED",
+            SupplierLedgerEntryType.SupplierReturnCredit => "SUPPLIER_RETURN_CREDIT",
             _ => throw new ArgumentOutOfRangeException(nameof(entryType), entryType, null)
         };
     }
@@ -86,6 +87,7 @@ internal sealed class SupplierLedgerEntryConfiguration : IEntityTypeConfiguratio
             "RECORD_ADJUSTED" => SupplierLedgerEntryType.RecordAdjusted,
             "REVERSAL" => SupplierLedgerEntryType.Reversal,
             "COST_ADJUSTED" => SupplierLedgerEntryType.CostAdjusted,
+            "SUPPLIER_RETURN_CREDIT" => SupplierLedgerEntryType.SupplierReturnCredit,
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
         };
     }

@@ -87,6 +87,9 @@ internal sealed class InvoiceBalanceReader(ApplicationDbContext context) : IInvo
             receipts.Select(r => r.Id).ToList(),
             cancellationToken);
 
+        var ids=receipts.Select(r=>r.Id).ToArray();
+        var credits=await context.SupplierReturnCreditLines.AsNoTracking().Where(x=>x.ShopId==shopId && ids.Contains(x.ReceiptValueId)).GroupBy(x=>x.ReceiptValueId).Select(g=>new {Id=g.Key,Amount=g.Sum(x=>x.AcceptedAmount)}).ToDictionaryAsync(x=>x.Id,x=>x.Amount,cancellationToken);
+
         return receipts
             .Select(r =>
             {
@@ -99,7 +102,10 @@ internal sealed class InvoiceBalanceReader(ApplicationDbContext context) : IInvo
                     r.ReceivedAt,
                     r.Payable,
                     paid,
-                    Math.Max(0m, r.Payable - paid));
+                    Math.Max(0m, r.Payable - credits.GetValueOrDefault(r.Id) - paid),
+                    credits.GetValueOrDefault(r.Id),
+                    r.Payable - credits.GetValueOrDefault(r.Id),
+                    Math.Max(0m,paid-r.Payable+credits.GetValueOrDefault(r.Id)));
             })
             .ToList();
     }

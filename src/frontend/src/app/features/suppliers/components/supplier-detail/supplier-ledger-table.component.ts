@@ -1,3 +1,4 @@
+import { RouterLink } from '@angular/router';
 import { CommonModule, CurrencyPipe } from '@angular/common';
 import { Component, Input, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -18,6 +19,7 @@ type LedgerRow = {
   readonly displayAmount: number;
   readonly balance: number;
   readonly entryDate: string;
+  readonly supplierReturnId?:string|null;
   readonly notes: string | null;
 };
 
@@ -28,6 +30,7 @@ type LedgerRow = {
     BadgeModule,
     ButtonModule,
     CommonModule,
+    RouterLink,
     CurrencyPipe,
     FormsModule,
     IconFieldModule,

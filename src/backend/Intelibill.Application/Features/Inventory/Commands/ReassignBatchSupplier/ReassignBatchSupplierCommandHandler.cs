@@ -118,6 +118,9 @@ public sealed class ReassignBatchSupplierCommandHandler(
             supplierLedgerEntryRepository.Update(costAdjustment);
         }
 
+        if (receiptValue?.HasSupplierReturns == true)
+            return Error.Conflict("PurchaseReceipt.HasSupplierReturns", "This receipt has supplier shipments; its supplier cannot change.");
+
         if (receiptValue is not null)
         {
             receiptValue.ReassignSupplier(newSupplier.Id);

@@ -11,7 +11,10 @@ public sealed record PurchaseOrderLineDto(
     int ReceivedQuantity,
     int RemainingQuantity,
     decimal UnitCost,
-    decimal LineTotal);
+    decimal LineTotal,
+    decimal ReturnedQuantity = 0,
+    decimal ReversedQuantity = 0,
+    decimal? NetRetainedQuantity = null);
 
 public sealed record PurchaseOrderReceiptLineDto(
     Guid ReceiptLineId,
@@ -29,7 +32,13 @@ public sealed record PurchaseOrderReceiptLineDto(
     decimal TaxRatePercent,
     bool TaxIncluded,
     bool PurchaseTaxIncluded,
-    Guid? ClientLineId = null);
+    Guid? ClientLineId = null,
+    Guid? ReceiptValueId = null,
+    uint ReceiptVersion = 0,
+    uint BatchVersion = 0,
+    decimal ReturnedQuantity = 0,
+    decimal ReversedQuantity = 0,
+    decimal? NetRetainedQuantity = null);
 
 public sealed record PurchaseOrderReceiptDto(
     Guid ReceiptId,
@@ -78,4 +87,7 @@ public sealed record PurchaseOrderDetailDto(
     IReadOnlyList<PurchaseOrderReceiptDto>? Receipts = null,
     DateTimeOffset? ClosedAt = null,
     Guid? ClosedBy = null,
-    string? CloseReason = null);
+    string? CloseReason = null,
+    decimal ReturnedQuantity = 0,
+    decimal ReversedQuantity = 0,
+    decimal? NetRetainedQuantity = null);

@@ -11,6 +11,9 @@ public static class FinancialOperationTypes
 
     public static FinancialOperationType? FromSlug(string slug) => slug switch
     {
+        "supplier-return" => FinancialOperationType.SupplierReturn,
+        "supplier-return-credit" => FinancialOperationType.SupplierReturnCredit,
+        "purchase-receipt-reversal" => FinancialOperationType.PurchaseReceiptReversal,
         PurchaseOrderReceipt => FinancialOperationType.PurchaseOrderReceipt,
         CustomerPayment => FinancialOperationType.CustomerPayment,
         SupplierPayment => FinancialOperationType.SupplierPayment,
@@ -19,6 +22,9 @@ public static class FinancialOperationTypes
 
     public static string ToSlug(FinancialOperationType type) => type switch
     {
+        FinancialOperationType.SupplierReturn => "supplier-return",
+        FinancialOperationType.SupplierReturnCredit => "supplier-return-credit",
+        FinancialOperationType.PurchaseReceiptReversal => "purchase-receipt-reversal",
         FinancialOperationType.PurchaseOrderReceipt => PurchaseOrderReceipt,
         FinancialOperationType.CustomerPayment => CustomerPayment,
         FinancialOperationType.SupplierPayment => SupplierPayment,

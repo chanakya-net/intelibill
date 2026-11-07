@@ -758,6 +758,8 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
             var after = currentLines.EnumerateArray().Single(l => l.GetProperty("receiptLineId").GetGuid() == before.GetProperty("receiptLineId").GetGuid());
             foreach (var property in before.EnumerateObject())
             {
+                // These are current commercial projections added after immutable receiving.
+                if (property.Name is "receiptValueId" or "receiptVersion" or "batchVersion" or "returnedQuantity" or "reversedQuantity" or "netRetainedQuantity") continue;
                 var current = after.GetProperty(property.Name);
                 if (property.Value.ValueKind == JsonValueKind.Number)
                     Assert.Equal(property.Value.GetDecimal(), current.GetDecimal());
@@ -1134,7 +1136,10 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var migrations = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
             var migrator = db.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>();
-            await migrator.MigrateAsync(migrations[^2]);
+            var identityIndex=Array.IndexOf(migrations,"20261107154602_AddPurchaseReceiptClientLineIdentity");
+            Assert.True(identityIndex>0);
+            var beforeIdentity=migrations[identityIndex-1];
+            await migrator.MigrateAsync(beforeIdentity);
             // Exercise the actual upgrade SQL as a schema owner that cannot bypass FORCE RLS.
             // DDL needs ownership, whereas the API's ordinary runtime role is intentionally DML-only.
             await db.Database.OpenConnectionAsync();
@@ -1153,7 +1158,7 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
                 Assert.True(role);
                 Assert.Equal(0, await db.Database.SqlQueryRaw<int>(
                     "SELECT count(*)::int AS \"Value\" FROM purchase_order_receipt_lines").SingleAsync());
-                await db.Database.ExecuteSqlRawAsync(migrator.GenerateScript(migrations[^2], migrations[^1]));
+                await db.Database.ExecuteSqlRawAsync(migrator.GenerateScript(beforeIdentity, migrations[identityIndex]));
             }
             finally
             {
@@ -1170,6 +1175,8 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
             Assert.All(rows, row => Assert.Equal(row.Id, row.ClientLineId));
             // The partial index accepts multiple nulls while an old server is still writing.
             await db.Database.ExecuteSqlRawAsync("UPDATE purchase_order_receipt_lines SET client_line_id = NULL");
+            // Restore newer additive migrations before the current API reads its projections.
+            await migrator.MigrateAsync();
         }
         using var detail = new HttpRequestMessage(HttpMethod.Get, $"/api/purchase-orders/{poId}");
         detail.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);

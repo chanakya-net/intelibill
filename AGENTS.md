@@ -8,7 +8,7 @@
 - Test full: `dotnet test src/backend/Intelibill.slnx`
 - Test unit: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests`, `Application.Unit.Tests`, `Api.Unit.Tests`
 - Test integration: `dotnet test tests/backend/integration/Intelibill.Integration.Tests` (requires Docker)
-- Snapshot: 389 + 1715 + 578 + 692 = 3374 tests (2682 non-integration), all passing as of 7 November 2026
+- Verified on this branch: 398 Domain + 1735 Application + 579 API + 759 integration = 3471 tests (2712 non-integration), all passing.
 
 **Migrations** (EF Core) — API startup does **not** apply them; run `database update` yourself after pulling schema changes (deployed environments use the migration job):
 ```bash
@@ -197,3 +197,14 @@ Add to `.csproj` (no version):
 - Directory.Build.props
 - Directory.Packages.props
 - global.json
+
+## Supplier Returns and Receipt Reversal
+
+- Migration: `20261107180954_AddSupplierReturnsAndReceiptReversals`; apply before API/web. Preserve schema and facts on rollback.
+- Routes: `GET purchase-receipts/{id}`, `POST supplier-returns/preview`, `POST/GET supplier-returns`, `GET supplier-returns/{id}`, `POST supplier-returns/{id}/credit`, `POST purchase-receipts/{id}/reversal`, `POST purchase-order-receipts/{id}/reversal`.
+- Owner/Manager: read and ship pending source-linked returns. Owner only: accepted credit and receipt/group reversal. New mutations require operation key, versions and reason; authorization precedes replay.
+- Pending shipment changes stock only. Accepted credit reduces net payable; paid receipts retain allocations and expose surplus supplier credit without inventing a refund. After shipment, cost correction/reassignment/void are blocked. Full reversal rejects consumption/restoration/counts/returns/active allocations and reverses the exact effective total. Historical PO receiving and procurement status remain unchanged.
+- Operations14/15/16; ledger supplier return credit6; stock supplier return9. Never classify supplier shipment as sales, COGS or independent stock loss. No legal GST note, return cancellation/credit reversal, automatic refund/PO reopening or mobile workflow.
+- Web receipt-lot/return routes share durable owner/action/target drafts; preserve unknown payloads across404/reload/tab/shop changes. Printed references use frozen facts and the commercial-not-GST disclaimer.
+
+Supplier return print rollout also requires `20261107190743_AddSupplierReturnLotSnapshots` before API/web. It adds nullable frozen lot numbers without backfilling live names into historical facts. New shipments capture their original lot number; older return references truthfully fall back to the persisted receipt-value ID.

@@ -122,6 +122,9 @@ public static class DependencyInjection
         services.AddScoped<IInventoryBatchRepository, InventoryBatchRepository>();
         services.AddScoped<IInventoryAdjustmentRepository, InventoryAdjustmentRepository>();
         services.AddScoped<IStockCountRepository, StockCountRepository>();
+        services.AddScoped<ISupplierReturnRepository, SupplierReturnRepository>();
+        services.AddScoped<IPurchaseReceiptReversalRepository, PurchaseReceiptReversalRepository>();
+        services.AddScoped<Intelibill.Application.Features.SupplierReturns.Services.ISupplierReturnMutationLock, Intelibill.Infrastructure.Services.SupplierReturns.SupplierReturnMutationLock>();
         services.AddScoped<IPurchaseReceiptValueRepository, PurchaseReceiptValueRepository>();
         services.AddScoped<IPaymentReceiptRepository, PaymentReceiptRepository>();
         services.AddScoped<IPostingPeriodRepository, PostingPeriodRepository>();

@@ -24,6 +24,9 @@ const ROUTE_STATE_PROFILES = {
 } as const satisfies Record<RouteStateProfile, readonly RouteState[]>;
 
 export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
+  shellRoute('purchase-receipts/:receiptValueId', MANAGEMENT_ROLES, () => ({ receiptValueId: 'receipt-001' })),
+  shellRoute('supplier-returns/:returnId', MANAGEMENT_ROLES, () => ({ returnId: 'return-001' })),
+  shellRoute('supplier-returns', MANAGEMENT_ROLES),
   publicRoute('auth/verify-email', 'form'),
   // Phone sign-in and enrollment. Reachable without a session, and it renders its own unavailable
   // state when the deployment has phone authentication switched off.

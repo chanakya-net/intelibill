@@ -44,6 +44,10 @@ public sealed class PurchaseReceiptValue : BaseEntity
     /// <summary>Row version; a correction is accepted only against the version it was entered at.</summary>
     public uint Version { get; private set; }
 
+    public bool HasSupplierReturns { get; private set; }
+
+    public void MarkSupplierReturn() => HasSupplierReturns = true;
+
     public bool IsResolved => Status == PurchaseReceiptValueStatus.Resolved;
 
     private PurchaseReceiptValue() { }

@@ -590,12 +590,14 @@ public sealed class ProfitLossControllerTests(PostgreSqlTestFixture fixture) : I
         var barcode = UniqueBarcode();
         var batchId = await SetupInventoryAsync(client, ownerToken, barcode);
 
+        // All rows belong to one captured business date, including runs around IST midnight.
+        var saleInstant = DateTimeOffset.UtcNow;
         for (var index = 0; index < 21; index++)
         {
-            await CreateSaleAsync(client, ownerToken, barcode, batchId, $"Customer {index + 1}", DateTimeOffset.UtcNow.AddMinutes(-index));
+            await CreateSaleAsync(client, ownerToken, barcode, batchId, $"Customer {index + 1}", saleInstant);
         }
 
-        var today = BusinessDates.Today;
+        var today = BusinessDates.Of(saleInstant);
         var response = await ExportProfitLossAsync(
             client,
             ownerToken,

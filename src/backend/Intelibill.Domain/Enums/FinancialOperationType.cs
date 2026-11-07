@@ -41,4 +41,7 @@ public enum FinancialOperationType
 
     /// <summary>One atomic purchase order receipt, including all of its lots.</summary>
     PurchaseOrderReceipt = 13,
+    SupplierReturn = 14,
+    SupplierReturnCredit = 15,
+    PurchaseReceiptReversal = 16,
 }

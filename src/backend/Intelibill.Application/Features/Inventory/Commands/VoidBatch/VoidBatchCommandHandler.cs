@@ -1,7 +1,7 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Posting;
-using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
+using Intelibill.Application.Features.SupplierReturns.Services;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
@@ -28,7 +28,6 @@ public sealed class VoidBatchCommandHandler(
     IUserRepository userRepository,
     IInventoryBatchRepository inventoryBatchRepository,
     IStockTransactionRepository stockTransactionRepository,
-    IInventoryAdjustmentRepository inventoryAdjustmentRepository,
     ISupplierLedgerEntryRepository supplierLedgerEntryRepository,
     IPurchaseReceiptValueRepository purchaseReceiptValueRepository,
     IPaymentReceiptRepository paymentReceiptRepository,
@@ -37,7 +36,9 @@ public sealed class VoidBatchCommandHandler(
     IMessageBus messageBus,
     IShopRepository shopRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
-    IBusinessClock businessClock)
+    IBusinessClock businessClock,
+    PurchaseReceiptReversalPolicy reversalPolicy,
+    IPurchaseReceiptReversalRepository receiptReversals)
 {
     public async Task<ErrorOr<VoidBatchResultDto>> HandleAsync(VoidBatchCommand command, CancellationToken cancellationToken)
     {
@@ -91,29 +92,21 @@ public sealed class VoidBatchCommandHandler(
         if (batch.IsVoided)
             return Errors.Inventory.BatchAlreadyVoided;
 
-        if (await IsConsumedAsync(batch, cancellationToken))
-            return Errors.Inventory.BatchConsumed;
-
-        var inventory = await inventoryRepository.GetByItemAsync(command.ActiveShopId, batch.ItemId, cancellationToken);
-        if (inventory is null)
-            return Errors.Inventory.InventoryAggregateNotFound;
-
-        // What is owed for this receipt is its effective total (original plus cost corrections), so
-        // the reversal nets the payable to zero, posted to the supplier the receipt is owed to.
-        // Receipts older than receipt values fall back to the unit cost they were posted with.
-        var receiptValue = await purchaseReceiptValueRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
-        if (receiptValue is not null
-            && await paymentReceiptRepository.HasActiveAllocationsAsync(
-                command.ActiveShopId, PaymentAllocationTargetType.SupplierReceipt, receiptValue.Id, cancellationToken))
-        {
-            // Voiding would erase a payable that payments settled; reverse those payments first.
-            return Errors.Payment.DocumentHasAllocations;
-        }
-
+        var receiptValue=await purchaseReceiptValueRepository.GetByBatchAsync(command.ActiveShopId,batch.Id,cancellationToken);
+        if(receiptValue is not {IsResolved:true,EffectiveTotalCost:not null})
+            return Error.Conflict("PurchaseReceipt.EvidenceMissing","Full reversal requires a resolved source receipt amount. Review and correct the source evidence first.");
+        if(receiptValue.SupplierId is null)
+            return Error.Conflict("PurchaseReceipt.SupplierMissing","The source receipt needs a supplier before it can be reversed.");
+        var originalFence=await postingPeriodPolicy.AuthorizeForWriteAsync(command.ActiveShopId,businessClock.GetBusinessDate(receiptValue.ReceivedAt,shop.BusinessTimeZoneId),cancellationToken);
+        if(originalFence.IsError) return originalFence.Errors;
+        var allocated=(await paymentReceiptRepository.GetActiveAllocatedByTargetAsync(command.ActiveShopId,PaymentAllocationTargetType.SupplierReceipt,[receiptValue.Id],cancellationToken)).GetValueOrDefault(receiptValue.Id);
+        var reasons=await reversalPolicy.GetReasonsAsync(receiptValue,batch,allocated,cancellationToken);
+        if(reasons.Count>0) return Error.Conflict(reasons[0],"The receipt has stock, payment or return history and cannot be fully reversed.");
+        var inventory=await inventoryRepository.GetByItemAsync(command.ActiveShopId,batch.ItemId,cancellationToken);
+        if(inventory is null) return Errors.Inventory.InventoryAggregateNotFound;
         var remainingQuantity = batch.Quantity;
         var originalQuantity = batch.OriginalQuantity;
-        var costPrice = batch.CostPrice;
-        var supplierId = receiptValue?.SupplierId ?? batch.SupplierId;
+        var supplierId = receiptValue.SupplierId;
         var itemId = batch.ItemId;
 
         batch.Void(command.ActorUserId);
@@ -137,20 +130,9 @@ public sealed class VoidBatchCommandHandler(
 
         await stockTransactionRepository.AddAsync(stockTransactionResult.Value, cancellationToken);
 
+        Guid? reversalLedgerId=null;
         decimal? ledgerReversalAmount = null;
-        var reversalAmount = receiptValue is { IsResolved: true, EffectiveTotalCost: { } effectiveTotal }
-            ? -effectiveTotal
-            : -decimal.Round(originalQuantity * costPrice, 2, MidpointRounding.AwayFromZero);
-
-        // A free receipt never created a payable, so there is nothing to reverse. A tiny legacy
-        // priced receipt can also round to a zero reversal; that one still owes, so it is refused as
-        // before. A receipt value's zero total is exact (corrected down to nothing), so it is not.
-        if (supplierId.HasValue && reversalAmount == 0 && receiptValue is not { IsResolved: true })
-        {
-            var payables = await supplierLedgerEntryRepository.GetByBatchAsync(command.ActiveShopId, batch.Id, cancellationToken);
-            if (payables.Any(e => e.EntryType == SupplierLedgerEntryType.GoodsReceived && e.Amount != 0))
-                return Errors.Inventory.SupplierLedgerEntryInvalid;
-        }
+        var reversalAmount=-receiptValue.EffectiveTotalCost.Value;
 
         if (supplierId.HasValue && reversalAmount != 0)
         {
@@ -168,7 +150,15 @@ public sealed class VoidBatchCommandHandler(
             if (ledgerResult.IsError)
                 return Errors.Inventory.SupplierLedgerEntryInvalid;
 
+            reversalLedgerId=ledgerResult.Value.Id;
             await supplierLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
+        }
+
+        if(receiptValue.EffectiveTotalCost is { } exactAmount)
+        {
+            var fact=PurchaseReceiptReversal.Create(command.ActiveShopId,receiptValue.Id,null,command.ActorUserId,"Receipt voided by owner",now,businessClock.Today(shop.BusinessTimeZoneId),shop.BusinessTimeZoneId,receiptValue.ReceivedQuantity,exactAmount,stockTransactionResult.Value.Id,reversalLedgerId,$"RR-{Guid.NewGuid():N}");
+            if(fact.IsError) return fact.Errors;
+            await receiptReversals.AddAsync(fact.Value,cancellationToken);
         }
 
         // Written against the version it was read at, like the batch: a cost correction committing in
@@ -199,23 +189,4 @@ public sealed class VoidBatchCommandHandler(
             new VoidBatchResultDto(batch.Id, originalQuantity, remainingQuantity, ledgerReversalAmount));
     }
 
-    private async Task<bool> IsConsumedAsync(InventoryBatch batch, CancellationToken cancellationToken)
-    {
-        if (batch.Quantity != batch.OriginalQuantity)
-            return true;
-
-        var adjustments = await inventoryAdjustmentRepository.GetByBatchAsync(batch.ShopId, batch.Id, cancellationToken);
-        if (adjustments.Any(a => !a.IsVoided))
-            return true;
-
-        // Equal quantities can still hide a sale that was returned. Movements of voided adjustments
-        // net to zero, and a legacy correction's opening movement belongs to the receipt itself.
-        var adjustmentNumbers = adjustments.Select(a => a.AdjustmentNumber).ToHashSet(StringComparer.Ordinal);
-        var movements = await stockTransactionRepository.GetByBatchAsync(batch.ShopId, batch.Id, cancellationToken);
-        return movements.Any(m =>
-            m.TransactionType is StockTransactionType.Out or StockTransactionType.Ret or StockTransactionType.Rej
-                or StockTransactionType.Dmg or StockTransactionType.Stol
-            && !(m.ReferenceNumber is { } reference
-                && (adjustmentNumbers.Contains(reference) || reference == UpdateInventoryBatchCommandHandler.CorrectionReference)));
-    }
 }

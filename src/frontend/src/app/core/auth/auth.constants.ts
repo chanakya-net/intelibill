@@ -182,3 +182,13 @@ export const PURCHASE_ORDER_ENDPOINTS = {
 export const DASHBOARD_ENDPOINTS = {
   overview: `${API_BASE_URL}/dashboard`,
 } as const;
+
+export const SUPPLIER_RETURN_ENDPOINTS = {
+ list: `${API_BASE_URL}/supplier-returns`,
+ preview: `${API_BASE_URL}/supplier-returns/preview`,
+ detail: (id:string) => `${API_BASE_URL}/supplier-returns/${id}`,
+ credit: (id:string) => `${API_BASE_URL}/supplier-returns/${id}/credit`,
+ receipt: (id:string) => `${API_BASE_URL}/purchase-receipts/${id}`,
+ reversal: (id:string) => `${API_BASE_URL}/purchase-receipts/${id}/reversal`,
+ groupReversal: (id:string) => `${API_BASE_URL}/purchase-order-receipts/${id}/reversal`,
+} as const;

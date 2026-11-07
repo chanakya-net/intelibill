@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.SupplierReturns.Services;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.VoidBatch;
@@ -18,6 +19,8 @@ namespace Intelibill.Application.Unit.Tests.Features.Inventory.Commands.VoidBatc
 
 public class VoidBatchCommandHandlerTests
 {
+    private readonly ISupplierReturnRepository _supplierReturns = Substitute.For<ISupplierReturnRepository>();
+    private readonly IPurchaseReceiptReversalRepository _reversals = Substitute.For<IPurchaseReceiptReversalRepository>();
     private readonly IPaymentReceiptRepository _paymentReceiptRepository = Substitute.For<IPaymentReceiptRepository>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
@@ -32,7 +35,16 @@ public class VoidBatchCommandHandlerTests
     public VoidBatchCommandHandlerTests()
     {
         _stockTransactionRepository.GetByBatchAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(Array.Empty<StockTransaction>());
+            .Returns(call=>
+            {
+                var batch=_inventoryBatchRepository.GetByIdAsync(call.ArgAt<Guid>(1),CancellationToken.None).GetAwaiter().GetResult();
+                return batch is null?[]:new[]{StockTransaction.Create(batch.ShopId,batch.ItemId,batch.Id,StockTransactionType.In,batch.OriginalQuantity,"ORIGINAL",null,DateTimeOffset.UtcNow,batch.CreatedBy,batch.CreatedBy).Value};
+            });
+        _purchaseReceiptValueRepository.GetByBatchAsync(Arg.Any<Guid>(),Arg.Any<Guid>(),Arg.Any<CancellationToken>()).Returns(call=>
+        {
+            var batch=_inventoryBatchRepository.GetByIdAsync(call.ArgAt<Guid>(1),CancellationToken.None).GetAwaiter().GetResult();
+            return batch is null?null:PurchaseReceiptValue.Create(batch.ShopId,batch.Id,batch.ItemId,batch.SupplierId,batch.OriginalQuantity,decimal.Round(batch.OriginalQuantity*batch.CostPrice,2),null,DateTimeOffset.UtcNow,batch.CreatedBy).Value;
+        });
         _inventoryAdjustmentRepository.GetByBatchAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(Array.Empty<InventoryAdjustment>());
     }
@@ -56,7 +68,7 @@ public class VoidBatchCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenNoSupplier_SkipsLedgerEntry()
+    public async Task HandleAsync_WhenSourceSupplierMissing_RefusesWithoutLedger()
     {
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
@@ -73,8 +85,8 @@ public class VoidBatchCommandHandlerTests
         var handler = CreateHandler();
         var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
 
-        Assert.False(result.IsError);
-        Assert.Null(result.Value.LedgerReversalAmount);
+        Assert.True(result.IsError);
+        Assert.Equal("PurchaseReceipt.SupplierMissing",result.FirstError.Code);
         await _supplierLedgerEntryRepository.DidNotReceive().AddAsync(Arg.Any<SupplierLedgerEntry>(), Arg.Any<CancellationToken>());
     }
 
@@ -122,10 +134,11 @@ public class VoidBatchCommandHandlerTests
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>())
             .Returns(DomainInventory.Create(shop.Id, itemId, 3m, 0m, 0m, actor.Id).Value);
 
+        _purchaseReceiptValueRepository.GetByBatchAsync(shop.Id,batch.Id,Arg.Any<CancellationToken>()).Returns((PurchaseReceiptValue?)null);
         var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
 
         Assert.True(result.IsError);
-        Assert.Equal(Errors.Inventory.SupplierLedgerEntryInvalid.Code, result.FirstError.Code);
+        Assert.Equal("PurchaseReceipt.EvidenceMissing", result.FirstError.Code);
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -137,7 +150,7 @@ public class VoidBatchCommandHandlerTests
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
         var itemId = Guid.NewGuid();
-        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, Guid.NewGuid(), actor.Id).Value;
         var inventory = DomainInventory.Create(shop.Id, itemId, 10m, 2m, 50m, actor.Id).Value;
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
@@ -160,7 +173,7 @@ public class VoidBatchCommandHandlerTests
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
         var itemId = Guid.NewGuid();
-        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, Guid.NewGuid(), actor.Id).Value;
         var inventory = DomainInventory.Create(shop.Id, itemId, 10m, 2m, 50m, actor.Id).Value;
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
@@ -182,7 +195,7 @@ public class VoidBatchCommandHandlerTests
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
-        var batch = InventoryBatch.Create(shop.Id, Guid.NewGuid(), "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+        var batch = InventoryBatch.Create(shop.Id, Guid.NewGuid(), "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, Guid.NewGuid(), actor.Id).Value;
         batch.Void(actor.Id);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
@@ -230,7 +243,7 @@ public class VoidBatchCommandHandlerTests
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
         var itemId = Guid.NewGuid();
-        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, Guid.NewGuid(), actor.Id).Value;
         var sale = StockTransaction.Create(shop.Id, itemId, batch.Id, StockTransactionType.Out, -2m, "INV-1", null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
         var returned = StockTransaction.Create(shop.Id, itemId, batch.Id, StockTransactionType.Ret, 2m, "RET-1", null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
 
@@ -291,7 +304,7 @@ public class VoidBatchCommandHandlerTests
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
         var itemId = Guid.NewGuid();
-        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, Guid.NewGuid(), actor.Id).Value;
         
         var inventory = DomainInventory.Create(shop.Id, itemId, 5m, 2m, 50m, actor.Id).Value; // Only 5 in inventory, but 10 in batch
 
@@ -314,7 +327,7 @@ public class VoidBatchCommandHandlerTests
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
         var itemId = Guid.NewGuid();
-        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, Guid.NewGuid(), actor.Id).Value;
         var inventory = DomainInventory.Create(shop.Id, itemId, 30m, 2m, 50m, actor.Id).Value;
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
@@ -341,7 +354,7 @@ public class VoidBatchCommandHandlerTests
         var itemId = Guid.NewGuid();
         var receiptSupplierId = Guid.NewGuid();
         // The batch carries no supplier (legacy), but the receipt is owed to one.
-        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 3m, 33.33m, 120m, 110m, 0m, false, null, null, null, actor.Id).Value;
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 3m, 33.33m, 120m, 110m, 0m, false, null, null, Guid.NewGuid(), actor.Id).Value;
         var receiptValue = PurchaseReceiptValue.Create(shop.Id, batch.Id, itemId, receiptSupplierId, 3m, 100m, null, DateTimeOffset.UtcNow, actor.Id).Value;
         receiptValue.ApplyCostCorrection(110m);
         var movement = StockTransaction.Create(shop.Id, itemId, batch.Id, StockTransactionType.In, 3m, "GRN-1", null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
@@ -369,7 +382,6 @@ public class VoidBatchCommandHandlerTests
             _userRepository,
             _inventoryBatchRepository,
             _stockTransactionRepository,
-            _inventoryAdjustmentRepository,
             _supplierLedgerEntryRepository,
             _purchaseReceiptValueRepository,
             _paymentReceiptRepository,
@@ -378,7 +390,9 @@ public class VoidBatchCommandHandlerTests
             _messageBus,
             BusinessTestDoubles.AnyShop(),
             _postingPeriods,
-            BusinessTestDoubles.RealClock());
+            BusinessTestDoubles.RealClock(),
+            new PurchaseReceiptReversalPolicy(_supplierReturns,_stockTransactionRepository),
+            _reversals);
 
     [Fact]
     public async Task ClosedPeriod_RefusesVoid_AndPublishesNothing()
@@ -386,7 +400,7 @@ public class VoidBatchCommandHandlerTests
         var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
-        var batch = InventoryBatch.Create(shop.Id, Guid.NewGuid(), "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, null, actor.Id).Value;
+        var batch = InventoryBatch.Create(shop.Id, Guid.NewGuid(), "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, Guid.NewGuid(), actor.Id).Value;
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
         _postingPeriods.AuthorizeForWriteAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())

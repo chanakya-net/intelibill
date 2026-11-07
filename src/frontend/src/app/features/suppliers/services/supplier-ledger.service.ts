@@ -8,7 +8,8 @@ export type SupplierLedgerEntryKind =
   | 'PaymentMade'
   | 'RecordAdjusted'
   | 'Reversal'
-  | 'CostAdjusted';
+  | 'CostAdjusted'
+  | 'SupplierReturnCredit';
 
 export interface SupplierLedgerEntry {
   readonly id: string;
@@ -19,6 +20,7 @@ export interface SupplierLedgerEntry {
   readonly entryDate: string;
   readonly notes: string | null;
   /** The payment receipt behind a `PaymentMade` entry. */
+  readonly supplierReturnId?:string|null;
   readonly receiptId?: string | null;
 }
 
@@ -63,6 +65,7 @@ const ENTRY_KINDS: readonly SupplierLedgerEntryKind[] = [
   'RecordAdjusted',
   'Reversal',
   'CostAdjusted',
+  'SupplierReturnCredit',
 ];
 
 /** Reads any wire form of a ledger entry type (enum name, SNAKE_CASE or number). */

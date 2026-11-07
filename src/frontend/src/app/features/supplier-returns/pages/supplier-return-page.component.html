@@ -1,0 +1,273 @@
+<section class="returns-page">
+  <header class="no-print">
+    <a routerLink="/inventory/batches">{{ 'supplierReturns.back' | transloco }}</a>
+    <h1>{{ 'supplierReturns.title' | transloco }}</h1>
+  </header>
+  @if (busy()) {
+    <p role="status" aria-live="polite">{{ 'supplierReturns.loading' | transloco }}</p>
+  }
+  @if (error()) {
+    <p role="alert" class="error no-print">{{ error() | transloco }}</p>
+  }
+  @if (status()) {
+    <p role="status" class="no-print">{{ status() | transloco }}</p>
+  }
+  @if (document(); as doc) {
+    <app-supplier-return-print-view [document]="doc" />
+    <div class="no-print">
+      @for (line of doc.lines; track line.returnLineId) {
+        <p>
+          <a [routerLink]="['/purchase-receipts', line.receiptValueId]">{{
+            'supplierReturns.receiptLot' | transloco
+          }}</a>
+          · {{ line.batchNumberSnapshot || line.receiptValueId }}
+        </p>
+      }
+    </div>
+    <p class="no-print">
+      <button type="button" (click)="print()">{{ 'supplierReturns.print' | transloco }}</button>
+    </p>
+    @if (doc.status === 'PendingSupplierCredit' && owner() && !printMode) {
+      <h2>{{ 'supplierReturns.acceptCredit' | transloco }}</h2>
+      <p>{{ 'supplierReturns.noRefund' | transloco }}</p>
+      <form (ngSubmit)="submit()">
+        <fieldset [disabled]="busy() || frozen() || !ready()">
+          <legend>{{ 'supplierReturns.agreedAmounts' | transloco }}</legend>
+          @for (line of doc.lines; track line.returnLineId) {
+            <label
+              >{{ line.itemName
+              }}<input
+                type="number"
+                [name]="line.returnLineId"
+                min="0"
+                step="0.01"
+                [(ngModel)]="credits[line.returnLineId]"
+                (blur)="save()"
+            /></label>
+          }
+          <label
+            >{{ 'supplierReturns.reason' | transloco
+            }}<textarea
+              name="creditReason"
+              minlength="3"
+              maxlength="255"
+              [(ngModel)]="reason"
+              (blur)="save()"
+              required
+            ></textarea>
+          </label>
+          <label
+            >{{ 'supplierReturns.supplierReference' | transloco
+            }}<input name="creditReference" maxlength="255" [(ngModel)]="reference" (blur)="save()"
+          /></label>
+          <button type="submit" [disabled]="!valid() || !ready()">
+            {{ 'supplierReturns.acceptCredit' | transloco }}
+          </button>
+        </fieldset>
+      </form>
+    }
+  }
+  @if (lots().length) {
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>{{ 'supplierReturns.item' | transloco }}</th>
+            <th>{{ 'supplierReturns.received' | transloco }}</th>
+            <th>{{ 'supplierReturns.available' | transloco }}</th>
+            <th>{{ 'supplierReturns.returned' | transloco }}</th>
+            <th>{{ 'supplierReturns.netRetained' | transloco }}</th>
+            <th>{{ 'supplierReturns.netPayable' | transloco }}</th>
+            <th>{{ 'supplierReturns.outstanding' | transloco }}</th>
+            <th>{{ 'supplierReturns.supplierCredit' | transloco }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (lot of lots(); track lot.receiptValueId) {
+            <tr>
+              <td>{{ lot.itemName }} / {{ lot.batchNumber }}</td>
+              <td>{{ lot.receivedQuantity }}</td>
+              <td>{{ lot.availableQuantity }}</td>
+              <td>{{ lot.returnedQuantity }}</td>
+              <td>{{ lot.netRetainedQuantity }}</td>
+              <td>{{ lot.netPayableAmount | number: '1.2-2' }}</td>
+              <td>{{ lot.outstandingAmount | number: '1.2-2' }}</td>
+              <td>{{ lot.supplierCreditAmount | number: '1.2-2' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <p>{{ 'supplierReturns.noRefund' | transloco }}</p>
+    @if (canShip()) {
+      <nav [attr.aria-label]="'supplierReturns.receiptActions' | transloco">
+        <button
+          type="button"
+          [disabled]="busy() || frozen() || !ready()"
+          (click)="choose('shipment')"
+        >
+          {{ 'supplierReturns.ship' | transloco }}
+        </button>
+        @if (owner()) {
+          <button
+            type="button"
+            [disabled]="busy() || frozen() || !ready()"
+            (click)="choose('reversal')"
+          >
+            {{ (group ? 'supplierReturns.reverseGroup' : 'supplierReturns.reverse') | transloco }}
+          </button>
+        }
+      </nav>
+      <form (ngSubmit)="submit()">
+        <fieldset [disabled]="busy() || frozen() || !ready()">
+          <legend>
+            {{
+              (action === 'shipment' ? 'supplierReturns.ship' : 'supplierReturns.reverse')
+                | transloco
+            }}
+          </legend>
+          @if (action === 'shipment') {
+            <p>{{ 'supplierReturns.pendingExplanation' | transloco }}</p>
+            @for (lot of lots(); track lot.receiptValueId) {
+              <div class="lot-inputs">
+                <label
+                  ><input
+                    type="checkbox"
+                    [name]="'select-' + lot.receiptValueId"
+                    [(ngModel)]="selected[lot.receiptValueId]"
+                    (change)="save()"
+                  />{{ lot.itemName }} / {{ lot.batchNumber }}</label
+                ><label
+                  >{{ 'supplierReturns.quantity' | transloco }} ({{ lot.uqc }}, ≤
+                  {{ lot.returnableQuantity }})<input
+                    type="number"
+                    [name]="'q-' + lot.receiptValueId"
+                    min="0"
+                    [max]="lot.returnableQuantity"
+                    [step]="
+                      lot.quantityScale === 0
+                        ? 1
+                        : lot.quantityScale === 1
+                          ? 0.1
+                          : lot.quantityScale === 2
+                            ? 0.01
+                            : 0.001
+                    "
+                    [(ngModel)]="quantities[lot.receiptValueId]"
+                    (change)="previewLot(lot)" /></label
+                ><label
+                  >{{ 'supplierReturns.proposedCredit' | transloco
+                  }}<input
+                    type="number"
+                    [name]="'c-' + lot.receiptValueId"
+                    min="0"
+                    step="0.01"
+                    [(ngModel)]="credits[lot.receiptValueId]"
+                    (blur)="save()"
+                /></label>
+              </div>
+            }
+            @if (owner()) {
+              <label
+                >{{ 'supplierReturns.creditMode' | transloco
+                }}<select name="accepted" [(ngModel)]="accepted" (change)="save()">
+                  <option [ngValue]="false">{{ 'supplierReturns.pending' | transloco }}</option>
+                  <option [ngValue]="true">{{ 'supplierReturns.accepted' | transloco }}</option>
+                </select></label
+              >
+            } @else {
+              <p>{{ 'supplierReturns.managerPendingOnly' | transloco }}</p>
+            }
+            <label
+              >{{ 'supplierReturns.supplierReference' | transloco
+              }}<input name="reference" maxlength="255" [(ngModel)]="reference" (blur)="save()"
+            /></label>
+          } @else {
+            <p>{{ 'supplierReturns.reversalWarning' | transloco }}</p>
+            @for (lot of lots(); track lot.receiptValueId) {
+              @if (lot.reversalEligibilityReasons.length) {
+                <p role="status">
+                  {{ lot.batchNumber }}: {{ 'supplierReturns.ineligible' | transloco }} ({{
+                    lot.reversalEligibilityReasons.join(', ')
+                  }})
+                </p>
+              }
+            }
+          }
+          <label
+            >{{ 'supplierReturns.reason' | transloco
+            }}<textarea
+              name="reason"
+              required
+              minlength="3"
+              maxlength="255"
+              [(ngModel)]="reason"
+              (blur)="save()"
+            ></textarea>
+          </label>
+          <button type="submit" [disabled]="!valid() || !ready()">
+            {{
+              (action === 'shipment' ? 'supplierReturns.ship' : 'supplierReturns.confirmReversal')
+                | transloco
+            }}
+          </button>
+        </fieldset>
+      </form>
+    }
+    <h2>{{ 'supplierReturns.history' | transloco }}</h2>
+    @for (lot of lots(); track lot.receiptValueId) {
+      @for (ret of lot.returns; track ret.returnId) {
+        <p>
+          <a [routerLink]="['/supplier-returns', ret.returnId]">{{ ret.returnNumber }}</a> ·
+          {{
+            'supplierReturns.' + (ret.status === 'CreditAccepted' ? 'accepted' : 'pending')
+              | transloco
+          }}
+        </p>
+      }
+      @for (reversal of lot.reversals; track reversal.reversalId) {
+        <p>
+          {{ 'supplierReturns.reversed' | transloco }} {{ reversal.reversedAt | date: 'medium' }} ·
+          {{ reversal.effectiveAmount | number: '1.2-2' }} · {{ reversal.reason }}
+        </p>
+      }
+    }
+  }
+  @if (frozen()) {
+    <aside class="no-print" aria-live="polite">
+      <p>{{ 'supplierReturns.unknown' | transloco }}</p>
+      <button type="button" [disabled]="busy()" (click)="recover()">
+        {{ 'supplierReturns.checkRetry' | transloco }}
+      </button>
+    </aside>
+  }
+  @if (!lots().length && !document() && ready()) {
+    <label
+      >{{ 'supplierReturns.status' | transloco
+      }}<select [(ngModel)]="filter" (change)="refresh()" [disabled]="busy()">
+        <option value="">{{ 'supplierReturns.all' | transloco }}</option>
+        <option value="PendingSupplierCredit">{{ 'supplierReturns.pending' | transloco }}</option>
+        <option value="CreditAccepted">{{ 'supplierReturns.accepted' | transloco }}</option>
+      </select></label
+    >
+    @for (ret of history(); track ret.returnId) {
+      <article>
+        <a [routerLink]="['/supplier-returns', ret.returnId]">{{ ret.returnNumber }}</a>
+        <p>
+          {{ ret.supplierName }} · {{ ret.shippedAt | date: 'medium' }} ·
+          {{
+            'supplierReturns.' + (ret.status === 'CreditAccepted' ? 'accepted' : 'pending')
+              | transloco
+          }}
+        </p>
+      </article>
+    } @empty {
+      <p>{{ 'supplierReturns.empty' | transloco }}</p>
+    }
+    @if (hasMoreHistory()) {
+      <button type="button" [disabled]="busy()" (click)="loadMoreHistory()">
+        {{ 'supplierReturns.loadMore' | transloco }}
+      </button>
+    }
+  }
+</section>
