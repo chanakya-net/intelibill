@@ -355,7 +355,13 @@ test('late unrelated success cannot close or overwrite another active PO draft',
 
 async function switchShop(page: Page, label: string) {
   await page.locator('.active-shop-trigger-desktop').click();
-  await page.locator('.shop-menu-item').filter({ hasText: label }).click();
+  // Installing the new session changes the label before pending draft saves finish.
+  // The product then deliberately restarts at '/', which redirects these Owners to dashboard.
+  // Wait for that new-document navigation before opening a scoped PO route.
+  await Promise.all([
+    page.waitForURL((url) => url.pathname === '/dashboard', { waitUntil: 'load' }),
+    page.locator('.shop-menu-item').filter({ hasText: label }).click(),
+  ]);
   await expect(page.locator('.active-shop-trigger-desktop')).toContainText(label);
 }
 
