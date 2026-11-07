@@ -45,6 +45,17 @@ export class CartCheckoutSummaryComponent {
     return !!this.customerForm?.invalid || !!this.paymentForm?.invalid;
   }
 
+  get recordedCost(): number | null {
+    const lines = this.preview?.lines;
+    if (!lines?.length || lines.some(l => !l.economics)) return null;
+    return lines.reduce((sum, line) => sum + line.economics!.economicCost, 0);
+  }
+
+  get grossProfit(): number | null {
+    if (this.recordedCost === null || !this.preview) return null;
+    return this.preview.totalTaxableAmount - this.recordedCost;
+  }
+
   get configuredSaleDiscountPercent(): number | null {
     return this.preview?.configuredSaleRule?.percentage ?? null;
   }

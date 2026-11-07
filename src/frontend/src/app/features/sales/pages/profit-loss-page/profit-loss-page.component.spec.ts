@@ -1,3 +1,4 @@
+import en from '../../../../../../public/assets/i18n/en-IN.json';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -39,6 +40,9 @@ describe('ProfitLossPageComponent', () => {
   const baseTranslation = {
     sales: {
       profitLoss: {
+        economics: en.sales.profitLoss.economics,
+        status: en.sales.profitLoss.status,
+        limitations: en.sales.profitLoss.limitations,
         eyebrow: 'Sales Report',
         title: 'Profit & Loss Report',
         subtitle: 'Analyze your margins from each sale',
@@ -296,8 +300,29 @@ describe('ProfitLossPageComponent', () => {
     expect(formatLocalIsoDate(component.toDate())).toBe(formatLocalIsoDate(expectedTo));
   });
 
+  it.each(['FilteredActivity', 'UnclassifiedExpenses', 'AccountingReview', 'ServiceCostsUnmodeled'] as const)(
+    'keeps trading visible and explains unavailable operating profit: %s', (status) => {
+      summarySignal.set({ netProfitAfterTax: 999, revenueIncludingTax: 999, totalCost: 999, averageMarginPercent: 999, invoiceCount: 1, returnCount: 0, adjustmentCount: 0,
+        economics: { version: 2, costBasis: 'recorded-sale-cost/1', netSalesExcludingTax: 200, cogs: 100, stockLoss: 0,
+          returnedGoodsWastageIncludedInCogs: 0, grossTradingProfit: 100, operatingExpenses: status === 'FilteredActivity' ? null : 20,
+          operatingProfit: null, grossMarginPercent: 50, markupPercent: 100, unclassifiedExpenseCount: 1, unclassifiedExpenseAmount: 20,
+          operatingProfitStatus: status, limitations: ['service-costs-unmodeled'] } });
+      const fixture = TestBed.createComponent(ProfitLossPageComponent); fixture.detectChanges();
+      const text = fixture.nativeElement.textContent;
+      expect(text).toContain('₹100.00'); expect(text).toContain('50.0%'); expect(text).toContain('100.0%');
+      expect(text).toContain('Not available'); expect(text).toContain(en.sales.profitLoss.status[status]);
+      expect(text).toContain('Period-wide unclassified expenses: 1, ₹20.00');
+      expect(text).toContain('Service costs are not modeled.');
+      expect(text).not.toContain('₹999.00');
+    },
+  );
+
   it('renders summary cards from report summary', () => {
     const summary: ProfitLossSummaryDto = {
+      economics: { version: 2, costBasis: 'recorded-sale-cost/1', netSalesExcludingTax: 2200, cogs: 800, stockLoss: 200,
+        returnedGoodsWastageIncludedInCogs: 0, grossTradingProfit: 1200, operatingExpenses: 20, operatingProfit: 1180,
+        grossMarginPercent: 54.55, markupPercent: 150, unclassifiedExpenseCount: 0, unclassifiedExpenseAmount: 0,
+        operatingProfitStatus: 'Complete', limitations: [] },
       netProfitAfterTax: 1200,
       revenueIncludingTax: 2200,
       totalCost: 800,
@@ -324,11 +349,19 @@ describe('ProfitLossPageComponent', () => {
     expect(text).toContain('₹1,200.00');
     expect(text).toContain('₹2,200.00');
     expect(text).toContain('₹800.00');
-    expect(text).toContain('18.6%');
+    expect(text).toContain('54.6%');
+    expect(text).toContain('150.0%');
+    expect(text).toContain('Gross margin %');
+    expect(text).toContain('Markup %');
+    expect(text).not.toContain('Net Profit (After Tax)');
   });
 
   it('formats signed report values with the sign before the currency symbol', () => {
     summarySignal.set({
+      economics: { version: 2, costBasis: 'recorded-sale-cost/1', netSalesExcludingTax: 0, cogs: 1234567890.5, stockLoss: 0,
+        returnedGoodsWastageIncludedInCogs: 0, grossTradingProfit: -1234567890.5, operatingExpenses: 0, operatingProfit: -1234567890.5,
+        grossMarginPercent: null, markupPercent: -100, unclassifiedExpenseCount: 0, unclassifiedExpenseAmount: 0,
+        operatingProfitStatus: 'Complete', limitations: [] },
       netProfitAfterTax: -1234567890.5,
       revenueIncludingTax: 2200,
       totalCost: 1234567890.5,
@@ -382,7 +415,7 @@ describe('ProfitLossPageComponent', () => {
     expect(salesExportService.triggerDownload).toHaveBeenCalledWith(response.body!, 'profit-loss-export.xlsx');
   });
 
-  it('renders -- when margin is null', () => {
+  it('renders not available when economic ratio is null', () => {
     reportSignal.set([
       createReportItem({
         referenceNumber: 'INV-004',
@@ -393,7 +426,7 @@ describe('ProfitLossPageComponent', () => {
     const fixture = TestBed.createComponent(ProfitLossPageComponent);
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.textContent).toContain('--');
+    expect(fixture.nativeElement.textContent).toContain('Not available');
   });
 
   it('supports pagination helpers and navigation', () => {
@@ -477,6 +510,7 @@ describe('ProfitLossPageComponent', () => {
     reportSignal.set([
       createReportItem({
         referenceNumber: 'INV-MOBILE',
+        economics: { version: 2, netSalesExcludingTax: 200, cogs: 100, stockLoss: 0, returnedGoodsWastageIncludedInCogs: 0, grossTradingProfit: 100, grossMarginPercent: 50, markupPercent: 100, hasUnmodeledServiceCost: false },
         occurredAt: '2026-05-27T09:15:00.000Z',
         partyName: null,
       }),
@@ -488,8 +522,8 @@ describe('ProfitLossPageComponent', () => {
     const cards = fixture.nativeElement.querySelectorAll('.mobile-report-card');
     expect(cards.length).toBe(1);
     expect(cards[0].textContent).toContain('INV-MOBILE');
-    expect(cards[0].textContent).toContain('Revenue (Incl Tax)');
-    expect(cards[0].textContent).toContain('₹232.00');
+    expect(cards[0].textContent).toContain('Net sales excluding tax');
+    expect(cards[0].textContent).toContain('₹200.00');
   });
 
   it('handles serverError cleanly by showing the error and hiding the report surface', () => {

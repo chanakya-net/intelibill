@@ -19,9 +19,9 @@ import { DashboardDto } from '../../../services/dashboard.models';
       </article>
 
       <article class="kpi-card kpi-card--sage" data-testid="net-profit-card">
-        <p class="kpi-label">{{ 'dashboard.kpis.netProfit' | transloco }}</p>
+        <p class="kpi-label">{{ 'sales.profitLoss.economics.trading' | transloco }}</p>
         <p class="kpi-value" data-testid="net-profit-value">
-          {{ dashboard()?.netProfit | currency: 'INR' : 'symbol' : '1.0-0' }}
+          {{ (dashboard()?.economics?.grossTradingProfit ?? dashboard()?.netProfit) | currency: 'INR' : 'symbol' : '1.0-0' }}
         </p>
         @if (netProfitChangePercent() !== null) {
           <p
@@ -72,11 +72,22 @@ import { DashboardDto } from '../../../services/dashboard.models';
         <p class="kpi-value" data-testid="expenses-kpi-value">{{ formattedExpenses() }}</p>
       </article>
     </div>
+    @if (dashboard()?.economics; as e) {
+      <aside class="kpi-economics" data-testid="dashboard-economics">
+        <p>{{ 'sales.profitLoss.economics.basis' | transloco }}</p>
+        <p>{{ 'sales.profitLoss.economics.operating' | transloco }}:
+          @if (e.operatingProfit !== null) { {{ e.operatingProfit | currency: 'INR' : 'symbol' : '1.2-2' }} }
+          @else { {{ 'sales.profitLoss.economics.notAvailable' | transloco }} }
+        </p>
+        <p>{{ ('sales.profitLoss.status.' + e.operatingProfitStatus) | transloco }}</p>
+        <ul>@for (limitation of e.limitations; track limitation) { <li>{{ ('sales.profitLoss.limitations.' + limitation) | transloco }}</li> }</ul>
+      </aside>
+    }
   `,
 })
 export class DashboardKpiCardsComponent {
   readonly dashboard = input<DashboardDto | null>(null);
-  readonly netProfitChangePercent = computed(() => this.dashboard()?.netProfitChangePercent ?? null);
+  readonly netProfitChangePercent = computed(() => this.dashboard()?.grossTradingProfitChangePercent ?? this.dashboard()?.netProfitChangePercent ?? null);
 
   readonly formattedExpenses = computed(() => this.formatCurrency(this.dashboard()?.netExpense ?? 0));
   readonly formattedSupplierPayables = computed(() => this.formatCurrency(this.dashboard()?.supplierPayables ?? 0));

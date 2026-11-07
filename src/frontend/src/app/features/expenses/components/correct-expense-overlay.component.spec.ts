@@ -77,6 +77,18 @@ describe('CorrectExpenseOverlayComponent', () => {
     TestBed.resetTestingModule();
   });
 
+  it('preserves supplier settlement provenance as read-only', () => {
+    const fixture = TestBed.createComponent(CorrectExpenseOverlayComponent);
+    const component = fixture.componentInstance;
+    component.expenseId = 'exp-1';
+    component.originalExpense = { ...originalExpense, treatment: 'SupplierSettlement', supplierLedgerEntryId: 'ledger-1' };
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="expense-treatment"]')).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="settlement-provenance"]')).not.toBeNull();
+    component.onSubmit();
+    expect(expensesFacade.correctExpense).toHaveBeenCalledWith('exp-1', expect.not.objectContaining({ treatment: 'Operating' }));
+  });
+
   it('initializes, loads categories, and prepopulates form on ngOnInit', () => {
     const fixture = TestBed.createComponent(CorrectExpenseOverlayComponent);
     const component = fixture.componentInstance;
@@ -155,6 +167,7 @@ describe('CorrectExpenseOverlayComponent', () => {
     component.onSubmit();
 
     expect(expensesFacade.correctExpense).toHaveBeenCalledWith('exp-1', {
+      treatment: 'Unclassified',
       categoryName: 'Updated Rent',
       amount: 550,
       paidTo: 'Updated Landlord',
@@ -180,6 +193,7 @@ describe('CorrectExpenseOverlayComponent', () => {
     component.onSubmit();
 
     expect(expensesFacade.correctExpense).toHaveBeenCalledWith('exp-1', {
+      treatment: 'Unclassified',
       categoryName: 'Rent',
       amount: 500,
       paidTo: 'Landlord',

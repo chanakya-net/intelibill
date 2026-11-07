@@ -62,6 +62,18 @@ describe('RecordExpenseOverlayComponent', () => {
     TestBed.resetTestingModule();
   });
 
+  it('records an explicitly selected operating treatment', () => {
+    const fixture = TestBed.createComponent(RecordExpenseOverlayComponent);
+    fixture.detectChanges();
+    const select = fixture.nativeElement.querySelector('[data-testid="expense-treatment"]') as HTMLSelectElement | null;
+    expect(select).not.toBeNull();
+    select!.value = 'Operating';
+    select!.dispatchEvent(new Event('change'));
+    fixture.componentInstance.form.patchValue({ categoryName: 'Rent', amount: 20, paidTo: 'Landlord' });
+    fixture.componentInstance.onSubmit();
+    expect(expensesFacade.recordExpense).toHaveBeenCalledWith(expect.objectContaining({ treatment: 'Operating' }));
+  });
+
   it('initializes and loads categories on ngOnInit', () => {
     const fixture = TestBed.createComponent(RecordExpenseOverlayComponent);
     const component = fixture.componentInstance;
@@ -108,6 +120,7 @@ describe('RecordExpenseOverlayComponent', () => {
     component.onSubmit();
 
     expect(expensesFacade.recordExpense).toHaveBeenCalledWith({
+      treatment: 'Unclassified',
       categoryName: 'Rent',
       amount: 500,
       paidTo: 'Landlord',
@@ -131,6 +144,7 @@ describe('RecordExpenseOverlayComponent', () => {
     component.onSubmit();
 
     expect(expensesFacade.recordExpense).toHaveBeenCalledWith({
+      treatment: 'Unclassified',
       categoryName: 'Rent',
       amount: 500,
       paidTo: 'Landlord',

@@ -1,3 +1,4 @@
+import { evaluateOfflineSaleEconomics } from './offline-sale-economics';
 import { Injectable, inject, signal } from '@angular/core';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -285,6 +286,7 @@ export class OfflineSaleStateService {
           : 0;
 
         return {
+          economics: evaluateOfflineSaleEconomics({ ...pricing, lines: [line] }).lines[0],
           itemId: line.itemId,
           barcode: line.barcode,
           itemName: line.itemName,

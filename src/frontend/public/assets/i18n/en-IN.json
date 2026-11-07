@@ -172,7 +172,7 @@
     "kpis": {
       "customerAccounts": "Customer Accounts",
       "customerCreditDue": "Customer Credit Due",
-      "expenses": "Expenses",
+      "expenses": "Recorded expenses / outflows",
       "supplierPayables": "Supplier Payables",
       "stockValue": "Stock Value",
       "salesRevenue": "Sales Revenue",
@@ -1422,7 +1422,8 @@
         "blockSellerProfileUnavailable": "This device's invoice numbers were reserved before offline GST documents. Go online and turn offline billing on again to continue.",
         "blockDocumentUnavailable": "This sale cannot be issued as a GST document offline. Complete it when you are back online.",
         "blockCustomerUnavailable": "This customer is not available offline yet. Choose a customer from the offline list or bill as a walk-in.",
-        "leaseNeedsRenewal": "Offline billing must be turned on again for this device before it can bill offline. Ask an owner or manager to do it while the device is online."
+        "leaseNeedsRenewal": "Offline billing must be turned on again for this device before it can bill offline. Ask an owner or manager to do it while the device is online.",
+        "blockBelowRecordedCost": "This offline invoice falls below recorded goods cost. Reduce the discount or finish online; no invoice was issued."
       },
       "productLookup": "Quick product lookup",
       "productLookupDescription": "Tap a product to quickly add it, or open the batch picker when multiple batches exist.",
@@ -1695,6 +1696,38 @@
       },
       "errors": {
         "exportFailed": "Unable to export profit and loss report."
+      },
+      "economics": {
+        "notAvailable": "Not available",
+        "netSales": "Net sales excluding tax",
+        "cogs": "COGS",
+        "stockLoss": "Stock loss",
+        "trading": "Gross trading profit",
+        "opex": "Operating expenses",
+        "operating": "Operating profit",
+        "margin": "Gross margin %",
+        "markup": "Markup %",
+        "basis": "Uses recorded goods costs. Purchase-tax recovery and service costs are not verified.",
+        "unclassified": "Period-wide unclassified expenses: {{count}}, {{amount}}",
+        "reviewExpenses": "Review expenses",
+        "returnWastage": "Returned goods wastage (already included in COGS)",
+        "reversal": "Reversal"
+      },
+      "status": {
+        "Complete": "Full-period classified operating profit",
+        "FilteredActivity": "Filtered activity: operating profit is unavailable",
+        "UnclassifiedExpenses": "Classify remaining expenses to see operating profit",
+        "AccountingReview": "Return accounting needs review",
+        "ServiceCostsUnmodeled": "Service costs are unmodeled: operating profit is unavailable"
+      },
+      "limitations": {
+        "purchase-tax-recoverability-unmodeled": "Purchase-tax recoverability is not modeled.",
+        "historical-cost-snapshots-preserved": "Historical cost snapshots are preserved.",
+        "receipt-cost-corrections-not-revalued": "Later receipt cost corrections do not revalue COGS.",
+        "filtered-activity": "Activity filters exclude shop-wide operating figures.",
+        "unclassified-expenses": "Some period expenses remain unclassified.",
+        "return-accounting-review": "Return accounting needs review.",
+        "service-costs-unmodeled": "Service costs are not modeled."
       }
     },
     "returns": {
@@ -2226,6 +2259,15 @@
     "ledgerResults": "Expense ledger results",
     "errors": {
       "unexpected": "Unable to record or correct this expense. Please try again."
+    },
+    "treatment": {
+      "label": "Expense treatment",
+      "Unclassified": "Unclassified",
+      "Operating": "Operating",
+      "SupplierSettlement": "Supplier settlement",
+      "CapitalOrOtherExcluded": "Capital / other excluded",
+      "help": "Choose treatment explicitly; category names do not establish operating costs.",
+      "supplierProvenance": "Supplier payment provenance: excluded from operating expenses. Corrections retain this treatment."
     }
   },
   "discounts": {

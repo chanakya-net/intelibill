@@ -1,3 +1,5 @@
+import type { ProfitLossEconomicsDto } from '../../sales/services/sale.models';
+
 export interface DashboardAlertDto {
   alertType: string;
   priority: number;
@@ -73,6 +75,8 @@ export interface LatestSaleDto {
 }
 
 export interface DashboardDto {
+  economics?: ProfitLossEconomicsDto | null;
+  grossTradingProfitChangePercent?: number | null;
   generatedAt: string;
   startDate: string;
   endDate: string;

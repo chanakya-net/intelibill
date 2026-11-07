@@ -26,6 +26,20 @@
     </section>
   }
 
+  @if (economics(); as e) {
+    <aside class="economics-notes" aria-live="polite">
+      <p>{{ 'sales.profitLoss.economics.basis' | transloco }}</p>
+      <p>{{ ('sales.profitLoss.status.' + e.operatingProfitStatus) | transloco }}</p>
+      @if (e.unclassifiedExpenseCount > 0) {
+        <p>{{ 'sales.profitLoss.economics.unclassified' | transloco: { count: e.unclassifiedExpenseCount, amount: totalAmount(e.unclassifiedExpenseAmount) } }}
+          <a href="/expenses">{{ 'sales.profitLoss.economics.reviewExpenses' | transloco }}</a>
+        </p>
+      }
+      <p>{{ 'sales.profitLoss.economics.returnWastage' | transloco }}: {{ totalAmount(e.returnedGoodsWastageIncludedInCogs) }}</p>
+      <ul>@for (limitation of e.limitations; track limitation) { <li>{{ ('sales.profitLoss.limitations.' + limitation) | transloco }}</li> }</ul>
+    </aside>
+  }
+
   @if (serverError()) {
     <p class="error" role="alert">{{ serverError() | transloco }}</p>
   }
@@ -171,17 +185,21 @@
                   <th>{{ 'sales.profitLoss.table.date' | transloco }}</th>
                   <th>{{ 'sales.profitLoss.table.type' | transloco }}</th>
                   <th>{{ 'sales.profitLoss.table.customer' | transloco }}</th>
-                  <th class="text-right">{{ 'sales.profitLoss.revenueInclTax' | transloco }}</th>
-                  <th class="text-right">{{ 'sales.profitLoss.cost' | transloco }}</th>
-                  <th class="text-right">{{ 'sales.profitLoss.wastageCost' | transloco }}</th>
-                  <th class="text-right">{{ 'sales.profitLoss.profitBeforeTax' | transloco }}</th>
-                  <th class="text-right">{{ 'sales.profitLoss.profitAfterTax' | transloco }}</th>
-                  <th class="text-right">{{ 'sales.profitLoss.table.margin' | transloco }}</th>
+                  <th class="text-right">{{ 'sales.profitLoss.economics.netSales' | transloco }}</th>
+                  <th class="text-right">{{ 'sales.profitLoss.economics.cogs' | transloco }}</th>
+                  <th class="text-right">{{ 'sales.profitLoss.economics.stockLoss' | transloco }}</th>
+                  <th class="text-right">{{ 'sales.profitLoss.economics.trading' | transloco }}</th>
+                  <th class="text-right">{{ 'sales.profitLoss.economics.returnWastage' | transloco }}</th>
+                  <th class="text-right">{{ 'sales.profitLoss.economics.margin' | transloco }}</th>
+                  <th class="text-right">{{ 'sales.profitLoss.economics.markup' | transloco }}</th>
                 </tr>
               </ng-template>
               <ng-template pTemplate="body" let-item>
                 <tr>
-                  <td class="font-bold">{{ item.referenceNumber }}</td>
+                  <td class="font-bold">{{ item.referenceNumber }}
+                    @if (item.isReversal) { <small>{{ 'sales.profitLoss.economics.reversal' | transloco }}</small> }
+                    @if (item.needsAccountingReview) { <small>{{ 'sales.profitLoss.status.AccountingReview' | transloco }}</small> }
+                  </td>
                   <td>{{ item.occurredAt | date: 'dd MMM yyyy, h:mm a' }}</td>
                   <td>
                     <p-tag
@@ -198,27 +216,28 @@
                       }}</span>
                     }
                   </td>
-                  <td class="text-right">{{ totalAmount(item.revenueAfterTax) }}</td>
-                  <td class="text-right">{{ totalAmount(item.totalCost) }}</td>
-                  <td class="text-right">{{ totalAmount(item.wastageCost) }}</td>
+                  <td class="text-right">{{ totalAmount(item.economics?.netSalesExcludingTax) }}</td>
+                  <td class="text-right">{{ totalAmount(item.economics?.cogs) }}</td>
+                  <td class="text-right">{{ totalAmount(item.economics?.stockLoss) }}</td>
                   <td class="text-right">
                     <p-tag
-                      [severity]="getProfitSeverity(item.profitBeforeTax)"
-                      [value]="totalAmount(item.profitBeforeTax)"
+                      [severity]="getProfitSeverity(item.economics?.grossTradingProfit ?? 0)"
+                      [value]="totalAmount(item.economics?.grossTradingProfit)"
                     ></p-tag>
                   </td>
                   <td class="text-right">
                     <p-tag
-                      [severity]="getProfitSeverity(item.profitAfterTax)"
-                      [value]="totalAmount(item.profitAfterTax)"
+                      [severity]="getProfitSeverity(item.economics?.returnedGoodsWastageIncludedInCogs ?? 0)"
+                      [value]="totalAmount(item.economics?.returnedGoodsWastageIncludedInCogs)"
                     ></p-tag>
                   </td>
-                  <td class="text-right">{{ formatMarginPercent(item.marginPercent) }}</td>
+                  <td class="text-right">{{ formatMarginPercent(item.economics?.grossMarginPercent) }}</td>
+                  <td class="text-right">{{ formatMarginPercent(item.economics?.markupPercent) }}</td>
                 </tr>
               </ng-template>
               <ng-template pTemplate="emptymessage">
                 <tr>
-                  <td colspan="10" class="empty-cell">
+                  <td colspan="11" class="empty-cell">
                     <div class="empty-state">
                       <i class="pi pi-chart-line empty-icon"></i>
                       <h3>{{ 'sales.profitLoss.emptyState.title' | transloco }}</h3>
@@ -259,33 +278,35 @@
 
                 <div class="mobile-grid">
                   <p>
-                    <strong>{{ 'sales.profitLoss.revenueInclTax' | transloco }}:</strong>
-                    <span>{{ totalAmount(item.revenueAfterTax) }}</span>
+                    <strong>{{ 'sales.profitLoss.economics.netSales' | transloco }}:</strong>
+                    <span>{{ totalAmount(item.economics?.netSalesExcludingTax) }}</span>
                   </p>
                   <p>
-                    <strong>{{ 'sales.profitLoss.cost' | transloco }}:</strong>
-                    <span>{{ totalAmount(item.totalCost) }}</span>
+                    <strong>{{ 'sales.profitLoss.economics.cogs' | transloco }}:</strong>
+                    <span>{{ totalAmount(item.economics?.cogs) }}</span>
                   </p>
                   <p>
-                    <strong>{{ 'sales.profitLoss.wastageCost' | transloco }}:</strong>
-                    <span>{{ totalAmount(item.wastageCost) }}</span>
+                    <strong>{{ 'sales.profitLoss.economics.stockLoss' | transloco }}:</strong>
+                    <span>{{ totalAmount(item.economics?.stockLoss) }}</span>
                   </p>
                   <p>
-                    <strong>{{ 'sales.profitLoss.profitBeforeTax' | transloco }}:</strong>
-                    <span [class.negative]="item.profitBeforeTax < 0">{{
-                      totalAmount(item.profitBeforeTax)
+                    <strong>{{ 'sales.profitLoss.economics.trading' | transloco }}:</strong>
+                    <span [class.negative]="(item.economics?.grossTradingProfit ?? 0) < 0">{{
+                      totalAmount(item.economics?.grossTradingProfit)
                     }}</span>
                   </p>
                   <p>
-                    <strong>{{ 'sales.profitLoss.profitAfterTax' | transloco }}:</strong>
-                    <span [class.negative]="item.profitAfterTax < 0">{{
-                      totalAmount(item.profitAfterTax)
+                    <strong>{{ 'sales.profitLoss.economics.returnWastage' | transloco }}:</strong>
+                    <span [class.negative]="(item.economics?.returnedGoodsWastageIncludedInCogs ?? 0) < 0">{{
+                      totalAmount(item.economics?.returnedGoodsWastageIncludedInCogs)
                     }}</span>
                   </p>
                   <p class="margin">
-                    <strong>{{ 'sales.profitLoss.table.margin' | transloco }}:</strong>
-                    <span>{{ formatMarginPercent(item.marginPercent) }}</span>
+                    <strong>{{ 'sales.profitLoss.economics.margin' | transloco }}:</strong>
+                    <span>{{ formatMarginPercent(item.economics?.grossMarginPercent) }}</span>
                   </p>
+                  <p><strong>{{ 'sales.profitLoss.economics.markup' | transloco }}:</strong>
+                    <span>{{ formatMarginPercent(item.economics?.markupPercent) }}</span></p>
                 </div>
               </article>
             }

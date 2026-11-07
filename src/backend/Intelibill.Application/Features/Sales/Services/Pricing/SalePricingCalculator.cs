@@ -74,7 +74,8 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
 
         var saleDiscountAmount = SalePricingMath.CalculateEffectiveSaleDiscountAmount(request.SaleDiscount, saleLevelEligibleSubtotal, bestConfiguredSaleRule);
         var totalCapacity = SalePricingMath.RoundMoney(eligibleDrafts.Sum(d => d.SaleDiscountCapacity));
-        if (saleDiscountAmount > totalCapacity) return Errors.Sale.SaleDiscountWouldBeBelowCost;
+        if (saleDiscountAmount > totalCapacity) return Errors.Sale.BelowRecordedCost("SalePricing.SaleDiscountBelowCost", Guid.Empty,
+            SalePricingMath.RoundMoney(saleLevelEligibleSubtotal - saleDiscountAmount), eligibleDrafts.Sum(d => d.CostTotal));
         var saleDiscountByLineIndex = SalePricingMath.AllocateSaleDiscountAmounts(eligibleDrafts, lineDrafts.Count, saleLevelEligibleSubtotal, saleDiscountAmount);
 
         var finalLines = new List<SalePricingLineCalculation>(lineDrafts.Count);
