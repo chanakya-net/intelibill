@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
@@ -82,7 +83,17 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
             return RowLockOutcome.TimedOut;
         }
 
-        return locked.Count == 0 ? RowLockOutcome.NotFound : RowLockOutcome.Acquired;
+        if (locked.Count == 0)
+            return RowLockOutcome.NotFound;
+
+        // A prior existence/detail read in this scope must not hide a terminal transition that
+        // committed while this request waited for the customer → sale locks.
+        var tracked = _context.ChangeTracker.Entries<Sale>()
+            .SingleOrDefault(e => e.Entity.Id == saleId && e.Entity.ShopId == shopId);
+        if (tracked is not null)
+            await tracked.ReloadAsync(cancellationToken);
+
+        return RowLockOutcome.Acquired;
     }
 
     public async Task<Sale?> GetByIdempotencyKeyAsync(Guid shopId, Guid actorUserId, string idempotencyKey, CancellationToken cancellationToken = default) =>
@@ -170,7 +181,12 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
                 s.InvoiceNumber,
                 string.IsNullOrWhiteSpace(s.CustomerName) ? "Walk-in Customer" : s.CustomerName,
                 s.SoldAt,
-                s.TotalAmount))
+                s.TotalAmount)
+            {
+                Status = s.Status,
+                CancellationReference = _context.Set<SaleCancellation>().Where(c => c.ShopId == shopId && c.SaleId == s.Id).Select(c => c.ReferenceNumber).FirstOrDefault(),
+                CancelledAt = _context.Set<SaleCancellation>().Where(c => c.ShopId == shopId && c.SaleId == s.Id).Select(c => (DateTimeOffset?)c.CancelledAt).FirstOrDefault(),
+            })
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<SalesTrendBucketReadModel>> GetDailySalesTrendAsync(
@@ -261,6 +277,11 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
         }
 
         var status = NormalizeStatus(filter.Status);
+        if (status is SaleHistoryStatus.Cancelled)
+            query = query.Where(s => s.Status == SaleStatus.Cancelled);
+        else if (status is not null)
+            query = query.Where(s => s.Status != SaleStatus.Cancelled);
+
         if (status is SaleHistoryStatus.Refunded)
         {
             query = query.Where(s =>
@@ -308,6 +329,9 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
                 s.CustomerName,
                 s.CustomerPhone,
                 s.CreditNoteAppliedAmount,
+                s.Status,
+                CancellationReference = _context.Set<SaleCancellation>().Where(c => c.ShopId == filter.ShopId && c.SaleId == s.Id).Select(c => c.ReferenceNumber).FirstOrDefault(),
+                CancelledAt = _context.Set<SaleCancellation>().Where(c => c.ShopId == filter.ShopId && c.SaleId == s.Id).Select(c => (DateTimeOffset?)c.CancelledAt).FirstOrDefault(),
                 ItemCount = _context.SaleItems.Count(i => i.SaleId == s.Id),
             })
             .ToListAsync(cancellationToken);
@@ -348,10 +372,14 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
                     s.CustomerPhone,
                     s.ItemCount,
                     hasActiveReturn ? returnData.ReturnNumbers : [],
-                    DeriveStatus(s.DueAmount, hasActiveReturn),
+                    s.Status == SaleStatus.Cancelled ? "cancelled" : DeriveStatus(s.DueAmount, hasActiveReturn),
                     hasActiveReturn ? returnData.RefundAmount : 0m,
                     hasActiveReturn ? returnData.DueReductionAmount : 0m,
-                    s.CreditNoteAppliedAmount);
+                    s.CreditNoteAppliedAmount)
+                {
+                    CancellationReference = s.CancellationReference,
+                    CancelledAt = s.CancelledAt,
+                };
             })
             .ToList();
 
@@ -433,6 +461,7 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
 
     private enum SaleHistoryStatus
     {
+        Cancelled,
         Refunded,
         Paid,
         PartiallyPaid,
@@ -446,6 +475,7 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
 
         return status.Trim().ToLowerInvariant() switch
         {
+            "cancelled" => SaleHistoryStatus.Cancelled,
             "refunded" or "returned" => SaleHistoryStatus.Refunded,
             "paid" => SaleHistoryStatus.Paid,
             "partiallypaid" => SaleHistoryStatus.PartiallyPaid,

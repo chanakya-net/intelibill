@@ -15,7 +15,7 @@ internal sealed class GetSalesQueryValidator : AbstractValidator<GetSalesQuery>
         RuleFor(x => x.Status)
             .Must(status => SaleHistoryStatus.IsValid(status))
             .WithErrorCode("Sales.History.InvalidStatus")
-            .WithMessage($"'status' must be one of: all, {SaleHistoryStatus.Paid}, {SaleHistoryStatus.PartiallyPaid}, {SaleHistoryStatus.Refunded}, {SaleHistoryStatus.Unknown}.");
+            .WithMessage($"'status' must be one of: all, {SaleHistoryStatus.Paid}, {SaleHistoryStatus.PartiallyPaid}, {SaleHistoryStatus.Refunded}, {SaleHistoryStatus.Unknown}, {SaleHistoryStatus.Cancelled}.");
     }
 
     private static bool HaveValidDateRange(GetSalesQuery query) =>

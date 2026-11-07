@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
 using Intelibill.Domain.Entities;
+using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -427,7 +428,7 @@ public sealed class SaleCancellationTests(PostgreSqlTestFixture fixture) : IAsyn
         Assert.Equal(HttpStatusCode.OK, declared.StatusCode);
         string barcode;
         await using (var scope = factory.Services.CreateAsyncScope()) barcode = (await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Items.SingleAsync()).Barcode;
-        var posted = await s.Client.PostAsJsonAsync("/api/sales", new
+        var issueRequest = new
         {
             customerId = s.CustomerId,
             idempotencyKey = "real-posted-sale",
@@ -435,7 +436,8 @@ public sealed class SaleCancellationTests(PostgreSqlTestFixture fixture) : IAsyn
             paidAmount = 200m,
             dueAmount = 0m,
             items = new[] { new { barcode, batchNumber = "LOT", itemName = "Sugar", quantity = 2m, costPrice = 60m, salesPrice = 100m, mrp = 100m, taxRatePercent = 0m, isPriceIncludingTax = false, inventoryBatchId = s.BatchId } }
-        });
+        };
+        var posted = await s.Client.PostAsJsonAsync("/api/sales", issueRequest);
         Assert.Equal(HttpStatusCode.Created, posted.StatusCode);
         var original = await posted.Content.ReadFromJsonAsync<JsonElement>();
         var saleId = original.GetProperty("saleId").GetGuid();
@@ -446,10 +448,158 @@ public sealed class SaleCancellationTests(PostgreSqlTestFixture fixture) : IAsyn
         var cancelled = await s.Client.PostAsJsonAsync($"/api/sales/{saleId}/cancellations", new { operationKey = "cancel-real-sale", expectedVersion = p.GetProperty("expectedVersion").GetUInt32(), reason = "Mistaken real sale", goodsRecoveredConfirmed = true, cashRefundConfirmed = true });
         Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
         var outcome = await cancelled.Content.ReadFromJsonAsync<JsonElement>();
+        var replay = await s.Client.PostAsJsonAsync("/api/sales", issueRequest);
+        Assert.True(replay.IsSuccessStatusCode, await replay.Content.ReadAsStringAsync());
+        var replayed = await replay.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(saleId, replayed.GetProperty("saleId").GetGuid());
+        Assert.Equal("Cancelled", replayed.GetProperty("status").GetString());
+        Assert.Equal(outcome.GetProperty("id").GetGuid(), replayed.GetProperty("cancellation").GetProperty("id").GetGuid());
+        Assert.Equal(0m, replayed.GetProperty("items")[0].GetProperty("returnableQuantity").GetDecimal());
         Assert.Equal(original.GetProperty("invoiceNumber").GetString(), outcome.GetProperty("originalInvoiceNumber").GetString());
         await using var finalScope = factory.Services.CreateAsyncScope(); var db = finalScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Assert.Equal(8m, (await db.InventoryBatches.SingleAsync()).Quantity);
         Assert.Equal(200m, (await db.Sales.SingleAsync(x => x.Id == saleId)).TotalAmount);
+    }
+
+    [Fact]
+    public async Task CancelledSale_ReadersKeepIssueFactsAndExposeTerminalBalances()
+    {
+        factory.Services.GetRequiredService<SettableClock>().Now = new DateTimeOffset(2026, 11, 8, 10, 0, 0, TimeSpan.Zero);
+        var s = await SeedAsync(0m);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var buyer = await db.Customers.SingleAsync();
+            buyer.Update(buyer.Name, buyer.PhoneNumber, buyer.Address, true, 1000m);
+            Assert.False(buyer.SetCreditPolicy(CreditPolicyMode.Enforced, 1).IsError);
+            var issued = await db.Sales.SingleAsync();
+            issued.ApplyCreditTerms(1);
+            await db.SaveChangesAsync();
+            s = s with { Sale = issued };
+        }
+        factory.Services.GetRequiredService<SettableClock>().Now = factory.Services.GetRequiredService<SettableClock>().Now.AddDays(2);
+        var statementPath = $"/api/customers/{s.CustomerId}/account";
+        var before = await s.Client.GetFromJsonAsync<JsonElement>(statementPath);
+        Assert.Equal(200m, before.GetProperty("overdueAmount").GetDecimal());
+        Assert.Equal(800m, before.GetProperty("availableCredit").GetDecimal());
+        var posted = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/cancellations", Request(s));
+        Assert.Equal(HttpStatusCode.OK, posted.StatusCode);
+        var cancellation = await posted.Content.ReadFromJsonAsync<JsonElement>();
+        var detail = await s.Client.GetFromJsonAsync<JsonElement>($"/api/sales/{s.Sale.Id}");
+        Assert.Equal("Cancelled", detail.GetProperty("status").GetString());
+        Assert.True(detail.GetProperty("version").GetUInt32() > 0);
+        Assert.Equal(cancellation.GetProperty("id").GetGuid(), detail.GetProperty("cancellation").GetProperty("id").GetGuid());
+        Assert.Equal(200m, detail.GetProperty("dueAmount").GetDecimal());
+        Assert.Equal(0m, detail.GetProperty("items")[0].GetProperty("returnableQuantity").GetDecimal());
+        var account = await s.Client.GetFromJsonAsync<JsonElement>(statementPath);
+        Assert.Equal(0m, account.GetProperty("outstandingDue").GetDecimal());
+        Assert.Equal(0m, account.GetProperty("closingBalance").GetDecimal());
+        Assert.Equal(0m, account.GetProperty("overdueAmount").GetDecimal());
+        Assert.Equal(1000m, account.GetProperty("availableCredit").GetDecimal());
+        var cancellationCredit = Assert.Single(account.GetProperty("ledgerEntries").EnumerateArray(), e => e.GetProperty("entryType").GetString() == "SaleCancellationCredit");
+        Assert.Equal(-200m, cancellationCredit.GetProperty("signedAmount").GetDecimal());
+        var sale = account.GetProperty("sales")[0];
+        Assert.Equal(200m, sale.GetProperty("dueAmount").GetDecimal());
+        Assert.Equal(200m, sale.GetProperty("cancellationCreditAmount").GetDecimal());
+        Assert.Equal(0m, sale.GetProperty("returnCreditAmount").GetDecimal());
+        Assert.Equal(0m, sale.GetProperty("currentOutstandingAmount").GetDecimal());
+        Assert.False(sale.GetProperty("isOverdue").GetBoolean());
+        var balances = await s.Client.GetFromJsonAsync<JsonElement>($"/api/payments/balances?partyType=Customer&partyId={s.CustomerId}");
+        Assert.Equal(200m, balances.GetProperty("invoices")[0].GetProperty("cancellationCreditAmount").GetDecimal());
+        Assert.Equal(0m, balances.GetProperty("invoices")[0].GetProperty("outstandingAmount").GetDecimal());
+        foreach (var status in new[] { "cancelled", "paid", "partiallyPaid", "refunded", "unknown" })
+        {
+            var history = await s.Client.GetFromJsonAsync<JsonElement>($"/api/sales?status={status}");
+            Assert.Equal(status == "cancelled" ? 1 : 0, history.GetProperty("totalCount").GetInt32());
+            if (status == "cancelled")
+            {
+                var row = history.GetProperty("items")[0];
+                Assert.Equal("cancelled", row.GetProperty("status").GetString());
+                Assert.Equal(200m, row.GetProperty("totalAmount").GetDecimal());
+                Assert.Equal(cancellation.GetProperty("reference").GetString(), row.GetProperty("cancellationReference").GetString());
+            }
+        }
+        await using var latestScope = factory.Services.CreateAsyncScope();
+        var repository = latestScope.ServiceProvider.GetRequiredService<ISaleRepository>();
+        var latest = Assert.Single(await repository.GetLatestDashboardSalesAsync(s.ShopId));
+        Assert.Equal(SaleStatus.Cancelled, latest.Status);
+        Assert.Equal(cancellation.GetProperty("reference").GetString(), latest.CancellationReference);
+        Assert.NotNull(latest.CancelledAt);
+        Assert.Single(await repository.GetByShopAndDateRangeAsync(s.ShopId, s.Sale.BusinessDate, s.Sale.BusinessDate));
+    }
+
+    [Fact]
+    public async Task ExistingCancelledOfflineDuplicate_RetainsIdentityWithoutReposting()
+    {
+        var s = await SeedAsync();
+        Assert.Equal(HttpStatusCode.OK, (await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/cancellations", Request(s))).StatusCode);
+        const string device = "defensive-device";
+        var original = s.Sale;
+        var payload = new OfflineSaleSyncCommand("defensive-client", original.InvoiceNumber, original.SoldAt, original.CustomerId, original.CustomerName, original.CustomerPhone,
+            PaymentMethod.Cash, 200m, 0m, 200m, 200m, 0m, 0m, 200m, InstantDiscountType.None, 0m, null, null, null, null,
+            [new("SUGAR", "LOT", "Frozen sugar", 2m, 60m, 100m, 100m, 0m, false, s.BatchId, 200m, 0m, 0m, 200m, 0m, 200m, null, null, InstantDiscountType.None, 0m, null)]);
+        var hash = OfflineSaleSyncIdempotencyHasher.ComputeHash(s.ShopId, device, payload);
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            // Cancellation of offline origin is forbidden; this defensive historical fixture proves
+            // dedup never turns a terminal record back into a fresh posting.
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE sales SET source=2, client_sale_id={payload.ClientSaleId}, device_id={device}, request_hash={hash} WHERE id={original.Id}");
+        }
+        var response = await s.Client.PostAsJsonAsync("/api/sales/offline-sync", new { deviceId = device, sales = new[] { payload } });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("results")[0];
+        Assert.Equal("duplicate", result.GetProperty("status").GetString());
+        Assert.Equal(original.Id, result.GetProperty("saleId").GetGuid());
+        Assert.Equal(original.InvoiceNumber, result.GetProperty("invoiceNumber").GetString());
+        await using var final = factory.Services.CreateAsyncScope(); var data = final.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Single(await data.Sales.ToListAsync());
+        Assert.Equal(SaleStatus.Cancelled, (await data.Sales.SingleAsync()).Status);
+        Assert.Equal(10m, (await data.InventoryBatches.SingleAsync()).Quantity);
+        Assert.Single(await data.StockTransactions.ToListAsync());
+        Assert.Single(await data.Set<SaleCancellation>().ToListAsync());
+        Assert.Empty(await data.CustomerLedgerEntries.ToListAsync());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AppliedOrIssuedRedeemedCredit_NeverRestoresCreditHistory(bool applied)
+    {
+        var s = await SeedAsync();
+        Guid noteId;
+        Guid redemptionId;
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var now = DateTimeOffset.UtcNow;
+            var sourceLine = s.Sale.Items[0];
+            var other = Sale.Record(s.ShopId, s.ActorId, "credit-history-sale", "HASH", "A/2627/000002",
+                [new(s.ShopId, SaleLineType.Goods, sourceLine.ItemId, s.BatchId, null, "Other sugar", "SUGAR", 2m, 60m, 100m, 100m, 0m, false, false)],
+                s.CustomerId, "Buyer", null, PaymentMethod.Cash, 200m, 0m, now, BusinessDay.InDefaultZone(now)).Value;
+            var origin = applied ? other : s.Sale;
+            var line = origin.Items[0];
+            var returned = SaleReturn.Record(s.ShopId, origin.Id, "RET-CREDIT", now, BusinessDay.InDefaultZone(now), s.ActorId, null, 100m, 0m, 100m, ReturnPayoutDestination.CreditNote, 100m, 0m, null, null,
+                [new(s.ShopId, line.Id, 1m, SaleReturnCondition.Restockable, 60m, 100m, 0m, false, 100m, 100m, 100m, 0m, null)]).Value;
+            var note = CreditNote.Issue(s.ShopId, returned.Id, 100m, "Credit history", "CN-CANCEL", null).Value;
+            var redemption = note.Redeem(s.ShopId, applied ? s.Sale.Id : other.Id, 20m).Value;
+            db.Add(other);
+            noteId = note.Id; redemptionId = redemption.Id;
+            db.AddRange(returned, note); await db.SaveChangesAsync();
+            if (applied) await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE sales SET credit_note_applied_amount=20 WHERE id={s.Sale.Id}");
+        }
+        uint version;
+        await using (var scope = factory.Services.CreateAsyncScope()) version = (await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Sales.SingleAsync(x => x.Id == s.Sale.Id)).Version;
+        var response = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/cancellations", Request(s, version: version));
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains(applied ? "CreditRestorationRequired" : "ReturnHistoryBlocked", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        await using var final = factory.Services.CreateAsyncScope(); var data = final.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var persisted = await data.CreditNotes.SingleAsync(x => x.Id == noteId);
+        Assert.Equal(80m, persisted.AvailableBalance);
+        Assert.False(persisted.IsVoided);
+        Assert.Equal(redemptionId, (await data.CreditNoteRedemptions.SingleAsync()).Id);
+        Assert.Equal(20m, (await data.CreditNoteRedemptions.SingleAsync()).Amount);
+        await AssertUntouchedAsync(s);
     }
 
 }

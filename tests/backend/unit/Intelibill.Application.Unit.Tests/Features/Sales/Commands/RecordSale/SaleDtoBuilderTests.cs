@@ -11,7 +11,26 @@ public class SaleDtoBuilderTests
 {
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
 
-    private SaleDtoBuilder CreateBuilder() => new(_itemRepository);
+    private SaleDtoBuilder CreateBuilder() => new(_itemRepository, Substitute.For<ISaleCancellationRepository>());
+
+    [Fact]
+    public async Task BuildSaleDtoAsync_CancelledReplayPreservesOriginalAmountsAndHasNoReturnCapacity()
+    {
+        var shop = Guid.NewGuid();
+        var item = MakeItem(shop);
+        var sale = MakeSale(shop, Guid.NewGuid(), item.Id);
+        Assert.False(sale.MarkCancelled().IsError);
+        _itemRepository.GetByIdsAsync(shop, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Item>>([item]));
+
+        var dto = await CreateBuilder().BuildSaleDtoAsync(sale, [], CancellationToken.None);
+
+        Assert.Equal(SaleStatus.Cancelled, dto.Status);
+        Assert.Equal(590m, dto.TotalAmount);
+        Assert.Equal(590m, dto.PaidAmount);
+        Assert.Equal(0m, Assert.Single(dto.Items).ReturnableQuantity);
+        Assert.Equal(5m, Assert.Single(dto.Items).Quantity);
+    }
 
     private static Item MakeItem(Guid shopId, string name = "Rice") =>
         Item.Create(shopId, name, "desc", "kg", $"BC-{Guid.NewGuid():N}", true, Guid.NewGuid());

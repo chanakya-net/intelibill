@@ -14,7 +14,8 @@ public sealed class GetSaleDetailQueryHandler(
     ISaleRepository saleRepository,
     ISaleReturnRepository saleReturnRepository,
     IItemRepository itemRepository,
-    ICreditNoteRepository creditNoteRepository)
+    ICreditNoteRepository creditNoteRepository,
+    ISaleCancellationRepository cancellationRepository)
 {
     private const string NotReturned = "NotReturned";
     private const string PartiallyReturned = "PartiallyReturned";
@@ -66,6 +67,10 @@ public sealed class GetSaleDetailQueryHandler(
             .SelectMany(r => r.Items)
             .GroupBy(i => i.SaleItemId)
             .ToDictionary(g => g.Key, g => g.Sum(i => i.Quantity));
+
+        var cancellation = sale.Status == SaleStatus.Cancelled
+            ? await cancellationRepository.GetBySaleAsync(query.ShopId, sale.Id, cancellationToken)
+            : null;
 
         return new SaleDto(
             sale.Id,
@@ -121,6 +126,9 @@ public sealed class GetSaleDetailQueryHandler(
                 }).ToList(),
             [])
         {
+            Status = sale.Status,
+            Version = sale.Version,
+            Cancellation = cancellation is null ? null : SaleCancellationDto.From(cancellation),
             Document = sale.InvoiceDocument,
             CreditNoteRedemptions = creditNoteRedemptions
                 .Select(redemption => new SaleCreditNoteRedemptionSummaryDto(
@@ -157,7 +165,7 @@ public sealed class GetSaleDetailQueryHandler(
 
         decimal GetReturnableQuantity(SaleItem saleItem)
         {
-            return Math.Max(0m, saleItem.Quantity - GetReturnedQuantity(saleItem.Id));
+            return sale.Status == SaleStatus.Cancelled ? 0m : Math.Max(0m, saleItem.Quantity - GetReturnedQuantity(saleItem.Id));
         }
 
         string GetReturnStatus(SaleItem saleItem)

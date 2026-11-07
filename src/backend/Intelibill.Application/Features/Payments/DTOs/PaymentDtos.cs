@@ -17,7 +17,8 @@ public sealed record CustomerInvoiceBalanceDto(
     decimal AllocatedPaymentAmount,
     decimal ReturnCreditAmount,
     decimal OutstandingAmount,
-    DateOnly? DueDate);
+    DateOnly? DueDate,
+    decimal CancellationCreditAmount = 0m);
 
 /// <summary>A supplier purchase receipt's payable and how much of it payments have settled.</summary>
 public sealed record SupplierReceiptBalanceDto(

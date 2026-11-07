@@ -6,7 +6,7 @@ using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
-public sealed class SaleDtoBuilder(IItemRepository itemRepository)
+public sealed class SaleDtoBuilder(IItemRepository itemRepository, ISaleCancellationRepository cancellationRepository)
 {
     public async Task<SaleDto> BuildSaleDtoAsync(
         Sale sale,
@@ -30,7 +30,13 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
         var items = await itemRepository.GetByIdsAsync(sale.ShopId, itemIds, cancellationToken);
         var itemById = items.ToDictionary(i => i.Id);
 
-        return BuildSaleDto(sale, itemById, warnings, creditNoteRedemptions);
+        var cancellation = sale.Status == SaleStatus.Cancelled
+            ? await cancellationRepository.GetBySaleAsync(sale.ShopId, sale.Id, cancellationToken)
+            : null;
+        return BuildSaleDto(sale, itemById, warnings, creditNoteRedemptions) with
+        {
+            Cancellation = cancellation is null ? null : SaleCancellationDto.From(cancellation),
+        };
     }
 
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
@@ -83,7 +89,8 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
                 si.SalesPrice,
                 si.TaxRatePercent,
                 si.IsPriceIncludingTax,
-                si.HasPriceMismatch)
+                si.HasPriceMismatch,
+                returnableQuantity: sale.Status == SaleStatus.Cancelled ? 0m : si.Quantity)
             {
                 OriginalSalesPrice = si.OriginalSalesPrice,
                 FinalSalesPrice = si.FinalSalesPrice,
@@ -103,6 +110,8 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository)
             warnings)
         {
             CreditNoteRedemptions = creditNoteRedemptions,
+            Status = sale.Status,
+            Version = sale.Version,
             Document = sale.InvoiceDocument,
         };
 

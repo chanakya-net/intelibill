@@ -132,7 +132,12 @@ public sealed class GetDashboardQueryHandler(
                 s.InvoiceNumber,
                 s.CustomerDisplayName,
                 s.SoldAt,
-                s.TotalAmount)).ToList(),
+                s.TotalAmount)
+            {
+                Status = s.Status,
+                CancellationReference = s.CancellationReference,
+                CancelledAt = s.CancelledAt,
+            }).ToList(),
             StockValue: stockValue,
             Economics: profitLossReport.Summary.Economics,
             GrossTradingProfitChangePercent: CalculatePercentChange(

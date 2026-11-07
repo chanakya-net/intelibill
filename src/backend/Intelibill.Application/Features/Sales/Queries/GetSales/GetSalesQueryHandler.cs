@@ -75,7 +75,11 @@ public sealed class GetSalesQueryHandler(
             s.Status,
             s.RefundAmount,
             s.DueReductionAmount,
-            s.CreditNoteAppliedAmount)).ToList();
+            s.CreditNoteAppliedAmount)
+        {
+            CancellationReference = s.CancellationReference,
+            CancelledAt = s.CancelledAt,
+        }).ToList();
 
         return new SalesHistoryResultDto(
             Items: items,

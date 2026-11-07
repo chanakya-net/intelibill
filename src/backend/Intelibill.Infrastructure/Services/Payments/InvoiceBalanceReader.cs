@@ -1,6 +1,7 @@
 using Intelibill.Application.Features.Payments.DTOs;
 using Intelibill.Application.Features.Payments.Services;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.Entities;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,7 +24,7 @@ internal sealed class InvoiceBalanceReader(ApplicationDbContext context) : IInvo
         var sales = await salesQuery
             .OrderBy(s => s.SoldAt)
             .ThenBy(s => s.InvoiceNumber)
-            .Select(s => new { s.Id, s.InvoiceNumber, s.SoldAt, s.DueAmount, s.DueDate })
+            .Select(s => new { s.Id, s.InvoiceNumber, s.SoldAt, s.DueAmount, s.DueDate, s.Status })
             .ToListAsync(cancellationToken);
         if (sales.Count == 0)
             return [];
@@ -35,6 +36,10 @@ internal sealed class InvoiceBalanceReader(ApplicationDbContext context) : IInvo
             .GroupBy(r => r.SaleId)
             .Select(g => new { SaleId = g.Key, Amount = g.Sum(r => r.DueReductionAmount) })
             .ToDictionaryAsync(r => r.SaleId, r => r.Amount, cancellationToken);
+        var cancelled = await context.Set<SaleCancellation>()
+            .AsNoTracking()
+            .Where(c => c.ShopId == shopId && ids.Contains(c.SaleId))
+            .ToDictionaryAsync(c => c.SaleId, c => c.DueReductionAmount, cancellationToken);
         var allocated = await ActiveAllocatedAsync(shopId, PaymentAllocationTargetType.CustomerInvoice, ids, cancellationToken);
 
         return sales
@@ -42,6 +47,7 @@ internal sealed class InvoiceBalanceReader(ApplicationDbContext context) : IInvo
             {
                 var returnCredit = returned.GetValueOrDefault(s.Id);
                 var paid = allocated.GetValueOrDefault(s.Id);
+                var cancellationCredit = cancelled.GetValueOrDefault(s.Id);
                 return new CustomerInvoiceBalanceDto(
                     s.Id,
                     s.InvoiceNumber,
@@ -49,8 +55,9 @@ internal sealed class InvoiceBalanceReader(ApplicationDbContext context) : IInvo
                     s.DueAmount,
                     paid,
                     returnCredit,
-                    Math.Max(0m, s.DueAmount - returnCredit - paid),
-                    s.DueDate);
+                    s.Status == SaleStatus.Cancelled ? 0m : Math.Max(0m, s.DueAmount - returnCredit - cancellationCredit - paid),
+                    s.DueDate,
+                    cancellationCredit);
             })
             .ToList();
     }

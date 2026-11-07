@@ -72,7 +72,11 @@ public sealed record SaleHistoryReadModel(
     string Status,
     decimal RefundAmount,
     decimal DueReductionAmount,
-    decimal CreditNoteAppliedAmount);
+    decimal CreditNoteAppliedAmount)
+{
+    public string? CancellationReference { get; init; }
+    public DateTimeOffset? CancelledAt { get; init; }
+}
 
 public sealed record SalesHistorySummaryReadModel(
     decimal PeriodSales,
@@ -84,7 +88,12 @@ public sealed record DashboardLatestSaleReadModel(
     string InvoiceNumber,
     string CustomerDisplayName,
     DateTimeOffset SoldAt,
-    decimal TotalAmount);
+    decimal TotalAmount)
+{
+    public SaleStatus Status { get; init; }
+    public string? CancellationReference { get; init; }
+    public DateTimeOffset? CancelledAt { get; init; }
+}
 
 public sealed record SalesTrendBucketReadModel(
     DateOnly Date,

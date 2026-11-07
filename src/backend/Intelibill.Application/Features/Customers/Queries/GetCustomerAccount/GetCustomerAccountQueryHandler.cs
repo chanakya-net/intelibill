@@ -119,6 +119,8 @@ public sealed class GetCustomerAccountQueryHandler(
                 balance?.ReturnCreditAmount ?? 0m,
                 currentOutstanding)
             {
+                CancellationCreditAmount = balance?.CancellationCreditAmount ?? 0m,
+                Status = s.Status,
                 DueDate = s.DueDate,
                 IsOverdue = IsOverdue(currentOutstanding, s.DueDate, asOf),
             };
