@@ -59,39 +59,45 @@ export class SaleCancellationDraftService {
     prepare: boolean,
   ): Promise<SaleCancellationDraftRecord> {
     const snapshot = structuredClone(draft);
-    const record = await this.transact(scope, targetId, 'readwrite', (current) => {
-      if (prepare && current?.pending)
+    const record = await this.transact(
+      scope,
+      targetId,
+      'readwrite',
+      (current) => {
+        if (prepare && current?.pending)
+          return {
+            ...current,
+            revision: current.revision + 1,
+            pending: { ...current.pending, status: 'unknown' },
+            updatedAt: new Date().toISOString(),
+          };
+        if (
+          current?.pending ||
+          current?.confirmedOperationKey ||
+          (current?.revision ?? 0) !== revision
+        )
+          throw new SaleCancellationDraftConflictError();
+        const operationKey = prepare ? crypto.randomUUID() : null;
         return {
-          ...current,
-          revision: current.revision + 1,
-          pending: { ...current.pending, status: 'unknown' },
+          schemaVersion: 1,
+          userId: scope.userId,
+          shopId: scope.shopId,
+          targetId: targetId,
+          revision: revision + 1,
+          draft: snapshot,
+          pending: operationKey
+            ? {
+                operationKey,
+                status: 'sending',
+                payload: this.payload(snapshot, operationKey),
+              }
+            : null,
+          confirmedOperationKey: null,
           updatedAt: new Date().toISOString(),
         };
-      if (
-        current?.pending ||
-        current?.confirmedOperationKey ||
-        (current?.revision ?? 0) !== revision
-      )
-        throw new SaleCancellationDraftConflictError();
-      const operationKey = prepare ? crypto.randomUUID() : null;
-      return {
-        schemaVersion: 1,
-        userId: scope.userId,
-        shopId: scope.shopId,
-        targetId: targetId,
-        revision: revision + 1,
-        draft: snapshot,
-        pending: operationKey
-          ? {
-              operationKey,
-              status: 'sending',
-              payload: this.payload(snapshot, operationKey),
-            }
-          : null,
-        confirmedOperationKey: null,
-        updatedAt: new Date().toISOString(),
-      };
-    });
+      },
+      true,
+    );
     return record!;
   }
   /** A reopened retry must establish its uncertainty durably before it may send. The identity
@@ -231,6 +237,7 @@ export class SaleCancellationDraftService {
       current: SaleCancellationDraftRecord | null,
       proofs: IDBObjectStore,
     ) => SaleCancellationDraftRecord | null,
+    preventCompletedTarget = false,
   ): Promise<SaleCancellationDraftRecord | null> {
     if (!scope.userId || !scope.shopId || !targetId)
       throw new Error('SaleCancellation owner is incomplete.');
@@ -247,29 +254,42 @@ export class SaleCancellationDraftService {
           reject(failure ?? tx.error ?? new Error('SaleCancellation storage transaction failed.'));
         const request = store.get(key);
         request.onsuccess = () => {
-          try {
-            const current = (request.result as SaleCancellationDraftRecord | undefined) ?? null;
-            result = update(current, tx.objectStore(this.confirmations));
-            if (mode === 'readwrite') {
-              const operationKey =
-                result?.confirmedOperationKey ??
-                (result === null ? current?.confirmedOperationKey : null);
-              if (operationKey)
-                tx.objectStore(this.confirmations).put({
-                  userId: scope.userId,
-                  shopId: scope.shopId,
-                  targetId: targetId,
-                  operationKey,
-                });
+          const applyUpdate = () => {
+            try {
+              const current = (request.result as SaleCancellationDraftRecord | undefined) ?? null;
+              result = update(current, tx.objectStore(this.confirmations));
+              if (mode === 'readwrite') {
+                const operationKey =
+                  result?.confirmedOperationKey ??
+                  (result === null ? current?.confirmedOperationKey : null);
+                if (operationKey)
+                  tx.objectStore(this.confirmations).put({
+                    userId: scope.userId,
+                    shopId: scope.shopId,
+                    targetId: targetId,
+                    operationKey,
+                  });
+              }
+              if (mode === 'readwrite' && result !== current) {
+                if (result) store.put(result);
+                else store.delete(key);
+              }
+            } catch (error) {
+              failure = error;
+              tx.abort();
             }
-            if (mode === 'readwrite' && result !== current) {
-              if (result) store.put(result);
-              else store.delete(key);
-            }
-          } catch (error) {
-            failure = error;
-            tx.abort();
-          }
+          };
+          if (preventCompletedTarget) {
+            // Completion is terminal for this sale. Check durable proofs in the same
+            // transaction as the revision CAS, even after the editable row was cleaned.
+            const proof = tx.objectStore(this.confirmations).index('target').get(key);
+            proof.onsuccess = () => {
+              if (proof.result) {
+                failure = new SaleCancellationDraftConflictError();
+                tx.abort();
+              } else applyUpdate();
+            };
+          } else applyUpdate();
         };
       });
     } finally {
@@ -280,13 +300,16 @@ export class SaleCancellationDraftService {
     if (typeof indexedDB === 'undefined')
       return Promise.reject(new Error('IndexedDB is unavailable.'));
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open('intelibill-sale-cancellations', 2);
+      const request = indexedDB.open('intelibill-sale-cancellations', 3);
       let blocked = false;
       request.onupgradeneeded = () => {
-        if (!request.result.objectStoreNames.contains(this.confirmations))
-          request.result.createObjectStore(this.confirmations, {
-            keyPath: ['userId', 'shopId', 'targetId', 'operationKey'],
-          });
+        const proofs = request.result.objectStoreNames.contains(this.confirmations)
+          ? request.transaction!.objectStore(this.confirmations)
+          : request.result.createObjectStore(this.confirmations, {
+              keyPath: ['userId', 'shopId', 'targetId', 'operationKey'],
+            });
+        if (!proofs.indexNames.contains('target'))
+          proofs.createIndex('target', ['userId', 'shopId', 'targetId']);
         if (!request.result.objectStoreNames.contains(this.store))
           request.result.createObjectStore(this.store, {
             keyPath: ['userId', 'shopId', 'targetId'],

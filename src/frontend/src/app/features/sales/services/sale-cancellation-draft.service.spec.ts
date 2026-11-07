@@ -17,7 +17,10 @@ describe('SaleCancellationDraftService', () => {
     vi.stubGlobal('indexedDB', new IDBFactory());
     service = new SaleCancellationDraftService();
   });
-  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
   it('freezes exact request before reload and keeps it after uncertain lookup404', async () => {
     const a = await service.prepare(owner, 'sale-r', draft, 0);
     const key = a.pending!.operationKey;
@@ -130,5 +133,47 @@ describe('SaleCancellationDraftService', () => {
     });
     await expect(service.prepare(owner, 'sale-r', draft, 0)).rejects.toThrow('blocked');
   });
- it('aborts an intent when durable storage runs out of quota',async()=>{const write=vi.spyOn(IDBObjectStore.prototype,'put').mockImplementation(()=>{throw new DOMException('Quota exceeded','QuotaExceededError');});await expect(service.prepare(owner,'sale-r',draft,0)).rejects.toThrow('Quota exceeded');write.mockRestore();expect(await service.load(owner,'sale-r')).toBeNull();});
+  it('aborts an intent when durable storage runs out of quota', async () => {
+    const write = vi.spyOn(IDBObjectStore.prototype, 'put').mockImplementation(() => {
+      throw new DOMException('Quota exceeded', 'QuotaExceededError');
+    });
+    await expect(service.prepare(owner, 'sale-r', draft, 0)).rejects.toThrow('Quota exceeded');
+    write.mockRestore();
+    expect(await service.load(owner, 'sale-r')).toBeNull();
+  });
+  it.each(['save', 'prepare'] as const)(
+    'blocks a revision-zero editor %s after another tab confirms and cleans the target',
+    async (method) => {
+      const untouchedEditor = new SaleCancellationDraftService();
+      expect(await untouchedEditor.load(owner, 'sale-r')).toBeNull();
+      const otherTab = new SaleCancellationDraftService();
+      const prepared = await otherTab.prepare(owner, 'sale-r', draft, 0);
+      const key = prepared.pending!.operationKey;
+      await otherTab.settle(owner, 'sale-r', key, 'confirmed');
+      await otherTab.clearConfirmed(owner, 'sale-r', key);
+      expect(await untouchedEditor.load(owner, 'sale-r')).toBeNull();
+      await expect(untouchedEditor[method](owner, 'sale-r', draft, 0)).rejects.toThrow();
+      expect(await untouchedEditor.isConfirmed(owner, 'sale-r', key)).toBe(true);
+      expect(await untouchedEditor.load(owner, 'sale-r')).toBeNull();
+    },
+  );
+  it('keeps version-two confirmation proofs as a target barrier after upgrading storage', async () => {
+    await new Promise<void>((resolve, reject) => {
+      const opening = indexedDB.open('intelibill-sale-cancellations', 2);
+      opening.onupgradeneeded = () => {
+        opening.result.createObjectStore('drafts', { keyPath: ['userId', 'shopId', 'targetId'] });
+        const proofs = opening.result.createObjectStore('confirmations', {
+          keyPath: ['userId', 'shopId', 'targetId', 'operationKey'],
+        });
+        proofs.put({ ...owner, targetId: 'sale-r', operationKey: 'old-confirmed-key' });
+      };
+      opening.onerror = () => reject(opening.error);
+      opening.onsuccess = () => {
+        opening.result.close();
+        resolve();
+      };
+    });
+    await expect(service.prepare(owner, 'sale-r', draft, 0)).rejects.toThrow();
+    expect(await service.isConfirmed(owner, 'sale-r', 'old-confirmed-key')).toBe(true);
+  });
 });

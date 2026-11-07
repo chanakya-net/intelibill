@@ -329,7 +329,7 @@ describe('CustomersPageComponent', () => {
         sales: [{ ...account.sales[0], totalAmount: 20000 }],
       }),
     );
-    component.onOpenCustomerAccount(customersSignal()[0]);
+    component.onOpenCustomerAccount({...customersSignal()[0], lifetimeRevenue:20000});
 
     expect(component.selectedAccountLifetimeRevenue()).toBe(20000);
     expect(component.selectedAccountCreditLimit()).toBe(2000);
@@ -377,4 +377,13 @@ describe('CustomersPageComponent', () => {
     expect(component.selectedAccountIsActive()).toBe(false);
   });
  it('shows cancellation credit separately and never reopens the original issue due',()=>{customerService.getCustomerAccount.mockReturnValueOnce(of({...account,sales:[{...account.sales[0],status:'Cancelled',cancellationCreditAmount:100,currentOutstandingAmount:0}],ledgerEntries:[{entryId:'cancel-credit',saleId:'s-new',entryType:'SaleCancellationCredit',amount:100,entryDate:'2026-11-08',notes:'SC-frozen',runningBalance:0}]}));component.onOpenCustomerAccount(customersSignal()[0]);expect(component.selectedAccountOpenInvoices()).toEqual([]);const row=component.selectedAccountLedgerRows()[0];expect(row.labelKey).toBe('customers.account.saleCancellationCredit');expect(row.credit).toBe(100);expect(row.debit).toBeNull();});
+  it('renders zero net lifetime revenue after cancellation while retaining the original purchase', () => {
+    customerService.getCustomerAccount.mockReturnValueOnce(of({...account, sales:[{...account.sales[0], totalAmount:200, status:'Cancelled', cancellationCreditAmount:100, currentOutstandingAmount:0}]}));
+    component.onOpenCustomerAccount({...customersSignal()[0],lifetimeRevenue:0,purchaseCount:1});
+    fixture.detectChanges();
+    const metric = Array.from(fixture.nativeElement.querySelectorAll('.statement-metric') as NodeListOf<HTMLElement>).find(element=>element.textContent?.includes('customers.account.lifetimeRevenue'))!;
+    expect(metric.querySelector('strong')?.textContent?.trim()).toBe('₹0.00');
+    expect(metric.querySelector('small')?.textContent).toContain('1');
+    expect(component.selectedAccount()?.sales[0].totalAmount).toBe(200);
+  });
 });

@@ -270,7 +270,7 @@ export class CustomersPageComponent {
   });
   readonly selectedAccountPurchaseCount = computed(() => this.selectedAccount()?.sales.length ?? 0);
   readonly selectedAccountLifetimeRevenue = computed(() =>
-    this.sumBy(this.selectedAccount()?.sales ?? [], (sale) => sale.totalAmount),
+    this.selectedAccountCustomer()?.lifetimeRevenue ?? 0,
   );
   /** The saved credit limit, exactly as configured; never derived from revenue or balance. */
   readonly selectedAccountCreditLimit = computed(
