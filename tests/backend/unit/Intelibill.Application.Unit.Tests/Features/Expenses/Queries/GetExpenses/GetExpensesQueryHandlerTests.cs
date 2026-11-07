@@ -1,5 +1,6 @@
 using Intelibill.Application.Features.Expenses.Queries.GetExpenses;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
 
@@ -11,6 +12,19 @@ public class GetExpensesQueryHandlerTests
 
     private GetExpensesQueryHandler CreateHandler() => new(_expenseRepository);
 
+    [Theory]
+    [InlineData(" active ", ExpenseStatusFilter.Active)]
+    [InlineData("VoIdEd", ExpenseStatusFilter.Voided)]
+    [InlineData(null, ExpenseStatusFilter.All)]
+    public async Task Handle_ForwardsNamedStatus(string? status, ExpenseStatusFilter expected)
+    {
+        var shopId = Guid.NewGuid();
+        _expenseRepository.GetPagedByShopAsync(shopId, "rent", expected, 2, 10, Arg.Any<CancellationToken>())
+            .Returns((Array.Empty<Expense>(), 0));
+        await CreateHandler().Handle(new GetExpensesQuery(Guid.NewGuid(), shopId, "rent", 2, 10, status), CancellationToken.None);
+        await _expenseRepository.Received(1).GetPagedByShopAsync(shopId, "rent", expected, 2, 10, Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public async Task Handle_ReturnsPaginatedList()
     {
@@ -19,7 +33,7 @@ public class GetExpensesQueryHandlerTests
         var expense = Expense.Create(shopId, category.Id, 500m, "Landlord", null, new DateOnly(2026, 4, 1), Guid.NewGuid());
         typeof(Expense).GetProperty("Category")!.SetValue(expense, category);
 
-        _expenseRepository.GetPagedByShopAsync(shopId, null, 1, 20, Arg.Any<CancellationToken>())
+        _expenseRepository.GetPagedByShopAsync(shopId, null, ExpenseStatusFilter.All, 1, 20, Arg.Any<CancellationToken>())
             .Returns(([expense], 1));
 
         var result = await CreateHandler().Handle(new GetExpensesQuery(Guid.NewGuid(), shopId, null, 1, 20), CancellationToken.None);

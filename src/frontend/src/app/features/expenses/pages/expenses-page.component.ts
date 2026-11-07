@@ -10,9 +10,14 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RecordExpenseOverlayComponent } from '../components/record-expense-overlay.component';
 import { CorrectExpenseOverlayComponent } from '../components/correct-expense-overlay.component';
-import { ExpensesFilterBarComponent, ExpenseStatusFilter } from '../components/expenses-filter-bar.component';
+import { ExpensesFilterBarComponent } from '../components/expenses-filter-bar.component';
 import { ExpensesTableComponent } from '../components/expenses-table.component';
-import { ExpenseDto, ExpenseListItemDto } from '../services/expense.service';
+import {
+  DEFAULT_EXPENSE_QUERY,
+  ExpenseDto,
+  ExpenseListItemDto,
+  ExpenseStatusFilter,
+} from '../services/expense.service';
 import { ExpensesFacade } from '../state/expenses.facade';
 
 interface ExpenseSummaryCard {
@@ -57,14 +62,20 @@ export class ExpensesPageComponent {
   readonly expenses = toSignal(this.expenses$, { initialValue: [] as ExpenseListItemDto[] });
   readonly loading = toSignal(this.loading$, { initialValue: false });
   readonly error = toSignal(this.error$, { initialValue: '' });
-  readonly pagination = toSignal(this.pagination$, { initialValue: { totalCount: 0, currentPage: 1, pageSize: 20 } });
-  readonly selectedExpense = toSignal(this.expensesFacade.selectedExpense$, { initialValue: null as ExpenseDto | null });
+  readonly pagination = toSignal(this.pagination$, {
+    initialValue: { totalCount: 0, currentPage: 1, pageSize: 20 },
+  });
+  readonly selectedExpense = toSignal(this.expensesFacade.selectedExpense$, {
+    initialValue: null as ExpenseDto | null,
+  });
 
   readonly showRecordOverlay = signal(false);
   readonly showCorrectOverlay = signal(false);
   readonly selectedExpenseId = signal<string | null>(null);
-  readonly searchValue = signal('');
-  readonly statusFilter = signal<ExpenseStatusFilter>('all');
+  readonly query = toSignal(this.expensesFacade.query$, { initialValue: DEFAULT_EXPENSE_QUERY });
+  readonly listError = toSignal(this.expensesFacade.listError$, { initialValue: '' });
+  readonly searchValue = computed(() => this.query().search ?? '');
+  readonly statusFilter = computed(() => this.query().status);
 
   readonly session = this.authService.session;
   readonly activeShopRole = computed(() => {
@@ -73,30 +84,37 @@ export class ExpensesPageComponent {
       return '';
     }
 
-    const activeShop = session.shops.find((shop) => shop.shopId === session.activeShopId) ?? session.shops.find((shop) => shop.isDefault);
+    const activeShop =
+      session.shops.find((shop) => shop.shopId === session.activeShopId) ??
+      session.shops.find((shop) => shop.isDefault);
     return activeShop?.role ?? '';
   });
-  readonly canManageExpenses = computed(() => ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()));
-  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.pagination().totalCount / this.pagination().pageSize)));
+  readonly canManageExpenses = computed(() =>
+    ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()),
+  );
+  readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.pagination().totalCount / this.pagination().pageSize)),
+  );
 
-  readonly filteredExpenses = computed(() => {
-    const statusFilter = this.statusFilter();
-
-    if (statusFilter === 'all') {
-      return [...this.expenses()];
-    }
-
-    return this.expenses().filter((expense) => expense.isVoided === (statusFilter === 'voided'));
-  });
+  readonly filteredExpenses = this.expenses;
 
   readonly totalExpenses = computed(() => this.pagination().totalCount);
   readonly pageAmount = computed(() =>
-    this.sumBy(this.expenses().filter((expense) => !expense.isVoided), (expense) => expense.amount),
+    this.sumBy(
+      this.expenses().filter((expense) => !expense.isVoided),
+      (expense) => expense.amount,
+    ),
   );
-  readonly activeCount = computed(() => this.expenses().filter((expense) => !expense.isVoided).length);
-  readonly voidedCount = computed(() => this.expenses().filter((expense) => expense.isVoided).length);
+  readonly activeCount = computed(
+    () => this.expenses().filter((expense) => !expense.isVoided).length,
+  );
+  readonly voidedCount = computed(
+    () => this.expenses().filter((expense) => expense.isVoided).length,
+  );
   readonly filteredRowCount = computed(() => this.filteredExpenses().length);
-  readonly showPagination = computed(() => this.pagination().totalCount > this.pagination().pageSize);
+  readonly showPagination = computed(
+    () => this.pagination().totalCount > this.pagination().pageSize,
+  );
 
   readonly summaryCards = computed<ExpenseSummaryCard[]>(() => [
     {
@@ -148,16 +166,15 @@ export class ExpensesPageComponent {
   }
 
   onSearchValueChange(value: string): void {
-    this.searchValue.set(value);
-    this.expensesFacade.loadExpenses(value || undefined, 1);
+    this.expensesFacade.loadExpenses({ ...this.query(), search: value || undefined, page: 1 });
   }
 
   onStatusFilterChange(statusFilter: ExpenseStatusFilter): void {
-    this.statusFilter.set(statusFilter);
+    this.expensesFacade.loadExpenses({ ...this.query(), status: statusFilter, page: 1 });
   }
 
   onPageChange(page: number): void {
-    this.expensesFacade.loadExpenses(this.searchValue() || undefined, page);
+    this.expensesFacade.loadExpenses({ ...this.query(), page });
   }
 
   openRecordOverlay(): void {

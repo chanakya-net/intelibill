@@ -2226,6 +2226,8 @@
     }
   },
   "expenses": {
+    "previousPage": "আগের পেজ",
+    "nextPage": "পরের পেজ",
     "expenseLedger": "ব্যয় খাতা",
     "title": "ব্যয়",
     "subtitle": "ব্যবসায়িক ব্যয় পরিচালনা ও ট্র্যাক করুন",
@@ -2248,11 +2250,11 @@
     "searchPlaceholder": "ব্যয় খুঁজুন...",
     "pageInfo": "পৃষ্ঠা {{currentPage}} / {{totalPages}}",
     "summary": {
-      "totalExpenses": "মোট ব্যয়",
-      "pageAmount": "পৃষ্ঠার পরিমাণ",
-      "activeCount": "সক্রিয় ব্যয়",
-      "voidedCount": "বাতিল ব্যয়",
-      "filteredRows": "ফিল্টার করা সারি",
+      "totalExpenses": "মিলে যাওয়া খরচ",
+      "pageAmount": "সক্রিয় পরিমাণ (এই পৃষ্ঠায়)",
+      "activeCount": "সক্রিয় খরচ (এই পৃষ্ঠায়)",
+      "voidedCount": "বাতিল খরচ (এই পৃষ্ঠায়)",
+      "filteredRows": "এই পৃষ্ঠার খরচ",
       "ariaLabel": "ব্যয়ের সারাংশ"
     },
     "ledgerMetrics": "খরচ লেজার মেট্রিক্স",

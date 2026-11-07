@@ -2226,6 +2226,8 @@
     }
   },
   "expenses": {
+    "previousPage": "మునుపటి పేజీ",
+    "nextPage": "తదుపరి పేజీ",
     "expenseLedger": "ఖర్చు లెజర్",
     "title": "ఖర్చులు",
     "subtitle": "మీ వ్యాపార ఖర్చులను నిర్వహించి ట్రాక్ చేయండి",
@@ -2248,11 +2250,11 @@
     "searchPlaceholder": "ఖర్చులను వెతకండి...",
     "pageInfo": "పేజీ {{currentPage}} / {{totalPages}}",
     "summary": {
-      "totalExpenses": "మొత్తం ఖర్చులు",
-      "pageAmount": "పేజీ మొత్తం",
-      "activeCount": "సక్రియ ఖర్చులు",
-      "voidedCount": "రద్దు చేసిన ఖర్చులు",
-      "filteredRows": "ఫిల్టర్ చేసిన వరుసలు",
+      "totalExpenses": "సరిపోలే ఖర్చులు",
+      "pageAmount": "క్రియాశీల మొత్తం (ఈ పేజీలో)",
+      "activeCount": "క్రియాశీల ఖర్చులు (ఈ పేజీలో)",
+      "voidedCount": "రద్దు చేసిన ఖర్చులు (ఈ పేజీలో)",
+      "filteredRows": "ఈ పేజీలోని ఖర్చులు",
       "ariaLabel": "ఖర్చు సారాంశం"
     },
     "ledgerMetrics": "ఖర్చు లెడ్జర్ కొలమానాలు",

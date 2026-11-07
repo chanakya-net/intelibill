@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 
 namespace Intelibill.Domain.Interfaces.Repositories;
 
@@ -9,6 +10,7 @@ public interface IExpenseRepository
     Task<(IReadOnlyList<Expense> Items, int TotalCount)> GetPagedByShopAsync(
         Guid shopId,
         string? searchTerm,
+        ExpenseStatusFilter status,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken);

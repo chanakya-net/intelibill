@@ -5,4 +5,5 @@ public sealed record GetExpensesQuery(
     Guid ShopId,
     string? SearchTerm,
     int PageNumber = 1,
-    int PageSize = 20);
+    int PageSize = 20,
+    string? Status = null);

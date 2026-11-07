@@ -1,6 +1,11 @@
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
-import { ExpenseDto, ExpenseListItemDto, RecordExpenseRequest } from '../services/expense.service';
+import {
+  ExpenseDto,
+  ExpenseListItemDto,
+  ExpenseListQuery,
+  RecordExpenseRequest,
+} from '../services/expense.service';
 import { ExpenseCategoryDto } from '../services/expense-category.service';
 
 export type ExpenseMutationType = 'record-expense' | 'correct-expense';
@@ -8,9 +13,15 @@ export type ExpenseMutationType = 'record-expense' | 'correct-expense';
 export const ExpensesActions = createActionGroup({
   source: 'Expenses',
   events: {
-    'Load Expenses Requested': props<{ search?: string; page?: number; pageSize?: number }>(),
-    'Load Expenses Succeeded': props<{ expenses: readonly ExpenseListItemDto[]; totalCount: number; page: number; pageSize: number }>(),
-    'Load Expenses Failed': props<{ errorMessage: string }>(),
+    'Load Expenses Requested': props<{ query: ExpenseListQuery; requestId: string }>(),
+    'Load Expenses Succeeded': props<{
+      requestId: string;
+      expenses: readonly ExpenseListItemDto[];
+      totalCount: number;
+      page: number;
+      pageSize: number;
+    }>(),
+    'Load Expenses Failed': props<{ errorMessage: string; requestId: string }>(),
 
     'Load Expense Detail Requested': props<{ expenseId: string }>(),
     'Load Expense Detail Succeeded': props<{ expense: ExpenseDto }>(),

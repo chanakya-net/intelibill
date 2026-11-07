@@ -1,17 +1,24 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of } from 'rxjs';
+import { BehaviorSubject, of } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { ExpenseListItemDto } from '../services/expense.service';
 import { ExpensesFacade } from '../state/expenses.facade';
 import { ExpensesPageComponent } from './expenses-page.component';
 
 describe('ExpensesPageComponent', () => {
+  const query$ = new BehaviorSubject({ search: 'rent', status: 'active', page: 3, pageSize: 10 });
+  const rows$ = new BehaviorSubject<ExpenseListItemDto[]>([]);
+  const loading$ = new BehaviorSubject(false);
+  const listError$ = new BehaviorSubject('');
   const expensesFacade = {
-    expenses$: of([]),
-    loading$: of(false),
+    query$,
+    listError$,
+    expenses$: rows$,
+    loading$,
     error$: of(''),
     pagination$: of({ totalCount: 0, currentPage: 1, pageSize: 20 }),
     selectedExpense$: of(null),
@@ -37,11 +44,17 @@ describe('ExpensesPageComponent', () => {
         lastName: 'One',
       },
       activeShopId: 'shop-1',
-      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
+      shops: [
+        { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
+      ],
     }),
   };
 
   beforeEach(() => {
+    rows$.next([]);
+    loading$.next(false);
+    listError$.next('');
+    query$.next({ search: 'rent', status: 'active', page: 3, pageSize: 10 });
     expensesFacade.loadExpenses.mockReset();
     expensesFacade.loadExpenseDetail.mockReset();
     expensesFacade.clearError.mockReset();
@@ -110,7 +123,12 @@ describe('ExpensesPageComponent', () => {
 
     component.onSearchValueChange('rent');
 
-    expect(expensesFacade.loadExpenses).toHaveBeenCalledWith('rent', 1);
+    expect(expensesFacade.loadExpenses).toHaveBeenCalledWith({
+      search: 'rent',
+      status: 'active',
+      page: 1,
+      pageSize: 10,
+    });
     expect(component.searchValue()).toBe('rent');
   });
 
@@ -118,10 +136,47 @@ describe('ExpensesPageComponent', () => {
     const fixture = TestBed.createComponent(ExpensesPageComponent);
     const component = fixture.componentInstance;
 
-    component.searchValue.set('rent');
     component.onPageChange(2);
 
-    expect(expensesFacade.loadExpenses).toHaveBeenCalledWith('rent', 2);
+    expect(expensesFacade.loadExpenses).toHaveBeenCalledWith({
+      search: 'rent',
+      status: 'active',
+      page: 2,
+      pageSize: 10,
+    });
+  });
+
+  it('renders server rows directly and page summaries exclude voided amounts', () => {
+    rows$.next([
+      {
+        id: 'voided',
+        amount: 500,
+        categoryName: 'Rent',
+        paidTo: 'Vendor',
+        expenseDate: '2026-06-01',
+        isVoided: true,
+      },
+    ]);
+    const component = TestBed.createComponent(ExpensesPageComponent).componentInstance;
+    expect(component.statusFilter()).toBe('active');
+    expect(component.filteredExpenses()).toHaveLength(1);
+    expect(component.pageAmount()).toBe(0);
+    expect(component.activeCount()).toBe(0);
+    expect(component.voidedCount()).toBe(1);
+  });
+
+  it('keeps filters usable while loading and hides table on transport failure', () => {
+    const fixture = TestBed.createComponent(ExpensesPageComponent);
+    loading$.next(true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-expenses-filter-bar')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.summary-grid')).toBeNull();
+    loading$.next(false);
+    listError$.next('Unavailable');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-expenses-filter-bar')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('app-expenses-table')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.summary-grid')).toBeNull();
   });
 
   it('computes canManageExpenses for owner role', () => {
@@ -143,11 +198,16 @@ describe('ExpensesPageComponent', () => {
     expect(searchInput?.getAttribute('placeholder')).toContain('expenses.searchPlaceholder');
   });
 
-  it('filters expenses by status on the current page', () => {
+  it('status change requests page one preserving search and size', () => {
     const fixture = TestBed.createComponent(ExpensesPageComponent);
     const component = fixture.componentInstance;
 
     component.onStatusFilterChange('voided');
-    expect(component.statusFilter()).toBe('voided');
+    expect(expensesFacade.loadExpenses).toHaveBeenCalledWith({
+      search: 'rent',
+      status: 'voided',
+      page: 1,
+      pageSize: 10,
+    });
   });
 });

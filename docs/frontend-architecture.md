@@ -360,3 +360,22 @@ Discount ceilings use the same scaled bigint quantity/cost midpoint rounding as 
 including remaining sale-level capacity and percentage flooring; binary `toFixed` products cannot
 advertise an unsafe paise. The dashboard comparison falls back to a legacy growth value only when
 the new field is absent. An explicitly null version2 comparison stays unavailable.
+
+## Expense List Query and Refresh
+
+Expenses keep one canonical `{search,status,page,pageSize}` query in NgRx, defaulting
+to all/page 1/20. Search/status changes preserve other filters and page size, reset
+to page 1, and request server-filtered rows. Pagination uses the matching server
+count; rows retain server ordering. Each load has a fresh request ID, `switchMap`
+cancels superseded loads, and reducers ignore success/failure from another ID.
+The existing shop epoch/interceptor remains authoritative; scope reset clears the
+query/results/ID and `scopeChanged` also cancels pending list work, including page
+recovery. Filters remain usable while loading; old results and summaries are hidden.
+A list failure stays separate from a successful empty result and mutation feedback.
+
+Record/correction overlays refresh the current query after success. An out-of-range
+response is never installed: a fresh request selects `max(1, ceil(totalCount/pageSize))`
+with the same search/status/page size. Page 1 with no matches publishes normally.
+Matching expenses counts the dataset; active amount, active/voided counts, and rows
+explicitly describe this page in all nine locales. Active amount continues excluding
+voided loaded rows and does not redefine accounting profit.

@@ -2226,6 +2226,8 @@
     }
   },
   "expenses": {
+    "previousPage": "ಹಿಂದಿನ ಪುಟ",
+    "nextPage": "ಮುಂದಿನ ಪುಟ",
     "expenseLedger": "ಖರ್ಚು ಲೆಡ್ಜರ್",
     "title": "ಖರ್ಚುಗಳು",
     "subtitle": "ನಿಮ್ಮ ವ್ಯವಹಾರ ಖರ್ಚುಗಳನ್ನು ನಿರ್ವಹಿಸಿ ಮತ್ತು ಟ್ರ್ಯಾಕ್ ಮಾಡಿ",
@@ -2248,11 +2250,11 @@
     "searchPlaceholder": "ಖರ್ಚುಗಳನ್ನು ಹುಡುಕಿ...",
     "pageInfo": "ಪುಟ {{currentPage}} / {{totalPages}}",
     "summary": {
-      "totalExpenses": "ಒಟ್ಟು ಖರ್ಚುಗಳು",
-      "pageAmount": "ಪುಟದ ಮೊತ್ತ",
-      "activeCount": "ಸಕ್ರಿಯ ಖರ್ಚುಗಳು",
-      "voidedCount": "ರದ್ದುಗೊಂಡ ಖರ್ಚುಗಳು",
-      "filteredRows": "ಫಿಲ್ಟರ್ ಮಾಡಿದ ಸಾಲುಗಳು",
+      "totalExpenses": "ಹೊಂದಾಣಿಕೆಯ ವೆಚ್ಚಗಳು",
+      "pageAmount": "ಸಕ್ರಿಯ ಮೊತ್ತ (ಈ ಪುಟದಲ್ಲಿ)",
+      "activeCount": "ಸಕ್ರಿಯ ವೆಚ್ಚಗಳು (ಈ ಪುಟದಲ್ಲಿ)",
+      "voidedCount": "ರದ್ದಾದ ವೆಚ್ಚಗಳು (ಈ ಪುಟದಲ್ಲಿ)",
+      "filteredRows": "ಈ ಪುಟದಲ್ಲಿನ ವೆಚ್ಚಗಳು",
       "ariaLabel": "ವೆಚ್ಚದ ಸಾರಾಂಶ"
     },
     "ledgerMetrics": "ವೆಚ್ಚದ ಲೆಡ್ಜರ್ ಮೆಟ್ರಿಕ್ಸ್",

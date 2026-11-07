@@ -1,10 +1,17 @@
 import { inject, Injectable } from '@angular/core';
 import { Store } from '@ngrx/store';
+import { take } from 'rxjs';
 
-import { RecordExpenseRequest } from '../services/expense.service';
+import {
+  DEFAULT_EXPENSE_QUERY,
+  ExpenseListQuery,
+  RecordExpenseRequest,
+} from '../services/expense.service';
 import { ExpensesActions } from './expenses.actions';
 import {
   selectAllExpenses,
+  selectExpensesQuery,
+  selectExpensesListError,
   selectCategories,
   selectCategoriesLoading,
   selectExpenseDetailLoading,
@@ -20,6 +27,9 @@ import {
 export class ExpensesFacade {
   private readonly store = inject(Store);
 
+  readonly query$ = this.store.select(selectExpensesQuery);
+  readonly listError$ = this.store.select(selectExpensesListError);
+
   readonly expenses$ = this.store.select(selectAllExpenses);
   readonly loading$ = this.store.select(selectExpensesLoading);
   readonly error$ = this.store.select(selectExpensesError);
@@ -31,8 +41,17 @@ export class ExpensesFacade {
   readonly mutationStatus$ = this.store.select(selectLastMutationStatus);
   readonly pagination$ = this.store.select(selectPagination);
 
-  loadExpenses(search?: string, page?: number, pageSize?: number): void {
-    this.store.dispatch(ExpensesActions.loadExpensesRequested({ search, page, pageSize }));
+  loadExpenses(query: ExpenseListQuery = DEFAULT_EXPENSE_QUERY): void {
+    this.store.dispatch(
+      ExpensesActions.loadExpensesRequested({
+        query: { ...query },
+        requestId: crypto.randomUUID(),
+      }),
+    );
+  }
+
+  refreshExpenses(): void {
+    this.query$.pipe(take(1)).subscribe((query) => this.loadExpenses(query));
   }
 
   loadExpenseDetail(expenseId: string): void {

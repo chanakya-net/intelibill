@@ -2226,6 +2226,8 @@
     }
   },
   "expenses": {
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
     "expenseLedger": "Expense Ledger",
     "title": "Expenses",
     "subtitle": "Manage and track your business expenses",
@@ -2248,11 +2250,11 @@
     "searchPlaceholder": "Search expenses...",
     "pageInfo": "Page {{currentPage}} of {{totalPages}}",
     "summary": {
-      "totalExpenses": "Total Expenses",
-      "pageAmount": "Page Amount",
-      "activeCount": "Active Expenses",
-      "voidedCount": "Voided Expenses",
-      "filteredRows": "Filtered Rows",
+      "totalExpenses": "Matching expenses",
+      "pageAmount": "Active amount (this page)",
+      "activeCount": "Active expenses (this page)",
+      "voidedCount": "Voided expenses (this page)",
+      "filteredRows": "Expenses on this page",
       "ariaLabel": "Expense summary"
     },
     "ledgerMetrics": "Expense ledger metrics",

@@ -13,6 +13,7 @@ public sealed class GetExpensesQueryHandler(IExpenseRepository expenseRepository
         var (items, totalCount) = await expenseRepository.GetPagedByShopAsync(
             query.ShopId,
             query.SearchTerm,
+            GetExpensesQueryValidator.ParseStatus(query.Status),
             query.PageNumber,
             query.PageSize,
             cancellationToken);

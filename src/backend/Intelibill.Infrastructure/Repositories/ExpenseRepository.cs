@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +28,7 @@ public sealed class ExpenseRepository(ApplicationDbContext context) : IExpenseRe
     public async Task<(IReadOnlyList<Expense> Items, int TotalCount)> GetPagedByShopAsync(
         Guid shopId,
         string? searchTerm,
+        ExpenseStatusFilter status,
         int pageNumber,
         int pageSize,
         CancellationToken cancellationToken)
@@ -45,11 +47,17 @@ public sealed class ExpenseRepository(ApplicationDbContext context) : IExpenseRe
                 EF.Functions.ILike(e.Category.Name, $"%{term}%"));
         }
 
+        if (status != ExpenseStatusFilter.All)
+        {
+            query = query.Where(e => e.IsVoided == (status == ExpenseStatusFilter.Voided));
+        }
+
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
             .OrderByDescending(e => e.ExpenseDate)
             .ThenByDescending(e => e.CreatedAt)
+            .ThenByDescending(e => e.Id)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(cancellationToken);

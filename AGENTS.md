@@ -8,7 +8,7 @@
 - Test full: `dotnet test src/backend/Intelibill.slnx`
 - Test unit: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests`, `Application.Unit.Tests`, `Api.Unit.Tests`
 - Test integration: `dotnet test tests/backend/integration/Intelibill.Integration.Tests` (requires Docker)
-- Snapshot: 389 + 1699 + 578 + 681 = 3347 tests (2666 non-integration), all passing as of 7 November 2026
+- Snapshot: 389 + 1715 + 578 + 692 = 3374 tests (2682 non-integration), all passing as of 7 November 2026
 
 **Migrations** (EF Core) — API startup does **not** apply them; run `database update` yourself after pulling schema changes (deployed environments use the migration job):
 ```bash
@@ -112,7 +112,7 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 - Suppliers: CRUD + `ledger`, `payments` (optional `operationKey`, `method`, `externalReference`, `bankAccountId`, `allocations` to purchase receipts)
 - Payments (`api/payments`): `GET {receiptId}`, `GET balances?partyType=&partyId=` (owner/manager), `POST {receiptId}/allocations` (owner/manager, optional `operationKey`), `POST {receiptId}/reversal` (owner; reason + required `operationKey`; whole receipt once → 409 `Payment.AlreadyReversed`)
 - Financial operations: `GET financial-operations/{customer-payment|supplier-payment}/{key}` (owner/manager; committed outcome or 404)
-- Expenses: `GET`, `POST`, `{id}`, `{id}/correct`, `categories` (optional `treatment`: Unclassified default, Operating, CapitalOrOtherExcluded; supplier settlements are provenance-only and immutable through correction)
+- Expenses: `GET` (`search`, case-insensitive `status=all|active|voided`, page≥1, pageSize1–100; omitted status=all), `POST`, `{id}`, `{id}/correct`, `categories` (optional `treatment`: Unclassified default, Operating, CapitalOrOtherExcluded; supplier settlements are provenance-only and immutable through correction)
 - Bank Accounts: CRUD
 - Users: `GET` (shop), `PUT me` (returns the saved profile, no token), `me/change-password` (ends every device, including the caller's); `POST` (add) and `PUT {userId}` are refused — onboarding goes through shop invitations and shop administration through the membership endpoint
 - Invitations: `POST invitations/{invitationId}/accept` (the invited person's own session)

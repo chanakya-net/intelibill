@@ -2,7 +2,7 @@ import { Component, EventEmitter, OnInit, Output, computed, inject, signal } fro
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
-import { filter } from 'rxjs/operators';
+import { filter, take } from 'rxjs/operators';
 
 import { ButtonModule } from 'primeng/button';
 import { DatePickerModule } from 'primeng/datepicker';
@@ -52,7 +52,8 @@ export class RecordExpenseOverlayComponent implements OnInit {
   readonly treatmentChoices = EXPENSE_TREATMENT_CHOICES;
   selectTreatment(event: Event): void {
     const choice = (event.target as HTMLSelectElement).value;
-    if (this.treatmentChoices.some(t => t === choice)) this.treatment.set(choice as ExpenseTreatment);
+    if (this.treatmentChoices.some((t) => t === choice))
+      this.treatment.set(choice as ExpenseTreatment);
   }
 
   readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
@@ -89,11 +90,12 @@ export class RecordExpenseOverlayComponent implements OnInit {
       .pipe(
         takeUntilDestroyed(),
         filter((status) => status.type === 'record-expense' && status.succeeded === true),
+        take(1),
       )
       .subscribe(() => {
-        this.expensesFacade.loadExpenses();
-        this.closeRequested.emit();
         this.expensesFacade.clearMutationStatus();
+        this.expensesFacade.refreshExpenses();
+        this.closeRequested.emit();
       });
   }
 

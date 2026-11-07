@@ -10,6 +10,9 @@ import { ShopContextService } from './shop-context.service';
 import { CustomersActions } from '../../features/customers/state/customers.actions';
 import { customersFeature } from '../../features/customers/state/customers.reducer';
 import { selectAllCustomers } from '../../features/customers/state/customers.selectors';
+import { ExpensesActions } from '../../features/expenses/state/expenses.actions';
+import { expensesFeature } from '../../features/expenses/state/expenses.reducer';
+import { selectExpensesState } from '../../features/expenses/state/expenses.selectors';
 import { ShopsActions } from '../../features/shops/state/shops.actions';
 import { shopsFeature } from '../../features/shops/state/shops.reducer';
 import { selectShops } from '../../features/shops/state/shops.selectors';
@@ -21,6 +24,7 @@ describe('scope transitions against the real store', () => {
         provideStore(rootReducers, { metaReducers }),
         provideState(customersFeature),
         provideState(shopsFeature),
+        provideState(expensesFeature),
         { provide: AppReloadService, useValue: { restartAtAppRoot: vi.fn() } },
       ],
     });
@@ -51,7 +55,9 @@ describe('scope transitions against the real store', () => {
     );
     store.dispatch(
       ShopsActions.loadShopsSucceeded({
-        shops: [{ shopId: 'shop-a', shopName: 'A', role: 'Owner', isDefault: true, lastUsedAt: null }],
+        shops: [
+          { shopId: 'shop-a', shopName: 'A', role: 'Owner', isDefault: true, lastUsedAt: null },
+        ],
       }),
     );
     expect(store.selectSignal(selectAllCustomers)()).toHaveLength(1);
@@ -65,13 +71,47 @@ describe('scope transitions against the real store', () => {
     expect(store.selectSignal(selectSidebarPinned)()).toBe(pinned);
   });
 
+  it('resets expense query and identity, rejecting old success and failure', () => {
+    const store = TestBed.inject(Store);
+    const context = TestBed.inject(ShopContextService);
+    context.initialize({ userId: 'user-1', shopId: 'shop-a' });
+    store.dispatch(
+      ExpensesActions.loadExpensesRequested({
+        requestId: 'old',
+        query: { status: 'voided', search: 'old', page: 3, pageSize: 10 },
+      }),
+    );
+    context.transition({ userId: 'user-1', shopId: 'shop-b' }, 'scope', () => undefined);
+    store.dispatch(
+      ExpensesActions.loadExpensesSucceeded({
+        requestId: 'old',
+        expenses: [],
+        totalCount: 50,
+        page: 3,
+        pageSize: 10,
+      }),
+    );
+    store.dispatch(
+      ExpensesActions.loadExpensesFailed({ requestId: 'old', errorMessage: 'old error' }),
+    );
+    const state = store.selectSignal(selectExpensesState)();
+    expect(state.query).toEqual({ status: 'all', page: 1, pageSize: 20 });
+    expect(state.requestId).toBeNull();
+    expect(state.ids).toEqual([]);
+    expect(state.totalCount).toBe(0);
+    expect(state.errorMessage).toBe('');
+    expect(state.listErrorMessage).toBe('');
+  });
+
   it('keeps feature rows when only the credentials are renewed', () => {
     const store = TestBed.inject(Store);
     const context = TestBed.inject(ShopContextService);
     context.initialize({ userId: 'user-1', shopId: 'shop-a' });
     store.dispatch(
       ShopsActions.loadShopsSucceeded({
-        shops: [{ shopId: 'shop-a', shopName: 'A', role: 'Owner', isDefault: true, lastUsedAt: null }],
+        shops: [
+          { shopId: 'shop-a', shopName: 'A', role: 'Owner', isDefault: true, lastUsedAt: null },
+        ],
       }),
     );
 

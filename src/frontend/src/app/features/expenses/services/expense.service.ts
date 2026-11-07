@@ -4,8 +4,31 @@ import { Observable } from 'rxjs';
 
 import { EXPENSE_ENDPOINTS } from '../../../core/auth/auth.constants';
 
-export type ExpenseTreatment = 'Unclassified' | 'Operating' | 'SupplierSettlement' | 'CapitalOrOtherExcluded';
-export const EXPENSE_TREATMENT_CHOICES = ['Unclassified', 'Operating', 'CapitalOrOtherExcluded'] as const;
+export type ExpenseStatusFilter = 'all' | 'active' | 'voided';
+
+export interface ExpenseListQuery {
+  readonly search?: string;
+  readonly status: ExpenseStatusFilter;
+  readonly page: number;
+  readonly pageSize: number;
+}
+
+export const DEFAULT_EXPENSE_QUERY: ExpenseListQuery = Object.freeze({
+  status: 'all',
+  page: 1,
+  pageSize: 20,
+});
+
+export type ExpenseTreatment =
+  | 'Unclassified'
+  | 'Operating'
+  | 'SupplierSettlement'
+  | 'CapitalOrOtherExcluded';
+export const EXPENSE_TREATMENT_CHOICES = [
+  'Unclassified',
+  'Operating',
+  'CapitalOrOtherExcluded',
+] as const;
 
 export interface RecordExpenseRequest {
   readonly treatment?: ExpenseTreatment;
@@ -54,8 +77,9 @@ export interface PaginatedExpenses {
 export class ExpenseService {
   private readonly http = inject(HttpClient);
 
-  getExpenses(search?: string, page = 1, pageSize = 20): Observable<PaginatedExpenses> {
+  getExpenses({ search, status, page, pageSize }: ExpenseListQuery): Observable<PaginatedExpenses> {
     let params = new HttpParams()
+      .set('status', status)
       .set('page', page.toString())
       .set('pageSize', pageSize.toString());
     if (search) {
