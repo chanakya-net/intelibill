@@ -12,10 +12,14 @@ public class SaleCancellationTests
     private static readonly InvoiceSeller Seller = new("Seller", "Shop", "Address", "29", "Karnataka", null, TaxRegime.Unregistered);
     private static readonly InvoiceBuyer Buyer = new("Buyer", null, null, null, null, null);
 
+    private static SaleCancellationLineInput Line() => new(ShopId, SaleId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 2m, "Sugar", "KGS", 60m, 200m, 120m);
+
+    private static SaleCancellationInput Input() => new(ShopId, SaleId, Guid.NewGuid(), " operation ", " mistaken entry ", DateTimeOffset.UtcNow,
+        new DateOnly(2026, 11, 8), "Asia/Kolkata", "A/2627/000001", new DateOnly(2026, 11, 7),
+        200m, 200m, 0m, 120m, 80m, Guid.NewGuid(), Seller, Buyer, true, true, [Line()]);
+
     private static ErrorOr.ErrorOr<SaleCancellation> Create(decimal total = 200m, decimal due = 120m, decimal cash = 80m, Guid? ledger = null, bool refund = true) =>
-        SaleCancellation.Create(ShopId, SaleId, Guid.NewGuid(), " operation ", " mistaken entry ", DateTimeOffset.UtcNow,
-            new DateOnly(2026, 11, 8), "Asia/Kolkata", "A/2627/000001", new DateOnly(2026, 11, 7),
-            total, total, 0m, due, cash, ledger, Seller, Buyer, true, refund);
+        SaleCancellation.Record(Input() with { TotalAmount = total, RevenueAmount = total, DueReductionAmount = due, CashRefundAmount = cash, CustomerLedgerEntryId = ledger, CashRefundConfirmed = refund });
 
     [Fact]
     public void Create_MixedSettlement_FreezesExactAmountsAndIdentities()
@@ -62,23 +66,59 @@ public class SaleCancellationTests
     }
 
     [Fact]
-    public void AddLine_RejectsDuplicateOrForeignAssociation()
+    public void Record_EmptyLines_IsRejected() => Assert.True(SaleCancellation.Record(Input() with { Lines = [] }).IsError);
+
+    [Fact]
+    public void Record_IncompleteRevenue_IsRejected() =>
+        Assert.True(SaleCancellation.Record(Input() with { Lines = [Line() with { RevenueAmount = 100m }] }).IsError);
+
+    [Fact]
+    public void Record_DuplicateOriginalLine_IsRejected()
     {
-        var cancellation = Create(ledger: Guid.NewGuid()).Value;
-        var lineId = Guid.NewGuid();
-        var line = SaleCancellationLine.Create(ShopId, cancellation.Id, SaleId, lineId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 2m, "Sugar", "KGS", 60m, 200m, 120m).Value;
-        Assert.False(cancellation.AddLine(line).IsError);
-        Assert.True(cancellation.AddLine(line).IsError);
-        var foreign = SaleCancellationLine.Create(ShopId, cancellation.Id, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 2m, "Sugar", "KGS", 60m, 200m, 120m).Value;
-        Assert.True(cancellation.AddLine(foreign).IsError);
-        Assert.Single(cancellation.Lines);
+        var line = Line() with { RevenueAmount = 100m };
+        Assert.True(SaleCancellation.Record(Input() with { Lines = [line, line with { StockTransactionId = Guid.NewGuid() }] }).IsError);
+    }
+
+    [Fact]
+    public void Record_DuplicateStockEffect_IsRejected()
+    {
+        var line = Line() with { RevenueAmount = 100m };
+        Assert.True(SaleCancellation.Record(Input() with { Lines = [line, line with { SaleItemId = Guid.NewGuid() }] }).IsError);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Record_ForeignLine_IsRejected(bool foreignShop)
+    {
+        var line = foreignShop ? Line() with { ShopId = Guid.NewGuid() } : Line() with { SaleId = Guid.NewGuid() };
+        Assert.True(SaleCancellation.Record(Input() with { Lines = [line] }).IsError);
     }
 
     [Theory]
     [InlineData(0)]
     [InlineData(-2)]
-    public void Line_NonpositiveQuantity_IsRejected(decimal quantity) =>
-        Assert.True(SaleCancellationLine.Create(ShopId, Guid.NewGuid(), SaleId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), quantity, "Sugar", "KGS", 60m, 200m, 120m).IsError);
+    public void Record_NonpositiveQuantity_IsRejected(decimal quantity) =>
+        Assert.True(SaleCancellation.Record(Input() with { Lines = [Line() with { Quantity = quantity }] }).IsError);
+
+    [Fact]
+    public void Record_CopiesAllFactsBeforeReturningSuccess()
+    {
+        List<SaleCancellationLineInput> lines = [Line()];
+        var input = Input() with { Lines = lines };
+        var cancellation = SaleCancellation.Record(input).Value;
+        var before = JsonSerializer.Serialize(cancellation);
+        lines.Clear();
+        lines.Add(Line() with { Description = "Replacement", RevenueAmount = 1m });
+        Assert.Equal(before, JsonSerializer.Serialize(cancellation));
+        var recordedLine = Assert.Single(cancellation.Lines);
+        Assert.Equal(cancellation.Id, recordedLine.SaleCancellationId);
+        Assert.Equal(ShopId, recordedLine.ShopId);
+        Assert.Equal(SaleId, recordedLine.SaleId);
+        Assert.Equal("Sugar", recordedLine.Description);
+        Assert.Equal(200m, recordedLine.RevenueAmount);
+        Assert.Throws<NotSupportedException>(() => ((ICollection<SaleCancellationLine>)cancellation.Lines).Clear());
+    }
 
     [Fact]
     public void MarkCancelled_PreservesOriginalIssueFactsAndIsTerminal()

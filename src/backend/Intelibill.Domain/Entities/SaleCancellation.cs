@@ -34,46 +34,51 @@ public sealed class SaleCancellation : BaseEntity
 
     private SaleCancellation() { }
 
-    public static ErrorOr<SaleCancellation> Create(
-        Guid shopId, Guid saleId, Guid actorUserId, string operationKey, string reason,
-        DateTimeOffset cancelledAt, DateOnly businessDate, string businessTimeZoneId,
-        string originalInvoiceNumber, DateOnly originalBusinessDate,
-        decimal totalAmount, decimal revenueAmount, decimal taxAmount, decimal dueReductionAmount,
-        decimal cashRefundAmount, Guid? customerLedgerEntryId, InvoiceSeller seller, InvoiceBuyer buyer,
-        bool goodsRecoveredConfirmed, bool cashRefundConfirmed)
+    public static ErrorOr<SaleCancellation> Record(SaleCancellationInput input)
     {
-        if (shopId == Guid.Empty || saleId == Guid.Empty || actorUserId == Guid.Empty ||
-            string.IsNullOrWhiteSpace(operationKey) || operationKey.Trim().Length > 128 ||
-            string.IsNullOrWhiteSpace(reason) || reason.Trim().Length is < 3 or > 255 ||
-            string.IsNullOrWhiteSpace(businessTimeZoneId) || string.IsNullOrWhiteSpace(originalInvoiceNumber) ||
-            seller is null || buyer is null)
+        if (input is null || input.ShopId == Guid.Empty || input.SaleId == Guid.Empty || input.ActorUserId == Guid.Empty ||
+            string.IsNullOrWhiteSpace(input.OperationKey) || input.OperationKey.Trim().Length > 128 ||
+            string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length is < 3 or > 255 ||
+            string.IsNullOrWhiteSpace(input.BusinessTimeZoneId) || string.IsNullOrWhiteSpace(input.OriginalInvoiceNumber) ||
+            input.Seller is null || input.Buyer is null)
             return Error.Validation("SaleCancellation.FactsInvalid", "Cancellation identity, reason and frozen invoice facts are required.");
 
-        if (totalAmount < 0 || revenueAmount < 0 || dueReductionAmount < 0 || cashRefundAmount < 0 ||
-            taxAmount != 0 || revenueAmount != totalAmount || totalAmount != dueReductionAmount + cashRefundAmount ||
-            (dueReductionAmount > 0) != (customerLedgerEntryId.HasValue && customerLedgerEntryId != Guid.Empty) ||
-            (dueReductionAmount == 0 && customerLedgerEntryId.HasValue) ||
-            cashRefundConfirmed != (cashRefundAmount > 0) || !goodsRecoveredConfirmed)
+        if (input.TotalAmount < 0 || input.RevenueAmount < 0 || input.DueReductionAmount < 0 || input.CashRefundAmount < 0 ||
+            input.TaxAmount != 0 || input.RevenueAmount != input.TotalAmount || input.TotalAmount != input.DueReductionAmount + input.CashRefundAmount ||
+            (input.DueReductionAmount > 0) != (input.CustomerLedgerEntryId.HasValue && input.CustomerLedgerEntryId != Guid.Empty) ||
+            (input.DueReductionAmount == 0 && input.CustomerLedgerEntryId.HasValue) ||
+            input.CashRefundConfirmed != (input.CashRefundAmount > 0) || !input.GoodsRecoveredConfirmed)
             return Error.Validation("SaleCancellation.SettlementInvalid", "Cancellation must fully settle the original total with linked due credit and confirmed cash refund.");
 
-        return new SaleCancellation
+        if (input.Lines is null || input.Lines.Count == 0)
+            return Error.Validation("SaleCancellation.LinesRequired", "A cancellation must record its original sale lines.");
+
+        var cancellation = new SaleCancellation
         {
-            ShopId = shopId, SaleId = saleId, ActorUserId = actorUserId,
-            OperationKey = operationKey.Trim(), ReferenceNumber = $"SC-{Guid.NewGuid():N}", Reason = reason.Trim(),
-            CancelledAt = cancelledAt.ToUniversalTime(), BusinessDate = businessDate, BusinessTimeZoneId = businessTimeZoneId,
-            PolicyVersion = "receipt-cash-due/1", OriginalInvoiceNumber = originalInvoiceNumber, OriginalBusinessDate = originalBusinessDate,
-            TotalAmount = totalAmount, RevenueAmount = revenueAmount, TaxAmount = taxAmount,
-            DueReductionAmount = dueReductionAmount, CashRefundAmount = cashRefundAmount, CustomerLedgerEntryId = customerLedgerEntryId,
-            Seller = seller, Buyer = buyer, GoodsRecoveredConfirmed = goodsRecoveredConfirmed, CashRefundConfirmed = cashRefundConfirmed,
+            ShopId = input.ShopId, SaleId = input.SaleId, ActorUserId = input.ActorUserId,
+            OperationKey = input.OperationKey.Trim(), ReferenceNumber = $"SC-{Guid.NewGuid():N}", Reason = input.Reason.Trim(),
+            CancelledAt = input.CancelledAt.ToUniversalTime(), BusinessDate = input.BusinessDate, BusinessTimeZoneId = input.BusinessTimeZoneId,
+            PolicyVersion = "receipt-cash-due/1", OriginalInvoiceNumber = input.OriginalInvoiceNumber, OriginalBusinessDate = input.OriginalBusinessDate,
+            TotalAmount = input.TotalAmount, RevenueAmount = input.RevenueAmount, TaxAmount = input.TaxAmount,
+            DueReductionAmount = input.DueReductionAmount, CashRefundAmount = input.CashRefundAmount, CustomerLedgerEntryId = input.CustomerLedgerEntryId,
+            Seller = input.Seller, Buyer = input.Buyer, GoodsRecoveredConfirmed = input.GoodsRecoveredConfirmed, CashRefundConfirmed = input.CashRefundConfirmed,
         };
-    }
+        HashSet<Guid> saleItemIds = [];
+        HashSet<Guid> stockTransactionIds = [];
+        foreach (var lineInput in input.Lines)
+        {
+            if (lineInput is null || lineInput.ShopId != input.ShopId || lineInput.SaleId != input.SaleId ||
+                !saleItemIds.Add(lineInput.SaleItemId) || !stockTransactionIds.Add(lineInput.StockTransactionId))
+                return Error.Validation("SaleCancellation.LineInvalid", "Each original sale item and stock effect must appear once under its own sale and shop.");
 
-    public ErrorOr<Success> AddLine(SaleCancellationLine line)
-    {
-        if (line.ShopId != ShopId || line.SaleId != SaleId || line.SaleCancellationId != Id || _lines.Any(x => x.SaleItemId == line.SaleItemId))
-            return Error.Validation("SaleCancellation.LineInvalid", "Each original sale item must appear once under its own cancellation and shop.");
+            var line = SaleCancellationLine.Create(cancellation.Id, lineInput);
+            if (line.IsError)
+                return line.Errors;
+            cancellation._lines.Add(line.Value);
+        }
+        if (cancellation._lines.Sum(x => x.RevenueAmount) != input.RevenueAmount)
+            return Error.Validation("SaleCancellation.LinesIncomplete", "Cancellation lines must reconcile to the original revenue.");
 
-        _lines.Add(line);
-        return Result.Success;
+        return cancellation;
     }
 }

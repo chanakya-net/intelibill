@@ -21,22 +21,20 @@ public sealed class SaleCancellationLine : BaseEntity
 
     private SaleCancellationLine() { }
 
-    public static ErrorOr<SaleCancellationLine> Create(Guid shopId, Guid saleCancellationId, Guid saleId, Guid saleItemId,
-        Guid itemId, Guid inventoryBatchId, Guid stockTransactionId, decimal quantity, string description, string uqc,
-        decimal originalCostPrice, decimal revenueAmount, decimal recordedCostAmount)
+    internal static ErrorOr<SaleCancellationLine> Create(Guid cancellationId, SaleCancellationLineInput input)
     {
-        if (shopId == Guid.Empty || saleCancellationId == Guid.Empty || saleId == Guid.Empty || saleItemId == Guid.Empty ||
-            itemId == Guid.Empty || inventoryBatchId == Guid.Empty || stockTransactionId == Guid.Empty ||
-            quantity <= 0 || originalCostPrice < 0 || revenueAmount < 0 || recordedCostAmount < 0 ||
-            string.IsNullOrWhiteSpace(description) || string.IsNullOrWhiteSpace(uqc))
+        if (input.ShopId == Guid.Empty || cancellationId == Guid.Empty || input.SaleId == Guid.Empty || input.SaleItemId == Guid.Empty ||
+            input.ItemId == Guid.Empty || input.InventoryBatchId == Guid.Empty || input.StockTransactionId == Guid.Empty ||
+            input.Quantity <= 0 || input.OriginalCostPrice < 0 || input.RevenueAmount < 0 || input.RecordedCostAmount < 0 ||
+            string.IsNullOrWhiteSpace(input.Description) || string.IsNullOrWhiteSpace(input.Uqc))
             return Error.Validation("SaleCancellation.LineInvalid", "Cancellation lines require original stock links, positive quantity and nonnegative amounts.");
 
         return new SaleCancellationLine
         {
-            ShopId = shopId, SaleCancellationId = saleCancellationId, SaleId = saleId, SaleItemId = saleItemId,
-            ItemId = itemId, InventoryBatchId = inventoryBatchId, StockTransactionId = stockTransactionId,
-            Quantity = quantity, Description = description, Uqc = uqc, OriginalCostPrice = originalCostPrice,
-            RevenueAmount = revenueAmount, RecordedCostAmount = recordedCostAmount,
+            ShopId = input.ShopId, SaleCancellationId = cancellationId, SaleId = input.SaleId, SaleItemId = input.SaleItemId,
+            ItemId = input.ItemId, InventoryBatchId = input.InventoryBatchId, StockTransactionId = input.StockTransactionId,
+            Quantity = input.Quantity, Description = input.Description, Uqc = input.Uqc, OriginalCostPrice = input.OriginalCostPrice,
+            RevenueAmount = input.RevenueAmount, RecordedCostAmount = input.RecordedCostAmount,
         };
     }
 }

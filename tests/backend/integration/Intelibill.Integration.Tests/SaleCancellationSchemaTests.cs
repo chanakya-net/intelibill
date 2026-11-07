@@ -3,6 +3,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
+using Intelibill.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Npgsql;
@@ -17,11 +18,13 @@ public sealed class SaleCancellationSchemaTests(PostgreSqlTestFixture fixture)
 
     private sealed record Facts(Shop Shop, Sale Sale, SaleCancellation Cancellation, SaleCancellationLine Line, StockTransaction Movement, CustomerLedgerEntry Ledger);
 
-    private async Task<Facts> SeedAsync(bool persistCancellation = true)
+    private async Task<Facts> SeedAsync(bool persistCancellation = true, Guid? existingShopId = null)
     {
         await using var db = Context();
         var actor = Guid.NewGuid();
-        var shop = Shop.Create("Frozen shop", "Address", "City", "State", "123456", null, null, null);
+        var shop = existingShopId.HasValue
+            ? await db.Shops.SingleAsync(x => x.Id == existingShopId.Value)
+            : Shop.Create("Frozen shop", "Address", "City", "State", "123456", null, null, null);
         var customer = Customer.Create(shop.Id, "Frozen buyer", Guid.NewGuid().ToString("N")[..10], null);
         var item = Item.Create(shop.Id, "Sugar", null, "kg", Guid.NewGuid().ToString("N"), true, actor);
         var batch = InventoryBatch.Create(shop.Id, item.Id, "LOT-1", 10m, 60m, 100m, 100m, 0m, false, null, null, null, actor).Value;
@@ -31,21 +34,69 @@ public sealed class SaleCancellationSchemaTests(PostgreSqlTestFixture fixture)
             customer.Id, "Frozen buyer", null, PaymentMethod.Cash, 80m, 120m, now, BusinessDay.InDefaultZone(now)).Value;
         var ledger = CustomerLedgerEntry.Create(shop.Id, customer.Id, sale.Id, CustomerLedgerEntryType.SaleCancellationCredit, 120m, sale.BusinessDate, null, actor).Value;
         var movement = StockTransaction.Create(shop.Id, item.Id, batch.Id, StockTransactionType.SaleCancellation, 2m, "SC", null, now, actor, actor).Value;
-        var cancellation = NewCancellation(shop.Id, sale.Id, actor, ledger.Id);
-        var line = SaleCancellationLine.Create(shop.Id, cancellation.Id, sale.Id, sale.Items[0].Id, item.Id, batch.Id, movement.Id, 2m, "Sugar", "KGS", 60m, 200m, 120m).Value;
-        Assert.False(cancellation.AddLine(line).IsError);
-        db.AddRange(shop, customer, item, batch, sale, ledger, movement);
+        var cancellation = NewCancellation(shop.Id, sale.Id, actor, ledger.Id,
+            [new(shop.Id, sale.Id, sale.Items[0].Id, item.Id, batch.Id, movement.Id, 2m, "Sugar", "KGS", 60m, 200m, 120m)]);
+        var line = Assert.Single(cancellation.Lines);
+        if (!existingShopId.HasValue) db.Add(shop);
+        db.AddRange(customer, item, batch, sale, ledger, movement);
         if (persistCancellation) db.Add(cancellation);
         await db.SaveChangesAsync();
         return new(shop, sale, cancellation, line, movement, ledger);
     }
 
-    private static SaleCancellation NewCancellation(Guid shop, Guid sale, Guid actor, Guid ledger) =>
-        SaleCancellation.Create(shop, sale, actor, Guid.NewGuid().ToString("N"), "Mistaken entry", DateTimeOffset.UtcNow,
+    private static SaleCancellation NewCancellation(Guid shop, Guid sale, Guid actor, Guid ledger, IReadOnlyList<SaleCancellationLineInput> lines) =>
+        SaleCancellation.Record(new(shop, sale, actor, Guid.NewGuid().ToString("N"), "Mistaken entry", DateTimeOffset.UtcNow,
             new DateOnly(2026, 11, 8), "Asia/Kolkata", "A/2627/000001", new DateOnly(2026, 11, 7),
             200m, 200m, 0m, 120m, 80m, ledger,
             new("Seller", "Shop", "Address", "29", "Karnataka", null, TaxRegime.Unregistered),
-            new("Buyer", null, null, null, null, null), true, true).Value;
+            new("Buyer", null, null, null, null, null), true, true, lines)).Value;
+
+    [Fact]
+    public async Task Repository_BatchReadsFilterTenantAndIdsAndIncludeFrozenLines()
+    {
+        var own = await SeedAsync();
+        var unrequested = await SeedAsync(existingShopId: own.Shop.Id);
+        var foreign = await SeedAsync();
+        await using var db = Context();
+        var repository = new SaleCancellationRepository(db);
+        var rows = await repository.GetBySaleIdsAsync(own.Shop.Id, [own.Sale.Id, foreign.Sale.Id, Guid.NewGuid()], CancellationToken.None);
+        var row = Assert.Single(rows);
+        Assert.Equal(own.Cancellation.Id, row.Id);
+        Assert.NotEqual(unrequested.Cancellation.Id, row.Id);
+        AssertFrozenLine(row);
+        Assert.Empty(await repository.GetBySaleIdsAsync(own.Shop.Id, [], CancellationToken.None));
+        Assert.Null(await repository.GetBySaleAsync(own.Shop.Id, foreign.Sale.Id, CancellationToken.None));
+        AssertFrozenLine((await repository.GetBySaleAsync(own.Shop.Id, own.Sale.Id, CancellationToken.None))!);
+    }
+
+    [Fact]
+    public async Task Repository_PostedRangeIncludesBothBoundariesAndFrozenLines()
+    {
+        var own = await SeedAsync();
+        var foreign = await SeedAsync();
+        await using var db = Context();
+        var repository = new SaleCancellationRepository(db);
+        var day = new DateOnly(2026, 11, 8);
+        AssertFrozenLine(Assert.Single(await repository.GetPostedInRangeAsync(own.Shop.Id, day, day, CancellationToken.None)));
+        Assert.Single(await repository.GetPostedInRangeAsync(own.Shop.Id, day.AddDays(-1), day, CancellationToken.None));
+        Assert.Single(await repository.GetPostedInRangeAsync(own.Shop.Id, day, day.AddDays(1), CancellationToken.None));
+        Assert.Empty(await repository.GetPostedInRangeAsync(own.Shop.Id, day.AddDays(-1), day.AddDays(-1), CancellationToken.None));
+        Assert.Empty(await repository.GetPostedInRangeAsync(own.Shop.Id, day.AddDays(1), day.AddDays(1), CancellationToken.None));
+        Assert.DoesNotContain(await repository.GetPostedInRangeAsync(own.Shop.Id, day, day, CancellationToken.None), x => x.Id == foreign.Cancellation.Id);
+    }
+
+    private static void AssertFrozenLine(SaleCancellation cancellation)
+    {
+        Assert.Equal("Seller", cancellation.Seller.LegalName);
+        Assert.Equal("Buyer", cancellation.Buyer.Name);
+        var line = Assert.Single(cancellation.Lines);
+        Assert.Equal("Sugar", line.Description);
+        Assert.Equal("KGS", line.Uqc);
+        Assert.Equal(2m, line.Quantity);
+        Assert.Equal(60m, line.OriginalCostPrice);
+        Assert.Equal(120m, line.RecordedCostAmount);
+        Assert.Equal(200m, line.RevenueAmount);
+    }
 
     [Fact]
     public async Task Sale_DefaultsPostedWithXmin_AndCancellationSurvivesRoundTrip()
@@ -121,7 +172,8 @@ public sealed class SaleCancellationSchemaTests(PostgreSqlTestFixture fixture)
     {
         var facts = await SeedAsync();
         await using var db = Context();
-        db.Add(NewCancellation(facts.Shop.Id, facts.Sale.Id, Guid.NewGuid(), facts.Ledger.Id));
+        db.Add(NewCancellation(facts.Shop.Id, facts.Sale.Id, Guid.NewGuid(), facts.Ledger.Id,
+            [new(facts.Shop.Id, facts.Sale.Id, facts.Sale.Items[0].Id, facts.Line.ItemId, facts.Line.InventoryBatchId, facts.Movement.Id, 2m, "Sugar", "KGS", 60m, 200m, 120m)]));
         var error = await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
         Assert.Equal(PostgresErrorCodes.UniqueViolation, Assert.IsType<PostgresException>(error.InnerException).SqlState);
     }
