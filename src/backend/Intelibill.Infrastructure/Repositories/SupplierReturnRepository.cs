@@ -25,7 +25,18 @@ internal sealed class SupplierReturnRepository(ApplicationDbContext context) : R
         foreach(var row in rows) await Context.Entry(row).ReloadAsync(cancellationToken);
         return rows;
     }
-    public async Task<IReadOnlyList<PurchaseReceiptValue>> GetGroupReceiptsAsync(Guid shopId,Guid groupId,CancellationToken cancellationToken) => await (from r in Context.PurchaseReceiptValues.AsNoTracking() join l in Context.PurchaseOrderReceiptLines on r.PurchaseOrderReceiptLineId equals l.Id where r.ShopId==shopId && l.PurchaseOrderReceiptId==groupId select r).ToListAsync(cancellationToken);
+    public async Task<IReadOnlyList<PurchaseReceiptValue>> GetGroupReceiptsAsync(Guid shopId,Guid groupId,CancellationToken cancellationToken)
+    {
+        var lineIds=await Context.PurchaseOrderReceiptLines.AsNoTracking()
+            .Where(line=>line.PurchaseOrderReceiptId==groupId && Context.PurchaseOrderReceipts.Any(receipt=>receipt.Id==groupId && receipt.ShopId==shopId))
+            .Select(line=>line.Id).ToListAsync(cancellationToken);
+        var rows=await Context.PurchaseReceiptValues.AsNoTracking()
+            .Where(receipt=>receipt.ShopId==shopId && receipt.PurchaseOrderReceiptLineId.HasValue && lineIds.Contains(receipt.PurchaseOrderReceiptLineId.Value))
+            .ToListAsync(cancellationToken);
+        // A legacy group with a missing/ambiguous source value is never a smaller valid group.
+        if(!rows.Select(row=>row.PurchaseOrderReceiptLineId!.Value).Order().SequenceEqual(lineIds.Order())) return [];
+        return rows;
+    }
     public async Task<IReadOnlyList<PurchaseReceiptValue>> GetByPoLineIdsAsync(Guid shopId,IReadOnlyCollection<Guid> ids,CancellationToken cancellationToken) => await Context.PurchaseReceiptValues.AsNoTracking().Where(x=>x.ShopId==shopId && x.PurchaseOrderReceiptLineId.HasValue && ids.Contains(x.PurchaseOrderReceiptLineId.Value)).ToListAsync(cancellationToken);
     public async Task<IReadOnlyList<SupplierReturn>> GetByLedgerEntriesAsync(Guid shopId,IReadOnlyCollection<Guid> ids,CancellationToken cancellationToken) => await Details(shopId).Where(x=>x.Credit!=null && x.Credit.Lines.Any(l=>l.SupplierLedgerEntryId.HasValue && ids.Contains(l.SupplierLedgerEntryId.Value))).ToListAsync(cancellationToken);
     public Task<bool> HasCountHistoryAsync(Guid shopId,Guid batchId,CancellationToken cancellationToken) => Context.StockCounts.AnyAsync(x=>x.ShopId==shopId && x.InventoryBatchId==batchId,cancellationToken);
