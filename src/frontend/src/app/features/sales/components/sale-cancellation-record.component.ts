@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input } from '@angular/core';
+import { Component, Input, LOCALE_ID, inject } from '@angular/core';
 import { TranslocoPipe } from '@ngneat/transloco';
 import type { SaleCancellationDto } from '../services/sale-cancellation.models';
 /** A separate commercial reference; the original issued document is never rewritten. */
@@ -20,7 +20,7 @@ import type { SaleCancellationDto } from '../services/sale-cancellation.models';
         </p>
         <p>
           {{ 'sales.cancellation.postingDate' | transloco }}: {{ c.businessDate }} ·
-          {{ c.cancelledAt | date: 'dd MMM yyyy, h:mm a' }} ({{ c.businessTimeZoneId }})
+          {{ cancellationTime(c) }} ({{ c.businessTimeZoneId }})
         </p>
         <p>{{ c.seller.legalName }} · {{ c.seller.address }}</p>
         <p>{{ c.buyer.name }}</p>
@@ -47,7 +47,21 @@ import type { SaleCancellationDto } from '../services/sale-cancellation.models';
   `,
 })
 export class SaleCancellationRecordComponent {
+  private readonly locale = inject(LOCALE_ID);
   @Input() cancellation: SaleCancellationDto | null = null;
+
+  cancellationTime(c: SaleCancellationDto): string {
+    return new Intl.DateTimeFormat(this.locale, {
+      timeZone: c.businessTimeZoneId,
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(new Date(c.cancelledAt));
+  }
+
   disclaimer(c: SaleCancellationDto): string {
     return (
       'Commercial cancellation record — not a GST credit note.' +

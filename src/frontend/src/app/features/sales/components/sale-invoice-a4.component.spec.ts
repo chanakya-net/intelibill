@@ -1429,6 +1429,23 @@ describe('SaleInvoiceA4Component', () => {
     expect(text).toContain('CN-OFFLINE-0001');
     expect(fixture.nativeElement.querySelector('.invoice__legacy-note')).toBeNull();
   });
+  it('prints the cancellation timestamp in the frozen shop timezone across midnight', () => {
+    component.sale = makeSale({
+      status: 'Cancelled',
+      cancellation: {
+        ...cancellationFixture,
+        cancelledAt: '2026-11-09T20:00:00Z',
+        businessDate: '2026-11-10',
+        businessTimeZoneId: 'Asia/Kolkata',
+      },
+    });
+    component.shop = makeShop();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement.querySelector('.sale-cancellation-record')?.textContent ?? '')
+      .replace(/\s+/g, ' ');
+    expect(text).toContain('2026-11-10 · Nov 10, 2026, 1:30 AM (Asia/Kolkata)');
+  });
   it('preserves original amounts and appends frozen cancellation settlement facts', () => {
     component.sale = makeSale({
       status: 'Cancelled',
