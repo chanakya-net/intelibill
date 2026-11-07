@@ -693,6 +693,108 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
     }
 
     [Fact]
+    public async Task ReceivedLots_AfterSaleAndCostCorrection_PreserveOriginalLineage()
+    {
+        using var client = CreateClient();
+        var token = await CreateShopAsync(client, await RegisterAsync(client));
+        var shopId = await GetShopIdFromTokenAsync(client, token);
+        using (var profileRequest = new HttpRequestMessage(HttpMethod.Put, $"/api/shops/{shopId}/tax-profile"))
+        {
+            profileRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            profileRequest.Content = JsonContent.Create(new { stateCode = "29", taxRegime = "Regular", eInvoiceStatus = "BelowThreshold", gstNumber = TestTaxProfile.NewGstin() });
+            var profileResponse = await client.SendAsync(profileRequest);
+            Assert.True(profileResponse.IsSuccessStatusCode, await profileResponse.Content.ReadAsStringAsync());
+        }
+        var supplier = await CreateSupplierAsync(client, token, "Lineage lots");
+        var (poId, lineId) = await CreatePlacedSingleLinePoAsync(client, token, supplier, "Lineage", 10);
+        var lots = new[] { Lot(lineId, "A", 4, 40), Lot(lineId, "B", 6, 90) };
+        var receiveResponse = await PostLotsAsync(client, token, poId, lots, Guid.NewGuid());
+        Assert.True(receiveResponse.IsSuccessStatusCode, await receiveResponse.Content.ReadAsStringAsync());
+        var original = await receiveResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var originalLines = original.GetProperty("receipts")[0].GetProperty("lines").Clone();
+        var originalA = originalLines.EnumerateArray().Single(l => l.GetProperty("clientLineId").GetGuid() == lots[0].ClientLineId);
+        var batchA = originalA.GetProperty("inventoryBatchId").GetGuid();
+        Guid valueId;
+        uint version;
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var value = await db.PurchaseReceiptValues.SingleAsync(v => v.InventoryBatchId == batchA);
+            valueId = value.Id;
+            version = value.Version;
+        }
+        using (var saleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/sales"))
+        {
+            saleRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            saleRequest.Content = JsonContent.Create(new
+            {
+                idempotencyKey = $"lot-sale-{Guid.NewGuid():N}", customerId = (Guid?)null,
+                customerName = "Walk-in", paymentMethod = (int)PaymentMethod.Cash, paidAmount = 42m, dueAmount = 0m,
+                items = new[] { new { barcode = lots[0].Barcode, batchNumber = "A", itemName = "Lineage",
+                    quantity = 2m, costPrice = 10m, salesPrice = 20m, mrp = 30m,
+                    taxRatePercent = 5m, isPriceIncludingTax = false, inventoryBatchId = batchA } },
+            });
+            var saleResponse = await client.SendAsync(saleRequest);
+            Assert.True(saleResponse.IsSuccessStatusCode, await saleResponse.Content.ReadAsStringAsync());
+        }
+        using (var correctionRequest = new HttpRequestMessage(HttpMethod.Post, $"/api/inventory/receipts/{valueId}/cost-corrections"))
+        {
+            correctionRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            correctionRequest.Content = JsonContent.Create(new { expectedVersion = version, revisedTotalCost = 44m,
+                reason = "Supplier invoice correction", operationKey = $"lot-correction-{Guid.NewGuid():N}" });
+            var correctionResponse = await client.SendAsync(correctionRequest);
+            Assert.True(correctionResponse.IsSuccessStatusCode, await correctionResponse.Content.ReadAsStringAsync());
+        }
+        using var detailRequest = new HttpRequestMessage(HttpMethod.Get, $"/api/purchase-orders/{poId}");
+        detailRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var detailResponse = await client.SendAsync(detailRequest);
+        detailResponse.EnsureSuccessStatusCode();
+        var detail = await detailResponse.Content.ReadFromJsonAsync<JsonElement>();
+        // Whole immutable history rows include receipt/client/PO/item/batch/movement IDs and all original amounts.
+        var currentLines = detail.GetProperty("receipts")[0].GetProperty("lines");
+        Assert.Equal(originalLines.GetArrayLength(), currentLines.GetArrayLength());
+        foreach (var before in originalLines.EnumerateArray())
+        {
+            var after = currentLines.EnumerateArray().Single(l => l.GetProperty("receiptLineId").GetGuid() == before.GetProperty("receiptLineId").GetGuid());
+            foreach (var property in before.EnumerateObject())
+            {
+                var current = after.GetProperty(property.Name);
+                if (property.Value.ValueKind == JsonValueKind.Number)
+                    Assert.Equal(property.Value.GetDecimal(), current.GetDecimal());
+                else
+                    Assert.Equal(property.Value.GetRawText(), current.GetRawText());
+            }
+        }
+        await using var verifyScope = _factory.Services.CreateAsyncScope();
+        var verifyDb = verifyScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var rows = await verifyDb.PurchaseOrderReceiptLines.AsNoTracking().ToListAsync();
+        Assert.Equal(2, rows.Count);
+        foreach (var lot in lots)
+        {
+            var row = rows.Single(r => r.ClientLineId == lot.ClientLineId);
+            Assert.Equal(lineId, row.PurchaseOrderLineId);
+            Assert.Equal(lot.Quantity, row.Quantity);
+            Assert.Equal(lot.TotalPurchaseCost, row.TotalPurchaseCost);
+            var stock = await verifyDb.StockTransactions.SingleAsync(t => t.Id == row.StockTransactionId);
+            Assert.Equal(row.InventoryBatchId, stock.InventoryBatchId);
+            Assert.Equal(row.Quantity, stock.Quantity);
+            var batch = await verifyDb.InventoryBatches.SingleAsync(b => b.Id == row.InventoryBatchId);
+            Assert.Equal(lot.Quantity, batch.OriginalQuantity);
+            Assert.Equal(lot.BatchNumber == "A" ? 2m : 6m, batch.Quantity);
+            var value = await verifyDb.PurchaseReceiptValues.SingleAsync(v => v.PurchaseOrderReceiptLineId == row.Id);
+            Assert.Equal(row.InventoryBatchId, value.InventoryBatchId);
+            Assert.Equal(row.Quantity, value.ReceivedQuantity);
+            Assert.Equal(lot.TotalPurchaseCost, value.OriginalTotalCost);
+            Assert.Equal(lot.BatchNumber == "A" ? 44m : 90m, value.EffectiveTotalCost);
+        }
+        var adjustment = Assert.Single(await verifyDb.PurchaseReceiptCostAdjustments.ToListAsync());
+        Assert.Equal(valueId, adjustment.PurchaseReceiptValueId);
+        Assert.Equal(4m, adjustment.Delta);
+        Assert.Equal(1, await verifyDb.SupplierLedgerEntries.CountAsync(e => e.EntryType == SupplierLedgerEntryType.CostAdjusted));
+        Assert.Equal(1, await verifyDb.Sales.CountAsync());
+    }
+
+    [Fact]
     public async Task GroupedOverRemaining_RejectsAllRowsWithoutWrites()
     {
         using var client = CreateClient();
@@ -1033,7 +1135,36 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
             var migrations = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
             var migrator = db.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>();
             await migrator.MigrateAsync(migrations[^2]);
-            await migrator.MigrateAsync();
+            // Exercise the actual upgrade SQL as a schema owner that cannot bypass FORCE RLS.
+            // DDL needs ownership, whereas the API's ordinary runtime role is intentionally DML-only.
+            await db.Database.OpenConnectionAsync();
+            try
+            {
+                await db.Database.ExecuteSqlRawAsync("""
+                    CREATE ROLE receipt_identity_migrator NOLOGIN NOSUPERUSER NOBYPASSRLS;
+                    GRANT USAGE, CREATE ON SCHEMA public TO receipt_identity_migrator;
+                    GRANT SELECT ON ALL TABLES IN SCHEMA public TO receipt_identity_migrator;
+                    GRANT INSERT ON TABLE "__EFMigrationsHistory" TO receipt_identity_migrator;
+                    ALTER TABLE purchase_order_receipt_lines OWNER TO receipt_identity_migrator;
+                    SET ROLE receipt_identity_migrator;
+                    """);
+                var role = await db.Database.SqlQueryRaw<bool>(
+                    "SELECT NOT rolsuper AND NOT rolbypassrls AS \"Value\" FROM pg_roles WHERE rolname = current_user").SingleAsync();
+                Assert.True(role);
+                Assert.Equal(0, await db.Database.SqlQueryRaw<int>(
+                    "SELECT count(*)::int AS \"Value\" FROM purchase_order_receipt_lines").SingleAsync());
+                await db.Database.ExecuteSqlRawAsync(migrator.GenerateScript(migrations[^2], migrations[^1]));
+            }
+            finally
+            {
+                await db.Database.ExecuteSqlRawAsync("""
+                    RESET ROLE;
+                    ALTER TABLE purchase_order_receipt_lines OWNER TO CURRENT_USER;
+                    DROP OWNED BY receipt_identity_migrator;
+                    DROP ROLE receipt_identity_migrator;
+                    """);
+                await db.Database.CloseConnectionAsync();
+            }
             var rows = await db.PurchaseOrderReceiptLines.AsNoTracking().ToListAsync();
             Assert.Equal(2, rows.Count);
             Assert.All(rows, row => Assert.Equal(row.Id, row.ClientLineId));

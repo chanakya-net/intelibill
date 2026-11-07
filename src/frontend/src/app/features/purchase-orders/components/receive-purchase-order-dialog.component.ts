@@ -122,7 +122,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
         <div class="receipt-lines" formArrayName="lines">
           @for (index of filteredLineIndexes(); track lines.at(index).controls.clientLineId.value) {
             @let row = lines.at(index);
-            <div class="receipt-row" data-testid="receipt-row" [formGroupName]="index">
+            <div class="receipt-row" data-testid="receipt-row" [formGroup]="row">
               @for (error of errorsFor(row.controls.clientLineId.value); track $index) {
                 <p class="error" role="alert" [attr.data-field]="error.field">
                   {{ error.messageKey | transloco }}
