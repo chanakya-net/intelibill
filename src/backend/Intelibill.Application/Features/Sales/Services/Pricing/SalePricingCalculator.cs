@@ -89,7 +89,7 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
 
             var taxableAfterAllDiscounts = SalePricingMath.RoundMoney(draft.TaxableAfterItemDiscount - saleDiscountForLine);
             var revenueForCostCheck = SalePricingMath.CalculateRevenueForCostCheck(taxableAfterAllDiscounts, draft.TaxRatePercent, draft.IsPriceIncludingTax);
-            if (revenueForCostCheck < draft.CostTotal) return Errors.Sale.LineWouldBeBelowCost(draft.InventoryBatchId);
+            if (revenueForCostCheck < draft.CostTotal) return Errors.Sale.BelowRecordedCost("SalePricing.BelowCost", draft.InventoryBatchId, revenueForCostCheck, draft.CostTotal);
 
             var totalPreTaxDiscount = SalePricingMath.RoundMoney(draft.ItemDiscountAmount + saleDiscountForLine);
             var totalAmount = SalePricingMath.CalculateLineTotalAmount(draft.Quantity, draft.SalesPrice, draft.TaxRatePercent, draft.IsPriceIncludingTax, taxableAfterAllDiscounts, totalPreTaxDiscount);
@@ -127,11 +127,11 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
         var maxAllowedItemDiscountFlat = SalePricingMath.CalculateDiscountCapacity(preTaxBeforeDiscount, costTotal, line.TaxRatePercent, line.IsPriceIncludingTax);
         var maxAllowedItemDiscountPercent = SalePricingMath.ComputeSafeMaxPercent(preTaxBeforeDiscount, maxAllowedItemDiscountFlat);
         var itemDiscountAmount = SalePricingMath.CalculateEffectiveItemDiscountAmount(line.ItemDiscount, preTaxBeforeDiscount, configuredBatchRule);
-        if (itemDiscountAmount > maxAllowedItemDiscountFlat) return Errors.Sale.ItemDiscountWouldBeBelowCost(line.InventoryBatchId);
+        if (itemDiscountAmount > maxAllowedItemDiscountFlat) return Errors.Sale.BelowRecordedCost("SalePricing.ItemDiscountBelowCost", line.InventoryBatchId, SalePricingMath.RoundMoney(preTaxBeforeDiscount - itemDiscountAmount), costTotal);
 
         var taxableAfterItemDiscount = SalePricingMath.RoundMoney(preTaxBeforeDiscount - itemDiscountAmount);
         var revenueAfterItemDiscount = SalePricingMath.CalculateRevenueForCostCheck(taxableAfterItemDiscount, line.TaxRatePercent, line.IsPriceIncludingTax);
-        if (revenueAfterItemDiscount < costTotal) return Errors.Sale.LineWouldBeBelowCost(line.InventoryBatchId);
+        if (revenueAfterItemDiscount < costTotal) return Errors.Sale.BelowRecordedCost("SalePricing.BelowCost", line.InventoryBatchId, revenueAfterItemDiscount, costTotal);
         var saleDiscountCapacity = SalePricingMath.CalculateDiscountCapacity(taxableAfterItemDiscount, costTotal, line.TaxRatePercent, line.IsPriceIncludingTax);
         return new LineDraft(lineIndex, line.LineType, line.InventoryBatchId, line.ServiceId, line.Quantity, line.CostPrice, line.SalesPrice, line.TaxRatePercent, line.IsPriceIncludingTax, preTaxBeforeDiscount, costTotal, itemDiscountAmount, taxableAfterItemDiscount, saleDiscountCapacity, maxAllowedItemDiscountFlat, maxAllowedItemDiscountPercent, configuredBatchRule?.Id, configuredBatchRule?.Percentage, line.IsSaleDiscountEligible);
     }

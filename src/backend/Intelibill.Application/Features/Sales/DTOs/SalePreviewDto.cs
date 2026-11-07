@@ -1,4 +1,5 @@
 using Intelibill.Domain.Enums;
+using Intelibill.Application.Features.Sales.Services.Pricing;
 
 namespace Intelibill.Application.Features.Sales.DTOs;
 
@@ -44,7 +45,8 @@ public sealed record SalePreviewLineDto(
     Guid? ConfiguredBatchRuleId,
     decimal? ConfiguredBatchRulePercentage,
     bool HasClientPriceMismatch,
-    string? ClientLineKey)
+    string? ClientLineKey,
+    EconomicLine? Economics = null)
 {
     public SalePreviewLineDto(
         Guid itemId,

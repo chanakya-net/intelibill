@@ -12,6 +12,48 @@ public class SalePricingCalculatorTests
     private static readonly Guid ShopId = Guid.NewGuid();
     private static readonly DateTimeOffset SaleTime = new(2026, 05, 10, 10, 0, 0, TimeSpan.Zero);
 
+    [Theory]
+    [InlineData(20, false)]
+    [InlineData(20.01, true)]
+    public async Task Calculate_InclusiveCapacityBoundary(decimal discount, bool rejected)
+    {
+        var result = await CreateCalculatorWithRules([]).CalculateAsync(new SalePricingCalculationRequest(
+            ShopId, SaleTime, [Line(costPrice: 100m, salesPrice: 141.60m, taxRatePercent: 18m, taxIncluded: true,
+                itemDiscount: new InstantDiscount(InstantDiscountType.Flat, discount))], None()));
+        Assert.Equal(rejected, result.IsError);
+        if (!rejected) Assert.Equal(100m, result.Value.Lines[0].TaxableAmount);
+    }
+
+    [Theory]
+    [InlineData(118, true)]
+    [InlineData(100, false)]
+    public async Task Calculate_OutputTaxCannotFundDiscount(decimal price, bool inclusive)
+    {
+        var result = await CreateCalculatorWithRules([]).CalculateAsync(new SalePricingCalculationRequest(
+            ShopId, SaleTime, [Line(quantity: 1m, salesPrice: price, taxRatePercent: 18m, taxIncluded: inclusive, costPrice: 100m,
+                itemDiscount: new InstantDiscount(InstantDiscountType.Flat, 10m))], None()));
+        Assert.True(result.IsError);
+        Assert.Contains("90", result.FirstError.Description);
+        Assert.Contains("100", result.FirstError.Description);
+        Assert.Contains("10", result.FirstError.Description);
+    }
+
+    [Theory]
+    [InlineData(false, 200, 80)]
+    [InlineData(true, 236, 84)]
+    public async Task Calculate_FractionalMixedRates_CapsAndConservesDiscount(bool inclusive, decimal firstPrice, decimal secondPrice)
+    {
+        var result = await CreateCalculatorWithRules([]).CalculateAsync(new SalePricingCalculationRequest(
+            ShopId, SaleTime,
+            [Line(quantity: .5m, salesPrice: firstPrice, taxRatePercent: 18m, taxIncluded: inclusive, costPrice: 190m), Line(quantity: 1.25m, salesPrice: secondPrice, taxRatePercent: 5m, taxIncluded: inclusive, costPrice: 40m)],
+            new InstantDiscount(InstantDiscountType.Flat, 20m)));
+        Assert.False(result.IsError);
+        Assert.Equal(5m, result.Value.Lines[0].SaleDiscountAmount);
+        Assert.Equal(15m, result.Value.Lines[1].SaleDiscountAmount);
+        Assert.Equal(95m, result.Value.Lines[0].TaxableAmount);
+        Assert.Equal(85m, result.Value.Lines[1].TaxableAmount);
+    }
+
     [Fact]
     public async Task Calculate_WhenTaxExclusive_ComputesTaxAfterDiscounts()
     {
@@ -57,7 +99,7 @@ public class SalePricingCalculatorTests
     }
 
     [Fact]
-    public async Task Calculate_WhenTaxIncludedAndGrossPriceIsAboveCost_AllowsSale()
+    public async Task Calculate_WhenTaxIncludedAndOnlyGrossPriceIsAboveCost_RejectsSale()
     {
         var calculator = CreateCalculatorWithRules([]);
 
@@ -69,11 +111,8 @@ public class SalePricingCalculatorTests
             ],
             SaleDiscount: None()));
 
-        Assert.False(result.IsError);
-        var line = Assert.Single(result.Value.Lines);
-        Assert.Equal(17.14m, line.PreTaxAmountBeforeDiscount);
-        Assert.Equal(6.86m, line.TaxAmount);
-        Assert.Equal(24m, line.TotalAmount);
+        Assert.True(result.IsError);
+        Assert.Equal("SalePricing.BelowCost", result.FirstError.Code);
     }
 
     [Fact]
@@ -85,7 +124,7 @@ public class SalePricingCalculatorTests
             ShopId,
             SaleTime,
             [
-                Line(quantity: 19m, salesPrice: 24m, taxRatePercent: 40m, taxIncluded: true, costPrice: 18m),
+                Line(quantity: 19m, salesPrice: 24m, taxRatePercent: 40m, taxIncluded: true, costPrice: 16m),
             ],
             SaleDiscount: None()));
 
@@ -98,7 +137,7 @@ public class SalePricingCalculatorTests
     }
 
     [Fact]
-    public async Task Calculate_WhenTaxIncluded_ReturnsGrossAwareDiscountCapacity()
+    public async Task Calculate_WhenTaxIncluded_ReturnsNetDiscountCapacity()
     {
         var calculator = CreateCalculatorWithRules([]);
 
@@ -106,13 +145,13 @@ public class SalePricingCalculatorTests
             ShopId,
             SaleTime,
             [
-                Line(quantity: 1m, salesPrice: 24m, taxRatePercent: 40m, taxIncluded: true, costPrice: 18m),
+                Line(quantity: 1m, salesPrice: 24m, taxRatePercent: 40m, taxIncluded: true, costPrice: 16m),
             ],
             SaleDiscount: None()));
 
         Assert.False(result.IsError);
         var line = Assert.Single(result.Value.Lines);
-        Assert.Equal(4.29m, line.MaxAllowedItemDiscountFlat);
+        Assert.Equal(1.14m, line.MaxAllowedItemDiscountFlat);
     }
 
     [Fact]

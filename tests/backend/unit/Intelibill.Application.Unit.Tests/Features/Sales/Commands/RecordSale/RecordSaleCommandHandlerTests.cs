@@ -391,7 +391,7 @@ public class RecordSaleCommandHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WhenPurchaseTaxIncluded_UsesNetCostForPricingAndSaleItem()
+    public async Task HandleAsync_WhenPurchaseTaxIncluded_UsesRecordedCostForPricingAndSaleItem()
     {
         var shopId = Guid.NewGuid();
         var actorId = Guid.NewGuid();
@@ -410,10 +410,10 @@ public class RecordSaleCommandHandlerTests
         await _salePricingCalculator.Received(1).CalculateAsync(
             Arg.Is<SalePricingCalculationRequest>(request =>
                 request.Lines.Count == 1
-                && request.Lines[0].CostPrice == 100m),
+                && request.Lines[0].CostPrice == 118m),
             Arg.Any<CancellationToken>());
         await _saleRepository.Received(1).AddAsync(
-            Arg.Is<Sale>(sale => sale.Items.Single().CostPrice == 100m),
+            Arg.Is<Sale>(sale => sale.Items.Single().CostPrice == 118m),
             Arg.Any<CancellationToken>());
     }
 
