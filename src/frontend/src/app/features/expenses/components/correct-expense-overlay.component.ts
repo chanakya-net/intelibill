@@ -11,7 +11,7 @@ import {
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
-import { filter } from 'rxjs/operators';
+import { filter, take } from 'rxjs/operators';
 
 import { ButtonModule } from 'primeng/button';
 import { DatePickerModule } from 'primeng/datepicker';
@@ -103,11 +103,12 @@ export class CorrectExpenseOverlayComponent implements OnInit {
       .pipe(
         takeUntilDestroyed(),
         filter((status) => status.type === 'correct-expense' && status.succeeded === true),
+        take(1),
       )
       .subscribe(() => {
+        this.expensesFacade.clearMutationStatus();
         this.expensesFacade.refreshExpenses();
         this.closeRequested.emit();
-        this.expensesFacade.clearMutationStatus();
       });
   }
 

@@ -110,9 +110,26 @@ CodeGraph was used first and for symbol/impact exploration; its returned source 
 
 Run commands sequentially where .NET build outputs overlap; do not duplicate a coordinator's running check. No migration is required.
 
-- [ ] From repository root: `dotnet build src/backend/Intelibill.slnx` and `dotnet test src/backend/Intelibill.slnx`. Integration requires Docker, which the coordinator confirmed available.
-- [ ] From `src/frontend`: `bun run test --watch=false`, `bun run build`, then `bun run audit:ui:release` (repository-required built worker isolation check). Targeted mocked expense Playwright coverage from Task 3 must also pass.
-- [ ] Inspect diff for unrelated schema/mobile/profit/treatment changes, run `git diff --check`, and record actual commands/results and any environmental limitations.
-- [ ] Independent whole-branch review against RF1–RF5 and the validation-code, scope-reset, recovery, and translation risks. Fix actionable findings and rerun only affected checks, then create the requested PR with concrete behavior and validation evidence.
+- [x] From repository root: `dotnet build src/backend/Intelibill.slnx` and `dotnet test src/backend/Intelibill.slnx`. Integration requires Docker, which the coordinator confirmed available.
+- [x] From `src/frontend`: `bun run test --watch=false`, `bun run build`, then `bun run audit:ui:release` (repository-required built worker isolation check). Targeted mocked expense Playwright coverage from Task 3 must also pass.
+- [x] Inspect diff for unrelated schema/mobile/profit/treatment changes, run `git diff --check`, and record actual commands/results and any environmental limitations.
+- [x] Independent Astra whole-branch review against RF1–RF5 and validation-code, scope-reset, recovery, and translation risks; both findings fixed and scoped independent re-review clean. The coordinator publishes the requested PR after verified implementation handoff.
 
 API deployment precedes or accompanies UI deployment; omitted status remains supported. Rollback needs no data changes. Large concurrent external writes can shift offset pages between separate requests; deterministic tie-breaking does not promise a cross-request snapshot, and this task does not add snapshot pagination. No blocking product decision remains.
+
+## Implementation decisions and validation (2026-11-07)
+
+- Keep server row ordering in the unsorted web entity adapter, including the API's creation/ID tie-breakers.
+- Store list errors separately from mutation feedback, so clearing an overlay error cannot turn a failed list into an empty success.
+- Place the existing paginator outside the desktop-only table so the same filtered dataset is reachable in mobile web. Add translated accessible arrow names; the Android application is outside this change.
+- Consume the first matching mutation success before refresh/close. Real NgRx store regressions cover both overlays, retained filters, and a subsequent overlay; mocked status streams had missed repeated selector emissions.
+
+Validation:
+
+- Backend solution build: success, 0 warnings/errors. Full solution: 3,374/3,374 tests passed (Domain 389, Application 1,715, API 578, PostgreSQL integration 692).
+- Expense integration: 23/23 passed again with the strengthened RF1 first-page exclusion premise (569 ms for RF1; 46.4 seconds for the class). Query/validator unit tests: 17/17; API controller unit tests: 6/6.
+- Full frontend: 255 files, 2,480 Angular tests plus 59 Bun script tests passed; production build passed (bundle/style budget warnings remain).
+- Mocked expense browser suite: 14 passed, 2 intentional viewport-specific matrix skips. The 26-row search/status/correction/fallback journey passes both desktop and mobile web.
+- Built release worker/cache isolation audit: 11/11 passed. `git diff --check`: clean.
+- Regression evidence: backend HTTP tests initially had 9 expected failures; query interactions had 3; mutation/page recovery had 4. Review's real-store overlay regressions failed twice before the consume-once fix and now pass; focused expense web suite is 97/97.
+- Independent Astra whole-branch review found repeated overlay refreshes and a nondeterministic RF1 test premise. Both were corrected; scoped independent re-review is clean, with no deferred or declined findings.

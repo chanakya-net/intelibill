@@ -107,8 +107,12 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
     {
         using var client = CreateClient();
         var token = await CreateShopAsync(client, await RegisterAsync(client));
-        var ids = await SeedListAsync(client, token);
+        var ids = await SeedListAsync(client, token, olderVoided: true);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var unfiltered = await client.GetFromJsonAsync<JsonElement>("/api/expenses");
+        Assert.Equal(27, unfiltered.GetProperty("totalCount").GetInt32());
+        Assert.Equal(20, unfiltered.GetProperty("items").GetArrayLength());
+        Assert.DoesNotContain(unfiltered.GetProperty("items").EnumerateArray(), item => item.GetProperty("id").GetGuid() == ids[^1]);
         var body = await client.GetFromJsonAsync<JsonElement>("/api/expenses?status=VoIdEd");
         Assert.Equal(1, body.GetProperty("totalCount").GetInt32());
         Assert.Equal(ids[^1], Assert.Single(body.GetProperty("items").EnumerateArray()).GetProperty("id").GetGuid());
@@ -172,7 +176,7 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
         }
     }
 
-    private async Task<List<Guid>> SeedListAsync(HttpClient client, string token)
+    private async Task<List<Guid>> SeedListAsync(HttpClient client, string token, bool olderVoided = false)
     {
         var shopId = await GetShopIdFromTokenAsync(client, token);
         var actorId = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler().ReadJwtToken(token).Subject;
@@ -186,7 +190,8 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
         {
             var expense = Intelibill.Domain.Entities.Expense.Create(shopId, i % 3 == 2 && i < 26 ? matchingCategory.Id : category.Id,
                 100m, i % 3 == 0 && i < 26 ? "needle payee" : "Vendor",
-                i % 3 == 1 && i < 26 ? "needle description" : null, new DateOnly(2026, 6, 1), Guid.Parse(actorId));
+                i % 3 == 1 && i < 26 ? "needle description" : null,
+                olderVoided && i == 25 ? new DateOnly(2026, 5, 1) : new DateOnly(2026, 6, 1), Guid.Parse(actorId));
             if (i == 25) expense.MarkVoided();
             db.Expenses.Add(expense);
             if (i < 26) ids.Add(expense.Id);
