@@ -7,6 +7,21 @@ import { CartCheckoutSummaryComponent } from './cart-checkout-summary.component'
 import { SalePreviewDto } from '../../../../features/sales/services/sale.models';
 
 describe('CartCheckoutSummaryComponent', () => {
+  it('shows accepted net revenue cost and profit, and clears them with the preview', () => {
+    TestBed.configureTestingModule({ imports: [CartCheckoutSummaryComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })] });
+    const fixture = TestBed.createComponent(CartCheckoutSummaryComponent);
+    fixture.componentInstance.preview = { totalAmount: 236, totalTaxableAmount: 200, totalTaxAmount: 36, totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 200, configuredSaleRule: null, infos: [], warnings: [],
+      lines: [{ economics: { netRevenue: 200, economicCost: 100, grossProfit: 100, grossMarginPercent: 50, markupPercent: 100 } } as SalePreviewDto['lines'][number]] };
+    fixture.detectChanges();
+    const text = fixture.nativeElement.querySelector('[data-testid="checkout-economics"]').textContent;
+    expect(text).toContain('200.00'); expect(text).toContain('100.00');
+    expect(fixture.componentInstance.recordedCost).toBe(100);
+    expect(fixture.componentInstance.grossProfit).toBe(100);
+    fixture.componentRef.setInput('preview', null); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[data-testid="checkout-economics"]')).toBeNull();
+  });
+
   it('renders computed totals from preview', () => {
     const preview: SalePreviewDto = {
       totalAmount: 120,

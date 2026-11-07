@@ -28,7 +28,7 @@ public class InventoryBatchTests
     }
 
     [Fact]
-    public void GetProfitCostPrice_WhenPurchaseTaxIncluded_ReturnsNetUnitCost()
+    public void GetProfitCostPrice_WhenPurchaseTaxIncluded_PreservesRecordedCost()
     {
         var result = InventoryBatch.Create(
             Guid.NewGuid(),
@@ -47,7 +47,7 @@ public class InventoryBatchTests
             purchaseTaxIncluded: true);
         Assert.False(result.IsError);
 
-        Assert.Equal(100m, result.Value.GetProfitCostPrice());
+        Assert.Equal(118m, result.Value.GetProfitCostPrice());
     }
 
     [Fact]
@@ -185,7 +185,7 @@ public class InventoryBatchTests
 
         var stockValue = batch.Quantity * batch.GetProfitCostPrice();
 
-        Assert.Equal(1000m, stockValue);
+        Assert.Equal(1180m, stockValue);
     }
 
     [Fact]

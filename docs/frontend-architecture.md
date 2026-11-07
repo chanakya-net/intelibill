@@ -329,3 +329,34 @@ may hold a protected answer now:
 - `src/frontend/angular.json` — project build/test targets
 - `src/frontend/package.json` — scripts (`start`, `build`, `test`, `serve:ssr:INVENTORY`)
 - `src/frontend/ngsw-config.json` — PWA service worker config
+
+## Recorded-cost Trading and Operating Figures
+
+The P&L page and export use API economics version2: net sales excluding tax, COGS, independent
+stock loss, gross trading profit, classified operating expenses/profit, gross margin and markup.
+Zero is displayed as zero; null is translated as Not available with the operating-profit status.
+Filtered activity suppresses whole-shop operating totals. Unclassified expense count/amount are
+labeled period-wide and link to Expenses; service/return review and recorded-cost limitations stay
+visible. Returned-goods wastage is labeled already included in COGS. Dashboard consumes the same
+summary and calls its card gross trading profit; recorded-expense/outflow charts keep their cash
+activity meaning. These pages do not describe audited or after-income-tax business profit.
+
+Expense record/correction overlays require an explicit choice to assert Operating or Capital/other
+excluded; the default is Unclassified. Supplier settlements show read-only source-provenance text.
+Their corrections omit a new treatment and inherit the immutable backend treatment.
+
+Successful checkout previews show net revenue, recorded cost and trading profit; rejected online
+previews retain server net/cost/loss descriptions and clear earlier successful economics through
+the existing request identity/shop epoch handling. Percentage ceilings are floored to two places.
+Offline finalization refreshes usable snapshot costs and evaluates the unchanged v1 frozen output
+with scaled bigint arithmetic before consuming an invoice number, saving a queue entry or reducing
+shadow stock. Below-cost new issuance returns `BELOW_RECORDED_COST` with translated instructions
+to reduce discount or finish online. V1 proportional allocation can breach one line where online
+capped redistribution would succeed; this refusal never silently changes the frozen arithmetic.
+Already-issued v1 invoices replay their original wire amounts/hash and post with a pricing review
+case when below recorded cost; current-versus-frozen cost differences are provenance warnings.
+
+Discount ceilings use the same scaled bigint quantity/cost midpoint rounding as offline issuance,
+including remaining sale-level capacity and percentage flooring; binary `toFixed` products cannot
+advertise an unsafe paise. The dashboard comparison falls back to a legacy growth value only when
+the new field is absent. An explicitly null version2 comparison stays unavailable.

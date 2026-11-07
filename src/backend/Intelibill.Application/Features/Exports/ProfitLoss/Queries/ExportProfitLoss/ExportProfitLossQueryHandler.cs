@@ -63,7 +63,7 @@ public sealed class ExportProfitLossQueryHandler(
                 report.To,
                 report.Type,
                 report.Search,
-                query.Format ?? "xlsx"),
+                query.Format ?? "xlsx", shop.BusinessTimeZoneId),
             new ProfitLossExportSummaryDto(
                 report.Summary.NetProfitAfterTax,
                 report.Summary.RevenueIncludingTax,
@@ -71,7 +71,7 @@ public sealed class ExportProfitLossQueryHandler(
                 report.Summary.AverageMarginPercent,
                 report.Summary.InvoiceCount,
                 report.Summary.ReturnCount,
-                report.Summary.AdjustmentCount),
+                report.Summary.AdjustmentCount, report.Summary.Economics),
             report.Items.Select(row => new ProfitLossExportRowDto(
                 row.ReferenceNumber,
                 row.OccurredAt,
@@ -83,7 +83,7 @@ public sealed class ExportProfitLossQueryHandler(
                 row.RevenueAfterTax,
                 row.ProfitBeforeTax,
                 row.ProfitAfterTax,
-                row.MarginPercent)).ToList());
+                row.MarginPercent, row.Economics, row.IsReversal, row.NeedsAccountingReview)).ToList());
 
         return await excelRenderer.RenderAsync(dataset, cancellationToken);
     }

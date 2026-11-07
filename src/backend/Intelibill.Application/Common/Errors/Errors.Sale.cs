@@ -282,6 +282,9 @@ public static partial class Errors
         public static Error InvalidDiscount(Guid inventoryBatchId) =>
             Error.Validation("SalePricing.InvalidDiscount", $"Invalid discount input for batch '{inventoryBatchId}'.");
 
+        public static Error BelowRecordedCost(string code, Guid batchId, decimal netRevenue, decimal recordedCost) =>
+            Error.Validation(code, FormattableString.Invariant($"Batch '{batchId}': requested net revenue {netRevenue:0.00}, recorded cost {recordedCost:0.00}, loss {Math.Max(0m, recordedCost - netRevenue):0.00}. Reduce the discount or increase the net price."));
+
         public static Error ItemDiscountWouldBeBelowCost(Guid inventoryBatchId) =>
             Error.Validation("SalePricing.ItemDiscountBelowCost", $"Item discount would make batch '{inventoryBatchId}' sell below cost.");
 

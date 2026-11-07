@@ -122,7 +122,8 @@ public sealed class PreviewSaleQueryHandler(
                 calculated.ConfiguredBatchRuleId,
                 calculated.ConfiguredBatchRulePercentage,
                 validated.HasPriceMismatch,
-                validated.Command.ClientLineKey));
+                validated.Command.ClientLineKey,
+                SaleEconomicsCalculator.Calculate(calculated.TaxableAmount, SaleEconomicsCalculator.RecordedCost(calculated.Quantity, calculated.CostPrice))));
         }
 
         return new SalePreviewDto(

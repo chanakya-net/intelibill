@@ -1,3 +1,5 @@
+import { discountCapacityPaise, discountCeilingFromPaise } from '../services/offline-sale-economics';
+import { MONEY_SCALE, PERCENT_SCALE, fromScaled, percentOf, toScaled } from '../services/offline-money.math';
 import { NewSalePageDiscountActionsService } from './new-sale-page.discount-actions.service';
 import { CartItem } from '../services/sale-cart-state.service';
 
@@ -189,24 +191,15 @@ export abstract class NewSalePageDiscountValidationService extends NewSalePageDi
       return { isEligible: false, maxFlat: 0, maxPercent: 0 };
     }
 
-    const totalCapacity = preview.lines.reduce((sum, line) => {
-      if (line.lineType === 'Service') {
-        return sum;
-      }
-      const preTax = Number(line.preTaxAmountBeforeDiscount ?? 0);
-      const itemDiscount = Number(line.itemDiscountAmount ?? 0);
-      const taxableAfterItem = preTax - itemDiscount;
-      const costTotal = Number(line.costPrice ?? 0) * Number(line.quantity ?? 0);
-      return sum + Math.max(0, taxableAfterItem - costTotal);
-    }, 0);
-
-    let maxFlat = this.roundAmount(Math.max(0, totalCapacity));
-    let maxPercent = maxFlat > 0 ? this.roundAmount((maxFlat * 100) / eligibleSubtotal) : 0;
+    const totalCapacity = preview.lines.reduce((sum, line) => line.lineType === 'Service' ? sum : sum + discountCapacityPaise(
+      Number(line.preTaxAmountBeforeDiscount ?? 0), Number(line.quantity ?? 0), Number(line.costPrice ?? 0), Number(line.itemDiscountAmount ?? 0)), 0n);
+    const subtotalPaise = toScaled(eligibleSubtotal, MONEY_SCALE);
+    let { maxFlat, maxPercent } = discountCeilingFromPaise(totalCapacity, subtotalPaise);
 
     const configured = preview.configuredSaleRule;
     if (configured && Number.isFinite(Number(configured.percentage))) {
       const configuredPercent = Math.max(0, Number(configured.percentage));
-      const configuredAmount = this.roundAmount((eligibleSubtotal * configuredPercent) / 100);
+      const configuredAmount = fromScaled(percentOf(subtotalPaise, toScaled(configuredPercent, PERCENT_SCALE)), MONEY_SCALE);
       maxFlat = Math.min(maxFlat, configuredAmount);
       maxPercent = Math.min(maxPercent, configuredPercent);
     }

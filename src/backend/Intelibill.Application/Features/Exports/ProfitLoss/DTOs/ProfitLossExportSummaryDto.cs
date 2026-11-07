@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Sales.DTOs;
+
 namespace Intelibill.Application.Features.Exports.ProfitLoss.DTOs;
 
 public sealed record ProfitLossExportSummaryDto(
@@ -7,4 +9,5 @@ public sealed record ProfitLossExportSummaryDto(
     decimal? AverageMarginPercent,
     int InvoiceCount,
     int ReturnCount,
-    int AdjustmentCount);
+    int AdjustmentCount,
+    ProfitLossEconomicsDto? Economics = null);

@@ -77,6 +77,29 @@ describe('DashboardKpiCardsComponent', () => {
     expect(card?.textContent).toContain('dashboard.kpis.salesRevenue');
   });
 
+  it('prefers shared trading economics over legacy net profit and exposes incomplete operating status', () => {
+    const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
+    fixture.componentRef.setInput('dashboard', { ...stubDashboard, netProfit: 999,
+      economics: { version: 2, costBasis: 'recorded-sale-cost/1', netSalesExcludingTax: 200, cogs: 100, stockLoss: 0,
+        returnedGoodsWastageIncludedInCogs: 0, grossTradingProfit: 100, operatingExpenses: 20, operatingProfit: null,
+        grossMarginPercent: 50, markupPercent: 100, unclassifiedExpenseCount: 1, unclassifiedExpenseAmount: 20,
+        operatingProfitStatus: 'UnclassifiedExpenses', limitations: ['unclassified-expenses'] } });
+    fixture.detectChanges();
+    const value = fixture.nativeElement.querySelector('[data-testid="net-profit-value"]').textContent;
+    expect(value).toContain('100'); expect(value).not.toContain('999');
+    const notes = fixture.nativeElement.querySelector('[data-testid="dashboard-economics"]').textContent;
+    expect(notes).toContain('sales.profitLoss.status.UnclassifiedExpenses');
+    expect(notes).toContain('sales.profitLoss.economics.notAvailable');
+  });
+
+  it('preserves an explicit v2 null comparison instead of showing legacy growth', () => {
+    const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
+    fixture.componentRef.setInput('dashboard', { ...stubDashboard, grossTradingProfitChangePercent: null, netProfitChangePercent: 19900 });
+    fixture.detectChanges();
+    expect(fixture.componentInstance.netProfitChangePercent()).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="net-profit-change-value"]')).toBeNull();
+  });
+
   it('renders invoice count card', () => {
     const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
     fixture.componentRef.setInput('dashboard', stubDashboard);

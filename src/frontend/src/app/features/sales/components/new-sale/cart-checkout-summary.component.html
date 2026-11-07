@@ -1,4 +1,13 @@
 <div class="summary-box flex-1">
+  @if (recordedCost !== null && !loading) {
+    <div class="checkout-economics" data-testid="checkout-economics">
+      <p>{{ 'sales.profitLoss.economics.netSales' | transloco }}: {{ preview?.totalTaxableAmount | currency: 'INR' }}</p>
+      <p>{{ 'sales.profitLoss.economics.cogs' | transloco }}: {{ recordedCost | currency: 'INR' }}</p>
+      <p>{{ 'sales.profitLoss.economics.trading' | transloco }}: {{ grossProfit | currency: 'INR' }}</p>
+      <small>{{ 'sales.profitLoss.economics.basis' | transloco }}</small>
+    </div>
+  }
+
   <div class="flex justify-between text-sm text-slate-600">
     <span>{{ 'sales.newSale.subtotal' | transloco }}</span>
     <span>₹{{ computedSubtotal | number: '1.2-2' }}</span>

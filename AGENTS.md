@@ -8,7 +8,7 @@
 - Test full: `dotnet test src/backend/Intelibill.slnx`
 - Test unit: `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests`, `Application.Unit.Tests`, `Api.Unit.Tests`
 - Test integration: `dotnet test tests/backend/integration/Intelibill.Integration.Tests` (requires Docker)
-- Snapshot: 389 + 1667 + 576 + 672 = 3304 tests (2632 non-integration), all passing as of 7 November 2026
+- Snapshot: 389 + 1699 + 578 + 681 = 3347 tests (2666 non-integration), all passing as of 7 November 2026
 
 **Migrations** (EF Core) — API startup does **not** apply them; run `database update` yourself after pulling schema changes (deployed environments use the migration job):
 ```bash
@@ -112,12 +112,13 @@ DB Options: `src/backend/Intelibill.Infrastructure/Options/DatabaseOptions.cs:7`
 - Suppliers: CRUD + `ledger`, `payments` (optional `operationKey`, `method`, `externalReference`, `bankAccountId`, `allocations` to purchase receipts)
 - Payments (`api/payments`): `GET {receiptId}`, `GET balances?partyType=&partyId=` (owner/manager), `POST {receiptId}/allocations` (owner/manager, optional `operationKey`), `POST {receiptId}/reversal` (owner; reason + required `operationKey`; whole receipt once → 409 `Payment.AlreadyReversed`)
 - Financial operations: `GET financial-operations/{customer-payment|supplier-payment}/{key}` (owner/manager; committed outcome or 404)
-- Expenses: `GET`, `POST`, `{id}`, `{id}/correct`, `categories`
+- Expenses: `GET`, `POST`, `{id}`, `{id}/correct`, `categories` (optional `treatment`: Unclassified default, Operating, CapitalOrOtherExcluded; supplier settlements are provenance-only and immutable through correction)
 - Bank Accounts: CRUD
 - Users: `GET` (shop), `PUT me` (returns the saved profile, no token), `me/change-password` (ends every device, including the caller's); `POST` (add) and `PUT {userId}` are refused — onboarding goes through shop invitations and shop administration through the membership endpoint
 - Invitations: `POST invitations/{invitationId}/accept` (the invited person's own session)
 
 **Infrastructure**:
+- Profit economics: preview/posting protect tax-exclusive net revenue against rounded recorded batch cost (purchase-tax flags never imply recoverability). P&L/dashboard/XLSX add economics version2: net sales, COGS, independent stock loss, gross trading and classified operating profit, margin vs markup, explicit null/status/limitations. Voids reverse stock losses on their own dates; return wastage is already included in COGS. Legacy metric meanings remain. See `docs/backend-architecture.md` § Recorded-cost Profit and Discount Economics
 - Verified phone: `phone_challenges` holds purpose-bound keyed-HMAC codes; `users.is_phone_verified` backfills false. Delivery via the encrypted `identity_sms` outbox and the `ISmsSender` seam. See `docs/auth-phone-setup.md` and `docs/backend-architecture.md` § Verified Phone Credentials
 - Realtime: hub connections are admitted by `RealtimeConnectionGate` against live authority, recorded in `realtime_connection_leases`, addressed per payload by `IAuthorizedRealtimeDispatcher<THub>` (no SignalR groups) and closed by `RealtimeRevocationWorker`'s five-second sweep. See `docs/backend-architecture.md` § Realtime Notifications
 - Financial operations: keyed payments run through `IFinancialOperationExecutor`, which reserves an `operation_receipts` row (unique per shop + type + key) and commits it with the posting; retries replay the stored response, changed payloads answer 409 `Operation.PayloadMismatch`. Bulk stock intake commits a manifest receipt plus one receipt per row through it (`IInboundRowExecutor`, fresh scope per row). See `docs/backend-architecture.md` § Financial Operation Receipts and § Bulk Stock Intake

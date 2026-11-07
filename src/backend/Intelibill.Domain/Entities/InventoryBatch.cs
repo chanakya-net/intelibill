@@ -211,13 +211,8 @@ public sealed class InventoryBatch : BaseEntity
 
     public decimal GetProfitCostPrice()
     {
-        if (!PurchaseTaxIncluded || TaxRatePercent <= 0m)
-        {
-            return CostPrice;
-        }
-
-        var taxAmount = CostPrice * TaxRatePercent / (100m + TaxRatePercent);
-        return decimal.Round(CostPrice - taxAmount, 2, MidpointRounding.AwayFromZero);
+        // The purchase-tax flag provides no evidence of recoverability. Keep the recorded amount.
+        return CostPrice;
     }
 
     private static ErrorOr<Success> ValidateBatch(

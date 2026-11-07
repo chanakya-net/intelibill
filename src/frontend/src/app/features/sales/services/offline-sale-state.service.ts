@@ -1,3 +1,5 @@
+import { MONEY_SCALE, toScaled } from './offline-money.math';
+import { discountCapacityPaise, discountCeilingFromPaise, evaluateOfflineSaleEconomics } from './offline-sale-economics';
 import { Injectable, inject, signal } from '@angular/core';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -278,13 +280,11 @@ export class OfflineSaleStateService {
       configuredSaleRule: null,
       lines: pricing.lines.map((line) => {
         const configuredRule = configuredRuleByBatchId.get(line.inventoryBatchId) ?? null;
-        const preTaxMargin = this.roundAmount(Math.max(0, line.preTaxAmount - (line.costPrice * line.quantity)));
-        const maxAllowedItemDiscountFlat = preTaxMargin;
-        const maxAllowedItemDiscountPercent = line.preTaxAmount > 0
-          ? this.roundAmount((preTaxMargin * 100) / line.preTaxAmount)
-          : 0;
+        const { maxFlat: maxAllowedItemDiscountFlat, maxPercent: maxAllowedItemDiscountPercent } = discountCeilingFromPaise(
+          discountCapacityPaise(line.preTaxAmount, line.quantity, line.costPrice), toScaled(line.preTaxAmount, MONEY_SCALE));
 
         return {
+          economics: evaluateOfflineSaleEconomics({ ...pricing, lines: [line] }).lines[0],
           itemId: line.itemId,
           barcode: line.barcode,
           itemName: line.itemName,
@@ -390,6 +390,7 @@ export class OfflineSaleStateService {
     const result = await this.offlineFinalization.finalizeAndQueue(request);
     if (!result.ok) {
       const reasonKey: Record<typeof result.reason, string> = {
+        BELOW_RECORDED_COST: 'sales.newSale.offline.blockBelowRecordedCost',
         SNAPSHOT_STALE: 'sales.newSale.offline.blockSnapshotStale',
         MISSING_CATALOG_ITEM: 'sales.newSale.offline.blockMissingItem',
         INSUFFICIENT_SHADOW_STOCK: 'sales.newSale.offline.blockInsufficientStock',

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, OnInit, Output, computed, inject } from '@angular/core';
+import { Component, EventEmitter, OnInit, Output, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -14,6 +14,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { InputGroupModule } from 'primeng/inputgroup';
 import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 
+import { EXPENSE_TREATMENT_CHOICES, type ExpenseTreatment } from '../services/expense.service';
 import { ExpenseCategoryDto } from '../services/expense-category.service';
 import { ExpensesFacade } from '../state/expenses.facade';
 import {
@@ -46,6 +47,13 @@ import { InputValidators } from '../../../shared/forms/input-validation';
 export class RecordExpenseOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly expensesFacade = inject(ExpensesFacade);
+
+  readonly treatment = signal<ExpenseTreatment>('Unclassified');
+  readonly treatmentChoices = EXPENSE_TREATMENT_CHOICES;
+  selectTreatment(event: Event): void {
+    const choice = (event.target as HTMLSelectElement).value;
+    if (this.treatmentChoices.some(t => t === choice)) this.treatment.set(choice as ExpenseTreatment);
+  }
 
   readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
   readonly currencyAddonPt = CURRENCY_ADDON_PT;
@@ -115,6 +123,7 @@ export class RecordExpenseOverlayComponent implements OnInit {
 
     const raw = this.form.getRawValue();
     this.expensesFacade.recordExpense({
+      treatment: this.treatment(),
       categoryName: raw.categoryName.trim(),
       amount: raw.amount,
       paidTo: raw.paidTo.trim(),

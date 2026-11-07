@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -10,8 +11,11 @@ internal sealed class ExpenseConfiguration : IEntityTypeConfiguration<Expense>
     {
         builder.ToTable("expenses", tableBuilder =>
         {
+            tableBuilder.HasCheckConstraint("ck_expenses_treatment", "treatment IN (0, 1, 2, 3)");
             tableBuilder.HasCheckConstraint("ck_expenses_amount_positive", "amount > 0");
         });
+
+        builder.Property(e => e.Treatment).HasConversion<int>().HasDefaultValue(ExpenseTreatment.Unclassified).IsRequired();
 
         builder.HasKey(e => e.Id);
 

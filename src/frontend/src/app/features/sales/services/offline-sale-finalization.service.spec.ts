@@ -67,6 +67,31 @@ describe('OfflineSaleFinalizationService', () => {
     };
   }
 
+  it('refuses below recorded cost using snapshot cost before consuming or saving anything', async () => {
+    const { service, snapshotDb, leaseDb, queueDb, shadowDb } = setup();
+    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), costPrice: 100, salesPrice: 118, taxRatePercent: 18, taxIncluded: true }]);
+    const base = makeRequest();
+    const result = await service.finalizeAndQueue({ ...base, pricingInput: { ...base.pricingInput,
+      lines: [{ ...base.pricingInput.lines[0], costPrice: 1, itemDiscount: { type: 2, value: 10 } }] } });
+    expect(result).toEqual({ ok: false, reason: 'BELOW_RECORDED_COST' });
+    expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
+    expect(queueDb.savePendingSale).not.toHaveBeenCalled();
+    expect(shadowDb.reduceQuantity).not.toHaveBeenCalled();
+  });
+
+  it.each([[.99, true], [1, false]] as const)('issues the midpoint-safe discount boundary and refuses the next cent (%s)', async (discount, accepted) => {
+    const { service, snapshotDb, leaseDb } = setup();
+    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), salesPrice: 4, mrp: 4, costPrice: 2.01, taxRatePercent: 0, taxIncluded: false, quantityScale: 3 }]);
+    const base = makeRequest();
+    const result = await service.finalizeAndQueue({ ...base, pricingInput: { ...base.pricingInput,
+      lines: [{ ...base.pricingInput.lines[0], quantity: .5, itemDiscount: { type: 2, value: discount } }] } });
+    expect(result.ok).toBe(accepted);
+    if (!accepted) {
+      expect(result).toEqual({ ok: false, reason: 'BELOW_RECORDED_COST' });
+      expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
+    }
+  });
+
   it('queues sale, consumes invoice, and reduces shadow stock', async () => {
     vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa').mockReturnValueOnce('11111111-1111-4111-8111-111111111111');
     const { service, leaseDb, queueDb, shadowDb } = setup();

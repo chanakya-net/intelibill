@@ -48,25 +48,14 @@ internal static class SalePricingMath
         decimal taxRatePercent,
         bool isPriceIncludingTax)
     {
-        if (!isPriceIncludingTax)
-            return taxableAmount;
-
-        return RoundMoney(taxableAmount + CalculateTaxAmount(taxableAmount, taxRatePercent));
+        return RoundMoney(taxableAmount);
     }
 
     internal static decimal CalculateDiscountCapacity(
         decimal taxableAmount,
         decimal costTotal,
         decimal taxRatePercent,
-        bool isPriceIncludingTax)
-    {
-        if (!isPriceIncludingTax || taxRatePercent <= 0m)
-            return RoundMoney(Math.Max(0m, taxableAmount - costTotal));
-
-        var grossAmount = CalculateRevenueForCostCheck(taxableAmount, taxRatePercent, isPriceIncludingTax);
-        var grossCapacity = RoundMoney(Math.Max(0m, grossAmount - costTotal));
-        return RoundMoney(grossCapacity * 100m / (100m + taxRatePercent));
-    }
+        bool isPriceIncludingTax) => SaleEconomicsCalculator.DiscountCapacity(taxableAmount, costTotal);
 
     internal static decimal CalculateLineDiscountAmount(InstantDiscount discount, decimal preTaxAmount)
     {

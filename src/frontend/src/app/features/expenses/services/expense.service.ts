@@ -4,7 +4,11 @@ import { Observable } from 'rxjs';
 
 import { EXPENSE_ENDPOINTS } from '../../../core/auth/auth.constants';
 
+export type ExpenseTreatment = 'Unclassified' | 'Operating' | 'SupplierSettlement' | 'CapitalOrOtherExcluded';
+export const EXPENSE_TREATMENT_CHOICES = ['Unclassified', 'Operating', 'CapitalOrOtherExcluded'] as const;
+
 export interface RecordExpenseRequest {
+  readonly treatment?: ExpenseTreatment;
   readonly categoryName: string;
   readonly amount: number;
   readonly paidTo: string;
@@ -13,6 +17,8 @@ export interface RecordExpenseRequest {
 }
 
 export interface ExpenseDto {
+  readonly treatment?: ExpenseTreatment;
+  readonly supplierLedgerEntryId?: string | null;
   readonly id: string;
   readonly shopId: string;
   readonly categoryId: string;
@@ -28,6 +34,7 @@ export interface ExpenseDto {
 }
 
 export interface ExpenseListItemDto {
+  readonly treatment?: ExpenseTreatment;
   readonly id: string;
   readonly amount: number;
   readonly categoryName: string;

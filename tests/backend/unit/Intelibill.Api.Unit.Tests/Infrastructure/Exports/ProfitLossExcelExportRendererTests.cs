@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Exports.ProfitLoss;
 using Intelibill.Application.Features.Exports.ProfitLoss.DTOs;
 using Intelibill.Infrastructure.Services.Exports;
@@ -7,6 +8,35 @@ namespace Intelibill.Api.Unit.Tests.Infrastructure.Exports;
 
 public sealed class ProfitLossExcelExportRendererTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RenderAsync_UsesVersionedEconomicsAndPreservesUnavailableValues(bool unavailable)
+    {
+        var economics = new ProfitLossEconomicsDto(2, "recorded-sale-cost/1", 200m, 100m, 0m, 0m, 100m,
+            20m, unavailable ? null : 80m, 50m, 100m, unavailable ? 1 : 0, unavailable ? 20m : 0m,
+            unavailable ? "UnclassifiedExpenses" : "Complete", ["purchase-tax-recoverability-unmodeled"]);
+        var dataset = new ProfitLossExportDatasetDto(new("Shop", null, "Owner", DateTimeOffset.UtcNow, new(2026, 6, 1), new(2026, 6, 30), "all", null, "xlsx"),
+            new(100m, 200m, 100m, 100m, 1, 0, 0, economics),
+            [new("=Literal", DateTimeOffset.UtcNow, "Sale", "Name", 100m, 0m, 200m, 200m, 100m, 100m, 100m,
+                new(2, 200m, 100m, 0m, 0m, 100m, 50m, 100m, false))]);
+        var result = await new ProfitLossExcelExportRenderer().RenderAsync(dataset, CancellationToken.None);
+        using var book = new XLWorkbook(new MemoryStream(result.Content));
+        var sheet = book.Worksheet("Profit & Loss");
+        decimal Value(string label) => sheet.RowsUsed().Single(r => r.Cell(1).GetString() == label).Cell(2).GetValue<decimal>();
+        Assert.Equal(200m, Value("Net sales excluding tax"));
+        Assert.Equal(100m, Value("COGS"));
+        Assert.Equal(100m, Value("Gross trading profit"));
+        Assert.Equal(20m, Value("Operating expenses"));
+        var operating = sheet.RowsUsed().Single(r => r.Cell(1).GetString() == "Operating profit").Cell(2);
+        if (unavailable) Assert.Equal("Not available", operating.GetString());
+        else Assert.Equal(80m, operating.GetValue<decimal>());
+        Assert.Equal(50m, Value("Gross margin %"));
+        Assert.Equal(100m, Value("Markup %"));
+        Assert.DoesNotContain(sheet.CellsUsed(), c => c.GetString() == "Net Profit After Tax");
+        Assert.False(sheet.CellsUsed().Single(c => c.GetString() == "=Literal").HasFormula);
+    }
+
     [Fact]
     public async Task RenderAsync_CreatesWorkbookWithExpectedColumnsAndFilename()
     {

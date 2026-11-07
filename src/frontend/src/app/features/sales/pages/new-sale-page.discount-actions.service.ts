@@ -1,3 +1,4 @@
+import { MONEY_SCALE, PERCENT_SCALE, fromScaled, percentOf, toScaled } from '../services/offline-money.math';
 import { NewSalePageCartSubmitService } from './new-sale-page.cart-submit.service';
 import { SalePreviewLineDto } from '../services/sale.models';
 
@@ -197,7 +198,7 @@ export abstract class NewSalePageDiscountActionsService extends NewSalePageCartS
     }
 
     const configuredPercent = Math.max(0, Number(line.configuredBatchRulePercentage));
-    const configuredAmount = this.roundAmount((Number(line.preTaxAmountBeforeDiscount) * configuredPercent) / 100);
+    const configuredAmount = fromScaled(percentOf(toScaled(Number(line.preTaxAmountBeforeDiscount), MONEY_SCALE), toScaled(configuredPercent, PERCENT_SCALE)), MONEY_SCALE);
 
     return {
       maxFlat: Math.min(baseMaxFlat, configuredAmount),

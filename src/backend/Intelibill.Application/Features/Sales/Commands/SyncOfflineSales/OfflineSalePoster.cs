@@ -124,6 +124,7 @@ internal sealed class OfflineSalePoster(
 
         var vLines = validation.Value.Lines;
         OfflineSaleSyncHelpers.AddValidationVarianceIssues(shopId, recordedBy, clientSaleId, deviceId, warnings.Skip(warnCountBefore), pendingIssues);
+        OfflineSaleSyncHelpers.AddEconomicVarianceWarnings(shopId, recordedBy, clientSaleId, deviceId, vLines, lineByKey, warnings, pendingIssues);
         OfflineSaleSyncHelpers.AddPricingVarianceWarnings(shopId, recordedBy, clientSaleId, deviceId, vLines, lineByKey, warnings, pendingIssues);
         OfflineSaleSyncHelpers.AddDiscountVarianceWarnings(shopId, recordedBy, clientSaleId, deviceId, sale, lineByKey.Values, request.ActiveDiscountRulesById, warnings, pendingIssues);
 

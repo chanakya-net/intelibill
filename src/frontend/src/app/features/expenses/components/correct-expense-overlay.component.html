@@ -24,6 +24,20 @@
     </header>
 
     <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      @if (treatment() === 'SupplierSettlement') {
+        <p data-testid="settlement-provenance">{{ 'expenses.treatment.supplierProvenance' | transloco }}</p>
+      } @else {
+      <label>
+        <span>{{ 'expenses.treatment.label' | transloco }}</span>
+        <select data-testid="expense-treatment" [value]="treatment()" (change)="selectTreatment($event)">
+          @for (choice of treatmentChoices; track choice) {
+            <option [value]="choice">{{ ('expenses.treatment.' + choice) | transloco }}</option>
+          }
+        </select>
+        <small>{{ 'expenses.treatment.help' | transloco }}</small>
+      </label>
+
+      }
       <label
         [class.field-invalid]="
           form.controls.categoryName.touched && form.controls.categoryName.invalid

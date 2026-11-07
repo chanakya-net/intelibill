@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 
 import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
@@ -46,6 +46,7 @@ import { formatLocalIsoDate } from '../../../../shared/utils/date-time.util';
   styleUrl: './profit-loss-page.component.scss',
 })
 export class ProfitLossPageComponent {
+  private readonly transloco = inject(TranslocoService);
   private readonly salesFacade = inject(SalesFacade);
   private readonly salesExportService = inject(SalesExportService);
 
@@ -83,32 +84,16 @@ export class ProfitLossPageComponent {
     { label: '50', value: 50 },
   ];
 
+  readonly economics = computed(() => this.summary()?.economics ?? null);
   readonly kpiCards = [
-    {
-      label: 'sales.profitLoss.kpi.netProfit',
-      value: () => this.summary()?.netProfitAfterTax ?? null,
-      currency: true,
-      tone: 'sage',
-    },
-    {
-      label: 'sales.profitLoss.kpi.revenue',
-      value: () => this.summary()?.revenueIncludingTax ?? null,
-      currency: true,
-      tone: 'amber',
-    },
-    {
-      label: 'sales.profitLoss.kpi.totalCost',
-      value: () => this.summary()?.totalCost ?? null,
-      currency: true,
-      tone: 'terracotta',
-    },
-    {
-      label: 'sales.profitLoss.kpi.avgMargin',
-      value: () => this.summary()?.averageMarginPercent ?? null,
-      currency: false,
-      percent: true,
-      tone: 'ink',
-    },
+    { label: 'sales.profitLoss.economics.netSales', value: () => this.economics()?.netSalesExcludingTax ?? null, currency: true, tone: 'amber' },
+    { label: 'sales.profitLoss.economics.cogs', value: () => this.economics()?.cogs ?? null, currency: true, tone: 'terracotta' },
+    { label: 'sales.profitLoss.economics.stockLoss', value: () => this.economics()?.stockLoss ?? null, currency: true, tone: 'terracotta' },
+    { label: 'sales.profitLoss.economics.trading', value: () => this.economics()?.grossTradingProfit ?? null, currency: true, tone: 'sage' },
+    { label: 'sales.profitLoss.economics.opex', value: () => this.economics()?.operatingExpenses ?? null, currency: true, tone: 'amber' },
+    { label: 'sales.profitLoss.economics.operating', value: () => this.economics()?.operatingProfit ?? null, currency: true, tone: 'sage' },
+    { label: 'sales.profitLoss.economics.margin', value: () => this.economics()?.grossMarginPercent ?? null, percent: true, tone: 'ink' },
+    { label: 'sales.profitLoss.economics.markup', value: () => this.economics()?.markupPercent ?? null, percent: true, tone: 'ink' },
   ];
 
   readonly totalPages = computed(() => {
@@ -166,7 +151,8 @@ export class ProfitLossPageComponent {
     });
   }
 
-  totalAmount(value: number): string {
+  totalAmount(value: number | null | undefined): string {
+    if (value == null) return this.transloco.translate('sales.profitLoss.economics.notAvailable');
     const sign = value < 0 ? '-' : '';
     const amount = Math.abs(value).toLocaleString('en-IN', {
       minimumFractionDigits: 2,
@@ -175,14 +161,14 @@ export class ProfitLossPageComponent {
     return `${sign}₹${amount}`;
   }
 
-  formatMarginPercent(value: number | null): string {
-    if (value === null) return '--';
+  formatMarginPercent(value: number | null | undefined): string {
+    if (value == null) return this.transloco.translate('sales.profitLoss.economics.notAvailable');
     return `${value.toLocaleString('en-IN', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
   }
 
   getKpiValue(kpi: { value: () => number | null; currency?: boolean; percent?: boolean }): string {
     const value = kpi.value();
-    if (value === null) return '--';
+    if (value == null) return this.transloco.translate('sales.profitLoss.economics.notAvailable');
     if (kpi.percent) return this.formatMarginPercent(value);
     return this.totalAmount(value);
   }

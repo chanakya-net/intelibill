@@ -14,6 +14,7 @@
             <span>
               <strong>{{ expense.categoryName }}</strong>
               <em>{{ expense.paidTo }}</em>
+              <small>{{ ('expenses.treatment.' + (expense.treatment ?? 'Unclassified')) | transloco }}</small>
             </span>
           </div>
 
@@ -97,7 +98,7 @@
               <strong>{{ expense.categoryName }}</strong>
             </div>
           </td>
-          <td>{{ expense.paidTo }}</td>
+          <td>{{ expense.paidTo }}<br /><small>{{ ('expenses.treatment.' + (expense.treatment ?? 'Unclassified')) | transloco }}</small></td>
           <td class="money">
             {{ 'common.currencySymbol' | transloco }}{{ expense.amount | number: '1.2-2' }}
           </td>

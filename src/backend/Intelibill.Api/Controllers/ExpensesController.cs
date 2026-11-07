@@ -1,3 +1,4 @@
+using Intelibill.Domain.Enums;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Expenses.Commands.CorrectExpense;
@@ -36,7 +37,7 @@ public sealed class ExpensesController : AuthenticatedControllerBase
                 request.Amount,
                 request.PaidTo,
                 request.Description,
-                request.ExpenseDate),
+                request.ExpenseDate, request.Treatment),
             cancellationToken);
 
         return result.ToActionResult(sale => CreatedAtAction(nameof(GetExpense), new { id = sale.Id }, sale));
@@ -58,7 +59,7 @@ public sealed class ExpensesController : AuthenticatedControllerBase
                 request.Amount,
                 request.PaidTo,
                 request.Description,
-                request.ExpenseDate),
+                request.ExpenseDate, request.Treatment),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -109,11 +110,13 @@ public sealed record RecordExpenseRequest(
     decimal Amount,
     string PaidTo,
     string? Description,
-    DateOnly ExpenseDate);
+    DateOnly ExpenseDate,
+    ExpenseTreatment Treatment = ExpenseTreatment.Unclassified);
 
 public sealed record CorrectExpenseRequest(
     string CategoryName,
     decimal Amount,
     string PaidTo,
     string? Description,
-    DateOnly ExpenseDate);
+    DateOnly ExpenseDate,
+    ExpenseTreatment? Treatment = null);

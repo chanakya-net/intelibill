@@ -156,7 +156,38 @@ export interface SalePreviewConfiguredSaleRuleDto {
   readonly thresholdAmount: number | null;
 }
 
+export interface EconomicLine {
+  readonly netRevenue: number;
+  readonly economicCost: number;
+  readonly grossProfit: number;
+  readonly grossMarginPercent: number | null;
+  readonly markupPercent: number | null;
+}
+
+export interface ProfitLossRowEconomicsDto {
+  readonly version: number;
+  readonly netSalesExcludingTax: number;
+  readonly cogs: number;
+  readonly stockLoss: number;
+  readonly returnedGoodsWastageIncludedInCogs: number;
+  readonly grossTradingProfit: number;
+  readonly grossMarginPercent: number | null;
+  readonly markupPercent: number | null;
+  readonly hasUnmodeledServiceCost: boolean;
+}
+
+export interface ProfitLossEconomicsDto extends Omit<ProfitLossRowEconomicsDto, 'hasUnmodeledServiceCost'> {
+  readonly costBasis: string;
+  readonly operatingExpenses: number | null;
+  readonly operatingProfit: number | null;
+  readonly unclassifiedExpenseCount: number;
+  readonly unclassifiedExpenseAmount: number;
+  readonly operatingProfitStatus: 'Complete' | 'FilteredActivity' | 'UnclassifiedExpenses' | 'AccountingReview' | 'ServiceCostsUnmodeled';
+  readonly limitations: readonly string[];
+}
+
 export interface SalePreviewLineDto {
+  readonly economics?: EconomicLine | null;
   readonly itemId: string;
   readonly barcode: string;
   readonly itemName: string;
@@ -613,6 +644,9 @@ export type ProfitLossReportRowType = 'Sale' | 'SaleReturn' | 'InventoryAdjustme
 export type ProfitLossReportTypeFilter = 'all' | 'sale' | 'saleReturn' | 'inventoryAdjustment';
 
 export interface ProfitLossReportItemDto {
+  readonly economics?: ProfitLossRowEconomicsDto | null;
+  readonly isReversal?: boolean;
+  readonly needsAccountingReview?: boolean;
   readonly saleId: string | null;
   readonly referenceNumber: string;
   readonly occurredAt: string;
@@ -638,6 +672,7 @@ export interface ProfitLossReportQueryParams {
 }
 
 export interface ProfitLossSummaryDto {
+  readonly economics?: ProfitLossEconomicsDto | null;
   readonly netProfitAfterTax: number;
   readonly revenueIncludingTax: number;
   readonly totalCost: number;
