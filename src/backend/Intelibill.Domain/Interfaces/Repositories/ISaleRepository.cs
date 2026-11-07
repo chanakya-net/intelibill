@@ -81,7 +81,9 @@ public sealed record SaleHistoryReadModel(
 public sealed record SalesHistorySummaryReadModel(
     decimal PeriodSales,
     int InvoiceCount,
-    decimal RefundAmount);
+    decimal RefundAmount,
+    decimal CancellationAmount = 0m,
+    int CancellationCount = 0);
 
 public sealed record DashboardLatestSaleReadModel(
     Guid SaleId,
@@ -98,7 +100,8 @@ public sealed record DashboardLatestSaleReadModel(
 public sealed record SalesTrendBucketReadModel(
     DateOnly Date,
     decimal GrossSales,
-    decimal ReturnAmount);
+    decimal ReturnAmount,
+    decimal CancellationAmount = 0m);
 
 public sealed record CustomerSalesMetricsReadModel(
     Guid CustomerId,

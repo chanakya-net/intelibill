@@ -8,6 +8,26 @@ namespace Intelibill.Api.Unit.Tests.Infrastructure.Exports;
 
 public sealed class ProfitLossExcelExportRendererTests
 {
+    [Fact]
+    public async Task RenderAsync_CancellationOnlyPeriod_ExportsNegativeExactEconomicsAndSeparateCount()
+    {
+        var economics = new ProfitLossEconomicsDto(2, "recorded-sale-cost/1", -66.6m, -.68m, 0m, 0m, -65.92m, 0m, -65.92m, null, null, 0, 0m, "Complete", []);
+        var dataset = new ProfitLossExportDatasetDto(new("Shop", null, "Owner", DateTimeOffset.UtcNow, new(2026, 11, 9), new(2026, 11, 9), "all", null, "xlsx"),
+            new(-65.92734m, -66.6m, -.67266m, null, 0, 0, 0, economics, 66.6m, 1),
+            [new("ORIGINAL / SC-1", new(2026, 11, 9, 10, 0, 0, TimeSpan.Zero), "saleCancellation", "Frozen buyer", -.67266m, 0m, -66.6m, -66.6m, -65.92734m, -65.92734m, null,
+                new(2, -66.6m, -.68m, 0m, 0m, -65.92m, null, null, false))]);
+        var result = await new ProfitLossExcelExportRenderer().RenderAsync(dataset, CancellationToken.None);
+        using var workbook = new XLWorkbook(new MemoryStream(result.Content));
+        var sheet = workbook.Worksheet("Profit & Loss");
+        var row = sheet.CellsUsed().Single(c => c.GetString() == "ORIGINAL / SC-1").Address.RowNumber;
+        Assert.Equal("saleCancellation", sheet.Cell(row, 3).GetString());
+        Assert.Equal(-.68m, sheet.Cell(row, 5).GetValue<decimal>());
+        Assert.Equal(0m, sheet.Cell(row, 6).GetValue<decimal>());
+        Assert.Equal(-66.6m, sheet.Cell(row, 7).GetValue<decimal>());
+        Assert.Equal(1m, sheet.RowsUsed().Single(r => r.Cell(1).GetString() == "Cancellation Count").Cell(2).GetValue<decimal>());
+        Assert.Equal(0m, sheet.RowsUsed().Single(r => r.Cell(1).GetString() == "Return Count").Cell(2).GetValue<decimal>());
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

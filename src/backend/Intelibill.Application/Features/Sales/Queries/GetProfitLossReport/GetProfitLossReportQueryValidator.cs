@@ -4,7 +4,7 @@ namespace Intelibill.Application.Features.Sales.Queries.GetProfitLossReport;
 
 internal sealed class GetProfitLossReportQueryValidator : AbstractValidator<GetProfitLossReportQuery>
 {
-    private static readonly string[] AllowedTypes = ["all", "sale", "saleReturn", "inventoryAdjustment"];
+    private static readonly string[] AllowedTypes = ["all", "sale", "saleReturn", "saleCancellation", "inventoryAdjustment"];
 
     public GetProfitLossReportQueryValidator()
     {
@@ -16,7 +16,7 @@ internal sealed class GetProfitLossReportQueryValidator : AbstractValidator<GetP
         RuleFor(x => x.Type)
             .Must(BeAllowedType)
             .WithErrorCode("Sales.ProfitLoss.InvalidType")
-            .WithMessage("'type' must be one of: all, sale, saleReturn, inventoryAdjustment.");
+            .WithMessage("'type' must be one of: all, sale, saleReturn, saleCancellation, inventoryAdjustment.");
     }
 
     private static bool HaveValidDateRange(GetProfitLossReportQuery query) =>

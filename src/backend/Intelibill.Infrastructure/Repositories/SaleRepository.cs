@@ -238,14 +238,22 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
             }
         }
 
+        var cancellationByDay = await _context.Set<SaleCancellation>().AsNoTracking()
+            .Where(c => c.ShopId == shopId && c.BusinessDate >= startDate && c.BusinessDate <= endDate)
+            .GroupBy(c => c.BusinessDate)
+            .Select(g => new { Date = g.Key, Amount = g.Sum(c => c.TotalAmount) })
+            .ToDictionaryAsync(g => g.Date, g => g.Amount, cancellationToken);
+
         return grossSalesByDay.Keys
             .Concat(returnOffsetsByDay.Keys)
+            .Concat(cancellationByDay.Keys)
             .Distinct()
             .OrderBy(date => date)
             .Select(date => new SalesTrendBucketReadModel(
                 date,
                 grossSalesByDay.GetValueOrDefault(date),
-                returnOffsetsByDay.GetValueOrDefault(date)))
+                returnOffsetsByDay.GetValueOrDefault(date),
+                cancellationByDay.GetValueOrDefault(date)))
             .ToList();
     }
 
@@ -422,10 +430,15 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
                 && saleIdsInRange.Contains(r.SaleId))
             .SumAsync(r => (decimal?)r.TotalRefundAmount, cancellationToken) ?? 0m;
 
+        var cancellations = _context.Set<SaleCancellation>().AsNoTracking()
+            .Where(c => c.ShopId == shopId && c.BusinessDate >= startDate && c.BusinessDate <= endDate);
+        var cancellationAmount = await cancellations.SumAsync(c => (decimal?)c.TotalAmount, cancellationToken) ?? 0m;
+        var cancellationCount = await cancellations.CountAsync(cancellationToken);
+
         return new SalesHistorySummaryReadModel(
-            PeriodSales: grossSales - refundAmount,
+            PeriodSales: grossSales - refundAmount - cancellationAmount,
             InvoiceCount: invoiceCount,
-            RefundAmount: refundAmount);
+            RefundAmount: refundAmount, CancellationAmount: cancellationAmount, CancellationCount: cancellationCount);
     }
 
     public async Task<IReadOnlyDictionary<Guid, CustomerSalesMetricsReadModel>> GetCustomerSalesMetricsAsync(
@@ -456,7 +469,16 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
             ))
             .ToListAsync(cancellationToken);
 
-        return metricsList.ToDictionary(m => m.CustomerId);
+        var cancellationMetrics = await (from c in _context.Set<SaleCancellation>().AsNoTracking()
+            join sale in DbSet.AsNoTracking() on new { c.ShopId, c.SaleId } equals new { sale.ShopId, SaleId = sale.Id }
+            where c.ShopId == shopId && sale.CustomerId != null && customerIds.Contains(sale.CustomerId.Value)
+            group c by sale.CustomerId!.Value into g
+            select new { CustomerId = g.Key, Lifetime = g.Sum(c => c.TotalAmount),
+                CurrentMonth = g.Sum(c => c.CancelledAt >= startOffset && c.CancelledAt < endOffset ? c.TotalAmount : 0m) })
+            .ToDictionaryAsync(c => c.CustomerId, cancellationToken);
+        return metricsList.Select(m => cancellationMetrics.TryGetValue(m.CustomerId, out var c)
+            ? m with { LifetimeRevenue = m.LifetimeRevenue - c.Lifetime, CurrentMonthRevenue = m.CurrentMonthRevenue - c.CurrentMonth }
+            : m).ToDictionary(m => m.CustomerId);
     }
 
     private enum SaleHistoryStatus

@@ -89,6 +89,6 @@ public sealed class GetSalesQueryHandler(
             Summary: new SalesHistorySummaryDto(
                 summary.PeriodSales,
                 summary.InvoiceCount,
-                summary.RefundAmount));
+                summary.RefundAmount, summary.CancellationAmount, summary.CancellationCount));
     }
 }

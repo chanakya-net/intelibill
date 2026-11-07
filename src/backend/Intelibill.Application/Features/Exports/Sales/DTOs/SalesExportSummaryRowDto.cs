@@ -25,4 +25,9 @@ public sealed record SalesExportSummaryRowDto(
     decimal CreditNoteAppliedAmount = 0m,
     string? IssuedCreditNoteCodes = null,
     decimal IssuedCreditNoteAmount = 0m,
-    IReadOnlyList<InvoiceTaxComponent>? TaxComponents = null);
+    IReadOnlyList<InvoiceTaxComponent>? TaxComponents = null)
+{
+    public string Status { get; init; } = "Posted";
+    public string? CancellationReference { get; init; }
+    public DateOnly? CancellationBusinessDate { get; init; }
+}

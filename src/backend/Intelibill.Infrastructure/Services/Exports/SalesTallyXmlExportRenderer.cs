@@ -66,6 +66,12 @@ public sealed class SalesTallyXmlExportRenderer(IAccountingVoucherValidator vouc
                 vouchers.Add(TallyVoucherBuilder.BuildReturnVoucher(adjustment));
         }
 
+        foreach (var cancellation in dataset.CancellationAdjustments)
+        {
+            var voucher = TallyVoucherBuilder.BuildCancellationVoucher(cancellation);
+            if (voucher.Lines.Count > 0) vouchers.Add(voucher);
+        }
+
         return vouchers;
     }
 

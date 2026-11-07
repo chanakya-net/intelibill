@@ -18,7 +18,58 @@ public sealed class ProfitLossEconomicsTests
     private readonly IExpenseRepository _expenses = Substitute.For<IExpenseRepository>();
     private ProfitLossReportBuilder Builder => new(_sales,
         new ReturnAdjustmentReader(_returns, _sales, Substitute.For<ICreditNoteRepository>()),
-        _adjustments, BusinessTestDoubles.RealClock(), _expenses);
+        _adjustments, BusinessTestDoubles.RealClock(), _expenses, new SaleCancellationAdjustmentReader(_cancellations));
+
+    private readonly ISaleCancellationRepository _cancellations = Substitute.For<ISaleCancellationRepository>();
+
+    [Theory]
+    [InlineData(8, 8, 200, 120, 1, 0)]
+    [InlineData(9, 9, -200, -120, 0, 1)]
+    [InlineData(8, 9, 0, 0, 1, 1)]
+    public async Task Cancellation_ReversesOnlyOnItsPostingDate(int from, int to, decimal revenue, decimal cost, int invoices, int cancellations)
+    {
+        var item = SaleItem.CreateGoods(_shop, Guid.NewGuid(), Guid.NewGuid(), "Original sugar", "S", 2m, 60m, 100m, 100m, 0m, false, false);
+        var sale = Sale.Create(_shop, "ORIGINAL", null, "Original buyer", null, PaymentMethod.Cash,
+            new(2026, 11, 8, 10, 0, 0, TimeSpan.Zero), 80m, 120m, 200m, 0m, [item]);
+        var cancellation = Cancellation(sale, [new(_shop, sale.Id, item.Id, item.ItemId!.Value, item.InventoryBatchId!.Value, Guid.NewGuid(), 2m, "Original sugar", "KGS", 60m, 200m, 120m)]);
+        _sales.GetByShopAndDateRangeAsync(_shop, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns(from == 8 ? new[] { sale } : []);
+        _cancellations.GetPostedInRangeAsync(_shop, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns(to == 9 ? new[] { cancellation } : []);
+        var result = await Builder.BuildAsync(_shop, "Asia/Kolkata", new(2026, 11, from), new(2026, 11, to), "all", null, CancellationToken.None);
+        Assert.Equal(revenue, result.Summary.Economics!.NetSalesExcludingTax);
+        Assert.Equal(cost, result.Summary.Economics.Cogs);
+        Assert.Equal(cost, result.Summary.TotalCost);
+        Assert.Equal(invoices, result.Summary.InvoiceCount);
+        Assert.Equal(cancellations, result.Items.Count(r => r.RowType == "saleCancellation"));
+        Assert.Equal(0, result.Summary.ReturnCount);
+        Assert.Equal(0m, result.Summary.Economics.StockLoss);
+        Assert.Equal(0m, result.Summary.Economics.ReturnedGoodsWastageIncludedInCogs);
+    }
+
+    [Fact]
+    public async Task CancellationFractionalLines_ReverseRoundedRecordedCogsAndRawMetricsIndependently()
+    {
+        var items = Enumerable.Range(0, 2).Select(_ => SaleItem.CreateGoods(_shop, Guid.NewGuid(), Guid.NewGuid(), "Frozen fractional", "F", .333m, 1.01m, 100m, 100m, 0m, false, false)).ToArray();
+        var sale = Sale.Create(_shop, "FRACTIONAL", null, "Changed buyer", null, PaymentMethod.Cash, new(2026, 11, 8, 10, 0, 0, TimeSpan.Zero), 66.6m, 0m, 66.6m, 0m, items);
+        var fact = Cancellation(sale, items.Select(x => new SaleCancellationLineInput(_shop, sale.Id, x.Id, x.ItemId!.Value, x.InventoryBatchId!.Value, Guid.NewGuid(), .333m, "Frozen fractional", "KGS", 1.01m, 33.3m, .34m)).ToArray());
+        _cancellations.GetPostedInRangeAsync(_shop, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([fact]);
+        var report = await Builder.BuildAsync(_shop, "Asia/Kolkata", new(2026, 11, 9), new(2026, 11, 9), "saleCancellation", "Original buyer", CancellationToken.None);
+        var row = Assert.Single(report.Items);
+        Assert.Equal(-.67266m, row.TotalCost);
+        Assert.Equal(-.68m, row.Economics!.Cogs);
+        Assert.Equal(-66.6m, row.Economics.NetSalesExcludingTax);
+        Assert.Equal(66.6m, report.Summary.CancellationAmount);
+        Assert.Equal(1, report.Summary.CancellationCount);
+        _sales.GetByShopAndDateRangeAsync(_shop, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([sale]);
+        var combined = await Builder.BuildAsync(_shop, "Asia/Kolkata", new(2026, 11, 8), new(2026, 11, 9), "all", null, CancellationToken.None);
+        Assert.Equal(0m, combined.Summary.TotalCost);
+        Assert.Equal(0m, combined.Summary.Economics!.Cogs);
+        Assert.Equal(0m, combined.Summary.Economics.NetSalesExcludingTax);
+    }
+
+    private SaleCancellation Cancellation(Sale sale, IReadOnlyList<SaleCancellationLineInput> lines) => SaleCancellation.Record(new(
+        _shop, sale.Id, Guid.NewGuid(), "key", "Mistaken entry", new(2026, 11, 9, 10, 0, 0, TimeSpan.Zero), new(2026, 11, 9), "Asia/Kolkata", sale.InvoiceNumber, sale.BusinessDate,
+        sale.TotalAmount, sale.TotalAmount, 0m, sale.DueAmount, sale.PaidAmount, sale.DueAmount > 0 ? Guid.NewGuid() : null,
+        new("Original seller", "Original shop", "Address", "29", "Karnataka", null, TaxRegime.Unregistered), new("Original buyer", null, null, null, null, null), true, sale.PaidAmount > 0, lines)).Value;
 
     [Theory]
     [InlineData(SaleReturnCondition.Restockable)]

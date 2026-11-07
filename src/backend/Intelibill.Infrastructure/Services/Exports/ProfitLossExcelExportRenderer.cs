@@ -101,7 +101,9 @@ public sealed class ProfitLossExcelExportRenderer : IProfitLossExcelExportRender
         worksheet.Cell(startRow++, 2).Value = e is null ? "Legacy dataset: version2 economics unavailable" : string.Join(", ", e.Limitations);
         WriteSummaryRow(worksheet, startRow++, "Invoice Count", summary.InvoiceCount, false);
         WriteSummaryRow(worksheet, startRow++, "Return Count", summary.ReturnCount, false);
-        WriteSummaryRow(worksheet, startRow, "Adjustment Count", summary.AdjustmentCount, false);
+        WriteSummaryRow(worksheet, startRow++, "Adjustment Count", summary.AdjustmentCount, false);
+        WriteSummaryRow(worksheet, startRow++, "Cancellation Count", summary.CancellationCount, false);
+        WriteSummaryRow(worksheet, startRow, "Cancellation Amount", summary.CancellationAmount, true);
 
         return startRow;
     }

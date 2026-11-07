@@ -13,7 +13,8 @@ public sealed class ProfitLossReportBuilder(
     ReturnAdjustmentReader returnAdjustmentReader,
     IInventoryAdjustmentRepository inventoryAdjustmentRepository,
     IBusinessClock businessClock,
-    IExpenseRepository expenseRepository)
+    IExpenseRepository expenseRepository,
+    SaleCancellationAdjustmentReader cancellationAdjustmentReader)
 {
     public async Task<ProfitLossReportBuildResult> BuildAsync(
         Guid shopId,
@@ -29,6 +30,7 @@ public sealed class ProfitLossReportBuilder(
         var salesInRange = await saleRepository.GetByShopAndDateRangeAsync(shopId, from, to, cancellationToken);
         var returnAdjustments = await returnAdjustmentReader.ReadAsync(shopId, from, to, salesInRange, cancellationToken);
         var returnCosts = await returnAdjustmentReader.ReadRecordedCostAllocationsAsync(shopId, returnAdjustments, salesInRange, cancellationToken);
+        var cancellations = await cancellationAdjustmentReader.ReadAsync(shopId, from, to, cancellationToken);
         var window = businessClock.GetUtcWindow(from, to, timeZoneId);
         var expenses = await expenseRepository.GetByShopAndDateRangeAsync(shopId, from, to, cancellationToken);
         var adjustmentsInRange = await inventoryAdjustmentRepository.GetPostedInRangeAsync(
@@ -59,7 +61,7 @@ public sealed class ProfitLossReportBuilder(
                 sale.Id,
                 sale.InvoiceNumber,
                 sale.SoldAt,
-                sale.CustomerName,
+                sale.InvoiceDocument?.Buyer.Name ?? sale.CustomerName,
                 saleTotalCost,
                 WastageCost: 0m,
                 revenueExclTax,
@@ -73,6 +75,13 @@ public sealed class ProfitLossReportBuilder(
                     sale.Items.Where(i => i.LineType != SaleLineType.Service).Sum(i => SaleEconomicsCalculator.RecordedCost(i.Quantity, i.CostPrice)),
                     0m, 0m, sale.Items.Any(i => i.LineType == SaleLineType.Service))));
         }
+
+        foreach (var entry in cancellations)
+            report.Add(new ProfitLossReportItemDto(entry.SaleId, $"{entry.InvoiceNumber} / {entry.ReferenceNumber}",
+                entry.PostedAt, entry.CustomerName, -entry.RawCostAmount, 0m, -entry.RevenueAmount, -entry.TotalAmount,
+                -entry.TotalAmount + entry.RawCostAmount, -entry.RevenueAmount + entry.RawCostAmount,
+                CalculateMarginPercent(-entry.RevenueAmount + entry.RawCostAmount, -entry.RawCostAmount),
+                ProfitLossReportRowTypes.SaleCancellation, null, Economics: RowEconomics(-entry.RevenueAmount, -entry.RecordedCogs, 0m, 0m, false)));
 
         foreach (var entry in returnAdjustments)
             report.Add(BuildReturnRow(entry, returnCosts));
@@ -111,7 +120,9 @@ public sealed class ProfitLossReportBuilder(
             InvoiceCount: filtered.Count(row => row.RowType == ProfitLossReportRowTypes.Sale),
             ReturnCount: filtered.Count(row => row.RowType == ProfitLossReportRowTypes.SaleReturn && !row.IsReversal),
             AdjustmentCount: filtered.Count(row => row.RowType == ProfitLossReportRowTypes.InventoryAdjustment),
-            Economics: SummaryEconomics(filtered, expenses, normalizedType != "all" || !string.IsNullOrWhiteSpace(search)));
+            Economics: SummaryEconomics(filtered, expenses, normalizedType != "all" || !string.IsNullOrWhiteSpace(search)),
+            CancellationAmount: -filtered.Where(r => r.RowType == ProfitLossReportRowTypes.SaleCancellation).Sum(r => r.RevenueAfterTax),
+            CancellationCount: filtered.Count(r => r.RowType == ProfitLossReportRowTypes.SaleCancellation));
 
         return new ProfitLossReportBuildResult(filtered, summary, from, to, normalizedType, search);
     }
@@ -224,6 +235,7 @@ public sealed class ProfitLossReportBuilder(
             {
                 var value when string.Equals(value, "all", StringComparison.OrdinalIgnoreCase) => "all",
                 var value when string.Equals(value, "sale", StringComparison.OrdinalIgnoreCase) => "sale",
+                var value when string.Equals(value, "saleCancellation", StringComparison.OrdinalIgnoreCase) => "saleCancellation",
                 var value when string.Equals(value, "saleReturn", StringComparison.OrdinalIgnoreCase) => "saleReturn",
                 var value when string.Equals(value, "inventoryAdjustment", StringComparison.OrdinalIgnoreCase) => "inventoryAdjustment",
                 _ => "all",

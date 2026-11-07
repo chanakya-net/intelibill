@@ -20,4 +20,9 @@ public sealed record SalesExportLineItemRowDto(
     decimal ReturnedQuantity,
     string? ReturnStatus,
     string? ReturnNumbers,
-    SaleLineType LineType = SaleLineType.Goods);
+    SaleLineType LineType = SaleLineType.Goods)
+{
+    public string Status { get; init; } = "Posted";
+    public string? CancellationReference { get; init; }
+    public DateOnly? CancellationBusinessDate { get; init; }
+}

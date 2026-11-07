@@ -71,7 +71,7 @@ public sealed class ExportProfitLossQueryHandler(
                 report.Summary.AverageMarginPercent,
                 report.Summary.InvoiceCount,
                 report.Summary.ReturnCount,
-                report.Summary.AdjustmentCount, report.Summary.Economics),
+                report.Summary.AdjustmentCount, report.Summary.Economics, report.Summary.CancellationAmount, report.Summary.CancellationCount),
             report.Items.Select(row => new ProfitLossExportRowDto(
                 row.ReferenceNumber,
                 row.OccurredAt,

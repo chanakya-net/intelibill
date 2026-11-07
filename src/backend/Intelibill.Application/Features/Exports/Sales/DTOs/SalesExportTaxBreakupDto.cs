@@ -7,6 +7,7 @@ public sealed record SalesExportTaxBreakupDto(
     decimal ReturnTaxableAmount,
     decimal ReturnTaxAmount)
 {
-    public decimal NetTaxableAmount => SaleTaxableAmount - ReturnTaxableAmount;
+    public decimal CancellationTaxableAmount { get; init; }
+    public decimal NetTaxableAmount => SaleTaxableAmount - ReturnTaxableAmount - CancellationTaxableAmount;
     public decimal NetTaxAmount => SaleTaxAmount - ReturnTaxAmount;
 }

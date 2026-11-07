@@ -31,7 +31,7 @@ public class GetProfitLossReportQueryHandlerTests
                 _saleRepository,
                 new ReturnAdjustmentReader(_saleReturnRepository, _saleRepository, Substitute.For<ICreditNoteRepository>()),
                 _inventoryAdjustmentRepository,
-                BusinessTestDoubles.ClockAt(_time), _expenses),
+                BusinessTestDoubles.ClockAt(_time), _expenses, new SaleCancellationAdjustmentReader(Substitute.For<ISaleCancellationRepository>())),
             BusinessTestDoubles.ClockAt(_time));
 
     private static User MakeUser() =>
