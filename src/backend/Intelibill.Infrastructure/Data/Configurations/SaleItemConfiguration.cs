@@ -20,6 +20,7 @@ internal sealed class SaleItemConfiguration : IEntityTypeConfiguration<SaleItem>
         });
 
         builder.HasKey(si => si.Id);
+        builder.HasAlternateKey(si => new { si.Id, si.SaleId, si.ShopId });
 
         builder.Property(si => si.SaleId)
             .IsRequired();

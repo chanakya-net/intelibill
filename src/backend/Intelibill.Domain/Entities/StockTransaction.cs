@@ -82,7 +82,7 @@ public sealed class StockTransaction : BaseEntity
             return Error.Validation("StockTransaction.QuantityZero", "Quantity cannot be zero.");
         }
 
-        var requiresPositive = transactionType is StockTransactionType.In or StockTransactionType.Ret;
+        var requiresPositive = transactionType is StockTransactionType.In or StockTransactionType.Ret or StockTransactionType.SaleCancellation;
         var requiresNegative = transactionType is StockTransactionType.Out or StockTransactionType.Rej or StockTransactionType.Dmg or StockTransactionType.Stol or StockTransactionType.SupplierReturn;
 
         if (requiresPositive && quantity < 0)

@@ -140,6 +140,7 @@ public static class DependencyInjection
         services.AddScoped<IReconciliationCaseEventRepository, ReconciliationCaseEventRepository>();
         services.AddScoped<IOfflineSubmissionRepository, OfflineSubmissionRepository>();
         services.AddScoped<ISaleReturnRepository, SaleReturnRepository>();
+        services.AddScoped<ISaleCancellationRepository, SaleCancellationRepository>();
         services.AddScoped<IInvoiceLeaseRepository, InvoiceLeaseRepository>();
         services.AddScoped<IInvoiceNumberAllocator, Services.Invoicing.InvoiceNumberAllocator>();
         services.AddScoped<IServiceRepository, ServiceRepository>();

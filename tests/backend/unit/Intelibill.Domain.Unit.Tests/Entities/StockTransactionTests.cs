@@ -62,4 +62,14 @@ public class StockTransactionTests
         Assert.False(result.IsError);
         Assert.Equal(-1m, result.Value.Quantity);
     }
+
+    [Theory]
+    [InlineData(2, false)]
+    [InlineData(-2, true)]
+    public void CancellationMovement_OnlyRestoresStock(decimal quantity, bool invalid)
+    {
+        var result = StockTransaction.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), StockTransactionType.SaleCancellation, quantity, null, null, DateTimeOffset.UtcNow, Guid.NewGuid(), Guid.NewGuid());
+        Assert.Equal(invalid, result.IsError);
+        if (!invalid) Assert.Equal(2m, result.Value.Quantity);
+    }
 }

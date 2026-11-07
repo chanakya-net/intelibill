@@ -533,6 +533,9 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_customer_ledger_entries");
 
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_customer_ledger_entries_id_shop_id");
+
                     b.HasIndex("CustomerId")
                         .HasDatabaseName("ix_customer_ledger_entries_customer_id");
 
@@ -549,7 +552,7 @@ namespace Intelibill.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_customer_ledger_entries_amount_positive", "amount > 0");
 
-                            t.HasCheckConstraint("ck_customer_ledger_entries_sale_by_type", "((entry_type = 'SALE_DUE' AND sale_id IS NOT NULL) OR (entry_type IN ('PAYMENT_RECEIVED', 'PAYMENT_REVERSAL') AND sale_id IS NULL) OR entry_type IN ('RETURN_CREDIT', 'RETURN_CREDIT_REVERSAL'))");
+                            t.HasCheckConstraint("ck_customer_ledger_entries_sale_by_type", "((entry_type IN ('SALE_DUE', 'SALE_CANCELLATION_CREDIT') AND sale_id IS NOT NULL) OR (entry_type IN ('PAYMENT_RECEIVED', 'PAYMENT_REVERSAL') AND sale_id IS NULL) OR entry_type IN ('RETURN_CREDIT', 'RETURN_CREDIT_REVERSAL'))");
                         });
                 });
 
@@ -3626,6 +3629,12 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasDefaultValue(1)
                         .HasColumnName("source");
 
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("status");
+
                     b.Property<decimal>("SubtotalBeforeDiscount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
@@ -3659,6 +3668,12 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.PrimitiveCollection<string[]>("Warnings")
                         .IsRequired()
                         .HasColumnType("text[]")
@@ -3666,6 +3681,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_sales");
+
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_sales_id_shop_id");
 
                     b.HasIndex("CustomerId")
                         .HasDatabaseName("ix_sales_customer_id");
@@ -3697,7 +3715,275 @@ namespace Intelibill.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_sales_shop_id_device_id_client_sale_id");
 
-                    b.ToTable("sales", (string)null);
+                    b.ToTable("sales", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_sales_status", "status IN (0, 1)");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.SaleCancellation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<string>("BusinessTimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("business_time_zone_id");
+
+                    b.Property<string>("Buyer")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("buyer");
+
+                    b.Property<DateTimeOffset>("CancelledAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancelled_at");
+
+                    b.Property<decimal>("CashRefundAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("cash_refund_amount");
+
+                    b.Property<bool>("CashRefundConfirmed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("cash_refund_confirmed");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CustomerLedgerEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_ledger_entry_id");
+
+                    b.Property<decimal>("DueReductionAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("due_reduction_amount");
+
+                    b.Property<bool>("GoodsRecoveredConfirmed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("goods_recovered_confirmed");
+
+                    b.Property<string>("OperationKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("operation_key");
+
+                    b.Property<DateOnly>("OriginalBusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("original_business_date");
+
+                    b.Property<string>("OriginalInvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("original_invoice_number");
+
+                    b.Property<string>("PolicyVersion")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("policy_version");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("ReferenceNumber")
+                        .IsRequired()
+                        .HasMaxLength(35)
+                        .HasColumnType("character varying(35)")
+                        .HasColumnName("reference_number");
+
+                    b.Property<decimal>("RevenueAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("revenue_amount");
+
+                    b.Property<Guid>("SaleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sale_id");
+
+                    b.Property<string>("Seller")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("seller");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("tax_amount");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total_amount");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sale_cancellations");
+
+                    b.HasAlternateKey("Id", "SaleId", "ShopId")
+                        .HasName("ak_sale_cancellations_id_sale_id_shop_id");
+
+                    b.HasIndex("SaleId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sale_cancellations_sale_id");
+
+                    b.HasIndex("CustomerLedgerEntryId", "ShopId")
+                        .HasDatabaseName("ix_sale_cancellations_customer_ledger_entry_id_shop_id");
+
+                    b.HasIndex("SaleId", "ShopId")
+                        .HasDatabaseName("ix_sale_cancellations_sale_id_shop_id");
+
+                    b.HasIndex("ShopId", "BusinessDate")
+                        .HasDatabaseName("ix_sale_cancellations_shop_id_business_date");
+
+                    b.HasIndex("ShopId", "ReferenceNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sale_cancellations_shop_id_reference_number");
+
+                    b.ToTable("sale_cancellations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_sale_cancellations_amounts", "total_amount >= 0 AND revenue_amount >= 0 AND tax_amount = 0 AND due_reduction_amount >= 0 AND cash_refund_amount >= 0 AND total_amount = due_reduction_amount + cash_refund_amount AND revenue_amount = total_amount");
+
+                            t.HasCheckConstraint("ck_sale_cancellations_reason", "length(btrim(reason)) BETWEEN 3 AND 255 AND length(btrim(operation_key)) BETWEEN 1 AND 128");
+
+                            t.HasCheckConstraint("ck_sale_cancellations_settlement", "((due_reduction_amount > 0 AND customer_ledger_entry_id IS NOT NULL) OR (due_reduction_amount = 0 AND customer_ledger_entry_id IS NULL)) AND cash_refund_confirmed = (cash_refund_amount > 0) AND goods_recovered_confirmed");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.SaleCancellationLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(180)
+                        .HasColumnType("character varying(180)")
+                        .HasColumnName("description");
+
+                    b.Property<Guid>("InventoryBatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("inventory_batch_id");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<decimal>("OriginalCostPrice")
+                        .HasPrecision(28, 10)
+                        .HasColumnType("numeric(28,10)")
+                        .HasColumnName("original_cost_price");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("quantity");
+
+                    b.Property<decimal>("RecordedCostAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("recorded_cost_amount");
+
+                    b.Property<decimal>("RevenueAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("revenue_amount");
+
+                    b.Property<Guid>("SaleCancellationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sale_cancellation_id");
+
+                    b.Property<Guid>("SaleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sale_id");
+
+                    b.Property<Guid>("SaleItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sale_item_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<Guid>("StockTransactionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("stock_transaction_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("Uqc")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("uqc");
+
+                    b.HasKey("Id")
+                        .HasName("pk_sale_cancellation_lines");
+
+                    b.HasIndex("ShopId")
+                        .HasDatabaseName("ix_sale_cancellation_lines_shop_id");
+
+                    b.HasIndex("StockTransactionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sale_cancellation_lines_stock_transaction_id");
+
+                    b.HasIndex("ItemId", "ShopId")
+                        .HasDatabaseName("ix_sale_cancellation_lines_item_id_shop_id");
+
+                    b.HasIndex("SaleCancellationId", "SaleItemId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sale_cancellation_lines_sale_cancellation_id_sale_item_id");
+
+                    b.HasIndex("InventoryBatchId", "ItemId", "ShopId")
+                        .HasDatabaseName("ix_sale_cancellation_lines_inventory_batch_id_item_id_shop_id");
+
+                    b.HasIndex("SaleCancellationId", "SaleId", "ShopId")
+                        .HasDatabaseName("ix_sale_cancellation_lines_sale_cancellation_id_sale_id_shop_id");
+
+                    b.HasIndex("SaleItemId", "SaleId", "ShopId")
+                        .HasDatabaseName("ix_sale_cancellation_lines_sale_item_id_sale_id_shop_id");
+
+                    b.HasIndex("StockTransactionId", "ItemId", "InventoryBatchId", "ShopId")
+                        .HasDatabaseName("ix_sale_cancellation_lines_stock_transaction_id_item_id_invent");
+
+                    b.ToTable("sale_cancellation_lines", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_sale_cancellation_lines_amounts", "quantity > 0 AND original_cost_price >= 0 AND revenue_amount >= 0 AND recorded_cost_amount >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.SaleItem", b =>
@@ -3853,6 +4139,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_sale_items");
+
+                    b.HasAlternateKey("Id", "SaleId", "ShopId")
+                        .HasName("ak_sale_items_id_sale_id_shop_id");
 
                     b.HasIndex("InventoryBatchId")
                         .HasDatabaseName("ix_sale_items_inventory_batch_id");
@@ -4814,8 +5103,8 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.Property<string>("TransactionType")
                         .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
                         .HasColumnName("transaction_type");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
@@ -4831,6 +5120,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasAlternateKey("Id", "ShopId")
                         .HasName("ak_stock_transactions_id_shop_id");
+
+                    b.HasAlternateKey("Id", "ItemId", "InventoryBatchId", "ShopId")
+                        .HasName("ak_stock_transactions_id_item_id_inventory_batch_id_shop_id");
 
                     b.HasIndex("ItemId", "ShopId")
                         .HasDatabaseName("ix_stock_transactions_item_id_shop_id");
@@ -4848,7 +5140,7 @@ namespace Intelibill.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("ck_stock_transactions_quantity_non_zero", "quantity <> 0");
 
-                            t.HasCheckConstraint("ck_stock_transactions_quantity_sign_by_type", "((transaction_type IN ('IN', 'RET') AND quantity > 0) OR (transaction_type IN ('OUT', 'REJ', 'DMG', 'STOL', 'SUPPLIER_RETURN') AND quantity < 0) OR (transaction_type IN ('ADJ', 'REV')))");
+                            t.HasCheckConstraint("ck_stock_transactions_quantity_sign_by_type", "((transaction_type IN ('IN', 'RET', 'SALE_CANCELLATION') AND quantity > 0) OR (transaction_type IN ('OUT', 'REJ', 'DMG', 'STOL', 'SUPPLIER_RETURN') AND quantity < 0) OR (transaction_type IN ('ADJ', 'REV')))");
                         });
                 });
 
@@ -6205,6 +6497,81 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasConstraintName("fk_sales_shops_shop_id");
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.SaleCancellation", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_sale_cancellations_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.CustomerLedgerEntry", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerLedgerEntryId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sale_cancellations_customer_ledger_entries_customer_ledger_");
+
+                    b.HasOne("Intelibill.Domain.Entities.Sale", null)
+                        .WithMany()
+                        .HasForeignKey("SaleId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_sale_cancellations_sales_sale_id_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.SaleCancellationLine", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_sale_cancellation_lines_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_sale_cancellation_lines_items_item_id_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryBatchId", "ItemId", "ShopId")
+                        .HasPrincipalKey("Id", "ItemId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_sale_cancellation_lines_inventory_batches_inventory_batch_i");
+
+                    b.HasOne("Intelibill.Domain.Entities.SaleCancellation", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("SaleCancellationId", "SaleId", "ShopId")
+                        .HasPrincipalKey("Id", "SaleId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_sale_cancellation_lines_sale_cancellations_sale_cancellatio");
+
+                    b.HasOne("Intelibill.Domain.Entities.SaleItem", null)
+                        .WithMany()
+                        .HasForeignKey("SaleItemId", "SaleId", "ShopId")
+                        .HasPrincipalKey("Id", "SaleId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_sale_cancellation_lines_sale_items_sale_item_id_sale_id_sho");
+
+                    b.HasOne("Intelibill.Domain.Entities.StockTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("StockTransactionId", "ItemId", "InventoryBatchId", "ShopId")
+                        .HasPrincipalKey("Id", "ItemId", "InventoryBatchId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_sale_cancellation_lines_stock_transactions_stock_transactio");
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.SaleItem", b =>
                 {
                     b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
@@ -6610,6 +6977,11 @@ namespace Intelibill.Infrastructure.Migrations
             modelBuilder.Entity("Intelibill.Domain.Entities.Sale", b =>
                 {
                     b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.SaleCancellation", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.SaleReturn", b =>

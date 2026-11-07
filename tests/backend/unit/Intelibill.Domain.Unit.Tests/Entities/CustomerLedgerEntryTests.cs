@@ -75,4 +75,13 @@ public class CustomerLedgerEntryTests
         Assert.True(result.IsError);
         Assert.Equal("CustomerLedgerEntry.SaleIdNotAllowed", result.FirstError.Code);
     }
+
+    [Fact]
+    public void CancellationCredit_ReducesDueByExactlyOriginalAmount()
+    {
+        var result = CustomerLedgerEntry.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), CustomerLedgerEntryType.SaleCancellationCredit, 120m, new DateOnly(2026, 11, 8), null, Guid.NewGuid());
+        Assert.False(result.IsError);
+        Assert.Equal(-120m, result.Value.EntryType.ToBalanceDelta(result.Value.Amount));
+        Assert.True(CustomerLedgerEntry.Create(Guid.NewGuid(), Guid.NewGuid(), null, CustomerLedgerEntryType.SaleCancellationCredit, 120m, new DateOnly(2026, 11, 8), null, Guid.NewGuid()).IsError);
+    }
 }

@@ -14,10 +14,11 @@ internal sealed class StockTransactionConfiguration : IEntityTypeConfiguration<S
             tableBuilder.HasCheckConstraint("ck_stock_transactions_quantity_non_zero", "quantity <> 0");
             tableBuilder.HasCheckConstraint(
                 "ck_stock_transactions_quantity_sign_by_type",
-                "((transaction_type IN ('IN', 'RET') AND quantity > 0) OR (transaction_type IN ('OUT', 'REJ', 'DMG', 'STOL', 'SUPPLIER_RETURN') AND quantity < 0) OR (transaction_type IN ('ADJ', 'REV')))");
+                "((transaction_type IN ('IN', 'RET', 'SALE_CANCELLATION') AND quantity > 0) OR (transaction_type IN ('OUT', 'REJ', 'DMG', 'STOL', 'SUPPLIER_RETURN') AND quantity < 0) OR (transaction_type IN ('ADJ', 'REV')))");
         });
 
         builder.HasKey(t => t.Id);
+        builder.HasAlternateKey(t => new { t.Id, t.ItemId, t.InventoryBatchId, t.ShopId });
 
         builder.Property(t => t.ShopId)
             .IsRequired();
@@ -30,7 +31,7 @@ internal sealed class StockTransactionConfiguration : IEntityTypeConfiguration<S
 
         builder.Property(t => t.TransactionType)
             .HasConversion(t => ToProviderValue(t), value => FromProviderValue(value))
-            .HasMaxLength(16)
+            .HasMaxLength(24)
             .IsRequired();
 
         builder.Property(t => t.Quantity)
@@ -88,6 +89,7 @@ internal sealed class StockTransactionConfiguration : IEntityTypeConfiguration<S
             StockTransactionType.Stol => "STOL",
             StockTransactionType.Reversal => "REV",
             StockTransactionType.SupplierReturn => "SUPPLIER_RETURN",
+            StockTransactionType.SaleCancellation => "SALE_CANCELLATION",
             _ => throw new ArgumentOutOfRangeException(nameof(transactionType), transactionType, null)
         };
     }
@@ -105,6 +107,7 @@ internal sealed class StockTransactionConfiguration : IEntityTypeConfiguration<S
             "STOL" => StockTransactionType.Stol,
             "REV" => StockTransactionType.Reversal,
             "SUPPLIER_RETURN" => StockTransactionType.SupplierReturn,
+            "SALE_CANCELLATION" => StockTransactionType.SaleCancellation,
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
         };
     }
