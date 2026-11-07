@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 
 namespace Intelibill.Domain.Unit.Tests.Entities;
 
@@ -103,6 +104,7 @@ public class ExpenseTests
             ledgerEntryId);
 
         Assert.Equal(ledgerEntryId, expense.SupplierLedgerEntryId);
+        Assert.Equal(ExpenseTreatment.SupplierSettlement, expense.Treatment);
     }
 
     [Fact]

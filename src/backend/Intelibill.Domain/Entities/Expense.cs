@@ -1,9 +1,11 @@
 using Intelibill.Domain.Common;
+using Intelibill.Domain.Enums;
 
 namespace Intelibill.Domain.Entities;
 
 public sealed class Expense : BaseEntity
 {
+    public ExpenseTreatment Treatment { get; private set; }
     public Guid ShopId { get; private set; }
     public Guid CategoryId { get; private set; }
     public decimal Amount { get; private set; }
@@ -26,10 +28,12 @@ public sealed class Expense : BaseEntity
         string paidTo,
         string? description,
         DateOnly expenseDate,
-        Guid actorUserId)
+        Guid actorUserId,
+        ExpenseTreatment treatment = ExpenseTreatment.Unclassified)
     {
         return new Expense
         {
+            Treatment = treatment,
             Id = Guid.NewGuid(),
             ShopId = shopId,
             CategoryId = categoryId,
@@ -51,10 +55,14 @@ public sealed class Expense : BaseEntity
         string? description,
         DateOnly expenseDate,
         Guid actorUserId,
-        Guid originalExpenseId)
+        Guid originalExpenseId,
+        ExpenseTreatment treatment = ExpenseTreatment.Unclassified,
+        Guid? supplierLedgerEntryId = null)
     {
         var expense = Create(shopId, categoryId, amount, paidTo, description, expenseDate, actorUserId);
         expense.OriginalExpenseId = originalExpenseId;
+        expense.Treatment = treatment;
+        expense.SupplierLedgerEntryId = supplierLedgerEntryId;
         return expense;
     }
 
@@ -70,6 +78,7 @@ public sealed class Expense : BaseEntity
     {
         var expense = Create(shopId, categoryId, amount, paidTo, description, expenseDate, actorUserId);
         expense.SupplierLedgerEntryId = supplierLedgerEntryId;
+        expense.Treatment = ExpenseTreatment.SupplierSettlement;
         return expense;
     }
 

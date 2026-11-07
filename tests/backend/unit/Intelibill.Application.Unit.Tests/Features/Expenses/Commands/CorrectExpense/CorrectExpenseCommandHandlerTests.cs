@@ -33,6 +33,42 @@ public class CorrectExpenseCommandHandlerTests
         return user;
     }
 
+    [Theory]
+    [InlineData(ExpenseTreatment.Operating)]
+    [InlineData(ExpenseTreatment.CapitalOrOtherExcluded)]
+    public async Task SupplierCorrection_RefusesTreatmentChangeWithoutVoiding(ExpenseTreatment treatment)
+    {
+        var userId = Guid.NewGuid(); var shopId = Guid.NewGuid();
+        var original = Expense.CreateFromSupplierPayment(shopId, Guid.NewGuid(), 100m, "Supplier", null, new DateOnly(2026, 4, 1), userId, Guid.NewGuid());
+        _userRepository.GetByIdWithDetailsAsync(userId, Arg.Any<CancellationToken>()).Returns(CreateActor(userId, shopId, ShopRole.Owner));
+        _expenseRepository.GetByIdAsync(original.Id, Arg.Any<CancellationToken>()).Returns(original);
+        var result = await CreateHandler().HandleAsync(CreateCommand(userId, shopId, original.Id) with { Treatment = treatment }, CancellationToken.None);
+        Assert.True(result.IsError);
+        Assert.Equal("Expense.InvalidTreatment", result.FirstError.Code);
+        Assert.False(original.IsVoided);
+    }
+
+    [Fact]
+    public async Task SupplierCorrection_PreservesProvenanceThroughTwoGenerations()
+    {
+        var userId = Guid.NewGuid(); var shopId = Guid.NewGuid(); var ledgerId = Guid.NewGuid();
+        var original = Expense.CreateFromSupplierPayment(shopId, Guid.NewGuid(), 100m, "Supplier", null, new DateOnly(2026, 4, 1), userId, ledgerId);
+        _userRepository.GetByIdWithDetailsAsync(userId, Arg.Any<CancellationToken>()).Returns(CreateActor(userId, shopId, ShopRole.Owner));
+        _categoryRepository.GetByNameAsync(shopId, "Corrected Category", Arg.Any<CancellationToken>()).Returns(ExpenseCategory.Create(shopId, "Corrected Category", DateTimeOffset.UtcNow));
+        for (var generation = 0; generation < 2; generation++)
+        {
+            _expenseRepository.GetByIdAsync(original.Id, Arg.Any<CancellationToken>()).Returns(original);
+            Expense? saved = null;
+            _expenseRepository.AddAsync(Arg.Do<Expense>(e => saved = e), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
+            var result = await CreateHandler().HandleAsync(CreateCommand(userId, shopId, original.Id), CancellationToken.None);
+            Assert.False(result.IsError);
+            Assert.Equal(ledgerId, result.Value.SupplierLedgerEntryId);
+            Assert.Equal(ExpenseTreatment.SupplierSettlement, result.Value.Treatment);
+            Assert.NotNull(saved);
+            original = saved;
+        }
+    }
+
     [Fact]
     public async Task HandleAsync_WhenExpenseNotFound_ReturnsNotFound()
     {

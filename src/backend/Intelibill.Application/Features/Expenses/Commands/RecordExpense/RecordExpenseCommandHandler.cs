@@ -20,6 +20,9 @@ public sealed class RecordExpenseCommandHandler(
         RecordExpenseCommand command,
         CancellationToken cancellationToken)
     {
+        if (!Enum.IsDefined(command.Treatment) || command.Treatment == ExpenseTreatment.SupplierSettlement)
+            return Error.Validation("Expense.InvalidTreatment", "Select Unclassified, Operating or CapitalOrOtherExcluded.");
+
         var actor = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
         if (actor is null)
             return Errors.Auth.UserNotFound;
@@ -57,7 +60,7 @@ public sealed class RecordExpenseCommandHandler(
             command.PaidTo,
             command.Description,
             command.ExpenseDate,
-            command.UserId);
+            command.UserId, command.Treatment);
 
         await expenseRepository.AddAsync(expense, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -79,5 +82,5 @@ public sealed class RecordExpenseCommandHandler(
             e.IsVoided,
             e.OriginalExpenseId,
             e.SupplierLedgerEntryId,
-            e.CreatedAt);
+            e.CreatedAt, e.Treatment);
 }

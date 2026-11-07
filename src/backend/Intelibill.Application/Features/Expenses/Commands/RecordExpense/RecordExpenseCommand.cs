@@ -1,3 +1,5 @@
+using Intelibill.Domain.Enums;
+
 namespace Intelibill.Application.Features.Expenses.Commands.RecordExpense;
 
 public sealed record RecordExpenseCommand(
@@ -7,4 +9,5 @@ public sealed record RecordExpenseCommand(
     decimal Amount,
     string PaidTo,
     string? Description,
-    DateOnly ExpenseDate);
+    DateOnly ExpenseDate,
+    ExpenseTreatment Treatment = ExpenseTreatment.Unclassified);

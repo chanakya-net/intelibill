@@ -102,6 +102,28 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
         return body.GetProperty("accessToken").GetString()!;
     }
 
+    [Theory]
+    [InlineData("Operating", HttpStatusCode.Created)]
+    [InlineData("CapitalOrOtherExcluded", HttpStatusCode.Created)]
+    [InlineData("Unclassified", HttpStatusCode.Created)]
+    [InlineData("SupplierSettlement", HttpStatusCode.BadRequest)]
+    [InlineData("999", HttpStatusCode.BadRequest)]
+    public async Task RecordExpense_ValidatesExplicitTreatment(string treatment, HttpStatusCode expected)
+    {
+        using var client = CreateClient();
+        var token = await CreateShopAsync(client, await RegisterAsync(client));
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/expenses");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = JsonContent.Create(new { categoryName = "Rent", amount = 20, paidTo = "Landlord", expenseDate = "2026-06-01", treatment });
+        var response = await client.SendAsync(request);
+        Assert.Equal(expected, response.StatusCode);
+        if (expected == HttpStatusCode.Created)
+        {
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(treatment, body.GetProperty("treatment").GetString());
+        }
+    }
+
     [Fact]
     public async Task RecordExpense_CreatesExpenseWithCorrectData()
     {

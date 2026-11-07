@@ -35,6 +35,11 @@ public sealed class CorrectExpenseCommandHandler(
         if (original is null || original.ShopId != command.ShopId)
             return Errors.Expense.NotFound;
 
+        if (command.Treatment.HasValue && (!Enum.IsDefined(command.Treatment.Value)
+            || (command.Treatment == ExpenseTreatment.SupplierSettlement && original.Treatment != ExpenseTreatment.SupplierSettlement)
+            || (original.Treatment == ExpenseTreatment.SupplierSettlement && command.Treatment != original.Treatment)))
+            return Error.Validation("Expense.InvalidTreatment", "Supplier settlements retain their source treatment; other expenses require a valid treatment.");
+
         if (original.IsVoided)
             return Errors.Expense.AlreadyVoided;
 
@@ -76,7 +81,7 @@ public sealed class CorrectExpenseCommandHandler(
             command.Description,
             command.ExpenseDate,
             command.UserId,
-            command.OriginalExpenseId);
+            command.OriginalExpenseId, command.Treatment ?? original.Treatment, original.SupplierLedgerEntryId);
 
         await expenseRepository.AddAsync(corrected, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
@@ -98,5 +103,5 @@ public sealed class CorrectExpenseCommandHandler(
             e.IsVoided,
             e.OriginalExpenseId,
             e.SupplierLedgerEntryId,
-            e.CreatedAt);
+            e.CreatedAt, e.Treatment);
 }

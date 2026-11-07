@@ -801,6 +801,12 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("supplier_ledger_entry_id");
 
+                    b.Property<int>("Treatment")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("treatment");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -829,6 +835,8 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("expenses", null, t =>
                         {
                             t.HasCheckConstraint("ck_expenses_amount_positive", "amount > 0");
+
+                            t.HasCheckConstraint("ck_expenses_treatment", "treatment IN (0, 1, 2, 3)");
                         });
                 });
 

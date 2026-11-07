@@ -1,3 +1,5 @@
+using Intelibill.Domain.Enums;
+
 namespace Intelibill.Application.Features.Expenses.DTOs;
 
 public sealed record ExpenseListItemDto(
@@ -6,4 +8,5 @@ public sealed record ExpenseListItemDto(
     string CategoryName,
     string PaidTo,
     DateOnly ExpenseDate,
-    bool IsVoided);
+    bool IsVoided,
+    ExpenseTreatment Treatment = ExpenseTreatment.Unclassified);

@@ -1,3 +1,5 @@
+using Intelibill.Domain.Enums;
+
 namespace Intelibill.Application.Features.Expenses.DTOs;
 
 public sealed record ExpenseDto(
@@ -13,4 +15,5 @@ public sealed record ExpenseDto(
     bool IsVoided,
     Guid? OriginalExpenseId,
     Guid? SupplierLedgerEntryId,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    ExpenseTreatment Treatment = ExpenseTreatment.Unclassified);

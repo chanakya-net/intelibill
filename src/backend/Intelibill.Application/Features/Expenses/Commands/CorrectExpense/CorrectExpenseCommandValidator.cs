@@ -1,4 +1,5 @@
 using FluentValidation;
+using Intelibill.Domain.Enums;
 using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Application.Features.Expenses.Commands.CorrectExpense;
@@ -7,6 +8,9 @@ internal sealed class CorrectExpenseCommandValidator : AbstractValidator<Correct
 {
     public CorrectExpenseCommandValidator()
     {
+        RuleFor(x => x.Treatment).Must(t => !t.HasValue || Enum.IsDefined(t.Value))
+            .WithErrorCode("Expense.InvalidTreatment");
+
         RuleFor(x => x.CategoryName)
             .NotEmpty().WithErrorCode(Errors.Expense.CategoryNameRequired.Code)
             .MaximumLength(100);

@@ -1,4 +1,5 @@
 using FluentValidation;
+using Intelibill.Domain.Enums;
 using Intelibill.Application.Common.Errors;
 
 namespace Intelibill.Application.Features.Expenses.Commands.RecordExpense;
@@ -7,6 +8,9 @@ internal sealed class RecordExpenseCommandValidator : AbstractValidator<RecordEx
 {
     public RecordExpenseCommandValidator()
     {
+        RuleFor(x => x.Treatment).Must(t => (Enum.IsDefined(t) && t != ExpenseTreatment.SupplierSettlement))
+            .WithErrorCode("Expense.InvalidTreatment");
+
         RuleFor(x => x.CategoryName)
             .NotEmpty().WithErrorCode(Errors.Expense.CategoryNameRequired.Code)
             .MaximumLength(100);

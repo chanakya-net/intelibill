@@ -23,7 +23,7 @@ public sealed class GetExpensesQueryHandler(IExpenseRepository expenseRepository
             e.Category.Name,
             e.PaidTo,
             e.ExpenseDate,
-            e.IsVoided)).ToList();
+            e.IsVoided, e.Treatment)).ToList();
 
         return new PaginatedList<ExpenseListItemDto>(dtos, totalCount, query.PageNumber, query.PageSize);
     }
