@@ -423,7 +423,7 @@ namespace Intelibill.Infrastructure.Migrations
                 columns: new[] { "supplier_id", "shop_id" });
             foreach (var table in new[] { "supplier_returns", "supplier_return_lines", "supplier_return_credits", "supplier_return_credit_lines", "purchase_receipt_reversals" })
             {
-                migrationBuilder.Sql($"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY; ALTER TABLE {table} FORCE ROW LEVEL SECURITY; CREATE POLICY tenant_isolation ON {table} USING (shop_id = NULLIF(current_setting('app.active_shop_id', true), '')::uuid) WITH CHECK (shop_id = NULLIF(current_setting('app.active_shop_id', true), '')::uuid);");
+                migrationBuilder.Sql($"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY; ALTER TABLE {table} FORCE ROW LEVEL SECURITY; CREATE POLICY {table}_shop_isolation ON {table} USING (shop_id = NULLIF(current_setting('app.active_shop_id', true), '')::uuid) WITH CHECK (shop_id = NULLIF(current_setting('app.active_shop_id', true), '')::uuid);");
             }
         }
 

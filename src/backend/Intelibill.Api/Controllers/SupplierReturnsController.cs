@@ -41,7 +41,7 @@ public sealed class SupplierReturnsController(IMessageBus bus, SupplierReturnSer
     }
 }
 [ApiController, Authorize, Route("api/purchase-receipts")]
-public sealed class PurchaseReceiptsController(IMessageBus bus,SupplierReturnService service) : AuthenticatedControllerBase(bus)
+public sealed class PurchaseReceiptsController(IMessageBus bus,SupplierReturnService service,PurchaseReceiptReversalService reversalService) : AuthenticatedControllerBase(bus)
 {
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> Get(Guid id,CancellationToken ct)
@@ -53,12 +53,12 @@ public sealed class PurchaseReceiptsController(IMessageBus bus,SupplierReturnSer
     public async Task<IActionResult> Reverse(Guid id,ReceiptReversalRequest request,CancellationToken ct)
     {
         var auth=CheckAuthAndShop(); if(auth is not null) return auth;
-        return (await service.ReverseAsync(UserId!.Value,ActiveShopId!.Value,id,false,request.OperationKey,request.Reason,[new(id,request.ExpectedReceiptVersion,request.ExpectedBatchVersion)],ct)).ToActionResult(Ok);
+        return (await reversalService.ReverseAsync(UserId!.Value,ActiveShopId!.Value,id,false,request.OperationKey,request.Reason,[new(id,request.ExpectedReceiptVersion,request.ExpectedBatchVersion)],ct)).ToActionResult(Ok);
     }
     [HttpPost("/api/purchase-order-receipts/{id:guid}/reversal")]
     public async Task<IActionResult> ReverseGroup(Guid id,GroupReceiptReversalRequest request,CancellationToken ct)
     {
         var auth=CheckAuthAndShop(); if(auth is not null) return auth;
-        return (await service.ReverseAsync(UserId!.Value,ActiveShopId!.Value,id,true,request.OperationKey,request.Reason,request.Lines,ct)).ToActionResult(Ok);
+        return (await reversalService.ReverseAsync(UserId!.Value,ActiveShopId!.Value,id,true,request.OperationKey,request.Reason,request.Lines,ct)).ToActionResult(Ok);
     }
 }

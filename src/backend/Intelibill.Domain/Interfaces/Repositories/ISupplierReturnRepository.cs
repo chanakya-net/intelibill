@@ -11,5 +11,6 @@ public interface ISupplierReturnRepository : IRepository<SupplierReturn>
     Task<IReadOnlyList<PurchaseReceiptValue>> GetReceiptsAsync(Guid shopId, IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
     Task<IReadOnlyList<PurchaseReceiptValue>> GetGroupReceiptsAsync(Guid shopId, Guid groupId, CancellationToken cancellationToken);
     Task<IReadOnlyList<PurchaseReceiptValue>> GetByPoLineIdsAsync(Guid shopId, IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
+    Task<IReadOnlyList<SupplierReturn>> GetByLedgerEntriesAsync(Guid shopId, IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
     Task<bool> HasCountHistoryAsync(Guid shopId, Guid batchId, CancellationToken cancellationToken);
 }

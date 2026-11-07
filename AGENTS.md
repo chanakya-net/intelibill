@@ -197,3 +197,12 @@ Add to `.csproj` (no version):
 - Directory.Build.props
 - Directory.Packages.props
 - global.json
+
+## Supplier Returns and Receipt Reversal
+
+- Migration: `20261107180954_AddSupplierReturnsAndReceiptReversals`; apply before API/web. Preserve schema and facts on rollback.
+- Routes: `GET purchase-receipts/{id}`, `POST supplier-returns/preview`, `POST/GET supplier-returns`, `GET supplier-returns/{id}`, `POST supplier-returns/{id}/credit`, `POST purchase-receipts/{id}/reversal`, `POST purchase-order-receipts/{id}/reversal`.
+- Owner/Manager: read and ship pending source-linked returns. Owner only: accepted credit and receipt/group reversal. New mutations require operation key, versions and reason; authorization precedes replay.
+- Pending shipment changes stock only. Accepted credit reduces net payable; paid receipts retain allocations and expose surplus supplier credit without inventing a refund. After shipment, cost correction/reassignment/void are blocked. Full reversal rejects consumption/restoration/counts/returns/active allocations and reverses the exact effective total. Historical PO receiving and procurement status remain unchanged.
+- Operations14/15/16; ledger supplier return credit6; stock supplier return9. Never classify supplier shipment as sales, COGS or independent stock loss. No legal GST note, return cancellation/credit reversal, automatic refund/PO reopening or mobile workflow.
+- Web receipt-lot/return routes share durable owner/action/target drafts; preserve unknown payloads across404/reload/tab/shop changes. Printed references use frozen facts and the commercial-not-GST disclaimer.
