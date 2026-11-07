@@ -6,6 +6,7 @@ namespace Intelibill.Domain.Interfaces.Repositories;
 
 public interface ISaleRepository : IRepository<Sale>
 {
+    Task<bool> ExistsAsync(Guid shopId, Guid saleId, CancellationToken cancellationToken = default);
     Task<Sale?> GetByIdAsync(Guid saleId, Guid shopId, CancellationToken cancellationToken = default);
 
     /// <summary>

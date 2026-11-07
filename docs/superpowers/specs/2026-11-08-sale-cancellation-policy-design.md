@@ -40,6 +40,10 @@ This is a deliberately bounded mistaken-entry correction, not a universal void. 
 9. Any positive paid amount with UPI, Card, Credit, or an unknown tender blocks with `ExternalRefundWorkflowRequired`, even if the caller sets the cash checkbox. Preview shows the amount and **“External refund is not recorded by this cancellation workflow.”** A pending external refund is never presented as paid back. Supporting pending refunds and their later confirmation is outside this version; no partially completed cancellation is persisted.
 10. Cancellation is terminal: no uncancel, replacement invoice, renumbering, cancellation deletion, automatic refund, or credit restoration endpoint.
 
+The persisted sale-item collection has no ordinal contract. Reconcile document lines as a multiset using immutable line name, HSN, quantity, sales price, combined discounts, taxable amount, zero-tax facts and total. Consume each frozen line once, preserving the sale item's physical item/batch links. Identical duplicates with identical frozen display/UQC facts are interchangeable. Refuse `SnapshotMismatch` if differing frozen display/UQC facts make attribution ambiguous; never infer order from creation timestamps or IDs.
+
+The online writer captures one instant for both the sale and issued document. Compare their instants at PostgreSQL's persisted microsecond precision: JSON retains 100ns ticks while `timestamptz` truncates them. This is storage normalization, with no monetary tolerance or changes to original facts.
+
 Preview checks the month using read-only `IPostingPeriodRepository.GetRangeAsync`; an absent month row is open. It must not call `AuthorizeForWriteAsync` or create a period row. The posting callback still takes the actual shared period fence before business locks.
 
 Business ineligibility returns actionable code/message pairs in preview; posting returns 409 with the applicable code. Invalid confirmation/reason/version/key shape returns 400. Missing/foreign sale returns 404, insufficient role 403, lock contention 409. Request reason is trimmed, 3–255 characters; operation key trimmed, 1–128 characters; expected version nonzero.

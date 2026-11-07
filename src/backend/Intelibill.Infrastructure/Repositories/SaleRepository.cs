@@ -22,6 +22,9 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
         _context = context;
     }
 
+    public Task<bool> ExistsAsync(Guid shopId, Guid saleId, CancellationToken cancellationToken = default) =>
+        DbSet.AsNoTracking().AnyAsync(s => s.ShopId == shopId && s.Id == saleId, cancellationToken);
+
     public async Task<Sale?> GetByIdAsync(Guid saleId, Guid shopId, CancellationToken cancellationToken = default) =>
         await DbSet
             .Include(s => s.Items)
