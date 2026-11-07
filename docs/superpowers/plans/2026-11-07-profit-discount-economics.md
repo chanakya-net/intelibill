@@ -8,7 +8,7 @@
 
 **Tech Stack:** .NET 10, C#, ErrorOr, FluentValidation, EF Core/Npgsql, PostgreSQL, xUnit/Testcontainers; Angular 21, NgRx, PrimeNG, Transloco, Bun/Vitest.
 
-**Spec:** `pending-tasks/28-profit-and-discount-economics.md`; user attachment `/Users/chanakya/.codex/attachments/648b66a8-8809-4278-9d45-6d4c2196a217/Pasted text.txt`. This current-source plan supersedes stale implementation assumptions in that spec, not its intended outcome.
+**Spec:** `pending-tasks/28-profit-and-discount-economics-done.md` (the ignored backlog source was renamed externally during execution); authoritative user attachment `/Users/chanakya/.codex/attachments/648b66a8-8809-4278-9d45-6d4c2196a217/Pasted text.txt`. This current-source plan supersedes stale implementation assumptions in that spec, not its intended outcome.
 
 ## Global Constraints
 

@@ -1093,3 +1093,58 @@ data stays valid in `numeric(18,3)`, and no quantity is downgraded.
 | **Total** | | **3120** |
 
 Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 2493 passing.
+
+## Recorded-cost Profit and Discount Economics
+
+Online sale preview and posting use the same pricing calculator. Every goods line must retain
+post-discount **tax-exclusive revenue at least equal to rounded quantity × recorded batch cost**.
+Collected output tax never funds a discount. `PurchaseTaxIncluded` is not evidence of recoverable
+purchase tax: new preview, sale cost snapshots and current-stock valuation preserve the recorded
+`CostPrice`. Existing sale/return cost snapshots, tax, invoice documents and idempotency identities
+are immutable. There is no below-cost role override. Rejections retain existing `SalePricing.*`
+codes and describe requested net revenue, recorded cost and loss.
+
+P&L rows and summary add `economics.version = 2`, with `costBasis = recorded-sale-cost/1` on the
+summary. Net sales exclude collected tax. COGS uses frozen goods sale costs, reversed only by
+restockable returns. Independent stock losses post on their original instant and their negation on
+`VoidedAt`, selected through the shop's half-open business-day UTC window. Returned-goods wastage
+is diagnostic **already included in COGS**, never another stock-loss deduction. Return and return
+void figures use the accounting reader's signed posted snapshots and their own business periods.
+Later purchase receipt cost corrections do not revalue frozen COGS.
+
+`GrossTradingProfit = NetSalesExcludingTax - Cogs - StockLoss`. Gross margin divides this amount
+by net sales, while markup divides it by COGS. Both round to two decimals away from zero; exactly
+zero denominators are null, and negative denominators retain their signed arithmetic. Summary
+ratios use period aggregates, never an average of row percentages. Paging does not change totals.
+Legacy `MarginPercent` and `AverageMarginPercent` keep their cost denominator (markup); legacy
+`NetProfitAfterTax` retains its tax-exclusive trading formula and does not mean after-income-tax
+or operating profit. New web/XLSX readers use the version2 projection. Dashboard adds this same
+period economics summary and its own `GrossTradingProfitChangePercent`; old `NetProfit` remains.
+
+Expenses carry immutable `ExpenseTreatment`: Unclassified(0), Operating(1), SupplierSettlement(2),
+CapitalOrOtherExcluded(3). Omitted ordinary request treatment defaults to Unclassified; corrections
+inherit omission. Generic requests cannot assert supplier settlement. Supplier-payment provenance
+stamps settlement, and correction descendants retain both treatment and supplier ledger link.
+A differing supplier treatment is refused; normal classification changes use the existing audited
+replacement correction and both-month posting fences. Voided original expenses are excluded;
+the replacement contributes on its own `ExpenseDate`. Category names establish no treatment.
+Supplier settlements and capital/other excluded rows are never deducted again from trading profit.
+
+For a full-period report with classified active expenses, reviewed return accounting and no
+unmodeled service costs, operating profit is trading profit minus Operating expenses. Otherwise
+`OperatingProfit` is null, with status precedence `FilteredActivity`, `UnclassifiedExpenses`,
+`AccountingReview`, `ServiceCostsUnmodeled`; all applicable limitation codes are included. Search
+or type filters also make `OperatingExpenses` null: whole-shop expenses are not charged to an
+individual invoice. Unclassified counts/amounts are period-wide diagnostics. A complete period
+with no activity returns real zero amounts and null ratios. These recorded-cost trading metrics
+are not a general ledger or audited/after-income-tax profit; purchase-tax recoverability, modeled
+service costs and receipt-cost revaluation remain explicit limitations.
+
+Rollout: apply `20261107050412_AddExpenseTreatment` with the schema migrator before the API/web.
+Its safe default is `0`. It backfills supplier-linked roots and same-shop correction ancestry using
+cycle-safe recursive UNION, setting each shop context under FORCE RLS. The idempotent
+`scripts/db/backfill-expense-treatment.sql` can be rerun; it restores the caller's shop context.
+Remaining ordinary expenses require explicit operator classification. Deploy additive API fields
+before the web and compare a representative closed period: labels/completeness and restored dated
+loss/void history can differ, while frozen invoices/costs remain unchanged. Rollback can retain
+additive columns and legacy readers; never restore the unsafe tax-inclusive discount capacity.

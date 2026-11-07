@@ -149,6 +149,7 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Utilities", body.GetProperty("categoryName").GetString());
         Assert.Equal(1200.50m, body.GetProperty("amount").GetDecimal());
+        Assert.Equal("Unclassified", body.GetProperty("treatment").GetString());
         Assert.Equal("Electric Co", body.GetProperty("paidTo").GetString());
         Assert.Equal("March electricity bill", body.GetProperty("description").GetString());
         Assert.Equal("2026-03-20", body.GetProperty("expenseDate").GetString());

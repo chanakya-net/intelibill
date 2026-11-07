@@ -193,7 +193,7 @@
       "grossSales": "Gross Sales",
       "netSales": "Net Sales",
       "revenue": "Revenue",
-      "expenses": "Expenses",
+      "expenses": "Recorded expenses / outflows",
       "salesTrendSubtitle": "Total sales amount per day for the selected period.",
       "revenueVsExpensesSubtitle": "Daily cash movement."
     },

@@ -193,7 +193,7 @@
       "grossSales": "মোট বিক্রয়",
       "netSales": "নেট বিক্রয়",
       "revenue": "রাজস্ব",
-      "expenses": "খরচ",
+      "expenses": "নথিভুক্ত খরচ / বহির্গমন",
       "salesTrendSubtitle": "নির্বাচিত সময়ের জন্য প্রতিদিন মোট বিক্রির পরিমাণ।",
       "revenueVsExpensesSubtitle": "দৈনিক নগদ চলাচল।"
     },
