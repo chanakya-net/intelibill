@@ -23,6 +23,7 @@ import { startWith } from 'rxjs';
 
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import { formatLocalIsoDate, parseDateOnlyAsLocalDate } from '../../../shared/utils/date-time.util';
+import type { ReceivingCommand } from '../services/receiving.models';
 import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
 import {
   DEFAULT_PURCHASE_ORDER_LIST_FILTERS,
@@ -30,7 +31,6 @@ import {
   PurchaseOrderListFilters,
   PurchaseOrderListItem,
   PurchaseOrderStatus,
-  ReceivePurchaseOrderRequest,
 } from '../services/purchase-order.service';
 import { ReceivePurchaseOrderDialogComponent } from '../components/receive-purchase-order-dialog.component';
 import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page.component';
@@ -299,7 +299,10 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
                         </div>
                       } @else if (
                         permissions.canManagePurchaseOrders() &&
-                        (order.status === 'Placed' || order.status === 'PartiallyReceived')
+                        (order.status === 'Placed' ||
+                          order.status === 'PartiallyReceived' ||
+                          order.status === 'Received' ||
+                          order.status === 'Closed')
                       ) {
                         <div class="po-row-actions">
                           <button
@@ -307,7 +310,12 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
                             type="button"
                             severity="success"
                             icon="pi pi-inbox"
-                            [label]="'purchaseOrders.actions.receive' | transloco"
+                            [label]="
+                              (order.status === 'Received' || order.status === 'Closed'
+                                ? 'purchaseOrders.receiving.recover'
+                                : 'purchaseOrders.actions.receive'
+                              ) | transloco
+                            "
                             (click)="openReceiveOrder(order.purchaseOrderId, $event)"
                           ></button>
                         </div>
@@ -359,7 +367,6 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
         [order]="order"
         [visible]="showReceiveDialog()"
         (visibleChange)="onReceiveDialogVisibleChange($event)"
-        [submitting]="facade.isSubmitting()"
         (receive)="receiveOrder(order.purchaseOrderId, $event)"
         (closed)="closeReceiveDialog()"
       />
@@ -786,10 +793,19 @@ export class PurchaseOrdersListPageComponent implements OnInit {
       ];
     }
 
-    if (order.status === 'Placed' || order.status === 'PartiallyReceived') {
+    if (
+      order.status === 'Placed' ||
+      order.status === 'PartiallyReceived' ||
+      order.status === 'Received' ||
+      order.status === 'Closed'
+    ) {
       return [
-        this.actionItem('purchaseOrders.actions.receive', 'pi pi-inbox', () =>
-          this.openReceiveOrder(order.purchaseOrderId),
+        this.actionItem(
+          order.status === 'Received' || order.status === 'Closed'
+            ? 'purchaseOrders.receiving.recover'
+            : 'purchaseOrders.actions.receive',
+          'pi pi-inbox',
+          () => this.openReceiveOrder(order.purchaseOrderId),
         ),
       ];
     }
@@ -963,9 +979,8 @@ export class PurchaseOrdersListPageComponent implements OnInit {
     }
   }
 
-  protected receiveOrder(purchaseOrderId: string, payload: ReceivePurchaseOrderRequest): void {
+  protected receiveOrder(purchaseOrderId: string, payload: ReceivingCommand): void {
     this.facade.receiveOrder(purchaseOrderId, payload);
-    this.showReceiveDialog.set(false);
   }
 
   protected closeReceiveDialog(): void {
@@ -1017,7 +1032,11 @@ export class PurchaseOrdersListPageComponent implements OnInit {
 
   private hasMenuActions(order: PurchaseOrderListItem): boolean {
     return (
-      order.status === 'Draft' || order.status === 'Placed' || order.status === 'PartiallyReceived'
+      order.status === 'Draft' ||
+      order.status === 'Placed' ||
+      order.status === 'PartiallyReceived' ||
+      order.status === 'Received' ||
+      order.status === 'Closed'
     );
   }
 

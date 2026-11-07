@@ -8,34 +8,42 @@ const entitySelectors = purchaseOrdersAdapter.getSelectors(selectPurchaseOrdersS
 export const selectAllPurchaseOrders = entitySelectors.selectAll;
 export const selectPurchaseOrdersLoadingList = createSelector(
   selectPurchaseOrdersState,
-  (state) => state.loadingList
+  (state) => state.loadingList,
 );
 export const selectPurchaseOrdersLoadingDetail = createSelector(
   selectPurchaseOrdersState,
-  (state) => state.loadingDetail
+  (state) => state.loadingDetail,
 );
 export const selectPurchaseOrdersSubmitting = createSelector(
   selectPurchaseOrdersState,
-  (state) => state.submitting
+  (state) => state.submitting,
 );
 export const selectPurchaseOrdersErrorMessage = createSelector(
   selectPurchaseOrdersState,
-  (state) => state.errorMessage
+  (state) => state.errorMessage,
 );
-export const selectPurchaseOrdersPagination = createSelector(selectPurchaseOrdersState, (state) => ({
-  totalCount: state.totalCount,
-  pageNumber: state.currentPage,
-  pageSize: state.pageSize,
-}));
+export const selectPurchaseOrdersPagination = createSelector(
+  selectPurchaseOrdersState,
+  (state) => ({
+    totalCount: state.totalCount,
+    pageNumber: state.currentPage,
+    pageSize: state.pageSize,
+  }),
+);
 export const selectPurchaseOrdersFilters = createSelector(
   selectPurchaseOrdersState,
-  (state) => state.filters
+  (state) => state.filters,
 );
 export const selectSelectedPurchaseOrder = createSelector(
   selectPurchaseOrdersState,
-  (state) => state.selectedOrder
+  (state) => state.selectedOrder,
 );
 export const selectCreateDraftSucceeded = createSelector(
   selectPurchaseOrdersState,
-  (state) => state.createSucceeded
+  (state) => state.createSucceeded,
+);
+
+export const selectReceivingOperations = createSelector(
+  selectPurchaseOrdersState,
+  (state) => state.receiving,
 );

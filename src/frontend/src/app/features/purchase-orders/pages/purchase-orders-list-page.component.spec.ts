@@ -106,7 +106,10 @@ describe('PurchaseOrdersListPageComponent', () => {
     paginationSignal.set({ totalCount: 1, pageNumber: 1, pageSize: 20 });
 
     TestBed.configureTestingModule({
-      imports: [PurchaseOrdersListPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        PurchaseOrdersListPageComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: Router, useValue: router },
         { provide: AuthService, useValue: { session: sessionSignal } },
@@ -121,7 +124,16 @@ describe('PurchaseOrdersListPageComponent', () => {
           },
         },
         { provide: SuppliersFacade, useValue: { suppliers: suppliersSignal, load: vi.fn() } },
-        { provide: ProductCatalogSyncService, useValue: { catalogEntries: catalogEntriesSignal, filterByName: () => [], filterByBarcode: () => [], findByName: () => null, upsertEntry: vi.fn() } },
+        {
+          provide: ProductCatalogSyncService,
+          useValue: {
+            catalogEntries: catalogEntriesSignal,
+            filterByName: () => [],
+            filterByBarcode: () => [],
+            findByName: () => null,
+            upsertEntry: vi.fn(),
+          },
+        },
         { provide: InventoryService, useValue: { generateItemBarcode: vi.fn(), addItem: vi.fn() } },
         { provide: ShopPermissionsService, useValue: permissions },
       ],
@@ -293,8 +305,9 @@ describe('PurchaseOrdersListPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    const newPoButton = Array.from(host.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('purchaseOrders.newPo'));
+    const newPoButton = Array.from(host.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('purchaseOrders.newPo'),
+    );
 
     expect(newPoButton).toBeTruthy();
     expect(newPoButton?.classList.contains('p-button')).toBe(true);
@@ -339,8 +352,9 @@ describe('PurchaseOrdersListPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    const placeButton = Array.from(host.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('purchaseOrders.actions.placeOrder')) as HTMLButtonElement;
+    const placeButton = Array.from(host.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('purchaseOrders.actions.placeOrder'),
+    ) as HTMLButtonElement;
 
     expect(placeButton).toBeTruthy();
     placeButton.click();
@@ -355,8 +369,9 @@ describe('PurchaseOrdersListPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    const editButton = Array.from(host.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('purchaseOrders.editPo')) as HTMLButtonElement;
+    const editButton = Array.from(host.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('purchaseOrders.editPo'),
+    ) as HTMLButtonElement;
 
     expect(editButton).toBeTruthy();
     editButton.click();
@@ -389,8 +404,9 @@ describe('PurchaseOrdersListPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    const deleteButton = Array.from(host.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('purchaseOrders.actions.deleteDraft')) as HTMLButtonElement;
+    const deleteButton = Array.from(host.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('purchaseOrders.actions.deleteDraft'),
+    ) as HTMLButtonElement;
 
     expect(deleteButton).toBeTruthy();
     deleteButton.click();
@@ -445,8 +461,9 @@ describe('PurchaseOrdersListPageComponent', () => {
     fixture.detectChanges();
 
     const host = fixture.nativeElement as HTMLElement;
-    const receiveButton = Array.from(host.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('purchaseOrders.actions.receive')) as HTMLButtonElement;
+    const receiveButton = Array.from(host.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('purchaseOrders.actions.receive'),
+    ) as HTMLButtonElement;
 
     expect(receiveButton).toBeTruthy();
     receiveButton.click();
@@ -460,19 +477,21 @@ describe('PurchaseOrdersListPageComponent', () => {
     expect(host.querySelector('app-receive-purchase-order-dialog')).toBeTruthy();
   });
 
-  it('submits receipt payload from the list receive dialog', () => {
+  it('keeps the list dialog open after dispatching a prepared receipt', () => {
     const fixture = TestBed.createComponent(PurchaseOrdersListPageComponent);
+    fixture.componentInstance['showReceiveDialog'].set(true);
     const payload = {
-      referenceNumber: null,
-      notes: null,
-      receivedAt: null,
-      lines: [],
+      correlation: {
+        scope: { userId: 'u', shopId: 's', epoch: 0 },
+        purchaseOrderId: 'po-2',
+        operationId: 'op',
+      },
+      payload: { referenceNumber: null, notes: null, receivedAt: null, lines: [] },
+      recovery: false,
     };
-
     fixture.componentInstance['receiveOrder']('po-2', payload);
-
     expect(facade.receiveOrder).toHaveBeenCalledWith('po-2', payload);
-    expect(fixture.componentInstance['showReceiveDialog']()).toBe(false);
+    expect(fixture.componentInstance['showReceiveDialog']()).toBe(true);
   });
 
   it('hides edit link for Staff even on Draft order', () => {

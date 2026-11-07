@@ -2,9 +2,20 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
-import { PURCHASE_ORDER_ENDPOINTS } from '../../../core/auth/auth.constants';
+import { scopedRequestContext } from '../../../core/context/scoped-request';
+import type { ScopeOwner } from '../../../core/context/shop-scope';
+import {
+  FINANCIAL_OPERATION_ENDPOINTS,
+  PURCHASE_ORDER_ENDPOINTS,
+} from '../../../core/auth/auth.constants';
 
-export type PurchaseOrderStatus = 'Draft' | 'Placed' | 'Cancelled' | 'PartiallyReceived' | 'Received' | 'Closed';
+export type PurchaseOrderStatus =
+  | 'Draft'
+  | 'Placed'
+  | 'Cancelled'
+  | 'PartiallyReceived'
+  | 'Received'
+  | 'Closed';
 
 export interface PurchaseOrderLine {
   readonly lineId: string;
@@ -19,6 +30,7 @@ export interface PurchaseOrderLine {
 
 export interface PurchaseOrderReceiptLine {
   readonly receiptLineId: string;
+  readonly clientLineId?: string;
   readonly purchaseOrderLineId: string;
   readonly itemId: string;
   readonly inventoryBatchId: string;
@@ -124,6 +136,7 @@ export interface ClosePurchaseOrderRequest {
 }
 
 export interface ReceivePurchaseOrderLineRequest {
+  readonly clientLineId?: string;
   readonly purchaseOrderLineId: string;
   readonly barcode: string;
   readonly batchNumber: string;
@@ -139,6 +152,7 @@ export interface ReceivePurchaseOrderLineRequest {
 }
 
 export interface ReceivePurchaseOrderRequest {
+  readonly operationId?: string;
   readonly referenceNumber: string | null;
   readonly notes: string | null;
   readonly receivedAt: string | null;
@@ -158,7 +172,9 @@ export const DEFAULT_PURCHASE_ORDER_LIST_FILTERS: PurchaseOrderListFilters = {
 export class PurchaseOrderService {
   private readonly http = inject(HttpClient);
 
-  getPurchaseOrders(filters: Partial<PurchaseOrderListFilters> = {}): Observable<PurchaseOrderListResult> {
+  getPurchaseOrders(
+    filters: Partial<PurchaseOrderListFilters> = {},
+  ): Observable<PurchaseOrderListResult> {
     const request = { ...DEFAULT_PURCHASE_ORDER_LIST_FILTERS, ...filters };
     let params = new HttpParams()
       .set('page', request.page.toString())
@@ -180,8 +196,14 @@ export class PurchaseOrderService {
     return this.http.post<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.create, payload);
   }
 
-  updateDraft(purchaseOrderId: string, payload: CreatePurchaseOrderDraftRequest): Observable<PurchaseOrderDetail> {
-    return this.http.put<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.detail(purchaseOrderId), payload);
+  updateDraft(
+    purchaseOrderId: string,
+    payload: CreatePurchaseOrderDraftRequest,
+  ): Observable<PurchaseOrderDetail> {
+    return this.http.put<PurchaseOrderDetail>(
+      PURCHASE_ORDER_ENDPOINTS.detail(purchaseOrderId),
+      payload,
+    );
   }
 
   placePurchaseOrder(purchaseOrderId: string): Observable<PurchaseOrderDetail> {
@@ -192,15 +214,54 @@ export class PurchaseOrderService {
     return this.http.delete<void>(PURCHASE_ORDER_ENDPOINTS.delete(purchaseOrderId));
   }
 
-  cancelPurchaseOrder(purchaseOrderId: string, payload: CancelPurchaseOrderRequest): Observable<PurchaseOrderDetail> {
-    return this.http.post<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.cancel(purchaseOrderId), payload);
+  cancelPurchaseOrder(
+    purchaseOrderId: string,
+    payload: CancelPurchaseOrderRequest,
+  ): Observable<PurchaseOrderDetail> {
+    return this.http.post<PurchaseOrderDetail>(
+      PURCHASE_ORDER_ENDPOINTS.cancel(purchaseOrderId),
+      payload,
+    );
   }
 
-  closePurchaseOrder(purchaseOrderId: string, payload: ClosePurchaseOrderRequest): Observable<PurchaseOrderDetail> {
-    return this.http.post<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.close(purchaseOrderId), payload);
+  closePurchaseOrder(
+    purchaseOrderId: string,
+    payload: ClosePurchaseOrderRequest,
+  ): Observable<PurchaseOrderDetail> {
+    return this.http.post<PurchaseOrderDetail>(
+      PURCHASE_ORDER_ENDPOINTS.close(purchaseOrderId),
+      payload,
+    );
   }
 
-  receivePurchaseOrder(purchaseOrderId: string, payload: ReceivePurchaseOrderRequest): Observable<PurchaseOrderDetail> {
-    return this.http.post<PurchaseOrderDetail>(PURCHASE_ORDER_ENDPOINTS.receipts(purchaseOrderId), payload);
+  getReceiptOperation(operationId: string, owner: ScopeOwner): Observable<ReceiptOperationLookup> {
+    return this.http.get<ReceiptOperationLookup>(
+      FINANCIAL_OPERATION_ENDPOINTS.lookup('purchase-order-receipt', operationId),
+      { context: scopedRequestContext(owner) },
+    );
   }
+
+  receivePurchaseOrder(
+    purchaseOrderId: string,
+    payload: ReceivePurchaseOrderRequest,
+    owner?: ScopeOwner,
+  ): Observable<PurchaseOrderDetail> {
+    return owner
+      ? this.http.post<PurchaseOrderDetail>(
+          PURCHASE_ORDER_ENDPOINTS.receipts(purchaseOrderId),
+          payload,
+          { context: scopedRequestContext(owner) },
+        )
+      : this.http.post<PurchaseOrderDetail>(
+          PURCHASE_ORDER_ENDPOINTS.receipts(purchaseOrderId),
+          payload,
+        );
+  }
+}
+
+export interface ReceiptOperationLookup {
+  readonly operationType: string;
+  readonly operationKey: string;
+  readonly targetId: string;
+  readonly response: PurchaseOrderDetail;
 }

@@ -36,12 +36,36 @@ describe('Purchase orders i18n coverage', () => {
     'purchaseOrders.builder',
     'purchaseOrders.detail',
     'purchaseOrders.receive',
+    'purchaseOrders.receiving',
     'purchaseOrders.receipts',
     'purchaseOrders.status',
     'purchaseOrders.actions',
     'purchaseOrders.errors',
     'purchaseOrders.print',
   ];
+
+  it('has all recovery, storage and multi-lot operator messages', () => {
+    const messages = loadJson('en-IN.json');
+    for (const key of [
+      'unknown',
+      'sending',
+      'check',
+      'retry',
+      'storageError',
+      'scopeError',
+      'lookupMissing',
+      'lookupFailed',
+      'payloadMismatch',
+      'duplicateLot',
+      'invalidRow',
+      'invalidQuantity',
+      'addLot',
+      'remaining',
+      'noReceivable',
+      'recover',
+    ])
+      expect(resolvePath(messages, `purchaseOrders.receiving.${key}`)).toEqual(expect.any(String));
+  });
 
   it('en-IN has purchase order keys (sanity check)', () => {
     expect(enPurchaseOrderKeys.length).toBeGreaterThan(50);
