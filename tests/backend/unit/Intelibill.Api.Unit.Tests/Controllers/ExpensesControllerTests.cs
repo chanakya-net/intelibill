@@ -140,7 +140,7 @@ public class ExpensesControllerTests
         _bus.InvokeAsync<ErrorOr<PaginatedList<ExpenseListItemDto>>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<PaginatedList<ExpenseListItemDto>>>(expenses));
 
-        var result = await _controller.GetExpenses(null, 1, 20, CancellationToken.None);
+        var result = await _controller.GetExpenses(null, 1, 20, cancellationToken: CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
         Assert.Equal(expenses, ok.Value);

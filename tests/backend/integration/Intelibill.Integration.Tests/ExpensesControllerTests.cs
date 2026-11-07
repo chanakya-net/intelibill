@@ -102,6 +102,100 @@ public sealed class ExpensesControllerTests(PostgreSqlTestFixture fixture) : IAs
         return body.GetProperty("accessToken").GetString()!;
     }
 
+    [Fact]
+    public async Task VoidedFilter_FindsMatchBeyondFirstPage()
+    {
+        using var client = CreateClient();
+        var token = await CreateShopAsync(client, await RegisterAsync(client));
+        var ids = await SeedListAsync(client, token);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var body = await client.GetFromJsonAsync<JsonElement>("/api/expenses?status=VoIdEd");
+        Assert.Equal(1, body.GetProperty("totalCount").GetInt32());
+        Assert.Equal(ids[^1], Assert.Single(body.GetProperty("items").EnumerateArray()).GetProperty("id").GetGuid());
+    }
+
+    [Fact]
+    public async Task StatusSearchPages_SharePredicateAndStableOrdering()
+    {
+        using var client = CreateClient();
+        var token = await CreateShopAsync(client, await RegisterAsync(client));
+        var ids = await SeedListAsync(client, token);
+        var otherToken = await CreateShopAsync(client, await RegisterAsync(client));
+        await SeedListAsync(client, otherToken);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        foreach (var status in new[] { "all", "active", "voided" })
+        {
+            var expected = ids.Where((_, i) => status == "all" || (status == "voided" ? i == 25 : i != 25))
+                .OrderByDescending(id => id).ToArray();
+            for (var repeat = 0; repeat < 2; repeat++)
+            {
+                var actual = new List<Guid>();
+                for (var page = 1; page <= Math.Max(1, (expected.Length + 6) / 7); page++)
+                {
+                    var body = await client.GetFromJsonAsync<JsonElement>($"/api/expenses?search=needle&status={status}&page={page}&pageSize=7");
+                    Assert.Equal(expected.Length, body.GetProperty("totalCount").GetInt32());
+                    actual.AddRange(body.GetProperty("items").EnumerateArray().Select(e => e.GetProperty("id").GetGuid()));
+                }
+                Assert.Equal(expected, actual);
+                Assert.Equal(actual.Count, actual.Distinct().Count());
+            }
+        }
+        foreach (var status in new[] { "", "all", "%20%20", "%20aLl%20" })
+        {
+            var body = await client.GetFromJsonAsync<JsonElement>($"/api/expenses?status={status}&pageSize=100");
+            Assert.Equal(27, body.GetProperty("totalCount").GetInt32());
+        }
+    }
+
+    [Theory]
+    [InlineData("status=unknown", "Expense.InvalidStatus")]
+    [InlineData("status=1", "Expense.InvalidStatus")]
+    [InlineData("page=0", "Expense.InvalidPageNumber")]
+    [InlineData("page=-1", "Expense.InvalidPageNumber")]
+    [InlineData("pageSize=0", "Expense.InvalidPageSize")]
+    [InlineData("pageSize=101", "Expense.InvalidPageSize")]
+    [InlineData("page=2147483647&pageSize=100", "Expense.InvalidPageNumber")]
+    [InlineData("page=abc", null)]
+    [InlineData("pageSize=abc", null)]
+    public async Task InvalidFilterAndPage_ReturnBadRequest(string query, string? code)
+    {
+        using var client = CreateClient();
+        var token = await CreateShopAsync(client, await RegisterAsync(client));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var response = await client.GetAsync($"/api/expenses?{query}");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        if (code is not null)
+        {
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(code, body.GetProperty("title").GetString());
+            Assert.Contains(body.GetProperty("errors").EnumerateArray(), e => e.GetProperty("code").GetString() == code);
+        }
+    }
+
+    private async Task<List<Guid>> SeedListAsync(HttpClient client, string token)
+    {
+        var shopId = await GetShopIdFromTokenAsync(client, token);
+        var actorId = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler().ReadJwtToken(token).Subject;
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var category = Intelibill.Domain.Entities.ExpenseCategory.Create(shopId, "General", DateTimeOffset.UtcNow);
+        var matchingCategory = Intelibill.Domain.Entities.ExpenseCategory.Create(shopId, "needle category", DateTimeOffset.UtcNow);
+        db.ExpenseCategories.AddRange(category, matchingCategory);
+        var ids = new List<Guid>();
+        for (var i = 0; i < 27; i++)
+        {
+            var expense = Intelibill.Domain.Entities.Expense.Create(shopId, i % 3 == 2 && i < 26 ? matchingCategory.Id : category.Id,
+                100m, i % 3 == 0 && i < 26 ? "needle payee" : "Vendor",
+                i % 3 == 1 && i < 26 ? "needle description" : null, new DateOnly(2026, 6, 1), Guid.Parse(actorId));
+            if (i == 25) expense.MarkVoided();
+            db.Expenses.Add(expense);
+            if (i < 26) ids.Add(expense.Id);
+        }
+        await db.SaveChangesAsync();
+        await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE expenses SET created_at = {new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero)} WHERE shop_id = {shopId}");
+        return ids;
+    }
+
     [Theory]
     [InlineData("Operating", HttpStatusCode.Created)]
     [InlineData("CapitalOrOtherExcluded", HttpStatusCode.Created)]

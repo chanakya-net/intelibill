@@ -66,13 +66,21 @@ public sealed class ExpensesController : AuthenticatedControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetExpenses([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> GetExpenses([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? status = null, CancellationToken cancellationToken = default)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
+        var query = new GetExpensesQuery(UserId!.Value, ActiveShopId!.Value, search, page, pageSize, status);
+        var validation = await new GetExpensesQueryValidator().ValidateAsync(query, cancellationToken);
+        if (!validation.IsValid)
+        {
+            return validation.Errors.Select(failure => Error.Validation(failure.ErrorCode, failure.ErrorMessage))
+                .ToList().ToProblemResult();
+        }
+
         var result = await Bus.InvokeAsync<ErrorOr<PaginatedList<ExpenseListItemDto>>>(
-            new GetExpensesQuery(UserId!.Value, ActiveShopId!.Value, search, page, pageSize),
+            query,
             cancellationToken);
 
         return result.ToActionResult(Ok);
