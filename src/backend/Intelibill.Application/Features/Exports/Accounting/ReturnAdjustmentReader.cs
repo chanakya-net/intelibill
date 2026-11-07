@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Application.Features.Sales.Services.Pricing;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
@@ -14,6 +15,24 @@ public sealed class ReturnAdjustmentReader(
     ISaleRepository saleRepository,
     ICreditNoteRepository creditNoteRepository)
 {
+    internal async Task<IReadOnlyDictionary<(Guid ReturnId, Guid SaleItemId), decimal>> ReadRecordedCostAllocationsAsync(
+        Guid shopId, IReadOnlyList<ReturnAdjustmentEntry> postings, IReadOnlyCollection<Sale> loadedSales, CancellationToken cancellationToken)
+    {
+        var saleIds = postings.Select(p => p.SaleId).Distinct().ToArray();
+        var byId = loadedSales.ToDictionary(s => s.Id);
+        var missing = saleIds.Where(id => !byId.ContainsKey(id)).ToArray();
+        if (missing.Length > 0)
+            foreach (var sale in await saleRepository.GetByIdsAsync(shopId, missing, cancellationToken)) byId[sale.Id] = sale;
+        var costs = new Dictionary<(Guid, Guid), decimal>();
+        foreach (var saleId in saleIds)
+        {
+            if (!byId.TryGetValue(saleId, out var sale)) continue;
+            var history = await saleReturnRepository.GetBySaleAsync(shopId, saleId, cancellationToken);
+            foreach (var allocation in SaleReturnCostAllocator.Allocate(sale, history)) costs[allocation.Key] = allocation.Value;
+        }
+        return costs;
+    }
+
     public async Task<IReadOnlyList<ReturnAdjustmentEntry>> ReadAsync(
         Guid shopId,
         DateOnly from,

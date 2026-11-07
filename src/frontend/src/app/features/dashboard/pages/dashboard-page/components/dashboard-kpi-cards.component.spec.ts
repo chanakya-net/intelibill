@@ -92,6 +92,14 @@ describe('DashboardKpiCardsComponent', () => {
     expect(notes).toContain('sales.profitLoss.economics.notAvailable');
   });
 
+  it('preserves an explicit v2 null comparison instead of showing legacy growth', () => {
+    const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
+    fixture.componentRef.setInput('dashboard', { ...stubDashboard, grossTradingProfitChangePercent: null, netProfitChangePercent: 19900 });
+    fixture.detectChanges();
+    expect(fixture.componentInstance.netProfitChangePercent()).toBeNull();
+    expect(fixture.nativeElement.querySelector('[data-testid="net-profit-change-value"]')).toBeNull();
+  });
+
   it('renders invoice count card', () => {
     const fixture = TestBed.createComponent(DashboardKpiCardsComponent);
     fixture.componentRef.setInput('dashboard', stubDashboard);

@@ -1148,3 +1148,14 @@ Remaining ordinary expenses require explicit operator classification. Deploy add
 before the web and compare a representative closed period: labels/completeness and restored dated
 loss/void history can differ, while frozen invoices/costs remain unchanged. Rollback can retain
 additive columns and legacy readers; never restore the unsafe tax-inclusive discount capacity.
+
+Fractional return costs in version2 replay the full affected sale-line history, including postings
+outside the report window. A line's original rounded sale cost is allocated cumulatively across
+active returned quantities; each return receives the change in that rounded cumulative cost.
+Restockable and wasted quantities share this physical allocation, so the final residual paise is
+assigned once. A void reverses its original allocation exactly and releases its quantity/cost for a
+later return. Earlier dated allocations never change when the requested report window changes.
+Ties use posting instant, ordinal return number, event kind and return ID. These economic allocations
+do not rewrite frozen sale/return snapshots or alter the legacy metric formulas. Numeric report and
+XLSX search match the displayed net sales, rounded COGS, loss and trading amounts as well as the
+legacy monetary fields; searched operating totals remain unavailable.

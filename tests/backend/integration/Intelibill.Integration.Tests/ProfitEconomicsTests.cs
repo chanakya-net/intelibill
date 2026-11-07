@@ -108,6 +108,18 @@ public sealed class ProfitEconomicsTests(PostgreSqlTestFixture fixture) : IAsync
         Assert.Equal(80m, economics.GetProperty("operatingProfit").GetDecimal());
         Assert.Equal(50m, economics.GetProperty("grossMarginPercent").GetDecimal());
         Assert.Equal(100m, economics.GetProperty("markupPercent").GetDecimal());
+        var searched = await ReadAsync(await SendAsync(client, shop.Token, HttpMethod.Get, $"/api/sales/profit-loss?from={Today:yyyy-MM-dd}&to={Today:yyyy-MM-dd}&search=200"));
+        Assert.Equal(1, searched.GetProperty("totalCount").GetInt32());
+        Assert.Equal("FilteredActivity", searched.GetProperty("summary").GetProperty("economics").GetProperty("operatingProfitStatus").GetString());
+        Assert.Equal(JsonValueKind.Null, searched.GetProperty("summary").GetProperty("economics").GetProperty("operatingExpenses").ValueKind);
+        var searchedExport = await SendAsync(client, shop.Token, HttpMethod.Get, $"/api/exports/profit-loss?from={Today:yyyy-MM-dd}&to={Today:yyyy-MM-dd}&search=200&format=xlsx");
+        using (var book = new XLWorkbook(new MemoryStream(await searchedExport.Content.ReadAsByteArrayAsync())))
+        {
+            var sheet = book.Worksheet("Profit & Loss");
+            var header = sheet.RowsUsed().Single(r => r.Cell(1).GetString() == "Reference").RowNumber();
+            Assert.Equal(sale.GetProperty("invoiceNumber").GetString(), sheet.Cell(header + 1, 1).GetString());
+            Assert.Equal("Not available", sheet.RowsUsed().Single(r => r.Cell(1).GetString() == "Operating expenses").Cell(2).GetString());
+        }
         var workbookResponse = await SendAsync(client, shop.Token, HttpMethod.Get, $"/api/exports/profit-loss?from={Today:yyyy-MM-dd}&to={Today:yyyy-MM-dd}&format=xlsx");
         Assert.True(workbookResponse.IsSuccessStatusCode);
         using (var workbook = new XLWorkbook(new MemoryStream(await workbookResponse.Content.ReadAsByteArrayAsync())))
@@ -149,5 +161,23 @@ public sealed class ProfitEconomicsTests(PostgreSqlTestFixture fixture) : IAsync
         await ReadAsync(await SendAsync(client, shop.Token, HttpMethod.Post, $"/api/inventory/adjustments/{adjustment.GetProperty("adjustmentId").GetGuid()}/void", new { reason = "Count corrected" }));
         Assert.Equal(100m, (await EconomicsAsync(client, shop.Token, "?from=2026-06-01&to=2026-06-30")).GetProperty("stockLoss").GetDecimal());
         Assert.Equal(-100m, (await EconomicsAsync(client, shop.Token)).GetProperty("stockLoss").GetDecimal());
+        var fractionalStock = await ReadAsync(await SendAsync(client, shop.Token, HttpMethod.Post, "/api/inventory/inbound", new {
+            itemName = "Goods", barcode, uom = "KG", batchNumber = "FRACTION", quantity = 10m, totalPurchaseCost = 1000.50m,
+            salesPrice = 236m, mrp = 250m, taxRatePercent = 18m, taxIncluded = true, supplierId, performedAt = DateTimeOffset.UtcNow }));
+        var fractionalSale = await ReadAsync(await SendAsync(client, shop.Token, HttpMethod.Post, "/api/sales", new {
+            idempotencyKey = Guid.NewGuid().ToString("N"), paymentMethod = 1, paidAmount = 354m, dueAmount = 0m,
+            items = new[] { new { barcode, batchNumber = "FRACTION", itemName = "Goods", quantity = 1.5m, costPrice = 0m, salesPrice = 236m,
+                mrp = 250m, taxRatePercent = 18m, isPriceIncludingTax = true, inventoryBatchId = fractionalStock.GetProperty("inventoryBatchId").GetGuid() } } }));
+        var fractionalSearch = await ReadAsync(await SendAsync(client, shop.Token, HttpMethod.Get, $"/api/sales/profit-loss?from={Today:yyyy-MM-dd}&to={Today:yyyy-MM-dd}&search=150.08"));
+        Assert.Equal(1, fractionalSearch.GetProperty("totalCount").GetInt32());
+        Assert.Equal(150.08m, fractionalSearch.GetProperty("items")[0].GetProperty("economics").GetProperty("cogs").GetDecimal());
+        var fractionalExport = await SendAsync(client, shop.Token, HttpMethod.Get, $"/api/exports/profit-loss?from={Today:yyyy-MM-dd}&to={Today:yyyy-MM-dd}&search=150.08&format=xlsx");
+        using var fractionalBook = new XLWorkbook(new MemoryStream(await fractionalExport.Content.ReadAsByteArrayAsync()));
+        var fractionalSheet = fractionalBook.Worksheet("Profit & Loss");
+        var fractionalHeader = fractionalSheet.RowsUsed().Single(r => r.Cell(1).GetString() == "Reference").RowNumber();
+        Assert.Equal(fractionalSale.GetProperty("invoiceNumber").GetString(), fractionalSheet.Cell(fractionalHeader + 1, 1).GetString());
+        Assert.Equal(150.08m, fractionalSheet.Cell(fractionalHeader + 1, 5).GetValue<decimal>());
+        Assert.Equal("Not available", fractionalSheet.RowsUsed().Single(r => r.Cell(1).GetString() == "Operating expenses").Cell(2).GetString());
+
     }
 }

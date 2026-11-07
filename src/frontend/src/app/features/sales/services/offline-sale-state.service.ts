@@ -1,4 +1,5 @@
-import { evaluateOfflineSaleEconomics } from './offline-sale-economics';
+import { MONEY_SCALE, toScaled } from './offline-money.math';
+import { discountCapacityPaise, discountCeilingFromPaise, evaluateOfflineSaleEconomics } from './offline-sale-economics';
 import { Injectable, inject, signal } from '@angular/core';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -279,11 +280,8 @@ export class OfflineSaleStateService {
       configuredSaleRule: null,
       lines: pricing.lines.map((line) => {
         const configuredRule = configuredRuleByBatchId.get(line.inventoryBatchId) ?? null;
-        const preTaxMargin = this.roundAmount(Math.max(0, line.preTaxAmount - this.roundAmount(line.costPrice * line.quantity)));
-        const maxAllowedItemDiscountFlat = preTaxMargin;
-        const maxAllowedItemDiscountPercent = line.preTaxAmount > 0
-          ? Math.floor((preTaxMargin * 10000) / line.preTaxAmount) / 100
-          : 0;
+        const { maxFlat: maxAllowedItemDiscountFlat, maxPercent: maxAllowedItemDiscountPercent } = discountCeilingFromPaise(
+          discountCapacityPaise(line.preTaxAmount, line.quantity, line.costPrice), toScaled(line.preTaxAmount, MONEY_SCALE));
 
         return {
           economics: evaluateOfflineSaleEconomics({ ...pricing, lines: [line] }).lines[0],

@@ -45,6 +45,59 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
         GC.SuppressFinalize(this);
     }
 
+    [Fact]
+    public async Task IssuedV1BelowCost_ReplayAndRetryPreservePayloadHashDocumentAndSingleEconomicCase()
+    {
+        using var client = CreateClient();
+        var owner = await CreateOwnerAsync(client);
+        var stock = await AddInventoryAsync(client, owner.Token, 10m);
+        var invoice = await FirstLeasedInvoiceNumberAsync(client, owner.Token);
+        var clientSaleId = NewClientSaleId();
+        var payload = new {
+            clientSaleId, invoiceNumber = invoice, soldAt = DateTimeOffset.UtcNow, issuedByUserId = owner.UserId,
+            calculationVersion = 1, paymentMethod = 1, paidAmount = 82.6m, dueAmount = 0m, subtotalBeforeDiscount = 100m,
+            totalBeforeDiscount = 112.6m, totalDiscountAmount = 30m, totalTaxAmount = 12.6m, totalAmount = 82.6m,
+            saleDiscountOverrideType = 0, saleDiscountOverrideValue = 0m,
+            items = new[] { new { barcode = stock.Barcode, batchNumber = "B-001", itemName = "Test Item", quantity = 1m,
+                costPrice = 80m, salesPrice = 100m, mrp = 120m, taxRatePercent = 18m, isPriceIncludingTax = false,
+                inventoryBatchId = stock.BatchId, preTaxAmountBeforeDiscount = 100m, itemDiscountAmount = 30m,
+                saleDiscountAmount = 0m, taxableAmount = 70m, taxAmount = 12.6m, totalAmount = 82.6m,
+                itemDiscountOverrideType = 2, itemDiscountOverrideValue = 30m } } };
+        var originalJson = JsonSerializer.Serialize(payload, WebJsonOptions);
+        var frozen = JsonSerializer.Deserialize<OfflineSaleSyncCommand>(originalJson, WebJsonOptions)!;
+        var expectedHash = OfflineSaleSyncIdempotencyHasher.ComputeHash(owner.ShopId, Device, frozen);
+        var first = await SyncAsync(client, owner.Token, payload);
+        Assert.Equal("SyncedWithWarnings", first.GetProperty("status").GetString());
+        var saleId = first.GetProperty("saleId").GetGuid();
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var before = await db.Sales.AsNoTracking().Include(s => s.Items).SingleAsync(s => s.Id == saleId);
+        var document = JsonSerializer.Serialize(before.InvoiceDocument, WebJsonOptions);
+        Assert.Equal(expectedHash, before.RequestHash);
+        Assert.Equal(82.6m, before.TotalAmount);
+        Assert.Equal(70m, before.Items.Single().TaxableAmount);
+        Assert.Equal(80m, before.Items.Single().CostPrice);
+        Assert.Equal(30m, before.Items.Single().ItemDiscountAmount);
+        var issue = await db.ReconciliationIssues.AsNoTracking().SingleAsync(r => r.ShopId == owner.ShopId && r.ClientSaleId == clientSaleId && r.Code == "offline_sync.below_recorded_cost");
+        var second = await SyncAsync(client, owner.Token, payload);
+        Assert.Equal("duplicate", second.GetProperty("status").GetString());
+        Assert.Equal(saleId, second.GetProperty("saleId").GetGuid());
+        Assert.Equal(originalJson, JsonSerializer.Serialize(payload, WebJsonOptions));
+        Assert.Equal(1, await db.Sales.CountAsync(s => s.ShopId == owner.ShopId && s.ClientSaleId == clientSaleId));
+        Assert.Equal(1, await db.ReconciliationIssues.CountAsync(r => r.ShopId == owner.ShopId && r.ClientSaleId == clientSaleId && r.Code == "offline_sync.below_recorded_cost"));
+        Assert.Equal(issue.Id, (await db.ReconciliationIssues.AsNoTracking().SingleAsync(r => r.ShopId == owner.ShopId && r.ClientSaleId == clientSaleId && r.Code == "offline_sync.below_recorded_cost")).Id);
+        var after = await db.Sales.AsNoTracking().Include(s => s.Items).SingleAsync(s => s.Id == saleId);
+        Assert.Equal(expectedHash, after.RequestHash);
+        Assert.Equal(document, JsonSerializer.Serialize(after.InvoiceDocument, WebJsonOptions));
+        Assert.Equal(before.TotalAmount, after.TotalAmount);
+        var envelope = await db.OfflineSubmissions.AsNoTracking().SingleAsync(e => e.ShopId == owner.ShopId && e.ClientSaleId == clientSaleId);
+        Assert.Equal(expectedHash, envelope.PayloadHash);
+        var stored = JsonSerializer.Deserialize<OfflineSaleSyncCommand>(envelope.PayloadJson, WebJsonOptions)!;
+        Assert.Equal(1, stored.CalculationVersion);
+        Assert.Equal(expectedHash, OfflineSaleSyncIdempotencyHasher.ComputeHash(owner.ShopId, Device, stored));
+        Assert.Equal(70m, stored.Items.Single().TaxableAmount);
+    }
+
     // RF3: printed 5 / consumed 3 is closed only by procurement evidence, never by acknowledgment.
     [Fact]
     public async Task StockShortage_ResolutionLinksCorrection_ClosesBatchAtZero()

@@ -87,7 +87,12 @@ import { DashboardDto } from '../../../services/dashboard.models';
 })
 export class DashboardKpiCardsComponent {
   readonly dashboard = input<DashboardDto | null>(null);
-  readonly netProfitChangePercent = computed(() => this.dashboard()?.grossTradingProfitChangePercent ?? this.dashboard()?.netProfitChangePercent ?? null);
+  readonly netProfitChangePercent = computed(() => {
+    const dashboard = this.dashboard();
+    return dashboard?.grossTradingProfitChangePercent === undefined
+      ? dashboard?.netProfitChangePercent ?? null
+      : dashboard.grossTradingProfitChangePercent;
+  });
 
   readonly formattedExpenses = computed(() => this.formatCurrency(this.dashboard()?.netExpense ?? 0));
   readonly formattedSupplierPayables = computed(() => this.formatCurrency(this.dashboard()?.supplierPayables ?? 0));

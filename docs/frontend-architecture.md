@@ -355,3 +355,8 @@ to reduce discount or finish online. V1 proportional allocation can breach one l
 capped redistribution would succeed; this refusal never silently changes the frozen arithmetic.
 Already-issued v1 invoices replay their original wire amounts/hash and post with a pricing review
 case when below recorded cost; current-versus-frozen cost differences are provenance warnings.
+
+Discount ceilings use the same scaled bigint quantity/cost midpoint rounding as offline issuance,
+including remaining sale-level capacity and percentage flooring; binary `toFixed` products cannot
+advertise an unsafe paise. The dashboard comparison falls back to a legacy growth value only when
+the new field is absent. An explicitly null version2 comparison stays unavailable.

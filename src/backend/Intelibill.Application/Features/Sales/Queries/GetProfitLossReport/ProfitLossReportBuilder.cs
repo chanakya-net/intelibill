@@ -28,6 +28,7 @@ public sealed class ProfitLossReportBuilder(
 
         var salesInRange = await saleRepository.GetByShopAndDateRangeAsync(shopId, from, to, cancellationToken);
         var returnAdjustments = await returnAdjustmentReader.ReadAsync(shopId, from, to, salesInRange, cancellationToken);
+        var returnCosts = await returnAdjustmentReader.ReadRecordedCostAllocationsAsync(shopId, returnAdjustments, salesInRange, cancellationToken);
         var window = businessClock.GetUtcWindow(from, to, timeZoneId);
         var expenses = await expenseRepository.GetByShopAndDateRangeAsync(shopId, from, to, cancellationToken);
         var adjustmentsInRange = await inventoryAdjustmentRepository.GetPostedInRangeAsync(
@@ -74,7 +75,7 @@ public sealed class ProfitLossReportBuilder(
         }
 
         foreach (var entry in returnAdjustments)
-            report.Add(BuildReturnRow(entry));
+            report.Add(BuildReturnRow(entry, returnCosts));
 
         foreach (var adjustment in adjustmentsInRange.Where(a => a.Direction == InventoryAdjustmentDirection.Decrease))
         {
@@ -121,8 +122,11 @@ public sealed class ProfitLossReportBuilder(
     /// in the period it was voided. An unreviewed legacy return has no tax split, so its whole refund
     /// reduces revenue before tax and the row says it needs review.
     /// </summary>
-    private static ProfitLossReportItemDto BuildReturnRow(ReturnAdjustmentEntry entry)
+    private static ProfitLossReportItemDto BuildReturnRow(ReturnAdjustmentEntry entry, IReadOnlyDictionary<(Guid ReturnId, Guid SaleItemId), decimal> costs)
     {
+        decimal AllocatedCost(ReturnAdjustmentLine line) => costs.TryGetValue((entry.SaleReturnId, line.SaleItemId), out var allocated)
+            ? (entry.IsReversal ? -allocated : allocated)
+            : SaleEconomicsCalculator.RecordedCost(line.Quantity, line.OriginalCostPrice);
         var goodsLines = entry.Lines.Where(l => l.LineType != SaleLineType.Service).ToList();
         var restockableCost = goodsLines
             .Where(l => l.Condition == SaleReturnCondition.Restockable)
@@ -151,8 +155,8 @@ public sealed class ProfitLossReportBuilder(
             IsReversal: entry.IsReversal,
             NeedsAccountingReview: entry.Status == ReturnAccountingStatus.NeedsReview,
             Economics: RowEconomics(returnRevenueExclTax,
-                -goodsLines.Where(l => l.Condition == SaleReturnCondition.Restockable).Sum(l => SaleEconomicsCalculator.RecordedCost(l.Quantity, l.OriginalCostPrice)),
-                0m, goodsLines.Where(l => l.Condition == SaleReturnCondition.Wastage).Sum(l => SaleEconomicsCalculator.RecordedCost(l.Quantity, l.OriginalCostPrice)),
+                -goodsLines.Where(l => l.Condition == SaleReturnCondition.Restockable).Sum(AllocatedCost),
+                0m, goodsLines.Where(l => l.Condition == SaleReturnCondition.Wastage).Sum(AllocatedCost),
                 entry.Lines.Any(l => l.LineType == SaleLineType.Service)));
     }
 
@@ -202,7 +206,12 @@ public sealed class ProfitLossReportBuilder(
         return row.ReferenceNumber.Contains(term, StringComparison.OrdinalIgnoreCase)
             || (!string.IsNullOrWhiteSpace(row.PartyName) && row.PartyName.Contains(term, StringComparison.OrdinalIgnoreCase))
             || (numericMatch && (
-                row.RevenueAfterTax == parsedAmount
+                row.Economics?.NetSalesExcludingTax == parsedAmount
+                || row.Economics?.Cogs == parsedAmount
+                || row.Economics?.StockLoss == parsedAmount
+                || row.Economics?.GrossTradingProfit == parsedAmount
+                || row.Economics?.ReturnedGoodsWastageIncludedInCogs == parsedAmount
+                || row.RevenueAfterTax == parsedAmount
                 || row.TotalCost == parsedAmount
                 || row.ProfitBeforeTax == parsedAmount
                 || row.ProfitAfterTax == parsedAmount));

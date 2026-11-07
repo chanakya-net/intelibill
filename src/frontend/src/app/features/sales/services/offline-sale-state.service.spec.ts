@@ -139,6 +139,18 @@ describe('OfflineSaleStateService', () => {
     leaseDb.loadLease.mockResolvedValue({ sellerProfile: { seriesCode: 'A' } } as never);
   });
 
+  it('offers midpoint-safe item ceilings consistent with issuance', async () => {
+    snapshotDb.getUsableDiscountRules.mockResolvedValue([]);
+    const service = setup();
+    const preview = await service.buildOfflinePreview([{ clientLineKey: 'mid', inventoryBatchId: 'batch-1', barcode: 'x', itemName: 'Midpoint', batchNumber: 'B', quantity: .5,
+      availableQuantity: 10, salesPrice: 4, mrp: 4, costPrice: 2.01, taxRatePercent: 0, taxIncluded: false, itemDiscountType: 0, itemDiscountValue: 0,
+      hsnCode: null, uom: 'KG', quantityScale: 3, documentUnit: 'KGS' }],
+      { paymentMethod: 1, paidAmount: 2, customerId: null, customerName: null, customerPhone: null, saleDiscountType: 0, saleDiscountValue: 0 });
+    expect(preview!.lines[0].economics?.economicCost).toBe(1.01);
+    expect(preview!.lines[0].maxAllowedItemDiscountFlat).toBe(.99);
+    expect(preview!.lines[0].maxAllowedItemDiscountPercent).toBe(49.5);
+  });
+
   it('builds an offline preview from cart state', async () => {
     snapshotDb.getUsableDiscountRules.mockResolvedValue([
       {
