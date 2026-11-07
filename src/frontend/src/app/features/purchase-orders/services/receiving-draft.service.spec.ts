@@ -186,4 +186,46 @@ describe('ReceivingDraftService', () => {
     expect((await service.load(owner, 'po-1'))!.draft.notes).toBe('new work');
     expect(await service.isConfirmed({ ...owner, shopId: 'other-shop' }, 'po-1', op)).toBe(false);
   });
+  it('claims recovery only for the exact current operation and frozen payload, refusing vanished/replaced work', async () => {
+    const prepared = await service.prepare(owner, 'po-1', draft, 0);
+    const pending = prepared.pending!;
+    await expect(
+      service.claimRecovery(owner, 'po-1', 'wrong-operation', pending.payload),
+    ).rejects.toThrow();
+    await expect(
+      service.claimRecovery(owner, 'po-1', pending.operationId, {
+        ...pending.payload,
+        notes: 'changed',
+      }),
+    ).rejects.toThrow();
+    await expect(
+      service.claimRecovery(owner, 'different-po', pending.operationId, pending.payload),
+    ).rejects.toThrow();
+    expect(await service.load(owner, 'po-1')).toEqual(prepared);
+    const claimed = await service.claimRecovery(
+      owner,
+      'po-1',
+      pending.operationId,
+      pending.payload,
+    );
+    expect(claimed.pending!.status).toBe('unknown');
+    expect(claimed.pending!.payload).toEqual(pending.payload);
+    await service.settle(owner, 'po-1', pending.operationId, 'rejected');
+    const rejected = (await service.load(owner, 'po-1'))!;
+    const replacement = await service.save(
+      owner,
+      'po-1',
+      { ...draft, notes: 'replacement' },
+      rejected.revision,
+    );
+    await expect(
+      service.claimRecovery(owner, 'po-1', pending.operationId, pending.payload),
+    ).rejects.toThrow();
+    expect(await service.load(owner, 'po-1')).toEqual(replacement);
+    await service.discard(owner, 'po-1', replacement.revision);
+    await expect(
+      service.claimRecovery(owner, 'po-1', pending.operationId, pending.payload),
+    ).rejects.toThrow();
+    expect(await service.load(owner, 'po-1')).toBeNull();
+  });
 });

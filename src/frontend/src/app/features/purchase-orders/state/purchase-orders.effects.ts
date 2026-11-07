@@ -234,7 +234,15 @@ export class PurchaseOrdersEffects {
   private async sendReceipt(command: ReceivingCommand) {
     const { correlation, payload } = command;
     try {
-      const stored = await this.drafts.load(correlation.scope, correlation.purchaseOrderId);
+      if (!this.isCurrent(correlation)) throw new ScopeMismatchError();
+      const stored = command.recovery
+        ? await this.drafts.claimRecovery(
+            correlation.scope,
+            correlation.purchaseOrderId,
+            correlation.operationId,
+            payload,
+          )
+        : await this.drafts.load(correlation.scope, correlation.purchaseOrderId);
       if (
         !stored?.pending ||
         stored.pending.operationId !== correlation.operationId ||

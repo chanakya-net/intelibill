@@ -77,6 +77,33 @@ export class ReceivingDraftService {
     });
     return record!;
   }
+  /** A reopened retry must establish its uncertainty durably before it may send. The identity
+   * and frozen content are checked inside the same claim transaction, so a disappeared or
+   * replaced operation cannot be sent from an earlier in-memory snapshot. */
+  async claimRecovery(
+    scope: ScopeOwner,
+    poId: string,
+    operationId: string,
+    payload: ReceivePurchaseOrderRequest,
+  ): Promise<ReceivingDraftRecord> {
+    const expectedPayload = JSON.stringify(payload);
+    const claimed = await this.transact(scope, poId, 'readwrite', (current) => {
+      if (
+        !current?.pending ||
+        current.pending.operationId !== operationId ||
+        JSON.stringify(current.pending.payload) !== expectedPayload
+      )
+        throw new ReceivingDraftConflictError();
+      return {
+        ...current,
+        revision: current.revision + 1,
+        pending: { ...current.pending, status: 'unknown' },
+        updatedAt: new Date().toISOString(),
+      };
+    });
+    return claimed!;
+  }
+
   async markUnknown(scope: ScopeOwner, poId: string, operationId: string): Promise<void> {
     await this.transact(scope, poId, 'readwrite', (current) =>
       current?.pending?.operationId === operationId

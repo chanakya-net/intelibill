@@ -1,4 +1,4 @@
-import { IDBFactory } from 'fake-indexeddb';
+import { IDBFactory, IDBDatabase as FakeDatabase } from 'fake-indexeddb';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { ReceivingDraftService } from '../services/receiving-draft.service';
@@ -9,7 +9,7 @@ import { provideMockStore, MockStore } from '@ngrx/store/testing';
 import { purchaseOrdersReducer } from './purchase-orders.reducer';
 import { Actions } from '@ngrx/effects';
 import { Router } from '@angular/router';
-import { Observable, Subject, firstValueFrom, of, throwError } from 'rxjs';
+import { Observable, Subject, firstValueFrom, of, throwError, defer } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { vi } from 'vitest';
 
@@ -773,4 +773,159 @@ describe('PurchaseOrdersEffects', () => {
       sub.unsubscribe();
     },
   );
+  it.each([401, 403])(
+    'durably claims a reopened retry before HTTP so the original delayed %s cannot clear it',
+    async (status) => {
+      const command = await prepare();
+      const a = new Subject<PurchaseOrderDetail>();
+      const b = new Subject<PurchaseOrderDetail>();
+      let retrySubscribed = false;
+      service.receivePurchaseOrder.mockReturnValueOnce(a).mockReturnValueOnce(
+        defer(() => {
+          retrySubscribed = true;
+          return b;
+        }),
+      );
+      const first = firstValueFrom(effects.receiveOrder$);
+      actions$.next(PurchaseOrdersActions.receiveOrderRequested(command));
+      await vi.waitFor(() => expect(a.observed).toBe(true));
+      // This is the real reopen path: load the persisted sending request; do not prepare it again.
+      const otherStorage = new ReceivingDraftService();
+      const reopened = (await otherStorage.load(command.correlation.scope, 'po1'))!;
+      expect(reopened.pending!.status).toBe('sending');
+      const retry = {
+        correlation: { ...command.correlation, operationId: reopened.pending!.operationId },
+        payload: reopened.pending!.payload,
+        recovery: true,
+      };
+      const otherEffects = TestBed.runInInjectionContext(() => new PurchaseOrdersEffects());
+      const second = firstValueFrom(otherEffects.receiveOrder$);
+      actions$.next(PurchaseOrdersActions.receiveOrderRequested(retry));
+      await vi.waitFor(() => expect(retrySubscribed).toBe(true));
+      a.error(new HttpErrorResponse({ status }));
+      expect(await first).toEqual(expect.objectContaining({ outcome: 'unknown' }));
+      const surviving = (await otherStorage.load(command.correlation.scope, 'po1'))!;
+      expect(surviving.pending!.operationId).toBe(command.correlation.operationId);
+      expect(JSON.stringify(surviving.pending!.payload)).toBe(JSON.stringify(command.payload));
+      const competing = await otherStorage.prepare(
+        command.correlation.scope,
+        'po1',
+        { ...draft, notes: 'must not replace' },
+        surviving.revision,
+      );
+      expect(competing.pending!.operationId).toBe(command.correlation.operationId);
+      b.next(response());
+      expect(await second).toEqual(
+        PurchaseOrdersActions.receiveOrderSucceeded({ correlation: command.correlation }),
+      );
+      expect(
+        (await otherStorage.load(command.correlation.scope, 'po1'))!.confirmedOperationId,
+      ).toBe(command.correlation.operationId);
+      expect(
+        await otherStorage.isConfirmed(
+          command.correlation.scope,
+          'po1',
+          command.correlation.operationId,
+        ),
+      ).toBe(true);
+    },
+  );
+
+  it.each(['rejected', 'replaced'] as const)(
+    'refuses a stale reopened retry when the original was %s before the durable claim',
+    async (outcome) => {
+      const command = await prepare();
+      const a = new Subject<PurchaseOrderDetail>();
+      service.receivePurchaseOrder.mockReturnValue(a);
+      const first = firstValueFrom(effects.receiveOrder$);
+      actions$.next(PurchaseOrdersActions.receiveOrderRequested(command));
+      await vi.waitFor(() => expect(a.observed).toBe(true));
+      const storage = new ReceivingDraftService();
+      const reopened = (await storage.load(command.correlation.scope, 'po1'))!;
+      a.error(new HttpErrorResponse({ status: 401 }));
+      expect(await first).toEqual(expect.objectContaining({ outcome: 'rejected' }));
+      if (outcome === 'replaced') {
+        const rejected = (await storage.load(command.correlation.scope, 'po1'))!;
+        await storage.prepare(
+          command.correlation.scope,
+          'po1',
+          { ...draft, notes: 'new receipt' },
+          rejected.revision,
+        );
+      }
+      const before = await storage.load(command.correlation.scope, 'po1');
+      const otherEffects = TestBed.runInInjectionContext(() => new PurchaseOrdersEffects());
+      const second = firstValueFrom(otherEffects.receiveOrder$);
+      actions$.next(
+        PurchaseOrdersActions.receiveOrderRequested({
+          correlation: command.correlation,
+          payload: reopened.pending!.payload,
+          recovery: true,
+        }),
+      );
+      expect((await second).type).toBe(PurchaseOrdersActions.receiveOrderFailed.type);
+      expect(service.receivePurchaseOrder).toHaveBeenCalledTimes(1);
+      expect(await storage.load(command.correlation.scope, 'po1')).toEqual(before);
+    },
+  );
+
+  it('waits for the recovery claim transaction to complete before subscribing to HTTP', async () => {
+    const command = await prepare();
+    let claimCommitted = false;
+    const native = FakeDatabase.prototype.transaction;
+    const spy = vi.spyOn(FakeDatabase.prototype, 'transaction').mockImplementation(function (
+      this: IDBDatabase,
+      ...args: Parameters<IDBDatabase['transaction']>
+    ) {
+      const tx = native.apply(this, args);
+      if (args[1] === 'readwrite')
+        tx.addEventListener('complete', () => {
+          claimCommitted = true;
+        });
+      return tx;
+    });
+    service.receivePurchaseOrder.mockImplementation(() => {
+      expect(claimCommitted).toBe(true);
+      return of(response());
+    });
+    try {
+      const output = firstValueFrom(effects.receiveOrder$);
+      actions$.next(PurchaseOrdersActions.receiveOrderRequested({ ...command, recovery: true }));
+      expect(await output).toEqual(
+        PurchaseOrdersActions.receiveOrderSucceeded({ correlation: command.correlation }),
+      );
+      expect(service.receivePurchaseOrder).toHaveBeenCalledOnce();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('sends nothing if the atomic recovery claim aborts, retaining the original frozen fields', async () => {
+    const command = await prepare();
+    const native = FakeDatabase.prototype.transaction;
+    let aborted = false;
+    const spy = vi.spyOn(FakeDatabase.prototype, 'transaction').mockImplementation(function (
+      this: IDBDatabase,
+      ...args: Parameters<IDBDatabase['transaction']>
+    ) {
+      const tx = native.apply(this, args);
+      if (!aborted && args[1] === 'readwrite') {
+        aborted = true;
+        queueMicrotask(() => tx.abort());
+      }
+      return tx;
+    });
+    try {
+      const output = firstValueFrom(effects.receiveOrder$);
+      actions$.next(PurchaseOrdersActions.receiveOrderRequested({ ...command, recovery: true }));
+      expect((await output).type).toBe(PurchaseOrdersActions.receiveOrderFailed.type);
+      expect(service.receivePurchaseOrder).not.toHaveBeenCalled();
+      expect(
+        (await TestBed.inject(ReceivingDraftService).load(command.correlation.scope, 'po1'))!
+          .pending!.payload,
+      ).toEqual(command.payload);
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
