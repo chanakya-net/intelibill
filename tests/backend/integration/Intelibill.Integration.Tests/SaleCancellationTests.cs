@@ -38,7 +38,7 @@ public sealed class SaleCancellationTests(PostgreSqlTestFixture fixture) : IAsyn
     public void Dispose() { factory.Dispose(); GC.SuppressFinalize(this); }
 
     private sealed record Seed(HttpClient Client, Guid ShopId, Guid ActorId, Sale Sale, Guid BatchId, Guid CustomerId);
-    private async Task<Seed> SeedAsync(decimal paid = 200m, PaymentMethod method = PaymentMethod.Cash, bool split = false, decimal cost = 60m, decimal quantity = 2m)
+    private async Task<Seed> SeedAsync(decimal paid = 200m, PaymentMethod method = PaymentMethod.Cash, bool split = false, decimal cost = 60m, decimal quantity = 2m, bool enablePosting = true)
     {
         var client = factory.CreateClient(new() { BaseAddress = new("https://localhost") });
         var registration = await client.EnrollAsync(new { email = $"cancel-{Guid.NewGuid():N}@test.com", password = "Pass123!Aa", firstName = "Cancel", lastName = "Owner", phoneNumber = $"+91{Random.Shared.NextInt64(1000000000, 9999999999)}" });
@@ -69,8 +69,11 @@ public sealed class SaleCancellationTests(PostgreSqlTestFixture fixture) : IAsyn
         db.AddRange(customer, item, batch, stock, sale);
         if (paid < total) db.Add(CustomerLedgerEntry.Create(shop, customer.Id, sale.Id, CustomerLedgerEntryType.SaleDue, total - paid, sale.BusinessDate, null, actor).Value);
         await db.SaveChangesAsync();
-        var rollout = factory.Services.GetRequiredService<IOptionsMonitor<SaleCancellationOptions>>().CurrentValue;
-        rollout.Enabled = true; rollout.AllowedShopIds = [shop];
+        if (enablePosting)
+        {
+            var rollout = factory.Services.GetRequiredService<IOptionsMonitor<SaleCancellationOptions>>().CurrentValue;
+            rollout.Enabled = true; rollout.AllowedShopIds = [shop];
+        }
         return new(client, shop, actor, sale, batch.Id, customer.Id);
     }
     private static object Request(Seed s, string key = "cancel-key", uint? version = null, bool goods = true, bool? cash = null, string reason = "Mistaken entry") => new { operationKey = key, expectedVersion = version ?? s.Sale.Version, reason, goodsRecoveredConfirmed = goods, cashRefundConfirmed = cash ?? s.Sale.PaidAmount > 0m };
@@ -149,6 +152,27 @@ public sealed class SaleCancellationTests(PostgreSqlTestFixture fixture) : IAsyn
             key: change == "key" ? " " : "valid-key", version: change == "zero-version" ? 0u : change == "stale-version" ? uint.MaxValue : null,
             goods: change != "goods", cash: change == "cash" ? false : change == "unexpected-cash" ? true : null, reason: change == "reason" ? " x " : "Mistaken entry"));
         Assert.Equal(status, (int)result.StatusCode);
+        await AssertUntouchedAsync(s);
+    }
+
+    [Fact]
+    public async Task DefaultConfiguration_DisablesNewPostingButAllowsEligiblePreview()
+    {
+        // Each test owns a fresh factory; no test override or seed has enabled posting.
+        var options = factory.Services.GetRequiredService<IOptionsMonitor<SaleCancellationOptions>>().CurrentValue;
+        Assert.False(options.Enabled);
+        Assert.Empty(options.AllowedShopIds);
+
+        var s = await SeedAsync(enablePosting: false);
+        var preview = await s.Client.PostAsync($"/api/sales/{s.Sale.Id}/cancellation-preview", null);
+        Assert.Equal(HttpStatusCode.OK, preview.StatusCode);
+        var body = await preview.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(body.GetProperty("eligible").GetBoolean());
+        Assert.False(body.GetProperty("postingEnabled").GetBoolean());
+
+        var result = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/cancellations", Request(s));
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, result.StatusCode);
+        Assert.Equal("SaleCancellation.PostingDisabled", (await result.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString());
         await AssertUntouchedAsync(s);
     }
 

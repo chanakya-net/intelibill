@@ -120,7 +120,7 @@ internal sealed class SalesPdfDocument : IDocument
                 });
 
                 static IContainer LabelStyle(IContainer c) => c.PaddingVertical(2).PaddingRight(6);
-                static IContainer ValueStyle(IContainer c) => c.PaddingVertical(2).AlignRight();
+                static IContainer ValueStyle(IContainer c) => c.PaddingVertical(2).PaddingRight(10).AlignRight();
 
                 void LabelCell(string text) =>
                     table.Cell().Element(LabelStyle).Text(text).FontColor(Colors.Grey.Darken2);
@@ -284,9 +284,9 @@ internal sealed class SalesPdfDocument : IDocument
             cols.RelativeColumn();   // Customer
             cols.ConstantColumn(52); // Paid
             cols.ConstantColumn(52); // Due
-            cols.ConstantColumn(70); // Net
-            cols.ConstantColumn(74); // Credit Note Applied
-            cols.ConstantColumn(74); // Credit Note Issued
+            cols.ConstantColumn(62); // Net
+            cols.ConstantColumn(62); // Credit Note Applied
+            cols.ConstantColumn(62); // Credit Note Issued
             cols.ConstantColumn(80); // Credit Note Issued Amount
         });
 

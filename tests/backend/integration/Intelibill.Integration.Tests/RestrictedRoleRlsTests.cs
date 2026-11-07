@@ -145,4 +145,26 @@ public sealed class RestrictedRoleRlsTests(PostgreSqlTestFixture fixture) : IAsy
         metadata.Parameters.AddWithValue("table",table); Assert.Equal(true,await metadata.ExecuteScalarAsync());
         await using var select=new NpgsqlCommand($"select count(*) from {table}",connection);Assert.Equal(0L,await select.ExecuteScalarAsync());
     }
+
+    [Theory]
+    [InlineData("sale_cancellations")]
+    [InlineData("sale_cancellation_lines")]
+    public async Task SaleCancellationTables_ForceRlsAndHideRowsWithoutShopContext(string table)
+    {
+        await using var connection = await OpenRuntimeConnectionAsync();
+        await using var metadata = new NpgsqlCommand(
+            """
+            select c.relrowsecurity and c.relforcerowsecurity
+                and exists(select 1 from pg_policies p
+                    where p.schemaname = 'public' and p.tablename = c.relname
+                        and p.qual is not null and p.with_check is not null)
+            from pg_class c join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = 'public' and c.relname = @table
+            """, connection);
+        metadata.Parameters.AddWithValue("table", table);
+        Assert.Equal(true, await metadata.ExecuteScalarAsync());
+
+        await using var select = new NpgsqlCommand($"select count(*) from {table}", connection);
+        Assert.Equal(0L, await select.ExecuteScalarAsync());
+    }
 }
