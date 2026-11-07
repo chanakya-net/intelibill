@@ -36,6 +36,13 @@ import { PurchaseOrderReceipt } from '../services/purchase-order.service';
           <article class="receipt-block">
             <div class="receipt-header">
               <strong class="receipt-number">{{ receipt.receiptNumber }}</strong>
+              @if (receipt.lines[0]?.receiptValueId) {
+                <a
+                  [routerLink]="['/purchase-receipts', receipt.lines[0].receiptValueId]"
+                  [queryParams]="{ group: receipt.receiptId, lots: receiptIds(receipt) }"
+                  >{{ 'supplierReturns.receiptActions' | transloco }}</a
+                >
+              }
               <span class="receipt-meta">{{ receipt.receivedAt | date: 'medium' }}</span>
               @if (receipt.referenceNumber) {
                 <span class="receipt-meta">{{ receipt.referenceNumber }}</span>
@@ -73,7 +80,18 @@ import { PurchaseOrderReceipt } from '../services/purchase-order.service';
                         />
                       }
                     </td>
-                    <td>{{ line.quantity }}</td>
+                    <td>
+                      <span class="historical-quantity">{{ line.quantity }}</span
+                      ><br /><span
+                        >{{ 'supplierReturns.netRetained' | transloco }}:
+                        {{ line.netRetainedQuantity ?? line.quantity }}</span
+                      >
+                      @if (line.receiptValueId) {
+                        <br /><a [routerLink]="['/purchase-receipts', line.receiptValueId]">{{
+                          'supplierReturns.receiptLot' | transloco
+                        }}</a>
+                      }
+                    </td>
                     <td class="money">{{ line.unitCost | number: '1.2-2' }}</td>
                     <td class="money">{{ line.totalPurchaseCost | number: '1.2-2' }}</td>
                     <td>
@@ -215,5 +233,11 @@ import { PurchaseOrderReceipt } from '../services/purchase-order.service';
   ],
 })
 export class PurchaseOrderReceiptHistoryComponent {
+  receiptIds(receipt: PurchaseOrderReceipt): string {
+    return receipt.lines
+      .map((x) => x.receiptValueId)
+      .filter(Boolean)
+      .join(',');
+  }
   @Input() receipts: readonly PurchaseOrderReceipt[] = [];
 }

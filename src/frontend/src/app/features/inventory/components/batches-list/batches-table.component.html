@@ -1,3 +1,12 @@
+@if (selectedSupplierLots()) {
+  <p>
+    <a
+      [routerLink]="['/purchase-receipts', selectedReceiptLots()[0].receiptValueId]"
+      [queryParams]="{ lots: selectedReceiptIds() }"
+      >{{ 'supplierReturns.shipSelected' | transloco }}</a
+    >
+  </p>
+}
 @if (loading) {
   <div class="loading" aria-live="polite">{{ 'common.loading' | transloco }}</div>
 }
@@ -192,7 +201,16 @@
         </td>
         <td>{{ batch.itemName }}</td>
         <td>{{ batch.barcode }}</td>
-        <td>{{ batch.batchNumber }}</td>
+        <td>
+          {{ batch.batchNumber }}
+          @if (batch.receiptValueId) {
+            <br /><a
+              [routerLink]="['/purchase-receipts', batch.receiptValueId]"
+              (click)="$event.stopPropagation()"
+              >{{ 'supplierReturns.receiptLot' | transloco }}</a
+            >
+          }
+        </td>
         <td>{{ batch.quantity }}</td>
         <td>{{ 'common.currencySymbol' | transloco }} {{ batch.salesPrice | number: '1.2-2' }}</td>
         <td>

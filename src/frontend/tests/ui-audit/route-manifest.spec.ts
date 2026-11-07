@@ -12,13 +12,13 @@ import {
 
 describe('UI audit route manifest', () => {
   it('catalogs every routed destination exactly once', () => {
-    expect(ROUTE_MANIFEST).toHaveLength(31);
-    expect(new Set(ROUTE_MANIFEST.map((entry) => entry.path))).toHaveLength(31);
+    expect(ROUTE_MANIFEST).toHaveLength(34);
+    expect(new Set(ROUTE_MANIFEST.map((entry) => entry.path))).toHaveLength(34);
     // Shop invitation acceptance joins the public zone: the link is opened from an email.
     expect(ROUTE_MANIFEST.filter((entry) => entry.zone === 'public')).toHaveLength(7);
     expect(ROUTE_MANIFEST.filter((entry) => entry.zone === 'standalone-print')).toHaveLength(3);
     expect(ROUTE_MANIFEST.filter((entry) => entry.zone === 'wildcard')).toHaveLength(1);
-    expect(ROUTE_MANIFEST.filter((entry) => entry.zone === 'shell')).toHaveLength(20);
+    expect(ROUTE_MANIFEST.filter((entry) => entry.zone === 'shell')).toHaveLength(23);
   });
 
   it('provides deterministic factories for every route parameter', () => {

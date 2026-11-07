@@ -29,6 +29,7 @@ export interface PurchaseOrderLine {
 }
 
 export interface PurchaseOrderReceiptLine {
+ readonly receiptValueId?:string|null;readonly receiptVersion?:number;readonly batchVersion?:number;readonly returnedQuantity?:number;readonly reversedQuantity?:number;readonly netRetainedQuantity?:number|null;
   readonly receiptLineId: string;
   readonly clientLineId?: string;
   readonly purchaseOrderLineId: string;

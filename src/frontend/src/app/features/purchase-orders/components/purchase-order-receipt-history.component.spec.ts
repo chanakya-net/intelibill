@@ -70,7 +70,7 @@ describe('PurchaseOrderReceiptHistoryComponent', () => {
     expect(rows[0].textContent).toContain('20.00');
     expect(rows[0].textContent).toContain('8.00 / 9.00');
     expect(rows[1].textContent).toContain('30.00');
-    expect(rows.map((row) => row.querySelectorAll('td')[1].textContent?.trim())).toEqual([
+    expect(rows.map((row) => row.querySelector('.historical-quantity')?.textContent?.trim())).toEqual([
       '4',
       '6',
     ]);

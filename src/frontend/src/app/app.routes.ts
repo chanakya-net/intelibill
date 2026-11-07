@@ -4,6 +4,9 @@ import { authGuard } from './core/guards/auth.guard';
 import { offlineInvoicePrintGuard } from './core/guards/offline-invoice-print.guard';
 
 export const routes: Routes = [
+ {path:'purchase-receipts/:receiptValueId',canActivate:[authGuard],loadComponent:()=>import('./features/supplier-returns/pages/supplier-return-page.component').then(m=>m.SupplierReturnPageComponent)},
+ {path:'supplier-returns/:returnId',canActivate:[authGuard],loadComponent:()=>import('./features/supplier-returns/pages/supplier-return-page.component').then(m=>m.SupplierReturnPageComponent)},
+ {path:'supplier-returns',canActivate:[authGuard],loadComponent:()=>import('./features/supplier-returns/pages/supplier-return-page.component').then(m=>m.SupplierReturnPageComponent)},
 	{
 		path: 'auth/verify-email',
 		loadComponent: () => import('./features/auth/pages/verify-email-page.component').then((m) => m.VerifyEmailPageComponent),

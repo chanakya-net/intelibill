@@ -1,3 +1,4 @@
+import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Component, Input, computed, effect, inject, output, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -24,6 +25,7 @@ import { SupplierPaymentFormComponent } from './supplier-detail/supplier-payment
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     DialogModule,
     ButtonModule,
     PendingFinancialOperationComponent,
@@ -184,6 +186,8 @@ export class SupplierDetailComponent {
         return this.transloco.translate('suppliers.entryTypes.recordAdjusted');
       case 'Reversal':
         return this.transloco.translate('suppliers.entryTypes.reversal');
+      case 'SupplierReturnCredit':
+        return this.transloco.translate('supplierReturns.acceptedCredit');
       case 'CostAdjusted':
         return this.transloco.translate('suppliers.entryTypes.costAdjusted');
       default:

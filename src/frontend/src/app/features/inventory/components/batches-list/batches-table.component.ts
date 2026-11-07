@@ -1,5 +1,6 @@
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { AvatarModule } from 'primeng/avatar';
@@ -23,6 +24,7 @@ export interface BatchTableAction {
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     DecimalPipe,
     FormsModule,
     AvatarModule,
@@ -57,6 +59,22 @@ export class BatchesTableComponent {
   private _selectedBatchIds: readonly string[] = [];
   private selectedBatchIdSet = new Set<string>();
 
+  selectedReceiptLots(): InventoryBatchDto[] {
+    return this.batches.filter((x) => this.selectedBatchIdSet.has(x.id) && !!x.receiptValueId);
+  }
+  selectedSupplierLots(): boolean {
+    const lots = this.selectedReceiptLots();
+    return (
+      lots.length > 0 &&
+      lots.every((x) => x.supplierId === lots[0].supplierId) &&
+      !!lots[0].supplierId
+    );
+  }
+  selectedReceiptIds(): string {
+    return this.selectedReceiptLots()
+      .map((x) => x.receiptValueId)
+      .join(',');
+  }
   onRowAction(action: BatchTableAction['action'], batchId: string): void {
     this.batchAction.emit({ action, batchId });
   }
@@ -68,7 +86,14 @@ export class BatchesTableComponent {
       this.rowActionItem('count', 'inventory.countStock', 'pi pi-calculator', batch),
       this.rowActionItem('edit', 'inventory.editPricesAndDetails', 'pi pi-pencil', batch),
       ...(this.canCorrectReceiptCost && !batch.isVoided
-        ? [this.rowActionItem('correctCost', 'inventory.correctReceiptCost', 'pi pi-receipt', batch)]
+        ? [
+            this.rowActionItem(
+              'correctCost',
+              'inventory.correctReceiptCost',
+              'pi pi-receipt',
+              batch,
+            ),
+          ]
         : []),
       this.rowActionItem('void', 'common.void', 'pi pi-trash', batch),
     ];

@@ -1,3 +1,4 @@
+import { provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoService, TranslocoTestingModule } from '@ngneat/transloco';
@@ -117,7 +118,7 @@ describe('SupplierDetailComponent', () => {
           },
         }),
       ],
-      providers: [
+      providers: [provideRouter([]),
         { provide: SuppliersFacade, useValue: mockFacade },
         {
           provide: AuthService,

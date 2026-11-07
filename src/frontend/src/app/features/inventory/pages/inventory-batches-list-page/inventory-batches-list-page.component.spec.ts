@@ -1,3 +1,4 @@
+import { provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
@@ -66,7 +67,7 @@ describe('InventoryBatchesListPageComponent', () => {
           preloadLangs: true,
         }),
       ],
-      providers: [
+      providers: [provideRouter([]),
         MessageService,
         { provide: SuppliersFacade, useValue: suppliersFacadeMock },
         { provide: ShopPermissionsService, useValue: { isOwnerOfActiveShop: isOwner } },
