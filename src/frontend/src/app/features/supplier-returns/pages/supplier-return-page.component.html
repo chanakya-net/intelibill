@@ -14,6 +14,16 @@
   }
   @if (document(); as doc) {
     <app-supplier-return-print-view [document]="doc" />
+    <div class="no-print">
+      @for (line of doc.lines; track line.returnLineId) {
+        <p>
+          <a [routerLink]="['/purchase-receipts', line.receiptValueId]">{{
+            'supplierReturns.receiptLot' | transloco
+          }}</a>
+          · {{ line.batchNumberSnapshot || line.receiptValueId }}
+        </p>
+      }
+    </div>
     <p class="no-print">
       <button type="button" (click)="print()">{{ 'supplierReturns.print' | transloco }}</button>
     </p>
@@ -234,7 +244,7 @@
   @if (!lots().length && !document() && ready()) {
     <label
       >{{ 'supplierReturns.status' | transloco
-      }}<select [(ngModel)]="filter" (change)="refresh()">
+      }}<select [(ngModel)]="filter" (change)="refresh()" [disabled]="busy()">
         <option value="">{{ 'supplierReturns.all' | transloco }}</option>
         <option value="PendingSupplierCredit">{{ 'supplierReturns.pending' | transloco }}</option>
         <option value="CreditAccepted">{{ 'supplierReturns.accepted' | transloco }}</option>
@@ -253,6 +263,11 @@
       </article>
     } @empty {
       <p>{{ 'supplierReturns.empty' | transloco }}</p>
+    }
+    @if (hasMoreHistory()) {
+      <button type="button" [disabled]="busy()" (click)="loadMoreHistory()">
+        {{ 'supplierReturns.loadMore' | transloco }}
+      </button>
     }
   }
 </section>

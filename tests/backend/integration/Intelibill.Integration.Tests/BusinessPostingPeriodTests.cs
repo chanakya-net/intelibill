@@ -635,7 +635,11 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
             new { direction = (int)InventoryAdjustmentDirection.Decrease, reason = (int)InventoryAdjustmentReason.Damaged, quantity = 1m, performedAt = (DateTimeOffset?)null, notes = "x" }))
             Assert.Equal(HttpStatusCode.Conflict, adjust.StatusCode);
         using (var voided = await SendAsync(shop, HttpMethod.Post, $"/api/inventory/batches/{stock.BatchId}/void"))
-            Assert.Equal(HttpStatusCode.Conflict, voided.StatusCode);
+        {
+            var body=await voided.Content.ReadAsStringAsync();
+            Assert.True(voided.StatusCode==HttpStatusCode.Conflict,$"Expected closed-period409, got {voided.StatusCode}: {body}");
+            Assert.Contains("PostingPeriod.Closed",body,StringComparison.Ordinal);
+        }
         using (var returned = await SendAsync(shop, HttpMethod.Post, $"/api/sales/{await SaleIdAsync(invoice)}/returns", new
         {
             payoutDestination = (int)ReturnPayoutDestination.Refund,

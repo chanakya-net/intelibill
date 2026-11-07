@@ -14,9 +14,27 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Intelibill.Integration.Tests;
 
 [Collection("Integration Tests")]
-public sealed class SupplierReturnWorkflowTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
+public sealed class SupplierReturnWorkflowTests : IAsyncLifetime, IDisposable
 {
-    private readonly ApiWebApplicationFactory _factory = new(fixture);
+    private readonly CapturingStockUpdates _updates=new();
+    private readonly ApiWebApplicationFactory _factory;
+    public SupplierReturnWorkflowTests(PostgreSqlTestFixture fixture)
+    {
+        _factory=new(fixture,services=>services.AddSingleton<Intelibill.Application.Common.Interfaces.IShopUpdatesNotifier>(_updates));
+    }
+    private sealed class CapturingStockUpdates : Intelibill.Application.Common.Interfaces.IShopUpdatesNotifier
+    {
+        public System.Threading.Channels.Channel<(Guid ShopId,IReadOnlyCollection<Guid> Items)> Queue {get;}=System.Threading.Channels.Channel.CreateUnbounded<(Guid,IReadOnlyCollection<Guid>)>();
+        public int Count {get;private set;}
+        public Func<Guid,Task>? ObserveCommitted {get;set;}
+        public async Task NotifyShopUpdateAsync(string eventType,Guid shopId,IReadOnlyCollection<Guid> changedIds,DateTimeOffset occurredOn,CancellationToken cancellationToken=default)
+        {
+            if(eventType!="InventoryStockChanged")return;
+            if(ObserveCommitted is not null)await ObserveCommitted(shopId);
+            Count++;
+            await Queue.Writer.WriteAsync((shopId,changedIds),cancellationToken);
+        }
+    }
 
     public async Task InitializeAsync() => await _factory.InitializeAsync();
 
@@ -98,13 +116,13 @@ public sealed class SupplierReturnWorkflowTests(PostgreSqlTestFixture fixture) :
         return body.GetProperty("supplierId").GetGuid();
     }
 
-    private async Task<(HttpClient Client, Guid Supplier, Guid Receipt, Guid Batch)> SetupAsync(decimal cost = 1000m)
+    private async Task<(HttpClient Client, Guid Supplier, Guid Receipt, Guid Batch)> SetupAsync(decimal cost = 1000m,DateTimeOffset? performedAt = null)
     {
         var client=CreateClient();
         var token=await CreateShopAsync(client,await RegisterAsync(client));
         client.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",token);
         var supplier=await CreateSupplierAsync(client,token,"Return supplier");
-        var inbound=await client.PostAsJsonAsync("/api/inventory/inbound",new {itemName="Return item",barcode=$"SR-{Guid.NewGuid():N}",uom="pcs",batchNumber=$"B-{Guid.NewGuid():N}",quantity=10,totalPurchaseCost=cost,mrp=150,salesPrice=120,supplierId=supplier});
+        var inbound=await client.PostAsJsonAsync("/api/inventory/inbound",new {itemName="Return item",barcode=$"SR-{Guid.NewGuid():N}",uom="pcs",batchNumber=$"B-{Guid.NewGuid():N}",quantity=10,totalPurchaseCost=cost,performedAt,mrp=150,salesPrice=120,supplierId=supplier});
         inbound.EnsureSuccessStatusCode();
         var b=await inbound.Content.ReadFromJsonAsync<JsonElement>();
         var batch=b.GetProperty("inventoryBatchId").GetGuid();
@@ -143,7 +161,7 @@ public sealed class SupplierReturnWorkflowTests(PostgreSqlTestFixture fixture) :
         var payload=new{operationKey=Guid.NewGuid().ToString(),reason="Wrong receipt",expectedReceiptVersion=detail.GetProperty("receiptVersion").GetUInt32(),expectedBatchVersion=detail.GetProperty("batchVersion").GetUInt32()};
         var reversed=await JsonAsync(await client.PostAsJsonAsync($"/api/purchase-receipts/{x.Receipt}/reversal",payload));
         Assert.Equal(1000,reversed.GetProperty("lots")[0].GetProperty("effectiveAmount").GetDecimal());
-        var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}")); Assert.Equal(0,after.GetProperty("availableQuantity").GetDecimal()); Assert.Equal(0,after.GetProperty("netRetainedQuantity").GetDecimal());
+        var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}")); Assert.Equal(0,after.GetProperty("availableQuantity").GetDecimal()); Assert.Equal(0,after.GetProperty("netRetainedQuantity").GetDecimal());Assert.Equal(0,after.GetProperty("netPayableAmount").GetDecimal());Assert.Equal(0,after.GetProperty("outstandingAmount").GetDecimal());Assert.Equal(1000,after.GetProperty("effectiveTotalCost").GetDecimal());
     }
 
     private static object Shipment(JsonElement detail,Guid supplier,Guid receipt,string key,decimal quantity=3m,decimal credit=300m,bool accepted=false) => new{operationKey=key,supplierId=supplier,reason="Damaged goods",creditAccepted=accepted,lines=new[]{new{receiptValueId=receipt,expectedReceiptVersion=detail.GetProperty("receiptVersion").GetUInt32(),expectedBatchVersion=detail.GetProperty("batchVersion").GetUInt32(),quantity,proposedCreditAmount=credit}}};
@@ -260,8 +278,8 @@ public sealed class SupplierReturnWorkflowTests(PostgreSqlTestFixture fixture) :
     {
         var x=await SetupAsync();using var client=x.Client;var detail=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));
         var document=await JsonAsync(await client.PostAsJsonAsync("/api/supplier-returns",Shipment(detail,x.Supplier,x.Receipt,Guid.NewGuid().ToString())));
-        using(var scope=_factory.Services.CreateScope()){var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();var supplier=await db.Suppliers.SingleAsync(s=>s.Id==x.Supplier);supplier.Update("Renamed supplier",null,null,null,null,null,null,true,false);await db.SaveChangesAsync();}
-        var reloaded=await JsonAsync(await client.GetAsync($"/api/supplier-returns/{document.GetProperty("returnId").GetGuid()}"));Assert.Equal("Return supplier",reloaded.GetProperty("supplierName").GetString());Assert.Equal("NOS",reloaded.GetProperty("lines")[0].GetProperty("uqc").GetString());
+        using(var scope=_factory.Services.CreateScope()){var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();var supplier=await db.Suppliers.SingleAsync(s=>s.Id==x.Supplier);supplier.Update("Renamed supplier",null,null,null,null,null,null,true,false);var batch=await db.InventoryBatches.Include(b=>b.Item).SingleAsync(b=>b.Id==x.Batch);batch.ReviseRetailTerms("Renamed live batch",batch.Mrp,batch.SalesPrice,batch.TaxRatePercent,batch.TaxIncluded,batch.ExpiryDate,batch.ManufacturingDate,batch.CreatedBy);batch.Item.Update("Renamed live item",batch.Item.Description,batch.Item.Barcode,true,batch.CreatedBy);await db.SaveChangesAsync();}
+        var reloaded=await JsonAsync(await client.GetAsync($"/api/supplier-returns/{document.GetProperty("returnId").GetGuid()}"));Assert.Equal("Return supplier",reloaded.GetProperty("supplierName").GetString());Assert.Equal("Return item",reloaded.GetProperty("lines")[0].GetProperty("itemName").GetString());Assert.Equal("NOS",reloaded.GetProperty("lines")[0].GetProperty("uqc").GetString());Assert.Equal(detail.GetProperty("batchNumber").GetString(),reloaded.GetProperty("lines")[0].GetProperty("batchNumberSnapshot").GetString());
         var history=await JsonAsync(await client.GetAsync($"/api/supplier-returns?supplierId={x.Supplier}&status=PendingSupplierCredit"));Assert.Single(history.EnumerateArray());
     }
 
@@ -377,5 +395,77 @@ public sealed class SupplierReturnWorkflowTests(PostgreSqlTestFixture fixture) :
         var accepted=await client.PostAsJsonAsync($"/api/supplier-returns/{id}/credit",new{operationKey=Guid.NewGuid().ToString(),expectedVersion=document.GetProperty("version").GetUInt32(),reason="Agreed credit",lines=new[]{new{returnLineId=document.GetProperty("lines")[0].GetProperty("returnLineId").GetGuid(),acceptedAmount=300}}});Assert.Equal(HttpStatusCode.Conflict,accepted.StatusCode);Assert.Contains("PostingPeriod.Closed",await accepted.Content.ReadAsStringAsync(),StringComparison.Ordinal);
         var reversed=await client.PostAsJsonAsync($"/api/purchase-receipts/{x.Receipt}/reversal",new{operationKey=Guid.NewGuid().ToString(),reason="Wrong receipt",expectedReceiptVersion=detail.GetProperty("receiptVersion").GetUInt32(),expectedBatchVersion=detail.GetProperty("batchVersion").GetUInt32()});Assert.Equal(HttpStatusCode.Conflict,reversed.StatusCode);Assert.Contains("PostingPeriod.Closed",await reversed.Content.ReadAsStringAsync(),StringComparison.Ordinal);
         var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));Assert.Equal(7,after.GetProperty("availableQuantity").GetDecimal());Assert.Equal(1000,after.GetProperty("netPayableAmount").GetDecimal());Assert.Single(after.GetProperty("returns").EnumerateArray());Assert.Empty(after.GetProperty("reversals").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task OldVoid_UnresolvedSourceCannotInventPayableReversal()
+    {
+        var x=await SetupAsync();using var client=x.Client;
+        using(var scope=_factory.Services.CreateScope()){var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();await db.Database.ExecuteSqlAsync($"UPDATE purchase_receipt_values SET status='LEGACY_UNRESOLVED',original_total_cost=NULL,effective_total_cost=NULL WHERE id={x.Receipt}");}
+        var response=await client.PostAsJsonAsync($"/api/inventory/batches/{x.Batch}/void",new{});Assert.Equal(HttpStatusCode.Conflict,response.StatusCode);Assert.Contains("PurchaseReceipt.EvidenceMissing",await response.Content.ReadAsStringAsync(),StringComparison.Ordinal);
+        var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));Assert.Equal(10,after.GetProperty("availableQuantity").GetDecimal());Assert.Empty(after.GetProperty("reversals").EnumerateArray());
+    }
+    [Fact]
+    public async Task OldVoid_ResolvedReceiptDetailShowsZeroPayableWithHistoricalCost()
+    {
+        var x=await SetupAsync();using var client=x.Client;await JsonAsync(await client.PostAsJsonAsync($"/api/inventory/batches/{x.Batch}/void",new{}));var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));Assert.Equal(0,after.GetProperty("netPayableAmount").GetDecimal());Assert.Equal(0,after.GetProperty("outstandingAmount").GetDecimal());Assert.Equal(1000,after.GetProperty("effectiveTotalCost").GetDecimal());
+    }
+
+    [Fact]
+    public async Task OldVoid_DamageThenVoidedAdjustmentCannotBypassSharedEligibility()
+    {
+        var x=await SetupAsync();using var client=x.Client;
+        var adjustment=await JsonAsync(await client.PostAsJsonAsync($"/api/inventory/batches/{x.Batch}/adjust",new{direction=2,reason=1,quantity=1,notes="Damaged stock"}));
+        await JsonAsync(await client.PostAsJsonAsync($"/api/inventory/adjustments/{adjustment.GetProperty("adjustmentId").GetGuid()}/void",new{reason="Adjustment entered incorrectly"}));
+        var detail=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));Assert.Equal(10,detail.GetProperty("availableQuantity").GetDecimal());
+        var old=await client.PostAsJsonAsync($"/api/inventory/batches/{x.Batch}/void",new{});Assert.Equal(HttpStatusCode.Conflict,old.StatusCode);
+        var modern=await client.PostAsJsonAsync($"/api/purchase-receipts/{x.Receipt}/reversal",new{operationKey=Guid.NewGuid().ToString(),reason="Wrong receipt",expectedReceiptVersion=detail.GetProperty("receiptVersion").GetUInt32(),expectedBatchVersion=detail.GetProperty("batchVersion").GetUInt32()});Assert.Equal(HttpStatusCode.Conflict,modern.StatusCode);
+    }
+
+    [Fact]
+    public async Task StockInvalidation_IsAfterCommit_ReplaySafe_AndAbsentOnRollback()
+    {
+        var x=await SetupAsync();using var client=x.Client;var committed=new List<bool>();
+        _updates.ObserveCommitted=async shop=>{await using var connection=new NpgsqlConnection(_factory.MigratorConnectionString);await connection.OpenAsync();await using var command=new NpgsqlCommand("select (select count(*) from supplier_returns where shop_id=@shop)+(select count(*) from purchase_receipt_reversals where shop_id=@shop)",connection);command.Parameters.AddWithValue("shop",shop);committed.Add((long)(await command.ExecuteScalarAsync())!>0);};
+        var detail=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));var payload=Shipment(detail,x.Supplier,x.Receipt,Guid.NewGuid().ToString());
+        await JsonAsync(await client.PostAsJsonAsync("/api/supplier-returns",payload));var first=await _updates.Queue.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(3));Assert.Contains(detail.GetProperty("itemId").GetGuid(),first.Items);Assert.All(committed,Assert.True);
+        await JsonAsync(await client.PostAsJsonAsync("/api/supplier-returns",payload));await _updates.Queue.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(3));
+        detail=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));Assert.Equal(HttpStatusCode.BadRequest,(await client.PostAsJsonAsync("/api/supplier-returns",Shipment(detail,x.Supplier,x.Receipt,Guid.NewGuid().ToString(),1,1001,true))).StatusCode);
+        var y=await SetupAsync();using var other=y.Client;var second=await JsonAsync(await other.GetAsync($"/api/purchase-receipts/{y.Receipt}"));
+        await JsonAsync(await other.PostAsJsonAsync($"/api/purchase-receipts/{y.Receipt}/reversal",new{operationKey=Guid.NewGuid().ToString(),reason="Wrong receipt",expectedReceiptVersion=second.GetProperty("receiptVersion").GetUInt32(),expectedBatchVersion=second.GetProperty("batchVersion").GetUInt32()}));await _updates.Queue.Reader.ReadAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(3));Assert.Equal(3,_updates.Count);Assert.All(committed,Assert.True);
+    }
+
+    [Fact]
+    public async Task ClosedOriginalPeriod_OpenCurrentPeriod_RefusesBothReversalsButAllowsShipment()
+    {
+        var original=DateTimeOffset.UtcNow.AddMonths(-1);var x=await SetupAsync(1000,original);using var client=x.Client;var month=BusinessDates.Of(original);
+        await JsonAsync(await client.PostAsJsonAsync($"/api/posting-periods/{month:yyyy-MM}/close",new{operationKey=Guid.NewGuid().ToString(),reason="Close original receipt month"}));
+        var detail=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));
+        var modern=await client.PostAsJsonAsync($"/api/purchase-receipts/{x.Receipt}/reversal",new{operationKey=Guid.NewGuid().ToString(),reason="Wrong source receipt",expectedReceiptVersion=detail.GetProperty("receiptVersion").GetUInt32(),expectedBatchVersion=detail.GetProperty("batchVersion").GetUInt32()});Assert.Equal(HttpStatusCode.Conflict,modern.StatusCode);Assert.Contains("PostingPeriod.Closed",await modern.Content.ReadAsStringAsync(),StringComparison.Ordinal);
+        var old=await client.PostAsJsonAsync($"/api/inventory/batches/{x.Batch}/void",new{});Assert.Equal(HttpStatusCode.Conflict,old.StatusCode);Assert.Contains("PostingPeriod.Closed",await old.Content.ReadAsStringAsync(),StringComparison.Ordinal);
+        await JsonAsync(await client.PostAsJsonAsync("/api/supplier-returns",Shipment(detail,x.Supplier,x.Receipt,Guid.NewGuid().ToString(),1,100)));
+        var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));Assert.Equal(9,after.GetProperty("availableQuantity").GetDecimal());Assert.Empty(after.GetProperty("reversals").EnumerateArray());
+    }
+    [Fact]
+    public async Task LaterCreditAcceptanceVersusPaymentAllocation_SerializesOnSharedRoots()
+    {
+        var x=await SetupAsync();using var client=x.Client;var detail=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));var document=await JsonAsync(await client.PostAsJsonAsync("/api/supplier-returns",Shipment(detail,x.Supplier,x.Receipt,Guid.NewGuid().ToString())));var id=document.GetProperty("returnId").GetGuid();var paymentKey=Guid.NewGuid().ToString();
+        var gate=new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        async Task<HttpResponseMessage> Accept(){await gate.Task;return await client.PostAsJsonAsync($"/api/supplier-returns/{id}/credit",new{operationKey=Guid.NewGuid().ToString(),expectedVersion=document.GetProperty("version").GetUInt32(),reason="Agreed supplier credit",lines=new[]{new{returnLineId=document.GetProperty("lines")[0].GetProperty("returnLineId").GetGuid(),acceptedAmount=300}}});}
+        async Task<HttpResponseMessage> Pay(){await gate.Task;return await client.PostAsJsonAsync($"/api/suppliers/{x.Supplier}/payments",new{amount=1000,paymentDate=BusinessDates.Today,operationKey=paymentKey,method="Cash",allocations=new[]{new{targetId=x.Receipt,amount=1000}}});}
+        var accept=Accept();var payment=Pay();gate.SetResult();var responses=await Task.WhenAll(accept,payment);await JsonAsync(responses[0]);if(!responses[1].IsSuccessStatusCode)Assert.Contains("Payment.",await responses[1].Content.ReadAsStringAsync(),StringComparison.Ordinal);
+        var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));var paid=responses[1].IsSuccessStatusCode?1000m:0m;Assert.Equal(7,after.GetProperty("availableQuantity").GetDecimal());Assert.Equal(700,after.GetProperty("netPayableAmount").GetDecimal());Assert.Equal(paid,after.GetProperty("allocatedPaymentAmount").GetDecimal());Assert.Equal(Math.Max(0,paid-700),after.GetProperty("supplierCreditAmount").GetDecimal());Assert.Equal(Math.Max(0,700-paid),after.GetProperty("outstandingAmount").GetDecimal());
+        using var scope=_factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();Assert.Equal(1,await db.SupplierReturnCredits.CountAsync(c=>c.SupplierReturnId==id));Assert.Equal(responses[1].IsSuccessStatusCode?1:0,await db.OperationReceipts.CountAsync(o=>o.OperationKey==paymentKey));
+    }
+
+    [Theory]
+    [InlineData(0.29)]
+    [InlineData(1.10)]
+    [InlineData(2.30)]
+    public async Task LaterAcceptance_RecordsCanonicalPaiseExactly(decimal amount)
+    {
+        var x=await SetupAsync();using var client=x.Client;var detail=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));var document=await JsonAsync(await client.PostAsJsonAsync("/api/supplier-returns",Shipment(detail,x.Supplier,x.Receipt,Guid.NewGuid().ToString())));var id=document.GetProperty("returnId").GetGuid();
+        var accepted=await JsonAsync(await client.PostAsJsonAsync($"/api/supplier-returns/{id}/credit",new{operationKey=Guid.NewGuid().ToString(),expectedVersion=document.GetProperty("version").GetUInt32(),reason="Agreed paise credit",lines=new[]{new{returnLineId=document.GetProperty("lines")[0].GetProperty("returnLineId").GetGuid(),acceptedAmount=amount}}}));Assert.Equal(amount,accepted.GetProperty("lines")[0].GetProperty("acceptedAmount").GetDecimal());
+        var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));Assert.Equal(1000-amount,after.GetProperty("netPayableAmount").GetDecimal());
     }
 }

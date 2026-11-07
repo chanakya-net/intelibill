@@ -1,8 +1,9 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { firstValueFrom, Observable } from 'rxjs';
+import { firstValueFrom, Observable, skip } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ShopContextService } from '../../../core/context/shop-context.service';
@@ -30,6 +31,12 @@ export function validShipmentQuantity(quantity: number, available: number, scale
     Math.abs(quantity * 10 ** scale - Math.round(quantity * 10 ** scale)) < 1e-7
   );
 }
+export function validCreditAmount(amount: unknown): boolean {
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 0 || amount > 99999999.99)
+    return false;
+  const paise = Math.round(amount * 100);
+  return Number.isSafeInteger(paise) && paise / 100 === amount;
+}
 @Component({
   selector: 'app-supplier-return-page',
   standalone: true,
@@ -38,6 +45,10 @@ export function validShipmentQuantity(quantity: number, available: number, scale
   styleUrl: './supplier-return-page.component.scss',
 })
 export class SupplierReturnPageComponent implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
+  readonly hasMoreHistory = signal(false);
+  private historyPage = 1;
+  private historyRevision = 0;
   private readonly api = inject(SupplierReturnService);
   private readonly drafts = inject(SupplierReturnDraftService);
   private readonly route = inject(ActivatedRoute);
@@ -100,6 +111,9 @@ export class SupplierReturnPageComponent implements OnInit {
     if (!this.scope) return;
     this.action = this.route.snapshot.paramMap.has('returnId') ? 'credit' : 'shipment';
     this.target = this.group ?? this.id;
+    this.route.queryParamMap.pipe(skip(1), takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      if (!this.id) void this.refresh();
+    });
     await this.refresh();
     this.ready.set(false);
     this.busy.set(true);
@@ -139,14 +153,7 @@ export class SupplierReturnPageComponent implements OnInit {
           }
         }
       } else {
-        const supplierId = this.route.snapshot.queryParamMap.get('supplierId') ?? '';
-        const result = await firstValueFrom(
-          this.api.listReturns({
-            ...(supplierId ? { supplierId } : {}),
-            ...(this.filter ? { status: this.filter } : {}),
-          }),
-        );
-        if (this.current()) this.history.set(result);
+        await this.loadHistory(false);
       }
     } catch {
       if (this.current()) this.error.set('supplierReturns.loadError');
@@ -155,6 +162,54 @@ export class SupplierReturnPageComponent implements OnInit {
         this.busy.set(false);
         this.ready.set(true);
       }
+    }
+  }
+  async loadMoreHistory() {
+    if (!this.busy() && this.hasMoreHistory()) await this.loadHistory(true);
+  }
+  private async loadHistory(append: boolean) {
+    const revision = append ? this.historyRevision : ++this.historyRevision;
+    const status = this.filter;
+    const supplierId = this.route.snapshot.queryParamMap.get('supplierId') ?? '';
+    const page = append ? this.historyPage + 1 : 1;
+    if (!append) {
+      this.history.set([]);
+      this.hasMoreHistory.set(false);
+    }
+    this.busy.set(true);
+    try {
+      const result = await firstValueFrom(
+        this.api.listReturns({
+          ...(supplierId ? { supplierId } : {}),
+          ...(status ? { status } : {}),
+          page: String(page),
+          pageSize: '20',
+        }),
+      );
+      if (
+        !this.current() ||
+        revision !== this.historyRevision ||
+        status !== this.filter ||
+        supplierId !== (this.route.snapshot.queryParamMap.get('supplierId') ?? '')
+      )
+        return;
+      this.history.set(
+        append
+          ? [
+              ...new Map(
+                [...this.history(), ...result].map((value) => [value.returnId, value]),
+              ).values(),
+            ]
+          : result,
+      );
+      this.historyPage = page;
+      this.hasMoreHistory.set(result.length === 20);
+      this.error.set('');
+    } catch {
+      if (this.current() && revision === this.historyRevision)
+        this.error.set('supplierReturns.loadError');
+    } finally {
+      if (this.current() && revision === this.historyRevision) this.busy.set(false);
     }
   }
   async choose(action: 'shipment' | 'reversal') {
@@ -336,12 +391,7 @@ export class SupplierReturnPageComponent implements OnInit {
       return (
         this.owner() &&
         this.document()?.status === 'PendingSupplierCredit' &&
-        this.document()!.lines.every(
-          (x) =>
-            Number.isFinite(this.credits[x.returnLineId]) &&
-            this.credits[x.returnLineId] >= 0 &&
-            Math.round(this.credits[x.returnLineId] * 100) === this.credits[x.returnLineId] * 100,
-        )
+        this.document()!.lines.every((x) => validCreditAmount(this.credits[x.returnLineId]))
       );
     if (this.action === 'reversal')
       return this.owner() && this.lots().every((x) => !x.reversalEligibilityReasons.length);
@@ -358,8 +408,7 @@ export class SupplierReturnPageComponent implements OnInit {
             x.returnableQuantity,
             x.quantityScale,
           ) &&
-          Number.isFinite(this.credits[x.receiptValueId]) &&
-          this.credits[x.receiptValueId] >= 0,
+          validCreditAmount(this.credits[x.receiptValueId]),
       )
     );
   }

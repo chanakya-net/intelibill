@@ -64,6 +64,7 @@ export interface SupplierReturnDraftRecord {
   updatedAt: string;
 }
 export interface SupplierReturnLine {
+  batchNumberSnapshot?: string | null;
   returnLineId: string;
   receiptValueId: string;
   inventoryBatchId: string;

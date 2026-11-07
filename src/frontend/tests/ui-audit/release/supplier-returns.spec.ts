@@ -193,6 +193,11 @@ test(
       page.getByText('Commercial reference — not a GST credit/debit note'),
     ).toBeVisible();
     await page.getByRole('textbox', { name: 'Reason', exact: true }).fill('Supplier agreed');
+    await page.getByRole('spinbutton', { name: 'Frozen rice', exact: true }).fill('0.29');
+    await expect(
+      page.getByRole('button', { name: 'Accept supplier credit', exact: true }),
+    ).toBeEnabled();
+    await page.getByRole('spinbutton', { name: 'Frozen rice', exact: true }).fill('300');
     await page.getByRole('button', { name: 'Accept supplier credit', exact: true }).click();
     await expect(page.getByText('Credit accepted on:', { exact: false })).toBeVisible();
     await page.goto(`${server.origin}/purchase-receipts/${RECEIPT}`);
@@ -312,4 +317,95 @@ test('a second tab confirms and cleans an uncertain operation without resurrecti
   await page.getByRole('button', { name: 'Check / retry saved operation' }).click();
   await expect(page.getByRole('spinbutton', { name: /Quantity/ })).toBeEnabled();
   expect(payloads).toHaveLength(2);
+});
+
+test('supplier history reaches older pending approvals with the same filters', async ({ page }) => {
+  await setup(page);
+  const queries: URL[] = [];
+  await page.route('**/api/supplier-returns**', (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname.endsWith('/older-return'))
+      return json(route, {
+        ...returned(),
+        returnId: 'older-return',
+        returnNumber: 'SR-OLDER-PENDING',
+      });
+    queries.push(url);
+    const pageNumber = Number(url.searchParams.get('page') ?? 1);
+    return json(
+      route,
+      pageNumber === 1
+        ? Array.from({ length: 20 }, (_, i) => ({
+            ...returned(),
+            returnId: `r-${i}`,
+            returnNumber: `SR-${i}`,
+          }))
+        : [{ ...returned(), returnId: 'older-return', returnNumber: 'SR-OLDER-PENDING' }],
+    );
+  });
+  await page.goto(`${server.origin}/supplier-returns?supplierId=supplier-one`);
+  await page
+    .getByRole('combobox', { name: 'Status', exact: true })
+    .selectOption('PendingSupplierCredit');
+  await page.getByRole('button', { name: 'Load more', exact: true }).click();
+  await page.getByRole('link', { name: 'SR-OLDER-PENDING', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Accept supplier credit', exact: true }),
+  ).toBeVisible();
+  const older = queries.find((url) => url.searchParams.get('page') === '2');
+  expect(older?.searchParams.get('supplierId')).toBe('supplier-one');
+  expect(older?.searchParams.get('status')).toBe('PendingSupplierCredit');
+});
+
+test('return references print frozen lot identity and navigate to the actual source', async ({
+  page,
+}) => {
+  await setup(page);
+  let sourceReads = 0;
+  await page.route('**/api/supplier-returns/**', (route) =>
+    json(route, {
+      ...returned(),
+      lines: returned().lines.map((line) => ({
+        ...line,
+        sourceReference: null,
+        batchNumberSnapshot: 'Frozen lot A',
+      })),
+    }),
+  );
+  await page.route('**/api/purchase-receipts/**', (route) => {
+    sourceReads++;
+    return json(route, { ...receipt(), batchNumber: 'Renamed live lot' });
+  });
+  await page.goto(`${server.origin}/supplier-returns/${RETURN}`);
+  await expect(page.getByText('Frozen lot A', { exact: true })).toBeVisible();
+  expect(sourceReads).toBe(0);
+  const source = page.getByRole('link', { name: 'Receipt lot and return history', exact: true });
+  await expect(source).toHaveAttribute('href', `/purchase-receipts/${RECEIPT}`);
+  await source.click();
+  await expect(page.locator('tbody tr').first()).toContainText('Renamed live lot');
+});
+
+test('historical references without a frozen lot label use the persisted receipt identity', async ({
+  page,
+}) => {
+  await setup(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route('**/api/supplier-returns/**', (route) =>
+    json(route, {
+      ...returned(),
+      lines: returned().lines.map((line) => ({
+        ...line,
+        sourceReference: null,
+        batchNumberSnapshot: null,
+        receiptValueId: '10000000-0000-4000-8000-000000000001',
+      })),
+    }),
+  );
+  await page.goto(`${server.origin}/supplier-returns/${RETURN}`);
+  await expect(page.locator('app-supplier-return-print-view tbody')).toContainText(
+    '10000000-0000-4000-8000-000000000001',
+  );
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
 });

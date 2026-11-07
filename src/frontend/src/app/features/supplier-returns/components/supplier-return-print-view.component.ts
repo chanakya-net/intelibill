@@ -31,7 +31,12 @@ import { SupplierReturnDetail } from '../services/supplier-return.models';
               <tr>
                 <td>{{ line.itemName }}</td>
                 <td>{{ line.quantity }} {{ line.uqc }}</td>
-                <td>{{ line.sourceReference }}</td>
+                <td>
+                  {{ line.batchNumberSnapshot || line.receiptValueId }}
+                  @if (line.sourceReference) {
+                    <br />{{ line.sourceReference }}
+                  }
+                </td>
                 <td>
                   {{
                     line.acceptedAmount === null
@@ -60,12 +65,18 @@ import { SupplierReturnDetail } from '../services/supplier-return.models';
       table {
         width: 100%;
         border-collapse: collapse;
+        table-layout: fixed;
       }
       td,
       th {
+        overflow-wrap: anywhere;
         padding: 0.6rem;
         text-align: left;
         border-bottom: 1px solid #ddd;
+      }
+      h2,
+      p {
+        overflow-wrap: anywhere;
       }
       .reference {
         padding: 1rem;

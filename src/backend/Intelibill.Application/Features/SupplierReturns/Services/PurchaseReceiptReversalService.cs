@@ -1,3 +1,5 @@
+using Intelibill.Domain.Events;
+using Wolverine;
 using ErrorOr;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Posting;
@@ -18,7 +20,7 @@ public sealed class PurchaseReceiptReversalService(
     IInventoryRepository inventory, IPurchaseReceiptValueRepository receipts, IPaymentReceiptRepository payments,
     IStockTransactionRepository movements, ISupplierLedgerEntryRepository ledger, IPurchaseReceiptReversalRepository reversals,
     ISupplierReturnMutationLock locks, IPostingPeriodPolicy periods, IBusinessClock clock,
-    IFinancialOperationExecutor executor, IUnitOfWork uow, PurchaseReceiptReversalPolicy policy)
+    IFinancialOperationExecutor executor, IUnitOfWork uow, IMessageBus messageBus, PurchaseReceiptReversalPolicy policy)
 {
     private static Error Invalid(string code,string message) => Error.Validation($"SupplierReturn.{code}",message);
     private static Error Conflict(string code,string message) => Error.Conflict($"SupplierReturn.{code}",message);
@@ -36,7 +38,7 @@ public sealed class PurchaseReceiptReversalService(
         var valid=Validate(operationKey,reason); if(valid.IsError) return valid.Errors;
         if(lines is null || lines.Count is <1 or >100 || lines.Select(x=>x.ReceiptValueId).Distinct().Count()!=lines.Count) return Invalid("LinesInvalid","Select every distinct receipt lot.");
         var hash=FinancialOperationHasher.Compute(new{targetId,group,reason=reason.Trim(),lines=lines.OrderBy(x=>x.ReceiptValueId).ToArray()});
-        return await executor.ExecuteAsync<PurchaseReceiptReversalResultDto>(new(shopId,FinancialOperationType.PurchaseReceiptReversal,valid.Value),actor,targetId,hash,async token=>
+        var outcome=await executor.ExecuteAsync<PurchaseReceiptReversalResultDto>(new(shopId,FinancialOperationType.PurchaseReceiptReversal,valid.Value),actor,targetId,hash,async token=>
         {
             var initial=group?await returns.GetGroupReceiptsAsync(shopId,targetId,token):await returns.GetReceiptsAsync(shopId,[targetId],token);
             if(initial.Count!=lines.Count || !initial.Select(x=>x.Id).Order().SequenceEqual(lines.Select(x=>x.ReceiptValueId).Order())) return Missing;
@@ -65,6 +67,12 @@ public sealed class PurchaseReceiptReversalService(
             try {await uow.SaveChangesAsync(token);} catch(DbUpdateConcurrencyException) {return VersionConflict;}
             return new PurchaseReceiptReversalResultDto(results);
         },ct);
+        if(!outcome.IsError)
+        {
+            var committed=await returns.GetReceiptsAsync(shopId,outcome.Value.Lots.Select(lot=>lot.ReceiptValueId).ToArray(),ct);
+            await messageBus.PublishAsync(new InventoryStockChangedDomainEvent(shopId,committed.Select(receipt=>receipt.ItemId).Distinct().ToArray()));
+        }
+        return outcome;
     }
     private static PurchaseReceiptReversalLotDto MapReversal(PurchaseReceiptReversal x) => new(x.Id,x.ReceiptValueId,x.Quantity,x.EffectiveAmount,x.StockTransactionId,x.SupplierLedgerEntryId,x.ReversedAt,x.Reason);
 }

@@ -2858,6 +2858,7 @@
     "storageError": "Cannot save the recovery draft. No new request was sent. Restore browser storage and try again.",
     "unknown": "The outcome is uncertain. Editing is locked. Check or retry the exact saved operation. A missing lookup does not prove failure.",
     "rejected": "The request was refused. Your fields were retained. Review the refreshed stock and receipt before submitting again.",
-    "checkRetry": "Check / retry saved operation"
+    "checkRetry": "Check / retry saved operation",
+    "loadMore": "Load more"
   }
 }

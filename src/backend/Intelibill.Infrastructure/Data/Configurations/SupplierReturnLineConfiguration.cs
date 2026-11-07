@@ -18,6 +18,7 @@ internal sealed class SupplierReturnLineConfiguration : IEntityTypeConfiguration
         b.Property(x=>x.EffectiveTotalCost).HasPrecision(10,2);
         b.Property(x=>x.ItemName).HasMaxLength(255);
         b.Property(x=>x.Uqc).HasMaxLength(80);
+        b.Property(x=>x.BatchNumberSnapshot).HasMaxLength(100);
         b.Property(x=>x.SourceReference).HasMaxLength(80);
         b.HasIndex(x=>new{x.SupplierReturnId,x.ReceiptValueId}).IsUnique();
         b.HasOne<PurchaseReceiptValue>().WithMany().HasPrincipalKey(x=>new{x.Id,x.ShopId}).HasForeignKey(x=>new{x.ReceiptValueId,x.ShopId}).OnDelete(DeleteBehavior.Restrict);

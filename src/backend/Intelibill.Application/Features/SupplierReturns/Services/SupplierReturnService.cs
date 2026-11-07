@@ -1,3 +1,5 @@
+using Intelibill.Domain.Events;
+using Wolverine;
 using ErrorOr;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Posting;
@@ -19,7 +21,7 @@ public sealed class SupplierReturnService(
     IItemRepository items, IStockTransactionRepository movements,
     IPaymentReceiptRepository payments, ISupplierReturnRepository returns, IPurchaseReceiptReversalRepository reversals,
     ISupplierReturnMutationLock locks, IPostingPeriodPolicy periods, IBusinessClock clock,
-    IFinancialOperationExecutor executor, IUnitOfWork uow, SupplierReturnCreditPoster creditPoster, PurchaseReceiptReversalPolicy reversalPolicy)
+    IFinancialOperationExecutor executor, IUnitOfWork uow, IMessageBus messageBus, SupplierReturnCreditPoster creditPoster, PurchaseReceiptReversalPolicy reversalPolicy)
 {
     private static readonly SupplierReturnRequestValidator ShipmentValidator = new();
     private static readonly SupplierReturnCreditRequestValidator CreditValidator = new();
@@ -51,7 +53,7 @@ public sealed class SupplierReturnService(
         if(request.Lines is null || request.Lines.Count is <1 or >100 || request.Lines.Select(x=>x.ReceiptValueId).Distinct().Count()!=request.Lines.Count) return Invalid("LinesInvalid","Select 1 to 100 distinct receipt lots.");
         if(request.SupplierReference?.Length>255) return Invalid("ReferenceInvalid","Supplier reference cannot exceed 255 characters.");
         var canonical=request with { OperationKey="", Reason=request.Reason.Trim(), SupplierReference=request.SupplierReference?.Trim(), Lines=request.Lines.OrderBy(x=>x.ReceiptValueId).Select(x=>x with {Quantity=FinancialOperationHasher.NormalizeAmount(x.Quantity),ProposedCreditAmount=FinancialOperationHasher.NormalizeAmount(x.ProposedCreditAmount)}).ToArray() };
-        return await executor.ExecuteAsync<SupplierReturnDetailDto>(new(shopId,FinancialOperationType.SupplierReturn,valid.Value),actor,request.SupplierId,FinancialOperationHasher.Compute(canonical),async token=>
+        var outcome=await executor.ExecuteAsync<SupplierReturnDetailDto>(new(shopId,FinancialOperationType.SupplierReturn,valid.Value),actor,request.SupplierId,FinancialOperationHasher.Compute(canonical),async token=>
         {
             var locked=await FenceAndLock(auth.Value,request.SupplierId,request.Lines.Select(x=>x.ReceiptValueId).ToArray(),token); if(locked.IsError) return locked.Errors;
             var supplier=await suppliers.GetByIdAsync(request.SupplierId,token);
@@ -74,7 +76,7 @@ public sealed class SupplierReturnService(
                 if(input.Quantity<=0 || !QuantityPolicy.FitsScale(input.Quantity,item.QuantityScale) || input.Quantity>SupplierReturnPolicy.ReturnableQuantity(batch.Quantity,receipt.ReceivedQuantity,shipped)) return Invalid("QuantityInvalid","Quantity exceeds available receipt goods or item precision.");
                 var stock=await inventory.GetByItemAsync(shopId,receipt.ItemId,token); if(stock is null) return Missing;
                 var movement=StockTransaction.Create(shopId,receipt.ItemId,batch.Id,StockTransactionType.SupplierReturn,-input.Quantity,document.ReturnNumber,request.Reason,now,actor,actor).Value;
-                var line=SupplierReturnLine.Create(shopId,document.Id,receipt.Id,batch.Id,receipt.ItemId,receipt.PurchaseOrderReceiptLineId,input.Quantity,input.ProposedCreditAmount,receipt.ReceivedQuantity,receipt.EffectiveTotalCost.Value,item.Name,item.DocumentUnit,receipt.SourceReference,movement.Id);
+                var line=SupplierReturnLine.Create(shopId,document.Id,receipt.Id,batch.Id,receipt.ItemId,receipt.PurchaseOrderReceiptLineId,input.Quantity,input.ProposedCreditAmount,receipt.ReceivedQuantity,receipt.EffectiveTotalCost.Value,item.Name,item.DocumentUnit,receipt.SourceReference,movement.Id,batch.BatchNumber);
                 if(line.IsError) return line.Errors;
                 document.AddLine(line.Value);
                 var reduced=batch.SubtractQuantity(input.Quantity,actor); if(reduced.IsError) return reduced.Errors;
@@ -91,6 +93,11 @@ public sealed class SupplierReturnService(
             try { await uow.SaveChangesAsync(token); } catch(DbUpdateConcurrencyException) { return VersionConflict; }
             return Map(document);
         },ct);
+        if(!outcome.IsError)
+        {
+            await messageBus.PublishAsync(new InventoryStockChangedDomainEvent(shopId,outcome.Value.Lines.Select(line=>line.ItemId).Distinct().ToArray()));
+        }
+        return outcome;
     }
     public async Task<ErrorOr<SupplierReturnDetailDto>> AcceptAsync(Guid actor,Guid shopId,Guid id,SupplierReturnCreditRequest request,CancellationToken ct)
     {
@@ -121,7 +128,7 @@ public sealed class SupplierReturnService(
         return new(document.Id,document.SupplierId,document.ReturnNumber,document.Status.ToString(),document.Version,document.Reason,document.ShippedAt,document.BusinessDate,document.BusinessTimeZoneId,document.ShopName,document.SupplierName,document.Lines.Select(x=>
         {
             var accepted=credit?.Lines.SingleOrDefault(l=>l.ReturnLineId==x.Id);
-            return new SupplierReturnLineDto(x.Id,x.ReceiptValueId,x.InventoryBatchId,x.ItemId,x.PurchaseOrderReceiptLineId,x.Quantity,x.ProposedCreditAmount,x.ReceivedQuantity,x.EffectiveTotalCost,x.ItemName,x.Uqc,x.SourceReference,x.StockTransactionId,accepted?.AcceptedAmount,accepted?.SupplierLedgerEntryId);
+            return new SupplierReturnLineDto(x.Id,x.ReceiptValueId,x.InventoryBatchId,x.ItemId,x.PurchaseOrderReceiptLineId,x.Quantity,x.ProposedCreditAmount,x.ReceivedQuantity,x.EffectiveTotalCost,x.ItemName,x.Uqc,x.SourceReference,x.StockTransactionId,accepted?.AcceptedAmount,accepted?.SupplierLedgerEntryId,x.BatchNumberSnapshot);
         }).ToArray(),credit is null?null:new(credit.Id,credit.AcceptedAt,credit.BusinessDate,credit.CreatedBy,credit.Reason,credit.SupplierReference));
     }
     public async Task<ErrorOr<SupplierReturnDetailDto>> GetAsync(Guid actor,Guid shopId,Guid id,CancellationToken ct)
@@ -150,7 +157,7 @@ public sealed class SupplierReturnService(
         var shipped=history.SelectMany(x=>x.Lines).Where(x=>x.ReceiptValueId==receipt.Id).Sum(x=>x.Quantity);
         var credited=history.Where(x=>x.Credit is not null).SelectMany(x=>x.Credit!.Lines).Where(x=>x.ReceiptValueId==receipt.Id).Sum(x=>x.AcceptedAmount);
         var allocated=(await payments.GetActiveAllocatedByTargetAsync(receipt.ShopId,PaymentAllocationTargetType.SupplierReceipt,[receipt.Id],ct)).GetValueOrDefault(receipt.Id);
-        var net=Math.Max(0,(receipt.EffectiveTotalCost??0)-credited); var ceiling=SupplierReturnPolicy.ReturnableQuantity(batch.Quantity,receipt.ReceivedQuantity,shipped);
+        var net=batch.IsVoided || reversed.Count>0 ? 0m : Math.Max(0,(receipt.EffectiveTotalCost??0)-credited); var ceiling=SupplierReturnPolicy.ReturnableQuantity(batch.Quantity,receipt.ReceivedQuantity,shipped);
         var reasons=await reversalPolicy.GetReasonsAsync(receipt,batch,allocated,ct);
         var supplier=receipt.SupplierId.HasValue?await suppliers.GetByIdAsync(receipt.SupplierId.Value,ct):null;
         if(supplier is null || supplier.IsSystem) { reasons.Add("PurchaseReceipt.SupplierMissing"); ceiling=0; }
