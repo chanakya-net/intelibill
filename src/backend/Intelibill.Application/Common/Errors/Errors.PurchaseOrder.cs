@@ -78,6 +78,15 @@ public static partial class Errors
         public static Error DuplicateReceiptLine =>
             Error.Validation("PurchaseOrder.DuplicateReceiptLine", "A purchase order line can only appear once in a receipt.");
 
+        public static Error InvalidReceiptValue =>
+            Error.Validation("PurchaseOrder.InvalidReceiptValue", "Receipt line contains an invalid value.");
+
+        public static Error DuplicateClientLineId =>
+            Error.Validation("PurchaseOrder.DuplicateClientLineId", "Client receipt line identities must be unique.");
+
+        public static Error ClientLineIdInvalid =>
+            Error.Validation("PurchaseOrder.ClientLineIdInvalid", "Client receipt line identity cannot be empty.");
+
         public static Error ReceiptLineNotFound =>
             Error.Validation("PurchaseOrder.ReceiptLineNotFound", "Purchase order receipt line was not found.");
 

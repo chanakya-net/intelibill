@@ -360,6 +360,8 @@ public class PurchaseOrdersControllerTests
         SetValidClaims(out var userId, out var shopId);
         var poId = Guid.NewGuid();
         var lineId = Guid.NewGuid();
+        var clientId = Guid.NewGuid();
+        var operationId = Guid.NewGuid();
         var dto = new PurchaseOrderDetailDto(
             poId,
             "PO-2026-000001",
@@ -381,7 +383,7 @@ public class PurchaseOrdersControllerTests
                 "REF-1",
                 "Notes",
                 DateTimeOffset.UtcNow,
-                [new ReceivePurchaseOrderLineRequest(lineId, "IT-PO-001", "B-1", 1, 10m, 12m, 11m, 5m, false, false, null, null)]),
+                [new ReceivePurchaseOrderLineRequest(lineId, "IT-PO-001", "B-1", 1, 10m, 12m, 11m, 5m, false, true, null, null, clientId)], operationId),
             CancellationToken.None);
 
         var ok = Assert.IsType<OkObjectResult>(result);
@@ -393,6 +395,9 @@ public class PurchaseOrdersControllerTests
                 && c.PurchaseOrderId == poId
                 && c.ReferenceNumber == "REF-1"
                 && c.Notes == "Notes"
+                && c.OperationId == operationId
+                && c.Lines[0].ClientLineId == clientId
+                && !c.Lines[0].TaxIncluded && c.Lines[0].PurchaseTaxIncluded
                 && c.Lines.Count == 1
                 && c.Lines[0].PurchaseOrderLineId == lineId
                 && c.Lines[0].Barcode == "IT-PO-001"),
@@ -434,5 +439,24 @@ public class PurchaseOrdersControllerTests
             Arg.Is<ReceivePurchaseOrderCommand>(c =>
                 scenario == "two-lines" ? c.Lines.Count == 2 : c.Lines.Count == 0),
             Arg.Any<CancellationToken>());
+    }
+    [Fact]
+    public async Task ReceivePurchaseOrder_ProjectsOnlyWhitelistedRowErrorMetadata()
+    {
+        SetValidClaims(out _, out _);
+        var clientId = Guid.NewGuid();
+        var error = Error.Validation("Inventory.Invalid", "Invalid lot", new Dictionary<string, object>
+        {
+            ["clientLineId"] = clientId, ["lineIndex"] = 1, ["field"] = "quantity", ["secret"] = "hidden"
+        });
+        _bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>()).Returns(error);
+        var result = Assert.IsType<ObjectResult>(await _controller.ReceivePurchaseOrder(Guid.NewGuid(), null));
+        var problem = Assert.IsType<ProblemDetails>(result.Value);
+        Assert.True(problem.Extensions.ContainsKey("rowErrors"));
+        var json = System.Text.Json.JsonSerializer.Serialize(problem.Extensions["rowErrors"]);
+        Assert.Contains(clientId.ToString(), json);
+        Assert.Contains("lineIndex", json);
+        Assert.DoesNotContain("secret", json);
+        Assert.DoesNotContain("hidden", json);
     }
 }

@@ -37,6 +37,7 @@ internal sealed class InventoryUpdater(
 
             inventory = inventoryResult.Value;
             await inventoryRepository.AddAsync(inventory, cancellationToken);
+            context.AddedItemIds.Add(itemId);
             context.ByItemId[itemId] = inventory;
         }
         else
@@ -45,7 +46,10 @@ internal sealed class InventoryUpdater(
             if (addResult.IsError)
                 return addResult.Errors;
 
-            inventoryRepository.Update(inventory);
+            // A later lot can mutate the same unsaved aggregate. Keep its Added state so the
+            // receipt's single save inserts the accumulated quantity rather than updating no row.
+            if (!context.AddedItemIds.Contains(itemId))
+                inventoryRepository.Update(inventory);
         }
 
         return inventory;

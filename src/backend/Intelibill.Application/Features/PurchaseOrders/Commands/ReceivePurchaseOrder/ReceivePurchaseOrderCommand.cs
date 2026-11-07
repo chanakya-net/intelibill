@@ -12,7 +12,8 @@ public sealed record ReceivePurchaseOrderLineInput(
     bool TaxIncluded,
     bool PurchaseTaxIncluded,
     DateOnly? ExpiryDate,
-    DateOnly? ManufacturingDate);
+    DateOnly? ManufacturingDate,
+    Guid? ClientLineId = null);
 
 public sealed record ReceivePurchaseOrderCommand(
     Guid ActorUserId,
@@ -21,4 +22,5 @@ public sealed record ReceivePurchaseOrderCommand(
     string? ReferenceNumber,
     string? Notes,
     DateTimeOffset? ReceivedAt,
-    IReadOnlyList<ReceivePurchaseOrderLineInput> Lines);
+    IReadOnlyList<ReceivePurchaseOrderLineInput> Lines,
+    Guid? OperationId = null);

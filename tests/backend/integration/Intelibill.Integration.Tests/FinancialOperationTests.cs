@@ -40,6 +40,19 @@ public sealed class FinancialOperationTests(PostgreSqlTestFixture fixture) : IAs
     }
 
     [Fact]
+    public async Task PurchaseOrderReceiptLookup_RecognizesSlugAndTreatsMissAsUnresolved()
+    {
+        using var client = CreateClient();
+        var (_, ownerToken) = await CreateShopAsync(client, await RegisterAsync(client));
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/financial-operations/purchase-order-receipt/{Guid.NewGuid():D}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerToken);
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Operation.NotFound", problem.GetProperty("title").GetString());
+    }
+
+    [Fact]
     public async Task ConcurrentSameKey_CommitsOnce()
     {
         using var client = CreateClient();

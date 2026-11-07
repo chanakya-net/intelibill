@@ -11,6 +11,7 @@ internal sealed class PurchaseOrderReceiptLineConfiguration : IEntityTypeConfigu
         builder.ToTable("purchase_order_receipt_lines");
         builder.HasKey(l => l.Id);
 
+        builder.Property(l => l.ClientLineId);
         builder.Property(l => l.PurchaseOrderReceiptId).IsRequired();
         builder.Property(l => l.PurchaseOrderLineId).IsRequired();
         builder.Property(l => l.ItemId).IsRequired();
@@ -25,6 +26,8 @@ internal sealed class PurchaseOrderReceiptLineConfiguration : IEntityTypeConfigu
         builder.Property(l => l.TaxIncluded).IsRequired();
         builder.Property(l => l.PurchaseTaxIncluded).IsRequired();
 
+        builder.HasIndex(l => new { l.PurchaseOrderReceiptId, l.ClientLineId }).IsUnique()
+            .HasFilter("client_line_id IS NOT NULL");
         builder.HasIndex(l => l.PurchaseOrderReceiptId);
         builder.HasIndex(l => l.PurchaseOrderLineId);
         builder.HasIndex(l => l.InventoryBatchId).IsUnique();

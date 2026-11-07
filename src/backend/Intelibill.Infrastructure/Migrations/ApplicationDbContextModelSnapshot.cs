@@ -2598,6 +2598,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<Guid?>("ClientLineId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("client_line_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -2683,6 +2687,11 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasIndex("StockTransactionId")
                         .IsUnique()
                         .HasDatabaseName("ix_purchase_order_receipt_lines_stock_transaction_id");
+
+                    b.HasIndex("PurchaseOrderReceiptId", "ClientLineId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_purchase_order_receipt_lines_purchase_order_receipt_id_clie")
+                        .HasFilter("client_line_id IS NOT NULL");
 
                     b.ToTable("purchase_order_receipt_lines", (string)null);
                 });

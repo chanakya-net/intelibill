@@ -6,6 +6,7 @@ namespace Intelibill.Application.Features.Inventory.Services;
 public sealed class InventoryUpdateContext
 {
     internal Dictionary<Guid, DomainInventory> ByItemId { get; } = new();
+    internal HashSet<Guid> AddedItemIds { get; } = [];
 }
 
 public interface IInventoryUpdater
