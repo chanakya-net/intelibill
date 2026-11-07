@@ -404,6 +404,11 @@ saved request. A miss never permits a fresh operation. Confirmation checks key a
 a confirmed tombstone plus immutable operation proof before cleanup, and refreshes live PO state
 because the replay response may contain an older PO snapshot.
 
+Receiving uses a controlled header Close button and Cancel action: both await the same async
+flush before hiding. Native PrimeNG close, Escape and mask dismissal are disabled. A failed closing
+flush keeps the dialog and unsaved fields visible/editable; restoring storage permits safe close
+and reopen. The custom header preserves PrimeNG's labelled title and translated close name.
+
 Receiving flushes on close/leave, detaches under its captured owner on scope transition, uses
 `beginMutation()` and `REQUEST_SCOPE`, and correlates outcomes by owner + epoch + PO + operation.
 An unrelated or late response cannot close or clear the active draft. Received and Closed orders

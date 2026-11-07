@@ -69,12 +69,31 @@ import { InputValidators } from '../../../shared/forms/input-validation';
     <p-dialog
       [header]="'purchaseOrders.receiveDialog.title' | transloco"
       [visible]="visible"
-      [closable]="canClose()"
+      [closable]="false"
       [closeOnEscape]="false"
+      [dismissableMask]="false"
       [modal]="true"
       [style]="{ width: 'min(720px, 96vw)' }"
-      (onHide)="hide()"
     >
+      <ng-template #header let-titleId="ariaLabelledBy">
+        <div class="receive-dialog-header">
+          <span [id]="titleId" class="p-dialog-title">{{
+            'purchaseOrders.receiveDialog.title' | transloco
+          }}</span>
+          <!-- Native close hides before onHide; only hide() can await/refuse a failed flush. -->
+          <button
+            pButton
+            type="button"
+            icon="pi pi-times"
+            severity="secondary"
+            text
+            rounded
+            [attr.aria-label]="'common.close' | transloco"
+            [disabled]="!canClose()"
+            (click)="hide()"
+          ></button>
+        </div>
+      </ng-template>
       @if (status() === 'unknown') {
         <p role="status">{{ 'purchaseOrders.receiving.unknown' | transloco }}</p>
         <button
@@ -323,6 +342,13 @@ import { InputValidators } from '../../../shared/forms/input-validation';
   `,
   styles: [
     `
+      .receive-dialog-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 0.75rem;
+      }
       .receive-form {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));

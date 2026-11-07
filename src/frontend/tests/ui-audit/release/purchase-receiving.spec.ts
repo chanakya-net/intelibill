@@ -227,7 +227,8 @@ test('lookup miss and retry 404 stay frozen; subsequent retry sends identical op
   await unknown(page);
   await expect(dialog(page).getByRole('button', { name: 'Retry same receipt' })).toBeEnabled();
   expect(server.posts[1].raw).toBe(original.raw);
-  await closeDialog(page);
+  await dialog(page).locator('.p-dialog-header button').click();
+  await expect(dialog(page)).toBeHidden();
   await open(page);
   await unknown(page);
   server.setMode('accept');
@@ -256,6 +257,74 @@ test('storage rejection prevents network dispatch and retains editable values', 
   await expect(dialog(page).locator('[formcontrolname="batchNumber"]')).toHaveValue('UNSAVED');
   await expect(dialog(page).locator('[formcontrolname="batchNumber"]')).toBeEditable();
 });
+
+for (const failure of ['already known', 'on closing flush'] as const)
+  test(`header close retains editable work when storage fails ${failure}`, async ({ page }) => {
+    await open(page);
+    await fillLot(page, 0, 'UNSAVED-X', 4, 40);
+    await dialog(page).locator('[formcontrolname="notes"]').fill('manual notes');
+    await expect.poll(async () => (await record(page))?.draft.notes).toBe('manual notes');
+    await expect(dialog(page).getByRole('alert')).toHaveCount(0);
+    await page.evaluate(() => {
+      const original = indexedDB.open.bind(indexedDB);
+      const state = window as unknown as {
+        restoreReceivingStorage: () => void;
+        receivingStorageFailures: number;
+      };
+      state.receivingStorageFailures = 0;
+      state.restoreReceivingStorage = () => {
+        indexedDB.open = original;
+      };
+      indexedDB.open = ((name: string, version?: number) => {
+        if (name === 'intelibill-purchase-receiving') {
+          state.receivingStorageFailures++;
+          throw new DOMException('Fixture closing storage rejection', 'QuotaExceededError');
+        }
+        return original(name, version);
+      }) as typeof indexedDB.open;
+    });
+    if (failure === 'already known') {
+      await dialog(page).locator('[formcontrolname="notes"]').fill('manual unsaved notes');
+      await expect(dialog(page).getByRole('alert')).toContainText('Unable to save receiving work');
+    }
+    const failuresBeforeClose = await page.evaluate(
+      () => (window as unknown as { receivingStorageFailures: number }).receivingStorageFailures,
+    );
+    await dialog(page).locator('.p-dialog-header button').click();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (window as unknown as { receivingStorageFailures: number }).receivingStorageFailures,
+        ),
+      )
+      .toBeGreaterThan(failuresBeforeClose);
+    await expect(dialog(page)).toBeVisible();
+    await expect(dialog(page).getByRole('alert')).toContainText('Unable to save receiving work');
+    await expect(dialog(page).locator('[formcontrolname="batchNumber"]')).toHaveValue('UNSAVED-X');
+    await expect(dialog(page).locator('[formcontrolname="batchNumber"]')).toBeEditable();
+    const notes = failure === 'already known' ? 'manual unsaved notes' : 'manual notes';
+    await expect(dialog(page).locator('[formcontrolname="notes"]')).toHaveValue(notes);
+    expect(server.posts).toHaveLength(0);
+    await expect(dialog(page).locator('.p-dialog-header button')).toHaveAccessibleName('Close');
+    await page.keyboard.press('Escape');
+    await expect(dialog(page)).toBeVisible();
+    await page.evaluate(() =>
+      (window as unknown as { restoreReceivingStorage: () => void }).restoreReceivingStorage(),
+    );
+    if (failure === 'already known') {
+      await dialog(page).locator('.p-dialog-header button').focus();
+      await page.keyboard.press('Enter');
+    } else await dialog(page).locator('.p-dialog-header button').click();
+    await expect(dialog(page)).toBeHidden();
+    await open(page);
+    await expect(dialog(page).locator('[formcontrolname="batchNumber"]')).toHaveValue('UNSAVED-X');
+    await expect(dialog(page).locator('[formcontrolname="notes"]')).toHaveValue(notes);
+    await expect(
+      dialog(page).locator('p-inputnumber[formcontrolname="totalPurchaseCost"] input'),
+    ).toHaveValue('40.00');
+    expect(server.posts).toHaveLength(0);
+  });
 
 test('late unrelated success cannot close or overwrite another active PO draft', async ({
   page,

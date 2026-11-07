@@ -175,11 +175,18 @@ type ReceivingRowError = {
   zero warnings and errors. These are execution results, not the initial baseline.
 - Frontend final full suite:258 files /2538 tests plus59 Bun script tests passed. Production
   build succeeded and finalized the protected worker wrapper; existing stylesheet budget warnings
-  remain. Receiving release cases:9 passed. Full release audit:20 passed, including all11 existing
-  protected-cache-isolation cases.
+  remain. Receiving release cases:11 passed after the F5 close fix. Final full release audit:22 passed
+  in2.2minutes, including all11 existing protected-cache-isolation cases.
 - Production browser testing found visible lot edits bound to detached initial row controls;
   binding directly to the row FormGroup fixes saved/sent fields. Rejection/reopen and4+6 browser
   cases provide red/green regression evidence. In-place refresh remains covered by component tests.
+- Final review F5: native header X hid before a failing async flush could refuse. A controlled,
+  translated accessible header button now awaits the existing `hide()` flow; native close/mask
+  dismissal and Escape are disabled. Production browser regressions first failed both known
+  storage-error and newly failing closing-flush paths, then proved visible editable fields survive,
+  storage restoration allows close/reopen, and pending recovery still retains its exact operation.
+  Focused PO suite:15 files /197 passed; production build passed. Earlier broad frontend/backend
+  suite results above are reused for this narrowly scoped header fix.
 - Generated/inspected immediately-previous → client-identity migration SQL contains only the
   nullable UUID, RLS-scoped identity backfill, partial unique index and EF history. Real PostgreSQL
   proves fresh schema, upgrade/backfill, legacy null fallback, atomic posting/replay and lineage;
