@@ -221,6 +221,9 @@ public sealed class GetDashboardQueryHandlerTests
 
         Assert.False(result.IsError);
         Assert.Equal(expectedSummary.Summary.NetProfitAfterTax, result.Value.NetProfit);
+        Assert.NotNull(result.Value.Economics);
+        Assert.Equal(expectedSummary.Summary.Economics!.GrossTradingProfit, result.Value.Economics.GrossTradingProfit);
+        Assert.Equal(expectedSummary.Summary.Economics.OperatingProfitStatus, result.Value.Economics.OperatingProfitStatus);
         Assert.Null(result.Value.NetProfitChangePercent);
         Assert.NotEqual(20m, result.Value.NetProfit);
     }

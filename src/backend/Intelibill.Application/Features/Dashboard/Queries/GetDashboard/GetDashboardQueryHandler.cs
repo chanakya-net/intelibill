@@ -133,7 +133,11 @@ public sealed class GetDashboardQueryHandler(
                 s.CustomerDisplayName,
                 s.SoldAt,
                 s.TotalAmount)).ToList(),
-            StockValue: stockValue);
+            StockValue: stockValue,
+            Economics: profitLossReport.Summary.Economics,
+            GrossTradingProfitChangePercent: CalculatePercentChange(
+                profitLossReport.Summary.Economics!.GrossTradingProfit,
+                previousProfitLossReport.Summary.Economics!.GrossTradingProfit));
 
         return result;
     }

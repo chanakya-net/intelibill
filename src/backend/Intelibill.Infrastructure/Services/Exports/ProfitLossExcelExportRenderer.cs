@@ -24,7 +24,7 @@ public sealed class ProfitLossExcelExportRenderer : IProfitLossExcelExportRender
         var dataRow = headerRow + 1;
         foreach (var row in dataset.Rows)
         {
-            RenderRow(worksheet, row, dataRow);
+            RenderRow(worksheet, row, dataRow, dataset.Metadata.BusinessTimeZoneId);
             dataRow++;
         }
 
@@ -62,7 +62,7 @@ public sealed class ProfitLossExcelExportRenderer : IProfitLossExcelExportRender
         worksheet.Cell(startRow++, 1).Style.Font.Bold = true;
 
         worksheet.Cell(startRow, 1).Value = "Generated:";
-        worksheet.Cell(startRow, 2).Value = metadata.GeneratedAt.UtcDateTime;
+        worksheet.Cell(startRow, 2).Value = TimeZoneInfo.ConvertTime(metadata.GeneratedAt, TimeZoneInfo.FindSystemTimeZoneById(metadata.BusinessTimeZoneId)).DateTime;
         worksheet.Cell(startRow, 2).Style.DateFormat.Format = "yyyy-MM-dd HH:mm";
         worksheet.Cell(startRow++, 1).Style.Font.Bold = true;
 
@@ -70,6 +70,11 @@ public sealed class ProfitLossExcelExportRenderer : IProfitLossExcelExportRender
         worksheet.Cell(startRow, 2).Value = metadata.GeneratedBy;
         worksheet.Cell(startRow, 1).Style.Font.Bold = true;
 
+        startRow++;
+        worksheet.Cell(startRow, 1).Value = "Business timezone:";
+        worksheet.Cell(startRow++, 2).Value = metadata.BusinessTimeZoneId;
+        worksheet.Cell(startRow, 1).Value = "Economics version / cost basis:";
+        worksheet.Cell(startRow, 2).Value = $"{metadata.EconomicsVersion} / {metadata.CostBasis}";
         return startRow;
     }
 
@@ -79,10 +84,21 @@ public sealed class ProfitLossExcelExportRenderer : IProfitLossExcelExportRender
         worksheet.Cell(startRow, 1).Style.Font.Bold = true;
         startRow++;
 
-        WriteSummaryRow(worksheet, startRow++, "Net Profit After Tax", summary.NetProfitAfterTax, true);
-        WriteSummaryRow(worksheet, startRow++, "Revenue Including Tax", summary.RevenueIncludingTax, true);
-        WriteSummaryRow(worksheet, startRow++, "Total Cost", summary.TotalCost, true);
-        WriteSummaryRow(worksheet, startRow++, "Average Margin %", summary.AverageMarginPercent, false);
+        var e = summary.Economics;
+        WriteSummaryRow(worksheet, startRow++, "Net sales excluding tax", e?.NetSalesExcludingTax, true);
+        WriteSummaryRow(worksheet, startRow++, "COGS", e?.Cogs, true);
+        WriteSummaryRow(worksheet, startRow++, "Stock loss", e?.StockLoss, true);
+        WriteSummaryRow(worksheet, startRow++, "Returned goods wastage (already included in COGS)", e?.ReturnedGoodsWastageIncludedInCogs, true);
+        WriteSummaryRow(worksheet, startRow++, "Gross trading profit", e?.GrossTradingProfit, true);
+        WriteSummaryRow(worksheet, startRow++, "Operating expenses", e?.OperatingExpenses, true);
+        WriteSummaryRow(worksheet, startRow++, "Operating profit", e?.OperatingProfit, true);
+        WriteSummaryRow(worksheet, startRow++, "Gross margin %", e?.GrossMarginPercent, false);
+        WriteSummaryRow(worksheet, startRow++, "Markup %", e?.MarkupPercent, false);
+        worksheet.Cell(startRow, 1).Value = "Operating profit status";
+        worksheet.Cell(startRow++, 2).Value = e?.OperatingProfitStatus ?? "Not available";
+        WriteSummaryRow(worksheet, startRow++, "Period-wide unclassified expenses", e?.UnclassifiedExpenseAmount, true);
+        worksheet.Cell(startRow, 1).Value = "Limitations";
+        worksheet.Cell(startRow++, 2).Value = e is null ? "Legacy dataset: version2 economics unavailable" : string.Join(", ", e.Limitations);
         WriteSummaryRow(worksheet, startRow++, "Invoice Count", summary.InvoiceCount, false);
         WriteSummaryRow(worksheet, startRow++, "Return Count", summary.ReturnCount, false);
         WriteSummaryRow(worksheet, startRow, "Adjustment Count", summary.AdjustmentCount, false);
@@ -100,7 +116,8 @@ public sealed class ProfitLossExcelExportRenderer : IProfitLossExcelExportRender
     private static void WriteSummaryRow(IXLWorksheet worksheet, int row, string label, decimal? value, bool currency)
     {
         worksheet.Cell(row, 1).Value = label;
-        worksheet.Cell(row, 2).Value = value ?? 0m;
+        if (value.HasValue) worksheet.Cell(row, 2).Value = value.Value;
+        else worksheet.Cell(row, 2).Value = "Not available";
         worksheet.Cell(row, 2).Style.NumberFormat.Format = currency ? "#,##0.00" : "0.##";
     }
 
@@ -119,13 +136,15 @@ public sealed class ProfitLossExcelExportRenderer : IProfitLossExcelExportRender
             "Date",
             "Type",
             "Customer",
-            "Total Cost",
-            "Wastage Cost",
-            "Revenue Excluding Tax",
+            "COGS",
+            "Stock loss",
+            "Net sales excluding tax",
             "Revenue Including Tax",
-            "Profit Before Tax",
-            "Profit After Tax",
-            "Margin %",
+            "Gross trading profit",
+            "Gross margin %",
+            "Markup %",
+            "Return wastage (included in COGS)",
+            "Notes",
         };
 
         for (var i = 0; i < headers.Length; i++)
@@ -138,34 +157,41 @@ public sealed class ProfitLossExcelExportRenderer : IProfitLossExcelExportRender
         }
     }
 
-    private static void RenderRow(IXLWorksheet worksheet, ProfitLossExportRowDto row, int rowNumber)
+    private static void RenderRow(IXLWorksheet worksheet, ProfitLossExportRowDto row, int rowNumber, string timeZoneId)
     {
         worksheet.Cell(rowNumber, 1).Value = row.ReferenceNumber;
-        worksheet.Cell(rowNumber, 2).Value = row.OccurredAt.UtcDateTime;
+        worksheet.Cell(rowNumber, 2).Value = TimeZoneInfo.ConvertTime(row.OccurredAt, TimeZoneInfo.FindSystemTimeZoneById(timeZoneId)).DateTime;
         worksheet.Cell(rowNumber, 2).Style.DateFormat.Format = "yyyy-MM-dd HH:mm";
         worksheet.Cell(rowNumber, 3).Value = row.RowType;
         worksheet.Cell(rowNumber, 4).Value = row.CustomerName ?? string.Empty;
-        worksheet.Cell(rowNumber, 5).Value = row.TotalCost;
-        worksheet.Cell(rowNumber, 6).Value = row.WastageCost;
-        worksheet.Cell(rowNumber, 7).Value = row.RevenueBeforeTax;
+        var economics = row.Economics;
+        Set(5, economics?.Cogs);
+        Set(6, economics?.StockLoss);
+        Set(7, economics?.NetSalesExcludingTax);
         worksheet.Cell(rowNumber, 8).Value = row.RevenueAfterTax;
-        worksheet.Cell(rowNumber, 9).Value = row.ProfitBeforeTax;
-        worksheet.Cell(rowNumber, 10).Value = row.ProfitAfterTax;
-        worksheet.Cell(rowNumber, 11).Value = row.MarginPercent ?? 0m;
+        Set(9, economics?.GrossTradingProfit);
+        Set(10, economics?.GrossMarginPercent);
+        Set(11, economics?.MarkupPercent);
+        Set(12, economics?.ReturnedGoodsWastageIncludedInCogs);
+        worksheet.Cell(rowNumber, 13).Value = string.Join(", ", new[] {
+            row.IsReversal ? "Reversal" : null, row.NeedsAccountingReview ? "Needs accounting review" : null,
+            economics?.HasUnmodeledServiceCost == true ? "Service costs unmodeled" : null }.OfType<string>());
+        for (var col = 5; col <= 12; col++) worksheet.Cell(rowNumber, col).Style.NumberFormat.Format = col is 10 or 11 ? "0.##" : "#,##0.00";
 
-        for (var col = 5; col <= 11; col++)
+        void Set(int col, decimal? value)
         {
-            worksheet.Cell(rowNumber, col).Style.NumberFormat.Format = col == 11 ? "0.##" : "#,##0.00";
+            if (value.HasValue) worksheet.Cell(rowNumber, col).Value = value.Value;
+            else worksheet.Cell(rowNumber, col).Value = "Not available";
         }
     }
 
     private static void ApplyPolish(IXLWorksheet worksheet, int headerRow, int lastDataRow)
     {
         worksheet.SheetView.FreezeRows(headerRow);
-        worksheet.Range(headerRow, 1, headerRow, 11).SetAutoFilter();
-        worksheet.Columns(1, 11).AdjustToContents();
+        worksheet.Range(headerRow, 1, headerRow, 13).SetAutoFilter();
+        worksheet.Columns(1, 13).AdjustToContents();
 
-        for (var col = 1; col <= 11; col++)
+        for (var col = 1; col <= 13; col++)
         {
             if (worksheet.Column(col).Width < 12)
             {
@@ -175,7 +201,7 @@ public sealed class ProfitLossExcelExportRenderer : IProfitLossExcelExportRender
 
         if (lastDataRow >= headerRow + 1)
         {
-            worksheet.Range(headerRow + 1, 1, lastDataRow, 11).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            worksheet.Range(headerRow + 1, 1, lastDataRow, 13).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
         }
     }
 

@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Sales.DTOs;
+
 namespace Intelibill.Application.Features.Exports.ProfitLoss.DTOs;
 
 public sealed record ProfitLossExportRowDto(
@@ -11,4 +13,7 @@ public sealed record ProfitLossExportRowDto(
     decimal RevenueAfterTax,
     decimal ProfitBeforeTax,
     decimal ProfitAfterTax,
-    decimal? MarginPercent);
+    decimal? MarginPercent,
+    ProfitLossRowEconomicsDto? Economics = null,
+    bool IsReversal = false,
+    bool NeedsAccountingReview = false);

@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Sales.DTOs;
+
 namespace Intelibill.Application.Features.Dashboard.DTOs;
 
 public sealed record DashboardDto(
@@ -38,4 +40,6 @@ public sealed record DashboardDto(
     IReadOnlyList<PaymentMixTrendPointDto>? PaymentMixTrendSeries,
     PreviousPeriodSummaryDto? PreviousPeriodSummary,
     IReadOnlyList<DashboardLatestSaleDto> LatestSales,
-    decimal? StockValue);
+    decimal? StockValue,
+    ProfitLossEconomicsDto? Economics = null,
+    decimal? GrossTradingProfitChangePercent = null);

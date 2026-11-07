@@ -9,4 +9,7 @@ public sealed record ProfitLossExportMetadataDto(
     DateOnly To,
     string Type,
     string? Search,
-    string Format);
+    string Format,
+    string BusinessTimeZoneId = "Asia/Kolkata",
+    int EconomicsVersion = 2,
+    string CostBasis = "recorded-sale-cost/1");
