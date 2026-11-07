@@ -1,3 +1,5 @@
+import { Store } from '@ngrx/store';
+import { selectPurchaseOrdersState } from './purchase-orders.selectors';
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { Router } from '@angular/router';
@@ -8,7 +10,6 @@ import { ScopeMismatchError } from '../../../core/context/scoped-request';
 import { ReceivingDraftService } from '../services/receiving-draft.service';
 import { ReceivingCommand, ReceivingCorrelation, receivingKey } from '../services/receiving.models';
 import {
-  classifyReceivingFailure,
   normalizeReceivingErrors,
   receivingMessage,
   receivingProblem,
@@ -28,6 +29,7 @@ export class PurchaseOrdersEffects {
   private readonly router = inject(Router);
   private readonly drafts = inject(ReceivingDraftService);
   private readonly context = inject(ShopContextService);
+  private readonly state = inject(Store).selectSignal(selectPurchaseOrdersState);
   private readonly receivingInFlight = new Set<string>();
 
   readonly loadOrders$ = createEffect(() =>
@@ -192,16 +194,21 @@ export class PurchaseOrdersEffects {
         PurchaseOrdersActions.receiveOrderSucceeded,
         PurchaseOrdersActions.checkReceiptSucceeded,
       ),
-      mergeMap(({ correlation }) =>
-        this.isCurrent(correlation)
-          ? [
-              PurchaseOrdersActions.loadPurchaseOrderDetailRequested({
-                purchaseOrderId: correlation.purchaseOrderId,
-              }),
-              PurchaseOrdersActions.loadPurchaseOrdersRequested({ filters: {} }),
-            ]
-          : [],
-      ),
+      mergeMap(({ correlation }) => {
+        if (!this.isCurrent(correlation)) return [];
+        const state = this.state();
+        const activeTarget = state.detailPurchaseOrderId ?? state.selectedOrder?.purchaseOrderId;
+        return [
+          ...(activeTarget === correlation.purchaseOrderId
+            ? [
+                PurchaseOrdersActions.loadPurchaseOrderDetailRequested({
+                  purchaseOrderId: correlation.purchaseOrderId,
+                }),
+              ]
+            : []),
+          PurchaseOrdersActions.loadPurchaseOrdersRequested({ filters: state.filters }),
+        ];
+      }),
     ),
   );
 
@@ -226,10 +233,8 @@ export class PurchaseOrdersEffects {
 
   private async sendReceipt(command: ReceivingCommand) {
     const { correlation, payload } = command;
-    let wasUnknown = command.recovery;
     try {
       const stored = await this.drafts.load(correlation.scope, correlation.purchaseOrderId);
-      wasUnknown ||= stored?.pending?.status === 'unknown';
       if (
         !stored?.pending ||
         stored.pending.operationId !== correlation.operationId ||
@@ -247,40 +252,42 @@ export class PurchaseOrdersEffects {
       if (!this.isCurrent(correlation)) throw new ScopeMismatchError();
       if (order.purchaseOrderId !== correlation.purchaseOrderId)
         throw new Error('Receipt target mismatch.');
-      await this.drafts.settle(
-        correlation.scope,
-        correlation.purchaseOrderId,
-        correlation.operationId,
-        'confirmed',
-      );
+      if (!(await this.confirmReceipt(correlation)))
+        throw new Error('Receipt confirmation did not match durable work.');
       return PurchaseOrdersActions.receiveOrderSucceeded({ correlation });
     } catch (error) {
-      let outcome = classifyReceivingFailure(error, wasUnknown);
+      let outcome: 'unknown' | 'rejected' = 'unknown';
+      let storageFailed = false;
+      try {
+        const settled = await this.drafts.settleFailure(
+          correlation.scope,
+          correlation.purchaseOrderId,
+          correlation.operationId,
+          error,
+          command.recovery,
+        );
+        if (
+          settled.record?.confirmedOperationId === correlation.operationId ||
+          (!settled.record &&
+            (await this.drafts.isConfirmed(
+              correlation.scope,
+              correlation.purchaseOrderId,
+              correlation.operationId,
+            )))
+        )
+          return PurchaseOrdersActions.receiveOrderSucceeded({ correlation });
+        outcome = settled.outcome;
+      } catch {
+        storageFailed = true;
+      }
       const problemCode = receivingProblem(error).code ?? receivingProblem(error).title ?? '';
-      let errorMessage =
-        problemCode === 'Operation.PayloadMismatch'
+      const errorMessage = storageFailed
+        ? 'purchaseOrders.receiving.storageError'
+        : problemCode === 'Operation.PayloadMismatch'
           ? receivingMessage(problemCode)
           : outcome === 'unknown'
             ? 'purchaseOrders.receiving.unknown'
-            : receivingMessage(receivingProblem(error).code ?? receivingProblem(error).title ?? '');
-      try {
-        if (outcome === 'unknown')
-          await this.drafts.markUnknown(
-            correlation.scope,
-            correlation.purchaseOrderId,
-            correlation.operationId,
-          );
-        else
-          await this.drafts.settle(
-            correlation.scope,
-            correlation.purchaseOrderId,
-            correlation.operationId,
-            'rejected',
-          );
-      } catch {
-        outcome = 'unknown';
-        errorMessage = 'purchaseOrders.receiving.storageError';
-      }
+            : receivingMessage(problemCode);
       return PurchaseOrdersActions.receiveOrderFailed({
         correlation,
         outcome,
@@ -288,6 +295,26 @@ export class PurchaseOrdersEffects {
         rowErrors: normalizeReceivingErrors(receivingProblem(error), payload),
       });
     }
+  }
+
+  private async confirmReceipt(correlation: ReceivingCorrelation): Promise<boolean> {
+    const record = await this.drafts.settle(
+      correlation.scope,
+      correlation.purchaseOrderId,
+      correlation.operationId,
+      'confirmed',
+    );
+    // An unmatched settlement is not proof. Only an exact tombstone, or its immutable archived
+    // proof after cleanup, may acknowledge the operation; a replacement record is untouched.
+    return (
+      record?.confirmedOperationId === correlation.operationId ||
+      (!record &&
+        (await this.drafts.isConfirmed(
+          correlation.scope,
+          correlation.purchaseOrderId,
+          correlation.operationId,
+        )))
+    );
   }
 
   private async lookupReceipt(correlation: ReceivingCorrelation) {
@@ -306,12 +333,8 @@ export class PurchaseOrdersEffects {
         lookup.operationType !== 'purchase-order-receipt'
       )
         throw new Error('Receipt lookup identity mismatch.');
-      await this.drafts.settle(
-        correlation.scope,
-        correlation.purchaseOrderId,
-        correlation.operationId,
-        'confirmed',
-      );
+      if (!(await this.confirmReceipt(correlation)))
+        throw new Error('Receipt confirmation did not match durable work.');
       return PurchaseOrdersActions.checkReceiptSucceeded({ correlation });
     } catch (error) {
       try {

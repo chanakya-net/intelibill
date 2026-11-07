@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { IDBFactory } from 'fake-indexeddb';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -695,5 +696,239 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
       (await TestBed.inject(ReceivingDraftService).load(command.correlation.scope, 'po-1'))!
         .pending!.payload,
     ).toEqual(command.payload);
+  });
+  it('does not let delayed confirmation cleanup close or mutate a reopened dialog lifetime', async () => {
+    const c = fixture.componentInstance;
+    const storage = TestBed.inject(ReceivingDraftService);
+    const emitted = vi.spyOn(c.receive, 'emit');
+    await c['submit']();
+    const command = emitted.mock.calls[0][0]!;
+    await storage.settle(
+      command.correlation.scope,
+      'po-1',
+      command.correlation.operationId,
+      'confirmed',
+    );
+    const tombstone = (await storage.load(command.correlation.scope, 'po-1'))!;
+    let finish!: (value: typeof tombstone) => void;
+    vi.spyOn(storage, 'load').mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    results.set({
+      [receivingKey(command.correlation)]: {
+        correlation: command.correlation,
+        status: 'confirmed',
+        errorMessage: '',
+        rowErrors: [],
+      },
+    });
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(finish).toBeDefined());
+    await c['hide']();
+    fixture.componentRef.setInput('visible', false);
+    fixture.detectChanges();
+    fixture.componentRef.setInput('visible', true);
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(c['loading']()).toBe(false));
+    const before = c['form'].getRawValue();
+    const closed = vi.spyOn(c.closed, 'emit');
+    finish(tombstone);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    fixture.detectChanges();
+    expect(c.visible).toBe(true);
+    expect(closed).not.toHaveBeenCalled();
+    expect(c['form'].getRawValue()).toEqual(before);
+  });
+
+  it.each(['pending', 'mismatched', 'missing', 'read-failed'])(
+    'does not close or clear work for an unproved durable confirmation (%s)',
+    async (mode) => {
+      const c = fixture.componentInstance;
+      const emitted = vi.spyOn(c.receive, 'emit');
+      const closed = vi.spyOn(c.closed, 'emit');
+      await c['submit']();
+      const command = emitted.mock.calls[0][0]!;
+      const storage = TestBed.inject(ReceivingDraftService);
+      const stored = (await storage.load(command.correlation.scope, 'po-1'))!;
+      if (mode === 'mismatched')
+        vi.spyOn(storage, 'load').mockResolvedValueOnce({
+          ...stored,
+          pending: null,
+          confirmedOperationId: 'another-operation',
+        });
+      if (mode === 'missing') vi.spyOn(storage, 'load').mockResolvedValueOnce(null);
+      if (mode === 'read-failed')
+        vi.spyOn(storage, 'load').mockRejectedValueOnce(new Error('storage read failed'));
+      results.set({
+        [receivingKey(command.correlation)]: {
+          correlation: command.correlation,
+          status: 'confirmed',
+          errorMessage: '',
+          rowErrors: [],
+        },
+      });
+      fixture.detectChanges();
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      expect(c.visible).toBe(true);
+      expect(closed).not.toHaveBeenCalled();
+      expect(
+        (await TestBed.inject(ReceivingDraftService).load(command.correlation.scope, 'po-1'))!
+          .pending!.operationId,
+      ).toBe(command.correlation.operationId);
+    },
+  );
+
+  it('closes after exact confirmation even if another tab already cleaned its tombstone', async () => {
+    const c = fixture.componentInstance;
+    const storage = TestBed.inject(ReceivingDraftService);
+    const emitted = vi.spyOn(c.receive, 'emit');
+    await c['submit']();
+    const command = emitted.mock.calls[0][0]!;
+    await storage.settle(
+      command.correlation.scope,
+      'po-1',
+      command.correlation.operationId,
+      'confirmed',
+    );
+    await new ReceivingDraftService().clearConfirmed(
+      command.correlation.scope,
+      'po-1',
+      command.correlation.operationId,
+    );
+    const closed = vi.spyOn(c.closed, 'emit');
+    results.set({
+      [receivingKey(command.correlation)]: {
+        correlation: command.correlation,
+        status: 'confirmed',
+        errorMessage: '',
+        rowErrors: [],
+      },
+    });
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(closed).toHaveBeenCalledOnce());
+    expect(
+      await storage.isConfirmed(command.correlation.scope, 'po-1', command.correlation.operationId),
+    ).toBe(true);
+  });
+
+  it('keeps exact durable confirmation when cleanup fails, while safely closing its own dialog', async () => {
+    const c = fixture.componentInstance;
+    const storage = TestBed.inject(ReceivingDraftService);
+    const emitted = vi.spyOn(c.receive, 'emit');
+    await c['submit']();
+    const command = emitted.mock.calls[0][0]!;
+    await storage.settle(
+      command.correlation.scope,
+      'po-1',
+      command.correlation.operationId,
+      'confirmed',
+    );
+    vi.spyOn(storage, 'clearConfirmed').mockRejectedValueOnce(new Error('cleanup failed'));
+    results.set({
+      [receivingKey(command.correlation)]: {
+        correlation: command.correlation,
+        status: 'confirmed',
+        errorMessage: '',
+        rowErrors: [],
+      },
+    });
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(c.visible).toBe(false));
+    expect((await storage.load(command.correlation.scope, 'po-1'))!.confirmedOperationId).toBe(
+      command.correlation.operationId,
+    );
+    await expect(
+      storage.prepare(
+        command.correlation.scope,
+        'po-1',
+        { referenceNumber: '', notes: '', receivedAt: null, lines: [] },
+        0,
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('keeps the UI frozen after a retry miss and preserves edited B when unrelated A confirms', async () => {
+    const c = fixture.componentInstance;
+    const emitted = vi.spyOn(c.receive, 'emit');
+    const storage = TestBed.inject(ReceivingDraftService);
+    c['form'].controls.notes.setValue('B draft remains');
+    const before = c['form'].getRawValue();
+    const unrelated = {
+      scope: TestBed.inject(ShopContextService).scope()!,
+      purchaseOrderId: 'po-A',
+      operationId: 'op-A',
+    };
+    results.set({
+      [receivingKey(unrelated)]: {
+        correlation: unrelated,
+        status: 'confirmed',
+        errorMessage: '',
+        rowErrors: [],
+      },
+    });
+    fixture.detectChanges();
+    expect(c['form'].getRawValue()).toEqual(before);
+    expect(c.visible).toBe(true);
+    await c['submit']();
+    const command = emitted.mock.calls[0][0]!;
+    await storage.settleFailure(
+      command.correlation.scope,
+      'po-1',
+      command.correlation.operationId,
+      new Error('lost response'),
+      false,
+    );
+    await storage.settleFailure(
+      command.correlation.scope,
+      'po-1',
+      command.correlation.operationId,
+      new HttpErrorResponse({ status: 404 }),
+      true,
+    );
+    results.set({
+      [receivingKey(command.correlation)]: {
+        correlation: command.correlation,
+        status: 'unknown',
+        errorMessage: 'purchaseOrders.receiving.unknown',
+        rowErrors: [],
+      },
+    });
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(c['loading']()).toBe(false));
+    expect(c['form'].disabled).toBe(true);
+    expect(c.visible).toBe(true);
+    expect((await storage.load(command.correlation.scope, 'po-1'))!.pending!.payload).toEqual(
+      command.payload,
+    );
+  });
+
+  it('safely cleans an exact restored confirmation on manual close so later receipts remain possible', async () => {
+    const c = fixture.componentInstance;
+    const storage = TestBed.inject(ReceivingDraftService);
+    const emitted = vi.spyOn(c.receive, 'emit');
+    await c['submit']();
+    const command = emitted.mock.calls[0][0]!;
+    await storage.settle(
+      command.correlation.scope,
+      'po-1',
+      command.correlation.operationId,
+      'confirmed',
+    );
+    fixture.destroy();
+    fixture = TestBed.createComponent(ReceivePurchaseOrderDialogComponent);
+    fixture.componentRef.setInput('order', order);
+    fixture.componentRef.setInput('visible', true);
+    fixture.detectChanges();
+    const restored = fixture.componentInstance;
+    await vi.waitFor(() => expect(restored['loading']()).toBe(false));
+    expect(restored['status']()).toBe('confirmed');
+    await restored['hide']();
+    expect(await storage.load(command.correlation.scope, 'po-1')).toBeNull();
+    expect(
+      await storage.isConfirmed(command.correlation.scope, 'po-1', command.correlation.operationId),
+    ).toBe(true);
   });
 });

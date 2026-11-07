@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { IDBFactory, IDBDatabase as FakeDatabase } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReceivingDraftService } from './receiving-draft.service';
@@ -140,5 +141,49 @@ describe('ReceivingDraftService', () => {
     expect((await service.load(owner, 'po-1'))!.confirmedOperationId).toBe(
       prepared.pending!.operationId,
     );
+  });
+  it('classifies failure and updates the current unknown record inside one transaction; unmatched settlement is a no-op', async () => {
+    const first = await service.prepare(owner, 'po-1', draft, 0);
+    const other = new ReceivingDraftService();
+    await other.prepare(owner, 'po-1', draft, 0);
+    const failed = await service.settleFailure(
+      owner,
+      'po-1',
+      first.pending!.operationId,
+      new HttpErrorResponse({ status: 401 }),
+      false,
+    );
+    expect(failed.outcome).toBe('unknown');
+    expect(failed.matched).toBe(true);
+    expect(failed.record!.pending!.operationId).toBe(first.pending!.operationId);
+    const before = await service.load(owner, 'po-1');
+    expect(await service.settle(owner, 'po-1', 'unrelated', 'confirmed')).toEqual(before);
+    expect(await service.isConfirmed(owner, 'po-1', 'unrelated')).toBe(false);
+    expect(await service.clearConfirmed(owner, 'po-1', 'unrelated')).toBe(false);
+    expect(
+      await service.settleFailure(
+        owner,
+        'po-1',
+        'unrelated',
+        new HttpErrorResponse({ status: 400 }),
+        false,
+      ),
+    ).toEqual({ outcome: 'unknown', matched: false, record: before });
+    expect(await service.load(owner, 'po-1')).toEqual(before);
+  });
+
+  it('retains exact durable proof after another tab cleans the tombstone, without granting authority over a replacement', async () => {
+    const prepared = await service.prepare(owner, 'po-1', draft, 0);
+    const op = prepared.pending!.operationId;
+    const confirmed = await service.settle(owner, 'po-1', op, 'confirmed');
+    expect(confirmed!.confirmedOperationId).toBe(op);
+    expect(await new ReceivingDraftService().clearConfirmed(owner, 'po-1', op)).toBe(true);
+    expect(await service.load(owner, 'po-1')).toBeNull();
+    expect(await service.isConfirmed(owner, 'po-1', op)).toBe(true);
+    const replacement = await service.save(owner, 'po-1', { ...draft, notes: 'new work' }, 0);
+    expect(await service.clearConfirmed(owner, 'po-1', op)).toBe(false);
+    expect(await service.settle(owner, 'po-1', op, 'confirmed')).toEqual(replacement);
+    expect((await service.load(owner, 'po-1'))!.draft.notes).toBe('new work');
+    expect(await service.isConfirmed({ ...owner, shopId: 'other-shop' }, 'po-1', op)).toBe(false);
   });
 });

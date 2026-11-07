@@ -30,7 +30,7 @@ export function classifyReceivingFailure(
   )
     return 'unknown';
   // Replay authorization happens before receipt lookup. A denied recovery says nothing about its earlier commit.
-  if (wasUnknown && error instanceof HttpErrorResponse && [401, 403].includes(error.status))
+  if (wasUnknown && error instanceof HttpErrorResponse && [401, 403, 404].includes(error.status))
     return 'unknown';
   return classifyFinancialOperationFailure(error) === 'rejected' ? 'rejected' : 'unknown';
 }

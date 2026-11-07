@@ -46,4 +46,7 @@ describe('receiving error adapter', () => {
       expect(classifyReceivingFailure(error, true)).toBe('unknown');
     expect(classifyReceivingFailure(new HttpErrorResponse({ status: 400 }), true)).toBe('rejected');
   });
+  it('keeps a 404 retry unknown because it cannot disprove an earlier commit', () => {
+    expect(classifyReceivingFailure(new HttpErrorResponse({ status: 404 }), true)).toBe('unknown');
+  });
 });

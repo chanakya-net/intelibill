@@ -17,6 +17,7 @@ const initialState: PurchaseOrdersState = purchaseOrdersAdapter.getInitialState(
   submitting: false,
   errorMessage: '',
   selectedOrder: null,
+  detailPurchaseOrderId: null,
   createSucceeded: false,
   totalCount: 0,
   currentPage: 1,
@@ -130,7 +131,7 @@ describe('purchaseOrdersReducer', () => {
 
   it('sets selectedOrder on detail succeeded', () => {
     const next = purchaseOrdersReducer(
-      { ...initialState, loadingDetail: true },
+      { ...initialState, loadingDetail: true, detailPurchaseOrderId: mockDetail.purchaseOrderId },
       PurchaseOrdersActions.loadPurchaseOrderDetailSucceeded({ order: mockDetail }),
     );
     expect(next.loadingDetail).toBe(false);
@@ -392,5 +393,19 @@ describe('purchaseOrdersReducer', () => {
       PurchaseOrdersActions.loadPurchaseOrderDetailRequested({ purchaseOrderId: 'different-po' }),
     );
     expect(other.selectedOrder).toBeNull();
+  });
+  it('ignores a background A detail result while B owns the active detail request', () => {
+    const requested = purchaseOrdersReducer(
+      initialState,
+      PurchaseOrdersActions.loadPurchaseOrderDetailRequested({ purchaseOrderId: 'poB' }),
+    );
+    expect(
+      purchaseOrdersReducer(
+        requested,
+        PurchaseOrdersActions.loadPurchaseOrderDetailSucceeded({
+          order: { ...mockDetail, purchaseOrderId: 'poA' },
+        }),
+      ),
+    ).toBe(requested);
   });
 });

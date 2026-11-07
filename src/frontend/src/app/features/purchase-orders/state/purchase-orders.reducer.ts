@@ -23,6 +23,7 @@ export interface PurchaseOrdersState extends EntityState<PurchaseOrderListItem> 
   readonly loadingDetail: boolean;
   readonly submitting: boolean;
   readonly errorMessage: string;
+  readonly detailPurchaseOrderId: string | null;
   readonly selectedOrder: PurchaseOrderDetail | null;
   readonly createSucceeded: boolean;
   readonly totalCount: number;
@@ -38,6 +39,7 @@ const initialState: PurchaseOrdersState = purchaseOrdersAdapter.getInitialState(
   submitting: false,
   errorMessage: '',
   selectedOrder: null,
+  detailPurchaseOrderId: null,
   createSucceeded: false,
   totalCount: 0,
   currentPage: 1,
@@ -96,15 +98,20 @@ export const purchaseOrdersReducer = createReducer(
   on(PurchaseOrdersActions.loadPurchaseOrderDetailRequested, (state, { purchaseOrderId }) => ({
     ...state,
     loadingDetail: true,
+    detailPurchaseOrderId: purchaseOrderId,
     selectedOrder:
       state.selectedOrder?.purchaseOrderId === purchaseOrderId ? state.selectedOrder : null,
     errorMessage: '',
   })),
-  on(PurchaseOrdersActions.loadPurchaseOrderDetailSucceeded, (state, { order }) => ({
-    ...state,
-    loadingDetail: false,
-    selectedOrder: order,
-  })),
+  on(PurchaseOrdersActions.loadPurchaseOrderDetailSucceeded, (state, { order }) =>
+    state.detailPurchaseOrderId !== order.purchaseOrderId
+      ? state
+      : {
+          ...state,
+          loadingDetail: false,
+          selectedOrder: order,
+        },
+  ),
   on(PurchaseOrdersActions.loadPurchaseOrderDetailFailed, (state, { errorMessage }) => ({
     ...state,
     loadingDetail: false,
@@ -303,6 +310,7 @@ export const purchaseOrdersReducer = createReducer(
   on(PurchaseOrdersActions.clearDetail, (state) => ({
     ...state,
     selectedOrder: null,
+    detailPurchaseOrderId: null,
     loadingDetail: false,
   })),
   on(PurchaseOrdersActions.clearError, (state) => ({

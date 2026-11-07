@@ -426,7 +426,13 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
   }
 
   @Input({ required: true }) order!: PurchaseOrderDetail;
-  @Input() visible = false;
+  private readonly visibleSignal = signal(false);
+  @Input() get visible(): boolean {
+    return this.visibleSignal();
+  }
+  set visible(value: boolean) {
+    this.visibleSignal.set(value);
+  }
   @Input() submitting = false;
   @Output() visibleChange = new EventEmitter<boolean>();
   @Output() closed = new EventEmitter<void>();
@@ -559,8 +565,10 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
           });
       }
     } catch {
-      this.saveFailed = true;
-      this.errorMessage.set('purchaseOrders.receiving.storageError');
+      if (generation === this.generation) {
+        this.saveFailed = true;
+        this.errorMessage.set('purchaseOrders.receiving.storageError');
+      }
     } finally {
       if (generation === this.generation) this.loading.set(false);
     }
@@ -657,23 +665,57 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
         this.valueChanges = this.form.valueChanges.subscribe(() => this.queueSave());
       } else this.form.disable({ emitEvent: false });
     } catch {
-      this.status.set('unknown');
-      this.errorMessage.set('purchaseOrders.receiving.storageError');
+      if (generation === this.generation) {
+        this.status.set('unknown');
+        this.errorMessage.set('purchaseOrders.receiving.storageError');
+      }
     } finally {
       if (generation === this.generation) this.loading.set(false);
     }
   }
   private async closeConfirmed(): Promise<void> {
-    this.loading.set(false);
-    // A failed delete leaves a noneditable tombstone, never the old editable draft.
+    const owner = this.owner;
+    const poId = this.initializedPo;
+    const operationId = this.correlation?.operationId ?? this.record?.confirmedOperationId;
+    const generation = this.generation;
+    if (!owner || !operationId) return;
+    const sameLifetime = () =>
+      generation === this.generation &&
+      this.visible &&
+      this.current() &&
+      this.initializedPo === poId &&
+      (this.correlation?.operationId ?? this.record?.confirmedOperationId) === operationId;
+    if (!sameLifetime()) return;
+    this.loading.set(true);
+    let proven = false;
     try {
-      const record = await this.drafts.load(this.owner!, this.initializedPo);
-      if (record?.confirmedOperationId)
-        await this.drafts.discard(this.owner!, this.initializedPo, record.revision);
+      const record = await this.drafts.load(owner, poId);
+      if (!sameLifetime()) return;
+      // A different live record is a replacement, never cleanup authority. If another tab has
+      // already deleted this tombstone, its immutable operation-specific proof is required.
+      proven = record
+        ? record.confirmedOperationId === operationId
+        : await this.drafts.isConfirmed(owner, poId, operationId);
+      if (!sameLifetime()) return;
+      if (!proven) {
+        this.status.set('unknown');
+        this.errorMessage.set('purchaseOrders.receiving.lookupFailed');
+        this.form.disable({ emitEvent: false });
+        return;
+      }
+      await this.drafts.clearConfirmed(owner, poId, operationId);
+      if (sameLifetime()) this.close();
     } catch {
-      /* Safe to close: confirmation was already committed to IndexedDB. */
+      if (!sameLifetime()) return;
+      if (proven)
+        this.close(); // Failed cleanup retains the already verified tombstone/proof.
+      else {
+        this.status.set('unknown');
+        this.errorMessage.set('purchaseOrders.receiving.storageError');
+      }
+    } finally {
+      if (sameLifetime()) this.loading.set(false);
     }
-    if (this.current()) this.close();
   }
 
   protected filteredLineIndexes(): number[] {
@@ -972,26 +1014,43 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
   }
 
   protected async hide(): Promise<void> {
-    if (!this.canClose()) return;
+    if (!this.visible || !this.canClose()) return;
+    const generation = this.generation;
     const saving = this.flush();
     this.closing = true;
     const saved = await saving;
+    if (generation !== this.generation) return;
     this.closing = false;
     if (!saved || !this.canClose()) return;
-    if (this.status() === 'confirmed') {
-      await this.closeConfirmed();
-      return;
-    }
+    // A restored, exact tombstone may be cleaned using its captured identity. An in-flight
+    // cleanup has not established that proof yet and must not gain authority from this close.
+    const owner = this.owner;
+    const poId = this.initializedPo;
+    const confirmedOperationId = this.record?.confirmedOperationId;
     this.close();
+    if (owner && confirmedOperationId) {
+      try {
+        await this.drafts.clearConfirmed(owner, poId, confirmedOperationId);
+      } catch {
+        /* The tombstone remains safe. */
+      }
+    }
   }
   private close(): void {
-    this.visible = false;
-    this.visibleChange.emit(false);
-    this.closed.emit();
-    this.initializedPo = '';
+    this.generation++;
     this.valueChanges?.unsubscribe();
     this.unregisterLeave?.();
     this.unregisterDetach?.();
+    this.correlation = null;
+    this.owner = null;
+    this.record = null;
+    this.initializedPo = '';
+    this.closing = false;
+    this.visible = false;
+    this.lines.clear({ emitEvent: false });
+    this.form.reset({ referenceNumber: '', notes: '' }, { emitEvent: false });
+    this.visibleChange.emit(false);
+    this.closed.emit();
   }
   protected async submit(): Promise<void> {
     if (
@@ -1040,8 +1099,10 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
         recovery: record.pending.status === 'unknown',
       });
     } catch {
-      this.errorMessage.set('purchaseOrders.receiving.storageError');
-      this.form.enable({ emitEvent: false });
+      if (generation === this.generation && this.current()) {
+        this.errorMessage.set('purchaseOrders.receiving.storageError');
+        this.form.enable({ emitEvent: false });
+      }
     } finally {
       if (generation === this.generation) this.loading.set(false);
     }

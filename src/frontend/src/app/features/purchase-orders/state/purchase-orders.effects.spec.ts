@@ -5,6 +5,8 @@ import { ReceivingDraftService } from '../services/receiving-draft.service';
 import { ReceivingEditableDraft, ReceivingCommand } from '../services/receiving.models';
 import { TestBed } from '@angular/core/testing';
 import { Action } from '@ngrx/store';
+import { provideMockStore, MockStore } from '@ngrx/store/testing';
+import { purchaseOrdersReducer } from './purchase-orders.reducer';
 import { Actions } from '@ngrx/effects';
 import { Router } from '@angular/router';
 import { Observable, Subject, firstValueFrom, of, throwError } from 'rxjs';
@@ -52,6 +54,9 @@ describe('PurchaseOrdersEffects', () => {
     TestBed.configureTestingModule({
       providers: [
         PurchaseOrdersEffects,
+        provideMockStore({
+          initialState: { purchaseOrders: purchaseOrdersReducer(undefined, { type: 'init' }) },
+        }),
         { provide: PurchaseOrderService, useValue: service },
         { provide: Router, useValue: mockRouter },
         {
@@ -637,4 +642,135 @@ describe('PurchaseOrdersEffects', () => {
     actions$.next(PurchaseOrdersActions.deleteDraftSucceeded({ purchaseOrderId: 'po1' }));
     expect(mockRouter.navigate).toHaveBeenCalledWith(['/inventory/purchase-orders']);
   });
+  it('retains a lost receipt through a same-key retry 404 and then confirms its original lookup', async () => {
+    const command = await prepare();
+    service.receivePurchaseOrder
+      .mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 0 })))
+      .mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 404 })));
+    let output = firstValueFrom(effects.receiveOrder$);
+    actions$.next(PurchaseOrdersActions.receiveOrderRequested(command));
+    await output;
+    output = firstValueFrom(effects.receiveOrder$);
+    actions$.next(PurchaseOrdersActions.receiveOrderRequested({ ...command, recovery: true }));
+    expect(await output).toEqual(expect.objectContaining({ outcome: 'unknown' }));
+    expect(
+      JSON.stringify(
+        (await TestBed.inject(ReceivingDraftService).load(command.correlation.scope, 'po1'))!
+          .pending!.payload,
+      ),
+    ).toBe(JSON.stringify(command.payload));
+    service.getReceiptOperation.mockReturnValue(
+      of({
+        operationType: 'purchase-order-receipt',
+        operationKey: command.correlation.operationId,
+        targetId: 'po1',
+        response: response(),
+      }),
+    );
+    const checked = firstValueFrom(effects.checkReceipt$);
+    actions$.next(
+      PurchaseOrdersActions.checkReceiptRequested({ correlation: command.correlation }),
+    );
+    expect(await checked).toEqual(
+      PurchaseOrdersActions.checkReceiptSucceeded({ correlation: command.correlation }),
+    );
+  });
+
+  it.each([401, 403])(
+    'settles a delayed first-send %s against another tab’s current durable unknown state',
+    async (status) => {
+      const command = await prepare();
+      const a = new Subject<PurchaseOrderDetail>();
+      const b = new Subject<PurchaseOrderDetail>();
+      service.receivePurchaseOrder.mockReturnValueOnce(a).mockReturnValueOnce(b);
+      const first = firstValueFrom(effects.receiveOrder$);
+      actions$.next(PurchaseOrdersActions.receiveOrderRequested(command));
+      await vi.waitFor(() => expect(service.receivePurchaseOrder).toHaveBeenCalledTimes(1));
+      const otherStore = new ReceivingDraftService();
+      const claimed = await otherStore.prepare(command.correlation.scope, 'po1', draft, 0);
+      const otherEffects = TestBed.runInInjectionContext(() => new PurchaseOrdersEffects());
+      const second = firstValueFrom(otherEffects.receiveOrder$);
+      actions$.next(PurchaseOrdersActions.receiveOrderRequested({ ...command, recovery: true }));
+      await vi.waitFor(() => expect(service.receivePurchaseOrder).toHaveBeenCalledTimes(2));
+      a.error(new HttpErrorResponse({ status }));
+      expect(await first).toEqual(expect.objectContaining({ outcome: 'unknown' }));
+      const replay = await otherStore.prepare(
+        command.correlation.scope,
+        'po1',
+        { ...draft, notes: 'cannot replace' },
+        claimed.revision,
+      );
+      expect(replay.pending!.operationId).toBe(command.correlation.operationId);
+      b.next(response());
+      expect(await second).toEqual(
+        PurchaseOrdersActions.receiveOrderSucceeded({ correlation: command.correlation }),
+      );
+      expect((await otherStore.load(command.correlation.scope, 'po1'))!.confirmedOperationId).toBe(
+        command.correlation.operationId,
+      );
+    },
+  );
+
+  it('does not announce durable success when confirmation settlement did not match the stored operation', async () => {
+    const command = await prepare();
+    const pending = new Subject<PurchaseOrderDetail>();
+    service.receivePurchaseOrder.mockReturnValue(pending);
+    const output = firstValueFrom(effects.receiveOrder$);
+    actions$.next(PurchaseOrdersActions.receiveOrderRequested(command));
+    await vi.waitFor(() => expect(service.receivePurchaseOrder).toHaveBeenCalledOnce());
+    const storage = TestBed.inject(ReceivingDraftService);
+    await storage.settle(
+      command.correlation.scope,
+      'po1',
+      command.correlation.operationId,
+      'rejected',
+    );
+    const rejected = (await storage.load(command.correlation.scope, 'po1'))!;
+    await storage.save(
+      command.correlation.scope,
+      'po1',
+      { ...draft, notes: 'editable replacement' },
+      rejected.revision,
+    );
+    pending.next(response());
+    expect((await output).type).toBe(PurchaseOrdersActions.receiveOrderFailed.type);
+    expect((await storage.load(command.correlation.scope, 'po1'))!.draft.notes).toBe(
+      'editable replacement',
+    );
+  });
+
+  it.each([false, true])(
+    'refreshes A without taking over selected/requested B (B request pending: %s), retaining current list filters',
+    (pending) => {
+      const filters = {
+        search: 'widgets',
+        status: 'Placed' as const,
+        page: 3,
+        pageSize: 50,
+        orderDateFrom: '',
+        orderDateTo: '',
+      };
+      const state = {
+        ...purchaseOrdersReducer(undefined, { type: 'init' }),
+        selectedOrder: pending ? null : response('poB'),
+        detailPurchaseOrderId: 'poB',
+        loadingDetail: pending,
+        filters,
+      };
+      TestBed.inject(MockStore).setState({ purchaseOrders: state });
+      const actions: Action[] = [];
+      const sub = effects.receiptConfirmed$.subscribe((action) => actions.push(action));
+      actions$.next(
+        PurchaseOrdersActions.receiveOrderSucceeded({
+          correlation: {
+            scope: TestBed.inject(ShopContextService).scope()!,
+            purchaseOrderId: 'poA',
+            operationId: 'operationA',
+          },
+        }),
+      );
+      expect(actions).toEqual([PurchaseOrdersActions.loadPurchaseOrdersRequested({ filters })]);
+      sub.unsubscribe();
+    },
+  );
 });

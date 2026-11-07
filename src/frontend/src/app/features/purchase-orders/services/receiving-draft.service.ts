@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import type { ScopeOwner } from '../../../core/context/shop-scope';
+import { classifyReceivingFailure } from './receiving-errors';
 import type { ReceivePurchaseOrderRequest } from './purchase-order.service';
 import type { ReceivingDraftRecord, ReceivingEditableDraft } from './receiving.models';
 
@@ -13,6 +14,7 @@ export class ReceivingDraftConflictError extends Error {
 @Injectable({ providedIn: 'root' })
 export class ReceivingDraftService {
   private readonly store = 'drafts';
+  private readonly confirmations = 'confirmations';
   async load(scope: ScopeOwner, poId: string): Promise<ReceivingDraftRecord | null> {
     return this.transact(scope, poId, 'readonly', (current) => current);
   }
@@ -92,8 +94,8 @@ export class ReceivingDraftService {
     poId: string,
     operationId: string,
     outcome: 'confirmed' | 'rejected',
-  ): Promise<void> {
-    await this.transact(scope, poId, 'readwrite', (current) =>
+  ): Promise<ReceivingDraftRecord | null> {
+    return this.transact(scope, poId, 'readwrite', (current) =>
       current?.pending?.operationId === operationId
         ? {
             ...current,
@@ -105,6 +107,59 @@ export class ReceivingDraftService {
         : current,
     );
   }
+  /** The current durable status, rather than a pre-HTTP snapshot, owns failure settlement. */
+  async settleFailure(
+    scope: ScopeOwner,
+    poId: string,
+    operationId: string,
+    error: unknown,
+    recovery: boolean,
+  ): Promise<{
+    record: ReceivingDraftRecord | null;
+    outcome: 'unknown' | 'rejected';
+    matched: boolean;
+  }> {
+    let outcome: 'unknown' | 'rejected' = 'unknown';
+    let matched = false;
+    const record = await this.transact(scope, poId, 'readwrite', (current) => {
+      if (current?.pending?.operationId !== operationId) return current;
+      matched = true;
+      outcome = classifyReceivingFailure(error, recovery || current.pending.status === 'unknown');
+      return {
+        ...current,
+        revision: current.revision + 1,
+        pending: outcome === 'unknown' ? { ...current.pending, status: 'unknown' } : null,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+    return { record, outcome, matched };
+  }
+
+  /** Immutable, operation-specific evidence survives another tab cleaning the draft tombstone. */
+  async isConfirmed(scope: ScopeOwner, poId: string, operationId: string): Promise<boolean> {
+    let confirmed = false;
+    await this.transact(scope, poId, 'readonly', (current, proofs) => {
+      confirmed = current?.confirmedOperationId === operationId;
+      const request = proofs.get([scope.userId, scope.shopId, poId, operationId]);
+      request.onsuccess = () => {
+        confirmed ||= !!request.result;
+      };
+      return current;
+    });
+    return confirmed;
+  }
+
+  /** Only the exact confirmed operation may clean its draft; replacements are untouched. */
+  async clearConfirmed(scope: ScopeOwner, poId: string, operationId: string): Promise<boolean> {
+    let cleared = false;
+    await this.transact(scope, poId, 'readwrite', (current) => {
+      if (current?.confirmedOperationId !== operationId) return current;
+      cleared = true;
+      return null;
+    });
+    return cleared;
+  }
+
   /** A stale editor cannot discard another tab's pending work or a newer revision. */
   async discard(scope: ScopeOwner, poId: string, expectedRevision: number): Promise<void> {
     await this.transact(scope, poId, 'readwrite', (current) => {
@@ -130,13 +185,16 @@ export class ReceivingDraftService {
     scope: ScopeOwner,
     poId: string,
     mode: IDBTransactionMode,
-    update: (current: ReceivingDraftRecord | null) => ReceivingDraftRecord | null,
+    update: (
+      current: ReceivingDraftRecord | null,
+      proofs: IDBObjectStore,
+    ) => ReceivingDraftRecord | null,
   ): Promise<ReceivingDraftRecord | null> {
     if (!scope.userId || !scope.shopId || !poId) throw new Error('Receiving owner is incomplete.');
     const db = await this.open();
     try {
       return await new Promise((resolve, reject) => {
-        const tx = db.transaction(this.store, mode);
+        const tx = db.transaction([this.store, this.confirmations], mode);
         const store = tx.objectStore(this.store);
         const key = [scope.userId, scope.shopId, poId];
         let result: ReceivingDraftRecord | null = null;
@@ -148,7 +206,19 @@ export class ReceivingDraftService {
         request.onsuccess = () => {
           try {
             const current = (request.result as ReceivingDraftRecord | undefined) ?? null;
-            result = update(current);
+            result = update(current, tx.objectStore(this.confirmations));
+            if (mode === 'readwrite') {
+              const operationId =
+                result?.confirmedOperationId ??
+                (result === null ? current?.confirmedOperationId : null);
+              if (operationId)
+                tx.objectStore(this.confirmations).put({
+                  userId: scope.userId,
+                  shopId: scope.shopId,
+                  purchaseOrderId: poId,
+                  operationId,
+                });
+            }
             if (mode === 'readwrite' && result !== current) {
               if (result) store.put(result);
               else store.delete(key);
@@ -167,9 +237,13 @@ export class ReceivingDraftService {
     if (typeof indexedDB === 'undefined')
       return Promise.reject(new Error('IndexedDB is unavailable.'));
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open('intelibill-purchase-receiving', 1);
+      const request = indexedDB.open('intelibill-purchase-receiving', 2);
       let blocked = false;
       request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains(this.confirmations))
+          request.result.createObjectStore(this.confirmations, {
+            keyPath: ['userId', 'shopId', 'purchaseOrderId', 'operationId'],
+          });
         if (!request.result.objectStoreNames.contains(this.store))
           request.result.createObjectStore(this.store, {
             keyPath: ['userId', 'shopId', 'purchaseOrderId'],
