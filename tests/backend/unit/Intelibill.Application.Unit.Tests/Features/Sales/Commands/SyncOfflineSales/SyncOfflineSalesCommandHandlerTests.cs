@@ -417,6 +417,39 @@ public class SyncOfflineSalesCommandHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_WhenFrozenSaleIsBelowCost_PreservesIssuedAmountsAndFilesReview()
+    {
+        var shopId = Guid.NewGuid();
+        var actorId = Guid.NewGuid();
+        var deviceId = "device-1";
+        var item = CreateItem(shopId);
+        var batch = CreateBatch(shopId, item.Id);
+        var inventory = CreateInventory(shopId, item.Id);
+        var sale = CreateSale(
+            $"offline-{Guid.NewGuid():N}",
+            paidAmount: 413m,
+            items: [CreateLine(batch.Id) with { CostPrice = 400m, SalesPrice = 350m, TotalAmount = 413m, PreTaxAmountBeforeDiscount = 350m, TaxableAmount = 350m, TaxAmount = 63m }]);
+        var command = new SyncOfflineSalesCommand(actorId, shopId, deviceId, [sale]);
+
+        _userRepository.GetByIdWithDetailsAsync(actorId, Arg.Any<CancellationToken>())
+            .Returns(CreateMemberUser(shopId));
+        StubLeases(shopId, deviceId, CreateLease(shopId, deviceId));
+        SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
+
+        var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var syncResult = Assert.Single(result.Value.Results);
+        Assert.Equal("SyncedWithWarnings", syncResult.Status);
+        await _saleRepository.Received(1).AddAsync(
+            Arg.Is<Sale>(s => s.Items.Single().SalesPrice == 350m && s.TotalAmount == 413m),
+            Arg.Any<CancellationToken>());
+        await _reconciliationIssueRepository.Received().AddAsync(
+            Arg.Is<ReconciliationIssue>(issue => issue.Code == "offline_sync.below_recorded_cost"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task HandleAsync_WhenPricingDiffers_CreatesSaleWithPricingVarianceIssue()
     {
         var shopId = Guid.NewGuid();

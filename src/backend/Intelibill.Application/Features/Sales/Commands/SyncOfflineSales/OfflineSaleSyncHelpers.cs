@@ -4,6 +4,7 @@ using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Normalization;
 using Intelibill.Application.Features.Sales.Services;
+using Intelibill.Application.Features.Sales.Services.Pricing;
 using Intelibill.Domain.Enums;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
@@ -191,6 +192,32 @@ internal static class OfflineSaleSyncHelpers
             "offline_sync.customer_changed",
             changedMessage,
             actorUserId));
+    }
+
+    internal static void AddEconomicVarianceWarnings(
+        Guid shopId, Guid actorUserId, string clientSaleId, string deviceId,
+        IReadOnlyList<ValidatedSaleLine> validatedLines,
+        Dictionary<string, OfflineSaleSyncLineCommand> lineByKey,
+        List<string> warnings, List<ReconciliationIssue> issues)
+    {
+        foreach (var validated in validatedLines.Where(v => v.LineType == SaleLineType.Goods))
+        {
+            if (validated.Command.ClientLineKey is not { } key || !lineByKey.TryGetValue(key, out var frozen))
+                continue;
+            var cost = SaleEconomicsCalculator.RecordedCost(frozen.Quantity, frozen.CostPrice);
+            if (frozen.TaxableAmount < cost)
+                Add("offline_sync.below_recorded_cost", FormattableString.Invariant($"Issued offline invoice retained: net revenue {frozen.TaxableAmount:0.00}, recorded cost {cost:0.00}, loss {cost - frozen.TaxableAmount:0.00}."));
+            if (frozen.CostPrice != validated.Batch!.CostPrice)
+                Add("offline_sync.recorded_cost_variance", "Current recorded batch cost differs from the frozen invoice cost; the issued cost snapshot was preserved.");
+
+            void Add(string code, string message)
+            {
+                warnings.Add(message);
+                issues.Add(ReconciliationIssue.Create(shopId, null, clientSaleId, deviceId,
+                    ReconciliationIssueType.PricingVariance, code, message, actorUserId,
+                    validated.Item!.Id, validated.Batch!.Id));
+            }
+        }
     }
 
     internal static void AddPricingVarianceWarnings(

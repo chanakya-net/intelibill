@@ -278,10 +278,10 @@ export class OfflineSaleStateService {
       configuredSaleRule: null,
       lines: pricing.lines.map((line) => {
         const configuredRule = configuredRuleByBatchId.get(line.inventoryBatchId) ?? null;
-        const preTaxMargin = this.roundAmount(Math.max(0, line.preTaxAmount - (line.costPrice * line.quantity)));
+        const preTaxMargin = this.roundAmount(Math.max(0, line.preTaxAmount - this.roundAmount(line.costPrice * line.quantity)));
         const maxAllowedItemDiscountFlat = preTaxMargin;
         const maxAllowedItemDiscountPercent = line.preTaxAmount > 0
-          ? this.roundAmount((preTaxMargin * 100) / line.preTaxAmount)
+          ? Math.floor((preTaxMargin * 10000) / line.preTaxAmount) / 100
           : 0;
 
         return {
@@ -390,6 +390,7 @@ export class OfflineSaleStateService {
     const result = await this.offlineFinalization.finalizeAndQueue(request);
     if (!result.ok) {
       const reasonKey: Record<typeof result.reason, string> = {
+        BELOW_RECORDED_COST: 'sales.newSale.offline.blockBelowRecordedCost',
         SNAPSHOT_STALE: 'sales.newSale.offline.blockSnapshotStale',
         MISSING_CATALOG_ITEM: 'sales.newSale.offline.blockMissingItem',
         INSUFFICIENT_SHADOW_STOCK: 'sales.newSale.offline.blockInsufficientStock',

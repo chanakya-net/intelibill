@@ -196,12 +196,12 @@ export abstract class NewSalePageDiscountValidationService extends NewSalePageDi
       const preTax = Number(line.preTaxAmountBeforeDiscount ?? 0);
       const itemDiscount = Number(line.itemDiscountAmount ?? 0);
       const taxableAfterItem = preTax - itemDiscount;
-      const costTotal = Number(line.costPrice ?? 0) * Number(line.quantity ?? 0);
+      const costTotal = this.roundAmount(Number(line.costPrice ?? 0) * Number(line.quantity ?? 0));
       return sum + Math.max(0, taxableAfterItem - costTotal);
     }, 0);
 
     let maxFlat = this.roundAmount(Math.max(0, totalCapacity));
-    let maxPercent = maxFlat > 0 ? this.roundAmount((maxFlat * 100) / eligibleSubtotal) : 0;
+    let maxPercent = maxFlat > 0 ? Math.floor((maxFlat * 10000) / eligibleSubtotal) / 100 : 0;
 
     const configured = preview.configuredSaleRule;
     if (configured && Number.isFinite(Number(configured.percentage))) {

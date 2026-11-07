@@ -4,6 +4,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { InvoiceLeaseExhaustedError, InvoiceLeaseExpiredError, InvoiceLeaseIndexedDbService, InvoiceLeaseNotFoundError, type InvoiceLeaseSnapshot } from '../../../core/storage/invoice-lease-indexeddb.service';
 import { OfflineSalesSnapshotIndexedDbService, type OfflineSellableBatchSnapshot, type OfflineSellableServiceSnapshot } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { buildOfflineInvoiceDocument, fiscalYearStartOf } from './offline-invoice-document.builder';
+import { evaluateOfflineSaleEconomics } from './offline-sale-economics';
 import { calculateOfflineFrozenSale } from './offline-sale-pricing-calculator';
 import { OfflineFrozenSalePricing, OfflineSalePricingInput, OfflineSalePricingLineInput, OfflineQueuedSalePayload } from './offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
@@ -20,6 +21,7 @@ export interface OfflineFinalizeRequest {
 }
 
 export type OfflineFinalizeFailureReason =
+  | 'BELOW_RECORDED_COST'
   | 'SNAPSHOT_STALE'
   | 'MISSING_CATALOG_ITEM'
   | 'INSUFFICIENT_SHADOW_STOCK'
@@ -115,6 +117,10 @@ export class OfflineSaleFinalizationService {
       // A non-finite quantity, price or discount has no place in the integer contract; nothing is consumed yet.
       if (error instanceof RangeError) return { ok: false, reason: 'INVALID_AMOUNT' };
       throw error;
+    }
+
+    if (evaluateOfflineSaleEconomics(priced).belowCostLineIds.length > 0) {
+      return { ok: false, reason: 'BELOW_RECORDED_COST' };
     }
 
     const customerId = request.pricingInput.customerId;

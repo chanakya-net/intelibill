@@ -67,6 +67,18 @@ describe('OfflineSaleFinalizationService', () => {
     };
   }
 
+  it('refuses below recorded cost using snapshot cost before consuming or saving anything', async () => {
+    const { service, snapshotDb, leaseDb, queueDb, shadowDb } = setup();
+    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), costPrice: 100, salesPrice: 118, taxRatePercent: 18, taxIncluded: true }]);
+    const base = makeRequest();
+    const result = await service.finalizeAndQueue({ ...base, pricingInput: { ...base.pricingInput,
+      lines: [{ ...base.pricingInput.lines[0], costPrice: 1, itemDiscount: { type: 2, value: 10 } }] } });
+    expect(result).toEqual({ ok: false, reason: 'BELOW_RECORDED_COST' });
+    expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
+    expect(queueDb.savePendingSale).not.toHaveBeenCalled();
+    expect(shadowDb.reduceQuantity).not.toHaveBeenCalled();
+  });
+
   it('queues sale, consumes invoice, and reduces shadow stock', async () => {
     vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa').mockReturnValueOnce('11111111-1111-4111-8111-111111111111');
     const { service, leaseDb, queueDb, shadowDb } = setup();
