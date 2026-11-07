@@ -13,6 +13,7 @@ namespace Intelibill.Application.Unit.Tests.Features.Sales.Queries.GetProfitLoss
 
 public class GetProfitLossReportQueryHandlerTests
 {
+    private readonly IExpenseRepository _expenses = Substitute.For<IExpenseRepository>();
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISaleRepository _saleRepository = Substitute.For<ISaleRepository>();
@@ -30,7 +31,7 @@ public class GetProfitLossReportQueryHandlerTests
                 _saleRepository,
                 new ReturnAdjustmentReader(_saleReturnRepository, _saleRepository, Substitute.For<ICreditNoteRepository>()),
                 _inventoryAdjustmentRepository,
-                BusinessTestDoubles.ClockAt(_time)),
+                BusinessTestDoubles.ClockAt(_time), _expenses),
             BusinessTestDoubles.ClockAt(_time));
 
     private static User MakeUser() =>
@@ -41,6 +42,35 @@ public class GetProfitLossReportQueryHandlerTests
 
     private static ShopMembership MakeMembership(Guid shopId, Guid userId) =>
         ShopMembership.Create(shopId, userId, ShopRole.Owner, true);
+
+    [Theory]
+    [InlineData(ExpenseTreatment.Operating, 80)]
+    [InlineData(ExpenseTreatment.Unclassified, null)]
+    public async Task Economics_SeparatesTradingFromClassifiedOperatingCosts(ExpenseTreatment treatment, int? operatingProfit)
+    {
+        var user = MakeUser(); var shop = MakeShop();
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(MakeMembership(shop.Id, user.Id));
+        var sale = Sale.Create(shop.Id, "ECON-1", null, null, null, PaymentMethod.Cash, DateTimeOffset.UtcNow, 200m, 0m, 200m, 0m,
+            [SaleItem.CreateGoods(shop.Id, Guid.NewGuid(), Guid.NewGuid(), "Item", "BC", 1m, 100m, 200m, 200m, 0m, false, false)]);
+        _saleRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([sale]);
+        _expenses.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([
+            Expense.Create(shop.Id, Guid.NewGuid(), 20m, "Landlord", null, Today, user.Id, treatment),
+            Expense.CreateFromSupplierPayment(shop.Id, Guid.NewGuid(), 100m, "Supplier", null, Today, user.Id, Guid.NewGuid()),
+            Expense.Create(shop.Id, Guid.NewGuid(), 50m, "Equipment", null, Today, user.Id, ExpenseTreatment.CapitalOrOtherExcluded)]);
+        var result = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id), CancellationToken.None);
+        Assert.False(result.IsError);
+        var economics = Assert.IsType<ProfitLossEconomicsDto>(result.Value.Summary.Economics);
+        Assert.Equal(2, economics.Version);
+        Assert.Equal(200m, economics.NetSalesExcludingTax);
+        Assert.Equal(100m, economics.Cogs);
+        Assert.Equal(100m, economics.GrossTradingProfit);
+        Assert.Equal(50m, economics.GrossMarginPercent);
+        Assert.Equal(100m, economics.MarkupPercent);
+        Assert.Equal(operatingProfit.HasValue ? (decimal?)operatingProfit.Value : null, economics.OperatingProfit);
+        Assert.Equal(treatment == ExpenseTreatment.Operating ? "Complete" : "UnclassifiedExpenses", economics.OperatingProfitStatus);
+    }
 
     [Fact]
     public async Task Handle_UsesDefaultWindowAndReturnsRowMargin()
@@ -58,7 +88,7 @@ public class GetProfitLossReportQueryHandlerTests
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, today.AddDays(-6), today, Arg.Any<CancellationToken>()).Returns([sale]);
         _saleReturnRepository.GetPostedInRangeAsync(shop.Id, today.AddDays(-6), today, Arg.Any<CancellationToken>()).Returns(Array.Empty<SaleReturn>());
-        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<InventoryAdjustment>());
+        _inventoryAdjustmentRepository.GetPostedInRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<InventoryAdjustment>());
 
         var result = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id), CancellationToken.None);
 
@@ -103,7 +133,7 @@ public class GetProfitLossReportQueryHandlerTests
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, start, end, Arg.Any<CancellationToken>()).Returns([sale1, sale2]);
         _saleReturnRepository.GetPostedInRangeAsync(shop.Id, start, end, Arg.Any<CancellationToken>()).Returns(Array.Empty<SaleReturn>());
-        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<InventoryAdjustment>());
+        _inventoryAdjustmentRepository.GetPostedInRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<InventoryAdjustment>());
 
         var firstPage = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id, start, end, Page: 1, PageSize: 1), CancellationToken.None);
         var secondPage = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id, start, end, Page: 2, PageSize: 1), CancellationToken.None);
@@ -175,7 +205,7 @@ public class GetProfitLossReportQueryHandlerTests
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([sale]);
         _saleReturnRepository.GetPostedInRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([saleReturn]);
-        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns([adjustment]);
+        _inventoryAdjustmentRepository.GetPostedInRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns([adjustment]);
 
         var customerSearch = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id, from, to, Search: "Customer"), CancellationToken.None);
         var returnSearch = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id, from, to, Search: "RET-001"), CancellationToken.None);
@@ -241,7 +271,7 @@ public class GetProfitLossReportQueryHandlerTests
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([sale]);
         _saleReturnRepository.GetPostedInRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([saleReturn]);
-        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns([adjustment]);
+        _inventoryAdjustmentRepository.GetPostedInRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns([adjustment]);
 
         var result = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id, from, to, Type: "saleReturn"), CancellationToken.None);
 
@@ -251,7 +281,7 @@ public class GetProfitLossReportQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_VoidInPeriod_AddsReversalRow_AndExcludesVoidedOrIncreasingAdjustments()
+    public async Task Handle_VoidInPeriod_AddsReversalRow_AndRetainsOriginalLossUntilItsLaterVoid()
     {
         var user = MakeUser();
         var shop = MakeShop();
@@ -307,15 +337,15 @@ public class GetProfitLossReportQueryHandlerTests
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([sale]);
         _saleReturnRepository.GetPostedInRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([activeReturn, voidedReturn]);
-        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns([decrease, increase, voidedDecrease]);
+        _inventoryAdjustmentRepository.GetPostedInRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns([decrease, increase, voidedDecrease]);
 
         var result = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id, from, to), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(
-            ["INV-001 / RET-VOID (void)", "ADJ-LOSS", "INV-001 / RET-VOID", "INV-001 / RET-001", "INV-001"],
+            ["INV-001 / RET-VOID (void)", "ADJ-VOID", "ADJ-LOSS", "INV-001 / RET-VOID", "INV-001 / RET-001", "INV-001"],
             result.Value.Items.Select(x => x.ReferenceNumber).ToArray());
-        Assert.DoesNotContain(result.Value.Items, x => x.ReferenceNumber == "ADJ-GAIN" || x.ReferenceNumber == "ADJ-VOID");
+        Assert.DoesNotContain(result.Value.Items, x => x.ReferenceNumber == "ADJ-GAIN");
 
         var voidedRows = result.Value.Items.Where(x => x.ReferenceNumber.Contains("RET-VOID", StringComparison.Ordinal)).ToList();
         Assert.Single(voidedRows, x => x.IsReversal);
@@ -323,7 +353,7 @@ public class GetProfitLossReportQueryHandlerTests
         Assert.Equal(0m, voidedRows.Sum(x => x.TotalCost));
         Assert.Equal(0m, voidedRows.Sum(x => x.ProfitAfterTax));
         Assert.Equal(2, result.Value.Summary.ReturnCount);
-        Assert.Equal(1, result.Value.Summary.AdjustmentCount);
+        Assert.Equal(2, result.Value.Summary.AdjustmentCount);
     }
 
     [Fact]
@@ -344,7 +374,7 @@ public class GetProfitLossReportQueryHandlerTests
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns(Array.Empty<Sale>());
         _saleRepository.GetByIdsAsync(shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>()).Returns([sale]);
         _saleReturnRepository.GetPostedInRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([saleReturn]);
-        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<InventoryAdjustment>());
+        _inventoryAdjustmentRepository.GetPostedInRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<InventoryAdjustment>());
 
         var result = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id, from, to), CancellationToken.None);
 
@@ -376,7 +406,7 @@ public class GetProfitLossReportQueryHandlerTests
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([sale]);
         _saleReturnRepository.GetPostedInRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([saleReturn, unposted]);
-        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<InventoryAdjustment>());
+        _inventoryAdjustmentRepository.GetPostedInRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<InventoryAdjustment>());
 
         var result = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id, from, to, Type: "saleReturn"), CancellationToken.None);
 
@@ -409,7 +439,7 @@ public class GetProfitLossReportQueryHandlerTests
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([sale]);
         _saleReturnRepository.GetPostedInRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns(Array.Empty<SaleReturn>());
-        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<InventoryAdjustment>());
+        _inventoryAdjustmentRepository.GetPostedInRangeAsync(shop.Id, Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<InventoryAdjustment>());
 
         var result = await CreateHandler().Handle(new GetProfitLossReportQuery(user.Id, shop.Id, from, to), CancellationToken.None);
 
@@ -418,5 +448,9 @@ public class GetProfitLossReportQueryHandlerTests
         Assert.Equal(0m, row.TotalCost);
         Assert.Null(row.MarginPercent);
         Assert.Null(result.Value.Summary.AverageMarginPercent);
+        Assert.Equal(100m, result.Value.Summary.Economics!.GrossMarginPercent);
+        Assert.Null(result.Value.Summary.Economics.MarkupPercent);
+        Assert.Null(result.Value.Summary.Economics.OperatingProfit);
+        Assert.Equal("ServiceCostsUnmodeled", result.Value.Summary.Economics.OperatingProfitStatus);
     }
 }

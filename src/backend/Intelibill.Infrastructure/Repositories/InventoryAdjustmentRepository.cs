@@ -72,6 +72,15 @@ internal sealed class InventoryAdjustmentRepository : RepositoryBase<InventoryAd
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<InventoryAdjustment>> GetPostedInRangeAsync(
+        Guid shopId, UtcDateWindow window, CancellationToken cancellationToken = default) =>
+        await DbSet.AsNoTracking()
+            .Where(a => a.ShopId == shopId
+                && ((a.PerformedAt >= window.StartInclusive && a.PerformedAt < window.EndExclusive)
+                    || (a.VoidedAt >= window.StartInclusive && a.VoidedAt < window.EndExclusive)))
+            .OrderBy(a => a.PerformedAt)
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<InventoryAdjustment>> GetProfitLossAdjustmentsAsync(
         Guid shopId,
         CancellationToken cancellationToken = default) =>

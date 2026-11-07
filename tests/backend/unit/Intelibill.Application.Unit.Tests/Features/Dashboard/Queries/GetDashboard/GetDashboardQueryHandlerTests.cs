@@ -38,7 +38,7 @@ public sealed class GetDashboardQueryHandlerTests
             _saleRepository,
             new ReturnAdjustmentReader(_saleReturnRepository, _saleRepository, Substitute.For<ICreditNoteRepository>()),
             _inventoryAdjustmentRepository,
-            BusinessTestDoubles.RealClock());
+            BusinessTestDoubles.RealClock(), _expenseRepository);
         _handler = new GetDashboardQueryHandler(
             _saleRepository,
             _expenseRepository,
@@ -214,7 +214,7 @@ public sealed class GetDashboardQueryHandlerTests
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(membership);
         _saleRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([sale]);
         _saleReturnRepository.GetPostedInRangeAsync(shop.Id, from, to, Arg.Any<CancellationToken>()).Returns([saleReturn]);
-        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(shop.Id, BusinessTestDoubles.RealClock().GetUtcWindow(from, to, shop.BusinessTimeZoneId), Arg.Any<CancellationToken>()).Returns([adjustment]);
+        _inventoryAdjustmentRepository.GetPostedInRangeAsync(shop.Id, BusinessTestDoubles.RealClock().GetUtcWindow(from, to, shop.BusinessTimeZoneId), Arg.Any<CancellationToken>()).Returns([adjustment]);
 
         var expectedSummary = await _profitLossReportBuilder.BuildAsync(shop.Id, shop.BusinessTimeZoneId, from, to, null, null, CancellationToken.None);
         var result = await _handler.HandleAsync(query, CancellationToken.None);
@@ -918,7 +918,7 @@ public sealed class GetDashboardQueryHandlerTests
             .Returns(Task.FromResult<IReadOnlyList<Sale>>(Array.Empty<Sale>()));
         _saleReturnRepository.GetPostedInRangeAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<SaleReturn>>(Array.Empty<SaleReturn>()));
-        _inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(Arg.Any<Guid>(), Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>())
+        _inventoryAdjustmentRepository.GetPostedInRangeAsync(Arg.Any<Guid>(), Arg.Any<UtcDateWindow>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<InventoryAdjustment>>(Array.Empty<InventoryAdjustment>()));
     }
 

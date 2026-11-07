@@ -15,7 +15,8 @@ public sealed record ProfitLossSummaryDto(
     decimal? AverageMarginPercent,
     int InvoiceCount,
     int ReturnCount,
-    int AdjustmentCount);
+    int AdjustmentCount,
+    ProfitLossEconomicsDto? Economics = null);
 
 public sealed record ProfitLossAppliedFiltersDto(
     DateOnly From,

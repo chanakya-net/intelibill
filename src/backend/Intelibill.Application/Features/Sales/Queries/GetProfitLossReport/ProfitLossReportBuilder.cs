@@ -2,6 +2,7 @@ using System.Globalization;
 using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Sales.DTOs;
+using Intelibill.Application.Features.Sales.Services.Pricing;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
@@ -11,7 +12,8 @@ public sealed class ProfitLossReportBuilder(
     ISaleRepository saleRepository,
     ReturnAdjustmentReader returnAdjustmentReader,
     IInventoryAdjustmentRepository inventoryAdjustmentRepository,
-    IBusinessClock businessClock)
+    IBusinessClock businessClock,
+    IExpenseRepository expenseRepository)
 {
     public async Task<ProfitLossReportBuildResult> BuildAsync(
         Guid shopId,
@@ -26,9 +28,11 @@ public sealed class ProfitLossReportBuilder(
 
         var salesInRange = await saleRepository.GetByShopAndDateRangeAsync(shopId, from, to, cancellationToken);
         var returnAdjustments = await returnAdjustmentReader.ReadAsync(shopId, from, to, salesInRange, cancellationToken);
-        var adjustmentsInRange = await inventoryAdjustmentRepository.GetByShopAndDateRangeAsync(
+        var window = businessClock.GetUtcWindow(from, to, timeZoneId);
+        var expenses = await expenseRepository.GetByShopAndDateRangeAsync(shopId, from, to, cancellationToken);
+        var adjustmentsInRange = await inventoryAdjustmentRepository.GetPostedInRangeAsync(
             shopId,
-            businessClock.GetUtcWindow(from, to, timeZoneId),
+            window,
             cancellationToken);
 
         var report = new List<ProfitLossReportItemDto>();
@@ -63,28 +67,27 @@ public sealed class ProfitLossReportBuilder(
                 revenueExclTax - saleTotalCost,
                 CalculateMarginPercent(revenueExclTax - saleTotalCost, saleTotalCost),
                 ProfitLossReportRowTypes.Sale,
-                InventoryAdjustmentId: null));
+                InventoryAdjustmentId: null,
+                Economics: RowEconomics(revenueExclTax,
+                    sale.Items.Where(i => i.LineType != SaleLineType.Service).Sum(i => SaleEconomicsCalculator.RecordedCost(i.Quantity, i.CostPrice)),
+                    0m, 0m, sale.Items.Any(i => i.LineType == SaleLineType.Service))));
         }
 
         foreach (var entry in returnAdjustments)
             report.Add(BuildReturnRow(entry));
 
-        foreach (var adjustment in adjustmentsInRange.Where(a => a.Direction == InventoryAdjustmentDirection.Decrease && !a.IsVoided))
+        foreach (var adjustment in adjustmentsInRange.Where(a => a.Direction == InventoryAdjustmentDirection.Decrease))
         {
-            report.Add(new ProfitLossReportItemDto(
-                SaleId: null,
-                adjustment.AdjustmentNumber,
-                adjustment.PerformedAt,
-                PartyName: null,
-                TotalCost: 0m,
-                WastageCost: adjustment.CostImpact,
-                RevenueBeforeTax: 0m,
-                RevenueAfterTax: 0m,
-                ProfitBeforeTax: -adjustment.CostImpact,
-                ProfitAfterTax: -adjustment.CostImpact,
-                MarginPercent: null,
-                RowType: ProfitLossReportRowTypes.InventoryAdjustment,
-                InventoryAdjustmentId: adjustment.Id));
+            if (window.Contains(adjustment.PerformedAt)) AddAdjustment(adjustment.PerformedAt, adjustment.CostImpact, false);
+            if (adjustment.IsVoided && adjustment.VoidedAt is { } voidedAt && window.Contains(voidedAt))
+                AddAdjustment(voidedAt, -adjustment.CostImpact, true);
+
+            void AddAdjustment(DateTimeOffset at, decimal loss, bool reversal) => report.Add(new ProfitLossReportItemDto(
+                SaleId: null, adjustment.AdjustmentNumber, at, PartyName: null,
+                TotalCost: 0m, WastageCost: loss, RevenueBeforeTax: 0m, RevenueAfterTax: 0m,
+                ProfitBeforeTax: -loss, ProfitAfterTax: -loss, MarginPercent: null,
+                RowType: ProfitLossReportRowTypes.InventoryAdjustment, InventoryAdjustmentId: adjustment.Id,
+                IsReversal: reversal, Economics: RowEconomics(0m, 0m, loss, 0m, false)));
         }
 
         var filtered = report
@@ -106,7 +109,8 @@ public sealed class ProfitLossReportBuilder(
                 : Math.Round(netProfitAfterTax * 100m / totalCost, 2, MidpointRounding.AwayFromZero),
             InvoiceCount: filtered.Count(row => row.RowType == ProfitLossReportRowTypes.Sale),
             ReturnCount: filtered.Count(row => row.RowType == ProfitLossReportRowTypes.SaleReturn && !row.IsReversal),
-            AdjustmentCount: filtered.Count(row => row.RowType == ProfitLossReportRowTypes.InventoryAdjustment));
+            AdjustmentCount: filtered.Count(row => row.RowType == ProfitLossReportRowTypes.InventoryAdjustment),
+            Economics: SummaryEconomics(filtered, expenses, normalizedType != "all" || !string.IsNullOrWhiteSpace(search)));
 
         return new ProfitLossReportBuildResult(filtered, summary, from, to, normalizedType, search);
     }
@@ -145,7 +149,40 @@ public sealed class ProfitLossReportBuilder(
             ProfitLossReportRowTypes.SaleReturn,
             InventoryAdjustmentId: null,
             IsReversal: entry.IsReversal,
-            NeedsAccountingReview: entry.Status == ReturnAccountingStatus.NeedsReview);
+            NeedsAccountingReview: entry.Status == ReturnAccountingStatus.NeedsReview,
+            Economics: RowEconomics(returnRevenueExclTax,
+                -goodsLines.Where(l => l.Condition == SaleReturnCondition.Restockable).Sum(l => SaleEconomicsCalculator.RecordedCost(l.Quantity, l.OriginalCostPrice)),
+                0m, goodsLines.Where(l => l.Condition == SaleReturnCondition.Wastage).Sum(l => SaleEconomicsCalculator.RecordedCost(l.Quantity, l.OriginalCostPrice)),
+                entry.Lines.Any(l => l.LineType == SaleLineType.Service)));
+    }
+
+    private static ProfitLossRowEconomicsDto RowEconomics(decimal revenue, decimal cost, decimal loss, decimal wastage, bool service)
+    {
+        var line = SaleEconomicsCalculator.Calculate(revenue, cost + loss);
+        var markup = cost == 0m ? (decimal?)null : Math.Round(line.GrossProfit / cost * 100m, 2, MidpointRounding.AwayFromZero);
+        return new(2, line.NetRevenue, cost, loss, wastage, line.GrossProfit, line.GrossMarginPercent, markup, service);
+    }
+
+    private static ProfitLossEconomicsDto SummaryEconomics(IReadOnlyList<ProfitLossReportItemDto> rows, IReadOnlyList<Domain.Entities.Expense> expenses, bool filtered)
+    {
+        var revenue = rows.Sum(r => r.Economics!.NetSalesExcludingTax);
+        var cost = rows.Sum(r => r.Economics!.Cogs);
+        var loss = rows.Sum(r => r.Economics!.StockLoss);
+        var trading = RowEconomics(revenue, cost, loss, rows.Sum(r => r.Economics!.ReturnedGoodsWastageIncludedInCogs), false);
+        var active = expenses.Where(e => !e.IsVoided).ToList();
+        var unclassified = active.Where(e => e.Treatment == ExpenseTreatment.Unclassified).ToList();
+        var review = rows.Any(r => r.NeedsAccountingReview);
+        var service = rows.Any(r => r.Economics!.HasUnmodeledServiceCost);
+        var limitations = new List<string> { "purchase-tax-recoverability-unmodeled", "historical-cost-snapshots-preserved", "receipt-cost-corrections-not-revalued" };
+        if (filtered) limitations.Add("filtered-activity");
+        if (unclassified.Count > 0) limitations.Add("unclassified-expenses");
+        if (review) limitations.Add("return-accounting-review");
+        if (service) limitations.Add("service-costs-unmodeled");
+        var status = filtered ? "FilteredActivity" : unclassified.Count > 0 ? "UnclassifiedExpenses" : review ? "AccountingReview" : service ? "ServiceCostsUnmodeled" : "Complete";
+        decimal? operatingExpenses = filtered ? null : active.Where(e => e.Treatment == ExpenseTreatment.Operating).Sum(e => e.Amount);
+        return new(2, "recorded-sale-cost/1", revenue, cost, loss, trading.ReturnedGoodsWastageIncludedInCogs,
+            trading.GrossTradingProfit, operatingExpenses, status == "Complete" ? trading.GrossTradingProfit - operatingExpenses : null,
+            trading.GrossMarginPercent, trading.MarkupPercent, unclassified.Count, unclassified.Sum(e => e.Amount), status, limitations);
     }
 
     private static bool MatchesType(string rowType, string type) =>

@@ -15,6 +15,7 @@ public interface IInventoryAdjustmentRepository : IRepository<InventoryAdjustmen
     /// </summary>
     Task<IReadOnlyList<InventoryAdjustment>> GetUnlinkedIncreasesAsync(Guid shopId, Guid itemId, Guid inventoryBatchId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<InventoryAdjustment>> GetByShopAndDateRangeAsync(Guid shopId, UtcDateWindow window, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<InventoryAdjustment>> GetPostedInRangeAsync(Guid shopId, UtcDateWindow window, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<InventoryAdjustment>> GetProfitLossAdjustmentsAsync(Guid shopId, CancellationToken cancellationToken = default);
     Task<(IReadOnlyList<InventoryAdjustmentHistoryReadModel> Items, int TotalCount)> GetHistoryAsync(
         InventoryAdjustmentHistoryFilter filter,
