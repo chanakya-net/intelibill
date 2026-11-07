@@ -19,15 +19,22 @@ export class ExpensesEffects {
       ofType(ExpensesActions.loadExpensesRequested),
       switchMap(({ query, requestId }) =>
         this.expenseService.getExpenses(query).pipe(
-          map((response) =>
-            ExpensesActions.loadExpensesSucceeded({
+          map((response) => {
+            const lastPage = Math.max(1, Math.ceil(response.totalCount / response.pageSize));
+            if (query.page > lastPage) {
+              return ExpensesActions.loadExpensesRequested({
+                query: { ...query, page: lastPage },
+                requestId: crypto.randomUUID(),
+              });
+            }
+            return ExpensesActions.loadExpensesSucceeded({
               requestId,
               expenses: response.items,
               totalCount: response.totalCount,
               page: response.pageNumber,
               pageSize: response.pageSize,
-            }),
-          ),
+            });
+          }),
           catchError((error) =>
             of(
               ExpensesActions.loadExpensesFailed({

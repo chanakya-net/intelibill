@@ -14,6 +14,8 @@ interface MockExpense {
   readonly paidTo: string;
   readonly expenseDate: string;
   readonly isVoided: boolean;
+  readonly description?: string | null;
+  readonly createdAt?: string;
 }
 
 const EXPENSES: readonly MockExpense[] = [
@@ -66,12 +68,12 @@ const LOCALE_EXPECTATIONS = {
 } as const;
 
 test.describe('expenses', () => {
-  test('renders desktop table, mobile cards, filters, status values, and pagination', async ({
+  test('renders desktop table, mobile cards, filters, and status values', async ({
     page,
   }, testInfo) => {
     const collector = collectBrowserFailures(page);
     try {
-      await openExpenses(page, { totalCount: 45, pageSize: 3 });
+      await openExpenses(page);
       const isMobileProject = testInfo.project.name === 'chromium-mobile';
       if (!isMobileProject) {
         await expect(page.locator('.desktop-table')).toBeVisible();
@@ -79,7 +81,6 @@ test.describe('expenses', () => {
         await expect(page.locator('tbody')).toContainText('Office Rent');
         await expect(page.locator('tbody')).toContainText('Active');
         await expect(page.locator('tbody')).toContainText('Voided');
-        await expect(page.getByText('Page 1 of 15')).toBeVisible();
       } else {
         await expect(page.locator('.mobile-grid-container')).toBeVisible();
         await expect(page.locator('.expense-card')).toHaveCount(3);
@@ -119,13 +120,102 @@ test.describe('expenses', () => {
     }
   });
 
+  test('filters the complete dataset and preserves query through correction page recovery', async ({
+    page,
+  }, testInfo) => {
+    const requests: URL[] = [];
+    const items: MockExpense[] = Array.from({ length: 25 }, (_, i) => ({
+      id: `expense-${String(i).padStart(2, '0')}`,
+      amount: 100,
+      categoryName: 'Office Rent',
+      paidTo: i < 21 ? `Needle Vendor ${i}` : `Other Vendor ${i}`,
+      expenseDate: '2026-07-20',
+      isVoided: false,
+    }));
+    items.push({
+      ...items[0],
+      id: 'expense-archived',
+      paidTo: 'Needle Archived',
+      expenseDate: '2026-07-01',
+      isVoided: true,
+    });
+    await openExpenses(page, { items, onListRequest: (url) => requests.push(url) });
+    const mobile = testInfo.project.name === 'chromium-mobile';
+    const rows = mobile ? page.locator('.expense-card') : page.locator('.desktop-table tbody tr');
+    const chooseStatus = async (name: string) => {
+      await page.locator('p-select[inputid="expenses-status-filter"]').click();
+      await page.getByRole('option').filter({ hasText: name }).click();
+    };
+    const summary = (label: string) =>
+      page
+        .locator('.summary-card')
+        .filter({ has: page.locator('.summary-card__label', { hasText: label }) })
+        .locator('.summary-card__value');
+    await expect(rows).toHaveCount(20);
+    await expect(rows.filter({ hasText: 'Needle Archived' })).toHaveCount(0);
+    await chooseStatus('Voided');
+    await expect(rows).toHaveCount(1);
+    await expect(rows).toContainText('Needle Archived');
+    await expect(summary('Matching expenses')).toHaveText('1');
+    await expect(summary('Active amount (this page)')).toContainText('0.00');
+    await chooseStatus('Active');
+    const search = page.locator('input[placeholder="Search expenses..."]');
+    await search.fill('Needle');
+    await expect(summary('Matching expenses')).toHaveText('21');
+    await expect(rows).toHaveCount(20);
+    await page
+      .locator('.pagination-controls p-button')
+      .filter({ has: page.locator('.pi-chevron-right') })
+      .locator('button')
+      .filter({ visible: true })
+      .click({ timeout: 3000 });
+    await expect(rows).toHaveCount(1);
+    expect(requests.at(-1)?.searchParams.get('page')).toBe('2');
+    await rows.first().getByRole('button').click();
+    const correct = page.locator('app-correct-expense-overlay .overlay');
+    await expect(correct).toBeVisible();
+    await correct.locator('input[formcontrolname="paidTo"]').fill('Different Vendor');
+    await correct.getByRole('button', { name: 'Correct Expense' }).click();
+    await expect(correct).toBeHidden();
+    await expect(summary('Matching expenses')).toHaveText('20');
+    await expect(rows).toHaveCount(20);
+    expect(requests.slice(-2).map((url) => url.searchParams.get('page'))).toEqual(['2', '1']);
+    for (const url of requests.slice(-2)) {
+      expect(url.searchParams.get('status')).toBe('active');
+      expect(url.searchParams.get('search')).toBe('Needle');
+      expect(url.searchParams.get('pageSize')).toBe('20');
+    }
+    await chooseStatus('Voided');
+    await expect(rows).toHaveCount(2);
+    expect(requests.at(-1)?.searchParams.get('page')).toBe('1');
+    await search.fill('no-such-match');
+    await expect(
+      page.locator('.empty-state, .mobile-empty-state').filter({ visible: true }),
+    ).toBeVisible();
+    await expect(summary('Matching expenses')).toHaveText('0');
+    await expect(page.locator('.error')).toBeHidden();
+    await page.route('**/api/expenses?**', (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'List unavailable' }),
+      }),
+    );
+    await search.fill('unavailable');
+    await expect(page.getByRole('alert')).toHaveText('List unavailable');
+    await expect(page.locator('.empty-state')).toBeHidden();
+    await expect(page.locator('.summary-grid')).toBeHidden();
+  });
+
   test('renders loading, error, and empty list states', async ({ page }) => {
     await openExpenses(page, { state: 'loading' });
     await expect(page.locator('.directory-panel--loading[aria-busy="true"]')).toBeVisible();
 
     await openExpenses(page, { state: 'error' });
     await expect(page.locator('.error')).toContainText('Unable to load expenses right now.');
-    await expect(page.locator('.directory-panel__surface')).toBeVisible();
+    await expect(page.locator('.directory-panel__surface')).toBeHidden();
+    await expect(page.locator('.empty-state')).toBeHidden();
+    await expect(page.locator('app-expenses-filter-bar')).toBeVisible();
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await openExpenses(page, { state: 'empty' });
@@ -138,7 +228,7 @@ test.describe('expenses', () => {
   }) => {
     const collector = collectBrowserFailures(page);
     try {
-      await openExpenses(page, { totalCount: 3, pageSize: 3 });
+      await openExpenses(page, {});
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.getByRole('button', { name: 'Record Expense' }).click();
       const record = page.locator('app-record-expense-overlay .overlay');
@@ -204,8 +294,10 @@ test.describe('expenses', () => {
       } as Record<string, Record<string, string>>;
       const expected = localeExpectations[locale] || localeExpectations['en-IN'];
 
-      await openExpenses(page, { locale, totalCount: 3, pageSize: 3 });
-      await page.setViewportSize(isMobileProject ? { width: 375, height: 667 } : { width: 1440, height: 900 });
+      await openExpenses(page, { locale });
+      await page.setViewportSize(
+        isMobileProject ? { width: 375, height: 667 } : { width: 1440, height: 900 },
+      );
 
       // Check table/card headers and status labels are translated
       if (!isMobileProject) {
@@ -226,7 +318,9 @@ test.describe('expenses', () => {
       const record = page.locator('app-record-expense-overlay .overlay');
       await expect(record).toBeVisible();
       await record.getByRole('button', { name: expected.recordButton }).click();
-      await expect(record.locator('.field-error').first()).toContainText(expected.validationRequired);
+      await expect(record.locator('.field-error').first()).toContainText(
+        expected.validationRequired,
+      );
 
       assertNoUnexpectedBrowserFailures(
         collector.failures.filter(
@@ -378,10 +472,7 @@ test.describe('expenses', () => {
       expect(postCallCount).toBe(2);
 
       assertNoUnexpectedBrowserFailures(
-        collector.failures.filter(
-          (failure) =>
-            !isExpectedExpensePostFailure(failure),
-        ),
+        collector.failures.filter((failure) => !isExpectedExpensePostFailure(failure)),
       );
     } finally {
       collector.dispose();
@@ -395,7 +486,7 @@ test.describe('expenses', () => {
     test.setTimeout(240_000);
     const collector = collectBrowserFailures(page);
     try {
-      await openExpenses(page, { locale: 'hi-IN', totalCount: 3, pageSize: 3 });
+      await openExpenses(page, { locale: 'hi-IN' });
       for (const viewport of [
         { width: 375, height: 667 },
         { width: 768, height: 1024 },
@@ -422,14 +513,14 @@ async function openExpenses(
   options: {
     readonly state?: 'ready' | 'loading' | 'error' | 'empty';
     readonly locale?: string;
-    readonly totalCount?: number;
-    readonly pageSize?: number;
+    readonly items?: readonly MockExpense[];
+    readonly onListRequest?: (url: URL) => void;
     readonly postError?: string;
   } = {},
 ): Promise<void> {
   await mockExternalRequests(page, { authenticated: true, locale: options.locale ?? 'en-IN' });
   const state = options.state ?? 'ready';
-  let items = [...EXPENSES];
+  let items = [...(options.items ?? EXPENSES)];
   await page.route('**/api/expenses**', async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -455,7 +546,7 @@ async function openExpenses(
       return;
     }
     if (request.method() === 'GET' && expenseId) {
-      await fulfillJson(route, DETAIL);
+      await fulfillJson(route, { ...DETAIL, ...items.find((item) => item.id === expenseId) });
       return;
     }
     if (request.method() === 'POST') {
@@ -470,33 +561,47 @@ async function openExpenses(
       const body = request.postDataJSON() as Record<string, unknown>;
       const updated = {
         ...DETAIL,
-        id: body.categoryName === 'Travel' ? 'expense-travel' : DETAIL.id,
+        id: `expense-new-${items.length}`,
         categoryName: body.categoryName as string,
         amount: body.amount as number,
         paidTo: body.paidTo as string,
         description: body.description as string | null,
         expenseDate: body.expenseDate as string,
       };
-      items =
-        body.categoryName === 'Travel'
-          ? [updated, ...items]
-          : items.map((item) =>
-              item.id === DETAIL.id ? { ...item, paidTo: body.paidTo as string } : item,
-            );
+      if (expenseId) {
+        items = items.map((item) => (item.id === expenseId ? { ...item, isVoided: true } : item));
+      }
+      items = [updated, ...items];
       await fulfillJson(route, updated);
       return;
     }
-    const pageSize = options.pageSize ?? Number(url.searchParams.get('pageSize') ?? 20);
+    options.onListRequest?.(url);
+    const pageSize = Number(url.searchParams.get('pageSize') ?? 20);
+    const pageNumber = Number(url.searchParams.get('page') ?? 1);
     const search = url.searchParams.get('search')?.toLowerCase();
-    const visibleItems = search
-      ? items.filter((item) =>
-          (item.categoryName + ' ' + item.paidTo).toLowerCase().includes(search),
-        )
-      : items;
+    const status = url.searchParams.get('status') ?? 'all';
+    const visibleItems = items
+      .filter(
+        (item) =>
+          (!search ||
+            (item.categoryName + ' ' + item.paidTo + ' ' + (item.description ?? ''))
+              .toLowerCase()
+              .includes(search)) &&
+          (status === 'all' || item.isVoided === (status === 'voided')),
+      )
+      .sort(
+        (left, right) =>
+          right.expenseDate.localeCompare(left.expenseDate) ||
+          (right.createdAt ?? '').localeCompare(left.createdAt ?? '') ||
+          right.id.localeCompare(left.id),
+      );
     await fulfillJson(route, {
-      items: state === 'empty' ? [] : visibleItems.slice(0, pageSize),
-      totalCount: state === 'empty' ? 0 : (options.totalCount ?? EXPENSES.length),
-      pageNumber: Number(url.searchParams.get('page') ?? 1),
+      items:
+        state === 'empty'
+          ? []
+          : visibleItems.slice((pageNumber - 1) * pageSize, pageNumber * pageSize),
+      totalCount: state === 'empty' ? 0 : visibleItems.length,
+      pageNumber,
       pageSize,
     });
   });
@@ -556,5 +661,9 @@ function isExpectedExpensePostFailure(failure: {
     return failure.message.includes('status of 500');
   }
 
-  return failure.kind === 'response' && failure.message === 'HTTP 500' && failure.url?.includes('/api/expenses') === true;
+  return (
+    failure.kind === 'response' &&
+    failure.message === 'HTTP 500' &&
+    failure.url?.includes('/api/expenses') === true
+  );
 }

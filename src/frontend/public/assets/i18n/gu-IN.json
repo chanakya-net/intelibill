@@ -2226,6 +2226,8 @@
     }
   },
   "expenses": {
+    "previousPage": "પાછલું પેજ",
+    "nextPage": "આગલું પેજ",
     "expenseLedger": "ખર્ચ ખાતું",
     "title": "ખર્ચ",
     "subtitle": "તમારા વ્યવસાયના ખર્ચનું સંચાલન અને ટ્રેક કરો",
@@ -2248,11 +2250,11 @@
     "searchPlaceholder": "ખર્ચ શોધો...",
     "pageInfo": "પાનું {{currentPage}} / {{totalPages}}",
     "summary": {
-      "totalExpenses": "કુલ ખર્ચ",
-      "pageAmount": "પૃષ્ઠ રકમ",
-      "activeCount": "સક્રિય ખર્ચ",
-      "voidedCount": "રદ ખર્ચ",
-      "filteredRows": "ફિલ્ટર કરેલી પંક્તિઓ",
+      "totalExpenses": "મેળ ખાતા ખર્ચ",
+      "pageAmount": "સક્રિય રકમ (આ પૃષ્ઠ પર)",
+      "activeCount": "સક્રિય ખર્ચ (આ પૃષ્ઠ પર)",
+      "voidedCount": "રદ કરેલા ખર્ચ (આ પૃષ્ઠ પર)",
+      "filteredRows": "આ પૃષ્ઠ પરના ખર્ચ",
       "ariaLabel": "ખર્ચનો સારાંશ"
     },
     "ledgerMetrics": "ખર્ચ ખાતાવહી મેટ્રિક્સ",

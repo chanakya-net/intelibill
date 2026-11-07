@@ -184,6 +184,77 @@ describe('ExpensesEffects', () => {
     subscription.unsubscribe();
   });
 
+  it.each([
+    ['active', 2, 21, 2],
+    ['active', 2, 20, 1],
+    ['voided', 2, 21, 2],
+    ['all', 3, 41, 3],
+    ['all', 3, 40, 2],
+    ['active', 1, 0, 1],
+  ] as const)(
+    'refresh %s page %i with count %i selects valid page %i',
+    async (status, page, totalCount, expectedPage) => {
+      expenseService.getExpenses.mockReturnValue(
+        of({ items: [], totalCount, pageNumber: page, pageSize: 20 }),
+      );
+      const output = firstValueFrom(effects.loadExpenses$.pipe(take(1)));
+      const query = { status, page, pageSize: 20, search: 'rent' };
+      actions$.next(ExpensesActions.loadExpensesRequested({ query, requestId: 'original' }));
+      const action = await output;
+      if (expectedPage === page) {
+        expect(action).toEqual(
+          ExpensesActions.loadExpensesSucceeded({
+            requestId: 'original',
+            expenses: [],
+            totalCount,
+            page,
+            pageSize: 20,
+          }),
+        );
+      } else {
+        expect(action).toEqual(
+          ExpensesActions.loadExpensesRequested({
+            query: { ...query, page: expectedPage },
+            requestId: expect.any(String),
+          }),
+        );
+        expect((action as { requestId: string }).requestId).not.toBe('original');
+      }
+    },
+  );
+
+  it('does not publish or recover an old out-of-range page after a newer filter', () => {
+    const pending = new Subject<PaginatedExpenses>();
+    expenseService.getExpenses
+      .mockReturnValueOnce(pending)
+      .mockReturnValueOnce(of({ items: [], totalCount: 0, pageNumber: 1, pageSize: 20 }));
+    const outputs: Action[] = [];
+    const subscription = effects.loadExpenses$.subscribe((action) => outputs.push(action));
+    actions$.next(
+      ExpensesActions.loadExpensesRequested({
+        query: { status: 'active', search: 'rent', page: 2, pageSize: 20 },
+        requestId: 'old',
+      }),
+    );
+    actions$.next(
+      ExpensesActions.loadExpensesRequested({
+        query: { status: 'voided', page: 1, pageSize: 20 },
+        requestId: 'new',
+      }),
+    );
+    pending.next({ items: [], totalCount: 20, pageNumber: 2, pageSize: 20 });
+    expect(outputs).toEqual([
+      ExpensesActions.loadExpensesSucceeded({
+        requestId: 'new',
+        expenses: [],
+        totalCount: 0,
+        page: 1,
+        pageSize: 20,
+      }),
+    ]);
+    subscription.unsubscribe();
+  });
+
   it('dispatches loadExpenseDetailSucceeded on detail load success', async () => {
     const expense = makeExpenseDto();
     expenseService.getExpenseById.mockReturnValue(of(expense));

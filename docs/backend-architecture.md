@@ -1159,3 +1159,20 @@ Ties use posting instant, ordinal return number, event kind and return ID. These
 do not rewrite frozen sale/return snapshots or alter the legacy metric formulas. Numeric report and
 XLSX search match the displayed net sales, rounded COGS, loss and trading amounts as well as the
 legacy monetary fields; searched operating totals remain unavailable.
+
+## Expense List Filtering
+
+`GET /api/expenses` accepts `search`, `status`, `page` (default 1), and `pageSize`
+(default 20, range 1–100). Status names `all`, `active`, and `voided` are
+case-insensitive and trimmed; omission or whitespace means `all`. Unsupported names
+(including numeric enum strings) return 400 `Expense.InvalidStatus`. Nonpositive
+pages and offsets exceeding Int32 return `Expense.InvalidPageNumber`; unsupported
+sizes return `Expense.InvalidPageSize`. MVC rejects malformed numeric bindings.
+The controller prevalidates with the registered query validator to preserve these
+codes through `ToProblemResult`; direct bus callers retain validator protection.
+
+The repository starts with the authenticated active shop, applies the paid-to,
+description/category search and status predicates once, then counts and pages
+that same query. Ordering is expense date, creation instant, and ID, all descending.
+No report arithmetic, expense treatment, or correction provenance changes. Separate
+requests still use offset pagination, without a cross-request snapshot guarantee.

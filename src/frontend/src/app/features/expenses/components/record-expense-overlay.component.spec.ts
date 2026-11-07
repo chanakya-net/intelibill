@@ -23,6 +23,7 @@ describe('RecordExpenseOverlayComponent', () => {
     clearMutationStatus: vi.fn(),
     recordExpense: vi.fn(),
     loadExpenses: vi.fn(),
+    refreshExpenses: vi.fn(),
     mutationStatus$: of({
       type: null as 'record-expense' | 'correct-expense' | null,
       succeeded: false,
@@ -40,6 +41,7 @@ describe('RecordExpenseOverlayComponent', () => {
     expensesFacade.clearMutationStatus.mockReset();
     expensesFacade.recordExpense.mockReset();
     expensesFacade.loadExpenses.mockReset();
+    expensesFacade.refreshExpenses.mockReset();
 
     TestBed.configureTestingModule({
       imports: [
@@ -65,13 +67,21 @@ describe('RecordExpenseOverlayComponent', () => {
   it('records an explicitly selected operating treatment', () => {
     const fixture = TestBed.createComponent(RecordExpenseOverlayComponent);
     fixture.detectChanges();
-    const select = fixture.nativeElement.querySelector('[data-testid="expense-treatment"]') as HTMLSelectElement | null;
+    const select = fixture.nativeElement.querySelector(
+      '[data-testid="expense-treatment"]',
+    ) as HTMLSelectElement | null;
     expect(select).not.toBeNull();
     select!.value = 'Operating';
     select!.dispatchEvent(new Event('change'));
-    fixture.componentInstance.form.patchValue({ categoryName: 'Rent', amount: 20, paidTo: 'Landlord' });
+    fixture.componentInstance.form.patchValue({
+      categoryName: 'Rent',
+      amount: 20,
+      paidTo: 'Landlord',
+    });
     fixture.componentInstance.onSubmit();
-    expect(expensesFacade.recordExpense).toHaveBeenCalledWith(expect.objectContaining({ treatment: 'Operating' }));
+    expect(expensesFacade.recordExpense).toHaveBeenCalledWith(
+      expect.objectContaining({ treatment: 'Operating' }),
+    );
   });
 
   it('initializes and loads categories on ngOnInit', () => {
@@ -193,7 +203,8 @@ describe('RecordExpenseOverlayComponent', () => {
 
     mutationSubject.next({ type: 'record-expense', succeeded: true });
 
-    expect(expensesFacade.loadExpenses).toHaveBeenCalled();
+    expect(expensesFacade.refreshExpenses).toHaveBeenCalledTimes(1);
+    expect(expensesFacade.loadExpenses).not.toHaveBeenCalled();
     expect(closed).toBe(true);
     expect(expensesFacade.clearMutationStatus).toHaveBeenCalled();
   });

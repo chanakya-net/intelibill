@@ -2226,6 +2226,8 @@
     }
   },
   "expenses": {
+    "previousPage": "पिछला पेज",
+    "nextPage": "अगला पेज",
     "expenseLedger": "खर्च खाता",
     "title": "खर्चे",
     "subtitle": "अपने व्यवसायिक खर्चों का प्रबंधन और ट्रैक करें",
@@ -2248,11 +2250,11 @@
     "searchPlaceholder": "खर्च खोजें...",
     "pageInfo": "पेज {{currentPage}} / {{totalPages}}",
     "summary": {
-      "totalExpenses": "कुल खर्च",
-      "pageAmount": "पृष्ठ राशि",
-      "activeCount": "सक्रिय खर्च",
-      "voidedCount": "रद्द खर्च",
-      "filteredRows": "फ़िल्टर की गई पंक्तियाँ",
+      "totalExpenses": "मिलते-जुलते खर्च",
+      "pageAmount": "सक्रिय राशि (इस पृष्ठ पर)",
+      "activeCount": "सक्रिय खर्च (इस पृष्ठ पर)",
+      "voidedCount": "रद्द खर्च (इस पृष्ठ पर)",
+      "filteredRows": "इस पृष्ठ पर खर्च",
       "ariaLabel": "व्यय सारांश"
     },
     "ledgerMetrics": "व्यय खाता मेट्रिक्स",

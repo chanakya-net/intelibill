@@ -14,7 +14,9 @@
             <span>
               <strong>{{ expense.categoryName }}</strong>
               <em>{{ expense.paidTo }}</em>
-              <small>{{ ('expenses.treatment.' + (expense.treatment ?? 'Unclassified')) | transloco }}</small>
+              <small>{{
+                'expenses.treatment.' + (expense.treatment ?? 'Unclassified') | transloco
+              }}</small>
             </span>
           </div>
 
@@ -98,7 +100,11 @@
               <strong>{{ expense.categoryName }}</strong>
             </div>
           </td>
-          <td>{{ expense.paidTo }}<br /><small>{{ ('expenses.treatment.' + (expense.treatment ?? 'Unclassified')) | transloco }}</small></td>
+          <td>
+            {{ expense.paidTo }}<br /><small>{{
+              'expenses.treatment.' + (expense.treatment ?? 'Unclassified') | transloco
+            }}</small>
+          </td>
           <td class="money">
             {{ 'common.currencySymbol' | transloco }}{{ expense.amount | number: '1.2-2' }}
           </td>
@@ -139,38 +145,34 @@
           </td>
         </tr>
       </ng-template>
-      <ng-template pTemplate="footer">
-        <tr>
-          <td [attr.colspan]="canManageExpenses ? 6 : 5">
-            <div class="table-footer">
-              <span>{{
-                'expenses.showingCount' | transloco: { visible: visibleRows, total: totalRows }
-              }}</span>
-              @if (showPagination) {
-                <div class="pagination-controls">
-                  <p-button
-                    icon="pi pi-chevron-left"
-                    [disabled]="currentPage <= 1"
-                    (click)="onPageChange(currentPage - 1)"
-                    severity="secondary"
-                    [text]="true"
-                  />
-                  <span class="page-info">
-                    {{ 'expenses.pageInfo' | transloco: { currentPage, totalPages } }}
-                  </span>
-                  <p-button
-                    icon="pi pi-chevron-right"
-                    [disabled]="currentPage >= totalPages"
-                    (click)="onPageChange(currentPage + 1)"
-                    severity="secondary"
-                    [text]="true"
-                  />
-                </div>
-              }
-            </div>
-          </td>
-        </tr>
-      </ng-template>
     </p-table>
+  </div>
+  <div class="table-footer">
+    <span>{{
+      'expenses.showingCount' | transloco: { visible: visibleRows, total: totalRows }
+    }}</span>
+    @if (showPagination) {
+      <div class="pagination-controls">
+        <p-button
+          icon="pi pi-chevron-left"
+          [ariaLabel]="'expenses.previousPage' | transloco"
+          [disabled]="currentPage <= 1"
+          (click)="onPageChange(currentPage - 1)"
+          severity="secondary"
+          [text]="true"
+        />
+        <span class="page-info">
+          {{ 'expenses.pageInfo' | transloco: { currentPage, totalPages } }}
+        </span>
+        <p-button
+          icon="pi pi-chevron-right"
+          [ariaLabel]="'expenses.nextPage' | transloco"
+          [disabled]="currentPage >= totalPages"
+          (click)="onPageChange(currentPage + 1)"
+          severity="secondary"
+          [text]="true"
+        />
+      </div>
+    }
   </div>
 </section>

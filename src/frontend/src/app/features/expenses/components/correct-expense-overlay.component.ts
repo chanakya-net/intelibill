@@ -1,4 +1,13 @@
-import { Component, EventEmitter, Input, OnInit, Output, computed, inject, signal } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnInit,
+  Output,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -53,7 +62,8 @@ export class CorrectExpenseOverlayComponent implements OnInit {
   readonly treatmentChoices = EXPENSE_TREATMENT_CHOICES;
   selectTreatment(event: Event): void {
     const choice = (event.target as HTMLSelectElement).value;
-    if (this.treatmentChoices.some(t => t === choice)) this.treatment.set(choice as ExpenseTreatment);
+    if (this.treatmentChoices.some((t) => t === choice))
+      this.treatment.set(choice as ExpenseTreatment);
   }
 
   readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
@@ -95,7 +105,7 @@ export class CorrectExpenseOverlayComponent implements OnInit {
         filter((status) => status.type === 'correct-expense' && status.succeeded === true),
       )
       .subscribe(() => {
-        this.expensesFacade.loadExpenses();
+        this.expensesFacade.refreshExpenses();
         this.closeRequested.emit();
         this.expensesFacade.clearMutationStatus();
       });
@@ -106,7 +116,10 @@ export class CorrectExpenseOverlayComponent implements OnInit {
     this.expensesFacade.clearMutationStatus();
     this.expensesFacade.loadCategories();
 
-    this.treatment.set(this.originalExpense.treatment ?? (this.originalExpense.supplierLedgerEntryId ? 'SupplierSettlement' : 'Unclassified'));
+    this.treatment.set(
+      this.originalExpense.treatment ??
+        (this.originalExpense.supplierLedgerEntryId ? 'SupplierSettlement' : 'Unclassified'),
+    );
     this.form.patchValue({
       categoryName: this.originalExpense.categoryName,
       amount: this.originalExpense.amount,
