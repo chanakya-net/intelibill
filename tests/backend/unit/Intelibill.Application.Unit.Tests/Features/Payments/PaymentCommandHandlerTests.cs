@@ -55,8 +55,13 @@ public class PaymentCommandHandlerTests
     public async Task Reverse_SuspendedOwner_IsRefusedBeforeReplay()
     {
         var actor = Member(ShopRole.Owner);
+        var receipt = StoredReceipt();
         actor.ShopMemberships.Single().ChangeAuthority(ShopRole.Owner, MembershipStatus.Suspended);
-        var result = await PaymentAuthorization.RoleAsync(_users, actor.Id, _shop.Id, CancellationToken.None);
+
+        var result = await ReverseHandler().HandleAsync(
+            new ReversePaymentCommand(actor.Id, _shop.Id, receipt.Id, "Wrong customer", "rev-suspended"), CancellationToken.None);
+
+        Assert.Empty(_executor.ReceivedCalls());
         Assert.True(result.IsError);
         Assert.Equal("Shop.MembershipNotFound", result.FirstError.Code);
     }
