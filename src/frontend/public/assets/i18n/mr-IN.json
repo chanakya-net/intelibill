@@ -3021,6 +3021,10 @@
       "sale-return-void": "विक्री परतावा रद्द",
       "payment-reversal": "देयक परतफेड",
       "reconciliation-resolution": "ऐतिहासिक टिल जुळवणी"
+    },
+    "purposes": {
+      "cashRefund": "रोख परतावा",
+      "recordedSettlement": "नोंदवलेली तडजोड"
     }
   }
 }

@@ -66,7 +66,7 @@ export class SaleCancellationDialogComponent implements OnChanges {
   private owner: ShopScope | null = null;
   private target = '';
   private generation = 0;
-  private saves: Promise<void> = Promise.resolve();
+  private saves: Promise<SaleCancellationDraftRecord | null> = Promise.resolve(null);
   ngOnChanges() {
     if (this.visible && this.saleId) void this.restore();
   }
@@ -141,19 +141,31 @@ export class SaleCancellationDialogComponent implements OnChanges {
   }
   save() {
     if (!this.owner || !this.ready() || this.record()?.pending || !this.preview()) return;
-    const owner = this.owner,
+    const owner = { ...this.owner },
       target = this.target,
       generation = this.generation;
     const draft = this.editable();
-    this.saves = this.saves.then(async () => {
+    const revision = this.record()?.revision ?? 0;
+    this.saves = this.saves.then(async (previous) => {
       try {
-        const result = await this.drafts.save(owner, target, draft, this.record()?.revision ?? 0);
+        const result = await this.drafts.save(
+          owner,
+          target,
+          draft,
+          previous?.userId === owner.userId &&
+            previous.shopId === owner.shopId &&
+            previous.targetId === target
+            ? previous.revision
+            : revision,
+        );
         if (this.current(owner, target, generation)) this.record.set(result);
+        return result;
       } catch {
         if (this.current(owner, target, generation)) {
           this.error.set('sales.cancellation.storageError');
           this.ready.set(false);
         }
+        return null;
       }
     });
   }
@@ -173,18 +185,22 @@ export class SaleCancellationDialogComponent implements OnChanges {
   }
   async submit() {
     if (!this.valid() || !this.owner) return;
-    const owner = this.owner,
+    const owner = { ...this.owner },
       target = this.target,
-      generation = this.generation;
+      generation = this.generation,
+      revision = this.record()?.revision ?? 0;
     this.busy.set(true);
     this.error.set('');
     try {
-      await this.saves;
+      const draft = structuredClone(this.editable(true));
+      const saved = await this.saves;
       const record = await this.drafts.prepare(
         owner,
         target,
-        this.editable(true),
-        this.record()?.revision ?? 0,
+        draft,
+        saved?.userId === owner.userId && saved.shopId === owner.shopId && saved.targetId === target
+          ? saved.revision
+          : revision,
       );
       if (!this.current(owner, target, generation)) return;
       this.record.set(record);

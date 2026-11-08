@@ -3021,6 +3021,10 @@
       "sale-return-void": "વેચાણ વળતર રદ",
       "payment-reversal": "ચુકવણી રિવર્સલ",
       "reconciliation-resolution": "ઐતિહાસિક કૅશ ડ્રોઅર મેળવણું"
+    },
+    "purposes": {
+      "cashRefund": "રોકડ પરતફેર",
+      "recordedSettlement": "નોંધાયેલ પતાવટ"
     }
   }
 }

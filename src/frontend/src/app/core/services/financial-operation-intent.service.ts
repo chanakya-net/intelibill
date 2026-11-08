@@ -1,5 +1,5 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Injectable, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 import { Observable, catchError, defer, map, of, tap, throwError } from 'rxjs';
 
 import { FINANCIAL_OPERATION_ENDPOINTS } from '../auth/auth.constants';
@@ -65,6 +65,33 @@ export class FinancialOperationIntentService {
 
   /** Bumps on every change, so a `computed` over `pending` re-evaluates. */
   readonly revision = this.revisionSignal.asReadonly();
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      const changed = (event: StorageEvent) => {
+        if (event.key === STORAGE_KEY) this.revisionSignal.update((revision) => revision + 1);
+      };
+      window.addEventListener('storage', changed);
+      inject(DestroyRef).onDestroy(() => window.removeEventListener('storage', changed));
+    }
+  }
+
+  /** A separately recovered source may settle only this exact outer owner/type/target/key. */
+  confirmMatching(
+    scope: FinancialOperationScope,
+    operationType: FinancialOperationType,
+    targetId: string,
+    operationKey: string,
+  ): void {
+    const intent = this.read()[operationKey];
+    if (
+      intent &&
+      isSameScope(scope, intent) &&
+      intent.operationType === operationType &&
+      intent.targetId === targetId
+    )
+      this.remove(operationKey);
+  }
 
   prepare<TPayload>(
     scope: FinancialOperationScope,
@@ -153,16 +180,18 @@ export class FinancialOperationIntentService {
         return throwError(() => new ForeignFinancialOperationScopeError());
       }
       return this.http
-        .get<FinancialOperationLookup<TResponse>>(
-          FINANCIAL_OPERATION_ENDPOINTS.lookup(intent.operationType, intent.operationKey),
-        )
+        .get<
+          FinancialOperationLookup<TResponse>
+        >(FINANCIAL_OPERATION_ENDPOINTS.lookup(intent.operationType, intent.operationKey))
         .pipe(
           map((lookup) => {
             this.remove(intent.operationKey);
             return lookup.response;
           }),
           catchError((error: unknown) =>
-            error instanceof HttpErrorResponse && error.status === 404 ? of(null) : throwError(() => error),
+            error instanceof HttpErrorResponse && error.status === 404
+              ? of(null)
+              : throwError(() => error),
           ),
         );
     });
@@ -224,7 +253,12 @@ export function classifyFinancialOperationFailure(error: unknown): FinancialOper
 }
 
 function isSameScope(scope: FinancialOperationScope, intent: FinancialOperationIntent): boolean {
-  return !!scope.userId && !!scope.shopId && intent.userId === scope.userId && intent.shopId === scope.shopId;
+  return (
+    !!scope.userId &&
+    !!scope.shopId &&
+    intent.userId === scope.userId &&
+    intent.shopId === scope.shopId
+  );
 }
 
 function deepFreeze<T>(value: T): T {

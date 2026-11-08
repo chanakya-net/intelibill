@@ -3021,6 +3021,10 @@
       "sale-return-void": "ಮಾರಾಟ ವಾಪಸಾತಿ ರದ್ದು",
       "payment-reversal": "ಪಾವತಿ ಹಿಮ್ಮರಳಿಕೆ",
       "reconciliation-resolution": "ಐತಿಹಾಸಿಕ ನಗದು ಪೆಟ್ಟಿಗೆ ಹೊಂದಾಣಿಕೆ"
+    },
+    "purposes": {
+      "cashRefund": "ನಗದು ಮರುಪಾವತಿ",
+      "recordedSettlement": "ದಾಖಲಿಸಿದ ಇತ್ಯರ್ಥ"
     }
   }
 }

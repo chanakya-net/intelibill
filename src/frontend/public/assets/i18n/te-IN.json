@@ -3021,6 +3021,10 @@
       "sale-return-void": "విక్రయ రిటర్న్ రద్దు",
       "payment-reversal": "చెల్లింపు రివర్సల్",
       "reconciliation-resolution": "చారిత్రక నగదు డ్రాయర్ సరిపోలిక"
+    },
+    "purposes": {
+      "cashRefund": "నగదు వాపసు",
+      "recordedSettlement": "నమోదు చేసిన పరిష్కారం"
     }
   }
 }

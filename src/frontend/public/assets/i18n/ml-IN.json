@@ -3021,6 +3021,10 @@
       "sale-return-void": "വിൽപ്പന മടക്കം റദ്ദാക്കൽ",
       "payment-reversal": "പണമടയ്ക്കൽ തിരിച്ചാക്കൽ",
       "reconciliation-resolution": "ചരിത്രപരമായ ക്യാഷ് ഡ്രോയർ ഒത്തുനോക്കൽ"
+    },
+    "purposes": {
+      "cashRefund": "പണമായുള്ള റീഫണ്ട്",
+      "recordedSettlement": "രേഖപ്പെടുത്തിയ തീർപ്പാക്കൽ"
     }
   }
 }

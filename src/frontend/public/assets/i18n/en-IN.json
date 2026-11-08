@@ -3021,6 +3021,10 @@
       "sale-return-void": "Return void",
       "payment-reversal": "Payment reversal",
       "reconciliation-resolution": "Historical till reconciliation"
+    },
+    "purposes": {
+      "cashRefund": "Cash refund",
+      "recordedSettlement": "Recorded settlement"
     }
   }
 }

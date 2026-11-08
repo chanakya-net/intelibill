@@ -136,5 +136,5 @@
       </button>
     }
   </div>
-  <app-till-posting-fields [sale]="true" [disabled]="!!record()?.pending" />
+  <app-till-posting-fields [sale]="true" [disabled]="busy() || !!record()?.pending" />
 </p-dialog>

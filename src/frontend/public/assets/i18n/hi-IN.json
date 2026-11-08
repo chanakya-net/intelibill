@@ -3021,6 +3021,10 @@
       "sale-return-void": "बिक्री वापसी निरस्त",
       "payment-reversal": "भुगतान की वापसी",
       "reconciliation-resolution": "ऐतिहासिक टिल का मिलान"
+    },
+    "purposes": {
+      "cashRefund": "नकद धनवापसी",
+      "recordedSettlement": "दर्ज किया गया निपटान"
     }
   }
 }

@@ -242,7 +242,11 @@
         @for (source of d.sources.items; track source.id) {
           <section>
             <strong
-              >{{ 'tills.sources.' + source.sourceType | transloco }} · {{ source.purpose }}</strong
+              >{{ 'tills.sources.' + source.sourceType | transloco }} ·
+              {{ purposeLabel(source.purpose) | transloco }}
+              <small
+                ><code>{{ source.purpose }}</code></small
+              ></strong
             ><code>{{ source.sourceId }}</code>
             @if (source.parentSaleId) {
               <a [routerLink]="['/sales', source.parentSaleId, 'print']">{{
@@ -283,7 +287,7 @@
         <p>{{ 'tills.excluded' | transloco }}</p>
         @for (late of s.latePostings; track late.id) {
           <p>
-            {{ late.sourceBusinessDate }} · {{ late.evidenceStatus }} ·
+            {{ late.sourceBusinessDate }} · {{ evidenceLabel(late.evidenceStatus) | transloco }} ·
             {{
               late.supplementalAmount === null
                 ? ('tills.unknownAmount' | transloco)

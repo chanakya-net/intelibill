@@ -1,3 +1,4 @@
+import { tillEvidenceLabel, tillPurposeLabel } from '../services/till-labels';
 import { TillPendingActionsComponent } from '../components/till-pending-actions.component';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
@@ -19,6 +20,8 @@ import { Till, TillSession, TillSessionDetail } from '../services/till.models';
   styleUrl: './till-session-page.component.scss',
 })
 export class TillSessionPageComponent {
+  readonly purposeLabel = tillPurposeLabel;
+  readonly evidenceLabel = tillEvidenceLabel;
   readonly context = inject(TillContextService);
   private readonly api = inject(TillService);
   private readonly auth = inject(AuthService);

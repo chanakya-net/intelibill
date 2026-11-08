@@ -3021,6 +3021,10 @@
       "sale-return-void": "விற்பனைத் திருப்பல் ரத்து",
       "payment-reversal": "கட்டண எதிர்ப்பதிவு",
       "reconciliation-resolution": "வரலாற்றுப் பணப்பெட்டி ஒப்பாய்வு"
+    },
+    "purposes": {
+      "cashRefund": "ரொக்கப் பணத்திருப்பம்",
+      "recordedSettlement": "பதிவு செய்யப்பட்ட தீர்வு"
     }
   }
 }

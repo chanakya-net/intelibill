@@ -1,3 +1,4 @@
+import { tillEvidenceLabel, tillPurposeLabel } from '../services/till-labels';
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -51,7 +52,12 @@ import { TillSession } from '../services/till.models';
         }
         <h2>{{ 'tills.purposeTotals' | transloco }}</h2>
         @for (t of c.totals.purposeTotals | keyvalue; track t.key) {
-          <p>{{ t.key }}: {{ t.value | currency: 'INR' }}</p>
+          <p>
+            {{ purposeLabel(t.key) | transloco }}: {{ t.value | currency: 'INR' }}
+            <small
+              ><code>{{ t.key }}</code></small
+            >
+          </p>
         }
         <p>
           {{ 'tills.creditIssued' | transloco }}: {{ c.totals.storeCreditIssued | currency: 'INR' }}
@@ -79,7 +85,7 @@ import { TillSession } from '../services/till.models';
           <section>
             <p>
               {{ late.sourceBusinessDate }} · {{ late.recordedAt | date: 'medium' }} ·
-              {{ late.evidenceStatus }}
+              {{ evidenceLabel(late.evidenceStatus) | transloco }}
             </p>
             <p>
               {{
@@ -158,6 +164,8 @@ import { TillSession } from '../services/till.models';
   ],
 })
 export class TillClosePrintPageComponent {
+  readonly purposeLabel = tillPurposeLabel;
+  readonly evidenceLabel = tillEvidenceLabel;
   readonly session = signal<TillSession | null>(null);
   readonly error = signal(false);
   private readonly api = inject(TillService);

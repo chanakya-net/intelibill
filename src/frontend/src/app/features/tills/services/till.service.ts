@@ -4,6 +4,7 @@ import { Observable, defer, firstValueFrom } from 'rxjs';
 import { API_BASE_URL } from '../../../core/auth/auth.constants';
 import { scopedRequestContext, isScopeChangeError } from '../../../core/context/scoped-request';
 import { ScopeOwner } from '../../../core/context/shop-scope';
+import { FinancialOperationIntentService } from '../../../core/services/financial-operation-intent.service';
 import { TillDraftService } from './till-draft.service';
 import {
   Till,
@@ -17,6 +18,7 @@ import {
 export class TillService {
   private readonly http = inject(HttpClient);
   private readonly drafts = inject(TillDraftService);
+  private readonly intents = inject(FinancialOperationIntentService);
   private readonly base = `${API_BASE_URL}/tills`;
   capabilities() {
     return this.http.get<TillCapabilities>(`${this.base}/capabilities`);
@@ -60,23 +62,72 @@ export class TillService {
       let identity = prior?.targetId ?? `${prefix}${cycle}`;
       const current = prior ?? (await this.drafts.load(owner, identity));
       let recovery = !!current?.pending;
-      const record = recovery
-        ? await this.drafts.claimRecovery(
-            owner,
-            identity,
-            current!.pending!.operationKey,
-            current!.pending!.payload,
-          )
-        : await this.drafts.prepare(
-            owner,
-            identity,
-            { payload: { ...frozenPayload, __requestPath: path } },
-            current?.revision ?? 0,
-          );
+      const payment = action === 'customer-payment' || action === 'supplier-payment';
+      const externalKey =
+        typeof frozenPayload['operationKey'] === 'string' ? frozenPayload['operationKey'] : null;
+      const confirmedPayment = async () => {
+        if (!payment || !externalKey) return null;
+        const proof = await this.drafts.confirmation(owner, `${prefix}${cycle}`, externalKey);
+        if (!proof) return null;
+        // Older key-only proofs remain valid, but need an authorized receipt read for the response.
+        let response: unknown;
+        if (Object.prototype.hasOwnProperty.call(proof, 'response')) response = proof.response;
+        else {
+          try {
+            response = (
+              await firstValueFrom(
+                this.http.get<{ response: T }>(
+                  `${API_BASE_URL}/financial-operations/${action}/${externalKey}`,
+                  { context: scopedRequestContext(owner) },
+                ),
+              )
+            ).response;
+          } catch (error) {
+            if (isScopeChangeError(error)) throw error;
+            // A missing response cannot turn a verified old proof into a refusal/new payment.
+            throw new Error('Confirmed operation response is not available yet.');
+          }
+        }
+        this.intents.confirmMatching(
+          owner,
+          action as 'customer-payment' | 'supplier-payment',
+          target,
+          externalKey,
+        );
+        return { response: response as T };
+      };
+      const confirmed = await confirmedPayment();
+      if (confirmed) return confirmed.response;
+      let record;
+      try {
+        record = recovery
+          ? await this.drafts.claimRecovery(
+              owner,
+              identity,
+              current!.pending!.operationKey,
+              current!.pending!.payload,
+            )
+          : await this.drafts.prepare(
+              owner,
+              identity,
+              { payload: { ...frozenPayload, __requestPath: path } },
+              current?.revision ?? 0,
+            );
+      } catch (error) {
+        // Another tab may confirm between the read and atomic claim. Its immutable proof wins.
+        const confirmed = await confirmedPayment();
+        if (confirmed) return confirmed.response;
+        throw error;
+      }
       identity = record.targetId;
       const pending = record.pending!;
       recovery ||= pending.status === 'unknown';
-      if (recovery && !recoverFrozen && !sameActionPayload(frozenPayload, pending.payload))
+      if (
+        recovery &&
+        !recoverFrozen &&
+        ((payment && externalKey && externalKey !== pending.operationKey) ||
+          !sameActionPayload(frozenPayload, pending.payload))
+      )
         throw new PendingTillActionError(record.targetId, pending.operationKey, pending.payload);
       const frozenPath = pending.payload['__requestPath'];
       if (typeof frozenPath !== 'string') throw new Error('Frozen request path is missing.');
@@ -105,7 +156,16 @@ export class TillService {
             )
               throw new Error('Return void receipt identity mismatch.');
             const response = recover ? await recover(saved.response) : saved.response;
-            await this.drafts.settle(owner, identity, pending.operationKey, 'confirmed');
+            await this.drafts.settle(owner, identity, pending.operationKey, 'confirmed', {
+              response,
+            });
+            if (payment)
+              this.intents.confirmMatching(
+                owner,
+                action as 'customer-payment' | 'supplier-payment',
+                target,
+                pending.operationKey,
+              );
             return response;
           }
         }
@@ -113,7 +173,14 @@ export class TillService {
         const response = await firstValueFrom(
           this.http.post<T>(`${API_BASE_URL}${frozenPath}`, body, { context }),
         );
-        await this.drafts.settle(owner, identity, pending.operationKey, 'confirmed');
+        await this.drafts.settle(owner, identity, pending.operationKey, 'confirmed', { response });
+        if (payment)
+          this.intents.confirmMatching(
+            owner,
+            action as 'customer-payment' | 'supplier-payment',
+            target,
+            pending.operationKey,
+          );
         return response;
       } catch (error) {
         await this.drafts.settleFailure(owner, identity, pending.operationKey, error, recovery);

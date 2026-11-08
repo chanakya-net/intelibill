@@ -3021,6 +3021,10 @@
       "sale-return-void": "বিক্রয় ফেরত বাতিল",
       "payment-reversal": "পেমেন্ট রিভার্সাল",
       "reconciliation-resolution": "ঐতিহাসিক ক্যাশ ড্রয়ার মিলকরণ"
+    },
+    "purposes": {
+      "cashRefund": "নগদ ফেরত",
+      "recordedSettlement": "নথিভুক্ত নিষ্পত্তি"
     }
   }
 }

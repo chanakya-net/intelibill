@@ -59,7 +59,9 @@ describe('Frozen close print', () => {
       imports: [
         TillClosePrintPageComponent,
         TranslocoTestingModule.forRoot({
-          langs: { 'en-IN': en },
+          langs: {
+            'en-IN': { ...en, shops: { ...en.shops, unknown: 'Translated unknown evidence' } },
+          },
           translocoConfig: { availableLangs: ['en-IN'], defaultLang: 'en-IN' },
         }),
       ],
@@ -82,6 +84,10 @@ describe('Frozen close print', () => {
     expect(text).toContain('12.00');
     expect(text).toContain('10.00');
     expect(text).toContain('Amount unknown');
+    expect(text).toContain('Sale:');
+    expect(text).not.toContain('sale:');
+    expect(text).toContain('Translated unknown evidence');
+    expect(text).not.toContain(' · Unknown');
     expect(text).toContain('excluded from the original count');
     expect(text).not.toContain('99,999');
     expect(text).not.toContain('Renamed current till');
