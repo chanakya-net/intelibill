@@ -14,9 +14,11 @@ internal sealed class SaleReturnMutationCoordinator(
     IShopRepository shopRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork, Intelibill.Application.Features.Expiry.IExpiryPolicyFence expiryFence)
     : ISaleReturnMutationCoordinator
 {
+    public DateTimeOffset? PostingInstant { get; private set; }
+
     // PostgreSQL SQLSTATEs that end the attempt without any effect and are safe to retry.
     private const string LockNotAvailable = "55P03";
     private const string DeadlockDetected = "40P01";
@@ -47,10 +49,14 @@ internal sealed class SaleReturnMutationCoordinator(
             if (shop is null)
                 return Errors.Shop.ShopNotFound;
 
+            PostingInstant = businessClock.UtcNow;
             var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
-                shopId, businessClock.Today(shop.BusinessTimeZoneId), cancellationToken);
+                shopId, businessClock.GetBusinessDate(PostingInstant.Value, shop.BusinessTimeZoneId), cancellationToken);
             if (fence.IsError)
                 return fence.Errors;
+
+            var expiry = await expiryFence.AcquireAsync(shopId, false, cancellationToken);
+            if (expiry.IsError) return expiry.Errors;
 
             var ready = await beforeBusinessLocks(cancellationToken);
             if (ready.IsError) return ready.Errors;
@@ -97,6 +103,7 @@ internal sealed class SaleReturnMutationCoordinator(
         }
         finally
         {
+            PostingInstant = null;
             if (ownsTransaction && !committed)
             {
                 try

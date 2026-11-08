@@ -34,6 +34,8 @@ public sealed class InventoryAdjustment : BaseEntity
     public InventoryBatch InventoryBatch { get; private set; } = null!;
     public StockTransaction? ReversalStockTransaction { get; private set; }
 
+    public Guid? DispositionChangeId { get; private set; }
+    public void LinkDisposition(Guid changeId) => DispositionChangeId = changeId;
     private InventoryAdjustment() { }
 
     public static ErrorOr<InventoryAdjustment> Create(
@@ -97,6 +99,7 @@ public sealed class InventoryAdjustment : BaseEntity
 
     public ErrorOr<Success> Void(DateTimeOffset voidedAt, Guid voidedBy, string reason, Guid reversalStockTransactionId)
     {
+        if (DispositionChangeId.HasValue) return Error.Conflict("Expiry.DisposalCannotBeVoided", "Disposed quarantine cannot be resurrected.");
         if (IsVoided)
         {
             return Error.Validation("InventoryAdjustment.AlreadyVoided", "Inventory adjustment is already voided.");

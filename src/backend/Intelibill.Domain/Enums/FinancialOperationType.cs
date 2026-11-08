@@ -54,4 +54,5 @@ public enum FinancialOperationType
     ExpenseCorrection = 24,
     SaleReturn = 25,
     SaleReturnVoid = 26,
+    BatchDisposition = 27,
 }

@@ -189,12 +189,12 @@ public sealed class ExpiryOfflineApiTests : IAsyncLifetime, IDisposable
         var caseId = await Recover(client, seed.Shop, seed.Sale); var detail = await Detail(client, caseId);
         Assert.Contains("RetryHistoricalLease", detail.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()));
         using (var scope = _factory.Services.CreateScope())
-            await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.ExecuteSqlAsync($"UPDATE inventory_batches SET quarantined_quantity = quantity WHERE id = {seed.Batch}");
+            await QuarantineFixture.SeedAsync(scope.ServiceProvider.GetRequiredService<ApplicationDbContext>(), seed.Batch, 10m);
         _time.Now = _time.Now.AddDays(3);
         using var retry = await client.PostAsJsonAsync($"/api/offline-reconciliation/{caseId}/resolve", new { operationId = Guid.NewGuid().ToString(), expectedVersion = detail.GetProperty("version").GetUInt32(), action = "RetryHistoricalLease", reason = "historical issue supported by retained proof" });
         Assert.True(retry.IsSuccessStatusCode, await retry.Content.ReadAsStringAsync());
         using var check = _factory.Services.CreateScope(); var db = check.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var sale = await db.Sales.SingleAsync(x => x.ShopId == seed.Shop); Assert.Single(sale.ExpiryDecisions!);
+        var sale = await db.Sales.SingleAsync(x => x.ShopId == seed.Shop && x.Source == SaleSource.Offline); Assert.Single(sale.ExpiryDecisions!);
         var batch = await db.InventoryBatches.SingleAsync(x => x.Id == seed.Batch); Assert.Equal((10m, 10m), (batch.Quantity, batch.QuarantinedQuantity));
         Assert.Contains(await db.ReconciliationIssues.Where(x => x.ShopId == seed.Shop).ToListAsync(), x => x.IssueType == ReconciliationIssueType.StockVariance);
         Assert.Equal(seed.Sale["invoiceNumber"]!.GetValue<string>(), sale.InvoiceNumber);

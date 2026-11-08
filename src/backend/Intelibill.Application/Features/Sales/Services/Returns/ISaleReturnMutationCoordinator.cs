@@ -8,13 +8,15 @@ namespace Intelibill.Application.Features.Sales.Services.Returns;
 /// queue behind one another and each one validates against what the previous one committed.
 /// </summary>
 /// <remarks>
-/// Lock order: posting-period fence; optional till/session; the sale's customer, if any; the
+/// Lock order: posting-period fence; expiry policy fence; optional till/session; the sale's customer, if any; the
 /// sale; then the credit notes of
 /// its returns; then inventory batches and aggregates, locked by their updates at save. Credit-note
 /// redemption takes credit notes and then batches and never waits on the parent sale.
 /// </remarks>
 public interface ISaleReturnMutationCoordinator
 {
+    /// <summary>One captured server instant for the current transaction attempt and all source facts.</summary>
+    DateTimeOffset? PostingInstant { get; }
     /// <summary>
     /// Locks the sale and runs <paramref name="mutation"/>, which reads everything it decides on and
     /// saves its changes. Commits only when the mutation succeeds; otherwise nothing is kept.

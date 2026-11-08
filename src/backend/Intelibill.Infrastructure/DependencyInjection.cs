@@ -115,6 +115,7 @@ public static class DependencyInjection
             .ValidateOnStart();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IOfflineExpiryEvidenceRepository, OfflineExpiryEvidenceRepository>();
+        services.AddScoped<IBatchDispositionRepository, BatchDispositionRepository>();
         services.AddScoped<IBatchExpiryRevisionRepository, BatchExpiryRevisionRepository>();
         services.AddScoped<IExpiryPolicyRepository, ExpiryPolicyRepository>();
         services.AddScoped<Intelibill.Application.Features.Expiry.IExpiryPolicyFence, Services.Expiry.ExpiryPolicyFence>();

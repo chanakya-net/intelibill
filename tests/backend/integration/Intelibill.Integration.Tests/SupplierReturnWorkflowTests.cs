@@ -116,13 +116,13 @@ public sealed class SupplierReturnWorkflowTests : IAsyncLifetime, IDisposable
         return body.GetProperty("supplierId").GetGuid();
     }
 
-    private async Task<(HttpClient Client, Guid Supplier, Guid Receipt, Guid Batch)> SetupAsync(decimal cost = 1000m,DateTimeOffset? performedAt = null)
+    private async Task<(HttpClient Client, Guid Supplier, Guid Receipt, Guid Batch)> SetupAsync(decimal cost = 1000m,DateTimeOffset? performedAt = null,DateOnly? expiryDate = null)
     {
         var client=CreateClient();
         var token=await CreateShopAsync(client,await RegisterAsync(client));
         client.DefaultRequestHeaders.Authorization=new AuthenticationHeaderValue("Bearer",token);
         var supplier=await CreateSupplierAsync(client,token,"Return supplier");
-        var inbound=await client.PostAsJsonAsync("/api/inventory/inbound",new {itemName="Return item",barcode=$"SR-{Guid.NewGuid():N}",uom="pcs",batchNumber=$"B-{Guid.NewGuid():N}",quantity=10,totalPurchaseCost=cost,performedAt,mrp=150,salesPrice=120,supplierId=supplier});
+        var inbound=await client.PostAsJsonAsync("/api/inventory/inbound",new {itemName="Return item",barcode=$"SR-{Guid.NewGuid():N}",uom="pcs",batchNumber=$"B-{Guid.NewGuid():N}",quantity=10,totalPurchaseCost=cost,performedAt,expiryDate,mrp=150,salesPrice=120,supplierId=supplier});
         inbound.EnsureSuccessStatusCode();
         var b=await inbound.Content.ReadFromJsonAsync<JsonElement>();
         var batch=b.GetProperty("inventoryBatchId").GetGuid();
@@ -136,6 +136,36 @@ public sealed class SupplierReturnWorkflowTests : IAsyncLifetime, IDisposable
         Assert.True(response.IsSuccessStatusCode,await response.Content.ReadAsStringAsync());
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
+    [Fact]
+    public async Task Quarantine_RestrictsSupplierShipment_AndBlocksReceiptReversalAfterDisposal()
+    {
+        var x = await SetupAsync(expiryDate:BusinessDates.Today.AddDays(-1)); using var client = x.Client;
+        Guid root;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await QuarantineFixture.SeedAsync(db, x.Batch, 3m);
+            root = await db.BatchDispositionChanges.Where(c => c.InventoryBatchId == x.Batch && c.RootChangeId == null).Select(c => c.Id).SingleAsync();
+        }
+        var detail = await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));
+        Assert.Equal(7m, detail.GetProperty("returnableQuantity").GetDecimal());
+        using (var excessive = await client.PostAsJsonAsync("/api/supplier-returns", Shipment(detail, x.Supplier, x.Receipt, Guid.NewGuid().ToString(), 8m, 0))) Assert.Equal(HttpStatusCode.BadRequest, excessive.StatusCode);
+        await JsonAsync(await client.PostAsJsonAsync("/api/supplier-returns", Shipment(detail, x.Supplier, x.Receipt, Guid.NewGuid().ToString(), 7m, 0)));
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>(); var b = await db.InventoryBatches.SingleAsync(c => c.Id == x.Batch);
+            Assert.Equal((3m,3m),(b.Quantity,b.QuarantinedQuantity));
+            await JsonAsync(await client.PostAsJsonAsync($"/api/inventory/batches/{b.Id}/dispositions", new { operationKey = Guid.NewGuid().ToString(), expectedVersion = b.Version,
+                quarantineChangeId = root, action = "Dispose", quantity = 3m, reason = "Expired recovered goods" }));
+        }
+        detail = await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));
+        using var refused = await client.PostAsJsonAsync($"/api/purchase-receipts/{x.Receipt}/reversal", new { operationKey = Guid.NewGuid().ToString(), reason = "Reverse source receipt",
+            expectedReceiptVersion = detail.GetProperty("receiptVersion").GetUInt32(), expectedBatchVersion = detail.GetProperty("batchVersion").GetUInt32() });
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode); Assert.Contains("PurchaseReceipt.QuarantineHistory", await refused.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        using var voided = await client.PostAsJsonAsync($"/api/inventory/batches/{x.Batch}/void", new { });
+        Assert.Equal(HttpStatusCode.Conflict, voided.StatusCode); Assert.Contains("PurchaseReceipt.QuarantineHistory", await voided.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task PendingThenAccepted_OneCreditOnAcceptanceDate()
     {
@@ -284,25 +314,32 @@ public sealed class SupplierReturnWorkflowTests : IAsyncLifetime, IDisposable
     }
 
     [Theory]
-    [InlineData(false,false)]
-    [InlineData(true,false)]
-    [InlineData(false,true)]
-    public async Task GroupReversal_ExactLotsAtomic_AndPoReceivedRemainsHistorical(bool shipFirst,bool missingSource)
+    [InlineData(false,false,false)]
+    [InlineData(true,false,false)]
+    [InlineData(false,true,false)]
+    [InlineData(false,false,true)]
+    public async Task GroupReversal_ExactLotsAtomic_AndPoReceivedRemainsHistorical(bool shipFirst,bool missingSource,bool quarantineHistory)
     {
         var x=await SetupAsync();using var client=x.Client;
         Guid itemId;string barcode;
         using(var scope=_factory.Services.CreateScope()){var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();var source=await db.PurchaseReceiptValues.SingleAsync(r=>r.Id==x.Receipt);var item=await db.Items.SingleAsync(it=>it.Id==source.ItemId);itemId=item.Id;barcode=item.Barcode;}
         var draft=await JsonAsync(await client.PostAsJsonAsync("/api/purchase-orders",new{supplierId=x.Supplier,lines=new[]{new{itemId,description="PO goods",expectedQuantity=10,unitCost=100}}}));var poId=draft.GetProperty("purchaseOrderId").GetGuid();var poLineId=draft.GetProperty("lines")[0].GetProperty("lineId").GetGuid();
         await JsonAsync(await client.PostAsJsonAsync($"/api/purchase-orders/{poId}/place",new{}));
-        object Lot(int quantity)=>new{clientLineId=Guid.NewGuid(),purchaseOrderLineId=poLineId,barcode,batchNumber=$"PO-{Guid.NewGuid():N}",quantity,totalPurchaseCost=quantity*100,mrp=150,salesPrice=120,taxRatePercent=0,taxIncluded=false,purchaseTaxIncluded=false};
+        object Lot(int quantity)=>new{clientLineId=Guid.NewGuid(),purchaseOrderLineId=poLineId,barcode,batchNumber=$"PO-{Guid.NewGuid():N}",quantity,totalPurchaseCost=quantity*100,mrp=150,salesPrice=120,taxRatePercent=0,taxIncluded=false,purchaseTaxIncluded=false,expiryDate=quarantineHistory?(DateOnly?)BusinessDates.Today.AddDays(-1):null};
         await JsonAsync(await client.PostAsJsonAsync($"/api/purchase-orders/{poId}/receipts",new{operationId=Guid.NewGuid(),lines=new[]{Lot(4),Lot(6)}}));
         var po=await JsonAsync(await client.GetAsync($"/api/purchase-orders/{poId}"));var group=po.GetProperty("receipts")[0];var groupId=group.GetProperty("receiptId").GetGuid();var sourceIds=group.GetProperty("lines").EnumerateArray().Select(l=>l.GetProperty("receiptValueId").GetGuid()).ToArray();Assert.Equal(2,sourceIds.Length);
         if(missingSource){using var scope=_factory.Services.CreateScope();var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();var missing=await db.PurchaseReceiptValues.SingleAsync(r=>r.Id==sourceIds[1]);db.PurchaseReceiptValues.Remove(missing);await db.SaveChangesAsync();sourceIds=sourceIds.Take(1).ToArray();}
         if(shipFirst){var first=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{sourceIds[0]}"));var document=await JsonAsync(await client.PostAsJsonAsync("/api/supplier-returns",Shipment(first,x.Supplier,sourceIds[0],Guid.NewGuid().ToString(),1,100)));Assert.NotEqual(JsonValueKind.Null,document.GetProperty("lines")[0].GetProperty("purchaseOrderReceiptLineId").ValueKind);}
+        if (quarantineHistory)
+        {
+            using var scope = _factory.Services.CreateScope(); var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var batchId = await db.PurchaseReceiptValues.Where(r => r.Id == sourceIds[0]).Select(r => r.InventoryBatchId).SingleAsync();
+            await QuarantineFixture.SeedAsync(db, batchId, 1m);
+        }
         var details=await Task.WhenAll(sourceIds.Select(async id=>await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{id}"))));
         var payload=new{operationKey=Guid.NewGuid().ToString(),reason="Entire delivery entered incorrectly",lines=details.Select(d=>new{receiptValueId=d.GetProperty("receiptValueId").GetGuid(),expectedReceiptVersion=d.GetProperty("receiptVersion").GetUInt32(),expectedBatchVersion=d.GetProperty("batchVersion").GetUInt32()}).ToArray()};
         var result=await client.PostAsJsonAsync($"/api/purchase-order-receipts/{groupId}/reversal",payload);
-        if(shipFirst||missingSource){Assert.Equal(missingSource?HttpStatusCode.NotFound:HttpStatusCode.Conflict,result.StatusCode);foreach(var id in sourceIds){var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{id}"));Assert.False(after.GetProperty("isVoided").GetBoolean());Assert.Empty(after.GetProperty("reversals").EnumerateArray());}}
+        if(shipFirst||missingSource||quarantineHistory){Assert.Equal(missingSource?HttpStatusCode.NotFound:HttpStatusCode.Conflict,result.StatusCode);foreach(var id in sourceIds){var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{id}"));Assert.False(after.GetProperty("isVoided").GetBoolean());Assert.Empty(after.GetProperty("reversals").EnumerateArray());}}
         else{var reversed=await JsonAsync(result);Assert.Equal(2,reversed.GetProperty("lots").GetArrayLength());var after=await JsonAsync(await client.GetAsync($"/api/purchase-orders/{poId}"));Assert.Equal(10,after.GetProperty("receivedQuantity").GetInt32());Assert.Equal(0,after.GetProperty("netRetainedQuantity").GetDecimal());Assert.Equal("Received",after.GetProperty("status").GetString());}
     }
 

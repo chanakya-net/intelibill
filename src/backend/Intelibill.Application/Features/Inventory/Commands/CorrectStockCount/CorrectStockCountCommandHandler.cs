@@ -109,6 +109,8 @@ public sealed class CorrectStockCountCommandHandler(
         if (fence.IsError)
             return fence.Errors;
 
+        if (command.CountedQuantity < batch.QuarantinedQuantity) return Error.Conflict("Expiry.QuarantineProtected", "Count cannot reduce physical stock below quarantine.");
+
         if (batch.IsVoided)
             return Errors.Inventory.BatchAlreadyVoided;
 

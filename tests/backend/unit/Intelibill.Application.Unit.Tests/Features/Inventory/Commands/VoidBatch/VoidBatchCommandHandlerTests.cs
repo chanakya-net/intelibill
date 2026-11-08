@@ -391,7 +391,7 @@ public class VoidBatchCommandHandlerTests
             BusinessTestDoubles.AnyShop(),
             _postingPeriods,
             BusinessTestDoubles.RealClock(),
-            new PurchaseReceiptReversalPolicy(_supplierReturns,_stockTransactionRepository),
+            new PurchaseReceiptReversalPolicy(_supplierReturns,_stockTransactionRepository,Substitute.For<IBatchDispositionRepository>()),
             _reversals);
 
     [Fact]

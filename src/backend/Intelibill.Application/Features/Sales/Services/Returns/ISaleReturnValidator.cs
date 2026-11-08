@@ -10,7 +10,7 @@ public sealed record SaleReturnValidationRequest(
     Guid SaleId,
     decimal? DueReductionOverrideAmount,
     string? DueOverrideReason,
-    IReadOnlyList<SaleReturnValidationLineRequest> Items);
+    IReadOnlyList<SaleReturnValidationLineRequest> Items, DateTimeOffset? RestorationAt = null);
 
 public sealed record SaleReturnValidationLineRequest(
     Guid SaleItemId,
@@ -34,7 +34,7 @@ public sealed record ValidatedSaleReturnLine(
     SaleItem SaleItem,
     InventoryBatch? Batch,
     decimal ReturnedQuantity,
-    decimal ReturnableQuantity);
+    decimal ReturnableQuantity, Intelibill.Application.Features.Expiry.RestorationDisposition? Disposition = null);
 
 public interface ISaleReturnValidator
 {

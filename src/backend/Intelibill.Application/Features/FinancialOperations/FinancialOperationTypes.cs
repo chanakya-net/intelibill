@@ -12,6 +12,7 @@ public static class FinancialOperationTypes
 
     public static FinancialOperationType? FromSlug(string slug) => slug switch
     {
+        "batch-disposition" => FinancialOperationType.BatchDisposition,
         "expense-record" => FinancialOperationType.ExpenseRecord,
         "expense-correction" => FinancialOperationType.ExpenseCorrection,
         "sale-return" => FinancialOperationType.SaleReturn,
@@ -28,6 +29,7 @@ public static class FinancialOperationTypes
 
     public static string ToSlug(FinancialOperationType type) => type switch
     {
+        FinancialOperationType.BatchDisposition => "batch-disposition",
         FinancialOperationType.ExpenseRecord => "expense-record",
         FinancialOperationType.ExpenseCorrection => "expense-correction",
         FinancialOperationType.SaleReturn => "sale-return",

@@ -48,6 +48,7 @@ public sealed class GetDashboardQueryHandler(
         var latestSales = await saleRepository.GetLatestDashboardSalesAsync(query.ShopId, cancellationToken);
         var expenseTotal = await expenseRepository.GetSumByShopAndDateRangeAsync(query.ShopId, appliedFrom, appliedTo, cancellationToken);
         var stockValue = await inventoryBatchRepository.GetCurrentStockValueByShopAsync(query.ShopId, cancellationToken);
+        var quarantine = await inventoryBatchRepository.GetQuarantineStockValuationAsync(query.ShopId, cancellationToken);
         var customerCreditDue = await customerLedgerEntryRepository.GetCustomerCreditDueAsync(query.ShopId, cancellationToken);
         var pendingPurchaseOrderAlerts = await purchaseOrderRepository.GetPendingPurchaseOrderAlertsAsync(
             query.ShopId,
@@ -143,7 +144,7 @@ public sealed class GetDashboardQueryHandler(
             GrossTradingProfitChangePercent: CalculatePercentChange(
                 profitLossReport.Summary.Economics!.GrossTradingProfit,
                 previousProfitLossReport.Summary.Economics!.GrossTradingProfit),
-            CancellationAmount: summary.CancellationAmount, CancellationCount: summary.CancellationCount);
+            CancellationAmount: summary.CancellationAmount, CancellationCount: summary.CancellationCount, QuarantinedStockQuantity: quarantine.Quantity, QuarantinedStockValue: quarantine.RecordedValue);
 
         return result;
     }

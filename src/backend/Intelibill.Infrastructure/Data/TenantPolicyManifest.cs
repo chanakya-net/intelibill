@@ -94,6 +94,7 @@ public static class TenantPolicyManifest
         Tenant("inventory_adjustments"),
         Tenant("inventory_batches"),
         Tenant("batch_expiry_revisions"),
+        Tenant("batch_disposition_changes"),
         Tenant("invoice_leases"),
         Tenant("invoice_sequences"),
         Tenant("item_barcode_sequences"),

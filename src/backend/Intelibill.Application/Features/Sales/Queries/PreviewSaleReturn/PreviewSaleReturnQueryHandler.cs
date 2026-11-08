@@ -59,7 +59,7 @@ public sealed class PreviewSaleReturnQueryHandler(
                         calculated.MaxRefundAmount,
                         calculated.ApprovedRefundAmount,
                         calculated.TaxableAmount,
-                        calculated.TaxAmount) : null);
+                        calculated.TaxAmount) : null, line.Disposition?.PhysicalQuantity ?? 0, line.Disposition?.QuarantinedQuantity ?? 0, line.Disposition?.ReasonCode);
             }).ToList(),
             hasFinancialAccess ? new SaleReturnPreviewFinancialDto(
                 validated.Calculation.TotalRefundAmount,

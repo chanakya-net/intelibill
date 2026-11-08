@@ -134,6 +134,12 @@ internal sealed class InventoryBatchRepository(ApplicationDbContext context)
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<QuarantineStockValuation> GetQuarantineStockValuationAsync(Guid shopId, CancellationToken cancellationToken = default)
+    {
+        var value = await DbSet.AsNoTracking().Where(x => x.ShopId == shopId && !x.IsVoided).GroupBy(x => 1)
+            .Select(x => new { Quantity = x.Sum(b => b.QuarantinedQuantity), Value = x.Sum(b => b.QuarantinedQuantity * b.CostPrice) }).SingleOrDefaultAsync(cancellationToken);
+        return new(value?.Quantity ?? 0m, value?.Value ?? 0m);
+    }
     public async Task<decimal> GetCurrentStockValueByShopAsync(
         Guid shopId,
         CancellationToken cancellationToken = default)

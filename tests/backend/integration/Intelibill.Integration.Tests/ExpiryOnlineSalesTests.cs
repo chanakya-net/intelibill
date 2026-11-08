@@ -341,7 +341,7 @@ public sealed class ExpiryOnlineSalesTests : IAsyncLifetime, IDisposable
         var blocked = await Receive(client, barcode, new(2020, 1, 1), "blocked");
         await Policy(client, "Block");
         using (var scope = _factory.Services.CreateScope())
-            await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.ExecuteSqlAsync($"UPDATE inventory_batches SET quarantined_quantity = 9 WHERE id = {early}");
+            await QuarantineFixture.SeedAsync(scope.ServiceProvider.GetRequiredService<ApplicationDbContext>(), early, 9m);
         var goods = await client.GetFromJsonAsync<JsonElement>($"/api/inventory/batches/available?barcode={barcode}");
         Assert.Equal(new[] { early, later, undated }, goods.EnumerateArray().Select(x => x.GetProperty("inventoryBatchId").GetGuid()));
         Assert.Equal(10m, goods[0].GetProperty("quantity").GetDecimal());

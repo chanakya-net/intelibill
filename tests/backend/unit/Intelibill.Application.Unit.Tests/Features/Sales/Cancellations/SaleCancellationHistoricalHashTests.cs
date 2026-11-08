@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Expiry;
+using Intelibill.Application.Unit.Tests.Common;
 using ErrorOr;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Time;
@@ -37,7 +39,7 @@ public sealed class SaleCancellationHistoricalHashTests
         var service = new SaleCancellationService(shops, sales, null!, Substitute.For<ISaleCancellationRollout>(), Substitute.For<IBusinessClock>(),
             Substitute.For<IPostingPeriodPolicy>(), executor, Substitute.For<IInventoryBatchRepository>(), Substitute.For<IInventoryRepository>(),
             Substitute.For<IStockTransactionRepository>(), Substitute.For<ICustomerLedgerEntryRepository>(), Substitute.For<ISaleCancellationRepository>(),
-            Substitute.For<IUnitOfWork>(), Substitute.For<IMessageBus>(), Substitute.For<ITillPostingService>());
+            Substitute.For<IUnitOfWork>(), Substitute.For<IMessageBus>(), Substitute.For<ITillPostingService>(), Substitute.For<IExpiryPolicyFence>(), null!);
         await service.CancelAsync(actor, shop.Id, saleId, new("historical-key", 42, "  Mistaken entry  ", true, true), default);
         Assert.Equal("B3CDB6C23D66D110185D41A989E792BF3C66FA10B608314CEAEB4F40E66B2A03", captured);
     }

@@ -159,6 +159,150 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("bank_accounts", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.BatchDispositionChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("action");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly?>("ExpiryDate")
+                        .HasColumnType("date")
+                        .HasColumnName("expiry_date");
+
+                    b.Property<Guid?>("InventoryAdjustmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("inventory_adjustment_id");
+
+                    b.Property<Guid>("InventoryBatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("inventory_batch_id");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<DateOnly?>("ManufacturingDate")
+                        .HasColumnType("date")
+                        .HasColumnName("manufacturing_date");
+
+                    b.Property<string>("PolicyJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("policy_json");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasColumnName("quantity");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("ReasonCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("reason_code");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<Guid?>("RootChangeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("root_change_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_id");
+
+                    b.Property<string>("SourceKind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("source_kind");
+
+                    b.Property<Guid>("SourceLineId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_line_id");
+
+                    b.Property<Guid?>("StockMovementId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("stock_movement_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_batch_disposition_changes");
+
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_batch_disposition_changes_id_shop_id");
+
+                    b.HasAlternateKey("Id", "InventoryBatchId", "ItemId", "ShopId")
+                        .HasName("ak_batch_disposition_changes_id_inventory_batch_id_item_id_sho");
+
+                    b.HasIndex("InventoryAdjustmentId")
+                        .HasDatabaseName("ix_batch_disposition_changes_inventory_adjustment_id");
+
+                    b.HasIndex("StockMovementId")
+                        .HasDatabaseName("ix_batch_disposition_changes_stock_movement_id");
+
+                    b.HasIndex("InventoryBatchId", "ItemId", "ShopId")
+                        .HasDatabaseName("ix_batch_disposition_changes_inventory_batch_id_item_id_shop_id");
+
+                    b.HasIndex("ShopId", "InventoryBatchId", "RecordedAt")
+                        .HasDatabaseName("ix_batch_disposition_changes_shop_id_inventory_batch_id_record");
+
+                    b.HasIndex("RootChangeId", "InventoryBatchId", "ItemId", "ShopId")
+                        .HasDatabaseName("ix_batch_disposition_changes_root_change_id_inventory_batch_id");
+
+                    b.HasIndex("ShopId", "SourceKind", "SourceId", "SourceLineId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_batch_disposition_changes_shop_id_source_kind_source_id_sou")
+                        .HasFilter("root_change_id IS NULL");
+
+                    b.ToTable("batch_disposition_changes", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_batch_disposition_action", "(root_change_id IS NULL AND action = 'Quarantine' AND stock_movement_id IS NOT NULL AND inventory_adjustment_id IS NULL) OR (root_change_id IS NOT NULL AND ((action = 'Release' AND stock_movement_id IS NULL AND inventory_adjustment_id IS NULL) OR (action = 'Dispose' AND stock_movement_id IS NOT NULL AND inventory_adjustment_id IS NOT NULL) OR (action = 'Reverse' AND stock_movement_id IS NOT NULL AND inventory_adjustment_id IS NULL)))");
+
+                            t.HasCheckConstraint("ck_batch_disposition_cause", "reason_code IN ('Expiry.Expired','Expiry.RequiredDateMissing')");
+
+                            t.HasCheckConstraint("ck_batch_disposition_quantity", "quantity > 0");
+
+                            t.HasCheckConstraint("ck_batch_disposition_reason", "length(btrim(reason)) BETWEEN 1 AND 500");
+
+                            t.HasCheckConstraint("ck_batch_disposition_source", "source_kind IN ('SaleReturn','SaleCancellation') AND source_id <> '00000000-0000-0000-0000-000000000000' AND source_line_id <> '00000000-0000-0000-0000-000000000000'");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.BatchExpiryRevision", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1345,6 +1489,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("direction");
+
+                    b.Property<Guid?>("DispositionChangeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("disposition_change_id");
 
                     b.Property<Guid>("InventoryBatchId")
                         .HasColumnType("uuid")
@@ -4183,6 +4331,11 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(180)")
                         .HasColumnName("description");
 
+                    b.Property<string>("DispositionReasonCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("disposition_reason_code");
+
                     b.Property<Guid>("InventoryBatchId")
                         .HasColumnType("uuid")
                         .HasColumnName("inventory_batch_id");
@@ -4200,6 +4353,17 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasPrecision(18, 3)
                         .HasColumnType("numeric(18,3)")
                         .HasColumnName("quantity");
+
+                    b.Property<Guid?>("QuarantineChangeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("quarantine_change_id");
+
+                    b.Property<decimal>("QuarantinedQuantity")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("quarantined_quantity");
 
                     b.Property<decimal>("RecordedCostAmount")
                         .HasPrecision(18, 2)
@@ -4253,6 +4417,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasIndex("ItemId", "ShopId")
                         .HasDatabaseName("ix_sale_cancellation_lines_item_id_shop_id");
+
+                    b.HasIndex("QuarantineChangeId", "ShopId")
+                        .HasDatabaseName("ix_sale_cancellation_lines_quarantine_change_id_shop_id");
 
                     b.HasIndex("SaleCancellationId", "SaleItemId")
                         .IsUnique()
@@ -4699,6 +4866,11 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("DispositionReasonCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("disposition_reason_code");
+
                     b.Property<decimal>("MaxRefundAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
@@ -4732,6 +4904,17 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasPrecision(18, 3)
                         .HasColumnType("numeric(18,3)")
                         .HasColumnName("quantity");
+
+                    b.Property<Guid?>("QuarantineChangeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("quarantine_change_id");
+
+                    b.Property<decimal>("QuarantinedQuantity")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("quarantined_quantity");
 
                     b.Property<Guid>("SaleId")
                         .HasColumnType("uuid")
@@ -4774,6 +4957,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasIndex("SaleReturnId")
                         .HasDatabaseName("ix_sale_return_items_sale_return_id");
+
+                    b.HasIndex("QuarantineChangeId", "ShopId")
+                        .HasDatabaseName("ix_sale_return_items_quarantine_change_id_shop_id");
 
                     b.HasIndex("ShopId", "Condition")
                         .HasDatabaseName("ix_sale_return_items_shop_id_condition");
@@ -6831,6 +7017,43 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasConstraintName("fk_bank_accounts_shops_shop_id");
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.BatchDispositionChange", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.InventoryAdjustment", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryAdjustmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_batch_disposition_changes_inventory_adjustments_inventory_a");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_batch_disposition_changes_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.StockTransaction", null)
+                        .WithMany()
+                        .HasForeignKey("StockMovementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_batch_disposition_changes_stock_transactions_stock_movement");
+
+                    b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryBatchId", "ItemId", "ShopId")
+                        .HasPrincipalKey("Id", "ItemId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_batch_disposition_changes_inventory_batches_inventory_batch");
+
+                    b.HasOne("Intelibill.Domain.Entities.BatchDispositionChange", null)
+                        .WithMany()
+                        .HasForeignKey("RootChangeId", "InventoryBatchId", "ItemId", "ShopId")
+                        .HasPrincipalKey("Id", "InventoryBatchId", "ItemId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_batch_disposition_changes_batch_disposition_changes_root_ch");
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.BatchExpiryRevision", b =>
                 {
                     b.HasOne("Intelibill.Domain.Entities.Shop", null)
@@ -7648,6 +7871,13 @@ namespace Intelibill.Infrastructure.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_sale_cancellation_lines_items_item_id_shop_id");
 
+                    b.HasOne("Intelibill.Domain.Entities.BatchDispositionChange", null)
+                        .WithMany()
+                        .HasForeignKey("QuarantineChangeId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sale_cancellation_lines_batch_disposition_changes_quarantin");
+
                     b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
                         .WithMany()
                         .HasForeignKey("InventoryBatchId", "ItemId", "ShopId")
@@ -7762,6 +7992,13 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_sale_return_items_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.BatchDispositionChange", null)
+                        .WithMany()
+                        .HasForeignKey("QuarantineChangeId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sale_return_items_batch_disposition_changes_quarantine_chan");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.SaleReturnSettlement", b =>

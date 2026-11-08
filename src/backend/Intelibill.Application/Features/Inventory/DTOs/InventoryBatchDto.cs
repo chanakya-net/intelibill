@@ -35,4 +35,9 @@ public sealed record InventoryBatchDto(
     int QuantityScale = 0,
     decimal QuarantinedQuantity = 0,
     decimal AvailableQuantity = 0,
-    SellabilityDecision? Sellability = null);
+    SellabilityDecision? Sellability = null)
+{
+    public decimal PhysicalRecordedValue => decimal.Round(Quantity * CostPrice, 2, MidpointRounding.AwayFromZero);
+    public decimal QuarantinedRecordedValue => decimal.Round(QuarantinedQuantity * CostPrice, 2, MidpointRounding.AwayFromZero);
+    public decimal UnquarantinedRecordedValue => PhysicalRecordedValue - QuarantinedRecordedValue;
+}

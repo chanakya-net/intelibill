@@ -197,7 +197,7 @@ public sealed class ExpiryPolicyPersistenceTests(PostgreSqlTestFixture fixture)
         var batch = InventoryBatch.Create(seed.Shop, seed.Item, "held", 10, 1, 2, 2, 0, false, new DateOnly(2030, 1, 1), null, null, seed.Owner).Value;
         db.InventoryBatches.Add(batch);
         await db.SaveChangesAsync();
-        await db.Database.ExecuteSqlAsync($"UPDATE inventory_batches SET quarantined_quantity = 3 WHERE id = {batch.Id}");
+        await QuarantineFixture.SeedAsync(db, batch.Id, 3m);
         var result = await Service(db).ReadinessAsync(seed.Shop, seed.Manager, 1, 1, default);
         Assert.False(result.IsError);
         Assert.Equal(10m, result.Value.Results.PhysicalQuantity);
