@@ -44,9 +44,9 @@ public sealed class TillPostingService(ITillRepository tills, IShopRepository sh
             return TillErrors.Forbidden;
         if (session.State != TillSessionState.Open) return TillErrors.Closed;
         if (source.Lines is null || source.Lines.Count > 1)
-            return Error.Validation("Till.MixedTenderUnsupported", "Exactly one external tender is supported.");
+            return TillErrors.MixedTenderUnsupported;
         if (source.Lines.Any(line => line is null))
-            return Error.Validation("Till.TenderRequired", "A concrete external tender is required.");
+            return TillErrors.TenderRequired;
         if (source.Direction is not (1m or -1m) || !Enum.IsDefined(source.SourceType) || source.SourceId == Guid.Empty ||
             string.IsNullOrWhiteSpace(source.Purpose) || source.Purpose.Length > 100 || string.IsNullOrWhiteSpace(source.OperationKey) ||
             source.OperationKey.Length > 128 || source.Reason?.Length > 500 || source.OccurredAt < session.OpenedAt || source.OccurredAt > clock.UtcNow ||

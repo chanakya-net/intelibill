@@ -7,6 +7,9 @@ public static partial class Errors
     public static class Till
     {
         public static Error Disabled => Error.Conflict("Till.Disabled", "Till sessions are not enabled for this shop.");
+        public static Error TenderRequired => Error.Validation("Till.TenderRequired", "A concrete known external tender is required.");
+        public static Error MixedTenderUnsupported => Error.Validation("Till.MixedTenderUnsupported", "Exactly one external tender is supported.");
+        public static Error SettlementEvidenceRequired => Error.Validation("Till.SettlementEvidenceRequired", "An explicit physical settlement disposition and evidence are required.");
         public static Error SessionRequired => Error.Validation("Till.SessionRequired", "Select an explicit open till session.");
         public static Error NotFound => Error.NotFound("Till.NotFound", "The till or session was not found in this shop.");
         public static Error Busy => Error.Conflict("Till.Busy", "The till is busy. Retry the same operation.");
