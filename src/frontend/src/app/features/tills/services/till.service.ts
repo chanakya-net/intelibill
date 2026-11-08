@@ -67,9 +67,11 @@ export class TillService {
       assertCurrentScope(this.context, owner, invocation);
       const prefix = `${action}:${target}:`;
       const all = await this.drafts.list(owner);
+      assertCurrentScope(this.context, owner, invocation);
       const prior = all.find((x) => x.targetId.startsWith(prefix) && x.pending);
       let identity = prior?.targetId ?? `${prefix}${cycle}`;
       const current = prior ?? (await this.drafts.load(owner, identity));
+      assertCurrentScope(this.context, owner, invocation);
       let recovery = !!current?.pending;
       const payment = action === 'customer-payment' || action === 'supplier-payment';
       const complete = (response: T, key: string): T => {
@@ -86,8 +88,10 @@ export class TillService {
       const externalKey =
         typeof frozenPayload['operationKey'] === 'string' ? frozenPayload['operationKey'] : null;
       const confirmedPayment = async () => {
+        assertCurrentScope(this.context, owner, invocation);
         if (!payment || !externalKey) return null;
         const proof = await this.drafts.confirmation(owner, `${prefix}${cycle}`, externalKey);
+        assertCurrentScope(this.context, owner, invocation);
         if (!proof) return null;
         // Older key-only proofs remain valid, but need an authorized receipt read for the response.
         let response: unknown;
@@ -113,6 +117,7 @@ export class TillService {
       };
       const confirmed = await confirmedPayment();
       if (confirmed) return complete(confirmed.response, externalKey!);
+      assertCurrentScope(this.context, owner, invocation);
       let record;
       try {
         record = recovery
@@ -148,12 +153,16 @@ export class TillService {
       if (typeof frozenPath !== 'string') throw new Error('Frozen request path is missing.');
       const context = scopedRequestContext(owner);
       try {
+        // Storage can outlive the scope that started this invocation, including A → B → A.
+        // Only a fresh explicit recovery may dispatch under a later epoch.
+        assertCurrentScope(this.context, owner, invocation);
         if (recovery && action !== 'reconciliation-resolution' && action !== 'payment-reversal') {
           const lookup = source
             ? `${API_BASE_URL}/financial-operations/${action}/${pending.operationKey}`
             : `${this.base}/operations/${action}/${pending.operationKey}`;
           let saved: { response: T } | null = null;
           try {
+            assertCurrentScope(this.context, owner, invocation);
             saved = await firstValueFrom(this.http.get<{ response: T }>(lookup, { context }));
           } catch (error) {
             if (isScopeChangeError(error)) throw error; /* Missing lookup never proves failure. */
@@ -170,6 +179,8 @@ export class TillService {
                   proof.saleId !== pending.payload['__parentSaleId']))
             )
               throw new Error('Return void receipt identity mismatch.');
+            // A recovery adapter may itself perform an authorized source read.
+            assertCurrentScope(this.context, owner, invocation);
             const response = recover ? await recover(saved.response) : saved.response;
             await this.drafts.settle(owner, identity, pending.operationKey, 'confirmed', {
               response,
@@ -178,6 +189,7 @@ export class TillService {
           }
         }
         const { __requestPath: ignored, __parentSaleId: parent, ...body } = pending.payload;
+        assertCurrentScope(this.context, owner, invocation);
         const response = await firstValueFrom(
           this.http.post<T>(`${API_BASE_URL}${frozenPath}`, body, { context }),
         );
