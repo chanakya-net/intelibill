@@ -2,8 +2,13 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, defer, firstValueFrom } from 'rxjs';
 import { API_BASE_URL } from '../../../core/auth/auth.constants';
-import { scopedRequestContext, isScopeChangeError } from '../../../core/context/scoped-request';
-import { ScopeOwner } from '../../../core/context/shop-scope';
+import {
+  scopedRequestContext,
+  isScopeChangeError,
+  assertCurrentScope,
+} from '../../../core/context/scoped-request';
+import { ScopeOwner, ShopScope } from '../../../core/context/shop-scope';
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import { FinancialOperationIntentService } from '../../../core/services/financial-operation-intent.service';
 import { TillDraftService } from './till-draft.service';
 import {
@@ -19,6 +24,7 @@ export class TillService {
   private readonly http = inject(HttpClient);
   private readonly drafts = inject(TillDraftService);
   private readonly intents = inject(FinancialOperationIntentService);
+  private readonly context = inject(ShopContextService);
   private readonly base = `${API_BASE_URL}/tills`;
   capabilities() {
     return this.http.get<TillCapabilities>(`${this.base}/capabilities`);
@@ -52,10 +58,13 @@ export class TillService {
     source = false,
     recover?: (response: unknown) => Promise<T>,
     recoverFrozen = false,
+    invocationScope: ShopScope | null = this.context.scope(),
   ): Observable<T> {
     const owner = { userId: requestOwner.userId, shopId: requestOwner.shopId };
     const frozenPayload = structuredClone(payload);
+    const invocation = invocationScope ? { ...invocationScope } : null;
     return defer(async () => {
+      assertCurrentScope(this.context, owner, invocation);
       const prefix = `${action}:${target}:`;
       const all = await this.drafts.list(owner);
       const prior = all.find((x) => x.targetId.startsWith(prefix) && x.pending);
@@ -63,6 +72,17 @@ export class TillService {
       const current = prior ?? (await this.drafts.load(owner, identity));
       let recovery = !!current?.pending;
       const payment = action === 'customer-payment' || action === 'supplier-payment';
+      const complete = (response: T, key: string): T => {
+        assertCurrentScope(this.context, owner, invocation);
+        if (payment)
+          this.intents.confirmMatching(
+            owner,
+            action as 'customer-payment' | 'supplier-payment',
+            target,
+            key,
+          );
+        return response;
+      };
       const externalKey =
         typeof frozenPayload['operationKey'] === 'string' ? frozenPayload['operationKey'] : null;
       const confirmedPayment = async () => {
@@ -73,6 +93,7 @@ export class TillService {
         let response: unknown;
         if (Object.prototype.hasOwnProperty.call(proof, 'response')) response = proof.response;
         else {
+          assertCurrentScope(this.context, owner, invocation);
           try {
             response = (
               await firstValueFrom(
@@ -88,16 +109,10 @@ export class TillService {
             throw new Error('Confirmed operation response is not available yet.');
           }
         }
-        this.intents.confirmMatching(
-          owner,
-          action as 'customer-payment' | 'supplier-payment',
-          target,
-          externalKey,
-        );
         return { response: response as T };
       };
       const confirmed = await confirmedPayment();
-      if (confirmed) return confirmed.response;
+      if (confirmed) return complete(confirmed.response, externalKey!);
       let record;
       try {
         record = recovery
@@ -116,7 +131,7 @@ export class TillService {
       } catch (error) {
         // Another tab may confirm between the read and atomic claim. Its immutable proof wins.
         const confirmed = await confirmedPayment();
-        if (confirmed) return confirmed.response;
+        if (confirmed) return complete(confirmed.response, externalKey!);
         throw error;
       }
       identity = record.targetId;
@@ -159,14 +174,7 @@ export class TillService {
             await this.drafts.settle(owner, identity, pending.operationKey, 'confirmed', {
               response,
             });
-            if (payment)
-              this.intents.confirmMatching(
-                owner,
-                action as 'customer-payment' | 'supplier-payment',
-                target,
-                pending.operationKey,
-              );
-            return response;
+            return complete(response, pending.operationKey);
           }
         }
         const { __requestPath: ignored, __parentSaleId: parent, ...body } = pending.payload;
@@ -174,14 +182,7 @@ export class TillService {
           this.http.post<T>(`${API_BASE_URL}${frozenPath}`, body, { context }),
         );
         await this.drafts.settle(owner, identity, pending.operationKey, 'confirmed', { response });
-        if (payment)
-          this.intents.confirmMatching(
-            owner,
-            action as 'customer-payment' | 'supplier-payment',
-            target,
-            pending.operationKey,
-          );
-        return response;
+        return complete(response, pending.operationKey);
       } catch (error) {
         await this.drafts.settleFailure(owner, identity, pending.operationKey, error, recovery);
         throw error;

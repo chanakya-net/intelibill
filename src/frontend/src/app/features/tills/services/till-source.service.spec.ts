@@ -1,3 +1,4 @@
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import { TillService } from './till.service';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
@@ -15,6 +16,7 @@ describe('TillSourceService', () => {
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
+    TestBed.inject(ShopContextService).initialize(owner);
     source = TestBed.inject(TillSourceService);
     http = TestBed.inject(HttpTestingController);
   });

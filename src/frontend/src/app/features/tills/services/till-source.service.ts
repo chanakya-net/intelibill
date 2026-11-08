@@ -1,7 +1,8 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, throwError, defer, firstValueFrom } from 'rxjs';
-import { scopedRequestContext } from '../../../core/context/scoped-request';
+import { ShopContextService } from '../../../core/context/shop-context.service';
+import { scopedRequestContext, assertCurrentScope } from '../../../core/context/scoped-request';
 import { TillDraftService } from './till-draft.service';
 import { API_BASE_URL } from '../../../core/auth/auth.constants';
 import { ScopeOwner } from '../../../core/context/shop-scope';
@@ -22,6 +23,7 @@ export class TillSourceService {
   private readonly http = inject(HttpClient);
   private readonly till = inject(TillService);
   private readonly drafts = inject(TillDraftService);
+  private readonly context = inject(ShopContextService);
   post<T>(
     path: string,
     action: string,
@@ -36,15 +38,19 @@ export class TillSourceService {
         return throwError(() => new Error('Till request owner is missing.'));
       return this.http.post<T>(`${API_BASE_URL}${path}`, body);
     }
+    // Capture the actual tab scope before even the wrapper's first storage await.
+    const invocation = this.context.scope();
     const owner = { ...tillOwner },
       frozen = {
         ...structuredClone(body),
         ...(tillParentSaleId ? { __parentSaleId: tillParentSaleId } : {}),
       };
     return defer(async () => {
+      assertCurrentScope(this.context, owner, invocation);
       const prior = (await this.drafts.list(owner)).some(
         (x) => x.pending && x.targetId.startsWith(`${action}:${target}:`),
       );
+      assertCurrentScope(this.context, owner, invocation);
       if (
         prior ||
         frozen.till ||
@@ -54,7 +60,18 @@ export class TillSourceService {
         'tillReconciliationEvidence' in frozen
       )
         return firstValueFrom(
-          this.till.execute<T>(owner, action, target, cycle, frozen, path, true, recover),
+          this.till.execute<T>(
+            owner,
+            action,
+            target,
+            cycle,
+            frozen,
+            path,
+            true,
+            recover,
+            false,
+            invocation,
+          ),
         );
       return firstValueFrom(
         this.http.post<T>(`${API_BASE_URL}${path}`, frozen, {

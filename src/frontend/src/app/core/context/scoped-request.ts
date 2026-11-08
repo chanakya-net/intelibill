@@ -1,6 +1,7 @@
 import { HttpContext, HttpContextToken } from '@angular/common/http';
 
-import type { ScopeOwner } from './shop-scope';
+import { sameOwner, type ScopeOwner, type ShopScope } from './shop-scope';
+import type { ShopContextService } from './shop-context.service';
 
 /**
  * The owner a request must be sent as. Set it on writes that belong to a stored owner (a frozen
@@ -34,4 +35,15 @@ export class StaleScopeError extends Error {
 
 export function isScopeChangeError(error: unknown): error is ScopeMismatchError | StaleScopeError {
   return error instanceof ScopeMismatchError || error instanceof StaleScopeError;
+}
+
+/** Local durable reads need the same owner/epoch completion boundary as scoped HTTP answers. */
+export function assertCurrentScope(
+  context: Pick<ShopContextService, 'epoch' | 'isCurrent'>,
+  owner: ScopeOwner,
+  invocation: ShopScope | null,
+): void {
+  if (!invocation || !sameOwner(invocation, owner)) throw new ScopeMismatchError();
+  if (!context.isCurrent(owner) || context.epoch() !== invocation.epoch)
+    throw new StaleScopeError();
 }

@@ -1,3 +1,4 @@
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import { REQUEST_SCOPE } from '../../../core/context/scoped-request';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
@@ -16,6 +17,7 @@ describe('TillService durable HTTP boundary', () => {
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
+    TestBed.inject(ShopContextService).initialize(owner);
     api = TestBed.inject(TillService);
     http = TestBed.inject(HttpTestingController);
     drafts = TestBed.inject(TillDraftService);

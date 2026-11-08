@@ -1,3 +1,4 @@
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import { TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
@@ -15,6 +16,7 @@ describe('Exact return/void source recovery', () => {
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
+    TestBed.inject(ShopContextService).initialize(owner);
     api = TestBed.inject(SaleService);
     http = TestBed.inject(HttpTestingController);
     drafts = TestBed.inject(TillDraftService);

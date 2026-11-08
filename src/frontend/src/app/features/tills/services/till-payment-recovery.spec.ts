@@ -1,3 +1,4 @@
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import { provideRouter } from '@angular/router';
 import { CustomersPageComponent } from '../../customers/pages/customers-page.component';
 import { customersReducer } from '../../customers/state/customers.reducer';
@@ -77,6 +78,7 @@ describe('Real payment intent and IndexedDB recovery', () => {
         },
       ],
     });
+    TestBed.inject(ShopContextService).initialize(owner);
     http = TestBed.inject(HttpTestingController);
     intents = TestBed.inject(FinancialOperationIntentService);
   });
