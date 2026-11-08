@@ -11,7 +11,7 @@ authority on what is enforced, and the tests read them directly.
 ## What the boundary covers
 
 It catches a business query or write that forgets its `shop_id` predicate — the
-realistic failure across 31 tables and many handlers. It does **not** protect the
+realistic failure across tenant tables and many handlers. It does **not** protect the
 identity cluster, and it does **not** protect against a compromised process that
 can set its own session context. Both limits are deliberate.
 
@@ -26,10 +26,12 @@ CREATE POLICY <t>_shop_isolation ON <t>
     WITH CHECK (shop_id = NULLIF(current_setting('app.active_shop_id', true), '')::uuid);
 ```
 
-## Tenant business data — own `shop_id` (30)
+## Tenant business data — own `shop_id`
 
 | Table | Policy | Predicate column | Required index |
 |---|---|---|---|
+| `batch_expiry_revisions` | `batch_expiry_revisions_shop_isolation` | `shop_id` | `shop_id` leading |
+| `batch_disposition_changes` | `batch_disposition_changes_shop_isolation` | `shop_id` | `shop_id` leading |
 | `bank_accounts` | `bank_accounts_shop_isolation` | `shop_id` | `shop_id` leading |
 | `credit_note_redemptions` | `credit_note_redemptions_shop_isolation` | `shop_id` | `shop_id` leading |
 | `credit_notes` | `credit_notes_shop_isolation` | `shop_id` | `shop_id` leading |
@@ -37,6 +39,7 @@ CREATE POLICY <t>_shop_isolation ON <t>
 | `customers` | `customers_shop_isolation` | `shop_id` | `shop_id` leading |
 | `discount_rules` | `discount_rules_shop_isolation` | `shop_id` | `shop_id` leading |
 | `expense_categories` | `expense_categories_shop_isolation` | `shop_id` | `shop_id` leading |
+| `expiry_policy_revisions` | `expiry_policy_revisions_shop_isolation` | `shop_id` | `shop_id` leading |
 | `expenses` | `expenses_shop_isolation` | `shop_id` | `shop_id` leading |
 | `inventory` | `inventory_shop_isolation` | `shop_id` | `shop_id` leading |
 | `inventory_adjustments` | `inventory_adjustments_shop_isolation` | `shop_id` | `shop_id` leading |
@@ -45,6 +48,7 @@ CREATE POLICY <t>_shop_isolation ON <t>
 | `invoice_sequences` | `invoice_sequences_shop_isolation` | `shop_id` | `shop_id` leading |
 | `item_barcode_sequences` | `item_barcode_sequences_shop_isolation` | `shop_id` | `shop_id` leading |
 | `items` | `items_shop_isolation` | `shop_id` | `shop_id` leading |
+| `offline_expiry_evidence` | `offline_expiry_evidence_shop_isolation` | `shop_id` | `shop_id` leading |
 | `payment_allocations` | `payment_allocations_shop_isolation` | `shop_id` | `shop_id` leading |
 | `payment_receipts` | `payment_receipts_shop_isolation` | `shop_id` | `shop_id` leading |
 | `payment_reversals` | `payment_reversals_shop_isolation` | `shop_id` | `shop_id` leading |
@@ -62,9 +66,12 @@ CREATE POLICY <t>_shop_isolation ON <t>
 | `sales` | `sales_shop_isolation` | `shop_id` | `shop_id` leading |
 | `service_code_sequences` | `service_code_sequences_shop_isolation` | `shop_id` | `shop_id` leading |
 | `services` | `services_shop_isolation` | `shop_id` | `shop_id` leading |
+| `shop_expiry_states` | `shop_expiry_states_shop_isolation` | `shop_id` | `shop_id` leading |
 | `stock_transactions` | `stock_transactions_shop_isolation` | `shop_id` | `shop_id` leading |
 | `supplier_ledger_entries` | `supplier_ledger_entries_shop_isolation` | `shop_id` | `shop_id` leading |
 | `suppliers` | `suppliers_shop_isolation` | `shop_id` | `shop_id` leading |
+
+Expiry policy/date/offline/disposition history is also protected against UPDATE/DELETE by immutable triggers. The current manifest remains authoritative for the complete mapped-table set; expiry upgrade/runtime regressions verify the five entries above on PostgreSQL.
 
 ## Tenant child data — parent-derived (2)
 
