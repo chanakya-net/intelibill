@@ -12,6 +12,7 @@ using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
+using Intelibill.Application.Features.Tills;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
@@ -33,6 +34,7 @@ public sealed class RecordSaleCommandHandler
     private readonly IUserRepository userRepository;
     private readonly IBusinessClock businessClock;
     private readonly IPostingPeriodPolicy postingPeriodPolicy;
+    private readonly ITillPostingService tillPosting;
 
     public RecordSaleCommandHandler(
         ISaleLineValidator saleLineValidator,
@@ -49,7 +51,8 @@ public sealed class RecordSaleCommandHandler
         ICustomerRepository customerRepository,
         IUserRepository userRepository,
         IBusinessClock businessClock,
-        IPostingPeriodPolicy postingPeriodPolicy)
+        IPostingPeriodPolicy postingPeriodPolicy,
+        ITillPostingService tillPosting)
     {
         this.saleLineValidator = saleLineValidator;
         this.salePricingCalculator = salePricingCalculator;
@@ -66,10 +69,14 @@ public sealed class RecordSaleCommandHandler
         this.userRepository = userRepository;
         this.businessClock = businessClock;
         this.postingPeriodPolicy = postingPeriodPolicy;
+        this.tillPosting = tillPosting;
     }
 
     public async Task<ErrorOr<SaleDto>> HandleAsync(RecordSaleCommand command, CancellationToken cancellationToken)
     {
+        // A saved outcome is recoverable after close/disablement, but never after losing shop authority.
+        if (await shopRepository.GetActiveRoleAsync(command.ActorUserId, command.ShopId, cancellationToken) is null)
+            return Errors.Till.Forbidden;
         var warnings = new List<string>();
         var normalizedIdempotencyKey = command.IdempotencyKey.Trim();
         var requestHash = RecordSaleIdempotencyHasher.ComputeHash(command);
@@ -87,59 +94,6 @@ public sealed class RecordSaleCommandHandler
             return await saleDtoBuilder.BuildSaleDtoAsync(existingSale, existingSale.Warnings, existingRedemptions.Value, cancellationToken);
         }
 
-        var validationResultOrError = await saleLineValidator.ValidateLinesAsync(command.ShopId, command.Items, warnings, cancellationToken);
-        if (validationResultOrError.IsError)
-            return validationResultOrError.Errors;
-
-        var validatedLines = validationResultOrError.Value.Lines;
-        var itemById = validatedLines
-            .Where(l => l.Item is not null)
-            .Select(l => l.Item!)
-            .DistinctBy(i => i.Id)
-            .ToDictionary(i => i.Id);
-        var soldAt = businessClock.UtcNow;
-        var effectiveSaleDiscount = command.SaleDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m);
-        var pricingRequest = new SalePricingCalculationRequest(
-            command.ShopId,
-            soldAt,
-            validatedLines.Select(line => new SalePricingLineCalculationRequest(
-                line.LineType,
-                line.Batch?.Id ?? Guid.Empty,
-                line.Service?.Id,
-                line.Command.Quantity,
-                line.LineType == SaleLineType.Goods ? line.Batch!.GetProfitCostPrice() : 0m,
-                line.LineType == SaleLineType.Goods ? line.Batch!.SalesPrice : line.Command.SalesPrice,
-                line.LineType == SaleLineType.Goods ? line.Batch!.Mrp : line.Command.Mrp,
-                line.Command.TaxRatePercent,
-                line.LineType == SaleLineType.Goods ? line.Batch!.TaxIncluded : line.Command.IsPriceIncludingTax,
-                line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m),
-                line.LineType == SaleLineType.Goods)).ToList(),
-            effectiveSaleDiscount);
-
-        var pricingOrError = await salePricingCalculator.CalculateAsync(pricingRequest, cancellationToken);
-        if (pricingOrError.IsError)
-            return pricingOrError.Errors;
-        var pricing = pricingOrError.Value;
-
-        var normalizedCustomerPhone = string.IsNullOrWhiteSpace(command.CustomerPhone) ? null : command.CustomerPhone.Trim();
-        var resolvedCustomerOrError = await customerResolver.ResolveAsync(command.ShopId, command.CustomerId, command.CustomerPhone, command.DueAmount > 0, command.PaymentMethod, cancellationToken);
-        if (resolvedCustomerOrError.IsError)
-            return resolvedCustomerOrError.Errors;
-
-        var resolvedCustomer = resolvedCustomerOrError.Value;
-        var creditNoteRedemptions = command.CreditNoteRedemptions ?? [];
-        if (command.CreditNoteAppliedAmount > 0m && creditNoteRedemptions.Count == 0)
-            return Errors.Sale.CreditNoteRedemptionsSplitMismatch;
-
-        var requestedCreditNoteAppliedAmount = command.CreditNoteAppliedAmount;
-        var creditNoteAppliedAmount = creditNoteRedemptions.Count > 0
-            ? creditNoteRedemptions.Sum(redemption => redemption.Amount)
-            : requestedCreditNoteAppliedAmount;
-        if (requestedCreditNoteAppliedAmount > 0m && creditNoteAppliedAmount != requestedCreditNoteAppliedAmount)
-        {
-            return Errors.Sale.CreditNoteRedemptionsSplitMismatch;
-        }
-
         // Refused before a number is taken: an undeclared or unsupported profile issues nothing.
         var shop = await shopRepository.GetByIdAsync(command.ShopId, cancellationToken);
         if (shop is null)
@@ -150,40 +104,10 @@ public sealed class RecordSaleCommandHandler
             return sellerProfileOrError.Errors;
 
         var sellerProfile = sellerProfileOrError.Value;
+        var soldAt = businessClock.UtcNow;
         var businessDay = businessClock.GetBusinessDay(soldAt, shop.BusinessTimeZoneId);
         var fiscalYear = FiscalYear.ForBusinessDate(businessDay.Date);
         var series = new InvoiceSeriesKey(shop.Id, shop.SellerRegistrationKey, sellerProfile.SeriesCode, fiscalYear);
-
-        var saleLineInputs = validatedLines.Select((line, index) =>
-        {
-            var calculation = pricing.Lines[index];
-            return new SaleLineInput(
-                command.ShopId,
-                line.LineType,
-                line.Item?.Id,
-                line.Batch?.Id,
-                line.Service?.Id,
-                LineName: line.Item?.Name ?? line.Service!.Name,
-                LineCode: line.Item?.Barcode ?? line.Service!.Code,
-                line.Command.Quantity,
-                calculation.CostPrice,
-                calculation.SalesPrice,
-                line.LineType == SaleLineType.Goods ? line.Batch!.Mrp : line.Command.Mrp,
-                calculation.TaxRatePercent,
-                calculation.IsPriceIncludingTax,
-                line.HasPriceMismatch,
-                calculation.PreTaxAmountBeforeDiscount,
-                calculation.ItemDiscountAmount,
-                calculation.SaleDiscountAmount,
-                calculation.TaxableAmount,
-                calculation.TaxAmount,
-                calculation.TotalAmount,
-                calculation.ConfiguredBatchRuleId,
-                calculation.ConfiguredBatchRulePercentage,
-                (line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m)).Type,
-                (line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m)).Value,
-                line.Command.HsnCode);
-        }).ToList();
 
         var transactionStarted = false;
         var transactionCommitted = false;
@@ -202,7 +126,102 @@ public sealed class RecordSaleCommandHandler
             if (periodOrError.IsError)
                 return periodOrError.Errors;
 
-            // The customer is the first lock, as for payments and returns: the credit decision is
+            // Acquisition is local to this transaction. Every new attempt reacquires/reloads; never
+            // reuse the posting service's cached tracked session after commit or rollback.
+            var tillOrError = await tillPosting.AcquireAsync(command.ShopId, command.ActorUserId, command.Till, businessDay.Date, cancellationToken);
+            if (tillOrError.IsError) return tillOrError.Errors;
+            var tillSession = tillOrError.Value;
+            if (tillSession is null && command.TenderLines is not null) return Errors.Till.Disabled;
+            if (tillSession is not null)
+            {
+                var tenderCheck = SaleTenderPolicy.Validate(command.PaymentMethod, command.PaidAmount, command.TenderLines);
+                if (tenderCheck.IsError) return tenderCheck.Errors;
+            }
+
+            var validationResultOrError = await saleLineValidator.ValidateLinesAsync(command.ShopId, command.Items, warnings, cancellationToken);
+            if (validationResultOrError.IsError)
+                return validationResultOrError.Errors;
+
+            var validatedLines = validationResultOrError.Value.Lines;
+            var itemById = validatedLines
+                .Where(l => l.Item is not null)
+                .Select(l => l.Item!)
+                .DistinctBy(i => i.Id)
+                .ToDictionary(i => i.Id);
+            var effectiveSaleDiscount = command.SaleDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m);
+            var pricingRequest = new SalePricingCalculationRequest(
+                command.ShopId,
+                soldAt,
+                validatedLines.Select(line => new SalePricingLineCalculationRequest(
+                    line.LineType,
+                    line.Batch?.Id ?? Guid.Empty,
+                    line.Service?.Id,
+                    line.Command.Quantity,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.GetProfitCostPrice() : 0m,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.SalesPrice : line.Command.SalesPrice,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.Mrp : line.Command.Mrp,
+                    line.Command.TaxRatePercent,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.TaxIncluded : line.Command.IsPriceIncludingTax,
+                    line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m),
+                    line.LineType == SaleLineType.Goods)).ToList(),
+                effectiveSaleDiscount);
+
+            var pricingOrError = await salePricingCalculator.CalculateAsync(pricingRequest, cancellationToken);
+            if (pricingOrError.IsError)
+                return pricingOrError.Errors;
+            var pricing = pricingOrError.Value;
+
+            var normalizedCustomerPhone = string.IsNullOrWhiteSpace(command.CustomerPhone) ? null : command.CustomerPhone.Trim();
+            var resolvedCustomerOrError = await customerResolver.ResolveAsync(command.ShopId, command.CustomerId, command.CustomerPhone, command.DueAmount > 0, command.PaymentMethod, cancellationToken);
+            if (resolvedCustomerOrError.IsError)
+                return resolvedCustomerOrError.Errors;
+
+            var resolvedCustomer = resolvedCustomerOrError.Value;
+            var creditNoteRedemptions = command.CreditNoteRedemptions ?? [];
+            if (command.CreditNoteAppliedAmount > 0m && creditNoteRedemptions.Count == 0)
+                return Errors.Sale.CreditNoteRedemptionsSplitMismatch;
+
+            var requestedCreditNoteAppliedAmount = command.CreditNoteAppliedAmount;
+            var creditNoteAppliedAmount = creditNoteRedemptions.Count > 0
+                ? creditNoteRedemptions.Sum(redemption => redemption.Amount)
+                : requestedCreditNoteAppliedAmount;
+            if (requestedCreditNoteAppliedAmount > 0m && creditNoteAppliedAmount != requestedCreditNoteAppliedAmount)
+            {
+                return Errors.Sale.CreditNoteRedemptionsSplitMismatch;
+            }
+
+            var saleLineInputs = validatedLines.Select((line, index) =>
+            {
+                var calculation = pricing.Lines[index];
+                return new SaleLineInput(
+                    command.ShopId,
+                    line.LineType,
+                    line.Item?.Id,
+                    line.Batch?.Id,
+                    line.Service?.Id,
+                    LineName: line.Item?.Name ?? line.Service!.Name,
+                    LineCode: line.Item?.Barcode ?? line.Service!.Code,
+                    line.Command.Quantity,
+                    calculation.CostPrice,
+                    calculation.SalesPrice,
+                    line.LineType == SaleLineType.Goods ? line.Batch!.Mrp : line.Command.Mrp,
+                    calculation.TaxRatePercent,
+                    calculation.IsPriceIncludingTax,
+                    line.HasPriceMismatch,
+                    calculation.PreTaxAmountBeforeDiscount,
+                    calculation.ItemDiscountAmount,
+                    calculation.SaleDiscountAmount,
+                    calculation.TaxableAmount,
+                    calculation.TaxAmount,
+                    calculation.TotalAmount,
+                    calculation.ConfiguredBatchRuleId,
+                    calculation.ConfiguredBatchRulePercentage,
+                    (line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m)).Type,
+                    (line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m)).Value,
+                    line.Command.HsnCode);
+            }).ToList();
+
+            // After the period and till locks, the customer is the first business lock: the credit decision is
             // made on the balance and settings committed now, and a second due sale for the same
             // customer waits here until this one commits or rolls back.
             CustomerCreditCheck? creditCheck = null;
@@ -321,6 +340,17 @@ public sealed class RecordSaleCommandHandler
                     return ledgerResult.Errors;
 
                 await customerLedgerEntryRepository.AddAsync(ledgerResult.Value, cancellationToken);
+            }
+
+            if (tillSession is not null)
+            {
+                var evidence = sale.AttachTillSettlement(tillSession.Id, command.Till?.OverrideReason, command.TenderLines ?? []);
+                if (evidence.IsError) return evidence.Errors;
+                var appended = await tillPosting.AppendAsync(tillSession,
+                    new TillSourcePosting(TillMovementSource.OnlineSale, sale.Id, "sale", sale.TenderLines!, 1m, sale.SoldAt,
+                        normalizedIdempotencyKey, null, StoreCreditRedeemed: sale.CreditNoteAppliedAmount, ReceivableChange: sale.DueAmount),
+                    command.ActorUserId, cancellationToken);
+                if (appended.IsError) return appended.Errors;
             }
 
             await unitOfWork.SaveChangesAsync(cancellationToken);

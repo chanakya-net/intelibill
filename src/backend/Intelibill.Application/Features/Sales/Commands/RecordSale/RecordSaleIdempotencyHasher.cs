@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Intelibill.Domain.Enums;
+using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
@@ -60,7 +61,9 @@ internal static class RecordSaleIdempotencyHasher
             Normalize(command.PlaceOfSupplyStateCode),
             command.CreditOverride is null
                 ? null
-                : new RecordSaleCreditOverrideIdempotencyPayload(Normalize(command.CreditOverride.Reason), command.CreditOverride.ObservedExposure));
+                : new RecordSaleCreditOverrideIdempotencyPayload(Normalize(command.CreditOverride.Reason), command.CreditOverride.ObservedExposure),
+            command.Till is null ? null : command.Till with { OverrideReason = Normalize(command.Till.OverrideReason) },
+            command.TenderLines?.Select(line => line is null ? null! : line with { ExternalReference = Normalize(line.ExternalReference) }).ToArray());
 
         var json = JsonSerializer.Serialize(payload, SerializerOptions);
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(json));
@@ -89,7 +92,9 @@ internal sealed record RecordSaleIdempotencyPayload(
     // Omitted when absent so requests that predate it keep their hash.
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? PlaceOfSupplyStateCode = null,
     // Omitted when absent, like the place of supply; an approved override is part of the request.
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RecordSaleCreditOverrideIdempotencyPayload? CreditOverride = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RecordSaleCreditOverrideIdempotencyPayload? CreditOverride = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TillPostingContext? Till = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<TenderLine>? TenderLines = null);
 
 internal sealed record RecordSaleCreditOverrideIdempotencyPayload(
     string? Reason,

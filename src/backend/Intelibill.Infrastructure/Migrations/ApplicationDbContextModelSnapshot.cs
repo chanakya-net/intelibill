@@ -3653,6 +3653,19 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("synced_at");
 
+                    b.Property<string>("TenderLines")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("tender_lines");
+
+                    b.Property<string>("TillOverrideReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("till_override_reason");
+
+                    b.Property<Guid?>("TillSessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("till_session_id");
+
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
@@ -3716,6 +3729,9 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasIndex("ShopId", "SoldAt")
                         .HasDatabaseName("ix_sales_shop_id_sold_at");
 
+                    b.HasIndex("TillSessionId", "ShopId")
+                        .HasDatabaseName("ix_sales_till_session_id_shop_id");
+
                     b.HasIndex("ShopId", "ActorUserId", "IdempotencyKey")
                         .IsUnique()
                         .HasDatabaseName("ix_sales_shop_id_actor_user_id_idempotency_key");
@@ -3727,6 +3743,8 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("sales", null, t =>
                         {
                             t.HasCheckConstraint("ck_sales_status", "status IN (0, 1)");
+
+                            t.HasCheckConstraint("ck_sales_till_evidence", "(till_session_id IS NULL AND tender_lines IS NULL AND till_override_reason IS NULL) OR (till_session_id IS NOT NULL AND tender_lines IS NOT NULL AND jsonb_typeof(tender_lines) = 'array' AND jsonb_array_length(tender_lines) <= 1)");
                         });
                 });
 
@@ -7212,6 +7230,13 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_sales_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.TillSession", null)
+                        .WithMany()
+                        .HasForeignKey("TillSessionId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sales_till_sessions_till_session_id_shop_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.SaleCancellation", b =>

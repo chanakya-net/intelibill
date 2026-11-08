@@ -21,6 +21,9 @@ public sealed record SaleDto(
     IReadOnlyList<SaleItemDto> Items,
     IReadOnlyList<string> Warnings)
 {
+    public Guid? TillSessionId { get; init; }
+    public string? TillOverrideReason { get; init; }
+    public IReadOnlyList<TenderLine>? TenderLines { get; init; }
     public SaleStatus Status { get; init; }
     public uint Version { get; init; }
     public SaleCancellationDto? Cancellation { get; init; }

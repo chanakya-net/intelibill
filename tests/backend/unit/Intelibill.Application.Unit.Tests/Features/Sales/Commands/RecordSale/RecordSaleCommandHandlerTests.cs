@@ -1,4 +1,6 @@
 using ErrorOr;
+using Intelibill.Application.Features.Tills;
+using System.Text.Json;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
@@ -22,6 +24,7 @@ namespace Intelibill.Application.Unit.Tests.Features.Sales.Commands.RecordSale;
 
 public class RecordSaleCommandHandlerTests
 {
+    private readonly ITillPostingService _tillPosting = Substitute.For<ITillPostingService>();
     private readonly ISaleLineValidator _saleLineValidator = Substitute.For<ISaleLineValidator>();
     private readonly ISalePricingCalculator _salePricingCalculator = Substitute.For<ISalePricingCalculator>();
     private readonly ICustomerResolver _customerResolver = Substitute.For<ICustomerResolver>();
@@ -46,6 +49,8 @@ public class RecordSaleCommandHandlerTests
 
     public RecordSaleCommandHandlerTests()
     {
+        _shopRepository.GetActiveRoleAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(ShopRole.Owner);
+        _tillPosting.AcquireAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<TillPostingContext?>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<TillSession?>>((TillSession?)null));
         _saleDtoBuilder = new SaleDtoBuilder(_itemRepository, Substitute.For<ISaleCancellationRepository>());
         _shopRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult<Shop?>(_shop));
@@ -91,7 +96,7 @@ public class RecordSaleCommandHandlerTests
     }
 
     private RecordSaleCommandHandler CreateHandler() =>
-        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork, _customerRepository, _userRepository, new BusinessClock(_time), _postingPeriods);
+        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork, _customerRepository, _userRepository, new BusinessClock(_time), _postingPeriods, _tillPosting);
 
     private readonly MutableTimeProvider _time = new();
 
@@ -111,6 +116,84 @@ public class RecordSaleCommandHandlerTests
         _customerResolver.ResolveAsync(shopId, customer.Id, null, true, PaymentMethod.Credit, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
         return (command, customer);
+    }
+
+    [Fact]
+    public void TillEvidenceChanged_SameKeyConflicts()
+    {
+        var (command, _, _) = ArrangeSingleLineSale();
+        var node = System.Text.Json.Nodes.JsonNode.Parse(System.Text.Json.JsonSerializer.Serialize(command))!;
+        node["Till"] = System.Text.Json.Nodes.JsonNode.Parse($"{{\"SessionId\":\"{Guid.NewGuid()}\",\"OverrideReason\":\"assistance\"}}");
+        node["TenderLines"] = System.Text.Json.Nodes.JsonNode.Parse("[{\"Method\":2,\"AppliedAmount\":118,\"CashTendered\":200,\"Change\":82}]");
+        var withTill = node.Deserialize<RecordSaleCommand>()!;
+        Assert.NotEqual(RecordSaleIdempotencyHasher.ComputeHash(command), RecordSaleIdempotencyHasher.ComputeHash(withTill));
+    }
+
+    [Fact]
+    public void LegacyHash_Unchanged()
+    {
+        var command = new RecordSaleCommand(Guid.Parse("11111111-1111-1111-1111-111111111111"), Guid.Parse("22222222-2222-2222-2222-222222222222"), "legacy", null, null, null, PaymentMethod.Cash, 0m, 0m, []);
+        Assert.Equal("1F0E553A7AC41E7C2A7D5FFBE327A07347AD8FDC9579C6F10D5B06DE47454DA4", RecordSaleIdempotencyHasher.ComputeHash(command));
+        Assert.Equal(RecordSaleIdempotencyHasher.ComputeHash(command), RecordSaleIdempotencyHasher.ComputeHash(command with { Till = null, TenderLines = null }));
+        Assert.NotEqual(RecordSaleIdempotencyHasher.ComputeHash(command), RecordSaleIdempotencyHasher.ComputeHash(command with { TenderLines = [] }));
+    }
+
+    [Fact]
+    public async Task StoreCredit_NotPhysicalCash()
+    {
+        var (original, _, _) = ArrangeSingleLineSale();
+        var amount = original.PaidAmount;
+        var note = CreditNote.Issue(original.ShopId, Guid.NewGuid(), amount, "Return", "CN-TILL", null).Value;
+        _creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(original.ShopId, note.Code, Arg.Any<CancellationToken>()).Returns(note);
+        var session = TillSession.Open(original.ShopId, Guid.NewGuid(), original.ActorUserId, "Front", "Cashier", original.ActorUserId,
+            _time.Now, new BusinessClock(_time).Today("Asia/Kolkata"), "Asia/Kolkata", 1000m, null).Value;
+        _tillPosting.AcquireAsync(original.ShopId, original.ActorUserId, Arg.Any<TillPostingContext?>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<TillSession?>>(session));
+        TillSourcePosting? source = null;
+        _tillPosting.AppendAsync(session, Arg.Do<TillSourcePosting>(x => source = x), original.ActorUserId, Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
+        var result = await CreateHandler().HandleAsync(original with
+        {
+            PaidAmount = 0m, CreditNoteAppliedAmount = amount, CreditNoteRedemptions = [new(note.Code, amount)],
+            Till = new(session.Id), TenderLines = []
+        }, default);
+        Assert.False(result.IsError);
+        Assert.Equal(amount, result.Value.CreditNoteAppliedAmount);
+        Assert.Equal(0m, result.Value.PaidAmount);
+        Assert.Equal(session.Id, result.Value.TillSessionId);
+        Assert.Empty(result.Value.TenderLines!);
+        Assert.NotNull(source);
+        Assert.Empty(source.Lines);
+        Assert.Equal(amount, source.StoreCreditRedeemed);
+        Assert.Equal(result.Value.SaleId, source.SourceId);
+    }
+
+    [Theory]
+    [InlineData(PaymentMethod.Cash, ReceiptTenderMethod.Cash)]
+    [InlineData(PaymentMethod.UPI, ReceiptTenderMethod.Upi)]
+    [InlineData(PaymentMethod.Card, ReceiptTenderMethod.Card)]
+    public void SaleTender_ExplicitEnumMapping(PaymentMethod method, ReceiptTenderMethod tender)
+    {
+        Assert.False(SaleTenderPolicy.Validate(method, 300m, [new(tender, 300m, null, null, null, null)]).IsError);
+        Assert.True(SaleTenderPolicy.Validate(PaymentMethod.Credit, 300m, [new(tender, 300m, null, null, null, null)]).IsError);
+    }
+
+    [Theory]
+    [InlineData(300, 500, 200, false)]
+    [InlineData(300, 500, 100, true)]
+    [InlineData(299, 500, 201, true)]
+    public void SaleTender_ConservesAppliedCash(decimal applied, decimal tendered, decimal change, bool isError)
+    {
+        Assert.Equal(isError, SaleTenderPolicy.Validate(PaymentMethod.Cash, 300m,
+            [new(ReceiptTenderMethod.Cash, applied, tendered, change, null, null)]).IsError);
+    }
+
+    [Fact]
+    public async Task Replay_StillRequiresLiveShopAuthority()
+    {
+        var (command, _, _) = ArrangeSingleLineSale();
+        _shopRepository.GetActiveRoleAsync(command.ActorUserId, command.ShopId, Arg.Any<CancellationToken>()).Returns((ShopRole?)null);
+        var result = await CreateHandler().HandleAsync(command, default);
+        Assert.Equal("Till.Forbidden", result.FirstError.Code);
+        await _saleRepository.DidNotReceive().GetByIdempotencyKeyAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

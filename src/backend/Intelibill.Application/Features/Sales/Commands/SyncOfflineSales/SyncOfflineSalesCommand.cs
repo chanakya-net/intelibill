@@ -1,4 +1,6 @@
+using System.Text.Json.Serialization;
 using Intelibill.Domain.Enums;
+using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
@@ -33,7 +35,11 @@ public sealed record OfflineSaleSyncCommand(
     IReadOnlyList<OfflineSaleSyncLineCommand> Items,
     int? CalculationVersion = null,
     // The user signed in when the invoice was issued; absent on payloads queued before this was recorded.
-    Guid? IssuedByUserId = null);
+    Guid? IssuedByUserId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TillPostingContext? Till = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<TenderLine>? TenderLines = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateOnly? TillBusinessDate = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? TillCashierId = null);
 
 public sealed record OfflineSaleSyncLineCommand(
     string Barcode,

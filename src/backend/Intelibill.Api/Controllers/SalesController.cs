@@ -167,7 +167,8 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                 request.PlaceOfSupplyStateCode,
                 request.CreditOverride is null
                     ? null
-                    : new CreditOverrideRequest(request.CreditOverride.Reason, request.CreditOverride.ObservedExposure)),
+                    : new CreditOverrideRequest(request.CreditOverride.Reason, request.CreditOverride.ObservedExposure),
+                request.Till, request.TenderLines),
             cancellationToken);
         return result.ToActionResult(sale => CreatedAtAction(nameof(RecordSale), sale));
     }
