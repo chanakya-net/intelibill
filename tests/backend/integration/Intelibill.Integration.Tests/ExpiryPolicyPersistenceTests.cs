@@ -93,6 +93,53 @@ public sealed class ExpiryPolicyPersistenceTests(PostgreSqlTestFixture fixture)
     }
 
     [Fact]
+    public async Task HistoricalLookup_MissingCurrentDefaultRevision_CannotCertifySurvivingBaseline()
+    {
+        var seed = await SeedAsync();
+        await using var db = Db();
+        await using var transaction = await db.Database.BeginTransactionAsync();
+        // Reproduce a damaged retained dataset as the migrator: baseline 1 survives, but the
+        // state records a default edit 2 whose full settings/effective event were lost.
+        await db.Database.ExecuteSqlRawAsync("SET LOCAL session_replication_role = 'replica'");
+        await db.Database.ExecuteSqlAsync($"UPDATE expiry_policy_revisions SET pre_feature_baseline = true, actor_user_id = NULL WHERE shop_id = {seed.Shop} AND catalog_version = 1");
+        await db.Database.ExecuteSqlRawAsync("SET LOCAL session_replication_role = 'origin'");
+        await db.Database.ExecuteSqlAsync($"UPDATE shop_expiry_states SET pre_feature_baseline = true, catalog_version = 2, default_policy_version = 2 WHERE shop_id = {seed.Shop}");
+        var absentEventAt = DateTimeOffset.UtcNow.AddMinutes(1);
+        var repo = new ExpiryPolicyRepository(db);
+        foreach (var asOf in new DateTimeOffset?[] { null, absentEventAt.AddMinutes(1) })
+        {
+            var result = await repo.GetEffectiveAsync(seed.Shop, seed.Item, asOf, default);
+            Assert.False(result.HistoryKnown);
+            Assert.False(result.IsPreFeatureBaseline);
+            Assert.Null(result.Policy);
+        }
+        await transaction.RollbackAsync();
+    }
+
+    [Fact]
+    public async Task HistoricalLookup_ValidCurrentDefault_PreservesEarlierPolicyAndDateCatalogVersions()
+    {
+        var seed = await SeedAsync();
+        await using var db = Db();
+        var baselineAt = await db.ExpiryPolicyRevisions.Where(x => x.ShopId == seed.Shop && x.CatalogVersion == 1).Select(x => x.EffectiveAt).SingleAsync();
+        var changed = await Service(db).UpdateAsync(seed.Shop, seed.Owner, null,
+            new(1, new(ExpiryMode.Block, true, true, 7, false), "require dates"), default);
+        Assert.False(changed.IsError);
+        // Date revisions advance the catalog without creating a default-policy revision.
+        await db.Database.ExecuteSqlAsync($"UPDATE shop_expiry_states SET catalog_version = 3 WHERE shop_id = {seed.Shop}");
+        var repo = new ExpiryPolicyRepository(db);
+        var historical = await repo.GetEffectiveAsync(seed.Shop, seed.Item, baselineAt, default);
+        Assert.True(historical.HistoryKnown);
+        Assert.Equal(ExpiryMode.Ignore, historical.Policy!.Mode);
+        Assert.Equal(1, historical.Policy.Version);
+        var current = await repo.GetEffectiveAsync(seed.Shop, seed.Item, null, default);
+        Assert.True(current.HistoryKnown);
+        Assert.Equal(ExpiryMode.Block, current.Policy!.Mode);
+        Assert.Equal(2, current.Policy.Version);
+        Assert.Equal(3, current.CatalogVersion);
+    }
+
+    [Fact]
     public async Task RestrictedRole_SeesOnlyScopedRowsAndCannotMutateFacts()
     {
         var seed = await SeedAsync();

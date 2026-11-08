@@ -40,9 +40,13 @@ internal sealed class ExpiryPolicyRepository(ApplicationDbContext db) : IExpiryP
         var baseline = await db.ExpiryPolicyRevisions.AsNoTracking().SingleOrDefaultAsync(x => x.ShopId == shopId && x.CatalogVersion == 1, ct);
         if (baseline is null || baseline.ItemId is not null || baseline.Policy != ExpiryPolicy.Default || baseline.PreFeatureBaseline != state.PreFeatureBaseline)
             return new(null, state.CatalogVersion, false);
-        var defaults = await GetLatestRevisionAsync(shopId, null, asOf, ct);
+        // The retained current default must agree with the state even for historical reads.
+        // Otherwise a missing edit could turn its surviving baseline into false Ignore proof.
+        var currentDefault = await GetLatestRevisionAsync(shopId, null, null, ct);
+        if (currentDefault?.Policy is null || !currentDefault.Policy.IsValid() || currentDefault.CatalogVersion != state.DefaultPolicyVersion)
+            return new(null, state.CatalogVersion, false);
+        var defaults = asOf.HasValue ? await GetLatestRevisionAsync(shopId, null, asOf, ct) : currentDefault;
         if (defaults?.Policy is null || !defaults.Policy.IsValid()) return new(null, state.CatalogVersion, false);
-        if (!asOf.HasValue && defaults.CatalogVersion != state.DefaultPolicyVersion) return new(null, state.CatalogVersion, false);
         var item = await GetLatestRevisionAsync(shopId, itemId, asOf, ct);
         var policy = item?.Policy ?? defaults.Policy;
         if (!policy.IsValid()) return new(null, state.CatalogVersion, false);
