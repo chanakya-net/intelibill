@@ -22,7 +22,9 @@ public sealed class ReconciliationCaseMapper(
     ISaleRepository saleRepository,
     IOfflineSubmissionRepository submissionRepository,
     ITillRepository tillRepository,
-    IOfflineExpiryAuthority expiryAuthority)
+    IOfflineExpiryAuthority expiryAuthority,
+    TimeProvider timeProvider,
+    OfflineTillReconciliationEligibility tillEligibility)
 {
     public async Task<IReadOnlyList<ReconciliationCaseSummaryDto>> ToSummariesAsync(
         IReadOnlyList<ReconciliationIssue> issues,
@@ -90,6 +92,8 @@ public sealed class ReconciliationCaseMapper(
         if (lease is not null && lease.ShopId != issue.ShopId)
             lease = null;
 
+        var now = timeProvider.GetUtcNow();
+        var tillEligible = false;
         var expiryVerified = false;
         var expiryLinkVerified = false;
         if (issue.IssueType == ReconciliationIssueType.ExpiryReview && submission is not null)
@@ -97,11 +101,13 @@ public sealed class ReconciliationCaseMapper(
             OfflineSaleSyncCommand? payload;
             try { payload = OfflineSubmissionPayload.Deserialize(submission.PayloadJson); } catch (JsonException) { payload = null; }
             expiryVerified = payload is not null && payload.Items.Where(x => !x.IsServiceLine).All(x => x.ExpiryEvidence is not null) &&
-                !(await expiryAuthority.ValidateFrozenAsync(issue.ShopId, payload, DateTimeOffset.UtcNow, cancellationToken)).IsError;
+                !(await expiryAuthority.ValidateFrozenAsync(issue.ShopId, payload, now, cancellationToken)).IsError;
+            tillEligible = expiryVerified && submission.AttributableUserId is { } issuer &&
+                await tillEligibility.CanReconcileAsync(issue.ShopId, payload!, issuer, now, cancellationToken);
             var expiryPosted = await saleRepository.GetByClientSaleIdAsync(issue.ShopId, submission.DeviceId, submission.ClientSaleId, cancellationToken);
             expiryLinkVerified = expiryPosted is not null && await expiryAuthority.VerifiesPostedSaleAsync(submission, expiryPosted, cancellationToken);
         }
-        var actions = ReconciliationActionPolicy.AvailableActions(issue, submission, role, actorUserId, expiryVerified, expiryLinkVerified);
+        var actions = ReconciliationActionPolicy.AvailableActions(issue, submission, role, actorUserId, expiryVerified, expiryLinkVerified, tillEligible);
         var candidates = await LinkCandidatesAsync(issue, submission, actions, cancellationToken);
 
         var late = submission?.SaleId is { } posted ? await tillRepository.FindLatePostingAsync(issue.ShopId, submission.Id, posted, cancellationToken) : null;

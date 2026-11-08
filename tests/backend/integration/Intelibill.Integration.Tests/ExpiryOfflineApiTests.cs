@@ -1,3 +1,5 @@
+using Intelibill.Infrastructure.Options;
+using Microsoft.Extensions.Options;
 using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
@@ -24,17 +26,22 @@ public sealed class ExpiryOfflineApiTests : IAsyncLifetime, IDisposable
     private static readonly string[] PostedStatuses = ["created", "syncedWithWarnings"];
     private static readonly string[] EscalateOnly = ["Escalate"];
     private readonly ApiWebApplicationFactory _factory;
+    private readonly string _migratorConnection;
     private readonly TestTime _time = new();
     private sealed class TestTime : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
         public override DateTimeOffset GetUtcNow() => Now;
     }
-    public ExpiryOfflineApiTests(PostgreSqlTestFixture fixture) => _factory = new(fixture, services =>
+    public ExpiryOfflineApiTests(PostgreSqlTestFixture fixture)
     {
+        _migratorConnection = fixture.MigratorConnectionString;
+        _factory = new(fixture, services =>
+        {
         services.RemoveAll<IBusinessClock>(); services.AddSingleton<IBusinessClock>(new BusinessClock(_time));
         services.RemoveAll<TimeProvider>(); services.AddSingleton<TimeProvider>(_time);
-    });
+        });
+    }
     public Task InitializeAsync() => _factory.InitializeAsync();
     public Task DisposeAsync() { Dispose(); return Task.CompletedTask; }
     public void Dispose() { _factory.Dispose(); GC.SuppressFinalize(this); }
@@ -244,6 +251,94 @@ public sealed class ExpiryOfflineApiTests : IAsyncLifetime, IDisposable
         Assert.Equal("NeedsReview", result.GetProperty("status").GetString()); Assert.Equal(before, await Facts(seed.Shop, seed.Batch));
         using var scope = _factory.Services.CreateScope();
         Assert.Equal(ReconciliationIssueType.ExpiryReview, (await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().ReconciliationIssues.SingleAsync(x => x.ShopId == seed.Shop)).IssueType);
+    }
+
+    private async Task<Guid> ExpiryCase(HttpClient client, Guid shop, JsonObject sale)
+    {
+        var id = await Recover(client, shop, sale);
+        using var scope = _factory.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Database.ExecuteSqlAsync($"UPDATE reconciliation_issues SET issue_type = {(int)ReconciliationIssueType.ExpiryReview}, code = 'Expiry.ReviewRequired' WHERE id = {id}");
+        return id;
+    }
+    [Fact]
+    public async Task ExpiryReview_DisabledTillNeverOffersTillReconciliation()
+    {
+        var seed = await Seed(); using var client = seed.Client; var before = await Facts(seed.Shop, seed.Batch);
+        var id = await ExpiryCase(client, seed.Shop, seed.Sale); var detail = await Detail(client, id);
+        var actions = detail.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()).ToArray();
+        Assert.Contains("RetryHistoricalLease", actions); Assert.DoesNotContain("ReconcileTillSale", actions);
+        using var crafted = await client.PostAsJsonAsync($"/api/offline-reconciliation/{id}/resolve", new { operationId = Guid.NewGuid().ToString(), expectedVersion = detail.GetProperty("version").GetUInt32(), action = "ReconcileTillSale", reason = "disabled till", tillReconciliationEvidence = new { evidenceStatus = "Unknown", tenderLines = Array.Empty<object>(), reason = "legacy" } });
+        Assert.Equal(HttpStatusCode.BadRequest, crafted.StatusCode); Assert.Equal(before, await Facts(seed.Shop, seed.Batch));
+    }
+    [Theory]
+    [InlineData(false, false)][InlineData(true, false)][InlineData(true, true)]
+    public async Task ExpiryReview_TillReconciliationOnlyOfferedAfterOriginalDrawerCloses(bool close, bool disableAfterOffer)
+    {
+        var seed = await Seed(); using var client = seed.Client;
+        var options = _factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value; options.Enabled = true; options.AllowedShopIds = [seed.Shop];
+        await using var app = new TillTestContext(_migratorConnection, seed.Shop, new() { Now = _time.Now.AddSeconds(-1) });
+        var till = await app.CreateAsync(seed.Shop, seed.Actor); var session = await app.OpenAsync(seed.Shop, seed.Actor, till.Id);
+        seed.Sale["till"] = new JsonObject { ["sessionId"] = session.Id };
+        seed.Sale["tillBusinessDate"] = session.BusinessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture); seed.Sale["tillCashierId"] = seed.Actor;
+        seed.Sale["tenderLines"] = JsonNode.Parse("[{\"method\":2,\"appliedAmount\":2}]");
+        if (close)
+        {
+            app.Time.Now = _time.Now.AddSeconds(1); _time.Now = app.Time.Now;
+            var current = await app.Db.TillSessions.AsNoTracking().SingleAsync(x => x.Id == session.Id);
+            TillTestContext.Success(await app.Lifecycle.CloseAsync(new(seed.Shop, seed.Actor, session.Id, 1000m, null, current.Version, Guid.NewGuid().ToString()), default));
+        }
+        var before = await Facts(seed.Shop, seed.Batch); var id = await ExpiryCase(client, seed.Shop, seed.Sale); var detail = await Detail(client, id);
+        var actions = detail.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()).ToArray();
+        Assert.Equal(close, actions.Contains("ReconcileTillSale")); Assert.Contains("RetryHistoricalLease", actions);
+        if (disableAfterOffer) options.Enabled = false;
+        using var attempt = await client.PostAsJsonAsync($"/api/offline-reconciliation/{id}/resolve", new { operationId = Guid.NewGuid().ToString(), expectedVersion = detail.GetProperty("version").GetUInt32(), action = "ReconcileTillSale", reason = "historical till review", tillReconciliationEvidence = new { evidenceStatus = "Recorded", tenderLines = seed.Sale["tenderLines"], reason = "frozen recorded tender" } });
+        if (close && !disableAfterOffer)
+        {
+            Assert.True(attempt.IsSuccessStatusCode, await attempt.Content.ReadAsStringAsync());
+            using var verify = _factory.Services.CreateScope(); var db = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            Assert.Single((await db.Sales.SingleAsync(x => x.ShopId == seed.Shop)).ExpiryDecisions!); Assert.Single(await db.TillLatePostings.Where(x => x.ShopId == seed.Shop).ToListAsync());
+        }
+        else
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, attempt.StatusCode); Assert.Equal(before, await Facts(seed.Shop, seed.Batch));
+            if (disableAfterOffer)
+            {
+                Assert.DoesNotContain("ReconcileTillSale", (await Detail(client, id)).GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()));
+                return;
+            }
+            using var retry = await client.PostAsJsonAsync($"/api/offline-reconciliation/{id}/resolve", new { operationId = Guid.NewGuid().ToString(), expectedVersion = detail.GetProperty("version").GetUInt32(), action = "RetryHistoricalLease", reason = "original current drawer" });
+            Assert.True(retry.IsSuccessStatusCode, await retry.Content.ReadAsStringAsync());
+            using var verify = _factory.Services.CreateScope(); var db = verify.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            Assert.Equal(2m, (await db.TillMovements.SingleAsync(x => x.SessionId == session.Id)).SignedAmount);
+        }
+    }
+    [Fact]
+    public async Task ExpiryReview_FormerlyFutureIssueUsesInjectedClockForProjectionAndExecution()
+    {
+        var seed = await Seed(); using var client = seed.Client; var issued = _time.Now.AddHours(1);
+        seed.Sale["soldAt"] = issued; seed.Sale["items"]![0]!["expiryEvidence"]!["businessDate"] = new BusinessClock(_time).GetBusinessDate(issued, "Asia/Kolkata").ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        var id = await ExpiryCase(client, seed.Shop, seed.Sale);
+        Assert.DoesNotContain("RetryHistoricalLease", (await Detail(client, id)).GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()));
+        _time.Now = issued.AddMinutes(1);
+        var detail = await Detail(client, id); Assert.Contains("RetryHistoricalLease", detail.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()));
+        using var retry = await client.PostAsJsonAsync($"/api/offline-reconciliation/{id}/resolve", new { operationId = Guid.NewGuid().ToString(), expectedVersion = detail.GetProperty("version").GetUInt32(), action = "RetryHistoricalLease", reason = "issue instant is historical under host clock" });
+        Assert.True(retry.IsSuccessStatusCode, await retry.Content.ReadAsStringAsync());
+        using var scope = _factory.Services.CreateScope(); var sale = await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().Sales.SingleAsync(x => x.ShopId == seed.Shop);
+        Assert.Equal(seed.Sale["invoiceNumber"]!.GetValue<string>(), sale.InvoiceNumber); Assert.Equal(2m, sale.TotalAmount); Assert.Equal(issued.UtcTicks / 10, sale.SoldAt.UtcTicks / 10);
+    }
+    [Theory]
+    [InlineData("issuer")][InlineData("lease")]
+    public async Task ValidExpiryProof_CannotAuthorizeInvalidIssuerOrInvoiceLease(string mismatch)
+    {
+        var seed = await Seed(); using var client = seed.Client; var before = await Facts(seed.Shop, seed.Batch);
+        if (mismatch == "issuer") seed.Sale["issuedByUserId"] = Guid.NewGuid(); else seed.Sale["invoiceNumber"] = "A/2627/999999";
+        var result = await Sync(client, seed.Sale); Assert.Equal("NeedsReview", result.GetProperty("status").GetString());
+        Assert.Equal(mismatch == "issuer" ? "OfflineReconciliation.IssuerNotSubmitter" : "Sale.InvoiceLeaseNotFound", result.GetProperty("errors")[0].GetProperty("code").GetString());
+        Assert.Equal(before, await Facts(seed.Shop, seed.Batch));
+        var detail = await Detail(client, result.GetProperty("reviewCaseId").GetGuid());
+        Assert.DoesNotContain("RetryHistoricalLease", detail.GetProperty("availableActions").EnumerateArray().Select(x => x.GetString()));
+        using var crafted = await client.PostAsJsonAsync($"/api/offline-reconciliation/{result.GetProperty("reviewCaseId").GetGuid()}/resolve", new { operationId = Guid.NewGuid().ToString(), expectedVersion = detail.GetProperty("version").GetUInt32(), action = "RetryHistoricalLease", reason = "catalog proof is not issuer or lease permission" });
+        Assert.False(crafted.IsSuccessStatusCode); Assert.Equal(before, await Facts(seed.Shop, seed.Batch));
     }
 
 }

@@ -68,8 +68,7 @@ internal sealed partial class OfflineSalePoster
             }
             // A review is not an alternative way to omit cash that can still enter its original
             // count. The caller can use ordinary replay while this session remains current/open.
-            if (historical is { State: TillSessionState.Open } &&
-                historical.BusinessDate == businessClock.Today(historical.BusinessTimeZoneId))
+            if (OfflineTillReconciliationEligibility.IsCurrentOpen(historical, businessClock, request.Now))
                 return Errors.Till.ReviewNotRequired;
             return new TillPreparation(null, historical, historical is null ? null : close);
         }
@@ -87,9 +86,7 @@ internal sealed partial class OfflineSalePoster
     }
 
     private static bool MatchesHistorical(OfflineSalePostingRequest request, TillSession session, DateOnly businessDate) =>
-        request.Sale.IssuedByUserId == request.AttributedUserId && session.CashierId == request.AttributedUserId &&
-        request.Sale.TillCashierId == session.CashierId && request.Sale.TillBusinessDate == session.BusinessDate &&
-        session.BusinessDate == businessDate && request.Sale.SoldAt >= session.OpenedAt && request.Sale.SoldAt <= request.Now;
+        OfflineTillReconciliationEligibility.MatchesHistorical(request.ShopId, request.Sale, session, request.AttributedUserId, businessDate, request.Now);
 
     private async Task<ErrorOr<Success>> StageTillAsync(OfflineSalePostingRequest request, Sale sale, TillPreparation till, CancellationToken ct)
     {

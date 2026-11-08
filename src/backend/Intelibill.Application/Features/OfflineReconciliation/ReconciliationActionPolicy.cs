@@ -72,7 +72,8 @@ public static class ReconciliationActionPolicy
         ShopRole role,
         Guid actorUserId,
         bool expiryAuthorityVerified = false,
-        bool expirySaleLinkVerified = false)
+        bool expirySaleLinkVerified = false,
+        bool tillReconciliationEligible = false)
     {
         if (issue.Status == ReconciliationCaseStatus.Resolved)
             return [];
@@ -90,8 +91,7 @@ public static class ReconciliationActionPolicy
             if (HasEnvelope(issue, submission) && submission!.AttributableUserId is not null && expiryAuthorityVerified)
             {
                 actions.Add(ReconciliationAction.RetryHistoricalLease);
-                // A till review still needs the existing four-field gate or legacy recovery evidence.
-                actions.Add(ReconciliationAction.ReconcileTillSale);
+                if (tillReconciliationEligible) actions.Add(ReconciliationAction.ReconcileTillSale);
             }
             if (expirySaleLinkVerified && OffersSaleLink(issue, submission)) actions.Add(ReconciliationAction.LinkExistingSale);
         }

@@ -187,7 +187,7 @@ public sealed class ReconciliationCaseMapperTests
     }
 
     private ReconciliationCaseMapper Mapper() =>
-        new(_eventRepository, _userRepository, _leaseRepository, _adjustmentRepository, _saleRepository, _submissionRepository, Substitute.For<ITillRepository>(), Substitute.For<IOfflineExpiryAuthority>());
+        new(_eventRepository, _userRepository, _leaseRepository, _adjustmentRepository, _saleRepository, _submissionRepository, Substitute.For<ITillRepository>(), Substitute.For<IOfflineExpiryAuthority>(), TimeProvider.System, TillEligibility());
 
     private ReconciliationIssue StockCase(Guid? createdBy = null) =>
         ReconciliationIssue.Create(
@@ -264,4 +264,6 @@ public sealed class ReconciliationCaseMapperTests
             clientSaleId: clientSaleId,
             deviceId: DeviceId,
             syncedAt: Now);
+    private static OfflineTillReconciliationEligibility TillEligibility() => new(Substitute.For<Intelibill.Application.Features.Tills.ITillSessionPolicy>(), Substitute.For<ITillRepository>(), Substitute.For<IShopRepository>(), Substitute.For<Intelibill.Application.Common.Time.IBusinessClock>());
+
 }

@@ -839,13 +839,15 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
             _leaseRepository,
             _discountRuleRepository,
             _poster,
-            new ReconciliationCaseMapper(_eventRepository, _userRepository, _leaseRepository, _adjustmentRepository, _saleRepository, _submissionRepository, Substitute.For<ITillRepository>(), Substitute.For<IOfflineExpiryAuthority>()),
+            new ReconciliationCaseMapper(_eventRepository, _userRepository, _leaseRepository, _adjustmentRepository, _saleRepository, _submissionRepository, Substitute.For<ITillRepository>(), Substitute.For<IOfflineExpiryAuthority>(), TimeProvider.System, TillEligibility()),
             _unitOfWork,
             _executor,
-            new FixedClock(Now), Substitute.For<IOfflineExpiryAuthority>());
+            new FixedClock(Now), Substitute.For<IOfflineExpiryAuthority>(), TillEligibility());
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {
         public override DateTimeOffset GetUtcNow() => now;
     }
+    private static OfflineTillReconciliationEligibility TillEligibility() => new(Substitute.For<Intelibill.Application.Features.Tills.ITillSessionPolicy>(), Substitute.For<ITillRepository>(), Substitute.For<IShopRepository>(), Substitute.For<Intelibill.Application.Common.Time.IBusinessClock>());
+
 }
