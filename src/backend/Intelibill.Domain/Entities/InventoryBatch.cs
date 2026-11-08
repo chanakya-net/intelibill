@@ -10,6 +10,7 @@ public sealed class InventoryBatch : BaseEntity
     public string BatchNumber { get; private set; } = string.Empty;
     public decimal Quantity { get; private set; }
     public decimal QuarantinedQuantity { get; private set; }
+    public decimal UnquarantinedQuantity => Quantity - QuarantinedQuantity;
     public decimal OriginalQuantity { get; private set; }
     public decimal CostPrice { get; private set; }
     public decimal Mrp { get; private set; }

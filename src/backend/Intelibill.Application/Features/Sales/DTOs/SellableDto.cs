@@ -1,3 +1,5 @@
+using Intelibill.Domain.ValueObjects;
+
 namespace Intelibill.Application.Features.Sales.DTOs;
 
 public enum SellableKind
@@ -26,7 +28,11 @@ public sealed record SellableDto(
     decimal? Price = null,
     string? HsnCode = null,
     string? Uom = null,
-    int? QuantityScale = null)
+    int? QuantityScale = null,
+    decimal? QuarantinedQuantity = null,
+    decimal? AvailableQuantity = null,
+    uint? Version = null,
+    SellabilityDecision? Sellability = null)
 {
     public static SellableDto FromInventoryBatch(
         Guid inventoryBatchId,

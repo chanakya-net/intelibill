@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Common.Time;
 using ErrorOr;
 using Intelibill.Application.Features.Inventory.Queries.GetInventoryBatches;
 using Intelibill.Domain.Entities;
@@ -17,7 +18,7 @@ public class GetInventoryBatchesQueryHandlerTests
 
     public GetInventoryBatchesQueryHandlerTests()
     {
-        _handler = new GetInventoryBatchesQueryHandler(_userRepository, _shopRepository, _batchRepository, _receiptRepository);
+        _handler = new GetInventoryBatchesQueryHandler(_userRepository, _shopRepository, _batchRepository, _receiptRepository, ExpiryTestDoubles.Guard(), BusinessTestDoubles.RealClock());
     }
 
     [Fact]

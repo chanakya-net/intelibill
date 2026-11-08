@@ -193,7 +193,7 @@ internal sealed class SaleLineValidator(
                     : Errors.Sale.OfflineLineQuantityMustBePositive;
             }
 
-            if (!allowInsufficientStock && requestedQuantityByBatchId[batch.Id] > batch.Quantity)
+            if (!allowInsufficientStock && requestedQuantityByBatchId[batch.Id] > batch.UnquarantinedQuantity)
                 return Errors.Sale.InsufficientStock(cmdItem.Barcode, cmdItem.BatchNumber);
 
             if (!inventoryByItemId.TryGetValue(item.Id, out var inventory))

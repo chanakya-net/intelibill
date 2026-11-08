@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Entities;
@@ -37,7 +38,8 @@ public interface IBatchRetailTermsReviser
 
 internal sealed class BatchRetailTermsReviser(
     IInventoryBatchRepository inventoryBatchRepository,
-    IBatchPriceRevisionRepository batchPriceRevisionRepository) : IBatchRetailTermsReviser
+    IBatchPriceRevisionRepository batchPriceRevisionRepository,
+    BatchExpiryRevisionService expiryRevisionService) : IBatchRetailTermsReviser
 {
     public async Task<ErrorOr<BatchRetailTermsRevision>> ReviseAsync(
         InventoryBatch batch,
@@ -54,6 +56,8 @@ internal sealed class BatchRetailTermsReviser(
                 return Errors.Inventory.BatchNumberAlreadyExists;
         }
 
+        var dateRevision = await expiryRevisionService.ReviseAsync(batch, terms.ExpiryDate, terms.ManufacturingDate, actorUserId, reason ?? string.Empty, cancellationToken);
+        if (dateRevision.IsError) return dateRevision.Errors;
         var previous = BatchPricing.Of(batch);
         var revised = batch.ReviseRetailTerms(
             batchNumber,

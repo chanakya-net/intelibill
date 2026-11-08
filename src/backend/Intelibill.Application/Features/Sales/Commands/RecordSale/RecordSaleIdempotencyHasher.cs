@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -63,7 +64,8 @@ internal static class RecordSaleIdempotencyHasher
                 ? null
                 : new RecordSaleCreditOverrideIdempotencyPayload(Normalize(command.CreditOverride.Reason), command.CreditOverride.ObservedExposure),
             command.Till is null ? null : command.Till with { OverrideReason = Normalize(command.Till.OverrideReason) },
-            command.TenderLines?.Select(line => line is null ? null! : line with { ExternalReference = Normalize(line.ExternalReference) }).ToArray());
+            command.TenderLines?.Select(line => line is null ? null! : line with { ExternalReference = Normalize(line.ExternalReference) }).ToArray(),
+            command.ExpiryApprovals?.Select(x => x is null ? null! : x with { Reason = Normalize(x.Reason)! }).ToArray());
 
         var json = JsonSerializer.Serialize(payload, SerializerOptions);
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(json));
@@ -94,7 +96,8 @@ internal sealed record RecordSaleIdempotencyPayload(
     // Omitted when absent, like the place of supply; an approved override is part of the request.
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] RecordSaleCreditOverrideIdempotencyPayload? CreditOverride = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] TillPostingContext? Till = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<TenderLine>? TenderLines = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<TenderLine>? TenderLines = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<ExpiryApprovalRequest>? ExpiryApprovals = null);
 
 internal sealed record RecordSaleCreditOverrideIdempotencyPayload(
     string? Reason,

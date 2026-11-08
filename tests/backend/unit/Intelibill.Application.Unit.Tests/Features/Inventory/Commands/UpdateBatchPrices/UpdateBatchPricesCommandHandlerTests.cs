@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.UpdateBatchPrices;
 using Intelibill.Application.Features.Inventory.Services;
@@ -109,6 +110,15 @@ public sealed class UpdateBatchPricesCommandHandlerTests
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task HandleAsync_WhenCommitFails_DoesNotPublishUncommittedPrice()
+    {
+        UseRole(ShopRole.Owner);
+        _unitOfWork.CommitTransactionAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new InvalidOperationException("commit refused"));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateHandler().HandleAsync(Command(130m), default));
+        await _messageBus.DidNotReceive().PublishAsync(Arg.Any<InventoryBatchPricingChangedDomainEvent>());
+    }
+
     private void UseRole(ShopRole role) =>
         _actor.AddShopMembership(ShopMembership.Create(_shop.Id, _actor.Id, role, true));
 
@@ -119,7 +129,7 @@ public sealed class UpdateBatchPricesCommandHandlerTests
         new(
             _userRepository,
             _batchRepository,
-            new BatchRetailTermsReviser(_batchRepository, _revisionRepository),
+            new BatchRetailTermsReviser(_batchRepository, _revisionRepository, ExpiryTestDoubles.Dates()),
             _unitOfWork,
-            _messageBus);
+            _messageBus, ExpiryTestDoubles.Fence());
 }

@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -89,6 +90,8 @@ internal sealed partial class InboundRowExecutor(
             if (fence.IsError)
                 return fence.Errors;
 
+            var expiryLock = await services.GetRequiredService<IExpiryPolicyFence>().AcquireAsync(shopId, false, ct);
+            if (expiryLock.IsError) return expiryLock.Errors;
             var result = await processor.ProcessAsync(
                 shopId,
                 row,

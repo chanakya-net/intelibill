@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Common.Time;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
@@ -27,8 +28,8 @@ public class UpdateInventoryBatchCommandHandlerTests
     {
         _handler = new UpdateInventoryBatchCommandHandler(
             _userRepository, _shopRepository, _batchRepository,
-            new BatchRetailTermsReviser(_batchRepository, _revisionRepository),
-            _unitOfWork, _messageBus);
+            new BatchRetailTermsReviser(_batchRepository, _revisionRepository, ExpiryTestDoubles.Dates()),
+            _unitOfWork, _messageBus, ExpiryTestDoubles.Fence());
     }
 
     private static UpdateInventoryBatchCommand ValidCommand(Guid userId, Guid shopId, Guid batchId) =>
@@ -169,11 +170,12 @@ public class UpdateInventoryBatchCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenOnlyDetailsChange_WritesNoRevisionAndPublishesNothing()
+    public async Task Handle_WhenOnlyDatesChange_RequiresVersionAndWritesNoPriceRevision()
     {
         var (user, shop, batch) = ArrangeBatch();
         var expiry = new DateOnly(2027, 1, 31);
-        var command = ValidCommand(user.Id, shop.Id, batch.Id) with { ExpiryDate = expiry };
+        typeof(InventoryBatch).GetProperty(nameof(InventoryBatch.Version))!.SetValue(batch, 7u);
+        var command = ValidCommand(user.Id, shop.Id, batch.Id) with { ExpiryDate = expiry, ExpectedVersion = 7, Notes = "Correct label" };
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
@@ -181,6 +183,16 @@ public class UpdateInventoryBatchCommandHandlerTests
         Assert.Equal(expiry, batch.ExpiryDate);
         _batchRepository.Received(1).Update(batch);
         await _revisionRepository.DidNotReceive().AddAsync(Arg.Any<BatchPriceRevision>(), Arg.Any<CancellationToken>());
+        await _messageBus.DidNotReceive().PublishAsync(Arg.Any<InventoryBatchPricingChangedDomainEvent>());
+    }
+
+    [Fact]
+    public async Task Handle_WhenCommitFails_DoesNotPublishUncommittedPrice()
+    {
+        var (user, shop, batch) = ArrangeBatch();
+        _unitOfWork.CommitTransactionAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromException(new InvalidOperationException("commit refused")));
+        var command = ValidCommand(user.Id, shop.Id, batch.Id) with { SalesPrice = 170m, Notes = "Price correction" };
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _handler.Handle(command, default));
         await _messageBus.DidNotReceive().PublishAsync(Arg.Any<InventoryBatchPricingChangedDomainEvent>());
     }
 

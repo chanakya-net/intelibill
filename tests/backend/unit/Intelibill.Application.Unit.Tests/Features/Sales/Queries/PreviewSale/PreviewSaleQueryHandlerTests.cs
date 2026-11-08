@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Common.Time;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
@@ -19,7 +20,7 @@ public class PreviewSaleQueryHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
 
-    private PreviewSaleQueryHandler CreateHandler() => new(_userRepository, _shopRepository, _saleLineValidator, _pricingCalculator);
+    private PreviewSaleQueryHandler CreateHandler() => new(_userRepository, _shopRepository, _saleLineValidator, _pricingCalculator, ExpiryTestDoubles.Guard(), BusinessTestDoubles.RealClock());
 
     private static Item MakeItem(Guid shopId, string barcode, string name = "Rice") =>
         Item.Create(shopId, name, "desc", "kg", barcode, true, Guid.NewGuid());

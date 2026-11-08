@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Expiry;
+using Intelibill.Application.Common.Posting;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.DTOs;
@@ -25,7 +27,8 @@ public sealed class UpdateBatchPricesCommandHandler(
     IInventoryBatchRepository inventoryBatchRepository,
     IBatchRetailTermsReviser retailTermsReviser,
     IUnitOfWork unitOfWork,
-    IMessageBus messageBus)
+    IMessageBus messageBus,
+    IExpiryPolicyFence expiryFence)
 {
     private static readonly UpdateBatchPricesCommandValidator Validator = new();
 
@@ -52,47 +55,53 @@ public sealed class UpdateBatchPricesCommandHandler(
         if (actorMembership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Inventory.UserIsNotOwnerOrManager;
 
-        var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
-        if (batch is null || batch.ShopId != command.ActiveShopId)
-            return Errors.Inventory.BatchNotFound;
-
-        if (batch.IsVoided)
-            return Errors.Inventory.BatchAlreadyVoided;
-
-        if (batch.Version != command.ExpectedVersion)
-            return Errors.Inventory.BatchVersionConflict;
-
-        var revision = await retailTermsReviser.ReviseAsync(
-            batch,
-            new BatchRetailTerms(
-                command.BatchNumber ?? batch.BatchNumber,
-                command.Mrp,
-                command.SalesPrice,
-                command.TaxRatePercent,
-                command.TaxIncluded,
-                command.ExpiryDate,
-                command.ManufacturingDate),
-            command.Reason,
-            command.ActorUserId,
-            cancellationToken);
-        if (revision.IsError)
-            return revision.Errors;
-
-        try
+        InventoryBatchPricingChangedDomainEvent? pricingChanged = null;
+        var result = await PostingTransaction.RunAsync<BatchPriceUpdateResultDto>(unitOfWork, async ct =>
         {
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            return Errors.Inventory.BatchVersionConflict;
-        }
+            var expiryLock = await expiryFence.AcquireAsync(command.ActiveShopId, true, ct);
+            if (expiryLock.IsError) return expiryLock.Errors;
+            var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
+            if (batch is null || batch.ShopId != command.ActiveShopId)
+                return Errors.Inventory.BatchNotFound;
 
-        if (revision.Value.PricingChanged)
-        {
-            await messageBus.PublishAsync(
-                new InventoryBatchPricingChangedDomainEvent(command.ActiveShopId, batch.ItemId, batch.Id));
-        }
+            if (batch.IsVoided)
+                return Errors.Inventory.BatchAlreadyVoided;
 
-        return new BatchPriceUpdateResultDto(batch.Id, batch.Version, revision.Value.PriceRevision?.Id);
+            if (batch.Version != command.ExpectedVersion)
+                return Errors.Inventory.BatchVersionConflict;
+
+            var revision = await retailTermsReviser.ReviseAsync(
+                batch,
+                new BatchRetailTerms(
+                    command.BatchNumber ?? batch.BatchNumber,
+                    command.Mrp,
+                    command.SalesPrice,
+                    command.TaxRatePercent,
+                    command.TaxIncluded,
+                    command.ExpiryDate,
+                    command.ManufacturingDate),
+                command.Reason,
+                command.ActorUserId,
+                cancellationToken);
+            if (revision.IsError)
+                return revision.Errors;
+
+            try
+            {
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Errors.Inventory.BatchVersionConflict;
+            }
+
+            if (revision.Value.PricingChanged)
+                pricingChanged = new InventoryBatchPricingChangedDomainEvent(command.ActiveShopId, batch.ItemId, batch.Id);
+
+            return new BatchPriceUpdateResultDto(batch.Id, batch.Version, revision.Value.PriceRevision?.Id);
+        }, cancellationToken);
+        if (!result.IsError && pricingChanged is not null)
+            await messageBus.PublishAsync(pricingChanged);
+        return result;
     }
 }

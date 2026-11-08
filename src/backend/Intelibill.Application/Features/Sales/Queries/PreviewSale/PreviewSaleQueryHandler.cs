@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Expiry;
+using Intelibill.Application.Common.Time;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
@@ -14,7 +16,9 @@ public sealed class PreviewSaleQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
     ISaleLineValidator saleLineValidator,
-    ISalePricingCalculator pricingCalculator)
+    ISalePricingCalculator pricingCalculator,
+    SaleExpiryGuard expiryGuard,
+    IBusinessClock businessClock)
 {
     public async Task<ErrorOr<SalePreviewDto>> Handle(
         PreviewSaleQuery query,
@@ -66,7 +70,7 @@ public sealed class PreviewSaleQueryHandler(
 
         var pricingRequest = new SalePricingCalculationRequest(
             query.ShopId,
-            DateTimeOffset.UtcNow,
+            businessClock.UtcNow,
             validatedLines.Select(line =>
             {
                 return new SalePricingLineCalculationRequest(
@@ -141,7 +145,8 @@ public sealed class PreviewSaleQueryHandler(
                     pricing.ConfiguredSaleRule.ThresholdAmount),
             lineDtos,
             pricing.Infos.Select(i => new SalePreviewInfoDto(i.Code, i.Message)).ToList(),
-            warnings);
+            warnings,
+            await expiryGuard.EvaluateAsync(query.ShopId, businessClock.Today(shop.BusinessTimeZoneId), validatedLines, cancellationToken));
     }
 
     private static List<SalePreviewWarningDto> BuildWarnings(

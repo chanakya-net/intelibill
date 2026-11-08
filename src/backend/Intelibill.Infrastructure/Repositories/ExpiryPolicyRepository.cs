@@ -24,7 +24,7 @@ internal sealed class ExpiryPolicyRepository(ApplicationDbContext db) : IExpiryP
         return state;
     }
     public Task<bool> ItemExistsAsync(Guid shopId, Guid itemId, CancellationToken ct) =>
-        db.Items.AnyAsync(x => x.ShopId == shopId && x.Id == itemId, ct);
+        db.Items.Local.Any(x => x.ShopId == shopId && x.Id == itemId) ? Task.FromResult(true) : db.Items.AnyAsync(x => x.ShopId == shopId && x.Id == itemId, ct);
 
     public Task<ExpiryPolicyRevision?> GetLatestRevisionAsync(Guid shopId, Guid? itemId, DateTimeOffset? asOf, CancellationToken ct)
     {
@@ -71,16 +71,24 @@ internal sealed class ExpiryPolicyRepository(ApplicationDbContext db) : IExpiryP
             })
             .Select(x => new
             {
-                BatchId = x.Batch.Id, x.Batch.ItemId, ItemName = x.Batch.Item.Name, x.Batch.BatchNumber,
-                x.Batch.ExpiryDate, PhysicalQuantity = x.Batch.Quantity, x.Batch.QuarantinedQuantity,
+                BatchId = x.Batch.Id,
+                x.Batch.ItemId,
+                ItemName = x.Batch.Item.Name,
+                x.Batch.BatchNumber,
+                x.Batch.ExpiryDate,
+                PhysicalQuantity = x.Batch.Quantity,
+                x.Batch.QuarantinedQuantity,
                 MissingDate = x.Batch.ExpiryDate == null,
                 Expired = x.Batch.ExpiryDate != null && (x.Inclusive ? date > x.Batch.ExpiryDate : date >= x.Batch.ExpiryDate),
             });
         var totals = await lots.GroupBy(x => 1).Select(g => new
         {
             Total = g.Count(x => x.MissingDate || x.Expired || x.QuarantinedQuantity > 0),
-            Missing = g.Count(x => x.MissingDate), Expired = g.Count(x => x.Expired), Quarantined = g.Count(x => x.QuarantinedQuantity > 0),
-            Physical = g.Sum(x => x.PhysicalQuantity), Held = g.Sum(x => x.QuarantinedQuantity),
+            Missing = g.Count(x => x.MissingDate),
+            Expired = g.Count(x => x.Expired),
+            Quarantined = g.Count(x => x.QuarantinedQuantity > 0),
+            Physical = g.Sum(x => x.PhysicalQuantity),
+            Held = g.Sum(x => x.QuarantinedQuantity),
         }).SingleOrDefaultAsync(ct);
         var items = await lots.Where(x => x.MissingDate || x.Expired || x.QuarantinedQuantity > 0)
             .OrderBy(x => x.BatchId).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct);

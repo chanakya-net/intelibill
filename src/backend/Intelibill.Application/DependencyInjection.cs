@@ -28,6 +28,8 @@ public static class DependencyInjection
         // Registered here rather than in Infrastructure: the session protocol is Application's,
         // and only this assembly can see the internal implementation.
         services.AddScoped<Features.Expiry.ExpiryPolicyService>();
+        services.AddScoped<Features.Expiry.SaleExpiryGuard>();
+        services.AddScoped<Features.Expiry.BatchExpiryRevisionService>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();
         services.AddScoped<Features.Tills.ITillPostingService, Features.Tills.Services.TillPostingService>();
         services.AddScoped<Features.Tills.Services.TillDtoBuilder>();

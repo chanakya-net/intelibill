@@ -159,6 +159,94 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("bank_accounts", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.BatchExpiryRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<long>("CatalogVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("catalog_version");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("EffectiveAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_at");
+
+                    b.Property<Guid>("InventoryBatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("inventory_batch_id");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<DateOnly?>("NewExpiryDate")
+                        .HasColumnType("date")
+                        .HasColumnName("new_expiry_date");
+
+                    b.Property<DateOnly?>("NewManufacturingDate")
+                        .HasColumnType("date")
+                        .HasColumnName("new_manufacturing_date");
+
+                    b.Property<long>("PreviousBatchVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("previous_batch_version");
+
+                    b.Property<DateOnly?>("PreviousExpiryDate")
+                        .HasColumnType("date")
+                        .HasColumnName("previous_expiry_date");
+
+                    b.Property<DateOnly?>("PreviousManufacturingDate")
+                        .HasColumnType("date")
+                        .HasColumnName("previous_manufacturing_date");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_batch_expiry_revisions");
+
+                    b.HasIndex("ShopId", "CatalogVersion")
+                        .IsUnique()
+                        .HasDatabaseName("ix_batch_expiry_revisions_shop_id_catalog_version");
+
+                    b.HasIndex("InventoryBatchId", "ItemId", "ShopId")
+                        .HasDatabaseName("ix_batch_expiry_revisions_inventory_batch_id_item_id_shop_id");
+
+                    b.HasIndex("ShopId", "InventoryBatchId", "EffectiveAt")
+                        .HasDatabaseName("ix_batch_expiry_revisions_shop_id_inventory_batch_id_effective");
+
+                    b.ToTable("batch_expiry_revisions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_batch_expiry_revisions_dates", "new_expiry_date IS NULL OR new_manufacturing_date IS NULL OR new_manufacturing_date <= new_expiry_date");
+
+                            t.HasCheckConstraint("ck_batch_expiry_revisions_reason", "length(btrim(reason)) BETWEEN 1 AND 500");
+
+                            t.HasCheckConstraint("ck_batch_expiry_revisions_version", "catalog_version > 1 AND previous_batch_version > 0");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.BatchPriceRevision", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3681,6 +3769,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("date")
                         .HasColumnName("due_date");
 
+                    b.Property<string>("ExpiryDecisions")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("expiry_decisions");
+
                     b.Property<string>("IdempotencyKey")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -6663,6 +6755,24 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_bank_accounts_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.BatchExpiryRevision", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_batch_expiry_revisions_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("InventoryBatchId", "ItemId", "ShopId")
+                        .HasPrincipalKey("Id", "ItemId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_batch_expiry_revisions_inventory_batches_inventory_batch_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.BatchPriceRevision", b =>

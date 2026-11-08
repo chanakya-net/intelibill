@@ -168,7 +168,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                 request.CreditOverride is null
                     ? null
                     : new CreditOverrideRequest(request.CreditOverride.Reason, request.CreditOverride.ObservedExposure),
-                request.Till, request.TenderLines),
+                request.Till, request.TenderLines, request.ExpiryApprovals),
             cancellationToken);
         return result.ToActionResult(sale => CreatedAtAction(nameof(RecordSale), sale));
     }
@@ -195,7 +195,8 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     public async Task<IActionResult> SearchSellables(
         [FromQuery] string? searchTerm,
         [FromQuery] string? barcode,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [FromQuery] bool includeUnavailable = false)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
@@ -207,7 +208,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
             return new List<Error> { Errors.Inventory.SearchTermRequired }.ToProblemResult();
 
         var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<SellableDto>>>(
-            new SearchSellablesQuery(UserId!.Value, ActiveShopId!.Value, effectiveSearchTerm, isBarcodeLookup),
+            new SearchSellablesQuery(UserId!.Value, ActiveShopId!.Value, effectiveSearchTerm, isBarcodeLookup, includeUnavailable),
             cancellationToken);
 
         return result.ToActionResult(Ok);

@@ -16,6 +16,7 @@ internal sealed class InventoryBatchConfiguration : IEntityTypeConfiguration<Inv
             tableBuilder.HasCheckConstraint("ck_inventory_batches_sales_lte_mrp", "sales_price <= mrp");
         });
 
+        builder.Ignore(x => x.UnquarantinedQuantity);
         builder.HasKey(b => b.Id);
 
         builder.Property(b => b.ShopId)

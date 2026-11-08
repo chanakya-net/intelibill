@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using Intelibill.Domain.Enums;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.ValueObjects;
@@ -20,7 +21,8 @@ public sealed partial record RecordSaleRequest(
     string? PlaceOfSupplyStateCode = null,
     CreditOverrideRequestBody? CreditOverride = null,
     TillPostingContext? Till = null,
-    IReadOnlyList<TenderLine>? TenderLines = null);
+    IReadOnlyList<TenderLine>? TenderLines = null,
+    IReadOnlyList<ExpiryApprovalRequest>? ExpiryApprovals = null);
 
 /// <summary>An owner's or manager's approval to go over the customer's enforced credit limit.</summary>
 /// <param name="ObservedExposure">The account balance the approver saw; more due since then refuses the override.</param>

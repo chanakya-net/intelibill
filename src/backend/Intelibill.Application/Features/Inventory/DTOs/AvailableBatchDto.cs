@@ -1,3 +1,4 @@
+using Intelibill.Domain.ValueObjects;
 namespace Intelibill.Application.Features.Inventory.DTOs;
 
 public sealed record AvailableBatchDto(
@@ -13,4 +14,8 @@ public sealed record AvailableBatchDto(
     bool PurchaseTaxIncluded,
     DateOnly? ExpiryDate,
     string Uom,
-    int QuantityScale);
+    int QuantityScale,
+    decimal QuarantinedQuantity = 0,
+    decimal AvailableQuantity = 0,
+    uint Version = 0,
+    SellabilityDecision? Sellability = null);

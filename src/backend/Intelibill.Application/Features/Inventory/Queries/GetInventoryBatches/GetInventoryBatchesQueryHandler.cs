@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Expiry;
+using Intelibill.Application.Common.Time;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.DTOs;
@@ -11,7 +13,7 @@ public sealed class GetInventoryBatchesQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
     IInventoryBatchRepository inventoryBatchRepository,
-    IPurchaseReceiptValueRepository purchaseReceiptValueRepository)
+    IPurchaseReceiptValueRepository purchaseReceiptValueRepository, SaleExpiryGuard expiryGuard, IBusinessClock clock)
 {
     public async Task<ErrorOr<IReadOnlyList<InventoryBatchDto>>> Handle(GetInventoryBatchesQuery query, CancellationToken cancellationToken)
     {
@@ -32,7 +34,14 @@ public sealed class GetInventoryBatchesQueryHandler(
         var receipts = (await purchaseReceiptValueRepository.GetByShopAsync(query.ShopId, cancellationToken))
             .ToDictionary(r => r.InventoryBatchId);
 
-        return batches.Select(b => ToDto(b, receipts.GetValueOrDefault(b.Id))).ToList();
+        var result = new List<InventoryBatchDto>();
+        var date = clock.Today(shop.BusinessTimeZoneId);
+        foreach (var batch in batches)
+        {
+            var decision = await expiryGuard.EvaluateBatchAsync(batch, date, cancellationToken);
+            result.Add(ToDto(batch, receipts.GetValueOrDefault(batch.Id)) with { QuarantinedQuantity = batch.QuarantinedQuantity, AvailableQuantity = decision.AvailableQuantity, Sellability = decision });
+        }
+        return result;
     }
 
     private static InventoryBatchDto ToDto(InventoryBatch b, PurchaseReceiptValue? receipt) =>

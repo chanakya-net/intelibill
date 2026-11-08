@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Common.Time;
 using ErrorOr;
 using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Domain.Entities;
@@ -105,7 +106,7 @@ public class InboundInventoryLineProcessorTests
     }
 
     private InboundInventoryLineProcessor CreateProcessor() =>
-        new(_itemResolver, _itemRepository, _supplierResolver, _batchFactory, _inventoryUpdater);
+        new(_itemResolver, _itemRepository, _supplierResolver, _batchFactory, _inventoryUpdater, ExpiryTestDoubles.Dates());
 
     private Item ExistingItem(string name, string barcode)
     {

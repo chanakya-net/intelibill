@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.Enums;
@@ -23,7 +24,8 @@ public sealed partial record RecordSaleCommand(
     string? PlaceOfSupplyStateCode = null,
     CreditOverrideRequest? CreditOverride = null,
     TillPostingContext? Till = null,
-    IReadOnlyList<TenderLine>? TenderLines = null);
+    IReadOnlyList<TenderLine>? TenderLines = null,
+    IReadOnlyList<ExpiryApprovalRequest>? ExpiryApprovals = null);
 
 public sealed record RecordSaleItemCommand(
     string Barcode,

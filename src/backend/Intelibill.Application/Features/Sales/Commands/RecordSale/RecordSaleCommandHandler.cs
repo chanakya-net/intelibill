@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
@@ -35,6 +36,8 @@ public sealed class RecordSaleCommandHandler
     private readonly IBusinessClock businessClock;
     private readonly IPostingPeriodPolicy postingPeriodPolicy;
     private readonly ITillPostingService tillPosting;
+    private readonly IExpiryPolicyFence expiryFence;
+    private readonly SaleExpiryGuard expiryGuard;
 
     public RecordSaleCommandHandler(
         ISaleLineValidator saleLineValidator,
@@ -52,7 +55,9 @@ public sealed class RecordSaleCommandHandler
         IUserRepository userRepository,
         IBusinessClock businessClock,
         IPostingPeriodPolicy postingPeriodPolicy,
-        ITillPostingService tillPosting)
+        ITillPostingService tillPosting,
+        IExpiryPolicyFence expiryFence,
+        SaleExpiryGuard expiryGuard)
     {
         this.saleLineValidator = saleLineValidator;
         this.salePricingCalculator = salePricingCalculator;
@@ -70,6 +75,8 @@ public sealed class RecordSaleCommandHandler
         this.businessClock = businessClock;
         this.postingPeriodPolicy = postingPeriodPolicy;
         this.tillPosting = tillPosting;
+        this.expiryFence = expiryFence;
+        this.expiryGuard = expiryGuard;
     }
 
     public async Task<ErrorOr<SaleDto>> HandleAsync(RecordSaleCommand command, CancellationToken cancellationToken)
@@ -126,6 +133,9 @@ public sealed class RecordSaleCommandHandler
             if (periodOrError.IsError)
                 return periodOrError.Errors;
 
+            var expiryLock = await expiryFence.AcquireAsync(command.ShopId, false, cancellationToken);
+            if (expiryLock.IsError) return expiryLock.Errors;
+
             // Acquisition is local to this transaction. Every new attempt reacquires/reloads; never
             // reuse the posting service's cached tracked session after commit or rollback.
             var tillOrError = await tillPosting.AcquireAsync(command.ShopId, command.ActorUserId, command.Till, businessDay.Date, cancellationToken);
@@ -143,6 +153,8 @@ public sealed class RecordSaleCommandHandler
                 return validationResultOrError.Errors;
 
             var validatedLines = validationResultOrError.Value.Lines;
+            var expiryAuthorization = await expiryGuard.AuthorizeAsync(command.ShopId, command.ActorUserId, businessDay.Date, validatedLines, command.ExpiryApprovals, cancellationToken);
+            if (expiryAuthorization.IsError) return expiryAuthorization.Errors;
             var itemById = validatedLines
                 .Where(l => l.Item is not null)
                 .Select(l => l.Item!)
@@ -271,6 +283,7 @@ public sealed class RecordSaleCommandHandler
                 return saleOrError.Errors;
 
             var sale = saleOrError.Value;
+            sale.AttachExpiryDecisions(expiryAuthorization.Value);
             var documentOrError = InvoiceDocumentBuilder.Build(
                 new InvoiceIssueContext(sellerProfile, resolvedCustomer, command.PlaceOfSupplyStateCode, soldAt, fiscalYear, ValidatedSaleLines.DocumentUnitsOf(validatedLines), businessDay.Date),
                 sale);
@@ -313,6 +326,7 @@ public sealed class RecordSaleCommandHandler
                 var item = line.Item!;
                 var batch = line.Batch!;
                 var inventory = line.Inventory!;
+                if (cmdItem.Quantity > batch.UnquarantinedQuantity) return Error.Validation("InventoryBatch.InsufficientStock", "Insufficient unquarantined stock in batch.");
                 var batchResult = batch.SubtractQuantity(cmdItem.Quantity, command.ActorUserId);
                 if (batchResult.IsError) return batchResult.Errors;
 

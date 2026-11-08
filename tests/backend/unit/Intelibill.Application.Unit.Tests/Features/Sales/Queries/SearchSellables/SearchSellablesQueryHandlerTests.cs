@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Queries.SearchSellables;
 using Intelibill.Domain.Entities;
@@ -15,7 +16,7 @@ public sealed class SearchSellablesQueryHandlerTests
     private readonly IServiceRepository _serviceRepository = Substitute.For<IServiceRepository>();
 
     private SearchSellablesQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _inventoryBatchRepository, _serviceRepository);
+        new(_userRepository, _shopRepository, _inventoryBatchRepository, _serviceRepository, ExpiryTestDoubles.Guard(), BusinessTestDoubles.RealClock(), ExpiryTestDoubles.Fence(), ExpiryTestDoubles.UnitOfWork());
 
     private static User MakeUser() =>
         User.CreateWithEmail("billing@test.com", "hash", "Billing", "User");

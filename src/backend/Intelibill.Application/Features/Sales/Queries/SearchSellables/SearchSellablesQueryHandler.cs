@@ -1,3 +1,7 @@
+using Intelibill.Application.Features.Expiry;
+using Intelibill.Application.Common.Time;
+using Intelibill.Application.Common.Posting;
+using Intelibill.Domain.Interfaces;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.DTOs;
@@ -10,7 +14,7 @@ public sealed class SearchSellablesQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
     IInventoryBatchRepository inventoryBatchRepository,
-    IServiceRepository serviceRepository)
+    IServiceRepository serviceRepository, SaleExpiryGuard expiryGuard, IBusinessClock clock, IExpiryPolicyFence expiryFence, IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<IReadOnlyList<SellableDto>>> HandleAsync(
         SearchSellablesQuery query,
@@ -28,42 +32,42 @@ public sealed class SearchSellablesQueryHandler(
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
-        var searchTerm = query.SearchTerm.Trim();
+        return await PostingTransaction.RunAsync<IReadOnlyList<SellableDto>>(unitOfWork, async ct =>
+        {
+            var locked = await expiryFence.AcquireAsync(query.ShopId, false, ct);
+            if (locked.IsError) return locked.Errors;
+            var date = clock.Today(shop.BusinessTimeZoneId);
+            var searchTerm = query.SearchTerm.Trim();
 
-        var goodsBatches = query.IsBarcodeLookup
-            ? await inventoryBatchRepository.GetAvailableByBarcodeAsync(query.ShopId, searchTerm, cancellationToken)
-            : await inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(query.ShopId, searchTerm, cancellationToken);
-        IReadOnlyList<Service> services = query.IsBarcodeLookup
-            ? []
-            : await serviceRepository.SearchActiveAsync(query.ShopId, searchTerm, cancellationToken);
+            var goodsBatches = query.IsBarcodeLookup
+                ? await inventoryBatchRepository.GetAvailableByBarcodeAsync(query.ShopId, searchTerm, cancellationToken)
+                : await inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(query.ShopId, searchTerm, cancellationToken);
+            IReadOnlyList<Service> services = query.IsBarcodeLookup
+                ? []
+                : await serviceRepository.SearchActiveAsync(query.ShopId, searchTerm, cancellationToken);
 
-        var sellables = goodsBatches
-            .Select(batch => SellableDto.FromInventoryBatch(
-                batch.Id,
-                batch.Item?.Barcode ?? string.Empty,
-                batch.Item?.Name ?? string.Empty,
-                batch.BatchNumber,
-                batch.Quantity,
-                batch.SalesPrice,
-                batch.Mrp,
-                batch.TaxRatePercent,
-                batch.TaxIncluded,
-                batch.PurchaseTaxIncluded,
-                batch.ExpiryDate,
-                batch.Item?.Uom,
-                batch.Item?.QuantityScale))
-            .Concat(services
-                .Select(service => SellableDto.FromService(
-                    service.Id,
-                    service.Code,
-                    service.Name,
-                    service.Description,
-                    service.Price,
-                    service.HsnCode,
-                    service.TaxRatePercent,
-                    service.TaxIncluded)))
-            .ToList();
+            var sellables = new List<SellableDto>();
+            foreach (var batch in goodsBatches.OrderBy(x => x.Item?.Name).ThenBy(x => x.ItemId).ThenBy(x => x.ExpiryDate is null).ThenBy(x => x.ExpiryDate).ThenBy(x => x.BatchNumber, StringComparer.Ordinal).ThenBy(x => x.Id))
+            {
+                var decision = await expiryGuard.EvaluateBatchAsync(batch, date, ct);
+                if (!query.IncludeUnavailable && !decision.Allowed) continue;
+                sellables.Add(SellableDto.FromInventoryBatch(batch.Id, batch.Item?.Barcode ?? string.Empty, batch.Item?.Name ?? string.Empty,
+                    batch.BatchNumber, batch.Quantity, batch.SalesPrice, batch.Mrp, batch.TaxRatePercent, batch.TaxIncluded,
+                    batch.PurchaseTaxIncluded, batch.ExpiryDate, batch.Item?.Uom, batch.Item?.QuantityScale) with
+                { QuarantinedQuantity = batch.QuarantinedQuantity, AvailableQuantity = decision.AvailableQuantity, Version = batch.Version, Sellability = decision });
+            }
+            sellables.AddRange(services
+                    .Select(service => SellableDto.FromService(
+                        service.Id,
+                        service.Code,
+                        service.Name,
+                        service.Description,
+                        service.Price,
+                        service.HsnCode,
+                        service.TaxRatePercent,
+                        service.TaxIncluded)));
 
-        return sellables;
+            return sellables;
+        }, cancellationToken);
     }
 }

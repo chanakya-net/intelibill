@@ -91,22 +91,22 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository, ISaleCancella
                 si.IsPriceIncludingTax,
                 si.HasPriceMismatch,
                 returnableQuantity: sale.Status == SaleStatus.Cancelled ? 0m : si.Quantity)
-            {
-                OriginalSalesPrice = si.OriginalSalesPrice,
-                FinalSalesPrice = si.FinalSalesPrice,
-                PreTaxAmountBeforeDiscount = si.PreTaxAmountBeforeDiscount,
-                ItemDiscountAmount = si.ItemDiscountAmount,
-                SaleDiscountAmount = si.SaleDiscountAmount,
-                TaxableAmount = si.TaxableAmount,
-                TaxAmount = si.TaxAmount,
-                TotalAmount = si.TotalAmount,
-                HsnCode = si.HsnCode,
-                SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
-                Uom = GoodsItemOf(si)?.Uom,
-                QuantityScale = si.LineType == SaleLineType.Service
+                {
+                    OriginalSalesPrice = si.OriginalSalesPrice,
+                    FinalSalesPrice = si.FinalSalesPrice,
+                    PreTaxAmountBeforeDiscount = si.PreTaxAmountBeforeDiscount,
+                    ItemDiscountAmount = si.ItemDiscountAmount,
+                    SaleDiscountAmount = si.SaleDiscountAmount,
+                    TaxableAmount = si.TaxableAmount,
+                    TaxAmount = si.TaxAmount,
+                    TotalAmount = si.TotalAmount,
+                    HsnCode = si.HsnCode,
+                    SavingsAmount = si.ItemDiscountAmount + si.SaleDiscountAmount,
+                    Uom = GoodsItemOf(si)?.Uom,
+                    QuantityScale = si.LineType == SaleLineType.Service
                     ? QuantityUnits.MaxScale
                     : QuantityPolicy.ReturnScale(GoodsItemOf(si)?.QuantityScale, si.Quantity),
-            }).ToList(),
+                }).ToList(),
             warnings)
         {
             CreditNoteRedemptions = creditNoteRedemptions,
@@ -116,6 +116,7 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository, ISaleCancella
             TillSessionId = sale.TillSessionId,
             TillOverrideReason = sale.TillOverrideReason,
             TenderLines = sale.TenderLines,
+            ExpiryDecisions = sale.ExpiryDecisions,
         };
 
         Item? GoodsItemOf(SaleItem saleItem) =>

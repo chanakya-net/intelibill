@@ -15,6 +15,7 @@ public class ApplicationDbContext(
     private readonly ICurrentSessionContext? _currentSessionContext = currentSessionContext;
     private readonly IMessageBus? _messageBus = messageBus;
 
+    public DbSet<BatchExpiryRevision> BatchExpiryRevisions => Set<BatchExpiryRevision>();
     public DbSet<ShopExpiryState> ShopExpiryStates => Set<ShopExpiryState>();
     public DbSet<ExpiryPolicyRevision> ExpiryPolicyRevisions => Set<ExpiryPolicyRevision>();
 

@@ -203,7 +203,7 @@ public sealed partial class InventoryController
     }
 
     [HttpGet("batches/available")]
-    public async Task<IActionResult> GetAvailableBatches([FromQuery] string? searchTerm, [FromQuery] string? barcode, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAvailableBatches([FromQuery] string? searchTerm, [FromQuery] string? barcode, CancellationToken cancellationToken, [FromQuery] bool includeUnavailable = false)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
@@ -218,7 +218,7 @@ public sealed partial class InventoryController
             }.ToProblemResult();
 
         var result = await Bus.InvokeAsync<ErrorOr<IReadOnlyList<AvailableBatchDto>>>(
-            new GetAvailableBatchesQuery(UserId!.Value, ActiveShopId!.Value, effectiveSearchTerm, isBarcodeLookup),
+            new GetAvailableBatchesQuery(UserId!.Value, ActiveShopId!.Value, effectiveSearchTerm, isBarcodeLookup, includeUnavailable),
             cancellationToken);
 
         return result.ToActionResult(Ok);

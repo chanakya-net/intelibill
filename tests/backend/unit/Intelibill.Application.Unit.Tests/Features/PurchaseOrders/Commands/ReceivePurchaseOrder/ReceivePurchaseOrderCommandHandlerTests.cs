@@ -36,7 +36,7 @@ public class ReceivePurchaseOrderCommandHandlerTests
                 return item;
             }).ToList()));
         return new(_userRepository, _poRepository, _receiptRepository, _inboundProcessor, _receiptNumberGenerator, _unitOfWork,
-            BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _items, _operations);
+            BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _items, _operations, ExpiryTestDoubles.Fence());
     }
 
     private static (User actor, Shop shop) MakeActor(ShopRole role = ShopRole.Owner)
