@@ -91,6 +91,55 @@ internal sealed class TillRepository(ApplicationDbContext context) : ITillReposi
         return (await query.OrderBy(x => x.RecordedAt).ThenBy(x => x.Id).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(ct), count);
     }
 
+    public async Task<IReadOnlyDictionary<(TillMovementSource Type, Guid Id), TillSourceReference>> GetSourceReferencesAsync(
+        Guid shopId, IReadOnlyCollection<(TillMovementSource Type, Guid Id)> sources, bool includeFinancial, CancellationToken ct = default)
+    {
+        var result = new Dictionary<(TillMovementSource Type, Guid Id), TillSourceReference>();
+        foreach (var group in sources.Distinct().GroupBy(x => x.Type))
+        {
+            var ids = group.Select(x => x.Id).ToArray();
+            var type = group.Key;
+            if (type is TillMovementSource.OnlineSale or TillMovementSource.OfflineSale)
+            {
+                foreach (var id in await context.Sales.AsNoTracking().Where(x => x.ShopId == shopId && ids.Contains(x.Id)).Select(x => x.Id).ToArrayAsync(ct))
+                    result[(type, id)] = new(ParentSaleId: id);
+                continue;
+            }
+            if (!includeFinancial) continue;
+            if (type is TillMovementSource.SaleReturn or TillMovementSource.SaleReturnVoid)
+            {
+                foreach (var row in await context.SaleReturns.AsNoTracking().Where(x => x.ShopId == shopId && ids.Contains(x.Id)).Select(x => new { x.Id, x.SaleId }).ToArrayAsync(ct))
+                    result[(type, row.Id)] = new(ParentSaleId: row.SaleId);
+            }
+            else if (type == TillMovementSource.SaleCancellation)
+            {
+                foreach (var row in await context.SaleCancellations.AsNoTracking().Where(x => x.ShopId == shopId && ids.Contains(x.Id)).Select(x => new { x.Id, x.SaleId }).ToArrayAsync(ct))
+                    result[(type, row.Id)] = new(ParentSaleId: row.SaleId);
+            }
+            else if (type is TillMovementSource.CustomerPayment or TillMovementSource.SupplierPayment)
+            {
+                var party = type == TillMovementSource.CustomerPayment ? PaymentPartyType.Customer : PaymentPartyType.Supplier;
+                foreach (var id in await context.PaymentReceipts.AsNoTracking().Where(x => x.ShopId == shopId && x.PartyType == party && ids.Contains(x.Id)).Select(x => x.Id).ToArrayAsync(ct))
+                    result[(type, id)] = new(PaymentReceiptId: id);
+            }
+            else if (type is TillMovementSource.CustomerPaymentReversal or TillMovementSource.SupplierPaymentReversal)
+            {
+                var party = type == TillMovementSource.CustomerPaymentReversal ? PaymentPartyType.Customer : PaymentPartyType.Supplier;
+                var rows = await (from reversal in context.PaymentReversals.AsNoTracking()
+                                  join receipt in context.PaymentReceipts.AsNoTracking() on reversal.ReceiptId equals receipt.Id
+                                  where reversal.ShopId == shopId && receipt.ShopId == shopId && receipt.PartyType == party && ids.Contains(reversal.Id)
+                                  select new { reversal.Id, reversal.ReceiptId }).ToArrayAsync(ct);
+                foreach (var row in rows) result[(type, row.Id)] = new(PaymentReceiptId: row.ReceiptId);
+            }
+            else if (type is TillMovementSource.Expense or TillMovementSource.ExpenseCorrection)
+            {
+                foreach (var id in await context.Expenses.AsNoTracking().Where(x => x.ShopId == shopId && ids.Contains(x.Id)).Select(x => x.Id).ToArrayAsync(ct))
+                    result[(type, id)] = new(ExpenseId: id);
+            }
+        }
+        return result;
+    }
+
     public async Task<TillSourceRecord?> FindSourceAsync(Guid shopId, TillMovementSource sourceType, Guid sourceId, string purpose, CancellationToken ct = default) =>
         context.TillSourceRecords.Local.FirstOrDefault(x => x.ShopId == shopId && x.SourceType == sourceType && x.SourceId == sourceId && x.Purpose == purpose)
         ?? await context.TillSourceRecords.AsNoTracking().SingleOrDefaultAsync(x => x.ShopId == shopId && x.SourceType == sourceType && x.SourceId == sourceId && x.Purpose == purpose, ct);

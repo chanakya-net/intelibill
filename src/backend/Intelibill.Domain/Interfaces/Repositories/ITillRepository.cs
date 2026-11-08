@@ -20,6 +20,9 @@ public interface ITillRepository
     Task<TillTotals> GetTotalsAsync(Guid shopId, Guid sessionId, CancellationToken ct = default);
     Task<(IReadOnlyList<TillMovement> Items, int TotalCount)> GetMovementsAsync(Guid shopId, Guid sessionId, int page, int pageSize, CancellationToken ct = default);
     Task<(IReadOnlyList<TillSourceRecord> Items, int TotalCount)> GetSourcesAsync(Guid shopId, Guid sessionId, int page, int pageSize, CancellationToken ct = default);
+    /// <summary>Tenant-bounded, read-only navigation identities; financial parents are omitted for Staff.</summary>
+    Task<IReadOnlyDictionary<(TillMovementSource Type, Guid Id), TillSourceReference>> GetSourceReferencesAsync(
+        Guid shopId, IReadOnlyCollection<(TillMovementSource Type, Guid Id)> sources, bool includeFinancial, CancellationToken ct = default);
     Task<TillSourceRecord?> FindSourceAsync(Guid shopId, TillMovementSource sourceType, Guid sourceId, string purpose, CancellationToken ct = default);
     Task<TillClose?> GetCloseAsync(Guid shopId, Guid sessionId, CancellationToken ct = default);
     Task<TillCloseReview?> GetReviewAsync(Guid shopId, Guid closeId, CancellationToken ct = default);
@@ -33,3 +36,5 @@ public interface ITillRepository
     Task AddReviewAsync(TillCloseReview review, CancellationToken ct = default);
     Task AddLatePostingAsync(TillLatePosting latePosting, CancellationToken ct = default);
 }
+
+public sealed record TillSourceReference(Guid? ParentSaleId = null, Guid? PaymentReceiptId = null, Guid? ExpenseId = null);

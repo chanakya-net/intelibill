@@ -24,15 +24,19 @@ public sealed class TillDtoBuilder(ITillRepository tills)
                 x.SourceBusinessDate, x.OccurredAt, x.RecordedAt, x.CashierId, x.TenderLines, x.EvidenceStatus, x.ManagerReason, x.IncludedInCount, x.EvidenceReason)).ToArray());
     }
 
-    public async Task<TillSessionDetailDto> DetailAsync(TillSession session, int page, int pageSize, CancellationToken ct)
+    public async Task<TillSessionDetailDto> DetailAsync(TillSession session, int page, int pageSize, bool includeFinancial, CancellationToken ct)
     {
         var movements = await tills.GetMovementsAsync(session.ShopId, session.Id, page, pageSize, ct);
         var sources = await tills.GetSourcesAsync(session.ShopId, session.Id, page, pageSize, ct);
+        var identities = movements.Items.Select(x => (x.SourceType, x.SourceId)).Concat(sources.Items.Select(x => (x.SourceType, x.SourceId))).Distinct().ToArray();
+        var links = await tills.GetSourceReferencesAsync(session.ShopId, identities, includeFinancial, ct);
         return new(await BuildAsync(session, ct),
             new(movements.Items.Select(x => new TillMovementDto(x.Id, x.Sequence, x.SourceType, x.SourceId, x.Purpose, x.LineNumber,
                 x.Method, x.SignedAmount, x.CashTendered, x.Change, x.ExternalReference, x.BankAccountId, x.OccurredAt, x.RecordedAt,
-                x.ActorUserId, x.OperationKey, x.Reason, x.OverrideReason, x.ReversesMovementId)).ToArray(), page, pageSize, movements.TotalCount),
+                x.ActorUserId, x.OperationKey, x.Reason, x.OverrideReason, x.ReversesMovementId,
+                links.GetValueOrDefault((x.SourceType, x.SourceId))?.ParentSaleId, links.GetValueOrDefault((x.SourceType, x.SourceId))?.PaymentReceiptId, links.GetValueOrDefault((x.SourceType, x.SourceId))?.ExpenseId)).ToArray(), page, pageSize, movements.TotalCount),
             new(sources.Items.Select(x => new TillSourceRecordDto(x.Id, x.SourceType, x.SourceId, x.Purpose, x.OccurredAt,
-                x.RecordedAt, x.ActorUserId, x.Settlement, x.OperationKey, x.Reason, x.OverrideReason)).ToArray(), page, pageSize, sources.TotalCount));
+                x.RecordedAt, x.ActorUserId, x.Settlement, x.OperationKey, x.Reason, x.OverrideReason,
+                links.GetValueOrDefault((x.SourceType, x.SourceId))?.ParentSaleId, links.GetValueOrDefault((x.SourceType, x.SourceId))?.PaymentReceiptId, links.GetValueOrDefault((x.SourceType, x.SourceId))?.ExpenseId)).ToArray(), page, pageSize, sources.TotalCount));
     }
 }

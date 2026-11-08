@@ -41,7 +41,7 @@ public sealed class TillReadService(ITillRepository tills, IShopRepository shops
         var row = await tills.GetSessionAsync(shopId, sessionId, ct);
         if (row is null) return TillErrors.SessionNotFound;
         if (role == ShopRole.Staff && row.CashierId != actorId) return TillErrors.Forbidden;
-        return await builder.DetailAsync(row, page, pageSize, ct);
+        return await builder.DetailAsync(row, page, pageSize, role is ShopRole.Owner or ShopRole.Manager, ct);
     }
     public async Task<ErrorOr<TillOperationDto>> OperationAsync(Guid shopId, Guid actorId, string type, string key, CancellationToken ct)
     {

@@ -22,6 +22,7 @@ namespace Intelibill.Integration.Tests;
 [Collection("Integration Tests")]
 public sealed class SaleCancellationTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
 {
+    private static readonly JsonSerializerOptions TillSourceJsonOptions = new(JsonSerializerDefaults.Web);
     private readonly ApiWebApplicationFactory factory = new(fixture, services =>
     {
         services.RemoveAll<IBusinessClock>();
@@ -640,6 +641,49 @@ public sealed class SaleCancellationTests(PostgreSqlTestFixture fixture) : IAsyn
         JsonSerializer.SerializeToNode(new { operationKey = "return-key", till = new { sessionId = session }, payoutDestination = destination,
             refundConfirmed = tender is not null, refundTender = tender is null ? null : new { method = tender, appliedAmount = 200m },
             items = new[] { new { saleItemId = s.Sale.Items[0].Id, quantity = 2m, condition = "Restockable" } } })!.AsObject();
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task TillSourceParentIdentity_RespectsRoleTenantAndVoidedReturn(bool cancellation, bool voidReturn)
+    {
+        var (s, app, originalSession) = await TillReturnSetupAsync(); await using var owned = app;
+        var staff = User.CreateWithEmail($"till-reader-{Guid.NewGuid():N}@example.test", "hash", "Reader", "Staff");
+        app.Db.AddRange(staff, ShopMembership.Create(s.ShopId, staff.Id, ShopRole.Staff, false));
+        await app.Db.SaveChangesAsync();
+        TillTestContext.Success(await app.Lifecycle.CloseAsync(new(s.ShopId, s.ActorId, originalSession.Id, 1000m, null, originalSession.Version, "close-before-staff-reader"), default));
+        var session = TillTestContext.Success(await app.Lifecycle.OpenAsync(new(s.ShopId, s.ActorId, originalSession.TillId, staff.Id, 1000m, "staff-reader-open", "Manager opening for cashier"), default));
+        var request = cancellation ? JsonSerializer.SerializeToNode(Request(s))!.AsObject() : ReturnRequest(s, session.Id);
+        request["till"] = JsonSerializer.SerializeToNode(new { sessionId = session.Id, overrideReason = "Manager posting for cashier" });
+        using var response = await s.Client.PostAsJsonAsync(cancellation ? $"/api/sales/{s.Sale.Id}/cancellations" : $"/api/sales/{s.Sale.Id}/returns", request);
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        if (voidReturn)
+        {
+            var returnId = await app.Db.SaleReturns.Select(x => x.Id).SingleAsync();
+            using var voided = await s.Client.PostAsJsonAsync($"/api/sales/returns/{returnId}/void", new { reason = "Entered incorrectly", operationKey = "reader-void", settlementEvidence = new { disposition = "NoPhysicalMovement", reason = "No payout recovery" } });
+            Assert.True(voided.IsSuccessStatusCode, await voided.Content.ReadAsStringAsync());
+        }
+        using var detail = await s.Client.GetAsync($"/api/tills/sessions/{session.Id}");
+        var json = await detail.Content.ReadFromJsonAsync<JsonElement>();
+        foreach (var kind in new[] { "movements", "sources" })
+        {
+            var row = Assert.Single(json.GetProperty(kind).GetProperty("items").EnumerateArray());
+            Assert.True(row.TryGetProperty("parentSaleId", out var parent));
+            Assert.Equal(s.Sale.Id, parent.GetGuid());
+            Assert.NotEqual(s.Sale.Id, row.GetProperty("sourceId").GetGuid());
+        }
+        var staffDetail = TillTestContext.Success(await app.Reads.SessionAsync(s.ShopId, staff.Id, session.Id, 1, 20, default));
+        var staffJson = JsonSerializer.SerializeToElement(staffDetail, TillSourceJsonOptions);
+        Assert.Equal(JsonValueKind.Null, staffJson.GetProperty("sources").GetProperty("items")[0].GetProperty("parentSaleId").ValueKind);
+        var foreign = await TillTestContext.SeedAsync(factory.MigratorConnectionString);
+        var actualSource = await app.Db.TillSourceRecords.SingleAsync(x => x.SessionId == session.Id);
+        var foreignReferences = await app.Tills.GetSourceReferencesAsync(foreign.ShopId, [(actualSource.SourceType, actualSource.SourceId)], true);
+        Assert.Empty(foreignReferences);
+        var hidden = await app.Reads.SessionAsync(foreign.ShopId, foreign.Owner, session.Id, 1, 20, default);
+        Assert.True(hidden.IsError);
+        Assert.Equal("Till.SessionNotFound", hidden.FirstError.Code);
+    }
 
     [Fact]
     public async Task GenericRefundWithoutActualTender_EnabledRejected()

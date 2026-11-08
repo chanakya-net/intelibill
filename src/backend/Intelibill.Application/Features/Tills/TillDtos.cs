@@ -19,9 +19,9 @@ public sealed record TillCloseReviewDto(Guid Id, Guid CloseId, Guid ReviewedBy, 
 public sealed record TillMovementDto(Guid Id, long Sequence, TillMovementSource SourceType, Guid SourceId, string Purpose,
     int LineNumber, ReceiptTenderMethod Method, decimal SignedAmount, decimal? CashTendered, decimal? Change,
     string? ExternalReference, Guid? BankAccountId, DateTimeOffset OccurredAt, DateTimeOffset RecordedAt, Guid ActorUserId,
-    string OperationKey, string? Reason, string? OverrideReason, Guid? ReversesMovementId);
+    string OperationKey, string? Reason, string? OverrideReason, Guid? ReversesMovementId, Guid? ParentSaleId = null, Guid? PaymentReceiptId = null, Guid? ExpenseId = null);
 public sealed record TillSourceRecordDto(Guid Id, TillMovementSource SourceType, Guid SourceId, string Purpose,
-    DateTimeOffset OccurredAt, DateTimeOffset RecordedAt, Guid ActorUserId, TillNonCashSettlement Settlement, string OperationKey, string? Reason, string? OverrideReason);
+    DateTimeOffset OccurredAt, DateTimeOffset RecordedAt, Guid ActorUserId, TillNonCashSettlement Settlement, string OperationKey, string? Reason, string? OverrideReason, Guid? ParentSaleId = null, Guid? PaymentReceiptId = null, Guid? ExpenseId = null);
 public sealed record TillLatePostingDto(Guid Id, Guid OfflineSubmissionId, Guid SaleId, Guid CaseId, Guid? SessionId,
     Guid? CloseId, DateOnly SourceBusinessDate, DateTimeOffset OccurredAt, DateTimeOffset RecordedAt, Guid CashierId,
     IReadOnlyList<TenderLine> TenderLines, string EvidenceStatus, string ManagerReason, bool IncludedInCount, string? EvidenceReason = null)
