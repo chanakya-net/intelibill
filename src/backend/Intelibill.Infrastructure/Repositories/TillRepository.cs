@@ -32,6 +32,7 @@ internal sealed class TillRepository(ApplicationDbContext context) : ITillReposi
         return (rows, count);
     }
 
+    public Task<RowLockOutcome> LockCatalogAsync(Guid shopId, CancellationToken ct = default) => LockAsync("shops", shopId, shopId, ct);
     public Task<RowLockOutcome> LockTillAsync(Guid shopId, Guid tillId, CancellationToken ct = default) => LockAsync("tills", shopId, tillId, ct);
     public Task<RowLockOutcome> LockSessionAsync(Guid shopId, Guid sessionId, CancellationToken ct = default) => LockAsync("till_sessions", shopId, sessionId, ct);
 
@@ -45,7 +46,8 @@ internal sealed class TillRepository(ApplicationDbContext context) : ITillReposi
         {
             // table is a private server-owned constant, never a client-provided identifier.
             FormattableString sql;
-            if (table == "tills") sql = $"SELECT id AS \"Value\" FROM tills WHERE shop_id = {shopId} AND id = {id} FOR NO KEY UPDATE";
+            if (table == "shops") sql = $"SELECT id AS \"Value\" FROM shops WHERE id = {shopId} FOR NO KEY UPDATE";
+            else if (table == "tills") sql = $"SELECT id AS \"Value\" FROM tills WHERE shop_id = {shopId} AND id = {id} FOR NO KEY UPDATE";
             else sql = $"SELECT id AS \"Value\" FROM till_sessions WHERE shop_id = {shopId} AND id = {id} FOR NO KEY UPDATE";
             var rows = await context.Database.SqlQuery<Guid>(sql).ToListAsync(ct);
             await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {previous}, true)", ct);

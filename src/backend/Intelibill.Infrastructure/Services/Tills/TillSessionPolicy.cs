@@ -30,8 +30,8 @@ internal sealed class TillSessionPolicy : ITillSessionPolicy
         var role = await _shops.GetActiveRoleAsync(actorId, shopId, ct);
         if (role is null) return TillErrors.Forbidden;
         if (actorId == cashierId) return Result.Success;
-        if (role is not (ShopRole.Owner or ShopRole.Manager) || await _shops.GetActiveRoleAsync(cashierId, shopId, ct) is null)
-            return TillErrors.Forbidden;
+        if (role is not (ShopRole.Owner or ShopRole.Manager)) return TillErrors.CashierMismatch;
+        if (await _shops.GetActiveRoleAsync(cashierId, shopId, ct) is null) return TillErrors.Forbidden;
         if (string.IsNullOrWhiteSpace(overrideReason) || overrideReason.Trim().Length > 500)
             return TillErrors.OverrideReasonRequired;
         return Result.Success;

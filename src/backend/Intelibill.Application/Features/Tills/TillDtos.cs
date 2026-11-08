@@ -8,7 +8,10 @@ public sealed record TillSessionDto(Guid Id, Guid TillId, Guid CashierId, string
     DateOnly BusinessDate, string BusinessTimeZoneId, DateTimeOffset OpenedAt, TillSessionState State, uint Version,
     decimal OpeningFloat, decimal ExpectedCash, IReadOnlyDictionary<ReceiptTenderMethod, decimal> RecordedTenderTotals,
     decimal StoreCreditIssued, decimal StoreCreditRedeemed, decimal ReceivableChange, long LastMovementSequence,
-    TillCloseDto? Close, TillCloseReviewDto? Review, IReadOnlyList<TillLatePostingDto> LatePostings);
+    TillCloseDto? Close, TillCloseReviewDto? Review, IReadOnlyList<TillLatePostingDto> LatePostings)
+{
+    public bool AwaitingReview => Close?.AwaitingReview == true && Review is null;
+}
 public sealed record TillCloseDto(Guid Id, decimal OpeningFloat, long LastMovementSequence, TillTotals Totals,
     decimal ExpectedCash, decimal CountedCash, decimal Variance, Guid ClosedBy, DateTimeOffset ClosedAt,
     string? Reason, string? OverrideReason, bool IsOverdue, bool AwaitingReview, DateOnly BusinessDate, string TillName, string CashierName, Guid CashierId);
@@ -18,10 +21,14 @@ public sealed record TillMovementDto(Guid Id, long Sequence, TillMovementSource 
     string? ExternalReference, Guid? BankAccountId, DateTimeOffset OccurredAt, DateTimeOffset RecordedAt, Guid ActorUserId,
     string OperationKey, string? Reason, string? OverrideReason, Guid? ReversesMovementId);
 public sealed record TillSourceRecordDto(Guid Id, TillMovementSource SourceType, Guid SourceId, string Purpose,
-    DateTimeOffset OccurredAt, DateTimeOffset RecordedAt, Guid ActorUserId, TillNonCashSettlement Settlement);
+    DateTimeOffset OccurredAt, DateTimeOffset RecordedAt, Guid ActorUserId, TillNonCashSettlement Settlement, string OperationKey, string? Reason, string? OverrideReason);
 public sealed record TillLatePostingDto(Guid Id, Guid OfflineSubmissionId, Guid SaleId, Guid CaseId, Guid? SessionId,
     Guid? CloseId, DateOnly SourceBusinessDate, DateTimeOffset OccurredAt, DateTimeOffset RecordedAt, Guid CashierId,
     IReadOnlyList<TenderLine> TenderLines, string EvidenceStatus, string ManagerReason, bool IncludedInCount);
 public sealed record TillPage<T>(IReadOnlyList<T> Items, int Page, int PageSize, int TotalCount);
 public sealed record TillSessionDetailDto(TillSessionDto Session, TillPage<TillMovementDto> Movements,
     TillPage<TillSourceRecordDto> Sources);
+
+public sealed record TillCapabilitiesDto(bool Enabled, bool MixedTenderEnabled, DateOnly BusinessDate);
+
+public sealed record TillOperationDto(string OperationType, string OperationKey, Guid TargetId, Guid ActorUserId, DateTimeOffset CompletedAt, object Response);

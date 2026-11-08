@@ -38,19 +38,19 @@ public sealed class TillSession : BaseEntity
     }
     public ErrorOr<long> NextSequence()
     {
-        if (State != TillSessionState.Open) return Error.Conflict("Till.Closed", "A closed session is immutable.");
+        if (State != TillSessionState.Open) return Error.Conflict("Till.SessionClosed", "A closed session is immutable.");
         return ++LastMovementSequence;
     }
     internal ErrorOr<Success> RegisterSource()
     {
-        if (State != TillSessionState.Open) return Error.Conflict("Till.Closed", "A closed session is immutable.");
+        if (State != TillSessionState.Open) return Error.Conflict("Till.SessionClosed", "A closed session is immutable.");
         SourceCount++;
         return Result.Success;
     }
     public ErrorOr<TillClose> Close(TillTotals totals, decimal countedCash, Guid actorId, DateTimeOffset now, DateOnly today,
         string? reason, bool awaitingReview, bool finalizeOverdue, string? overrideReason = null)
     {
-        if (State != TillSessionState.Open) return Error.Conflict("Till.Closed", "The session is already closed.");
+        if (State != TillSessionState.Open) return Error.Conflict("Till.SessionClosed", "The session is already closed.");
         if (!TillMoney.IsValid(countedCash) || countedCash < 0 || actorId == Guid.Empty || now < OpenedAt || today < BusinessDate)
             return Error.Validation("Till.CloseInvalid", "The counted amount and close time must be valid.");
         if (overrideReason?.Trim().Length > 500 || (actorId != CashierId && string.IsNullOrWhiteSpace(overrideReason)))

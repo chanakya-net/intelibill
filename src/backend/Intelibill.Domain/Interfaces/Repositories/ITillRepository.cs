@@ -13,6 +13,7 @@ public interface ITillRepository
     Task<(IReadOnlyList<TillSession> Items, int TotalCount)> ListSessionsAsync(Guid shopId, Guid? cashierId,
         TillSessionState? state, DateOnly? businessDate, int page, int pageSize, CancellationToken ct = default);
     /// <summary>Requires an open transaction; timeout aborts the transaction. Caller rolls back.</summary>
+    Task<RowLockOutcome> LockCatalogAsync(Guid shopId, CancellationToken ct = default);
     Task<RowLockOutcome> LockTillAsync(Guid shopId, Guid tillId, CancellationToken ct = default);
     Task<RowLockOutcome> LockSessionAsync(Guid shopId, Guid sessionId, CancellationToken ct = default);
     Task<TillSession?> ReloadSessionAsync(Guid shopId, Guid sessionId, CancellationToken ct = default);
