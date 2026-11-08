@@ -13,6 +13,23 @@ public sealed class TillPersistenceTests(PostgreSqlTestFixture fixture)
 {
     private static readonly string[] Tables = ["tills", "till_sessions", "till_source_records", "till_movements", "till_closes", "till_close_reviews", "till_late_postings"];
 
+    [Theory]
+    [InlineData("AddTillSessions")]
+    [InlineData("AddSaleTillEvidence")]
+    [InlineData("AddPaymentExpenseSettlementEvidence")]
+    [InlineData("AddReturnTillSettlementEvidence")]
+    [InlineData("AddTillReconciliationEvidence")]
+    public void EveryFeatureMigration_RefusesDownBeforeEmittingDestructiveOperations(string name)
+    {
+        var type = typeof(ApplicationDbContext).Assembly.GetType($"Intelibill.Infrastructure.Migrations.{name}")!;
+        var migration = (Microsoft.EntityFrameworkCore.Migrations.Migration)Activator.CreateInstance(type)!;
+        var builder = new Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder("Npgsql.EntityFrameworkCore.PostgreSQL");
+        var down = type.GetMethod("Down", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        var error = Assert.Throws<System.Reflection.TargetInvocationException>(() => down.Invoke(migration, [builder]));
+        Assert.IsType<NotSupportedException>(error.InnerException);
+        Assert.Empty(builder.Operations);
+    }
+
     [Fact]
     public async Task Migration_EnforcesTenantPoliciesOnEveryTillTable()
     {
@@ -23,6 +40,17 @@ public sealed class TillPersistenceTests(PostgreSqlTestFixture fixture)
             await using var command = new NpgsqlCommand("SELECT count(*) FROM pg_class c JOIN pg_policy p ON p.polrelid=c.oid WHERE c.relname=@table AND c.relrowsecurity AND c.relforcerowsecurity AND p.polqual IS NOT NULL AND p.polwithcheck IS NOT NULL", owner);
             command.Parameters.AddWithValue("table", table);
             Assert.Equal(1L, (long)(await command.ExecuteScalarAsync())!);
+            await using var foreignKeys = new NpgsqlCommand("""
+                SELECT count(*) FROM pg_constraint fk
+                JOIN pg_class child ON child.oid=fk.conrelid
+                JOIN pg_class parent ON parent.oid=fk.confrelid
+                WHERE fk.contype='f' AND child.relname=@table AND parent.relname<>'shops'
+                AND (NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=fk.conrelid AND a.attnum=ANY(fk.conkey) AND a.attname='shop_id')
+                  OR NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=fk.confrelid AND a.attnum=ANY(fk.confkey) AND a.attname='shop_id'))
+                """, owner);
+            foreignKeys.Parameters.AddWithValue("table", table);
+            Assert.Equal(0L, (long)(await foreignKeys.ExecuteScalarAsync())!);
+
         }
     }
 
@@ -94,6 +122,23 @@ public sealed class TillPersistenceTests(PostgreSqlTestFixture fixture)
             await using var visible = new NpgsqlCommand($"SELECT count(*) FROM {table} WHERE shop_id=@shop", runtime);
             visible.Parameters.AddWithValue("shop", shop.Id);
             Assert.Equal(1L, (long)(await visible.ExecuteScalarAsync())!);
+        }
+        foreach (var table in Tables)
+        {
+            await using var ownerConnection = new NpgsqlConnection(fixture.MigratorConnectionString);
+            await ownerConnection.OpenAsync();
+            await using var read = new NpgsqlCommand($"SELECT row_to_json(t)::text FROM {table} t WHERE shop_id=@shop", ownerConnection);
+            read.Parameters.AddWithValue("shop", shop.Id);
+            var row = (string)(await read.ExecuteScalarAsync())!;
+            var forged = System.Text.Json.Nodes.JsonNode.Parse(row)!.AsObject();
+            forged["id"] = Guid.NewGuid(); forged["shop_id"] = Guid.NewGuid();
+            await using var write = new NpgsqlCommand($"INSERT INTO {table} SELECT (json_populate_record(NULL::{table}, @row::json)).*", runtime);
+            write.Parameters.AddWithValue("row", forged.ToJsonString());
+            var refused = await Assert.ThrowsAsync<PostgresException>(() => write.ExecuteNonQueryAsync());
+            // Source guards run BEFORE INSERT/RLS: a foreign session claim is rejected there.
+            var expected = table is "till_source_records" or "till_movements"
+                ? PostgresErrorCodes.CheckViolation : PostgresErrorCodes.InsufficientPrivilege;
+            Assert.True(refused.SqlState == expected, $"{table}: expected {expected}, got {refused.SqlState}");
         }
         await using var mutation = new NpgsqlCommand("UPDATE till_closes SET counted_cash = 1 WHERE id=@id", runtime);
         mutation.Parameters.AddWithValue("id", close.Id);

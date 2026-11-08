@@ -21,6 +21,26 @@ namespace Intelibill.Integration.Tests;
 public sealed class TillSourcePostingTests(PostgreSqlTestFixture fixture)
 {
     [Fact]
+    public async Task RealSourceWins_CloseWaitsAndRejectsStaleBoundary()
+    {
+        await using var setup = await ArrangeAsync();
+        await using var barrier = await TillPostgresBarrier.CreateAsync(setup.Factory.MigratorConnectionString, "till_movements", setup.Shop);
+        var posting = setup.Client.PostAsJsonAsync("/api/sales", setup.Request());
+        var sourcePid = await barrier.WaitForArrivalAsync();
+        var closing = setup.Client.PostAsJsonAsync($"/api/tills/sessions/{setup.Session.Id}/close", new { countedCash = 1000m, expectedVersion = setup.Session.Version, operationKey = "source-before-close" });
+        await barrier.WaitForBlockedByAsync(sourcePid);
+        Assert.False(posting.IsCompleted); Assert.False(closing.IsCompleted);
+        await barrier.ReleaseAsync();
+        using var source = await posting.WaitAsync(TimeSpan.FromSeconds(15));
+        Assert.True(source.IsSuccessStatusCode, await source.Content.ReadAsStringAsync());
+        using var closed = await closing.WaitAsync(TimeSpan.FromSeconds(15));
+        Assert.Equal(HttpStatusCode.Conflict, closed.StatusCode);
+        Assert.Contains("Till.VersionConflict", await closed.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.Single(await setup.App.Db.TillMovements.Where(x => x.SessionId == setup.Session.Id).ToArrayAsync());
+        Assert.False(await setup.App.Db.TillCloses.AnyAsync(x => x.SessionId == setup.Session.Id));
+    }
+
+    [Fact]
     public async Task EnabledSale_RequiresExplicitSession_BeforeAnyPosting()
     {
         using var factory = new ApiWebApplicationFactory(fixture);

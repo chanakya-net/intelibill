@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Tills;
@@ -101,8 +102,8 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
 }
 
 public sealed record CreateTillRequest(string Name, string OperationKey);
-public sealed record OpenTillRequest(Guid CashierId, decimal OpeningFloat, string OperationKey, string? OverrideReason = null);
+public sealed record OpenTillRequest(Guid CashierId, [property: JsonRequired] decimal OpeningFloat, string OperationKey, string? OverrideReason = null);
 /// <param name="Direction">1 for cash in, -1 for cash out.</param>
 public sealed record TillCashMovementRequest(decimal Direction, decimal Amount, string Reason, uint ExpectedVersion, string OperationKey, string? OverrideReason = null);
-public sealed record CloseTillRequest(decimal CountedCash, string? Reason, uint ExpectedVersion, string OperationKey, string? OverrideReason = null, bool FinalizeOverdue = false);
+public sealed record CloseTillRequest([property: JsonRequired] decimal CountedCash, string? Reason, uint ExpectedVersion, string OperationKey, string? OverrideReason = null, bool FinalizeOverdue = false);
 public sealed record ReviewTillCloseRequest(string Reason, uint ExpectedVersion, string OperationKey);

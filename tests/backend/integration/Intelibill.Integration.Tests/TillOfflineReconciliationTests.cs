@@ -19,7 +19,7 @@ using static Intelibill.Integration.Tests.TillTestContext;
 namespace Intelibill.Integration.Tests;
 
 [Collection("Integration Tests")]
-public sealed class TillOfflineReconciliationTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
+public sealed partial class TillOfflineReconciliationTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
 {
     private const string Device = "device-1";
     private const string Route = "/api/offline-reconciliation";

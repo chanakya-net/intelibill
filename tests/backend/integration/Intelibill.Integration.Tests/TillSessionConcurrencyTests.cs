@@ -16,14 +16,18 @@ public sealed class TillSessionConcurrencyTests(PostgreSqlTestFixture fixture)
         var (shop, owner, cashier, _) = await SeedAsync(fixture.MigratorConnectionString);
         await using var setup = new TillTestContext(fixture.MigratorConnectionString, shop);
         var till = await setup.CreateAsync(shop, owner);
-        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var barrier = await TillPostgresBarrier.CreateAsync(fixture.MigratorConnectionString, "till_sessions", shop);
         async Task<ErrorOr.ErrorOr<Intelibill.Application.Features.Tills.TillSessionDto>> OpenAsync()
         {
             await using var worker = new TillTestContext(fixture.MigratorConnectionString, shop);
-            await start.Task;
             return await worker.Lifecycle.OpenAsync(new OpenTillCommand(shop, cashier, till.Id, cashier, 1000m, Guid.NewGuid().ToString()), default);
         }
-        var one = OpenAsync(); var two = OpenAsync(); start.SetResult();
+        var one = OpenAsync();
+        var firstPid = await barrier.WaitForArrivalAsync();
+        var two = OpenAsync();
+        await barrier.WaitForBlockedByAsync(firstPid);
+        Assert.False(one.IsCompleted); Assert.False(two.IsCompleted);
+        await barrier.ReleaseAsync();
         var results = await Task.WhenAll(one, two).WaitAsync(TimeSpan.FromSeconds(15));
         Assert.Single(results, x => !x.IsError);
         Assert.Equal("Till.AlreadyOpen", Assert.Single(results, x => x.IsError).FirstError.Code);
@@ -36,14 +40,18 @@ public sealed class TillSessionConcurrencyTests(PostgreSqlTestFixture fixture)
         var (shop, owner, cashier, _) = await SeedAsync(fixture.MigratorConnectionString);
         await using var setup = new TillTestContext(fixture.MigratorConnectionString, shop);
         var session = await setup.OpenAsync(shop, cashier, (await setup.CreateAsync(shop, owner)).Id);
-        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var barrier = await TillPostgresBarrier.CreateAsync(fixture.MigratorConnectionString, "till_closes", shop);
         async Task<ErrorOr.ErrorOr<Intelibill.Application.Features.Tills.TillSessionDto>> CloseAsync()
         {
             await using var worker = new TillTestContext(fixture.MigratorConnectionString, shop);
-            await start.Task;
             return await worker.Lifecycle.CloseAsync(new CloseTillCommand(shop, cashier, session.Id, 1000m, null, session.Version, Guid.NewGuid().ToString()), default);
         }
-        var one = CloseAsync(); var two = CloseAsync(); start.SetResult();
+        var one = CloseAsync();
+        var firstPid = await barrier.WaitForArrivalAsync();
+        var two = CloseAsync();
+        await barrier.WaitForBlockedByAsync(firstPid);
+        Assert.False(one.IsCompleted); Assert.False(two.IsCompleted);
+        await barrier.ReleaseAsync();
         var results = await Task.WhenAll(one, two).WaitAsync(TimeSpan.FromSeconds(15));
         Assert.Single(results, x => !x.IsError);
         Assert.Equal("Till.VersionConflict", Assert.Single(results, x => x.IsError).FirstError.Code);
@@ -110,6 +118,34 @@ public sealed class TillSessionConcurrencyTests(PostgreSqlTestFixture fixture)
         Assert.Equal("Till.Busy", result.FirstError.Code);
         Assert.Empty(await setup.Db.OperationReceipts.Where(x => x.ShopId == shop && x.OperationKey == "busy").ToArrayAsync());
         await tx.RollbackAsync();
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PeriodCloseWins_TillLifecycleWaitsAndRefusesBeforeSession(bool opening)
+    {
+        var (shop, owner, cashier, _) = await SeedAsync(fixture.MigratorConnectionString);
+        await using var setup = new TillTestContext(fixture.MigratorConnectionString, shop);
+        var till = await setup.CreateAsync(shop, owner);
+        var session = await setup.OpenAsync(shop, cashier, till.Id);
+        var target = opening ? (await setup.CreateAsync(shop, owner, "Other")).Id : session.Id;
+        await using var periodWriter = new TillTestContext(fixture.MigratorConnectionString, shop);
+        await using var tx = await periodWriter.Db.Database.BeginTransactionAsync();
+        await periodWriter.Db.Database.ExecuteSqlAsync($"UPDATE posting_periods SET state=2 WHERE shop_id={shop}");
+        await using var lifecycle = new TillTestContext(fixture.MigratorConnectionString, shop);
+        await lifecycle.Db.Database.OpenConnectionAsync();
+        var pid = await lifecycle.Db.Database.SqlQuery<int>($"SELECT pg_backend_pid() AS \"Value\"").SingleAsync();
+        var pending = opening
+            ? lifecycle.Lifecycle.OpenAsync(new(shop, cashier, target, cashier, 1000m, "period-open"), default)
+            : lifecycle.Lifecycle.CloseAsync(new(shop, cashier, target, 1000m, null, session.Version, "period-close"), default);
+        await WaitForLockAsync(setup, pid);
+        Assert.False(pending.IsCompleted);
+        await tx.CommitAsync();
+        Assert.Equal("PostingPeriod.Closed", (await pending.WaitAsync(TimeSpan.FromSeconds(10))).FirstError.Code);
+        Assert.Equal(1, await setup.Db.TillSessions.CountAsync(x => x.ShopId == shop));
+        Assert.False(await setup.Db.TillCloses.AnyAsync(x => x.ShopId == shop));
+        Assert.False(await setup.Db.TillMovements.AnyAsync(x => x.ShopId == shop));
     }
 
     private static async Task WaitForLockAsync(TillTestContext observer, int pid)

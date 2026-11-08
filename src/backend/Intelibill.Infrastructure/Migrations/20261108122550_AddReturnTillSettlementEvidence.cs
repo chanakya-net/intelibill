@@ -50,6 +50,6 @@ namespace Intelibill.Infrastructure.Migrations
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder) =>
-            throw new System.NotSupportedException("Retain return settlement facts; disable new till postings instead.");
+            throw new System.NotSupportedException("Retain till schema and immutable settlement facts; disable new postings instead of rolling schema back.");
     }
 }

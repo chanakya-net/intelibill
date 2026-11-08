@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -635,55 +635,7 @@ namespace Intelibill.Infrastructure.Migrations
         }
 
         /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.Sql("""
-                DO $$ BEGIN
-                    IF EXISTS (SELECT 1 FROM till_sessions) OR EXISTS (SELECT 1 FROM till_late_postings) THEN
-                        RAISE EXCEPTION 'Till facts must be preserved; disable the rollout instead of dropping its schema';
-                    END IF;
-                END $$;
-                DROP FUNCTION till_guard_source_session() CASCADE;
-                DROP FUNCTION till_guard_closed_session() CASCADE;
-                DROP FUNCTION till_reject_fact_mutation() CASCADE;
-                """);
-
-            migrationBuilder.DropTable(
-                name: "till_close_reviews");
-
-            migrationBuilder.DropTable(
-                name: "till_late_postings");
-
-            migrationBuilder.DropTable(
-                name: "till_movements");
-
-            migrationBuilder.DropTable(
-                name: "till_closes");
-
-            migrationBuilder.DropTable(
-                name: "till_source_records");
-
-            migrationBuilder.DropTable(
-                name: "till_sessions");
-
-            migrationBuilder.DropTable(
-                name: "tills");
-
-            migrationBuilder.DropUniqueConstraint(
-                name: "ak_shop_memberships_shop_id_user_id",
-                table: "shop_memberships");
-
-            migrationBuilder.DropUniqueConstraint(
-                name: "ak_reconciliation_issues_id_shop_id",
-                table: "reconciliation_issues");
-
-            migrationBuilder.DropUniqueConstraint(
-                name: "ak_offline_submissions_id_shop_id",
-                table: "offline_submissions");
-
-            migrationBuilder.DropUniqueConstraint(
-                name: "ak_bank_accounts_id_shop_id",
-                table: "bank_accounts");
-        }
+        protected override void Down(MigrationBuilder migrationBuilder) =>
+            throw new System.NotSupportedException("Retain till schema and immutable settlement facts; disable new postings instead of rolling schema back.");
     }
 }

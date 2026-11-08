@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -42,42 +42,7 @@ namespace Intelibill.Infrastructure.Migrations
         }
 
         /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.Sql("""
-                DO $$ BEGIN
-                    IF EXISTS (SELECT 1 FROM till_late_postings WHERE evidence_reason IS NOT NULL)
-                       OR EXISTS (SELECT 1 FROM till_source_records WHERE source_type = 12)
-                       OR EXISTS (SELECT 1 FROM till_movements WHERE source_type = 12) THEN
-                        RAISE EXCEPTION 'Preserve immutable till reconciliation evidence; disable writes instead of rolling schema back';
-                    END IF;
-                END $$;
-                """);
-            migrationBuilder.DropCheckConstraint(
-                name: "ck_till_sources_type",
-                table: "till_source_records");
-
-            migrationBuilder.DropCheckConstraint(
-                name: "ck_till_movements_type",
-                table: "till_movements");
-
-            migrationBuilder.DropCheckConstraint(
-                name: "ck_till_late_postings_evidence_reason",
-                table: "till_late_postings");
-
-            migrationBuilder.DropColumn(
-                name: "evidence_reason",
-                table: "till_late_postings");
-
-            migrationBuilder.AddCheckConstraint(
-                name: "ck_till_sources_type",
-                table: "till_source_records",
-                sql: "source_type BETWEEN 1 AND 11");
-
-            migrationBuilder.AddCheckConstraint(
-                name: "ck_till_movements_type",
-                table: "till_movements",
-                sql: "method BETWEEN 2 AND 6 AND source_type BETWEEN 1 AND 11 AND sequence > 0 AND line_number = 1");
-        }
+        protected override void Down(MigrationBuilder migrationBuilder) =>
+            throw new System.NotSupportedException("Retain till schema and immutable settlement facts; disable new postings instead of rolling schema back.");
     }
 }

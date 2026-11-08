@@ -117,8 +117,11 @@ public sealed class TillLifecycleService(ITillRepository tills, IShopRepository 
     {
         var validation = Validate(command, new CloseTillCommandValidator());
         if (validation.Count != 0) return validation;
-        var authorized = await AuthorizeSessionAsync(command.ShopId, command.ActorUserId, command.SessionId, command.OverrideReason, ct);
+        var authorized = await AuthorizeSessionAsync(command.ShopId, command.ActorUserId, command.SessionId, command.OverrideReason, ct, terminal: true);
         if (authorized.IsError) return authorized.Errors;
+        // Requested overdue finalization is a manager action, including saved replay.
+        if (command.FinalizeOverdue && !IsManager(await shops.GetActiveRoleAsync(command.ActorUserId, command.ShopId, ct)))
+            return TillErrors.Forbidden;
         var access = await ReceiptAccessAsync(command.ShopId, command.ActorUserId, FinancialOperationType.TillClose, command.OperationKey, ct);
         if (access.IsError) return access.Errors;
         return await executor.ExecuteAsync<TillSessionDto>(new(command.ShopId, FinancialOperationType.TillClose, command.OperationKey.Trim()),
@@ -132,11 +135,12 @@ public sealed class TillLifecycleService(ITillRepository tills, IShopRepository 
                 var locked = await LockSessionAsync(command.ShopId, command.SessionId, token);
                 if (locked.IsError) return locked.Errors;
                 var session = locked.Value;
-                var auth = await policy.AuthorizeAsync(command.ShopId, command.ActorUserId, session.CashierId, command.OverrideReason, token);
+                var auth = await AuthorizeTerminalAsync(command.ShopId, command.ActorUserId, session.CashierId, command.OverrideReason, token);
                 if (auth.IsError) return auth.Errors;
                 if (session.Version != command.ExpectedVersion) return TillErrors.VersionConflict;
                 if (session.State != TillSessionState.Open) return TillErrors.Closed;
                 var role = await shops.GetActiveRoleAsync(command.ActorUserId, command.ShopId, token);
+                if (command.FinalizeOverdue && !IsManager(role)) return TillErrors.Forbidden;
                 var today = clock.Today(session.BusinessTimeZoneId);
                 if (today > session.BusinessDate && (!command.FinalizeOverdue || !IsManager(role))) return TillErrors.Overdue;
                 var totals = await tills.GetTotalsAsync(command.ShopId, session.Id, token);
@@ -182,13 +186,26 @@ public sealed class TillLifecycleService(ITillRepository tills, IShopRepository 
             }, ct);
     }
 
-    private async Task<ErrorOr<TillSession>> AuthorizeSessionAsync(Guid shopId, Guid actorId, Guid sessionId, string? reason, CancellationToken ct)
+    private async Task<ErrorOr<TillSession>> AuthorizeSessionAsync(Guid shopId, Guid actorId, Guid sessionId, string? reason, CancellationToken ct, bool terminal = false)
     {
         if (await shops.GetActiveRoleAsync(actorId, shopId, ct) is null) return TillErrors.Forbidden;
         var session = await tills.GetSessionAsync(shopId, sessionId, ct);
         if (session is null) return TillErrors.SessionNotFound;
-        var auth = await policy.AuthorizeAsync(shopId, actorId, session.CashierId, reason, ct);
+        var auth = terminal
+            ? await AuthorizeTerminalAsync(shopId, actorId, session.CashierId, reason, ct)
+            : await policy.AuthorizeAsync(shopId, actorId, session.CashierId, reason, ct);
         return auth.IsError ? auth.Errors : session;
+    }
+    // Finalization preserves historical cashier facts even after that membership ends.
+    // Trading and opening still require the active-cashier policy.
+    private async Task<ErrorOr<Success>> AuthorizeTerminalAsync(Guid shopId, Guid actorId, Guid cashierId, string? reason, CancellationToken ct)
+    {
+        var role = await shops.GetActiveRoleAsync(actorId, shopId, ct);
+        if (role is null) return TillErrors.Forbidden;
+        if (actorId == cashierId) return Result.Success;
+        if (!IsManager(role)) return TillErrors.CashierMismatch;
+        if (string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > 500) return TillErrors.OverrideReasonRequired;
+        return Result.Success;
     }
     private async Task<ErrorOr<TillSession>> LockSessionAsync(Guid shopId, Guid sessionId, CancellationToken ct)
     {

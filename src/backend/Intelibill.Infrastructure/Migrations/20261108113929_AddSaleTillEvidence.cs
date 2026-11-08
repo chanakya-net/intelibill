@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -52,29 +52,7 @@ namespace Intelibill.Infrastructure.Migrations
         }
 
         /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            migrationBuilder.DropCheckConstraint("ck_sales_till_evidence", "sales");
-
-            migrationBuilder.DropForeignKey(
-                name: "fk_sales_till_sessions_till_session_id_shop_id",
-                table: "sales");
-
-            migrationBuilder.DropIndex(
-                name: "ix_sales_till_session_id_shop_id",
-                table: "sales");
-
-            migrationBuilder.DropColumn(
-                name: "tender_lines",
-                table: "sales");
-
-            migrationBuilder.DropColumn(
-                name: "till_override_reason",
-                table: "sales");
-
-            migrationBuilder.DropColumn(
-                name: "till_session_id",
-                table: "sales");
-        }
+        protected override void Down(MigrationBuilder migrationBuilder) =>
+            throw new System.NotSupportedException("Retain till schema and immutable settlement facts; disable new postings instead of rolling schema back.");
     }
 }

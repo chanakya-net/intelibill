@@ -4,6 +4,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using ClosedXML.Excel;
 using Intelibill.Domain.Common;
+using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -95,10 +97,25 @@ public sealed class ProfitEconomicsTests(PostgreSqlTestFixture fixture) : IAsync
         var linkedExpense = (await QueryAsync(db => db.PaymentReceipts.Where(r => r.Id == receiptId).Select(r => r.ExpenseId).SingleAsync()))!.Value;
         for (var generation = 0; generation < 2; generation++)
         {
-            var corrected = await ReadAsync(await SendAsync(client, shop.Token, HttpMethod.Post, $"/api/expenses/{linkedExpense}/correct", new {
-                categoryName = "Misleading category", amount = 100m, paidTo = "Supplier", description = "Corrected description", expenseDate = Today }));
-            Assert.Equal("SupplierSettlement", corrected.GetProperty("treatment").GetString());
-            linkedExpense = corrected.GetProperty("id").GetGuid();
+            // New corrections are forbidden; historical correction chains still require truthful reporting.
+            using var correctionRefused = await SendAsync(client, shop.Token, HttpMethod.Post, $"/api/expenses/{linkedExpense}/correct", new {
+                categoryName = "Misleading category", amount = 100m, paidTo = "Supplier", description = "Corrected description", expenseDate = Today });
+            Assert.Equal(HttpStatusCode.BadRequest, correctionRefused.StatusCode);
+            Assert.Contains("Expense.SupplierSettlementCorrectionRefused", await correctionRefused.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+            linkedExpense = await QueryAsync(async db =>
+            {
+                var original = await db.Expenses.SingleAsync(x => x.Id == linkedExpense);
+                Assert.False(original.IsVoided);
+                var category = ExpenseCategory.Create(shop.ShopId, $"Historical misleading category {generation}", DateTimeOffset.UtcNow);
+                var corrected = Expense.CreateCorrection(original.ShopId, category.Id, 100m, "Supplier", "Historical correction",
+                    Today, original.ActorUserId, original.Id, original.Treatment, original.SupplierLedgerEntryId);
+                original.MarkVoided();
+                db.AddRange(category, corrected);
+                await db.SaveChangesAsync();
+                Assert.Equal(ExpenseTreatment.SupplierSettlement, corrected.Treatment);
+                Assert.Equal(original.SupplierLedgerEntryId, corrected.SupplierLedgerEntryId);
+                return corrected.Id;
+            });
         }
         var economics = await EconomicsAsync(client, shop.Token);
         Assert.Equal(200m, economics.GetProperty("netSalesExcludingTax").GetDecimal());

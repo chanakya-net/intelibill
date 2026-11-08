@@ -20,7 +20,7 @@ using Intelibill.Infrastructure.Options;
 namespace Intelibill.Integration.Tests;
 
 [Collection("Integration Tests")]
-public sealed class SaleCancellationTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
+public sealed partial class SaleCancellationTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
 {
     private static readonly JsonSerializerOptions TillSourceJsonOptions = new(JsonSerializerDefaults.Web);
     private readonly ApiWebApplicationFactory factory = new(fixture, services =>

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -44,10 +44,7 @@ namespace Intelibill.Infrastructure.Migrations
         }
 
         /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
-        {
-            // Do not destroy recorded settlement facts on rollback. Disable new writes instead.
-            throw new System.NotSupportedException("Settlement evidence must be retained; disable the rollout instead.");
-        }
+        protected override void Down(MigrationBuilder migrationBuilder) =>
+            throw new System.NotSupportedException("Retain till schema and immutable settlement facts; disable new postings instead of rolling schema back.");
     }
 }

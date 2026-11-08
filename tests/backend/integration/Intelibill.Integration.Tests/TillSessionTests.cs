@@ -20,6 +20,49 @@ namespace Intelibill.Integration.Tests;
 public sealed class TillSessionTests(PostgreSqlTestFixture fixture)
 {
     private static readonly string[] SessionErrorCodes = ["Till.SessionNotFound", "Till.CashierMismatch", "Till.BusinessDateMismatch", "Till.SessionClosed"];
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CloseReplay_AuthorizesRequestedOverdueModeAgainstCurrentRole(bool overdue)
+    {
+        var (shop, owner, _, _) = await SeedAsync(fixture.MigratorConnectionString);
+        await using var app = new TillTestContext(fixture.MigratorConnectionString, shop);
+        var session = await app.OpenAsync(shop, owner, (await app.CreateAsync(shop, owner)).Id);
+        if (overdue) app.Time.Now = app.Time.Now.AddDays(1);
+        var command = new Intelibill.Application.Features.Tills.Commands.CloseTill.CloseTillCommand(shop, owner, session.Id, 1000m,
+            overdue ? "Forgotten drawer counted" : null, session.Version, "role-replay", FinalizeOverdue: overdue);
+        Success(await app.Lifecycle.CloseAsync(command, default));
+        await app.Db.Database.ExecuteSqlAsync($"UPDATE shop_memberships SET role=3 WHERE shop_id={shop} AND user_id={owner}");
+        app.Db.ChangeTracker.Clear();
+        app.Time.Now = app.Time.Now.AddDays(1);
+        var replay = await app.Lifecycle.CloseAsync(command, default);
+        if (overdue) Assert.Equal("Till.Forbidden", replay.FirstError.Code);
+        else Assert.Equal(session.Id, Success(replay).Id);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task RemovedCashier_ManagerMayFinalizeButCannotTrade(int status)
+    {
+        var (shop, owner, cashier, other) = await SeedAsync(fixture.MigratorConnectionString);
+        await using var app = new TillTestContext(fixture.MigratorConnectionString, shop);
+        var session = await app.OpenAsync(shop, cashier, (await app.CreateAsync(shop, owner)).Id);
+        await app.Db.Database.ExecuteSqlAsync($"UPDATE shop_memberships SET status={status} WHERE shop_id={shop} AND user_id={cashier}");
+        app.Db.ChangeTracker.Clear();
+        Assert.Equal("Till.OverrideReasonRequired", (await app.Lifecycle.CloseAsync(new(shop, owner, session.Id, 1000m, null, session.Version, "missing-override"), default)).FirstError.Code);
+        Assert.Equal("Till.Forbidden", (await app.Lifecycle.OpenAsync(new(shop, owner, session.TillId, cashier, 0m, "inactive-open", "Cashier left"), default)).FirstError.Code);
+        var closed = await app.Lifecycle.CloseAsync(new(shop, owner, session.Id, 1000m, null, session.Version, "finalize-removed", "Cashier left; counted drawer"), default);
+        var saved = Success(closed);
+        Assert.Equal(cashier, saved.Close!.CashierId);
+        Assert.Equal(session.CashierName, saved.Close.CashierName);
+        Assert.Equal(session.BusinessDate, saved.Close.BusinessDate);
+        Assert.Equal("Cashier left; counted drawer", saved.Close.OverrideReason);
+        Assert.Equal("Till.Forbidden", (await app.Lifecycle.MoveAsync(new(shop, owner, session.Id, 1m, 1m, "No trading", saved.Version, "blocked-trading", "Cashier left"), default)).FirstError.Code);
+        Assert.Equal("Till.Forbidden", (await app.Lifecycle.CloseAsync(new(shop, cashier, session.Id, 1000m, null, session.Version, "inactive-replay"), default)).FirstError.Code);
+        Assert.Equal("Till.CashierMismatch", (await app.Lifecycle.CloseAsync(new(shop, other, session.Id, 1000m, null, session.Version, "staff-override", "Cashier left"), default)).FirstError.Code);
+    }
+
     [Fact]
     public async Task DisabledLegacy_NoTillEffects()
     {
@@ -115,7 +158,7 @@ public sealed class TillSessionTests(PostgreSqlTestFixture fixture)
         var session = await app.OpenAsync(shop, cashier, (await app.CreateAsync(shop, owner)).Id);
         app.Time.Now = app.Time.Now.AddDays(1);
         Assert.Equal("Till.Overdue", (await app.Lifecycle.MoveAsync(new(shop, cashier, session.Id, 1m, 10m, "float", session.Version, "late-move"), default)).FirstError.Code);
-        Assert.Equal("Till.Overdue", (await app.Lifecycle.CloseAsync(new(shop, cashier, session.Id, 1000m, "late count", session.Version, "late-staff", FinalizeOverdue: true), default)).FirstError.Code);
+        Assert.Equal("Till.Forbidden", (await app.Lifecycle.CloseAsync(new(shop, cashier, session.Id, 1000m, "late count", session.Version, "late-staff", FinalizeOverdue: true), default)).FirstError.Code);
         var closed = Success(await app.Lifecycle.CloseAsync(new(shop, owner, session.Id, 1000m, "late count", session.Version, "late-manager", "cashier absent", true), default));
         Assert.True(closed.Close!.IsOverdue);
         Assert.Equal(session.BusinessDate, closed.Close.BusinessDate);
