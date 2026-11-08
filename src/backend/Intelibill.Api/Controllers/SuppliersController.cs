@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.Enums;
 using Intelibill.Application.Features.Payments.DTOs;
 using ErrorOr;
@@ -138,7 +139,7 @@ public sealed class SuppliersController : AuthenticatedControllerBase
                 request.Method,
                 request.BankAccountId,
                 request.ExternalReference,
-                request.Allocations),
+                request.Allocations, request.Till),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -179,4 +180,4 @@ public sealed record MakePaymentRequest(
     ReceiptTenderMethod? Method = null,
     Guid? BankAccountId = null,
     string? ExternalReference = null,
-    IReadOnlyList<PaymentAllocationRequest>? Allocations = null);
+    IReadOnlyList<PaymentAllocationRequest>? Allocations = null, TillPostingContext? Till = null);

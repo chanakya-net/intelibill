@@ -1,3 +1,4 @@
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Common;
 using Intelibill.Domain.Enums;
 
@@ -5,6 +6,7 @@ namespace Intelibill.Domain.Entities;
 
 public sealed class Expense : BaseEntity
 {
+    public TillSettlementEvidence? SettlementEvidence { get; private set; }
     public ExpenseTreatment Treatment { get; private set; }
     public Guid ShopId { get; private set; }
     public Guid CategoryId { get; private set; }
@@ -29,11 +31,13 @@ public sealed class Expense : BaseEntity
         string? description,
         DateOnly expenseDate,
         Guid actorUserId,
-        ExpenseTreatment treatment = ExpenseTreatment.Unclassified)
+        ExpenseTreatment treatment = ExpenseTreatment.Unclassified,
+        TillSettlementEvidence? settlementEvidence = null)
     {
         return new Expense
         {
             Treatment = treatment,
+            SettlementEvidence = settlementEvidence,
             Id = Guid.NewGuid(),
             ShopId = shopId,
             CategoryId = categoryId,
@@ -57,9 +61,10 @@ public sealed class Expense : BaseEntity
         Guid actorUserId,
         Guid originalExpenseId,
         ExpenseTreatment treatment = ExpenseTreatment.Unclassified,
-        Guid? supplierLedgerEntryId = null)
+        Guid? supplierLedgerEntryId = null,
+        TillSettlementEvidence? settlementEvidence = null)
     {
-        var expense = Create(shopId, categoryId, amount, paidTo, description, expenseDate, actorUserId);
+        var expense = Create(shopId, categoryId, amount, paidTo, description, expenseDate, actorUserId, treatment, settlementEvidence);
         expense.OriginalExpenseId = originalExpenseId;
         expense.Treatment = treatment;
         expense.SupplierLedgerEntryId = supplierLedgerEntryId;

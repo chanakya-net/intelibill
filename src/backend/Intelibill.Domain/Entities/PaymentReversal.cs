@@ -1,3 +1,4 @@
+using Intelibill.Domain.ValueObjects;
 using ErrorOr;
 using Intelibill.Domain.Common;
 
@@ -12,6 +13,7 @@ public sealed class PaymentReversal : BaseEntity
     public const int MinReasonLength = 3;
     public const int MaxReasonLength = 255;
 
+    public TillSettlementEvidence? SettlementEvidence { get; private set; }
     public Guid ShopId { get; private set; }
     public Guid ReceiptId { get; private set; }
     public decimal Amount { get; private set; }
@@ -30,7 +32,8 @@ public sealed class PaymentReversal : BaseEntity
         string? reason,
         Guid ledgerEntryId,
         DateOnly businessDate,
-        Guid reversedBy)
+        Guid reversedBy,
+        TillSettlementEvidence? settlementEvidence = null)
     {
         var trimmed = reason?.Trim() ?? string.Empty;
         if (trimmed.Length is < MinReasonLength or > MaxReasonLength)
@@ -45,6 +48,7 @@ public sealed class PaymentReversal : BaseEntity
             LedgerEntryId = ledgerEntryId,
             BusinessDate = businessDate,
             ReversedBy = reversedBy,
+            SettlementEvidence = settlementEvidence,
         };
     }
 }

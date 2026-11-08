@@ -1,3 +1,6 @@
+using Intelibill.Application.Features.Tills;
+using Intelibill.Application.Common.Time;
+using Intelibill.Domain.ValueObjects;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -28,6 +31,9 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
     IPaymentTransactionRunner transactionRunner,
     IPostingPeriodPolicy postingPeriodPolicy,
     IUnitOfWork unitOfWork,
+    ITillPostingService tillPosting,
+    ITillSessionPolicy tillPolicy,
+    IBusinessClock businessClock,
     ILogger<RecordCustomerPaymentCommandHandler> logger)
 {
     public async Task<ErrorOr<CustomerLedgerEntryDto>> HandleAsync(
@@ -39,7 +45,7 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
             return Errors.Auth.UserNotFound;
 
         var actorMembership = actor.ShopMemberships.FirstOrDefault(sm => sm.ShopId == command.ActiveShopId);
-        if (actorMembership is null)
+        if (actorMembership is null || !actorMembership.IsActive)
             return Errors.Shop.MembershipNotFound;
 
         if (actorMembership.Role is not (ShopRole.Owner or ShopRole.Manager))
@@ -81,6 +87,8 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
     /// </summary>
     internal static string ComputeRequestHash(RecordCustomerPaymentCommand command, IReadOnlyList<PaymentAllocationRequest> allocations)
     {
+        if (command.Till is not null)
+            return FinancialOperationHasher.Compute(new { LegacyHash = ComputeRequestHash(command with { Till = null }, allocations), command.ActorUserId, command.Till });
         var notes = string.IsNullOrWhiteSpace(command.Notes) ? null : command.Notes.Trim();
         var amount = FinancialOperationHasher.NormalizeAmount(command.Amount);
         var reference = string.IsNullOrWhiteSpace(command.ExternalReference) ? null : command.ExternalReference.Trim();
@@ -110,6 +118,14 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
         var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(command.ActiveShopId, command.PaymentDate, cancellationToken);
         if (fence.IsError)
             return fence.Errors;
+
+        if (tillPolicy.IsEnabled(command.ActiveShopId))
+        {
+            if (FinancialOperationHasher.NormalizeKey(command.OperationKey) is null) return Errors.Operation.InvalidKey;
+            if (command.Method is null or ReceiptTenderMethod.UnknownRecordedMethod) return Errors.Till.TenderRequired;
+        }
+        var acquired = await tillPosting.AcquireAsync(command.ActiveShopId, command.ActorUserId, command.Till, command.PaymentDate, cancellationToken);
+        if (acquired.IsError) return acquired.Errors;
 
         var lockOutcome = await paymentReceiptRepository.LockPartyAndTargetsAsync(
             command.ActiveShopId,
@@ -169,6 +185,14 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
         await paymentReceiptRepository.AddAsync(receipt, cancellationToken);
         foreach (var allocation in allocations.Value)
             await paymentReceiptRepository.AddAllocationAsync(allocation, cancellationToken);
+
+        if (acquired.Value is { } session)
+        {
+            var appended = await tillPosting.AppendAsync(session, new(TillMovementSource.CustomerPayment, receipt.Id, "payment",
+                [new TenderLine(receipt.Method, receipt.Amount, null, null, receipt.ExternalReference, receipt.BankAccountId)], 1m,
+                businessClock.UtcNow, command.OperationKey!.Trim(), command.Notes), command.ActorUserId, cancellationToken);
+            if (appended.IsError) return appended.Errors;
+        }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 

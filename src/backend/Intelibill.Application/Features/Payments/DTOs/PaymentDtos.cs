@@ -1,3 +1,4 @@
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Enums;
 
 namespace Intelibill.Application.Features.Payments.DTOs;
@@ -51,7 +52,7 @@ public sealed record PaymentReversalDto(
     DateTimeOffset ReversedAt,
     Guid ReversedBy,
     string? ReversedByName,
-    Guid LedgerEntryId);
+    Guid LedgerEntryId, TillSettlementEvidence? SettlementEvidence = null);
 
 /// <summary>A payment receipt with everything a printed receipt or an audit needs.</summary>
 public sealed record PaymentReceiptDto(

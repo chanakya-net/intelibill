@@ -1,3 +1,6 @@
+using Intelibill.Infrastructure.Data.Json;
+
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +21,8 @@ internal sealed class ExpenseConfiguration : IEntityTypeConfiguration<Expense>
         builder.Property(e => e.Treatment).HasConversion<int>().HasDefaultValue(ExpenseTreatment.Unclassified).IsRequired();
 
         builder.HasKey(e => e.Id);
+        builder.Property(e => e.SettlementEvidence).HasColumnType("jsonb")
+            .HasConversion(InvoiceDocumentJson.Converter<TillSettlementEvidence>(), InvoiceDocumentJson.Comparer<TillSettlementEvidence>());
 
         builder.Property(e => e.ShopId)
             .IsRequired();

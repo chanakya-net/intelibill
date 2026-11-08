@@ -799,6 +799,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("paid_to");
 
+                    b.Property<string>("SettlementEvidence")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("settlement_evidence");
+
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
                         .HasColumnName("shop_id");
@@ -2172,6 +2176,10 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Property<Guid>("ReversedBy")
                         .HasColumnType("uuid")
                         .HasColumnName("reversed_by");
+
+                    b.Property<string>("SettlementEvidence")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("settlement_evidence");
 
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")

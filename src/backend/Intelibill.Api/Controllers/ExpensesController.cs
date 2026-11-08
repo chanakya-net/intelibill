@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Tills;
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Enums;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -37,7 +39,7 @@ public sealed class ExpensesController : AuthenticatedControllerBase
                 request.Amount,
                 request.PaidTo,
                 request.Description,
-                request.ExpenseDate, request.Treatment),
+                request.ExpenseDate, request.Treatment, request.OperationKey, request.Till, request.TenderLine, request.SettlementEvidence),
             cancellationToken);
 
         return result.ToActionResult(sale => CreatedAtAction(nameof(GetExpense), new { id = sale.Id }, sale));
@@ -59,7 +61,7 @@ public sealed class ExpensesController : AuthenticatedControllerBase
                 request.Amount,
                 request.PaidTo,
                 request.Description,
-                request.ExpenseDate, request.Treatment),
+                request.ExpenseDate, request.Treatment, request.OperationKey, request.Till, request.SettlementEvidence),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -119,7 +121,8 @@ public sealed record RecordExpenseRequest(
     string PaidTo,
     string? Description,
     DateOnly ExpenseDate,
-    ExpenseTreatment Treatment = ExpenseTreatment.Unclassified);
+    ExpenseTreatment Treatment = ExpenseTreatment.Unclassified,
+    string? OperationKey = null, TillPostingContext? Till = null, TenderLine? TenderLine = null, TillSettlementEvidence? SettlementEvidence = null);
 
 public sealed record CorrectExpenseRequest(
     string CategoryName,
@@ -127,4 +130,5 @@ public sealed record CorrectExpenseRequest(
     string PaidTo,
     string? Description,
     DateOnly ExpenseDate,
-    ExpenseTreatment? Treatment = null);
+    ExpenseTreatment? Treatment = null,
+    string? OperationKey = null, TillPostingContext? Till = null, TillSettlementEvidence? SettlementEvidence = null);

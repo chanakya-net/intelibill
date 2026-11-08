@@ -1,3 +1,6 @@
+using Intelibill.Application.Unit.Tests.Common.Time;
+using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Features.Payments.Services;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Expenses.Commands.RecordExpense;
@@ -18,7 +21,8 @@ public class RecordExpenseCommandHandlerTests
 
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private RecordExpenseCommandHandler CreateHandler() =>
-        new(_userRepository, _categoryRepository, _expenseRepository, _postingPeriods, _unitOfWork);
+        new(_userRepository, _categoryRepository, _expenseRepository, _postingPeriods, _unitOfWork,
+            new PaymentTransactionRunner(Substitute.For<IFinancialOperationExecutor>(), _unitOfWork), BusinessTestDoubles.DisabledTillSettlement());
 
     private static RecordExpenseCommand CreateCommand(Guid userId, Guid shopId) =>
         new(userId, shopId, "Office Supplies", 250m, "Stationery Store", "Printer paper", new DateOnly(2026, 4, 15));

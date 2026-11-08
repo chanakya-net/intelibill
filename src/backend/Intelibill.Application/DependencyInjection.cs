@@ -31,6 +31,7 @@ public static class DependencyInjection
         services.AddScoped<Features.Tills.ITillPostingService, Features.Tills.Services.TillPostingService>();
         services.AddScoped<Features.Tills.Services.TillDtoBuilder>();
         services.AddScoped<Features.Tills.Services.TillLifecycleService>();
+        services.AddScoped<Features.Tills.Services.TillSourceSettlementService>();
         services.AddScoped<Features.Tills.Services.TillReadService>();
 
         services.AddScoped<IItemCatalogStreamingService, ItemCatalogStreamingService>();

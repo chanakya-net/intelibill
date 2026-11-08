@@ -1,3 +1,6 @@
+using Intelibill.Infrastructure.Data.Json;
+
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -103,6 +106,8 @@ internal sealed class PaymentReversalConfiguration : IEntityTypeConfiguration<Pa
         });
 
         builder.HasKey(r => r.Id);
+        builder.Property(e => e.SettlementEvidence).HasColumnType("jsonb")
+            .HasConversion(InvoiceDocumentJson.Converter<TillSettlementEvidence>(), InvoiceDocumentJson.Comparer<TillSettlementEvidence>());
 
         builder.Property(r => r.Amount).HasPrecision(18, 2).IsRequired();
         builder.Property(r => r.Reason).HasMaxLength(PaymentReversal.MaxReasonLength).IsRequired();

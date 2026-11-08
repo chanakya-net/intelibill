@@ -49,7 +49,17 @@ public class PaymentCommandHandlerTests
     private ReversePaymentCommandHandler ReverseHandler() => new(
         _users, _receipts, Substitute.For<ICustomerLedgerEntryRepository>(), Substitute.For<ISupplierLedgerEntryRepository>(),
         _expenses, new PaymentTransactionRunner(_executor, _unitOfWork), Builder(), _unitOfWork,
-        BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock());
+        BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), BusinessTestDoubles.DisabledTillSettlement());
+
+    [Fact]
+    public async Task Reverse_SuspendedOwner_IsRefusedBeforeReplay()
+    {
+        var actor = Member(ShopRole.Owner);
+        actor.ShopMemberships.Single().ChangeAuthority(ShopRole.Owner, MembershipStatus.Suspended);
+        var result = await PaymentAuthorization.RoleAsync(_users, actor.Id, _shop.Id, CancellationToken.None);
+        Assert.True(result.IsError);
+        Assert.Equal("Shop.MembershipNotFound", result.FirstError.Code);
+    }
 
     [Theory]
     [InlineData(ShopRole.Manager)]

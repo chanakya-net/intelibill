@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Tills.Services;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -32,7 +33,8 @@ public sealed class ReversePaymentCommandHandler(
     IUnitOfWork unitOfWork,
     IShopRepository shopRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
-    IBusinessClock businessClock)
+    IBusinessClock businessClock,
+    TillSourceSettlementService settlement)
 {
     public async Task<ErrorOr<PaymentReceiptDto>> HandleAsync(ReversePaymentCommand command, CancellationToken cancellationToken)
     {
@@ -54,17 +56,20 @@ public sealed class ReversePaymentCommandHandler(
             new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.PaymentReversal, operationKey),
             command.ActorUserId,
             receipt.Id,
-            FinancialOperationHasher.Compute(new ReversalPayload(receipt.Id, reason)),
-            ct => ReverseAsync(receipt, reason, command.ActorUserId, ct),
+            command.Till is null && command.SettlementEvidence is null
+                ? FinancialOperationHasher.Compute(new ReversalPayload(receipt.Id, reason))
+                : FinancialOperationHasher.Compute(new { ReceiptId = receipt.Id, Reason = reason, command.ActorUserId, command.Till, command.SettlementEvidence }),
+            ct => ReverseAsync(receipt, reason, command, ct),
             cancellationToken);
     }
 
     private async Task<ErrorOr<PaymentReceiptDto>> ReverseAsync(
         PaymentReceipt receipt,
         string reason,
-        Guid actorUserId,
+        ReversePaymentCommand command,
         CancellationToken cancellationToken)
     {
+        var actorUserId = command.ActorUserId;
         var shop = await shopRepository.GetByIdAsync(receipt.ShopId, cancellationToken);
         if (shop is null)
             return Errors.Shop.ShopNotFound;
@@ -93,6 +98,11 @@ public sealed class ReversePaymentCommandHandler(
 
         if (fenceErrors is not null)
             return fenceErrors;
+
+        var acquired = await settlement.AcquireAsync(receipt.ShopId, actorUserId, command.Till, command.OperationKey,
+            command.SettlementEvidence, receipt.PartyType == PaymentPartyType.Customer ? -receipt.Amount : receipt.Amount,
+            businessDate, cancellationToken);
+        if (acquired.IsError) return acquired.Errors;
 
         // Party first: every allocation of this receipt also takes it, so the allocations read next
         // are complete; then the documents they settled, in the same order an allocation locks them.
@@ -149,10 +159,14 @@ public sealed class ReversePaymentCommandHandler(
             }
         }
 
-        var reversal = PaymentReversal.Create(receipt, reason, ledgerEntryId, businessDate, actorUserId);
+        var reversal = PaymentReversal.Create(receipt, reason, ledgerEntryId, businessDate, actorUserId, command.SettlementEvidence);
         if (reversal.IsError)
             return reversal.Errors;
 
+        var appended = await settlement.AppendAsync(acquired.Value,
+            receipt.PartyType == PaymentPartyType.Customer ? TillMovementSource.CustomerPaymentReversal : TillMovementSource.SupplierPaymentReversal,
+            reversal.Value.Id, actorUserId, command.OperationKey, command.SettlementEvidence, cancellationToken);
+        if (appended.IsError) return appended.Errors;
         await receiptRepository.AddReversalAsync(reversal.Value, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return await dtoBuilder.BuildAsync(receipt, cancellationToken);
