@@ -77,6 +77,14 @@ public class ApplicationDbContext(
     public DbSet<SupplierReturnCreditLine> SupplierReturnCreditLines => Set<SupplierReturnCreditLine>();
     public DbSet<PurchaseReceiptReversal> PurchaseReceiptReversals => Set<PurchaseReceiptReversal>();
 
+    public DbSet<Till> Tills => Set<Till>();
+    public DbSet<TillSession> TillSessions => Set<TillSession>();
+    public DbSet<TillSourceRecord> TillSourceRecords => Set<TillSourceRecord>();
+    public DbSet<TillMovement> TillMovements => Set<TillMovement>();
+    public DbSet<TillClose> TillCloses => Set<TillClose>();
+    public DbSet<TillCloseReview> TillCloseReviews => Set<TillCloseReview>();
+    public DbSet<TillLatePosting> TillLatePostings => Set<TillLatePosting>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
@@ -102,6 +110,8 @@ public class ApplicationDbContext(
                 .IsRowVersion()
                 .HasColumnName("xmin")
                 .HasColumnType("xid");
+
+            modelBuilder.Entity<TillSession>().Property(s => s.Version).IsRowVersion().HasColumnName("xmin").HasColumnType("xid");
 
             modelBuilder.Entity<Sale>().Property(s => s.Version).IsRowVersion().HasColumnName("xmin").HasColumnType("xid");
 

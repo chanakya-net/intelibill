@@ -107,6 +107,12 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(HsnServiceOptions.SectionName));
 
         // ── Repositories ─────────────────────────────────────────────────────
+        services.AddScoped<ITillRepository, TillRepository>();
+        services.AddScoped<Application.Features.Tills.ITillSessionPolicy, Services.Tills.TillSessionPolicy>();
+        services.AddOptions<Options.TillSessionOptions>()
+            .Bind(configuration.GetSection(Options.TillSessionOptions.SectionName))
+            .Validate(o => !o.MixedTenderEnabled, "Mixed tender is not supported.")
+            .ValidateOnStart();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IShopRepository, ShopRepository>();
         services.AddScoped<IMembershipAuthorityRepository, MembershipAuthorityRepository>();
