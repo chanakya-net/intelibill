@@ -213,4 +213,10 @@ describe('customer ledger entry kinds', () => {
     expect(isCustomerDebit('PaymentReceived')).toBe(false);
     expect(isCustomerDebit('ReturnCredit')).toBe(false);
   });
+  it('treats cancellation credit as a distinct credit in all wire forms', () => {
+    for (const value of [6, 'SaleCancellationCredit', 'SALE_CANCELLATION_CREDIT']) {
+      expect(customerLedgerEntryKind(value)).toBe('SaleCancellationCredit');
+      expect(isCustomerDebit(value)).toBe(false);
+    }
+  });
 });

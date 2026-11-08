@@ -6,6 +6,7 @@ namespace Intelibill.Domain.Interfaces.Repositories;
 
 public interface ISaleRepository : IRepository<Sale>
 {
+    Task<bool> ExistsAsync(Guid shopId, Guid saleId, CancellationToken cancellationToken = default);
     Task<Sale?> GetByIdAsync(Guid saleId, Guid shopId, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -71,24 +72,36 @@ public sealed record SaleHistoryReadModel(
     string Status,
     decimal RefundAmount,
     decimal DueReductionAmount,
-    decimal CreditNoteAppliedAmount);
+    decimal CreditNoteAppliedAmount)
+{
+    public string? CancellationReference { get; init; }
+    public DateTimeOffset? CancelledAt { get; init; }
+}
 
 public sealed record SalesHistorySummaryReadModel(
     decimal PeriodSales,
     int InvoiceCount,
-    decimal RefundAmount);
+    decimal RefundAmount,
+    decimal CancellationAmount = 0m,
+    int CancellationCount = 0);
 
 public sealed record DashboardLatestSaleReadModel(
     Guid SaleId,
     string InvoiceNumber,
     string CustomerDisplayName,
     DateTimeOffset SoldAt,
-    decimal TotalAmount);
+    decimal TotalAmount)
+{
+    public SaleStatus Status { get; init; }
+    public string? CancellationReference { get; init; }
+    public DateTimeOffset? CancelledAt { get; init; }
+}
 
 public sealed record SalesTrendBucketReadModel(
     DateOnly Date,
     decimal GrossSales,
-    decimal ReturnAmount);
+    decimal ReturnAmount,
+    decimal CancellationAmount = 0m);
 
 public sealed record CustomerSalesMetricsReadModel(
     Guid CustomerId,

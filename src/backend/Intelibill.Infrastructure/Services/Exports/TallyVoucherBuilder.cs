@@ -103,6 +103,17 @@ internal static class TallyVoucherBuilder
                 lines);
     }
 
+    internal static AccountingVoucher BuildCancellationVoucher(SaleCancellationAdjustmentEntry entry)
+    {
+        var lines = new List<AccountingVoucherLine>();
+        AddLine(lines, SalesLedger, entry.RevenueAmount, isDebit: true);
+        AddLine(lines, "Cash", entry.CashRefundAmount, isDebit: false);
+        AddLine(lines, CustomerLedgerName(entry.CustomerName), entry.DueReductionAmount, isDebit: false);
+        return new AccountingVoucher(entry.ReferenceNumber, "Journal", entry.BusinessDate,
+            entry.InvoiceNumber, entry.InvoiceBusinessDate,
+            $"Cancellation of invoice {entry.InvoiceNumber} ({entry.PolicyVersion}): {entry.Reason}. {entry.Disclaimer}", lines);
+    }
+
     internal static string ReversalVoucherNumber(string returnNumber) => $"{returnNumber}-VOID";
 
     internal static XElement ToXml(AccountingVoucher voucher)

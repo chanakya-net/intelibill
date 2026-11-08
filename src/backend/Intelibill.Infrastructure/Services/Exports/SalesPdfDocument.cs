@@ -78,6 +78,9 @@ internal sealed class SalesPdfDocument : IDocument
 
             column.Item().Element(ComposeTable);
 
+            if (_dataset.CancellationAdjustments.Count > 0)
+                column.Item().Element(ComposeCancellations);
+
             if (_dataset.ReturnAdjustments.Count > 0)
             {
                 column.Item().Element(ComposeReturnAdjustments);
@@ -117,7 +120,7 @@ internal sealed class SalesPdfDocument : IDocument
                 });
 
                 static IContainer LabelStyle(IContainer c) => c.PaddingVertical(2).PaddingRight(6);
-                static IContainer ValueStyle(IContainer c) => c.PaddingVertical(2).AlignRight();
+                static IContainer ValueStyle(IContainer c) => c.PaddingVertical(2).PaddingRight(10).AlignRight();
 
                 void LabelCell(string text) =>
                     table.Cell().Element(LabelStyle).Text(text).FontColor(Colors.Grey.Darken2);
@@ -140,6 +143,11 @@ internal sealed class SalesPdfDocument : IDocument
                 ValueCell(taxAmount.ToString("N2", culture));
                 LabelCell("Return adjustments");
                 ValueCell(returnAmount.ToString("N2", culture));
+
+                LabelCell("Cancellation count");
+                ValueCell(_dataset.CancellationAdjustments.Count.ToString("N0", culture));
+                LabelCell("Cancellation amount");
+                ValueCell(_dataset.CancellationAdjustments.Sum(c => c.TotalAmount).ToString("N2", culture));
 
                 LabelCell("Net sales");
                 ValueCell(netSales.ToString("N2", culture));
@@ -192,8 +200,27 @@ internal sealed class SalesPdfDocument : IDocument
         return new SalesPdfReturnTotals(
             adjustment,
             adjustments.Sum(a => a.SettledBy(ReturnSettlementKind.StoreCreditIssued)),
-            dataset.SummaryRows.Sum(r => r.TotalAmount) - adjustment,
+            dataset.SummaryRows.Sum(r => r.TotalAmount) - adjustment - dataset.CancellationAdjustments.Sum(c => c.TotalAmount),
             adjustments.Count(a => a.Status == ReturnAccountingStatus.NeedsReview));
+    }
+
+    private void ComposeCancellations(IContainer container)
+    {
+        container.Column(column =>
+        {
+            column.Spacing(4);
+            column.Item().Text("Sale Cancellations").SemiBold();
+            foreach (var entry in _dataset.CancellationAdjustments)
+            {
+                column.Item().Text($"{entry.ReferenceNumber} — {entry.BusinessDate:yyyy-MM-dd}").SemiBold();
+                column.Item().Text($"Original invoice: {entry.InvoiceNumber}, {entry.InvoiceBusinessDate:yyyy-MM-dd}. Seller: {entry.Seller.LegalName}. Buyer: {entry.CustomerName ?? "Walk-in Customer"}.");
+                column.Item().Text($"Reason: {entry.Reason}");
+                column.Item().Text(FormattableString.Invariant($"Revenue reversal: {-entry.RevenueAmount:N2}; COGS reversal: {-entry.RecordedCogs:N2}; due reduction: {entry.DueReductionAmount:N2}; operator-confirmed cash refund: {entry.CashRefundAmount:N2}."));
+                foreach (var line in entry.Lines)
+                    column.Item().Text(FormattableString.Invariant($"Recovered: {line.Description} — {line.Quantity:0.###} {line.Uqc}; recorded cost: {line.RecordedCostAmount:N2}."));
+                column.Item().Text(entry.Disclaimer).Italic();
+            }
+        });
     }
 
     private void ComposeReturnAdjustments(IContainer container)
@@ -257,9 +284,9 @@ internal sealed class SalesPdfDocument : IDocument
             cols.RelativeColumn();   // Customer
             cols.ConstantColumn(52); // Paid
             cols.ConstantColumn(52); // Due
-            cols.ConstantColumn(70); // Net
-            cols.ConstantColumn(74); // Credit Note Applied
-            cols.ConstantColumn(74); // Credit Note Issued
+            cols.ConstantColumn(62); // Net
+            cols.ConstantColumn(62); // Credit Note Applied
+            cols.ConstantColumn(62); // Credit Note Issued
             cols.ConstantColumn(80); // Credit Note Issued Amount
         });
 
@@ -274,7 +301,7 @@ internal sealed class SalesPdfDocument : IDocument
             var zebra = rowIndex % 2 == 0;
             var background = zebra ? Colors.Grey.Lighten5 : Colors.White;
 
-            table.Cell().Element(c => TableCell(c, background)).Text(row.InvoiceNumber);
+            table.Cell().Element(c => TableCell(c, background)).Text(row.InvoiceNumber + (row.Status == "Cancelled" ? $" — Cancelled ({row.CancellationReference}, {row.CancellationBusinessDate:yyyy-MM-dd})" : string.Empty));
             table.Cell().Element(c => TableCell(c, background)).Text(row.BusinessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
             table.Cell().Element(c => TableCell(c, background)).Text(row.CustomerName ?? string.Empty);
             table.Cell().Element(c => TableCell(c, background).AlignRight()).Text(row.PaidAmount.ToString("N2", CultureInfo.InvariantCulture));
@@ -311,7 +338,7 @@ internal sealed class SalesPdfDocument : IDocument
             var zebra = rowIndex % 2 == 0;
             var background = zebra ? Colors.Grey.Lighten5 : Colors.White;
 
-            table.Cell().Element(c => TableCell(c, background)).Text(row.InvoiceNumber);
+            table.Cell().Element(c => TableCell(c, background)).Text(row.InvoiceNumber + (row.Status == "Cancelled" ? $" — Cancelled ({row.CancellationReference}, {row.CancellationBusinessDate:yyyy-MM-dd})" : string.Empty));
             table.Cell().Element(c => TableCell(c, background)).Text(row.ItemName);
             table.Cell().Element(c => TableCell(c, background).AlignRight()).Text(row.SalesQuantity.ToString("N2", CultureInfo.InvariantCulture));
             table.Cell().Element(c => TableCell(c, background).AlignRight()).Text(row.SalesPrice.ToString("N2", CultureInfo.InvariantCulture));

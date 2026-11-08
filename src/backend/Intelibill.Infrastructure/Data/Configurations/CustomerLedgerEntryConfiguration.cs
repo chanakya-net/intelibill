@@ -14,10 +14,11 @@ internal sealed class CustomerLedgerEntryConfiguration : IEntityTypeConfiguratio
             tableBuilder.HasCheckConstraint("ck_customer_ledger_entries_amount_positive", "amount > 0");
             tableBuilder.HasCheckConstraint(
                 "ck_customer_ledger_entries_sale_by_type",
-                "((entry_type = 'SALE_DUE' AND sale_id IS NOT NULL) OR (entry_type IN ('PAYMENT_RECEIVED', 'PAYMENT_REVERSAL') AND sale_id IS NULL) OR entry_type IN ('RETURN_CREDIT', 'RETURN_CREDIT_REVERSAL'))");
+                "((entry_type IN ('SALE_DUE', 'SALE_CANCELLATION_CREDIT') AND sale_id IS NOT NULL) OR (entry_type IN ('PAYMENT_RECEIVED', 'PAYMENT_REVERSAL') AND sale_id IS NULL) OR entry_type IN ('RETURN_CREDIT', 'RETURN_CREDIT_REVERSAL'))");
         });
 
         builder.HasKey(e => e.Id);
+        builder.HasAlternateKey(e => new { e.Id, e.ShopId });
 
         builder.Property(e => e.ShopId)
             .IsRequired();
@@ -73,6 +74,7 @@ internal sealed class CustomerLedgerEntryConfiguration : IEntityTypeConfiguratio
             CustomerLedgerEntryType.ReturnCredit => "RETURN_CREDIT",
             CustomerLedgerEntryType.ReturnCreditReversal => "RETURN_CREDIT_REVERSAL",
             CustomerLedgerEntryType.PaymentReversal => "PAYMENT_REVERSAL",
+            CustomerLedgerEntryType.SaleCancellationCredit => "SALE_CANCELLATION_CREDIT",
             _ => throw new ArgumentOutOfRangeException(nameof(entryType), entryType, null)
         };
     }
@@ -86,6 +88,7 @@ internal sealed class CustomerLedgerEntryConfiguration : IEntityTypeConfiguratio
             "RETURN_CREDIT" => CustomerLedgerEntryType.ReturnCredit,
             "RETURN_CREDIT_REVERSAL" => CustomerLedgerEntryType.ReturnCreditReversal,
             "PAYMENT_REVERSAL" => CustomerLedgerEntryType.PaymentReversal,
+            "SALE_CANCELLATION_CREDIT" => CustomerLedgerEntryType.SaleCancellationCredit,
             _ => throw new ArgumentOutOfRangeException(nameof(value), value, null)
         };
     }

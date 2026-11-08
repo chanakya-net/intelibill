@@ -41,6 +41,9 @@ internal sealed class SaleReturnValidator(
         if (sale is null)
             return Errors.Sale.NotFound(request.SaleId);
 
+        if (sale.Status == SaleStatus.Cancelled)
+            return Error.Conflict("SaleReturn.SaleCancelled", "A cancelled sale cannot be returned.");
+
         var validationErrors = ValidateRequestShape(request);
         if (validationErrors.Count > 0)
             return validationErrors;

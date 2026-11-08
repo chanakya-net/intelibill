@@ -12,17 +12,20 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
     private readonly ISaleReturnRepository _saleReturnRepository;
     private readonly IItemRepository _itemRepository;
     private readonly ReturnAdjustmentReader _returnAdjustmentReader;
+    private readonly SaleCancellationAdjustmentReader _cancellationAdjustmentReader;
 
     public SalesExportDatasetBuilder(
         ISaleRepository saleRepository,
         ISaleReturnRepository saleReturnRepository,
         IItemRepository itemRepository,
-        ReturnAdjustmentReader returnAdjustmentReader)
+        ReturnAdjustmentReader returnAdjustmentReader,
+        SaleCancellationAdjustmentReader cancellationAdjustmentReader)
     {
         _saleRepository = saleRepository;
         _saleReturnRepository = saleReturnRepository;
         _itemRepository = itemRepository;
         _returnAdjustmentReader = returnAdjustmentReader;
+        _cancellationAdjustmentReader = cancellationAdjustmentReader;
     }
 
     public async Task<SalesExportDatasetDto> BuildAsync(
@@ -34,6 +37,8 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
         CancellationToken cancellationToken)
     {
         var sales = await _saleRepository.GetByShopAndDateRangeAsync(shop.Id, startDate, endDate, cancellationToken);
+        var cancellations = await _cancellationAdjustmentReader.ReadAsync(shop.Id, startDate, endDate, cancellationToken);
+        var cancellationBySale = (await _cancellationAdjustmentReader.ReadForSalesAsync(shop.Id, sales.Select(s => s.Id).ToArray(), cancellationToken)).ToDictionary(c => c.SaleId);
         var isLineItemLevel = level.Equals(SalesExportLevel.LineItems, StringComparison.OrdinalIgnoreCase);
 
         // Every return figure below comes from the adjustments posted in the period: a return is
@@ -60,7 +65,8 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
         foreach (var sale in sales)
         {
             var saleAdjustments = adjustmentsBySaleId.GetValueOrDefault(sale.Id, []);
-            summaryRows.Add(BuildSummaryRow(sale, saleAdjustments));
+            cancellationBySale.TryGetValue(sale.Id, out var cancellation);
+            summaryRows.Add(BuildSummaryRow(sale, saleAdjustments) with { Status = sale.Status.ToString(), CancellationReference = cancellation?.ReferenceNumber, CancellationBusinessDate = cancellation?.BusinessDate });
 
             foreach (var saleItem in sale.Items)
             {
@@ -76,7 +82,7 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
                 var activeReturns = (await _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, cancellationToken))
                     .Where(r => !r.IsVoided)
                     .ToList();
-                lineItemRows.AddRange(sale.Items.Select(saleItem => BuildLineItemRow(sale, saleItem, activeReturns, itemNameById)));
+                lineItemRows.AddRange(sale.Items.Select(saleItem => BuildLineItemRow(sale, saleItem, activeReturns, itemNameById) with { Status = sale.Status.ToString(), CancellationReference = cancellation?.ReferenceNumber, CancellationBusinessDate = cancellation?.BusinessDate }));
             }
         }
 
@@ -87,13 +93,15 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
             accumulator.ReturnTaxAmount += component.TaxAmount;
         }
 
+        if (cancellations.Count > 0) Accumulator(taxBreakupMap, 0m).CancellationTaxableAmount = cancellations.Sum(c => c.RevenueAmount);
+
         var taxBreakup = taxBreakupMap.Values
             .Select(a => new SalesExportTaxBreakupDto(
                 a.TaxRatePercent,
                 a.SaleTaxableAmount,
                 a.SaleTaxAmount,
                 a.ReturnTaxableAmount,
-                a.ReturnTaxAmount))
+                a.ReturnTaxAmount) { CancellationTaxableAmount = a.CancellationTaxableAmount })
             .OrderBy(t => t.TaxRatePercent)
             .ToList();
 
@@ -112,7 +120,7 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
             summaryRows,
             lineItemRows,
             taxBreakup,
-            adjustments);
+            adjustments) { CancellationAdjustments = cancellations };
     }
 
     private static SalesExportSummaryRowDto BuildSummaryRow(Sale sale, IReadOnlyList<ReturnAdjustmentEntry> adjustments)
@@ -132,7 +140,7 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
             sale.InvoiceNumber,
             sale.SoldAt,
             sale.BusinessDate,
-            sale.CustomerName,
+            sale.InvoiceDocument?.Buyer.Name ?? sale.CustomerName,
             sale.PaymentMethod.ToString(),
             sale.PaidAmount,
             sale.DueAmount,
@@ -177,7 +185,7 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
             sale.InvoiceNumber,
             sale.SoldAt,
             sale.BusinessDate,
-            sale.CustomerName,
+            sale.InvoiceDocument?.Buyer.Name ?? sale.CustomerName,
             lineName,
             saleItem.Quantity,
             saleItem.SalesPrice,
@@ -218,5 +226,6 @@ public sealed class SalesExportDatasetBuilder : ISalesExportDatasetBuilder
         public decimal SaleTaxAmount { get; set; }
         public decimal ReturnTaxableAmount { get; set; }
         public decimal ReturnTaxAmount { get; set; }
+        public decimal CancellationTaxableAmount { get; set; }
     }
 }

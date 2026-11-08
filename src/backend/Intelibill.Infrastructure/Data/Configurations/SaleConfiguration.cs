@@ -11,9 +11,11 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
 {
     public void Configure(EntityTypeBuilder<Sale> builder)
     {
-        builder.ToTable("sales");
+        builder.ToTable("sales", table => table.HasCheckConstraint("ck_sales_status", "status IN (0, 1)"));
 
         builder.HasKey(s => s.Id);
+        builder.HasAlternateKey(s => new { s.Id, s.ShopId });
+        builder.Property(s => s.Status).HasDefaultValue(SaleStatus.Posted);
 
         builder.Property(s => s.ShopId)
             .IsRequired();

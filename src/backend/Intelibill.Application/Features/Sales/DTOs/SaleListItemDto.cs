@@ -21,4 +21,8 @@ public sealed record SaleListItemDto(
     string Status,
     decimal RefundAmount,
     decimal DueReductionAmount,
-    decimal CreditNoteAppliedAmount);
+    decimal CreditNoteAppliedAmount)
+{
+    public string? CancellationReference { get; init; }
+    public DateTimeOffset? CancelledAt { get; init; }
+}

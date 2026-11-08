@@ -549,4 +549,5 @@ describe('ProfitLossPageComponent', () => {
     expect(element.querySelector('.mobile-report-card')).toBeNull();
     expect(element.querySelector('.report-footer')).toBeNull();
   });
+ it('requests cancellation postings separately from ordinary returns',()=>{const f=TestBed.createComponent(ProfitLossPageComponent);const c=f.componentInstance;f.detectChanges();c.typeFilter.set('saleCancellation');f.detectChanges();expect(salesFacade.loadProfitLossReport).toHaveBeenLastCalledWith(expect.objectContaining({type:'saleCancellation'}));expect(c.getRowTypeTranslationKey('saleCancellation')).toBe('sales.profitLoss.rowTypes.saleCancellation');});
 });

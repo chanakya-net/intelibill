@@ -1,4 +1,5 @@
 <article class="thermal-invoice">
+  <app-sale-cancellation-record [cancellation]="sale.cancellation ?? null" />
   <header
     *ngIf="sale.document as doc; else legacyHeader"
     class="thermal-invoice__section thermal-invoice__header"

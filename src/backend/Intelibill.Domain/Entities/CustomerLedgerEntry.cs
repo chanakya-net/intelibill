@@ -53,7 +53,7 @@ public sealed class CustomerLedgerEntry : BaseEntity
             return Error.Validation("CustomerLedgerEntry.AmountMustBePositive", "Amount must be greater than zero.");
         }
 
-        if (entryType == CustomerLedgerEntryType.SaleDue && saleId is null)
+        if (entryType is (CustomerLedgerEntryType.SaleDue or CustomerLedgerEntryType.SaleCancellationCredit) && (saleId is null || saleId == Guid.Empty))
         {
             return Error.Validation("CustomerLedgerEntry.SaleIdRequired", "Sale id is required for sale due entries.");
         }

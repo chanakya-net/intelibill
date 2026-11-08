@@ -30,6 +30,8 @@ public class ApplicationDbContext(
     public DbSet<StockTransaction> StockTransactions => Set<StockTransaction>();
     public DbSet<SupplierLedgerEntry> SupplierLedgerEntries => Set<SupplierLedgerEntry>();
     public DbSet<Sale> Sales => Set<Sale>();
+    public DbSet<SaleCancellation> SaleCancellations => Set<SaleCancellation>();
+    public DbSet<SaleCancellationLine> SaleCancellationLines => Set<SaleCancellationLine>();
     public DbSet<SaleItem> SaleItems => Set<SaleItem>();
     public DbSet<ReconciliationIssue> ReconciliationIssues => Set<ReconciliationIssue>();
     public DbSet<SaleReturn> SaleReturns => Set<SaleReturn>();
@@ -100,6 +102,8 @@ public class ApplicationDbContext(
                 .IsRowVersion()
                 .HasColumnName("xmin")
                 .HasColumnType("xid");
+
+            modelBuilder.Entity<Sale>().Property(s => s.Version).IsRowVersion().HasColumnName("xmin").HasColumnType("xid");
 
             modelBuilder.Entity<SupplierReturn>().Property(r => r.Version).IsRowVersion().HasColumnName("xmin").HasColumnType("xid");
 

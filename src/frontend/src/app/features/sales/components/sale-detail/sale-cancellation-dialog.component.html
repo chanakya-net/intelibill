@@ -1,0 +1,137 @@
+<p-dialog
+  [visible]="visible"
+  (visibleChange)="close()"
+  [modal]="true"
+  [style]="{ width: 'min(94vw, 760px)' }"
+  [header]="'sales.cancellation.title' | transloco"
+  [draggable]="false"
+  [resizable]="false"
+>
+  <div class="flex flex-col gap-4" data-testid="sale-cancellation-dialog">
+    @if (error() && (error() !== 'sales.cancellation.unknown' || !record()?.pending)) {
+      <p role="alert">{{ error() | transloco }}</p>
+    }
+    @if (!canManage()) {
+      <p>{{ 'sales.cancellation.restricted' | transloco }}</p>
+    }
+    @if (record()?.pending; as pending) {
+      <p role="status">{{ 'sales.cancellation.unknown' | transloco }}</p>
+      <dl>
+        <dt>{{ 'sales.cancellation.operation' | transloco }}</dt>
+        <dd class="break-all">{{ pending.operationKey }}</dd>
+        <dt>{{ 'sales.cancellation.reason' | transloco }}</dt>
+        <dd>{{ pending.payload.reason }}</dd>
+      </dl>
+      <p>✓ {{ 'sales.cancellation.goodsConfirmed' | transloco }}</p>
+      @if(pending.payload.cashRefundConfirmed){<p>✓ {{ 'sales.cancellation.cashConfirmed' | transloco }}</p>}
+      <div class="flex flex-wrap gap-3">
+        <button
+          type="button"
+          pButton
+          severity="danger"
+          [disabled]="busy() || !canManage()"
+          (click)="checkStatus()"
+        >
+          {{ 'sales.cancellation.checkStatus' | transloco }}</button
+        ><button
+          type="button"
+          pButton
+          severity="danger"
+          [disabled]="busy() || !canManage()"
+          (click)="retry()"
+        >
+          {{ 'sales.cancellation.retry' | transloco }}
+        </button>
+      </div>
+    } @else if (preview(); as p) {
+      <div>
+        <strong>{{ p.document?.number || p.invoiceNumber }}</strong>
+        <p>{{ p.document?.seller?.legalName }} · {{ p.document?.buyer?.name }}</p>
+        <p>{{ 'sales.cancellation.postingDate' | transloco }}: {{ p.businessDate }}</p>
+        <a
+          class="underline"
+          [href]="'/sales/' + p.saleId + '/print?template=a4'"
+          target="_blank"
+          rel="noopener"
+          >{{ 'sales.cancellation.original' | transloco }}</a
+        >
+      </div>
+      @if (!p.postingEnabled) {
+        <p role="status" class="rounded bg-amber-50 p-3 text-amber-900">
+          {{ 'sales.cancellation.disabled' | transloco }}
+        </p>
+      }
+      @if (p.reasons.length) {
+        <ul>
+          @for (reason of p.reasons; track reason.code) {
+            <li>
+              <strong>{{ reason.code }}</strong> — {{ reason.message }}
+            </li>
+          }
+        </ul>
+        <a href="/sales">{{ 'sales.cancellation.existingWorkflows' | transloco }}</a>
+      }
+      <table class="w-full">
+        <tbody>
+          @for (line of p.lines; track line.saleItemId) {
+            <tr>
+              <td>{{ line.description }}</td>
+              <td>{{ line.quantity | number: '1.0-3' }} {{ line.uqc }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <dl class="grid grid-cols-2 gap-2">
+        <dt>{{ 'sales.cancellation.total' | transloco }}</dt>
+        <dd>{{ p.totalAmount | currency: 'INR' }}</dd>
+        <dt>{{ 'sales.cancellation.dueReduction' | transloco }}</dt>
+        <dd>{{ p.dueReductionAmount | currency: 'INR' }}</dd>
+        <dt>{{ 'sales.cancellation.cashObligation' | transloco }}</dt>
+        <dd>{{ p.cashRefundAmount | currency: 'INR' }}</dd>
+        <dt>{{ 'sales.cancellation.externalRefund' | transloco }}</dt>
+        <dd>{{ p.externalRefundAmount | currency: 'INR' }}</dd>
+        <dt>{{ 'sales.cancellation.creditRestoration' | transloco }}</dt>
+        <dd>{{ p.creditRestorationAmount | currency: 'INR' }}</dd>
+      </dl>
+      @if (p.externalRefundAmount > 0) {
+        <p>{{ 'sales.cancellation.externalNotice' | transloco }}</p>
+      }
+      @if (p.creditRestorationAmount > 0) {
+        <p>{{ 'sales.cancellation.creditNotice' | transloco }}</p>
+      }
+      <label for="cancellation-reason">{{ 'sales.cancellation.reason' | transloco }}</label
+      ><textarea
+        id="cancellation-reason"
+        class="w-full rounded border p-3"
+        rows="3"
+        maxlength="255"
+        [(ngModel)]="reason"
+        (ngModelChange)="save()"
+        [disabled]="busy() || !p.eligible || !p.postingEnabled"
+      ></textarea>
+      <label class="flex flex-wrap gap-3"
+        ><input
+          type="checkbox"
+          [(ngModel)]="goodsConfirmed"
+          (ngModelChange)="save()"
+          [disabled]="busy() || !p.eligible || !p.postingEnabled"
+        />{{ 'sales.cancellation.goodsConfirmed' | transloco }}</label
+      >
+      @if (p.requiresCashRefundConfirmation) {
+        <label class="flex flex-wrap gap-3"
+          ><input
+            type="checkbox"
+            [(ngModel)]="cashConfirmed"
+            (ngModelChange)="save()"
+            [disabled]="busy() || !p.eligible || !p.postingEnabled"
+          />{{ 'sales.cancellation.cashConfirmed' | transloco }} ({{
+            p.cashRefundAmount | currency: 'INR'
+          }})</label
+        >
+      }
+      <button type="button" pButton severity="danger" [disabled]="!valid()" (click)="submit()">
+        {{ 'sales.cancellation.submit' | transloco }}
+      </button>
+    }
+  </div>
+</p-dialog>

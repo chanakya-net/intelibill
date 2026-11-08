@@ -11,7 +11,7 @@ export type SalesExportLevel = 'summary' | 'lineItems';
 export interface ProfitLossExportParams {
   readonly from: string;
   readonly to: string;
-  readonly type?: 'all' | 'sale' | 'saleReturn' | 'inventoryAdjustment';
+  readonly type?: 'all' | 'sale' | 'saleReturn' | 'inventoryAdjustment' | 'saleCancellation';
   readonly search?: string;
   readonly format?: 'xlsx';
 }

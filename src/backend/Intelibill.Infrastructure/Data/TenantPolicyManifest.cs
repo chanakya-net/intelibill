@@ -117,6 +117,8 @@ public static class TenantPolicyManifest
         Tenant("purchase_orders"),
         Tenant("reconciliation_case_events"),
         Tenant("reconciliation_issues"),
+        Tenant("sale_cancellation_lines"),
+        Tenant("sale_cancellations"),
         Tenant("sale_items"),
         Tenant("sale_return_items"),
         Tenant("sale_return_settlements"),

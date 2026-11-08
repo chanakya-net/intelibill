@@ -194,6 +194,13 @@ type TranslatableText = Readonly<{
                     <li class="latest-sales-list__item">
                       <div class="latest-sales-list__primary">
                         <span class="latest-sales-list__invoice">{{ sale.invoiceNumber }}</span>
+                        @if (sale.status === 'Cancelled') {
+                          <span
+                            >{{ 'sales.cancellation.cancelled' | transloco }} ·
+                            {{ sale.cancellationReference }} ·
+                            {{ sale.cancelledAt | date: 'dd MMM yyyy' }}</span
+                          >
+                        }
                         <span class="latest-sales-list__customer">{{
                           sale.customerDisplayName
                         }}</span>

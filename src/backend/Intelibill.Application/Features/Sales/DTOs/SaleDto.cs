@@ -21,6 +21,10 @@ public sealed record SaleDto(
     IReadOnlyList<SaleItemDto> Items,
     IReadOnlyList<string> Warnings)
 {
+    public SaleStatus Status { get; init; }
+    public uint Version { get; init; }
+    public SaleCancellationDto? Cancellation { get; init; }
+
     public IReadOnlyList<SaleReturnDto> Returns { get; init; } = [];
     public IReadOnlyList<SaleCreditNoteRedemptionSummaryDto> CreditNoteRedemptions { get; init; } = [];
 

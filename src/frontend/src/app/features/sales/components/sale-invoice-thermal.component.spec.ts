@@ -1,3 +1,4 @@
+import { cancellationFixture } from '../services/sale-cancellation.test-fixture';
 import { CommonModule } from '@angular/common';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { readFileSync } from 'node:fs';
@@ -494,7 +495,7 @@ describe('SaleInvoiceThermalComponent', () => {
       expect(fixture.nativeElement.textContent).not.toContain('Discount: -₹100.00');
     });
 
-    it('does not present credit notes issued by this sale\'s returns as redeemed', () => {
+    it("does not present credit notes issued by this sale's returns as redeemed", () => {
       component.sale = makeSale({
         creditNoteAppliedAmount: 100,
         creditNoteRedemptions: [],
@@ -736,5 +737,62 @@ describe('SaleInvoiceThermalComponent', () => {
     expect(text).toContain('18.06');
     expect(text).toContain('CN-OFFLINE-0001');
     expect(fixture.nativeElement.querySelector('.thermal-invoice__legacy-note')).toBeNull();
+  });
+  it('prints the cancellation timestamp in the frozen shop timezone across midnight', () => {
+    component.sale = makeSale({
+      status: 'Cancelled',
+      cancellation: {
+        ...cancellationFixture,
+        cancelledAt: '2026-11-09T20:00:00Z',
+        businessDate: '2026-11-10',
+        businessTimeZoneId: 'Asia/Kolkata',
+      },
+    });
+    component.shop = makeShop();
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement.querySelector('.sale-cancellation-record')?.textContent ?? '')
+      .replace(/\s+/g, ' ');
+    expect(text).toContain('2026-11-10 · Nov 10, 2026, 1:30 AM (Asia/Kolkata)');
+  });
+  it('preserves original amounts and appends frozen cancellation settlement facts', () => {
+    component.sale = makeSale({
+      status: 'Cancelled',
+      cancellation: cancellationFixture,
+      paidAmount: 80,
+      dueAmount: 120,
+      totalAmount: 200,
+    });
+    component.shop = makeShop({ name: 'Renamed live shop' });
+    fixture.detectChanges();
+    const fact = fixture.nativeElement.querySelector('.sale-cancellation-record');
+    expect(fact?.textContent).toContain('SC-frozen');
+    expect(fact?.textContent).not.toContain('3–255');
+    expect(fact?.textContent).toContain('Frozen seller');
+    expect(fact?.textContent).toContain('Frozen buyer');
+    expect(fact?.textContent).toContain('Frozen item');
+    expect(fact?.textContent).toContain('120.00');
+    expect(fact?.textContent).toContain('80.00');
+    expect(fact?.textContent).toContain(
+      "Commercial cancellation record — not a GST credit note. Cash refund is recorded from the operator's confirmation.",
+    );
+    expect(component.sale.paidAmount).toBe(80);
+    expect(component.sale.dueAmount).toBe(120);
+  });
+  it('omits cash-confirmation sentence for a pure-due cancellation', () => {
+    component.sale = makeSale({
+      status: 'Cancelled',
+      cancellation: {
+        ...cancellationFixture,
+        cashRefundAmount: 0,
+        cashRefundConfirmed: false,
+        dueReductionAmount: 200,
+      },
+    });
+    component.shop = makeShop();
+    fixture.detectChanges();
+    const text = fixture.nativeElement.querySelector('.sale-cancellation-record')?.textContent;
+    expect(text).toContain('Commercial cancellation record — not a GST credit note.');
+    expect(text).not.toContain('Cash refund is recorded');
   });
 });

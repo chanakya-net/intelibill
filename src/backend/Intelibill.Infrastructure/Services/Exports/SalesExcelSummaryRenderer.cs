@@ -40,6 +40,20 @@ internal static class SalesExcelSummaryRenderer
             dataRow++;
         }
 
+        foreach (var entry in dataset.CancellationAdjustments)
+        {
+            worksheet.Cell(dataRow, columnPlan.InvoiceNumberColumn).Value = $"Cancellation {entry.ReferenceNumber}";
+            worksheet.Cell(dataRow, columnPlan.DateColumn).Value = entry.BusinessDate.ToDateTime(TimeOnly.MinValue);
+            worksheet.Cell(dataRow, columnPlan.DateColumn).Style.DateFormat.Format = "yyyy-MM-dd";
+            worksheet.Cell(dataRow, columnPlan.CustomerColumn).Value = entry.CustomerName;
+            worksheet.Cell(dataRow, columnPlan.StatusColumn).Value = "Cancellation adjustment";
+            worksheet.Cell(dataRow, columnPlan.CancellationReferenceColumn).Value = entry.InvoiceNumber;
+            SetAmount(worksheet, dataRow, columnPlan.CancellationAmountColumn, entry.TotalAmount);
+            SetAmount(worksheet, dataRow, columnPlan.NetTaxableColumn, -entry.RevenueAmount);
+            SetAmount(worksheet, dataRow, columnPlan.NetSalesColumn, -entry.TotalAmount);
+            dataRow++;
+        }
+
         var totalsRow = dataRow + 1;
         RenderTotalsRow(worksheet, dataRow - firstDataRow, dataset.TaxBreakup, columnPlan, firstDataRow, totalsRow);
 
@@ -169,7 +183,17 @@ internal static class SalesExcelSummaryRenderer
         plan.NetSalesColumn = col;
         plan.TotalFormulaColumns.Add(col++);
 
-        for (var i = 1; i <= col; i++)
+        worksheet.Cell(startRow, col).Value = "Status";
+        plan.StatusColumn = col++;
+        worksheet.Cell(startRow, col).Value = "Cancellation / original invoice";
+        plan.CancellationReferenceColumn = col++;
+        worksheet.Cell(startRow, col).Value = "Cancellation date";
+        plan.CancellationDateColumn = col++;
+        worksheet.Cell(startRow, col).Value = "Cancellation amount";
+        plan.CancellationAmountColumn = col;
+        plan.TotalFormulaColumns.Add(col++);
+
+        for (var i = 1; i < col; i++)
         {
             worksheet.Cell(startRow, i).Style.Font.Bold = true;
             worksheet.Cell(startRow, i).Style.Font.FontColor = XLColor.White;
@@ -178,7 +202,7 @@ internal static class SalesExcelSummaryRenderer
         }
 
         plan.HeaderRow = startRow;
-        plan.TotalColumnsEnd = col;
+        plan.TotalColumnsEnd = col - 1;
         return plan;
     }
 
@@ -245,6 +269,14 @@ internal static class SalesExcelSummaryRenderer
 
         worksheet.Cell(rowNum, columnPlan.NetSalesColumn).Value = row.NetSalesAmount;
         worksheet.Cell(rowNum, columnPlan.NetSalesColumn).Style.NumberFormat.Format = "#,##0.00";
+
+        worksheet.Cell(rowNum, columnPlan.StatusColumn).Value = row.Status;
+        worksheet.Cell(rowNum, columnPlan.CancellationReferenceColumn).Value = row.CancellationReference;
+        if (row.CancellationBusinessDate is { } cancelledOn)
+        {
+            worksheet.Cell(rowNum, columnPlan.CancellationDateColumn).Value = cancelledOn.ToDateTime(TimeOnly.MinValue);
+            worksheet.Cell(rowNum, columnPlan.CancellationDateColumn).Style.DateFormat.Format = "yyyy-MM-dd";
+        }
 
         if (row.HasReturns)
         {
@@ -342,6 +374,10 @@ internal sealed class SummaryColumnPlan
         TotalFormulaColumns = new List<int>();
     }
 
+    public int StatusColumn { get; set; }
+    public int CancellationReferenceColumn { get; set; }
+    public int CancellationDateColumn { get; set; }
+    public int CancellationAmountColumn { get; set; }
     public int HeaderRow { get; set; }
     public int InvoiceNumberColumn { get; set; }
     public int DateColumn { get; set; }

@@ -46,7 +46,7 @@ public class RecordSaleCommandHandlerTests
 
     public RecordSaleCommandHandlerTests()
     {
-        _saleDtoBuilder = new SaleDtoBuilder(_itemRepository);
+        _saleDtoBuilder = new SaleDtoBuilder(_itemRepository, Substitute.For<ISaleCancellationRepository>());
         _shopRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult<Shop?>(_shop));
         _invoiceNumberAllocator.AllocateAsync(Arg.Any<InvoiceSeriesKey>(), Arg.Any<CancellationToken>())

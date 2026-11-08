@@ -207,4 +207,16 @@ describe('DashboardKpiCardsComponent', () => {
     const container = fixture.nativeElement.querySelector('.kpi-cards');
     expect(container).toBeTruthy();
   });
+  it('shows cancellation amount and count separately from document count', () => {
+    const f = TestBed.createComponent(DashboardKpiCardsComponent);
+    f.componentRef.setInput('dashboard', {
+      ...stubDashboard,
+      cancellationAmount: 200,
+      cancellationCount: 1,
+    });
+    f.detectChanges();
+    const text = f.nativeElement.querySelector('[data-testid="cancellation-summary"]')?.textContent;
+    expect(text).toContain('200');
+    expect(text).toContain('1');
+  });
 });

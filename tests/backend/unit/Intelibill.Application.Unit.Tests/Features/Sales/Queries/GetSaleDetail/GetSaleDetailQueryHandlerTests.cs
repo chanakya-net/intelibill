@@ -19,7 +19,7 @@ public class GetSaleDetailQueryHandlerTests
     private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
 
     private GetSaleDetailQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _saleRepository, _saleReturnRepository, _itemRepository, _creditNoteRepository);
+        new(_userRepository, _shopRepository, _saleRepository, _saleReturnRepository, _itemRepository, _creditNoteRepository, Substitute.For<ISaleCancellationRepository>());
 
     private static User MakeUser() =>
         User.CreateWithEmail("test@test.com", "hash", "Test", "User");

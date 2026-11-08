@@ -85,7 +85,7 @@ public sealed class GetDashboardQueryHandler(
             EndDate: appliedTo,
             SalesCount: summary.InvoiceCount,
             SalesRevenue: summary.PeriodSales,
-            HasNoSalesActivity: summary.InvoiceCount == 0,
+            HasNoSalesActivity: summary.InvoiceCount == 0 && summary.CancellationCount == 0,
             CustomerCreditDue: customerCreditDue,
             SalesBooked: 0m,
             NetSalesBooked: summary.PeriodSales,
@@ -132,12 +132,18 @@ public sealed class GetDashboardQueryHandler(
                 s.InvoiceNumber,
                 s.CustomerDisplayName,
                 s.SoldAt,
-                s.TotalAmount)).ToList(),
+                s.TotalAmount)
+            {
+                Status = s.Status,
+                CancellationReference = s.CancellationReference,
+                CancelledAt = s.CancelledAt,
+            }).ToList(),
             StockValue: stockValue,
             Economics: profitLossReport.Summary.Economics,
             GrossTradingProfitChangePercent: CalculatePercentChange(
                 profitLossReport.Summary.Economics!.GrossTradingProfit,
-                previousProfitLossReport.Summary.Economics!.GrossTradingProfit));
+                previousProfitLossReport.Summary.Economics!.GrossTradingProfit),
+            CancellationAmount: summary.CancellationAmount, CancellationCount: summary.CancellationCount);
 
         return result;
     }
@@ -157,8 +163,8 @@ public sealed class GetDashboardQueryHandler(
             bucketByDate.TryGetValue(date, out var bucket);
 
             var grossSales = bucket?.GrossSales ?? 0m;
-            var netSales = grossSales - (bucket?.ReturnAmount ?? 0m);
-            series.Add(new SalesTrendPointDto(date, grossSales, netSales));
+            var netSales = grossSales - (bucket?.ReturnAmount ?? 0m) - (bucket?.CancellationAmount ?? 0m);
+            series.Add(new SalesTrendPointDto(date, grossSales, netSales, bucket?.CancellationAmount ?? 0m));
         }
 
         return series;
@@ -197,7 +203,7 @@ public sealed class GetDashboardQueryHandler(
             salesBucketByDate.TryGetValue(date, out var salesBucket);
             expenseBucketByDate.TryGetValue(date, out var expenseBucket);
 
-            var revenue = (salesBucket?.GrossSales ?? 0m) - (salesBucket?.ReturnAmount ?? 0m);
+            var revenue = (salesBucket?.GrossSales ?? 0m) - (salesBucket?.ReturnAmount ?? 0m) - (salesBucket?.CancellationAmount ?? 0m);
             series.Add(new RevenueVsExpensesPointDto(date, revenue, expenseBucket?.TotalAmount ?? 0m));
         }
 

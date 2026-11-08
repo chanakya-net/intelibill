@@ -200,11 +200,14 @@ describe('SaleInvoicePrintPageComponent', () => {
     } as never;
   }
 
-  afterEach(() => {
-    vi.runOnlyPendingTimers();
+  afterEach(async () => {
+    // Rendering schedules an async font-ready print. Keep the browser API fixture
+    // installed until those callbacks finish, then destroy the Angular fixtures.
+    await vi.runOnlyPendingTimersAsync();
+    TestBed.resetTestingModule();
+    await vi.runOnlyPendingTimersAsync();
     vi.useRealTimers();
     vi.restoreAllMocks();
-    TestBed.resetTestingModule();
   });
 
   it('loads sale and active shop details before printing', async () => {
@@ -270,7 +273,7 @@ describe('SaleInvoicePrintPageComponent', () => {
     expect(fixture.componentInstance.template()).toBe('thermal');
   });
 
-  it('renders thermal invoice component for thermal template', () => {
+  it('renders thermal invoice component for thermal template', async () => {
     const fixture = createComponent('thermal');
 
     fixture.detectChanges();
@@ -281,6 +284,7 @@ describe('SaleInvoicePrintPageComponent', () => {
 
     expect(thermalInvoice).not.toBeNull();
     expect(placeholder).not.toContain('Thermal receipt preview');
+    await vi.waitFor(() => expect(window.print).toHaveBeenCalledTimes(1));
   });
 
   it('sets an error and does not print when data loading fails', () => {
@@ -319,7 +323,7 @@ describe('SaleInvoicePrintPageComponent', () => {
     expect(window.print).not.toHaveBeenCalled();
   });
 
-  it('loads server-backed invoice when offline route flag is not set', () => {
+  it('loads server-backed invoice when offline route flag is not set', async () => {
     const fixture = createComponent();
 
     fixture.detectChanges();
@@ -328,6 +332,7 @@ describe('SaleInvoicePrintPageComponent', () => {
     expect(saleService.getSaleById).toHaveBeenCalledTimes(1);
     expect(offlineQueueDb.getQueuedSale).not.toHaveBeenCalled();
     expect(fixture.componentInstance.sale()?.saleId).toBe('sale-1');
+    await vi.waitFor(() => expect(window.print).toHaveBeenCalledTimes(1));
   });
 
   it('legacy_document_never_invents_gstin: a legacy queued sale borrows no other shop and offers reconciliation', async () => {
@@ -351,6 +356,7 @@ describe('SaleInvoicePrintPageComponent', () => {
     expect(text).toContain('is not a copy of a GST document');
     const link = fixture.nativeElement.querySelector('a.print-state__reconciliation') as HTMLAnchorElement | null;
     expect(link?.getAttribute('href')).toBe('/sales/offline-reconciliation');
+    await vi.waitFor(() => expect(window.print).toHaveBeenCalledTimes(1));
   });
 
   it('grace_allows_owned_local_print: an expired token inside offline grace prints the issuer\'s invoice', async () => {

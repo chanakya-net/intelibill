@@ -63,6 +63,7 @@
         </div>
       </header>
 
+      <app-sale-cancellation-record [cancellation]="sale()!.cancellation ?? null" />
       <section class="sale-detail-body">
         <div class="sale-detail-main">
           <app-sale-line-items-table
@@ -136,6 +137,15 @@
       <footer class="sale-detail-footer">
         <p>{{ returnFooterNote() }}</p>
         <div class="sale-detail-actions">
+          @if (canCancel()) {
+            <p-button
+              [label]="'sales.cancellation.title' | transloco"
+              icon="pi pi-ban"
+              severity="danger"
+              [outlined]="true"
+              (click)="showCancellation.set(true)"
+            />
+          }
           @if (canPreviewReturns()) {
             <p-button
               [label]="'sales.invoice.returnItems' | transloco"
@@ -185,3 +195,12 @@
   [sale]="sale()"
   currency="INR"
 />
+
+@if (showCancellation() && visible && sale()) {
+  <app-sale-cancellation-dialog
+    [saleId]="sale()!.saleId"
+    [visible]="showCancellation()"
+    (visibleChange)="showCancellation.set(false)"
+    (completed)="cancellationSaved()"
+  />
+}

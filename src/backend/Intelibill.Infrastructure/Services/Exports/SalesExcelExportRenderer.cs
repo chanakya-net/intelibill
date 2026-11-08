@@ -21,6 +21,7 @@ public sealed class SalesExcelExportRenderer : ISalesExcelExportRenderer
         }
 
         SalesExcelReturnAdjustmentsRenderer.Render(workbook, dataset);
+        SalesExcelCancellationRenderer.Render(workbook, dataset);
 
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);

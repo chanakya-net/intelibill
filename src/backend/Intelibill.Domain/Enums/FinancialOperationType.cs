@@ -44,4 +44,5 @@ public enum FinancialOperationType
     SupplierReturn = 14,
     SupplierReturnCredit = 15,
     PurchaseReceiptReversal = 16,
+    SaleCancellation = 17,
 }

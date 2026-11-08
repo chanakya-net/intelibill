@@ -11,4 +11,7 @@ public sealed record SalesExportDatasetDto(
     IReadOnlyList<SalesExportSummaryRowDto> SummaryRows,
     IReadOnlyList<SalesExportLineItemRowDto> LineItemRows,
     IReadOnlyList<SalesExportTaxBreakupDto> TaxBreakup,
-    IReadOnlyList<ReturnAdjustmentEntry> ReturnAdjustments);
+    IReadOnlyList<ReturnAdjustmentEntry> ReturnAdjustments)
+{
+    public IReadOnlyList<SaleCancellationAdjustmentEntry> CancellationAdjustments { get; init; } = [];
+}

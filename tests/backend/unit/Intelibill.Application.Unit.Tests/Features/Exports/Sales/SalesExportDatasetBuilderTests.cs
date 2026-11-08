@@ -34,7 +34,7 @@ public class SalesExportDatasetBuilderTests
             _saleRepository,
             _saleReturnRepository,
             _itemRepository,
-            new ReturnAdjustmentReader(_saleReturnRepository, _saleRepository, _creditNoteRepository));
+            new ReturnAdjustmentReader(_saleReturnRepository, _saleRepository, _creditNoteRepository), new SaleCancellationAdjustmentReader(_cancellations));
 
     private static Shop MakeShop() =>
         Shop.Create("Test Shop", "123 Main St", "City", "State", "560001", null, null, null);
@@ -44,6 +44,24 @@ public class SalesExportDatasetBuilderTests
 
     private static Item MakeItem(Guid shopId) =>
         Item.Create(shopId, "Test Item", "Desc", "unit", "barcode", true, Guid.NewGuid());
+
+    private readonly ISaleCancellationRepository _cancellations = Substitute.For<ISaleCancellationRepository>();
+
+    [Fact]
+    public async Task CancellationOnlyPeriod_ReconcilesZeroTaxRevenueWithoutReturnInflation()
+    {
+        var shop = MakeShop();
+        var saleId = Guid.NewGuid();
+        var fact = SaleCancellation.Record(new(shop.Id, saleId, Guid.NewGuid(), "key", "Wrong sale", new(2026, 5, 9, 10, 0, 0, TimeSpan.Zero), new(2026, 5, 9), "Asia/Kolkata", "ORIGINAL", new(2026, 5, 8),
+            200m, 200m, 0m, 120m, 80m, Guid.NewGuid(), new("Frozen seller", "Frozen shop", "Address", "29", "Karnataka", null, TaxRegime.Unregistered), new("Frozen buyer", null, null, null, null, null), true, true,
+            [new(shop.Id, saleId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 2m, "Frozen sugar", "KGS", 60m, 200m, 120m)])).Value;
+        _cancellations.GetPostedInRangeAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns([fact]);
+        var data = await CreateBuilder().BuildAsync(shop, MakeUser(), new(2026, 5, 9), new(2026, 5, 9), SalesExportLevel.Summary, CancellationToken.None);
+        Assert.Empty(data.SummaryRows);
+        Assert.Empty(data.ReturnAdjustments);
+        Assert.Equal(-200m, data.TaxBreakup.Sum(t => t.NetTaxableAmount));
+        Assert.Equal(0m, data.TaxBreakup.Sum(t => t.ReturnTaxableAmount));
+    }
 
     [Fact]
     public async Task BuildAsync_ShouldMapSummaryRowsCorrectly()

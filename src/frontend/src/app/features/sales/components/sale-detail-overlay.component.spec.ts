@@ -241,4 +241,9 @@ describe('SaleDetailOverlayComponent', () => {
     expect(openSpy).not.toHaveBeenCalled();
     openSpy.mockRestore();
   });
+  it('suppresses return and cancel actions for a cancelled sale even with stale returnable quantities', async () => {
+    const { component } = await setup(makeSale({ status: 'Cancelled' }));
+    expect(component.canPreviewReturns()).toBe(false);
+    expect(component.canCancel()).toBe(false);
+  });
 });

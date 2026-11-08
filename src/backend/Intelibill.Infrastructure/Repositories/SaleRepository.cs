@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 using Intelibill.Infrastructure.Data;
@@ -21,6 +22,9 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
     {
         _context = context;
     }
+
+    public Task<bool> ExistsAsync(Guid shopId, Guid saleId, CancellationToken cancellationToken = default) =>
+        DbSet.AsNoTracking().AnyAsync(s => s.ShopId == shopId && s.Id == saleId, cancellationToken);
 
     public async Task<Sale?> GetByIdAsync(Guid saleId, Guid shopId, CancellationToken cancellationToken = default) =>
         await DbSet
@@ -79,7 +83,17 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
             return RowLockOutcome.TimedOut;
         }
 
-        return locked.Count == 0 ? RowLockOutcome.NotFound : RowLockOutcome.Acquired;
+        if (locked.Count == 0)
+            return RowLockOutcome.NotFound;
+
+        // A prior existence/detail read in this scope must not hide a terminal transition that
+        // committed while this request waited for the customer → sale locks.
+        var tracked = _context.ChangeTracker.Entries<Sale>()
+            .SingleOrDefault(e => e.Entity.Id == saleId && e.Entity.ShopId == shopId);
+        if (tracked is not null)
+            await tracked.ReloadAsync(cancellationToken);
+
+        return RowLockOutcome.Acquired;
     }
 
     public async Task<Sale?> GetByIdempotencyKeyAsync(Guid shopId, Guid actorUserId, string idempotencyKey, CancellationToken cancellationToken = default) =>
@@ -167,7 +181,12 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
                 s.InvoiceNumber,
                 string.IsNullOrWhiteSpace(s.CustomerName) ? "Walk-in Customer" : s.CustomerName,
                 s.SoldAt,
-                s.TotalAmount))
+                s.TotalAmount)
+            {
+                Status = s.Status,
+                CancellationReference = _context.Set<SaleCancellation>().Where(c => c.ShopId == shopId && c.SaleId == s.Id).Select(c => c.ReferenceNumber).FirstOrDefault(),
+                CancelledAt = _context.Set<SaleCancellation>().Where(c => c.ShopId == shopId && c.SaleId == s.Id).Select(c => (DateTimeOffset?)c.CancelledAt).FirstOrDefault(),
+            })
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<SalesTrendBucketReadModel>> GetDailySalesTrendAsync(
@@ -219,14 +238,22 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
             }
         }
 
+        var cancellationByDay = await _context.Set<SaleCancellation>().AsNoTracking()
+            .Where(c => c.ShopId == shopId && c.BusinessDate >= startDate && c.BusinessDate <= endDate)
+            .GroupBy(c => c.BusinessDate)
+            .Select(g => new { Date = g.Key, Amount = g.Sum(c => c.TotalAmount) })
+            .ToDictionaryAsync(g => g.Date, g => g.Amount, cancellationToken);
+
         return grossSalesByDay.Keys
             .Concat(returnOffsetsByDay.Keys)
+            .Concat(cancellationByDay.Keys)
             .Distinct()
             .OrderBy(date => date)
             .Select(date => new SalesTrendBucketReadModel(
                 date,
                 grossSalesByDay.GetValueOrDefault(date),
-                returnOffsetsByDay.GetValueOrDefault(date)))
+                returnOffsetsByDay.GetValueOrDefault(date),
+                cancellationByDay.GetValueOrDefault(date)))
             .ToList();
     }
 
@@ -258,6 +285,11 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
         }
 
         var status = NormalizeStatus(filter.Status);
+        if (status is SaleHistoryStatus.Cancelled)
+            query = query.Where(s => s.Status == SaleStatus.Cancelled);
+        else if (status is not null)
+            query = query.Where(s => s.Status != SaleStatus.Cancelled);
+
         if (status is SaleHistoryStatus.Refunded)
         {
             query = query.Where(s =>
@@ -305,6 +337,9 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
                 s.CustomerName,
                 s.CustomerPhone,
                 s.CreditNoteAppliedAmount,
+                s.Status,
+                CancellationReference = _context.Set<SaleCancellation>().Where(c => c.ShopId == filter.ShopId && c.SaleId == s.Id).Select(c => c.ReferenceNumber).FirstOrDefault(),
+                CancelledAt = _context.Set<SaleCancellation>().Where(c => c.ShopId == filter.ShopId && c.SaleId == s.Id).Select(c => (DateTimeOffset?)c.CancelledAt).FirstOrDefault(),
                 ItemCount = _context.SaleItems.Count(i => i.SaleId == s.Id),
             })
             .ToListAsync(cancellationToken);
@@ -345,10 +380,14 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
                     s.CustomerPhone,
                     s.ItemCount,
                     hasActiveReturn ? returnData.ReturnNumbers : [],
-                    DeriveStatus(s.DueAmount, hasActiveReturn),
+                    s.Status == SaleStatus.Cancelled ? "cancelled" : DeriveStatus(s.DueAmount, hasActiveReturn),
                     hasActiveReturn ? returnData.RefundAmount : 0m,
                     hasActiveReturn ? returnData.DueReductionAmount : 0m,
-                    s.CreditNoteAppliedAmount);
+                    s.CreditNoteAppliedAmount)
+                {
+                    CancellationReference = s.CancellationReference,
+                    CancelledAt = s.CancelledAt,
+                };
             })
             .ToList();
 
@@ -391,10 +430,15 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
                 && saleIdsInRange.Contains(r.SaleId))
             .SumAsync(r => (decimal?)r.TotalRefundAmount, cancellationToken) ?? 0m;
 
+        var cancellations = _context.Set<SaleCancellation>().AsNoTracking()
+            .Where(c => c.ShopId == shopId && c.BusinessDate >= startDate && c.BusinessDate <= endDate);
+        var cancellationAmount = await cancellations.SumAsync(c => (decimal?)c.TotalAmount, cancellationToken) ?? 0m;
+        var cancellationCount = await cancellations.CountAsync(cancellationToken);
+
         return new SalesHistorySummaryReadModel(
-            PeriodSales: grossSales - refundAmount,
+            PeriodSales: grossSales - refundAmount - cancellationAmount,
             InvoiceCount: invoiceCount,
-            RefundAmount: refundAmount);
+            RefundAmount: refundAmount, CancellationAmount: cancellationAmount, CancellationCount: cancellationCount);
     }
 
     public async Task<IReadOnlyDictionary<Guid, CustomerSalesMetricsReadModel>> GetCustomerSalesMetricsAsync(
@@ -425,11 +469,21 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
             ))
             .ToListAsync(cancellationToken);
 
-        return metricsList.ToDictionary(m => m.CustomerId);
+        var cancellationMetrics = await (from c in _context.Set<SaleCancellation>().AsNoTracking()
+            join sale in DbSet.AsNoTracking() on new { c.ShopId, c.SaleId } equals new { sale.ShopId, SaleId = sale.Id }
+            where c.ShopId == shopId && sale.CustomerId != null && customerIds.Contains(sale.CustomerId.Value)
+            group c by sale.CustomerId!.Value into g
+            select new { CustomerId = g.Key, Lifetime = g.Sum(c => c.TotalAmount),
+                CurrentMonth = g.Sum(c => c.CancelledAt >= startOffset && c.CancelledAt < endOffset ? c.TotalAmount : 0m) })
+            .ToDictionaryAsync(c => c.CustomerId, cancellationToken);
+        return metricsList.Select(m => cancellationMetrics.TryGetValue(m.CustomerId, out var c)
+            ? m with { LifetimeRevenue = m.LifetimeRevenue - c.Lifetime, CurrentMonthRevenue = m.CurrentMonthRevenue - c.CurrentMonth }
+            : m).ToDictionary(m => m.CustomerId);
     }
 
     private enum SaleHistoryStatus
     {
+        Cancelled,
         Refunded,
         Paid,
         PartiallyPaid,
@@ -443,6 +497,7 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
 
         return status.Trim().ToLowerInvariant() switch
         {
+            "cancelled" => SaleHistoryStatus.Cancelled,
             "refunded" or "returned" => SaleHistoryStatus.Refunded,
             "paid" => SaleHistoryStatus.Paid,
             "partiallypaid" => SaleHistoryStatus.PartiallyPaid,

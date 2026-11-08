@@ -48,6 +48,7 @@ export interface PreviousPeriodSummaryDto {
 }
 
 export interface SalesTrendPointDto {
+  cancellationAmount?: number;
   date: string;
   amount: number;
   netAmount: number;
@@ -67,6 +68,9 @@ export interface StockShortageItemDto {
 }
 
 export interface LatestSaleDto {
+  status?: 'Posted' | 'Cancelled';
+  cancellationReference?: string | null;
+  cancelledAt?: string | null;
   saleId: string;
   invoiceNumber: string;
   customerDisplayName: string;
@@ -75,6 +79,8 @@ export interface LatestSaleDto {
 }
 
 export interface DashboardDto {
+  cancellationAmount?: number;
+  cancellationCount?: number;
   economics?: ProfitLossEconomicsDto | null;
   grossTradingProfitChangePercent?: number | null;
   generatedAt: string;

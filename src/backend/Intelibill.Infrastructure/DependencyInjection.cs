@@ -140,6 +140,7 @@ public static class DependencyInjection
         services.AddScoped<IReconciliationCaseEventRepository, ReconciliationCaseEventRepository>();
         services.AddScoped<IOfflineSubmissionRepository, OfflineSubmissionRepository>();
         services.AddScoped<ISaleReturnRepository, SaleReturnRepository>();
+        services.AddScoped<ISaleCancellationRepository, SaleCancellationRepository>();
         services.AddScoped<IInvoiceLeaseRepository, InvoiceLeaseRepository>();
         services.AddScoped<IInvoiceNumberAllocator, Services.Invoicing.InvoiceNumberAllocator>();
         services.AddScoped<IServiceRepository, ServiceRepository>();
@@ -182,6 +183,8 @@ public static class DependencyInjection
         }
 
         services.AddSingleton(TimeProvider.System);
+        services.Configure<Options.SaleCancellationOptions>(configuration.GetSection(Options.SaleCancellationOptions.SectionName));
+        services.AddScoped<Application.Features.Sales.Services.Cancellations.ISaleCancellationRollout, Services.Sales.SaleCancellationRollout>();
         services.AddSingleton<Application.Common.Time.IBusinessClock, Services.Time.BusinessClock>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<LiveSessionValidator>();

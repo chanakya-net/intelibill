@@ -4,7 +4,7 @@ namespace Intelibill.Application.Features.Exports.ProfitLoss.Queries.ExportProfi
 
 public sealed class ExportProfitLossQueryValidator : AbstractValidator<ExportProfitLossQuery>
 {
-    private static readonly string[] AllowedTypes = ["all", "sale", "saleReturn", "inventoryAdjustment"];
+    private static readonly string[] AllowedTypes = ["all", "sale", "saleReturn", "saleCancellation", "inventoryAdjustment"];
 
     public ExportProfitLossQueryValidator()
     {
@@ -22,7 +22,7 @@ public sealed class ExportProfitLossQueryValidator : AbstractValidator<ExportPro
         RuleFor(x => x.Type)
             .Must(BeAllowedType)
             .WithErrorCode("Exports.ProfitLoss.InvalidType")
-            .WithMessage("'type' must be one of: all, sale, saleReturn, inventoryAdjustment.");
+            .WithMessage("'type' must be one of: all, sale, saleReturn, saleCancellation, inventoryAdjustment.");
 
         RuleFor(x => x)
             .Must(HaveValidDateRange)

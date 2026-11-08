@@ -54,6 +54,7 @@ public static class DependencyInjection
         services.AddSingleton<IReturnAccountingPolicy, ProportionalLineTaxReturnAccountingPolicy>();
         services.AddSingleton<IAccountingVoucherValidator, AccountingVoucherValidator>();
         services.AddScoped<ReturnAdjustmentReader>();
+        services.AddScoped<SaleCancellationAdjustmentReader>();
         services.AddScoped<ISaleReturnMutationCoordinator, SaleReturnMutationCoordinator>();
         services.AddScoped<ISalePricingCalculator, SalePricingCalculator>();
 
@@ -63,6 +64,8 @@ public static class DependencyInjection
         services.AddScoped<IPaymentTransactionRunner, PaymentTransactionRunner>();
         services.AddScoped<PaymentReceiptDtoBuilder>();
 
+        services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationPolicy>();
+        services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationService>();
         services.AddScoped<SaleDtoBuilder>();
         services.AddScoped<RecordSaleCommandHandler>();
         services.AddScoped<SyncOfflineSalesCommandHandler>();

@@ -93,6 +93,12 @@ internal static class SalesExcelLineItemRenderer
         worksheet.Cell(startRow, col).Value = "Return Numbers";
         plan.ReturnNumbersColumn = col++;
 
+        worksheet.Cell(startRow, col).Value = "Status";
+        plan.StatusColumn = col++;
+        worksheet.Cell(startRow, col).Value = "Cancellation reference";
+        plan.CancellationReferenceColumn = col++;
+        worksheet.Cell(startRow, col).Value = "Cancellation date";
+        plan.CancellationDateColumn = col++;
         plan.HeaderRow = startRow;
         plan.TotalColumnsEnd = col - 1;
 
@@ -149,6 +155,13 @@ internal static class SalesExcelLineItemRenderer
 
         worksheet.Cell(rowNum, columnPlan.ReturnStatusColumn).Value = row.ReturnStatus ?? string.Empty;
         worksheet.Cell(rowNum, columnPlan.ReturnNumbersColumn).Value = row.ReturnNumbers ?? string.Empty;
+        worksheet.Cell(rowNum, columnPlan.StatusColumn).Value = row.Status;
+        worksheet.Cell(rowNum, columnPlan.CancellationReferenceColumn).Value = row.CancellationReference;
+        if (row.CancellationBusinessDate is { } date)
+        {
+            worksheet.Cell(rowNum, columnPlan.CancellationDateColumn).Value = date.ToDateTime(TimeOnly.MinValue);
+            worksheet.Cell(rowNum, columnPlan.CancellationDateColumn).Style.DateFormat.Format = "yyyy-MM-dd";
+        }
     }
 
     internal static void RenderLineItemTotalsRow(
@@ -210,6 +223,9 @@ internal sealed class LineItemColumnPlan
         TotalFormulaColumns = new List<int>();
     }
 
+    public int StatusColumn { get; set; }
+    public int CancellationReferenceColumn { get; set; }
+    public int CancellationDateColumn { get; set; }
     public int HeaderRow { get; set; }
     public int InvoiceNumberColumn { get; set; }
     public int DateColumn { get; set; }

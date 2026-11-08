@@ -42,4 +42,6 @@ public sealed record DashboardDto(
     IReadOnlyList<DashboardLatestSaleDto> LatestSales,
     decimal? StockValue,
     ProfitLossEconomicsDto? Economics = null,
-    decimal? GrossTradingProfitChangePercent = null);
+    decimal? GrossTradingProfitChangePercent = null,
+    decimal CancellationAmount = 0m,
+    int CancellationCount = 0);

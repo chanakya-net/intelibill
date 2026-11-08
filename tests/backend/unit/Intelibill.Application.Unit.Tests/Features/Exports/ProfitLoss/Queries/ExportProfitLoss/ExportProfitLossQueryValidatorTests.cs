@@ -40,7 +40,7 @@ public sealed class ExportProfitLossQueryValidatorTests
         var result = _validator.TestValidate(query);
 
         result.ShouldHaveValidationErrorFor(x => x.Type)
-            .WithErrorMessage("'type' must be one of: all, sale, saleReturn, inventoryAdjustment.");
+            .WithErrorMessage("'type' must be one of: all, sale, saleReturn, saleCancellation, inventoryAdjustment.");
     }
 
     [Fact]
@@ -54,10 +54,13 @@ public sealed class ExportProfitLossQueryValidatorTests
             .WithErrorMessage("'format' must be xlsx.");
     }
 
-    [Fact]
-    public void Validate_WithValidInput_Passes()
+    [Theory]
+    [InlineData("all")]
+    [InlineData("saleCancellation")]
+    [InlineData("SALECANCELLATION")]
+    public void Validate_WithValidInput_Passes(string type)
     {
-        var result = _validator.TestValidate(ValidQuery());
+        var result = _validator.TestValidate(ValidQuery() with { Type = type });
 
         result.ShouldNotHaveAnyValidationErrors();
     }

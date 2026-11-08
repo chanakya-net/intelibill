@@ -256,7 +256,15 @@
           <ng-template pTemplate="body" let-sale>
             <tr>
               <td class="invoice-cell">
-                <div class="invoice-main">{{ sale.invoiceNumber }}</div>
+                <div class="invoice-main">
+                  {{ sale.invoiceNumber }}
+                  @if (sale.cancellationReference) {
+                    <small class="block"
+                      >{{ sale.cancellationReference }} ·
+                      {{ sale.cancelledAt | date: 'dd MMM yyyy' }}</small
+                    >
+                  }
+                </div>
                 <div class="invoice-sub">
                   <p-tag
                     [severity]="paymentMethodSeverity(sale.paymentMethod)"
@@ -420,5 +428,15 @@
     </footer>
   </section>
 
-  <app-sale-detail-overlay [visible]="showDetailOverlay()" (visibleChange)="onCloseDetail()" />
+  <p class="text-sm">
+    {{ 'sales.cancellation.summary' | transloco }}: ₹{{
+      salesHistorySummary()?.cancellationAmount ?? 0 | number: '1.2-2'
+    }}
+    · {{ salesHistorySummary()?.cancellationCount ?? 0 }}
+  </p>
+  <app-sale-detail-overlay
+    (cancellationCompleted)="refreshAfterCancellation()"
+    [visible]="showDetailOverlay()"
+    (visibleChange)="onCloseDetail()"
+  />
 </section>

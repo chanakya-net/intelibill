@@ -16,7 +16,9 @@ public sealed record ProfitLossSummaryDto(
     int InvoiceCount,
     int ReturnCount,
     int AdjustmentCount,
-    ProfitLossEconomicsDto? Economics = null);
+    ProfitLossEconomicsDto? Economics = null,
+    decimal CancellationAmount = 0m,
+    int CancellationCount = 0);
 
 public sealed record ProfitLossAppliedFiltersDto(
     DateOnly From,

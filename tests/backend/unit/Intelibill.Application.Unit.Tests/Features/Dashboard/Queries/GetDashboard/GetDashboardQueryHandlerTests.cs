@@ -38,7 +38,7 @@ public sealed class GetDashboardQueryHandlerTests
             _saleRepository,
             new ReturnAdjustmentReader(_saleReturnRepository, _saleRepository, Substitute.For<ICreditNoteRepository>()),
             _inventoryAdjustmentRepository,
-            BusinessTestDoubles.RealClock(), _expenseRepository);
+            BusinessTestDoubles.RealClock(), _expenseRepository, new SaleCancellationAdjustmentReader(Substitute.For<ISaleCancellationRepository>()));
         _handler = new GetDashboardQueryHandler(
             _saleRepository,
             _expenseRepository,

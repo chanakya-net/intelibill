@@ -2,6 +2,7 @@ namespace Intelibill.Application.Features.Sales.DTOs;
 
 public static class SaleHistoryStatus
 {
+    public const string Cancelled = "cancelled";
     public const string Paid = "paid";
     public const string PartiallyPaid = "partiallyPaid";
     public const string Refunded = "refunded";
@@ -10,6 +11,7 @@ public static class SaleHistoryStatus
     private static readonly HashSet<string> ValidAliases = new(StringComparer.OrdinalIgnoreCase)
     {
         "all",
+        Cancelled,
         Paid,
         PartiallyPaid,
         Refunded,

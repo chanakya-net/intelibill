@@ -94,6 +94,7 @@ export class SalesPageComponent {
     { label: 'sales.history.status.paid', value: 'paid' as const },
     { label: 'sales.history.status.partiallyPaid', value: 'partiallyPaid' as const },
     { label: 'sales.history.status.refunded', value: 'refunded' as const },
+    { label: 'sales.history.status.cancelled', value: 'cancelled' as const },
     { label: 'sales.history.status.unknown', value: 'unknown' as const },
   ];
 
@@ -181,6 +182,8 @@ export class SalesPageComponent {
 
   statusLabelKey(status: SaleHistoryStatus): string {
     switch (status) {
+      case 'cancelled':
+        return 'sales.history.status.cancelled';
       case 'paid':
         return 'sales.history.status.paid';
       case 'partiallyPaid':
@@ -212,6 +215,10 @@ export class SalesPageComponent {
   onPageChange(nextPage: number): void {
     const clamped = Math.min(Math.max(1, nextPage), this.totalPages());
     this.pageNumber.set(clamped);
+  }
+
+  refreshAfterCancellation(): void {
+    this.salesFacade.loadSales(this.buildQueryParams());
   }
 
   clearFilters(): void {

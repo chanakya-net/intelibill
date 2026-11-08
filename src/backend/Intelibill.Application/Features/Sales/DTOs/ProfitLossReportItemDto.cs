@@ -20,6 +20,7 @@ public sealed record ProfitLossReportItemDto(
 
 public static class ProfitLossReportRowTypes
 {
+    public const string SaleCancellation = "saleCancellation";
     public const string Sale = nameof(Sale);
     public const string SaleReturn = nameof(SaleReturn);
     public const string InventoryAdjustment = nameof(InventoryAdjustment);
