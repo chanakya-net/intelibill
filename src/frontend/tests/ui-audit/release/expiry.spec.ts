@@ -318,35 +318,36 @@ async function fixtures(page: Page) {
           : batch,
       ]);
     if (path.endsWith('/dispositions')) {
-      if (r.request().method() !== 'POST')
+      if (r.request().method() !== 'POST') {
+        const sourceRoot = {
+          ...history[0],
+          expiryDate: controls.originallyExpired ? '2026-01-01' : null,
+          manufacturingDate: null,
+          reasonCode: controls.originallyExpired ? 'Expiry.Expired' : 'Expiry.RequiredDateMissing',
+          reason: controls.originallyExpired ? 'Expiry.Expired' : 'Expiry.RequiredDateMissing',
+        };
         return json(
           r,
           controls.fullyQuarantined
             ? [
-                {
-                  ...history[0],
-                  expiryDate: controls.originallyExpired ? '2026-01-01' : null,
-                  manufacturingDate: null,
-                  reasonCode: controls.originallyExpired
-                    ? 'Expiry.Expired'
-                    : 'Expiry.RequiredDateMissing',
-                },
+                sourceRoot,
                 ...(controls.released
                   ? [
                       {
-                        ...history[0],
+                        // Consume retains source facts; the corrected current lot date belongs only to the lot.
+                        ...sourceRoot,
                         id: 'released-one',
-                        rootChangeId: 'root-held',
+                        rootChangeId: sourceRoot.id,
                         action: 'Release',
                         quantity: 1,
-                        expiryDate: '2099-12-31',
-                        reason: 'Audited corrected date',
+                        reason: String(controls.posts.at(-1)?.['reason'] ?? ''),
                       },
                     ]
                   : []),
               ]
             : history,
         );
+      }
       controls.posts.push(r.request().postDataJSON());
       if (controls.dispositionMode === 'release') {
         controls.released = true;
@@ -747,9 +748,11 @@ for (const width of [1440, 390]) {
         .filter({ visible: true })
         .first()
         .click();
-      await expect(
-        dialog.locator('li').filter({ hasText: 'Audited corrected date' }),
-      ).toContainText('Release hold');
+      const savedRelease = dialog.locator('li').filter({ hasText: 'Audited corrected date' });
+      await expect(savedRelease).toContainText('Release hold · 1');
+      await expect(savedRelease).toContainText('Customer return · No expiry date');
+      await expect(savedRelease).not.toContainText('2099-12-31');
+      await expect(savedRelease).toContainText('Audited corrected date');
       await expect(dialog).toContainText('Quarantined 2');
       await dialog
         .locator('li')
