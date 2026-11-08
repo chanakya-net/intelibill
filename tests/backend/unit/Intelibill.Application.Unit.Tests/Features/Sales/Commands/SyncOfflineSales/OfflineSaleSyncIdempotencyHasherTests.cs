@@ -20,6 +20,24 @@ public class OfflineSaleSyncIdempotencyHasherTests
     private static readonly Guid IssuerId = Guid.Parse("5a3c2e1f-7b6d-4c8e-9f0a-1b2c3d4e5f60");
 
     [Fact]
+    public void OptionalExpiryProof_PreservesLegacyAbsenceAndBindsEverySuppliedField()
+    {
+        var old = Sale(null); var oldJson = OfflineSubmissionPayload.Serialize(old);
+        Assert.DoesNotContain("expiryEvidence", oldJson, StringComparison.Ordinal);
+        var absent = OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", old);
+        Assert.Equal(LegacyHash, absent);
+        var proof = new OfflineExpiryLineEvidence(Guid.NewGuid(), 3, 2, new(2026, 10, 20), new(2026, 10, 21), "Expiry.ExpiringSoon");
+        var frozen = old with { Items = [old.Items[0] with { ExpiryEvidence = proof }] };
+        var hash = OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", frozen);
+        Assert.NotEqual(absent, hash);
+        var restored = OfflineSubmissionPayload.Deserialize(OfflineSubmissionPayload.Serialize(frozen))!;
+        Assert.Equal(proof, restored.Items[0].ExpiryEvidence);
+        Assert.Equal(hash, OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", restored));
+        foreach (var changed in new[] { proof with { EvidenceId = Guid.NewGuid() }, proof with { CatalogVersion = 4 }, proof with { PolicyVersion = 3 }, proof with { BusinessDate = new(2026, 10, 21) }, proof with { ExpiryDate = null }, proof with { DecisionCode = "Allowed" } })
+            Assert.NotEqual(hash, OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", frozen with { Items = [frozen.Items[0] with { ExpiryEvidence = changed }] }));
+    }
+
+    [Fact]
     public void Legacy_payload_hash_is_unchanged()
     {
         var hash = OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", Sale(calculationVersion: null));

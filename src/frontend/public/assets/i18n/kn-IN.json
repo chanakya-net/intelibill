@@ -2066,6 +2066,7 @@
         "recoveryReview": "ಮರುಪಡೆದ ಇನ್‌ವಾಯ್ಸ್ ಪರಿಶೀಲನೆ",
         "unknown": "ಇತರೆ",
         "documentReview": "GST ದಾಖಲೆ ಪರಿಶೀಲನೆ",
+        "expiryReview": "ಅವಧಿ ಸಾಕ್ಷ್ಯದ ಪರಿಶೀಲನೆ",
         "closedPeriodReview": "ಮುಚ್ಚಿದ ಅವಧಿ ಪರಿಶೀಲನೆ"
       },
       "detail": {

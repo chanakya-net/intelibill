@@ -1925,6 +1925,80 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("item_barcode_sequences", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.OfflineExpiryEvidence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BatchFacts")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("batch_facts");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("batch_id");
+
+                    b.Property<DateTimeOffset>("CapturedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("captured_at");
+
+                    b.Property<long>("CatalogVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("catalog_version");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("EffectivePolicy")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("effective_policy");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<Guid>("SnapshotId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("snapshot_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_offline_expiry_evidence");
+
+                    b.HasIndex("BatchId", "ItemId", "ShopId")
+                        .HasDatabaseName("ix_offline_expiry_evidence_batch_id_item_id_shop_id");
+
+                    b.HasIndex("ShopId", "BatchId", "CapturedAt")
+                        .HasDatabaseName("ix_offline_expiry_evidence_shop_id_batch_id_captured_at");
+
+                    b.HasIndex("ShopId", "SnapshotId", "BatchId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_offline_expiry_evidence_shop_id_snapshot_id_batch_id");
+
+                    b.ToTable("offline_expiry_evidence", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_offline_expiry_evidence_version", "catalog_version > 0");
+
+                            t.HasCheckConstraint("ck_offline_expiry_evidence_window", "expires_at = captured_at + interval '7 days'");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.OfflineSubmission", b =>
                 {
                     b.Property<Guid>("Id")
@@ -7103,6 +7177,24 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_item_barcode_sequences_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.OfflineExpiryEvidence", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_offline_expiry_evidence_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.InventoryBatch", null)
+                        .WithMany()
+                        .HasForeignKey("BatchId", "ItemId", "ShopId")
+                        .HasPrincipalKey("Id", "ItemId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_offline_expiry_evidence_inventory_batches_batch_id_item_id_");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.OfflineSubmission", b =>

@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.OfflineReconciliation;
 using Intelibill.Application.Features.OfflineReconciliation.DTOs;
@@ -186,7 +187,7 @@ public sealed class ReconciliationCaseMapperTests
     }
 
     private ReconciliationCaseMapper Mapper() =>
-        new(_eventRepository, _userRepository, _leaseRepository, _adjustmentRepository, _saleRepository, _submissionRepository, Substitute.For<ITillRepository>());
+        new(_eventRepository, _userRepository, _leaseRepository, _adjustmentRepository, _saleRepository, _submissionRepository, Substitute.For<ITillRepository>(), Substitute.For<IOfflineExpiryAuthority>());
 
     private ReconciliationIssue StockCase(Guid? createdBy = null) =>
         ReconciliationIssue.Create(

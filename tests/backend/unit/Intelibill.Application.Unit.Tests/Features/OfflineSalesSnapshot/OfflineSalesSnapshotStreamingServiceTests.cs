@@ -1,3 +1,7 @@
+using Intelibill.Application.Common.Time;
+using Intelibill.Application.Features.Expiry;
+using Intelibill.Domain.Interfaces;
+using ErrorOr;
 using Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
 using Intelibill.Application.Features.OfflineSalesSnapshot.Services;
 using Intelibill.Domain.Entities;
@@ -11,15 +15,33 @@ namespace Intelibill.Application.Unit.Tests.Features.OfflineSalesSnapshot;
 public class OfflineSalesSnapshotStreamingServiceTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly IInventoryBatchRepository _inventoryBatchRepository = Substitute.For<IInventoryBatchRepository>();
     private readonly ICustomerRepository _customerRepository = Substitute.For<ICustomerRepository>();
     private readonly IDiscountRuleRepository _discountRuleRepository = Substitute.For<IDiscountRuleRepository>();
     private readonly IInvoiceLeaseRepository _invoiceLeaseRepository = Substitute.For<IInvoiceLeaseRepository>();
     private readonly IServiceRepository _serviceRepository = Substitute.For<IServiceRepository>();
 
-    private OfflineSalesSnapshotStreamingService CreateService() =>
-        new(_userRepository, _inventoryBatchRepository, _customerRepository,
-            _discountRuleRepository, _invoiceLeaseRepository, _serviceRepository);
+    private readonly IOfflineExpiryEvidenceRepository _expiryEvidence = Substitute.For<IOfflineExpiryEvidenceRepository>();
+    private readonly IExpiryPolicyRepository _expiryPolicies = Substitute.For<IExpiryPolicyRepository>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private OfflineSalesSnapshotStreamingService CreateService()
+    {
+        var shops = Substitute.For<IShopRepository>();
+        shops.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(Shop.Create("Shop", "address", "city", "state", "560001", null, null, null));
+        var fence = Substitute.For<IExpiryPolicyFence>();
+        fence.AcquireAsync(Arg.Any<Guid>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
+        _expiryPolicies.GetStateAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(x => ShopExpiryState.Create(x.Arg<Guid>(), DateTimeOffset.UtcNow));
+        _expiryEvidence.HasRetainedCatalogAsync(Arg.Any<Guid>(), Arg.Any<long>(), Arg.Any<CancellationToken>()).Returns(true);
+        _expiryPolicies.GetEffectiveForItemsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(x => (IReadOnlyDictionary<Guid, EffectiveExpiryPolicy>)x.Arg<IReadOnlyList<Guid>>().ToDictionary(id => id, _ => new EffectiveExpiryPolicy(ExpiryPolicy.Default, 1, true)));
+        return new(_userRepository, _customerRepository, _discountRuleRepository, _invoiceLeaseRepository, _serviceRepository,
+            _expiryEvidence, _expiryPolicies, fence, _unitOfWork, shops, Clock());
+    }
+
+    private static IBusinessClock Clock()
+    {
+        var clock = Substitute.For<IBusinessClock>(); clock.UtcNow.Returns(DateTimeOffset.UtcNow);
+        clock.GetBusinessDate(Arg.Any<DateTimeOffset>(), Arg.Any<string>()).Returns(DateOnly.FromDateTime(DateTime.UtcNow)); return clock;
+    }
 
     private static async IAsyncEnumerable<T> EmptyAsync<T>()
     {
@@ -41,8 +63,6 @@ public class OfflineSalesSnapshotStreamingServiceTests
 
     private void ArrangeEmptyStreams()
     {
-        _inventoryBatchRepository.StreamActiveSellableWithItemByShopAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(EmptyAsync<InventoryBatch>());
         _customerRepository.StreamActiveByShopAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(EmptyAsync<Customer>());
         _discountRuleRepository.StreamActiveByShopAsync(Arg.Any<Guid>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
@@ -93,8 +113,7 @@ public class OfflineSalesSnapshotStreamingServiceTests
         var batch = InventoryBatch.Create(shopId, item.Id, "B-1", 5m, 80m, 120m, 100m, 18m, false, null, null, null, Guid.NewGuid()).Value;
         typeof(InventoryBatch).GetProperty(nameof(InventoryBatch.Item))!.SetValue(batch, item);
         ArrangeEmptyStreams();
-        _inventoryBatchRepository.StreamActiveSellableWithItemByShopAsync(shopId, Arg.Any<CancellationToken>())
-            .Returns(StreamOf(batch));
+        _expiryEvidence.GetCapturePageAsync(shopId, null, Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(new[] { batch });
 
         var records = await CollectAsync(shopId);
 
@@ -120,10 +139,8 @@ public class OfflineSalesSnapshotStreamingServiceTests
     }
 
     [Fact]
-    public async Task StreamAsync_EmitsSchemaVersion3()
+    public async Task StreamAsync_EmitsSchemaVersion4()
     {
-        _inventoryBatchRepository.StreamActiveSellableWithItemByShopAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(EmptyAsync<InventoryBatch>());
         _customerRepository.StreamActiveByShopAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(EmptyAsync<Customer>());
         _discountRuleRepository.StreamActiveByShopAsync(Arg.Any<Guid>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
@@ -141,7 +158,7 @@ public class OfflineSalesSnapshotStreamingServiceTests
         }
 
         var metadata = Assert.IsType<OfflineSalesSnapshotMetadataRecord>(records[0]);
-        Assert.Equal(3, metadata.Metadata.SchemaVersion);
+        Assert.Equal(4, metadata.Metadata.SchemaVersion);
     }
 
     [Fact]
@@ -150,8 +167,6 @@ public class OfflineSalesSnapshotStreamingServiceTests
         var shopId = Guid.NewGuid();
         var service = Service.Create(shopId, "SVC-001", "Plumbing", null, 300m, "998511", 18m, false, true, Guid.NewGuid());
 
-        _inventoryBatchRepository.StreamActiveSellableWithItemByShopAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(EmptyAsync<InventoryBatch>());
         _customerRepository.StreamActiveByShopAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(EmptyAsync<Customer>());
         _discountRuleRepository.StreamActiveByShopAsync(Arg.Any<Guid>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
@@ -184,8 +199,6 @@ public class OfflineSalesSnapshotStreamingServiceTests
     [Fact]
     public async Task StreamAsync_WhenNoServices_ServiceCountIsZero()
     {
-        _inventoryBatchRepository.StreamActiveSellableWithItemByShopAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns(EmptyAsync<InventoryBatch>());
         _customerRepository.StreamActiveByShopAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(EmptyAsync<Customer>());
         _discountRuleRepository.StreamActiveByShopAsync(Arg.Any<Guid>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())

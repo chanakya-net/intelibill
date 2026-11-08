@@ -99,6 +99,7 @@ public static class TenantPolicyManifest
         Tenant("item_barcode_sequences"),
         Tenant("items"),
         Tenant("offline_submissions"),
+        Tenant("offline_expiry_evidence"),
         Tenant("operation_receipts"),
         Tenant("payment_allocations"),
         Tenant("payment_receipts"),

@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -726,7 +727,15 @@ public sealed class SubmitRecoveryBundleCommandHandlerTests
             _poster,
             _unitOfWork,
             _executor,
-            new FixedClock(Now)).HandleAsync(command, CancellationToken.None);
+            new FixedClock(Now), ExpiryAuthority()).HandleAsync(command, CancellationToken.None);
+
+    private static IOfflineExpiryAuthority ExpiryAuthority()
+    {
+        var authority = Substitute.For<IOfflineExpiryAuthority>();
+        authority.ValidateFrozenAsync(Arg.Any<Guid>(), Arg.Any<OfflineSaleSyncCommand>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<IReadOnlyList<SaleExpiryDecision>>>(Array.Empty<SaleExpiryDecision>()));
+        return authority;
+    }
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {

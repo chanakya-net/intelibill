@@ -59,6 +59,7 @@ public static class ReconciliationActionPolicy
         ReconciliationIssueType.RecoveryReview,
         ReconciliationIssueType.ClosedPeriodReview,
         ReconciliationIssueType.TillReview,
+        ReconciliationIssueType.ExpiryReview,
     ];
 
     /// <param name="issue">The case.</param>
@@ -69,7 +70,9 @@ public static class ReconciliationActionPolicy
         ReconciliationIssue issue,
         OfflineSubmission? submission,
         ShopRole role,
-        Guid actorUserId)
+        Guid actorUserId,
+        bool expiryAuthorityVerified = false,
+        bool expirySaleLinkVerified = false)
     {
         if (issue.Status == ReconciliationCaseStatus.Resolved)
             return [];
@@ -82,7 +85,17 @@ public static class ReconciliationActionPolicy
         }
 
         var actions = new List<ReconciliationAction>(4);
-        actions.AddRange(ResolutionsFor(issue, submission));
+        if (issue.IssueType == ReconciliationIssueType.ExpiryReview)
+        {
+            if (HasEnvelope(issue, submission) && submission!.AttributableUserId is not null && expiryAuthorityVerified)
+            {
+                actions.Add(ReconciliationAction.RetryHistoricalLease);
+                // A till review still needs the existing four-field gate or legacy recovery evidence.
+                actions.Add(ReconciliationAction.ReconcileTillSale);
+            }
+            if (expirySaleLinkVerified && OffersSaleLink(issue, submission)) actions.Add(ReconciliationAction.LinkExistingSale);
+        }
+        else actions.AddRange(ResolutionsFor(issue, submission));
         if (issue.Status == ReconciliationCaseStatus.Open)
             actions.Add(ReconciliationAction.Escalate);
 

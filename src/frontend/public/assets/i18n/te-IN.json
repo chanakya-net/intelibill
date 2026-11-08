@@ -2066,6 +2066,7 @@
         "recoveryReview": "తిరిగి పొందిన ఇన్‌వాయిస్ సమీక్ష",
         "unknown": "ఇతర",
         "documentReview": "GST పత్ర సమీక్ష",
+        "expiryReview": "గడువు సాక్ష్యాల సమీక్ష",
         "closedPeriodReview": "మూసిన కాలం సమీక్ష"
       },
       "detail": {

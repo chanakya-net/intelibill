@@ -94,7 +94,8 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                         i.ConfiguredBatchRulePercentage,
                         i.ItemDiscountOverrideType,
                         i.ItemDiscountOverrideValue,
-                        i.HsnCode)).ToList(),
+                        i.HsnCode, ExpiryEvidence: i.ExpiryEvidence is null ? null : new OfflineExpiryLineEvidence(i.ExpiryEvidence.EvidenceId, i.ExpiryEvidence.CatalogVersion, i.ExpiryEvidence.PolicyVersion,
+                            i.ExpiryEvidence.BusinessDate, i.ExpiryEvidence.ExpiryDate, i.ExpiryEvidence.DecisionCode!))).ToList(),
                     s.CalculationVersion,
                     s.IssuedByUserId, s.Till, s.TenderLines, s.TillBusinessDate, s.TillCashierId))
                     .ToList()),

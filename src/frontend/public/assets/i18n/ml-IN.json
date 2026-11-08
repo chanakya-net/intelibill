@@ -2066,6 +2066,7 @@
         "recoveryReview": "വീണ്ടെടുത്ത ഇൻവോയ്സ് പരിശോധന",
         "unknown": "മറ്റുള്ളവ",
         "documentReview": "GST രേഖ അവലോകനം",
+        "expiryReview": "കാലാവധി തെളിവ് അവലോകനം",
         "closedPeriodReview": "അടച്ച കാലയളവ് അവലോകനം"
       },
       "detail": {

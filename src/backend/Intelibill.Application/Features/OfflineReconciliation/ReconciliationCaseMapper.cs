@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.OfflineReconciliation.DTOs;
 using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
@@ -20,7 +21,8 @@ public sealed class ReconciliationCaseMapper(
     IInventoryAdjustmentRepository adjustmentRepository,
     ISaleRepository saleRepository,
     IOfflineSubmissionRepository submissionRepository,
-    ITillRepository tillRepository)
+    ITillRepository tillRepository,
+    IOfflineExpiryAuthority expiryAuthority)
 {
     public async Task<IReadOnlyList<ReconciliationCaseSummaryDto>> ToSummariesAsync(
         IReadOnlyList<ReconciliationIssue> issues,
@@ -88,7 +90,18 @@ public sealed class ReconciliationCaseMapper(
         if (lease is not null && lease.ShopId != issue.ShopId)
             lease = null;
 
-        var actions = ReconciliationActionPolicy.AvailableActions(issue, submission, role, actorUserId);
+        var expiryVerified = false;
+        var expiryLinkVerified = false;
+        if (issue.IssueType == ReconciliationIssueType.ExpiryReview && submission is not null)
+        {
+            OfflineSaleSyncCommand? payload;
+            try { payload = OfflineSubmissionPayload.Deserialize(submission.PayloadJson); } catch (JsonException) { payload = null; }
+            expiryVerified = payload is not null && payload.Items.Where(x => !x.IsServiceLine).All(x => x.ExpiryEvidence is not null) &&
+                !(await expiryAuthority.ValidateFrozenAsync(issue.ShopId, payload, DateTimeOffset.UtcNow, cancellationToken)).IsError;
+            var expiryPosted = await saleRepository.GetByClientSaleIdAsync(issue.ShopId, submission.DeviceId, submission.ClientSaleId, cancellationToken);
+            expiryLinkVerified = expiryPosted is not null && await expiryAuthority.VerifiesPostedSaleAsync(submission, expiryPosted, cancellationToken);
+        }
+        var actions = ReconciliationActionPolicy.AvailableActions(issue, submission, role, actorUserId, expiryVerified, expiryLinkVerified);
         var candidates = await LinkCandidatesAsync(issue, submission, actions, cancellationToken);
 
         var late = submission?.SaleId is { } posted ? await tillRepository.FindLatePostingAsync(issue.ShopId, submission.Id, posted, cancellationToken) : null;
@@ -184,7 +197,8 @@ public sealed class ReconciliationCaseMapper(
 
             foreach (var sale in sales)
             {
-                if (await ReconciliationLinkRules.CheckSaleAsync(issue, submission, sale, submissionRepository, cancellationToken) is null)
+                if ((issue.IssueType != ReconciliationIssueType.ExpiryReview || submission is not null && await expiryAuthority.VerifiesPostedSaleAsync(submission, sale, cancellationToken)) &&
+                    await ReconciliationLinkRules.CheckSaleAsync(issue, submission, sale, submissionRepository, cancellationToken) is null)
                 {
                     candidates.Add(new ReconciliationLinkCandidateDto(
                         sale.Id,
@@ -261,7 +275,7 @@ public sealed class ReconciliationCaseMapper(
                     line.SalesPrice,
                     line.TaxRatePercent,
                     line.TaxAmount,
-                    line.TotalAmount))
+                    line.TotalAmount, line.ExpiryEvidence))
                 .ToList(), sale.Till, sale.TenderLines, sale.TillBusinessDate, sale.TillCashierId);
     }
 

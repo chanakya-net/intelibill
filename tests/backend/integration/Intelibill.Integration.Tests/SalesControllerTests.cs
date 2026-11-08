@@ -240,8 +240,9 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         response.EnsureSuccessStatusCode();
     }
 
-    private static async Task<JsonElement> ReserveInvoiceLeaseAsync(HttpClient client, string token, string deviceId)
+    private async Task<JsonElement> ReserveInvoiceLeaseAsync(HttpClient client, string token, string deviceId)
     {
+        await LegacyOfflineExpiryHistory.SeedAsync(_factory, token);
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/sales/invoice-leases/reserve");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Content = JsonContent.Create(new
@@ -4883,7 +4884,7 @@ public sealed class SalesControllerTests(PostgreSqlTestFixture fixture) : IAsync
         return directory?.FullName ?? throw new InvalidOperationException("Repository root not found.");
     }
 
-    private static async Task<string> FirstLeasedInvoiceNumberAsync(HttpClient client, string token, string deviceId)
+    private async Task<string> FirstLeasedInvoiceNumberAsync(HttpClient client, string token, string deviceId)
     {
         var lease = await ReserveInvoiceLeaseAsync(client, token, deviceId);
         return FormatInvoiceNumber(

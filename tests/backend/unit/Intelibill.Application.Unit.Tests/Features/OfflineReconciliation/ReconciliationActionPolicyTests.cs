@@ -12,6 +12,14 @@ public sealed class ReconciliationActionPolicyTests
     private static readonly Guid Cashier = Guid.NewGuid();
     private static readonly DateTimeOffset Now = new(2026, 11, 3, 10, 0, 0, TimeSpan.Zero);
 
+    [Fact]
+    public void ExpiryReview_WithoutVerifiedAuthorityOffersOnlyEscalate()
+    {
+        var envelope = Envelope(OfflineSubmissionSource.Sync, asserted: null, original: null);
+        var issue = Case(ReconciliationIssueType.ExpiryReview, "Expiry.ReviewRequired", envelope.Id);
+        Assert.Equal([ReconciliationAction.Escalate], ReconciliationActionPolicy.AvailableActions(issue, envelope, ShopRole.Owner, Owner));
+    }
+
     [Theory]
     [InlineData(ReconciliationIssueType.PricingVariance)]
     [InlineData(ReconciliationIssueType.DiscountVariance)]

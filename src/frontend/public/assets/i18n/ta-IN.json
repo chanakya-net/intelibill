@@ -2066,6 +2066,7 @@
         "recoveryReview": "மீட்கப்பட்ட விலைப்பட்டியல் மதிப்பாய்வு",
         "unknown": "மற்றவை",
         "documentReview": "GST ஆவண மதிப்பாய்வு",
+        "expiryReview": "காலாவதி ஆதார மதிப்பாய்வு",
         "closedPeriodReview": "மூடிய காலம் மதிப்பாய்வு"
       },
       "detail": {

@@ -86,7 +86,12 @@ public sealed record OfflineSaleSyncLineRequest(
     decimal? ConfiguredBatchRulePercentage,
     InstantDiscountType ItemDiscountOverrideType,
     decimal ItemDiscountOverrideValue,
-    string? HsnCode);
+    string? HsnCode,
+    OfflineExpiryLineEvidenceRequest? ExpiryEvidence = null);
+
+/// <summary>Incomplete client proof is retained for review instead of rejected by implicit MVC required validation.</summary>
+public sealed record OfflineExpiryLineEvidenceRequest(Guid EvidenceId, long CatalogVersion, long PolicyVersion,
+    DateOnly BusinessDate, DateOnly? ExpiryDate, string? DecisionCode);
 
 public sealed record RecordSaleItemRequest(
     string Barcode,

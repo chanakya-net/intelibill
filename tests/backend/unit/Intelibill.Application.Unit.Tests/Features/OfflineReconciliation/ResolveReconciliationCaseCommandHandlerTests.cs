@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -838,10 +839,10 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
             _leaseRepository,
             _discountRuleRepository,
             _poster,
-            new ReconciliationCaseMapper(_eventRepository, _userRepository, _leaseRepository, _adjustmentRepository, _saleRepository, _submissionRepository, Substitute.For<ITillRepository>()),
+            new ReconciliationCaseMapper(_eventRepository, _userRepository, _leaseRepository, _adjustmentRepository, _saleRepository, _submissionRepository, Substitute.For<ITillRepository>(), Substitute.For<IOfflineExpiryAuthority>()),
             _unitOfWork,
             _executor,
-            new FixedClock(Now));
+            new FixedClock(Now), Substitute.For<IOfflineExpiryAuthority>());
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {

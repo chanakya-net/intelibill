@@ -352,7 +352,7 @@ internal static class OfflineSaleSyncHelpers
             .Where(line => line.LineType == SaleLineType.Goods)
             .Select(line => line.Batch!)
             .DistinctBy(batch => batch.Id)
-            .ToDictionary(batch => batch.Id, batch => Math.Max(0m, batch.Quantity));
+            .ToDictionary(batch => batch.Id, batch => Math.Max(0m, batch.Quantity - batch.QuarantinedQuantity));
         var remainingByItemId = validatedLines
             .Where(line => line.LineType == SaleLineType.Goods)
             .Select(line => line.Inventory!)

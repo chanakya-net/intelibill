@@ -6,6 +6,7 @@ describe('offline reconciliation messages', () => {
   it('labels a document review case', () => {
     expect(issueTypeLabelKey('DocumentReview')).toBe('sales.offlineReconciliation.issueTypes.documentReview');
     expect(issueTypeLabelKey('ClosedPeriodReview')).toBe('sales.offlineReconciliation.issueTypes.closedPeriodReview');
+    expect(issueTypeLabelKey('ExpiryReview')).toBe('sales.offlineReconciliation.issueTypes.expiryReview');
   });
 
   it('falls back to a generic label for an issue type the console does not know', () => {

@@ -2066,6 +2066,7 @@
         "recoveryReview": "Recovered invoice review",
         "unknown": "Other",
         "documentReview": "GST document review",
+        "expiryReview": "Expiry evidence review",
         "closedPeriodReview": "Closed period review"
       },
       "detail": {

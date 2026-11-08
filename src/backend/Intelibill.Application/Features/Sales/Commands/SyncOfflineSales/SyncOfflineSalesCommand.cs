@@ -64,7 +64,10 @@ public sealed record OfflineSaleSyncLineCommand(
     decimal ItemDiscountOverrideValue,
     string? HsnCode,
     string LineType = "Goods",
-    Guid? ServiceId = null)
+    Guid? ServiceId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OfflineExpiryLineEvidence? ExpiryEvidence = null)
 {
     public bool IsServiceLine => string.Equals(LineType, "Service", StringComparison.OrdinalIgnoreCase);
 }
+
+public sealed record OfflineExpiryLineEvidence(Guid EvidenceId, long CatalogVersion, long PolicyVersion, DateOnly BusinessDate, DateOnly? ExpiryDate, string DecisionCode);

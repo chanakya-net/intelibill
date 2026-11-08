@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using System.Globalization;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -40,6 +41,10 @@ public class SyncOfflineSalesCommandHandlerTests
 
     public SyncOfflineSalesCommandHandlerTests()
     {
+        _expiryFence.AcquireAsync(Arg.Any<Guid>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
+        _expiryAuthority.ValidateFrozenAsync(Arg.Any<Guid>(), Arg.Any<OfflineSaleSyncCommand>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<IReadOnlyList<SaleExpiryDecision>>>(Array.Empty<SaleExpiryDecision>()));
+
         _varianceAnalyzer = new OfflineSaleVarianceAnalyzer(_reconciliationIssueRepository);
         StubRecordedEnvelope(candidate => candidate);
         _postingPeriods.AuthorizeForWriteAsync(Arg.Any<Guid>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
@@ -61,6 +66,8 @@ public class SyncOfflineSalesCommandHandlerTests
             .Returns(Task.FromResult<IReadOnlyList<DiscountRule>>([]));
     }
 
+    private readonly IOfflineExpiryAuthority _expiryAuthority = Substitute.For<IOfflineExpiryAuthority>();
+    private readonly IExpiryPolicyFence _expiryFence = Substitute.For<IExpiryPolicyFence>();
     private SyncOfflineSalesCommandHandler CreateHandler() =>
         new(
             _userRepository,
@@ -80,7 +87,7 @@ public class SyncOfflineSalesCommandHandlerTests
                 _shopRepository,
                 _varianceAnalyzer,
                 new BusinessClock(_clock),
-                _postingPeriods, Substitute.For<Intelibill.Application.Features.Tills.ITillPostingService>(), Substitute.For<Intelibill.Application.Features.Tills.ITillSessionPolicy>(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>()),
+                _postingPeriods, Substitute.For<Intelibill.Application.Features.Tills.ITillPostingService>(), Substitute.For<Intelibill.Application.Features.Tills.ITillSessionPolicy>(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>(), _expiryFence, _expiryAuthority),
             _unitOfWork,
             _clock);
 
@@ -1710,7 +1717,7 @@ public class SyncOfflineSalesCommandHandlerTests
             .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
         SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
         var poster = new OfflineSalePoster(
-            _saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock), _postingPeriods, Substitute.For<Intelibill.Application.Features.Tills.ITillPostingService>(), Substitute.For<Intelibill.Application.Features.Tills.ITillSessionPolicy>(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>());
+            _saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock), _postingPeriods, Substitute.For<Intelibill.Application.Features.Tills.ITillPostingService>(), Substitute.For<Intelibill.Application.Features.Tills.ITillSessionPolicy>(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>(), _expiryFence, _expiryAuthority);
 
         var outcome = await poster.StageAsync(
             new OfflineSalePostingRequest(
@@ -1829,8 +1836,39 @@ public class SyncOfflineSalesCommandHandlerTests
         Assert.Equal(new DateOnly(2026, 10, 21), ledger!.EntryDate);
     }
 
+    [Fact]
+    public void OfflineStockConsumption_PreservesCurrentQuarantineAndReportsDeficit()
+    {
+        var shopId = Guid.NewGuid();
+        var (_, item, batch, inventory) = ArrangeStagedSale(shopId, "A/2526/000201");
+        typeof(InventoryBatch).GetProperty(nameof(InventoryBatch.QuarantinedQuantity))!.SetValue(batch, batch.Quantity);
+        var lines = new[] { new ValidatedSaleLine(new RecordSaleItemCommand(item.Barcode, batch.BatchNumber, item.Name, 1, 1, 2, 2, 0, false, batch.Id), item, batch, inventory, false) };
+        var issues = new List<ReconciliationIssue>();
+        var plan = OfflineSaleSyncHelpers.BuildStockConsumptionPlan(shopId, Guid.NewGuid(), "client", "device", lines, [], issues);
+        Assert.Equal(0, Assert.Single(plan).ConsumedQuantity);
+        Assert.Equal(ReconciliationIssueType.StockVariance, Assert.Single(issues).IssueType);
+    }
+
+    [Theory]
+    [InlineData(false)][InlineData(true)]
+    public async Task StageAsync_ExpiryAuthorityFailuresHoldOnlyUntrustedProof(bool transient)
+    {
+        var shopId = Guid.NewGuid(); var (sale, _, batch, _) = ArrangeStagedSale(shopId, "A/2526/000201");
+        var error = transient ? Error.Failure("Database.Unavailable", "Retry the infrastructure operation.") : OfflineExpiryAuthority.ReviewRequired;
+        _expiryAuthority.ValidateFrozenAsync(Arg.Any<Guid>(), Arg.Any<OfflineSaleSyncCommand>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<IReadOnlyList<SaleExpiryDecision>>>(error));
+        var quantity = batch.Quantity;
+        var result = await Poster().StageAsync(PostingRequest(shopId, sale, CreateLease(shopId)), default);
+        if (transient) Assert.Equal(error, Assert.IsType<OfflineSalePostingOutcome.Rejected>(result).Error);
+        else Assert.Equal(ReconciliationIssueType.ExpiryReview, Assert.IsType<OfflineSalePostingOutcome.Held>(result).IssueType);
+        Assert.Equal(quantity, batch.Quantity);
+        await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
+        await _stockTransactionRepository.DidNotReceive().AddAsync(Arg.Any<StockTransaction>(), Arg.Any<CancellationToken>());
+        await _customerLedgerEntryRepository.DidNotReceive().AddAsync(Arg.Any<CustomerLedgerEntry>(), Arg.Any<CancellationToken>());
+    }
+
     private OfflineSalePoster Poster() =>
-        new(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock), _postingPeriods, Substitute.For<Intelibill.Application.Features.Tills.ITillPostingService>(), Substitute.For<Intelibill.Application.Features.Tills.ITillSessionPolicy>(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>());
+        new(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock), _postingPeriods, Substitute.For<Intelibill.Application.Features.Tills.ITillPostingService>(), Substitute.For<Intelibill.Application.Features.Tills.ITillSessionPolicy>(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>(), _expiryFence, _expiryAuthority);
 
     private static OfflineSalePostingRequest PostingRequest(Guid shopId, OfflineSaleSyncCommand sale, InvoiceLease lease) =>
         new(shopId, "device-1", sale.ClientSaleId, sale, "hash", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Now, new Dictionary<Guid, DiscountRule>(), lease);
