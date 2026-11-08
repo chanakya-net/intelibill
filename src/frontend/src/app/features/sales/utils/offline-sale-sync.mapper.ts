@@ -1,4 +1,7 @@
-import type { OfflineQueueSyncResult, OfflineSaleQueueStatus } from '../services/offline-sale-core.types';
+import type {
+  OfflineQueueSyncResult,
+  OfflineSaleQueueStatus,
+} from '../services/offline-sale-core.types';
 import type { OfflineSaleSyncRequest, OfflineSaleSyncResultDto } from '../services/sale.models';
 import type { OfflineQueuedSaleRecord } from '../services/offline-sale-core.types';
 
@@ -22,11 +25,19 @@ export interface OfflineSalesSyncRunResult {
   readonly skippedReason?: 'NO_ACTIVE_SHOP' | 'NO_DEVICE' | 'API_UNREACHABLE' | 'NOT_RETRYABLE';
 }
 
-export function buildSyncRequestFromQueuedSale(record: OfflineQueuedSaleRecord): OfflineSaleSyncRequest {
+export function buildSyncRequestFromQueuedSale(
+  record: OfflineQueuedSaleRecord,
+): OfflineSaleSyncRequest {
   const payload = record.payload;
   const totals = payload.pricing.totals;
 
   return {
+    ...(payload.till === undefined ? {} : { till: payload.till }),
+    ...(payload.tenderLines === undefined ? {} : { tenderLines: payload.tenderLines }),
+    ...(payload.tillBusinessDate === undefined
+      ? {}
+      : { tillBusinessDate: payload.tillBusinessDate }),
+    ...(payload.tillCashierId === undefined ? {} : { tillCashierId: payload.tillCashierId }),
     clientSaleId: payload.clientSaleId,
     invoiceNumber: payload.invoiceNumber,
     soldAt: payload.soldAt,
@@ -48,7 +59,9 @@ export function buildSyncRequestFromQueuedSale(record: OfflineQueuedSaleRecord):
     configuredSaleRuleType: payload.pricing.configuredSaleRuleType ?? null,
     configuredSaleRulePercentage: payload.pricing.configuredSaleRulePercentage ?? null,
     configuredSaleRuleThresholdAmount: payload.pricing.configuredSaleRuleThresholdAmount ?? null,
-    ...(payload.pricing.calculationVersion === undefined ? {} : { calculationVersion: payload.pricing.calculationVersion }),
+    ...(payload.pricing.calculationVersion === undefined
+      ? {}
+      : { calculationVersion: payload.pricing.calculationVersion }),
     ...(payload.issuedByUserId ? { issuedByUserId: payload.issuedByUserId } : {}),
     items: payload.pricing.lines.map((line) => ({
       barcode: line.barcode,
@@ -78,7 +91,9 @@ export function buildSyncRequestFromQueuedSale(record: OfflineQueuedSaleRecord):
   };
 }
 
-export function mapOfflineSyncResult(result: OfflineSaleSyncResultDto | undefined): OfflineQueueSyncResult {
+export function mapOfflineSyncResult(
+  result: OfflineSaleSyncResultDto | undefined,
+): OfflineQueueSyncResult {
   if (!result) {
     return {
       status: 'Failed',
@@ -100,39 +115,54 @@ export function mapOfflineSyncResult(result: OfflineSaleSyncResultDto | undefine
 
 const OFFLINE_REVIEW_REASON_KEYS: Readonly<Record<string, string>> = {
   'Sale.OfflineArithmeticMismatch': 'sales.history.offlineQueue.review.reasons.arithmeticMismatch',
-  'Sale.OfflineCalculationVersionUnsupported': 'sales.history.offlineQueue.review.reasons.calculationVersionUnsupported',
+  'Sale.OfflineCalculationVersionUnsupported':
+    'sales.history.offlineQueue.review.reasons.calculationVersionUnsupported',
   'Sale.InvoiceLeaseNotFound': 'sales.history.offlineQueue.review.reasons.invoiceLeaseNotFound',
-  'Sale.InvoiceNumberAlreadyUsed': 'sales.history.offlineQueue.review.reasons.invoiceNumberAlreadyUsed',
+  'Sale.InvoiceNumberAlreadyUsed':
+    'sales.history.offlineQueue.review.reasons.invoiceNumberAlreadyUsed',
   'Sale.IdempotencyConflict': 'sales.history.offlineQueue.review.reasons.idempotencyConflict',
-  'OfflineReconciliation.HistoricalLeaseReviewRequired': 'sales.history.offlineQueue.review.reasons.historicalLeaseReviewRequired',
-  'OfflineReconciliation.IssuedAfterLeaseExpiry': 'sales.history.offlineQueue.review.reasons.issuedAfterLeaseExpiry',
-  'OfflineReconciliation.IssueTimeBeforeLease': 'sales.history.offlineQueue.review.reasons.issueTimeBeforeLease',
-  'OfflineReconciliation.IssueTimeInFuture': 'sales.history.offlineQueue.review.reasons.issueTimeInFuture',
-  'OfflineReconciliation.IssueFiscalYearMismatch': 'sales.history.offlineQueue.review.reasons.issueFiscalYearMismatch',
-  'OfflineReconciliation.IssuerNotSubmitter': 'sales.history.offlineQueue.review.reasons.issuerNotSubmitter',
-  'OfflineReconciliation.RecoveryReviewRequired': 'sales.history.offlineQueue.review.reasons.recoveryReviewRequired',
-  'OfflineReconciliation.ProvenanceUnknown': 'sales.history.offlineQueue.review.reasons.provenanceUnknown',
-  'OfflineReconciliation.IssuerUnverified': 'sales.history.offlineQueue.review.reasons.issuerUnverified',
+  'OfflineReconciliation.HistoricalLeaseReviewRequired':
+    'sales.history.offlineQueue.review.reasons.historicalLeaseReviewRequired',
+  'OfflineReconciliation.IssuedAfterLeaseExpiry':
+    'sales.history.offlineQueue.review.reasons.issuedAfterLeaseExpiry',
+  'OfflineReconciliation.IssueTimeBeforeLease':
+    'sales.history.offlineQueue.review.reasons.issueTimeBeforeLease',
+  'OfflineReconciliation.IssueTimeInFuture':
+    'sales.history.offlineQueue.review.reasons.issueTimeInFuture',
+  'OfflineReconciliation.IssueFiscalYearMismatch':
+    'sales.history.offlineQueue.review.reasons.issueFiscalYearMismatch',
+  'OfflineReconciliation.IssuerNotSubmitter':
+    'sales.history.offlineQueue.review.reasons.issuerNotSubmitter',
+  'OfflineReconciliation.RecoveryReviewRequired':
+    'sales.history.offlineQueue.review.reasons.recoveryReviewRequired',
+  'OfflineReconciliation.ProvenanceUnknown':
+    'sales.history.offlineQueue.review.reasons.provenanceUnknown',
+  'OfflineReconciliation.IssuerUnverified':
+    'sales.history.offlineQueue.review.reasons.issuerUnverified',
   // Variance cases filed beside a posted sale; they appear only in the reconciliation console.
   'offline_sync.customer_inactive': 'sales.history.offlineQueue.review.reasons.customerInactive',
   'offline_sync.customer_changed': 'sales.history.offlineQueue.review.reasons.customerChanged',
   'offline_sync.pricing_variance': 'sales.history.offlineQueue.review.reasons.pricingVariance',
   'offline_sync.discount_variance': 'sales.history.offlineQueue.review.reasons.discountVariance',
-  'offline_sync.validation_variance': 'sales.history.offlineQueue.review.reasons.validationVariance',
+  'offline_sync.validation_variance':
+    'sales.history.offlineQueue.review.reasons.validationVariance',
   'offline_sync.stock_shortage': 'sales.history.offlineQueue.review.reasons.stockShortage',
 };
 
 export function offlineReviewReasonKey(errorCode: string | null): string {
-  if (errorCode && OFFLINE_REVIEW_REASON_KEYS[errorCode]) return OFFLINE_REVIEW_REASON_KEYS[errorCode];
+  if (errorCode && OFFLINE_REVIEW_REASON_KEYS[errorCode])
+    return OFFLINE_REVIEW_REASON_KEYS[errorCode];
   // Every GST document refusal on a device-issued sale files the same informational case: posted, no document.
-  if (errorCode?.startsWith('Invoice.')) return 'sales.history.offlineQueue.review.reasons.documentNotIssued';
+  if (errorCode?.startsWith('Invoice.'))
+    return 'sales.history.offlineQueue.review.reasons.documentNotIssued';
   return 'sales.history.offlineQueue.review.reasons.unknown';
 }
 
 export function normalizeOfflineQueueSyncStatus(status: string): OfflineQueueSyncResult['status'] {
   const normalized = status.trim().toLowerCase();
 
-  if (normalized === 'created' || normalized === 'duplicate' || normalized === 'synced') return 'Synced';
+  if (normalized === 'created' || normalized === 'duplicate' || normalized === 'synced')
+    return 'Synced';
   if (normalized === 'syncedwithwarnings') return 'SyncedWithWarnings';
   if (normalized === 'needsreview') return 'NeedsReview';
   if (normalized === 'failed') return 'Failed';
@@ -153,7 +183,8 @@ export function mapToVisibleQueueCounts(
 
   return {
     ...visible,
-    totalVisible: visible.pending + visible.syncing + visible.failed + visible.warning + visible.needsReview,
+    totalVisible:
+      visible.pending + visible.syncing + visible.failed + visible.warning + visible.needsReview,
   };
 }
 
@@ -168,7 +199,12 @@ export function isOfflineSaleSyncRetryable(status: OfflineSaleQueueStatus): bool
 }
 
 export function addOfflineSyncResultToTotals(
-  totals: { syncedCount: number; warningCount: number; needsReviewCount: number; failedCount: number },
+  totals: {
+    syncedCount: number;
+    warningCount: number;
+    needsReviewCount: number;
+    failedCount: number;
+  },
   status: OfflineQueueSyncResult['status'],
 ): void {
   if (status === 'Synced') totals.syncedCount += 1;

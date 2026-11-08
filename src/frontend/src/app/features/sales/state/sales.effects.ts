@@ -1,7 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { catchError, firstValueFrom, from, map, mergeMap, of, switchMap } from 'rxjs';
+import { EMPTY, catchError, firstValueFrom, from, map, mergeMap, of, switchMap, takeUntil } from 'rxjs';
 
+import { isScopeChangeError } from '../../../core/context/scoped-request';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { CheckoutIntentService, classifyCheckoutSendFailure } from '../services/checkout-intent.service';
 import { SaleService } from '../services/sale.service';
@@ -109,7 +110,7 @@ export class SalesEffects {
         this.saleService.recordSaleReturn(saleId, payload).pipe(
           map((sale) => SalesActions.recordSaleReturnSucceeded({ sale })),
           catchError((error) =>
-            of(
+            isScopeChangeError(error) ? EMPTY : of(
               SalesActions.recordSaleReturnFailed({
                 errorMessage:
                   saleReturnQuantityErrorKey(error) ||
@@ -118,7 +119,9 @@ export class SalesEffects {
                   'errors.sales.returnRecordFailed',
               })
             )
-          )
+          ),
+          // Durable settlement continues, while a left epoch can no longer update the store.
+          takeUntil(this.shopContext.changes$),
         )
       )
     )
@@ -132,7 +135,7 @@ export class SalesEffects {
           switchMap(() => this.saleService.getSaleById(saleId)),
           map((sale) => SalesActions.voidSaleReturnSucceeded({ sale })),
           catchError((error) =>
-            of(
+            isScopeChangeError(error) ? EMPTY : of(
               SalesActions.voidSaleReturnFailed({
                 errorMessage:
                   error.error?.detail ||
@@ -140,7 +143,9 @@ export class SalesEffects {
                   'errors.sales.returnVoidFailed',
               })
             )
-          )
+          ),
+          // Durable settlement continues, while a left epoch can no longer update the store.
+          takeUntil(this.shopContext.changes$),
         )
       )
     )

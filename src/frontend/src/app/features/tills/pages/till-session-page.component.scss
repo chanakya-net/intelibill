@@ -1,0 +1,162 @@
+:host {
+  display: block;
+}
+.tills-page {
+  max-width: 1160px;
+  margin: auto;
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+  color: var(--p-text-color, #182235);
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+h1 {
+  font-size: 2rem;
+  margin: 0;
+}
+h2 {
+  margin-top: 0;
+}
+.eyebrow {
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+article {
+  padding: 22px;
+  border: 1px solid var(--p-content-border-color, #dce2ea);
+  border-radius: 16px;
+  background: var(--p-content-background, #fff);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+label {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+}
+input,
+select,
+textarea {
+  max-width: 100%;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #94a3b8;
+  border-radius: 7px;
+  background: var(--p-content-background, #fff);
+  color: inherit;
+}
+input[type='checkbox'] {
+  width: auto;
+}
+button,
+a {
+  padding: 10px 15px;
+  border-radius: 8px;
+  border: 1px solid #94a3b8;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.session-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.session {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+.notice {
+  padding: 14px;
+  background: #eff6ff;
+  border-radius: 10px;
+  color: #1e40af;
+}
+.error {
+  background: #fef2f2;
+  color: #991b1b;
+}
+.metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.metrics strong {
+  display: block;
+  font-size: 1.4rem;
+  margin-top: 8px;
+}
+.audit {
+  display: grid;
+  gap: 10px;
+  overflow-wrap: anywhere;
+}
+.audit section {
+  display: grid;
+  gap: 6px;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 12px 0;
+}
+nav {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-top: 16px;
+}
+code {
+  font-size: 0.8rem;
+}
+@media (max-width: 600px) {
+  .tills-page {
+    padding: 12px;
+    gap: 12px;
+  }
+  article {
+    padding: 16px;
+  }
+  header {
+    align-items: flex-start;
+  }
+  h1 {
+    font-size: 1.6rem;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .metrics {
+    gap: 18px;
+  }
+  .metrics strong {
+    font-size: 1.2rem;
+  }
+}
+@media print {
+  button,
+  nav {
+    display: none;
+  }
+}
+
+.notice a {
+  display: block;
+  margin-top: 10px;
+  width: fit-content;
+}
+section > button + button {
+  margin-left: 8px;
+}

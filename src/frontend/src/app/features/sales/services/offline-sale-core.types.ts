@@ -1,6 +1,12 @@
 import type { InstantDiscountRequest, InvoiceDocument } from './sale.models';
 
-export type OfflineSaleQueueStatus = 'Pending' | 'Syncing' | 'Synced' | 'SyncedWithWarnings' | 'NeedsReview' | 'Failed';
+export type OfflineSaleQueueStatus =
+  | 'Pending'
+  | 'Syncing'
+  | 'Synced'
+  | 'SyncedWithWarnings'
+  | 'NeedsReview'
+  | 'Failed';
 
 export interface OfflineSalePricingLineInput {
   readonly clientLineId?: string;
@@ -98,6 +104,10 @@ export interface OfflineFrozenSalePricing {
 }
 
 export interface OfflineQueuedSalePayload {
+  readonly till?: import('../../tills/services/till.models').TillPostingContext;
+  readonly tenderLines?: import('../../tills/services/till.models').TenderLine[];
+  readonly tillBusinessDate?: string;
+  readonly tillCashierId?: string;
   readonly clientSaleId: string;
   readonly idempotencyKey: string;
   readonly shopId: string;
@@ -157,7 +167,10 @@ export interface OfflineQueuedSaleRecord {
 }
 
 export interface OfflineQueueSyncResult {
-  readonly status: Extract<OfflineSaleQueueStatus, 'Synced' | 'SyncedWithWarnings' | 'NeedsReview' | 'Failed'>;
+  readonly status: Extract<
+    OfflineSaleQueueStatus,
+    'Synced' | 'SyncedWithWarnings' | 'NeedsReview' | 'Failed'
+  >;
   readonly warnings?: readonly string[];
   readonly errorCode?: string | null;
   readonly errorMessage?: string | null;

@@ -66,7 +66,7 @@ public sealed class PaymentReceiptDtoBuilder(
                     reversal.CreatedAt,
                     reversal.ReversedBy,
                     await UserNameAsync(reversal.ReversedBy, cancellationToken),
-                    reversal.LedgerEntryId));
+                    reversal.LedgerEntryId, reversal.SettlementEvidence));
     }
 
     private async Task<Dictionary<Guid, string>> TargetLabelsAsync(

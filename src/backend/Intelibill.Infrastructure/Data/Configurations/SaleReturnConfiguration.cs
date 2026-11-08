@@ -1,3 +1,4 @@
+using Intelibill.Infrastructure.Data.Json;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
@@ -24,6 +25,11 @@ internal sealed class SaleReturnConfiguration : IEntityTypeConfiguration<SaleRet
         });
 
         builder.HasKey(r => r.Id);
+        builder.Property(r => r.RefundTender).HasColumnType("jsonb")
+            .HasConversion(InvoiceDocumentJson.Converter<TenderLine>(), InvoiceDocumentJson.Comparer<TenderLine>());
+        builder.Property(r => r.VoidSettlementEvidence).HasColumnType("jsonb")
+            .HasConversion(InvoiceDocumentJson.Converter<TillSettlementEvidence>(), InvoiceDocumentJson.Comparer<TillSettlementEvidence>());
+
 
         builder.Property(r => r.ShopId)
             .IsRequired();

@@ -1,18 +1,37 @@
 import { Injectable, inject } from '@angular/core';
 
 import { AuthService } from '../../../core/auth/auth.service';
-import { InvoiceLeaseExhaustedError, InvoiceLeaseExpiredError, InvoiceLeaseIndexedDbService, InvoiceLeaseNotFoundError, type InvoiceLeaseSnapshot } from '../../../core/storage/invoice-lease-indexeddb.service';
-import { OfflineSalesSnapshotIndexedDbService, type OfflineSellableBatchSnapshot, type OfflineSellableServiceSnapshot } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
+import {
+  InvoiceLeaseExhaustedError,
+  InvoiceLeaseExpiredError,
+  InvoiceLeaseIndexedDbService,
+  InvoiceLeaseNotFoundError,
+  type InvoiceLeaseSnapshot,
+} from '../../../core/storage/invoice-lease-indexeddb.service';
+import {
+  OfflineSalesSnapshotIndexedDbService,
+  type OfflineSellableBatchSnapshot,
+  type OfflineSellableServiceSnapshot,
+} from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { buildOfflineInvoiceDocument, fiscalYearStartOf } from './offline-invoice-document.builder';
 import { evaluateOfflineSaleEconomics } from './offline-sale-economics';
 import { calculateOfflineFrozenSale } from './offline-sale-pricing-calculator';
-import { OfflineFrozenSalePricing, OfflineSalePricingInput, OfflineSalePricingLineInput, OfflineQueuedSalePayload } from './offline-sale-core.types';
+import {
+  OfflineFrozenSalePricing,
+  OfflineSalePricingInput,
+  OfflineSalePricingLineInput,
+  OfflineQueuedSalePayload,
+} from './offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
 import { OfflineSalesShadowStockIndexedDbService } from './offline-sales-shadow-stock-indexeddb.service';
 import { fitsQuantityScale, normalizeQuantity } from '../../../shared/quantity/quantity-input';
 import { QUANTITY_SCALE_MAX } from '../../../shared/quantity/quantity-units';
 
 export interface OfflineFinalizeRequest {
+  readonly tillEvidence?: Pick<
+    OfflineQueuedSalePayload,
+    'till' | 'tenderLines' | 'tillBusinessDate' | 'tillCashierId'
+  >;
   readonly shopId: string;
   readonly deviceId: string;
   readonly fiscalYear: string;
@@ -21,6 +40,7 @@ export interface OfflineFinalizeRequest {
 }
 
 export type OfflineFinalizeFailureReason =
+  | 'TILL_CONTEXT_INVALID'
   | 'BELOW_RECORDED_COST'
   | 'SNAPSHOT_STALE'
   | 'MISSING_CATALOG_ITEM'
@@ -41,8 +61,16 @@ export type OfflineFinalizeFailureReason =
   | 'QUANTITY_PRECISION_EXCEEDED';
 
 export type OfflineFinalizeResult =
-  | { readonly ok: true; readonly payload: OfflineQueuedSalePayload; readonly remainingInvoiceCount: number }
-  | { readonly ok: false; readonly reason: OfflineFinalizeFailureReason; readonly errorCode?: string };
+  | {
+      readonly ok: true;
+      readonly payload: OfflineQueuedSalePayload;
+      readonly remainingInvoiceCount: number;
+    }
+  | {
+      readonly ok: false;
+      readonly reason: OfflineFinalizeFailureReason;
+      readonly errorCode?: string;
+    };
 
 @Injectable({ providedIn: 'root' })
 export class OfflineSaleFinalizationService {
@@ -53,6 +81,21 @@ export class OfflineSaleFinalizationService {
   private readonly shadowDb = inject(OfflineSalesShadowStockIndexedDbService);
 
   async finalizeAndQueue(request: OfflineFinalizeRequest): Promise<OfflineFinalizeResult> {
+    const owner = this.auth.session();
+    const issuedByUserId = owner?.user.id || null;
+    const ownerShopId = owner?.activeShopId ?? null;
+    const frozenTill = structuredClone(request.tillEvidence ?? {});
+    const hasTillFields = Object.keys(frozenTill).length > 0;
+    if (
+      hasTillFields &&
+      (!frozenTill.till ||
+        !frozenTill.tenderLines ||
+        !frozenTill.tillBusinessDate ||
+        !issuedByUserId ||
+        frozenTill.tillCashierId !== issuedByUserId ||
+        ownerShopId !== request.shopId)
+    )
+      return { ok: false, reason: 'TILL_CONTEXT_INVALID' };
     const snapshot = await this.snapshotDb.getUsableSnapshotInfo(request.shopId);
     if (!snapshot?.completedAt) return { ok: false, reason: 'SNAPSHOT_STALE' };
 
@@ -73,13 +116,19 @@ export class OfflineSaleFinalizationService {
       const batch = byBatchId.get(line.inventoryBatchId);
       if (!batch) return { ok: false, reason: 'MISSING_CATALOG_ITEM' };
       // A non-finite quantity is refused as an invalid amount when the sale is priced.
-      if (Number.isFinite(line.quantity) && !fitsQuantityScale(line.quantity, batch.quantityScale ?? 0)) {
+      if (
+        Number.isFinite(line.quantity) &&
+        !fitsQuantityScale(line.quantity, batch.quantityScale ?? 0)
+      ) {
         return { ok: false, reason: 'QUANTITY_PRECISION_EXCEEDED' };
       }
       // Lines of one batch add up exactly: 0.1 + 0.2 is 0.3, not 0.30000000000000004.
       requestedByBatch.set(
         line.inventoryBatchId,
-        normalizeQuantity((requestedByBatch.get(line.inventoryBatchId) ?? 0) + line.quantity, QUANTITY_SCALE_MAX),
+        normalizeQuantity(
+          (requestedByBatch.get(line.inventoryBatchId) ?? 0) + line.quantity,
+          QUANTITY_SCALE_MAX,
+        ),
       );
     }
 
@@ -87,7 +136,12 @@ export class OfflineSaleFinalizationService {
       const batch = byBatchId.get(inventoryBatchId);
       if (!batch) return { ok: false, reason: 'MISSING_CATALOG_ITEM' };
 
-      const available = await this.shadowDb.ensureQuantity(request.shopId, request.deviceId, inventoryBatchId, batch.quantity);
+      const available = await this.shadowDb.ensureQuantity(
+        request.shopId,
+        request.deviceId,
+        inventoryBatchId,
+        batch.quantity,
+      );
       if (available < requestedQuantity) return { ok: false, reason: 'INSUFFICIENT_SHADOW_STOCK' };
     }
 
@@ -125,9 +179,12 @@ export class OfflineSaleFinalizationService {
 
     const customerId = request.pricingInput.customerId;
     const customer = customerId
-      ? ((await this.snapshotDb.getUsableCustomers(request.shopId)).find((c) => c.customerId === customerId) ?? null)
+      ? ((await this.snapshotDb.getUsableCustomers(request.shopId)).find(
+          (c) => c.customerId === customerId,
+        ) ?? null)
       : null;
-    if (priced.totals.dueAmount > 0 && !customer) return { ok: false, reason: 'MISSING_DUE_CUSTOMER' };
+    if (priced.totals.dueAmount > 0 && !customer)
+      return { ok: false, reason: 'MISSING_DUE_CUSTOMER' };
     // The server issues to the customer's own record on sync; a device that cannot see it would print a different
     // buyer (perhaps a walk-in without the buyer's GSTIN) on the copy it hands over.
     if (customerId && !customer) return { ok: false, reason: 'CUSTOMER_UNAVAILABLE' };
@@ -140,7 +197,11 @@ export class OfflineSaleFinalizationService {
     let consumedLease: InvoiceLeaseSnapshot;
     let remainingInvoiceCount = 0;
     try {
-      const consumed = await this.leaseDb.consumeNextInvoiceNumber(request.shopId, request.deviceId, request.fiscalYear);
+      const consumed = await this.leaseDb.consumeNextInvoiceNumber(
+        request.shopId,
+        request.deviceId,
+        request.fiscalYear,
+      );
       invoiceNumber = consumed.invoiceNumber;
       consumedLeaseNextNumber = consumed.lease.nextNumber;
       consumedLease = consumed.lease;
@@ -180,8 +241,8 @@ export class OfflineSaleFinalizationService {
       return { ok: false, reason: 'DOCUMENT_UNAVAILABLE', errorCode: built.errorCode };
     }
 
-    const issuedByUserId = this.auth.session()?.user.id || null;
     const payload: OfflineQueuedSalePayload = {
+      ...frozenTill,
       clientSaleId,
       idempotencyKey,
       shopId: request.shopId,
@@ -197,6 +258,13 @@ export class OfflineSaleFinalizationService {
       document: { ...built.draft, number: invoiceNumber },
     };
 
+    if (
+      (this.auth.session()?.user.id || null) !== issuedByUserId ||
+      (this.auth.session()?.activeShopId ?? null) !== ownerShopId
+    ) {
+      await this.releaseInvoiceNumber(request, consumedLeaseNextNumber);
+      throw new Error('Offline invoice owner changed before persistence.');
+    }
     try {
       await this.queueDb.savePendingSale({
         shopId: request.shopId,
@@ -214,18 +282,26 @@ export class OfflineSaleFinalizationService {
 
     for (const line of request.pricingInput.lines) {
       if (line.lineType === 'service') continue;
-      await this.shadowDb.reduceQuantity(request.shopId, request.deviceId, line.inventoryBatchId, line.quantity);
+      await this.shadowDb.reduceQuantity(
+        request.shopId,
+        request.deviceId,
+        line.inventoryBatchId,
+        line.quantity,
+      );
     }
 
     return { ok: true, payload, remainingInvoiceCount };
   }
 
-  private async releaseInvoiceNumber(request: OfflineFinalizeRequest, consumedLeaseNextNumber: number): Promise<void> {
+  private async releaseInvoiceNumber(
+    request: OfflineFinalizeRequest,
+    consumedLeaseNextNumber: number,
+  ): Promise<void> {
     await this.leaseDb.rollbackConsumedInvoiceNumber(
       request.shopId,
       request.deviceId,
       request.fiscalYear,
-      consumedLeaseNextNumber
+      consumedLeaseNextNumber,
     );
   }
 

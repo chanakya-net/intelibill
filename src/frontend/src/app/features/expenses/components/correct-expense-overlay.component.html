@@ -25,18 +25,23 @@
 
     <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
       @if (treatment() === 'SupplierSettlement') {
-        <p data-testid="settlement-provenance">{{ 'expenses.treatment.supplierProvenance' | transloco }}</p>
+        <p data-testid="settlement-provenance">
+          {{ 'expenses.treatment.supplierProvenance' | transloco }}
+        </p>
       } @else {
-      <label>
-        <span>{{ 'expenses.treatment.label' | transloco }}</span>
-        <select data-testid="expense-treatment" [value]="treatment()" (change)="selectTreatment($event)">
-          @for (choice of treatmentChoices; track choice) {
-            <option [value]="choice">{{ ('expenses.treatment.' + choice) | transloco }}</option>
-          }
-        </select>
-        <small>{{ 'expenses.treatment.help' | transloco }}</small>
-      </label>
-
+        <label>
+          <span>{{ 'expenses.treatment.label' | transloco }}</span>
+          <select
+            data-testid="expense-treatment"
+            [value]="treatment()"
+            (change)="selectTreatment($event)"
+          >
+            @for (choice of treatmentChoices; track choice) {
+              <option [value]="choice">{{ 'expenses.treatment.' + choice | transloco }}</option>
+            }
+          </select>
+          <small>{{ 'expenses.treatment.help' | transloco }}</small>
+        </label>
       }
       <label
         [class.field-invalid]="
@@ -134,6 +139,21 @@
           [disabled]="isSubmitting()"
         ></button>
       </div>
+      <app-till-pending-actions
+        (lockedChange)="onTillLocked($event)"
+        action="expense-correction"
+        [target]="expenseId"
+      />
+      <app-till-posting-fields
+        [disabled]="tillLocked()"
+        [evidence]="true"
+        [direction]="
+          form.controls.amount.value >= originalExpense.amount ? 'MoneyPaid' : 'MoneyReceived'
+        "
+      />
+      @if (tillError()) {
+        <p role="alert">{{ tillError() | transloco }}</p>
+      }
     </form>
 
     @if (isSubmitting()) {

@@ -1,4 +1,6 @@
+using System.Text.Json;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 
@@ -56,6 +58,7 @@ public static class ReconciliationActionPolicy
         ReconciliationIssueType.ProvenanceReview,
         ReconciliationIssueType.RecoveryReview,
         ReconciliationIssueType.ClosedPeriodReview,
+        ReconciliationIssueType.TillReview,
     ];
 
     /// <param name="issue">The case.</param>
@@ -128,15 +131,33 @@ public static class ReconciliationActionPolicy
             yield return ReconciliationAction.LinkStockCorrection;
         }
 
-        // Held before posting: the frozen envelope may be replayed, with a reason, under its verified issuer.
-        if (HasEnvelope(issue, submission)
-            && ReplayableHoldCodes.Contains(issue.Code)
-            && submission!.AttributableUserId is not null)
+        // Explicit ordinary retry lets a complete TillReview return to its original valid drawer
+        // after re-enable. Missing/partial context cannot use disabled legacy posting as recovery.
+        // Display and execution share this policy; the common poster still enforces actual state.
+        if (HasEnvelope(issue, submission) && submission!.AttributableUserId is not null)
         {
-            yield return ReconciliationAction.RetryHistoricalLease;
+            var canRetry = issue.IssueType == ReconciliationIssueType.TillReview
+                ? HasCompleteFrozenTillContext(submission)
+                : ReplayableHoldCodes.Contains(issue.Code);
+            if (canRetry) yield return ReconciliationAction.RetryHistoricalLease;
+            if (canRetry || issue.IssueType == ReconciliationIssueType.TillReview)
+                yield return ReconciliationAction.ReconcileTillSale;
         }
 
         if (OffersSaleLink(issue, submission))
             yield return ReconciliationAction.LinkExistingSale;
+    }
+
+    private static bool HasCompleteFrozenTillContext(OfflineSubmission submission)
+    {
+        try
+        {
+            var sale = OfflineSubmissionPayload.Deserialize(submission.PayloadJson);
+            return sale is { Till: not null, TenderLines: not null, TillBusinessDate: not null, TillCashierId: not null };
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 }

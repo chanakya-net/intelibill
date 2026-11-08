@@ -9,6 +9,21 @@ public sealed class RecordSaleCommandValidator : AbstractValidator<RecordSaleCom
 {
     public RecordSaleCommandValidator()
     {
+        RuleFor(x => x).Custom((command, context) =>
+        {
+            if (command.Till?.SessionId == Guid.Empty)
+                context.AddFailure(new FluentValidation.Results.ValidationFailure(nameof(command.Till), Errors.Till.SessionRequired.Description) { ErrorCode = Errors.Till.SessionRequired.Code });
+            if (command.Till?.OverrideReason?.Trim().Length > 500)
+                context.AddFailure(new FluentValidation.Results.ValidationFailure(nameof(command.Till), Errors.Till.OverrideReasonRequired.Description) { ErrorCode = Errors.Till.OverrideReasonRequired.Code });
+            if (command.TenderLines is not null)
+            {
+                var valid = SaleTenderPolicy.Validate(command.PaymentMethod, command.PaidAmount, command.TenderLines);
+                if (valid.IsError)
+                    foreach (var error in valid.Errors)
+                        context.AddFailure(new FluentValidation.Results.ValidationFailure(nameof(command.TenderLines), error.Description) { ErrorCode = error.Code });
+            }
+        });
+
         RuleFor(x => x.IdempotencyKey)
             .NotEmpty()
             .Must(key => !string.IsNullOrWhiteSpace(key))

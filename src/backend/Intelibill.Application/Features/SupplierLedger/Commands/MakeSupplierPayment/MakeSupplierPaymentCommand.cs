@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Tills;
 using Intelibill.Application.Features.Payments.DTOs;
 using Intelibill.Domain.Enums;
 
@@ -16,4 +17,5 @@ public sealed record MakeSupplierPaymentCommand(
     ReceiptTenderMethod? Method = null,
     Guid? BankAccountId = null,
     string? ExternalReference = null,
-    IReadOnlyList<PaymentAllocationRequest>? Allocations = null);
+    IReadOnlyList<PaymentAllocationRequest>? Allocations = null,
+    TillPostingContext? Till = null);

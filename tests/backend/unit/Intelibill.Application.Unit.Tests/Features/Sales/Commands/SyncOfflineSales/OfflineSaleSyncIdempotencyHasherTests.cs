@@ -1,4 +1,6 @@
 using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
+using System.Text.Json;
+using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 
@@ -95,6 +97,53 @@ public class OfflineSaleSyncIdempotencyHasherTests
         Assert.Equal(sale.Items[1].LineType, replayed.Items[1].LineType);
         Assert.Equal(sale.Items[1].ServiceId, replayed.Items[1].ServiceId);
         Assert.Equal(json, OfflineSubmissionPayload.Serialize(replayed));
+    }
+
+    [Fact]
+    public void FrozenTillEvidence_ChangesHash()
+    {
+        var sale = Sale(1, IssuerId);
+        var node = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(sale))!;
+        node["Till"] = System.Text.Json.Nodes.JsonNode.Parse($"{{\"SessionId\":\"{Guid.NewGuid()}\"}}");
+        node["TenderLines"] = System.Text.Json.Nodes.JsonNode.Parse("[{\"Method\":2,\"AppliedAmount\":118,\"CashTendered\":200,\"Change\":82}]");
+        var frozen = node.Deserialize<OfflineSaleSyncCommand>()!;
+        Assert.NotEqual(OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", sale), OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", frozen));
+    }
+
+    [Fact]
+    public void FrozenTillEnvelope_RoundTripsAndHashesEveryEvidenceField()
+    {
+        var sale = Sale(1, IssuerId) with
+        {
+            Till = new TillPostingContext(Guid.NewGuid(), " assistance "),
+            TillBusinessDate = new DateOnly(2026, 10, 21),
+            TillCashierId = IssuerId,
+            TenderLines = [new(ReceiptTenderMethod.Cash, 118m, 200m, 82m, " ref ", null)]
+        };
+        var json = OfflineSubmissionPayload.Serialize(sale);
+        var restored = OfflineSubmissionPayload.Deserialize(json)!;
+        Assert.Equal(sale.Till, restored.Till);
+        Assert.Equal(sale.TillBusinessDate, restored.TillBusinessDate);
+        Assert.Equal(sale.TillCashierId, restored.TillCashierId);
+        Assert.Equal(sale.TenderLines, restored.TenderLines);
+        var hash = OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", sale);
+        Assert.Equal(hash, OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", restored));
+        var changes = new[]
+        {
+            sale with { Till = new(Guid.NewGuid(), sale.Till.OverrideReason) },
+            sale with { Till = sale.Till with { OverrideReason = "different" } },
+            sale with { TillBusinessDate = sale.TillBusinessDate.Value.AddDays(1) },
+            sale with { TillCashierId = Guid.NewGuid() },
+            sale with { TenderLines = [sale.TenderLines[0] with { CashTendered = 300m, Change = 182m }] },
+            sale with { TenderLines = [sale.TenderLines[0] with { ExternalReference = "different" }] },
+            sale with { TenderLines = [sale.TenderLines[0] with { BankAccountId = Guid.NewGuid() }] },
+            sale with { TenderLines = [] },
+            sale with { TenderLines = null },
+        };
+        Assert.All(changes, changed => Assert.NotEqual(hash, OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", changed)));
+        var trimmed = sale with { Till = sale.Till with { OverrideReason = "assistance" }, TenderLines = [sale.TenderLines[0] with { ExternalReference = "ref" }] };
+        Assert.Equal(hash, OfflineSaleSyncIdempotencyHasher.ComputeHash(ShopId, "device-1", trimmed));
+        Assert.DoesNotContain("till", OfflineSubmissionPayload.Serialize(Sale(1)), StringComparison.OrdinalIgnoreCase);
     }
 
     private static OfflineSaleSyncCommand Sale(int? calculationVersion, Guid? issuedByUserId = null) =>

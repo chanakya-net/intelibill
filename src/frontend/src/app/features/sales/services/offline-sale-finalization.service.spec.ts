@@ -1,10 +1,14 @@
+import { disabledTillProviders } from '../../../../tests/tills/disabled-till.providers';
 import { TestBed } from '@angular/core/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { InvoiceLeaseIndexedDbService } from '../../../core/storage/invoice-lease-indexeddb.service';
 import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
-import { OfflineFinalizeRequest, OfflineSaleFinalizationService } from './offline-sale-finalization.service';
+import {
+  OfflineFinalizeRequest,
+  OfflineSaleFinalizationService,
+} from './offline-sale-finalization.service';
 import { mapOfflineQueuedSaleToSaleDto } from './offline-sale-invoice.mapper';
 import type { InvoiceSellerProfile } from './sale.models';
 import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
@@ -25,18 +29,24 @@ describe('OfflineSaleFinalizationService', () => {
     seriesCode: 'A',
   };
 
-  function setup(userId: string | null = 'user-1', sellerProfile: InvoiceSellerProfile | null = sellerA) {
+  function setup(
+    userId: string | null = 'user-1',
+    sellerProfile: InvoiceSellerProfile | null = sellerA,
+  ) {
     const snapshotDb = {
-      getUsableSnapshotInfo: vi.fn().mockResolvedValue({ snapshotId: 'snap-1', completedAt: new Date().toISOString() }),
+      getUsableSnapshotInfo: vi
+        .fn()
+        .mockResolvedValue({ snapshotId: 'snap-1', completedAt: new Date().toISOString() }),
       getUsableBatches: vi.fn().mockResolvedValue([makeBatchSnapshot()]),
       getUsableServices: vi.fn().mockResolvedValue([]),
       getUsableDiscountRules: vi.fn().mockResolvedValue([]),
       getUsableCustomers: vi.fn().mockResolvedValue([{ customerId: 'cust-1' }]),
     };
     const leaseDb = {
-      consumeNextInvoiceNumber: vi
-        .fn()
-        .mockResolvedValue({ invoiceNumber: 'A/2627/000001', lease: { nextNumber: 2, fiscalYear: '2026-27', sellerProfile } }),
+      consumeNextInvoiceNumber: vi.fn().mockResolvedValue({
+        invoiceNumber: 'A/2627/000001',
+        lease: { nextNumber: 2, fiscalYear: '2026-27', sellerProfile },
+      }),
       rollbackConsumedInvoiceNumber: vi.fn().mockResolvedValue({ nextNumber: 1 }),
     };
     const queueDb = {
@@ -49,8 +59,12 @@ describe('OfflineSaleFinalizationService', () => {
 
     TestBed.configureTestingModule({
       providers: [
+        ...disabledTillProviders(),
         OfflineSaleFinalizationService,
-        { provide: AuthService, useValue: { session: () => (userId ? { user: { id: userId } } : null) } },
+        {
+          provide: AuthService,
+          useValue: { session: () => (userId ? { user: { id: userId } } : null) },
+        },
         { provide: OfflineSalesSnapshotIndexedDbService, useValue: snapshotDb },
         { provide: InvoiceLeaseIndexedDbService, useValue: leaseDb },
         { provide: OfflineSalesQueueIndexedDbService, useValue: queueDb },
@@ -69,31 +83,95 @@ describe('OfflineSaleFinalizationService', () => {
 
   it('refuses below recorded cost using snapshot cost before consuming or saving anything', async () => {
     const { service, snapshotDb, leaseDb, queueDb, shadowDb } = setup();
-    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), costPrice: 100, salesPrice: 118, taxRatePercent: 18, taxIncluded: true }]);
+    snapshotDb.getUsableBatches.mockResolvedValue([
+      {
+        ...makeBatchSnapshot(),
+        costPrice: 100,
+        salesPrice: 118,
+        taxRatePercent: 18,
+        taxIncluded: true,
+      },
+    ]);
     const base = makeRequest();
-    const result = await service.finalizeAndQueue({ ...base, pricingInput: { ...base.pricingInput,
-      lines: [{ ...base.pricingInput.lines[0], costPrice: 1, itemDiscount: { type: 2, value: 10 } }] } });
+    const result = await service.finalizeAndQueue({
+      ...base,
+      pricingInput: {
+        ...base.pricingInput,
+        lines: [
+          { ...base.pricingInput.lines[0], costPrice: 1, itemDiscount: { type: 2, value: 10 } },
+        ],
+      },
+    });
     expect(result).toEqual({ ok: false, reason: 'BELOW_RECORDED_COST' });
     expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
     expect(queueDb.savePendingSale).not.toHaveBeenCalled();
     expect(shadowDb.reduceQuantity).not.toHaveBeenCalled();
   });
 
-  it.each([[.99, true], [1, false]] as const)('issues the midpoint-safe discount boundary and refuses the next cent (%s)', async (discount, accepted) => {
-    const { service, snapshotDb, leaseDb } = setup();
-    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), salesPrice: 4, mrp: 4, costPrice: 2.01, taxRatePercent: 0, taxIncluded: false, quantityScale: 3 }]);
-    const base = makeRequest();
-    const result = await service.finalizeAndQueue({ ...base, pricingInput: { ...base.pricingInput,
-      lines: [{ ...base.pricingInput.lines[0], quantity: .5, itemDiscount: { type: 2, value: discount } }] } });
-    expect(result.ok).toBe(accepted);
-    if (!accepted) {
-      expect(result).toEqual({ ok: false, reason: 'BELOW_RECORDED_COST' });
-      expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
-    }
+  it.each([
+    [0.99, true],
+    [1, false],
+  ] as const)(
+    'issues the midpoint-safe discount boundary and refuses the next cent (%s)',
+    async (discount, accepted) => {
+      const { service, snapshotDb, leaseDb } = setup();
+      snapshotDb.getUsableBatches.mockResolvedValue([
+        {
+          ...makeBatchSnapshot(),
+          salesPrice: 4,
+          mrp: 4,
+          costPrice: 2.01,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          quantityScale: 3,
+        },
+      ]);
+      const base = makeRequest();
+      const result = await service.finalizeAndQueue({
+        ...base,
+        pricingInput: {
+          ...base.pricingInput,
+          lines: [
+            {
+              ...base.pricingInput.lines[0],
+              quantity: 0.5,
+              itemDiscount: { type: 2, value: discount },
+            },
+          ],
+        },
+      });
+      expect(result.ok).toBe(accepted);
+      if (!accepted) {
+        expect(result).toEqual({ ok: false, reason: 'BELOW_RECORDED_COST' });
+        expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it('refuses new frozen till evidence from another owner/shop before issuing or queueing', async () => {
+    const { service, queueDb, leaseDb } = setup('user-1');
+    vi.spyOn(TestBed.inject(AuthService), 'session').mockReturnValue({
+      user: { id: 'user-1' },
+      activeShopId: 'another-shop',
+    } as ReturnType<AuthService['session']>);
+    const result = await service.finalizeAndQueue({
+      ...makeRequest(),
+      tillEvidence: {
+        till: { sessionId: 'drawer' },
+        tenderLines: [{ method: 'Cash', appliedAmount: 100 }],
+        tillBusinessDate: '2026-11-08',
+        tillCashierId: 'other',
+      },
+    });
+    expect(result).toEqual({ ok: false, reason: 'TILL_CONTEXT_INVALID' });
+    expect(queueDb.savePendingSale).not.toHaveBeenCalled();
+    expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
   });
 
   it('queues sale, consumes invoice, and reduces shadow stock', async () => {
-    vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa').mockReturnValueOnce('11111111-1111-4111-8111-111111111111');
+    vi.spyOn(crypto, 'randomUUID')
+      .mockReturnValueOnce('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+      .mockReturnValueOnce('11111111-1111-4111-8111-111111111111');
     const { service, leaseDb, queueDb, shadowDb } = setup();
 
     const result = await service.finalizeAndQueue(makeRequest());
@@ -123,7 +201,9 @@ describe('OfflineSaleFinalizationService', () => {
   });
 
   it('freezes pricing and catalog values from cached batch snapshots', async () => {
-    vi.spyOn(crypto, 'randomUUID').mockReturnValueOnce('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa').mockReturnValueOnce('11111111-1111-4111-8111-111111111111');
+    vi.spyOn(crypto, 'randomUUID')
+      .mockReturnValueOnce('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+      .mockReturnValueOnce('11111111-1111-4111-8111-111111111111');
     const { service, queueDb } = setup();
     const baseRequest = makeRequest();
     const request: OfflineFinalizeRequest = {
@@ -178,7 +258,14 @@ describe('OfflineSaleFinalizationService', () => {
     const profile = structuredClone(sellerA);
     const { service, queueDb, snapshotDb } = setup('user-1', profile);
     snapshotDb.getUsableCustomers.mockResolvedValue([
-      { customerId: 'cust-1', name: 'Buyer Pvt Ltd', phoneNumber: '9876543210', gstin: null, stateCode: '29', address: '4 Market St' },
+      {
+        customerId: 'cust-1',
+        name: 'Buyer Pvt Ltd',
+        phoneNumber: '9876543210',
+        gstin: null,
+        stateCode: '29',
+        address: '4 Market St',
+      },
     ]);
 
     const result = await service.finalizeAndQueue(makeRequest());
@@ -229,20 +316,37 @@ describe('OfflineSaleFinalizationService', () => {
     const result = await service.finalizeAndQueue(makeRequest());
 
     expect(result).toEqual({ ok: false, reason: 'SELLER_PROFILE_UNAVAILABLE' });
-    expect(leaseDb.rollbackConsumedInvoiceNumber).toHaveBeenCalledWith('shop-1', 'device-1', '2026-27', 2);
+    expect(leaseDb.rollbackConsumedInvoiceNumber).toHaveBeenCalledWith(
+      'shop-1',
+      'device-1',
+      '2026-27',
+      2,
+    );
     expect(queueDb.savePendingSale).not.toHaveBeenCalled();
     expect(shadowDb.reduceQuantity).not.toHaveBeenCalled();
   });
 
   it('refuses_document_errors_and_rolls_back', async () => {
-    const composition: InvoiceSellerProfile = { ...sellerA, seller: { ...sellerA.seller, taxRegime: 'Composition' } };
+    const composition: InvoiceSellerProfile = {
+      ...sellerA,
+      seller: { ...sellerA.seller, taxRegime: 'Composition' },
+    };
     const { service, leaseDb, queueDb, snapshotDb } = setup('user-1', composition);
     snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), taxRatePercent: 18 }]);
 
     const result = await service.finalizeAndQueue(makeRequest());
 
-    expect(result).toEqual({ ok: false, reason: 'DOCUMENT_UNAVAILABLE', errorCode: 'Invoice.CompositionCannotCollectTax' });
-    expect(leaseDb.rollbackConsumedInvoiceNumber).toHaveBeenCalledWith('shop-1', 'device-1', '2026-27', 2);
+    expect(result).toEqual({
+      ok: false,
+      reason: 'DOCUMENT_UNAVAILABLE',
+      errorCode: 'Invoice.CompositionCannotCollectTax',
+    });
+    expect(leaseDb.rollbackConsumedInvoiceNumber).toHaveBeenCalledWith(
+      'shop-1',
+      'device-1',
+      '2026-27',
+      2,
+    );
     expect(queueDb.savePendingSale).not.toHaveBeenCalled();
   });
 
@@ -299,20 +403,36 @@ describe('OfflineSaleFinalizationService', () => {
 
   it('sums 0.1 and 0.2 of one batch as exactly 0.3 of shadow stock', async () => {
     const { service, snapshotDb, shadowDb } = setup();
-    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), quantityScale: 3, documentUnit: 'KGS' }]);
+    snapshotDb.getUsableBatches.mockResolvedValue([
+      { ...makeBatchSnapshot(), quantityScale: 3, documentUnit: 'KGS' },
+    ]);
     shadowDb.ensureQuantity.mockResolvedValue(0.3);
 
     const result = await service.finalizeAndQueue(withQuantities(0.1, 0.2));
 
     expect(result.ok).toBe(true);
     expect(shadowDb.ensureQuantity).toHaveBeenCalledTimes(1);
-    expect(shadowDb.reduceQuantity).toHaveBeenNthCalledWith(1, 'shop-1', 'device-1', 'batch-1', 0.1);
-    expect(shadowDb.reduceQuantity).toHaveBeenNthCalledWith(2, 'shop-1', 'device-1', 'batch-1', 0.2);
+    expect(shadowDb.reduceQuantity).toHaveBeenNthCalledWith(
+      1,
+      'shop-1',
+      'device-1',
+      'batch-1',
+      0.1,
+    );
+    expect(shadowDb.reduceQuantity).toHaveBeenNthCalledWith(
+      2,
+      'shop-1',
+      'device-1',
+      'batch-1',
+      0.2,
+    );
   });
 
   it('freezes the snapshot document unit on each goods line', async () => {
     const { service, snapshotDb, queueDb } = setup();
-    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), quantityScale: 3, documentUnit: 'KGS' }]);
+    snapshotDb.getUsableBatches.mockResolvedValue([
+      { ...makeBatchSnapshot(), quantityScale: 3, documentUnit: 'KGS' },
+    ]);
 
     const result = await service.finalizeAndQueue(withQuantities(0.25));
 
@@ -328,7 +448,9 @@ describe('OfflineSaleFinalizationService', () => {
     const result = await service.finalizeAndQueue(makeRequest());
 
     expect(result.ok).toBe(true);
-    expect(queueDb.savePendingSale.mock.calls[0][0].payload.pricing.lines[0].documentUnit).toBe('NOS');
+    expect(queueDb.savePendingSale.mock.calls[0][0].payload.pricing.lines[0].documentUnit).toBe(
+      'NOS',
+    );
   });
 
   it('refuses a part quantity of a batch from a snapshot taken before units, before consuming a number', async () => {
@@ -344,7 +466,9 @@ describe('OfflineSaleFinalizationService', () => {
 
   it('refuses more decimals than the snapshot unit allows', async () => {
     const { service, snapshotDb } = setup();
-    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), quantityScale: 3, documentUnit: 'KGS' }]);
+    snapshotDb.getUsableBatches.mockResolvedValue([
+      { ...makeBatchSnapshot(), quantityScale: 3, documentUnit: 'KGS' },
+    ]);
 
     await expect(service.finalizeAndQueue(withQuantities(0.0001))).resolves.toEqual({
       ok: false,
@@ -378,7 +502,9 @@ describe('OfflineSaleFinalizationService', () => {
       ...baseRequest,
       pricingInput: {
         ...baseRequest.pricingInput,
-        lines: [{ ...baseRequest.pricingInput.lines[0], itemDiscount: { type: 2, value: Number.NaN } }],
+        lines: [
+          { ...baseRequest.pricingInput.lines[0], itemDiscount: { type: 2, value: Number.NaN } },
+        ],
       },
     };
 
@@ -405,7 +531,12 @@ describe('OfflineSaleFinalizationService', () => {
     await expect(service.finalizeAndQueue(makeRequest())).rejects.toBe(persistenceError);
 
     expect(leaseDb.consumeNextInvoiceNumber).toHaveBeenCalledWith('shop-1', 'device-1', '2026-27');
-    expect(leaseDb.rollbackConsumedInvoiceNumber).toHaveBeenCalledWith('shop-1', 'device-1', '2026-27', 2);
+    expect(leaseDb.rollbackConsumedInvoiceNumber).toHaveBeenCalledWith(
+      'shop-1',
+      'device-1',
+      '2026-27',
+      2,
+    );
     expect(shadowDb.reduceQuantity).not.toHaveBeenCalled();
   });
 

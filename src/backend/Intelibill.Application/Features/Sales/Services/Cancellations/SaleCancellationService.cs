@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Tills;
+using Intelibill.Domain.ValueObjects;
 using System.Data.Common;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -19,7 +21,7 @@ namespace Intelibill.Application.Features.Sales.Services.Cancellations;
 public sealed class SaleCancellationService(IShopRepository shops, ISaleRepository sales, SaleCancellationPolicy policy,
     ISaleCancellationRollout rollout, IBusinessClock clock, IPostingPeriodPolicy periods, IFinancialOperationExecutor executor,
     IInventoryBatchRepository batches, IInventoryRepository inventory, IStockTransactionRepository movements,
-    ICustomerLedgerEntryRepository ledger, ISaleCancellationRepository cancellations, IUnitOfWork uow, IMessageBus bus)
+    ICustomerLedgerEntryRepository ledger, ISaleCancellationRepository cancellations, IUnitOfWork uow, IMessageBus bus, ITillPostingService tills)
 {
     private static readonly CancelSaleRequestValidator Validator = new();
     private async Task<ErrorOr<Shop>> AuthorizeAsync(Guid actor, Guid shopId, Guid saleId, CancellationToken ct)
@@ -44,16 +46,19 @@ public sealed class SaleCancellationService(IShopRepository shops, ISaleReposito
         if (!validation.IsValid) return validation.Errors.Select(x => Error.Validation("SaleCancellation.InvalidRequest", x.ErrorMessage)).ToList();
         var access = await AuthorizeAsync(actorUserId, shopId, saleId, ct); if (access.IsError) return access.Errors;
         var canonical = new { saleId, request.ExpectedVersion, Reason = request.Reason.Trim(), request.GoodsRecoveredConfirmed, request.CashRefundConfirmed };
+        var hash = request.Till is null ? FinancialOperationHasher.Compute(canonical) : FinancialOperationHasher.Compute(new { legacyHash = FinancialOperationHasher.Compute(canonical), actorUserId, request.Till });
         var posted = false;
         ErrorOr<SaleCancellationDto> result;
         try
         {
-            result = await executor.ExecuteAsync<SaleCancellationDto>(new(shopId, FinancialOperationType.SaleCancellation, request.OperationKey.Trim()), actorUserId, saleId, FinancialOperationHasher.Compute(canonical), async token =>
+            result = await executor.ExecuteAsync<SaleCancellationDto>(new(shopId, FinancialOperationType.SaleCancellation, request.OperationKey.Trim()), actorUserId, saleId, hash, async token =>
             {
                 if (!rollout.IsPostingEnabled(shopId)) return Errors.SaleCancellation.PostingDisabled;
                 var now = clock.UtcNow;
                 var day = clock.GetBusinessDay(now, access.Value.BusinessTimeZoneId);
                 var fence = await periods.AuthorizeForWriteAsync(shopId, day.Date, token); if (fence.IsError) return fence.Errors;
+                var acquired = await tills.AcquireAsync(shopId, actorUserId, request.Till, day.Date, token);
+                if (acquired.IsError) return acquired.Errors;
                 var locked = await sales.LockForReturnMutationAsync(shopId, saleId, token);
                 if (locked == RowLockOutcome.NotFound) return Errors.Sale.NotFound(saleId);
                 if (locked != RowLockOutcome.Acquired) return Errors.SaleCancellation.Busy;
@@ -90,6 +95,13 @@ public sealed class SaleCancellationService(IShopRepository shops, ISaleReposito
                 if (fact.IsError) return fact.Errors;
                 var cancelled = sale.MarkCancelled(); if (cancelled.IsError) return cancelled.Errors;
                 sales.Update(sale); await cancellations.AddAsync(fact.Value, token);
+                if (acquired.Value is { } session)
+                {
+                    var appended = await tills.AppendAsync(session, new(TillMovementSource.SaleCancellation, fact.Value.Id, "cash-refund",
+                        sale.PaidAmount > 0 ? [new TenderLine(ReceiptTenderMethod.Cash, sale.PaidAmount, null, null, null, null)] : [],
+                        -1m, now, request.OperationKey.Trim(), request.Reason.Trim(), ReceivableChange: -sale.DueAmount), actorUserId, token);
+                    if (appended.IsError) return appended.Errors;
+                }
                 await uow.SaveChangesAsync(token);
                 posted = true;
                 return SaleCancellationDto.From(fact.Value);

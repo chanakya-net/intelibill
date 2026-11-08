@@ -5,6 +5,7 @@ namespace Intelibill.Domain.Interfaces.Repositories;
 
 public interface IExpenseRepository
 {
+    Task<RowLockOutcome> LockForCorrectionAsync(Guid shopId, Guid expenseId, CancellationToken ct = default);
     Task<Expense?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyList<Expense>> GetByShopAsync(Guid shopId, CancellationToken cancellationToken);
     Task<(IReadOnlyList<Expense> Items, int TotalCount)> GetPagedByShopAsync(

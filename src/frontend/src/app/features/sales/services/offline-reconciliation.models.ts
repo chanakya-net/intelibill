@@ -3,6 +3,7 @@
 export type ReconciliationStatusFilter = 'open' | 'escalated' | 'resolved' | 'all';
 export type ReconciliationCaseStatus = 'Open' | 'Escalated' | 'Resolved';
 export type ReconciliationAction =
+  | 'ReconcileTillSale'
   | 'RetryHistoricalLease'
   | 'LinkExistingSale'
   | 'AcknowledgeVariance'
@@ -56,6 +57,10 @@ export interface OfflineInvoiceSnapshotLine {
 }
 
 export interface OfflineInvoiceSnapshot {
+  readonly till?: import('../../tills/services/till.models').TillPostingContext | null;
+  readonly tenderLines?: import('../../tills/services/till.models').TenderLine[] | null;
+  readonly tillBusinessDate?: string | null;
+  readonly tillCashierId?: string | null;
   readonly invoiceNumber: string;
   readonly soldAt: string;
   readonly customerName: string | null;
@@ -113,6 +118,7 @@ export interface ReconciliationLinkCandidate {
 }
 
 export interface ReconciliationCase extends ReconciliationCaseSummary {
+  readonly tillLatePosting?: import('../../tills/services/till.models').TillLatePosting | null;
   readonly itemId: string | null;
   readonly inventoryBatchId: string | null;
   readonly printedQuantity: number | null;
@@ -133,6 +139,12 @@ export interface ReconciliationCase extends ReconciliationCaseSummary {
 }
 
 export interface ResolveReconciliationCaseRequest {
+  readonly tillOwner?: import('../../../core/context/shop-scope').ScopeOwner;
+  readonly tillReconciliationEvidence?: {
+    evidenceStatus: 'Recorded' | 'Unknown';
+    tenderLines: import('../../tills/services/till.models').TenderLine[];
+    reason: string;
+  };
   /** A fresh id per resolution intent, reused when retrying the same one. */
   readonly operationId: string;
   /** The case `version` the reviewer was shown. */

@@ -130,6 +130,9 @@ public sealed class GetSaleDetailQueryHandler(
             Version = sale.Version,
             Cancellation = cancellation is null ? null : SaleCancellationDto.From(cancellation),
             Document = sale.InvoiceDocument,
+            TillSessionId = sale.TillSessionId,
+            TillOverrideReason = sale.TillOverrideReason,
+            TenderLines = sale.TenderLines,
             CreditNoteRedemptions = creditNoteRedemptions
                 .Select(redemption => new SaleCreditNoteRedemptionSummaryDto(
                     redemption.CreditNoteId,
@@ -157,7 +160,7 @@ public sealed class GetSaleDetailQueryHandler(
                     i.ApprovedRefundAmount,
                     i.TaxableAmount,
                     i.TaxAmount,
-                    i.Notes)).ToList())).ToList(),
+                    i.Notes)).ToList(), r.RefundTender, r.RefundConfirmed, r.VoidSettlementEvidence)).ToList(),
         };
 
         decimal GetReturnedQuantity(Guid saleItemId) =>

@@ -1,3 +1,7 @@
+using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Features.Payments.Services;
+using Intelibill.Application.Features.Tills.Services;
+using Intelibill.Domain.ValueObjects;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Posting;
@@ -14,7 +18,9 @@ public sealed class RecordExpenseCommandHandler(
     IExpenseCategoryRepository expenseCategoryRepository,
     IExpenseRepository expenseRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IPaymentTransactionRunner transactionRunner,
+    TillSourceSettlementService settlement)
 {
     public async Task<ErrorOr<ExpenseDto>> HandleAsync(
         RecordExpenseCommand command,
@@ -28,13 +34,15 @@ public sealed class RecordExpenseCommandHandler(
             return Errors.Auth.UserNotFound;
 
         var membership = actor.ShopMemberships.FirstOrDefault(sm => sm.ShopId == command.ShopId);
-        if (membership is null)
+        if (membership is null || !membership.IsActive)
             return Errors.Shop.MembershipNotFound;
 
         if (membership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Expense.Forbidden;
 
-        return await PostingTransaction.RunAsync(unitOfWork, ct => PostAsync(command, ct), cancellationToken);
+        var key = FinancialOperationHasher.NormalizeKey(command.OperationKey);
+        return await transactionRunner.RunAsync<ExpenseDto>(key is null ? null : new(command.ShopId, FinancialOperationType.ExpenseRecord, key),
+            command.UserId, command.ShopId, key is null ? null : ComputeRequestHash(command), ct => PostAsync(command, ct), cancellationToken);
     }
 
     private async Task<ErrorOr<ExpenseDto>> PostAsync(RecordExpenseCommand command, CancellationToken cancellationToken)
@@ -43,6 +51,17 @@ public sealed class RecordExpenseCommandHandler(
         if (fence.IsError)
             return fence.Errors;
 
+        if (command.TenderLine is not null && command.SettlementEvidence is not null)
+            return Error.Validation("Till.SettlementEvidenceInvalid", "Specify one expense settlement contract.");
+        var evidence = command.SettlementEvidence ?? (command.TenderLine is null ? null :
+            new TillSettlementEvidence(TillSettlementDisposition.MoneyPaid, command.TenderLine, "Expense payment"));
+        if ((settlement.IsEnabled(command.ShopId) || command.SettlementEvidence is not null || command.TenderLine is not null) &&
+            (command.Amount <= 0 || !TillMoney.IsValid(command.Amount)))
+            return Error.Validation("Till.AmountInvalid", "Expense amount must be positive INR with at most two decimals.");
+        var acquired = await settlement.AcquireAsync(command.ShopId, command.UserId, command.Till, command.OperationKey,
+            evidence, -command.Amount, command.ExpenseDate, cancellationToken);
+        if (acquired.IsError) return acquired.Errors;
+
         // Upsert category
         var categoryName = command.CategoryName.Trim();
         var category = await expenseCategoryRepository.GetByNameAsync(command.ShopId, categoryName, cancellationToken);
@@ -50,7 +69,6 @@ public sealed class RecordExpenseCommandHandler(
         {
             category = ExpenseCategory.Create(command.ShopId, categoryName, DateTimeOffset.UtcNow);
             await expenseCategoryRepository.AddAsync(category, cancellationToken);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
         }
 
         var expense = Expense.Create(
@@ -60,13 +78,21 @@ public sealed class RecordExpenseCommandHandler(
             command.PaidTo,
             command.Description,
             command.ExpenseDate,
-            command.UserId, command.Treatment);
+            command.UserId, command.Treatment, evidence);
 
+        var appended = await settlement.AppendAsync(acquired.Value, TillMovementSource.Expense, expense.Id,
+            command.UserId, command.OperationKey, evidence, cancellationToken);
+        if (appended.IsError) return appended.Errors;
         await expenseRepository.AddAsync(expense, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return ToDto(expense, category.Name);
     }
+
+    internal static string ComputeRequestHash(RecordExpenseCommand command) => FinancialOperationHasher.Compute(new {
+        command.UserId, CategoryName = command.CategoryName.Trim(), Amount = FinancialOperationHasher.NormalizeAmount(command.Amount),
+        PaidTo = command.PaidTo.Trim(), Description = (string.IsNullOrWhiteSpace(command.Description) ? null : command.Description.Trim()),
+        command.ExpenseDate, command.Treatment, command.Till, command.TenderLine, command.SettlementEvidence });
 
     private static ExpenseDto ToDto(Domain.Entities.Expense e, string categoryName) =>
         new(
@@ -82,5 +108,5 @@ public sealed class RecordExpenseCommandHandler(
             e.IsVoided,
             e.OriginalExpenseId,
             e.SupplierLedgerEntryId,
-            e.CreatedAt, e.Treatment);
+            e.CreatedAt, e.Treatment, e.SettlementEvidence);
 }

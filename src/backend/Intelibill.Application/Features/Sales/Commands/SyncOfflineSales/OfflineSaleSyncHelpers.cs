@@ -89,6 +89,8 @@ internal static class OfflineSaleSyncHelpers
         || !StorableText.IsStorable(sale.InvoiceNumber)
         || !StorableText.IsStorable(sale.CustomerName)
         || !StorableText.IsStorable(sale.CustomerPhone)
+        || !StorableText.IsStorable(sale.Till?.OverrideReason)
+        || (sale.TenderLines?.Any(line => line is not null && !StorableText.IsStorable(line.ExternalReference)) ?? false)
         || (sale.Items?.Any(line =>
             !StorableText.IsStorable(line.Barcode)
             || !StorableText.IsStorable(line.BatchNumber)

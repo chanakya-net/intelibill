@@ -1139,7 +1139,8 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
             var identityIndex=Array.IndexOf(migrations,"20261107154602_AddPurchaseReceiptClientLineIdentity");
             Assert.True(identityIndex>0);
             var beforeIdentity=migrations[identityIndex-1];
-            await migrator.MigrateAsync(beforeIdentity);
+            // Prepare only this historical column shape. Never unwind newer retained financial schemas.
+            await db.Database.ExecuteSqlRawAsync(migrator.GenerateScript(migrations[identityIndex], beforeIdentity));
             // Exercise the actual upgrade SQL as a schema owner that cannot bypass FORCE RLS.
             // DDL needs ownership, whereas the API's ordinary runtime role is intentionally DML-only.
             await db.Database.OpenConnectionAsync();
@@ -1175,8 +1176,9 @@ public sealed class PurchaseOrdersControllerTests(PostgreSqlTestFixture fixture)
             Assert.All(rows, row => Assert.Equal(row.Id, row.ClientLineId));
             // The partial index accepts multiple nulls while an old server is still writing.
             await db.Database.ExecuteSqlRawAsync("UPDATE purchase_order_receipt_lines SET client_line_id = NULL");
-            // Restore newer additive migrations before the current API reads its projections.
+            // Only the historical identity migration was replayed; newer additive schemas stayed intact.
             await migrator.MigrateAsync();
+            Assert.Equal(migrations, (await db.Database.GetAppliedMigrationsAsync()).ToArray());
         }
         using var detail = new HttpRequestMessage(HttpMethod.Get, $"/api/purchase-orders/{poId}");
         detail.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);

@@ -1,3 +1,4 @@
+import { disabledTillProviders } from '../../tills/disabled-till.providers';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
@@ -8,7 +9,10 @@ import { vi } from 'vitest';
 import { AuthService } from '../../../app/core/auth/auth.service';
 import { NetworkStatusService } from '../../../app/core/services/network-status.service';
 import { ProductCatalogSyncService } from '../../../app/core/services/product-catalog-sync.service';
-import { ShopUpdatePayload, ShopUpdatesSignalRService } from '../../../app/core/services/shop-updates-signalr.service';
+import {
+  ShopUpdatePayload,
+  ShopUpdatesSignalRService,
+} from '../../../app/core/services/shop-updates-signalr.service';
 import { OfflineSalesDeviceSettingsStorage } from '../../../app/core/storage/offline-sales-device-settings.storage';
 import { OfflineSalesSnapshotIndexedDbService } from '../../../app/core/storage/offline-sales-snapshot-indexeddb.service';
 import { SalesCartIndexedDbService } from '../../../app/core/storage/sales-cart-indexeddb.service';
@@ -41,7 +45,9 @@ export interface NewSalePageTestDeps {
     submitting: ReturnType<typeof signal<boolean>>;
     errorMessage: ReturnType<typeof signal<string>>;
     lastMutationSucceeded: ReturnType<typeof signal<boolean>>;
-    lastMutationType: ReturnType<typeof signal<'record-sale' | 'record-return' | 'void-return' | null>>;
+    lastMutationType: ReturnType<
+      typeof signal<'record-sale' | 'record-return' | 'void-return' | null>
+    >;
     lastRecordedSale: ReturnType<typeof signal<unknown>>;
     lastRecordedIntentId?: ReturnType<typeof signal<string | null>>;
     clearError: ReturnType<typeof vi.fn>;
@@ -49,7 +55,10 @@ export interface NewSalePageTestDeps {
     clearLastRecordedSale: ReturnType<typeof vi.fn>;
     recordSale: ReturnType<typeof vi.fn>;
   };
-  readonly saleService: { previewSale: ReturnType<typeof vi.fn>; getSellables: ReturnType<typeof vi.fn> };
+  readonly saleService: {
+    previewSale: ReturnType<typeof vi.fn>;
+    getSellables: ReturnType<typeof vi.fn>;
+  };
   readonly authService: {
     session: ReturnType<typeof signal<any>>;
     canUseOfflineSalesAuthGrace: ReturnType<typeof vi.fn>;
@@ -125,19 +134,31 @@ export function setupNewSalePageTestBed(overrides: Partial<NewSalePageTestDeps> 
       accessTokenExpiresAt: new Date(Date.now() + 60_000).toISOString(),
       refreshTokenExpiresAt: new Date(Date.now() + 120_000).toISOString(),
       rememberMe: true,
-      user: { id: 'owner-1', email: 'owner@test.com', phoneNumber: null, firstName: 'Owner', lastName: 'One' },
+      user: {
+        id: 'owner-1',
+        email: 'owner@test.com',
+        phoneNumber: null,
+        firstName: 'Owner',
+        lastName: 'One',
+      },
       activeShopId: 'shop-1',
-      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
+      shops: [
+        { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
+      ],
     }),
     canUseOfflineSalesAuthGrace: vi.fn(async () => true),
   };
 
   const checkoutIntentRecords = new Map<string, CheckoutIntent>();
   const checkoutIntentStorage = {
-    add: vi.fn(async (intent: CheckoutIntent) => void checkoutIntentRecords.set(intent.intentId, intent)),
+    add: vi.fn(
+      async (intent: CheckoutIntent) => void checkoutIntentRecords.set(intent.intentId, intent),
+    ),
     get: vi.fn(async (intentId: string) => checkoutIntentRecords.get(intentId) ?? null),
     listByScope: vi.fn(async (userId: string, shopId: string) =>
-      [...checkoutIntentRecords.values()].filter((intent) => intent.userId === userId && intent.shopId === shopId),
+      [...checkoutIntentRecords.values()].filter(
+        (intent) => intent.userId === userId && intent.shopId === shopId,
+      ),
     ),
     update: vi.fn(async (intentId: string, update: CheckoutIntentUpdate) => {
       const current = checkoutIntentRecords.get(intentId);
@@ -160,9 +181,27 @@ export function setupNewSalePageTestBed(overrides: Partial<NewSalePageTestDeps> 
 
   const customersFacade = overrides.customersFacade ?? {
     allCustomers: signal([
-      { customerId: 'cust-1', name: 'Alice', phoneNumber: '+919999111222', address: null, isActive: true },
-      { customerId: 'cust-2', name: 'Bob', phoneNumber: '+919999333444', address: null, isActive: true },
-      { customerId: 'cust-3', name: 'Charlie', phoneNumber: '+919999555666', address: null, isActive: false },
+      {
+        customerId: 'cust-1',
+        name: 'Alice',
+        phoneNumber: '+919999111222',
+        address: null,
+        isActive: true,
+      },
+      {
+        customerId: 'cust-2',
+        name: 'Bob',
+        phoneNumber: '+919999333444',
+        address: null,
+        isActive: true,
+      },
+      {
+        customerId: 'cust-3',
+        name: 'Charlie',
+        phoneNumber: '+919999555666',
+        address: null,
+        isActive: false,
+      },
     ]),
     loadCustomers: vi.fn(),
   };
@@ -200,7 +239,14 @@ export function setupNewSalePageTestBed(overrides: Partial<NewSalePageTestDeps> 
   };
 
   const offlineQueueDb = overrides.offlineQueueDb ?? {
-    getStatusCounts: vi.fn(async () => ({ Pending: 0, Syncing: 0, Synced: 0, SyncedWithWarnings: 0, NeedsReview: 0, Failed: 0 })),
+    getStatusCounts: vi.fn(async () => ({
+      Pending: 0,
+      Syncing: 0,
+      Synced: 0,
+      SyncedWithWarnings: 0,
+      NeedsReview: 0,
+      Failed: 0,
+    })),
   };
 
   inventoryService.getAvailableBatchesBySearchTerm.mockReturnValue(
@@ -217,7 +263,7 @@ export function setupNewSalePageTestBed(overrides: Partial<NewSalePageTestDeps> 
         taxIncluded: true,
         expiryDate: null,
       },
-    ])
+    ]),
   );
 
   saleService.getSellables.mockReturnValue(
@@ -236,7 +282,7 @@ export function setupNewSalePageTestBed(overrides: Partial<NewSalePageTestDeps> 
         expiryDate: null,
         hsnCode: '0902',
       },
-    ])
+    ]),
   );
 
   inventoryService.getProductDetailsByNameOrBarcode.mockReturnValue(
@@ -252,7 +298,7 @@ export function setupNewSalePageTestBed(overrides: Partial<NewSalePageTestDeps> 
       hsnCode: '0902',
       taxIncluded: true,
       taxRatePercent: 18,
-    })
+    }),
   );
 
   saleService.previewSale.mockReturnValue(
@@ -266,12 +312,16 @@ export function setupNewSalePageTestBed(overrides: Partial<NewSalePageTestDeps> 
       lines: [],
       infos: [],
       warnings: [],
-    } as SalePreviewDto)
+    } as SalePreviewDto),
   );
 
   TestBed.configureTestingModule({
-    imports: [NewSalePageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+    imports: [
+      NewSalePageComponent,
+      TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+    ],
     providers: [
+      ...disabledTillProviders(),
       { provide: AuthService, useValue: authService },
       { provide: CustomersFacade, useValue: customersFacade },
       { provide: ProductCatalogSyncService, useValue: productCatalogSync },

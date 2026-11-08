@@ -1,3 +1,6 @@
+import { TillPendingActionsComponent } from '../../tills/components/till-pending-actions.component';
+import { ViewChild } from '@angular/core';
+import { TillPostingFieldsComponent } from '../../tills/components/till-posting-fields.component';
 import {
   Component,
   EventEmitter,
@@ -39,6 +42,8 @@ import { InputValidators } from '../../../shared/forms/input-validation';
   selector: 'app-correct-expense-overlay',
   standalone: true,
   imports: [
+    TillPendingActionsComponent,
+    TillPostingFieldsComponent,
     ReactiveFormsModule,
     TranslocoPipe,
     SelectModule,
@@ -90,6 +95,14 @@ export class CorrectExpenseOverlayComponent implements OnInit {
     initialValue: '',
   });
 
+  @ViewChild(TillPostingFieldsComponent) tillFields!: TillPostingFieldsComponent;
+  readonly tillError = signal('');
+  readonly tillLocked = signal(false);
+  onTillLocked(locked: boolean) {
+    this.tillLocked.set(locked);
+    if (locked) this.form.disable({ emitEvent: false });
+    else this.form.enable({ emitEvent: false });
+  }
   readonly form = this.formBuilder.nonNullable.group({
     categoryName: ['', InputValidators.requiredText(100)],
     amount: [0, InputValidators.positiveNumber()],
@@ -131,14 +144,14 @@ export class CorrectExpenseOverlayComponent implements OnInit {
   }
 
   onClose(): void {
-    if (this.isSubmitting()) {
+    if (this.tillLocked() || this.isSubmitting()) {
       return;
     }
     this.closeRequested.emit();
   }
 
   onSubmit(): void {
-    if (this.isSubmitting()) {
+    if (this.tillLocked() || this.isSubmitting()) {
       return;
     }
     if (this.form.invalid) {
@@ -149,7 +162,18 @@ export class CorrectExpenseOverlayComponent implements OnInit {
     this.expensesFacade.clearMutationStatus();
 
     const raw = this.form.getRawValue();
+    let tillFields;
+    try {
+      tillFields = this.tillFields.fields(
+        Math.abs(Math.round(raw.amount * 100) - Math.round(this.originalExpense.amount * 100)) /
+          100,
+      );
+    } catch {
+      this.tillError.set('tills.evidenceRequired');
+      return;
+    }
     this.expensesFacade.correctExpense(this.expenseId, {
+      ...tillFields,
       ...(this.treatment() === 'SupplierSettlement' ? {} : { treatment: this.treatment() }),
       categoryName: raw.categoryName.trim(),
       amount: raw.amount,

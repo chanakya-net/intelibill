@@ -6,6 +6,7 @@ using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Time;
+using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -13,7 +14,7 @@ using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
-internal sealed class OfflineSalePoster(
+internal sealed partial class OfflineSalePoster(
     ISaleLineValidator saleLineValidator,
     ICustomerResolver customerResolver,
     ISaleRepository saleRepository,
@@ -22,7 +23,11 @@ internal sealed class OfflineSalePoster(
     IShopRepository shopRepository,
     IOfflineSaleVarianceAnalyzer varianceAnalyzer,
     IBusinessClock businessClock,
-    IPostingPeriodPolicy postingPeriodPolicy) : IOfflineSalePoster
+    IPostingPeriodPolicy postingPeriodPolicy,
+    ITillPostingService tillPosting,
+    ITillSessionPolicy tillPolicy,
+    ITillRepository tills,
+    IBankAccountRepository banks) : IOfflineSalePoster
 {
     public ErrorOr<Success> CheckStructure(OfflineSaleSyncCommand sale)
     {
@@ -81,6 +86,12 @@ internal sealed class OfflineSalePoster(
 
             return new OfflineSalePostingOutcome.Rejected(periodError);
         }
+
+        var till = await PrepareTillAsync(request, businessDay.Date, cancellationToken);
+        if (till.IsError)
+            return till.FirstError.Code == Errors.Till.Busy.Code
+                ? new OfflineSalePostingOutcome.Rejected(till.FirstError)
+                : new OfflineSalePostingOutcome.Held(ReconciliationIssueType.TillReview, till.FirstError, till.FirstError.Description, []);
 
         var invoiceNumber = (sale.InvoiceNumber ?? string.Empty).Trim();
 
@@ -197,6 +208,9 @@ internal sealed class OfflineSalePoster(
             if (ledger.IsError) return new OfflineSalePostingOutcome.Rejected(ledger.FirstError);
             dueEntry = ledger.Value;
         }
+
+        var settlement = await StageTillAsync(request, saleEntity, till.Value, cancellationToken);
+        if (settlement.IsError) return new OfflineSalePostingOutcome.Rejected(settlement.FirstError);
 
         for (var i = 0; i < vLines.Count; i++)
         {

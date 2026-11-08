@@ -19,7 +19,8 @@ type LedgerRow = {
   readonly displayAmount: number;
   readonly balance: number;
   readonly entryDate: string;
-  readonly supplierReturnId?:string|null;
+  readonly supplierReturnId?: string | null;
+  readonly receiptId?: string | null;
   readonly notes: string | null;
 };
 
@@ -60,9 +61,7 @@ export class SupplierLedgerTableComponent {
             (e.entryDate ?? '').includes(q),
         )
       : entries;
-    return [...filtered].sort((a, b) =>
-      (b.entryDate ?? '') > (a.entryDate ?? '') ? 1 : -1,
-    );
+    return [...filtered].sort((a, b) => ((b.entryDate ?? '') > (a.entryDate ?? '') ? 1 : -1));
   });
 
   protected readonly totalAmount = computed(() =>

@@ -1,4 +1,5 @@
 using FluentValidation.TestHelper;
+using Intelibill.Application.Features.Tills;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Domain.Enums;
@@ -25,6 +26,28 @@ public class RecordSaleCommandValidatorTests
 
     private static RecordSaleItemCommand ValidItem() =>
         new("BARCODE-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, Guid.NewGuid());
+
+    [Fact]
+    public void TillOverrideTooLong_ReportsOverrideReasonRequired()
+    {
+        var result = _validator.TestValidate(ValidCommand() with { Till = new TillPostingContext(Guid.NewGuid(), new string('x', 501)) });
+        result.ShouldHaveValidationErrorFor(x => x.Till).WithErrorCode("Till.OverrideReasonRequired");
+    }
+
+    [Fact]
+    public void ExplicitTender_RejectsUnknownMissingMismatchAndMixed()
+    {
+        IReadOnlyList<TenderLine>?[] invalid =
+        [
+            [], [null!], [new(ReceiptTenderMethod.UnknownRecordedMethod, 500m, null, null, null, null)],
+            [new(ReceiptTenderMethod.Cash, 499m, null, null, null, null)],
+            [new(ReceiptTenderMethod.Upi, 500m, null, null, null, null)],
+            [new(ReceiptTenderMethod.Cash, 250m, null, null, null, null), new(ReceiptTenderMethod.Upi, 250m, null, null, null, null)]
+        ];
+        foreach (var lines in invalid)
+            _validator.TestValidate(ValidCommand() with { TenderLines = lines }).ShouldHaveValidationErrorFor(x => x.TenderLines);
+        _validator.TestValidate(ValidCommand()).ShouldNotHaveValidationErrorFor(x => x.TenderLines);
+    }
 
     [Fact]
     public void Validate_WhenItemsEmpty_ReturnsError()

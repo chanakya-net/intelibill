@@ -113,6 +113,9 @@ public sealed class SaleDtoBuilder(IItemRepository itemRepository, ISaleCancella
             Status = sale.Status,
             Version = sale.Version,
             Document = sale.InvoiceDocument,
+            TillSessionId = sale.TillSessionId,
+            TillOverrideReason = sale.TillOverrideReason,
+            TenderLines = sale.TenderLines,
         };
 
         Item? GoodsItemOf(SaleItem saleItem) =>

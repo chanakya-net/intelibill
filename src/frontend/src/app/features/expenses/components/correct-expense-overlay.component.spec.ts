@@ -1,3 +1,4 @@
+import { disabledTillProviders } from '../../../../tests/tills/disabled-till.providers';
 import { of, Subject } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -64,6 +65,7 @@ describe('CorrectExpenseOverlayComponent', () => {
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
       providers: [
+        ...disabledTillProviders(),
         {
           provide: ExpensesFacade,
           useValue: {
@@ -93,6 +95,7 @@ describe('CorrectExpenseOverlayComponent', () => {
     expect(
       fixture.nativeElement.querySelector('[data-testid="settlement-provenance"]'),
     ).not.toBeNull();
+    fixture.detectChanges();
     component.onSubmit();
     expect(expensesFacade.correctExpense).toHaveBeenCalledWith(
       'exp-1',
@@ -137,6 +140,7 @@ describe('CorrectExpenseOverlayComponent', () => {
     component.expenseId = 'exp-1';
     component.originalExpense = originalExpense;
 
+    fixture.detectChanges();
     component.form.setValue({
       categoryName: '',
       amount: 0,
@@ -145,6 +149,7 @@ describe('CorrectExpenseOverlayComponent', () => {
       expenseDate: new Date('2026-04-20T00:00:00.000Z'),
     });
 
+    fixture.detectChanges();
     component.onSubmit();
 
     expect(expensesFacade.correctExpense).not.toHaveBeenCalled();
@@ -167,6 +172,7 @@ describe('CorrectExpenseOverlayComponent', () => {
     component.expenseId = 'exp-1';
     component.originalExpense = originalExpense;
 
+    fixture.detectChanges();
     component.form.setValue({
       categoryName: 'Updated Rent',
       amount: 550,
@@ -175,9 +181,11 @@ describe('CorrectExpenseOverlayComponent', () => {
       expenseDate: new Date('2026-04-21T00:00:00.000Z'),
     });
 
+    fixture.detectChanges();
     component.onSubmit();
 
     expect(expensesFacade.correctExpense).toHaveBeenCalledWith('exp-1', {
+      tillOwner: { userId: 'user-1', shopId: 'shop-1' },
       treatment: 'Unclassified',
       categoryName: 'Updated Rent',
       amount: 550,
@@ -193,6 +201,7 @@ describe('CorrectExpenseOverlayComponent', () => {
     component.expenseId = 'exp-1';
     component.originalExpense = originalExpense;
 
+    fixture.detectChanges();
     component.form.setValue({
       categoryName: '  Rent  ',
       amount: 500,
@@ -201,9 +210,11 @@ describe('CorrectExpenseOverlayComponent', () => {
       expenseDate: new Date('2026-04-20T00:00:00.000Z'),
     });
 
+    fixture.detectChanges();
     component.onSubmit();
 
     expect(expensesFacade.correctExpense).toHaveBeenCalledWith('exp-1', {
+      tillOwner: { userId: 'user-1', shopId: 'shop-1' },
       treatment: 'Unclassified',
       categoryName: 'Rent',
       amount: 500,

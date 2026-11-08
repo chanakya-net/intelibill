@@ -1,3 +1,4 @@
+import { disabledTillProviders } from '../../../../../tests/tills/disabled-till.providers';
 import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -12,7 +13,10 @@ import type { AuthSession } from '../../../../core/auth/auth.models';
 import { NetworkStatusService } from '../../../../core/services/network-status.service';
 import { OfflineSalesDeviceSettingsStorage } from '../../../../core/storage/offline-sales-device-settings.storage';
 import { BlobDownloadService } from '../../../../shared/utils/blob-download.service';
-import type { OfflineQueuedSaleRecord, OfflineSaleQueueStatus } from '../../services/offline-sale-core.types';
+import type {
+  OfflineQueuedSaleRecord,
+  OfflineSaleQueueStatus,
+} from '../../services/offline-sale-core.types';
 import type {
   ReconciliationCase,
   ReconciliationCasePage,
@@ -29,7 +33,9 @@ import {
 import { OfflineReconciliationPageComponent } from './offline-reconciliation-page.component';
 
 const LAST_EXPORT_KEY = 'intelibill.offlineSales.lastSupportExport.v1:shop-1:device-1';
-const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8')) as Record<string, unknown>;
+const enIN = JSON.parse(
+  readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8'),
+) as Record<string, unknown>;
 
 describe('OfflineReconciliationPageComponent', () => {
   const session = signal<AuthSession | null>(makeSession('Owner'));
@@ -37,7 +43,14 @@ describe('OfflineReconciliationPageComponent', () => {
   const reviewSales = signal<readonly OfflineReviewSale[]>([]);
   const awaitingIssuerSales = signal<readonly OfflineAwaitingIssuerSale[]>([]);
   const unsentSales = signal<readonly OfflineQueuedSaleRecord[]>([]);
-  const visibleCounts = signal({ pending: 0, syncing: 0, failed: 0, warning: 0, needsReview: 0, totalVisible: 0 });
+  const visibleCounts = signal({
+    pending: 0,
+    syncing: 0,
+    failed: 0,
+    warning: 0,
+    needsReview: 0,
+    totalVisible: 0,
+  });
 
   const reconciliation = {
     listCases: vi.fn<OfflineReconciliationService['listCases']>(),
@@ -72,7 +85,8 @@ describe('OfflineReconciliationPageComponent', () => {
     vi.clearAllMocks();
     uuidCounter = 0;
     vi.spyOn(crypto, 'randomUUID').mockImplementation(
-      () => `00000000-0000-4000-8000-${String(++uuidCounter).padStart(12, '0')}` as `${string}-${string}-${string}-${string}-${string}`,
+      () =>
+        `00000000-0000-4000-8000-${String(++uuidCounter).padStart(12, '0')}` as `${string}-${string}-${string}-${string}-${string}`,
     );
 
     session.set(makeSession('Owner'));
@@ -81,13 +95,23 @@ describe('OfflineReconciliationPageComponent', () => {
     awaitingIssuerSales.set([]);
     unsentSales.set([]);
 
-    reconciliation.listCases.mockReturnValue(of(casePage([summary('case-1', 'INV-001'), summary('case-2', 'INV-002')], 45)));
+    reconciliation.listCases.mockReturnValue(
+      of(casePage([summary('case-1', 'INV-001'), summary('case-2', 'INV-002')], 45)),
+    );
     reconciliation.getCase.mockImplementation((caseId) => of(caseDetail({ caseId })));
     queueSync.retryQueuedSale.mockResolvedValue({
-      attemptedCount: 1, syncedCount: 1, warningCount: 0, needsReviewCount: 0, failedCount: 0,
+      attemptedCount: 1,
+      syncedCount: 1,
+      warningCount: 0,
+      needsReviewCount: 0,
+      failedCount: 0,
     });
     queueSync.resubmitForReview.mockResolvedValue({
-      attemptedCount: 1, syncedCount: 0, warningCount: 0, needsReviewCount: 1, failedCount: 0,
+      attemptedCount: 1,
+      syncedCount: 0,
+      warningCount: 0,
+      needsReviewCount: 1,
+      failedCount: 0,
     });
     queueSync.refreshActiveStatusCounts.mockResolvedValue(visibleCounts());
     queueDb.getAllByShopDevice.mockResolvedValue([]);
@@ -115,6 +139,7 @@ describe('OfflineReconciliationPageComponent', () => {
         }),
       ],
       providers: [
+        ...disabledTillProviders(),
         { provide: AuthService, useValue: { session } },
         { provide: NetworkStatusService, useValue: { canReachApi } },
         { provide: OfflineReconciliationService, useValue: reconciliation },
@@ -151,9 +176,9 @@ describe('OfflineReconciliationPageComponent', () => {
   }
 
   function buttonByText(root: Element, text: string): HTMLButtonElement | undefined {
-    return Array.from(root.querySelectorAll('button')).find((button) => button.textContent?.trim() === text) as
-      | HTMLButtonElement
-      | undefined;
+    return Array.from(root.querySelectorAll('button')).find(
+      (button) => button.textContent?.trim() === text,
+    ) as HTMLButtonElement | undefined;
   }
 
   async function openCase(caseId = 'case-1'): Promise<void> {
@@ -161,7 +186,11 @@ describe('OfflineReconciliationPageComponent', () => {
     await settle();
   }
 
-  async function fillResolveForm(action: ReconciliationCase['availableActions'][number], reason: string, linked = ''): Promise<void> {
+  async function fillResolveForm(
+    action: ReconciliationCase['availableActions'][number],
+    reason: string,
+    linked = '',
+  ): Promise<void> {
     component.resolveAction.set(action);
     component.resolveReason.set(reason);
     component.resolveLinkedOperationId.set(linked);
@@ -186,7 +215,9 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(el().querySelector('.unresolved-count')?.textContent).toContain('3 unresolved');
 
     reconciliation.listCases.mockClear();
-    reconciliation.listCases.mockReturnValue(of(casePage([summary('case-9', 'INV-009', { status: 'Resolved' })], 21)));
+    reconciliation.listCases.mockReturnValue(
+      of(casePage([summary('case-9', 'INV-009', { status: 'Resolved' })], 21)),
+    );
     component.onStatusFilterChange('resolved');
     await settle();
     expect(reconciliation.listCases).toHaveBeenCalledWith('resolved', 1, 20);
@@ -206,22 +237,41 @@ describe('OfflineReconciliationPageComponent', () => {
     await render();
     expect(el().querySelector('.case-empty')?.textContent).toContain('No cases match this filter.');
 
-    reconciliation.listCases.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 503 })));
+    reconciliation.listCases.mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 503 })),
+    );
     component.refreshCases();
     await settle();
-    expect(el().querySelector('.cases-error')?.textContent).toContain('Review cases could not be loaded.');
+    expect(el().querySelector('.cases-error')?.textContent).toContain(
+      'Review cases could not be loaded.',
+    );
   });
 
   it('shows only availableActions and requires a reason', async () => {
-    reconciliation.getCase.mockReturnValue(of(caseDetail({ availableActions: ['LinkExistingSale', 'Escalate'] })));
-    reconciliation.resolveCase.mockReturnValue(of(caseDetail({ status: 'Escalated', version: 8, availableActions: [] })));
+    reconciliation.getCase.mockReturnValue(
+      of(caseDetail({ availableActions: ['LinkExistingSale', 'Escalate'] })),
+    );
+    reconciliation.resolveCase.mockReturnValue(
+      of(caseDetail({ status: 'Escalated', version: 8, availableActions: [] })),
+    );
     await render();
     await openCase();
 
-    expect(component.actionOptions().map((option) => option.value)).toEqual(['LinkExistingSale', 'Escalate']);
+    expect(component.actionOptions().map((option) => option.value)).toEqual([
+      'LinkExistingSale',
+      'Escalate',
+    ]);
     // Option labels are announced by screen readers, so they must be translated text, never raw keys.
-    expect(component.actionOptions().map((option) => option.label)).toEqual(['Link to an existing sale', 'Escalate']);
-    expect(component.statusFilterOptions().map((option) => option.label)).toEqual(['Open', 'Escalated', 'Resolved', 'All']);
+    expect(component.actionOptions().map((option) => option.label)).toEqual([
+      'Link to an existing sale',
+      'Escalate',
+    ]);
+    expect(component.statusFilterOptions().map((option) => option.label)).toEqual([
+      'Open',
+      'Escalated',
+      'Resolved',
+      'All',
+    ]);
 
     await fillResolveForm('Escalate', '   ');
     await submitResolve();
@@ -231,12 +281,20 @@ describe('OfflineReconciliationPageComponent', () => {
     await fillResolveForm('Escalate', 'x'.repeat(501));
     await submitResolve();
     expect(reconciliation.resolveCase).not.toHaveBeenCalled();
-    expect(el().querySelector('.resolve-form')?.textContent).toContain('Keep the reason within 500 characters.');
+    expect(el().querySelector('.resolve-form')?.textContent).toContain(
+      'Keep the reason within 500 characters.',
+    );
 
     // No candidate offered: nothing to type an id into, and the form says what to do instead.
-    await fillResolveForm('LinkExistingSale', 'Matches the posted sale', '00000000-0000-4000-8000-0000000000aa');
+    await fillResolveForm(
+      'LinkExistingSale',
+      'Matches the posted sale',
+      '00000000-0000-4000-8000-0000000000aa',
+    );
     expect(el().querySelector('input#resolve-linked, .linked-operation-select')).toBeNull();
-    expect(el().querySelector('.no-candidates')?.textContent).toContain('No posted sale matches this invoice yet.');
+    expect(el().querySelector('.no-candidates')?.textContent).toContain(
+      'No posted sale matches this invoice yet.',
+    );
     expect(el().querySelector('.no-candidates .reload-case-btn')).toBeTruthy();
     await submitResolve();
     expect(reconciliation.resolveCase).not.toHaveBeenCalled();
@@ -245,6 +303,7 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(el().querySelector('.no-candidates')).toBeNull();
     await submitResolve();
     expect(reconciliation.resolveCase).toHaveBeenCalledWith('case-1', {
+      tillOwner: { userId: 'user-1', shopId: 'shop-1' },
       operationId: '00000000-0000-4000-8000-000000000001',
       expectedVersion: 7,
       action: 'Escalate',
@@ -252,7 +311,9 @@ describe('OfflineReconciliationPageComponent', () => {
       linkedOperationId: null,
     });
     expect(el().querySelector('.case-detail .case-status')?.textContent).toContain('Escalated');
-    expect(el().querySelector('.resolve-message.success')?.textContent).toContain('The server updated this case.');
+    expect(el().querySelector('.resolve-message.success')?.textContent).toContain(
+      'The server updated this case.',
+    );
   });
 
   it('offers the server link candidates in a select and submits only the chosen one', async () => {
@@ -263,24 +324,42 @@ describe('OfflineReconciliationPageComponent', () => {
           unresolvedQuantity: 2,
           availableActions: ['LinkStockCorrection', 'LinkExistingSale', 'Escalate'],
           linkCandidates: [
-            { operationId: 'adj-1', kind: 'Adjustment', label: 'ADJ-0007', quantity: 2, occurredAt: '2026-11-02T09:30:00.000Z' },
-            { operationId: 'sale-1', kind: 'Sale', label: 'INV-001', quantity: null, occurredAt: '2026-11-02T10:00:00.000Z' },
+            {
+              operationId: 'adj-1',
+              kind: 'Adjustment',
+              label: 'ADJ-0007',
+              quantity: 2,
+              occurredAt: '2026-11-02T09:30:00.000Z',
+            },
+            {
+              operationId: 'sale-1',
+              kind: 'Sale',
+              label: 'INV-001',
+              quantity: null,
+              occurredAt: '2026-11-02T10:00:00.000Z',
+            },
           ],
         }),
       ),
     );
-    reconciliation.resolveCase.mockReturnValue(of(caseDetail({ status: 'Resolved', version: 8, availableActions: [] })));
+    reconciliation.resolveCase.mockReturnValue(
+      of(caseDetail({ status: 'Resolved', version: 8, availableActions: [] })),
+    );
     await render();
     await openCase();
 
     await fillResolveForm('LinkStockCorrection', 'Found two packets behind the shelf');
     expect(el().querySelector('.linked-operation-select')).toBeTruthy();
     expect(el().querySelector('.no-candidates')).toBeNull();
-    expect(component.linkOptions()).toEqual([{ value: 'adj-1', label: expect.stringMatching(/^Adjustment ADJ-0007: \+2, \d{2} Nov 2026/) }]);
+    expect(component.linkOptions()).toEqual([
+      { value: 'adj-1', label: expect.stringMatching(/^Adjustment ADJ-0007: \+2, \d{2} Nov 2026/) },
+    ]);
 
     await submitResolve();
     expect(reconciliation.resolveCase).not.toHaveBeenCalled();
-    expect(el().querySelector('.resolve-form')?.textContent).toContain('Choose what this action links to.');
+    expect(el().querySelector('.resolve-form')?.textContent).toContain(
+      'Choose what this action links to.',
+    );
 
     // A sale is not a stock correction: an id the server did not offer for this action is never sent.
     await fillResolveForm('LinkStockCorrection', 'Found two packets behind the shelf', 'sale-1');
@@ -288,7 +367,9 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(reconciliation.resolveCase).not.toHaveBeenCalled();
 
     await fillResolveForm('LinkExistingSale', 'Posted by the late sync');
-    expect(component.linkOptions()).toEqual([{ value: 'sale-1', label: expect.stringMatching(/^Invoice INV-001, posted \d{2} Nov 2026/) }]);
+    expect(component.linkOptions()).toEqual([
+      { value: 'sale-1', label: expect.stringMatching(/^Invoice INV-001, posted \d{2} Nov 2026/) },
+    ]);
 
     await fillResolveForm('LinkStockCorrection', 'Found two packets behind the shelf', 'adj-1');
     await submitResolve();
@@ -299,19 +380,27 @@ describe('OfflineReconciliationPageComponent', () => {
   });
 
   it('explains how to make a stock correction linkable and reloads the case to pick it up', async () => {
-    const stockCase = { issueType: 'StockVariance' as const, unresolvedQuantity: 2, availableActions: ['LinkStockCorrection' as const] };
-    reconciliation.getCase
-      .mockReturnValueOnce(of(caseDetail(stockCase)))
-      .mockReturnValue(
-        of(
-          caseDetail({
-            ...stockCase,
-            linkCandidates: [
-              { operationId: 'adj-9', kind: 'Adjustment', label: 'ADJ-0009', quantity: 3, occurredAt: '2026-11-02T11:00:00.000Z' },
-            ],
-          }),
-        ),
-      );
+    const stockCase = {
+      issueType: 'StockVariance' as const,
+      unresolvedQuantity: 2,
+      availableActions: ['LinkStockCorrection' as const],
+    };
+    reconciliation.getCase.mockReturnValueOnce(of(caseDetail(stockCase))).mockReturnValue(
+      of(
+        caseDetail({
+          ...stockCase,
+          linkCandidates: [
+            {
+              operationId: 'adj-9',
+              kind: 'Adjustment',
+              label: 'ADJ-0009',
+              quantity: 3,
+              occurredAt: '2026-11-02T11:00:00.000Z',
+            },
+          ],
+        }),
+      ),
+    );
     await render();
     await openCase();
     await fillResolveForm('LinkStockCorrection', 'Recount found them');
@@ -331,7 +420,9 @@ describe('OfflineReconciliationPageComponent', () => {
     reconciliation.getCase.mockReturnValue(of(caseDetail({ availableActions: [] })));
     await render();
     await openCase();
-    expect(el().querySelector('.no-actions')?.textContent?.trim()).toBe('No action is available for this case.');
+    expect(el().querySelector('.no-actions')?.textContent?.trim()).toBe(
+      'No action is available for this case.',
+    );
 
     fixture.destroy();
     session.set(makeSession('Staff'));
@@ -350,7 +441,12 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(lease).toMatch(/30 Oct 2026, .+ to 06 Nov 2026, /);
 
     reconciliation.getCase.mockReturnValue(
-      of(caseDetail({ caseId: 'case-2', submission: submission({ leaseReservedAt: null, leaseExpiresAt: null }) })),
+      of(
+        caseDetail({
+          caseId: 'case-2',
+          submission: submission({ leaseReservedAt: null, leaseExpiresAt: null }),
+        }),
+      ),
     );
     await openCase('case-2');
     expect(el().querySelector('.lease-window')?.textContent).toContain('No reservation recorded');
@@ -383,7 +479,9 @@ describe('OfflineReconciliationPageComponent', () => {
       .filter((row) => row.querySelector('.resubmit-btn'))
       .map((row) => row.querySelector('.queue-invoice')?.textContent?.trim());
     expect(offered).toEqual(['INV-no-case', 'INV-legacy-case']);
-    expect(reviewRowEls()[0].querySelector('.resubmit-hint')?.textContent).toContain('The server has no copy of this invoice as billed.');
+    expect(reviewRowEls()[0].querySelector('.resubmit-hint')?.textContent).toContain(
+      'The server has no copy of this invoice as billed.',
+    );
     expect(reconciliation.getCase).toHaveBeenCalledWith('case-legacy');
     expect(reconciliation.getCase).toHaveBeenCalledWith('case-kept');
 
@@ -394,12 +492,22 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(el().querySelector('.resubmit-error')).toBeNull();
 
     queueSync.resubmitForReview.mockResolvedValueOnce({
-      attemptedCount: 1, syncedCount: 0, warningCount: 0, needsReviewCount: 0, failedCount: 1,
+      attemptedCount: 1,
+      syncedCount: 0,
+      warningCount: 0,
+      needsReviewCount: 0,
+      failedCount: 1,
     });
     reviewRowEls()[1].querySelector<HTMLButtonElement>('button.resubmit-btn')!.click();
     await settle();
-    expect(queueSync.resubmitForReview).toHaveBeenLastCalledWith('shop-1', 'device-1', 'legacy-case');
-    expect(el().querySelector('.resubmit-error')?.textContent).toContain('Invoice INV-legacy-case could not be sent.');
+    expect(queueSync.resubmitForReview).toHaveBeenLastCalledWith(
+      'shop-1',
+      'device-1',
+      'legacy-case',
+    );
+    expect(el().querySelector('.resubmit-error')?.textContent).toContain(
+      'Invoice INV-legacy-case could not be sent.',
+    );
   });
 
   it('drops the resend button once the server holds an envelope after a successful resend', async () => {
@@ -426,9 +534,17 @@ describe('OfflineReconciliationPageComponent', () => {
   it('reloads on 409 version conflict without showing success', async () => {
     reconciliation.getCase
       .mockReturnValueOnce(of(caseDetail({ version: 7, availableActions: ['Escalate'] })))
-      .mockReturnValueOnce(of(caseDetail({ version: 9, availableActions: ['Escalate'], message: 'Reloaded copy' })));
+      .mockReturnValueOnce(
+        of(caseDetail({ version: 9, availableActions: ['Escalate'], message: 'Reloaded copy' })),
+      );
     reconciliation.resolveCase.mockReturnValue(
-      throwError(() => new HttpErrorResponse({ status: 409, error: { title: 'Reconciliation.CaseVersionConflict' } })),
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 409,
+            error: { title: 'Reconciliation.CaseVersionConflict' },
+          }),
+      ),
     );
     await render();
     await openCase();
@@ -457,13 +573,17 @@ describe('OfflineReconciliationPageComponent', () => {
 
     await fillResolveForm('Escalate', 'Checked the drawer');
     await submitResolve();
-    expect(el().querySelector('.resolve-message.error')?.textContent).toContain('The server could not be reached.');
+    expect(el().querySelector('.resolve-message.error')?.textContent).toContain(
+      'The server could not be reached.',
+    );
     expect(el().querySelector('.case-detail .case-status')?.textContent).toContain('Open');
     await submitResolve();
     await fillResolveForm('Escalate', 'Checked the drawer twice');
     await submitResolve();
 
-    const operationIds = reconciliation.resolveCase.mock.calls.map(([, request]) => request.operationId);
+    const operationIds = reconciliation.resolveCase.mock.calls.map(
+      ([, request]) => request.operationId,
+    );
     expect(operationIds[0]).toBe(operationIds[1]);
     expect(operationIds[2]).not.toBe(operationIds[0]);
   });
@@ -504,11 +624,17 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(people).toContain('Asha Owner');
     expect(el().querySelector('.event-list')?.textContent).toContain('Needs a second look');
     expect(el().querySelector('.snapshot-lines')?.textContent).toContain('Masala chai');
-    expect(el().querySelector<HTMLAnchorElement>('.linked-sale a')?.getAttribute('href')).toBe('/sales/sale-77/print');
+    expect(el().querySelector<HTMLAnchorElement>('.linked-sale a')?.getAttribute('href')).toBe(
+      '/sales/sale-77/print',
+    );
 
-    reconciliation.getCase.mockReturnValue(of(caseDetail({ caseId: 'case-2', hasOriginalEnvelope: false, submission: null })));
+    reconciliation.getCase.mockReturnValue(
+      of(caseDetail({ caseId: 'case-2', hasOriginalEnvelope: false, submission: null })),
+    );
     await openCase('case-2');
-    expect(el().querySelector('.envelope-missing')?.textContent).toContain('Original envelope not recorded');
+    expect(el().querySelector('.envelope-missing')?.textContent).toContain(
+      'Original envelope not recorded',
+    );
     expect(el().querySelector('.invoice-snapshot')).toBeNull();
   });
 
@@ -525,11 +651,16 @@ describe('OfflineReconciliationPageComponent', () => {
   });
 
   it('export downloads a bundle and marks hand-off safe only once the user confirms saving it', async () => {
-    queueDb.getAllByShopDevice.mockResolvedValue([record('own-1', 'Pending'), record('done', 'Synced')]);
+    queueDb.getAllByShopDevice.mockResolvedValue([
+      record('own-1', 'Pending'),
+      record('done', 'Synced'),
+    ]);
     unsentSales.set([record('own-1', 'Pending')]);
     await render();
 
-    expect(el().querySelector('.handoff-scope')?.textContent).toContain('This check covers only the shop you are working in now.');
+    expect(el().querySelector('.handoff-scope')?.textContent).toContain(
+      'This check covers only the shop you are working in now.',
+    );
     expect(el().querySelector('.handoff-notice.unsafe')?.textContent).toContain(
       '1 invoices for this shop on this browser have not reached the server. Export a support bundle before clearing or retiring this browser.',
     );
@@ -541,7 +672,9 @@ describe('OfflineReconciliationPageComponent', () => {
     const [blob, fileName] = downloads.download.mock.calls[0];
     expect(fileName).toMatch(/^offline-recovery-device-1-\d{12}\.json$/);
     const text = await (blob as Blob).text();
-    expect(JSON.parse(text).invoices.map((invoice: { clientSaleId: string }) => invoice.clientSaleId)).toEqual(['own-1']);
+    expect(
+      JSON.parse(text).invoices.map((invoice: { clientSaleId: string }) => invoice.clientSaleId),
+    ).toEqual(['own-1']);
 
     // A started download proves nothing: the hand-off stays unsafe and nothing is recorded until the user confirms.
     expect(el().querySelector('.pending-export')?.textContent).toContain(fileName);
@@ -564,7 +697,9 @@ describe('OfflineReconciliationPageComponent', () => {
   });
 
   it('exports more than 100 invoices as several files and records them only when all are confirmed', async () => {
-    const records = Array.from({ length: 101 }, (_, index) => record(`own-${String(index).padStart(3, '0')}`, 'Pending'));
+    const records = Array.from({ length: 101 }, (_, index) =>
+      record(`own-${String(index).padStart(3, '0')}`, 'Pending'),
+    );
     queueDb.getAllByShopDevice.mockResolvedValue(records);
     unsentSales.set(records);
     await render();
@@ -577,7 +712,9 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(fileNames[0]).toMatch(/^offline-recovery-device-1-\d{12}-part1-of-2\.json$/);
     expect(fileNames[1]).toMatch(/^offline-recovery-device-1-\d{12}-part2-of-2\.json$/);
     const counts = await Promise.all(
-      downloads.download.mock.calls.map(async ([blob]) => JSON.parse(await (blob as Blob).text()).invoices.length as number),
+      downloads.download.mock.calls.map(
+        async ([blob]) => JSON.parse(await (blob as Blob).text()).invoices.length as number,
+      ),
     );
     expect(counts).toEqual([100, 1]);
     expect(el().querySelectorAll('.pending-export-files li')).toHaveLength(2);
@@ -594,9 +731,14 @@ describe('OfflineReconciliationPageComponent', () => {
     buttonByText(el().querySelector('.pending-export')!, 'I saved all 2 files')!.click();
     await settle();
 
-    expect(el().querySelector('.handoff-notice.safe')?.textContent).toContain('carries all 101 unsynced invoices');
+    expect(el().querySelector('.handoff-notice.safe')?.textContent).toContain(
+      'carries all 101 unsynced invoices',
+    );
     expect(el().querySelector('.last-export')?.textContent).toContain('101 invoices in 2 files');
-    const stored = JSON.parse(localStorage.getItem(LAST_EXPORT_KEY)!) as { files: unknown[]; clientSaleIds: string[] };
+    const stored = JSON.parse(localStorage.getItem(LAST_EXPORT_KEY)!) as {
+      files: unknown[];
+      clientSaleIds: string[];
+    };
     expect(stored.files).toHaveLength(2);
     expect(stored.clientSaleIds).toHaveLength(101);
   });
@@ -604,7 +746,12 @@ describe('OfflineReconciliationPageComponent', () => {
   it('still reads a last export recorded before exports had several files', async () => {
     localStorage.setItem(
       LAST_EXPORT_KEY,
-      JSON.stringify({ exportedAt: '2026-11-01T10:00:00.000Z', fileName: 'old.json', checksum: 'abcdef0123456789', clientSaleIds: ['own-1'] }),
+      JSON.stringify({
+        exportedAt: '2026-11-01T10:00:00.000Z',
+        fileName: 'old.json',
+        checksum: 'abcdef0123456789',
+        clientSaleIds: ['own-1'],
+      }),
     );
     unsentSales.set([record('own-1', 'Pending')]);
     await render();
@@ -624,12 +771,22 @@ describe('OfflineReconciliationPageComponent', () => {
     // The app-wide sync run comes back with NeedsReview while the page is open.
     unsentSales.set([{ ...pending, status: 'NeedsReview' }]);
     reviewSales.set([
-      { clientSaleId: 'own-1', invoiceNumber: 'INV-own-1', soldAt: pending.soldAt, errorCode: null, errorMessage: null, reviewCaseId: 'case-held', mismatches: [] },
+      {
+        clientSaleId: 'own-1',
+        invoiceNumber: 'INV-own-1',
+        soldAt: pending.soldAt,
+        errorCode: null,
+        errorMessage: null,
+        reviewCaseId: 'case-held',
+        mismatches: [],
+      },
     ]);
     await settle();
     expect(el().querySelector('.queue-group.unsent')).toBeNull();
     expect(el().querySelectorAll('.queue-group.review .queue-row')).toHaveLength(1);
-    expect(el().querySelector('.queue-group.review')?.textContent).toContain('Review case case-held');
+    expect(el().querySelector('.queue-group.review')?.textContent).toContain(
+      'Review case case-held',
+    );
 
     await component.exportBundle();
     await settle();
@@ -645,12 +802,28 @@ describe('OfflineReconciliationPageComponent', () => {
   });
 
   describe.each([
-    ['success', () => of(caseDetail({ caseId: 'case-1', status: 'Escalated', version: 8, availableActions: [] }))],
-    ['409 conflict', () => throwError(() => new HttpErrorResponse({ status: 409, error: { title: 'Reconciliation.CaseVersionConflict' } }))],
+    [
+      'success',
+      () =>
+        of(caseDetail({ caseId: 'case-1', status: 'Escalated', version: 8, availableActions: [] })),
+    ],
+    [
+      '409 conflict',
+      () =>
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 409,
+              error: { title: 'Reconciliation.CaseVersionConflict' },
+            }),
+        ),
+    ],
   ])('a %s resolve reply that arrives after another case was opened', (_name, reply) => {
     it('leaves the open case, its form and banner alone', async () => {
       const inFlight = new Subject<ReconciliationCase>();
-      reconciliation.getCase.mockImplementation((caseId) => of(caseDetail({ caseId, availableActions: ['Escalate'] })));
+      reconciliation.getCase.mockImplementation((caseId) =>
+        of(caseDetail({ caseId, availableActions: ['Escalate'] })),
+      );
       reconciliation.resolveCase.mockReturnValue(inFlight);
       await render();
       await openCase('case-1');
@@ -664,7 +837,10 @@ describe('OfflineReconciliationPageComponent', () => {
       reconciliation.getCase.mockClear();
 
       const outcome = reply();
-      outcome.subscribe({ next: (value) => inFlight.next(value), error: (error) => inFlight.error(error) });
+      outcome.subscribe({
+        next: (value) => inFlight.next(value),
+        error: (error) => inFlight.error(error),
+      });
       await settle();
 
       expect(component.selectedCaseId()).toBe('case-2');
@@ -691,7 +867,9 @@ describe('OfflineReconciliationPageComponent', () => {
 
     const row = el().querySelector('.queue-group.review .queue-row')!;
     expect(row.textContent).toContain('INV-HELD');
-    expect(row.querySelector<HTMLAnchorElement>('a.print-link')?.getAttribute('href')).toBe('/sales/held-1/print?offline=1');
+    expect(row.querySelector<HTMLAnchorElement>('a.print-link')?.getAttribute('href')).toBe(
+      '/sales/held-1/print?offline=1',
+    );
     buttonByText(row, 'Open case')!.click();
     await settle();
 
@@ -706,7 +884,13 @@ describe('OfflineReconciliationPageComponent', () => {
       record('other-pending', 'Pending', 'user-2'),
     ]);
     awaitingIssuerSales.set([
-      { clientSaleId: 'other-pending', invoiceNumber: 'INV-other-pending', soldAt: '2026-11-01T10:00:00.000Z', issuedByUserId: 'user-2', status: 'Pending' },
+      {
+        clientSaleId: 'other-pending',
+        invoiceNumber: 'INV-other-pending',
+        soldAt: '2026-11-01T10:00:00.000Z',
+        issuedByUserId: 'user-2',
+        status: 'Pending',
+      },
     ]);
     await render();
 
@@ -731,7 +915,14 @@ describe('OfflineReconciliationPageComponent', () => {
     const result: RecoverySubmissionResult = {
       operationId: 'x',
       results: [
-        { clientSaleId: 'r-1', invoiceNumber: 'INV-R1', status: 'ReviewOpened', caseId: 'case-r1', saleId: null, errors: [] },
+        {
+          clientSaleId: 'r-1',
+          invoiceNumber: 'INV-R1',
+          status: 'ReviewOpened',
+          caseId: 'case-r1',
+          saleId: null,
+          errors: [],
+        },
         {
           clientSaleId: 'r-2',
           invoiceNumber: 'INV-R2',
@@ -747,13 +938,19 @@ describe('OfflineReconciliationPageComponent', () => {
       .mockReturnValue(of(result));
     await render();
 
-    await component.onImportFileSelected(fileEvent('bundle.json', '{"format":"intelibill.offline-recovery"}'));
+    await component.onImportFileSelected(
+      fileEvent('bundle.json', '{"format":"intelibill.offline-recovery"}'),
+    );
     await settle();
     component.submitImport();
     await settle();
-    expect(el().querySelector('.import-error')?.textContent).toContain('The server could not be reached.');
+    expect(el().querySelector('.import-error')?.textContent).toContain(
+      'The server could not be reached.',
+    );
 
-    await component.onImportFileSelected(fileEvent('bundle.json', '{"format":"intelibill.offline-recovery"}'));
+    await component.onImportFileSelected(
+      fileEvent('bundle.json', '{"format":"intelibill.offline-recovery"}'),
+    );
     await settle();
     component.submitImport();
     await settle();
@@ -773,13 +970,21 @@ describe('OfflineReconciliationPageComponent', () => {
 
   it('maps a rejected bundle to a translated message', async () => {
     reconciliation.submitRecoveryBundle.mockReturnValue(
-      throwError(() => new HttpErrorResponse({ status: 400, error: { title: 'Recovery.BundleChecksumMismatch' } })),
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 400,
+            error: { title: 'Recovery.BundleChecksumMismatch' },
+          }),
+      ),
     );
     await render();
     await component.onImportFileSelected(fileEvent('bundle.json', '{}'));
     component.submitImport();
     await settle();
-    expect(el().querySelector('.import-error')?.textContent).toContain("The bundle's invoices do not match its checksum.");
+    expect(el().querySelector('.import-error')?.textContent).toContain(
+      "The bundle's invoices do not match its checksum.",
+    );
   });
 
   it('offline: actions disabled and no resolution shown', async () => {
@@ -792,10 +997,20 @@ describe('OfflineReconciliationPageComponent', () => {
     canReachApi.set(false);
     await settle();
 
-    expect(el().querySelector('.stale-notice')?.textContent).toContain('The server cannot be reached.');
-    expect(el().querySelector<HTMLButtonElement>('.resolve-form button[type="submit"]')?.disabled).toBe(true);
-    expect(el().querySelector<HTMLButtonElement>('.refresh-cases-btn button, button.refresh-cases-btn')?.disabled).toBe(true);
-    expect(el().querySelector<HTMLButtonElement>('.submit-import-btn button, button.submit-import-btn')?.disabled).toBe(true);
+    expect(el().querySelector('.stale-notice')?.textContent).toContain(
+      'The server cannot be reached.',
+    );
+    expect(
+      el().querySelector<HTMLButtonElement>('.resolve-form button[type="submit"]')?.disabled,
+    ).toBe(true);
+    expect(
+      el().querySelector<HTMLButtonElement>('.refresh-cases-btn button, button.refresh-cases-btn')
+        ?.disabled,
+    ).toBe(true);
+    expect(
+      el().querySelector<HTMLButtonElement>('.submit-import-btn button, button.submit-import-btn')
+        ?.disabled,
+    ).toBe(true);
 
     component.submitResolve();
     component.submitImport();
@@ -807,7 +1022,9 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(reconciliation.listCases).toHaveBeenCalledTimes(1);
     expect(el().querySelector('.case-detail .case-status')?.textContent).toContain('Open');
     expect(el().querySelector('.resolve-message.success')).toBeNull();
-    expect(el().querySelector<HTMLButtonElement>('.export-bundle-btn button, button.export-bundle-btn')).toBeTruthy();
+    expect(
+      el().querySelector<HTMLButtonElement>('.export-bundle-btn button, button.export-bundle-btn'),
+    ).toBeTruthy();
   });
 });
 
@@ -846,7 +1063,14 @@ function makeSession(role: 'Owner' | 'Manager' | 'Staff'): AuthSession {
     accessTokenExpiresAt: '2099-01-01T00:00:00.000Z',
     refreshTokenExpiresAt: '2099-01-01T00:00:00.000Z',
     rememberMe: true,
-    user: { id: 'user-1', email: 'a@b.com', phoneNumber: null, firstName: 'Test', lastName: 'User', language: 'en-IN' },
+    user: {
+      id: 'user-1',
+      email: 'a@b.com',
+      phoneNumber: null,
+      firstName: 'Test',
+      lastName: 'User',
+      language: 'en-IN',
+    },
     activeShopId: 'shop-1',
     shops: [{ shopId: 'shop-1', shopName: 'Main', role, isDefault: true, lastUsedAt: null }],
   };
@@ -876,11 +1100,16 @@ function summary(
   };
 }
 
-function casePage(items: readonly ReconciliationCaseSummary[], totalCount: number): ReconciliationCasePage {
+function casePage(
+  items: readonly ReconciliationCaseSummary[],
+  totalCount: number,
+): ReconciliationCasePage {
   return { items, page: 1, pageSize: 20, totalCount, unresolvedCount: 3 };
 }
 
-function submission(overrides: Partial<NonNullable<ReconciliationCase['submission']>> = {}): NonNullable<ReconciliationCase['submission']> {
+function submission(
+  overrides: Partial<NonNullable<ReconciliationCase['submission']>> = {},
+): NonNullable<ReconciliationCase['submission']> {
   return {
     submissionId: 'sub-1',
     source: 'Recovery',
@@ -957,7 +1186,11 @@ function reviewRow(clientSaleId: string, reviewCaseId: string | null): OfflineRe
   };
 }
 
-function record(clientSaleId: string, status: OfflineSaleQueueStatus, issuedByUserId?: string): OfflineQueuedSaleRecord {
+function record(
+  clientSaleId: string,
+  status: OfflineSaleQueueStatus,
+  issuedByUserId?: string,
+): OfflineQueuedSaleRecord {
   const soldAt = '2026-11-01T10:00:00.000Z';
   return {
     key: `shop-1::device-1::${clientSaleId}`,
@@ -976,7 +1209,14 @@ function record(clientSaleId: string, status: OfflineSaleQueueStatus, issuedByUs
       soldAt,
       pricing: {
         lines: [],
-        totals: { totalBeforeDiscount: 100, totalDiscount: 0, totalTax: 0, grandTotal: 100, paidAmount: 100, dueAmount: 0 },
+        totals: {
+          totalBeforeDiscount: 100,
+          totalDiscount: 0,
+          totalTax: 0,
+          grandTotal: 100,
+          paidAmount: 100,
+          dueAmount: 0,
+        },
       },
       paymentMethod: 1,
       customerId: null,

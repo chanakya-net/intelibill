@@ -64,7 +64,7 @@ public sealed class ReconciliationActionPolicyTests
         var actions = ReconciliationActionPolicy.AvailableActions(issue, envelope, ShopRole.Owner, Owner);
 
         Assert.Equal(
-            [ReconciliationAction.RetryHistoricalLease, ReconciliationAction.LinkExistingSale, ReconciliationAction.Escalate],
+            [ReconciliationAction.RetryHistoricalLease, ReconciliationAction.ReconcileTillSale, ReconciliationAction.LinkExistingSale, ReconciliationAction.Escalate],
             actions);
     }
 

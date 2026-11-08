@@ -28,184 +28,208 @@ import { profitLossGuard } from '../guards/profit-loss.guard';
 import { servicesGuard } from '../guards/services.guard';
 
 export const shellRoutes: Routes = [
-	{
-		path: '',
-		component: ShellComponent,
-		providers: [
-			provideState(shopsFeature),
-			provideState(usersFeature),
-			provideState(suppliersFeature),
-			provideState(inventoryFeature),
-			provideState(customersFeature),
-			provideState(salesFeature),
-			provideState(expensesFeature),
-			provideState(bankAccountsFeature),
-			provideState(purchaseOrdersFeature),
-			provideEffects(
-				ShopsEffects,
-				UsersEffects,
-				SuppliersEffects,
-				InventoryEffects,
-				CustomersEffects,
-				SalesEffects,
-				ExpensesEffects,
-				BankAccountsEffects,
-				PurchaseOrdersEffects
-			),
-		],
-		children: [
-			{
-				path: 'account/security',
-				loadComponent: () => import('../../features/users/pages/account-security-page.component').then((m) => m.AccountSecurityPageComponent),
-			},
-			{
-				path: 'dashboard',
-				canActivate: [dashboardGuard],
-				loadComponent: () =>
-					import('../../features/dashboard/pages/dashboard-page/dashboard-page.component').then(
-						(m) => m.DashboardPageComponent
-					),
-			},
-			{
-				path: 'sales/new',
-				canActivate: [authGuard],
-				data: { allowOfflineSalesGrace: true },
-				loadComponent: () =>
-					import('../../features/sales/pages/new-sale-page.component').then(
-						(m) => m.NewSalePageComponent
-					),
-			},
-			{
-				path: 'sales/profit-loss',
-				canActivate: [profitLossGuard],
-				loadComponent: () =>
-					import('../../features/sales/pages/profit-loss-page/profit-loss-page.component').then(
-						(m) => m.ProfitLossPageComponent
-					),
-			},
-			{
-				path: 'sales/credit-notes',
-				loadComponent: () =>
-					import('../../features/sales/pages/credit-notes-page/credit-notes-page.component').then(
-						(m) => m.CreditNotesPageComponent
-					),
-			},
-			{
-				path: 'sales/offline-reconciliation',
-				loadComponent: () =>
-					import(
-						'../../features/sales/pages/offline-reconciliation-page/offline-reconciliation-page.component'
-					).then((m) => m.OfflineReconciliationPageComponent),
-			},
-			{
-				path: 'sales',
-				loadComponent: () =>
-					import('../../features/sales/pages/sales-page.component').then(
-						(m) => m.SalesPageComponent
-					),
-			},
-			{
-				path: 'expenses',
-				loadComponent: () =>
-					import('../../features/expenses/pages/expenses-page.component').then(
-						(m) => m.ExpensesPageComponent
-					),
-			},
-			{
-				path: 'bank-accounts',
-				loadChildren: () =>
-					import('../../features/bank-accounts/bank-accounts.routes').then(
-						(m) => m.bankAccountsRoutes
-					),
-			},
-			{
-				path: 'inventory/purchase-orders/builder',
-				redirectTo: '/inventory/purchase-orders',
-			},
-			{
-				path: 'inventory/purchase-orders/:purchaseOrderId',
-				loadComponent: () =>
-					import('../../features/purchase-orders/pages/purchase-order-detail-page.component').then(
-						(m) => m.PurchaseOrderDetailPageComponent
-					),
-			},
-			{
-				path: 'inventory/purchase-orders',
-				loadComponent: () =>
-					import('../../features/purchase-orders/pages/purchase-orders-list-page.component').then(
-						(m) => m.PurchaseOrdersListPageComponent
-					),
-			},
-			{
-				path: 'inventory/batch',
-				loadComponent: () =>
-					import('../../features/inventory/pages/inventory-batch-page.component').then(
-						(m) => m.InventoryBatchPageComponent
-					),
-			},
-			{
-				path: 'inventory/batches',
-				loadComponent: () =>
-					import(
-						'../../features/inventory/pages/inventory-batches-list-page/inventory-batches-list-page.component'
-					).then((m) => m.InventoryBatchesListPageComponent),
-			},
-			{
-				path: 'inventory/adjustments',
-				loadComponent: () =>
-					import(
-						'../../features/inventory/pages/inventory-adjustments-page/inventory-adjustments-page.component'
-					).then((m) => m.InventoryAdjustmentsPageComponent),
-			},
-			{
-				path: 'inventory',
-				loadComponent: () =>
-					import('../../features/inventory/pages/inventory-page.component').then(
-						(m) => m.InventoryPageComponent
-					),
-			},
-			{
-				path: 'services',
-				canActivate: [servicesGuard],
-				loadComponent: () =>
-					import('../../features/services/pages/services-page.component').then(
-						(m) => m.ServicesPageComponent
-					),
-			},
-			{
-				path: 'suppliers',
-				loadComponent: () =>
-					import('../../features/suppliers/pages/suppliers-page.component').then(
-						(m) => m.SuppliersPageComponent
-					),
-			},
-			{
-				path: 'customers',
-				loadComponent: () =>
-					import('../../features/customers/pages/customers-page.component').then(
-						(m) => m.CustomersPageComponent
-					),
-			},
-			{
-				path: 'users',
-				loadComponent: () =>
-					import('../../features/users/pages/users-page.component').then(
-						(m) => m.UsersPageComponent
-					),
-			},
-			{
-				path: 'discounts',
-				canActivate: [discountsGuard],
-				loadComponent: () =>
-					import('../../features/discounts/pages/discounts-page.component').then(
-						(m) => m.DiscountsPageComponent
-					),
-			},
-			{
-				path: '',
-				pathMatch: 'full',
-				redirectTo: 'dashboard',
-			},
-		],
-	},
+  {
+    path: '',
+    component: ShellComponent,
+    providers: [
+      provideState(shopsFeature),
+      provideState(usersFeature),
+      provideState(suppliersFeature),
+      provideState(inventoryFeature),
+      provideState(customersFeature),
+      provideState(salesFeature),
+      provideState(expensesFeature),
+      provideState(bankAccountsFeature),
+      provideState(purchaseOrdersFeature),
+      provideEffects(
+        ShopsEffects,
+        UsersEffects,
+        SuppliersEffects,
+        InventoryEffects,
+        CustomersEffects,
+        SalesEffects,
+        ExpensesEffects,
+        BankAccountsEffects,
+        PurchaseOrdersEffects,
+      ),
+    ],
+    children: [
+      {
+        path: 'payments/:receiptId',
+        loadComponent: () =>
+          import('../../features/tills/pages/till-payment-receipt-page.component').then(
+            (m) => m.TillPaymentReceiptPageComponent,
+          ),
+      },
+      {
+        path: 'tills/expenses/:expenseId',
+        loadComponent: () =>
+          import('../../features/tills/pages/till-expense-reference-page.component').then(
+            (m) => m.TillExpenseReferencePageComponent,
+          ),
+      },
+      {
+        path: 'tills',
+        loadComponent: () =>
+          import('../../features/tills/pages/till-session-page.component').then(
+            (m) => m.TillSessionPageComponent,
+          ),
+      },
+      {
+        path: 'account/security',
+        loadComponent: () =>
+          import('../../features/users/pages/account-security-page.component').then(
+            (m) => m.AccountSecurityPageComponent,
+          ),
+      },
+      {
+        path: 'dashboard',
+        canActivate: [dashboardGuard],
+        loadComponent: () =>
+          import('../../features/dashboard/pages/dashboard-page/dashboard-page.component').then(
+            (m) => m.DashboardPageComponent,
+          ),
+      },
+      {
+        path: 'sales/new',
+        canActivate: [authGuard],
+        data: { allowOfflineSalesGrace: true },
+        loadComponent: () =>
+          import('../../features/sales/pages/new-sale-page.component').then(
+            (m) => m.NewSalePageComponent,
+          ),
+      },
+      {
+        path: 'sales/profit-loss',
+        canActivate: [profitLossGuard],
+        loadComponent: () =>
+          import('../../features/sales/pages/profit-loss-page/profit-loss-page.component').then(
+            (m) => m.ProfitLossPageComponent,
+          ),
+      },
+      {
+        path: 'sales/credit-notes',
+        loadComponent: () =>
+          import('../../features/sales/pages/credit-notes-page/credit-notes-page.component').then(
+            (m) => m.CreditNotesPageComponent,
+          ),
+      },
+      {
+        path: 'sales/offline-reconciliation',
+        loadComponent: () =>
+          import('../../features/sales/pages/offline-reconciliation-page/offline-reconciliation-page.component').then(
+            (m) => m.OfflineReconciliationPageComponent,
+          ),
+      },
+      {
+        path: 'sales',
+        loadComponent: () =>
+          import('../../features/sales/pages/sales-page.component').then(
+            (m) => m.SalesPageComponent,
+          ),
+      },
+      {
+        path: 'expenses',
+        loadComponent: () =>
+          import('../../features/expenses/pages/expenses-page.component').then(
+            (m) => m.ExpensesPageComponent,
+          ),
+      },
+      {
+        path: 'bank-accounts',
+        loadChildren: () =>
+          import('../../features/bank-accounts/bank-accounts.routes').then(
+            (m) => m.bankAccountsRoutes,
+          ),
+      },
+      {
+        path: 'inventory/purchase-orders/builder',
+        redirectTo: '/inventory/purchase-orders',
+      },
+      {
+        path: 'inventory/purchase-orders/:purchaseOrderId',
+        loadComponent: () =>
+          import('../../features/purchase-orders/pages/purchase-order-detail-page.component').then(
+            (m) => m.PurchaseOrderDetailPageComponent,
+          ),
+      },
+      {
+        path: 'inventory/purchase-orders',
+        loadComponent: () =>
+          import('../../features/purchase-orders/pages/purchase-orders-list-page.component').then(
+            (m) => m.PurchaseOrdersListPageComponent,
+          ),
+      },
+      {
+        path: 'inventory/batch',
+        loadComponent: () =>
+          import('../../features/inventory/pages/inventory-batch-page.component').then(
+            (m) => m.InventoryBatchPageComponent,
+          ),
+      },
+      {
+        path: 'inventory/batches',
+        loadComponent: () =>
+          import('../../features/inventory/pages/inventory-batches-list-page/inventory-batches-list-page.component').then(
+            (m) => m.InventoryBatchesListPageComponent,
+          ),
+      },
+      {
+        path: 'inventory/adjustments',
+        loadComponent: () =>
+          import('../../features/inventory/pages/inventory-adjustments-page/inventory-adjustments-page.component').then(
+            (m) => m.InventoryAdjustmentsPageComponent,
+          ),
+      },
+      {
+        path: 'inventory',
+        loadComponent: () =>
+          import('../../features/inventory/pages/inventory-page.component').then(
+            (m) => m.InventoryPageComponent,
+          ),
+      },
+      {
+        path: 'services',
+        canActivate: [servicesGuard],
+        loadComponent: () =>
+          import('../../features/services/pages/services-page.component').then(
+            (m) => m.ServicesPageComponent,
+          ),
+      },
+      {
+        path: 'suppliers',
+        loadComponent: () =>
+          import('../../features/suppliers/pages/suppliers-page.component').then(
+            (m) => m.SuppliersPageComponent,
+          ),
+      },
+      {
+        path: 'customers',
+        loadComponent: () =>
+          import('../../features/customers/pages/customers-page.component').then(
+            (m) => m.CustomersPageComponent,
+          ),
+      },
+      {
+        path: 'users',
+        loadComponent: () =>
+          import('../../features/users/pages/users-page.component').then(
+            (m) => m.UsersPageComponent,
+          ),
+      },
+      {
+        path: 'discounts',
+        canActivate: [discountsGuard],
+        loadComponent: () =>
+          import('../../features/discounts/pages/discounts-page.component').then(
+            (m) => m.DiscountsPageComponent,
+          ),
+      },
+      {
+        path: '',
+        pathMatch: 'full',
+        redirectTo: 'dashboard',
+      },
+    ],
+  },
 ];

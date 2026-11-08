@@ -23,7 +23,9 @@
         <dd>{{ pending.payload.reason }}</dd>
       </dl>
       <p>✓ {{ 'sales.cancellation.goodsConfirmed' | transloco }}</p>
-      @if(pending.payload.cashRefundConfirmed){<p>✓ {{ 'sales.cancellation.cashConfirmed' | transloco }}</p>}
+      @if (pending.payload.cashRefundConfirmed) {
+        <p>✓ {{ 'sales.cancellation.cashConfirmed' | transloco }}</p>
+      }
       <div class="flex flex-wrap gap-3">
         <button
           type="button"
@@ -134,4 +136,5 @@
       </button>
     }
   </div>
+  <app-till-posting-fields [sale]="true" [disabled]="busy() || !!record()?.pending" />
 </p-dialog>

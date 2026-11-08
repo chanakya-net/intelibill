@@ -150,6 +150,9 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_bank_accounts");
 
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_bank_accounts_id_shop_id");
+
                     b.HasIndex("ShopId")
                         .HasDatabaseName("ix_bank_accounts_shop_id");
 
@@ -795,6 +798,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("paid_to");
+
+                    b.Property<string>("SettlementEvidence")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("settlement_evidence");
 
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
@@ -1829,6 +1836,9 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_offline_submissions");
 
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_offline_submissions_id_shop_id");
+
                     b.HasIndex("SaleId")
                         .HasDatabaseName("ix_offline_submissions_sale_id");
 
@@ -2166,6 +2176,10 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Property<Guid>("ReversedBy")
                         .HasColumnType("uuid")
                         .HasColumnName("reversed_by");
+
+                    b.Property<string>("SettlementEvidence")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("settlement_evidence");
 
                     b.Property<Guid>("ShopId")
                         .HasColumnType("uuid")
@@ -3363,6 +3377,9 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_reconciliation_issues");
 
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_reconciliation_issues_id_shop_id");
+
                     b.HasIndex("InventoryBatchId")
                         .HasDatabaseName("ix_reconciliation_issues_inventory_batch_id");
 
@@ -3644,6 +3661,19 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("synced_at");
 
+                    b.Property<string>("TenderLines")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("tender_lines");
+
+                    b.Property<string>("TillOverrideReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("till_override_reason");
+
+                    b.Property<Guid?>("TillSessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("till_session_id");
+
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
@@ -3707,6 +3737,9 @@ namespace Intelibill.Infrastructure.Migrations
                     b.HasIndex("ShopId", "SoldAt")
                         .HasDatabaseName("ix_sales_shop_id_sold_at");
 
+                    b.HasIndex("TillSessionId", "ShopId")
+                        .HasDatabaseName("ix_sales_till_session_id_shop_id");
+
                     b.HasIndex("ShopId", "ActorUserId", "IdempotencyKey")
                         .IsUnique()
                         .HasDatabaseName("ix_sales_shop_id_actor_user_id_idempotency_key");
@@ -3718,6 +3751,8 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("sales", null, t =>
                         {
                             t.HasCheckConstraint("ck_sales_status", "status IN (0, 1)");
+
+                            t.HasCheckConstraint("ck_sales_till_evidence", "(till_session_id IS NULL AND tender_lines IS NULL AND till_override_reason IS NULL) OR (till_session_id IS NOT NULL AND tender_lines IS NOT NULL AND jsonb_typeof(tender_lines) = 'array' AND jsonb_array_length(tender_lines) <= 1)");
                         });
                 });
 
@@ -4269,6 +4304,14 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("processed_by");
 
+                    b.Property<bool?>("RefundConfirmed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("refund_confirmed");
+
+                    b.Property<string>("RefundTender")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("refund_tender");
+
                     b.Property<string>("ReturnNumber")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -4306,6 +4349,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("void_reason");
+
+                    b.Property<string>("VoidSettlementEvidence")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("void_settlement_evidence");
 
                     b.Property<DateTimeOffset?>("VoidedAt")
                         .HasColumnType("timestamp with time zone")
@@ -4934,6 +4981,9 @@ namespace Intelibill.Infrastructure.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_shop_memberships");
+
+                    b.HasAlternateKey("ShopId", "UserId")
+                        .HasName("ak_shop_memberships_shop_id_user_id");
 
                     b.HasIndex("ShopId", "Status")
                         .HasDatabaseName("ix_shop_memberships_shop_id_status");
@@ -5662,6 +5712,718 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("supplier_return_lines", null, t =>
                         {
                             t.HasCheckConstraint("ck_supplier_return_lines_amounts", "quantity > 0 AND quantity <= received_quantity AND proposed_credit_amount >= 0 AND effective_total_cost >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.Till", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tills");
+
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_tills_id_shop_id");
+
+                    b.HasIndex("ShopId", "CreatedBy")
+                        .HasDatabaseName("ix_tills_shop_id_created_by");
+
+                    b.HasIndex("ShopId", "NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tills_shop_id_normalized_name");
+
+                    b.ToTable("tills", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_tills_name", "length(btrim(name)) BETWEEN 1 AND 100 AND length(btrim(normalized_name)) BETWEEN 1 AND 100");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.TillClose", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("AwaitingReview")
+                        .HasColumnType("boolean")
+                        .HasColumnName("awaiting_review");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<Guid>("CashierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cashier_id");
+
+                    b.Property<string>("CashierName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("cashier_name");
+
+                    b.Property<DateTimeOffset>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<Guid>("ClosedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("closed_by");
+
+                    b.Property<decimal>("CountedCash")
+                        .HasColumnType("numeric")
+                        .HasColumnName("counted_cash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<decimal>("ExpectedCash")
+                        .HasColumnType("numeric")
+                        .HasColumnName("expected_cash");
+
+                    b.Property<bool>("IsOverdue")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_overdue");
+
+                    b.Property<long>("LastMovementSequence")
+                        .HasColumnType("bigint")
+                        .HasColumnName("last_movement_sequence");
+
+                    b.Property<decimal>("OpeningFloat")
+                        .HasColumnType("numeric")
+                        .HasColumnName("opening_float");
+
+                    b.Property<string>("OverrideReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("override_reason");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<string>("TillName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("till_name");
+
+                    b.Property<string>("Totals")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("totals");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<decimal>("Variance")
+                        .HasColumnType("numeric")
+                        .HasColumnName("variance");
+
+                    b.HasKey("Id")
+                        .HasName("pk_till_closes");
+
+                    b.HasAlternateKey("Id", "SessionId", "ShopId")
+                        .HasName("ak_till_closes_id_session_id_shop_id");
+
+                    b.HasIndex("SessionId", "ShopId")
+                        .HasDatabaseName("ix_till_closes_session_id_shop_id");
+
+                    b.HasIndex("ShopId", "ClosedBy")
+                        .HasDatabaseName("ix_till_closes_shop_id_closed_by");
+
+                    b.HasIndex("ShopId", "SessionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_till_closes_shop_id_session_id");
+
+                    b.ToTable("till_closes", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_till_closes_amount", "opening_float >= 0 AND counted_cash >= 0 AND opening_float <= 9999999999999999.99 AND counted_cash <= 9999999999999999.99 AND opening_float = round(opening_float,2) AND counted_cash = round(counted_cash,2) AND expected_cash = round(expected_cash,2) AND variance = counted_cash - expected_cash");
+
+                            t.HasCheckConstraint("ck_till_closes_override", "closed_by = cashier_id OR (override_reason IS NOT NULL AND length(btrim(override_reason)) BETWEEN 1 AND 500)");
+
+                            t.HasCheckConstraint("ck_till_closes_reason", "(variance = 0 AND NOT is_overdue) OR (reason IS NOT NULL AND length(btrim(reason)) BETWEEN 1 AND 500)");
+
+                            t.HasCheckConstraint("ck_till_closes_sequence", "last_movement_sequence >= 0 AND (NOT awaiting_review OR variance <> 0)");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.TillCloseReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CloseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("close_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reviewed_at");
+
+                    b.Property<Guid>("ReviewedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewed_by");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_till_close_reviews");
+
+                    b.HasIndex("ShopId", "CloseId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_till_close_reviews_shop_id_close_id");
+
+                    b.HasIndex("ShopId", "ReviewedBy")
+                        .HasDatabaseName("ix_till_close_reviews_shop_id_reviewed_by");
+
+                    b.HasIndex("CloseId", "SessionId", "ShopId")
+                        .HasDatabaseName("ix_till_close_reviews_close_id_session_id_shop_id");
+
+                    b.ToTable("till_close_reviews", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_till_reviews_reason", "length(btrim(reason)) BETWEEN 1 AND 500");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.TillLatePosting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("case_id");
+
+                    b.Property<Guid>("CashierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cashier_id");
+
+                    b.Property<Guid?>("CloseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("close_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("EvidenceReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("evidence_reason");
+
+                    b.Property<string>("EvidenceStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("evidence_status");
+
+                    b.Property<bool>("IncludedInCount")
+                        .HasColumnType("boolean")
+                        .HasColumnName("included_in_count");
+
+                    b.Property<string>("ManagerReason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("manager_reason");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<Guid>("OfflineSubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("offline_submission_id");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<Guid>("SaleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sale_id");
+
+                    b.Property<Guid?>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateOnly>("SourceBusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("source_business_date");
+
+                    b.Property<string>("TenderLines")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("tender_lines");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_till_late_postings");
+
+                    b.HasIndex("CaseId", "ShopId")
+                        .HasDatabaseName("ix_till_late_postings_case_id_shop_id");
+
+                    b.HasIndex("OfflineSubmissionId", "ShopId")
+                        .HasDatabaseName("ix_till_late_postings_offline_submission_id_shop_id");
+
+                    b.HasIndex("SaleId", "ShopId")
+                        .HasDatabaseName("ix_till_late_postings_sale_id_shop_id");
+
+                    b.HasIndex("SessionId", "ShopId")
+                        .HasDatabaseName("ix_till_late_postings_session_id_shop_id");
+
+                    b.HasIndex("ShopId", "CashierId")
+                        .HasDatabaseName("ix_till_late_postings_shop_id_cashier_id");
+
+                    b.HasIndex("ShopId", "OfflineSubmissionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_till_late_postings_shop_id_offline_submission_id");
+
+                    b.HasIndex("ShopId", "SaleId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_till_late_postings_shop_id_sale_id");
+
+                    b.HasIndex("CloseId", "SessionId", "ShopId")
+                        .HasDatabaseName("ix_till_late_postings_close_id_session_id_shop_id");
+
+                    b.ToTable("till_late_postings", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_till_late_postings_evidence", "NOT included_in_count AND evidence_status IN ('Unknown','Recorded') AND length(btrim(manager_reason)) BETWEEN 1 AND 500 AND recorded_at >= occurred_at AND (close_id IS NULL OR session_id IS NOT NULL) AND jsonb_typeof(tender_lines) = 'array' AND jsonb_array_length(tender_lines) <= 1 AND (evidence_status <> 'Unknown' OR jsonb_array_length(tender_lines) = 0)");
+
+                            t.HasCheckConstraint("ck_till_late_postings_evidence_reason", "evidence_reason IS NULL OR length(btrim(evidence_reason)) BETWEEN 1 AND 500");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.TillMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<Guid?>("BankAccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("bank_account_id");
+
+                    b.Property<decimal?>("CashTendered")
+                        .HasColumnType("numeric")
+                        .HasColumnName("cash_tendered");
+
+                    b.Property<decimal?>("Change")
+                        .HasColumnType("numeric")
+                        .HasColumnName("change");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("ExternalReference")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("external_reference");
+
+                    b.Property<int>("LineNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("line_number");
+
+                    b.Property<int>("Method")
+                        .HasColumnType("integer")
+                        .HasColumnName("method");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<string>("OperationKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("operation_key");
+
+                    b.Property<string>("OverrideReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("override_reason");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("purpose");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<Guid?>("ReversesMovementId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reverses_movement_id");
+
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint")
+                        .HasColumnName("sequence");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<decimal>("SignedAmount")
+                        .HasColumnType("numeric")
+                        .HasColumnName("signed_amount");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_id");
+
+                    b.Property<Guid>("SourceRecordId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_record_id");
+
+                    b.Property<int>("SourceType")
+                        .HasColumnType("integer")
+                        .HasColumnName("source_type");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_till_movements");
+
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_till_movements_id_shop_id");
+
+                    b.HasIndex("BankAccountId", "ShopId")
+                        .HasDatabaseName("ix_till_movements_bank_account_id_shop_id");
+
+                    b.HasIndex("ReversesMovementId", "ShopId")
+                        .HasDatabaseName("ix_till_movements_reverses_movement_id_shop_id");
+
+                    b.HasIndex("SessionId", "ShopId")
+                        .HasDatabaseName("ix_till_movements_session_id_shop_id");
+
+                    b.HasIndex("ShopId", "ActorUserId")
+                        .HasDatabaseName("ix_till_movements_shop_id_actor_user_id");
+
+                    b.HasIndex("ShopId", "SessionId", "Sequence")
+                        .IsUnique()
+                        .HasDatabaseName("ix_till_movements_shop_id_session_id_sequence");
+
+                    b.HasIndex("SourceRecordId", "SessionId", "ShopId")
+                        .HasDatabaseName("ix_till_movements_source_record_id_session_id_shop_id");
+
+                    b.HasIndex("ShopId", "SourceType", "SourceId", "Purpose", "LineNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_till_movements_shop_id_source_type_source_id_purpose_line_n");
+
+                    b.ToTable("till_movements", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_till_movements_amount", "signed_amount <> 0 AND abs(signed_amount) <= 9999999999999999.99 AND signed_amount = round(signed_amount,2)");
+
+                            t.HasCheckConstraint("ck_till_movements_cash", "(cash_tendered IS NULL AND change IS NULL) OR (method = 2 AND cash_tendered IS NOT NULL AND change IS NOT NULL AND change >= 0 AND cash_tendered >= abs(signed_amount) AND cash_tendered-change = abs(signed_amount) AND cash_tendered <= 9999999999999999.99 AND cash_tendered = round(cash_tendered,2) AND change = round(change,2))");
+
+                            t.HasCheckConstraint("ck_till_movements_labels", "length(btrim(purpose)) BETWEEN 1 AND 100 AND length(btrim(operation_key)) BETWEEN 1 AND 128 AND recorded_at >= occurred_at");
+
+                            t.HasCheckConstraint("ck_till_movements_type", "method BETWEEN 2 AND 6 AND source_type BETWEEN 1 AND 12 AND sequence > 0 AND line_number = 1");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.TillSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date")
+                        .HasColumnName("business_date");
+
+                    b.Property<string>("BusinessTimeZoneId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("business_time_zone_id");
+
+                    b.Property<Guid>("CashierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("cashier_id");
+
+                    b.Property<string>("CashierName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("cashier_name");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<long>("LastMovementSequence")
+                        .HasColumnType("bigint")
+                        .HasColumnName("last_movement_sequence");
+
+                    b.Property<DateTimeOffset>("OpenedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("opened_at");
+
+                    b.Property<Guid>("OpenedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("opened_by");
+
+                    b.Property<decimal>("OpeningFloat")
+                        .HasColumnType("numeric")
+                        .HasColumnName("opening_float");
+
+                    b.Property<string>("OverrideReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("override_reason");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<long>("SourceCount")
+                        .HasColumnType("bigint")
+                        .HasColumnName("source_count");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer")
+                        .HasColumnName("state");
+
+                    b.Property<Guid>("TillId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("till_id");
+
+                    b.Property<string>("TillName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("till_name");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_till_sessions");
+
+                    b.HasAlternateKey("Id", "ShopId")
+                        .HasName("ak_till_sessions_id_shop_id");
+
+                    b.HasIndex("ShopId", "OpenedBy")
+                        .HasDatabaseName("ix_till_sessions_shop_id_opened_by");
+
+                    b.HasIndex("ShopId", "TillId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_till_sessions_shop_id_till_id")
+                        .HasFilter("state = 1");
+
+                    b.HasIndex("TillId", "ShopId")
+                        .HasDatabaseName("ix_till_sessions_till_id_shop_id");
+
+                    b.HasIndex("ShopId", "CashierId", "BusinessDate")
+                        .HasDatabaseName("ix_till_sessions_shop_id_cashier_id_business_date");
+
+                    b.ToTable("till_sessions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_till_sessions_amount", "opening_float >= 0 AND opening_float <= 9999999999999999.99 AND opening_float = round(opening_float,2)");
+
+                            t.HasCheckConstraint("ck_till_sessions_labels", "length(btrim(till_name)) BETWEEN 1 AND 100 AND length(btrim(cashier_name)) BETWEEN 1 AND 200 AND length(btrim(business_time_zone_id)) BETWEEN 1 AND 64");
+
+                            t.HasCheckConstraint("ck_till_sessions_override", "opened_by = cashier_id OR (override_reason IS NOT NULL AND length(btrim(override_reason)) BETWEEN 1 AND 500)");
+
+                            t.HasCheckConstraint("ck_till_sessions_sequence", "last_movement_sequence >= 0 AND source_count >= 0");
+
+                            t.HasCheckConstraint("ck_till_sessions_state", "state IN (1,2)");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.TillSourceRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<string>("OperationKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("operation_key");
+
+                    b.Property<string>("OverrideReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("override_reason");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("purpose");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_id");
+
+                    b.Property<int>("SourceType")
+                        .HasColumnType("integer")
+                        .HasColumnName("source_type");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_till_source_records");
+
+                    b.HasAlternateKey("Id", "SessionId", "ShopId")
+                        .HasName("ak_till_source_records_id_session_id_shop_id");
+
+                    b.HasIndex("SessionId", "ShopId")
+                        .HasDatabaseName("ix_till_source_records_session_id_shop_id");
+
+                    b.HasIndex("ShopId", "ActorUserId")
+                        .HasDatabaseName("ix_till_source_records_shop_id_actor_user_id");
+
+                    b.HasIndex("ShopId", "SourceType", "SourceId", "Purpose")
+                        .IsUnique()
+                        .HasDatabaseName("ix_till_source_records_shop_id_source_type_source_id_purpose");
+
+                    b.ToTable("till_source_records", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_till_sources_labels", "length(btrim(purpose)) BETWEEN 1 AND 100 AND length(btrim(operation_key)) BETWEEN 1 AND 128");
+
+                            t.HasCheckConstraint("ck_till_sources_settlement", "abs(store_credit_issued) <= 9999999999999999.99 AND store_credit_issued = round(store_credit_issued,2) AND abs(store_credit_redeemed) <= 9999999999999999.99 AND store_credit_redeemed = round(store_credit_redeemed,2) AND abs(receivable_change) <= 9999999999999999.99 AND receivable_change = round(receivable_change,2)");
+
+                            t.HasCheckConstraint("ck_till_sources_times", "recorded_at >= occurred_at");
+
+                            t.HasCheckConstraint("ck_till_sources_type", "source_type BETWEEN 1 AND 12");
                         });
                 });
 
@@ -6495,6 +7257,13 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_sales_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.TillSession", null)
+                        .WithMany()
+                        .HasForeignKey("TillSessionId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sales_till_sessions_till_session_id_shop_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.SaleCancellation", b =>
@@ -6941,6 +7710,228 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_supplier_return_lines_inventory_batches_inventory_batch_id_");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.Till", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tills_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.ShopMembership", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId", "CreatedBy")
+                        .HasPrincipalKey("ShopId", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tills_shop_memberships_shop_id_created_by");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.TillClose", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.TillSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_closes_till_sessions_session_id_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.ShopMembership", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId", "ClosedBy")
+                        .HasPrincipalKey("ShopId", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_closes_shop_memberships_shop_id_closed_by");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.TillCloseReview", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.ShopMembership", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId", "ReviewedBy")
+                        .HasPrincipalKey("ShopId", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_close_reviews_shop_memberships_shop_id_reviewed_by");
+
+                    b.HasOne("Intelibill.Domain.Entities.TillClose", null)
+                        .WithMany()
+                        .HasForeignKey("CloseId", "SessionId", "ShopId")
+                        .HasPrincipalKey("Id", "SessionId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_close_reviews_till_closes_close_id_session_id_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.TillLatePosting", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.ReconciliationIssue", null)
+                        .WithMany()
+                        .HasForeignKey("CaseId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_late_postings_reconciliation_issues_case_id_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.OfflineSubmission", null)
+                        .WithMany()
+                        .HasForeignKey("OfflineSubmissionId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_late_postings_offline_submissions_offline_submission_i");
+
+                    b.HasOne("Intelibill.Domain.Entities.Sale", null)
+                        .WithMany()
+                        .HasForeignKey("SaleId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_late_postings_sales_sale_id_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.TillSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_till_late_postings_till_sessions_session_id_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.ShopMembership", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId", "CashierId")
+                        .HasPrincipalKey("ShopId", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_late_postings_shop_memberships_shop_id_cashier_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.TillClose", null)
+                        .WithMany()
+                        .HasForeignKey("CloseId", "SessionId", "ShopId")
+                        .HasPrincipalKey("Id", "SessionId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_till_late_postings_till_closes_close_id_session_id_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.TillMovement", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.BankAccount", null)
+                        .WithMany()
+                        .HasForeignKey("BankAccountId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_till_movements_bank_accounts_bank_account_id_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.TillMovement", null)
+                        .WithMany()
+                        .HasForeignKey("ReversesMovementId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_till_movements_till_movements_reverses_movement_id_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.TillSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_movements_till_sessions_session_id_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.ShopMembership", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId", "ActorUserId")
+                        .HasPrincipalKey("ShopId", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_movements_shop_memberships_shop_id_actor_user_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.TillSourceRecord", null)
+                        .WithMany()
+                        .HasForeignKey("SourceRecordId", "SessionId", "ShopId")
+                        .HasPrincipalKey("Id", "SessionId", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_movements_till_source_records_source_record_id_session");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.TillSession", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.ShopMembership", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId", "CashierId")
+                        .HasPrincipalKey("ShopId", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_sessions_shop_memberships_shop_id_cashier_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.ShopMembership", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId", "OpenedBy")
+                        .HasPrincipalKey("ShopId", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_sessions_shop_memberships_shop_id_opened_by");
+
+                    b.HasOne("Intelibill.Domain.Entities.Till", null)
+                        .WithMany()
+                        .HasForeignKey("TillId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_sessions_tills_till_id_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.TillSourceRecord", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.TillSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_source_records_till_sessions_session_id_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.ShopMembership", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId", "ActorUserId")
+                        .HasPrincipalKey("ShopId", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_till_source_records_shop_memberships_shop_id_actor_user_id");
+
+                    b.OwnsOne("Intelibill.Domain.ValueObjects.TillNonCashSettlement", "Settlement", b1 =>
+                        {
+                            b1.Property<Guid>("TillSourceRecordId")
+                                .HasColumnType("uuid")
+                                .HasColumnName("id");
+
+                            b1.Property<decimal>("ReceivableChange")
+                                .HasColumnType("numeric")
+                                .HasColumnName("receivable_change");
+
+                            b1.Property<decimal>("StoreCreditIssued")
+                                .HasColumnType("numeric")
+                                .HasColumnName("store_credit_issued");
+
+                            b1.Property<decimal>("StoreCreditRedeemed")
+                                .HasColumnType("numeric")
+                                .HasColumnName("store_credit_redeemed");
+
+                            b1.HasKey("TillSourceRecordId");
+
+                            b1.ToTable("till_source_records");
+
+                            b1.WithOwner()
+                                .HasForeignKey("TillSourceRecordId")
+                                .HasConstraintName("fk_till_source_records_till_source_records_id");
+                        });
+
+                    b.Navigation("Settlement")
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.CreditNote", b =>

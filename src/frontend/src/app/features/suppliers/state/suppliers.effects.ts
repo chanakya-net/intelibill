@@ -1,7 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { Observable, catchError, map, mergeMap, of, switchMap } from 'rxjs';
+import { EMPTY, Observable, catchError, map, mergeMap, of, switchMap } from 'rxjs';
 
+import { isScopeChangeError } from '../../../core/context/scoped-request';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
 import {
@@ -151,7 +152,7 @@ export class SuppliersEffects {
       .pipe(
         map((entry) => SuppliersActions.makePaymentSucceeded({ entry })),
         catchError((error: { error?: ApiErrorPayload }) =>
-          of(
+          isScopeChangeError(error) ? EMPTY : of(
             SuppliersActions.makePaymentFailed({
               errorMessage:
                 classifyFinancialOperationFailure(error) === 'uncertain'

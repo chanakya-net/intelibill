@@ -1,3 +1,4 @@
+using Intelibill.Domain.Entities;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -264,7 +265,7 @@ public sealed class PaymentAllocationTests(PostgreSqlTestFixture fixture) : IAsy
     }
 
     [Fact]
-    public async Task ReverseSupplierPayment_VoidsTheCorrectedExpenseToo()
+    public async Task ReverseSupplierPayment_VoidsLegacyCorrectedExpenseToo_AndNewCorrectionIsRefused()
     {
         using var shop = await OpenShopAsync();
         var supplierId = await AddSupplierAsync(shop);
@@ -278,14 +279,24 @@ public sealed class PaymentAllocationTests(PostgreSqlTestFixture fixture) : IAsy
         var receiptId = paid.GetProperty("receiptId").GetGuid();
         var expenseId = (await QueryAsync(db => db.PaymentReceipts.Where(r => r.Id == receiptId).Select(r => r.ExpenseId).SingleAsync()))!.Value;
 
-        await AssertOkAsync(await SendAsync(shop, HttpMethod.Post, $"/api/expenses/{expenseId}/correct", new
+        await AssertRefusedAsync(await SendAsync(shop, HttpMethod.Post, $"/api/expenses/{expenseId}/correct", new
         {
             categoryName = "Supplier Payments",
             amount = 280m,
             paidTo = "Supplier",
             description = "Corrected amount",
             expenseDate = Today,
-        }));
+        }), HttpStatusCode.BadRequest, "Expense.SupplierSettlementCorrectionRefused");
+
+        // Keep coverage of correction chains left by earlier writers. Current APIs refuse to create them.
+        await QueryAsync(async db =>
+        {
+            var original = await db.Expenses.SingleAsync(e => e.Id == expenseId);
+            original.MarkVoided();
+            db.Expenses.Add(Expense.CreateCorrection(original.ShopId, original.CategoryId, 280m, "Supplier", "Legacy correction",
+                DateOnly.Parse(Today, System.Globalization.CultureInfo.InvariantCulture), original.ActorUserId, original.Id, original.Treatment, original.SupplierLedgerEntryId));
+            return await db.SaveChangesAsync();
+        });
 
         await AssertOkAsync(await ReverseAsync(shop, receiptId, "Cheque bounced", $"rev-{Guid.NewGuid():N}"));
 

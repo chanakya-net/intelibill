@@ -1,3 +1,4 @@
+import type { TillSourceFields } from '../../tills/services/till-source.service';
 import type { SaleCancellationDto } from './sale-cancellation.models';
 // ─── Sellable DTOs (GET /api/sales/sellables) ───────────────────────────────
 
@@ -96,7 +97,9 @@ export const PAYMENT_METHOD_VALUES: { value: number; label: PaymentMethod }[] = 
 export function getPaymentMethodLabel(method: number | string): string {
   const entry =
     typeof method === 'string'
-      ? PAYMENT_METHOD_VALUES.find((candidate) => candidate.label.toLowerCase() === method.toLowerCase())
+      ? PAYMENT_METHOD_VALUES.find(
+          (candidate) => candidate.label.toLowerCase() === method.toLowerCase(),
+        )
       : PAYMENT_METHOD_VALUES.find((candidate) => candidate.value === method);
   return entry?.label ?? 'Unknown';
 }
@@ -177,7 +180,10 @@ export interface ProfitLossRowEconomicsDto {
   readonly hasUnmodeledServiceCost: boolean;
 }
 
-export interface ProfitLossEconomicsDto extends Omit<ProfitLossRowEconomicsDto, 'hasUnmodeledServiceCost'> {
+export interface ProfitLossEconomicsDto extends Omit<
+  ProfitLossRowEconomicsDto,
+  'hasUnmodeledServiceCost'
+> {
   readonly costBasis: string;
   readonly operatingExpenses: number | null;
   readonly operatingProfit: number | null;
@@ -278,7 +284,7 @@ export interface AppliedCreditNote {
   readonly amount: number;
 }
 
-export interface RecordSaleRequest {
+export interface RecordSaleRequest extends TillSourceFields {
   readonly idempotencyKey: string;
   readonly customerId: string | null;
   readonly customerName: string | null;
@@ -358,6 +364,11 @@ export interface SaleItemDto {
 }
 
 export interface SaleReturnDto {
+  readonly refundTender?: import('../../tills/services/till.models').TenderLine | null;
+  readonly refundConfirmed?: boolean | null;
+  readonly voidSettlementEvidence?:
+    | import('../../tills/services/till.models').TillSettlementEvidence
+    | null;
   readonly saleReturnId: string;
   readonly returnNumber: string;
   readonly returnedAt: string;
@@ -582,12 +593,12 @@ export interface PreviewSaleReturnRequest {
   readonly items: readonly PreviewSaleReturnItemRequest[];
 }
 
-export interface RecordSaleReturnRequest extends PreviewSaleReturnRequest {
+export interface RecordSaleReturnRequest extends PreviewSaleReturnRequest, TillSourceFields {
   readonly payoutDestination: ReturnPayoutDestination | null;
   readonly notes: string | null;
 }
 
-export interface VoidSaleReturnRequest {
+export interface VoidSaleReturnRequest extends TillSourceFields {
   readonly reason: string;
 }
 
@@ -763,7 +774,9 @@ export interface OfflineSalesSyncLineRequest {
   readonly serviceId?: string | null;
 }
 
-export interface OfflineSaleSyncRequest {
+export interface OfflineSaleSyncRequest extends TillSourceFields {
+  readonly tillBusinessDate?: string;
+  readonly tillCashierId?: string;
   readonly clientSaleId: string;
   readonly invoiceNumber: string;
   readonly soldAt: string;

@@ -1,3 +1,5 @@
+import { ViewChild } from '@angular/core';
+import { TillPostingFieldsComponent } from '../../../tills/components/till-posting-fields.component';
 import { CommonModule } from '@angular/common';
 import {
   Component,
@@ -27,10 +29,18 @@ import type {
 @Component({
   selector: 'app-sale-cancellation-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslocoPipe, DialogModule, ButtonModule],
+  imports: [
+    TillPostingFieldsComponent,
+    CommonModule,
+    FormsModule,
+    TranslocoPipe,
+    DialogModule,
+    ButtonModule,
+  ],
   templateUrl: './sale-cancellation-dialog.component.html',
 })
 export class SaleCancellationDialogComponent implements OnChanges {
+  @ViewChild(TillPostingFieldsComponent) tillFields!: TillPostingFieldsComponent;
   private readonly api = inject(SaleCancellationService);
   private readonly drafts = inject(SaleCancellationDraftService);
   private readonly context = inject(ShopContextService);
@@ -56,7 +66,7 @@ export class SaleCancellationDialogComponent implements OnChanges {
   private owner: ShopScope | null = null;
   private target = '';
   private generation = 0;
-  private saves: Promise<void> = Promise.resolve();
+  private saves: Promise<SaleCancellationDraftRecord | null> = Promise.resolve(null);
   ngOnChanges() {
     if (this.visible && this.saleId) void this.restore();
   }
@@ -131,25 +141,41 @@ export class SaleCancellationDialogComponent implements OnChanges {
   }
   save() {
     if (!this.owner || !this.ready() || this.record()?.pending || !this.preview()) return;
-    const owner = this.owner,
+    const owner = { ...this.owner },
       target = this.target,
       generation = this.generation;
     const draft = this.editable();
-    this.saves = this.saves.then(async () => {
+    const revision = this.record()?.revision ?? 0;
+    this.saves = this.saves.then(async (previous) => {
       try {
-        const result = await this.drafts.save(owner, target, draft, this.record()?.revision ?? 0);
+        const result = await this.drafts.save(
+          owner,
+          target,
+          draft,
+          previous?.userId === owner.userId &&
+            previous.shopId === owner.shopId &&
+            previous.targetId === target
+            ? previous.revision
+            : revision,
+        );
         if (this.current(owner, target, generation)) this.record.set(result);
+        return result;
       } catch {
         if (this.current(owner, target, generation)) {
           this.error.set('sales.cancellation.storageError');
           this.ready.set(false);
         }
+        return null;
       }
     });
   }
-  private editable() {
+  private editable(requireTill = false) {
+    const { till: previousTill, ...previous } = this.record()?.draft.payload ?? {};
+    const till = requireTill ? this.tillFields.context.posting()?.till : previousTill;
     return {
       payload: {
+        ...previous,
+        ...(till ? { till } : {}),
         expectedVersion: this.preview()!.expectedVersion,
         reason: this.reason.trim(),
         goodsRecoveredConfirmed: this.goodsConfirmed,
@@ -159,18 +185,22 @@ export class SaleCancellationDialogComponent implements OnChanges {
   }
   async submit() {
     if (!this.valid() || !this.owner) return;
-    const owner = this.owner,
+    const owner = { ...this.owner },
       target = this.target,
-      generation = this.generation;
+      generation = this.generation,
+      revision = this.record()?.revision ?? 0;
     this.busy.set(true);
     this.error.set('');
     try {
-      await this.saves;
+      const draft = structuredClone(this.editable(true));
+      const saved = await this.saves;
       const record = await this.drafts.prepare(
         owner,
         target,
-        this.editable(),
-        this.record()?.revision ?? 0,
+        draft,
+        saved?.userId === owner.userId && saved.shopId === owner.shopId && saved.targetId === target
+          ? saved.revision
+          : revision,
       );
       if (!this.current(owner, target, generation)) return;
       this.record.set(record);

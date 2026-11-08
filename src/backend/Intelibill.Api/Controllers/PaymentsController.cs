@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Tills;
+using Intelibill.Domain.ValueObjects;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Payments.Commands.AllocatePayment;
@@ -91,7 +93,7 @@ public sealed class PaymentsController(IMessageBus bus) : AuthenticatedControlle
                 ActiveShopId!.Value,
                 receiptId,
                 request.Reason ?? string.Empty,
-                request.OperationKey ?? string.Empty),
+                request.OperationKey ?? string.Empty, request.Till, request.SettlementEvidence),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -104,4 +106,4 @@ public sealed record AllocatePaymentRequest(
     string? OperationKey = null);
 
 /// <param name="OperationKey">Required: a retry with the same key replays the committed reversal.</param>
-public sealed record ReversePaymentRequest(string? Reason, string? OperationKey);
+public sealed record ReversePaymentRequest(string? Reason, string? OperationKey, TillPostingContext? Till = null, TillSettlementEvidence? SettlementEvidence = null);

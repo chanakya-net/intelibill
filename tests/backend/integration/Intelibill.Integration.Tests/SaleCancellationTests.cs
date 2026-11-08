@@ -20,8 +20,9 @@ using Intelibill.Infrastructure.Options;
 namespace Intelibill.Integration.Tests;
 
 [Collection("Integration Tests")]
-public sealed class SaleCancellationTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
+public sealed partial class SaleCancellationTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
 {
+    private static readonly JsonSerializerOptions TillSourceJsonOptions = new(JsonSerializerDefaults.Web);
     private readonly ApiWebApplicationFactory factory = new(fixture, services =>
     {
         services.RemoveAll<IBusinessClock>();
@@ -624,6 +625,319 @@ public sealed class SaleCancellationTests(PostgreSqlTestFixture fixture) : IAsyn
         Assert.Equal(redemptionId, (await data.CreditNoteRedemptions.SingleAsync()).Id);
         Assert.Equal(20m, (await data.CreditNoteRedemptions.SingleAsync()).Amount);
         await AssertUntouchedAsync(s);
+    }
+
+    private async Task<(Seed Seed, TillTestContext App, Intelibill.Application.Features.Tills.TillSessionDto Session)> TillReturnSetupAsync(decimal paid = 200m)
+    {
+        var s = await SeedAsync(paid);
+        var options = factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value;
+        options.Enabled = true; options.AllowedShopIds = [s.ShopId];
+        var app = new TillTestContext(factory.MigratorConnectionString, s.ShopId,
+            new TillTestClock { Now = factory.Services.GetRequiredService<IBusinessClock>().UtcNow });
+        var session = await app.OpenAsync(s.ShopId, s.ActorId, (await app.CreateAsync(s.ShopId, s.ActorId)).Id);
+        return (s, app, session);
+    }
+    private static System.Text.Json.Nodes.JsonObject ReturnRequest(Seed s, Guid session, string destination = "Refund", string? tender = "Cash") =>
+        JsonSerializer.SerializeToNode(new { operationKey = "return-key", till = new { sessionId = session }, payoutDestination = destination,
+            refundConfirmed = tender is not null, refundTender = tender is null ? null : new { method = tender, appliedAmount = 200m },
+            items = new[] { new { saleItemId = s.Sale.Items[0].Id, quantity = 2m, condition = "Restockable" } } })!.AsObject();
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task TillSourceParentIdentity_RespectsRoleTenantAndVoidedReturn(bool cancellation, bool voidReturn)
+    {
+        var (s, app, originalSession) = await TillReturnSetupAsync(); await using var owned = app;
+        var staff = User.CreateWithEmail($"till-reader-{Guid.NewGuid():N}@example.test", "hash", "Reader", "Staff");
+        app.Db.AddRange(staff, ShopMembership.Create(s.ShopId, staff.Id, ShopRole.Staff, false));
+        await app.Db.SaveChangesAsync();
+        TillTestContext.Success(await app.Lifecycle.CloseAsync(new(s.ShopId, s.ActorId, originalSession.Id, 1000m, null, originalSession.Version, "close-before-staff-reader"), default));
+        var session = TillTestContext.Success(await app.Lifecycle.OpenAsync(new(s.ShopId, s.ActorId, originalSession.TillId, staff.Id, 1000m, "staff-reader-open", "Manager opening for cashier"), default));
+        var request = cancellation ? JsonSerializer.SerializeToNode(Request(s))!.AsObject() : ReturnRequest(s, session.Id);
+        request["till"] = JsonSerializer.SerializeToNode(new { sessionId = session.Id, overrideReason = "Manager posting for cashier" });
+        using var response = await s.Client.PostAsJsonAsync(cancellation ? $"/api/sales/{s.Sale.Id}/cancellations" : $"/api/sales/{s.Sale.Id}/returns", request);
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        if (voidReturn)
+        {
+            var returnId = await app.Db.SaleReturns.Select(x => x.Id).SingleAsync();
+            using var voided = await s.Client.PostAsJsonAsync($"/api/sales/returns/{returnId}/void", new { reason = "Entered incorrectly", operationKey = "reader-void", settlementEvidence = new { disposition = "NoPhysicalMovement", reason = "No payout recovery" } });
+            Assert.True(voided.IsSuccessStatusCode, await voided.Content.ReadAsStringAsync());
+        }
+        using var detail = await s.Client.GetAsync($"/api/tills/sessions/{session.Id}");
+        var json = await detail.Content.ReadFromJsonAsync<JsonElement>();
+        foreach (var kind in new[] { "movements", "sources" })
+        {
+            var row = Assert.Single(json.GetProperty(kind).GetProperty("items").EnumerateArray());
+            Assert.True(row.TryGetProperty("parentSaleId", out var parent));
+            Assert.Equal(s.Sale.Id, parent.GetGuid());
+            Assert.NotEqual(s.Sale.Id, row.GetProperty("sourceId").GetGuid());
+        }
+        var staffDetail = TillTestContext.Success(await app.Reads.SessionAsync(s.ShopId, staff.Id, session.Id, 1, 20, default));
+        var staffJson = JsonSerializer.SerializeToElement(staffDetail, TillSourceJsonOptions);
+        Assert.Equal(JsonValueKind.Null, staffJson.GetProperty("sources").GetProperty("items")[0].GetProperty("parentSaleId").ValueKind);
+        var foreign = await TillTestContext.SeedAsync(factory.MigratorConnectionString);
+        var actualSource = await app.Db.TillSourceRecords.SingleAsync(x => x.SessionId == session.Id);
+        var foreignReferences = await app.Tills.GetSourceReferencesAsync(foreign.ShopId, [(actualSource.SourceType, actualSource.SourceId)], true);
+        Assert.Empty(foreignReferences);
+        var hidden = await app.Reads.SessionAsync(foreign.ShopId, foreign.Owner, session.Id, 1, 20, default);
+        Assert.True(hidden.IsError);
+        Assert.Equal("Till.SessionNotFound", hidden.FirstError.Code);
+    }
+
+    [Fact]
+    public async Task GenericRefundWithoutActualTender_EnabledRejected()
+    {
+        var (s, app, session) = await TillReturnSetupAsync(); await using var owned = app;
+        using var response = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/returns", ReturnRequest(s, session.Id, tender: null));
+        Assert.Contains("Till.TenderRequired", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.False(await app.Db.SaleReturns.AnyAsync(x => x.ShopId == s.ShopId));
+    }
+    [Fact]
+    public async Task UpiRefund_DoesNotReduceCash()
+    {
+        var (s, app, session) = await TillReturnSetupAsync(); await using var owned = app;
+        using var response = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/returns", ReturnRequest(s, session.Id, tender: "Upi"));
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        var movement = Assert.Single(await app.Db.TillMovements.Where(x => x.ShopId == s.ShopId).ToArrayAsync());
+        Assert.Equal(-200m, movement.SignedAmount); Assert.Equal(ReceiptTenderMethod.Upi, movement.Method);
+        Assert.Equal(TillMovementSource.SaleReturn, movement.SourceType);
+        Assert.Equal(1000m, TillTestContext.Success(await app.Reads.SessionAsync(s.ShopId, s.ActorId, session.Id, 1, 20, default)).Session.ExpectedCash);
+    }
+    [Theory]
+    [InlineData(200, "CreditNote")]
+    [InlineData(0, "Refund")]
+    public async Task CreditNoteAndDueReduction_NoCash(decimal paid, string destination)
+    {
+        var (s, app, session) = await TillReturnSetupAsync(paid); await using var owned = app;
+        using var response = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/returns", ReturnRequest(s, session.Id, destination, null));
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        var source = Assert.Single(await app.Db.TillSourceRecords.Where(x => x.ShopId == s.ShopId).ToArrayAsync());
+        Assert.Equal(paid > 0 ? 200m : 0m, source.Settlement.StoreCreditIssued);
+        Assert.Equal(paid > 0 ? 0m : -200m, source.Settlement.ReceivableChange);
+        Assert.False(await app.Db.TillMovements.AnyAsync(x => x.ShopId == s.ShopId));
+    }
+    [Fact]
+    public async Task Cancellation_OneConfirmedCashRefund()
+    {
+        var (s, app, session) = await TillReturnSetupAsync(); await using var owned = app;
+        var request = JsonSerializer.SerializeToNode(Request(s))!.AsObject(); request["till"] = JsonSerializer.SerializeToNode(new { sessionId = session.Id });
+        using var response = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/cancellations", request);
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        var movement = Assert.Single(await app.Db.TillMovements.Where(x => x.ShopId == s.ShopId).ToArrayAsync());
+        Assert.Equal(-200m, movement.SignedAmount); Assert.Equal(TillMovementSource.SaleCancellation, movement.SourceType);
+        Assert.Equal((await app.Db.Set<SaleCancellation>().SingleAsync()).Id, movement.SourceId);
+
+        app.Db.ChangeTracker.Clear();
+        var current = TillTestContext.Success(await app.Reads.SessionAsync(s.ShopId, s.ActorId, session.Id, 1, 20, default)).Session;
+        TillTestContext.Success(await app.Lifecycle.CloseAsync(new(s.ShopId, s.ActorId, current.Id, 800m, null, current.Version, "close-cancel"), default));
+        factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value.Enabled = false;
+        factory.Services.GetRequiredService<IOptionsMonitor<SaleCancellationOptions>>().CurrentValue.Enabled = false;
+        using var replay = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/cancellations", request);
+        Assert.True(replay.IsSuccessStatusCode, await replay.Content.ReadAsStringAsync());
+        Assert.Single(await app.Db.TillMovements.ToArrayAsync());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReturnVoid_ConfirmedRecoveryCurrentSessionOnly(bool recovered)
+    {
+        var (s, app, session) = await TillReturnSetupAsync(); await using var owned = app;
+        using var returned = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/returns", ReturnRequest(s, session.Id, tender: "Upi"));
+        Assert.True(returned.IsSuccessStatusCode, await returned.Content.ReadAsStringAsync());
+        var id = (await app.Db.SaleReturns.SingleAsync()).Id;
+        var originalSession = session;
+        app.Db.ChangeTracker.Clear();
+        var current = TillTestContext.Success(await app.Reads.SessionAsync(s.ShopId, s.ActorId, session.Id, 1, 20, default)).Session;
+        TillTestContext.Success(await app.Lifecycle.CloseAsync(new(s.ShopId, s.ActorId, current.Id, 1000m, null, current.Version, "close-before-void"), default));
+        session = await app.OpenAsync(s.ShopId, s.ActorId, current.TillId);
+
+        using var response = await s.Client.PostAsJsonAsync($"/api/sales/returns/{id}/void", new { reason = "Return entered in error", operationKey = "void-key",
+            till = recovered ? new { sessionId = session.Id } : null,
+            settlementEvidence = new { disposition = recovered ? "MoneyReceived" : "NoPhysicalMovement", reason = "Operator checked payout recovery",
+                tender = recovered ? new { method = "Cash", appliedAmount = 200m } : null } });
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        var movements = await app.Db.TillMovements.Where(x => x.ShopId == s.ShopId).ToArrayAsync();
+        Assert.Equal(recovered ? 2 : 1, movements.Length);
+        if (recovered) { var actual = Assert.Single(movements, x => x.SourceType == TillMovementSource.SaleReturnVoid); Assert.Equal(200m, actual.SignedAmount); Assert.Equal(ReceiptTenderMethod.Cash, actual.Method); Assert.Equal(session.Id, actual.SessionId); Assert.NotEqual(originalSession.Id, actual.SessionId); }
+        var saved = await app.Db.Database.SqlQuery<string>($"SELECT void_settlement_evidence::text AS \"Value\" FROM sale_returns WHERE id={id}").SingleAsync();
+        Assert.Contains(recovered ? "MoneyReceived" : "NoPhysicalMovement", saved, StringComparison.Ordinal);
+
+        app.Db.ChangeTracker.Clear();
+        var fresh = TillTestContext.Success(await app.Reads.SessionAsync(s.ShopId, s.ActorId, session.Id, 1, 20, default)).Session;
+        TillTestContext.Success(await app.Lifecycle.CloseAsync(new(s.ShopId, s.ActorId, fresh.Id, recovered ? 1200m : 1000m, null, fresh.Version, "close-after-void"), default));
+        factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value.Enabled = false;
+        using var replay = await s.Client.PostAsJsonAsync($"/api/sales/returns/{id}/void", new { reason = "Return entered in error", operationKey = "void-key",
+            till = recovered ? new { sessionId = session.Id } : null,
+            settlementEvidence = new { disposition = recovered ? "MoneyReceived" : "NoPhysicalMovement", reason = "Operator checked payout recovery",
+                tender = recovered ? new { method = "Cash", appliedAmount = 200m } : null } });
+        Assert.Equal(HttpStatusCode.NoContent, replay.StatusCode);
+        Assert.Equal(recovered ? 2 : 1, await app.Db.TillMovements.CountAsync());
+    }
+
+    [Fact]
+    public async Task ReturnReplay_AfterCloseDisableAndVoid_DoesNotPostAgain()
+    {
+        var (s, app, session) = await TillReturnSetupAsync(); await using var owned = app;
+        var request = ReturnRequest(s, session.Id);
+        using var posted = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/returns", request);
+        Assert.True(posted.IsSuccessStatusCode, await posted.Content.ReadAsStringAsync());
+        var originalReturn = await app.Db.SaleReturns.SingleAsync();
+        using var voided = await s.Client.PostAsJsonAsync($"/api/sales/returns/{originalReturn.Id}/void", new { reason = "Return entered in error", operationKey = "void-before-return-replay",
+            settlementEvidence = new { disposition = "NoPhysicalMovement", reason = "No money recovered" } });
+        Assert.Equal(HttpStatusCode.NoContent, voided.StatusCode);
+        app.Db.ChangeTracker.Clear();
+        var current = TillTestContext.Success(await app.Reads.SessionAsync(s.ShopId, s.ActorId, session.Id, 1, 20, default)).Session;
+        TillTestContext.Success(await app.Lifecycle.CloseAsync(new(s.ShopId, s.ActorId, current.Id, 800m, null, current.Version, "close-refund"), default));
+        factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value.Enabled = false;
+        using var replay = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/returns", request);
+        Assert.True(replay.IsSuccessStatusCode, await replay.Content.ReadAsStringAsync());
+        using var recovered = await s.Client.GetAsync("/api/financial-operations/sale-return/return-key");
+        Assert.True(recovered.IsSuccessStatusCode, await recovered.Content.ReadAsStringAsync());
+        var completion = (await recovered.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("response");
+        Assert.Equal(originalReturn.Id, completion.GetProperty("saleReturnId").GetGuid());
+        Assert.Equal(s.Sale.Id, completion.GetProperty("saleId").GetGuid());
+        using var voidRecovery = await s.Client.GetAsync("/api/financial-operations/sale-return-void/void-before-return-replay");
+        Assert.True(voidRecovery.IsSuccessStatusCode, await voidRecovery.Content.ReadAsStringAsync());
+        var voidCompletion = (await voidRecovery.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("response");
+        Assert.Equal(originalReturn.Id, voidCompletion.GetProperty("saleReturnId").GetGuid());
+        Assert.Equal(s.Sale.Id, voidCompletion.GetProperty("saleId").GetGuid());
+        var currentSale = await replay.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Empty(currentSale.GetProperty("returns").EnumerateArray());
+        request["refundTender"]!["method"] = "Upi";
+        using var mismatch = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/returns", request);
+        Assert.Contains("Operation.PayloadMismatch", await mismatch.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.Single(await app.Db.TillMovements.ToArrayAsync());
+        Assert.Single(await app.Db.SaleReturns.ToArrayAsync());
+    }
+
+    [Fact]
+    public async Task ReturnRollback_SourceMovementOperationRollback_ExactKeyRetry()
+    {
+        var (s, app, session) = await TillReturnSetupAsync(); await using var owned = app;
+        var request = ReturnRequest(s, session.Id);
+        await app.Db.Database.ExecuteSqlRawAsync("CREATE FUNCTION fail_return_till_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation_key='return-key' THEN RAISE EXCEPTION 'test return rollback'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_return_till_test AFTER INSERT ON till_movements FOR EACH ROW EXECUTE FUNCTION fail_return_till_test();");
+        try
+        {
+            using var failed = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/returns", request);
+            Assert.Equal(HttpStatusCode.InternalServerError, failed.StatusCode);
+            Assert.False(await app.Db.SaleReturns.AnyAsync()); Assert.False(await app.Db.TillSourceRecords.AnyAsync()); Assert.False(await app.Db.TillMovements.AnyAsync());
+            Assert.False(await app.Db.OperationReceipts.AnyAsync(x => x.OperationType == FinancialOperationType.SaleReturn));
+            Assert.Equal(8m, (await app.Db.InventoryBatches.SingleAsync()).Quantity);
+        }
+        finally { await app.Db.Database.ExecuteSqlRawAsync("DROP TRIGGER fail_return_till_test ON till_movements; DROP FUNCTION fail_return_till_test();"); }
+        using var retried = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/returns", request);
+        Assert.True(retried.IsSuccessStatusCode, await retried.Content.ReadAsStringAsync());
+        app.Db.ChangeTracker.Clear();
+        Assert.Single(await app.Db.TillMovements.ToArrayAsync()); Assert.Equal(10m, (await app.Db.InventoryBatches.SingleAsync()).Quantity);
+    }
+
+    [Theory]
+    [InlineData("MoneyReceived", 100)]
+    [InlineData("MoneyPaid", 200)]
+    public async Task ReturnVoid_InvalidRecovery_RefusesWholeSource(string disposition, decimal amount)
+    {
+        var (s, app, session) = await TillReturnSetupAsync(); await using var owned = app;
+        using var returned = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/returns", ReturnRequest(s, session.Id));
+        Assert.True(returned.IsSuccessStatusCode, await returned.Content.ReadAsStringAsync());
+        var id = (await app.Db.SaleReturns.SingleAsync()).Id;
+        using var response = await s.Client.PostAsJsonAsync($"/api/sales/returns/{id}/void", new { reason = "Error", operationKey = "bad-void", till = new { sessionId = session.Id },
+            settlementEvidence = new { disposition, reason = "Actual recovery", tender = new { method = "Cash", appliedAmount = amount } } });
+        Assert.Contains("Till.SettlementDirectionInvalid", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        app.Db.ChangeTracker.Clear(); Assert.False((await app.Db.SaleReturns.SingleAsync()).IsVoided);
+        Assert.Single(await app.Db.TillMovements.ToArrayAsync()); Assert.Equal(10m, (await app.Db.InventoryBatches.SingleAsync()).Quantity);
+    }
+
+    [Fact]
+    public async Task ReturnCloseWins_WaitsBeforeSaleLock_ThenRefusesAtomically()
+    {
+        var (s, app, session) = await TillReturnSetupAsync(); await using var owned = app;
+        await using var blocker = new TillTestContext(factory.MigratorConnectionString, s.ShopId,
+            new TillTestClock { Now = factory.Services.GetRequiredService<IBusinessClock>().UtcNow });
+        await using var tx = await blocker.Db.Database.BeginTransactionAsync();
+        TillTestContext.Success(await blocker.Periods.AuthorizeForWriteAsync(s.ShopId, session.BusinessDate));
+        var locked = TillTestContext.Success(await blocker.Posting.AcquireAsync(s.ShopId, s.ActorId, new(session.Id), session.BusinessDate))!;
+        var close = TillTestContext.Success(locked.Close(TillTotals.From([], []), 1000m, s.ActorId,
+            factory.Services.GetRequiredService<IBusinessClock>().UtcNow, session.BusinessDate, null, false, false));
+        blocker.Db.TillCloses.Add(close); await blocker.Db.SaveChangesAsync();
+        var posting = s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/returns", ReturnRequest(s, session.Id));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (!await app.Db.Database.SqlQuery<bool>($"SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE '%FROM till_sessions%' AND pid <> pg_backend_pid()) AS \"Value\"").SingleAsync(timeout.Token))
+            await Task.Delay(10, timeout.Token);
+        Assert.False(posting.IsCompleted);
+        // The business lock is still available while the request waits on the till.
+        await using (var inspect = new NpgsqlConnection(factory.MigratorConnectionString))
+        {
+            await inspect.OpenAsync(); await using var inspectTx = await inspect.BeginTransactionAsync();
+            await using var command = new NpgsqlCommand("SELECT id FROM sales WHERE id=@id FOR NO KEY UPDATE NOWAIT", inspect, inspectTx);
+            command.Parameters.AddWithValue("id", s.Sale.Id); Assert.Equal(s.Sale.Id, await command.ExecuteScalarAsync());
+        }
+        await tx.CommitAsync(); using var response = await posting.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Contains("Till.SessionClosed", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.False(await app.Db.SaleReturns.AnyAsync()); Assert.False(await app.Db.TillMovements.AnyAsync());
+        Assert.Equal(8m, (await app.Db.InventoryBatches.SingleAsync()).Quantity);
+    }
+
+    [Fact]
+    public async Task ReturnVoidRollback_RefundAndStockRemain_ExactKeyRetry()
+    {
+        var (s, app, session) = await TillReturnSetupAsync(); await using var owned = app;
+        using var returned = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/returns", ReturnRequest(s, session.Id));
+        Assert.True(returned.IsSuccessStatusCode, await returned.Content.ReadAsStringAsync());
+        var id = (await app.Db.SaleReturns.SingleAsync()).Id;
+        var request = new { reason = "Error", operationKey = "void-rollback-key", till = new { sessionId = session.Id },
+            settlementEvidence = new { disposition = "MoneyReceived", reason = "Full payout recovered", tender = new { method = "Upi", appliedAmount = 200m } } };
+        await app.Db.Database.ExecuteSqlRawAsync("CREATE FUNCTION fail_void_till_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation_key='void-rollback-key' THEN RAISE EXCEPTION 'test void rollback'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_void_till_test AFTER INSERT ON till_movements FOR EACH ROW EXECUTE FUNCTION fail_void_till_test();");
+        try
+        {
+            using var failed = await s.Client.PostAsJsonAsync($"/api/sales/returns/{id}/void", request);
+            Assert.Equal(HttpStatusCode.InternalServerError, failed.StatusCode);
+            app.Db.ChangeTracker.Clear(); Assert.False((await app.Db.SaleReturns.SingleAsync()).IsVoided);
+            Assert.Single(await app.Db.TillMovements.ToArrayAsync()); Assert.Equal(10m, (await app.Db.InventoryBatches.SingleAsync()).Quantity);
+            Assert.False(await app.Db.OperationReceipts.AnyAsync(x => x.OperationType == FinancialOperationType.SaleReturnVoid));
+        }
+        finally { await app.Db.Database.ExecuteSqlRawAsync("DROP TRIGGER fail_void_till_test ON till_movements; DROP FUNCTION fail_void_till_test();"); }
+        using var retried = await s.Client.PostAsJsonAsync($"/api/sales/returns/{id}/void", request);
+        Assert.Equal(HttpStatusCode.NoContent, retried.StatusCode);
+        app.Db.ChangeTracker.Clear(); Assert.True((await app.Db.SaleReturns.SingleAsync()).IsVoided);
+        Assert.Equal(8m, (await app.Db.InventoryBatches.SingleAsync()).Quantity); Assert.Equal(2, await app.Db.TillMovements.CountAsync());
+    }
+
+    [Fact]
+    public async Task CancellationRollback_RollsBackSourceStockTillAndOperation()
+    {
+        var (s, app, session) = await TillReturnSetupAsync(); await using var owned = app;
+        var request = JsonSerializer.SerializeToNode(Request(s, key: "cancellation-till-rollback"))!.AsObject();
+        request["till"] = JsonSerializer.SerializeToNode(new { sessionId = session.Id });
+        await app.Db.Database.ExecuteSqlRawAsync("CREATE FUNCTION fail_cancel_till_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.operation_key='cancellation-till-rollback' THEN RAISE EXCEPTION 'test cancel rollback'; END IF; RETURN NEW; END $$; CREATE TRIGGER fail_cancel_till_test AFTER INSERT ON till_movements FOR EACH ROW EXECUTE FUNCTION fail_cancel_till_test();");
+        try
+        {
+            using var failed = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/cancellations", request);
+            Assert.Equal(HttpStatusCode.InternalServerError, failed.StatusCode);
+            Assert.False(await app.Db.Set<SaleCancellation>().AnyAsync()); Assert.False(await app.Db.TillMovements.AnyAsync()); Assert.False(await app.Db.TillSourceRecords.AnyAsync());
+            Assert.Equal(SaleStatus.Posted, (await app.Db.Sales.SingleAsync()).Status);
+            Assert.Equal(8m, (await app.Db.InventoryBatches.SingleAsync()).Quantity);
+            Assert.False(await app.Db.OperationReceipts.AnyAsync(x => x.OperationType == FinancialOperationType.SaleCancellation));
+        }
+        finally { await app.Db.Database.ExecuteSqlRawAsync("DROP TRIGGER fail_cancel_till_test ON till_movements; DROP FUNCTION fail_cancel_till_test();"); }
+        using var retry = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/cancellations", request);
+        Assert.True(retry.IsSuccessStatusCode, await retry.Content.ReadAsStringAsync());
+        app.Db.ChangeTracker.Clear(); Assert.Single(await app.Db.Set<SaleCancellation>().ToArrayAsync());
+        Assert.Equal(10m, (await app.Db.InventoryBatches.SingleAsync()).Quantity); Assert.Single(await app.Db.TillMovements.ToArrayAsync());
+    }
+
+    [Theory]
+    [InlineData("till", "Till.SessionRequired")]
+    [InlineData("operationKey", "Operation.InvalidKey")]
+    [InlineData("refundConfirmed", "Till.RefundConfirmationInvalid")]
+    public async Task EnabledReturn_RequiredFrozenFields_NotInferred(string absent, string code)
+    {
+        var (s, app, session) = await TillReturnSetupAsync(); await using var owned = app;
+        var request = ReturnRequest(s, session.Id); request.Remove(absent);
+        using var response = await s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/returns", request);
+        Assert.Contains(code, await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.False(await app.Db.SaleReturns.AnyAsync()); Assert.False(await app.Db.TillMovements.AnyAsync()); Assert.Equal(8m, (await app.Db.InventoryBatches.SingleAsync()).Quantity);
     }
 
 }

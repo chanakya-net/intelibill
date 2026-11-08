@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Tills;
+using Intelibill.Application.Features.Tills.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Services.Time;
@@ -16,6 +18,11 @@ internal static class BusinessTestDoubles
             .Returns(_ => Task.FromResult<Shop?>(Shop.Create("Main", "Address", "City", "State", "560001", null, null, null)));
         return repository;
     }
+
+    public static ITillSessionPolicy DisabledTillPolicy() => Substitute.For<ITillSessionPolicy>();
+    public static TillPostingService DisabledTillPosting() => new(Substitute.For<ITillRepository>(), AnyShop(),
+        Substitute.For<IBankAccountRepository>(), DisabledTillPolicy(), RealClock());
+    public static TillSourceSettlementService DisabledTillSettlement() => new(DisabledTillPolicy(), DisabledTillPosting(), AnyShop(), RealClock());
 
     public static BusinessClock ClockAt(MutableTimeProvider time) => new(time);
 

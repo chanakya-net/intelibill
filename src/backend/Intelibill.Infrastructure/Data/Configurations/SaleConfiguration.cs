@@ -11,7 +11,11 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
 {
     public void Configure(EntityTypeBuilder<Sale> builder)
     {
-        builder.ToTable("sales", table => table.HasCheckConstraint("ck_sales_status", "status IN (0, 1)"));
+        builder.ToTable("sales", table =>
+        {
+            table.HasCheckConstraint("ck_sales_status", "status IN (0, 1)");
+            table.HasCheckConstraint("ck_sales_till_evidence", "(till_session_id IS NULL AND tender_lines IS NULL AND till_override_reason IS NULL) OR (till_session_id IS NOT NULL AND tender_lines IS NOT NULL AND jsonb_typeof(tender_lines) = 'array' AND jsonb_array_length(tender_lines) <= 1)");
+        });
 
         builder.HasKey(s => s.Id);
         builder.HasAlternateKey(s => new { s.Id, s.ShopId });
@@ -139,6 +143,12 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
         builder.Property(s => s.InvoiceDocument)
             .HasColumnType("jsonb")
             .HasConversion(InvoiceDocumentJson.Converter<IssuedInvoiceSnapshot>(), InvoiceDocumentJson.Comparer<IssuedInvoiceSnapshot>());
+
+        builder.Property(s => s.TillOverrideReason).HasMaxLength(500);
+        builder.Property(s => s.TenderLines).HasColumnType("jsonb")
+            .HasConversion(InvoiceDocumentJson.Converter<IReadOnlyList<TenderLine>>(), InvoiceDocumentJson.Comparer<IReadOnlyList<TenderLine>>());
+        builder.HasOne<TillSession>().WithMany().HasForeignKey(s => new { s.TillSessionId, s.ShopId })
+            .HasPrincipalKey(t => new { t.Id, t.ShopId }).OnDelete(DeleteBehavior.Restrict);
 
         builder.HasIndex(s => new { s.ShopId, s.InvoiceNumber })
             .IsUnique();

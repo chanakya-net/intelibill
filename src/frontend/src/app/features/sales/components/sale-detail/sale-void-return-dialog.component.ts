@@ -1,5 +1,17 @@
+import { TillPendingActionsComponent } from '../../../tills/components/till-pending-actions.component';
+import { ViewChild } from '@angular/core';
+import { TillPostingFieldsComponent } from '../../../tills/components/till-posting-fields.component';
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  Output,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
@@ -14,6 +26,8 @@ import { SalesFacade } from '../../state/sales.facade';
   selector: 'app-sale-void-return-dialog',
   standalone: true,
   imports: [
+    TillPendingActionsComponent,
+    TillPostingFieldsComponent,
     CommonModule,
     FormsModule,
     ButtonModule,
@@ -25,6 +39,8 @@ import { SalesFacade } from '../../state/sales.facade';
   templateUrl: './sale-void-return-dialog.component.html',
 })
 export class SaleVoidReturnDialogComponent {
+  @ViewChild(TillPostingFieldsComponent) tillFields!: TillPostingFieldsComponent;
+  readonly tillLocked = signal(false);
   private readonly salesFacade = inject(SalesFacade);
   private readonly authService = inject(AuthService);
 
@@ -75,7 +91,9 @@ export class SaleVoidReturnDialogComponent {
     return activeShop?.role ?? '';
   });
 
-  readonly canSubmitReturns = computed(() => ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()));
+  readonly canSubmitReturns = computed(() =>
+    ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()),
+  );
 
   constructor() {
     effect(() => {
@@ -99,6 +117,7 @@ export class SaleVoidReturnDialogComponent {
   }
 
   submit(): void {
+    if (this.tillLocked()) return;
     const sale = this.saleInput();
     const saleReturn = this.saleReturnInput();
     if (!sale || !saleReturn) return;
@@ -111,7 +130,18 @@ export class SaleVoidReturnDialogComponent {
       return;
     }
 
-    this.salesFacade.voidSaleReturn(sale.saleId, saleReturn.saleReturnId, { reason });
+    let fields;
+    try {
+      fields = this.tillFields.fields(saleReturn.refundTender?.appliedAmount ?? 0);
+    } catch {
+      this.validationMessages.set(['tills.evidenceRequired']);
+      return;
+    }
+    this.salesFacade.voidSaleReturn(sale.saleId, saleReturn.saleReturnId, {
+      reason,
+      ...fields,
+      ...(this.tillFields.context.enabled() ? { tillParentSaleId: sale.saleId } : {}),
+    });
   }
 
   private normalizeOptional(value: string): string | null {

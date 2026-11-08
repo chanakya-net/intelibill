@@ -1,3 +1,4 @@
+import { disabledTillProviders } from '../../../../../tests/tills/disabled-till.providers';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -68,6 +69,7 @@ describe('SaleCancellationDialogComponent', () => {
         }),
       ],
       providers: [
+        disabledTillProviders()[0],
         { provide: SaleCancellationService, useValue: api },
         {
           provide: ShopContextService,
@@ -171,6 +173,78 @@ describe('SaleCancellationDialogComponent', () => {
     await sending;
     expect(emitted).not.toHaveBeenCalled();
   });
+  it('handles a synchronous till validation refusal without HTTP or an unhandled submit rejection', async () => {
+    const f = await setup();
+    const c = f.componentInstance;
+    c.reason = 'Original cancellation';
+    c.goodsConfirmed = c.cashConfirmed = true;
+    vi.spyOn(c.tillFields.context, 'posting').mockImplementation(() => {
+      throw new Error('tills.selectionRequired');
+    });
+    await expect(c.submit()).resolves.toBeUndefined();
+    expect(c.error()).toBe('sales.cancellation.storageError');
+    expect(c.busy()).toBe(false);
+    expect(api.cancel).not.toHaveBeenCalled();
+    expect(
+      (await TestBed.inject(SaleCancellationDraftService).load(owner, 'sale'))?.pending,
+    ).toBeFalsy();
+  });
+  it.each([false, true])(
+    'freezes click-time till and unknown fields before deferred save (scope change %s)',
+    async (changeScope) => {
+      const f = await setup();
+      const c = f.componentInstance;
+      const drafts = TestBed.inject(SaleCancellationDraftService);
+      c.reason = 'Original cancellation';
+      c.goodsConfirmed = c.cashConfirmed = true;
+      let selected = { sessionId: 'original', expectedVersion: 4 };
+      vi.spyOn(c.tillFields.context, 'posting').mockImplementation(
+        () => ({ till: selected }) as never,
+      );
+      const prior = await drafts.save(
+        owner,
+        'sale',
+        {
+          payload: {
+            expectedVersion: 7,
+            reason: 'Earlier draft',
+            goodsRecoveredConfirmed: true,
+            cashRefundConfirmed: true,
+            futureEvidence: { preserved: 'original' },
+          },
+        } as never,
+        0,
+      );
+      c.record.set(prior);
+      let release!: () => void;
+      const barrier = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const save = drafts.save.bind(drafts);
+      vi.spyOn(drafts, 'save').mockImplementation(async (...args) => {
+        await barrier;
+        return save(...args);
+      });
+      c.save();
+      const sending = c.submit();
+      f.detectChanges();
+      expect(c.tillFields.disabled).toBe(true);
+      selected = { sessionId: 'changed', expectedVersion: 99 };
+      c.reason = 'Changed after click';
+      if (changeScope) scope.set({ ...owner, shopId: 'other', epoch: 1 });
+      release();
+      await sending;
+      const payload = changeScope
+        ? (await drafts.load(owner, 'sale'))?.pending?.payload
+        : api.cancel.mock.calls[0]?.[1];
+      expect(payload).toMatchObject({
+        till: { sessionId: 'original', expectedVersion: 4 },
+        reason: 'Original cancellation',
+        futureEvidence: { preserved: 'original' },
+      });
+      if (changeScope) expect(api.cancel).not.toHaveBeenCalled();
+    },
+  );
   it('staff and disabled rollout cannot submit, while all refusal reasons remain visible', async () => {
     api.preview.mockReturnValue(
       of({

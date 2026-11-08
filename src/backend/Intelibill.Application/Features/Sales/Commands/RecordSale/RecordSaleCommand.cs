@@ -1,4 +1,5 @@
 using Intelibill.Application.Features.Customers.Services;
+using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 
@@ -20,7 +21,9 @@ public sealed partial record RecordSaleCommand(
     IReadOnlyList<CreditNoteRedemptionCommand>? CreditNoteRedemptions = null,
     bool CreditNoteCustomerMismatchConfirmed = false,
     string? PlaceOfSupplyStateCode = null,
-    CreditOverrideRequest? CreditOverride = null);
+    CreditOverrideRequest? CreditOverride = null,
+    TillPostingContext? Till = null,
+    IReadOnlyList<TenderLine>? TenderLines = null);
 
 public sealed record RecordSaleItemCommand(
     string Barcode,

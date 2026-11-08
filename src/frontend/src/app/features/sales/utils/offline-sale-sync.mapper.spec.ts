@@ -91,6 +91,27 @@ describe('offline-sale-sync.mapper', () => {
     syncAttempts: [],
   };
 
+  it('preserves all four frozen till fields while keeping absent legacy fields and arithmetic unchanged', () => {
+    const evidence = {
+      till: { sessionId: 'original-session', overrideReason: null },
+      tenderLines: [
+        { method: 'Cash' as const, appliedAmount: 200, cashTendered: 500, change: 300 },
+      ],
+      tillBusinessDate: '2026-05-24',
+      tillCashierId: 'original-cashier',
+    };
+    const legacy = buildSyncRequestFromQueuedSale(record);
+    const withTill = buildSyncRequestFromQueuedSale({
+      ...record,
+      payload: { ...record.payload, ...evidence },
+    });
+    expect(withTill).toMatchObject(evidence);
+    const { till, tenderLines, tillBusinessDate, tillCashierId, ...unchanged } = withTill;
+    expect(unchanged).toEqual(legacy);
+    for (const field of ['till', 'tenderLines', 'tillBusinessDate', 'tillCashierId'])
+      expect(field in legacy).toBe(false);
+  });
+
   it('maps queued records to offline sale sync requests', () => {
     const request = buildSyncRequestFromQueuedSale(record);
 
@@ -101,11 +122,13 @@ describe('offline-sale-sync.mapper', () => {
       saleDiscountOverrideType: 2,
       saleDiscountOverrideValue: 3,
       configuredSaleRuleId: 'sale-rule',
-      items: [expect.objectContaining({
-        itemDiscountOverrideType: 1,
-        itemDiscountOverrideValue: 2,
-        configuredBatchRulePercentage: 5,
-      })],
+      items: [
+        expect.objectContaining({
+          itemDiscountOverrideType: 1,
+          itemDiscountOverrideValue: 2,
+          configuredBatchRulePercentage: 5,
+        }),
+      ],
     });
   });
 
@@ -129,7 +152,10 @@ describe('offline-sale-sync.mapper', () => {
     const { issuedByUserId: _ignored, ...rest } = stamped;
     expect(rest).toEqual(legacy);
 
-    const nulled = buildSyncRequestFromQueuedSale({ ...record, payload: { ...record.payload, issuedByUserId: null } });
+    const nulled = buildSyncRequestFromQueuedSale({
+      ...record,
+      payload: { ...record.payload, issuedByUserId: null },
+    });
     expect('issuedByUserId' in nulled).toBe(false);
   });
 
@@ -150,7 +176,11 @@ describe('offline-sale-sync.mapper', () => {
         pricing: {
           ...record.payload.pricing,
           calculationVersion: 1,
-          totals: { ...record.payload.pricing.totals, subtotalBeforeDiscount: 178.57, totalBeforeDiscount: 221 },
+          totals: {
+            ...record.payload.pricing.totals,
+            subtotalBeforeDiscount: 178.57,
+            totalBeforeDiscount: 221,
+          },
         },
       },
     };
@@ -183,16 +213,34 @@ describe('offline-sale-sync.mapper', () => {
   });
 
   it('translates review reasons by error code with a fallback', () => {
-    expect(offlineReviewReasonKey('Sale.OfflineArithmeticMismatch')).toBe('sales.history.offlineQueue.review.reasons.arithmeticMismatch');
-    expect(offlineReviewReasonKey('Sale.OfflineCalculationVersionUnsupported')).toBe('sales.history.offlineQueue.review.reasons.calculationVersionUnsupported');
-    expect(offlineReviewReasonKey('Sale.InvoiceLeaseNotFound')).toBe('sales.history.offlineQueue.review.reasons.invoiceLeaseNotFound');
-    expect(offlineReviewReasonKey('OfflineReconciliation.HistoricalLeaseReviewRequired')).toBe('sales.history.offlineQueue.review.reasons.historicalLeaseReviewRequired');
-    expect(offlineReviewReasonKey('OfflineReconciliation.IssuerNotSubmitter')).toBe('sales.history.offlineQueue.review.reasons.issuerNotSubmitter');
-    expect(offlineReviewReasonKey('offline_sync.stock_shortage')).toBe('sales.history.offlineQueue.review.reasons.stockShortage');
+    expect(offlineReviewReasonKey('Sale.OfflineArithmeticMismatch')).toBe(
+      'sales.history.offlineQueue.review.reasons.arithmeticMismatch',
+    );
+    expect(offlineReviewReasonKey('Sale.OfflineCalculationVersionUnsupported')).toBe(
+      'sales.history.offlineQueue.review.reasons.calculationVersionUnsupported',
+    );
+    expect(offlineReviewReasonKey('Sale.InvoiceLeaseNotFound')).toBe(
+      'sales.history.offlineQueue.review.reasons.invoiceLeaseNotFound',
+    );
+    expect(offlineReviewReasonKey('OfflineReconciliation.HistoricalLeaseReviewRequired')).toBe(
+      'sales.history.offlineQueue.review.reasons.historicalLeaseReviewRequired',
+    );
+    expect(offlineReviewReasonKey('OfflineReconciliation.IssuerNotSubmitter')).toBe(
+      'sales.history.offlineQueue.review.reasons.issuerNotSubmitter',
+    );
+    expect(offlineReviewReasonKey('offline_sync.stock_shortage')).toBe(
+      'sales.history.offlineQueue.review.reasons.stockShortage',
+    );
     // A sale already issued on a device posts without a GST document when the shop's registration did not allow one.
-    expect(offlineReviewReasonKey('Invoice.CompositionCannotCollectTax')).toBe('sales.history.offlineQueue.review.reasons.documentNotIssued');
-    expect(offlineReviewReasonKey('Invoice.TaxProfileRequired')).toBe('sales.history.offlineQueue.review.reasons.documentNotIssued');
-    expect(offlineReviewReasonKey('Something.Else')).toBe('sales.history.offlineQueue.review.reasons.unknown');
+    expect(offlineReviewReasonKey('Invoice.CompositionCannotCollectTax')).toBe(
+      'sales.history.offlineQueue.review.reasons.documentNotIssued',
+    );
+    expect(offlineReviewReasonKey('Invoice.TaxProfileRequired')).toBe(
+      'sales.history.offlineQueue.review.reasons.documentNotIssued',
+    );
+    expect(offlineReviewReasonKey('Something.Else')).toBe(
+      'sales.history.offlineQueue.review.reasons.unknown',
+    );
     expect(offlineReviewReasonKey(null)).toBe('sales.history.offlineQueue.review.reasons.unknown');
   });
 

@@ -19,7 +19,7 @@ internal static class PaymentAuthorization
             return Errors.Auth.UserNotFound;
 
         var membership = actor.ShopMemberships.FirstOrDefault(sm => sm.ShopId == shopId);
-        if (membership is null)
+        if (membership is null || !membership.IsActive)
             return Errors.Shop.MembershipNotFound;
 
         return membership.Role;

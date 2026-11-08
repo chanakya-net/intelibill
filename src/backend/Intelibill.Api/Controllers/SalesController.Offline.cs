@@ -96,7 +96,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                         i.ItemDiscountOverrideValue,
                         i.HsnCode)).ToList(),
                     s.CalculationVersion,
-                    s.IssuedByUserId))
+                    s.IssuedByUserId, s.Till, s.TenderLines, s.TillBusinessDate, s.TillCashierId))
                     .ToList()),
             cancellationToken);
 

@@ -1,3 +1,6 @@
+using Intelibill.Application.Unit.Tests.Common.Time;
+using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Features.Payments.Services;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Expenses.Commands.CorrectExpense;
@@ -18,7 +21,8 @@ public class CorrectExpenseCommandHandlerTests
 
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private CorrectExpenseCommandHandler CreateHandler() =>
-        new(_userRepository, _categoryRepository, _expenseRepository, _postingPeriods, _unitOfWork);
+        new(_userRepository, _categoryRepository, _expenseRepository, _postingPeriods, _unitOfWork,
+            new PaymentTransactionRunner(Substitute.For<IFinancialOperationExecutor>(), _unitOfWork), BusinessTestDoubles.DisabledTillSettlement());
 
     private static CorrectExpenseCommand CreateCommand(Guid userId, Guid shopId, Guid originalId) =>
         new(userId, shopId, originalId, "Corrected Category", 300m, "Corrected Vendor", null, new DateOnly(2026, 4, 20));
@@ -49,24 +53,15 @@ public class CorrectExpenseCommandHandlerTests
     }
 
     [Fact]
-    public async Task SupplierCorrection_PreservesProvenanceThroughTwoGenerations()
+    public async Task SupplierExpenseCorrection_Refused()
     {
-        var userId = Guid.NewGuid(); var shopId = Guid.NewGuid(); var ledgerId = Guid.NewGuid();
-        var original = Expense.CreateFromSupplierPayment(shopId, Guid.NewGuid(), 100m, "Supplier", null, new DateOnly(2026, 4, 1), userId, ledgerId);
+        var userId = Guid.NewGuid(); var shopId = Guid.NewGuid();
+        var original = Expense.CreateFromSupplierPayment(shopId, Guid.NewGuid(), 100m, "Supplier", null, new DateOnly(2026, 4, 1), userId, Guid.NewGuid());
         _userRepository.GetByIdWithDetailsAsync(userId, Arg.Any<CancellationToken>()).Returns(CreateActor(userId, shopId, ShopRole.Owner));
-        _categoryRepository.GetByNameAsync(shopId, "Corrected Category", Arg.Any<CancellationToken>()).Returns(ExpenseCategory.Create(shopId, "Corrected Category", DateTimeOffset.UtcNow));
-        for (var generation = 0; generation < 2; generation++)
-        {
-            _expenseRepository.GetByIdAsync(original.Id, Arg.Any<CancellationToken>()).Returns(original);
-            Expense? saved = null;
-            _expenseRepository.AddAsync(Arg.Do<Expense>(e => saved = e), Arg.Any<CancellationToken>()).Returns(Task.CompletedTask);
-            var result = await CreateHandler().HandleAsync(CreateCommand(userId, shopId, original.Id), CancellationToken.None);
-            Assert.False(result.IsError);
-            Assert.Equal(ledgerId, result.Value.SupplierLedgerEntryId);
-            Assert.Equal(ExpenseTreatment.SupplierSettlement, result.Value.Treatment);
-            Assert.NotNull(saved);
-            original = saved;
-        }
+        _expenseRepository.GetByIdAsync(original.Id, Arg.Any<CancellationToken>()).Returns(original);
+        var result = await CreateHandler().HandleAsync(CreateCommand(userId, shopId, original.Id), CancellationToken.None);
+        Assert.Equal("Expense.SupplierSettlementCorrectionRefused", result.FirstError.Code);
+        Assert.False(original.IsVoided);
     }
 
     [Fact]

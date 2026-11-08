@@ -13,9 +13,13 @@ import type {
 export const RESOLVE_REASON_MAX_LENGTH = 500;
 
 /** Actions that point at another operation: the adjustment (stock) or the sale (link). */
-export const LINKED_OPERATION_ACTIONS: readonly ReconciliationAction[] = ['LinkStockCorrection', 'LinkExistingSale'];
+export const LINKED_OPERATION_ACTIONS: readonly ReconciliationAction[] = [
+  'LinkStockCorrection',
+  'LinkExistingSale',
+];
 
 const ACTION_LABEL_KEYS: Readonly<Record<ReconciliationAction, string>> = {
+  ReconcileTillSale: 'tills.reconcileTillSale',
   RetryHistoricalLease: 'sales.offlineReconciliation.actions.retryHistoricalLease',
   LinkExistingSale: 'sales.offlineReconciliation.actions.linkExistingSale',
   AcknowledgeVariance: 'sales.offlineReconciliation.actions.acknowledgeVariance',
@@ -29,13 +33,15 @@ const STATUS_LABEL_KEYS: Readonly<Record<ReconciliationCaseStatus, string>> = {
   Resolved: 'sales.offlineReconciliation.status.resolved',
 };
 
-const STATUS_SEVERITIES: Readonly<Record<ReconciliationCaseStatus, 'warn' | 'danger' | 'success'>> = {
-  Open: 'warn',
-  Escalated: 'danger',
-  Resolved: 'success',
-};
+const STATUS_SEVERITIES: Readonly<Record<ReconciliationCaseStatus, 'warn' | 'danger' | 'success'>> =
+  {
+    Open: 'warn',
+    Escalated: 'danger',
+    Resolved: 'success',
+  };
 
 const ISSUE_TYPE_LABEL_KEYS: Readonly<Record<string, string>> = {
+  TillReview: 'tills.tillReview',
   StockVariance: 'sales.offlineReconciliation.issueTypes.stockVariance',
   InvoiceConflict: 'sales.offlineReconciliation.issueTypes.invoiceConflict',
   ValidationConflict: 'sales.offlineReconciliation.issueTypes.validationConflict',
@@ -59,7 +65,9 @@ const RECOVERY_STATUS_LABEL_KEYS: Readonly<Record<RecoveryInvoiceStatus, string>
   Rejected: 'sales.offlineReconciliation.bundle.resultStatus.rejected',
 };
 
-const RECOVERY_STATUS_SEVERITIES: Readonly<Record<RecoveryInvoiceStatus, 'info' | 'danger' | 'success' | 'warn'>> = {
+const RECOVERY_STATUS_SEVERITIES: Readonly<
+  Record<RecoveryInvoiceStatus, 'info' | 'danger' | 'success' | 'warn'>
+> = {
   ReviewOpened: 'info',
   Escalated: 'warn',
   AlreadyPosted: 'success',
@@ -87,15 +95,19 @@ const ERROR_KEYS: Readonly<Record<string, string>> = {
   'Reconciliation.UnknownAction': 'sales.offlineReconciliation.errors.actionNotAllowed',
   'Reconciliation.ActionForbidden': 'sales.offlineReconciliation.errors.actionForbidden',
   'Reconciliation.ReasonRequired': 'sales.offlineReconciliation.resolve.validation.reasonRequired',
-  'Reconciliation.LinkedOperationRequired': 'sales.offlineReconciliation.resolve.validation.linkedRequired',
-  'Reconciliation.LinkedAdjustmentInvalid': 'sales.offlineReconciliation.errors.linkedAdjustmentInvalid',
-  'Reconciliation.OperationAlreadyLinked': 'sales.offlineReconciliation.errors.operationAlreadyLinked',
+  'Reconciliation.LinkedOperationRequired':
+    'sales.offlineReconciliation.resolve.validation.linkedRequired',
+  'Reconciliation.LinkedAdjustmentInvalid':
+    'sales.offlineReconciliation.errors.linkedAdjustmentInvalid',
+  'Reconciliation.OperationAlreadyLinked':
+    'sales.offlineReconciliation.errors.operationAlreadyLinked',
   'Reconciliation.SaleIdentityMismatch': 'sales.offlineReconciliation.errors.saleIdentityMismatch',
   'Reconciliation.ProvenanceUnverified': 'sales.offlineReconciliation.errors.provenanceUnverified',
   'Reconciliation.EnvelopeMissing': 'sales.offlineReconciliation.errors.envelopeMissing',
   'Reconciliation.ReplayRejected': 'sales.offlineReconciliation.errors.replayRejected',
   'Operation.PayloadMismatch': 'sales.offlineReconciliation.errors.payloadMismatch',
-  'Sale.InvoiceNumberAlreadyUsed': 'sales.history.offlineQueue.review.reasons.invoiceNumberAlreadyUsed',
+  'Sale.InvoiceNumberAlreadyUsed':
+    'sales.history.offlineQueue.review.reasons.invoiceNumberAlreadyUsed',
   'Recovery.BundleInvalid': 'sales.offlineReconciliation.errors.bundleInvalid',
   'Recovery.BundleFormatUnsupported': 'sales.offlineReconciliation.errors.bundleFormatUnsupported',
   'Recovery.BundleChecksumMismatch': 'sales.offlineReconciliation.errors.bundleChecksumMismatch',
@@ -113,7 +125,10 @@ export const CASE_CHANGED_KEY = 'sales.offlineReconciliation.errors.caseChanged'
 export const BUNDLE_TOO_LARGE_KEY = 'sales.offlineReconciliation.errors.bundleTooLarge';
 const OTHER_KEY = 'sales.offlineReconciliation.issueTypes.unknown';
 
-export const STATUS_FILTER_OPTIONS: readonly { readonly label: string; readonly value: ReconciliationStatusFilter }[] = [
+export const STATUS_FILTER_OPTIONS: readonly {
+  readonly label: string;
+  readonly value: ReconciliationStatusFilter;
+}[] = [
   { label: STATUS_LABEL_KEYS.Open, value: 'open' },
   { label: STATUS_LABEL_KEYS.Escalated, value: 'escalated' },
   { label: STATUS_LABEL_KEYS.Resolved, value: 'resolved' },
@@ -140,7 +155,9 @@ export function recoveryStatusLabelKey(status: string): string {
   return RECOVERY_STATUS_LABEL_KEYS[status as RecoveryInvoiceStatus] ?? OTHER_KEY;
 }
 
-export function recoveryStatusSeverity(status: string): 'info' | 'danger' | 'success' | 'warn' | 'secondary' {
+export function recoveryStatusSeverity(
+  status: string,
+): 'info' | 'danger' | 'success' | 'warn' | 'secondary' {
   return RECOVERY_STATUS_SEVERITIES[status as RecoveryInvoiceStatus] ?? 'secondary';
 }
 

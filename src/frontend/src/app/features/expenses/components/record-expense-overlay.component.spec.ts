@@ -1,3 +1,4 @@
+import { disabledTillProviders } from '../../../../tests/tills/disabled-till.providers';
 import { of, Subject } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -49,6 +50,7 @@ describe('RecordExpenseOverlayComponent', () => {
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
       providers: [
+        ...disabledTillProviders(),
         {
           provide: ExpensesFacade,
           useValue: {
@@ -99,6 +101,7 @@ describe('RecordExpenseOverlayComponent', () => {
     const fixture = TestBed.createComponent(RecordExpenseOverlayComponent);
     const component = fixture.componentInstance;
 
+    fixture.detectChanges();
     component.onSubmit();
 
     expect(expensesFacade.recordExpense).not.toHaveBeenCalled();
@@ -127,9 +130,11 @@ describe('RecordExpenseOverlayComponent', () => {
       expenseDate: new Date('2026-04-20T00:00:00.000Z'),
     });
 
+    fixture.detectChanges();
     component.onSubmit();
 
     expect(expensesFacade.recordExpense).toHaveBeenCalledWith({
+      tillOwner: { userId: 'user-1', shopId: 'shop-1' },
       treatment: 'Unclassified',
       categoryName: 'Rent',
       amount: 500,
@@ -151,9 +156,11 @@ describe('RecordExpenseOverlayComponent', () => {
       expenseDate: new Date('2026-04-20T00:00:00.000Z'),
     });
 
+    fixture.detectChanges();
     component.onSubmit();
 
     expect(expensesFacade.recordExpense).toHaveBeenCalledWith({
+      tillOwner: { userId: 'user-1', shopId: 'shop-1' },
       treatment: 'Unclassified',
       categoryName: 'Rent',
       amount: 500,

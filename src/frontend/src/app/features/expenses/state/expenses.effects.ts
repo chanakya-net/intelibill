@@ -1,7 +1,9 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { catchError, map, of, switchMap, takeUntil } from 'rxjs';
+import { EMPTY, catchError, map, of, switchMap, takeUntil } from 'rxjs';
 
+import { isScopeChangeError } from '../../../core/context/scoped-request';
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import { ShopContextActions } from '../../../core/context/shop-context.actions';
 
 import { ExpenseService } from '../services/expense.service';
@@ -11,6 +13,7 @@ import { ExpensesActions } from './expenses.actions';
 @Injectable()
 export class ExpensesEffects {
   private readonly actions$ = inject(Actions);
+  private readonly shopContext = inject(ShopContextService);
   private readonly expenseService = inject(ExpenseService);
   private readonly categoryService = inject(ExpenseCategoryService);
 
@@ -90,10 +93,16 @@ export class ExpensesEffects {
         this.expenseService.recordExpense(payload).pipe(
           map((expense) => ExpensesActions.recordExpenseSucceeded({ expense })),
           catchError((error) =>
-            of(
-              ExpensesActions.recordExpenseFailed({ errorMessage: getExpenseErrorMessage(error) }),
-            ),
+            isScopeChangeError(error)
+              ? EMPTY
+              : of(
+                  ExpensesActions.recordExpenseFailed({
+                    errorMessage: getExpenseErrorMessage(error),
+                  }),
+                ),
           ),
+          // Stop UI outcomes immediately; the durable async operation still settles under its owner.
+          takeUntil(this.shopContext.changes$),
         ),
       ),
     ),
@@ -106,10 +115,16 @@ export class ExpensesEffects {
         this.expenseService.correctExpense(expenseId, payload).pipe(
           map((expense) => ExpensesActions.correctExpenseSucceeded({ expense })),
           catchError((error) =>
-            of(
-              ExpensesActions.correctExpenseFailed({ errorMessage: getExpenseErrorMessage(error) }),
-            ),
+            isScopeChangeError(error)
+              ? EMPTY
+              : of(
+                  ExpensesActions.correctExpenseFailed({
+                    errorMessage: getExpenseErrorMessage(error),
+                  }),
+                ),
           ),
+          // Stop UI outcomes immediately; the durable async operation still settles under its owner.
+          takeUntil(this.shopContext.changes$),
         ),
       ),
     ),

@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Tills;
 using FluentValidation;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -5,7 +6,7 @@ using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.DTOs;
 
-public sealed record CancelSaleRequest(string OperationKey, uint ExpectedVersion, string Reason, bool GoodsRecoveredConfirmed, bool CashRefundConfirmed);
+public sealed record CancelSaleRequest(string OperationKey, uint ExpectedVersion, string Reason, bool GoodsRecoveredConfirmed, bool CashRefundConfirmed, TillPostingContext? Till = null);
 public sealed class CancelSaleRequestValidator : AbstractValidator<CancelSaleRequest>
 {
     public CancelSaleRequestValidator()

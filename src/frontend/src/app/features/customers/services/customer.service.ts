@@ -1,3 +1,4 @@
+import { TillSourceService, TillSourceFields } from '../../tills/services/till-source.service';
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
@@ -132,7 +133,9 @@ export interface CustomerLedgerEntry {
 }
 
 /** Reads any wire form of a customer ledger entry type (enum name or number). */
-export function customerLedgerEntryKind(entryType: CustomerLedgerEntry['entryType']): CustomerLedgerEntryKind | null {
+export function customerLedgerEntryKind(
+  entryType: CustomerLedgerEntry['entryType'],
+): CustomerLedgerEntryKind | null {
   if (typeof entryType === 'number') return LEDGER_ENTRY_KINDS[entryType - 1] ?? null;
   const compact = entryType.replace(/_/g, '').toLowerCase();
   return LEDGER_ENTRY_KINDS.find((kind) => kind.toLowerCase() === compact) ?? null;
@@ -203,7 +206,7 @@ export interface PaymentAllocationRequest {
   amount: number;
 }
 
-export interface RecordCustomerPaymentRequest {
+export interface RecordCustomerPaymentRequest extends TillSourceFields {
   amount: number;
   paymentDate: string;
   notes: string | null;
@@ -235,6 +238,7 @@ export interface PaymentReceiptDetail {
     amount: number;
   }[];
   reversal: {
+    settlementEvidence?: import('../../tills/services/till.models').TillSettlementEvidence | null;
     reversalId: string;
     amount: number;
     reason: string;
@@ -243,7 +247,7 @@ export interface PaymentReceiptDetail {
   } | null;
 }
 
-export interface ReversePaymentRequest {
+export interface ReversePaymentRequest extends TillSourceFields {
   reason: string;
   operationKey: string;
 }
@@ -257,6 +261,7 @@ export interface KeyedRecordCustomerPaymentRequest extends RecordCustomerPayment
 })
 export class CustomerService {
   private readonly http = inject(HttpClient);
+  private readonly tillSources = inject(TillSourceService);
   private readonly apiUrl = `${environment.apiBaseUrl}/customers`;
   private readonly paymentsUrl = `${environment.apiBaseUrl}/payments`;
 
@@ -281,8 +286,17 @@ export class CustomerService {
     return this.http.get<CustomerCreditStatus>(`${this.apiUrl}/${customerId}/credit`);
   }
 
-  recordCustomerPayment(customerId: string, request: KeyedRecordCustomerPaymentRequest): Observable<CustomerLedgerEntry> {
-    return this.http.post<CustomerLedgerEntry>(`${this.apiUrl}/${customerId}/payments`, request);
+  recordCustomerPayment(
+    customerId: string,
+    request: KeyedRecordCustomerPaymentRequest,
+  ): Observable<CustomerLedgerEntry> {
+    return this.tillSources.post<CustomerLedgerEntry>(
+      `/customers/${customerId}/payments`,
+      'customer-payment',
+      customerId,
+      request.operationKey,
+      request,
+    );
   }
 
   getPaymentReceipt(receiptId: string): Observable<PaymentReceiptDetail> {
@@ -290,8 +304,17 @@ export class CustomerService {
   }
 
   /** Owner only. The same operation key replays a committed reversal instead of reversing twice. */
-  reversePayment(receiptId: string, request: ReversePaymentRequest): Observable<PaymentReceiptDetail> {
-    return this.http.post<PaymentReceiptDetail>(`${this.paymentsUrl}/${receiptId}/reversal`, request);
+  reversePayment(
+    receiptId: string,
+    request: ReversePaymentRequest,
+  ): Observable<PaymentReceiptDetail> {
+    return this.tillSources.post<PaymentReceiptDetail>(
+      `/payments/${receiptId}/reversal`,
+      'payment-reversal',
+      receiptId,
+      'reversal',
+      request,
+    );
   }
 }
 
@@ -307,7 +330,9 @@ export function suggestOldestFirstAllocations(
   const allocations: PaymentAllocationRequest[] = [];
   const open = [...sales]
     .filter((sale) => (sale.currentOutstandingAmount ?? 0) > 0)
-    .sort((a, b) => a.soldAt.localeCompare(b.soldAt) || a.invoiceNumber.localeCompare(b.invoiceNumber));
+    .sort(
+      (a, b) => a.soldAt.localeCompare(b.soldAt) || a.invoiceNumber.localeCompare(b.invoiceNumber),
+    );
 
   for (const sale of open) {
     if (remaining <= 0) break;

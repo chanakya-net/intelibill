@@ -45,4 +45,13 @@ public enum FinancialOperationType
     SupplierReturnCredit = 15,
     PurchaseReceiptReversal = 16,
     SaleCancellation = 17,
+    TillCreate = 18,
+    TillOpen = 19,
+    TillCashMovement = 20,
+    TillClose = 21,
+    TillCloseReview = 22,
+    ExpenseRecord = 23,
+    ExpenseCorrection = 24,
+    SaleReturn = 25,
+    SaleReturnVoid = 26,
 }

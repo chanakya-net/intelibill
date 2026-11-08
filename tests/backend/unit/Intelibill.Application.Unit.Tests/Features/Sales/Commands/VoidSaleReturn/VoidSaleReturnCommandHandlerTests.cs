@@ -1,3 +1,6 @@
+using Intelibill.Application.Features.Tills;
+using Intelibill.Application.Features.Tills.Services;
+using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.VoidSaleReturn;
@@ -25,6 +28,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
     private readonly ICustomerLedgerEntryRepository _customerLedgerEntryRepository = Substitute.For<ICustomerLedgerEntryRepository>();
     private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
+    private readonly IFinancialOperationExecutor _executor = Substitute.For<IFinancialOperationExecutor>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     private VoidSaleReturnCommandHandler CreateHandler() =>
@@ -40,7 +44,9 @@ public sealed class VoidSaleReturnCommandHandlerTests
             _creditNoteRepository,
             new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork),
             _unitOfWork,
-            new BusinessClock(_time));
+            new BusinessClock(_time),
+            new TillSourceSettlementService(Substitute.For<ITillSessionPolicy>(), Substitute.For<ITillPostingService>(), _shopRepository, new BusinessClock(_time)),
+            _executor);
 
     private readonly MutableTimeProvider _time = new();
 
@@ -510,4 +516,16 @@ public sealed class VoidSaleReturnCommandHandlerTests
         Assert.False(fixture.SaleReturn.IsVoided);
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
+    [Fact]
+    public async Task KeyedVoid_SuspendedOwner_IsRefusedBeforeReplay()
+    {
+        var fixture = Arrange(ShopRole.Owner);
+        var member = ShopMembership.Create(fixture.Shop.Id, fixture.User.Id, ShopRole.Owner, true);
+        member.ChangeAuthority(ShopRole.Owner, MembershipStatus.Suspended);
+        _shopRepository.GetMembershipAsync(fixture.User.Id, fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns(member);
+        var result = await CreateHandler().HandleAsync(new(fixture.User.Id, fixture.Shop.Id, fixture.SaleReturn.Id, "Error", OperationKey: "committed-key"), default);
+        Assert.Equal("Shop.MembershipNotFound", result.FirstError.Code);
+        Assert.Empty(_executor.ReceivedCalls());
+    }
+
 }

@@ -1,5 +1,10 @@
+import { TillContextService } from '../../tills/services/till-context.service';
 import { MONEY_SCALE, toScaled } from './offline-money.math';
-import { discountCapacityPaise, discountCeilingFromPaise, evaluateOfflineSaleEconomics } from './offline-sale-economics';
+import {
+  discountCapacityPaise,
+  discountCeilingFromPaise,
+  evaluateOfflineSaleEconomics,
+} from './offline-sale-economics';
 import { Injectable, inject, signal } from '@angular/core';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -68,6 +73,7 @@ interface OfflineSalePreviewContext {
 
 @Injectable({ providedIn: 'root' })
 export class OfflineSaleStateService {
+  private readonly tillContext = inject(TillContextService);
   private readonly authService = inject(AuthService);
   private readonly deviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
   private readonly snapshotDb = inject(OfflineSalesSnapshotIndexedDbService);
@@ -126,7 +132,11 @@ export class OfflineSaleStateService {
 
     if (settings.lastReservedLease) {
       try {
-        const lease = await this.leaseDb.loadLease(shopId, settings.deviceId, settings.lastReservedLease.fiscalYear);
+        const lease = await this.leaseDb.loadLease(
+          shopId,
+          settings.deviceId,
+          settings.lastReservedLease.fiscalYear,
+        );
         this.offlineLeaseNeedsRenewal.set(!!lease && !lease.sellerProfile);
       } catch {
         // non-fatal: finalization refuses such a lease on its own
@@ -177,10 +187,10 @@ export class OfflineSaleStateService {
     const services = this.offlineServices() ?? [];
 
     const matchedBatches = catalog.filter(
-      (b) => b.itemName.toLowerCase().includes(q) || b.barcode.toLowerCase().startsWith(q)
+      (b) => b.itemName.toLowerCase().includes(q) || b.barcode.toLowerCase().startsWith(q),
     );
     const matchedServices = services.filter(
-      (s) => s.name.toLowerCase().includes(q) || (s.code ?? '').toLowerCase().startsWith(q)
+      (s) => s.name.toLowerCase().includes(q) || (s.code ?? '').toLowerCase().startsWith(q),
     );
 
     const batchResults: AvailableBatchDto[] = matchedBatches.map((b) => ({
@@ -264,24 +274,32 @@ export class OfflineSaleStateService {
 
     const configuredRuleByBatchId = new Map(
       rules
-        .filter((rule) => rule.ruleType === 'BatchPercentage' && rule.inventoryBatchId && rule.percentage > 0)
+        .filter(
+          (rule) =>
+            rule.ruleType === 'BatchPercentage' && rule.inventoryBatchId && rule.percentage > 0,
+        )
         .map((rule) => [rule.inventoryBatchId!, rule]),
     );
     const saleLevelEligibleSubtotal = this.roundAmount(
-      pricing.lines.reduce((sum, line) => sum + (line.preTaxAmount - line.itemDiscountAmount), 0)
+      pricing.lines.reduce((sum, line) => sum + (line.preTaxAmount - line.itemDiscountAmount), 0),
     );
 
     return {
       totalAmount: pricing.totals.grandTotal,
-      totalTaxableAmount: this.roundAmount(pricing.lines.reduce((sum, line) => sum + line.taxableAmount, 0)),
+      totalTaxableAmount: this.roundAmount(
+        pricing.lines.reduce((sum, line) => sum + line.taxableAmount, 0),
+      ),
       totalTaxAmount: pricing.totals.totalTax,
       totalDiscountAmount: pricing.totals.totalDiscount,
       saleLevelEligibleSubtotal,
       configuredSaleRule: null,
       lines: pricing.lines.map((line) => {
         const configuredRule = configuredRuleByBatchId.get(line.inventoryBatchId) ?? null;
-        const { maxFlat: maxAllowedItemDiscountFlat, maxPercent: maxAllowedItemDiscountPercent } = discountCeilingFromPaise(
-          discountCapacityPaise(line.preTaxAmount, line.quantity, line.costPrice), toScaled(line.preTaxAmount, MONEY_SCALE));
+        const { maxFlat: maxAllowedItemDiscountFlat, maxPercent: maxAllowedItemDiscountPercent } =
+          discountCeilingFromPaise(
+            discountCapacityPaise(line.preTaxAmount, line.quantity, line.costPrice),
+            toScaled(line.preTaxAmount, MONEY_SCALE),
+          );
 
         return {
           economics: evaluateOfflineSaleEconomics({ ...pricing, lines: [line] }).lines[0],
@@ -326,6 +344,16 @@ export class OfflineSaleStateService {
       return { ok: false, errorKey: 'sales.newSale.offline.blockDeviceNotEnabled' };
     }
 
+    const issuerAtStart = this.authService.session()?.user?.id ?? null;
+    let tillEvidence;
+    try {
+      tillEvidence = await this.tillContext.offlineEvidence(
+        payload.paymentMethod,
+        payload.paidAmount,
+      );
+    } catch {
+      return { ok: false, errorKey: 'tills.sessionRequired' } as const;
+    }
     const snapshotCompletedAt = await this.resolveOfflineSnapshotCompletedAt(shopId);
     if (!snapshotCompletedAt) {
       return { ok: false, errorKey: 'sales.newSale.offline.blockSnapshotStale' };
@@ -384,12 +412,19 @@ export class OfflineSaleStateService {
       deviceId: settings.deviceId,
       fiscalYear: lease.fiscalYear,
       pricingInput,
+      tillEvidence,
       maxSnapshotAgeMs: MAX_OFFLINE_AGE_MS,
     };
 
+    if (
+      this.authService.session()?.activeShopId !== shopId ||
+      (this.authService.session()?.user?.id ?? null) !== issuerAtStart
+    )
+      return { ok: false, errorKey: 'tills.capabilityUnknown' };
     const result = await this.offlineFinalization.finalizeAndQueue(request);
     if (!result.ok) {
       const reasonKey: Record<typeof result.reason, string> = {
+        TILL_CONTEXT_INVALID: 'tills.sessionRequired',
         BELOW_RECORDED_COST: 'sales.newSale.offline.blockBelowRecordedCost',
         SNAPSHOT_STALE: 'sales.newSale.offline.blockSnapshotStale',
         MISSING_CATALOG_ITEM: 'sales.newSale.offline.blockMissingItem',
@@ -443,7 +478,10 @@ export class OfflineSaleStateService {
     return this.authService.session()?.activeShopId ?? '';
   }
 
-  private async updateOfflineInvoiceLeaseCount(shopId: string, remainingCount: number): Promise<void> {
+  private async updateOfflineInvoiceLeaseCount(
+    shopId: string,
+    remainingCount: number,
+  ): Promise<void> {
     const updated = this.deviceSettingsStorage.updateSettings(shopId, (current) => ({
       ...current,
       lastReservedLease: current.lastReservedLease

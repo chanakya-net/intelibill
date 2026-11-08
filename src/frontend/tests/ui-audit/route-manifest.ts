@@ -24,7 +24,13 @@ const ROUTE_STATE_PROFILES = {
 } as const satisfies Record<RouteStateProfile, readonly RouteState[]>;
 
 export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
-  shellRoute('purchase-receipts/:receiptValueId', MANAGEMENT_ROLES, () => ({ receiptValueId: 'receipt-001' })),
+  shellRoute('tills'),
+  shellRoute('payments/:receiptId', MANAGEMENT_ROLES, () => ({ receiptId: 'receipt-001' })),
+  shellRoute('tills/expenses/:expenseId', MANAGEMENT_ROLES, () => ({ expenseId: 'expense-001' })),
+  printRoute('tills/sessions/:id/print', 'till-close', () => ({ id: 'session-001' })),
+  shellRoute('purchase-receipts/:receiptValueId', MANAGEMENT_ROLES, () => ({
+    receiptValueId: 'receipt-001',
+  })),
   shellRoute('supplier-returns/:returnId', MANAGEMENT_ROLES, () => ({ returnId: 'return-001' })),
   shellRoute('supplier-returns', MANAGEMENT_ROLES),
   publicRoute('auth/verify-email', 'form'),

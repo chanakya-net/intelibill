@@ -35,5 +35,5 @@ public sealed class GetExpenseDetailQueryHandler(IExpenseRepository expenseRepos
             e.IsVoided,
             e.OriginalExpenseId,
             e.SupplierLedgerEntryId,
-            e.CreatedAt, e.Treatment);
+            e.CreatedAt, e.Treatment, e.SettlementEvidence);
 }

@@ -1,3 +1,4 @@
+<app-till-posting-fields [sale]="true" />
 <div class="flex gap-2 items-start flex-wrap">
   <div class="flex flex-col gap-1 flex-1 min-w-36">
     <label class="text-xs text-slate-500">{{ 'sales.newSale.paymentMethod' | transloco }}</label>
@@ -103,7 +104,7 @@
         </p>
         <p class="text-slate-600">
           {{ 'sales.newSale.creditNote.status' | transloco }}:
-          {{ ('sales.creditNotes.status.' + verifiedCreditNote.status) | transloco }}
+          {{ 'sales.creditNotes.status.' + verifiedCreditNote.status | transloco }}
         </p>
         @if (verifiedCreditNote.expiresAt) {
           <p class="text-slate-500 text-xs">
@@ -168,7 +169,7 @@
               <div>
                 <p class="font-medium text-slate-700">{{ note.code }}</p>
                 <p class="text-xs text-slate-500">
-                  {{ ('sales.creditNotes.status.' + note.status) | transloco }}
+                  {{ 'sales.creditNotes.status.' + note.status | transloco }}
                 </p>
               </div>
               <p-button

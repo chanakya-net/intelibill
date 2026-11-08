@@ -47,7 +47,22 @@ public sealed record OfflineSalePostingRequest(
     DateTimeOffset Now,
     IReadOnlyDictionary<Guid, DiscountRule> ActiveDiscountRulesById,
     InvoiceLease? Lease = null,
-    bool CreditReviewed = false);
+    bool CreditReviewed = false,
+    ReviewedTillContext? ReviewedTill = null);
+
+/// <summary>Created only by the authorized reconciliation handler, never mapped from an invoice request.</summary>
+public sealed class ReviewedTillContext
+{
+    internal ReviewedTillContext(Guid caseId, string managerReason, TillReconciliationEvidence evidence)
+    { CaseId = caseId; ManagerReason = managerReason; Evidence = evidence; }
+    public Guid CaseId { get; }
+    public string ManagerReason { get; }
+    public TillReconciliationEvidence Evidence { get; }
+}
+
+/// <summary>Manager evidence is stored separately; it never edits the device's immutable envelope.</summary>
+public sealed record TillReconciliationEvidence(string EvidenceStatus,
+    IReadOnlyList<Intelibill.Domain.ValueObjects.TenderLine> TenderLines, string Reason);
 
 public abstract record OfflineSalePostingOutcome
 {

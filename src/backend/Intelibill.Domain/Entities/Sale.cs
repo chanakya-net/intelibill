@@ -1,4 +1,5 @@
 using Intelibill.Domain.Common;
+using ErrorOr;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 
@@ -22,6 +23,9 @@ public sealed partial class Sale : BaseEntity
     public string? CustomerName { get; private set; }
     public string? CustomerPhone { get; private set; }
     public PaymentMethod PaymentMethod { get; private set; }
+    public Guid? TillSessionId { get; private set; }
+    public string? TillOverrideReason { get; private set; }
+    public IReadOnlyList<TenderLine>? TenderLines { get; private set; }
     public DateTimeOffset SoldAt { get; private set; }
 
     /// <summary>The date the sale belongs to in the shop's zone when it was posted; reports read this, not <see cref="SoldAt"/>.</summary>
@@ -112,6 +116,23 @@ public sealed partial class Sale : BaseEntity
             throw new InvalidOperationException("The document number must be the sale's invoice number.");
 
         InvoiceDocument = document;
+    }
+
+    /// <summary>Freezes actual tender evidence once; historical sales remain unattributed.</summary>
+    public ErrorOr<Success> AttachTillSettlement(Guid sessionId, string? overrideReason, IReadOnlyList<TenderLine> lines)
+    {
+        if (TillSessionId.HasValue) throw new InvalidOperationException("Sale till evidence cannot be replaced.");
+        if (sessionId == Guid.Empty) return Error.Validation("Till.SessionRequired", "A session is required.");
+        if (overrideReason?.Trim().Length > 500) return Error.Validation("Till.OverrideReasonRequired", "Override reason is too long.");
+        var valid = SaleTenderPolicy.Validate(PaymentMethod, PaidAmount, lines);
+        if (valid.IsError) return valid.Errors;
+        TillSessionId = sessionId;
+        TillOverrideReason = string.IsNullOrWhiteSpace(overrideReason) ? null : overrideReason.Trim();
+        TenderLines = Array.AsReadOnly(lines.Select(line => line with
+        {
+            ExternalReference = string.IsNullOrWhiteSpace(line.ExternalReference) ? null : line.ExternalReference.Trim()
+        }).ToArray());
+        return Result.Success;
     }
 
     private Sale WithItems(IReadOnlyCollection<SaleItem> items)

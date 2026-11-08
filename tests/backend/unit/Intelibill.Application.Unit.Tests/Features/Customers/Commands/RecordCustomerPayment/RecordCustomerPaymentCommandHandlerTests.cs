@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Application.Common.Posting;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -39,6 +40,7 @@ public class RecordCustomerPaymentCommandHandlerTests
         new(_userRepository, _customerRepository, _customerLedgerEntryRepository, _paymentReceiptRepository,
             _bankAccountRepository, new PaymentAllocationPlanner(_balanceReader),
             new PaymentTransactionRunner(_executor, _unitOfWork), _postingPeriods, _unitOfWork,
+            BusinessTestDoubles.DisabledTillPosting(), BusinessTestDoubles.DisabledTillPolicy(), BusinessTestDoubles.RealClock(),
             NullLogger<RecordCustomerPaymentCommandHandler>.Instance);
 
     private void ExecutorRunsAction() =>

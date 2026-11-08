@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Tills;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Customers.Commands.AddCustomer;
@@ -138,7 +139,7 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.Method,
                 request.BankAccountId,
                 request.ExternalReference,
-                request.Allocations),
+                request.Allocations, request.Till),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -179,4 +180,4 @@ public sealed record RecordCustomerPaymentRequest(
     ReceiptTenderMethod? Method = null,
     Guid? BankAccountId = null,
     string? ExternalReference = null,
-    IReadOnlyList<PaymentAllocationRequest>? Allocations = null);
+    IReadOnlyList<PaymentAllocationRequest>? Allocations = null, TillPostingContext? Till = null);

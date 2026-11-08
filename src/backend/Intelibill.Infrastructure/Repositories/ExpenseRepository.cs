@@ -1,3 +1,4 @@
+using Npgsql;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -8,6 +9,27 @@ namespace Intelibill.Infrastructure.Repositories;
 
 public sealed class ExpenseRepository(ApplicationDbContext context) : IExpenseRepository
 {
+    public async Task<RowLockOutcome> LockForCorrectionAsync(Guid shopId, Guid expenseId, CancellationToken ct = default)
+    {
+        if (!context.Database.IsNpgsql()) return RowLockOutcome.Acquired;
+        if (context.Database.CurrentTransaction is null) throw new InvalidOperationException("Expense lock requires a transaction.");
+        var previous = await context.Database.SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"").SingleAsync(ct);
+        await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {"5s"}, true)", ct);
+        try
+        {
+            var ids = await context.Database.SqlQuery<Guid>($"SELECT id AS \"Value\" FROM expenses WHERE shop_id={shopId} AND id={expenseId} FOR NO KEY UPDATE").ToListAsync(ct);
+            await context.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {previous}, true)", ct);
+            if (ids.Count == 0) return RowLockOutcome.NotFound;
+            var expense = await context.Expenses.SingleAsync(e => e.Id == expenseId && e.ShopId == shopId, ct);
+            await context.Entry(expense).ReloadAsync(ct);
+            return RowLockOutcome.Acquired;
+        }
+        catch (Exception ex) when ((ex as PostgresException ?? ex.InnerException as PostgresException)?.SqlState == PostgresErrorCodes.LockNotAvailable)
+        {
+            return RowLockOutcome.TimedOut;
+        }
+    }
+
     public async Task<Expense?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         await context.Expenses
             .Include(e => e.Category)

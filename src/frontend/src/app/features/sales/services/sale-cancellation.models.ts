@@ -1,5 +1,6 @@
 import type { InvoiceDocument, InvoiceDocumentSeller, InvoiceDocumentBuyer } from './sale.models';
 export interface CancelSaleRequest {
+  till?: import('../../tills/services/till.models').TillPostingContext;
   operationKey: string;
   expectedVersion: number;
   reason: string;

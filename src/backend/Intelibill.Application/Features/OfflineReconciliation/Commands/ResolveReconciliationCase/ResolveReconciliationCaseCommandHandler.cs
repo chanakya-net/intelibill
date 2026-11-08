@@ -83,12 +83,17 @@ public sealed class ResolveReconciliationCaseCommandHandler(
             command.Reason.Trim(),
             FinancialOperationHasher.NormalizeKey(command.OperationId)!);
 
+        // Staff may only escalate their own case, including receipt replay. Target visibility
+        // alone must not let a saved manager resolution bypass this action authorization.
+        if (request.Action != ReconciliationAction.Escalate && role.Value is not (ShopRole.Owner or ShopRole.Manager))
+            return Errors.Reconciliation.ActionForbidden;
+
         var requestHash = FinancialOperationHasher.Compute(new ResolutionPayload(
             command.CaseId,
             command.ExpectedVersion,
             request.Action.ToString(),
             request.Reason,
-            command.LinkedOperationId));
+            command.LinkedOperationId, command.TillReconciliationEvidence));
 
         return await operationExecutor.ExecuteAsync(
             new FinancialOperationScope(command.ShopId, FinancialOperationType.ReconciliationResolution, request.OperationKey),
@@ -141,6 +146,7 @@ public sealed class ResolveReconciliationCaseCommandHandler(
             ReconciliationAction.AcknowledgeVariance => Close(issue, request, now, linkedOperationId: null, stockTransactionId: null),
             ReconciliationAction.LinkStockCorrection => await LinkStockCorrectionAsync(issue, request, now, cancellationToken),
             ReconciliationAction.LinkExistingSale => await LinkExistingSaleAsync(issue, submission, request, now, cancellationToken),
+            ReconciliationAction.ReconcileTillSale => await RetryHistoricalLeaseAsync(issue, submission, request, now, cancellationToken),
             ReconciliationAction.RetryHistoricalLease => await RetryHistoricalLeaseAsync(issue, submission, request, now, cancellationToken),
             _ => Errors.Reconciliation.UnknownAction,
         };
@@ -320,6 +326,16 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         if (payload is null)
             return Errors.Reconciliation.ReplayRejected;
 
+        ReviewedTillContext? reviewedTill = null;
+        if (request.Action == ReconciliationAction.ReconcileTillSale)
+        {
+            if (command.TillReconciliationEvidence is not { } evidence) return Errors.Till.SettlementEvidenceRequired;
+            if (!string.Equals(OfflineSaleSyncIdempotencyHasher.ComputeHash(command.ShopId, submission.DeviceId, payload), submission.PayloadHash, StringComparison.Ordinal) ||
+                payload.ClientSaleId.Trim() != submission.ClientSaleId || payload.InvoiceNumber.Trim() != submission.InvoiceNumber || payload.SoldAt.UtcTicks / 10 != submission.ClaimedSoldAt.UtcTicks / 10)
+                return Errors.Reconciliation.ReplayRejected;
+            reviewedTill = new ReviewedTillContext(issue.Id, request.Reason, evidence);
+        }
+
         var activeRules = await discountRuleRepository.GetActiveByShopAsync(command.ShopId, now, cancellationToken);
         var outcome = await salePoster.StageAsync(
             new OfflineSalePostingRequest(
@@ -335,8 +351,10 @@ public sealed class ResolveReconciliationCaseCommandHandler(
                 now,
                 activeRules.ToDictionary(rule => rule.Id),
                 lease,
-                // A reviewer is posting this sale now: its credit is the decision being made, not a new case.
-                CreditReviewed: true),
+                // Existing historical credit review retains its decision. A TillReview retry is
+                // ordinary drawer recovery; its customer-credit variance must still be filed.
+                CreditReviewed: request.Action == ReconciliationAction.RetryHistoricalLease && issue.IssueType != ReconciliationIssueType.TillReview,
+                ReviewedTill: reviewedTill),
             cancellationToken);
 
         return outcome switch
@@ -422,5 +440,7 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         uint ExpectedVersion,
         string Action,
         string Reason,
-        Guid? LinkedOperationId);
+        Guid? LinkedOperationId,
+        [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        TillReconciliationEvidence? TillReconciliationEvidence);
 }

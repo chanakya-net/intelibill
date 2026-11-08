@@ -130,6 +130,13 @@ public static class TenantPolicyManifest
         Tenant("stock_transactions"),
         Tenant("supplier_ledger_entries"),
         Tenant("suppliers"),
+        Tenant("till_close_reviews"),
+        Tenant("till_closes"),
+        Tenant("till_late_postings"),
+        Tenant("till_movements"),
+        Tenant("till_sessions"),
+        Tenant("till_source_records"),
+        Tenant("tills"),
 
         // ── Tenant child data: ownership derived from the parent ─────────────
         Child("purchase_order_lines", "purchase_order_id", "purchase_orders"),

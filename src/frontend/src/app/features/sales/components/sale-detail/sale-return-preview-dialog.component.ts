@@ -1,3 +1,6 @@
+import { TillPendingActionsComponent } from '../../../tills/components/till-pending-actions.component';
+import { ViewChild } from '@angular/core';
+import { TillPostingFieldsComponent } from '../../../tills/components/till-posting-fields.component';
 import { CommonModule } from '@angular/common';
 import {
   Component,
@@ -51,6 +54,8 @@ interface ReturnLineDraft {
   selector: 'app-sale-return-preview-dialog',
   standalone: true,
   imports: [
+    TillPendingActionsComponent,
+    TillPostingFieldsComponent,
     CommonModule,
     FormsModule,
     ButtonModule,
@@ -63,6 +68,9 @@ interface ReturnLineDraft {
   styleUrl: './sale-return-preview-dialog.component.scss',
 })
 export class SaleReturnPreviewDialogComponent {
+  @ViewChild(TillPostingFieldsComponent) tillFields!: TillPostingFieldsComponent;
+  private tillIntentId = crypto.randomUUID();
+  readonly tillLocked = signal(false);
   private readonly salesFacade = inject(SalesFacade);
   private readonly authService = inject(AuthService);
   private readonly transloco = inject(TranslocoService);
@@ -212,6 +220,7 @@ export class SaleReturnPreviewDialogComponent {
 
   close(): void {
     this.visibleChange.emit(false);
+    this.tillIntentId = crypto.randomUUID();
     this.validationMessages.set([]);
     this.dueOverrideConfirmed.set(false);
     this.payoutDestination.set(null);
@@ -365,6 +374,7 @@ export class SaleReturnPreviewDialogComponent {
   }
 
   submitReturn(): void {
+    if (this.tillLocked()) return;
     const sale = this.saleInput();
     if (!sale) return;
 
@@ -402,6 +412,20 @@ export class SaleReturnPreviewDialogComponent {
       }),
     } as unknown as RecordSaleReturnRequest;
 
+    try {
+      Object.assign(
+        payload,
+        this.tillFields.refundFields(
+          this.returnPreview()?.financial?.payoutAmount ?? 0,
+          payload.payoutDestination === ReturnPayoutDestination.Refund,
+        ),
+      );
+    } catch {
+      this.validationMessages.set(['tills.evidenceRequired']);
+      return;
+    }
+    if (this.tillFields.context.enabled())
+      Object.assign(payload, { operationKey: this.tillIntentId });
     this.salesFacade.recordSaleReturn(sale.saleId, payload);
   }
 
@@ -483,7 +507,8 @@ export class SaleReturnPreviewDialogComponent {
 
   tooPreciseMessage(item: SaleItemDto): string {
     const scale = this.returnScale(item);
-    const unit = item.uom?.trim() || this.transloco.translate('sales.returns.preview.validation.unitFallback');
+    const unit =
+      item.uom?.trim() || this.transloco.translate('sales.returns.preview.validation.unitFallback');
     return scale === 0
       ? this.transloco.translate('sales.returns.preview.validation.tooPreciseWhole', {
           itemName: item.itemName,

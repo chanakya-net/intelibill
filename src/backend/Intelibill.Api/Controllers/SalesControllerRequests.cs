@@ -1,4 +1,5 @@
 using Intelibill.Domain.Enums;
+using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Api.Controllers;
@@ -17,7 +18,9 @@ public sealed partial record RecordSaleRequest(
     IReadOnlyList<CreditNoteRedemptionRequest>? CreditNoteRedemptions = null,
     bool CreditNoteCustomerMismatchConfirmed = false,
     string? PlaceOfSupplyStateCode = null,
-    CreditOverrideRequestBody? CreditOverride = null);
+    CreditOverrideRequestBody? CreditOverride = null,
+    TillPostingContext? Till = null,
+    IReadOnlyList<TenderLine>? TenderLines = null);
 
 /// <summary>An owner's or manager's approval to go over the customer's enforced credit limit.</summary>
 /// <param name="ObservedExposure">The account balance the approver saw; more due since then refuses the override.</param>
@@ -54,7 +57,11 @@ public sealed record OfflineSaleSyncRequest(
     decimal? ConfiguredSaleRuleThresholdAmount,
     IReadOnlyList<OfflineSaleSyncLineRequest> Items,
     int? CalculationVersion = null,
-    Guid? IssuedByUserId = null);
+    Guid? IssuedByUserId = null,
+    TillPostingContext? Till = null,
+    IReadOnlyList<TenderLine>? TenderLines = null,
+    DateOnly? TillBusinessDate = null,
+    Guid? TillCashierId = null);
 
 public sealed record OfflineSaleSyncLineRequest(
     string Barcode,
@@ -146,7 +153,7 @@ public sealed record RecordSaleReturnRequest(
     IReadOnlyList<RecordSaleReturnItemRequest> Items,
     PaymentMethod? PayoutMethod = null,
     DateTimeOffset? CreditNoteExpiresAt = null,
-    string? CreditNoteReason = null);
+    string? CreditNoteReason = null, string? OperationKey = null, TillPostingContext? Till = null, TenderLine? RefundTender = null, bool? RefundConfirmed = null);
 
 public sealed record RecordSaleReturnItemRequest(
     Guid SaleItemId,
@@ -156,4 +163,4 @@ public sealed record RecordSaleReturnItemRequest(
     string? Notes,
     SaleLineType LineType = SaleLineType.Goods);
 
-public sealed record VoidSaleReturnRequest(string Reason);
+public sealed record VoidSaleReturnRequest(string Reason, string? OperationKey = null, TillPostingContext? Till = null, TillSettlementEvidence? SettlementEvidence = null);

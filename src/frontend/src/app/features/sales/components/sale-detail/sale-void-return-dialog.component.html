@@ -8,7 +8,7 @@
   [header]="'sales.returns.void.title' | transloco"
 >
   @if (saleReturn) {
-    <div class="flex flex-col gap-4">
+    <div [attr.inert]="tillLocked() ? '' : null" class="flex flex-col gap-4">
       <div>
         <p class="text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">
           {{ 'sales.returns.void.returnLabel' | transloco }}
@@ -16,7 +16,9 @@
         <p class="font-bold text-slate-800">{{ saleReturn.returnNumber }}</p>
       </div>
       <label class="flex flex-col gap-1 text-sm">
-        <span class="font-medium text-slate-600">{{ 'sales.returns.void.reason' | transloco }}</span>
+        <span class="font-medium text-slate-600">{{
+          'sales.returns.void.reason' | transloco
+        }}</span>
         <textarea
           pInputTextarea
           rows="3"
@@ -48,10 +50,12 @@
       [disabled]="isSubmitting()"
       (click)="submit()"
     />
-    <p-button
-      [label]="'common.cancel' | transloco"
-      severity="secondary"
-      (click)="close()"
-    />
+    <p-button [label]="'common.cancel' | transloco" severity="secondary" (click)="close()" />
   </ng-template>
+  <app-till-pending-actions
+    (lockedChange)="tillLocked.set($event)"
+    action="sale-return-void"
+    [target]="saleReturnInput()?.saleReturnId ?? ''"
+  />
+  <app-till-posting-fields [disabled]="tillLocked()" [evidence]="true" direction="MoneyReceived" />
 </p-dialog>

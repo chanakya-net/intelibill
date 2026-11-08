@@ -8,7 +8,7 @@ namespace Intelibill.Application.Features.Sales.Services.Returns;
 /// queue behind one another and each one validates against what the previous one committed.
 /// </summary>
 /// <remarks>
-/// Lock order, which every caller follows and nothing reverses: the sale's customer, if any; the
+/// Lock order: posting-period fence; optional till/session; the sale's customer, if any; the
 /// sale; then the credit notes of
 /// its returns; then inventory batches and aggregates, locked by their updates at save. Credit-note
 /// redemption takes credit notes and then batches and never waits on the parent sale.
@@ -24,4 +24,13 @@ public interface ISaleReturnMutationCoordinator
         Guid saleId,
         Func<CancellationToken, Task<ErrorOr<TResult>>> mutation,
         CancellationToken cancellationToken);
+    /// <summary>
+    /// Runs the hook after the period fence and before customer/sale locks. When ownsTransaction is
+    /// false the financial-operation executor must own rollback/commit; this path never nests one.
+    /// The hook and mutation must acquire/use their session within this one transaction attempt.
+    /// </summary>
+    Task<ErrorOr<TResult>> ExecuteAsync<TResult>(Guid shopId, Guid saleId,
+        Func<CancellationToken, Task<ErrorOr<Success>>> beforeBusinessLocks,
+        Func<CancellationToken, Task<ErrorOr<TResult>>> mutation,
+        bool ownsTransaction, CancellationToken cancellationToken);
 }
