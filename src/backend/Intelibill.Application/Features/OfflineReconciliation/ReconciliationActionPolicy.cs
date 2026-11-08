@@ -56,6 +56,7 @@ public static class ReconciliationActionPolicy
         ReconciliationIssueType.ProvenanceReview,
         ReconciliationIssueType.RecoveryReview,
         ReconciliationIssueType.ClosedPeriodReview,
+        ReconciliationIssueType.TillReview,
     ];
 
     /// <param name="issue">The case.</param>
@@ -134,7 +135,12 @@ public static class ReconciliationActionPolicy
             && submission!.AttributableUserId is not null)
         {
             yield return ReconciliationAction.RetryHistoricalLease;
+            // Same replay preconditions; the common poster still enforces every non-till policy.
+            yield return ReconciliationAction.ReconcileTillSale;
         }
+
+        if (HasEnvelope(issue, submission) && issue.IssueType == ReconciliationIssueType.TillReview && submission!.AttributableUserId is not null)
+            yield return ReconciliationAction.ReconcileTillSale;
 
         if (OffersSaleLink(issue, submission))
             yield return ReconciliationAction.LinkExistingSale;

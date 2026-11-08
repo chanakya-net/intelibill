@@ -57,7 +57,8 @@ public sealed record ReconciliationCaseDto(
     OfflineSubmissionDto? Submission,
     IReadOnlyList<string> AvailableActions,
     IReadOnlyList<ReconciliationCaseEventDto> Events,
-    IReadOnlyList<ReconciliationLinkCandidateDto> LinkCandidates);
+    IReadOnlyList<ReconciliationLinkCandidateDto> LinkCandidates,
+    Intelibill.Application.Features.Tills.TillLatePostingDto? TillLatePosting = null);
 
 /// <summary>
 /// Evidence the caller may link the case to, already checked the way the link action checks it:
@@ -120,7 +121,10 @@ public sealed record OfflineInvoiceSnapshotDto(
     decimal TotalAmount,
     decimal PaidAmount,
     decimal DueAmount,
-    IReadOnlyList<OfflineInvoiceSnapshotLineDto> Lines);
+    IReadOnlyList<OfflineInvoiceSnapshotLineDto> Lines,
+    Intelibill.Application.Features.Tills.TillPostingContext? Till = null,
+    IReadOnlyList<Intelibill.Domain.ValueObjects.TenderLine>? TenderLines = null,
+    DateOnly? TillBusinessDate = null, Guid? TillCashierId = null);
 
 public sealed record OfflineInvoiceSnapshotLineDto(
     string ItemName,

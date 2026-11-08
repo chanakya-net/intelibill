@@ -24,7 +24,10 @@ public sealed record TillSourceRecordDto(Guid Id, TillMovementSource SourceType,
     DateTimeOffset OccurredAt, DateTimeOffset RecordedAt, Guid ActorUserId, TillNonCashSettlement Settlement, string OperationKey, string? Reason, string? OverrideReason);
 public sealed record TillLatePostingDto(Guid Id, Guid OfflineSubmissionId, Guid SaleId, Guid CaseId, Guid? SessionId,
     Guid? CloseId, DateOnly SourceBusinessDate, DateTimeOffset OccurredAt, DateTimeOffset RecordedAt, Guid CashierId,
-    IReadOnlyList<TenderLine> TenderLines, string EvidenceStatus, string ManagerReason, bool IncludedInCount);
+    IReadOnlyList<TenderLine> TenderLines, string EvidenceStatus, string ManagerReason, bool IncludedInCount, string? EvidenceReason = null)
+{
+    public decimal? SupplementalAmount => EvidenceStatus == "Recorded" ? TenderLines.Sum(x => x.AppliedAmount) : null;
+}
 public sealed record TillPage<T>(IReadOnlyList<T> Items, int Page, int PageSize, int TotalCount);
 public sealed record TillSessionDetailDto(TillSessionDto Session, TillPage<TillMovementDto> Movements,
     TillPage<TillSourceRecordDto> Sources);

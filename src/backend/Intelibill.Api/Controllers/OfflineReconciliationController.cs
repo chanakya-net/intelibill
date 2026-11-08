@@ -82,7 +82,7 @@ public sealed class OfflineReconciliationController : AuthenticatedControllerBas
                 request.ExpectedVersion,
                 request.Action ?? string.Empty,
                 request.Reason ?? string.Empty,
-                request.LinkedOperationId),
+                request.LinkedOperationId, request.TillReconciliationEvidence),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -171,4 +171,5 @@ public sealed record ResolveReconciliationCaseRequest(
     uint ExpectedVersion,
     string? Action,
     string? Reason,
-    Guid? LinkedOperationId);
+    Guid? LinkedOperationId,
+    Intelibill.Application.Features.Sales.Commands.SyncOfflineSales.TillReconciliationEvidence? TillReconciliationEvidence = null);

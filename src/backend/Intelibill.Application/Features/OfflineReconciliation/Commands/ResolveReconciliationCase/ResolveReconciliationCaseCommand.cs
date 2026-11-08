@@ -13,4 +13,5 @@ public sealed record ResolveReconciliationCaseCommand(
     uint ExpectedVersion,
     string Action,
     string Reason,
-    Guid? LinkedOperationId);
+    Guid? LinkedOperationId,
+    Intelibill.Application.Features.Sales.Commands.SyncOfflineSales.TillReconciliationEvidence? TillReconciliationEvidence = null);

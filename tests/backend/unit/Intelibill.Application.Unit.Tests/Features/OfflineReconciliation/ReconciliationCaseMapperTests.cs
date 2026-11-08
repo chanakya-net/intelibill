@@ -186,7 +186,7 @@ public sealed class ReconciliationCaseMapperTests
     }
 
     private ReconciliationCaseMapper Mapper() =>
-        new(_eventRepository, _userRepository, _leaseRepository, _adjustmentRepository, _saleRepository, _submissionRepository);
+        new(_eventRepository, _userRepository, _leaseRepository, _adjustmentRepository, _saleRepository, _submissionRepository, Substitute.For<ITillRepository>());
 
     private ReconciliationIssue StockCase(Guid? createdBy = null) =>
         ReconciliationIssue.Create(

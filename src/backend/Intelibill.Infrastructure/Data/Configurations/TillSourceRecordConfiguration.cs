@@ -12,7 +12,7 @@ internal sealed class TillSourceRecordConfiguration : IEntityTypeConfiguration<T
     {
         b.ToTable("till_source_records", t =>
         {
-            t.HasCheckConstraint("ck_till_sources_type", "source_type BETWEEN 1 AND 11");
+            t.HasCheckConstraint("ck_till_sources_type", "source_type BETWEEN 1 AND 12");
             t.HasCheckConstraint("ck_till_sources_labels", "length(btrim(purpose)) BETWEEN 1 AND 100 AND length(btrim(operation_key)) BETWEEN 1 AND 128");
             t.HasCheckConstraint("ck_till_sources_times", "recorded_at >= occurred_at");
             t.HasCheckConstraint("ck_till_sources_settlement", "abs(store_credit_issued) <= 9999999999999999.99 AND store_credit_issued = round(store_credit_issued,2) AND abs(store_credit_redeemed) <= 9999999999999999.99 AND store_credit_redeemed = round(store_credit_redeemed,2) AND abs(receivable_change) <= 9999999999999999.99 AND receivable_change = round(receivable_change,2)");

@@ -19,7 +19,8 @@ public sealed class ReconciliationCaseMapper(
     IInvoiceLeaseRepository invoiceLeaseRepository,
     IInventoryAdjustmentRepository adjustmentRepository,
     ISaleRepository saleRepository,
-    IOfflineSubmissionRepository submissionRepository)
+    IOfflineSubmissionRepository submissionRepository,
+    ITillRepository tillRepository)
 {
     public async Task<IReadOnlyList<ReconciliationCaseSummaryDto>> ToSummariesAsync(
         IReadOnlyList<ReconciliationIssue> issues,
@@ -90,6 +91,8 @@ public sealed class ReconciliationCaseMapper(
         var actions = ReconciliationActionPolicy.AvailableActions(issue, submission, role, actorUserId);
         var candidates = await LinkCandidatesAsync(issue, submission, actions, cancellationToken);
 
+        var late = submission?.SaleId is { } posted ? await tillRepository.FindLatePostingAsync(issue.ShopId, submission.Id, posted, cancellationToken) : null;
+
         return new ReconciliationCaseDto(
             issue.Id,
             issue.Version,
@@ -128,7 +131,10 @@ public sealed class ReconciliationCaseMapper(
                     e.LinkedOperationId,
                     e.OccurredAt))
                 .ToList(),
-            candidates);
+            candidates,
+            late is null ? null : new(late.Id, late.OfflineSubmissionId, late.SaleId, late.CaseId, late.SessionId, late.CloseId,
+                late.SourceBusinessDate, late.OccurredAt, late.RecordedAt, late.CashierId, late.TenderLines, late.EvidenceStatus,
+                late.ManagerReason, late.IncludedInCount, late.EvidenceReason));
     }
 
     /// <summary>
@@ -256,7 +262,7 @@ public sealed class ReconciliationCaseMapper(
                     line.TaxRatePercent,
                     line.TaxAmount,
                     line.TotalAmount))
-                .ToList());
+                .ToList(), sale.Till, sale.TenderLines, sale.TillBusinessDate, sale.TillCashierId);
     }
 
     private static ReconciliationPersonDto Person(Guid userId, IReadOnlyDictionary<Guid, string> names) =>

@@ -11,4 +11,5 @@ public enum ReconciliationAction
     LinkExistingSale = 3,
     LinkStockCorrection = 4,
     RetryHistoricalLease = 5,
+    ReconcileTillSale = 6,
 }

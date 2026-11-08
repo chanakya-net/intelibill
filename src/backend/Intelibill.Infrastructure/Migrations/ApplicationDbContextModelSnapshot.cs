@@ -5974,6 +5974,11 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("EvidenceReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("evidence_reason");
+
                     b.Property<string>("EvidenceStatus")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -6059,6 +6064,8 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("till_late_postings", null, t =>
                         {
                             t.HasCheckConstraint("ck_till_late_postings_evidence", "NOT included_in_count AND evidence_status IN ('Unknown','Recorded') AND length(btrim(manager_reason)) BETWEEN 1 AND 500 AND recorded_at >= occurred_at AND (close_id IS NULL OR session_id IS NOT NULL) AND jsonb_typeof(tender_lines) = 'array' AND jsonb_array_length(tender_lines) <= 1 AND (evidence_status <> 'Unknown' OR jsonb_array_length(tender_lines) = 0)");
+
+                            t.HasCheckConstraint("ck_till_late_postings_evidence_reason", "evidence_reason IS NULL OR length(btrim(evidence_reason)) BETWEEN 1 AND 500");
                         });
                 });
 
@@ -6205,7 +6212,7 @@ namespace Intelibill.Infrastructure.Migrations
 
                             t.HasCheckConstraint("ck_till_movements_labels", "length(btrim(purpose)) BETWEEN 1 AND 100 AND length(btrim(operation_key)) BETWEEN 1 AND 128 AND recorded_at >= occurred_at");
 
-                            t.HasCheckConstraint("ck_till_movements_type", "method BETWEEN 2 AND 6 AND source_type BETWEEN 1 AND 11 AND sequence > 0 AND line_number = 1");
+                            t.HasCheckConstraint("ck_till_movements_type", "method BETWEEN 2 AND 6 AND source_type BETWEEN 1 AND 12 AND sequence > 0 AND line_number = 1");
                         });
                 });
 
@@ -6416,7 +6423,7 @@ namespace Intelibill.Infrastructure.Migrations
 
                             t.HasCheckConstraint("ck_till_sources_times", "recorded_at >= occurred_at");
 
-                            t.HasCheckConstraint("ck_till_sources_type", "source_type BETWEEN 1 AND 11");
+                            t.HasCheckConstraint("ck_till_sources_type", "source_type BETWEEN 1 AND 12");
                         });
                 });
 

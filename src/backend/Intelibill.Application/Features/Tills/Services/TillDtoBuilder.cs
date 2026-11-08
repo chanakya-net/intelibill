@@ -21,7 +21,7 @@ public sealed class TillDtoBuilder(ITillRepository tills)
                 close.AwaitingReview, close.BusinessDate, close.TillName, close.CashierName, close.CashierId),
             review is null ? null : new(review.Id, review.CloseId, review.ReviewedBy, review.ReviewedAt, review.Reason),
             late.Select(x => new TillLatePostingDto(x.Id, x.OfflineSubmissionId, x.SaleId, x.CaseId, x.SessionId, x.CloseId,
-                x.SourceBusinessDate, x.OccurredAt, x.RecordedAt, x.CashierId, x.TenderLines, x.EvidenceStatus, x.ManagerReason, x.IncludedInCount)).ToArray());
+                x.SourceBusinessDate, x.OccurredAt, x.RecordedAt, x.CashierId, x.TenderLines, x.EvidenceStatus, x.ManagerReason, x.IncludedInCount, x.EvidenceReason)).ToArray());
     }
 
     public async Task<TillSessionDetailDto> DetailAsync(TillSession session, int page, int pageSize, CancellationToken ct)

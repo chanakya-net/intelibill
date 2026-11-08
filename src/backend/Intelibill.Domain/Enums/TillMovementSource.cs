@@ -12,5 +12,6 @@ public enum TillMovementSource
     SaleCancellation = 8,
     CustomerPaymentReversal = 9,
     SupplierPaymentReversal = 10,
-    ManualCash = 11
+    ManualCash = 11,
+    OfflineSale = 12
 }

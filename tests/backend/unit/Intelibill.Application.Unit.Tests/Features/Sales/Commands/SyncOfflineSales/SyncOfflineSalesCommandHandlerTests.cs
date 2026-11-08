@@ -80,7 +80,7 @@ public class SyncOfflineSalesCommandHandlerTests
                 _shopRepository,
                 _varianceAnalyzer,
                 new BusinessClock(_clock),
-                _postingPeriods),
+                _postingPeriods, Substitute.For<Intelibill.Application.Features.Tills.ITillPostingService>(), Substitute.For<Intelibill.Application.Features.Tills.ITillSessionPolicy>(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>()),
             _unitOfWork,
             _clock);
 
@@ -1710,7 +1710,7 @@ public class SyncOfflineSalesCommandHandlerTests
             .Returns(Task.FromResult<ErrorOr<Customer?>>(customer));
         SetupSuccessfulLineValidation(_saleLineValidator, shopId, item, batch, inventory);
         var poster = new OfflineSalePoster(
-            _saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock), _postingPeriods);
+            _saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock), _postingPeriods, Substitute.For<Intelibill.Application.Features.Tills.ITillPostingService>(), Substitute.For<Intelibill.Application.Features.Tills.ITillSessionPolicy>(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>());
 
         var outcome = await poster.StageAsync(
             new OfflineSalePostingRequest(
@@ -1830,7 +1830,7 @@ public class SyncOfflineSalesCommandHandlerTests
     }
 
     private OfflineSalePoster Poster() =>
-        new(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock), _postingPeriods);
+        new(_saleLineValidator, _customerResolver, _saleRepository, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _varianceAnalyzer, new BusinessClock(_clock), _postingPeriods, Substitute.For<Intelibill.Application.Features.Tills.ITillPostingService>(), Substitute.For<Intelibill.Application.Features.Tills.ITillSessionPolicy>(), Substitute.For<ITillRepository>(), Substitute.For<IBankAccountRepository>());
 
     private static OfflineSalePostingRequest PostingRequest(Guid shopId, OfflineSaleSyncCommand sale, InvoiceLease lease) =>
         new(shopId, "device-1", sale.ClientSaleId, sale, "hash", Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Now, new Dictionary<Guid, DiscountRule>(), lease);

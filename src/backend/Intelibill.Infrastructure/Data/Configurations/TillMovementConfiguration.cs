@@ -13,7 +13,7 @@ internal sealed class TillMovementConfiguration : IEntityTypeConfiguration<TillM
         b.ToTable("till_movements", t =>
         {
             t.HasCheckConstraint("ck_till_movements_amount", "signed_amount <> 0 AND abs(signed_amount) <= 9999999999999999.99 AND signed_amount = round(signed_amount,2)");
-            t.HasCheckConstraint("ck_till_movements_type", "method BETWEEN 2 AND 6 AND source_type BETWEEN 1 AND 11 AND sequence > 0 AND line_number = 1");
+            t.HasCheckConstraint("ck_till_movements_type", "method BETWEEN 2 AND 6 AND source_type BETWEEN 1 AND 12 AND sequence > 0 AND line_number = 1");
             t.HasCheckConstraint("ck_till_movements_cash", "(cash_tendered IS NULL AND change IS NULL) OR (method = 2 AND cash_tendered IS NOT NULL AND change IS NOT NULL AND change >= 0 AND cash_tendered >= abs(signed_amount) AND cash_tendered-change = abs(signed_amount) AND cash_tendered <= 9999999999999999.99 AND cash_tendered = round(cash_tendered,2) AND change = round(change,2))");
             t.HasCheckConstraint("ck_till_movements_labels", "length(btrim(purpose)) BETWEEN 1 AND 100 AND length(btrim(operation_key)) BETWEEN 1 AND 128 AND recorded_at >= occurred_at");
         });

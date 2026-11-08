@@ -6,6 +6,8 @@ public static partial class Errors
 {
     public static class Till
     {
+        public static Error ReviewNotRequired => Error.Conflict("Till.ReviewNotRequired", "The invoice belongs to its still open session. Use ordinary historical replay to include it in the drawer.");
+        public static Error ReviewRequired => Error.Conflict("Till.ReviewRequired", "The frozen invoice requires explicit till reconciliation.");
         public static Error Disabled => Error.Conflict("Till.Disabled", "Till sessions are not enabled for this shop.");
         public static Error TenderRequired => Error.Validation("Till.TenderRequired", "A concrete known external tender is required.");
         public static Error MixedTenderUnsupported => Error.Validation("Till.MixedTenderUnsupported", "Exactly one external tender is supported.");

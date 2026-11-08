@@ -393,7 +393,7 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
         var line = Assert.Single(snapshot.GetProperty("lines").EnumerateArray());
         Assert.Equal(1m, line.GetProperty("quantity").GetDecimal());
         Assert.Equal("B-001", line.GetProperty("batchNumber").GetString());
-        Assert.Equal(["RetryHistoricalLease", "LinkExistingSale", "Escalate"], Strings(detail.GetProperty("availableActions")));
+        Assert.Equal(["RetryHistoricalLease", "ReconcileTillSale", "LinkExistingSale", "Escalate"], Strings(detail.GetProperty("availableActions")));
 
         var retried = await ResolveAsync(client, owner.Token, caseId, detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "Cashier was offline all week");
         Assert.Equal(HttpStatusCode.OK, retried.StatusCode);
@@ -512,7 +512,7 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
         Assert.Equal(owner.UserId, submission.GetProperty("submittedBy").GetProperty("userId").GetGuid());
         Assert.Equal(operationId, submission.GetProperty("recoveryOperationId").GetString());
         Assert.Equal(lease.GetProperty("leaseId").GetGuid(), submission.GetProperty("originalLeaseId").GetGuid());
-        Assert.Equal(["RetryHistoricalLease", "LinkExistingSale", "Escalate"], Strings(detail.GetProperty("availableActions")));
+        Assert.Equal(["RetryHistoricalLease", "ReconcileTillSale", "LinkExistingSale", "Escalate"], Strings(detail.GetProperty("availableActions")));
 
         var retried = await ResolveAsync(client, owner.Token, caseId, detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "Recovered from the retired till");
         Assert.Equal(HttpStatusCode.OK, retried.StatusCode);
@@ -765,7 +765,7 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
         var detail = await GetCaseAsync(client, owner.Token, caseId);
         Assert.Equal("Open", detail.GetProperty("status").GetString());
         Assert.Equal([Errors.OfflineReconciliation.IssueTimeInFuture.Code], Strings(detail.GetProperty("reasonCodes")));
-        Assert.Equal(["RetryHistoricalLease", "LinkExistingSale", "Escalate"], Strings(detail.GetProperty("availableActions")));
+        Assert.Equal(["RetryHistoricalLease", "ReconcileTillSale", "LinkExistingSale", "Escalate"], Strings(detail.GetProperty("availableActions")));
         var submission = detail.GetProperty("submission");
         Assert.Equal("Sync", submission.GetProperty("source").GetString());
         AssertSameInstant(soldAt, submission.GetProperty("claimedSoldAt").GetDateTimeOffset());

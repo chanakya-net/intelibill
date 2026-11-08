@@ -19,8 +19,15 @@ public sealed class TillLatePosting : BaseEntity
     public IReadOnlyList<TenderLine> TenderLines { get; private set; } = [];
     public string EvidenceStatus { get; private set; } = string.Empty;
     public string ManagerReason { get; private set; } = string.Empty;
+    public string? EvidenceReason { get; private set; }
     public bool IncludedInCount { get; private set; }
     private TillLatePosting() { }
+    public void AttachEvidenceReason(string reason)
+    {
+        if (EvidenceReason is not null || string.IsNullOrWhiteSpace(reason) || reason.Trim().Length > 500)
+            throw new InvalidOperationException("Supplemental evidence requires one immutable reason.");
+        EvidenceReason = reason.Trim();
+    }
     public static ErrorOr<TillLatePosting> Record(Guid shopId, Guid submissionId, Guid saleId, Guid caseId, Guid? sessionId,
         Guid? closeId, DateOnly businessDate, DateTimeOffset occurredAt, DateTimeOffset recordedAt, Guid cashierId,
         IReadOnlyList<TenderLine> tenderLines, string evidenceStatus, string managerReason)

@@ -838,7 +838,7 @@ public sealed class ResolveReconciliationCaseCommandHandlerTests
             _leaseRepository,
             _discountRuleRepository,
             _poster,
-            new ReconciliationCaseMapper(_eventRepository, _userRepository, _leaseRepository, _adjustmentRepository, _saleRepository, _submissionRepository),
+            new ReconciliationCaseMapper(_eventRepository, _userRepository, _leaseRepository, _adjustmentRepository, _saleRepository, _submissionRepository, Substitute.For<ITillRepository>()),
             _unitOfWork,
             _executor,
             new FixedClock(Now));
