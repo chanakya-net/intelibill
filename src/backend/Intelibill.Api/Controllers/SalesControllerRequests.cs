@@ -153,7 +153,7 @@ public sealed record RecordSaleReturnRequest(
     IReadOnlyList<RecordSaleReturnItemRequest> Items,
     PaymentMethod? PayoutMethod = null,
     DateTimeOffset? CreditNoteExpiresAt = null,
-    string? CreditNoteReason = null);
+    string? CreditNoteReason = null, string? OperationKey = null, TillPostingContext? Till = null, TenderLine? RefundTender = null, bool? RefundConfirmed = null);
 
 public sealed record RecordSaleReturnItemRequest(
     Guid SaleItemId,
@@ -163,4 +163,4 @@ public sealed record RecordSaleReturnItemRequest(
     string? Notes,
     SaleLineType LineType = SaleLineType.Goods);
 
-public sealed record VoidSaleReturnRequest(string Reason);
+public sealed record VoidSaleReturnRequest(string Reason, string? OperationKey = null, TillPostingContext? Till = null, TillSettlementEvidence? SettlementEvidence = null);

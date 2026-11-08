@@ -1,3 +1,6 @@
+using Intelibill.Application.Features.Sales.DTOs;
+using Intelibill.Application.Features.Tills;
+using Intelibill.Application.Common.Operations;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.CreditNotes.Services;
@@ -25,22 +28,58 @@ public sealed class RecordSaleReturnCommandHandler(
     IReturnAccountingPolicy returnAccountingPolicy,
     ISaleReturnMutationCoordinator mutationCoordinator,
     IUnitOfWork unitOfWork,
-    IBusinessClock businessClock)
+    IBusinessClock businessClock,
+    IShopRepository shops, ISaleRepository sales, ITillPostingService tills, ITillSessionPolicy tillPolicy, IFinancialOperationExecutor executor)
 {
-    public Task<ErrorOr<Success>> HandleAsync(
-        RecordSaleReturnCommand command,
-        CancellationToken cancellationToken) =>
-        // Validation runs under the sale lock: what a competing return committed is counted, and
-        // nothing can be returned between the check and the write.
-        mutationCoordinator.ExecuteAsync(
-            command.ShopId,
-            command.SaleId,
-            ct => RecordAsync(command, ct),
-            cancellationToken);
+    public async Task<ErrorOr<Success>> HandleAsync(RecordSaleReturnCommand command, CancellationToken cancellationToken)
+    {
+        var key = FinancialOperationHasher.NormalizeKey(command.OperationKey);
+        if (key is not null)
+        {
+            var member = await shops.GetMembershipAsync(command.ActorUserId, command.ShopId, cancellationToken);
+            if (member is null || !member.IsActive) return Errors.Shop.MembershipNotFound;
+            if (member.Role is not (ShopRole.Owner or ShopRole.Manager)) return Errors.Sale.ReturnForbidden;
+            if (!await sales.ExistsAsync(command.ShopId, command.SaleId, cancellationToken)) return Errors.Sale.NotFound(command.SaleId);
+            var result = await executor.ExecuteAsync<SaleReturnOperationOutcome>(new(command.ShopId, FinancialOperationType.SaleReturn, key),
+                command.ActorUserId, command.SaleId, FinancialOperationHasher.Compute(command with { OperationKey = null }), async ct =>
+                {
+                    Guid? sourceId = null;
+                    var posted = await ExecuteAsync(command, false, ct, id => sourceId = id);
+                    if (posted.IsError) return posted.Errors;
+                    return new SaleReturnOperationOutcome(sourceId ?? throw new InvalidOperationException("Return source was not recorded."), command.SaleId);
+                }, cancellationToken);
+            return result.IsError ? result.Errors : Result.Success;
+        }
+        return await ExecuteAsync(command, true, cancellationToken);
+    }
+
+    private Task<ErrorOr<Success>> ExecuteAsync(RecordSaleReturnCommand command, bool ownsTransaction, CancellationToken ct, Action<Guid>? recorded = null)
+    {
+        if (ownsTransaction && !tillPolicy.IsEnabled(command.ShopId) && command.Till is null && command.RefundTender is null && !command.RefundConfirmed.HasValue)
+            return mutationCoordinator.ExecuteAsync(command.ShopId, command.SaleId, token => RecordAsync(command, null, token), ct);
+        // This closure belongs to exactly one transaction attempt; never retain a locked session on the handler.
+        TillSession? session = null;
+        return mutationCoordinator.ExecuteAsync(command.ShopId, command.SaleId, async token =>
+        {
+            if (tillPolicy.IsEnabled(command.ShopId) && FinancialOperationHasher.NormalizeKey(command.OperationKey) is null)
+                return Errors.Operation.InvalidKey;
+            if (!tillPolicy.IsEnabled(command.ShopId) && (command.RefundTender is not null || command.RefundConfirmed.HasValue))
+                return Errors.Till.Disabled;
+            var shop = await shops.GetByIdAsync(command.ShopId, token);
+            if (shop is null) return Errors.Shop.ShopNotFound;
+            var acquired = await tills.AcquireAsync(command.ShopId, command.ActorUserId, command.Till,
+                businessClock.Today(shop.BusinessTimeZoneId), token);
+            if (acquired.IsError) return acquired.Errors;
+            session = acquired.Value;
+            return Result.Success;
+        }, token => RecordAsync(command, session, token, recorded), ownsTransaction, ct);
+    }
 
     private async Task<ErrorOr<Success>> RecordAsync(
         RecordSaleReturnCommand command,
-        CancellationToken cancellationToken)
+        TillSession? session,
+        CancellationToken cancellationToken,
+        Action<Guid>? recorded = null)
     {
         var validation = await saleReturnValidator.ValidateAsync(
             new SaleReturnValidationRequest(
@@ -68,6 +107,16 @@ public sealed class RecordSaleReturnCommandHandler(
         var warningValidation = ValidateWarnings(validated.Calculation.Warnings);
         if (warningValidation.IsError)
             return warningValidation.Errors;
+
+        if (session is not null)
+        {
+            var external = command.PayoutDestination == ReturnPayoutDestination.Refund ? validated.Calculation.PayoutAmount : 0m;
+            if (external > 0 && command.RefundTender is null) return Errors.Till.TenderRequired;
+            if ((command.RefundConfirmed == true) != (external > 0))
+                return Error.Validation("Till.RefundConfirmationInvalid", "Confirm the actual external refund only when an external payout occurs.");
+            var tenderValidation = TenderLine.ValidateLines(command.RefundTender is null ? [] : [command.RefundTender], external);
+            if (tenderValidation.IsError) return tenderValidation.Errors;
+        }
 
         // Classified before anything moves: a refund the policy cannot classify is refused whole.
         var classification = returnAccountingPolicy.Classify(validated.Calculation.Lines
@@ -169,6 +218,12 @@ public sealed class RecordSaleReturnCommandHandler(
         if (saleReturn.IsError)
             return saleReturn.Errors;
 
+        if (session is not null)
+        {
+            var evidence = saleReturn.Value.RecordRefundEvidence(command.RefundTender, command.RefundConfirmed == true);
+            if (evidence.IsError) return evidence.Errors;
+        }
+
         CustomerLedgerEntry? returnCredit = null;
         if (validated.Sale.CustomerId.HasValue && validated.Calculation.DueReductionAmount > 0m)
         {
@@ -226,7 +281,16 @@ public sealed class RecordSaleReturnCommandHandler(
         if (creditNote is not null)
             await creditNoteRepository.AddAsync(creditNote, cancellationToken);
 
+        if (session is not null)
+        {
+            var appended = await tills.AppendAsync(session, new(TillMovementSource.SaleReturn, saleReturn.Value.Id, "refund",
+                command.RefundTender is null ? [] : [command.RefundTender], -1m, processedAt, command.OperationKey!.Trim(), command.Notes,
+                StoreCreditIssued: command.PayoutDestination == ReturnPayoutDestination.CreditNote ? validated.Calculation.PayoutAmount : 0m,
+                ReceivableChange: -validated.Calculation.DueReductionAmount), command.ActorUserId, cancellationToken);
+            if (appended.IsError) return appended.Errors;
+        }
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        recorded?.Invoke(saleReturn.Value.Id);
 
         return Result.Success;
     }

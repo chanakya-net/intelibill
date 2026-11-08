@@ -1,3 +1,7 @@
+using Intelibill.Application.Features.Sales.DTOs;
+using Intelibill.Application.Features.Tills;
+using Intelibill.Application.Features.Tills.Services;
+using Intelibill.Application.Common.Operations;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Services.Returns;
@@ -21,7 +25,7 @@ public sealed class VoidSaleReturnCommandHandler(
     ICreditNoteRepository creditNoteRepository,
     ISaleReturnMutationCoordinator mutationCoordinator,
     IUnitOfWork unitOfWork,
-    IBusinessClock businessClock)
+    IBusinessClock businessClock, TillSourceSettlementService settlement, IFinancialOperationExecutor executor)
 {
     public async Task<ErrorOr<Success>> HandleAsync(
         VoidSaleReturnCommand command,
@@ -39,7 +43,7 @@ public sealed class VoidSaleReturnCommandHandler(
             return Errors.Shop.ShopNotFound;
 
         var membership = await shopRepository.GetMembershipAsync(command.ActorUserId, command.ShopId, cancellationToken);
-        if (membership is null)
+        if (membership is null || !membership.IsActive)
             return Errors.Shop.MembershipNotFound;
 
         if (membership.Role is not (ShopRole.Owner or ShopRole.Manager))
@@ -51,16 +55,43 @@ public sealed class VoidSaleReturnCommandHandler(
         if (saleId is null)
             return Errors.Sale.ReturnNotFound(command.SaleReturnId);
 
-        return await mutationCoordinator.ExecuteAsync(
-            command.ShopId,
-            saleId.Value,
-            ct => VoidAsync(command, shop, ct),
-            cancellationToken);
+        var key = FinancialOperationHasher.NormalizeKey(command.OperationKey);
+        if (key is not null)
+        {
+            var result = await executor.ExecuteAsync<SaleReturnOperationOutcome>(new(command.ShopId, FinancialOperationType.SaleReturnVoid, key),
+                command.ActorUserId, command.SaleReturnId, FinancialOperationHasher.Compute(command with { OperationKey = null }), async token =>
+                {
+                    var posted = await ExecuteAsync(command, shop, saleId.Value, false, token);
+                    if (posted.IsError) return posted.Errors;
+                    return new SaleReturnOperationOutcome(command.SaleReturnId, saleId.Value);
+                }, cancellationToken);
+            return result.IsError ? result.Errors : Result.Success;
+        }
+        return await ExecuteAsync(command, shop, saleId.Value, true, cancellationToken);
+    }
+
+    private Task<ErrorOr<Success>> ExecuteAsync(VoidSaleReturnCommand command, Shop shop, Guid saleId, bool ownsTransaction, CancellationToken ct)
+    {
+        if (ownsTransaction && !settlement.IsEnabled(command.ShopId) && command.Till is null && command.SettlementEvidence is null)
+            return mutationCoordinator.ExecuteAsync(command.ShopId, saleId, token => VoidAsync(command, shop, null, token), ct);
+        TillSession? session = null;
+        return mutationCoordinator.ExecuteAsync(command.ShopId, saleId, async token =>
+        {
+            if (command.Till is not null && command.SettlementEvidence?.Disposition == TillSettlementDisposition.NoPhysicalMovement)
+                return Error.Validation("Till.SettlementEvidenceInvalid", "No physical movement must not select a drawer.");
+            var acquired = await settlement.AcquireAsync(command.ShopId, command.ActorUserId, command.Till, command.OperationKey,
+                command.SettlementEvidence, command.SettlementEvidence?.Tender?.AppliedAmount ?? 0m,
+                businessClock.Today(shop.BusinessTimeZoneId), token);
+            if (acquired.IsError) return acquired.Errors;
+            session = acquired.Value;
+            return Result.Success;
+        }, token => VoidAsync(command, shop, session, token), ownsTransaction, ct);
     }
 
     private async Task<ErrorOr<Success>> VoidAsync(
         VoidSaleReturnCommand command,
         Shop shop,
+        TillSession? session,
         CancellationToken cancellationToken)
     {
         var saleReturn = await saleReturnRepository.GetByIdWithItemsAsync(
@@ -72,6 +103,13 @@ public sealed class VoidSaleReturnCommandHandler(
 
         if (saleReturn.IsVoided)
             return Errors.Sale.ReturnAlreadyVoided;
+
+        // Validate the source's immutable payout evidence before stock, credit or accounting changes.
+        if (command.SettlementEvidence is { } evidence)
+        {
+            var recorded = saleReturn.RecordVoidSettlementEvidence(evidence);
+            if (recorded.IsError) return recorded.Errors;
+        }
 
         // Locked so a redemption cannot land between this check and the void.
         var creditNote = await creditNoteRepository.GetBySaleReturnIdForUpdateWithRedemptionsAsync(
@@ -176,6 +214,9 @@ public sealed class VoidSaleReturnCommandHandler(
         if (returnCreditReversal is not null)
             await customerLedgerEntryRepository.AddAsync(returnCreditReversal, cancellationToken);
 
+        var appended = await settlement.AppendAsync(session, TillMovementSource.SaleReturnVoid, saleReturn.Id,
+            command.ActorUserId, command.OperationKey, command.SettlementEvidence, cancellationToken);
+        if (appended.IsError) return appended.Errors;
         saleReturnRepository.Update(saleReturn);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 

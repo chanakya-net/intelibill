@@ -1,3 +1,4 @@
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Enums;
 
 namespace Intelibill.Application.Features.Sales.DTOs;
@@ -15,7 +16,7 @@ public sealed record SaleReturnDto(
     decimal TotalTaxableAmount,
     decimal TotalTaxAmount,
     SaleReturnCreditNoteSummaryDto? CreditNote,
-    IReadOnlyList<SaleReturnItemDto> Items);
+    IReadOnlyList<SaleReturnItemDto> Items, TenderLine? RefundTender = null, bool? RefundConfirmed = null, TillSettlementEvidence? VoidSettlementEvidence = null);
 
 public sealed record SaleReturnItemDto(
     Guid SaleReturnItemId,
@@ -34,3 +35,6 @@ public sealed record SaleReturnCreditNoteSummaryDto(
     decimal AvailableBalance,
     DateTimeOffset? ExpiresAt,
     string Reason);
+
+/// <summary>Immutable completion identity saved for keyed return and void recovery.</summary>
+public sealed record SaleReturnOperationOutcome(Guid SaleReturnId, Guid SaleId);

@@ -25,6 +25,32 @@ public sealed class SaleReturn : BaseEntity
     public decimal DueReductionAmount { get; private set; }
     public decimal PayoutAmount { get; private set; }
     public ReturnPayoutDestination? PayoutDestination { get; private set; }
+    public TenderLine? RefundTender { get; private set; }
+    public bool? RefundConfirmed { get; private set; }
+    public TillSettlementEvidence? VoidSettlementEvidence { get; private set; }
+
+    public ErrorOr<Success> RecordRefundEvidence(TenderLine? tender, bool confirmed)
+    {
+        if (RefundConfirmed.HasValue) return Error.Conflict("Till.EvidenceAlreadyRecorded", "Refund evidence is immutable.");
+        var external = PayoutDestination == ReturnPayoutDestination.Refund ? PayoutAmount : 0m;
+        var valid = TenderLine.ValidateLines(tender is null ? [] : [tender], external);
+        if (valid.IsError) return valid.Errors;
+        if (confirmed != (external > 0)) return Error.Validation("Till.RefundConfirmationInvalid", "Confirm the actual external refund.");
+        RefundTender = tender; RefundConfirmed = confirmed;
+        return Result.Success;
+    }
+
+    public ErrorOr<Success> RecordVoidSettlementEvidence(TillSettlementEvidence evidence)
+    {
+        if (VoidSettlementEvidence is not null) return Error.Conflict("Till.EvidenceAlreadyRecorded", "Void evidence is immutable.");
+        var valid = evidence.Validate(); if (valid.IsError) return valid.Errors;
+        if (evidence.Disposition != TillSettlementDisposition.NoPhysicalMovement &&
+            (evidence.Disposition != TillSettlementDisposition.MoneyReceived || RefundConfirmed != true || RefundTender is null || evidence.Tender!.AppliedAmount != RefundTender.AppliedAmount))
+            return Error.Validation("Till.SettlementDirectionInvalid", "Recovery requires the whole original evidenced external payout.");
+        VoidSettlementEvidence = evidence;
+        return Result.Success;
+    }
+
     public decimal TotalTaxableAmount { get; private set; }
     public decimal TotalTaxAmount { get; private set; }
     public decimal? CustomerBalanceBefore { get; private set; }

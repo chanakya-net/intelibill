@@ -68,7 +68,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                     i.LineType,
                     i.Condition,
                     i.ApprovedRefundAmount,
-                    i.Notes)).ToList()),
+                    i.Notes)).ToList(), request.OperationKey, request.Till, request.RefundTender, request.RefundConfirmed),
             cancellationToken);
 
         if (commitResult.IsError)
@@ -96,7 +96,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                 UserId!.Value,
                 ActiveShopId!.Value,
                 saleReturnId,
-                request.Reason),
+                request.Reason, request.OperationKey, request.Till, request.SettlementEvidence),
             cancellationToken);
 
         return result.ToActionResult(_ => NoContent());

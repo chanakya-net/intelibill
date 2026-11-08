@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Tills;
+using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.CreditNotes.Services;
@@ -30,6 +32,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
     private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
     private readonly ICreditNoteCodeGenerator _creditNoteCodeGenerator = Substitute.For<ICreditNoteCodeGenerator>();
     private readonly ISaleReturnNumberGenerator _returnNumberGenerator = Substitute.For<ISaleReturnNumberGenerator>();
+    private readonly IFinancialOperationExecutor _executor = Substitute.For<IFinancialOperationExecutor>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly IItemRepository _itemRepository = Substitute.For<IItemRepository>();
     private readonly ISaleReturnCalculator _calculator = new SaleReturnCalculator();
@@ -67,7 +70,8 @@ public sealed class RecordSaleReturnCommandHandlerTests
             _accountingPolicy,
             new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork),
             _unitOfWork,
-            new BusinessClock(_time));
+            new BusinessClock(_time), _shopRepository, _saleRepository,
+            Substitute.For<ITillPostingService>(), Substitute.For<ITillSessionPolicy>(), _executor);
     }
 
     private readonly MutableTimeProvider _time = new();
@@ -1274,4 +1278,18 @@ public sealed class RecordSaleReturnCommandHandlerTests
         await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
         await _unitOfWork.Received().RollbackTransactionAsync(Arg.Any<CancellationToken>());
     }
+    [Fact]
+    public async Task KeyedReturn_SuspendedOwner_IsRefusedBeforeReplay()
+    {
+        var fixture = ArrangeSale(ShopRole.Owner, 0m, false);
+        var member = ShopMembership.Create(fixture.Shop.Id, fixture.User.Id, ShopRole.Owner, true);
+        member.ChangeAuthority(ShopRole.Owner, MembershipStatus.Suspended);
+        _shopRepository.GetMembershipAsync(fixture.User.Id, fixture.Shop.Id, Arg.Any<CancellationToken>()).Returns(member);
+        _saleRepository.ExistsAsync(fixture.Shop.Id, fixture.Sale.Id, Arg.Any<CancellationToken>()).Returns(true);
+        var command = Command(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, ReturnPayoutDestination.Refund) with { OperationKey = "committed-key" };
+        var result = await CreateHandler().HandleAsync(command, default);
+        Assert.Equal("Shop.MembershipNotFound", result.FirstError.Code);
+        Assert.Empty(_executor.ReceivedCalls());
+    }
+
 }

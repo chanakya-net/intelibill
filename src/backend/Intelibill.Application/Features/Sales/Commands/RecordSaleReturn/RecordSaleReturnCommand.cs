@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Tills;
+using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Enums;
 
 namespace Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
@@ -12,7 +14,8 @@ public sealed record RecordSaleReturnCommand(
     string? Notes,
     DateTimeOffset? CreditNoteExpiresAt,
     string? CreditNoteReason,
-    IReadOnlyList<RecordSaleReturnItemCommand> Items);
+    IReadOnlyList<RecordSaleReturnItemCommand> Items,
+    string? OperationKey = null, TillPostingContext? Till = null, TenderLine? RefundTender = null, bool? RefundConfirmed = null);
 
 public sealed record RecordSaleReturnItemCommand(
     Guid SaleItemId,

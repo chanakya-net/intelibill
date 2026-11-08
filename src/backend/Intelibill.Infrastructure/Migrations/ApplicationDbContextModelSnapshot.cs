@@ -4304,6 +4304,14 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("processed_by");
 
+                    b.Property<bool?>("RefundConfirmed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("refund_confirmed");
+
+                    b.Property<string>("RefundTender")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("refund_tender");
+
                     b.Property<string>("ReturnNumber")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -4341,6 +4349,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("void_reason");
+
+                    b.Property<string>("VoidSettlementEvidence")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("void_settlement_evidence");
 
                     b.Property<DateTimeOffset?>("VoidedAt")
                         .HasColumnType("timestamp with time zone")

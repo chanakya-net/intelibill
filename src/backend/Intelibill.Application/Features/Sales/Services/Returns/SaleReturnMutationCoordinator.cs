@@ -22,13 +22,21 @@ internal sealed class SaleReturnMutationCoordinator(
     private const string DeadlockDetected = "40P01";
     private const string SerializationFailure = "40001";
 
-    public async Task<ErrorOr<TResult>> ExecuteAsync<TResult>(
+    public Task<ErrorOr<TResult>> ExecuteAsync<TResult>(
         Guid shopId,
         Guid saleId,
         Func<CancellationToken, Task<ErrorOr<TResult>>> mutation,
         CancellationToken cancellationToken)
     {
-        await unitOfWork.BeginTransactionAsync(cancellationToken);
+        return ExecuteAsync(shopId, saleId, _ => Task.FromResult<ErrorOr<Success>>(Result.Success), mutation, true, cancellationToken);
+    }
+
+    public async Task<ErrorOr<TResult>> ExecuteAsync<TResult>(Guid shopId, Guid saleId,
+        Func<CancellationToken, Task<ErrorOr<Success>>> beforeBusinessLocks,
+        Func<CancellationToken, Task<ErrorOr<TResult>>> mutation,
+        bool ownsTransaction, CancellationToken cancellationToken)
+    {
+        if (ownsTransaction) await unitOfWork.BeginTransactionAsync(cancellationToken);
         var committed = false;
         var failing = false;
         try
@@ -43,6 +51,9 @@ internal sealed class SaleReturnMutationCoordinator(
                 shopId, businessClock.Today(shop.BusinessTimeZoneId), cancellationToken);
             if (fence.IsError)
                 return fence.Errors;
+
+            var ready = await beforeBusinessLocks(cancellationToken);
+            if (ready.IsError) return ready.Errors;
 
             var outcome = await saleRepository.LockForReturnMutationAsync(shopId, saleId, cancellationToken);
             switch (outcome)
@@ -61,7 +72,7 @@ internal sealed class SaleReturnMutationCoordinator(
             if (result.IsError)
                 return result;
 
-            await unitOfWork.CommitTransactionAsync(cancellationToken);
+            if (ownsTransaction) await unitOfWork.CommitTransactionAsync(cancellationToken);
             committed = true;
             return result;
         }
@@ -86,7 +97,7 @@ internal sealed class SaleReturnMutationCoordinator(
         }
         finally
         {
-            if (!committed)
+            if (ownsTransaction && !committed)
             {
                 try
                 {

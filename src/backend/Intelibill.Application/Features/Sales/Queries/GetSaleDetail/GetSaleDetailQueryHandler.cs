@@ -160,7 +160,7 @@ public sealed class GetSaleDetailQueryHandler(
                     i.ApprovedRefundAmount,
                     i.TaxableAmount,
                     i.TaxAmount,
-                    i.Notes)).ToList())).ToList(),
+                    i.Notes)).ToList(), r.RefundTender, r.RefundConfirmed, r.VoidSettlementEvidence)).ToList(),
         };
 
         decimal GetReturnedQuantity(Guid saleItemId) =>
