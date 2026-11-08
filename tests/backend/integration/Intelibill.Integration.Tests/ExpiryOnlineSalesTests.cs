@@ -1,3 +1,5 @@
+using System.Data.Common;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -24,12 +26,14 @@ public sealed class ExpiryOnlineSalesTests : IAsyncLifetime, IDisposable
     private readonly ApiWebApplicationFactory _factory;
     private readonly TestTime _time = new();
     private readonly SaleBarrier _barrier = new();
+    private readonly ProjectionReadBarrier _projectionRead = new();
     public ExpiryOnlineSalesTests(PostgreSqlTestFixture fixture)
     {
         _factory = new(fixture, services =>
         {
             services.RemoveAll<IBusinessClock>();
             services.AddSingleton<IBusinessClock>(new BusinessClock(_time));
+            services.AddScoped<IInterceptor>(sp => new ProjectionReadInterceptor(sp.GetRequiredService<IHttpContextAccessor>(), _projectionRead));
             services.RemoveAll<IExpiryPolicyFence>();
             services.AddScoped<IExpiryPolicyFence>(sp => new BarrierFence(new ExpiryPolicyFence(sp.GetRequiredService<ApplicationDbContext>()), sp.GetRequiredService<IHttpContextAccessor>(), _barrier));
         });
@@ -57,6 +61,28 @@ public sealed class ExpiryOnlineSalesTests : IAsyncLifetime, IDisposable
             if (sale) barrier.Entered.TrySetResult();
             var result = await inner.AcquireAsync(shopId, exclusive, ct);
             if (sale && !result.IsError) { barrier.Acquired.TrySetResult(); await barrier.Release.Task.WaitAsync(ct); }
+            return result;
+        }
+    }
+    private sealed class ProjectionReadBarrier
+    {
+        public bool Enabled { get; set; }
+        public int Paused;
+        public TaskCompletionSource Read { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+    private sealed class ProjectionReadInterceptor(IHttpContextAccessor context, ProjectionReadBarrier barrier) : DbCommandInterceptor
+    {
+        public override async ValueTask<DbDataReader> ReaderExecutedAsync(DbCommand command, CommandExecutedEventData eventData, DbDataReader result, CancellationToken cancellationToken = default)
+        {
+            var path = context.HttpContext?.Request.Path.Value;
+            if (barrier.Enabled && path is "/api/sales/preview" or "/api/inventory/batches" && command.CommandText.Contains("inventory_batches", StringComparison.Ordinal)
+                && Interlocked.CompareExchange(ref barrier.Paused, 1, 0) == 0)
+            {
+                // The SELECT has its PostgreSQL snapshot, but EF has not consumed its batch facts yet.
+                barrier.Read.TrySetResult();
+                await barrier.Release.Task.WaitAsync(cancellationToken);
+            }
             return result;
         }
     }
@@ -330,16 +356,16 @@ public sealed class ExpiryOnlineSalesTests : IAsyncLifetime, IDisposable
         var physical = await db.InventoryBatches.SingleAsync(x => x.Id == early);
         Assert.Equal(10m, physical.Quantity); Assert.Equal(9m, physical.QuarantinedQuantity);
     }
-    private async Task WaitForFenceWaiter()
+    private async Task WaitForFenceWaiter(CancellationToken cancellationToken = default)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var timeout = DateTimeOffset.UtcNow.AddSeconds(4);
         while (DateTimeOffset.UtcNow < timeout)
         {
-            var count = await db.Database.SqlQuery<int>($"SELECT count(*)::int AS \"Value\" FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE '%shop_expiry_states%'").SingleAsync();
+            var count = await db.Database.SqlQuery<int>($"SELECT count(*)::int AS \"Value\" FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE '%shop_expiry_states%'").SingleAsync(cancellationToken);
             if (count > 0) return;
-            await Task.Delay(20);
+            await Task.Delay(20, cancellationToken);
         }
         Assert.Fail("Expected a real PostgreSQL expiry-fence waiter.");
     }
@@ -508,5 +534,50 @@ public sealed class ExpiryOnlineSalesTests : IAsyncLifetime, IDisposable
         Assert.Equal(HttpStatusCode.Created, posted.StatusCode);
         var evidence = (await posted.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("expiryDecisions")[0];
         Assert.Equal(3, evidence.GetProperty("catalogVersion").GetInt64()); Assert.Equal(1, evidence.GetProperty("policy").GetProperty("version").GetInt64());
+    }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExpiryReadSnapshot_DateCorrectionCannotMixOldBatchWithNewCatalog(bool administrative)
+    {
+        var seed = await Shop(); using var client = seed.Client;
+        var barcode = Guid.NewGuid().ToString("N"); var batch = await Receive(client, barcode, new(2030, 1, 1));
+        await Policy(client, "Block");
+        var initial = await client.GetFromJsonAsync<JsonElement>($"/api/inventory/batches/available?barcode={barcode}");
+        var version = initial[0].GetProperty("version").GetUInt32();
+        _projectionRead.Enabled = true;
+        var read = administrative ? client.GetAsync("/api/inventory/batches") : client.PostAsJsonAsync("/api/sales/preview", new { saleDiscount = new { type = "None", value = 0 }, items = new[] { Line(batch, barcode) } });
+        await _projectionRead.Read.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var edit = client.PutAsJsonAsync($"/api/inventory/batches/{batch}/prices", new { expectedVersion = version, mrp = 2, salesPrice = 2, taxRatePercent = 0, taxIncluded = false, expiryDate = new DateOnly(2020, 1, 1), reason = "correct during projection" });
+        using var waitCancellation = new CancellationTokenSource();
+        var waiting = WaitForFenceWaiter(waitCancellation.Token);
+        try
+        {
+            // Before the fix, the edit commits while the SELECT is paused. Afterwards it waits
+            // behind the read's shared fence. Both schedules must return a complete old snapshot.
+            await Task.WhenAny(edit, waiting).WaitAsync(TimeSpan.FromSeconds(5));
+            if (waiting.IsCompleted) await waiting;
+            else { using var prematurelyCommitted = await edit; Assert.True(prematurelyCommitted.IsSuccessStatusCode, await prematurelyCommitted.Content.ReadAsStringAsync()); }
+        }
+        finally
+        {
+            waitCancellation.Cancel();
+            _projectionRead.Release.TrySetResult();
+            try { await waiting; } catch (OperationCanceledException) { }
+        }
+        using var projected = await read;
+        Assert.True(projected.IsSuccessStatusCode, await projected.Content.ReadAsStringAsync());
+        var body = await projected.Content.ReadFromJsonAsync<JsonElement>();
+        var decision = administrative ? body[0].GetProperty("sellability") : body.GetProperty("expiryDecisions")[0].GetProperty("decision");
+        Assert.Equal(2, decision.GetProperty("catalogVersion").GetInt64());
+        Assert.True(decision.GetProperty("allowed").GetBoolean());
+        Assert.Equal(version, (administrative ? body[0].GetProperty("version") : body.GetProperty("expiryDecisions")[0].GetProperty("batchVersion")).GetUInt32());
+        using var changed = await edit; Assert.True(changed.IsSuccessStatusCode, await changed.Content.ReadAsStringAsync());
+        using var reread = administrative ? await client.GetAsync("/api/inventory/batches") : await client.PostAsJsonAsync("/api/sales/preview", new { saleDiscount = new { type = "None", value = 0 }, items = new[] { Line(batch, barcode) } });
+        var current = await reread.Content.ReadFromJsonAsync<JsonElement>();
+        var currentDecision = administrative ? current[0].GetProperty("sellability") : current.GetProperty("expiryDecisions")[0].GetProperty("decision");
+        Assert.Equal(3, currentDecision.GetProperty("catalogVersion").GetInt64());
+        Assert.False(currentDecision.GetProperty("allowed").GetBoolean());
+        if (administrative) Assert.Equal("2020-01-01", current[0].GetProperty("expiryDate").GetString());
     }
 }

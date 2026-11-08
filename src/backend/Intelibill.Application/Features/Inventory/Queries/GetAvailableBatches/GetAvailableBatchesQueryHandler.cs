@@ -42,10 +42,11 @@ public sealed class GetAvailableBatchesQueryHandler(
                 : await inventoryBatchRepository.SearchAvailableByProductNameOrBatchNumberAsync(
                     query.ShopId, query.SearchTerm, cancellationToken);
 
+            var evaluation = await expiryGuard.BeginEvaluationAsync(query.ShopId, date, batches.Select(x => x.ItemId), ct);
             var projected = new List<AvailableBatchDto>();
             foreach (var b in batches.OrderBy(x => x.Item?.Name).ThenBy(x => x.ItemId).ThenBy(x => x.ExpiryDate is null).ThenBy(x => x.ExpiryDate).ThenBy(x => x.BatchNumber, StringComparer.Ordinal).ThenBy(x => x.Id))
             {
-                var decision = await expiryGuard.EvaluateBatchAsync(b, date, ct);
+                var decision = evaluation.EvaluateBatch(b);
                 if (!query.IncludeUnavailable && !decision.Allowed) continue;
                 projected.Add(new AvailableBatchDto(
                     b.Item?.Barcode ?? "",

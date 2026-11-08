@@ -113,6 +113,9 @@ public sealed class ExpiryPolicyPersistenceTests(PostgreSqlTestFixture fixture)
             Assert.False(result.IsPreFeatureBaseline);
             Assert.Null(result.Policy);
         }
+        var bulk = await repo.GetEffectiveForItemsAsync(seed.Shop, [seed.Item], default);
+        Assert.False(bulk[seed.Item].HistoryKnown);
+        Assert.Null(bulk[seed.Item].Policy);
         await transaction.RollbackAsync();
     }
 

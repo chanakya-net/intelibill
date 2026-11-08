@@ -1,3 +1,5 @@
+using System.Data.Common;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Services;
@@ -154,5 +156,75 @@ public sealed class SaleExpiryGuardTests(PostgreSqlTestFixture fixture)
         var down = migration.GetType().GetMethod("Down", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
         var exception = Assert.Throws<System.Reflection.TargetInvocationException>(() => down.Invoke(migration, [builder]));
         Assert.IsType<NotSupportedException>(exception.InnerException); Assert.Empty(builder.Operations);
+    }
+    private sealed class PolicyReadCounter : DbCommandInterceptor
+    {
+        public int Reads { get; private set; }
+        public void Reset() => Reads = 0;
+        public override ValueTask<DbDataReader> ReaderExecutedAsync(DbCommand command, CommandExecutedEventData eventData, DbDataReader result, CancellationToken cancellationToken = default)
+        {
+            if (command.CommandText.Contains("shop_expiry_states", StringComparison.Ordinal) || command.CommandText.Contains("expiry_policy_revisions", StringComparison.Ordinal)) Reads++;
+            return ValueTask.FromResult(result);
+        }
+    }
+    [Fact]
+    public async Task PolicyResolution_ReusesDistinctItemFactsForEvaluationAndEvidenceWithoutCrossOperationCache()
+    {
+        var seed = await Seed(ExpiryMode.Warn, overrides: true, expiry: Date.AddDays(-1));
+        var batches = new List<Guid> { seed.Batch };
+        Guid overriddenItem;
+        await using (var seedDb = Db())
+        {
+            var original = await seedDb.InventoryBatches.SingleAsync(x => x.Id == seed.Batch);
+            for (var index = 0; index < 5; index++)
+            {
+                var lot = InventoryBatch.Create(seed.Shop, original.ItemId, $"query-budget-{index}", 10, 1, 2, 2, 0, false, index % 2 == 0 ? Date.AddDays(-1) : Date.AddDays(5), null, null, seed.Owner).Value;
+                seedDb.InventoryBatches.Add(lot); batches.Add(lot.Id);
+            }
+            var item = Item.Create(seed.Shop, "Different inherited policy", null, "pcs", Guid.NewGuid().ToString(), true, seed.Owner);
+            var overriddenLot = InventoryBatch.Create(seed.Shop, item.Id, "override-lot", 10, 1, 2, 2, 0, false, Date.AddDays(-1), null, null, seed.Owner).Value;
+            overriddenItem = item.Id; seedDb.AddRange(item, overriddenLot); batches.Add(overriddenLot.Id);
+            await seedDb.SaveChangesAsync();
+            var service = new ExpiryPolicyService(new ExpiryPolicyRepository(seedDb), new ShopRepository(seedDb), new ExpiryPolicyFence(seedDb), new UnitOfWork(seedDb), new BusinessClock(TimeProvider.System));
+            Assert.False((await service.UpdateAsync(seed.Shop, seed.Owner, item.Id, new(2, new(ExpiryMode.Ignore, false, true, 7, false), "different item policy"), default)).IsError);
+        }
+        var counter = new PolicyReadCounter();
+        await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(fixture.MigratorConnectionString).UseSnakeCaseNamingConvention().AddInterceptors(counter).Options);
+        var lines = new List<ValidatedSaleLine>();
+        foreach (var batchId in batches) lines.Add(await Line(db, batchId));
+        var guard = Guard(db);
+        await using (var tx = await db.Database.BeginTransactionAsync())
+        {
+            Assert.False((await new ExpiryPolicyFence(db).AcquireAsync(seed.Shop, false, default)).IsError);
+            counter.Reset();
+            var decisions = await guard.EvaluateAsync(seed.Shop, Date, lines, default);
+            Assert.Equal(7, decisions.Count);
+            Assert.Equal(4, decisions.Count(x => x.Decision.RequiresApproval));
+            Assert.InRange(counter.Reads, 1, 4);
+            var approvals = decisions.Where(x => x.Decision.RequiresApproval).Select(x => new ExpiryApprovalRequest(x.InventoryBatchId, x.Quantity, x.BatchVersion, x.Decision.PolicyVersion, x.Decision.CatalogVersion, "inspection")).ToArray();
+            counter.Reset();
+            var authorized = await guard.AuthorizeAsync(seed.Shop, seed.Owner, Date, lines, approvals, default);
+            Assert.False(authorized.IsError);
+            Assert.Equal(7, authorized.Value.Count);
+            Assert.All(authorized.Value.Where(x => x.ItemId != overriddenItem), x => Assert.Equal(2, x.Policy.Version));
+            Assert.Equal(3, authorized.Value.Single(x => x.ItemId == overriddenItem).Policy.Version);
+            Assert.All(authorized.Value, x => Assert.Equal(3, x.CatalogVersion));
+            Assert.InRange(counter.Reads, 1, 4);
+            await tx.CommitAsync();
+        }
+        await using (var editor = Db())
+        {
+            var service = new ExpiryPolicyService(new ExpiryPolicyRepository(editor), new ShopRepository(editor), new ExpiryPolicyFence(editor), new UnitOfWork(editor), new BusinessClock(TimeProvider.System));
+            Assert.False((await service.UpdateAsync(seed.Shop, seed.Owner, null, new(3, new(ExpiryMode.Block, false, true, 7, false), "next operation"), default)).IsError);
+        }
+        await using (var tx = await db.Database.BeginTransactionAsync())
+        {
+            Assert.False((await new ExpiryPolicyFence(db).AcquireAsync(seed.Shop, false, default)).IsError);
+            counter.Reset();
+            var refreshed = await guard.EvaluateAsync(seed.Shop, Date, lines, default);
+            Assert.Equal(4, refreshed.Count(x => !x.Decision.Allowed));
+            Assert.All(refreshed, x => Assert.Equal(4, x.Decision.CatalogVersion));
+            Assert.InRange(counter.Reads, 1, 4);
+        }
     }
 }

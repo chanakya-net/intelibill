@@ -57,6 +57,37 @@ internal sealed class ExpiryPolicyRepository(ApplicationDbContext db) : IExpiryP
         return new(policy, version, true, defaults.PreFeatureBaseline && item is null, item?.EffectiveAt ?? defaults.EffectiveAt);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, EffectiveExpiryPolicy>> GetEffectiveForItemsAsync(Guid shopId, IReadOnlyList<Guid> itemIds, CancellationToken ct)
+    {
+        var ids = itemIds.Distinct().ToArray();
+        if (ids.Length == 0) return new Dictionary<Guid, EffectiveExpiryPolicy>();
+        var state = await db.ShopExpiryStates.AsNoTracking().SingleOrDefaultAsync(x => x.ShopId == shopId, ct);
+        var result = ids.ToDictionary(id => id, _ => new EffectiveExpiryPolicy(null, state?.CatalogVersion ?? 0, false));
+        if (state is null) return result;
+        var baseline = await GetInitialRevisionAsync(shopId, ct);
+        if (baseline is null || baseline.ItemId is not null || baseline.Policy != ExpiryPolicy.Default || baseline.PreFeatureBaseline != state.PreFeatureBaseline)
+            return result;
+        var defaults = await GetLatestRevisionAsync(shopId, null, null, ct);
+        if (defaults?.Policy is null || !defaults.Policy.IsValid() || defaults.CatalogVersion != state.DefaultPolicyVersion)
+            return result;
+        var knownItems = (await db.Items.Where(x => x.ShopId == shopId && ids.Contains(x.Id)).Select(x => x.Id).ToListAsync(ct)).ToHashSet();
+        knownItems.UnionWith(db.Items.Local.Where(x => x.ShopId == shopId && ids.Contains(x.Id)).Select(x => x.Id));
+        // NOT EXISTS selects at most the latest retained override/reset per distinct item,
+        // avoiding a history-sized materialization or a query for each lot/item.
+        var overrides = await db.ExpiryPolicyRevisions.AsNoTracking()
+            .Where(x => x.ShopId == shopId && x.ItemId.HasValue && ids.Contains(x.ItemId.Value)
+                && !db.ExpiryPolicyRevisions.Any(later => later.ShopId == shopId && later.ItemId == x.ItemId && later.CatalogVersion > x.CatalogVersion))
+            .ToDictionaryAsync(x => x.ItemId!.Value, ct);
+        foreach (var id in ids.Where(knownItems.Contains))
+        {
+            overrides.TryGetValue(id, out var item);
+            var policy = item?.Policy ?? defaults.Policy;
+            if (!policy.IsValid() || state.CatalogVersion < policy.Version) continue;
+            result[id] = new(policy, state.CatalogVersion, true, defaults.PreFeatureBaseline && item is null, item?.EffectiveAt ?? defaults.EffectiveAt);
+        }
+        return result;
+    }
+
     public async Task AddRevisionAsync(ExpiryPolicyRevision revision, CancellationToken ct) => await db.ExpiryPolicyRevisions.AddAsync(revision, ct);
 
     public async Task<ExpiryReadinessPage> GetReadinessAsync(Guid shopId, DateOnly date, int page, int pageSize, CancellationToken ct)

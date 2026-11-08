@@ -46,10 +46,11 @@ public sealed class SearchSellablesQueryHandler(
                 ? []
                 : await serviceRepository.SearchActiveAsync(query.ShopId, searchTerm, cancellationToken);
 
+            var evaluation = await expiryGuard.BeginEvaluationAsync(query.ShopId, date, goodsBatches.Select(x => x.ItemId), ct);
             var sellables = new List<SellableDto>();
             foreach (var batch in goodsBatches.OrderBy(x => x.Item?.Name).ThenBy(x => x.ItemId).ThenBy(x => x.ExpiryDate is null).ThenBy(x => x.ExpiryDate).ThenBy(x => x.BatchNumber, StringComparer.Ordinal).ThenBy(x => x.Id))
             {
-                var decision = await expiryGuard.EvaluateBatchAsync(batch, date, ct);
+                var decision = evaluation.EvaluateBatch(batch);
                 if (!query.IncludeUnavailable && !decision.Allowed) continue;
                 sellables.Add(SellableDto.FromInventoryBatch(batch.Id, batch.Item?.Barcode ?? string.Empty, batch.Item?.Name ?? string.Empty,
                     batch.BatchNumber, batch.Quantity, batch.SalesPrice, batch.Mrp, batch.TaxRatePercent, batch.TaxIncluded,

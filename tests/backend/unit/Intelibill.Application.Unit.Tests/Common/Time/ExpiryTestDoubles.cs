@@ -21,6 +21,8 @@ internal static class ExpiryTestDoubles
     {
         var policies = Substitute.For<IExpiryPolicyRepository>();
         policies.GetEffectiveAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<DateTimeOffset?>(), Arg.Any<CancellationToken>()).Returns(new EffectiveExpiryPolicy(ExpiryPolicy.Default, 1, true));
+        policies.GetEffectiveForItemsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult<IReadOnlyDictionary<Guid, EffectiveExpiryPolicy>>(call.ArgAt<IReadOnlyList<Guid>>(1).Distinct().ToDictionary(id => id, _ => new EffectiveExpiryPolicy(ExpiryPolicy.Default, 1, true))));
         policies.GetStateAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(call => ShopExpiryState.Create(call.Arg<Guid>(), DateTimeOffset.UtcNow));
         return policies;
     }

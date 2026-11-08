@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Posting;
+using Intelibill.Domain.Interfaces;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Common.Time;
 using ErrorOr;
@@ -13,7 +15,7 @@ public sealed class GetInventoryBatchesQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
     IInventoryBatchRepository inventoryBatchRepository,
-    IPurchaseReceiptValueRepository purchaseReceiptValueRepository, SaleExpiryGuard expiryGuard, IBusinessClock clock)
+    IPurchaseReceiptValueRepository purchaseReceiptValueRepository, SaleExpiryGuard expiryGuard, IBusinessClock clock, IExpiryPolicyFence expiryFence, IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<IReadOnlyList<InventoryBatchDto>>> Handle(GetInventoryBatchesQuery query, CancellationToken cancellationToken)
     {
@@ -30,18 +32,24 @@ public sealed class GetInventoryBatchesQueryHandler(
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
 
-        var batches = await inventoryBatchRepository.GetByShopAsync(query.ShopId, cancellationToken);
-        var receipts = (await purchaseReceiptValueRepository.GetByShopAsync(query.ShopId, cancellationToken))
-            .ToDictionary(r => r.InventoryBatchId);
-
-        var result = new List<InventoryBatchDto>();
-        var date = clock.Today(shop.BusinessTimeZoneId);
-        foreach (var batch in batches)
+        return await PostingTransaction.RunAsync<IReadOnlyList<InventoryBatchDto>>(unitOfWork, async ct =>
         {
-            var decision = await expiryGuard.EvaluateBatchAsync(batch, date, cancellationToken);
-            result.Add(ToDto(batch, receipts.GetValueOrDefault(batch.Id)) with { QuarantinedQuantity = batch.QuarantinedQuantity, AvailableQuantity = decision.AvailableQuantity, Sellability = decision });
-        }
-        return result;
+            var locked = await expiryFence.AcquireAsync(query.ShopId, false, ct);
+            if (locked.IsError) return locked.Errors;
+            var date = clock.Today(shop.BusinessTimeZoneId);
+            var batches = await inventoryBatchRepository.GetByShopAsync(query.ShopId, cancellationToken);
+            var receipts = (await purchaseReceiptValueRepository.GetByShopAsync(query.ShopId, cancellationToken))
+                .ToDictionary(r => r.InventoryBatchId);
+
+            var result = new List<InventoryBatchDto>();
+            var evaluation = await expiryGuard.BeginEvaluationAsync(query.ShopId, date, batches.Select(x => x.ItemId), ct);
+            foreach (var batch in batches)
+            {
+                var decision = evaluation.EvaluateBatch(batch);
+                result.Add(ToDto(batch, receipts.GetValueOrDefault(batch.Id)) with { QuarantinedQuantity = batch.QuarantinedQuantity, AvailableQuantity = decision.AvailableQuantity, Sellability = decision });
+            }
+            return result;
+        }, cancellationToken);
     }
 
     private static InventoryBatchDto ToDto(InventoryBatch b, PurchaseReceiptValue? receipt) =>

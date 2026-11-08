@@ -18,7 +18,7 @@ public class GetInventoryBatchesQueryHandlerTests
 
     public GetInventoryBatchesQueryHandlerTests()
     {
-        _handler = new GetInventoryBatchesQueryHandler(_userRepository, _shopRepository, _batchRepository, _receiptRepository, ExpiryTestDoubles.Guard(), BusinessTestDoubles.RealClock());
+        _handler = new GetInventoryBatchesQueryHandler(_userRepository, _shopRepository, _batchRepository, _receiptRepository, ExpiryTestDoubles.Guard(), BusinessTestDoubles.RealClock(), ExpiryTestDoubles.Fence(), ExpiryTestDoubles.UnitOfWork());
     }
 
     [Fact]

@@ -20,7 +20,7 @@ public class PreviewSaleQueryHandlerTests
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
 
-    private PreviewSaleQueryHandler CreateHandler() => new(_userRepository, _shopRepository, _saleLineValidator, _pricingCalculator, ExpiryTestDoubles.Guard(), BusinessTestDoubles.RealClock());
+    private PreviewSaleQueryHandler CreateHandler() => new(_userRepository, _shopRepository, _saleLineValidator, _pricingCalculator, ExpiryTestDoubles.Guard(), BusinessTestDoubles.RealClock(), ExpiryTestDoubles.Fence(), ExpiryTestDoubles.UnitOfWork());
 
     private static Item MakeItem(Guid shopId, string barcode, string name = "Rice") =>
         Item.Create(shopId, name, "desc", "kg", barcode, true, Guid.NewGuid());

@@ -9,6 +9,8 @@ public interface IExpiryPolicyRepository
     Task<ExpiryPolicyRevision?> GetInitialRevisionAsync(Guid shopId, CancellationToken ct);
     Task<ShopExpiryState?> GetStateAsync(Guid shopId, CancellationToken ct);
     Task<bool> ItemExistsAsync(Guid shopId, Guid itemId, CancellationToken ct);
+    /// <summary>Resolve current facts once for a fenced operation; unknown history never implies Ignore.</summary>
+    Task<IReadOnlyDictionary<Guid, EffectiveExpiryPolicy>> GetEffectiveForItemsAsync(Guid shopId, IReadOnlyList<Guid> itemIds, CancellationToken ct);
     Task<EffectiveExpiryPolicy> GetEffectiveAsync(Guid shopId, Guid itemId, DateTimeOffset? asOf, CancellationToken ct);
     Task<ExpiryPolicyRevision?> GetLatestRevisionAsync(Guid shopId, Guid? itemId, DateTimeOffset? asOf, CancellationToken ct);
     Task AddRevisionAsync(ExpiryPolicyRevision revision, CancellationToken ct);

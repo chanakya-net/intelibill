@@ -11,32 +11,20 @@ namespace Intelibill.Application.Features.Expiry;
 /// <summary>Online-only decisions. Posting callers hold the shared expiry fence until commit.</summary>
 public sealed class SaleExpiryGuard(IExpiryPolicyRepository policies, IShopRepository shops, IBusinessClock clock)
 {
-    public async Task<SellabilityDecision> EvaluateBatchAsync(InventoryBatch batch, DateOnly date, CancellationToken ct)
-    {
-        var policy = await policies.GetEffectiveAsync(batch.ShopId, batch.ItemId, null, ct);
-        if (!policy.HistoryKnown || policy.Policy is null)
-            return new(false, "Expiry.HistoryUnknown", false, false, 0, policy.CatalogVersion, date, batch.Quantity, batch.QuarantinedQuantity, 0);
-        return ExpiryPolicyEvaluator.Evaluate(new(batch.Id, batch.ItemId, batch.ExpiryDate, batch.ManufacturingDate,
-            batch.Quantity, batch.QuarantinedQuantity, batch.IsVoided, batch.Item?.IsActive ?? true, batch.Version), policy.Policy, policy.CatalogVersion, date);
-    }
+    public async Task<SaleExpiryEvaluation> BeginEvaluationAsync(Guid shopId, DateOnly businessDate, IEnumerable<Guid> itemIds, CancellationToken ct) =>
+        new(shopId, businessDate, await policies.GetEffectiveForItemsAsync(shopId, itemIds.Distinct().ToArray(), ct));
 
-    public async Task<IReadOnlyList<SaleExpiryLineDecision>> EvaluateAsync(Guid shopId, DateOnly businessDate, IReadOnlyList<ValidatedSaleLine> lines, CancellationToken ct)
-    {
-        var result = new List<SaleExpiryLineDecision>();
-        foreach (var line in lines.Where(x => x.Batch is not null))
-        {
-            var batch = line.Batch!;
-            var decision = batch.ShopId == shopId ? await EvaluateBatchAsync(batch, businessDate, ct)
-                : new SellabilityDecision(false, "Expiry.BatchNotFound", false, false, 0, 0, businessDate, 0, 0, 0);
-            result.Add(new(batch.ItemId, batch.Id, line.Command.Quantity, batch.Version, decision));
-        }
-        return result;
-    }
+    public async Task<SellabilityDecision> EvaluateBatchAsync(InventoryBatch batch, DateOnly date, CancellationToken ct) =>
+        (await BeginEvaluationAsync(batch.ShopId, date, [batch.ItemId], ct)).EvaluateBatch(batch);
+
+    public async Task<IReadOnlyList<SaleExpiryLineDecision>> EvaluateAsync(Guid shopId, DateOnly businessDate, IReadOnlyList<ValidatedSaleLine> lines, CancellationToken ct) =>
+        (await BeginEvaluationAsync(shopId, businessDate, lines.Where(x => x.Batch is not null).Select(x => x.Batch!.ItemId), ct)).EvaluateLines(lines);
 
     public async Task<ErrorOr<IReadOnlyList<SaleExpiryDecision>>> AuthorizeAsync(Guid shopId, Guid actor, DateOnly businessDate,
         IReadOnlyList<ValidatedSaleLine> lines, IReadOnlyList<ExpiryApprovalRequest>? approvals, CancellationToken ct)
     {
-        var decisions = await EvaluateAsync(shopId, businessDate, lines, ct);
+        var evaluation = await BeginEvaluationAsync(shopId, businessDate, lines.Where(x => x.Batch is not null).Select(x => x.Batch!.ItemId), ct);
+        var decisions = evaluation.EvaluateLines(lines);
         var blocked = decisions.FirstOrDefault(x => !x.Decision.Allowed);
         if (blocked is not null) return Error.Conflict(blocked.Decision.ReasonCode!, "This lot cannot be sold under its expiry policy.");
         var role = await shops.GetActiveRoleAsync(actor, shopId, ct);
@@ -62,7 +50,7 @@ public sealed class SaleExpiryGuard(IExpiryPolicyRepository policies, IShopRepos
         foreach (var line in lines.Where(x => x.Batch is not null))
         {
             var batch = line.Batch!;
-            var policy = await policies.GetEffectiveAsync(shopId, batch.ItemId, null, ct);
+            var policy = evaluation.PolicyFor(batch.ItemId);
             if (!policy.HistoryKnown || policy.Policy is null) return Errors.Expiry.HistoryUnknown;
             var decision = decisions[evidence.Count].Decision;
             supplied.TryGetValue(batch.Id, out var approval);
