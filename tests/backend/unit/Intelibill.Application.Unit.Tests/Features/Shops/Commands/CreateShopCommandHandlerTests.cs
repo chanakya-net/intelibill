@@ -23,7 +23,8 @@ public class CreateShopCommandHandlerTests
         _sessions,
         _tenantWriteScope,
         _unitOfWork,
-        TimeProvider.System);
+        TimeProvider.System,
+        Substitute.For<IExpiryPolicyRepository>());
 
     [Fact]
     public async Task HandleAsync_FirstShop_AssignsDefaultAndMovesTheRequestingSessionIntoIt()

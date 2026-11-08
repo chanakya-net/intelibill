@@ -885,6 +885,86 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("expense_categories", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.ExpiryPolicyRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<long>("CatalogVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("catalog_version");
+
+                    b.Property<DateTimeOffset>("EffectiveAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_at");
+
+                    b.Property<bool?>("ExpiryRequired")
+                        .HasColumnType("boolean")
+                        .HasColumnName("expiry_required");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("item_id");
+
+                    b.Property<int?>("Mode")
+                        .HasColumnType("integer")
+                        .HasColumnName("mode");
+
+                    b.Property<bool?>("OverrideAllowed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("override_allowed");
+
+                    b.Property<bool>("PreFeatureBaseline")
+                        .HasColumnType("boolean")
+                        .HasColumnName("pre_feature_baseline");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<bool?>("SellThroughExpiryDate")
+                        .HasColumnType("boolean")
+                        .HasColumnName("sell_through_expiry_date");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<int?>("WarningDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("warning_days");
+
+                    b.HasKey("Id")
+                        .HasName("pk_expiry_policy_revisions");
+
+                    b.HasIndex("ItemId", "ShopId")
+                        .HasDatabaseName("ix_expiry_policy_revisions_item_id_shop_id");
+
+                    b.HasIndex("ShopId", "CatalogVersion")
+                        .IsUnique()
+                        .HasDatabaseName("ix_expiry_policy_revisions_shop_id_catalog_version");
+
+                    b.HasIndex("ShopId", "ItemId", "EffectiveAt")
+                        .HasDatabaseName("ix_expiry_policy_revisions_shop_id_item_id_effective_at");
+
+                    b.ToTable("expiry_policy_revisions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_expiry_policy_revisions_baseline", "(NOT pre_feature_baseline AND actor_user_id IS NOT NULL) OR (pre_feature_baseline AND catalog_version = 1 AND item_id IS NULL AND mode = 0 AND expiry_required = false AND sell_through_expiry_date = true AND warning_days = 7 AND override_allowed = false AND actor_user_id IS NULL)");
+
+                            t.HasCheckConstraint("ck_expiry_policy_revisions_reason", "length(btrim(reason)) BETWEEN 1 AND 500");
+
+                            t.HasCheckConstraint("ck_expiry_policy_revisions_settings", "catalog_version >= 1 AND ((item_id IS NOT NULL AND mode IS NULL AND expiry_required IS NULL AND sell_through_expiry_date IS NULL AND warning_days IS NULL AND override_allowed IS NULL) OR (mode IS NOT NULL AND mode BETWEEN 0 AND 2 AND expiry_required IS NOT NULL AND sell_through_expiry_date IS NOT NULL AND warning_days IS NOT NULL AND warning_days BETWEEN 0 AND 365 AND override_allowed IS NOT NULL))");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.HsnCache", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1370,6 +1450,13 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("numeric(18,3)")
                         .HasColumnName("quantity");
 
+                    b.Property<decimal>("QuarantinedQuantity")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 3)
+                        .HasColumnType("numeric(18,3)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("quarantined_quantity");
+
                     b.Property<decimal>("SalesPrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
@@ -1438,6 +1525,8 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("inventory_batches", null, t =>
                         {
                             t.HasCheckConstraint("ck_inventory_batches_quantity_non_negative", "quantity >= 0");
+
+                            t.HasCheckConstraint("ck_inventory_batches_quarantine_range", "quarantined_quantity >= 0 AND quarantined_quantity <= quantity");
 
                             t.HasCheckConstraint("ck_inventory_batches_sales_lte_mrp", "sales_price <= mrp");
 
@@ -4855,6 +4944,38 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("shops", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.ShopExpiryState", b =>
+                {
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<long>("CatalogVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("catalog_version");
+
+                    b.Property<long>("DefaultPolicyVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("default_policy_version");
+
+                    b.Property<DateTimeOffset>("InitializedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("initialized_at");
+
+                    b.Property<bool>("PreFeatureBaseline")
+                        .HasColumnType("boolean")
+                        .HasColumnName("pre_feature_baseline");
+
+                    b.HasKey("ShopId")
+                        .HasName("pk_shop_expiry_states");
+
+                    b.ToTable("shop_expiry_states", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_shop_expiry_states_version", "catalog_version >= 1 AND default_policy_version >= 1 AND default_policy_version <= catalog_version");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.ShopInvitation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6693,6 +6814,23 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasConstraintName("fk_expense_categories_shops_shop_id");
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.ExpiryPolicyRevision", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.ShopExpiryState", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_expiry_policy_revisions_shop_expiry_states_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId", "ShopId")
+                        .HasPrincipalKey("Id", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_expiry_policy_revisions_items_item_id_shop_id");
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.HsnCache", b =>
                 {
                     b.OwnsMany("Intelibill.Domain.Entities.HsnTaxScenario", "TaxScenarios", b1 =>
@@ -7477,6 +7615,16 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_service_code_sequences_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.ShopExpiryState", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_shop_expiry_states_shops_shop_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.ShopMembership", b =>

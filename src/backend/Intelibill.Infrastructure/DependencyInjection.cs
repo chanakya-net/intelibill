@@ -114,6 +114,8 @@ public static class DependencyInjection
             .Validate(o => !o.MixedTenderEnabled, "Mixed tender is not supported.")
             .ValidateOnStart();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IExpiryPolicyRepository, ExpiryPolicyRepository>();
+        services.AddScoped<Intelibill.Application.Features.Expiry.IExpiryPolicyFence, Services.Expiry.ExpiryPolicyFence>();
         services.AddScoped<IShopRepository, ShopRepository>();
         services.AddScoped<IMembershipAuthorityRepository, MembershipAuthorityRepository>();
         services.AddScoped<ISupplierRepository, SupplierRepository>();

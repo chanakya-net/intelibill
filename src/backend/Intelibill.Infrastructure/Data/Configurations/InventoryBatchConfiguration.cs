@@ -10,6 +10,7 @@ internal sealed class InventoryBatchConfiguration : IEntityTypeConfiguration<Inv
     {
         builder.ToTable("inventory_batches", tableBuilder =>
         {
+            tableBuilder.HasCheckConstraint("ck_inventory_batches_quarantine_range", "quarantined_quantity >= 0 AND quarantined_quantity <= quantity");
             tableBuilder.HasCheckConstraint("ck_inventory_batches_quantity_non_negative", "quantity >= 0");
             tableBuilder.HasCheckConstraint("ck_inventory_batches_tax_rate_range", "tax_rate_percent >= 0 AND tax_rate_percent <= 100");
             tableBuilder.HasCheckConstraint("ck_inventory_batches_sales_lte_mrp", "sales_price <= mrp");
@@ -30,6 +31,8 @@ internal sealed class InventoryBatchConfiguration : IEntityTypeConfiguration<Inv
         builder.Property(b => b.Quantity)
             .HasPrecision(18, 3)
             .IsRequired();
+
+        builder.Property(b => b.QuarantinedQuantity).HasPrecision(18, 3).HasDefaultValue(0m).IsRequired();
 
         builder.Property(b => b.OriginalQuantity)
             .HasPrecision(18, 3)

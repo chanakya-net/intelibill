@@ -103,6 +103,8 @@ public static class TenantPolicyManifest
         Tenant("payment_receipts"),
         Tenant("payment_reversals"),
         Tenant("posting_period_events"),
+        Tenant("shop_expiry_states"),
+        Tenant("expiry_policy_revisions"),
         Tenant("posting_periods"),
         Tenant("purchase_order_receipt_sequences"),
         Tenant("purchase_order_receipts"),
