@@ -17,6 +17,8 @@ export class ExpiryPolicyFormComponent implements OnChanges, OnDestroy {
   @Input() canEdit = false;
   readonly state = signal<ExpiryPolicyState | null>(null);
   readonly readiness = signal<ExpiryReadiness | null>(null);
+  readonly readinessBusy = signal(false);
+  readonly readinessError = signal('');
   readonly busy = signal(false);
   readonly message = signal('');
   zone = '';
@@ -31,6 +33,8 @@ export class ExpiryPolicyFormComponent implements OnChanges, OnDestroy {
   };
   private subscription?: Subscription;
   private generation = 0;
+  private readinessGeneration = 0;
+  private readinessSubscription?: Subscription;
   private loadedScope = '';
   ngOnChanges(): void {
     this.load();
@@ -38,12 +42,13 @@ export class ExpiryPolicyFormComponent implements OnChanges, OnDestroy {
   ngOnDestroy(): void {
     this.generation++;
     this.subscription?.unsubscribe();
+    this.clearReadiness();
   }
   load(): void {
     this.subscription?.unsubscribe();
     const generation = ++this.generation;
     this.state.set(null);
-    this.readiness.set(null);
+    this.clearReadiness();
     this.reason = '';
     this.message.set('');
     if (!this.shopId || this.shopId !== this.service.activeShopId()) {
@@ -57,26 +62,61 @@ export class ExpiryPolicyFormComponent implements OnChanges, OnDestroy {
       zone: this.service.businessTimeZone(),
     }).subscribe({
       next: ({ state, zone }) => {
-        if (generation !== this.generation) return;
+        if (!this.isCurrent(generation)) return;
         this.apply(state);
         this.zone = zone;
+        this.refreshReadiness();
         this.busy.set(false);
       },
       error: () => {
-        if (generation === this.generation) {
+        if (this.isCurrent(generation)) {
           this.message.set('expiry.loadFailed');
           this.busy.set(false);
         }
       },
     });
-    if (!this.itemId && ['owner', 'manager'].includes(this.service.role()))
-      this.service.readiness().subscribe({
-        next: (x) => {
-          if (generation === this.generation) this.readiness.set(x);
-        },
-        error: () => {},
-      });
   }
+  private isCurrent(generation: number): boolean {
+    return (
+      generation === this.generation &&
+      this.shopId === this.service.activeShopId() &&
+      this.loadedScope === this.service.scopeIdentity()
+    );
+  }
+  private clearReadiness(): void {
+    this.readinessGeneration++;
+    this.readinessSubscription?.unsubscribe();
+    this.readiness.set(null);
+    this.readinessBusy.set(false);
+    this.readinessError.set('');
+  }
+  refreshReadiness(): void {
+    this.clearReadiness();
+    const state = this.state();
+    if (!state || this.itemId || !['owner', 'manager'].includes(this.service.role())) return;
+    const generation = this.generation;
+    const request = this.readinessGeneration;
+    if (!this.isCurrent(generation)) return;
+    this.readinessBusy.set(true);
+    this.readinessSubscription = this.service.readiness().subscribe({
+      next: (ready) => {
+        if (!this.isCurrent(generation) || request !== this.readinessGeneration) return;
+        this.readinessBusy.set(false);
+        if (ready.catalogVersion !== this.state()?.catalogVersion) {
+          this.readinessError.set('expiry.readinessFailed');
+          return;
+        }
+        this.readiness.set(ready);
+        this.readinessError.set('');
+      },
+      error: () => {
+        if (!this.isCurrent(generation) || request !== this.readinessGeneration) return;
+        this.readinessBusy.set(false);
+        this.readinessError.set('expiry.readinessFailed');
+      },
+    });
+  }
+
   save(): void {
     const current = this.state();
     const reason = this.reason.trim();
@@ -102,6 +142,7 @@ export class ExpiryPolicyFormComponent implements OnChanges, OnDestroy {
       return;
     }
     const generation = this.generation;
+    this.clearReadiness();
     this.busy.set(true);
     this.message.set('');
     this.service
@@ -115,15 +156,17 @@ export class ExpiryPolicyFormComponent implements OnChanges, OnDestroy {
       )
       .subscribe({
         next: (state) => {
-          if (generation !== this.generation) return;
+          if (!this.isCurrent(generation)) return;
           this.apply(state);
+          this.refreshReadiness();
           this.busy.set(false);
           this.message.set('expiry.saved');
         },
         error: () => {
-          if (generation !== this.generation) return;
+          if (!this.isCurrent(generation)) return;
           this.busy.set(false);
           this.message.set('expiry.saveFailed');
+          if (!this.itemId) this.readinessError.set('expiry.readinessFailed');
         },
       });
   }

@@ -90,6 +90,23 @@ describe('OfflineSaleFinalizationService', () => {
     expect(shadowDb.reduceQuantity).not.toHaveBeenCalled();
   });
 
+  for (const [field, value] of [
+    ['expiryDate', undefined], ['manufacturingDate', undefined],
+    ['expiryDate', '2026-02-30'], ['manufacturingDate', 'not-a-date'],
+    ['expiryDate', '2026-11-09T00:00:00Z'],
+  ] as const) {
+    it(`refuses new issuance with incomplete date authority ${field}=${value}`, async () => {
+      const { service, snapshotDb, leaseDb, queueDb, shadowDb } = setup();
+      const batch: Record<string, unknown> = { ...makeBatchSnapshot(), [field]: value };
+      if (value === undefined) delete batch[field];
+      snapshotDb.getUsableBatches.mockResolvedValue([batch] as never);
+      expect(await service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'EXPIRY_REFRESH_REQUIRED' });
+      expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
+      expect(queueDb.savePendingSale).not.toHaveBeenCalled();
+      expect(shadowDb.reduceQuantity).not.toHaveBeenCalled();
+    });
+  }
+
   it('freezes exact issue-date evidence through sync and recovery without current decoration', async () => {
     const { service } = setup();
     const result = await service.finalizeAndQueue(makeRequest());
@@ -638,6 +655,7 @@ describe('OfflineSaleFinalizationService', () => {
 
   function makeBatchSnapshot() {
     return {
+      expiryDate: null, manufacturingDate: null,
       expiryEvidenceId: 'proof-1',
       effectivePolicy: { version: 2, mode: 'Ignore' as const, expiryRequired: false, sellThroughExpiryDate: true, warningDays: 7, overrideAllowed: false },
       physicalQuantity: 10, quarantinedQuantity: 0, availableQuantity: 10, batchVersion: 8,

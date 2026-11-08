@@ -61,7 +61,7 @@ describe('OfflineSalesSnapshotSyncService', () => {
             taxRatePercent: 0,
             taxIncluded: false,
             purchaseTaxIncluded: false,
-            expiryDate: null,
+            expiryDate: null, manufacturingDate: null,
           },
         }),
       ].join('\n') + '\n';

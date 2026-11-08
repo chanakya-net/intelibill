@@ -214,11 +214,24 @@ export function isValidShopZone(value: unknown): value is string {
 }
 /** Only complete authority may be used for a newly issued invoice. Legacy rows remain readable. */
 export function hasOfflineExpiryAuthority(batch: OfflineSellableBatchSnapshot, catalogVersion: number): boolean {
-  return !!batch.expiryEvidenceId && isExpiryPolicy(batch.effectivePolicy) && batch.effectivePolicy.version <= catalogVersion
+  return Object.hasOwn(batch, 'expiryDate') && Object.hasOwn(batch, 'manufacturingDate')
+    && isNullableDateOnly(batch.expiryDate) && isNullableDateOnly(batch.manufacturingDate)
+    && !!batch.expiryEvidenceId && isExpiryPolicy(batch.effectivePolicy) && batch.effectivePolicy.version <= catalogVersion
     && Number.isFinite(batch.physicalQuantity) && Number.isFinite(batch.quarantinedQuantity) && Number.isFinite(batch.availableQuantity)
     && batch.physicalQuantity! >= 0 && batch.quarantinedQuantity! >= 0 && batch.quarantinedQuantity! <= batch.physicalQuantity!
     && batch.availableQuantity! >= 0 && batch.availableQuantity! <= batch.physicalQuantity! - batch.quarantinedQuantity! + 0.0000001
     && Number.isInteger(batch.batchVersion) && batch.batchVersion! > 0
     && Number.isFinite(Date.parse(batch.expiryCapturedAt ?? '')) && Number.isFinite(Date.parse(batch.expiryEvidenceExpiresAt ?? ''))
     && Date.parse(batch.expiryCapturedAt!) < Date.parse(batch.expiryEvidenceExpiresAt!);
+}
+
+/** Captured DateOnly facts must distinguish known undated from an omitted/invalid wire field. */
+function isNullableDateOnly(value: unknown): boolean {
+  if (value === null) return true;
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  if (year < 1) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.getUTCFullYear() === year &&
+    date.getUTCMonth() + 1 === month && date.getUTCDate() === day;
 }

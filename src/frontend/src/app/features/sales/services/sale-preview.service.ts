@@ -42,12 +42,14 @@ export class SalePreviewService {
   readonly expiryApprovalReason = signal('');
 
   triggerPreview(): void {
+    this.previewRequestState.latestRequestId += 1;
     this.checkoutPreview.set(null);
     this.expiryApprovalReason.set('');
     this.previewTrigger$.next();
   }
 
   triggerServerUpdateRefresh(): void {
+    this.previewRequestState.latestRequestId += 1;
     this.checkoutPreview.set(null);
     this.expiryApprovalReason.set('');
     this.serverUpdateTrigger$.next();

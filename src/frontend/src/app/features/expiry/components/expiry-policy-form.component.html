@@ -11,6 +11,17 @@
       }}
       · {{ zone }}
     </p>
+    @if (readinessBusy()) {
+      <p role="status" class="text-sm">{{ 'expiry.readinessLoading' | transloco }}</p>
+    }
+    @if (readinessError()) {
+      <div class="text-sm space-y-2">
+        <p role="alert">{{ readinessError() | transloco }}</p>
+        <button type="button" class="underline" (click)="refreshReadiness()">
+          {{ 'expiry.retryReadiness' | transloco }}
+        </button>
+      </div>
+    }
     @if (readiness(); as ready) {
       <p class="text-sm">
         {{

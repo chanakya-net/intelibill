@@ -25,6 +25,7 @@ import {
 } from '../services/batch-disposition-draft.service';
 import { ExpiryPolicyService } from '../services/expiry-policy.service';
 import type { ExpiryPolicy } from '../services/expiry.models';
+import { evaluateExpiry, shopBusinessDate } from '../services/expiry-policy-evaluator';
 @Component({
   selector: 'app-batch-disposition-dialog',
   standalone: true,
@@ -44,6 +45,8 @@ export class BatchDispositionDialogComponent implements OnChanges, OnDestroy {
   readonly pending = signal<Awaited<ReturnType<BatchDispositionDraftService['pending']>>>([]);
   current: InventoryBatchDto | null = null;
   policy: ExpiryPolicy | null = null;
+  private catalogVersion = 0;
+  private businessTimeZone = '';
   selectedRoot = '';
   action: 'Release' | 'Dispose' = 'Dispose';
   quantity = 1;
@@ -75,19 +78,50 @@ export class BatchDispositionDialogComponent implements OnChanges, OnDestroy {
     this.quantity = 1;
   }
   canRelease(): boolean {
-    const root = this.history().find((x) => x.id === this.selectedRoot);
+    const root = this.roots().find((x) => x.id === this.selectedRoot);
     const batch = this.current;
+    const decision = batch?.sellability;
+    const policy = this.policy;
     if (
       !root ||
       root.reasonCode === 'Expiry.Expired' ||
       !batch?.expiryDate ||
-      !this.policy ||
-      !batch.sellability?.allowed ||
-      batch.sellability.requiresApproval
+      batch.isVoided ||
+      !policy ||
+      !decision ||
+      !this.businessTimeZone ||
+      decision.policyVersion !== policy.version ||
+      decision.catalogVersion !== this.catalogVersion ||
+      (!decision.allowed && decision.reasonCode !== 'InventoryBatch.InsufficientStock') ||
+      (batch.manufacturingDate && batch.manufacturingDate > batch.expiryDate) ||
+      !Number.isFinite(this.quantity) ||
+      this.quantity <= 0 ||
+      this.quantity > this.remaining(root)
     )
       return false;
-    const day = batch.sellability.businessDate;
-    return this.policy.sellThroughExpiryDate ? batch.expiryDate >= day : batch.expiryDate > day;
+    const day = shopBusinessDate(Date.now(), this.businessTimeZone);
+    if (decision.businessDate !== day) return false;
+    const clean = evaluateExpiry(
+      {
+        batchId: batch.id,
+        itemId: batch.itemId,
+        expiryDate: batch.expiryDate,
+        manufacturingDate: batch.manufacturingDate,
+        physicalQuantity: this.quantity,
+        quarantinedQuantity: 0,
+        batchVersion: batch.version,
+        itemActive: true,
+        isVoided: batch.isVoided,
+      },
+      policy,
+      this.catalogVersion,
+      day,
+    );
+    return (
+      clean.allowed &&
+      !clean.requiresApproval &&
+      (policy.sellThroughExpiryDate ? batch.expiryDate >= day : batch.expiryDate > day)
+    );
   }
   async load(): Promise<void> {
     const generation = ++this.generation;
@@ -95,15 +129,18 @@ export class BatchDispositionDialogComponent implements OnChanges, OnDestroy {
     this.busy.set(true);
     this.message.set('');
     try {
-      const [history, batches, policy] = await Promise.all([
+      const [history, batches, policy, zone] = await Promise.all([
         firstValueFrom(this.service.history(batchId)),
         firstValueFrom(this.inventory.getInventoryBatches()),
         firstValueFrom(this.policies.read(this.batch.itemId)),
+        firstValueFrom(this.policies.businessTimeZone()),
       ]);
       if (generation !== this.generation) return;
       this.history.set(history);
       this.current = batches.find((x) => x.id === batchId) ?? null;
       this.policy = policy.effectivePolicy;
+      this.catalogVersion = policy.catalogVersion;
+      this.businessTimeZone = zone;
       await this.refreshPending();
     } catch {
       if (generation === this.generation) this.message.set('expiry.loadFailed');

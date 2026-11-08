@@ -208,21 +208,37 @@ const sale = {
 async function capture(page: Page, options: { path: string; fullPage?: boolean }) {
   // Settle finite UI transitions without hiding content, disabling animations or masking app warnings.
   await page.evaluate(async () => {
-    await Promise.all(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {})));
+    await Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => {})),
+    );
   });
   await page.screenshot({ ...options, fullPage: false });
 }
 async function fixtures(page: Page) {
-  const controls = { dispositionMode: 'conflict', posts: [] as unknown[] };
+  const controls = {
+    dispositionMode: 'conflict',
+    posts: [] as Record<string, unknown>[],
+    policyState: structuredClone(state),
+    readinessMode: 'ok',
+    missingDateLots: 1,
+    fullyQuarantined: false,
+    released: false,
+    originallyExpired: false,
+  };
   await page.route('**/api/**', async (r) => {
     const path = new URL(r.request().url()).pathname;
-    if (path === '/api/expiry-policies/readiness')
+    if (path === '/api/expiry-policies/readiness') {
+      if (controls.readinessMode === 'error')
+        return json(r, { code: 'Readiness.Unavailable' }, 503);
       return json(r, {
         businessDate: today(),
-        catalogVersion: 3,
+        catalogVersion: controls.policyState.catalogVersion,
         results: {
           totalLots: 2,
-          missingDateLots: 1,
+          missingDateLots: controls.missingDateLots,
           expiredLots: 1,
           quarantinedLots: 1,
           physicalQuantity: 20,
@@ -238,7 +254,20 @@ async function fixtures(page: Page) {
           ],
         },
       });
-    if (path.startsWith('/api/expiry-policies')) return json(r, state);
+    }
+    if (path.startsWith('/api/expiry-policies')) {
+      if (r.request().method() === 'PUT') {
+        const request = r.request().postDataJSON();
+        controls.policyState = {
+          ...controls.policyState,
+          catalogVersion: controls.policyState.catalogVersion + 1,
+          defaultPolicy: { ...request.policy, version: 3 },
+          effectivePolicy: { ...request.policy, version: 3 },
+        };
+        controls.missingDateLots = 4;
+      }
+      return json(r, controls.policyState);
+    }
     if (path === `/api/shops/${SHOP_A}`)
       return json(r, {
         shopId: SHOP_A,
@@ -265,10 +294,75 @@ async function fixtures(page: Page) {
           eInvoiceAttestedAt: null,
         },
       });
-    if (path === '/api/inventory/batches') return json(r, [batch]);
+    if (path === '/api/inventory/batches')
+      return json(r, [
+        controls.fullyQuarantined
+          ? {
+              ...batch,
+              expiryDate: '2099-12-31',
+              manufacturingDate: null,
+              quantity: 3,
+              quarantinedQuantity: controls.released ? 2 : 3,
+              availableQuantity: controls.released ? 1 : 0,
+              version: controls.released ? 9 : 8,
+              sellability: {
+                ...decision(),
+                allowed: controls.released,
+                requiresApproval: false,
+                reasonCode: controls.released ? null : 'InventoryBatch.InsufficientStock',
+                physicalQuantity: 3,
+                quarantinedQuantity: controls.released ? 2 : 3,
+                availableQuantity: controls.released ? 1 : 0,
+              },
+            }
+          : batch,
+      ]);
     if (path.endsWith('/dispositions')) {
-      if (r.request().method() !== 'POST') return json(r, history);
+      if (r.request().method() !== 'POST')
+        return json(
+          r,
+          controls.fullyQuarantined
+            ? [
+                {
+                  ...history[0],
+                  expiryDate: controls.originallyExpired ? '2026-01-01' : null,
+                  manufacturingDate: null,
+                  reasonCode: controls.originallyExpired
+                    ? 'Expiry.Expired'
+                    : 'Expiry.RequiredDateMissing',
+                },
+                ...(controls.released
+                  ? [
+                      {
+                        ...history[0],
+                        id: 'released-one',
+                        rootChangeId: 'root-held',
+                        action: 'Release',
+                        quantity: 1,
+                        expiryDate: '2099-12-31',
+                        reason: 'Audited corrected date',
+                      },
+                    ]
+                  : []),
+              ]
+            : history,
+        );
       controls.posts.push(r.request().postDataJSON());
+      if (controls.dispositionMode === 'release') {
+        controls.released = true;
+        return json(r, {
+          changeId: 'released-one',
+          quarantineChangeId: 'root-held',
+          batchId: batch.id,
+          action: 'Release',
+          quantity: 1,
+          physicalQuantity: 3,
+          quarantinedQuantity: 2,
+          rootRemainingQuantity: 2,
+          version: 9,
+          adjustmentId: null,
+        });
+      }
       return controls.dispositionMode === 'unknown'
         ? r.abort('failed')
         : json(r, { code: 'Inventory.BatchVersionConflict' }, 409);
@@ -497,11 +591,24 @@ for (const width of [1440, 390]) {
         .click();
       const receipt = page.getByRole('dialog', { name: 'Receive purchase order', exact: true });
       await receipt.locator('app-inventory-barcode-field input').first().fill('MILK');
-      for (const [name, value] of Object.entries({ quantity: '1', totalPurchaseCost: '40', mrp: '60', salesPrice: '50' })) {
-        const field = receipt.locator(`[formControlName="${name}"] input`).first(); await field.fill(value); await field.press('Tab');
+      for (const [name, value] of Object.entries({
+        quantity: '1',
+        totalPurchaseCost: '40',
+        mrp: '60',
+        salesPrice: '50',
+      })) {
+        const field = receipt.locator(`[formControlName="${name}"] input`).first();
+        await field.fill(value);
+        await field.press('Tab');
       }
-      for (const [name, value] of Object.entries({ manufacturingDate: '10/11/2026', expiryDate: '09/11/2026' })) {
-        const field = receipt.locator(`[formControlName="${name}"] input`).first(); await field.fill(''); await field.pressSequentially(value); await field.press('Tab');
+      for (const [name, value] of Object.entries({
+        manufacturingDate: '10/11/2026',
+        expiryDate: '09/11/2026',
+      })) {
+        const field = receipt.locator(`[formControlName="${name}"] input`).first();
+        await field.fill('');
+        await field.pressSequentially(value);
+        await field.press('Tab');
       }
       await page
         .getByRole('button', { name: /Receive$/ })
@@ -510,7 +617,9 @@ for (const width of [1440, 390]) {
       await expect(
         page.getByText('Manufacturing date must be on or before expiry date.', { exact: true }),
       ).toBeVisible();
-      await page.getByText('Manufacturing date must be on or before expiry date.', { exact: true }).scrollIntoViewIfNeeded();
+      await page
+        .getByText('Manufacturing date must be on or before expiry date.', { exact: true })
+        .scrollIntoViewIfNeeded();
       await capture(page, { path: `${OUTPUT}/${width}-receipt-date-error.png`, fullPage: true });
       await receipt.locator('[formControlName="expiryDate"] input').first().fill('');
       await receipt.locator('[formControlName="expiryDate"] input').first().press('Tab');
@@ -521,7 +630,9 @@ for (const width of [1440, 390]) {
       await expect(
         page.getByText('An expiry date is required for this item.', { exact: true }),
       ).toBeVisible();
-      await page.getByText('An expiry date is required for this item.', { exact: true }).scrollIntoViewIfNeeded();
+      await page
+        .getByText('An expiry date is required for this item.', { exact: true })
+        .scrollIntoViewIfNeeded();
       await capture(page, {
         path: `${OUTPUT}/${width}-receipt-required-error.png`,
         fullPage: true,
@@ -534,7 +645,9 @@ for (const width of [1440, 390]) {
       await expect(
         page.getByText('Recorded return: 1 units restored to quarantine.', { exact: false }),
       ).toBeVisible();
-      await page.getByText('Recorded return: 1 units restored to quarantine.', { exact: false }).scrollIntoViewIfNeeded();
+      await page
+        .getByText('Recorded return: 1 units restored to quarantine.', { exact: false })
+        .scrollIntoViewIfNeeded();
       await capture(page, { path: `${OUTPUT}/${width}-saved-return.png`, fullPage: true });
       await page.getByRole('button', { name: /Return items$/ }).click();
       await page.locator('app-sale-return-preview-dialog input[type="checkbox"]').first().check();
@@ -546,17 +659,115 @@ for (const width of [1440, 390]) {
           exact: true,
         }),
       ).toBeVisible();
-      await page.getByText('Restore 1 physical units; 1 units go to quarantine and cannot be sold.', { exact: true }).scrollIntoViewIfNeeded();
+      await page
+        .getByText('Restore 1 physical units; 1 units go to quarantine and cannot be sold.', {
+          exact: true,
+        })
+        .scrollIntoViewIfNeeded();
       await capture(page, { path: `${OUTPUT}/${width}-return-preview.png`, fullPage: true });
       await page.goto(`${server.origin}/inventory/batches`);
       const expand = page.getByRole('button', { name: 'Expand sidebar', exact: true });
       if (await expand.isVisible()) await expand.click();
-      if (width < 700) { await page.locator('.mobile-menu-trigger').click(); await page.locator('.mobile-profile-section .p-panelmenu-header').click(); }
-      else await page.locator('app-sidebar-profile-menu .p-panelmenu-header').click();
-      await page.getByText('Manage Shop', { exact: true }).filter({ visible: true }).first().click();
+      if (width < 700) {
+        await page.locator('.mobile-menu-trigger').click();
+        await page.locator('.mobile-profile-section .p-panelmenu-header').click();
+      } else await page.locator('app-sidebar-profile-menu .p-panelmenu-header').click();
+      await page
+        .getByText('Manage Shop', { exact: true })
+        .filter({ visible: true })
+        .first()
+        .click();
       await expect(page.getByRole('heading', { name: 'Expiry policy', exact: true })).toBeVisible();
       await page.locator('app-expiry-policy-form').scrollIntoViewIfNeeded();
       await capture(page, { path: `${OUTPUT}/${width}-policy-readiness.png`, fullPage: true });
+      controls.readinessMode = 'error';
+      const form = page.locator('app-expiry-policy-form');
+      await form.getByLabel('Reason (required, up to 500 characters)').fill('Require dated stock');
+      await form.getByRole('button', { name: 'Save expiry policy', exact: true }).click();
+      await expect(form).toContainText('Policy 3 · catalog 4');
+      await expect(form.getByRole('alert')).toContainText(
+        'Readiness could not be loaded for this policy version.',
+      );
+      await expect(form).not.toContainText('Missing required dates: 1');
+      await form.getByRole('alert').scrollIntoViewIfNeeded();
+      await capture(page, { path: `${OUTPUT}/${width}-policy-readiness-error.png` });
+      controls.readinessMode = 'ok';
+      await form.getByRole('button', { name: 'Retry readiness', exact: true }).click();
+      await expect(form).toContainText('Missing required dates: 4');
+      await expect(form.getByRole('alert')).toHaveCount(0);
+      await form.scrollIntoViewIfNeeded();
+      await capture(page, { path: `${OUTPUT}/${width}-policy-readiness-refreshed.png` });
+    } finally {
+      await server.close();
+    }
+  });
+}
+
+for (const width of [1440, 390]) {
+  test(`fully quarantined corrected-date Release at ${width}px`, async ({ page }) => {
+    const server = await startPurchaseReceivingServer(
+      resolve(__dirname, '../../../dist/INVENTORY/browser'),
+    );
+    await mkdir(OUTPUT, { recursive: true });
+    await page.setViewportSize({ width, height: 1000 });
+    await page.addInitScript(
+      (value) => localStorage.setItem('inventory.auth.session.local', JSON.stringify(value)),
+      session(),
+    );
+    const controls = await fixtures(page);
+    controls.fullyQuarantined = true;
+    controls.dispositionMode = 'release';
+    try {
+      await page.goto(`${server.origin}/inventory/batches`);
+      await page
+        .getByRole('button', { name: 'Quarantine and history', exact: true })
+        .filter({ visible: true })
+        .first()
+        .click();
+      const dialog = page.locator('app-batch-disposition-dialog');
+      await dialog.getByLabel('Original quarantine event').selectOption('root-held');
+      await expect(dialog.locator('option[value="Release"]')).toHaveJSProperty('disabled', false);
+      await dialog.getByRole('combobox', { name: 'Action', exact: true }).selectOption('Release');
+      await dialog
+        .getByLabel('Reason (required, up to 500 characters)')
+        .fill('Audited corrected date');
+      await capture(page, { path: `${OUTPUT}/${width}-release-fully-quarantined.png` });
+      await dialog.getByRole('button', { name: 'Record action', exact: true }).click();
+      await expect.poll(() => controls.posts.length).toBe(1);
+      expect(controls.posts[0]).toMatchObject({
+        action: 'Release',
+        quantity: 1,
+        expectedVersion: 8,
+        quarantineChangeId: 'root-held',
+        reason: 'Audited corrected date',
+      });
+      // The owning inventory page closes a successful action; reopen its freshly loaded history.
+      await page
+        .getByRole('button', { name: 'Quarantine and history', exact: true })
+        .filter({ visible: true })
+        .first()
+        .click();
+      await expect(
+        dialog.locator('li').filter({ hasText: 'Audited corrected date' }),
+      ).toContainText('Release hold');
+      await expect(dialog).toContainText('Quarantined 2');
+      await dialog
+        .locator('li')
+        .filter({ hasText: 'Audited corrected date' })
+        .scrollIntoViewIfNeeded();
+      await capture(page, { path: `${OUTPUT}/${width}-release-saved.png` });
+      controls.released = false;
+      controls.originallyExpired = true;
+      await page.reload();
+      await page
+        .getByRole('button', { name: 'Quarantine and history', exact: true })
+        .filter({ visible: true })
+        .first()
+        .click();
+      await dialog.getByLabel('Original quarantine event').selectOption('root-held');
+      await expect(dialog.locator('option[value="Release"]')).toHaveJSProperty('disabled', true);
+      expect(controls.posts).toHaveLength(1);
+      await capture(page, { path: `${OUTPUT}/${width}-release-originally-expired-refused.png` });
     } finally {
       await server.close();
     }

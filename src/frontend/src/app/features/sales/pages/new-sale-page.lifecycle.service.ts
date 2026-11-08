@@ -113,14 +113,6 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
 
     runInInjectionContext(this.injector, () => {
       effect(() => {
-        this.nowTick();
-        const preview = this.checkoutPreview(); this.expiryBusinessTimeZone();
-        if (preview?.expiryDecisions?.length && this.expiryBusinessTimeZone() && !this.expiryPreviewIsCurrent()) untracked(() => {
-          this.availableBatches.set([]); this.availableSellables.set([]); this.selectedSellable.set(null);
-          this.salePreview.triggerServerUpdateRefresh();
-        });
-      });
-      effect(() => {
         const total = this.totalAmount();
         if (untracked(() => this.appliedCreditNotes().length) > 0) {
           if (total <= 0) {
