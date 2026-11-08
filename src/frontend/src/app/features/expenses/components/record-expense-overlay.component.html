@@ -26,9 +26,13 @@
     <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
       <label>
         <span>{{ 'expenses.treatment.label' | transloco }}</span>
-        <select data-testid="expense-treatment" [value]="treatment()" (change)="selectTreatment($event)">
+        <select
+          data-testid="expense-treatment"
+          [value]="treatment()"
+          (change)="selectTreatment($event)"
+        >
           @for (choice of treatmentChoices; track choice) {
-            <option [value]="choice">{{ ('expenses.treatment.' + choice) | transloco }}</option>
+            <option [value]="choice">{{ 'expenses.treatment.' + choice | transloco }}</option>
           }
         </select>
         <small>{{ 'expenses.treatment.help' | transloco }}</small>
@@ -130,6 +134,15 @@
           [disabled]="isSubmitting()"
         ></button>
       </div>
+      <app-till-pending-actions
+        (lockedChange)="onTillLocked($event)"
+        action="expense-record"
+        [target]="'new'"
+      />
+      <app-till-posting-fields [disabled]="tillLocked()" [evidence]="true" direction="MoneyPaid" />
+      @if (tillError()) {
+        <p role="alert">{{ tillError() | transloco }}</p>
+      }
     </form>
 
     @if (isSubmitting()) {

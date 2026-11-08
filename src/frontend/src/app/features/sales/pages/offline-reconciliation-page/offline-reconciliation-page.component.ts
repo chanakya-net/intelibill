@@ -1,3 +1,5 @@
+import { TillPendingActionsComponent } from '../../../tills/components/till-pending-actions.component';
+import type { TenderMethod } from '../../../tills/services/till.models';
 import { CommonModule, formatDate, formatNumber } from '@angular/common';
 import {
   Component,
@@ -74,7 +76,9 @@ const LAST_EXPORT_KEY_PREFIX = 'intelibill.offlineSales.lastSupportExport.v1';
 const UNSENT_STATUSES = new Set(['Pending', 'Syncing', 'Failed']);
 const DATE_FORMAT = 'dd MMM yyyy, h:mm a';
 /** Which candidates each link action may name. */
-const CANDIDATE_KIND: Readonly<Partial<Record<ReconciliationAction, ReconciliationLinkCandidate['kind']>>> = {
+const CANDIDATE_KIND: Readonly<
+  Partial<Record<ReconciliationAction, ReconciliationLinkCandidate['kind']>>
+> = {
   LinkStockCorrection: 'Adjustment',
   LinkExistingSale: 'Sale',
 };
@@ -114,6 +118,7 @@ interface ConsoleMessage {
   selector: 'app-offline-reconciliation-page',
   standalone: true,
   imports: [
+    TillPendingActionsComponent,
     CommonModule,
     FormsModule,
     ButtonModule,
@@ -144,7 +149,9 @@ export class OfflineReconciliationPageComponent {
   private readonly transloco = inject(TranslocoService);
   private readonly locale = inject(LOCALE_ID);
   /** Option labels are read out by screen readers, so they are translated text and follow language changes. */
-  private readonly activeLang = toSignal(this.transloco.langChanges$, { initialValue: this.transloco.getActiveLang() });
+  private readonly activeLang = toSignal(this.transloco.langChanges$, {
+    initialValue: this.transloco.getActiveLang(),
+  });
 
   private readonly detailHeading = viewChild<ElementRef<HTMLElement>>('detailHeading');
 
@@ -152,7 +159,10 @@ export class OfflineReconciliationPageComponent {
   readonly reasonMaxLength = RESOLVE_REASON_MAX_LENGTH;
   readonly statusFilterOptions = computed(() => {
     this.activeLang();
-    return STATUS_FILTER_OPTIONS.map((option) => ({ value: option.value, label: this.transloco.translate(option.label) }));
+    return STATUS_FILTER_OPTIONS.map((option) => ({
+      value: option.value,
+      label: this.transloco.translate(option.label),
+    }));
   });
   readonly reviewReasonKey = offlineReviewReasonKey;
   readonly actionLabelKey = actionLabelKey;
@@ -174,7 +184,7 @@ export class OfflineReconciliationPageComponent {
   private readonly userId = computed(() => this.auth.session()?.user.id ?? null);
   private readonly deviceId = computed(() => {
     const shopId = this.shopId();
-    return shopId ? this.deviceSettings.loadSettings(shopId)?.deviceId ?? null : null;
+    return shopId ? (this.deviceSettings.loadSettings(shopId)?.deviceId ?? null) : null;
   });
 
   // Device queue (this browser's IndexedDB).
@@ -217,6 +227,11 @@ export class OfflineReconciliationPageComponent {
   private detailRequest = 0;
 
   // Resolve form.
+  readonly resolveLocked = signal(false);
+  evidenceStatus: '' | 'Recorded' | 'Unknown' = '';
+  evidenceReason = '';
+  evidenceMethod: TenderMethod | '' = '';
+  readonly evidenceMethods: TenderMethod[] = ['Cash', 'Upi', 'Card', 'BankTransfer', 'Cheque'];
   readonly resolveAction = signal<ReconciliationAction | null>(null);
   readonly resolveReason = signal('');
   readonly resolveLinkedOperationId = signal('');
@@ -242,16 +257,23 @@ export class OfflineReconciliationPageComponent {
     if (!kind) return [];
     return (this.selectedCase()?.linkCandidates ?? [])
       .filter((candidate) => candidate.kind === kind)
-      .map((candidate) => ({ value: candidate.operationId, label: this.candidateLabel(candidate) }));
+      .map((candidate) => ({
+        value: candidate.operationId,
+        label: this.candidateLabel(candidate),
+      }));
   });
   readonly trimmedReasonLength = computed(() => this.resolveReason().trim().length);
   readonly actionErrorKey = computed(() =>
-    this.resolveAction() === null ? 'sales.offlineReconciliation.resolve.validation.actionRequired' : null,
+    this.resolveAction() === null
+      ? 'sales.offlineReconciliation.resolve.validation.actionRequired'
+      : null,
   );
   readonly reasonErrorKey = computed(() => {
     const length = this.trimmedReasonLength();
     if (length === 0) return 'sales.offlineReconciliation.resolve.validation.reasonRequired';
-    return length > RESOLVE_REASON_MAX_LENGTH ? 'sales.offlineReconciliation.resolve.validation.reasonTooLong' : null;
+    return length > RESOLVE_REASON_MAX_LENGTH
+      ? 'sales.offlineReconciliation.resolve.validation.reasonTooLong'
+      : null;
   });
   readonly linkedErrorKey = computed(() => {
     if (!this.needsLinkedOperation()) return null;
@@ -303,7 +325,8 @@ export class OfflineReconciliationPageComponent {
       const rows = this.reviewRows();
       const reachable = this.canReachApi();
       untracked(() => {
-        if (reachable) for (const row of rows) if (row.reviewCaseId) this.lookUpEnvelope(row.reviewCaseId);
+        if (reachable)
+          for (const row of rows) if (row.reviewCaseId) this.lookUpEnvelope(row.reviewCaseId);
       });
     });
 
@@ -343,9 +366,15 @@ export class OfflineReconciliationPageComponent {
    * A held invoice may be sent once more, by its issuer (or anyone, when unstamped), when the server has no
    * original copy of it: no case was recorded, or its case was filed before the server kept original invoices.
    */
-  canResubmit(row: { readonly clientSaleId: string; readonly reviewCaseId: string | null }): boolean {
-    const record = this.localRecords().find((candidate) => candidate.clientSaleId === row.clientSaleId);
-    if (!record || record.status !== 'NeedsReview' || !isSubmittableBy(record, this.userId())) return false;
+  canResubmit(row: {
+    readonly clientSaleId: string;
+    readonly reviewCaseId: string | null;
+  }): boolean {
+    const record = this.localRecords().find(
+      (candidate) => candidate.clientSaleId === row.clientSaleId,
+    );
+    if (!record || record.status !== 'NeedsReview' || !isSubmittableBy(record, this.userId()))
+      return false;
     return row.reviewCaseId === null || this.caseEnvelopes().get(row.reviewCaseId) === false;
   }
 
@@ -353,13 +382,18 @@ export class OfflineReconciliationPageComponent {
     return this.resubmittingIds().has(clientSaleId);
   }
 
-  async resubmit(row: { readonly clientSaleId: string; readonly invoiceNumber: string }): Promise<void> {
+  async resubmit(row: {
+    readonly clientSaleId: string;
+    readonly invoiceNumber: string;
+  }): Promise<void> {
     const shopId = this.shopId();
     const deviceId = this.deviceId();
     const clientSaleId = row.clientSaleId;
     if (!shopId || !deviceId || !this.canReachApi() || this.isResubmitting(clientSaleId)) return;
 
-    const caseIdBefore = this.reviewRows().find((candidate) => candidate.clientSaleId === clientSaleId)?.reviewCaseId ?? null;
+    const caseIdBefore =
+      this.reviewRows().find((candidate) => candidate.clientSaleId === clientSaleId)
+        ?.reviewCaseId ?? null;
     this.resubmitFailedInvoice.set(null);
     this.resubmittingIds.update((ids) => new Set([...ids, clientSaleId]));
     try {
@@ -371,7 +405,9 @@ export class OfflineReconciliationPageComponent {
       this.resubmittingIds.update((ids) => new Set([...ids].filter((id) => id !== clientSaleId)));
       await this.reloadLocalRecords();
       // The server may hold an envelope now: forget what was learned so the next refresh asks again.
-      const caseIdAfter = this.reviewRows().find((candidate) => candidate.clientSaleId === clientSaleId)?.reviewCaseId ?? null;
+      const caseIdAfter =
+        this.reviewRows().find((candidate) => candidate.clientSaleId === clientSaleId)
+          ?.reviewCaseId ?? null;
       for (const caseId of new Set([caseIdBefore, caseIdAfter])) {
         if (!caseId) continue;
         this.envelopeLookups.delete(caseId);
@@ -395,7 +431,9 @@ export class OfflineReconciliationPageComponent {
   }
 
   private rememberEnvelope(detail: ReconciliationCase): void {
-    this.caseEnvelopes.update((known) => new Map(known).set(detail.caseId, detail.hasOriginalEnvelope));
+    this.caseEnvelopes.update((known) =>
+      new Map(known).set(detail.caseId, detail.hasOriginalEnvelope),
+    );
   }
 
   async reloadLocalRecords(): Promise<void> {
@@ -513,7 +551,9 @@ export class OfflineReconciliationPageComponent {
           const action = this.resolveAction();
           if (action && !detail.availableActions.includes(action)) this.resolveAction.set(null);
           // A reload may withdraw a candidate (linked elsewhere, voided): never submit one the server no longer offers.
-          if (!this.linkOptions().some((option) => option.value === this.resolveLinkedOperationId())) {
+          if (
+            !this.linkOptions().some((option) => option.value === this.resolveLinkedOperationId())
+          ) {
             this.resolveLinkedOperationId.set('');
           }
           if (focusWhenLoaded) this.focusDetail();
@@ -550,12 +590,16 @@ export class OfflineReconciliationPageComponent {
           quantity: this.formatQuantity(candidate.quantity),
           date,
         })
-      : this.transloco.translate('sales.offlineReconciliation.resolve.candidateSale', { invoice: candidate.label, date });
+      : this.transloco.translate('sales.offlineReconciliation.resolve.candidateSale', {
+          invoice: candidate.label,
+          date,
+        });
   }
 
   // ---- Resolve --------------------------------------------------------------------------------------------------
 
   submitResolve(): void {
+    if (this.resolveLocked()) return;
     this.resolveAttempted.set(true);
     const current = this.selectedCase();
     const action = this.resolveAction();
@@ -572,13 +616,63 @@ export class OfflineReconciliationPageComponent {
 
     const reason = this.resolveReason().trim();
     const linkedOperationId = this.needsLinkedOperation() ? this.resolveLinkedOperationId() : null;
-    const signature = JSON.stringify([current.caseId, current.version, action, reason, linkedOperationId]);
+    const signature = JSON.stringify([
+      current.caseId,
+      current.version,
+      action,
+      reason,
+      linkedOperationId,
+    ]);
     if (this.resolveIntent?.signature !== signature) {
       this.resolveIntent = { signature, operationId: crypto.randomUUID() };
     }
 
+    let tillReconciliationEvidence: ResolveReconciliationCaseRequest['tillReconciliationEvidence'];
+    if (action === 'ReconcileTillSale') {
+      const invoice = current.submission?.invoice;
+      const hasFrozen = !!(
+        invoice &&
+        (invoice.till != null ||
+          invoice.tenderLines != null ||
+          invoice.tillBusinessDate != null ||
+          invoice.tillCashierId != null)
+      );
+      if (
+        !invoice ||
+        !this.evidenceStatus ||
+        !this.evidenceReason.trim() ||
+        (this.evidenceStatus === 'Unknown' && hasFrozen) ||
+        (this.evidenceStatus === 'Recorded' &&
+          invoice.paidAmount > 0 &&
+          invoice.tenderLines == null &&
+          !this.evidenceMethod)
+      ) {
+        this.resolveMessage.set({ kind: 'error', key: 'tills.evidenceRequired' });
+        return;
+      }
+      tillReconciliationEvidence = {
+        evidenceStatus: this.evidenceStatus,
+        reason: this.evidenceReason.trim(),
+        tenderLines:
+          this.evidenceStatus === 'Unknown'
+            ? []
+            : structuredClone(
+                invoice.tenderLines ??
+                  (invoice.paidAmount > 0
+                    ? [
+                        {
+                          method: this.evidenceMethod as TenderMethod,
+                          appliedAmount: invoice.paidAmount,
+                        },
+                      ]
+                    : []),
+              ),
+      };
+    }
     const request: ResolveReconciliationCaseRequest = {
       operationId: this.resolveIntent.operationId,
+      tillOwner: { userId: this.userId()!, shopId: this.shopId()! },
+      ...(action === 'ReconcileTillSale' ? { tillReconciliationEvidence } : {}),
       expectedVersion: current.version,
       action,
       reason,
@@ -600,7 +694,10 @@ export class OfflineReconciliationPageComponent {
           this.resolveIntent = null;
           this.selectedCase.set(updated);
           this.resetResolveForm();
-          this.resolveMessage.set({ kind: 'success', key: 'sales.offlineReconciliation.resolve.success' });
+          this.resolveMessage.set({
+            kind: 'success',
+            key: 'sales.offlineReconciliation.resolve.success',
+          });
         },
         error: (error: unknown) => {
           this.resolving.set(false);
@@ -619,12 +716,16 @@ export class OfflineReconciliationPageComponent {
             this.loadCases();
             if (!stillOpen) return;
             const key = reconciliationErrorKey(code);
-            this.resolveMessage.set({ kind: 'error', key: key === GENERIC_ERROR_KEY ? CASE_CHANGED_KEY : key });
+            this.resolveMessage.set({
+              kind: 'error',
+              key: key === GENERIC_ERROR_KEY ? CASE_CHANGED_KEY : key,
+            });
             this.loadSelectedCase();
             return;
           }
 
-          if (stillOpen) this.resolveMessage.set({ kind: 'error', key: reconciliationErrorKey(code) });
+          if (stillOpen)
+            this.resolveMessage.set({ kind: 'error', key: reconciliationErrorKey(code) });
         },
       });
   }
@@ -746,7 +847,9 @@ export class OfflineReconciliationPageComponent {
 
           this.importIntent = null;
           const status = (error as { status?: number }).status;
-          this.importErrorKey.set(status === 413 ? BUNDLE_TOO_LARGE_KEY : reconciliationErrorKey(serverErrorCode(error)));
+          this.importErrorKey.set(
+            status === 413 ? BUNDLE_TOO_LARGE_KEY : reconciliationErrorKey(serverErrorCode(error)),
+          );
         },
       });
   }
@@ -766,7 +869,10 @@ export class OfflineReconciliationPageComponent {
     if (!key) return null;
     try {
       const parsed = JSON.parse(localStorage.getItem(key) ?? 'null') as
-        | (Partial<SupportExportRecord> & { readonly fileName?: unknown; readonly checksum?: unknown })
+        | (Partial<SupportExportRecord> & {
+            readonly fileName?: unknown;
+            readonly checksum?: unknown;
+          })
         | null;
       if (
         !parsed ||
@@ -785,7 +891,9 @@ export class OfflineReconciliationPageComponent {
       if (
         !Array.isArray(files) ||
         files.length === 0 ||
-        !files.every((file) => typeof file?.fileName === 'string' && typeof file?.checksum === 'string')
+        !files.every(
+          (file) => typeof file?.fileName === 'string' && typeof file?.checksum === 'string',
+        )
       ) {
         return null;
       }

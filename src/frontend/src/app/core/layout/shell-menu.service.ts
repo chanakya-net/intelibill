@@ -91,6 +91,12 @@ export class ShellMenuService {
       });
     }
 
+    items.push({
+      label: this.localizationService.translate('tills.title'),
+      icon: 'pi pi-money-bill',
+      routerLink: ['/tills'],
+      command: () => this.router.navigate(['/tills']),
+    });
     return items;
   });
 

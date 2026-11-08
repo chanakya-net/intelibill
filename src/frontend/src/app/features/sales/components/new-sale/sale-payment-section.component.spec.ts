@@ -1,3 +1,4 @@
+import { disabledTillProviders } from '../../../../../tests/tills/disabled-till.providers';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { describe, expect, it, vi } from 'vitest';
@@ -34,7 +35,11 @@ const notes: AppliedCreditNote[] = [
 describe('SalePaymentSectionComponent', () => {
   it('emits payment method updates', () => {
     TestBed.configureTestingModule({
-      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      providers: disabledTillProviders(),
+      imports: [
+        SalePaymentSectionComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(SalePaymentSectionComponent);
@@ -51,7 +56,11 @@ describe('SalePaymentSectionComponent', () => {
 
   it('forwards paid and due amount changes', () => {
     TestBed.configureTestingModule({
-      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      providers: disabledTillProviders(),
+      imports: [
+        SalePaymentSectionComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(SalePaymentSectionComponent);
@@ -71,19 +80,25 @@ describe('SalePaymentSectionComponent', () => {
 
   it('forwards applied credit note amount changes', () => {
     TestBed.configureTestingModule({
-      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      providers: disabledTillProviders(),
+      imports: [
+        SalePaymentSectionComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(SalePaymentSectionComponent);
     const component = fixture.componentInstance;
-    component.appliedCreditNotes = [{
-      creditNoteId: 'cn-1',
-      code: 'CN-001',
-      availableBalance: 120,
-      status: 'Active',
-      expiresAt: null,
-      amount: 40,
-    }];
+    component.appliedCreditNotes = [
+      {
+        creditNoteId: 'cn-1',
+        code: 'CN-001',
+        availableBalance: 120,
+        status: 'Active',
+        expiresAt: null,
+        amount: 40,
+      },
+    ];
 
     const spy = vi.fn();
     component.appliedCreditNoteAmountChanged.subscribe(spy);
@@ -95,7 +110,11 @@ describe('SalePaymentSectionComponent', () => {
 
   it('forwards applied credit note remove action', () => {
     TestBed.configureTestingModule({
-      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      providers: disabledTillProviders(),
+      imports: [
+        SalePaymentSectionComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(SalePaymentSectionComponent);
@@ -111,7 +130,11 @@ describe('SalePaymentSectionComponent', () => {
 
   it('hides the due amount input until a customer can use credit', () => {
     TestBed.configureTestingModule({
-      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      providers: disabledTillProviders(),
+      imports: [
+        SalePaymentSectionComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(SalePaymentSectionComponent);
@@ -122,12 +145,16 @@ describe('SalePaymentSectionComponent', () => {
     const inputGroups = fixture.nativeElement.querySelectorAll('.p-inputgroup');
 
     expect(inputGroups.length).toBe(1);
-    expect((fixture.nativeElement.textContent as string)).not.toContain('sales.newSale.dueAmount');
+    expect(fixture.nativeElement.textContent as string).not.toContain('sales.newSale.dueAmount');
   });
 
   it('disables due amount input when requested', () => {
     TestBed.configureTestingModule({
-      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      providers: disabledTillProviders(),
+      imports: [
+        SalePaymentSectionComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(SalePaymentSectionComponent);
@@ -147,7 +174,11 @@ describe('SalePaymentSectionComponent', () => {
 
   it('renders applied notes and emits add, amount change, and remove actions', () => {
     TestBed.configureTestingModule({
-      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      providers: disabledTillProviders(),
+      imports: [
+        SalePaymentSectionComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(SalePaymentSectionComponent);

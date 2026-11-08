@@ -1,3 +1,4 @@
+import { disabledTillProviders } from '../../../../tests/tills/disabled-till.providers';
 import '@angular/compiler';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -16,9 +17,18 @@ const paymentIntents = {
   revision: signal(0),
   pending: vi.fn((): unknown => null),
   check: vi.fn(),
-  prepare: vi.fn((_scope: unknown, type: string, targetId: string, payload: unknown) => ({ type, targetId, payload, operationKey: 'op-1' })),
-  send: vi.fn((_scope: unknown, intent: { payload: unknown; operationKey: string }, request: (payload: unknown, key: string) => unknown) =>
-    request(intent.payload, intent.operationKey),
+  prepare: vi.fn((_scope: unknown, type: string, targetId: string, payload: unknown) => ({
+    type,
+    targetId,
+    payload,
+    operationKey: 'op-1',
+  })),
+  send: vi.fn(
+    (
+      _scope: unknown,
+      intent: { payload: unknown; operationKey: string },
+      request: (payload: unknown, key: string) => unknown,
+    ) => request(intent.payload, intent.operationKey),
   ),
 };
 
@@ -31,16 +41,66 @@ const account: CustomerAccount = {
   outstandingDue: 150,
   unallocatedCredit: 20,
   sales: [
-    { saleId: 's-new', invoiceNumber: 'A/2627/000002', paymentMethod: 'Credit', soldAt: '2026-11-03T10:00:00Z', paidAmount: 0, dueAmount: 100, totalAmount: 100, allocatedPaymentAmount: 0, returnCreditAmount: 0, currentOutstandingAmount: 100 },
-    { saleId: 's-old', invoiceNumber: 'A/2627/000001', paymentMethod: 'Credit', soldAt: '2026-11-01T10:00:00Z', paidAmount: 0, dueAmount: 120, totalAmount: 120, allocatedPaymentAmount: 50, returnCreditAmount: 0, currentOutstandingAmount: 70 },
+    {
+      saleId: 's-new',
+      invoiceNumber: 'A/2627/000002',
+      paymentMethod: 'Credit',
+      soldAt: '2026-11-03T10:00:00Z',
+      paidAmount: 0,
+      dueAmount: 100,
+      totalAmount: 100,
+      allocatedPaymentAmount: 0,
+      returnCreditAmount: 0,
+      currentOutstandingAmount: 100,
+    },
+    {
+      saleId: 's-old',
+      invoiceNumber: 'A/2627/000001',
+      paymentMethod: 'Credit',
+      soldAt: '2026-11-01T10:00:00Z',
+      paidAmount: 0,
+      dueAmount: 120,
+      totalAmount: 120,
+      allocatedPaymentAmount: 50,
+      returnCreditAmount: 0,
+      currentOutstandingAmount: 70,
+    },
   ],
   ledgerEntries: [
-    { entryId: 'e3', saleId: null, entryType: 'PaymentReversal', amount: 30, entryDate: '2026-11-05', notes: null, runningBalance: 150 },
-    { entryId: 'e2', saleId: null, entryType: 'PaymentReceived', amount: 30, entryDate: '2026-11-04', notes: null, runningBalance: 120, receiptId: 'r1' },
+    {
+      entryId: 'e3',
+      saleId: null,
+      entryType: 'PaymentReversal',
+      amount: 30,
+      entryDate: '2026-11-05',
+      notes: null,
+      runningBalance: 150,
+    },
+    {
+      entryId: 'e2',
+      saleId: null,
+      entryType: 'PaymentReceived',
+      amount: 30,
+      entryDate: '2026-11-04',
+      notes: null,
+      runningBalance: 120,
+      receiptId: 'r1',
+    },
   ],
   paymentHistory: [],
   receipts: [
-    { receiptId: 'r1', amount: 30, method: 'Upi', externalReference: 'UPI-1', businessDate: '2026-11-04', isLegacy: false, isReversed: false, allocatedAmount: 10, unallocatedAmount: 20, ledgerEntryId: 'e2' },
+    {
+      receiptId: 'r1',
+      amount: 30,
+      method: 'Upi',
+      externalReference: 'UPI-1',
+      businessDate: '2026-11-04',
+      isLegacy: false,
+      isReversed: false,
+      allocatedAmount: 10,
+      unallocatedAmount: 20,
+      ledgerEntryId: 'e2',
+    },
   ],
 };
 
@@ -187,6 +247,7 @@ describe('CustomersPageComponent', () => {
         }),
       ],
       providers: [
+        ...disabledTillProviders(),
         { provide: CustomersFacade, useValue: facade },
         { provide: CustomerService, useValue: customerService },
         { provide: Router, useValue: router },
@@ -196,7 +257,15 @@ describe('CustomersPageComponent', () => {
             session: () => ({
               user: { id: 'user-1' },
               activeShopId: 'shop-1',
-              shops: [{ shopId: 'shop-1', shopName: 'Main', role: shopRole, isDefault: true, lastUsedAt: null }],
+              shops: [
+                {
+                  shopId: 'shop-1',
+                  shopName: 'Main',
+                  role: shopRole,
+                  isDefault: true,
+                  lastUsedAt: null,
+                },
+              ],
             }),
           },
         },
@@ -261,31 +330,44 @@ describe('CustomersPageComponent', () => {
       { targetId: 's-new', amount: 30, invoiceNumber: 'A/2627/000002' },
     ]);
 
+    fixture.detectChanges();
     component.onRecordPayment();
-    expect(customerService.recordCustomerPayment).toHaveBeenLastCalledWith('c1', expect.objectContaining({
-      amount: 100,
-      method: 'Upi',
-      externalReference: 'UPI-99',
-      allocations: [],
-      operationKey: 'op-1',
-    }));
+    expect(customerService.recordCustomerPayment).toHaveBeenLastCalledWith(
+      'c1',
+      expect.objectContaining({
+        amount: 100,
+        method: 'Upi',
+        externalReference: 'UPI-99',
+        allocations: [],
+        operationKey: 'op-1',
+      }),
+    );
 
     component.paymentForm.patchValue({ amount: 100, applyOldestFirst: true });
+    fixture.detectChanges();
     component.onRecordPayment();
-    expect(customerService.recordCustomerPayment).toHaveBeenLastCalledWith('c1', expect.objectContaining({
-      allocations: [
-        { targetId: 's-old', amount: 70 },
-        { targetId: 's-new', amount: 30 },
-      ],
-    }));
+    expect(customerService.recordCustomerPayment).toHaveBeenLastCalledWith(
+      'c1',
+      expect.objectContaining({
+        allocations: [
+          { targetId: 's-old', amount: 70 },
+          { targetId: 's-new', amount: 30 },
+        ],
+      }),
+    );
   });
 
   it('shows current outstanding separately and books a payment reversal as a debit', () => {
     component.onOpenCustomerAccount(customersSignal()[0]);
 
-    expect(component.selectedAccountOpenInvoices().map((sale) => sale.saleId)).toEqual(['s-old', 's-new']);
+    expect(component.selectedAccountOpenInvoices().map((sale) => sale.saleId)).toEqual([
+      's-old',
+      's-new',
+    ]);
     expect(component.selectedAccountUnallocatedCredit()).toBe(20);
-    const reversal = component.selectedAccountLedgerRows().find((row) => row.entry.entryId === 'e3')!;
+    const reversal = component
+      .selectedAccountLedgerRows()
+      .find((row) => row.entry.entryId === 'e3')!;
     expect(reversal.debit).toBe(30);
     expect(reversal.credit).toBeNull();
     expect(reversal.labelKey).toBe('customers.account.paymentReversal');
@@ -302,13 +384,16 @@ describe('CustomersPageComponent', () => {
 
       owner.onStartReversal(account.receipts![0]);
       owner.reversalReason.set('x');
+      ownerFixture.detectChanges();
       owner.onConfirmReversal();
       expect(owner.reversalError()).toBe('customers.account.reversalReasonRequired');
       expect(customerService.reversePayment).not.toHaveBeenCalled();
 
       owner.reversalReason.set('Wrong customer');
+      ownerFixture.detectChanges();
       owner.onConfirmReversal();
       expect(customerService.reversePayment).toHaveBeenCalledWith('r1', {
+        tillOwner: { userId: 'user-1', shopId: 'shop-1' },
         reason: 'Wrong customer',
         operationKey: expect.stringMatching(/^reverse-/),
       });
@@ -329,13 +414,15 @@ describe('CustomersPageComponent', () => {
         sales: [{ ...account.sales[0], totalAmount: 20000 }],
       }),
     );
-    component.onOpenCustomerAccount({...customersSignal()[0], lifetimeRevenue:20000});
+    component.onOpenCustomerAccount({ ...customersSignal()[0], lifetimeRevenue: 20000 });
 
     expect(component.selectedAccountLifetimeRevenue()).toBe(20000);
     expect(component.selectedAccountCreditLimit()).toBe(2000);
     expect(component.selectedAccountUsagePercent()).toBe(25);
     expect(component.selectedAccountAvailableCredit()).toBe(1500);
-    expect(component.selectedAccountCreditPolicyLabelKey()).toBe('customers.creditPolicy.modes.Enforced');
+    expect(component.selectedAccountCreditPolicyLabelKey()).toBe(
+      'customers.creditPolicy.modes.Enforced',
+    );
   });
 
   it('labels a response without a policy as legacy advisory with no promised credit', () => {
@@ -346,7 +433,9 @@ describe('CustomersPageComponent', () => {
   });
 
   it('uses the server opening and closing balances, not a displayed row (RF5)', () => {
-    customerService.getCustomerAccount.mockReturnValueOnce(of({ ...account, openingBalance: 0, closingBalance: 150 }));
+    customerService.getCustomerAccount.mockReturnValueOnce(
+      of({ ...account, openingBalance: 0, closingBalance: 150 }),
+    );
     component.onOpenCustomerAccount(customersSignal()[0]);
 
     // The oldest displayed row's after-entry balance is 120; the opening before the window is 0.
@@ -370,18 +459,70 @@ describe('CustomersPageComponent', () => {
     fixture.detectChanges();
 
     const statuses = Array.from(
-      (fixture.nativeElement as HTMLElement).querySelectorAll('[data-testid="invoice-due-status"] .statement-type'),
+      (fixture.nativeElement as HTMLElement).querySelectorAll(
+        '[data-testid="invoice-due-status"] .statement-type',
+      ),
     ).map((badge) => badge.classList.contains('overdue'));
     expect(statuses).toEqual([true, false]);
     expect(component.selectedAccountOverdueAmount()).toBe(70);
     expect(component.selectedAccountIsActive()).toBe(false);
   });
- it('shows cancellation credit separately and never reopens the original issue due',()=>{customerService.getCustomerAccount.mockReturnValueOnce(of({...account,sales:[{...account.sales[0],status:'Cancelled',cancellationCreditAmount:100,currentOutstandingAmount:0}],ledgerEntries:[{entryId:'cancel-credit',saleId:'s-new',entryType:'SaleCancellationCredit',amount:100,entryDate:'2026-11-08',notes:'SC-frozen',runningBalance:0}]}));component.onOpenCustomerAccount(customersSignal()[0]);expect(component.selectedAccountOpenInvoices()).toEqual([]);const row=component.selectedAccountLedgerRows()[0];expect(row.labelKey).toBe('customers.account.saleCancellationCredit');expect(row.credit).toBe(100);expect(row.debit).toBeNull();});
+  it('shows cancellation credit separately and never reopens the original issue due', () => {
+    customerService.getCustomerAccount.mockReturnValueOnce(
+      of({
+        ...account,
+        sales: [
+          {
+            ...account.sales[0],
+            status: 'Cancelled',
+            cancellationCreditAmount: 100,
+            currentOutstandingAmount: 0,
+          },
+        ],
+        ledgerEntries: [
+          {
+            entryId: 'cancel-credit',
+            saleId: 's-new',
+            entryType: 'SaleCancellationCredit',
+            amount: 100,
+            entryDate: '2026-11-08',
+            notes: 'SC-frozen',
+            runningBalance: 0,
+          },
+        ],
+      }),
+    );
+    component.onOpenCustomerAccount(customersSignal()[0]);
+    expect(component.selectedAccountOpenInvoices()).toEqual([]);
+    const row = component.selectedAccountLedgerRows()[0];
+    expect(row.labelKey).toBe('customers.account.saleCancellationCredit');
+    expect(row.credit).toBe(100);
+    expect(row.debit).toBeNull();
+  });
   it('renders zero net lifetime revenue after cancellation while retaining the original purchase', () => {
-    customerService.getCustomerAccount.mockReturnValueOnce(of({...account, sales:[{...account.sales[0], totalAmount:200, status:'Cancelled', cancellationCreditAmount:100, currentOutstandingAmount:0}]}));
-    component.onOpenCustomerAccount({...customersSignal()[0],lifetimeRevenue:0,purchaseCount:1});
+    customerService.getCustomerAccount.mockReturnValueOnce(
+      of({
+        ...account,
+        sales: [
+          {
+            ...account.sales[0],
+            totalAmount: 200,
+            status: 'Cancelled',
+            cancellationCreditAmount: 100,
+            currentOutstandingAmount: 0,
+          },
+        ],
+      }),
+    );
+    component.onOpenCustomerAccount({
+      ...customersSignal()[0],
+      lifetimeRevenue: 0,
+      purchaseCount: 1,
+    });
     fixture.detectChanges();
-    const metric = Array.from(fixture.nativeElement.querySelectorAll('.statement-metric') as NodeListOf<HTMLElement>).find(element=>element.textContent?.includes('customers.account.lifetimeRevenue'))!;
+    const metric = Array.from(
+      fixture.nativeElement.querySelectorAll('.statement-metric') as NodeListOf<HTMLElement>,
+    ).find((element) => element.textContent?.includes('customers.account.lifetimeRevenue'))!;
     expect(metric.querySelector('strong')?.textContent?.trim()).toBe('₹0.00');
     expect(metric.querySelector('small')?.textContent).toContain('1');
     expect(component.selectedAccount()?.sales[0].totalAmount).toBe(200);

@@ -1,3 +1,4 @@
+import { TillSourceService, TillSourceFields } from '../../tills/services/till-source.service';
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -20,11 +21,11 @@ export interface SupplierLedgerEntry {
   readonly entryDate: string;
   readonly notes: string | null;
   /** The payment receipt behind a `PaymentMade` entry. */
-  readonly supplierReturnId?:string|null;
+  readonly supplierReturnId?: string | null;
   readonly receiptId?: string | null;
 }
 
-export interface MakePaymentRequest {
+export interface MakePaymentRequest extends TillSourceFields {
   readonly amount: number;
   readonly paymentDate: string;
   readonly notes: string | null;
@@ -44,6 +45,7 @@ export interface KeyedMakePaymentRequest extends MakePaymentRequest {
 })
 export class SupplierLedgerService {
   private readonly http = inject(HttpClient);
+  private readonly tillSources = inject(TillSourceService);
 
   getSupplierLedgerEntries(supplierId: string): Observable<readonly SupplierLedgerEntry[]> {
     return this.http.get<readonly SupplierLedgerEntry[]>(
@@ -55,7 +57,13 @@ export class SupplierLedgerService {
     supplierId: string,
     payload: KeyedMakePaymentRequest,
   ): Observable<SupplierLedgerEntry> {
-    return this.http.post<SupplierLedgerEntry>(SUPPLIER_ENDPOINTS.payments(supplierId), payload);
+    return this.tillSources.post<SupplierLedgerEntry>(
+      `/suppliers/${supplierId}/payments`,
+      'supplier-payment',
+      supplierId,
+      payload.operationKey,
+      payload,
+    );
   }
 }
 

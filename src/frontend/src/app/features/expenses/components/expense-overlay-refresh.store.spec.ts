@@ -1,3 +1,4 @@
+import { disabledTillProviders } from '../../../../tests/tills/disabled-till.providers';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { Store, provideState, provideStore } from '@ngrx/store';
@@ -34,7 +35,7 @@ describe('expense overlay refresh against the real store', () => {
         CorrectExpenseOverlayComponent,
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
-      providers: [provideStore(), provideState(expensesFeature)],
+      providers: [...disabledTillProviders(), provideStore(), provideState(expensesFeature)],
     });
   });
 

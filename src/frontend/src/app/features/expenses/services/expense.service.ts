@@ -1,3 +1,4 @@
+import { TillSourceService, TillSourceFields } from '../../tills/services/till-source.service';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
@@ -30,7 +31,7 @@ export const EXPENSE_TREATMENT_CHOICES = [
   'CapitalOrOtherExcluded',
 ] as const;
 
-export interface RecordExpenseRequest {
+export interface RecordExpenseRequest extends TillSourceFields {
   readonly treatment?: ExpenseTreatment;
   readonly categoryName: string;
   readonly amount: number;
@@ -40,6 +41,9 @@ export interface RecordExpenseRequest {
 }
 
 export interface ExpenseDto {
+  readonly settlementEvidence?:
+    | import('../../tills/services/till.models').TillSettlementEvidence
+    | null;
   readonly treatment?: ExpenseTreatment;
   readonly supplierLedgerEntryId?: string | null;
   readonly id: string;
@@ -76,6 +80,7 @@ export interface PaginatedExpenses {
 @Injectable({ providedIn: 'root' })
 export class ExpenseService {
   private readonly http = inject(HttpClient);
+  private readonly tillSources = inject(TillSourceService);
 
   getExpenses({ search, status, page, pageSize }: ExpenseListQuery): Observable<PaginatedExpenses> {
     let params = new HttpParams()
@@ -93,10 +98,22 @@ export class ExpenseService {
   }
 
   recordExpense(request: RecordExpenseRequest): Observable<ExpenseDto> {
-    return this.http.post<ExpenseDto>(EXPENSE_ENDPOINTS.record, request);
+    return this.tillSources.post<ExpenseDto>(
+      '/expenses',
+      'expense-record',
+      'new',
+      request.operationKey ?? crypto.randomUUID(),
+      request,
+    );
   }
 
   correctExpense(expenseId: string, request: RecordExpenseRequest): Observable<ExpenseDto> {
-    return this.http.post<ExpenseDto>(EXPENSE_ENDPOINTS.correct(expenseId), request);
+    return this.tillSources.post<ExpenseDto>(
+      `/expenses/${expenseId}/correct`,
+      'expense-correction',
+      expenseId,
+      'correction',
+      request,
+    );
   }
 }

@@ -1,3 +1,4 @@
+import { disabledTillProviders } from '../../../../../tests/tills/disabled-till.providers';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -149,6 +150,7 @@ async function createComponent() {
       }),
     ],
     providers: [
+      ...disabledTillProviders(),
       { provide: SalesFacade, useClass: SalesFacadeStub },
       { provide: AuthService, useClass: AuthServiceStub },
     ],
@@ -774,7 +776,10 @@ describe('SaleReturnPreviewDialogComponent', () => {
 
     it('flags 0.5 on a whole-unit line as too precise and keeps the typed value', async () => {
       const { fixture, component } = await createComponent();
-      component.sale = { ...makeSale(), items: [makeGoodsItem({ quantity: 2, returnableQuantity: 2 })] };
+      component.sale = {
+        ...makeSale(),
+        items: [makeGoodsItem({ quantity: 2, returnableQuantity: 2 })],
+      };
       component.visible = true;
       fixture.detectChanges();
       const item = component.sale!.items[0];
@@ -784,13 +789,18 @@ describe('SaleReturnPreviewDialogComponent', () => {
 
       expect(component.getDraft(item.saleItemId)?.quantity).toBe(0.5);
       const errors = (component as unknown as Probe).validateReturnDrafts();
-      expect(errors.some((e) => e.includes('Soap') && e.includes('PCS') && e.includes('whole'))).toBe(true);
+      expect(
+        errors.some((e) => e.includes('Soap') && e.includes('PCS') && e.includes('whole')),
+      ).toBe(true);
       expect(component.returnStep(item)).toBe(1);
     });
 
     it('keeps a quantity above the returnable amount and refuses it instead of clamping', async () => {
       const { fixture, component } = await createComponent();
-      component.sale = { ...makeSale(), items: [makeGoodsItem({ quantity: 2, returnableQuantity: 2 })] };
+      component.sale = {
+        ...makeSale(),
+        items: [makeGoodsItem({ quantity: 2, returnableQuantity: 2 })],
+      };
       component.visible = true;
       fixture.detectChanges();
       const item = component.sale!.items[0];

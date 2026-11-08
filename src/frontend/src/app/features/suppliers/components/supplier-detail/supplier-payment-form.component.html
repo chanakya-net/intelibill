@@ -2,7 +2,9 @@
   <label>
     <span>{{ 'suppliers.paymentAmount' | transloco }}</span>
     <p-inputgroup [pt]="currencyGroupPt">
-      <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+      <p-inputgroup-addon [pt]="currencyAddonPt">{{
+        'common.currencySymbol' | transloco
+      }}</p-inputgroup-addon>
       <p-inputNumber
         formControlName="amount"
         mode="decimal"
@@ -56,5 +58,13 @@
       <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
     </div>
   }
+  <app-till-pending-actions
+    (lockedChange)="onTillLocked($event)"
+    action="supplier-payment"
+    [target]="targetId"
+  />
+  <app-till-posting-fields [disabled]="tillLocked()" />
+  @if (tillError()) {
+    <p role="alert">{{ tillError() | transloco }}</p>
+  }
 </form>
-

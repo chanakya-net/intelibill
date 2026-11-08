@@ -1,3 +1,4 @@
+import { disabledTillProviders } from '../../../../tests/tills/disabled-till.providers';
 import '@angular/compiler';
 import { Injectable, signal } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
@@ -31,55 +32,109 @@ class TestCartSubmitService extends NewSalePageCartSubmitService {
   override onServiceItemPriceChange(): void {}
   override onServiceItemQuantityChange(): void {}
   override onQuickProductTileSelected(): void {}
-  override canIncreaseCartItem(): boolean { return false; }
-  override hasTax(): boolean { return false; }
-  override getLineSubtotal(): number { return 0; }
-  override getLineTaxAmount(): number { return 0; }
-  override getLineTotal(): number { return 0; }
-  override getUnitSubtotal(): number { return 0; }
-  override getUnitTaxAmount(): number { return 0; }
-  override getUnitFinalPrice(): number { return 0; }
-  override async onSubmit(): Promise<void> { return super.onSubmit(); }
-  override createSaleIdempotencyKey(): string { return 'test-key'; }
+  override canIncreaseCartItem(): boolean {
+    return false;
+  }
+  override hasTax(): boolean {
+    return false;
+  }
+  override getLineSubtotal(): number {
+    return 0;
+  }
+  override getLineTaxAmount(): number {
+    return 0;
+  }
+  override getLineTotal(): number {
+    return 0;
+  }
+  override getUnitSubtotal(): number {
+    return 0;
+  }
+  override getUnitTaxAmount(): number {
+    return 0;
+  }
+  override getUnitFinalPrice(): number {
+    return 0;
+  }
+  override async onSubmit(): Promise<void> {
+    return super.onSubmit();
+  }
+  override createSaleIdempotencyKey(): string {
+    return 'test-key';
+  }
   override onCancel(): void {}
   override toggleSaleDiscountEditor(): void {}
   override onSaleDiscountTypeChange(): void {}
   override onSaleDiscountValueChange(): void {}
-  override isSaleDiscountEligible(): boolean { return false; }
-  override getPreviewLine(): null { return null; }
+  override isSaleDiscountEligible(): boolean {
+    return false;
+  }
+  override getPreviewLine(): null {
+    return null;
+  }
   override toggleLineDiscountEditor(): void {}
-  override isLineDiscountEditorOpen(): boolean { return false; }
-  override getCartItemDiscountError(): string { return ''; }
-  override getCartItemHsnError(): string { return ''; }
-  override getCartItemTaxError(): string { return ''; }
-  override getPaymentMethodLabel(): any { return 'Cash'; }
+  override isLineDiscountEditorOpen(): boolean {
+    return false;
+  }
+  override getCartItemDiscountError(): string {
+    return '';
+  }
+  override getCartItemHsnError(): string {
+    return '';
+  }
+  override getCartItemTaxError(): string {
+    return '';
+  }
+  override getPaymentMethodLabel(): any {
+    return 'Cash';
+  }
   override onCartItemDiscountTypeChange(): void {}
   override onCartItemDiscountValueChange(): void {}
   override onCartItemHsnCodeChange(): void {}
   override onCartItemTaxRateChange(): void {}
-  override getLineDiscountLimits(): { maxFlat: number; maxPercent: number } { return { maxFlat: 0, maxPercent: 0 }; }
+  override getLineDiscountLimits(): { maxFlat: number; maxPercent: number } {
+    return { maxFlat: 0, maxPercent: 0 };
+  }
   override getSaleDiscountLimits(): { isEligible: boolean; maxFlat: number; maxPercent: number } {
     return { isEligible: false, maxFlat: 0, maxPercent: 0 };
   }
   override revalidateDiscountsAgainstPreview(): void {}
-  override revalidateLineOverrides(): boolean { return false; }
-  override getBlockingCartValidationErrorKey(): string | null { return null; }
-  override normalizeHsnCode(): string | null { return null; }
-  override normalizeAmount(): number { return 0; }
-  override toFiniteAmount(value: number | null | undefined): number { return Number(value ?? 0); }
-  override roundAmount(value: number): number { return value; }
-  override areAmountsEqual(left: number, right: number): boolean { return left === right; }
+  override revalidateLineOverrides(): boolean {
+    return false;
+  }
+  override getBlockingCartValidationErrorKey(): string | null {
+    return null;
+  }
+  override normalizeHsnCode(): string | null {
+    return null;
+  }
+  override normalizeAmount(): number {
+    return 0;
+  }
+  override toFiniteAmount(value: number | null | undefined): number {
+    return Number(value ?? 0);
+  }
+  override roundAmount(value: number): number {
+    return value;
+  }
+  override areAmountsEqual(left: number, right: number): boolean {
+    return left === right;
+  }
   override syncPaymentSplitFromPaid(): void {}
   override syncPaymentSplitFromDue(): void {}
   override enforceNoCustomerCreditRestrictions(): void {}
   override resetSearchAndPickerState(): void {}
   override applyProductDefaultsForLine(): void {}
-  override getEventNotificationKey(): string { return 'test'; }
+  override getEventNotificationKey(): string {
+    return 'test';
+  }
   override detectAndHighlightChangedRows(): void {}
   override resetTransientState(): void {}
   override async searchOfflineCatalog(): Promise<void> {}
   override async refreshOfflinePreview(): Promise<void> {}
-  override async onOfflineSubmit(): Promise<void> { this.offlineSubmitCalls++; }
+  override async onOfflineSubmit(): Promise<void> {
+    this.offlineSubmitCalls++;
+  }
   offlineSubmitCalls = 0;
   override printA4(): void {}
   override printThermal(): void {}
@@ -146,15 +201,29 @@ function buildService() {
   TestBed.configureTestingModule({
     imports: [ReactiveFormsModule],
     providers: [
+      ...disabledTillProviders(),
       TestCartSubmitService,
       { provide: ActivatedRoute, useValue: route },
       { provide: Router, useValue: router },
       { provide: AuthService, useValue: { session } },
       { provide: CheckoutIntentService, useValue: checkoutIntents },
       { provide: NetworkStatusService, useValue: { canReachApi: vi.fn(() => true) } },
-      { provide: ProductCatalogSyncService, useValue: { filterByName: vi.fn(() => []), filterByBarcode: vi.fn(() => []) } },
-      { provide: ShopUpdatesSignalRService, useValue: { updates$: EMPTY, startConnection: vi.fn(), stopConnection: vi.fn() } },
-      { provide: CustomersFacade, useValue: { allCustomers: signal([]), loadingCustomers: signal(false), loadCustomers: vi.fn() } },
+      {
+        provide: ProductCatalogSyncService,
+        useValue: { filterByName: vi.fn(() => []), filterByBarcode: vi.fn(() => []) },
+      },
+      {
+        provide: ShopUpdatesSignalRService,
+        useValue: { updates$: EMPTY, startConnection: vi.fn(), stopConnection: vi.fn() },
+      },
+      {
+        provide: CustomersFacade,
+        useValue: {
+          allCustomers: signal([]),
+          loadingCustomers: signal(false),
+          loadCustomers: vi.fn(),
+        },
+      },
       { provide: InventoryService, useValue: {} },
       { provide: TranslocoService, useValue: { getActiveLang: () => 'en' } },
       {
@@ -428,7 +497,9 @@ describe('NewSalePageCartSubmitService', () => {
       const intentId = service.activeCheckoutIntentId()!;
       storedIntents.get(intentId).status = 'confirmed';
       const sale = { saleId: 'sale-1', invoiceNumber: 'INV-1' };
-      checkoutIntents.recover.mockReturnValue(of({ kind: 'replayed', intent: storedIntents.get(intentId), sale }));
+      checkoutIntents.recover.mockReturnValue(
+        of({ kind: 'replayed', intent: storedIntents.get(intentId), sale }),
+      );
 
       await service.refreshPendingCheckouts();
 

@@ -1,3 +1,4 @@
+import { TillPostingFieldsComponent } from '../../../tills/components/till-posting-fields.component';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -25,6 +26,7 @@ export interface PaymentMethodOption {
   selector: 'app-sale-payment-section',
   standalone: true,
   imports: [
+    TillPostingFieldsComponent,
     CommonModule,
     FormsModule,
     ButtonModule,

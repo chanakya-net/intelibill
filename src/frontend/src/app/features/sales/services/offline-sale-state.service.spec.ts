@@ -1,3 +1,4 @@
+import { disabledTillProviders } from '../../../../tests/tills/disabled-till.providers';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,7 +9,11 @@ import { OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline
 import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { OfflineSaleFinalizationService } from './offline-sale-finalization.service';
 import { OfflineSalesQueueSyncService } from './offline-sales-queue-sync.service';
-import { OfflineSubmitRequest, OfflineSaleSubmitResult, OfflineSaleStateService } from './offline-sale-state.service';
+import {
+  OfflineSubmitRequest,
+  OfflineSaleSubmitResult,
+  OfflineSaleStateService,
+} from './offline-sale-state.service';
 
 describe('OfflineSaleStateService', () => {
   const activeSession = {
@@ -74,22 +79,24 @@ describe('OfflineSaleStateService', () => {
       selectedCustomerId: customerId,
       saleDiscountType: 0,
       saleDiscountValue: 0,
-      lines: [{
-        clientLineId: 'line-1',
-        inventoryBatchId: 'batch-1',
-        itemId: 'item-1',
-        barcode: '111',
-        itemName: 'Item 1',
-        batchNumber: 'B1',
-        quantity: 1,
-        salesPrice: 100,
-        mrp: 100,
-        costPrice: 80,
-        taxRatePercent: 0,
-        taxIncluded: false,
-        itemDiscount: { type: 0, value: 0 },
-        hsnCode: null,
-      }],
+      lines: [
+        {
+          clientLineId: 'line-1',
+          inventoryBatchId: 'batch-1',
+          itemId: 'item-1',
+          barcode: '111',
+          itemName: 'Item 1',
+          batchNumber: 'B1',
+          quantity: 1,
+          salesPrice: 100,
+          mrp: 100,
+          costPrice: 80,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          itemDiscount: { type: 0, value: 0 },
+          hsnCode: null,
+        },
+      ],
     };
   }
 
@@ -98,6 +105,7 @@ describe('OfflineSaleStateService', () => {
   function setup() {
     TestBed.configureTestingModule({
       providers: [
+        ...disabledTillProviders(),
         OfflineSaleStateService,
         { provide: AuthService, useValue: authService },
         { provide: OfflineSalesDeviceSettingsStorage, useValue: settingsStorage },
@@ -142,12 +150,41 @@ describe('OfflineSaleStateService', () => {
   it('offers midpoint-safe item ceilings consistent with issuance', async () => {
     snapshotDb.getUsableDiscountRules.mockResolvedValue([]);
     const service = setup();
-    const preview = await service.buildOfflinePreview([{ clientLineKey: 'mid', inventoryBatchId: 'batch-1', barcode: 'x', itemName: 'Midpoint', batchNumber: 'B', quantity: .5,
-      availableQuantity: 10, salesPrice: 4, mrp: 4, costPrice: 2.01, taxRatePercent: 0, taxIncluded: false, itemDiscountType: 0, itemDiscountValue: 0,
-      hsnCode: null, uom: 'KG', quantityScale: 3, documentUnit: 'KGS' }],
-      { paymentMethod: 1, paidAmount: 2, customerId: null, customerName: null, customerPhone: null, saleDiscountType: 0, saleDiscountValue: 0 });
+    const preview = await service.buildOfflinePreview(
+      [
+        {
+          clientLineKey: 'mid',
+          inventoryBatchId: 'batch-1',
+          barcode: 'x',
+          itemName: 'Midpoint',
+          batchNumber: 'B',
+          quantity: 0.5,
+          availableQuantity: 10,
+          salesPrice: 4,
+          mrp: 4,
+          costPrice: 2.01,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          itemDiscountType: 0,
+          itemDiscountValue: 0,
+          hsnCode: null,
+          uom: 'KG',
+          quantityScale: 3,
+          documentUnit: 'KGS',
+        },
+      ],
+      {
+        paymentMethod: 1,
+        paidAmount: 2,
+        customerId: null,
+        customerName: null,
+        customerPhone: null,
+        saleDiscountType: 0,
+        saleDiscountValue: 0,
+      },
+    );
     expect(preview!.lines[0].economics?.economicCost).toBe(1.01);
-    expect(preview!.lines[0].maxAllowedItemDiscountFlat).toBe(.99);
+    expect(preview!.lines[0].maxAllowedItemDiscountFlat).toBe(0.99);
     expect(preview!.lines[0].maxAllowedItemDiscountPercent).toBe(49.5);
   });
 
@@ -165,26 +202,28 @@ describe('OfflineSaleStateService', () => {
 
     const service = setup();
     const preview = await service.buildOfflinePreview(
-      [{
-        clientLineKey: 'line-1',
-        inventoryBatchId: 'batch-1',
-        barcode: '111',
-        itemName: 'Item 1',
-        batchNumber: 'B1',
-        quantity: 1,
-        availableQuantity: 10,
-        salesPrice: 100,
-        mrp: 110,
-        costPrice: 80,
-        taxRatePercent: 0,
-        taxIncluded: false,
-        itemDiscountType: 0,
-        itemDiscountValue: 0,
-        hsnCode: null,
-        uom: 'PCS',
-        quantityScale: 0,
-        documentUnit: 'NOS',
-      }],
+      [
+        {
+          clientLineKey: 'line-1',
+          inventoryBatchId: 'batch-1',
+          barcode: '111',
+          itemName: 'Item 1',
+          batchNumber: 'B1',
+          quantity: 1,
+          availableQuantity: 10,
+          salesPrice: 100,
+          mrp: 110,
+          costPrice: 80,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          itemDiscountType: 0,
+          itemDiscountValue: 0,
+          hsnCode: null,
+          uom: 'PCS',
+          quantityScale: 0,
+          documentUnit: 'NOS',
+        },
+      ],
       {
         paymentMethod: 1,
         paidAmount: 100,
@@ -221,7 +260,13 @@ describe('OfflineSaleStateService', () => {
     };
     snapshotDb.getUsableBatches.mockResolvedValue([
       batchRow,
-      { ...batchRow, batchId: 'batch-new', batchNumber: 'B2', quantityScale: 3, documentUnit: 'KGS' },
+      {
+        ...batchRow,
+        batchId: 'batch-new',
+        batchNumber: 'B2',
+        quantityScale: 3,
+        documentUnit: 'KGS',
+      },
     ]);
     snapshotDb.getUsableServices.mockResolvedValue([]);
 
@@ -242,7 +287,10 @@ describe('OfflineSaleStateService', () => {
 
   it('answers a part quantity an old snapshot cannot sell with its own message', async () => {
     snapshotDb.getUsableCustomers.mockResolvedValue([]);
-    finalization.finalizeAndQueue.mockResolvedValue({ ok: false, reason: 'QUANTITY_PRECISION_EXCEEDED' });
+    finalization.finalizeAndQueue.mockResolvedValue({
+      ok: false,
+      reason: 'QUANTITY_PRECISION_EXCEEDED',
+    });
 
     const service = setup();
     await service.refreshSnapshot();
@@ -252,7 +300,9 @@ describe('OfflineSaleStateService', () => {
   });
 
   it('submits a sale when payload is valid', async () => {
-    snapshotDb.getUsableCustomers.mockResolvedValue([{ customerId: 'customer-1', name: 'Alice', phoneNumber: '9999999999' }]);
+    snapshotDb.getUsableCustomers.mockResolvedValue([
+      { customerId: 'customer-1', name: 'Alice', phoneNumber: '9999999999' },
+    ]);
     finalization.finalizeAndQueue.mockResolvedValue({
       ok: true,
       payload: {
@@ -272,7 +322,9 @@ describe('OfflineSaleStateService', () => {
     });
 
     const service = setup();
-    const result: OfflineSaleSubmitResult = await service.submitOfflineSale(buildSubmitPayload('customer-1'));
+    const result: OfflineSaleSubmitResult = await service.submitOfflineSale(
+      buildSubmitPayload('customer-1'),
+    );
 
     expect(result.ok).toBe(true);
     const confirmation = result.ok ? result.confirmation : null;
@@ -283,8 +335,13 @@ describe('OfflineSaleStateService', () => {
 
   it('returns auth-grace error when auth grace check fails', async () => {
     authService.canUseOfflineSalesAuthGrace.mockResolvedValue(false);
-    snapshotDb.getUsableCustomers.mockResolvedValue([{ customerId: 'customer-1', name: 'Alice', phoneNumber: '9999999999' }]);
-    finalization.finalizeAndQueue.mockResolvedValue({ ok: false, reason: 'INVOICE_UNAVAILABLE' } as never);
+    snapshotDb.getUsableCustomers.mockResolvedValue([
+      { customerId: 'customer-1', name: 'Alice', phoneNumber: '9999999999' },
+    ]);
+    finalization.finalizeAndQueue.mockResolvedValue({
+      ok: false,
+      reason: 'INVOICE_UNAVAILABLE',
+    } as never);
 
     const service = setup();
     const result = await service.submitOfflineSale(buildSubmitPayload('customer-1'));
@@ -295,12 +352,26 @@ describe('OfflineSaleStateService', () => {
   });
 
   it.each([
-    [{ ok: false, reason: 'SELLER_PROFILE_UNAVAILABLE' }, 'sales.newSale.offline.blockSellerProfileUnavailable'],
-    [{ ok: false, reason: 'CUSTOMER_UNAVAILABLE' }, 'sales.newSale.offline.blockCustomerUnavailable'],
-    [{ ok: false, reason: 'DOCUMENT_UNAVAILABLE', errorCode: 'Invoice.HsnRequired' }, 'errors.invoice.hsnRequired'],
-    [{ ok: false, reason: 'DOCUMENT_UNAVAILABLE', errorCode: 'Invoice.Unknown' }, 'sales.newSale.offline.blockDocumentUnavailable'],
+    [
+      { ok: false, reason: 'SELLER_PROFILE_UNAVAILABLE' },
+      'sales.newSale.offline.blockSellerProfileUnavailable',
+    ],
+    [
+      { ok: false, reason: 'CUSTOMER_UNAVAILABLE' },
+      'sales.newSale.offline.blockCustomerUnavailable',
+    ],
+    [
+      { ok: false, reason: 'DOCUMENT_UNAVAILABLE', errorCode: 'Invoice.HsnRequired' },
+      'errors.invoice.hsnRequired',
+    ],
+    [
+      { ok: false, reason: 'DOCUMENT_UNAVAILABLE', errorCode: 'Invoice.Unknown' },
+      'sales.newSale.offline.blockDocumentUnavailable',
+    ],
   ])('explains a sale the device cannot issue (%o)', async (refusal, errorKey) => {
-    snapshotDb.getUsableCustomers.mockResolvedValue([{ customerId: 'customer-1', name: 'Alice', phoneNumber: '9999999999' }]);
+    snapshotDb.getUsableCustomers.mockResolvedValue([
+      { customerId: 'customer-1', name: 'Alice', phoneNumber: '9999999999' },
+    ]);
     finalization.finalizeAndQueue.mockResolvedValue(refusal as never);
 
     const service = setup();

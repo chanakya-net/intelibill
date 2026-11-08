@@ -1,3 +1,5 @@
+import { ViewChild } from '@angular/core';
+import { TillPostingFieldsComponent } from '../../../tills/components/till-posting-fields.component';
 import { CommonModule } from '@angular/common';
 import {
   Component,
@@ -27,10 +29,18 @@ import type {
 @Component({
   selector: 'app-sale-cancellation-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslocoPipe, DialogModule, ButtonModule],
+  imports: [
+    TillPostingFieldsComponent,
+    CommonModule,
+    FormsModule,
+    TranslocoPipe,
+    DialogModule,
+    ButtonModule,
+  ],
   templateUrl: './sale-cancellation-dialog.component.html',
 })
 export class SaleCancellationDialogComponent implements OnChanges {
+  @ViewChild(TillPostingFieldsComponent) tillFields!: TillPostingFieldsComponent;
   private readonly api = inject(SaleCancellationService);
   private readonly drafts = inject(SaleCancellationDraftService);
   private readonly context = inject(ShopContextService);
@@ -147,9 +157,13 @@ export class SaleCancellationDialogComponent implements OnChanges {
       }
     });
   }
-  private editable() {
+  private editable(requireTill = false) {
+    const { till: previousTill, ...previous } = this.record()?.draft.payload ?? {};
+    const till = requireTill ? this.tillFields.context.posting()?.till : previousTill;
     return {
       payload: {
+        ...previous,
+        ...(till ? { till } : {}),
         expectedVersion: this.preview()!.expectedVersion,
         reason: this.reason.trim(),
         goodsRecoveredConfirmed: this.goodsConfirmed,
@@ -169,7 +183,7 @@ export class SaleCancellationDialogComponent implements OnChanges {
       const record = await this.drafts.prepare(
         owner,
         target,
-        this.editable(),
+        this.editable(true),
         this.record()?.revision ?? 0,
       );
       if (!this.current(owner, target, generation)) return;

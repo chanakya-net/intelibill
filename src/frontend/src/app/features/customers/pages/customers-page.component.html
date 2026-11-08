@@ -142,7 +142,8 @@
     @if (accountError()) {
       <p class="error">
         {{
-          accountError().startsWith('customers.') || accountError().startsWith('financialOperations.')
+          accountError().startsWith('customers.') ||
+          accountError().startsWith('financialOperations.')
             ? (accountError() | transloco)
             : accountError()
         }}
@@ -194,7 +195,8 @@
               }}{{ selectedAccount()!.outstandingDue | number: '1.2-2' }}</strong
             >
             <small class="warning-dot"
-              >{{ selectedAccountOpenInvoices().length }} {{ 'customers.account.openInvoices' | transloco }}</small
+              >{{ selectedAccountOpenInvoices().length }}
+              {{ 'customers.account.openInvoices' | transloco }}</small
             >
             @if (selectedAccountOverdueAmount() > 0) {
               <small class="danger-dot" data-testid="overdue-amount"
@@ -223,7 +225,9 @@
             >
             <small
               class="credit-policy-note"
-              [class.credit-policy-note--advisory]="selectedAccountCreditPolicy() === 'LegacyAdvisory'"
+              [class.credit-policy-note--advisory]="
+                selectedAccountCreditPolicy() === 'LegacyAdvisory'
+              "
               data-testid="account-credit-policy"
               >{{ selectedAccountCreditPolicyLabelKey() | transloco }}</small
             >
@@ -284,7 +288,11 @@
               </label>
               <label>
                 <span>{{ 'customers.account.method' | transloco }}</span>
-                <select class="statement-select" formControlName="method" data-testid="payment-method">
+                <select
+                  class="statement-select"
+                  formControlName="method"
+                  data-testid="payment-method"
+                >
                   @for (method of tenderMethods; track method) {
                     <option [value]="method">{{ tenderLabelKey(method) | transloco }}</option>
                   }
@@ -315,7 +323,8 @@
                       <li>
                         <span class="reference">{{ row.invoiceNumber }}</span>
                         <span class="money"
-                          >{{ 'common.currencySymbol' | transloco }}{{ row.amount | number: '1.2-2' }}</span
+                          >{{ 'common.currencySymbol' | transloco
+                          }}{{ row.amount | number: '1.2-2' }}</span
                         >
                       </li>
                     }
@@ -329,6 +338,16 @@
                   }
                 </div>
               }
+              <app-till-pending-actions
+                action="customer-payment"
+                [target]="selectedAccountCustomer()?.customerId ?? ''"
+                (lockedChange)="onTillPaymentLocked($event)"
+              />
+              <app-till-posting-fields
+                [disabled]="tillPaymentLocked()"
+                #paymentTill
+                [sale]="true"
+              />
               <p-button
                 [label]="'customers.account.submitPayment' | transloco"
                 icon="pi pi-check"
@@ -341,7 +360,10 @@
         </section>
 
         @if (selectedAccountOpenInvoices().length > 0) {
-          <section class="statement-ledger" [attr.aria-label]="'customers.account.openInvoices' | transloco">
+          <section
+            class="statement-ledger"
+            [attr.aria-label]="'customers.account.openInvoices' | transloco"
+          >
             <header>
               <h3>{{ 'customers.account.openInvoices' | transloco }}</h3>
             </header>
@@ -377,10 +399,12 @@
                         }}{{ sale.dueAmount | number: '1.2-2' }}
                       </td>
                       <td class="money credit">
-                        {{ 'common.currencySymbol' | transloco }}{{ sale.allocatedPaymentAmount ?? 0 | number: '1.2-2' }}
+                        {{ 'common.currencySymbol' | transloco
+                        }}{{ sale.allocatedPaymentAmount ?? 0 | number: '1.2-2' }}
                       </td>
                       <td class="money credit">
-                        {{ 'common.currencySymbol' | transloco }}{{ sale.returnCreditAmount ?? 0 | number: '1.2-2' }}
+                        {{ 'common.currencySymbol' | transloco
+                        }}{{ sale.returnCreditAmount ?? 0 | number: '1.2-2' }}
                       </td>
                       <td class="money balance">
                         {{ 'common.currencySymbol' | transloco
@@ -391,7 +415,10 @@
                           {{ sale.dueDate | dateOnly: 'dd MMM yyyy' }}
                         }
                         <span class="statement-type" [class.overdue]="sale.isOverdue">{{
-                          (sale.isOverdue ? 'customers.account.overdue' : 'customers.account.outstanding') | transloco
+                          (sale.isOverdue
+                            ? 'customers.account.overdue'
+                            : 'customers.account.outstanding'
+                          ) | transloco
                         }}</span>
                       </td>
                     </tr>
@@ -403,7 +430,10 @@
         }
 
         @if (selectedAccountReceipts().length > 0) {
-          <section class="statement-ledger" [attr.aria-label]="'customers.account.receipts' | transloco">
+          <section
+            class="statement-ledger"
+            [attr.aria-label]="'customers.account.receipts' | transloco"
+          >
             <header>
               <h3>{{ 'customers.account.receipts' | transloco }}</h3>
             </header>
@@ -421,7 +451,9 @@
                     <th>{{ 'customers.account.unallocated' | transloco }}</th>
                     <th>{{ 'customers.account.status' | transloco }}</th>
                     @if (isOwner()) {
-                      <th><span class="sr-only">{{ 'customers.account.actions' | transloco }}</span></th>
+                      <th>
+                        <span class="sr-only">{{ 'customers.account.actions' | transloco }}</span>
+                      </th>
                     }
                   </tr>
                 </thead>
@@ -446,7 +478,8 @@
                               ? 'customers.account.statusReversed'
                               : receipt.isLegacy
                                 ? 'customers.account.statusLegacy'
-                                : 'customers.account.statusPosted') | transloco
+                                : 'customers.account.statusPosted'
+                            ) | transloco
                           }}
                         </span>
                       </td>
@@ -468,6 +501,17 @@
                       <tr class="statement-reversal-row">
                         <td [attr.colspan]="isOwner() ? 7 : 6">
                           <div class="statement-reversal">
+                            <app-till-pending-actions
+                              action="payment-reversal"
+                              [target]="receipt.receiptId"
+                              (lockedChange)="tillReversalLocked.set($event)"
+                            />
+                            <app-till-posting-fields
+                              [disabled]="tillReversalLocked()"
+                              #reversalTill
+                              [evidence]="true"
+                              direction="MoneyPaid"
+                            />
                             <label>
                               <span>{{ 'customers.account.reversalReason' | transloco }}</span>
                               <input

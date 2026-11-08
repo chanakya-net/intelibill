@@ -9,7 +9,11 @@
   [showHeader]="false"
 >
   @if (sale) {
-    <article class="return-preview-shell" [attr.aria-busy]="isPreviewLoading()">
+    <article
+      [attr.inert]="tillLocked() ? '' : null"
+      class="return-preview-shell"
+      [attr.aria-busy]="isPreviewLoading()"
+    >
       <header class="return-preview-header">
         <div class="return-preview-title-row">
           <div>
@@ -443,4 +447,10 @@
       }
     </article>
   }
+  <app-till-pending-actions
+    (lockedChange)="tillLocked.set($event)"
+    action="sale-return"
+    [target]="saleInput()?.saleId ?? ''"
+  />
+  <app-till-posting-fields [disabled]="tillLocked()" [refund]="true" />
 </p-dialog>

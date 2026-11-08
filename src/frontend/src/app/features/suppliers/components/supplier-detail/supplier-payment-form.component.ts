@@ -1,3 +1,7 @@
+import { TillPendingActionsComponent } from '../../../tills/components/till-pending-actions.component';
+import { signal } from '@angular/core';
+import { ViewChild } from '@angular/core';
+import { TillPostingFieldsComponent } from '../../../tills/components/till-posting-fields.component';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -21,6 +25,8 @@ import { formatLocalIsoDate } from '../../../../shared/utils/date-time.util';
   selector: 'app-supplier-payment-form',
   standalone: true,
   imports: [
+    TillPendingActionsComponent,
+    TillPostingFieldsComponent,
     ButtonModule,
     DatePickerModule,
     InputGroupAddonModule,
@@ -39,6 +45,7 @@ export class SupplierPaymentFormComponent {
   readonly currencyAddonPt = CURRENCY_ADDON_PT;
   readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
 
+  @Input() targetId = '';
   @Input() submitting = false;
   @Input() serverError: string | null = null;
   @Input() maxDate = new Date();
@@ -46,21 +53,35 @@ export class SupplierPaymentFormComponent {
   @Output() readonly paymentSubmitted = new EventEmitter<MakePaymentRequest>();
   @Output() readonly cancelled = new EventEmitter<void>();
 
+  @ViewChild(TillPostingFieldsComponent) tillFields!: TillPostingFieldsComponent;
+  readonly tillError = signal('');
+  readonly tillLocked = signal(false);
+  onTillLocked(locked: boolean) {
+    this.tillLocked.set(locked);
+    if (locked) this.form.disable({ emitEvent: false });
+    else this.form.enable({ emitEvent: false });
+  }
   readonly form = new FormGroup({
     amount: new FormControl<number | null>(null, [Validators.required, Validators.min(0.01)]),
-    paymentDate: new FormControl<Date>(new Date(), { nonNullable: true, validators: [Validators.required] }),
-    notes: new FormControl<string>('', { nonNullable: true, validators: [Validators.maxLength(500)] }),
+    paymentDate: new FormControl<Date>(new Date(), {
+      nonNullable: true,
+      validators: [Validators.required],
+    }),
+    notes: new FormControl<string>('', {
+      nonNullable: true,
+      validators: [Validators.maxLength(500)],
+    }),
   });
 
   onCancel(): void {
-    if (this.submitting) {
+    if (this.tillLocked() || this.submitting) {
       return;
     }
     this.cancelled.emit();
   }
 
   onSubmit(): void {
-    if (this.submitting) {
+    if (this.tillLocked() || this.submitting) {
       return;
     }
     if (this.form.invalid) {
@@ -70,7 +91,18 @@ export class SupplierPaymentFormComponent {
 
     const paymentDate = this.form.controls.paymentDate.value;
 
+    let tillFields;
+    try {
+      const { tenderLine: expenseOnlyTender, ...paymentFields } = this.tillFields.fields(
+        this.form.controls.amount.value!,
+      );
+      tillFields = paymentFields;
+    } catch {
+      this.tillError.set('tills.evidenceRequired');
+      return;
+    }
     this.paymentSubmitted.emit({
+      ...tillFields,
       amount: this.form.controls.amount.value!,
       paymentDate: formatLocalIsoDate(paymentDate),
       notes: this.nullableTrimmed(this.form.controls.notes.value),
@@ -82,4 +114,3 @@ export class SupplierPaymentFormComponent {
     return normalized.length > 0 ? normalized : null;
   }
 }
-

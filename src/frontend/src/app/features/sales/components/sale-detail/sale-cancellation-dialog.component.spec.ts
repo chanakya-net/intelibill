@@ -1,3 +1,4 @@
+import { disabledTillProviders } from '../../../../../tests/tills/disabled-till.providers';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -68,6 +69,7 @@ describe('SaleCancellationDialogComponent', () => {
         }),
       ],
       providers: [
+        disabledTillProviders()[0],
         { provide: SaleCancellationService, useValue: api },
         {
           provide: ShopContextService,

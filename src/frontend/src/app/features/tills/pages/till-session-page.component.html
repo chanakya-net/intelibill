@@ -1,0 +1,298 @@
+<section class="tills-page">
+  <header>
+    <div>
+      <p class="eyebrow">{{ 'tills.accountability' | transloco }}</p>
+      <h1>{{ 'tills.title' | transloco }}</h1>
+    </div>
+    <button type="button" (click)="reload()" [disabled]="busy()">
+      {{ 'tills.refresh' | transloco }}
+    </button>
+  </header>
+  <app-till-pending-actions (confirmed)="reload()" />
+  @if (context.error()) {
+    <p class="notice error" role="alert">{{ 'tills.capabilityUnknown' | transloco }}</p>
+  }
+  @if (error()) {
+    <p class="notice error" role="alert">{{ error() | transloco }}</p>
+  }
+  @if (pending()) {
+    <p class="notice">{{ 'tills.pending' | transloco }} ({{ pending() }})</p>
+  }
+  @if (context.capability() && !context.enabled()) {
+    <p class="notice">{{ 'tills.disabled' | transloco }}</p>
+  }
+  @if (context.enabled()) {
+    <div class="grid">
+      <article>
+        <h2>{{ 'tills.open' | transloco }}</h2>
+        <label
+          >{{ 'tills.till' | transloco
+          }}<select [(ngModel)]="tillId">
+            <option value="">{{ 'tills.choose' | transloco }}</option>
+            @for (t of tills(); track t.id) {
+              <option [value]="t.id">{{ t.name }}</option>
+            }
+          </select></label
+        >
+        @if (manager()) {
+          <label
+            >{{ 'tills.cashier' | transloco
+            }}<select [(ngModel)]="cashierId">
+              <option value="">{{ 'tills.choose' | transloco }}</option>
+              @for (member of members(); track member.userId) {
+                <option [value]="member.userId">
+                  {{ member.firstName }} {{ member.lastName }}
+                </option>
+              }
+            </select></label
+          >
+        }
+        <label
+          >{{ 'tills.openingFloat' | transloco
+          }}<input type="number" min="0" step="0.01" [(ngModel)]="openingFloat" /></label
+        ><label
+          >{{ 'tills.overrideReason' | transloco
+          }}<input maxlength="500" [(ngModel)]="overrideReason" /></label
+        ><button type="button" (click)="open()" [disabled]="busy()">
+          {{ 'tills.open' | transloco }}
+        </button>
+      </article>
+      @if (manager()) {
+        <article>
+          <h2>{{ 'tills.create' | transloco }}</h2>
+          <label>{{ 'tills.name' | transloco }}<input maxlength="100" [(ngModel)]="name" /></label
+          ><button type="button" (click)="create()" [disabled]="busy()">
+            {{ 'tills.create' | transloco }}
+          </button>
+          <p>{{ 'tills.handover' | transloco }}</p>
+        </article>
+      }
+    </div>
+  }
+  <article>
+    <h2>{{ 'tills.history' | transloco }}</h2>
+    @if (!history().length) {
+      <p>{{ 'tills.empty' | transloco }}</p>
+    }
+    <div class="session-list">
+      @for (s of history(); track s.id) {
+        <button type="button" class="session" (click)="inspect(s.id)">
+          <strong>{{ s.tillName }}</strong
+          ><span>{{ s.cashierName }} · {{ s.businessDate }}</span
+          ><span
+            >{{ 'tills.states.' + s.state | transloco }}
+            @if (overdue(s)) {
+              · {{ 'tills.overdue' | transloco }}
+            }
+            @if (s.awaitingReview) {
+              · {{ 'tills.awaitingReview' | transloco }}
+            }
+          </span>
+        </button>
+      }
+    </div>
+    <nav>
+      <button (click)="changePage(-1)" [disabled]="page() <= 1">
+        {{ 'tills.previous' | transloco }}</button
+      ><span>{{ page() }}</span
+      ><button (click)="changePage(1)" [disabled]="page() * 20 >= total()">
+        {{ 'tills.next' | transloco }}
+      </button>
+    </nav>
+  </article>
+  @if (detail(); as d) {
+    @let s = d.session;
+    <article>
+      <header>
+        <div>
+          <h2>{{ s.tillName }} · {{ s.cashierName }}</h2>
+          <p>{{ s.businessDate }} · {{ s.businessTimeZoneId }}</p>
+        </div>
+        @if (s.close) {
+          <a [routerLink]="['/tills/sessions', s.id, 'print']">{{ 'tills.print' | transloco }}</a>
+        }
+      </header>
+      <div class="metrics">
+        <div>
+          {{ 'tills.openingFloat' | transloco
+          }}<strong>{{ s.openingFloat | currency: 'INR' }}</strong>
+        </div>
+        <div>
+          {{ 'tills.expected' | transloco }}<strong>{{ s.expectedCash | currency: 'INR' }}</strong>
+        </div>
+        <div>
+          {{ 'tills.creditIssued' | transloco
+          }}<strong>{{ s.storeCreditIssued | currency: 'INR' }}</strong>
+        </div>
+        <div>
+          {{ 'tills.creditRedeemed' | transloco
+          }}<strong>{{ s.storeCreditRedeemed | currency: 'INR' }}</strong>
+        </div>
+        <div>
+          {{ 'tills.receivable' | transloco
+          }}<strong>{{ s.receivableChange | currency: 'INR' }}</strong>
+        </div>
+      </div>
+      <h3>{{ 'tills.recordedTotals' | transloco }}</h3>
+      @for (total of s.recordedTenderTotals | keyvalue; track total.key) {
+        <p>{{ 'tills.methods.' + total.key | transloco }}: {{ total.value | currency: 'INR' }}</p>
+      }
+      @if (s.state === 'Open' && canOperate(s)) {
+        @if (overdue(s)) {
+          <p class="notice">{{ 'tills.overdueWarning' | transloco }}</p>
+        }
+        <div class="grid">
+          @if (!overdue(s)) {
+            <section>
+              <h3>{{ 'tills.cashTransfer' | transloco }}</h3>
+              <label
+                >{{ 'tills.amount' | transloco
+                }}<input type="number" min="0.01" step="0.01" [(ngModel)]="amount" /></label
+              ><button (click)="move(1)" [disabled]="busy()">
+                {{ 'tills.cashIn' | transloco }}</button
+              ><button (click)="move(-1)" [disabled]="busy()">
+                {{ 'tills.cashOut' | transloco }}
+              </button>
+            </section>
+          }
+          <section>
+            <h3>{{ 'tills.countedClose' | transloco }}</h3>
+            <p class="notice">
+              {{ 'tills.offlineWarning' | transloco }}
+              <a routerLink="/sales/offline-reconciliation">{{ 'tills.checkQueue' | transloco }}</a>
+            </p>
+            <label
+              >{{ 'tills.counted' | transloco
+              }}<input type="number" min="0" step="0.01" [(ngModel)]="countedCash"
+            /></label>
+            @if (countedCash !== null) {
+              <p>
+                {{ 'tills.variance' | transloco }}:
+                {{ countedCash - s.expectedCash | currency: 'INR' }}
+              </p>
+            }
+            @if (overdue(s) && manager()) {
+              <label
+                ><input type="checkbox" [(ngModel)]="finalizeOverdue" />{{
+                  'tills.finalizeOverdue' | transloco
+                }}</label
+              >
+            }
+            <button (click)="close()" [disabled]="busy() || (overdue(s) && !manager())">
+              {{ 'tills.countedClose' | transloco }}
+            </button>
+          </section>
+        </div>
+        <label
+          >{{ 'tills.reason' | transloco
+          }}<textarea maxlength="500" [(ngModel)]="reason"></textarea>
+        </label>
+      }
+      @if (s.close; as c) {
+        <div class="notice">
+          <p>{{ 'tills.closed' | transloco }} {{ c.closedAt | date: 'medium' }}</p>
+          <p>
+            {{ 'tills.counted' | transloco }} {{ c.countedCash | currency: 'INR' }} ·
+            {{ 'tills.variance' | transloco }} {{ c.variance | currency: 'INR' }}
+          </p>
+          @if (c.isOverdue) {
+            <p>{{ 'tills.overdue' | transloco }}</p>
+          }
+        </div>
+        @if (s.awaitingReview && manager()) {
+          <label
+            >{{ 'tills.reviewReason' | transloco
+            }}<textarea maxlength="500" [(ngModel)]="reason"></textarea></label
+          ><button (click)="review()" [disabled]="busy()">{{ 'tills.review' | transloco }}</button>
+        }
+        @if (s.review) {
+          <p>
+            {{ 'tills.reviewed' | transloco }} {{ s.review.reviewedAt | date: 'medium' }} ·
+            {{ s.review.reason }}
+          </p>
+        }
+      }
+      <h3>{{ 'tills.sourceAudit' | transloco }}</h3>
+      <div class="audit">
+        @for (m of d.movements.items; track m.id) {
+          <section>
+            <strong>#{{ m.sequence }} {{ 'tills.sources.' + m.sourceType | transloco }}</strong
+            ><span
+              >{{ 'tills.methods.' + m.method | transloco }} ·
+              {{ m.signedAmount | currency: 'INR' }}</span
+            ><span>{{ m.occurredAt | date: 'short' }} · {{ m.reason }}</span
+            ><code>{{ m.sourceId }}</code>
+            @if (m.parentSaleId) {
+              <a [routerLink]="['/sales', m.parentSaleId, 'print']">{{
+                'tills.openSource' | transloco
+              }}</a>
+            }
+            @if (m.paymentReceiptId) {
+              <a [routerLink]="['/payments', m.paymentReceiptId]">{{
+                'tills.openSource' | transloco
+              }}</a>
+            }
+            @if (m.expenseId) {
+              <a [routerLink]="['/tills/expenses', m.expenseId]">{{
+                'tills.openSource' | transloco
+              }}</a>
+            }
+          </section>
+        }
+        @for (source of d.sources.items; track source.id) {
+          <section>
+            <strong
+              >{{ 'tills.sources.' + source.sourceType | transloco }} · {{ source.purpose }}</strong
+            ><code>{{ source.sourceId }}</code>
+            @if (source.parentSaleId) {
+              <a [routerLink]="['/sales', source.parentSaleId, 'print']">{{
+                'tills.openSource' | transloco
+              }}</a>
+            }
+            @if (source.paymentReceiptId) {
+              <a [routerLink]="['/payments', source.paymentReceiptId]">{{
+                'tills.openSource' | transloco
+              }}</a>
+            }
+            @if (source.expenseId) {
+              <a [routerLink]="['/tills/expenses', source.expenseId]">{{
+                'tills.openSource' | transloco
+              }}</a>
+            }
+            <small
+              >{{ source.operationKey }} · {{ source.reason }} · {{ source.overrideReason }}</small
+            >
+          </section>
+        }
+      </div>
+      <nav>
+        <button (click)="inspect(s.id, d.movements.page - 1)" [disabled]="d.movements.page <= 1">
+          {{ 'tills.previous' | transloco }}</button
+        ><button
+          (click)="inspect(s.id, d.movements.page + 1)"
+          [disabled]="
+            d.movements.page * 20 >= d.movements.totalCount &&
+            d.sources.page * 20 >= d.sources.totalCount
+          "
+        >
+          {{ 'tills.next' | transloco }}
+        </button>
+      </nav>
+      @if (s.latePostings.length) {
+        <h3>{{ 'tills.supplements' | transloco }}</h3>
+        <p>{{ 'tills.excluded' | transloco }}</p>
+        @for (late of s.latePostings; track late.id) {
+          <p>
+            {{ late.sourceBusinessDate }} · {{ late.evidenceStatus }} ·
+            {{
+              late.supplementalAmount === null
+                ? ('tills.unknownAmount' | transloco)
+                : (late.supplementalAmount | currency: 'INR')
+            }}
+            · {{ late.managerReason }}
+          </p>
+        }
+      }
+    </article>
+  }
+</section>

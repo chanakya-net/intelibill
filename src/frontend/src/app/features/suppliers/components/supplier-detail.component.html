@@ -8,7 +8,11 @@
   [styleClass]="'supplier-detail-dialog'"
 >
   <div class="ledger-content">
-    @if(currentSupplierId()){<a [routerLink]="['/supplier-returns']" [queryParams]="{supplierId:currentSupplierId()}">{{'supplierReturns.history'|transloco}}</a>}
+    @if (currentSupplierId()) {
+      <a [routerLink]="['/supplier-returns']" [queryParams]="{ supplierId: currentSupplierId() }">{{
+        'supplierReturns.history' | transloco
+      }}</a>
+    }
     @if (currentSupplier()) {
       <app-supplier-info-card [supplier]="currentSupplier()!" />
     }
@@ -62,6 +66,7 @@
               />
             } @else {
               <app-supplier-payment-form
+                [targetId]="currentSupplierId() ?? ''"
                 [submitting]="isSubmittingPayment()"
                 (paymentSubmitted)="onPaymentSubmitted($event)"
               />
@@ -72,4 +77,3 @@
     }
   </div>
 </p-dialog>
-

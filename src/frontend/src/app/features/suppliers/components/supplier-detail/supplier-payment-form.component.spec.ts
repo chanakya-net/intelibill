@@ -1,3 +1,4 @@
+import { disabledTillProviders } from '../../../../../tests/tills/disabled-till.providers';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -11,6 +12,7 @@ describe('SupplierPaymentFormComponent', () => {
 
   it('does not emit when amount is null', () => {
     TestBed.configureTestingModule({
+      providers: disabledTillProviders(),
       imports: [
         SupplierPaymentFormComponent,
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
@@ -35,6 +37,7 @@ describe('SupplierPaymentFormComponent', () => {
 
   it('trims notes and emits payload', () => {
     TestBed.configureTestingModule({
+      providers: disabledTillProviders(),
       imports: [
         SupplierPaymentFormComponent,
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
@@ -55,6 +58,7 @@ describe('SupplierPaymentFormComponent', () => {
     component.onSubmit();
 
     expect(emitted[0]).toEqual({
+      tillOwner: { userId: 'user-1', shopId: 'shop-1' },
       amount: 500,
       paymentDate: '2026-04-07',
       notes: 'bank transfer',
@@ -63,6 +67,7 @@ describe('SupplierPaymentFormComponent', () => {
 
   it('sends null notes when notes is blank', () => {
     TestBed.configureTestingModule({
+      providers: disabledTillProviders(),
       imports: [
         SupplierPaymentFormComponent,
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
@@ -83,10 +88,10 @@ describe('SupplierPaymentFormComponent', () => {
     component.onSubmit();
 
     expect(emitted[0]).toEqual({
+      tillOwner: { userId: 'user-1', shopId: 'shop-1' },
       amount: 100,
       paymentDate: '2026-04-07',
       notes: null,
     });
   });
 });
-

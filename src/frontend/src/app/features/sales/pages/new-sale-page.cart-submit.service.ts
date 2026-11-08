@@ -1,3 +1,5 @@
+import { inject } from '@angular/core';
+import { TillContextService } from '../../tills/services/till-context.service';
 import { NewSalePageCartSelectionService } from './new-sale-page.cart-selection.service';
 import type {
   InstantDiscountRequest,
@@ -10,6 +12,7 @@ import type { CheckoutIntent } from '../../../core/storage/checkout-intent-index
 
 export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelectionService {
   private isPreparingCheckout = false;
+  private readonly tillContext = inject(TillContextService);
 
   /**
    * Adds the picked sellable with the picker's quantity exactly as entered. A quantity its unit cannot hold (or more
@@ -184,7 +187,10 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
         isPriceIncludingTax: item.taxIncluded,
         inventoryBatchId: item.inventoryBatchId,
         clientLineKey: item.clientLineKey,
-        itemDiscount: { type: item.itemDiscountType as 0 | 1 | 2, value: item.itemDiscountValue } satisfies InstantDiscountRequest,
+        itemDiscount: {
+          type: item.itemDiscountType as 0 | 1 | 2,
+          value: item.itemDiscountValue,
+        } satisfies InstantDiscountRequest,
         hsnCode: item.hsnCode ?? null,
         lineType: 'Goods' as const,
       })),
@@ -254,12 +260,17 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
       creditNoteRedemptions: this.buildCreditNoteRedemptions(),
       creditNoteCustomerMismatchConfirmed: this.creditNoteCustomerMismatchConfirmed() || undefined,
       // Only with due on a chosen customer; the server judges it again under the customer's lock.
-      creditOverride: dueAmount > 0 && this.selectedCustomerId() ? (this.creditOverride() ?? undefined) : undefined,
+      creditOverride:
+        dueAmount > 0 && this.selectedCustomerId()
+          ? (this.creditOverride() ?? undefined)
+          : undefined,
     };
 
     this.isPreparingCheckout = true;
+    const owner = this.checkoutScope();
     try {
-      const intent = await this.checkoutIntents.prepare(this.checkoutScope(), request);
+      Object.assign(request, this.tillContext.saleEvidence(request.paymentMethod, paidAmount));
+      const intent = await this.checkoutIntents.prepare(owner, request);
       this.activeCheckoutIntentId.set(intent.intentId);
       this.pendingCheckouts.update((intents) => [...intents, intent]);
       this.salesFacade.recordSale(intent.request, intent.intentId);
@@ -336,7 +347,9 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
 
   getPendingCheckoutAmount(intent: CheckoutIntent): number {
     const request = intent.request;
-    return this.roundAmount(request.paidAmount + request.dueAmount + (request.creditNoteAppliedAmount ?? 0));
+    return this.roundAmount(
+      request.paidAmount + request.dueAmount + (request.creditNoteAppliedAmount ?? 0),
+    );
   }
 
   /**
@@ -353,7 +366,12 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
       return;
     }
     const scope = this.checkoutScope();
-    if (!intent || intent.status === 'rejected' || intent.userId !== scope.userId || intent.shopId !== scope.shopId) {
+    if (
+      !intent ||
+      intent.status === 'rejected' ||
+      intent.userId !== scope.userId ||
+      intent.shopId !== scope.shopId
+    ) {
       this.activeCheckoutIntentId.set(null);
     } else if (intent.status === 'confirmed') {
       this.onReconcileCheckout(activeId);
@@ -362,7 +380,9 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
 
   /** After a reload the cart is restored on its own; rebind it to the checkout its lines were frozen into. */
   private findIntentForCurrentCart(unresolved: readonly CheckoutIntent[]): CheckoutIntent | null {
-    const cartKeys = [...this.cart(), ...this.serviceCart()].map((line) => line.clientLineKey).sort();
+    const cartKeys = [...this.cart(), ...this.serviceCart()]
+      .map((line) => line.clientLineKey)
+      .sort();
     if (cartKeys.length === 0) {
       return null;
     }
@@ -376,5 +396,4 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
     }
     return null;
   }
-
 }

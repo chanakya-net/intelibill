@@ -1,3 +1,5 @@
+import { TillSourceService } from '../../tills/services/till-source.service';
+import { firstValueFrom, map } from 'rxjs';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
@@ -35,6 +37,7 @@ export * from './sale.models';
 @Injectable({ providedIn: 'root' })
 export class SaleService {
   private readonly http = inject(HttpClient);
+  private readonly tillSources = inject(TillSourceService);
 
   /** With an `owner`, the sale is only ever sent as that user and shop (see `REQUEST_SCOPE`). */
   recordSale(request: RecordSaleRequest, owner?: ScopeOwner): Observable<SaleDto> {
@@ -50,7 +53,10 @@ export class SaleService {
   }
 
   /** With an `owner`, the batch is only ever sent as that user and shop (see `REQUEST_SCOPE`). */
-  syncOfflineSales(request: OfflineSalesSyncRequest, owner?: ScopeOwner): Observable<OfflineSalesSyncResponseDto> {
+  syncOfflineSales(
+    request: OfflineSalesSyncRequest,
+    owner?: ScopeOwner,
+  ): Observable<OfflineSalesSyncResponseDto> {
     return this.http.post<OfflineSalesSyncResponseDto>(
       SALE_ENDPOINTS.offlineSync,
       request,
@@ -69,8 +75,10 @@ export class SaleService {
     if (params?.to) requestParams = requestParams.set('to', params.to);
     if (params?.search) requestParams = requestParams.set('search', params.search);
     if (params?.status) requestParams = requestParams.set('status', params.status);
-    if (params?.page !== undefined) requestParams = requestParams.set('page', params.page.toString());
-    if (params?.pageSize !== undefined) requestParams = requestParams.set('pageSize', params.pageSize.toString());
+    if (params?.page !== undefined)
+      requestParams = requestParams.set('page', params.page.toString());
+    if (params?.pageSize !== undefined)
+      requestParams = requestParams.set('pageSize', params.pageSize.toString());
 
     return this.http.get<SalesHistoryResultDto>(SALE_ENDPOINTS.list, { params: requestParams });
   }
@@ -83,16 +91,53 @@ export class SaleService {
     return this.http.get<SaleDto>(SALE_ENDPOINTS.byIdempotencyKey(idempotencyKey));
   }
 
-  previewSaleReturn(saleId: string, request: PreviewSaleReturnRequest): Observable<SaleReturnPreviewDto> {
-    return this.http.post<SaleReturnPreviewDto>(`${SALE_ENDPOINTS.detail(saleId)}/returns/preview`, request);
+  previewSaleReturn(
+    saleId: string,
+    request: PreviewSaleReturnRequest,
+  ): Observable<SaleReturnPreviewDto> {
+    return this.http.post<SaleReturnPreviewDto>(
+      `${SALE_ENDPOINTS.detail(saleId)}/returns/preview`,
+      request,
+    );
   }
 
   recordSaleReturn(saleId: string, request: RecordSaleReturnRequest): Observable<SaleDto> {
-    return this.http.post<SaleDto>(`${SALE_ENDPOINTS.detail(saleId)}/returns`, request);
+    return this.tillSources.post<SaleDto>(
+      `/sales/${saleId}/returns`,
+      'sale-return',
+      saleId,
+      request.operationKey ?? crypto.randomUUID(),
+      request,
+      async (response) => {
+        const identity = response as { saleReturnId?: string; saleId?: string };
+        if (!identity.saleReturnId || identity.saleId !== saleId)
+          throw new Error('Return receipt identity does not match its frozen sale.');
+        return firstValueFrom(
+          this.http.get<SaleDto>(
+            SALE_ENDPOINTS.detail(saleId),
+            request.tillOwner ? { context: scopedRequestContext(request.tillOwner) } : undefined,
+          ),
+        );
+      },
+    );
   }
 
   voidSaleReturn(saleReturnId: string, request: VoidSaleReturnRequest): Observable<void> {
-    return this.http.post<void>(`${SALE_ENDPOINTS.record}/returns/${saleReturnId}/void`, request);
+    return this.tillSources
+      .post<void>(
+        `/sales/returns/${saleReturnId}/void`,
+        'sale-return-void',
+        saleReturnId,
+        'void',
+        request,
+        async (response) => {
+          const saved = response as { saleReturnId?: string; saleId?: string };
+          if (saved.saleReturnId !== saleReturnId || !saved.saleId)
+            throw new Error('Return void receipt identity mismatch.');
+          return undefined;
+        },
+      )
+      .pipe(map(() => undefined));
   }
 
   voidCreditNote(code: string, request: VoidCreditNoteRequest): Observable<void> {
@@ -106,10 +151,14 @@ export class SaleService {
     if (params?.to) requestParams = requestParams.set('to', params.to);
     if (params?.type) requestParams = requestParams.set('type', params.type);
     if (params?.search) requestParams = requestParams.set('search', params.search);
-    if (params?.page !== undefined) requestParams = requestParams.set('page', params.page.toString());
-    if (params?.pageSize !== undefined) requestParams = requestParams.set('pageSize', params.pageSize.toString());
+    if (params?.page !== undefined)
+      requestParams = requestParams.set('page', params.page.toString());
+    if (params?.pageSize !== undefined)
+      requestParams = requestParams.set('pageSize', params.pageSize.toString());
 
-    return this.http.get<ProfitLossReportResultDto>(SALE_ENDPOINTS.profitLoss, { params: requestParams });
+    return this.http.get<ProfitLossReportResultDto>(SALE_ENDPOINTS.profitLoss, {
+      params: requestParams,
+    });
   }
 
   getSellables(searchTerm: string): Observable<SellableDto[]> {
@@ -125,10 +174,14 @@ export class SaleService {
 
     if (params?.search) requestParams = requestParams.set('search', params.search);
     if (params?.status) requestParams = requestParams.set('status', params.status);
-    if (params?.page !== undefined) requestParams = requestParams.set('page', params.page.toString());
-    if (params?.pageSize !== undefined) requestParams = requestParams.set('pageSize', params.pageSize.toString());
+    if (params?.page !== undefined)
+      requestParams = requestParams.set('page', params.page.toString());
+    if (params?.pageSize !== undefined)
+      requestParams = requestParams.set('pageSize', params.pageSize.toString());
 
-    return this.http.get<CreditNotesResultDto>(CREDIT_NOTE_ENDPOINTS.list, { params: requestParams });
+    return this.http.get<CreditNotesResultDto>(CREDIT_NOTE_ENDPOINTS.list, {
+      params: requestParams,
+    });
   }
 
   getCreditNotePrintByCode(code: string): Observable<CreditNotePrintDto> {

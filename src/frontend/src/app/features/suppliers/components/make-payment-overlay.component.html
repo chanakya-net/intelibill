@@ -35,6 +35,7 @@
       />
     } @else {
       <app-supplier-payment-form
+        [targetId]="supplier.supplierId"
         class="overlay-form"
         [submitting]="isSubmitting()"
         [serverError]="serverError()"

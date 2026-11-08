@@ -1,3 +1,6 @@
+import { TillPendingActionsComponent } from '../../tills/components/till-pending-actions.component';
+import { ViewChild } from '@angular/core';
+import { TillPostingFieldsComponent } from '../../tills/components/till-posting-fields.component';
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -54,7 +57,11 @@ import {
   customerUsagePercent as deriveCustomerUsagePercent,
 } from '../utils/customer-status.util';
 import { creditPolicyLabelKey, effectiveCreditPolicy } from '../utils/credit-policy.util';
-import { CURRENCY_ADDON_PT, CURRENCY_INPUT_GROUP_PT, CURRENCY_INPUT_NUMBER_PT } from '../../../shared/primeng-pt.config';
+import {
+  CURRENCY_ADDON_PT,
+  CURRENCY_INPUT_GROUP_PT,
+  CURRENCY_INPUT_NUMBER_PT,
+} from '../../../shared/primeng-pt.config';
 import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
@@ -97,6 +104,8 @@ interface CustomerDirectoryMetric {
   selector: 'app-customers-page',
   standalone: true,
   imports: [
+    TillPendingActionsComponent,
+    TillPostingFieldsComponent,
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
@@ -126,6 +135,15 @@ interface CustomerDirectoryMetric {
   styleUrl: './customers-page.component.scss',
 })
 export class CustomersPageComponent {
+  readonly tillPaymentLocked = signal(false);
+  readonly tillReversalLocked = signal(false);
+  onTillPaymentLocked(locked: boolean) {
+    this.tillPaymentLocked.set(locked);
+    if (locked) this.paymentForm.disable({ emitEvent: false });
+    else this.paymentForm.enable({ emitEvent: false });
+  }
+  @ViewChild('paymentTill') paymentTill!: TillPostingFieldsComponent;
+  @ViewChild('reversalTill') reversalTill!: TillPostingFieldsComponent;
   private readonly customersFacade = inject(CustomersFacade);
   private readonly customerService = inject(CustomerService);
   private readonly intents = inject(FinancialOperationIntentService);
@@ -141,7 +159,11 @@ export class CustomersPageComponent {
     this.intents.revision();
     const customer = this.selectedAccountCustomer();
     return customer
-      ? this.intents.pending<RecordCustomerPaymentRequest>(this.paymentScope(), 'customer-payment', customer.customerId)
+      ? this.intents.pending<RecordCustomerPaymentRequest>(
+          this.paymentScope(),
+          'customer-payment',
+          customer.customerId,
+        )
       : null;
   });
   private readonly router = inject(Router);
@@ -174,8 +196,8 @@ export class CustomersPageComponent {
     }
 
     return byStatus.filter((customer) =>
-      [customer.name, customer.phoneNumber, customer.address ?? '', customer.customerId].some((value) =>
-        value.toLowerCase().includes(search),
+      [customer.name, customer.phoneNumber, customer.address ?? '', customer.customerId].some(
+        (value) => value.toLowerCase().includes(search),
       ),
     );
   });
@@ -188,7 +210,9 @@ export class CustomersPageComponent {
   readonly outstandingCount = computed(
     () => this.customers().filter((customer) => (customer.outstandingDue ?? 0) > 0).length,
   );
-  readonly totalCreditIssued = computed(() => this.sumBy(this.customers(), (customer) => customer.creditLimit ?? 0));
+  readonly totalCreditIssued = computed(() =>
+    this.sumBy(this.customers(), (customer) => customer.creditLimit ?? 0),
+  );
   readonly accountsWithCredit = computed(
     () => this.customers().filter((customer) => (customer.creditLimit ?? 0) > 0).length,
   );
@@ -269,8 +293,8 @@ export class CustomersPageComponent {
     );
   });
   readonly selectedAccountPurchaseCount = computed(() => this.selectedAccount()?.sales.length ?? 0);
-  readonly selectedAccountLifetimeRevenue = computed(() =>
-    this.selectedAccountCustomer()?.lifetimeRevenue ?? 0,
+  readonly selectedAccountLifetimeRevenue = computed(
+    () => this.selectedAccountCustomer()?.lifetimeRevenue ?? 0,
   );
   /** The saved credit limit, exactly as configured; never derived from revenue or balance. */
   readonly selectedAccountCreditLimit = computed(
@@ -285,11 +309,15 @@ export class CustomersPageComponent {
     creditPolicyLabelKey(this.selectedAccountCreditPolicy()),
   );
   /** Null when the limit is not enforced (legacy advisory), so nothing is promised that is not checked. */
-  readonly selectedAccountAvailableCredit = computed(() => this.selectedAccount()?.availableCredit ?? null);
+  readonly selectedAccountAvailableCredit = computed(
+    () => this.selectedAccount()?.availableCredit ?? null,
+  );
   readonly selectedAccountIsActive = computed(
     () => this.selectedAccount()?.isActive ?? this.selectedAccountCustomer()?.isActive ?? true,
   );
-  readonly selectedAccountOverdueAmount = computed(() => this.selectedAccount()?.overdueAmount ?? 0);
+  readonly selectedAccountOverdueAmount = computed(
+    () => this.selectedAccount()?.overdueAmount ?? 0,
+  );
   readonly selectedAccountUsagePercent = computed(() => {
     const account = this.selectedAccount();
 
@@ -303,7 +331,9 @@ export class CustomersPageComponent {
     });
   });
   /** The server's balance before the statement window; never a displayed row's after-entry balance. */
-  readonly selectedAccountOpeningBalance = computed(() => this.selectedAccount()?.openingBalance ?? 0);
+  readonly selectedAccountOpeningBalance = computed(
+    () => this.selectedAccount()?.openingBalance ?? 0,
+  );
   readonly selectedAccountClosingBalance = computed(
     () => this.selectedAccount()?.closingBalance ?? this.selectedAccount()?.outstandingDue ?? 0,
   );
@@ -364,8 +394,12 @@ export class CustomersPageComponent {
       .filter((sale) => (sale.currentOutstandingAmount ?? 0) > 0)
       .sort((a, b) => a.soldAt.localeCompare(b.soldAt)),
   );
-  readonly selectedAccountUnallocatedCredit = computed(() => this.selectedAccount()?.unallocatedCredit ?? 0);
-  readonly selectedAccountReceipts = computed<readonly PaymentReceiptSummary[]>(() => this.selectedAccount()?.receipts ?? []);
+  readonly selectedAccountUnallocatedCredit = computed(
+    () => this.selectedAccount()?.unallocatedCredit ?? 0,
+  );
+  readonly selectedAccountReceipts = computed<readonly PaymentReceiptSummary[]>(
+    () => this.selectedAccount()?.receipts ?? [],
+  );
 
   /** The oldest-first allocation the operator may accept; nothing is allocated unless they tick it. */
   readonly allocationSuggestion = computed(() => {
@@ -376,7 +410,10 @@ export class CustomersPageComponent {
     const invoiceNumbers = new Map(sales.map((sale) => [sale.saleId, sale.invoiceNumber]));
     return {
       allocations,
-      rows: allocations.map((allocation) => ({ ...allocation, invoiceNumber: invoiceNumbers.get(allocation.targetId) ?? '' })),
+      rows: allocations.map((allocation) => ({
+        ...allocation,
+        invoiceNumber: invoiceNumbers.get(allocation.targetId) ?? '',
+      })),
       leftover: Math.max(0, Math.round((amount - allocated) * 100) / 100),
     };
   });
@@ -451,7 +488,12 @@ export class CustomersPageComponent {
     this.accountError.set('');
     this.accountLedgerFilter.set('all');
     this.showAccountOverlay.set(true);
-    this.paymentForm.patchValue({ amount: 0, notes: '', externalReference: '', applyOldestFirst: false });
+    this.paymentForm.patchValue({
+      amount: 0,
+      notes: '',
+      externalReference: '',
+      applyOldestFirst: false,
+    });
     this.reversingReceiptId.set(null);
     this.loadCustomerAccount(customer.customerId);
   }
@@ -466,6 +508,7 @@ export class CustomersPageComponent {
   }
 
   onRecordPayment(): void {
+    if (this.tillPaymentLocked()) return;
     if (this.paymentForm.invalid) {
       this.paymentForm.markAllAsTouched();
       return;
@@ -486,6 +529,7 @@ export class CustomersPageComponent {
     try {
       const controls = this.paymentForm.controls;
       intent = this.intents.prepare(this.paymentScope(), 'customer-payment', customer.customerId, {
+        ...this.paymentTill.sessionOnly(),
         amount: Number(controls.amount.value),
         paymentDate: controls.paymentDate.value,
         notes: controls.notes.value.trim() || null,
@@ -522,7 +566,9 @@ export class CustomersPageComponent {
     this.intents.check(this.paymentScope(), intent).subscribe({
       next: (committed) => {
         this.isCheckingPayment.set(false);
-        this.pendingNotice.set(committed ? 'financialOperations.confirmed' : 'financialOperations.notYetRecorded');
+        this.pendingNotice.set(
+          committed ? 'financialOperations.confirmed' : 'financialOperations.notYetRecorded',
+        );
         if (committed) {
           this.loadCustomerAccount(customer.customerId);
           this.customersFacade.loadCustomers();
@@ -535,15 +581,26 @@ export class CustomersPageComponent {
     });
   }
 
-  private sendPayment(customer: Customer, intent: FinancialOperationIntent<RecordCustomerPaymentRequest>): void {
+  private sendPayment(
+    customer: Customer,
+    intent: FinancialOperationIntent<RecordCustomerPaymentRequest>,
+  ): void {
     this.submittingPayment.set(true);
     this.intents
       .send(this.paymentScope(), intent, (payload, operationKey) =>
-        this.customerService.recordCustomerPayment(customer.customerId, { ...payload, operationKey }),
+        this.customerService.recordCustomerPayment(customer.customerId, {
+          ...payload,
+          operationKey,
+        }),
       )
       .subscribe({
         next: () => {
-          this.paymentForm.patchValue({ amount: 0, notes: '', externalReference: '', applyOldestFirst: false });
+          this.paymentForm.patchValue({
+            amount: 0,
+            notes: '',
+            externalReference: '',
+            applyOldestFirst: false,
+          });
           this.submittingPayment.set(false);
           this.loadCustomerAccount(customer.customerId);
           this.customersFacade.loadCustomers();
@@ -572,6 +629,7 @@ export class CustomersPageComponent {
   }
 
   onConfirmReversal(): void {
+    if (this.tillReversalLocked()) return;
     const customer = this.selectedAccountCustomer();
     const receiptId = this.reversingReceiptId();
     const reason = this.reversalReason().trim();
@@ -585,28 +643,39 @@ export class CustomersPageComponent {
 
     const operationKey = this.reversalKeys.get(receiptId) ?? `reverse-${crypto.randomUUID()}`;
     this.reversalKeys.set(receiptId, operationKey);
+    let evidence;
+    try {
+      evidence = this.reversalTill.fields(
+        this.selectedAccount()?.receipts?.find((x) => x.receiptId === receiptId)?.amount ?? 0,
+      );
+    } catch {
+      this.reversalError.set('tills.evidenceRequired');
+      return;
+    }
     this.submittingReversal.set(true);
-    this.customerService.reversePayment(receiptId, { reason, operationKey }).subscribe({
-      next: () => {
-        this.reversalKeys.delete(receiptId);
-        this.submittingReversal.set(false);
-        this.onCancelReversal();
-        this.loadCustomerAccount(customer.customerId);
-        this.customersFacade.loadCustomers();
-      },
-      error: (error) => {
-        this.submittingReversal.set(false);
-        if (classifyFinancialOperationFailure(error) !== 'uncertain') {
-          // A definite refusal: a later attempt is a new decision with its own key.
+    this.customerService
+      .reversePayment(receiptId, { reason, operationKey, ...evidence })
+      .subscribe({
+        next: () => {
           this.reversalKeys.delete(receiptId);
-        }
-        this.reversalError.set(
-          classifyFinancialOperationFailure(error) === 'uncertain'
-            ? 'financialOperations.outcomeUnknown'
-            : error.error?.detail || 'customers.account.reversalFailed',
-        );
-      },
-    });
+          this.submittingReversal.set(false);
+          this.onCancelReversal();
+          this.loadCustomerAccount(customer.customerId);
+          this.customersFacade.loadCustomers();
+        },
+        error: (error) => {
+          this.submittingReversal.set(false);
+          if (classifyFinancialOperationFailure(error) !== 'uncertain') {
+            // A definite refusal: a later attempt is a new decision with its own key.
+            this.reversalKeys.delete(receiptId);
+          }
+          this.reversalError.set(
+            classifyFinancialOperationFailure(error) === 'uncertain'
+              ? 'financialOperations.outcomeUnknown'
+              : error.error?.detail || 'customers.account.reversalFailed',
+          );
+        },
+      });
   }
 
   tenderLabelKey(method: ReceiptTenderMethod): string {
@@ -637,7 +706,10 @@ export class CustomersPageComponent {
     });
   }
 
-  private accountLedgerReference(entry: CustomerLedgerEntry, sale: CustomerAccountSale | null): string {
+  private accountLedgerReference(
+    entry: CustomerLedgerEntry,
+    sale: CustomerAccountSale | null,
+  ): string {
     if (sale) {
       return sale.invoiceNumber;
     }

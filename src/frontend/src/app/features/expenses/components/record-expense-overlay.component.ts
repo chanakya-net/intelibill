@@ -1,3 +1,6 @@
+import { TillPendingActionsComponent } from '../../tills/components/till-pending-actions.component';
+import { ViewChild } from '@angular/core';
+import { TillPostingFieldsComponent } from '../../tills/components/till-posting-fields.component';
 import { Component, EventEmitter, OnInit, Output, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -29,6 +32,8 @@ import { InputValidators } from '../../../shared/forms/input-validation';
   selector: 'app-record-expense-overlay',
   standalone: true,
   imports: [
+    TillPendingActionsComponent,
+    TillPostingFieldsComponent,
     ReactiveFormsModule,
     TranslocoPipe,
     SelectModule,
@@ -48,6 +53,7 @@ export class RecordExpenseOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly expensesFacade = inject(ExpensesFacade);
 
+  private readonly intentId = crypto.randomUUID();
   readonly treatment = signal<ExpenseTreatment>('Unclassified');
   readonly treatmentChoices = EXPENSE_TREATMENT_CHOICES;
   selectTreatment(event: Event): void {
@@ -77,6 +83,14 @@ export class RecordExpenseOverlayComponent implements OnInit {
 
   @Output() readonly closeRequested = new EventEmitter<void>();
 
+  @ViewChild(TillPostingFieldsComponent) tillFields!: TillPostingFieldsComponent;
+  readonly tillError = signal('');
+  readonly tillLocked = signal(false);
+  onTillLocked(locked: boolean) {
+    this.tillLocked.set(locked);
+    if (locked) this.form.disable({ emitEvent: false });
+    else this.form.enable({ emitEvent: false });
+  }
   readonly form = this.formBuilder.nonNullable.group({
     categoryName: ['', InputValidators.requiredText(100)],
     amount: [0, InputValidators.positiveNumber()],
@@ -106,14 +120,14 @@ export class RecordExpenseOverlayComponent implements OnInit {
   }
 
   onClose(): void {
-    if (this.isSubmitting()) {
+    if (this.tillLocked() || this.isSubmitting()) {
       return;
     }
     this.closeRequested.emit();
   }
 
   onSubmit(): void {
-    if (this.isSubmitting()) {
+    if (this.tillLocked() || this.isSubmitting()) {
       return;
     }
     if (this.form.invalid) {
@@ -124,7 +138,16 @@ export class RecordExpenseOverlayComponent implements OnInit {
     this.expensesFacade.clearMutationStatus();
 
     const raw = this.form.getRawValue();
+    let tillFields;
+    try {
+      tillFields = this.tillFields.fields(raw.amount);
+    } catch {
+      this.tillError.set('tills.evidenceRequired');
+      return;
+    }
     this.expensesFacade.recordExpense({
+      ...tillFields,
+      ...(this.tillFields.context.enabled() ? { operationKey: this.intentId } : {}),
       treatment: this.treatment(),
       categoryName: raw.categoryName.trim(),
       amount: raw.amount,
