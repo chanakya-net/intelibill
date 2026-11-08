@@ -33,7 +33,12 @@ internal sealed partial class OfflineSalePoster
             }
             else if (evidence.EvidenceStatus == "Recorded")
             {
-                var valid = TenderLine.ValidateLines(evidence.TenderLines, sale.PaidAmount);
+                // Only wholly legacy Credit invoices with an external paid amount leave its
+                // method ambiguous. Their actual tender is separately reasoned evidence;
+                // every unambiguous method and every new-field invoice must conserve it.
+                var valid = !hasContext && sale.PaymentMethod == PaymentMethod.Credit && sale.PaidAmount > 0m
+                    ? TenderLine.ValidateLines(evidence.TenderLines, sale.PaidAmount)
+                    : SaleTenderPolicy.Validate(sale.PaymentMethod, sale.PaidAmount, evidence.TenderLines);
                 if (valid.IsError) return valid.Errors;
                 if (hasContext)
                 {

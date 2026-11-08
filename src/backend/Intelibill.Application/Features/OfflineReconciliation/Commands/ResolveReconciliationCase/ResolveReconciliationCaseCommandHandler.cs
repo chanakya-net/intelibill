@@ -83,7 +83,9 @@ public sealed class ResolveReconciliationCaseCommandHandler(
             command.Reason.Trim(),
             FinancialOperationHasher.NormalizeKey(command.OperationId)!);
 
-        if (request.Action == ReconciliationAction.ReconcileTillSale && role.Value is not (ShopRole.Owner or ShopRole.Manager))
+        // Staff may only escalate their own case, including receipt replay. Target visibility
+        // alone must not let a saved manager resolution bypass this action authorization.
+        if (request.Action != ReconciliationAction.Escalate && role.Value is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Reconciliation.ActionForbidden;
 
         var requestHash = FinancialOperationHasher.Compute(new ResolutionPayload(
@@ -349,9 +351,10 @@ public sealed class ResolveReconciliationCaseCommandHandler(
                 now,
                 activeRules.ToDictionary(rule => rule.Id),
                 lease,
-                // Historical credit review retains its existing decision. Till review addresses only
-                // allocation; any customer-credit variance still becomes its own visible case.
-                CreditReviewed: request.Action == ReconciliationAction.RetryHistoricalLease, ReviewedTill: reviewedTill),
+                // Existing historical credit review retains its decision. A TillReview retry is
+                // ordinary drawer recovery; its customer-credit variance must still be filed.
+                CreditReviewed: request.Action == ReconciliationAction.RetryHistoricalLease && issue.IssueType != ReconciliationIssueType.TillReview,
+                ReviewedTill: reviewedTill),
             cancellationToken);
 
         return outcome switch

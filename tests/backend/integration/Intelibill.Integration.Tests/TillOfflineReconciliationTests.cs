@@ -39,7 +39,10 @@ public sealed class TillOfflineReconciliationTests(PostgreSqlTestFixture fixture
         var detail = await GetCaseAsync(client, owner.Token, result.GetProperty("reviewCaseId").GetGuid());
         Assert.Equal("TillReview", detail.GetProperty("issueType").GetString());
         Assert.Contains("ReconcileTillSale", Strings(detail.GetProperty("availableActions")));
-        Assert.DoesNotContain("RetryHistoricalLease", Strings(detail.GetProperty("availableActions")));
+        Assert.Contains("RetryHistoricalLease", Strings(detail.GetProperty("availableActions")));
+        using var refused = await ResolveAsync(client, owner.Token, detail.GetProperty("caseId").GetGuid(), detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "Closed drawers cannot accept ordinary replay");
+        Assert.False(refused.IsSuccessStatusCode);
+        Assert.Contains("Till.SessionClosed", await refused.Content.ReadAsStringAsync(), StringComparison.Ordinal);
         var resend = await SyncAsync(client, owner.Token, payload);
         Assert.Equal(result.GetProperty("reviewCaseId").GetGuid(), resend.GetProperty("reviewCaseId").GetGuid());
     }
@@ -351,13 +354,18 @@ public sealed class TillOfflineReconciliationTests(PostgreSqlTestFixture fixture
         Assert.False(await db.TillLatePostings.AnyAsync(x => x.ShopId == owner.ShopId));
     }
 
-    [Fact]
-    public async Task StaffCannotReplayManagerResolution_EvenWhenTheyFiledTheCase()
+    [Theory]
+    [InlineData("ReconcileTillSale")]
+    [InlineData("RetryHistoricalLease")]
+    public async Task StaffCannotReplayManagerResolution_EvenWhenTheyFiledTheCase(string action)
     {
         using var client = CreateClient();
         var (owner, payload, session) = await ArrangeAsync(client);
-        await CloseAsync(owner, session);
+        var options = _factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value;
+        if (action == "ReconcileTillSale") await CloseAsync(owner, session);
+        else options.Enabled = false;
         await SyncAsync(client, owner.Token, payload);
+        options.Enabled = true;
         using var staffClient = CreateClient();
         var staff = await AddManagerAsync(staffClient, owner, "Staff");
         await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId);
@@ -368,11 +376,17 @@ public sealed class TillOfflineReconciliationTests(PostgreSqlTestFixture fixture
         app.Db.ReconciliationIssues.Add(own);
         await app.Db.SaveChangesAsync();
         var operation = Guid.NewGuid().ToString();
-        using var resolved = await ResolveTillAsync(client, owner, own.Id, own.Version, payload, operation: operation);
+        using var resolved = action == "ReconcileTillSale"
+            ? await ResolveTillAsync(client, owner, own.Id, own.Version, payload, operation: operation)
+            : await ResolveAsync(client, owner.Token, own.Id, own.Version, action, "Manager normal replay", operationId: operation);
         Assert.True(resolved.IsSuccessStatusCode, await resolved.Content.ReadAsStringAsync());
-        using var forbidden = await ResolveTillAsync(staffClient, staff, own.Id, own.Version, payload, operation: operation);
+        using var forbidden = action == "ReconcileTillSale"
+            ? await ResolveTillAsync(staffClient, staff, own.Id, own.Version, payload, operation: operation)
+            : await ResolveAsync(staffClient, staff.Token, own.Id, own.Version, action, "Manager normal replay", operationId: operation);
         Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
-        using var changedEvidence = await ResolveTillAsync(client, owner, own.Id, own.Version, payload, "Unknown", operation);
+        using var changedEvidence = action == "ReconcileTillSale"
+            ? await ResolveTillAsync(client, owner, own.Id, own.Version, payload, "Unknown", operation)
+            : await ResolveAsync(client, owner.Token, own.Id, own.Version, action, "Changed reason", operationId: operation);
         Assert.Contains("Operation.PayloadMismatch", await changedEvidence.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
@@ -404,6 +418,301 @@ public sealed class TillOfflineReconciliationTests(PostgreSqlTestFixture fixture
         Assert.Equal(session.Id, movement.SessionId);
         Assert.Equal(TillMovementSource.OfflineSale, movement.SourceType);
         Assert.Equal(118m, movement.SignedAmount);
+    }
+
+    [Fact]
+    public async Task DisabledFirstSync_ReenabledTillReview_OrdinaryRetryIncludesOriginalDrawerOnce()
+    {
+        using var client = CreateClient();
+        var (owner, payload, session) = await ArrangeAsync(client);
+        var options = _factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value;
+        options.Enabled = false;
+        var held = await SyncAsync(client, owner.Token, payload);
+        var caseId = held.GetProperty("reviewCaseId").GetGuid();
+        var detail = await GetCaseAsync(client, owner.Token, caseId);
+        Assert.Equal("TillReview", detail.GetProperty("issueType").GetString());
+        Assert.Contains("Till.Disabled", Strings(detail.GetProperty("reasonCodes")));
+        Assert.Contains("RetryHistoricalLease", Strings(detail.GetProperty("availableActions")));
+        options.Enabled = true;
+        Assert.Equal(caseId, (await SyncAsync(client, owner.Token, payload)).GetProperty("reviewCaseId").GetGuid());
+        await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId);
+        Assert.False(await app.Db.Sales.AnyAsync(x => x.ShopId == owner.ShopId));
+        var original = await app.Db.OfflineSubmissions.AsNoTracking().SingleAsync(x => x.ShopId == owner.ShopId);
+        using var unnecessary = await ResolveTillAsync(client, owner, caseId, detail.GetProperty("version").GetUInt32(), payload);
+        Assert.Contains("Till.ReviewNotRequired", await unnecessary.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        var operation = Guid.NewGuid().ToString();
+        using var normal = await ResolveAsync(client, owner.Token, caseId, detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "Re-enabled original drawer", operationId: operation);
+        Assert.True(normal.IsSuccessStatusCode, await normal.Content.ReadAsStringAsync());
+        var response = await normal.Content.ReadAsStringAsync();
+        using var replay = await ResolveAsync(client, owner.Token, caseId, detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "Re-enabled original drawer", operationId: operation);
+        Assert.Equal(response, await replay.Content.ReadAsStringAsync());
+        Assert.Equal("duplicate", (await SyncAsync(client, owner.Token, payload)).GetProperty("status").GetString());
+        var sale = await app.Db.Sales.SingleAsync(x => x.ShopId == owner.ShopId);
+        Assert.Equal(payload["invoiceNumber"]!.GetValue<string>(), sale.InvoiceNumber);
+        AssertSameInstant(payload["soldAt"]!.GetValue<DateTimeOffset>(), sale.SoldAt);
+        Assert.Equal(session.BusinessDate, sale.BusinessDate);
+        Assert.Equal(original.PayloadHash, sale.RequestHash);
+        Assert.Equal(original.PayloadJson, (await app.Db.OfflineSubmissions.AsNoTracking().SingleAsync(x => x.Id == original.Id)).PayloadJson);
+        var source = await app.Db.TillSourceRecords.SingleAsync(x => x.ShopId == owner.ShopId);
+        Assert.Equal(TillMovementSource.OfflineSale, source.SourceType);
+        Assert.Equal(session.Id, source.SessionId);
+        Assert.Equal(sale.Id, source.SourceId);
+        Assert.Equal(118m, (await app.Db.TillMovements.SingleAsync(x => x.ShopId == owner.ShopId)).SignedAmount);
+        Assert.False(await app.Db.TillLatePostings.AnyAsync(x => x.ShopId == owner.ShopId));
+    }
+
+    [Theory]
+    [InlineData(PaymentMethod.Cash, ReceiptTenderMethod.Upi)]
+    [InlineData(PaymentMethod.UPI, ReceiptTenderMethod.Card)]
+    [InlineData(PaymentMethod.Card, ReceiptTenderMethod.Cash)]
+    public async Task LegacyRecordedTender_MismatchedExternalMethod_Refused(PaymentMethod originalMethod, ReceiptTenderMethod actualMethod)
+    {
+        using var client = CreateClient();
+        var (owner, payload, _) = await ArrangeAsync(client);
+        RemoveTillEvidence(payload);
+        payload["paymentMethod"] = (int)originalMethod;
+        var held = await SyncAsync(client, owner.Token, payload);
+        var caseId = held.GetProperty("reviewCaseId").GetGuid();
+        var detail = await GetCaseAsync(client, owner.Token, caseId);
+        var evidence = payload.DeepClone().AsObject();
+        evidence["tenderLines"] = JsonSerializer.SerializeToNode(new[] { new { method = (int)actualMethod, appliedAmount = 118m } });
+        using var refused = await ResolveTillAsync(client, owner, caseId, detail.GetProperty("version").GetUInt32(), evidence);
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        Assert.Contains("Till.TenderMethodMismatch", await refused.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId);
+        Assert.False(await app.Db.Sales.AnyAsync(x => x.ShopId == owner.ShopId));
+        Assert.False(await app.Db.TillLatePostings.AnyAsync(x => x.ShopId == owner.ShopId));
+        Assert.Equal("Open", (await GetCaseAsync(client, owner.Token, caseId)).GetProperty("status").GetString());
+    }
+
+    [Theory]
+    [InlineData(PaymentMethod.Cash, ReceiptTenderMethod.Cash)]
+    [InlineData(PaymentMethod.UPI, ReceiptTenderMethod.Upi)]
+    [InlineData(PaymentMethod.Card, ReceiptTenderMethod.Card)]
+    public async Task LegacyRecordedTender_WrongAmount_Refused(PaymentMethod originalMethod, ReceiptTenderMethod actualMethod)
+    {
+        using var client = CreateClient();
+        var (owner, payload, _) = await ArrangeAsync(client);
+        RemoveTillEvidence(payload);
+        payload["paymentMethod"] = (int)originalMethod;
+        var held = await SyncAsync(client, owner.Token, payload);
+        var caseId = held.GetProperty("reviewCaseId").GetGuid();
+        var detail = await GetCaseAsync(client, owner.Token, caseId);
+        var evidence = payload.DeepClone().AsObject();
+        evidence["tenderLines"] = JsonSerializer.SerializeToNode(new[] { new { method = (int)actualMethod, appliedAmount = 117m } });
+        using var refused = await ResolveTillAsync(client, owner, caseId, detail.GetProperty("version").GetUInt32(), evidence);
+        Assert.Equal(HttpStatusCode.Conflict, refused.StatusCode);
+        Assert.Contains("Till.TenderAmountMismatch", await refused.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId);
+        Assert.False(await app.Db.Sales.AnyAsync(x => x.ShopId == owner.ShopId));
+        Assert.False(await app.Db.TillLatePostings.AnyAsync(x => x.ShopId == owner.ShopId));
+    }
+
+    [Theory]
+    [InlineData(PaymentMethod.Cash, ReceiptTenderMethod.Cash)]
+    [InlineData(PaymentMethod.UPI, ReceiptTenderMethod.Upi)]
+    [InlineData(PaymentMethod.Card, ReceiptTenderMethod.Card)]
+    public async Task LegacyRecordedTender_MatchingMethod_PostsSeparateEvidence(PaymentMethod originalMethod, ReceiptTenderMethod actualMethod)
+    {
+        using var client = CreateClient();
+        var (owner, payload, _) = await ArrangeAsync(client);
+        RemoveTillEvidence(payload);
+        payload["paymentMethod"] = (int)originalMethod;
+        var held = await SyncAsync(client, owner.Token, payload);
+        var caseId = held.GetProperty("reviewCaseId").GetGuid();
+        var detail = await GetCaseAsync(client, owner.Token, caseId);
+        await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId);
+        var frozen = await app.Db.OfflineSubmissions.AsNoTracking().SingleAsync(x => x.ShopId == owner.ShopId);
+        var evidence = payload.DeepClone().AsObject();
+        evidence["tenderLines"] = JsonSerializer.SerializeToNode(new[] { new { method = (int)actualMethod, appliedAmount = 118m } });
+        using var resolved = await ResolveTillAsync(client, owner, caseId, detail.GetProperty("version").GetUInt32(), evidence);
+        Assert.True(resolved.IsSuccessStatusCode, await resolved.Content.ReadAsStringAsync());
+        var sale = await app.Db.Sales.SingleAsync(x => x.ShopId == owner.ShopId);
+        var late = await app.Db.TillLatePostings.SingleAsync(x => x.ShopId == owner.ShopId);
+        Assert.Equal(originalMethod, sale.PaymentMethod);
+        Assert.Equal(118m, sale.PaidAmount);
+        Assert.Null(sale.TenderLines);
+        Assert.Equal(actualMethod, Assert.Single(late.TenderLines).Method);
+        Assert.Equal(118m, late.TenderLines[0].AppliedAmount);
+        Assert.Equal("Recorded", late.EvidenceStatus);
+        Assert.False(late.IncludedInCount);
+        Assert.Equal(frozen.PayloadJson, (await app.Db.OfflineSubmissions.AsNoTracking().SingleAsync(x => x.Id == frozen.Id)).PayloadJson);
+        Assert.False(await app.Db.TillMovements.AnyAsync(x => x.ShopId == owner.ShopId));
+    }
+
+    [Theory]
+    [InlineData("Unknown", 58, true)]
+    [InlineData("Recorded", 58, true)]
+    [InlineData("Recorded", 57, false)]
+    public async Task LegacyCreditWithPaidAmount_PreservesAmbiguityAndConservesActualTender(string status, int actualAmount, bool accepted)
+    {
+        using var client = CreateClient();
+        var (owner, payload, _) = await ArrangeAsync(client);
+        await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId);
+        var customer = Customer.Create(owner.ShopId, "Legacy credit customer", "+919222222223", null, true);
+        app.Db.Customers.Add(customer);
+        await app.Db.SaveChangesAsync();
+        RemoveTillEvidence(payload);
+        payload["paymentMethod"] = (int)PaymentMethod.Credit;
+        payload["customerId"] = customer.Id;
+        payload["paidAmount"] = 58m;
+        payload["dueAmount"] = 60m;
+        var held = await SyncAsync(client, owner.Token, payload);
+        var caseId = held.GetProperty("reviewCaseId").GetGuid();
+        var detail = await GetCaseAsync(client, owner.Token, caseId);
+        var frozen = await app.Db.OfflineSubmissions.AsNoTracking().SingleAsync(x => x.ShopId == owner.ShopId);
+        var evidence = payload.DeepClone().AsObject();
+        evidence["tenderLines"] = JsonSerializer.SerializeToNode(new[] { new { method = (int)ReceiptTenderMethod.BankTransfer, appliedAmount = (decimal)actualAmount } });
+        using var resolved = await ResolveTillAsync(client, owner, caseId, detail.GetProperty("version").GetUInt32(), evidence, status);
+        if (!accepted)
+        {
+            Assert.Equal(HttpStatusCode.Conflict, resolved.StatusCode);
+            Assert.Contains("Till.TenderAmountMismatch", await resolved.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+            Assert.False(await app.Db.Sales.AnyAsync(x => x.ShopId == owner.ShopId));
+            Assert.False(await app.Db.TillLatePostings.AnyAsync(x => x.ShopId == owner.ShopId));
+            Assert.Equal(frozen.PayloadJson, (await app.Db.OfflineSubmissions.AsNoTracking().SingleAsync(x => x.Id == frozen.Id)).PayloadJson);
+            return;
+        }
+        Assert.True(resolved.IsSuccessStatusCode, await resolved.Content.ReadAsStringAsync());
+        var sale = await app.Db.Sales.SingleAsync(x => x.ShopId == owner.ShopId);
+        var late = await app.Db.TillLatePostings.SingleAsync(x => x.ShopId == owner.ShopId);
+        Assert.Equal(PaymentMethod.Credit, sale.PaymentMethod);
+        Assert.Equal(58m, sale.PaidAmount);
+        Assert.Equal(60m, sale.DueAmount);
+        Assert.Null(sale.TenderLines);
+        Assert.Equal(status, late.EvidenceStatus);
+        Assert.Equal("Verified payment evidence separately", late.EvidenceReason);
+        if (status == "Unknown") Assert.Empty(late.TenderLines);
+        else
+        {
+            Assert.Equal(ReceiptTenderMethod.BankTransfer, Assert.Single(late.TenderLines).Method);
+            Assert.Equal(58m, late.TenderLines[0].AppliedAmount);
+        }
+        Assert.Equal(frozen.PayloadJson, (await app.Db.OfflineSubmissions.AsNoTracking().SingleAsync(x => x.Id == frozen.Id)).PayloadJson);
+        Assert.False(late.IncludedInCount);
+        Assert.False(await app.Db.TillMovements.AnyAsync(x => x.ShopId == owner.ShopId));
+    }
+
+    private static void RemoveTillEvidence(JsonObject payload)
+    {
+        foreach (var name in new[] { "till", "tenderLines", "tillBusinessDate", "tillCashierId" }) payload.Remove(name);
+    }
+
+    [Fact]
+    public async Task StaffCannotReplayManagerAcknowledgment_ButOwnEscalationReplayRemainsAvailable()
+    {
+        using var client = CreateClient();
+        var (owner, _, _) = await ArrangeAsync(client);
+        using var staffClient = CreateClient();
+        var staff = await AddManagerAsync(staffClient, owner, "Staff");
+        await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId);
+        var own = ReconciliationIssue.Create(owner.ShopId, null, NewClientSaleId(), Device, ReconciliationIssueType.PricingVariance,
+            "offline_sync.pricing_variance", "Own informational case", staff.UserId);
+        app.Db.ReconciliationIssues.Add(own);
+        await app.Db.SaveChangesAsync();
+        var escalationKey = Guid.NewGuid().ToString();
+        using var escalated = await ResolveAsync(staffClient, staff.Token, own.Id, own.Version, "Escalate", "Ask manager to review", operationId: escalationKey);
+        Assert.True(escalated.IsSuccessStatusCode, await escalated.Content.ReadAsStringAsync());
+        var escalationBody = await escalated.Content.ReadAsStringAsync();
+        var current = JsonSerializer.Deserialize<JsonElement>(escalationBody);
+        var managerKey = Guid.NewGuid().ToString();
+        using var acknowledged = await ResolveAsync(client, owner.Token, own.Id, current.GetProperty("version").GetUInt32(), "AcknowledgeVariance", "Manager verified original prices", operationId: managerKey);
+        Assert.True(acknowledged.IsSuccessStatusCode, await acknowledged.Content.ReadAsStringAsync());
+        using var forbidden = await ResolveAsync(staffClient, staff.Token, own.Id, current.GetProperty("version").GetUInt32(), "AcknowledgeVariance", "Manager verified original prices", operationId: managerKey);
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        using var ownReplay = await ResolveAsync(staffClient, staff.Token, own.Id, own.Version, "Escalate", "Ask manager to review", operationId: escalationKey);
+        Assert.True(ownReplay.IsSuccessStatusCode, await ownReplay.Content.ReadAsStringAsync());
+        Assert.Equal(escalationBody, await ownReplay.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task TillReviewOrdinaryRetry_StillRecordsCustomerCreditVariance()
+    {
+        using var client = CreateClient();
+        var (owner, payload, session) = await ArrangeAsync(client);
+        await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId);
+        var customer = Customer.Create(owner.ShopId, "No credit customer", "+919222222224", null, true);
+        Success(customer.SetCreditPolicy(CreditPolicyMode.NoCredit, null));
+        app.Db.Customers.Add(customer);
+        await app.Db.SaveChangesAsync();
+        payload["customerId"] = customer.Id;
+        payload["paidAmount"] = 58m;
+        payload["dueAmount"] = 60m;
+        payload["tenderLines"]![0]!["appliedAmount"] = 58m;
+        var options = _factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value;
+        options.Enabled = false;
+        var held = await SyncAsync(client, owner.Token, payload);
+        var caseId = held.GetProperty("reviewCaseId").GetGuid();
+        var detail = await GetCaseAsync(client, owner.Token, caseId);
+        options.Enabled = true;
+        using var resolved = await ResolveAsync(client, owner.Token, caseId, detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "Recover original drawer posting");
+        Assert.True(resolved.IsSuccessStatusCode, await resolved.Content.ReadAsStringAsync());
+        var sale = await app.Db.Sales.SingleAsync(x => x.ShopId == owner.ShopId);
+        var issues = await app.Db.ReconciliationIssues.Where(x => x.SaleId == sale.Id && x.IssueType == ReconciliationIssueType.CustomerVariance).ToArrayAsync();
+        Assert.Contains(issues, x => x.Code == "offline_sync.credit_policy_violation");
+        var movement = await app.Db.TillMovements.SingleAsync(x => x.ShopId == owner.ShopId);
+        Assert.Equal(session.Id, movement.SessionId);
+        Assert.Equal(58m, movement.SignedAmount);
+        Assert.False(await app.Db.TillLatePostings.AnyAsync(x => x.ShopId == owner.ShopId));
+    }
+
+    [Theory]
+    [InlineData("legacy")]
+    [InlineData("till")]
+    [InlineData("tenderLines")]
+    [InlineData("tillBusinessDate")]
+    [InlineData("tillCashierId")]
+    public async Task TillReviewWithoutCompleteFrozenContext_DisableCannotTurnExplicitRetryIntoLegacyPosting(string missingField)
+    {
+        using var client = CreateClient();
+        var (owner, payload, _) = await ArrangeAsync(client);
+        if (missingField == "legacy") RemoveTillEvidence(payload);
+        else payload.Remove(missingField);
+        var held = await SyncAsync(client, owner.Token, payload);
+        var caseId = held.GetProperty("reviewCaseId").GetGuid();
+        var detail = await GetCaseAsync(client, owner.Token, caseId);
+        Assert.Equal("TillReview", detail.GetProperty("issueType").GetString());
+        _factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value.Enabled = false;
+        using var refused = await ResolveAsync(client, owner.Token, caseId, detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "Forged ordinary retry must not fall through");
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Contains("Reconciliation.ActionNotAllowed", await refused.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.DoesNotContain("RetryHistoricalLease", Strings(detail.GetProperty("availableActions")));
+        Assert.Contains("ReconcileTillSale", Strings(detail.GetProperty("availableActions")));
+        Assert.Equal(caseId, (await SyncAsync(client, owner.Token, payload)).GetProperty("reviewCaseId").GetGuid());
+        await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId);
+        Assert.False(await app.Db.Sales.AnyAsync(x => x.ShopId == owner.ShopId));
+        Assert.False(await app.Db.TillLatePostings.AnyAsync(x => x.ShopId == owner.ShopId));
+        Assert.False(await app.Db.TillMovements.AnyAsync(x => x.ShopId == owner.ShopId));
+    }
+
+    [Fact]
+    public async Task TillReviewOrdinaryRetry_CompleteZeroPaidContextAllowsEmptyTenderLines()
+    {
+        using var client = CreateClient();
+        var (owner, payload, session) = await ArrangeAsync(client);
+        await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId);
+        var customer = Customer.Create(owner.ShopId, "All due customer", "+919222222225", null, true);
+        app.Db.Customers.Add(customer);
+        await app.Db.SaveChangesAsync();
+        payload["customerId"] = customer.Id;
+        payload["paidAmount"] = 0m;
+        payload["dueAmount"] = 118m;
+        payload["tenderLines"] = new JsonArray();
+        var options = _factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value;
+        options.Enabled = false;
+        var held = await SyncAsync(client, owner.Token, payload);
+        var caseId = held.GetProperty("reviewCaseId").GetGuid();
+        var detail = await GetCaseAsync(client, owner.Token, caseId);
+        Assert.Contains("RetryHistoricalLease", Strings(detail.GetProperty("availableActions")));
+        options.Enabled = true;
+        using var resolved = await ResolveAsync(client, owner.Token, caseId, detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "Recover original all-due attribution");
+        Assert.True(resolved.IsSuccessStatusCode, await resolved.Content.ReadAsStringAsync());
+        var source = await app.Db.TillSourceRecords.SingleAsync(x => x.ShopId == owner.ShopId);
+        Assert.Equal(session.Id, source.SessionId);
+        Assert.Equal(TillMovementSource.OfflineSale, source.SourceType);
+        Assert.Equal(118m, source.Settlement.ReceivableChange);
+        Assert.False(await app.Db.TillMovements.AnyAsync(x => x.ShopId == owner.ShopId));
+        Assert.False(await app.Db.TillLatePostings.AnyAsync(x => x.ShopId == owner.ShopId));
     }
 
     private static async Task<OwnerContext> AddManagerAsync(HttpClient client, OwnerContext owner, string role = "Manager")
