@@ -124,6 +124,10 @@ export async function startPurchaseReceivingServer(root: string) {
       req.pipe(upstream);
       return;
     }
+    if (path.startsWith('/api/expiry-policies')) {
+      const policy = { version: 1, mode: 'Ignore', expiryRequired: false, sellThroughExpiryDate: true, warningDays: 7, overrideAllowed: false };
+      return send(res, 200, { defaultPolicy: policy, overridePolicy: null, effectivePolicy: policy, catalogVersion: 1 });
+    }
     if (path === '/api/ping') return send(res, 200, { serverTime: new Date().toISOString() });
     if (path === '/api/shops/me') return send(res, 200, shops);
     if (path === '/api/shops/switch') {

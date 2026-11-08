@@ -1,0 +1,110 @@
+<section
+  class="rounded-xl border border-slate-200 p-4 space-y-3"
+  aria-labelledby="expiry-policy-title"
+>
+  <h3 id="expiry-policy-title" class="font-semibold">{{ 'expiry.policyTitle' | transloco }}</h3>
+  @if (state(); as current) {
+    <p class="text-sm text-slate-600">
+      {{
+        'expiry.version'
+          | transloco: { version: current.effectivePolicy.version, catalog: current.catalogVersion }
+      }}
+      · {{ zone }}
+    </p>
+    @if (readiness(); as ready) {
+      <p class="text-sm">
+        {{
+          'expiry.readiness'
+            | transloco
+              : {
+                  missing: ready.results.missingDateLots,
+                  expired: ready.results.expiredLots,
+                  quarantine: ready.results.quarantinedLots,
+                }
+        }}
+      </p>
+      <details>
+        <summary>{{ 'expiry.affectedLots' | transloco }}</summary>
+        @for (lot of ready.results.items; track lot.batchId) {
+          <p class="text-sm">
+            {{ lot.itemName }} · {{ lot.batchNumber }} ·
+            {{ lot.expiryDate || ('expiry.undated' | transloco) }} ·
+            {{ 'expiry.quarantine' | transloco }} {{ lot.quarantinedQuantity }}
+          </p>
+        }
+      </details>
+    }
+    <fieldset
+      [disabled]="!canEdit || busy() || service.role() !== 'owner'"
+      class="grid gap-3 sm:grid-cols-2 min-w-0"
+    >
+      @if (itemId) {
+        <label class="sm:col-span-2 flex gap-2"
+          ><input type="checkbox" [(ngModel)]="inherit" />{{ 'expiry.inherit' | transloco }}</label
+        >
+      }
+      @if (!itemId || !inherit) {
+        <label class="grid gap-1"
+          >{{ 'expiry.modeLabel' | transloco
+          }}<select class="border rounded p-2 w-full" [(ngModel)]="policy.mode">
+            <option value="Ignore">{{ 'expiry.mode.Ignore' | transloco }}</option>
+            <option value="Warn">{{ 'expiry.mode.Warn' | transloco }}</option>
+            <option value="Block">{{ 'expiry.mode.Block' | transloco }}</option>
+          </select></label
+        >
+        <label class="grid gap-1"
+          >{{ 'expiry.warningDays' | transloco
+          }}<input
+            class="border rounded p-2 w-full"
+            type="number"
+            min="0"
+            max="365"
+            [(ngModel)]="policy.warningDays"
+        /></label>
+        <label class="flex gap-2"
+          ><input type="checkbox" [(ngModel)]="policy.expiryRequired" />{{
+            'expiry.requiredDate' | transloco
+          }}</label
+        >
+        <label class="flex gap-2"
+          ><input type="checkbox" [(ngModel)]="policy.sellThroughExpiryDate" />{{
+            'expiry.sellThrough' | transloco
+          }}</label
+        >
+        <label class="flex gap-2 sm:col-span-2"
+          ><input type="checkbox" [(ngModel)]="policy.overrideAllowed" />{{
+            'expiry.allowApproval' | transloco
+          }}</label
+        >
+      }
+      <label class="grid gap-1 sm:col-span-2"
+        >{{ 'expiry.auditReason' | transloco
+        }}<textarea
+          class="border rounded p-2 w-full"
+          maxlength="500"
+          rows="2"
+          [(ngModel)]="reason"
+        ></textarea>
+      </label>
+      <button
+        type="button"
+        class="rounded bg-slate-900 text-white px-4 py-2 disabled:opacity-50"
+        [disabled]="!reason.trim()"
+        (click)="save()"
+      >
+        {{ 'expiry.save' | transloco }}
+      </button>
+    </fieldset>
+    @if (!canEdit) {
+      <p class="text-sm">{{ 'expiry.ownerOnly' | transloco }}</p>
+    }
+  }
+  @if (message()) {
+    <p role="status" class="text-sm">{{ message() | transloco }}</p>
+  }
+  @if (!busy()) {
+    <button type="button" class="underline" (click)="load()">
+      {{ 'expiry.refresh' | transloco }}
+    </button>
+  }
+</section>

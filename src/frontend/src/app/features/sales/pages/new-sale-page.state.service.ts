@@ -1,3 +1,4 @@
+import { shopBusinessDate } from '../../expiry/services/expiry-policy-evaluator';
 import { computed, DestroyRef, inject, Injectable, Injector, signal } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -176,6 +177,27 @@ export abstract class NewSalePageStateService {
     isOfflineEligible: this.isOfflineEligible(),
   }));
 
+  readonly expiryApprovalReason = this.salePreview.expiryApprovalReason;
+  readonly expiryBusinessTimeZone = signal<string | null>(null);
+  private expiryReasonCart = '';
+  private expiryReasonPreview: SalePreviewDto | null = null;
+  readonly expiryApprovalLines = computed(() => this.checkoutPreview()?.expiryDecisions?.filter(x => x.decision.requiresApproval) ?? []);
+  onExpiryApprovalReason(value: string): void {
+    this.expiryApprovalReason.set(value); this.expiryReasonCart = JSON.stringify(this.cart()); this.expiryReasonPreview = this.checkoutPreview();
+  }
+  expiryLotLabel(batchId: string): string { const line = this.cart().find(x => x.inventoryBatchId === batchId); return line ? `${line.itemName} · ${line.batchNumber}` : ''; }
+  invalidateExpiryCatalog(): void {
+    this.availableBatches.set([]); this.availableSellables.set([]); this.selectedSellable.set(null);
+    this.salePreview.triggerServerUpdateRefresh();
+  }
+  expiryReasonIsCurrent(): boolean { return this.expiryReasonPreview === this.checkoutPreview() && this.expiryReasonCart === JSON.stringify(this.cart()); }
+  expiryPreviewIsCurrent(): boolean {
+    const decisions = this.checkoutPreview()?.expiryDecisions;
+    if (!decisions?.length) return true;
+    const zone = this.expiryBusinessTimeZone();
+    return !!zone && decisions.every(x => x.decision.businessDate === shopBusinessDate(Date.now(), zone));
+  }
+
   readonly checkoutPreview = this.salePreview.checkoutPreview;
   readonly isPreviewLoading = this.salePreview.isPreviewLoading;
   readonly previewError = this.salePreview.previewError;
@@ -287,6 +309,7 @@ export abstract class NewSalePageStateService {
       saleId: sale.saleId,
       invoiceNumber: sale.invoiceNumber,
       totalAmount: sale.totalAmount,
+      expiryDecisions: sale.expiryDecisions,
       isOffline: false,
       printTemplate: 'a4',
     };

@@ -1,3 +1,4 @@
+import { ExpiryPolicyService } from '../../../expiry/services/expiry-policy.service';
 import { Component, LOCALE_ID, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
@@ -110,6 +111,7 @@ export class InventoryBatchesListPageComponent {
   readonly currencyAddonPt = CURRENCY_ADDON_PT;
   readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
   readonly currencySelectPt = CURRENCY_SELECT_PT;
+  private readonly expiryPolicies = inject(ExpiryPolicyService);
   readonly batches = signal<InventoryBatchDto[]>([]);
   readonly loading = signal(false);
   readonly loadError = signal(false);
@@ -355,6 +357,7 @@ export class InventoryBatchesListPageComponent {
     this.batchFilters.set(filters);
   }
   onBatchTableAction(event: BatchTableAction): void {
+    if (event.action === 'refresh') return this.loadBatches();
     const batch = this.batches().find((entry) => entry.id === event.batchId);
     if (!batch) return;
     if (event.action === 'printLabels')
@@ -436,8 +439,12 @@ export class InventoryBatchesListPageComponent {
   onSaveEdit(): void {
     const batch = this.selectedBatch();
     if (!batch || this.editForm.invalid || this.isSaving()) return;
-    this.isSaving.set(true);
     const value = this.editForm.getRawValue();
+    const expiry = this.dateOnlyOrNull(value.expiryDate), manufacturing = this.dateOnlyOrNull(value.manufacturingDate);
+    if (expiry && manufacturing && manufacturing > expiry) { this.showError('expiry.dateOrder'); return; }
+    const datesChanged = expiry !== batch.expiryDate || manufacturing !== batch.manufacturingDate;
+    if (datesChanged && !value.reason.trim()) { this.showError('expiry.reasonRequired'); return; }
+    this.isSaving.set(true);
     const payload: UpdateBatchPricesRequest = {
       expectedVersion: batch.version,
       mrp: value.mrp,
@@ -449,11 +456,13 @@ export class InventoryBatchesListPageComponent {
       manufacturingDate: this.dateOnlyOrNull(value.manufacturingDate),
       reason: this.nullable(value.reason),
     };
+    if (datesChanged) void this.expiryPolicies.invalidate(batch.shopId).catch(() => this.showError('expiry.offline.refresh'));
     this.inventoryService
       .updateBatchPrices(batch.id, payload)
       .pipe(finalize(() => this.isSaving.set(false)))
       .subscribe({
         next: () => {
+          if (datesChanged) void this.expiryPolicies.invalidate(batch.shopId).catch(() => this.showError('expiry.offline.refresh'));
           this.showSuccess('inventory.batchPricesUpdated');
           this.isEditDialogOpen.set(false);
           this.loadBatches();

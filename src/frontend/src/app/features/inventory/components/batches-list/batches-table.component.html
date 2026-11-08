@@ -58,7 +58,13 @@
               <div>
                 <span>{{ 'inventory.quantity' | transloco }}</span>
                 <strong>{{ batch.quantity }}</strong>
+
               </div>
+            </div>
+            <div class="batch-card-expiry">
+              <span>{{ 'expiry.available' | transloco }} {{ batch.availableQuantity ?? batch.quantity }} · {{ 'expiry.quarantine' | transloco }} {{ batch.quarantinedQuantity ?? 0 }}</span>
+              <span>{{ expiryStatusKey(batch.sellability) | transloco }} · {{ batch.expiryDate || ('expiry.undated' | transloco) }}</span>
+              <button type="button" class="underline" (click)="$event.stopPropagation(); dispositionBatch = batch">{{ 'expiry.historyTitle' | transloco }}</button>
             </div>
           </div>
 
@@ -211,7 +217,7 @@
             >
           }
         </td>
-        <td>{{ batch.quantity }}</td>
+        <td><p>{{ 'expiry.physical' | transloco }} {{ batch.quantity }}</p><p>{{ 'expiry.available' | transloco }} {{ batch.availableQuantity ?? batch.quantity }} · {{ 'expiry.quarantine' | transloco }} {{ batch.quarantinedQuantity ?? 0 }}</p><p>{{ expiryStatusKey(batch.sellability) | transloco }} · {{ batch.expiryDate || ('expiry.undated' | transloco) }}</p><button type="button" class="underline" (click)="$event.stopPropagation(); dispositionBatch = batch">{{ 'expiry.historyTitle' | transloco }}</button></td>
         <td>{{ 'common.currencySymbol' | transloco }} {{ batch.salesPrice | number: '1.2-2' }}</td>
         <td>
           @if (batch.isVoided) {
@@ -245,3 +251,5 @@
     </ng-template>
   </p-table>
 </div>
+
+@if (dispositionBatch; as batch) { <app-batch-disposition-dialog [batch]="batch" (closed)="dispositionBatch = null" (changed)="onRowAction('refresh', batch.id)" /> }

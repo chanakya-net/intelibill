@@ -131,8 +131,12 @@ describe('OfflineSaleStateService', () => {
       }
       return update(current);
     });
+    snapshotDb.getUsableBatches.mockResolvedValue([{ batchId: 'batch-1', itemId: 'item-1', itemName: 'Milk', barcode: 'x', batchNumber: 'B', quantity: 10,
+      uom: 'kg', costPrice: 40, mrp: 60, salesPrice: 50, taxRatePercent: 0, taxIncluded: false, purchaseTaxIncluded: false,
+      expiryEvidenceId: 'proof', effectivePolicy: { version: 2, mode: 'Ignore', expiryRequired: false, sellThroughExpiryDate: true, warningDays: 7, overrideAllowed: false },
+      physicalQuantity: 10, quarantinedQuantity: 0, availableQuantity: 10, batchVersion: 8, expiryCapturedAt: new Date(Date.now() - 1000).toISOString(), expiryEvidenceExpiresAt: new Date(Date.now() + 86400000).toISOString() }]);
     snapshotDb.getUsableSnapshotInfo.mockResolvedValue({
-      snapshotId: 'snapshot-1',
+      snapshotId: 'snapshot-1', schemaVersion: 4, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 3,
       completedAt: new Date().toISOString(),
     });
     queueSync.refreshActiveStatusCounts.mockResolvedValue({
@@ -145,6 +149,19 @@ describe('OfflineSaleStateService', () => {
     });
     vi.clearAllMocks();
     leaseDb.loadLease.mockResolvedValue({ sellerProfile: { seriesCode: 'A' } } as never);
+  });
+
+  it('reevaluates a retained cart on the current shop day and refuses offline warning approval', async () => {
+    snapshotDb.getUsableDiscountRules.mockResolvedValue([]);
+    snapshotDb.getUsableBatches.mockResolvedValue([{ batchId: 'batch-1', itemId: 'item-1', barcode: 'x', itemName: 'Milk', batchNumber: 'B', quantity: 10,
+      uom: 'kg', costPrice: 40, salesPrice: 50, mrp: 60, taxRatePercent: 0, taxIncluded: false, purchaseTaxIncluded: false,
+      expiryDate: '2020-01-01', expiryEvidenceId: 'proof', effectivePolicy: { version: 2, mode: 'Warn', expiryRequired: true, sellThroughExpiryDate: true, warningDays: 7, overrideAllowed: true },
+      physicalQuantity: 10, quarantinedQuantity: 3, availableQuantity: 7, batchVersion: 8, expiryCapturedAt: new Date(Date.now() - 1000).toISOString(), expiryEvidenceExpiresAt: new Date(Date.now() + 86400000).toISOString() }]);
+    const service = setup();
+    const preview = await service.buildOfflinePreview([{ clientLineKey: 'line-1', inventoryBatchId: 'batch-1', barcode: 'x', itemName: 'Milk', batchNumber: 'B', quantity: 1,
+      availableQuantity: 10, salesPrice: 50, mrp: 60, costPrice: 40, taxRatePercent: 0, taxIncluded: false, itemDiscountType: 0, itemDiscountValue: 0, hsnCode: null, uom: 'kg', quantityScale: 3, documentUnit: 'KGS' }],
+      { paymentMethod: 1, paidAmount: 50, customerId: null, customerName: null, customerPhone: null, saleDiscountType: 0, saleDiscountValue: 0 });
+    expect(preview.expiryDecisions?.[0].decision).toMatchObject({ allowed: false, availableQuantity: 0, requiresApproval: true });
   });
 
   it('offers midpoint-safe item ceilings consistent with issuance', async () => {
@@ -242,8 +259,11 @@ describe('OfflineSaleStateService', () => {
     expect(preview.lines[0].hasClientPriceMismatch).toBe(false);
   });
 
-  it('sells an old snapshot batch without a precision as whole units printed NOS', async () => {
+  it('sells a schema4 batch without optional unit precision as whole units printed NOS', async () => {
     const batchRow = {
+      expiryEvidenceId: 'proof-1', effectivePolicy: { version: 2, mode: 'Ignore' as const, expiryRequired: false, sellThroughExpiryDate: true, warningDays: 7, overrideAllowed: false },
+      physicalQuantity: 10, quarantinedQuantity: 0, availableQuantity: 10, batchVersion: 8,
+      expiryCapturedAt: new Date(Date.now() - 1000).toISOString(), expiryEvidenceExpiresAt: new Date(Date.now() + 86400000).toISOString(),
       batchId: 'batch-old',
       itemId: 'item-1',
       itemName: 'Rice',

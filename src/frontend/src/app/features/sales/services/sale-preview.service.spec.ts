@@ -66,6 +66,13 @@ describe('SalePreviewService', () => {
     vi.clearAllMocks();
   });
 
+  it('invalidates an unsubmitted preview immediately when the cart requests a refresh', () => {
+    const service = setup();
+    service.checkoutPreview.set(makePreview());
+    service.triggerPreview();
+    expect(service.checkoutPreview()).toBeNull();
+  });
+
   it('debounces preview trigger before calling the API', async () => {
     vi.useFakeTimers();
     const service = setup();

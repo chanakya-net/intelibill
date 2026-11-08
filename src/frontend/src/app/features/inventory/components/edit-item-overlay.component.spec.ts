@@ -1,3 +1,4 @@
+import { knownExpiryPolicyProviders } from '../../../../tests/expiry/expiry-policy.providers';
 import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
@@ -77,6 +78,7 @@ describe('EditItemOverlayComponent', () => {
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
       providers: [
+        ...knownExpiryPolicyProviders(),
         { provide: Store, useValue: store },
         { provide: InventoryService, useValue: inventoryService },
       ],
@@ -358,6 +360,7 @@ describe('EditItemOverlayComponent', () => {
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
       providers: [
+        ...knownExpiryPolicyProviders(),
         { provide: Store, useValue: store },
         { provide: InventoryService, useValue: inventoryService },
       ],
@@ -376,6 +379,7 @@ describe('EditItemOverlayComponent', () => {
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
       providers: [
+        ...knownExpiryPolicyProviders(),
         { provide: Store, useValue: store },
         { provide: InventoryService, useValue: inventoryService },
       ],
@@ -396,6 +400,7 @@ describe('EditItemOverlayComponent', () => {
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
       providers: [
+        ...knownExpiryPolicyProviders(),
         { provide: Store, useValue: store },
         { provide: InventoryService, useValue: inventoryService },
       ],
@@ -441,6 +446,7 @@ describe('EditItemOverlayComponent', () => {
         }),
       ],
       providers: [
+        ...knownExpiryPolicyProviders(),
         { provide: Store, useValue: store },
         { provide: InventoryService, useValue: inventoryService },
       ],

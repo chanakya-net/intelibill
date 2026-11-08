@@ -1,3 +1,5 @@
+import { evaluateExpiry, shopBusinessDate } from '../../expiry/services/expiry-policy-evaluator';
+import { hasOfflineExpiryAuthority, isValidShopZone } from '../utils/offline-sales-snapshot.schema';
 import { TillContextService } from '../../tills/services/till-context.service';
 import { MONEY_SCALE, toScaled } from './offline-money.math';
 import {
@@ -165,6 +167,9 @@ export class OfflineSaleStateService {
   async searchOfflineCatalog(term: string): Promise<readonly AvailableBatchDto[]> {
     const shopId = this.activeShopId;
     const q = term.trim().toLowerCase();
+    const metadata = shopId ? await this.snapshotDb.getUsableSnapshotInfo(shopId) : null;
+    if (metadata?.schemaVersion !== 4 || !isValidShopZone(metadata.businessTimeZoneId) || !metadata.catalogVersion) return [];
+    const businessDate = shopBusinessDate(Date.now(), metadata.businessTimeZoneId);
     const cacheKey = `${shopId}:${this.snapshotCompletedAt() ?? ''}`;
 
     let catalog = this.offlineCatalog();
@@ -193,12 +198,18 @@ export class OfflineSaleStateService {
       (s) => s.name.toLowerCase().includes(q) || (s.code ?? '').toLowerCase().startsWith(q),
     );
 
-    const batchResults: AvailableBatchDto[] = matchedBatches.map((b) => ({
+    const batchResults: AvailableBatchDto[] = matchedBatches.filter(b => hasOfflineExpiryAuthority(b, metadata.catalogVersion!)).map((b) => {
+      const decision = evaluateExpiry({ batchId: b.batchId, itemId: b.itemId, expiryDate: b.expiryDate, manufacturingDate: b.manufacturingDate,
+        physicalQuantity: b.physicalQuantity!, quarantinedQuantity: b.quarantinedQuantity!, batchVersion: b.batchVersion!, itemActive: true, isVoided: false }, b.effectivePolicy!, metadata.catalogVersion!, businessDate);
+      const authorityValid = Date.now() <= Date.parse(b.expiryEvidenceExpiresAt!);
+      const sellability = decision.requiresApproval || !authorityValid ? { ...decision, allowed: false, availableQuantity: 0 } : decision;
+      return {
+      sellability, availableQuantity: sellability.availableQuantity, quarantinedQuantity: b.quarantinedQuantity, version: b.batchVersion,
       barcode: b.barcode,
       itemName: b.itemName,
       batchNumber: b.batchNumber,
       inventoryBatchId: b.batchId,
-      quantity: b.quantity,
+      quantity: b.physicalQuantity!,
       costPrice: b.costPrice,
       salesPrice: b.salesPrice,
       mrp: b.mrp,
@@ -212,7 +223,7 @@ export class OfflineSaleStateService {
       // A snapshot taken before units carries no precision: whole units, printed NOS, until it is refreshed.
       quantityScale: b.quantityScale ?? 0,
       documentUnit: b.documentUnit ?? 'NOS',
-    }));
+    }; });
 
     const serviceResults: AvailableBatchDto[] = matchedServices.map((s) => ({
       barcode: s.code ?? s.serviceId,
@@ -238,6 +249,19 @@ export class OfflineSaleStateService {
     cart: readonly CartItem[],
     context: OfflineSalePreviewContext,
   ): Promise<SalePreviewDto> {
+    const metadata = await this.snapshotDb.getUsableSnapshotInfo(this.activeShopId);
+    if (metadata?.schemaVersion !== 4 || !isValidShopZone(metadata.businessTimeZoneId) || !metadata.catalogVersion) throw new Error('expiry.offline.refresh');
+    const businessDate = shopBusinessDate(Date.now(), metadata.businessTimeZoneId);
+    const batches = await this.snapshotDb.getUsableBatches(this.activeShopId);
+    const expiryDecisions = cart.map(line => {
+      const batch = batches.find(x => x.batchId === line.inventoryBatchId);
+      if (!batch || !hasOfflineExpiryAuthority(batch, metadata.catalogVersion!)) throw new Error('expiry.offline.refresh');
+      const decision = evaluateExpiry({ batchId: batch.batchId, itemId: batch.itemId, expiryDate: batch.expiryDate, manufacturingDate: batch.manufacturingDate,
+        physicalQuantity: batch.physicalQuantity!, quarantinedQuantity: batch.quarantinedQuantity!, batchVersion: batch.batchVersion!, itemActive: true, isVoided: false }, batch.effectivePolicy!, metadata.catalogVersion!, businessDate);
+      const available = Date.now() <= Date.parse(batch.expiryEvidenceExpiresAt!) && !decision.requiresApproval;
+      return { itemId: batch.itemId, inventoryBatchId: batch.batchId, quantity: line.quantity, batchVersion: batch.batchVersion!,
+        decision: available ? decision : { ...decision, allowed: false, availableQuantity: 0 } };
+    });
     const rules = await this.snapshotDb.getUsableDiscountRules(this.activeShopId);
     const pricing = calculateOfflineFrozenSale({
       soldAt: new Date().toISOString(),
@@ -285,6 +309,7 @@ export class OfflineSaleStateService {
     );
 
     return {
+      expiryDecisions,
       totalAmount: pricing.totals.grandTotal,
       totalTaxableAmount: this.roundAmount(
         pricing.lines.reduce((sum, line) => sum + line.taxableAmount, 0),
@@ -426,6 +451,9 @@ export class OfflineSaleStateService {
       const reasonKey: Record<typeof result.reason, string> = {
         TILL_CONTEXT_INVALID: 'tills.sessionRequired',
         BELOW_RECORDED_COST: 'sales.newSale.offline.blockBelowRecordedCost',
+        EXPIRY_REFRESH_REQUIRED: 'expiry.offline.refresh',
+        EXPIRY_BLOCKED: 'expiry.offline.blocked',
+        EXPIRY_ONLINE_APPROVAL_REQUIRED: 'expiry.offline.onlineApproval',
         SNAPSHOT_STALE: 'sales.newSale.offline.blockSnapshotStale',
         MISSING_CATALOG_ITEM: 'sales.newSale.offline.blockMissingItem',
         INSUFFICIENT_SHADOW_STOCK: 'sales.newSale.offline.blockInsufficientStock',

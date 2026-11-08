@@ -20,6 +20,8 @@ import {
   type OfflineSalesSnapshotShopPointerRecord,
   type OfflineUsableSnapshotInfo,
   configureOfflineSalesSnapshotSchema,
+  isOfflineSalesSnapshotMetadata,
+  hasOfflineExpiryAuthority,
   type OfflineSellableBatchSnapshot,
   type OfflineSellableServiceSnapshot,
 } from '../../features/sales/utils/offline-sales-snapshot.schema';
@@ -48,6 +50,8 @@ export class OfflineSalesSnapshotIndexedDbService {
       snapshotId: metadata.snapshotId,
       shopId: metadata.shopId,
       schemaVersion: metadata.schemaVersion,
+      businessTimeZoneId: metadata.businessTimeZoneId,
+      catalogVersion: metadata.catalogVersion,
       startedAt: metadata.startedAt,
       status: 'incomplete',
     };
@@ -106,6 +110,22 @@ export class OfflineSalesSnapshotIndexedDbService {
     }
 
     const database = await this.openDatabase();
+    const attempt = await new Promise<OfflineSalesSnapshotAttemptRecord | undefined>((resolve, reject) => {
+      const tx = database.transaction(OFFLINE_SALES_SNAPSHOT_ATTEMPTS_STORE, 'readonly');
+      const r = tx.objectStore(OFFLINE_SALES_SNAPSHOT_ATTEMPTS_STORE).get(snapshotId);
+      r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
+    });
+    if (!attempt || attempt.shopId !== shopId || attempt.status !== 'incomplete' || attempt.schemaVersion !== 4 || !isOfflineSalesSnapshotMetadata(attempt))
+      throw new Error('Incomplete snapshot authority.');
+    if (attempt.schemaVersion === 4) {
+      const rows = await new Promise<OfflineSalesSnapshotScopedRecord<OfflineSellableBatchSnapshot>[]>((resolve, reject) => {
+        const tx = database.transaction(OFFLINE_SALES_SNAPSHOT_BATCHES_STORE, 'readonly');
+        const r = tx.objectStore(OFFLINE_SALES_SNAPSHOT_BATCHES_STORE).getAll();
+        r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
+      });
+      if (rows.filter(r => r.snapshotId === snapshotId && r.shopId === shopId).some(r => !hasOfflineExpiryAuthority(r.entity, attempt.catalogVersion!)))
+        throw new Error('Incomplete snapshot lot authority.');
+    }
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction([OFFLINE_SALES_SNAPSHOT_ATTEMPTS_STORE, OFFLINE_SALES_SNAPSHOT_SHOP_POINTERS_STORE], 'readwrite');
       const attempts = transaction.objectStore(OFFLINE_SALES_SNAPSHOT_ATTEMPTS_STORE);
@@ -215,7 +235,7 @@ export class OfflineSalesSnapshotIndexedDbService {
       request.onerror = () => reject(request.error);
     });
 
-    return pointer?.usableSnapshotId ?? null;
+    return pointer?.stale ? null : pointer?.usableSnapshotId ?? null;
   }
 
   async getUsableSnapshotInfo(shopId: string): Promise<OfflineUsableSnapshotInfo | null> {
@@ -231,11 +251,30 @@ export class OfflineSalesSnapshotIndexedDbService {
       request.onerror = () => reject(request.error);
     });
 
-    if (!pointer?.usableSnapshotId || !pointer.usableCompletedAt) {
+    if (pointer?.stale || !pointer?.usableSnapshotId || !pointer.usableCompletedAt) {
       return null;
     }
 
-    return { snapshotId: pointer.usableSnapshotId, completedAt: pointer.usableCompletedAt };
+    const attempt = await new Promise<OfflineSalesSnapshotAttemptRecord | undefined>((resolve, reject) => {
+      const tx = database.transaction(OFFLINE_SALES_SNAPSHOT_ATTEMPTS_STORE, 'readonly');
+      const r = tx.objectStore(OFFLINE_SALES_SNAPSHOT_ATTEMPTS_STORE).get(pointer.usableSnapshotId!);
+      r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error);
+    });
+    return { snapshotId: pointer.usableSnapshotId, completedAt: pointer.usableCompletedAt,
+      schemaVersion: attempt?.schemaVersion, businessTimeZoneId: attempt?.businessTimeZoneId, catalogVersion: attempt?.catalogVersion };
+  }
+
+  /** Invalidates only future catalog use; retained issued envelopes and shadow reservations are untouched. */
+  async invalidateForShop(shopId: string): Promise<void> {
+    if (!shopId || typeof indexedDB === 'undefined') return;
+    const db = await this.openDatabase();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(OFFLINE_SALES_SNAPSHOT_SHOP_POINTERS_STORE, 'readwrite');
+      const store = tx.objectStore(OFFLINE_SALES_SNAPSHOT_SHOP_POINTERS_STORE);
+      const r = store.get(shopId);
+      r.onsuccess = () => { if (r.result) store.put({ ...r.result, stale: true }); };
+      tx.oncomplete = () => resolve(); tx.onerror = () => reject(tx.error);
+    });
   }
 
   async getUsableBatches(shopId: string): Promise<readonly OfflineSellableBatchSnapshot[]> {

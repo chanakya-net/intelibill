@@ -27,6 +27,13 @@ describe('offline-sales-snapshot.schema', () => {
     expect(isOfflineSalesSnapshotMetadata({ snapshotId: '', shopId: 'shop-1', schemaVersion: 1, startedAt: 'x' })).toBe(false);
   });
 
+  it('refuses incomplete schema4 authority and unsupported future schemas', () => {
+    const base = { snapshotId: 's', shopId: 'shop', schemaVersion: 4, startedAt: '2026-11-08T10:00:00Z' };
+    expect(isOfflineSalesSnapshotMetadata(base)).toBe(false);
+    expect(isOfflineSalesSnapshotMetadata({ ...base, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 3 })).toBe(true);
+    expect(isOfflineSalesSnapshotMetadata({ ...base, schemaVersion: 5 })).toBe(false);
+  });
+
   it('guards attempt status and attempt records', () => {
     expect(isOfflineSalesSnapshotAttemptStatus('complete')).toBe(true);
     expect(isOfflineSalesSnapshotAttemptStatus('unknown')).toBe(false);

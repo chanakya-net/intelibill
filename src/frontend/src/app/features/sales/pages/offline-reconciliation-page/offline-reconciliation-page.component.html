@@ -448,6 +448,7 @@
             <div class="detail-field">
               <dt>{{ 'sales.offlineReconciliation.detail.issueType' | transloco }}</dt>
               <dd>{{ issueTypeLabelKey(detail.issueType) | transloco }}</dd>
+              @if (detail.issueType === 'ExpiryReview') { <p role="status">{{ 'expiry.offline.review' | transloco }}</p> }
             </div>
             <div class="detail-field wide">
               <dt>{{ 'sales.offlineReconciliation.detail.message' | transloco }}</dt>

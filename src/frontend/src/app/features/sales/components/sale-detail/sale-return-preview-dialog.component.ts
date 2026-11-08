@@ -116,8 +116,8 @@ export class SaleReturnPreviewDialogComponent {
   readonly submittedReturnIds = signal<readonly string[]>([]);
   readonly submittedPayoutDestination = signal<ReturnPayoutDestination | null>(null);
 
-  readonly returnConditionOptions = SALE_RETURN_CONDITIONS;
-  readonly payoutDestinationOptions = RETURN_PAYOUT_DESTINATION_OPTIONS;
+  get returnConditionOptions() { return SALE_RETURN_CONDITIONS.map(option => ({ ...option, label: this.transloco.translate(option.labelKey) })); }
+  get payoutDestinationOptions() { return RETURN_PAYOUT_DESTINATION_OPTIONS.map(option => ({ ...option, label: this.transloco.translate(option.labelKey) })); }
 
   readonly creditNoteExpiryOptions = [
     { labelKey: 'sales.returns.preview.creditNoteExpiryNoExpiry', value: 'NoExpiry' },

@@ -50,10 +50,10 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
           this.revalidateDiscountsAgainstPreview();
         },
       });
-    } catch {
+    } catch (error) {
       this.salePreview.finishPreviewRequest(requestId, null, {
         failed: true,
-        errorMessage: 'sales.newSale.previewError',
+        errorMessage: error instanceof Error && error.message === 'expiry.offline.refresh' ? error.message : 'sales.newSale.previewError',
       });
     }
   }

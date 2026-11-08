@@ -78,7 +78,7 @@
           @for (line of p.lines; track line.saleItemId) {
             <tr>
               <td>{{ line.description }}</td>
-              <td>{{ line.quantity | number: '1.0-3' }} {{ line.uqc }}</td>
+              <td>{{ line.quantity | number: '1.0-3' }} {{ line.uqc }} @if ((line.quarantinedQuantity ?? 0) > 0) { <p>{{ 'expiry.returnQuarantine' | transloco: { physical: line.physicalRestorationQuantity, quarantine: line.quarantinedQuantity } }}</p> }</td>
             </tr>
           }
         </tbody>

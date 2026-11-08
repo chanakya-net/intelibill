@@ -193,3 +193,14 @@
     }
   }
 }
+
+.batch-card-expiry {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.65rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  color: #475569;
+}
+.batch-card-expiry button { justify-self: start; text-align: left; }

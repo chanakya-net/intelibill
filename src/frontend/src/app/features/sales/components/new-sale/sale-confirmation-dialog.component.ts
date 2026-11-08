@@ -5,6 +5,7 @@ import { ButtonModule } from 'primeng/button';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 export interface CreateSaleResponse {
+  readonly expiryDecisions?: readonly import("../../../expiry/services/expiry.models").SavedSaleExpiryDecision[] | null;
   readonly saleId: string;
   readonly invoiceNumber: string;
   readonly totalAmount: number;

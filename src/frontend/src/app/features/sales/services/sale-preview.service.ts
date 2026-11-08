@@ -39,12 +39,17 @@ export class SalePreviewService {
   readonly checkoutPreview = signal<SalePreviewDto | null>(null);
   readonly isPreviewLoading = signal(false);
   readonly previewError = signal('');
+  readonly expiryApprovalReason = signal('');
 
   triggerPreview(): void {
+    this.checkoutPreview.set(null);
+    this.expiryApprovalReason.set('');
     this.previewTrigger$.next();
   }
 
   triggerServerUpdateRefresh(): void {
+    this.checkoutPreview.set(null);
+    this.expiryApprovalReason.set('');
     this.serverUpdateTrigger$.next();
   }
 
@@ -111,6 +116,7 @@ export class SalePreviewService {
 
   beginPreviewRequest(): number {
     const requestId = ++this.previewRequestState.latestRequestId;
+    this.expiryApprovalReason.set('');
     this.isPreviewLoading.set(true);
     this.previewError.set('');
     return requestId;
@@ -228,6 +234,7 @@ export class SalePreviewService {
   clearPreviewState(): void {
     this.previewRequestState.latestRequestId += 1;
     this.checkoutPreview.set(null);
+    this.expiryApprovalReason.set('');
     this.isPreviewLoading.set(false);
     this.previewError.set('');
   }
@@ -239,6 +246,7 @@ export class SalePreviewService {
   markPreviewInvalid(errorMessage: string): void {
     this.previewRequestState.latestRequestId += 1;
     this.checkoutPreview.set(null);
+    this.expiryApprovalReason.set('');
     this.isPreviewLoading.set(false);
     this.previewError.set(errorMessage);
   }

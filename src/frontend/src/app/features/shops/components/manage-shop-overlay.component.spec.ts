@@ -1,3 +1,4 @@
+import { knownExpiryPolicyProviders } from '../../../../tests/expiry/expiry-policy.providers';
 import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
@@ -118,6 +119,7 @@ describe('ManageShopOverlayComponent', () => {
     TestBed.configureTestingModule({
       imports: [ManageShopOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
+        ...knownExpiryPolicyProviders(),
         { provide: Store, useValue: store },
         { provide: NetworkStatusService, useValue: networkStatus },
         { provide: OfflineSalesDeviceSettingsStorage, useValue: offlineDeviceStorage },

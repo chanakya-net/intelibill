@@ -4,6 +4,7 @@ import type { SellableGoodsDto } from '../services/sale.models';
 /** A goods sellable as the batch the cart adds, keeping its unit and precision. */
 export function goodsSellableToBatch(sellable: SellableGoodsDto): AvailableBatchDto {
   return {
+    sellability: sellable.sellability, quarantinedQuantity: sellable.quarantinedQuantity, availableQuantity: sellable.availableQuantity, version: sellable.version,
     barcode: sellable.barcode,
     itemName: sellable.itemName,
     batchNumber: sellable.batchNumber,
@@ -25,6 +26,7 @@ export function goodsSellableToBatch(sellable: SellableGoodsDto): AvailableBatch
 export function batchToGoodsSellable(batch: AvailableBatchDto): SellableGoodsDto {
   return {
     kind: 'Goods',
+    sellability: batch.sellability, quarantinedQuantity: batch.quarantinedQuantity, availableQuantity: batch.availableQuantity, version: batch.version,
     inventoryBatchId: batch.inventoryBatchId,
     barcode: batch.barcode,
     itemName: batch.itemName,

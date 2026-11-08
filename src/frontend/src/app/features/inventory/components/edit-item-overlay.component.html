@@ -181,6 +181,7 @@
       ></button>
     </div>
   </ng-template>
+<app-expiry-policy-form [shopId]="expiryPolicies.activeShopId() ?? ''" [itemId]="item.id" [canEdit]="expiryPolicies.role() === 'owner'" />
 </p-dialog>
 
 <app-barcode-scanner-dialog

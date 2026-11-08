@@ -1,3 +1,4 @@
+import { isExpiryPolicy, type ExpiryPolicy } from '../../expiry/services/expiry.models';
 import type { InvoiceSellerProfile } from '../services/sale.models';
 
 export interface OfflineSalesSnapshotMetadata {
@@ -5,6 +6,8 @@ export interface OfflineSalesSnapshotMetadata {
   readonly shopId: string;
   readonly schemaVersion: number;
   readonly startedAt: string;
+  readonly businessTimeZoneId?: string;
+  readonly catalogVersion?: number;
 }
 
 export type OfflineSalesSnapshotAttemptStatus = 'incomplete' | 'complete' | 'failed';
@@ -14,6 +17,8 @@ export interface OfflineSalesSnapshotAttemptRecord {
   readonly shopId: string;
   readonly schemaVersion: number;
   readonly startedAt: string;
+  readonly businessTimeZoneId?: string;
+  readonly catalogVersion?: number;
   readonly completedAt?: string;
   readonly status: OfflineSalesSnapshotAttemptStatus;
   readonly errorCode?: string;
@@ -37,6 +42,15 @@ export interface OfflineSellableBatchSnapshot {
   readonly taxIncluded: boolean;
   readonly purchaseTaxIncluded: boolean;
   readonly expiryDate?: string | null;
+  readonly expiryEvidenceId?: string | null;
+  readonly effectivePolicy?: ExpiryPolicy | null;
+  readonly physicalQuantity?: number | null;
+  readonly quarantinedQuantity?: number | null;
+  readonly availableQuantity?: number | null;
+  readonly expiryCapturedAt?: string | null;
+  readonly expiryEvidenceExpiresAt?: string | null;
+  readonly batchVersion?: number | null;
+  readonly manufacturingDate?: string | null;
   /**
    * Decimal places a quantity of the item may carry. Absent from snapshots taken before units: such a batch sells
    * whole units only until the snapshot is refreshed.
@@ -87,11 +101,15 @@ export interface OfflineActiveLeaseSnapshot {
 export interface OfflineUsableSnapshotInfo {
   readonly snapshotId: string;
   readonly completedAt: string;
+  readonly schemaVersion?: number;
+  readonly businessTimeZoneId?: string;
+  readonly catalogVersion?: number;
 }
 
 export interface OfflineSalesSnapshotShopPointerRecord {
   readonly shopId: string;
   readonly usableSnapshotId?: string;
+  readonly stale?: boolean;
   readonly usableCompletedAt?: string;
   readonly lastAttemptSnapshotId?: string;
   readonly lastAttemptStartedAt?: string;
@@ -159,7 +177,8 @@ export function isOfflineSalesSnapshotMetadata(value: unknown): value is Offline
   if (!isObjectRecord(value)) return false;
   return isNonEmptyString(value['snapshotId'])
     && isNonEmptyString(value['shopId'])
-    && Number.isFinite(value['schemaVersion'] as number)
+    && [1, 2, 3, 4].includes(value['schemaVersion'] as number)
+    && (value['schemaVersion'] !== 4 || (isValidShopZone(value['businessTimeZoneId']) && Number.isSafeInteger(value['catalogVersion']) && (value['catalogVersion'] as number) > 0))
     && isString(value['startedAt']);
 }
 
@@ -187,4 +206,19 @@ export function configureOfflineSalesSnapshotSchema(database: IDBDatabase): void
       database.createObjectStore(store.name, { keyPath: store.keyPath });
     }
   }
+}
+
+export function isValidShopZone(value: unknown): value is string {
+  if (typeof value !== 'string' || !value) return false;
+  try { new Intl.DateTimeFormat('en', { timeZone: value }).format(); return true; } catch { return false; }
+}
+/** Only complete authority may be used for a newly issued invoice. Legacy rows remain readable. */
+export function hasOfflineExpiryAuthority(batch: OfflineSellableBatchSnapshot, catalogVersion: number): boolean {
+  return !!batch.expiryEvidenceId && isExpiryPolicy(batch.effectivePolicy) && batch.effectivePolicy.version <= catalogVersion
+    && Number.isFinite(batch.physicalQuantity) && Number.isFinite(batch.quarantinedQuantity) && Number.isFinite(batch.availableQuantity)
+    && batch.physicalQuantity! >= 0 && batch.quarantinedQuantity! >= 0 && batch.quarantinedQuantity! <= batch.physicalQuantity!
+    && batch.availableQuantity! >= 0 && batch.availableQuantity! <= batch.physicalQuantity! - batch.quarantinedQuantity! + 0.0000001
+    && Number.isInteger(batch.batchVersion) && batch.batchVersion! > 0
+    && Number.isFinite(Date.parse(batch.expiryCapturedAt ?? '')) && Number.isFinite(Date.parse(batch.expiryEvidenceExpiresAt ?? ''))
+    && Date.parse(batch.expiryCapturedAt!) < Date.parse(batch.expiryEvidenceExpiresAt!);
 }

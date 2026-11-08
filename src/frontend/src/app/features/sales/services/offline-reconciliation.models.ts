@@ -46,6 +46,7 @@ export interface ReconciliationCasePage {
 }
 
 export interface OfflineInvoiceSnapshotLine {
+  readonly expiryEvidence?: import("../../expiry/services/expiry.models").OfflineExpiryLineEvidence | null;
   readonly itemName: string;
   readonly barcode: string;
   readonly batchNumber: string | null;

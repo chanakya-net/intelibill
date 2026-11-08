@@ -1,3 +1,4 @@
+import { expiryStatusKey } from '../../../expiry/services/expiry-policy-evaluator';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output, viewChild } from '@angular/core';
 
@@ -44,12 +45,24 @@ export class BatchPickerDialogComponent {
     return sellable.kind === 'Service';
   }
 
+  readonly expiryStatusKey = expiryStatusKey;
+  canAdd(batch: SellableDto): boolean { return batch.kind === 'Service' || (batch.sellability?.allowed !== false && (batch.availableQuantity ?? batch.quantity) > 0); }
+  available(batch: SellableGoodsDto): number { return batch.availableQuantity ?? batch.quantity; }
+  get orderedBatches(): readonly SellableDto[] {
+    return [...this.batches].sort((a, b) => {
+      if (a.kind !== 'Goods' || b.kind !== 'Goods') return a.kind === b.kind ? 0 : a.kind === 'Goods' ? -1 : 1;
+      return a.itemName.localeCompare(b.itemName) || Number(!this.canAdd(a)) - Number(!this.canAdd(b))
+        || (a.expiryDate ?? '9999-12-31').localeCompare(b.expiryDate ?? '9999-12-31')
+        || a.batchNumber.localeCompare(b.batchNumber) || a.inventoryBatchId.localeCompare(b.inventoryBatchId);
+    });
+  }
+
   onSelectBatch(batch: SellableDto): void {
-    this.selectedBatch = batch;
+    this.selectedBatch = this.canAdd(batch) ? batch : null;
   }
 
   onAddToCart(): void {
-    if (!this.selectedBatch) {
+    if (!this.selectedBatch || !this.canAdd(this.selectedBatch)) {
       return;
     }
 

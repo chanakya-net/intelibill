@@ -64,6 +64,7 @@ export function buildSyncRequestFromQueuedSale(
       : { calculationVersion: payload.pricing.calculationVersion }),
     ...(payload.issuedByUserId ? { issuedByUserId: payload.issuedByUserId } : {}),
     items: payload.pricing.lines.map((line) => ({
+      ...(line.expiryEvidence === undefined ? {} : { expiryEvidence: line.expiryEvidence }),
       barcode: line.barcode,
       batchNumber: line.batchNumber,
       itemName: line.itemName,
@@ -114,6 +115,7 @@ export function mapOfflineSyncResult(
 }
 
 const OFFLINE_REVIEW_REASON_KEYS: Readonly<Record<string, string>> = {
+  'Expiry.ReviewRequired': 'expiry.offline.review',
   'Sale.OfflineArithmeticMismatch': 'sales.history.offlineQueue.review.reasons.arithmeticMismatch',
   'Sale.OfflineCalculationVersionUnsupported':
     'sales.history.offlineQueue.review.reasons.calculationVersionUnsupported',

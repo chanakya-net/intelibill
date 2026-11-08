@@ -1,3 +1,6 @@
+import { evaluateExpiry, shopBusinessDate } from '../../expiry/services/expiry-policy-evaluator';
+import { hasOfflineExpiryAuthority, isValidShopZone } from '../utils/offline-sales-snapshot.schema';
+import type { OfflineExpiryLineEvidence } from '../../expiry/services/expiry.models';
 import { Injectable, inject } from '@angular/core';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -40,6 +43,9 @@ export interface OfflineFinalizeRequest {
 }
 
 export type OfflineFinalizeFailureReason =
+  | 'EXPIRY_REFRESH_REQUIRED'
+  | 'EXPIRY_BLOCKED'
+  | 'EXPIRY_ONLINE_APPROVAL_REQUIRED'
   | 'TILL_CONTEXT_INVALID'
   | 'BELOW_RECORDED_COST'
   | 'SNAPSHOT_STALE'
@@ -104,6 +110,10 @@ export class OfflineSaleFinalizationService {
       return { ok: false, reason: 'SNAPSHOT_STALE' };
     }
 
+    if (snapshot.schemaVersion !== 4 || !isValidShopZone(snapshot.businessTimeZoneId) || !snapshot.catalogVersion || !issuedByUserId || ownerShopId !== request.shopId)
+      return { ok: false, reason: 'EXPIRY_REFRESH_REQUIRED' };
+    const businessDate = shopBusinessDate(request.pricingInput.soldAt, snapshot.businessTimeZoneId);
+    const expiryProofs = new Map<string, OfflineExpiryLineEvidence>();
     const batches = await this.snapshotDb.getUsableBatches(request.shopId);
     const byBatchId = new Map(batches.map((batch) => [batch.batchId, batch]));
 
@@ -115,6 +125,17 @@ export class OfflineSaleFinalizationService {
       if (line.lineType === 'service') continue;
       const batch = byBatchId.get(line.inventoryBatchId);
       if (!batch) return { ok: false, reason: 'MISSING_CATALOG_ITEM' };
+      if (!hasOfflineExpiryAuthority(batch, snapshot.catalogVersion)) return { ok: false, reason: 'EXPIRY_REFRESH_REQUIRED' };
+      const issueInstant = Date.parse(request.pricingInput.soldAt);
+      if (!Number.isFinite(issueInstant) || issueInstant < Date.parse(batch.expiryCapturedAt!) || issueInstant > Date.parse(batch.expiryEvidenceExpiresAt!))
+        return { ok: false, reason: 'EXPIRY_REFRESH_REQUIRED' };
+      const decision = evaluateExpiry({ batchId: batch.batchId, itemId: batch.itemId, expiryDate: batch.expiryDate,
+        manufacturingDate: batch.manufacturingDate, physicalQuantity: batch.physicalQuantity!, quarantinedQuantity: batch.quarantinedQuantity!,
+        batchVersion: batch.batchVersion!, itemActive: true, isVoided: false }, batch.effectivePolicy!, snapshot.catalogVersion, businessDate);
+      if (!decision.allowed) return { ok: false, reason: 'EXPIRY_BLOCKED', errorCode: decision.reasonCode ?? undefined };
+      if (decision.requiresApproval) return { ok: false, reason: 'EXPIRY_ONLINE_APPROVAL_REQUIRED' };
+      expiryProofs.set(batch.batchId, { evidenceId: batch.expiryEvidenceId!, catalogVersion: snapshot.catalogVersion,
+        policyVersion: batch.effectivePolicy!.version, businessDate, expiryDate: batch.expiryDate ?? null, decisionCode: decision.reasonCode ?? 'Allowed' });
       // A non-finite quantity is refused as an invalid amount when the sale is priced.
       if (
         Number.isFinite(line.quantity) &&
@@ -140,9 +161,9 @@ export class OfflineSaleFinalizationService {
         request.shopId,
         request.deviceId,
         inventoryBatchId,
-        batch.quantity,
+        batch.availableQuantity!,
       );
-      if (available < requestedQuantity) return { ok: false, reason: 'INSUFFICIENT_SHADOW_STOCK' };
+      if (Math.min(available, batch.availableQuantity!) < requestedQuantity) return { ok: false, reason: 'INSUFFICIENT_SHADOW_STOCK' };
     }
 
     for (const line of request.pricingInput.lines) {
@@ -166,7 +187,8 @@ export class OfflineSaleFinalizationService {
 
     let priced: OfflineFrozenSalePricing;
     try {
-      priced = withDocumentUnits(calculateOfflineFrozenSale(pricingInputFromSnapshot), byBatchId);
+      const withUnits = withDocumentUnits(calculateOfflineFrozenSale(pricingInputFromSnapshot), byBatchId);
+      priced = { ...withUnits, lines: withUnits.lines.map(line => line.lineType === 'service' ? line : { ...line, expiryEvidence: structuredClone(expiryProofs.get(line.inventoryBatchId)!) }) };
     } catch (error) {
       // A non-finite quantity, price or discount has no place in the integer contract; nothing is consumed yet.
       if (error instanceof RangeError) return { ok: false, reason: 'INVALID_AMOUNT' };

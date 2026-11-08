@@ -13,7 +13,8 @@ describe('OfflineSalesSnapshotSyncService', () => {
     snapshotDb = new OfflineSalesSnapshotIndexedDbService();
     service = new OfflineSalesSnapshotSyncService(
       { getAccessToken: () => 'token' } as any,
-      snapshotDb
+      snapshotDb,
+      { scope: () => ({ userId: 'user-1', shopId, epoch: 1 }), epoch: () => 1, isCurrent: () => true } as any
     );
 
     stubIndexedDb();
@@ -28,7 +29,7 @@ describe('OfflineSalesSnapshotSyncService', () => {
     await snapshotDb.beginAttempt({
       snapshotId: 'previous',
       shopId,
-      schemaVersion: 1,
+      schemaVersion: 4, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 1,
       startedAt: new Date(0).toISOString(),
     });
     await snapshotDb.markComplete('previous', shopId, new Date(0).toISOString());
@@ -38,11 +39,14 @@ describe('OfflineSalesSnapshotSyncService', () => {
       [
         JSON.stringify({
           type: 'metadata',
-          metadata: { snapshotId: 'attempt-1', shopId, schemaVersion: 1, startedAt: new Date().toISOString() },
+          metadata: { snapshotId: 'attempt-1', shopId, schemaVersion: 4, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 1, startedAt: new Date().toISOString() },
         }),
         JSON.stringify({
           type: 'batch',
           batch: {
+            expiryEvidenceId: 'proof-1', effectivePolicy: { version: 1, mode: 'Ignore', expiryRequired: false, sellThroughExpiryDate: true, warningDays: 7, overrideAllowed: false },
+            physicalQuantity: 1, quarantinedQuantity: 0, availableQuantity: 1, batchVersion: 8,
+            expiryCapturedAt: '2026-11-08T12:00:00Z', expiryEvidenceExpiresAt: '2026-11-15T12:00:00Z',
             batchId: 'b1',
             itemId: 'i1',
             itemName: 'Item',
@@ -77,11 +81,11 @@ describe('OfflineSalesSnapshotSyncService', () => {
       [
         JSON.stringify({
           type: 'metadata',
-          metadata: { snapshotId: 'attempt-2', shopId, schemaVersion: 1, startedAt: new Date().toISOString() },
+          metadata: { snapshotId: 'attempt-2', shopId, schemaVersion: 4, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 1, startedAt: new Date().toISOString() },
         }),
         JSON.stringify({
           type: 'complete',
-          complete: { snapshotId: 'attempt-2', completedAt },
+          complete: { snapshotId: 'attempt-2', completedAt, batchCount: 0, customerCount: 0, discountRuleCount: 0, activeLeaseCount: 0, serviceCount: 0 },
         }),
       ].join('\n') + '\n';
 
@@ -96,7 +100,7 @@ describe('OfflineSalesSnapshotSyncService', () => {
     await snapshotDb.beginAttempt({
       snapshotId: 'previous',
       shopId,
-      schemaVersion: 1,
+      schemaVersion: 4, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 1,
       startedAt: new Date(0).toISOString(),
     });
     await snapshotDb.markComplete('previous', shopId, new Date(0).toISOString());
@@ -106,7 +110,7 @@ describe('OfflineSalesSnapshotSyncService', () => {
       [
         JSON.stringify({
           type: 'metadata',
-          metadata: { snapshotId: 'attempt-err', shopId, schemaVersion: 1, startedAt: new Date().toISOString() },
+          metadata: { snapshotId: 'attempt-err', shopId, schemaVersion: 4, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 1, startedAt: new Date().toISOString() },
         }),
         JSON.stringify({
           type: 'error',
@@ -147,7 +151,7 @@ describe('OfflineSalesSnapshotSyncService', () => {
       [
         JSON.stringify({
           type: 'metadata',
-          metadata: { snapshotId: 'attempt-svc', shopId, schemaVersion: 2, startedAt: new Date().toISOString() },
+          metadata: { snapshotId: 'attempt-svc', shopId, schemaVersion: 4, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 1, startedAt: new Date().toISOString() },
         }),
         JSON.stringify({
           type: 'service',
@@ -163,7 +167,7 @@ describe('OfflineSalesSnapshotSyncService', () => {
         }),
         JSON.stringify({
           type: 'complete',
-          complete: { snapshotId: 'attempt-svc', completedAt },
+          complete: { snapshotId: 'attempt-svc', completedAt, batchCount: 0, customerCount: 0, discountRuleCount: 0, activeLeaseCount: 0, serviceCount: 1 },
         }),
       ].join('\n') + '\n';
 
@@ -181,11 +185,11 @@ describe('OfflineSalesSnapshotSyncService', () => {
       [
         JSON.stringify({
           type: 'metadata',
-          metadata: { snapshotId: 'attempt-3', shopId, schemaVersion: 1, startedAt: new Date().toISOString() },
+          metadata: { snapshotId: 'attempt-3', shopId, schemaVersion: 4, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 1, startedAt: new Date().toISOString() },
         }),
         JSON.stringify({
           type: 'complete',
-          complete: { snapshotId: 'attempt-3', completedAt },
+          complete: { snapshotId: 'attempt-3', completedAt, batchCount: 0, customerCount: 0, discountRuleCount: 0, activeLeaseCount: 0, serviceCount: 0 },
         }),
       ].join('\n') + '\n';
 
@@ -201,6 +205,15 @@ describe('OfflineSalesSnapshotSyncService', () => {
       expect.stringContaining('ngsw-bypass=true'),
       expect.any(Object),
     );
+  });
+
+  it('refuses a complete marker whose advertised batch count exceeds received rows', async () => {
+    stubFetch([
+      JSON.stringify({ type: 'metadata', metadata: { snapshotId: 'count-mismatch', shopId, schemaVersion: 4, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 1, startedAt: new Date().toISOString() } }),
+      JSON.stringify({ type: 'complete', complete: { snapshotId: 'count-mismatch', completedAt: new Date().toISOString(), batchCount: 1, customerCount: 0, discountRuleCount: 0, activeLeaseCount: 0, serviceCount: 0 } }),
+    ].join('\n') + '\n');
+    await service.syncForShop(shopId);
+    expect(await snapshotDb.getUsableSnapshotId(shopId)).toBeNull();
   });
 
   function stubFetch(bodyText: string): ReturnType<typeof vi.fn> {
@@ -270,6 +283,7 @@ describe('OfflineSalesSnapshotSyncService', () => {
             const store = getStore(storeName);
             return {
               get: (key: string) => createRequest(() => store.get(key)),
+              getAll: () => createRequest(() => [...store.values()]),
               put: (value: { snapshotId?: string; shopId?: string; key?: string }) =>
                 createRequest(() => {
                   const keyValue = value.key ?? value.snapshotId ?? value.shopId;

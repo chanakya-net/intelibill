@@ -23,6 +23,15 @@ describe('BatchSearchBarComponent', () => {
     expect(searchSpy).toHaveBeenCalledWith(term);
   });
 
+  it('leaves the autocomplete before opening a lot picker so suggestions cannot cover its choices', () => {
+    TestBed.configureTestingModule({ imports: [BatchSearchBarComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })] });
+    const fixture = TestBed.createComponent(BatchSearchBarComponent); fixture.detectChanges();
+    const input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    input.focus(); expect(document.activeElement).toBe(input);
+    fixture.componentInstance.emitSearch();
+    expect(document.activeElement).not.toBe(input);
+  });
+
   it('emits term changes', () => {
     TestBed.configureTestingModule({
       imports: [BatchSearchBarComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],

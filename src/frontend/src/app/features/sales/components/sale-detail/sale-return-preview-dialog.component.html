@@ -164,7 +164,7 @@
                       <span>{{ 'sales.returns.preview.col.condition' | transloco }}</span>
                       <p-select
                         [options]="returnConditionOptions"
-                        optionLabel="labelKey"
+                        optionLabel="label"
                         optionValue="value"
                         appendTo="body"
                         styleClass="return-preview-select"
@@ -277,6 +277,7 @@
                           ) | transloco
                         }}</span
                       >
+                      @if ((line.quarantinedQuantity ?? 0) > 0) { <p class="rounded bg-amber-50 p-2">{{ 'expiry.returnQuarantine' | transloco: { physical: line.physicalRestorationQuantity, quarantine: line.quarantinedQuantity } }}</p> }
                       @if (getPreviewLineRefundAmount(line.saleItemId) !== null) {
                         <b>
                           {{
@@ -343,7 +344,7 @@
                 <span>{{ 'sales.returns.preview.payoutDestination' | transloco }}</span>
                 <p-select
                   [options]="payoutDestinationOptions"
-                  optionLabel="labelKey"
+                  optionLabel="label"
                   optionValue="value"
                   appendTo="body"
                   styleClass="return-preview-select"

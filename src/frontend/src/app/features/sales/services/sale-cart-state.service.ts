@@ -231,6 +231,8 @@ export class SaleCartStateService {
    * cannot hold, or more than its stock, adds nothing; the line takes the batch's current unit and precision.
    */
   addBatchToCart(batch: AvailableBatchDto, quantityToAdd: number): AddBatchResult {
+    if (batch.sellability?.allowed === false) return { added: false, addedLineKey: null, refusal: 'exceedsStock' };
+    const availableQuantity = batch.availableQuantity ?? batch.quantity;
     const snapshotCostPrice = Number(batch.costPrice ?? 0);
     const unit = {
       uom: batch.uom ?? '',
@@ -240,7 +242,7 @@ export class SaleCartStateService {
     const items = this.cart();
     const existingIndex = items.findIndex((item) => item.inventoryBatchId === batch.inventoryBatchId);
     const existing = existingIndex >= 0 ? items[existingIndex] : null;
-    const maxAvailable = existing ? Math.max(existing.availableQuantity, batch.quantity) : batch.quantity;
+    const maxAvailable = availableQuantity;
 
     const amountRefusal = refuseQuantity(quantityToAdd, unit.quantityScale, null);
     if (amountRefusal) {
@@ -274,7 +276,8 @@ export class SaleCartStateService {
         batchNumber: batch.batchNumber,
         inventoryBatchId: batch.inventoryBatchId,
         quantity: quantityToAdd,
-        availableQuantity: batch.quantity,
+        availableQuantity,
+        expiryDate: batch.expiryDate,
         salesPrice: batch.salesPrice,
         mrp: batch.mrp,
         taxRatePercent: batch.taxRatePercent,

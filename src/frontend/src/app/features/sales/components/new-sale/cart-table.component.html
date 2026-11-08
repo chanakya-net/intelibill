@@ -26,6 +26,8 @@
                   <div class="cart-item-name">{{ item.itemName }}</div>
                   <div class="cart-item-meta">
                     <span>{{ 'sales.newSale.batch' | transloco }}: {{ item.batchNumber }}</span>
+                    @if (item.expiryDate !== undefined) { <span>{{ item.expiryDate || ('expiry.undated' | transloco) }}</span> }
+                    @if (expiryDecision(item); as decision) { <span>{{ expiryStatusKey(decision) | transloco }} · {{ 'expiry.available' | transloco }} {{ decision.availableQuantity }} · {{ 'expiry.quarantine' | transloco }} {{ decision.quarantinedQuantity }}</span> }
                     <span class="meta-separator">•</span>
                     <span>{{ 'sales.newSale.barcode' | transloco }}: {{ item.barcode }}</span>
                     <span class="meta-separator">•</span>
@@ -285,6 +287,8 @@
                   <div class="cart-item-name">{{ item.itemName }}</div>
                   <div class="cart-item-meta">
                     <span>{{ 'sales.newSale.batch' | transloco }}: {{ item.batchNumber }}</span>
+                    @if (item.expiryDate !== undefined) { <span>{{ item.expiryDate || ('expiry.undated' | transloco) }}</span> }
+                    @if (expiryDecision(item); as decision) { <span>{{ expiryStatusKey(decision) | transloco }} · {{ 'expiry.available' | transloco }} {{ decision.availableQuantity }} · {{ 'expiry.quarantine' | transloco }} {{ decision.quarantinedQuantity }}</span> }
                     <span class="meta-separator">•</span>
                     <span>{{ 'sales.newSale.barcode' | transloco }}: {{ item.barcode }}</span>
                     <span class="meta-separator">•</span>

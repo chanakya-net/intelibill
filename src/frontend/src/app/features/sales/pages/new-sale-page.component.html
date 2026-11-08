@@ -100,7 +100,7 @@
           </div>
         </div>
 
-        <app-batch-search-bar
+        <app-batch-search-bar [pickerOpen]="vm.showBatchPicker()"
           [searchTerm]="vm.searchInput()"
           [loading]="vm.isSearchingBatches()"
           [searchSuggestions]="vm.searchSuggestions()"
@@ -284,6 +284,15 @@
           (overrideChange)="vm.creditOverride.set($event)"
         />
 
+        @if (vm.expiryApprovalLines().length && !vm.isOfflineMode()) {
+          <section class="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2" aria-labelledby="expiry-warning-title">
+            <h3 id="expiry-warning-title" class="font-semibold">{{ 'expiry.approvalTitle' | transloco }}</h3>
+            @for (line of vm.expiryApprovalLines(); track $index) { <p>{{ 'expiry.approvalLot' | transloco: { quantity: line.quantity } }} · {{ vm.expiryLotLabel(line.inventoryBatchId) }}</p> }
+            @if (vm.canOverrideCredit()) {
+              <label class="grid gap-1">{{ 'expiry.auditReason' | transloco }}<textarea class="w-full border rounded p-2" rows="2" maxlength="500" [ngModel]="vm.expiryApprovalReason()" (ngModelChange)="vm.onExpiryApprovalReason($event)"></textarea></label>
+            } @else { <p>{{ 'expiry.managerOwnSession' | transloco }}</p> }
+          </section>
+        }
         <app-cart-checkout-summary
           [preview]="vm.checkoutPreview()"
           [loading]="vm.isPreviewLoading()"

@@ -1,3 +1,5 @@
+import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
+import { EMPTY } from 'rxjs';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -34,6 +36,7 @@ describe('BatchRowFormStateService', () => {
     TestBed.configureTestingModule({
       imports: [TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
+        { provide: ExpiryPolicyService, useValue: { read: () => of({ effectivePolicy: { version: 1, mode: 'Ignore', expiryRequired: false, sellThroughExpiryDate: true, warningDays: 7, overrideAllowed: false } }), changed$: EMPTY } },
         { provide: InventoryService, useValue: inventoryService },
         { provide: ProductCatalogSyncService, useValue: catalogSync },
         { provide: SuppliersFacade, useValue: suppliersFacade },
@@ -54,6 +57,14 @@ describe('BatchRowFormStateService', () => {
     catalogSync.findByBarcode.mockClear();
     suppliersFacade.suppliers.set([]);
     suppliersFacade.load.mockClear();
+  });
+
+  it('refuses manufacture after expiry before building a stock intake row', () => {
+    const state = setup();
+    state.form.patchValue({ itemName: 'Milk', barcode: 'B1', uom: 'PCS', batchNumber: 'LOT1', quantity: 1,
+      totalPurchaseCost: 1, mrp: 2, salesPrice: 2, purchaseTaxIncluded: false,
+      manufacturingDate: '2026-11-10', expiryDate: '2026-11-09' });
+    expect(state.buildDraftRow()).toBeNull();
   });
 
   it('fetches product details and patches untouched fields', async () => {

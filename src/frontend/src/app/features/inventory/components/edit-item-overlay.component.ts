@@ -1,3 +1,5 @@
+import { ExpiryPolicyFormComponent } from '../../expiry/components/expiry-policy-form.component';
+import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
 import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
@@ -37,6 +39,7 @@ import {
   standalone: true,
   imports: [
     CommonModule,
+    ExpiryPolicyFormComponent,
     ReactiveFormsModule,
     DialogModule,
     InputNumberModule,
@@ -56,6 +59,7 @@ export class EditItemOverlayComponent implements OnInit {
   private readonly store = inject(Store<RootState>);
   private readonly inventoryService = inject(InventoryService);
   private readonly destroyRef = inject(DestroyRef);
+  readonly expiryPolicies = inject(ExpiryPolicyService);
   readonly scaleOptions = ITEM_QUANTITY_SCALE_OPTIONS;
 
   @Input({ required: true }) item!: Item;

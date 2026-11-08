@@ -50,6 +50,7 @@ export interface OfflineSalePricingInput {
 }
 
 export interface OfflineFrozenSaleLine {
+  readonly expiryEvidence?: import("../../expiry/services/expiry.models").OfflineExpiryLineEvidence | null;
   readonly clientLineId: string;
   readonly inventoryBatchId: string;
   readonly itemId: string;

@@ -367,7 +367,7 @@ test('Staff opens and counts; manager reviews and prints the frozen close', asyn
     .getByLabel('Manager review reason', { exact: true })
     .fill('Witnessed recount accepted');
   await review.getByRole('button', { name: 'Acknowledge frozen variance', exact: true }).click();
-  await expect(review.getByText('Witnessed recount accepted', { exact: false })).toBeVisible();
+  await expect(review.locator('p').filter({ hasText: 'Witnessed recount accepted' })).toBeVisible();
   await review.getByRole('link', { name: 'Print frozen close' }).click();
   await expect(review.getByText('₹1,010.00', { exact: true })).toBeVisible();
   await expect(review.getByText('-₹10.00', { exact: true })).toBeVisible();

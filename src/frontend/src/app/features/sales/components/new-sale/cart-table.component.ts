@@ -1,3 +1,4 @@
+import { expiryStatusKey } from '../../../expiry/services/expiry-policy-evaluator';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
@@ -54,6 +55,8 @@ export interface InstantDiscountOption {
   styleUrl: './cart-table.component.scss',
 })
 export class CartTableComponent {
+  readonly expiryStatusKey = expiryStatusKey;
+  expiryDecision(item: CartItem) { return this.checkoutPreview?.expiryDecisions?.find(x => x.inventoryBatchId === item.inventoryBatchId)?.decision; }
   @Input() cartItems: CartItem[] = [];
   @Input() serviceCartItems: ServiceCartLine[] = [];
   @Input() showGroupedSections = false;

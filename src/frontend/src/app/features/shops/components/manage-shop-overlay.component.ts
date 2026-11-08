@@ -1,3 +1,4 @@
+import { ExpiryPolicyFormComponent } from '../../expiry/components/expiry-policy-form.component';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnInit, Output, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule, ReactiveFormsModule, FormBuilder } from '@angular/forms';
@@ -36,6 +37,7 @@ import { ShopTaxProfileFormComponent } from './manage-shop/shop-tax-profile-form
   standalone: true,
   imports: [
     CommonModule,
+    ExpiryPolicyFormComponent,
     FormsModule,
     ReactiveFormsModule,
     ButtonModule,

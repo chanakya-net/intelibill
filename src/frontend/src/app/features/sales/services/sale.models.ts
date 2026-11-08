@@ -3,6 +3,10 @@ import type { SaleCancellationDto } from './sale-cancellation.models';
 // ─── Sellable DTOs (GET /api/sales/sellables) ───────────────────────────────
 
 export interface SellableGoodsDto {
+  readonly sellability?: import('../../expiry/services/expiry.models').SellabilityDecision | null;
+  readonly quarantinedQuantity?: number | null;
+  readonly availableQuantity?: number | null;
+  readonly version?: number | null;
   readonly kind: 'Goods';
   readonly inventoryBatchId: string;
   readonly barcode: string;
@@ -240,6 +244,7 @@ export interface SalePreviewWarningDto {
 }
 
 export interface SalePreviewDto {
+  readonly expiryDecisions?: readonly import('../../expiry/services/expiry.models').SaleExpiryLineDecision[] | null;
   readonly totalAmount: number;
   readonly totalTaxableAmount: number;
   readonly totalTaxAmount: number;
@@ -285,6 +290,7 @@ export interface AppliedCreditNote {
 }
 
 export interface RecordSaleRequest extends TillSourceFields {
+  readonly expiryApprovals?: readonly import('../../expiry/services/expiry.models').ExpiryApproval[] | null;
   readonly idempotencyKey: string;
   readonly customerId: string | null;
   readonly customerName: string | null;
@@ -388,6 +394,9 @@ export interface SaleReturnDto {
 }
 
 export interface SaleReturnItemDto {
+  readonly quarantineChangeId?: string | null;
+  readonly quarantinedQuantity?: number;
+  readonly dispositionReasonCode?: string | null;
   readonly saleReturnItemId: string;
   readonly saleItemId: string;
   readonly quantity: number;
@@ -512,6 +521,7 @@ export interface InvoiceDocument {
 }
 
 export interface SaleDto {
+  readonly expiryDecisions?: readonly import("../../expiry/services/expiry.models").SavedSaleExpiryDecision[] | null;
   readonly status?: 'Posted' | 'Cancelled';
   readonly version?: number;
   readonly cancellation?: SaleCancellationDto | null;
@@ -618,6 +628,9 @@ export interface SaleReturnPreviewLineFinancialDto {
 }
 
 export interface SaleReturnPreviewLineDto {
+  readonly physicalRestorationQuantity?: number;
+  readonly quarantinedQuantity?: number;
+  readonly dispositionReasonCode?: string | null;
   readonly saleItemId: string;
   readonly itemId: string | null;
   readonly inventoryBatchId: string | null;
@@ -749,6 +762,7 @@ export interface ProfitLossReportResultDto {
 }
 
 export interface OfflineSalesSyncLineRequest {
+  readonly expiryEvidence?: import("../../expiry/services/expiry.models").OfflineExpiryLineEvidence | null;
   readonly barcode: string;
   readonly batchNumber: string;
   readonly itemName: string;

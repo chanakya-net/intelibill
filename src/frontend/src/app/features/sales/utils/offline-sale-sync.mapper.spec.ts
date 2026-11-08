@@ -91,6 +91,17 @@ describe('offline-sale-sync.mapper', () => {
     syncAttempts: [],
   };
 
+  it('retains exact expiry evidence, including explicit null, while absent legacy lines stay absent', () => {
+    const proof = { evidenceId: 'original-proof', catalogVersion: 3, policyVersion: 2, businessDate: '2026-05-24', expiryDate: null, decisionCode: 'Allowed' };
+    const withProof = { ...record, payload: { ...record.payload, pricing: { ...record.payload.pricing,
+      lines: [{ ...record.payload.pricing.lines[0], expiryEvidence: proof }] } } };
+    expect(buildSyncRequestFromQueuedSale(withProof).items[0].expiryEvidence).toEqual(proof);
+    expect(buildSyncRequestFromQueuedSale(record).items[0]).not.toHaveProperty('expiryEvidence');
+    const partial = { ...withProof, payload: { ...withProof.payload, pricing: { ...withProof.payload.pricing,
+      lines: [{ ...withProof.payload.pricing.lines[0], expiryEvidence: null }] } } };
+    expect(buildSyncRequestFromQueuedSale(partial).items[0]).toHaveProperty('expiryEvidence', null);
+  });
+
   it('preserves all four frozen till fields while keeping absent legacy fields and arithmetic unchanged', () => {
     const evidence = {
       till: { sessionId: 'original-session', overrideReason: null },

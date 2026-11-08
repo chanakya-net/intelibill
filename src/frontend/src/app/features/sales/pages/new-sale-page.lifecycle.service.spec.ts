@@ -57,6 +57,13 @@ function harness(options: { sellable?: SellableGoodsDto; inCart: number; add: Ad
 }
 
 describe('NewSalePageLifecycleService barcode scan of a weighed item', () => {
+  it('explains a barcode with one blocked lot in the diagnostic picker without attempting Add', async () => {
+    const { page, addBatchToCart } = harness({ inCart: 0, add: { added: false, addedLineKey: null, refusal: 'exceedsStock' },
+      sellable: { ...weighed, availableQuantity: 0, sellability: { allowed: false, reasonCode: 'Expiry.Expired', warning: false, requiresApproval: false,
+        policyVersion: 2, catalogVersion: 3, businessDate: '2026-11-09', physicalQuantity: 3, quarantinedQuantity: 0, availableQuantity: 0 } } });
+    await page.onBarcodeSearch();
+    expect(page.showBatchPicker()).toBe(true); expect(addBatchToCart).not.toHaveBeenCalled();
+  });
   it('opens the picker when less than one unit is left', async () => {
     const { page } = harness({
       sellable: { ...weighed, quantity: 3 },
