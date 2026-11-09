@@ -28,6 +28,21 @@ describe('CustomerService', () => {
 
   afterEach(() => httpMock.verify());
 
+  it('serializes a bounded remote directory query and restores an exact ID', () => {
+    service
+      .getDirectory({ search: ' Late %_ ', status: 'active', pageNumber: 3, pageSize: 20 })
+      .subscribe();
+    const request = httpMock.expectOne((req) => req.url.endsWith('/customers/directory'));
+    expect(request.request.params.get('search')).toBe('Late %_');
+    expect(request.request.params.get('status')).toBe('active');
+    expect(request.request.params.get('pageNumber')).toBe('3');
+    expect(request.request.params.get('pageSize')).toBe('20');
+
+    request.flush({ items: [], totalCount: 45, pageNumber: 3, pageSize: 20, summary: {} });
+    service.getCustomer('late-id').subscribe();
+    httpMock.expectOne((req) => req.url.endsWith('/customers/late-id')).flush({});
+  });
+
   it('getCustomers performs GET to /customers', () => {
     const customers = [
       {
@@ -50,8 +65,22 @@ describe('CustomerService', () => {
   });
 
   it('addCustomer performs POST to /customers', () => {
-    const payload: AddCustomerRequest = { name: 'Alice', phoneNumber: '+9198', address: null, isActive: true, creditLimit: 0, gstin: null, stateCode: null };
-    const customer = { customerId: 'c1', ...payload, purchaseCount: 0, lifetimeRevenue: 0, currentMonthRevenue: 0 };
+    const payload: AddCustomerRequest = {
+      name: 'Alice',
+      phoneNumber: '+9198',
+      address: null,
+      isActive: true,
+      creditLimit: 0,
+      gstin: null,
+      stateCode: null,
+    };
+    const customer = {
+      customerId: 'c1',
+      ...payload,
+      purchaseCount: 0,
+      lifetimeRevenue: 0,
+      currentMonthRevenue: 0,
+    };
     service.addCustomer(payload).subscribe((res) => expect(res).toEqual(customer));
 
     const req = httpMock.expectOne(apiUrl);
@@ -61,9 +90,23 @@ describe('CustomerService', () => {
   });
 
   it('editCustomer performs PUT to /customers/:id', () => {
-    const payload: EditCustomerRequest = { name: 'Alice Updated', phoneNumber: '+9198', address: 'Addr', isActive: true, creditLimit: 100, gstin: null, stateCode: null };
+    const payload: EditCustomerRequest = {
+      name: 'Alice Updated',
+      phoneNumber: '+9198',
+      address: 'Addr',
+      isActive: true,
+      creditLimit: 100,
+      gstin: null,
+      stateCode: null,
+    };
     const customerId = 'c1';
-    const updated = { customerId, ...payload, purchaseCount: 1, lifetimeRevenue: 1200, currentMonthRevenue: 100 };
+    const updated = {
+      customerId,
+      ...payload,
+      purchaseCount: 1,
+      lifetimeRevenue: 1200,
+      currentMonthRevenue: 100,
+    };
     service.editCustomer(customerId, payload).subscribe((res) => expect(res).toEqual(updated));
 
     const req = httpMock.expectOne(`${apiUrl}/${customerId}`);
@@ -82,7 +125,13 @@ describe('CustomerService', () => {
       gstin: '29AAGCB7383J1Z4',
       stateCode: '29',
     };
-    const customer = { customerId: 'c2', ...payload, purchaseCount: 0, lifetimeRevenue: 0, currentMonthRevenue: 0 };
+    const customer = {
+      customerId: 'c2',
+      ...payload,
+      purchaseCount: 0,
+      lifetimeRevenue: 0,
+      currentMonthRevenue: 0,
+    };
     service.addCustomer(payload).subscribe((res) => {
       expect(res.gstin).toBe('29AAGCB7383J1Z4');
       expect(res.stateCode).toBe('29');
@@ -130,7 +179,9 @@ describe('CustomerService', () => {
       runningBalance: 50,
     };
 
-    service.recordCustomerPayment(customerId, payload).subscribe((res) => expect(res).toEqual(ledgerEntry));
+    service
+      .recordCustomerPayment(customerId, payload)
+      .subscribe((res) => expect(res).toEqual(ledgerEntry));
 
     const req = httpMock.expectOne(`${apiUrl}/${customerId}/payments`);
     expect(req.request.method).toBe('POST');
@@ -156,7 +207,16 @@ describe('CustomerService', () => {
     const req = httpMock.expectOne(`${apiUrl}/c1/payments`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(payload);
-    req.flush({ entryId: 'e1', saleId: null, entryType: 'PaymentReceived', amount: 500, entryDate: '2026-11-06', notes: null, runningBalance: 0, receiptId: 'r1' });
+    req.flush({
+      entryId: 'e1',
+      saleId: null,
+      entryType: 'PaymentReceived',
+      amount: 500,
+      entryDate: '2026-11-06',
+      notes: null,
+      runningBalance: 0,
+      receiptId: 'r1',
+    });
   });
 
   it('reversePayment posts the reason and operation key to /payments/:id/reversal', () => {
@@ -190,7 +250,11 @@ describe('suggestOldestFirstAllocations', () => {
   });
 
   it('settles the oldest open invoices first and leaves the rest unallocated', () => {
-    const sales = [sale('new', '2026-11-03T00:00:00Z', 100), sale('old', '2026-11-01T00:00:00Z', 70.5), sale('paid', '2026-10-01T00:00:00Z', 0)];
+    const sales = [
+      sale('new', '2026-11-03T00:00:00Z', 100),
+      sale('old', '2026-11-01T00:00:00Z', 70.5),
+      sale('paid', '2026-10-01T00:00:00Z', 0),
+    ];
 
     expect(suggestOldestFirstAllocations(sales, 120.25)).toEqual([
       { targetId: 'old', amount: 70.5 },

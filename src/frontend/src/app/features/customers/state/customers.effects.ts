@@ -1,3 +1,8 @@
+import { Store } from '@ngrx/store';
+import { ShopContextActions } from '../../../core/context/shop-context.actions';
+import { selectDirectoryQuery } from './customers.selectors';
+import { DEFAULT_DIRECTORY_QUERY } from '../../../shared/models/party-directory.models';
+import { takeUntil, mergeMap as directoryMergeMap } from 'rxjs';
 import {
   ApiErrorMessageService,
   type LocalizedError,
@@ -13,22 +18,68 @@ import { CustomersActions } from './customers.actions';
 export class CustomersEffects {
   private readonly apiErrors = inject(ApiErrorMessageService);
   private readonly actions$ = inject(Actions);
+  private readonly directoryStore = inject(Store, { optional: true });
   private readonly customerService = inject(CustomerService);
+
+  readonly directory$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(CustomersActions.directoryRequested),
+      switchMap(({ query, requestId }) =>
+        this.customerService.getDirectory(query).pipe(
+          directoryMergeMap((page) => {
+            const lastPage = Math.max(1, Math.ceil(page.totalCount / page.pageSize));
+            if (page.pageNumber > lastPage)
+              return of(
+                CustomersActions.directoryRequested({
+                  query: { ...query, pageNumber: lastPage },
+                  requestId: crypto.randomUUID(),
+                }),
+              );
+            return of(CustomersActions.directorySucceeded({ page, requestId }));
+          }),
+          catchError(() =>
+            of(
+              CustomersActions.directoryFailed({
+                requestId,
+                errorMessage: 'errors.customers.loadFailed',
+              }),
+            ),
+          ),
+          takeUntil(this.actions$.pipe(ofType(ShopContextActions.scopeChanged))),
+        ),
+      ),
+    ),
+  );
+  readonly refreshDirectory$ = createEffect(() =>
+    this.actions$.pipe(
+      ofType(CustomersActions.addCustomerSucceeded, CustomersActions.editCustomerSucceeded),
+      map(() =>
+        CustomersActions.directoryRequested({
+          query:
+            this.directoryStore?.selectSignal(selectDirectoryQuery)() ?? DEFAULT_DIRECTORY_QUERY,
+          requestId: crypto.randomUUID(),
+        }),
+      ),
+    ),
+  );
 
   loadCustomers$ = createEffect(() =>
     this.actions$.pipe(
       ofType(CustomersActions.loadCustomersRequested),
       switchMap(() =>
-        this.customerService.getCustomers().pipe(
-          map((customers) => CustomersActions.loadCustomersSucceeded({ customers })),
-          catchError((error) =>
-            of(
-              CustomersActions.loadCustomersFailed({
-                ...this.feedback(error, 'errors.customers.loadFailed'),
-              }),
+        this.customerService
+          .getDirectory()
+          .pipe(map((page) => page.items))
+          .pipe(
+            map((customers) => CustomersActions.loadCustomersSucceeded({ customers })),
+            catchError((error) =>
+              of(
+                CustomersActions.loadCustomersFailed({
+                  ...this.feedback(error, 'errors.customers.loadFailed'),
+                }),
+              ),
             ),
           ),
-        ),
       ),
     ),
   );

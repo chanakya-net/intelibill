@@ -1,3 +1,8 @@
+import {
+  PartyDirectoryQuery,
+  CustomerDirectoryPage,
+  directoryParams,
+} from '../../../shared/models/party-directory.models';
 import { TillSourceService, TillSourceFields } from '../../tills/services/till-source.service';
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
@@ -264,6 +269,16 @@ export class CustomerService {
   private readonly tillSources = inject(TillSourceService);
   private readonly apiUrl = `${environment.apiBaseUrl}/customers`;
   private readonly paymentsUrl = `${environment.apiBaseUrl}/payments`;
+
+  getDirectory(query: PartyDirectoryQuery = {}): Observable<CustomerDirectoryPage> {
+    return this.http.get<CustomerDirectoryPage>(`${this.apiUrl}/directory`, {
+      params: directoryParams(query),
+    });
+  }
+
+  getCustomer(customerId: string): Observable<Customer> {
+    return this.http.get<Customer>(`${this.apiUrl}/${encodeURIComponent(customerId)}`);
+  }
 
   getCustomers(): Observable<Customer[]> {
     return this.http.get<Customer[]>(this.apiUrl);

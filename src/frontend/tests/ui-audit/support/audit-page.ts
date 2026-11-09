@@ -1,3 +1,4 @@
+import { customerDirectoryResponse } from './party-directory-mock';
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
@@ -364,7 +365,10 @@ export async function mockExternalRequests(
 
   const { suppliers, supplierDetails } = getSupplierDefaults(options.supplierMock ?? {});
   const mutableSupplierState = { suppliers, supplierDetails };
-  const handleSupplierRoute = createSupplierRouteHandler(mutableSupplierState, options.supplierMock ?? {});
+  const handleSupplierRoute = createSupplierRouteHandler(
+    mutableSupplierState,
+    options.supplierMock ?? {},
+  );
 
   await page.routeWebSocket('ws://localhost:5277/**', (webSocket) => {
     webSocket.onMessage((message) => {
@@ -484,14 +488,19 @@ export async function mockExternalRequests(
       return;
     }
 
-    if (requestUrl.pathname === '/api/customers') {
+    if (['/api/customers', '/api/customers/directory'].includes(requestUrl.pathname)) {
       if (route.request().method() === 'GET') {
         if (customersListState === 'loading') await delay(1_000);
         if (customersListState === 'error') {
           await fulfillCustomerError(route, options.customersErrorStatus ?? 503);
           return;
         }
-        await fulfillJson(route, customers);
+        await fulfillJson(
+          route,
+          requestUrl.pathname.endsWith('/directory')
+            ? customerDirectoryResponse(customers, requestUrl)
+            : customers,
+        );
         return;
       }
       if (route.request().method() === 'POST') {
@@ -503,6 +512,12 @@ export async function mockExternalRequests(
     }
 
     const customerId = requestUrl.pathname.match(/^\/api\/customers\/([^/]+)$/)?.[1];
+    if (customerId && route.request().method() === 'GET') {
+      const customer = customers.find((item) => item.customerId === customerId);
+      if (customer) await fulfillJson(route, customer);
+      else await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+      return;
+    }
     if (customerId && route.request().method() === 'PUT') {
       const payload = route.request().postDataJSON() as Partial<MockCustomer>;
       const customer = {

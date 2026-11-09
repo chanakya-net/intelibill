@@ -1,3 +1,9 @@
+import { DestroyRef } from '@angular/core';
+import {
+  DEFAULT_DIRECTORY_QUERY,
+  EMPTY_SUPPLIER_SUMMARY,
+  PartyStatus,
+} from '../../../shared/models/party-directory.models';
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -36,13 +42,49 @@ export class SuppliersPageComponent {
   private readonly suppliersFacade = inject(SuppliersFacade);
 
   readonly suppliers = this.suppliersFacade.suppliers;
-  readonly userSuppliers = computed(() => this.suppliers().filter((s) => !s.isSystem));
-  readonly totalSuppliers = computed(() => this.userSuppliers().length);
-  readonly activeSuppliers = computed(() => this.userSuppliers().filter((s) => s.isActive).length);
-  readonly preferredSuppliers = computed(() => this.userSuppliers().filter((s) => s.isPreferred).length);
-  readonly pendingPayables = computed(() =>
-    this.userSuppliers().reduce((total, supplier) => total + Math.max(supplier.balanceDue, 0), 0),
+  readonly userSuppliers = computed(() => this.suppliers());
+  readonly directorySummary = computed(
+    () => this.suppliersFacade.summary?.() ?? EMPTY_SUPPLIER_SUMMARY,
   );
+  readonly totalSuppliers = computed(() => this.directorySummary().totalSuppliers);
+  readonly activeSuppliers = computed(() => this.directorySummary().activeSuppliers);
+  readonly preferredSuppliers = computed(() => this.directorySummary().preferredSuppliers);
+  readonly pendingPayables = computed(() => this.directorySummary().pendingPayables);
+  readonly directoryQuery = computed(
+    () => this.suppliersFacade.query?.() ?? DEFAULT_DIRECTORY_QUERY,
+  );
+  readonly pageNumber = computed(() => this.directoryQuery().pageNumber ?? 1);
+  readonly pageSize = computed(() => this.directoryQuery().pageSize ?? 20);
+  readonly totalCount = computed(() => this.suppliersFacade.totalCount?.() ?? 0);
+  readonly searchValue = signal('');
+  readonly statusFilter = signal<PartyStatus>('all');
+  private directorySearchTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly directoryDestroy = inject(DestroyRef).onDestroy(() =>
+    clearTimeout(this.directorySearchTimer),
+  );
+  onSearchChange(value: string): void {
+    this.searchValue.set(value);
+    clearTimeout(this.directorySearchTimer);
+    this.directorySearchTimer = setTimeout(() => this.loadDirectoryPage(1), 250);
+  }
+  onStatusChange(value: PartyStatus): void {
+    this.statusFilter.set(value);
+    clearTimeout(this.directorySearchTimer);
+    this.loadDirectoryPage(1);
+  }
+  onDirectoryPage(event: { page: number; rows: number }): void {
+    clearTimeout(this.directorySearchTimer);
+    this.loadDirectoryPage(event.page, event.rows);
+  }
+  private loadDirectoryPage(pageNumber: number, pageSize = this.pageSize()): void {
+    this.suppliersFacade.loadDirectory({
+      search: this.searchValue().trim(),
+      status: this.statusFilter(),
+      pageNumber,
+      pageSize,
+      includeSystem: false,
+    });
+  }
   readonly isLoading = this.suppliersFacade.isLoading;
   readonly serverError = this.suppliersFacade.errorMessage;
   readonly lastMutationType = this.suppliersFacade.lastMutationType;
@@ -64,14 +106,18 @@ export class SuppliersPageComponent {
       return '';
     }
 
-    const activeShop = session.shops.find((shop) => shop.shopId === session.activeShopId) ?? session.shops.find((shop) => shop.isDefault);
+    const activeShop =
+      session.shops.find((shop) => shop.shopId === session.activeShopId) ??
+      session.shops.find((shop) => shop.isDefault);
     return activeShop?.role ?? '';
   });
   readonly canManageSuppliers = computed(() => this.activeShopRole().toLowerCase() === 'owner');
-  readonly canMakePayment = computed(() => ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()));
+  readonly canMakePayment = computed(() =>
+    ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()),
+  );
 
   constructor() {
-    this.suppliersFacade.load();
+    this.loadDirectoryPage(1);
 
     effect(() => {
       if (!this.lastMutationSucceeded()) {
@@ -96,7 +142,7 @@ export class SuppliersPageComponent {
         this.showMakePaymentOverlay.set(false);
         this.paymentSupplier.set(null);
         this.suppliersFacade.clearMutationStatus();
-        this.suppliersFacade.load();
+        this.loadDirectoryPage(1);
       }
     });
   }
@@ -150,5 +196,4 @@ export class SuppliersPageComponent {
     this.detailSupplierId.set(null);
     this.detailSupplier.set(null);
   }
-
 }

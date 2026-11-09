@@ -1,3 +1,7 @@
+import {
+  DEFAULT_DIRECTORY_QUERY,
+  EMPTY_CUSTOMER_SUMMARY,
+} from '../../../shared/models/party-directory.models';
 import { Customer } from '../services/customer.service';
 import { CustomersActions } from './customers.actions';
 import { customersAdapter, customersReducer } from './customers.reducer';

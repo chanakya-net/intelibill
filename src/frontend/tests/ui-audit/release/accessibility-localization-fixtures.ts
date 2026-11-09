@@ -1,3 +1,4 @@
+import { customerDirectoryResponse } from '../support/party-directory-mock';
 import type { Page, Route } from '@playwright/test';
 import { SHOP_A, USER } from './purchase-receiving-server';
 
@@ -272,6 +273,9 @@ export async function accessibilityFixtures(page: Page) {
     if (path === '/api/items/details')
       return json(r, { ...GOODS[0], name: LONG_NAME, hsnCode: null, purchaseTaxIncluded: false });
     if (path === '/api/customers') return json(r, [CUSTOMER]);
+    if (path === '/api/customers/directory')
+      return json(r, customerDirectoryResponse([CUSTOMER], new URL(r.request().url())));
+    if (path === `/api/customers/${CUSTOMER.customerId}`) return json(r, CUSTOMER);
     if (path.endsWith('/credit') && path.includes('/customers/'))
       return json(r, {
         ...CUSTOMER,

@@ -3143,5 +3143,9 @@
       "onlineApproval": "This expired lot needs a live Owner/Manager approval. Complete the sale online in their own session.",
       "review": "Expiry authority needs review. Retain the original issued invoice and evidence. A manager reason cannot replace missing proof."
     }
+  },
+  "partyDirectory": {
+    "pageSummary": "Showing {{start}}–{{end}} of {{total}} results",
+    "searchHint": "Up to 20 matches are shown. Refine your search to find another party."
   }
 }

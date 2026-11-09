@@ -1,3 +1,4 @@
+import { SupplierService } from '../../suppliers/services/supplier.service';
 import { knownExpiryPolicyProviders } from '../../../../tests/expiry/expiry-policy.providers';
 import { signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -109,13 +110,18 @@ describe('InventoryBatchPageComponent', () => {
         lastName: 'One',
       },
       activeShopId: 'shop-1',
-      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
+      shops: [
+        { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
+      ],
     }),
   };
 
   async function setup() {
     TestBed.configureTestingModule({
-      imports: [InventoryBatchPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        InventoryBatchPageComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         ...knownExpiryPolicyProviders(),
         { provide: AuthService, useValue: authService },
@@ -123,6 +129,12 @@ describe('InventoryBatchPageComponent', () => {
         { provide: InventoryDraftIndexedDbService, useValue: draftStorage },
         { provide: ProductCatalogSyncService, useValue: productCatalogSync },
         { provide: SuppliersFacade, useValue: suppliersFacade },
+        {
+          provide: SupplierService,
+          useValue: {
+            getSupplier: vi.fn((id) => of({ supplierId: id, name: 'Acme Foods', isActive: true })),
+          },
+        },
         { provide: AudioService, useValue: audioService },
         { provide: BarcodeDetectorService, useValue: barcodeDetectorService },
         { provide: CameraStreamService, useValue: cameraStreamService },
@@ -271,7 +283,10 @@ describe('InventoryBatchPageComponent', () => {
       engine: 'zxing',
     });
 
-    expect(inventoryService.getProductDetailsByNameOrBarcode).toHaveBeenCalledWith(undefined, barcode);
+    expect(inventoryService.getProductDetailsByNameOrBarcode).toHaveBeenCalledWith(
+      undefined,
+      barcode,
+    );
     expect(component.pendingRows()).toHaveLength(1);
     expect(component.pendingRows()[0].itemName).toBe(productDetails.name);
     expect(component.pendingRows()[0].barcode).toBe(barcode);
@@ -399,9 +414,7 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.scannerLastAction()).toBe('inventory.scannerActionReview');
     expect(component.isScannerOpen()).toBe(false);
     expect(addSpy).toHaveBeenCalledTimes(1);
-    expect(addSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ severity: 'warn' }),
-    );
+    expect(addSpy).toHaveBeenCalledWith(expect.objectContaining({ severity: 'warn' }));
   });
 
   it('keeps scanner in review flow when cache misses and API returns no usable product', async () => {
@@ -413,7 +426,9 @@ describe('InventoryBatchPageComponent', () => {
 
     productCatalogSync.findByBarcode.mockReturnValue(undefined);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    inventoryService.getProductDetailsByNameOrBarcode.mockReturnValue(of({ ...productDetails, name: '' }) as any);
+    inventoryService.getProductDetailsByNameOrBarcode.mockReturnValue(
+      of({ ...productDetails, name: '' }) as any,
+    );
     component.isScannerOpen.set(true);
 
     await component.handleScannedBarcode({
@@ -431,9 +446,7 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.scannerLastAction()).toBe('inventory.scannerActionReview');
     expect(component.isScannerOpen()).toBe(false);
     expect(addSpy).toHaveBeenCalledTimes(1);
-    expect(addSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ severity: 'warn' }),
-    );
+    expect(addSpy).toHaveBeenCalledWith(expect.objectContaining({ severity: 'warn' }));
   });
 
   it('splits save requests into chunks of 100 when more than 100 rows exist', async () => {
@@ -604,11 +617,13 @@ describe('InventoryBatchPageComponent', () => {
     async ({ purchaseTaxIncluded, taxIncluded }) => {
       const fixture = await setup();
       const component = fixture.componentInstance;
-      inventoryService.addInventoryBatch.mockImplementation((payload: { items: Array<{ clientRowId: string }> }) =>
-        of(allSucceeded(payload.items)),
+      inventoryService.addInventoryBatch.mockImplementation(
+        (payload: { items: Array<{ clientRowId: string }> }) => of(allSucceeded(payload.items)),
       );
 
-      component.pendingRows.set([createDraftRow('row-1', 'Milk', 'BC-1', { purchaseTaxIncluded, taxIncluded })]);
+      component.pendingRows.set([
+        createDraftRow('row-1', 'Milk', 'BC-1', { purchaseTaxIncluded, taxIncluded }),
+      ]);
       component.onSaveAll();
       await fixture.whenStable();
 
@@ -622,11 +637,11 @@ describe('InventoryBatchPageComponent', () => {
   it('refuses to save draft rows stored without a purchase tax mode', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
-    const { purchaseTaxIncluded: _omitted, purchaseTaxModeConfirmed: _marker, ...oldRow } = createDraftRow(
-      'row-1',
-      'Milk',
-      'BC-1',
-    );
+    const {
+      purchaseTaxIncluded: _omitted,
+      purchaseTaxModeConfirmed: _marker,
+      ...oldRow
+    } = createDraftRow('row-1', 'Milk', 'BC-1');
 
     component.pendingRows.set([oldRow]);
     component.onSaveAll();
@@ -643,10 +658,15 @@ describe('InventoryBatchPageComponent', () => {
     const messageService = fixture.debugElement.injector.get(MessageService);
     const addSpy = vi.spyOn(messageService, 'add');
     // Written by the release that copied the sales mode: a boolean is present, but never chosen.
-    const { purchaseTaxModeConfirmed: _marker, ...legacyRow } = createDraftRow('row-1', 'Milk', 'BC-1', {
-      taxIncluded: false,
-      purchaseTaxIncluded: false,
-    });
+    const { purchaseTaxModeConfirmed: _marker, ...legacyRow } = createDraftRow(
+      'row-1',
+      'Milk',
+      'BC-1',
+      {
+        taxIncluded: false,
+        purchaseTaxIncluded: false,
+      },
+    );
     const confirmedRow = createDraftRow('row-2', 'Bread', 'BC-2');
 
     component.pendingRows.set([legacyRow, confirmedRow]);
@@ -658,20 +678,30 @@ describe('InventoryBatchPageComponent', () => {
     expect(draftStorage.saveSubmission).not.toHaveBeenCalled();
     expect(component.pendingRows()).toHaveLength(2);
     expect(addSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ severity: 'warn', summary: expect.stringContaining('inventory.purchaseTaxModeMissingRows') }),
+      expect.objectContaining({
+        severity: 'warn',
+        summary: expect.stringContaining('inventory.purchaseTaxModeMissingRows'),
+      }),
     );
     // Only the legacy row is marked as needing confirmation (mobile card + desktop table).
-    expect(fixture.nativeElement.querySelectorAll('[data-testid="purchase-tax-unconfirmed"]').length).toBe(2);
+    expect(
+      fixture.nativeElement.querySelectorAll('[data-testid="purchase-tax-unconfirmed"]').length,
+    ).toBe(2);
   });
 
   it('asks again for the purchase mode when a legacy row is edited and marks it confirmed once chosen', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
-    const { purchaseTaxModeConfirmed: _marker, ...legacyRow } = createDraftRow('row-1', 'Milk', 'BC-1', {
-      taxIncluded: true,
-      purchaseTaxIncluded: true,
-    });
-    const rowFormState = TestBed.inject(BatchRowFormStateService);
+    const { purchaseTaxModeConfirmed: _marker, ...legacyRow } = createDraftRow(
+      'row-1',
+      'Milk',
+      'BC-1',
+      {
+        taxIncluded: true,
+        purchaseTaxIncluded: true,
+      },
+    );
+    const rowFormState = fixture.debugElement.injector.get(BatchRowFormStateService);
 
     component.pendingRows.set([legacyRow]);
     component.onEditRow('row-1');
@@ -692,12 +722,11 @@ describe('InventoryBatchPageComponent', () => {
       taxIncluded: false,
       purchaseTaxIncluded: false,
     });
-    const { purchaseTaxModeConfirmed: _b, purchaseTaxIncluded: _c, ...missingRow } = createDraftRow(
-      'row-2',
-      'Bread',
-      'BC-2',
-      { taxIncluded: true },
-    );
+    const {
+      purchaseTaxModeConfirmed: _b,
+      purchaseTaxIncluded: _c,
+      ...missingRow
+    } = createDraftRow('row-2', 'Bread', 'BC-2', { taxIncluded: true });
     storedSubmission = {
       shopId: 'shop-1',
       chunks: [{ operationKey: 'intake-legacy-0', rows: [copiedRow, missingRow] }],
@@ -706,8 +735,8 @@ describe('InventoryBatchPageComponent', () => {
     draftStorage.loadRows.mockResolvedValueOnce([copiedRow, missingRow] as never);
     const fixture = await setup();
     const component = fixture.componentInstance;
-    inventoryService.addInventoryBatch.mockImplementation((payload: { items: Array<{ clientRowId: string }> }) =>
-      of(allSucceeded(payload.items)),
+    inventoryService.addInventoryBatch.mockImplementation(
+      (payload: { items: Array<{ clientRowId: string }> }) => of(allSucceeded(payload.items)),
     );
 
     expect(component.hasInterruptedSubmission()).toBe(true);
@@ -732,11 +761,12 @@ describe('InventoryBatchPageComponent', () => {
   it('sends each chunk under its own operation key with a frozen performedAt', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
-    const rows = Array.from({ length: 105 }, (_, index) =>
-      ({ ...createDraftRow(`row-${index + 1}`, `Item ${index + 1}`, `BC-${index + 1}`), performedAt: null }),
-    );
-    inventoryService.addInventoryBatch.mockImplementation((payload: { items: Array<{ clientRowId: string }> }) =>
-      of(allSucceeded(payload.items)),
+    const rows = Array.from({ length: 105 }, (_, index) => ({
+      ...createDraftRow(`row-${index + 1}`, `Item ${index + 1}`, `BC-${index + 1}`),
+      performedAt: null,
+    }));
+    inventoryService.addInventoryBatch.mockImplementation(
+      (payload: { items: Array<{ clientRowId: string }> }) => of(allSucceeded(payload.items)),
     );
 
     component.pendingRows.set(rows);
@@ -757,10 +787,15 @@ describe('InventoryBatchPageComponent', () => {
   it('resends the frozen submission unchanged after a lost response', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
-    const rows = [createDraftRow('row-1', 'Milk', 'BC-1'), createDraftRow('row-2', 'Bread', 'BC-2')];
+    const rows = [
+      createDraftRow('row-1', 'Milk', 'BC-1'),
+      createDraftRow('row-2', 'Bread', 'BC-2'),
+    ];
     inventoryService.addInventoryBatch
       .mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 0 })))
-      .mockImplementationOnce((payload: { items: Array<{ clientRowId: string }> }) => of(allSucceeded(payload.items)));
+      .mockImplementationOnce((payload: { items: Array<{ clientRowId: string }> }) =>
+        of(allSucceeded(payload.items)),
+      );
 
     component.pendingRows.set(rows);
     component.onSaveAll();
@@ -795,7 +830,10 @@ describe('InventoryBatchPageComponent', () => {
   it('keeps the frozen submission when a row comes back retryable', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
-    const rows = [createDraftRow('row-1', 'Milk', 'BC-1'), createDraftRow('row-2', 'Bread', 'BC-2')];
+    const rows = [
+      createDraftRow('row-1', 'Milk', 'BC-1'),
+      createDraftRow('row-2', 'Bread', 'BC-2'),
+    ];
     inventoryService.addInventoryBatch
       .mockReturnValueOnce(
         of({
@@ -814,7 +852,9 @@ describe('InventoryBatchPageComponent', () => {
           ],
         }),
       )
-      .mockImplementationOnce((payload: { items: Array<{ clientRowId: string }> }) => of(allSucceeded(payload.items)));
+      .mockImplementationOnce((payload: { items: Array<{ clientRowId: string }> }) =>
+        of(allSucceeded(payload.items)),
+      );
 
     component.pendingRows.set(rows);
     component.onSaveAll();
@@ -836,13 +876,15 @@ describe('InventoryBatchPageComponent', () => {
   it('resends an interrupted submission even when no draft rows remain', async () => {
     storedSubmission = {
       shopId: 'shop-1',
-      chunks: [{ operationKey: 'intake-stored-0', rows: [createDraftRow('row-1', 'Milk', 'BC-1')] }],
+      chunks: [
+        { operationKey: 'intake-stored-0', rows: [createDraftRow('row-1', 'Milk', 'BC-1')] },
+      ],
       createdAt: '2026-11-01T00:00:00Z',
     };
     const fixture = await setup();
     const component = fixture.componentInstance;
-    inventoryService.addInventoryBatch.mockImplementation((payload: { items: Array<{ clientRowId: string }> }) =>
-      of(allSucceeded(payload.items)),
+    inventoryService.addInventoryBatch.mockImplementation(
+      (payload: { items: Array<{ clientRowId: string }> }) => of(allSucceeded(payload.items)),
     );
 
     expect(component.hasInterruptedSubmission()).toBe(true);
@@ -850,14 +892,18 @@ describe('InventoryBatchPageComponent', () => {
     await fixture.whenStable();
 
     expect(inventoryService.addInventoryBatch).toHaveBeenCalledTimes(1);
-    expect(inventoryService.addInventoryBatch.mock.calls[0][0].operationKey).toBe('intake-stored-0');
+    expect(inventoryService.addInventoryBatch.mock.calls[0][0].operationKey).toBe(
+      'intake-stored-0',
+    );
     expect(storedSubmission).toBeNull();
   });
 
   /** Moves the tab to shop-2 the way the shop context does: detach first, then the new session. */
   function moveToShopTwo(originalSession: ReturnType<typeof authService.session>): void {
-    TestBed.inject(ShopContextService).transition({ userId: 'owner-1', shopId: 'shop-2' }, 'cross-tab', () =>
-      authService.session.set({ ...originalSession, activeShopId: 'shop-2' }),
+    TestBed.inject(ShopContextService).transition(
+      { userId: 'owner-1', shopId: 'shop-2' },
+      'cross-tab',
+      () => authService.session.set({ ...originalSession, activeShopId: 'shop-2' }),
     );
   }
 
@@ -865,11 +911,15 @@ describe('InventoryBatchPageComponent', () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
     const originalSession = authService.session();
-    const rows = Array.from({ length: 105 }, (_, index) => createDraftRow(`row-${index + 1}`, `Item ${index + 1}`, `BC-${index + 1}`));
-    inventoryService.addInventoryBatch.mockImplementation((payload: { items: Array<{ clientRowId: string }> }) => {
-      moveToShopTwo(originalSession);
-      return of(allSucceeded(payload.items));
-    });
+    const rows = Array.from({ length: 105 }, (_, index) =>
+      createDraftRow(`row-${index + 1}`, `Item ${index + 1}`, `BC-${index + 1}`),
+    );
+    inventoryService.addInventoryBatch.mockImplementation(
+      (payload: { items: Array<{ clientRowId: string }> }) => {
+        moveToShopTwo(originalSession);
+        return of(allSucceeded(payload.items));
+      },
+    );
 
     try {
       component.pendingRows.set(rows);
@@ -877,7 +927,10 @@ describe('InventoryBatchPageComponent', () => {
       await fixture.whenStable();
 
       expect(inventoryService.addInventoryBatch).toHaveBeenCalledTimes(1);
-      expect(inventoryService.addInventoryBatch.mock.calls[0][1]).toEqual({ userId: 'owner-1', shopId: 'shop-1' });
+      expect(inventoryService.addInventoryBatch.mock.calls[0][1]).toEqual({
+        userId: 'owner-1',
+        shopId: 'shop-1',
+      });
       expect(draftStorage.clearSubmission).not.toHaveBeenCalled();
       expect(storedSubmission?.shopId).toBe('shop-1');
     } finally {
@@ -890,10 +943,12 @@ describe('InventoryBatchPageComponent', () => {
     const component = fixture.componentInstance;
     const rows = [createDraftRow('row-1', 'Milk', 'BC-1')];
     const added = createDraftRow('row-added', 'Bread', 'BC-2');
-    inventoryService.addInventoryBatch.mockImplementation((payload: { items: Array<{ clientRowId: string }> }) => {
-      component.pendingRows.set([...component.pendingRows(), added]);
-      return of(allSucceeded(payload.items));
-    });
+    inventoryService.addInventoryBatch.mockImplementation(
+      (payload: { items: Array<{ clientRowId: string }> }) => {
+        component.pendingRows.set([...component.pendingRows(), added]);
+        return of(allSucceeded(payload.items));
+      },
+    );
 
     component.pendingRows.set(rows);
     component.onSaveAll();
@@ -906,7 +961,9 @@ describe('InventoryBatchPageComponent', () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
     const originalSession = authService.session();
-    const rows = Array.from({ length: 105 }, (_, index) => createDraftRow(`row-${index + 1}`, `Item ${index + 1}`, `BC-${index + 1}`));
+    const rows = Array.from({ length: 105 }, (_, index) =>
+      createDraftRow(`row-${index + 1}`, `Item ${index + 1}`, `BC-${index + 1}`),
+    );
     inventoryService.addInventoryBatch.mockImplementation(() => {
       moveToShopTwo(originalSession);
       // The next shop's draft is now in memory, as the page loads it after the move.
@@ -936,9 +993,14 @@ describe('InventoryBatchPageComponent', () => {
     const rows = [createDraftRow('row-1', 'Milk', 'BC-1')];
     inventoryService.addInventoryBatch
       .mockReturnValueOnce(
-        throwError(() => new HttpErrorResponse({ status: 409, error: { title: 'Operation.PayloadMismatch' } })),
+        throwError(
+          () =>
+            new HttpErrorResponse({ status: 409, error: { title: 'Operation.PayloadMismatch' } }),
+        ),
       )
-      .mockImplementationOnce((payload: { items: Array<{ clientRowId: string }> }) => of(allSucceeded(payload.items)));
+      .mockImplementationOnce((payload: { items: Array<{ clientRowId: string }> }) =>
+        of(allSucceeded(payload.items)),
+      );
 
     component.pendingRows.set(rows);
     component.onSaveAll();
@@ -1045,7 +1107,10 @@ describe('InventoryBatchPageComponent', () => {
       requestedCount: items.length,
       successCount: items.length,
       failedCount: 0,
-      succeeded: items.map((item) => ({ clientRowId: item.clientRowId, result: createResult(item.clientRowId) })),
+      succeeded: items.map((item) => ({
+        clientRowId: item.clientRowId,
+        result: createResult(item.clientRowId),
+      })),
       failed: [],
     };
   }

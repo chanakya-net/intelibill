@@ -1,3 +1,8 @@
+import { Injector } from '@angular/core';
+import { ShopContextService } from '../../../core/context/shop-context.service';
+import { RemotePartySearch } from '../../../shared/models/remote-party-search';
+import { supplierOptionLabel } from '../../../shared/models/party-directory.models';
+import { SupplierService } from '../../suppliers/services/supplier.service';
 import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
 import type { ExpiryPolicy } from '../../expiry/services/expiry.models';
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
@@ -29,7 +34,29 @@ export class BatchRowFormStateService {
   private readonly inventoryService = inject(InventoryService);
   private readonly batchDefaults = inject(InventoryBatchDefaultsService);
   private readonly catalogSync = inject(ProductCatalogSyncService);
-  private readonly suppliersFacade = inject(SuppliersFacade);
+  private readonly partyInjector = inject(Injector);
+  private readonly partyContext = inject(ShopContextService);
+  private readonly supplierSearch = new RemotePartySearch<Supplier>(
+    (search) =>
+      this.partyInjector
+        .get(SupplierService)
+        .getDirectory({
+          search,
+          status: 'active',
+          pageNumber: 1,
+          pageSize: 20,
+          includeSystem: true,
+        }),
+    () => this.partyContext.epoch(),
+    (items) => this.supplierSuggestions.set(items.map(supplierOptionLabel)),
+  );
+  readonly selectedSupplier = signal<Supplier | null>(null);
+  private restoredSupplierId: string | null = null;
+  private restoredSupplierName: string | null = null;
+  private restoreRevision = 0;
+  private restoreSubscription: import('rxjs').Subscription | undefined;
+  readonly supplierSearchLoading = this.supplierSearch.loading;
+  readonly supplierSearchError = this.supplierSearch.error;
   private readonly destroyRef = inject(DestroyRef);
 
   private readonly expiryPolicies = inject(ExpiryPolicyService);
@@ -38,9 +65,18 @@ export class BatchRowFormStateService {
   private expiryLookup = 0;
   private loadExpiryPolicy(): void {
     const lookup = ++this.expiryLookup;
-    const entry = this.catalogSync.findByBarcode(this.form.controls.barcode.value.trim()) ?? this.catalogSync.findByName(this.form.controls.itemName.value.trim());
+    const entry =
+      this.catalogSync.findByBarcode(this.form.controls.barcode.value.trim()) ??
+      this.catalogSync.findByName(this.form.controls.itemName.value.trim());
     this.expiryPolicy.set(null);
-    this.expiryPolicies.read(entry?.itemId).subscribe({ next: value => { if (lookup === this.expiryLookup) this.expiryPolicy.set(value.effectivePolicy); }, error: () => { if (lookup === this.expiryLookup) this.expiryDateError.set('expiry.loadFailed'); } });
+    this.expiryPolicies.read(entry?.itemId).subscribe({
+      next: (value) => {
+        if (lookup === this.expiryLookup) this.expiryPolicy.set(value.effectivePolicy);
+      },
+      error: () => {
+        if (lookup === this.expiryLookup) this.expiryDateError.set('expiry.loadFailed');
+      },
+    });
   }
   readonly loadingProduct = signal(false);
   readonly isLoadingHsn = signal(false);
@@ -65,7 +101,7 @@ export class BatchRowFormStateService {
   readonly pickerTaxOptions = computed(() =>
     (this.hsnResult()?.taxScenarios ?? []).map((s) => s.taxPercentage),
   );
-  readonly suppliers = this.suppliersFacade.suppliers;
+  readonly suppliers = this.supplierSearch.items;
   readonly form = this.formBuilder.nonNullable.group(
     {
       itemName: ['', InputValidators.requiredText(180)],
@@ -96,6 +132,16 @@ export class BatchRowFormStateService {
   private clearHsnSelectionOnNextItemNameChange = false;
 
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.supplierSearch.destroy();
+      this.restoreSubscription?.unsubscribe();
+    });
+    this.partyContext.changes$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.supplierSearch.destroy();
+      this.supplierSearch.items.set([]);
+      this.supplierSuggestions.set([]);
+      this.resetForm();
+    });
     this.form.controls.itemName.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((value) => {
@@ -104,10 +150,14 @@ export class BatchRowFormStateService {
         }
       });
 
-    this.form.controls.barcode.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadExpiryPolicy());
+    this.form.controls.barcode.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.loadExpiryPolicy());
     this.resetForm();
     this.loadExpiryPolicy();
-    this.expiryPolicies.changed$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadExpiryPolicy());
+    this.expiryPolicies.changed$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.loadExpiryPolicy());
   }
 
   onFilterName(event: AutoCompleteCompleteEvent): void {
@@ -251,21 +301,16 @@ export class BatchRowFormStateService {
   }
 
   onFilterSupplier(event: AutoCompleteCompleteEvent): void {
-    const normalized = event.query.trim().toLowerCase();
-    const matches = this.suppliers()
-      .filter((supplier) => supplier.name.toLowerCase().includes(normalized))
-      .slice(0, 15)
-      .map((supplier) => supplier.name);
-
-    this.supplierSuggestions.set(matches);
+    this.supplierSearch.search(event.query);
   }
 
   onSupplierSelected(selection: string): void {
     const supplier = this.findSupplierByName(selection);
-    if (!supplier) {
-      return;
-    }
-
+    if (!supplier || !supplier.isActive) return;
+    ++this.restoreRevision;
+    this.restoreSubscription?.unsubscribe();
+    this.selectedSupplier.set(supplier);
+    this.restoredSupplierId = supplier.supplierId;
     this.form.controls.supplierName.setValue(supplier.name);
   }
 
@@ -398,9 +443,18 @@ export class BatchRowFormStateService {
     this.expiryDateError.set('');
     const expiry = this.form.controls.expiryDate.value;
     const manufacturing = this.form.controls.manufacturingDate.value;
-    if (!this.expiryPolicy()) { this.expiryDateError.set('expiry.loadFailed'); return null; }
-    if (this.expiryPolicy()!.expiryRequired && !expiry) { this.expiryDateError.set('expiry.receiptRequired'); return null; }
-    if (expiry && manufacturing && manufacturing > expiry) { this.expiryDateError.set('expiry.dateOrder'); return null; }
+    if (!this.expiryPolicy()) {
+      this.expiryDateError.set('expiry.loadFailed');
+      return null;
+    }
+    if (this.expiryPolicy()!.expiryRequired && !expiry) {
+      this.expiryDateError.set('expiry.receiptRequired');
+      return null;
+    }
+    if (expiry && manufacturing && manufacturing > expiry) {
+      this.expiryDateError.set('expiry.dateOrder');
+      return null;
+    }
     if (this.form.invalid) {
       return null;
     }
@@ -437,6 +491,12 @@ export class BatchRowFormStateService {
   }
 
   loadDraftRow(row: InventoryInboundDraftRow): void {
+    const revision = ++this.restoreRevision;
+    this.restoreSubscription?.unsubscribe();
+    this.selectedSupplier.set(null);
+    this.restoredSupplierId = row.supplierId;
+    this.restoredSupplierName = null;
+
     this.form.setValue({
       itemName: row.itemName,
       barcode: row.barcode,
@@ -451,7 +511,9 @@ export class BatchRowFormStateService {
       taxIncluded: row.taxIncluded,
       // Drafts stored by earlier releases either lack the purchase mode or carry one silently copied
       // from the sales mode; both stay unconfirmed until the user chooses it here.
-      purchaseTaxIncluded: isPurchaseTaxModeConfirmed(row) ? (row.purchaseTaxIncluded ?? null) : null,
+      purchaseTaxIncluded: isPurchaseTaxModeConfirmed(row)
+        ? (row.purchaseTaxIncluded ?? null)
+        : null,
       expiryDate: row.expiryDate ?? '',
       manufacturingDate: row.manufacturingDate ?? '',
       supplierName:
@@ -462,6 +524,20 @@ export class BatchRowFormStateService {
       notes: row.notes ?? '',
     });
 
+    if (row.supplierId) {
+      const epoch = this.partyContext.epoch();
+      this.restoreSubscription = this.partyInjector
+        .get(SupplierService)
+        .getSupplier(row.supplierId)
+        .subscribe({
+          next: (supplier) => {
+            if (revision !== this.restoreRevision || epoch !== this.partyContext.epoch()) return;
+            this.selectedSupplier.set(supplier);
+            this.form.controls.supplierName.setValue(supplier.name, { emitEvent: false });
+          },
+          error: () => {},
+        });
+    }
     this.selectedHsnCode.set(row.hsnCode ?? null);
     this.pickerHsnCode = row.hsnCode ?? null;
     this.pickerTaxRate = row.taxRatePercent.toString();
@@ -470,6 +546,12 @@ export class BatchRowFormStateService {
   }
 
   resetForm(): void {
+    ++this.restoreRevision;
+    this.restoreSubscription?.unsubscribe();
+    this.selectedSupplier.set(null);
+    this.restoredSupplierId = null;
+    this.restoredSupplierName = null;
+
     this.form.reset({
       itemName: '',
       barcode: '',
@@ -502,7 +584,10 @@ export class BatchRowFormStateService {
     }
 
     return (
-      this.suppliers().find((supplier) => supplier.supplierId === supplierId)?.name ?? supplierId
+      (this.selectedSupplier()?.supplierId === supplierId
+        ? this.selectedSupplier()?.name
+        : this.suppliers().find((supplier) => supplier.supplierId === supplierId)?.name) ??
+      supplierId
     );
   }
 
@@ -562,6 +647,9 @@ export class BatchRowFormStateService {
 
     if (!this.form.controls.supplierName.dirty && details.supplierName) {
       patch.supplierName = details.supplierName;
+      this.restoredSupplierId = details.supplierId;
+      this.restoredSupplierName = details.supplierName;
+      this.selectedSupplier.set(null);
     }
 
     if (!this.form.controls.taxIncluded.dirty && details.taxIncluded !== null) {
@@ -587,16 +675,26 @@ export class BatchRowFormStateService {
 
   private resolveSupplierId(value: string): string | null {
     const normalized = value.trim();
-    if (!normalized) {
-      return null;
-    }
-
+    if (!normalized) return null;
+    const selected = this.selectedSupplier();
+    if (selected && (normalized === selected.name || normalized === supplierOptionLabel(selected)))
+      return selected.supplierId;
+    if (
+      this.restoredSupplierId &&
+      (normalized === this.restoredSupplierId || normalized === this.restoredSupplierName)
+    )
+      return this.restoredSupplierId;
     return this.findSupplierByName(normalized)?.supplierId ?? null;
   }
 
   private findSupplierByName(name: string): Supplier | undefined {
     const normalized = name.trim().toLowerCase();
-    return this.suppliers().find((supplier) => supplier.name.toLowerCase() === normalized);
+    const matches = this.suppliers().filter(
+      (supplier) =>
+        supplierOptionLabel(supplier).toLowerCase() === normalized ||
+        supplier.name.toLowerCase() === normalized,
+    );
+    return matches.length === 1 ? matches[0] : undefined;
   }
 
   private createRowId(): string {

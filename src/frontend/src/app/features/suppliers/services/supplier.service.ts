@@ -1,3 +1,8 @@
+import {
+  PartyDirectoryQuery,
+  SupplierDirectoryPage,
+  directoryParams,
+} from '../../../shared/models/party-directory.models';
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
@@ -48,6 +53,16 @@ export interface EditSupplierRequest {
 @Injectable({ providedIn: 'root' })
 export class SupplierService {
   private readonly http = inject(HttpClient);
+
+  getDirectory(query: PartyDirectoryQuery = {}): Observable<SupplierDirectoryPage> {
+    return this.http.get<SupplierDirectoryPage>(SUPPLIER_ENDPOINTS.directory, {
+      params: directoryParams(query, true),
+    });
+  }
+
+  getSupplier(supplierId: string): Observable<Supplier> {
+    return this.http.get<Supplier>(SUPPLIER_ENDPOINTS.update(encodeURIComponent(supplierId)));
+  }
 
   getSuppliers(): Observable<readonly Supplier[]> {
     return this.http.get<readonly Supplier[]>(SUPPLIER_ENDPOINTS.list);

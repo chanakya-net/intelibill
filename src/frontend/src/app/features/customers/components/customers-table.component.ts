@@ -1,3 +1,4 @@
+import { PaginatorModule } from 'primeng/paginator';
 import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
@@ -25,6 +26,7 @@ import { creditPolicyLabelKey } from '../utils/credit-policy.util';
   imports: [
     LocaleMoneyPipe,
     CommonModule,
+    PaginatorModule,
     AvatarModule,
     ButtonModule,
     CardModule,
@@ -39,6 +41,14 @@ export class CustomersTableComponent {
   @Input({ required: true }) customers: readonly Customer[] = [];
   @Input() visibleRows = 0;
   @Input() totalRows = 0;
+
+  @Input() pageNumber = 1;
+  @Input() pageSize = 20;
+  @Output() pageChange = new EventEmitter<{ page: number; rows: number }>();
+  onPageChange(event: { page?: number; rows?: number }): void {
+    const rows = event.rows ?? this.pageSize;
+    this.pageChange.emit({ page: rows !== this.pageSize ? 1 : (event.page ?? 0) + 1, rows });
+  }
 
   @Output() openCustomerAccount = new EventEmitter<Customer>();
   @Output() openEditCustomer = new EventEmitter<Customer>();

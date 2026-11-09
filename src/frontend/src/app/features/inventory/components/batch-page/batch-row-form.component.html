@@ -99,12 +99,21 @@
           <p-autocomplete
             formControlName="supplierName"
             [suggestions]="state.supplierSuggestions()"
+            [delay]="0"
+            [maxlength]="200"
             (completeMethod)="onSupplierFilter($event)"
             (onSelect)="state.onSupplierSelected($event.value)"
             appendTo="body"
             [fluid]="true"
           ></p-autocomplete>
         </label>
+        <p class="text-xs text-slate-500">{{ 'partyDirectory.searchHint' | transloco }}</p>
+        @if (state.supplierSearchLoading()) {
+          <p role="status">{{ 'common.loading' | transloco }}</p>
+        }
+        @if (state.supplierSearchError()) {
+          <p role="status">{{ 'errors.suppliers.unableToLoadSuppliers' | transloco }}</p>
+        }
 
         <label>
           <span>{{ 'inventory.description' | transloco }}</span>
@@ -195,7 +204,9 @@
             </ng-template>
           </p-select>
           @if (form.controls.purchaseTaxIncluded.value === null) {
-            <small class="pricing-guard">{{ 'inventory.purchaseTaxModeRequired' | transloco }}</small>
+            <small class="pricing-guard">{{
+              'inventory.purchaseTaxModeRequired' | transloco
+            }}</small>
           }
         </label>
 
@@ -215,8 +226,19 @@
         </label>
 
         <label>
-          <span>{{ 'inventory.expiryDate' | transloco }} @if (state.expiryPolicy()?.expiryRequired) { * }</span>
-          <input pInputText type="date" formControlName="expiryDate" [required]="state.expiryPolicy()?.expiryRequired ?? false" [attr.aria-invalid]="!!state.expiryDateError()" />
+          <span
+            >{{ 'inventory.expiryDate' | transloco }}
+            @if (state.expiryPolicy()?.expiryRequired) {
+              *
+            }
+          </span>
+          <input
+            pInputText
+            type="date"
+            formControlName="expiryDate"
+            [required]="state.expiryPolicy()?.expiryRequired ?? false"
+            [attr.aria-invalid]="!!state.expiryDateError()"
+          />
         </label>
 
         <label>
@@ -249,4 +271,6 @@
   </form>
 </div>
 
-@if (state.expiryDateError()) { <p role="alert" class="text-red-700 text-sm">{{ state.expiryDateError() | transloco }}</p> }
+@if (state.expiryDateError()) {
+  <p role="alert" class="text-red-700 text-sm">{{ state.expiryDateError() | transloco }}</p>
+}

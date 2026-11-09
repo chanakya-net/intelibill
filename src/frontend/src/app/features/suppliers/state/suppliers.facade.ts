@@ -1,3 +1,12 @@
+import {
+  PartyDirectoryQuery,
+  DEFAULT_DIRECTORY_QUERY,
+} from '../../../shared/models/party-directory.models';
+import {
+  selectDirectoryQuery,
+  selectDirectoryTotalCount,
+  selectDirectorySummary,
+} from './suppliers.selectors';
 import { Injectable, Signal, inject } from '@angular/core';
 import { Dictionary } from '@ngrx/entity';
 import { Store } from '@ngrx/store';
@@ -21,22 +30,33 @@ import {
 @Injectable({ providedIn: 'root' })
 export class SuppliersFacade {
   private readonly store = inject(Store);
+  readonly query = this.store.selectSignal(selectDirectoryQuery);
+  readonly totalCount = this.store.selectSignal(selectDirectoryTotalCount);
+  readonly summary = this.store.selectSignal(selectDirectorySummary);
+  loadDirectory(query: PartyDirectoryQuery = this.query() ?? DEFAULT_DIRECTORY_QUERY): void {
+    this.store.dispatch(
+      SuppliersActions.directoryRequested({ query, requestId: crypto.randomUUID() }),
+    );
+  }
 
   readonly suppliers: Signal<readonly Supplier[]> = this.store.selectSignal(selectSuppliers);
-  readonly supplierEntities: Signal<Dictionary<Supplier>> = this.store.selectSignal(selectSupplierEntities);
+  readonly supplierEntities: Signal<Dictionary<Supplier>> =
+    this.store.selectSignal(selectSupplierEntities);
   readonly isLoading: Signal<boolean> = this.store.selectSignal(selectSuppliersLoading);
   readonly isSubmitting: Signal<boolean> = this.store.selectSignal(selectSuppliersSubmitting);
   readonly errorMessage: Signal<string> = this.store.selectSignal(selectSuppliersErrorMessage);
   readonly lastMutationType: Signal<'add-supplier' | 'edit-supplier' | 'make-payment' | null> =
     this.store.selectSignal(selectSuppliersLastMutationType);
-  readonly lastMutationSucceeded: Signal<boolean> = this.store.selectSignal(selectSuppliersLastMutationSucceeded);
+  readonly lastMutationSucceeded: Signal<boolean> = this.store.selectSignal(
+    selectSuppliersLastMutationSucceeded,
+  );
 
   readonly ledgerEntries = this.store.selectSignal(selectLedgerEntries);
   readonly ledgerIsLoading = this.store.selectSignal(selectLedgerLoading);
   readonly ledgerErrorMessage = this.store.selectSignal(selectLedgerErrorMessage);
 
   load(): void {
-    this.store.dispatch(SuppliersActions.loadSuppliersRequested());
+    this.loadDirectory();
   }
 
   clearError(): void {

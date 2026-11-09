@@ -124,7 +124,12 @@ describe('SuppliersFacade', () => {
     facade.loadLedger('s1');
     facade.clearLedger();
 
-    expect(dispatch).toHaveBeenCalledWith(SuppliersActions.loadSuppliersRequested());
+    expect(dispatch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: SuppliersActions.directoryRequested.type,
+        requestId: expect.any(String),
+      }),
+    );
     expect(dispatch).toHaveBeenCalledWith(SuppliersActions.clearError());
     expect(dispatch).toHaveBeenCalledWith(SuppliersActions.clearMutationStatus());
     expect(dispatch).toHaveBeenCalledWith(
@@ -140,7 +145,7 @@ describe('SuppliersFacade', () => {
           isActive: true,
           isPreferred: false,
         },
-      })
+      }),
     );
     expect(dispatch).toHaveBeenCalledWith(
       SuppliersActions.editSupplierRequested({
@@ -156,10 +161,10 @@ describe('SuppliersFacade', () => {
           isActive: true,
           isPreferred: true,
         },
-      })
+      }),
     );
     expect(dispatch).toHaveBeenCalledWith(
-      SuppliersActions.loadSupplierLedgerRequested({ supplierId: 's1' })
+      SuppliersActions.loadSupplierLedgerRequested({ supplierId: 's1' }),
     );
     expect(dispatch).toHaveBeenCalledWith(SuppliersActions.clearLedger());
   });
@@ -171,7 +176,7 @@ describe('SuppliersFacade', () => {
     facade.makePayment('s1', payload);
 
     expect(dispatch).toHaveBeenCalledWith(
-      SuppliersActions.makePaymentRequested({ supplierId: 's1', payload })
+      SuppliersActions.makePaymentRequested({ supplierId: 's1', payload }),
     );
   });
 });

@@ -1,3 +1,7 @@
+import { ShopContextService } from '../../../core/context/shop-context.service';
+import { Customer, CustomerService } from '../../customers/services/customer.service';
+import { RemotePartySearch } from '../../../shared/models/remote-party-search';
+import { customerOptionLabel } from '../../../shared/models/party-directory.models';
 import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { signal as errorSignal } from '@angular/core';
 import { shopBusinessDate } from '../../expiry/services/expiry-policy-evaluator';
@@ -92,7 +96,7 @@ export abstract class NewSalePageStateService {
   protected readonly authService = inject(AuthService);
   protected readonly catalogSync = inject(ProductCatalogSyncService);
   protected readonly inventoryService = inject(InventoryService);
-  protected readonly customersFacade = inject(CustomersFacade);
+  protected readonly partyContext = inject(ShopContextService);
   protected readonly salesFacade = inject(SalesFacade);
   protected readonly cartState = inject(SaleCartStateService);
   protected readonly salePreview = inject(SalePreviewService);
@@ -258,7 +262,19 @@ export abstract class NewSalePageStateService {
   readonly lastMutationSucceeded = this.salesFacade.lastMutationSucceeded;
   readonly lastMutationType = this.salesFacade.lastMutationType;
   readonly lastRecordedSale = this.salesFacade.lastRecordedSale;
-  readonly customers = computed(() => this.readFacadeValue(this.customersFacade.allCustomers));
+  protected readonly onlineCustomerSearch = new RemotePartySearch<Customer>(
+    (search) =>
+      this.injector
+        .get(CustomerService)
+        .getDirectory({ search, status: 'active', pageNumber: 1, pageSize: 20 }),
+    () => this.partyContext.epoch(),
+    (items) => {
+      if (!this.isOfflineMode()) this.customerNameSuggestions.set(items.map(customerOptionLabel));
+    },
+  );
+  readonly customers = this.onlineCustomerSearch.items;
+  readonly customerSearchLoading = this.onlineCustomerSearch.loading;
+  readonly customerSearchError = this.onlineCustomerSearch.error;
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
   readonly lastRecordedIntentId = this.salesFacade.lastRecordedIntentId;
   readonly checkoutScope = computed<CheckoutScope>(() => ({
@@ -394,9 +410,7 @@ export abstract class NewSalePageStateService {
   readonly selectedPaymentMethod = computed(() =>
     this.getPaymentMethodLabel(this.paymentForm.controls.paymentMethod.value),
   );
-  readonly loadingCustomers = computed(() =>
-    this.readFacadeValue(this.customersFacade.loadingCustomers),
-  );
+  readonly loadingCustomers = computed(() => this.onlineCustomerSearch.loading());
 
   readonly totalDiscountAmount = computed(() => this.checkoutPreview()?.totalDiscountAmount ?? 0);
   readonly appliedCreditNotes = signal<AppliedCreditNote[]>([]);

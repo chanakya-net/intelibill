@@ -1,3 +1,10 @@
+import { ShopContextActions } from '../../../core/context/shop-context.actions';
+import {
+  PartyDirectoryQuery,
+  SupplierDirectorySummary,
+  EMPTY_SUPPLIER_SUMMARY,
+  DEFAULT_DIRECTORY_QUERY,
+} from '../../../shared/models/party-directory.models';
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
@@ -13,6 +20,10 @@ export const suppliersAdapter = createEntityAdapter<Supplier>({
 });
 
 export interface SuppliersState extends EntityState<Supplier> {
+  readonly query: PartyDirectoryQuery;
+  readonly requestId: string | undefined;
+  readonly totalCount: number;
+  readonly summary: SupplierDirectorySummary;
   readonly loadingSuppliers: boolean;
   readonly submitting: boolean;
   readonly errorMessage: string;
@@ -25,6 +36,10 @@ export interface SuppliersState extends EntityState<Supplier> {
 }
 
 const initialState: SuppliersState = suppliersAdapter.getInitialState({
+  query: DEFAULT_DIRECTORY_QUERY,
+  requestId: undefined,
+  totalCount: 0,
+  summary: EMPTY_SUPPLIER_SUMMARY,
   loadingSuppliers: false,
   submitting: false,
   errorMessage: '',
@@ -38,6 +53,29 @@ const initialState: SuppliersState = suppliersAdapter.getInitialState({
 
 export const suppliersReducer = createReducer(
   initialState,
+  on(ShopContextActions.scopeChanged, () => initialState),
+  on(SuppliersActions.directoryRequested, (state, { query, requestId }) => ({
+    ...state,
+    query,
+    requestId,
+    loadingSuppliers: true,
+    errorMessage: '',
+  })),
+  on(SuppliersActions.directorySucceeded, (state, { page, requestId }) =>
+    requestId !== state.requestId
+      ? state
+      : suppliersAdapter.setAll([...page.items], {
+          ...state,
+          totalCount: page.totalCount,
+          summary: page.summary,
+          query: { ...state.query, pageNumber: page.pageNumber, pageSize: page.pageSize },
+          loadingSuppliers: false,
+          errorMessage: '',
+        }),
+  ),
+  on(SuppliersActions.directoryFailed, (state, { errorMessage, requestId }) =>
+    requestId !== state.requestId ? state : { ...state, loadingSuppliers: false, errorMessage },
+  ),
   on(SuppliersActions.loadSuppliersRequested, (state) => ({
     ...state,
     loadingSuppliers: true,
@@ -48,7 +86,7 @@ export const suppliersReducer = createReducer(
       ...state,
       loadingSuppliers: false,
       errorMessage: '',
-    })
+    }),
   ),
   on(SuppliersActions.loadSuppliersFailed, (state, { errorMessage }) => ({
     ...state,
@@ -70,7 +108,7 @@ export const suppliersReducer = createReducer(
       errorMessage: '',
       lastMutationType: 'add-supplier',
       lastMutationSucceeded: true,
-    })
+    }),
   ),
   on(SuppliersActions.addSupplierFailed, (state, { errorMessage }) => ({
     ...state,
@@ -99,8 +137,8 @@ export const suppliersReducer = createReducer(
         errorMessage: '',
         lastMutationType: 'edit-supplier',
         lastMutationSucceeded: true,
-      }
-    )
+      },
+    ),
   ),
   on(SuppliersActions.editSupplierFailed, (state, { errorMessage }) => ({
     ...state,
@@ -165,7 +203,7 @@ export const suppliersReducer = createReducer(
     ...state,
     lastMutationType: null,
     lastMutationSucceeded: false,
-  }))
+  })),
 );
 
 export const suppliersFeature = createFeature({

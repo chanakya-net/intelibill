@@ -3,13 +3,15 @@ import { Injectable, signal } from '@angular/core';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { TestBed } from '@angular/core/testing';
 import { ReactiveFormsModule } from '@angular/forms';
-import { EMPTY } from 'rxjs';
+import { EMPTY, of, throwError, Subject } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { NetworkStatusService } from '../../../core/services/network-status.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { ShopUpdatesSignalRService } from '../../../core/services/shop-updates-signalr.service';
+import { CustomerService } from '../../customers/services/customer.service';
+import { customerOptionLabel } from '../../../shared/models/party-directory.models';
 import { Customer } from '../../customers/services/customer.service';
 import { CustomersFacade } from '../../customers/state/customers.facade';
 import { TranslocoService } from '@ngneat/transloco';
@@ -171,6 +173,17 @@ describe('NewSalePageSearchCustomerService', () => {
 
     const customers = signal<Customer[]>([]);
     const loadingCustomers = signal(true);
+    const directory = vi.fn(() =>
+      of({
+        items: [
+          { ...customer('late'), name: 'Same' },
+          { ...customer('late-2'), name: 'Same' },
+        ],
+      }),
+    );
+    const byId = vi.fn((id: string) =>
+      id === 'c1' ? of(customer(id)) : throwError(() => ({ status: 404 })),
+    );
     const router = { navigate: vi.fn().mockResolvedValue(true) };
     const route = {
       snapshot: {
@@ -182,12 +195,19 @@ describe('NewSalePageSearchCustomerService', () => {
       imports: [ReactiveFormsModule],
       providers: [
         TestNewSalePageSearchCustomerService,
+        { provide: CustomerService, useValue: { getDirectory: directory, getCustomer: byId } },
         { provide: ActivatedRoute, useValue: route },
         { provide: Router, useValue: router },
         { provide: AuthService, useValue: { session: signal({ activeShopId: 'shop-1' }) } },
         { provide: NetworkStatusService, useValue: { canReachApi: vi.fn(() => true) } },
-        { provide: ProductCatalogSyncService, useValue: { filterByName: vi.fn(() => []), filterByBarcode: vi.fn(() => []) } },
-        { provide: ShopUpdatesSignalRService, useValue: { updates$: EMPTY, startConnection: vi.fn(), stopConnection: vi.fn() } },
+        {
+          provide: ProductCatalogSyncService,
+          useValue: { filterByName: vi.fn(() => []), filterByBarcode: vi.fn(() => []) },
+        },
+        {
+          provide: ShopUpdatesSignalRService,
+          useValue: { updates$: EMPTY, startConnection: vi.fn(), stopConnection: vi.fn() },
+        },
         { provide: CustomersFacade, useValue: { allCustomers: customers, loadingCustomers } },
         { provide: InventoryService, useValue: {} },
         { provide: TranslocoService, useValue: { getActiveLang: () => 'en' } },
@@ -252,24 +272,77 @@ describe('NewSalePageSearchCustomerService', () => {
     });
 
     const service = TestBed.inject(TestNewSalePageSearchCustomerService);
-    return { customers, loadingCustomers, service };
+    return { customers, loadingCustomers, service, directory, byId };
   }
 
-  it('preselects an active route customer after customers finish loading', () => {
-    const activeCustomer = customer('c1', true);
-    const { customers, loadingCustomers, service } = buildService('c1');
-    const selectionSpy = vi.spyOn(service, 'onCustomerSectionSelected');
-
-    customers.set([activeCustomer]);
+  it('restores a route customer by exact ID without loading any directory page', () => {
+    const { service, directory, byId } = buildService('c1');
     service.applyRouteCustomerPreselection();
-    expect(selectionSpy).not.toHaveBeenCalled();
-
-    loadingCustomers.set(false);
-    service.applyRouteCustomerPreselection();
-
-    expect(selectionSpy).toHaveBeenCalledWith(customerDto('c1'));
+    expect(byId).toHaveBeenCalledWith('c1');
+    expect(directory).not.toHaveBeenCalled();
     expect(service.selectedCustomerId()).toBe('c1');
-    expect(service.selectedCustomerName()).toBe('alice cooper');
+  });
+
+  it('selects late-page duplicate names by ID and preserves selection through a new search', () => {
+    vi.useFakeTimers();
+    const { service, directory } = buildService(null);
+    service.onFilterCustomerName({ query: 'Same', originalEvent: new Event('input') });
+    vi.advanceTimersByTime(250);
+    expect(directory).toHaveBeenCalledWith(
+      expect.objectContaining({ search: 'Same', status: 'active', pageSize: 20 }),
+    );
+    service.onCustomerSuggestionSelected(
+      customerOptionLabel({ ...customer('late-2'), name: 'Same' }),
+    );
+    expect(service.selectedCustomerId()).toBe('late-2');
+    service.onFilterCustomerName({ query: 'Other', originalEvent: new Event('input') });
+    vi.advanceTimersByTime(250);
+    expect(service.selectedCustomerId()).toBe('late-2');
+    service.onDestroy();
+    vi.useRealTimers();
+  });
+
+  it('clears a confirmed party on an explicit name edit and never picks the first duplicate label', () => {
+    vi.useFakeTimers();
+    const { service } = buildService(null);
+    service.onFilterCustomerName({ query: 'Same', originalEvent: new Event('input') });
+    vi.advanceTimersByTime(250);
+    service.onCustomerSuggestionSelected(
+      customerOptionLabel({ ...customer('late-2'), name: 'Same' }),
+    );
+    expect(service.selectedCustomerId()).toBe('late-2');
+    (service as any).onCustomerNameEdited('Different name');
+    expect(service.selectedCustomerId()).toBeNull();
+    service.onCustomerSuggestionSelected('Same');
+    expect(service.selectedCustomerId()).toBeNull();
+    service.onDestroy();
+    vi.useRealTimers();
+  });
+
+  it('searches the owned snapshot offline without any directory or ID request', () => {
+    const { service, directory, byId } = buildService('c1');
+    vi.spyOn(service, 'isOfflineMode').mockReturnValue(true);
+    (TestBed.inject(OfflineSaleStateService).offlineCustomers as any).set([
+      { customerId: 'offline-id', name: 'Same', phoneNumber: '123' },
+    ]);
+    service.applyRouteCustomerPreselection();
+    service.onFilterCustomerName({ query: 'Same', originalEvent: new Event('input') });
+    expect(service.customerNameSuggestions()).toEqual(['Same · 123 · offline-id']);
+    service.onCustomerSuggestionSelected('Same · 123 · offline-id');
+    expect(service.selectedCustomerId()).toBe('offline-id');
+    expect(directory).not.toHaveBeenCalled();
+    expect(byId).not.toHaveBeenCalled();
+  });
+
+  it('does not let a delayed route restore replace a later explicit selection', () => {
+    const { service, byId } = buildService('c1');
+    const pending = new Subject<Customer>();
+    byId.mockReturnValueOnce(pending);
+    service.applyRouteCustomerPreselection();
+    service.onCustomerSectionSelected(customerDto('chosen-id'));
+    pending.next(customer('c1'));
+    expect(service.selectedCustomerId()).toBe('chosen-id');
+    service.onDestroy();
   });
 
   it('ignores missing customerId', () => {

@@ -1,3 +1,4 @@
+import { customerDirectoryResponse } from '../support/party-directory-mock';
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { resolve } from 'node:path';
 import { mkdir } from 'node:fs/promises';
@@ -502,6 +503,8 @@ async function fixtures(page: Page) {
         purchaseTaxIncluded: false,
       });
     if (path === '/api/customers') return json(r, []);
+    if (path === '/api/customers/directory')
+      return json(r, customerDirectoryResponse([], new URL(r.request().url())));
     return r.fallback();
   });
   return controls;

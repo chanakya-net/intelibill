@@ -1,3 +1,5 @@
+import { SupplierService } from '../../suppliers/services/supplier.service';
+import { supplierOptionLabel } from '../../../shared/models/party-directory.models';
 import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { signal } from '@angular/core';
@@ -44,6 +46,12 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     createDraft: vi.fn(),
     placeOrder: vi.fn(),
     clearDetail: vi.fn(),
+  };
+  const supplierService = {
+    getDirectory: vi.fn(() => of({ items: suppliers().filter((x) => x.isActive && !x.isSystem) })),
+    getSupplier: vi.fn((id: string) =>
+      of({ supplierId: id, name: 'Acme Traders', isActive: true, isSystem: false }),
+    ),
   };
   const suppliersFacade = {
     suppliers,
@@ -97,6 +105,7 @@ describe('PurchaseOrderBuilderPageComponent', () => {
         { provide: ShopPermissionsService, useValue: { canManagePurchaseOrders } },
         { provide: PurchaseOrdersFacade, useValue: facade },
         { provide: SuppliersFacade, useValue: suppliersFacade },
+        { provide: SupplierService, useValue: supplierService },
         { provide: PurchaseOrderDraftIndexedDbService, useValue: storage },
         {
           provide: ProductCatalogSyncService,
@@ -116,9 +125,21 @@ describe('PurchaseOrderBuilderPageComponent', () => {
 
   it('renders recognized builder field errors on native supplier and reference inputs', async () => {
     const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
-    localizedError.set({messageKey:'apiErrors.validationFailed',params:{},fieldErrors:['supplierName','supplierReferenceNumber','expectedDeliveryDate'].map(field => ({field,messageKey:'apiErrors.invalidField',params:{}}))});
-    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
-    for (const [field, selector] of [['supplierName','p-autocomplete[formcontrolname="supplierName"] input'],['supplierReferenceNumber','input[formcontrolname="supplierReferenceNumber"]'],['expectedDeliveryDate','p-datepicker[formcontrolname="expectedDeliveryDate"] input']]) {
+    localizedError.set({
+      messageKey: 'apiErrors.validationFailed',
+      params: {},
+      fieldErrors: ['supplierName', 'supplierReferenceNumber', 'expectedDeliveryDate'].map(
+        (field) => ({ field, messageKey: 'apiErrors.invalidField', params: {} }),
+      ),
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    for (const [field, selector] of [
+      ['supplierName', 'p-autocomplete[formcontrolname="supplierName"] input'],
+      ['supplierReferenceNumber', 'input[formcontrolname="supplierReferenceNumber"]'],
+      ['expectedDeliveryDate', 'p-datepicker[formcontrolname="expectedDeliveryDate"] input'],
+    ]) {
       const input = fixture.nativeElement.querySelector(selector) as HTMLInputElement;
       expect(input.getAttribute('aria-invalid')).toBe('true');
       expect(input.getAttribute('aria-describedby')).toBe('po-builder-' + field + '-error');
@@ -300,6 +321,30 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     expect(facade.placeOrder).toHaveBeenCalledWith('po-1');
   });
 
+  it('selects a duplicate-name supplier by ID and retains it after results change', async () => {
+    const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+    const component = fixture.componentInstance;
+    await component.ngOnInit();
+    vi.useFakeTimers();
+    suppliers.set([
+      { supplierId: 'first', name: 'Same', isActive: true, isSystem: false },
+      { supplierId: 'late', name: 'Same', isActive: true, isSystem: false },
+    ]);
+    component['onSupplierSearch']({ query: 'Same' } as never);
+    vi.advanceTimersByTime(250);
+    const label = supplierOptionLabel(suppliers()[1] as any);
+    component.form.controls.supplierName.setValue(label);
+    const selected = component['resolveSupplier'](label);
+    expect(selected?.id).toBe('late');
+    await component['draftState'].updateHeader('shop-1', { supplier: selected });
+    suppliers.set([]);
+    component['onSupplierSearch']({ query: 'Other' } as never);
+    vi.advanceTimersByTime(250);
+    expect(component['resolveSupplier'](label)?.id).toBe('late');
+    fixture.destroy();
+    vi.useRealTimers();
+  });
+
   it('updates supplier autocomplete suggestions from the query', async () => {
     suppliers.set([
       { supplierId: 'supplier-1', name: 'Acme Traders', isActive: true, isSystem: false },
@@ -309,14 +354,26 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
     await fixture.componentInstance.ngOnInit();
 
+    vi.useFakeTimers();
     fixture.componentInstance['onSupplierSearch']({ query: 'ac' } as never);
+    vi.advanceTimersByTime(250);
 
     const suggestions = (
       fixture.componentInstance as unknown as {
         supplierNameSuggestions: () => string[];
       }
     ).supplierNameSuggestions();
-    expect(suggestions).toEqual(['Acme Traders']);
+    expect(supplierService.getDirectory).toHaveBeenCalledWith(
+      expect.objectContaining({
+        search: 'ac',
+        includeSystem: false,
+        status: 'active',
+        pageSize: 20,
+      }),
+    );
+    expect(suggestions).toContain(supplierOptionLabel(suppliers()[0] as any));
+    fixture.destroy();
+    vi.useRealTimers();
   });
 });
 

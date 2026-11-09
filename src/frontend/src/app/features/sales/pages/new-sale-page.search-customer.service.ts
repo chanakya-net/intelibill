@@ -1,3 +1,6 @@
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { CustomerService } from '../../customers/services/customer.service';
+import { customerOptionLabel } from '../../../shared/models/party-directory.models';
 import { NewSalePageLifecycleService } from './new-sale-page.lifecycle.service';
 import { effect, runInInjectionContext } from '@angular/core';
 import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
@@ -24,9 +27,21 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
   private searchSuggestionsRequestSeq = 0;
   private searchSuggestionsSubscription: Subscription | null = null;
   private routeCustomerPreselectionApplied = false;
+  private routeCustomerSubscription: Subscription | undefined;
 
   override onInit(): void {
     super.onInit();
+    this.destroyRef.onDestroy(() => {
+      this.onlineCustomerSearch.destroy();
+      this.routeCustomerSubscription?.unsubscribe();
+    });
+    this.partyContext.changes$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.onlineCustomerSearch.destroy();
+      this.onlineCustomerSearch.items.set([]);
+      this.customerNameSuggestions.set([]);
+      this.routeCustomerSubscription?.unsubscribe();
+      this.onCustomerSectionSelected(null);
+    });
 
     runInInjectionContext(this.injector, () => {
       effect(() => {
@@ -128,9 +143,11 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
         const terms = sellables.flatMap((sellable) =>
           sellable.kind === 'Goods'
             ? [sellable.itemName, sellable.barcode]
-            : [sellable.name, sellable.code]
+            : [sellable.name, sellable.code],
         );
-        this.searchSuggestions.set([...new Set(terms.filter((term) => term.trim().length > 0))].slice(0, 20));
+        this.searchSuggestions.set(
+          [...new Set(terms.filter((term) => term.trim().length > 0))].slice(0, 20),
+        );
       },
       error: () => {
         if (requestSeq !== this.searchSuggestionsRequestSeq) {
@@ -150,43 +167,29 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
   }
 
   onFilterCustomerName(event: AutoCompleteCompleteEvent): void {
-    const query = event.query.trim().toLowerCase();
-
     if (this.isOfflineMode()) {
-      const filtered = this.offlineCustomers()
-        .filter((c) => !query || c.name.toLowerCase().includes(query))
-        .map((c) => c.name.trim())
-        .filter((name) => name.length > 0);
-      this.customerNameSuggestions.set([...new Set(filtered)].slice(0, 20));
+      this.onlineCustomerSearch.cancel();
+      const query = event.query.trim().toLowerCase();
+      const filtered = this.offlineCustomers().filter(
+        (customer) =>
+          !query ||
+          [customer.name, customer.phoneNumber, customer.customerId].some((value) =>
+            value?.toLowerCase().includes(query),
+          ),
+      );
+      this.customerNameSuggestions.set(filtered.slice(0, 20).map(customerOptionLabel));
       return;
     }
-
-    const activeCustomers = this.customers().filter((customer) => customer.isActive);
-    const filteredNames = activeCustomers
-      .filter((customer) => !query || customer.name.toLowerCase().includes(query))
-      .map((customer) => customer.name.trim())
-      .filter((name) => name.length > 0);
-
-    const uniqueNames = [...new Set(filteredNames)];
-    this.customerNameSuggestions.set(uniqueNames.slice(0, 20));
+    this.onlineCustomerSearch.search(event.query);
   }
 
-  onCustomerSuggestionSelected(name: string): void {
-    const normalizedName = name.trim().toLowerCase();
-    if (!normalizedName) {
-      this.selectedCustomerId.set(null);
-      this.selectedCustomerName.set(null);
-      this.selectedCustomer.set(null);
-      return;
-    }
-
-    const customer = this.customerSelectionPool().find((candidate) => candidate.name.trim().toLowerCase() === normalizedName);
-    if (!customer) {
-      this.onCustomerSectionSelected(null);
-      return;
-    }
-
-    this.onCustomerSectionSelected(customer);
+  onCustomerSuggestionSelected(label: string): void {
+    const matches = this.customerSelectionPool().filter(
+      (candidate) =>
+        customerOptionLabel(candidate) === label ||
+        candidate.name.trim().toLowerCase() === label.trim().toLowerCase(),
+    );
+    this.onCustomerSectionSelected(matches.length === 1 ? matches[0] : null);
   }
 
   onCustomerSectionNameChanged(value: string | null): void {
@@ -230,7 +233,7 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
         customerName: customer.name,
         customerPhone: customer.phoneNumber,
       },
-      { emitEvent: false }
+      { emitEvent: false },
     );
     this.selectedCustomerId.set(customer.customerId);
     this.selectedCustomerName.set(customer.name.trim().toLowerCase());
@@ -243,22 +246,36 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
     }
 
     const customerId = this.routeCustomerId;
-    if (!customerId || this.loadingCustomers()) {
+    if (!customerId) return;
+    if (this.isOfflineMode()) {
+      const customer = this.customerSelectionPool().find(
+        (candidate) => candidate.customerId === customerId,
+      );
+      if (customer) {
+        this.routeCustomerPreselectionApplied = true;
+        this.onCustomerSectionSelected(customer);
+      }
       return;
     }
-
-    const customer = this.customerSelectionPool().find((candidate) => candidate.customerId === customerId) ?? null;
-    if (customer) {
-      this.routeCustomerPreselectionApplied = true;
-      this.onCustomerSectionSelected(customer);
-      return;
-    }
-
-    if (this.customers().length === 0) {
-      return;
-    }
-
     this.routeCustomerPreselectionApplied = true;
+    const epoch = this.partyContext.epoch();
+    this.routeCustomerSubscription = this.injector
+      .get(CustomerService)
+      .getCustomer(customerId)
+      .subscribe({
+        next: (customer) => {
+          if (
+            epoch !== this.partyContext.epoch() ||
+            this.isOfflineMode() ||
+            !customer.isActive ||
+            this.customerForm.controls.customerName.dirty ||
+            (this.selectedCustomerId() && this.selectedCustomerId() !== customerId)
+          )
+            return;
+          this.onCustomerSectionSelected(customer);
+        },
+        error: () => {},
+      });
   }
 
   openScanner(): void {
@@ -281,9 +298,10 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
   }
 
   override onDestroy(): void {
+    this.onlineCustomerSearch.destroy();
+    this.routeCustomerSubscription?.unsubscribe();
     this.searchSuggestionsSubscription?.unsubscribe();
     this.searchSuggestionsSubscription = null;
     super.onDestroy();
   }
-
 }

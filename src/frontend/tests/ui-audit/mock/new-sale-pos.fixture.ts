@@ -1,3 +1,4 @@
+import { customerDirectoryResponse } from '../support/party-directory-mock';
 import { expect, type Locator, type Page, type Route } from '@playwright/test';
 
 import { mockExternalRequests, waitForStablePage } from '../support/audit-page';
@@ -49,24 +50,30 @@ export async function installPosScenario(
 }
 
 async function installPosRoutes(page: Page, options: PosScenarioOptions): Promise<void> {
-  await page.route('**/api/customers', async (route) =>
-    route.fulfill({
+  const customer = {
+    customerId: 'customer-audit',
+    name: 'Alexandria Cassandra Long Customer Name',
+    phoneNumber: '+919999999999',
+    address: 'Audit Lane',
+    isActive: true,
+    creditLimit: 0,
+    purchaseCount: 1,
+    lifetimeRevenue: 120,
+    currentMonthRevenue: 120,
+  };
+  await page.route(/\/api\/customers(?:\/[^/?]+)?(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    await route.fulfill({
       contentType: 'application/json',
-      body: JSON.stringify([
-        {
-          customerId: 'customer-audit',
-          name: 'Alexandria Cassandra Long Customer Name',
-          phoneNumber: '+919999999999',
-          address: 'Audit Lane',
-          isActive: true,
-          creditLimit: 0,
-          purchaseCount: 1,
-          lifetimeRevenue: 120,
-          currentMonthRevenue: 120,
-        },
-      ]),
-    }),
-  );
+      body: JSON.stringify(
+        url.pathname.endsWith('/directory')
+          ? customerDirectoryResponse([customer], url)
+          : url.pathname.endsWith('/customers')
+            ? [customer]
+            : customer,
+      ),
+    });
+  });
   await page.route('**/api/items/details?**', async (route) =>
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ hsnCode: '1234' }) }),
   );

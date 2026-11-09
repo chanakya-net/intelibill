@@ -14,14 +14,14 @@ describe('CustomersEffects', () => {
   let effects: CustomersEffects;
 
   const customerService = {
-    getCustomers: vi.fn<CustomerService['getCustomers']>(),
+    getDirectory: vi.fn<CustomerService['getDirectory']>(),
     addCustomer: vi.fn<CustomerService['addCustomer']>(),
     editCustomer: vi.fn<CustomerService['editCustomer']>(),
   };
 
   beforeEach(() => {
     actions$ = new Subject<Action>();
-    customerService.getCustomers.mockReset();
+    customerService.getDirectory.mockReset();
     customerService.addCustomer.mockReset();
     customerService.editCustomer.mockReset();
 
@@ -55,6 +55,73 @@ describe('CustomersEffects', () => {
     lifetimeRevenue: 0,
     currentMonthRevenue: 0,
   };
+
+  it('loads the requested server page and only emits the latest request identity', () => {
+    const first = new Subject<any>();
+    const second = new Subject<any>();
+    customerService.getDirectory.mockReturnValueOnce(first).mockReturnValueOnce(second);
+    const values: any[] = [];
+    const subscription = effects.directory$.subscribe((value) => values.push(value));
+    const query = { search: 'late', status: 'active' as const, pageNumber: 3, pageSize: 20 };
+    actions$.next(CustomersActions.directoryRequested({ query, requestId: 'old' }));
+    actions$.next(
+      CustomersActions.directoryRequested({ query: { ...query, search: 'new' }, requestId: 'new' }),
+    );
+    const page = {
+      items: [customer],
+      totalCount: 41,
+      pageNumber: 3,
+      pageSize: 20,
+      summary: { totalCustomers: 500 },
+    };
+    second.next(page);
+    first.next({ ...page, totalCount: 999 });
+    expect(values).toEqual([
+      CustomersActions.directorySucceeded({ page: page as any, requestId: 'new' }),
+    ]);
+    expect(customerService.getDirectory).toHaveBeenCalledWith(query);
+    subscription.unsubscribe();
+  });
+
+  it('corrects an emptied last page once and reloads global summary after a mutation', () => {
+    const summary = {
+      totalCustomers: 20,
+      outstandingBalance: 0,
+      outstandingCount: 0,
+      totalCreditIssued: 0,
+      accountsWithCredit: 0,
+      monthlyRevenue: 0,
+    };
+    customerService.getDirectory
+      .mockReturnValueOnce(of({ items: [], totalCount: 20, pageNumber: 2, pageSize: 20, summary }))
+      .mockReturnValueOnce(
+        of({ items: [customer], totalCount: 20, pageNumber: 1, pageSize: 20, summary }),
+      );
+    const values: any[] = [];
+    const subscription = effects.directory$.subscribe((value) => values.push(value));
+    actions$.next(
+      CustomersActions.directoryRequested({
+        query: { pageNumber: 2, pageSize: 20, status: 'active' },
+        requestId: 'edit',
+      }),
+    );
+    expect(values[0]).toMatchObject({
+      type: CustomersActions.directoryRequested.type,
+      query: { pageNumber: 1, status: 'active' },
+    });
+    actions$.next(values[0]);
+    expect(values[1]).toMatchObject({
+      type: CustomersActions.directorySucceeded.type,
+      page: { summary, pageNumber: 1 },
+    });
+    expect(customerService.getDirectory).toHaveBeenCalledTimes(2);
+    const refresh: any[] = [];
+    const refreshSubscription = effects.refreshDirectory$.subscribe((value) => refresh.push(value));
+    actions$.next(CustomersActions.editCustomerSucceeded({ customer }));
+    expect(refresh[0].type).toBe(CustomersActions.directoryRequested.type);
+    subscription.unsubscribe();
+    refreshSubscription.unsubscribe();
+  });
 
   it('prefers stable code and associates only recognized form fields', async () => {
     customerService.addCustomer.mockReturnValue(
@@ -94,7 +161,7 @@ describe('CustomersEffects', () => {
   });
 
   it('keeps only safe localized feedback and reference metadata from hostile errors', async () => {
-    customerService.getCustomers.mockReturnValue(
+    customerService.getDirectory.mockReturnValue(
       throwError(() => ({
         error: {
           code: 'Untrusted.Code',
@@ -118,7 +185,22 @@ describe('CustomersEffects', () => {
   });
 
   it('dispatches loadCustomersSucceeded on load success', async () => {
-    customerService.getCustomers.mockReturnValue(of([customer]));
+    customerService.getDirectory.mockReturnValue(
+      of({
+        items: [customer],
+        totalCount: 1,
+        pageNumber: 1,
+        pageSize: 20,
+        summary: {
+          totalCustomers: 1,
+          outstandingBalance: 0,
+          outstandingCount: 0,
+          totalCreditIssued: 0,
+          accountsWithCredit: 0,
+          monthlyRevenue: 0,
+        },
+      }),
+    );
 
     const output = firstValueFrom(effects.loadCustomers$.pipe(take(1)));
     actions$.next(CustomersActions.loadCustomersRequested());
@@ -129,7 +211,7 @@ describe('CustomersEffects', () => {
   });
 
   it('dispatches loadCustomersFailed on load error', async () => {
-    customerService.getCustomers.mockReturnValue(
+    customerService.getDirectory.mockReturnValue(
       throwError(() => ({ error: { detail: 'Load failed' } })),
     );
 
