@@ -9,6 +9,8 @@ import { InputGroupModule } from 'primeng/inputgroup';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TranslocoPipe } from '@ngneat/transloco';
 
+let batchSearchSequence = 0;
+
 @Component({
   selector: 'app-batch-search-bar',
   standalone: true,
@@ -26,6 +28,7 @@ import { TranslocoPipe } from '@ngneat/transloco';
   styleUrl: './batch-search-bar.component.scss',
 })
 export class BatchSearchBarComponent implements OnChanges {
+  readonly searchInputId = `batch-search-${++batchSearchSequence}`;
   @Input() pickerOpen = false;
   ngOnChanges(): void { if (this.pickerOpen) this.closeSuggestions(); }
   @Input() searchTerm = '';

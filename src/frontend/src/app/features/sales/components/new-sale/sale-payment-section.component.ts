@@ -22,6 +22,8 @@ export interface PaymentMethodOption {
   readonly label: PaymentMethod;
 }
 
+let paymentSectionSequence = 0;
+
 @Component({
   selector: 'app-sale-payment-section',
   standalone: true,
@@ -40,6 +42,7 @@ export interface PaymentMethodOption {
   templateUrl: './sale-payment-section.component.html',
 })
 export class SalePaymentSectionComponent {
+  readonly controlPrefix = `sale-payment-${++paymentSectionSequence}`;
   @Input() paymentMethods: PaymentMethodOption[] = [];
   @Input() selectedMethod: PaymentMethod = 'Cash';
   @Input() paidAmount = 0;
@@ -52,6 +55,21 @@ export class SalePaymentSectionComponent {
   @Input() canUseCredit = true;
   @Input() showDueAmount = false;
   @Input() dueAmountDisabled = false;
+  @Input() paymentSplitError = '';
+  @Input() isSubmitting = false;
+
+  get amountInputPt(): any {
+    return {
+      ...this.currencyInputPt,
+      pcInputText: {
+        ...this.currencyInputPt?.pcInputText,
+        root: {
+          ...this.currencyInputPt?.pcInputText?.root,
+          'aria-invalid': this.paymentSplitError ? 'true' : undefined,
+        },
+      },
+    };
+  }
 
   // Credit note verification inputs
   @Input() creditNoteCode = '';

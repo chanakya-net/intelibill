@@ -72,6 +72,22 @@ function setup(options: FieldSetup = {}) {
 }
 
 describe('QuantityFieldComponent', () => {
+  it('keeps a persistent description and disables the native input without committing', () => {
+    const { fixture, input, committed, type, blur } = setup({ value: 0.25, scale: 3 });
+    fixture.componentRef.setInput('descriptionId', 'stock-note');
+    fixture.componentRef.setInput('disabled', true);
+    fixture.detectChanges();
+    expect(input.disabled).toBe(true);
+    expect(input.getAttribute('aria-describedby')).toBe('stock-note');
+    type('1.5');
+    blur();
+    expect(committed).not.toHaveBeenCalled();
+    fixture.componentRef.setInput('disabled', false);
+    fixture.detectChanges();
+    type('0.5');
+    blur();
+    expect(committed).toHaveBeenCalledWith(0.5);
+  });
   it('shows the value as text with an accessible name and a keypad for the unit', () => {
     const { input } = setup({ value: 0.25, scale: 3, unitLabel: 'kg' });
 

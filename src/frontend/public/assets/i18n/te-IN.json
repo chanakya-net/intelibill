@@ -1389,7 +1389,9 @@
         "saleNotEligible": "సేల్ తగ్గింపు కోసం అర్హత గల లైన్‌లు లేవు.",
         "exceedsMaxPercent": "గరిష్ట శాతం మించిపోయింది.",
         "exceedsMaxFlat": "గరిష్ట మొత్తాన్ని మించిపోయింది.",
-        "fixErrors": "రికార్డింగ్ చేయడానికి ముందు తగ్గింపు లోపాలను పరిష్కరించండి."
+        "fixErrors": "రికార్డింగ్ చేయడానికి ముందు తగ్గింపు లోపాలను పరిష్కరించండి.",
+        "typeOf": "{{item}} కోసం తగ్గింపు రకం",
+        "valueOf": "{{item}} కోసం తగ్గింపు విలువ"
       },
       "shopUpdate": {
         "pricingUpdated": "వస్తువు ధర నవీకరించబడింది",
@@ -1468,7 +1470,9 @@
         "confirmMismatchBtn": "అసమతుల్యతను నిర్ధారించండి",
         "customerMismatchConfirmed": "అసమతుల్యత నిర్ధారించబడింది. విక్రయం సమర్పించవచ్చు.",
         "customerMismatchConfirmRequired": "దయచేసి సమర్పించే ముందు కస్టమర్ సరిపోలని నిర్ధారించండి.",
-        "codeLabel": "క్రెడిట్ నోట్ కోడ్"
+        "codeLabel": "క్రెడిట్ నోట్ కోడ్",
+        "amountLabel": "క్రెడిట్ నోట్ {{code}} నుండి మొత్తం",
+        "removeCode": "క్రెడిట్ నోట్ {{code}} తీసివేయండి"
       },
       "paymentMethods": {
         "card": "కార్డ్",
@@ -1514,7 +1518,14 @@
           "overrideReasonRequired": "క్రెడిట్ పరిమితి దాటడానికి కారణం ఇవ్వండి (500 అక్షరాల వరకు).",
           "busy": "ఈ కస్టమర్ యొక్క మరో అమ్మకం, చెల్లింపు లేదా రిటర్న్ జరుగుతోంది. మళ్ళీ ప్రయత్నించండి."
         }
-      }
+      },
+      "lineContextGoods": "{{item}}, లాట్ {{lot}}, వరుస {{line}}, కార్ట్ {{cart}}",
+      "lineContextService": "{{item}}, వరుస {{line}}, కార్ట్ {{cart}}",
+      "removeLine": "{{item}} తీసివేయండి",
+      "servicePriceOf": "{{item}} ధర",
+      "advancedLineEditOf": "{{item}} కోసం అధునాతన సవరణ",
+      "hsnCodeOf": "{{item}} కోసం హెచ్‌ఎస్‌ఎన్ కోడ్",
+      "taxRatePercentOf": "{{item}} కోసం పన్ను రేటు"
     },
     "detail": {
       "title": "అమ్మకం వివరాలు",

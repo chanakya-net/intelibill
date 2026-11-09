@@ -1391,7 +1391,9 @@
         "saleNotEligible": "No eligible lines for sale discount.",
         "exceedsMaxPercent": "Exceeds max percent.",
         "exceedsMaxFlat": "Exceeds max amount.",
-        "fixErrors": "Fix discount errors before recording."
+        "fixErrors": "Fix discount errors before recording.",
+        "typeOf": "Discount type for {{item}}",
+        "valueOf": "Discount value for {{item}}"
       },
       "shopUpdate": {
         "pricingUpdated": "Item pricing has been updated",
@@ -1468,7 +1470,9 @@
         "confirmMismatchBtn": "Confirm mismatch",
         "customerMismatchConfirmed": "Mismatch confirmed. The sale can be submitted.",
         "customerMismatchConfirmRequired": "Please confirm the customer mismatch before submitting.",
-        "codeLabel": "Credit note code"
+        "codeLabel": "Credit note code",
+        "amountLabel": "Amount from credit note {{code}}",
+        "removeCode": "Remove credit note {{code}}"
       },
       "paymentMethods": {
         "card": "Card",
@@ -1514,7 +1518,14 @@
           "overrideReasonRequired": "Give a reason (up to 500 characters) for going over the credit limit.",
           "busy": "Another sale, payment or return for this customer is in progress. Try again."
         }
-      }
+      },
+      "lineContextGoods": "{{item}}, lot {{lot}}, line {{line}}, cart {{cart}}",
+      "lineContextService": "{{item}}, line {{line}}, cart {{cart}}",
+      "removeLine": "Remove {{item}}",
+      "servicePriceOf": "Price of {{item}}",
+      "advancedLineEditOf": "Advanced editing for {{item}}",
+      "hsnCodeOf": "HSN code for {{item}}",
+      "taxRatePercentOf": "Tax rate for {{item}}"
     },
     "detail": {
       "title": "Sale Details",

@@ -9,6 +9,8 @@ import { QuantityFieldComponent } from '../../../../shared/quantity/quantity-fie
 import { TranslocoPipe } from '@ngneat/transloco';
 import type { SellableDto, SellableGoodsDto, SellableServiceDto } from '../../../sales/services/sale.models';
 
+let batchPickerSequence = 0;
+
 @Component({
   selector: 'app-batch-picker-dialog',
   standalone: true,
@@ -24,6 +26,7 @@ import type { SellableDto, SellableGoodsDto, SellableServiceDto } from '../../..
   styleUrl: './batch-picker-dialog.component.scss',
 })
 export class BatchPickerDialogComponent {
+  readonly quantityInputId = `batch-picker-quantity-${++batchPickerSequence}`;
   @Input() visible = false;
   @Input() batches: readonly SellableDto[] = [];
   @Input() loading = false;

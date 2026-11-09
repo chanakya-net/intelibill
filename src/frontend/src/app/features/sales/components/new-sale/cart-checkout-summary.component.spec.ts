@@ -7,6 +7,21 @@ import { CartCheckoutSummaryComponent } from './cart-checkout-summary.component'
 import { SalePreviewDto } from '../../../../features/sales/services/sale.models';
 
 describe('CartCheckoutSummaryComponent', () => {
+  it('associates sale discount labels and errors with native controls', () => {
+    TestBed.configureTestingModule({ imports: [CartCheckoutSummaryComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })] });
+    const fixture = TestBed.createComponent(CartCheckoutSummaryComponent);
+    fixture.componentInstance.isDiscountEditorOpen = true;
+    fixture.componentInstance.saleDiscountError = 'sales.newSale.discounts.fixErrors';
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const controls = [root.querySelector<HTMLElement>('[role="combobox"]'), root.querySelector<HTMLInputElement>('input.p-inputnumber-input')];
+    for (const control of controls) {
+      expect(control?.id).toBeTruthy();
+      expect(root.querySelector(`label[for="${control?.id}"]`)).toBeTruthy();
+    }
+    const input = controls[1]!;
+    expect(root.querySelector(`#${input.getAttribute('aria-describedby')}`)?.textContent).toContain('fixErrors');
+  });
   it('shows accepted net revenue cost and profit, and clears them with the preview', () => {
     TestBed.configureTestingModule({ imports: [CartCheckoutSummaryComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })] });
     const fixture = TestBed.createComponent(CartCheckoutSummaryComponent);

@@ -1389,7 +1389,9 @@
         "saleNotEligible": "വിൽപ്പന കിഴിവിന് യോഗ്യതയുള്ള ലൈനുകളൊന്നുമില്ല.",
         "exceedsMaxPercent": "പരമാവധി ശതമാനം കവിയുന്നു.",
         "exceedsMaxFlat": "പരമാവധി തുക കവിയുന്നു.",
-        "fixErrors": "റെക്കോർഡിംഗിന് മുമ്പ് ഡിസ്കൗണ്ട് പിശകുകൾ പരിഹരിക്കുക."
+        "fixErrors": "റെക്കോർഡിംഗിന് മുമ്പ് ഡിസ്കൗണ്ട് പിശകുകൾ പരിഹരിക്കുക.",
+        "typeOf": "{{item}} ന്റെ കിഴിവ് തരം",
+        "valueOf": "{{item}} ന്റെ കിഴിവ് തുക"
       },
       "shopUpdate": {
         "pricingUpdated": "ഇനത്തിൻ്റെ വില പുതുക്കി",
@@ -1468,7 +1470,9 @@
         "confirmMismatchBtn": "പൊരുത്തക്കേട് സ്ഥിരീകരിക്കുക",
         "customerMismatchConfirmed": "പൊരുത്തക്കേട് സ്ഥിരീകരിച്ചു. വിൽപ്പന സമർപ്പിക്കാം.",
         "customerMismatchConfirmRequired": "സമർപ്പിക്കുന്നതിന് മുമ്പ് ഉപഭോക്തൃ പൊരുത്തക്കേട് സ്ഥിരീകരിക്കുക.",
-        "codeLabel": "ക്രെഡിറ്റ് നോട്ട് കോഡ്"
+        "codeLabel": "ക്രെഡിറ്റ് നോട്ട് കോഡ്",
+        "amountLabel": "ക്രെഡിറ്റ് നോട്ട് {{code}} ലെ തുക",
+        "removeCode": "ക്രെഡിറ്റ് നോട്ട് {{code}} നീക്കുക"
       },
       "paymentMethods": {
         "card": "കാർഡ്",
@@ -1514,7 +1518,14 @@
           "overrideReasonRequired": "ക്രെഡിറ്റ് പരിധി കടക്കാനുള്ള കാരണം നൽകുക (500 അക്ഷരം വരെ).",
           "busy": "ഈ ഉപഭോക്താവിന്റെ മറ്റൊരു വിൽപന, പേയ്മെന്റ് അല്ലെങ്കിൽ റിട്ടേൺ നടക്കുന്നു. വീണ്ടും ശ്രമിക്കുക."
         }
-      }
+      },
+      "lineContextGoods": "{{item}}, ലോട്ട് {{lot}}, വരി {{line}}, കാർട്ട് {{cart}}",
+      "lineContextService": "{{item}}, വരി {{line}}, കാർട്ട് {{cart}}",
+      "removeLine": "{{item}} നീക്കുക",
+      "servicePriceOf": "{{item}} ന്റെ വില",
+      "advancedLineEditOf": "{{item}} ന്റെ വിശദമായ തിരുത്തൽ",
+      "hsnCodeOf": "{{item}} ന്റെ HSN കോഡ്",
+      "taxRatePercentOf": "{{item}} ന്റെ നികുതി നിരക്ക്"
     },
     "detail": {
       "title": "വിൽപ്പന വിശദാംശങ്ങൾ",

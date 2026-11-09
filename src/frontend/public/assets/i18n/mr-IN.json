@@ -1389,7 +1389,9 @@
         "saleNotEligible": "विक्री सवलतीसाठी पात्र ओळी नाहीत.",
         "exceedsMaxPercent": "कमाल टक्क्यांपेक्षा जास्त.",
         "exceedsMaxFlat": "कमाल रकमेपेक्षा जास्त.",
-        "fixErrors": "नोंद करण्यापूर्वी सवलत त्रुटी दुरुस्त करा."
+        "fixErrors": "नोंद करण्यापूर्वी सवलत त्रुटी दुरुस्त करा.",
+        "typeOf": "{{item}} साठी सवलतीचा प्रकार",
+        "valueOf": "{{item}} साठी सवलतीची रक्कम"
       },
       "shopUpdate": {
         "pricingUpdated": "आयटम किंमत अपडेट झाली आहे",
@@ -1468,7 +1470,9 @@
         "confirmMismatchBtn": "जुळत नसल्याची पुष्टी करा",
         "customerMismatchConfirmed": "जुळत नसल्याची पुष्टी झाली. विक्री सादर केली जाऊ शकते.",
         "customerMismatchConfirmRequired": "कृपया सबमिट करण्यापूर्वी ग्राहक जुळत नसल्याची पुष्टी करा.",
-        "codeLabel": "क्रेडिट नोट कोड"
+        "codeLabel": "क्रेडिट नोट कोड",
+        "amountLabel": "क्रेडिट नोट {{code}} मधील रक्कम",
+        "removeCode": "क्रेडिट नोट {{code}} काढा"
       },
       "paymentMethods": {
         "card": "कार्ड",
@@ -1514,7 +1518,14 @@
           "overrideReasonRequired": "क्रेडिट मर्यादेपलीकडे जाण्याचे कारण द्या (५०० अक्षरांपर्यंत).",
           "busy": "या ग्राहकाची दुसरी विक्री, देयक किंवा परतावा सुरू आहे. पुन्हा प्रयत्न करा."
         }
-      }
+      },
+      "lineContextGoods": "{{item}}, लॉट {{lot}}, ओळ {{line}}, कार्ट {{cart}}",
+      "lineContextService": "{{item}}, ओळ {{line}}, कार्ट {{cart}}",
+      "removeLine": "{{item}} काढा",
+      "servicePriceOf": "{{item}} ची किंमत",
+      "advancedLineEditOf": "{{item}} साठी प्रगत संपादन",
+      "hsnCodeOf": "{{item}} साठी HSN कोड",
+      "taxRatePercentOf": "{{item}} साठी कर दर"
     },
     "detail": {
       "title": "विक्री तपशील",

@@ -38,6 +38,8 @@ export interface InstantDiscountOption {
   readonly labelKey: string;
 }
 
+let cartTableSequence = 0;
+
 @Component({
   selector: 'app-cart-table',
   standalone: true,
@@ -55,6 +57,16 @@ export interface InstantDiscountOption {
   styleUrl: './cart-table.component.scss',
 })
 export class CartTableComponent {
+  readonly cartInstance = ++cartTableSequence;
+  readonly controlPrefix = `cart-${this.cartInstance}`;
+  lineNumber(item: CartItem | ServiceCartLine): number {
+    const goodsIndex = this.cartItems.findIndex(line => line.clientLineKey === item.clientLineKey);
+    if (goodsIndex !== -1) return goodsIndex + 1;
+    return this.cartItems.length + this.serviceCartItems.findIndex(line => line.clientLineKey === item.clientLineKey) + 1;
+  }
+  controlId(item: CartItem | ServiceCartLine, field: string): string {
+    return `${this.controlPrefix}-${item.clientLineKey}-${field}`;
+  }
   readonly expiryStatusKey = expiryStatusKey;
   expiryDecision(item: CartItem) { return this.checkoutPreview?.expiryDecisions?.find(x => x.inventoryBatchId === item.inventoryBatchId)?.decision; }
   @Input() cartItems: CartItem[] = [];

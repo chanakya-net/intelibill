@@ -33,6 +33,63 @@ const notes: AppliedCreditNote[] = [
 ];
 
 describe('SalePaymentSectionComponent', () => {
+  it('payment_controls_have_associated_names', async () => {
+    TestBed.configureTestingModule({
+      providers: disabledTillProviders(),
+      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({
+        langs: { en: { sales: { newSale: {
+          paymentMethod: 'Payment method', paidAmount: 'Paid amount', dueAmount: 'Due amount',
+          creditNote: { codeLabel: 'Credit note code', amountLabel: 'Credit note {{code}} amount' },
+        } } } }, preloadLangs: true, translocoConfig: { availableLangs: ['en'], defaultLang: 'en' },
+      })],
+    });
+
+    const first = TestBed.createComponent(SalePaymentSectionComponent);
+    for (const fixture of [first]) {
+      fixture.componentInstance.paymentMethods = methods;
+      fixture.componentInstance.showDueAmount = true;
+      fixture.componentInstance.paymentSplitError = 'sales.newSale.invalidSplit';
+      fixture.componentInstance.creditNoteError = 'sales.newSale.invalidNote';
+      fixture.componentInstance.appliedCreditNotes = notes;
+      fixture.detectChanges();
+    }
+    const second = TestBed.createComponent(SalePaymentSectionComponent);
+    second.componentInstance.paymentMethods = methods;
+    second.componentInstance.showDueAmount = true;
+    second.componentInstance.paymentSplitError = 'sales.newSale.invalidSplit';
+    second.componentInstance.creditNoteError = 'sales.newSale.invalidNote';
+    second.componentInstance.appliedCreditNotes = notes;
+    second.detectChanges();
+    await Promise.all([first.whenStable(), second.whenStable()]);
+
+    first.detectChanges();
+    second.detectChanges();
+    const controls = [first, second].map(fixture => {
+      const root = fixture.nativeElement as HTMLElement;
+      const inputs = [...root.querySelectorAll<HTMLInputElement>('input.p-inputnumber-input')];
+      const method = root.querySelector<HTMLElement>('[role="combobox"]');
+      expect(method).toBeTruthy();
+      expect(method?.id).toBeTruthy();
+      expect(method?.getAttribute('aria-labelledby')).toBeTruthy();
+      expect(root.querySelector(`#${method?.getAttribute('aria-labelledby')}`)).toBeTruthy();
+      expect(root.querySelector<HTMLLabelElement>(`label[for="${method?.id}"]`)?.textContent).toContain('Payment method');
+      expect(inputs.length).toBe(4);
+      for (const input of inputs) {
+        expect(input.id).toBeTruthy();
+        expect(root.querySelector<HTMLLabelElement>(`label[for="${input.id}"]`)).toBeTruthy();
+      }
+      expect(inputs[0].getAttribute('aria-describedby')).toBeTruthy();
+      expect(root.querySelector(`#${inputs[0].getAttribute('aria-describedby')}`)?.textContent).toContain('invalidSplit');
+      expect(inputs[0].getAttribute('aria-invalid')).toBe('true');
+      expect(inputs[1].getAttribute('aria-invalid')).toBe('true');
+      return inputs.map(input => input.id);
+    });
+    expect(new Set(controls.flat()).size).toBe(8);
+    second.componentRef.setInput('isSubmitting', true);
+    second.detectChanges();
+    expect((second.nativeElement.querySelector('input.p-inputnumber-input') as HTMLInputElement).disabled).toBe(true);
+  });
+
   it('emits payment method updates', () => {
     TestBed.configureTestingModule({
       providers: disabledTillProviders(),

@@ -50,11 +50,12 @@
       @if (selectedBatch; as selected) {
         <div class="batch-picker-selection">
           <div class="flex flex-col gap-1">
-            <label class="text-xs text-slate-500" for="batch-picker-quantity">{{
+            <label class="text-xs text-slate-500" [for]="quantityInputId">{{
               'sales.newSale.quantity' | transloco
             }}</label>
             <app-quantity-field
-              inputId="batch-picker-quantity"
+              [inputId]="quantityInputId"
+              [disabled]="!canAdd(selected)"
               [value]="quantity"
               [scale]="quantityScaleOf(selected)"
               [max]="isGoods(selected) ? available(selected) : null"

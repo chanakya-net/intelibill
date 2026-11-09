@@ -40,5 +40,13 @@ describe('reactive locale display pipes', () => {
         maximumFractionDigits: 2,
       }).format(123456.78),
     );
+    const date = new Intl.DateTimeFormat('hi-IN', {
+      dateStyle: 'medium', timeZone: 'UTC',
+    }).format(new Date('2024-02-29T00:00:00Z'));
+    expect(fixture.nativeElement.querySelector('#day').textContent).toBe(date);
+    const instant = new Intl.DateTimeFormat('hi-IN', {
+      dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata',
+    }).format(new Date('2024-02-28T20:00:00Z'));
+    expect(fixture.nativeElement.querySelector('#instant').textContent).toBe(instant);
   });
 });

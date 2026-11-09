@@ -18,6 +18,11 @@
   font-weight: 600;
 }
 
+.quantity-field-input:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
 .quantity-field-unit {
   font-size: 0.75rem;
   font-weight: 600;

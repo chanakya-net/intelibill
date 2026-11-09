@@ -1389,7 +1389,9 @@
         "saleNotEligible": "बिक्री छूट के लिए कोई पात्र लाइन नहीं.",
         "exceedsMaxPercent": "अधिकतम प्रतिशत से अधिक.",
         "exceedsMaxFlat": "अधिकतम राशि से अधिक.",
-        "fixErrors": "रिकॉर्ड करने से पहले छूट त्रुटियां ठीक करें."
+        "fixErrors": "रिकॉर्ड करने से पहले छूट त्रुटियां ठीक करें.",
+        "typeOf": "{{item}} के लिए छूट का प्रकार",
+        "valueOf": "{{item}} के लिए छूट की राशि"
       },
       "shopUpdate": {
         "pricingUpdated": "आइटम मूल्य अपडेट किया गया",
@@ -1468,7 +1470,9 @@
         "confirmMismatchBtn": "बेमेल की पुष्टि करें",
         "customerMismatchConfirmed": "विसंगति की पुष्टि हो गई है। बिक्री प्रस्तुत की जा सकती है।",
         "customerMismatchConfirmRequired": "प्रस्तुत करने से पहले ग्राहक की विसंगति की पुष्टि करें।",
-        "codeLabel": "क्रेडिट नोट कोड"
+        "codeLabel": "क्रेडिट नोट कोड",
+        "amountLabel": "क्रेडिट नोट {{code}} से राशि",
+        "removeCode": "क्रेडिट नोट {{code}} हटाएँ"
       },
       "paymentMethods": {
         "card": "कार्ड",
@@ -1514,7 +1518,14 @@
           "overrideReasonRequired": "क्रेडिट सीमा से ऊपर जाने का कारण दें (500 अक्षरों तक)।",
           "busy": "इस ग्राहक की कोई और बिक्री, भुगतान या वापसी चल रही है। फिर से प्रयास करें।"
         }
-      }
+      },
+      "lineContextGoods": "{{item}}, लॉट {{lot}}, पंक्ति {{line}}, कार्ट {{cart}}",
+      "lineContextService": "{{item}}, पंक्ति {{line}}, कार्ट {{cart}}",
+      "removeLine": "{{item}} हटाएँ",
+      "servicePriceOf": "{{item}} की कीमत",
+      "advancedLineEditOf": "{{item}} के लिए उन्नत संपादन",
+      "hsnCodeOf": "{{item}} का एचएसएन कोड",
+      "taxRatePercentOf": "{{item}} की कर दर"
     },
     "detail": {
       "title": "बिक्री विवरण",

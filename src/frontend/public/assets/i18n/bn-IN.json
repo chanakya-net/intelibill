@@ -1389,7 +1389,9 @@
         "saleNotEligible": "বিক্রয় ছাড়ের জন্য কোনো যোগ্য লাইন নেই.",
         "exceedsMaxPercent": "সর্বোচ্চ শতাংশ ছাড়িয়ে গেছে.",
         "exceedsMaxFlat": "সর্বোচ্চ পরিমাণ ছাড়িয়ে গেছে.",
-        "fixErrors": "রেকর্ড করার আগে ছাড়ের ত্রুটি ঠিক করুন."
+        "fixErrors": "রেকর্ড করার আগে ছাড়ের ত্রুটি ঠিক করুন.",
+        "typeOf": "{{item}}-এর ছাড়ের ধরন",
+        "valueOf": "{{item}}-এর ছাড়ের পরিমাণ"
       },
       "shopUpdate": {
         "pricingUpdated": "আইটেমের দাম আপডেট হয়েছে",
@@ -1468,7 +1470,9 @@
         "confirmMismatchBtn": "অমিল নিশ্চিত করুন",
         "customerMismatchConfirmed": "অমিল নিশ্চিত হয়েছে। বিক্রয় জমা দেওয়া যাবে.",
         "customerMismatchConfirmRequired": "জমা দেওয়ার আগে অনুগ্রহ করে গ্রাহকের অমিল নিশ্চিত করুন।",
-        "codeLabel": "ক্রেডিট নোট কোড"
+        "codeLabel": "ক্রেডিট নোট কোড",
+        "amountLabel": "ক্রেডিট নোট {{code}} থেকে পরিমাণ",
+        "removeCode": "ক্রেডিট নোট {{code}} সরান"
       },
       "paymentMethods": {
         "card": "কার্ড",
@@ -1514,7 +1518,14 @@
           "overrideReasonRequired": "ক্রেডিট সীমা ছাড়ানোর কারণ দিন (৫০০ অক্ষর পর্যন্ত)।",
           "busy": "এই গ্রাহকের আরেকটি বিক্রি, পেমেন্ট বা ফেরত চলছে। আবার চেষ্টা করুন।"
         }
-      }
+      },
+      "lineContextGoods": "{{item}}, লট {{lot}}, সারি {{line}}, কার্ট {{cart}}",
+      "lineContextService": "{{item}}, সারি {{line}}, কার্ট {{cart}}",
+      "removeLine": "{{item}} সরান",
+      "servicePriceOf": "{{item}}-এর মূল্য",
+      "advancedLineEditOf": "{{item}}-এর উন্নত সম্পাদনা",
+      "hsnCodeOf": "{{item}}-এর HSN কোড",
+      "taxRatePercentOf": "{{item}}-এর করের হার"
     },
     "detail": {
       "title": "বিক্রয় বিবরণ",

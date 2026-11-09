@@ -1389,7 +1389,9 @@
         "saleNotEligible": "વેચાણ છૂટ માટે કોઈ પાત્ર લાઇન નથી.",
         "exceedsMaxPercent": "મહત્તમ ટકાથી વધુ.",
         "exceedsMaxFlat": "મહત્તમ રકમથી વધુ.",
-        "fixErrors": "રેકોર્ડ કરતા પહેલા છૂટ ભૂલો સુધારો."
+        "fixErrors": "રેકોર્ડ કરતા પહેલા છૂટ ભૂલો સુધારો.",
+        "typeOf": "{{item}} માટે છૂટનો પ્રકાર",
+        "valueOf": "{{item}} માટે છૂટની રકમ"
       },
       "shopUpdate": {
         "pricingUpdated": "આઇટમ કિંમત અપડેટ થઈ છે",
@@ -1468,7 +1470,9 @@
         "confirmMismatchBtn": "અસંગતતાની પુષ્ટિ કરો",
         "customerMismatchConfirmed": "મેળ ખાતી નથી. વેચાણ સબમિટ કરી શકાય છે.",
         "customerMismatchConfirmRequired": "સબમિટ કરતા પહેલા કૃપા કરીને ગ્રાહકની મેળ ખાતી નથી તેની પુષ્ટિ કરો.",
-        "codeLabel": "ક્રેડિટ નોટ કોડ"
+        "codeLabel": "ક્રેડિટ નોટ કોડ",
+        "amountLabel": "ક્રેડિટ નોટ {{code}} માંથી રકમ",
+        "removeCode": "ક્રેડિટ નોટ {{code}} દૂર કરો"
       },
       "paymentMethods": {
         "card": "કાર્ડ",
@@ -1514,7 +1518,14 @@
           "overrideReasonRequired": "ક્રેડિટ મર્યાદાથી ઉપર જવાનું કારણ આપો (૫૦૦ અક્ષર સુધી).",
           "busy": "આ ગ્રાહકનું બીજું વેચાણ, ચુકવણી કે પરત ચાલુ છે. ફરી પ્રયાસ કરો."
         }
-      }
+      },
+      "lineContextGoods": "{{item}}, લોટ {{lot}}, પંક્તિ {{line}}, કાર્ટ {{cart}}",
+      "lineContextService": "{{item}}, પંક્તિ {{line}}, કાર્ટ {{cart}}",
+      "removeLine": "{{item}} દૂર કરો",
+      "servicePriceOf": "{{item}} ની કિંમત",
+      "advancedLineEditOf": "{{item}} માટે અદ્યતન સંપાદન",
+      "hsnCodeOf": "{{item}} માટે HSN કોડ",
+      "taxRatePercentOf": "{{item}} માટે કર દર"
     },
     "detail": {
       "title": "વેચાણ વિગતો",

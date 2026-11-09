@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { TranslocoTestingModule } from '@ngneat/transloco';
+import { TranslocoService, TranslocoTestingModule } from '@ngneat/transloco';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CartQuantityChangedEvent, CartTableComponent } from './cart-table.component';
@@ -56,6 +56,66 @@ function typeAndCommit(input: HTMLInputElement, text: string): void {
 }
 
 describe('CartTableComponent', () => {
+  it('duplicate_product_lots_have_distinct_control_names', async () => {
+    TestBed.configureTestingModule({ imports: [CartTableComponent, TranslocoTestingModule.forRoot({
+      langs: { en: { sales: { newSale: {
+        lineContextGoods: '{{item}}, lot {{lot}}, line {{line}}, cart {{cart}}',
+        lineContextService: '{{item}}, line {{line}}, cart {{cart}}',
+        quantityOf: 'Quantity of {{item}}',
+        removeLine: 'Remove {{item}}', servicePriceOf: 'Price of {{item}}',
+        discounts: { typeOf: 'Discount type for {{item}}', valueOf: 'Discount value for {{item}}' },
+      } } }, 'hi-IN': { sales: { newSale: {
+        lineContextGoods: '{{item}}, लॉट {{lot}}, पंक्ति {{line}}, कार्ट {{cart}}',
+        quantityOf: '{{item}} की मात्रा',
+      } } } }, preloadLangs: true, translocoConfig: { availableLangs: ['en', 'hi-IN'], defaultLang: 'en', reRenderOnLangChange: true },
+    })] });
+
+    const fixture = TestBed.createComponent(CartTableComponent);
+    fixture.componentInstance.cartItems = [item as never, { ...item, clientLineKey: 'line-2', inventoryBatchId: 'batch-2' } as never];
+    fixture.componentInstance.serviceCartItems = [serviceLine as never];
+    fixture.componentInstance.showGroupedSections = true;
+    fixture.componentInstance.isLineDiscountEditorOpen = () => true;
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    fixture.detectChanges();
+    const root = fixture.nativeElement as HTMLElement;
+    const quantity = [...root.querySelectorAll<HTMLInputElement>('app-quantity-field input')];
+    expect(quantity).toHaveLength(3);
+    expect(new Set(quantity.map(input => input.id)).size).toBe(3);
+    expect(quantity[0].getAttribute('aria-label')).toContain('Coffee, lot X-1, line 1');
+    expect(quantity[1].getAttribute('aria-label')).toContain('Coffee, lot X-1, line 2');
+    expect(quantity[2].getAttribute('aria-label')).toContain('Repair, line 3');
+    const buttons = [...root.querySelectorAll<HTMLButtonElement>('button')];
+    const removes = buttons.filter(button => button.getAttribute('aria-label')?.startsWith('Remove'));
+    expect(removes).toHaveLength(3);
+    expect(new Set(removes.map(button => button.getAttribute('aria-label'))).size).toBe(3);
+    const other = TestBed.createComponent(CartTableComponent);
+    other.componentInstance.cartItems = [item as never];
+    other.detectChanges();
+    const otherQuantity = (other.nativeElement as HTMLElement).querySelector<HTMLInputElement>('app-quantity-field input')!;
+    expect(otherQuantity.id).not.toBe(quantity[0].id);
+    expect(otherQuantity.getAttribute('aria-label')).not.toBe(quantity[0].getAttribute('aria-label'));
+    for (const input of root.querySelectorAll<HTMLInputElement>('.advanced-line-edit input, .discount-editor select, .cart-section input[type="number"]')) {
+      expect(input.getAttribute('aria-label') || root.querySelector(`label[for="${input.id}"]`)).toBeTruthy();
+    }
+    TestBed.inject(TranslocoService).setActiveLang('hi-IN');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(quantity[0].getAttribute('aria-label')).toContain('लॉट X-1, पंक्ति 1');
+    TestBed.inject(TranslocoService).setActiveLang('en');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    fixture.componentRef.setInput('showGroupedSections', false);
+    fixture.detectChanges();
+    expect([...root.querySelectorAll<HTMLButtonElement>('button')].filter(button => button.getAttribute('aria-label')?.startsWith('Remove'))).toHaveLength(2);
+    fixture.componentRef.setInput('cartItems', []);
+    fixture.detectChanges();
+    const servicePrice = root.querySelector<HTMLInputElement>('input[type="number"]');
+    expect(servicePrice?.getAttribute('aria-label')).toContain('Repair');
+    expect(root.querySelector<HTMLButtonElement>('button[aria-label^="Remove"]')?.getAttribute('aria-label')).toContain('Repair');
+  });
+
   it('renders empty cart state when no rows are present', () => {
     TestBed.configureTestingModule({
       imports: [

@@ -1,8 +1,11 @@
 <app-till-posting-fields [sale]="true" />
 <div class="flex gap-2 items-start flex-wrap">
   <div class="flex flex-col gap-1 flex-1 min-w-36">
-    <label class="text-xs text-slate-500">{{ 'sales.newSale.paymentMethod' | transloco }}</label>
+    <label class="text-xs text-slate-500" [id]="controlPrefix + '-method-label'" [for]="controlPrefix + '-method'">{{ 'sales.newSale.paymentMethod' | transloco }}</label>
     <p-select
+      [inputId]="controlPrefix + '-method'"
+      [ariaLabelledBy]="controlPrefix + '-method-label'"
+      [disabled]="isSubmitting"
       [ngModel]="selectedMethod"
       [options]="paymentMethods"
       optionLabel="label"
@@ -20,40 +23,51 @@
   </div>
 
   <div class="flex flex-col gap-1 flex-1 min-w-36">
-    <label class="text-xs text-slate-500">{{ 'sales.newSale.paidAmount' | transloco }}</label>
+    <label class="text-xs text-slate-500" [for]="controlPrefix + '-paid'">{{ 'sales.newSale.paidAmount' | transloco }}</label>
     <p-inputgroup [pt]="currencyGroupPt">
       <p-inputgroup-addon [pt]="currencyAddonPt">{{
         'common.currencySymbol' | transloco
       }}</p-inputgroup-addon>
       <p-inputNumber
+        [inputId]="controlPrefix + '-paid'"
+        [ariaDescribedBy]="paymentSplitError ? controlPrefix + '-split-error' : undefined"
+        [disabled]="isSubmitting"
+        [invalid]="!!paymentSplitError"
         [ngModel]="paidAmount"
         (ngModelChange)="onPaidAmountChange($event)"
         [min]="0"
         [max]="totalAmount"
-        [pt]="currencyInputPt"
+        [pt]="amountInputPt"
       />
     </p-inputgroup>
   </div>
 
   @if (showDueAmount) {
     <div class="flex flex-col gap-1 flex-1 min-w-36">
-      <label class="text-xs text-slate-500">{{ 'sales.newSale.dueAmount' | transloco }}</label>
+      <label class="text-xs text-slate-500" [for]="controlPrefix + '-due'">{{ 'sales.newSale.dueAmount' | transloco }}</label>
       <p-inputgroup [pt]="currencyGroupPt">
         <p-inputgroup-addon [pt]="currencyAddonPt">{{
           'common.currencySymbol' | transloco
         }}</p-inputgroup-addon>
         <p-inputNumber
+          [inputId]="controlPrefix + '-due'"
+          [ariaDescribedBy]="paymentSplitError ? controlPrefix + '-split-error' : undefined"
+          [invalid]="!!paymentSplitError"
           [ngModel]="dueAmount"
           (ngModelChange)="onDueAmountChange($event)"
           [min]="0"
           [max]="totalAmount"
-          [disabled]="dueAmountDisabled"
-          [pt]="currencyInputPt"
+          [disabled]="dueAmountDisabled || isSubmitting"
+          [pt]="amountInputPt"
         />
       </p-inputgroup>
     </div>
   }
 </div>
+
+@if (paymentSplitError) {
+  <p class="error-hint mt-1" [id]="controlPrefix + '-split-error'">{{ paymentSplitError | transloco }}</p>
+}
 
 @if (!isOfflineMode && !canUseCredit) {
   <p class="error-hint mt-2">{{ 'sales.newSale.creditRequiresCustomerPhone' | transloco }}</p>
@@ -67,23 +81,25 @@
 
 @if (!isOfflineMode) {
   <div class="credit-note-verify mt-3">
-    <label class="text-xs text-slate-500">{{
-      'sales.newSale.creditNote.sectionLabel' | transloco
+    <label class="text-xs text-slate-500" [for]="controlPrefix + '-credit-code'">{{
+      'sales.newSale.creditNote.codeLabel' | transloco
     }}</label>
     <div class="flex gap-2 items-start mt-1">
       <input
         pInputText
+        [id]="controlPrefix + '-credit-code'"
         class="flex-1"
         [value]="creditNoteCode"
         (input)="onCreditNoteCodeChange($any($event.target).value)"
         [placeholder]="'sales.newSale.creditNote.codePlaceholder' | transloco"
-        [disabled]="isCreditNoteVerifying"
-        [attr.aria-label]="'sales.newSale.creditNote.codeLabel' | transloco"
+        [disabled]="isCreditNoteVerifying || isSubmitting"
+        [attr.aria-invalid]="creditNoteError ? 'true' : null"
+        [attr.aria-describedby]="creditNoteError ? controlPrefix + '-credit-error' : null"
       />
       <p-button
         [label]="'sales.newSale.creditNote.verifyBtn' | transloco"
         [loading]="isCreditNoteVerifying"
-        [disabled]="!creditNoteCode.trim() || isCreditNoteVerifying"
+        [disabled]="!creditNoteCode.trim() || isCreditNoteVerifying || isSubmitting"
         (click)="onCreditNoteVerifyClick()"
         severity="secondary"
         size="small"
@@ -148,7 +164,7 @@
             severity="success"
             size="small"
             [disabled]="
-              !canApplyCreditNote ||
+              isSubmitting || !canApplyCreditNote ||
               (creditNoteCustomerMismatchWarning && !creditNoteCustomerMismatchConfirmed)
             "
             (click)="onCreditNoteApplyClick()"
@@ -174,17 +190,22 @@
               </div>
               <p-button
                 [label]="'common.remove' | transloco"
+                [ariaLabel]="'sales.newSale.creditNote.removeCode' | transloco: { code: note.code }"
+                [disabled]="isSubmitting"
                 severity="secondary"
                 [text]="true"
                 size="small"
                 (click)="onAppliedCreditNoteRemoveClick(note.creditNoteId)"
               />
             </div>
+            <label class="text-xs text-slate-500" [for]="controlPrefix + '-note-' + note.creditNoteId">{{ 'sales.newSale.creditNote.amountLabel' | transloco: { code: note.code } }}</label>
             <p-inputgroup [pt]="currencyGroupPt">
               <p-inputgroup-addon [pt]="currencyAddonPt">{{
                 'common.currencySymbol' | transloco
               }}</p-inputgroup-addon>
               <p-inputNumber
+                [inputId]="controlPrefix + '-note-' + note.creditNoteId"
+                [disabled]="isSubmitting"
                 [ngModel]="note.amount"
                 (ngModelChange)="onAppliedCreditNoteAmountChange(note.creditNoteId, $event)"
                 [min]="0"
@@ -198,7 +219,7 @@
     }
 
     @if (creditNoteError) {
-      <p class="error-hint mt-1">{{ creditNoteError | transloco }}</p>
+      <p class="error-hint mt-1" [id]="controlPrefix + '-credit-error'">{{ creditNoteError | transloco }}</p>
     }
   </div>
 }

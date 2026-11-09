@@ -63,7 +63,10 @@
 
     @if (isDiscountEditorOpen) {
       <div class="discount-editor mt-2">
+        <label [for]="controlPrefix + '-discount-type'">{{ 'sales.newSale.discounts.editSale' | transloco }}</label>
         <p-select
+          [inputId]="controlPrefix + '-discount-type'"
+          [disabled]="loading || isSubmitting"
           [options]="instantDiscountTypeOptions"
           optionValue="value"
           optionLabel="labelKey"
@@ -79,7 +82,11 @@
           </ng-template>
         </p-select>
 
+        <label [for]="controlPrefix + '-discount-value'">{{ 'sales.newSale.discounts.value' | transloco }}</label>
         <p-inputNumber
+          [inputId]="controlPrefix + '-discount-value'"
+          [ariaDescribedBy]="saleDiscountError ? controlPrefix + '-discount-error' : undefined"
+          [disabled]="loading || isSubmitting"
           [ngModel]="saleDiscountValue"
           [ngModelOptions]="{ standalone: true }"
           (ngModelChange)="onDiscountValueChanged($event)"
@@ -93,7 +100,7 @@
     }
 
     @if (saleDiscountError) {
-      <p class="error-hint mt-1">{{ saleDiscountError | transloco }}</p>
+      <p class="error-hint mt-1" [id]="controlPrefix + '-discount-error'">{{ saleDiscountError | transloco }}</p>
     }
   </div>
 

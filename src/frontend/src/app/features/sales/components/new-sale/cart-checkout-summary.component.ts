@@ -9,6 +9,8 @@ import { TranslocoPipe } from '@ngneat/transloco';
 
 import { SalePreviewDto } from '../../../../features/sales/services/sale.models';
 
+let checkoutSummarySequence = 0;
+
 @Component({
   selector: 'app-cart-checkout-summary',
   standalone: true,
@@ -17,6 +19,7 @@ import { SalePreviewDto } from '../../../../features/sales/services/sale.models'
   styleUrl: './cart-checkout-summary.component.scss',
 })
 export class CartCheckoutSummaryComponent {
+  readonly controlPrefix = `checkout-summary-${++checkoutSummarySequence}`;
   @Input() preview: SalePreviewDto | null = null;
   @Input() loading = false;
   @Input() totalAmount = 0;

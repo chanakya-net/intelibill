@@ -1389,7 +1389,9 @@
         "saleNotEligible": "ಮಾರಾಟದ ರಿಯಾಯಿತಿಗಾಗಿ ಯಾವುದೇ ಅರ್ಹ ಸಾಲುಗಳಿಲ್ಲ.",
         "exceedsMaxPercent": "ಗರಿಷ್ಠ ಶೇಕಡಾವನ್ನು ಮೀರುತ್ತದೆ.",
         "exceedsMaxFlat": "ಗರಿಷ್ಠ ಮೊತ್ತವನ್ನು ಮೀರುತ್ತದೆ.",
-        "fixErrors": "ರೆಕಾರ್ಡಿಂಗ್ ಮಾಡುವ ಮೊದಲು ರಿಯಾಯಿತಿ ದೋಷಗಳನ್ನು ಸರಿಪಡಿಸಿ."
+        "fixErrors": "ರೆಕಾರ್ಡಿಂಗ್ ಮಾಡುವ ಮೊದಲು ರಿಯಾಯಿತಿ ದೋಷಗಳನ್ನು ಸರಿಪಡಿಸಿ.",
+        "typeOf": "{{item}} ಗಾಗಿ ರಿಯಾಯಿತಿ ಪ್ರಕಾರ",
+        "valueOf": "{{item}} ಗಾಗಿ ರಿಯಾಯಿತಿ ಮೊತ್ತ"
       },
       "shopUpdate": {
         "pricingUpdated": "ಐಟಂ ಬೆಲೆಯನ್ನು ನವೀಕರಿಸಲಾಗಿದೆ",
@@ -1468,7 +1470,9 @@
         "confirmMismatchBtn": "ಅಸಂಗತತೆಯನ್ನು ದೃಢೀಕರಿಸಿ",
         "customerMismatchConfirmed": "ಹೊಂದಿಕೆಯಾಗದಿರುವುದು ದೃಢಪಟ್ಟಿದೆ. ಮಾರಾಟವನ್ನು ಸಲ್ಲಿಸಬಹುದು.",
         "customerMismatchConfirmRequired": "ಸಲ್ಲಿಸುವ ಮೊದಲು ಗ್ರಾಹಕರ ಹೊಂದಾಣಿಕೆಯಿಲ್ಲ ಎಂಬುದನ್ನು ದಯವಿಟ್ಟು ದೃಢೀಕರಿಸಿ.",
-        "codeLabel": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಕೋಡ್"
+        "codeLabel": "ಕ್ರೆಡಿಟ್ ನೋಟ್ ಕೋಡ್",
+        "amountLabel": "ಕ್ರೆಡಿಟ್ ನೋಟ್ {{code}} ನಿಂದ ಮೊತ್ತ",
+        "removeCode": "ಕ್ರೆಡಿಟ್ ನೋಟ್ {{code}} ತೆಗೆದುಹಾಕಿ"
       },
       "paymentMethods": {
         "card": "ಕಾರ್ಡ್",
@@ -1514,7 +1518,14 @@
           "overrideReasonRequired": "ಕ್ರೆಡಿಟ್ ಮಿತಿ ಮೀರುವ ಕಾರಣ ನೀಡಿ (೫೦೦ ಅಕ್ಷರಗಳವರೆಗೆ).",
           "busy": "ಈ ಗ್ರಾಹಕರ ಇನ್ನೊಂದು ಮಾರಾಟ, ಪಾವತಿ ಅಥವಾ ಹಿಂತಿರುಗಿಸುವಿಕೆ ನಡೆಯುತ್ತಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
         }
-      }
+      },
+      "lineContextGoods": "{{item}}, ಲಾಟ್ {{lot}}, ಸಾಲು {{line}}, ಕಾರ್ಟ್ {{cart}}",
+      "lineContextService": "{{item}}, ಸಾಲು {{line}}, ಕಾರ್ಟ್ {{cart}}",
+      "removeLine": "{{item}} ತೆಗೆದುಹಾಕಿ",
+      "servicePriceOf": "{{item}} ಬೆಲೆ",
+      "advancedLineEditOf": "{{item}} ಗಾಗಿ ಸುಧಾರಿತ ಸಂಪಾದನೆ",
+      "hsnCodeOf": "{{item}} ಗಾಗಿ HSN ಕೋಡ್",
+      "taxRatePercentOf": "{{item}} ಗಾಗಿ ತೆರಿಗೆ ದರ"
     },
     "detail": {
       "title": "ಮಾರಾಟ ವಿವರಗಳು",
