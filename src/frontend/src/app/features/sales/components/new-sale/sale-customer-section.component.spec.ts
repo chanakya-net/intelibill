@@ -103,5 +103,12 @@ describe('SaleCustomerSectionComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('sales.newSale.invalidPhone');
+    const root = fixture.nativeElement as HTMLElement;
+    const phone = root.querySelector<HTMLInputElement>('input[type="tel"]')!;
+    const name = root.querySelector<HTMLInputElement>('p-autocomplete input')!;
+    expect(root.querySelector(`label[for="${name.id}"]`)).toBeTruthy();
+    expect(root.querySelector(`label[for="${phone.id}"]`)).toBeTruthy();
+    expect(phone.getAttribute('aria-invalid')).toBe('true');
+    expect(root.querySelector(`#${phone.getAttribute('aria-describedby')}`)?.textContent).toContain('invalidPhone');
   });
 });

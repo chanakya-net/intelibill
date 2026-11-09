@@ -422,3 +422,11 @@
     justify-content: center;
   }
 }
+.checkout-error-summary {
+  padding: .75rem;
+  border: 2px solid currentColor;
+  border-radius: .5rem;
+  overflow-wrap: anywhere;
+  a { text-decoration: underline; display: inline-block; min-height: 24px; }
+  &:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+}

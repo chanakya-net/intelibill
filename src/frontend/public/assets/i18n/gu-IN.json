@@ -1,4 +1,20 @@
 {
+  "apiErrors": {
+    "validationFailed": "ચિહ્નિત ફીલ્ડ તપાસો અને ફરી પ્રયાસ કરો.",
+    "invalidRequest": "વિનંતી તપાસો અને ફરી પ્રયાસ કરો.",
+    "unauthorized": "આગળ વધવા ફરી સાઇન ઇન કરો.",
+    "conflict": "આ માહિતી બદલાઈ છે. પાનું ફરી લોડ કરીને પ્રયાસ કરો.",
+    "unexpected": "કંઈક ખોટું થયું. ફરી પ્રયાસ કરો અથવા સહાયનો સંપર્ક કરો.",
+    "payloadMismatch": "આ વિનંતી અગાઉ મોકલેલી વિનંતીથી અલગ છે. હાલની કાર્યવાહી તપાસો.",
+    "postingPeriodClosed": "આ હિસાબી સમયગાળો બંધ છે.",
+    "postingPeriodBusy": "આ હિસાબી સમયગાળો વ્યસ્ત છે. ફરી પ્રયાસ કરો.",
+    "postingPeriodNotEnded": "આ હિસાબી સમયગાળો હજી પૂરો થયો નથી.",
+    "networkUnavailable": "જોડાણ થઈ શક્યું નથી. ઇન્ટરનેટ તપાસો અને ફરી પ્રયાસ કરો.",
+    "requestTimedOut": "વિનંતીનો સમય પૂરો થયો. ફરી પ્રયાસ કરતા પહેલાં પરિણામ તપાસો.",
+    "serviceUnavailable": "સેવા થોડા સમય માટે ઉપલબ્ધ નથી. પછી પ્રયાસ કરો.",
+    "invalidField": "આ ફીલ્ડ તપાસો.",
+    "supportReference": "સહાય સંદર્ભ: {{reference}}"
+  },
   "common": {
     "language": "ભાષા",
     "firstName": "પ્રથમ નામ",
@@ -13,6 +29,7 @@
     "currencySymbol": "₹",
     "search": "શોધો...",
     "loading": "લોડ કરી રહ્યું છે...",
+    "noResults": "મેળ ખાતાં પરિણામો મળ્યાં નથી.",
     "all": "બધા",
     "active": "સક્રિય",
     "error": "ભૂલ",
@@ -781,6 +798,7 @@
     "scannerActionAdded": "પંક્તિ ઉમેરાઈ",
     "scannerActionReview": "સમીક્ષા જરૂરી",
     "scannerDetectionError": "બારકોડ ડિટેક્ટર અણધારી રીતે બંધ થયો. ફરી પ્રયાસ કરવા સ્કૅનર બંધ કરો અને ફરી ખોલો.",
+    "scannerStarting": "કેમેરા સ્કેનર શરૂ થઈ રહ્યું છે…",
     "scannerOpenError": "કૅમેરા સ્કૅનર શરૂ કરવામાં અસમર્થ. કૃપા કરી ફરી પ્રયાસ કરો.",
     "productForm": "ઉત્પાદન ફૉર્મ ઉમેરો",
     "noItemsFound": "હજી કોઈ ઉત્પાદન ઉમેરાયું નથી",
@@ -1336,6 +1354,7 @@
       "walkIn": "વૉક-ઇન ગ્રાહક",
       "invalidPhone": "માન્ય ફોન નંબર દાખલ કરો.",
       "paymentSection": "ચુકવણી",
+      "validationSummary": "વેચાણ નોંધતા પહેલાં ચિહ્નિત ક્ષેત્રો તપાસો.",
       "paymentMethod": "ચુકવણી પદ્ધતિ",
       "selectPayment": "ચુકવણી પદ્ધતિ પસંદ કરો",
       "tax": "કર",
@@ -1373,7 +1392,9 @@
         "saleNotEligible": "વેચાણ છૂટ માટે કોઈ પાત્ર લાઇન નથી.",
         "exceedsMaxPercent": "મહત્તમ ટકાથી વધુ.",
         "exceedsMaxFlat": "મહત્તમ રકમથી વધુ.",
-        "fixErrors": "રેકોર્ડ કરતા પહેલા છૂટ ભૂલો સુધારો."
+        "fixErrors": "રેકોર્ડ કરતા પહેલા છૂટ ભૂલો સુધારો.",
+        "typeOf": "{{item}} માટે છૂટનો પ્રકાર",
+        "valueOf": "{{item}} માટે છૂટની રકમ"
       },
       "shopUpdate": {
         "pricingUpdated": "આઇટમ કિંમત અપડેટ થઈ છે",
@@ -1452,7 +1473,9 @@
         "confirmMismatchBtn": "અસંગતતાની પુષ્ટિ કરો",
         "customerMismatchConfirmed": "મેળ ખાતી નથી. વેચાણ સબમિટ કરી શકાય છે.",
         "customerMismatchConfirmRequired": "સબમિટ કરતા પહેલા કૃપા કરીને ગ્રાહકની મેળ ખાતી નથી તેની પુષ્ટિ કરો.",
-        "codeLabel": "ક્રેડિટ નોટ કોડ"
+        "codeLabel": "ક્રેડિટ નોટ કોડ",
+        "amountLabel": "ક્રેડિટ નોટ {{code}} માંથી રકમ",
+        "removeCode": "ક્રેડિટ નોટ {{code}} દૂર કરો"
       },
       "paymentMethods": {
         "card": "કાર્ડ",
@@ -1498,7 +1521,14 @@
           "overrideReasonRequired": "ક્રેડિટ મર્યાદાથી ઉપર જવાનું કારણ આપો (૫૦૦ અક્ષર સુધી).",
           "busy": "આ ગ્રાહકનું બીજું વેચાણ, ચુકવણી કે પરત ચાલુ છે. ફરી પ્રયાસ કરો."
         }
-      }
+      },
+      "lineContextGoods": "{{item}}, લોટ {{lot}}, પંક્તિ {{line}}, કાર્ટ {{cart}}",
+      "lineContextService": "{{item}}, પંક્તિ {{line}}, કાર્ટ {{cart}}",
+      "removeLine": "{{item}} દૂર કરો",
+      "servicePriceOf": "{{item}} ની કિંમત",
+      "advancedLineEditOf": "{{item}} માટે અદ્યતન સંપાદન",
+      "hsnCodeOf": "{{item}} માટે HSN કોડ",
+      "taxRatePercentOf": "{{item}} માટે કર દર"
     },
     "detail": {
       "title": "વેચાણ વિગતો",

@@ -40,6 +40,9 @@ export class QuantityFieldComponent {
   readonly inputId = input.required<string>();
   /** Translated accessible name of the field. */
   readonly ariaLabel = input.required<string>();
+  readonly disabled = input(false);
+  readonly descriptionId = input<string | null>(null);
+  protected readonly describedBy = computed(() => [this.descriptionId(), this.error() ? this.errorId() : null].filter(Boolean).join(' ') || null);
 
   readonly committed = output<number>();
 
@@ -80,6 +83,7 @@ export class QuantityFieldComponent {
    * be this unit's quantity; callers about to act on `value` (e.g. an add button) check it first.
    */
   commit(): boolean {
+    if (this.disabled()) return false;
     const parsed = parseQuantityInput(this.text(), this.locale(), this.scale());
     if (!parsed.ok) {
       this.error.set(parsed.error);

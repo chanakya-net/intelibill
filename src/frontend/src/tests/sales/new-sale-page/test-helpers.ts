@@ -7,6 +7,7 @@ import { Subject, of } from 'rxjs';
 import { vi } from 'vitest';
 
 import { AuthService } from '../../../app/core/auth/auth.service';
+import { LocalizationService } from '../../../app/core/i18n/localization.service';
 import { NetworkStatusService } from '../../../app/core/services/network-status.service';
 import { ProductCatalogSyncService } from '../../../app/core/services/product-catalog-sync.service';
 import {
@@ -322,6 +323,7 @@ export function setupNewSalePageTestBed(overrides: Partial<NewSalePageTestDeps> 
     ],
     providers: [
       ...disabledTillProviders(),
+      { provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } },
       { provide: AuthService, useValue: authService },
       { provide: CustomersFacade, useValue: customersFacade },
       { provide: ProductCatalogSyncService, useValue: productCatalogSync },

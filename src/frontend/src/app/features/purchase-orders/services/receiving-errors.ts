@@ -7,7 +7,7 @@ import type { ReceivingRowError } from './receiving.models';
 interface ReceivingProblem {
   code?: string;
   title?: string;
-  errors?: Record<string, unknown>;
+  errors?: Record<string, unknown> | readonly { code?: unknown; description?: unknown }[];
   rowErrors?: readonly {
     code: string;
     clientLineId?: string;
@@ -46,7 +46,7 @@ export function receivingMessage(code: string, field?: string): string {
     'PurchaseOrder.DuplicateLot': 'purchaseOrders.receiving.duplicateLot',
     'PurchaseOrder.DuplicateClientLineId': 'purchaseOrders.receiving.invalidRow',
   };
-  if (messages[code]) return messages[code];
+  if (Object.hasOwn(messages, code)) return messages[code];
   if (field === 'quantity') return 'purchaseOrders.receiving.invalidQuantity';
   return field ? 'purchaseOrders.receiving.invalidRow' : 'purchaseOrders.errors.unableToReceive';
 }
@@ -71,7 +71,12 @@ export function normalizeReceivingErrors(
   };
   for (const row of problem.rowErrors ?? [])
     add(row.code, row.field, row.clientLineId, row.lineIndex);
-  for (const code of Object.keys(problem.errors ?? {})) {
+  const codes = Array.isArray(problem.errors)
+    ? problem.errors
+        .map((entry: { code?: unknown } | null) => entry?.code)
+        .filter((code): code is string => typeof code === 'string')
+    : Object.keys(problem.errors ?? {});
+  for (const code of codes) {
     if (/^Lines\[\d+\]\./i.test(code) && !rows.some((row) => row.code === code)) add(code);
   }
   return rows;

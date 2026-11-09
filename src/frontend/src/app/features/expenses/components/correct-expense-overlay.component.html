@@ -51,16 +51,19 @@
         <span>{{ 'expenses.category' | transloco }}</span>
         <p-select
           formControlName="categoryName"
+          [invalid]="controlInvalid('categoryName')"
+          [pt]="{
+            label: {
+              'aria-describedby': controlDescriptions('categoryName', 'correct-category-error'),
+              'aria-invalid': controlInvalid('categoryName') ? 'true' : undefined,
+            },
+          }"
           [options]="selectableCategories()"
           optionLabel="name"
           optionValue="name"
           [placeholder]="'expenses.category' | transloco"
           [editable]="true"
           [fluid]="true"
-          [attr.aria-invalid]="
-            form.controls.categoryName.touched && form.controls.categoryName.invalid
-          "
-          aria-describedby="correct-category-error"
         ></p-select>
         @if (form.controls.categoryName.touched && form.controls.categoryName.invalid) {
           <p id="correct-category-error" class="field-error">{{ 'common.required' | transloco }}</p>
@@ -79,10 +82,7 @@
             [min]="0"
             [maxFractionDigits]="2"
             [fluid]="true"
-            [pt]="currencyInputPt"
-            [attr.aria-invalid]="form.controls.amount.touched && form.controls.amount.invalid"
-            aria-describedby="correct-amount-error"
-          ></p-inputNumber>
+           [invalid]="controlInvalid('amount')" [ariaDescribedBy]="controlDescriptions('amount', 'correct-amount-error')" [pt]="controlInputPt('amount', 'correct-amount-error', currencyInputPt)"></p-inputNumber>
         </p-inputgroup>
         @if (form.controls.amount.touched && form.controls.amount.invalid) {
           <p id="correct-amount-error" class="field-error">{{ 'common.required' | transloco }}</p>
@@ -95,9 +95,7 @@
           pInputText
           type="text"
           formControlName="paidTo"
-          [attr.aria-invalid]="form.controls.paidTo.touched && form.controls.paidTo.invalid"
-          aria-describedby="correct-paid-to-error"
-        />
+         [attr.aria-invalid]="controlInvalid('paidTo') ? 'true' : null" [attr.aria-describedby]="controlDescriptions('paidTo', 'correct-paid-to-error')" />
         @if (form.controls.paidTo.touched && form.controls.paidTo.invalid) {
           <p id="correct-paid-to-error" class="field-error">{{ 'common.required' | transloco }}</p>
         }
@@ -105,13 +103,21 @@
 
       <label>
         <span>{{ 'expenses.description' | transloco }}</span>
-        <textarea pInputTextarea rows="3" formControlName="description"></textarea>
+        <textarea
+          pInputTextarea
+          rows="3"
+          formControlName="description"
+          [attr.aria-describedby]="
+            fieldError('description') ? 'correct-expense-overlay-description-error' : null
+          "
+          [attr.aria-invalid]="fieldError('description') ? true : null"
+        ></textarea>
       </label>
 
       <label>
         <span>{{ 'expenses.expenseDate' | transloco }}</span>
         <p-datePicker
-          formControlName="expenseDate"
+          formControlName="expenseDate" [invalid]="controlInvalid('expenseDate')" [pt]="controlInputPt('expenseDate')"
           dateFormat="yy-mm-dd"
           [showIcon]="true"
           [showButtonBar]="true"
@@ -120,7 +126,7 @@
       </label>
 
       @if (serverError()) {
-        <p class="error-message">{{ serverError() | transloco }}</p>
+        <p class="error-message">{{ serverError() | transloco: localizedError()?.params ?? {} }}</p>
       }
 
       <div class="actions">
@@ -153,6 +159,14 @@
       />
       @if (tillError()) {
         <p role="alert">{{ tillError() | transloco }}</p>
+      }
+      @if (serverError() && localizedError()?.correlationId; as reference) {
+        <p class="error-reference">{{ 'apiErrors.supportReference' | transloco: { reference } }}</p>
+      }
+      @for (error of localizedError()?.fieldErrors ?? []; track error.field) {
+        <small class="field-error" [id]="'correct-expense-overlay-' + error.field + '-error'">{{
+          error.messageKey | transloco: error.params
+        }}</small>
       }
     </form>
 

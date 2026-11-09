@@ -1,4 +1,20 @@
 {
+  "apiErrors": {
+    "validationFailed": "चिह्नित फ़ील्ड जाँचें और फिर प्रयास करें।",
+    "invalidRequest": "अनुरोध जाँचें और फिर प्रयास करें।",
+    "unauthorized": "जारी रखने के लिए फिर से साइन इन करें।",
+    "conflict": "यह जानकारी बदल गई है। पृष्ठ फिर से लोड करके प्रयास करें।",
+    "unexpected": "कुछ गड़बड़ हुई। फिर प्रयास करें या सहायता से संपर्क करें।",
+    "payloadMismatch": "यह अनुरोध पहले भेजे गए अनुरोध से अलग है। मौजूदा कार्रवाई जाँचें।",
+    "postingPeriodClosed": "यह लेखांकन अवधि बंद है।",
+    "postingPeriodBusy": "यह लेखांकन अवधि व्यस्त है। फिर प्रयास करें।",
+    "postingPeriodNotEnded": "यह लेखांकन अवधि अभी समाप्त नहीं हुई है।",
+    "networkUnavailable": "कनेक्शन नहीं हो सका। अपना इंटरनेट जाँचें और फिर प्रयास करें।",
+    "requestTimedOut": "अनुरोध का समय समाप्त हो गया। दोबारा भेजने से पहले उसका परिणाम जाँचें।",
+    "serviceUnavailable": "सेवा अभी उपलब्ध नहीं है। बाद में प्रयास करें।",
+    "invalidField": "यह फ़ील्ड जाँचें।",
+    "supportReference": "सहायता संदर्भ: {{reference}}"
+  },
   "common": {
     "language": "भाषा",
     "firstName": "पहला नाम",
@@ -13,6 +29,7 @@
     "currencySymbol": "₹",
     "search": "खोजें...",
     "loading": "लोड हो रहा है...",
+    "noResults": "कोई मेल खाता परिणाम नहीं मिला।",
     "all": "सभी",
     "active": "सक्रिय",
     "error": "त्रुटि",
@@ -781,6 +798,7 @@
     "scannerActionAdded": "पंक्ति जोड़ी गई",
     "scannerActionReview": "समीक्षा आवश्यक",
     "scannerDetectionError": "बारकोड डिटेक्टर अनपेक्षित रूप से रुक गया। फिर कोशिश करने के लिए स्कैनर बंद करके दोबारा खोलें।",
+    "scannerStarting": "कैमरा स्कैनर शुरू हो रहा है…",
     "scannerOpenError": "कैमरा स्कैनर शुरू नहीं हो सका। कृपया फिर प्रयास करें।",
     "productForm": "उत्पाद फॉर्म जोड़ें",
     "noItemsFound": "अभी तक कोई उत्पाद नहीं जोड़ा गया",
@@ -1336,6 +1354,7 @@
       "walkIn": "सामान्य ग्राहक",
       "invalidPhone": "मान्य फ़ोन नंबर दर्ज करें।",
       "paymentSection": "भुगतान",
+      "validationSummary": "बिक्री दर्ज करने से पहले चिह्नित फ़ील्ड जाँचें।",
       "paymentMethod": "भुगतान विधि",
       "selectPayment": "भुगतान विधि चुनें",
       "tax": "कर",
@@ -1373,7 +1392,9 @@
         "saleNotEligible": "बिक्री छूट के लिए कोई पात्र लाइन नहीं.",
         "exceedsMaxPercent": "अधिकतम प्रतिशत से अधिक.",
         "exceedsMaxFlat": "अधिकतम राशि से अधिक.",
-        "fixErrors": "रिकॉर्ड करने से पहले छूट त्रुटियां ठीक करें."
+        "fixErrors": "रिकॉर्ड करने से पहले छूट त्रुटियां ठीक करें.",
+        "typeOf": "{{item}} के लिए छूट का प्रकार",
+        "valueOf": "{{item}} के लिए छूट की राशि"
       },
       "shopUpdate": {
         "pricingUpdated": "आइटम मूल्य अपडेट किया गया",
@@ -1452,7 +1473,9 @@
         "confirmMismatchBtn": "बेमेल की पुष्टि करें",
         "customerMismatchConfirmed": "विसंगति की पुष्टि हो गई है। बिक्री प्रस्तुत की जा सकती है।",
         "customerMismatchConfirmRequired": "प्रस्तुत करने से पहले ग्राहक की विसंगति की पुष्टि करें।",
-        "codeLabel": "क्रेडिट नोट कोड"
+        "codeLabel": "क्रेडिट नोट कोड",
+        "amountLabel": "क्रेडिट नोट {{code}} से राशि",
+        "removeCode": "क्रेडिट नोट {{code}} हटाएँ"
       },
       "paymentMethods": {
         "card": "कार्ड",
@@ -1498,7 +1521,14 @@
           "overrideReasonRequired": "क्रेडिट सीमा से ऊपर जाने का कारण दें (500 अक्षरों तक)।",
           "busy": "इस ग्राहक की कोई और बिक्री, भुगतान या वापसी चल रही है। फिर से प्रयास करें।"
         }
-      }
+      },
+      "lineContextGoods": "{{item}}, लॉट {{lot}}, पंक्ति {{line}}, कार्ट {{cart}}",
+      "lineContextService": "{{item}}, पंक्ति {{line}}, कार्ट {{cart}}",
+      "removeLine": "{{item}} हटाएँ",
+      "servicePriceOf": "{{item}} की कीमत",
+      "advancedLineEditOf": "{{item}} के लिए उन्नत संपादन",
+      "hsnCodeOf": "{{item}} का एचएसएन कोड",
+      "taxRatePercentOf": "{{item}} की कर दर"
     },
     "detail": {
       "title": "बिक्री विवरण",

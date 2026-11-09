@@ -1,12 +1,27 @@
+import { LocaleMoneyPipe } from '../../../../shared/pipes/locale-money.pipe';
 import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal, computed } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  EventEmitter,
+  Input,
+  OnChanges,
+  Output,
+  SimpleChanges,
+  inject,
+  signal,
+  computed,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { Subscription } from 'rxjs';
 
-import { CustomerCreditStatus, CustomerService } from '../../../customers/services/customer.service';
+import {
+  CustomerCreditStatus,
+  CustomerService,
+} from '../../../customers/services/customer.service';
 import { creditPolicyLabelKey } from '../../../customers/utils/credit-policy.util';
 import { SaleCreditOverride } from '../../services/sale.models';
 
@@ -21,7 +36,14 @@ const CREDIT_ERROR_PREFIX = 'sales.newSale.credit.errors.';
 @Component({
   selector: 'app-sale-credit-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonModule, InputTextModule, TranslocoPipe],
+  imports: [
+    LocaleMoneyPipe,
+    CommonModule,
+    FormsModule,
+    ButtonModule,
+    InputTextModule,
+    TranslocoPipe,
+  ],
   templateUrl: './sale-credit-panel.component.html',
 })
 export class SaleCreditPanelComponent implements OnChanges {
@@ -50,7 +72,9 @@ export class SaleCreditPanelComponent implements OnChanges {
   /** The due cannot be taken at all: an inactive or no-credit customer (no override). */
   readonly isBlocked = computed(() => {
     const status = this.status();
-    return !!status && this.due() > 0 && (!status.isActive || status.creditPolicyMode === 'NoCredit');
+    return (
+      !!status && this.due() > 0 && (!status.isActive || status.creditPolicyMode === 'NoCredit')
+    );
   });
   /** An enforced limit would be exceeded: refused unless an owner or manager approves. */
   readonly exceedsLimit = computed(() => {

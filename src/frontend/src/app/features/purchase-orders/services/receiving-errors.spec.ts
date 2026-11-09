@@ -4,6 +4,26 @@ import { ScopeMismatchError, StaleScopeError } from '../../../core/context/scope
 import { classifyReceivingFailure, normalizeReceivingErrors } from './receiving-errors';
 const payload = { lines: [{ clientLineId: 'a' }, { clientLineId: 'b' }] };
 describe('receiving error adapter', () => {
+  it('maps SafeErrorFactory field arrays to frozen receiving identities without descriptions', () => {
+    expect(
+      normalizeReceivingErrors(
+        {
+          errors: [
+            { code: 'Lines[1].Quantity', description: '<script>raw</script>' },
+            { code: 'Unknown.Field', description: 'raw' },
+          ],
+        } as never,
+        payload as never,
+      ),
+    ).toEqual([
+      {
+        clientLineId: 'b',
+        field: 'quantity',
+        code: 'Lines[1].Quantity',
+        messageKey: 'purchaseOrders.receiving.invalidQuantity',
+      },
+    ]);
+  });
   it('maps validator paths and handler metadata to frozen client identities without reading human messages', () => {
     const errors = normalizeReceivingErrors(
       {

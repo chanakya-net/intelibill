@@ -1,3 +1,4 @@
+import { DialogFocusDirective } from '../accessibility/dialog-focus';
 import {
   Component,
   ElementRef,
@@ -24,9 +25,11 @@ import { CameraStreamService } from '../../core/services/camera-stream.service';
 @Component({
   selector: 'app-barcode-scanner-dialog',
   standalone: true,
-  imports: [DialogModule, ProgressSpinnerModule, TranslocoPipe],
+  imports: [DialogFocusDirective, DialogModule, ProgressSpinnerModule, TranslocoPipe],
   template: `
     <p-dialog
+      [appDialogFocus]="visible"
+      [focusOnShow]="false"
       [visible]="visible"
       (visibleChange)="onVisibleChange($event)"
       [header]="headerKey | transloco"
@@ -35,7 +38,7 @@ import { CameraStreamService } from '../../core/services/camera-stream.service';
       [style]="{ width: '100%', maxWidth: '42rem' }"
     >
       <div class="scanner-dialog-content">
-        <p class="scanner-subtitle">{{ subtitleKey | transloco }}</p>
+        <p class="scanner-subtitle" tabindex="-1" data-dialog-initial-focus>{{ subtitleKey | transloco }}</p>
 
         <div class="scanner-preview-shell">
           <video #scannerVideo class="scanner-video" autoplay muted playsinline></video>
@@ -47,15 +50,13 @@ import { CameraStreamService } from '../../core/services/camera-stream.service';
           }
         </div>
 
-        @if (scannerError()) {
-          <p class="scanner-error">
-            {{
-              scannerError().startsWith('inventory.')
-                ? (scannerError() | transloco)
-                : scannerError()
-            }}
-          </p>
-        }
+        <p class="scanner-error" role="status" aria-live="polite" aria-atomic="true">
+          @if (scannerError()) {
+            {{ (scannerError() === 'inventory.scannerDetectionError' ? 'inventory.scannerDetectionError' : 'inventory.scannerOpenError') | transloco }}
+          } @else if (scannerInitializing()) {
+            {{ 'inventory.scannerStarting' | transloco }}
+          }
+        </p>
       </div>
     </p-dialog>
   `,

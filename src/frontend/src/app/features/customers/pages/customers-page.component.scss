@@ -245,17 +245,15 @@ h1 {
   }
 
   .account-statement-dialog .p-dialog-header {
-    position: absolute;
-    top: 0.7rem;
-    right: 0.7rem;
+    position: relative;
     z-index: 2;
-    padding: 0;
+    padding: 0.75rem 1rem;
     background: transparent;
     border: 0;
   }
 
   .account-statement-dialog .p-dialog-title {
-    display: none;
+    display: block;
   }
 
   .account-statement-dialog .p-dialog-content {
@@ -347,7 +345,7 @@ h1 {
   width: 3rem;
   height: 3rem;
   border-radius: 50%;
-  background: #d45d52;
+  background: #a7352c;
   color: #fffaf5;
   font-size: 1rem;
   font-weight: 800;
@@ -600,7 +598,7 @@ h1 {
 
 .statement-tabs button.active {
   border-color: #d45d52;
-  background: #d45d52;
+  background: #a7352c;
   color: #fffaf5;
 }
 

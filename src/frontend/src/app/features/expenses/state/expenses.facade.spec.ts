@@ -31,6 +31,7 @@ describe('ExpensesFacade', () => {
   });
 
   const store = {
+    selectSignal: vi.fn(() => () => undefined),
     dispatch,
     select: vi.fn((selector: unknown) => {
       if (selector === selectExpensesQuery) return query$;

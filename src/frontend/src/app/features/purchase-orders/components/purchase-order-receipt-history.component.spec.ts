@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../core/i18n/localization.service';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
@@ -6,6 +7,12 @@ import { Table } from 'primeng/table';
 import { describe, expect, it, afterEach } from 'vitest';
 import type { PurchaseOrderReceipt } from '../services/purchase-order.service';
 import { PurchaseOrderReceiptHistoryComponent } from './purchase-order-receipt-history.component';
+
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
 
 describe('PurchaseOrderReceiptHistoryComponent', () => {
   afterEach(() => TestBed.resetTestingModule());
@@ -18,7 +25,10 @@ describe('PurchaseOrderReceiptHistoryComponent', () => {
           translocoConfig: { defaultLang: 'en', availableLangs: ['en'] },
         }),
       ],
-      providers: [provideRouter([])],
+      providers: [
+        { provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } },
+        provideRouter([]),
+      ],
     });
     const base = {
       purchaseOrderLineId: 'po-line',
@@ -68,12 +78,11 @@ describe('PurchaseOrderReceiptHistoryComponent', () => {
     const rows = [...body.querySelectorAll('tbody tr')];
     expect(rows).toHaveLength(2);
     expect(rows[0].textContent).toContain('20.00');
-    expect(rows[0].textContent).toContain('8.00 / 9.00');
+    expect(rows[0].textContent).toContain('₹8.00 / ₹9.00');
     expect(rows[1].textContent).toContain('30.00');
-    expect(rows.map((row) => row.querySelector('.historical-quantity')?.textContent?.trim())).toEqual([
-      '4',
-      '6',
-    ]);
+    expect(
+      rows.map((row) => row.querySelector('.historical-quantity')?.textContent?.trim()),
+    ).toEqual(['4', '6']);
     expect(body.textContent).not.toContain('999');
     expect(body.textContent).toContain('stock-A');
     expect(body.textContent).toContain('stock-B');

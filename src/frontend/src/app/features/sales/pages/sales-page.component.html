@@ -8,7 +8,7 @@
   <div class="kpi-row">
     <div class="kpi-card">
       <p class="kpi-label">{{ 'sales.history.kpi.periodSales' | transloco }}</p>
-      <p class="kpi-value">₹{{ salesHistorySummary()?.periodSales ?? 0 | number: '1.0-0' }}</p>
+      <p class="kpi-value">{{ salesHistorySummary()?.periodSales ?? 0 | localeMoney }}</p>
     </div>
     <div class="kpi-card">
       <p class="kpi-label">{{ 'sales.history.kpi.invoices' | transloco }}</p>
@@ -16,12 +16,14 @@
     </div>
     <div class="kpi-card">
       <p class="kpi-label">{{ 'sales.history.kpi.refunds' | transloco }}</p>
-      <p class="kpi-value">₹{{ salesHistorySummary()?.refundAmount ?? 0 | number: '1.0-0' }}</p>
+      <p class="kpi-value">{{ salesHistorySummary()?.refundAmount ?? 0 | localeMoney }}</p>
     </div>
   </div>
 
   @if (serverError()) {
-    <p class="error" role="alert">{{ serverError() | transloco }}</p>
+    <p class="error" role="alert">
+      {{ serverError() | transloco: localizedError()?.params ?? {} }}
+    </p>
   }
 
   @if (hasOfflineQueueStatus()) {
@@ -76,8 +78,12 @@
       </div>
       @if (offlineReviewSales().length > 0) {
         <div class="offline-review">
-          <h3 class="offline-review-title">{{ 'sales.history.offlineQueue.review.title' | transloco }}</h3>
-          <p class="offline-review-hint">{{ 'sales.history.offlineQueue.review.hint' | transloco }}</p>
+          <h3 class="offline-review-title">
+            {{ 'sales.history.offlineQueue.review.title' | transloco }}
+          </h3>
+          <p class="offline-review-hint">
+            {{ 'sales.history.offlineQueue.review.hint' | transloco }}
+          </p>
           <ul class="offline-review-list">
             @for (reviewSale of offlineReviewSales(); track reviewSale.clientSaleId) {
               <li class="offline-review-item">
@@ -87,12 +93,19 @@
                 </div>
                 @if (reviewSale.mismatches.length > 0) {
                   <ul class="offline-review-mismatches">
-                    @for (mismatch of reviewSale.mismatches.slice(0, maxShownMismatches); track mismatch.path) {
+                    @for (
+                      mismatch of reviewSale.mismatches.slice(0, maxShownMismatches);
+                      track mismatch.path
+                    ) {
                       <li>
                         <code>{{ mismatch.path }}</code>
                         {{
                           'sales.history.offlineQueue.review.mismatch'
-                            | transloco: { supplied: mismatchValue(mismatch.supplied), expected: mismatchValue(mismatch.expected) }
+                            | transloco
+                              : {
+                                  supplied: mismatchValue(mismatch.supplied),
+                                  expected: mismatchValue(mismatch.expected),
+                                }
                         }}
                       </li>
                     }
@@ -108,7 +121,10 @@
                 }
                 @if (reviewSale.reviewCaseId) {
                   <p class="offline-review-case">
-                    {{ 'sales.history.offlineQueue.review.caseId' | transloco: { id: reviewSale.reviewCaseId } }}
+                    {{
+                      'sales.history.offlineQueue.review.caseId'
+                        | transloco: { id: reviewSale.reviewCaseId }
+                    }}
                   </p>
                 }
               </li>
@@ -221,6 +237,10 @@
     </div>
 
     <div class="table-wrap" tabindex="0">
+      @if (localizedError()?.correlationId; as reference) {
+        <p class="error-reference">{{ 'apiErrors.supportReference' | transloco: { reference } }}</p>
+      }
+
       @if (isLoading()) {
         <p-table [value]="[1, 2, 3, 4, 5]" class="p-datatable-sm ledger-table">
           <ng-template pTemplate="header">
@@ -261,7 +281,7 @@
                   @if (sale.cancellationReference) {
                     <small class="block"
                       >{{ sale.cancellationReference }} ·
-                      {{ sale.cancelledAt | date: 'dd MMM yyyy' }}</small
+                      {{ sale.cancelledAt | localeInstant }}</small
                     >
                   }
                 </div>
@@ -284,7 +304,7 @@
                   <div class="muted">{{ sale.customerPhone }}</div>
                 }
               </td>
-              <td class="col-date">{{ sale.soldAt | date: 'dd MMM yyyy, h:mm a' }}</td>
+              <td class="col-date">{{ sale.soldAt | localeInstant }}</td>
               <td class="col-status">
                 <p-tag
                   [severity]="statusSeverity(sale.status)"
@@ -294,12 +314,11 @@
               <td class="col-amount amount-cell">
                 <div class="amount-action-row">
                   <div>
-                    <div class="amount-main">₹{{ sale.totalAmount | number: '1.2-2' }}</div>
+                    <div class="amount-main">{{ sale.totalAmount | localeMoney }}</div>
                     @if (sale.status === 'partiallyPaid' && sale.dueAmount > 0) {
                       <div class="amount-sub">
-                        {{ 'sales.history.amount.due' | transloco }}: ₹{{
-                          sale.dueAmount | number: '1.2-2'
-                        }}
+                        {{ 'sales.history.amount.due' | transloco }}:
+                        {{ sale.dueAmount | localeMoney }}
                       </div>
                     }
                     @if (
@@ -307,16 +326,14 @@
                       sale.refundAmount > 0
                     ) {
                       <div class="amount-sub negative">
-                        {{ 'sales.history.amount.refund' | transloco }}: ₹{{
-                          sale.refundAmount | number: '1.2-2'
-                        }}
+                        {{ 'sales.history.amount.refund' | transloco }}:
+                        {{ sale.refundAmount | localeMoney }}
                       </div>
                     }
                     @if (sale.creditNoteAppliedAmount > 0) {
                       <div class="amount-sub credit-note">
-                        {{ 'sales.history.amount.creditNoteApplied' | transloco }}: ₹{{
-                          sale.creditNoteAppliedAmount | number: '1.2-2'
-                        }}
+                        {{ 'sales.history.amount.creditNoteApplied' | transloco }}:
+                        {{ sale.creditNoteAppliedAmount | localeMoney }}
                       </div>
                     }
                   </div>
@@ -429,9 +446,8 @@
   </section>
 
   <p class="text-sm">
-    {{ 'sales.cancellation.summary' | transloco }}: ₹{{
-      salesHistorySummary()?.cancellationAmount ?? 0 | number: '1.2-2'
-    }}
+    {{ 'sales.cancellation.summary' | transloco }}:
+    {{ salesHistorySummary()?.cancellationAmount ?? 0 | localeMoney }}
     · {{ salesHistorySummary()?.cancellationCount ?? 0 }}
   </p>
   <app-sale-detail-overlay

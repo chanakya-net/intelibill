@@ -9,6 +9,8 @@ import { InputGroupModule } from 'primeng/inputgroup';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TranslocoPipe } from '@ngneat/transloco';
 
+let batchSearchSequence = 0;
+
 @Component({
   selector: 'app-batch-search-bar',
   standalone: true,
@@ -26,8 +28,11 @@ import { TranslocoPipe } from '@ngneat/transloco';
   styleUrl: './batch-search-bar.component.scss',
 })
 export class BatchSearchBarComponent implements OnChanges {
+  readonly searchInputId = `batch-search-${++batchSearchSequence}`;
   @Input() pickerOpen = false;
-  ngOnChanges(): void { if (this.pickerOpen) this.closeSuggestions(); }
+  ngOnChanges(): void {
+    if (this.pickerOpen) this.closeSuggestions();
+  }
   @Input() searchTerm = '';
   @Input() loading = false;
   @Input() searchSuggestions: string[] = [];
@@ -40,10 +45,14 @@ export class BatchSearchBarComponent implements OnChanges {
   @Output() cameraOpen = new EventEmitter<void>();
 
   private readonly autocomplete = viewChild(AutoComplete);
-  private closeSuggestions(): void { this.autocomplete()?.hide(); this.autocomplete()?.inputEL?.nativeElement.blur(); }
-  emitSearch(): void {
+  private suggestionSelectionEvent: Event | undefined;
+  private closeSuggestions(): void {
+    this.autocomplete()?.hide();
+    this.autocomplete()?.inputEL?.nativeElement.blur();
+  }
+  emitSearch(value = this.searchTerm): void {
     this.closeSuggestions();
-    this.search.emit(this.searchTerm);
+    this.search.emit(value);
   }
 
   onSearchTermChanged(value: string | null): void {
@@ -55,12 +64,24 @@ export class BatchSearchBarComponent implements OnChanges {
     this.suggestionFilter.emit(event.query);
   }
 
-  onSuggestionSelected(value: string): void {
+  onSuggestionSelected(value: string, event?: Event): void {
+    this.suggestionSelectionEvent = event;
     this.suggestionSelected.emit(value);
   }
 
-  onEnterKey(): void {
-    this.emitSearch();
+  onEnterKey(event: Event): void {
+    // AutoComplete processes selection on the inner input first. Only an actual
+    // selection consumes the search intent (an open list also prevents default).
+    const selectedSuggestion = this.suggestionSelectionEvent === event;
+    this.suggestionSelectionEvent = undefined;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!selectedSuggestion && !(event instanceof KeyboardEvent && event.isComposing)) {
+      // Enter can arrive before the parent's @Input reflects a fast scanner/edit.
+      this.emitSearch(
+        event.target instanceof HTMLInputElement ? event.target.value : this.searchTerm,
+      );
+    }
   }
 
   onOpenPicker(): void {

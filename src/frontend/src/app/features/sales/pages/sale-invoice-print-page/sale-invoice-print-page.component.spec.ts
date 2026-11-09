@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../../core/i18n/localization.service';
 import { CommonModule } from '@angular/common';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
@@ -18,7 +19,9 @@ import { OfflineSaleFinalizationService } from '../../services/offline-sale-fina
 import { buildOfflineInvoiceDocument } from '../../services/offline-invoice-document.builder';
 import { SaleInvoicePrintPageComponent } from './sale-invoice-print-page.component';
 
-const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string) as Record<string, unknown>;
+const enIN = JSON.parse(
+  readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string,
+) as Record<string, unknown>;
 
 describe('SaleInvoicePrintPageComponent', () => {
   const sale: SaleDto = {
@@ -133,17 +136,24 @@ describe('SaleInvoicePrintPageComponent', () => {
     getQueuedSale: vi.fn(),
   };
 
-  const createActivatedRoute = (template?: string, saleId = 'sale-1', queryParams: Record<string, string> = {}) => ({
+  const createActivatedRoute = (
+    template?: string,
+    saleId = 'sale-1',
+    queryParams: Record<string, string> = {},
+  ) => ({
     snapshot: {
       paramMap: convertToParamMap({ saleId }),
-      queryParamMap: convertToParamMap({ ...(template === undefined ? {} : { template }), ...queryParams }),
+      queryParamMap: convertToParamMap({
+        ...(template === undefined ? {} : { template }),
+        ...queryParams,
+      }),
     },
   });
 
   const createComponent = (
     template?: string,
     saleId = 'sale-1',
-    queryParams: Record<string, string> = {}
+    queryParams: Record<string, string> = {},
   ): ComponentFixture<SaleInvoicePrintPageComponent> => {
     TestBed.configureTestingModule({
       imports: [
@@ -156,6 +166,7 @@ describe('SaleInvoicePrintPageComponent', () => {
         SaleInvoicePrintPageComponent,
       ],
       providers: [
+        { provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } },
         { provide: ActivatedRoute, useValue: createActivatedRoute(template, saleId, queryParams) },
         { provide: SaleService, useValue: saleService },
         { provide: ShopService, useValue: shopService },
@@ -186,7 +197,15 @@ describe('SaleInvoicePrintPageComponent', () => {
     authService.session.mockReturnValue({
       user: { id: 'user-1' },
       activeShopId: 'shop-1',
-      shops: [{ shopId: 'shop-1', shopName: 'Main Shop', role: 'Owner', isDefault: true, lastUsedAt: null }],
+      shops: [
+        {
+          shopId: 'shop-1',
+          shopName: 'Main Shop',
+          role: 'Owner',
+          isDefault: true,
+          lastUsedAt: null,
+        },
+      ],
     });
   });
 
@@ -233,10 +252,16 @@ describe('SaleInvoicePrintPageComponent', () => {
     fixture.detectChanges();
 
     expect(deviceSettingsStorage.loadSettings).toHaveBeenCalledWith('shop-1');
-    expect(offlineQueueDb.getQueuedSale).toHaveBeenCalledWith('shop-1', 'device-1', 'offline-sale-1');
+    expect(offlineQueueDb.getQueuedSale).toHaveBeenCalledWith(
+      'shop-1',
+      'device-1',
+      'offline-sale-1',
+    );
     expect(saleService.getSaleById).not.toHaveBeenCalled();
     expect(shopService.getShopDetails).not.toHaveBeenCalled();
-    await vi.waitFor(() => expect(fixture.componentInstance.sale()?.invoiceNumber).toBe('INV-2026-001'));
+    await vi.waitFor(() =>
+      expect(fixture.componentInstance.sale()?.invoiceNumber).toBe('INV-2026-001'),
+    );
     fixture.detectChanges();
     expect(fixture.componentInstance.pendingSync()).toBe(true);
     expect(fixture.componentInstance.sale()?.totalAmount).toBe(47.5);
@@ -288,13 +313,15 @@ describe('SaleInvoicePrintPageComponent', () => {
   });
 
   it('sets an error and does not print when data loading fails', () => {
-    saleService.getSaleById.mockReturnValue(throwError(() => ({ error: { detail: 'Sale missing' } })));
+    saleService.getSaleById.mockReturnValue(
+      throwError(() => ({ error: { detail: 'Sale missing' } })),
+    );
 
     const fixture = createComponent();
     fixture.detectChanges();
     vi.runOnlyPendingTimers();
 
-    expect(fixture.componentInstance.errorMessage()).toBe('Sale missing');
+    expect(fixture.componentInstance.errorMessage()).toBe('sales.invoice.errors.loadFailed');
     expect(fixture.componentInstance.isLoading()).toBe(false);
     expect(window.print).not.toHaveBeenCalled();
   });
@@ -339,7 +366,15 @@ describe('SaleInvoicePrintPageComponent', () => {
     authService.session.mockReturnValue({
       user: { id: 'user-1' },
       activeShopId: 'shop-1',
-      shops: [{ shopId: 'shop-2', shopName: 'Other Shop', role: 'Owner', isDefault: true, lastUsedAt: null }],
+      shops: [
+        {
+          shopId: 'shop-2',
+          shopName: 'Other Shop',
+          role: 'Owner',
+          isDefault: true,
+          lastUsedAt: null,
+        },
+      ],
     });
     deviceSettingsStorage.loadSettings.mockReturnValue({ deviceId: 'device-1' } as never);
     offlineQueueDb.getQueuedSale.mockResolvedValue(queuedRecord());
@@ -354,12 +389,14 @@ describe('SaleInvoicePrintPageComponent', () => {
     const text = fixture.nativeElement.textContent as string;
     expect(text).not.toContain('Other Shop');
     expect(text).toContain('is not a copy of a GST document');
-    const link = fixture.nativeElement.querySelector('a.print-state__reconciliation') as HTMLAnchorElement | null;
+    const link = fixture.nativeElement.querySelector(
+      'a.print-state__reconciliation',
+    ) as HTMLAnchorElement | null;
     expect(link?.getAttribute('href')).toBe('/sales/offline-reconciliation');
     await vi.waitFor(() => expect(window.print).toHaveBeenCalledTimes(1));
   });
 
-  it('grace_allows_owned_local_print: an expired token inside offline grace prints the issuer\'s invoice', async () => {
+  it("grace_allows_owned_local_print: an expired token inside offline grace prints the issuer's invoice", async () => {
     authService.isAuthenticated.mockReturnValue(false);
     authService.canUseOfflineSalesAuthGrace.mockResolvedValue(true);
     deviceSettingsStorage.loadSettings.mockReturnValue({ deviceId: 'device-1' } as never);
@@ -373,25 +410,38 @@ describe('SaleInvoicePrintPageComponent', () => {
   });
 
   it.each([
-    ['another user issued it', { issuedByUserId: 'user-2' }, true, 'sales.invoice.errors.offlineAccessDenied'],
-    ['offline grace has expired', { issuedByUserId: 'user-1' }, false, 'sales.invoice.errors.offlineAccessDenied'],
-  ])('wrong_scope_denied: renders no invoice data when %s', async (_name, payload, grace, errorKey) => {
-    authService.isAuthenticated.mockReturnValue(false);
-    authService.canUseOfflineSalesAuthGrace.mockResolvedValue(grace);
-    deviceSettingsStorage.loadSettings.mockReturnValue({ deviceId: 'device-1' } as never);
-    offlineQueueDb.getQueuedSale.mockResolvedValue(queuedRecord(payload));
+    [
+      'another user issued it',
+      { issuedByUserId: 'user-2' },
+      true,
+      'sales.invoice.errors.offlineAccessDenied',
+    ],
+    [
+      'offline grace has expired',
+      { issuedByUserId: 'user-1' },
+      false,
+      'sales.invoice.errors.offlineAccessDenied',
+    ],
+  ])(
+    'wrong_scope_denied: renders no invoice data when %s',
+    async (_name, payload, grace, errorKey) => {
+      authService.isAuthenticated.mockReturnValue(false);
+      authService.canUseOfflineSalesAuthGrace.mockResolvedValue(grace);
+      deviceSettingsStorage.loadSettings.mockReturnValue({ deviceId: 'device-1' } as never);
+      offlineQueueDb.getQueuedSale.mockResolvedValue(queuedRecord(payload));
 
-    const fixture = createComponent('a4', 'offline-sale-1', { offline: '1' });
-    await vi.waitFor(() => expect(fixture.componentInstance.errorMessage()).toBe(errorKey));
-    fixture.detectChanges();
-    vi.runOnlyPendingTimers();
+      const fixture = createComponent('a4', 'offline-sale-1', { offline: '1' });
+      await vi.waitFor(() => expect(fixture.componentInstance.errorMessage()).toBe(errorKey));
+      fixture.detectChanges();
+      vi.runOnlyPendingTimers();
 
-    expect(fixture.componentInstance.sale()).toBeNull();
-    expect(fixture.componentInstance.shop()).toBeNull();
-    expect(fixture.nativeElement.querySelector('app-sale-invoice-a4')).toBeNull();
-    expect(fixture.nativeElement.textContent).not.toContain('INV-2026-001');
-    expect(window.print).not.toHaveBeenCalled();
-  });
+      expect(fixture.componentInstance.sale()).toBeNull();
+      expect(fixture.componentInstance.shop()).toBeNull();
+      expect(fixture.nativeElement.querySelector('app-sale-invoice-a4')).toBeNull();
+      expect(fixture.nativeElement.textContent).not.toContain('INV-2026-001');
+      expect(window.print).not.toHaveBeenCalled();
+    },
+  );
 
   it('waits for the fonts before the automatic print', async () => {
     let fontsReady!: () => void;
@@ -415,9 +465,15 @@ describe('SaleInvoicePrintPageComponent', () => {
 
   it('print_cancel_and_retry_preserve_identity: printing never issues, queues or renumbers anything', async () => {
     const finalization = { finalizeAndQueue: vi.fn() };
-    const queueWrites = { savePendingSale: vi.fn(), applySyncResult: vi.fn(), deleteOldSyncedRecords: vi.fn() };
+    const queueWrites = {
+      savePendingSale: vi.fn(),
+      applySyncResult: vi.fn(),
+      deleteOldSyncedRecords: vi.fn(),
+    };
     Object.assign(offlineQueueDb, queueWrites);
-    TestBed.configureTestingModule({ providers: [{ provide: OfflineSaleFinalizationService, useValue: finalization }] });
+    TestBed.configureTestingModule({
+      providers: [{ provide: OfflineSaleFinalizationService, useValue: finalization }],
+    });
     deviceSettingsStorage.loadSettings.mockReturnValue({ deviceId: 'device-1' } as never);
     const built = buildOfflineInvoiceDocument({
       sellerProfile: {
@@ -442,7 +498,10 @@ describe('SaleInvoicePrintPageComponent', () => {
     });
     if (!built.ok) throw new Error(built.errorCode);
     const document: InvoiceDocument = { ...built.draft, number: 'INV-2026-001' };
-    offlineQueueDb.getQueuedSale.mockResolvedValue({ ...(queuedRecord({ document }) as object), status: 'Failed' } as never);
+    offlineQueueDb.getQueuedSale.mockResolvedValue({
+      ...(queuedRecord({ document }) as object),
+      status: 'Failed',
+    } as never);
 
     const fixture = createComponent('a4', 'offline-sale-1', { offline: '1' });
     await vi.waitFor(() => expect(window.print).toHaveBeenCalledTimes(1));
@@ -463,16 +522,23 @@ describe('SaleInvoicePrintPageComponent', () => {
     expect(fixture.componentInstance.sale()?.document?.number).toBe('INV-2026-001');
 
     // A failed sync is shown beside the invoice, never on it.
-    const delivery = fixture.nativeElement.querySelector('.print-state--delivery') as HTMLElement | null;
+    const delivery = fixture.nativeElement.querySelector(
+      '.print-state--delivery',
+    ) as HTMLElement | null;
     expect(delivery?.textContent).toContain('Sending failed');
     expect(delivery?.closest('.invoice-document')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.invoice-document')?.textContent).not.toContain('Sending failed');
+    expect(fixture.nativeElement.querySelector('.invoice-document')?.textContent).not.toContain(
+      'Sending failed',
+    );
   });
 
   it('hides the controls, delivery state and notices from the printed copy', () => {
     // jsdom applies no media queries, so the print rules are read from the stylesheet itself.
     const scss = readFileSync(
-      join(process.cwd(), 'src/app/features/sales/pages/sale-invoice-print-page/sale-invoice-print-page.component.scss'),
+      join(
+        process.cwd(),
+        'src/app/features/sales/pages/sale-invoice-print-page/sale-invoice-print-page.component.scss',
+      ),
       'utf-8',
     );
     const printBlock = scss.slice(scss.indexOf('@media print'));
@@ -480,7 +546,11 @@ describe('SaleInvoicePrintPageComponent', () => {
     const hiddenSelectors = (hidden?.[1] ?? '').split(',').map((selector) => selector.trim());
 
     expect(hiddenSelectors).toEqual(
-      expect.arrayContaining(['.screen-controls', '.print-state--delivery', '.print-state--notice']),
+      expect.arrayContaining([
+        '.screen-controls',
+        '.print-state--delivery',
+        '.print-state--notice',
+      ]),
     );
     expect(printBlock).not.toMatch(/\.print-state--delivery\s*\{[^}]*color/);
   });

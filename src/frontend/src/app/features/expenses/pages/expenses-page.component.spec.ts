@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../core/i18n/localization.service';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -8,6 +9,12 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { ExpenseListItemDto } from '../services/expense.service';
 import { ExpensesFacade } from '../state/expenses.facade';
 import { ExpensesPageComponent } from './expenses-page.component';
+
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
 
 describe('ExpensesPageComponent', () => {
   const query$ = new BehaviorSubject({ search: 'rent', status: 'active', page: 3, pageSize: 10 });
@@ -67,6 +74,7 @@ describe('ExpensesPageComponent', () => {
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
       providers: [
+        { provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } },
         { provide: AuthService, useValue: authService },
         { provide: ExpensesFacade, useValue: expensesFacade },
       ],

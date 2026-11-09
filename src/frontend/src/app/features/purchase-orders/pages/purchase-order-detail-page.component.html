@@ -37,17 +37,17 @@
           @if (order.orderDate) {
             <span class="meta-chip">
               {{ 'purchaseOrders.detail.orderDate' | transloco }}:
-              {{ order.orderDate | date: 'mediumDate' }}
+              {{ order.orderDate | localeBusinessDate }}
             </span>
           }
           @if (order.expectedDeliveryDate) {
             <span class="meta-chip">
               {{ 'purchaseOrders.detail.expectedDeliveryDate' | transloco }}:
-              {{ order.expectedDeliveryDate | date: 'mediumDate' }}
+              {{ order.expectedDeliveryDate | localeBusinessDate }}
             </span>
           }
           <span class="meta-chip">
-            {{ 'purchaseOrders.createdAt' | transloco }}: {{ order.createdAt | date: 'short' }}
+            {{ 'purchaseOrders.createdAt' | transloco }}: {{ order.createdAt | localeInstant }}
           </span>
         </div>
       </div>
@@ -118,7 +118,7 @@
           <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
           <div class="summary-card__value">
             @if (card.variant === 'money') {
-              {{ card.value | number: '1.2-2' }}
+              {{ card.value | localeMoney }}
             } @else if (card.variant === 'progress') {
               {{ totalReceivedQuantity(order) }} / {{ totalExpectedQuantity(order) }}
             } @else {
@@ -186,7 +186,7 @@
           [attr.aria-label]="'purchaseOrders.detail.metrics' | transloco"
         >
           <span class="metric-chip">
-            <strong>{{ order.expectedTotal | number: '1.2-2' }}</strong>
+            <strong>{{ order.expectedTotal | localeMoney }}</strong>
             <span>{{ 'purchaseOrders.expectedTotal' | transloco }}</span>
           </span>
         </div>
@@ -244,8 +244,8 @@
               <td>{{ line.expectedQuantity }}</td>
               <td>{{ line.receivedQuantity ?? 0 }}</td>
               <td>{{ line.remainingQuantity ?? line.expectedQuantity }}</td>
-              <td class="money">{{ line.unitCost | number: '1.2-2' }}</td>
-              <td class="money">{{ line.lineTotal | number: '1.2-2' }}</td>
+              <td class="money">{{ line.unitCost | localeMoney }}</td>
+              <td class="money">{{ line.lineTotal | localeMoney }}</td>
             </tr>
           </ng-template>
         </p-table>
@@ -270,7 +270,12 @@
     }
   } @else if (facade.errorMessage()) {
     <section class="directory-panel">
-      <div role="alert" class="po-detail-error">{{ facade.errorMessage() | transloco }}</div>
+      <div role="alert" class="po-detail-error">
+        {{ facade.errorMessage() | transloco: localizedError()?.params ?? {} }}
+        @if (localizedError()?.correlationId; as reference) {
+          <span>{{ 'apiErrors.supportReference' | transloco: { reference } }}</span>
+        }
+      </div>
       <button
         pButton
         type="button"

@@ -28,6 +28,17 @@ const makeSale = (id: string, overrides: Partial<SaleListItemDto> = {}): SaleLis
 describe('salesReducer', () => {
   const initialState = salesReducer(undefined, { type: '@@INIT' } as never);
 
+  it.each([SalesActions.previewSaleReturnFailed, SalesActions.recordSaleReturnFailed, SalesActions.voidSaleReturnFailed])('retains and clears return metadata with its error lifecycle', (failure) => {
+    const localizedError = {messageKey:'errors.sales.returnPreviewFailed',params:{},fieldErrors:[],correlationId:'return-ref'};
+    const failed = salesReducer(initialState, failure({errorMessage:localizedError.messageKey,localizedError}));
+    expect(failed.returnPreviewLocalizedError).toBe(localizedError);
+    for (const action of [SalesActions.clearSaleReturnPreview(),SalesActions.clearSaleDetail(),SalesActions.previewSaleReturnRequested({saleId:'s1',payload:{} as never}),SalesActions.recordSaleReturnRequested({saleId:'s1',payload:{} as never}),SalesActions.voidSaleReturnRequested({saleId:'s1',saleReturnId:'r1',payload:{} as never}),SalesActions.previewSaleReturnSucceeded({preview:{} as never}),SalesActions.recordSaleReturnSucceeded({sale:{saleId:'s1'} as never}),SalesActions.voidSaleReturnSucceeded({sale:{saleId:'s1'} as never})]) {
+      const state = salesReducer(failed, action);
+      expect(state.returnPreviewLocalizedError).toBeUndefined();
+      expect(state.returnPreviewErrorMessage).toBe('');
+    }
+  });
+
   it('sets loading state when load sales is requested', () => {
     const next = salesReducer(
       { ...initialState, errorMessage: 'existing error' },

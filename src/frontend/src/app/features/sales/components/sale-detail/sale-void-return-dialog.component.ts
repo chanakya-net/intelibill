@@ -1,3 +1,4 @@
+import type { LocalizedError } from '../../../../core/i18n/api-error-message.service';
 import { TillPendingActionsComponent } from '../../../tills/components/till-pending-actions.component';
 import { ViewChild } from '@angular/core';
 import { TillPostingFieldsComponent } from '../../../tills/components/till-posting-fields.component';
@@ -77,6 +78,7 @@ export class SaleVoidReturnDialogComponent {
 
   readonly isSubmitting = this.salesFacade.submitting;
   readonly previewError = this.salesFacade.returnPreviewErrorMessage;
+  readonly previewLocalizedError = this.salesFacade.returnPreviewLocalizedError ?? signal<LocalizedError | undefined>(undefined);
   readonly validationMessages = signal<readonly string[]>([]);
   readonly voidReason = signal('');
 

@@ -1,3 +1,4 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
 import {
@@ -21,23 +22,30 @@ export const ExpensesActions = createActionGroup({
       page: number;
       pageSize: number;
     }>(),
-    'Load Expenses Failed': props<{ errorMessage: string; requestId: string }>(),
+    'Load Expenses Failed': props<{
+      errorMessage: string;
+      localizedError?: LocalizedError;
+      requestId: string;
+    }>(),
 
     'Load Expense Detail Requested': props<{ expenseId: string }>(),
     'Load Expense Detail Succeeded': props<{ expense: ExpenseDto }>(),
-    'Load Expense Detail Failed': props<{ errorMessage: string }>(),
+    'Load Expense Detail Failed': props<{
+      errorMessage: string;
+      localizedError?: LocalizedError;
+    }>(),
 
     'Load Categories Requested': emptyProps(),
     'Load Categories Succeeded': props<{ categories: readonly ExpenseCategoryDto[] }>(),
-    'Load Categories Failed': props<{ errorMessage: string }>(),
+    'Load Categories Failed': props<{ errorMessage: string; localizedError?: LocalizedError }>(),
 
     'Record Expense Requested': props<{ payload: RecordExpenseRequest }>(),
     'Record Expense Succeeded': props<{ expense: ExpenseDto }>(),
-    'Record Expense Failed': props<{ errorMessage: string }>(),
+    'Record Expense Failed': props<{ errorMessage: string; localizedError?: LocalizedError }>(),
 
     'Correct Expense Requested': props<{ expenseId: string; payload: RecordExpenseRequest }>(),
     'Correct Expense Succeeded': props<{ expense: ExpenseDto }>(),
-    'Correct Expense Failed': props<{ errorMessage: string }>(),
+    'Correct Expense Failed': props<{ errorMessage: string; localizedError?: LocalizedError }>(),
 
     'Clear Error': emptyProps(),
     'Clear Mutation Status': emptyProps(),

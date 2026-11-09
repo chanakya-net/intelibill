@@ -15,6 +15,7 @@ const initialState: PurchaseOrdersState = purchaseOrdersAdapter.getInitialState(
   loadingList: false,
   loadingDetail: false,
   submitting: false,
+  localizedError: undefined,
   errorMessage: '',
   selectedOrder: null,
   detailPurchaseOrderId: null,

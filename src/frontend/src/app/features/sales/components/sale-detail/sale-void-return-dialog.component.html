@@ -35,7 +35,8 @@
       }
       @if (previewError()) {
         <div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {{ previewError() | transloco }}
+          {{ previewError() | transloco: previewLocalizedError()?.params ?? {} }}
+          @if (previewLocalizedError()?.correlationId; as reference) { <p>{{ 'apiErrors.supportReference' | transloco: { reference } }}</p> }
         </div>
       }
     </div>

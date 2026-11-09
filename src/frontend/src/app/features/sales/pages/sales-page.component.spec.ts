@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../core/i18n/localization.service';
 import { Component, EventEmitter, Input, Output, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
@@ -9,7 +10,10 @@ import { of } from 'rxjs';
 
 import type { SaleHistoryStatus, SaleListItemDto } from '../services/sale.models';
 import { SalesFacade } from '../state/sales.facade';
-import { OfflineSalesQueueSyncService, type OfflineReviewSale } from '../services/offline-sales-queue-sync.service';
+import {
+  OfflineSalesQueueSyncService,
+  type OfflineReviewSale,
+} from '../services/offline-sales-queue-sync.service';
 import { SaleDetailOverlayComponent } from '../components/sale-detail-overlay.component';
 import { SalesExportService } from '../services/sales-export.service';
 import { SalesPageComponent } from './sales-page.component';
@@ -20,6 +24,12 @@ class SaleDetailOverlayStubComponent {
   @Input() visible = false;
   @Output() visibleChange = new EventEmitter<boolean>();
 }
+
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
 
 describe('SalesPageComponent', () => {
   const salesSignal = signal<readonly SaleListItemDto[]>([]);
@@ -138,6 +148,7 @@ describe('SalesPageComponent', () => {
         }),
       ],
       providers: [
+        { provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } },
         provideRouter([]),
         { provide: SalesFacade, useValue: salesFacade },
         { provide: OfflineSalesQueueSyncService, useValue: offlineSalesQueueSync },
@@ -198,7 +209,10 @@ describe('SalesPageComponent', () => {
 
     vi.advanceTimersByTime(2);
     expect(salesFacade.loadSales).toHaveBeenCalled();
-    expect(salesFacade.loadSales.mock.calls.at(-1)?.[0]).toMatchObject({ search: 'INV-42', page: 1 });
+    expect(salesFacade.loadSales.mock.calls.at(-1)?.[0]).toMatchObject({
+      search: 'INV-42',
+      page: 1,
+    });
   });
 
   it('resets page number when status filter changes', () => {
@@ -262,7 +276,10 @@ describe('SalesPageComponent', () => {
       startDate: formatLocalIsoDate(fromDate),
       endDate: formatLocalIsoDate(toDate),
     });
-    expect(salesExportService.triggerDownload).toHaveBeenCalledWith(response.body!, 'sales-export.xlsx');
+    expect(salesExportService.triggerDownload).toHaveBeenCalledWith(
+      response.body!,
+      'sales-export.xlsx',
+    );
   });
 
   it('clearFilters resets controls to defaults', () => {
@@ -363,7 +380,14 @@ describe('SalesPageComponent', () => {
 
   it('lists invoices held for review with reason, differences and case, without a retry action', () => {
     const fixture = TestBed.createComponent(SalesPageComponent);
-    offlineCountsSignal.set({ pending: 0, syncing: 0, failed: 0, warning: 0, needsReview: 1, totalVisible: 1 });
+    offlineCountsSignal.set({
+      pending: 0,
+      syncing: 0,
+      failed: 0,
+      warning: 0,
+      needsReview: 1,
+      totalVisible: 1,
+    });
     offlineReviewSalesSignal.set([
       {
         clientSaleId: 'client-1',
@@ -374,7 +398,12 @@ describe('SalesPageComponent', () => {
         reviewCaseId: 'case-1',
         mismatches: [
           { path: 'totalAmount', supplied: 1, expected: 118, code: 'amount_mismatch' },
-          ...Array.from({ length: 6 }, (_, index) => ({ path: `items[${index}].taxAmount`, supplied: 0, expected: 18, code: 'amount_mismatch' })),
+          ...Array.from({ length: 6 }, (_, index) => ({
+            path: `items[${index}].taxAmount`,
+            supplied: 0,
+            expected: 18,
+            code: 'amount_mismatch',
+          })),
         ],
       },
     ]);
@@ -393,10 +422,19 @@ describe('SalesPageComponent', () => {
 
   it('links the offline queue panel to the reconciliation console', () => {
     const fixture = TestBed.createComponent(SalesPageComponent);
-    offlineCountsSignal.set({ pending: 1, syncing: 0, failed: 0, warning: 0, needsReview: 0, totalVisible: 1 });
+    offlineCountsSignal.set({
+      pending: 1,
+      syncing: 0,
+      failed: 0,
+      warning: 0,
+      needsReview: 0,
+      totalVisible: 1,
+    });
     fixture.detectChanges();
 
-    const link: HTMLAnchorElement | null = fixture.nativeElement.querySelector('.offline-queue-status a.offline-console-link');
+    const link: HTMLAnchorElement | null = fixture.nativeElement.querySelector(
+      '.offline-queue-status a.offline-console-link',
+    );
     expect(link?.getAttribute('href')).toBe('/sales/offline-reconciliation');
     expect(link?.textContent).toContain('Open reconciliation console');
   });
@@ -474,5 +512,17 @@ describe('SalesPageComponent', () => {
       expect(searchActions.querySelector('.clear-filters-btn')).toBeTruthy();
     });
   });
- it('keeps the cancelled filter when refreshing history after cancellation',()=>{const f=TestBed.createComponent(SalesPageComponent);const c=f.componentInstance;f.detectChanges();c.statusFilter.set('cancelled');f.detectChanges();salesFacade.loadSales.mockClear();c.refreshAfterCancellation();expect(salesFacade.loadSales).toHaveBeenLastCalledWith(expect.objectContaining({status:'cancelled'}));expect(c.statusLabelKey('cancelled')).toBe('sales.history.status.cancelled');});
+  it('keeps the cancelled filter when refreshing history after cancellation', () => {
+    const f = TestBed.createComponent(SalesPageComponent);
+    const c = f.componentInstance;
+    f.detectChanges();
+    c.statusFilter.set('cancelled');
+    f.detectChanges();
+    salesFacade.loadSales.mockClear();
+    c.refreshAfterCancellation();
+    expect(salesFacade.loadSales).toHaveBeenLastCalledWith(
+      expect.objectContaining({ status: 'cancelled' }),
+    );
+    expect(c.statusLabelKey('cancelled')).toBe('sales.history.status.cancelled');
+  });
 });

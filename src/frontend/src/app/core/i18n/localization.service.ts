@@ -30,6 +30,7 @@ export class LocalizationService {
     await firstValueFrom(this.transloco.load(normalizedLanguage));
     this.transloco.setActiveLang(normalizedLanguage);
     this.currentLanguageSignal.set(normalizedLanguage);
+    document.documentElement.lang = normalizedLanguage;
     this.store.dispatch(AppShellActions.setLanguage({ language: normalizedLanguage }));
 
     if (persist) {
@@ -54,5 +55,4 @@ export class LocalizationService {
       ? language
       : DEFAULT_LANGUAGE;
   }
-
 }

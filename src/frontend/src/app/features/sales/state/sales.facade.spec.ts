@@ -1,3 +1,4 @@
+import * as ReturnSelectors from './sales.selectors';
 import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
@@ -78,6 +79,7 @@ describe('SalesFacade', () => {
     pageSize: 20,
   });
 
+  const returnMetadata = signal({messageKey:'apiErrors.validationFailed',params:{},fieldErrors:[],correlationId:'return-ref'});
   const store = {
     dispatch,
     selectSignal: vi.fn((selector: unknown): Signal<unknown> => {
@@ -91,6 +93,7 @@ describe('SalesFacade', () => {
       if (selector === selectLoadingSaleDetail) return boolSignal;
       if (selector === selectReturnPreview) return returnPreviewSignal;
       if (selector === selectLoadingReturnPreview) return boolSignal;
+      if (selector === (ReturnSelectors as unknown as Record<string, unknown>)['selectReturnPreviewLocalizedError']) return returnMetadata;
       if (selector === selectReturnPreviewErrorMessage) return returnPreviewErrorSignal;
       if (selector === selectProfitLossItems) return profitLossItemsSignal;
       if (selector === selectProfitLossSummary) return profitLossSummarySignal;
@@ -111,6 +114,11 @@ describe('SalesFacade', () => {
       providers: [SalesFacade, { provide: Store, useValue: store }],
     });
     facade = TestBed.inject(SalesFacade);
+  });
+
+  it('exposes rich return failure metadata with the existing error key', () => {
+    const value = (facade as unknown as {returnPreviewLocalizedError: () => unknown}).returnPreviewLocalizedError();
+    expect(value).toBe(returnMetadata());
   });
 
   it('loadSales dispatches loadSalesRequested', () => {

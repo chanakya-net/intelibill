@@ -163,8 +163,9 @@ function placeholderSpacingMismatches(
         /[\p{L}\p{M}\p{N}]/u.test(actual[actualOffset + token.length]);
 
       return (
-        (requiresLeadingSpace && !hasLeadingSpace) || (requiresTrailingSpace && !hasTrailingSpace)
-        || (movedFromBoundaryIntoText && touchesTranslatedWord)
+        (requiresLeadingSpace && !hasLeadingSpace) ||
+        (requiresTrailingSpace && !hasTrailingSpace) ||
+        (movedFromBoundaryIntoText && touchesTranslatedWord)
       );
     });
   });
@@ -339,6 +340,22 @@ describe('Global i18n coverage', () => {
     'customers.showingCount',
     'customers.searchPlaceholder',
   ] as const;
+  const requiredApiErrorKeys = [
+    'apiErrors.validationFailed',
+    'apiErrors.invalidRequest',
+    'apiErrors.unauthorized',
+    'apiErrors.conflict',
+    'apiErrors.unexpected',
+    'apiErrors.payloadMismatch',
+    'apiErrors.postingPeriodClosed',
+    'apiErrors.postingPeriodBusy',
+    'apiErrors.postingPeriodNotEnded',
+    'apiErrors.networkUnavailable',
+    'apiErrors.requestTimedOut',
+    'apiErrors.serviceUnavailable',
+    'apiErrors.invalidField',
+    'apiErrors.supportReference',
+  ] as const;
 
   it('has a locale file for every supported language', () => {
     const missingFiles = SUPPORTED_LANGUAGES.filter((locale) => !existsSync(localePath(locale)));
@@ -436,6 +453,17 @@ describe('Global i18n coverage', () => {
       );
 
       expect(missing, `Missing customer keys in ${locale}: ${missing.join(', ')}`).toHaveLength(0);
+    });
+
+    it(`${locale} includes safe API feedback and support reference copy`, () => {
+      const localeJson = loadJson(locale);
+      const missing = requiredApiErrorKeys.filter(
+        (key) => resolvePath(localeJson, key) === undefined,
+      );
+
+      expect(missing, `Missing API feedback keys in ${locale}: ${missing.join(', ')}`).toHaveLength(
+        0,
+      );
     });
   }
 });

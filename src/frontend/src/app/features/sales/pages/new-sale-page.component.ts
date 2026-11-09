@@ -1,10 +1,22 @@
+import { LocaleInstantPipe } from '../../../shared/pipes/locale-instant.pipe';
+import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { millisecondsUntilShopDateChange } from '../../expiry/services/expiry-policy-evaluator';
 import { isValidShopZone } from '../utils/offline-sales-snapshot.schema';
 import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, DestroyRef, inject } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -28,7 +40,10 @@ import {
 } from '../components/new-sale/cart-table.component';
 import { OfflineStatusBannerComponent } from '../components/new-sale/offline-status-banner.component';
 import { SaleConfirmationDialogComponent } from '../components/new-sale/sale-confirmation-dialog.component';
-import { CustomerDto, SaleCustomerSectionComponent } from '../components/new-sale/sale-customer-section.component';
+import {
+  CustomerDto,
+  SaleCustomerSectionComponent,
+} from '../components/new-sale/sale-customer-section.component';
 import { SalePaymentSectionComponent } from '../components/new-sale/sale-payment-section.component';
 import { SaleCreditPanelComponent } from '../components/new-sale/sale-credit-panel.component';
 import { PaymentMethod, SellableDto } from '../services/sale.models';
@@ -38,6 +53,8 @@ import { NewSalePageCoordinatorService } from './new-sale-page.coordinator.servi
   selector: 'app-new-sale-page',
   standalone: true,
   imports: [
+    LocaleMoneyPipe,
+    LocaleInstantPipe,
     CommonModule,
     FormsModule,
     ReactiveFormsModule,
@@ -67,22 +84,61 @@ export class NewSalePageComponent implements OnInit, OnDestroy {
   private readonly expiryPolicies = inject(ExpiryPolicyService);
   private readonly expirySnapshots = inject(OfflineSalesSnapshotIndexedDbService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+  readonly validationRequested = signal(false);
+  readonly invalidCheckoutFieldId = signal<string | null>(null);
+
+  get checkoutValidationMessage(): string {
+    return (
+      this.vm.paymentSplitError() ||
+      (this.validationRequested() && (this.vm.customerForm.invalid || this.vm.paymentForm.invalid)
+        ? 'sales.newSale.validationSummary'
+        : '')
+    );
+  }
 
   private rolloverTimer?: ReturnType<typeof setTimeout>;
   private watchShopDate(zone: string): void {
     if (this.rolloverTimer) clearTimeout(this.rolloverTimer);
-    this.rolloverTimer = setTimeout(() => { this.vm.invalidateExpiryCatalog(); this.watchShopDate(zone); }, millisecondsUntilShopDateChange(Date.now(), zone));
+    this.rolloverTimer = setTimeout(
+      () => {
+        this.vm.invalidateExpiryCatalog();
+        this.watchShopDate(zone);
+      },
+      millisecondsUntilShopDateChange(Date.now(), zone),
+    );
   }
   ngOnInit(): void {
     this.vm.onInit();
-    this.expiryPolicies.businessTimeZone().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: zone => { if (isValidShopZone(zone)) { this.vm.expiryBusinessTimeZone.set(zone); this.watchShopDate(zone); } }, error: () => {
-      const shopId = this.vm.activeShopId();
-      if (shopId) void this.expirySnapshots.getUsableSnapshotInfo(shopId).then(snapshot => {
-        if (this.vm.activeShopId() === shopId && snapshot?.schemaVersion === 4 && isValidShopZone(snapshot.businessTimeZoneId)) {
-          this.vm.expiryBusinessTimeZone.set(snapshot.businessTimeZoneId); this.watchShopDate(snapshot.businessTimeZoneId);
-        }
-      }).catch(() => {});
-    } });
+    this.expiryPolicies
+      .businessTimeZone()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (zone) => {
+          if (isValidShopZone(zone)) {
+            this.vm.expiryBusinessTimeZone.set(zone);
+            this.watchShopDate(zone);
+          }
+        },
+        error: () => {
+          const shopId = this.vm.activeShopId();
+          if (shopId)
+            void this.expirySnapshots
+              .getUsableSnapshotInfo(shopId)
+              .then((snapshot) => {
+                if (
+                  this.vm.activeShopId() === shopId &&
+                  snapshot?.schemaVersion === 4 &&
+                  isValidShopZone(snapshot.businessTimeZoneId)
+                ) {
+                  this.vm.expiryBusinessTimeZone.set(snapshot.businessTimeZoneId);
+                  this.watchShopDate(snapshot.businessTimeZoneId);
+                }
+              })
+              .catch(() => {});
+        },
+      });
     this.expiryPolicies.changed$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.vm.invalidateExpiryCatalog();
     });
@@ -198,7 +254,22 @@ export class NewSalePageComponent implements OnInit, OnDestroy {
   }
 
   onPaymentSubmitRequested(): void {
+    this.validationRequested.set(true);
     this.vm.onPaymentSubmitRequested();
+    afterNextRender(
+      () => {
+        const summary = this.element.nativeElement.querySelector<HTMLElement>(
+          '[data-checkout-error-summary]',
+        );
+        if (!summary) return;
+        const field = this.element.nativeElement.querySelector<HTMLInputElement>(
+          'app-sale-payment-section input[aria-invalid="true"], app-sale-customer-section input[aria-invalid="true"], input.ng-invalid',
+        );
+        this.invalidCheckoutFieldId.set(field?.id || null);
+        summary.focus();
+      },
+      { injector: this.injector },
+    );
   }
 
   onSaleDiscountTypeChange(type: 0 | 1 | 2): void {
@@ -224,5 +295,4 @@ export class NewSalePageComponent implements OnInit, OnDestroy {
   onCreditNoteCustomerMismatchCancelled(): void {
     this.vm.onCreditNoteCustomerMismatchCancelled();
   }
-
 }

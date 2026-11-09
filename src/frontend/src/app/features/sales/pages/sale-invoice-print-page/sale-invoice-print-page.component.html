@@ -12,7 +12,11 @@
     </button>
   </div>
 
-  <section *ngIf="deliveryStatusKey() as deliveryKey" class="print-state print-state--delivery" role="status">
+  <section
+    *ngIf="deliveryStatusKey() as deliveryKey"
+    class="print-state print-state--delivery"
+    role="status"
+  >
     {{ deliveryKey | transloco }}
   </section>
 
@@ -20,7 +24,11 @@
     {{ 'common.loading' | transloco }}
   </section>
 
-  <section *ngIf="!isLoading() && !errorMessage() && isLegacyOfflineInvoice()" class="print-state print-state--notice" role="note">
+  <section
+    *ngIf="!isLoading() && !errorMessage() && isLegacyOfflineInvoice()"
+    class="print-state print-state--notice"
+    role="note"
+  >
     {{ 'sales.invoice.offlineLegacyNote' | transloco }}
     <a class="print-state__reconciliation" href="/sales/offline-reconciliation">
       {{ 'sales.invoice.openReconciliation' | transloco }}
@@ -28,9 +36,12 @@
   </section>
 
   <section *ngIf="errorMessage()" class="print-state print-state--error" role="alert">
-    {{ errorMessage().startsWith('sales.') ? (errorMessage() | transloco) : errorMessage() }}
+    {{ errorMessage() | transloco: localizedError()?.params ?? {} }}
   </section>
 
+  @if (errorMessage() && localizedError()?.correlationId; as reference) {
+    <p>{{ 'apiErrors.supportReference' | transloco: { reference } }}</p>
+  }
   <ng-container *ngIf="!isLoading() && !errorMessage() && sale() as loadedSale">
     <article
       *ngIf="shop() as loadedShop"

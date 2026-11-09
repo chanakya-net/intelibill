@@ -1,19 +1,37 @@
+import { saleQuantityErrorKey, saleReturnQuantityErrorKey } from '../utils/sale-quantity-error';
+import {
+  ApiErrorMessageService,
+  type LocalizedError,
+} from '../../../core/i18n/api-error-message.service';
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { EMPTY, catchError, firstValueFrom, from, map, mergeMap, of, switchMap, takeUntil } from 'rxjs';
+import {
+  EMPTY,
+  catchError,
+  firstValueFrom,
+  from,
+  map,
+  mergeMap,
+  of,
+  switchMap,
+  takeUntil,
+} from 'rxjs';
 
 import { isScopeChangeError } from '../../../core/context/scoped-request';
 import { ShopContextService } from '../../../core/context/shop-context.service';
-import { CheckoutIntentService, classifyCheckoutSendFailure } from '../services/checkout-intent.service';
+import {
+  CheckoutIntentService,
+  classifyCheckoutSendFailure,
+} from '../services/checkout-intent.service';
 import { SaleService } from '../services/sale.service';
 import type { CheckoutIntent } from '../../../core/storage/checkout-intent-indexeddb.service';
-import { invoiceErrorKey } from '../utils/invoice-error-keys';
-import { customerCreditErrorKey } from '../utils/customer-credit-error-keys';
-import { saleQuantityErrorKey, saleReturnQuantityErrorKey } from '../utils/sale-quantity-error';
+import { INVOICE_ERROR_KEYS } from '../utils/invoice-error-keys';
+import { CUSTOMER_CREDIT_ERROR_KEYS } from '../utils/customer-credit-error-keys';
 import { SalesActions } from './sales.actions';
 
 @Injectable()
 export class SalesEffects {
+  private readonly apiErrors = inject(ApiErrorMessageService);
   private readonly actions$ = inject(Actions);
   private readonly saleService = inject(SaleService);
   private readonly checkoutIntents = inject(CheckoutIntentService);
@@ -31,18 +49,18 @@ export class SalesEffects {
               pageNumber,
               pageSize,
               summary,
-            })
+            }),
           ),
           catchError((error) =>
             of(
               SalesActions.loadSalesFailed({
-                errorMessage: error.error?.detail || 'errors.sales.loadFailed',
-              })
-            )
-          )
-        )
-      )
-    )
+                ...this.feedback(error, 'errors.sales.loadFailed'),
+              }),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 
   loadProfitLossReport$ = createEffect(() =>
@@ -54,13 +72,13 @@ export class SalesEffects {
           catchError((error) =>
             of(
               SalesActions.loadProfitLossReportFailed({
-                errorMessage: error.error?.detail || 'errors.sales.profitLossLoadFailed',
-              })
-            )
-          )
-        )
-      )
-    )
+                ...this.feedback(error, 'errors.sales.profitLossLoadFailed'),
+              }),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 
   loadSaleDetail$ = createEffect(() =>
@@ -72,13 +90,13 @@ export class SalesEffects {
           catchError((error) =>
             of(
               SalesActions.loadSaleDetailFailed({
-                errorMessage: error.error?.detail || 'errors.sales.detailLoadFailed',
-              })
-            )
-          )
-        )
-      )
-    )
+                ...this.feedback(error, 'errors.sales.detailLoadFailed'),
+              }),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 
   previewSaleReturn$ = createEffect(() =>
@@ -90,17 +108,13 @@ export class SalesEffects {
           catchError((error) =>
             of(
               SalesActions.previewSaleReturnFailed({
-                errorMessage:
-                  saleReturnQuantityErrorKey(error) ||
-                  error.error?.detail ||
-                  error.error?.title ||
-                  'errors.sales.returnPreviewFailed',
-              })
-            )
-          )
-        )
-      )
-    )
+                ...this.feedback(error, 'errors.sales.returnPreviewFailed'),
+              }),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 
   recordSaleReturn$ = createEffect(() =>
@@ -110,21 +124,19 @@ export class SalesEffects {
         this.saleService.recordSaleReturn(saleId, payload).pipe(
           map((sale) => SalesActions.recordSaleReturnSucceeded({ sale })),
           catchError((error) =>
-            isScopeChangeError(error) ? EMPTY : of(
-              SalesActions.recordSaleReturnFailed({
-                errorMessage:
-                  saleReturnQuantityErrorKey(error) ||
-                  error.error?.detail ||
-                  error.error?.title ||
-                  'errors.sales.returnRecordFailed',
-              })
-            )
+            isScopeChangeError(error)
+              ? EMPTY
+              : of(
+                  SalesActions.recordSaleReturnFailed({
+                    ...this.feedback(error, 'errors.sales.returnRecordFailed'),
+                  }),
+                ),
           ),
           // Durable settlement continues, while a left epoch can no longer update the store.
           takeUntil(this.shopContext.changes$),
-        )
-      )
-    )
+        ),
+      ),
+    ),
   );
 
   voidSaleReturn$ = createEffect(() =>
@@ -135,20 +147,19 @@ export class SalesEffects {
           switchMap(() => this.saleService.getSaleById(saleId)),
           map((sale) => SalesActions.voidSaleReturnSucceeded({ sale })),
           catchError((error) =>
-            isScopeChangeError(error) ? EMPTY : of(
-              SalesActions.voidSaleReturnFailed({
-                errorMessage:
-                  error.error?.detail ||
-                  error.error?.title ||
-                  'errors.sales.returnVoidFailed',
-              })
-            )
+            isScopeChangeError(error)
+              ? EMPTY
+              : of(
+                  SalesActions.voidSaleReturnFailed({
+                    ...this.feedback(error, 'errors.sales.returnVoidFailed'),
+                  }),
+                ),
           ),
           // Durable settlement continues, while a left epoch can no longer update the store.
           takeUntil(this.shopContext.changes$),
-        )
-      )
-    )
+        ),
+      ),
+    ),
   );
 
   // mergeMap, not switchMap: a later checkout must never cancel an in-flight sale POST, whose
@@ -160,12 +171,18 @@ export class SalesEffects {
         if (!intentId) {
           return this.saleService.recordSale(payload).pipe(
             map((sale) => SalesActions.recordSaleSucceeded({ sale })),
-            catchError((error) => of(SalesActions.recordSaleFailed({ errorMessage: recordSaleErrorMessage(error) }))),
+            catchError((error) =>
+              of(
+                SalesActions.recordSaleFailed({
+                  ...this.feedback(error, 'errors.sales.recordFailed'),
+                }),
+              ),
+            ),
           );
         }
         return from(this.sendIntent(intentId));
-      })
-    )
+      }),
+    ),
   );
 
   /**
@@ -179,7 +196,10 @@ export class SalesEffects {
       const intent = await this.checkoutIntents.claimForSend(intentId).catch(() => null);
       if (!intent) {
         // Another tab owns the send, or the intent already resolved: reconcile instead of sending.
-        return SalesActions.recordSaleUncertain({ intentId, errorMessage: 'sales.newSale.pendingCheckout.inProgressElsewhere' });
+        return SalesActions.recordSaleUncertain({
+          intentId,
+          errorMessage: 'sales.newSale.pendingCheckout.inProgressElsewhere',
+        });
       }
 
       const outcome = await this.settleIntent(intent);
@@ -201,22 +221,45 @@ export class SalesEffects {
       if (classifyCheckoutSendFailure(error) === 'rejected') {
         const code = (error as { error?: { title?: string } }).error?.title ?? 'unknown';
         await this.checkoutIntents.reject(intentId, code).catch(() => null);
-        return SalesActions.recordSaleFailed({ intentId, errorMessage: recordSaleErrorMessage(error) });
+        return SalesActions.recordSaleFailed({
+          intentId,
+          ...this.feedback(error, 'errors.sales.recordFailed'),
+        });
       }
       // Includes an answer lost to a scope change: it may have committed in the intent's own shop.
       await this.checkoutIntents.markUncertain(intentId).catch(() => null);
-      return SalesActions.recordSaleUncertain({ intentId, errorMessage: 'sales.newSale.pendingCheckout.uncertain' });
+      return SalesActions.recordSaleUncertain({
+        intentId,
+        errorMessage: 'sales.newSale.pendingCheckout.uncertain',
+      });
     }
   }
-}
-
-/** GST document refusals get a message that says what to fix; anything else keeps the server's own text. */
-function recordSaleErrorMessage(error: unknown): string {
-  const body = (error as { error?: { title?: string; detail?: string } } | null)?.error;
-  return (
-    invoiceErrorKey(body?.title) ??
-    customerCreditErrorKey(body?.title) ??
-    saleQuantityErrorKey(error) ??
-    (body?.detail || 'errors.sales.recordFailed')
-  );
+  private feedback(
+    error: unknown,
+    fallbackKey: string,
+  ): { errorMessage: string; localizedError?: LocalizedError } {
+    const quantityKey = saleReturnQuantityErrorKey(error) ?? saleQuantityErrorKey(error);
+    const localizedError = this.apiErrors.resolve(error, {
+      fallbackKey,
+      codeMap: {
+        ...INVOICE_ERROR_KEYS,
+        ...CUSTOMER_CREDIT_ERROR_KEYS,
+        ...(quantityKey ? { 'Validation.Failed': quantityKey } : {}),
+        'Sale.QuantityPrecisionExceeded': 'sales.newSale.quantityPrecisionExceeded',
+        'SaleReturn.QuantityPrecisionExceeded':
+          'sales.returns.preview.validation.serverQuantityPrecision',
+      },
+      fieldMap: {
+        PaidAmount: 'paidAmount',
+        DueAmount: 'dueAmount',
+        PlaceOfSupplyStateCode: 'placeOfSupplyStateCode',
+      },
+    });
+    return {
+      errorMessage: localizedError.messageKey,
+      ...(localizedError.correlationId || localizedError.fieldErrors.length
+        ? { localizedError }
+        : {}),
+    };
+  }
 }

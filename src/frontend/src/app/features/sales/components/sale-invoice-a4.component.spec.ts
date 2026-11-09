@@ -1,3 +1,5 @@
+import { signal } from '@angular/core';
+import { LocalizationService } from '../../../core/i18n/localization.service';
 import { cancellationFixture } from '../services/sale-cancellation.test-fixture';
 import { CommonModule } from '@angular/common';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -7,11 +9,18 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
 
 import { SaleInvoiceA4Component } from './sale-invoice-a4.component';
-import type { InvoiceDocument, InvoiceDocumentLine, SaleDto, SaleItemDto } from '../services/sale.models';
+import type {
+  InvoiceDocument,
+  InvoiceDocumentLine,
+  SaleDto,
+  SaleItemDto,
+} from '../services/sale.models';
 import { buildOfflineInvoiceDocument } from '../services/offline-invoice-document.builder';
 import { ShopDetails } from '../../shops/services/shop.service';
 
-const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string) as Record<string, unknown>;
+const enIN = JSON.parse(
+  readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string,
+) as Record<string, unknown>;
 
 /** Joins a row's cells with single spaces, as a reader sees them. */
 function cellText(row: HTMLElement): string {
@@ -112,7 +121,14 @@ describe('SaleInvoiceA4Component', () => {
       gstin: '27AAPFU0939F1ZV',
       taxRegime: 'Regular',
     },
-    buyer: { name: null, phone: null, address: null, gstin: null, stateCode: null, stateName: null },
+    buyer: {
+      name: null,
+      phone: null,
+      address: null,
+      gstin: null,
+      stateCode: null,
+      stateName: null,
+    },
     placeOfSupplyStateCode: '27',
     placeOfSupplyStateName: 'Maharashtra',
     isInterstate: false,
@@ -135,7 +151,9 @@ describe('SaleInvoiceA4Component', () => {
     ...overrides,
   });
 
-  const makeSaleReturn = (overrides: Partial<SaleDto['returns'][number]> = {}): SaleDto['returns'][number] => ({
+  const makeSaleReturn = (
+    overrides: Partial<SaleDto['returns'][number]> = {},
+  ): SaleDto['returns'][number] => ({
     saleReturnId: 'return-1',
     returnNumber: 'RET-001',
     returnedAt: '2026-05-10T10:00:00Z',
@@ -173,6 +191,7 @@ describe('SaleInvoiceA4Component', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
+      providers: [{ provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } }],
       imports: [
         CommonModule,
         TranslocoTestingModule.forRoot({
@@ -186,6 +205,47 @@ describe('SaleInvoiceA4Component', () => {
 
     fixture = TestBed.createComponent(SaleInvoiceA4Component);
     component = fixture.componentInstance;
+  });
+
+  it('reformats printed amounts and business days across nine languages without changing facts', () => {
+    component.sale = makeSale({
+      totalAmount: 123456.78,
+      document: makeDocument({ businessDate: '2024-02-29' }),
+    });
+    component.shop = makeShop();
+    const canonical = JSON.stringify(component.sale);
+    const language = TestBed.inject(LocalizationService).currentLanguage as ReturnType<
+      typeof signal<string>
+    >;
+    for (const locale of [
+      'en-IN',
+      'hi-IN',
+      'ta-IN',
+      'te-IN',
+      'bn-IN',
+      'ml-IN',
+      'kn-IN',
+      'mr-IN',
+      'gu-IN',
+    ]) {
+      language.set(locale);
+      fixture.detectChanges();
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain(
+        new Intl.NumberFormat(locale, {
+          style: 'currency',
+          currency: 'INR',
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(236),
+      );
+      expect(text).toContain(
+        new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(
+          new Date('2024-02-29T00:00:00Z'),
+        ),
+      );
+      expect(JSON.stringify(component.sale)).toBe(canonical);
+    }
   });
 
   describe('invoice header', () => {
@@ -406,7 +466,8 @@ describe('SaleInvoiceA4Component', () => {
       component.shop = makeShop();
       fixture.detectChanges();
 
-      const taxableHeader = fixture.nativeElement.querySelector('th.invoice__col-taxable')?.textContent ?? '';
+      const taxableHeader =
+        fixture.nativeElement.querySelector('th.invoice__col-taxable')?.textContent ?? '';
       expect(taxableHeader.trim()).toBe('Taxable Value');
     });
 
@@ -629,7 +690,8 @@ describe('SaleInvoiceA4Component', () => {
       component.shop = makeShop();
       fixture.detectChanges();
 
-      const status = fixture.nativeElement.querySelector('.invoice__payment-status')?.textContent ?? '';
+      const status =
+        fixture.nativeElement.querySelector('.invoice__payment-status')?.textContent ?? '';
       expect(status).toContain('Unpaid');
       expect(status).not.toContain('Partially');
     });
@@ -639,7 +701,9 @@ describe('SaleInvoiceA4Component', () => {
       component.shop = makeShop();
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelector('.invoice__payment-status')?.textContent).toContain('Partially Paid');
+      expect(
+        fixture.nativeElement.querySelector('.invoice__payment-status')?.textContent,
+      ).toContain('Partially Paid');
     });
 
     it('renders payment status as Paid when nothing is due', () => {
@@ -647,7 +711,8 @@ describe('SaleInvoiceA4Component', () => {
       component.shop = makeShop();
       fixture.detectChanges();
 
-      const status = fixture.nativeElement.querySelector('.invoice__payment-status')?.textContent ?? '';
+      const status =
+        fixture.nativeElement.querySelector('.invoice__payment-status')?.textContent ?? '';
       expect(status.trim()).toBe('Paid');
     });
   });
@@ -879,13 +944,13 @@ describe('SaleInvoiceA4Component', () => {
 
       const invoiceElement = fixture.nativeElement.querySelector('.invoice');
       expect(invoiceElement).not.toBeNull();
-      
+
       const headerElement = fixture.nativeElement.querySelector('.invoice__header');
       expect(headerElement).not.toBeNull();
-      
+
       const itemsTable = fixture.nativeElement.querySelector('.invoice__items');
       expect(itemsTable).not.toBeNull();
-      
+
       const totalsElement = fixture.nativeElement.querySelector('.invoice__totals');
       expect(totalsElement).not.toBeNull();
     });
@@ -965,8 +1030,16 @@ describe('SaleInvoiceA4Component', () => {
     });
 
     it('mixed bill: groups goods and services and labels HSN/SAC', () => {
-      const goodsItem = makeSaleItem({ lineType: 'Goods', itemName: 'Goods Item', hsnCode: 'HSN123' });
-      const serviceItem = makeSaleItem({ lineType: 'Service', itemName: 'Service Item', hsnCode: 'SAC456' });
+      const goodsItem = makeSaleItem({
+        lineType: 'Goods',
+        itemName: 'Goods Item',
+        hsnCode: 'HSN123',
+      });
+      const serviceItem = makeSaleItem({
+        lineType: 'Service',
+        itemName: 'Service Item',
+        hsnCode: 'SAC456',
+      });
       component.sale = makeSale({ items: [goodsItem, serviceItem] });
       component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
       fixture.detectChanges();
@@ -995,21 +1068,27 @@ describe('SaleInvoiceA4Component', () => {
     });
 
     it('goods-only GST bill: header stays plain HSN, not HSN/SAC', () => {
-      component.sale = makeSale({ items: [makeSaleItem({ lineType: 'Goods', hsnCode: 'HSN123' })] });
+      component.sale = makeSale({
+        items: [makeSaleItem({ lineType: 'Goods', hsnCode: 'HSN123' })],
+      });
       component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
       fixture.detectChanges();
 
-      const headerText = fixture.nativeElement.querySelector('.invoice__items-header')?.textContent ?? '';
+      const headerText =
+        fixture.nativeElement.querySelector('.invoice__items-header')?.textContent ?? '';
       expect(headerText).not.toContain('HSN/SAC');
       expect(headerText).toContain('HSN');
     });
 
     it('service-only GST bill: header shows HSN/SAC and stays flat', () => {
-      component.sale = makeSale({ items: [makeSaleItem({ lineType: 'Service', itemName: 'Service Item', hsnCode: 'SAC456' })] });
+      component.sale = makeSale({
+        items: [makeSaleItem({ lineType: 'Service', itemName: 'Service Item', hsnCode: 'SAC456' })],
+      });
       component.shop = makeShop({ gstNumber: 'GSTIN12345678' });
       fixture.detectChanges();
 
-      const headerText = fixture.nativeElement.querySelector('.invoice__items-header')?.textContent ?? '';
+      const headerText =
+        fixture.nativeElement.querySelector('.invoice__items-header')?.textContent ?? '';
       const sectionHeaders = fixture.nativeElement.querySelectorAll('.invoice__section-header-row');
       expect(headerText).toContain('HSN/SAC');
       expect(sectionHeaders.length).toBe(0);
@@ -1053,7 +1132,18 @@ describe('SaleInvoiceA4Component', () => {
       const sale = makeSale({
         creditNoteAppliedAmount: 150,
         creditNoteRedemptions: [{ creditNoteId: 'cn-1', code: 'CN-001', appliedAmount: 150 }],
-        returns: [makeSaleReturn({ creditNote: { creditNoteId: 'cn-9', code: 'CN-RETURN-9', originalAmount: 40, availableBalance: 40, expiresAt: null, reason: 'Return' } })],
+        returns: [
+          makeSaleReturn({
+            creditNote: {
+              creditNoteId: 'cn-9',
+              code: 'CN-RETURN-9',
+              originalAmount: 40,
+              availableBalance: 40,
+              expiresAt: null,
+              reason: 'Return',
+            },
+          }),
+        ],
       });
 
       component.sale = sale;
@@ -1108,7 +1198,9 @@ describe('SaleInvoiceA4Component', () => {
       component.shop = makeShop({ name: 'Legacy Shop' });
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelector('.invoice__header')?.textContent).toContain('Legacy Shop');
+      expect(fixture.nativeElement.querySelector('.invoice__header')?.textContent).toContain(
+        'Legacy Shop',
+      );
       expect(fixture.nativeElement.querySelector('.invoice__legacy-note')?.textContent).toContain(
         'posted without a GST document',
       );
@@ -1121,13 +1213,18 @@ describe('SaleInvoiceA4Component', () => {
       component.pendingSync = true;
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelector('.invoice__legacy-note')?.textContent).toContain('is not a copy of a GST document');
-
+      expect(fixture.nativeElement.querySelector('.invoice__legacy-note')?.textContent).toContain(
+        'is not a copy of a GST document',
+      );
     });
   });
 
   describe('issued GST document', () => {
-    function render(document: InvoiceDocument, sale: Partial<SaleDto> = {}, shop: Partial<ShopDetails> = {}): string {
+    function render(
+      document: InvoiceDocument,
+      sale: Partial<SaleDto> = {},
+      shop: Partial<ShopDetails> = {},
+    ): string {
       component.sale = makeSale({ document, isLegacyDocument: false, ...sale });
       component.shop = makeShop(shop);
       fixture.detectChanges();
@@ -1142,19 +1239,33 @@ describe('SaleInvoiceA4Component', () => {
     ] as const)('titles a %s document', (documentType, title) => {
       render(makeDocument({ documentType }));
 
-      expect(fixture.nativeElement.querySelector('.invoice__document-title')?.textContent?.trim()).toBe(title);
+      expect(
+        fixture.nativeElement.querySelector('.invoice__document-title')?.textContent?.trim(),
+      ).toBe(title);
     });
 
     it('prints the document number and business date, not the sale record', () => {
-      const text = render(makeDocument(), { invoiceNumber: 'INV-20261103-abcdef12', soldAt: '2026-11-02T20:00:00Z' });
+      const text = render(makeDocument(), {
+        invoiceNumber: 'INV-20261103-abcdef12',
+        soldAt: '2026-11-02T20:00:00Z',
+      });
 
       expect(text).toContain('A/2627/000042');
-      expect(text).toContain('03/11/2026');
+      expect(text).toContain('3 Nov 2026');
       expect(text).not.toContain('INV-20261103-abcdef12');
     });
 
     it('takes the seller from the snapshot even when the shop was edited after issue', () => {
-      const text = render(makeDocument(), {}, { name: 'Renamed Shop', gstNumber: '29AAGCB7383J1Z4', address: 'New Address', mobileNumber: '+910000000000' });
+      const text = render(
+        makeDocument(),
+        {},
+        {
+          name: 'Renamed Shop',
+          gstNumber: '29AAGCB7383J1Z4',
+          address: 'New Address',
+          mobileNumber: '+910000000000',
+        },
+      );
       const header = fixture.nativeElement.querySelector('.invoice__header')?.textContent ?? '';
 
       expect(header).toContain('Acme Traders Private Limited');
@@ -1169,7 +1280,11 @@ describe('SaleInvoiceA4Component', () => {
     });
 
     it('does not repeat the trade name when it is the legal name', () => {
-      render(makeDocument({ seller: { ...makeDocument().seller, tradeName: 'Acme Traders Private Limited' } }));
+      render(
+        makeDocument({
+          seller: { ...makeDocument().seller, tradeName: 'Acme Traders Private Limited' },
+        }),
+      );
 
       expect(fixture.nativeElement.querySelector('.invoice__shop-trade-name')).toBeNull();
     });
@@ -1185,12 +1300,22 @@ describe('SaleInvoiceA4Component', () => {
         { gstNumber: '27AAPFU0939F1ZV' },
       );
 
-      expect(fixture.nativeElement.querySelector('.invoice__header')?.textContent).not.toContain('GSTIN');
-      expect(fixture.nativeElement.querySelector('.invoice__declarations')?.textContent).toContain('not registered under GST');
+      expect(fixture.nativeElement.querySelector('.invoice__header')?.textContent).not.toContain(
+        'GSTIN',
+      );
+      expect(fixture.nativeElement.querySelector('.invoice__declarations')?.textContent).toContain(
+        'not registered under GST',
+      );
     });
 
     it('prints place of supply and reverse charge', () => {
-      const text = render(makeDocument({ placeOfSupplyStateCode: '29', placeOfSupplyStateName: 'Karnataka', isInterstate: true }));
+      const text = render(
+        makeDocument({
+          placeOfSupplyStateCode: '29',
+          placeOfSupplyStateName: 'Karnataka',
+          isInterstate: true,
+        }),
+      );
 
       expect(text).toContain('Place of Supply');
       expect(text).toContain('Karnataka (29)');
@@ -1224,7 +1349,15 @@ describe('SaleInvoiceA4Component', () => {
     it('prints each line with its HSN/SAC and taxable value from the snapshot', () => {
       render(
         makeDocument({
-          lines: [makeLine({ description: 'Hair Cut', hsnOrSac: '999721', uom: 'NA', taxableValue: 150, lineTotal: 177 })],
+          lines: [
+            makeLine({
+              description: 'Hair Cut',
+              hsnOrSac: '999721',
+              uom: 'NA',
+              taxableValue: 150,
+              lineTotal: 177,
+            }),
+          ],
         }),
         { items: [makeSaleItem({ itemName: 'Live Item Name', hsnCode: '1111' })] },
         { gstNumber: null },
@@ -1242,7 +1375,11 @@ describe('SaleInvoiceA4Component', () => {
     it('summarises intrastate tax by component and rate', () => {
       render(
         makeDocument({
-          lines: [makeLine(), makeLine({ lineNumber: 2 }), makeLine({ lineNumber: 3, taxRatePercent: 5 })],
+          lines: [
+            makeLine(),
+            makeLine({ lineNumber: 2 }),
+            makeLine({ lineNumber: 3, taxRatePercent: 5 }),
+          ],
           totals: {
             taxableValue: 500,
             exemptValue: 0,
@@ -1261,7 +1398,9 @@ describe('SaleInvoiceA4Component', () => {
         }),
       );
       const rows = Array.from(
-        fixture.nativeElement.querySelectorAll('.invoice__tax-summary tbody tr') as NodeListOf<HTMLElement>,
+        fixture.nativeElement.querySelectorAll(
+          '.invoice__tax-summary tbody tr',
+        ) as NodeListOf<HTMLElement>,
       ).map((row) => cellText(row));
 
       expect(rows).toEqual([
@@ -1285,7 +1424,8 @@ describe('SaleInvoiceA4Component', () => {
           },
         }),
       );
-      const summary = fixture.nativeElement.querySelector('.invoice__tax-summary')?.textContent ?? '';
+      const summary =
+        fixture.nativeElement.querySelector('.invoice__tax-summary')?.textContent ?? '';
 
       expect(summary).toContain('IGST');
       expect(summary).toContain('18%');
@@ -1297,18 +1437,36 @@ describe('SaleInvoiceA4Component', () => {
       render(
         makeDocument({
           documentType: 'BillOfSupply',
-          lines: [makeLine({ taxRatePercent: 0, isExempt: true, taxComponents: [], lineTotal: 200 })],
-          totals: { taxableValue: 0, exemptValue: 200, components: [], totalTax: 0, roundingAdjustment: 0, invoiceTotal: 200 },
+          lines: [
+            makeLine({ taxRatePercent: 0, isExempt: true, taxComponents: [], lineTotal: 200 }),
+          ],
+          totals: {
+            taxableValue: 0,
+            exemptValue: 200,
+            components: [],
+            totalTax: 0,
+            roundingAdjustment: 0,
+            invoiceTotal: 200,
+          },
         }),
       );
 
       expect(fixture.nativeElement.querySelector('.invoice__tax-summary')).toBeNull();
-      expect(fixture.nativeElement.querySelector('.invoice__totals')?.textContent).toContain('Exempt Value');
+      expect(fixture.nativeElement.querySelector('.invoice__totals')?.textContent).toContain(
+        'Exempt Value',
+      );
     });
 
     it('prints total tax, rounding adjustment and invoice total from the snapshot', () => {
       render(
-        makeDocument({ totals: { ...makeDocument().totals, totalTax: 36, roundingAdjustment: 0.4, invoiceTotal: 236.4 } }),
+        makeDocument({
+          totals: {
+            ...makeDocument().totals,
+            totalTax: 36,
+            roundingAdjustment: 0.4,
+            invoiceTotal: 236.4,
+          },
+        }),
         { totalAmount: 999, totalTaxAmount: 888 },
       );
       const totals = fixture.nativeElement.querySelector('.invoice__totals')?.textContent ?? '';
@@ -1331,10 +1489,14 @@ describe('SaleInvoiceA4Component', () => {
           declarations: ['CompositionTaxablePerson', 'EInvoiceExemption'],
         }),
       );
-      const declarations = fixture.nativeElement.querySelector('.invoice__declarations')?.textContent ?? '';
-      const signatory = fixture.nativeElement.querySelector('.invoice__signatory')?.textContent ?? '';
+      const declarations =
+        fixture.nativeElement.querySelector('.invoice__declarations')?.textContent ?? '';
+      const signatory =
+        fixture.nativeElement.querySelector('.invoice__signatory')?.textContent ?? '';
 
-      expect(declarations).toContain('Composition taxable person, not eligible to collect tax on supplies');
+      expect(declarations).toContain(
+        'Composition taxable person, not eligible to collect tax on supplies',
+      );
       expect(declarations).toContain('rule 48');
       expect(declarations).not.toContain('CompositionTaxablePerson');
       expect(signatory).toContain('For Acme Traders Private Limited');
@@ -1357,7 +1519,9 @@ describe('SaleInvoiceA4Component', () => {
       const totals = fixture.nativeElement.querySelector('.invoice__totals')?.textContent ?? '';
 
       expect(totals).toContain('Credit Note Settlement (CN-777)');
-      expect(fixture.nativeElement.querySelector('.invoice__payment-status')?.textContent).toContain('Partially Paid');
+      expect(
+        fixture.nativeElement.querySelector('.invoice__payment-status')?.textContent,
+      ).toContain('Partially Paid');
     });
   });
 
@@ -1368,7 +1532,8 @@ describe('SaleInvoiceA4Component', () => {
         seller: {
           legalName: 'Main Shop Pvt Ltd',
           tradeName: 'Main Shop',
-          address: 'Shop No. 14, Ground Floor, Sri Venkateshwara Commercial Complex, 3rd Cross, 80 Feet Road, Koramangala 4th Block, Bengaluru, Karnataka 560034',
+          address:
+            'Shop No. 14, Ground Floor, Sri Venkateshwara Commercial Complex, 3rd Cross, 80 Feet Road, Koramangala 4th Block, Bengaluru, Karnataka 560034',
           stateCode: '29',
           stateName: 'Karnataka',
           gstin: '29AAPFU0939F1ZR',
@@ -1386,13 +1551,38 @@ describe('SaleInvoiceA4Component', () => {
         calculationVersion: 1,
         lines: [
           {
-            clientLineId: 'line-1', inventoryBatchId: 'batch-1', itemId: 'item-1', barcode: 'SKU-1', itemName: 'Steel Bottle',
-            batchNumber: 'B1', quantity: 2, salesPrice: 50.03, mrp: 60, costPrice: 30, taxRatePercent: 18, taxIncluded: false,
-            hsnCode: '7323', preTaxAmount: 100.06, itemDiscountAmount: 0.01, saleDiscountAmount: 0, taxableAmount: 100.05,
-            taxAmount: 18.01, lineTotal: 118.06, configuredRuleId: null, lineType: 'goods', serviceId: null,
+            clientLineId: 'line-1',
+            inventoryBatchId: 'batch-1',
+            itemId: 'item-1',
+            barcode: 'SKU-1',
+            itemName: 'Steel Bottle',
+            batchNumber: 'B1',
+            quantity: 2,
+            salesPrice: 50.03,
+            mrp: 60,
+            costPrice: 30,
+            taxRatePercent: 18,
+            taxIncluded: false,
+            hsnCode: '7323',
+            preTaxAmount: 100.06,
+            itemDiscountAmount: 0.01,
+            saleDiscountAmount: 0,
+            taxableAmount: 100.05,
+            taxAmount: 18.01,
+            lineTotal: 118.06,
+            configuredRuleId: null,
+            lineType: 'goods',
+            serviceId: null,
           },
         ],
-        totals: { totalBeforeDiscount: 100.06, totalDiscount: 0.01, totalTax: 18.01, grandTotal: 118.06, paidAmount: 100, dueAmount: 18.06 },
+        totals: {
+          totalBeforeDiscount: 100.06,
+          totalDiscount: 0.01,
+          totalTax: 18.01,
+          grandTotal: 118.06,
+          paidAmount: 100,
+          dueAmount: 18.06,
+        },
       },
     });
     if (!built.ok) throw new Error(built.errorCode);
@@ -1410,7 +1600,11 @@ describe('SaleInvoiceA4Component', () => {
       creditNoteAppliedAmount: 10,
       creditNoteRedemptions: [{ creditNoteId: 'cn-1', code: 'CN-OFFLINE-0001', appliedAmount: 10 }],
     });
-    component.shop = makeShop({ name: 'Renamed Shop', gstNumber: '27AAPFU0939F1ZV', address: 'Somewhere else' });
+    component.shop = makeShop({
+      name: 'Renamed Shop',
+      gstNumber: '27AAPFU0939F1ZV',
+      address: 'Somewhere else',
+    });
     component.pendingSync = true;
     fixture.detectChanges();
 
@@ -1442,8 +1636,9 @@ describe('SaleInvoiceA4Component', () => {
     component.shop = makeShop();
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement.querySelector('.sale-cancellation-record')?.textContent ?? '')
-      .replace(/\s+/g, ' ');
+    const text = (
+      fixture.nativeElement.querySelector('.sale-cancellation-record')?.textContent ?? ''
+    ).replace(/\s+/g, ' ');
     expect(text).toContain('2026-11-10 · Nov 10, 2026, 1:30 AM (Asia/Kolkata)');
   });
   it('preserves original amounts and appends frozen cancellation settlement facts', () => {

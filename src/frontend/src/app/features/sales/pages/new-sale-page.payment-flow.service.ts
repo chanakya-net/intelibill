@@ -1,5 +1,9 @@
 import { NewSalePageDiscountValidationService } from './new-sale-page.discount-validation.service';
-import { CreditNoteRedemptionRequest, SalePreviewDto, SalePreviewLineDto } from '../services/sale.models';
+import {
+  CreditNoteRedemptionRequest,
+  SalePreviewDto,
+  SalePreviewLineDto,
+} from '../services/sale.models';
 
 export abstract class NewSalePagePaymentFlowService extends NewSalePageDiscountValidationService {
   syncPaymentSplitFromPaid(rawPaid: number | null, total = this.totalAmount()): void {
@@ -109,31 +113,33 @@ export abstract class NewSalePagePaymentFlowService extends NewSalePageDiscountV
       return;
     }
 
-    this.inventoryService.getProductDetailsByNameOrBarcode(normalizedName, normalizedBarcode).subscribe({
-      next: (details) => {
-        const resolvedHsn = this.normalizeHsnCode(details.hsnCode);
-        if (!resolvedHsn) {
-          return;
-        }
-        this.cartState.applyResolvedHsnCodeIfMissing(clientLineKey, resolvedHsn);
-      },
-      error: () => undefined,
-    });
+    this.inventoryService
+      .getProductDetailsByNameOrBarcode(normalizedName, normalizedBarcode)
+      .subscribe({
+        next: (details) => {
+          const resolvedHsn = this.normalizeHsnCode(details.hsnCode);
+          if (!resolvedHsn) {
+            return;
+          }
+          this.cartState.applyResolvedHsnCodeIfMissing(clientLineKey, resolvedHsn);
+        },
+        error: () => undefined,
+      });
   }
 
   getEventNotificationKey(eventType: string): string {
     const keyMap: Record<string, string> = {
-      'PricingChanged': 'pricingUpdated',
-      'ItemApplicabilityChanged': 'itemUpdated',
-      'DiscountRuleChanged': 'discountUpdated',
-      'InventoryBatchVoided': 'inventoryUpdated',
+      PricingChanged: 'pricingUpdated',
+      ItemApplicabilityChanged: 'itemUpdated',
+      DiscountRuleChanged: 'discountUpdated',
+      InventoryBatchVoided: 'inventoryUpdated',
     };
     return keyMap[eventType] ?? 'updated';
   }
 
   detectAndHighlightChangedRows(
     oldPreview: SalePreviewDto | null,
-    newPreview: SalePreviewDto
+    newPreview: SalePreviewDto,
   ): void {
     const highlightedKeys = new Set<string>();
 
@@ -203,14 +209,27 @@ export abstract class NewSalePagePaymentFlowService extends NewSalePageDiscountV
     this.showConfirmation.set(false);
     this.salesFacade.clearLastRecordedSale();
     this.salesFacade.clearMutationStatus();
-    this.router.navigate(['/sales']);
+    void Promise.resolve(this.router.navigate(['/sales'])).then((navigated) => {
+      if (!navigated) return;
+      const heading = document.querySelector<HTMLElement>('main h1');
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus();
+      }
+    });
   }
 
   onOfflineDone(): void {
     this.showOfflineConfirmation.set(false);
     this.offlineConfirmation.set(null);
     this.blockedOfflinePrintUrl.set(null);
-    this.router.navigate(['/sales']);
+    void Promise.resolve(this.router.navigate(['/sales'])).then((navigated) => {
+      if (!navigated) return;
+      const heading = document.querySelector<HTMLElement>('main h1');
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus();
+      }
+    });
   }
-
 }

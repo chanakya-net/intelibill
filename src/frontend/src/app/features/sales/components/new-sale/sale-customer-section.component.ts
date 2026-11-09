@@ -12,6 +12,8 @@ export interface CustomerDto {
   readonly address?: string | null;
 }
 
+let customerSectionSequence = 0;
+
 @Component({
   selector: 'app-sale-customer-section',
   standalone: true,
@@ -19,6 +21,7 @@ export interface CustomerDto {
   templateUrl: './sale-customer-section.component.html',
 })
 export class SaleCustomerSectionComponent implements OnInit {
+  readonly controlPrefix = `sale-customer-${++customerSectionSequence}`;
   @Input() selectedCustomer: CustomerDto | null = null;
   @Input({ required: true }) customerNameControl!: FormControl<string>;
   @Input({ required: true }) customerPhoneControl!: FormControl<string>;

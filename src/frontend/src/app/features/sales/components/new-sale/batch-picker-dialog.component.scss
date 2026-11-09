@@ -16,6 +16,11 @@
     border-color: #f97316;
     background-color: #fff7ed;
   }
+
+  &:focus-visible {
+    outline: 3px solid #2563eb;
+    outline-offset: 2px;
+  }
 }
 
 .batch-picker {
@@ -75,7 +80,7 @@
 .batch-option-price p {
   margin: 0;
   font-weight: 700;
-  color: #ea580c;
+  color: #c2410c;
 }
 
 .batch-picker-selection {

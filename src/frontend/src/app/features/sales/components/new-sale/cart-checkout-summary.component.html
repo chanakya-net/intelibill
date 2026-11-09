@@ -1,20 +1,23 @@
 <div class="summary-box flex-1">
   @if (recordedCost !== null && !loading) {
     <div class="checkout-economics" data-testid="checkout-economics">
-      <p>{{ 'sales.profitLoss.economics.netSales' | transloco }}: {{ preview?.totalTaxableAmount | currency: 'INR' }}</p>
-      <p>{{ 'sales.profitLoss.economics.cogs' | transloco }}: {{ recordedCost | currency: 'INR' }}</p>
-      <p>{{ 'sales.profitLoss.economics.trading' | transloco }}: {{ grossProfit | currency: 'INR' }}</p>
+      <p>
+        {{ 'sales.profitLoss.economics.netSales' | transloco }}:
+        {{ preview?.totalTaxableAmount | localeMoney }}
+      </p>
+      <p>{{ 'sales.profitLoss.economics.cogs' | transloco }}: {{ recordedCost | localeMoney }}</p>
+      <p>{{ 'sales.profitLoss.economics.trading' | transloco }}: {{ grossProfit | localeMoney }}</p>
       <small>{{ 'sales.profitLoss.economics.basis' | transloco }}</small>
     </div>
   }
 
   <div class="flex justify-between text-sm text-slate-600">
     <span>{{ 'sales.newSale.subtotal' | transloco }}</span>
-    <span>₹{{ computedSubtotal | number: '1.2-2' }}</span>
+    <span>{{ computedSubtotal | localeMoney }}</span>
   </div>
   <div class="flex justify-between text-sm text-slate-500">
     <span>{{ 'sales.newSale.tax' | transloco }}</span>
-    <span>₹{{ totalTaxAmount | number: '1.2-2' }}</span>
+    <span>{{ totalTaxAmount | localeMoney }}</span>
   </div>
 
   <div class="sale-discount-row mt-2">
@@ -63,7 +66,15 @@
 
     @if (isDiscountEditorOpen) {
       <div class="discount-editor mt-2">
+        <label
+          [id]="controlPrefix + '-discount-type-label'"
+          [for]="controlPrefix + '-discount-type'"
+          >{{ 'sales.newSale.discounts.editSale' | transloco }}</label
+        >
         <p-select
+          [inputId]="controlPrefix + '-discount-type'"
+          [ariaLabelledBy]="controlPrefix + '-discount-type-label'"
+          [disabled]="loading || isSubmitting"
           [options]="instantDiscountTypeOptions"
           optionValue="value"
           optionLabel="labelKey"
@@ -79,7 +90,13 @@
           </ng-template>
         </p-select>
 
+        <label [for]="controlPrefix + '-discount-value'">{{
+          'sales.newSale.discounts.value' | transloco
+        }}</label>
         <p-inputNumber
+          [inputId]="controlPrefix + '-discount-value'"
+          [ariaDescribedBy]="saleDiscountError ? controlPrefix + '-discount-error' : undefined"
+          [disabled]="loading || isSubmitting"
           [ngModel]="saleDiscountValue"
           [ngModelOptions]="{ standalone: true }"
           (ngModelChange)="onDiscountValueChanged($event)"
@@ -93,14 +110,16 @@
     }
 
     @if (saleDiscountError) {
-      <p class="error-hint mt-1">{{ saleDiscountError | transloco }}</p>
+      <p class="error-hint mt-1" [id]="controlPrefix + '-discount-error'">
+        {{ saleDiscountError | transloco }}
+      </p>
     }
   </div>
 
   @if (totalDiscountAmount > 0) {
     <div class="flex justify-between text-sm text-emerald-700">
       <span>{{ 'sales.invoice.discount' | transloco }}</span>
-      <span>-₹{{ totalDiscountAmount | number: '1.2-2' }}</span>
+      <span>-{{ totalDiscountAmount | localeMoney }}</span>
     </div>
   }
 
@@ -108,17 +127,14 @@
     class="flex justify-between font-bold text-lg text-orange-600 border-t border-orange-100 mt-1 pt-1"
   >
     <span>{{ 'sales.newSale.totalDue' | transloco }}</span>
-    <span>₹{{ totalAmount | number: '1.2-2' }}</span>
+    <span>{{ totalAmount | localeMoney }}</span>
   </div>
 
   <div class="record-sale-action">
-    @if (paymentSplitError) {
-      <p class="error mb-2">{{ paymentSplitError | transloco }}</p>
-    }
     <p-button
       [label]="'sales.newSale.recordSale' | transloco"
       icon="pi pi-check"
-      [disabled]="cartLength === 0 || formInvalid || isSubmitting"
+      [disabled]="cartLength === 0 || isSubmitting"
       [loading]="isSubmitting"
       (click)="onSubmit()"
       size="large"
@@ -126,10 +142,16 @@
     />
   </div>
 
+  <p class="settled-total-status" role="status" aria-live="polite" aria-atomic="true">
+    @if (settledTotalAmount !== null) {
+      {{ 'sales.newSale.totalDue' | transloco }}: {{ settledTotalAmount | localeMoney }}
+    }
+  </p>
+
   @if (balanceDue > 0) {
     <div class="flex justify-between text-sm text-slate-600 mt-1">
       <span>{{ 'sales.newSale.balanceDue' | transloco }}</span>
-      <span>₹{{ balanceDue | number: '1.2-2' }}</span>
+      <span>{{ balanceDue | localeMoney }}</span>
     </div>
   }
 </div>

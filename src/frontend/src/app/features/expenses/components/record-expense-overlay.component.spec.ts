@@ -1,3 +1,5 @@
+import { signal } from '@angular/core';
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { disabledTillProviders } from '../../../../tests/tills/disabled-till.providers';
 import { of, Subject } from 'rxjs';
 import { TestBed } from '@angular/core/testing';
@@ -15,7 +17,9 @@ describe('RecordExpenseOverlayComponent', () => {
     { id: 'cat-2', name: 'Supplier Payments' },
   ];
 
+  const localizedError = signal<LocalizedError | undefined>(undefined);
   const expensesFacade = {
+    localizedError,
     categories$: of(mockCategories),
     submitting$: of(false),
     error$: of(''),
@@ -37,6 +41,7 @@ describe('RecordExpenseOverlayComponent', () => {
   }>();
 
   beforeEach(() => {
+    localizedError.set(undefined);
     expensesFacade.loadCategories.mockReset();
     expensesFacade.clearError.mockReset();
     expensesFacade.clearMutationStatus.mockReset();
@@ -64,6 +69,37 @@ describe('RecordExpenseOverlayComponent', () => {
 
   afterEach(() => {
     TestBed.resetTestingModule();
+  });
+
+  it.each(['local', 'server', 'both'] as const)('retains native local and server descriptions: %s', (mode) => {
+    const fixture = TestBed.createComponent(RecordExpenseOverlayComponent);
+
+    fixture.detectChanges();
+    const form = fixture.componentInstance.form;
+    form.patchValue({ paidTo: mode === 'server' ? 'Payee' : '', amount: mode === 'server' ? 1 : 0 });
+    if (mode !== 'server') { form.controls.paidTo.markAsTouched(); form.controls.amount.markAsTouched(); }
+    if (mode !== 'local') localizedError.set({ messageKey: 'apiErrors.validationFailed', params: {}, fieldErrors: ['paidTo','amount'].map(field => ({field, messageKey:'apiErrors.invalidField', params: {}})) });
+    fixture.detectChanges();
+    for (const [field, selector, localId] of [['paidTo','input[formcontrolname="paidTo"]','record-paid-to-error'],['amount','p-inputnumber[formcontrolname="amount"] input','record-amount-error']]) {
+      const input = fixture.nativeElement.querySelector(selector) as HTMLInputElement;
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+      const ids = input.getAttribute('aria-describedby')?.split(' ') ?? [];
+      expect(ids).toHaveLength(mode === 'both' ? 2 : 1);
+      if (mode !== 'server') expect(ids).toContain(localId);
+      if (mode !== 'local') expect(ids).toContain('record-expense-overlay-' + field + '-error');
+      expect(ids.every(id => fixture.nativeElement.querySelector('#' + id))).toBe(true);
+    }
+  });
+
+  it('associates the mapped expenseDate error with the datepicker native input', () => {
+    const fixture = TestBed.createComponent(RecordExpenseOverlayComponent);
+
+    localizedError.set({messageKey:'apiErrors.validationFailed', params:{}, fieldErrors:[{field:'expenseDate',messageKey:'apiErrors.invalidField',params:{}}]});
+    fixture.detectChanges();
+    const input = fixture.nativeElement.querySelector('p-datepicker[formcontrolname="expenseDate"] input') as HTMLInputElement;
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(input.getAttribute('aria-describedby')).toBe('record-expense-overlay-expenseDate-error');
+    expect(fixture.nativeElement.querySelector('#' + input.getAttribute('aria-describedby'))).toBeTruthy();
   });
 
   it('records an explicitly selected operating treatment', () => {

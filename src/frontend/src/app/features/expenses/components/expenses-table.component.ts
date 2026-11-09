@@ -1,3 +1,6 @@
+import { LocaleBusinessDatePipe } from '../../../shared/pipes/locale-business-date.pipe';
+import { LocaleInstantPipe } from '../../../shared/pipes/locale-instant.pipe';
+import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -6,12 +9,19 @@ import { ButtonModule } from 'primeng/button';
 import { TableModule } from 'primeng/table';
 
 import { ExpenseListItemDto } from '../services/expense.service';
-import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
 
 @Component({
   selector: 'app-expenses-table',
   standalone: true,
-  imports: [CommonModule, ButtonModule, TableModule, DateOnlyPipe, TranslocoPipe],
+  imports: [
+    LocaleMoneyPipe,
+    LocaleBusinessDatePipe,
+    LocaleInstantPipe,
+    CommonModule,
+    ButtonModule,
+    TableModule,
+    TranslocoPipe,
+  ],
   templateUrl: './expenses-table.component.html',
   styleUrl: './expenses-table.component.scss',
 })
@@ -49,7 +59,16 @@ export class ExpensesTableComponent {
   }
 
   categoryAvatarColor(categoryName: string): string {
-    const colors = ['#b45309', '#0369a1', '#15803d', '#7c3aed', '#be185d', '#c2410c', '#0f766e', '#1d4ed8'];
+    const colors = [
+      '#b45309',
+      '#0369a1',
+      '#15803d',
+      '#7c3aed',
+      '#be185d',
+      '#c2410c',
+      '#0f766e',
+      '#1d4ed8',
+    ];
     let hash = 0;
     for (let index = 0; index < categoryName.length; index++) {
       hash = categoryName.charCodeAt(index) + ((hash << 5) - hash);

@@ -61,7 +61,7 @@
             <li class="queue-row">
               <div class="queue-row-main">
                 <strong class="queue-invoice">{{ row.invoiceNumber }}</strong>
-                <span class="queue-meta">{{ row.soldAt | date: 'dd MMM yyyy, h:mm a' }}</span>
+                <span class="queue-meta">{{ row.soldAt | localeInstant }}</span>
                 <p-tag
                   [severity]="
                     row.status === 'Failed' ? 'danger' : row.status === 'Syncing' ? 'info' : 'warn'
@@ -304,7 +304,7 @@
         <p class="panel-hint">{{ 'sales.offlineReconciliation.cases.notLoaded' | transloco }}</p>
       }
 
-      <div class="cases-table-wrap" tabindex="0">
+      <div class="cases-table-wrap" role="region" aria-labelledby="cases-title" tabindex="0">
         @if (casesState() === 'loading') {
           <p-table [value]="skeletonRows" class="p-datatable-sm cases-table">
             <ng-template pTemplate="header">
@@ -368,7 +368,7 @@
                     [value]="caseStatusLabelKey(item.status) | transloco"
                   />
                 </td>
-                <td class="case-sub">{{ item.createdAt | date: 'dd MMM yyyy, h:mm a' }}</td>
+                <td class="case-sub">{{ item.createdAt | localeInstant }}</td>
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
@@ -448,7 +448,9 @@
             <div class="detail-field">
               <dt>{{ 'sales.offlineReconciliation.detail.issueType' | transloco }}</dt>
               <dd>{{ issueTypeLabelKey(detail.issueType) | transloco }}</dd>
-              @if (detail.issueType === 'ExpiryReview') { <p role="status">{{ 'expiry.offline.review' | transloco }}</p> }
+              @if (detail.issueType === 'ExpiryReview') {
+                <p role="status">{{ 'expiry.offline.review' | transloco }}</p>
+              }
             </div>
             <div class="detail-field wide">
               <dt>{{ 'sales.offlineReconciliation.detail.message' | transloco }}</dt>
@@ -456,7 +458,7 @@
             </div>
             <div class="detail-field">
               <dt>{{ 'sales.offlineReconciliation.detail.openedAt' | transloco }}</dt>
-              <dd>{{ detail.createdAt | date: 'dd MMM yyyy, h:mm a' }}</dd>
+              <dd>{{ detail.createdAt | localeInstant }}</dd>
             </div>
             <div class="detail-field">
               <dt>{{ 'sales.offlineReconciliation.detail.device' | transloco }}</dt>
@@ -511,11 +513,11 @@
                 {{
                   late.supplementalAmount === null
                     ? ('tills.unknownAmount' | transloco)
-                    : (late.supplementalAmount | currency: 'INR')
+                    : (late.supplementalAmount | localeMoney)
                 }}
               </p>
               <p>
-                {{ late.sourceBusinessDate }} · {{ late.recordedAt | date: 'medium' }} ·
+                {{ late.sourceBusinessDate }} · {{ late.recordedAt | localeInstant }} ·
                 {{ late.managerReason }} · {{ late.evidenceReason }}
               </p>
             </section>
@@ -591,7 +593,7 @@
                     }}</span>
                     <span class="detail-sub">{{
                       'sales.offlineReconciliation.detail.receivedAt'
-                        | transloco: { date: (sent.receivedAt | date: 'dd MMM yyyy, h:mm a') }
+                        | transloco: { date: (sent.receivedAt | localeInstant) }
                     }}</span>
                   </dd>
                 </div>
@@ -629,9 +631,7 @@
                       *ngTemplateOutlet="personTpl; context: { $implicit: detail.resolvedBy }"
                     />
                     @if (detail.resolvedAt) {
-                      <span class="detail-sub">{{
-                        detail.resolvedAt | date: 'dd MMM yyyy, h:mm a'
-                      }}</span>
+                      <span class="detail-sub">{{ detail.resolvedAt | localeInstant }}</span>
                     }
                   </dd>
                 </div>
@@ -650,7 +650,7 @@
               <dl class="detail-grid">
                 <div class="detail-field">
                   <dt>{{ 'sales.offlineReconciliation.detail.soldAt' | transloco }}</dt>
-                  <dd>{{ sent.invoice.soldAt | date: 'dd MMM yyyy, h:mm a' }}</dd>
+                  <dd>{{ sent.invoice.soldAt | localeInstant }}</dd>
                 </div>
                 <div class="detail-field lease-window">
                   <dt>{{ 'sales.offlineReconciliation.detail.leaseWindow' | transloco }}</dt>
@@ -660,8 +660,8 @@
                         'sales.offlineReconciliation.detail.leaseWindowValue'
                           | transloco
                             : {
-                                from: (sent.leaseReservedAt | date: 'dd MMM yyyy, h:mm a'),
-                                to: (sent.leaseExpiresAt | date: 'dd MMM yyyy, h:mm a'),
+                                from: (sent.leaseReservedAt | localeInstant),
+                                to: (sent.leaseExpiresAt | localeInstant),
                               }
                       }}
                     } @else {
@@ -722,9 +722,9 @@
                           }
                         </td>
                         <td class="num">{{ line.quantity | number: '1.0-3' }}</td>
-                        <td class="num">₹{{ line.salesPrice | number: '1.2-2' }}</td>
-                        <td class="num">₹{{ line.taxAmount | number: '1.2-2' }}</td>
-                        <td class="num">₹{{ line.totalAmount | number: '1.2-2' }}</td>
+                        <td class="num">{{ line.salesPrice | localeMoney }}</td>
+                        <td class="num">{{ line.taxAmount | localeMoney }}</td>
+                        <td class="num">{{ line.totalAmount | localeMoney }}</td>
                       </tr>
                     }
                   </tbody>
@@ -733,27 +733,27 @@
               <dl class="snapshot-totals">
                 <div>
                   <dt>{{ 'sales.offlineReconciliation.detail.totals.subtotal' | transloco }}</dt>
-                  <dd>₹{{ sent.invoice.subtotalBeforeDiscount | number: '1.2-2' }}</dd>
+                  <dd>{{ sent.invoice.subtotalBeforeDiscount | localeMoney }}</dd>
                 </div>
                 <div>
                   <dt>{{ 'sales.offlineReconciliation.detail.totals.discount' | transloco }}</dt>
-                  <dd>₹{{ sent.invoice.totalDiscountAmount | number: '1.2-2' }}</dd>
+                  <dd>{{ sent.invoice.totalDiscountAmount | localeMoney }}</dd>
                 </div>
                 <div>
                   <dt>{{ 'sales.offlineReconciliation.detail.totals.tax' | transloco }}</dt>
-                  <dd>₹{{ sent.invoice.totalTaxAmount | number: '1.2-2' }}</dd>
+                  <dd>{{ sent.invoice.totalTaxAmount | localeMoney }}</dd>
                 </div>
                 <div class="grand">
                   <dt>{{ 'sales.offlineReconciliation.detail.totals.total' | transloco }}</dt>
-                  <dd>₹{{ sent.invoice.totalAmount | number: '1.2-2' }}</dd>
+                  <dd>{{ sent.invoice.totalAmount | localeMoney }}</dd>
                 </div>
                 <div>
                   <dt>{{ 'sales.offlineReconciliation.detail.totals.paid' | transloco }}</dt>
-                  <dd>₹{{ sent.invoice.paidAmount | number: '1.2-2' }}</dd>
+                  <dd>{{ sent.invoice.paidAmount | localeMoney }}</dd>
                 </div>
                 <div>
                   <dt>{{ 'sales.offlineReconciliation.detail.totals.due' | transloco }}</dt>
-                  <dd>₹{{ sent.invoice.dueAmount | number: '1.2-2' }}</dd>
+                  <dd>{{ sent.invoice.dueAmount | localeMoney }}</dd>
                 </div>
               </dl>
             </div>
@@ -782,7 +782,7 @@
                       <ng-container
                         *ngTemplateOutlet="personTpl; context: { $implicit: event.actor }"
                       />
-                      · {{ event.occurredAt | date: 'dd MMM yyyy, h:mm a' }}
+                      · {{ event.occurredAt | localeInstant }}
                     </div>
                     <p class="event-reason">{{ event.reason }}</p>
                     @if (event.linkedOperationId) {
@@ -1084,7 +1084,7 @@
             'sales.offlineReconciliation.bundle.lastExport'
               | transloco
                 : {
-                    date: (exported.exportedAt | date: 'dd MMM yyyy, h:mm a'),
+                    date: (exported.exportedAt | localeInstant),
                     count: exported.clientSaleIds.length,
                     checksum: exported.files[0].checksum.slice(0, 12),
                   }
@@ -1094,7 +1094,7 @@
             'sales.offlineReconciliation.bundle.lastExportParts'
               | transloco
                 : {
-                    date: (exported.exportedAt | date: 'dd MMM yyyy, h:mm a'),
+                    date: (exported.exportedAt | localeInstant),
                     count: exported.clientSaleIds.length,
                     parts: exported.files.length,
                   }

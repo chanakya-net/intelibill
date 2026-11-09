@@ -1,3 +1,7 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
+import { signal as errorSignal } from '@angular/core';
+import { LocaleInstantPipe } from '../../../shared/pipes/locale-instant.pipe';
+import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -30,6 +34,8 @@ import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
   selector: 'app-sales-page',
   standalone: true,
   imports: [
+    LocaleMoneyPipe,
+    LocaleInstantPipe,
     CommonModule,
     FormsModule,
     RouterLink,
@@ -66,6 +72,8 @@ export class SalesPageComponent {
   readonly isRetryingOfflineQueue = signal(false);
   readonly tableSales = computed(() => [...this.sales()]);
   readonly isLoading = this.salesFacade.loadingSales;
+  readonly localizedError =
+    this.salesFacade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
   readonly serverError = this.salesFacade.errorMessage;
   readonly showDetailOverlay = signal(false);
   readonly viewingSaleId = signal<string | null>(null);

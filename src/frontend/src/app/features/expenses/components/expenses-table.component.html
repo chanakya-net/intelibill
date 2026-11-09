@@ -33,14 +33,15 @@
         <div class="expense-card__metrics">
           <div>
             <span>{{ 'expenses.amount' | transloco }}</span>
-            <strong
-              >{{ 'common.currencySymbol' | transloco
-              }}{{ expense.amount | number: '1.2-2' }}</strong
-            >
+            <strong>{{ expense.amount | localeMoney }}</strong>
           </div>
           <div>
             <span>{{ 'expenses.expenseDate' | transloco }}</span>
-            <strong>{{ expense.expenseDate | dateOnly: 'mediumDate' }}</strong>
+            <strong>{{
+              expense.expenseDate.length === 10
+                ? (expense.expenseDate | localeBusinessDate)
+                : (expense.expenseDate | localeInstant)
+            }}</strong>
           </div>
         </div>
 
@@ -106,9 +107,15 @@
             }}</small>
           </td>
           <td class="money">
-            {{ 'common.currencySymbol' | transloco }}{{ expense.amount | number: '1.2-2' }}
+            {{ expense.amount | localeMoney }}
           </td>
-          <td>{{ expense.expenseDate | dateOnly: 'mediumDate' }}</td>
+          <td>
+            {{
+              expense.expenseDate.length === 10
+                ? (expense.expenseDate | localeBusinessDate)
+                : (expense.expenseDate | localeInstant)
+            }}
+          </td>
           <td>
             <span
               class="status-badge"

@@ -1,4 +1,20 @@
 {
+  "apiErrors": {
+    "validationFailed": "Check the highlighted fields and try again.",
+    "invalidRequest": "Check the request and try again.",
+    "unauthorized": "Sign in again to continue.",
+    "conflict": "This information changed. Reload and try again.",
+    "unexpected": "Something went wrong. Try again or contact support.",
+    "payloadMismatch": "This request differs from the one already submitted. Review the existing operation.",
+    "postingPeriodClosed": "This posting period is closed.",
+    "postingPeriodBusy": "This posting period is busy. Try again.",
+    "postingPeriodNotEnded": "This posting period has not ended.",
+    "networkUnavailable": "Cannot connect. Check your connection and try again.",
+    "requestTimedOut": "The request timed out. Check its result before retrying.",
+    "serviceUnavailable": "The service is temporarily unavailable. Try again later.",
+    "invalidField": "Check this field.",
+    "supportReference": "Support reference: {{reference}}"
+  },
   "common": {
     "language": "Language",
     "firstName": "First Name",
@@ -13,6 +29,7 @@
     "currencySymbol": "₹",
     "search": "Search...",
     "loading": "Loading...",
+    "noResults": "No matches found.",
     "all": "All",
     "active": "Active",
     "error": "Error",
@@ -781,6 +798,7 @@
     "scannerActionAdded": "Row added",
     "scannerActionReview": "Needs review",
     "scannerDetectionError": "The barcode detector stopped unexpectedly. Close and reopen the scanner to retry.",
+    "scannerStarting": "Starting camera scanner…",
     "scannerOpenError": "Unable to start the camera scanner. Please retry.",
     "productForm": "Add product form",
     "noItemsFound": "No products added yet",
@@ -1338,6 +1356,7 @@
       "walkIn": "Walk-in customer",
       "invalidPhone": "Enter a valid phone number.",
       "paymentSection": "Payment",
+      "validationSummary": "Check the highlighted fields before recording the sale.",
       "paymentMethod": "Payment Method",
       "selectPayment": "Select payment method",
       "tax": "Tax",
@@ -1375,7 +1394,9 @@
         "saleNotEligible": "No eligible lines for sale discount.",
         "exceedsMaxPercent": "Exceeds max percent.",
         "exceedsMaxFlat": "Exceeds max amount.",
-        "fixErrors": "Fix discount errors before recording."
+        "fixErrors": "Fix discount errors before recording.",
+        "typeOf": "Discount type for {{item}}",
+        "valueOf": "Discount value for {{item}}"
       },
       "shopUpdate": {
         "pricingUpdated": "Item pricing has been updated",
@@ -1452,7 +1473,9 @@
         "confirmMismatchBtn": "Confirm mismatch",
         "customerMismatchConfirmed": "Mismatch confirmed. The sale can be submitted.",
         "customerMismatchConfirmRequired": "Please confirm the customer mismatch before submitting.",
-        "codeLabel": "Credit note code"
+        "codeLabel": "Credit note code",
+        "amountLabel": "Amount from credit note {{code}}",
+        "removeCode": "Remove credit note {{code}}"
       },
       "paymentMethods": {
         "card": "Card",
@@ -1498,7 +1521,14 @@
           "overrideReasonRequired": "Give a reason (up to 500 characters) for going over the credit limit.",
           "busy": "Another sale, payment or return for this customer is in progress. Try again."
         }
-      }
+      },
+      "lineContextGoods": "{{item}}, lot {{lot}}, line {{line}}, cart {{cart}}",
+      "lineContextService": "{{item}}, line {{line}}, cart {{cart}}",
+      "removeLine": "Remove {{item}}",
+      "servicePriceOf": "Price of {{item}}",
+      "advancedLineEditOf": "Advanced editing for {{item}}",
+      "hsnCodeOf": "HSN code for {{item}}",
+      "taxRatePercentOf": "Tax rate for {{item}}"
     },
     "detail": {
       "title": "Sale Details",

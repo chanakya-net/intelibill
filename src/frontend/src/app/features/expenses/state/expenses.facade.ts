@@ -1,3 +1,4 @@
+import { selectLocalizedError } from './expenses.selectors';
 import { inject, Injectable } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { take } from 'rxjs';
@@ -26,6 +27,7 @@ import {
 @Injectable({ providedIn: 'root' })
 export class ExpensesFacade {
   private readonly store = inject(Store);
+  readonly localizedError = this.store.selectSignal(selectLocalizedError);
 
   readonly query$ = this.store.select(selectExpensesQuery);
   readonly listError$ = this.store.select(selectExpensesListError);

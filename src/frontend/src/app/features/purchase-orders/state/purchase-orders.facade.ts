@@ -1,3 +1,4 @@
+import { selectLocalizedError } from './purchase-orders.selectors';
 import { Injectable, Signal, inject } from '@angular/core';
 import { Store } from '@ngrx/store';
 
@@ -33,6 +34,7 @@ import {
 @Injectable({ providedIn: 'root' })
 export class PurchaseOrdersFacade {
   private readonly store = inject(Store);
+  readonly localizedError = this.store.selectSignal(selectLocalizedError);
 
   readonly receivingOperations = this.store.selectSignal(selectReceivingOperations);
 

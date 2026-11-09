@@ -1,3 +1,5 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
+import { signal as errorSignal } from '@angular/core';
 import { TillPendingActionsComponent } from '../../tills/components/till-pending-actions.component';
 import { ViewChild } from '@angular/core';
 import { TillPostingFieldsComponent } from '../../tills/components/till-posting-fields.component';
@@ -77,6 +79,26 @@ export class RecordExpenseOverlayComponent implements OnInit {
   readonly isSubmitting = toSignal(this.expensesFacade.submitting$, {
     initialValue: false,
   });
+  readonly localizedError =
+    this.expensesFacade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
+  fieldError(field: string) {
+    return this.localizedError()?.fieldErrors.find((error) => error.field === field);
+  }
+
+  controlInvalid(field: string): boolean {
+    const control = this.form.get(field);
+    return !!this.fieldError(field) || !!(control?.touched && control.invalid);
+  }
+
+  controlDescriptions(field: string, localId?: string): string | undefined {
+    const control = this.form.get(field);
+    return [localId && control?.touched && control.invalid ? localId : '', this.fieldError(field) ? 'record-expense-overlay-' + field + '-error' : ''].filter(Boolean).join(' ') || undefined;
+  }
+
+  controlInputPt(field: string, localId?: string, base: any = {}): any {
+    return {...base, pcInputText: {...base.pcInputText, root: {...base.pcInputText?.root, 'aria-invalid': this.controlInvalid(field) ? 'true' : undefined, 'aria-describedby': this.controlDescriptions(field, localId)}}};
+  }
+
   readonly serverError = toSignal(this.expensesFacade.error$, {
     initialValue: '',
   });

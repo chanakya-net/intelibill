@@ -1,14 +1,54 @@
+import { LocalizationService } from '../../../../core/i18n/localization.service';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
-import { CreateSaleResponse, SaleConfirmationDialogComponent } from './sale-confirmation-dialog.component';
+import {
+  CreateSaleResponse,
+  SaleConfirmationDialogComponent,
+} from './sale-confirmation-dialog.component';
 
-const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8')) as Record<string, unknown>;
+const enIN = JSON.parse(
+  readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8'),
+) as Record<string, unknown>;
+
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
 
 describe('SaleConfirmationDialogComponent', () => {
+  it('focuses confirmation and restores a detached opener to the page fallback', async () => {
+    TestBed.configureTestingModule({
+      providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+      imports: [
+        SaleConfirmationDialogComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
+    });
+    const opener = document.createElement('button');
+    const fallback = document.createElement('h1');
+    fallback.tabIndex = -1;
+    fallback.dataset['dialogFocusFallback'] = '';
+    document.body.append(opener, fallback);
+    opener.focus();
+    const fixture = TestBed.createComponent(SaleConfirmationDialogComponent);
+    fixture.componentRef.setInput('visible', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(
+      fixture.nativeElement.querySelector('[role="dialog"]')?.contains(document.activeElement),
+    ).toBe(true);
+    opener.remove();
+    fixture.componentRef.setInput('visible', false);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(fallback);
+    fallback.remove();
+  });
   const sale: CreateSaleResponse = {
     saleId: 'sale-1',
     invoiceNumber: 'INV-001',
@@ -19,7 +59,11 @@ describe('SaleConfirmationDialogComponent', () => {
     TestBed.configureTestingModule({
       imports: [
         SaleConfirmationDialogComponent,
-        TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] }, preloadLangs: true }),
+        TranslocoTestingModule.forRoot({
+          langs: { 'en-IN': enIN },
+          translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] },
+          preloadLangs: true,
+        }),
       ],
     });
 
@@ -37,7 +81,11 @@ describe('SaleConfirmationDialogComponent', () => {
     TestBed.configureTestingModule({
       imports: [
         SaleConfirmationDialogComponent,
-        TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] }, preloadLangs: true }),
+        TranslocoTestingModule.forRoot({
+          langs: { 'en-IN': enIN },
+          translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] },
+          preloadLangs: true,
+        }),
       ],
     });
 
@@ -65,7 +113,11 @@ describe('SaleConfirmationDialogComponent', () => {
     TestBed.configureTestingModule({
       imports: [
         SaleConfirmationDialogComponent,
-        TranslocoTestingModule.forRoot({ langs: { 'en-IN': enIN }, translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] }, preloadLangs: true }),
+        TranslocoTestingModule.forRoot({
+          langs: { 'en-IN': enIN },
+          translocoConfig: { defaultLang: 'en-IN', availableLangs: ['en-IN'] },
+          preloadLangs: true,
+        }),
       ],
     });
 
@@ -91,7 +143,10 @@ describe('SaleConfirmationDialogComponent', () => {
 
   it('renders offline queued state copy and icon', () => {
     TestBed.configureTestingModule({
-      imports: [SaleConfirmationDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        SaleConfirmationDialogComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(SaleConfirmationDialogComponent);
@@ -108,7 +163,10 @@ describe('SaleConfirmationDialogComponent', () => {
 
   it('leaves a usable print link when the browser blocked the print window', () => {
     TestBed.configureTestingModule({
-      imports: [SaleConfirmationDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        SaleConfirmationDialogComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(SaleConfirmationDialogComponent);
@@ -121,7 +179,9 @@ describe('SaleConfirmationDialogComponent', () => {
     fixture.changeDetectorRef.markForCheck();
     fixture.detectChanges();
 
-    const link = document.querySelector('a.sale-confirmation__blocked-print') as HTMLAnchorElement | null;
+    const link = document.querySelector(
+      'a.sale-confirmation__blocked-print',
+    ) as HTMLAnchorElement | null;
     expect(link?.getAttribute('href')).toBe('/sales/s-1/print?template=a4&offline=1');
     expect(link?.getAttribute('target')).toBe('_blank');
     // A noopener tab does not inherit sessionStorage, where a session the cashier did not ask to remember lives.

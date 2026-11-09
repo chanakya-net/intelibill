@@ -330,13 +330,29 @@ test('late unrelated success cannot close or overwrite another active PO draft',
   page,
 }) => {
   server.setMode('hold');
-  await open(page);
+  // Enter detail through the SPA so browser Back can detach the page while the root effect survives.
+  await page.goto(`${server.origin}/inventory/purchase-orders`);
+  await page
+    .locator('.po-table-row')
+    .filter({ hasText: 'PO-RECEIVING-1' })
+    .locator('.po-number')
+    .click();
+  await page
+    .locator('.po-detail-actions')
+    .getByRole('button', { name: 'Receive', exact: true })
+    .click();
+  await expect(dialog(page)).toBeVisible();
   await fillLot(page, 0, 'HELD-A', 4, 40);
   await submit(page);
   await expect.poll(() => server.posts.length).toBe(1);
-  await closeDialog(page);
-  // SPA navigation keeps the original effect alive while another PO dialog is being edited.
-  await page.locator('.po-detail-back').click();
+  // Sending work is guarded: neither the visible Cancel control nor Escape presents it as cancelled.
+  await expect(dialog(page).getByRole('button', { name: 'Cancel', exact: true })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(dialog(page)).toBeVisible();
+  // Real browser history is a supported route transition; no reload or test-only application state.
+  await page.goBack();
+  await expect(page).toHaveURL(`${server.origin}/inventory/purchase-orders`);
+  await expect(dialog(page)).toBeHidden();
   await page
     .locator('tr')
     .filter({ hasText: 'PO-RECEIVING-2' })

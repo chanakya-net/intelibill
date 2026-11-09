@@ -1,3 +1,7 @@
+import {
+  ApiErrorMessageService,
+  type LocalizedError,
+} from '../../../core/i18n/api-error-message.service';
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { EMPTY, catchError, map, of, switchMap, takeUntil } from 'rxjs';
@@ -12,6 +16,7 @@ import { ExpensesActions } from './expenses.actions';
 
 @Injectable()
 export class ExpensesEffects {
+  private readonly apiErrors = inject(ApiErrorMessageService);
   private readonly actions$ = inject(Actions);
   private readonly shopContext = inject(ShopContextService);
   private readonly expenseService = inject(ExpenseService);
@@ -42,7 +47,7 @@ export class ExpensesEffects {
             of(
               ExpensesActions.loadExpensesFailed({
                 requestId,
-                errorMessage: getExpenseErrorMessage(error),
+                ...this.feedback(error, 'expenses.errors.unexpected'),
               }),
             ),
           ),
@@ -61,7 +66,7 @@ export class ExpensesEffects {
           catchError((error) =>
             of(
               ExpensesActions.loadExpenseDetailFailed({
-                errorMessage: getExpenseErrorMessage(error),
+                ...this.feedback(error, 'expenses.errors.unexpected'),
               }),
             ),
           ),
@@ -78,7 +83,9 @@ export class ExpensesEffects {
           map((categories) => ExpensesActions.loadCategoriesSucceeded({ categories })),
           catchError((error) =>
             of(
-              ExpensesActions.loadCategoriesFailed({ errorMessage: getExpenseErrorMessage(error) }),
+              ExpensesActions.loadCategoriesFailed({
+                ...this.feedback(error, 'expenses.errors.unexpected'),
+              }),
             ),
           ),
         ),
@@ -97,7 +104,7 @@ export class ExpensesEffects {
               ? EMPTY
               : of(
                   ExpensesActions.recordExpenseFailed({
-                    errorMessage: getExpenseErrorMessage(error),
+                    ...this.feedback(error, 'expenses.errors.unexpected'),
                   }),
                 ),
           ),
@@ -119,7 +126,7 @@ export class ExpensesEffects {
               ? EMPTY
               : of(
                   ExpensesActions.correctExpenseFailed({
-                    errorMessage: getExpenseErrorMessage(error),
+                    ...this.feedback(error, 'expenses.errors.unexpected'),
                   }),
                 ),
           ),
@@ -129,11 +136,25 @@ export class ExpensesEffects {
       ),
     ),
   );
-}
-
-function getExpenseErrorMessage(error: {
-  error?: { detail?: string; title?: string };
-  message?: string;
-}): string {
-  return error.error?.detail || error.error?.title || error.message || 'expenses.errors.unexpected';
+  private feedback(
+    error: unknown,
+    fallbackKey: string,
+  ): { errorMessage: string; localizedError?: LocalizedError } {
+    const localizedError = this.apiErrors.resolve(error, {
+      fallbackKey,
+      codeMap: {},
+      fieldMap: {
+        Amount: 'amount',
+        CategoryName: 'categoryName',
+        PaidTo: 'paidTo',
+        ExpenseDate: 'expenseDate',
+      },
+    });
+    return {
+      errorMessage: localizedError.messageKey,
+      ...(localizedError.correlationId || localizedError.fieldErrors.length
+        ? { localizedError }
+        : {}),
+    };
+  }
 }

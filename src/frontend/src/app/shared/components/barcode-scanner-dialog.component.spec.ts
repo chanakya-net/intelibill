@@ -118,3 +118,24 @@ describe('BarcodeScannerDialogComponent', () => {
     expect(cameraStreamService.stopCurrentStream).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('scanner accessibility', () => {
+  it('announces initialization and a safe localized camera failure once', async () => {
+    let reject!: (reason: unknown) => void;
+    const camera = { startPreferredCamera: () => new Promise<MediaStream>((_resolve, failure) => { reject = failure; }), detachVideo: vi.fn(), stopCurrentStream: vi.fn() };
+    TestBed.configureTestingModule({ imports: [BarcodeScannerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })], providers: [
+      { provide: CameraStreamService, useValue: camera }, { provide: BarcodeDetectorService, useValue: {} },
+    ] });
+    const fixture = TestBed.createComponent(BarcodeScannerDialogComponent);
+    fixture.componentRef.setInput('visible', true); fixture.detectChanges();
+    await Promise.resolve(); fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="status"]')?.textContent).toContain('inventory.scannerStarting');
+    reject(new Error('private camera diagnostics'));
+    await vi.waitFor(() => expect(fixture.componentInstance.scannerError()).toBe('inventory.scannerOpenError'));
+    fixture.detectChanges();
+    const statuses = fixture.nativeElement.querySelectorAll('[role="status"]');
+    expect(statuses).toHaveLength(1);
+    expect(statuses[0].textContent).toContain('inventory.scannerOpenError');
+    expect(fixture.nativeElement.textContent).not.toContain('private camera diagnostics');
+  });
+});

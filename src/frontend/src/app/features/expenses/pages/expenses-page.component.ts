@@ -1,3 +1,6 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
+import { signal as errorSignal } from '@angular/core';
+import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -37,6 +40,7 @@ interface ExpenseDirectoryMetric {
   selector: 'app-expenses-page',
   standalone: true,
   imports: [
+    LocaleMoneyPipe,
     CommonModule,
     ButtonModule,
     ProgressSpinnerModule,
@@ -73,6 +77,8 @@ export class ExpensesPageComponent {
   readonly showCorrectOverlay = signal(false);
   readonly selectedExpenseId = signal<string | null>(null);
   readonly query = toSignal(this.expensesFacade.query$, { initialValue: DEFAULT_EXPENSE_QUERY });
+  readonly localizedError =
+    this.expensesFacade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
   readonly listError = toSignal(this.expensesFacade.listError$, { initialValue: '' });
   readonly searchValue = computed(() => this.query().search ?? '');
   readonly statusFilter = computed(() => this.query().status);

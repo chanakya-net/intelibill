@@ -1,15 +1,20 @@
 <div class="batch-search-bar">
   <div class="batch-search-input">
+    <label class="text-xs text-slate-500" [for]="searchInputId">{{
+      'inventory.searchPlaceholder' | transloco
+    }}</label>
     <p-autocomplete
+      [inputId]="searchInputId"
+      [emptyMessage]="'common.noResults' | transloco"
       [ngModel]="searchTerm"
       (ngModelChange)="onSearchTermChanged($event)"
       [suggestions]="pickerOpen ? [] : searchSuggestions"
       (completeMethod)="onComplete($event)"
-      (onSelect)="onSuggestionSelected($event.value)"
+      (onSelect)="onSuggestionSelected($event.value, $event.originalEvent)"
       [placeholder]="'inventory.searchPlaceholder' | transloco"
       appendTo="body"
       [fluid]="true"
-      (keyup.enter)="onEnterKey()"
+      (keydown.enter)="onEnterKey($event)"
     ></p-autocomplete>
   </div>
 
@@ -19,7 +24,7 @@
       icon="pi pi-camera"
       severity="secondary"
       [text]="true"
-      [attr.aria-label]="'inventory.openScanner' | transloco"
+      [ariaLabel]="'inventory.openScanner' | transloco"
       (click)="openScanner()"
     />
 

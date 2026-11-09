@@ -1,3 +1,5 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
+import { DialogFocusDirective } from '../../../shared/accessibility/dialog-focus';
 import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
 import { CommonModule } from '@angular/common';
 import {
@@ -47,10 +49,13 @@ import { InventoryBatchDefaultsService } from '../../inventory/services/inventor
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { InputValidators } from '../../../shared/forms/input-validation';
 
+let receivingInstance = 0;
+
 @Component({
   selector: 'app-receive-purchase-order-dialog',
   standalone: true,
   imports: [
+    DialogFocusDirective,
     CommonModule,
     ReactiveFormsModule,
     TranslocoPipe,
@@ -68,17 +73,20 @@ import { InputValidators } from '../../../shared/forms/input-validation';
   ],
   template: `
     <p-dialog
+      [appDialogFocus]="visible"
+      [focusOnShow]="false"
       [header]="'purchaseOrders.receiveDialog.title' | transloco"
       [visible]="visible"
       [closable]="false"
       [closeOnEscape]="false"
+      (keydown.escape)="$event.preventDefault(); $event.stopPropagation(); hide()"
       [dismissableMask]="false"
       [modal]="true"
       [style]="{ width: 'min(720px, 96vw)' }"
     >
       <ng-template #header let-titleId="ariaLabelledBy">
         <div class="receive-dialog-header">
-          <span [id]="titleId" class="p-dialog-title">{{
+          <span [id]="titleId" class="p-dialog-title" tabindex="-1" data-dialog-initial-focus>{{
             'purchaseOrders.receiveDialog.title' | transloco
           }}</span>
           <!-- Native close hides before onHide; only hide() can await/refuse a failed flush. -->
@@ -119,7 +127,12 @@ import { InputValidators } from '../../../shared/forms/input-validation';
         <p role="status">{{ 'purchaseOrders.receiving.sending' | transloco }}</p>
       }
       @if (errorMessage()) {
-        <p class="error" role="alert">{{ errorMessage() | transloco }}</p>
+        <p class="error" role="alert">
+          {{ errorMessage() | transloco: localizedError()?.params ?? {} }}
+          @if (localizedError()?.correlationId; as reference) {
+            <span>{{ 'apiErrors.supportReference' | transloco: { reference } }}</span>
+          }
+        </p>
       }
       <form class="receive-form" [formGroup]="form" (ngSubmit)="submit()">
         <label>
@@ -144,14 +157,42 @@ import { InputValidators } from '../../../shared/forms/input-validation';
             @let row = lines.at(index);
             <div class="receipt-row" data-testid="receipt-row" [formGroup]="row">
               @for (error of errorsFor(row.controls.clientLineId.value); track $index) {
-                <p class="error" role="alert" [attr.data-field]="error.field">
+                <p
+                  class="error"
+                  [id]="fieldId(row.controls.clientLineId.value, error.field) + '-error-' + $index"
+                  [attr.data-field]="error.field"
+                >
                   {{ error.messageKey | transloco }}
                 </p>
               }
-              <label>
-                {{ 'purchaseOrders.receiveDialog.line' | transloco }}
+              <label [for]="fieldId(row.controls.clientLineId.value, 'purchaseOrderLineId')">
+                <span
+                  [id]="fieldId(row.controls.clientLineId.value, 'purchaseOrderLineId') + '-label'"
+                  >{{ 'purchaseOrders.receiveDialog.line' | transloco }}</span
+                >
                 <p-select
                   formControlName="purchaseOrderLineId"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'purchaseOrderLineId')"
+                  [ariaLabelledBy]="
+                    fieldId(row.controls.clientLineId.value, 'purchaseOrderLineId') + '-label'
+                  "
+                  [invalid]="
+                    !!fieldDescription(row.controls.clientLineId.value, 'purchaseOrderLineId')
+                  "
+                  [pt]="{
+                    label: {
+                      'aria-invalid': fieldDescription(
+                        row.controls.clientLineId.value,
+                        'purchaseOrderLineId'
+                      )
+                        ? 'true'
+                        : undefined,
+                      'aria-describedby': fieldDescription(
+                        row.controls.clientLineId.value,
+                        'purchaseOrderLineId'
+                      ),
+                    },
+                  }"
                   [options]="receivableLines"
                   optionLabel="description"
                   optionValue="lineId"
@@ -174,10 +215,20 @@ import { InputValidators } from '../../../shared/forms/input-validation';
                 (confirmReplace)="confirmBarcodeReplace(index)"
                 (cancelReplace)="cancelBarcodeReplace(index)"
               />
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'batchNumber')">
                 {{ 'purchaseOrders.receiveDialog.batchNumber' | transloco }}
                 <p-inputgroup>
-                  <input pInputText formControlName="batchNumber" />
+                  <input
+                    pInputText
+                    formControlName="batchNumber"
+                    [id]="fieldId(row.controls.clientLineId.value, 'batchNumber')"
+                    [attr.aria-invalid]="
+                      fieldDescription(row.controls.clientLineId.value, 'batchNumber') ? true : null
+                    "
+                    [attr.aria-describedby]="
+                      fieldDescription(row.controls.clientLineId.value, 'batchNumber')
+                    "
+                  />
                   <p-inputgroup-addon>
                     <button
                       pButton
@@ -194,46 +245,131 @@ import { InputValidators } from '../../../shared/forms/input-validation';
                   </p-inputgroup-addon>
                 </p-inputgroup>
               </label>
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'quantity')">
                 {{ 'purchaseOrders.receiveDialog.quantity' | transloco }}
                 <span
                   >{{ 'purchaseOrders.receiving.remaining' | transloco }}:
                   {{ remainingFor(row.controls.purchaseOrderLineId.value) }}</span
                 >
-                <p-inputNumber formControlName="quantity" [min]="1" />
+                <p-inputNumber
+                  formControlName="quantity"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'quantity')"
+                  [ariaDescribedBy]="fieldDescription(row.controls.clientLineId.value, 'quantity')"
+                  [pt]="{
+                    pcInputText: {
+                      root: {
+                        'aria-invalid': fieldDescription(
+                          row.controls.clientLineId.value,
+                          'quantity'
+                        )
+                          ? 'true'
+                          : undefined,
+                      },
+                    },
+                  }"
+                  [invalid]="!!fieldDescription(row.controls.clientLineId.value, 'quantity')"
+                  [min]="1"
+                />
               </label>
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'totalPurchaseCost')">
                 {{ 'purchaseOrders.receiveDialog.totalPurchaseCost' | transloco }}
                 <p-inputNumber
                   formControlName="totalPurchaseCost"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'totalPurchaseCost')"
+                  [ariaDescribedBy]="
+                    fieldDescription(row.controls.clientLineId.value, 'totalPurchaseCost')
+                  "
+                  [pt]="{
+                    pcInputText: {
+                      root: {
+                        'aria-invalid': fieldDescription(
+                          row.controls.clientLineId.value,
+                          'totalPurchaseCost'
+                        )
+                          ? 'true'
+                          : undefined,
+                      },
+                    },
+                  }"
+                  [invalid]="
+                    !!fieldDescription(row.controls.clientLineId.value, 'totalPurchaseCost')
+                  "
                   mode="decimal"
                   [min]="0"
                   [minFractionDigits]="2"
                 />
               </label>
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'mrp')">
                 {{ 'purchaseOrders.receiveDialog.mrp' | transloco }}
                 <p-inputNumber
                   formControlName="mrp"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'mrp')"
+                  [ariaDescribedBy]="fieldDescription(row.controls.clientLineId.value, 'mrp')"
+                  [pt]="{
+                    pcInputText: {
+                      root: {
+                        'aria-invalid': fieldDescription(row.controls.clientLineId.value, 'mrp')
+                          ? 'true'
+                          : undefined,
+                      },
+                    },
+                  }"
+                  [invalid]="!!fieldDescription(row.controls.clientLineId.value, 'mrp')"
                   mode="decimal"
                   [min]="0"
                   [minFractionDigits]="2"
                 />
               </label>
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'salesPrice')">
                 {{ 'purchaseOrders.receiveDialog.salesPrice' | transloco }}
                 <p-inputNumber
                   formControlName="salesPrice"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'salesPrice')"
+                  [ariaDescribedBy]="
+                    fieldDescription(row.controls.clientLineId.value, 'salesPrice')
+                  "
+                  [pt]="{
+                    pcInputText: {
+                      root: {
+                        'aria-invalid': fieldDescription(
+                          row.controls.clientLineId.value,
+                          'salesPrice'
+                        )
+                          ? 'true'
+                          : undefined,
+                      },
+                    },
+                  }"
+                  [invalid]="!!fieldDescription(row.controls.clientLineId.value, 'salesPrice')"
                   mode="decimal"
                   [min]="0"
                   [minFractionDigits]="2"
                 />
               </label>
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'taxRatePercent')">
                 {{ 'purchaseOrders.receiveDialog.taxRate' | transloco }}
                 <p-inputgroup>
                   <p-inputNumber
                     formControlName="taxRatePercent"
+                    [inputId]="fieldId(row.controls.clientLineId.value, 'taxRatePercent')"
+                    [ariaDescribedBy]="
+                      fieldDescription(row.controls.clientLineId.value, 'taxRatePercent')
+                    "
+                    [pt]="{
+                      pcInputText: {
+                        root: {
+                          'aria-invalid': fieldDescription(
+                            row.controls.clientLineId.value,
+                            'taxRatePercent'
+                          )
+                            ? 'true'
+                            : undefined,
+                        },
+                      },
+                    }"
+                    [invalid]="
+                      !!fieldDescription(row.controls.clientLineId.value, 'taxRatePercent')
+                    "
                     mode="decimal"
                     [min]="0"
                     [max]="100"
@@ -253,34 +389,86 @@ import { InputValidators } from '../../../shared/forms/input-validation';
                   </p-inputgroup-addon>
                 </p-inputgroup>
               </label>
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'expiryDate')">
                 {{ 'purchaseOrders.receiveDialog.expiryDate' | transloco }}
                 <p-datepicker
                   ngSkipHydration
                   formControlName="expiryDate"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'expiryDate')"
+                  [pt]="{
+                    pcInputText: {
+                      root: {
+                        'aria-describedby': fieldDescription(
+                          row.controls.clientLineId.value,
+                          'expiryDate'
+                        ),
+                        'aria-invalid': fieldDescription(
+                          row.controls.clientLineId.value,
+                          'expiryDate'
+                        )
+                          ? 'true'
+                          : undefined,
+                      },
+                    },
+                  }"
+                  [invalid]="!!fieldDescription(row.controls.clientLineId.value, 'expiryDate')"
                   dateFormat="dd/mm/yy"
                   [showIcon]="true"
                   [showButtonBar]="true"
                   appendTo="body"
                 />
               </label>
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'manufacturingDate')">
                 {{ 'purchaseOrders.receiveDialog.manufacturingDate' | transloco }}
                 <p-datepicker
                   ngSkipHydration
                   formControlName="manufacturingDate"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'manufacturingDate')"
+                  [pt]="{
+                    pcInputText: {
+                      root: {
+                        'aria-describedby': fieldDescription(
+                          row.controls.clientLineId.value,
+                          'manufacturingDate'
+                        ),
+                        'aria-invalid': fieldDescription(
+                          row.controls.clientLineId.value,
+                          'manufacturingDate'
+                        )
+                          ? 'true'
+                          : undefined,
+                      },
+                    },
+                  }"
+                  [invalid]="
+                    !!fieldDescription(row.controls.clientLineId.value, 'manufacturingDate')
+                  "
                   dateFormat="dd/mm/yy"
                   [showIcon]="true"
                   [showButtonBar]="true"
                   appendTo="body"
                 />
               </label>
-              <label class="checkbox-row">
-                <p-checkbox formControlName="taxIncluded" [binary]="true" />
+              <label
+                class="checkbox-row"
+                [for]="fieldId(row.controls.clientLineId.value, 'taxIncluded')"
+              >
+                <p-checkbox
+                  formControlName="taxIncluded"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'taxIncluded')"
+                  [binary]="true"
+                />
                 {{ 'purchaseOrders.receiveDialog.taxIncluded' | transloco }}
               </label>
-              <label class="checkbox-row">
-                <p-checkbox formControlName="purchaseTaxIncluded" [binary]="true" />
+              <label
+                class="checkbox-row"
+                [for]="fieldId(row.controls.clientLineId.value, 'purchaseTaxIncluded')"
+              >
+                <p-checkbox
+                  formControlName="purchaseTaxIncluded"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'purchaseTaxIncluded')"
+                  [binary]="true"
+                />
                 {{ 'purchaseOrders.receiveDialog.purchaseTaxIncluded' | transloco }}
               </label>
               <button
@@ -398,8 +586,12 @@ import { InputValidators } from '../../../shared/forms/input-validation';
         .receipt-row {
           grid-template-columns: minmax(0, 1fr);
         }
-        .receipt-row > * { min-width: 0; }
-        .receipt-row :is(p-inputnumber, p-datepicker, p-select, app-inventory-barcode-field) { width: 100%; }
+        .receipt-row > * {
+          min-width: 0;
+        }
+        .receipt-row :is(p-inputnumber, p-datepicker, p-select, app-inventory-barcode-field) {
+          width: 100%;
+        }
       }
     `,
   ],
@@ -413,6 +605,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
   private readonly context = inject(ShopContextService);
   private readonly facade = inject(PurchaseOrdersFacade);
   protected readonly status = signal<'editing' | 'sending' | 'unknown' | 'confirmed'>('editing');
+  protected readonly localizedError = signal<LocalizedError | undefined>(undefined);
   protected readonly errorMessage = signal('');
   protected readonly rowErrors = signal<readonly ReceivingRowError[]>([]);
   protected readonly loading = signal(false);
@@ -448,6 +641,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
         void this.closeConfirmed();
       } else if (result.status === 'rejected' || result.status === 'unknown') {
         this.errorMessage.set(result.errorMessage);
+        this.localizedError.set(result.localizedError);
         this.rowErrors.set(result.rowErrors);
         this.status.set(result.status === 'rejected' ? 'editing' : 'unknown');
         void this.reloadSettled(result.status === 'rejected');
@@ -506,7 +700,12 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
   }
 
   protected canClose(): boolean {
-    return !this.closing && (!this.loading() || !!this.record?.pending);
+    return (
+      !this.closing &&
+      !this.submitting &&
+      this.status() !== 'sending' &&
+      (!this.loading() || !!this.record?.pending)
+    );
   }
 
   protected busy(): boolean {
@@ -525,6 +724,20 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
       this.context.epoch() === this.owner.epoch
     );
   }
+  private readonly accessibilityPrefix = `receiving-${++receivingInstance}`;
+  protected fieldId(rowId: string, field: string | undefined): string {
+    return `${this.accessibilityPrefix}-${rowId}-${field}`;
+  }
+  protected fieldDescription(rowId: string, field: string): string | undefined {
+    return (
+      this.errorsFor(rowId)
+        .flatMap((error, index) =>
+          error.field === field ? [this.fieldId(rowId, field) + '-error-' + index] : [],
+        )
+        .join(' ') || undefined
+    );
+  }
+
   protected errorsFor(id: string): readonly ReceivingRowError[] {
     return this.rowErrors().filter((error) => error.clientLineId === id);
   }
@@ -542,6 +755,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
     this.status.set('editing');
     this.saveFailed = false;
     this.errorMessage.set('');
+    this.localizedError.set(undefined);
     this.rowErrors.set([]);
     this.lines.clear({ emitEvent: false });
     this.order.lines
@@ -1097,13 +1311,29 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
     const candidate = this.editable();
     const policyGeneration = this.generation;
     for (const line of candidate.lines) {
-      if (line.expiryDate && line.manufacturingDate && line.manufacturingDate > line.expiryDate) { this.errorMessage.set('expiry.dateOrder'); return; }
-      const orderLine = this.order.lines.find(x => x.lineId === line.purchaseOrderLineId);
+      if (line.expiryDate && line.manufacturingDate && line.manufacturingDate > line.expiryDate) {
+        this.errorMessage.set('expiry.dateOrder');
+        return;
+      }
+      const orderLine = this.order.lines.find((x) => x.lineId === line.purchaseOrderLineId);
       try {
-        const policy = await firstValueFrom(this.expiryPolicies.read(orderLine?.itemId ?? undefined));
-        if (policyGeneration !== this.generation || !this.current() || JSON.stringify(candidate) !== JSON.stringify(this.editable())) return;
-        if (policy.effectivePolicy.expiryRequired && !line.expiryDate) { this.errorMessage.set('expiry.receiptRequired'); return; }
-      } catch { this.errorMessage.set('expiry.loadFailed'); return; }
+        const policy = await firstValueFrom(
+          this.expiryPolicies.read(orderLine?.itemId ?? undefined),
+        );
+        if (
+          policyGeneration !== this.generation ||
+          !this.current() ||
+          JSON.stringify(candidate) !== JSON.stringify(this.editable())
+        )
+          return;
+        if (policy.effectivePolicy.expiryRequired && !line.expiryDate) {
+          this.errorMessage.set('expiry.receiptRequired');
+          return;
+        }
+      } catch {
+        this.errorMessage.set('expiry.loadFailed');
+        return;
+      }
     }
     this.loading.set(true);
     this.form.disable({ emitEvent: false });
@@ -1135,6 +1365,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
       this.status.set('sending');
       this.rowErrors.set([]);
       this.errorMessage.set('');
+      this.localizedError.set(undefined);
       this.receive.emit({
         correlation: this.correlation,
         payload: record.pending.payload,

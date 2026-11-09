@@ -13,11 +13,32 @@
 
 .discount-editor {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
   align-items: center;
 }
 
+.discount-editor label {
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+:host ::ng-deep .p-select:focus-visible,
+:host ::ng-deep .p-inputnumber-input:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
 .record-sale-action {
   margin-top: 0.75rem;
+}
+.settled-total-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

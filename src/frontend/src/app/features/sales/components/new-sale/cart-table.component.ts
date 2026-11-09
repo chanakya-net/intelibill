@@ -1,3 +1,5 @@
+import { LocaleBusinessDatePipe } from '../../../../shared/pipes/locale-business-date.pipe';
+import { LocaleMoneyPipe } from '../../../../shared/pipes/locale-money.pipe';
 import { expiryStatusKey } from '../../../expiry/services/expiry-policy-evaluator';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
@@ -16,7 +18,10 @@ import {
   ServiceCartLine,
   canDecreaseCartLine,
 } from '../../../../features/sales/services/sale-cart-state.service';
-import { SalePreviewDto, SalePreviewLineDto } from '../../../../features/sales/services/sale.models';
+import {
+  SalePreviewDto,
+  SalePreviewLineDto,
+} from '../../../../features/sales/services/sale.models';
 
 export interface CartQuantityChangedEvent {
   readonly itemId: string;
@@ -38,10 +43,14 @@ export interface InstantDiscountOption {
   readonly labelKey: string;
 }
 
+let cartTableSequence = 0;
+
 @Component({
   selector: 'app-cart-table',
   standalone: true,
   imports: [
+    LocaleMoneyPipe,
+    LocaleBusinessDatePipe,
     CommonModule,
     FormsModule,
     TableModule,
@@ -55,8 +64,28 @@ export interface InstantDiscountOption {
   styleUrl: './cart-table.component.scss',
 })
 export class CartTableComponent {
+  readonly cartInstance = ++cartTableSequence;
+  readonly controlPrefix = `cart-${this.cartInstance}`;
+  lineNumber(item: CartItem | ServiceCartLine): number {
+    const goodsIndex = this.cartItems.findIndex(
+      (line) => line.clientLineKey === item.clientLineKey,
+    );
+    if (goodsIndex !== -1) return goodsIndex + 1;
+    return (
+      this.cartItems.length +
+      this.serviceCartItems.findIndex((line) => line.clientLineKey === item.clientLineKey) +
+      1
+    );
+  }
+  controlId(item: CartItem | ServiceCartLine, field: string): string {
+    return `${this.controlPrefix}-${item.clientLineKey}-${field}`;
+  }
   readonly expiryStatusKey = expiryStatusKey;
-  expiryDecision(item: CartItem) { return this.checkoutPreview?.expiryDecisions?.find(x => x.inventoryBatchId === item.inventoryBatchId)?.decision; }
+  expiryDecision(item: CartItem) {
+    return this.checkoutPreview?.expiryDecisions?.find(
+      (x) => x.inventoryBatchId === item.inventoryBatchId,
+    )?.decision;
+  }
   @Input() cartItems: CartItem[] = [];
   @Input() serviceCartItems: ServiceCartLine[] = [];
   @Input() showGroupedSections = false;
@@ -95,7 +124,8 @@ export class CartTableComponent {
    * A line keeps its row when its quantity or price changes, so the field being typed in, or the button tabbed to
    * after it commits, keeps focus.
    */
-  readonly trackLine = (_index: number, line: { readonly clientLineKey: string }): string => line.clientLineKey;
+  readonly trackLine = (_index: number, line: { readonly clientLineKey: string }): string =>
+    line.clientLineKey;
 
   /** Plus is one unit more for every unit (one kilogram of a kg line). */
   increase(item: CartItem): void {

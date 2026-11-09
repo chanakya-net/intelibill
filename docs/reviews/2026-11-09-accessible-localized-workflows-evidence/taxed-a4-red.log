@@ -1,0 +1,39 @@
+
+Running 1 test using 1 worker
+
+(node:87797) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 tests/ui-audit/release/accessibility-localization.spec.ts:444:5 › taxed A4 summary remains readable at 320px beside the scrollable item table (510ms)
+
+
+  1) tests/ui-audit/release/accessibility-localization.spec.ts:444:5 › taxed A4 summary remains readable at 320px beside the scrollable item table
+
+    Error: [{"tag":"TABLE","cls":"invoice__items","text":"Product NameHSN/SACQtyPrice/UnitDiscountTaxable ValueTax %Tax AmountTotal Item PricePremium traditio","w":672,"right":696},{"tag":"THEAD","cls":"invoice__items-header","text":"Product NameHSN/SACQtyPrice/UnitDiscountTaxable ValueTax %Tax AmountTotal Item Price","w":671,"right":695.5},{"tag":"TR","cls":"","text":"Product NameHSN/SACQtyPrice/UnitDiscountTaxable ValueTax %Tax AmountTotal Item Price","w":671,"right":695.5},{"tag":"TH","cls":"invoice__col-price","text":"Price/Unit","w":67.09375,"right":359.984375},{"tag":"TH","cls":"invoice__col-discount","text":"Discount","w":67.09375,"right":427.078125},{"tag":"TH","cls":"invoice__col-taxable","text":"Taxable Value","w":67.09375,"right":494.171875},{"tag":"TH","cls":"invoice__col-tax","text":"Tax %","w":67.09375,"right":561.265625},{"tag":"TH","cls":"invoice__col-tax-amt","text":"Tax Amount","w":67.09375,"right":628.359375},{"tag":"TH","cls":"invoice__col-total","text":"Total Item Price","w":67.140625,"right":695.5},{"tag":"TBODY","cls":"invoice__items-body","text":"Premium traditional household provisions — परिवार சந்தை కుటుంబം ಕನ್ನಡ বাংলা मराठी ગુજરાતી100630202 k","w":671,"right":695.5},{"tag":"TR","cls":"invoice__item-row","text":"Premium traditional household provisions — परिवार சந்தை కుటుంబം ಕನ್ನಡ বাংলা मराठी ગુજરાતી100630202 k","w":671,"right":695.5},{"tag":"TD","cls":"invoice__col-price invoice__cell-right","text":" ₹50.00 ","w":67.09375,"right":359.984375},{"tag":"TD","cls":"invoice__col-discount invoice__cell-right","text":" ₹0.00 ","w":67.09375,"right":427.078125},{"tag":"TD","cls":"invoice__col-taxable invoice__cell-right","text":" ₹100.00 ","w":67.09375,"right":494.171875},{"tag":"TD","cls":"invoice__col-tax invoice__cell-right","text":"18%","w":67.09375,"right":561.265625},{"tag":"TD","cls":"invoice__col-tax-amt invoice__cell-right","text":" ₹18.00 ","w":67.09375,"right":628.359375},{"tag":"TD","cls":"invoice__col-total invoice__cell-right","text":" ₹118.00 ","w":67.140625,"right":695.5},{"tag":"TABLE","cls":"invoice__items invoice__tax-summary-table","text":"TaxRateTaxable ValueTax AmountCGST9%₹100.00₹9.00SGST9%₹100.00₹9.00","w":672,"right":696},{"tag":"THEAD","cls":"invoice__items-header","text":"TaxRateTaxable ValueTax Amount","w":671,"right":695.5},{"tag":"TR","cls":"","text":"TaxRateTaxable ValueTax Amount","w":671,"right":695.5}]
+
+    expect(received).toBeLessThanOrEqual(expected)
+
+    Expected: <= 1
+    Received:    376
+
+      78 |       ),
+      79 |     ),
+    > 80 |   ).toBeLessThanOrEqual(1);
+         |     ^
+      81 |   for (const region of await root
+      82 |     .locator(
+      83 |       '.statement-table-wrap, .cases-table-wrap, .p-datatable-table-container, .invoice__items-scroll',
+        at layout (/Users/chanakya/projects/intelibill/src/frontend/tests/ui-audit/release/accessibility-localization.spec.ts:80:5)
+        at /Users/chanakya/projects/intelibill/src/frontend/tests/ui-audit/release/accessibility-localization.spec.ts:455:3
+
+    Error Context: .ui-audit/tax-summary-red/accessibility-localization-e4de9-e-the-scrollable-item-table/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    .ui-audit/tax-summary-red/accessibility-localization-e4de9-e-the-scrollable-item-table/trace.zip
+    Usage:
+
+        npx playwright show-trace .ui-audit/tax-summary-red/accessibility-localization-e4de9-e-the-scrollable-item-table/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/ui-audit/release/accessibility-localization.spec.ts:444:5 › taxed A4 summary remains readable at 320px beside the scrollable item table

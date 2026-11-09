@@ -9,12 +9,12 @@
       @if (credit.availableCredit !== null) {
         <span data-testid="sale-credit-available"
           >{{ 'sales.newSale.credit.available' | transloco }}:
-          {{ 'common.currencySymbol' | transloco }}{{ credit.availableCredit | number: '1.2-2' }}</span
+          {{ credit.availableCredit | localeMoney }}</span
         >
       }
       <span class="text-slate-500"
         >{{ 'sales.newSale.credit.balance' | transloco }}:
-        {{ 'common.currencySymbol' | transloco }}{{ credit.currentExposure | number: '1.2-2' }}</span
+        {{ credit.currentExposure | localeMoney }}</span
       >
     </div>
     @if (isAdvisory()) {
@@ -22,7 +22,10 @@
     }
     @if (isBlocked()) {
       <small class="text-red-700" data-testid="sale-credit-blocked">{{
-        (credit.isActive ? 'sales.newSale.credit.errors.notExtended' : 'sales.newSale.credit.errors.inactive') | transloco
+        (credit.isActive
+          ? 'sales.newSale.credit.errors.notExtended'
+          : 'sales.newSale.credit.errors.inactive'
+        ) | transloco
       }}</small>
     } @else if (exceedsLimit()) {
       <small class="text-red-700" data-testid="sale-credit-exceeds">{{
@@ -31,7 +34,9 @@
       @if (canOverride) {
         @if (approved()) {
           <div class="flex flex-wrap items-center gap-2" data-testid="sale-credit-approved">
-            <small class="text-emerald-700">{{ 'sales.newSale.credit.overrideApproved' | transloco }}</small>
+            <small class="text-emerald-700">{{
+              'sales.newSale.credit.overrideApproved' | transloco
+            }}</small>
             <p-button
               [label]="'sales.newSale.credit.withdrawOverride' | transloco"
               size="small"
@@ -42,7 +47,9 @@
         } @else {
           <div class="flex flex-wrap items-end gap-2">
             <label class="flex flex-1 flex-col gap-1 min-w-48">
-              <span class="text-slate-500">{{ 'sales.newSale.credit.overrideReason' | transloco }}</span>
+              <span class="text-slate-500">{{
+                'sales.newSale.credit.overrideReason' | transloco
+              }}</span>
               <input
                 pInputText
                 type="text"

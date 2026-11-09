@@ -1,0 +1,19 @@
+
+Running 12 tests using 1 worker
+
+(node:82946) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/ui-audit/release/accessibility-localization.spec.ts:287:5 › keyboard_checkout_returns_focus and same-key unknown recovery (9.0s)
+  ✓   2 tests/ui-audit/release/purchase-receiving.spec.ts:112:7 › detail: rejection preserves editable fields across changed PO responses (2.0s)
+  ✓   3 tests/ui-audit/release/purchase-receiving.spec.ts:112:7 › list: rejection preserves editable fields across changed PO responses (1.3s)
+  ✓   4 tests/ui-audit/release/purchase-receiving.spec.ts:162:5 › 4 + 6 lots submit once and render two history rows (2.2s)
+  ✓   5 tests/ui-audit/release/purchase-receiving.spec.ts:190:7 › lost response reloads frozen and confirms original on Received PO (2.6s)
+  ✓   6 tests/ui-audit/release/purchase-receiving.spec.ts:190:7 › lost response reloads frozen and confirms original on Closed PO (2.6s)
+  ✓   7 tests/ui-audit/release/purchase-receiving.spec.ts:212:5 › lookup miss and retry 404 stay frozen; subsequent retry sends identical operation (3.4s)
+  ✓   8 tests/ui-audit/release/purchase-receiving.spec.ts:241:5 › storage rejection prevents network dispatch and retains editable values (732ms)
+  ✓   9 tests/ui-audit/release/purchase-receiving.spec.ts:262:7 › header close retains editable work when storage fails already known (2.0s)
+  ✓  10 tests/ui-audit/release/purchase-receiving.spec.ts:262:7 › header close retains editable work when storage fails on closing flush (2.1s)
+  ✓  11 tests/ui-audit/release/purchase-receiving.spec.ts:329:5 › late unrelated success cannot close or overwrite another active PO draft (2.5s)
+  ✓  12 tests/ui-audit/release/purchase-receiving.spec.ts:384:5 › scope transition detaches pending work; original owner recovers exact operation on return (5.0s)
+
+  12 passed (36.0s)

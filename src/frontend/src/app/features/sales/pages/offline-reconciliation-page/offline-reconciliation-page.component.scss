@@ -688,7 +688,9 @@
 .export-bundle-btn,
 .submit-import-btn {
   min-height: 2.5rem;
-  white-space: nowrap;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .last-export {
@@ -819,4 +821,15 @@
   .queue-row-actions {
     justify-content: space-between;
   }
+}
+
+/* Keep small review labels readable on the warm panel surface. */
+.eyebrow {
+  color: #9a3412;
+}
+.subtitle {
+  color: #5b5049;
+}
+:host ::ng-deep .case-status-filter .p-togglebutton-label {
+  color: #475569;
 }

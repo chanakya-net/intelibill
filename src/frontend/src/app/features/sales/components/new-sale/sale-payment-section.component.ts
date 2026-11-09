@@ -1,3 +1,6 @@
+import type { LocalizedError } from '../../../../core/i18n/api-error-message.service';
+import { LocaleInstantPipe } from '../../../../shared/pipes/locale-instant.pipe';
+import { LocaleMoneyPipe } from '../../../../shared/pipes/locale-money.pipe';
 import { TillPostingFieldsComponent } from '../../../tills/components/till-posting-fields.component';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
@@ -22,10 +25,14 @@ export interface PaymentMethodOption {
   readonly label: PaymentMethod;
 }
 
+let paymentSectionSequence = 0;
+
 @Component({
   selector: 'app-sale-payment-section',
   standalone: true,
   imports: [
+    LocaleMoneyPipe,
+    LocaleInstantPipe,
     TillPostingFieldsComponent,
     CommonModule,
     FormsModule,
@@ -40,6 +47,7 @@ export interface PaymentMethodOption {
   templateUrl: './sale-payment-section.component.html',
 })
 export class SalePaymentSectionComponent {
+  readonly controlPrefix = `sale-payment-${++paymentSectionSequence}`;
   @Input() paymentMethods: PaymentMethodOption[] = [];
   @Input() selectedMethod: PaymentMethod = 'Cash';
   @Input() paidAmount = 0;
@@ -52,6 +60,36 @@ export class SalePaymentSectionComponent {
   @Input() canUseCredit = true;
   @Input() showDueAmount = false;
   @Input() dueAmountDisabled = false;
+  @Input() paymentSplitError = '';
+  @Input() localizedError?: LocalizedError;
+
+  fieldError(field: string) {
+    return this.localizedError?.fieldErrors.find((error) => error.field === field);
+  }
+  paymentDescriptions(field: string): string | undefined {
+    return (
+      [
+        this.paymentSplitError ? this.controlPrefix + '-split-error' : '',
+        this.fieldError(field) ? this.controlPrefix + '-' + field + '-server-error' : '',
+      ]
+        .filter(Boolean)
+        .join(' ') || undefined
+    );
+  }
+  @Input() isSubmitting = false;
+
+  amountInputPt(field: string): any {
+    return {
+      ...this.currencyInputPt,
+      pcInputText: {
+        ...this.currencyInputPt?.pcInputText,
+        root: {
+          ...this.currencyInputPt?.pcInputText?.root,
+          'aria-invalid': this.paymentSplitError || this.fieldError(field) ? 'true' : undefined,
+        },
+      },
+    };
+  }
 
   // Credit note verification inputs
   @Input() creditNoteCode = '';

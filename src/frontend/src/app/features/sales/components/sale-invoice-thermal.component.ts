@@ -1,3 +1,6 @@
+import { LocaleInstantPipe } from '../../../shared/pipes/locale-instant.pipe';
+import { LocaleBusinessDatePipe } from '../../../shared/pipes/locale-business-date.pipe';
+import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { SaleCancellationRecordComponent } from './sale-cancellation-record.component';
 import { CommonModule } from '@angular/common';
 import {
@@ -10,8 +13,6 @@ import {
   inject,
 } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
-
-import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
 import type {
   InvoiceDeclaration,
   InvoiceDocument,
@@ -43,7 +44,14 @@ const PX_TO_MM = 25.4 / 96;
 @Component({
   selector: 'app-sale-invoice-thermal',
   standalone: true,
-  imports: [SaleCancellationRecordComponent, CommonModule, TranslocoPipe, DateOnlyPipe],
+  imports: [
+    LocaleMoneyPipe,
+    LocaleBusinessDatePipe,
+    LocaleInstantPipe,
+    SaleCancellationRecordComponent,
+    CommonModule,
+    TranslocoPipe,
+  ],
   templateUrl: './sale-invoice-thermal.component.html',
   styleUrl: './sale-invoice-thermal.component.scss',
 })

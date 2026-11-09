@@ -63,7 +63,10 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
         this.syncPaymentSplitFromDue(value);
       });
 
-    const handlePreviewApplied = (preview: SalePreviewDto, oldPreview: SalePreviewDto | null): void => {
+    const handlePreviewApplied = (
+      preview: SalePreviewDto,
+      oldPreview: SalePreviewDto | null,
+    ): void => {
       this.detectAndHighlightChangedRows(oldPreview, preview);
       this.revalidateDiscountsAgainstPreview();
     };
@@ -95,7 +98,9 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
         }
 
         // Show notification for incoming update
-        this.updateNotificationText.set(`sales.newSale.shopUpdate.${this.getEventNotificationKey(update.eventType)}`);
+        this.updateNotificationText.set(
+          `sales.newSale.shopUpdate.${this.getEventNotificationKey(update.eventType)}`,
+        );
         this.showUpdateNotification.set(true);
         setTimeout(() => this.showUpdateNotification.set(false), 2000);
 
@@ -149,11 +154,19 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
 
       effect(() => {
         this.nowTick();
-        const preview = this.checkoutPreview(); this.expiryBusinessTimeZone();
-        if (preview?.expiryDecisions?.length && this.expiryBusinessTimeZone() && !this.expiryPreviewIsCurrent()) untracked(() => {
-          this.availableBatches.set([]); this.availableSellables.set([]); this.selectedSellable.set(null);
-          this.salePreview.triggerServerUpdateRefresh();
-        });
+        const preview = this.checkoutPreview();
+        this.expiryBusinessTimeZone();
+        if (
+          preview?.expiryDecisions?.length &&
+          this.expiryBusinessTimeZone() &&
+          !this.expiryPreviewIsCurrent()
+        )
+          untracked(() => {
+            this.availableBatches.set([]);
+            this.availableSellables.set([]);
+            this.selectedSellable.set(null);
+            this.salePreview.triggerServerUpdateRefresh();
+          });
       });
       effect(() => {
         const total = this.totalAmount();
@@ -287,7 +300,10 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
           const sellable = sellables[0];
           if (sellable.kind === 'Goods') {
             if (sellable.sellability?.allowed === false || sellable.availableQuantity === 0) {
-              this.availableSellables.set([sellable]); this.availableBatches.set([goodsSellableToBatch(sellable)]); this.showBatchPicker.set(true); return;
+              this.availableSellables.set([sellable]);
+              this.availableBatches.set([goodsSellableToBatch(sellable)]);
+              this.showBatchPicker.set(true);
+              return;
             }
             const batch = goodsSellableToBatch(sellable);
             const result = this.cartState.addBatchToCart(batch, 1);
@@ -317,7 +333,10 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
           if (allGoods) {
             this.availableBatches.set(
               sellables
-                .filter((s): s is import('../services/sale.models').SellableGoodsDto => s.kind === 'Goods')
+                .filter(
+                  (s): s is import('../services/sale.models').SellableGoodsDto =>
+                    s.kind === 'Goods',
+                )
                 .map(goodsSellableToBatch),
             );
           } else {
@@ -328,9 +347,8 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
       },
       error: (err) => {
         this.isSearchingBatches.set(false);
-        this.batchSearchError.set((err as { error?: { detail?: string } }).error?.detail || 'sales.newSale.searchError');
+        this.batchSearchError.set('sales.newSale.searchError');
       },
     });
   }
-
 }

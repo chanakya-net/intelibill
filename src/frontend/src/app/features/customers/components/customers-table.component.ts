@@ -1,3 +1,4 @@
+import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -21,7 +22,16 @@ import { creditPolicyLabelKey } from '../utils/credit-policy.util';
 @Component({
   selector: 'app-customers-table',
   standalone: true,
-  imports: [CommonModule, AvatarModule, ButtonModule, CardModule, TagModule, TableModule, TranslocoPipe],
+  imports: [
+    LocaleMoneyPipe,
+    CommonModule,
+    AvatarModule,
+    ButtonModule,
+    CardModule,
+    TagModule,
+    TableModule,
+    TranslocoPipe,
+  ],
   templateUrl: './customers-table.component.html',
   styleUrl: './customers-table.component.scss',
 })
@@ -65,7 +75,16 @@ export class CustomersTableComponent {
   }
 
   customerAvatarColor(name: string): string {
-    const colors = ['#b45309', '#0369a1', '#15803d', '#7c3aed', '#be185d', '#c2410c', '#0f766e', '#1d4ed8'];
+    const colors = [
+      '#b45309',
+      '#0369a1',
+      '#15803d',
+      '#7c3aed',
+      '#be185d',
+      '#c2410c',
+      '#0f766e',
+      '#1d4ed8',
+    ];
     let hash = 0;
     for (let index = 0; index < name.length; index++) {
       hash = name.charCodeAt(index) + ((hash << 5) - hash);

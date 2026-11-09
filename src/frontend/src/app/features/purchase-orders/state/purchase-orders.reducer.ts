@@ -1,3 +1,4 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
@@ -22,6 +23,7 @@ export interface PurchaseOrdersState extends EntityState<PurchaseOrderListItem> 
   readonly loadingList: boolean;
   readonly loadingDetail: boolean;
   readonly submitting: boolean;
+  readonly localizedError: LocalizedError | undefined;
   readonly errorMessage: string;
   readonly detailPurchaseOrderId: string | null;
   readonly selectedOrder: PurchaseOrderDetail | null;
@@ -37,6 +39,7 @@ const initialState: PurchaseOrdersState = purchaseOrdersAdapter.getInitialState(
   loadingList: false,
   loadingDetail: false,
   submitting: false,
+  localizedError: undefined,
   errorMessage: '',
   selectedOrder: null,
   detailPurchaseOrderId: null,
@@ -68,6 +71,7 @@ export const purchaseOrdersReducer = createReducer(
   on(PurchaseOrdersActions.loadPurchaseOrdersRequested, (state, { filters }) => ({
     ...state,
     loadingList: true,
+    localizedError: undefined,
     errorMessage: '',
     filters: {
       ...state.filters,
@@ -78,6 +82,7 @@ export const purchaseOrdersReducer = createReducer(
     purchaseOrdersAdapter.setAll([...result.items], {
       ...state,
       loadingList: false,
+      localizedError: undefined,
       errorMessage: '',
       totalCount: result.totalCount,
       currentPage: result.pageNumber,
@@ -89,9 +94,10 @@ export const purchaseOrdersReducer = createReducer(
       },
     }),
   ),
-  on(PurchaseOrdersActions.loadPurchaseOrdersFailed, (state, { errorMessage }) => ({
+  on(PurchaseOrdersActions.loadPurchaseOrdersFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     loadingList: false,
+    localizedError,
     errorMessage,
   })),
 
@@ -101,6 +107,7 @@ export const purchaseOrdersReducer = createReducer(
     detailPurchaseOrderId: purchaseOrderId,
     selectedOrder:
       state.selectedOrder?.purchaseOrderId === purchaseOrderId ? state.selectedOrder : null,
+    localizedError: undefined,
     errorMessage: '',
   })),
   on(PurchaseOrdersActions.loadPurchaseOrderDetailSucceeded, (state, { order }) =>
@@ -112,15 +119,20 @@ export const purchaseOrdersReducer = createReducer(
           selectedOrder: order,
         },
   ),
-  on(PurchaseOrdersActions.loadPurchaseOrderDetailFailed, (state, { errorMessage }) => ({
-    ...state,
-    loadingDetail: false,
-    errorMessage,
-  })),
+  on(
+    PurchaseOrdersActions.loadPurchaseOrderDetailFailed,
+    (state, { errorMessage, localizedError }) => ({
+      ...state,
+      loadingDetail: false,
+      localizedError,
+      errorMessage,
+    }),
+  ),
 
   on(PurchaseOrdersActions.createDraftRequested, (state) => ({
     ...state,
     submitting: true,
+    localizedError: undefined,
     errorMessage: '',
     createSucceeded: false,
   })),
@@ -130,9 +142,10 @@ export const purchaseOrdersReducer = createReducer(
     createSucceeded: true,
     selectedOrder: order,
   })),
-  on(PurchaseOrdersActions.createDraftFailed, (state, { errorMessage }) => ({
+  on(PurchaseOrdersActions.createDraftFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    localizedError,
     errorMessage,
     createSucceeded: false,
   })),
@@ -140,6 +153,7 @@ export const purchaseOrdersReducer = createReducer(
   on(PurchaseOrdersActions.updateDraftRequested, (state) => ({
     ...state,
     submitting: true,
+    localizedError: undefined,
     errorMessage: '',
   })),
   on(PurchaseOrdersActions.updateDraftSucceeded, (state, { order }) =>
@@ -149,15 +163,17 @@ export const purchaseOrdersReducer = createReducer(
       selectedOrder: order,
     }),
   ),
-  on(PurchaseOrdersActions.updateDraftFailed, (state, { errorMessage }) => ({
+  on(PurchaseOrdersActions.updateDraftFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    localizedError,
     errorMessage,
   })),
 
   on(PurchaseOrdersActions.placeOrderRequested, (state) => ({
     ...state,
     submitting: true,
+    localizedError: undefined,
     errorMessage: '',
   })),
   on(PurchaseOrdersActions.placeOrderSucceeded, (state, { order }) =>
@@ -167,15 +183,17 @@ export const purchaseOrdersReducer = createReducer(
       selectedOrder: order,
     }),
   ),
-  on(PurchaseOrdersActions.placeOrderFailed, (state, { errorMessage }) => ({
+  on(PurchaseOrdersActions.placeOrderFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    localizedError,
     errorMessage,
   })),
 
   on(PurchaseOrdersActions.deleteDraftRequested, (state) => ({
     ...state,
     submitting: true,
+    localizedError: undefined,
     errorMessage: '',
   })),
   on(PurchaseOrdersActions.deleteDraftSucceeded, (state, { purchaseOrderId }) =>
@@ -185,15 +203,17 @@ export const purchaseOrdersReducer = createReducer(
       selectedOrder: null,
     }),
   ),
-  on(PurchaseOrdersActions.deleteDraftFailed, (state, { errorMessage }) => ({
+  on(PurchaseOrdersActions.deleteDraftFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    localizedError,
     errorMessage,
   })),
 
   on(PurchaseOrdersActions.cancelOrderRequested, (state) => ({
     ...state,
     submitting: true,
+    localizedError: undefined,
     errorMessage: '',
   })),
   on(PurchaseOrdersActions.cancelOrderSucceeded, (state, { order }) =>
@@ -203,15 +223,17 @@ export const purchaseOrdersReducer = createReducer(
       selectedOrder: order,
     }),
   ),
-  on(PurchaseOrdersActions.cancelOrderFailed, (state, { errorMessage }) => ({
+  on(PurchaseOrdersActions.cancelOrderFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    localizedError,
     errorMessage,
   })),
 
   on(PurchaseOrdersActions.closeOrderRequested, (state) => ({
     ...state,
     submitting: true,
+    localizedError: undefined,
     errorMessage: '',
   })),
   on(PurchaseOrdersActions.closeOrderSucceeded, (state, { order }) =>
@@ -221,9 +243,10 @@ export const purchaseOrdersReducer = createReducer(
       selectedOrder: order,
     }),
   ),
-  on(PurchaseOrdersActions.closeOrderFailed, (state, { errorMessage }) => ({
+  on(PurchaseOrdersActions.closeOrderFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    localizedError,
     errorMessage,
   })),
 
@@ -234,6 +257,7 @@ export const purchaseOrdersReducer = createReducer(
       [receivingKey(correlation)]: {
         correlation,
         status: 'sending' as const,
+        localizedError: undefined,
         errorMessage: '',
         rowErrors: [],
       },
@@ -246,6 +270,7 @@ export const purchaseOrdersReducer = createReducer(
       [receivingKey(correlation)]: {
         correlation,
         status: 'checking' as const,
+        localizedError: undefined,
         errorMessage: '',
         rowErrors: [],
       },
@@ -263,6 +288,7 @@ export const purchaseOrdersReducer = createReducer(
           [receivingKey(correlation)]: {
             correlation,
             status: 'confirmed' as const,
+            localizedError: undefined,
             errorMessage: '',
             rowErrors: [],
           },
@@ -272,13 +298,19 @@ export const purchaseOrdersReducer = createReducer(
   ),
   on(
     PurchaseOrdersActions.receiveOrderFailed,
-    (state, { correlation, outcome, errorMessage, rowErrors }) => {
+    (state, { correlation, outcome, errorMessage, localizedError, rowErrors }) => {
       if (!state.receiving[receivingKey(correlation)]) return state;
       return {
         ...state,
         receiving: {
           ...state.receiving,
-          [receivingKey(correlation)]: { correlation, status: outcome, errorMessage, rowErrors },
+          [receivingKey(correlation)]: {
+            correlation,
+            status: outcome,
+            errorMessage,
+            localizedError,
+            rowErrors,
+          },
         },
       };
     },
@@ -296,6 +328,7 @@ export const purchaseOrdersReducer = createReducer(
           [receivingKey(correlation)]: {
             correlation,
             status: 'unknown' as const,
+            localizedError: 'localizedError' in action ? action.localizedError : undefined,
             errorMessage:
               'errorMessage' in action
                 ? action.errorMessage
@@ -315,6 +348,7 @@ export const purchaseOrdersReducer = createReducer(
   })),
   on(PurchaseOrdersActions.clearError, (state) => ({
     ...state,
+    localizedError: undefined,
     errorMessage: '',
   })),
   on(PurchaseOrdersActions.resetListFilters, (state) => ({

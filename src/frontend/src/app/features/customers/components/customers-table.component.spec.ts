@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../core/i18n/localization.service';
 import '@angular/compiler';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -5,6 +6,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Customer } from '../services/customer.service';
 import { CustomersTableComponent } from './customers-table.component';
+
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
 
 describe('CustomersTableComponent', () => {
   let fixture: ComponentFixture<CustomersTableComponent>;
@@ -114,7 +121,9 @@ describe('CustomersTableComponent', () => {
     fixture.detectChanges();
 
     const firstMobileCard = fixture.nativeElement.querySelector('.customer-card') as HTMLElement;
-    firstMobileCard.querySelector('.customer-card__identity')?.dispatchEvent(new Event('click', { bubbles: true }));
+    firstMobileCard
+      .querySelector('.customer-card__identity')
+      ?.dispatchEvent(new Event('click', { bubbles: true }));
 
     const buttons = Array.from(firstMobileCard.querySelectorAll('button'));
     buttons.find((button) => button.textContent?.includes('New Transaction'))?.click();
