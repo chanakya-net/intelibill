@@ -141,7 +141,7 @@
 
         @if (vm.batchSearchError()) {
           <p class="error mt-2">
-            {{ vm.batchSearchError().startsWith('sales.') || vm.batchSearchError().startsWith('common.') ? (vm.batchSearchError() | transloco: (vm.batchSearchErrorParams() ?? {})) : vm.batchSearchError() }}
+            {{ vm.batchSearchError().startsWith('sales.') || vm.batchSearchError().startsWith('common.') || vm.batchSearchError().startsWith('expiry.') ? (vm.batchSearchError() | transloco: (vm.batchSearchErrorParams() ?? {})) : vm.batchSearchError() }}
           </p>
         }
 

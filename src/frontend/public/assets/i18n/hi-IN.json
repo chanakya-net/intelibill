@@ -3031,7 +3031,7 @@
   "expiry": {
     "policyTitle": "समाप्ति नीति",
     "version": "नियम {{version}} · सूची {{catalog}}",
-    "readiness": "अनिवार्य तारीख गायब: {{missing}} · समाप्त लॉट: {{expired}} · अलग रखे लॉट: {{quarantine}}",
+    "readiness": "समाप्ति तिथि के बिना लॉट: {{missing}} · समाप्त लॉट: {{expired}} · अलग रखे लॉट: {{quarantine}}",
     "readinessLoading": "इस नीति की तैयारी जाँची जा रही है…",
     "readinessFailed": "इस नीति संस्करण की तैयारी लोड नहीं हुई। फिर प्रयास करें, या नीति बदली हो तो विवरण ताज़ा करें।",
     "retryReadiness": "तैयारी फिर जाँचें",

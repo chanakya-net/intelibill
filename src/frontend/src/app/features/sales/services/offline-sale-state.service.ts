@@ -1,3 +1,4 @@
+import type { SellabilityDecision } from '../../expiry/services/expiry.models';
 import { evaluateExpiry, shopBusinessDate } from '../../expiry/services/expiry-policy-evaluator';
 import { hasOfflineExpiryAuthority, isValidShopZone } from '../utils/offline-sales-snapshot.schema';
 import { TillContextService } from '../../tills/services/till-context.service';
@@ -32,6 +33,26 @@ import { invoiceErrorKey } from '../utils/invoice-error-keys';
 import { InvoiceLeaseIndexedDbService } from '../../../core/storage/invoice-lease-indexeddb.service';
 
 const MAX_OFFLINE_AGE_MS = 48 * 60 * 60 * 1000;
+
+/** Expired authority needs a catalog refresh even when its captured policy would allow the lot. */
+function offlineSellability(
+  decision: SellabilityDecision,
+  evidenceExpiresAt: string,
+): SellabilityDecision {
+  if (Date.now() > Date.parse(evidenceExpiresAt)) {
+    return {
+      ...decision,
+      allowed: false,
+      availableQuantity: 0,
+      reasonCode: 'Expiry.OfflineRefreshRequired',
+      warning: false,
+      requiresApproval: false,
+    };
+  }
+  return decision.requiresApproval
+    ? { ...decision, allowed: false, availableQuantity: 0 }
+    : decision;
+}
 
 export interface OfflineSubmitRequest {
   readonly paymentMethod: number;
@@ -168,7 +189,7 @@ export class OfflineSaleStateService {
     const shopId = this.activeShopId;
     const q = term.trim().toLowerCase();
     const metadata = shopId ? await this.snapshotDb.getUsableSnapshotInfo(shopId) : null;
-    if (metadata?.schemaVersion !== 4 || !isValidShopZone(metadata.businessTimeZoneId) || !metadata.catalogVersion) return [];
+    if (metadata?.schemaVersion !== 4 || !isValidShopZone(metadata.businessTimeZoneId) || !metadata.catalogVersion) throw new Error('expiry.offline.refresh');
     const businessDate = shopBusinessDate(Date.now(), metadata.businessTimeZoneId);
     const cacheKey = `${shopId}:${this.snapshotCompletedAt() ?? ''}`;
 
@@ -201,8 +222,7 @@ export class OfflineSaleStateService {
     const batchResults: AvailableBatchDto[] = matchedBatches.filter(b => hasOfflineExpiryAuthority(b, metadata.catalogVersion!)).map((b) => {
       const decision = evaluateExpiry({ batchId: b.batchId, itemId: b.itemId, expiryDate: b.expiryDate, manufacturingDate: b.manufacturingDate,
         physicalQuantity: b.physicalQuantity!, quarantinedQuantity: b.quarantinedQuantity!, batchVersion: b.batchVersion!, itemActive: true, isVoided: false }, b.effectivePolicy!, metadata.catalogVersion!, businessDate);
-      const authorityValid = Date.now() <= Date.parse(b.expiryEvidenceExpiresAt!);
-      const sellability = decision.requiresApproval || !authorityValid ? { ...decision, allowed: false, availableQuantity: 0 } : decision;
+      const sellability = offlineSellability(decision, b.expiryEvidenceExpiresAt!);
       return {
       sellability, availableQuantity: sellability.availableQuantity, quarantinedQuantity: b.quarantinedQuantity, version: b.batchVersion,
       barcode: b.barcode,
@@ -258,9 +278,8 @@ export class OfflineSaleStateService {
       if (!batch || !hasOfflineExpiryAuthority(batch, metadata.catalogVersion!)) throw new Error('expiry.offline.refresh');
       const decision = evaluateExpiry({ batchId: batch.batchId, itemId: batch.itemId, expiryDate: batch.expiryDate, manufacturingDate: batch.manufacturingDate,
         physicalQuantity: batch.physicalQuantity!, quarantinedQuantity: batch.quarantinedQuantity!, batchVersion: batch.batchVersion!, itemActive: true, isVoided: false }, batch.effectivePolicy!, metadata.catalogVersion!, businessDate);
-      const available = Date.now() <= Date.parse(batch.expiryEvidenceExpiresAt!) && !decision.requiresApproval;
       return { itemId: batch.itemId, inventoryBatchId: batch.batchId, quantity: line.quantity, batchVersion: batch.batchVersion!,
-        decision: available ? decision : { ...decision, allowed: false, availableQuantity: 0 } };
+        decision: offlineSellability(decision, batch.expiryEvidenceExpiresAt!) };
     });
     const rules = await this.snapshotDb.getUsableDiscountRules(this.activeShopId);
     const pricing = calculateOfflineFrozenSale({

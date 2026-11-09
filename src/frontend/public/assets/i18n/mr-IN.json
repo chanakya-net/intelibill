@@ -3031,7 +3031,7 @@
   "expiry": {
     "policyTitle": "मुदत धोरण",
     "version": "धोरण {{version}} · सूची {{catalog}}",
-    "readiness": "आवश्यक तारीख नाही: {{missing}} · मुदत संपलेले: {{expired}} · विलग लॉट: {{quarantine}}",
+    "readiness": "कालबाह्यता तारीख नसलेले लॉट: {{missing}} · मुदत संपलेले: {{expired}} · विलग लॉट: {{quarantine}}",
     "readinessLoading": "या धोरणाची तयारी तपासत आहे…",
     "readinessFailed": "धोरणाच्या या आवृत्तीची तयारी लोड करता आली नाही. पुन्हा प्रयत्न करा किंवा धोरण बदलले असल्यास तपशील ताजे करा.",
     "retryReadiness": "तयारी पुन्हा तपासा",

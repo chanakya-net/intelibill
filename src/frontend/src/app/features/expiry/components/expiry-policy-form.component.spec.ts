@@ -1,3 +1,4 @@
+import enIN from '../../../../../public/assets/i18n/en-IN.json';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { EMPTY, of, Subject, throwError } from 'rxjs';
@@ -5,13 +6,21 @@ import { describe, expect, it, vi } from 'vitest';
 import { ExpiryPolicyFormComponent } from './expiry-policy-form.component';
 import { ExpiryPolicyService, type ExpiryReadiness } from '../services/expiry-policy.service';
 import { expiryPolicyState } from '../../../../tests/expiry/expiry-policy.providers';
-function setup(role: string, readiness = vi.fn<ExpiryPolicyService['readiness']>(() => EMPTY)) {
+function setup(
+  role: string,
+  readiness = vi.fn<ExpiryPolicyService['readiness']>(() => EMPTY),
+  translated = false,
+) {
   const scope = { id: 'scope-one' };
   const update = vi.fn(() => of({ ...expiryPolicyState, catalogVersion: 2 }));
   TestBed.configureTestingModule({
     imports: [
       ExpiryPolicyFormComponent,
-      TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      TranslocoTestingModule.forRoot({
+        langs: { en: translated ? enIN : {} },
+        translocoConfig: { defaultLang: 'en', availableLangs: ['en'] },
+        preloadLangs: true,
+      }),
     ],
     providers: [
       {
@@ -35,6 +44,17 @@ function setup(role: string, readiness = vi.fn<ExpiryPolicyService['readiness']>
   return { fixture, component: fixture.componentInstance, update, scope, readiness };
 }
 describe('expiry policy operator form', () => {
+  it('describes all undated lots without claiming optional dates are required', () => {
+    const { component, fixture } = setup(
+      'owner',
+      vi.fn(() => of(ready(1, 3))),
+      true,
+    );
+    expect(component.policy.mode).toBe('Ignore');
+    expect(component.policy.expiryRequired).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('Missing expiry dates: 3');
+    expect(fixture.nativeElement.textContent).not.toContain('Missing required dates');
+  });
   it('clears prior counts after save and displays only readiness for the returned catalog', () => {
     const response = new Subject<ExpiryReadiness>();
     const readiness = vi

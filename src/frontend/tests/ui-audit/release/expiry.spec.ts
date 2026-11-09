@@ -666,6 +666,11 @@ for (const width of [1440, 390]) {
         })
         .scrollIntoViewIfNeeded();
       await capture(page, { path: `${OUTPUT}/${width}-return-preview.png`, fullPage: true });
+      controls.policyState = {
+        ...state,
+        defaultPolicy: { ...policy, mode: 'Ignore', expiryRequired: false },
+        effectivePolicy: { ...policy, mode: 'Ignore', expiryRequired: false },
+      };
       await page.goto(`${server.origin}/inventory/batches`);
       const expand = page.getByRole('button', { name: 'Expand sidebar', exact: true });
       if (await expand.isVisible()) await expand.click();
@@ -680,6 +685,11 @@ for (const width of [1440, 390]) {
         .click();
       await expect(page.getByRole('heading', { name: 'Expiry policy', exact: true })).toBeVisible();
       await page.locator('app-expiry-policy-form').scrollIntoViewIfNeeded();
+      await expect(page.locator('app-expiry-policy-form')).toContainText('Missing expiry dates: 1');
+      await expect(page.locator('app-expiry-policy-form select').first()).toHaveValue('Ignore');
+      await expect(
+        page.locator('app-expiry-policy-form input[type=checkbox]').first(),
+      ).not.toBeChecked();
       await capture(page, { path: `${OUTPUT}/${width}-policy-readiness.png`, fullPage: true });
       controls.readinessMode = 'error';
       const form = page.locator('app-expiry-policy-form');
@@ -689,12 +699,12 @@ for (const width of [1440, 390]) {
       await expect(form.getByRole('alert')).toContainText(
         'Readiness could not be loaded for this policy version.',
       );
-      await expect(form).not.toContainText('Missing required dates: 1');
+      await expect(form).not.toContainText('Missing expiry dates: 1');
       await form.getByRole('alert').scrollIntoViewIfNeeded();
       await capture(page, { path: `${OUTPUT}/${width}-policy-readiness-error.png` });
       controls.readinessMode = 'ok';
       await form.getByRole('button', { name: 'Retry readiness', exact: true }).click();
-      await expect(form).toContainText('Missing required dates: 4');
+      await expect(form).toContainText('Missing expiry dates: 4');
       await expect(form.getByRole('alert')).toHaveCount(0);
       await form.scrollIntoViewIfNeeded();
       await capture(page, { path: `${OUTPUT}/${width}-policy-readiness-refreshed.png` });
@@ -771,6 +781,178 @@ for (const width of [1440, 390]) {
       await expect(dialog.locator('option[value="Release"]')).toHaveJSProperty('disabled', true);
       expect(controls.posts).toHaveLength(1);
       await capture(page, { path: `${OUTPUT}/${width}-release-originally-expired-refused.png` });
+    } finally {
+      await server.close();
+    }
+  });
+}
+
+// Retained old catalogs and expired evidence are future-use refusals, never a rewrite of issued work.
+for (const width of [1440, 390]) {
+  test(`offline expiry refresh guidance at ${width}px`, async ({ page }) => {
+    const server = await startPurchaseReceivingServer(
+      resolve(__dirname, '../../../dist/INVENTORY/browser'),
+    );
+    await mkdir(OUTPUT, { recursive: true });
+    await page.setViewportSize({ width, height: 1000 });
+    await page.addInitScript(
+      (value) => localStorage.setItem('inventory.auth.session.local', JSON.stringify(value)),
+      session(),
+    );
+    await fixtures(page);
+    await page.route('**/api/ping*', (route) => json(route, { code: 'Offline' }, 503));
+    const refresh =
+      'Refresh the complete expiry catalog online before issuing a new invoice. Existing issued invoices stay recoverable.';
+    try {
+      await page.goto(`${server.origin}/sales/new`);
+      for (const mode of ['legacy', 'invalidated', 'expired', 'valid'] as const) {
+        await page.evaluate(
+          async ({ shopId, mode }) => {
+            const deviceId = 'expiry-test-device';
+            const snapshotId = 'expiry-test-snapshot';
+            const now = Date.now();
+            localStorage.setItem(`intelibill.offlineSales.deviceId.v1:${shopId}`, deviceId);
+            localStorage.setItem(
+              `intelibill.offlineSales.deviceSettings.v1:${shopId}:${deviceId}`,
+              JSON.stringify({
+                shopId,
+                deviceId,
+                enabled: true,
+                label: 'Test counter',
+                lastCompleteSnapshotAt: new Date(now).toISOString(),
+              }),
+            );
+            const db = await new Promise<IDBDatabase>((resolve, reject) => {
+              const r = indexedDB.open('intelibill-offline-sales-snapshot', 2);
+              r.onupgradeneeded = () => {
+                for (const [name, keyPath] of [
+                  ['snapshot-attempts', 'snapshotId'],
+                  ['shop-pointers', 'shopId'],
+                  ['batches', 'key'],
+                  ['customers', 'key'],
+                  ['discount-rules', 'key'],
+                  ['active-leases', 'key'],
+                  ['services', 'key'],
+                ])
+                  if (!r.result.objectStoreNames.contains(name))
+                    r.result.createObjectStore(name, { keyPath });
+              };
+              r.onsuccess = () => resolve(r.result);
+              r.onerror = () => reject(r.error);
+            });
+            await new Promise<void>((resolve, reject) => {
+              const tx = db.transaction(
+                ['snapshot-attempts', 'shop-pointers', 'batches'],
+                'readwrite',
+              );
+              tx.objectStore('snapshot-attempts').put({
+                snapshotId,
+                shopId,
+                schemaVersion: mode === 'legacy' ? 3 : 4,
+                businessTimeZoneId: 'Asia/Kolkata',
+                catalogVersion: 3,
+                status: 'complete',
+                startedAt: new Date(now - 1000).toISOString(),
+                completedAt: new Date(now).toISOString(),
+              });
+              tx.objectStore('shop-pointers').put({
+                shopId,
+                usableSnapshotId: snapshotId,
+                usableCompletedAt: new Date(now).toISOString(),
+                stale: mode === 'invalidated',
+              });
+              tx.objectStore('batches').put({
+                key: `${snapshotId}::offline-milk`,
+                snapshotId,
+                shopId,
+                entityId: 'offline-milk',
+                writtenAt: new Date(now).toISOString(),
+                entity: {
+                  batchId: 'offline-milk',
+                  itemId: 'milk',
+                  itemName: 'Milk',
+                  barcode: 'MILK',
+                  uom: 'kg',
+                  batchNumber: 'OFFLINE-LOT',
+                  quantity: 10,
+                  costPrice: 40,
+                  mrp: 60,
+                  salesPrice: 50,
+                  taxRatePercent: 0,
+                  taxIncluded: false,
+                  purchaseTaxIncluded: false,
+                  expiryDate: null,
+                  manufacturingDate: null,
+                  expiryEvidenceId: 'retained-proof',
+                  effectivePolicy: {
+                    version: 2,
+                    mode: 'Ignore',
+                    expiryRequired: false,
+                    sellThroughExpiryDate: true,
+                    warningDays: 7,
+                    overrideAllowed: false,
+                  },
+                  physicalQuantity: 10,
+                  quarantinedQuantity: 0,
+                  availableQuantity: 10,
+                  batchVersion: 8,
+                  expiryCapturedAt: new Date(now - 172800000).toISOString(),
+                  expiryEvidenceExpiresAt: new Date(
+                    now + (mode === 'expired' ? -86400000 : 86400000),
+                  ).toISOString(),
+                },
+              });
+              tx.oncomplete = () => resolve();
+              tx.onerror = () => reject(tx.error);
+            });
+            db.close();
+          },
+          { shopId: SHOP_A, mode },
+        );
+        await page.reload();
+        await page
+          .getByPlaceholder('Search products', { exact: true })
+          .fill(mode === 'valid' ? 'ABSENT' : 'MILK');
+        await page.getByRole('button', { name: /Search$/ }).click();
+        if (mode === 'valid') {
+          await expect(
+            page.getByText('No available batches found for this barcode.', { exact: true }),
+          ).toBeVisible();
+          await expect(page.getByText(refresh, { exact: true })).toHaveCount(0);
+        } else {
+          await expect(page.getByText(refresh, { exact: true })).toBeVisible();
+          await expect(
+            page.getByText('No available batches found for this barcode.', { exact: true }),
+          ).toHaveCount(0);
+          if (mode === 'expired') {
+            await expect(page.getByRole('button', { name: /OFFLINE-LOT/ })).toHaveAttribute(
+              'aria-disabled',
+              'true',
+            );
+            await expect(
+              page.locator('.batch-option-price p').filter({ hasText: /^Available$/ }),
+            ).toHaveCount(0);
+            const layout = await page.locator('.batch-option').evaluate((element) => {
+              const id = element.querySelector<HTMLElement>('.batch-option-id')!;
+              return {
+                overflow: element.scrollWidth - element.clientWidth,
+                nameLines:
+                  id.getBoundingClientRect().height / parseFloat(getComputedStyle(id).lineHeight),
+              };
+            });
+            expect(
+              layout.overflow,
+              'refresh, physical and available text must fit the lot card',
+            ).toBeLessThanOrEqual(1);
+            expect(
+              layout.nameLines,
+              'lot identity must remain readable beside refresh guidance',
+            ).toBeLessThanOrEqual(2);
+          }
+          await expect(page.getByRole('button', { name: /Add to Cart$/ })).toHaveCount(0);
+        }
+        await capture(page, { path: `${OUTPUT}/${width}-offline-${mode}.png`, fullPage: true });
+      }
     } finally {
       await server.close();
     }

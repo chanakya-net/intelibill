@@ -1,3 +1,13 @@
+import 'fake-indexeddb/auto';
+import { signal } from '@angular/core';
+import { NewSalePageOfflineFlowService } from '../pages/new-sale-page.offline-flow.service';
+import { expiryStatusKey } from '../../expiry/services/expiry-policy-evaluator';
+import { BatchPickerDialogComponent } from '../components/new-sale/batch-picker-dialog.component';
+import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
+import { calculateOfflineFrozenSale } from './offline-sale-pricing-calculator';
+import { buildOfflineInvoiceDocument } from './offline-invoice-document.builder';
+import type { SellableGoodsDto } from './sale.models';
+import type { AvailableBatchDto } from '../../inventory/services/inventory.models';
 import { disabledTillProviders } from '../../../../tests/tills/disabled-till.providers';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -149,6 +159,191 @@ describe('OfflineSaleStateService', () => {
     });
     vi.clearAllMocks();
     leaseDb.loadLease.mockResolvedValue({ sellerProfile: { seriesCode: 'A' } } as never);
+  });
+
+  function pageSearch(service: OfflineSaleStateService) {
+    const page = {
+      offlineSaleState: service,
+      isSearchingBatches: signal(false),
+      batchSearchError: signal(''),
+      availableBatches: signal<readonly AvailableBatchDto[]>([]),
+      showBatchPicker: signal(false),
+    };
+    const search = (term: string) =>
+      NewSalePageOfflineFlowService.prototype.searchOfflineCatalog.call(
+        page as unknown as NewSalePageOfflineFlowService,
+        term,
+      );
+    return { page, search };
+  }
+
+  for (const schemaVersion of [1, 2, 3]) {
+    it(`explains refresh at the page consumer for a legacy schema${schemaVersion} catalog`, async () => {
+      snapshotDb.getUsableSnapshotInfo.mockResolvedValue({
+        snapshotId: 'legacy',
+        schemaVersion,
+        completedAt: new Date().toISOString(),
+      });
+      const { page, search } = pageSearch(setup());
+      await search('milk');
+      expect(page.batchSearchError()).toBe('expiry.offline.refresh');
+      expect(page.availableBatches()).toEqual([]);
+      expect(page.showBatchPicker()).toBe(false);
+      expect(page.isSearchingBatches()).toBe(false);
+    });
+  }
+
+  it('explains refresh for an invalidated future catalog and retains the complete issued invoice', async () => {
+    const db = new OfflineSalesSnapshotIndexedDbService();
+    const queue = new OfflineSalesQueueIndexedDbService();
+    const id = crypto.randomUUID();
+    const batch = (await snapshotDb.getUsableBatches('shop-1'))[0];
+    await db.beginAttempt({
+      snapshotId: id,
+      shopId: 'shop-1',
+      schemaVersion: 4,
+      businessTimeZoneId: 'Asia/Kolkata',
+      catalogVersion: 3,
+      startedAt: new Date().toISOString(),
+    });
+    await db.writeBatch(id, 'shop-1', batch);
+    await db.markComplete(id, 'shop-1', new Date().toISOString());
+    const soldAt = '2026-11-08T12:00:00Z';
+    const pricing = calculateOfflineFrozenSale({
+      ...buildSubmitPayload(null),
+      soldAt,
+      saleDiscount: { type: 0, value: 0 },
+      rules: [],
+    });
+    const document = buildOfflineInvoiceDocument({
+      sellerProfile: {
+        seller: {
+          legalName: 'Original shop',
+          tradeName: 'Original shop',
+          address: 'Original address',
+          stateCode: '29',
+          stateName: 'Karnataka',
+          gstin: null,
+          taxRegime: 'Unregistered',
+        },
+        eInvoiceStatus: 'BelowThreshold',
+        seriesCode: 'A',
+      },
+      fiscalYearStart: 2026,
+      soldAt,
+      pricing,
+      customer: null,
+      customerName: null,
+      customerPhone: null,
+    });
+    if (!document.ok) throw new Error('Invalid issued invoice fixture');
+    const payload = {
+      clientSaleId: id,
+      idempotencyKey: id,
+      shopId: 'shop-1',
+      deviceId: 'device-1',
+      invoiceNumber: 'A/2627/000001',
+      soldAt,
+      pricing,
+      document: { ...document.draft, number: 'A/2627/000001' },
+      paymentMethod: 1,
+      customerId: null,
+      customerName: null,
+      customerPhone: null,
+    };
+    await queue.savePendingSale({ ...payload, payload });
+    const before = await queue.getQueuedSale('shop-1', 'device-1', id);
+    await db.invalidateForShop('shop-1');
+    snapshotDb.getUsableSnapshotInfo.mockImplementation((shopId) =>
+      db.getUsableSnapshotInfo(shopId),
+    );
+    const { page, search } = pageSearch(setup());
+    await search('milk');
+    expect(page.batchSearchError()).toBe('expiry.offline.refresh');
+    expect(page.availableBatches()).toEqual([]);
+    expect(page.showBatchPicker()).toBe(false);
+    expect(await queue.getQueuedSale('shop-1', 'device-1', id)).toEqual(before);
+    expect((await queue.getQueuedSale('shop-1', 'device-1', id))?.payload).toEqual(payload);
+  });
+
+  it('shows no matches only for a genuinely empty valid catalog search', async () => {
+    snapshotDb.getUsableServices.mockResolvedValue([]);
+    const { page, search } = pageSearch(setup());
+    await search('no such product');
+    expect(page.batchSearchError()).toBe('sales.newSale.noBatchesFound');
+    expect(page.showBatchPicker()).toBe(false);
+  });
+
+  it('shows refresh rather than Available for otherwise eligible lots after evidence expiry', async () => {
+    const [batch] = await snapshotDb.getUsableBatches('shop-1');
+    snapshotDb.getUsableBatches.mockResolvedValue([
+      {
+        ...batch,
+        expiryCapturedAt: new Date(Date.now() - 172800000).toISOString(),
+        expiryEvidenceExpiresAt: new Date(Date.now() - 1000).toISOString(),
+      },
+    ]);
+    snapshotDb.getUsableServices.mockResolvedValue([]);
+    const { page, search } = pageSearch(setup());
+    await search('milk');
+    expect(page.batchSearchError()).toBe('');
+    expect(page.showBatchPicker()).toBe(true);
+    const [lot] = page.availableBatches();
+    expect(lot.sellability).toMatchObject({ allowed: false, availableQuantity: 0 });
+    expect(lot.availableQuantity).toBe(0);
+    expect(expiryStatusKey(lot.sellability)).toBe('expiry.offline.refresh');
+    const picker = TestBed.runInInjectionContext(() => new BatchPickerDialogComponent());
+    picker.onSelectBatch({ ...lot, kind: 'Goods' } as SellableGoodsDto);
+    expect(picker.selectedBatch).toBeNull();
+    expect(picker.canAdd({ ...lot, kind: 'Goods' } as SellableGoodsDto)).toBe(false);
+  });
+
+  it('keeps refresh guidance on an expired-evidence retained cart preview', async () => {
+    const [batch] = await snapshotDb.getUsableBatches('shop-1');
+    snapshotDb.getUsableBatches.mockResolvedValue([
+      {
+        ...batch,
+        expiryCapturedAt: new Date(Date.now() - 172800000).toISOString(),
+        expiryEvidenceExpiresAt: new Date(Date.now() - 1000).toISOString(),
+      },
+    ]);
+    snapshotDb.getUsableDiscountRules.mockResolvedValue([]);
+    const preview = await setup().buildOfflinePreview(
+      [
+        {
+          clientLineKey: 'line-1',
+          inventoryBatchId: 'batch-1',
+          barcode: 'x',
+          itemName: 'Milk',
+          batchNumber: 'B',
+          quantity: 1,
+          availableQuantity: 10,
+          salesPrice: 50,
+          mrp: 60,
+          costPrice: 40,
+          taxRatePercent: 0,
+          taxIncluded: false,
+          itemDiscountType: 0,
+          itemDiscountValue: 0,
+          hsnCode: null,
+          uom: 'kg',
+          quantityScale: 3,
+          documentUnit: 'KGS',
+        },
+      ],
+      {
+        paymentMethod: 1,
+        paidAmount: 50,
+        customerId: null,
+        customerName: null,
+        customerPhone: null,
+        saleDiscountType: 0,
+        saleDiscountValue: 0,
+      },
+    );
+    const decision = preview.expiryDecisions![0].decision;
+    expect(decision).toMatchObject({ allowed: false, availableQuantity: 0 });
+    expect(expiryStatusKey(decision)).toBe('expiry.offline.refresh');
   });
 
   it('reevaluates a retained cart on the current shop day and refuses offline warning approval', async () => {

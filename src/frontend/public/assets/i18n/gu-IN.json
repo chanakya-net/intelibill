@@ -3031,7 +3031,7 @@
   "expiry": {
     "policyTitle": "સમાપ્તિ નીતિ",
     "version": "નીતિ {{version}} · સૂચિ {{catalog}}",
-    "readiness": "જરૂરી તારીખ નથી: {{missing}} · સમાપ્ત લોટ: {{expired}} · અલગ લોટ: {{quarantine}}",
+    "readiness": "સમાપ્તિ તારીખ વગરના લોટ: {{missing}} · સમાપ્ત લોટ: {{expired}} · અલગ લોટ: {{quarantine}}",
     "readinessLoading": "આ નીતિની તૈયારી તપાસી રહ્યા છીએ…",
     "readinessFailed": "નીતિના આ સંસ્કરણની તૈયારી લોડ થઈ શકી નથી. ફરી પ્રયાસ કરો અથવા નીતિ બદલાઈ હોય તો વિગતો તાજી કરો.",
     "retryReadiness": "તૈયારી ફરી તપાસો",

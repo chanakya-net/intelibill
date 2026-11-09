@@ -3031,7 +3031,7 @@
   "expiry": {
     "policyTitle": "Expiry policy",
     "version": "Policy {{version}} · catalog {{catalog}}",
-    "readiness": "Missing required dates: {{missing}} · expired lots: {{expired}} · quarantine lots: {{quarantine}}",
+    "readiness": "Missing expiry dates: {{missing}} · expired lots: {{expired}} · quarantine lots: {{quarantine}}",
     "readinessLoading": "Refreshing readiness for this policy…",
     "readinessFailed": "Readiness could not be loaded for this policy version. Retry, or refresh details if the policy changed.",
     "retryReadiness": "Retry readiness",

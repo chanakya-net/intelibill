@@ -3031,7 +3031,7 @@
   "expiry": {
     "policyTitle": "মেয়াদের নীতি",
     "version": "নীতি {{version}} · তালিকা {{catalog}}",
-    "readiness": "প্রয়োজনীয় তারিখ নেই: {{missing}} · মেয়াদ শেষ: {{expired}} · পৃথক লট: {{quarantine}}",
+    "readiness": "মেয়াদ শেষের তারিখবিহীন লট: {{missing}} · মেয়াদ শেষ: {{expired}} · পৃথক লট: {{quarantine}}",
     "readinessLoading": "এই নীতির প্রস্তুতি যাচাই হচ্ছে…",
     "readinessFailed": "এই নীতির সংস্করণের প্রস্তুতি লোড করা যায়নি। আবার চেষ্টা করুন, অথবা নীতি বদলালে বিবরণ রিফ্রেশ করুন।",
     "retryReadiness": "প্রস্তুতি আবার যাচাই করুন",

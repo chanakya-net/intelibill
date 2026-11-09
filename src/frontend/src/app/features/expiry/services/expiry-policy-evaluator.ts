@@ -75,6 +75,7 @@ export function evaluateExpiry(
 }
 export function expiryStatusKey(decision?: SellabilityDecision | null): string {
   if (!decision) return 'expiry.status.refresh';
+  if (decision.reasonCode === 'Expiry.OfflineRefreshRequired') return 'expiry.offline.refresh';
   if (decision.requiresApproval) return 'expiry.status.approval';
   const keys: Record<string, string> = {
     'Expiry.RequiredDateMissing': 'required',

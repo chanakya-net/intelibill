@@ -66,6 +66,9 @@
 
 .batch-option-price {
   flex: 0 0 auto;
+  min-width: 0;
+  max-width: 60%;
+  overflow-wrap: anywhere;
   text-align: right;
 }
 
@@ -86,7 +89,7 @@
 
 @media (max-width: 640px) {
   .batch-option-content { flex-direction: column; align-items: stretch; }
-  .batch-option-price { text-align: left; }
+  .batch-option-price { max-width: none; text-align: left; }
   .batch-picker-options {
     max-height: 42vh;
   }
