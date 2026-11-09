@@ -1,0 +1,160 @@
+
+Running 1 test using 1 worker
+
+(node:88689) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 tests/ui-audit/release/accessibility-localization.spec.ts:371:5 › receiving initial/return focus, linked error and unknown Escape recovery (33.3s)
+
+
+  1) tests/ui-audit/release/accessibility-localization.spec.ts:371:5 › receiving initial/return focus, linked error and unknown Escape recovery 
+
+    Error: expect(locator).toHaveAccessibleName(expected) failed
+
+    Locator:  getByRole('dialog').filter({ has: locator('[data-testid="receipt-row"]') }).getByTestId('receipt-row').locator('p-select[formcontrolname="purchaseOrderLineId"]').getByRole('combobox').first()
+    Expected: "Line"
+    Received: "Widget"
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "soft toHaveAccessibleName" with timeout 5000ms
+      - waiting for getByRole('dialog').filter({ has: locator('[data-testid="receipt-row"]') }).getByTestId('receipt-row').locator('p-select[formcontrolname="purchaseOrderLineId"]').getByRole('combobox').first()
+        14 × locator resolved to <span pc426="" pc427="" data-p="" tabindex="0" role="combobox" autofocus="true" aria-label="Widget" aria-disabled="false" aria-expanded="false" class="p-select-label" aria-haspopup="listbox" data-pc-section="label" id="receiving-1-a9e6d6e7-22ac-4a79-997d-e6a93f022661-purchaseOrderLineId">…</span>
+           - unexpected value "Widget"
+
+
+      385 |     .getByRole('combobox');
+      386 |   await expect(selects).toHaveCount(2);
+    > 387 |   await expect.soft(selects.nth(0)).toHaveAccessibleName('Line');
+          |                                     ^
+      388 |   await expect.soft(selects.nth(1)).toHaveAccessibleName('Line');
+      389 |   const selectIds = await selects.evaluateAll((nodes) => nodes.map((el) => el.id));
+      390 |   expect(new Set(selectIds).size).toBe(2);
+        at /Users/chanakya/projects/intelibill/src/frontend/tests/ui-audit/release/accessibility-localization.spec.ts:387:37
+
+    Error: expect(locator).toHaveAccessibleName(expected) failed
+
+    Locator:  getByRole('dialog').filter({ has: locator('[data-testid="receipt-row"]') }).getByTestId('receipt-row').locator('p-select[formcontrolname="purchaseOrderLineId"]').getByRole('combobox').nth(1)
+    Expected: "Line"
+    Received: "Widget"
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "soft toHaveAccessibleName" with timeout 5000ms
+      - waiting for getByRole('dialog').filter({ has: locator('[data-testid="receipt-row"]') }).getByTestId('receipt-row').locator('p-select[formcontrolname="purchaseOrderLineId"]').getByRole('combobox').nth(1)
+        14 × locator resolved to <span pc670="" pc671="" data-p="" tabindex="0" role="combobox" autofocus="true" aria-label="Widget" aria-disabled="false" aria-expanded="false" class="p-select-label" aria-haspopup="listbox" data-pc-section="label" id="receiving-1-3f8a0aed-5547-48cd-9e6b-756d7fac6292-purchaseOrderLineId">…</span>
+           - unexpected value "Widget"
+
+
+      386 |   await expect(selects).toHaveCount(2);
+      387 |   await expect.soft(selects.nth(0)).toHaveAccessibleName('Line');
+    > 388 |   await expect.soft(selects.nth(1)).toHaveAccessibleName('Line');
+          |                                     ^
+      389 |   const selectIds = await selects.evaluateAll((nodes) => nodes.map((el) => el.id));
+      390 |   expect(new Set(selectIds).size).toBe(2);
+      391 |   await activate(
+        at /Users/chanakya/projects/intelibill/src/frontend/tests/ui-audit/release/accessibility-localization.spec.ts:388:37
+
+    Error: expect(locator).toHaveAttribute(expected) failed
+
+    Locator:  getByRole('dialog').filter({ has: locator('[data-testid="receipt-row"]') }).getByTestId('receipt-row').first().locator('p-select[formcontrolname="purchaseOrderLineId"]').getByRole('combobox')
+    Expected: "true"
+    Received: ""
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "soft toHaveAttribute" with timeout 5000ms
+      - waiting for getByRole('dialog').filter({ has: locator('[data-testid="receipt-row"]') }).getByTestId('receipt-row').first().locator('p-select[formcontrolname="purchaseOrderLineId"]').getByRole('combobox')
+        14 × locator resolved to <span pc426="" pc427="" data-p="" tabindex="0" role="combobox" autofocus="true" aria-label="Widget" aria-disabled="false" aria-expanded="false" class="p-select-label" aria-haspopup="listbox" data-pc-section="label" id="receiving-1-a9e6d6e7-22ac-4a79-997d-e6a93f022661-purchaseOrderLineId">…</span>
+           - unexpected value "null"
+
+
+      438 |   ];
+      439 |   for (const field of nativeFields) {
+    > 440 |     await expect.soft(field).toHaveAttribute('aria-invalid', 'true');
+          |                              ^
+      441 |     await expect
+      442 |       .soft(field)
+      443 |       .toHaveAccessibleDescription(tr('en-IN', 'purchaseOrders.receiving.invalidRow'));
+        at /Users/chanakya/projects/intelibill/src/frontend/tests/ui-audit/release/accessibility-localization.spec.ts:440:30
+
+    Error: expect(locator).toHaveAccessibleDescription(expected) failed
+
+    Locator:  getByRole('dialog').filter({ has: locator('[data-testid="receipt-row"]') }).getByTestId('receipt-row').first().locator('p-select[formcontrolname="purchaseOrderLineId"]').getByRole('combobox')
+    Expected: "Check the values in this lot."
+    Received: ""
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "soft toHaveAccessibleDescription" with timeout 5000ms
+      - waiting for getByRole('dialog').filter({ has: locator('[data-testid="receipt-row"]') }).getByTestId('receipt-row').first().locator('p-select[formcontrolname="purchaseOrderLineId"]').getByRole('combobox')
+        14 × locator resolved to <span pc426="" pc427="" data-p="" tabindex="0" role="combobox" autofocus="true" aria-label="Widget" aria-disabled="false" aria-expanded="false" class="p-select-label" aria-haspopup="listbox" data-pc-section="label" id="receiving-1-a9e6d6e7-22ac-4a79-997d-e6a93f022661-purchaseOrderLineId">…</span>
+           - unexpected value ""
+
+
+      441 |     await expect
+      442 |       .soft(field)
+    > 443 |       .toHaveAccessibleDescription(tr('en-IN', 'purchaseOrders.receiving.invalidRow'));
+          |        ^
+      444 |   }
+      445 |   await expect(d).not.toContainText('unsafe field description');
+      446 |   await scan(page, '.p-dialog');
+        at /Users/chanakya/projects/intelibill/src/frontend/tests/ui-audit/release/accessibility-localization.spec.ts:443:8
+
+    Error: expect(locator).toHaveAttribute(expected) failed
+
+    Locator:  getByRole('dialog').filter({ has: locator('[data-testid="receipt-row"]') }).getByTestId('receipt-row').first().locator('p-datepicker[formcontrolname="expiryDate"] input')
+    Expected: "true"
+    Received: ""
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "soft toHaveAttribute" with timeout 5000ms
+      - waiting for getByRole('dialog').filter({ has: locator('[data-testid="receipt-row"]') }).getByTestId('receipt-row').first().locator('p-datepicker[formcontrolname="expiryDate"] input')
+        14 × locator resolved to <input pc431="" pc432="" type="text" pinputtext="" role="combobox" autofocus="true" data-p="invalid" data-p-maskable="" autocomplete="off" aria-expanded="false" aria-haspopup="dialog" data-pc-section="root" aria-autocomplete="none" data-pc-name="pcinputtext" data-pc-extend="inputtext" class="p-datepicker-input p-component p-inputtext p-invalid" id="receiving-1-a9e6d6e7-22ac-4a79-997d-e6a93f022661-expiryDate" aria-describedby="receiving-1-a9e6d6e7-22ac-4a79-997d-e6a93f022661-expiryDate-error-2"/>
+           - unexpected value "null"
+
+
+      438 |   ];
+      439 |   for (const field of nativeFields) {
+    > 440 |     await expect.soft(field).toHaveAttribute('aria-invalid', 'true');
+          |                              ^
+      441 |     await expect
+      442 |       .soft(field)
+      443 |       .toHaveAccessibleDescription(tr('en-IN', 'purchaseOrders.receiving.invalidRow'));
+        at /Users/chanakya/projects/intelibill/src/frontend/tests/ui-audit/release/accessibility-localization.spec.ts:440:30
+
+    Error: expect(locator).toHaveAttribute(expected) failed
+
+    Locator:  getByRole('dialog').filter({ has: locator('[data-testid="receipt-row"]') }).getByTestId('receipt-row').first().locator('p-datepicker[formcontrolname="manufacturingDate"] input')
+    Expected: "true"
+    Received: ""
+    Timeout:  5000ms
+
+    Call log:
+      - Expect "soft toHaveAttribute" with timeout 5000ms
+      - waiting for getByRole('dialog').filter({ has: locator('[data-testid="receipt-row"]') }).getByTestId('receipt-row').first().locator('p-datepicker[formcontrolname="manufacturingDate"] input')
+        14 × locator resolved to <input pc485="" pc486="" type="text" pinputtext="" role="combobox" autofocus="true" data-p="invalid" data-p-maskable="" autocomplete="off" aria-expanded="false" aria-haspopup="dialog" data-pc-section="root" aria-autocomplete="none" data-pc-name="pcinputtext" data-pc-extend="inputtext" class="p-datepicker-input p-component p-inputtext p-invalid" id="receiving-1-a9e6d6e7-22ac-4a79-997d-e6a93f022661-manufacturingDate" aria-describedby="receiving-1-a9e6d6e7-22ac-4a79-997d-e6a93f022661-manufacturingDate-e…/>
+           - unexpected value "null"
+
+
+      438 |   ];
+      439 |   for (const field of nativeFields) {
+    > 440 |     await expect.soft(field).toHaveAttribute('aria-invalid', 'true');
+          |                              ^
+      441 |     await expect
+      442 |       .soft(field)
+      443 |       .toHaveAccessibleDescription(tr('en-IN', 'purchaseOrders.receiving.invalidRow'));
+        at /Users/chanakya/projects/intelibill/src/frontend/tests/ui-audit/release/accessibility-localization.spec.ts:440:30
+
+    Error Context: .ui-audit/receiving-native-red/accessibility-localization-97766-and-unknown-Escape-recovery/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    .ui-audit/receiving-native-red/accessibility-localization-97766-and-unknown-Escape-recovery/trace.zip
+    Usage:
+
+        npx playwright show-trace .ui-audit/receiving-native-red/accessibility-localization-97766-and-unknown-Escape-recovery/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/ui-audit/release/accessibility-localization.spec.ts:371:5 › receiving initial/return focus, linked error and unknown Escape recovery 

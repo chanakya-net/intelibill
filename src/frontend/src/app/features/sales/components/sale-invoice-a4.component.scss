@@ -417,7 +417,7 @@
     max-width: 100%;
     overflow-x: auto;
   }
-  .invoice__items {
+  .invoice__items-scroll > .invoice__items {
     min-width: 42rem;
   }
 }

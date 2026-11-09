@@ -166,10 +166,33 @@ let receivingInstance = 0;
                 </p>
               }
               <label [for]="fieldId(row.controls.clientLineId.value, 'purchaseOrderLineId')">
-                {{ 'purchaseOrders.receiveDialog.line' | transloco }}
+                <span
+                  [id]="fieldId(row.controls.clientLineId.value, 'purchaseOrderLineId') + '-label'"
+                  >{{ 'purchaseOrders.receiveDialog.line' | transloco }}</span
+                >
                 <p-select
                   formControlName="purchaseOrderLineId"
                   [inputId]="fieldId(row.controls.clientLineId.value, 'purchaseOrderLineId')"
+                  [ariaLabelledBy]="
+                    fieldId(row.controls.clientLineId.value, 'purchaseOrderLineId') + '-label'
+                  "
+                  [invalid]="
+                    !!fieldDescription(row.controls.clientLineId.value, 'purchaseOrderLineId')
+                  "
+                  [pt]="{
+                    label: {
+                      'aria-invalid': fieldDescription(
+                        row.controls.clientLineId.value,
+                        'purchaseOrderLineId'
+                      )
+                        ? 'true'
+                        : undefined,
+                      'aria-describedby': fieldDescription(
+                        row.controls.clientLineId.value,
+                        'purchaseOrderLineId'
+                      ),
+                    },
+                  }"
                   [options]="receivableLines"
                   optionLabel="description"
                   optionValue="lineId"
@@ -379,6 +402,12 @@ let receivingInstance = 0;
                           row.controls.clientLineId.value,
                           'expiryDate'
                         ),
+                        'aria-invalid': fieldDescription(
+                          row.controls.clientLineId.value,
+                          'expiryDate'
+                        )
+                          ? 'true'
+                          : undefined,
                       },
                     },
                   }"
@@ -402,6 +431,12 @@ let receivingInstance = 0;
                           row.controls.clientLineId.value,
                           'manufacturingDate'
                         ),
+                        'aria-invalid': fieldDescription(
+                          row.controls.clientLineId.value,
+                          'manufacturingDate'
+                        )
+                          ? 'true'
+                          : undefined,
                       },
                     },
                   }"

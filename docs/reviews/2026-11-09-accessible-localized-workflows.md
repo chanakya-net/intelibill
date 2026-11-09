@@ -25,6 +25,14 @@ Keyboard cases cover scanner Enter without a sale POST, quantity/customer select
 - Product autocomplete empty feedback is translated in all nine bundles. Cart expiry dates use strict locale-aware business-date display; the stored ISO date and quantity/payment parsing are unchanged.
 - A rapid scanner/edit followed by Enter could search the previous parent input value. Enter now reads the current native input while retaining suggestion selection consumption, IME handling and form-default prevention. Its focused regression failed before the fix and passed afterward.
 
+## Post-review regressions
+
+Independent review found that the mobile A4 minimum item-table width also applied to the unwrapped tax-summary table. A balanced regular-tax v2 fixture (CGST ₹9 + SGST ₹9, invoice ₹118, paid ₹68/due ₹50) reproduced 376px document overflow. The minimum width now applies only to the named item-table wrapper. The taxed 320px browser case passes and its screenshot was inspected.
+
+Native receiving probes also confirmed that the selected PO-line combobox was named only “Widget”, and line/date API field errors lacked some native invalid/description attributes. The expanded browser regression failed six native assertions before the fix. A stable visible-label ID now names the actual combobox; supported Select label and DatePicker InputText pass-through attributes expose linked invalid feedback. Repeated row IDs remain distinct, and the test verifies feedback clears before unknown-outcome recovery. The receiving and taxed-print regression cases pass 2/2; full units/build pass again.
+
+A transient unknown outcome can coexist briefly with a separate saving/checking status. The recovery test now targets the actual unknown message and waits for the existing retry control to become enabled before Escape. It passed five repeated focused runs without reducing its exact-key/payload/focus assertions. The final complete release run is pending.
+
 ## Commands and results
 
 Commands run from `src/frontend`; the final full release gate is still running:
@@ -34,7 +42,7 @@ Commands run from `src/frontend`; the final full release gate is still running:
 | `bun run test --watch=false` | Exit 0: 292 files / 2,887 Angular tests; 59 Bun script tests |
 | `bun run build` | Exit 0; production budgets and worker finalization retained |
 | `bun x playwright test --config tests/ui-audit/release/playwright.release.config.ts accessibility-localization.spec.ts` | Exit 0: 13 cases, all nine locales; 194 scoped axe scans per accessibility run, zero violations (3.9 min) |
-| `bun run audit:ui:release` | First full run: 56/57; stale sending-close expectation corrected, affected receiving/keyboard cases 12/12 green; full rerun pending |
+| `bun run audit:ui:release` | First full run: 56/57; stale sending-close expectation corrected, affected receiving/keyboard cases 12/12 green; later native/status and taxed-print regressions fixed with focused checks; final 58-case rerun pending |
 
 The first full release run exposed a stale receiving test that expected Cancel to hide an actively sending dialog. The approved guard correctly refused it. The test now asserts disabled Cancel/Escape refusal, then uses real SPA browser Back to detach the page while the root effect survives. Its original late response still cannot close or overwrite the distinct PO draft. All 12 affected receiving/keyboard cases pass; the complete rerun is pending.
 
@@ -42,6 +50,6 @@ The build retains the repository's warning thresholds. The initial bundle is 743
 
 ## Screenshots and limits
 
-Representative Tamil screenshots are stored in [the evidence directory](2026-11-09-accessible-localized-workflows-evidence/). They show long mixed-script names, desktop and 320px POS/account/receiving/offline review, and 320px A4/thermal issued receipts. Screenshots are inspected visually as supporting evidence; assertions and keyboard actions establish the tested behavior. Named data tables deliberately retain local horizontal scrolling.
+Representative Tamil screenshots are stored in [the evidence directory](2026-11-09-accessible-localized-workflows-evidence/). They show long mixed-script names, desktop and 320px POS/account/receiving/offline review, and 320px A4/thermal issued receipts; an additional English taxed A4 screenshot covers the tax-summary regression. Screenshots are inspected visually as supporting evidence; assertions and keyboard actions establish the tested behavior. Named data tables deliberately retain local horizontal scrolling.
 
 No screen-reader listening session, native-speaker translation approval, manual browser zoom, physical printer/paper measurement, popup-blocker/offline-print fallback browser scenario, or cross-browser testing was performed in this task. The real allowed popup path is tested; existing offline fallback unit/release guards remain. Automated scoped results are not universal WCAG conformance. No production enablement or deployment occurred.

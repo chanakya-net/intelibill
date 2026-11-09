@@ -170,8 +170,61 @@ export const SALE = {
     taxCalculation: 'component-split/1',
   },
 };
+/** A balanced frozen regular-tax invoice exercises the summary table beside the item table. */
+export const TAXED_SALE = {
+  ...SALE,
+  totalBeforeDiscount: 118,
+  totalAmount: 118,
+  totalTaxAmount: 18,
+  paidAmount: 68,
+  items: SALE.items.map((item) => ({
+    ...item,
+    taxRatePercent: 18,
+    taxAmount: 18,
+    totalAmount: 118,
+    hsnCode: '10063020',
+  })),
+  document: {
+    ...SALE.document,
+    documentType: 'TaxInvoice',
+    seller: {
+      ...SALE.document.seller,
+      legalName: 'Frozen Tax Market',
+      stateCode: '27',
+      stateName: 'Maharashtra',
+      gstin: '27AAPFU0939F1ZV',
+      taxRegime: 'Regular',
+    },
+    buyer: { ...SALE.document.buyer, stateCode: '27', stateName: 'Maharashtra' },
+    placeOfSupplyStateCode: '27',
+    placeOfSupplyStateName: 'Maharashtra',
+    lines: SALE.document.lines.map((line) => ({
+      ...line,
+      hsnOrSac: '10063020',
+      taxRatePercent: 18,
+      isExempt: false,
+      taxComponents: [
+        { kind: 'Cgst', ratePercent: 9, taxableBase: 100, amount: 9 },
+        { kind: 'Sgst', ratePercent: 9, taxableBase: 100, amount: 9 },
+      ],
+      lineTotal: 118,
+    })),
+    totals: {
+      taxableValue: 100,
+      exemptValue: 0,
+      components: [
+        { kind: 'Cgst', ratePercent: 9, taxableBase: 100, amount: 9 },
+        { kind: 'Sgst', ratePercent: 9, taxableBase: 100, amount: 9 },
+      ],
+      totalTax: 18,
+      roundingAdjustment: 0,
+      invoiceTotal: 118,
+    },
+  },
+};
 export async function accessibilityFixtures(page: Page) {
   const controls = {
+    taxedPrint: false,
     saleMode: 'accept' as 'accept' | 'drop' | 'hold',
     paymentMode: 'accept' as 'accept' | 'drop' | 'hold' | 'reject',
     salePosts: [] as Record<string, any>[],
@@ -336,7 +389,8 @@ export async function accessibilityFixtures(page: Page) {
       }
       return done();
     }
-    if (path === `/api/sales/${SALE.saleId}`) return json(r, SALE);
+    if (path === `/api/sales/${SALE.saleId}`)
+      return json(r, controls.taxedPrint ? TAXED_SALE : SALE);
     if (path === '/api/offline-reconciliation')
       return json(r, {
         items: [

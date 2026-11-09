@@ -1,12 +1,12 @@
 $ node ./scripts/test-runner.mjs "--watch=false"
 ❯ Building...
-(node:80984) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(node:88946) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
 (Use `node --trace-deprecation ...` to show where the warning was created)
 ✔ Building...
 Initial chunk files                                                                                    | Names                                                                                               |  Raw size
 chunk-IAZUQNSH.js                                                                                      | -                                                                                                   |   3.81 MB | 
 chunk-CGZZCPMD.js                                                                                      | -                                                                                                   | 253.07 kB | 
-chunk-V3LEKLZB.js                                                                                      | -                                                                                                   | 167.69 kB | 
+chunk-M6ZUVP53.js                                                                                      | -                                                                                                   | 167.69 kB | 
 spec-app-features-sales-services-offline-sale-pricing-calculator.js                                    | spec-app-features-sales-services-offline-sale-pricing-calculator                                    | 147.60 kB | 
 chunk-KLVO277F.js                                                                                      | -                                                                                                   | 143.09 kB | 
 chunk-I2QACVK3.js                                                                                      | -                                                                                                   | 141.59 kB | 
@@ -14,31 +14,31 @@ chunk-5Z74DQW7.js                                                               
 chunk-3ILIRM4C.js                                                                                      | -                                                                                                   | 103.81 kB | 
 chunk-OO37LU22.js                                                                                      | -                                                                                                   | 102.44 kB | 
 chunk-JESKFYHQ.js                                                                                      | -                                                                                                   |  99.15 kB | 
-chunk-OIFXXT4J.js                                                                                      | -                                                                                                   |  98.77 kB | 
+chunk-SA2LGJH5.js                                                                                      | -                                                                                                   |  98.85 kB | 
 chunk-FR2USHSS.js                                                                                      | -                                                                                                   |  98.50 kB | 
 chunk-KUAW6N5E.js                                                                                      | -                                                                                                   |  95.77 kB | 
 chunk-CXQPDOHF.js                                                                                      | -                                                                                                   |  93.58 kB | 
 chunk-Y4ZJB6PL.js                                                                                      | -                                                                                                   |  93.34 kB | 
-chunk-NA2OWMVS.js                                                                                      | -                                                                                                   |  90.60 kB | 
-chunk-O5QMX7QT.js                                                                                      | -                                                                                                   |  90.13 kB | 
+chunk-H4XEFR4B.js                                                                                      | -                                                                                                   |  90.60 kB | 
+chunk-BNUDSWHE.js                                                                                      | -                                                                                                   |  90.13 kB | 
+chunk-4TXIZ63L.js                                                                                      | -                                                                                                   |  87.29 kB | 
 chunk-CYTZXYSY.js                                                                                      | -                                                                                                   |  85.39 kB | 
-chunk-AM7WLUZU.js                                                                                      | -                                                                                                   |  84.74 kB | 
-chunk-WHHAZA35.js                                                                                      | -                                                                                                   |  79.69 kB | 
+chunk-ORUJT2ZX.js                                                                                      | -                                                                                                   |  79.69 kB | 
 chunk-ISVDS6GN.js                                                                                      | -                                                                                                   |  77.58 kB | 
 chunk-Y6JJDYDZ.js                                                                                      | -                                                                                                   |  77.47 kB | 
-chunk-CQQRTXRP.js                                                                                      | -                                                                                                   |  76.42 kB | 
-chunk-ULNY5SZL.js                                                                                      | -                                                                                                   |  76.03 kB | 
+chunk-DCYM4SOT.js                                                                                      | -                                                                                                   |  76.42 kB | 
+chunk-7FKUON3Q.js                                                                                      | -                                                                                                   |  76.03 kB | 
 chunk-ECE7T7IW.js                                                                                      | -                                                                                                   |  75.87 kB | 
 chunk-RATLXOAB.js                                                                                      | -                                                                                                   |  70.93 kB | 
-chunk-SVOF5UQR.js                                                                                      | -                                                                                                   |  68.46 kB | 
+chunk-CAGP2OTA.js                                                                                      | -                                                                                                   |  68.46 kB | 
 chunk-2A6LYQER.js                                                                                      | -                                                                                                   |  63.67 kB | 
 chunk-4F7O6BTY.js                                                                                      | -                                                                                                   |  63.00 kB | 
 styles.css                                                                                             | styles                                                                                              |  58.83 kB | 
-chunk-U23KEJ5S.js                                                                                      | -                                                                                                   |  55.08 kB | 
+chunk-BJ6OIAEQ.js                                                                                      | -                                                                                                   |  55.08 kB | 
 spec-app-features-sales-components-sale-invoice-a4.component.js                                        | spec-app-features-sales-components-sale-invoice-a4.component                                        |  54.85 kB | 
 chunk-LD4O5IV2.js                                                                                      | -                                                                                                   |  53.64 kB | 
 chunk-6XS64T3A.js                                                                                      | -                                                                                                   |  52.97 kB | 
-chunk-ZZHQX3QT.js                                                                                      | -                                                                                                   |  52.90 kB | 
+chunk-YLRIEGJQ.js                                                                                      | -                                                                                                   |  52.90 kB | 
 chunk-JSXLCAQN.js                                                                                      | -                                                                                                   |  52.27 kB | 
 chunk-UJOMU4KF.js                                                                                      | -                                                                                                   |  51.43 kB | 
 chunk-SET4C6P4.js                                                                                      | -                                                                                                   |  50.61 kB | 
@@ -62,7 +62,7 @@ spec-app-features-inventory-pages-inventory-batch-page.component.js             
 chunk-273B3Q5Y.js                                                                                      | -                                                                                                   |  38.73 kB | 
 chunk-3DUU6W4N.js                                                                                      | -                                                                                                   |  38.70 kB | 
 chunk-BJZGVMBD.js                                                                                      | -                                                                                                   |  38.06 kB | 
-chunk-ALUNNAGS.js                                                                                      | -                                                                                                   |  37.94 kB | 
+chunk-V7AE5TXA.js                                                                                      | -                                                                                                   |  37.94 kB | 
 chunk-OVJMORTL.js                                                                                      | -                                                                                                   |  37.79 kB | 
 chunk-VIBIRCQH.js                                                                                      | -                                                                                                   |  37.77 kB | 
 chunk-LA327FG5.js                                                                                      | -                                                                                                   |  36.82 kB | 
@@ -86,7 +86,7 @@ spec-app-features-sales-services-offline-sales-queue-sync.service.js            
 spec-app-features-sales-services-offline-sale-finalization.service.js                                  | spec-app-features-sales-services-offline-sale-finalization.service                                  |  26.47 kB | 
 chunk-PYOEJRO7.js                                                                                      | -                                                                                                   |  26.42 kB | 
 spec-app-features-sales-services-sale.service.js                                                       | spec-app-features-sales-services-sale.service                                                       |  26.05 kB | 
-chunk-FIYE4SJZ.js                                                                                      | -                                                                                                   |  25.97 kB | 
+chunk-2IEB5A6Q.js                                                                                      | -                                                                                                   |  25.97 kB | 
 spec-app-features-sales-state-sales.effects.js                                                         | spec-app-features-sales-state-sales.effects                                                         |  25.63 kB | 
 chunk-ZSLL7NBV.js                                                                                      | -                                                                                                   |  25.23 kB | 
 spec-app-features-sales-services-offline-sale-state.service.js                                         | spec-app-features-sales-services-offline-sale-state.service                                         |  24.81 kB | 
@@ -110,7 +110,7 @@ spec-app-core-layout-shell.component.js                                         
 spec-app-features-sales-pages-profit-loss-page-profit-loss-page.component.js                           | spec-app-features-sales-pages-profit-loss-page-profit-loss-page.component                           |  21.53 kB | 
 spec-app-features-purchase-orders-pages-purchase-orders-list-page.component.js                         | spec-app-features-purchase-orders-pages-purchase-orders-list-page.component                         |  21.44 kB | 
 chunk-WSWEKC3O.js                                                                                      | -                                                                                                   |  21.40 kB | 
-chunk-BU4O2GKE.js                                                                                      | -                                                                                                   |  21.30 kB | 
+chunk-CXYFQB7Y.js                                                                                      | -                                                                                                   |  21.30 kB | 
 chunk-ZSPJRVEB.js                                                                                      | -                                                                                                   |  21.16 kB | 
 chunk-CAWDQMIP.js                                                                                      | -                                                                                                   |  20.83 kB | 
 spec-app-features-sales-services-sale-cart-state.service.js                                            | spec-app-features-sales-services-sale-cart-state.service                                            |  20.79 kB | 
@@ -150,7 +150,7 @@ spec-app-app.routes.js                                                          
 spec-app-core-service-worker-protected-cache-migration.service.js                                      | spec-app-core-service-worker-protected-cache-migration.service                                      |  14.45 kB | 
 chunk-HWVOOING.js                                                                                      | -                                                                                                   |  14.45 kB | 
 spec-app-features-shops-state-shops.effects.js                                                         | spec-app-features-shops-state-shops.effects                                                         |  14.32 kB | 
-chunk-WN7XVKFN.js                                                                                      | -                                                                                                   |  14.31 kB | 
+chunk-ZCSFXKYS.js                                                                                      | -                                                                                                   |  14.31 kB | 
 chunk-LMSJLCA5.js                                                                                      | -                                                                                                   |  13.82 kB | 
 chunk-VQCJQHPO.js                                                                                      | -                                                                                                   |  13.78 kB | 
 chunk-6GIWMCSW.js                                                                                      | -                                                                                                   |  13.52 kB | 
@@ -172,7 +172,7 @@ chunk-RFWB22HZ.js                                                               
 chunk-2PPYJYLA.js                                                                                      | -                                                                                                   |  12.39 kB | 
 chunk-B7CPVBCY.js                                                                                      | -                                                                                                   |  12.35 kB | 
 spec-app-features-sales-pages-new-sale-page.search-customer.service.js                                 | spec-app-features-sales-pages-new-sale-page.search-customer.service                                 |  12.23 kB | 
-chunk-KLYNSGX3.js                                                                                      | -                                                                                                   |  12.14 kB | 
+chunk-WPUHOIWH.js                                                                                      | -                                                                                                   |  12.14 kB | 
 spec-app-features-sales-components-new-sale-sale-payment-section.component.js                          | spec-app-features-sales-components-new-sale-sale-payment-section.component                          |  12.12 kB | 
 chunk-WQ4KULAB.js                                                                                      | -                                                                                                   |  11.95 kB | 
 chunk-7SE3ITP3.js                                                                                      | -                                                                                                   |  11.91 kB | 
@@ -186,7 +186,7 @@ spec-app-features-inventory-components-batch-page-batch-row-form.component.js   
 spec-app-features-sales-services-offline-sales-snapshot-sync.service.js                                | spec-app-features-sales-services-offline-sales-snapshot-sync.service                                |  11.46 kB | 
 chunk-OX56GW5O.js                                                                                      | -                                                                                                   |  11.29 kB | 
 spec-app-features-users-pages-account-security-page.component.js                                       | spec-app-features-users-pages-account-security-page.component                                       |  11.12 kB | 
-chunk-UL6ZBEUA.js                                                                                      | -                                                                                                   |  10.88 kB | 
+chunk-5S35Z4E4.js                                                                                      | -                                                                                                   |  10.88 kB | 
 spec-app-features-sales-services-offline-sales-queue-indexeddb.service.js                              | spec-app-features-sales-services-offline-sales-queue-indexeddb.service                              |  10.75 kB | 
 spec-app-features-purchase-orders-services-receiving-draft.service.js                                  | spec-app-features-purchase-orders-services-receiving-draft.service                                  |  10.73 kB | 
 spec-app-features-tills-services-till-dispatch-scope.js                                                | spec-app-features-tills-services-till-dispatch-scope                                                |  10.68 kB | 
@@ -195,7 +195,7 @@ chunk-JORCJ4UX.js                                                               
 spec-app-features-sales-components-sale-detail-sale-cancellation-dialog.component.js                   | spec-app-features-sales-components-sale-detail-sale-cancellation-dialog.component                   |  10.45 kB | 
 chunk-53EL6G62.js                                                                                      | -                                                                                                   |  10.29 kB | 
 spec-app-features-users-state-users.effects.js                                                         | spec-app-features-users-state-users.effects                                                         |  10.25 kB | 
-chunk-KMPUSUZ4.js                                                                                      | -                                                                                                   |  10.19 kB | 
+chunk-PYKZ3ATR.js                                                                                      | -                                                                                                   |  10.19 kB | 
 chunk-UZ2PQIG2.js                                                                                      | -                                                                                                   |  10.08 kB | 
 chunk-CFNWR6TS.js                                                                                      | -                                                                                                   |  10.07 kB | 
 spec-app-core-layout-shell-menu.service.js                                                             | spec-app-core-layout-shell-menu.service                                                             |  10.03 kB | 
@@ -221,7 +221,7 @@ spec-app-features-sales-services-checkout-intent.service.js                     
 chunk-XEJOMZ2F.js                                                                                      | -                                                                                                   |   9.00 kB | 
 spec-app-features-expenses-pages-expenses-page.component.js                                            | spec-app-features-expenses-pages-expenses-page.component                                            |   8.98 kB | 
 spec-app-features-users-state-users.reducer.js                                                         | spec-app-features-users-state-users.reducer                                                         |   8.96 kB | 
-chunk-IRTDCTYF.js                                                                                      | -                                                                                                   |   8.90 kB | 
+chunk-IWIRVMKL.js                                                                                      | -                                                                                                   |   8.90 kB | 
 chunk-Y6EIKXNH.js                                                                                      | -                                                                                                   |   8.90 kB | 
 chunk-PA3CGNDZ.js                                                                                      | -                                                                                                   |   8.87 kB | 
 chunk-A2N6RMTB.js                                                                                      | -                                                                                                   |   8.81 kB | 
@@ -384,7 +384,7 @@ spec-tests-sales-new-sale-page-sale-payment-section.js                          
 spec-tests-sales-new-sale-page-cart-table.js                                                           | spec-tests-sales-new-sale-page-cart-table                                                           |   4.34 kB | 
 spec-app-features-inventory-components-batch-page-batch-hsn-picker-dialog.component.js                 | spec-app-features-inventory-components-batch-page-batch-hsn-picker-dialog.component                 |   4.32 kB | 
 spec-app-features-tills-services-till-sale-recovery.js                                                 | spec-app-features-tills-services-till-sale-recovery                                                 |   4.26 kB | 
-chunk-M4R2E3VP.js                                                                                      | -                                                                                                   |   4.18 kB | 
+chunk-QAWDYQNB.js                                                                                      | -                                                                                                   |   4.18 kB | 
 spec-app-features-tills-pages-till-close-print-page.component.js                                       | spec-app-features-tills-pages-till-close-print-page.component                                       |   4.16 kB | 
 spec-app-features-tills-components-till-posting-fields.component.js                                    | spec-app-features-tills-components-till-posting-fields.component                                    |   4.15 kB | 
 chunk-X5D242AV.js                                                                                      | -                                                                                                   |   4.13 kB | 
@@ -605,26 +605,26 @@ Lazy chunk files                                                                
 chunk-KNVTJRUT.js                                                                                      | till-payment-receipt-page-component                                                                 |  15.85 kB | 
 chunk-GJPTO26I.js                                                                                      | till-expense-reference-page-component                                                               |   9.22 kB | 
 chunk-X663IVEC.js                                                                                      | not-found-page-component                                                                            |   3.47 kB | 
-chunk-NBYOKQFW.js                                                                                      | shell-routes                                                                                        |   3.24 kB | 
-chunk-2N3MCJB6.js                                                                                      | new-sale-page-component                                                                             |   2.96 kB | 
+chunk-CNKDGYGB.js                                                                                      | shell-routes                                                                                        |   3.24 kB | 
+chunk-TTQLGXGR.js                                                                                      | new-sale-page-component                                                                             |   2.96 kB | 
 chunk-QUC7EK2Q.js                                                                                      | sales-page-component                                                                                |   1.76 kB | 
-chunk-TSE5KEG7.js                                                                                      | purchase-order-detail-page-component                                                                |   1.69 kB | 
-chunk-MWGIZJFG.js                                                                                      | purchase-orders-list-page-component                                                                 |   1.63 kB | 
-chunk-YDXE4B2N.js                                                                                      | customers-page-component                                                                            |   1.61 kB | 
-chunk-TFIVIVQE.js                                                                                      | inventory-batch-page-component                                                                      |   1.56 kB | 
+chunk-YAFSC4FQ.js                                                                                      | purchase-order-detail-page-component                                                                |   1.69 kB | 
+chunk-ADPBQMBD.js                                                                                      | purchase-orders-list-page-component                                                                 |   1.63 kB | 
+chunk-7RWG5B74.js                                                                                      | customers-page-component                                                                            |   1.61 kB | 
+chunk-7DHGB2YD.js                                                                                      | inventory-batch-page-component                                                                      |   1.56 kB | 
 chunk-HNIW35AJ.js                                                                                      | suppliers-page-component                                                                            |   1.55 kB | 
 chunk-M4ZXZFF6.js                                                                                      | inventory-batches-list-page-component                                                               |   1.46 kB | 
 chunk-Y6D744WE.js                                                                                      | expenses-page-component                                                                             |   1.43 kB | 
 chunk-ZECBLALZ.js                                                                                      | offline-reconciliation-page-component                                                               |   1.43 kB | 
-chunk-AFVIA2OD.js                                                                                      | sale-invoice-print-page-component                                                                   |   1.42 kB | 
+chunk-GUOS5OPO.js                                                                                      | sale-invoice-print-page-component                                                                   |   1.42 kB | 
 ...and 24 more lazy chunks files. Use "--verbose" to show all the files.
 
-Application bundle generation complete. [7.510 seconds] - 2026-11-09T08:35:48.305Z
+Application bundle generation complete. [7.030 seconds] - 2026-11-09T09:05:50.760Z
 
 
  RUN  v4.1.4 /Users/chanakya/projects/intelibill/src/frontend
 
-(node:81004) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:89013) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
 Sourcemap for "/Users/chanakya/projects/intelibill/src/frontend/node_modules/@zxing/browser/esm/index.js" points to a source file outside its package: "/Users/chanakya/projects/intelibill/src/frontend/node_modules/@zxing/src/index.ts"
 Sourcemap for "/Users/chanakya/projects/intelibill/src/frontend/node_modules/@zxing/browser/esm/common/HTMLCanvasElementLuminanceSource.js" points to a source file outside its package: "/Users/chanakya/projects/intelibill/src/frontend/node_modules/@zxing/src/common/HTMLCanvasElementLuminanceSource.ts"
@@ -638,22 +638,22 @@ Sourcemap for "/Users/chanakya/projects/intelibill/src/frontend/node_modules/@zx
 Sourcemap for "/Users/chanakya/projects/intelibill/src/frontend/node_modules/@zxing/browser/esm/readers/BrowserQRCodeReader.js" points to a source file outside its package: "/Users/chanakya/projects/intelibill/src/frontend/node_modules/@zxing/src/readers/BrowserQRCodeReader.ts"
 Sourcemap for "/Users/chanakya/projects/intelibill/src/frontend/node_modules/@zxing/browser/esm/writers/BrowserCodeSvgWriter.js" points to a source file outside its package: "/Users/chanakya/projects/intelibill/src/frontend/node_modules/@zxing/src/writers/BrowserCodeSvgWriter.ts"
 Sourcemap for "/Users/chanakya/projects/intelibill/src/frontend/node_modules/@zxing/browser/esm/writers/BrowserQRCodeSvgWriter.js" points to a source file outside its package: "/Users/chanakya/projects/intelibill/src/frontend/node_modules/@zxing/src/writers/BrowserQRCodeSvgWriter.ts"
-(node:80996) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:89008) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:80997) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:89019) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:81006) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:89011) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
 
  Test Files  292 passed (292)
       Tests  2887 passed (2887)
-   Start at  14:05:48
-   Duration  8.71s (transform 12.80s, setup 6.03s, import 29.91s, tests 96.13s, environment 106.89s)
+   Start at  14:35:50
+   Duration  7.75s (transform 13.02s, setup 4.81s, import 29.87s, tests 81.92s, environment 101.58s)
 
 bun test v1.3.14 (0d9b296a)
 
 scripts/tests/server-cache-policy.spec.ts:
-(pass) cacheControlFor > revalidates index.html on every load [0.04ms]
+(pass) cacheControlFor > revalidates index.html on every load [0.03ms]
 (pass) cacheControlFor > revalidates index.csr.html on every load
 (pass) cacheControlFor > revalidates ngsw.json on every load
 (pass) cacheControlFor > revalidates ngsw-worker.js on every load
@@ -669,61 +669,61 @@ scripts/tests/server-cache-policy.spec.ts:
 (pass) cacheControlFor > accepts Windows separators
 
 scripts/tests/protected-api-worker.spec.ts:
-(pass) protected-api-worker.js > listens before Angular does, then loads Angular from beside itself [0.40ms]
+(pass) protected-api-worker.js > listens before Angular does, then loads Angular from beside itself [0.38ms]
 (pass) protected-api-worker.js > starts with the marker the build step looks for
-(pass) protected-api-worker.js > answers the isolation query, which an earlier worker at the same URL cannot [0.16ms]
+(pass) protected-api-worker.js > answers the isolation query, which an earlier worker at the same URL cannot [0.17ms]
 (pass) protected-api-worker.js > leaves Angular its own messages ({"action":"CHECK_FOR_UPDATES"}) [0.10ms]
 (pass) protected-api-worker.js > leaves Angular its own messages ({"action":"ACTIVATE_UPDATE"}) [0.09ms]
 (pass) protected-api-worker.js > leaves Angular its own messages (null) [0.07ms]
 (pass) protected-api-worker.js > leaves Angular its own messages ("text") [0.08ms]
-(pass) protected-api-worker.js > hands https://shop.test/api/customers to the network without Angular [0.15ms]
+(pass) protected-api-worker.js > hands https://shop.test/api/customers to the network without Angular [0.14ms]
 (pass) protected-api-worker.js > hands https://shop.test/api/sales/123?include=lines to the network without Angular [0.09ms]
-(pass) protected-api-worker.js > hands https://shop.test/api/ping?ngsw-bypass=true to the network without Angular [0.08ms]
+(pass) protected-api-worker.js > hands https://shop.test/api/ping?ngsw-bypass=true to the network without Angular [0.07ms]
 (pass) protected-api-worker.js > hands https://shop.test/hubs/products/negotiate?negotiateVersion=1 to the network without Angular [0.10ms]
-(pass) protected-api-worker.js > leaves https://shop.test/ to Angular [0.09ms]
+(pass) protected-api-worker.js > leaves https://shop.test/ to Angular [0.08ms]
 (pass) protected-api-worker.js > leaves https://shop.test/sales/new to Angular [0.08ms]
 (pass) protected-api-worker.js > leaves https://shop.test/main-ABC123.js to Angular [0.08ms]
-(pass) protected-api-worker.js > leaves https://shop.test/assets/i18n/en-IN.json to Angular [0.07ms]
+(pass) protected-api-worker.js > leaves https://shop.test/assets/i18n/en-IN.json to Angular [0.08ms]
 (pass) protected-api-worker.js > leaves https://shop.test/apis/customers to Angular [0.07ms]
-(pass) protected-api-worker.js > leaves https://cdn.test/api/customers to Angular [0.07ms]
-(pass) protected-api-worker.js > empties and removes exactly the legacy protected caches on activation [0.45ms]
-(pass) protected-api-worker.js > still activates when the cache storage fails [0.16ms]
+(pass) protected-api-worker.js > leaves https://cdn.test/api/customers to Angular [0.06ms]
+(pass) protected-api-worker.js > empties and removes exactly the legacy protected caches on activation [0.42ms]
+(pass) protected-api-worker.js > still activates when the cache storage fails [0.12ms]
 
 scripts/tests/finalize-service-worker.spec.ts:
-(pass) finalizeServiceWorker > publishes the wrapper at the registered URL and Angular beside it [0.81ms]
-(pass) finalizeServiceWorker > can run twice without wrapping the wrapper [0.50ms]
-(pass) finalizeServiceWorker > refuses a build without a worker [0.17ms]
-(pass) finalizeServiceWorker > refuses to replace a worker it does not recognise [0.26ms]
-(pass) finalizeServiceWorker > refuses a wrapper whose Angular worker went missing [0.27ms]
+(pass) finalizeServiceWorker > publishes the wrapper at the registered URL and Angular beside it [0.59ms]
+(pass) finalizeServiceWorker > can run twice without wrapping the wrapper [0.48ms]
+(pass) finalizeServiceWorker > refuses a build without a worker [0.16ms]
+(pass) finalizeServiceWorker > refuses to replace a worker it does not recognise [0.24ms]
+(pass) finalizeServiceWorker > refuses a wrapper whose Angular worker went missing [0.24ms]
 
 scripts/tests/audit-unused-styles.spec.ts:
-(pass) static first-party style usage audit > builds a complete deterministic scenario catalog from the route manifest [4.84ms]
-(pass) static first-party style usage audit > persists and reloads per-scenario coverage artifacts with metadata [4.49ms]
-(pass) static first-party style usage audit > redacts captured stylesheet text without shifting Chromium coverage offsets [4.26ms]
-(pass) static first-party style usage audit > maps covered and uncovered runtime ranges to normalized entries [3.58ms]
-(pass) static first-party style usage audit > merges static and runtime evidence into conservative dispositions [20.18ms]
-(pass) static first-party style usage audit > fails closed when the scenario catalog is incomplete [164.91ms]
-(pass) static first-party style usage audit > renders merged static/runtime evidence in redacted JSON and HTML [7.49ms]
-(pass) static first-party style usage audit > inventories active, alternate, component, inline, Sass, template, TypeScript, and configuration sources [4.67ms]
-(pass) static first-party style usage audit > matches Angular, TypeScript, keyframe, variable, and Sass references with locations [3.88ms]
-(pass) static first-party style usage audit > resolves namespaced Sass includes to the mixin name [4.19ms]
-(pass) static first-party style usage audit > matches classes inside Angular control-flow and deferred blocks [3.65ms]
-(pass) static first-party style usage audit > retains selectors matching TypeScript template-literal class prefixes [3.31ms]
-(pass) static first-party style usage audit > matches custom properties referenced from TypeScript and Angular style bindings [3.05ms]
-(pass) static first-party style usage audit > emits used, removable-candidate, and conservative uncertain dispositions [2.76ms]
-(pass) static first-party style usage audit > renders equivalent redacted JSON and HTML evidence with the required schema [2.92ms]
-(pass) static first-party style usage audit > writes only redacted audit artifacts and preserves every style source byte-for-byte [10.05ms]
+(pass) static first-party style usage audit > builds a complete deterministic scenario catalog from the route manifest [4.49ms]
+(pass) static first-party style usage audit > persists and reloads per-scenario coverage artifacts with metadata [6.99ms]
+(pass) static first-party style usage audit > redacts captured stylesheet text without shifting Chromium coverage offsets [3.88ms]
+(pass) static first-party style usage audit > maps covered and uncovered runtime ranges to normalized entries [3.56ms]
+(pass) static first-party style usage audit > merges static and runtime evidence into conservative dispositions [19.12ms]
+(pass) static first-party style usage audit > fails closed when the scenario catalog is incomplete [159.66ms]
+(pass) static first-party style usage audit > renders merged static/runtime evidence in redacted JSON and HTML [7.02ms]
+(pass) static first-party style usage audit > inventories active, alternate, component, inline, Sass, template, TypeScript, and configuration sources [3.58ms]
+(pass) static first-party style usage audit > matches Angular, TypeScript, keyframe, variable, and Sass references with locations [3.53ms]
+(pass) static first-party style usage audit > resolves namespaced Sass includes to the mixin name [3.10ms]
+(pass) static first-party style usage audit > matches classes inside Angular control-flow and deferred blocks [3.76ms]
+(pass) static first-party style usage audit > retains selectors matching TypeScript template-literal class prefixes [3.21ms]
+(pass) static first-party style usage audit > matches custom properties referenced from TypeScript and Angular style bindings [3.14ms]
+(pass) static first-party style usage audit > emits used, removable-candidate, and conservative uncertain dispositions [2.80ms]
+(pass) static first-party style usage audit > renders equivalent redacted JSON and HTML evidence with the required schema [2.91ms]
+(pass) static first-party style usage audit > writes only redacted audit artifacts and preserves every style source byte-for-byte [9.83ms]
 
 scripts/tests/run-ui-audit.spec.ts:
-(pass) run-ui-audit > keeps Vitest unit specs out of baseline discovery when Playwright flags are forwarded [382.32ms]
+(pass) run-ui-audit > keeps Vitest unit specs out of baseline discovery when Playwright flags are forwarded [377.00ms]
 
 scripts/tests/ngsw-config.spec.ts:
-(pass) ngsw-config.json > protected_api_not_in_generated_data_groups [0.68ms]
+(pass) ngsw-config.json > protected_api_not_in_generated_data_groups [0.67ms]
 (pass) ngsw-config.json > never lists or matches a protected URL in an asset group [0.15ms]
-(pass) ngsw-config.json > keeps the app shell and its assets available to the worker [0.10ms]
+(pass) ngsw-config.json > keeps the app shell and its assets available to the worker [0.12ms]
 (pass) ngsw-config.json > never answers a navigation to a protected path with the app shell [0.17ms]
 
  59 pass
  0 fail
  504 expect() calls
-Ran 59 tests across 6 files. [781.00ms]
+Ran 59 tests across 6 files. [754.00ms]

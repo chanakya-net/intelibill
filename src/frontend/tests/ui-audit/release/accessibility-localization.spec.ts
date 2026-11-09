@@ -119,9 +119,12 @@ async function capture(page: Page, lang: string, mode: string, view: string) {
   await page
     .locator('.p-datatable-table-container')
     .evaluateAll((nodes) => nodes.forEach((el) => (el.scrollLeft = 0)));
-  await page.evaluate(()=>window.scrollTo(0,0));
+  await page.evaluate(() => window.scrollTo(0, 0));
   await settle(page);
-  await page.screenshot({ path: `${EVIDENCE}/${lang}-${mode}-${view}.png`, fullPage: view==='pos' || view==='offline-review' });
+  await page.screenshot({
+    path: `${EVIDENCE}/${lang}-${mode}-${view}.png`,
+    fullPage: view === 'pos' || view === 'offline-review',
+  });
 }
 async function activate(l: Locator) {
   await expect(l).toBeEnabled();
@@ -374,7 +377,42 @@ test('receiving initial/return focus, linked error and unknown Escape recovery',
     d.locator('[data-dialog-initial-focus]'),
     await page.evaluate(() => document.activeElement?.outerHTML),
   ).toBeFocused();
-  const row = d.getByTestId('receipt-row').first();
+  const rows = d.getByTestId('receipt-row');
+  const row = rows.first();
+  await activate(d.getByRole('button', { name: 'Add another lot', exact: true }));
+  const selects = rows
+    .locator('p-select[formcontrolname="purchaseOrderLineId"]')
+    .getByRole('combobox');
+  await expect(selects).toHaveCount(2);
+  await expect.soft(selects.nth(0)).toHaveAccessibleName('Line');
+  await expect.soft(selects.nth(1)).toHaveAccessibleName('Line');
+  const selectIds = await selects.evaluateAll((nodes) => nodes.map((el) => el.id));
+  expect(new Set(selectIds).size).toBe(2);
+  await activate(
+    rows
+      .nth(1)
+      .getByRole('button', {
+        name: tr('en-IN', 'purchaseOrders.receiveDialog.removeLine'),
+        exact: true,
+      }),
+  );
+  await expect(rows).toHaveCount(1);
+  const receiptUrl = `**/api/purchase-orders/${PO}/receipts`;
+  const fieldRejection = async (route: import('@playwright/test').Route) => {
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      json: {
+        ...(await response.json()),
+        errors: [
+          { code: 'Lines[0].PurchaseOrderLineId', description: 'unsafe field description' },
+          { code: 'Lines[0].ExpiryDate', description: 'unsafe field description' },
+          { code: 'Lines[0].ManufacturingDate', description: 'unsafe field description' },
+        ],
+      },
+    });
+  };
+  await page.context().route(receiptUrl, fieldRejection);
   await row.locator('app-inventory-barcode-field input').first().fill('A11Y');
   await row.locator('[formcontrolname="batchNumber"]').fill('LOT-A11Y');
   for (const [name, value] of Object.entries({
@@ -393,16 +431,38 @@ test('receiving initial/return focus, linked error and unknown Escape recovery',
     'true',
   );
   await expect(row.locator('[formcontrolname="batchNumber"]')).toHaveAccessibleDescription(/.+/);
+  const nativeFields = [
+    row.locator('p-select[formcontrolname="purchaseOrderLineId"]').getByRole('combobox'),
+    row.locator('p-datepicker[formcontrolname="expiryDate"] input'),
+    row.locator('p-datepicker[formcontrolname="manufacturingDate"] input'),
+  ];
+  for (const field of nativeFields) {
+    await expect.soft(field).toHaveAttribute('aria-invalid', 'true');
+    await expect
+      .soft(field)
+      .toHaveAccessibleDescription(tr('en-IN', 'purchaseOrders.receiving.invalidRow'));
+  }
+  await expect(d).not.toContainText('unsafe field description');
   await scan(page, '.p-dialog');
+  await page.context().unroute(receiptUrl, fieldRejection);
   server.setMode('drop');
   await activate(d.getByRole('button', { name: /Receive$/ }));
-  await expect(d.getByRole('status')).toContainText('Receipt outcome is unknown');
+  await expect(
+    d.getByRole('status').filter({ hasText: 'Receipt outcome is unknown' }),
+  ).toBeVisible();
+  for (const field of nativeFields) {
+    await expect(field).not.toHaveAttribute('aria-invalid', 'true');
+    await expect(field).not.toHaveAttribute('aria-describedby', /.+/);
+  }
   const original = server.posts.at(-1)!.raw;
+  await expect(d.getByRole('button', { name: 'Retry same receipt', exact: true })).toBeEnabled();
   await page.keyboard.press('Escape');
   await expect(d).toBeHidden();
   await expect(opener).toBeFocused();
   await activate(opener);
-  await expect(d.getByRole('status')).toContainText('Receipt outcome is unknown');
+  await expect(
+    d.getByRole('status').filter({ hasText: 'Receipt outcome is unknown' }),
+  ).toBeVisible();
   await activate(d.getByRole('button', { name: 'Retry same receipt', exact: true }));
   await expect.poll(() => server.posts.length).toBe(3);
   expect(server.posts.at(-1)!.raw).toBe(original);
@@ -436,4 +496,20 @@ test('repeated product and lot controls preserve separate line identities', asyn
   await expect(controlsInCart).toHaveCount(1);
   await expect(controlsInCart).toHaveValue('2');
   expect(controls.salePosts).toHaveLength(0);
+});
+
+test('taxed A4 summary remains readable at 320px beside the scrollable item table', async ({
+  page,
+}) => {
+  controls.taxedPrint = true;
+  await page.setViewportSize({ width: 320, height: 900 });
+  await page.goto(`${server.origin}/sales/${SALE.saleId}/print?template=a4`);
+  await expect(page.locator('.invoice-document')).toContainText('Frozen Tax Market');
+  await expect(page.locator('.invoice__tax-summary-table tbody tr')).toHaveCount(2);
+  await expect(page.locator('.invoice__tax-summary')).toContainText('₹9.00');
+  await expect(page.locator('.invoice__totals')).toContainText('₹118.00');
+  await scan(page, '.invoice-print-page');
+  await layout(page, page.locator('.invoice-print-page'));
+  mkdirSync(EVIDENCE, { recursive: true });
+  await page.screenshot({ path: `${EVIDENCE}/en-IN-mobile-taxed-a4.png`, fullPage: true });
 });
