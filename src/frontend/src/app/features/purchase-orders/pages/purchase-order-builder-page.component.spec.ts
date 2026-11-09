@@ -1,3 +1,4 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
@@ -32,7 +33,9 @@ describe('PurchaseOrderBuilderPageComponent', () => {
   const session = signal({ activeShopId: 'shop-1' });
   const canManagePurchaseOrders = signal(true);
   const records = new Map<string, PurchaseOrderDraftRecord>();
+  const localizedError = signal<LocalizedError | undefined>(undefined);
   const facade = {
+    localizedError,
     selectedOrder,
     isSubmitting: signal(false),
     errorMessage: signal(''),
@@ -57,6 +60,7 @@ describe('PurchaseOrderBuilderPageComponent', () => {
   };
 
   beforeEach(() => {
+    localizedError.set(undefined);
     selectedOrder.set(null);
     suppliers.set([]);
     records.clear();
@@ -108,6 +112,19 @@ describe('PurchaseOrderBuilderPageComponent', () => {
 
   afterEach(() => {
     TestBed.resetTestingModule();
+  });
+
+  it('renders recognized builder field errors on native supplier and reference inputs', async () => {
+    const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+    localizedError.set({messageKey:'apiErrors.validationFailed',params:{},fieldErrors:['supplierName','supplierReferenceNumber','expectedDeliveryDate'].map(field => ({field,messageKey:'apiErrors.invalidField',params:{}}))});
+    fixture.detectChanges(); await fixture.whenStable(); fixture.detectChanges();
+    for (const [field, selector] of [['supplierName','p-autocomplete[formcontrolname="supplierName"] input'],['supplierReferenceNumber','input[formcontrolname="supplierReferenceNumber"]'],['expectedDeliveryDate','p-datepicker[formcontrolname="expectedDeliveryDate"] input']]) {
+      const input = fixture.nativeElement.querySelector(selector) as HTMLInputElement;
+      expect(input.getAttribute('aria-invalid')).toBe('true');
+      expect(input.getAttribute('aria-describedby')).toBe('po-builder-' + field + '-error');
+      const description = fixture.nativeElement.querySelector('#po-builder-' + field + '-error');
+      expect(description?.textContent).toContain('apiErrors.invalidField');
+    }
   });
 
   it('preserves supplier id when detail loads before supplier suggestions and another header field is autosaved', async () => {

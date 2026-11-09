@@ -50,3 +50,5 @@ export const selectLocalizedError = createSelector(
   salesFeature.selectSalesState,
   (state) => state.localizedError,
 );
+
+export const selectReturnPreviewLocalizedError = salesFeature.selectReturnPreviewLocalizedError;

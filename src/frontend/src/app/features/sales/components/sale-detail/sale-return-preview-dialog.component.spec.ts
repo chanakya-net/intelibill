@@ -1,3 +1,5 @@
+import type { LocalizedError } from '../../../../core/i18n/api-error-message.service';
+import { SaleVoidReturnDialogComponent } from './sale-void-return-dialog.component';
 import { disabledTillProviders } from '../../../../../tests/tills/disabled-till.providers';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
@@ -22,6 +24,7 @@ const enIN = JSON.parse(
 ) as Record<string, unknown>;
 
 class SalesFacadeStub {
+  readonly returnPreviewLocalizedError = signal<LocalizedError | undefined>(undefined);
   readonly returnPreview = signal<SaleReturnPreviewDto | null>(null);
   readonly loadingReturnPreview = signal(false);
   readonly submitting = signal(false);
@@ -163,6 +166,28 @@ async function createComponent() {
 }
 
 describe('SaleReturnPreviewDialogComponent', () => {
+  it('renders safe references with preview, record and void return failure keys', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = makeSale(); component.visible = true; fixture.detectChanges();
+    for (const reference of ['preview-ref','record-ref']) {
+      facade.returnPreviewErrorMessage.set('errors.sales.returnPreviewFailed');
+      facade.returnPreviewLocalizedError.set({messageKey:'errors.sales.returnPreviewFailed',params:{},fieldErrors:[],correlationId:reference});
+      fixture.detectChanges();
+      expect(fixture.nativeElement.textContent).toContain('Support reference: ' + reference);
+    }
+    const voidFixture = TestBed.createComponent(SaleVoidReturnDialogComponent);
+    voidFixture.componentInstance.saleReturn = {saleReturnId:'ret-1',returnNumber:'RET-1'} as never;
+    voidFixture.componentInstance.visible = true;
+    facade.returnPreviewErrorMessage.set('errors.sales.returnVoidFailed');
+    facade.returnPreviewLocalizedError.set({messageKey:'errors.sales.returnVoidFailed',params:{},fieldErrors:[],correlationId:'void-ref'});
+    voidFixture.detectChanges();
+    expect(voidFixture.nativeElement.textContent).toContain('Support reference: void-ref');
+    facade.returnPreviewLocalizedError.set(undefined); facade.returnPreviewErrorMessage.set(null);
+    fixture.detectChanges(); voidFixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('Support reference:');
+    expect(voidFixture.nativeElement.textContent).not.toContain('Support reference:');
+  });
+
   it('allows selecting service line without condition input and sends null condition payload', async () => {
     const { fixture, component, facade } = await createComponent();
     component.sale = makeSale();

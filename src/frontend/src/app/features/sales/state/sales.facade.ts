@@ -1,3 +1,4 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { selectLocalizedError } from './sales.selectors';
 import { inject, Injectable, Signal } from '@angular/core';
 import { Store } from '@ngrx/store';
@@ -56,6 +57,7 @@ export class SalesFacade {
   readonly returnPreviewErrorMessage: Signal<string> = this.store.selectSignal(
     SalesSelectors.selectReturnPreviewErrorMessage,
   );
+  readonly returnPreviewLocalizedError: Signal<LocalizedError | undefined> = this.store.selectSignal(SalesSelectors.selectReturnPreviewLocalizedError);
   readonly profitLossItems: Signal<readonly ProfitLossReportItemDto[]> = this.store.selectSignal(
     SalesSelectors.selectProfitLossItems,
   );

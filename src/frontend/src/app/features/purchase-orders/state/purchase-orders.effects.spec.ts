@@ -76,6 +76,13 @@ describe('PurchaseOrdersEffects', () => {
     vi.unstubAllGlobals();
   });
 
+  it('maps supplier validation paths to actual builder form controls', async () => {
+    service.getPurchaseOrderDetail.mockReturnValue(throwError(() => ({ error: { code: 'Validation.Failed', errors: { SupplierId:['raw'], SupplierReference:['raw'], SupplierReferenceNumber:['raw'], Unknown:['raw'] } } })));
+    const output = firstValueFrom(effects.loadDetail$.pipe(take(1)));
+    actions$.next(PurchaseOrdersActions.loadPurchaseOrderDetailRequested({purchaseOrderId:'po1'}));
+    expect(await output).toMatchObject({localizedError:{fieldErrors:[{field:'supplierName',messageKey:'apiErrors.invalidField',params:{}},{field:'supplierReferenceNumber',messageKey:'apiErrors.invalidField',params:{}}]}});
+  });
+
   it('keeps only safe localized feedback and reference metadata from hostile errors', async () => {
     service.getPurchaseOrderDetail.mockReturnValue(
       throwError(() => ({

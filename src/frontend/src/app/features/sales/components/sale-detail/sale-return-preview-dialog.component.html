@@ -246,7 +246,8 @@
 
             @if (previewError()) {
               <div class="return-preview-alert is-error" role="alert">
-                {{ previewError() | transloco }}
+                {{ previewError() | transloco: previewLocalizedError()?.params ?? {} }}
+          @if (previewLocalizedError()?.correlationId; as reference) { <p>{{ 'apiErrors.supportReference' | transloco: { reference } }}</p> }
               </div>
             }
 

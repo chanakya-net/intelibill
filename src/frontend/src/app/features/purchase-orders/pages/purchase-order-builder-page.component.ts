@@ -85,7 +85,7 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
           <label>
             <span>{{ 'purchaseOrders.builder.supplier' | transloco }}</span>
             <p-autocomplete
-              formControlName="supplierName"
+              formControlName="supplierName" [invalid]="!!fieldError('supplierName')" [pt]="fieldInputPt('supplierName')"
               [suggestions]="supplierNameSuggestions()"
               (completeMethod)="onSupplierSearch($event)"
               appendTo="body"
@@ -108,7 +108,7 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
             <span>{{ 'purchaseOrders.builder.expectedDeliveryDate' | transloco }}</span>
             <p-datepicker
               ngSkipHydration
-              formControlName="expectedDeliveryDate"
+              formControlName="expectedDeliveryDate" [invalid]="!!fieldError('expectedDeliveryDate')" [pt]="fieldInputPt('expectedDeliveryDate')"
               dateFormat="dd/mm/yy"
               [showIcon]="true"
               [showButtonBar]="true"
@@ -118,12 +118,15 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
           </label>
           <label>
             <span>{{ 'purchaseOrders.builder.supplierReferenceNumber' | transloco }}</span>
-            <input pInputText type="text" formControlName="supplierReferenceNumber" />
+            <input pInputText type="text" formControlName="supplierReferenceNumber" [attr.aria-invalid]="fieldError('supplierReferenceNumber') ? 'true' : null" [attr.aria-describedby]="fieldError('supplierReferenceNumber') ? 'po-builder-supplierReferenceNumber-error' : null" />
           </label>
           <label class="po-builder__notes">
             <span>{{ 'purchaseOrders.builder.notes' | transloco }}</span>
             <textarea pTextarea rows="3" formControlName="notes"></textarea>
           </label>
+          @for (error of localizedError()?.fieldErrors ?? []; track error.field) {
+            @if (form.contains(error.field)) { <small class="po-builder__error" [id]="'po-builder-' + error.field + '-error'">{{ error.messageKey | transloco: error.params }}</small> }
+          }
         </form>
 
         <app-purchase-order-line-form (lineSubmitted)="addLine($event)" />
@@ -330,6 +333,11 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   protected readonly facade = inject(PurchaseOrdersFacade);
   readonly localizedError =
     this.facade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
+
+  fieldError(field: string) { return this.localizedError()?.fieldErrors.find(error => error.field === field); }
+  fieldInputPt(field: string) {
+    return {pcInputText: {root: {'aria-invalid': this.fieldError(field) ? 'true' : undefined, 'aria-describedby': this.fieldError(field) ? 'po-builder-' + field + '-error' : undefined}}};
+  }
 
   @Input() purchaseOrderId: string | null = null;
   @Output() readonly closeRequested = new EventEmitter<void>();

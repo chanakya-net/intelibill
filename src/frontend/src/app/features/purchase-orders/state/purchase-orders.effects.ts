@@ -396,8 +396,10 @@ export class PurchaseOrdersEffects {
       fallbackKey,
       codeMap: PURCHASE_ORDER_ERROR_KEYS,
       fieldMap: {
-        SupplierId: 'supplierId',
-        SupplierReference: 'supplierReference',
+        SupplierId: 'supplierName',
+        SupplierName: 'supplierName',
+        SupplierReference: 'supplierReferenceNumber',
+        SupplierReferenceNumber: 'supplierReferenceNumber',
         ExpectedDeliveryDate: 'expectedDeliveryDate',
       },
     });

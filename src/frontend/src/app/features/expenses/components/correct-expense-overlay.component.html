@@ -51,13 +51,11 @@
         <span>{{ 'expenses.category' | transloco }}</span>
         <p-select
           formControlName="categoryName"
-          [invalid]="!!fieldError('categoryName')"
+          [invalid]="controlInvalid('categoryName')"
           [pt]="{
             label: {
-              'aria-describedby': fieldError('categoryName')
-                ? 'correct-expense-overlay-categoryName-error'
-                : undefined,
-              'aria-invalid': fieldError('categoryName') ? 'true' : undefined,
+              'aria-describedby': controlDescriptions('categoryName', 'correct-category-error'),
+              'aria-invalid': controlInvalid('categoryName') ? 'true' : undefined,
             },
           }"
           [options]="selectableCategories()"
@@ -66,10 +64,6 @@
           [placeholder]="'expenses.category' | transloco"
           [editable]="true"
           [fluid]="true"
-          [attr.aria-invalid]="
-            form.controls.categoryName.touched && form.controls.categoryName.invalid
-          "
-          aria-describedby="correct-category-error"
         ></p-select>
         @if (form.controls.categoryName.touched && form.controls.categoryName.invalid) {
           <p id="correct-category-error" class="field-error">{{ 'common.required' | transloco }}</p>
@@ -84,18 +78,11 @@
           }}</p-inputgroup-addon>
           <p-inputNumber
             formControlName="amount"
-            [ariaDescribedBy]="
-              fieldError('amount') ? 'correct-expense-overlay-amount-error' : undefined
-            "
-            [invalid]="fieldError('amount') ? true : false"
             mode="decimal"
             [min]="0"
             [maxFractionDigits]="2"
             [fluid]="true"
-            [pt]="currencyInputPt"
-            [attr.aria-invalid]="form.controls.amount.touched && form.controls.amount.invalid"
-            aria-describedby="correct-amount-error"
-          ></p-inputNumber>
+           [invalid]="controlInvalid('amount')" [ariaDescribedBy]="controlDescriptions('amount', 'correct-amount-error')" [pt]="controlInputPt('amount', 'correct-amount-error', currencyInputPt)"></p-inputNumber>
         </p-inputgroup>
         @if (form.controls.amount.touched && form.controls.amount.invalid) {
           <p id="correct-amount-error" class="field-error">{{ 'common.required' | transloco }}</p>
@@ -108,13 +95,7 @@
           pInputText
           type="text"
           formControlName="paidTo"
-          [attr.aria-describedby]="
-            fieldError('paidTo') ? 'correct-expense-overlay-paidTo-error' : null
-          "
-          [attr.aria-invalid]="fieldError('paidTo') ? true : null"
-          [attr.aria-invalid]="form.controls.paidTo.touched && form.controls.paidTo.invalid"
-          aria-describedby="correct-paid-to-error"
-        />
+         [attr.aria-invalid]="controlInvalid('paidTo') ? 'true' : null" [attr.aria-describedby]="controlDescriptions('paidTo', 'correct-paid-to-error')" />
         @if (form.controls.paidTo.touched && form.controls.paidTo.invalid) {
           <p id="correct-paid-to-error" class="field-error">{{ 'common.required' | transloco }}</p>
         }
@@ -136,7 +117,7 @@
       <label>
         <span>{{ 'expenses.expenseDate' | transloco }}</span>
         <p-datePicker
-          formControlName="expenseDate"
+          formControlName="expenseDate" [invalid]="controlInvalid('expenseDate')" [pt]="controlInputPt('expenseDate')"
           dateFormat="yy-mm-dd"
           [showIcon]="true"
           [showButtonBar]="true"
