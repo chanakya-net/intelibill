@@ -58,6 +58,9 @@ export const appConfig: ApplicationConfig = {
     provideHttpClient(withFetch(), withInterceptors([httpLoadingInterceptor, authInterceptor])),
     providePrimeNG({
       ripple: true,
+      // Shop setup/management overlays use z-index 1200. Body-mounted dropdowns and
+      // their tooltips must sit above those forms to remain visible and clickable.
+      zIndex: { modal: 1100, overlay: 1300, menu: 1000, tooltip: 1400 },
       theme: {
         preset: enterprisePreset,
         options: {

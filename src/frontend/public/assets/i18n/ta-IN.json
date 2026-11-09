@@ -196,6 +196,7 @@
       "invoiceCount": "இன்வாய்ஸ்கள்",
       "netProfit": "நிகர லாபம்",
       "lowStockItems": "குறைந்த ஸ்டாக் பொருட்கள்",
+      "calculationDetails": "கணக்கீட்டு விவரங்கள்",
       "vsPreviousPeriod": "முந்தைய காலத்திற்கு எதிராக"
     },
     "charts": {

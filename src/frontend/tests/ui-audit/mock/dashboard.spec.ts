@@ -30,6 +30,60 @@ const CHART_LEGEND_BAND_RATIO = 0.15;
 const CHART_MIN_PAINTED_RATIO = 0.001;
 
 test.describe('dashboard', () => {
+  for (const state of ['normal', 'empty'] as const) {
+    test(`styles profit and cancellation summaries for ${state} data`, async ({ page }, testInfo) => {
+      await openDashboard(page, createDashboardScenario({ state }));
+      await page.screenshot({ path: testInfo.outputPath('dashboard-summary.png'), fullPage: true });
+
+      const economics = page.getByTestId('dashboard-economics');
+      const cancellation = page.getByTestId('cancellation-summary');
+      await expect(economics).toBeVisible();
+      await expect(economics).toContainText('Full-period classified operating profit');
+      await expect(cancellation).toContainText(state === 'empty' ? '₹0.00' : '₹200.00');
+      await expect(economics).toContainText(state === 'empty' ? '₹0.00' : '₹48,168.75');
+      await expect(page.getByText('Uses recorded goods costs.', { exact: false })).toBeVisible();
+
+      // These summaries used to be unstyled paragraphs below the card grid.
+      for (const summary of [economics, cancellation]) {
+        const inset = await summary.evaluate((element) => parseFloat(getComputedStyle(element).paddingLeft));
+        expect(inset).toBeGreaterThanOrEqual(12);
+      }
+
+      const details = page.locator('app-dashboard-kpi-cards details');
+      const limitation = details.getByText('Historical cost snapshots are preserved.');
+      await expect(details).not.toHaveAttribute('open');
+      await expect(limitation).toBeHidden();
+      await details.locator('summary').focus();
+      await page.keyboard.press('Enter');
+      await expect(limitation).toBeVisible();
+      await expect(details.locator('ul')).toHaveCSS('list-style-type', 'disc');
+      await assertDashboardBounds(page, page.viewportSize()!.width);
+      await details.locator('summary').press('Space');
+      await expect(limitation).toBeHidden();
+    });
+  }
+
+  test('keeps unavailable operating profit and its review reason visible', async ({ page }) => {
+    const base = createDashboardScenario();
+    const scenario: DashboardScenario = {
+      ...base,
+      dashboard: {
+        ...base.dashboard!,
+        economics: {
+          ...base.dashboard!.economics!,
+          operatingProfit: null,
+          operatingProfitStatus: 'UnclassifiedExpenses',
+          unclassifiedExpenseCount: 1,
+          unclassifiedExpenseAmount: 20,
+        },
+      },
+    };
+    await openDashboard(page, scenario);
+    await expect(page.getByTestId('dashboard-economics')).toContainText('Not available');
+    await expect(page.getByText('Classify remaining expenses to see operating profit')).toBeVisible();
+    await assertDashboardBounds(page, page.viewportSize()!.width);
+  });
+
   test('redirects staff to sales and renders dashboard for management roles', async ({}, testInfo) => {
     test.skip(testInfo.project.name !== 'chromium-mobile', 'representative role profiles');
 

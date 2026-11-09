@@ -67,6 +67,10 @@ export async function installDashboardFixture(
   await page.route(`${API_BASE}/dashboard**`, async (route) => {
     await handleDashboardRoute(route, scenario);
   });
+  // Staff are redirected to sales, which also loads the default-off till capability.
+  await page.route(`${API_BASE}/tills/capabilities`, (route) => route.fulfill({
+    json: { enabled: false, mixedTenderEnabled: false, businessDate: '2026-07-29' },
+  }));
 }
 
 export function filterDeclaredDashboardFailures(
@@ -148,6 +152,29 @@ function createDashboard(state: Exclude<DashboardState, 'loading' | 'error'>): D
     profitBeforeTax: empty ? 0 : value / 3,
     profitAfterTax: empty ? 0 : value / 4,
     netProfit: empty ? 0 : value / 4,
+    cancellationAmount: empty ? 0 : 200,
+    cancellationCount: empty ? 0 : 1,
+    economics: {
+      version: 2,
+      costBasis: 'recorded-sale-cost/1',
+      netSalesExcludingTax: empty ? 0 : value,
+      cogs: empty ? 0 : value / 2,
+      stockLoss: 0,
+      returnedGoodsWastageIncludedInCogs: 0,
+      grossTradingProfit: empty ? 0 : value / 2,
+      operatingExpenses: empty ? 0 : value / 8,
+      operatingProfit: empty ? 0 : value * 3 / 8,
+      grossMarginPercent: empty ? null : 50,
+      markupPercent: empty ? null : 100,
+      unclassifiedExpenseCount: 0,
+      unclassifiedExpenseAmount: 0,
+      operatingProfitStatus: 'Complete',
+      limitations: [
+        'purchase-tax-recoverability-unmodeled',
+        'historical-cost-snapshots-preserved',
+        'receipt-cost-corrections-not-revalued',
+      ],
+    },
     netProfitChangePercent: empty ? null : large ? 987_654_321.9 : 12.5,
     expenseRecorded: empty ? 0 : value / 8,
     expenseCorrection: 0,

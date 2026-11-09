@@ -196,6 +196,7 @@
       "invoiceCount": "ఇన్‌వాయిస్‌లు",
       "netProfit": "నికర లాభం",
       "lowStockItems": "తక్కువ స్టాక్ వస్తువులు",
+      "calculationDetails": "గణన వివరాలు",
       "vsPreviousPeriod": "vs మునుపటి కాలం"
     },
     "charts": {

@@ -1,6 +1,6 @@
 import { ExpiryPolicyFormComponent } from '../../expiry/components/expiry-policy-form.component';
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnInit, Output, computed, effect, inject, signal } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnInit, Output, afterRenderEffect, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { FormsModule, ReactiveFormsModule, FormBuilder } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -69,6 +69,7 @@ export class ManageShopOverlayComponent implements OnInit {
 
   readonly selectedShopRole = signal('');
   readonly activeStep = signal(1);
+  private readonly stepper = viewChild('stepper', { read: ElementRef<HTMLElement> });
   readonly isUpdatePending = signal(false);
   readonly isBankDetailsPending = signal(false);
   readonly isTaxProfilePending = signal(false);
@@ -110,6 +111,14 @@ export class ManageShopOverlayComponent implements OnInit {
   }
 
   constructor() {
+    afterRenderEffect({
+      write: () => {
+        // Start each step at the top; ordinary field edits keep their scroll position.
+        this.activeStep();
+        const stepper = this.stepper()?.nativeElement;
+        if (stepper) stepper.scrollTop = 0;
+      },
+    });
     effect(() => {
       const details = this.selectedShopDetails();
       if (!details || details.shopId !== this.form.controls.shopId.value) return;

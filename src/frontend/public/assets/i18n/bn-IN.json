@@ -196,6 +196,7 @@
       "invoiceCount": "চালান",
       "netProfit": "নিট লাভ",
       "lowStockItems": "কম স্টক আইটেম",
+      "calculationDetails": "হিসাবের বিবরণ",
       "vsPreviousPeriod": "পূর্ববর্তী সময়ের বনাম"
     },
     "charts": {

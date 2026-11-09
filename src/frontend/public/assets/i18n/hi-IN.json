@@ -196,6 +196,7 @@
       "invoiceCount": "चालान",
       "netProfit": "शुद्ध लाभ",
       "lowStockItems": "कम स्टॉक वाले आइटम",
+      "calculationDetails": "गणना का विवरण",
       "vsPreviousPeriod": "बनाम पिछली अवधि"
     },
     "charts": {

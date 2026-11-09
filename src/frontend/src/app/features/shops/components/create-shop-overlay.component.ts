@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, OnInit, Output, effect, inject, signal } from '@angular/core';
+import { Component, ElementRef, EventEmitter, OnInit, Output, afterRenderEffect, effect, inject, signal, viewChild } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
@@ -61,6 +61,7 @@ export class CreateShopOverlayComponent implements OnInit {
   readonly lastMutationSucceeded = this.store.selectSignal(selectShopsLastMutationSucceeded);
 
   readonly activeStep = signal(1);
+  private readonly stepper = viewChild('stepper', { read: ElementRef<HTMLElement> });
   readonly isCreatePending = signal(false);
   readonly isBankDetailsPending = signal(false);
 
@@ -100,6 +101,14 @@ export class CreateShopOverlayComponent implements OnInit {
   };
 
   constructor() {
+    afterRenderEffect({
+      write: () => {
+        // Start each step at the top; ordinary field edits keep their scroll position.
+        this.activeStep();
+        const stepper = this.stepper()?.nativeElement;
+        if (stepper) stepper.scrollTop = 0;
+      },
+    });
     effect(() => {
       const mutationType = this.lastMutationType();
       const succeeded = this.lastMutationSucceeded();

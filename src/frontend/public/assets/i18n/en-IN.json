@@ -196,6 +196,7 @@
       "invoiceCount": "Invoices",
       "netProfit": "Net Profit",
       "lowStockItems": "Low Stock Items",
+      "calculationDetails": "Calculation details",
       "vsPreviousPeriod": "vs previous period"
     },
     "charts": {

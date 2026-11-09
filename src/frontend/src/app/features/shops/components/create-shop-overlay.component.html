@@ -29,7 +29,7 @@
       ></button>
     </header>
 
-    <p-stepper [(value)]="activeStep" class="overlay-stepper">
+    <p-stepper #stepper [(value)]="activeStep" class="overlay-stepper">
       <p-step-list>
         <p-step [value]="1">
           <ng-template #content let-value="value">
