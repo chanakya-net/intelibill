@@ -537,5 +537,131 @@ h1 {
   }
 }
 
-.economics-notes { padding: 1rem 1.25rem; border-radius: 1rem; background: #f4f5ed; color: #334438; margin-bottom: 1rem; font-size: .875rem; }
-.economics-notes ul { margin: .5rem 0 0; padding-left: 1.25rem; }
+.economics-notes {
+  min-width: 0;
+  border: 1px solid #eadccf;
+  border-radius: 1rem;
+  background: #fff9f2;
+  box-shadow: 0 8px 22px rgba(85, 49, 18, 0.06);
+  overflow-wrap: anywhere;
+}
+
+.economics-notes__summaries {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.economics-notes__summary {
+  display: grid;
+  align-content: start;
+  gap: 0.4rem;
+  min-width: 0;
+  padding: 0.85rem 1rem;
+}
+
+.economics-notes__summary + .economics-notes__summary {
+  border-left: 1px solid #eadccf;
+}
+
+.economics-notes__status {
+  margin: 0;
+  color: #8b4510;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.economics-notes__status--complete {
+  color: #23633b;
+}
+
+.economics-notes__value {
+  margin: 0;
+  color: #271911;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.economics-notes__review {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #eadccf;
+  background: #fff4df;
+  color: #7a4b20;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.economics-notes__review a,
+.economics-notes__details summary {
+  color: #8b4510;
+  font-weight: 700;
+}
+
+.economics-notes__review a {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.economics-notes__footer {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #eadccf;
+  color: #6f655d;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.economics-notes__basis {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0;
+
+  .pi {
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+    font-size: 0.8rem;
+  }
+}
+
+.economics-notes__details summary {
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.25rem 0;
+  cursor: pointer;
+}
+
+.economics-notes__details summary:focus-visible,
+.economics-notes__review a:focus-visible {
+  outline: 2px solid #c05621;
+  outline-offset: 3px;
+  border-radius: 0.2rem;
+}
+
+.economics-notes__details ul {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.5rem 0 0;
+  padding-left: 1.15rem;
+  list-style: disc;
+}
+
+@media (max-width: 640px) {
+  .economics-notes__summaries {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .economics-notes__summary + .economics-notes__summary {
+    border-left: 0;
+    border-top: 1px solid #eadccf;
+  }
+}

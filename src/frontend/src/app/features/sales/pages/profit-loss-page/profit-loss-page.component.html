@@ -28,22 +28,52 @@
 
   @if (economics(); as e) {
     <aside class="economics-notes" aria-live="polite">
-      <p>{{ 'sales.profitLoss.economics.basis' | transloco }}</p>
-      <p>{{ 'sales.profitLoss.status.' + e.operatingProfitStatus | transloco }}</p>
+      <div class="economics-notes__summaries">
+        <div class="economics-notes__summary">
+          <p class="kpi-label">{{ 'sales.profitLoss.economics.operating' | transloco }}</p>
+          <p
+            class="economics-notes__status"
+            [class.economics-notes__status--complete]="e.operatingProfitStatus === 'Complete'"
+          >
+            {{ 'sales.profitLoss.status.' + e.operatingProfitStatus | transloco }}
+          </p>
+        </div>
+        <div class="economics-notes__summary">
+          <p class="kpi-label">{{ 'sales.profitLoss.economics.returnWastage' | transloco }}</p>
+          <p class="economics-notes__value">
+            {{ totalAmount(e.returnedGoodsWastageIncludedInCogs) }}
+          </p>
+        </div>
+      </div>
       @if (e.unclassifiedExpenseCount > 0) {
-        <p>{{ 'sales.profitLoss.economics.unclassified' | transloco: { count: e.unclassifiedExpenseCount, amount: totalAmount(e.unclassifiedExpenseAmount) } }}
+        <p class="economics-notes__review">
+          <span>{{
+            'sales.profitLoss.economics.unclassified'
+              | transloco
+                : {
+                    count: e.unclassifiedExpenseCount,
+                    amount: totalAmount(e.unclassifiedExpenseAmount),
+                  }
+          }}</span>
           <a href="/expenses">{{ 'sales.profitLoss.economics.reviewExpenses' | transloco }}</a>
         </p>
       }
-      <p>
-        {{ 'sales.profitLoss.economics.returnWastage' | transloco }}:
-        {{ totalAmount(e.returnedGoodsWastageIncludedInCogs) }}
-      </p>
-      <ul>
-        @for (limitation of e.limitations; track limitation) {
-          <li>{{ 'sales.profitLoss.limitations.' + limitation | transloco }}</li>
+      <div class="economics-notes__footer">
+        <p class="economics-notes__basis">
+          <i class="pi pi-info-circle" aria-hidden="true"></i>
+          <span>{{ 'sales.profitLoss.economics.basis' | transloco }}</span>
+        </p>
+        @if (e.limitations.length > 0) {
+          <details class="economics-notes__details">
+            <summary>{{ 'dashboard.kpis.calculationDetails' | transloco }}</summary>
+            <ul>
+              @for (limitation of e.limitations; track limitation) {
+                <li>{{ 'sales.profitLoss.limitations.' + limitation | transloco }}</li>
+              }
+            </ul>
+          </details>
         }
-      </ul>
+      </div>
     </aside>
   }
 
@@ -192,20 +222,31 @@
                   <th>{{ 'sales.profitLoss.table.date' | transloco }}</th>
                   <th>{{ 'sales.profitLoss.table.type' | transloco }}</th>
                   <th>{{ 'sales.profitLoss.table.customer' | transloco }}</th>
-                  <th class="text-right">{{ 'sales.profitLoss.economics.netSales' | transloco }}</th>
+                  <th class="text-right">
+                    {{ 'sales.profitLoss.economics.netSales' | transloco }}
+                  </th>
                   <th class="text-right">{{ 'sales.profitLoss.economics.cogs' | transloco }}</th>
-                  <th class="text-right">{{ 'sales.profitLoss.economics.stockLoss' | transloco }}</th>
+                  <th class="text-right">
+                    {{ 'sales.profitLoss.economics.stockLoss' | transloco }}
+                  </th>
                   <th class="text-right">{{ 'sales.profitLoss.economics.trading' | transloco }}</th>
-                  <th class="text-right">{{ 'sales.profitLoss.economics.returnWastage' | transloco }}</th>
+                  <th class="text-right">
+                    {{ 'sales.profitLoss.economics.returnWastage' | transloco }}
+                  </th>
                   <th class="text-right">{{ 'sales.profitLoss.economics.margin' | transloco }}</th>
                   <th class="text-right">{{ 'sales.profitLoss.economics.markup' | transloco }}</th>
                 </tr>
               </ng-template>
               <ng-template pTemplate="body" let-item>
                 <tr>
-                  <td class="font-bold">{{ item.referenceNumber }}
-                    @if (item.isReversal) { <small>{{ 'sales.profitLoss.economics.reversal' | transloco }}</small> }
-                    @if (item.needsAccountingReview) { <small>{{ 'sales.profitLoss.status.AccountingReview' | transloco }}</small> }
+                  <td class="font-bold">
+                    {{ item.referenceNumber }}
+                    @if (item.isReversal) {
+                      <small>{{ 'sales.profitLoss.economics.reversal' | transloco }}</small>
+                    }
+                    @if (item.needsAccountingReview) {
+                      <small>{{ 'sales.profitLoss.status.AccountingReview' | transloco }}</small>
+                    }
                   </td>
                   <td>{{ item.occurredAt | date: 'dd MMM yyyy, h:mm a' }}</td>
                   <td>
@@ -223,7 +264,9 @@
                       }}</span>
                     }
                   </td>
-                  <td class="text-right">{{ totalAmount(item.economics?.netSalesExcludingTax) }}</td>
+                  <td class="text-right">
+                    {{ totalAmount(item.economics?.netSalesExcludingTax) }}
+                  </td>
                   <td class="text-right">{{ totalAmount(item.economics?.cogs) }}</td>
                   <td class="text-right">{{ totalAmount(item.economics?.stockLoss) }}</td>
                   <td class="text-right">
@@ -234,12 +277,18 @@
                   </td>
                   <td class="text-right">
                     <p-tag
-                      [severity]="getProfitSeverity(item.economics?.returnedGoodsWastageIncludedInCogs ?? 0)"
+                      [severity]="
+                        getProfitSeverity(item.economics?.returnedGoodsWastageIncludedInCogs ?? 0)
+                      "
                       [value]="totalAmount(item.economics?.returnedGoodsWastageIncludedInCogs)"
                     ></p-tag>
                   </td>
-                  <td class="text-right">{{ formatMarginPercent(item.economics?.grossMarginPercent) }}</td>
-                  <td class="text-right">{{ formatMarginPercent(item.economics?.markupPercent) }}</td>
+                  <td class="text-right">
+                    {{ formatMarginPercent(item.economics?.grossMarginPercent) }}
+                  </td>
+                  <td class="text-right">
+                    {{ formatMarginPercent(item.economics?.markupPercent) }}
+                  </td>
                 </tr>
               </ng-template>
               <ng-template pTemplate="emptymessage">
@@ -304,16 +353,21 @@
                   </p>
                   <p>
                     <strong>{{ 'sales.profitLoss.economics.returnWastage' | transloco }}:</strong>
-                    <span [class.negative]="(item.economics?.returnedGoodsWastageIncludedInCogs ?? 0) < 0">{{
-                      totalAmount(item.economics?.returnedGoodsWastageIncludedInCogs)
-                    }}</span>
+                    <span
+                      [class.negative]="
+                        (item.economics?.returnedGoodsWastageIncludedInCogs ?? 0) < 0
+                      "
+                      >{{ totalAmount(item.economics?.returnedGoodsWastageIncludedInCogs) }}</span
+                    >
                   </p>
                   <p class="margin">
                     <strong>{{ 'sales.profitLoss.economics.margin' | transloco }}:</strong>
                     <span>{{ formatMarginPercent(item.economics?.grossMarginPercent) }}</span>
                   </p>
-                  <p><strong>{{ 'sales.profitLoss.economics.markup' | transloco }}:</strong>
-                    <span>{{ formatMarginPercent(item.economics?.markupPercent) }}</span></p>
+                  <p>
+                    <strong>{{ 'sales.profitLoss.economics.markup' | transloco }}:</strong>
+                    <span>{{ formatMarginPercent(item.economics?.markupPercent) }}</span>
+                  </p>
                 </div>
               </article>
             }

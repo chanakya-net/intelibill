@@ -1,8 +1,80 @@
 .summary-box {
-  background: #fafafa;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
+  background: #fffaf4;
+  border: 1px solid #eadccf;
+  border-radius: 1rem;
+  padding: 1rem;
+  min-width: 0;
+}
+
+.checkout-economics {
+  margin-bottom: 1rem;
+  padding: 0.85rem;
+  border: 1px solid #dce4d7;
+  border-radius: 0.75rem;
+  background: #f4f5ed;
+}
+
+.checkout-economics__metrics {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.checkout-economics__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  align-items: baseline;
+  gap: 0.75rem;
+  color: #5f695c;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+
+  dt,
+  dd {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  dd {
+    margin: 0;
+    color: #271911;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+  }
+}
+
+.checkout-economics__profit {
+  padding-top: 0.6rem;
+  border-top: 1px solid #dce4d7;
+  font-size: 0.875rem;
+
+  dt,
+  dd {
+    color: #23633b;
+    font-weight: 700;
+  }
+
+  &--negative dt,
+  &--negative dd {
+    color: #b42318;
+  }
+}
+
+.checkout-economics__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0.75rem 0 0;
+  color: #5f695c;
+  font-size: 0.75rem;
+  line-height: 1.5;
+
+  .pi {
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+    font-size: 0.75rem;
+  }
 }
 
 .sale-discount-row {
