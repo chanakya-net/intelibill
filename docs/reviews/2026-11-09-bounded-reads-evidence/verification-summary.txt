@@ -1,6 +1,7 @@
 Bounded reads verification — 2026-11-09
-Task4 tests/docs commit dd86b2ae; final whole-branch review remains separate.
-Only original result/metric excerpts are preserved below; no full diagnostic logs or SQL parameters.
+Task4 tests/docs dd86b2ae; last reviewed product correction1278fe06.
+Independent whole-branch/scoped re-review approved; final browser condition satisfied.
+Only original result/metric excerpts follow; no full diagnostic logs or SQL parameters.
 
 Full backend, settled6617e690; no later backend product changes
 Source: /tmp/intelibill-bounded-backend-final.log
@@ -9,13 +10,13 @@ Passed!  - Failed:     0, Passed:  1802, Skipped:     0, Total:  1802, Duration:
 Passed!  - Failed:     0, Passed:   587, Skipped:     0, Total:   587, Duration: 1 s - Intelibill.Api.Unit.Tests.dll (net10.0)
 Passed!  - Failed:     0, Passed:  1136, Skipped:     0, Total:  1136, Duration: 23 m 42 s - Intelibill.Integration.Tests.dll (net10.0)
 
-Full frontend,2052873c
-Source: /tmp/intelibill-bounded-frontend-final.log
+Final full frontend,1278fe06
+Source: /tmp/intelibill-bounded-final-fix-frontend.log
  Test Files  294 passed (294)
-      Tests  2917 passed (2917)
+      Tests  2918 passed (2918)
  59 pass
  0 fail
-Ran 59 tests across 6 files. [789.00ms]
+Ran 59 tests across 6 files. [758.00ms]
 
 Adversarial/accounting focused integration
 Source: /tmp/task4-bounded-final.log
@@ -36,13 +37,15 @@ Total tests: 4
      Passed: 4
  Total time: 43.1945 Seconds
 
-Final production release audit,2052873c frontend unchanged
+Final production release audit, rebuilt1278fe06
 Source: /tmp/intelibill-bounded-release-final.log
   58 passed (6.8m)
 
 EF model check:
 No changes have been made to the model since the last migration.
 
-Production build: exit0; /tmp/intelibill-bounded-browser-build.log.
-Telugu browser repeat:3/3 passed over desktop/mobile/reflow; /tmp/intelibill-bounded-browser-te-repeat.log.
+Final production build: exit0; /tmp/intelibill-bounded-final-fix-build.log.
+Final intake identity regression: red1failed/27passed, focused70passed; /tmp/intelibill-bounded-final-fix-{red,focused}.log.
+Earlier widget-specific Telugu repeat:3/3passed; /tmp/intelibill-bounded-browser-te-repeat.log.
+Final58-test audit above supersedes the earlier2052873c release run.
 Near-limit memory samples are local process observations, not production/concurrency capacity.

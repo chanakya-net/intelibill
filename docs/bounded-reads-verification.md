@@ -149,22 +149,29 @@ rendering-library behavior still need environment-specific measurement.
   directory assertions: `/tmp/task4-memory-final.log`, `/tmp/task4-memory-final.trx`. Existing dashboard/P&L regression coverage is included in the full backend run.
 - EF `has-pending-model-changes --no-build --project src/backend/Intelibill.Infrastructure
   --startup-project src/backend/Intelibill.Api`:exit0, no changes; `/tmp/task4-pending-model.log`.
-- Final frontend2052873c:294 files /2,917 tests plus59 worker/style checks passed;
-  `/tmp/intelibill-bounded-frontend-final.log`. Production build passed,
-  `/tmp/intelibill-bounded-browser-build.log`, retaining existing bundle/stylesheet budget warnings.
+- Final frontend1278fe06:294 files /2,918 tests plus59 worker/style checks passed;
+  `/tmp/intelibill-bounded-final-fix-frontend.log`. Production build passed,
+  `/tmp/intelibill-bounded-final-fix-build.log`, retaining existing bundle/stylesheet budget warnings.
 - Independent Task1/Task2 reviews approved. Task3's four P2 findings were fixed and re-reviewed:
   intake restore ownership, PO supplier-only restoration, supplier payment current-page refresh and
   offline transition during POS debounce. Their focused regression run passed1,715 tests.
+- Independent whole-branch review then found one P2: stock intake inferred a supplier ID from a bare
+  name appearing unique within only the20-result page. Fix1278fe06 removes that fallback while
+  preserving explicit ID-bearing labels and selected/restored/product-default identities. The
+  real21-party/20-result regression failed1/28 before the fix;70 focused tests and the final full
+  frontend/build passed after it. Scoped re-review approved the correction and branch code,
+  with all findings addressed. Its final release-audit/evidence condition was satisfied below.
 - Release diagnosis separated a real stale widget timer/loading bug from a full-page axe scan whose
   post-interaction scroll left a control partly under the sticky header. The widget fix has2 red
   behavioral tests followed by12 green; the audit now awaits real popup closure and normalizes the
   full-page viewport, retaining all axe rules. Telugu repeated3/3 passed across desktop/mobile/reflow;
   `/tmp/intelibill-bounded-browser-{red,green,te-repeat}.log`.
-- Final production release audit on the2052873c frontend passed58/58 in6.8minutes, exit0;
-  `/tmp/intelibill-bounded-release-final.log`. The frontend was unchanged by Task4 tests/docs.
+- Final production release audit on rebuilt1278fe06 passed58/58 in6.8minutes, exit0;
+  `/tmp/intelibill-bounded-release-final.log`. This supersedes the earlier2052873c browser result.
   [Final captures and compact original result excerpts](reviews/2026-11-09-bounded-reads-evidence/README.md)
-  preserve the evidence; earlier committed accessibility screenshots were restored unchanged.
-  Independent whole-branch review remains a separate gate.
+  preserve the final evidence; all generated changes to prior accessibility screenshots were restored.
+  Independent whole-branch review and scoped re-review are approved, with all findings addressed
+  and the final browser condition satisfied.
 
 Local `/tmp` logs are execution artifacts; the linked evidence directory retains compact original
 summaries and final captures. This document records the reviewable contracts, counts and limitations.
