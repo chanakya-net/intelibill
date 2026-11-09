@@ -1,3 +1,4 @@
+import { DialogFocusDirective } from '../../../../shared/accessibility/dialog-focus';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { DialogModule } from 'primeng/dialog';
@@ -22,7 +23,7 @@ export interface CreateSaleResponse {
 @Component({
   selector: 'app-sale-confirmation-dialog',
   standalone: true,
-  imports: [CommonModule, DialogModule, ButtonModule, TranslocoPipe],
+  imports: [DialogFocusDirective, CommonModule, DialogModule, ButtonModule, TranslocoPipe],
   templateUrl: './sale-confirmation-dialog.component.html',
   styleUrl: './sale-confirmation-dialog.component.scss',
 })

@@ -1,3 +1,4 @@
+import { DialogFocusDirective } from '../../../shared/accessibility/dialog-focus';
 import { TillPendingActionsComponent } from '../../tills/components/till-pending-actions.component';
 import { ViewChild } from '@angular/core';
 import { TillPostingFieldsComponent } from '../../tills/components/till-posting-fields.component';
@@ -104,6 +105,7 @@ interface CustomerDirectoryMetric {
   selector: 'app-customers-page',
   standalone: true,
   imports: [
+    DialogFocusDirective,
     TillPendingActionsComponent,
     TillPostingFieldsComponent,
     CommonModule,
@@ -499,12 +501,12 @@ export class CustomersPageComponent {
   }
 
   onCloseCustomerAccount(): void {
+    if (this.submittingPayment() || this.submittingReversal() || this.isCheckingPayment()) return;
     this.showAccountOverlay.set(false);
     this.accountLoading.set(false);
     this.accountError.set('');
     this.selectedAccountCustomer.set(null);
     this.selectedAccount.set(null);
-    this.submittingPayment.set(false);
   }
 
   onRecordPayment(): void {

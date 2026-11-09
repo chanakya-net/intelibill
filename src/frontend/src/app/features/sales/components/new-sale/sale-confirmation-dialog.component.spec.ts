@@ -9,6 +9,19 @@ import { CreateSaleResponse, SaleConfirmationDialogComponent } from './sale-conf
 const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8')) as Record<string, unknown>;
 
 describe('SaleConfirmationDialogComponent', () => {
+  it('focuses confirmation and restores a detached opener to the page fallback', async () => {
+    TestBed.configureTestingModule({ imports: [SaleConfirmationDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })] });
+    const opener = document.createElement('button');
+    const fallback = document.createElement('h1'); fallback.tabIndex = -1; fallback.dataset['dialogFocusFallback'] = '';
+    document.body.append(opener, fallback); opener.focus();
+    const fixture = TestBed.createComponent(SaleConfirmationDialogComponent);
+    fixture.componentRef.setInput('visible', true); fixture.detectChanges(); await fixture.whenStable();
+    expect(fixture.nativeElement.querySelector('[role="dialog"]')?.contains(document.activeElement)).toBe(true);
+    opener.remove();
+    fixture.componentRef.setInput('visible', false); fixture.detectChanges(); await fixture.whenStable();
+    expect(document.activeElement).toBe(fallback);
+    fallback.remove();
+  });
   const sale: CreateSaleResponse = {
     saleId: 'sale-1',
     invoiceNumber: 'INV-001',

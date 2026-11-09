@@ -4,7 +4,7 @@ import { isValidShopZone } from '../utils/offline-sales-snapshot.schema';
 import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, DestroyRef, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, DestroyRef, ElementRef, Injector, afterNextRender, inject, signal } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -67,6 +67,15 @@ export class NewSalePageComponent implements OnInit, OnDestroy {
   private readonly expiryPolicies = inject(ExpiryPolicyService);
   private readonly expirySnapshots = inject(OfflineSalesSnapshotIndexedDbService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly element = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
+  readonly validationRequested = signal(false);
+  readonly invalidCheckoutFieldId = signal<string | null>(null);
+
+  get checkoutValidationMessage(): string {
+    return this.vm.paymentSplitError() || (this.validationRequested() && (this.vm.customerForm.invalid || this.vm.paymentForm.invalid)
+      ? 'sales.newSale.validationSummary' : '');
+  }
 
   private rolloverTimer?: ReturnType<typeof setTimeout>;
   private watchShopDate(zone: string): void {
@@ -198,7 +207,15 @@ export class NewSalePageComponent implements OnInit, OnDestroy {
   }
 
   onPaymentSubmitRequested(): void {
+    this.validationRequested.set(true);
     this.vm.onPaymentSubmitRequested();
+    afterNextRender(() => {
+      const summary = this.element.nativeElement.querySelector<HTMLElement>('[data-checkout-error-summary]');
+      if (!summary) return;
+      const field = this.element.nativeElement.querySelector<HTMLInputElement>('app-sale-payment-section input[aria-invalid="true"], app-sale-customer-section input[aria-invalid="true"], input.ng-invalid');
+      this.invalidCheckoutFieldId.set(field?.id || null);
+      summary.focus();
+    }, { injector: this.injector });
   }
 
   onSaleDiscountTypeChange(type: 0 | 1 | 2): void {

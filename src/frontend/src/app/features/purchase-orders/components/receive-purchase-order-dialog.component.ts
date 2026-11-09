@@ -1,3 +1,4 @@
+import { DialogFocusDirective } from '../../../shared/accessibility/dialog-focus';
 import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
 import { CommonModule } from '@angular/common';
 import {
@@ -51,6 +52,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
   selector: 'app-receive-purchase-order-dialog',
   standalone: true,
   imports: [
+    DialogFocusDirective,
     CommonModule,
     ReactiveFormsModule,
     TranslocoPipe,
@@ -68,10 +70,13 @@ import { InputValidators } from '../../../shared/forms/input-validation';
   ],
   template: `
     <p-dialog
+      [appDialogFocus]="visible"
+      [focusOnShow]="false"
       [header]="'purchaseOrders.receiveDialog.title' | transloco"
       [visible]="visible"
       [closable]="false"
       [closeOnEscape]="false"
+      (keydown.escape)="$event.preventDefault(); $event.stopPropagation(); hide()"
       [dismissableMask]="false"
       [modal]="true"
       [style]="{ width: 'min(720px, 96vw)' }"
@@ -506,7 +511,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
   }
 
   protected canClose(): boolean {
-    return !this.closing && (!this.loading() || !!this.record?.pending);
+    return !this.closing && !this.submitting && this.status() !== 'sending' && (!this.loading() || !!this.record?.pending);
   }
 
   protected busy(): boolean {

@@ -122,7 +122,7 @@ describe('CartCheckoutSummaryComponent', () => {
     expect(submitSpy).toHaveBeenCalledOnce();
   });
 
-  it('disables record sale while checkout forms are invalid', () => {
+  it('keeps explicit invalid submit reachable so the page can focus its validation summary', () => {
     TestBed.configureTestingModule({
       imports: [
         CartCheckoutSummaryComponent,
@@ -136,6 +136,20 @@ describe('CartCheckoutSummaryComponent', () => {
     fixture.detectChanges();
 
     const buttons = fixture.nativeElement.querySelectorAll('button');
-    expect((buttons[buttons.length - 1] as HTMLButtonElement).disabled).toBe(true);
+    expect((buttons[buttons.length - 1] as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('announces settled totals without changing its live region during preview recalculation', () => {
+    TestBed.configureTestingModule({ imports: [CartCheckoutSummaryComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })] });
+    const fixture = TestBed.createComponent(CartCheckoutSummaryComponent);
+    fixture.componentRef.setInput('cartLength', 1);
+    fixture.componentRef.setInput('totalAmount', 120); fixture.detectChanges();
+    const status = fixture.nativeElement.querySelector('[role="status"]') as HTMLElement;
+    expect(status?.textContent).toContain('120.00');
+    fixture.componentRef.setInput('loading', true);
+    fixture.componentRef.setInput('totalAmount', 135); fixture.detectChanges();
+    expect(status.textContent).toContain('120.00');
+    fixture.componentRef.setInput('loading', false); fixture.detectChanges();
+    expect(status.textContent).toContain('135.00');
   });
 });

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
 import { AbstractControl, FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
@@ -18,7 +18,11 @@ let checkoutSummarySequence = 0;
   templateUrl: './cart-checkout-summary.component.html',
   styleUrl: './cart-checkout-summary.component.scss',
 })
-export class CartCheckoutSummaryComponent {
+export class CartCheckoutSummaryComponent implements OnChanges {
+  settledTotalAmount: number | null = null;
+  ngOnChanges(): void {
+    if (!this.loading) this.settledTotalAmount = this.cartLength ? this.totalAmount : null;
+  }
   readonly controlPrefix = `checkout-summary-${++checkoutSummarySequence}`;
   @Input() preview: SalePreviewDto | null = null;
   @Input() loading = false;

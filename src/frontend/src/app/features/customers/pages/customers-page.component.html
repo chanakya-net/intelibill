@@ -2,7 +2,7 @@
   <header class="customers-hero">
     <div class="customers-hero__copy">
       <p class="eyebrow">{{ 'customers.customerDirectory' | transloco }}</p>
-      <h1>{{ 'customers.title' | transloco }}</h1>
+      <h1 tabindex="-1" data-dialog-focus-fallback>{{ 'customers.title' | transloco }}</h1>
       <p class="subtitle">{{ 'customers.subtitle' | transloco }}</p>
       <div class="customers-hero__meta">
         <span class="meta-chip meta-chip--primary">{{
@@ -129,9 +129,14 @@
   }
 
   <p-dialog
+      [appDialogFocus]="showAccountOverlay()"
+      [focusOnShow]="false"
     [visible]="showAccountOverlay()"
     [modal]="true"
-    [closable]="true"
+    [header]="'customers.account.title' | transloco"
+    [closable]="!submittingPayment() && !submittingReversal() && !isCheckingPayment()"
+    [closeOnEscape]="false"
+    (keydown.escape)="$event.preventDefault(); $event.stopPropagation(); onCloseCustomerAccount()"
     [draggable]="false"
     [resizable]="false"
     [style]="{ width: 'min(96vw, 118rem)' }"

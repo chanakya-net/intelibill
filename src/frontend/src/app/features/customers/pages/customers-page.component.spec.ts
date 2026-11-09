@@ -288,6 +288,49 @@ describe('CustomersPageComponent', () => {
     expect(component.monthlyRevenue()).toBe(680);
   });
 
+  it('account_pending_close_preserves_recovery while a payment or reversal is in flight', () => {
+    component.onOpenCustomerAccount(customersSignal()[0]);
+    component.submittingPayment.set(true);
+    fixture.detectChanges();
+    fixture.nativeElement.querySelector('[role="dialog"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    component.onCloseCustomerAccount();
+    expect(component.showAccountOverlay()).toBe(true);
+    expect(component.submittingPayment()).toBe(true);
+    expect(component.selectedAccountCustomer()?.customerId).toBe('c1');
+    component.submittingPayment.set(false);
+    component.submittingReversal.set(true);
+    component.onCloseCustomerAccount();
+    expect(component.showAccountOverlay()).toBe(true);
+  });
+
+  it('allows unknown payment close and exposes the same recovery intent on reopening the account', () => {
+    const intent = { type: 'customer-payment', targetId: 'c1', operationKey: 'unknown-original-key', status: 'uncertain', payload: { amount: 25, paymentDate: '2026-11-09', method: 'Cash' } };
+    paymentIntents.pending.mockReturnValue(intent);
+    paymentIntents.revision.update(value => value + 1);
+    component.onOpenCustomerAccount(customersSignal()[0]);
+    expect(component.pendingPayment()?.operationKey).toBe('unknown-original-key');
+    component.onCloseCustomerAccount();
+    expect(component.showAccountOverlay()).toBe(false);
+    component.onOpenCustomerAccount(customersSignal()[0]);
+    expect(component.pendingPayment()?.operationKey).toBe('unknown-original-key');
+    paymentIntents.pending.mockReturnValue(null);
+    paymentIntents.revision.update(value => value + 1);
+  });
+
+  it('keeps a named account dialog during loading and restores the account opener after closing', async () => {
+    fixture.detectChanges();
+    const opener = document.createElement('button'); document.body.append(opener); opener.focus();
+    component.onOpenCustomerAccount(customersSignal()[0]);
+    component.selectedAccount.set(null); component.accountLoading.set(true);
+    fixture.detectChanges(); await fixture.whenStable();
+    const dialog = fixture.nativeElement.querySelector('[role="dialog"]') as HTMLElement;
+    const heading = document.getElementById(dialog.getAttribute('aria-labelledby') ?? '');
+    expect(heading?.textContent?.trim()).toBe('customers.account.title');
+    component.onCloseCustomerAccount(); fixture.detectChanges(); await fixture.whenStable();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
   it('filters by name, phone, address, and reference (customerId) without using numeric metrics', () => {
     component.searchValue.set('warehouse');
     expect(component.filteredCustomers().map((customer) => customer.customerId)).toEqual(['c2']);

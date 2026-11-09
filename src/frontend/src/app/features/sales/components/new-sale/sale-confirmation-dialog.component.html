@@ -1,21 +1,25 @@
 <p-dialog
+      [appDialogFocus]="visible"
+      [focusOnShow]="false"
   [header]="titleKey | transloco"
   [visible]="visible"
   [modal]="true"
   [closable]="false"
+  [closeOnEscape]="false"
+  (keydown.escape)="$event.preventDefault(); $event.stopPropagation(); onClose()"
   [draggable]="false"
   [resizable]="false"
   [style]="{ width: 'min(28rem, calc(100vw - 1.5rem))' }"
 >
   <div class="sale-confirmation flex flex-col items-center py-4 text-center">
-    <i
+    <i aria-hidden="true"
       [ngClass]="
         saleResult?.isOffline
           ? 'pi pi-clock text-6xl text-amber-500 mb-4'
           : 'pi pi-check-circle text-6xl text-green-500 mb-4'
       "
     ></i>
-    <h2 class="text-xl font-bold mb-2">
+    <h2 class="text-xl font-bold mb-2" tabindex="-1" data-dialog-initial-focus>
       {{
         (saleResult?.isOffline
           ? 'sales.newSale.offline.confirmation.queued'

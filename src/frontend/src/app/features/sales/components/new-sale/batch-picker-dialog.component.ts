@@ -1,3 +1,4 @@
+import { DialogFocusDirective } from '../../../../shared/accessibility/dialog-focus';
 import { expiryStatusKey } from '../../../expiry/services/expiry-policy-evaluator';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output, viewChild } from '@angular/core';
@@ -15,6 +16,7 @@ let batchPickerSequence = 0;
   selector: 'app-batch-picker-dialog',
   standalone: true,
   imports: [
+    DialogFocusDirective,
     CommonModule,
     ButtonModule,
     DialogModule,

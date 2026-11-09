@@ -43,6 +43,7 @@ export class BatchSearchBarComponent implements OnChanges {
   @Output() cameraOpen = new EventEmitter<void>();
 
   private readonly autocomplete = viewChild(AutoComplete);
+  private suggestionSelectionEvent: Event | undefined;
   private closeSuggestions(): void { this.autocomplete()?.hide(); this.autocomplete()?.inputEL?.nativeElement.blur(); }
   emitSearch(): void {
     this.closeSuggestions();
@@ -58,12 +59,19 @@ export class BatchSearchBarComponent implements OnChanges {
     this.suggestionFilter.emit(event.query);
   }
 
-  onSuggestionSelected(value: string): void {
+  onSuggestionSelected(value: string, event?: Event): void {
+    this.suggestionSelectionEvent = event;
     this.suggestionSelected.emit(value);
   }
 
-  onEnterKey(): void {
-    this.emitSearch();
+  onEnterKey(event: Event): void {
+    // AutoComplete processes selection on the inner input first. Only an actual
+    // selection consumes the search intent (an open list also prevents default).
+    const selectedSuggestion = this.suggestionSelectionEvent === event;
+    this.suggestionSelectionEvent = undefined;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!selectedSuggestion && !(event instanceof KeyboardEvent && event.isComposing)) this.emitSearch();
   }
 
   onOpenPicker(): void {

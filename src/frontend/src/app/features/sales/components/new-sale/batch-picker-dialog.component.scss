@@ -16,6 +16,11 @@
     border-color: #f97316;
     background-color: #fff7ed;
   }
+
+  &:focus-visible {
+    outline: 3px solid #2563eb;
+    outline-offset: 2px;
+  }
 }
 
 .batch-picker {

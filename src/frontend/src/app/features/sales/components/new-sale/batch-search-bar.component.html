@@ -7,11 +7,11 @@
       (ngModelChange)="onSearchTermChanged($event)"
       [suggestions]="pickerOpen ? [] : searchSuggestions"
       (completeMethod)="onComplete($event)"
-      (onSelect)="onSuggestionSelected($event.value)"
+      (onSelect)="onSuggestionSelected($event.value, $event.originalEvent)"
       [placeholder]="'inventory.searchPlaceholder' | transloco"
       appendTo="body"
       [fluid]="true"
-      (keyup.enter)="onEnterKey()"
+      (keydown.enter)="onEnterKey($event)"
     ></p-autocomplete>
   </div>
 
@@ -21,7 +21,7 @@
       icon="pi pi-camera"
       severity="secondary"
       [text]="true"
-      [attr.aria-label]="'inventory.openScanner' | transloco"
+      [ariaLabel]="'inventory.openScanner' | transloco"
       (click)="openScanner()"
     />
 

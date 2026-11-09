@@ -120,19 +120,22 @@
   </div>
 
   <div class="record-sale-action">
-    @if (paymentSplitError) {
-      <p class="error mb-2">{{ paymentSplitError | transloco }}</p>
-    }
     <p-button
       [label]="'sales.newSale.recordSale' | transloco"
       icon="pi pi-check"
-      [disabled]="cartLength === 0 || formInvalid || isSubmitting"
+      [disabled]="cartLength === 0 || isSubmitting"
       [loading]="isSubmitting"
       (click)="onSubmit()"
       size="large"
       styleClass="w-full"
     />
   </div>
+
+  <p class="settled-total-status" role="status" aria-live="polite" aria-atomic="true">
+    @if (settledTotalAmount !== null) {
+      {{ 'sales.newSale.totalDue' | transloco }}: ₹{{ settledTotalAmount | number: '1.2-2' }}
+    }
+  </p>
 
   @if (balanceDue > 0) {
     <div class="flex justify-between text-sm text-slate-600 mt-1">

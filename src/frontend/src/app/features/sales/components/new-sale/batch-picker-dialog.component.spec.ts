@@ -6,6 +6,15 @@ import { BatchPickerDialogComponent } from './batch-picker-dialog.component';
 import type { SellableGoodsDto } from '../../../sales/services/sale.models';
 
 describe('BatchPickerDialogComponent', () => {
+  it('restores the search opener even when suggestions blurred it before the picker opened', async () => {
+    TestBed.configureTestingModule({ imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })] });
+    const fixture = TestBed.createComponent(BatchPickerDialogComponent); fixture.detectChanges();
+    const opener = document.createElement('input'); document.body.append(opener); opener.focus(); opener.blur();
+    fixture.componentRef.setInput('visible', true); fixture.detectChanges(); await fixture.whenStable();
+    fixture.componentRef.setInput('visible', false); fixture.detectChanges(); await fixture.whenStable();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
   const batch: SellableGoodsDto = {
     kind: 'Goods',
     itemName: 'Milk',

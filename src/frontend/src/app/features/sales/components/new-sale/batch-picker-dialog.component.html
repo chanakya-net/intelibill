@@ -1,4 +1,6 @@
 <p-dialog
+      [appDialogFocus]="visible"
+      [focusOnShow]="false"
   [header]="'sales.newSale.selectBatch' | transloco"
   [visible]="visible"
   [modal]="true"
@@ -20,7 +22,8 @@
               !!selectedBatch && getDisplayId(selectedBatch) === getDisplayId(sellable)
             "
             role="button" tabindex="0" [attr.aria-disabled]="!canAdd(sellable)"
-            (keydown.enter)="onSelectBatch(sellable)" (keydown.space)="$event.preventDefault(); onSelectBatch(sellable)"
+            [attr.data-dialog-initial-focus]="canAdd(sellable) ? '' : null"
+            (keydown.enter)="$event.preventDefault(); $event.stopPropagation(); onSelectBatch(sellable)" (keydown.space)="$event.preventDefault(); onSelectBatch(sellable)"
             (click)="onSelectBatch(sellable)"
           >
             <div class="batch-option-content">
