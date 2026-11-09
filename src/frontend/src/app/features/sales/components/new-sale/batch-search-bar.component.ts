@@ -46,9 +46,19 @@ export class BatchSearchBarComponent implements OnChanges {
 
   private readonly autocomplete = viewChild(AutoComplete);
   private suggestionSelectionEvent: Event | undefined;
+  private cancelPendingSuggestions(): AutoComplete | undefined {
+    const autocomplete = this.autocomplete();
+    if (autocomplete) {
+      clearTimeout(autocomplete.searchTimeout);
+      autocomplete.searchTimeout = undefined;
+      autocomplete.loading = false;
+    }
+    return autocomplete;
+  }
   private closeSuggestions(): void {
-    this.autocomplete()?.hide();
-    this.autocomplete()?.inputEL?.nativeElement.blur();
+    const autocomplete = this.cancelPendingSuggestions();
+    autocomplete?.hide();
+    autocomplete?.inputEL?.nativeElement.blur();
   }
   emitSearch(value = this.searchTerm): void {
     this.closeSuggestions();
@@ -60,7 +70,10 @@ export class BatchSearchBarComponent implements OnChanges {
   }
 
   onComplete(event: AutoCompleteCompleteEvent): void {
-    if (this.pickerOpen) return;
+    if (this.pickerOpen) {
+      this.cancelPendingSuggestions();
+      return;
+    }
     this.suggestionFilter.emit(event.query);
   }
 

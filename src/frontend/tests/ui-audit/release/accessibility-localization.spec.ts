@@ -43,6 +43,11 @@ async function settle(page: Page) {
   });
 }
 async function scan(page: Page, selector: string) {
+  // Full-page scans use a fixed viewport origin so sticky shell controls do not
+  // partially obscure a target left above the viewport by the preceding journey.
+  if (selector !== '.p-dialog' && selector !== '.account-statement-dialog') {
+    await page.evaluate(() => window.scrollTo(0, 0));
+  }
   await settle(page);
   const result = await new AxeBuilder({ page })
     .include(selector)
@@ -161,6 +166,7 @@ async function pos(page: Page, lang = 'en-IN') {
     picker.getByRole('button', { name: new RegExp(tr(lang, 'sales.newSale.addToCart') + '$') }),
   );
   await expect(picker).toBeHidden();
+  await expect(input).toHaveAttribute('aria-expanded', 'false');
   await expect(input).toBeFocused();
   const committedQuantity = page.locator('app-cart-table app-quantity-field input');
   await committedQuantity.fill('2');
@@ -181,9 +187,14 @@ async function pos(page: Page, lang = 'en-IN') {
   const customer = page.locator('app-sale-customer-section p-autocomplete input');
   await customer.fill(LONG_NAME.slice(0, 12));
   await expect(page.getByRole('option').filter({ hasText: LONG_NAME }).first()).toBeVisible();
+  const customerPopupId = await customer.getAttribute('aria-controls');
+  expect(customerPopupId).toBeTruthy();
   await customer.press('ArrowDown');
   await customer.press('Enter');
   await expect(customer).toHaveValue(LONG_NAME);
+  await expect(customer).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator(`[id="${customerPopupId}"]`)).toBeHidden();
+  await settle(page);
   await expect(page.locator('app-cart-checkout-summary button').last()).toBeEnabled();
 }
 async function account(page: Page, lang = 'en-IN') {
@@ -389,12 +400,10 @@ test('receiving initial/return focus, linked error and unknown Escape recovery',
   const selectIds = await selects.evaluateAll((nodes) => nodes.map((el) => el.id));
   expect(new Set(selectIds).size).toBe(2);
   await activate(
-    rows
-      .nth(1)
-      .getByRole('button', {
-        name: tr('en-IN', 'purchaseOrders.receiveDialog.removeLine'),
-        exact: true,
-      }),
+    rows.nth(1).getByRole('button', {
+      name: tr('en-IN', 'purchaseOrders.receiveDialog.removeLine'),
+      exact: true,
+    }),
   );
   await expect(rows).toHaveCount(1);
   const receiptUrl = `**/api/purchase-orders/${PO}/receipts`;
