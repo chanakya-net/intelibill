@@ -1,5 +1,7 @@
 # Accessible and localized web workflows: browser evidence
 
+Final validation: **58/58 release cases passed**, including **14 accessibility cases / 195 scoped axe scans with zero violations**. Validated application source: `99c4d132`.
+
 Validation date: 9 November 2026. Scope: shipped Angular web application only; no backend, schema, mobile, deployment or shop enablement.
 
 The release test serves the production build through `startPurchaseReceivingServer`, retains the built protected service worker, supplies API fixtures and uses real browser IndexedDB. Fixture POST counts establish browser interaction/recovery behavior, not backend financial posting correctness.
@@ -31,20 +33,25 @@ Independent review found that the mobile A4 minimum item-table width also applie
 
 Native receiving probes also confirmed that the selected PO-line combobox was named only “Widget”, and line/date API field errors lacked some native invalid/description attributes. The expanded browser regression failed six native assertions before the fix. A stable visible-label ID now names the actual combobox; supported Select label and DatePicker InputText pass-through attributes expose linked invalid feedback. Repeated row IDs remain distinct, and the test verifies feedback clears before unknown-outcome recovery. The receiving and taxed-print regression cases pass 2/2; full units/build pass again.
 
-A transient unknown outcome can coexist briefly with a separate saving/checking status. The recovery test now targets the actual unknown message and waits for the existing retry control to become enabled before Escape. It passed five repeated focused runs without reducing its exact-key/payload/focus assertions. The final complete release run is pending.
+A transient unknown outcome can coexist briefly with a separate saving/checking status. The recovery test now targets the actual unknown message and waits for the existing retry control to become enabled before Escape. It passed five repeated focused runs without reducing its exact-key/payload/focus assertions. The final complete release run passed 58/58.
 
 ## Commands and results
 
-Commands run from `src/frontend`; the final full release gate is still running:
+Commands run from `src/frontend`:
 
 | Command | Result |
 | --- | --- |
 | `bun run test --watch=false` | Exit 0: 292 files / 2,887 Angular tests; 59 Bun script tests |
 | `bun run build` | Exit 0; production budgets and worker finalization retained |
-| `bun x playwright test --config tests/ui-audit/release/playwright.release.config.ts accessibility-localization.spec.ts` | Exit 0: 13 cases, all nine locales; 194 scoped axe scans per accessibility run, zero violations (3.9 min) |
-| `bun run audit:ui:release` | First full run: 56/57; stale sending-close expectation corrected, affected receiving/keyboard cases 12/12 green; later native/status and taxed-print regressions fixed with focused checks; final 58-case rerun pending |
+| `bun x playwright test --config tests/ui-audit/release/playwright.release.config.ts accessibility-localization.spec.ts` | Exit 0: original 13-case suite, 194 scans (3.9 min); expanded 14-case suite is included in the final complete run below |
+| Native receiving + taxed A4 focused browser checks | Exit 0: 2/2 after review fixes; repeated receiving readiness check 5/5 |
+| `bun run audit:ui:release` | **Exit 0: 58/58 in six files (6.7 min)**; all 14 accessibility cases / 195 scoped scans pass with zero violations |
 
-The first full release run exposed a stale receiving test that expected Cancel to hide an actively sending dialog. The approved guard correctly refused it. The test now asserts disabled Cancel/Escape refusal, then uses real SPA browser Back to detach the page while the root effect survives. Its original late response still cannot close or overwrite the distinct PO draft. All 12 affected receiving/keyboard cases pass; the complete rerun is pending.
+The first full release run exposed a stale receiving test that expected Cancel to hide an actively sending dialog. The approved guard correctly refused it. The test now asserts disabled Cancel/Escape refusal, then uses real SPA browser Back to detach the page while the root effect survives. Its original late response still cannot close or overwrite the distinct PO draft. All 12 affected receiving/keyboard cases passed, followed by the final complete 58-case run.
+
+Independent Astra review raised the A4 tax-summary and receiving native-control findings above. Scoped rereview of application source `99c4d132` found all findings addressed with no further breakage; the subsequent 58-case gate passed. No application source changed during that final run.
+
+Captured command logs in the evidence directory retain command results and diagnostics; terminal-only trailing padding is normalized. Raw logs remain under the `/tmp/intelibill-task5-*` paths in the task report.
 
 The build retains the repository's warning thresholds. The initial bundle is 743.63kB (650kB warning threshold); existing component-style warning categories remain. No budgets, warning limits, service-worker behavior or financial guards were relaxed.
 

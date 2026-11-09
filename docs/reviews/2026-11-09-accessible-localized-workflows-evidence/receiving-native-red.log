@@ -6,7 +6,7 @@ Running 1 test using 1 worker
   ✘  1 tests/ui-audit/release/accessibility-localization.spec.ts:371:5 › receiving initial/return focus, linked error and unknown Escape recovery (33.3s)
 
 
-  1) tests/ui-audit/release/accessibility-localization.spec.ts:371:5 › receiving initial/return focus, linked error and unknown Escape recovery 
+  1) tests/ui-audit/release/accessibility-localization.spec.ts:371:5 › receiving initial/return focus, linked error and unknown Escape recovery
 
     Error: expect(locator).toHaveAccessibleName(expected) failed
 
@@ -157,4 +157,4 @@ Running 1 test using 1 worker
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
   1 failed
-    tests/ui-audit/release/accessibility-localization.spec.ts:371:5 › receiving initial/return focus, linked error and unknown Escape recovery 
+    tests/ui-audit/release/accessibility-localization.spec.ts:371:5 › receiving initial/return focus, linked error and unknown Escape recovery
