@@ -375,6 +375,20 @@ describe('BatchRowFormStateService', () => {
       };
     }
 
+    it.each(['', 'Changed supplier'])(
+      'keeps explicit supplier input %j when a draft ID response arrives late',
+      (input) => {
+        const state = setup();
+        const pending = new Subject<any>();
+        supplierService.getSupplier.mockReturnValueOnce(pending);
+        state.loadDraftRow(draftRow({ supplierId: 'late-1' }));
+        state.form.controls.supplierName.setValue(input);
+        pending.next({ ...lateSupplier, supplierId: 'late-1' });
+        expect(state.form.controls.supplierName.value).toBe(input);
+        expect(state.buildDraftRow()?.supplierId).toBeNull();
+      },
+    );
+
     it('does not let a delayed draft ID restore replace a newer supplier selection', () => {
       vi.useFakeTimers();
       const state = setup();

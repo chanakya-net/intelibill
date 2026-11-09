@@ -365,20 +365,19 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
   private readonly supplierSearch = new RemotePartySearch<Supplier>(
     (search) =>
-      this.partyInjector
-        .get(SupplierService)
-        .getDirectory({
-          search,
-          status: 'active',
-          pageNumber: 1,
-          pageSize: 20,
-          includeSystem: false,
-        }),
+      this.partyInjector.get(SupplierService).getDirectory({
+        search,
+        status: 'active',
+        pageNumber: 1,
+        pageSize: 20,
+        includeSystem: false,
+      }),
     () => this.partyContext.epoch(),
     (items) => this.supplierNameSuggestions.set(items.map(supplierOptionLabel)),
   );
   private readonly selectedSupplier = signal<Supplier | null>(null);
   private restoredSupplierId: string | null = null;
+  private supplierInputRevision = 0;
   private restoreSubscription: import('rxjs').Subscription | undefined;
   protected readonly supplierSearchLoading = this.supplierSearch.loading;
   protected readonly supplierSearchError = this.supplierSearch.error;
@@ -421,6 +420,12 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   private clearLocalDraftAfterCreate = false;
 
   constructor() {
+    this.form.controls.supplierName.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        ++this.supplierInputRevision;
+        this.restoreSubscription?.unsubscribe();
+      });
     effect(() => {
       const order = this.facade.selectedOrder();
       if (order && this.purchaseOrderId === order.purchaseOrderId) {
@@ -445,6 +450,7 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
       this.restoredSupplierId = supplierId;
       this.restoreSubscription?.unsubscribe();
       const epoch = this.partyContext.epoch();
+      const inputRevision = this.supplierInputRevision;
       this.restoreSubscription = this.partyInjector
         .get(SupplierService)
         .getSupplier(supplierId)
@@ -452,12 +458,13 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
           next: (supplier) => {
             if (
               epoch !== this.partyContext.epoch() ||
+              inputRevision !== this.supplierInputRevision ||
               this.draftState.header().supplier?.id !== supplierId
             )
               return;
             this.selectedSupplier.set(supplier);
             this.draftState.resolveSupplierName(supplier.supplierId, supplier.name);
-            untracked(() => this.patchHeaderForm());
+            this.form.controls.supplierName.setValue(supplier.name, { emitEvent: false });
           },
           error: () => {},
         });

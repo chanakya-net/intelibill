@@ -173,6 +173,7 @@ describe('NewSalePageSearchCustomerService', () => {
 
     const customers = signal<Customer[]>([]);
     const loadingCustomers = signal(true);
+    const reachable = signal(true);
     const directory = vi.fn(() =>
       of({
         items: [
@@ -199,7 +200,7 @@ describe('NewSalePageSearchCustomerService', () => {
         { provide: ActivatedRoute, useValue: route },
         { provide: Router, useValue: router },
         { provide: AuthService, useValue: { session: signal({ activeShopId: 'shop-1' }) } },
-        { provide: NetworkStatusService, useValue: { canReachApi: vi.fn(() => true) } },
+        { provide: NetworkStatusService, useValue: { canReachApi: reachable } },
         {
           provide: ProductCatalogSyncService,
           useValue: { filterByName: vi.fn(() => []), filterByBarcode: vi.fn(() => []) },
@@ -272,7 +273,7 @@ describe('NewSalePageSearchCustomerService', () => {
     });
 
     const service = TestBed.inject(TestNewSalePageSearchCustomerService);
-    return { customers, loadingCustomers, service, directory, byId };
+    return { customers, loadingCustomers, service, directory, byId, reachable };
   }
 
   it('restores a route customer by exact ID without loading any directory page', () => {
@@ -315,6 +316,19 @@ describe('NewSalePageSearchCustomerService', () => {
     expect(service.selectedCustomerId()).toBeNull();
     service.onCustomerSuggestionSelected('Same');
     expect(service.selectedCustomerId()).toBeNull();
+    service.onDestroy();
+    vi.useRealTimers();
+  });
+
+  it('makes no directory request when connectivity is lost during the online search debounce', () => {
+    vi.useFakeTimers();
+    const { service, directory, byId, reachable } = buildService(null);
+    service.onFilterCustomerName({ query: 'Same', originalEvent: new Event('input') });
+    reachable.set(false);
+    vi.advanceTimersByTime(250);
+    expect(service.isOfflineMode()).toBe(true);
+    expect(directory).not.toHaveBeenCalled();
+    expect(byId).not.toHaveBeenCalled();
     service.onDestroy();
     vi.useRealTimers();
   });

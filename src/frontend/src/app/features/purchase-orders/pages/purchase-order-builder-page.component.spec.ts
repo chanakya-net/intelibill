@@ -7,7 +7,7 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -252,6 +252,40 @@ describe('PurchaseOrderBuilderPageComponent', () => {
 
     expect(replaceFromServerSpy).toHaveBeenCalledTimes(1);
   });
+
+  it.each([false, true])(
+    'restores only an untouched supplier field while preserving typed notes (supplier edited: %s)',
+    async (editSupplier) => {
+      const pending = new Subject<any>();
+      supplierService.getSupplier.mockReturnValueOnce(pending);
+      const fixture = TestBed.createComponent(PurchaseOrderBuilderPageComponent);
+      const component = fixture.componentInstance;
+      component.purchaseOrderId = 'po-1';
+      fixture.detectChanges();
+      await fixture.whenStable();
+      selectedOrder.set(makeDetail());
+      fixture.detectChanges();
+      await fixture.whenStable();
+      vi.useFakeTimers();
+      try {
+        component.form.controls.notes.setValue('New typed notes');
+        if (editSupplier) component.form.controls.supplierName.setValue('Changed supplier');
+        pending.next({
+          supplierId: 'supplier-1',
+          name: 'Restored supplier',
+          isActive: true,
+          isSystem: false,
+        });
+        expect(component.form.controls.notes.value).toBe('New typed notes');
+        expect(component.form.controls.supplierName.value).toBe(
+          editSupplier ? 'Changed supplier' : 'Restored supplier',
+        );
+      } finally {
+        fixture.destroy();
+        vi.useRealTimers();
+      }
+    },
+  );
 
   it('does not rehydrate repeatedly after resolving the supplier name', async () => {
     suppliers.set([

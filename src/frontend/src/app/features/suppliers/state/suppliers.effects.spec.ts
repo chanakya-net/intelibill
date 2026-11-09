@@ -1,7 +1,7 @@
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { Action } from '@ngrx/store';
+import { Action, Store } from '@ngrx/store';
 import { Actions } from '@ngrx/effects';
 import { Observable, Subject, firstValueFrom, of, throwError } from 'rxjs';
 import { take } from 'rxjs/operators';
@@ -53,6 +53,18 @@ describe('SuppliersEffects', () => {
     TestBed.configureTestingModule({
       providers: [
         SuppliersEffects,
+        {
+          provide: Store,
+          useValue: {
+            selectSignal: () => () => ({
+              search: 'Late',
+              status: 'active',
+              pageNumber: 3,
+              pageSize: 20,
+              includeSystem: false,
+            }),
+          },
+        },
         { provide: SupplierService, useValue: supplierService },
         { provide: SupplierLedgerService, useValue: ledgerService },
         {
@@ -79,6 +91,26 @@ describe('SuppliersEffects', () => {
     } else {
       delete (globalThis as { localStorage?: Storage }).localStorage;
     }
+  });
+
+  it('refreshes exactly the current query once after normal supplier payment success', () => {
+    const values: unknown[] = [];
+    const subscription = effects.refreshDirectory$.subscribe((value) => values.push(value));
+    actions$.next(SuppliersActions.makePaymentSucceeded({ entry: { id: 'entry' } as never }));
+    expect(values).toEqual([
+      expect.objectContaining({
+        type: SuppliersActions.directoryRequested.type,
+        requestId: expect.any(String),
+        query: {
+          search: 'Late',
+          status: 'active',
+          pageNumber: 3,
+          pageSize: 20,
+          includeSystem: false,
+        },
+      }),
+    ]);
+    subscription.unsubscribe();
   });
 
   it('dispatches loadSuppliersSucceeded on load success', async () => {

@@ -2,7 +2,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CustomerService } from '../../customers/services/customer.service';
 import { customerOptionLabel } from '../../../shared/models/party-directory.models';
 import { NewSalePageLifecycleService } from './new-sale-page.lifecycle.service';
-import { effect, runInInjectionContext } from '@angular/core';
+import { effect, runInInjectionContext, untracked } from '@angular/core';
 import { AutoCompleteCompleteEvent } from 'primeng/autocomplete';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
@@ -44,6 +44,15 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
     });
 
     runInInjectionContext(this.injector, () => {
+      effect(() => {
+        if (this.isOfflineMode())
+          untracked(() => {
+            this.onlineCustomerSearch.cancel();
+            this.onlineCustomerSearch.items.set([]);
+            this.customerNameSuggestions.set([]);
+            this.routeCustomerSubscription?.unsubscribe();
+          });
+      });
       effect(() => {
         this.loadingCustomers();
         this.customers();

@@ -1,3 +1,4 @@
+import { of } from 'rxjs';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { Customer, CustomerService } from '../../customers/services/customer.service';
 import { RemotePartySearch } from '../../../shared/models/remote-party-search';
@@ -264,9 +265,11 @@ export abstract class NewSalePageStateService {
   readonly lastRecordedSale = this.salesFacade.lastRecordedSale;
   protected readonly onlineCustomerSearch = new RemotePartySearch<Customer>(
     (search) =>
-      this.injector
-        .get(CustomerService)
-        .getDirectory({ search, status: 'active', pageNumber: 1, pageSize: 20 }),
+      this.isOfflineMode()
+        ? of({ items: [] })
+        : this.injector
+            .get(CustomerService)
+            .getDirectory({ search, status: 'active', pageNumber: 1, pageSize: 20 }),
     () => this.partyContext.epoch(),
     (items) => {
       if (!this.isOfflineMode()) this.customerNameSuggestions.set(items.map(customerOptionLabel));

@@ -27,7 +27,9 @@ describe('SuppliersPageComponent', () => {
   ]);
   const loadingSignal = signal(false);
   const errorSignal = signal('');
-  const lastMutationTypeSignal = signal<'add-supplier' | 'edit-supplier' | null>(null);
+  const lastMutationTypeSignal = signal<'add-supplier' | 'edit-supplier' | 'make-payment' | null>(
+    null,
+  );
   const lastMutationSucceededSignal = signal(false);
 
   const suppliersFacade = {
@@ -141,6 +143,21 @@ describe('SuppliersPageComponent', () => {
 
     expect(component.showAddSupplierOverlay()).toBe(false);
     expect(suppliersFacade.clearMutationStatus).toHaveBeenCalled();
+  });
+
+  it('keeps the current directory query after payment success without a second page-one refresh', () => {
+    const fixture = TestBed.createComponent(SuppliersPageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    component.onOpenMakePayment(suppliersSignal()[0]);
+    component.onDirectoryPage({ page: 3, rows: 20 });
+    suppliersFacade.loadDirectory.mockClear();
+    lastMutationTypeSignal.set('make-payment');
+    lastMutationSucceededSignal.set(true);
+    fixture.detectChanges();
+    expect(component.showMakePaymentOverlay()).toBe(false);
+    expect(suppliersFacade.loadDirectory).not.toHaveBeenCalled();
+    expect(component.directoryQuery().pageNumber).toBe(3);
   });
 
   it('allows editing only for owner role', () => {

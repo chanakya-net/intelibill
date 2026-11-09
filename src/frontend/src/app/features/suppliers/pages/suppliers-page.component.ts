@@ -142,7 +142,6 @@ export class SuppliersPageComponent {
         this.showMakePaymentOverlay.set(false);
         this.paymentSupplier.set(null);
         this.suppliersFacade.clearMutationStatus();
-        this.loadDirectoryPage(1);
       }
     });
   }

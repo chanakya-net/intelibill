@@ -38,15 +38,13 @@ export class BatchRowFormStateService {
   private readonly partyContext = inject(ShopContextService);
   private readonly supplierSearch = new RemotePartySearch<Supplier>(
     (search) =>
-      this.partyInjector
-        .get(SupplierService)
-        .getDirectory({
-          search,
-          status: 'active',
-          pageNumber: 1,
-          pageSize: 20,
-          includeSystem: true,
-        }),
+      this.partyInjector.get(SupplierService).getDirectory({
+        search,
+        status: 'active',
+        pageNumber: 1,
+        pageSize: 20,
+        includeSystem: true,
+      }),
     () => this.partyContext.epoch(),
     (items) => this.supplierSuggestions.set(items.map(supplierOptionLabel)),
   );
@@ -142,6 +140,15 @@ export class BatchRowFormStateService {
       this.supplierSuggestions.set([]);
       this.resetForm();
     });
+    this.form.controls.supplierName.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        ++this.restoreRevision;
+        this.restoreSubscription?.unsubscribe();
+        this.selectedSupplier.set(null);
+        this.restoredSupplierId = null;
+        this.restoredSupplierName = null;
+      });
     this.form.controls.itemName.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((value) => {
@@ -311,7 +318,7 @@ export class BatchRowFormStateService {
     this.restoreSubscription?.unsubscribe();
     this.selectedSupplier.set(supplier);
     this.restoredSupplierId = supplier.supplierId;
-    this.form.controls.supplierName.setValue(supplier.name);
+    this.form.controls.supplierName.setValue(supplier.name, { emitEvent: false });
   }
 
   async generateBarcode(): Promise<{ needsConfirm: boolean; barcode: string } | { error: true }> {
@@ -368,6 +375,11 @@ export class BatchRowFormStateService {
       const patch = this.buildProductDetailsPatch(details);
       if (Object.keys(patch).length > 0) {
         this.form.patchValue(patch);
+        if (patch.supplierName !== undefined) {
+          this.restoredSupplierId = details.supplierId;
+          this.restoredSupplierName = patch.supplierName;
+          this.selectedSupplier.set(null);
+        }
         patched = true;
       }
 
@@ -491,11 +503,9 @@ export class BatchRowFormStateService {
   }
 
   loadDraftRow(row: InventoryInboundDraftRow): void {
-    const revision = ++this.restoreRevision;
+    ++this.restoreRevision;
     this.restoreSubscription?.unsubscribe();
     this.selectedSupplier.set(null);
-    this.restoredSupplierId = row.supplierId;
-    this.restoredSupplierName = null;
 
     this.form.setValue({
       itemName: row.itemName,
@@ -524,7 +534,10 @@ export class BatchRowFormStateService {
       notes: row.notes ?? '',
     });
 
+    this.restoredSupplierId = row.supplierId;
+    this.restoredSupplierName = null;
     if (row.supplierId) {
+      const revision = this.restoreRevision;
       const epoch = this.partyContext.epoch();
       this.restoreSubscription = this.partyInjector
         .get(SupplierService)
@@ -647,9 +660,6 @@ export class BatchRowFormStateService {
 
     if (!this.form.controls.supplierName.dirty && details.supplierName) {
       patch.supplierName = details.supplierName;
-      this.restoredSupplierId = details.supplierId;
-      this.restoredSupplierName = details.supplierName;
-      this.selectedSupplier.set(null);
     }
 
     if (!this.form.controls.taxIncluded.dirty && details.taxIncluded !== null) {
