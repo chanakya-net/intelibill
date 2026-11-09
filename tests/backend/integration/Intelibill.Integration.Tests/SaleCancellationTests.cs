@@ -632,6 +632,7 @@ public sealed partial class SaleCancellationTests(PostgreSqlTestFixture fixture)
         var s = await SeedAsync(paid);
         var options = factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value;
         options.Enabled = true; options.AllowedShopIds = [s.ShopId];
+        await TillTestContext.OptInAsync(factory.MigratorConnectionString, s.ShopId);
         var app = new TillTestContext(factory.MigratorConnectionString, s.ShopId,
             new TillTestClock { Now = factory.Services.GetRequiredService<IBusinessClock>().UtcNow });
         var session = await app.OpenAsync(s.ShopId, s.ActorId, (await app.CreateAsync(s.ShopId, s.ActorId)).Id);

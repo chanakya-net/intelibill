@@ -13,7 +13,7 @@ namespace Intelibill.Application.Features.Tills.Services;
 public sealed class TillSourceSettlementService(ITillSessionPolicy policy, ITillPostingService posting,
     IShopRepository shops, IBusinessClock clock)
 {
-    public bool IsEnabled(Guid shopId) => policy.IsEnabled(shopId);
+    public Task<bool> IsEnabledAsync(Guid shopId, CancellationToken ct = default) => policy.IsEnabledAsync(shopId, ct);
 
     public async Task<DateOnly> TodayAsync(Guid shopId, CancellationToken ct) =>
         clock.Today((await shops.GetByIdAsync(shopId, ct) ?? throw new InvalidOperationException("Shop unavailable.")).BusinessTimeZoneId);
@@ -21,7 +21,9 @@ public sealed class TillSourceSettlementService(ITillSessionPolicy policy, ITill
     public async Task<ErrorOr<TillSession?>> AcquireAsync(Guid shopId, Guid actorId, TillPostingContext? context,
         string? operationKey, TillSettlementEvidence? evidence, decimal actualDelta, DateOnly sourceDate, CancellationToken ct)
     {
-        var enabled = policy.IsEnabled(shopId);
+        var gate = await posting.GateAsync(shopId, ct);
+        if (gate.IsError) return gate.Errors;
+        var enabled = gate.Value;
         if (!enabled)
             return context is null && evidence is null ? (TillSession?)null : Errors.Till.Disabled;
         if (FinancialOperationHasher.NormalizeKey(operationKey) is null) return Errors.Operation.InvalidKey;

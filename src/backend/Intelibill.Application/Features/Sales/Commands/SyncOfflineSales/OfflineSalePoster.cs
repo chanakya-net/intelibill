@@ -26,7 +26,6 @@ internal sealed partial class OfflineSalePoster(
     IBusinessClock businessClock,
     IPostingPeriodPolicy postingPeriodPolicy,
     ITillPostingService tillPosting,
-    ITillSessionPolicy tillPolicy,
     ITillRepository tills,
     IBankAccountRepository banks,
     IExpiryPolicyFence expiryFence,

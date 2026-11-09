@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Intelibill.Api.Extensions;
 using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Application.Features.Auth.DTOs;
@@ -8,6 +9,7 @@ using Intelibill.Application.Features.Shops.Commands.SwitchActiveShop;
 using Intelibill.Application.Features.Shops.Commands.UpdateShop;
 using Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
 using Intelibill.Application.Features.Shops.DTOs;
+using Intelibill.Application.Features.Shops.TillSettings;
 using Intelibill.Application.Features.Shops.Queries.GetShopDetails;
 using Intelibill.Application.Features.Shops.Queries.GetMyShops;
 using Intelibill.Application.Features.Users.Commands.InviteShopMember;
@@ -29,6 +31,28 @@ public sealed class ShopsController : AuthenticatedControllerBase
 {
     public ShopsController(IMessageBus bus) : base(bus)
     {
+    }
+
+    [HttpGet("{shopId:guid}/till-settings")]
+    public async Task<IActionResult> GetTillSettings(Guid shopId, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopTillSettingsDto>>(
+            new GetShopTillSettingsQuery(shopId, UserId!.Value, ActiveShopId), cancellationToken);
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpPut("{shopId:guid}/till-settings")]
+    [Authorize(Policy = "OwnerOnly")]
+    public async Task<IActionResult> UpdateTillSettings(Guid shopId, [FromBody] UpdateShopTillSettingsRequest request, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopTillSettingsDto>>(
+            new UpdateShopTillSettingsCommand(shopId, UserId!.Value, ActiveShopId, request.Enabled,
+                request.ExpectedVersion, request.Reason, request.Confirmed), cancellationToken);
+        return result.ToActionResult(Ok);
     }
 
     [HttpGet("me")]
@@ -309,3 +333,6 @@ public sealed record UpdateShopBankDetailsRequest(
     string? AccountType,
     string? IfscCode,
     string? AccountHolderName);
+
+public sealed record UpdateShopTillSettingsRequest([property: JsonRequired] bool Enabled, [property: JsonRequired] int ExpectedVersion,
+    string Reason, [property: JsonRequired] bool Confirmed);

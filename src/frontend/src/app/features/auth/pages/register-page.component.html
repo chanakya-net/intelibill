@@ -1,21 +1,31 @@
-<section class="login-shell min-h-screen p-0">
-  <div class="auth-stage w-full min-h-screen">
-    <article
-      class="auth-card mx-auto w-full max-w-[26rem] rounded-[1.7rem] shadow-2xl shadow-orange-950/20"
-    >
-      <header class="auth-header">
-        <p class="auth-kicker">{{ 'register.newHere' | transloco }}</p>
-        <h2>{{ (accepted() ? 'identity.checkInbox' : 'register.createAccount') | transloco }}</h2>
-        <p>{{ 'identity.enrollmentDescription' | transloco }}</p>
-      </header>
-      <div class="space-y-4 p-6">
-        @if (accepted()) {
-          <p role="status">{{ 'identity.accepted' | transloco }}</p>
-          <p>{{ email() }}</p>
+<section class="register-shell">
+  <article class="register-card" aria-labelledby="register-title">
+    <header class="register-header">
+      <span class="register-icon" aria-hidden="true">
+        <i [class]="accepted() ? 'pi pi-envelope' : 'pi pi-user-plus'"></i>
+      </span>
+      <p class="register-kicker">{{ 'register.newHere' | transloco }}</p>
+      <h1 id="register-title">
+        {{ (accepted() ? 'identity.checkInbox' : 'register.createAccount') | transloco }}
+      </h1>
+      @if (!accepted()) {
+        <p class="register-description">{{ 'identity.enrollmentDescription' | transloco }}</p>
+      }
+    </header>
+
+    <div class="register-body">
+      @if (accepted()) {
+        <div class="inbox-notice" role="status">
+          <p>{{ 'identity.accepted' | transloco }}</p>
+          <p class="inbox-email">{{ email() }}</p>
+        </div>
+        <div class="register-actions">
           <button
             pButton
             type="button"
+            icon="pi pi-send"
             (click)="onResend()"
+            [loading]="isSubmitting()"
             [disabled]="isSubmitting()"
             [label]="'identity.resend' | transloco"
           ></button>
@@ -23,12 +33,15 @@
             pButton
             type="button"
             severity="secondary"
+            [outlined]="true"
             (click)="onStartOver()"
             [disabled]="isSubmitting()"
             [label]="'identity.useAnotherEmail' | transloco"
           ></button>
-        } @else {
-          <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
+        </div>
+      } @else {
+        <form [formGroup]="form" (ngSubmit)="onSubmit()" class="register-form">
+          <div class="register-field">
             <label for="email">{{ 'auth.emailAddress' | transloco }}</label>
             <input
               id="email"
@@ -37,47 +50,62 @@
               formControlName="email"
               autocomplete="email"
               maxlength="256"
-              class="w-full"
+              [attr.aria-invalid]="form.controls.email.invalid && form.controls.email.touched"
+              [attr.aria-describedby]="
+                form.controls.email.invalid && form.controls.email.touched ? 'email-error' : null
+              "
             />
             @if (form.controls.email.invalid && form.controls.email.touched) {
-              <p class="field-error">{{ 'auth.validation.emailInvalid' | transloco }}</p>
+              <p id="email-error" class="field-error" role="alert">
+                {{ 'auth.validation.emailInvalid' | transloco }}
+              </p>
             }
-            <button
-              pButton
-              type="submit"
-              [loading]="isSubmitting()"
-              [disabled]="isSubmitting()"
-              [label]="'identity.sendVerification' | transloco"
-              class="w-full"
-            ></button>
+          </div>
+          <button
+            pButton
+            type="submit"
+            icon="pi pi-send"
+            [loading]="isSubmitting()"
+            [disabled]="isSubmitting()"
+            [label]="'identity.sendVerification' | transloco"
+          ></button>
+          <aside class="recovery-panel">
             <p>{{ 'identity.claimDescription' | transloco }}</p>
             <button
               pButton
               type="button"
               severity="secondary"
+              [outlined]="true"
               (click)="onClaim()"
               [disabled]="isSubmitting()"
               [label]="'identity.claimLegacy' | transloco"
             ></button>
-          </form>
-        }
-        @if (serverError()) {
-          <p role="alert" class="field-error">{{ serverError() | transloco }}</p>
-        }
-        <a routerLink="/login">{{ 'register.backToLogin' | transloco }}</a>
-        <div class="lang-pick">
-          <select
-            [attr.aria-label]="'common.language' | transloco"
-            (change)="onLanguageChanged($any($event.target).value)"
-          >
-            @for (language of supportedLanguages; track language) {
-              <option [value]="language" [selected]="language === currentLanguage()">
-                {{ nativeLanguageNames[language] }}
-              </option>
-            }
-          </select>
-        </div>
+          </aside>
+        </form>
+      }
+      @if (serverError()) {
+        <p role="alert" class="server-error">{{ serverError() | transloco }}</p>
+      }
+    </div>
+
+    <footer class="register-footer">
+      <a routerLink="/login">
+        <i class="pi pi-arrow-left" aria-hidden="true"></i>
+        <span>{{ 'register.backToLogin' | transloco }}</span>
+      </a>
+      <div class="register-language">
+        <i class="pi pi-globe" aria-hidden="true"></i>
+        <select
+          [attr.aria-label]="'common.language' | transloco"
+          (change)="onLanguageChanged($any($event.target).value)"
+        >
+          @for (language of supportedLanguages; track language) {
+            <option [value]="language" [selected]="language === currentLanguage()">
+              {{ nativeLanguageNames[language] }}
+            </option>
+          }
+        </select>
       </div>
-    </article>
-  </div>
+    </footer>
+  </article>
 </section>

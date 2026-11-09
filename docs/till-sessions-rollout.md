@@ -11,6 +11,7 @@ Apply these five additive migrations in order through the deployment migration j
 3. `20261108120219_AddPaymentExpenseSettlementEvidence`
 4. `20261108122550_AddReturnTillSettlementEvidence`
 5. `20261108130102_AddTillReconciliationEvidence`
+6. `20261109171054_AddOwnerTillSettings`
 
 API startup does not apply migrations. The local command, when explicitly operating an authorized database, is:
 
@@ -28,7 +29,23 @@ Defaults remain:
 {"TillSessions":{"Enabled":false,"AllowedShopIds":[],"MixedTenderEnabled":false}}
 ```
 
-Both `Enabled=true` and exact shop allowlist membership are required for new till work. Mixed tender is unavailable; configuring it true fails options validation. A request that supplies new till/evidence fields cannot silently fall back to legacy untracked posting while disabled. Absent new fields retain disabled-shop legacy behavior and canonical hashes.
+The release gate requires both `Enabled=true` and exact shop allowlist membership. New till work additionally requires the persisted shop setting to be enabled by its owner. Mixed tender is unavailable; configuring it true fails options validation. A request that supplies new till/evidence fields cannot silently fall back to legacy untracked posting while disabled. Absent new fields retain disabled-shop legacy behavior and canonical hashes.
+
+## Owner setup in Manage shop
+
+After all source writers run the owner-settings version, an Owner opens **Manage shop → Tills & day close** for the active selected shop. The card shows unavailable, disabled or enabled status. An unavailable deployment cannot be enabled from the UI: release flag and exact shop allowlist remain operator controls.
+
+For an eligible shop, choose **Set up till tracking**, read the same-day cashier/session requirement, give an audit reason, acknowledge it and choose **Enable till tracking**. The saved response confirms the change; then open daily tills through the card's **Open tills & day close** link. New shops start disabled. The migration preserves enablement for shops with existing till, session or late-posting facts; it does not invent historical sessions.
+
+Only a live Owner can change setup. Owners/Managers may read readiness; Staff use the ordinary capabilities endpoint and cannot read setup counts or alter preferences. Cross-shop reads/writes are refused, including another shop selected in Manage shop without switching active scope first.
+
+Before disabling, close every open/overdue session, review outstanding variance closes and resolve known offline invoices. Readiness covers server-known evidence at its locked check. A frozen invoice arriving after that check is durably retained and held for TillReview after disable; it cannot post untracked or change a closed count. The server blocks those outstanding items; terminally reconciled envelopes are not counted as unresolved merely because their sale link is null. The owner must also confirm checking every device's local offline queue, which the server cannot inspect. The history, audit and authorized exact-key replay remain available after disabling.
+
+`GET/PUT /api/shops/{shopId}/till-settings` use `{enabled,expectedVersion,reason,confirmed}` on PUT and return `{shopId,available,enabled,version,openSessionCount,awaitingReviewCount,pendingOfflineCount}`. `version=0` is a valid initial observed version. Each actual change appends immutable actor/time/from/to/reason evidence. Conflicts require refresh; an uncertain save retains its exact request until a newer version is observed or the original request is retried. An early GET at the old version does not establish failure. Settings changes invalidate cached browser till capability and selection, including other tabs.
+
+Every source transaction holds a shared shop settings gate through commit, including legacy/no-till decisions; setup changes and session opening take the exclusive catalog lock. Source order is period → settings gate → till/session → party → document/credit → stock (with an expiry fence where that source already requires one). This prevents an old disabled decision from committing untracked after enablement. Settings mutations follow the live authority lock protocol before changing the catalog.
+
+**Rollout barrier:** apply the new additive migration, then update every API/source writer before exposing owner settings. Older binaries ignore this preference and are unsafe once owner settings are used. Retain the owner-settings implementation as the minimum rollback version; preserve schema and facts, and use a forward fix. No live shop enablement is implied by deploying the UI.
 
 ## Opening and daily operation
 

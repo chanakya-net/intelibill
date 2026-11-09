@@ -15,7 +15,7 @@ public sealed class TillReadService(ITillRepository tills, IShopRepository shops
     {
         if (await shops.GetActiveRoleAsync(actorId, shopId, ct) is null) return TillErrors.Forbidden;
         var shop = await shops.GetByIdAsync(shopId, ct);
-        return shop is null ? TillErrors.NotFound : new TillCapabilitiesDto(policy.IsEnabled(shopId), false, clock.Today(shop.BusinessTimeZoneId));
+        return shop is null ? TillErrors.NotFound : new TillCapabilitiesDto(await policy.IsEnabledAsync(shopId, ct), false, clock.Today(shop.BusinessTimeZoneId));
     }
     public async Task<ErrorOr<IReadOnlyList<TillDto>>> TillsAsync(Guid shopId, Guid actorId, CancellationToken ct)
     {

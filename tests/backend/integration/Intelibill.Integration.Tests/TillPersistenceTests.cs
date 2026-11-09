@@ -11,9 +11,10 @@ namespace Intelibill.Integration.Tests;
 [Collection("Integration Tests")]
 public sealed class TillPersistenceTests(PostgreSqlTestFixture fixture)
 {
-    private static readonly string[] Tables = ["tills", "till_sessions", "till_source_records", "till_movements", "till_closes", "till_close_reviews", "till_late_postings"];
+    private static readonly string[] Tables = ["tills", "till_sessions", "till_source_records", "till_movements", "till_closes", "till_close_reviews", "till_late_postings", "shop_till_settings", "shop_till_setting_events"];
 
     [Theory]
+    [InlineData("AddOwnerTillSettings")]
     [InlineData("AddTillSessions")]
     [InlineData("AddSaleTillEvidence")]
     [InlineData("AddPaymentExpenseSettlementEvidence")]
@@ -63,7 +64,9 @@ public sealed class TillPersistenceTests(PostgreSqlTestFixture fixture)
         var shop = Shop.Create("Till test", "address", "city", "state", "560001", null, null, null);
         var user = User.CreateWithEmail($"till-{Guid.NewGuid():N}@example.test", "hash", "Till", "Cashier");
         var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, false);
-        context.AddRange(shop, user, membership);
+        var setting = ShopTillSetting.Create(shop.Id);
+        var settingEvent = setting.Change(true, user.Id, "Start daily tracking", now);
+        context.AddRange(shop, user, membership, setting, settingEvent);
         await context.SaveChangesAsync();
         var till = Till.Create(shop.Id, "Front", user.Id, now).Value;
         var session = TillSession.Open(shop.Id, till.Id, user.Id, till.Name, "Till Cashier", user.Id, now, today, "Asia/Kolkata", 1000m, null).Value;

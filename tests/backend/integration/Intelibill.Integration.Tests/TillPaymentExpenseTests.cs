@@ -349,6 +349,7 @@ public sealed class TillPaymentExpenseTests(PostgreSqlTestFixture fixture)
         db.Customers.Add(customer); await db.SaveChangesAsync();
         var options = factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value;
         options.Enabled = true; options.AllowedShopIds = [shop.Id];
+        await OptInAsync(factory.MigratorConnectionString, shop.Id);
         var app = new TillTestContext(factory.MigratorConnectionString, shop.Id, new TillTestClock { Now = DateTimeOffset.UtcNow });
         var session = await app.OpenAsync(shop.Id, actor, (await app.CreateAsync(shop.Id, actor)).Id);
         return new(factory, client, app, shop.Id, actor, customer.Id, session);

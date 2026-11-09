@@ -66,12 +66,11 @@ public sealed class TillSessionTests(PostgreSqlTestFixture fixture)
     [Fact]
     public async Task DisabledLegacy_NoTillEffects()
     {
-        using var factory = new ApiWebApplicationFactory(fixture);
-        await factory.InitializeAsync();
-        await using var scope = factory.Services.CreateAsyncScope();
-        var service = scope.ServiceProvider.GetService<ITillPostingService>();
-        Assert.NotNull(service);
-        var result = await service.AcquireAsync(Guid.NewGuid(), Guid.NewGuid(), null, new DateOnly(2026, 11, 8));
+        var (shop, owner, _, _) = await SeedAsync(fixture.MigratorConnectionString, enabled: false);
+        await using var app = new TillTestContext(fixture.MigratorConnectionString, shop);
+        app.Options.Enabled = false;
+        await using var transaction = await app.Db.Database.BeginTransactionAsync();
+        var result = await app.Posting.AcquireAsync(shop, owner, null, new DateOnly(2026, 11, 8));
         Assert.False(result.IsError);
         Assert.Null(result.Value);
     }
@@ -172,7 +171,10 @@ public sealed class TillSessionTests(PostgreSqlTestFixture fixture)
         await using var app = new TillTestContext(fixture.MigratorConnectionString, shop);
         var session = await app.OpenAsync(shop, cashier, (await app.CreateAsync(shop, owner)).Id);
         app.Options.Enabled = false;
-        Assert.Equal("Till.Disabled", (await app.Posting.AcquireAsync(shop, cashier, new(session.Id), session.BusinessDate)).FirstError.Code);
+        await using (var transaction = await app.Db.Database.BeginTransactionAsync())
+        {
+            Assert.Equal("Till.Disabled", (await app.Posting.AcquireAsync(shop, cashier, new(session.Id), session.BusinessDate)).FirstError.Code);
+        }
         Assert.Equal("Till.Disabled", (await app.Lifecycle.MoveAsync(new(shop, cashier, session.Id, 1m, 10m, "float", session.Version, "disabled-move"), default)).FirstError.Code);
         var capabilities = Success(await app.Reads.CapabilitiesAsync(shop, cashier, default));
         Assert.False(capabilities.Enabled);
@@ -295,12 +297,14 @@ public sealed class TillSessionTests(PostgreSqlTestFixture fixture)
         var (shop, owner, cashier, other) = await SeedAsync(fixture.MigratorConnectionString);
         await using var app = new TillTestContext(fixture.MigratorConnectionString, shop);
         var dto = await app.OpenAsync(shop, cashier, (await app.CreateAsync(shop, owner)).Id);
-        var missing = await app.Posting.AcquireAsync(shop, cashier, new(Guid.NewGuid()), dto.BusinessDate);
-        var differentCashier = await app.Posting.AcquireAsync(shop, other, new(dto.Id), dto.BusinessDate);
+        string missing;
+        string differentCashier;
         string mismatch;
         await using (var tx = await app.Db.Database.BeginTransactionAsync())
         {
             Success(await app.Periods.AuthorizeForWriteAsync(shop, dto.BusinessDate));
+            missing = (await app.Posting.AcquireAsync(shop, cashier, new(Guid.NewGuid()), dto.BusinessDate)).FirstError.Code;
+            differentCashier = (await app.Posting.AcquireAsync(shop, other, new(dto.Id), dto.BusinessDate)).FirstError.Code;
             mismatch = (await app.Posting.AcquireAsync(shop, cashier, new(dto.Id), dto.BusinessDate.AddDays(1))).FirstError.Code;
             await tx.RollbackAsync();
         }
@@ -309,7 +313,7 @@ public sealed class TillSessionTests(PostgreSqlTestFixture fixture)
         Success(await app.Periods.AuthorizeForWriteAsync(shop, dto.BusinessDate));
         var closed = await app.Posting.AcquireAsync(shop, cashier, new(dto.Id), dto.BusinessDate);
         Assert.Equal(SessionErrorCodes,
-            new[] { missing.FirstError.Code, differentCashier.FirstError.Code, mismatch, closed.FirstError.Code });
+            new[] { missing, differentCashier, mismatch, closed.FirstError.Code });
         await closedTx.RollbackAsync();
     }
 
@@ -330,6 +334,8 @@ public sealed class TillSessionTests(PostgreSqlTestFixture fixture)
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", scope.GetProperty("accessToken").GetString());
         var options = factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value;
         options.Enabled = true; options.AllowedShopIds = [shopId];
+        using var settingsEnabled = await client.PutAsJsonAsync($"/api/shops/{shopId}/till-settings", new { enabled = true, expectedVersion = 0, reason = "Start daily counts", confirmed = true });
+        settingsEnabled.EnsureSuccessStatusCode();
         using var dbScope = factory.Services.CreateScope();
         var db = dbScope.ServiceProvider.GetRequiredService<Intelibill.Infrastructure.Data.ApplicationDbContext>();
         var ownerId = (await db.ShopMemberships.SingleAsync(x => x.ShopId == shopId)).UserId;

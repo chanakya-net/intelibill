@@ -16,7 +16,7 @@ public sealed class OfflineTillReconciliationEligibility(
     public async Task<bool> CanReconcileAsync(Guid shopId, OfflineSaleSyncCommand sale, Guid issuer,
         DateTimeOffset now, CancellationToken ct)
     {
-        if (!policy.IsEnabled(shopId) || issuer == Guid.Empty || sale.SoldAt > now) return false;
+        if (!await policy.IsEnabledAsync(shopId, ct) || issuer == Guid.Empty || sale.SoldAt > now) return false;
         var shop = await shops.GetByIdAsync(shopId, ct);
         if (shop is null) return false;
         if (sale.Till is not { } claimed) return true; // Reasoned legacy settlement can be recorded separately.

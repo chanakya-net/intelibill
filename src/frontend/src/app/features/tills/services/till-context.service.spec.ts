@@ -7,6 +7,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import { AuthService } from '../../../core/auth/auth.service';
 import { TillContextService } from './till-context.service';
+import { TillSettingsEvents } from './till-settings-events.service';
 import { TillSession } from './till.models';
 const today = () =>
   new Intl.DateTimeFormat('en-CA', {
@@ -65,6 +66,49 @@ describe('TillContextService verified owner selection', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
     vi.unstubAllGlobals();
+  });
+  it('forgets cached offline selection after a shop setting changes and ignores an older refresh', async () => {
+    const { context, http } = setup();
+    await verify(context, http);
+    context.select('drawer');
+    await context.offlineEvidence(1, 10);
+    const older = context.refresh();
+    await tick();
+    const oldRequest = http.expectOne((r) => r.url.endsWith('/capabilities'));
+    TestBed.inject(TillSettingsEvents).publish('s');
+    await tick();
+    expect(context.selected()).toBeNull();
+    const freshRequest = http.expectOne((r) => r.url.endsWith('/capabilities'));
+    freshRequest.flush({ enabled: false, mixedTenderEnabled: false, businessDate: today() });
+    await tick();
+    oldRequest.flush({ enabled: true, mixedTenderEnabled: false, businessDate: today() });
+    await older;
+    expect(context.enabled()).toBe(false);
+    expect(context.sessions()).toEqual([]);
+    const cached = await TestBed.inject(TillVerificationStore).load({ userId: 'u', shopId: 's' });
+    expect(cached?.capability.enabled).toBe(false);
+    http.expectNone((r) => r.url.endsWith('/sessions'));
+    http.verify();
+  });
+  it('refuses offline finalization if settings change while selection persistence is pending', async () => {
+    const { context, http } = setup();
+    await verify(context, http);
+    let release!: () => void;
+    const pendingSave = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(TestBed.inject(TillVerificationStore), 'save').mockReturnValueOnce(pendingSave);
+    context.select('drawer');
+    const evidence = context.offlineEvidence(1, 10);
+    TestBed.inject(TillSettingsEvents).publish('s');
+    await tick();
+    http
+      .expectOne((r) => r.url.endsWith('/capabilities'))
+      .flush({ enabled: false, mixedTenderEnabled: false, businessDate: today() });
+    await tick();
+    release();
+    await expect(evidence).rejects.toThrow('tills.capabilityUnknown');
+    http.verify();
   });
   it('never selects the first open drawer and freezes only explicit own same-day offline evidence', async () => {
     const { context, http } = setup();

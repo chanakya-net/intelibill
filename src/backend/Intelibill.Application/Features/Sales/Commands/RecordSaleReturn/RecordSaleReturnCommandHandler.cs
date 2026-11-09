@@ -29,7 +29,7 @@ public sealed class RecordSaleReturnCommandHandler(
     ISaleReturnMutationCoordinator mutationCoordinator,
     IUnitOfWork unitOfWork,
     IBusinessClock businessClock,
-    IShopRepository shops, ISaleRepository sales, ITillPostingService tills, ITillSessionPolicy tillPolicy, IFinancialOperationExecutor executor, Intelibill.Application.Features.Expiry.BatchDispositionService dispositions)
+    IShopRepository shops, ISaleRepository sales, ITillPostingService tills, IFinancialOperationExecutor executor, Intelibill.Application.Features.Expiry.BatchDispositionService dispositions)
 {
     public async Task<ErrorOr<Success>> HandleAsync(RecordSaleReturnCommand command, CancellationToken cancellationToken)
     {
@@ -55,15 +55,15 @@ public sealed class RecordSaleReturnCommandHandler(
 
     private Task<ErrorOr<Success>> ExecuteAsync(RecordSaleReturnCommand command, bool ownsTransaction, CancellationToken ct, Action<Guid>? recorded = null)
     {
-        if (ownsTransaction && !tillPolicy.IsEnabled(command.ShopId) && command.Till is null && command.RefundTender is null && !command.RefundConfirmed.HasValue)
-            return mutationCoordinator.ExecuteAsync(command.ShopId, command.SaleId, token => RecordAsync(command, null, token), ct);
         // This closure belongs to exactly one transaction attempt; never retain a locked session on the handler.
         TillSession? session = null;
         return mutationCoordinator.ExecuteAsync(command.ShopId, command.SaleId, async token =>
         {
-            if (tillPolicy.IsEnabled(command.ShopId) && FinancialOperationHasher.NormalizeKey(command.OperationKey) is null)
+            var gate = await tills.GateAsync(command.ShopId, token);
+            if (gate.IsError) return gate.Errors;
+            if (gate.Value && FinancialOperationHasher.NormalizeKey(command.OperationKey) is null)
                 return Errors.Operation.InvalidKey;
-            if (!tillPolicy.IsEnabled(command.ShopId) && (command.RefundTender is not null || command.RefundConfirmed.HasValue))
+            if (!gate.Value && (command.RefundTender is not null || command.RefundConfirmed.HasValue))
                 return Errors.Till.Disabled;
             var shop = await shops.GetByIdAsync(command.ShopId, token);
             if (shop is null) return Errors.Shop.ShopNotFound;

@@ -31,6 +31,7 @@ import { ShopBasicInfoFormComponent } from './manage-shop/shop-basic-info-form.c
 import { ShopLogoUploadComponent } from './manage-shop/shop-logo-upload.component';
 import { ShopMembersTableComponent } from './manage-shop/shop-members-table.component';
 import { ShopTaxProfileFormComponent } from './manage-shop/shop-tax-profile-form.component';
+import { ShopTillSettingsComponent } from './manage-shop/shop-till-settings.component';
 
 @Component({
   selector: 'app-manage-shop-overlay',
@@ -49,6 +50,7 @@ import { ShopTaxProfileFormComponent } from './manage-shop/shop-tax-profile-form
     ShopLogoUploadComponent,
     ShopMembersTableComponent,
     ShopTaxProfileFormComponent,
+    ShopTillSettingsComponent,
   ],
   templateUrl: './manage-shop-overlay.component.html',
   styleUrl: './manage-shop-overlay.component.scss',

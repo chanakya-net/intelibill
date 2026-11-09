@@ -30,8 +30,9 @@ public sealed class TillCommandHandlerTests
         _shops.GetByIdAsync(_shop.Id, Arg.Any<CancellationToken>()).Returns(_shop);
         _tills.GetSessionAsync(_shop.Id, _session.Id, Arg.Any<CancellationToken>()).Returns(_session);
         _tills.ReloadSessionAsync(_shop.Id, _session.Id, Arg.Any<CancellationToken>()).Returns(_session);
+        _tills.LockSettingsReadAsync(_shop.Id, Arg.Any<CancellationToken>()).Returns(RowLockOutcome.Acquired);
         _tills.LockSessionAsync(_shop.Id, _session.Id, Arg.Any<CancellationToken>()).Returns(RowLockOutcome.Acquired);
-        _policy.IsEnabled(_shop.Id).Returns(true);
+        _policy.IsEnabledAsync(_shop.Id, Arg.Any<CancellationToken>()).Returns(true);
         _policy.AuthorizeAsync(_shop.Id, _actor, _actor, Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(Result.Success);
         _policy.ValidateTradingDate(Arg.Any<TillSession>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>()).Returns(Result.Success);
         _clock.UtcNow.Returns(_now);

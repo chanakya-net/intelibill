@@ -142,6 +142,8 @@ public static class TenantPolicyManifest
         Tenant("till_sessions"),
         Tenant("till_source_records"),
         Tenant("tills"),
+        Tenant("shop_till_settings"),
+        Tenant("shop_till_setting_events"),
 
         // ── Tenant child data: ownership derived from the parent ─────────────
         Child("purchase_order_lines", "purchase_order_id", "purchase_orders"),

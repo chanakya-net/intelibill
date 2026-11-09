@@ -746,6 +746,7 @@ public sealed partial class TillOfflineReconciliationTests(PostgreSqlTestFixture
         var invoice = await FirstLeasedInvoiceNumberAsync(client, owner.Token);
         _factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value.Enabled = true;
         _factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value.AllowedShopIds = [owner.ShopId];
+        await TillTestContext.OptInAsync(fixture.MigratorConnectionString, owner.ShopId);
         await using var app = new TillTestContext(fixture.MigratorConnectionString, owner.ShopId, new() { Now = DateTimeOffset.UtcNow.AddSeconds(-2) });
         var till = await app.CreateAsync(owner.ShopId, owner.UserId);
         var session = await app.OpenAsync(owner.ShopId, owner.UserId, till.Id);

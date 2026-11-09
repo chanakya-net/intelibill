@@ -51,6 +51,7 @@
               <app-shop-tax-profile-form [details]="selectedShopDetails()" [canEdit]="isSelectedShopOwner()" [disabled]="isSubmitting() || isLoadingDetails()" [submitting]="isTaxProfilePending()" [errorMessage]="taxProfileError()" [saved]="taxProfileSaved()" (saveRequested)="onSaveTaxProfile($event)"></app-shop-tax-profile-form>
 
               <app-expiry-policy-form [shopId]="form.controls.shopId.value" [canEdit]="isSelectedShopOwner()" />
+              <app-shop-till-settings [shopId]="form.controls.shopId.value" [canEdit]="isSelectedShopOwner()" [disabled]="isSubmitting() || isLoadingDetails()" (navigateRequested)="onClose()" />
               <div class="overlay-actions flex pt-4 justify-end gap-2">
                 @if (!isSelectedShopOwner() && isSelectedShopOwnerOrManager()) {
                   <button pButton type="button" [label]="'shops.nextStep' | transloco" icon="pi pi-arrow-right" iconPos="right" severity="secondary" [text]="true" [disabled]="isSubmitting() || isLoadingDetails()" (click)="onContinueToOfflineBilling()"></button>

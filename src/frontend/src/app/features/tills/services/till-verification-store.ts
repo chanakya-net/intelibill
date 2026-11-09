@@ -8,15 +8,25 @@ export interface TillVerification extends ScopeOwner {
 }
 @Injectable({ providedIn: 'root' })
 export class TillVerificationStore {
+  private writes: Promise<unknown> = Promise.resolve();
   async load(owner: ScopeOwner): Promise<TillVerification | null> {
+    await this.writes.catch(() => {});
     return this.transaction(owner, null);
   }
   async save(value: TillVerification): Promise<void> {
-    await this.transaction(value, value);
+    const write = this.writes.catch(() => {}).then(() => this.transaction(value, value));
+    this.writes = write;
+    await write;
+  }
+  async invalidate(owner: ScopeOwner): Promise<void> {
+    const write = this.writes.catch(() => {}).then(() => this.transaction(owner, null, true));
+    this.writes = write;
+    await write;
   }
   private async transaction(
     owner: ScopeOwner,
     value: TillVerification | null,
+    remove = false,
   ): Promise<TillVerification | null> {
     if (typeof indexedDB === 'undefined') throw new Error('Till verification storage unavailable.');
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
@@ -29,13 +39,15 @@ export class TillVerificationStore {
     });
     try {
       return await new Promise((resolve, reject) => {
-        const tx = db.transaction('verified', value ? 'readwrite' : 'readonly');
+        const tx = db.transaction('verified', value || remove ? 'readwrite' : 'readonly');
         let result: TillVerification | null = null;
         tx.oncomplete = () => resolve(result);
         tx.onerror = tx.onabort = () =>
           reject(tx.error ?? new Error('Till verification write failed.'));
         const store = tx.objectStore('verified');
-        if (value) {
+        if (remove) {
+          store.delete([owner.userId, owner.shopId]);
+        } else if (value) {
           store.put(value);
           result = value;
         } else {

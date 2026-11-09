@@ -38,7 +38,7 @@ internal sealed class TillTestContext : IAsyncDisposable
         Db = new(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(connection).UseSnakeCaseNamingConvention().Options);
         Tills = new(Db);
         var shops = new ShopRepository(Db);
-        var policy = new TillSessionPolicy(Microsoft.Extensions.Options.Options.Create(Options), shops);
+        var policy = new TillSessionPolicy(Microsoft.Extensions.Options.Options.Create(Options), shops, Tills);
         var receipts = new OperationReceiptRepository(Db);
         var builder = new TillDtoBuilder(Tills);
         Posting = new(Tills, shops, new BankAccountRepository(Db), policy, Clock);
@@ -48,7 +48,14 @@ internal sealed class TillTestContext : IAsyncDisposable
         Reads = new(Tills, shops, receipts, policy, Clock, builder);
     }
 
-    public static async Task<(Guid ShopId, Guid Owner, Guid Cashier, Guid Other)> SeedAsync(string connection)
+    public static async Task OptInAsync(string connection, Guid shopId)
+    {
+        await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(connection).UseSnakeCaseNamingConvention().Options);
+        db.Add(ShopTillSetting.Create(shopId, true));
+        await db.SaveChangesAsync();
+    }
+
+    public static async Task<(Guid ShopId, Guid Owner, Guid Cashier, Guid Other)> SeedAsync(string connection, bool enabled = true)
     {
         await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(connection).UseSnakeCaseNamingConvention().Options);
         var shop = Shop.Create("Till lifecycle", "address", "city", "state", "560001", null, null, null);
@@ -57,6 +64,7 @@ internal sealed class TillTestContext : IAsyncDisposable
         var other = User.CreateWithEmail($"till-other-{Guid.NewGuid():N}@example.test", "hash", "Other", "Name");
         db.AddRange(shop, owner, cashier, other, ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, false),
             ShopMembership.Create(shop.Id, cashier.Id, ShopRole.Staff, false), ShopMembership.Create(shop.Id, other.Id, ShopRole.Staff, false));
+        if (enabled) db.Add(ShopTillSetting.Create(shop.Id, true));
         await db.SaveChangesAsync();
         return (shop.Id, owner.Id, cashier.Id, other.Id);
     }

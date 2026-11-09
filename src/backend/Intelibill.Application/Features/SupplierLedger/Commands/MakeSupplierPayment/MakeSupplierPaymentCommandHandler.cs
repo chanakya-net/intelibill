@@ -34,7 +34,6 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
     IPostingPeriodPolicy postingPeriodPolicy,
     IUnitOfWork unitOfWork,
     ITillPostingService tillPosting,
-    ITillSessionPolicy tillPolicy,
     IBusinessClock businessClock,
     ILogger<MakeSupplierPaymentCommandHandler> logger)
 {
@@ -118,7 +117,9 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
         if (fence.IsError)
             return fence.Errors;
 
-        if (tillPolicy.IsEnabled(command.ActiveShopId))
+        var gate = await tillPosting.GateAsync(command.ActiveShopId, cancellationToken);
+        if (gate.IsError) return gate.Errors;
+        if (gate.Value)
         {
             if (FinancialOperationHasher.NormalizeKey(command.OperationKey) is null) return Errors.Operation.InvalidKey;
             if (command.Method is null or ReceiptTenderMethod.UnknownRecordedMethod) return Errors.Till.TenderRequired;

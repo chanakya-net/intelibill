@@ -23,6 +23,7 @@ public sealed partial class SaleCancellationTests
         var s = await SeedAsync();
         var options = factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value;
         options.Enabled = true; options.AllowedShopIds = [s.ShopId];
+        await TillTestContext.OptInAsync(fixture.MigratorConnectionString, s.ShopId);
         using var created = await s.Client.PostAsJsonAsync("/api/tills", new { name = "Explicit count", operationKey = "create-count" });
         created.EnsureSuccessStatusCode();
         var till = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
@@ -48,6 +49,7 @@ public sealed partial class SaleCancellationTests
         var s = await SeedAsync();
         var options = factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value;
         options.Enabled = true; options.AllowedShopIds = [s.ShopId];
+        await TillTestContext.OptInAsync(fixture.MigratorConnectionString, s.ShopId);
         await using var app = new TillTestContext(fixture.MigratorConnectionString, s.ShopId,
             new TillTestClock { Now = factory.Services.GetRequiredService<Intelibill.Application.Common.Time.IBusinessClock>().UtcNow });
         var shop = await app.Db.Shops.SingleAsync(x => x.Id == s.ShopId);

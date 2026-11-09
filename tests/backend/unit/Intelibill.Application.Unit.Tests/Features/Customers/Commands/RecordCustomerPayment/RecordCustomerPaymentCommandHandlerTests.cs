@@ -40,7 +40,7 @@ public class RecordCustomerPaymentCommandHandlerTests
         new(_userRepository, _customerRepository, _customerLedgerEntryRepository, _paymentReceiptRepository,
             _bankAccountRepository, new PaymentAllocationPlanner(_balanceReader),
             new PaymentTransactionRunner(_executor, _unitOfWork), _postingPeriods, _unitOfWork,
-            BusinessTestDoubles.DisabledTillPosting(), BusinessTestDoubles.DisabledTillPolicy(), BusinessTestDoubles.RealClock(),
+            BusinessTestDoubles.DisabledTillPosting(), BusinessTestDoubles.RealClock(),
             NullLogger<RecordCustomerPaymentCommandHandler>.Instance);
 
     private void ExecutorRunsAction() =>

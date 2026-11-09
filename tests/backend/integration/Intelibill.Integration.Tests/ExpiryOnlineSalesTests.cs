@@ -457,6 +457,7 @@ public sealed class ExpiryOnlineSalesTests : IAsyncLifetime, IDisposable
         await Policy(client, "Block");
         var options = _factory.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<Intelibill.Infrastructure.Options.TillSessionOptions>>().Value;
         options.Enabled = true; options.AllowedShopIds = [seed.Shop];
+        await TillTestContext.OptInAsync(_factory.MigratorConnectionString, seed.Shop);
         using var tillResponse = await client.PostAsJsonAsync("/api/tills", new { name = "Expiry test till", operationKey = Guid.NewGuid().ToString() });
         Assert.True(tillResponse.IsSuccessStatusCode, await tillResponse.Content.ReadAsStringAsync());
         var tillId = (await tillResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
