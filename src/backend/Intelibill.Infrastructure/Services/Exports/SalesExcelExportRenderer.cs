@@ -9,21 +9,23 @@ public sealed class SalesExcelExportRenderer : ISalesExcelExportRenderer
 {
     public Task<SalesExportResult> RenderAsync(SalesExportDatasetDto dataset, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         using var workbook = new XLWorkbook();
 
         if (string.Equals(dataset.Metadata.ExportLevel, SalesExportLevel.LineItems, StringComparison.OrdinalIgnoreCase))
         {
-            SalesExcelLineItemRenderer.RenderLineItems(workbook, dataset);
+            SalesExcelLineItemRenderer.RenderLineItems(workbook, dataset, cancellationToken);
         }
         else
         {
-            SalesExcelSummaryRenderer.RenderSummary(workbook, dataset);
+            SalesExcelSummaryRenderer.RenderSummary(workbook, dataset, cancellationToken);
         }
 
-        SalesExcelReturnAdjustmentsRenderer.Render(workbook, dataset);
-        SalesExcelCancellationRenderer.Render(workbook, dataset);
+        SalesExcelReturnAdjustmentsRenderer.Render(workbook, dataset, cancellationToken);
+        SalesExcelCancellationRenderer.Render(workbook, dataset, cancellationToken);
 
         using var stream = new MemoryStream();
+        cancellationToken.ThrowIfCancellationRequested();
         workbook.SaveAs(stream);
 
         return Task.FromResult(new SalesExportResult(

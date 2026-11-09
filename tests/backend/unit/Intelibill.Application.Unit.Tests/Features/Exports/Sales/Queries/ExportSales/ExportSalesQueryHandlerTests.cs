@@ -13,6 +13,15 @@ namespace Intelibill.Application.Unit.Tests.Features.Exports.Sales.Queries.Expor
 
 public class ExportSalesQueryHandlerTests
 {
+    private readonly IExportReadStore _readStore = Substitute.For<IExportReadStore>();
+    private readonly IExportReadSnapshot _snapshot = Substitute.For<IExportReadSnapshot>();
+
+    public ExportSalesQueryHandlerTests()
+    {
+        _readStore.OpenSnapshotAsync(Arg.Any<CancellationToken>()).Returns(_snapshot);
+        _snapshot.CountAsync(Arg.Any<Guid>(), Arg.Any<ExportWindow>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(new ExportCounts(0, 0));
+    }
+
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly ISalesExportDatasetBuilder _datasetBuilder = Substitute.For<ISalesExportDatasetBuilder>();
@@ -22,7 +31,7 @@ public class ExportSalesQueryHandlerTests
     private readonly IExportFileNameBuilder _fileNameBuilder = Substitute.For<IExportFileNameBuilder>();
 
     private ExportSalesQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _datasetBuilder, _excelRenderer, _pdfRenderer, _tallyRenderer, _fileNameBuilder, BusinessTestDoubles.RealClock());
+        new(_userRepository, _shopRepository, _datasetBuilder, _excelRenderer, _pdfRenderer, _tallyRenderer, _fileNameBuilder, BusinessTestDoubles.RealClock(), _readStore);
 
     private static User MakeUser() =>
         User.CreateWithEmail("export@test.com", "hash", "Export", "User");
@@ -239,6 +248,7 @@ public class ExportSalesQueryHandlerTests
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
             .Returns(ownerMembership);
         _datasetBuilder.BuildAsync(
+            _snapshot,
             shop,
             user,
             Arg.Any<DateOnly>(),
@@ -267,6 +277,7 @@ public class ExportSalesQueryHandlerTests
         Assert.False(result.IsError);
         await _tallyRenderer.Received(1).RenderAsync(dataset, Arg.Any<CancellationToken>());
         await _datasetBuilder.Received(1).BuildAsync(
+            _snapshot,
             shop,
             user,
             Arg.Any<DateOnly>(),
@@ -298,7 +309,7 @@ public class ExportSalesQueryHandlerTests
         _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ownerMembership);
-        _datasetBuilder.BuildAsync(shop, user, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), SalesExportLevel.LineItems, Arg.Any<CancellationToken>())
+        _datasetBuilder.BuildAsync(_snapshot, shop, user, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), SalesExportLevel.LineItems, Arg.Any<CancellationToken>())
             .Returns(dataset);
         _tallyRenderer.RenderAsync(dataset, Arg.Any<CancellationToken>()).Returns(refusal);
 
@@ -337,6 +348,7 @@ public class ExportSalesQueryHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ownerMembership);
         _datasetBuilder.BuildAsync(
+            _snapshot,
             shop,
             user,
             Arg.Any<DateOnly>(),
@@ -391,6 +403,7 @@ public class ExportSalesQueryHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ownerMembership);
         _datasetBuilder.BuildAsync(
+            _snapshot,
             shop,
             user,
             Arg.Any<DateOnly>(),
@@ -449,6 +462,7 @@ public class ExportSalesQueryHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ownerMembership);
         _datasetBuilder.BuildAsync(
+            _snapshot,
             shop,
             user,
             Arg.Any<DateOnly>(),
@@ -456,6 +470,7 @@ public class ExportSalesQueryHandlerTests
             SalesExportLevel.Summary,
             Arg.Any<CancellationToken>()).Returns(dataset);
 
+        _snapshot.CountAsync(Arg.Any<Guid>(), Arg.Any<ExportWindow>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(new ExportCounts(2001, 4002));
         var handler = CreateHandler();
         var query = new ExportSalesQuery(
             user.Id,
@@ -470,6 +485,7 @@ public class ExportSalesQueryHandlerTests
         Assert.True(result.IsError);
         Assert.Equal("Export.PdfRowLimitExceeded", result.FirstError.Code);
         await _pdfRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+        await _datasetBuilder.DidNotReceive().BuildAsync(Arg.Any<IExportReadSnapshot>(), Arg.Any<Shop>(), Arg.Any<User>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -498,6 +514,7 @@ public class ExportSalesQueryHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ownerMembership);
         _datasetBuilder.BuildAsync(
+            _snapshot,
             shop,
             user,
             Arg.Any<DateOnly>(),
@@ -556,6 +573,7 @@ public class ExportSalesQueryHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ownerMembership);
         _datasetBuilder.BuildAsync(
+            _snapshot,
             shop,
             user,
             Arg.Any<DateOnly>(),
@@ -563,6 +581,7 @@ public class ExportSalesQueryHandlerTests
             SalesExportLevel.LineItems,
             Arg.Any<CancellationToken>()).Returns(dataset);
 
+        _snapshot.CountAsync(Arg.Any<Guid>(), Arg.Any<ExportWindow>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(new ExportCounts(2001, 4002));
         var handler = CreateHandler();
         var query = new ExportSalesQuery(
             user.Id,
@@ -578,4 +597,55 @@ public class ExportSalesQueryHandlerTests
         Assert.Equal("Export.PdfRowLimitExceeded", result.FirstError.Code);
         await _pdfRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
     }
+    [Theory]
+    [InlineData("xlsx", "summary", 50001, 1, "Export.RowLimitExceeded")]
+    [InlineData("tallyXml", "summary", 50001, 1, "Export.RowLimitExceeded")]
+    [InlineData("pdf", "lineItems", 2001, 1, "Export.PdfRowLimitExceeded")]
+    [InlineData("xlsx", "summary", 1, 50001, "Export.ReadLimitExceeded")]
+    public async Task OversizedExport_DoesNotLoadDatasetOrRender(string format, string level, long output, long sources, string code)
+    {
+        var user = MakeUser(); var shop = MakeShop();
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(MakeMembership(shop.Id, user.Id, ShopRole.Owner));
+        _snapshot.CountAsync(shop.Id, Arg.Any<ExportWindow>(), Arg.Any<string>(), format, Arg.Any<CancellationToken>()).Returns(new ExportCounts(output, sources));
+        var result = await CreateHandler().Handle(new(user.Id, shop.Id, format, level, new(2026, 6, 1), new(2026, 6, 30)), CancellationToken.None);
+        Assert.True(result.IsError);
+        Assert.Equal(code, result.FirstError.Code);
+        await _datasetBuilder.DidNotReceive().BuildAsync(Arg.Any<IExportReadSnapshot>(), Arg.Any<Shop>(), Arg.Any<User>(), Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _snapshot.DidNotReceive().ReadPageAsync(Arg.Any<Guid>(), Arg.Any<ExportWindow>(), Arg.Any<string>(), Arg.Any<ExportCursor>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _snapshot.Received(1).DisposeAsync();
+        await _pdfRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+        await _excelRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+        await _tallyRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PdfBoundary2000_DisposesSnapshotBeforeRender_AndHonorsCancellation(bool cancel)
+    {
+        var user = MakeUser(); var shop = MakeShop();
+        using var cancellation = new CancellationTokenSource();
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(MakeMembership(shop.Id, user.Id, ShopRole.Owner));
+        _snapshot.CountAsync(shop.Id, Arg.Any<ExportWindow>(), SalesExportLevel.Summary, "pdf", Arg.Any<CancellationToken>()).Returns(new ExportCounts(2000, 4000));
+        var disposed = false;
+#pragma warning disable CA2012 // NSubstitute configures the ValueTask call; it does not consume it.
+        _snapshot.DisposeAsync().Returns(_ => { disposed = true; return ValueTask.CompletedTask; });
+#pragma warning restore CA2012
+        var dataset = new SalesExportDatasetDto(new(shop.Name, null, null, "User", DateTimeOffset.UtcNow, new(2026, 6, 1), new(2026, 6, 30), "summary"), [], [], [], []);
+        _datasetBuilder.BuildAsync(_snapshot, shop, user, Arg.Any<DateOnly>(), Arg.Any<DateOnly>(), "summary", Arg.Any<CancellationToken>()).Returns(_ => { if (cancel) cancellation.Cancel(); return dataset; });
+        _pdfRenderer.RenderAsync(dataset, Arg.Any<CancellationToken>()).Returns(_ => { Assert.True(disposed); return new SalesExportResult([1], "application/pdf", "test.pdf"); });
+        var operation = () => CreateHandler().Handle(new(user.Id, shop.Id, "pdf", "summary", new(2026, 6, 1), new(2026, 6, 30)), cancellation.Token);
+        if (cancel)
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(operation);
+            await _pdfRenderer.DidNotReceive().RenderAsync(Arg.Any<SalesExportDatasetDto>(), Arg.Any<CancellationToken>());
+        }
+        else Assert.False((await operation()).IsError);
+        Assert.True(disposed);
+    }
+
 }

@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Exports.Sales.DTOs;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Time;
@@ -11,7 +12,7 @@ namespace Intelibill.Application.Features.Exports.Sales.Queries.ExportSales;
 [WolverineHandler]
 public sealed class ExportSalesQueryHandler
 {
-    private const int PdfMaxRows = 2000;
+    private readonly IExportReadStore _readStore;
 
     private readonly IUserRepository _userRepository;
     private readonly IShopRepository _shopRepository;
@@ -30,7 +31,8 @@ public sealed class ExportSalesQueryHandler
         ISalesPdfExportRenderer pdfRenderer,
         ISalesTallyXmlExportRenderer tallyRenderer,
         IExportFileNameBuilder fileNameBuilder,
-        IBusinessClock businessClock)
+        IBusinessClock businessClock,
+        IExportReadStore readStore)
     {
         _userRepository = userRepository;
         _shopRepository = shopRepository;
@@ -40,6 +42,7 @@ public sealed class ExportSalesQueryHandler
         _tallyRenderer = tallyRenderer;
         _fileNameBuilder = fileNameBuilder;
         _businessClock = businessClock;
+        _readStore = readStore;
     }
 
     public async Task<ErrorOr<SalesExportResult>> Handle(
@@ -81,25 +84,24 @@ public sealed class ExportSalesQueryHandler
         if (SalesExportRange.Validate(startDate, endDate) is { } rangeFailure)
             return Error.Validation("Export.InvalidDateRange", rangeFailure);
 
-        var dataset = await _datasetBuilder.BuildAsync(
-            shop,
-            user,
-            startDate,
-            endDate,
-            datasetLevel,
-            cancellationToken);
+        if (!new[] { SalesExportFormat.Pdf, SalesExportFormat.Xlsx, SalesExportFormat.TallyXml }.Contains(query.Format, StringComparer.OrdinalIgnoreCase))
+            return Error.Validation("Export.UnsupportedFormat", "The requested export format is not supported.");
+        if (!new[] { SalesExportLevel.Summary, SalesExportLevel.LineItems }.Contains(datasetLevel, StringComparer.OrdinalIgnoreCase))
+            return Error.Validation("Export.UnsupportedLevel", "The requested export level is not supported.");
 
-        if (string.Equals(query.Format, SalesExportFormat.Pdf, StringComparison.OrdinalIgnoreCase))
+        SalesExportDatasetDto dataset;
+        await using (var snapshot = await _readStore.OpenSnapshotAsync(cancellationToken))
         {
-            var rowCount = string.Equals(datasetLevel, SalesExportLevel.LineItems, StringComparison.OrdinalIgnoreCase)
-                ? dataset.LineItemRows.Count
-                : dataset.SummaryRows.Count;
-
-            if (rowCount > PdfMaxRows)
-            {
-                return Errors.Export.PdfRowLimitExceeded(PdfMaxRows);
-            }
+            var counts = await snapshot.CountAsync(shop.Id, new(startDate, endDate), datasetLevel, query.Format, cancellationToken);
+            var isPdf = string.Equals(query.Format, SalesExportFormat.Pdf, StringComparison.OrdinalIgnoreCase);
+            var limit = isPdf ? ExportReadLimits.PdfRows : ExportReadLimits.FileRows;
+            if (counts.OutputRows > limit)
+                return isPdf ? Errors.Export.PdfRowLimitExceeded((int)limit, counts.OutputRows, datasetLevel, query.Format) : Errors.Export.RowLimitExceeded(limit, counts.OutputRows, datasetLevel, query.Format);
+            if (counts.SourceRows > ExportReadLimits.SourceRows)
+                return Errors.Export.ReadLimitExceeded(ExportReadLimits.SourceRows, counts.SourceRows, datasetLevel, query.Format);
+            dataset = await _datasetBuilder.BuildAsync(snapshot, shop, user, startDate, endDate, datasetLevel, cancellationToken);
         }
+        cancellationToken.ThrowIfCancellationRequested();
 
         var rendererResult = query.Format switch
         {

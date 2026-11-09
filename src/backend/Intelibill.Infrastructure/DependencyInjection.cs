@@ -237,6 +237,7 @@ public static class DependencyInjection
         });
 
         // ── Export services ────────────────────────────────────────────────────
+        services.AddScoped<IExportReadStore, ExportReadStore>();
         services.AddScoped<IExportFileNameBuilder, ExportFileNameBuilder>();
         services.AddScoped<ISalesExcelExportRenderer, Services.Exports.SalesExcelExportRenderer>();
         services.AddScoped<ISalesPdfExportRenderer, Services.Exports.SalesPdfExportRenderer>();

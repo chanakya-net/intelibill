@@ -148,8 +148,13 @@ public sealed class SaleCancellationReportingTests(PostgreSqlTestFixture fixture
         Assert.Equal(cancellations, report.Items.Count(x => x.RowType == "saleCancellation"));
         Assert.Equal(net * .6m, report.Summary.Economics.Cogs);
         Assert.Equal(0m, report.Summary.Economics.StockLoss);
+        await using var exportSnapshot = await scope.ServiceProvider.GetRequiredService<Intelibill.Application.Features.Exports.Sales.Services.IExportReadStore>().OpenSnapshotAsync(CancellationToken.None);
+        var pdfCount = await exportSnapshot.CountAsync(seed.ShopId, new(start, end), "lineItems", "pdf", CancellationToken.None);
+        Assert.Equal(invoices + 2L * cancellations, pdfCount.OutputRows);
+        var xlsxCount = await exportSnapshot.CountAsync(seed.ShopId, new(start, end), "summary", "xlsx", CancellationToken.None);
+        Assert.Equal(invoices + 3L * cancellations, xlsxCount.OutputRows);
         var dataset = await scope.ServiceProvider.GetRequiredService<Intelibill.Application.Features.Exports.Sales.Services.ISalesExportDatasetBuilder>()
-            .BuildAsync((await db.Shops.FindAsync(seed.ShopId))!, (await db.Users.FindAsync(seed.ActorId))!, start, end, "lineItems", CancellationToken.None);
+            .BuildAsync(exportSnapshot, (await db.Shops.FindAsync(seed.ShopId))!, (await db.Users.FindAsync(seed.ActorId))!, start, end, "lineItems", CancellationToken.None);
         Assert.Equal(invoices, dataset.SummaryRows.Count);
         Assert.Equal(cancellations, dataset.CancellationAdjustments.Count);
         Assert.Equal(net, dataset.TaxBreakup.Sum(t => t.NetTaxableAmount));

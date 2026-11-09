@@ -12,9 +12,11 @@ public sealed class SalesTallyXmlExportRenderer(IAccountingVoucherValidator vouc
 {
     public Task<ErrorOr<SalesExportResult>> RenderAsync(SalesExportDatasetDto dataset, CancellationToken cancellationToken)
     {
-        var vouchers = BuildVouchers(dataset, out var errors);
+        cancellationToken.ThrowIfCancellationRequested();
+        var vouchers = BuildVouchers(dataset, cancellationToken, out var errors);
         foreach (var voucher in vouchers)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var validation = voucherValidator.Validate(voucher);
             if (validation.IsError)
                 errors.AddRange(validation.Errors);
@@ -23,13 +25,13 @@ public sealed class SalesTallyXmlExportRenderer(IAccountingVoucherValidator vouc
         if (errors.Count > 0)
             return Task.FromResult<ErrorOr<SalesExportResult>>(errors);
 
-        var root = BuildTallyEnvelope(dataset, vouchers);
+        var root = BuildTallyEnvelope(dataset, vouchers, cancellationToken);
         var content = System.Text.Encoding.UTF8.GetBytes(root.ToString(SaveOptions.None));
 
         return Task.FromResult<ErrorOr<SalesExportResult>>(new SalesExportResult(content, "application/xml", "sales-export.xml"));
     }
 
-    private static List<AccountingVoucher> BuildVouchers(SalesExportDatasetDto dataset, out List<Error> errors)
+    private static List<AccountingVoucher> BuildVouchers(SalesExportDatasetDto dataset, CancellationToken cancellationToken, out List<Error> errors)
     {
         errors = [];
         var vouchers = new List<AccountingVoucher>();
@@ -39,6 +41,7 @@ public sealed class SalesTallyXmlExportRenderer(IAccountingVoucherValidator vouc
 
         foreach (var summary in dataset.SummaryRows)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var voucher = TallyVoucherBuilder.BuildSalesVoucher(
                 summary,
                 linesByInvoice.GetValueOrDefault(summary.InvoiceNumber, []),
@@ -52,6 +55,7 @@ public sealed class SalesTallyXmlExportRenderer(IAccountingVoucherValidator vouc
 
         foreach (var adjustment in dataset.ReturnAdjustments)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (adjustment.Status == ReturnAccountingStatus.NeedsReview)
             {
                 errors.Add(Errors.Export.ReturnNeedsAccountingReview(
@@ -68,6 +72,7 @@ public sealed class SalesTallyXmlExportRenderer(IAccountingVoucherValidator vouc
 
         foreach (var cancellation in dataset.CancellationAdjustments)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var voucher = TallyVoucherBuilder.BuildCancellationVoucher(cancellation);
             if (voucher.Lines.Count > 0) vouchers.Add(voucher);
         }
@@ -75,7 +80,7 @@ public sealed class SalesTallyXmlExportRenderer(IAccountingVoucherValidator vouc
         return vouchers;
     }
 
-    private static XElement BuildTallyEnvelope(SalesExportDatasetDto dataset, IReadOnlyList<AccountingVoucher> vouchers)
+    private static XElement BuildTallyEnvelope(SalesExportDatasetDto dataset, IReadOnlyList<AccountingVoucher> vouchers, CancellationToken cancellationToken)
     {
         var envelope = new XElement("ENVELOPE");
 
@@ -88,11 +93,13 @@ public sealed class SalesTallyXmlExportRenderer(IAccountingVoucherValidator vouc
 
         foreach (var ledger in TallyLedgerBuilder.ExtractUniqueLedgers(dataset, vouchers))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             requestData.Add(TallyLedgerBuilder.BuildTallyMessage(TallyLedgerBuilder.BuildLedgerMaster(ledger)));
         }
 
         foreach (var voucher in vouchers)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             requestData.Add(TallyLedgerBuilder.BuildTallyMessage(TallyVoucherBuilder.ToXml(voucher)));
         }
 
