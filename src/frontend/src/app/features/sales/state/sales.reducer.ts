@@ -1,3 +1,4 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
@@ -16,13 +17,13 @@ export const salesFeatureKey = 'sales';
 
 export const salesAdapter = createEntityAdapter<SaleListItemDto>({
   selectId: (sale) => sale.saleId,
-  sortComparer: (left, right) =>
-    new Date(right.soldAt).getTime() - new Date(left.soldAt).getTime(),
+  sortComparer: (left, right) => new Date(right.soldAt).getTime() - new Date(left.soldAt).getTime(),
 });
 
 export interface SalesState extends EntityState<SaleListItemDto> {
   readonly loadingSales: boolean;
   readonly submitting: boolean;
+  readonly localizedError: LocalizedError | undefined;
   readonly errorMessage: string;
   readonly lastMutationType: SaleMutationType | null;
   readonly lastMutationSucceeded: boolean;
@@ -30,6 +31,7 @@ export interface SalesState extends EntityState<SaleListItemDto> {
   readonly loadingSaleDetail: boolean;
   readonly returnPreview: SaleReturnPreviewDto | null;
   readonly loadingReturnPreview: boolean;
+  readonly returnPreviewLocalizedError: LocalizedError | undefined;
   readonly returnPreviewErrorMessage: string;
   readonly profitLossItems: readonly ProfitLossReportItemDto[];
   readonly loadingProfitLossReport: boolean;
@@ -50,6 +52,7 @@ export interface SalesState extends EntityState<SaleListItemDto> {
 const initialState: SalesState = salesAdapter.getInitialState({
   loadingSales: false,
   submitting: false,
+  localizedError: undefined,
   errorMessage: '',
   lastMutationType: null,
   lastMutationSucceeded: false,
@@ -57,6 +60,7 @@ const initialState: SalesState = salesAdapter.getInitialState({
   loadingSaleDetail: false,
   returnPreview: null,
   loadingReturnPreview: false,
+  returnPreviewLocalizedError: undefined,
   returnPreviewErrorMessage: '',
   profitLossItems: [],
   loadingProfitLossReport: false,
@@ -78,30 +82,34 @@ export const salesReducer = createReducer(
   on(SalesActions.loadSalesRequested, (state) => ({
     ...state,
     loadingSales: true,
+    localizedError: undefined,
     errorMessage: '',
   })),
   on(
     SalesActions.loadSalesSucceeded,
     (state, { sales, totalCount, pageNumber, pageSize, summary }) =>
-    salesAdapter.setAll([...sales], {
-      ...state,
-      loadingSales: false,
-      errorMessage: '',
-      totalCount,
-      pageNumber,
-      pageSize,
-      historySummary: summary,
-    })
+      salesAdapter.setAll([...sales], {
+        ...state,
+        loadingSales: false,
+        localizedError: undefined,
+        errorMessage: '',
+        totalCount,
+        pageNumber,
+        pageSize,
+        historySummary: summary,
+      }),
   ),
-  on(SalesActions.loadSalesFailed, (state, { errorMessage }) => ({
+  on(SalesActions.loadSalesFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     loadingSales: false,
+    localizedError,
     errorMessage,
   })),
 
   on(SalesActions.loadProfitLossReportRequested, (state) => ({
     ...state,
     loadingProfitLossReport: true,
+    localizedError: undefined,
     errorMessage: '',
   })),
   on(SalesActions.loadProfitLossReportSucceeded, (state, { result }) => ({
@@ -113,20 +121,24 @@ export const salesReducer = createReducer(
     profitLossTotalCount: result.totalCount,
     profitLossPageNumber: result.pageNumber,
     profitLossPageSize: result.pageSize,
+    localizedError: undefined,
     errorMessage: '',
   })),
-  on(SalesActions.loadProfitLossReportFailed, (state, { errorMessage }) => ({
+  on(SalesActions.loadProfitLossReportFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     loadingProfitLossReport: false,
+    localizedError,
     errorMessage,
   })),
 
   on(SalesActions.loadSaleDetailRequested, (state) => ({
     ...state,
     loadingSaleDetail: true,
+    localizedError: undefined,
     errorMessage: '',
     selectedSale: null,
     returnPreview: null,
+    returnPreviewLocalizedError: undefined,
     returnPreviewErrorMessage: '',
   })),
   on(SalesActions.loadSaleDetailSucceeded, (state, { sale }) => ({
@@ -134,9 +146,10 @@ export const salesReducer = createReducer(
     loadingSaleDetail: false,
     selectedSale: sale,
   })),
-  on(SalesActions.loadSaleDetailFailed, (state, { errorMessage }) => ({
+  on(SalesActions.loadSaleDetailFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     loadingSaleDetail: false,
+    localizedError,
     errorMessage,
   })),
 
@@ -144,24 +157,29 @@ export const salesReducer = createReducer(
     ...state,
     loadingReturnPreview: true,
     returnPreview: null,
+    returnPreviewLocalizedError: undefined,
     returnPreviewErrorMessage: '',
   })),
   on(SalesActions.previewSaleReturnSucceeded, (state, { preview }) => ({
     ...state,
     loadingReturnPreview: false,
     returnPreview: preview,
+    returnPreviewLocalizedError: undefined,
     returnPreviewErrorMessage: '',
   })),
-  on(SalesActions.previewSaleReturnFailed, (state, { errorMessage }) => ({
+  on(SalesActions.previewSaleReturnFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     loadingReturnPreview: false,
+    returnPreviewLocalizedError: localizedError,
     returnPreviewErrorMessage: errorMessage,
   })),
 
   on(SalesActions.recordSaleReturnRequested, (state) => ({
     ...state,
     submitting: true,
+    localizedError: undefined,
     errorMessage: '',
+    returnPreviewLocalizedError: undefined,
     returnPreviewErrorMessage: '',
     lastMutationType: 'record-return' as SaleMutationType,
     lastMutationSucceeded: false,
@@ -171,13 +189,15 @@ export const salesReducer = createReducer(
     submitting: false,
     selectedSale: sale,
     returnPreview: null,
+    returnPreviewLocalizedError: undefined,
     returnPreviewErrorMessage: '',
     lastMutationType: 'record-return' as SaleMutationType,
     lastMutationSucceeded: true,
   })),
-  on(SalesActions.recordSaleReturnFailed, (state, { errorMessage }) => ({
+  on(SalesActions.recordSaleReturnFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    returnPreviewLocalizedError: localizedError,
     returnPreviewErrorMessage: errorMessage,
     lastMutationType: 'record-return' as SaleMutationType,
     lastMutationSucceeded: false,
@@ -186,7 +206,9 @@ export const salesReducer = createReducer(
   on(SalesActions.voidSaleReturnRequested, (state) => ({
     ...state,
     submitting: true,
+    localizedError: undefined,
     errorMessage: '',
+    returnPreviewLocalizedError: undefined,
     returnPreviewErrorMessage: '',
     lastMutationType: 'void-return' as SaleMutationType,
     lastMutationSucceeded: false,
@@ -195,13 +217,15 @@ export const salesReducer = createReducer(
     ...state,
     submitting: false,
     selectedSale: sale,
+    returnPreviewLocalizedError: undefined,
     returnPreviewErrorMessage: '',
     lastMutationType: 'void-return' as SaleMutationType,
     lastMutationSucceeded: true,
   })),
-  on(SalesActions.voidSaleReturnFailed, (state, { errorMessage }) => ({
+  on(SalesActions.voidSaleReturnFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    returnPreviewLocalizedError: localizedError,
     returnPreviewErrorMessage: errorMessage,
     lastMutationType: 'void-return' as SaleMutationType,
     lastMutationSucceeded: false,
@@ -210,6 +234,7 @@ export const salesReducer = createReducer(
   on(SalesActions.recordSaleRequested, (state) => ({
     ...state,
     submitting: true,
+    localizedError: undefined,
     errorMessage: '',
     lastMutationType: 'record-sale' as SaleMutationType,
     lastMutationSucceeded: false,
@@ -217,22 +242,25 @@ export const salesReducer = createReducer(
   on(SalesActions.recordSaleSucceeded, (state, { sale, intentId }) => ({
     ...state,
     submitting: false,
+    localizedError: undefined,
     errorMessage: '',
     lastMutationType: 'record-sale' as SaleMutationType,
     lastMutationSucceeded: true,
     lastRecordedSale: sale,
     lastRecordedIntentId: intentId ?? null,
   })),
-  on(SalesActions.recordSaleUncertain, (state, { errorMessage }) => ({
+  on(SalesActions.recordSaleUncertain, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    localizedError,
     errorMessage,
     lastMutationType: 'record-sale' as SaleMutationType,
     lastMutationSucceeded: false,
   })),
-  on(SalesActions.recordSaleFailed, (state, { errorMessage }) => ({
+  on(SalesActions.recordSaleFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    localizedError,
     errorMessage,
     lastMutationType: 'record-sale' as SaleMutationType,
     lastMutationSucceeded: false,
@@ -240,6 +268,7 @@ export const salesReducer = createReducer(
 
   on(SalesActions.clearError, (state) => ({
     ...state,
+    localizedError: undefined,
     errorMessage: '',
   })),
   on(SalesActions.clearMutationStatus, (state) => ({
@@ -251,11 +280,13 @@ export const salesReducer = createReducer(
     ...state,
     selectedSale: null,
     returnPreview: null,
+    returnPreviewLocalizedError: undefined,
     returnPreviewErrorMessage: '',
   })),
   on(SalesActions.clearSaleReturnPreview, (state) => ({
     ...state,
     returnPreview: null,
+    returnPreviewLocalizedError: undefined,
     returnPreviewErrorMessage: '',
     loadingReturnPreview: false,
   })),
@@ -263,7 +294,7 @@ export const salesReducer = createReducer(
     ...state,
     lastRecordedSale: null,
     lastRecordedIntentId: null,
-  }))
+  })),
 );
 
 export const salesFeature = createFeature({

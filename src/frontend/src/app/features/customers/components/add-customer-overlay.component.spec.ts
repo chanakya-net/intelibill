@@ -1,6 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { TranslocoTestingModule } from '@ngneat/transloco';
+import { TranslocoService, TranslocoTestingModule } from '@ngneat/transloco';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AddCustomerOverlayComponent } from './add-customer-overlay.component';
@@ -13,7 +14,13 @@ describe('AddCustomerOverlayComponent', () => {
   function setup() {
     const facade = {
       submitting: signal(false),
-      errorMessage: signal(''),
+      errorMessage: signal('errors.customers.addFailed'),
+      localizedError: signal({
+        messageKey: 'errors.customers.addFailed',
+        params: {},
+        correlationId: 'form-ref:123',
+        fieldErrors: [{ field: 'gstin', messageKey: 'apiErrors.invalidField', params: {} }],
+      }),
       clearError: vi.fn(),
       clearMutationStatus: vi.fn(),
       addCustomer: vi.fn(),
@@ -22,11 +29,30 @@ describe('AddCustomerOverlayComponent', () => {
     TestBed.configureTestingModule({
       imports: [
         AddCustomerOverlayComponent,
-        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+        TranslocoTestingModule.forRoot({
+          langs: {
+            'en-IN': JSON.parse(readFileSync('public/assets/i18n/en-IN.json', 'utf8')),
+            'hi-IN': JSON.parse(readFileSync('public/assets/i18n/hi-IN.json', 'utf8')),
+          },
+          translocoConfig: {
+            availableLangs: ['en-IN', 'hi-IN'],
+            defaultLang: 'en-IN',
+            reRenderOnLangChange: true,
+          },
+          preloadLangs: true,
+        }),
       ],
       providers: [
         { provide: CustomersFacade, useValue: facade },
-        { provide: AuthService, useValue: { session: () => ({ activeShopId: 'shop-1', shops: [{ shopId: 'shop-1', role: overlayRole }] }) } },
+        {
+          provide: AuthService,
+          useValue: {
+            session: () => ({
+              activeShopId: 'shop-1',
+              shops: [{ shopId: 'shop-1', role: overlayRole }],
+            }),
+          },
+        },
       ],
     });
 
@@ -35,6 +61,24 @@ describe('AddCustomerOverlayComponent', () => {
 
     return { fixture, component: fixture.componentInstance, facade };
   }
+
+  it('links recognized server fields and displays a support reference', async () => {
+    const { fixture } = setup();
+    const input = fixture.nativeElement.querySelector(
+      'input[formcontrolname="gstin"]',
+    ) as HTMLInputElement;
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    const description = input.getAttribute('aria-describedby');
+    expect(description).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('#' + description)).toBeTruthy();
+    expect(fixture.nativeElement.textContent).toContain('form-ref:123');
+    const english = fixture.nativeElement.textContent;
+    TestBed.inject(TranslocoService).setActiveLang('hi-IN');
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toBe(english);
+    expect(fixture.nativeElement.textContent).toContain('form-ref:123');
+  });
 
   it('defaults creditLimit to 0', () => {
     const { component } = setup();
@@ -77,7 +121,11 @@ describe('AddCustomerOverlayComponent', () => {
       expect(component.canEditCredit()).toBe(false);
       expect(component.form.controls.creditLimit.disabled).toBe(true);
       expect(facade.addCustomer).toHaveBeenCalledWith(
-        expect.objectContaining({ creditLimit: 0, creditPolicyMode: 'NoCredit', creditTermsDays: null }),
+        expect.objectContaining({
+          creditLimit: 0,
+          creditPolicyMode: 'NoCredit',
+          creditTermsDays: null,
+        }),
       );
     } finally {
       overlayRole = 'Owner';
@@ -86,7 +134,12 @@ describe('AddCustomerOverlayComponent', () => {
 
   it('refuses an enforced policy without a limit, so zero never reads as unlimited', () => {
     const { component, facade } = setup();
-    component.form.patchValue({ name: 'Alice', phoneNumber: '+919812345678', creditLimit: 0, creditPolicyMode: 'Enforced' });
+    component.form.patchValue({
+      name: 'Alice',
+      phoneNumber: '+919812345678',
+      creditLimit: 0,
+      creditPolicyMode: 'Enforced',
+    });
 
     component.onSubmit();
 
@@ -107,7 +160,11 @@ describe('AddCustomerOverlayComponent', () => {
     component.onSubmit();
 
     expect(facade.addCustomer).toHaveBeenCalledWith(
-      expect.objectContaining({ creditLimit: 2000, creditPolicyMode: 'Enforced', creditTermsDays: 15 }),
+      expect.objectContaining({
+        creditLimit: 2000,
+        creditPolicyMode: 'Enforced',
+        creditTermsDays: 15,
+      }),
     );
   });
 
@@ -130,16 +187,26 @@ describe('AddCustomerOverlayComponent', () => {
 
   it('accepts a state without a GSTIN', () => {
     const { component, facade } = setup();
-    component.form.patchValue({ name: 'Walk-in Regular', phoneNumber: '+919811111111', stateCode: '27' });
+    component.form.patchValue({
+      name: 'Walk-in Regular',
+      phoneNumber: '+919811111111',
+      stateCode: '27',
+    });
 
     component.onSubmit();
 
-    expect(facade.addCustomer).toHaveBeenCalledWith(expect.objectContaining({ gstin: null, stateCode: '27' }));
+    expect(facade.addCustomer).toHaveBeenCalledWith(
+      expect.objectContaining({ gstin: null, stateCode: '27' }),
+    );
   });
 
   it('rejects a GSTIN with a wrong check digit', () => {
     const { component, facade } = setup();
-    component.form.patchValue({ name: 'Bharat Stores', phoneNumber: '+919811111111', gstin: '29AAGCB7383J1Z5' });
+    component.form.patchValue({
+      name: 'Bharat Stores',
+      phoneNumber: '+919811111111',
+      gstin: '29AAGCB7383J1Z5',
+    });
 
     component.onSubmit();
 

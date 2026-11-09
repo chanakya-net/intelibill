@@ -4,15 +4,9 @@ import { salesAdapter, salesFeature } from './sales.reducer';
 
 const { selectAll, selectEntities } = salesAdapter.getSelectors();
 
-export const selectAllSales = createSelector(
-  salesFeature.selectSalesState,
-  selectAll
-);
+export const selectAllSales = createSelector(salesFeature.selectSalesState, selectAll);
 
-export const selectSalesEntities = createSelector(
-  salesFeature.selectSalesState,
-  selectEntities
-);
+export const selectSalesEntities = createSelector(salesFeature.selectSalesState, selectEntities);
 
 export const selectLoadingSales = salesFeature.selectLoadingSales;
 export const selectSubmitting = salesFeature.selectSubmitting;
@@ -35,7 +29,7 @@ export const selectProfitLossPagination = createSelector(
     totalCount: salesState.profitLossTotalCount,
     pageNumber: salesState.profitLossPageNumber,
     pageSize: salesState.profitLossPageSize,
-  })
+  }),
 );
 export const selectLastRecordedSale = salesFeature.selectLastRecordedSale;
 export const selectLastRecordedIntentId = salesFeature.selectLastRecordedIntentId;
@@ -45,9 +39,14 @@ export const selectSalesPagination = createSelector(
     totalCount: salesState.totalCount,
     pageNumber: salesState.pageNumber,
     pageSize: salesState.pageSize,
-  })
+  }),
 );
 export const selectSalesHistorySummary = createSelector(
   salesFeature.selectSalesState,
-  (salesState) => salesState.historySummary
+  (salesState) => salesState.historySummary,
+);
+
+export const selectLocalizedError = createSelector(
+  salesFeature.selectSalesState,
+  (state) => state.localizedError,
 );

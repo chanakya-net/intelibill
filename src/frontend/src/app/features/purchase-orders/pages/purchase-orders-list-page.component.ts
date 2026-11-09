@@ -1,3 +1,7 @@
+import { signal as errorSignal } from '@angular/core';
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
+import { LocaleInstantPipe } from '../../../shared/pipes/locale-instant.pipe';
+import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -39,6 +43,8 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
   selector: 'app-purchase-orders-list-page',
   standalone: true,
   imports: [
+    LocaleMoneyPipe,
+    LocaleInstantPipe,
     CommonModule,
     FormsModule,
     TranslocoPipe,
@@ -112,7 +118,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
             <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
             <div class="summary-card__value">
               @if (card.variant === 'money') {
-                {{ card.value | number: '1.2-2' }}
+                {{ card.value | localeMoney }}
               } @else if (card.variant === 'progress') {
                 {{ totalReceivedQuantity() }} / {{ totalExpectedQuantity() }}
               } @else {
@@ -150,7 +156,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
                 <span class="metric-chip">
                   <strong>
                     @if (metric.variant === 'money') {
-                      {{ metric.value | number: '1.2-2' }}
+                      {{ metric.value | localeMoney }}
                     } @else {
                       {{ metric.value | number: '1.0-0' }}
                     }
@@ -218,7 +224,12 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
           </div>
 
           @if (facade.errorMessage()) {
-            <p class="directory-error" role="alert">{{ facade.errorMessage() | transloco }}</p>
+            <p class="directory-error" role="alert">
+              {{ facade.errorMessage() | transloco: localizedError()?.params ?? {} }}
+              @if (localizedError()?.correlationId; as reference) {
+                <span>{{ 'apiErrors.supportReference' | transloco: { reference } }}</span>
+              }
+            </p>
           }
 
           @if (!facade.errorMessage() || facade.orders().length > 0) {
@@ -267,8 +278,8 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
                     </td>
                     <td>{{ receivedProgress(order.receivedQuantity, order.expectedQuantity) }}</td>
                     <td>{{ order.lineCount }}</td>
-                    <td class="money">{{ order.expectedTotal | number: '1.2-2' }}</td>
-                    <td>{{ order.createdAt | date: 'short' }}</td>
+                    <td class="money">{{ order.expectedTotal | localeMoney }}</td>
+                    <td>{{ order.createdAt | localeInstant }}</td>
                     <td>
                       @if (permissions.canManagePurchaseOrders() && order.status === 'Draft') {
                         <div class="po-row-actions">
@@ -561,7 +572,9 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
       }
       .po-filter-bar {
         display: grid;
-        grid-template-columns: minmax(12rem, 1fr) 10rem minmax(8rem, 13rem) minmax(8rem, 13rem) auto;
+        grid-template-columns:
+          minmax(12rem, 1fr) 10rem minmax(8rem, 13rem) minmax(8rem, 13rem)
+          auto;
         align-items: center;
         gap: 0.55rem;
       }
@@ -745,6 +758,8 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
 })
 export class PurchaseOrdersListPageComponent implements OnInit {
   protected readonly facade = inject(PurchaseOrdersFacade);
+  readonly localizedError =
+    this.facade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
   protected readonly permissions = inject(ShopPermissionsService);
   private readonly router = inject(Router);
   private readonly confirmationService = inject(ConfirmationService);

@@ -3,15 +3,24 @@
     <button type="button" class="screen-controls__button" (click)="onPrintAgain()">
       {{ 'purchaseOrders.print.printAgain' | transloco }}
     </button>
-    <button type="button" class="screen-controls__button screen-controls__button--secondary" (click)="onClose()">
+    <button
+      type="button"
+      class="screen-controls__button screen-controls__button--secondary"
+      (click)="onClose()"
+    >
       {{ 'purchaseOrders.print.close' | transloco }}
     </button>
   </div>
 
-  <section *ngIf="isLoading()" class="print-state" aria-live="polite">{{ 'common.loading' | transloco }}</section>
+  <section *ngIf="isLoading()" class="print-state" aria-live="polite">
+    {{ 'common.loading' | transloco }}
+  </section>
 
   <section *ngIf="errorMessageKey()" class="print-state print-state--error" role="alert">
-    {{ errorMessageKey() | transloco }}
+    {{ errorMessageKey() | transloco: localizedError()?.params ?? {} }}
+    @if (localizedError()?.correlationId; as reference) {
+      <span>{{ 'apiErrors.supportReference' | transloco: { reference } }}</span>
+    }
   </section>
 
   <article *ngIf="!isLoading() && !errorMessageKey() && order() as loadedOrder" class="po-document">
@@ -24,9 +33,14 @@
       <div *ngIf="shop() as loadedShop" class="po-document__shop">
         <strong>{{ loadedShop.name }}</strong>
         <span>{{ loadedShop.address }}</span>
-        <span>{{ loadedShop.city }}{{ loadedShop.city && loadedShop.state ? ', ' : '' }}{{ loadedShop.state }} {{ loadedShop.pincode }}</span>
+        <span
+          >{{ loadedShop.city }}{{ loadedShop.city && loadedShop.state ? ', ' : ''
+          }}{{ loadedShop.state }} {{ loadedShop.pincode }}</span
+        >
         <span *ngIf="loadedShop.mobileNumber">{{ loadedShop.mobileNumber }}</span>
-        <span *ngIf="loadedShop.gstNumber">{{ 'purchaseOrders.print.gstNumber' | transloco }}: {{ loadedShop.gstNumber }}</span>
+        <span *ngIf="loadedShop.gstNumber"
+          >{{ 'purchaseOrders.print.gstNumber' | transloco }}: {{ loadedShop.gstNumber }}</span
+        >
       </div>
     </header>
 
@@ -36,11 +50,15 @@
         <dl>
           <div>
             <dt>{{ 'purchaseOrders.builder.supplier' | transloco }}</dt>
-            <dd class="po-document__supplier--name">{{ loadedOrder.supplierName || loadedOrder.supplierId || '-' }}</dd>
+            <dd class="po-document__supplier--name">
+              {{ loadedOrder.supplierName || loadedOrder.supplierId || '-' }}
+            </dd>
           </div>
           <div>
             <dt>{{ 'purchaseOrders.builder.supplierReferenceNumber' | transloco }}</dt>
-            <dd class="po-document__supplier--reference">{{ loadedOrder.supplierReferenceNumber || loadedOrder.supplierReference || '-' }}</dd>
+            <dd class="po-document__supplier--reference">
+              {{ loadedOrder.supplierReferenceNumber || loadedOrder.supplierReference || '-' }}
+            </dd>
           </div>
         </dl>
       </div>
@@ -54,15 +72,17 @@
           </div>
           <div>
             <dt>{{ 'purchaseOrders.statusLabel' | transloco }}</dt>
-            <dd class="po-document__status">{{ 'purchaseOrders.status.' + loadedOrder.status | transloco }}</dd>
+            <dd class="po-document__status">
+              {{ 'purchaseOrders.status.' + loadedOrder.status | transloco }}
+            </dd>
           </div>
           <div>
             <dt>{{ 'purchaseOrders.builder.orderDate' | transloco }}</dt>
-            <dd>{{ loadedOrder.orderDate || '-' }}</dd>
+            <dd>{{ loadedOrder.orderDate | localeBusinessDate }}</dd>
           </div>
           <div>
             <dt>{{ 'purchaseOrders.builder.expectedDeliveryDate' | transloco }}</dt>
-            <dd>{{ loadedOrder.expectedDeliveryDate || '-' }}</dd>
+            <dd>{{ loadedOrder.expectedDeliveryDate | localeBusinessDate }}</dd>
           </div>
         </dl>
       </div>
@@ -73,10 +93,16 @@
       <p>{{ loadedOrder.notes || '-' }}</p>
     </section>
 
-    <section class="po-document__receipts" *ngIf="loadedOrder.receipts && loadedOrder.receipts.length > 0">
+    <section
+      class="po-document__receipts"
+      *ngIf="loadedOrder.receipts && loadedOrder.receipts.length > 0"
+    >
       <h2>{{ 'purchaseOrders.receipts.title' | transloco }}</h2>
       <div class="receipt-status" *ngFor="let receipt of loadedOrder.receipts">
-        <p><strong>{{ receipt.receiptNumber }}</strong> — {{ receipt.receivedAt | date:'short' }} ({{ receipt.receivedByDisplayName }})</p>
+        <p>
+          <strong>{{ receipt.receiptNumber }}</strong> —
+          {{ receipt.receivedAt | localeInstant }} ({{ receipt.receivedByDisplayName }})
+        </p>
       </div>
     </section>
 
@@ -93,14 +119,14 @@
         <tr *ngFor="let line of loadedOrder.lines">
           <td>{{ line.description }}</td>
           <td class="numeric">{{ line.expectedQuantity }}</td>
-          <td class="numeric">{{ line.unitCost | number:'1.2-2' }}</td>
-          <td class="numeric">{{ line.lineTotal | number:'1.2-2' }}</td>
+          <td class="numeric">{{ line.unitCost | localeMoney }}</td>
+          <td class="numeric">{{ line.lineTotal | localeMoney }}</td>
         </tr>
       </tbody>
       <tfoot>
         <tr>
           <th colspan="3" class="numeric">{{ 'purchaseOrders.print.grandTotal' | transloco }}</th>
-          <th class="numeric">{{ loadedOrder.expectedTotal | number:'1.2-2' }}</th>
+          <th class="numeric">{{ loadedOrder.expectedTotal | localeMoney }}</th>
         </tr>
       </tfoot>
     </table>

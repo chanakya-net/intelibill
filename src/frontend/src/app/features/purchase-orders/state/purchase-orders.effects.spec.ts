@@ -76,6 +76,32 @@ describe('PurchaseOrdersEffects', () => {
     vi.unstubAllGlobals();
   });
 
+  it('keeps only safe localized feedback and reference metadata from hostile errors', async () => {
+    service.getPurchaseOrderDetail.mockReturnValue(
+      throwError(() => ({
+        error: {
+          code: 'Untrusted.Code',
+          title: '<script>title</script>',
+          detail: '<img onerror=alert(1)>',
+          traceId: 'safe-trace:123',
+        },
+      })),
+    );
+    const output = firstValueFrom(effects.loadDetail$.pipe(take(1)));
+    actions$.next(
+      PurchaseOrdersActions.loadPurchaseOrderDetailRequested({ purchaseOrderId: 'po1' }),
+    );
+    expect(await output).toMatchObject({
+      errorMessage: 'purchaseOrders.errors.unableToLoadDetail',
+      localizedError: {
+        messageKey: 'purchaseOrders.errors.unableToLoadDetail',
+        params: {},
+        fieldErrors: [],
+        correlationId: 'safe-trace:123',
+      },
+    });
+  });
+
   it('dispatches loadPurchaseOrdersSucceeded on load success', async () => {
     const result = {
       items: [

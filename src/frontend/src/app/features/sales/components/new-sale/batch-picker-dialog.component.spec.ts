@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../../core/i18n/localization.service';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi, describe, expect, it } from 'vitest';
@@ -5,13 +6,33 @@ import { vi, describe, expect, it } from 'vitest';
 import { BatchPickerDialogComponent } from './batch-picker-dialog.component';
 import type { SellableGoodsDto } from '../../../sales/services/sale.models';
 
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
+
 describe('BatchPickerDialogComponent', () => {
   it('restores the search opener even when suggestions blurred it before the picker opened', async () => {
-    TestBed.configureTestingModule({ imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })] });
-    const fixture = TestBed.createComponent(BatchPickerDialogComponent); fixture.detectChanges();
-    const opener = document.createElement('input'); document.body.append(opener); opener.focus(); opener.blur();
-    fixture.componentRef.setInput('visible', true); fixture.detectChanges(); await fixture.whenStable();
-    fixture.componentRef.setInput('visible', false); fixture.detectChanges(); await fixture.whenStable();
+    TestBed.configureTestingModule({
+      providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+      imports: [
+        BatchPickerDialogComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
+    });
+    const fixture = TestBed.createComponent(BatchPickerDialogComponent);
+    fixture.detectChanges();
+    const opener = document.createElement('input');
+    document.body.append(opener);
+    opener.focus();
+    opener.blur();
+    fixture.componentRef.setInput('visible', true);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.componentRef.setInput('visible', false);
+    fixture.detectChanges();
+    await fixture.whenStable();
     expect(document.activeElement).toBe(opener);
     opener.remove();
   });
@@ -31,7 +52,10 @@ describe('BatchPickerDialogComponent', () => {
 
   it('emits selected batch when add is confirmed', () => {
     TestBed.configureTestingModule({
-      imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        BatchPickerDialogComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(BatchPickerDialogComponent);
@@ -49,29 +73,56 @@ describe('BatchPickerDialogComponent', () => {
   });
 
   it('never adds a blocked diagnostic lot even through a direct selection call', () => {
-    TestBed.configureTestingModule({ imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} } })] });
+    TestBed.configureTestingModule({
+      imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} } })],
+    });
     const component = TestBed.createComponent(BatchPickerDialogComponent).componentInstance;
-    const emitted = vi.fn(); component.batchSelected.subscribe(emitted);
-    const blocked = { ...batch, quantity: 10, availableQuantity: 0,
-      sellability: { allowed: false, reasonCode: 'Expiry.Expired', warning: false, requiresApproval: false,
-        policyVersion: 2, catalogVersion: 3, businessDate: '2026-11-09', physicalQuantity: 10, quarantinedQuantity: 0, availableQuantity: 0 } };
-    component.onSelectBatch(blocked); component.onAddToCart();
+    const emitted = vi.fn();
+    component.batchSelected.subscribe(emitted);
+    const blocked = {
+      ...batch,
+      quantity: 10,
+      availableQuantity: 0,
+      sellability: {
+        allowed: false,
+        reasonCode: 'Expiry.Expired',
+        warning: false,
+        requiresApproval: false,
+        policyVersion: 2,
+        catalogVersion: 3,
+        businessDate: '2026-11-09',
+        physicalQuantity: 10,
+        quarantinedQuantity: 0,
+        availableQuantity: 0,
+      },
+    };
+    component.onSelectBatch(blocked);
+    component.onAddToCart();
     expect(emitted).not.toHaveBeenCalled();
   });
 
   it('orders dated eligible lots FEFO, with stable batch identity ties and undated lots last', () => {
-    TestBed.configureTestingModule({ imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} } })] });
+    TestBed.configureTestingModule({
+      imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} } })],
+    });
     const component = TestBed.createComponent(BatchPickerDialogComponent).componentInstance;
-    component.batches = [{ ...batch, batchNumber: 'undated', inventoryBatchId: 'u', expiryDate: null },
+    component.batches = [
+      { ...batch, batchNumber: 'undated', inventoryBatchId: 'u', expiryDate: null },
       { ...batch, batchNumber: 'late', inventoryBatchId: 'l', expiryDate: '2027-11-09' },
       { ...batch, batchNumber: 'same', inventoryBatchId: 'b', expiryDate: '2027-11-08' },
-      { ...batch, batchNumber: 'same', inventoryBatchId: 'a', expiryDate: '2027-11-08' }];
-    expect(component.orderedBatches.map(x => x.kind === 'Goods' ? x.inventoryBatchId : '')).toEqual(['a', 'b', 'l', 'u']);
+      { ...batch, batchNumber: 'same', inventoryBatchId: 'a', expiryDate: '2027-11-08' },
+    ];
+    expect(
+      component.orderedBatches.map((x) => (x.kind === 'Goods' ? x.inventoryBatchId : '')),
+    ).toEqual(['a', 'b', 'l', 'u']);
   });
 
   it('emits quantity changes', () => {
     TestBed.configureTestingModule({
-      imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        BatchPickerDialogComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(BatchPickerDialogComponent);
@@ -86,7 +137,10 @@ describe('BatchPickerDialogComponent', () => {
 
   function renderWithSelection(selected: SellableGoodsDto) {
     TestBed.configureTestingModule({
-      imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        BatchPickerDialogComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(BatchPickerDialogComponent);
@@ -145,7 +199,10 @@ describe('BatchPickerDialogComponent', () => {
 
   it('emits closed on hidden event', () => {
     TestBed.configureTestingModule({
-      imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        BatchPickerDialogComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(BatchPickerDialogComponent);

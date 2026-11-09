@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../../core/i18n/localization.service';
 import { disabledTillProviders } from '../../../../../tests/tills/disabled-till.providers';
 import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
@@ -36,6 +37,12 @@ const LAST_EXPORT_KEY = 'intelibill.offlineSales.lastSupportExport.v1:shop-1:dev
 const enIN = JSON.parse(
   readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8'),
 ) as Record<string, unknown>;
+
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
 
 describe('OfflineReconciliationPageComponent', () => {
   const session = signal<AuthSession | null>(makeSession('Owner'));
@@ -139,6 +146,7 @@ describe('OfflineReconciliationPageComponent', () => {
         }),
       ],
       providers: [
+        { provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } },
         ...disabledTillProviders(),
         { provide: AuthService, useValue: { session } },
         { provide: NetworkStatusService, useValue: { canReachApi } },
@@ -352,7 +360,10 @@ describe('OfflineReconciliationPageComponent', () => {
     expect(el().querySelector('.linked-operation-select')).toBeTruthy();
     expect(el().querySelector('.no-candidates')).toBeNull();
     expect(component.linkOptions()).toEqual([
-      { value: 'adj-1', label: expect.stringMatching(/^Adjustment ADJ-0007: \+2, \d{2} Nov 2026/) },
+      {
+        value: 'adj-1',
+        label: expect.stringMatching(/^Adjustment ADJ-0007: \+2, \d{1,2} Nov 2026/),
+      },
     ]);
 
     await submitResolve();
@@ -368,7 +379,10 @@ describe('OfflineReconciliationPageComponent', () => {
 
     await fillResolveForm('LinkExistingSale', 'Posted by the late sync');
     expect(component.linkOptions()).toEqual([
-      { value: 'sale-1', label: expect.stringMatching(/^Invoice INV-001, posted \d{2} Nov 2026/) },
+      {
+        value: 'sale-1',
+        label: expect.stringMatching(/^Invoice INV-001, posted \d{1,2} Nov 2026/),
+      },
     ]);
 
     await fillResolveForm('LinkStockCorrection', 'Found two packets behind the shelf', 'adj-1');
@@ -438,7 +452,7 @@ describe('OfflineReconciliationPageComponent', () => {
     await openCase();
     const lease = el().querySelector('.lease-window')?.textContent ?? '';
     expect(lease).toContain('Invoice number reservation');
-    expect(lease).toMatch(/30 Oct 2026, .+ to 06 Nov 2026, /);
+    expect(lease).toMatch(/30 Oct 2026, .+ to 6 Nov 2026, /);
 
     reconciliation.getCase.mockReturnValue(
       of(

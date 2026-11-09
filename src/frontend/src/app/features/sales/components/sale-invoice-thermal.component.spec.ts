@@ -1,3 +1,5 @@
+import { signal } from '@angular/core';
+import { LocalizationService } from '../../../core/i18n/localization.service';
 import { cancellationFixture } from '../services/sale-cancellation.test-fixture';
 import { CommonModule } from '@angular/common';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -6,11 +8,18 @@ import { join } from 'node:path';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 
 import { SaleInvoiceThermalComponent } from './sale-invoice-thermal.component';
-import type { InvoiceDocument, InvoiceDocumentLine, SaleDto, SaleItemDto } from '../services/sale.models';
+import type {
+  InvoiceDocument,
+  InvoiceDocumentLine,
+  SaleDto,
+  SaleItemDto,
+} from '../services/sale.models';
 import { buildOfflineInvoiceDocument } from '../services/offline-invoice-document.builder';
 import { ShopDetails } from '../../shops/services/shop.service';
 
-const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string) as Record<string, unknown>;
+const enIN = JSON.parse(
+  readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string,
+) as Record<string, unknown>;
 
 /** Joins a row's cells with single spaces, as a reader sees them. */
 function cellText(row: HTMLElement): string {
@@ -111,7 +120,14 @@ describe('SaleInvoiceThermalComponent', () => {
       gstin: '27AAPFU0939F1ZV',
       taxRegime: 'Regular',
     },
-    buyer: { name: null, phone: null, address: null, gstin: null, stateCode: null, stateName: null },
+    buyer: {
+      name: null,
+      phone: null,
+      address: null,
+      gstin: null,
+      stateCode: null,
+      stateName: null,
+    },
     placeOfSupplyStateCode: '27',
     placeOfSupplyStateName: 'Maharashtra',
     isInterstate: false,
@@ -134,7 +150,9 @@ describe('SaleInvoiceThermalComponent', () => {
     ...overrides,
   });
 
-  const makeSaleReturn = (overrides: Partial<SaleDto['returns'][number]> = {}): SaleDto['returns'][number] => ({
+  const makeSaleReturn = (
+    overrides: Partial<SaleDto['returns'][number]> = {},
+  ): SaleDto['returns'][number] => ({
     saleReturnId: 'return-1',
     returnNumber: 'RET-001',
     returnedAt: '2026-05-10T10:00:00Z',
@@ -172,6 +190,7 @@ describe('SaleInvoiceThermalComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
+      providers: [{ provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } }],
       imports: [
         CommonModule,
         TranslocoTestingModule.forRoot({
@@ -185,6 +204,47 @@ describe('SaleInvoiceThermalComponent', () => {
 
     fixture = TestBed.createComponent(SaleInvoiceThermalComponent);
     component = fixture.componentInstance;
+  });
+
+  it('reformats printed amounts and business days across nine languages without changing facts', () => {
+    component.sale = makeSale({
+      totalAmount: 123456.78,
+      document: makeDocument({ businessDate: '2024-02-29' }),
+    });
+    component.shop = makeShop();
+    const canonical = JSON.stringify(component.sale);
+    const language = TestBed.inject(LocalizationService).currentLanguage as ReturnType<
+      typeof signal<string>
+    >;
+    for (const locale of [
+      'en-IN',
+      'hi-IN',
+      'ta-IN',
+      'te-IN',
+      'bn-IN',
+      'ml-IN',
+      'kn-IN',
+      'mr-IN',
+      'gu-IN',
+    ]) {
+      language.set(locale);
+      fixture.detectChanges();
+      const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(text).toContain(
+        new Intl.NumberFormat(locale, {
+          style: 'currency',
+          currency: 'INR',
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(236),
+      );
+      expect(text).toContain(
+        new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(
+          new Date('2024-02-29T00:00:00Z'),
+        ),
+      );
+      expect(JSON.stringify(component.sale)).toBe(canonical);
+    }
   });
 
   it('renders compact shop and invoice header', () => {
@@ -351,14 +411,18 @@ describe('SaleInvoiceThermalComponent', () => {
     component.sale = makeSale({ paidAmount: 0, dueAmount: 95 });
     component.shop = makeShop();
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.thermal-invoice__status')?.textContent).toContain('Unpaid');
+    expect(fixture.nativeElement.querySelector('.thermal-invoice__status')?.textContent).toContain(
+      'Unpaid',
+    );
 
     fixture = TestBed.createComponent(SaleInvoiceThermalComponent);
     component = fixture.componentInstance;
     component.sale = makeSale({ paidAmount: 95, dueAmount: 0 });
     component.shop = makeShop();
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.thermal-invoice__status')?.textContent?.trim()).toBe('Paid');
+    expect(
+      fixture.nativeElement.querySelector('.thermal-invoice__status')?.textContent?.trim(),
+    ).toBe('Paid');
   });
 
   it('renders returns only when present', () => {
@@ -381,7 +445,7 @@ describe('SaleInvoiceThermalComponent', () => {
     const returnSection = fixture.nativeElement.querySelector('.thermal-invoice__returns');
     expect(returnSection).not.toBeNull();
     expect(returnSection.textContent).toContain('RET-900');
-    expect(returnSection.textContent).toContain('11/05/2026');
+    expect(returnSection.textContent).toContain('11 May 2026');
     expect(returnSection.textContent).toContain('₹30.00');
     expect(returnSection?.textContent).toContain('Voided');
     expect(returnSection?.textContent).toContain('Void Reason: Damaged item');
@@ -499,12 +563,24 @@ describe('SaleInvoiceThermalComponent', () => {
       component.sale = makeSale({
         creditNoteAppliedAmount: 100,
         creditNoteRedemptions: [],
-        returns: [makeSaleReturn({ creditNote: { creditNoteId: 'cn-9', code: 'CN-RETURN-9', originalAmount: 40, availableBalance: 40, expiresAt: null, reason: 'Return' } })],
+        returns: [
+          makeSaleReturn({
+            creditNote: {
+              creditNoteId: 'cn-9',
+              code: 'CN-RETURN-9',
+              originalAmount: 40,
+              availableBalance: 40,
+              expiresAt: null,
+              reason: 'Return',
+            },
+          }),
+        ],
       });
       component.shop = makeShop();
       fixture.detectChanges();
 
-      const settlement = fixture.nativeElement.querySelector('.thermal-invoice__totals')?.textContent ?? '';
+      const settlement =
+        fixture.nativeElement.querySelector('.thermal-invoice__totals')?.textContent ?? '';
       expect(settlement).toContain('Credit Note Settlement');
       expect(settlement).not.toContain('CN-RETURN-9');
     });
@@ -550,9 +626,9 @@ describe('SaleInvoiceThermalComponent', () => {
       fixture.detectChanges();
 
       expect(fixture.nativeElement.textContent).toContain('Legacy Shop');
-      expect(fixture.nativeElement.querySelector('.thermal-invoice__legacy-note')?.textContent).toContain(
-        'posted without a GST document',
-      );
+      expect(
+        fixture.nativeElement.querySelector('.thermal-invoice__legacy-note')?.textContent,
+      ).toContain('posted without a GST document');
     });
 
     it('says a queued offline sale without a frozen document is not a GST document copy', () => {
@@ -561,12 +637,18 @@ describe('SaleInvoiceThermalComponent', () => {
       component.pendingSync = true;
       fixture.detectChanges();
 
-      expect(fixture.nativeElement.querySelector('.thermal-invoice__legacy-note')?.textContent).toContain('is not a copy of a GST document');
+      expect(
+        fixture.nativeElement.querySelector('.thermal-invoice__legacy-note')?.textContent,
+      ).toContain('is not a copy of a GST document');
     });
   });
 
   describe('issued GST document', () => {
-    function render(document: InvoiceDocument, sale: Partial<SaleDto> = {}, shop: Partial<ShopDetails> = {}): string {
+    function render(
+      document: InvoiceDocument,
+      sale: Partial<SaleDto> = {},
+      shop: Partial<ShopDetails> = {},
+    ): string {
       component.sale = makeSale({ document, isLegacyDocument: false, ...sale });
       component.shop = makeShop(shop);
       fixture.detectChanges();
@@ -581,7 +663,11 @@ describe('SaleInvoiceThermalComponent', () => {
     ] as const)('titles a %s document', (documentType, title) => {
       render(makeDocument({ documentType }));
 
-      expect(fixture.nativeElement.querySelector('.thermal-invoice__document-title')?.textContent?.trim()).toBe(title);
+      expect(
+        fixture.nativeElement
+          .querySelector('.thermal-invoice__document-title')
+          ?.textContent?.trim(),
+      ).toBe(title);
     });
 
     it('takes the seller, number and date from the snapshot when the shop was edited after issue', () => {
@@ -596,7 +682,7 @@ describe('SaleInvoiceThermalComponent', () => {
       expect(text).toContain('GSTIN: 27AAPFU0939F1ZV');
       expect(text).toContain('State: Maharashtra (27)');
       expect(text).toContain('A/2627/000042');
-      expect(text).toContain('03/11/2026');
+      expect(text).toContain('3 Nov 2026');
       expect(text).not.toContain('Renamed Shop');
       expect(text).not.toContain('29AAGCB7383J1Z4');
       expect(text).not.toContain('+910000000000');
@@ -606,7 +692,14 @@ describe('SaleInvoiceThermalComponent', () => {
     it('prints place of supply, reverse charge and the buyer', () => {
       const text = render(
         makeDocument({
-          buyer: { name: 'Bharat Stores', phone: null, address: '5 Market Lane', gstin: '29AAGCB7383J1Z4', stateCode: '29', stateName: 'Karnataka' },
+          buyer: {
+            name: 'Bharat Stores',
+            phone: null,
+            address: '5 Market Lane',
+            gstin: '29AAGCB7383J1Z4',
+            stateCode: '29',
+            stateName: 'Karnataka',
+          },
         }),
       );
 
@@ -618,7 +711,11 @@ describe('SaleInvoiceThermalComponent', () => {
     });
 
     it('prints lines with HSN/SAC and taxable value from the snapshot', () => {
-      const text = render(makeDocument(), { items: [makeSaleItem({ itemName: 'Live Item Name' })] }, { gstNumber: null });
+      const text = render(
+        makeDocument(),
+        { items: [makeSaleItem({ itemName: 'Live Item Name' })] },
+        { gstNumber: null },
+      );
 
       expect(text).toContain('Basmati Rice 5kg');
       expect(text).toContain('HSN/SAC: 10063020');
@@ -642,7 +739,9 @@ describe('SaleInvoiceThermalComponent', () => {
         }),
       );
       const rows = Array.from(
-        fixture.nativeElement.querySelectorAll('.thermal-invoice__tax-row') as NodeListOf<HTMLElement>,
+        fixture.nativeElement.querySelectorAll(
+          '.thermal-invoice__tax-row',
+        ) as NodeListOf<HTMLElement>,
       ).map((row) => cellText(row));
 
       expect(rows).toEqual(['CGST 9% on ₹300.00 ₹27.00', 'SGST 9% on ₹300.00 ₹27.00']);
@@ -653,7 +752,14 @@ describe('SaleInvoiceThermalComponent', () => {
         makeDocument({
           documentType: 'Receipt',
           seller: { ...makeDocument().seller, gstin: null, taxRegime: 'Unregistered' },
-          totals: { taxableValue: 0, exemptValue: 200, components: [], totalTax: 0, roundingAdjustment: 0, invoiceTotal: 200 },
+          totals: {
+            taxableValue: 0,
+            exemptValue: 200,
+            components: [],
+            totalTax: 0,
+            roundingAdjustment: 0,
+            invoiceTotal: 200,
+          },
           declarations: ['NotRegisteredUnderGst'],
         }),
       );
@@ -677,7 +783,8 @@ describe('SaleInvoiceThermalComponent', () => {
         seller: {
           legalName: 'Main Shop Pvt Ltd',
           tradeName: 'Main Shop',
-          address: 'Shop No. 14, Ground Floor, Sri Venkateshwara Commercial Complex, 3rd Cross, 80 Feet Road, Koramangala 4th Block, Bengaluru, Karnataka 560034',
+          address:
+            'Shop No. 14, Ground Floor, Sri Venkateshwara Commercial Complex, 3rd Cross, 80 Feet Road, Koramangala 4th Block, Bengaluru, Karnataka 560034',
           stateCode: '29',
           stateName: 'Karnataka',
           gstin: '29AAPFU0939F1ZR',
@@ -695,13 +802,38 @@ describe('SaleInvoiceThermalComponent', () => {
         calculationVersion: 1,
         lines: [
           {
-            clientLineId: 'line-1', inventoryBatchId: 'batch-1', itemId: 'item-1', barcode: 'SKU-1', itemName: 'Steel Bottle',
-            batchNumber: 'B1', quantity: 2, salesPrice: 50.03, mrp: 60, costPrice: 30, taxRatePercent: 18, taxIncluded: false,
-            hsnCode: '7323', preTaxAmount: 100.06, itemDiscountAmount: 0.01, saleDiscountAmount: 0, taxableAmount: 100.05,
-            taxAmount: 18.01, lineTotal: 118.06, configuredRuleId: null, lineType: 'goods', serviceId: null,
+            clientLineId: 'line-1',
+            inventoryBatchId: 'batch-1',
+            itemId: 'item-1',
+            barcode: 'SKU-1',
+            itemName: 'Steel Bottle',
+            batchNumber: 'B1',
+            quantity: 2,
+            salesPrice: 50.03,
+            mrp: 60,
+            costPrice: 30,
+            taxRatePercent: 18,
+            taxIncluded: false,
+            hsnCode: '7323',
+            preTaxAmount: 100.06,
+            itemDiscountAmount: 0.01,
+            saleDiscountAmount: 0,
+            taxableAmount: 100.05,
+            taxAmount: 18.01,
+            lineTotal: 118.06,
+            configuredRuleId: null,
+            lineType: 'goods',
+            serviceId: null,
           },
         ],
-        totals: { totalBeforeDiscount: 100.06, totalDiscount: 0.01, totalTax: 18.01, grandTotal: 118.06, paidAmount: 100, dueAmount: 18.06 },
+        totals: {
+          totalBeforeDiscount: 100.06,
+          totalDiscount: 0.01,
+          totalTax: 18.01,
+          grandTotal: 118.06,
+          paidAmount: 100,
+          dueAmount: 18.06,
+        },
       },
     });
     if (!built.ok) throw new Error(built.errorCode);
@@ -719,7 +851,11 @@ describe('SaleInvoiceThermalComponent', () => {
       creditNoteAppliedAmount: 10,
       creditNoteRedemptions: [{ creditNoteId: 'cn-1', code: 'CN-OFFLINE-0001', appliedAmount: 10 }],
     });
-    component.shop = makeShop({ name: 'Renamed Shop', gstNumber: '27AAPFU0939F1ZV', address: 'Somewhere else' });
+    component.shop = makeShop({
+      name: 'Renamed Shop',
+      gstNumber: '27AAPFU0939F1ZV',
+      address: 'Somewhere else',
+    });
     component.pendingSync = true;
     fixture.detectChanges();
 
@@ -751,8 +887,9 @@ describe('SaleInvoiceThermalComponent', () => {
     component.shop = makeShop();
     fixture.detectChanges();
 
-    const text = (fixture.nativeElement.querySelector('.sale-cancellation-record')?.textContent ?? '')
-      .replace(/\s+/g, ' ');
+    const text = (
+      fixture.nativeElement.querySelector('.sale-cancellation-record')?.textContent ?? ''
+    ).replace(/\s+/g, ' ');
     expect(text).toContain('2026-11-10 · Nov 10, 2026, 1:30 AM (Asia/Kolkata)');
   });
   it('preserves original amounts and appends frozen cancellation settlement facts', () => {

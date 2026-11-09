@@ -1,3 +1,11 @@
+import { signal as errorSignal } from '@angular/core';
+import {
+  ApiErrorMessageService,
+  type LocalizedError,
+} from '../../../core/i18n/api-error-message.service';
+import { LocaleInstantPipe } from '../../../shared/pipes/locale-instant.pipe';
+import { LocaleBusinessDatePipe } from '../../../shared/pipes/locale-business-date.pipe';
+import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { DialogFocusDirective } from '../../../shared/accessibility/dialog-focus';
 import { TillPendingActionsComponent } from '../../tills/components/till-pending-actions.component';
 import { ViewChild } from '@angular/core';
@@ -63,7 +71,6 @@ import {
   CURRENCY_INPUT_GROUP_PT,
   CURRENCY_INPUT_NUMBER_PT,
 } from '../../../shared/primeng-pt.config';
-import { DateOnlyPipe } from '../../../shared/pipes/date-only.pipe';
 import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
 type CustomerStatusFilter = 'all' | 'active' | 'inactive';
@@ -105,6 +112,9 @@ interface CustomerDirectoryMetric {
   selector: 'app-customers-page',
   standalone: true,
   imports: [
+    LocaleMoneyPipe,
+    LocaleBusinessDatePipe,
+    LocaleInstantPipe,
     DialogFocusDirective,
     TillPendingActionsComponent,
     TillPostingFieldsComponent,
@@ -130,7 +140,6 @@ interface CustomerDirectoryMetric {
     CustomersTableComponent,
     EditCustomerOverlayComponent,
     PendingFinancialOperationComponent,
-    DateOnlyPipe,
     TranslocoPipe,
   ],
   templateUrl: './customers-page.component.html',
@@ -276,6 +285,11 @@ export class CustomersPageComponent {
   readonly editingCustomer = signal<Customer | null>(null);
   readonly showAccountOverlay = signal(false);
   readonly accountLoading = signal(false);
+  private readonly apiErrors = inject(ApiErrorMessageService);
+  readonly localizedError =
+    this.customersFacade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
+  readonly accountLocalizedError = signal<LocalizedError | undefined>(undefined);
+  readonly reversalLocalizedError = signal<LocalizedError | undefined>(undefined);
   readonly accountError = signal('');
   readonly selectedAccountCustomer = signal<Customer | null>(null);
   readonly selectedAccount = signal<CustomerAccount | null>(null);
@@ -488,6 +502,7 @@ export class CustomersPageComponent {
     this.selectedAccountCustomer.set(customer);
     this.selectedAccount.set(null);
     this.accountError.set('');
+    this.accountLocalizedError.set(undefined);
     this.accountLedgerFilter.set('all');
     this.showAccountOverlay.set(true);
     this.paymentForm.patchValue({
@@ -505,6 +520,7 @@ export class CustomersPageComponent {
     this.showAccountOverlay.set(false);
     this.accountLoading.set(false);
     this.accountError.set('');
+    this.accountLocalizedError.set(undefined);
     this.selectedAccountCustomer.set(null);
     this.selectedAccount.set(null);
   }
@@ -522,6 +538,7 @@ export class CustomersPageComponent {
     }
 
     this.accountError.set('');
+    this.accountLocalizedError.set(undefined);
     if (this.pendingPayment()) {
       this.accountError.set('financialOperations.pendingBlocksNew');
       return;
@@ -554,6 +571,7 @@ export class CustomersPageComponent {
       return;
     }
     this.accountError.set('');
+    this.accountLocalizedError.set(undefined);
     this.pendingNotice.set(null);
     this.sendPayment(customer, intent);
   }
@@ -611,7 +629,7 @@ export class CustomersPageComponent {
           this.accountError.set(
             classifyFinancialOperationFailure(error) === 'uncertain'
               ? 'financialOperations.outcomeUnknown'
-              : error.error?.detail || 'customers.account.paymentFailed',
+              : this.accountFeedback(error, 'customers.account.paymentFailed'),
           );
           this.submittingPayment.set(false);
         },
@@ -620,6 +638,7 @@ export class CustomersPageComponent {
 
   onStartReversal(receipt: PaymentReceiptSummary): void {
     this.reversalError.set('');
+    this.reversalLocalizedError.set(undefined);
     this.reversalReason.set('');
     this.reversingReceiptId.set(receipt.receiptId);
   }
@@ -628,6 +647,7 @@ export class CustomersPageComponent {
     this.reversingReceiptId.set(null);
     this.reversalReason.set('');
     this.reversalError.set('');
+    this.reversalLocalizedError.set(undefined);
   }
 
   onConfirmReversal(): void {
@@ -674,7 +694,7 @@ export class CustomersPageComponent {
           this.reversalError.set(
             classifyFinancialOperationFailure(error) === 'uncertain'
               ? 'financialOperations.outcomeUnknown'
-              : error.error?.detail || 'customers.account.reversalFailed',
+              : this.accountFeedback(error, 'customers.account.reversalFailed', true),
           );
         },
       });
@@ -694,6 +714,7 @@ export class CustomersPageComponent {
 
   private loadCustomerAccount(customerId: string): void {
     this.accountError.set('');
+    this.accountLocalizedError.set(undefined);
     this.accountLoading.set(true);
 
     this.customerService.getCustomerAccount(customerId).subscribe({
@@ -702,7 +723,7 @@ export class CustomersPageComponent {
         this.accountLoading.set(false);
       },
       error: (error) => {
-        this.accountError.set(error.error?.detail || 'customers.account.loadFailed');
+        this.accountError.set(this.accountFeedback(error, 'customers.account.loadFailed'));
         this.accountLoading.set(false);
       },
     });
@@ -721,5 +742,23 @@ export class CustomersPageComponent {
 
   private sumBy<T>(items: readonly T[], selector: (item: T) => number): number {
     return items.reduce((total, item) => total + selector(item), 0);
+  }
+  accountFieldError(field: string) {
+    return this.accountLocalizedError()?.fieldErrors.find((error) => error.field === field);
+  }
+
+  private accountFeedback(error: unknown, fallbackKey: string, reversal = false): string {
+    const localized = this.apiErrors.resolve(error, {
+      fallbackKey,
+      fieldMap: {
+        Amount: 'amount',
+        PaymentDate: 'paymentDate',
+        Method: 'method',
+        ExternalReference: 'externalReference',
+        Notes: 'notes',
+      },
+    });
+    (reversal ? this.reversalLocalizedError : this.accountLocalizedError).set(localized);
+    return localized.messageKey;
   }
 }

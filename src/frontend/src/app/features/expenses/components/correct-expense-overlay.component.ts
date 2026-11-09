@@ -1,3 +1,5 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
+import { signal as errorSignal } from '@angular/core';
 import { TillPendingActionsComponent } from '../../tills/components/till-pending-actions.component';
 import { ViewChild } from '@angular/core';
 import { TillPostingFieldsComponent } from '../../tills/components/till-posting-fields.component';
@@ -91,6 +93,12 @@ export class CorrectExpenseOverlayComponent implements OnInit {
   readonly isSubmitting = toSignal(this.expensesFacade.submitting$, {
     initialValue: false,
   });
+  readonly localizedError =
+    this.expensesFacade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
+  fieldError(field: string) {
+    return this.localizedError()?.fieldErrors.find((error) => error.field === field);
+  }
+
   readonly serverError = toSignal(this.expensesFacade.error$, {
     initialValue: '',
   });

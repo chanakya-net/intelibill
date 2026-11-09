@@ -1,6 +1,9 @@
+import { LocaleFormattingService } from '../../../../core/i18n/locale-formatting.service';
+import { LocaleInstantPipe } from '../../../../shared/pipes/locale-instant.pipe';
+import { LocaleMoneyPipe } from '../../../../shared/pipes/locale-money.pipe';
 import { TillPendingActionsComponent } from '../../../tills/components/till-pending-actions.component';
 import type { TenderMethod } from '../../../tills/services/till.models';
-import { CommonModule, formatDate, formatNumber } from '@angular/common';
+import { CommonModule, formatNumber } from '@angular/common';
 import {
   Component,
   DestroyRef,
@@ -74,7 +77,6 @@ const PAGE_SIZE = 20;
 const MAX_BUNDLE_BYTES = 2 * 1024 * 1024;
 const LAST_EXPORT_KEY_PREFIX = 'intelibill.offlineSales.lastSupportExport.v1';
 const UNSENT_STATUSES = new Set(['Pending', 'Syncing', 'Failed']);
-const DATE_FORMAT = 'dd MMM yyyy, h:mm a';
 /** Which candidates each link action may name. */
 const CANDIDATE_KIND: Readonly<
   Partial<Record<ReconciliationAction, ReconciliationLinkCandidate['kind']>>
@@ -118,6 +120,8 @@ interface ConsoleMessage {
   selector: 'app-offline-reconciliation-page',
   standalone: true,
   imports: [
+    LocaleMoneyPipe,
+    LocaleInstantPipe,
     TillPendingActionsComponent,
     CommonModule,
     FormsModule,
@@ -148,6 +152,7 @@ export class OfflineReconciliationPageComponent {
   private readonly injector = inject(Injector);
   private readonly transloco = inject(TranslocoService);
   private readonly locale = inject(LOCALE_ID);
+  private readonly formatter = inject(LocaleFormattingService);
   /** Option labels are read out by screen readers, so they are translated text and follow language changes. */
   private readonly activeLang = toSignal(this.transloco.langChanges$, {
     initialValue: this.transloco.getActiveLang(),
@@ -575,7 +580,7 @@ export class OfflineReconciliationPageComponent {
   }
 
   formatWhen(value: string): string {
-    return formatDate(value, DATE_FORMAT, this.locale);
+    return this.formatter.formatInstant(value);
   }
 
   formatQuantity(value: number | null): string {

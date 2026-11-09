@@ -1,3 +1,5 @@
+import { LocaleInstantPipe } from '../../../shared/pipes/locale-instant.pipe';
+import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, Input } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -10,7 +12,15 @@ import { PurchaseOrderReceipt } from '../services/purchase-order.service';
 @Component({
   selector: 'app-purchase-order-receipt-history',
   standalone: true,
-  imports: [CommonModule, RouterLink, TranslocoPipe, TableModule, TagModule],
+  imports: [
+    LocaleMoneyPipe,
+    LocaleInstantPipe,
+    CommonModule,
+    RouterLink,
+    TranslocoPipe,
+    TableModule,
+    TagModule,
+  ],
   template: `
     @if (receipts.length > 0) {
       <section class="directory-panel receipt-panel">
@@ -43,7 +53,7 @@ import { PurchaseOrderReceipt } from '../services/purchase-order.service';
                   >{{ 'supplierReturns.receiptActions' | transloco }}</a
                 >
               }
-              <span class="receipt-meta">{{ receipt.receivedAt | date: 'medium' }}</span>
+              <span class="receipt-meta">{{ receipt.receivedAt | localeInstant }}</span>
               @if (receipt.referenceNumber) {
                 <span class="receipt-meta">{{ receipt.referenceNumber }}</span>
               }
@@ -92,11 +102,9 @@ import { PurchaseOrderReceipt } from '../services/purchase-order.service';
                         }}</a>
                       }
                     </td>
-                    <td class="money">{{ line.unitCost | number: '1.2-2' }}</td>
-                    <td class="money">{{ line.totalPurchaseCost | number: '1.2-2' }}</td>
-                    <td>
-                      {{ line.salesPrice | number: '1.2-2' }} / {{ line.mrp | number: '1.2-2' }}
-                    </td>
+                    <td class="money">{{ line.unitCost | localeMoney }}</td>
+                    <td class="money">{{ line.totalPurchaseCost | localeMoney }}</td>
+                    <td>{{ line.salesPrice | localeMoney }} / {{ line.mrp | localeMoney }}</td>
                     <td>{{ line.taxRatePercent | number: '1.0-2' }}%</td>
                     <td class="receipt-transaction">{{ line.stockTransactionId }}</td>
                   </tr>

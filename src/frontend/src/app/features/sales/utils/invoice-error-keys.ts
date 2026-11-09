@@ -1,7 +1,7 @@
 // The GST document refusals the server answers when it cannot issue an invoice (online sale, invoice lease) mapped
 // to user messages. Anything not listed keeps the caller's own fallback.
 
-const INVOICE_ERROR_KEYS: Readonly<Record<string, string>> = {
+export const INVOICE_ERROR_KEYS: Readonly<Record<string, string>> = {
   'Invoice.TaxProfileRequired': 'errors.invoice.taxProfileRequired',
   'Invoice.EInvoiceUnsupported': 'errors.invoice.eInvoiceUnsupported',
   'Invoice.CompositionCannotCollectTax': 'errors.invoice.compositionCannotCollectTax',
@@ -23,4 +23,3 @@ const INVOICE_ERROR_KEYS: Readonly<Record<string, string>> = {
 export function invoiceErrorKey(code: unknown): string | null {
   return typeof code === 'string' ? (INVOICE_ERROR_KEYS[code] ?? null) : null;
 }
-

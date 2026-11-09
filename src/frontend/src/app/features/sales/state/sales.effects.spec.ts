@@ -35,27 +35,28 @@ describe('SalesEffects', () => {
     previewSaleReturn: vi.fn<SaleService['previewSaleReturn']>(),
   };
 
-  const makeSale = (id = 'sale-1'): SaleListItemDto => ({
-    saleId: id,
-    invoiceNumber: `INV-${id}`,
-    customerId: null,
-    paymentMethod: 1,
-    soldAt: new Date().toISOString(),
-    paidAmount: 500,
-    dueAmount: 0,
-    totalBeforeDiscount: 500,
-    totalDiscountAmount: 0,
-    totalAmount: 500,
-    totalTaxAmount: 50,
-    customerName: null,
-    customerPhone: null,
-    itemCount: 1,
-    returnNumbers: [],
-    status: 'partiallyPaid',
-    refundAmount: 0,
-    dueReductionAmount: 0,
-    creditNoteAppliedAmount: 0,
-  } as SaleListItemDto);
+  const makeSale = (id = 'sale-1'): SaleListItemDto =>
+    ({
+      saleId: id,
+      invoiceNumber: `INV-${id}`,
+      customerId: null,
+      paymentMethod: 1,
+      soldAt: new Date().toISOString(),
+      paidAmount: 500,
+      dueAmount: 0,
+      totalBeforeDiscount: 500,
+      totalDiscountAmount: 0,
+      totalAmount: 500,
+      totalTaxAmount: 50,
+      customerName: null,
+      customerPhone: null,
+      itemCount: 1,
+      returnNumbers: [],
+      status: 'partiallyPaid',
+      refundAmount: 0,
+      dueReductionAmount: 0,
+      creditNoteAppliedAmount: 0,
+    }) as SaleListItemDto;
 
   const makeSaleDto = (id = 'sale-1') => ({
     saleId: id,
@@ -105,7 +106,11 @@ describe('SalesEffects', () => {
   beforeEach(() => {
     actions$ = new Subject<Action>();
     for (const mock of Object.values(checkoutIntents)) mock.mockReset();
-    checkoutIntents.claimForSend.mockResolvedValue({ ...intentOwner, intentId: 'intent-1', request: intentPayload });
+    checkoutIntents.claimForSend.mockResolvedValue({
+      ...intentOwner,
+      intentId: 'intent-1',
+      request: intentPayload,
+    });
     checkoutIntents.confirm.mockResolvedValue(null);
     checkoutIntents.reject.mockResolvedValue(null);
     checkoutIntents.markUncertain.mockResolvedValue(null);
@@ -140,6 +145,30 @@ describe('SalesEffects', () => {
     TestBed.resetTestingModule();
   });
 
+  it('keeps only safe localized feedback and reference metadata from hostile errors', async () => {
+    saleService.getSaleById.mockReturnValue(
+      throwError(() => ({
+        error: {
+          code: 'Untrusted.Code',
+          title: '<script>title</script>',
+          detail: '<img onerror=alert(1)>',
+          traceId: 'safe-trace:123',
+        },
+      })),
+    );
+    const output = firstValueFrom(effects.loadSaleDetail$.pipe(take(1)));
+    actions$.next(SalesActions.loadSaleDetailRequested({ saleId: 'sale-1' }));
+    expect(await output).toMatchObject({
+      errorMessage: 'errors.sales.detailLoadFailed',
+      localizedError: {
+        messageKey: 'errors.sales.detailLoadFailed',
+        params: {},
+        fieldErrors: [],
+        correlationId: 'safe-trace:123',
+      },
+    });
+  });
+
   it('dispatches loadSalesSucceeded on load success', async () => {
     const queryParams: SalesHistoryQueryParams = {
       from: '2026-05-01',
@@ -161,7 +190,7 @@ describe('SalesEffects', () => {
           invoiceCount: 1,
           refundAmount: 0,
         },
-      })
+      }),
     );
 
     const output = firstValueFrom(effects.loadSales$.pipe(take(1)));
@@ -174,7 +203,7 @@ describe('SalesEffects', () => {
         pageNumber: 1,
         pageSize: 30,
         summary: { periodSales: 1000, invoiceCount: 1, refundAmount: 0 },
-      })
+      }),
     );
     expect(saleService.getSales).toHaveBeenCalledWith(queryParams);
   });
@@ -186,7 +215,7 @@ describe('SalesEffects', () => {
     actions$.next(SalesActions.loadSalesRequested({}));
 
     await expect(output).resolves.toEqual(
-      SalesActions.loadSalesFailed({ errorMessage: 'Server error' })
+      SalesActions.loadSalesFailed({ errorMessage: 'errors.sales.loadFailed' }),
     );
   });
 
@@ -197,7 +226,7 @@ describe('SalesEffects', () => {
     actions$.next(SalesActions.loadSalesRequested({}));
 
     await expect(output).resolves.toEqual(
-      SalesActions.loadSalesFailed({ errorMessage: 'errors.sales.loadFailed' })
+      SalesActions.loadSalesFailed({ errorMessage: 'errors.sales.loadFailed' }),
     );
   });
 
@@ -229,7 +258,7 @@ describe('SalesEffects', () => {
           items: [],
           saleDiscount: null,
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(SalesActions.recordSaleSucceeded({ sale }));
@@ -246,7 +275,15 @@ describe('SalesEffects', () => {
     const payload = {
       dueReductionOverrideAmount: null,
       dueOverrideReason: null,
-      items: [{ saleItemId: 'line-1', quantity: 1, condition: 1 as const, approvedRefundAmount: 100, notes: null }],
+      items: [
+        {
+          saleItemId: 'line-1',
+          quantity: 1,
+          condition: 1 as const,
+          approvedRefundAmount: 100,
+          notes: null,
+        },
+      ],
     };
     saleService.previewSaleReturn.mockReturnValue(of(preview));
 
@@ -260,15 +297,25 @@ describe('SalesEffects', () => {
     const payload = {
       dueReductionOverrideAmount: null,
       dueOverrideReason: null,
-      items: [{ saleItemId: 'line-1', quantity: 1, condition: 1 as const, approvedRefundAmount: null, notes: null }],
+      items: [
+        {
+          saleItemId: 'line-1',
+          quantity: 1,
+          condition: 1 as const,
+          approvedRefundAmount: null,
+          notes: null,
+        },
+      ],
     };
-    saleService.previewSaleReturn.mockReturnValue(throwError(() => ({ error: { detail: 'Quantity exceeds remaining' } })));
+    saleService.previewSaleReturn.mockReturnValue(
+      throwError(() => ({ error: { detail: 'Quantity exceeds remaining' } })),
+    );
 
     const output = firstValueFrom(effects.previewSaleReturn$.pipe(take(1)));
     actions$.next(SalesActions.previewSaleReturnRequested({ saleId: 'sale-1', payload }));
 
     await expect(output).resolves.toEqual(
-      SalesActions.previewSaleReturnFailed({ errorMessage: 'Quantity exceeds remaining' })
+      SalesActions.previewSaleReturnFailed({ errorMessage: 'errors.sales.returnPreviewFailed' }),
     );
   });
 
@@ -279,7 +326,15 @@ describe('SalesEffects', () => {
       dueReductionOverrideAmount: null,
       dueOverrideReason: null,
       notes: null,
-      items: [{ saleItemId: 'line-1', quantity: 1, condition: 1 as const, approvedRefundAmount: 100, notes: 'Sealed' }],
+      items: [
+        {
+          saleItemId: 'line-1',
+          quantity: 1,
+          condition: 1 as const,
+          approvedRefundAmount: 100,
+          notes: 'Sealed',
+        },
+      ],
     };
     saleService.recordSaleReturn.mockReturnValue(of(sale));
 
@@ -295,28 +350,52 @@ describe('SalesEffects', () => {
       dueReductionOverrideAmount: null,
       dueOverrideReason: null,
       notes: null,
-      items: [{ saleItemId: 'line-1', quantity: 1, condition: 1 as const, approvedRefundAmount: 100, notes: 'Sealed' }],
+      items: [
+        {
+          saleItemId: 'line-1',
+          quantity: 1,
+          condition: 1 as const,
+          approvedRefundAmount: 100,
+          notes: 'Sealed',
+        },
+      ],
     };
-    saleService.recordSaleReturn.mockReturnValue(throwError(() => ({ error: { detail: 'Insufficient stock to void return' } })));
+    saleService.recordSaleReturn.mockReturnValue(
+      throwError(() => ({ error: { detail: 'Insufficient stock to void return' } })),
+    );
 
     const output = firstValueFrom(effects.recordSaleReturn$.pipe(take(1)));
     actions$.next(SalesActions.recordSaleReturnRequested({ saleId: 'sale-1', payload }));
 
     await expect(output).resolves.toEqual(
-      SalesActions.recordSaleReturnFailed({ errorMessage: 'Insufficient stock to void return' })
+      SalesActions.recordSaleReturnFailed({ errorMessage: 'errors.sales.returnRecordFailed' }),
     );
   });
 
   it.each([
     ['title', { title: 'SaleReturn.QuantityPrecisionExceeded', detail: 'English' }],
-    ['errors', { title: 'Validation.Failed', errors: [{ code: 'SaleReturn.QuantityPrecisionExceeded', description: 'English' }] }],
+    [
+      'errors',
+      {
+        title: 'Validation.Failed',
+        errors: [{ code: 'SaleReturn.QuantityPrecisionExceeded', description: 'English' }],
+      },
+    ],
   ])('maps a return precision refusal under %s on record and preview', async (_where, body) => {
     const payload = {
       payoutDestination: 2,
       dueReductionOverrideAmount: null,
       dueOverrideReason: null,
       notes: null,
-      items: [{ saleItemId: 'line-1', quantity: 0.5, condition: 1 as const, approvedRefundAmount: 100, notes: 'x' }],
+      items: [
+        {
+          saleItemId: 'line-1',
+          quantity: 0.5,
+          condition: 1 as const,
+          approvedRefundAmount: 100,
+          notes: 'x',
+        },
+      ],
     };
     saleService.recordSaleReturn.mockReturnValue(throwError(() => ({ error: body })));
     saleService.previewSaleReturn.mockReturnValue(throwError(() => ({ error: body })));
@@ -324,13 +403,17 @@ describe('SalesEffects', () => {
     const recorded = firstValueFrom(effects.recordSaleReturn$.pipe(take(1)));
     actions$.next(SalesActions.recordSaleReturnRequested({ saleId: 'sale-1', payload }));
     await expect(recorded).resolves.toEqual(
-      SalesActions.recordSaleReturnFailed({ errorMessage: 'sales.returns.preview.validation.serverQuantityPrecision' })
+      SalesActions.recordSaleReturnFailed({
+        errorMessage: 'sales.returns.preview.validation.serverQuantityPrecision',
+      }),
     );
 
     const previewed = firstValueFrom(effects.previewSaleReturn$.pipe(take(1)));
     actions$.next(SalesActions.previewSaleReturnRequested({ saleId: 'sale-1', payload }));
     await expect(previewed).resolves.toEqual(
-      SalesActions.previewSaleReturnFailed({ errorMessage: 'sales.returns.preview.validation.serverQuantityPrecision' })
+      SalesActions.previewSaleReturnFailed({
+        errorMessage: 'sales.returns.preview.validation.serverQuantityPrecision',
+      }),
     );
   });
 
@@ -341,7 +424,9 @@ describe('SalesEffects', () => {
     saleService.getSaleById.mockReturnValue(of(sale));
 
     const output = firstValueFrom(effects.voidSaleReturn$.pipe(take(1)));
-    actions$.next(SalesActions.voidSaleReturnRequested({ saleId: 'sale-1', saleReturnId: 'return-1', payload }));
+    actions$.next(
+      SalesActions.voidSaleReturnRequested({ saleId: 'sale-1', saleReturnId: 'return-1', payload }),
+    );
 
     await expect(output).resolves.toEqual(SalesActions.voidSaleReturnSucceeded({ sale }));
     expect(saleService.voidSaleReturn).toHaveBeenCalledWith('return-1', payload);
@@ -350,18 +435,24 @@ describe('SalesEffects', () => {
 
   it('dispatches voidSaleReturnFailed with backend detail on void failure', async () => {
     const payload = { reason: 'Wrong return recorded' };
-    saleService.voidSaleReturn.mockReturnValue(throwError(() => ({ error: { detail: 'Insufficient stock to void return' } })));
+    saleService.voidSaleReturn.mockReturnValue(
+      throwError(() => ({ error: { detail: 'Insufficient stock to void return' } })),
+    );
 
     const output = firstValueFrom(effects.voidSaleReturn$.pipe(take(1)));
-    actions$.next(SalesActions.voidSaleReturnRequested({ saleId: 'sale-1', saleReturnId: 'return-1', payload }));
+    actions$.next(
+      SalesActions.voidSaleReturnRequested({ saleId: 'sale-1', saleReturnId: 'return-1', payload }),
+    );
 
     await expect(output).resolves.toEqual(
-      SalesActions.voidSaleReturnFailed({ errorMessage: 'Insufficient stock to void return' })
+      SalesActions.voidSaleReturnFailed({ errorMessage: 'errors.sales.returnVoidFailed' }),
     );
   });
 
   it('dispatches recordSaleFailed on record failure', async () => {
-    saleService.recordSale.mockReturnValue(throwError(() => ({ error: { detail: 'Insufficient stock' } })));
+    saleService.recordSale.mockReturnValue(
+      throwError(() => ({ error: { detail: 'Insufficient stock' } })),
+    );
 
     const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
     actions$.next(
@@ -377,17 +468,19 @@ describe('SalesEffects', () => {
           items: [],
           saleDiscount: null,
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(
-      SalesActions.recordSaleFailed({ errorMessage: 'Insufficient stock' })
+      SalesActions.recordSaleFailed({ errorMessage: 'errors.sales.recordFailed' }),
     );
   });
 
   it('explains a GST document refusal instead of showing the server text', async () => {
     saleService.recordSale.mockReturnValue(
-      throwError(() => ({ error: { title: 'Invoice.TaxProfileRequired', detail: 'Declare the tax profile.' } })),
+      throwError(() => ({
+        error: { title: 'Invoice.TaxProfileRequired', detail: 'Declare the tax profile.' },
+      })),
     );
 
     const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
@@ -401,7 +494,10 @@ describe('SalesEffects', () => {
   it('explains a quantity the server refuses for its unit instead of showing the server text', async () => {
     saleService.recordSale.mockReturnValue(
       throwError(() => ({
-        error: { title: 'Sale.QuantityPrecisionExceeded', detail: "Quantity for 'X' is sold in PCS and allows no decimals." },
+        error: {
+          title: 'Sale.QuantityPrecisionExceeded',
+          detail: "Quantity for 'X' is sold in PCS and allows no decimals.",
+        },
       })),
     );
 
@@ -423,21 +519,23 @@ describe('SalesEffects', () => {
       pageSize: 10,
     };
     const result: ProfitLossReportResultDto = {
-      items: [{
-      saleId: '1',
-      referenceNumber: 'INV-1',
-      occurredAt: '2026-05-05T10:00:00Z',
-      partyName: null,
-      totalCost: 0,
-      wastageCost: 0,
-      revenueBeforeTax: 0,
-      revenueAfterTax: 0,
-      profitBeforeTax: 0,
-      profitAfterTax: 0,
-      marginPercent: null,
-      rowType: 'Sale' as const,
-      inventoryAdjustmentId: null,
-    }],
+      items: [
+        {
+          saleId: '1',
+          referenceNumber: 'INV-1',
+          occurredAt: '2026-05-05T10:00:00Z',
+          partyName: null,
+          totalCost: 0,
+          wastageCost: 0,
+          revenueBeforeTax: 0,
+          revenueAfterTax: 0,
+          profitBeforeTax: 0,
+          profitAfterTax: 0,
+          marginPercent: null,
+          rowType: 'Sale' as const,
+          inventoryAdjustmentId: null,
+        },
+      ],
       totalCount: 1,
       pageNumber: 2,
       pageSize: 10,
@@ -464,22 +562,22 @@ describe('SalesEffects', () => {
     const output = firstValueFrom(effects.loadProfitLossReport$.pipe(take(1)));
     actions$.next(SalesActions.loadProfitLossReportRequested({ queryParams }));
 
-    await expect(output).resolves.toEqual(
-      SalesActions.loadProfitLossReportSucceeded({ result })
-    );
+    await expect(output).resolves.toEqual(SalesActions.loadProfitLossReportSucceeded({ result }));
     expect(saleService.getProfitLossReport).toHaveBeenCalledWith(queryParams);
   });
 
   it('dispatches loadProfitLossReportFailed on failure', async () => {
     saleService.getProfitLossReport.mockReturnValue(
-      throwError(() => ({ error: { detail: 'Fail' } }))
+      throwError(() => ({ error: { detail: 'Fail' } })),
     );
 
     const output = firstValueFrom(effects.loadProfitLossReport$.pipe(take(1)));
     actions$.next(SalesActions.loadProfitLossReportRequested({}));
 
     await expect(output).resolves.toEqual(
-      SalesActions.loadProfitLossReportFailed({ errorMessage: 'Fail' })
+      SalesActions.loadProfitLossReportFailed({
+        errorMessage: 'errors.sales.profitLossLoadFailed',
+      }),
     );
   });
 
@@ -512,9 +610,7 @@ describe('SalesEffects', () => {
     const output = firstValueFrom(effects.loadProfitLossReport$.pipe(take(1)));
     actions$.next(SalesActions.loadProfitLossReportRequested({}));
 
-    await expect(output).resolves.toEqual(
-      SalesActions.loadProfitLossReportSucceeded({ result })
-    );
+    await expect(output).resolves.toEqual(SalesActions.loadProfitLossReportSucceeded({ result }));
     expect(saleService.getProfitLossReport).toHaveBeenCalledWith(undefined);
   });
 
@@ -524,9 +620,13 @@ describe('SalesEffects', () => {
       checkoutIntents.send.mockReturnValue(of(sale));
 
       const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
-      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+      actions$.next(
+        SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }),
+      );
 
-      await expect(output).resolves.toEqual(SalesActions.recordSaleSucceeded({ sale, intentId: 'intent-1' }));
+      await expect(output).resolves.toEqual(
+        SalesActions.recordSaleSucceeded({ sale, intentId: 'intent-1' }),
+      );
       expect(checkoutIntents.claimForSend).toHaveBeenCalledWith('intent-1');
       expect(checkoutIntents.confirm).toHaveBeenCalledWith('intent-1', sale);
       expect(saleService.recordSale).not.toHaveBeenCalled();
@@ -536,10 +636,15 @@ describe('SalesEffects', () => {
       checkoutIntents.send.mockReturnValue(throwError(() => new HttpErrorResponse({ status })));
 
       const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
-      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+      actions$.next(
+        SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }),
+      );
 
       await expect(output).resolves.toEqual(
-        SalesActions.recordSaleUncertain({ intentId: 'intent-1', errorMessage: 'sales.newSale.pendingCheckout.uncertain' }),
+        SalesActions.recordSaleUncertain({
+          intentId: 'intent-1',
+          errorMessage: 'sales.newSale.pendingCheckout.uncertain',
+        }),
       );
       expect(checkoutIntents.markUncertain).toHaveBeenCalledWith('intent-1');
       expect(checkoutIntents.reject).not.toHaveBeenCalled();
@@ -547,14 +652,25 @@ describe('SalesEffects', () => {
 
     it('rejects the intent only on a definitive refusal', async () => {
       checkoutIntents.send.mockReturnValue(
-        throwError(() => new HttpErrorResponse({ status: 400, error: { title: 'Sale.Invalid', detail: 'Bad sale' } })),
+        throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 400,
+              error: { title: 'Sale.Invalid', detail: 'Bad sale' },
+            }),
+        ),
       );
 
       const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
-      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+      actions$.next(
+        SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }),
+      );
 
       await expect(output).resolves.toEqual(
-        SalesActions.recordSaleFailed({ intentId: 'intent-1', errorMessage: 'Bad sale' }),
+        SalesActions.recordSaleFailed({
+          intentId: 'intent-1',
+          errorMessage: 'errors.sales.recordFailed',
+        }),
       );
       expect(checkoutIntents.reject).toHaveBeenCalledWith('intent-1', 'Sale.Invalid');
       expect(checkoutIntents.markUncertain).not.toHaveBeenCalled();
@@ -563,17 +679,29 @@ describe('SalesEffects', () => {
     it('explains a GST document refusal of a stored intent', async () => {
       checkoutIntents.send.mockReturnValue(
         throwError(
-          () => new HttpErrorResponse({ status: 400, error: { title: 'Invoice.CompositionCannotCollectTax', detail: 'x' } }),
+          () =>
+            new HttpErrorResponse({
+              status: 400,
+              error: { title: 'Invoice.CompositionCannotCollectTax', detail: 'x' },
+            }),
         ),
       );
 
       const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
-      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+      actions$.next(
+        SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }),
+      );
 
       await expect(output).resolves.toEqual(
-        SalesActions.recordSaleFailed({ intentId: 'intent-1', errorMessage: 'errors.invoice.compositionCannotCollectTax' }),
+        SalesActions.recordSaleFailed({
+          intentId: 'intent-1',
+          errorMessage: 'errors.invoice.compositionCannotCollectTax',
+        }),
       );
-      expect(checkoutIntents.reject).toHaveBeenCalledWith('intent-1', 'Invoice.CompositionCannotCollectTax');
+      expect(checkoutIntents.reject).toHaveBeenCalledWith(
+        'intent-1',
+        'Invoice.CompositionCannotCollectTax',
+      );
     });
 
     it('uncertain_checkout_survives_switch: an answer lost to a scope change stays on its intent', async () => {
@@ -581,14 +709,18 @@ describe('SalesEffects', () => {
       checkoutIntents.send.mockReturnValue(answer.asObservable());
 
       const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
-      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+      actions$.next(
+        SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }),
+      );
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(shopContext.hasMutationsInFlight()).toBe(true);
 
       shopContext.transition({ userId: 'user-1', shopId: 'shop-2' }, 'cross-tab', () => undefined);
       answer.error(new StaleScopeError());
 
-      await expect(output).resolves.toEqual(SalesActions.recordSaleDetached({ intentId: 'intent-1' }));
+      await expect(output).resolves.toEqual(
+        SalesActions.recordSaleDetached({ intentId: 'intent-1' }),
+      );
       expect(checkoutIntents.markUncertain).toHaveBeenCalledWith('intent-1');
       expect(checkoutIntents.confirm).not.toHaveBeenCalled();
       expect(shopContext.hasMutationsInFlight()).toBe(false);
@@ -599,10 +731,15 @@ describe('SalesEffects', () => {
       checkoutIntents.send.mockReturnValue(answer.asObservable());
 
       const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
-      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+      actions$.next(
+        SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }),
+      );
       await new Promise((resolve) => setTimeout(resolve, 0));
 
-      await expect(shopContext.prepareToLeave()).resolves.toEqual({ ok: false, reason: 'mutation-in-flight' });
+      await expect(shopContext.prepareToLeave()).resolves.toEqual({
+        ok: false,
+        reason: 'mutation-in-flight',
+      });
       answer.next(makeSaleDto('sale-1'));
       answer.complete();
       await output;
@@ -613,7 +750,9 @@ describe('SalesEffects', () => {
       checkoutIntents.claimForSend.mockResolvedValue(null);
 
       const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
-      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+      actions$.next(
+        SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }),
+      );
 
       await expect(output).resolves.toEqual(
         SalesActions.recordSaleUncertain({
@@ -627,20 +766,33 @@ describe('SalesEffects', () => {
     it('never cancels an in-flight checkout when another is requested', async () => {
       const first = new Subject<ReturnType<typeof makeSaleDto>>();
       const second = makeSaleDto('sale-2');
-      checkoutIntents.claimForSend.mockImplementation(async (intentId: string) => ({ ...intentOwner, intentId, request: intentPayload }));
-      checkoutIntents.send.mockReturnValueOnce(first.asObservable()).mockReturnValueOnce(of(second));
+      checkoutIntents.claimForSend.mockImplementation(async (intentId: string) => ({
+        ...intentOwner,
+        intentId,
+        request: intentPayload,
+      }));
+      checkoutIntents.send
+        .mockReturnValueOnce(first.asObservable())
+        .mockReturnValueOnce(of(second));
 
       const output = firstValueFrom(effects.recordSale$.pipe(take(2), toArray()));
-      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+      actions$.next(
+        SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }),
+      );
       await Promise.resolve();
       await Promise.resolve();
-      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-2' }));
+      actions$.next(
+        SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-2' }),
+      );
       await new Promise((resolve) => setTimeout(resolve, 0));
       first.next(makeSaleDto('sale-1'));
       first.complete();
 
       const emitted = await output;
-      expect(emitted.map((action) => (action as { intentId?: string }).intentId).sort()).toEqual(['intent-1', 'intent-2']);
+      expect(emitted.map((action) => (action as { intentId?: string }).intentId).sort()).toEqual([
+        'intent-1',
+        'intent-2',
+      ]);
     });
   });
 });

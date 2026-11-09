@@ -33,7 +33,16 @@
 
   @if (vm.serverError()) {
     @let serverMessage = vm.serverErrorMessage();
-    <p class="error" [attr.role]="vm.pendingCheckouts().length || checkoutValidationMessage ? null : 'alert'">{{ serverMessage.key | transloco: serverMessage.params ?? {} }}</p>
+    <p
+      class="error"
+      [attr.role]="vm.pendingCheckouts().length || checkoutValidationMessage ? null : 'alert'"
+    >
+      {{ serverMessage.key | transloco: serverMessage.params ?? vm.localizedError()?.params ?? {} }}
+    </p>
+  }
+
+  @if (vm.serverError() && vm.localizedError()?.correlationId; as reference) {
+    <p class="error-reference">{{ 'apiErrors.supportReference' | transloco: { reference } }}</p>
   }
 
   @if (vm.pendingCheckouts().length > 0) {
@@ -47,16 +56,21 @@
         @for (intent of vm.pendingCheckouts(); track intent.intentId) {
           <li class="pending-checkouts__item" [attr.data-intent-id]="intent.intentId">
             <div class="pending-checkouts__summary">
-              <strong>{{ vm.getPendingCheckoutAmount(intent) | currency: 'INR' : 'symbol' : '1.2-2' }}</strong>
+              <strong>{{ vm.getPendingCheckoutAmount(intent) | localeMoney }}</strong>
               <span>
-                {{ 'sales.newSale.pendingCheckout.lines' | transloco: { count: intent.request.items.length } }}
-                · {{ intent.createdAt | date: 'short' }}
+                {{
+                  'sales.newSale.pendingCheckout.lines'
+                    | transloco: { count: intent.request.items.length }
+                }}
+                · {{ intent.createdAt | localeInstant }}
               </span>
               <span class="pending-checkouts__status">
                 {{ 'sales.newSale.pendingCheckout.status.' + intent.status | transloco }}
               </span>
               @if (intent.intentId === vm.activeCheckoutIntentId()) {
-                <span class="pending-checkouts__current">{{ 'sales.newSale.pendingCheckout.currentCart' | transloco }}</span>
+                <span class="pending-checkouts__current">{{
+                  'sales.newSale.pendingCheckout.currentCart' | transloco
+                }}</span>
               }
             </div>
             <div class="pending-checkouts__actions">
@@ -92,7 +106,10 @@
 
   <div class="new-sale-workspace">
     <main class="new-sale-main">
-      <section class="new-sale-panel new-sale-product-lookup" aria-labelledby="new-sale-product-lookup-title">
+      <section
+        class="new-sale-panel new-sale-product-lookup"
+        aria-labelledby="new-sale-product-lookup-title"
+      >
         <div class="new-sale-section-header">
           <div>
             <p class="new-sale-section-eyebrow">{{ 'sales.newSale.eyebrow' | transloco }}</p>
@@ -100,7 +117,8 @@
           </div>
         </div>
 
-        <app-batch-search-bar [pickerOpen]="vm.showBatchPicker()"
+        <app-batch-search-bar
+          [pickerOpen]="vm.showBatchPicker()"
           [searchTerm]="vm.searchInput()"
           [loading]="vm.isSearchingBatches()"
           [searchSuggestions]="vm.searchSuggestions()"
@@ -131,8 +149,10 @@
                   <p class="quick-product-tile-stock">
                     {{ 'sales.newSale.stock' | transloco }}: {{ batch.quantity }}
                   </p>
-                  <p class="quick-product-tile-price">₹{{ batch.salesPrice | number: '1.2-2' }}</p>
-                  <span class="quick-product-tile-action">{{ 'sales.newSale.quickAdd' | transloco }}</span>
+                  <p class="quick-product-tile-price">{{ batch.salesPrice | localeMoney }}</p>
+                  <span class="quick-product-tile-action">{{
+                    'sales.newSale.quickAdd' | transloco
+                  }}</span>
                 </button>
               }
             </div>
@@ -141,7 +161,7 @@
 
         @if (vm.batchSearchError()) {
           <p class="error mt-2">
-            {{ vm.batchSearchError().startsWith('sales.') || vm.batchSearchError().startsWith('common.') || vm.batchSearchError().startsWith('expiry.') ? (vm.batchSearchError() | transloco: (vm.batchSearchErrorParams() ?? {})) : vm.batchSearchError() }}
+            {{ vm.batchSearchError() | transloco: vm.batchSearchErrorParams() ?? {} }}
           </p>
         }
 
@@ -166,7 +186,11 @@
         <div class="new-sale-section-header">
           <div>
             <p class="new-sale-section-eyebrow">{{ 'sales.newSale.eyebrow' | transloco }}</p>
-            <h2 id="new-sale-cart-title">{{ 'sales.newSale.cart' | transloco }} ({{ vm.cart().length + vm.serviceCart().length }})</h2>
+            <h2 id="new-sale-cart-title">
+              {{ 'sales.newSale.cart' | transloco }} ({{
+                vm.cart().length + vm.serviceCart().length
+              }})
+            </h2>
           </div>
 
           <p-button
@@ -216,7 +240,10 @@
     </main>
 
     <aside class="new-sale-checkout-panel">
-      <section class="new-sale-panel new-sale-checkout-section" aria-labelledby="new-sale-checkout-title">
+      <section
+        class="new-sale-panel new-sale-checkout-section"
+        aria-labelledby="new-sale-checkout-title"
+      >
         <div class="new-sale-section-header">
           <div>
             <p class="new-sale-section-eyebrow">{{ 'sales.newSale.checkoutStatus' | transloco }}</p>
@@ -254,6 +281,7 @@
           [showDueAmount]="vm.canUseCredit()"
           [dueAmountDisabled]="!vm.isOfflineMode() && !vm.canUseCredit()"
           [paymentSplitError]="vm.paymentSplitError()"
+          [localizedError]="vm.localizedError()"
           [isSubmitting]="vm.isOfflineMode() ? vm.isOfflineSubmitting() : vm.isSubmitting()"
           [creditNoteCode]="vm.creditNoteCode()"
           [isCreditNoteVerifying]="vm.isCreditNoteVerifying()"
@@ -271,9 +299,13 @@
           (creditNoteCodeChanged)="onCreditNoteCodeChanged($event)"
           (creditNoteVerifyRequested)="onCreditNoteVerifyRequested()"
           (creditNoteApplyRequested)="vm.onApplyVerifiedCreditNote()"
-          (appliedCreditNoteAmountChanged)="vm.onAppliedCreditNoteAmountChange($event.creditNoteId, $event.amount)"
+          (appliedCreditNoteAmountChanged)="
+            vm.onAppliedCreditNoteAmountChange($event.creditNoteId, $event.amount)
+          "
           (appliedCreditNoteRemoved)="vm.onRemoveAppliedCreditNote($event)"
-          (creditNoteCustomerMismatchConfirmedChanged)="onCreditNoteCustomerMismatchConfirmedChanged($event)"
+          (creditNoteCustomerMismatchConfirmedChanged)="
+            onCreditNoteCustomerMismatchConfirmedChanged($event)
+          "
           (creditNoteCustomerMismatchCancelled)="onCreditNoteCustomerMismatchCancelled()"
         />
 
@@ -287,16 +319,42 @@
         />
 
         @if (vm.expiryApprovalLines().length && !vm.isOfflineMode()) {
-          <section class="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2" aria-labelledby="expiry-warning-title">
-            <h3 id="expiry-warning-title" class="font-semibold">{{ 'expiry.approvalTitle' | transloco }}</h3>
-            @for (line of vm.expiryApprovalLines(); track $index) { <p>{{ 'expiry.approvalLot' | transloco: { quantity: line.quantity } }} · {{ vm.expiryLotLabel(line.inventoryBatchId) }}</p> }
+          <section
+            class="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2"
+            aria-labelledby="expiry-warning-title"
+          >
+            <h3 id="expiry-warning-title" class="font-semibold">
+              {{ 'expiry.approvalTitle' | transloco }}
+            </h3>
+            @for (line of vm.expiryApprovalLines(); track $index) {
+              <p>
+                {{ 'expiry.approvalLot' | transloco: { quantity: line.quantity } }} ·
+                {{ vm.expiryLotLabel(line.inventoryBatchId) }}
+              </p>
+            }
             @if (vm.canOverrideCredit()) {
-              <label class="grid gap-1">{{ 'expiry.auditReason' | transloco }}<textarea class="w-full border rounded p-2" rows="2" maxlength="500" [ngModel]="vm.expiryApprovalReason()" (ngModelChange)="vm.onExpiryApprovalReason($event)"></textarea></label>
-            } @else { <p>{{ 'expiry.managerOwnSession' | transloco }}</p> }
+              <label class="grid gap-1"
+                >{{ 'expiry.auditReason' | transloco
+                }}<textarea
+                  class="w-full border rounded p-2"
+                  rows="2"
+                  maxlength="500"
+                  [ngModel]="vm.expiryApprovalReason()"
+                  (ngModelChange)="vm.onExpiryApprovalReason($event)"
+                ></textarea>
+              </label>
+            } @else {
+              <p>{{ 'expiry.managerOwnSession' | transloco }}</p>
+            }
           </section>
         }
         @if (checkoutValidationMessage && vm.pendingCheckouts().length === 0) {
-          <div class="error checkout-error-summary" role="alert" tabindex="-1" data-checkout-error-summary>
+          <div
+            class="error checkout-error-summary"
+            role="alert"
+            tabindex="-1"
+            data-checkout-error-summary
+          >
             <p>{{ checkoutValidationMessage | transloco }}</p>
             @if (invalidCheckoutFieldId(); as fieldId) {
               <a [href]="'#' + fieldId">{{ 'sales.newSale.validationSummary' | transloco }}</a>

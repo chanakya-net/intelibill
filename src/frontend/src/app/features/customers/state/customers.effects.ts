@@ -1,3 +1,7 @@
+import {
+  ApiErrorMessageService,
+  type LocalizedError,
+} from '../../../core/i18n/api-error-message.service';
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { catchError, map, of, switchMap } from 'rxjs';
@@ -7,6 +11,7 @@ import { CustomersActions } from './customers.actions';
 
 @Injectable()
 export class CustomersEffects {
+  private readonly apiErrors = inject(ApiErrorMessageService);
   private readonly actions$ = inject(Actions);
   private readonly customerService = inject(CustomerService);
 
@@ -19,13 +24,13 @@ export class CustomersEffects {
           catchError((error) =>
             of(
               CustomersActions.loadCustomersFailed({
-                errorMessage: error.error?.detail || 'errors.customers.loadFailed',
-              })
-            )
-          )
-        )
-      )
-    )
+                ...this.feedback(error, 'errors.customers.loadFailed'),
+              }),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 
   addCustomer$ = createEffect(() =>
@@ -37,13 +42,13 @@ export class CustomersEffects {
           catchError((error) =>
             of(
               CustomersActions.addCustomerFailed({
-                errorMessage: customerMutationErrorMessage(error, 'errors.customers.addFailed'),
-              })
-            )
-          )
-        )
-      )
-    )
+                ...this.feedback(error, 'errors.customers.addFailed'),
+              }),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 
   editCustomer$ = createEffect(() =>
@@ -55,14 +60,38 @@ export class CustomersEffects {
           catchError((error) =>
             of(
               CustomersActions.editCustomerFailed({
-                errorMessage: customerMutationErrorMessage(error, 'errors.customers.editFailed'),
-              })
-            )
-          )
-        )
-      )
-    )
+                ...this.feedback(error, 'errors.customers.editFailed'),
+              }),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
+  private feedback(
+    error: unknown,
+    fallbackKey: string,
+  ): { errorMessage: string; localizedError?: LocalizedError } {
+    const localizedError = this.apiErrors.resolve(error, {
+      fallbackKey,
+      codeMap: CUSTOMER_ERROR_KEYS,
+      fieldMap: {
+        Name: 'name',
+        PhoneNumber: 'phoneNumber',
+        Gstin: 'gstin',
+        StateCode: 'stateCode',
+        CreditLimit: 'creditLimit',
+        CreditTermsDays: 'creditTermsDays',
+        CreditPolicyMode: 'creditPolicyMode',
+      },
+    });
+    return {
+      errorMessage: localizedError.messageKey,
+      ...(localizedError.correlationId || localizedError.fieldErrors.length
+        ? { localizedError }
+        : {}),
+    };
+  }
 }
 
 // GST details are refused for the rule they break; each refusal says what to correct.
@@ -75,8 +104,3 @@ const CUSTOMER_ERROR_KEYS: Readonly<Record<string, string>> = {
   'Customer.CreditTermsDaysInvalid': 'errors.customers.creditTermsDaysInvalid',
   'Customer.CreditPolicyModeInvalid': 'errors.customers.creditPolicyModeInvalid',
 };
-
-function customerMutationErrorMessage(error: { error?: { title?: string; detail?: string } }, fallback: string): string {
-  const title = error.error?.title;
-  return (title && CUSTOMER_ERROR_KEYS[title]) || error.error?.detail || fallback;
-}

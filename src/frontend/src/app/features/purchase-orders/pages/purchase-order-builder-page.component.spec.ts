@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../core/i18n/localization.service';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
@@ -9,12 +10,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
-import { PurchaseOrderDraftIndexedDbService, type PurchaseOrderDraftRecord } from '../../../core/storage/purchase-order-draft-indexeddb.service';
+import {
+  PurchaseOrderDraftIndexedDbService,
+  type PurchaseOrderDraftRecord,
+} from '../../../core/storage/purchase-order-draft-indexeddb.service';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import type { PurchaseOrderDetail } from '../services/purchase-order.service';
 import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
 import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page.component';
+
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
 
 describe('PurchaseOrderBuilderPageComponent', () => {
   const selectedOrder = signal<PurchaseOrderDetail | null>(null);
@@ -62,13 +72,23 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     storage.clearDraft.mockClear();
 
     TestBed.configureTestingModule({
-      imports: [PurchaseOrderBuilderPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        PurchaseOrderBuilderPageComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         provideRouter([
           { path: 'inventory/purchase-orders', redirectTo: '' },
-          { path: 'inventory/purchase-orders/:purchaseOrderId', redirectTo: '' }
+          { path: 'inventory/purchase-orders/:purchaseOrderId', redirectTo: '' },
         ]),
-        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (key: string) => key === 'purchaseOrderId' ? 'po-1' : null } } } },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            snapshot: {
+              paramMap: { get: (key: string) => (key === 'purchaseOrderId' ? 'po-1' : null) },
+            },
+          },
+        },
         { provide: AuthService, useValue: { session } },
         { provide: ShopPermissionsService, useValue: { canManagePurchaseOrders } },
         { provide: PurchaseOrdersFacade, useValue: facade },
@@ -96,23 +116,36 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     component.purchaseOrderId = 'po-1';
     await component.ngOnInit();
 
-    (component as unknown as {
-      draftState: { replaceFromServer: (order: PurchaseOrderDetail) => void };
-    }).draftState.replaceFromServer(makeDetail());
+    (
+      component as unknown as {
+        draftState: { replaceFromServer: (order: PurchaseOrderDetail) => void };
+      }
+    ).draftState.replaceFromServer(makeDetail());
 
-    const supplier = (component as unknown as {
-      resolveSupplier: (name: string) => { readonly id: string; readonly name: string } | null;
-    }).resolveSupplier('');
-    await (component as unknown as {
-      draftState: { updateHeader: (shopId: string, update: unknown) => Promise<void> };
-    }).draftState.updateHeader('shop-1', { supplier, notes: 'edited notes', purchaseOrderId: 'po-1' });
+    const supplier = (
+      component as unknown as {
+        resolveSupplier: (name: string) => { readonly id: string; readonly name: string } | null;
+      }
+    ).resolveSupplier('');
+    await (
+      component as unknown as {
+        draftState: { updateHeader: (shopId: string, update: unknown) => Promise<void> };
+      }
+    ).draftState.updateHeader('shop-1', {
+      supplier,
+      notes: 'edited notes',
+      purchaseOrderId: 'po-1',
+    });
 
     component.saveDraft();
 
-    expect(facade.updateDraft).toHaveBeenCalledWith('po-1', expect.objectContaining({
-      supplierId: 'supplier-1',
-      notes: 'edited notes',
-    }));
+    expect(facade.updateDraft).toHaveBeenCalledWith(
+      'po-1',
+      expect.objectContaining({
+        supplierId: 'supplier-1',
+        notes: 'edited notes',
+      }),
+    );
   });
 
   it('blocks saving a draft with overlong header fields', async () => {
@@ -148,9 +181,14 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     fixture.componentInstance.purchaseOrderId = 'po-1';
     await fixture.componentInstance.ngOnInit();
 
-    const draftState = (fixture.componentInstance as unknown as {
-      draftState: { header: () => { purchaseOrderId: string | null; notes: string | null }; lines: () => readonly unknown[] };
-    }).draftState;
+    const draftState = (
+      fixture.componentInstance as unknown as {
+        draftState: {
+          header: () => { purchaseOrderId: string | null; notes: string | null };
+          lines: () => readonly unknown[];
+        };
+      }
+    ).draftState;
 
     expect(storage.clearDraft).toHaveBeenCalledWith('shop-1');
     expect(draftState.header().purchaseOrderId).toBeNull();
@@ -164,9 +202,11 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     fixture.componentInstance.purchaseOrderId = 'po-1';
     await fixture.componentInstance.ngOnInit();
 
-    const draftState = (fixture.componentInstance as unknown as {
-      draftState: { replaceFromServer: (order: PurchaseOrderDetail) => void };
-    }).draftState;
+    const draftState = (
+      fixture.componentInstance as unknown as {
+        draftState: { replaceFromServer: (order: PurchaseOrderDetail) => void };
+      }
+    ).draftState;
     const replaceFromServerSpy = vi.spyOn(draftState, 'replaceFromServer');
 
     selectedOrder.set(makeDetail());
@@ -185,12 +225,14 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     await fixture.whenStable();
     await new Promise((resolve) => setTimeout(resolve));
 
-    const draftState = (fixture.componentInstance as unknown as {
-      draftState: {
-        header: () => { supplier: { readonly id: string; readonly name: string } | null };
-        replaceFromServer: (order: PurchaseOrderDetail) => void;
-      };
-    }).draftState;
+    const draftState = (
+      fixture.componentInstance as unknown as {
+        draftState: {
+          header: () => { supplier: { readonly id: string; readonly name: string } | null };
+          replaceFromServer: (order: PurchaseOrderDetail) => void;
+        };
+      }
+    ).draftState;
     const replaceFromServerSpy = vi.spyOn(draftState, 'replaceFromServer');
 
     selectedOrder.set(makeDetail());
@@ -231,8 +273,9 @@ describe('PurchaseOrderBuilderPageComponent', () => {
     await fixture.whenStable();
 
     const host = fixture.nativeElement as HTMLElement;
-    const placeButton = Array.from(host.querySelectorAll('button'))
-      .find((button) => button.textContent?.includes('purchaseOrders.actions.placeOrder')) as HTMLButtonElement;
+    const placeButton = Array.from(host.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('purchaseOrders.actions.placeOrder'),
+    ) as HTMLButtonElement;
 
     expect(placeButton).toBeTruthy();
     placeButton.click();
@@ -251,9 +294,11 @@ describe('PurchaseOrderBuilderPageComponent', () => {
 
     fixture.componentInstance['onSupplierSearch']({ query: 'ac' } as never);
 
-    const suggestions = (fixture.componentInstance as unknown as {
-      supplierNameSuggestions: () => string[];
-    }).supplierNameSuggestions();
+    const suggestions = (
+      fixture.componentInstance as unknown as {
+        supplierNameSuggestions: () => string[];
+      }
+    ).supplierNameSuggestions();
     expect(suggestions).toEqual(['Acme Traders']);
   });
 });

@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../../core/i18n/localization.service';
 import '@angular/compiler';
 import { TestBed } from '@angular/core/testing';
 import { SimpleChange } from '@angular/core';
@@ -5,7 +6,10 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 
-import { CustomerCreditStatus, CustomerService } from '../../../customers/services/customer.service';
+import {
+  CustomerCreditStatus,
+  CustomerService,
+} from '../../../customers/services/customer.service';
 import { customerCreditErrorKey } from '../../utils/customer-credit-error-keys';
 import { SaleCreditPanelComponent } from './sale-credit-panel.component';
 
@@ -22,8 +26,14 @@ const enforced: CustomerCreditStatus = {
 function setup(status: CustomerCreditStatus, canOverride: boolean) {
   const customerService = { getCustomerCredit: vi.fn(() => of(status)) };
   TestBed.configureTestingModule({
-    imports: [SaleCreditPanelComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
-    providers: [{ provide: CustomerService, useValue: customerService }],
+    imports: [
+      SaleCreditPanelComponent,
+      TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+    ],
+    providers: [
+      { provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } },
+      { provide: CustomerService, useValue: customerService },
+    ],
   });
   const fixture = TestBed.createComponent(SaleCreditPanelComponent);
   const component = fixture.componentInstance;
@@ -41,6 +51,12 @@ function setDue(component: SaleCreditPanelComponent, due: number): void {
   component.dueAmount = due;
   component.ngOnChanges({ dueAmount: new SimpleChange(previous, due, false) });
 }
+
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
 
 describe('SaleCreditPanelComponent', () => {
   it('previews the enforced limit and flags a due over it', () => {
@@ -102,7 +118,10 @@ describe('SaleCreditPanelComponent', () => {
   });
 
   it('blocks due for no-credit and inactive customers', () => {
-    const noCredit = setup({ ...enforced, creditPolicyMode: 'NoCredit', availableCredit: 0 }, true).component;
+    const noCredit = setup(
+      { ...enforced, creditPolicyMode: 'NoCredit', availableCredit: 0 },
+      true,
+    ).component;
     setDue(noCredit, 1);
     expect(noCredit.isBlocked()).toBe(true);
     expect(noCredit.exceedsLimit()).toBe(false);
@@ -120,7 +139,9 @@ describe('SaleCreditPanelComponent', () => {
 
 describe('customerCreditErrorKey', () => {
   it('maps credit refusals and ignores other codes', () => {
-    expect(customerCreditErrorKey('Customer.CreditLimitExceeded')).toBe('sales.newSale.credit.errors.limitExceeded');
+    expect(customerCreditErrorKey('Customer.CreditLimitExceeded')).toBe(
+      'sales.newSale.credit.errors.limitExceeded',
+    );
     expect(customerCreditErrorKey('Customer.CreditBusy')).toBe('sales.newSale.credit.errors.busy');
     expect(customerCreditErrorKey('Sale.Other')).toBeNull();
     expect(customerCreditErrorKey(undefined)).toBeNull();

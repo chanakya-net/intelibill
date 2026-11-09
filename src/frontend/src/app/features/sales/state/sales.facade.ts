@@ -1,3 +1,4 @@
+import { selectLocalizedError } from './sales.selectors';
 import { inject, Injectable, Signal } from '@angular/core';
 import { Store } from '@ngrx/store';
 
@@ -23,42 +24,78 @@ import * as SalesSelectors from './sales.selectors';
 export class SalesFacade {
   private readonly store = inject(Store);
 
-  readonly allSales: Signal<readonly SaleListItemDto[]> = this.store.selectSignal(SalesSelectors.selectAllSales);
-  readonly loadingSales: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingSales);
+  readonly localizedError = this.store.selectSignal(selectLocalizedError);
+
+  readonly allSales: Signal<readonly SaleListItemDto[]> = this.store.selectSignal(
+    SalesSelectors.selectAllSales,
+  );
+  readonly loadingSales: Signal<boolean> = this.store.selectSignal(
+    SalesSelectors.selectLoadingSales,
+  );
   readonly submitting: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectSubmitting);
-  readonly errorMessage: Signal<string> = this.store.selectSignal(SalesSelectors.selectErrorMessage);
-  readonly lastMutationType: Signal<'record-sale' | 'record-return' | 'void-return' | null> = this.store.selectSignal(SalesSelectors.selectLastMutationType);
-  readonly lastMutationSucceeded: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLastMutationSucceeded);
-  readonly selectedSale: Signal<SaleDto | null> = this.store.selectSignal(SalesSelectors.selectSelectedSale);
-  readonly loadingSaleDetail: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingSaleDetail);
-  readonly returnPreview: Signal<SaleReturnPreviewDto | null> = this.store.selectSignal(SalesSelectors.selectReturnPreview);
-  readonly loadingReturnPreview: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingReturnPreview);
-  readonly returnPreviewErrorMessage: Signal<string> = this.store.selectSignal(SalesSelectors.selectReturnPreviewErrorMessage);
-  readonly profitLossItems: Signal<readonly ProfitLossReportItemDto[]> = this.store.selectSignal(SalesSelectors.selectProfitLossItems);
+  readonly errorMessage: Signal<string> = this.store.selectSignal(
+    SalesSelectors.selectErrorMessage,
+  );
+  readonly lastMutationType: Signal<'record-sale' | 'record-return' | 'void-return' | null> =
+    this.store.selectSignal(SalesSelectors.selectLastMutationType);
+  readonly lastMutationSucceeded: Signal<boolean> = this.store.selectSignal(
+    SalesSelectors.selectLastMutationSucceeded,
+  );
+  readonly selectedSale: Signal<SaleDto | null> = this.store.selectSignal(
+    SalesSelectors.selectSelectedSale,
+  );
+  readonly loadingSaleDetail: Signal<boolean> = this.store.selectSignal(
+    SalesSelectors.selectLoadingSaleDetail,
+  );
+  readonly returnPreview: Signal<SaleReturnPreviewDto | null> = this.store.selectSignal(
+    SalesSelectors.selectReturnPreview,
+  );
+  readonly loadingReturnPreview: Signal<boolean> = this.store.selectSignal(
+    SalesSelectors.selectLoadingReturnPreview,
+  );
+  readonly returnPreviewErrorMessage: Signal<string> = this.store.selectSignal(
+    SalesSelectors.selectReturnPreviewErrorMessage,
+  );
+  readonly profitLossItems: Signal<readonly ProfitLossReportItemDto[]> = this.store.selectSignal(
+    SalesSelectors.selectProfitLossItems,
+  );
   readonly profitLossReport: Signal<readonly ProfitLossReportItemDto[]> = this.profitLossItems;
-  readonly loadingProfitLossReport: Signal<boolean> = this.store.selectSignal(SalesSelectors.selectLoadingProfitLossReport);
-  readonly profitLossSummary: Signal<ProfitLossSummaryDto | null> = this.store.selectSignal(SalesSelectors.selectProfitLossSummary);
-  readonly profitLossAppliedFilters: Signal<ProfitLossAppliedFiltersDto | null> = this.store.selectSignal(SalesSelectors.selectProfitLossAppliedFilters);
+  readonly loadingProfitLossReport: Signal<boolean> = this.store.selectSignal(
+    SalesSelectors.selectLoadingProfitLossReport,
+  );
+  readonly profitLossSummary: Signal<ProfitLossSummaryDto | null> = this.store.selectSignal(
+    SalesSelectors.selectProfitLossSummary,
+  );
+  readonly profitLossAppliedFilters: Signal<ProfitLossAppliedFiltersDto | null> =
+    this.store.selectSignal(SalesSelectors.selectProfitLossAppliedFilters);
   readonly profitLossPagination: Signal<{
     totalCount: number;
     pageNumber: number;
     pageSize: number;
   }> = this.store.selectSignal(SalesSelectors.selectProfitLossPagination);
-  readonly lastRecordedSale: Signal<SaleDto | null> = this.store.selectSignal(SalesSelectors.selectLastRecordedSale);
-  readonly lastRecordedIntentId: Signal<string | null> = this.store.selectSignal(SalesSelectors.selectLastRecordedIntentId);
+  readonly lastRecordedSale: Signal<SaleDto | null> = this.store.selectSignal(
+    SalesSelectors.selectLastRecordedSale,
+  );
+  readonly lastRecordedIntentId: Signal<string | null> = this.store.selectSignal(
+    SalesSelectors.selectLastRecordedIntentId,
+  );
   readonly salesPagination: Signal<{
     totalCount: number;
     pageNumber: number;
     pageSize: number;
   }> = this.store.selectSignal(SalesSelectors.selectSalesPagination);
-  readonly salesHistorySummary: Signal<SalesHistorySummaryDto | null> = this.store.selectSignal(SalesSelectors.selectSalesHistorySummary);
+  readonly salesHistorySummary: Signal<SalesHistorySummaryDto | null> = this.store.selectSignal(
+    SalesSelectors.selectSalesHistorySummary,
+  );
 
   loadSales(params?: SalesHistoryQueryParams): void {
     this.store.dispatch(SalesActions.loadSalesRequested(params ? { queryParams: params } : {}));
   }
 
   loadProfitLossReport(params?: ProfitLossReportQueryParams): void {
-    this.store.dispatch(SalesActions.loadProfitLossReportRequested(params ? { queryParams: params } : {}));
+    this.store.dispatch(
+      SalesActions.loadProfitLossReportRequested(params ? { queryParams: params } : {}),
+    );
   }
 
   loadSaleDetail(saleId: string): void {

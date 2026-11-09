@@ -1,7 +1,12 @@
 <app-till-posting-fields [sale]="true" />
 <div class="flex gap-2 items-start flex-wrap">
   <div class="flex flex-col gap-1 flex-1 min-w-36">
-    <label class="text-xs text-slate-500" [id]="controlPrefix + '-method-label'" [for]="controlPrefix + '-method'">{{ 'sales.newSale.paymentMethod' | transloco }}</label>
+    <label
+      class="text-xs text-slate-500"
+      [id]="controlPrefix + '-method-label'"
+      [for]="controlPrefix + '-method'"
+      >{{ 'sales.newSale.paymentMethod' | transloco }}</label
+    >
     <p-select
       [inputId]="controlPrefix + '-method'"
       [ariaLabelledBy]="controlPrefix + '-method-label'"
@@ -23,42 +28,46 @@
   </div>
 
   <div class="flex flex-col gap-1 flex-1 min-w-36">
-    <label class="text-xs text-slate-500" [for]="controlPrefix + '-paid'">{{ 'sales.newSale.paidAmount' | transloco }}</label>
+    <label class="text-xs text-slate-500" [for]="controlPrefix + '-paid'">{{
+      'sales.newSale.paidAmount' | transloco
+    }}</label>
     <p-inputgroup [pt]="currencyGroupPt">
       <p-inputgroup-addon [pt]="currencyAddonPt">{{
         'common.currencySymbol' | transloco
       }}</p-inputgroup-addon>
       <p-inputNumber
         [inputId]="controlPrefix + '-paid'"
-        [ariaDescribedBy]="paymentSplitError ? controlPrefix + '-split-error' : undefined"
+        [ariaDescribedBy]="paymentDescriptions('paidAmount')"
         [disabled]="isSubmitting"
-        [invalid]="!!paymentSplitError"
+        [invalid]="!!paymentSplitError || !!fieldError('paidAmount')"
         [ngModel]="paidAmount"
         (ngModelChange)="onPaidAmountChange($event)"
         [min]="0"
         [max]="totalAmount"
-        [pt]="amountInputPt"
+        [pt]="amountInputPt('paidAmount')"
       />
     </p-inputgroup>
   </div>
 
   @if (showDueAmount) {
     <div class="flex flex-col gap-1 flex-1 min-w-36">
-      <label class="text-xs text-slate-500" [for]="controlPrefix + '-due'">{{ 'sales.newSale.dueAmount' | transloco }}</label>
+      <label class="text-xs text-slate-500" [for]="controlPrefix + '-due'">{{
+        'sales.newSale.dueAmount' | transloco
+      }}</label>
       <p-inputgroup [pt]="currencyGroupPt">
         <p-inputgroup-addon [pt]="currencyAddonPt">{{
           'common.currencySymbol' | transloco
         }}</p-inputgroup-addon>
         <p-inputNumber
           [inputId]="controlPrefix + '-due'"
-          [ariaDescribedBy]="paymentSplitError ? controlPrefix + '-split-error' : undefined"
-          [invalid]="!!paymentSplitError"
+          [ariaDescribedBy]="paymentDescriptions('dueAmount')"
+          [invalid]="!!paymentSplitError || !!fieldError('dueAmount')"
           [ngModel]="dueAmount"
           (ngModelChange)="onDueAmountChange($event)"
           [min]="0"
           [max]="totalAmount"
           [disabled]="dueAmountDisabled || isSubmitting"
-          [pt]="amountInputPt"
+          [pt]="amountInputPt('dueAmount')"
         />
       </p-inputgroup>
     </div>
@@ -66,7 +75,9 @@
 </div>
 
 @if (paymentSplitError) {
-  <p class="error-hint mt-1" [id]="controlPrefix + '-split-error'">{{ paymentSplitError | transloco }}</p>
+  <p class="error-hint mt-1" [id]="controlPrefix + '-split-error'">
+    {{ paymentSplitError | transloco }}
+  </p>
 }
 
 @if (!isOfflineMode && !canUseCredit) {
@@ -115,8 +126,7 @@
         </p>
         <p class="text-slate-600">
           {{ 'sales.newSale.creditNote.balance' | transloco }}:
-          {{ 'common.currencySymbol' | transloco
-          }}{{ verifiedCreditNote.availableBalance | number: '1.2-2' }}
+          {{ verifiedCreditNote.availableBalance | localeMoney }}
         </p>
         <p class="text-slate-600">
           {{ 'sales.newSale.creditNote.status' | transloco }}:
@@ -125,7 +135,7 @@
         @if (verifiedCreditNote.expiresAt) {
           <p class="text-slate-500 text-xs">
             {{ 'sales.newSale.creditNote.expiry' | transloco }}:
-            {{ verifiedCreditNote.expiresAt | date: 'mediumDate' }}
+            {{ verifiedCreditNote.expiresAt | localeInstant }}
           </p>
         }
         @if (creditNoteCustomerMismatchWarning && !creditNoteCustomerMismatchConfirmed) {
@@ -164,7 +174,8 @@
             severity="success"
             size="small"
             [disabled]="
-              isSubmitting || !canApplyCreditNote ||
+              isSubmitting ||
+              !canApplyCreditNote ||
               (creditNoteCustomerMismatchWarning && !creditNoteCustomerMismatchConfirmed)
             "
             (click)="onCreditNoteApplyClick()"
@@ -177,7 +188,7 @@
       <div class="credit-note-applied-list mt-3 flex flex-col gap-2">
         <div class="text-xs text-slate-500">
           {{ 'sales.newSale.creditNote.appliedTotal' | transloco }}:
-          {{ 'common.currencySymbol' | transloco }}{{ appliedCreditNotesTotal | number: '1.2-2' }}
+          {{ appliedCreditNotesTotal | localeMoney }}
         </div>
         @for (note of appliedCreditNotes; track note.creditNoteId) {
           <div class="p-2 rounded border border-slate-200 bg-white flex flex-col gap-2">
@@ -198,7 +209,11 @@
                 (click)="onAppliedCreditNoteRemoveClick(note.creditNoteId)"
               />
             </div>
-            <label class="text-xs text-slate-500" [for]="controlPrefix + '-note-' + note.creditNoteId">{{ 'sales.newSale.creditNote.amountLabel' | transloco: { code: note.code } }}</label>
+            <label
+              class="text-xs text-slate-500"
+              [for]="controlPrefix + '-note-' + note.creditNoteId"
+              >{{ 'sales.newSale.creditNote.amountLabel' | transloco: { code: note.code } }}</label
+            >
             <p-inputgroup [pt]="currencyGroupPt">
               <p-inputgroup-addon [pt]="currencyAddonPt">{{
                 'common.currencySymbol' | transloco
@@ -219,7 +234,17 @@
     }
 
     @if (creditNoteError) {
-      <p class="error-hint mt-1" [id]="controlPrefix + '-credit-error'">{{ creditNoteError | transloco }}</p>
+      <p class="error-hint mt-1" [id]="controlPrefix + '-credit-error'">
+        {{ creditNoteError | transloco }}
+      </p>
     }
   </div>
+}
+
+@for (error of localizedError?.fieldErrors ?? []; track error.field) {
+  @if (error.field === 'paidAmount' || error.field === 'dueAmount') {
+    <small class="error" [id]="controlPrefix + '-' + error.field + '-server-error'">{{
+      error.messageKey | transloco: error.params
+    }}</small>
+  }
 }

@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../../core/i18n/localization.service';
 import { disabledTillProviders } from '../../../../../tests/tills/disabled-till.providers';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -32,16 +33,70 @@ const notes: AppliedCreditNote[] = [
   },
 ];
 
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
+
 describe('SalePaymentSectionComponent', () => {
+  it('associates safe server validation with paid amount while retaining split descriptions', () => {
+    TestBed.configureTestingModule({
+      providers: disabledTillProviders(),
+      imports: [
+        SalePaymentSectionComponent,
+        TranslocoTestingModule.forRoot({
+          langs: { en: { apiErrors: { invalidField: 'Check this field.' } } },
+          preloadLangs: true,
+          translocoConfig: { availableLangs: ['en'], defaultLang: 'en' },
+        }),
+      ],
+    });
+    const fixture = TestBed.createComponent(SalePaymentSectionComponent);
+    const component = fixture.componentInstance as SalePaymentSectionComponent & {
+      localizedError: unknown;
+    };
+    component.paymentSplitError = 'sales.newSale.invalidSplit';
+    component.localizedError = {
+      messageKey: 'apiErrors.validationFailed',
+      params: {},
+      fieldErrors: [{ field: 'paidAmount', messageKey: 'apiErrors.invalidField', params: {} }],
+    };
+    fixture.detectChanges();
+    const input = fixture.nativeElement.querySelector(
+      'input.p-inputnumber-input',
+    ) as HTMLInputElement;
+    const ids = input.getAttribute('aria-describedby')?.split(' ') ?? [];
+    expect(ids).toHaveLength(2);
+    expect(ids.every((id) => fixture.nativeElement.querySelector('#' + id))).toBe(true);
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+  });
+
   it('payment_controls_have_associated_names', async () => {
     TestBed.configureTestingModule({
       providers: disabledTillProviders(),
-      imports: [SalePaymentSectionComponent, TranslocoTestingModule.forRoot({
-        langs: { en: { sales: { newSale: {
-          paymentMethod: 'Payment method', paidAmount: 'Paid amount', dueAmount: 'Due amount',
-          creditNote: { codeLabel: 'Credit note code', amountLabel: 'Credit note {{code}} amount' },
-        } } } }, preloadLangs: true, translocoConfig: { availableLangs: ['en'], defaultLang: 'en' },
-      })],
+      imports: [
+        SalePaymentSectionComponent,
+        TranslocoTestingModule.forRoot({
+          langs: {
+            en: {
+              sales: {
+                newSale: {
+                  paymentMethod: 'Payment method',
+                  paidAmount: 'Paid amount',
+                  dueAmount: 'Due amount',
+                  creditNote: {
+                    codeLabel: 'Credit note code',
+                    amountLabel: 'Credit note {{code}} amount',
+                  },
+                },
+              },
+            },
+          },
+          preloadLangs: true,
+          translocoConfig: { availableLangs: ['en'], defaultLang: 'en' },
+        }),
+      ],
     });
 
     const first = TestBed.createComponent(SalePaymentSectionComponent);
@@ -64,7 +119,7 @@ describe('SalePaymentSectionComponent', () => {
 
     first.detectChanges();
     second.detectChanges();
-    const controls = [first, second].map(fixture => {
+    const controls = [first, second].map((fixture) => {
       const root = fixture.nativeElement as HTMLElement;
       const inputs = [...root.querySelectorAll<HTMLInputElement>('input.p-inputnumber-input')];
       const method = root.querySelector<HTMLElement>('[role="combobox"]');
@@ -72,22 +127,29 @@ describe('SalePaymentSectionComponent', () => {
       expect(method?.id).toBeTruthy();
       expect(method?.getAttribute('aria-labelledby')).toBeTruthy();
       expect(root.querySelector(`#${method?.getAttribute('aria-labelledby')}`)).toBeTruthy();
-      expect(root.querySelector<HTMLLabelElement>(`label[for="${method?.id}"]`)?.textContent).toContain('Payment method');
+      expect(
+        root.querySelector<HTMLLabelElement>(`label[for="${method?.id}"]`)?.textContent,
+      ).toContain('Payment method');
       expect(inputs.length).toBe(4);
       for (const input of inputs) {
         expect(input.id).toBeTruthy();
         expect(root.querySelector<HTMLLabelElement>(`label[for="${input.id}"]`)).toBeTruthy();
       }
       expect(inputs[0].getAttribute('aria-describedby')).toBeTruthy();
-      expect(root.querySelector(`#${inputs[0].getAttribute('aria-describedby')}`)?.textContent).toContain('invalidSplit');
+      expect(
+        root.querySelector(`#${inputs[0].getAttribute('aria-describedby')}`)?.textContent,
+      ).toContain('invalidSplit');
       expect(inputs[0].getAttribute('aria-invalid')).toBe('true');
       expect(inputs[1].getAttribute('aria-invalid')).toBe('true');
-      return inputs.map(input => input.id);
+      return inputs.map((input) => input.id);
     });
     expect(new Set(controls.flat()).size).toBe(8);
     second.componentRef.setInput('isSubmitting', true);
     second.detectChanges();
-    expect((second.nativeElement.querySelector('input.p-inputnumber-input') as HTMLInputElement).disabled).toBe(true);
+    expect(
+      (second.nativeElement.querySelector('input.p-inputnumber-input') as HTMLInputElement)
+        .disabled,
+    ).toBe(true);
   });
 
   it('emits payment method updates', () => {

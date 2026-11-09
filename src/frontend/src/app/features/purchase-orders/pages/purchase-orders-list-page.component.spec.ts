@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../core/i18n/localization.service';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
@@ -76,6 +77,12 @@ const router = {
   navigate: vi.fn(),
 };
 
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
+
 describe('PurchaseOrdersListPageComponent', () => {
   beforeEach(() => {
     loadingSignal.set(false);
@@ -111,6 +118,7 @@ describe('PurchaseOrdersListPageComponent', () => {
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
       providers: [
+        { provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } },
         { provide: Router, useValue: router },
         { provide: AuthService, useValue: { session: sessionSignal } },
         { provide: PurchaseOrdersFacade, useValue: facade },

@@ -1,3 +1,4 @@
+import { LocaleMoneyPipe } from '../../../../shared/pipes/locale-money.pipe';
 import { DialogFocusDirective } from '../../../../shared/accessibility/dialog-focus';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
@@ -6,7 +7,8 @@ import { ButtonModule } from 'primeng/button';
 import { TranslocoPipe } from '@ngneat/transloco';
 
 export interface CreateSaleResponse {
-  readonly expiryDecisions?: readonly import("../../../expiry/services/expiry.models").SavedSaleExpiryDecision[] | null;
+  readonly expiryDecisions?:
+    readonly import('../../../expiry/services/expiry.models').SavedSaleExpiryDecision[] | null;
   readonly saleId: string;
   readonly invoiceNumber: string;
   readonly totalAmount: number;
@@ -23,7 +25,14 @@ export interface CreateSaleResponse {
 @Component({
   selector: 'app-sale-confirmation-dialog',
   standalone: true,
-  imports: [DialogFocusDirective, CommonModule, DialogModule, ButtonModule, TranslocoPipe],
+  imports: [
+    LocaleMoneyPipe,
+    DialogFocusDirective,
+    CommonModule,
+    DialogModule,
+    ButtonModule,
+    TranslocoPipe,
+  ],
   templateUrl: './sale-confirmation-dialog.component.html',
   styleUrl: './sale-confirmation-dialog.component.scss',
 })

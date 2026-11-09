@@ -34,17 +34,11 @@
         <div class="customer-card__metrics">
           <div>
             <span>{{ 'customers.account.outstandingDue' | transloco }}</span>
-            <strong
-              >{{ 'common.currencySymbol' | transloco
-              }}{{ customer.outstandingDue ?? 0 | number: '1.2-2' }}</strong
-            >
+            <strong>{{ customer.outstandingDue ?? 0 | localeMoney }}</strong>
           </div>
           <div>
             <span>{{ 'customers.creditLimit' | transloco }}</span>
-            <strong
-              >{{ 'common.currencySymbol' | transloco
-              }}{{ customer.creditLimit | number: '1.2-2' }}</strong
-            >
+            <strong>{{ customer.creditLimit | localeMoney }}</strong>
             <small class="credit-policy-label" data-testid="credit-policy-label">{{
               creditPolicyLabelKey(customer.creditPolicyMode) | transloco
             }}</small>
@@ -130,11 +124,10 @@
           </td>
           <td>{{ customer.phoneNumber }}</td>
           <td class="money money--outstanding">
-            {{ 'common.currencySymbol' | transloco
-            }}{{ customer.outstandingDue ?? 0 | number: '1.2-2' }}
+            {{ customer.outstandingDue ?? 0 | localeMoney }}
           </td>
           <td class="money">
-            {{ 'common.currencySymbol' | transloco }}{{ customer.creditLimit | number: '1.2-2' }}
+            {{ customer.creditLimit | localeMoney }}
             <small class="credit-policy-label">{{
               creditPolicyLabelKey(customer.creditPolicyMode) | transloco
             }}</small>
@@ -143,10 +136,8 @@
             <div class="usage-cell">
               <div class="usage-cell__top">
                 <span
-                  >{{ 'common.currencySymbol' | transloco
-                  }}{{ customer.outstandingDue ?? 0 | number: '1.2-2' }} /
-                  {{ 'common.currencySymbol' | transloco
-                  }}{{ customer.creditLimit | number: '1.2-2' }}</span
+                  >{{ customer.outstandingDue ?? 0 | localeMoney }} /
+                  {{ customer.creditLimit | localeMoney }}</span
                 >
                 <small>{{ customerUsageLabel(customer) }}</small>
               </div>

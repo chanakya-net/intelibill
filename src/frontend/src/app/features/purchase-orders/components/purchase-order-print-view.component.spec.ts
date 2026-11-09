@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../core/i18n/localization.service';
 import { CommonModule } from '@angular/common';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
@@ -13,7 +14,9 @@ import { PurchaseOrderDetail } from '../services/purchase-order.service';
 import { PurchaseOrderService } from '../services/purchase-order.service';
 import { PurchaseOrderPrintViewComponent } from './purchase-order-print-view.component';
 
-const enIN = JSON.parse(readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string) as Record<string, unknown>;
+const enIN = JSON.parse(
+  readFileSync(join(process.cwd(), 'public/assets/i18n/en-IN.json'), 'utf-8') as string,
+) as Record<string, unknown>;
 
 const order: PurchaseOrderDetail = {
   purchaseOrderId: 'po-1',
@@ -67,6 +70,12 @@ const shop = {
   accountHolderName: null,
 };
 
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
+
 describe('PurchaseOrderPrintViewComponent', () => {
   const purchaseOrderService = {
     getPurchaseOrderDetail: vi.fn(),
@@ -78,7 +87,9 @@ describe('PurchaseOrderPrintViewComponent', () => {
     session: vi.fn(),
   };
 
-  const createComponent = (purchaseOrderId: string | null = 'po-1'): ComponentFixture<PurchaseOrderPrintViewComponent> => {
+  const createComponent = (
+    purchaseOrderId: string | null = 'po-1',
+  ): ComponentFixture<PurchaseOrderPrintViewComponent> => {
     TestBed.configureTestingModule({
       imports: [
         CommonModule,
@@ -91,8 +102,14 @@ describe('PurchaseOrderPrintViewComponent', () => {
       ],
       providers: [
         {
+          provide: LocalizationService,
+          useValue: { currentLanguage: () => 'en-IN' },
+        },
+        {
           provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap: convertToParamMap(purchaseOrderId ? { purchaseOrderId } : {}) } },
+          useValue: {
+            snapshot: { paramMap: convertToParamMap(purchaseOrderId ? { purchaseOrderId } : {}) },
+          },
         },
         { provide: PurchaseOrderService, useValue: purchaseOrderService },
         { provide: ShopService, useValue: shopService },
@@ -113,7 +130,15 @@ describe('PurchaseOrderPrintViewComponent', () => {
     shopService.getShopDetails.mockReturnValue(of(shop));
     authService.session.mockReturnValue({
       activeShopId: 'shop-1',
-      shops: [{ shopId: 'shop-1', shopName: 'Main Shop', role: 'Owner', isDefault: true, lastUsedAt: null }],
+      shops: [
+        {
+          shopId: 'shop-1',
+          shopName: 'Main Shop',
+          role: 'Owner',
+          isDefault: true,
+          lastUsedAt: null,
+        },
+      ],
     });
   });
 
@@ -130,13 +155,15 @@ describe('PurchaseOrderPrintViewComponent', () => {
     vi.runOnlyPendingTimers();
 
     const host = fixture.nativeElement as HTMLElement;
-    expect(host.querySelector('.screen-controls')?.getAttribute('aria-label')).toBe('Purchase order print actions');
+    expect(host.querySelector('.screen-controls')?.getAttribute('aria-label')).toBe(
+      'Purchase order print actions',
+    );
     expect(host.textContent).toContain('Main Shop');
     expect(host.textContent).toContain('Acme Supplies');
     expect(host.textContent).toContain('PO-2026-000001');
     expect(host.textContent).toContain('Placed');
-    expect(host.textContent).toContain('2026-06-01');
-    expect(host.textContent).toContain('2026-06-10');
+    expect(host.textContent).toContain('1 Jun 2026');
+    expect(host.textContent).toContain('10 Jun 2026');
     expect(host.textContent).toContain('SUP-REF-9');
     expect(host.textContent).toContain('Deliver before noon.');
     expect(host.textContent).toContain('Widget A');

@@ -47,3 +47,8 @@ export const selectReceivingOperations = createSelector(
   selectPurchaseOrdersState,
   (state) => state.receiving,
 );
+
+export const selectLocalizedError = createSelector(
+  selectPurchaseOrdersState,
+  (state) => state.localizedError,
+);

@@ -1,3 +1,5 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
+import { signal as errorSignal } from '@angular/core';
 import { Component, EventEmitter, OnInit, Output, computed, inject, input } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -59,6 +61,12 @@ export class EditCustomerOverlayComponent implements OnInit {
   readonly customer = input.required<Customer>();
 
   readonly isSubmitting = this.customersFacade.submitting;
+  readonly localizedError =
+    this.customersFacade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
+  fieldError(field: string) {
+    return this.localizedError()?.fieldErrors.find((error) => error.field === field);
+  }
+
   readonly serverError = this.customersFacade.errorMessage;
 
   @Output() readonly closeRequested = new EventEmitter<void>();
@@ -93,7 +101,10 @@ export class EditCustomerOverlayComponent implements OnInit {
         ],
       ],
       creditPolicyMode: ['NoCredit' as CreditPolicyMode, Validators.required],
-      creditTermsDays: [null as number | null, [Validators.min(0), Validators.max(MAX_CREDIT_TERMS_DAYS)]],
+      creditTermsDays: [
+        null as number | null,
+        [Validators.min(0), Validators.max(MAX_CREDIT_TERMS_DAYS)],
+      ],
     },
     {
       validators: [
@@ -115,7 +126,9 @@ export class EditCustomerOverlayComponent implements OnInit {
     initialValue: this.form.controls.creditPolicyMode.value,
   });
   /** Hint for the chosen policy, so a zero limit is never read as "unlimited". */
-  readonly creditPolicyHintKey = computed(() => `customers.creditPolicy.hints.${this.selectedPolicy()}`);
+  readonly creditPolicyHintKey = computed(
+    () => `customers.creditPolicy.hints.${this.selectedPolicy()}`,
+  );
 
   ngOnInit(): void {
     if (!this.canEditCredit()) {

@@ -1,3 +1,4 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
@@ -14,6 +15,7 @@ export const customersAdapter = createEntityAdapter<Customer>({
 export interface CustomersState extends EntityState<Customer> {
   readonly loadingCustomers: boolean;
   readonly submitting: boolean;
+  readonly localizedError: LocalizedError | undefined;
   readonly errorMessage: string;
   readonly lastMutationType: CustomerMutationType | null;
   readonly lastMutationSucceeded: boolean;
@@ -22,6 +24,7 @@ export interface CustomersState extends EntityState<Customer> {
 const initialState: CustomersState = customersAdapter.getInitialState({
   loadingCustomers: false,
   submitting: false,
+  localizedError: undefined,
   errorMessage: '',
   lastMutationType: null,
   lastMutationSucceeded: false,
@@ -32,24 +35,28 @@ export const customersReducer = createReducer(
   on(CustomersActions.loadCustomersRequested, (state) => ({
     ...state,
     loadingCustomers: true,
+    localizedError: undefined,
     errorMessage: '',
   })),
   on(CustomersActions.loadCustomersSucceeded, (state, { customers }) =>
     customersAdapter.setAll([...customers], {
       ...state,
       loadingCustomers: false,
+      localizedError: undefined,
       errorMessage: '',
-    })
+    }),
   ),
-  on(CustomersActions.loadCustomersFailed, (state, { errorMessage }) => ({
+  on(CustomersActions.loadCustomersFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     loadingCustomers: false,
+    localizedError,
     errorMessage,
   })),
 
   on(CustomersActions.addCustomerRequested, (state) => ({
     ...state,
     submitting: true,
+    localizedError: undefined,
     errorMessage: '',
     lastMutationType: 'add-customer',
     lastMutationSucceeded: false,
@@ -58,14 +65,16 @@ export const customersReducer = createReducer(
     customersAdapter.addOne(customer, {
       ...state,
       submitting: false,
+      localizedError: undefined,
       errorMessage: '',
       lastMutationType: 'add-customer',
       lastMutationSucceeded: true,
-    })
+    }),
   ),
-  on(CustomersActions.addCustomerFailed, (state, { errorMessage }) => ({
+  on(CustomersActions.addCustomerFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    localizedError,
     errorMessage,
     lastMutationType: 'add-customer',
     lastMutationSucceeded: false,
@@ -74,6 +83,7 @@ export const customersReducer = createReducer(
   on(CustomersActions.editCustomerRequested, (state) => ({
     ...state,
     submitting: true,
+    localizedError: undefined,
     errorMessage: '',
     lastMutationType: 'edit-customer',
     lastMutationSucceeded: false,
@@ -87,15 +97,17 @@ export const customersReducer = createReducer(
       {
         ...state,
         submitting: false,
+        localizedError: undefined,
         errorMessage: '',
         lastMutationType: 'edit-customer',
         lastMutationSucceeded: true,
-      }
-    )
+      },
+    ),
   ),
-  on(CustomersActions.editCustomerFailed, (state, { errorMessage }) => ({
+  on(CustomersActions.editCustomerFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    localizedError,
     errorMessage,
     lastMutationType: 'edit-customer',
     lastMutationSucceeded: false,
@@ -103,13 +115,14 @@ export const customersReducer = createReducer(
 
   on(CustomersActions.clearError, (state) => ({
     ...state,
+    localizedError: undefined,
     errorMessage: '',
   })),
   on(CustomersActions.clearMutationStatus, (state) => ({
     ...state,
     lastMutationType: null,
     lastMutationSucceeded: false,
-  }))
+  })),
 );
 
 export const customersFeature = createFeature({

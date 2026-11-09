@@ -1,3 +1,7 @@
+import {
+  ApiErrorMessageService,
+  type LocalizedError,
+} from '../../../../core/i18n/api-error-message.service';
 import { CommonModule } from '@angular/common';
 import { Component, Injector, afterNextRender, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
@@ -10,7 +14,10 @@ import { SaleService } from '../../services/sale.service';
 import type { SaleDto } from '../../services/sale.models';
 import { SaleInvoiceA4Component } from '../../components/sale-invoice-a4.component';
 import { SaleInvoiceThermalComponent } from '../../components/sale-invoice-thermal.component';
-import { OfflineInvoiceAccessService, type OfflineInvoiceAccessDenial } from '../../services/offline-invoice-access.service';
+import {
+  OfflineInvoiceAccessService,
+  type OfflineInvoiceAccessDenial,
+} from '../../services/offline-invoice-access.service';
 import type { OfflineSaleQueueStatus } from '../../services/offline-sale-core.types';
 import { mapOfflineQueuedSaleToSaleDto } from '../../services/offline-sale-invoice.mapper';
 
@@ -52,13 +59,17 @@ export class SaleInvoicePrintPageComponent {
   private readonly injector = inject(Injector);
 
   readonly isLoading = signal(false);
+  private readonly apiErrors = inject(ApiErrorMessageService);
+  readonly localizedError = signal<LocalizedError | undefined>(undefined);
   readonly errorMessage = signal('');
   readonly sale = signal<SaleDto | null>(null);
   readonly shop = signal<ShopDetails | null>(null);
   readonly template = signal<InvoiceTemplate>(this.resolveTemplate());
   readonly pendingSync = signal(false);
   readonly deliveryStatusKey = signal<string | null>(null);
-  readonly isLegacyOfflineInvoice = computed(() => this.pendingSync() && !!this.sale() && !this.sale()?.document);
+  readonly isLegacyOfflineInvoice = computed(
+    () => this.pendingSync() && !!this.sale() && !this.sale()?.document,
+  );
 
   constructor() {
     this.loadInvoice();
@@ -95,6 +106,7 @@ export class SaleInvoicePrintPageComponent {
     this.pendingSync.set(false);
     this.isLoading.set(true);
     this.errorMessage.set('');
+    this.localizedError.set(undefined);
 
     forkJoin({
       sale: this.saleService.getSaleById(saleId),
@@ -107,7 +119,11 @@ export class SaleInvoicePrintPageComponent {
         this.printOnceRendered();
       },
       error: (error) => {
-        this.errorMessage.set(error.error?.detail || 'sales.invoice.errors.loadFailed');
+        const localized = this.apiErrors.resolve(error, {
+          fallbackKey: 'sales.invoice.errors.loadFailed',
+        });
+        this.localizedError.set(localized);
+        this.errorMessage.set(localized.messageKey);
         this.isLoading.set(false);
       },
     });
@@ -117,6 +133,7 @@ export class SaleInvoicePrintPageComponent {
   private async loadOfflineInvoice(clientSaleId: string, shopId: string): Promise<void> {
     this.isLoading.set(true);
     this.errorMessage.set('');
+    this.localizedError.set(undefined);
 
     try {
       const access = await this.offlineInvoiceAccess.read(clientSaleId);
@@ -171,7 +188,8 @@ export class SaleInvoicePrintPageComponent {
    * belongs to. Tax identity is never filled in from the shop as it is now.
    */
   private buildOfflineShopDetails(shopId: string): ShopDetails {
-    const activeShop = this.authService.session()?.shops.find((shop) => shop.shopId === shopId) ?? null;
+    const activeShop =
+      this.authService.session()?.shops.find((shop) => shop.shopId === shopId) ?? null;
 
     return {
       shopId,

@@ -1,3 +1,4 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { DialogFocusDirective } from '../../../shared/accessibility/dialog-focus';
 import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
 import { CommonModule } from '@angular/common';
@@ -124,7 +125,12 @@ import { InputValidators } from '../../../shared/forms/input-validation';
         <p role="status">{{ 'purchaseOrders.receiving.sending' | transloco }}</p>
       }
       @if (errorMessage()) {
-        <p class="error" role="alert">{{ errorMessage() | transloco }}</p>
+        <p class="error" role="alert">
+          {{ errorMessage() | transloco: localizedError()?.params ?? {} }}
+          @if (localizedError()?.correlationId; as reference) {
+            <span>{{ 'apiErrors.supportReference' | transloco: { reference } }}</span>
+          }
+        </p>
       }
       <form class="receive-form" [formGroup]="form" (ngSubmit)="submit()">
         <label>
@@ -403,8 +409,12 @@ import { InputValidators } from '../../../shared/forms/input-validation';
         .receipt-row {
           grid-template-columns: minmax(0, 1fr);
         }
-        .receipt-row > * { min-width: 0; }
-        .receipt-row :is(p-inputnumber, p-datepicker, p-select, app-inventory-barcode-field) { width: 100%; }
+        .receipt-row > * {
+          min-width: 0;
+        }
+        .receipt-row :is(p-inputnumber, p-datepicker, p-select, app-inventory-barcode-field) {
+          width: 100%;
+        }
       }
     `,
   ],
@@ -418,6 +428,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
   private readonly context = inject(ShopContextService);
   private readonly facade = inject(PurchaseOrdersFacade);
   protected readonly status = signal<'editing' | 'sending' | 'unknown' | 'confirmed'>('editing');
+  protected readonly localizedError = signal<LocalizedError | undefined>(undefined);
   protected readonly errorMessage = signal('');
   protected readonly rowErrors = signal<readonly ReceivingRowError[]>([]);
   protected readonly loading = signal(false);
@@ -453,6 +464,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
         void this.closeConfirmed();
       } else if (result.status === 'rejected' || result.status === 'unknown') {
         this.errorMessage.set(result.errorMessage);
+        this.localizedError.set(result.localizedError);
         this.rowErrors.set(result.rowErrors);
         this.status.set(result.status === 'rejected' ? 'editing' : 'unknown');
         void this.reloadSettled(result.status === 'rejected');
@@ -511,7 +523,12 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
   }
 
   protected canClose(): boolean {
-    return !this.closing && !this.submitting && this.status() !== 'sending' && (!this.loading() || !!this.record?.pending);
+    return (
+      !this.closing &&
+      !this.submitting &&
+      this.status() !== 'sending' &&
+      (!this.loading() || !!this.record?.pending)
+    );
   }
 
   protected busy(): boolean {
@@ -547,6 +564,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
     this.status.set('editing');
     this.saveFailed = false;
     this.errorMessage.set('');
+    this.localizedError.set(undefined);
     this.rowErrors.set([]);
     this.lines.clear({ emitEvent: false });
     this.order.lines
@@ -1102,13 +1120,29 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
     const candidate = this.editable();
     const policyGeneration = this.generation;
     for (const line of candidate.lines) {
-      if (line.expiryDate && line.manufacturingDate && line.manufacturingDate > line.expiryDate) { this.errorMessage.set('expiry.dateOrder'); return; }
-      const orderLine = this.order.lines.find(x => x.lineId === line.purchaseOrderLineId);
+      if (line.expiryDate && line.manufacturingDate && line.manufacturingDate > line.expiryDate) {
+        this.errorMessage.set('expiry.dateOrder');
+        return;
+      }
+      const orderLine = this.order.lines.find((x) => x.lineId === line.purchaseOrderLineId);
       try {
-        const policy = await firstValueFrom(this.expiryPolicies.read(orderLine?.itemId ?? undefined));
-        if (policyGeneration !== this.generation || !this.current() || JSON.stringify(candidate) !== JSON.stringify(this.editable())) return;
-        if (policy.effectivePolicy.expiryRequired && !line.expiryDate) { this.errorMessage.set('expiry.receiptRequired'); return; }
-      } catch { this.errorMessage.set('expiry.loadFailed'); return; }
+        const policy = await firstValueFrom(
+          this.expiryPolicies.read(orderLine?.itemId ?? undefined),
+        );
+        if (
+          policyGeneration !== this.generation ||
+          !this.current() ||
+          JSON.stringify(candidate) !== JSON.stringify(this.editable())
+        )
+          return;
+        if (policy.effectivePolicy.expiryRequired && !line.expiryDate) {
+          this.errorMessage.set('expiry.receiptRequired');
+          return;
+        }
+      } catch {
+        this.errorMessage.set('expiry.loadFailed');
+        return;
+      }
     }
     this.loading.set(true);
     this.form.disable({ emitEvent: false });
@@ -1140,6 +1174,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
       this.status.set('sending');
       this.rowErrors.set([]);
       this.errorMessage.set('');
+      this.localizedError.set(undefined);
       this.receive.emit({
         correlation: this.correlation,
         payload: record.pending.payload,

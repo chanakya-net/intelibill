@@ -1,6 +1,6 @@
 <p-dialog
-      [appDialogFocus]="visible"
-      [focusOnShow]="false"
+  [appDialogFocus]="visible"
+  [focusOnShow]="false"
   [header]="'sales.newSale.selectBatch' | transloco"
   [visible]="visible"
   [modal]="true"
@@ -15,15 +15,23 @@
   } @else {
     <div class="batch-picker mt-4">
       <div class="batch-picker-options">
-        @for (sellable of orderedBatches; track isGoods(sellable) ? sellable.inventoryBatchId : sellable.serviceId) {
+        @for (
+          sellable of orderedBatches;
+          track isGoods(sellable) ? sellable.inventoryBatchId : sellable.serviceId
+        ) {
           <div
             class="batch-option"
             [class.selected]="
               !!selectedBatch && getDisplayId(selectedBatch) === getDisplayId(sellable)
             "
-            role="button" tabindex="0" [attr.aria-disabled]="!canAdd(sellable)"
+            role="button"
+            tabindex="0"
+            [attr.aria-disabled]="!canAdd(sellable)"
             [attr.data-dialog-initial-focus]="canAdd(sellable) ? '' : null"
-            (keydown.enter)="$event.preventDefault(); $event.stopPropagation(); onSelectBatch(sellable)" (keydown.space)="$event.preventDefault(); onSelectBatch(sellable)"
+            (keydown.enter)="
+              $event.preventDefault(); $event.stopPropagation(); onSelectBatch(sellable)
+            "
+            (keydown.space)="$event.preventDefault(); onSelectBatch(sellable)"
             (click)="onSelectBatch(sellable)"
           >
             <div class="batch-option-content">
@@ -33,16 +41,23 @@
                 @if (isGoods(sellable) && sellable.expiryDate) {
                   <span class="batch-option-expiry"
                     >{{ 'sales.newSale.expiry' | transloco }}:
-                    {{ sellable.expiryDate | dateOnly: 'dd MMM yyyy' }}</span
+                    {{ sellable.expiryDate | localeBusinessDate }}</span
                   >
                 }
               </div>
               <div class="batch-option-price">
-                <p>₹{{ getDisplayPrice(sellable) | number: '1.2-2' }}</p>
+                <p>{{ getDisplayPrice(sellable) | localeMoney }}</p>
                 @if (isGoods(sellable)) {
                   <p>{{ expiryStatusKey(sellable.sellability) | transloco }}</p>
-                  <p>{{ 'expiry.physical' | transloco }}: {{ sellable.sellability?.physicalQuantity ?? sellable.quantity }} · {{ 'expiry.quarantine' | transloco }}: {{ sellable.quarantinedQuantity ?? 0 }}</p>
-                  <p>{{ 'expiry.available' | transloco }}: {{ available(sellable) }} {{ sellable.uom ?? '' }}</p>
+                  <p>
+                    {{ 'expiry.physical' | transloco }}:
+                    {{ sellable.sellability?.physicalQuantity ?? sellable.quantity }} ·
+                    {{ 'expiry.quarantine' | transloco }}: {{ sellable.quarantinedQuantity ?? 0 }}
+                  </p>
+                  <p>
+                    {{ 'expiry.available' | transloco }}: {{ available(sellable) }}
+                    {{ sellable.uom ?? '' }}
+                  </p>
                 }
               </div>
             </div>
@@ -63,14 +78,17 @@
               [scale]="quantityScaleOf(selected)"
               [max]="isGoods(selected) ? available(selected) : null"
               [unitLabel]="unitLabelOf(selected)"
-              [ariaLabel]="'sales.newSale.quantityOf' | transloco: { item: getDisplayName(selected) }"
+              [ariaLabel]="
+                'sales.newSale.quantityOf' | transloco: { item: getDisplayName(selected) }
+              "
               (committed)="onQuantityChanged($event)"
             />
           </div>
           <p-button
             [label]="'sales.newSale.addToCart' | transloco"
             icon="pi pi-cart-plus"
-            [disabled]="!canAdd(selected)" (click)="onAddToCart()"
+            [disabled]="!canAdd(selected)"
+            (click)="onAddToCart()"
           />
         </div>
       }

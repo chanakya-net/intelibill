@@ -80,6 +80,30 @@ describe('ExpensesEffects', () => {
     TestBed.resetTestingModule();
   });
 
+  it('keeps only safe localized feedback and reference metadata from hostile errors', async () => {
+    expenseService.getExpenseById.mockReturnValue(
+      throwError(() => ({
+        error: {
+          code: 'Untrusted.Code',
+          title: '<script>title</script>',
+          detail: '<img onerror=alert(1)>',
+          traceId: 'safe-trace:123',
+        },
+      })),
+    );
+    const output = firstValueFrom(effects.loadExpenseDetail$.pipe(take(1)));
+    actions$.next(ExpensesActions.loadExpenseDetailRequested({ expenseId: 'exp-1' }));
+    expect(await output).toMatchObject({
+      errorMessage: 'expenses.errors.unexpected',
+      localizedError: {
+        messageKey: 'expenses.errors.unexpected',
+        params: {},
+        fieldErrors: [],
+        correlationId: 'safe-trace:123',
+      },
+    });
+  });
+
   it('dispatches loadExpensesSucceeded on load success', async () => {
     const expenses = [makeExpenseListItem()];
     expenseService.getExpenses.mockReturnValue(
@@ -117,7 +141,10 @@ describe('ExpensesEffects', () => {
     );
 
     await expect(output).resolves.toEqual(
-      ExpensesActions.loadExpensesFailed({ requestId: 'r1', errorMessage: 'Server error' }),
+      ExpensesActions.loadExpensesFailed({
+        requestId: 'r1',
+        errorMessage: 'expenses.errors.unexpected',
+      }),
     );
   });
 
@@ -272,7 +299,7 @@ describe('ExpensesEffects', () => {
     actions$.next(ExpensesActions.loadExpenseDetailRequested({ expenseId: 'exp-1' }));
 
     await expect(output).resolves.toEqual(
-      ExpensesActions.loadExpenseDetailFailed({ errorMessage: 'Not found' }),
+      ExpensesActions.loadExpenseDetailFailed({ errorMessage: 'expenses.errors.unexpected' }),
     );
   });
 
@@ -293,7 +320,7 @@ describe('ExpensesEffects', () => {
     actions$.next(ExpensesActions.loadCategoriesRequested());
 
     await expect(output).resolves.toEqual(
-      ExpensesActions.loadCategoriesFailed({ errorMessage: 'Server error' }),
+      ExpensesActions.loadCategoriesFailed({ errorMessage: 'expenses.errors.unexpected' }),
     );
   });
 
@@ -334,7 +361,7 @@ describe('ExpensesEffects', () => {
     );
 
     await expect(output).resolves.toEqual(
-      ExpensesActions.recordExpenseFailed({ errorMessage: 'Invalid amount' }),
+      ExpensesActions.recordExpenseFailed({ errorMessage: 'expenses.errors.unexpected' }),
     );
   });
 
@@ -379,7 +406,7 @@ describe('ExpensesEffects', () => {
     );
 
     await expect(output).resolves.toEqual(
-      ExpensesActions.correctExpenseFailed({ errorMessage: 'Already voided' }),
+      ExpensesActions.correctExpenseFailed({ errorMessage: 'expenses.errors.unexpected' }),
     );
   });
 });

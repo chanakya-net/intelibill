@@ -46,6 +46,15 @@
         <span>{{ 'expenses.category' | transloco }}</span>
         <p-select
           formControlName="categoryName"
+          [invalid]="!!fieldError('categoryName')"
+          [pt]="{
+            label: {
+              'aria-describedby': fieldError('categoryName')
+                ? 'record-expense-overlay-categoryName-error'
+                : undefined,
+              'aria-invalid': fieldError('categoryName') ? 'true' : undefined,
+            },
+          }"
           [options]="selectableCategories()"
           optionLabel="name"
           optionValue="name"
@@ -70,6 +79,10 @@
           }}</p-inputgroup-addon>
           <p-inputNumber
             formControlName="amount"
+            [ariaDescribedBy]="
+              fieldError('amount') ? 'record-expense-overlay-amount-error' : undefined
+            "
+            [invalid]="fieldError('amount') ? true : false"
             mode="decimal"
             [min]="0"
             [maxFractionDigits]="2"
@@ -90,6 +103,10 @@
           pInputText
           type="text"
           formControlName="paidTo"
+          [attr.aria-describedby]="
+            fieldError('paidTo') ? 'record-expense-overlay-paidTo-error' : null
+          "
+          [attr.aria-invalid]="fieldError('paidTo') ? true : null"
           [attr.aria-invalid]="form.controls.paidTo.touched && form.controls.paidTo.invalid"
           aria-describedby="record-paid-to-error"
         />
@@ -100,7 +117,15 @@
 
       <label>
         <span>{{ 'expenses.description' | transloco }}</span>
-        <textarea pInputTextarea rows="3" formControlName="description"></textarea>
+        <textarea
+          pInputTextarea
+          rows="3"
+          formControlName="description"
+          [attr.aria-describedby]="
+            fieldError('description') ? 'record-expense-overlay-description-error' : null
+          "
+          [attr.aria-invalid]="fieldError('description') ? true : null"
+        ></textarea>
       </label>
 
       <label>
@@ -115,7 +140,7 @@
       </label>
 
       @if (serverError()) {
-        <p class="error-message">{{ serverError() | transloco }}</p>
+        <p class="error-message">{{ serverError() | transloco: localizedError()?.params ?? {} }}</p>
       }
 
       <div class="actions">
@@ -142,6 +167,14 @@
       <app-till-posting-fields [disabled]="tillLocked()" [evidence]="true" direction="MoneyPaid" />
       @if (tillError()) {
         <p role="alert">{{ tillError() | transloco }}</p>
+      }
+      @if (serverError() && localizedError()?.correlationId; as reference) {
+        <p class="error-reference">{{ 'apiErrors.supportReference' | transloco: { reference } }}</p>
+      }
+      @for (error of localizedError()?.fieldErrors ?? []; track error.field) {
+        <small class="field-error" [id]="'record-expense-overlay-' + error.field + '-error'">{{
+          error.messageKey | transloco: error.params
+        }}</small>
       }
     </form>
 

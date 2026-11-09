@@ -1,7 +1,7 @@
 // The credit-policy refusals the server answers when a sale's due breaks the customer's policy,
 // mapped to cashier messages. Anything not listed keeps the caller's own fallback.
 
-const CUSTOMER_CREDIT_ERROR_KEYS: Readonly<Record<string, string>> = {
+export const CUSTOMER_CREDIT_ERROR_KEYS: Readonly<Record<string, string>> = {
   'Customer.CreditCustomerInactive': 'sales.newSale.credit.errors.inactive',
   'Customer.CreditNotExtended': 'sales.newSale.credit.errors.notExtended',
   'Customer.CreditLimitExceeded': 'sales.newSale.credit.errors.limitExceeded',

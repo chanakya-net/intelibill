@@ -27,7 +27,7 @@
         </div>
         <div class="invoice__meta-item">
           <span class="invoice__meta-label">{{ 'sales.invoice.date' | transloco }}</span>
-          <span class="invoice__meta-value">{{ doc.businessDate | dateOnly: 'dd/MM/yyyy' }}</span>
+          <span class="invoice__meta-value">{{ doc.businessDate | localeBusinessDate }}</span>
         </div>
         <div class="invoice__meta-item">
           <span class="invoice__meta-label">{{ 'sales.invoice.placeOfSupply' | transloco }}</span>
@@ -63,7 +63,7 @@
         </div>
         <div class="invoice__meta-item">
           <span class="invoice__meta-label">{{ 'sales.invoice.date' | transloco }}</span>
-          <span class="invoice__meta-value">{{ sale.soldAt | date: 'dd/MM/yyyy HH:mm' }}</span>
+          <span class="invoice__meta-value">{{ sale.soldAt | localeInstant }}</span>
         </div>
       </div>
     </ng-template>
@@ -76,7 +76,9 @@
       <span>{{ doc.buyer.name || ('sales.history.walkIn' | transloco) }}</span>
       <span *ngIf="doc.buyer.phone" class="invoice__customer-phone">{{ doc.buyer.phone }}</span>
       <span *ngIf="doc.buyer.address">{{ doc.buyer.address }}</span>
-      <span *ngIf="doc.buyer.gstin">{{ 'sales.invoice.gstin' | transloco }}: {{ doc.buyer.gstin }}</span>
+      <span *ngIf="doc.buyer.gstin"
+        >{{ 'sales.invoice.gstin' | transloco }}: {{ doc.buyer.gstin }}</span
+      >
       <span *ngIf="doc.buyer.stateCode"
         >{{ 'sales.invoice.state' | transloco }}: {{ doc.buyer.stateName }} ({{
           doc.buyer.stateCode
@@ -118,20 +120,20 @@
         <td class="invoice__col-hsn">{{ line.hsnOrSac }}</td>
         <td class="invoice__col-qty invoice__cell-right">{{ line.quantity }} {{ line.uom }}</td>
         <td class="invoice__col-price invoice__cell-right">
-          {{ line.unitPrice | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ line.unitPrice | localeMoney }}
         </td>
         <td class="invoice__col-discount invoice__cell-right">
-          {{ line.discountAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ line.discountAmount | localeMoney }}
         </td>
         <td class="invoice__col-taxable invoice__cell-right">
-          {{ line.taxableValue | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ line.taxableValue | localeMoney }}
         </td>
         <td class="invoice__col-tax invoice__cell-right">{{ line.taxRatePercent }}%</td>
         <td class="invoice__col-tax-amt invoice__cell-right">
-          {{ lineTaxAmount(line) | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ lineTaxAmount(line) | localeMoney }}
         </td>
         <td class="invoice__col-total invoice__cell-right">
-          {{ line.lineTotal | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ line.lineTotal | localeMoney }}
         </td>
       </tr>
     </tbody>
@@ -153,8 +155,8 @@
           <tr *ngFor="let row of taxSummary(doc)">
             <td>{{ row.abbreviation }}</td>
             <td>{{ row.ratePercent }}%</td>
-            <td>{{ row.taxableBase | currency: 'INR' : 'symbol' : '1.2-2' }}</td>
-            <td>{{ row.amount | currency: 'INR' : 'symbol' : '1.2-2' }}</td>
+            <td>{{ row.taxableBase | localeMoney }}</td>
+            <td>{{ row.amount | localeMoney }}</td>
           </tr>
         </tbody>
       </table>
@@ -194,23 +196,20 @@
             <td *ngIf="shop.gstNumber" class="invoice__col-hsn">{{ item.hsnCode }}</td>
             <td class="invoice__col-qty invoice__cell-right">{{ item.quantity }}</td>
             <td class="invoice__col-price invoice__cell-right">
-              {{ item.salesPrice | currency: 'INR' : 'symbol' : '1.2-2' }}
+              {{ item.salesPrice | localeMoney }}
             </td>
             <td class="invoice__col-discount invoice__cell-right">
-              {{
-                item.itemDiscountAmount + item.saleDiscountAmount
-                  | currency: 'INR' : 'symbol' : '1.2-2'
-              }}
+              {{ item.itemDiscountAmount + item.saleDiscountAmount | localeMoney }}
             </td>
             <td class="invoice__col-taxable invoice__cell-right">
-              {{ item.taxableAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+              {{ item.taxableAmount | localeMoney }}
             </td>
             <td class="invoice__col-tax invoice__cell-right">{{ item.taxRatePercent }}%</td>
             <td class="invoice__col-tax-amt invoice__cell-right">
-              {{ item.taxAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+              {{ item.taxAmount | localeMoney }}
             </td>
             <td class="invoice__col-total invoice__cell-right">
-              {{ item.totalAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+              {{ item.totalAmount | localeMoney }}
             </td>
           </tr>
 
@@ -228,23 +227,20 @@
             <td *ngIf="shop.gstNumber" class="invoice__col-hsn">{{ item.hsnCode }}</td>
             <td class="invoice__col-qty invoice__cell-right">{{ item.quantity }}</td>
             <td class="invoice__col-price invoice__cell-right">
-              {{ item.salesPrice | currency: 'INR' : 'symbol' : '1.2-2' }}
+              {{ item.salesPrice | localeMoney }}
             </td>
             <td class="invoice__col-discount invoice__cell-right">
-              {{
-                item.itemDiscountAmount + item.saleDiscountAmount
-                  | currency: 'INR' : 'symbol' : '1.2-2'
-              }}
+              {{ item.itemDiscountAmount + item.saleDiscountAmount | localeMoney }}
             </td>
             <td class="invoice__col-taxable invoice__cell-right">
-              {{ item.taxableAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+              {{ item.taxableAmount | localeMoney }}
             </td>
             <td class="invoice__col-tax invoice__cell-right">{{ item.taxRatePercent }}%</td>
             <td class="invoice__col-tax-amt invoice__cell-right">
-              {{ item.taxAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+              {{ item.taxAmount | localeMoney }}
             </td>
             <td class="invoice__col-total invoice__cell-right">
-              {{ item.totalAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+              {{ item.totalAmount | localeMoney }}
             </td>
           </tr>
         </ng-container>
@@ -255,23 +251,20 @@
             <td *ngIf="shop.gstNumber" class="invoice__col-hsn">{{ item.hsnCode }}</td>
             <td class="invoice__col-qty invoice__cell-right">{{ item.quantity }}</td>
             <td class="invoice__col-price invoice__cell-right">
-              {{ item.salesPrice | currency: 'INR' : 'symbol' : '1.2-2' }}
+              {{ item.salesPrice | localeMoney }}
             </td>
             <td class="invoice__col-discount invoice__cell-right">
-              {{
-                item.itemDiscountAmount + item.saleDiscountAmount
-                  | currency: 'INR' : 'symbol' : '1.2-2'
-              }}
+              {{ item.itemDiscountAmount + item.saleDiscountAmount | localeMoney }}
             </td>
             <td class="invoice__col-taxable invoice__cell-right">
-              {{ item.taxableAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+              {{ item.taxableAmount | localeMoney }}
             </td>
             <td class="invoice__col-tax invoice__cell-right">{{ item.taxRatePercent }}%</td>
             <td class="invoice__col-tax-amt invoice__cell-right">
-              {{ item.taxAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+              {{ item.taxAmount | localeMoney }}
             </td>
             <td class="invoice__col-total invoice__cell-right">
-              {{ item.totalAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+              {{ item.totalAmount | localeMoney }}
             </td>
           </tr>
         </ng-template>
@@ -287,7 +280,7 @@
         <span class="invoice__return-label"
           >{{ 'sales.invoice.returnNumber' | transloco }} {{ saleReturn.returnNumber }}</span
         >
-        <span class="invoice__return-date">{{ saleReturn.returnedAt | date: 'dd/MM/yyyy' }}</span>
+        <span class="invoice__return-date">{{ saleReturn.returnedAt | localeInstant }}</span>
         <span *ngIf="saleReturn.isVoided" class="invoice__return-voided">{{
           'sales.invoice.voided' | transloco
         }}</span>
@@ -295,7 +288,7 @@
       <div class="invoice__return-details">
         <span class="invoice__return-amount"
           >{{ 'sales.invoice.refundAmount' | transloco }}:
-          {{ saleReturn.totalRefundAmount | currency: 'INR' : 'symbol' : '1.2-2' }}</span
+          {{ saleReturn.totalRefundAmount | localeMoney }}</span
         >
         <span *ngIf="saleReturn.voidReason" class="invoice__return-reason"
           >{{ 'sales.invoice.voidReason' | transloco }}: {{ saleReturn.voidReason }}</span
@@ -310,31 +303,33 @@
       <div class="invoice__totals-row">
         <span class="invoice__totals-label">{{ 'sales.invoice.taxableValue' | transloco }}</span>
         <span class="invoice__totals-value">
-          {{ doc.totals.taxableValue | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ doc.totals.taxableValue | localeMoney }}
         </span>
       </div>
       <div *ngIf="doc.totals.exemptValue > 0" class="invoice__totals-row">
         <span class="invoice__totals-label">{{ 'sales.invoice.exemptValue' | transloco }}</span>
         <span class="invoice__totals-value">
-          {{ doc.totals.exemptValue | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ doc.totals.exemptValue | localeMoney }}
         </span>
       </div>
       <div class="invoice__totals-row">
         <span class="invoice__totals-label">{{ 'sales.invoice.totalTax' | transloco }}</span>
         <span class="invoice__totals-value">
-          {{ doc.totals.totalTax | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ doc.totals.totalTax | localeMoney }}
         </span>
       </div>
       <div class="invoice__totals-row">
-        <span class="invoice__totals-label">{{ 'sales.invoice.roundingAdjustment' | transloco }}</span>
+        <span class="invoice__totals-label">{{
+          'sales.invoice.roundingAdjustment' | transloco
+        }}</span>
         <span class="invoice__totals-value">
-          {{ doc.totals.roundingAdjustment | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ doc.totals.roundingAdjustment | localeMoney }}
         </span>
       </div>
       <div class="invoice__totals-row invoice__totals-row--total">
         <span class="invoice__totals-label">{{ 'sales.invoice.invoiceTotal' | transloco }}</span>
         <span class="invoice__totals-value">
-          {{ doc.totals.invoiceTotal | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ doc.totals.invoiceTotal | localeMoney }}
         </span>
       </div>
       <div *ngIf="sale.creditNoteAppliedAmount > 0" class="invoice__totals-row">
@@ -345,7 +340,7 @@
           }}
         </span>
         <span class="invoice__totals-value">
-          -{{ sale.creditNoteAppliedAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+          -{{ sale.creditNoteAppliedAmount | localeMoney }}
         </span>
       </div>
     </ng-container>
@@ -356,14 +351,12 @@
           'sales.invoice.totalBeforeDiscount' | transloco
         }}</span>
         <span class="invoice__totals-value">
-          {{ sale.totalBeforeDiscount | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ sale.totalBeforeDiscount | localeMoney }}
         </span>
       </div>
       <div class="invoice__totals-row">
         <span class="invoice__totals-label">{{ 'sales.invoice.discount' | transloco }}</span>
-        <span class="invoice__totals-value">
-          -{{ sale.totalDiscountAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
-        </span>
+        <span class="invoice__totals-value"> -{{ sale.totalDiscountAmount | localeMoney }} </span>
       </div>
       <div *ngIf="sale.creditNoteAppliedAmount > 0" class="invoice__totals-row">
         <span class="invoice__totals-label">
@@ -373,19 +366,19 @@
           }}
         </span>
         <span class="invoice__totals-value">
-          -{{ sale.creditNoteAppliedAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+          -{{ sale.creditNoteAppliedAmount | localeMoney }}
         </span>
       </div>
       <div class="invoice__totals-row">
         <span class="invoice__totals-label">{{ 'sales.invoice.tax' | transloco }}</span>
         <span class="invoice__totals-value">
-          {{ sale.totalTaxAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ sale.totalTaxAmount | localeMoney }}
         </span>
       </div>
       <div class="invoice__totals-row invoice__totals-row--total">
         <span class="invoice__totals-label">{{ 'sales.invoice.grandTotal' | transloco }}</span>
         <span class="invoice__totals-value">
-          {{ sale.totalAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ sale.totalAmount | localeMoney }}
         </span>
       </div>
     </ng-template>
@@ -400,13 +393,13 @@
       <div class="invoice__payment-row">
         <span class="invoice__payment-label">{{ 'sales.invoice.paidAmount' | transloco }}:</span>
         <span class="invoice__payment-value">
-          {{ sale.paidAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ sale.paidAmount | localeMoney }}
         </span>
       </div>
       <div class="invoice__payment-row">
         <span class="invoice__payment-label">{{ 'sales.invoice.dueAmount' | transloco }}:</span>
         <span class="invoice__payment-value">
-          {{ sale.dueAmount | currency: 'INR' : 'symbol' : '1.2-2' }}
+          {{ sale.dueAmount | localeMoney }}
         </span>
       </div>
       <div class="invoice__payment-row">

@@ -1,3 +1,5 @@
+import { LocaleBusinessDatePipe } from '../../../../shared/pipes/locale-business-date.pipe';
+import { LocaleMoneyPipe } from '../../../../shared/pipes/locale-money.pipe';
 import { DialogFocusDirective } from '../../../../shared/accessibility/dialog-focus';
 import { expiryStatusKey } from '../../../expiry/services/expiry-policy-evaluator';
 import { CommonModule } from '@angular/common';
@@ -5,10 +7,13 @@ import { Component, EventEmitter, Input, Output, viewChild } from '@angular/core
 
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
-import { DateOnlyPipe } from '../../../../shared/pipes/date-only.pipe';
 import { QuantityFieldComponent } from '../../../../shared/quantity/quantity-field.component';
 import { TranslocoPipe } from '@ngneat/transloco';
-import type { SellableDto, SellableGoodsDto, SellableServiceDto } from '../../../sales/services/sale.models';
+import type {
+  SellableDto,
+  SellableGoodsDto,
+  SellableServiceDto,
+} from '../../../sales/services/sale.models';
 
 let batchPickerSequence = 0;
 
@@ -16,11 +21,12 @@ let batchPickerSequence = 0;
   selector: 'app-batch-picker-dialog',
   standalone: true,
   imports: [
+    LocaleMoneyPipe,
+    LocaleBusinessDatePipe,
     DialogFocusDirective,
     CommonModule,
     ButtonModule,
     DialogModule,
-    DateOnlyPipe,
     QuantityFieldComponent,
     TranslocoPipe,
   ],
@@ -51,14 +57,26 @@ export class BatchPickerDialogComponent {
   }
 
   readonly expiryStatusKey = expiryStatusKey;
-  canAdd(batch: SellableDto): boolean { return batch.kind === 'Service' || (batch.sellability?.allowed !== false && (batch.availableQuantity ?? batch.quantity) > 0); }
-  available(batch: SellableGoodsDto): number { return batch.availableQuantity ?? batch.quantity; }
+  canAdd(batch: SellableDto): boolean {
+    return (
+      batch.kind === 'Service' ||
+      (batch.sellability?.allowed !== false && (batch.availableQuantity ?? batch.quantity) > 0)
+    );
+  }
+  available(batch: SellableGoodsDto): number {
+    return batch.availableQuantity ?? batch.quantity;
+  }
   get orderedBatches(): readonly SellableDto[] {
     return [...this.batches].sort((a, b) => {
-      if (a.kind !== 'Goods' || b.kind !== 'Goods') return a.kind === b.kind ? 0 : a.kind === 'Goods' ? -1 : 1;
-      return a.itemName.localeCompare(b.itemName) || Number(!this.canAdd(a)) - Number(!this.canAdd(b))
-        || (a.expiryDate ?? '9999-12-31').localeCompare(b.expiryDate ?? '9999-12-31')
-        || a.batchNumber.localeCompare(b.batchNumber) || a.inventoryBatchId.localeCompare(b.inventoryBatchId);
+      if (a.kind !== 'Goods' || b.kind !== 'Goods')
+        return a.kind === b.kind ? 0 : a.kind === 'Goods' ? -1 : 1;
+      return (
+        a.itemName.localeCompare(b.itemName) ||
+        Number(!this.canAdd(a)) - Number(!this.canAdd(b)) ||
+        (a.expiryDate ?? '9999-12-31').localeCompare(b.expiryDate ?? '9999-12-31') ||
+        a.batchNumber.localeCompare(b.batchNumber) ||
+        a.inventoryBatchId.localeCompare(b.inventoryBatchId)
+      );
     });
   }
 

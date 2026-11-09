@@ -1,3 +1,4 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
@@ -23,6 +24,7 @@ export interface ExpensesState extends EntityState<ExpenseListItemDto> {
   readonly listErrorMessage: string;
   readonly loadingExpenses: boolean;
   readonly submitting: boolean;
+  readonly localizedError: LocalizedError | undefined;
   readonly errorMessage: string;
   readonly lastMutationType: ExpenseMutationType | null;
   readonly lastMutationSucceeded: boolean;
@@ -41,6 +43,7 @@ const initialState: ExpensesState = expensesAdapter.getInitialState({
   listErrorMessage: '',
   loadingExpenses: false,
   submitting: false,
+  localizedError: undefined,
   errorMessage: '',
   lastMutationType: null,
   lastMutationSucceeded: false,
@@ -64,6 +67,7 @@ export const expensesReducer = createReducer(
       totalCount: 0,
       currentPage: query.page,
       pageSize: query.pageSize,
+      localizedError: undefined,
       errorMessage: '',
       listErrorMessage: '',
     }),
@@ -76,6 +80,7 @@ export const expensesReducer = createReducer(
         : expensesAdapter.setAll([...expenses], {
             ...state,
             loadingExpenses: false,
+            localizedError: undefined,
             errorMessage: '',
             listErrorMessage: '',
             totalCount,
@@ -83,12 +88,13 @@ export const expensesReducer = createReducer(
             pageSize,
           }),
   ),
-  on(ExpensesActions.loadExpensesFailed, (state, { errorMessage, requestId }) =>
+  on(ExpensesActions.loadExpensesFailed, (state, { errorMessage, localizedError, requestId }) =>
     requestId !== state.requestId
       ? state
       : {
           ...state,
           loadingExpenses: false,
+          localizedError,
           errorMessage,
           listErrorMessage: errorMessage,
         },
@@ -97,6 +103,7 @@ export const expensesReducer = createReducer(
   on(ExpensesActions.loadExpenseDetailRequested, (state) => ({
     ...state,
     loadingExpenseDetail: true,
+    localizedError: undefined,
     errorMessage: '',
     selectedExpense: null,
   })),
@@ -105,15 +112,17 @@ export const expensesReducer = createReducer(
     loadingExpenseDetail: false,
     selectedExpense: expense,
   })),
-  on(ExpensesActions.loadExpenseDetailFailed, (state, { errorMessage }) => ({
+  on(ExpensesActions.loadExpenseDetailFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     loadingExpenseDetail: false,
+    localizedError,
     errorMessage,
   })),
 
   on(ExpensesActions.loadCategoriesRequested, (state) => ({
     ...state,
     loadingCategories: true,
+    localizedError: undefined,
     errorMessage: '',
   })),
   on(ExpensesActions.loadCategoriesSucceeded, (state, { categories }) => ({
@@ -121,15 +130,17 @@ export const expensesReducer = createReducer(
     loadingCategories: false,
     categories,
   })),
-  on(ExpensesActions.loadCategoriesFailed, (state, { errorMessage }) => ({
+  on(ExpensesActions.loadCategoriesFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     loadingCategories: false,
+    localizedError,
     errorMessage,
   })),
 
   on(ExpensesActions.recordExpenseRequested, (state) => ({
     ...state,
     submitting: true,
+    localizedError: undefined,
     errorMessage: '',
     lastMutationType: 'record-expense' as ExpenseMutationType,
     lastMutationSucceeded: false,
@@ -137,14 +148,16 @@ export const expensesReducer = createReducer(
   on(ExpensesActions.recordExpenseSucceeded, (state, { expense }) => ({
     ...state,
     submitting: false,
+    localizedError: undefined,
     errorMessage: '',
     lastMutationType: 'record-expense' as ExpenseMutationType,
     lastMutationSucceeded: true,
     selectedExpense: expense,
   })),
-  on(ExpensesActions.recordExpenseFailed, (state, { errorMessage }) => ({
+  on(ExpensesActions.recordExpenseFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    localizedError,
     errorMessage,
     lastMutationType: 'record-expense' as ExpenseMutationType,
     lastMutationSucceeded: false,
@@ -153,6 +166,7 @@ export const expensesReducer = createReducer(
   on(ExpensesActions.correctExpenseRequested, (state) => ({
     ...state,
     submitting: true,
+    localizedError: undefined,
     errorMessage: '',
     lastMutationType: 'correct-expense' as ExpenseMutationType,
     lastMutationSucceeded: false,
@@ -160,14 +174,16 @@ export const expensesReducer = createReducer(
   on(ExpensesActions.correctExpenseSucceeded, (state, { expense }) => ({
     ...state,
     submitting: false,
+    localizedError: undefined,
     errorMessage: '',
     lastMutationType: 'correct-expense' as ExpenseMutationType,
     lastMutationSucceeded: true,
     selectedExpense: expense,
   })),
-  on(ExpensesActions.correctExpenseFailed, (state, { errorMessage }) => ({
+  on(ExpensesActions.correctExpenseFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    localizedError,
     errorMessage,
     lastMutationType: 'correct-expense' as ExpenseMutationType,
     lastMutationSucceeded: false,
@@ -175,6 +191,7 @@ export const expensesReducer = createReducer(
 
   on(ExpensesActions.clearError, (state) => ({
     ...state,
+    localizedError: undefined,
     errorMessage: '',
   })),
   on(ExpensesActions.clearMutationStatus, (state) => ({

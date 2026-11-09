@@ -1,3 +1,5 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
+import { signal as errorSignal } from '@angular/core';
 import { shopBusinessDate } from '../../expiry/services/expiry-policy-evaluator';
 import { computed, DestroyRef, inject, Injectable, Injector, signal } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
@@ -8,7 +10,11 @@ import {
   CURRENCY_INPUT_NUMBER_PT,
 } from '../../../shared/primeng-pt.config';
 import { InputValidators } from '../../../shared/forms/input-validation';
-import { fitsQuantityScale, normalizeQuantity, quantityStep } from '../../../shared/quantity/quantity-input';
+import {
+  fitsQuantityScale,
+  normalizeQuantity,
+  quantityStep,
+} from '../../../shared/quantity/quantity-input';
 import { QuantityMessage, tooPreciseMessage } from '../../../shared/quantity/quantity-messages';
 import { TranslocoService } from '@ngneat/transloco';
 import { QUANTITY_SCALE_MAX } from '../../../shared/quantity/quantity-units';
@@ -21,7 +27,12 @@ import { ShopUpdatesSignalRService } from '../../../core/services/shop-updates-s
 import { CustomersFacade } from '../../customers/state/customers.facade';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { AvailableBatchDto } from '../../inventory/services/inventory.models';
-import { PAYMENT_METHOD_VALUES, PaymentMethod, SaleCreditOverride, SellableDto } from '../services/sale.models';
+import {
+  PAYMENT_METHOD_VALUES,
+  PaymentMethod,
+  SaleCreditOverride,
+  SellableDto,
+} from '../services/sale.models';
 import type {
   AppliedCreditNote,
   CreditNoteRedemptionRequest,
@@ -29,7 +40,11 @@ import type {
   SalePreviewLineDto,
   ServiceCartLine,
 } from '../services/sale.models';
-import { SaleCartStateService, CartItem, QuantityRefusal } from '../services/sale-cart-state.service';
+import {
+  SaleCartStateService,
+  CartItem,
+  QuantityRefusal,
+} from '../services/sale-cart-state.service';
 import { SaleService } from '../services/sale.service';
 import { CheckoutIntentService, CheckoutScope } from '../services/checkout-intent.service';
 import type { CheckoutIntent } from '../../../core/storage/checkout-intent-indexeddb.service';
@@ -181,21 +196,38 @@ export abstract class NewSalePageStateService {
   readonly expiryBusinessTimeZone = signal<string | null>(null);
   private expiryReasonCart = '';
   private expiryReasonPreview: SalePreviewDto | null = null;
-  readonly expiryApprovalLines = computed(() => this.checkoutPreview()?.expiryDecisions?.filter(x => x.decision.requiresApproval) ?? []);
+  readonly expiryApprovalLines = computed(
+    () => this.checkoutPreview()?.expiryDecisions?.filter((x) => x.decision.requiresApproval) ?? [],
+  );
   onExpiryApprovalReason(value: string): void {
-    this.expiryApprovalReason.set(value); this.expiryReasonCart = JSON.stringify(this.cart()); this.expiryReasonPreview = this.checkoutPreview();
+    this.expiryApprovalReason.set(value);
+    this.expiryReasonCart = JSON.stringify(this.cart());
+    this.expiryReasonPreview = this.checkoutPreview();
   }
-  expiryLotLabel(batchId: string): string { const line = this.cart().find(x => x.inventoryBatchId === batchId); return line ? `${line.itemName} · ${line.batchNumber}` : ''; }
+  expiryLotLabel(batchId: string): string {
+    const line = this.cart().find((x) => x.inventoryBatchId === batchId);
+    return line ? `${line.itemName} · ${line.batchNumber}` : '';
+  }
   invalidateExpiryCatalog(): void {
-    this.availableBatches.set([]); this.availableSellables.set([]); this.selectedSellable.set(null);
+    this.availableBatches.set([]);
+    this.availableSellables.set([]);
+    this.selectedSellable.set(null);
     this.salePreview.triggerServerUpdateRefresh();
   }
-  expiryReasonIsCurrent(): boolean { return this.expiryReasonPreview === this.checkoutPreview() && this.expiryReasonCart === JSON.stringify(this.cart()); }
+  expiryReasonIsCurrent(): boolean {
+    return (
+      this.expiryReasonPreview === this.checkoutPreview() &&
+      this.expiryReasonCart === JSON.stringify(this.cart())
+    );
+  }
   expiryPreviewIsCurrent(): boolean {
     const decisions = this.checkoutPreview()?.expiryDecisions;
     if (!decisions?.length) return true;
     const zone = this.expiryBusinessTimeZone();
-    return !!zone && decisions.every(x => x.decision.businessDate === shopBusinessDate(Date.now(), zone));
+    return (
+      !!zone &&
+      decisions.every((x) => x.decision.businessDate === shopBusinessDate(Date.now(), zone))
+    );
   }
 
   readonly checkoutPreview = this.salePreview.checkoutPreview;
@@ -221,6 +253,8 @@ export abstract class NewSalePageStateService {
 
   readonly isSubmitting = this.salesFacade.submitting;
   readonly serverError = this.salesFacade.errorMessage;
+  readonly localizedError =
+    this.salesFacade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
   readonly lastMutationSucceeded = this.salesFacade.lastMutationSucceeded;
   readonly lastMutationType = this.salesFacade.lastMutationType;
   readonly lastRecordedSale = this.salesFacade.lastRecordedSale;
@@ -237,7 +271,9 @@ export abstract class NewSalePageStateService {
   readonly pendingCheckouts = signal<readonly CheckoutIntent[]>([]);
   readonly activeCheckoutIntent = computed(() => {
     const intentId = this.activeCheckoutIntentId();
-    return intentId ? this.pendingCheckouts().find((intent) => intent.intentId === intentId) ?? null : null;
+    return intentId
+      ? (this.pendingCheckouts().find((intent) => intent.intentId === intentId) ?? null)
+      : null;
   });
   readonly isReconcilingCheckout = signal(false);
   readonly cartBootstrapped = this.cartState.cartBootstrapped;
@@ -446,7 +482,9 @@ export abstract class NewSalePageStateService {
   }
 
   /** What is left of a batch after the quantity already in the cart for it. */
-  protected remainingStock(batch: Pick<AvailableBatchDto, 'inventoryBatchId' | 'quantity'>): number {
+  protected remainingStock(
+    batch: Pick<AvailableBatchDto, 'inventoryBatchId' | 'quantity'>,
+  ): number {
     const line = this.cart().find((item) => item.inventoryBatchId === batch.inventoryBatchId);
     const available = Math.max(line?.availableQuantity ?? 0, batch.quantity);
     return normalizeQuantity(available - (line?.quantity ?? 0), QUANTITY_SCALE_MAX);
@@ -476,7 +514,10 @@ export abstract class NewSalePageStateService {
    * The message for the server's answer. When the server refused a quantity's precision and exactly one cart line
    * holds more decimals than its own unit allows, that line's unit is named; otherwise the generic text stays.
    */
-  serverErrorMessage(): { readonly key: string; readonly params: QuantityMessage['params'] | null } {
+  serverErrorMessage(): {
+    readonly key: string;
+    readonly params: QuantityMessage['params'] | null;
+  } {
     const key = this.serverError() ?? '';
     if (key !== QUANTITY_REFUSAL_KEYS.tooPrecise) {
       return { key, params: null };

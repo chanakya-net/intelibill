@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../core/i18n/localization.service';
 import { knownExpiryPolicyProviders } from '../../../../tests/expiry/expiry-policy.providers';
 import { HttpErrorResponse } from '@angular/common/http';
 import { IDBFactory } from 'fake-indexeddb';
@@ -55,6 +56,12 @@ const order: PurchaseOrderDetail = {
   createdAt: '2026-06-01T00:00:00Z',
   cancellationReason: null,
 };
+
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
 
 describe('ReceivePurchaseOrderDialogComponent', () => {
   let fixture: ComponentFixture<ReceivePurchaseOrderDialogComponent>;
@@ -519,7 +526,13 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
   it('refuses invalid receipt date order before freezing or sending the PO group', async () => {
     const c = fixture.componentInstance;
     const emitted = vi.spyOn(c.receive, 'emit');
-    c['lines'].at(0).patchValue({ quantity: 1, expiryDate: new Date(2026, 10, 8), manufacturingDate: new Date(2026, 10, 9) });
+    c['lines']
+      .at(0)
+      .patchValue({
+        quantity: 1,
+        expiryDate: new Date(2026, 10, 8),
+        manufacturingDate: new Date(2026, 10, 9),
+      });
     await c['submit']();
     expect(emitted).not.toHaveBeenCalled();
     expect(c['errorMessage']()).toBe('expiry.dateOrder');
@@ -701,7 +714,9 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
     await c['submit']();
     expect(c['status']()).toBe('sending');
     const dialog = fixture.nativeElement.querySelector('[role="dialog"]') as HTMLElement;
-    dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    dialog.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    );
     await c['hide']();
     expect(c.visible).toBe(true);
     const command = emitted.mock.calls[0][0]!;
@@ -711,32 +726,68 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
     ).toEqual(command.payload);
   });
   it('allows Escape after an unknown outcome and restores its exact durable intent on reopen', async () => {
-    const c = fixture.componentInstance; const storage = TestBed.inject(ReceivingDraftService);
-    const emitted = vi.spyOn(c.receive, 'emit'); await c['submit']();
+    const c = fixture.componentInstance;
+    const storage = TestBed.inject(ReceivingDraftService);
+    const emitted = vi.spyOn(c.receive, 'emit');
+    await c['submit']();
     const command = emitted.mock.calls[0][0]!;
-    await storage.settleFailure(command.correlation.scope, 'po-1', command.correlation.operationId, new Error('lost response'), false);
-    results.set({ [receivingKey(command.correlation)]: { correlation: command.correlation, status: 'unknown', errorMessage: 'purchaseOrders.receiving.unknown', rowErrors: [] } });
-    fixture.detectChanges(); await vi.waitFor(() => expect(c['loading']()).toBe(false));
-    fixture.nativeElement.querySelector('[role="dialog"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    await storage.settleFailure(
+      command.correlation.scope,
+      'po-1',
+      command.correlation.operationId,
+      new Error('lost response'),
+      false,
+    );
+    results.set({
+      [receivingKey(command.correlation)]: {
+        correlation: command.correlation,
+        status: 'unknown',
+        errorMessage: 'purchaseOrders.receiving.unknown',
+        rowErrors: [],
+      },
+    });
+    fixture.detectChanges();
+    await vi.waitFor(() => expect(c['loading']()).toBe(false));
+    fixture.nativeElement
+      .querySelector('[role="dialog"]')
+      .dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      );
     await vi.waitFor(() => expect(c.visible).toBe(false));
-    fixture.componentRef.setInput('visible', false); fixture.detectChanges();
-    fixture.componentRef.setInput('visible', true); fixture.detectChanges();
+    fixture.componentRef.setInput('visible', false);
+    fixture.detectChanges();
+    fixture.componentRef.setInput('visible', true);
+    fixture.detectChanges();
     await vi.waitFor(() => expect(c['loading']()).toBe(false));
     expect(c['status']()).toBe('unknown');
     expect(c['form'].disabled).toBe(true);
-    const replay = vi.spyOn(c.receive, 'emit'); c['retryReceipt']();
+    const replay = vi.spyOn(c.receive, 'emit');
+    c['retryReceipt']();
     expect(replay.mock.calls.at(-1)?.[0]?.payload).toEqual(command.payload);
-    expect(replay.mock.calls.at(-1)?.[0]?.correlation.operationId).toBe(command.correlation.operationId);
+    expect(replay.mock.calls.at(-1)?.[0]?.correlation.operationId).toBe(
+      command.correlation.operationId,
+    );
   });
   it('Escape awaits the existing draft flush and refuses closure when storage fails', async () => {
     const c = fixture.componentInstance;
     let rejectSave!: (reason: unknown) => void;
-    const save = vi.spyOn(TestBed.inject(ReceivingDraftService), 'save').mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectSave = reject; }));
-    fixture.nativeElement.querySelector('[role="dialog"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    const save = vi.spyOn(TestBed.inject(ReceivingDraftService), 'save').mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectSave = reject;
+        }),
+    );
+    fixture.nativeElement
+      .querySelector('[role="dialog"]')
+      .dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      );
     await vi.waitFor(() => expect(save).toHaveBeenCalled());
     expect(c.visible).toBe(true);
     rejectSave(new Error('storage unavailable'));
-    await vi.waitFor(() => expect(c['errorMessage']()).toBe('purchaseOrders.receiving.storageError'));
+    await vi.waitFor(() =>
+      expect(c['errorMessage']()).toBe('purchaseOrders.receiving.storageError'),
+    );
     expect(c.visible).toBe(true);
   });
   it('does not let delayed confirmation cleanup close or mutate a reopened dialog lifetime', async () => {

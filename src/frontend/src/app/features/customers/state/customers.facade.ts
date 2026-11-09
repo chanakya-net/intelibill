@@ -1,3 +1,4 @@
+import { selectLocalizedError } from './customers.selectors';
 import { inject, Injectable, Signal } from '@angular/core';
 import { Store } from '@ngrx/store';
 
@@ -11,12 +12,25 @@ import * as CustomersSelectors from './customers.selectors';
 export class CustomersFacade {
   private readonly store = inject(Store);
 
-  readonly allCustomers: Signal<readonly Customer[]> = this.store.selectSignal(CustomersSelectors.selectAllCustomers);
-  readonly loadingCustomers: Signal<boolean> = this.store.selectSignal(CustomersSelectors.selectLoadingCustomers);
-  readonly submitting: Signal<boolean> = this.store.selectSignal(CustomersSelectors.selectSubmitting);
-  readonly errorMessage: Signal<string> = this.store.selectSignal(CustomersSelectors.selectErrorMessage);
-  readonly lastMutationType: Signal<'add-customer' | 'edit-customer' | null> = this.store.selectSignal(CustomersSelectors.selectLastMutationType);
-  readonly lastMutationSucceeded: Signal<boolean> = this.store.selectSignal(CustomersSelectors.selectLastMutationSucceeded);
+  readonly localizedError = this.store.selectSignal(selectLocalizedError);
+
+  readonly allCustomers: Signal<readonly Customer[]> = this.store.selectSignal(
+    CustomersSelectors.selectAllCustomers,
+  );
+  readonly loadingCustomers: Signal<boolean> = this.store.selectSignal(
+    CustomersSelectors.selectLoadingCustomers,
+  );
+  readonly submitting: Signal<boolean> = this.store.selectSignal(
+    CustomersSelectors.selectSubmitting,
+  );
+  readonly errorMessage: Signal<string> = this.store.selectSignal(
+    CustomersSelectors.selectErrorMessage,
+  );
+  readonly lastMutationType: Signal<'add-customer' | 'edit-customer' | null> =
+    this.store.selectSignal(CustomersSelectors.selectLastMutationType);
+  readonly lastMutationSucceeded: Signal<boolean> = this.store.selectSignal(
+    CustomersSelectors.selectLastMutationSucceeded,
+  );
 
   loadCustomers(): void {
     this.store.dispatch(CustomersActions.loadCustomersRequested());

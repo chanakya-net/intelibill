@@ -1,3 +1,4 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import type { ShopScope } from '../../../core/context/shop-scope';
 import type {
   ReceivePurchaseOrderLineRequest,
@@ -56,6 +57,7 @@ export interface ReceivingCommand {
 export interface ReceivingOperationState {
   readonly correlation: ReceivingCorrelation;
   readonly status: 'sending' | 'checking' | 'confirmed' | 'rejected' | 'unknown';
+  readonly localizedError?: LocalizedError;
   readonly errorMessage: string;
   readonly rowErrors: readonly ReceivingRowError[];
 }

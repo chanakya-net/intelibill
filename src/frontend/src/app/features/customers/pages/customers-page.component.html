@@ -11,7 +11,7 @@
         }}</span>
         <span class="meta-chip"
           >{{ 'customers.summary.totalCreditIssued' | transloco }}:
-          {{ 'common.currencySymbol' | transloco }}{{ totalCreditIssued() | number: '1.2-2' }}</span
+          {{ totalCreditIssued() | localeMoney }}</span
         >
         <span class="meta-chip"
           >{{ 'customers.summary.accountsWithCredit' | transloco }}:
@@ -36,7 +36,7 @@
         <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
         <div class="summary-card__value">
           @if (card.variant === 'money') {
-            {{ 'common.currencySymbol' | transloco }}{{ card.value | number: '1.2-2' }}
+            {{ card.value | localeMoney }}
           } @else {
             {{ card.value | number: '1.0-0' }}
           }
@@ -46,7 +46,11 @@
   </div>
 
   @if (serverError()) {
-    <p class="error">{{ serverError() | transloco }}</p>
+    <p class="error">{{ serverError() | transloco: localizedError()?.params ?? {} }}</p>
+  }
+
+  @if (localizedError()?.correlationId; as reference) {
+    <p class="error-reference">{{ 'apiErrors.supportReference' | transloco: { reference } }}</p>
   }
 
   @if (isLoading()) {
@@ -86,7 +90,7 @@
             <span class="metric-chip">
               <strong>
                 @if (metric.variant === 'money') {
-                  {{ 'common.currencySymbol' | transloco }}{{ metric.value | number: '1.2-2' }}
+                  {{ metric.value | localeMoney }}
                 } @else {
                   {{ metric.value | number: '1.0-0' }}
                 }
@@ -129,8 +133,8 @@
   }
 
   <p-dialog
-      [appDialogFocus]="showAccountOverlay()"
-      [focusOnShow]="false"
+    [appDialogFocus]="showAccountOverlay()"
+    [focusOnShow]="false"
     [visible]="showAccountOverlay()"
     [modal]="true"
     [header]="'customers.account.title' | transloco"
@@ -146,13 +150,17 @@
   >
     @if (accountError()) {
       <p class="error">
-        {{
-          accountError().startsWith('customers.') ||
-          accountError().startsWith('financialOperations.')
-            ? (accountError() | transloco)
-            : accountError()
-        }}
+        {{ accountError() | transloco: accountLocalizedError()?.params ?? {} }}
       </p>
+    }
+
+    @if (accountError() && accountLocalizedError()?.correlationId; as reference) {
+      <p class="error-reference">{{ 'apiErrors.supportReference' | transloco: { reference } }}</p>
+    }
+    @for (fieldError of accountLocalizedError()?.fieldErrors ?? []; track fieldError.field) {
+      <small [id]="'account-' + fieldError.field + '-error'" class="field-error">{{
+        fieldError.messageKey | transloco: fieldError.params
+      }}</small>
     }
 
     @if (accountLoading()) {
@@ -195,10 +203,7 @@
 
           <article class="statement-metric">
             <span>{{ 'customers.account.outstandingDue' | transloco }}</span>
-            <strong class="green"
-              >{{ 'common.currencySymbol' | transloco
-              }}{{ selectedAccount()!.outstandingDue | number: '1.2-2' }}</strong
-            >
+            <strong class="green">{{ selectedAccount()!.outstandingDue | localeMoney }}</strong>
             <small class="warning-dot"
               >{{ selectedAccountOpenInvoices().length }}
               {{ 'customers.account.openInvoices' | transloco }}</small
@@ -206,25 +211,22 @@
             @if (selectedAccountOverdueAmount() > 0) {
               <small class="danger-dot" data-testid="overdue-amount"
                 >{{ 'customers.account.overdue' | transloco }}:
-                {{ 'common.currencySymbol' | transloco
-                }}{{ selectedAccountOverdueAmount() | number: '1.2-2' }}</small
+                {{ selectedAccountOverdueAmount() | localeMoney }}</small
               >
             }
             @if (selectedAccountUnallocatedCredit() > 0) {
               <small class="success-dot" data-testid="unallocated-credit"
                 >{{ 'customers.account.unallocatedCredit' | transloco }}:
-                {{ 'common.currencySymbol' | transloco
-                }}{{ selectedAccountUnallocatedCredit() | number: '1.2-2' }}</small
+                {{ selectedAccountUnallocatedCredit() | localeMoney }}</small
               >
             }
           </article>
 
           <article class="statement-metric">
             <span>{{ 'customers.creditLimit' | transloco }}</span>
-            <strong data-testid="account-credit-limit"
-              >{{ 'common.currencySymbol' | transloco
-              }}{{ selectedAccountCreditLimit() | number: '1.2-2' }}</strong
-            >
+            <strong data-testid="account-credit-limit">{{
+              selectedAccountCreditLimit() | localeMoney
+            }}</strong>
             <small class="success-dot"
               >{{ selectedAccountUsagePercent() }}% {{ 'customers.usage' | transloco }}</small
             >
@@ -239,18 +241,14 @@
             @if (selectedAccountAvailableCredit() !== null) {
               <small data-testid="account-available-credit"
                 >{{ 'customers.creditPolicy.available' | transloco }}:
-                {{ 'common.currencySymbol' | transloco
-                }}{{ selectedAccountAvailableCredit() | number: '1.2-2' }}</small
+                {{ selectedAccountAvailableCredit() | localeMoney }}</small
               >
             }
           </article>
 
           <article class="statement-metric">
             <span>{{ 'customers.account.lifetimeRevenue' | transloco }}</span>
-            <strong class="red"
-              >{{ 'common.currencySymbol' | transloco
-              }}{{ selectedAccountLifetimeRevenue() | number: '1.2-2' }}</strong
-            >
+            <strong class="red">{{ selectedAccountLifetimeRevenue() | localeMoney }}</strong>
             <small class="success-dot"
               >{{ selectedAccountPurchaseCount() }}
               {{ 'customers.account.purchases' | transloco }}</small
@@ -281,6 +279,10 @@
                   }}</p-inputgroup-addon>
                   <p-inputNumber
                     formControlName="amount"
+                    [ariaDescribedBy]="
+                      accountFieldError('amount') ? 'account-amount-error' : undefined
+                    "
+                    [invalid]="!!accountFieldError('amount')"
                     mode="decimal"
                     [min]="0.01"
                     [pt]="currencyInputPt"
@@ -289,13 +291,25 @@
               </label>
               <label>
                 <span>{{ 'customers.account.paymentDate' | transloco }}</span>
-                <input pInputText type="date" formControlName="paymentDate" />
+                <input
+                  pInputText
+                  type="date"
+                  formControlName="paymentDate"
+                  [attr.aria-describedby]="
+                    accountFieldError('paymentDate') ? 'account-paymentDate-error' : null
+                  "
+                  [attr.aria-invalid]="!!accountFieldError('paymentDate')"
+                />
               </label>
               <label>
                 <span>{{ 'customers.account.method' | transloco }}</span>
                 <select
                   class="statement-select"
                   formControlName="method"
+                  [attr.aria-describedby]="
+                    accountFieldError('method') ? 'account-method-error' : null
+                  "
+                  [attr.aria-invalid]="!!accountFieldError('method')"
                   data-testid="payment-method"
                 >
                   @for (method of tenderMethods; track method) {
@@ -309,13 +323,27 @@
                   pInputText
                   type="text"
                   formControlName="externalReference"
+                  [attr.aria-describedby]="
+                    accountFieldError('externalReference')
+                      ? 'account-externalReference-error'
+                      : null
+                  "
+                  [attr.aria-invalid]="!!accountFieldError('externalReference')"
                   maxlength="80"
                   [placeholder]="'customers.account.externalReferenceHint' | transloco"
                 />
               </label>
               <label>
                 <span>{{ 'customers.account.notes' | transloco }}</span>
-                <input pInputText type="text" formControlName="notes" />
+                <input
+                  pInputText
+                  type="text"
+                  formControlName="notes"
+                  [attr.aria-describedby]="
+                    accountFieldError('notes') ? 'account-notes-error' : null
+                  "
+                  [attr.aria-invalid]="!!accountFieldError('notes')"
+                />
               </label>
               @if (allocationSuggestion().rows.length > 0) {
                 <div class="statement-allocation" data-testid="allocation-suggestion">
@@ -327,18 +355,14 @@
                     @for (row of allocationSuggestion().rows; track row.targetId) {
                       <li>
                         <span class="reference">{{ row.invoiceNumber }}</span>
-                        <span class="money"
-                          >{{ 'common.currencySymbol' | transloco
-                          }}{{ row.amount | number: '1.2-2' }}</span
-                        >
+                        <span class="money">{{ row.amount | localeMoney }}</span>
                       </li>
                     }
                   </ul>
                   @if (allocationSuggestion().leftover > 0) {
                     <small
                       >{{ 'customers.account.leftoverCredit' | transloco }}:
-                      {{ 'common.currencySymbol' | transloco
-                      }}{{ allocationSuggestion().leftover | number: '1.2-2' }}</small
+                      {{ allocationSuggestion().leftover | localeMoney }}</small
                     >
                   }
                 </div>
@@ -388,36 +412,32 @@
                 <tbody>
                   @for (sale of selectedAccountOpenInvoices(); track sale.saleId) {
                     <tr>
-                      <td>{{ sale.soldAt | date: 'dd MMM yyyy' }}</td>
+                      <td>{{ sale.soldAt | localeInstant }}</td>
                       <td class="reference">
                         {{ sale.invoiceNumber }}
                         @if (sale.status === 'Cancelled') {
                           <small
                             >{{ 'sales.cancellation.cancelled' | transloco }} ·
                             {{ 'customers.account.saleCancellationCredit' | transloco }}:
-                            {{ sale.cancellationCreditAmount ?? 0 | number: '1.2-2' }}</small
+                            {{ sale.cancellationCreditAmount ?? 0 | localeMoney }}</small
                           >
                         }
                       </td>
                       <td class="money">
-                        {{ 'common.currencySymbol' | transloco
-                        }}{{ sale.dueAmount | number: '1.2-2' }}
+                        {{ sale.dueAmount | localeMoney }}
                       </td>
                       <td class="money credit">
-                        {{ 'common.currencySymbol' | transloco
-                        }}{{ sale.allocatedPaymentAmount ?? 0 | number: '1.2-2' }}
+                        {{ sale.allocatedPaymentAmount ?? 0 | localeMoney }}
                       </td>
                       <td class="money credit">
-                        {{ 'common.currencySymbol' | transloco
-                        }}{{ sale.returnCreditAmount ?? 0 | number: '1.2-2' }}
+                        {{ sale.returnCreditAmount ?? 0 | localeMoney }}
                       </td>
                       <td class="money balance">
-                        {{ 'common.currencySymbol' | transloco
-                        }}{{ sale.currentOutstandingAmount ?? 0 | number: '1.2-2' }}
+                        {{ sale.currentOutstandingAmount ?? 0 | localeMoney }}
                       </td>
                       <td data-testid="invoice-due-status">
                         @if (sale.dueDate) {
-                          {{ sale.dueDate | dateOnly: 'dd MMM yyyy' }}
+                          {{ sale.dueDate | localeBusinessDate }}
                         }
                         <span class="statement-type" [class.overdue]="sale.isOverdue">{{
                           (sale.isOverdue
@@ -443,7 +463,12 @@
               <h3>{{ 'customers.account.receipts' | transloco }}</h3>
             </header>
             @if (reversalError()) {
-              <p class="statement-error" role="alert">{{ reversalError() | transloco }}</p>
+              <p class="statement-error" role="alert">
+                {{ reversalError() | transloco: reversalLocalizedError()?.params ?? {} }}
+                @if (reversalLocalizedError()?.correlationId; as reference) {
+                  <span>{{ 'apiErrors.supportReference' | transloco: { reference } }}</span>
+                }
+              </p>
             }
             <div class="statement-table-wrap">
               <table class="statement-table" data-testid="payment-receipts">
@@ -465,16 +490,14 @@
                 <tbody>
                   @for (receipt of selectedAccountReceipts(); track receipt.receiptId) {
                     <tr [class.reversed]="receipt.isReversed">
-                      <td>{{ receipt.businessDate | dateOnly: 'dd MMM yyyy' }}</td>
+                      <td>{{ receipt.businessDate | localeBusinessDate }}</td>
                       <td>{{ tenderLabelKey(receipt.method) | transloco }}</td>
                       <td class="reference">{{ receipt.externalReference ?? '—' }}</td>
                       <td class="money">
-                        {{ 'common.currencySymbol' | transloco
-                        }}{{ receipt.amount | number: '1.2-2' }}
+                        {{ receipt.amount | localeMoney }}
                       </td>
                       <td class="money">
-                        {{ 'common.currencySymbol' | transloco
-                        }}{{ receipt.unallocatedAmount | number: '1.2-2' }}
+                        {{ receipt.unallocatedAmount | localeMoney }}
                       </td>
                       <td>
                         <span class="statement-type" [class.payment]="!receipt.isReversed">
@@ -602,7 +625,7 @@
               <tbody>
                 @for (row of selectedAccountFilteredLedgerRows(); track row.entry.entryId) {
                   <tr>
-                    <td>{{ row.entry.entryDate | dateOnly: 'dd MMM yyyy' }}</td>
+                    <td>{{ row.entry.entryDate | localeBusinessDate }}</td>
                     <td class="reference">{{ row.reference }}</td>
                     <td>
                       <span class="statement-type" [class.payment]="row.credit !== null">
@@ -610,22 +633,13 @@
                       </span>
                     </td>
                     <td class="money debit">
-                      {{
-                        row.debit === null
-                          ? '—'
-                          : ('common.currencySymbol' | transloco) + (row.debit | number: '1.2-2')
-                      }}
+                      {{ row.debit === null ? '—' : (row.debit | localeMoney) }}
                     </td>
                     <td class="money credit">
-                      {{
-                        row.credit === null
-                          ? '—'
-                          : ('common.currencySymbol' | transloco) + (row.credit | number: '1.2-2')
-                      }}
+                      {{ row.credit === null ? '—' : (row.credit | localeMoney) }}
                     </td>
                     <td class="money balance">
-                      {{ 'common.currencySymbol' | transloco
-                      }}{{ row.entry.runningBalance | number: '1.2-2' }}
+                      {{ row.entry.runningBalance | localeMoney }}
                     </td>
                   </tr>
                 } @empty {
@@ -650,11 +664,9 @@
             }}</span>
             <span>
               {{ 'customers.account.openingBalanceLabel' | transloco }}:
-              {{ 'common.currencySymbol' | transloco
-              }}{{ selectedAccountOpeningBalance() | number: '1.2-2' }} ·
+              {{ selectedAccountOpeningBalance() | localeMoney }} ·
               {{ 'customers.account.closingBalanceLabel' | transloco }}:
-              {{ 'common.currencySymbol' | transloco
-              }}{{ selectedAccountClosingBalance() | number: '1.2-2' }}
+              {{ selectedAccountClosingBalance() | localeMoney }}
             </span>
           </footer>
         </section>

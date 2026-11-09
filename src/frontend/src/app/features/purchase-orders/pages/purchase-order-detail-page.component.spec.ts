@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../core/i18n/localization.service';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -68,6 +69,12 @@ const route = {
     },
   },
 };
+
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
 
 describe('PurchaseOrderDetailPageComponent', () => {
   const facade = {
@@ -190,6 +197,7 @@ describe('PurchaseOrderDetailPageComponent', () => {
         }),
       ],
       providers: [
+        { provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } },
         { provide: PurchaseOrdersFacade, useValue: facade },
         { provide: AuthService, useValue: { session: sessionSignal } },
         { provide: ActivatedRoute, useValue: route },

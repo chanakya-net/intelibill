@@ -1,3 +1,8 @@
+import { signal as errorSignal } from '@angular/core';
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
+import { LocaleInstantPipe } from '../../../shared/pipes/locale-instant.pipe';
+import { LocaleBusinessDatePipe } from '../../../shared/pipes/locale-business-date.pipe';
+import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -23,6 +28,9 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
   selector: 'app-purchase-order-detail-page',
   standalone: true,
   imports: [
+    LocaleMoneyPipe,
+    LocaleBusinessDatePipe,
+    LocaleInstantPipe,
     CommonModule,
     FormsModule,
     TranslocoPipe,
@@ -41,6 +49,8 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
 })
 export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   protected readonly facade = inject(PurchaseOrdersFacade);
+  readonly localizedError =
+    this.facade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
   protected readonly permissions = inject(ShopPermissionsService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);

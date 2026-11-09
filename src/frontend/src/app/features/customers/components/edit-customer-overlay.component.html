@@ -26,17 +26,39 @@
     <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
       <label>
         <span>{{ 'customers.name' | transloco }}</span>
-        <input pInputText type="text" formControlName="name" />
+        <input
+          pInputText
+          type="text"
+          formControlName="name"
+          [attr.aria-describedby]="fieldError('name') ? 'edit-customer-overlay-name-error' : null"
+          [attr.aria-invalid]="fieldError('name') ? true : null"
+        />
       </label>
 
       <label>
         <span>{{ 'customers.phoneNumber' | transloco }}</span>
-        <input pInputText type="text" formControlName="phoneNumber" />
+        <input
+          pInputText
+          type="text"
+          formControlName="phoneNumber"
+          [attr.aria-describedby]="
+            fieldError('phoneNumber') ? 'edit-customer-overlay-phoneNumber-error' : null
+          "
+          [attr.aria-invalid]="fieldError('phoneNumber') ? true : null"
+        />
       </label>
 
       <label>
         <span>{{ 'customers.address' | transloco }}</span>
-        <input pInputText type="text" formControlName="address" />
+        <input
+          pInputText
+          type="text"
+          formControlName="address"
+          [attr.aria-describedby]="
+            fieldError('address') ? 'edit-customer-overlay-address-error' : null
+          "
+          [attr.aria-invalid]="fieldError('address') ? true : null"
+        />
       </label>
 
       <label>
@@ -45,6 +67,8 @@
           pInputText
           type="text"
           formControlName="gstin"
+          [attr.aria-describedby]="fieldError('gstin') ? 'edit-customer-overlay-gstin-error' : null"
+          [attr.aria-invalid]="fieldError('gstin') ? true : null"
           [placeholder]="'shops.placeholders.gst' | transloco"
         />
         @if (
@@ -62,6 +86,15 @@
         <p-select
           inputId="edit-customer-state"
           formControlName="stateCode"
+          [invalid]="!!fieldError('stateCode')"
+          [pt]="{
+            label: {
+              'aria-describedby': fieldError('stateCode')
+                ? 'edit-customer-overlay-stateCode-error'
+                : undefined,
+              'aria-invalid': fieldError('stateCode') ? 'true' : undefined,
+            },
+          }"
           [options]="stateOptions"
           optionLabel="name"
           optionValue="value"
@@ -71,17 +104,28 @@
           [placeholder]="'customers.statePlaceholder' | transloco"
           appendTo="body"
         />
-        @if (form.hasError('gstinStateMismatch') && (form.controls.gstin.touched || form.controls.stateCode.touched)) {
-          <small class="field-error">{{ 'customers.validation.gstinStateMismatch' | transloco }}</small>
+        @if (
+          form.hasError('gstinStateMismatch') &&
+          (form.controls.gstin.touched || form.controls.stateCode.touched)
+        ) {
+          <small class="field-error">{{
+            'customers.validation.gstinStateMismatch' | transloco
+          }}</small>
         }
       </div>
 
       <label>
         <span>{{ 'customers.creditLimit' | transloco }}</span>
         <p-inputgroup [pt]="currencyGroupPt">
-          <p-inputgroup-addon [pt]="currencyAddonPt">{{ 'common.currencySymbol' | transloco }}</p-inputgroup-addon>
+          <p-inputgroup-addon [pt]="currencyAddonPt">{{
+            'common.currencySymbol' | transloco
+          }}</p-inputgroup-addon>
           <p-inputNumber
             formControlName="creditLimit"
+            [ariaDescribedBy]="
+              fieldError('creditLimit') ? 'edit-customer-overlay-creditLimit-error' : undefined
+            "
+            [invalid]="fieldError('creditLimit') ? true : false"
             mode="decimal"
             [min]="0"
             [max]="99999999.99"
@@ -98,6 +142,15 @@
         <p-select
           inputId="edit-customer-credit-policy"
           formControlName="creditPolicyMode"
+          [invalid]="!!fieldError('creditPolicyMode')"
+          [pt]="{
+            label: {
+              'aria-describedby': fieldError('creditPolicyMode')
+                ? 'edit-customer-overlay-creditPolicyMode-error'
+                : undefined,
+              'aria-invalid': fieldError('creditPolicyMode') ? 'true' : undefined,
+            },
+          }"
           [options]="creditPolicyOptions()"
           optionLabel="label"
           optionValue="value"
@@ -120,7 +173,9 @@
           }}</small>
         }
         @if (form.hasError('enforcedCreditRequiresLimit')) {
-          <small class="field-error">{{ 'customers.creditPolicy.enforcedNeedsLimit' | transloco }}</small>
+          <small class="field-error">{{
+            'customers.creditPolicy.enforcedNeedsLimit' | transloco
+          }}</small>
         }
       </div>
 
@@ -128,6 +183,12 @@
         <span>{{ 'customers.creditPolicy.termsDays' | transloco }}</span>
         <p-inputNumber
           formControlName="creditTermsDays"
+          [ariaDescribedBy]="
+            fieldError('creditTermsDays')
+              ? 'edit-customer-overlay-creditTermsDays-error'
+              : undefined
+          "
+          [invalid]="fieldError('creditTermsDays') ? true : false"
           [min]="0"
           [max]="maxTermsDays"
           [useGrouping]="false"
@@ -144,7 +205,7 @@
       </label>
 
       @if (serverError()) {
-        <p class="error-message">{{ serverError() | transloco }}</p>
+        <p class="error-message">{{ serverError() | transloco: localizedError()?.params ?? {} }}</p>
       }
 
       <div class="actions">
@@ -163,6 +224,14 @@
           [disabled]="isSubmitting()"
         ></button>
       </div>
+      @if (serverError() && localizedError()?.correlationId; as reference) {
+        <p class="error-reference">{{ 'apiErrors.supportReference' | transloco: { reference } }}</p>
+      }
+      @for (error of localizedError()?.fieldErrors ?? []; track error.field) {
+        <small class="field-error" [id]="'edit-customer-overlay-' + error.field + '-error'">{{
+          error.messageKey | transloco: error.params
+        }}</small>
+      }
     </form>
 
     @if (isSubmitting()) {

@@ -26,15 +26,23 @@
                   <div class="cart-item-name">{{ item.itemName }}</div>
                   <div class="cart-item-meta">
                     <span>{{ 'sales.newSale.batch' | transloco }}: {{ item.batchNumber }}</span>
-                    @if (item.expiryDate !== undefined) { <span>{{ item.expiryDate || ('expiry.undated' | transloco) }}</span> }
-                    @if (expiryDecision(item); as decision) { <span>{{ expiryStatusKey(decision) | transloco }} · {{ 'expiry.available' | transloco }} {{ decision.availableQuantity }} · {{ 'expiry.quarantine' | transloco }} {{ decision.quarantinedQuantity }}</span> }
+                    @if (item.expiryDate !== undefined) {
+                      <span>{{ item.expiryDate || ('expiry.undated' | transloco) }}</span>
+                    }
+                    @if (expiryDecision(item); as decision) {
+                      <span
+                        >{{ expiryStatusKey(decision) | transloco }} ·
+                        {{ 'expiry.available' | transloco }} {{ decision.availableQuantity }} ·
+                        {{ 'expiry.quarantine' | transloco }}
+                        {{ decision.quarantinedQuantity }}</span
+                      >
+                    }
                     <span class="meta-separator">•</span>
                     <span>{{ 'sales.newSale.barcode' | transloco }}: {{ item.barcode }}</span>
                     <span class="meta-separator">•</span>
                     <span
-                      >{{ 'sales.newSale.price' | transloco }} ₹{{
-                        getUnitFinalPrice(item) | number: '1.2-2'
-                      }}</span
+                      >{{ 'sales.newSale.price' | transloco }}
+                      {{ getUnitFinalPrice(item) | localeMoney }}</span
                     >
                   </div>
                 </div>
@@ -46,7 +54,21 @@
                   [text]="true"
                   icon="pi pi-sliders-h"
                   [label]="'sales.newSale.advancedLineEdit' | transloco"
-                  [ariaLabel]="'sales.newSale.advancedLineEditOf' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
+                  [ariaLabel]="
+                    'sales.newSale.advancedLineEditOf'
+                      | transloco
+                        : {
+                            item:
+                              ('sales.newSale.lineContextGoods'
+                              | transloco
+                                : {
+                                    item: item.itemName,
+                                    lot: item.batchNumber,
+                                    line: lineNumber(item),
+                                    cart: cartInstance,
+                                  }),
+                          }
+                  "
                   (click)="toggleLineDiscountEditor(item.clientLineKey)"
                 />
               </div>
@@ -84,7 +106,21 @@
                   icon="pi pi-minus"
                   severity="secondary"
                   [text]="true"
-                  [ariaLabel]="'sales.newSale.decreaseQuantity' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
+                  [ariaLabel]="
+                    'sales.newSale.decreaseQuantity'
+                      | transloco
+                        : {
+                            item:
+                              ('sales.newSale.lineContextGoods'
+                              | transloco
+                                : {
+                                    item: item.itemName,
+                                    lot: item.batchNumber,
+                                    line: lineNumber(item),
+                                    cart: cartInstance,
+                                  }),
+                          }
+                  "
                   [disabled]="!canDecrease(item)"
                   (click)="decrease(item)"
                 />
@@ -94,26 +130,68 @@
                   [max]="item.availableQuantity"
                   [unitLabel]="item.uom"
                   [inputId]="controlId(item, 'quantity')"
-                  [ariaLabel]="'sales.newSale.quantityOf' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
+                  [ariaLabel]="
+                    'sales.newSale.quantityOf'
+                      | transloco
+                        : {
+                            item:
+                              ('sales.newSale.lineContextGoods'
+                              | transloco
+                                : {
+                                    item: item.itemName,
+                                    lot: item.batchNumber,
+                                    line: lineNumber(item),
+                                    cart: cartInstance,
+                                  }),
+                          }
+                  "
                   (committed)="setQuantity(item.clientLineKey, $event)"
                 />
                 <p-button
                   icon="pi pi-plus"
                   severity="secondary"
                   [text]="true"
-                  [ariaLabel]="'sales.newSale.increaseQuantity' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
+                  [ariaLabel]="
+                    'sales.newSale.increaseQuantity'
+                      | transloco
+                        : {
+                            item:
+                              ('sales.newSale.lineContextGoods'
+                              | transloco
+                                : {
+                                    item: item.itemName,
+                                    lot: item.batchNumber,
+                                    line: lineNumber(item),
+                                    cart: cartInstance,
+                                  }),
+                          }
+                  "
                   [disabled]="!canIncrease(item)"
                   (click)="increase(item)"
                 />
               </div>
             </td>
-            <td class="font-medium cart-line-total">₹{{ getLineTotal(item) | number: '1.2-2' }}</td>
+            <td class="font-medium cart-line-total">{{ getLineTotal(item) | localeMoney }}</td>
             <td>
               <p-button
                 icon="pi pi-trash"
                 severity="danger"
                 [text]="true"
-                [ariaLabel]="'sales.newSale.removeLine' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
+                [ariaLabel]="
+                  'sales.newSale.removeLine'
+                    | transloco
+                      : {
+                          item:
+                            ('sales.newSale.lineContextGoods'
+                            | transloco
+                              : {
+                                  item: item.itemName,
+                                  lot: item.batchNumber,
+                                  line: lineNumber(item),
+                                  cart: cartInstance,
+                                }),
+                        }
+                "
                 (click)="remove(item.clientLineKey)"
               />
             </td>
@@ -131,9 +209,25 @@
                     [ngModel]="item.hsnCode ?? ''"
                     [ngModelOptions]="{ standalone: true }"
                     [id]="controlId(item, 'hsn')"
-                    [attr.aria-label]="'sales.newSale.hsnCodeOf' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
+                    [attr.aria-label]="
+                      'sales.newSale.hsnCodeOf'
+                        | transloco
+                          : {
+                              item:
+                                ('sales.newSale.lineContextGoods'
+                                | transloco
+                                  : {
+                                      item: item.itemName,
+                                      lot: item.batchNumber,
+                                      line: lineNumber(item),
+                                      cart: cartInstance,
+                                    }),
+                            }
+                    "
                     [attr.aria-invalid]="getCartItemHsnError(item.clientLineKey) ? 'true' : null"
-                    [attr.aria-describedby]="getCartItemHsnError(item.clientLineKey) ? controlId(item, 'hsn-error') : null"
+                    [attr.aria-describedby]="
+                      getCartItemHsnError(item.clientLineKey) ? controlId(item, 'hsn-error') : null
+                    "
                     (ngModelChange)="emitHsnCode(item.clientLineKey, $event)"
                   />
                   @if (getCartItemHsnError(item.clientLineKey)) {
@@ -153,9 +247,25 @@
                     [ngModel]="item.taxRatePercent"
                     [ngModelOptions]="{ standalone: true }"
                     [id]="controlId(item, 'tax')"
-                    [attr.aria-label]="'sales.newSale.taxRatePercentOf' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
+                    [attr.aria-label]="
+                      'sales.newSale.taxRatePercentOf'
+                        | transloco
+                          : {
+                              item:
+                                ('sales.newSale.lineContextGoods'
+                                | transloco
+                                  : {
+                                      item: item.itemName,
+                                      lot: item.batchNumber,
+                                      line: lineNumber(item),
+                                      cart: cartInstance,
+                                    }),
+                            }
+                    "
                     [attr.aria-invalid]="getCartItemTaxError(item.clientLineKey) ? 'true' : null"
-                    [attr.aria-describedby]="getCartItemTaxError(item.clientLineKey) ? controlId(item, 'tax-error') : null"
+                    [attr.aria-describedby]="
+                      getCartItemTaxError(item.clientLineKey) ? controlId(item, 'tax-error') : null
+                    "
                     (ngModelChange)="emitTaxRate(item.clientLineKey, $event)"
                     [min]="0"
                     [max]="100"
@@ -175,8 +285,26 @@
                     (ngModelChange)="emitDiscountType(item.clientLineKey, $event)"
                     class="discount-type-select"
                     [id]="controlId(item, 'discount-type')"
-                    [attr.aria-label]="'sales.newSale.discounts.typeOf' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
-                    [attr.aria-describedby]="getCartItemDiscountError(item.clientLineKey) ? controlId(item, 'discount-error') : null"
+                    [attr.aria-label]="
+                      'sales.newSale.discounts.typeOf'
+                        | transloco
+                          : {
+                              item:
+                                ('sales.newSale.lineContextGoods'
+                                | transloco
+                                  : {
+                                      item: item.itemName,
+                                      lot: item.batchNumber,
+                                      line: lineNumber(item),
+                                      cart: cartInstance,
+                                    }),
+                            }
+                    "
+                    [attr.aria-describedby]="
+                      getCartItemDiscountError(item.clientLineKey)
+                        ? controlId(item, 'discount-error')
+                        : null
+                    "
                   >
                     @for (opt of instantDiscountTypeOptions; track opt.value) {
                       <option [ngValue]="opt.value">{{ opt.labelKey | transloco }}</option>
@@ -189,9 +317,29 @@
                     [ngModel]="item.itemDiscountValue"
                     [ngModelOptions]="{ standalone: true }"
                     [id]="controlId(item, 'discount-value')"
-                    [attr.aria-label]="'sales.newSale.discounts.valueOf' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
-                    [attr.aria-invalid]="getCartItemDiscountError(item.clientLineKey) ? 'true' : null"
-                    [attr.aria-describedby]="getCartItemDiscountError(item.clientLineKey) ? controlId(item, 'discount-error') : null"
+                    [attr.aria-label]="
+                      'sales.newSale.discounts.valueOf'
+                        | transloco
+                          : {
+                              item:
+                                ('sales.newSale.lineContextGoods'
+                                | transloco
+                                  : {
+                                      item: item.itemName,
+                                      lot: item.batchNumber,
+                                      line: lineNumber(item),
+                                      cart: cartInstance,
+                                    }),
+                            }
+                    "
+                    [attr.aria-invalid]="
+                      getCartItemDiscountError(item.clientLineKey) ? 'true' : null
+                    "
+                    [attr.aria-describedby]="
+                      getCartItemDiscountError(item.clientLineKey)
+                        ? controlId(item, 'discount-error')
+                        : null
+                    "
                     (ngModelChange)="emitDiscountValue(item.clientLineKey, $event)"
                     [min]="0"
                     [placeholder]="'sales.newSale.discounts.value' | transloco"
@@ -214,7 +362,11 @@
 
     <div class="cart-section">
       <h3 class="cart-section-title">{{ 'sales.newSale.servicesSection' | transloco }}</h3>
-      <p-table [value]="serviceCartItems" [rowTrackBy]="trackLine" styleClass="p-datatable-sm cart-table">
+      <p-table
+        [value]="serviceCartItems"
+        [rowTrackBy]="trackLine"
+        styleClass="p-datatable-sm cart-table"
+      >
         <ng-template pTemplate="header">
           <tr>
             <th>{{ 'inventory.name' | transloco }}</th>
@@ -242,7 +394,20 @@
                 [value]="item.quantity"
                 [scale]="0"
                 [inputId]="controlId(item, 'quantity')"
-                [ariaLabel]="'sales.newSale.quantityOf' | transloco: { item: ('sales.newSale.lineContextService' | transloco: { item: item.serviceName, line: lineNumber(item), cart: cartInstance }) }"
+                [ariaLabel]="
+                  'sales.newSale.quantityOf'
+                    | transloco
+                      : {
+                          item:
+                            ('sales.newSale.lineContextService'
+                            | transloco
+                              : {
+                                  item: item.serviceName,
+                                  line: lineNumber(item),
+                                  cart: cartInstance,
+                                }),
+                        }
+                "
                 (committed)="setQuantity(item.clientLineKey, $event)"
               />
             </td>
@@ -253,21 +418,47 @@
                 [ngModel]="item.unitPrice"
                 [ngModelOptions]="{ standalone: true }"
                 [id]="controlId(item, 'price')"
-                [attr.aria-label]="'sales.newSale.servicePriceOf' | transloco: { item: ('sales.newSale.lineContextService' | transloco: { item: item.serviceName, line: lineNumber(item), cart: cartInstance }) }"
+                [attr.aria-label]="
+                  'sales.newSale.servicePriceOf'
+                    | transloco
+                      : {
+                          item:
+                            ('sales.newSale.lineContextService'
+                            | transloco
+                              : {
+                                  item: item.serviceName,
+                                  line: lineNumber(item),
+                                  cart: cartInstance,
+                                }),
+                        }
+                "
                 (ngModelChange)="emitServiceUnitPrice(item.clientLineKey, $event)"
                 [min]="0"
                 step="0.01"
               />
             </td>
             <td class="font-medium cart-line-total">
-              ₹{{ getServiceLineTotal(item) | number: '1.2-2' }}
+              {{ getServiceLineTotal(item) | localeMoney }}
             </td>
             <td>
               <p-button
                 icon="pi pi-trash"
                 severity="danger"
                 [text]="true"
-                [ariaLabel]="'sales.newSale.removeLine' | transloco: { item: ('sales.newSale.lineContextService' | transloco: { item: item.serviceName, line: lineNumber(item), cart: cartInstance }) }"
+                [ariaLabel]="
+                  'sales.newSale.removeLine'
+                    | transloco
+                      : {
+                          item:
+                            ('sales.newSale.lineContextService'
+                            | transloco
+                              : {
+                                  item: item.serviceName,
+                                  line: lineNumber(item),
+                                  cart: cartInstance,
+                                }),
+                        }
+                "
                 (click)="remove(item.clientLineKey)"
               />
             </td>
@@ -279,7 +470,7 @@
             <td colspan="3" class="text-right font-bold">
               {{ 'sales.newSale.total' | transloco }}
             </td>
-            <td class="font-bold text-orange-600">₹{{ totalAmount | number: '1.2-2' }}</td>
+            <td class="font-bold text-orange-600">{{ totalAmount | localeMoney }}</td>
             <td></td>
           </tr>
         </ng-template>
@@ -306,15 +497,23 @@
                   <div class="cart-item-name">{{ item.itemName }}</div>
                   <div class="cart-item-meta">
                     <span>{{ 'sales.newSale.batch' | transloco }}: {{ item.batchNumber }}</span>
-                    @if (item.expiryDate !== undefined) { <span>{{ item.expiryDate || ('expiry.undated' | transloco) }}</span> }
-                    @if (expiryDecision(item); as decision) { <span>{{ expiryStatusKey(decision) | transloco }} · {{ 'expiry.available' | transloco }} {{ decision.availableQuantity }} · {{ 'expiry.quarantine' | transloco }} {{ decision.quarantinedQuantity }}</span> }
+                    @if (item.expiryDate !== undefined) {
+                      <span>{{ item.expiryDate || ('expiry.undated' | transloco) }}</span>
+                    }
+                    @if (expiryDecision(item); as decision) {
+                      <span
+                        >{{ expiryStatusKey(decision) | transloco }} ·
+                        {{ 'expiry.available' | transloco }} {{ decision.availableQuantity }} ·
+                        {{ 'expiry.quarantine' | transloco }}
+                        {{ decision.quarantinedQuantity }}</span
+                      >
+                    }
                     <span class="meta-separator">•</span>
                     <span>{{ 'sales.newSale.barcode' | transloco }}: {{ item.barcode }}</span>
                     <span class="meta-separator">•</span>
                     <span
-                      >{{ 'sales.newSale.price' | transloco }} ₹{{
-                        getUnitFinalPrice(item) | number: '1.2-2'
-                      }}</span
+                      >{{ 'sales.newSale.price' | transloco }}
+                      {{ getUnitFinalPrice(item) | localeMoney }}</span
                     >
                   </div>
                 </div>
@@ -326,7 +525,21 @@
                   [text]="true"
                   icon="pi pi-sliders-h"
                   [label]="'sales.newSale.advancedLineEdit' | transloco"
-                  [ariaLabel]="'sales.newSale.advancedLineEditOf' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
+                  [ariaLabel]="
+                    'sales.newSale.advancedLineEditOf'
+                      | transloco
+                        : {
+                            item:
+                              ('sales.newSale.lineContextGoods'
+                              | transloco
+                                : {
+                                    item: item.itemName,
+                                    lot: item.batchNumber,
+                                    line: lineNumber(item),
+                                    cart: cartInstance,
+                                  }),
+                          }
+                  "
                   (click)="toggleLineDiscountEditor(item.clientLineKey)"
                 />
               </div>
@@ -364,7 +577,21 @@
                   icon="pi pi-minus"
                   severity="secondary"
                   [text]="true"
-                  [ariaLabel]="'sales.newSale.decreaseQuantity' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
+                  [ariaLabel]="
+                    'sales.newSale.decreaseQuantity'
+                      | transloco
+                        : {
+                            item:
+                              ('sales.newSale.lineContextGoods'
+                              | transloco
+                                : {
+                                    item: item.itemName,
+                                    lot: item.batchNumber,
+                                    line: lineNumber(item),
+                                    cart: cartInstance,
+                                  }),
+                          }
+                  "
                   [disabled]="!canDecrease(item)"
                   (click)="decrease(item)"
                 />
@@ -374,26 +601,68 @@
                   [max]="item.availableQuantity"
                   [unitLabel]="item.uom"
                   [inputId]="controlId(item, 'quantity')"
-                  [ariaLabel]="'sales.newSale.quantityOf' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
+                  [ariaLabel]="
+                    'sales.newSale.quantityOf'
+                      | transloco
+                        : {
+                            item:
+                              ('sales.newSale.lineContextGoods'
+                              | transloco
+                                : {
+                                    item: item.itemName,
+                                    lot: item.batchNumber,
+                                    line: lineNumber(item),
+                                    cart: cartInstance,
+                                  }),
+                          }
+                  "
                   (committed)="setQuantity(item.clientLineKey, $event)"
                 />
                 <p-button
                   icon="pi pi-plus"
                   severity="secondary"
                   [text]="true"
-                  [ariaLabel]="'sales.newSale.increaseQuantity' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
+                  [ariaLabel]="
+                    'sales.newSale.increaseQuantity'
+                      | transloco
+                        : {
+                            item:
+                              ('sales.newSale.lineContextGoods'
+                              | transloco
+                                : {
+                                    item: item.itemName,
+                                    lot: item.batchNumber,
+                                    line: lineNumber(item),
+                                    cart: cartInstance,
+                                  }),
+                          }
+                  "
                   [disabled]="!canIncrease(item)"
                   (click)="increase(item)"
                 />
               </div>
             </td>
-            <td class="font-medium cart-line-total">₹{{ getLineTotal(item) | number: '1.2-2' }}</td>
+            <td class="font-medium cart-line-total">{{ getLineTotal(item) | localeMoney }}</td>
             <td>
               <p-button
                 icon="pi pi-trash"
                 severity="danger"
                 [text]="true"
-                [ariaLabel]="'sales.newSale.removeLine' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
+                [ariaLabel]="
+                  'sales.newSale.removeLine'
+                    | transloco
+                      : {
+                          item:
+                            ('sales.newSale.lineContextGoods'
+                            | transloco
+                              : {
+                                  item: item.itemName,
+                                  lot: item.batchNumber,
+                                  line: lineNumber(item),
+                                  cart: cartInstance,
+                                }),
+                        }
+                "
                 (click)="remove(item.clientLineKey)"
               />
             </td>
@@ -411,9 +680,25 @@
                     [ngModel]="item.hsnCode ?? ''"
                     [ngModelOptions]="{ standalone: true }"
                     [id]="controlId(item, 'hsn')"
-                    [attr.aria-label]="'sales.newSale.hsnCodeOf' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
+                    [attr.aria-label]="
+                      'sales.newSale.hsnCodeOf'
+                        | transloco
+                          : {
+                              item:
+                                ('sales.newSale.lineContextGoods'
+                                | transloco
+                                  : {
+                                      item: item.itemName,
+                                      lot: item.batchNumber,
+                                      line: lineNumber(item),
+                                      cart: cartInstance,
+                                    }),
+                            }
+                    "
                     [attr.aria-invalid]="getCartItemHsnError(item.clientLineKey) ? 'true' : null"
-                    [attr.aria-describedby]="getCartItemHsnError(item.clientLineKey) ? controlId(item, 'hsn-error') : null"
+                    [attr.aria-describedby]="
+                      getCartItemHsnError(item.clientLineKey) ? controlId(item, 'hsn-error') : null
+                    "
                     (ngModelChange)="emitHsnCode(item.clientLineKey, $event)"
                   />
                   @if (getCartItemHsnError(item.clientLineKey)) {
@@ -433,9 +718,25 @@
                     [ngModel]="item.taxRatePercent"
                     [ngModelOptions]="{ standalone: true }"
                     [id]="controlId(item, 'tax')"
-                    [attr.aria-label]="'sales.newSale.taxRatePercentOf' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
+                    [attr.aria-label]="
+                      'sales.newSale.taxRatePercentOf'
+                        | transloco
+                          : {
+                              item:
+                                ('sales.newSale.lineContextGoods'
+                                | transloco
+                                  : {
+                                      item: item.itemName,
+                                      lot: item.batchNumber,
+                                      line: lineNumber(item),
+                                      cart: cartInstance,
+                                    }),
+                            }
+                    "
                     [attr.aria-invalid]="getCartItemTaxError(item.clientLineKey) ? 'true' : null"
-                    [attr.aria-describedby]="getCartItemTaxError(item.clientLineKey) ? controlId(item, 'tax-error') : null"
+                    [attr.aria-describedby]="
+                      getCartItemTaxError(item.clientLineKey) ? controlId(item, 'tax-error') : null
+                    "
                     (ngModelChange)="emitTaxRate(item.clientLineKey, $event)"
                     [min]="0"
                     [max]="100"
@@ -455,8 +756,26 @@
                     (ngModelChange)="emitDiscountType(item.clientLineKey, $event)"
                     class="discount-type-select"
                     [id]="controlId(item, 'discount-type')"
-                    [attr.aria-label]="'sales.newSale.discounts.typeOf' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
-                    [attr.aria-describedby]="getCartItemDiscountError(item.clientLineKey) ? controlId(item, 'discount-error') : null"
+                    [attr.aria-label]="
+                      'sales.newSale.discounts.typeOf'
+                        | transloco
+                          : {
+                              item:
+                                ('sales.newSale.lineContextGoods'
+                                | transloco
+                                  : {
+                                      item: item.itemName,
+                                      lot: item.batchNumber,
+                                      line: lineNumber(item),
+                                      cart: cartInstance,
+                                    }),
+                            }
+                    "
+                    [attr.aria-describedby]="
+                      getCartItemDiscountError(item.clientLineKey)
+                        ? controlId(item, 'discount-error')
+                        : null
+                    "
                   >
                     @for (opt of instantDiscountTypeOptions; track opt.value) {
                       <option [ngValue]="opt.value">{{ opt.labelKey | transloco }}</option>
@@ -469,9 +788,29 @@
                     [ngModel]="item.itemDiscountValue"
                     [ngModelOptions]="{ standalone: true }"
                     [id]="controlId(item, 'discount-value')"
-                    [attr.aria-label]="'sales.newSale.discounts.valueOf' | transloco: { item: ('sales.newSale.lineContextGoods' | transloco: { item: item.itemName, lot: item.batchNumber, line: lineNumber(item), cart: cartInstance }) }"
-                    [attr.aria-invalid]="getCartItemDiscountError(item.clientLineKey) ? 'true' : null"
-                    [attr.aria-describedby]="getCartItemDiscountError(item.clientLineKey) ? controlId(item, 'discount-error') : null"
+                    [attr.aria-label]="
+                      'sales.newSale.discounts.valueOf'
+                        | transloco
+                          : {
+                              item:
+                                ('sales.newSale.lineContextGoods'
+                                | transloco
+                                  : {
+                                      item: item.itemName,
+                                      lot: item.batchNumber,
+                                      line: lineNumber(item),
+                                      cart: cartInstance,
+                                    }),
+                            }
+                    "
+                    [attr.aria-invalid]="
+                      getCartItemDiscountError(item.clientLineKey) ? 'true' : null
+                    "
+                    [attr.aria-describedby]="
+                      getCartItemDiscountError(item.clientLineKey)
+                        ? controlId(item, 'discount-error')
+                        : null
+                    "
                     (ngModelChange)="emitDiscountValue(item.clientLineKey, $event)"
                     [min]="0"
                     [placeholder]="'sales.newSale.discounts.value' | transloco"
@@ -495,13 +834,17 @@
             <td colspan="2" class="text-right font-bold">
               {{ 'sales.newSale.total' | transloco }}
             </td>
-            <td class="font-bold text-orange-600">₹{{ totalAmount | number: '1.2-2' }}</td>
+            <td class="font-bold text-orange-600">{{ totalAmount | localeMoney }}</td>
             <td></td>
           </tr>
         </ng-template>
       </p-table>
     } @else {
-      <p-table [value]="serviceCartItems" [rowTrackBy]="trackLine" styleClass="p-datatable-sm cart-table">
+      <p-table
+        [value]="serviceCartItems"
+        [rowTrackBy]="trackLine"
+        styleClass="p-datatable-sm cart-table"
+      >
         <ng-template pTemplate="header">
           <tr>
             <th>{{ 'inventory.name' | transloco }}</th>
@@ -529,7 +872,20 @@
                 [value]="item.quantity"
                 [scale]="0"
                 [inputId]="controlId(item, 'quantity')"
-                [ariaLabel]="'sales.newSale.quantityOf' | transloco: { item: ('sales.newSale.lineContextService' | transloco: { item: item.serviceName, line: lineNumber(item), cart: cartInstance }) }"
+                [ariaLabel]="
+                  'sales.newSale.quantityOf'
+                    | transloco
+                      : {
+                          item:
+                            ('sales.newSale.lineContextService'
+                            | transloco
+                              : {
+                                  item: item.serviceName,
+                                  line: lineNumber(item),
+                                  cart: cartInstance,
+                                }),
+                        }
+                "
                 (committed)="setQuantity(item.clientLineKey, $event)"
               />
             </td>
@@ -540,21 +896,47 @@
                 [ngModel]="item.unitPrice"
                 [ngModelOptions]="{ standalone: true }"
                 [id]="controlId(item, 'price')"
-                [attr.aria-label]="'sales.newSale.servicePriceOf' | transloco: { item: ('sales.newSale.lineContextService' | transloco: { item: item.serviceName, line: lineNumber(item), cart: cartInstance }) }"
+                [attr.aria-label]="
+                  'sales.newSale.servicePriceOf'
+                    | transloco
+                      : {
+                          item:
+                            ('sales.newSale.lineContextService'
+                            | transloco
+                              : {
+                                  item: item.serviceName,
+                                  line: lineNumber(item),
+                                  cart: cartInstance,
+                                }),
+                        }
+                "
                 (ngModelChange)="emitServiceUnitPrice(item.clientLineKey, $event)"
                 [min]="0"
                 step="0.01"
               />
             </td>
             <td class="font-medium cart-line-total">
-              ₹{{ getServiceLineTotal(item) | number: '1.2-2' }}
+              {{ getServiceLineTotal(item) | localeMoney }}
             </td>
             <td>
               <p-button
                 icon="pi pi-trash"
                 severity="danger"
                 [text]="true"
-                [ariaLabel]="'sales.newSale.removeLine' | transloco: { item: ('sales.newSale.lineContextService' | transloco: { item: item.serviceName, line: lineNumber(item), cart: cartInstance }) }"
+                [ariaLabel]="
+                  'sales.newSale.removeLine'
+                    | transloco
+                      : {
+                          item:
+                            ('sales.newSale.lineContextService'
+                            | transloco
+                              : {
+                                  item: item.serviceName,
+                                  line: lineNumber(item),
+                                  cart: cartInstance,
+                                }),
+                        }
+                "
                 (click)="remove(item.clientLineKey)"
               />
             </td>
@@ -566,7 +948,7 @@
             <td colspan="3" class="text-right font-bold">
               {{ 'sales.newSale.total' | transloco }}
             </td>
-            <td class="font-bold text-orange-600">₹{{ totalAmount | number: '1.2-2' }}</td>
+            <td class="font-bold text-orange-600">{{ totalAmount | localeMoney }}</td>
             <td></td>
           </tr>
         </ng-template>

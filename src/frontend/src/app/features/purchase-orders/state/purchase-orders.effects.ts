@@ -1,3 +1,7 @@
+import {
+  ApiErrorMessageService,
+  type LocalizedError,
+} from '../../../core/i18n/api-error-message.service';
 import { Store } from '@ngrx/store';
 import { selectPurchaseOrdersState } from './purchase-orders.selectors';
 import { inject, Injectable } from '@angular/core';
@@ -24,6 +28,7 @@ import { PurchaseOrdersActions } from './purchase-orders.actions';
 
 @Injectable()
 export class PurchaseOrdersEffects {
+  private readonly apiErrors = inject(ApiErrorMessageService);
   private readonly actions$ = inject(Actions);
   private readonly service = inject(PurchaseOrderService);
   private readonly router = inject(Router);
@@ -38,10 +43,10 @@ export class PurchaseOrdersEffects {
       switchMap(({ filters }) =>
         this.service.getPurchaseOrders({ ...DEFAULT_PURCHASE_ORDER_LIST_FILTERS, ...filters }).pipe(
           map((result) => PurchaseOrdersActions.loadPurchaseOrdersSucceeded({ result })),
-          catchError(() =>
+          catchError((error) =>
             of(
               PurchaseOrdersActions.loadPurchaseOrdersFailed({
-                errorMessage: 'purchaseOrders.errors.unableToLoad',
+                ...this.feedback(error, 'purchaseOrders.errors.unableToLoad'),
               }),
             ),
           ),
@@ -59,7 +64,7 @@ export class PurchaseOrdersEffects {
           catchError((error: { error?: ApiErrorPayload }) =>
             of(
               PurchaseOrdersActions.loadPurchaseOrderDetailFailed({
-                errorMessage: getPurchaseOrderDetailErrorMessage(error.error),
+                ...this.feedback(error, 'purchaseOrders.errors.unableToLoadDetail'),
               }),
             ),
           ),
@@ -77,7 +82,7 @@ export class PurchaseOrdersEffects {
           catchError((error: { error?: ApiErrorPayload }) =>
             of(
               PurchaseOrdersActions.createDraftFailed({
-                errorMessage: getCreateDraftErrorMessage(error.error),
+                ...this.feedback(error, 'purchaseOrders.errors.unableToCreate'),
               }),
             ),
           ),
@@ -95,7 +100,7 @@ export class PurchaseOrdersEffects {
           catchError((error: { error?: ApiErrorPayload }) =>
             of(
               PurchaseOrdersActions.updateDraftFailed({
-                errorMessage: getUpdateDraftErrorMessage(error.error),
+                ...this.feedback(error, 'purchaseOrders.errors.unableToUpdate'),
               }),
             ),
           ),
@@ -113,7 +118,7 @@ export class PurchaseOrdersEffects {
           catchError((error: { error?: ApiErrorPayload }) =>
             of(
               PurchaseOrdersActions.placeOrderFailed({
-                errorMessage: getPlaceOrderErrorMessage(error.error),
+                ...this.feedback(error, 'purchaseOrders.errors.unableToPlace'),
               }),
             ),
           ),
@@ -131,7 +136,7 @@ export class PurchaseOrdersEffects {
           catchError((error: { error?: ApiErrorPayload }) =>
             of(
               PurchaseOrdersActions.deleteDraftFailed({
-                errorMessage: getDeleteDraftErrorMessage(error.error),
+                ...this.feedback(error, 'purchaseOrders.errors.unableToDelete'),
               }),
             ),
           ),
@@ -160,7 +165,7 @@ export class PurchaseOrdersEffects {
           catchError((error: { error?: ApiErrorPayload }) =>
             of(
               PurchaseOrdersActions.cancelOrderFailed({
-                errorMessage: getCancelOrderErrorMessage(error.error),
+                ...this.feedback(error, 'purchaseOrders.errors.unableToCancel'),
               }),
             ),
           ),
@@ -299,6 +304,7 @@ export class PurchaseOrdersEffects {
       return PurchaseOrdersActions.receiveOrderFailed({
         correlation,
         outcome,
+        ...this.feedback(error, errorMessage, true),
         errorMessage,
         rowErrors: normalizeReceivingErrors(receivingProblem(error), payload),
       });
@@ -358,6 +364,7 @@ export class PurchaseOrdersEffects {
         return PurchaseOrdersActions.checkReceiptMissing({ correlation });
       return PurchaseOrdersActions.checkReceiptFailed({
         correlation,
+        ...this.feedback(error, 'purchaseOrders.receiving.lookupFailed', true),
         errorMessage: 'purchaseOrders.receiving.lookupFailed',
       });
     }
@@ -372,7 +379,7 @@ export class PurchaseOrdersEffects {
           catchError((error: { error?: ApiErrorPayload }) =>
             of(
               PurchaseOrdersActions.closeOrderFailed({
-                errorMessage: getCloseOrderErrorMessage(error.error),
+                ...this.feedback(error, 'purchaseOrders.errors.unableToClose'),
               }),
             ),
           ),
@@ -380,92 +387,47 @@ export class PurchaseOrdersEffects {
       ),
     ),
   );
+  private feedback(
+    error: unknown,
+    fallbackKey: string,
+    preserveKey = false,
+  ): { errorMessage: string; localizedError?: LocalizedError } {
+    const resolved = this.apiErrors.resolve(error, {
+      fallbackKey,
+      codeMap: PURCHASE_ORDER_ERROR_KEYS,
+      fieldMap: {
+        SupplierId: 'supplierId',
+        SupplierReference: 'supplierReference',
+        ExpectedDeliveryDate: 'expectedDeliveryDate',
+      },
+    });
+    const localizedError = preserveKey ? { ...resolved, messageKey: fallbackKey } : resolved;
+    return {
+      errorMessage: localizedError.messageKey,
+      ...(localizedError.correlationId || localizedError.fieldErrors.length
+        ? { localizedError }
+        : {}),
+    };
+  }
 }
 
-function getPurchaseOrderDetailErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
-  if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
-  return 'purchaseOrders.errors.unableToLoadDetail';
-}
-
-function getCreateDraftErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
-  if (title === 'PurchaseOrder.UserCannotCreatePurchaseOrder')
-    return 'purchaseOrders.errors.forbidden';
-  if (title === 'PurchaseOrder.InvalidLineQuantity')
-    return 'purchaseOrders.errors.invalidLineQuantity';
-  if (title === 'PurchaseOrder.InvalidLineUnitCost')
-    return 'purchaseOrders.errors.invalidLineUnitCost';
-  if (title === 'PurchaseOrder.LineDescriptionRequired')
-    return 'purchaseOrders.errors.lineDescriptionRequired';
-  if (title === 'PurchaseOrder.DuplicateItem') return 'purchaseOrders.errors.duplicateItem';
-  return 'purchaseOrders.errors.unableToCreate';
-}
-
-function getUpdateDraftErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
-  if (title === 'PurchaseOrder.UserCannotCreatePurchaseOrder')
-    return 'purchaseOrders.errors.forbidden';
-  if (title === 'PurchaseOrder.InvalidLineQuantity')
-    return 'purchaseOrders.errors.invalidLineQuantity';
-  if (title === 'PurchaseOrder.InvalidLineUnitCost')
-    return 'purchaseOrders.errors.invalidLineUnitCost';
-  if (title === 'PurchaseOrder.LineDescriptionRequired')
-    return 'purchaseOrders.errors.lineDescriptionRequired';
-  if (title === 'PurchaseOrder.DuplicateItem') return 'purchaseOrders.errors.duplicateItem';
-  if (title === 'PurchaseOrder.CannotUpdateNonDraft')
-    return 'purchaseOrders.errors.cannotUpdateNonDraft';
-  if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
-  return 'purchaseOrders.errors.unableToUpdate';
-}
-
-function getPlaceOrderErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
-  if (title === 'PurchaseOrder.UserCannotMutatePurchaseOrder')
-    return 'purchaseOrders.errors.forbidden';
-  if (title === 'PurchaseOrder.SupplierRequired') return 'purchaseOrders.errors.supplierRequired';
-  if (title === 'PurchaseOrder.SupplierInvalidForPlacement')
-    return 'purchaseOrders.errors.supplierInvalidForPlacement';
-  if (title === 'PurchaseOrder.AtLeastOneLineRequired')
-    return 'purchaseOrders.errors.atLeastOneLineRequired';
-  if (title === 'PurchaseOrder.CannotPlaceNonDraft')
-    return 'purchaseOrders.errors.cannotPlaceNonDraft';
-  if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
-  return 'purchaseOrders.errors.unableToPlace';
-}
-
-function getDeleteDraftErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
-  if (title === 'PurchaseOrder.UserCannotMutatePurchaseOrder')
-    return 'purchaseOrders.errors.forbidden';
-  if (title === 'PurchaseOrder.CannotDeleteNonDraft')
-    return 'purchaseOrders.errors.cannotDeleteNonDraft';
-  if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
-  return 'purchaseOrders.errors.unableToDelete';
-}
-
-function getCancelOrderErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
-  if (title === 'PurchaseOrder.UserCannotMutatePurchaseOrder')
-    return 'purchaseOrders.errors.forbidden';
-  if (title === 'PurchaseOrder.CannotCancelAfterReceipt')
-    return 'purchaseOrders.errors.cannotCancelAfterReceipt';
-  if (title === 'PurchaseOrder.CannotCancelInvalidStatus')
-    return 'purchaseOrders.errors.cannotCancelInvalidStatus';
-  if (title === 'PurchaseOrder.CancellationReasonRequired')
-    return 'purchaseOrders.errors.cancellationReasonRequired';
-  if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
-  return 'purchaseOrders.errors.unableToCancel';
-}
-
-function getCloseOrderErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
-  if (title === 'PurchaseOrder.UserCannotMutatePurchaseOrder')
-    return 'purchaseOrders.errors.forbidden';
-  if (title === 'PurchaseOrder.CannotCloseInvalidStatus')
-    return 'purchaseOrders.errors.cannotCloseInvalidStatus';
-  if (title === 'PurchaseOrder.CloseReasonRequired')
-    return 'purchaseOrders.errors.closeReasonRequired';
-  if (title === 'PurchaseOrder.NotFound') return 'purchaseOrders.errors.notFound';
-  return 'purchaseOrders.errors.unableToClose';
-}
+const PURCHASE_ORDER_ERROR_KEYS: Readonly<Record<string, string>> = {
+  'PurchaseOrder.NotFound': 'purchaseOrders.errors.notFound',
+  'PurchaseOrder.UserCannotCreatePurchaseOrder': 'purchaseOrders.errors.forbidden',
+  'PurchaseOrder.InvalidLineQuantity': 'purchaseOrders.errors.invalidLineQuantity',
+  'PurchaseOrder.InvalidLineUnitCost': 'purchaseOrders.errors.invalidLineUnitCost',
+  'PurchaseOrder.LineDescriptionRequired': 'purchaseOrders.errors.lineDescriptionRequired',
+  'PurchaseOrder.DuplicateItem': 'purchaseOrders.errors.duplicateItem',
+  'PurchaseOrder.CannotUpdateNonDraft': 'purchaseOrders.errors.cannotUpdateNonDraft',
+  'PurchaseOrder.UserCannotMutatePurchaseOrder': 'purchaseOrders.errors.forbidden',
+  'PurchaseOrder.SupplierRequired': 'purchaseOrders.errors.supplierRequired',
+  'PurchaseOrder.SupplierInvalidForPlacement': 'purchaseOrders.errors.supplierInvalidForPlacement',
+  'PurchaseOrder.AtLeastOneLineRequired': 'purchaseOrders.errors.atLeastOneLineRequired',
+  'PurchaseOrder.CannotPlaceNonDraft': 'purchaseOrders.errors.cannotPlaceNonDraft',
+  'PurchaseOrder.CannotDeleteNonDraft': 'purchaseOrders.errors.cannotDeleteNonDraft',
+  'PurchaseOrder.CannotCancelAfterReceipt': 'purchaseOrders.errors.cannotCancelAfterReceipt',
+  'PurchaseOrder.CannotCancelInvalidStatus': 'purchaseOrders.errors.cannotCancelInvalidStatus',
+  'PurchaseOrder.CancellationReasonRequired': 'purchaseOrders.errors.cancellationReasonRequired',
+  'PurchaseOrder.CannotCloseInvalidStatus': 'purchaseOrders.errors.cannotCloseInvalidStatus',
+  'PurchaseOrder.CloseReasonRequired': 'purchaseOrders.errors.closeReasonRequired',
+};

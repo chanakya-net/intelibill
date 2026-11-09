@@ -51,3 +51,8 @@ export const selectExpensesListError = createSelector(
   selectExpensesState,
   (state) => state.listErrorMessage,
 );
+
+export const selectLocalizedError = createSelector(
+  selectExpensesState,
+  (state) => state.localizedError,
+);

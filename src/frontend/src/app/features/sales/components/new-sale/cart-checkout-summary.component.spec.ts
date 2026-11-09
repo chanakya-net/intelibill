@@ -1,3 +1,4 @@
+import { LocalizationService } from '../../../../core/i18n/localization.service';
 import { TestBed } from '@angular/core/testing';
 import { FormControl, Validators } from '@angular/forms';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -6,22 +7,46 @@ import { describe, expect, it, vi } from 'vitest';
 import { CartCheckoutSummaryComponent } from './cart-checkout-summary.component';
 import { SalePreviewDto } from '../../../../features/sales/services/sale.models';
 
+beforeEach(() => {
+  TestBed.configureTestingModule({
+    providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+  });
+});
+
 describe('CartCheckoutSummaryComponent', () => {
   it('associates sale discount labels and errors with native controls', async () => {
-    TestBed.configureTestingModule({ imports: [CartCheckoutSummaryComponent, TranslocoTestingModule.forRoot({
-      langs: { en: { sales: { newSale: { discounts: { editSale: 'Edit sale discount', percent: 'Percent' } } } } },
-      translocoConfig: { availableLangs: ['en'], defaultLang: 'en' }, preloadLangs: true,
-    })] });
+    TestBed.configureTestingModule({
+      providers: [{ provide: LocalizationService, useValue: { currentLanguage: () => 'en-IN' } }],
+      imports: [
+        CartCheckoutSummaryComponent,
+        TranslocoTestingModule.forRoot({
+          langs: {
+            en: {
+              sales: {
+                newSale: { discounts: { editSale: 'Edit sale discount', percent: 'Percent' } },
+              },
+            },
+          },
+          translocoConfig: { availableLangs: ['en'], defaultLang: 'en' },
+          preloadLangs: true,
+        }),
+      ],
+    });
     const fixture = TestBed.createComponent(CartCheckoutSummaryComponent);
     fixture.componentInstance.isDiscountEditorOpen = true;
     fixture.componentInstance.saleDiscountError = 'sales.newSale.discounts.fixErrors';
-    fixture.componentInstance.instantDiscountTypeOptions = [{ value: 1, labelKey: 'sales.newSale.discounts.percent' }];
+    fixture.componentInstance.instantDiscountTypeOptions = [
+      { value: 1, labelKey: 'sales.newSale.discounts.percent' },
+    ];
     fixture.componentInstance.saleDiscountType = 1;
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
-    const controls = [root.querySelector<HTMLElement>('[role="combobox"]'), root.querySelector<HTMLInputElement>('input.p-inputnumber-input')];
+    const controls = [
+      root.querySelector<HTMLElement>('[role="combobox"]'),
+      root.querySelector<HTMLInputElement>('input.p-inputnumber-input'),
+    ];
     for (const control of controls) {
       expect(control?.id).toBeTruthy();
       expect(root.querySelector(`label[for="${control?.id}"]`)).toBeTruthy();
@@ -31,20 +56,49 @@ describe('CartCheckoutSummaryComponent', () => {
     expect(combobox.getAttribute('aria-labelledby')).toBe(label.id);
     expect(label.textContent?.trim()).toBe('Edit sale discount');
     const input = controls[1]!;
-    expect(root.querySelector(`#${input.getAttribute('aria-describedby')}`)?.textContent).toContain('fixErrors');
+    expect(root.querySelector(`#${input.getAttribute('aria-describedby')}`)?.textContent).toContain(
+      'fixErrors',
+    );
   });
   it('shows accepted net revenue cost and profit, and clears them with the preview', () => {
-    TestBed.configureTestingModule({ imports: [CartCheckoutSummaryComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })] });
+    TestBed.configureTestingModule({
+      imports: [
+        CartCheckoutSummaryComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
+    });
     const fixture = TestBed.createComponent(CartCheckoutSummaryComponent);
-    fixture.componentInstance.preview = { totalAmount: 236, totalTaxableAmount: 200, totalTaxAmount: 36, totalDiscountAmount: 0,
-      saleLevelEligibleSubtotal: 200, configuredSaleRule: null, infos: [], warnings: [],
-      lines: [{ economics: { netRevenue: 200, economicCost: 100, grossProfit: 100, grossMarginPercent: 50, markupPercent: 100 } } as SalePreviewDto['lines'][number]] };
+    fixture.componentInstance.preview = {
+      totalAmount: 236,
+      totalTaxableAmount: 200,
+      totalTaxAmount: 36,
+      totalDiscountAmount: 0,
+      saleLevelEligibleSubtotal: 200,
+      configuredSaleRule: null,
+      infos: [],
+      warnings: [],
+      lines: [
+        {
+          economics: {
+            netRevenue: 200,
+            economicCost: 100,
+            grossProfit: 100,
+            grossMarginPercent: 50,
+            markupPercent: 100,
+          },
+        } as SalePreviewDto['lines'][number],
+      ],
+    };
     fixture.detectChanges();
-    const text = fixture.nativeElement.querySelector('[data-testid="checkout-economics"]').textContent;
-    expect(text).toContain('200.00'); expect(text).toContain('100.00');
+    const text = fixture.nativeElement.querySelector(
+      '[data-testid="checkout-economics"]',
+    ).textContent;
+    expect(text).toContain('200.00');
+    expect(text).toContain('100.00');
     expect(fixture.componentInstance.recordedCost).toBe(100);
     expect(fixture.componentInstance.grossProfit).toBe(100);
-    fixture.componentRef.setInput('preview', null); fixture.detectChanges();
+    fixture.componentRef.setInput('preview', null);
+    fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[data-testid="checkout-economics"]')).toBeNull();
   });
 
@@ -62,7 +116,10 @@ describe('CartCheckoutSummaryComponent', () => {
     };
 
     TestBed.configureTestingModule({
-      imports: [CartCheckoutSummaryComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        CartCheckoutSummaryComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(CartCheckoutSummaryComponent);
@@ -83,7 +140,10 @@ describe('CartCheckoutSummaryComponent', () => {
     const toggleSpy = vi.fn();
 
     TestBed.configureTestingModule({
-      imports: [CartCheckoutSummaryComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        CartCheckoutSummaryComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(CartCheckoutSummaryComponent);
@@ -104,7 +164,10 @@ describe('CartCheckoutSummaryComponent', () => {
     const submitSpy = vi.fn();
 
     TestBed.configureTestingModule({
-      imports: [CartCheckoutSummaryComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],
+      imports: [
+        CartCheckoutSummaryComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
     });
 
     const fixture = TestBed.createComponent(CartCheckoutSummaryComponent);
@@ -113,7 +176,9 @@ describe('CartCheckoutSummaryComponent', () => {
     fixture.detectChanges();
 
     const text = fixture.nativeElement.textContent as string;
-    expect(text.indexOf('sales.newSale.totalDue')).toBeLessThan(text.indexOf('sales.newSale.recordSale'));
+    expect(text.indexOf('sales.newSale.totalDue')).toBeLessThan(
+      text.indexOf('sales.newSale.recordSale'),
+    );
 
     const buttons = fixture.nativeElement.querySelectorAll('button');
     const button = buttons[buttons.length - 1] as HTMLButtonElement;
@@ -140,16 +205,24 @@ describe('CartCheckoutSummaryComponent', () => {
   });
 
   it('announces settled totals without changing its live region during preview recalculation', () => {
-    TestBed.configureTestingModule({ imports: [CartCheckoutSummaryComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })] });
+    TestBed.configureTestingModule({
+      imports: [
+        CartCheckoutSummaryComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
+    });
     const fixture = TestBed.createComponent(CartCheckoutSummaryComponent);
     fixture.componentRef.setInput('cartLength', 1);
-    fixture.componentRef.setInput('totalAmount', 120); fixture.detectChanges();
+    fixture.componentRef.setInput('totalAmount', 120);
+    fixture.detectChanges();
     const status = fixture.nativeElement.querySelector('[role="status"]') as HTMLElement;
     expect(status?.textContent).toContain('120.00');
     fixture.componentRef.setInput('loading', true);
-    fixture.componentRef.setInput('totalAmount', 135); fixture.detectChanges();
+    fixture.componentRef.setInput('totalAmount', 135);
+    fixture.detectChanges();
     expect(status.textContent).toContain('120.00');
-    fixture.componentRef.setInput('loading', false); fixture.detectChanges();
+    fixture.componentRef.setInput('loading', false);
+    fixture.detectChanges();
     expect(status.textContent).toContain('135.00');
   });
 });

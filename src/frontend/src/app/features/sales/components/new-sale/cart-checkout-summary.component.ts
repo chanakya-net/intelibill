@@ -1,3 +1,4 @@
+import { LocaleMoneyPipe } from '../../../../shared/pipes/locale-money.pipe';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, Output } from '@angular/core';
 import { AbstractControl, FormsModule } from '@angular/forms';
@@ -14,7 +15,16 @@ let checkoutSummarySequence = 0;
 @Component({
   selector: 'app-cart-checkout-summary',
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonModule, TagModule, SelectModule, InputNumberModule, TranslocoPipe],
+  imports: [
+    LocaleMoneyPipe,
+    CommonModule,
+    FormsModule,
+    ButtonModule,
+    TagModule,
+    SelectModule,
+    InputNumberModule,
+    TranslocoPipe,
+  ],
   templateUrl: './cart-checkout-summary.component.html',
   styleUrl: './cart-checkout-summary.component.scss',
 })
@@ -54,7 +64,7 @@ export class CartCheckoutSummaryComponent implements OnChanges {
 
   get recordedCost(): number | null {
     const lines = this.preview?.lines;
-    if (!lines?.length || lines.some(l => !l.economics)) return null;
+    if (!lines?.length || lines.some((l) => !l.economics)) return null;
     return lines.reduce((sum, line) => sum + line.economics!.economicCost, 0);
   }
 

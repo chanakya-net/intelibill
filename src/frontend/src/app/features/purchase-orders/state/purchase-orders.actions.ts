@@ -1,3 +1,4 @@
+import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
 import {
@@ -18,44 +19,50 @@ export const PurchaseOrdersActions = createActionGroup({
   events: {
     'Load Purchase Orders Requested': props<{ filters: Partial<PurchaseOrderListFilters> }>(),
     'Load Purchase Orders Succeeded': props<{ result: PurchaseOrderListResult }>(),
-    'Load Purchase Orders Failed': props<{ errorMessage: string }>(),
+    'Load Purchase Orders Failed': props<{
+      errorMessage: string;
+      localizedError?: LocalizedError;
+    }>(),
 
     'Load Purchase Order Detail Requested': props<{ purchaseOrderId: string }>(),
     'Load Purchase Order Detail Succeeded': props<{ order: PurchaseOrderDetail }>(),
-    'Load Purchase Order Detail Failed': props<{ errorMessage: string }>(),
+    'Load Purchase Order Detail Failed': props<{
+      errorMessage: string;
+      localizedError?: LocalizedError;
+    }>(),
 
     'Create Draft Requested': props<{ payload: CreatePurchaseOrderDraftRequest }>(),
     'Create Draft Succeeded': props<{ order: PurchaseOrderDetail }>(),
-    'Create Draft Failed': props<{ errorMessage: string }>(),
+    'Create Draft Failed': props<{ errorMessage: string; localizedError?: LocalizedError }>(),
 
     'Update Draft Requested': props<{
       purchaseOrderId: string;
       payload: CreatePurchaseOrderDraftRequest;
     }>(),
     'Update Draft Succeeded': props<{ order: PurchaseOrderDetail }>(),
-    'Update Draft Failed': props<{ errorMessage: string }>(),
+    'Update Draft Failed': props<{ errorMessage: string; localizedError?: LocalizedError }>(),
 
     'Place Order Requested': props<{ purchaseOrderId: string }>(),
     'Place Order Succeeded': props<{ order: PurchaseOrderDetail }>(),
-    'Place Order Failed': props<{ errorMessage: string }>(),
+    'Place Order Failed': props<{ errorMessage: string; localizedError?: LocalizedError }>(),
 
     'Delete Draft Requested': props<{ purchaseOrderId: string }>(),
     'Delete Draft Succeeded': props<{ purchaseOrderId: string }>(),
-    'Delete Draft Failed': props<{ errorMessage: string }>(),
+    'Delete Draft Failed': props<{ errorMessage: string; localizedError?: LocalizedError }>(),
 
     'Cancel Order Requested': props<{
       purchaseOrderId: string;
       payload: CancelPurchaseOrderRequest;
     }>(),
     'Cancel Order Succeeded': props<{ order: PurchaseOrderDetail }>(),
-    'Cancel Order Failed': props<{ errorMessage: string }>(),
+    'Cancel Order Failed': props<{ errorMessage: string; localizedError?: LocalizedError }>(),
 
     'Close Order Requested': props<{
       purchaseOrderId: string;
       payload: ClosePurchaseOrderRequest;
     }>(),
     'Close Order Succeeded': props<{ order: PurchaseOrderDetail }>(),
-    'Close Order Failed': props<{ errorMessage: string }>(),
+    'Close Order Failed': props<{ errorMessage: string; localizedError?: LocalizedError }>(),
 
     'Receive Order Requested': props<{
       correlation: ReceivingCorrelation;
@@ -67,12 +74,17 @@ export const PurchaseOrdersActions = createActionGroup({
       correlation: ReceivingCorrelation;
       outcome: 'rejected' | 'unknown';
       errorMessage: string;
+      localizedError?: LocalizedError;
       rowErrors: readonly ReceivingRowError[];
     }>(),
     'Check Receipt Requested': props<{ correlation: ReceivingCorrelation }>(),
     'Check Receipt Succeeded': props<{ correlation: ReceivingCorrelation }>(),
     'Check Receipt Missing': props<{ correlation: ReceivingCorrelation }>(),
-    'Check Receipt Failed': props<{ correlation: ReceivingCorrelation; errorMessage: string }>(),
+    'Check Receipt Failed': props<{
+      correlation: ReceivingCorrelation;
+      errorMessage: string;
+      localizedError?: LocalizedError;
+    }>(),
 
     'Clear Detail': emptyProps(),
     'Clear Error': emptyProps(),
