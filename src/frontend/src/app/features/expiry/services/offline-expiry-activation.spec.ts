@@ -1,21 +1,19 @@
 import 'fake-indexeddb/auto';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { IDBFactory } from 'fake-indexeddb';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import {
   hasOfflineExpiryAuthority,
   type OfflineSellableBatchSnapshot,
-  OFFLINE_SALES_SNAPSHOT_DATABASE_NAME,
 } from '../../sales/utils/offline-sales-snapshot.schema';
 
 describe('expiry snapshot activation', () => {
-  beforeAll(async () => {
-    await new Promise<void>((resolve, reject) => {
-      const r = indexedDB.deleteDatabase(OFFLINE_SALES_SNAPSHOT_DATABASE_NAME);
-      r.onsuccess = () => resolve();
-      r.onerror = () => reject(r.error);
-      r.onblocked = () => resolve();
-    });
+  beforeEach(() => {
+    // Other snapshot tests can retain connections. A blocked deletion leaves subsequent opens
+    // queued, so each test owns its database factory instead of deleting shared databases.
+    vi.stubGlobal('indexedDB', new IDBFactory());
   });
+  afterEach(() => vi.unstubAllGlobals());
   const complete = {
     batchId: 'batch',
     itemId: 'item',
