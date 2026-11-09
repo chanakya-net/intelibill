@@ -1,121 +1,176 @@
-<section
-  class="rounded-xl border border-slate-200 p-4 space-y-3"
-  aria-labelledby="expiry-policy-title"
->
-  <h3 id="expiry-policy-title" class="font-semibold">{{ 'expiry.policyTitle' | transloco }}</h3>
-  @if (state(); as current) {
-    <p class="text-sm text-slate-600">
-      {{
-        'expiry.version'
-          | transloco: { version: current.effectivePolicy.version, catalog: current.catalogVersion }
-      }}
-      · {{ zone }}
-    </p>
+<section class="policy-card" aria-labelledby="expiry-policy-title">
+  <header class="policy-header">
+    <h3 id="expiry-policy-title">{{ 'expiry.policyTitle' | transloco }}</h3>
+    @if (state(); as current) {
+      <p class="policy-meta">
+        {{
+          'expiry.version'
+            | transloco
+              : { version: current.effectivePolicy.version, catalog: current.catalogVersion }
+        }}
+        · {{ zone }}
+      </p>
+    }
+  </header>
+  @if (state()) {
     @if (readinessBusy()) {
-      <p role="status" class="text-sm">{{ 'expiry.readinessLoading' | transloco }}</p>
+      <p role="status" class="policy-hint">{{ 'expiry.readinessLoading' | transloco }}</p>
     }
     @if (readinessError()) {
-      <div class="text-sm space-y-2">
+      <div class="policy-feedback">
         <p role="alert">{{ readinessError() | transloco }}</p>
-        <button type="button" class="underline" (click)="refreshReadiness()">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [text]="true"
+          (click)="refreshReadiness()"
+        >
           {{ 'expiry.retryReadiness' | transloco }}
         </button>
       </div>
     }
     @if (readiness(); as ready) {
-      <p class="text-sm">
-        {{
-          'expiry.readiness'
-            | transloco
-              : {
-                  missing: ready.results.missingDateLots,
-                  expired: ready.results.expiredLots,
-                  quarantine: ready.results.quarantinedLots,
-                }
-        }}
-      </p>
-      <details>
+      <details class="policy-readiness">
         <summary>{{ 'expiry.affectedLots' | transloco }}</summary>
-        @for (lot of ready.results.items; track lot.batchId) {
-          <p class="text-sm">
-            {{ lot.itemName }} · {{ lot.batchNumber }} ·
-            {{ lot.expiryDate || ('expiry.undated' | transloco) }} ·
-            {{ 'expiry.quarantine' | transloco }} {{ lot.quarantinedQuantity }}
-          </p>
-        }
+        <p class="policy-hint">
+          {{
+            'expiry.readiness'
+              | transloco
+                : {
+                    missing: ready.results.missingDateLots,
+                    expired: ready.results.expiredLots,
+                    quarantine: ready.results.quarantinedLots,
+                  }
+          }}
+        </p>
+        <ul>
+          @for (lot of ready.results.items; track lot.batchId) {
+            <li>
+              {{ lot.itemName }} · {{ lot.batchNumber }} ·
+              {{ lot.expiryDate || ('expiry.undated' | transloco) }} ·
+              {{ 'expiry.quarantine' | transloco }} {{ lot.quarantinedQuantity }}
+            </li>
+          }
+        </ul>
       </details>
     }
-    <fieldset
-      [disabled]="!canEdit || busy() || service.role() !== 'owner'"
-      class="grid gap-3 sm:grid-cols-2 min-w-0"
-    >
+    <fieldset [disabled]="!canEdit || busy() || service.role() !== 'owner'" class="policy-fields">
       @if (itemId) {
-        <label class="sm:col-span-2 flex gap-2"
-          ><input type="checkbox" [(ngModel)]="inherit" />{{ 'expiry.inherit' | transloco }}</label
-        >
+        <div class="policy-check wide">
+          <p-checkbox
+            inputId="expiry-inherit"
+            [(ngModel)]="inherit"
+            [binary]="true"
+            [disabled]="!canEdit || busy() || service.role() !== 'owner'"
+          />
+          <label for="expiry-inherit">{{ 'expiry.inherit' | transloco }}</label>
+        </div>
       }
       @if (!itemId || !inherit) {
-        <label class="grid gap-1"
-          >{{ 'expiry.modeLabel' | transloco
-          }}<select class="border rounded p-2 w-full" [(ngModel)]="policy.mode">
-            <option value="Ignore">{{ 'expiry.mode.Ignore' | transloco }}</option>
-            <option value="Warn">{{ 'expiry.mode.Warn' | transloco }}</option>
-            <option value="Block">{{ 'expiry.mode.Block' | transloco }}</option>
-          </select></label
-        >
-        <label class="grid gap-1"
-          >{{ 'expiry.warningDays' | transloco
-          }}<input
-            class="border rounded p-2 w-full"
-            type="number"
-            min="0"
-            max="365"
+        <div class="policy-field">
+          <label for="expiry-mode">{{ 'expiry.modeLabel' | transloco }}</label>
+          <p-select
+            inputId="expiry-mode"
+            [options]="[
+              { label: ('expiry.mode.Ignore' | transloco), value: 'Ignore' },
+              { label: ('expiry.mode.Warn' | transloco), value: 'Warn' },
+              { label: ('expiry.mode.Block' | transloco), value: 'Block' },
+            ]"
+            optionLabel="label"
+            optionValue="value"
+            [(ngModel)]="policy.mode"
+            [disabled]="!canEdit || busy() || service.role() !== 'owner'"
+            appendTo="body"
+            [fluid]="true"
+            [ariaLabel]="'expiry.modeLabel' | transloco"
+          />
+        </div>
+        <div class="policy-field">
+          <label for="expiry-warning-days">{{ 'expiry.warningDays' | transloco }}</label>
+          <p-inputNumber
+            inputId="expiry-warning-days"
             [(ngModel)]="policy.warningDays"
-        /></label>
-        <label class="flex gap-2"
-          ><input type="checkbox" [(ngModel)]="policy.expiryRequired" />{{
-            'expiry.requiredDate' | transloco
-          }}</label
-        >
-        <label class="flex gap-2"
-          ><input type="checkbox" [(ngModel)]="policy.sellThroughExpiryDate" />{{
-            'expiry.sellThrough' | transloco
-          }}</label
-        >
-        <label class="flex gap-2 sm:col-span-2"
-          ><input type="checkbox" [(ngModel)]="policy.overrideAllowed" />{{
-            'expiry.allowApproval' | transloco
-          }}</label
-        >
+            [min]="0"
+            [max]="365"
+            [maxFractionDigits]="0"
+            [useGrouping]="false"
+            [fluid]="true"
+            [disabled]="!canEdit || busy() || service.role() !== 'owner'"
+          />
+        </div>
+        <div class="policy-check wide">
+          <p-checkbox
+            inputId="expiry-required"
+            [(ngModel)]="policy.expiryRequired"
+            [binary]="true"
+            [disabled]="!canEdit || busy() || service.role() !== 'owner'"
+          />
+          <label for="expiry-required">{{ 'expiry.requiredDate' | transloco }}</label>
+        </div>
+        <div class="policy-check wide">
+          <p-checkbox
+            inputId="expiry-sell-through"
+            [(ngModel)]="policy.sellThroughExpiryDate"
+            [binary]="true"
+            [disabled]="!canEdit || busy() || service.role() !== 'owner'"
+          />
+          <label for="expiry-sell-through">{{ 'expiry.sellThrough' | transloco }}</label>
+        </div>
+        <div class="policy-check wide">
+          <p-checkbox
+            inputId="expiry-approval"
+            [(ngModel)]="policy.overrideAllowed"
+            [binary]="true"
+            [disabled]="!canEdit || busy() || service.role() !== 'owner'"
+          />
+          <label for="expiry-approval">{{ 'expiry.allowApproval' | transloco }}</label>
+        </div>
       }
-      <label class="grid gap-1 sm:col-span-2"
-        >{{ 'expiry.auditReason' | transloco
-        }}<textarea
-          class="border rounded p-2 w-full"
-          maxlength="500"
-          rows="2"
-          [(ngModel)]="reason"
-        ></textarea>
-      </label>
-      <button
-        type="button"
-        class="rounded bg-slate-900 text-white px-4 py-2 disabled:opacity-50"
-        [disabled]="!reason.trim()"
-        (click)="save()"
-      >
-        {{ 'expiry.save' | transloco }}
-      </button>
+      @if (canEdit && service.role() === 'owner') {
+        <div class="policy-field wide">
+          <label for="expiry-reason">{{ 'expiry.auditReason' | transloco }}</label>
+          <textarea
+            pTextarea
+            id="expiry-reason"
+            maxlength="500"
+            rows="3"
+            [(ngModel)]="reason"
+          ></textarea>
+        </div>
+        <div class="policy-actions wide">
+          <button
+            pButton
+            type="button"
+            class="save-button"
+            [disabled]="busy() || !reason.trim()"
+            [loading]="busy()"
+            (click)="save()"
+          >
+            {{ 'expiry.save' | transloco }}
+          </button>
+        </div>
+      }
     </fieldset>
-    @if (!canEdit) {
-      <p class="text-sm">{{ 'expiry.ownerOnly' | transloco }}</p>
+    @if (!canEdit || service.role() !== 'owner') {
+      <p class="policy-hint">{{ 'expiry.ownerOnly' | transloco }}</p>
     }
   }
   @if (message()) {
-    <p role="status" class="text-sm">{{ message() | transloco }}</p>
+    <p role="status" class="policy-feedback">{{ message() | transloco }}</p>
   }
   @if (!busy()) {
-    <button type="button" class="underline" (click)="load()">
-      {{ 'expiry.refresh' | transloco }}
-    </button>
+    <div class="policy-refresh">
+      <button
+        pButton
+        type="button"
+        severity="secondary"
+        [text]="true"
+        icon="pi pi-refresh"
+        (click)="load()"
+      >
+        {{ 'expiry.refresh' | transloco }}
+      </button>
+    </div>
   }
 </section>

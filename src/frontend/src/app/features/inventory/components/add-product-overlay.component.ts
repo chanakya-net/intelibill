@@ -1,5 +1,3 @@
-import { ExpiryPolicyFormComponent } from '../../expiry/components/expiry-policy-form.component';
-import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
 import { Component, DestroyRef, EventEmitter, OnInit, Output, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
@@ -38,7 +36,6 @@ import {
   standalone: true,
   imports: [
     ReactiveFormsModule,
-    ExpiryPolicyFormComponent,
     AutoCompleteModule,
     DialogModule,
     InputNumberModule,
@@ -59,7 +56,6 @@ export class AddProductOverlayComponent implements OnInit {
   private readonly catalogSync = inject(ProductCatalogSyncService);
   private readonly inventoryService = inject(InventoryService);
   private readonly destroyRef = inject(DestroyRef);
-  readonly expiryPolicies = inject(ExpiryPolicyService);
   readonly scaleOptions = ITEM_QUANTITY_SCALE_OPTIONS;
 
   readonly isSubmitting = this.store.selectSignal(selectInventorySubmitting);
@@ -88,7 +84,11 @@ export class AddProductOverlayComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    bindQuantityScaleToUnit(this.form.controls.uom, this.form.controls.quantityScale, this.destroyRef);
+    bindQuantityScaleToUnit(
+      this.form.controls.uom,
+      this.form.controls.quantityScale,
+      this.destroyRef,
+    );
     this.store.dispatch(InventoryActions.clearError());
     this.store.dispatch(InventoryActions.clearMutationStatus());
   }

@@ -10,8 +10,11 @@ import {
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { TranslocoPipe } from '@ngneat/transloco';
+import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
+import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
+import { SelectModule } from 'primeng/select';
+import { TextareaModule } from 'primeng/textarea';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import type { InventoryBatchDto } from '../../inventory/services/inventory.models';
@@ -29,12 +32,25 @@ import { evaluateExpiry, shopBusinessDate } from '../services/expiry-policy-eval
 @Component({
   selector: 'app-batch-disposition-dialog',
   standalone: true,
-  imports: [FormsModule, TranslocoPipe, DialogModule, QuantityFieldComponent],
+  imports: [
+    FormsModule,
+    TranslocoPipe,
+    DialogModule,
+    ButtonModule,
+    SelectModule,
+    TextareaModule,
+    QuantityFieldComponent,
+  ],
   templateUrl: './batch-disposition-dialog.component.html',
+  styleUrls: [
+    '../../inventory/components/add-product-overlay.component.scss',
+    './batch-disposition-dialog.component.scss',
+  ],
 })
 export class BatchDispositionDialogComponent implements OnChanges, OnDestroy {
   readonly service = inject(BatchDispositionDraftService);
   readonly policies = inject(ExpiryPolicyService);
+  private readonly transloco = inject(TranslocoService);
   private readonly inventory = inject(InventoryService);
   @Input({ required: true }) batch!: InventoryBatchDto;
   @Output() closed = new EventEmitter<void>();
@@ -67,6 +83,12 @@ export class BatchDispositionDialogComponent implements OnChanges, OnDestroy {
     return this.history().filter(
       (x) => !x.rootChangeId && remainingQuarantine(x, this.history()) > 0,
     );
+  }
+  rootOptions(): { label: string; value: string }[] {
+    return this.roots().map((root) => ({
+      label: `${root.businessDate} · ${this.transloco.translate('expiry.source.' + root.sourceKind)} · ${this.remaining(root)}`,
+      value: root.id,
+    }));
   }
   remaining(root: BatchDispositionChange): number {
     return remainingQuarantine(root, this.history());

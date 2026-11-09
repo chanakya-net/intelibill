@@ -106,7 +106,8 @@
           <small id="add-product-scale-hint" class="field-hint">{{
             (form.controls.quantityScale.disabled
               ? 'inventory.quantityScale.catalogHint'
-              : 'inventory.quantityScale.customHint') | transloco
+              : 'inventory.quantityScale.customHint'
+            ) | transloco
           }}</small>
         </div>
 
@@ -172,6 +173,7 @@
         <label for="isActive">{{ 'inventory.isActive' | transloco }}</label>
       </div>
     </section>
+    <p class="field-hint expiry-inheritance-note">{{ 'expiry.newItemInherits' | transloco }}</p>
   </form>
 
   <ng-template pTemplate="footer">
@@ -195,8 +197,6 @@
       ></button>
     </div>
   </ng-template>
-<p class="text-sm">{{ 'expiry.newItemInherits' | transloco }}</p>
-<app-expiry-policy-form [shopId]="expiryPolicies.activeShopId() ?? ''" [canEdit]="false" />
 </p-dialog>
 
 <app-barcode-scanner-dialog

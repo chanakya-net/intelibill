@@ -1,14 +1,28 @@
 import { Component, Input, OnChanges, OnDestroy, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
+import { ButtonModule } from 'primeng/button';
+import { CheckboxModule } from 'primeng/checkbox';
+import { InputNumberModule } from 'primeng/inputnumber';
+import { SelectModule } from 'primeng/select';
+import { TextareaModule } from 'primeng/textarea';
 import { Subscription, forkJoin } from 'rxjs';
 import { ExpiryPolicyService, type ExpiryReadiness } from '../services/expiry-policy.service';
 import type { ExpiryPolicySettings, ExpiryPolicyState } from '../services/expiry.models';
 @Component({
   selector: 'app-expiry-policy-form',
   standalone: true,
-  imports: [FormsModule, TranslocoPipe],
+  imports: [
+    FormsModule,
+    TranslocoPipe,
+    ButtonModule,
+    CheckboxModule,
+    InputNumberModule,
+    SelectModule,
+    TextareaModule,
+  ],
   templateUrl: './expiry-policy-form.component.html',
+  styleUrl: './expiry-policy-form.component.scss',
 })
 export class ExpiryPolicyFormComponent implements OnChanges, OnDestroy {
   readonly service = inject(ExpiryPolicyService);

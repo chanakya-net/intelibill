@@ -89,7 +89,6 @@ describe('quarantined lot Release flow', () => {
     fixture.changeDetectorRef.markForCheck();
     fixture.detectChanges();
     expect(component.canRelease()).toBe(true);
-    expect(fixture.nativeElement.querySelector('option[value="Release"]').disabled).toBe(false);
     component.action = 'Release';
     component.reason = 'Audited corrected date';
     await component.submit();

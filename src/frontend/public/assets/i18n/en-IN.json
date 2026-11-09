@@ -3095,6 +3095,7 @@
     "newItemInherits": "New items inherit the shop expiry policy. An owner can set an override in the item editor after creation.",
     "receiptRequired": "An expiry date is required for this item.",
     "dateOrder": "Manufacturing date must be on or before expiry date.",
+    "noActiveHolds": "No active quarantine holds for this batch. There is nothing to release or dispose of.",
     "historyTitle": "Quarantine and history",
     "valuationNote": "Physical stock includes quarantined goods at recorded cost. Quarantine is a hold, not a valuation guarantee or an automatic write-off.",
     "sourceHold": "Original quarantine event",
