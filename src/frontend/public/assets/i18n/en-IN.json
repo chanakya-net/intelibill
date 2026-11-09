@@ -1,4 +1,20 @@
 {
+  "apiErrors": {
+    "validationFailed": "Check the highlighted fields and try again.",
+    "invalidRequest": "Check the request and try again.",
+    "unauthorized": "Sign in again to continue.",
+    "conflict": "This information changed. Reload and try again.",
+    "unexpected": "Something went wrong. Try again or contact support.",
+    "payloadMismatch": "This request differs from the one already submitted. Review the existing operation.",
+    "postingPeriodClosed": "This posting period is closed.",
+    "postingPeriodBusy": "This posting period is busy. Try again.",
+    "postingPeriodNotEnded": "This posting period has not ended.",
+    "networkUnavailable": "Cannot connect. Check your connection and try again.",
+    "requestTimedOut": "The request timed out. Check its result before retrying.",
+    "serviceUnavailable": "The service is temporarily unavailable. Try again later.",
+    "invalidField": "Check this field.",
+    "supportReference": "Support reference: {{reference}}"
+  },
   "common": {
     "language": "Language",
     "firstName": "First Name",
