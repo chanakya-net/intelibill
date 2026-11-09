@@ -1,3 +1,4 @@
+import { supplierDirectoryResponse } from './party-directory-mock';
 import type { Page, Route, Request } from '@playwright/test';
 
 export interface MockSupplier {
@@ -152,9 +153,7 @@ export interface SupplierMockOptions {
   readonly supplierPaymentError?: number;
 }
 
-export function getSupplierDefaults(
-  options: SupplierMockOptions,
-): {
+export function getSupplierDefaults(options: SupplierMockOptions): {
   suppliers: MockSupplier[];
   supplierDetails: Record<string, MockSupplierDetail>;
   suppliersListState: 'ready' | 'loading' | 'error';
@@ -190,10 +189,7 @@ export function createSupplier(request: Request, sequence: number): MockSupplier
   return { ...payload, supplierId: `created-${sequence}` };
 }
 
-export async function fulfillSupplierError(
-  route: Route,
-  status: number,
-): Promise<void> {
+export async function fulfillSupplierError(route: Route, status: number): Promise<void> {
   await route.fulfill({
     status,
     contentType: 'application/json',
@@ -249,14 +245,19 @@ export function createSupplierRouteHandler(
   return async (route: Route) => {
     const requestUrl = new URL(route.request().url());
 
-    if (requestUrl.pathname === '/api/suppliers') {
+    if (['/api/suppliers', '/api/suppliers/directory'].includes(requestUrl.pathname)) {
       if (route.request().method() === 'GET') {
         if (suppliersListState === 'loading') await delay(1_000);
         if (suppliersListState === 'error') {
           await fulfillSupplierError(route, options.suppliersErrorStatus ?? 503);
           return true;
         }
-        await fulfillJson(route, mutableState.suppliers);
+        await fulfillJson(
+          route,
+          requestUrl.pathname.endsWith('/directory')
+            ? supplierDirectoryResponse(mutableState.suppliers, requestUrl)
+            : mutableState.suppliers,
+        );
         return true;
       }
       if (route.request().method() === 'POST') {
@@ -268,6 +269,12 @@ export function createSupplierRouteHandler(
     }
 
     const supplierId = requestUrl.pathname.match(/^\/api\/suppliers\/([^/]+)$/)?.[1];
+    if (supplierId && route.request().method() === 'GET') {
+      const supplier = mutableState.suppliers.find((item) => item.supplierId === supplierId);
+      if (supplier) await fulfillJson(route, supplier);
+      else await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
+      return true;
+    }
     if (supplierId && route.request().method() === 'PUT') {
       const payload = route.request().postDataJSON() as Partial<MockSupplier>;
       const supplier = {
@@ -289,7 +296,9 @@ export function createSupplierRouteHandler(
       return true;
     }
 
-    const supplierDetailPath = requestUrl.pathname.match(/^\/api\/suppliers\/([^/]+)\/detail$/)?.[1];
+    const supplierDetailPath = requestUrl.pathname.match(
+      /^\/api\/suppliers\/([^/]+)\/detail$/,
+    )?.[1];
     if (supplierDetailPath) {
       if (route.request().method() === 'GET') {
         if (options.supplierDetailError) {
@@ -302,7 +311,9 @@ export function createSupplierRouteHandler(
       }
     }
 
-    const supplierLedgerPath = requestUrl.pathname.match(/^\/api\/suppliers\/([^/]+)\/ledger$/)?.[1];
+    const supplierLedgerPath = requestUrl.pathname.match(
+      /^\/api\/suppliers\/([^/]+)\/ledger$/,
+    )?.[1];
     if (supplierLedgerPath) {
       if (route.request().method() === 'GET') {
         if (options.supplierLedgerError) {
@@ -315,7 +326,9 @@ export function createSupplierRouteHandler(
       }
     }
 
-    const supplierPaymentPath = requestUrl.pathname.match(/^\/api\/suppliers\/([^/]+)\/payments$/)?.[1];
+    const supplierPaymentPath = requestUrl.pathname.match(
+      /^\/api\/suppliers\/([^/]+)\/payments$/,
+    )?.[1];
     if (supplierPaymentPath) {
       if (route.request().method() === 'POST') {
         if (options.supplierPaymentError) {

@@ -21,25 +21,12 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
       clearInterval(offlineClockId);
     });
 
-    this.customersFacade.loadCustomers();
     this.salesFacade.clearError();
     this.salesFacade.clearMutationStatus();
 
     this.customerForm.controls.customerName.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((value) => {
-        const typedName = value.trim().toLowerCase();
-        const selectedName = this.selectedCustomerName();
-
-        if (!typedName || !selectedName || typedName !== selectedName) {
-          this.selectedCustomerId.set(null);
-          this.selectedCustomerName.set(null);
-          this.selectedCustomer.set(null);
-          if (!this.isOfflineMode()) {
-            this.enforceNoCustomerCreditRestrictions();
-          }
-        }
-      });
+      .subscribe((value) => this.onCustomerNameEdited(value));
 
     this.paymentForm.controls.paidAmount.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -269,6 +256,20 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
         this.salePreview.triggerPreview();
       });
     });
+  }
+
+  protected onCustomerNameEdited(value: string): void {
+    const typedName = value.trim().toLowerCase();
+    const selectedName = this.selectedCustomerName();
+
+    if (!typedName || !selectedName || typedName !== selectedName) {
+      this.selectedCustomerId.set(null);
+      this.selectedCustomerName.set(null);
+      this.selectedCustomer.set(null);
+      if (!this.isOfflineMode()) {
+        this.enforceNoCustomerCreditRestrictions();
+      }
+    }
   }
 
   onDestroy(): void {

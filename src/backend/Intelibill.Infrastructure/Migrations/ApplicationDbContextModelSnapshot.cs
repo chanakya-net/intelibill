@@ -5476,6 +5476,89 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("shop_memberships", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.ShopTillSetting", b =>
+                {
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("enabled");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("ShopId")
+                        .HasName("pk_shop_till_settings");
+
+                    b.ToTable("shop_till_settings", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_shop_till_settings_version", "version >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.ShopTillSettingEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("Enabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("enabled");
+
+                    b.Property<bool>("PreviousEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("previous_enabled");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_shop_till_setting_events");
+
+                    b.HasIndex("ShopId", "ActorUserId")
+                        .HasDatabaseName("ix_shop_till_setting_events_shop_id_actor_user_id");
+
+                    b.HasIndex("ShopId", "Version")
+                        .IsUnique()
+                        .HasDatabaseName("ix_shop_till_setting_events_shop_id_version");
+
+                    b.ToTable("shop_till_setting_events", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_shop_till_setting_events_reason", "length(btrim(reason)) BETWEEN 1 AND 500");
+
+                            t.HasCheckConstraint("ck_shop_till_setting_events_version", "version > 0 AND previous_enabled <> enabled");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.StockCount", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8085,6 +8168,34 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Navigation("Shop");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.ShopTillSetting", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_shop_till_settings_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.ShopTillSettingEvent", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_shop_till_setting_events_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.ShopMembership", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId", "ActorUserId")
+                        .HasPrincipalKey("ShopId", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_shop_till_setting_events_shop_memberships_shop_id_actor_use");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.StockCount", b =>

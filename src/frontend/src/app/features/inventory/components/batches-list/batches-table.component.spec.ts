@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { Menu } from 'primeng/menu';
 
 import { BatchesTableComponent, type BatchTableAction } from './batches-table.component';
 import type { InventoryBatchDto } from '../../services/inventory.models';
@@ -79,6 +80,33 @@ describe('BatchesTableComponent', () => {
     expect(menuItems.every((item) => item.disabled === false)).toBe(true);
   });
 
+  it('opens one stable menu model and refreshes its batch target on the next opening', () => {
+    const events: BatchTableAction[] = [];
+    component.batchAction.subscribe((value) => events.push(value));
+    const toggle = vi.fn();
+    const menu = { toggle } as unknown as Menu;
+    const event = new MouseEvent('click');
+    const stopPropagation = vi.spyOn(event, 'stopPropagation');
+
+    component.openRowActions(event, menu, mockBatches[0]);
+    const firstItems = component.rowMenuItems;
+    firstItems[1].command?.({});
+    expect(toggle).toHaveBeenCalledWith(event);
+    expect(stopPropagation).toHaveBeenCalledOnce();
+    expect(component.rowMenuItems).toBe(firstItems);
+
+    component.canCorrectReceiptCost = true;
+    component.openRowActions(event, menu, { ...mockBatches[0], id: 'b2' });
+    for (const item of component.rowMenuItems) item.command?.({});
+    expect(events).toEqual([
+      { action: 'adjust', batchId: 'b1' },
+      ...['printLabels', 'adjust', 'count', 'edit', 'correctCost', 'void'].map((action) => ({
+        action,
+        batchId: 'b2',
+      })),
+    ]);
+  });
+
   it('offers receipt cost correction to an owner on an active batch only', () => {
     component.canCorrectReceiptCost = true;
 
@@ -97,12 +125,41 @@ describe('BatchesTableComponent', () => {
     ).toBe(false);
   });
 
+  it('starts hiding an open menu before retargeting it to another row', () => {
+    const event = new MouseEvent('click');
+    const hide = vi.fn();
+    const toggle = vi.fn();
+    const show = vi.fn();
+    const menu = {
+      visible: true,
+      target: document.createElement('button'),
+      hide,
+      toggle,
+      show,
+    } as unknown as Menu;
+
+    const nextTrigger = document.createElement('button');
+    nextTrigger.addEventListener('click', (current) =>
+      component.openRowActions(current as MouseEvent, menu, { ...mockBatches[0], id: 'b2' }),
+    );
+    nextTrigger.dispatchEvent(event);
+
+    expect(hide).toHaveBeenCalledOnce();
+    expect(toggle).not.toHaveBeenCalled();
+    expect(show).not.toHaveBeenCalled();
+    component.onRowMenuHidden();
+    expect(event.currentTarget).toBeNull();
+    expect(show).toHaveBeenCalledWith({ currentTarget: nextTrigger });
+    component.onRowMenuHidden();
+    expect(show).toHaveBeenCalledOnce();
+  });
+
   it('hides receipt cost correction from a manager', () => {
     component.canCorrectReceiptCost = false;
 
-    expect(
-      component.rowActionItems(mockBatches[0]).some((item) => item.id === 'correctCost'),
-    ).toBe(false);
+    expect(component.rowActionItems(mockBatches[0]).some((item) => item.id === 'correctCost')).toBe(
+      false,
+    );
   });
 
   it('should emit selection updates for selectable rows', () => {

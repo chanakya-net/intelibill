@@ -202,3 +202,22 @@
     </p-table>
   </div>
 </section>
+
+<p role="status" class="text-sm text-slate-500">
+  {{
+    'partyDirectory.pageSummary'
+      | transloco
+        : {
+            start: totalRows ? (pageNumber - 1) * pageSize + 1 : 0,
+            end: pageNumber * pageSize > totalRows ? totalRows : pageNumber * pageSize,
+            total: totalRows,
+          }
+  }}
+</p>
+<p-paginator
+  [first]="(pageNumber - 1) * pageSize"
+  [rows]="pageSize"
+  [totalRecords]="totalRows"
+  [rowsPerPageOptions]="[20, 50, 100]"
+  (onPageChange)="onPageChange($event)"
+/>

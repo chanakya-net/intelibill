@@ -75,26 +75,45 @@ import { DashboardDto } from '../../../services/dashboard.models';
         <p class="kpi-value" data-testid="expenses-kpi-value">{{ formattedExpenses() }}</p>
       </article>
     </div>
-    <p data-testid="cancellation-summary">
-      {{ 'sales.cancellation.summary' | transloco }}:
-      {{ dashboard()?.cancellationAmount ?? 0 | currency: 'INR' }} ·
-      {{ dashboard()?.cancellationCount ?? 0 }}
-    </p>
-    @if (dashboard()?.economics; as e) {
-      <aside class="kpi-economics" data-testid="dashboard-economics">
-        <p>{{ 'sales.profitLoss.economics.basis' | transloco }}</p>
-        <p>{{ 'sales.profitLoss.economics.operating' | transloco }}:
-          @if (e.operatingProfit !== null) { {{ e.operatingProfit | currency: 'INR' : 'symbol' : '1.2-2' }} }
-          @else { {{ 'sales.profitLoss.economics.notAvailable' | transloco }} }
-        </p>
-        <p>{{ 'sales.profitLoss.status.' + e.operatingProfitStatus | transloco }}</p>
-        <ul>
-          @for (limitation of e.limitations; track limitation) {
-            <li>{{ 'sales.profitLoss.limitations.' + limitation | transloco }}</li>
+    <div class="kpi-context" [class.kpi-context--legacy]="!dashboard()?.economics">
+      <div class="kpi-context__summaries">
+        @if (dashboard()?.economics; as e) {
+          <aside class="kpi-context__summary" data-testid="dashboard-economics">
+            <p class="kpi-label">{{ 'sales.profitLoss.economics.operating' | transloco }}</p>
+            <p class="kpi-context__value">
+              @if (e.operatingProfit !== null) {
+                {{ e.operatingProfit | currency: 'INR' : 'symbol' : '1.2-2' }}
+              } @else {
+                {{ 'sales.profitLoss.economics.notAvailable' | transloco }}
+              }
+            </p>
+            <p class="kpi-context__status">{{ 'sales.profitLoss.status.' + e.operatingProfitStatus | transloco }}</p>
+          </aside>
+        }
+        <div class="kpi-context__summary" data-testid="cancellation-summary">
+          <p class="kpi-label">{{ 'sales.cancellation.summary' | transloco }}</p>
+          <p class="kpi-context__value">
+            {{ dashboard()?.cancellationAmount ?? 0 | currency: 'INR' }} ·
+            {{ dashboard()?.cancellationCount ?? 0 | number }}
+          </p>
+        </div>
+      </div>
+      @if (dashboard()?.economics; as e) {
+        <div class="kpi-context__notes">
+          <p>{{ 'sales.profitLoss.economics.basis' | transloco }}</p>
+          @if (e.limitations.length > 0) {
+            <details class="kpi-context__details">
+              <summary>{{ 'dashboard.kpis.calculationDetails' | transloco }}</summary>
+              <ul>
+                @for (limitation of e.limitations; track limitation) {
+                  <li>{{ 'sales.profitLoss.limitations.' + limitation | transloco }}</li>
+                }
+              </ul>
+            </details>
           }
-        </ul>
-      </aside>
-    }
+        </div>
+      }
+    </div>
   `,
 })
 export class DashboardKpiCardsComponent {

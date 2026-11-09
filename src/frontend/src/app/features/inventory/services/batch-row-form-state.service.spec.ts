@@ -1,5 +1,7 @@
+import { SupplierService } from '../../suppliers/services/supplier.service';
+import { supplierOptionLabel } from '../../../shared/models/party-directory.models';
 import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
-import { EMPTY } from 'rxjs';
+import { EMPTY, Subject } from 'rxjs';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -27,6 +29,20 @@ describe('BatchRowFormStateService', () => {
     findByBarcode: vi.fn(() => undefined),
   };
 
+  const lateSupplier = {
+    supplierId: 'late-2',
+    name: 'Same',
+    city: 'B',
+    contactPersonPhone: '123',
+    isActive: true,
+  };
+  const supplierService = {
+    getDirectory: vi.fn(() =>
+      of({ items: [{ ...lateSupplier, supplierId: 'late-1' }, lateSupplier] }),
+    ),
+    getSupplier: vi.fn(() => of(lateSupplier)),
+  };
+
   const suppliersFacade = {
     suppliers: signal<any[]>([]),
     load: vi.fn(),
@@ -36,10 +52,27 @@ describe('BatchRowFormStateService', () => {
     TestBed.configureTestingModule({
       imports: [TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
-        { provide: ExpiryPolicyService, useValue: { read: () => of({ effectivePolicy: { version: 1, mode: 'Ignore', expiryRequired: false, sellThroughExpiryDate: true, warningDays: 7, overrideAllowed: false } }), changed$: EMPTY } },
+        {
+          provide: ExpiryPolicyService,
+          useValue: {
+            read: () =>
+              of({
+                effectivePolicy: {
+                  version: 1,
+                  mode: 'Ignore',
+                  expiryRequired: false,
+                  sellThroughExpiryDate: true,
+                  warningDays: 7,
+                  overrideAllowed: false,
+                },
+              }),
+            changed$: EMPTY,
+          },
+        },
         { provide: InventoryService, useValue: inventoryService },
         { provide: ProductCatalogSyncService, useValue: catalogSync },
         { provide: SuppliersFacade, useValue: suppliersFacade },
+        { provide: SupplierService, useValue: supplierService },
       ],
     });
 
@@ -59,11 +92,122 @@ describe('BatchRowFormStateService', () => {
     suppliersFacade.load.mockClear();
   });
 
+  it('preserves the supplier ID from product defaults without a complete directory', async () => {
+    const state = setup();
+    inventoryService.getProductDetailsByNameOrBarcode.mockReturnValue(
+      of({
+        name: 'Rice',
+        description: '',
+        uom: 'PCS',
+        costPrice: 1,
+        mrp: 2,
+        salesPrice: 2,
+        supplierId: 'late-2',
+        supplierName: 'Same',
+        hsnCode: null,
+        taxIncluded: false,
+        taxRatePercent: 0,
+        purchaseTaxIncluded: false,
+      }),
+    );
+    state.form.patchValue({ barcode: 'B', itemName: 'Rice', batchNumber: 'Lot' });
+    await state.fetchProductDetails();
+    expect(state.buildDraftRow()?.supplierId).toBe('late-2');
+  });
+
+  it('never infers a supplier ID from a bare name when a duplicate is beyond the bounded page', () => {
+    vi.useFakeTimers();
+    const state = setup();
+    const first = { ...lateSupplier, supplierId: 'acme-a', name: 'Acme', city: 'City A' };
+    const hidden = { ...lateSupplier, supplierId: 'acme-b', name: 'Acme', city: 'City B' };
+    const all = [
+      ...Array.from({ length: 19 }, (_, index) => ({
+        ...lateSupplier,
+        supplierId: `prefix-${index}`,
+        name: `0${index} Acme match`,
+      })),
+      first,
+      hidden,
+    ];
+    supplierService.getDirectory.mockReturnValueOnce(
+      of({ items: all.slice(0, 20), totalCount: 21 }),
+    );
+    try {
+      state.form.patchValue({
+        itemName: 'Rice',
+        barcode: 'B',
+        batchNumber: 'Lot',
+        quantity: 1,
+        totalPurchaseCost: 1,
+        mrp: 2,
+        salesPrice: 2,
+      });
+      state.onFilterSupplier({ query: 'Acme', originalEvent: new Event('input') });
+      vi.advanceTimersByTime(250);
+      expect(state.suppliers()).toHaveLength(20);
+      state.form.controls.supplierName.setValue('Acme');
+      expect(state.selectedSupplier()).toBeNull();
+      expect(state.buildDraftRow()?.supplierId).toBeNull();
+      state.onSupplierSelected('Acme');
+      expect(state.selectedSupplier()).toBeNull();
+      state.onSupplierSelected(supplierOptionLabel(first as any));
+      expect(state.buildDraftRow()?.supplierId).toBe('acme-a');
+      supplierService.getDirectory.mockReturnValueOnce(of({ items: [hidden], totalCount: 1 }));
+      state.onFilterSupplier({ query: 'City B', originalEvent: new Event('input') });
+      vi.advanceTimersByTime(250);
+      expect(state.buildDraftRow()?.supplierId).toBe('acme-a');
+      state.onSupplierSelected(supplierOptionLabel(hidden as any));
+      expect(state.buildDraftRow()?.supplierId).toBe('acme-b');
+      state.form.controls.supplierName.setValue('Acme');
+      expect(state.buildDraftRow()?.supplierId).toBeNull();
+      expect(state.form.controls.supplierName.value).toBe('Acme');
+      state.form.controls.supplierName.setValue('');
+      expect(state.buildDraftRow()?.supplierId).toBeNull();
+    } finally {
+      TestBed.resetTestingModule();
+      vi.useRealTimers();
+    }
+  });
+
+  it('selects a remote duplicate-name supplier by ID and retains it while searching', () => {
+    vi.useFakeTimers();
+    const state = setup();
+    state.onFilterSupplier({ query: 'Same', originalEvent: new Event('input') });
+    vi.advanceTimersByTime(250);
+    expect(supplierService.getDirectory).toHaveBeenCalledWith(
+      expect.objectContaining({ search: 'Same', pageSize: 20 }),
+    );
+    state.onSupplierSelected(supplierOptionLabel(lateSupplier as any));
+    state.onFilterSupplier({ query: 'Other', originalEvent: new Event('input') });
+    vi.advanceTimersByTime(250);
+    state.form.patchValue({
+      itemName: 'Rice',
+      barcode: 'B',
+      quantity: 1,
+      batchNumber: 'Lot',
+      totalPurchaseCost: 1,
+      mrp: 2,
+      salesPrice: 2,
+    });
+    expect(state.buildDraftRow()?.supplierId).toBe('late-2');
+    vi.useRealTimers();
+  });
+
   it('refuses manufacture after expiry before building a stock intake row', () => {
     const state = setup();
-    state.form.patchValue({ itemName: 'Milk', barcode: 'B1', uom: 'PCS', batchNumber: 'LOT1', quantity: 1,
-      totalPurchaseCost: 1, mrp: 2, salesPrice: 2, purchaseTaxIncluded: false,
-      manufacturingDate: '2026-11-10', expiryDate: '2026-11-09' });
+    state.form.patchValue({
+      itemName: 'Milk',
+      barcode: 'B1',
+      uom: 'PCS',
+      batchNumber: 'LOT1',
+      quantity: 1,
+      totalPurchaseCost: 1,
+      mrp: 2,
+      salesPrice: 2,
+      purchaseTaxIncluded: false,
+      manufacturingDate: '2026-11-10',
+      expiryDate: '2026-11-09',
+    });
     expect(state.buildDraftRow()).toBeNull();
   });
 
@@ -284,6 +428,34 @@ describe('BatchRowFormStateService', () => {
         ...overrides,
       };
     }
+
+    it.each(['', 'Changed supplier'])(
+      'keeps explicit supplier input %j when a draft ID response arrives late',
+      (input) => {
+        const state = setup();
+        const pending = new Subject<any>();
+        supplierService.getSupplier.mockReturnValueOnce(pending);
+        state.loadDraftRow(draftRow({ supplierId: 'late-1' }));
+        state.form.controls.supplierName.setValue(input);
+        pending.next({ ...lateSupplier, supplierId: 'late-1' });
+        expect(state.form.controls.supplierName.value).toBe(input);
+        expect(state.buildDraftRow()?.supplierId).toBeNull();
+      },
+    );
+
+    it('does not let a delayed draft ID restore replace a newer supplier selection', () => {
+      vi.useFakeTimers();
+      const state = setup();
+      const pending = new Subject<any>();
+      supplierService.getSupplier.mockReturnValueOnce(pending);
+      state.loadDraftRow(draftRow({ supplierId: 'late-1' }));
+      state.onFilterSupplier({ query: 'Same', originalEvent: new Event('input') });
+      vi.advanceTimersByTime(250);
+      state.onSupplierSelected(supplierOptionLabel(lateSupplier as any));
+      pending.next({ ...lateSupplier, supplierId: 'late-1' });
+      expect(state.buildDraftRow()?.supplierId).toBe('late-2');
+      vi.useRealTimers();
+    });
 
     it.each([
       { purchaseTaxIncluded: true, taxIncluded: true },

@@ -1,3 +1,5 @@
+import { of } from 'rxjs';
+import { ShopTillSettingsService } from '../services/shop-till-settings.service';
 import { knownExpiryPolicyProviders } from '../../../../tests/expiry/expiry-policy.providers';
 import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
@@ -120,6 +122,7 @@ describe('ManageShopOverlayComponent', () => {
       imports: [ManageShopOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
         ...knownExpiryPolicyProviders(),
+        { provide: ShopTillSettingsService, useValue: { activeShopId: () => 'shop-1', scopeIdentity: () => 'owner:shop-1:1', role: () => 'owner', read: () => of({ shopId: 'shop-1', available: false, enabled: false, version: 0, openSessionCount: 0, awaitingReviewCount: 0, pendingOfflineCount: 0 }) } },
         { provide: Store, useValue: store },
         { provide: NetworkStatusService, useValue: networkStatus },
         { provide: OfflineSalesDeviceSettingsStorage, useValue: offlineDeviceStorage },

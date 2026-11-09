@@ -72,6 +72,7 @@ export const FINANCIAL_OPERATION_ENDPOINTS = {
 } as const;
 
 export const SUPPLIER_ENDPOINTS = {
+  directory: `${API_BASE_URL}/suppliers/directory`,
   list: `${API_BASE_URL}/suppliers`,
   add: `${API_BASE_URL}/suppliers`,
   update: (supplierId: string) => `${API_BASE_URL}/suppliers/${supplierId}`,
@@ -127,8 +128,10 @@ export const SALE_ENDPOINTS = {
 
 export const OFFLINE_RECONCILIATION_ENDPOINTS = {
   list: `${API_BASE_URL}/offline-reconciliation`,
-  detail: (caseId: string) => `${API_BASE_URL}/offline-reconciliation/${encodeURIComponent(caseId)}`,
-  resolve: (caseId: string) => `${API_BASE_URL}/offline-reconciliation/${encodeURIComponent(caseId)}/resolve`,
+  detail: (caseId: string) =>
+    `${API_BASE_URL}/offline-reconciliation/${encodeURIComponent(caseId)}`,
+  resolve: (caseId: string) =>
+    `${API_BASE_URL}/offline-reconciliation/${encodeURIComponent(caseId)}/resolve`,
   recoverySubmissions: `${API_BASE_URL}/offline-reconciliation/recovery-submissions`,
 } as const;
 
@@ -188,11 +191,11 @@ export const DASHBOARD_ENDPOINTS = {
 } as const;
 
 export const SUPPLIER_RETURN_ENDPOINTS = {
- list: `${API_BASE_URL}/supplier-returns`,
- preview: `${API_BASE_URL}/supplier-returns/preview`,
- detail: (id:string) => `${API_BASE_URL}/supplier-returns/${id}`,
- credit: (id:string) => `${API_BASE_URL}/supplier-returns/${id}/credit`,
- receipt: (id:string) => `${API_BASE_URL}/purchase-receipts/${id}`,
- reversal: (id:string) => `${API_BASE_URL}/purchase-receipts/${id}/reversal`,
- groupReversal: (id:string) => `${API_BASE_URL}/purchase-order-receipts/${id}/reversal`,
+  list: `${API_BASE_URL}/supplier-returns`,
+  preview: `${API_BASE_URL}/supplier-returns/preview`,
+  detail: (id: string) => `${API_BASE_URL}/supplier-returns/${id}`,
+  credit: (id: string) => `${API_BASE_URL}/supplier-returns/${id}/credit`,
+  receipt: (id: string) => `${API_BASE_URL}/purchase-receipts/${id}`,
+  reversal: (id: string) => `${API_BASE_URL}/purchase-receipts/${id}/reversal`,
+  groupReversal: (id: string) => `${API_BASE_URL}/purchase-order-receipts/${id}/reversal`,
 } as const;

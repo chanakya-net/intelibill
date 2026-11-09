@@ -1,3 +1,6 @@
+import { customerOptionLabel } from '../../../../shared/models/party-directory.models';
+import { DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
@@ -28,16 +31,21 @@ export class SaleCustomerSectionComponent implements OnInit {
   @Input() customerNameSuggestions: string[] = [];
   @Input() customers: readonly CustomerDto[] = [];
   @Input() isOfflineMode = false;
+  @Input() searchLoading = false;
+  @Input() searchError = false;
+  private readonly destroyRef = inject(DestroyRef);
 
   @Output() customerSelected = new EventEmitter<CustomerDto | null>();
   @Output() searchCustomers = new EventEmitter<string>();
 
   ngOnInit(): void {
-    this.customerNameControl.valueChanges.subscribe((value) => {
-      if (!value.trim()) {
-        this.customerSelected.emit(null);
-      }
-    });
+    this.customerNameControl.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((value) => {
+        if (!value.trim()) {
+          this.customerSelected.emit(null);
+        }
+      });
   }
 
   onCustomerNameSearch(event: AutoCompleteCompleteEvent): void {
@@ -51,7 +59,11 @@ export class SaleCustomerSectionComponent implements OnInit {
       return;
     }
 
-    const matches = this.customers.filter((customer) => customer.name.trim().toLowerCase() === normalized);
-    this.customerSelected.emit(matches.length === 1 ? matches[0] ?? null : null);
+    const matches = this.customers.filter(
+      (customer) =>
+        customerOptionLabel(customer).toLowerCase() === normalized ||
+        customer.name.trim().toLowerCase() === normalized,
+    );
+    this.customerSelected.emit(matches.length === 1 ? (matches[0] ?? null) : null);
   }
 }

@@ -17,8 +17,16 @@ const DEVICE_SETTINGS_PREFIX = 'intelibill.offlineSales.deviceSettings.v1';
 const observedDeclaredErrors = new WeakMap<ShellScenario, Set<string>>();
 
 export type ShellRole = 'Owner' | 'Manager' | 'Staff';
-export type ShellApiResource = 'shops' | 'shopDetails' | 'users' | 'sales' | 'connectivity'
-  | 'itemStream' | 'shellData' | 'offlineSnapshot' | 'offlineLease';
+export type ShellApiResource =
+  | 'shops'
+  | 'shopDetails'
+  | 'users'
+  | 'sales'
+  | 'connectivity'
+  | 'itemStream'
+  | 'shellData'
+  | 'offlineSnapshot'
+  | 'offlineLease';
 export type ShellApiState = 'ready' | 'loading';
 
 export interface DeclaredShellError {
@@ -60,7 +68,10 @@ export const SHELL_ENGLISH_VIEWPORTS = [
   { name: 'desktop', width: 1440, height: 900 },
 ] as const;
 
-export const SHELL_LOCALE_VIEWPORTS = [SHELL_ENGLISH_VIEWPORTS[0], SHELL_ENGLISH_VIEWPORTS[3]] as const;
+export const SHELL_LOCALE_VIEWPORTS = [
+  SHELL_ENGLISH_VIEWPORTS[0],
+  SHELL_ENGLISH_VIEWPORTS[3],
+] as const;
 
 export function createShellScenario(options: ShellScenarioOptions = {}): ShellScenario {
   const role = options.role ?? 'Owner';
@@ -84,10 +95,9 @@ export function createShellScenario(options: ShellScenarioOptions = {}): ShellSc
     activeShopId: shops[0].shopId,
     shops,
   };
-  const shopDetails = Object.fromEntries(shops.map((shop, index) => [
-    shop.shopId,
-    createShopDetails(shop, index, user.id),
-  ]));
+  const shopDetails = Object.fromEntries(
+    shops.map((shop, index) => [shop.shopId, createShopDetails(shop, index, user.id)]),
+  );
   const users: readonly ShopUser[] = [
     {
       userId: user.id,
@@ -100,14 +110,23 @@ export function createShellScenario(options: ShellScenarioOptions = {}): ShellSc
       shopIds: shops.map((shop) => shop.shopId),
     },
   ];
-  const offlineSettings = Object.fromEntries(shops.map((shop) => [
-    shop.shopId,
-    createOfflineSettings(shop.shopId, user.id, options.offlineEnabled ?? false),
-  ]));
+  const offlineSettings = Object.fromEntries(
+    shops.map((shop) => [
+      shop.shopId,
+      createOfflineSettings(shop.shopId, user.id, options.offlineEnabled ?? false),
+    ]),
+  );
 
   return {
-    role, locale, session, shops, shopDetails, users, offlineSettings,
-    apiStates: options.apiStates ?? {}, declaredErrors: options.declaredErrors ?? [],
+    role,
+    locale,
+    session,
+    shops,
+    shopDetails,
+    users,
+    offlineSettings,
+    apiStates: options.apiStates ?? {},
+    declaredErrors: options.declaredErrors ?? [],
   };
 }
 
@@ -128,8 +147,11 @@ export function filterDeclaredShellFailures(
 ): BrowserFailure[] {
   const declaredErrors = Array.isArray(declaration) ? declaration : declaration.declaredErrors;
   const observedErrors = Array.isArray(declaration)
-    ? new Set<string>() : observedDeclaredErrors.get(declaration) ?? new Set<string>();
-  const loadingUrls = Array.isArray(declaration) ? new Set<string>() : loadingRequestUrls(declaration);
+    ? new Set<string>()
+    : (observedDeclaredErrors.get(declaration) ?? new Set<string>());
+  const loadingUrls = Array.isArray(declaration)
+    ? new Set<string>()
+    : loadingRequestUrls(declaration);
 
   return failures.filter((failure) => {
     if (
@@ -181,10 +203,20 @@ function createShops(role: ShellRole, longLabels: boolean): readonly UserShop[] 
     : 'Audit Shop';
 
   return [
-    { shopId: 'shop-primary', shopName: `${prefix} Primary`, role, isDefault: true,
-      lastUsedAt: '2026-07-29T00:00:00.000Z' },
-    { shopId: 'shop-secondary', shopName: `${prefix} Secondary`, role, isDefault: false,
-      lastUsedAt: '2026-07-28T00:00:00.000Z' },
+    {
+      shopId: 'shop-primary',
+      shopName: `${prefix} Primary`,
+      role,
+      isDefault: true,
+      lastUsedAt: '2026-07-29T00:00:00.000Z',
+    },
+    {
+      shopId: 'shop-secondary',
+      shopName: `${prefix} Secondary`,
+      role,
+      isDefault: false,
+      lastUsedAt: '2026-07-28T00:00:00.000Z',
+    },
   ];
 }
 
@@ -218,7 +250,11 @@ function createShopDetails(shop: UserShop, index: number, userId: string): ShopD
   };
 }
 
-function createOfflineSettings(shopId: string, userId: string, enabled: boolean): OfflineSalesDeviceSettings {
+function createOfflineSettings(
+  shopId: string,
+  userId: string,
+  enabled: boolean,
+): OfflineSalesDeviceSettings {
   return {
     shopId,
     deviceId: `device-${shopId}`,
@@ -231,8 +267,12 @@ function createOfflineSettings(shopId: string, userId: string, enabled: boolean)
     lastApiVerifiedAt: enabled ? '2026-07-29T00:00:00.000Z' : null,
     lastSnapshotWarningMarker: null,
     lastReservedLease: enabled
-      ? { leaseId: 'lease-ui-audit', fiscalYear: '2026-2027', remainingCount: 100,
-          expiresAt: '2099-01-01T00:00:00.000Z' }
+      ? {
+          leaseId: 'lease-ui-audit',
+          fiscalYear: '2026-2027',
+          remainingCount: 100,
+          expiresAt: '2099-01-01T00:00:00.000Z',
+        }
       : null,
   };
 }
@@ -246,7 +286,10 @@ async function seedShellStorage(page: Page, scenario: ShellScenario): Promise<vo
       localStorage.setItem(languageKey, locale);
       for (const value of Object.values(settings)) {
         localStorage.setItem(`${devicePrefix}:${value.shopId}`, value.deviceId);
-        localStorage.setItem(`${settingsPrefix}:${value.shopId}:${value.deviceId}`, JSON.stringify(value));
+        localStorage.setItem(
+          `${settingsPrefix}:${value.shopId}:${value.deviceId}`,
+          JSON.stringify(value),
+        );
       }
     },
     {
@@ -268,7 +311,11 @@ async function handleApiRoute(route: Route, scenario: ShellScenario): Promise<vo
     const observed = observedDeclaredErrors.get(scenario) ?? new Set<string>();
     observed.add(`${declaredError.method}|${declaredError.url}|${declaredError.status}`);
     observedDeclaredErrors.set(scenario, observed);
-    await fulfillJson(route, declaredError.body ?? { title: 'UiAudit.DeclaredError' }, declaredError.status);
+    await fulfillJson(
+      route,
+      declaredError.body ?? { title: 'UiAudit.DeclaredError' },
+      declaredError.status,
+    );
     return;
   }
 
@@ -297,7 +344,12 @@ function resourceForRequest(request: Request): ShellApiResource | null {
   if (request.method() === 'GET' && path === '/api/sales') return 'sales';
   if (request.method() === 'GET' && path === '/api/ping') return 'connectivity';
   if (request.method() === 'GET' && path === '/api/items/stream') return 'itemStream';
-  if (request.method() === 'GET' && ['/api/suppliers', '/api/bank-accounts', '/api/items'].includes(path)) {
+  if (
+    request.method() === 'GET' &&
+    ['/api/suppliers', '/api/suppliers/directory', '/api/bank-accounts', '/api/items'].includes(
+      path,
+    )
+  ) {
     return 'shellData';
   }
   if (request.method() === 'GET' && path === '/api/sales/offline-snapshot/stream') {
@@ -322,7 +374,11 @@ function knownMutation(request: Request): boolean {
   );
 }
 
-async function fulfillKnownRequest(route: Route, request: Request, scenario: ShellScenario): Promise<void> {
+async function fulfillKnownRequest(
+  route: Route,
+  request: Request,
+  scenario: ShellScenario,
+): Promise<void> {
   const path = new URL(request.url()).pathname;
   if (request.method() === 'GET' && path === '/api/shops/me') {
     await fulfillJson(route, scenario.shops);
@@ -340,7 +396,18 @@ async function fulfillKnownRequest(route: Route, request: Request, scenario: She
     await fulfillJson(route, { serverTime: '2026-07-29T00:00:00.000Z' });
   } else if (request.method() === 'GET' && path === '/api/items/stream') {
     await route.fulfill({ status: 200, contentType: 'text/event-stream', body: '' });
-  } else if (request.method() === 'GET' && ['/api/suppliers', '/api/bank-accounts'].includes(path)) {
+  } else if (request.method() === 'GET' && path === '/api/suppliers/directory') {
+    await fulfillJson(route, {
+      items: [],
+      totalCount: 0,
+      pageNumber: 1,
+      pageSize: 20,
+      summary: { totalSuppliers: 0, activeSuppliers: 0, preferredSuppliers: 0, pendingPayables: 0 },
+    });
+  } else if (
+    request.method() === 'GET' &&
+    ['/api/suppliers', '/api/bank-accounts'].includes(path)
+  ) {
     await fulfillJson(route, []);
   } else if (request.method() === 'GET' && path === '/api/items') {
     await fulfillJson(route, { items: [], totalCount: 0, pageNumber: 1, pageSize: 20 });

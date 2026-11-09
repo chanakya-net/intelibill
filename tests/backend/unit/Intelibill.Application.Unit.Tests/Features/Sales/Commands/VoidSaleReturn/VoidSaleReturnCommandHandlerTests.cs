@@ -47,7 +47,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
             new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork, Substitute.For<IExpiryPolicyFence>()),
             _unitOfWork,
             new BusinessClock(_time),
-            new TillSourceSettlementService(Substitute.For<ITillSessionPolicy>(), Substitute.For<ITillPostingService>(), _shopRepository, new BusinessClock(_time)),
+            new TillSourceSettlementService(Substitute.For<ITillSessionPolicy>(), BusinessTestDoubles.DisabledTillPosting(), _shopRepository, new BusinessClock(_time)),
             _executor, ExpiryDispositionTestServices.Create(_inventoryBatchRepository, new BusinessClock(_time)));
 
     private readonly MutableTimeProvider _time = new();

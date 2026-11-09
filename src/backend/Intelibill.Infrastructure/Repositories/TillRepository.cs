@@ -10,6 +10,41 @@ namespace Intelibill.Infrastructure.Repositories;
 
 internal sealed class TillRepository(ApplicationDbContext context) : ITillRepository
 {
+    public Task<ShopTillSetting?> GetSettingsAsync(Guid shopId, CancellationToken ct = default) =>
+        context.ShopTillSettings.AsNoTracking().SingleOrDefaultAsync(x => x.ShopId == shopId, ct);
+    public async Task SaveSettingsAsync(ShopTillSetting settings, CancellationToken ct = default)
+    {
+        var tracked = context.ShopTillSettings.Local.FirstOrDefault(x => x.ShopId == settings.ShopId);
+        if (tracked is not null) context.Entry(tracked).State = EntityState.Detached;
+        if (settings.Version == 1 && !await context.ShopTillSettings.AnyAsync(x => x.ShopId == settings.ShopId, ct))
+            await context.ShopTillSettings.AddAsync(settings, ct);
+        else
+        {
+            context.Attach(settings);
+            context.Entry(settings).Property(x => x.Enabled).IsModified = true;
+            context.Entry(settings).Property(x => x.Version).OriginalValue = settings.Version - 1;
+            context.Entry(settings).Property(x => x.Version).IsModified = true;
+        }
+    }
+    public async Task AddSettingsEventAsync(ShopTillSettingEvent audit, CancellationToken ct = default) => await context.ShopTillSettingEvents.AddAsync(audit, ct);
+    public async Task<(int Open, int AwaitingReview, int PendingOffline)> GetSettingsBlockersAsync(Guid shopId, CancellationToken ct = default)
+    {
+        var open = await context.TillSessions.CountAsync(x => x.ShopId == shopId && x.State == TillSessionState.Open, ct);
+        var review = await context.TillCloses.CountAsync(x => x.ShopId == shopId && x.AwaitingReview &&
+            !context.TillCloseReviews.Any(r => r.ShopId == shopId && r.CloseId == x.Id), ct);
+        // An envelope resolved by linking/acknowledgement need not have SaleId. Count each unposted
+        // envelope once, plus pre-envelope unposted cases; terminal dispositions are not unresolved queues.
+        var envelopes = await context.OfflineSubmissions.CountAsync(x => x.ShopId == shopId && x.SaleId == null &&
+            (!context.ReconciliationIssues.Any(r => r.ShopId == shopId && r.OfflineSubmissionId == x.Id) ||
+             context.ReconciliationIssues.Any(r => r.ShopId == shopId && r.OfflineSubmissionId == x.Id && r.Status != ReconciliationCaseStatus.Resolved)), ct);
+        var cases = await context.ReconciliationIssues.CountAsync(x => x.ShopId == shopId && x.Status != ReconciliationCaseStatus.Resolved &&
+            ((x.OfflineSubmissionId == null && (x.SaleId == null || x.IssueType == ReconciliationIssueType.TillReview)) ||
+             (x.IssueType == ReconciliationIssueType.TillReview && context.OfflineSubmissions.Any(e => e.ShopId == shopId && e.Id == x.OfflineSubmissionId && e.SaleId != null))), ct);
+        return (open, review, envelopes + cases);
+    }
+    public Task<RowLockOutcome> LockSettingsActorAsync(Guid actorId, CancellationToken ct = default) => LockAsync("actor", actorId, actorId, ct);
+    public Task<RowLockOutcome> LockSettingsReadAsync(Guid shopId, CancellationToken ct = default) => LockAsync("shop_gate", shopId, shopId, ct);
+
     public Task<Till?> GetTillAsync(Guid shopId, Guid tillId, CancellationToken ct = default) =>
         context.Tills.SingleOrDefaultAsync(x => x.ShopId == shopId && x.Id == tillId, ct);
     public async Task<IReadOnlyList<Till>> ListTillsAsync(Guid shopId, CancellationToken ct = default) =>
@@ -46,7 +81,9 @@ internal sealed class TillRepository(ApplicationDbContext context) : ITillReposi
         {
             // table is a private server-owned constant, never a client-provided identifier.
             FormattableString sql;
-            if (table == "shops") sql = $"SELECT id AS \"Value\" FROM shops WHERE id = {shopId} FOR NO KEY UPDATE";
+            if (table == "actor") sql = $"SELECT id AS \"Value\" FROM users WHERE id = {id} FOR SHARE";
+            else if (table == "shop_gate") sql = $"SELECT id AS \"Value\" FROM shops WHERE id = {shopId} FOR SHARE";
+            else if (table == "shops") sql = $"SELECT id AS \"Value\" FROM shops WHERE id = {shopId} FOR NO KEY UPDATE";
             else if (table == "tills") sql = $"SELECT id AS \"Value\" FROM tills WHERE shop_id = {shopId} AND id = {id} FOR NO KEY UPDATE";
             else sql = $"SELECT id AS \"Value\" FROM till_sessions WHERE shop_id = {shopId} AND id = {id} FOR NO KEY UPDATE";
             var rows = await context.Database.SqlQuery<Guid>(sql).ToListAsync(ct);

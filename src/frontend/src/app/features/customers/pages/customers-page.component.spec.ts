@@ -152,6 +152,17 @@ describe('CustomersPageComponent', () => {
   ]);
 
   const facade = {
+    summary: signal({
+      totalCustomers: 500,
+      outstandingBalance: 120,
+      outstandingCount: 1,
+      totalCreditIssued: 700,
+      accountsWithCredit: 2,
+      monthlyRevenue: 680,
+    }),
+    totalCount: signal(41),
+    query: signal({ pageNumber: 3, pageSize: 20, status: 'all' as const, search: '' }),
+    loadDirectory: vi.fn(),
     allCustomers: customersSignal,
     loadingCustomers: signal(false),
     submitting: signal(false),
@@ -179,6 +190,7 @@ describe('CustomersPageComponent', () => {
 
   beforeEach(async () => {
     facade.loadCustomers.mockClear();
+    facade.loadDirectory.mockClear();
     facade.clearError.mockClear();
     facade.clearMutationStatus.mockClear();
     router.navigate.mockClear();
@@ -298,9 +310,9 @@ describe('CustomersPageComponent', () => {
     expect(text).not.toContain('<img onerror');
   });
 
-  it('computes summary metrics from customer rows', () => {
+  it('uses full-shop summary even when only a page of customers is present', () => {
     expect(facade.loadCustomers).toHaveBeenCalled();
-    expect(component.totalCustomers()).toBe(3);
+    expect(component.totalCustomers()).toBe(500);
     expect(component.outstandingBalance()).toBe(120);
     // Owing something is "outstanding"; overdue needs a due date that has passed.
     expect(component.outstandingCount()).toBe(1);
@@ -368,18 +380,39 @@ describe('CustomersPageComponent', () => {
     opener.remove();
   });
 
-  it('filters by name, phone, address, and reference (customerId) without using numeric metrics', () => {
-    component.searchValue.set('warehouse');
-    expect(component.filteredCustomers().map((customer) => customer.customerId)).toEqual(['c2']);
+  it('debounces search, resets status to page one and requests remote pages', () => {
+    vi.useFakeTimers();
+    component.onSearchChange('Late party');
+    vi.advanceTimersByTime(249);
+    expect(facade.loadDirectory).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(facade.loadDirectory).toHaveBeenLastCalledWith({
+      search: 'Late party',
+      status: 'all',
+      pageNumber: 1,
+      pageSize: 20,
+    });
+    component.onDirectoryPage({ page: 3, rows: 20 });
+    expect(facade.loadDirectory).toHaveBeenLastCalledWith({
+      search: 'Late party',
+      status: 'all',
+      pageNumber: 3,
+      pageSize: 20,
+    });
+    component.onStatusFilterChange('inactive');
+    expect(facade.loadDirectory).toHaveBeenLastCalledWith({
+      search: 'Late party',
+      status: 'inactive',
+      pageNumber: 1,
+      pageSize: 20,
+    });
+    vi.useRealTimers();
+  });
 
-    component.searchValue.set('8888');
-    expect(component.filteredCustomers().map((customer) => customer.customerId)).toEqual(['c2']);
-
-    component.searchValue.set('c1');
-    expect(component.filteredCustomers().map((customer) => customer.customerId)).toEqual(['c1']);
-
-    component.searchValue.set('120');
-    expect(component.filteredCustomers().map((customer) => customer.customerId)).toEqual([]);
+  it('renders the remote page without a second local filter', () => {
+    component.searchValue.set('not-on-this-page');
+    expect(component.filteredCustomers()).toEqual(customersSignal());
+    expect(component.filteredRowCount()).toBe(41);
   });
 
   it('derives customer status and usage from activity and outstanding due', () => {

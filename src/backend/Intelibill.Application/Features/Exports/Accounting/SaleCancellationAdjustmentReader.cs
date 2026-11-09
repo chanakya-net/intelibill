@@ -15,7 +15,7 @@ public sealed class SaleCancellationAdjustmentReader(ISaleCancellationRepository
     public async Task<IReadOnlyList<SaleCancellationAdjustmentEntry>> ReadForSalesAsync(Guid shopId, IReadOnlyCollection<Guid> saleIds, CancellationToken cancellationToken) =>
         Project(await repository.GetBySaleIdsAsync(shopId, saleIds, cancellationToken));
 
-    private static List<SaleCancellationAdjustmentEntry> Project(IEnumerable<SaleCancellation> facts) =>
+    public static List<SaleCancellationAdjustmentEntry> Project(IEnumerable<SaleCancellation> facts) =>
         facts.Select(c => new SaleCancellationAdjustmentEntry(c.Id, c.SaleId, c.ReferenceNumber,
                 c.OriginalInvoiceNumber, c.OriginalBusinessDate, c.BusinessDate, c.CancelledAt,
                 c.BusinessTimeZoneId, c.Reason, c.PolicyVersion, c.Seller, c.Buyer,

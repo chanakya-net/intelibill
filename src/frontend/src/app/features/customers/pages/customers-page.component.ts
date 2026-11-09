@@ -1,3 +1,8 @@
+import { DestroyRef } from '@angular/core';
+import {
+  DEFAULT_DIRECTORY_QUERY,
+  EMPTY_CUSTOMER_SUMMARY,
+} from '../../../shared/models/party-directory.models';
 import { signal as errorSignal } from '@angular/core';
 import {
   ApiErrorMessageService,
@@ -185,52 +190,54 @@ export class CustomersPageComponent {
   readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
 
   readonly customers = this.customersFacade.allCustomers;
-  readonly searchValue = signal('');
-  readonly statusFilter = signal<CustomerStatusFilter>('all');
+  readonly searchValue = signal(this.customersFacade.query?.()?.search ?? '');
+  readonly statusFilter = signal<CustomerStatusFilter>(
+    this.customersFacade.query?.()?.status ?? 'all',
+  );
   readonly customerStatus = deriveCustomerStatus;
   readonly customerStatusLabelKey = deriveCustomerStatusLabelKey;
   readonly customerStatusClass = deriveCustomerStatusClass;
   readonly customerUsagePercent = deriveCustomerUsagePercent;
   readonly customerUsageLabel = deriveCustomerUsageLabel;
 
-  readonly filteredCustomers = computed(() => {
-    const search = this.searchValue().trim().toLowerCase();
-    const statusFilter = this.statusFilter();
-
-    const byStatus =
-      statusFilter === 'all'
-        ? [...this.customers()]
-        : this.customers().filter((customer) => customer.isActive === (statusFilter === 'active'));
-
-    if (!search) {
-      return byStatus;
-    }
-
-    return byStatus.filter((customer) =>
-      [customer.name, customer.phoneNumber, customer.address ?? '', customer.customerId].some(
-        (value) => value.toLowerCase().includes(search),
-      ),
-    );
-  });
-
-  readonly totalCustomers = computed(() => this.customers().length);
-  readonly outstandingBalance = computed(() =>
-    this.sumBy(this.customers(), (customer) => Math.max(0, customer.outstandingDue ?? 0)),
+  readonly filteredCustomers = computed(() => this.customers());
+  readonly directoryQuery = computed(
+    () => this.customersFacade.query?.() ?? DEFAULT_DIRECTORY_QUERY,
   );
-  /** Customers who owe something. Not "overdue": that needs a due date, which only the statement knows. */
-  readonly outstandingCount = computed(
-    () => this.customers().filter((customer) => (customer.outstandingDue ?? 0) > 0).length,
+  readonly pageNumber = computed(() => this.directoryQuery().pageNumber ?? 1);
+  readonly pageSize = computed(() => this.directoryQuery().pageSize ?? 20);
+  readonly totalCount = computed(() => this.customersFacade.totalCount?.() ?? 0);
+  readonly directorySummary = computed(
+    () => this.customersFacade.summary?.() ?? EMPTY_CUSTOMER_SUMMARY,
   );
-  readonly totalCreditIssued = computed(() =>
-    this.sumBy(this.customers(), (customer) => customer.creditLimit ?? 0),
+  readonly totalCustomers = computed(() => this.directorySummary().totalCustomers);
+  readonly outstandingBalance = computed(() => this.directorySummary().outstandingBalance);
+  readonly outstandingCount = computed(() => this.directorySummary().outstandingCount);
+  readonly totalCreditIssued = computed(() => this.directorySummary().totalCreditIssued);
+  readonly accountsWithCredit = computed(() => this.directorySummary().accountsWithCredit);
+  readonly monthlyRevenue = computed(() => this.directorySummary().monthlyRevenue);
+  readonly filteredRowCount = this.totalCount;
+  private directorySearchTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly directoryDestroy = inject(DestroyRef).onDestroy(() =>
+    clearTimeout(this.directorySearchTimer),
   );
-  readonly accountsWithCredit = computed(
-    () => this.customers().filter((customer) => (customer.creditLimit ?? 0) > 0).length,
-  );
-  readonly monthlyRevenue = computed(() =>
-    this.sumBy(this.customers(), (customer) => customer.currentMonthRevenue ?? 0),
-  );
-  readonly filteredRowCount = computed(() => this.filteredCustomers().length);
+  onSearchChange(value: string): void {
+    this.searchValue.set(value);
+    clearTimeout(this.directorySearchTimer);
+    this.directorySearchTimer = setTimeout(() => this.loadDirectoryPage(1), 250);
+  }
+  onDirectoryPage(event: { page: number; rows: number }): void {
+    clearTimeout(this.directorySearchTimer);
+    this.loadDirectoryPage(event.page, event.rows);
+  }
+  private loadDirectoryPage(pageNumber: number, pageSize = this.pageSize()): void {
+    this.customersFacade.loadDirectory({
+      search: this.searchValue().trim(),
+      status: this.statusFilter(),
+      pageNumber,
+      pageSize,
+    });
+  }
   readonly summaryCards = computed<CustomerSummaryCard[]>(() => [
     {
       labelKey: 'customers.summary.totalCustomers',
@@ -719,6 +726,8 @@ export class CustomersPageComponent {
 
   onStatusFilterChange(statusFilter: CustomerStatusFilter): void {
     this.statusFilter.set(statusFilter);
+    clearTimeout(this.directorySearchTimer);
+    this.loadDirectoryPage(1);
   }
 
   onAccountLedgerFilterChange(filter: AccountLedgerFilter): void {

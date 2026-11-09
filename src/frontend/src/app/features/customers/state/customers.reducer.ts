@@ -1,3 +1,10 @@
+import { ShopContextActions } from '../../../core/context/shop-context.actions';
+import {
+  PartyDirectoryQuery,
+  CustomerDirectorySummary,
+  EMPTY_CUSTOMER_SUMMARY,
+  DEFAULT_DIRECTORY_QUERY,
+} from '../../../shared/models/party-directory.models';
 import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
@@ -13,6 +20,10 @@ export const customersAdapter = createEntityAdapter<Customer>({
 });
 
 export interface CustomersState extends EntityState<Customer> {
+  readonly query: PartyDirectoryQuery;
+  readonly requestId: string | undefined;
+  readonly totalCount: number;
+  readonly summary: CustomerDirectorySummary;
   readonly loadingCustomers: boolean;
   readonly submitting: boolean;
   readonly localizedError: LocalizedError | undefined;
@@ -22,6 +33,10 @@ export interface CustomersState extends EntityState<Customer> {
 }
 
 const initialState: CustomersState = customersAdapter.getInitialState({
+  query: DEFAULT_DIRECTORY_QUERY,
+  requestId: undefined,
+  totalCount: 0,
+  summary: EMPTY_CUSTOMER_SUMMARY,
   loadingCustomers: false,
   submitting: false,
   localizedError: undefined,
@@ -32,6 +47,30 @@ const initialState: CustomersState = customersAdapter.getInitialState({
 
 export const customersReducer = createReducer(
   initialState,
+  on(ShopContextActions.scopeChanged, () => initialState),
+  on(CustomersActions.directoryRequested, (state, { query, requestId }) => ({
+    ...state,
+    query,
+    requestId,
+    localizedError: undefined,
+    loadingCustomers: true,
+    errorMessage: '',
+  })),
+  on(CustomersActions.directorySucceeded, (state, { page, requestId }) =>
+    requestId !== state.requestId
+      ? state
+      : customersAdapter.setAll([...page.items], {
+          ...state,
+          totalCount: page.totalCount,
+          summary: page.summary,
+          query: { ...state.query, pageNumber: page.pageNumber, pageSize: page.pageSize },
+          loadingCustomers: false,
+          errorMessage: '',
+        }),
+  ),
+  on(CustomersActions.directoryFailed, (state, { errorMessage, requestId }) =>
+    requestId !== state.requestId ? state : { ...state, loadingCustomers: false, errorMessage },
+  ),
   on(CustomersActions.loadCustomersRequested, (state) => ({
     ...state,
     loadingCustomers: true,

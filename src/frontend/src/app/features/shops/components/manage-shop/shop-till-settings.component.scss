@@ -1,0 +1,204 @@
+@use '../../../../core/styles/form-control-mixins' as controls;
+
+:host {
+  display: block;
+  min-width: 0;
+}
+.settings-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.settings-header,
+.settings-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.settings-header {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.settings-heading {
+  flex: 1 1 16rem;
+}
+.settings-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 2.5rem;
+  height: 2.5rem;
+  border: 1px solid #fed7aa;
+  border-radius: 0.75rem;
+  background: #fff7ed;
+  color: #9a3412;
+}
+h3,
+h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+p {
+  margin: 0;
+}
+.settings-heading p,
+.settings-muted {
+  margin-top: 0.25rem;
+  color: #475569;
+  font-size: 0.8125rem;
+}
+.settings-status {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.settings-status--enabled {
+  border-color: #bbdfc4;
+  background: #f0f9ef;
+  color: #23633b;
+}
+.settings-notice,
+.settings-blockers {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid #fed7aa;
+  border-radius: 0.75rem;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.8125rem;
+}
+.settings-notice .pi {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+.settings-blockers {
+  display: grid;
+  gap: 0.5rem;
+}
+.settings-blockers p {
+  font-weight: 600;
+}
+dl {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+}
+dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+dd {
+  margin: 0;
+  font-weight: 700;
+}
+.settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+.settings-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-right: auto;
+  color: #9a3412;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.settings-link .pi {
+  font-size: 0.75rem;
+}
+.settings-confirmation {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.8rem;
+  background: #f8fafc;
+}
+.settings-field {
+  display: grid;
+  gap: 0.4rem;
+}
+.settings-field label {
+  color: #475569;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+textarea {
+  @include controls.text-input;
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+  font-size: 0.875rem;
+  &:enabled:focus {
+    @include controls.text-input-focus;
+  }
+}
+.settings-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+.settings-check p-checkbox {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+.settings-check label {
+  cursor: pointer;
+}
+.settings-error {
+  color: #9f1239;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+}
+.settings-saved {
+  color: #166534;
+}
+.settings-refresh {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e2e8f0;
+}
+.settings-link:focus-visible {
+  outline: 2px solid #c2410c;
+  outline-offset: 3px;
+  border-radius: 0.2rem;
+}
+@media (max-width: 640px) {
+  .settings-card {
+    padding: 1rem;
+  }
+  .settings-confirmation {
+    padding: 0.75rem;
+  }
+  .settings-actions {
+    align-items: stretch;
+  }
+  .settings-actions > button {
+    flex: 1 1 12rem;
+  }
+}

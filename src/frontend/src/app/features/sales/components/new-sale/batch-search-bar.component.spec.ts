@@ -152,6 +152,90 @@ describe('BatchSearchBarComponent', () => {
     expect(searches).toEqual(['A11Y']);
   });
 
+  it('cancels the real input debounce across Enter and picker close without reopening empty suggestions', async () => {
+    vi.stubGlobal('matchMedia', () => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+    TestBed.configureTestingModule({
+      imports: [
+        BatchSearchBarComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
+    });
+    const fixture = TestBed.createComponent(BatchSearchBarComponent);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    const widget = fixture.debugElement.query(By.directive(AutoComplete))
+      .componentInstance as AutoComplete;
+    const filters = vi.fn();
+    const searches = vi.fn();
+    fixture.componentInstance.suggestionFilter.subscribe(filters);
+    fixture.componentInstance.search.subscribe(searches);
+    fixture.componentInstance.searchTermChanged.subscribe((value) =>
+      fixture.componentRef.setInput('searchTerm', value),
+    );
+    vi.useFakeTimers();
+    try {
+      input.focus();
+      input.value = 'A11Y';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      fixture.detectChanges();
+      expect(widget.searchTimeout).toBeDefined();
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          code: 'Enter',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      expect(searches).toHaveBeenCalledExactlyOnceWith('A11Y');
+      expect(widget.searchTimeout).toBeUndefined();
+      fixture.componentRef.setInput('pickerOpen', true);
+      fixture.detectChanges();
+      await vi.advanceTimersByTimeAsync(widget.delay + 1);
+      fixture.detectChanges();
+      fixture.componentRef.setInput('searchTerm', '');
+      fixture.componentRef.setInput('searchSuggestions', []);
+      fixture.componentRef.setInput('pickerOpen', false);
+      fixture.detectChanges();
+      await vi.advanceTimersByTimeAsync(1);
+      fixture.detectChanges();
+      expect(filters).not.toHaveBeenCalled();
+      expect(widget.loading).toBe(false);
+      expect(input.value).toBe('');
+      expect(input.getAttribute('aria-expanded')).toBe('false');
+      expect(widget.overlayVisible).toBe(false);
+      expect(document.querySelector('.p-autocomplete-overlay')).toBeNull();
+    } finally {
+      fixture.destroy();
+      vi.useRealTimers();
+    }
+  });
+
+  it('clears widget loading when an independent completion arrives while the picker is open', () => {
+    TestBed.configureTestingModule({
+      imports: [
+        BatchSearchBarComponent,
+        TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true }),
+      ],
+    });
+    const fixture = TestBed.createComponent(BatchSearchBarComponent);
+    fixture.componentRef.setInput('pickerOpen', true);
+    fixture.detectChanges();
+    const widget = fixture.debugElement.query(By.directive(AutoComplete))
+      .componentInstance as AutoComplete;
+    const filter = vi.fn();
+    fixture.componentInstance.suggestionFilter.subscribe(filter);
+    widget.loading = true;
+    fixture.componentInstance.onComplete({ query: 'late' } as never);
+    expect(widget.loading).toBe(false);
+    expect(filter).not.toHaveBeenCalled();
+  });
+
   it('emits search term when search action is triggered', () => {
     TestBed.configureTestingModule({
       imports: [

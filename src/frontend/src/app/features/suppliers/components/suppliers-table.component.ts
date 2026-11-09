@@ -1,5 +1,15 @@
+import { PaginatorModule } from 'primeng/paginator';
 import { CommonModule, CurrencyPipe } from '@angular/common';
-import { Component, EventEmitter, Input, Output, computed, inject, input, signal } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  Output,
+  computed,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { AvatarModule } from 'primeng/avatar';
 import { ButtonModule } from 'primeng/button';
@@ -15,6 +25,7 @@ import { SuppliersFilterBarComponent } from './suppliers-filter-bar.component';
   standalone: true,
   imports: [
     CommonModule,
+    PaginatorModule,
     AvatarModule,
     ButtonModule,
     CardModule,
@@ -34,6 +45,15 @@ export class SuppliersTableComponent {
   @Input() canManageSuppliers = false;
   @Input() canMakePayment = false;
 
+  @Input() pageNumber = 1;
+  @Input() pageSize = 20;
+  @Input() totalRows = 0;
+  @Output() pageChange = new EventEmitter<{ page: number; rows: number }>();
+  onPageChange(event: { page?: number; rows?: number }): void {
+    const rows = event.rows ?? this.pageSize;
+    this.pageChange.emit({ page: rows !== this.pageSize ? 1 : (event.page ?? 0) + 1, rows });
+  }
+
   @Output() openSupplierDetail = new EventEmitter<Supplier>();
   @Output() editSupplier = new EventEmitter<Supplier>();
   @Output() makePayment = new EventEmitter<Supplier>();
@@ -41,40 +61,19 @@ export class SuppliersTableComponent {
   readonly searchValue = signal('');
   readonly statusFilter = signal<'all' | 'active' | 'inactive'>('all');
 
-  readonly filteredSuppliers = computed(() => {
-    let result = [...this.suppliers()];
-    const search = this.searchValue().toLowerCase();
-    const status = this.statusFilter();
-
-    if (search) {
-      result = result.filter(
-        (s) =>
-          s.name.toLowerCase().includes(search) ||
-          s.contactPersonName?.toLowerCase().includes(search) ||
-          s.contactPersonPhone?.toLowerCase().includes(search) ||
-          s.city.toLowerCase().includes(search),
-      );
-    }
-
-    if (status === 'active') {
-      result = result.filter((s) => s.isActive);
-    } else if (status === 'inactive') {
-      result = result.filter((s) => !s.isActive);
-    }
-
-    return result;
-  });
-
+  @Input() search = '';
+  @Input() status: 'all' | 'active' | 'inactive' = 'all';
+  @Output() searchChange = new EventEmitter<string>();
+  @Output() statusChange = new EventEmitter<'all' | 'active' | 'inactive'>();
+  readonly filteredSuppliers = computed(() => [...this.suppliers()]);
   get tableSuppliers(): Supplier[] {
-    return this.filteredSuppliers();
+    return [...this.suppliers()];
   }
-
   onSearchChange(value: string): void {
-    this.searchValue.set(value);
+    this.searchChange.emit(value);
   }
-
   onStatusChange(value: 'all' | 'active' | 'inactive'): void {
-    this.statusFilter.set(value);
+    this.statusChange.emit(value);
   }
 
   supplierInitials(name: string): string {

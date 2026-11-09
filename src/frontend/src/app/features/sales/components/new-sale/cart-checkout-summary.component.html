@@ -1,13 +1,27 @@
 <div class="summary-box flex-1">
   @if (recordedCost !== null && !loading) {
     <div class="checkout-economics" data-testid="checkout-economics">
-      <p>
-        {{ 'sales.profitLoss.economics.netSales' | transloco }}:
-        {{ preview?.totalTaxableAmount | localeMoney }}
+      <dl class="checkout-economics__metrics">
+        <div class="checkout-economics__row">
+          <dt>{{ 'sales.profitLoss.economics.netSales' | transloco }}</dt>
+          <dd>{{ preview?.totalTaxableAmount | localeMoney }}</dd>
+        </div>
+        <div class="checkout-economics__row">
+          <dt>{{ 'sales.profitLoss.economics.cogs' | transloco }}</dt>
+          <dd>{{ recordedCost | localeMoney }}</dd>
+        </div>
+        <div
+          class="checkout-economics__row checkout-economics__profit"
+          [class.checkout-economics__profit--negative]="(grossProfit ?? 0) < 0"
+        >
+          <dt>{{ 'sales.profitLoss.economics.trading' | transloco }}</dt>
+          <dd>{{ grossProfit | localeMoney }}</dd>
+        </div>
+      </dl>
+      <p class="checkout-economics__note">
+        <i class="pi pi-info-circle" aria-hidden="true"></i>
+        <span>{{ 'sales.profitLoss.economics.basis' | transloco }}</span>
       </p>
-      <p>{{ 'sales.profitLoss.economics.cogs' | transloco }}: {{ recordedCost | localeMoney }}</p>
-      <p>{{ 'sales.profitLoss.economics.trading' | transloco }}: {{ grossProfit | localeMoney }}</p>
-      <small>{{ 'sales.profitLoss.economics.basis' | transloco }}</small>
     </div>
   }
 

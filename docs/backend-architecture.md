@@ -666,12 +666,12 @@ share, or a share whose tax is outside its gross, answers 400 `SaleReturn.Accoun
 the invoice share cumulatively — `round(original × cumulative qty / sold qty) − already allocated` —
 so the final return takes the last paisa and no component is exhausted twice.
 
-**Posting periods.** `ReturnAdjustmentReader` loads every return processed or voided in the period
-(`ISaleReturnRepository.GetPostedInRangeAsync`, with sales outside the period loaded by id) and
-`ReturnAdjustmentProjector` turns it into dated entries: the return on its UTC processing date, a void
-as a negated `VoidReversal` on its UTC void date. A June return voided in July shows its credit in
-June and only the reversal in July. Sales XLSX, PDF, Tally and the P&L all read these entries, so
-their return totals agree; export metadata carries `AccountingExportVersion` 2.
+**Posting periods.** `ReturnAdjustmentProjector` turns return facts into dated entries on the
+persisted business date, with a negated `VoidReversal` on the persisted void business date. A June
+return voided in July shows its credit in June and only the reversal in July. Sales XLSX/PDF/Tally
+feed this pure projector from `IExportReadSnapshot` bounded pages; other report readers use
+`ReturnAdjustmentReader` and load historical original sales by id. Their return totals retain the
+same accounting rules; export metadata carries `AccountingExportVersion` 2.
 
 **Vouchers.** Tally builds `AccountingVoucher`s first and writes XML only from them. A return is a
 `Credit Note` voucher numbered with the return number and referencing the invoice: Sales, Output GST
@@ -937,8 +937,8 @@ expire.
 **Business date.** `BusinessCalendar` reads instants in IST (fixed UTC+05:30). `FiscalYear.ForDate`
 uses it, so a sale at 00:30 IST on 1 April belongs to the new year; lease expiry caps at 1 April
 00:00 IST; the offline fiscal-year timing check and Tally voucher and reference dates use the same
-calendar. Export date ranges, customer ledger dates and the Excel/PDF exports still read UTC dates
-(backlog 27).
+calendar. Sales export windows use persisted shop-local business dates; customer monthly revenue
+uses the shop clock's half-open UTC window. See § Business Dates and Posting Periods.
 
 **Offline.** A lease freezes the seller profile it was reserved under (`invoice_leases.seller_profile`);
 sync and reconciliation replays issue the document under it (the current profile for legacy leases).
@@ -1251,6 +1251,8 @@ Apply `20261107201224_AddSaleCancellations` before API/web; update all pods/read
 
 ## Till Sessions and Counted Close
 
+Owner setup is persisted separately from deployment eligibility: `shop_till_settings` plus immutable `shop_till_setting_events` use forced tenant RLS. `GET/PUT /api/shops/{shopId}/till-settings` are active-shop-scoped; Owners/Managers read readiness and a live Owner alone changes the observed version with reason/confirmation. The global flag and exact allowlist remain required. New shops default off; the additive owner-settings migration preserves existing till users. Disable refuses open/overdue sessions, unreviewed variance closes and unresolved offline evidence, with an owner acknowledgement for unknowable device queues. All source transactions retain a shared settings gate through commit; setting changes/opening use the exclusive catalog lock. Update every source writer before exposing setup and never roll back to binaries that ignore the persisted setting. See the rollout guide for lock order and recovery details.
+
 Till sessions attach recorded external settlement and non-drawer settlement totals to one physical till, named cashier and shop-local business date. Seven tenant tables (`tills`, `till_sessions`, `till_source_records`, `till_movements`, `till_closes`, `till_close_reviews`, `till_late_postings`) use forced RLS and composite tenant foreign keys. A partial unique index prevents two open sessions per till. Immutable sources are globally unique by shop/type/source/purpose; movements add line and session sequence uniqueness. An all-due sale still appends a source and advances session `xmin`, protecting close from a stale zero-cash boundary.
 
 `TillSessions` defaults to `Enabled=false`, `AllowedShopIds=[]`, `MixedTenderEnabled=false`; enablement requires both gate and exact shop. Mixed tender is unsupported. Explicit new evidence with a disabled gate is refused; absent fields retain legacy behavior/hash. Deploy the five migrations and every API/read/write path before a separately approved pilot. All five Down methods refuse schema rollback. See [Till rollout](till-sessions-rollout.md) for ordered migrations, contracts, verification and operational limits.
@@ -1278,3 +1280,55 @@ Schema4 catalogs persist immutable seven-day `OfflineExpiryEvidence` before yiel
 `InventoryBatch.QuarantinedQuantity` is a physical subset. Expired/required-undated recovered returns and cancellations retain exact roots in `batch_disposition_changes`; child balances equal batch quarantine via deferred PostgreSQL checks. `GET/POST /api/inventory/batches/{id}/dispositions` provides history and Owner-only keyed Release/Dispose (operation27; result `/api/financial-operations/batch-disposition/{key}`). Originally expired roots cannot release; missing-date roots require audited correction/current eligibility. Dispose reduces both quantities and recognizes dated independent loss at recorded cost. Quarantine itself is no write-off; return/cancellation COGS reverses once. Source void reverses exact untouched roots; counts/adjustments/supplier/reversal writers preserve quarantine and journal history. All new tables have forced RLS, tenant manifest entries and immutable history triggers; source disposition and disposal links are protected.
 
 See [expiry rollout](expiry-aware-selling-rollout.md) for the four ordered migrations, every-writer deployment, explicit-shop read-only audit, nonregulated/offline/accounting limits and forward-only recovery. No merchant policy is enabled by deployment; retain schema/evidence and compatible readers/writers on rollback.
+
+
+## Bounded Sales Exports and Party Directories
+
+`GET /api/exports/sales` retains its formats and response files. Authorization, format/level and
+date validation precede `IExportReadStore.OpenSnapshotAsync`. A request owns one scoped context,
+connection and read-only PostgreSQL **REPEATABLE READ** transaction. SQL preflight counts and all
+sale, return/void, cancellation, historical original-sale and fallback-label pages share that
+snapshot, explicit shop predicates and runtime RLS. Existing transactions are refused. The
+transaction is disposed before rendering; there is no cross-request continuation token.
+
+Limits are **2,000 logical PDF rows**, **50,000 logical XLSX/Tally rows**, **50,000 distinct source
+records**, and **1,000 records per materializing query**, including child collections. Logical counts
+include all data-bearing adjustment sections: both an in-window return and its in-window void,
+cancellation headers/lines, XLSX summary adjustment aggregates and XML headers/lines. Source counts
+deduplicate overlapping original-sale dependencies and cover children, settlements and fallback
+records. SQL aggregates may scan more rows but do not materialize histories. See
+[the verification contract](bounded-reads-verification.md) for the exact format-specific formulas.
+Over-limit preflight returns `Export.PdfRowLimitExceeded`, `Export.RowLimitExceeded` or
+`Export.ReadLimitExceeded` with a narrow-date-range remedy; it performs no detail read or rendering.
+Accepted files are never silently truncated.
+
+Sales use keysets `(SoldAt DESC, Id DESC)`; return facts `(ProcessedAt ASC, Id ASC)`; cancellations
+`(CancelledAt ASC, Id ASC)`; children `(parentId, Id)` under PostgreSQL UUID ordering. Current active
+return quantities are grouped in SQL. Cancellation reaches every page boundary/command and renderer
+row loops; opaque synchronous rendering/library calls cannot promise immediate interruption.
+
+`GET /api/{customers|suppliers}/directory` returns
+`{items,totalCount,pageNumber,pageSize,summary}`. Defaults: page1/size20/status all, maximum size100;
+search is trimmed, at most200 characters, case-insensitive literal substring (including `%`, `_`
+and backslash). Invalid bounds/status/overflowing offsets are400. Filtering precedes complete count,
+displayed-name/ID ordering and offset paging. Supplier `include_system` defaults true and includes
+the displayed `Unassigned` alias; management sends false. `totalCount` is filtered; `summary` covers
+all visible shop parties, ignoring search/status while respecting `include_system`. Directories
+have normal interactive offset consistency, without a repeatable snapshot across requests.
+
+Customer summary fields are `totalCustomers`, `outstandingBalance`, `outstandingCount`,
+`totalCreditIssued`, `accountsWithCredit`, `monthlyRevenue`; supplier fields are `totalSuppliers`,
+`activeSuppliers`, `preferredSuppliers`, `pendingPayables`. Counts, signed balances and summaries are
+SQL aggregates; page metrics/balances use returned IDs only. Receivables/payables sum positive
+**per-party net balances**. Customer positive types are SaleDue/ReturnCreditReversal/PaymentReversal;
+PaymentReceived/ReturnCredit/SaleCancellationCredit negate amounts; unknown persisted types are
+rejected. Supplier PaymentMade negates its amount; the other current types retain their signed
+amount. Monthly revenue preserves sale metrics and independently dated cancellation subtraction.
+
+`GET /api/customers/{customerId:guid}` and `GET /api/suppliers/{supplierId:guid}` return existing DTOs
+for restored identities/deep links, with live membership checks and404 for absent/foreign IDs.
+Legacy `GET /api/customers` and `GET /api/suppliers` retain array compatibility and remain unbounded;
+their balances use grouped SQL, but they are not a scalable replacement for the directory routes.
+No schema/index changes were required. Deploy API routes before/with the web client; rollback keeps
+legacy arrays available. Local verification is documented in
+[bounded reads verification](bounded-reads-verification.md), without a production capacity claim.

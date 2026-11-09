@@ -1,7 +1,7 @@
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { Action } from '@ngrx/store';
+import { Action, Store } from '@ngrx/store';
 import { Actions } from '@ngrx/effects';
 import { Observable, Subject, firstValueFrom, of, throwError } from 'rxjs';
 import { take } from 'rxjs/operators';
@@ -19,7 +19,7 @@ describe('SuppliersEffects', () => {
   let effects: SuppliersEffects;
 
   const supplierService = {
-    getSuppliers: vi.fn<SupplierService['getSuppliers']>(),
+    getDirectory: vi.fn<SupplierService['getDirectory']>(),
     addSupplier: vi.fn<SupplierService['addSupplier']>(),
     editSupplier: vi.fn<SupplierService['editSupplier']>(),
   };
@@ -44,7 +44,7 @@ describe('SuppliersEffects', () => {
       },
     });
     actions$ = new Subject<Action>();
-    supplierService.getSuppliers.mockReset();
+    supplierService.getDirectory.mockReset();
     supplierService.addSupplier.mockReset();
     supplierService.editSupplier.mockReset();
     ledgerService.getSupplierLedgerEntries.mockReset();
@@ -53,9 +53,24 @@ describe('SuppliersEffects', () => {
     TestBed.configureTestingModule({
       providers: [
         SuppliersEffects,
+        {
+          provide: Store,
+          useValue: {
+            selectSignal: () => () => ({
+              search: 'Late',
+              status: 'active',
+              pageNumber: 3,
+              pageSize: 20,
+              includeSystem: false,
+            }),
+          },
+        },
         { provide: SupplierService, useValue: supplierService },
         { provide: SupplierLedgerService, useValue: ledgerService },
-        { provide: AuthService, useValue: { session: () => ({ user: { id: 'user-1' }, activeShopId: 'shop-1' }) } },
+        {
+          provide: AuthService,
+          useValue: { session: () => ({ user: { id: 'user-1' }, activeShopId: 'shop-1' }) },
+        },
         provideHttpClient(),
         provideHttpClientTesting(),
         {
@@ -78,24 +93,55 @@ describe('SuppliersEffects', () => {
     }
   });
 
-  it('dispatches loadSuppliersSucceeded on load success', async () => {
-    supplierService.getSuppliers.mockReturnValue(
-      of([
-        {
-          supplierId: 's1',
-          name: 'Fresh Foods',
-          contactPersonName: 'Ramesh',
-          contactPersonPhone: '+919999999999',
-          address: 'Address',
-          city: 'City',
-          state: 'State',
-          pin: '560001',
-          isSystem: false,
-          isActive: true,
-          isPreferred: false,
-          balanceDue: 1500,
+  it('refreshes exactly the current query once after normal supplier payment success', () => {
+    const values: unknown[] = [];
+    const subscription = effects.refreshDirectory$.subscribe((value) => values.push(value));
+    actions$.next(SuppliersActions.makePaymentSucceeded({ entry: { id: 'entry' } as never }));
+    expect(values).toEqual([
+      expect.objectContaining({
+        type: SuppliersActions.directoryRequested.type,
+        requestId: expect.any(String),
+        query: {
+          search: 'Late',
+          status: 'active',
+          pageNumber: 3,
+          pageSize: 20,
+          includeSystem: false,
         },
-      ])
+      }),
+    ]);
+    subscription.unsubscribe();
+  });
+
+  it('dispatches loadSuppliersSucceeded on load success', async () => {
+    supplierService.getDirectory.mockReturnValue(
+      of({
+        items: [
+          {
+            supplierId: 's1',
+            name: 'Fresh Foods',
+            contactPersonName: 'Ramesh',
+            contactPersonPhone: '+919999999999',
+            address: 'Address',
+            city: 'City',
+            state: 'State',
+            pin: '560001',
+            isSystem: false,
+            isActive: true,
+            isPreferred: false,
+            balanceDue: 1500,
+          },
+        ],
+        totalCount: 1,
+        pageNumber: 1,
+        pageSize: 20,
+        summary: {
+          totalSuppliers: 1,
+          activeSuppliers: 1,
+          preferredSuppliers: 0,
+          pendingPayables: 1500,
+        },
+      }),
     );
 
     const output = firstValueFrom(effects.loadSuppliers$.pipe(take(1)));
@@ -119,13 +165,13 @@ describe('SuppliersEffects', () => {
             balanceDue: 1500,
           },
         ],
-      })
+      }),
     );
   });
 
   it('maps owner restriction on add supplier failure', async () => {
     supplierService.addSupplier.mockReturnValue(
-      throwError(() => ({ error: { title: 'Supplier.UserIsNotOwner' } }))
+      throwError(() => ({ error: { title: 'Supplier.UserIsNotOwner' } })),
     );
 
     const output = firstValueFrom(effects.addSupplier$.pipe(take(1)));
@@ -142,13 +188,13 @@ describe('SuppliersEffects', () => {
           isActive: true,
           isPreferred: false,
         },
-      })
+      }),
     );
 
     await expect(output).resolves.toEqual(
       SuppliersActions.addSupplierFailed({
         errorMessage: 'errors.suppliers.onlyOwnerCanManageSuppliers',
-      })
+      }),
     );
   });
 
@@ -164,90 +210,135 @@ describe('SuppliersEffects', () => {
     ledgerService.makePayment.mockReturnValue(of(entry));
 
     const output = firstValueFrom(effects.makePayment$.pipe(take(1)));
-    actions$.next(SuppliersActions.makePaymentRequested({
-      supplierId: 's1',
-      payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
-    }));
+    actions$.next(
+      SuppliersActions.makePaymentRequested({
+        supplierId: 's1',
+        payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
+      }),
+    );
 
     await expect(output).resolves.toEqual(SuppliersActions.makePaymentSucceeded({ entry }));
   });
 
   it('maps authorization error on make payment failure', async () => {
     ledgerService.makePayment.mockReturnValue(
-      throwError(() => new HttpErrorResponse({ status: 403, error: { title: 'Supplier.UserIsNotOwnerOrManager' } }))
+      throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 403,
+            error: { title: 'Supplier.UserIsNotOwnerOrManager' },
+          }),
+      ),
     );
 
     const output = firstValueFrom(effects.makePayment$.pipe(take(1)));
-    actions$.next(SuppliersActions.makePaymentRequested({
-      supplierId: 's1',
-      payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
-    }));
+    actions$.next(
+      SuppliersActions.makePaymentRequested({
+        supplierId: 's1',
+        payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
+      }),
+    );
 
     await expect(output).resolves.toEqual(
       SuppliersActions.makePaymentFailed({
         errorMessage: 'errors.suppliers.onlyOwnerOrManagerCanMakePayment',
-      })
+      }),
     );
   });
 
   it('maps generic error on make payment failure', async () => {
     ledgerService.makePayment.mockReturnValue(
-      throwError(() => new HttpErrorResponse({ status: 400, error: { title: 'SomeUnknownError' } }))
+      throwError(
+        () => new HttpErrorResponse({ status: 400, error: { title: 'SomeUnknownError' } }),
+      ),
     );
 
     const output = firstValueFrom(effects.makePayment$.pipe(take(1)));
-    actions$.next(SuppliersActions.makePaymentRequested({
-      supplierId: 's1',
-      payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
-    }));
+    actions$.next(
+      SuppliersActions.makePaymentRequested({
+        supplierId: 's1',
+        payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
+      }),
+    );
 
     await expect(output).resolves.toEqual(
       SuppliersActions.makePaymentFailed({
         errorMessage: 'errors.suppliers.unableToMakePayment',
-      })
+      }),
     );
   });
 
   it('sends a new payment with a durable operation key', async () => {
-    ledgerService.makePayment.mockReturnValue(of({ id: 'e1', supplierId: 's1', entryType: 2, amount: 500, entryDate: '2026-04-07', notes: null }));
+    ledgerService.makePayment.mockReturnValue(
+      of({
+        id: 'e1',
+        supplierId: 's1',
+        entryType: 2,
+        amount: 500,
+        entryDate: '2026-04-07',
+        notes: null,
+      }),
+    );
 
     const output = firstValueFrom(effects.makePayment$.pipe(take(1)));
-    actions$.next(SuppliersActions.makePaymentRequested({
-      supplierId: 's1',
-      payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
-    }));
+    actions$.next(
+      SuppliersActions.makePaymentRequested({
+        supplierId: 's1',
+        payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
+      }),
+    );
     await output;
 
     const [, sent] = ledgerService.makePayment.mock.calls[0];
-    expect(sent).toEqual(expect.objectContaining({ amount: 500, operationKey: expect.stringMatching(/^supplier-payment-/) }));
+    expect(sent).toEqual(
+      expect.objectContaining({
+        amount: 500,
+        operationKey: expect.stringMatching(/^supplier-payment-/),
+      }),
+    );
   });
 
   it('keeps a lost payment pending, blocks a new one and retries the same key', async () => {
     const intents = TestBed.inject(FinancialOperationIntentService);
-    ledgerService.makePayment.mockReturnValueOnce(throwError(() => new HttpErrorResponse({ status: 0 })));
+    ledgerService.makePayment.mockReturnValueOnce(
+      throwError(() => new HttpErrorResponse({ status: 0 })),
+    );
 
     const lost = firstValueFrom(effects.makePayment$.pipe(take(1)));
-    actions$.next(SuppliersActions.makePaymentRequested({
-      supplierId: 's1',
-      payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
-    }));
+    actions$.next(
+      SuppliersActions.makePaymentRequested({
+        supplierId: 's1',
+        payload: { amount: 500, paymentDate: '2026-04-07', notes: null },
+      }),
+    );
     await expect(lost).resolves.toEqual(
-      SuppliersActions.makePaymentFailed({ errorMessage: 'financialOperations.outcomeUnknown' })
+      SuppliersActions.makePaymentFailed({ errorMessage: 'financialOperations.outcomeUnknown' }),
     );
     const firstKey = ledgerService.makePayment.mock.calls[0][1].operationKey;
-    expect(intents.pending({ userId: 'user-1', shopId: 'shop-1' }, 'supplier-payment', 's1')?.status).toBe('unknown');
+    expect(
+      intents.pending({ userId: 'user-1', shopId: 'shop-1' }, 'supplier-payment', 's1')?.status,
+    ).toBe('unknown');
 
     const blocked = firstValueFrom(effects.makePayment$.pipe(take(1)));
-    actions$.next(SuppliersActions.makePaymentRequested({
-      supplierId: 's1',
-      payload: { amount: 650, paymentDate: '2026-04-07', notes: null },
-    }));
+    actions$.next(
+      SuppliersActions.makePaymentRequested({
+        supplierId: 's1',
+        payload: { amount: 650, paymentDate: '2026-04-07', notes: null },
+      }),
+    );
     await expect(blocked).resolves.toEqual(
-      SuppliersActions.makePaymentFailed({ errorMessage: 'financialOperations.pendingBlocksNew' })
+      SuppliersActions.makePaymentFailed({ errorMessage: 'financialOperations.pendingBlocksNew' }),
     );
     expect(ledgerService.makePayment).toHaveBeenCalledTimes(1);
 
-    const entry = { id: 'e1', supplierId: 's1', entryType: 2 as const, amount: 500, entryDate: '2026-04-07', notes: null };
+    const entry = {
+      id: 'e1',
+      supplierId: 's1',
+      entryType: 2 as const,
+      amount: 500,
+      entryDate: '2026-04-07',
+      notes: null,
+    };
     ledgerService.makePayment.mockReturnValueOnce(of(entry));
     const retried = firstValueFrom(effects.retryPayment$.pipe(take(1)));
     actions$.next(SuppliersActions.retryPaymentRequested({ supplierId: 's1' }));
@@ -259,6 +350,8 @@ describe('SuppliersEffects', () => {
       notes: null,
       operationKey: firstKey,
     });
-    expect(intents.pending({ userId: 'user-1', shopId: 'shop-1' }, 'supplier-payment', 's1')).toBeNull();
+    expect(
+      intents.pending({ userId: 'user-1', shopId: 'shop-1' }, 'supplier-payment', 's1'),
+    ).toBeNull();
   });
 });

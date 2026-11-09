@@ -90,6 +90,24 @@ describe('Real payment intent and IndexedDB recovery', () => {
       vi.unstubAllGlobals();
     }
   });
+  async function flushSupplierDirectoryRefresh(): Promise<void> {
+    const refresh = await vi.waitFor(() =>
+      http.expectOne(
+        (request) => request.method === 'GET' && request.url.endsWith('/suppliers/directory'),
+      ),
+    );
+    expect(refresh.request.params.get('pageNumber')).toBe('1');
+    expect(refresh.request.params.get('pageSize')).toBe('20');
+    expect(refresh.request.params.get('include_system')).toBe('true');
+    refresh.flush({
+      items: [],
+      totalCount: 0,
+      pageNumber: 1,
+      pageSize: 20,
+      summary: { totalSuppliers: 0, activeSuppliers: 0, preferredSuppliers: 0, pendingPayables: 0 },
+    });
+  }
+
   function send(
     type: FinancialOperationType,
     intent: ReturnType<typeof intents.prepare<typeof body>>,
@@ -232,6 +250,7 @@ describe('Real payment intent and IndexedDB recovery', () => {
       await vi.waitFor(() =>
         expect(intents.pending(owner, 'supplier-payment', 'party')).toBeNull(),
       );
+      await flushSupplierDirectoryRefresh();
     },
   );
   it('returns another tab’s verified response when confirmation wins the recovery claim race', async () => {
@@ -346,6 +365,7 @@ describe('Real payment intent and IndexedDB recovery', () => {
           ledgerEntries: [],
         });
       await vi.waitFor(() => expect(intents.pending(owner, type, 'party')).toBeNull());
+      if (entrypoint !== 'customer') await flushSupplierDirectoryRefresh();
     },
   );
   it('refreshes outer pending state when another tab confirms through storage', () => {

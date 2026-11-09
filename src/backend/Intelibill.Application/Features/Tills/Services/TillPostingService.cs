@@ -14,10 +14,19 @@ public sealed class TillPostingService(ITillRepository tills, IShopRepository sh
 {
     private readonly Dictionary<Guid, (TillSession Session, Guid Actor, string? Override)> _acquired = [];
 
+    public async Task<ErrorOr<bool>> GateAsync(Guid shopId, CancellationToken ct = default)
+    {
+        var locked = await tills.LockSettingsReadAsync(shopId, ct);
+        if (locked != RowLockOutcome.Acquired) return locked == RowLockOutcome.TimedOut ? TillErrors.Busy : TillErrors.NotFound;
+        return await policy.IsEnabledAsync(shopId, ct);
+    }
+
     public async Task<ErrorOr<TillSession?>> AcquireAsync(Guid shopId, Guid actorId, TillPostingContext? context,
         DateOnly sourceBusinessDate, CancellationToken ct = default)
     {
-        if (!policy.IsEnabled(shopId))
+        var gate = await GateAsync(shopId, ct);
+        if (gate.IsError) return gate.Errors;
+        if (!gate.Value)
             return context is null ? (TillSession?)null : TillErrors.Disabled;
         if (context is null || context.SessionId == Guid.Empty) return TillErrors.SessionRequired;
         var session = await tills.GetSessionAsync(shopId, context.SessionId, ct);

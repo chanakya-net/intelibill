@@ -249,6 +249,9 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
 
     private sealed class InMemorySupplierRepository : ISupplierRepository
     {
+        public Task<Intelibill.Domain.ReadModels.PartyDirectoryPage<Supplier>> GetDirectoryAsync(Guid shopId, Intelibill.Domain.ReadModels.PartyDirectoryQuery query, bool includeSystem, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<Intelibill.Domain.ReadModels.SupplierDirectorySummary> GetDirectorySummaryAsync(Guid shopId, bool includeSystem, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public List<Supplier> AddedSuppliers { get; } = [];
         public Task<IReadOnlyList<Supplier>> GetByShopIdAsync(Guid shopId, bool includeSystem, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Supplier>>([]);
         public Task<Supplier?> GetSystemByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default) => Task.FromResult<Supplier?>(null);

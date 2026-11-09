@@ -72,8 +72,6 @@ public sealed class VoidSaleReturnCommandHandler(
 
     private Task<ErrorOr<Success>> ExecuteAsync(VoidSaleReturnCommand command, Shop shop, Guid saleId, bool ownsTransaction, CancellationToken ct)
     {
-        if (ownsTransaction && !settlement.IsEnabled(command.ShopId) && command.Till is null && command.SettlementEvidence is null)
-            return mutationCoordinator.ExecuteAsync(command.ShopId, saleId, token => VoidAsync(command, shop, null, token), ct);
         TillSession? session = null;
         return mutationCoordinator.ExecuteAsync(command.ShopId, saleId, async token =>
         {

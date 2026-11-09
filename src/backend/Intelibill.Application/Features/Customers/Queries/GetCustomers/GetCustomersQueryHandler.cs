@@ -16,13 +16,18 @@ public sealed class GetCustomersQueryHandler(
     public async Task<ErrorOr<IReadOnlyList<CustomerDto>>> HandleAsync(GetCustomersQuery query, CancellationToken cancellationToken)
     {
         var customers = await customerRepository.GetByShopIdAsync(query.ShopId, cancellationToken);
+        return await EnrichAsync(query.ShopId, customers, cancellationToken);
+    }
+
+    internal async Task<ErrorOr<IReadOnlyList<CustomerDto>>> EnrichAsync(Guid shopId, IReadOnlyList<Intelibill.Domain.Entities.Customer> customers, CancellationToken cancellationToken)
+    {
         var customerIds = customers.Select(c => c.Id).ToList();
         var balances = await customerLedgerEntryRepository.GetCustomerBalancesAsync(
-            query.ShopId,
+            shopId,
             customerIds,
             cancellationToken);
 
-        var shop = await shopRepository.GetByIdAsync(query.ShopId, cancellationToken);
+        var shop = await shopRepository.GetByIdAsync(shopId, cancellationToken);
         if (shop is null)
             return Errors.Shop.ShopNotFound;
 
@@ -32,7 +37,7 @@ public sealed class GetCustomersQueryHandler(
         var month = businessClock.GetUtcWindow(monthStart, monthStart.AddMonths(1).AddDays(-1), shop.BusinessTimeZoneId);
 
         var metrics = await saleRepository.GetCustomerSalesMetricsAsync(
-            query.ShopId,
+            shopId,
             customerIds,
             month,
             cancellationToken);

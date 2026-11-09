@@ -55,7 +55,7 @@ public sealed class RecordExpenseCommandHandler(
             return Error.Validation("Till.SettlementEvidenceInvalid", "Specify one expense settlement contract.");
         var evidence = command.SettlementEvidence ?? (command.TenderLine is null ? null :
             new TillSettlementEvidence(TillSettlementDisposition.MoneyPaid, command.TenderLine, "Expense payment"));
-        if ((settlement.IsEnabled(command.ShopId) || command.SettlementEvidence is not null || command.TenderLine is not null) &&
+        if ((await settlement.IsEnabledAsync(command.ShopId, cancellationToken) || command.SettlementEvidence is not null || command.TenderLine is not null) &&
             (command.Amount <= 0 || !TillMoney.IsValid(command.Amount)))
             return Error.Validation("Till.AmountInvalid", "Expense amount must be positive INR with at most two decimals.");
         var acquired = await settlement.AcquireAsync(command.ShopId, command.UserId, command.Till, command.OperationKey,

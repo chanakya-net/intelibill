@@ -324,7 +324,7 @@ async function assertOverlayFit(page: Page, rootSelector: string, coveredZIndex:
 
   const metrics = await card.evaluate((element) => {
     const box = element.getBoundingClientRect();
-    const scrollBody = element.querySelector<HTMLElement>('.overlay-form');
+    const scrollBody = element.querySelector<HTMLElement>('.overlay-stepper, .overlay-form');
     return {
       left: box.left,
       right: box.right,

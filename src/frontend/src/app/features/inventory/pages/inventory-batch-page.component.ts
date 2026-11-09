@@ -1,5 +1,13 @@
 import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
-import { Component, ViewChild, ViewEncapsulation, computed, effect, inject, signal } from '@angular/core';
+import {
+  Component,
+  ViewChild,
+  ViewEncapsulation,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
@@ -18,7 +26,10 @@ import {
   InventoryInboundDraftRow,
   isPurchaseTaxModeConfirmed,
 } from '../../../core/storage/inventory-draft-indexeddb.service';
-import { BarcodeLabelPrintDialogComponent, type BarcodeLabelPrintCandidate } from '../components/barcode-label-print-dialog.component';
+import {
+  BarcodeLabelPrintDialogComponent,
+  type BarcodeLabelPrintCandidate,
+} from '../components/barcode-label-print-dialog.component';
 import {
   AddInventoryBatchFailedRow,
   AddInventoryBatchResponse,
@@ -47,7 +58,7 @@ import { BatchSaveResultsComponent } from '../components/batch-page/batch-save-r
     BatchRowFormComponent,
     BatchSaveResultsComponent,
   ],
-  providers: [MessageService],
+  providers: [MessageService, BatchRowFormStateService],
   templateUrl: './inventory-batch-page.component.html',
   styleUrl: './inventory-batch-page.component.scss',
   encapsulation: ViewEncapsulation.None,
@@ -63,7 +74,6 @@ export class InventoryBatchPageComponent {
   private readonly inventoryService = inject(InventoryService);
   private readonly messageService = inject(MessageService);
   private readonly rowFormState = inject(BatchRowFormStateService);
-  private readonly suppliersFacade = inject(SuppliersFacade);
   private readonly translocoService = inject(TranslocoService);
 
   readonly isSaving = signal(false);
@@ -91,7 +101,6 @@ export class InventoryBatchPageComponent {
       }
 
       this.rowFormState.resetForm();
-      this.suppliersFacade.load();
       void this.loadDraftRows(shopId);
     });
   }
@@ -125,9 +134,13 @@ export class InventoryBatchPageComponent {
 
   onSaveAll(): void {
     // An interrupted submission can be resent even when no draft rows remain on screen.
-    if (this.isSaving() || (this.pendingRows().length === 0 && !this.hasInterruptedSubmission())) return;
+    if (this.isSaving() || (this.pendingRows().length === 0 && !this.hasInterruptedSubmission()))
+      return;
     // An interrupted submission resends its frozen rows unchanged, so it is never held back here.
-    if (!this.hasInterruptedSubmission() && this.pendingRows().some((row) => !isPurchaseTaxModeConfirmed(row))) {
+    if (
+      !this.hasInterruptedSubmission() &&
+      this.pendingRows().some((row) => !isPurchaseTaxModeConfirmed(row))
+    ) {
       // Drafts kept by earlier releases carry no purchase mode or one copied from the sales mode:
       // the user confirms it per row (edit the row) before anything is sent.
       this.showWarn('inventory.purchaseTaxModeMissingRows');
@@ -303,13 +316,19 @@ export class InventoryBatchPageComponent {
       }
 
       const apiErrors = this.extractApiErrors(error);
-      if (apiErrors.some((apiError) => this.getErrorCode(apiError) === 'Inventory.BatchLimitExceeded')) {
+      if (
+        apiErrors.some((apiError) => this.getErrorCode(apiError) === 'Inventory.BatchLimitExceeded')
+      ) {
         this.showWarn('inventory.batchLimitReached');
       } else if (hasProblemCode(error, 'Inventory.QuantityPrecisionExceeded')) {
         this.showError('inventory.quantityPrecisionExceeded');
       } else {
-        const detail = apiErrors.map((apiError) => this.getErrorDescription(apiError)).find(Boolean);
-        detail ? this.showErrorWithDetail('inventory.saveFailed', detail) : this.showError('inventory.saveFailed');
+        const detail = apiErrors
+          .map((apiError) => this.getErrorDescription(apiError))
+          .find(Boolean);
+        detail
+          ? this.showErrorWithDetail('inventory.saveFailed', detail)
+          : this.showError('inventory.saveFailed');
       }
     } finally {
       mutation.release();
@@ -338,9 +357,15 @@ export class InventoryBatchPageComponent {
    * Keeps every pending row the server has not confirmed, including rows added while the save ran.
    * Called only while the save's owner is still current, so the rows in memory are that owner's.
    */
-  private async keepRowsNotSaved(shopId: string, succeeded: readonly AddInventoryBatchSucceededRow[]): Promise<void> {
+  private async keepRowsNotSaved(
+    shopId: string,
+    succeeded: readonly AddInventoryBatchSucceededRow[],
+  ): Promise<void> {
     const savedIds = new Set(succeeded.map((row) => row.clientRowId));
-    await this.draftState.savePendingRows(shopId, this.pendingRows().filter((row) => !savedIds.has(row.clientRowId)));
+    await this.draftState.savePendingRows(
+      shopId,
+      this.pendingRows().filter((row) => !savedIds.has(row.clientRowId)),
+    );
   }
 
   private buildSaveSummary(
@@ -348,10 +373,18 @@ export class InventoryBatchPageComponent {
     succeeded: readonly AddInventoryBatchSucceededRow[],
     failed: readonly AddInventoryBatchFailedRow[],
   ): AddInventoryBatchResponse {
-    return { requestedCount, successCount: succeeded.length, failedCount: failed.length, succeeded, failed };
+    return {
+      requestedCount,
+      successCount: succeeded.length,
+      failedCount: failed.length,
+      succeeded,
+      failed,
+    };
   }
 
-  private mapRowsToRequest(rows: readonly InventoryInboundDraftRow[]): readonly AddInventoryBatchRowRequest[] {
+  private mapRowsToRequest(
+    rows: readonly InventoryInboundDraftRow[],
+  ): readonly AddInventoryBatchRowRequest[] {
     return rows.map((row) => ({
       clientRowId: row.clientRowId,
       itemName: row.itemName,
@@ -379,7 +412,9 @@ export class InventoryBatchPageComponent {
     }));
   }
 
-  private mapSuccessfulRowsToPrintCandidates(rows: readonly AddInventoryBatchSucceededRow[]): readonly BarcodeLabelPrintCandidate[] {
+  private mapSuccessfulRowsToPrintCandidates(
+    rows: readonly AddInventoryBatchSucceededRow[],
+  ): readonly BarcodeLabelPrintCandidate[] {
     return rows.map((row) => ({
       itemId: row.result.itemId,
       itemName: row.result.itemName,
@@ -406,13 +441,21 @@ export class InventoryBatchPageComponent {
     }
   }
 
-  private showInfo(key: string): void { this.notify('info', key, 2500); }
+  private showInfo(key: string): void {
+    this.notify('info', key, 2500);
+  }
 
-  private showWarn(key: string): void { this.notify('warn', key, 3000); }
+  private showWarn(key: string): void {
+    this.notify('warn', key, 3000);
+  }
 
-  private showError(key: string): void { this.notify('error', key, 3500); }
+  private showError(key: string): void {
+    this.notify('error', key, 3500);
+  }
 
-  private showErrorWithDetail(key: string, detail: string): void { this.notify('error', key, 3500, detail); }
+  private showErrorWithDetail(key: string, detail: string): void {
+    this.notify('error', key, 3500, detail);
+  }
 
   private showSuccess(key: string, successCount: number, requestedCount: number): void {
     this.notify('success', key, 3000, `${successCount}/${requestedCount}`);
@@ -422,8 +465,18 @@ export class InventoryBatchPageComponent {
     this.notify('success', key, 2200, `${barcode} • Qty ${quantity}`);
   }
 
-  private notify(severity: 'info' | 'success' | 'warn' | 'error', key: string, life: number, detail?: string): void {
-    this.messageService.add({ severity, summary: this.translocoService.translate(key), detail, life });
+  private notify(
+    severity: 'info' | 'success' | 'warn' | 'error',
+    key: string,
+    life: number,
+    detail?: string,
+  ): void {
+    this.messageService.add({
+      severity,
+      summary: this.translocoService.translate(key),
+      detail,
+      life,
+    });
   }
 
   private extractApiErrors(error: unknown): readonly Record<string, unknown>[] {
@@ -432,7 +485,9 @@ export class InventoryBatchPageComponent {
     if (!candidate || typeof candidate !== 'object') return [];
     const rawErrors = (candidate as { errors?: unknown }).errors;
     return Array.isArray(rawErrors)
-      ? rawErrors.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object')
+      ? rawErrors.filter(
+          (entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object',
+        )
       : [];
   }
 

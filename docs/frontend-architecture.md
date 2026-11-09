@@ -447,6 +447,8 @@ Rollout requires `20261107201224_AddSaleCancellations`, all cancellation-aware A
 
 ## Till Sessions and Counted Close
 
+Manage shop's first step includes the Tills & day close settings card next to the other shop policies. It separates deployment-unavailable, disabled and enabled states; only the active selected shop's Owner gets a reasoned, acknowledged enable/disable flow. Readiness counts explain disable blockers, managers see read-only status and history stays reachable. PUT is owner/scope/epoch bound and waits for the authoritative response; unknown outcomes preserve the exact request and an old-version GET cannot clear uncertainty. Refreshing a newer version and cross-tab setting notifications invalidate till capability/selection and durable offline verification. Older in-flight capability responses cannot restore the previous selection.
+
 `/tills` offers explicit opening float/cashier, same-day session selection, source history, signed manual cash transfers, counted close and manager variance review. `/tills/sessions/:id/print` reads the saved close snapshot: original business date/cashier/till, actual close timestamp, included boundary, expected/count/variance and separate late supplements. Recorded UPI/card/bank/cheque labels describe operator evidence. Late records are excluded from counted cash; review acknowledges the frozen close without balancing it. Overdue drawers block trading; managers explicitly finalize on the original open period with a reason. Handover closes then opens the physical till for its next cashier.
 
 Reusable till/evidence controls cover checkout, customer/supplier payment, payment reversal, expense/correction, return/void and cancellation. The request freezes session, override, known tender or no-movement disposition and operation key before any await. Independent expense/correction and return/void use their new keyed lookup contracts; payment reversal recovers by exact same-key retry on its original endpoint, with no generic lookup slug; return operations recover the saved return/sale identity even though ordinary return POST returns current sale detail and void returns204. Use API-projected parent sale/payment/expense IDs for navigation; polymorphic source IDs may identify returns/cancellations, not sales. Staff source rows deliberately have no parent financial links.
@@ -462,3 +464,36 @@ Owner settings and item editor expose reasoned default/override/inherit policy c
 Checkout intents and Owner Release/Dispose drafts persist exact owner/shop/action/key/payload through IndexedDB revision claims before HTTP. Reload, scope changes and unknown404 never authorize a new key or mutate a submitted payload. History preserves root source dates/causes separately from current corrected dates. Fully held missing-date roots may release only after audited correction/current policy evaluation; originally expired roots remain refused. The backend rechecks all authority and facts. Existing till selectors and settlements are preserved.
 
 Completed schema4 catalogs alone activate trusted expiry inputs; explicit nullable dates, effective policy, shop zone, catalog and server evidence IDs remain frozen in issued queues. Offline warning approval is unavailable. Future-use caches refresh when connected; disconnected devices cannot learn remote policy edits instantly, and unsupported historical authority becomes `ExpiryReview=14`. Legacy issued readers, invoice-v2/arithmetic-v1/hash contracts and pending envelopes remain unchanged. Reconciliation offers only supported evidence-backed actions; reason alone cannot override expiry. All nine shipped locales have text/accessibility states. See [expiry rollout](expiry-aware-selling-rollout.md) for migration/deployment/recovery and recorded-cost limits.
+
+
+## Bounded Party Directories and Selector Identity
+
+Online customer/supplier management reads `GET /api/{customers|suppliers}/directory` with remote
+search/status/page state, not full arrays. Search is debounced250ms, resets page1 and applies only
+the latest request; the API caps pages at100 (default20). NgRx retains filtered `totalCount` and
+shop-wide `summary` separately, so cards never describe only the visible page. Tables use remote
+paging without a second local slice/filter. Mutations refresh the current query and summary;
+removing the last item corrects to the last valid page once. Supplier management excludes system
+parties explicitly. A confirmed recovery lookup refreshes separately from ordinary payment success.
+
+POS, stock intake and purchase-order selectors own independent bounded searches. A selected party
+is retained as an ID/object independent of suggestion pages, and duplicate names remain distinct.
+Restored IDs and deep links use the scoped `/api/customers/{id}` or `/api/suppliers/{id}` routes.
+User edits to a selected name clear that identity; incoming suggestions alone never substitute it.
+Intake supplier edits cancel pending restoration; purchase-order restoration patches only a
+still-owned supplier control, preserving intervening notes/date/reference edits. Query requests
+retain existing shop-epoch protection and dispose subscriptions on scope/component changes.
+
+Offline POS searches its owned local snapshot and performs no directory/by-ID calls. The actual
+debounced fetch boundary rechecks offline state, and entering offline mode cancels pending online
+search/restoration. Offline envelopes, lease/till facts and durable payment payloads/operation keys
+remain unchanged, including released localStorage recovery with IndexedDB unavailable.
+
+The batch product autocomplete cancels its own pending widget search timeout and clears loading
+when explicit search/picker opening closes suggestions; a late completion while the picker is open
+also clears loading. This prevents an empty overlay reopening after the picker closes. The release
+audit checks actual popup closure and scans full pages at a normalized viewport, keeping all axe
+rules. Customer/supplier workflows retain keyboard names, loading/error/empty states and all nine
+locales. Deploy the new API before/with this client; legacy array routes remain available only for
+compatibility. See [bounded reads verification](bounded-reads-verification.md) for limits, local
+measurements, regression evidence and remaining limitations.

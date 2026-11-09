@@ -1,3 +1,7 @@
+import {
+  PartyDirectoryQuery,
+  SupplierDirectoryPage,
+} from '../../../shared/models/party-directory.models';
 import { createActionGroup, emptyProps, props } from '@ngrx/store';
 
 import { MakePaymentRequest, SupplierLedgerEntry } from '../services/supplier-ledger.service';
@@ -8,6 +12,9 @@ export type SupplierMutationType = 'add-supplier' | 'edit-supplier' | 'make-paym
 export const SuppliersActions = createActionGroup({
   source: 'Suppliers',
   events: {
+    'Directory Requested': props<{ query: PartyDirectoryQuery; requestId: string }>(),
+    'Directory Succeeded': props<{ page: SupplierDirectoryPage; requestId: string }>(),
+    'Directory Failed': props<{ errorMessage: string; requestId: string }>(),
     'Load Suppliers Requested': emptyProps(),
     'Load Suppliers Succeeded': props<{ suppliers: readonly Supplier[] }>(),
     'Load Suppliers Failed': props<{ errorMessage: string }>(),
@@ -26,7 +33,10 @@ export const SuppliersActions = createActionGroup({
     'Make Payment Failed': props<{ errorMessage: string }>(),
 
     'Load Supplier Ledger Requested': props<{ supplierId: string }>(),
-    'Load Supplier Ledger Succeeded': props<{ supplierId: string; entries: readonly SupplierLedgerEntry[] }>(),
+    'Load Supplier Ledger Succeeded': props<{
+      supplierId: string;
+      entries: readonly SupplierLedgerEntry[];
+    }>(),
     'Load Supplier Ledger Failed': props<{ errorMessage: string }>(),
     'Clear Ledger': emptyProps(),
 

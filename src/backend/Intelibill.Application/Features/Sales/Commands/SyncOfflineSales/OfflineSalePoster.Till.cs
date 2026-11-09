@@ -15,11 +15,13 @@ internal sealed partial class OfflineSalePoster
 
     private async Task<ErrorOr<TillPreparation>> PrepareTillAsync(OfflineSalePostingRequest request, DateOnly businessDate, CancellationToken ct)
     {
+        var gate = await tillPosting.GateAsync(request.ShopId, ct);
+        if (gate.IsError) return gate.Errors;
         var sale = request.Sale;
         var hasContext = sale.Till is not null || sale.TenderLines is not null || sale.TillBusinessDate is not null || sale.TillCashierId is not null;
         if (request.ReviewedTill is { } reviewed)
         {
-            if (!tillPolicy.IsEnabled(request.ShopId)) return Errors.Till.Disabled;
+            if (!gate.Value) return Errors.Till.Disabled;
             if (request.OfflineSubmissionId is null || reviewed.CaseId == Guid.Empty) return Errors.Till.ReviewRequired;
             var evidence = reviewed.Evidence;
             if (evidence is null || evidence.TenderLines is null || evidence.TenderLines.Any(x => x is null) ||
@@ -73,7 +75,7 @@ internal sealed partial class OfflineSalePoster
             return new TillPreparation(null, historical, historical is null ? null : close);
         }
 
-        if (!tillPolicy.IsEnabled(request.ShopId) && !hasContext) return new TillPreparation(null, null, null);
+        if (!gate.Value && !hasContext) return new TillPreparation(null, null, null);
         // Frozen issuer/cashier/date are evidence, not permission to override another drawer.
         if (sale.Till is null || sale.TenderLines is null || sale.IssuedByUserId != request.AttributedUserId ||
             sale.TillCashierId != request.AttributedUserId || sale.TillBusinessDate != businessDate) return Errors.Till.ReviewRequired;

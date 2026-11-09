@@ -1,0 +1,148 @@
+@use '../../../core/styles/button-mixins' as buttons;
+@use '../../../core/styles/form-control-mixins' as controls;
+
+:host {
+  display: block;
+  min-width: 0;
+  --policy-border: #e2e8f0;
+  --policy-background: #fff;
+  --policy-text: #0f172a;
+  --policy-muted: #475569;
+}
+
+:host(.product-policy) {
+  margin-top: 1rem;
+  --policy-border: #ead7c1;
+  --policy-background: linear-gradient(
+    180deg,
+    rgba(255, 252, 248, 0.98),
+    rgba(255, 245, 232, 0.92)
+  );
+  --policy-text: #2a1b12;
+  --policy-muted: #6f5a48;
+}
+
+.policy-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--policy-border);
+  border-radius: 1rem;
+  background: var(--policy-background);
+  color: var(--policy-text);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.policy-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.policy-meta,
+.policy-hint {
+  margin: 0;
+  color: var(--policy-muted);
+  font-size: 0.8rem;
+}
+.policy-meta {
+  margin-top: 0.25rem;
+}
+.policy-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.policy-field {
+  display: grid;
+  align-content: start;
+  gap: 0.4rem;
+  min-width: 0;
+  > label {
+    color: var(--policy-muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+}
+.wide {
+  grid-column: 1 / -1;
+}
+.policy-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  p-checkbox {
+    flex: 0 0 auto;
+    margin-top: 0.1rem;
+  }
+  label {
+    cursor: pointer;
+  }
+}
+textarea {
+  @include controls.text-input;
+  @include controls.text-input-focus;
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+  font-size: 0.875rem;
+}
+.policy-actions,
+.policy-refresh {
+  display: flex;
+  justify-content: flex-end;
+}
+.save-button {
+  @include buttons.button-primary;
+}
+.policy-readiness {
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--policy-border);
+  border-radius: 0.75rem;
+  color: var(--policy-muted);
+  summary {
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+  .policy-hint {
+    margin-top: 0.65rem;
+  }
+  ul {
+    display: grid;
+    gap: 0.5rem;
+    margin: 0.5rem 0 0;
+    padding-left: 1rem;
+    font-size: 0.8rem;
+  }
+}
+.policy-feedback {
+  margin: 0;
+  color: var(--policy-muted);
+  font-size: 0.82rem;
+  p {
+    margin: 0;
+  }
+}
+:host ::ng-deep {
+  .p-select,
+  .p-inputnumber,
+  .p-inputnumber-input {
+    width: 100%;
+    min-width: 0;
+    font-size: 0.875rem;
+  }
+}
+@media (max-width: 640px) {
+  .policy-fields {
+    grid-template-columns: 1fr;
+  }
+  .policy-actions > button {
+    width: 100%;
+  }
+}

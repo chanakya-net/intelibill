@@ -27,10 +27,21 @@ describe('SuppliersPageComponent', () => {
   ]);
   const loadingSignal = signal(false);
   const errorSignal = signal('');
-  const lastMutationTypeSignal = signal<'add-supplier' | 'edit-supplier' | null>(null);
+  const lastMutationTypeSignal = signal<'add-supplier' | 'edit-supplier' | 'make-payment' | null>(
+    null,
+  );
   const lastMutationSucceededSignal = signal(false);
 
   const suppliersFacade = {
+    summary: signal({
+      totalSuppliers: 500,
+      activeSuppliers: 400,
+      preferredSuppliers: 3,
+      pendingPayables: 900,
+    }),
+    totalCount: signal(41),
+    query: signal({ pageNumber: 3, pageSize: 20 }),
+    loadDirectory: vi.fn(),
     suppliers: suppliersSignal,
     isLoading: loadingSignal,
     errorMessage: errorSignal,
@@ -55,7 +66,9 @@ describe('SuppliersPageComponent', () => {
       lastName: 'One',
     },
     activeShopId: 'shop-1',
-    shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null }],
+    shops: [
+      { shopId: 'shop-1', shopName: 'Main', role: 'Owner', isDefault: true, lastUsedAt: null },
+    ],
   });
 
   const authService = {
@@ -88,7 +101,10 @@ describe('SuppliersPageComponent', () => {
     lastMutationSucceededSignal.set(false);
 
     TestBed.configureTestingModule({
-      imports: [SuppliersPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
+      imports: [
+        SuppliersPageComponent,
+        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+      ],
       providers: [
         { provide: SuppliersFacade, useValue: suppliersFacade },
         { provide: AuthService, useValue: authService },
@@ -100,10 +116,18 @@ describe('SuppliersPageComponent', () => {
     TestBed.resetTestingModule();
   });
 
+  it('uses full-shop cards for a one-row page', () => {
+    const component = TestBed.createComponent(SuppliersPageComponent).componentInstance;
+    expect(component.totalSuppliers()).toBe(500);
+    expect(component.pendingPayables()).toBe(900);
+  });
+
   it('loads suppliers on init', () => {
     TestBed.createComponent(SuppliersPageComponent);
 
-    expect(suppliersFacade.load).toHaveBeenCalled();
+    expect(suppliersFacade.loadDirectory).toHaveBeenCalledWith(
+      expect.objectContaining({ includeSystem: false, pageNumber: 1, pageSize: 20 }),
+    );
   });
 
   it('closes add overlay on successful add mutation', () => {
@@ -121,6 +145,21 @@ describe('SuppliersPageComponent', () => {
     expect(suppliersFacade.clearMutationStatus).toHaveBeenCalled();
   });
 
+  it('keeps the current directory query after payment success without a second page-one refresh', () => {
+    const fixture = TestBed.createComponent(SuppliersPageComponent);
+    const component = fixture.componentInstance;
+    fixture.detectChanges();
+    component.onOpenMakePayment(suppliersSignal()[0]);
+    component.onDirectoryPage({ page: 3, rows: 20 });
+    suppliersFacade.loadDirectory.mockClear();
+    lastMutationTypeSignal.set('make-payment');
+    lastMutationSucceededSignal.set(true);
+    fixture.detectChanges();
+    expect(component.showMakePaymentOverlay()).toBe(false);
+    expect(suppliersFacade.loadDirectory).not.toHaveBeenCalled();
+    expect(component.directoryQuery().pageNumber).toBe(3);
+  });
+
   it('allows editing only for owner role', () => {
     const fixture = TestBed.createComponent(SuppliersPageComponent);
     const component = fixture.componentInstance;
@@ -129,7 +168,9 @@ describe('SuppliersPageComponent', () => {
 
     sessionSignal.set({
       ...sessionSignal(),
-      shops: [{ shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null }],
+      shops: [
+        { shopId: 'shop-1', shopName: 'Main', role: 'Manager', isDefault: true, lastUsedAt: null },
+      ],
     });
 
     expect(component.canManageSuppliers()).toBe(false);

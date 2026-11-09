@@ -1,5 +1,6 @@
 using Intelibill.Application.Features.Exports.Accounting;
 using Intelibill.Application.Features.Exports.Sales;
+using Intelibill.Application.Features.Exports.Sales.DTOs;
 using Intelibill.Application.Features.Exports.Sales.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -29,12 +30,38 @@ public class SalesExportDatasetBuilderTests
             .Returns(new List<Sale>());
     }
 
-    private SalesExportDatasetBuilder CreateBuilder() =>
-        new(
-            _saleRepository,
-            _saleReturnRepository,
-            _itemRepository,
-            new ReturnAdjustmentReader(_saleReturnRepository, _saleRepository, _creditNoteRepository), new SaleCancellationAdjustmentReader(_cancellations));
+    // Existing financial fixtures exercise the production pure row projector and page merger.
+    // PostgreSQL tests separately verify the real bounded store and snapshot, not these substitutes.
+    private FixtureBuilder CreateBuilder() => new(this);
+
+    private sealed class FixtureBuilder(SalesExportDatasetBuilderTests fixture)
+    {
+        public async Task<SalesExportDatasetDto> BuildAsync(Shop shop, User user, DateOnly from, DateOnly to, string level, CancellationToken ct)
+        {
+            var sales = await fixture._saleRepository.GetByShopAndDateRangeAsync(shop.Id, from, to, ct);
+            var returns = await new ReturnAdjustmentReader(fixture._saleReturnRepository, fixture._saleRepository, fixture._creditNoteRepository).ReadAsync(shop.Id, from, to, sales, ct);
+            var cancellations = await new SaleCancellationAdjustmentReader(fixture._cancellations).ReadAsync(shop.Id, from, to, ct);
+            var summary = sales.Select(s => SalesExportRowProjector.BuildSummaryRow(s, [])).ToList();
+            List<SalesExportLineItemRowDto> lines = [];
+            if (level == SalesExportLevel.LineItems)
+            {
+                var items = await fixture._itemRepository.GetByIdsAsync(shop.Id, sales.SelectMany(s => s.Items).Where(i => i.ItemId.HasValue).Select(i => i.ItemId!.Value).Distinct().ToList(), ct);
+                foreach (var sale in sales)
+                {
+                    var history = await fixture._saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, ct);
+                    lines.AddRange(sale.Items.Select(i => SalesExportRowProjector.BuildLineItemRow(sale, i, history.Where(r => !r.IsVoided).ToList(), items.ToDictionary(i => i.Id, i => i.Name))));
+                }
+            }
+            var taxes = sales.SelectMany(s => s.Items).GroupBy(i => i.TaxRatePercent).Select(g => new SalesExportTaxBreakupDto(g.Key, g.Sum(i => i.TaxableAmount), g.Sum(i => i.TaxAmount), 0, 0)).ToList();
+            taxes.AddRange(returns.SelectMany(r => r.TaxComponents).Select(c => new SalesExportTaxBreakupDto(c.TaxRatePercent, 0, 0, c.TaxableAmount, c.TaxAmount)));
+            if (cancellations.Count > 0) taxes.Add(new(0, 0, 0, 0, 0) { CancellationTaxableAmount = cancellations.Sum(c => c.RevenueAmount) });
+            var snapshot = Substitute.For<IExportReadSnapshot>();
+            // Deliberately put adjustments in a later page: summary attachment must await all streams.
+            snapshot.ReadPageAsync(shop.Id, Arg.Any<ExportWindow>(), level, null, 1000, ct).Returns(new ExportPage(summary, lines, taxes, [], [], new(ExportSource.Returns), false));
+            snapshot.ReadPageAsync(shop.Id, Arg.Any<ExportWindow>(), level, Arg.Is<ExportCursor>(c => c.Stream == ExportSource.Returns), 1000, ct).Returns(new ExportPage([], [], [], returns, cancellations, null, true));
+            return await new SalesExportDatasetBuilder().BuildAsync(snapshot, shop, user, from, to, level, ct);
+        }
+    }
 
     private static Shop MakeShop() =>
         Shop.Create("Test Shop", "123 Main St", "City", "State", "560001", null, null, null);

@@ -261,6 +261,8 @@
           [customerNameControl]="vm.customerForm.controls.customerName"
           [customerPhoneControl]="vm.customerForm.controls.customerPhone"
           [customerNameSuggestions]="vm.customerNameSuggestions()"
+          [searchLoading]="vm.customerSearchLoading()"
+          [searchError]="vm.customerSearchError()"
           [customers]="vm.customerSelectionPool()"
           [isOfflineMode]="vm.isOfflineMode()"
           (customerSelected)="onCustomerSectionSelected($event)"

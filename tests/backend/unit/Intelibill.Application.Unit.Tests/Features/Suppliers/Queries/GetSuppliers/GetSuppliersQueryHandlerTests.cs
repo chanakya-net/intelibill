@@ -41,8 +41,8 @@ public class GetSuppliersQueryHandlerTests
         _supplierRepository.GetByShopIdAsync(shop.Id, false, Arg.Any<CancellationToken>())
             .Returns(new[] { supplier });
 
-        _supplierLedgerEntryRepository.GetSupplierBalanceAsync(shop.Id, supplier.Id, Arg.Any<CancellationToken>())
-            .Returns(6600m);
+        _supplierLedgerEntryRepository.GetSupplierBalancesAsync(shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, decimal> { [supplier.Id] = 6600m });
 
         var handler = new GetSuppliersQueryHandler(_userRepository, _supplierRepository, _supplierLedgerEntryRepository);
         var result = await handler.HandleAsync(new GetSuppliersQuery(caller.Id, shop.Id), CancellationToken.None);
@@ -70,8 +70,8 @@ public class GetSuppliersQueryHandlerTests
         };
         _supplierRepository.GetByShopIdAsync(shop.Id, false, Arg.Any<CancellationToken>()).Returns(suppliers);
 
-        _supplierLedgerEntryRepository.GetSupplierBalanceAsync(shop.Id, suppliers[0].Id, Arg.Any<CancellationToken>()).Returns(0m);
-        _supplierLedgerEntryRepository.GetSupplierBalanceAsync(shop.Id, suppliers[1].Id, Arg.Any<CancellationToken>()).Returns(500m);
+        _supplierLedgerEntryRepository.GetSupplierBalancesAsync(shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<Guid, decimal> { [suppliers[0].Id] = 0m, [suppliers[1].Id] = 500m });
 
         var handler = new GetSuppliersQueryHandler(_userRepository, _supplierRepository, _supplierLedgerEntryRepository);
         var result = await handler.HandleAsync(new GetSuppliersQuery(caller.Id, shop.Id), CancellationToken.None);

@@ -1,3 +1,12 @@
+import {
+  PartyDirectoryQuery,
+  DEFAULT_DIRECTORY_QUERY,
+} from '../../../shared/models/party-directory.models';
+import {
+  selectDirectoryQuery,
+  selectDirectoryTotalCount,
+  selectDirectorySummary,
+} from './customers.selectors';
 import { selectLocalizedError } from './customers.selectors';
 import { inject, Injectable, Signal } from '@angular/core';
 import { Store } from '@ngrx/store';
@@ -11,6 +20,14 @@ import * as CustomersSelectors from './customers.selectors';
 })
 export class CustomersFacade {
   private readonly store = inject(Store);
+  readonly query = this.store.selectSignal(selectDirectoryQuery);
+  readonly totalCount = this.store.selectSignal(selectDirectoryTotalCount);
+  readonly summary = this.store.selectSignal(selectDirectorySummary);
+  loadDirectory(query: PartyDirectoryQuery = this.query() ?? DEFAULT_DIRECTORY_QUERY): void {
+    this.store.dispatch(
+      CustomersActions.directoryRequested({ query, requestId: crypto.randomUUID() }),
+    );
+  }
 
   readonly localizedError = this.store.selectSignal(selectLocalizedError);
 
@@ -33,7 +50,7 @@ export class CustomersFacade {
   );
 
   loadCustomers(): void {
-    this.store.dispatch(CustomersActions.loadCustomersRequested());
+    this.loadDirectory();
   }
 
   addCustomer(payload: AddCustomerRequest): void {

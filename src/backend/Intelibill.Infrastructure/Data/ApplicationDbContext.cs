@@ -83,6 +83,8 @@ public class ApplicationDbContext(
     public DbSet<SupplierReturnCreditLine> SupplierReturnCreditLines => Set<SupplierReturnCreditLine>();
     public DbSet<PurchaseReceiptReversal> PurchaseReceiptReversals => Set<PurchaseReceiptReversal>();
 
+    public DbSet<ShopTillSetting> ShopTillSettings => Set<ShopTillSetting>();
+    public DbSet<ShopTillSettingEvent> ShopTillSettingEvents => Set<ShopTillSettingEvent>();
     public DbSet<Till> Tills => Set<Till>();
     public DbSet<TillSession> TillSessions => Set<TillSession>();
     public DbSet<TillSourceRecord> TillSourceRecords => Set<TillSourceRecord>();

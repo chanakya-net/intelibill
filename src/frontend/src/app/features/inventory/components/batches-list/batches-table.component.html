@@ -1,3 +1,11 @@
+<p-menu
+  #rowActions
+  [model]="rowMenuItems"
+  [popup]="true"
+  appendTo="body"
+  (onHide)="onRowMenuHidden()"
+/>
+
 @if (selectedSupplierLots()) {
   <p>
     <a
@@ -76,13 +84,12 @@
           </div>
 
           <div class="batch-card-actions" (click)="$event.stopPropagation()">
-            <p-menu #mobileActions [model]="rowActionItems(batch)" [popup]="true" appendTo="body" />
             <button
               pButton
               type="button"
               icon="pi pi-ellipsis-v"
               class="p-button-text p-button-sm"
-              (click)="mobileActions.toggle($event)"
+              (click)="openRowActions($event, rowActions, batch)"
               [attr.aria-label]="'common.actions' | transloco"
             ></button>
           </div>
@@ -227,13 +234,12 @@
           }
         </td>
         <td class="batch-table-actions">
-          <p-menu #desktopActions [model]="rowActionItems(batch)" [popup]="true" appendTo="body" />
           <button
             pButton
             type="button"
             icon="pi pi-ellipsis-v"
             class="p-button-text p-button-sm"
-            (click)="$event.stopPropagation(); desktopActions.toggle($event)"
+            (click)="openRowActions($event, rowActions, batch)"
             [attr.aria-label]="'common.actions' | transloco"
           ></button>
         </td>

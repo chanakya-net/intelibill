@@ -69,7 +69,7 @@ public sealed class CorrectExpenseCommandHandler(
         if (fence.IsError)
             return fence.Errors;
 
-        if ((settlement.IsEnabled(command.ShopId) || command.SettlementEvidence is not null) &&
+        if ((await settlement.IsEnabledAsync(command.ShopId, cancellationToken) || command.SettlementEvidence is not null) &&
             (command.Amount <= 0 || !TillMoney.IsValid(command.Amount)))
             return Error.Validation("Till.AmountInvalid", "Expense amount must be positive INR with at most two decimals.");
         var acquired = await settlement.AcquireAsync(command.ShopId, command.UserId, command.Till, command.OperationKey,

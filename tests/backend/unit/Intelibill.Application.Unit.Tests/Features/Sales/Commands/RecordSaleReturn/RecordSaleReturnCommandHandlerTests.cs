@@ -73,7 +73,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork, Substitute.For<IExpiryPolicyFence>()),
             _unitOfWork,
             new BusinessClock(_time), _shopRepository, _saleRepository,
-            Substitute.For<ITillPostingService>(), Substitute.For<ITillSessionPolicy>(), _executor, ExpiryDispositionTestServices.Create(_inventoryBatchRepository, new BusinessClock(_time)));
+            BusinessTestDoubles.DisabledTillPosting(), _executor, ExpiryDispositionTestServices.Create(_inventoryBatchRepository, new BusinessClock(_time)));
     }
 
     private readonly MutableTimeProvider _time = new();

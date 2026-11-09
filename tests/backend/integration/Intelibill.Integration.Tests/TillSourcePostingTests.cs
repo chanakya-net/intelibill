@@ -49,6 +49,7 @@ public sealed class TillSourcePostingTests(PostgreSqlTestFixture fixture)
         var (shop, service, _) = await SeedSaleAsync(factory, client);
         factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value.Enabled = true;
         factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value.AllowedShopIds = [shop];
+        await OptInAsync(factory.MigratorConnectionString, shop);
         using var response = await client.PostAsJsonAsync("/api/sales", Request(service));
         Assert.Contains("Till.SessionRequired", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
         await using var scope = factory.Services.CreateAsyncScope();
@@ -266,6 +267,7 @@ public sealed class TillSourcePostingTests(PostgreSqlTestFixture fixture)
         var (shop, service, actor) = await SeedSaleAsync(factory, client);
         var options = factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value;
         options.Enabled = true; options.AllowedShopIds = [shop];
+        await OptInAsync(factory.MigratorConnectionString, shop);
         var app = new TillTestContext(factory.MigratorConnectionString, shop, new TillTestClock { Now = DateTimeOffset.UtcNow });
         var session = await app.OpenAsync(shop, actor, (await app.CreateAsync(shop, actor)).Id);
         return new(factory, client, app, shop, service, actor, session);

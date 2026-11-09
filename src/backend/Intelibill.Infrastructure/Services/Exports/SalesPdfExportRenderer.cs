@@ -18,7 +18,7 @@ public sealed class SalesPdfExportRenderer : ISalesPdfExportRenderer
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var pdf = new SalesPdfDocument(dataset).GeneratePdf();
+        var pdf = new SalesPdfDocument(dataset, cancellationToken).GeneratePdf();
         return Task.FromResult(new SalesExportResult(pdf, ContentType, "sales-export.pdf"));
     }
 }

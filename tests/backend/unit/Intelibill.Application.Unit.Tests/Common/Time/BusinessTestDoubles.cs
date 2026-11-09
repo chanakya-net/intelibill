@@ -20,8 +20,12 @@ internal static class BusinessTestDoubles
     }
 
     public static ITillSessionPolicy DisabledTillPolicy() => Substitute.For<ITillSessionPolicy>();
-    public static TillPostingService DisabledTillPosting() => new(Substitute.For<ITillRepository>(), AnyShop(),
-        Substitute.For<IBankAccountRepository>(), DisabledTillPolicy(), RealClock());
+    public static TillPostingService DisabledTillPosting()
+    {
+        var tills = Substitute.For<ITillRepository>();
+        tills.LockSettingsReadAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(RowLockOutcome.Acquired);
+        return new(tills, AnyShop(), Substitute.For<IBankAccountRepository>(), DisabledTillPolicy(), RealClock());
+    }
     public static TillSourceSettlementService DisabledTillSettlement() => new(DisabledTillPolicy(), DisabledTillPosting(), AnyShop(), RealClock());
 
     public static BusinessClock ClockAt(MutableTimeProvider time) => new(time);

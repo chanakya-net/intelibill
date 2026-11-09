@@ -1,3 +1,9 @@
+import { DestroyRef, Injector } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ShopContextService } from '../../../core/context/shop-context.service';
+import { RemotePartySearch } from '../../../shared/models/remote-party-search';
+import { supplierOptionLabel } from '../../../shared/models/party-directory.models';
+import { SupplierService, Supplier } from '../../suppliers/services/supplier.service';
 import { signal as errorSignal } from '@angular/core';
 import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { CommonModule } from '@angular/common';
@@ -85,13 +91,25 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
           <label>
             <span>{{ 'purchaseOrders.builder.supplier' | transloco }}</span>
             <p-autocomplete
-              formControlName="supplierName" [invalid]="!!fieldError('supplierName')" [pt]="fieldInputPt('supplierName')"
+              formControlName="supplierName"
+              [invalid]="!!fieldError('supplierName')"
+              [pt]="fieldInputPt('supplierName')"
               [suggestions]="supplierNameSuggestions()"
               (completeMethod)="onSupplierSearch($event)"
+              (onSelect)="onSupplierSelected($event.value)"
+              [delay]="0"
+              [maxlength]="200"
               appendTo="body"
               [fluid]="true"
             ></p-autocomplete>
           </label>
+          <p class="text-xs text-slate-500">{{ 'partyDirectory.searchHint' | transloco }}</p>
+          @if (supplierSearchLoading()) {
+            <p role="status">{{ 'common.loading' | transloco }}</p>
+          }
+          @if (supplierSearchError()) {
+            <p role="status">{{ 'errors.suppliers.unableToLoadSuppliers' | transloco }}</p>
+          }
           <label>
             <span>{{ 'purchaseOrders.builder.orderDate' | transloco }}</span>
             <p-datepicker
@@ -108,7 +126,9 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
             <span>{{ 'purchaseOrders.builder.expectedDeliveryDate' | transloco }}</span>
             <p-datepicker
               ngSkipHydration
-              formControlName="expectedDeliveryDate" [invalid]="!!fieldError('expectedDeliveryDate')" [pt]="fieldInputPt('expectedDeliveryDate')"
+              formControlName="expectedDeliveryDate"
+              [invalid]="!!fieldError('expectedDeliveryDate')"
+              [pt]="fieldInputPt('expectedDeliveryDate')"
               dateFormat="dd/mm/yy"
               [showIcon]="true"
               [showButtonBar]="true"
@@ -118,14 +138,28 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
           </label>
           <label>
             <span>{{ 'purchaseOrders.builder.supplierReferenceNumber' | transloco }}</span>
-            <input pInputText type="text" formControlName="supplierReferenceNumber" [attr.aria-invalid]="fieldError('supplierReferenceNumber') ? 'true' : null" [attr.aria-describedby]="fieldError('supplierReferenceNumber') ? 'po-builder-supplierReferenceNumber-error' : null" />
+            <input
+              pInputText
+              type="text"
+              formControlName="supplierReferenceNumber"
+              [attr.aria-invalid]="fieldError('supplierReferenceNumber') ? 'true' : null"
+              [attr.aria-describedby]="
+                fieldError('supplierReferenceNumber')
+                  ? 'po-builder-supplierReferenceNumber-error'
+                  : null
+              "
+            />
           </label>
           <label class="po-builder__notes">
             <span>{{ 'purchaseOrders.builder.notes' | transloco }}</span>
             <textarea pTextarea rows="3" formControlName="notes"></textarea>
           </label>
           @for (error of localizedError()?.fieldErrors ?? []; track error.field) {
-            @if (form.contains(error.field)) { <small class="po-builder__error" [id]="'po-builder-' + error.field + '-error'">{{ error.messageKey | transloco: error.params }}</small> }
+            @if (form.contains(error.field)) {
+              <small class="po-builder__error" [id]="'po-builder-' + error.field + '-error'">{{
+                error.messageKey | transloco: error.params
+              }}</small>
+            }
           }
         </form>
 
@@ -326,7 +360,27 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   private readonly authService = inject(AuthService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
-  private readonly suppliersFacade = inject(SuppliersFacade);
+  private readonly partyInjector = inject(Injector);
+  private readonly partyContext = inject(ShopContextService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly supplierSearch = new RemotePartySearch<Supplier>(
+    (search) =>
+      this.partyInjector.get(SupplierService).getDirectory({
+        search,
+        status: 'active',
+        pageNumber: 1,
+        pageSize: 20,
+        includeSystem: false,
+      }),
+    () => this.partyContext.epoch(),
+    (items) => this.supplierNameSuggestions.set(items.map(supplierOptionLabel)),
+  );
+  private readonly selectedSupplier = signal<Supplier | null>(null);
+  private restoredSupplierId: string | null = null;
+  private supplierInputRevision = 0;
+  private restoreSubscription: import('rxjs').Subscription | undefined;
+  protected readonly supplierSearchLoading = this.supplierSearch.loading;
+  protected readonly supplierSearchError = this.supplierSearch.error;
   private readonly permissions = inject(ShopPermissionsService);
 
   protected readonly draftState = inject(PurchaseOrderDraftStateService);
@@ -334,9 +388,18 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   readonly localizedError =
     this.facade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
 
-  fieldError(field: string) { return this.localizedError()?.fieldErrors.find(error => error.field === field); }
+  fieldError(field: string) {
+    return this.localizedError()?.fieldErrors.find((error) => error.field === field);
+  }
   fieldInputPt(field: string) {
-    return {pcInputText: {root: {'aria-invalid': this.fieldError(field) ? 'true' : undefined, 'aria-describedby': this.fieldError(field) ? 'po-builder-' + field + '-error' : undefined}}};
+    return {
+      pcInputText: {
+        root: {
+          'aria-invalid': this.fieldError(field) ? 'true' : undefined,
+          'aria-describedby': this.fieldError(field) ? 'po-builder-' + field + '-error' : undefined,
+        },
+      },
+    };
   }
 
   @Input() purchaseOrderId: string | null = null;
@@ -350,15 +413,19 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
     notes: ['', InputValidators.optionalText(1000)],
   });
 
-  protected readonly supplierSuggestions = computed(() =>
-    this.suppliersFacade.suppliers().filter((supplier) => supplier.isActive && !supplier.isSystem),
-  );
+  protected readonly supplierSuggestions = this.supplierSearch.items;
   protected readonly supplierNameSuggestions = signal<string[]>([]);
 
   private autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   private clearLocalDraftAfterCreate = false;
 
   constructor() {
+    this.form.controls.supplierName.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        ++this.supplierInputRevision;
+        this.restoreSubscription?.unsubscribe();
+      });
     effect(() => {
       const order = this.facade.selectedOrder();
       if (order && this.purchaseOrderId === order.purchaseOrderId) {
@@ -379,20 +446,36 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
     });
     effect(() => {
       const supplierId = this.draftState.header().supplier?.id;
-      if (!supplierId) return;
-
-      const supplier = this.supplierSuggestions().find(
-        (candidate) => candidate.supplierId === supplierId,
-      );
-      if (!supplier) return;
-
-      this.draftState.resolveSupplierName(supplier.supplierId, supplier.name);
-      untracked(() => this.patchHeaderForm());
+      if (!supplierId || supplierId === this.restoredSupplierId) return;
+      this.restoredSupplierId = supplierId;
+      this.restoreSubscription?.unsubscribe();
+      const epoch = this.partyContext.epoch();
+      const inputRevision = this.supplierInputRevision;
+      this.restoreSubscription = this.partyInjector
+        .get(SupplierService)
+        .getSupplier(supplierId)
+        .subscribe({
+          next: (supplier) => {
+            if (
+              epoch !== this.partyContext.epoch() ||
+              inputRevision !== this.supplierInputRevision ||
+              this.draftState.header().supplier?.id !== supplierId
+            )
+              return;
+            this.selectedSupplier.set(supplier);
+            this.draftState.resolveSupplierName(supplier.supplierId, supplier.name);
+            this.form.controls.supplierName.setValue(supplier.name, { emitEvent: false });
+          },
+          error: () => {},
+        });
     });
-    effect(() => {
-      this.supplierNameSuggestions.set(
-        this.filterSupplierNames(this.form.controls.supplierName.value ?? ''),
-      );
+    this.partyContext.changes$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.supplierSearch.destroy();
+      this.supplierSearch.items.set([]);
+      this.supplierNameSuggestions.set([]);
+      this.selectedSupplier.set(null);
+      this.restoreSubscription?.unsubscribe();
+      this.restoredSupplierId = null;
     });
     effect(() => {
       const order = this.facade.selectedOrder();
@@ -415,7 +498,6 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.suppliersFacade.load();
     const shopId = this.activeShopId();
     await this.draftState.loadDraft(shopId, this.purchaseOrderId);
     this.patchHeaderForm();
@@ -424,10 +506,14 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
       this.facade.loadDetail(this.purchaseOrderId);
     }
 
-    this.form.valueChanges.subscribe(() => this.scheduleAutosave());
+    this.form.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.scheduleAutosave());
   }
 
   ngOnDestroy(): void {
+    this.supplierSearch.destroy();
+    this.restoreSubscription?.unsubscribe();
     if (this.autosaveTimer) clearTimeout(this.autosaveTimer);
     this.facade.clearDetail();
   }
@@ -441,7 +527,16 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   }
 
   protected onSupplierSearch(_event: AutoCompleteCompleteEvent): void {
-    this.supplierNameSuggestions.set(this.filterSupplierNames(_event.query));
+    this.supplierSearch.search(_event.query);
+  }
+
+  protected onSupplierSelected(label: string): void {
+    const supplier = this.resolveSupplier(label);
+    if (supplier) {
+      this.restoreSubscription?.unsubscribe();
+      this.restoredSupplierId = supplier.id;
+      this.form.controls.supplierName.setValue(supplier.name);
+    }
   }
 
   saveDraft(): void {
@@ -522,27 +617,25 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   }
 
   private resolveSupplier(name: string): { readonly id: string; readonly name: string } | null {
-    const supplier = this.supplierSuggestions().find((candidate) => candidate.name === name);
+    const selected = this.selectedSupplier();
+    if (selected && (name === selected.name || name === supplierOptionLabel(selected)))
+      return { id: selected.supplierId, name: selected.name };
+    const supplier = this.supplierSuggestions().find(
+      (candidate) => supplierOptionLabel(candidate) === name,
+    );
     if (supplier) {
+      this.selectedSupplier.set(supplier);
       return { id: supplier.supplierId, name: supplier.name };
     }
-
     const current = this.draftState.header().supplier;
-    if (current && (name === current.name || (!name && !current.name))) {
+    if (
+      current &&
+      (name === current.name ||
+        (!name && !current.name) ||
+        (selected?.supplierId === current.id && name === supplierOptionLabel(selected)))
+    )
       return current;
-    }
-
     return null;
-  }
-
-  private filterSupplierNames(query: string): string[] {
-    const normalizedQuery = query.trim().toLowerCase();
-    return this.supplierSuggestions()
-      .filter(
-        (supplier) => !normalizedQuery || supplier.name.toLowerCase().includes(normalizedQuery),
-      )
-      .map((supplier) => supplier.name)
-      .slice(0, 20);
   }
 
   private activeShopId(): string {

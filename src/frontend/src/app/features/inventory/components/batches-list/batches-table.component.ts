@@ -10,7 +10,7 @@ import { ButtonModule } from 'primeng/button';
 import { CardModule } from 'primeng/card';
 import { CheckboxModule } from 'primeng/checkbox';
 import { MenuItem } from 'primeng/api';
-import { MenuModule } from 'primeng/menu';
+import { Menu, MenuModule } from 'primeng/menu';
 import { TagModule } from 'primeng/tag';
 import { TableModule } from 'primeng/table';
 
@@ -63,6 +63,27 @@ export class BatchesTableComponent {
 
   private _selectedBatchIds: readonly string[] = [];
   private selectedBatchIdSet = new Set<string>();
+  rowMenuItems: MenuItem[] = [];
+  private pendingRowMenu: { menu: Menu; target: EventTarget | null } | null = null;
+
+  openRowActions(event: MouseEvent, menu: Menu, batch: InventoryBatchDto): void {
+    event.stopPropagation();
+    // Keep item identities stable while focus changes between pointer down and click.
+    this.rowMenuItems = this.rowActionItems(batch);
+    if (this.pendingRowMenu || (menu.visible && menu.target !== event.currentTarget)) {
+      this.pendingRowMenu = { menu, target: event.currentTarget };
+      menu.hide();
+      return;
+    }
+    menu.toggle(event);
+  }
+
+  onRowMenuHidden(): void {
+    const pending = this.pendingRowMenu;
+    this.pendingRowMenu = null;
+    // Reopen only after the old overlay leaves, so PrimeNG positions at the new trigger.
+    pending?.menu.show({ currentTarget: pending.target });
+  }
 
   selectedReceiptLots(): InventoryBatchDto[] {
     return this.batches.filter((x) => this.selectedBatchIdSet.has(x.id) && !!x.receiptValueId);

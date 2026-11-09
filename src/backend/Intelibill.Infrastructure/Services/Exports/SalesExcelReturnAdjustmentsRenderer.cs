@@ -38,7 +38,7 @@ internal static class SalesExcelReturnAdjustmentsRenderer
     private const int FirstAmountColumn = 6;
     private const int LastAmountColumn = 13;
 
-    internal static void Render(XLWorkbook workbook, SalesExportDatasetDto dataset)
+    internal static void Render(XLWorkbook workbook, SalesExportDatasetDto dataset, CancellationToken cancellationToken = default)
     {
         var worksheet = workbook.Worksheets.Add(SheetName);
         var headerRow = SalesExcelExportRenderer.RenderMetadata(worksheet, dataset.Metadata, 1) + 2;
@@ -57,6 +57,7 @@ internal static class SalesExcelReturnAdjustmentsRenderer
         var row = firstDataRow;
         foreach (var entry in dataset.ReturnAdjustments)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             RenderRow(worksheet, entry, row++);
         }
 

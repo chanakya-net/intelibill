@@ -42,6 +42,7 @@ public static class ReturnAdjustmentProjector
             .OrderBy(e => e.PostedAt)
             .ThenBy(e => e.ReturnNumber, StringComparer.Ordinal)
             .ThenBy(e => e.Kind)
+            .ThenBy(e => e.SaleReturnId)
             .ToList();
     }
 

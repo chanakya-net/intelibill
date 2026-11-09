@@ -1,0 +1,200 @@
+<section class="settings-card" aria-labelledby="shop-till-settings-title">
+  <header class="settings-header">
+    <div class="settings-heading">
+      <span class="settings-icon" aria-hidden="true"><i class="pi pi-wallet"></i></span>
+      <div>
+        <h3 id="shop-till-settings-title">{{ 'tills.title' | transloco }}</h3>
+        <p>{{ 'tills.settings.description' | transloco }}</p>
+      </div>
+    </div>
+    @if (state(); as current) {
+      <span
+        class="settings-status"
+        [class.settings-status--enabled]="current.enabled && current.available"
+        role="status"
+      >
+        {{
+          (current.available
+            ? current.enabled
+              ? 'tills.settings.enabled'
+              : 'tills.settings.disabled'
+            : 'tills.settings.unavailable'
+          ) | transloco
+        }}
+      </span>
+    }
+  </header>
+  @if (!isActive()) {
+    <p class="settings-notice">{{ 'tills.settings.switchShop' | transloco }}</p>
+  } @else if (loading()) {
+    <p class="settings-muted" role="status">{{ 'tills.settings.loading' | transloco }}</p>
+  } @else {
+    @if (state(); as current) {
+      @if (!current.available) {
+        <p class="settings-notice">
+          <i class="pi pi-lock" aria-hidden="true"></i
+          ><span>{{ 'tills.settings.unavailableHint' | transloco }}</span>
+        </p>
+      }
+      @if (blocked()) {
+        <div class="settings-blockers">
+          <p>{{ 'tills.settings.blockers' | transloco }}</p>
+          <dl>
+            @if (current.openSessionCount > 0) {
+              <div>
+                <dt>{{ 'tills.settings.openSessions' | transloco }}</dt>
+                <dd>{{ current.openSessionCount }}</dd>
+              </div>
+            }
+            @if (current.awaitingReviewCount > 0) {
+              <div>
+                <dt>{{ 'tills.settings.awaitingReview' | transloco }}</dt>
+                <dd>{{ current.awaitingReviewCount }}</dd>
+              </div>
+            }
+            @if (current.pendingOfflineCount > 0) {
+              <div>
+                <dt>{{ 'tills.settings.pendingOffline' | transloco }}</dt>
+                <dd>{{ current.pendingOfflineCount }}</dd>
+              </div>
+            }
+          </dl>
+        </div>
+      }
+      @if (!editing() && !uncertain()) {
+        <div class="settings-actions">
+          @if (current.enabled) {
+            <a routerLink="/tills" class="settings-link" (click)="navigateRequested.emit()"
+              >{{ 'tills.settings.manage' | transloco }}
+              <i class="pi pi-arrow-up-right" aria-hidden="true"></i
+            ></a>
+          }
+          @if (owner() && current.available) {
+            <button
+              pButton
+              type="button"
+              data-testid="till-settings-change"
+              [outlined]="current.enabled"
+              [severity]="current.enabled ? 'secondary' : 'primary'"
+              [disabled]="disabled() || saving() || blocked()"
+              (click)="beginChange()"
+            >
+              {{
+                (current.enabled ? 'tills.settings.disable' : 'tills.settings.enable') | transloco
+              }}
+            </button>
+          }
+        </div>
+      }
+      @if (editing()) {
+        <div class="settings-confirmation" role="group" aria-labelledby="till-change-title">
+          <h4 id="till-change-title">
+            {{
+              (current.enabled ? 'tills.settings.disableTitle' : 'tills.settings.enableTitle')
+                | transloco
+            }}
+          </h4>
+          <p>
+            {{
+              (current.enabled ? 'tills.settings.disableHint' : 'tills.settings.enableHint')
+                | transloco
+            }}
+          </p>
+          @if (!current.enabled) {
+            <p class="settings-muted">{{ 'tills.settings.singleTender' | transloco }}</p>
+          }
+          <div class="settings-field">
+            <label for="till-setting-reason">{{ 'tills.settings.reason' | transloco }}</label>
+            <textarea
+              pTextarea
+              id="till-setting-reason"
+              rows="2"
+              maxlength="500"
+              [(ngModel)]="reason"
+              [disabled]="saving() || disabled()"
+              required
+            ></textarea>
+          </div>
+          <div class="settings-check">
+            <p-checkbox
+              inputId="till-setting-confirmed"
+              [(ngModel)]="confirmed"
+              [binary]="true"
+              [disabled]="saving() || disabled()"
+            />
+            <label for="till-setting-confirmed">{{
+              (current.enabled ? 'tills.settings.disableConfirm' : 'tills.settings.enableConfirm')
+                | transloco
+            }}</label>
+          </div>
+          <div class="settings-actions">
+            <button
+              pButton
+              type="button"
+              severity="secondary"
+              [text]="true"
+              [disabled]="saving()"
+              (click)="cancel()"
+            >
+              {{ 'tills.settings.cancel' | transloco }}
+            </button>
+            <button
+              pButton
+              type="button"
+              [loading]="saving()"
+              [disabled]="saving() || disabled() || !confirmed || !reason.trim()"
+              (click)="save()"
+            >
+              {{
+                (current.enabled ? 'tills.settings.confirmDisable' : 'tills.settings.confirmEnable')
+                  | transloco
+              }}
+            </button>
+          </div>
+        </div>
+      }
+    }
+    @if (!owner()) {
+      <p class="settings-muted">{{ 'tills.settings.ownerOnly' | transloco }}</p>
+    }
+    @if (uncertain()) {
+      <div class="settings-notice" role="status">
+        <span>{{ 'tills.settings.unknown' | transloco }}</span>
+      </div>
+      <div class="settings-actions">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="saving() || disabled()"
+          [loading]="saving()"
+          (click)="retry()"
+        >
+          {{ 'tills.settings.retry' | transloco }}
+        </button>
+      </div>
+    }
+    @if (error()) {
+      <p class="settings-error" role="alert">{{ error() | transloco }}</p>
+    }
+    @if (saved()) {
+      <p class="settings-saved" role="status">{{ 'tills.settings.saved' | transloco }}</p>
+    }
+    @if (['owner', 'manager'].includes(api.role())) {
+      <div class="settings-refresh">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          [text]="true"
+          icon="pi pi-refresh"
+          [disabled]="saving() || disabled()"
+          (click)="refresh()"
+        >
+          {{ 'tills.settings.refresh' | transloco }}
+        </button>
+      </div>
+    }
+  }
+</section>

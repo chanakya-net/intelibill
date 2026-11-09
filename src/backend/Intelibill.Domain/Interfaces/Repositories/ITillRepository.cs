@@ -6,6 +6,13 @@ namespace Intelibill.Domain.Interfaces.Repositories;
 
 public interface ITillRepository
 {
+    Task<ShopTillSetting?> GetSettingsAsync(Guid shopId, CancellationToken ct = default);
+    Task<(int Open, int AwaitingReview, int PendingOffline)> GetSettingsBlockersAsync(Guid shopId, CancellationToken ct = default);
+    Task SaveSettingsAsync(ShopTillSetting settings, CancellationToken ct = default);
+    Task AddSettingsEventAsync(ShopTillSettingEvent audit, CancellationToken ct = default);
+    /// <summary>Shared shop gate held to source commit, after period fences and before business locks.</summary>
+    Task<RowLockOutcome> LockSettingsActorAsync(Guid actorId, CancellationToken ct = default);
+    Task<RowLockOutcome> LockSettingsReadAsync(Guid shopId, CancellationToken ct = default);
     Task<Till?> GetTillAsync(Guid shopId, Guid tillId, CancellationToken ct = default);
     Task<IReadOnlyList<Till>> ListTillsAsync(Guid shopId, CancellationToken ct = default);
     Task<TillSession?> GetSessionAsync(Guid shopId, Guid sessionId, CancellationToken ct = default);

@@ -6,6 +6,7 @@ public interface ISupplierLedgerEntryRepository : IRepository<SupplierLedgerEntr
 {
     Task<IReadOnlyList<SupplierLedgerEntry>> GetBySupplierAsync(Guid shopId, Guid supplierId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<SupplierLedgerEntry>> GetByBatchAsync(Guid shopId, Guid batchId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<Guid, decimal>> GetSupplierBalancesAsync(Guid shopId, IReadOnlyCollection<Guid> supplierIds, CancellationToken cancellationToken = default);
     Task<decimal> GetSupplierBalanceAsync(Guid shopId, Guid supplierId, CancellationToken cancellationToken = default);
     Task<decimal> GetSupplierPayablesAsync(Guid shopId, CancellationToken cancellationToken = default);
 }

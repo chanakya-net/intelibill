@@ -32,9 +32,9 @@ public sealed class TillLifecycleService(ITillRepository tills, IShopRepository 
         return await executor.ExecuteAsync<TillDto>(new(command.ShopId, FinancialOperationType.TillCreate, command.OperationKey.Trim()),
             command.ActorUserId, command.ShopId, FinancialOperationHasher.Compute(new { command.ActorUserId, Name = command.Name.Trim() }), async token =>
             {
-                if (!policy.IsEnabled(command.ShopId)) return TillErrors.Disabled;
                 var locked = await tills.LockCatalogAsync(command.ShopId, token);
                 if (locked != RowLockOutcome.Acquired) return LockError(locked);
+                if (!await policy.IsEnabledAsync(command.ShopId, token)) return TillErrors.Disabled;
                 if (!IsManager(await shops.GetActiveRoleAsync(command.ActorUserId, command.ShopId, token))) return TillErrors.Forbidden;
                 if ((await tills.ListTillsAsync(command.ShopId, token)).Any(x => string.Equals(x.Name, command.Name.Trim(), StringComparison.OrdinalIgnoreCase)))
                     return Error.Conflict("Till.NameExists", "A till with this name already exists.");
@@ -60,12 +60,15 @@ public sealed class TillLifecycleService(ITillRepository tills, IShopRepository 
             command.ActorUserId, command.TillId, FinancialOperationHasher.Compute(new { command.ActorUserId, command.TillId, command.CashierId,
                 OpeningFloat = FinancialOperationHasher.NormalizeAmount(command.OpeningFloat), OverrideReason = command.OverrideReason?.Trim() }), async token =>
             {
-                if (!policy.IsEnabled(command.ShopId)) return TillErrors.Disabled;
+                if (!await policy.IsEnabledAsync(command.ShopId, token)) return TillErrors.Disabled;
                 var shop = await shops.GetByIdAsync(command.ShopId, token);
                 if (shop is null) return TillErrors.NotFound;
                 var today = clock.Today(shop.BusinessTimeZoneId);
                 var fence = await periods.AuthorizeForWriteAsync(command.ShopId, today, token);
                 if (fence.IsError) return fence.Errors;
+                var catalog = await tills.LockCatalogAsync(command.ShopId, token);
+                if (catalog != RowLockOutcome.Acquired) return LockError(catalog);
+                if (!await policy.IsEnabledAsync(command.ShopId, token)) return TillErrors.Disabled;
                 var locked = await tills.LockTillAsync(command.ShopId, command.TillId, token);
                 if (locked != RowLockOutcome.Acquired) return LockError(locked);
                 auth = await policy.AuthorizeAsync(command.ShopId, command.ActorUserId, command.CashierId, command.OverrideReason, token);
@@ -96,7 +99,7 @@ public sealed class TillLifecycleService(ITillRepository tills, IShopRepository 
                 Amount = FinancialOperationHasher.NormalizeAmount(command.Amount), Reason = command.Reason.Trim(), command.ExpectedVersion,
                 OverrideReason = command.OverrideReason?.Trim() }), async token =>
             {
-                if (!policy.IsEnabled(command.ShopId)) return TillErrors.Disabled;
+                if (!await policy.IsEnabledAsync(command.ShopId, token)) return TillErrors.Disabled;
                 var original = authorized.Value;
                 var fence = await periods.AuthorizeForWriteAsync(command.ShopId, original.BusinessDate, token);
                 if (fence.IsError) return fence.Errors;
@@ -129,9 +132,12 @@ public sealed class TillLifecycleService(ITillRepository tills, IShopRepository 
                 CountedCash = FinancialOperationHasher.NormalizeAmount(command.CountedCash), Reason = command.Reason?.Trim(), command.ExpectedVersion,
                 OverrideReason = command.OverrideReason?.Trim(), command.FinalizeOverdue }), async token =>
             {
-                if (!policy.IsEnabled(command.ShopId)) return TillErrors.Disabled;
+                if (!await policy.IsEnabledAsync(command.ShopId, token)) return TillErrors.Disabled;
                 var fence = await periods.AuthorizeForWriteAsync(command.ShopId, authorized.Value.BusinessDate, token);
                 if (fence.IsError) return fence.Errors;
+                var gate = await posting.GateAsync(command.ShopId, token);
+                if (gate.IsError) return gate.Errors;
+                if (!gate.Value) return TillErrors.Disabled;
                 var locked = await LockSessionAsync(command.ShopId, command.SessionId, token);
                 if (locked.IsError) return locked.Errors;
                 var session = locked.Value;
@@ -166,9 +172,12 @@ public sealed class TillLifecycleService(ITillRepository tills, IShopRepository 
             command.ActorUserId, command.SessionId, FinancialOperationHasher.Compute(new { command.ActorUserId, command.SessionId,
                 Reason = command.Reason.Trim(), command.ExpectedVersion }), async token =>
             {
-                if (!policy.IsEnabled(command.ShopId)) return TillErrors.Disabled;
+                if (!await policy.IsEnabledAsync(command.ShopId, token)) return TillErrors.Disabled;
                 var fence = await periods.AuthorizeForWriteAsync(command.ShopId, session.BusinessDate, token);
                 if (fence.IsError) return fence.Errors;
+                var gate = await posting.GateAsync(command.ShopId, token);
+                if (gate.IsError) return gate.Errors;
+                if (!gate.Value) return TillErrors.Disabled;
                 var locked = await LockSessionAsync(command.ShopId, command.SessionId, token);
                 if (locked.IsError) return locked.Errors;
                 session = locked.Value;

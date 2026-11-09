@@ -5,7 +5,7 @@ namespace Intelibill.Infrastructure.Services.Exports;
 
 internal static class SalesExcelCancellationRenderer
 {
-    internal static void Render(XLWorkbook workbook, SalesExportDatasetDto dataset)
+    internal static void Render(XLWorkbook workbook, SalesExportDatasetDto dataset, CancellationToken cancellationToken = default)
     {
         if (dataset.CancellationAdjustments.Count == 0) return;
         var sheet = workbook.Worksheets.Add("Sale Cancellations");
@@ -14,6 +14,7 @@ internal static class SalesExcelCancellationRenderer
         var row = 2;
         foreach (var entry in dataset.CancellationAdjustments)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             sheet.Cell(row, 1).Value = entry.ReferenceNumber;
             sheet.Cell(row, 2).Value = entry.BusinessDate.ToDateTime(TimeOnly.MinValue);
             sheet.Cell(row, 3).Value = entry.InvoiceNumber;
@@ -31,6 +32,7 @@ internal static class SalesExcelCancellationRenderer
             row++;
             foreach (var line in entry.Lines)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 sheet.Cell(row, 1).Value = entry.ReferenceNumber;
                 sheet.Cell(row, 12).Value = line.Description;
                 sheet.Cell(row, 13).Value = line.Quantity;

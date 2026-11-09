@@ -1,5 +1,7 @@
 import { TillVerificationStore } from './till-verification-store';
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { TillSettingsEvents } from './till-settings-events.service';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ownerOfSession, sameOwner, ScopeOwner } from '../../../core/context/shop-scope';
@@ -12,6 +14,7 @@ export class TillContextService {
   private readonly verification = inject(TillVerificationStore);
   private verifiedSelection: Promise<boolean> = Promise.resolve(true);
   private restored = false;
+  private refreshGeneration = 0;
   private loadedOwner: ScopeOwner | null = null;
   readonly capability = signal<TillCapabilities | null>(null);
   readonly selected = signal<TillSession | null>(null);
@@ -21,6 +24,17 @@ export class TillContextService {
   readonly owner = computed(() => ownerOfSession(this.auth.session()));
   readonly enabled = computed(() => this.capability()?.enabled === true);
   constructor() {
+    inject(TillSettingsEvents)
+      .changed$.pipe(takeUntilDestroyed())
+      .subscribe((shopId) => {
+        if (this.owner()?.shopId !== shopId) return;
+        this.capability.set(null);
+        this.selected.set(null);
+        this.sessions.set([]);
+        this.restored = true;
+        void this.verification.invalidate(this.owner()!).catch(() => {});
+        void this.refresh();
+      });
     effect(() => {
       const owner = this.owner();
       if (!sameOwner(owner, this.loadedOwner)) {
@@ -38,13 +52,15 @@ export class TillContextService {
   async refresh() {
     const owner = this.owner();
     if (!owner?.shopId) return;
+    const generation = ++this.refreshGeneration;
+    const current = () => generation === this.refreshGeneration && sameOwner(owner, this.owner());
     this.loading.set(true);
     this.error.set(false);
     try {
       if (!this.restored) {
         try {
           const stored = await this.verification.load(owner);
-          if (stored && sameOwner(owner, this.owner())) {
+          if (stored && current()) {
             this.capability.set(stored.capability);
             this.selected.set(stored.session);
             this.sessions.set(stored.session ? [stored.session] : []);
@@ -53,18 +69,22 @@ export class TillContextService {
         this.restored = true;
       }
       const cap = await firstValueFrom(this.api.capabilities());
-      if (!sameOwner(owner, this.owner())) return;
+      if (!current()) return;
       this.capability.set(cap);
+      if (!cap.enabled) {
+        this.selected.set(null);
+        this.sessions.set([]);
+      }
       if (cap.enabled) {
         let pageNumber = 1;
         let page = await firstValueFrom(this.api.sessions(pageNumber, 'Open'));
         const rows = [...page.items];
         while (rows.length < page.totalCount && page.items.length > 0) {
-          if (!sameOwner(owner, this.owner())) return;
+          if (!current()) return;
           page = await firstValueFrom(this.api.sessions(++pageNumber, 'Open'));
           rows.push(...page.items);
         }
-        if (!sameOwner(owner, this.owner())) return;
+        if (!current()) return;
         const sessions = [...new Map(rows.map((x) => [x.id, x])).values()];
         this.sessions.set(sessions);
         const old = this.selected();
@@ -72,9 +92,9 @@ export class TillContextService {
       }
       await this.persistVerified(owner);
     } catch {
-      if (sameOwner(owner, this.owner())) this.error.set(true);
+      if (current()) this.error.set(true);
     } finally {
-      if (sameOwner(owner, this.owner())) this.loading.set(false);
+      if (current()) this.loading.set(false);
     }
   }
   select(id: string) {
@@ -98,11 +118,13 @@ export class TillContextService {
   }
   async offlineEvidence(method: number, paid: number) {
     const owner = this.owner();
+    const generation = this.refreshGeneration;
     const frozen = structuredClone(this.saleEvidence(method, paid, true));
     const verification = this.verifiedSelection;
     const durable = await verification;
     if (!durable) throw new Error('tills.capabilityUnknown');
-    if (!sameOwner(owner, this.owner())) throw new Error('tills.capabilityUnknown');
+    if (!sameOwner(owner, this.owner()) || generation !== this.refreshGeneration)
+      throw new Error('tills.capabilityUnknown');
     return frozen;
   }
   posting(

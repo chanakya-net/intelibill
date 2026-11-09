@@ -80,7 +80,12 @@
 
       @if (item.unitReviewRequired) {
         <div class="info-banner" role="note" data-testid="unit-review-note">
-          {{ (form.controls.quantityScale.disabled ? 'inventory.unitReview.confirmNote' : 'inventory.unitReview.note') | transloco }}
+          {{
+            (form.controls.quantityScale.disabled
+              ? 'inventory.unitReview.confirmNote'
+              : 'inventory.unitReview.note'
+            ) | transloco
+          }}
         </div>
       }
 
@@ -114,7 +119,8 @@
           <small id="edit-product-scale-hint" class="field-hint">{{
             (form.controls.quantityScale.disabled
               ? 'inventory.quantityScale.catalogHint'
-              : 'inventory.quantityScale.customHint') | transloco
+              : 'inventory.quantityScale.customHint'
+            ) | transloco
           }}</small>
         </div>
 
@@ -160,6 +166,13 @@
     </section>
   </form>
 
+  <app-expiry-policy-form
+    class="product-policy"
+    [shopId]="expiryPolicies.activeShopId() ?? ''"
+    [itemId]="item.id"
+    [canEdit]="expiryPolicies.role() === 'owner'"
+  />
+
   <ng-template pTemplate="footer">
     <div class="dialog-actions">
       <button
@@ -181,7 +194,6 @@
       ></button>
     </div>
   </ng-template>
-<app-expiry-policy-form [shopId]="expiryPolicies.activeShopId() ?? ''" [itemId]="item.id" [canEdit]="expiryPolicies.role() === 'owner'" />
 </p-dialog>
 
 <app-barcode-scanner-dialog

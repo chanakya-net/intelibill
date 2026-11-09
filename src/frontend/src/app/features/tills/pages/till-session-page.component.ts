@@ -3,6 +3,7 @@ import { TillPendingActionsComponent } from '../components/till-pending-actions.
 import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ButtonModule } from 'primeng/button';
 import { RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { firstValueFrom } from 'rxjs';
@@ -15,7 +16,7 @@ import { Till, TillSession, TillSessionDetail } from '../services/till.models';
 @Component({
   selector: 'app-till-session-page',
   standalone: true,
-  imports: [TillPendingActionsComponent, CommonModule, FormsModule, RouterLink, TranslocoPipe],
+  imports: [TillPendingActionsComponent, CommonModule, FormsModule, RouterLink, TranslocoPipe, ButtonModule],
   templateUrl: './till-session-page.component.html',
   styleUrl: './till-session-page.component.scss',
 })

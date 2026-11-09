@@ -10,18 +10,26 @@ namespace Intelibill.Api.Unit.Tests.Infrastructure.Services.Tills;
 
 public sealed class TillSessionPolicyTests
 {
+    private readonly ITillRepository _tills = Substitute.For<ITillRepository>();
     private readonly IShopRepository _shops = Substitute.For<IShopRepository>();
     private readonly Guid _shop = Guid.NewGuid();
     private readonly Guid _actor = Guid.NewGuid();
 
     [Fact]
-    public void Gate_RequiresBothGlobalAndExactShopAllowlist()
+    public async Task Gate_FreshShopRequiresExplicitOwnerOptIn()
     {
-        Assert.False(Create(new()).IsEnabled(_shop));
-        Assert.False(Create(new() { Enabled = true }).IsEnabled(_shop));
-        Assert.False(Create(new() { AllowedShopIds = [_shop] }).IsEnabled(_shop));
-        Assert.True(Create(new() { Enabled = true, AllowedShopIds = [_shop] }).IsEnabled(_shop));
-        Assert.False(Create(new() { Enabled = true, AllowedShopIds = [Guid.NewGuid()] }).IsEnabled(_shop));
+        Assert.False(await Create(new() { Enabled = true, AllowedShopIds = [_shop] }).IsEnabledAsync(_shop));
+    }
+
+    [Fact]
+    public async Task Gate_RequiresBothGlobalAndExactShopAllowlist()
+    {
+        _tills.GetSettingsAsync(_shop, Arg.Any<CancellationToken>()).Returns(ShopTillSetting.Create(_shop, true));
+        Assert.False(await Create(new()).IsEnabledAsync(_shop));
+        Assert.False(await Create(new() { Enabled = true }).IsEnabledAsync(_shop));
+        Assert.False(await Create(new() { AllowedShopIds = [_shop] }).IsEnabledAsync(_shop));
+        Assert.True(await Create(new() { Enabled = true, AllowedShopIds = [_shop] }).IsEnabledAsync(_shop));
+        Assert.False(await Create(new() { Enabled = true, AllowedShopIds = [Guid.NewGuid()] }).IsEnabledAsync(_shop));
     }
 
     [Fact]
@@ -57,5 +65,5 @@ public sealed class TillSessionPolicyTests
         Assert.Throws<OptionsValidationException>(() => Create(new() { MixedTenderEnabled = true }));
     }
 
-    private TillSessionPolicy Create(TillSessionOptions options) => new(Microsoft.Extensions.Options.Options.Create(options), _shops);
+    private TillSessionPolicy Create(TillSessionOptions options) => new(Microsoft.Extensions.Options.Options.Create(options), _shops, _tills);
 }

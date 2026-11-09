@@ -1,6 +1,8 @@
 <div class="flex gap-2 flex-wrap">
   <div class="flex flex-col gap-1 flex-1 min-w-32">
-    <label class="text-xs text-slate-500" [for]="controlPrefix + '-name'">{{ 'sales.newSale.customerName' | transloco }}</label>
+    <label class="text-xs text-slate-500" [for]="controlPrefix + '-name'">{{
+      'sales.newSale.customerName' | transloco
+    }}</label>
     <p-autocomplete
       [inputId]="controlPrefix + '-name'"
       [formControl]="customerNameControl"
@@ -8,26 +10,49 @@
       (completeMethod)="onCustomerNameSearch($event)"
       (onSelect)="onCustomerSelect($event.value)"
       [placeholder]="'sales.newSale.walkIn' | transloco"
+      [delay]="0"
+      [maxlength]="200"
       appendTo="body"
       [fluid]="true"
     />
   </div>
   <div class="flex flex-col gap-1 flex-1 min-w-32">
-    <label class="text-xs text-slate-500" [for]="controlPrefix + '-phone'">{{ 'sales.newSale.customerPhone' | transloco }}</label>
+    <label class="text-xs text-slate-500" [for]="controlPrefix + '-phone'">{{
+      'sales.newSale.customerPhone' | transloco
+    }}</label>
     <input
       pInputText
       [id]="controlPrefix + '-phone'"
-      [attr.aria-invalid]="customerPhoneControl.touched && customerPhoneControl.errors?.['pattern'] ? 'true' : null"
-      [attr.aria-describedby]="customerPhoneControl.touched && customerPhoneControl.errors?.['pattern'] ? controlPrefix + '-phone-error' : null"
+      [attr.aria-invalid]="
+        customerPhoneControl.touched && customerPhoneControl.errors?.['pattern'] ? 'true' : null
+      "
+      [attr.aria-describedby]="
+        customerPhoneControl.touched && customerPhoneControl.errors?.['pattern']
+          ? controlPrefix + '-phone-error'
+          : null
+      "
       type="tel"
       [formControl]="customerPhoneControl"
       placeholder="+91 98765 43210"
     />
     @if (customerPhoneControl.touched && customerPhoneControl.errors?.['pattern']) {
-      <p class="error-hint" [id]="controlPrefix + '-phone-error'">{{ 'sales.newSale.invalidPhone' | transloco }}</p>
+      <p class="error-hint" [id]="controlPrefix + '-phone-error'">
+        {{ 'sales.newSale.invalidPhone' | transloco }}
+      </p>
     }
   </div>
 </div>
 @if (isOfflineMode) {
-  <p class="text-xs text-slate-500 mt-2">{{ 'sales.newSale.offline.cachedCustomerOnlyNote' | transloco }}</p>
+  <p class="text-xs text-slate-500 mt-2">
+    {{ 'sales.newSale.offline.cachedCustomerOnlyNote' | transloco }}
+  </p>
 }
+
+@if (searchLoading) {
+  <p role="status">{{ 'common.loading' | transloco }}</p>
+}
+@if (searchError) {
+  <p role="status">{{ 'errors.customers.loadFailed' | transloco }}</p>
+}
+
+<p class="text-xs text-slate-500">{{ 'partyDirectory.searchHint' | transloco }}</p>

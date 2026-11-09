@@ -13,17 +13,22 @@ internal sealed class TillSessionPolicy : ITillSessionPolicy
 {
     private readonly TillSessionOptions _options;
     private readonly IShopRepository _shops;
+    private readonly ITillRepository _tills;
 
-    public TillSessionPolicy(IOptions<TillSessionOptions> options, IShopRepository shops)
+    public TillSessionPolicy(IOptions<TillSessionOptions> options, IShopRepository shops, ITillRepository tills)
     {
         _options = options.Value;
         _shops = shops;
+        _tills = tills;
         if (_options.MixedTenderEnabled)
             throw new OptionsValidationException(TillSessionOptions.SectionName, typeof(TillSessionOptions), ["Mixed tender is not supported."]);
     }
 
     public bool MixedTenderEnabled { get; }
-    public bool IsEnabled(Guid shopId) => shopId != Guid.Empty && _options.Enabled && _options.AllowedShopIds.Contains(shopId);
+    public bool IsAvailable(Guid shopId) => shopId != Guid.Empty && _options.Enabled && _options.AllowedShopIds.Contains(shopId);
+
+    public async Task<bool> IsEnabledAsync(Guid shopId, CancellationToken ct = default) =>
+        IsAvailable(shopId) && (await _tills.GetSettingsAsync(shopId, ct))?.Enabled == true;
 
     public async Task<ErrorOr<Success>> AuthorizeAsync(Guid shopId, Guid actorId, Guid cashierId, string? overrideReason, CancellationToken ct = default)
     {

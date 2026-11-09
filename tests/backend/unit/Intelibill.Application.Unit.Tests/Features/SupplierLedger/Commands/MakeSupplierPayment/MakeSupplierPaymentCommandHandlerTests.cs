@@ -41,7 +41,7 @@ public class MakeSupplierPaymentCommandHandlerTests
         new(_userRepository, _supplierRepository, _ledgerRepository, _expenseCategoryRepository, _expenseRepository,
             _paymentReceiptRepository, _bankAccountRepository, new PaymentAllocationPlanner(_balanceReader),
             new PaymentTransactionRunner(_executor, _unitOfWork), _postingPeriods, _unitOfWork,
-            BusinessTestDoubles.DisabledTillPosting(), BusinessTestDoubles.DisabledTillPolicy(), BusinessTestDoubles.RealClock(),
+            BusinessTestDoubles.DisabledTillPosting(), BusinessTestDoubles.RealClock(),
             NullLogger<MakeSupplierPaymentCommandHandler>.Instance);
 
     private static (User owner, Shop shop, Supplier supplier) BuildOwnerShopSupplier()

@@ -109,6 +109,14 @@ describe('AddProductOverlayComponent', () => {
     TestBed.resetTestingModule();
   });
 
+  it('explains expiry inheritance inside the product form without exposing shop administration', () => {
+    setup();
+    const dialog = document.querySelector('.product-form-dialog')!;
+    expect(dialog).toBeTruthy();
+    expect(dialog.querySelector('.product-form')?.textContent).toContain('expiry.newItemInherits');
+    expect(dialog.querySelector('app-expiry-policy-form')).toBeNull();
+  });
+
   it('does not submit when required fields are missing', () => {
     const component = setup();
 
@@ -186,7 +194,9 @@ describe('AddProductOverlayComponent', () => {
 
   function lastAddPayload(): { uom: string; quantityScale?: number | null } {
     const call = dispatch.mock.calls
-      .map((c) => c[0] as { type: string; payload?: { uom: string; quantityScale?: number | null } })
+      .map(
+        (c) => c[0] as { type: string; payload?: { uom: string; quantityScale?: number | null } },
+      )
       .filter((a) => a.type === InventoryActions.addItemRequested.type)
       .pop();
     return call!.payload!;

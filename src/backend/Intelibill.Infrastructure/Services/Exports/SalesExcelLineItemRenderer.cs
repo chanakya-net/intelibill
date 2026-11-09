@@ -7,7 +7,7 @@ namespace Intelibill.Infrastructure.Services.Exports;
 
 internal static class SalesExcelLineItemRenderer
 {
-    internal static void RenderLineItems(XLWorkbook workbook, SalesExportDatasetDto dataset)
+    internal static void RenderLineItems(XLWorkbook workbook, SalesExportDatasetDto dataset, CancellationToken cancellationToken = default)
     {
         var worksheet = workbook.Worksheets.Add("Sales Line Items");
 
@@ -23,6 +23,7 @@ internal static class SalesExcelLineItemRenderer
         var dataRow = firstDataRow;
         foreach (var row in dataset.LineItemRows)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             RenderLineItemRow(worksheet, row, columnPlan, dataRow);
             dataRow++;
         }

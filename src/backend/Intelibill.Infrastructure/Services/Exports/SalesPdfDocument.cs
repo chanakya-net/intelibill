@@ -12,10 +12,12 @@ namespace Intelibill.Infrastructure.Services.Exports;
 internal sealed class SalesPdfDocument : IDocument
 {
     private readonly SalesExportDatasetDto _dataset;
+    private readonly CancellationToken _cancellationToken;
 
-    public SalesPdfDocument(SalesExportDatasetDto dataset)
+    public SalesPdfDocument(SalesExportDatasetDto dataset, CancellationToken cancellationToken = default)
     {
         _dataset = dataset;
+        _cancellationToken = cancellationToken;
     }
 
     public DocumentMetadata GetMetadata() => DocumentMetadata.Default;
@@ -212,6 +214,7 @@ internal sealed class SalesPdfDocument : IDocument
             column.Item().Text("Sale Cancellations").SemiBold();
             foreach (var entry in _dataset.CancellationAdjustments)
             {
+                _cancellationToken.ThrowIfCancellationRequested();
                 column.Item().Text($"{entry.ReferenceNumber} — {entry.BusinessDate:yyyy-MM-dd}").SemiBold();
                 column.Item().Text($"Original invoice: {entry.InvoiceNumber}, {entry.InvoiceBusinessDate:yyyy-MM-dd}. Seller: {entry.Seller.LegalName}. Buyer: {entry.CustomerName ?? "Walk-in Customer"}.");
                 column.Item().Text($"Reason: {entry.Reason}");
@@ -251,6 +254,7 @@ internal sealed class SalesPdfDocument : IDocument
                 var rowIndex = 0;
                 foreach (var entry in _dataset.ReturnAdjustments)
                 {
+                    _cancellationToken.ThrowIfCancellationRequested();
                     rowIndex++;
                     var background = rowIndex % 2 == 0 ? Colors.Grey.Lighten5 : Colors.White;
 
@@ -297,6 +301,7 @@ internal sealed class SalesPdfDocument : IDocument
         var rowIndex = 0;
         foreach (var row in _dataset.SummaryRows)
         {
+            _cancellationToken.ThrowIfCancellationRequested();
             rowIndex++;
             var zebra = rowIndex % 2 == 0;
             var background = zebra ? Colors.Grey.Lighten5 : Colors.White;
@@ -334,6 +339,7 @@ internal sealed class SalesPdfDocument : IDocument
         var rowIndex = 0;
         foreach (var row in _dataset.LineItemRows)
         {
+            _cancellationToken.ThrowIfCancellationRequested();
             rowIndex++;
             var zebra = rowIndex % 2 == 0;
             var background = zebra ? Colors.Grey.Lighten5 : Colors.White;

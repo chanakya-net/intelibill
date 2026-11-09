@@ -1,6 +1,6 @@
 <app-suppliers-filter-bar
-  [searchValue]="searchValue()"
-  [statusFilter]="statusFilter()"
+  [searchValue]="search"
+  [statusFilter]="status"
   (searchValueChange)="onSearchChange($event)"
   (statusFilterChange)="onStatusChange($event)"
 />
@@ -13,16 +13,19 @@
         [class.opacity-50]="!supplier.isActive"
         (click)="onOpenSupplierDetail(supplier)"
         [pt]="{
-          root: { class: 'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200' },
+          root: {
+            class:
+              'border border-orange-100 shadow-none hover:border-orange-200 transition-colors duration-200',
+          },
           body: { class: 'p-3' },
-          content: { class: 'p-0' }
+          content: { class: 'p-0' },
         }"
       >
         <div class="supplier-card">
           <!-- Left: Avatar -->
           <p-avatar
             [label]="supplierInitials(supplier.name)"
-            [style]="{'background-color': supplierAvatarColor(supplier.name), 'color': '#ffffff'}"
+            [style]="{ 'background-color': supplierAvatarColor(supplier.name), color: '#ffffff' }"
             shape="circle"
             size="large"
             class="shadow-sm flex-shrink-0"
@@ -35,15 +38,17 @@
             </div>
             <div class="supplier-card__meta">
               @if (supplier.city) {
-                <span>
-                  {{ supplier.city }}{{ supplier.state ? ', ' + supplier.state : '' }}
-                </span>
+                <span> {{ supplier.city }}{{ supplier.state ? ', ' + supplier.state : '' }} </span>
                 <span>•</span>
               }
               <p-tag [severity]="supplier.isActive ? 'success' : 'danger'">
                 <div class="flex items-center gap-1.5 px-1">
                   <span class="status-dot" [class.active]="supplier.isActive"></span>
-                  <span>{{ supplier.isActive ? ('suppliers.active' | transloco) : ('suppliers.inactive' | transloco) }}</span>
+                  <span>{{
+                    supplier.isActive
+                      ? ('suppliers.active' | transloco)
+                      : ('suppliers.inactive' | transloco)
+                  }}</span>
                 </div>
               </p-tag>
             </div>
@@ -68,7 +73,9 @@
                   [outlined]="true"
                   severity="secondary"
                   [pt]="{
-                    root: { class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50' }
+                    root: {
+                      class: 'w-8 h-8 p-0 border-slate-200 text-slate-500 hover:bg-slate-50',
+                    },
                   }"
                   (click)="$event.stopPropagation(); onOpenEditSupplier(supplier)"
                   [ariaLabel]="'suppliers.editSupplier' | transloco"
@@ -80,7 +87,9 @@
                   [outlined]="true"
                   severity="success"
                   [pt]="{
-                    root: { class: 'w-8 h-8 p-0 border-green-200 text-green-600 hover:bg-green-50' }
+                    root: {
+                      class: 'w-8 h-8 p-0 border-green-200 text-green-600 hover:bg-green-50',
+                    },
                   }"
                   (click)="$event.stopPropagation(); onOpenMakePayment(supplier)"
                   [ariaLabel]="'suppliers.makePayment' | transloco"
@@ -94,7 +103,9 @@
 
     @if (filteredSuppliers().length === 0) {
       <div class="mobile-empty-state">
-        <h2 class="text-xl font-bold text-slate-700">{{ 'suppliers.noSuppliersFound' | transloco }}</h2>
+        <h2 class="text-xl font-bold text-slate-700">
+          {{ 'suppliers.noSuppliersFound' | transloco }}
+        </h2>
         <p class="text-slate-500">{{ 'suppliers.noSuppliersDescription' | transloco }}</p>
       </div>
     }
@@ -108,7 +119,7 @@
     class="p-datatable-sm suppliers-directory-table"
     [scrollable]="true"
     scrollHeight="calc(100vh - 280px)"
-    [tableStyle]="{ 'width': '100%', 'min-width': '100%', 'table-layout': 'fixed' }"
+    [tableStyle]="{ width: '100%', 'min-width': '100%', 'table-layout': 'fixed' }"
   >
     <ng-template pTemplate="header">
       <tr>
@@ -130,7 +141,10 @@
       <tr>
         <td>
           <button type="button" class="supplier-name-link" (click)="onOpenSupplierDetail(supplier)">
-            <span class="supplier-name-link__avatar" [style.background-color]="supplierAvatarColor(supplier.name)">
+            <span
+              class="supplier-name-link__avatar"
+              [style.background-color]="supplierAvatarColor(supplier.name)"
+            >
               {{ supplierInitials(supplier.name) }}
             </span>
             <span>
@@ -160,12 +174,19 @@
           <p-tag [severity]="supplier.isActive ? 'success' : 'danger'">
             <div class="flex items-center gap-1.5 px-1">
               <span class="status-dot" [class.active]="supplier.isActive"></span>
-              <span>{{ supplier.isActive ? ('suppliers.active' | transloco) : ('suppliers.inactive' | transloco) }}</span>
+              <span>{{
+                supplier.isActive
+                  ? ('suppliers.active' | transloco)
+                  : ('suppliers.inactive' | transloco)
+              }}</span>
             </div>
           </p-tag>
         </td>
         <td>
-          <p-tag [severity]="supplier.isPreferred ? 'info' : 'warn'" [value]="(supplier.isPreferred ? 'suppliers.yes' : 'suppliers.no') | transloco"></p-tag>
+          <p-tag
+            [severity]="supplier.isPreferred ? 'info' : 'warn'"
+            [value]="(supplier.isPreferred ? 'suppliers.yes' : 'suppliers.no') | transloco"
+          ></p-tag>
         </td>
         @if (canManageSuppliers || canMakePayment) {
           <td>
@@ -209,3 +230,22 @@
     </ng-template>
   </p-table>
 </div>
+
+<p role="status" class="text-sm text-slate-500">
+  {{
+    'partyDirectory.pageSummary'
+      | transloco
+        : {
+            start: totalRows ? (pageNumber - 1) * pageSize + 1 : 0,
+            end: pageNumber * pageSize > totalRows ? totalRows : pageNumber * pageSize,
+            total: totalRows,
+          }
+  }}
+</p>
+<p-paginator
+  [first]="(pageNumber - 1) * pageSize"
+  [rows]="pageSize"
+  [totalRecords]="totalRows"
+  [rowsPerPageOptions]="[20, 50, 100]"
+  (onPageChange)="onPageChange($event)"
+/>

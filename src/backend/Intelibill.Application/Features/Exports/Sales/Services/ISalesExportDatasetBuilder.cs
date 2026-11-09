@@ -6,6 +6,7 @@ namespace Intelibill.Application.Features.Exports.Sales.Services;
 public interface ISalesExportDatasetBuilder
 {
     Task<SalesExportDatasetDto> BuildAsync(
+        IExportReadSnapshot snapshot,
         Shop shop,
         User generatedBy,
         DateOnly startDate,

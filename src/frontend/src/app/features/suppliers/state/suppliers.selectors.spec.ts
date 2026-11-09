@@ -1,3 +1,7 @@
+import {
+  DEFAULT_DIRECTORY_QUERY,
+  EMPTY_SUPPLIER_SUMMARY,
+} from '../../../shared/models/party-directory.models';
 import { SupplierLedgerEntry } from '../services/supplier-ledger.service';
 import { Supplier } from '../services/supplier.service';
 import { SuppliersState } from './suppliers.reducer';
@@ -57,6 +61,10 @@ const entries: readonly SupplierLedgerEntry[] = [
 
 describe('suppliers selectors', () => {
   const suppliersState: SuppliersState = {
+    query: DEFAULT_DIRECTORY_QUERY,
+    requestId: undefined,
+    totalCount: 0,
+    summary: EMPTY_SUPPLIER_SUMMARY,
     ids: ['s1', 's2'],
     entities: {
       s1: supplierA,
@@ -88,7 +96,9 @@ describe('suppliers selectors', () => {
   it('selects suppliers status flags', () => {
     expect(selectSuppliersLoading(rootState as never)).toBe(true);
     expect(selectSuppliersSubmitting(rootState as never)).toBe(true);
-    expect(selectSuppliersErrorMessage(rootState as never)).toBe('errors.suppliers.unableToLoadSuppliers');
+    expect(selectSuppliersErrorMessage(rootState as never)).toBe(
+      'errors.suppliers.unableToLoadSuppliers',
+    );
     expect(selectSuppliersLastMutationType(rootState as never)).toBe('edit-supplier');
     expect(selectSuppliersLastMutationSucceeded(rootState as never)).toBe(true);
   });
@@ -96,6 +106,8 @@ describe('suppliers selectors', () => {
   it('selects ledger state', () => {
     expect(selectLedgerEntries(rootState as never)).toEqual(entries);
     expect(selectLedgerLoading(rootState as never)).toBe(true);
-    expect(selectLedgerErrorMessage(rootState as never)).toBe('errors.suppliers.unableToLoadLedger');
+    expect(selectLedgerErrorMessage(rootState as never)).toBe(
+      'errors.suppliers.unableToLoadLedger',
+    );
   });
 });

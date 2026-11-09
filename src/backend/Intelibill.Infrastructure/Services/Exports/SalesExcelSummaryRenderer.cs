@@ -9,7 +9,7 @@ namespace Intelibill.Infrastructure.Services.Exports;
 
 internal static class SalesExcelSummaryRenderer
 {
-    internal static void RenderSummary(XLWorkbook workbook, SalesExportDatasetDto dataset)
+    internal static void RenderSummary(XLWorkbook workbook, SalesExportDatasetDto dataset, CancellationToken cancellationToken = default)
     {
         var worksheet = workbook.Worksheets.Add("Sales Summary");
 
@@ -31,6 +31,7 @@ internal static class SalesExcelSummaryRenderer
         var dataRow = firstDataRow;
         foreach (var row in dataset.SummaryRows)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             RenderSummaryRow(worksheet, row, columnPlan, dataRow);
             dataRow++;
         }
@@ -42,6 +43,7 @@ internal static class SalesExcelSummaryRenderer
 
         foreach (var entry in dataset.CancellationAdjustments)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             worksheet.Cell(dataRow, columnPlan.InvoiceNumberColumn).Value = $"Cancellation {entry.ReferenceNumber}";
             worksheet.Cell(dataRow, columnPlan.DateColumn).Value = entry.BusinessDate.ToDateTime(TimeOnly.MinValue);
             worksheet.Cell(dataRow, columnPlan.DateColumn).Style.DateFormat.Format = "yyyy-MM-dd";

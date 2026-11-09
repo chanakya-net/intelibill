@@ -281,6 +281,7 @@ public sealed class ExpiryOfflineApiTests : IAsyncLifetime, IDisposable
     {
         var seed = await Seed(); using var client = seed.Client;
         var options = _factory.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value; options.Enabled = true; options.AllowedShopIds = [seed.Shop];
+        await TillTestContext.OptInAsync(_migratorConnection, seed.Shop);
         await using var app = new TillTestContext(_migratorConnection, seed.Shop, new() { Now = _time.Now.AddSeconds(-1) });
         var till = await app.CreateAsync(seed.Shop, seed.Actor); var session = await app.OpenAsync(seed.Shop, seed.Actor, till.Id);
         seed.Sale["till"] = new JsonObject { ["sessionId"] = session.Id };

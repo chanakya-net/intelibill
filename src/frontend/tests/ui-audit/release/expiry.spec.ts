@@ -1,7 +1,10 @@
+import { customerDirectoryResponse } from '../support/party-directory-mock';
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { resolve } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { session, SHOP_A, USER, startPurchaseReceivingServer } from './purchase-receiving-server';
+// Built UI checks use routed API fixtures; worker-owned fetches bypass those routes.
+test.use({ serviceWorkers: 'block' });
 const OUTPUT = resolve(__dirname, '../../../.ui-audit/expiry-task5');
 const json = (r: Route, x: unknown, status = 200) =>
   r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(x) });
@@ -227,6 +230,7 @@ async function fixtures(page: Page) {
     fullyQuarantined: false,
     released: false,
     originallyExpired: false,
+    noHolds: false,
   };
   await page.route('**/api/**', async (r) => {
     const path = new URL(r.request().url()).pathname;
@@ -296,29 +300,32 @@ async function fixtures(page: Page) {
       });
     if (path === '/api/inventory/batches')
       return json(r, [
-        controls.fullyQuarantined
-          ? {
-              ...batch,
-              expiryDate: '2099-12-31',
-              manufacturingDate: null,
-              quantity: 3,
-              quarantinedQuantity: controls.released ? 2 : 3,
-              availableQuantity: controls.released ? 1 : 0,
-              version: controls.released ? 9 : 8,
-              sellability: {
-                ...decision(),
-                allowed: controls.released,
-                requiresApproval: false,
-                reasonCode: controls.released ? null : 'InventoryBatch.InsufficientStock',
-                physicalQuantity: 3,
+        controls.noHolds
+          ? { ...batch, quantity: 0, quarantinedQuantity: 0, availableQuantity: 0 }
+          : controls.fullyQuarantined
+            ? {
+                ...batch,
+                expiryDate: '2099-12-31',
+                manufacturingDate: null,
+                quantity: 3,
                 quarantinedQuantity: controls.released ? 2 : 3,
                 availableQuantity: controls.released ? 1 : 0,
-              },
-            }
-          : batch,
+                version: controls.released ? 9 : 8,
+                sellability: {
+                  ...decision(),
+                  allowed: controls.released,
+                  requiresApproval: false,
+                  reasonCode: controls.released ? null : 'InventoryBatch.InsufficientStock',
+                  physicalQuantity: 3,
+                  quarantinedQuantity: controls.released ? 2 : 3,
+                  availableQuantity: controls.released ? 1 : 0,
+                },
+              }
+            : batch,
       ]);
     if (path.endsWith('/dispositions')) {
       if (r.request().method() !== 'POST') {
+        if (controls.noHolds) return json(r, []);
         const sourceRoot = {
           ...history[0],
           expiryDate: controls.originallyExpired ? '2026-01-01' : null,
@@ -502,6 +509,8 @@ async function fixtures(page: Page) {
         purchaseTaxIncluded: false,
       });
     if (path === '/api/customers') return json(r, []);
+    if (path === '/api/customers/directory')
+      return json(r, customerDirectoryResponse([], new URL(r.request().url())));
     return r.fallback();
   });
   return controls;
@@ -530,10 +539,14 @@ for (const width of [1440, 390]) {
         .filter({ visible: true })
         .first()
         .click();
+      await expect(
+        page.getByRole('dialog', { name: 'Quarantine and history', exact: true }),
+      ).toBeVisible();
       await expect(page.locator('app-batch-disposition-dialog li').first()).toContainText(
         'Customer return',
       );
-      await page.getByLabel('Original quarantine event').selectOption('root-held');
+      await page.getByRole('combobox', { name: 'Original quarantine event', exact: true }).click();
+      await page.getByRole('option').filter({ hasText: 'Customer return' }).click();
       await page
         .getByLabel('Reason (required, up to 500 characters)')
         .fill('Confirmed damaged packaging');
@@ -602,14 +615,23 @@ for (const width of [1440, 390]) {
         await field.fill(value);
         await field.press('Tab');
       }
-      for (const [name, value] of Object.entries({
-        manufacturingDate: '10/11/2026',
-        expiryDate: '09/11/2026',
-      })) {
+      const [year, month, day] = today().split('-').map(Number);
+      for (const [name, date] of [
+        ['manufacturingDate', new Date(year, month - 1, day + 1)],
+        ['expiryDate', new Date(year, month - 1, day)],
+      ] as const) {
         const field = receipt.locator(`[formControlName="${name}"] input`).first();
-        await field.fill('');
-        await field.pressSequentially(value);
-        await field.press('Tab');
+        await field.click();
+        await expect(field).toHaveAttribute('aria-controls', /.+/);
+        const popupId = await field.getAttribute('aria-controls');
+        const popup = page.locator(`[id="${popupId}"]`);
+        await popup
+          .locator(`[data-date="${date.getFullYear()}-${date.getMonth()}-${date.getDate()}"]`)
+          .click();
+        await expect(popup).toBeHidden();
+        await expect(field).toHaveValue(
+          `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`,
+        );
       }
       await page
         .getByRole('button', { name: /Receive$/ })
@@ -622,7 +644,11 @@ for (const width of [1440, 390]) {
         .getByText('Manufacturing date must be on or before expiry date.', { exact: true })
         .scrollIntoViewIfNeeded();
       await capture(page, { path: `${OUTPUT}/${width}-receipt-date-error.png`, fullPage: true });
-      await receipt.locator('[formControlName="expiryDate"] input').first().fill('');
+      await receipt
+        .locator('[formControlName="expiryDate"] input')
+        .first()
+        .press('ControlOrMeta+A');
+      await receipt.locator('[formControlName="expiryDate"] input').first().press('Backspace');
       await receipt.locator('[formControlName="expiryDate"] input').first().press('Tab');
       await page
         .getByRole('button', { name: /Receive$/ })
@@ -686,11 +712,15 @@ for (const width of [1440, 390]) {
       await expect(page.getByRole('heading', { name: 'Expiry policy', exact: true })).toBeVisible();
       await page.locator('app-expiry-policy-form').scrollIntoViewIfNeeded();
       await expect(page.locator('app-expiry-policy-form')).toContainText('Missing expiry dates: 1');
-      await expect(page.locator('app-expiry-policy-form select').first()).toHaveValue('Ignore');
+      await expect(page.locator('app-expiry-policy-form p-select').first()).toContainText(
+        'Ignore expiry',
+      );
       await expect(
         page.locator('app-expiry-policy-form input[type=checkbox]').first(),
       ).not.toBeChecked();
       await capture(page, { path: `${OUTPUT}/${width}-policy-readiness.png`, fullPage: true });
+      await page.locator('app-expiry-policy-form summary').click();
+      await expect(page.getByText('Missing expiry dates: 1', { exact: false })).toBeVisible();
       controls.readinessMode = 'error';
       const form = page.locator('app-expiry-policy-form');
       await form.getByLabel('Reason (required, up to 500 characters)').fill('Require dated stock');
@@ -736,9 +766,15 @@ for (const width of [1440, 390]) {
         .first()
         .click();
       const dialog = page.locator('app-batch-disposition-dialog');
-      await dialog.getByLabel('Original quarantine event').selectOption('root-held');
-      await expect(dialog.locator('option[value="Release"]')).toHaveJSProperty('disabled', false);
-      await dialog.getByRole('combobox', { name: 'Action', exact: true }).selectOption('Release');
+      await dialog
+        .getByRole('combobox', { name: 'Original quarantine event', exact: true })
+        .click();
+      await page.getByRole('option').filter({ hasText: 'Customer return' }).click();
+      await dialog.getByRole('combobox', { name: 'Action', exact: true }).click();
+      await expect(
+        page.getByRole('option', { name: 'Release hold', exact: true }),
+      ).not.toHaveAttribute('data-p-disabled', 'true');
+      await page.getByRole('option', { name: 'Release hold', exact: true }).click();
       await dialog
         .getByLabel('Reason (required, up to 500 characters)')
         .fill('Audited corrected date');
@@ -763,7 +799,9 @@ for (const width of [1440, 390]) {
       await expect(savedRelease).toContainText('Customer return · No expiry date');
       await expect(savedRelease).not.toContainText('2099-12-31');
       await expect(savedRelease).toContainText('Audited corrected date');
-      await expect(dialog).toContainText('Quarantined 2');
+      await expect(
+        dialog.locator('.stock-summary > div').filter({ hasText: 'Quarantined' }).locator('strong'),
+      ).toHaveText('2');
       await dialog
         .locator('li')
         .filter({ hasText: 'Audited corrected date' })
@@ -777,8 +815,20 @@ for (const width of [1440, 390]) {
         .filter({ visible: true })
         .first()
         .click();
-      await dialog.getByLabel('Original quarantine event').selectOption('root-held');
-      await expect(dialog.locator('option[value="Release"]')).toHaveJSProperty('disabled', true);
+      await dialog
+        .getByRole('combobox', { name: 'Original quarantine event', exact: true })
+        .click();
+      await page.getByRole('option').filter({ hasText: 'Customer return' }).click();
+      await dialog.getByRole('combobox', { name: 'Action', exact: true }).click();
+      await expect(page.getByRole('option', { name: 'Release hold', exact: true })).toHaveAttribute(
+        'data-p-disabled',
+        'true',
+      );
+      await page.keyboard.press('End');
+      await page.keyboard.press('Enter');
+      await expect(dialog.getByRole('combobox', { name: 'Action', exact: true })).toContainText(
+        'Dispose as stock loss',
+      );
       expect(controls.posts).toHaveLength(1);
       await capture(page, { path: `${OUTPUT}/${width}-release-originally-expired-refused.png` });
     } finally {
@@ -953,6 +1003,148 @@ for (const width of [1440, 390]) {
         }
         await capture(page, { path: `${OUTPUT}/${width}-offline-${mode}.png`, fullPage: true });
       }
+    } finally {
+      await server.close();
+    }
+  });
+}
+
+for (const width of [1440, 390]) {
+  test(`product expiry settings fit the existing forms at ${width}px`, async ({ page }) => {
+    page.setDefaultTimeout(12000);
+    const server = await startPurchaseReceivingServer(
+      resolve(__dirname, '../../../dist/INVENTORY/browser'),
+    );
+    await mkdir(OUTPUT, { recursive: true });
+    await page.setViewportSize({ width, height: 1000 });
+    await page.addInitScript(
+      (value) => localStorage.setItem('inventory.auth.session.local', JSON.stringify(value)),
+      session(),
+    );
+    await fixtures(page);
+    const item = {
+      id: 'item-one',
+      name: 'Milk',
+      barcode: 'MILK',
+      description: null,
+      uom: 'kg',
+      unitCode: 'KGM',
+      quantityScale: 3,
+      unitReviewRequired: false,
+      isActive: true,
+      currentStock: 10,
+      unitPrice: 50,
+      currentStockValue: 400,
+      reorderLevel: 2,
+      stockStatus: 'inStock',
+      hsnCode: '0401',
+      defaultTaxRatePercent: 0,
+      defaultTaxIncluded: false,
+    };
+    await page.route('**/api/items?*', (r) =>
+      json(r, {
+        items: [item],
+        totalCount: 1,
+        pageNumber: 1,
+        pageSize: 20,
+        summary: {
+          totalItems: 1,
+          activeItems: 1,
+          inactiveItems: 0,
+          runningLowStockCount: 0,
+          criticalStockCount: 0,
+          totalStockValue: 400,
+        },
+      }),
+    );
+    try {
+      await page.goto(`${server.origin}/inventory`);
+      await page.getByRole('button', { name: 'Add New Product', exact: true }).click();
+      const add = page.locator('app-add-product-overlay');
+      await expect(add.locator('app-expiry-policy-form')).toHaveCount(0);
+      const hint = add
+        .locator('.product-form')
+        .getByText('New items inherit the shop expiry policy.', { exact: false });
+      await hint.scrollIntoViewIfNeeded();
+      await expect(hint).toBeVisible();
+      await expect(
+        add.getByRole('button', { name: 'Save expiry policy', exact: true }),
+      ).toHaveCount(0);
+      expect(await hint.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      await capture(page, { path: `${OUTPUT}/${width}-add-product-inheritance.png` });
+      await add.getByRole('button', { name: 'Cancel', exact: true }).click();
+      await page
+        .getByRole('button', { name: 'Edit', exact: true })
+        .filter({ visible: true })
+        .first()
+        .click();
+      const form = page.locator('app-edit-item-overlay app-expiry-policy-form');
+      await form.getByLabel('Use the shop policy', { exact: true }).uncheck();
+      await form.getByRole('combobox', { name: 'Expiry rule', exact: true }).click();
+      await page.getByRole('option', { name: 'Block expired goods', exact: true }).click();
+      await form.getByLabel('Near-expiry warning days (0–365)').fill('14');
+      await form
+        .getByLabel('Reason (required, up to 500 characters)')
+        .fill('Item-specific expiry rule');
+      expect(await form.evaluate((el) => el.scrollWidth <= el.clientWidth + 1)).toBe(true);
+      await expect(form.getByRole('heading', { name: 'Expiry policy' })).toHaveCSS(
+        'font-size',
+        '16px',
+      );
+      await form.scrollIntoViewIfNeeded();
+      await capture(page, { path: `${OUTPUT}/${width}-edit-item-policy.png` });
+      const request = page.waitForRequest(
+        (r) => r.method() === 'PUT' && r.url().endsWith('/expiry-policies/items/item-one'),
+      );
+      await form.getByRole('button', { name: 'Save expiry policy', exact: true }).click();
+      expect((await request).postDataJSON()).toMatchObject({
+        expectedCatalogVersion: 3,
+        reason: 'Item-specific expiry rule',
+        policy: { mode: 'Block', warningDays: 14 },
+      });
+      await expect(form.getByRole('status')).toContainText('Expiry policy saved');
+    } finally {
+      await server.close();
+    }
+  });
+}
+
+for (const width of [1440, 390]) {
+  test(`empty quarantine explains why no action is available at ${width}px`, async ({ page }) => {
+    const server = await startPurchaseReceivingServer(
+      resolve(__dirname, '../../../dist/INVENTORY/browser'),
+    );
+    await page.setViewportSize({ width, height: 1000 });
+    await page.addInitScript(
+      (value) => localStorage.setItem('inventory.auth.session.local', JSON.stringify(value)),
+      session(),
+    );
+    const controls = await fixtures(page);
+    controls.noHolds = true;
+    try {
+      await page.goto(`${server.origin}/inventory/batches`);
+      await page
+        .getByRole('button', { name: 'Quarantine and history', exact: true })
+        .filter({ visible: true })
+        .first()
+        .click();
+      const dialog = page.getByRole('dialog', { name: 'Quarantine and history', exact: true });
+      await expect(
+        dialog.getByText('No active quarantine holds for this batch.', { exact: false }),
+      ).toBeVisible();
+      await expect(
+        dialog.getByRole('combobox', { name: 'Original quarantine event', exact: true }),
+      ).toHaveCount(0);
+      await expect(
+        dialog.getByRole('textbox', { name: 'Reason (required, up to 500 characters)' }),
+      ).toHaveCount(0);
+      await expect(dialog.getByRole('button', { name: 'Record action', exact: true })).toHaveCount(
+        0,
+      );
+      await expect(
+        dialog.getByRole('button', { name: 'Refresh details', exact: true }),
+      ).toBeEnabled();
+      await capture(page, { path: `${OUTPUT}/${width}-empty-quarantine.png` });
     } finally {
       await server.close();
     }
