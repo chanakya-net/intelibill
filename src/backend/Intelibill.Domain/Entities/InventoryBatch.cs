@@ -9,6 +9,8 @@ public sealed class InventoryBatch : BaseEntity
     public Guid ItemId { get; private set; }
     public string BatchNumber { get; private set; } = string.Empty;
     public decimal Quantity { get; private set; }
+    public decimal QuarantinedQuantity { get; private set; }
+    public decimal UnquarantinedQuantity => Quantity - QuarantinedQuantity;
     public decimal OriginalQuantity { get; private set; }
     public decimal CostPrice { get; private set; }
     public decimal Mrp { get; private set; }
@@ -79,6 +81,7 @@ public sealed class InventoryBatch : BaseEntity
 
     public void Void(Guid updatedBy)
     {
+        if (QuarantinedQuantity > 0) throw new InvalidOperationException("Quarantined stock cannot be voided.");
         Quantity = 0;
         IsVoided = true;
         UpdatedBy = updatedBy;
@@ -104,6 +107,7 @@ public sealed class InventoryBatch : BaseEntity
             return validation.Errors;
         }
 
+        if (quantity < QuarantinedQuantity) return Error.Conflict("Expiry.QuarantineProtected", "Physical count cannot be below quarantine.");
         BatchNumber = batchNumber.Trim();
         Quantity = quantity;
         CostPrice = costPrice;
@@ -182,7 +186,7 @@ public sealed class InventoryBatch : BaseEntity
             return Error.Validation("InventoryBatch.QuantitySubtractionInvalid", "Quantity to subtract must be greater than zero.");
         }
 
-        if (quantityToSubtract > Quantity)
+        if (quantityToSubtract > UnquarantinedQuantity)
         {
             return Error.Validation("InventoryBatch.InsufficientStock", "Insufficient stock in batch.");
         }
@@ -193,6 +197,23 @@ public sealed class InventoryBatch : BaseEntity
         return Result.Success;
     }
 
+    public ErrorOr<Success> RestoreQuarantine(decimal quantity, Guid actor)
+    {
+        if (quantity <= 0 || IsVoided) return Error.Conflict("Expiry.RestorationInvalid", "A positive restoration needs a live batch.");
+        Quantity += quantity; QuarantinedQuantity += quantity; UpdatedBy = actor;
+        return Result.Success;
+    }
+    public ErrorOr<Success> ReleaseQuarantine(decimal quantity, Guid actor)
+    {
+        if (quantity <= 0 || quantity > QuarantinedQuantity) return Error.Conflict("Expiry.QuarantineInsufficient", "Not enough quarantined stock.");
+        QuarantinedQuantity -= quantity; UpdatedBy = actor; return Result.Success;
+    }
+    public ErrorOr<Success> DisposeQuarantine(decimal quantity, Guid actor)
+    {
+        var released = ReleaseQuarantine(quantity, actor);
+        if (released.IsError) return released.Errors;
+        Quantity -= quantity; return Result.Success;
+    }
     public void MarkUpdatedBy(Guid updatedBy)
     {
         UpdatedBy = updatedBy;

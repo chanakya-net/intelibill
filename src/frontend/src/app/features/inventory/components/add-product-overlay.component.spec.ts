@@ -1,3 +1,4 @@
+import { knownExpiryPolicyProviders } from '../../../../tests/expiry/expiry-policy.providers';
 import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
@@ -75,6 +76,7 @@ describe('AddProductOverlayComponent', () => {
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
       providers: [
+        ...knownExpiryPolicyProviders(),
         { provide: Store, useValue: store },
         { provide: ProductCatalogSyncService, useValue: productCatalogSync },
         { provide: InventoryService, useValue: inventoryService },

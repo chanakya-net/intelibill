@@ -29,6 +29,15 @@ public sealed class SaleReturnItem : BaseEntity
     public decimal? AdjustmentTaxAmount { get; private set; }
     public decimal? AdjustmentNonTaxAmount { get; private set; }
 
+    public Guid? QuarantineChangeId { get; private set; }
+    public decimal QuarantinedQuantity { get; private set; }
+    public string? DispositionReasonCode { get; private set; }
+    public void FreezeDisposition(Guid? root, decimal quantity, string? reason)
+    {
+        if (QuarantineChangeId.HasValue || QuarantinedQuantity != 0 || quantity < 0 || quantity > Quantity || (quantity > 0) != root.HasValue)
+            throw new InvalidOperationException("Invalid original disposition.");
+        QuarantineChangeId = root; QuarantinedQuantity = quantity; DispositionReasonCode = reason;
+    }
     private SaleReturnItem() { }
 
     internal void PostAccounting(ReturnLineAccounting line)

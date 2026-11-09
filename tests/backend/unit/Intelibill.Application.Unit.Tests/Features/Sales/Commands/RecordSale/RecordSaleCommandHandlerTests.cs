@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Features.Tills;
 using System.Text.Json;
 using Intelibill.Application.Common.Posting;
@@ -96,7 +97,7 @@ public class RecordSaleCommandHandlerTests
     }
 
     private RecordSaleCommandHandler CreateHandler() =>
-        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork, _customerRepository, _userRepository, new BusinessClock(_time), _postingPeriods, _tillPosting);
+        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork, _customerRepository, _userRepository, new BusinessClock(_time), _postingPeriods, _tillPosting, ExpiryTestDoubles.Fence(), ExpiryTestDoubles.Guard());
 
     private readonly MutableTimeProvider _time = new();
 
@@ -134,8 +135,13 @@ public class RecordSaleCommandHandlerTests
     {
         var command = new RecordSaleCommand(Guid.Parse("11111111-1111-1111-1111-111111111111"), Guid.Parse("22222222-2222-2222-2222-222222222222"), "legacy", null, null, null, PaymentMethod.Cash, 0m, 0m, []);
         Assert.Equal("1F0E553A7AC41E7C2A7D5FFBE327A07347AD8FDC9579C6F10D5B06DE47454DA4", RecordSaleIdempotencyHasher.ComputeHash(command));
-        Assert.Equal(RecordSaleIdempotencyHasher.ComputeHash(command), RecordSaleIdempotencyHasher.ComputeHash(command with { Till = null, TenderLines = null }));
+        Assert.Equal(RecordSaleIdempotencyHasher.ComputeHash(command), RecordSaleIdempotencyHasher.ComputeHash(command with { Till = null, TenderLines = null, ExpiryApprovals = null }));
         Assert.NotEqual(RecordSaleIdempotencyHasher.ComputeHash(command), RecordSaleIdempotencyHasher.ComputeHash(command with { TenderLines = [] }));
+        Assert.NotEqual(RecordSaleIdempotencyHasher.ComputeHash(command), RecordSaleIdempotencyHasher.ComputeHash(command with { ExpiryApprovals = [] }));
+        var approval = new ExpiryApprovalRequest(Guid.NewGuid(), 1, 7, 2, 2, "approved lot");
+        var approved = command with { ExpiryApprovals = [approval] };
+        Assert.NotEqual(RecordSaleIdempotencyHasher.ComputeHash(command), RecordSaleIdempotencyHasher.ComputeHash(approved));
+        Assert.NotEqual(RecordSaleIdempotencyHasher.ComputeHash(approved), RecordSaleIdempotencyHasher.ComputeHash(approved with { ExpiryApprovals = [approval with { Quantity = 2 }] }));
     }
 
     [Fact]
@@ -152,8 +158,11 @@ public class RecordSaleCommandHandlerTests
         _tillPosting.AppendAsync(session, Arg.Do<TillSourcePosting>(x => source = x), original.ActorUserId, Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<Success>>(Result.Success));
         var result = await CreateHandler().HandleAsync(original with
         {
-            PaidAmount = 0m, CreditNoteAppliedAmount = amount, CreditNoteRedemptions = [new(note.Code, amount)],
-            Till = new(session.Id), TenderLines = []
+            PaidAmount = 0m,
+            CreditNoteAppliedAmount = amount,
+            CreditNoteRedemptions = [new(note.Code, amount)],
+            Till = new(session.Id),
+            TenderLines = []
         }, default);
         Assert.False(result.IsError);
         Assert.Equal(amount, result.Value.CreditNoteAppliedAmount);

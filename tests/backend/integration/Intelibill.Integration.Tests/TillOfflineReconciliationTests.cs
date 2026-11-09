@@ -858,8 +858,9 @@ public sealed partial class TillOfflineReconciliationTests(PostgreSqlTestFixture
         return new StockContext(barcode, body.GetProperty("itemId").GetGuid(), body.GetProperty("inventoryBatchId").GetGuid());
     }
 
-    private static async Task<JsonElement> ReserveInvoiceLeaseAsync(HttpClient client, string token, string deviceId = Device)
+    private async Task<JsonElement> ReserveInvoiceLeaseAsync(HttpClient client, string token, string deviceId = Device)
     {
+        await LegacyOfflineExpiryHistory.SeedAsync(_factory, token);
         using var response = await SendAsync(client, HttpMethod.Post, "/api/sales/invoice-leases/reserve", token, new { deviceId, blockSize = 25 });
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -868,7 +869,7 @@ public sealed partial class TillOfflineReconciliationTests(PostgreSqlTestFixture
     private static string InvoiceAt(JsonElement lease, int offset) =>
         $"{lease.GetProperty("prefix").GetString()}{(lease.GetProperty("rangeStart").GetInt32() + offset).ToString($"D{lease.GetProperty("numberPadding").GetInt32()}", System.Globalization.CultureInfo.InvariantCulture)}";
 
-    private static async Task<string> FirstLeasedInvoiceNumberAsync(HttpClient client, string token) =>
+    private async Task<string> FirstLeasedInvoiceNumberAsync(HttpClient client, string token) =>
         InvoiceAt(await ReserveInvoiceLeaseAsync(client, token), 0);
 
     private static object Payload(string clientSaleId, string invoiceNumber, StockContext stock, decimal quantity, DateTimeOffset soldAt, Guid? issuedByUserId = null)

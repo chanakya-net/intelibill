@@ -97,9 +97,9 @@ public class AddInventoryCommandHandlerTests
         Assert.Equal(knownSupplier.Id, result.Value.SupplierId);
 
         await _itemRepository.Received(1).AddAsync(Arg.Any<Item>(), Arg.Any<CancellationToken>());
-        await _inventoryBatchRepository.Received(1).AddAsync(Arg.Is<InventoryBatch>(b => 
-            b.SupplierId == knownSupplier.Id && 
-            b.OriginalQuantity == 10m && 
+        await _inventoryBatchRepository.Received(1).AddAsync(Arg.Is<InventoryBatch>(b =>
+            b.SupplierId == knownSupplier.Id &&
+            b.OriginalQuantity == 10m &&
             b.Quantity == 10m &&
             !b.IsVoided), Arg.Any<CancellationToken>());
         await _stockTransactionRepository.Received(1).AddAsync(Arg.Is<StockTransaction>(t => t.TransactionType == StockTransactionType.In && t.Quantity == 10m), Arg.Any<CancellationToken>());
@@ -508,7 +508,7 @@ public class AddInventoryCommandHandlerTests
 
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private AddInventoryCommandHandler CreateHandler() =>
-        new(_userRepository, _supplierRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _purchaseReceiptValueRepository, _inventoryRepository, _unitOfWork, BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock());
+        new(_userRepository, _supplierRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _purchaseReceiptValueRepository, _inventoryRepository, _unitOfWork, BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), ExpiryTestDoubles.Fence(), ExpiryTestDoubles.Dates());
 
     private void SetupSystemSupplierLookup()
     {

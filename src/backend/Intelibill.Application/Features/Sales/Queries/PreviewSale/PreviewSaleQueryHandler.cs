@@ -1,3 +1,7 @@
+using Intelibill.Application.Common.Posting;
+using Intelibill.Domain.Interfaces;
+using Intelibill.Application.Features.Expiry;
+using Intelibill.Application.Common.Time;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
@@ -14,7 +18,10 @@ public sealed class PreviewSaleQueryHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
     ISaleLineValidator saleLineValidator,
-    ISalePricingCalculator pricingCalculator)
+    ISalePricingCalculator pricingCalculator,
+    SaleExpiryGuard expiryGuard,
+    IBusinessClock businessClock,
+    IExpiryPolicyFence expiryFence, IUnitOfWork unitOfWork)
 {
     public async Task<ErrorOr<SalePreviewDto>> Handle(
         PreviewSaleQuery query,
@@ -52,96 +59,104 @@ public sealed class PreviewSaleQueryHandler(
             i.LineType,
             i.ServiceId)).ToList();
 
-        var validationWarnings = new List<string>();
-        var validationOrError = await saleLineValidator.ValidateLinesAsync(
-            query.ShopId,
-            recordSaleItems,
-            validationWarnings,
-            cancellationToken);
-
-        if (validationOrError.IsError)
-            return validationOrError.Errors;
-
-        var validatedLines = validationOrError.Value.Lines;
-
-        var pricingRequest = new SalePricingCalculationRequest(
-            query.ShopId,
-            DateTimeOffset.UtcNow,
-            validatedLines.Select(line =>
-            {
-                return new SalePricingLineCalculationRequest(
-                    line.LineType,
-                    line.Batch?.Id ?? Guid.Empty,
-                    line.Service?.Id,
-                    line.Command.Quantity,
-                    line.LineType == SaleLineType.Goods ? line.Batch!.GetProfitCostPrice() : 0m,
-                    line.LineType == SaleLineType.Goods ? line.Batch!.SalesPrice : line.Command.SalesPrice,
-                    line.LineType == SaleLineType.Goods ? line.Batch!.Mrp : line.Command.Mrp,
-                    line.Command.TaxRatePercent,
-                    line.LineType == SaleLineType.Goods ? line.Batch!.TaxIncluded : line.Command.IsPriceIncludingTax,
-                    line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m),
-                    line.LineType == SaleLineType.Goods);
-            }).ToList(),
-            query.SaleDiscount);
-
-        var pricingOrError = await pricingCalculator.CalculateAsync(pricingRequest, cancellationToken);
-        if (pricingOrError.IsError)
-            return pricingOrError.Errors;
-
-        var pricing = pricingOrError.Value;
-
-        var warnings = BuildWarnings(validatedLines, validationWarnings);
-        var lineDtos = new List<SalePreviewLineDto>(validatedLines.Count);
-        for (var i = 0; i < validatedLines.Count; i++)
+        return await PostingTransaction.RunAsync<SalePreviewDto>(unitOfWork, async ct =>
         {
-            var validated = validatedLines[i];
-            var calculated = pricing.Lines[i];
+            var locked = await expiryFence.AcquireAsync(query.ShopId, false, ct);
+            if (locked.IsError) return locked.Errors;
+            var evaluatedAt = businessClock.UtcNow;
+            var businessDate = businessClock.GetBusinessDate(evaluatedAt, shop.BusinessTimeZoneId);
+            var validationWarnings = new List<string>();
+            var validationOrError = await saleLineValidator.ValidateLinesAsync(
+                query.ShopId,
+                recordSaleItems,
+                validationWarnings,
+                cancellationToken);
 
-            lineDtos.Add(new SalePreviewLineDto(
-                calculated.LineType,
-                validated.Item?.Id,
-                validated.Service?.Id,
-                validated.Item?.Barcode ?? validated.Service?.Code ?? string.Empty,
-                validated.Item?.Name ?? validated.Service?.Name ?? validated.Command.ItemName,
-                validated.Batch?.Id,
-                validated.Batch?.BatchNumber,
-                validated.Command.Quantity,
-                calculated.CostPrice,
-                calculated.SalesPrice,
-                validated.LineType == SaleLineType.Goods ? validated.Batch!.Mrp : validated.Command.Mrp,
-                calculated.TaxRatePercent,
-                calculated.IsPriceIncludingTax,
-                calculated.PreTaxAmountBeforeDiscount,
-                calculated.ItemDiscountAmount,
-                calculated.SaleDiscountAmount,
-                calculated.TaxableAmount,
-                calculated.TaxAmount,
-                calculated.TotalAmount,
-                calculated.MaxAllowedItemDiscountFlat,
-                calculated.MaxAllowedItemDiscountPercent,
-                calculated.ConfiguredBatchRuleId,
-                calculated.ConfiguredBatchRulePercentage,
-                validated.HasPriceMismatch,
-                validated.Command.ClientLineKey,
-                SaleEconomicsCalculator.Calculate(calculated.TaxableAmount, SaleEconomicsCalculator.RecordedCost(calculated.Quantity, calculated.CostPrice))));
-        }
+            if (validationOrError.IsError)
+                return validationOrError.Errors;
 
-        return new SalePreviewDto(
-            pricing.TotalAmount,
-            pricing.TotalTaxableAmount,
-            pricing.TotalTaxAmount,
-            pricing.TotalDiscountAmount,
-            pricing.SaleLevelEligibleSubtotal,
-            pricing.ConfiguredSaleRule is null
-                ? null
-                : new SalePreviewConfiguredSaleRuleDto(
-                    pricing.ConfiguredSaleRule.RuleId,
-                    pricing.ConfiguredSaleRule.RuleType.ToString(),
-                    pricing.ConfiguredSaleRule.Percentage,
-                    pricing.ConfiguredSaleRule.ThresholdAmount),
-            lineDtos,
-            pricing.Infos.Select(i => new SalePreviewInfoDto(i.Code, i.Message)).ToList(),
-            warnings);
+            var validatedLines = validationOrError.Value.Lines;
+
+            var pricingRequest = new SalePricingCalculationRequest(
+                query.ShopId,
+                evaluatedAt,
+                validatedLines.Select(line =>
+                {
+                    return new SalePricingLineCalculationRequest(
+                        line.LineType,
+                        line.Batch?.Id ?? Guid.Empty,
+                        line.Service?.Id,
+                        line.Command.Quantity,
+                        line.LineType == SaleLineType.Goods ? line.Batch!.GetProfitCostPrice() : 0m,
+                        line.LineType == SaleLineType.Goods ? line.Batch!.SalesPrice : line.Command.SalesPrice,
+                        line.LineType == SaleLineType.Goods ? line.Batch!.Mrp : line.Command.Mrp,
+                        line.Command.TaxRatePercent,
+                        line.LineType == SaleLineType.Goods ? line.Batch!.TaxIncluded : line.Command.IsPriceIncludingTax,
+                        line.Command.ItemDiscount ?? new InstantDiscount(InstantDiscountType.None, 0m),
+                        line.LineType == SaleLineType.Goods);
+                }).ToList(),
+                query.SaleDiscount);
+
+            var pricingOrError = await pricingCalculator.CalculateAsync(pricingRequest, cancellationToken);
+            if (pricingOrError.IsError)
+                return pricingOrError.Errors;
+
+            var pricing = pricingOrError.Value;
+
+            var warnings = BuildWarnings(validatedLines, validationWarnings);
+            var lineDtos = new List<SalePreviewLineDto>(validatedLines.Count);
+            for (var i = 0; i < validatedLines.Count; i++)
+            {
+                var validated = validatedLines[i];
+                var calculated = pricing.Lines[i];
+
+                lineDtos.Add(new SalePreviewLineDto(
+                    calculated.LineType,
+                    validated.Item?.Id,
+                    validated.Service?.Id,
+                    validated.Item?.Barcode ?? validated.Service?.Code ?? string.Empty,
+                    validated.Item?.Name ?? validated.Service?.Name ?? validated.Command.ItemName,
+                    validated.Batch?.Id,
+                    validated.Batch?.BatchNumber,
+                    validated.Command.Quantity,
+                    calculated.CostPrice,
+                    calculated.SalesPrice,
+                    validated.LineType == SaleLineType.Goods ? validated.Batch!.Mrp : validated.Command.Mrp,
+                    calculated.TaxRatePercent,
+                    calculated.IsPriceIncludingTax,
+                    calculated.PreTaxAmountBeforeDiscount,
+                    calculated.ItemDiscountAmount,
+                    calculated.SaleDiscountAmount,
+                    calculated.TaxableAmount,
+                    calculated.TaxAmount,
+                    calculated.TotalAmount,
+                    calculated.MaxAllowedItemDiscountFlat,
+                    calculated.MaxAllowedItemDiscountPercent,
+                    calculated.ConfiguredBatchRuleId,
+                    calculated.ConfiguredBatchRulePercentage,
+                    validated.HasPriceMismatch,
+                    validated.Command.ClientLineKey,
+                    SaleEconomicsCalculator.Calculate(calculated.TaxableAmount, SaleEconomicsCalculator.RecordedCost(calculated.Quantity, calculated.CostPrice))));
+            }
+
+            return new SalePreviewDto(
+                pricing.TotalAmount,
+                pricing.TotalTaxableAmount,
+                pricing.TotalTaxAmount,
+                pricing.TotalDiscountAmount,
+                pricing.SaleLevelEligibleSubtotal,
+                pricing.ConfiguredSaleRule is null
+                    ? null
+                    : new SalePreviewConfiguredSaleRuleDto(
+                        pricing.ConfiguredSaleRule.RuleId,
+                        pricing.ConfiguredSaleRule.RuleType.ToString(),
+                        pricing.ConfiguredSaleRule.Percentage,
+                        pricing.ConfiguredSaleRule.ThresholdAmount),
+                lineDtos,
+                pricing.Infos.Select(i => new SalePreviewInfoDto(i.Code, i.Message)).ToList(),
+                warnings,
+                await expiryGuard.EvaluateAsync(query.ShopId, businessDate, validatedLines, ct));
+        }, cancellationToken);
     }
 
     private static List<SalePreviewWarningDto> BuildWarnings(

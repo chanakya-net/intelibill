@@ -29,7 +29,7 @@ public sealed class RecordSaleReturnCommandHandler(
     ISaleReturnMutationCoordinator mutationCoordinator,
     IUnitOfWork unitOfWork,
     IBusinessClock businessClock,
-    IShopRepository shops, ISaleRepository sales, ITillPostingService tills, ITillSessionPolicy tillPolicy, IFinancialOperationExecutor executor)
+    IShopRepository shops, ISaleRepository sales, ITillPostingService tills, ITillSessionPolicy tillPolicy, IFinancialOperationExecutor executor, Intelibill.Application.Features.Expiry.BatchDispositionService dispositions)
 {
     public async Task<ErrorOr<Success>> HandleAsync(RecordSaleReturnCommand command, CancellationToken cancellationToken)
     {
@@ -68,7 +68,7 @@ public sealed class RecordSaleReturnCommandHandler(
             var shop = await shops.GetByIdAsync(command.ShopId, token);
             if (shop is null) return Errors.Shop.ShopNotFound;
             var acquired = await tills.AcquireAsync(command.ShopId, command.ActorUserId, command.Till,
-                businessClock.Today(shop.BusinessTimeZoneId), token);
+                businessClock.GetBusinessDate(mutationCoordinator.PostingInstant ?? businessClock.UtcNow, shop.BusinessTimeZoneId), token);
             if (acquired.IsError) return acquired.Errors;
             session = acquired.Value;
             return Result.Success;
@@ -81,6 +81,7 @@ public sealed class RecordSaleReturnCommandHandler(
         CancellationToken cancellationToken,
         Action<Guid>? recorded = null)
     {
+        var processedAt = mutationCoordinator.PostingInstant ?? businessClock.UtcNow;
         var validation = await saleReturnValidator.ValidateAsync(
             new SaleReturnValidationRequest(
                 command.ActorUserId,
@@ -94,7 +95,7 @@ public sealed class RecordSaleReturnCommandHandler(
                     i.LineType,
                     i.Condition,
                     i.ApprovedRefundAmount,
-                    i.Notes)).ToList()),
+                    i.Notes)).ToList(), processedAt),
             cancellationToken);
 
         if (validation.IsError)
@@ -129,12 +130,13 @@ public sealed class RecordSaleReturnCommandHandler(
         if (classification.IsError)
             return classification.Errors;
 
-        var processedAt = businessClock.UtcNow;
         var businessDay = businessClock.GetBusinessDay(processedAt, validated.Shop.BusinessTimeZoneId);
         var returnNumber = saleReturnNumberGenerator.Generate(businessDay.Date);
         var calculationBySaleItemId = validated.Calculation.Lines.ToDictionary(line => line.SaleItemId);
         var returnLines = new List<SaleReturnLineInput>();
+        var restorations = new List<(ValidatedSaleReturnLine Line, InventoryBatch Batch, StockTransaction Movement)>();
 
+        await dispositions.LockBatchesAsync(command.ShopId, validated.Lines.Where(x => x.Batch is not null && x.Disposition?.QuarantinedQuantity > 0).Select(x => x.Batch!.Id), cancellationToken);
         foreach (var line in validated.Lines)
         {
             var calculated = calculationBySaleItemId[line.Request.SaleItemId];
@@ -184,15 +186,11 @@ public sealed class RecordSaleReturnCommandHandler(
             if (transaction.IsError)
                 return transaction.Errors;
 
-            var batchResult = batch.AddQuantity(line.Request.Quantity, command.ActorUserId);
-            if (batchResult.IsError)
-                return batchResult.Errors;
-
             var inventoryResult = inventory.AddQuantity(line.Request.Quantity, command.ActorUserId);
             if (inventoryResult.IsError)
                 return inventoryResult.Errors;
 
-            inventoryBatchRepository.Update(batch);
+            restorations.Add((line, batch, transaction.Value));
             inventoryRepository.Update(inventory);
             await stockTransactionRepository.AddAsync(transaction.Value, cancellationToken);
         }
@@ -218,6 +216,16 @@ public sealed class RecordSaleReturnCommandHandler(
         if (saleReturn.IsError)
             return saleReturn.Errors;
 
+        foreach (var restoration in restorations)
+        {
+            var returnedLine = saleReturn.Value.Items.Single(x => x.SaleItemId == restoration.Line.SaleItem.Id);
+            var disposition = restoration.Line.Disposition!;
+            var staged = await dispositions.StageRestorationAsync(command.ShopId, command.ActorUserId, restoration.Batch, "SaleReturn",
+                saleReturn.Value.Id, returnedLine.Id, restoration.Movement.Id, disposition, businessDay.Date, processedAt, cancellationToken);
+            if (staged.IsError) return staged.Errors;
+            returnedLine.FreezeDisposition(staged.Value, disposition.QuarantinedQuantity, disposition.ReasonCode);
+            inventoryBatchRepository.Update(restoration.Batch);
+        }
         if (session is not null)
         {
             var evidence = saleReturn.Value.RecordRefundEvidence(command.RefundTender, command.RefundConfirmed == true);

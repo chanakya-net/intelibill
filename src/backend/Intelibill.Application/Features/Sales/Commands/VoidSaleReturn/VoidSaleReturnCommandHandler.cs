@@ -25,7 +25,7 @@ public sealed class VoidSaleReturnCommandHandler(
     ICreditNoteRepository creditNoteRepository,
     ISaleReturnMutationCoordinator mutationCoordinator,
     IUnitOfWork unitOfWork,
-    IBusinessClock businessClock, TillSourceSettlementService settlement, IFinancialOperationExecutor executor)
+    IBusinessClock businessClock, TillSourceSettlementService settlement, IFinancialOperationExecutor executor, Intelibill.Application.Features.Expiry.BatchDispositionService dispositions)
 {
     public async Task<ErrorOr<Success>> HandleAsync(
         VoidSaleReturnCommand command,
@@ -81,7 +81,7 @@ public sealed class VoidSaleReturnCommandHandler(
                 return Error.Validation("Till.SettlementEvidenceInvalid", "No physical movement must not select a drawer.");
             var acquired = await settlement.AcquireAsync(command.ShopId, command.ActorUserId, command.Till, command.OperationKey,
                 command.SettlementEvidence, command.SettlementEvidence?.Tender?.AppliedAmount ?? 0m,
-                businessClock.Today(shop.BusinessTimeZoneId), token);
+                businessClock.GetBusinessDate(mutationCoordinator.PostingInstant ?? businessClock.UtcNow, shop.BusinessTimeZoneId), token);
             if (acquired.IsError) return acquired.Errors;
             session = acquired.Value;
             return Result.Success;
@@ -123,12 +123,14 @@ public sealed class VoidSaleReturnCommandHandler(
             return Errors.Sale.NotFound(saleReturn.SaleId);
 
         var saleItemsById = sale.Items.ToDictionary(item => item.Id);
-        var processedAt = businessClock.UtcNow;
+        var processedAt = mutationCoordinator.PostingInstant ?? businessClock.UtcNow;
         // The void lands on the day it happened in the shop's current zone, the one the coordinator
         // fenced the period with.
         var voidDate = businessClock.GetBusinessDate(processedAt, shop.BusinessTimeZoneId);
         var stockReversals = new List<StockTransaction>();
 
+        await dispositions.LockBatchesAsync(command.ShopId, saleReturn.Items.Where(x => x.QuarantineChangeId.HasValue && saleItemsById.ContainsKey(x.SaleItemId))
+            .Select(x => saleItemsById[x.SaleItemId]).Where(x => x.InventoryBatchId.HasValue).Select(x => x.InventoryBatchId!.Value), cancellationToken);
         foreach (var returnItem in saleReturn.Items.Where(item => item.Condition == SaleReturnCondition.Restockable))
         {
             if (!saleItemsById.TryGetValue(returnItem.SaleItemId, out var saleItem))
@@ -151,10 +153,6 @@ public sealed class VoidSaleReturnCommandHandler(
             if (batch.Quantity < returnItem.Quantity || inventory.Quantity < returnItem.Quantity)
                 return Errors.Sale.ReturnVoidInsufficientStock;
 
-            var batchResult = batch.SubtractQuantity(returnItem.Quantity, command.ActorUserId);
-            if (batchResult.IsError)
-                return batchResult.Errors;
-
             var inventoryResult = inventory.SubtractQuantity(returnItem.Quantity, command.ActorUserId);
             if (inventoryResult.IsError)
                 return inventoryResult.Errors;
@@ -173,6 +171,13 @@ public sealed class VoidSaleReturnCommandHandler(
             if (stockTransaction.IsError)
                 return stockTransaction.Errors;
 
+            ErrorOr<Success> batchResult;
+            if (returnItem.QuarantineChangeId.HasValue)
+                batchResult = await dispositions.StageReversalAsync(command.ShopId, command.ActorUserId, batch, returnItem.QuarantineChangeId.Value,
+                    returnItem.QuarantinedQuantity, stockTransaction.Value.Id, voidDate, saleReturn.Id, returnItem.Id, processedAt, cancellationToken);
+            else
+                batchResult = batch.SubtractQuantity(returnItem.Quantity, command.ActorUserId);
+            if (batchResult.IsError) return batchResult.Errors;
             inventoryBatchRepository.Update(batch);
             inventoryRepository.Update(inventory);
             stockReversals.Add(stockTransaction.Value);

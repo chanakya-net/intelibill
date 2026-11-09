@@ -1,4 +1,5 @@
 using System.Globalization;
+using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Customers.Services;
@@ -27,7 +28,9 @@ internal sealed partial class OfflineSalePoster(
     ITillPostingService tillPosting,
     ITillSessionPolicy tillPolicy,
     ITillRepository tills,
-    IBankAccountRepository banks) : IOfflineSalePoster
+    IBankAccountRepository banks,
+    IExpiryPolicyFence expiryFence,
+    IOfflineExpiryAuthority expiryAuthority) : IOfflineSalePoster
 {
     public ErrorOr<Success> CheckStructure(OfflineSaleSyncCommand sale)
     {
@@ -86,6 +89,14 @@ internal sealed partial class OfflineSalePoster(
 
             return new OfflineSalePostingOutcome.Rejected(periodError);
         }
+
+        var expiryLock = await expiryFence.AcquireAsync(shopId, false, cancellationToken);
+        if (expiryLock.IsError) return new OfflineSalePostingOutcome.Rejected(expiryLock.FirstError);
+        var expiry = await expiryAuthority.ValidateFrozenAsync(shopId, sale, request.Now, cancellationToken);
+        if (expiry.IsError)
+            return expiry.FirstError.Code == OfflineExpiryAuthority.ReviewRequired.Code
+                ? new OfflineSalePostingOutcome.Held(ReconciliationIssueType.ExpiryReview, expiry.FirstError, expiry.FirstError.Description, [])
+                : new OfflineSalePostingOutcome.Rejected(expiry.FirstError);
 
         var till = await PrepareTillAsync(request, businessDay.Date, cancellationToken);
         if (till.IsError)
@@ -197,6 +208,7 @@ internal sealed partial class OfflineSalePoster(
         var consumption = OfflineSaleSyncHelpers.BuildStockConsumptionPlan(shopId, recordedBy, clientSaleId, deviceId, vLines, warnings, pendingIssues);
         var saleEntity = Sale.Create(shopId, request.AttributedUserId, OfflineSaleSyncIdempotencyHasher.ComputeKey(deviceId, clientSaleId), request.PayloadHash, invoiceNumber, resolvedCust?.Id ?? sale.CustomerId, sale.CustomerName ?? resolvedCust?.Name, sale.CustomerPhone ?? resolvedCust?.PhoneNumber, sale.PaymentMethod, sale.SoldAt, businessDay, sale.PaidAmount, sale.DueAmount, sale.TotalAmount, sale.TotalTaxAmount, saleItems, sale.SubtotalBeforeDiscount, sale.TotalBeforeDiscount, sale.TotalDiscountAmount, sale.ConfiguredSaleRuleId, sale.ConfiguredSaleRuleType, sale.ConfiguredSaleRulePercentage, sale.ConfiguredSaleRuleThresholdAmount, sale.SaleDiscountOverrideType, sale.SaleDiscountOverrideValue, SaleSource.Offline, clientSaleId, deviceId, request.Now, warnings);
 
+        saleEntity.AttachExpiryDecisions(expiry.Value);
         saleEntity.ApplyCreditTerms(resolvedCust?.CreditTermsDays);
         AttachDocument(request, shop, saleEntity, resolvedCust, vLines, pendingIssues);
 

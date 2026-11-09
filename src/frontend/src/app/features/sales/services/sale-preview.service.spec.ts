@@ -1,7 +1,7 @@
 import { DestroyRef, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 
 import { NetworkStatusService } from '../../../core/services/network-status.service';
 import { CartItem } from './sale-cart-state.service';
@@ -64,6 +64,34 @@ describe('SalePreviewService', () => {
     canReachApi.set(true);
     saleService.previewSale.mockReturnValue(of(makePreview()));
     vi.clearAllMocks();
+  });
+
+  it('invalidates an unsubmitted preview immediately when the cart requests a refresh', () => {
+    const service = setup();
+    service.checkoutPreview.set(makePreview());
+    service.triggerPreview();
+    expect(service.checkoutPreview()).toBeNull();
+  });
+
+  it('rejects an old asynchronous response arriving inside the next cart debounce window', async () => {
+    vi.useFakeTimers();
+    const service = setup(); const destroyRef = new TestDestroyRef();
+    const oldResponse = new Subject<SalePreviewDto>(); const applied = vi.fn();
+    const nextPreview = { ...makePreview(), totalAmount: 200 };
+    saleService.previewSale.mockReturnValueOnce(oldResponse).mockReturnValueOnce(of(nextPreview));
+    try {
+      service.refreshOnlinePreview({ destroyRef, getCart: () => [makeCartItem()], getSaleDiscount: () => ({ type: 0, value: 0 }), onPreviewApplied: applied });
+      service.triggerPreview(); await vi.advanceTimersByTimeAsync(300);
+      expect(saleService.previewSale).toHaveBeenCalledTimes(1);
+      service.triggerPreview(); await vi.advanceTimersByTimeAsync(100);
+      oldResponse.next(makePreview()); oldResponse.complete(); await Promise.resolve();
+      expect(service.checkoutPreview()).toBeNull();
+      expect(service.isPreviewLoading()).toBe(true);
+      expect(applied).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(200);
+      expect(service.checkoutPreview()).toEqual(nextPreview);
+      expect(applied).toHaveBeenCalledTimes(1);
+    } finally { destroyRef.destroy(); saleService.previewSale.mockReset(); vi.useRealTimers(); }
   });
 
   it('debounces preview trigger before calling the API', async () => {

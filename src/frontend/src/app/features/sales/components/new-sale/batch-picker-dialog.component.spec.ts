@@ -39,6 +39,27 @@ describe('BatchPickerDialogComponent', () => {
     expect(spy).toHaveBeenCalledWith(batch);
   });
 
+  it('never adds a blocked diagnostic lot even through a direct selection call', () => {
+    TestBed.configureTestingModule({ imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} } })] });
+    const component = TestBed.createComponent(BatchPickerDialogComponent).componentInstance;
+    const emitted = vi.fn(); component.batchSelected.subscribe(emitted);
+    const blocked = { ...batch, quantity: 10, availableQuantity: 0,
+      sellability: { allowed: false, reasonCode: 'Expiry.Expired', warning: false, requiresApproval: false,
+        policyVersion: 2, catalogVersion: 3, businessDate: '2026-11-09', physicalQuantity: 10, quarantinedQuantity: 0, availableQuantity: 0 } };
+    component.onSelectBatch(blocked); component.onAddToCart();
+    expect(emitted).not.toHaveBeenCalled();
+  });
+
+  it('orders dated eligible lots FEFO, with stable batch identity ties and undated lots last', () => {
+    TestBed.configureTestingModule({ imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} } })] });
+    const component = TestBed.createComponent(BatchPickerDialogComponent).componentInstance;
+    component.batches = [{ ...batch, batchNumber: 'undated', inventoryBatchId: 'u', expiryDate: null },
+      { ...batch, batchNumber: 'late', inventoryBatchId: 'l', expiryDate: '2027-11-09' },
+      { ...batch, batchNumber: 'same', inventoryBatchId: 'b', expiryDate: '2027-11-08' },
+      { ...batch, batchNumber: 'same', inventoryBatchId: 'a', expiryDate: '2027-11-08' }];
+    expect(component.orderedBatches.map(x => x.kind === 'Goods' ? x.inventoryBatchId : '')).toEqual(['a', 'b', 'l', 'u']);
+  });
+
   it('emits quantity changes', () => {
     TestBed.configureTestingModule({
       imports: [BatchPickerDialogComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })],

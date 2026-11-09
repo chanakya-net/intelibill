@@ -10,6 +10,9 @@ internal sealed class SaleCancellationLineConfiguration : IEntityTypeConfigurati
     {
         builder.ToTable("sale_cancellation_lines", table => table.HasCheckConstraint("ck_sale_cancellation_lines_amounts",
             "quantity > 0 AND original_cost_price >= 0 AND revenue_amount >= 0 AND recorded_cost_amount >= 0"));
+        builder.Property(x => x.QuarantinedQuantity).HasPrecision(18, 3).HasDefaultValue(0m);
+        builder.Property(x => x.DispositionReasonCode).HasMaxLength(80);
+        builder.HasOne<BatchDispositionChange>().WithMany().HasPrincipalKey(x => new { x.Id, x.ShopId }).HasForeignKey(x => new { x.QuarantineChangeId, x.ShopId }).OnDelete(DeleteBehavior.Restrict);
         builder.HasKey(x => x.Id);
         builder.HasIndex(x => new { x.SaleCancellationId, x.SaleItemId }).IsUnique();
         builder.HasIndex(x => x.StockTransactionId).IsUnique();

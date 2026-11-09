@@ -93,7 +93,7 @@ public sealed class CreateAdjustmentCommandHandler(
         if (inventory is null)
             return Errors.Inventory.InventoryAggregateNotFound;
 
-        if (command.Direction == InventoryAdjustmentDirection.Decrease && command.Quantity > batch.Quantity)
+        if (command.Direction == InventoryAdjustmentDirection.Decrease && command.Quantity > batch.UnquarantinedQuantity)
             return Errors.Inventory.AdjustmentQuantityExceedsBatchQuantity;
 
         var batchQuantityBefore = batch.Quantity;

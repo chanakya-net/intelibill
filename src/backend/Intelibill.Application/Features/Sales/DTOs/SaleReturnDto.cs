@@ -26,7 +26,7 @@ public sealed record SaleReturnItemDto(
     decimal ApprovedRefundAmount,
     decimal TaxableAmount,
     decimal TaxAmount,
-    string? Notes);
+    string? Notes, Guid? QuarantineChangeId = null, decimal QuarantinedQuantity = 0, string? DispositionReasonCode = null);
 
 public sealed record SaleReturnCreditNoteSummaryDto(
     Guid CreditNoteId,

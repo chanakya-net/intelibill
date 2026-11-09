@@ -1,3 +1,4 @@
+import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
 import { Component, ViewChild, ViewEncapsulation, computed, effect, inject, signal } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
@@ -54,6 +55,7 @@ import { BatchSaveResultsComponent } from '../components/batch-page/batch-save-r
 export class InventoryBatchPageComponent {
   @ViewChild(BatchRowFormComponent) batchRowForm!: BatchRowFormComponent;
 
+  private readonly expiryPolicies = inject(ExpiryPolicyService);
   private readonly authService = inject(AuthService);
   private readonly shopContext = inject(ShopContextService);
   private readonly audioService = inject(AudioService);
@@ -228,6 +230,7 @@ export class InventoryBatchPageComponent {
       userId: this.authService.session()?.user?.id ?? '',
       shopId: this.activeShopId(),
     };
+    void this.expiryPolicies.invalidate(owner.shopId).catch(() => undefined);
     const succeeded: AddInventoryBatchSucceededRow[] = [];
     const failed: AddInventoryBatchFailedRow[] = [];
     let requestedCount = 0;

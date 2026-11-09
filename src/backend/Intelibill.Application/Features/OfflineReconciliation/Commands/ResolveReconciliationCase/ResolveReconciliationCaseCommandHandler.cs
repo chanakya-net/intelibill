@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -46,7 +47,9 @@ public sealed class ResolveReconciliationCaseCommandHandler(
     ReconciliationCaseMapper mapper,
     IUnitOfWork unitOfWork,
     IFinancialOperationExecutor operationExecutor,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    IOfflineExpiryAuthority expiryAuthority,
+    OfflineTillReconciliationEligibility tillEligibility)
 {
     private const string LinkedOperationIndex = "ix_reconciliation_issues_shop_id_linked_operation_id";
     private const string SaleInvoiceNumberIndex = "ix_sales_shop_id_invoice_number";
@@ -131,7 +134,23 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         if (submission is not null && submission.ShopId != command.ShopId)
             submission = null;
 
-        if (!ReconciliationActionPolicy.AvailableActions(issue, submission, request.Role, command.ActorUserId).Contains(request.Action))
+        var now = timeProvider.GetUtcNow();
+        var tillEligible = false;
+        var expiryVerified = false;
+        var expiryLinkVerified = false;
+        if (issue.IssueType == ReconciliationIssueType.ExpiryReview && submission is not null)
+        {
+            var payload = ReadPayload(submission);
+            expiryVerified = payload is not null && payload.Items.Where(x => !x.IsServiceLine).All(x => x.ExpiryEvidence is not null) &&
+                !(await expiryAuthority.ValidateFrozenAsync(command.ShopId, payload, now, cancellationToken)).IsError;
+            tillEligible = expiryVerified && submission.AttributableUserId is { } issuer &&
+                await tillEligibility.CanReconcileAsync(command.ShopId, payload!, issuer, now, cancellationToken);
+            var posted = command.LinkedOperationId is { } linked
+                ? await saleRepository.GetByIdAsync(linked, command.ShopId, cancellationToken)
+                : await saleRepository.GetByClientSaleIdAsync(command.ShopId, submission.DeviceId, submission.ClientSaleId, cancellationToken);
+            expiryLinkVerified = posted is not null && await expiryAuthority.VerifiesPostedSaleAsync(submission, posted, cancellationToken);
+        }
+        if (!ReconciliationActionPolicy.AvailableActions(issue, submission, request.Role, command.ActorUserId, expiryVerified, expiryLinkVerified, tillEligible).Contains(request.Action))
         {
             return request.Role is ShopRole.Owner or ShopRole.Manager
                 ? Errors.Reconciliation.ActionNotAllowed
@@ -139,7 +158,6 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         }
 
         var fromStatus = issue.Status;
-        var now = timeProvider.GetUtcNow();
         ErrorOr<Effect> effect = request.Action switch
         {
             ReconciliationAction.Escalate => Escalate(issue, request, now),
@@ -280,6 +298,9 @@ public sealed class ResolveReconciliationCaseCommandHandler(
         if (await ReconciliationLinkRules.CheckSaleAsync(issue, submission, sale, submissionRepository, cancellationToken) is { } refused)
             return refused;
 
+        if (issue.IssueType == ReconciliationIssueType.ExpiryReview && (submission is null || !await expiryAuthority.VerifiesPostedSaleAsync(submission, sale, cancellationToken)))
+            return Errors.Reconciliation.ReplayRejected;
+
         if (submission is not null && !ReconciliationLinkRules.IsIdempotencyConflict(issue) && submission.LinkSale(sale.Id).IsError)
             return Errors.Reconciliation.SaleIdentityMismatch;
 
@@ -316,6 +337,8 @@ public sealed class ResolveReconciliationCaseCommandHandler(
             if (!string.Equals(existing.RequestHash, submission.PayloadHash, StringComparison.Ordinal))
                 return Errors.Sale.IdempotencyConflict;
 
+            if (issue.IssueType == ReconciliationIssueType.ExpiryReview && !await expiryAuthority.VerifiesPostedSaleAsync(submission, existing, cancellationToken))
+                return Errors.Reconciliation.ReplayRejected;
             return LinkPostedSale(issue, submission, request, now, existing.Id);
         }
 

@@ -46,6 +46,8 @@ export abstract class NewSalePageSearchCustomerService extends NewSalePageLifecy
   }
 
   onBatchSearchRequested(value: string): void {
+    this.searchSuggestionsSubscription?.unsubscribe();
+    this.searchSuggestions.set([]);
     this.searchInput.set((value ?? '').toString());
     void this.onBarcodeSearch();
   }

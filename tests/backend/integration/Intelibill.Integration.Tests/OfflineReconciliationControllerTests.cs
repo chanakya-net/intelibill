@@ -1,3 +1,6 @@
+using Intelibill.Application.Common.Time;
+using Intelibill.Infrastructure.Services.Time;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Headers;
@@ -21,7 +24,7 @@ namespace Intelibill.Integration.Tests;
 /// actions, their idempotency and row-version checks, and tenant isolation.
 /// </summary>
 [Collection("Integration Tests")]
-public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
+public sealed class OfflineReconciliationControllerTests : IAsyncLifetime, IDisposable
 {
     private const string Device = "device-1";
     private const string Route = "/api/offline-reconciliation";
@@ -29,7 +32,21 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
     // The web client's JSON.stringify output for the invoices array: camelCase, enums as numbers.
     private static readonly JsonSerializerOptions WebJsonOptions = new(JsonSerializerDefaults.Web);
 
-    private readonly ApiWebApplicationFactory _factory = new(fixture);
+    private readonly ApiWebApplicationFactory _factory;
+    private readonly MovingClock _clock = new();
+    private sealed class MovingClock : TimeProvider
+    {
+        public TimeSpan Offset { get; set; }
+        public override DateTimeOffset GetUtcNow() => DateTimeOffset.UtcNow + Offset;
+    }
+    public OfflineReconciliationControllerTests(PostgreSqlTestFixture fixture)
+    {
+        _factory = new(fixture, services =>
+        {
+            services.RemoveAll<TimeProvider>(); services.AddSingleton<TimeProvider>(_clock);
+            services.RemoveAll<IBusinessClock>(); services.AddSingleton<IBusinessClock>(new BusinessClock(_clock));
+        });
+    }
 
     public async Task InitializeAsync() => await _factory.InitializeAsync();
 
@@ -737,7 +754,7 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
     // I2 + I3: an invoice the sync path holds for its issue time keeps its one case when it also arrives in a
     // bundle, and that case shows the evidence a reviewer weighs before posting it as printed.
     [Fact]
-    public async Task HeldInvoiceInBundle_ReusesItsCase_AndPostsAsPrinted()
+    public async Task HeldFutureInvoiceInBundle_WaitsForSupportedHistoricalTime_ThenPostsAsPrinted()
     {
         using var client = CreateClient();
         var owner = await CreateOwnerAsync(client);
@@ -773,7 +790,21 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
         AssertSameInstant(lease.GetProperty("reservedAt").GetDateTimeOffset(), submission.GetProperty("leaseReservedAt").GetDateTimeOffset());
         AssertSameInstant(lease.GetProperty("expiresAt").GetDateTimeOffset(), submission.GetProperty("leaseExpiresAt").GetDateTimeOffset());
 
-        var retried = await ResolveAsync(client, owner.Token, caseId, detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "Till clock was an hour fast");
+        // A manager reason cannot certify a policy interval which is still in the future.
+        using var premature = await ResolveAsync(client, owner.Token, caseId, detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "Till clock was an hour fast");
+        Assert.Equal(HttpStatusCode.Conflict, premature.StatusCode);
+        Assert.Contains("Expiry.ReviewRequired", await premature.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        using (var pendingScope = _factory.Services.CreateScope())
+        {
+            var pendingDb = pendingScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            Assert.False(await pendingDb.Sales.AnyAsync(x => x.ShopId == owner.ShopId));
+            Assert.Equal(10m, (await pendingDb.InventoryBatches.SingleAsync(x => x.Id == stock.BatchId)).Quantity);
+            var retained = await pendingDb.OfflineSubmissions.SingleAsync(x => x.ShopId == owner.ShopId);
+            AssertSameInstant(soldAt, retained.ClaimedSoldAt); Assert.Null(retained.SaleId);
+        }
+        // Once that claimed instant is historical, the same baseline proof and envelope support it.
+        _clock.Offset = TimeSpan.FromHours(2);
+        var retried = await ResolveAsync(client, owner.Token, caseId, detail.GetProperty("version").GetUInt32(), "RetryHistoricalLease", "Claimed issue time is now historical");
         Assert.Equal(HttpStatusCode.OK, retried.StatusCode);
         var saleId = (await retried.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("saleId").GetGuid();
 
@@ -951,8 +982,9 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
         return new StockContext(barcode, body.GetProperty("itemId").GetGuid(), body.GetProperty("inventoryBatchId").GetGuid());
     }
 
-    private static async Task<JsonElement> ReserveInvoiceLeaseAsync(HttpClient client, string token, string deviceId = Device)
+    private async Task<JsonElement> ReserveInvoiceLeaseAsync(HttpClient client, string token, string deviceId = Device)
     {
+        await LegacyOfflineExpiryHistory.SeedAsync(_factory, token);
         using var response = await SendAsync(client, HttpMethod.Post, "/api/sales/invoice-leases/reserve", token, new { deviceId, blockSize = 25 });
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -961,7 +993,7 @@ public sealed class OfflineReconciliationControllerTests(PostgreSqlTestFixture f
     private static string InvoiceAt(JsonElement lease, int offset) =>
         $"{lease.GetProperty("prefix").GetString()}{(lease.GetProperty("rangeStart").GetInt32() + offset).ToString($"D{lease.GetProperty("numberPadding").GetInt32()}", System.Globalization.CultureInfo.InvariantCulture)}";
 
-    private static async Task<string> FirstLeasedInvoiceNumberAsync(HttpClient client, string token) =>
+    private async Task<string> FirstLeasedInvoiceNumberAsync(HttpClient client, string token) =>
         InvoiceAt(await ReserveInvoiceLeaseAsync(client, token), 0);
 
     /// <summary>

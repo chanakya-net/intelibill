@@ -1,4 +1,10 @@
 import { signal } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
+import { EMPTY } from 'rxjs';
+import { NewSalePageComponent } from './new-sale-page.component';
+import { NewSalePageCoordinatorService } from './new-sale-page.coordinator.service';
+import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
+import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -57,6 +63,13 @@ function harness(options: { sellable?: SellableGoodsDto; inCart: number; add: Ad
 }
 
 describe('NewSalePageLifecycleService barcode scan of a weighed item', () => {
+  it('explains a barcode with one blocked lot in the diagnostic picker without attempting Add', async () => {
+    const { page, addBatchToCart } = harness({ inCart: 0, add: { added: false, addedLineKey: null, refusal: 'exceedsStock' },
+      sellable: { ...weighed, availableQuantity: 0, sellability: { allowed: false, reasonCode: 'Expiry.Expired', warning: false, requiresApproval: false,
+        policyVersion: 2, catalogVersion: 3, businessDate: '2026-11-09', physicalQuantity: 3, quarantinedQuantity: 0, availableQuantity: 0 } } });
+    await page.onBarcodeSearch();
+    expect(page.showBatchPicker()).toBe(true); expect(addBatchToCart).not.toHaveBeenCalled();
+  });
   it('opens the picker when less than one unit is left', async () => {
     const { page } = harness({
       sellable: { ...weighed, quantity: 3 },
@@ -94,5 +107,26 @@ describe('NewSalePageLifecycleService barcode scan of a weighed item', () => {
 
     expect(page.showBatchPicker()).toBe(false);
     expect(page.batchSearchError()).toBe('sales.newSale.exceedsStock');
+  });
+});
+
+describe('new sale shop-day rollover lifecycle', () => {
+  it('invalidates future availability once at the actual shop midnight and cancels on destroy', async () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-08T18:29:59Z'));
+    const invalidateExpiryCatalog = vi.fn();
+    const vm = { onInit: vi.fn(), onDestroy: vi.fn(), expiryBusinessTimeZone: signal<string | null>(null), invalidateExpiryCatalog };
+    TestBed.configureTestingModule({ imports: [NewSalePageComponent], providers: [
+      { provide: ExpiryPolicyService, useValue: { businessTimeZone: () => of('Asia/Kolkata'), changed$: EMPTY } },
+      { provide: OfflineSalesSnapshotIndexedDbService, useValue: {} },
+    ] });
+    TestBed.overrideComponent(NewSalePageComponent, { set: { template: '', imports: [], providers: [{ provide: NewSalePageCoordinatorService, useValue: vm }] } });
+    const fixture = TestBed.createComponent(NewSalePageComponent);
+    try {
+      fixture.detectChanges();
+      await vi.advanceTimersByTimeAsync(999); expect(invalidateExpiryCatalog).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1); expect(invalidateExpiryCatalog).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1000); expect(invalidateExpiryCatalog).toHaveBeenCalledTimes(1);
+      fixture.destroy(); await vi.advanceTimersByTimeAsync(86400000); expect(invalidateExpiryCatalog).toHaveBeenCalledTimes(1);
+    } finally { fixture.destroy(); vi.useRealTimers(); }
   });
 });

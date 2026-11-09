@@ -267,6 +267,7 @@ function buildService() {
           }),
           isPreviewLoading: signal(false),
           previewError: signal(''),
+          expiryApprovalReason: signal(''),
           beginPreviewRequest: vi.fn(() => 1),
           finishPreviewRequest: vi.fn(),
           refreshOnlinePreview: vi.fn(),
@@ -372,6 +373,30 @@ describe('NewSalePageCartSubmitService', () => {
       service.paymentForm.controls.paidAmount.setValue(300);
       service.paymentForm.controls.dueAmount.setValue(0);
     }
+
+    it('requires live manager reason, exact quantity and a current same-zone preview before preparing checkout', async () => {
+      const { service, recordSale, checkoutIntents, session, cart } = buildService();
+      readyToSubmit(service);
+      session.update(s => ({ ...s, shops: [{ shopId: 'shop-1', role: 'Manager' }] }));
+      service.expiryBusinessTimeZone.set('Asia/Kolkata');
+      const businessDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+      service.checkoutPreview.update(p => ({ ...p!, expiryDecisions: [{ itemId: 'item-1', inventoryBatchId: 'batch-1', quantity: 1, batchVersion: 8,
+        decision: { allowed: true, reasonCode: 'Expiry.Expired', warning: true, requiresApproval: true, policyVersion: 2, catalogVersion: 3, businessDate,
+          physicalQuantity: 10, quarantinedQuantity: 0, availableQuantity: 10 } }] }));
+      await service.onSubmit(); expect(checkoutIntents.prepare).not.toHaveBeenCalled();
+      service.onExpiryApprovalReason('Inspected');
+      cart.update(rows => rows.map(x => ({ ...x, quantity: 2 })));
+      await service.onSubmit(); expect(checkoutIntents.prepare).not.toHaveBeenCalled();
+      cart.update(rows => rows.map(x => ({ ...x, quantity: 1 })));
+      service.onExpiryApprovalReason('Inspected');
+      await service.onSubmit();
+      expect(recordSale).toHaveBeenCalled();
+      const frozen = checkoutIntents.prepare.mock.calls[0][1];
+      expect(frozen.expiryApprovals).toEqual([{ inventoryBatchId: 'batch-1', quantity: 1, batchVersion: 8, policyVersion: 2, catalogVersion: 3, reason: 'Inspected' }]);
+      service.onExpiryApprovalReason('Changed after send');
+      await service.onSubmit(); expect(checkoutIntents.prepare).toHaveBeenCalledTimes(1);
+      expect(frozen.expiryApprovals[0].reason).toBe('Inspected');
+    });
 
     it('persists the intent before sending and sends the stored request', async () => {
       const { service, recordSale, checkoutIntents } = buildService();

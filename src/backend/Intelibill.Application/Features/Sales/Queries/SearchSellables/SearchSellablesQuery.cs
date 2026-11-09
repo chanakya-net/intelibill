@@ -4,4 +4,4 @@ public sealed record SearchSellablesQuery(
     Guid UserId,
     Guid ShopId,
     string SearchTerm,
-    bool IsBarcodeLookup = false);
+    bool IsBarcodeLookup = false, bool IncludeUnavailable = false);

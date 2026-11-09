@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -62,7 +63,8 @@ public sealed class SubmitRecoveryBundleCommandHandler(
     IOfflineSalePoster salePoster,
     IUnitOfWork unitOfWork,
     IFinancialOperationExecutor operationExecutor,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    IOfflineExpiryAuthority expiryAuthority)
 {
     public const string BundleFormat = "intelibill.offline-recovery";
     public const int BundleVersion = 1;
@@ -230,6 +232,10 @@ public sealed class SubmitRecoveryBundleCommandHandler(
 
         if (OfflineSaleSyncHelpers.CheckArithmetic(sale) is { } arithmetic)
             return await OpenCaseAsync(held, null, arithmetic.IssueType, arithmetic.Error, arithmetic.Message, cancellationToken);
+
+        var expiry = await expiryAuthority.ValidateFrozenAsync(context.ShopId, sale, now, cancellationToken);
+        if (expiry.IsError)
+            return await OpenCaseAsync(held, null, ReconciliationIssueType.ExpiryReview, expiry.FirstError, null, cancellationToken);
 
         // The same rule sync applies, against the first receipt. An expired lease alone is what every late
         // recovery looks like, so that verdict is the recovery review itself; any other anomaly is filed as is.

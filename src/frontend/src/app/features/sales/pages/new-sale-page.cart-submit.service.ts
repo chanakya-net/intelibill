@@ -1,3 +1,4 @@
+import { buildExpiryApprovals } from '../../expiry/services/expiry-approval';
 import { inject } from '@angular/core';
 import { TillContextService } from '../../tills/services/till-context.service';
 import { NewSalePageCartSelectionService } from './new-sale-page.cart-selection.service';
@@ -173,6 +174,10 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
       return;
     }
 
+    const expiryDecisions = this.checkoutPreview()?.expiryDecisions ?? [];
+    if (!this.expiryPreviewIsCurrent()) { this.salePreview.triggerServerUpdateRefresh(); this.paymentSplitError.set('expiry.previewStale'); return; }
+    const approvals = buildExpiryApprovals(expiryDecisions, this.cart(), this.canOverrideCredit(), this.expiryReasonIsCurrent() ? this.expiryApprovalReason() : '');
+    if (!approvals) { this.paymentSplitError.set('expiry.approvalRequired'); return; }
     const EMPTY_GUID = '00000000-0000-0000-0000-000000000000';
     const items: RecordSaleItemRequest[] = [
       ...this.cart().map((item) => ({
@@ -247,6 +252,7 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
     }
 
     const request: RecordSaleRequest = {
+      ...(approvals.length ? { expiryApprovals: approvals } : {}),
       idempotencyKey: this.createSaleIdempotencyKey(),
       customerId: this.selectedCustomerId(),
       customerName,

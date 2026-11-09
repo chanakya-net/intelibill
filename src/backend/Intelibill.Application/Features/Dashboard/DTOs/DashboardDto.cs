@@ -44,4 +44,4 @@ public sealed record DashboardDto(
     ProfitLossEconomicsDto? Economics = null,
     decimal? GrossTradingProfitChangePercent = null,
     decimal CancellationAmount = 0m,
-    int CancellationCount = 0);
+    int CancellationCount = 0, decimal QuarantinedStockQuantity = 0, decimal QuarantinedStockValue = 0);

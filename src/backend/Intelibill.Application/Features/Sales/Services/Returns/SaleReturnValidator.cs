@@ -18,7 +18,7 @@ internal sealed class SaleReturnValidator(
     IPaymentReceiptRepository paymentReceiptRepository,
     ISaleReturnCalculator saleReturnCalculator,
     IItemRepository itemRepository,
-    IBusinessClock businessClock)
+    IBusinessClock businessClock, Intelibill.Application.Features.Expiry.BatchDispositionService dispositions)
     : ISaleReturnValidator
 {
     public async Task<ErrorOr<SaleReturnValidationResult>> ValidateAsync(
@@ -74,7 +74,7 @@ internal sealed class SaleReturnValidator(
             : (await itemRepository.GetByIdsAsync(request.ShopId, itemIds, cancellationToken))
                 .ToDictionary(i => i.Id, i => i.QuantityScale);
         var lineInputs = new List<ValidatedSaleReturnLine>();
-        var today = businessClock.Today(shop.BusinessTimeZoneId);
+        var today = businessClock.GetBusinessDate(request.RestorationAt ?? businessClock.UtcNow, shop.BusinessTimeZoneId);
 
         foreach (var item in request.Items)
         {
@@ -152,13 +152,14 @@ internal sealed class SaleReturnValidator(
                 continue;
             }
 
-            if (item.Condition == SaleReturnCondition.Restockable && batch.ExpiryDate.HasValue && batch.ExpiryDate.Value < today)
+            Intelibill.Application.Features.Expiry.RestorationDisposition? disposition = null;
+            if (item.Condition == SaleReturnCondition.Restockable)
             {
-                validationErrors.Add(Errors.Sale.ReturnBatchExpired(batch.BatchNumber));
-                continue;
+                var evaluated = await dispositions.EvaluateAsync(batch, today, item.Quantity, cancellationToken);
+                if (evaluated.IsError) { validationErrors.AddRange(evaluated.Errors); continue; }
+                disposition = evaluated.Value;
             }
-
-            lineInputs.Add(new ValidatedSaleReturnLine(item, saleItem, batch, returnedQuantity, returnableQuantity));
+            lineInputs.Add(new ValidatedSaleReturnLine(item, saleItem, batch, returnedQuantity, returnableQuantity, disposition));
         }
 
         if (validationErrors.Count > 0)

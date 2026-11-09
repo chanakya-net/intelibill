@@ -1,5 +1,10 @@
+import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
+import { millisecondsUntilShopDateChange } from '../../expiry/services/expiry-policy-evaluator';
+import { isValidShopZone } from '../utils/offline-sales-snapshot.schema';
+import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, DestroyRef, inject } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 
@@ -59,12 +64,32 @@ import { NewSalePageCoordinatorService } from './new-sale-page.coordinator.servi
 })
 export class NewSalePageComponent implements OnInit, OnDestroy {
   readonly vm = inject(NewSalePageCoordinatorService);
+  private readonly expiryPolicies = inject(ExpiryPolicyService);
+  private readonly expirySnapshots = inject(OfflineSalesSnapshotIndexedDbService);
+  private readonly destroyRef = inject(DestroyRef);
 
+  private rolloverTimer?: ReturnType<typeof setTimeout>;
+  private watchShopDate(zone: string): void {
+    if (this.rolloverTimer) clearTimeout(this.rolloverTimer);
+    this.rolloverTimer = setTimeout(() => { this.vm.invalidateExpiryCatalog(); this.watchShopDate(zone); }, millisecondsUntilShopDateChange(Date.now(), zone));
+  }
   ngOnInit(): void {
     this.vm.onInit();
+    this.expiryPolicies.businessTimeZone().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: zone => { if (isValidShopZone(zone)) { this.vm.expiryBusinessTimeZone.set(zone); this.watchShopDate(zone); } }, error: () => {
+      const shopId = this.vm.activeShopId();
+      if (shopId) void this.expirySnapshots.getUsableSnapshotInfo(shopId).then(snapshot => {
+        if (this.vm.activeShopId() === shopId && snapshot?.schemaVersion === 4 && isValidShopZone(snapshot.businessTimeZoneId)) {
+          this.vm.expiryBusinessTimeZone.set(snapshot.businessTimeZoneId); this.watchShopDate(snapshot.businessTimeZoneId);
+        }
+      }).catch(() => {});
+    } });
+    this.expiryPolicies.changed$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.vm.invalidateExpiryCatalog();
+    });
   }
 
   ngOnDestroy(): void {
+    if (this.rolloverTimer) clearTimeout(this.rolloverTimer);
     this.vm.onDestroy();
   }
 

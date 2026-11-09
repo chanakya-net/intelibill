@@ -2066,6 +2066,7 @@
         "recoveryReview": "Recovered invoice review",
         "unknown": "Other",
         "documentReview": "GST document review",
+        "expiryReview": "Expiry evidence review",
         "closedPeriodReview": "Closed period review"
       },
       "detail": {
@@ -3025,6 +3026,92 @@
     "purposes": {
       "cashRefund": "Cash refund",
       "recordedSettlement": "Recorded settlement"
+    }
+  },
+  "expiry": {
+    "policyTitle": "Expiry policy",
+    "version": "Policy {{version}} · catalog {{catalog}}",
+    "readiness": "Missing expiry dates: {{missing}} · expired lots: {{expired}} · quarantine lots: {{quarantine}}",
+    "readinessLoading": "Refreshing readiness for this policy…",
+    "readinessFailed": "Readiness could not be loaded for this policy version. Retry, or refresh details if the policy changed.",
+    "retryReadiness": "Retry readiness",
+    "affectedLots": "Affected lots (first page)",
+    "modeLabel": "Expiry rule",
+    "warningDays": "Near-expiry warning days (0–365)",
+    "requiredDate": "Require an expiry date",
+    "sellThrough": "Allow selling on the expiry date",
+    "allowApproval": "Allow Owner/Manager approval of expired Warn lots",
+    "inherit": "Use the shop policy",
+    "auditReason": "Reason (required, up to 500 characters)",
+    "save": "Save expiry policy",
+    "ownerOnly": "Only the current shop owner can change this.",
+    "switchShop": "Switch to this shop to view or change its expiry policy.",
+    "loadFailed": "Expiry details are unavailable. Connect and refresh before continuing.",
+    "reasonRequired": "Enter a reason of 1 to 500 characters.",
+    "invalidWindow": "Enter a whole number from 0 to 365.",
+    "saved": "Expiry policy saved. Refresh the offline catalog before new offline invoices.",
+    "saveFailed": "The policy changed or could not be saved. Refresh, review the current policy, then try again.",
+    "refresh": "Refresh details",
+    "undated": "No expiry date",
+    "available": "Available to sell",
+    "physical": "Physical stock",
+    "quarantine": "Quarantined",
+    "approvalTitle": "Expired lots require approval",
+    "approvalLot": "Quantity requiring approval: {{quantity}}",
+    "managerOwnSession": "An Owner or Manager must sign in with their own session to approve these lots.",
+    "approvalRequired": "Review each expired lot and enter an approval reason in an Owner or Manager session.",
+    "previewStale": "The shop business date or policy changed. Refresh and approve the new preview.",
+    "newItemInherits": "New items inherit the shop expiry policy. An owner can set an override in the item editor after creation.",
+    "receiptRequired": "An expiry date is required for this item.",
+    "dateOrder": "Manufacturing date must be on or before expiry date.",
+    "historyTitle": "Quarantine and history",
+    "valuationNote": "Physical stock includes quarantined goods at recorded cost. Quarantine is a hold, not a valuation guarantee or an automatic write-off.",
+    "sourceHold": "Original quarantine event",
+    "selectHold": "Select a quarantine event",
+    "actionLabel": "Action",
+    "quantity": "Quantity",
+    "releaseRule": "Originally expired goods cannot be released by extending their date. Missing-date holds need a separate audited date correction and a currently sellable lot.",
+    "postDisposition": "Record action",
+    "retryOriginal": "Recover the original action",
+    "pending": "The result is unknown. Keep the original request and key; recover this action before starting another for the same source.",
+    "storageFailed": "The durable action could not be read. Do not start a replacement. Restore storage and retry.",
+    "dispositionInvalid": "Select a source, enter a valid remaining quantity and reason, and check release eligibility.",
+    "dispositionConflict": "The lot or source changed, or this action was refused. Refresh its history and review before trying again.",
+    "dispositionSaved": "Stock disposition recorded.",
+    "auditDetails": "Audit details",
+    "returnQuarantine": "Restore {{physical}} physical units; {{quarantine}} units go to quarantine and cannot be sold.",
+    "savedReturnQuarantine": "Recorded return: {{quantity}} units restored to quarantine. Original disposition is retained.",
+    "status": {
+      "refresh": "Refresh expiry details",
+      "required": "Required expiry date missing",
+      "expired": "Expired — blocked",
+      "soon": "Expiring soon",
+      "approval": "Expired — online manager approval required",
+      "unavailable": "No unquarantined stock available",
+      "voided": "Voided lot",
+      "inactive": "Inactive item",
+      "available": "Available"
+    },
+    "mode": {
+      "Ignore": "Ignore expiry (required dates still apply)",
+      "Warn": "Warn and require eligible approval",
+      "Block": "Block expired goods"
+    },
+    "action": {
+      "Quarantine": "Quarantined",
+      "Release": "Release hold",
+      "Dispose": "Dispose as stock loss",
+      "Reverse": "Original restoration reversed"
+    },
+    "source": {
+      "SaleReturn": "Customer return",
+      "SaleCancellation": "Sale cancellation"
+    },
+    "offline": {
+      "refresh": "Refresh the complete expiry catalog online before issuing a new invoice. Existing issued invoices stay recoverable.",
+      "blocked": "This lot is not sellable on the shop business date. Select an eligible lot or review its dates online.",
+      "onlineApproval": "This expired lot needs a live Owner/Manager approval. Complete the sale online in their own session.",
+      "review": "Expiry authority needs review. Retain the original issued invoice and evidence. A manager reason cannot replace missing proof."
     }
   }
 }

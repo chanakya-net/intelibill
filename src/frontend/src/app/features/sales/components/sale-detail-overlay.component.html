@@ -77,6 +77,13 @@
               <div class="sale-detail-returns-heading">
                 <h3>{{ 'sales.returns.history' | transloco }}</h3>
               </div>
+              @for (record of sale()!.returns; track record.saleReturnId) {
+                @for (line of record.items; track line.saleItemId) {
+                  @if ((line.quarantinedQuantity ?? 0) > 0) {
+                    <p class="saved-quarantine-fact">{{ record.returnNumber }} · {{ 'expiry.savedReturnQuarantine' | transloco: { quantity: line.quarantinedQuantity } }}</p>
+                  }
+                }
+              }
               <p-table [value]="$any(sale()!.returns)" styleClass="p-datatable-sm">
                 <ng-template pTemplate="header">
                   <tr>
@@ -103,7 +110,8 @@
                       </div>
                     </td>
                     <td>{{ returnRecord.returnedAt | date: 'dd MMM yyyy, h:mm a' }}</td>
-                    <td>₹{{ returnRecord.totalRefundAmount | number: '1.2-2' }}</td>
+                    <td>₹{{ returnRecord.totalRefundAmount | number: '1.2-2' }}
+                    </td>
                     <td>
                       <p-tag
                         [severity]="returnStatusSeverity(returnRecord)"

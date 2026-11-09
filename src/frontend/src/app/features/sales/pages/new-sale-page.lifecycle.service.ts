@@ -148,6 +148,14 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
       });
 
       effect(() => {
+        this.nowTick();
+        const preview = this.checkoutPreview(); this.expiryBusinessTimeZone();
+        if (preview?.expiryDecisions?.length && this.expiryBusinessTimeZone() && !this.expiryPreviewIsCurrent()) untracked(() => {
+          this.availableBatches.set([]); this.availableSellables.set([]); this.selectedSellable.set(null);
+          this.salePreview.triggerServerUpdateRefresh();
+        });
+      });
+      effect(() => {
         const total = this.totalAmount();
         if (this.lastEditedPaymentField() === 'paid') {
           this.syncPaymentSplitFromPaid(this.paymentForm.controls.paidAmount.value, total);
@@ -278,6 +286,9 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
         if (sellables.length === 1) {
           const sellable = sellables[0];
           if (sellable.kind === 'Goods') {
+            if (sellable.sellability?.allowed === false || sellable.availableQuantity === 0) {
+              this.availableSellables.set([sellable]); this.availableBatches.set([goodsSellableToBatch(sellable)]); this.showBatchPicker.set(true); return;
+            }
             const batch = goodsSellableToBatch(sellable);
             const result = this.cartState.addBatchToCart(batch, 1);
             if (!result.added) {

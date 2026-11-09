@@ -1,3 +1,5 @@
+import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
+import type { ExpiryPolicy } from '../../expiry/services/expiry.models';
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -30,6 +32,16 @@ export class BatchRowFormStateService {
   private readonly suppliersFacade = inject(SuppliersFacade);
   private readonly destroyRef = inject(DestroyRef);
 
+  private readonly expiryPolicies = inject(ExpiryPolicyService);
+  readonly expiryPolicy = signal<ExpiryPolicy | null>(null);
+  readonly expiryDateError = signal('');
+  private expiryLookup = 0;
+  private loadExpiryPolicy(): void {
+    const lookup = ++this.expiryLookup;
+    const entry = this.catalogSync.findByBarcode(this.form.controls.barcode.value.trim()) ?? this.catalogSync.findByName(this.form.controls.itemName.value.trim());
+    this.expiryPolicy.set(null);
+    this.expiryPolicies.read(entry?.itemId).subscribe({ next: value => { if (lookup === this.expiryLookup) this.expiryPolicy.set(value.effectivePolicy); }, error: () => { if (lookup === this.expiryLookup) this.expiryDateError.set('expiry.loadFailed'); } });
+  }
   readonly loadingProduct = signal(false);
   readonly isLoadingHsn = signal(false);
   readonly barcodeGenerating = signal(false);
@@ -92,7 +104,10 @@ export class BatchRowFormStateService {
         }
       });
 
+    this.form.controls.barcode.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadExpiryPolicy());
     this.resetForm();
+    this.loadExpiryPolicy();
+    this.expiryPolicies.changed$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadExpiryPolicy());
   }
 
   onFilterName(event: AutoCompleteCompleteEvent): void {
@@ -304,6 +319,7 @@ export class BatchRowFormStateService {
         this.inventoryService.getProductDetailsByNameOrBarcode(itemName || undefined, barcode),
       );
 
+      this.loadExpiryPolicy();
       const patch = this.buildProductDetailsPatch(details);
       if (Object.keys(patch).length > 0) {
         this.form.patchValue(patch);
@@ -379,6 +395,12 @@ export class BatchRowFormStateService {
   }
 
   buildDraftRow(): InventoryInboundDraftRow | null {
+    this.expiryDateError.set('');
+    const expiry = this.form.controls.expiryDate.value;
+    const manufacturing = this.form.controls.manufacturingDate.value;
+    if (!this.expiryPolicy()) { this.expiryDateError.set('expiry.loadFailed'); return null; }
+    if (this.expiryPolicy()!.expiryRequired && !expiry) { this.expiryDateError.set('expiry.receiptRequired'); return null; }
+    if (expiry && manufacturing && manufacturing > expiry) { this.expiryDateError.set('expiry.dateOrder'); return null; }
     if (this.form.invalid) {
       return null;
     }

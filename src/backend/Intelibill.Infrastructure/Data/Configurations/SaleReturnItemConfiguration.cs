@@ -22,6 +22,9 @@ internal sealed class SaleReturnItemConfiguration : IEntityTypeConfiguration<Sal
                 "(adjustment_taxable_amount IS NULL AND adjustment_tax_amount IS NULL AND adjustment_non_tax_amount IS NULL) OR (adjustment_taxable_amount >= 0 AND adjustment_tax_amount >= 0 AND adjustment_non_tax_amount >= 0 AND adjustment_taxable_amount + adjustment_tax_amount + adjustment_non_tax_amount = approved_refund_amount)");
         });
 
+        builder.Property(x => x.QuarantinedQuantity).HasPrecision(18, 3).HasDefaultValue(0m);
+        builder.Property(x => x.DispositionReasonCode).HasMaxLength(80);
+        builder.HasOne<BatchDispositionChange>().WithMany().HasPrincipalKey(x => new { x.Id, x.ShopId }).HasForeignKey(x => new { x.QuarantineChangeId, x.ShopId }).OnDelete(DeleteBehavior.Restrict);
         builder.HasKey(i => i.Id);
 
         builder.Property(i => i.SaleReturnId)

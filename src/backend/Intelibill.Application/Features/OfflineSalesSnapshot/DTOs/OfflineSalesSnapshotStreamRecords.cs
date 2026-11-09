@@ -12,7 +12,9 @@ public sealed record OfflineSalesSnapshotMetadata(
     Guid SnapshotId,
     Guid ShopId,
     int SchemaVersion,
-    DateTimeOffset StartedAt);
+    DateTimeOffset StartedAt,
+    string? BusinessTimeZoneId = null,
+    long? CatalogVersion = null);
 
 public sealed record OfflineSellableBatchDto(
     Guid BatchId,
@@ -31,7 +33,16 @@ public sealed record OfflineSellableBatchDto(
     bool PurchaseTaxIncluded,
     DateOnly? ExpiryDate,
     int QuantityScale,
-    string DocumentUnit);
+    string DocumentUnit,
+    Guid? ExpiryEvidenceId = null,
+    ExpiryPolicy? EffectivePolicy = null,
+    decimal? PhysicalQuantity = null,
+    decimal? QuarantinedQuantity = null,
+    decimal? AvailableQuantity = null,
+    DateTimeOffset? ExpiryCapturedAt = null,
+    DateTimeOffset? ExpiryEvidenceExpiresAt = null,
+    uint? BatchVersion = null,
+    DateOnly? ManufacturingDate = null);
 
 /// <summary>
 /// A customer the device can bill offline. GSTIN, state and address are the buyer particulars an

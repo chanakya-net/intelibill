@@ -1,3 +1,4 @@
+import { knownExpiryPolicyProviders } from '../../../../tests/expiry/expiry-policy.providers';
 import { signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
@@ -116,6 +117,7 @@ describe('InventoryBatchPageComponent', () => {
     TestBed.configureTestingModule({
       imports: [InventoryBatchPageComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
+        ...knownExpiryPolicyProviders(),
         { provide: AuthService, useValue: authService },
         { provide: InventoryService, useValue: inventoryService },
         { provide: InventoryDraftIndexedDbService, useValue: draftStorage },

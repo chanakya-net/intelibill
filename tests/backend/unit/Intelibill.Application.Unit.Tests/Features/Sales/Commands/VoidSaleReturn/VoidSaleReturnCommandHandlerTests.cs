@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Expiry;
+using Intelibill.Application.Unit.Tests.Common;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Application.Features.Tills.Services;
 using Intelibill.Application.Common.Operations;
@@ -42,11 +44,11 @@ public sealed class VoidSaleReturnCommandHandlerTests
             _stockTransactionRepository,
             _customerLedgerEntryRepository,
             _creditNoteRepository,
-            new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork),
+            new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork, Substitute.For<IExpiryPolicyFence>()),
             _unitOfWork,
             new BusinessClock(_time),
             new TillSourceSettlementService(Substitute.For<ITillSessionPolicy>(), Substitute.For<ITillPostingService>(), _shopRepository, new BusinessClock(_time)),
-            _executor);
+            _executor, ExpiryDispositionTestServices.Create(_inventoryBatchRepository, new BusinessClock(_time)));
 
     private readonly MutableTimeProvider _time = new();
 

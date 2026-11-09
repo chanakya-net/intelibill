@@ -36,7 +36,7 @@ describe('OfflineSaleFinalizationService', () => {
     const snapshotDb = {
       getUsableSnapshotInfo: vi
         .fn()
-        .mockResolvedValue({ snapshotId: 'snap-1', completedAt: new Date().toISOString() }),
+        .mockResolvedValue({ snapshotId: 'snap-1', completedAt: new Date().toISOString(), schemaVersion: 4, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 3 }),
       getUsableBatches: vi.fn().mockResolvedValue([makeBatchSnapshot()]),
       getUsableServices: vi.fn().mockResolvedValue([]),
       getUsableDiscountRules: vi.fn().mockResolvedValue([]),
@@ -63,7 +63,7 @@ describe('OfflineSaleFinalizationService', () => {
         OfflineSaleFinalizationService,
         {
           provide: AuthService,
-          useValue: { session: () => (userId ? { user: { id: userId } } : null) },
+          useValue: { session: () => (userId ? { user: { id: userId }, activeShopId: 'shop-1' } : null) },
         },
         { provide: OfflineSalesSnapshotIndexedDbService, useValue: snapshotDb },
         { provide: InvoiceLeaseIndexedDbService, useValue: leaseDb },
@@ -80,6 +80,66 @@ describe('OfflineSaleFinalizationService', () => {
       shadowDb,
     };
   }
+
+  it('refuses a legacy catalog for a new invoice before consuming its number', async () => {
+    const { service, leaseDb, queueDb, shadowDb, snapshotDb } = setup();
+    snapshotDb.getUsableSnapshotInfo.mockResolvedValue({ snapshotId: 'snap-1', completedAt: new Date().toISOString() } as never);
+    expect(await service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'EXPIRY_REFRESH_REQUIRED' });
+    expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
+    expect(queueDb.savePendingSale).not.toHaveBeenCalled();
+    expect(shadowDb.reduceQuantity).not.toHaveBeenCalled();
+  });
+
+  for (const [field, value] of [
+    ['expiryDate', undefined], ['manufacturingDate', undefined],
+    ['expiryDate', '2026-02-30'], ['manufacturingDate', 'not-a-date'],
+    ['expiryDate', '2026-11-09T00:00:00Z'],
+  ] as const) {
+    it(`refuses new issuance with incomplete date authority ${field}=${value}`, async () => {
+      const { service, snapshotDb, leaseDb, queueDb, shadowDb } = setup();
+      const batch: Record<string, unknown> = { ...makeBatchSnapshot(), [field]: value };
+      if (value === undefined) delete batch[field];
+      snapshotDb.getUsableBatches.mockResolvedValue([batch] as never);
+      expect(await service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'EXPIRY_REFRESH_REQUIRED' });
+      expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
+      expect(queueDb.savePendingSale).not.toHaveBeenCalled();
+      expect(shadowDb.reduceQuantity).not.toHaveBeenCalled();
+    });
+  }
+
+  it('freezes exact issue-date evidence through sync and recovery without current decoration', async () => {
+    const { service } = setup();
+    const result = await service.finalizeAndQueue(makeRequest());
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const proof = result.payload.pricing.lines[0].expiryEvidence;
+    expect(proof).toMatchObject({ evidenceId: 'proof-1', catalogVersion: 3, policyVersion: 2, expiryDate: null, decisionCode: 'Allowed' });
+    expect(proof?.businessDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('refuses offline warning approval even for the issuing manager', async () => {
+    const { service, snapshotDb, leaseDb, queueDb } = setup();
+    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), expiryDate: '2020-01-01',
+      effectivePolicy: { version: 2, mode: 'Warn', expiryRequired: false, sellThroughExpiryDate: true, warningDays: 7, overrideAllowed: true } }]);
+    expect(await service.finalizeAndQueue(makeRequest())).toEqual({ ok: false, reason: 'EXPIRY_ONLINE_APPROVAL_REQUIRED' });
+    expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
+    expect(queueDb.savePendingSale).not.toHaveBeenCalled();
+  });
+
+  it('caps an older shadow balance at the captured unquarantined availability', async () => {
+    const { service, snapshotDb, shadowDb, leaseDb } = setup();
+    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), quarantinedQuantity: 3, availableQuantity: 7 }]);
+    shadowDb.ensureQuantity.mockResolvedValue(10);
+    expect(await service.finalizeAndQueue(withQuantities(8))).toEqual({ ok: false, reason: 'INSUFFICIENT_SHADOW_STOCK' });
+    expect(leaseDb.consumeNextInvoiceNumber).not.toHaveBeenCalled();
+  });
+
+  it('seeds shadow stock from unquarantined availability rather than physical quantity', async () => {
+    const { service, snapshotDb, shadowDb } = setup();
+    snapshotDb.getUsableBatches.mockResolvedValue([{ ...makeBatchSnapshot(), quarantinedQuantity: 3, availableQuantity: 7 }]);
+    expect((await service.finalizeAndQueue(makeRequest())).ok).toBe(true);
+    expect(shadowDb.ensureQuantity).toHaveBeenCalledWith('shop-1', 'device-1', 'batch-1', 7);
+  });
 
   it('refuses below recorded cost using snapshot cost before consuming or saving anything', async () => {
     const { service, snapshotDb, leaseDb, queueDb, shadowDb } = setup();
@@ -192,12 +252,12 @@ describe('OfflineSaleFinalizationService', () => {
     expect(queueDb.savePendingSale.mock.calls[0][0].payload.issuedByUserId).toBe('user-7');
   });
 
-  it('leaves the issuer absent when no user id is known', async () => {
+  it('refuses new issuance when no user id is known', async () => {
     const { service } = setup(null);
 
     const result = await service.finalizeAndQueue(makeRequest());
 
-    expect(result.ok && 'issuedByUserId' in result.payload).toBe(false);
+    expect(result).toEqual({ ok: false, reason: 'EXPIRY_REFRESH_REQUIRED' });
   });
 
   it('freezes pricing and catalog values from cached batch snapshots', async () => {
@@ -595,6 +655,11 @@ describe('OfflineSaleFinalizationService', () => {
 
   function makeBatchSnapshot() {
     return {
+      expiryDate: null, manufacturingDate: null,
+      expiryEvidenceId: 'proof-1',
+      effectivePolicy: { version: 2, mode: 'Ignore' as const, expiryRequired: false, sellThroughExpiryDate: true, warningDays: 7, overrideAllowed: false },
+      physicalQuantity: 10, quarantinedQuantity: 0, availableQuantity: 10, batchVersion: 8,
+      expiryCapturedAt: new Date(Date.now() - 1000).toISOString(), expiryEvidenceExpiresAt: new Date(Date.now() + 86400000).toISOString(),
       batchId: 'batch-1',
       itemId: 'item-1',
       barcode: '111',

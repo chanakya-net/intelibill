@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Entities;
@@ -11,7 +12,7 @@ internal sealed class InboundInventoryLineProcessor(
     IItemRepository itemRepository,
     ISupplierResolver supplierResolver,
     IBatchFactory batchFactory,
-    IInventoryUpdater inventoryUpdater) : IInboundInventoryLineProcessor
+    IInventoryUpdater inventoryUpdater, BatchExpiryRevisionService expiryDates) : IInboundInventoryLineProcessor
 {
     public async Task<ErrorOr<InboundInventoryLineResult>> ProcessAsync(
         Guid shopId,
@@ -33,6 +34,8 @@ internal sealed class InboundInventoryLineProcessor(
             return Errors.Inventory.FromQuantityCheck(quantityCheck.FirstError, item.Uom, item.QuantityScale);
         }
 
+        var dates = await expiryDates.ValidateReceiptAsync(shopId, item.Id, input.ExpiryDate, input.ManufacturingDate, cancellationToken);
+        if (dates.IsError) return dates.Errors;
         var supplierOrError = await supplierResolver.ResolveAsync(shopId, input.SupplierId, cancellationToken);
         if (supplierOrError.IsError)
             return supplierOrError.Errors;

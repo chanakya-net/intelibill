@@ -13,12 +13,14 @@
   } @else {
     <div class="batch-picker mt-4">
       <div class="batch-picker-options">
-        @for (sellable of batches; track getDisplayId(sellable)) {
+        @for (sellable of orderedBatches; track isGoods(sellable) ? sellable.inventoryBatchId : sellable.serviceId) {
           <div
             class="batch-option"
             [class.selected]="
               !!selectedBatch && getDisplayId(selectedBatch) === getDisplayId(sellable)
             "
+            role="button" tabindex="0" [attr.aria-disabled]="!canAdd(sellable)"
+            (keydown.enter)="onSelectBatch(sellable)" (keydown.space)="$event.preventDefault(); onSelectBatch(sellable)"
             (click)="onSelectBatch(sellable)"
           >
             <div class="batch-option-content">
@@ -35,7 +37,9 @@
               <div class="batch-option-price">
                 <p>₹{{ getDisplayPrice(sellable) | number: '1.2-2' }}</p>
                 @if (isGoods(sellable)) {
-                  <p>{{ 'sales.newSale.stock' | transloco }}: {{ sellable.quantity }} {{ sellable.uom ?? '' }}</p>
+                  <p>{{ expiryStatusKey(sellable.sellability) | transloco }}</p>
+                  <p>{{ 'expiry.physical' | transloco }}: {{ sellable.sellability?.physicalQuantity ?? sellable.quantity }} · {{ 'expiry.quarantine' | transloco }}: {{ sellable.quarantinedQuantity ?? 0 }}</p>
+                  <p>{{ 'expiry.available' | transloco }}: {{ available(sellable) }} {{ sellable.uom ?? '' }}</p>
                 }
               </div>
             </div>
@@ -53,7 +57,7 @@
               inputId="batch-picker-quantity"
               [value]="quantity"
               [scale]="quantityScaleOf(selected)"
-              [max]="isGoods(selected) ? selected.quantity : null"
+              [max]="isGoods(selected) ? available(selected) : null"
               [unitLabel]="unitLabelOf(selected)"
               [ariaLabel]="'sales.newSale.quantityOf' | transloco: { item: getDisplayName(selected) }"
               (committed)="onQuantityChanged($event)"
@@ -62,7 +66,7 @@
           <p-button
             [label]="'sales.newSale.addToCart' | transloco"
             icon="pi pi-cart-plus"
-            (click)="onAddToCart()"
+            [disabled]="!canAdd(selected)" (click)="onAddToCart()"
           />
         </div>
       }

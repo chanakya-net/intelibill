@@ -12,11 +12,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Application.Features.SupplierReturns.Services;
 
-public sealed class PurchaseReceiptReversalPolicy(ISupplierReturnRepository returns,IStockTransactionRepository movements)
+public sealed class PurchaseReceiptReversalPolicy(ISupplierReturnRepository returns,IStockTransactionRepository movements, IBatchDispositionRepository dispositions)
 {
     public async Task<List<string>> GetReasonsAsync(PurchaseReceiptValue receipt,InventoryBatch batch,decimal allocated,CancellationToken ct)
     {
         var result=new List<string>();
+        if(batch.QuarantinedQuantity > 0 || await dispositions.HasHistoryAsync(receipt.ShopId,batch.Id,ct)) result.Add("PurchaseReceipt.QuarantineHistory");
         if(!receipt.IsResolved) result.Add("PurchaseReceipt.EvidenceMissing");
         if(batch.IsVoided) result.Add("PurchaseReceipt.BatchVoided");
         if(receipt.HasSupplierReturns) result.Add("PurchaseReceipt.HasSupplierReturns");

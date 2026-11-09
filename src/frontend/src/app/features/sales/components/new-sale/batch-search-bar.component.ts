@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnChanges, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
+import { AutoComplete, AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
 import { ButtonModule } from 'primeng/button';
 import { InputGroupAddonModule } from 'primeng/inputgroupaddon';
 import { InputGroupModule } from 'primeng/inputgroup';
@@ -25,7 +25,9 @@ import { TranslocoPipe } from '@ngneat/transloco';
   templateUrl: './batch-search-bar.component.html',
   styleUrl: './batch-search-bar.component.scss',
 })
-export class BatchSearchBarComponent {
+export class BatchSearchBarComponent implements OnChanges {
+  @Input() pickerOpen = false;
+  ngOnChanges(): void { if (this.pickerOpen) this.closeSuggestions(); }
   @Input() searchTerm = '';
   @Input() loading = false;
   @Input() searchSuggestions: string[] = [];
@@ -37,7 +39,10 @@ export class BatchSearchBarComponent {
   @Output() suggestionSelected = new EventEmitter<string>();
   @Output() cameraOpen = new EventEmitter<void>();
 
+  private readonly autocomplete = viewChild(AutoComplete);
+  private closeSuggestions(): void { this.autocomplete()?.hide(); this.autocomplete()?.inputEL?.nativeElement.blur(); }
   emitSearch(): void {
+    this.closeSuggestions();
     this.search.emit(this.searchTerm);
   }
 
@@ -46,6 +51,7 @@ export class BatchSearchBarComponent {
   }
 
   onComplete(event: AutoCompleteCompleteEvent): void {
+    if (this.pickerOpen) return;
     this.suggestionFilter.emit(event.query);
   }
 
@@ -58,6 +64,7 @@ export class BatchSearchBarComponent {
   }
 
   onOpenPicker(): void {
+    this.closeSuggestions();
     this.openPicker.emit();
   }
 

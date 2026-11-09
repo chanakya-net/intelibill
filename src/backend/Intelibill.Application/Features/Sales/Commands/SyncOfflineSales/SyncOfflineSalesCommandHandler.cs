@@ -124,7 +124,7 @@ public sealed class SyncOfflineSalesCommandHandler(
         // An envelope already held for a closed period waits for an explicit resolution: reopening the
         // month does not let a device resend post it past the open case.
         if (await reconciliationIssueRepository.FindUnresolvedByEnvelopeAsync(command.ShopId, submission.Id, cancellationToken) is
-            { IssueType: ReconciliationIssueType.ClosedPeriodReview or ReconciliationIssueType.TillReview } pending)
+            { IssueType: ReconciliationIssueType.ClosedPeriodReview or ReconciliationIssueType.TillReview or ReconciliationIssueType.ExpiryReview } pending)
             return OfflineSaleSyncHelpers.BuildNeedsReviewResult(normalizedId, Error.Conflict(pending.Code, pending.Message), pending.Id);
 
         // The fence inside StageAsync holds its shared lock on the period until this transaction ends,

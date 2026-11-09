@@ -84,6 +84,21 @@ describe('buildSupportBundle', () => {
     expect(bundle.fileName).toBe('offline-recovery-dev-1-202611030905.json');
   });
 
+  it('checksums and exports the original per-line expiry proof without replacing absent or null fields', async () => {
+    const original = rec('proof-sale', 'NeedsReview', 'issuer');
+    const proof = { evidenceId: 'retained-proof', catalogVersion: 3, policyVersion: 2, businessDate: '2026-11-01', expiryDate: null, decisionCode: 'Allowed' };
+    const line = { clientLineId: 'line-1', inventoryBatchId: 'batch-1', itemId: 'item-1', barcode: 'MILK', itemName: 'Milk', batchNumber: 'B1', quantity: 1,
+      salesPrice: 100, mrp: 100, costPrice: 80, taxRatePercent: 0, taxIncluded: false, hsnCode: null, preTaxAmount: 100, itemDiscountAmount: 0,
+      saleDiscountAmount: 0, taxableAmount: 100, taxAmount: 0, lineTotal: 100, configuredRuleId: null, lineType: 'goods' as const, serviceId: null, expiryEvidence: proof };
+    const withProof = { ...original, payload: { ...original.payload, pricing: { ...original.payload.pricing, lines: [line] } } };
+    const bundle = (await buildSupportBundle([withProof], context))[0];
+    expect(JSON.parse(bundle.text).invoices[0].items[0].expiryEvidence).toEqual(proof);
+    expect(checksumOf(bundle)).toBe(bundle.checksum);
+    const legacy = (await buildSupportBundle([original], context))[0];
+    expect(JSON.parse(legacy.text).invoices[0]).not.toHaveProperty('expiryEvidence');
+    expect(withProof.payload.pricing.lines[0].expiryEvidence).toEqual(proof);
+  });
+
   it('exports nothing when every invoice reached the server', async () => {
     expect(await buildSupportBundle([rec('e', 'Synced')], context)).toEqual([]);
   });

@@ -30,6 +30,9 @@
     }
 
     @if (saleResult; as sale) {
+      @for (decision of sale.expiryDecisions ?? []; track $index) {
+        @if (decision.approvalReason) { <details class="w-full text-left mb-3"><summary>{{ 'expiry.auditDetails' | transloco }}</summary><p>{{ decision.businessDate }} · {{ decision.quantity }} · {{ decision.approvalReason }}</p></details> }
+      }
       <div class="bg-slate-50 p-4 rounded-lg w-full mb-6 text-left">
         <div class="flex justify-between mb-2">
           <span class="text-slate-500">{{ saleTypeLabel | transloco }}</span>

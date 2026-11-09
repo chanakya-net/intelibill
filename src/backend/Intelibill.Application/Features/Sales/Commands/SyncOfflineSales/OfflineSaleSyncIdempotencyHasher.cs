@@ -72,7 +72,7 @@ internal static class OfflineSaleSyncIdempotencyHasher
                 item.ConfiguredBatchRulePercentage,
                 (int)item.ItemDiscountOverrideType,
                 item.ItemDiscountOverrideValue,
-                Normalize(item.HsnCode))).ToList(),
+                Normalize(item.HsnCode), item.ExpiryEvidence)).ToList(),
             sale.CalculationVersion,
             sale.IssuedByUserId,
             sale.Till is null ? null : sale.Till with { OverrideReason = Normalize(sale.Till.OverrideReason) },
@@ -142,4 +142,5 @@ internal sealed record OfflineSaleSyncLineIdempotencyPayload(
     decimal? ConfiguredBatchRulePercentage,
     int ItemDiscountOverrideType,
     decimal ItemDiscountOverrideValue,
-    string? HsnCode);
+    string? HsnCode,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] OfflineExpiryLineEvidence? ExpiryEvidence = null);

@@ -139,6 +139,12 @@ export interface AddInventoryBatchResponse {
 }
 
 export interface InventoryBatchDto {
+  readonly quarantinedQuantity?: number;
+  readonly availableQuantity?: number;
+  readonly sellability?: import('../../expiry/services/expiry.models').SellabilityDecision | null;
+  readonly physicalRecordedValue?: number;
+  readonly quarantinedRecordedValue?: number;
+  readonly unquarantinedRecordedValue?: number;
   readonly id: string;
   readonly shopId: string;
   readonly itemId: string;
@@ -399,6 +405,10 @@ export interface AdjustmentRowDto {
 }
 
 export interface AvailableBatchDto {
+  readonly sellability?: import('../../expiry/services/expiry.models').SellabilityDecision | null;
+  readonly quarantinedQuantity?: number | null;
+  readonly availableQuantity?: number | null;
+  readonly version?: number | null;
   readonly barcode: string;
   readonly itemName: string;
   readonly batchNumber: string;

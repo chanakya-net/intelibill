@@ -144,6 +144,8 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
             .HasColumnType("jsonb")
             .HasConversion(InvoiceDocumentJson.Converter<IssuedInvoiceSnapshot>(), InvoiceDocumentJson.Comparer<IssuedInvoiceSnapshot>());
 
+        builder.Property(s => s.ExpiryDecisions).HasColumnType("jsonb")
+            .HasConversion(InvoiceDocumentJson.Converter<IReadOnlyList<SaleExpiryDecision>>(), InvoiceDocumentJson.Comparer<IReadOnlyList<SaleExpiryDecision>>());
         builder.Property(s => s.TillOverrideReason).HasMaxLength(500);
         builder.Property(s => s.TenderLines).HasColumnType("jsonb")
             .HasConversion(InvoiceDocumentJson.Converter<IReadOnlyList<TenderLine>>(), InvoiceDocumentJson.Comparer<IReadOnlyList<TenderLine>>());

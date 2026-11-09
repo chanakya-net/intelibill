@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.DTOs;
 using Intelibill.Application.Features.Inventory.Queries.GetAvailableBatches;
@@ -15,7 +16,7 @@ public class GetAvailableBatchesQueryHandlerTests
     private readonly IInventoryBatchRepository _batchRepository = Substitute.For<IInventoryBatchRepository>();
 
     private GetAvailableBatchesQueryHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _batchRepository);
+        new(_userRepository, _shopRepository, _batchRepository, ExpiryTestDoubles.Guard(), BusinessTestDoubles.RealClock(), ExpiryTestDoubles.Fence(), ExpiryTestDoubles.UnitOfWork());
 
     private static User MakeUser() =>
         User.CreateWithEmail("inv@test.com", "hash", "Inv", "User");
@@ -163,5 +164,19 @@ public class GetAvailableBatchesQueryHandlerTests
 
         await _batchRepository.Received(1).GetAvailableByBarcodeAsync(shop.Id, searchTerm, Arg.Any<CancellationToken>());
         await _batchRepository.DidNotReceive().SearchAvailableByProductNameOrBatchNumberAsync(Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+    [Fact]
+    public async Task Handle_FefoTiesUseStableBatchId()
+    {
+        var user = MakeUser(); var shop = MakeShop(); var item = MakeItem(shop.Id, "TIE", "Tie item");
+        var first = MakeBatchWithItem(shop.Id, item); var second = MakeBatchWithItem(shop.Id, item);
+        _userRepository.GetByIdAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
+        _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(MakeMembership(shop.Id, user.Id));
+        _batchRepository.GetAvailableByBarcodeAsync(shop.Id, "TIE", Arg.Any<CancellationToken>()).Returns(new[] { second, first });
+        var result = await CreateHandler().Handle(new(user.Id, shop.Id, "TIE", true), default);
+        Assert.False(result.IsError);
+        Assert.Equal(new[] { first.Id, second.Id }.Order(), result.Value.Select(x => x.InventoryBatchId));
+        Assert.All(result.Value, x => Assert.Equal(first.Quantity, x.Quantity));
     }
 }

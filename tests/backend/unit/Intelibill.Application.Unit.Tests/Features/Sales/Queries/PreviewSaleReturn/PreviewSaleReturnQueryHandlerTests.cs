@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Expiry;
+using Intelibill.Application.Unit.Tests.Common;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.Queries.PreviewSaleReturn;
 using Intelibill.Application.Features.Sales.Services.Returns;
@@ -33,7 +35,7 @@ public class PreviewSaleReturnQueryHandlerTests
             _paymentReceiptRepository,
             _calculator,
             _itemRepository,
-            new Intelibill.Infrastructure.Services.Time.BusinessClock(TimeProvider.System)),
+            new Intelibill.Infrastructure.Services.Time.BusinessClock(TimeProvider.System), ExpiryDispositionTestServices.Create(_inventoryBatchRepository, new Intelibill.Infrastructure.Services.Time.BusinessClock(TimeProvider.System))),
             _accountingPolicy);
 
     [Theory]
@@ -238,7 +240,7 @@ public class PreviewSaleReturnQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_SaleReturnPreview_WhenRestockableOriginalBatchIsExpired_ReturnsValidationError()
+    public async Task Handle_SaleReturnPreview_WhenRestockableOriginalBatchIsExpired_ExplainsQuarantine()
     {
         var fixture = ArrangeSale(ShopRole.Owner, expiryDate: DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1));
 
@@ -246,8 +248,11 @@ public class PreviewSaleReturnQueryHandlerTests
             Query(fixture.User.Id, fixture.Shop.Id, fixture.Sale.Id, fixture.SaleItem.Id, quantity: 1m),
             CancellationToken.None);
 
-        Assert.True(result.IsError);
-        Assert.Equal("SaleReturn.BatchExpired", result.FirstError.Code);
+        Assert.False(result.IsError);
+        var line = Assert.Single(result.Value.Lines);
+        Assert.Equal(1m, line.PhysicalRestorationQuantity);
+        Assert.Equal(1m, line.QuarantinedQuantity);
+        Assert.Equal("Expiry.Expired", line.DispositionReasonCode);
     }
 
     [Fact]

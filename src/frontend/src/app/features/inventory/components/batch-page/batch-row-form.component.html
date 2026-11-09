@@ -215,8 +215,8 @@
         </label>
 
         <label>
-          <span>{{ 'inventory.expiryDate' | transloco }}</span>
-          <input pInputText type="date" formControlName="expiryDate" />
+          <span>{{ 'inventory.expiryDate' | transloco }} @if (state.expiryPolicy()?.expiryRequired) { * }</span>
+          <input pInputText type="date" formControlName="expiryDate" [required]="state.expiryPolicy()?.expiryRequired ?? false" [attr.aria-invalid]="!!state.expiryDateError()" />
         </label>
 
         <label>
@@ -248,3 +248,5 @@
     </div>
   </form>
 </div>
+
+@if (state.expiryDateError()) { <p role="alert" class="text-red-700 text-sm">{{ state.expiryDateError() | transloco }}</p> }

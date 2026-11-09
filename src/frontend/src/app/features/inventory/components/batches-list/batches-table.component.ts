@@ -1,3 +1,5 @@
+import { BatchDispositionDialogComponent } from '../../../expiry/components/batch-disposition-dialog.component';
+import { expiryStatusKey } from '../../../expiry/services/expiry-policy-evaluator';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -15,7 +17,7 @@ import { TableModule } from 'primeng/table';
 import type { InventoryBatchDto } from '../../services/inventory.models';
 
 export interface BatchTableAction {
-  action: 'edit' | 'adjust' | 'count' | 'correctCost' | 'void' | 'printLabels';
+  action: 'edit' | 'adjust' | 'count' | 'correctCost' | 'void' | 'printLabels' | 'refresh';
   batchId: string;
 }
 
@@ -24,6 +26,7 @@ export interface BatchTableAction {
   standalone: true,
   imports: [
     CommonModule,
+    BatchDispositionDialogComponent,
     RouterLink,
     DecimalPipe,
     FormsModule,
@@ -40,6 +43,8 @@ export interface BatchTableAction {
   styleUrl: './batches-table.component.scss',
 })
 export class BatchesTableComponent {
+  dispositionBatch: InventoryBatchDto | null = null;
+  readonly expiryStatusKey = expiryStatusKey;
   private readonly translocoService = inject(TranslocoService);
   @Input({ required: true }) batches: InventoryBatchDto[] = [];
   @Input() loading = false;

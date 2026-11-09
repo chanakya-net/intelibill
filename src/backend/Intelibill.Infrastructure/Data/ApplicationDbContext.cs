@@ -15,6 +15,12 @@ public class ApplicationDbContext(
     private readonly ICurrentSessionContext? _currentSessionContext = currentSessionContext;
     private readonly IMessageBus? _messageBus = messageBus;
 
+    public DbSet<OfflineExpiryEvidence> OfflineExpiryEvidence => Set<OfflineExpiryEvidence>();
+    public DbSet<BatchDispositionChange> BatchDispositionChanges => Set<BatchDispositionChange>();
+    public DbSet<BatchExpiryRevision> BatchExpiryRevisions => Set<BatchExpiryRevision>();
+    public DbSet<ShopExpiryState> ShopExpiryStates => Set<ShopExpiryState>();
+    public DbSet<ExpiryPolicyRevision> ExpiryPolicyRevisions => Set<ExpiryPolicyRevision>();
+
     public DbSet<User> Users => Set<User>();
     public DbSet<Shop> Shops => Set<Shop>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();

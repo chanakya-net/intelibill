@@ -35,6 +35,9 @@ public sealed class GetFinancialOperationQueryHandler(
         if (operationType is null)
             return Errors.Operation.UnknownType;
 
+        if (operationType == FinancialOperationType.BatchDisposition && membership.Role != ShopRole.Owner)
+            return Error.Forbidden("Expiry.OwnerRequired", "Current owner required.");
+
         var key = query.OperationKey.Trim();
         if (key.Length is 0 or > OperationReceipt.MaxKeyLength)
             return Errors.Operation.InvalidKey;

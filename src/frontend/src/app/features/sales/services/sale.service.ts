@@ -162,7 +162,7 @@ export class SaleService {
   }
 
   getSellables(searchTerm: string): Observable<SellableDto[]> {
-    return this.http.get<SellableDto[]>(SALE_ENDPOINTS.sellables(searchTerm));
+    return this.http.get<SellableDto[]>(SALE_ENDPOINTS.sellables(searchTerm), { params: { includeUnavailable: true } });
   }
 
   verifyCreditNote(code: string): Observable<CreditNoteVerifyResponseDto> {

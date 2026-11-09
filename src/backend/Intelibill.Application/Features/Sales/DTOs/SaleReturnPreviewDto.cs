@@ -18,7 +18,7 @@ public sealed record SaleReturnPreviewLineDto(
     decimal ReturnableQuantity,
     SaleReturnCondition? Condition,
     bool WillRestock,
-    SaleReturnPreviewLineFinancialDto? Financial);
+    SaleReturnPreviewLineFinancialDto? Financial, decimal PhysicalRestorationQuantity = 0, decimal QuarantinedQuantity = 0, string? DispositionReasonCode = null);
 
 public sealed record SaleReturnPreviewLineFinancialDto(
     decimal OriginalCostPrice,

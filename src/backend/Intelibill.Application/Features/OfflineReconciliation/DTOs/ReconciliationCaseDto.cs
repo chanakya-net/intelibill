@@ -134,7 +134,8 @@ public sealed record OfflineInvoiceSnapshotLineDto(
     decimal SalesPrice,
     decimal TaxRatePercent,
     decimal TaxAmount,
-    decimal TotalAmount);
+    decimal TotalAmount,
+    Intelibill.Application.Features.Sales.Commands.SyncOfflineSales.OfflineExpiryLineEvidence? ExpiryEvidence = null);
 
 public sealed record ReconciliationCaseEventDto(
     string Action,

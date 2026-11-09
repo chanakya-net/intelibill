@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Posting;
@@ -25,7 +26,7 @@ public sealed class ReceivePurchaseOrderCommandHandler(
     IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock,
     IItemRepository itemRepository,
-    IFinancialOperationExecutor operationExecutor)
+    IFinancialOperationExecutor operationExecutor, IExpiryPolicyFence expiryFence)
 {
     public async Task<ErrorOr<PurchaseOrderDetailDto>> HandleAsync(
         ReceivePurchaseOrderCommand command,
@@ -103,6 +104,8 @@ public sealed class ReceivePurchaseOrderCommandHandler(
             businessClock.GetBusinessDate(receivedAt, shop.BusinessTimeZoneId), cancellationToken);
         if (fence.IsError) return fence.Errors;
 
+        var expiryLock = await expiryFence.AcquireAsync(command.ActiveShopId, false, cancellationToken);
+        if (expiryLock.IsError) return expiryLock.Errors;
         var po = await purchaseOrderRepository.GetReceiptDetailForUpdateAsync(command.ActiveShopId, command.PurchaseOrderId, cancellationToken);
         if (po is null) return Errors.PurchaseOrder.NotFound;
         if (po.Status is not (PurchaseOrderStatus.Placed or PurchaseOrderStatus.PartiallyReceived))

@@ -1,3 +1,4 @@
+import { knownExpiryPolicyProviders } from '../../../../tests/expiry/expiry-policy.providers';
 import { HttpErrorResponse } from '@angular/common/http';
 import { IDBFactory } from 'fake-indexeddb';
 import { signal } from '@angular/core';
@@ -160,6 +161,7 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
         }),
       ],
       providers: [
+        ...knownExpiryPolicyProviders(),
         { provide: PurchaseOrdersFacade, useValue: facade },
         { provide: InventoryBatchDefaultsService, useValue: batchDefaults },
         { provide: InventoryService, useValue: inventoryService },
@@ -512,6 +514,15 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
     );
     expect(record!.draft.lines[0].expiryDate).toBe('2027-05-21');
     expect(record!.draft.notes).toBe('notes');
+  });
+
+  it('refuses invalid receipt date order before freezing or sending the PO group', async () => {
+    const c = fixture.componentInstance;
+    const emitted = vi.spyOn(c.receive, 'emit');
+    c['lines'].at(0).patchValue({ quantity: 1, expiryDate: new Date(2026, 10, 8), manufacturingDate: new Date(2026, 10, 9) });
+    await c['submit']();
+    expect(emitted).not.toHaveBeenCalled();
+    expect(c['errorMessage']()).toBe('expiry.dateOrder');
   });
 
   it('stays open on submission and rejection; only a matching confirmed operation closes it', async () => {

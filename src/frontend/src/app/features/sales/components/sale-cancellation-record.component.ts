@@ -27,6 +27,7 @@ import type { SaleCancellationDto } from '../services/sale-cancellation.models';
         <p>{{ 'sales.cancellation.reasonLabel' | transloco }}: {{ c.reason }}</p>
         @for (line of c.lines; track line.id) {
           <p>{{ line.description }} · {{ line.quantity | number: '1.0-3' }} {{ line.uqc }}</p>
+          @if ((line.quarantinedQuantity ?? 0) > 0) { <p>{{ 'expiry.quarantine' | transloco }}: {{ line.quarantinedQuantity }}</p> }
         }
         <p>{{ 'sales.cancellation.total' | transloco }}: {{ c.totalAmount | currency: 'INR' }}</p>
         <p>

@@ -3,7 +3,7 @@
     <p-autocomplete
       [ngModel]="searchTerm"
       (ngModelChange)="onSearchTermChanged($event)"
-      [suggestions]="searchSuggestions"
+      [suggestions]="pickerOpen ? [] : searchSuggestions"
       (completeMethod)="onComplete($event)"
       (onSelect)="onSuggestionSelected($event.value)"
       [placeholder]="'inventory.searchPlaceholder' | transloco"

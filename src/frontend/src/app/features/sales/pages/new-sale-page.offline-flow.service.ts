@@ -18,8 +18,12 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
 
       this.availableBatches.set(batches);
       this.showBatchPicker.set(true);
-    } catch {
-      this.batchSearchError.set('sales.newSale.searchError');
+    } catch (error) {
+      this.batchSearchError.set(
+        error instanceof Error && error.message === 'expiry.offline.refresh'
+          ? error.message
+          : 'sales.newSale.searchError',
+      );
     } finally {
       this.isSearchingBatches.set(false);
     }
@@ -50,10 +54,13 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
           this.revalidateDiscountsAgainstPreview();
         },
       });
-    } catch {
+    } catch (error) {
       this.salePreview.finishPreviewRequest(requestId, null, {
         failed: true,
-        errorMessage: 'sales.newSale.previewError',
+        errorMessage:
+          error instanceof Error && error.message === 'expiry.offline.refresh'
+            ? error.message
+            : 'sales.newSale.previewError',
       });
     }
   }
@@ -126,7 +133,9 @@ export abstract class NewSalePageOfflineFlowService extends NewSalePagePaymentFl
       return;
     }
 
-    this.blockedOfflinePrintUrl.set(openPrintWindow(`/sales/${confirmation.clientSaleId}/print?template=a4&offline=1`));
+    this.blockedOfflinePrintUrl.set(
+      openPrintWindow(`/sales/${confirmation.clientSaleId}/print?template=a4&offline=1`),
+    );
   }
 
   printOfflineThermal(): void {

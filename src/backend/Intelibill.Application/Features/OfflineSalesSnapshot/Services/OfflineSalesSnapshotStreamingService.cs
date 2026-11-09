@@ -4,16 +4,26 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
 using Intelibill.Domain.Interfaces.Repositories;
+using Intelibill.Domain.Interfaces;
+using Intelibill.Domain.Entities;
+using Intelibill.Domain.ValueObjects;
+using Intelibill.Application.Features.Expiry;
+using Intelibill.Application.Common.Time;
 
 namespace Intelibill.Application.Features.OfflineSalesSnapshot.Services;
 
 public sealed class OfflineSalesSnapshotStreamingService(
     IUserRepository userRepository,
-    IInventoryBatchRepository inventoryBatchRepository,
     ICustomerRepository customerRepository,
     IDiscountRuleRepository discountRuleRepository,
     IInvoiceLeaseRepository invoiceLeaseRepository,
-    IServiceRepository serviceRepository) : IOfflineSalesSnapshotStreamingService
+    IServiceRepository serviceRepository,
+    IOfflineExpiryEvidenceRepository expiryEvidence,
+    IExpiryPolicyRepository expiryPolicies,
+    IExpiryPolicyFence expiryFence,
+    IUnitOfWork unitOfWork,
+    IShopRepository shops,
+    IBusinessClock clock) : IOfflineSalesSnapshotStreamingService
 {
     public async Task<ErrorOr<Success>> ValidateAccessAsync(
         Guid userId,
@@ -37,32 +47,25 @@ public sealed class OfflineSalesSnapshotStreamingService(
         DateTimeOffset startedAt,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        var shop = await shops.GetByIdAsync(activeShopId, cancellationToken)
+            ?? throw new InvalidOperationException("Snapshot shop is unavailable.");
+        var first = await CapturePageAsync(activeShopId, snapshotId, null, null, cancellationToken);
+        var catalogVersion = first.Version;
         yield return new OfflineSalesSnapshotMetadataRecord(
-            new OfflineSalesSnapshotMetadata(snapshotId, activeShopId, SchemaVersion: 3, StartedAt: startedAt));
+            new OfflineSalesSnapshotMetadata(snapshotId, activeShopId, SchemaVersion: 4, StartedAt: startedAt,
+                BusinessTimeZoneId: shop.BusinessTimeZoneId, CatalogVersion: catalogVersion));
 
         var batchCount = 0;
-        await foreach (var batch in inventoryBatchRepository.StreamActiveSellableWithItemByShopAsync(activeShopId, cancellationToken))
+        var page = first;
+        while (true)
         {
-            yield return new OfflineSalesSnapshotBatchRecord(
-                new OfflineSellableBatchDto(
-                    BatchId: batch.Id,
-                    ItemId: batch.ItemId,
-                    ItemName: batch.Item.Name,
-                    Barcode: batch.Item.Barcode,
-                    Uom: batch.Item.Uom,
-                    HsnCode: batch.Item.HsnCode,
-                    BatchNumber: batch.BatchNumber,
-                    Quantity: batch.Quantity,
-                    CostPrice: batch.CostPrice,
-                    Mrp: batch.Mrp,
-                    SalesPrice: batch.SalesPrice,
-                    TaxRatePercent: batch.TaxRatePercent,
-                    TaxIncluded: batch.TaxIncluded,
-                    PurchaseTaxIncluded: batch.PurchaseTaxIncluded,
-                    ExpiryDate: batch.ExpiryDate,
-                    QuantityScale: batch.Item.QuantityScale,
-                    DocumentUnit: batch.Item.DocumentUnit));
-            batchCount++;
+            foreach (var batch in page.Batches)
+            {
+                yield return new OfflineSalesSnapshotBatchRecord(batch);
+                batchCount++;
+            }
+            if (page.Batches.Count < CapturePageSize) break;
+            page = await CapturePageAsync(activeShopId, snapshotId, page.Batches[^1].BatchId, catalogVersion, cancellationToken);
         }
 
         var customerCount = 0;
@@ -126,6 +129,8 @@ public sealed class OfflineSalesSnapshotStreamingService(
             serviceCount++;
         }
 
+        if ((await expiryPolicies.GetStateAsync(activeShopId, cancellationToken))?.CatalogVersion != catalogVersion)
+            throw new InvalidOperationException("Expiry catalog changed during capture; refresh the complete snapshot.");
         yield return new OfflineSalesSnapshotCompleteRecord(
             new OfflineSalesSnapshotComplete(
                 SnapshotId: snapshotId,
@@ -136,5 +141,48 @@ public sealed class OfflineSalesSnapshotStreamingService(
                 ActiveLeaseCount: activeLeaseCount,
                 ServiceCount: serviceCount));
     }
+    private const int CapturePageSize = 100;
+    private async Task<(long Version, IReadOnlyList<OfflineSellableBatchDto> Batches)> CapturePageAsync(
+        Guid shopId, Guid snapshotId, Guid? after, long? expectedVersion, CancellationToken ct)
+    {
+        await unitOfWork.BeginTransactionAsync(ct);
+        try
+        {
+            var fence = await expiryFence.AcquireAsync(shopId, false, ct);
+            if (fence.IsError) throw new InvalidOperationException("Expiry catalog is busy or unavailable.");
+            var state = await expiryPolicies.GetStateAsync(shopId, ct);
+            if (state is null || expectedVersion.HasValue && state.CatalogVersion != expectedVersion.Value ||
+                !await expiryEvidence.HasRetainedCatalogAsync(shopId, state.CatalogVersion, ct))
+                throw new InvalidOperationException("Expiry catalog history is unavailable or changed during capture.");
+            // Fully consume the bounded SELECT before adding/saving evidence on this connection.
+            var batches = await expiryEvidence.GetCapturePageAsync(shopId, after, CapturePageSize, ct);
+            var policies = await expiryPolicies.GetEffectiveForItemsAsync(shopId, batches.Select(x => x.ItemId).Distinct().ToArray(), ct);
+            var at = clock.UtcNow;
+            var date = clock.GetBusinessDate(at, (await shops.GetByIdAsync(shopId, ct))!.BusinessTimeZoneId);
+            var result = new List<OfflineSellableBatchDto>(batches.Count);
+            foreach (var batch in batches)
+            {
+                if (!policies.TryGetValue(batch.ItemId, out var effective) || !effective.HistoryKnown || effective.Policy is null)
+                    throw new InvalidOperationException("Expiry catalog policy is unavailable.");
+                var proof = OfflineExpiryEvidence.Capture(snapshotId, batch, effective.Policy, state.CatalogVersion, at);
+                await expiryEvidence.AddAsync(proof, ct);
+                var decision = ExpiryPolicyEvaluator.Evaluate(proof.BatchFacts, proof.EffectivePolicy, proof.CatalogVersion, date);
+                result.Add(new(batch.Id, batch.ItemId, batch.Item.Name, batch.Item.Barcode, batch.Item.Uom, batch.Item.HsnCode,
+                    batch.BatchNumber, batch.Quantity, batch.CostPrice, batch.Mrp, batch.SalesPrice, batch.TaxRatePercent,
+                    batch.TaxIncluded, batch.PurchaseTaxIncluded, batch.ExpiryDate, batch.Item.QuantityScale, batch.Item.DocumentUnit,
+                    proof.Id, proof.EffectivePolicy, batch.Quantity, batch.QuarantinedQuantity, decision.AvailableQuantity,
+                    proof.CapturedAt, proof.ExpiresAt, batch.Version, batch.ManufacturingDate));
+            }
+            await unitOfWork.SaveChangesAsync(ct);
+            await unitOfWork.CommitTransactionAsync(ct);
+            return (state.CatalogVersion, result);
+        }
+        catch
+        {
+            await unitOfWork.RollbackTransactionAsync(ct);
+            throw;
+        }
+    }
+
 }
 

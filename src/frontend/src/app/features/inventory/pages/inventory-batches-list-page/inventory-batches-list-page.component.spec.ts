@@ -1,3 +1,4 @@
+import { knownExpiryPolicyProviders } from '../../../../../tests/expiry/expiry-policy.providers';
 import { provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -67,7 +68,8 @@ describe('InventoryBatchesListPageComponent', () => {
           preloadLangs: true,
         }),
       ],
-      providers: [provideRouter([]),
+      providers: [
+        ...knownExpiryPolicyProviders(),provideRouter([]),
         MessageService,
         { provide: SuppliersFacade, useValue: suppliersFacadeMock },
         { provide: ShopPermissionsService, useValue: { isOwnerOfActiveShop: isOwner } },

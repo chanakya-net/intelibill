@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Expiry;
+using Intelibill.Application.Common.Posting;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Services;
@@ -28,7 +30,8 @@ public sealed class UpdateInventoryBatchCommandHandler(
     IInventoryBatchRepository inventoryBatchRepository,
     IBatchRetailTermsReviser retailTermsReviser,
     IUnitOfWork unitOfWork,
-    IMessageBus messageBus)
+    IMessageBus messageBus,
+    IExpiryPolicyFence expiryFence)
 {
     /// <summary>
     /// Reference on the movement that carried a legacy correction's quantity delta. No longer
@@ -53,58 +56,66 @@ public sealed class UpdateInventoryBatchCommandHandler(
         if (membership.Role != ShopRole.Owner && membership.Role != ShopRole.Manager)
             return Error.Forbidden("Shop.PermissionDenied", "Only owners or managers can update batches.");
 
-        var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
-        if (batch is null || batch.ShopId != command.ShopId)
-            return Errors.Inventory.BatchNotFound;
-
-        if (batch.IsVoided)
-            return Error.Validation("Inventory.BatchVoided", "Cannot correct an already voided batch.");
-
-        if (command.ExpectedVersion is { } expectedVersion && expectedVersion != batch.Version)
-            return Errors.Inventory.BatchVersionConflict;
-
-        if (command.Quantity != batch.Quantity)
-            return Errors.Inventory.BatchQuantityEditMoved;
-
-        if (command.CostPrice != batch.CostPrice)
-            return Errors.Inventory.BatchCostEditMoved;
-
-        // A null supplier used to mean "no supplier"; it now means "leave it as it is".
-        if (command.SupplierId is { } supplierId && supplierId != batch.SupplierId)
-            return Errors.Inventory.BatchSupplierEditMoved;
-
-        var batchNumber = string.IsNullOrWhiteSpace(command.NewBatchNumber) ? batch.BatchNumber : command.NewBatchNumber;
-        var revision = await retailTermsReviser.ReviseAsync(
-            batch,
-            new BatchRetailTerms(
-                batchNumber,
-                command.Mrp,
-                command.SalesPrice,
-                command.TaxRatePercent,
-                command.TaxIncluded,
-                command.ExpiryDate,
-                command.ManufacturingDate),
-            command.Notes,
-            command.UserId,
-            cancellationToken);
-        if (revision.IsError)
-            return revision.Errors;
-
-        try
+        InventoryBatchPricingChangedDomainEvent? pricingChanged = null;
+        var result = await PostingTransaction.RunAsync<Success>(unitOfWork, async ct =>
         {
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            return Errors.Inventory.ConcurrentChange;
-        }
+            var expiryLock = await expiryFence.AcquireAsync(command.ShopId, true, ct);
+            if (expiryLock.IsError) return expiryLock.Errors;
+            var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
+            if (batch is null || batch.ShopId != command.ShopId)
+                return Errors.Inventory.BatchNotFound;
 
-        if (revision.Value.PricingChanged)
-        {
-            await messageBus.PublishAsync(
-                new InventoryBatchPricingChangedDomainEvent(command.ShopId, batch.ItemId, batch.Id));
-        }
+            if (batch.IsVoided)
+                return Error.Validation("Inventory.BatchVoided", "Cannot correct an already voided batch.");
 
-        return Result.Success;
+            if ((batch.ExpiryDate != command.ExpiryDate || batch.ManufacturingDate != command.ManufacturingDate) && command.ExpectedVersion is not > 0)
+                return Errors.Inventory.BatchVersionConflict;
+            if (command.ExpectedVersion is { } expectedVersion && expectedVersion != batch.Version)
+                return Errors.Inventory.BatchVersionConflict;
+
+            if (command.Quantity != batch.Quantity)
+                return Errors.Inventory.BatchQuantityEditMoved;
+
+            if (command.CostPrice != batch.CostPrice)
+                return Errors.Inventory.BatchCostEditMoved;
+
+            // A null supplier used to mean "no supplier"; it now means "leave it as it is".
+            if (command.SupplierId is { } supplierId && supplierId != batch.SupplierId)
+                return Errors.Inventory.BatchSupplierEditMoved;
+
+            var batchNumber = string.IsNullOrWhiteSpace(command.NewBatchNumber) ? batch.BatchNumber : command.NewBatchNumber;
+            var revision = await retailTermsReviser.ReviseAsync(
+                batch,
+                new BatchRetailTerms(
+                    batchNumber,
+                    command.Mrp,
+                    command.SalesPrice,
+                    command.TaxRatePercent,
+                    command.TaxIncluded,
+                    command.ExpiryDate,
+                    command.ManufacturingDate),
+                command.Notes,
+                command.UserId,
+                cancellationToken);
+            if (revision.IsError)
+                return revision.Errors;
+
+            try
+            {
+                await unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Errors.Inventory.ConcurrentChange;
+            }
+
+            if (revision.Value.PricingChanged)
+                pricingChanged = new InventoryBatchPricingChangedDomainEvent(command.ShopId, batch.ItemId, batch.Id);
+
+            return Result.Success;
+        }, cancellationToken);
+        if (!result.IsError && pricingChanged is not null)
+            await messageBus.PublishAsync(pricingChanged);
+        return result;
     }
 }

@@ -20,4 +20,5 @@ public enum ReconciliationIssueType
     ClosedPeriodReview = 12,
 
     TillReview = 13,
+    ExpiryReview = 14,
 }

@@ -42,6 +42,7 @@ const STATUS_SEVERITIES: Readonly<Record<ReconciliationCaseStatus, 'warn' | 'dan
 
 const ISSUE_TYPE_LABEL_KEYS: Readonly<Record<string, string>> = {
   TillReview: 'tills.tillReview',
+  ExpiryReview: 'sales.offlineReconciliation.issueTypes.expiryReview',
   StockVariance: 'sales.offlineReconciliation.issueTypes.stockVariance',
   InvoiceConflict: 'sales.offlineReconciliation.issueTypes.invoiceConflict',
   ValidationConflict: 'sales.offlineReconciliation.issueTypes.validationConflict',

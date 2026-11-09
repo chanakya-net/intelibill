@@ -926,8 +926,9 @@ public sealed class BusinessPostingPeriodTests(PostgreSqlTestFixture fixture) : 
         },
     };
 
-    private static async Task<JsonElement> OfflineSyncAsync(Shop shop, object sale)
+    private async Task<JsonElement> OfflineSyncAsync(Shop shop, object sale)
     {
+        await LegacyOfflineExpiryHistory.SeedAsync(_factory, shop.Token);
         using var response = await SendAsync(shop, HttpMethod.Post, "/api/sales/offline-sync", new { deviceId = "till-1", sales = new[] { sale } });
         var content = await response.Content.ReadAsStringAsync();
         Assert.True(response.StatusCode == HttpStatusCode.OK, content);

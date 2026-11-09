@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Posting;
@@ -25,7 +26,7 @@ public sealed class AddInventoryCommandHandler(
     IUnitOfWork unitOfWork,
     IShopRepository shopRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
-    IBusinessClock businessClock)
+    IBusinessClock businessClock, IExpiryPolicyFence expiryFence, BatchExpiryRevisionService expiryDates)
 {
     public async Task<ErrorOr<AddInventoryResultDto>> HandleAsync(AddInventoryCommand command, CancellationToken cancellationToken)
     {
@@ -65,6 +66,8 @@ public sealed class AddInventoryCommandHandler(
         if (fence.IsError)
             return fence.Errors;
 
+        var expiryLock = await expiryFence.AcquireAsync(command.ActiveShopId, false, cancellationToken);
+        if (expiryLock.IsError) return expiryLock.Errors;
         var normalizedName = command.ItemName.Trim();
         var normalizedBarcode = command.Barcode.Trim();
 
@@ -113,6 +116,8 @@ public sealed class AddInventoryCommandHandler(
         if (isNewItem)
             await itemRepository.AddAsync(item, cancellationToken);
 
+        var dates = await expiryDates.ValidateReceiptAsync(command.ActiveShopId, item.Id, command.ExpiryDate, command.ManufacturingDate, cancellationToken);
+        if (dates.IsError) return dates.Errors;
         var hsnCode = string.IsNullOrWhiteSpace(command.HsnCode) ? item.HsnCode : command.HsnCode;
         item.UpdateTaxDefaults(hsnCode, command.TaxRatePercent, command.TaxIncluded);
         if (!isNewItem)

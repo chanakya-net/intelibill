@@ -22,6 +22,10 @@ export interface SaleCancellationPreviewDto {
     itemId: string | null;
     inventoryBatchId: string | null;
     quantity: number;
+    quarantinedQuantity?: number;
+    dispositionReasonCode?: string | null;
+    physicalRestorationQuantity?: number;
+    quarantineChangeId?: string | null;
     description: string;
     uqc: string;
   }[];
@@ -62,6 +66,10 @@ export interface SaleCancellationDto {
     inventoryBatchId: string;
     stockTransactionId: string;
     quantity: number;
+    quarantinedQuantity?: number;
+    dispositionReasonCode?: string | null;
+    physicalRestorationQuantity?: number;
+    quarantineChangeId?: string | null;
     description: string;
     uqc: string;
     originalCostPrice: number;

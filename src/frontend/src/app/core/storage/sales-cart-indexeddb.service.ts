@@ -4,6 +4,7 @@ import { QUANTITY_SCALE_MAX } from '../../shared/quantity/quantity-units';
 import { ScopeOwner, ownerKey } from '../context/shop-scope';
 
 export interface SalesCartDraftItem {
+  readonly expiryDate?: string | null;
   readonly clientLineKey: string;
   readonly barcode: string;
   readonly itemName: string;
@@ -63,6 +64,7 @@ export function migrateLegacyCartItem(item: unknown): SalesCartDraftItem | null 
     return null;
   }
   return {
+    ...(typeof obj['expiryDate'] === 'string' || obj['expiryDate'] === null ? { expiryDate: obj['expiryDate'] as string | null } : {}),
     clientLineKey: typeof obj['clientLineKey'] === 'string' ? obj['clientLineKey'] : crypto.randomUUID(),
     barcode: typeof obj['barcode'] === 'string' ? obj['barcode'] : '',
     itemName: typeof obj['itemName'] === 'string' ? obj['itemName'] : '',
@@ -102,6 +104,7 @@ export function migrateLegacyServiceCartItem(item: unknown): SalesCartDraftServi
   }
   return {
     kind: 'service',
+    ...(typeof obj['expiryDate'] === 'string' || obj['expiryDate'] === null ? { expiryDate: obj['expiryDate'] as string | null } : {}),
     clientLineKey: typeof obj['clientLineKey'] === 'string' ? obj['clientLineKey'] : crypto.randomUUID(),
     serviceId: obj['serviceId'] as string,
     serviceName: typeof obj['serviceName'] === 'string' ? obj['serviceName'] : '',

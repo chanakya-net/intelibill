@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.Expiry;
 using Intelibill.Domain.Enums;
 using Intelibill.Application.Features.Sales.Services.Pricing;
 
@@ -12,7 +13,8 @@ public sealed record SalePreviewDto(
     SalePreviewConfiguredSaleRuleDto? ConfiguredSaleRule,
     IReadOnlyList<SalePreviewLineDto> Lines,
     IReadOnlyList<SalePreviewInfoDto> Infos,
-    IReadOnlyList<SalePreviewWarningDto> Warnings);
+    IReadOnlyList<SalePreviewWarningDto> Warnings,
+    IReadOnlyList<SaleExpiryLineDecision>? ExpiryDecisions = null);
 
 public sealed record SalePreviewConfiguredSaleRuleDto(
     Guid RuleId,

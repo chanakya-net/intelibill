@@ -75,6 +75,41 @@ public sealed class SaleCancellationReportingTests(PostgreSqlTestFixture fixture
     }
     private static object Request(Seed s, string key = "cancel-key", uint? version = null, bool goods = true, bool? cash = null, string reason = "Mistaken entry") => new { operationKey = key, expectedVersion = version ?? s.Sale.Version, reason, goodsRecoveredConfirmed = goods, cashRefundConfirmed = cash ?? s.Sale.PaidAmount > 0m };
 
+    [Fact]
+    public async Task ExpiredRecovery_QuarantinesCancellationGoods_AndDisposalPostsLossOnOwnDate()
+    {
+        factory.Services.GetRequiredService<SettableClock>().Now = new(2026, 11, 8, 10, 0, 0, TimeSpan.Zero);
+        var seed = await SeedAsync();
+        factory.Services.GetRequiredService<SettableClock>().Now = new(2026, 11, 9, 10, 0, 0, TimeSpan.Zero);
+        await using var scope = factory.Services.CreateAsyncScope(); var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var batch = await db.InventoryBatches.SingleAsync(x => x.Id == seed.BatchId);
+        using (var corrected = await seed.Client.PutAsJsonAsync($"/api/inventory/batches/{batch.Id}/prices", new { expectedVersion = batch.Version, mrp = 100m, salesPrice = 100m,
+            taxRatePercent = 0m, taxIncluded = false, expiryDate = new DateOnly(2026,11,8), reason = "Original source expiry evidence" }))
+            Assert.True(corrected.IsSuccessStatusCode, await corrected.Content.ReadAsStringAsync());
+        using (var preview = await seed.Client.PostAsJsonAsync($"/api/sales/{seed.Sale.Id}/cancellation-preview", new { }))
+        {
+            Assert.True(preview.IsSuccessStatusCode, await preview.Content.ReadAsStringAsync());
+            var line = (await preview.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("lines")[0];
+            Assert.Equal(2m, line.GetProperty("quarantinedQuantity").GetDecimal());
+        }
+        using var response = await seed.Client.PostAsJsonAsync($"/api/sales/{seed.Sale.Id}/cancellations", Request(seed));
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        var cancellation = await response.Content.ReadFromJsonAsync<JsonElement>(); var root = cancellation.GetProperty("lines")[0].GetProperty("quarantineChangeId").GetGuid();
+        Assert.Equal(2m, cancellation.GetProperty("lines")[0].GetProperty("quarantinedQuantity").GetDecimal());
+        db.ChangeTracker.Clear(); batch = await db.InventoryBatches.SingleAsync(x => x.Id == seed.BatchId); Assert.Equal((10m,2m),(batch.Quantity,batch.QuarantinedQuantity));
+        Assert.Equal(0, await db.InventoryAdjustments.CountAsync(x => x.InventoryBatchId == batch.Id));
+        factory.Services.GetRequiredService<SettableClock>().Now = new(2026, 11, 10, 10, 0, 0, TimeSpan.Zero);
+        using (var dispose = await seed.Client.PostAsJsonAsync($"/api/inventory/batches/{batch.Id}/dispositions", new { operationKey = "dispose-cancellation", expectedVersion = batch.Version,
+            quarantineChangeId = root, action = "Dispose", quantity = 2m, reason = "Expired recovered goods" })) Assert.True(dispose.IsSuccessStatusCode, await dispose.Content.ReadAsStringAsync());
+        using var report = await seed.Client.GetAsync("/api/sales/profit-loss?from=2026-11-08&to=2026-11-09");
+        var economics = (await report.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("summary").GetProperty("economics");
+        Assert.Equal(0m, economics.GetProperty("cogs").GetDecimal()); Assert.Equal(0m,economics.GetProperty("stockLoss").GetDecimal());
+        using var disposalReport = await seed.Client.GetAsync("/api/sales/profit-loss?from=2026-11-10&to=2026-11-10");
+        economics = (await disposalReport.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("summary").GetProperty("economics");
+        Assert.Equal(0m, economics.GetProperty("cogs").GetDecimal()); Assert.Equal(120m,economics.GetProperty("stockLoss").GetDecimal());
+        var loss = await db.InventoryAdjustments.SingleAsync(x => x.InventoryBatchId == batch.Id); Assert.Equal(new DateOnly(2026,11,10),DateOnly.FromDateTime(loss.PerformedAt.UtcDateTime));
+    }
+
     [Theory]
     [InlineData(8, 8, 200, 1, 0)]
     [InlineData(9, 9, -200, 0, 1)]

@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Expiry;
+using Intelibill.Application.Unit.Tests.Common;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Posting;
@@ -58,7 +60,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
                 _paymentReceiptRepository,
                 _calculator,
                 _itemRepository,
-                new BusinessClock(_time)),
+                new BusinessClock(_time), ExpiryDispositionTestServices.Create(_inventoryBatchRepository, new BusinessClock(_time))),
             _returnNumberGenerator,
             _creditNoteCodeGenerator,
             _creditNoteRepository,
@@ -68,10 +70,10 @@ public sealed class RecordSaleReturnCommandHandlerTests
             _saleReturnRepository,
             _customerLedgerEntryRepository,
             _accountingPolicy,
-            new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork),
+            new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork, Substitute.For<IExpiryPolicyFence>()),
             _unitOfWork,
             new BusinessClock(_time), _shopRepository, _saleRepository,
-            Substitute.For<ITillPostingService>(), Substitute.For<ITillSessionPolicy>(), _executor);
+            Substitute.For<ITillPostingService>(), Substitute.For<ITillSessionPolicy>(), _executor, ExpiryDispositionTestServices.Create(_inventoryBatchRepository, new BusinessClock(_time)));
     }
 
     private readonly MutableTimeProvider _time = new();
