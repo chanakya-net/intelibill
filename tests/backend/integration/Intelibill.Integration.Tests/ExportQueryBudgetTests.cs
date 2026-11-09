@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 namespace Intelibill.Integration.Tests;
 
 [Collection("Integration Tests")]
-public sealed class ExportQueryBudgetTests(PostgreSqlTestFixture fixture)
+public sealed partial class ExportQueryBudgetTests(PostgreSqlTestFixture fixture, Xunit.Abstractions.ITestOutputHelper output)
 {
     private static readonly ExportWindow June = new(new(2026, 6, 1), new(2026, 6, 30));
     private static readonly DateTimeOffset SoldAt = new(2026, 6, 10, 9, 0, 0, TimeSpan.Zero);
@@ -129,7 +129,7 @@ public sealed class ExportQueryBudgetTests(PostgreSqlTestFixture fixture)
 
     private ApplicationDbContext Owner() => new(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(fixture.MigratorConnectionString).UseSnakeCaseNamingConvention().Options);
 
-    private async Task<ApplicationDbContext> RuntimeAsync(Guid shop, Guid user, Commands? commands = null)
+    private async Task<ApplicationDbContext> RuntimeAsync(Guid shop, Guid user, DbCommandInterceptor? commands = null)
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(fixture.RuntimeConnectionString).UseSnakeCaseNamingConvention();
         if (commands is not null) options.AddInterceptors(commands);
@@ -145,7 +145,7 @@ public sealed class ExportQueryBudgetTests(PostgreSqlTestFixture fixture)
         var user = User.CreateWithEmail($"export-{Guid.NewGuid():N}@example.com", "hash", "Export", "User");
         var shop = Shop.Create("Export test", "Address", "City", "State", "560001", null, null, null);
         var service = Service.Create(shop.Id, "SVC", "Frozen service", null, 1m, null, 0, false, true, user.Id);
-        var items = Enumerable.Range(0, lines).Select(_ => SaleItem.CreateService(shop.Id, service.Id, "Frozen service", "SVC", 1, 0, 1, 1, 0, false, false)).ToArray();
+        var items = Enumerable.Range(0, lines).Select(i => SaleItem.CreateService(shop.Id, service.Id, $"Frozen service {i}", "SVC", 1, 0, 1, 1, 0, false, false)).ToArray();
         var sale = Sale.Create(shop.Id, "INV-001", null, "Buyer", null, PaymentMethod.Cash, outsideWindow ? SoldAt.AddMonths(-1) : SoldAt, lines, 0, lines, 0, items);
         db.AddRange(user, shop, service, sale, ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true));
         await db.SaveChangesAsync();

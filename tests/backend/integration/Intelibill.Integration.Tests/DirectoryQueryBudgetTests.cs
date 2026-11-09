@@ -14,16 +14,17 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Intelibill.Integration.Tests;
 
 [Collection("Integration Tests")]
-public sealed class DirectoryQueryBudgetTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
+public sealed class DirectoryQueryBudgetTests(PostgreSqlTestFixture fixture, Xunit.Abstractions.ITestOutputHelper output) : IAsyncLifetime, IDisposable
 {
     private readonly DirectoryCommands _commands = new();
+    private readonly ReadQueryProbe _probe = new();
     private ApiWebApplicationFactory _factory = null!;
     private HttpClient _client = null!;
     private Guid _shop;
 
     public async Task InitializeAsync()
     {
-        _factory = new(fixture, services => { services.AddSingleton<IInterceptor>(_commands); services.AddSingleton<Intelibill.Application.Common.Time.IBusinessClock>(new Intelibill.Infrastructure.Services.Time.BusinessClock(new DirectoryTime())); });
+        _factory = new(fixture, services => { services.AddSingleton<IInterceptor>(_commands); services.AddSingleton<IInterceptor>(sp => { _probe.RequestIdentity = () => sp.GetRequiredService<Microsoft.AspNetCore.Http.IHttpContextAccessor>().HttpContext?.Request.Headers[ReadQueryProbe.Header].ToString(); return _probe; }); services.AddSingleton<Intelibill.Application.Common.Time.IBusinessClock>(new Intelibill.Infrastructure.Services.Time.BusinessClock(new DirectoryTime())); });
         await _factory.InitializeAsync();
         _client = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
         var enrolled = await _client.EnrollAsync(new { email = $"directory-{Guid.NewGuid():N}@test.com", password = "Pass123!Aa", firstName = "Directory", lastName = "Reader" });
@@ -234,6 +235,112 @@ public sealed class DirectoryQueryBudgetTests(PostgreSqlTestFixture fixture) : I
         Assert.Empty(suppliers.GetProperty("items").EnumerateArray());
         Assert.All(customers.GetProperty("summary").EnumerateObject(), p => Assert.Equal(0m, p.Value.GetDecimal()));
         Assert.All(suppliers.GetProperty("summary").EnumerateObject(), p => Assert.Equal(0m, p.Value.GetDecimal()));
+    }
+
+    [Fact]
+    public async Task TenThousandParties_LateMatchCompleteCountGlobalSummary_ConstantCommands()
+    {
+        await using (var db = Owner())
+        {
+            var actor = await db.ShopMemberships.Where(m => m.ShopId == _shop).Select(m => m.UserId).FirstAsync();
+            var customers = Enumerable.Range(0, 10000).Select(i => Customer.Create(_shop, $"Party {i:00000}", $"{i:0000000000}", i >= 9900 ? "Late target" : "Road", i % 2 == 0, 5)).ToArray();
+            var suppliers = Enumerable.Range(0, 10000).Select(i => Supplier.Create(_shop, $"Party {i:00000}", i >= 9900 ? "Late target" : null, $"{i:0000000000}", "Road", "City", null, null, i % 2 == 0, i % 3 == 0)).ToArray();
+            db.AddRange(customers);
+            db.AddRange(suppliers);
+            foreach (var customer in customers)
+            {
+                db.Add(CustomerLedgerEntry.Create(_shop, customer.Id, null, CustomerLedgerEntryType.ReturnCreditReversal, 10, new(2026, 6, 1), null, actor).Value);
+                db.Add(CustomerLedgerEntry.Create(_shop, customer.Id, null, CustomerLedgerEntryType.PaymentReceived, customer.IsActive ? 4 : 15, new(2026, 6, 1), null, actor).Value);
+            }
+            foreach (var supplier in suppliers)
+            {
+                db.Add(SupplierLedgerEntry.Create(_shop, supplier.Id, null, SupplierLedgerEntryType.RecordAdjusted, 10, new(2026, 6, 1), null, actor).Value);
+                db.Add(SupplierLedgerEntry.Create(_shop, supplier.Id, null, SupplierLedgerEntryType.PaymentMade, supplier.IsActive ? 4 : 15, new(2026, 6, 1), null, actor).Value);
+            }
+            await db.SaveChangesAsync();
+            db.ChangeTracker.Clear();
+        }
+        foreach (var party in new[] { "customers", "suppliers" })
+        {
+            using var memory = new ReadMemoryObservation();
+            var before = GC.GetTotalAllocatedBytes();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            using var firstReads = ObserveRequest();
+            var first = await Get($"/api/{party}/directory?include_system=false&pageSize=100");
+            Assert.Equal(10000, first.GetProperty("totalCount").GetInt32());
+            Assert.Equal(100, first.GetProperty("items").GetArrayLength());
+            using var lastReads = ObserveRequest();
+            var last = await Get($"/api/{party}/directory?include_system=false&pageSize=100&pageNumber=100");
+            Assert.Equal(100, last.GetProperty("items").GetArrayLength());
+            Assert.Equal("Party 09900", last.GetProperty("items")[0].GetProperty("name").GetString());
+            using var lateReads = ObserveRequest();
+            var late = await Get($"/api/{party}/directory?include_system=false&pageSize=10&search=Late%20target&status=active");
+            Assert.Equal(50, late.GetProperty("totalCount").GetInt32());
+            Assert.Equal(10, late.GetProperty("items").GetArrayLength());
+            Assert.Equal(first.GetProperty("summary").GetRawText(), late.GetProperty("summary").GetRawText());
+            var summary = first.GetProperty("summary");
+            if (party == "customers")
+            {
+                Assert.Equal(10000, summary.GetProperty("totalCustomers").GetInt32());
+                Assert.Equal(30000m, summary.GetProperty("outstandingBalance").GetDecimal());
+                Assert.Equal(5000, summary.GetProperty("outstandingCount").GetInt32());
+                Assert.Equal(50000m, summary.GetProperty("totalCreditIssued").GetDecimal());
+                Assert.Equal(10000, summary.GetProperty("accountsWithCredit").GetInt32());
+                Assert.Equal(0m, summary.GetProperty("monthlyRevenue").GetDecimal());
+            }
+            else
+            {
+                Assert.Equal(10000, summary.GetProperty("totalSuppliers").GetInt32());
+                Assert.Equal(5000, summary.GetProperty("activeSuppliers").GetInt32());
+                Assert.Equal(3334, summary.GetProperty("preferredSuppliers").GetInt32());
+                Assert.Equal(30000m, summary.GetProperty("pendingPayables").GetDecimal());
+            }
+            Assert.NotEmpty(firstReads.Reads);
+            Assert.Equal(firstReads.Reads.Count, lastReads.Reads.Count);
+            Assert.Equal(firstReads.Reads.Count, lateReads.Reads.Count);
+            Assert.Equal(party == "customers" ? 9 : 5, firstReads.Reads.Count);
+            foreach (var observation in new[] { firstReads, lastReads, lateReads })
+            {
+                Assert.All(observation.Reads, read => Assert.InRange(read.Rows, 0, 100));
+                Assert.All(observation.Reads.Where(read => read.Sql.Contains("ledger_entries", StringComparison.Ordinal)), read => Assert.True(read.IsAggregate, "Ledger histories must remain SQL aggregates."));
+            }
+            output.WriteLine($"directory {party} parties=10000 ledgerRows=20000 commands/page={firstReads.Reads.Count} firstRows={firstReads.Reads.Sum(r => r.Rows)} lastRows={lastReads.Reads.Sum(r => r.Rows)} filteredRows={lateReads.Reads.Sum(r => r.Rows)} maxReaderRows={firstReads.Reads.Max(r => r.Rows)} threeRequestsMs={watch.ElapsedMilliseconds} allocatedBytes={GC.GetTotalAllocatedBytes() - before} sampledPeakManagedBytes={memory.PeakManagedBytes} sampledPeakResidentBytes={memory.PeakResidentBytes}");
+        }
+    }
+
+    [Theory]
+    [InlineData(2001, "pdf", "lineItems", "Export.PdfRowLimitExceeded")]
+    [InlineData(50000, "xlsx", "summary", "Export.ReadLimitExceeded")]
+    public async Task OversizedExport_NoDetailReader(int lines, string format, string level, string code)
+    {
+        await using (var db = Owner())
+        {
+            var actor = await db.ShopMemberships.Where(m => m.ShopId == _shop).Select(m => m.UserId).FirstAsync();
+            var service = Service.Create(_shop, "BUDGET", "Service", null, 1, null, 0, false, true, actor);
+            var line = SaleItem.CreateService(_shop, service.Id, "Service", "BUDGET", 1, 0, 1, 1, 0, false, false);
+            var sale = Sale.Create(_shop, "OVERSIZED", null, "Buyer", null, PaymentMethod.Cash, new(2026, 6, 10, 9, 0, 0, TimeSpan.Zero), lines, 0, lines, 0, [line]);
+            db.AddRange(service, sale);
+            await db.SaveChangesAsync();
+            await db.Database.ExecuteSqlAsync($"""
+                INSERT INTO sale_items SELECT (jsonb_populate_record(NULL::sale_items,
+                    to_jsonb(source) || jsonb_build_object('id', gen_random_uuid()))).*
+                FROM sale_items source CROSS JOIN generate_series(1, {lines - 1}) WHERE source.sale_id = {sale.Id}
+                """);
+        }
+        using var observed = ObserveRequest();
+        var response = await _client.GetAsync($"/api/exports/sales?format={format}&level={level}&startDate=2026-06-01&endDate=2026-06-30");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(code, await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        Assert.NotEmpty(observed.Reads);
+        Assert.All(observed.Reads, read => { Assert.True(read.IsAggregate, read.Sql); Assert.InRange(read.Rows, 0, 1); });
+    }
+
+    private ReadQueryProbe.Observation ObserveRequest()
+    {
+        var observed = _probe.Observe();
+        _client.DefaultRequestHeaders.Remove(ReadQueryProbe.Header);
+        _client.DefaultRequestHeaders.Add(ReadQueryProbe.Header, observed.Id);
+        return observed;
     }
 
     [Fact]

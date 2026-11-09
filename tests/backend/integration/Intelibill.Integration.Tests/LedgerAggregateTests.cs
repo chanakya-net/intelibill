@@ -50,8 +50,9 @@ public sealed class LedgerAggregateTests(PostgreSqlTestFixture fixture)
         owner.Add(SupplierLedgerEntry.Create(shop.Id, supplier.Id, null, SupplierLedgerEntryType.Reversal, 3, new(2026, 6, 1), null, user.Id).Value);
         owner.Add(SupplierLedgerEntry.Create(shop.Id, supplierCredit.Id, null, SupplierLedgerEntryType.RecordAdjusted, -200, new(2026, 6, 1), null, user.Id).Value);
         await owner.SaveChangesAsync();
-        var commands = new DirectoryCommands();
+        var commands = new ReadQueryProbe();
         await using var db = await Runtime(shop.Id, user.Id, commands);
+        using var observed = commands.Observe();
         var customers = new CustomerLedgerEntryRepository(db);
         var suppliers = new SupplierLedgerEntryRepository(db);
         Assert.Equal(60m, await customers.GetCustomerBalanceAsync(shop.Id, customer.Id));
@@ -68,14 +69,17 @@ public sealed class LedgerAggregateTests(PostgreSqlTestFixture fixture)
         Assert.Equal(0m, await suppliers.GetSupplierBalanceAsync(shop.Id, Guid.NewGuid()));
         Assert.Equal(0m, await suppliers.GetSupplierPayablesAsync(other.Id));
         Assert.Equal(0m, await customers.GetCustomerCreditDueAsync(other.Id));
-        Assert.Contains(commands.Sql, sql => sql.Contains("sum(", StringComparison.OrdinalIgnoreCase) && sql.Contains("CASE", StringComparison.OrdinalIgnoreCase));
-        Assert.Contains(commands.Sql, sql => sql.Contains("GROUP BY", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(observed.Reads.Select(r => r.Sql), sql => sql.Contains("sum(", StringComparison.OrdinalIgnoreCase) && sql.Contains("CASE", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(observed.Reads.Select(r => r.Sql), sql => sql.Contains("GROUP BY", StringComparison.OrdinalIgnoreCase));
         var customerSummary = await new CustomerRepository(db).GetDirectorySummaryAsync(shop.Id,
             new Intelibill.Domain.ValueObjects.UtcDateWindow(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1)));
         Assert.Equal(60m, customerSummary.OutstandingBalance);
         Assert.Equal(1, customerSummary.OutstandingCount);
         var supplierSummary = await new SupplierRepository(db).GetDirectorySummaryAsync(shop.Id, false);
         Assert.Equal(46m, supplierSummary.PendingPayables);
+        Assert.NotEmpty(observed.Reads);
+        Assert.All(observed.Reads, read => Assert.InRange(read.Rows, 0, 2));
+        Assert.All(observed.Reads.Where(read => read.Sql.Contains("ledger_entries", StringComparison.Ordinal)), read => Assert.True(read.IsAggregate, read.Sql));
         Assert.Empty(db.ChangeTracker.Entries());
     }
 
@@ -108,14 +112,13 @@ public sealed class LedgerAggregateTests(PostgreSqlTestFixture fixture)
     }
 
     private ApplicationDbContext Owner() => new(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(fixture.MigratorConnectionString).UseSnakeCaseNamingConvention().Options);
-    private async Task<ApplicationDbContext> Runtime(Guid shop, Guid user, DirectoryCommands? commands = null)
+    private async Task<ApplicationDbContext> Runtime(Guid shop, Guid user, Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor? commands = null)
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(fixture.RuntimeConnectionString).UseSnakeCaseNamingConvention();
         if (commands is not null) options.AddInterceptors(commands);
         var db = new ApplicationDbContext(options.Options);
         await db.Database.OpenConnectionAsync();
         await db.Database.ExecuteSqlAsync($"SELECT set_config('app.active_shop_id', {shop.ToString()}, false), set_config('app.current_user_id', {user.ToString()}, false)");
-        commands?.Sql.Clear();
         return db;
     }
 }
