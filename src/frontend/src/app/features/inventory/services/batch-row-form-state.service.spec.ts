@@ -115,6 +115,60 @@ describe('BatchRowFormStateService', () => {
     expect(state.buildDraftRow()?.supplierId).toBe('late-2');
   });
 
+  it('never infers a supplier ID from a bare name when a duplicate is beyond the bounded page', () => {
+    vi.useFakeTimers();
+    const state = setup();
+    const first = { ...lateSupplier, supplierId: 'acme-a', name: 'Acme', city: 'City A' };
+    const hidden = { ...lateSupplier, supplierId: 'acme-b', name: 'Acme', city: 'City B' };
+    const all = [
+      ...Array.from({ length: 19 }, (_, index) => ({
+        ...lateSupplier,
+        supplierId: `prefix-${index}`,
+        name: `0${index} Acme match`,
+      })),
+      first,
+      hidden,
+    ];
+    supplierService.getDirectory.mockReturnValueOnce(
+      of({ items: all.slice(0, 20), totalCount: 21 }),
+    );
+    try {
+      state.form.patchValue({
+        itemName: 'Rice',
+        barcode: 'B',
+        batchNumber: 'Lot',
+        quantity: 1,
+        totalPurchaseCost: 1,
+        mrp: 2,
+        salesPrice: 2,
+      });
+      state.onFilterSupplier({ query: 'Acme', originalEvent: new Event('input') });
+      vi.advanceTimersByTime(250);
+      expect(state.suppliers()).toHaveLength(20);
+      state.form.controls.supplierName.setValue('Acme');
+      expect(state.selectedSupplier()).toBeNull();
+      expect(state.buildDraftRow()?.supplierId).toBeNull();
+      state.onSupplierSelected('Acme');
+      expect(state.selectedSupplier()).toBeNull();
+      state.onSupplierSelected(supplierOptionLabel(first as any));
+      expect(state.buildDraftRow()?.supplierId).toBe('acme-a');
+      supplierService.getDirectory.mockReturnValueOnce(of({ items: [hidden], totalCount: 1 }));
+      state.onFilterSupplier({ query: 'City B', originalEvent: new Event('input') });
+      vi.advanceTimersByTime(250);
+      expect(state.buildDraftRow()?.supplierId).toBe('acme-a');
+      state.onSupplierSelected(supplierOptionLabel(hidden as any));
+      expect(state.buildDraftRow()?.supplierId).toBe('acme-b');
+      state.form.controls.supplierName.setValue('Acme');
+      expect(state.buildDraftRow()?.supplierId).toBeNull();
+      expect(state.form.controls.supplierName.value).toBe('Acme');
+      state.form.controls.supplierName.setValue('');
+      expect(state.buildDraftRow()?.supplierId).toBeNull();
+    } finally {
+      TestBed.resetTestingModule();
+      vi.useRealTimers();
+    }
+  });
+
   it('selects a remote duplicate-name supplier by ID and retains it while searching', () => {
     vi.useFakeTimers();
     const state = setup();

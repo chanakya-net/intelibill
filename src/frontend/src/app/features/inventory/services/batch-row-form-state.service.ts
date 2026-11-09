@@ -700,9 +700,7 @@ export class BatchRowFormStateService {
   private findSupplierByName(name: string): Supplier | undefined {
     const normalized = name.trim().toLowerCase();
     const matches = this.suppliers().filter(
-      (supplier) =>
-        supplierOptionLabel(supplier).toLowerCase() === normalized ||
-        supplier.name.toLowerCase() === normalized,
+      (supplier) => supplierOptionLabel(supplier).toLowerCase() === normalized,
     );
     return matches.length === 1 ? matches[0] : undefined;
   }
