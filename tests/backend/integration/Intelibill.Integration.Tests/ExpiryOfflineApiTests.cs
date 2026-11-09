@@ -199,9 +199,14 @@ public sealed class ExpiryOfflineApiTests : IAsyncLifetime, IDisposable
         Assert.Contains(await db.ReconciliationIssues.Where(x => x.ShopId == seed.Shop).ToListAsync(), x => x.IssueType == ReconciliationIssueType.StockVariance);
         Assert.Equal(seed.Sale["invoiceNumber"]!.GetValue<string>(), sale.InvoiceNumber);
     }
-    [Fact]
-    public async Task ExpiryReview_LinkExistingSaleRequiresExactRetainedDecisions()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(9)]
+    public async Task ExpiryReview_LinkExistingSaleRequiresExactRetainedDecisions(int subMicrosecondTicks)
     {
+        // PostgreSQL drops sub-microsecond ticks from timestamps but retains them in the JSON envelope.
+        _time.Now = new DateTimeOffset(_time.Now.UtcTicks / 10 * 10 + subMicrosecondTicks, TimeSpan.Zero);
         var seed = await Seed(); using var client = seed.Client; var result = await Sync(client, seed.Sale);
         Assert.Contains(result.GetProperty("status").GetString(), PostedStatuses); var saleId = result.GetProperty("saleId").GetGuid();
         Guid caseId;

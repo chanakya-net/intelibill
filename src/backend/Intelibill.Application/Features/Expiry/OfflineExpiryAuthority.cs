@@ -75,7 +75,9 @@ public sealed class OfflineExpiryAuthority(IOfflineExpiryEvidenceRepository evid
             payload.SoldAt.UtcTicks / 10 != submission.ClaimedSoldAt.UtcTicks / 10 || sale.SoldAt.UtcTicks / 10 != submission.ClaimedSoldAt.UtcTicks / 10 ||
             sale.InvoiceNumber != submission.InvoiceNumber ||
             OfflineSaleSyncIdempotencyHasher.ComputeHash(submission.ShopId, submission.DeviceId, payload) != submission.PayloadHash) return false;
-        var validated = await ValidateFrozenAsync(submission.ShopId, payload, submission.ReceivedAt > sale.SoldAt ? submission.ReceivedAt : sale.SoldAt, ct);
+        // Identity and hash checks above bind the original instant to the posted sale. PostgreSQL
+        // truncates timestamp columns to microseconds; the JSON payload retains all original ticks.
+        var validated = await ValidateFrozenAsync(submission.ShopId, payload, submission.ReceivedAt > payload.SoldAt ? submission.ReceivedAt : payload.SoldAt, ct);
         return !validated.IsError && sale.ExpiryDecisions is not null && validated.Value.Count == sale.ExpiryDecisions.Count &&
             validated.Value.Zip(sale.ExpiryDecisions).All(pair => pair.First with { SaleId = sale.Id } == pair.Second);
     }
