@@ -7,7 +7,18 @@
   @if (showGroupedSections && cartItems.length > 0 && serviceCartItems.length > 0) {
     <div class="cart-section">
       <h3 class="cart-section-title">{{ 'sales.newSale.goodsSection' | transloco }}</h3>
-      <p-table [value]="cartItems" [rowTrackBy]="trackLine" styleClass="p-datatable-sm cart-table">
+      <p-table
+        [pt]="{
+          tableContainer: {
+            role: 'region',
+            tabindex: 0,
+            'aria-label': ('sales.newSale.cart' | transloco),
+          },
+        }"
+        [value]="cartItems"
+        [rowTrackBy]="trackLine"
+        styleClass="p-datatable-sm cart-table"
+      >
         <ng-template pTemplate="header">
           <tr>
             <th>{{ 'inventory.name' | transloco }}</th>
@@ -27,7 +38,11 @@
                   <div class="cart-item-meta">
                     <span>{{ 'sales.newSale.batch' | transloco }}: {{ item.batchNumber }}</span>
                     @if (item.expiryDate !== undefined) {
-                      <span>{{ item.expiryDate || ('expiry.undated' | transloco) }}</span>
+                      <span>{{
+                        item.expiryDate
+                          ? (item.expiryDate | localeBusinessDate)
+                          : ('expiry.undated' | transloco)
+                      }}</span>
                     }
                     @if (expiryDecision(item); as decision) {
                       <span
@@ -363,6 +378,13 @@
     <div class="cart-section">
       <h3 class="cart-section-title">{{ 'sales.newSale.servicesSection' | transloco }}</h3>
       <p-table
+        [pt]="{
+          tableContainer: {
+            role: 'region',
+            tabindex: 0,
+            'aria-label': ('sales.newSale.cart' | transloco),
+          },
+        }"
         [value]="serviceCartItems"
         [rowTrackBy]="trackLine"
         styleClass="p-datatable-sm cart-table"
@@ -478,7 +500,18 @@
     </div>
   } @else {
     @if (cartItems.length > 0) {
-      <p-table [value]="cartItems" [rowTrackBy]="trackLine" styleClass="p-datatable-sm cart-table">
+      <p-table
+        [pt]="{
+          tableContainer: {
+            role: 'region',
+            tabindex: 0,
+            'aria-label': ('sales.newSale.cart' | transloco),
+          },
+        }"
+        [value]="cartItems"
+        [rowTrackBy]="trackLine"
+        styleClass="p-datatable-sm cart-table"
+      >
         <ng-template pTemplate="header">
           <tr>
             <th>{{ 'inventory.name' | transloco }}</th>
@@ -498,7 +531,11 @@
                   <div class="cart-item-meta">
                     <span>{{ 'sales.newSale.batch' | transloco }}: {{ item.batchNumber }}</span>
                     @if (item.expiryDate !== undefined) {
-                      <span>{{ item.expiryDate || ('expiry.undated' | transloco) }}</span>
+                      <span>{{
+                        item.expiryDate
+                          ? (item.expiryDate | localeBusinessDate)
+                          : ('expiry.undated' | transloco)
+                      }}</span>
                     }
                     @if (expiryDecision(item); as decision) {
                       <span
@@ -841,6 +878,13 @@
       </p-table>
     } @else {
       <p-table
+        [pt]="{
+          tableContainer: {
+            role: 'region',
+            tabindex: 0,
+            'aria-label': ('sales.newSale.cart' | transloco),
+          },
+        }"
         [value]="serviceCartItems"
         [rowTrackBy]="trackLine"
         styleClass="p-datatable-sm cart-table"

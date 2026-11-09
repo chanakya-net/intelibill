@@ -36,7 +36,10 @@
   <section *ngIf="sale.document as doc; else legacyMeta" class="thermal-invoice__section">
     <div class="thermal-invoice__meta">
       <span>{{ 'sales.invoice.invoiceNumber' | transloco }} {{ doc.number }}</span>
-      <span>{{ doc.businessDate | localeBusinessDate }} · {{ doc.issuedAt | localeInstant }}</span>
+      <span
+        ><time [attr.datetime]="doc.businessDate">{{ doc.businessDate | localeBusinessDate }}</time>
+        · {{ doc.issuedAt | localeInstant }}</span
+      >
     </div>
     <p class="thermal-invoice__line">
       {{ 'sales.invoice.placeOfSupply' | transloco }}: {{ doc.placeOfSupplyStateName }} ({{

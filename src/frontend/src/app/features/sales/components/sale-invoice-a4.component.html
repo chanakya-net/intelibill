@@ -27,7 +27,9 @@
         </div>
         <div class="invoice__meta-item">
           <span class="invoice__meta-label">{{ 'sales.invoice.date' | transloco }}</span>
-          <span class="invoice__meta-value">{{ doc.businessDate | localeBusinessDate }}</span>
+          <time class="invoice__meta-value" [attr.datetime]="doc.businessDate">{{
+            doc.businessDate | localeBusinessDate
+          }}</time>
         </div>
         <div class="invoice__meta-item">
           <span class="invoice__meta-label">{{ 'sales.invoice.placeOfSupply' | transloco }}</span>
@@ -100,44 +102,51 @@
   </ng-template>
 
   <!-- Items Table -->
-  <table *ngIf="sale.document as doc; else legacyItems" class="invoice__items">
-    <thead class="invoice__items-header">
-      <tr>
-        <th class="invoice__col-item">{{ 'inventory.name' | transloco }}</th>
-        <th class="invoice__col-hsn">{{ 'services.hsnSac' | transloco }}</th>
-        <th class="invoice__col-qty">{{ 'sales.detail.qty' | transloco }}</th>
-        <th class="invoice__col-price">{{ 'sales.detail.pricePerUnit' | transloco }}</th>
-        <th class="invoice__col-discount">{{ 'sales.detail.discount' | transloco }}</th>
-        <th class="invoice__col-taxable">{{ 'sales.invoice.taxableValue' | transloco }}</th>
-        <th class="invoice__col-tax">{{ 'sales.invoice.tax' | transloco }} %</th>
-        <th class="invoice__col-tax-amt">{{ 'sales.detail.taxAmount' | transloco }}</th>
-        <th class="invoice__col-total">{{ 'sales.detail.itemTotal' | transloco }}</th>
-      </tr>
-    </thead>
-    <tbody class="invoice__items-body">
-      <tr *ngFor="let line of doc.lines" class="invoice__item-row">
-        <td class="invoice__col-item">{{ line.description }}</td>
-        <td class="invoice__col-hsn">{{ line.hsnOrSac }}</td>
-        <td class="invoice__col-qty invoice__cell-right">{{ line.quantity }} {{ line.uom }}</td>
-        <td class="invoice__col-price invoice__cell-right">
-          {{ line.unitPrice | localeMoney }}
-        </td>
-        <td class="invoice__col-discount invoice__cell-right">
-          {{ line.discountAmount | localeMoney }}
-        </td>
-        <td class="invoice__col-taxable invoice__cell-right">
-          {{ line.taxableValue | localeMoney }}
-        </td>
-        <td class="invoice__col-tax invoice__cell-right">{{ line.taxRatePercent }}%</td>
-        <td class="invoice__col-tax-amt invoice__cell-right">
-          {{ lineTaxAmount(line) | localeMoney }}
-        </td>
-        <td class="invoice__col-total invoice__cell-right">
-          {{ line.lineTotal | localeMoney }}
-        </td>
-      </tr>
-    </tbody>
-  </table>
+  <div
+    class="invoice__items-scroll"
+    role="region"
+    tabindex="0"
+    [attr.aria-label]="'sales.history.items' | transloco"
+  >
+    <table *ngIf="sale.document as doc; else legacyItems" class="invoice__items">
+      <thead class="invoice__items-header">
+        <tr>
+          <th class="invoice__col-item">{{ 'inventory.name' | transloco }}</th>
+          <th class="invoice__col-hsn">{{ 'services.hsnSac' | transloco }}</th>
+          <th class="invoice__col-qty">{{ 'sales.detail.qty' | transloco }}</th>
+          <th class="invoice__col-price">{{ 'sales.detail.pricePerUnit' | transloco }}</th>
+          <th class="invoice__col-discount">{{ 'sales.detail.discount' | transloco }}</th>
+          <th class="invoice__col-taxable">{{ 'sales.invoice.taxableValue' | transloco }}</th>
+          <th class="invoice__col-tax">{{ 'sales.invoice.tax' | transloco }} %</th>
+          <th class="invoice__col-tax-amt">{{ 'sales.detail.taxAmount' | transloco }}</th>
+          <th class="invoice__col-total">{{ 'sales.detail.itemTotal' | transloco }}</th>
+        </tr>
+      </thead>
+      <tbody class="invoice__items-body">
+        <tr *ngFor="let line of doc.lines" class="invoice__item-row">
+          <td class="invoice__col-item">{{ line.description }}</td>
+          <td class="invoice__col-hsn">{{ line.hsnOrSac }}</td>
+          <td class="invoice__col-qty invoice__cell-right">{{ line.quantity }} {{ line.uom }}</td>
+          <td class="invoice__col-price invoice__cell-right">
+            {{ line.unitPrice | localeMoney }}
+          </td>
+          <td class="invoice__col-discount invoice__cell-right">
+            {{ line.discountAmount | localeMoney }}
+          </td>
+          <td class="invoice__col-taxable invoice__cell-right">
+            {{ line.taxableValue | localeMoney }}
+          </td>
+          <td class="invoice__col-tax invoice__cell-right">{{ line.taxRatePercent }}%</td>
+          <td class="invoice__col-tax-amt invoice__cell-right">
+            {{ lineTaxAmount(line) | localeMoney }}
+          </td>
+          <td class="invoice__col-total invoice__cell-right">
+            {{ line.lineTotal | localeMoney }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
   <ng-container *ngIf="sale.document as doc">
     <section *ngIf="taxSummary(doc).length" class="invoice__tax-summary">

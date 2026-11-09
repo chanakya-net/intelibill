@@ -304,7 +304,7 @@
         <p class="panel-hint">{{ 'sales.offlineReconciliation.cases.notLoaded' | transloco }}</p>
       }
 
-      <div class="cases-table-wrap" tabindex="0">
+      <div class="cases-table-wrap" role="region" aria-labelledby="cases-title" tabindex="0">
         @if (casesState() === 'loading') {
           <p-table [value]="skeletonRows" class="p-datatable-sm cases-table">
             <ng-template pTemplate="header">

@@ -498,6 +498,19 @@ export class CustomersPageComponent {
     this.editingCustomer.set(null);
   }
 
+  accountAmountInputPt() {
+    return {
+      ...this.currencyInputPt,
+      pcInputText: {
+        ...this.currencyInputPt.pcInputText,
+        root: {
+          ...this.currencyInputPt.pcInputText?.root,
+          'aria-invalid': this.accountFieldError('amount') ? 'true' : undefined,
+        },
+      },
+    };
+  }
+
   onOpenCustomerAccount(customer: Customer): void {
     this.selectedAccountCustomer.set(customer);
     this.selectedAccount.set(null);

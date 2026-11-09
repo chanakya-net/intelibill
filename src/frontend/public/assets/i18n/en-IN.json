@@ -29,6 +29,7 @@
     "currencySymbol": "₹",
     "search": "Search...",
     "loading": "Loading...",
+    "noResults": "No matches found.",
     "all": "All",
     "active": "Active",
     "error": "Error",

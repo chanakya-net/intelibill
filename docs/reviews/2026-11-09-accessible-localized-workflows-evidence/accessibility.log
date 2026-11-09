@@ -1,0 +1,20 @@
+
+Running 13 tests using 1 worker
+
+(node:80934) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/ui-audit/release/accessibility-localization.spec.ts:210:7 › nine_locales_fit_core_journeys en-IN (24.1s)
+  ✓   2 tests/ui-audit/release/accessibility-localization.spec.ts:210:7 › nine_locales_fit_core_journeys hi-IN (23.5s)
+  ✓   3 tests/ui-audit/release/accessibility-localization.spec.ts:210:7 › nine_locales_fit_core_journeys ta-IN (24.2s)
+  ✓   4 tests/ui-audit/release/accessibility-localization.spec.ts:210:7 › nine_locales_fit_core_journeys te-IN (23.4s)
+  ✓   5 tests/ui-audit/release/accessibility-localization.spec.ts:210:7 › nine_locales_fit_core_journeys bn-IN (23.5s)
+  ✓   6 tests/ui-audit/release/accessibility-localization.spec.ts:210:7 › nine_locales_fit_core_journeys ml-IN (23.3s)
+  ✓   7 tests/ui-audit/release/accessibility-localization.spec.ts:210:7 › nine_locales_fit_core_journeys kn-IN (23.7s)
+  ✓   8 tests/ui-audit/release/accessibility-localization.spec.ts:210:7 › nine_locales_fit_core_journeys mr-IN (23.6s)
+  ✓   9 tests/ui-audit/release/accessibility-localization.spec.ts:210:7 › nine_locales_fit_core_journeys gu-IN (23.5s)
+  ✓  10 tests/ui-audit/release/accessibility-localization.spec.ts:285:5 › keyboard_checkout_returns_focus and same-key unknown recovery (9.4s)
+  ✓  11 tests/ui-audit/release/accessibility-localization.spec.ts:323:5 › account guarded Escape, field association and unknown reopen (2.8s)
+  ✓  12 tests/ui-audit/release/accessibility-localization.spec.ts:366:5 › receiving initial/return focus, linked error and unknown Escape recovery (2.2s)
+  ✓  13 tests/ui-audit/release/accessibility-localization.spec.ts:409:5 › repeated product and lot controls preserve separate line identities (4.8s)
+
+  13 passed (3.9m)

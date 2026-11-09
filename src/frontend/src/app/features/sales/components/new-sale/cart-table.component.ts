@@ -1,3 +1,4 @@
+import { LocaleBusinessDatePipe } from '../../../../shared/pipes/locale-business-date.pipe';
 import { LocaleMoneyPipe } from '../../../../shared/pipes/locale-money.pipe';
 import { expiryStatusKey } from '../../../expiry/services/expiry-policy-evaluator';
 import { CommonModule } from '@angular/common';
@@ -49,6 +50,7 @@ let cartTableSequence = 0;
   standalone: true,
   imports: [
     LocaleMoneyPipe,
+    LocaleBusinessDatePipe,
     CommonModule,
     FormsModule,
     TableModule,

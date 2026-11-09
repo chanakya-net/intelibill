@@ -1,8 +1,11 @@
 <div class="batch-search-bar">
   <div class="batch-search-input">
-    <label class="text-xs text-slate-500" [for]="searchInputId">{{ 'inventory.searchPlaceholder' | transloco }}</label>
+    <label class="text-xs text-slate-500" [for]="searchInputId">{{
+      'inventory.searchPlaceholder' | transloco
+    }}</label>
     <p-autocomplete
       [inputId]="searchInputId"
+      [emptyMessage]="'common.noResults' | transloco"
       [ngModel]="searchTerm"
       (ngModelChange)="onSearchTermChanged($event)"
       [suggestions]="pickerOpen ? [] : searchSuggestions"

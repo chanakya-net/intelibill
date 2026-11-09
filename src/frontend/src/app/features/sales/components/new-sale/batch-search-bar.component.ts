@@ -30,7 +30,9 @@ let batchSearchSequence = 0;
 export class BatchSearchBarComponent implements OnChanges {
   readonly searchInputId = `batch-search-${++batchSearchSequence}`;
   @Input() pickerOpen = false;
-  ngOnChanges(): void { if (this.pickerOpen) this.closeSuggestions(); }
+  ngOnChanges(): void {
+    if (this.pickerOpen) this.closeSuggestions();
+  }
   @Input() searchTerm = '';
   @Input() loading = false;
   @Input() searchSuggestions: string[] = [];
@@ -44,10 +46,13 @@ export class BatchSearchBarComponent implements OnChanges {
 
   private readonly autocomplete = viewChild(AutoComplete);
   private suggestionSelectionEvent: Event | undefined;
-  private closeSuggestions(): void { this.autocomplete()?.hide(); this.autocomplete()?.inputEL?.nativeElement.blur(); }
-  emitSearch(): void {
+  private closeSuggestions(): void {
+    this.autocomplete()?.hide();
+    this.autocomplete()?.inputEL?.nativeElement.blur();
+  }
+  emitSearch(value = this.searchTerm): void {
     this.closeSuggestions();
-    this.search.emit(this.searchTerm);
+    this.search.emit(value);
   }
 
   onSearchTermChanged(value: string | null): void {
@@ -71,7 +76,12 @@ export class BatchSearchBarComponent implements OnChanges {
     this.suggestionSelectionEvent = undefined;
     event.preventDefault();
     event.stopPropagation();
-    if (!selectedSuggestion && !(event instanceof KeyboardEvent && event.isComposing)) this.emitSearch();
+    if (!selectedSuggestion && !(event instanceof KeyboardEvent && event.isComposing)) {
+      // Enter can arrive before the parent's @Input reflects a fast scanner/edit.
+      this.emitSearch(
+        event.target instanceof HTMLInputElement ? event.target.value : this.searchTerm,
+      );
+    }
   }
 
   onOpenPicker(): void {

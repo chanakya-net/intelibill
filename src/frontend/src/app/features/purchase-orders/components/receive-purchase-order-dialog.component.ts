@@ -49,6 +49,8 @@ import { InventoryBatchDefaultsService } from '../../inventory/services/inventor
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { InputValidators } from '../../../shared/forms/input-validation';
 
+let receivingInstance = 0;
+
 @Component({
   selector: 'app-receive-purchase-order-dialog',
   standalone: true,
@@ -84,7 +86,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
     >
       <ng-template #header let-titleId="ariaLabelledBy">
         <div class="receive-dialog-header">
-          <span [id]="titleId" class="p-dialog-title">{{
+          <span [id]="titleId" class="p-dialog-title" tabindex="-1" data-dialog-initial-focus>{{
             'purchaseOrders.receiveDialog.title' | transloco
           }}</span>
           <!-- Native close hides before onHide; only hide() can await/refuse a failed flush. -->
@@ -155,14 +157,19 @@ import { InputValidators } from '../../../shared/forms/input-validation';
             @let row = lines.at(index);
             <div class="receipt-row" data-testid="receipt-row" [formGroup]="row">
               @for (error of errorsFor(row.controls.clientLineId.value); track $index) {
-                <p class="error" role="alert" [attr.data-field]="error.field">
+                <p
+                  class="error"
+                  [id]="fieldId(row.controls.clientLineId.value, error.field) + '-error-' + $index"
+                  [attr.data-field]="error.field"
+                >
                   {{ error.messageKey | transloco }}
                 </p>
               }
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'purchaseOrderLineId')">
                 {{ 'purchaseOrders.receiveDialog.line' | transloco }}
                 <p-select
                   formControlName="purchaseOrderLineId"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'purchaseOrderLineId')"
                   [options]="receivableLines"
                   optionLabel="description"
                   optionValue="lineId"
@@ -185,10 +192,20 @@ import { InputValidators } from '../../../shared/forms/input-validation';
                 (confirmReplace)="confirmBarcodeReplace(index)"
                 (cancelReplace)="cancelBarcodeReplace(index)"
               />
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'batchNumber')">
                 {{ 'purchaseOrders.receiveDialog.batchNumber' | transloco }}
                 <p-inputgroup>
-                  <input pInputText formControlName="batchNumber" />
+                  <input
+                    pInputText
+                    formControlName="batchNumber"
+                    [id]="fieldId(row.controls.clientLineId.value, 'batchNumber')"
+                    [attr.aria-invalid]="
+                      fieldDescription(row.controls.clientLineId.value, 'batchNumber') ? true : null
+                    "
+                    [attr.aria-describedby]="
+                      fieldDescription(row.controls.clientLineId.value, 'batchNumber')
+                    "
+                  />
                   <p-inputgroup-addon>
                     <button
                       pButton
@@ -205,46 +222,131 @@ import { InputValidators } from '../../../shared/forms/input-validation';
                   </p-inputgroup-addon>
                 </p-inputgroup>
               </label>
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'quantity')">
                 {{ 'purchaseOrders.receiveDialog.quantity' | transloco }}
                 <span
                   >{{ 'purchaseOrders.receiving.remaining' | transloco }}:
                   {{ remainingFor(row.controls.purchaseOrderLineId.value) }}</span
                 >
-                <p-inputNumber formControlName="quantity" [min]="1" />
+                <p-inputNumber
+                  formControlName="quantity"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'quantity')"
+                  [ariaDescribedBy]="fieldDescription(row.controls.clientLineId.value, 'quantity')"
+                  [pt]="{
+                    pcInputText: {
+                      root: {
+                        'aria-invalid': fieldDescription(
+                          row.controls.clientLineId.value,
+                          'quantity'
+                        )
+                          ? 'true'
+                          : undefined,
+                      },
+                    },
+                  }"
+                  [invalid]="!!fieldDescription(row.controls.clientLineId.value, 'quantity')"
+                  [min]="1"
+                />
               </label>
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'totalPurchaseCost')">
                 {{ 'purchaseOrders.receiveDialog.totalPurchaseCost' | transloco }}
                 <p-inputNumber
                   formControlName="totalPurchaseCost"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'totalPurchaseCost')"
+                  [ariaDescribedBy]="
+                    fieldDescription(row.controls.clientLineId.value, 'totalPurchaseCost')
+                  "
+                  [pt]="{
+                    pcInputText: {
+                      root: {
+                        'aria-invalid': fieldDescription(
+                          row.controls.clientLineId.value,
+                          'totalPurchaseCost'
+                        )
+                          ? 'true'
+                          : undefined,
+                      },
+                    },
+                  }"
+                  [invalid]="
+                    !!fieldDescription(row.controls.clientLineId.value, 'totalPurchaseCost')
+                  "
                   mode="decimal"
                   [min]="0"
                   [minFractionDigits]="2"
                 />
               </label>
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'mrp')">
                 {{ 'purchaseOrders.receiveDialog.mrp' | transloco }}
                 <p-inputNumber
                   formControlName="mrp"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'mrp')"
+                  [ariaDescribedBy]="fieldDescription(row.controls.clientLineId.value, 'mrp')"
+                  [pt]="{
+                    pcInputText: {
+                      root: {
+                        'aria-invalid': fieldDescription(row.controls.clientLineId.value, 'mrp')
+                          ? 'true'
+                          : undefined,
+                      },
+                    },
+                  }"
+                  [invalid]="!!fieldDescription(row.controls.clientLineId.value, 'mrp')"
                   mode="decimal"
                   [min]="0"
                   [minFractionDigits]="2"
                 />
               </label>
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'salesPrice')">
                 {{ 'purchaseOrders.receiveDialog.salesPrice' | transloco }}
                 <p-inputNumber
                   formControlName="salesPrice"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'salesPrice')"
+                  [ariaDescribedBy]="
+                    fieldDescription(row.controls.clientLineId.value, 'salesPrice')
+                  "
+                  [pt]="{
+                    pcInputText: {
+                      root: {
+                        'aria-invalid': fieldDescription(
+                          row.controls.clientLineId.value,
+                          'salesPrice'
+                        )
+                          ? 'true'
+                          : undefined,
+                      },
+                    },
+                  }"
+                  [invalid]="!!fieldDescription(row.controls.clientLineId.value, 'salesPrice')"
                   mode="decimal"
                   [min]="0"
                   [minFractionDigits]="2"
                 />
               </label>
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'taxRatePercent')">
                 {{ 'purchaseOrders.receiveDialog.taxRate' | transloco }}
                 <p-inputgroup>
                   <p-inputNumber
                     formControlName="taxRatePercent"
+                    [inputId]="fieldId(row.controls.clientLineId.value, 'taxRatePercent')"
+                    [ariaDescribedBy]="
+                      fieldDescription(row.controls.clientLineId.value, 'taxRatePercent')
+                    "
+                    [pt]="{
+                      pcInputText: {
+                        root: {
+                          'aria-invalid': fieldDescription(
+                            row.controls.clientLineId.value,
+                            'taxRatePercent'
+                          )
+                            ? 'true'
+                            : undefined,
+                        },
+                      },
+                    }"
+                    [invalid]="
+                      !!fieldDescription(row.controls.clientLineId.value, 'taxRatePercent')
+                    "
                     mode="decimal"
                     [min]="0"
                     [max]="100"
@@ -264,34 +366,74 @@ import { InputValidators } from '../../../shared/forms/input-validation';
                   </p-inputgroup-addon>
                 </p-inputgroup>
               </label>
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'expiryDate')">
                 {{ 'purchaseOrders.receiveDialog.expiryDate' | transloco }}
                 <p-datepicker
                   ngSkipHydration
                   formControlName="expiryDate"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'expiryDate')"
+                  [pt]="{
+                    pcInputText: {
+                      root: {
+                        'aria-describedby': fieldDescription(
+                          row.controls.clientLineId.value,
+                          'expiryDate'
+                        ),
+                      },
+                    },
+                  }"
+                  [invalid]="!!fieldDescription(row.controls.clientLineId.value, 'expiryDate')"
                   dateFormat="dd/mm/yy"
                   [showIcon]="true"
                   [showButtonBar]="true"
                   appendTo="body"
                 />
               </label>
-              <label>
+              <label [for]="fieldId(row.controls.clientLineId.value, 'manufacturingDate')">
                 {{ 'purchaseOrders.receiveDialog.manufacturingDate' | transloco }}
                 <p-datepicker
                   ngSkipHydration
                   formControlName="manufacturingDate"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'manufacturingDate')"
+                  [pt]="{
+                    pcInputText: {
+                      root: {
+                        'aria-describedby': fieldDescription(
+                          row.controls.clientLineId.value,
+                          'manufacturingDate'
+                        ),
+                      },
+                    },
+                  }"
+                  [invalid]="
+                    !!fieldDescription(row.controls.clientLineId.value, 'manufacturingDate')
+                  "
                   dateFormat="dd/mm/yy"
                   [showIcon]="true"
                   [showButtonBar]="true"
                   appendTo="body"
                 />
               </label>
-              <label class="checkbox-row">
-                <p-checkbox formControlName="taxIncluded" [binary]="true" />
+              <label
+                class="checkbox-row"
+                [for]="fieldId(row.controls.clientLineId.value, 'taxIncluded')"
+              >
+                <p-checkbox
+                  formControlName="taxIncluded"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'taxIncluded')"
+                  [binary]="true"
+                />
                 {{ 'purchaseOrders.receiveDialog.taxIncluded' | transloco }}
               </label>
-              <label class="checkbox-row">
-                <p-checkbox formControlName="purchaseTaxIncluded" [binary]="true" />
+              <label
+                class="checkbox-row"
+                [for]="fieldId(row.controls.clientLineId.value, 'purchaseTaxIncluded')"
+              >
+                <p-checkbox
+                  formControlName="purchaseTaxIncluded"
+                  [inputId]="fieldId(row.controls.clientLineId.value, 'purchaseTaxIncluded')"
+                  [binary]="true"
+                />
                 {{ 'purchaseOrders.receiveDialog.purchaseTaxIncluded' | transloco }}
               </label>
               <button
@@ -547,6 +689,20 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
       this.context.epoch() === this.owner.epoch
     );
   }
+  private readonly accessibilityPrefix = `receiving-${++receivingInstance}`;
+  protected fieldId(rowId: string, field: string | undefined): string {
+    return `${this.accessibilityPrefix}-${rowId}-${field}`;
+  }
+  protected fieldDescription(rowId: string, field: string): string | undefined {
+    return (
+      this.errorsFor(rowId)
+        .flatMap((error, index) =>
+          error.field === field ? [this.fieldId(rowId, field) + '-error-' + index] : [],
+        )
+        .join(' ') || undefined
+    );
+  }
+
   protected errorsFor(id: string): readonly ReceivingRowError[] {
     return this.rowErrors().filter((error) => error.clientLineId === id);
   }

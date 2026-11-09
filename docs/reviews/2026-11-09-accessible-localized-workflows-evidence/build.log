@@ -1,0 +1,87 @@
+$ ng build && bun run build:worker && bun run build:server
+❯ Building...
+(node:80855) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+✔ Building...
+Initial chunk files | Names                                 |  Raw size | Estimated transfer size
+chunk-J77YUVOV.js   | -                                     | 187.86 kB |                54.81 kB
+main-5RD2GOD4.js    | main                                  | 130.43 kB |                18.96 kB
+chunk-HCFQGM2W.js   | -                                     |  96.09 kB |                24.15 kB
+chunk-Y4JUIBN5.js   | -                                     |  71.92 kB |                20.12 kB
+chunk-ASD32B3K.js   | -                                     |  57.92 kB |                13.34 kB
+chunk-K7NTGWOP.js   | -                                     |  48.13 kB |                13.92 kB
+styles-TM2WAXFM.css | styles                                |  47.91 kB |                 8.68 kB
+chunk-ZFRAWUGW.js   | -                                     |  23.78 kB |                 6.31 kB
+chunk-FPWJJ277.js   | -                                     |  15.04 kB |                 4.75 kB
+chunk-DFYYHWI7.js   | -                                     |  13.02 kB |                 3.09 kB
+chunk-5UZJKDSP.js   | -                                     |  10.60 kB |                 3.24 kB
+chunk-XEAMYQMY.js   | -                                     |  10.09 kB |                 3.26 kB
+chunk-T65SZTGT.js   | -                                     |   5.10 kB |                 1.25 kB
+chunk-3WWOTQO3.js   | -                                     |   4.48 kB |                 1.38 kB
+chunk-EBLBJSNY.js   | -                                     |   3.53 kB |                 1.06 kB
+chunk-3HFDJPSF.js   | -                                     |   3.52 kB |                 1.31 kB
+chunk-ZEC6DD2X.js   | -                                     |   3.45 kB |                 1.18 kB
+chunk-PROPW3ON.js   | -                                     |   2.98 kB |                 1.03 kB
+chunk-DEIZPOZB.js   | -                                     |   2.73 kB |                 1.15 kB
+chunk-42TKGXLC.js   | -                                     |   1.32 kB |               617 bytes
+chunk-ZOIIPXIY.js   | -                                     |   1.17 kB |               591 bytes
+chunk-SFUCYEDO.js   | -                                     | 832 bytes |               832 bytes
+chunk-ROHCK6GG.js   | -                                     | 828 bytes |               828 bytes
+chunk-T6A47GDO.js   | -                                     | 676 bytes |               676 bytes
+chunk-7KC4Z6U5.js   | -                                     | 239 bytes |               239 bytes
+
+                    | Initial total                         | 743.63 kB |               186.76 kB
+
+Lazy chunk files    | Names                                 |  Raw size | Estimated transfer size
+chunk-GEFGACZ7.js   | -                                     | 450.65 kB |                90.00 kB
+chunk-X6XBDJQO.js   | -                                     | 265.24 kB |                46.04 kB
+chunk-VBTOUQGS.js   | shell-routes                          | 250.92 kB |                42.78 kB
+chunk-4Z47IJCF.js   | dashboard-page-component              | 243.57 kB |                70.22 kB
+chunk-BQDAUJXL.js   | new-sale-page-component               | 228.81 kB |                44.69 kB
+chunk-WK2Q4HDG.js   | sales-page-component                  | 137.75 kB |                26.24 kB
+chunk-SIQ5JD2E.js   | -                                     | 104.91 kB |                22.13 kB
+chunk-PO2EQQD7.js   | -                                     | 103.70 kB |                19.58 kB
+chunk-A3JPPXJB.js   | customers-page-component              | 101.46 kB |                18.61 kB
+chunk-XXLXVYSQ.js   | discounts-page-component              |  85.00 kB |                16.35 kB
+chunk-UBHD4VTO.js   | offline-reconciliation-page-component |  84.37 kB |                17.73 kB
+chunk-UWY2IL43.js   | suppliers-page-component              |  82.10 kB |                15.48 kB
+chunk-DJG7LU7K.js   | -                                     |  81.57 kB |                15.72 kB
+chunk-4WP7PK5K.js   | inventory-page-component              |  72.00 kB |                14.07 kB
+chunk-FQDBYZBK.js   | inventory-batches-list-page-component |  70.95 kB |                16.33 kB
+...and 101 more lazy chunks files. Use "--verbose" to show all the files.
+
+Application bundle generation complete. [5.824 seconds] - 2026-11-09T08:35:31.192Z
+
+▲ [WARNING] bundle initial exceeded maximum budget. Budget 650.00 kB was not met by 93.63 kB with a total of 743.63 kB.
+
+
+▲ [WARNING] src/app/features/dashboard/pages/dashboard-page/dashboard-page.component.scss exceeded maximum budget. Budget 7.00 kB was not met by 119 bytes with a total of 7.12 kB.
+
+
+▲ [WARNING] src/app/features/customers/pages/customers-page.component.scss exceeded maximum budget. Budget 7.00 kB was not met by 3.67 kB with a total of 10.67 kB.
+
+
+▲ [WARNING] src/app/features/sales/pages/profit-loss-page/profit-loss-page.component.scss exceeded maximum budget. Budget 7.00 kB was not met by 184 bytes with a total of 7.18 kB.
+
+
+▲ [WARNING] src/app/features/sales/components/sale-detail/sale-return-preview-dialog.component.scss exceeded maximum budget. Budget 7.00 kB was not met by 1.89 kB with a total of 8.89 kB.
+
+
+▲ [WARNING] src/app/features/sales/pages/sales-page.component.scss exceeded maximum budget. Budget 7.00 kB was not met by 3.14 kB with a total of 10.14 kB.
+
+
+▲ [WARNING] src/app/features/sales/pages/offline-reconciliation-page/offline-reconciliation-page.component.scss exceeded maximum budget. Budget 7.00 kB was not met by 3.39 kB with a total of 10.39 kB.
+
+
+▲ [WARNING] src/app/features/inventory/pages/inventory-batch-page.component.scss exceeded maximum budget. Budget 7.00 kB was not met by 3.63 kB with a total of 10.63 kB.
+
+
+Output location: /Users/chanakya/projects/intelibill/src/frontend/dist/INVENTORY
+
+$ bun run scripts/finalize-service-worker.mjs
+Service worker: ngsw-worker.js now wraps ngsw-angular-worker.js.
+$ bun build src/server.ts --target=node --outfile=dist/INVENTORY/server/server.mjs
+Bundled 189 modules in 18ms
+
+  server.mjs  1.0 MB  (entry point)
+

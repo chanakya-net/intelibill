@@ -171,3 +171,19 @@
     box-shadow: none;
   }
 }
+
+/* Preserve the paper widths for printing while fitting the 80mm preview on a small screen. */
+@media screen and (max-width: 400px) {
+  .invoice-print-page {
+    padding: 8px;
+  }
+  .invoice-document--thermal {
+    width: min(100%, 80mm);
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .invoice-document:not(.invoice-document--thermal) {
+    padding: 16px;
+  }
+}

@@ -148,7 +148,7 @@ describe('OfflineSalesQueueIndexedDbService', () => {
   });
 
   it('no-ops cleanup and status reads when IndexedDB is unavailable', async () => {
-    vi.unstubAllGlobals();
+    vi.stubGlobal('indexedDB', undefined);
     service = new OfflineSalesQueueIndexedDbService();
 
     await expect(service.deleteOldSyncedRecords()).resolves.toBe(0);
