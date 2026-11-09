@@ -61,6 +61,7 @@ const cases = [
     lookup: 'expense-record',
     path: '/expenses',
     response: { id: 'expense' },
+    errorKey: 'expenses.errors.unexpected',
     request: ExpensesActions.recordExpenseRequested({ payload: expense }),
   },
   {
@@ -71,6 +72,7 @@ const cases = [
     lookup: 'expense-correction',
     path: '/expenses/expense/correct',
     response: { id: 'corrected' },
+    errorKey: 'expenses.errors.unexpected',
     request: ExpensesActions.correctExpenseRequested({ expenseId: 'expense', payload: expense }),
   },
   {
@@ -81,6 +83,7 @@ const cases = [
     lookup: 'sale-return',
     path: '/sales/sale/returns',
     response: { saleId: 'sale', returns: [] },
+    errorKey: 'errors.sales.returnRecordFailed',
     request: SalesActions.recordSaleReturnRequested({ saleId: 'sale', payload: returned }),
   },
   {
@@ -91,6 +94,7 @@ const cases = [
     lookup: 'sale-return-void',
     path: '/sales/returns/return/void',
     response: null,
+    errorKey: 'errors.sales.returnVoidFailed',
     request: SalesActions.voidSaleReturnRequested({
       saleId: 'sale',
       saleReturnId: 'return',
@@ -290,6 +294,6 @@ describe('Till source effects isolate detached outcomes from reset reducers', ()
       expect(state.submitting).toBe(false);
       expect(
         'returnPreviewErrorMessage' in state ? state.returnPreviewErrorMessage : state.errorMessage,
-      ).toBe('Current operation refused');
+      ).toBe(test.errorKey);
     });
 });
