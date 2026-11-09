@@ -63,9 +63,10 @@
 
     @if (isDiscountEditorOpen) {
       <div class="discount-editor mt-2">
-        <label [for]="controlPrefix + '-discount-type'">{{ 'sales.newSale.discounts.editSale' | transloco }}</label>
+        <label [id]="controlPrefix + '-discount-type-label'" [for]="controlPrefix + '-discount-type'">{{ 'sales.newSale.discounts.editSale' | transloco }}</label>
         <p-select
           [inputId]="controlPrefix + '-discount-type'"
+          [ariaLabelledBy]="controlPrefix + '-discount-type-label'"
           [disabled]="loading || isSubmitting"
           [options]="instantDiscountTypeOptions"
           optionValue="value"

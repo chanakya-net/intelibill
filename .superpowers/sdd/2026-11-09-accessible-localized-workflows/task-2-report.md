@@ -25,3 +25,9 @@ Green, from `src/frontend`:
 ## Review notes and limits
 
 The payment form has a local split-error description as well as the existing checkout summary copy. Task 3 owns the single-announcement/focus behavior; review that the two visual presentations do not produce redundant live announcements after its changes. Task 5 owns the full frontend build and built-browser accessibility/layout matrix. No full build or browser validation was claimed here.
+
+## Review fix: sale-discount combobox name
+
+The Task 2 review found that PrimeNG's sale-discount `p-select` renders the actual combobox on an inner `span`; `inputId` alone did not provide an accessible name, and the selected option's `labelKey` could become its name. Added a stable ID to the visible translated label and bound `ariaLabelledBy` on `p-select` so the native combobox points to that label. The rendered test now checks the native combobox `aria-labelledby` target and translated label text with an option selected.
+
+Red: `bun run test --run src/app/features/sales/components/new-sale/cart-checkout-summary.component.spec.ts` failed 1 of 6 tests because the native combobox had no `aria-labelledby`. Green: the same command passed all 6 tests after the fix. `git diff --check` passed.

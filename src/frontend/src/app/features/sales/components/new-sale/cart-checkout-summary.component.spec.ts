@@ -7,11 +7,18 @@ import { CartCheckoutSummaryComponent } from './cart-checkout-summary.component'
 import { SalePreviewDto } from '../../../../features/sales/services/sale.models';
 
 describe('CartCheckoutSummaryComponent', () => {
-  it('associates sale discount labels and errors with native controls', () => {
-    TestBed.configureTestingModule({ imports: [CartCheckoutSummaryComponent, TranslocoTestingModule.forRoot({ langs: { en: {} }, preloadLangs: true })] });
+  it('associates sale discount labels and errors with native controls', async () => {
+    TestBed.configureTestingModule({ imports: [CartCheckoutSummaryComponent, TranslocoTestingModule.forRoot({
+      langs: { en: { sales: { newSale: { discounts: { editSale: 'Edit sale discount', percent: 'Percent' } } } } },
+      translocoConfig: { availableLangs: ['en'], defaultLang: 'en' }, preloadLangs: true,
+    })] });
     const fixture = TestBed.createComponent(CartCheckoutSummaryComponent);
     fixture.componentInstance.isDiscountEditorOpen = true;
     fixture.componentInstance.saleDiscountError = 'sales.newSale.discounts.fixErrors';
+    fixture.componentInstance.instantDiscountTypeOptions = [{ value: 1, labelKey: 'sales.newSale.discounts.percent' }];
+    fixture.componentInstance.saleDiscountType = 1;
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
     const root = fixture.nativeElement as HTMLElement;
     const controls = [root.querySelector<HTMLElement>('[role="combobox"]'), root.querySelector<HTMLInputElement>('input.p-inputnumber-input')];
@@ -19,6 +26,10 @@ describe('CartCheckoutSummaryComponent', () => {
       expect(control?.id).toBeTruthy();
       expect(root.querySelector(`label[for="${control?.id}"]`)).toBeTruthy();
     }
+    const combobox = controls[0]!;
+    const label = root.querySelector<HTMLLabelElement>(`label[for="${combobox.id}"]`)!;
+    expect(combobox.getAttribute('aria-labelledby')).toBe(label.id);
+    expect(label.textContent?.trim()).toBe('Edit sale discount');
     const input = controls[1]!;
     expect(root.querySelector(`#${input.getAttribute('aria-describedby')}`)?.textContent).toContain('fixErrors');
   });
