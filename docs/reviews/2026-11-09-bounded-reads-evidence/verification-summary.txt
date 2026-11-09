@@ -1,0 +1,48 @@
+Bounded reads verification — 2026-11-09
+Task4 tests/docs commit dd86b2ae; final whole-branch review remains separate.
+Only original result/metric excerpts are preserved below; no full diagnostic logs or SQL parameters.
+
+Full backend, settled6617e690; no later backend product changes
+Source: /tmp/intelibill-bounded-backend-final.log
+Passed!  - Failed:     0, Passed:   468, Skipped:     0, Total:   468, Duration: 65 ms - Intelibill.Domain.Unit.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:  1802, Skipped:     0, Total:  1802, Duration: 1 s - Intelibill.Application.Unit.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   587, Skipped:     0, Total:   587, Duration: 1 s - Intelibill.Api.Unit.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:  1136, Skipped:     0, Total:  1136, Duration: 23 m 42 s - Intelibill.Integration.Tests.dll (net10.0)
+
+Full frontend,2052873c
+Source: /tmp/intelibill-bounded-frontend-final.log
+ Test Files  294 passed (294)
+      Tests  2917 passed (2917)
+ 59 pass
+ 0 fail
+Ran 59 tests across 6 files. [789.00ms]
+
+Adversarial/accounting focused integration
+Source: /tmp/task4-bounded-final.log
+Test Run Successful.
+Total tests: 48
+     Passed: 48
+ Total time: 2.1812 Minutes
+
+Supplemental measured checks
+Source: /tmp/task4-memory-final.log
+ export sales=1000, commands=36/36, actualRows=6014, maxReaderRows=1000, elapsedMs=471, allocatedBytes=26941864, sampledPeakManagedBytes=278223680, sampledPeakResidentBytes=405585920
+ export sales=100, commands=26/26, actualRows=614, maxReaderRows=100, elapsedMs=18, allocatedBytes=2361600, sampledPeakManagedBytes=290461408, sampledPeakResidentBytes=407306240
+ near-limit xlsx outputRows=49999 sourceRows=50000 commands=74 actualRows=50014 maxReaderRows=1000 materializeMs=1599 totalMs=6017 allocatedBytes=3516238048 sampledPeakManagedBytes=526690552, sampledPeakResidentBytes=657948672 fileBytes=2907143
+ directory customers parties=10000 ledgerRows=20000 commands/page=9 firstRows=205 lastRows=205 filteredRows=25 maxReaderRows=100 threeRequestsMs=323 allocatedBytes=27017592 sampledPeakManagedBytes=538383864 sampledPeakResidentBytes=1100398592
+ directory suppliers parties=10000 ledgerRows=20000 commands/page=5 firstRows=203 lastRows=203 filteredRows=23 maxReaderRows=100 threeRequestsMs=253 allocatedBytes=24635816 sampledPeakManagedBytes=562013160 sampledPeakResidentBytes=1252704256
+Test Run Successful.
+Total tests: 4
+     Passed: 4
+ Total time: 43.1945 Seconds
+
+Final production release audit,2052873c frontend unchanged
+Source: /tmp/intelibill-bounded-release-final.log
+  58 passed (6.8m)
+
+EF model check:
+No changes have been made to the model since the last migration.
+
+Production build: exit0; /tmp/intelibill-bounded-browser-build.log.
+Telugu browser repeat:3/3 passed over desktop/mobile/reflow; /tmp/intelibill-bounded-browser-te-repeat.log.
+Near-limit memory samples are local process observations, not production/concurrency capacity.

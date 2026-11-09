@@ -160,9 +160,11 @@ rendering-library behavior still need environment-specific measurement.
   behavioral tests followed by12 green; the audit now awaits real popup closure and normalizes the
   full-page viewport, retaining all axe rules. Telugu repeated3/3 passed across desktop/mobile/reflow;
   `/tmp/intelibill-bounded-browser-{red,green,te-repeat}.log`.
-- Final58-test production release audit is running under the coordinator; its result and final
-  captures must be recorded before release/PR completion.
+- Final production release audit on the2052873c frontend passed58/58 in6.8minutes, exit0;
+  `/tmp/intelibill-bounded-release-final.log`. The frontend was unchanged by Task4 tests/docs.
+  [Final captures and compact original result excerpts](reviews/2026-11-09-bounded-reads-evidence/README.md)
+  preserve the evidence; earlier committed accessibility screenshots were restored unchanged.
+  Independent whole-branch review remains a separate gate.
 
-Local `/tmp` logs are execution artifacts; this document records the reviewable contracts, counts
-and limitations in the repository. Final release captures belong in this feature's evidence
-directory, preserving earlier committed accessibility evidence.
+Local `/tmp` logs are execution artifacts; the linked evidence directory retains compact original
+summaries and final captures. This document records the reviewable contracts, counts and limitations.
