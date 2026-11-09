@@ -1,3 +1,6 @@
+using Intelibill.Domain.ReadModels;
+using Intelibill.Application.Features.Customers.Queries.GetCustomer;
+using Intelibill.Application.Features.Customers.Queries.GetCustomerDirectory;
 using Intelibill.Application.Features.Tills;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -35,6 +38,28 @@ public sealed class CustomersController : AuthenticatedControllerBase
             new GetCustomersQuery(ActiveShopId!.Value),
             cancellationToken);
 
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("directory")]
+    public async Task<IActionResult> GetDirectory([FromQuery] string? search, [FromQuery] string status = "all",
+        [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var auth = CheckShop();
+        if (auth is not null) return auth;
+        var result = await Bus.InvokeAsync<ErrorOr<CustomerDirectoryDto>>(
+            new GetCustomerDirectoryQuery(ActiveShopId!.Value, new PartyDirectoryQuery(search, status, pageNumber, pageSize)), cancellationToken);
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("{customerId:guid}")]
+    public async Task<IActionResult> GetById(Guid customerId, CancellationToken cancellationToken)
+    {
+        var auth = CheckShop();
+        if (auth is not null) return auth;
+        var result = await Bus.InvokeAsync<ErrorOr<CustomerDto>>(
+            new GetCustomerQuery(ActiveShopId!.Value, customerId), cancellationToken);
         return result.ToActionResult(Ok);
     }
 

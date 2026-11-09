@@ -23,25 +23,19 @@ internal sealed class SupplierLedgerEntryRepository(ApplicationDbContext context
             .ThenByDescending(e => e.CreatedAt)
             .ToListAsync(cancellationToken);
 
-    public async Task<decimal> GetSupplierBalanceAsync(Guid shopId, Guid supplierId, CancellationToken cancellationToken = default)
-    {
-        var entries = await DbSet
-            .Where(e => e.ShopId == shopId && e.SupplierId == supplierId)
-            .Select(e => new { e.EntryType, e.Amount })
-            .ToListAsync(cancellationToken);
+    public async Task<decimal> GetSupplierBalanceAsync(Guid shopId, Guid supplierId, CancellationToken cancellationToken = default) =>
+        await DbSet.Where(e => e.ShopId == shopId && e.SupplierId == supplierId)
+            .SumAsync(e => e.EntryType == SupplierLedgerEntryType.PaymentMade ? -e.Amount : e.Amount, cancellationToken);
 
-        return entries.Sum(e => e.EntryType == SupplierLedgerEntryType.PaymentMade ? -e.Amount : e.Amount);
+    public async Task<IReadOnlyDictionary<Guid, decimal>> GetSupplierBalancesAsync(
+        Guid shopId, IReadOnlyCollection<Guid> supplierIds, CancellationToken cancellationToken = default)
+    {
+        if (supplierIds.Count == 0) return new Dictionary<Guid, decimal>();
+        return await PartyLedgerQueries.Suppliers(DbSet.Where(e => e.ShopId == shopId && supplierIds.Contains(e.SupplierId)))
+            .ToDictionaryAsync(e => e.PartyId, e => e.Amount, cancellationToken);
     }
 
-    public async Task<decimal> GetSupplierPayablesAsync(Guid shopId, CancellationToken cancellationToken = default)
-    {
-        var entries = await DbSet
-            .Where(e => e.ShopId == shopId)
-            .Select(e => new { e.SupplierId, e.EntryType, e.Amount })
-            .ToListAsync(cancellationToken);
-
-        return entries
-            .GroupBy(e => e.SupplierId)
-            .Sum(group => Math.Max(0m, group.Sum(e => e.EntryType == SupplierLedgerEntryType.PaymentMade ? -e.Amount : e.Amount)));
-    }
+    public async Task<decimal> GetSupplierPayablesAsync(Guid shopId, CancellationToken cancellationToken = default) =>
+        await PartyLedgerQueries.Suppliers(DbSet.Where(e => e.ShopId == shopId))
+            .Where(e => e.Amount > 0m).SumAsync(e => e.Amount, cancellationToken);
 }

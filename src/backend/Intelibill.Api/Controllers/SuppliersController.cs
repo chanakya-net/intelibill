@@ -1,3 +1,6 @@
+using Intelibill.Domain.ReadModels;
+using Intelibill.Application.Features.Suppliers.Queries.GetSupplier;
+using Intelibill.Application.Features.Suppliers.Queries.GetSupplierDirectory;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.Enums;
 using Intelibill.Application.Features.Payments.DTOs;
@@ -49,6 +52,28 @@ public sealed class SuppliersController : AuthenticatedControllerBase
             new GetSupplierEntriesQuery(UserId!.Value, ActiveShopId!.Value, supplierId),
             cancellationToken);
 
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("directory")]
+    public async Task<IActionResult> GetDirectory([FromQuery] string? search, [FromQuery] string status = "all",
+        [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery(Name = "include_system")] bool includeSystem = true,
+        CancellationToken cancellationToken = default)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+        var result = await Bus.InvokeAsync<ErrorOr<SupplierDirectoryDto>>(
+            new GetSupplierDirectoryQuery(UserId!.Value, ActiveShopId!.Value, new PartyDirectoryQuery(search, status, pageNumber, pageSize), includeSystem), cancellationToken);
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("{supplierId:guid}")]
+    public async Task<IActionResult> GetById(Guid supplierId, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuthAndShop();
+        if (auth is not null) return auth;
+        var result = await Bus.InvokeAsync<ErrorOr<SupplierDto>>(
+            new GetSupplierQuery(UserId!.Value, ActiveShopId!.Value, supplierId), cancellationToken);
         return result.ToActionResult(Ok);
     }
 
