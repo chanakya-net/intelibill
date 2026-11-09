@@ -61,12 +61,15 @@ public sealed partial class ExportQueryBudgetTests(PostgreSqlTestFixture fixture
         await AddReturnAsync(seed);
         await using (var owner = Owner())
         {
+            // Materialize the composite once per copy; expanding (function()).* repeats it per column.
             await owner.Database.ExecuteSqlAsync($"""
-                INSERT INTO sale_items
-                SELECT (jsonb_populate_record(NULL::sale_items,
-                    to_jsonb(source) || jsonb_build_object('id', gen_random_uuid()))).*
-                FROM sale_items source CROSS JOIN generate_series(1, 50000)
-                WHERE source.sale_id = {seed.Sale.Id}
+                WITH copies AS MATERIALIZED (
+                    SELECT jsonb_populate_record(NULL::sale_items,
+                        to_jsonb(source) || jsonb_build_object('id', gen_random_uuid())) AS line
+                    FROM sale_items source CROSS JOIN generate_series(1, 50000)
+                    WHERE source.sale_id = {seed.Sale.Id}
+                )
+                INSERT INTO sale_items SELECT (line).* FROM copies
                 """);
         }
         var commands = new Commands();

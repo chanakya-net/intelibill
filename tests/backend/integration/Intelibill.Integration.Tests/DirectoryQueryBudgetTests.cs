@@ -321,10 +321,14 @@ public sealed class DirectoryQueryBudgetTests(PostgreSqlTestFixture fixture, Xun
             var sale = Sale.Create(_shop, "OVERSIZED", null, "Buyer", null, PaymentMethod.Cash, new(2026, 6, 10, 9, 0, 0, TimeSpan.Zero), lines, 0, lines, 0, [line]);
             db.AddRange(service, sale);
             await db.SaveChangesAsync();
+            // Avoid evaluating jsonb_populate_record separately for every sale_items column.
             await db.Database.ExecuteSqlAsync($"""
-                INSERT INTO sale_items SELECT (jsonb_populate_record(NULL::sale_items,
-                    to_jsonb(source) || jsonb_build_object('id', gen_random_uuid()))).*
-                FROM sale_items source CROSS JOIN generate_series(1, {lines - 1}) WHERE source.sale_id = {sale.Id}
+                WITH copies AS MATERIALIZED (
+                    SELECT jsonb_populate_record(NULL::sale_items,
+                        to_jsonb(source) || jsonb_build_object('id', gen_random_uuid())) AS line
+                    FROM sale_items source CROSS JOIN generate_series(1, {lines - 1}) WHERE source.sale_id = {sale.Id}
+                )
+                INSERT INTO sale_items SELECT (line).* FROM copies
                 """);
         }
         using var observed = ObserveRequest();

@@ -232,11 +232,14 @@ public sealed partial class ExportQueryBudgetTests
         var seed = await SeedAsync(1);
         await using (var owner = Owner())
         {
+            // Keep JSON conversion outside composite expansion so it runs once per generated line.
             await owner.Database.ExecuteSqlAsync($"""
-                INSERT INTO sale_items
-                SELECT (jsonb_populate_record(NULL::sale_items,
-                    to_jsonb(source) || jsonb_build_object('id', gen_random_uuid(), 'line_name', 'Line ' || g::text))).*
-                FROM sale_items source CROSS JOIN generate_series(1, 49998) g WHERE source.sale_id = {seed.Sale.Id}
+                WITH copies AS MATERIALIZED (
+                    SELECT jsonb_populate_record(NULL::sale_items,
+                        to_jsonb(source) || jsonb_build_object('id', gen_random_uuid(), 'line_name', 'Line ' || g::text)) AS line
+                    FROM sale_items source CROSS JOIN generate_series(1, 49998) g WHERE source.sale_id = {seed.Sale.Id}
+                )
+                INSERT INTO sale_items SELECT (line).* FROM copies
                 """);
             await owner.Database.ExecuteSqlAsync($"UPDATE sales SET total_before_discount = 49999, total_amount = 49999, paid_amount = 49999 WHERE id = {seed.Sale.Id}");
         }
