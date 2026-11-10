@@ -1,0 +1,167 @@
+/*
+ * Editor dialog content: the header (eyebrow, title, subtitle), field grid, form, summary and
+ * section cards, fields, actions, preview and hint used inside the customer, expense, password,
+ * supplier, batch list and barcode label dialogs. Previously the `styles` mixin of
+ * shared/styles/_editor-dialog.scss, compiled into each of them. The dialog frame and PrimeNG
+ * input overrides (`:host ::ng-deep .editor-dialog`) and the native overlay frame (`overlay`
+ * mixin) stay in that partial: they depend on component scoping.
+ */
+@layer ib-kit {
+  .ib-editor-dialog-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .ib-editor-dialog-grid > div {
+    min-width: 0;
+  }
+
+  .ib-editor-dialog-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding-right: 1.5rem;
+  }
+
+  .ib-editor-dialog-header__eyebrow {
+    margin: 0;
+    color: #9b5d20;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+  }
+
+  .ib-editor-dialog-header__title {
+    margin: 0;
+    color: #2a1b12;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+
+  .ib-editor-dialog-header__subtitle {
+    color: #6f5a48;
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+
+  .ib-editor-dialog-form {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .ib-editor-dialog-summary,
+  .ib-editor-dialog-section {
+    display: grid;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid #ead7c1;
+    border-radius: 1rem;
+    background: linear-gradient(180deg, rgba(255, 252, 248, 0.98), rgba(255, 245, 232, 0.92));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  }
+
+  .ib-editor-dialog-summary {
+    gap: 0.25rem;
+    color: #2a1b12;
+    overflow-wrap: anywhere;
+  }
+
+  .ib-editor-dialog-summary strong {
+    font-family: monospace;
+    font-size: 1rem;
+  }
+
+  .ib-editor-dialog-summary__label {
+    color: #9b5d20;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .ib-editor-dialog-summary__name {
+    color: #6f5a48;
+    font-size: 0.9rem;
+  }
+
+  .ib-editor-dialog-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .ib-editor-dialog-field > label {
+    color: #6f5a48;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .ib-editor-dialog-actions {
+    display: flex;
+    width: 100%;
+    justify-content: flex-end;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 640px) {
+    .ib-editor-dialog-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .ib-editor-dialog-actions {
+      flex-direction: column-reverse;
+      align-items: stretch;
+    }
+  }
+
+  .ib-editor-dialog-preview {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid #ead7c1;
+    border-radius: 1rem;
+    background: rgba(255, 252, 248, 0.95);
+  }
+
+  .ib-editor-dialog-preview > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+
+  .ib-editor-dialog-preview span {
+    color: #6f5a48;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .ib-editor-dialog-preview strong {
+    color: #2a1b12;
+    font-size: 1rem;
+    overflow-wrap: anywhere;
+  }
+
+  .ib-editor-dialog-preview strong.text-red-600 {
+    color: #dc2626;
+  }
+
+  .ib-editor-dialog-preview strong.text-green-700 {
+    color: #15803d;
+  }
+
+  .ib-editor-dialog-hint {
+    margin: 0;
+    color: #6f5a48;
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+}

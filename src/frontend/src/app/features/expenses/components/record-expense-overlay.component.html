@@ -8,10 +8,10 @@
 
   <div class="overlay-card editor-dialog">
     <header class="overlay-header">
-      <div class="editor-dialog-header">
-        <p class="eyebrow">{{ 'expenses.title' | transloco }}</p>
-        <h2>{{ 'expenses.recordExpense' | transloco }}</h2>
-        <p class="subtitle">{{ 'expenses.recordExpenseDescription' | transloco }}</p>
+      <div class="editor-dialog-header ib-editor-dialog-header">
+        <p class="ib-editor-dialog-header__eyebrow">{{ 'expenses.title' | transloco }}</p>
+        <h2 class="ib-editor-dialog-header__title">{{ 'expenses.recordExpense' | transloco }}</h2>
+        <p class="ib-editor-dialog-header__subtitle">{{ 'expenses.recordExpenseDescription' | transloco }}</p>
       </div>
       <button
         type="button"
@@ -24,7 +24,7 @@
     </header>
 
     <form id="record-expense-form" class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
-      <div class="editor-dialog-section editor-dialog-grid">
+      <div class="editor-dialog-section ib-editor-dialog-section editor-dialog-grid ib-editor-dialog-grid">
         <label>
           <span>{{ 'expenses.treatment.label' | transloco }}</span>
           <select
@@ -158,7 +158,7 @@
     </form>
 
     <footer class="overlay-footer">
-      <div class="actions editor-dialog-actions">
+      <div class="actions editor-dialog-actions ib-editor-dialog-actions">
         <button
           pButton
           type="button"

@@ -10,9 +10,9 @@
 >
   <ng-template pTemplate="header" let-titleId="ariaLabelledBy">
     <div class="supplier-detail-header">
-      <div class="editor-dialog-header">
-        <p class="eyebrow">{{ 'suppliers.title' | transloco }}</p>
-        <h2 [id]="titleId">{{ 'suppliers.ledgerEntries' | transloco }}</h2>
+      <div class="editor-dialog-header ib-editor-dialog-header">
+        <p class="ib-editor-dialog-header__eyebrow">{{ 'suppliers.title' | transloco }}</p>
+        <h2 class="ib-editor-dialog-header__title" [id]="titleId">{{ 'suppliers.ledgerEntries' | transloco }}</h2>
       </div>
       @if (currentSupplierId()) {
         <a
@@ -36,7 +36,7 @@
       <div class="error">{{ facade.ledgerErrorMessage() | transloco }}</div>
     } @else {
       <div class="supplier-detail">
-        <section class="editor-dialog-section ledger-section">
+        <section class="editor-dialog-section ib-editor-dialog-section ledger-section">
           <div class="ledger-controls">
             <h3 class="details-heading">{{ 'suppliers.details' | transloco }}</h3>
             <div class="filter-buttons">
@@ -71,7 +71,7 @@
         </section>
 
         @if (canMakePayment) {
-          <section class="editor-dialog-section payment-section">
+          <section class="editor-dialog-section ib-editor-dialog-section payment-section">
             <h3 class="details-heading">{{ 'suppliers.recordPayment' | transloco }}</h3>
             @if (paymentErrorMessage()) {
               <div class="error">{{ paymentErrorMessage() | transloco }}</div>
