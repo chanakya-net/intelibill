@@ -354,3 +354,30 @@ Same method for both columns (`bun run build`, production; gzip level 9 per file
   timing failures were compared by name only.
 - `bun run build`: exit 0, the same 9 warnings. `bun run test --watch=false`: 299 files, 2,946 tests
   passed; 71 Bun script specs passed. `bun run audit:styles:duplicates`: 27, ceiling 27.
+
+## Phases 3-5 — offline pack: results
+
+Design as built is documented in `docs/frontend-architecture.md` § Offline Pack. Measured on the production
+build of this branch:
+
+| Measure | Before | After |
+|---|---:|---:|
+| Background download on a device without offline billing | whole `app` group (about 4.5 MB raw / 1.2 MB gzip) | none: the worker installs `ngsw-lite.json` |
+| Full pack on an enabled device | `app` group only; fonts/locales lazily | `app` 153 files 4,538,255 / 1,188,032 gzip + `offline` 28 files 2,987,969 / 902,463 gzip |
+| Angular "Initial total" | 739.05 kB | 739.59 kB (the update service is imported on demand) |
+| Build warnings | 9 | 9 (same files, same sizes) |
+
+Deviations from the plan:
+
+- The pack status (`OfflinePackStatus`) is stored device-wide in its own key
+  (`intelibill.offlineSales.offlinePack.v1`, `OfflinePackStatusStorage`), not inside each shop's device
+  settings: the pack is shared by every shop on the browser.
+- `activateUpdate()` after `VERSION_READY` is called only when the `buildId` is unchanged (a pure pack switch);
+  a different build is left to the "Update ready" control, which reloads.
+- Verification also requires the worker's `/ngsw/state` not to be `EXISTING_CLIENTS_ONLY`/`SAFE_MODE` (spike B
+  caveat b), and enabling registers `ngsw-worker.js` itself when the app has not yet (it registers 30 s after
+  stable).
+- Lease expiry is not surfaced: no existing helper did, and lease semantics are unchanged.
+- Release proof gap: Angular only sends `VERSION_READY` to tabs it has assigned a version; a tab that loaded
+  before the worker existed is assigned by its next app-file request. The release test reloads once under the
+  worker before deploying the "next" build.

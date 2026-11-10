@@ -248,7 +248,7 @@ may hold a protected answer now:
 - **Coverage.** A tab still running an older build is protected once a page of this build loads anywhere in that
   browser, or the browser makes its next update check of `ngsw-worker.js` (any in-scope navigation). Until then,
   only that tab's own requests can be answered from its old caches.
-- **Serving.** `src/server.ts` revalidates `index.html`, `ngsw.json`, the worker scripts and
+- **Serving.** `src/server.ts` revalidates `index.html`, `ngsw.json`, `ngsw-lite.json`, the worker scripts and
   `manifest.webmanifest` on every load (`server-cache-policy.ts`); hashed bundles keep `max-age=1y`.
 - **Rollback and kill switch.** Never deploy Angular's bare worker at `ngsw-worker.js` again, so never roll back
   below this change. The browser's update check would install it in every tab, and any bare worker re-reads the
@@ -269,6 +269,108 @@ may hold a protected answer now:
   - queued sales surviving the purge;
   - the shell opening offline while the API fails closed;
   - the production interceptor's headers.
+
+## Shared Styles
+
+Repeated component styles live once, in a lazily delivered UI kit; component files keep only what is unique.
+Plan and measurements: `docs/superpowers/plans/2026-11-10-shared-styles-and-offline-pack.md` and its `-baseline.md`.
+
+- **Layers.** Tokens (`--app-*` custom properties: orange, sand/brown/bronze, stone, slate, red, amber, radii,
+  shadows, font families) sit on `:root` in `src/styles.css` and ship with the first load. Kit classes use the
+  `ib-` prefix so a generic component class (`.actions`) can never pick up a kit rule. Cascade order, pinned by
+  `tests/ui-audit/mock/ui-kit-cascade.spec.ts`: `theme, base, primeng, properties, components, utilities, ib-base,
+  ib-kit`, then unlayered component styles. The global `h1`-`h6`/`p` resets are in `@layer ib-base`, so a kit
+  margin or font beats them; any unlayered component rule beats the kit, whatever its specificity.
+- **Delivery.** `UiKitStylesComponent` (`shared/styles/ui-kit/`, selector `app-ui-kit-styles`, empty template,
+  `ViewEncapsulation.None`) lists one stylesheet per family and is the shell's first child, so the kit lands in
+  the shell's lazy chunk, never on `/login`. Angular removes a component's styles with its last instance, so pages
+  outside the shell render a host of their own. `AuthKitStylesComponent` (`ib-auth.scss`) does the same for the
+  four auth pages. Signed-in-only global rules moved out of `styles.css` into `ShellGlobalStylesComponent`
+  (`core/layout/shell-global-styles/`, unlayered as before).
+- **Families.** Overlay frame (`ib-overlay*`), page heading (`ib-page-title`, `ib-eyebrow`, `ib-subtitle`), summary
+  cards, directory panel (`ib-panel*`), meta/metric chips, form section, search shell, editor dialog
+  (`ib-editor-dialog-*`), auth pages. Variants stay in the component as small unlayered overrides; where tests or
+  remaining rules use an old class name the template keeps it beside the `ib-` one.
+- **Not moved.** Rules a layered kit rule would no longer beat (an element rule such as `label` or a component's
+  own `.field label`), PrimeNG `::ng-deep`/`pt` rules, unencapsulated pages whose global rules apply while open,
+  and near-identical but not equal variants (other eyebrow and subtitle colours, larger titles). Near-duplicate
+  colours are listed in the baseline doc for a keep-or-merge decision; only exact matches were tokenised.
+- **Guard.** `bun run audit:styles:duplicates` (`scripts/audit-duplicate-styles.mjs`) fails when a rule block of
+  3+ declarations repeats word for word in 4+ component stylesheets more often than the ceiling in
+  `scripts/audit-duplicate-styles.ceiling.json` (27, down from 64); `var(--app-*)` is resolved before comparing.
+  Fonts ship as WOFF2. Every move was checked by compiling before/after and by computed styles in the browser: no
+  element's computed style changed.
+
+## Offline Pack
+
+The app's own files are cached for offline use only on a device where offline billing is enabled for some shop.
+Every other device downloads nothing in the background and relies on ordinary HTTP caching (hashed bundles are
+immutable for a year).
+
+- **Two manifests.** `scripts/finalize-service-worker.mjs` (`build:worker`) keeps Angular's `ngsw.json` as the
+  full pack (`app` group: every `/*.js`, `/*.css`, `index.html`; `offline` group: `/fonts/*.woff2`,
+  `/media/*.woff2`, all `/assets/i18n/*.json`, `/icons/*.png`, `/illustrations/*.svg`; both `prefetch`) and writes
+  `ngsw-lite.json`: the same manifest with no asset groups, no hashes and `navigationRequestStrategy: freshness`.
+  Both carry `appData.buildId` (SHA-1 of the hash table, so `timestamp` alone never makes a new build) and
+  `appData.offlinePack: full|lite`. Both are revalidated on every load (`server-cache-policy.ts`).
+- **Manifest switch.** The page writes one word, `on` or `off`, into Cache Storage `intelibill:offline-pack:state`
+  under key `intelibill-offline-pack-state` (`core/service-worker/offline-pack-flag.ts`; not `ngsw:`-prefixed, so
+  Angular's clean-up never deletes it; no user or shop data). Before `importScripts`, the wrapper
+  (`service-worker/protected-api-worker.js`) wraps `self.fetch`: a same-origin `GET` of `ngsw.json` is answered
+  with `ngsw-lite.json` (same cache-bust query) only when the flag is exactly `off`. A missing or unreadable flag
+  means full, so a device that had the pack before this existed keeps it even if the worker updates before a page
+  writes the flag; a lite answer that is not OK falls back to the full manifest (a 404 would make Angular wipe its
+  caches). Every other request passes through with its own arguments; `/api` and `/hubs` never reach Angular
+  (§ Protected API Cache Isolation). `scripts/tests/offline-pack-worker.spec.ts` runs the wrapper with Angular's
+  real worker behind it; `angular-worker-manifest.spec.ts` pins how Angular fetches the manifest.
+- **Flag reconciliation.** `OfflinePackUpdateService.start()` (app initializer, imported on demand, never awaited)
+  first writes `on` when `OfflineSalesDeviceSettingsStorage.anyShopEnabled()`, explicit `off` otherwise, then asks
+  the worker to check.
+- **Enabling** (`OfflineSalesDeviceEnablementService.enableForShop`, step `appPack` before `snapshot` and `lease`,
+  exposed as `step()` for both entry points). `OfflinePackService.prepare()`: free space via
+  `navigator.storage.estimate` (needs `OFFLINE_PACK_MIN_FREE_BYTES`, 25 MB), best-effort
+  `navigator.storage.persist()`, flag `on`, registers `ngsw-worker.js` itself if the app has not yet (it registers
+  30 s after stable), `checkForUpdate()`, then polls until every URL of every prefetch group of the deployed
+  `ngsw.json` (fetched with `ngsw-bypass`) is in `ngsw:<scope>:<hash>:assets:<group>:cache`, where `<hash>` is
+  Angular's `hashManifest` (`angularManifestHash`), and the worker's `/ngsw/state` is not
+  `EXISTING_CLIENTS_ONLY`/`SAFE_MODE`. Fails with `APP_PACK_INCOMPLETE` (`packFailure`: `STORAGE_LOW`,
+  `INSTALL_FAILED` on `VERSION_INSTALLATION_FAILED` or a degraded worker once the check settled, `TIMEOUT` after
+  180 s, `UNREACHABLE`). Success records `OfflinePackStatus` (state, buildId, manifest hash, persisted, last
+  checked, last updated) device-wide in `OfflinePackStatusStorage` (`intelibill.offlineSales.offlinePack.v1`). Any
+  failure after the pack step calls `release()`: flag back to `off` unless another shop still needs it. Without a
+  service worker (`SwUpdate.isEnabled` false: development builds) the step is skipped and enabling works as before.
+- **Disabling** the last enabled shop (shell toggle) calls `release()`: flag `off`, status cleared, update check.
+  The pack itself goes when the worker next starts with no tab on the full version (Angular cleans caches only on
+  worker start).
+- **Spike B caveats and how they are covered.** (a) An open tab stays on the version it loaded until it activates
+  another: after a lite/full switch of the same `buildId` the page calls `activateUpdate()` (same files, no
+  reload); a different build is offered, never activated under the user. Angular only tells tabs it has assigned a
+  version (a tab that loaded before the worker existed is assigned by its next app-file request). (b) After a
+  failed install the worker serves unseen tabs from the network until it restarts: `VERSION_INSTALLATION_FAILED`
+  or a degraded `/ngsw/state` is never reported as a working pack (enable fails; on an enabled device the status
+  becomes `incomplete`). (c) Full -> lite does not delete the pack at once: the device stops relying on it
+  immediately, the caches go on a later worker start. (d) A worker's very first install is not all-or-nothing:
+  `VERSION_READY` is never the proof; the cache lookup is.
+- **Periodic update** (`OfflinePackUpdateService`): `checkForUpdate()` at start, every 30 minutes while the tab is
+  visible and the API reachable, on `online` and when the tab becomes visible; one check at a time (60 s cap). A
+  `VERSION_READY` of a different build shows the shell's `shell.appUpdate.*` notice; "Update now" runs
+  `ShopContextService.prepareToLeave()` (refuses with `shell.appUpdate.busy` while a write is in flight or a draft
+  cannot be saved), then `activateUpdate()` and a reload. Never reloads on its own; the next app start uses the new
+  version anyway. `SwUpdate.unrecoverable` shows "reload while online". On an enabled device the same cycle
+  re-verifies the pack (`refreshStatus`; `incomplete` shows as an amber shell toggle and "Enabled — offline files
+  incomplete" in Manage shop) and refreshes the active shop's snapshot once older than `SNAPSHOT_REFRESH_AGE_MS`
+  (6 h; offline billing refuses one older than 48 h). Invoice leases are not touched.
+- **Device settings UI.** Manage shop → offline step lists "Offline files" (ready/incomplete), version (first 8 of
+  `buildId`), last checked, last updated, and warns when the browser did not grant persistent storage (Safari may
+  still evict an unused site's storage; the pack is re-verified on each online start).
+- **Proof.** `tests/ui-audit/release/offline-pack.spec.ts` against the production build: a fresh device with
+  offline off fetches only `ngsw-lite.json`, holds no asset cache and is served no chunk its page did not load;
+  enabling from the shell downloads and verifies the full pack (no `/api`/`/hubs` URL in any cache) and
+  `/sales/new` then reloads with the network cut, served wholly from the pack; an interrupted download refuses
+  enabling with the new message and flag `off`; a later deployment is detected by a check, offered, and applied
+  through the control; a device with a pre-flag pack keeps it through the worker upgrade and the app's
+  reconciliation. Not automated: an offline invoice print from the pack, cart preservation across "Update now"
+  (covered by `prepareToLeave` unit tests), low storage and Safari eviction in a real browser.
 
 ## Quantity Input
 
