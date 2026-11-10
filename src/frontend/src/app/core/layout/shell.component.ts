@@ -89,10 +89,19 @@ export class ShellComponent {
     }
   });
 
-  /** A new build is downloaded; applying it saves drafts first and reloads. Never applied on its own. */
-  readonly isAppUpdateReady = this.appUpdate.updateReady;
+  /**
+   * A new build is downloaded; applying it saves drafts first and reloads. Never applied on its own.
+   * Also shown when offline billing was enabled while a newer build waited: this tab still runs the
+   * earlier build, whose files the offline pack does not hold, until it is updated.
+   */
+  readonly isAppUpdateReady = computed(() => this.appUpdate.updateReady() || this.offlinePack.reloadRequired());
   readonly isAppUpdateApplying = this.appUpdate.applying;
   readonly appUpdateErrorKey = this.appUpdate.applyErrorKey;
+  readonly appUpdateMessageKey = computed(
+    () =>
+      this.appUpdate.applyErrorKey() ??
+      (this.offlinePack.reloadRequired() ? 'shell.appUpdate.offlineNeedsUpdate' : 'shell.appUpdate.ready'),
+  );
   readonly isAppVersionUnrecoverable = this.appUpdate.unrecoverable;
 
   private readonly routedUrl = toSignal(

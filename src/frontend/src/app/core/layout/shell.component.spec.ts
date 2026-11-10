@@ -551,7 +551,8 @@ describe('ShellComponent', () => {
       reload: vi.fn(),
     };
     const packStatus = signal<OfflinePackStatus | null>(null);
-    const offlinePack = { status: packStatus, release: vi.fn(async () => undefined) };
+    const reloadRequired = signal(false);
+    const offlinePack = { status: packStatus, reloadRequired, release: vi.fn(async () => undefined) };
 
     function createWithUpdate() {
       appUpdate.applyUpdate.mockClear();
@@ -569,6 +570,7 @@ describe('ShellComponent', () => {
       updateReady.set(false);
       unrecoverable.set(false);
       packStatus.set(null);
+      reloadRequired.set(false);
     });
 
     it('stays hidden until a new build is ready, then applies it only when asked', () => {
@@ -582,6 +584,17 @@ describe('ShellComponent', () => {
       expect(notice?.getAttribute('role')).toBe('status');
       expect(notice?.textContent).toContain('ready');
       expect(appUpdate.applyUpdate).not.toHaveBeenCalled();
+      notice?.querySelector<HTMLButtonElement>('.shell-app-update-action')?.click();
+      expect(appUpdate.applyUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it('tells a tab that enabled offline under a newer build to update before going offline', () => {
+      const fixture = createWithUpdate();
+      reloadRequired.set(true);
+      fixture.detectChanges();
+      const notice: HTMLElement | null = fixture.nativeElement.querySelector('.shell-app-update');
+
+      expect(notice?.textContent).toContain('offlineNeedsUpdate');
       notice?.querySelector<HTMLButtonElement>('.shell-app-update-action')?.click();
       expect(appUpdate.applyUpdate).toHaveBeenCalledTimes(1);
     });

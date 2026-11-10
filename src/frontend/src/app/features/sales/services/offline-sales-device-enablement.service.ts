@@ -13,7 +13,16 @@ import { SaleService } from './sale.service';
 import type { InvoiceLeaseDto } from './sale.models';
 
 export type OfflineSalesEnablementResult =
-  | { readonly ok: true; readonly settings: OfflineSalesDeviceSettings; readonly lease: InvoiceLeaseSnapshot }
+  | {
+      readonly ok: true;
+      readonly settings: OfflineSalesDeviceSettings;
+      readonly lease: InvoiceLeaseSnapshot;
+      /**
+       * Offline billing is on, but this tab still runs an earlier build than the offline pack: it must
+       * apply the waiting update (the shell's "Update now") before it can be relied on offline.
+       */
+      readonly reloadRequired: boolean;
+    }
   | {
       readonly ok: false;
       readonly reason:
@@ -165,6 +174,6 @@ export class OfflineSalesDeviceEnablementService {
 
     void this.queueSync.syncForShop(settings.shopId, settings.deviceId);
 
-    return { ok: true, settings, lease };
+    return { ok: true, settings, lease, reloadRequired: !pack.skipped && pack.reloadRequired };
   }
 }

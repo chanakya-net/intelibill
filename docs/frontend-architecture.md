@@ -348,7 +348,12 @@ immutable for a year).
   worker start).
 - **Spike B caveats and how they are covered.** (a) An open tab stays on the version it loaded until it activates
   another: after a lite/full switch of the same `buildId` the page calls `activateUpdate()` (same files, no
-  reload); a different build is offered, never activated under the user. Angular only tells tabs it has assigned a
+  reload); a different build is offered, never activated under the user. When enabling installs the pack of a
+  newer build than the tab loaded (a deploy came first), the tab's own lazy chunks are not in that pack: enabling
+  waits for the worker's check to complete (Angular announces `VERSION_READY` before it answers the check), then
+  succeeds with `reloadRequired` (`OfflinePackService.reloadRequired`, also on the enablement result). The shell's
+  update notice then says `shell.appUpdate.offlineNeedsUpdate` and Manage shop shows
+  `offlineSalesDevice.pack.needsUpdate`; "Update now" applies it through `prepareToLeave()` as usual. Angular only tells tabs it has assigned a
   version (a tab that loaded before the worker existed is assigned by its next app-file request). (b) After a
   failed install the worker serves unseen tabs from the network until it restarts: `VERSION_INSTALLATION_FAILED`
   or a degraded `/ngsw/state` is never reported as a working pack (enable fails; on an enabled device the status

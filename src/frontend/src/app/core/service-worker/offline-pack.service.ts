@@ -52,7 +52,16 @@ export type OfflinePackFailure = 'STORAGE_LOW' | 'INSTALL_FAILED' | 'TIMEOUT' | 
 
 export type OfflinePackPrepareResult =
   | { readonly ok: true; readonly skipped: true }
-  | { readonly ok: true; readonly skipped: false; readonly status: OfflinePackStatus }
+  | {
+      readonly ok: true;
+      readonly skipped: false;
+      readonly status: OfflinePackStatus;
+      /**
+       * The pack is on the device, but this tab runs an earlier build than the one installed (a newer
+       * build was deployed): its files not yet loaded are not in the pack until the update is applied.
+       */
+      readonly reloadRequired: boolean;
+    }
   | { readonly ok: false; readonly failure: OfflinePackFailure };
 
 interface FullManifest {
@@ -104,9 +113,28 @@ export class OfflinePackService {
   private readonly statusStorage = inject(OfflinePackStatusStorage);
 
   private readonly statusSignal = signal<OfflinePackStatus | null>(this.statusStorage.loadPackStatus());
+  private readonly reloadRequiredSignal = signal(false);
+  /** The worker has a different build ready than the one this tab runs. */
+  private newerBuildReady = false;
 
   /** The last verified state of the pack on this device, or null when it is not in use. */
   readonly status = this.statusSignal.asReadonly();
+  /**
+   * Enabling succeeded while this tab runs an earlier build than the installed pack: it needs the
+   * update applied ("Update now") before it can rely on the pack offline.
+   */
+  readonly reloadRequired = this.reloadRequiredSignal.asReadonly();
+
+  constructor() {
+    if (this.swUpdate?.isEnabled) {
+      // Angular tells a tab once that a build other than its own is ready; enabling may come later.
+      this.swUpdate.versionUpdates.subscribe((event) => {
+        if (event.type === 'VERSION_READY' && !isSameBuild(event)) {
+          this.newerBuildReady = true;
+        }
+      });
+    }
+  }
 
   /** Whether this page runs under a service worker that can hold the pack. */
   isAvailable(): boolean {
@@ -184,7 +212,10 @@ export class OfflinePackService {
     }
 
     const status = this.recordVerified(outcome.manifest, persisted);
-    return { ok: true, skipped: false, status };
+    // Without the update this tab keeps loading its own build's files, which the pack does not hold.
+    const reloadRequired = this.newerBuildReady;
+    this.reloadRequiredSignal.set(reloadRequired);
+    return { ok: true, skipped: false, status, reloadRequired };
   }
 
   /**
@@ -200,6 +231,7 @@ export class OfflinePackService {
 
     await this.writeFlag('off');
     this.setStatus(null);
+    this.reloadRequiredSignal.set(false);
     void this.checkForUpdate();
   }
 
@@ -307,7 +339,7 @@ export class OfflinePackService {
 
       await this.ensureControlled();
       let checkSettled = false;
-      void this.checkForUpdate().then(() => (checkSettled = true));
+      const check = this.checkForUpdate().then(() => (checkSettled = true));
 
       const deadline = this.environment.now() + OFFLINE_PACK_READY_TIMEOUT_MS;
       let activated = false;
@@ -328,6 +360,9 @@ export class OfflinePackService {
 
         const verification = await this.verify(manifest);
         if (verification?.complete) {
+          // The worker announces a ready build before it completes the check: once the check is
+          // done, a VERSION_READY of a different build has reached this tab (see `reloadRequired`).
+          await check;
           return { ok: true, manifest };
         }
 

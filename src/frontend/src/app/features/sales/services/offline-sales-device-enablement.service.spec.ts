@@ -265,6 +265,25 @@ describe('OfflineSalesDeviceEnablementService', () => {
       expect(service.step()).toBeNull();
     });
 
+    it('reports that this tab needs the waiting update when the pack is of a newer build', async () => {
+      pack.prepare.mockResolvedValue({ ok: true, skipped: false, status: {}, reloadRequired: true });
+      const service = setupWithPack();
+
+      const result = await service.enableForShop('shop-1', 'Counter 1');
+
+      expect(result.ok && result.reloadRequired).toBe(true);
+      expect(pack.release).not.toHaveBeenCalled();
+    });
+
+    it('needs no update when the pack step was skipped (no service worker)', async () => {
+      pack.prepare.mockResolvedValue({ ok: true, skipped: true });
+      const service = setupWithPack();
+
+      const result = await service.enableForShop('shop-1', 'Counter 1');
+
+      expect(result.ok && result.reloadRequired).toBe(false);
+    });
+
     it('fails with APP_PACK_INCOMPLETE before any snapshot or lease, and lets the flag go', async () => {
       pack.prepare.mockResolvedValue({ ok: false, failure: 'TIMEOUT' });
       const service = setupWithPack();

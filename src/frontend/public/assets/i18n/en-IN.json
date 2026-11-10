@@ -170,7 +170,8 @@
       "apply": "Update now",
       "busy": "Save or finish the current work first, then update.",
       "unrecoverable": "This version of Intelibill can no longer load its files. Reload the page while online.",
-      "reload": "Reload"
+      "reload": "Reload",
+      "offlineNeedsUpdate": "Offline billing is on, but this tab still runs an earlier version. Select “Update now” before you go offline."
     }
   },
   "dashboard": {
@@ -2549,7 +2550,8 @@
       "version": "Version",
       "lastChecked": "Last checked",
       "lastUpdated": "Last updated",
-      "notPersisted": "This browser has not agreed to keep the offline files and may remove them when storage runs low. They are checked again whenever the app opens online."
+      "notPersisted": "This browser has not agreed to keep the offline files and may remove them when storage runs low. They are checked again whenever the app opens online.",
+      "needsUpdate": "This tab runs an earlier version than the offline files. Select “Update now” at the top of the page before you go offline."
     },
     "errors": {
       "onlyOwnerOrManager": "Only Owners and Managers can enable offline billing for a device.",

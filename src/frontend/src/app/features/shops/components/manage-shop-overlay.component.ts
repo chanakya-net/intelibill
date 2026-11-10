@@ -95,6 +95,8 @@ export class ManageShopOverlayComponent implements OnInit {
   readonly offlineEnablementErrorKey = signal('');
   /** The app's files for offline use, shared by every shop on this device. */
   readonly offlinePackStatus = this.offlinePack.status;
+  /** Enabled while a newer build waited: this tab needs "Update now" before it can be used offline. */
+  readonly offlinePackNeedsUpdate = this.offlinePack.reloadRequired;
   readonly offlinePackVersion = computed(() => formatOfflinePackVersion(this.offlinePackStatus()));
   /** What an enable in progress is doing (downloading the app files, the snapshot, the lease). */
   readonly offlineEnablementProgressKey = computed(() => offlineEnablementProgressKey(this.offlineDeviceEnablement.step()));

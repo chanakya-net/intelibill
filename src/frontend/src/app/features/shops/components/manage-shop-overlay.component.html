@@ -122,6 +122,9 @@
                       }
                     }
                   </div>
+                  @if (offlinePackNeedsUpdate()) {
+                    <p class="owner-hint mt-3" role="status">{{ 'offlineSalesDevice.pack.needsUpdate' | transloco }}</p>
+                  }
                   @if (offlinePackStatus()?.persisted === false) {
                     <p class="owner-hint mt-3">{{ 'offlineSalesDevice.pack.notPersisted' | transloco }}</p>
                   }

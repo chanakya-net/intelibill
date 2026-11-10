@@ -253,6 +253,7 @@ describe('OfflinePackService', () => {
         lastCheckedAt: '2026-11-10T10:00:03.000Z',
         lastUpdatedAt: '2026-11-10T10:00:03.000Z',
       },
+      reloadRequired: false,
     });
     expect(polls).toBe(3);
     expect(harness.caches.flag()).toBe('on');
@@ -276,8 +277,10 @@ describe('OfflinePackService', () => {
       harness.caches.fill(hash, 'offline', ['/assets/i18n/en-IN.json']);
     };
 
-    expect((await harness.service.prepare()).ok).toBe(true);
+    const result = await harness.service.prepare();
+    expect(result.ok && !result.skipped && result.reloadRequired).toBe(false);
     expect(harness.swUpdate.activateUpdate).toHaveBeenCalledTimes(1);
+    expect(harness.service.reloadRequired()).toBe(false);
   });
 
   it('leaves a different build to the update control, which reloads', async () => {
@@ -293,8 +296,49 @@ describe('OfflinePackService', () => {
       harness.caches.fill(hash, 'offline', ['/assets/i18n/en-IN.json']);
     };
 
-    expect((await harness.service.prepare()).ok).toBe(true);
+    const result = await harness.service.prepare();
+    expect(result.ok && !result.skipped && result.reloadRequired).toBe(true);
     expect(harness.swUpdate.activateUpdate).not.toHaveBeenCalled();
+    // This tab still runs build-0, whose files the pack does not hold, until the update is applied.
+    expect(harness.service.reloadRequired()).toBe(true);
+  });
+
+  it('waits for the check to finish, so a newer build announced after the files landed still counts', async () => {
+    const harness = setup();
+    const hash = await fullHash();
+    harness.caches.fill(hash, 'app', ['/index.html', '/main-ABC.js']);
+    harness.caches.fill(hash, 'offline', ['/assets/i18n/en-IN.json']);
+    harness.swUpdate.checkForUpdate.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      harness.versions.next({
+        type: 'VERSION_READY',
+        currentVersion: { hash: 'old', appData: { buildId: 'build-0', offlinePack: 'lite' } },
+        latestVersion: { hash, appData: { buildId: 'build-1', offlinePack: 'full' } },
+      });
+      return true;
+    });
+
+    const result = await harness.service.prepare();
+
+    expect(result.ok && !result.skipped && result.reloadRequired).toBe(true);
+  });
+
+  it('needs the update when a newer build was announced before enabling began', async () => {
+    const harness = setup();
+    const hash = await fullHash();
+    harness.versions.next({
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'old', appData: { buildId: 'build-0', offlinePack: 'lite' } },
+      latestVersion: { hash, appData: { buildId: 'build-1', offlinePack: 'full' } },
+    });
+    harness.caches.fill(hash, 'app', ['/index.html', '/main-ABC.js']);
+    harness.caches.fill(hash, 'offline', ['/assets/i18n/en-IN.json']);
+
+    const result = await harness.service.prepare();
+
+    expect(result.ok && !result.skipped && result.reloadRequired).toBe(true);
+    await harness.service.release();
+    expect(harness.service.reloadRequired()).toBe(false);
   });
 
   it('fails at once when the worker reports the full version failed to install', async () => {

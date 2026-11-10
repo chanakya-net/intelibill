@@ -96,6 +96,7 @@ describe('ManageShopOverlayComponent', () => {
         reservedAt: '2026-05-21T00:00:00.000Z',
         expiresAt: '2026-06-21T00:00:00.000Z',
       },
+      reloadRequired: false,
     })),
   } satisfies Partial<OfflineSalesDeviceEnablementService>;
   const store = {
