@@ -327,7 +327,9 @@ immutable for a year).
   real worker behind it; `angular-worker-manifest.spec.ts` pins how Angular fetches the manifest.
 - **Flag reconciliation.** `OfflinePackUpdateService.start()` (app initializer, imported on demand, never awaited)
   first writes `on` when `OfflineSalesDeviceSettingsStorage.anyShopEnabled()`, explicit `off` otherwise, then asks
-  the worker to check.
+  the worker to check. When the device settings cannot be read (`anyShopEnabled()` null: localStorage blocked or
+  throwing) the flag and status are left as they are: reconcile, `release()` and the periodic re-verify never
+  drop a pack over a storage error.
 - **Enabling** (`OfflineSalesDeviceEnablementService.enableForShop`, step `appPack` before `snapshot` and `lease`,
   exposed as `step()` for both entry points). `OfflinePackService.prepare()`: free space via
   `navigator.storage.estimate` (needs `OFFLINE_PACK_MIN_FREE_BYTES`, 25 MB), best-effort

@@ -144,4 +144,18 @@ describe('OfflineSalesDeviceSettingsStorage', () => {
     storage.updateSettings('shop-2', (current) => ({ ...current, enabled: false }));
     expect(storage.anyShopEnabled()).toBe(false);
   });
+
+  it('reports an unreadable store as unknown (null), never as "no shop enabled"', () => {
+    storage.updateSettings('shop-2', (current) => ({ ...current, enabled: true }));
+    vi.stubGlobal('localStorage', {
+      get length(): number {
+        throw new DOMException('blocked', 'SecurityError');
+      },
+    });
+    try {
+      expect(storage.anyShopEnabled()).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

@@ -99,7 +99,7 @@ export class OfflinePackUpdateService {
         } else {
           this.updateReadySignal.set(true);
         }
-      } else if (event.type === 'VERSION_INSTALLATION_FAILED' && this.pack.deviceNeedsPack()) {
+      } else if (event.type === 'VERSION_INSTALLATION_FAILED' && this.pack.deviceNeedsPack() === true) {
         // The worker may serve new tabs from the network until it restarts: not a working pack.
         this.pack.markIncomplete();
       }
@@ -172,7 +172,7 @@ export class OfflinePackUpdateService {
   private async cycle(): Promise<void> {
     try {
       const checked = await this.pack.checkForUpdate();
-      if (!this.pack.deviceNeedsPack()) {
+      if (this.pack.deviceNeedsPack() !== true) {
         return;
       }
 

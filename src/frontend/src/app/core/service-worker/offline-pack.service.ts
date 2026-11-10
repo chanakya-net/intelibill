@@ -113,8 +113,11 @@ export class OfflinePackService {
     return !!this.swUpdate?.isEnabled && !!this.environment.caches && !!this.environment.serviceWorker;
   }
 
-  /** True when some shop on this device has offline billing enabled. */
-  deviceNeedsPack(): boolean {
+  /**
+   * True when some shop on this device has offline billing enabled; null when the device settings
+   * cannot be read. Nothing is switched off on null: a storage error must not drop a working pack.
+   */
+  deviceNeedsPack(): boolean | null {
     return this.settingsStorage.anyShopEnabled();
   }
 
@@ -137,13 +140,19 @@ export class OfflinePackService {
     }
   }
 
-  /** Brings the flag in line with the device settings: on when any shop needs the pack, explicit off otherwise. */
+  /**
+   * Brings the flag in line with the device settings: on when any shop needs the pack, explicit off
+   * otherwise, unchanged when the settings cannot be read.
+   */
   async reconcile(): Promise<void> {
     if (!this.isAvailable()) {
       return;
     }
 
     const needed = this.deviceNeedsPack();
+    if (needed === null) {
+      return;
+    }
     await this.writeFlag(needed ? 'on' : 'off');
     if (!needed) {
       this.setStatus(null);
@@ -182,10 +191,10 @@ export class OfflinePackService {
    * Called when a shop stops needing the pack (offline disabled, or an enable attempt failed):
    * unless another shop on this device still needs it, the flag goes off and the worker is asked
    * to re-check, which installs the lite manifest. The pack itself is dropped when the worker next
-   * starts with no tab on the full version.
+   * starts with no tab on the full version. Kept when the device settings cannot be read.
    */
   async release(): Promise<void> {
-    if (!this.isAvailable() || this.deviceNeedsPack()) {
+    if (!this.isAvailable() || this.deviceNeedsPack() !== false) {
       return;
     }
 
@@ -212,7 +221,7 @@ export class OfflinePackService {
    * fetched (offline: nothing new to compare against).
    */
   async refreshStatus(): Promise<OfflinePackStatus | null> {
-    if (!this.isAvailable() || !this.deviceNeedsPack()) {
+    if (!this.isAvailable() || this.deviceNeedsPack() !== true) {
       return this.statusSignal();
     }
 

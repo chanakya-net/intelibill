@@ -106,7 +106,7 @@ function setup(options: { swEnabled?: boolean; withSwUpdate?: boolean; controlle
     activateUpdate: vi.fn(async () => true),
   };
   const settings = {
-    anyShopEnabled: vi.fn(() => false),
+    anyShopEnabled: vi.fn((): boolean | null => false),
     loadPackStatus: vi.fn((): OfflinePackStatus | null => null),
     savePackStatus: vi.fn(),
   };
@@ -206,6 +206,20 @@ describe('OfflinePackService', () => {
     await harness.service.reconcile();
     expect(harness.caches.flag()).toBe('on');
     expect([...harness.caches.stores.keys()]).toEqual([OFFLINE_PACK_STATE_CACHE]);
+  });
+
+  it('leaves the flag and the status alone when the device settings cannot be read', async () => {
+    const harness = setup();
+    await harness.service.writeFlag('on');
+    harness.settings.anyShopEnabled.mockReturnValue(null);
+
+    await harness.service.reconcile();
+    await harness.service.release();
+    await harness.service.refreshStatus();
+
+    expect(harness.caches.flag()).toBe('on');
+    expect(harness.settings.savePackStatus).not.toHaveBeenCalled();
+    expect(harness.swUpdate.checkForUpdate).not.toHaveBeenCalled();
   });
 
   it('refuses to start when the device is short of free storage, before writing the flag', async () => {
