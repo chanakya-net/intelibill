@@ -19,10 +19,10 @@
   </ng-template>
 
   <form [formGroup]="adjustmentForm" class="product-form" (ngSubmit)="onSave()">
-    <section class="form-section">
-      <p class="section-label">{{ 'inventory.selectBatch' | transloco }}</p>
+    <section class="form-section ib-form-section">
+      <p class="section-label ib-section-label">{{ 'inventory.selectBatch' | transloco }}</p>
 
-      <div class="field wide">
+      <div class="field ib-field wide ib-form-grid__wide">
         <label for="adjustment-batch">{{ 'inventory.selectBatch' | transloco }}</label>
         <p-autocomplete
           inputId="adjustment-batch"
@@ -51,11 +51,11 @@
       </div>
     </section>
 
-    <section class="form-section">
-      <p class="section-label">{{ 'inventory.adjustmentSummary' | transloco }}</p>
+    <section class="form-section ib-form-section">
+      <p class="section-label ib-section-label">{{ 'inventory.adjustmentSummary' | transloco }}</p>
 
-      <div class="editor-grid">
-        <div class="field">
+      <div class="editor-grid ib-form-grid">
+        <div class="field ib-field">
           <label for="adjustment-direction">{{ 'inventory.adjustmentDirectionLabel' | transloco }}</label>
           <p-select
             inputId="adjustment-direction"
@@ -69,7 +69,7 @@
             styleClass="editor-control"
           ></p-select>
         </div>
-        <div class="field">
+        <div class="field ib-field">
           <label for="adjustment-reason">{{ 'inventory.adjustmentReasonLabel' | transloco }}</label>
           <p-select
             inputId="adjustment-reason"
@@ -91,8 +91,8 @@
         </p>
       }
 
-      <div class="editor-grid">
-        <div class="field">
+      <div class="editor-grid ib-form-grid">
+        <div class="field ib-field">
           <label for="adjustment-quantity">{{ 'inventory.quantity' | transloco }}</label>
           <p-inputNumber
             inputId="adjustment-quantity"
@@ -109,7 +109,7 @@
             }}</small>
           }
         </div>
-        <div class="field">
+        <div class="field ib-field">
           <label for="adjustment-performed-at">{{ 'inventory.performedAt' | transloco }}</label>
           <p-datepicker
             ngSkipHydration
@@ -129,7 +129,7 @@
         </div>
       </div>
 
-      <div class="field wide">
+      <div class="field ib-field wide ib-form-grid__wide">
         <label for="adjustment-notes">{{ 'inventory.notes' | transloco }}</label>
         <textarea
           id="adjustment-notes"

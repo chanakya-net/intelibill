@@ -20,9 +20,9 @@
 
   <div class="editor-shell" [attr.aria-busy]="isBusy()">
     @if (submitErrorMessage()) {
-      <div class="error-banner" role="alert">{{ submitErrorMessage() }}</div>
+      <div class="error-banner ib-error-banner" role="alert">{{ submitErrorMessage() }}</div>
     } @else if (submitErrorKey()) {
-      <div class="error-banner" role="alert">{{ submitErrorKey() | transloco }}</div>
+      <div class="error-banner ib-error-banner" role="alert">{{ submitErrorKey() | transloco }}</div>
     }
 
     <form class="editor-form" (ngSubmit)="onSubmit()">

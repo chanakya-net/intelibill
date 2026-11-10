@@ -39,64 +39,9 @@
   gap: 1rem;
 }
 
-.form-section {
-  display: grid;
-  gap: 0.75rem;
-  padding: 0.9rem 1rem;
-  border: 1px solid var(--app-sand-300);
-  border-radius: var(--app-radius-lg);
-  background: linear-gradient(180deg, rgba(255, 252, 248, 0.98), rgba(255, 245, 232, 0.92));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
-}
-
-.section-label {
-  margin: 0;
-  color: var(--app-bronze-600);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
 .editor-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
-
-  .wide {
-    grid-column: 1 / -1;
-  }
-
   @media (max-width: 640px) {
     grid-template-columns: 1fr;
-  }
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  min-width: 0;
-
-  > label {
-    color: var(--app-brown-700);
-    font-size: 0.82rem;
-    font-weight: 600;
-  }
-}
-
-.checkbox-field {
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 0.65rem;
-  padding-top: 0.15rem;
-
-  label {
-    margin: 0;
-    color: var(--app-brown-900);
-    font-size: 0.92rem;
-    font-weight: 500;
-    line-height: 1.35;
   }
 }
 
@@ -121,16 +66,6 @@
 .suggestion-chip:hover {
   border-color: var(--app-amber-600);
   background: var(--app-sand-50);
-}
-
-.error-banner {
-  margin: 0;
-  padding: 0.7rem 0.85rem;
-  border: 1px solid var(--app-red-200);
-  border-radius: 0.8rem;
-  background: #fff1f2;
-  color: var(--app-red-700);
-  font-size: 0.9rem;
 }
 
 .validation-message {
