@@ -147,3 +147,89 @@ Other notes for phase 3:
 `bun run audit:styles:duplicates` (`src/frontend/scripts/audit-duplicate-styles.mjs`, test
 `scripts/tests/audit-duplicate-styles.spec.ts`). Ceiling in
 `scripts/audit-duplicate-styles.ceiling.json`; `--list` prints the blocks, `--json` the report.
+
+## Phase 1 — results
+
+Same measurement after phase 0 and phase 1 (`bun run build`, production):
+
+| Measure | Before | After |
+|---|---:|---:|
+| First load raw / gzip | 296,233 / 68,677 | 294,669 / 68,652 |
+| `index.html` raw / gzip (critical CSS now includes the `:root` tokens) | 10,306 / 2,817 | 12,383 / 3,346 |
+| Global stylesheet raw / gzip | 47,132 / 10,010 | 43,491 / 9,455 |
+| All JS raw / gzip (shell chunk now carries the moved rules and the kit host; `var(--app-…)` is longer than a hex literal) | 4,491,106 / 1,175,774 | 4,505,654 / 1,177,719 |
+| Fonts | 1,092,513 (8 TTF) | 374,803 (8 WOFF2) |
+| Angular "Initial total" | 742.68 kB | 739.03 kB |
+| Build warnings | 9 | 9 (the same files, the same sizes) |
+| `audit:styles:duplicates` | 64 | 64 |
+
+What changed:
+
+- `src/styles.scss` deleted (nothing referenced it).
+- Rules only signed-in screens need moved from `styles.css` to `ShellGlobalStylesComponent`
+  (`src/app/core/layout/shell-global-styles.component.ts` + `shell-global-styles/*.css`, rendered
+  second in the shell, unencapsulated and unlayered as before, byte-identical rules). No route outside
+  the shell uses these classes (print pages, supplier-return pages, auth pages checked).
+  `.inventory-prime-menu` is not used by any template; it moved unchanged and is a candidate for
+  deletion.
+- Tokens on `:root` in `styles.css`: orange (existing `--app-orange-*` plus 300/800/950), warm brand
+  neutrals (`--app-sand-50/300`, `--app-brown-500/600/700/900`, `--app-bronze-600`), stone, slate,
+  red, amber (Tailwind v3 hex values, only steps in use), radii (`--app-radius-md/lg/pill`),
+  shadows (`--app-shadow-card/panel/overlay`), font families (`--app-font-body/display/heading`).
+  Tokens use the existing `--app-` prefix; the `ib-` prefix stays for kit class names.
+- 710 exact literal matches replaced in 74 component stylesheets, only in declaration values,
+  outside parentheses (gradients, `rgba()`, `var()` fallbacks untouched), never in `$`/`--`
+  definitions or values using Sass. Proof of no visual change: every component stylesheet was
+  compiled with Sass before and after, the tokens substituted back, and the CSS compared: 102/102
+  identical (only Sass's own quote normalisation differs).
+- Not tokenised yet: the 16 stylesheets at or near the 7 kB `anyComponentStyle` warning (a first pass
+  pushed 8 more files over it because `var(--app-sand-300)` is longer than `#ead7c1`) and the 4
+  shared partials. Phase 2 can tokenise them as it shrinks them:
+  `core/layout/shell.component.scss`, `customers/components/add-customer-overlay`,
+  `customers/pages/customers-page`, `dashboard/pages/dashboard-page`, `discounts/pages/discounts-page`,
+  `expenses/components/record-expense-overlay`, `inventory/components/barcode-label-print-dialog`,
+  `inventory/pages/inventory-adjustments-page`, `inventory/pages/inventory-batch-page`,
+  `sales/components/sale-detail/sale-return-preview-dialog`,
+  `sales/pages/offline-reconciliation-page`, `sales/pages/profit-loss-page`, `sales/pages/sales-page`,
+  `tills/pages/till-session-page`, `users/components/change-password-overlay`,
+  `users/pages/users-page`; partials `_auth-shared`, `_button-mixins`, `_form-control-mixins`,
+  `_editor-dialog`.
+- `audit:styles:duplicates` resolves `var(--app-…)` to the `:root` value before comparing, so a
+  partly tokenised family still counts as one repeated block.
+- Fonts: WOFF2 via fontTools 4.68 (+ brotli) in a throw-away virtualenv; glyph order, cmap and table
+  set verified identical to the TTFs. `ngsw-config.json` already matched `woff2`; the release server
+  already maps `.woff2`; no test named the TTF files. `public/fonts/LICENSE` lists the new names.
+
+### Near-duplicate colours — decide later
+
+Not merged in phase 1 (each would be a visible change, however small). Distances are Euclidean RGB.
+
+| Keep (token) | Near-duplicates still written as literals |
+|---|---|
+| `--app-brown-900` `#2a1b12` (headings) | `#271911` (40 uses / 19 files), `#241713` (20/4), `#20130e` (14/2), `#241811` (10/3), `#24160f`, `#231714`, `#231811`, `#2a1d19` |
+| `--app-sand-300` `#ead7c1` (card borders) | `#e7d6c3` (28/17), `#eadccf` (30/14), `#eedcc8` (9/7), `#e1d1c0` (8/3), `#e4d5c5` (6/1), `#e9d3c2`, `#e3d7c7`, `#ded4c7` (17/4), `#dec0aa` (11/6) |
+| `--app-sand-50` `#fffaf4` (card surface) | `#fffaf3` (21/12), `#fffaf5` (14/9, also the body background in `styles.css`), `#fffaf2` (17/3), `#fff9f2` (6/5), `#fffdf8` (8/8), `#fffdf9` (5/5), `#fbf5ec` (16/16), `#f7efe4` (16/16) |
+| `--app-orange-50` `#fff7ed` | `#fff5ef` (9/9), `#fff5e7` (13/9), `#fff5e9` (4/4), `#fff2e5` (7/6), `#fff0df` (12/10), `#fff1dc` (11/11) |
+| `--app-orange-100` `#ffedd5` | `#ffe8dc` (9/9), `#fde8d4`, `#fff0dc` |
+| Eyebrow browns: `--app-bronze-600` `#9b5d20` and `--app-brown-600` `#7a6250` (letter-spacing 0.14em vs 0.16em) | `#8b4510` (14/11), `#a45d19`, `#996031`; greyer eyebrow variants `#786c64`, `#76675f`, `#74665c`, `#76675d` |
+| `--app-brown-600` `#7a6250` / `--app-brown-700` `#6f5a48` | `#75604e`, `#826a58` (4/3), `#6f655d` (21/6), `#75665c` (4/3) |
+| `--app-red-700` `#b91c1c` (errors) | `#b42318` (16/11), `#b3261e`, `#c1121f` |
+| `--app-red-50` `#fef2f2` | `#fff1f2` (18/17, Tailwind rose-50), `#fff3f0` (7/6) |
+| `--app-amber-800` `#92400e` | `#8b4510` (see eyebrow), `#934511` |
+| `--app-slate-*` | Tailwind gray look-alikes: `#111827` (10/4), `#1f2937` (5/3), `#374151`, `#4b5563` (4/3), `#6b7280`, `#9ca3af`, `#d1d5db` (8/2), `#e5e7eb`, `#f3f4f6`, `#f9fafb` |
+| `--app-stone-900` `#1c1917` | `#1f120d` (4/4) |
+| `--app-stone-800` `#292524` | `#34281f` (10/7) |
+| White | `#ffffff` (48/19) and `#fff` (17/13): no token yet |
+
+Other scales with near-duplicates (no token yet, or only the dominant value tokenised):
+
+- Font sizes (no tokens): `0.78rem` (47), `0.92rem` (45), `0.82rem` (42), `0.8125rem` (42),
+  `0.9rem` (39), `0.875rem` (39), `0.75rem` (38), `0.72rem` (36), `0.68rem` (33), `1rem` (30),
+  `0.95rem` (28), `0.85rem` (28), `0.7rem` (28), `0.8rem` (25), `0.66rem` (19). A type scale needs a
+  merge decision first.
+- Radii besides the three tokens: `0.8rem` (25), `0.9rem` (21), `0.85rem` (20), `1.2rem` (19),
+  `1.25rem` (17), `0.65rem` (14).
+- Card shadows besides `--app-shadow-card` (`0 12px 32px rgba(87, 54, 20, 0.07)`):
+  `0 8px 22px rgba(85, 49, 18, 0.07)` (11), `0 10px 30px rgba(78, 49, 20, 0.07)` (11),
+  `0 8px 22px rgba(85, 49, 18, 0.06)` (4), `0 8px 24px rgba(87, 52, 20, 0.07)`,
+  `0 8px 22px rgba(87, 52, 20, 0.07)`.
