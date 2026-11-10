@@ -1,0 +1,12 @@
+/*
+ * Cascade contract of the UI kit. PrimeNG's `primeng` layer is declared first in the document
+ * (PrimeNG prepends its style element), Tailwind's layers follow from styles.css, and this
+ * statement, added with the shell, appends `ib-kit` after both:
+ *
+ *   theme, base, primeng, properties, components, utilities, ib-kit, then unlayered styles
+ *
+ * So a kit rule beats PrimeNG and Tailwind utilities (as the component rules it replaces do), and
+ * loses to any unlayered component style. Family files wrap their rules in `@layer ib-kit { }`.
+ * Pinned by tests/ui-audit/mock/ui-kit-cascade.spec.ts.
+ */
+@layer primeng, ib-kit;

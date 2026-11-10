@@ -198,6 +198,15 @@ describe('ShellComponent', () => {
     TestBed.resetTestingModule();
   });
 
+  it('renders the shared style hosts first, so their rules are in place before the shell paints', () => {
+    const fixture = createFixture();
+    const hosts = Array.from(fixture.nativeElement.children as HTMLCollection).map((element) =>
+      element.tagName.toLowerCase(),
+    );
+
+    expect(hosts[0]).toBe('app-ui-kit-styles');
+  });
+
   it('opens add shop overlay and closes it after dismissal', () => {
     const component = setup();
 
