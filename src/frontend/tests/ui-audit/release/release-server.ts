@@ -33,6 +33,13 @@ export interface ReleaseServer {
   useCurrentDeployment(): void;
   /** Holds every `/api/review-tenant` answer this long, to push a worker into its timeout fallback. */
   setApiDelay(ms: number): void;
+  /**
+   * Rewrites `ngsw.json` and `ngsw-lite.json` as they are served (a later deployment of the same
+   * files, say); null serves them as built. Not applied to a legacy deployment.
+   */
+  setManifestTransform(transform: ((file: 'ngsw.json' | 'ngsw-lite.json', manifest: Record<string, unknown>) => object) | null): void;
+  /** Answers these paths with 500, as an interrupted download would leave them. */
+  setFailingPaths(paths: readonly string[]): void;
   close(): Promise<void>;
 }
 
@@ -64,6 +71,8 @@ export async function startReleaseServer(root: string): Promise<ReleaseServer> {
   let legacyManifest: object | null = null;
   let legacyWorkerOnce = false;
   let apiDelayMs = 0;
+  let manifestTransform: Parameters<ReleaseServer['setManifestTransform']>[0] = null;
+  let failingPaths = new Set<string>();
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://release.test');
@@ -88,6 +97,16 @@ export async function startReleaseServer(root: string): Promise<ReleaseServer> {
         legacyManifest = null;
       }
       return send(res, 200, await readFile(join(root, 'ngsw-angular-worker.js')), CONTENT_TYPES['.js'], 'no-cache');
+    }
+
+    if (failingPaths.has(url.pathname)) {
+      return send(res, 500, 'interrupted', 'text/plain; charset=utf-8', 'no-store');
+    }
+
+    if (manifestTransform && (url.pathname === '/ngsw.json' || url.pathname === '/ngsw-lite.json')) {
+      const file = url.pathname === '/ngsw.json' ? 'ngsw.json' : 'ngsw-lite.json';
+      const built = JSON.parse(await readFile(join(root, file), 'utf8')) as Record<string, unknown>;
+      return send(res, 200, JSON.stringify(manifestTransform(file, built)), CONTENT_TYPES['.json'], 'no-cache');
     }
 
     if (url.pathname === TENANT_PROBE) {
@@ -143,6 +162,12 @@ export async function startReleaseServer(root: string): Promise<ReleaseServer> {
     },
     setApiDelay(ms) {
       apiDelayMs = ms;
+    },
+    setManifestTransform(transform) {
+      manifestTransform = transform;
+    },
+    setFailingPaths(paths) {
+      failingPaths = new Set(paths);
     },
     async close() {
       for (const timer of timers) {

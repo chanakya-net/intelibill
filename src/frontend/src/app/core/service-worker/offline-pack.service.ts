@@ -37,7 +37,7 @@ export const OFFLINE_PACK_ENVIRONMENT = new InjectionToken<OfflinePackEnvironmen
   }),
 });
 
-/** Free storage the device needs before the pack is downloaded: the pack (~9 MB raw) plus room for data. */
+/** Free storage the device needs before the pack is downloaded: the pack (~7.5 MB raw) plus room for data. */
 export const OFFLINE_PACK_MIN_FREE_BYTES = 25 * 1024 * 1024;
 /** How long enabling waits for the worker to download and verify the pack (a slow 3G link needs about a minute). */
 export const OFFLINE_PACK_READY_TIMEOUT_MS = 180_000;
