@@ -33,12 +33,16 @@ intelibill/
 │   │   ├── Intelibill.Infrastructure/
 │   │   └── Intelibill.Api/
 │   ├── frontend/               # Angular (Bun, PWA, NgRx, offline IndexedDB)
-│   └── mobile/
-│       └── android/
-│           └── intelibill_mobile/  # Flutter Android
+│   ├── mobile/
+│   │   └── android/
+│   │       └── intelibill_mobile/  # Flutter Android
+│   └── services/               # Supporting services (own solutions, own package versions)
+│       ├── barcode-master-api/ # Product lookup by barcode (BarcodeAPI.sln)
+│       └── hsn-finder-ai/      # AI HSN code lookup (Sankra.HsnFinder.sln)
 ├── tests/
 │   ├── backend/unit/
 │   ├── backend/integration/    # Requires Docker (Testcontainers)
+│   ├── services/               # Supporting service tests
 │   └── frontend/
 ├── Directory.Build.props
 ├── Directory.Packages.props

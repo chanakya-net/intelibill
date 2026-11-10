@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
+    <PackageReference Include="Microsoft.OpenApi" Version="2.11.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.5">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Scalar.AspNetCore" Version="2.14.9" />
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+    <PackageReference Include="WolverineFx.Http" Version="5.35.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BarcodeAPI.Infrastructure\BarcodeAPI.Infrastructure.csproj" />
+    <ProjectReference Include="..\BarcodeAPI.Application\BarcodeAPI.Application.csproj" />
+    <ProjectReference Include="..\BarcodeAPI.Domain\BarcodeAPI.Domain.csproj" />
+  </ItemGroup>
+
+</Project>
