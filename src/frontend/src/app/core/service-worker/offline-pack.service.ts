@@ -273,8 +273,7 @@ export class OfflinePackService {
       return { complete: false, missing: target.groups.flatMap((group) => group.urls), manifest: target };
     }
 
-    const driver = missing.length === 0 ? await this.driverState() : null;
-    const degraded = driver === 'EXISTING_CLIENTS_ONLY' || driver === 'SAFE_MODE';
+    const degraded = missing.length === 0 && isDegraded(await this.driverState());
     return { complete: missing.length === 0 && !degraded, missing, manifest: target };
   }
 
@@ -298,7 +297,8 @@ export class OfflinePackService {
       }
 
       await this.ensureControlled();
-      void this.checkForUpdate();
+      let checkSettled = false;
+      void this.checkForUpdate().then(() => (checkSettled = true));
 
       const deadline = this.environment.now() + OFFLINE_PACK_READY_TIMEOUT_MS;
       let activated = false;
@@ -320,6 +320,12 @@ export class OfflinePackService {
         const verification = await this.verify(manifest);
         if (verification?.complete) {
           return { ok: true, manifest };
+        }
+
+        // A worker's first install reports no VERSION_INSTALLATION_FAILED: a failed prefetch only
+        // leaves it degraded. Once this check has run, a degraded worker will not finish on its own.
+        if (checkSettled && isDegraded(await this.driverState())) {
+          return { ok: false, failure: 'INSTALL_FAILED' };
         }
 
         if (this.environment.now() >= deadline) {
@@ -480,6 +486,11 @@ export class OfflinePackService {
       );
     });
   }
+}
+
+/** Angular's worker after a failed install: it serves tabs it has not seen from the network. */
+function isDegraded(driverState: string | null): boolean {
+  return driverState === 'EXISTING_CLIENTS_ONLY' || driverState === 'SAFE_MODE';
 }
 
 /** True when a version change only switched between the full and lite manifests of one build. */

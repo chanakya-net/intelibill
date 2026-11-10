@@ -293,6 +293,16 @@ describe('OfflinePackService', () => {
     expect(harness.clock.now - Date.parse('2026-11-10T10:00:00Z')).toBeLessThan(OFFLINE_PACK_READY_TIMEOUT_MS);
   });
 
+  it('fails without waiting out the limit when a first install leaves the worker degraded', async () => {
+    const harness = setup();
+    const hash = await fullHash();
+    harness.caches.fill(hash, 'app', ['/index.html']);
+    harness.driverState = 'EXISTING_CLIENTS_ONLY';
+
+    expect(await harness.service.prepare()).toEqual({ ok: false, failure: 'INSTALL_FAILED' });
+    expect(harness.clock.now - Date.parse('2026-11-10T10:00:00Z')).toBeLessThan(10_000);
+  });
+
   it('gives up after the time limit when the pack never completes', async () => {
     const harness = setup();
     const hash = await fullHash();

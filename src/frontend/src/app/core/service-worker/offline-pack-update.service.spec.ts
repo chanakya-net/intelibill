@@ -264,6 +264,16 @@ describe('OfflinePackUpdateService', () => {
     expect(harness.snapshotSync.syncForShop).toHaveBeenCalledTimes(1);
   });
 
+  it('does not judge the pack while the worker has not finished its check (a new build may still be downloading)', async () => {
+    const harness = setup();
+    harness.pack.deviceNeedsPack.mockReturnValue(true);
+    harness.pack.checkForUpdate.mockResolvedValue(null);
+
+    await harness.service.runCycle();
+
+    expect(harness.pack.refreshStatus).not.toHaveBeenCalled();
+  });
+
   it('marks the pack incomplete when an install fails on an enabled device', () => {
     const harness = setup();
     harness.service.start();

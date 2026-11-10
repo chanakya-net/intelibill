@@ -171,12 +171,16 @@ export class OfflinePackUpdateService {
 
   private async cycle(): Promise<void> {
     try {
-      await this.pack.checkForUpdate();
+      const checked = await this.pack.checkForUpdate();
       if (!this.pack.deviceNeedsPack()) {
         return;
       }
 
-      await this.pack.refreshStatus();
+      // Only once the worker has finished this check: a new build still downloading must not show
+      // as an incomplete pack while the previous complete version keeps serving offline.
+      if (checked !== null) {
+        await this.pack.refreshStatus();
+      }
       await this.refreshSnapshotIfStale();
     } catch {
       // A failed cycle changes nothing; the next trigger tries again.
