@@ -323,7 +323,7 @@ describe('OfflinePackUpdateService', () => {
 
     harness.settings.current = {
       enabled: true,
-      lastCompleteSnapshotAt: new Date(Date.now() - SNAPSHOT_REFRESH_AGE_MS - 1).toISOString(),
+      lastCompleteSnapshotAt: new Date(harness.clock.now - SNAPSHOT_REFRESH_AGE_MS - 1).toISOString(),
     };
     await harness.service.runCycle();
     expect(harness.snapshotSync.syncForShop).toHaveBeenCalledWith('shop-1');

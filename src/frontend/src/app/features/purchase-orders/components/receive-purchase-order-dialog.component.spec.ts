@@ -65,6 +65,13 @@ beforeEach(() => {
 
 describe('ReceivePurchaseOrderDialogComponent', () => {
   let fixture: ComponentFixture<ReceivePurchaseOrderDialogComponent>;
+  /** Every dialog a test created: each one's last draft save must land before the next test's IndexedDB. */
+  let created: ComponentFixture<ReceivePurchaseOrderDialogComponent>[] = [];
+  const createDialog = (): ComponentFixture<ReceivePurchaseOrderDialogComponent> => {
+    const next = TestBed.createComponent(ReceivePurchaseOrderDialogComponent);
+    created.push(next);
+    return next;
+  };
   let batchSequence: number;
   const batchDefaults = {
     generateBatchNumber: vi.fn(() => {
@@ -177,7 +184,7 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
     });
 
     TestBed.inject(ShopContextService).initialize({ userId: 'user-1', shopId: 'shop-1' });
-    fixture = TestBed.createComponent(ReceivePurchaseOrderDialogComponent);
+    fixture = createDialog();
     fixture.componentRef.setInput('order', order);
     fixture.componentRef.setInput('visible', true);
     fixture.detectChanges();
@@ -190,7 +197,15 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
     fixture.detectChanges();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Destroying a dialog flushes its draft on a queue of IndexedDB writes. Wait for those writes while
+    // this test's database is still stubbed: on a slow runner they would otherwise land in the next
+    // test's database under the same owner and PO, and its saves would refuse the moved revision.
+    for (const dialog of created) {
+      dialog.destroy();
+      await (dialog.componentInstance as unknown as { saveQueue: Promise<void> }).saveQueue;
+    }
+    created = [];
     TestBed.resetTestingModule();
     vi.unstubAllGlobals();
   });
@@ -615,7 +630,7 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
     await c['submit']();
     const command = emitted.mock.calls[0][0]!;
     fixture.destroy();
-    fixture = TestBed.createComponent(ReceivePurchaseOrderDialogComponent);
+    fixture = createDialog();
     fixture.componentRef.setInput('order', {
       ...order,
       status: 'Received',
@@ -1011,7 +1026,7 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
       'confirmed',
     );
     fixture.destroy();
-    fixture = TestBed.createComponent(ReceivePurchaseOrderDialogComponent);
+    fixture = createDialog();
     fixture.componentRef.setInput('order', order);
     fixture.componentRef.setInput('visible', true);
     fixture.detectChanges();
