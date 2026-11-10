@@ -298,6 +298,10 @@
     }
   }
 
+  &.is-enabled.is-incomplete {
+    background: #d97706;
+  }
+
   &.is-disabled {
     background: #dc2626;
 

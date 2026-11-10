@@ -102,14 +102,32 @@
                     </div>
                   </div>
                   <div class="offline-status mt-4">
-                    <div class="status-row"><span class="status-label">{{ 'offlineSalesDevice.status' | transloco }}</span><span class="status-value">@switch (offlineReadinessState()) {@case ('enabled') { {{ 'offlineSalesDevice.statusEnabled' | transloco }} } @default { {{ 'offlineSalesDevice.statusNeedsSetup' | transloco }} }}</span></div>
+                    <div class="status-row"><span class="status-label">{{ 'offlineSalesDevice.status' | transloco }}</span><span class="status-value">@switch (offlineReadinessState()) {@case ('enabled') { {{ (isOfflinePackIncomplete() ? 'offlineSalesDevice.statusPackIncomplete' : 'offlineSalesDevice.statusEnabled') | transloco }} } @default { {{ 'offlineSalesDevice.statusNeedsSetup' | transloco }} }}</span></div>
                     @if (offlineSnapshotAgeLabel()) {
                       <div class="status-row"><span class="status-label">{{ 'offlineSalesDevice.snapshotAge' | transloco }}</span><span class="status-value">{{ offlineSnapshotAgeLabel() }}</span></div>
                     }
                     @if (offlineInvoiceRemainingCount() !== null) {
                       <div class="status-row"><span class="status-label">{{ 'offlineSalesDevice.invoiceRemaining' | transloco }}</span><span class="status-value">{{ offlineInvoiceRemainingCount() }}</span></div>
                     }
+                    @if (offlinePackStatus(); as pack) {
+                      <div class="status-row offline-pack-row"><span class="status-label">{{ 'offlineSalesDevice.pack.title' | transloco }}</span><span class="status-value">{{ (pack.state === 'ready' ? 'offlineSalesDevice.pack.ready' : 'offlineSalesDevice.pack.incomplete') | transloco }}</span></div>
+                      @if (offlinePackVersion()) {
+                        <div class="status-row"><span class="status-label">{{ 'offlineSalesDevice.pack.version' | transloco }}</span><span class="status-value">{{ offlinePackVersion() }}</span></div>
+                      }
+                      @if (pack.lastCheckedAt) {
+                        <div class="status-row"><span class="status-label">{{ 'offlineSalesDevice.pack.lastChecked' | transloco }}</span><span class="status-value">{{ pack.lastCheckedAt | localeInstant }}</span></div>
+                      }
+                      @if (pack.lastUpdatedAt) {
+                        <div class="status-row"><span class="status-label">{{ 'offlineSalesDevice.pack.lastUpdated' | transloco }}</span><span class="status-value">{{ pack.lastUpdatedAt | localeInstant }}</span></div>
+                      }
+                    }
                   </div>
+                  @if (offlinePackStatus()?.persisted === false) {
+                    <p class="owner-hint mt-3">{{ 'offlineSalesDevice.pack.notPersisted' | transloco }}</p>
+                  }
+                  @if (isOfflineEnablePending()) {
+                    <p class="owner-hint mt-3" role="status">{{ offlineEnablementProgressKey() | transloco }}</p>
+                  }
                   @if (offlineEnablementErrorKey()) {
                     <p class="server-error mt-4">{{ offlineEnablementErrorKey() | transloco }}</p>
                   }

@@ -91,24 +91,11 @@
               [class.is-enabled]="isOfflineSalesEnabled()"
               [class.is-disabled]="!isOfflineSalesEnabled()"
               [class.is-pending]="isOfflineSalesEnablePending()"
+              [class.is-incomplete]="isOfflinePackIncomplete()"
               [disabled]="isOfflineSalesEnablePending()"
               [attr.aria-pressed]="isOfflineSalesEnabled()"
-              [attr.aria-label]="
-                isOfflineSalesEnablePending()
-                  ? ('shell.offlineSalesEnabling' | transloco)
-                  : isOfflineSalesEnabled()
-                    ? ('shell.offlineSalesEnabled' | transloco)
-                    : ('shell.offlineSalesDisabled' | transloco)
-              "
-              [attr.title]="
-                offlineSalesToggleErrorKey()
-                  ? (offlineSalesToggleErrorKey() | transloco)
-                  : isOfflineSalesEnablePending()
-                    ? ('shell.offlineSalesEnabling' | transloco)
-                    : isOfflineSalesEnabled()
-                      ? ('shell.offlineSalesEnabled' | transloco)
-                      : ('shell.offlineSalesDisabled' | transloco)
-              "
+              [attr.aria-label]="offlineSalesToggleLabelKey() | transloco"
+              [attr.title]="(offlineSalesToggleErrorKey() || offlineSalesToggleLabelKey()) | transloco"
               (click)="onToggleOfflineSales()"
             >
               <i class="pi pi-wifi" aria-hidden="true"></i>
@@ -201,6 +188,39 @@
           (click)="onReloadForCacheSafety()"
         >
           {{ 'shell.cacheSafety.reload' | transloco }}
+        </button>
+      </div>
+    }
+
+    @if (isAppVersionUnrecoverable()) {
+      <div
+        class="shell-app-update flex flex-wrap items-center gap-3 border-b border-orange-300 bg-orange-50 px-4 py-2 text-sm text-orange-900"
+        role="alert"
+      >
+        <i class="pi pi-exclamation-triangle" aria-hidden="true"></i>
+        <span class="flex-1">{{ 'shell.appUpdate.unrecoverable' | transloco }}</span>
+        <button
+          type="button"
+          class="shell-app-update-action cursor-pointer rounded-lg border border-orange-700 bg-white px-3 py-1 font-semibold text-orange-800"
+          (click)="onReloadUnrecoverableVersion()"
+        >
+          {{ 'shell.appUpdate.reload' | transloco }}
+        </button>
+      </div>
+    } @else if (isAppUpdateReady()) {
+      <div
+        class="shell-app-update flex flex-wrap items-center gap-3 border-b border-orange-200 bg-orange-50 px-4 py-2 text-sm text-orange-900"
+        role="status"
+      >
+        <i class="pi pi-refresh" aria-hidden="true"></i>
+        <span class="flex-1">{{ (appUpdateErrorKey() ?? 'shell.appUpdate.ready') | transloco }}</span>
+        <button
+          type="button"
+          class="shell-app-update-action cursor-pointer rounded-lg border border-orange-700 bg-white px-3 py-1 font-semibold text-orange-800"
+          [disabled]="isAppUpdateApplying()"
+          (click)="onApplyAppUpdate()"
+        >
+          {{ 'shell.appUpdate.apply' | transloco }}
         </button>
       </div>
     }

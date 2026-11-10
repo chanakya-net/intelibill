@@ -5,7 +5,7 @@ import { RouterTestingHarness, RouterTestingModule } from '@angular/router/testi
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of, filter, firstValueFrom } from 'rxjs';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AuthSession, UserShop } from '../auth/auth.models';
 import { AuthService } from '../auth/auth.service';
@@ -23,6 +23,9 @@ import { ShellComponent } from './shell.component';
 import { ShopContextService } from '../context/shop-context.service';
 import { AppReloadService } from '../services/app-reload.service';
 import { CacheSafetyState } from '../service-worker/protected-cache-migration.service';
+import { OfflinePackService } from '../service-worker/offline-pack.service';
+import { OfflinePackUpdateService } from '../service-worker/offline-pack-update.service';
+import type { OfflinePackStatus } from '../storage/offline-pack-status.storage';
 import { ProtectedCacheSafetyService } from '../service-worker/protected-cache-safety.service';
 import { selectSidebarCollapsed, selectSidebarPinned } from '../state/app-shell.selectors';
 
@@ -533,6 +536,101 @@ describe('ShellComponent', () => {
       fixture.detectChanges();
 
       expect(fixture.nativeElement.textContent).toContain('Account content');
+    });
+  });
+
+  describe('app update notice and offline pack', () => {
+    const updateReady = signal(false);
+    const unrecoverable = signal(false);
+    const appUpdate = {
+      updateReady,
+      unrecoverable,
+      applying: signal(false),
+      applyErrorKey: signal<string | null>(null),
+      applyUpdate: vi.fn(async () => undefined),
+      reload: vi.fn(),
+    };
+    const packStatus = signal<OfflinePackStatus | null>(null);
+    const offlinePack = { status: packStatus, release: vi.fn(async () => undefined) };
+
+    function createWithUpdate() {
+      appUpdate.applyUpdate.mockClear();
+      appUpdate.reload.mockClear();
+      offlinePack.release.mockClear();
+      configureTestBed();
+      TestBed.overrideProvider(OfflinePackUpdateService, { useValue: appUpdate });
+      TestBed.overrideProvider(OfflinePackService, { useValue: offlinePack });
+      const fixture = TestBed.createComponent(ShellComponent);
+      fixture.detectChanges();
+      return fixture;
+    }
+
+    afterEach(() => {
+      updateReady.set(false);
+      unrecoverable.set(false);
+      packStatus.set(null);
+    });
+
+    it('stays hidden until a new build is ready, then applies it only when asked', () => {
+      const fixture = createWithUpdate();
+      expect(fixture.nativeElement.querySelector('.shell-app-update')).toBeNull();
+
+      updateReady.set(true);
+      fixture.detectChanges();
+      const notice: HTMLElement | null = fixture.nativeElement.querySelector('.shell-app-update');
+
+      expect(notice?.getAttribute('role')).toBe('status');
+      expect(notice?.textContent).toContain('ready');
+      expect(appUpdate.applyUpdate).not.toHaveBeenCalled();
+      notice?.querySelector<HTMLButtonElement>('.shell-app-update-action')?.click();
+      expect(appUpdate.applyUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it('asks for a reload while online when the version is unrecoverable', () => {
+      const fixture = createWithUpdate();
+      unrecoverable.set(true);
+      fixture.detectChanges();
+      const notice: HTMLElement | null = fixture.nativeElement.querySelector('.shell-app-update');
+
+      expect(notice?.getAttribute('role')).toBe('alert');
+      expect(notice?.textContent).toContain('unrecoverable');
+      notice?.querySelector<HTMLButtonElement>('.shell-app-update-action')?.click();
+      expect(appUpdate.reload).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows an enabled device whose offline files are incomplete, and lets the pack go when disabled', async () => {
+      const fixture = createWithUpdate();
+      const component = fixture.componentInstance;
+      component.offlineDeviceSettings.set({
+        shopId: 'shop-1',
+        deviceId: 'device-1',
+        label: '',
+        enabled: true,
+        enabledAt: null,
+        enabledByUserId: null,
+        enabledByUserName: null,
+        lastCompleteSnapshotAt: null,
+        lastApiVerifiedAt: null,
+        lastSnapshotWarningMarker: null,
+        lastReservedLease: null,
+      });
+      packStatus.set({
+        state: 'incomplete',
+        buildId: 'build-1',
+        manifestHash: 'hash',
+        persisted: true,
+        lastCheckedAt: null,
+        lastUpdatedAt: null,
+      });
+      fixture.detectChanges();
+
+      const toggle: HTMLButtonElement | null = fixture.nativeElement.querySelector('.offline-sales-toggle');
+      expect(toggle?.classList).toContain('is-incomplete');
+      expect(toggle?.getAttribute('aria-label')).toContain('offlineSalesPackIncomplete');
+
+      await component.onToggleOfflineSales();
+
+      expect(offlinePack.release).toHaveBeenCalledTimes(1);
     });
   });
 });

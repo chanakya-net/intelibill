@@ -15,6 +15,8 @@ import { RootState } from '../../../core/state/app.state';
 import { OfflineSalesDeviceSettings, OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
 import { BankAccountFormComponent } from '../../../shared/components/bank-account-form/bank-account-form.component';
 import { OfflineSalesDeviceEnablementService } from '../../sales/services/offline-sales-device-enablement.service';
+import { OfflinePackService } from '../../../core/service-worker/offline-pack.service';
+import { LocaleInstantPipe } from '../../../shared/pipes/locale-instant.pipe';
 import { UpdateShopRequest, UpdateShopTaxProfileRequest } from '../services/shop.service';
 import { ShopsActions } from '../state/shops.actions';
 import {
@@ -26,7 +28,7 @@ import {
   selectShopsSubmitting,
 } from '../state/shops.selectors';
 import { createManageBankForm, createManageShopForm, mapManageBankFormToUpdateBankDetailsRequest, mapManageShopFormToUpdateShopRequest, patchManageBankFormFromDetails, patchManageShopFormFromDetails } from './manage-shop/manage-shop-form.helper';
-import { formatOfflineSnapshotAgeLabel, getOfflineInvoiceRemainingCount, getOfflineReadinessState, offlineEnablementErrorKeyForReason } from './manage-shop/manage-shop-offline.helper';
+import { formatOfflinePackVersion, formatOfflineSnapshotAgeLabel, getOfflineInvoiceRemainingCount, getOfflineReadinessState, offlineEnablementErrorKeyForReason, offlineEnablementProgressKey } from './manage-shop/manage-shop-offline.helper';
 import { ShopBasicInfoFormComponent } from './manage-shop/shop-basic-info-form.component';
 import { ShopLogoUploadComponent } from './manage-shop/shop-logo-upload.component';
 import { ShopMembersTableComponent } from './manage-shop/shop-members-table.component';
@@ -45,6 +47,7 @@ import { ShopTillSettingsComponent } from './manage-shop/shop-till-settings.comp
     ProgressSpinnerModule,
     StepperModule,
     TranslocoPipe,
+    LocaleInstantPipe,
     BankAccountFormComponent,
     ShopBasicInfoFormComponent,
     ShopLogoUploadComponent,
@@ -61,6 +64,7 @@ export class ManageShopOverlayComponent implements OnInit {
   readonly networkStatus = inject(NetworkStatusService);
   private readonly offlineDeviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
   private readonly offlineDeviceEnablement = inject(OfflineSalesDeviceEnablementService);
+  private readonly offlinePack = inject(OfflinePackService);
 
   readonly isSubmitting = this.store.selectSignal(selectShopsSubmitting);
   readonly isLoadingDetails = this.store.selectSignal(selectShopsLoadingDetails);
@@ -89,6 +93,11 @@ export class ManageShopOverlayComponent implements OnInit {
   readonly offlineDeviceSettings = signal<OfflineSalesDeviceSettings | null>(null);
   readonly offlineDeviceLabel = signal('');
   readonly offlineEnablementErrorKey = signal('');
+  /** The app's files for offline use, shared by every shop on this device. */
+  readonly offlinePackStatus = this.offlinePack.status;
+  readonly offlinePackVersion = computed(() => formatOfflinePackVersion(this.offlinePackStatus()));
+  /** What an enable in progress is doing (downloading the app files, the snapshot, the lease). */
+  readonly offlineEnablementProgressKey = computed(() => offlineEnablementProgressKey(this.offlineDeviceEnablement.step()));
   readonly stepIcons = [
     { value: 1, icon: 'pi pi-shop' },
     { value: 2, icon: 'pi pi-credit-card' },
@@ -302,6 +311,11 @@ export class ManageShopOverlayComponent implements OnInit {
     return getOfflineReadinessState(this.form.controls.shopId.value, this.offlineDeviceSettings());
   }
 
+  /** Enabled here, but the app's files for offline use were last found incomplete. */
+  isOfflinePackIncomplete(): boolean {
+    return this.offlineReadinessState() === 'enabled' && this.offlinePackStatus()?.state === 'incomplete';
+  }
+
   offlineSnapshotAgeLabel(): string {
     return formatOfflineSnapshotAgeLabel(this.offlineDeviceSettings()?.lastCompleteSnapshotAt);
   }
@@ -335,7 +349,7 @@ export class ManageShopOverlayComponent implements OnInit {
     try {
       const result = await this.offlineDeviceEnablement.enableForShop(shopId, this.offlineDeviceLabel().trim());
       if (!result.ok) {
-        this.offlineEnablementErrorKey.set(offlineEnablementErrorKeyForReason(result.reason, result.errorCode));
+        this.offlineEnablementErrorKey.set(offlineEnablementErrorKeyForReason(result.reason, result.errorCode, result.packFailure));
         return;
       }
       this.offlineDeviceSettings.set(result.settings);
