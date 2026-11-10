@@ -6,12 +6,12 @@
 >
   <div class="overlay-backdrop" (click)="onClose()"></div>
 
-  <div class="overlay-card">
+  <div class="overlay-card editor-dialog">
     <header class="overlay-header">
-      <div>
+      <div class="editor-dialog-header">
         <p class="eyebrow">{{ 'expenses.title' | transloco }}</p>
         <h2>{{ 'expenses.recordExpense' | transloco }}</h2>
-        <p class="description">{{ 'expenses.recordExpenseDescription' | transloco }}</p>
+        <p class="subtitle">{{ 'expenses.recordExpenseDescription' | transloco }}</p>
       </div>
       <button
         type="button"
@@ -23,123 +23,121 @@
       </button>
     </header>
 
-    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
-      <label>
-        <span>{{ 'expenses.treatment.label' | transloco }}</span>
-        <select
-          data-testid="expense-treatment"
-          [value]="treatment()"
-          (change)="selectTreatment($event)"
-        >
-          @for (choice of treatmentChoices; track choice) {
-            <option [value]="choice">{{ 'expenses.treatment.' + choice | transloco }}</option>
-          }
-        </select>
-        <small>{{ 'expenses.treatment.help' | transloco }}</small>
-      </label>
+    <form id="record-expense-form" class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <div class="editor-dialog-section editor-dialog-grid">
+        <label>
+          <span>{{ 'expenses.treatment.label' | transloco }}</span>
+          <select
+            data-testid="expense-treatment"
+            [value]="treatment()"
+            (change)="selectTreatment($event)"
+          >
+            @for (choice of treatmentChoices; track choice) {
+              <option [value]="choice">{{ 'expenses.treatment.' + choice | transloco }}</option>
+            }
+          </select>
+          <small class="field-hint">{{ 'expenses.treatment.help' | transloco }}</small>
+        </label>
 
-      <label
-        [class.field-invalid]="
-          form.controls.categoryName.touched && form.controls.categoryName.invalid
-        "
-      >
-        <span>{{ 'expenses.category' | transloco }}</span>
-        <p-select
-          formControlName="categoryName"
-          [invalid]="controlInvalid('categoryName')"
-          [pt]="{
-            label: {
-              'aria-describedby': controlDescriptions('categoryName', 'record-category-error'),
-              'aria-invalid': controlInvalid('categoryName') ? 'true' : undefined,
-            },
-          }"
-          [options]="selectableCategories()"
-          optionLabel="name"
-          optionValue="name"
-          [placeholder]="'expenses.category' | transloco"
-          [editable]="true"
-          [fluid]="true"
-        ></p-select>
-        @if (form.controls.categoryName.touched && form.controls.categoryName.invalid) {
-          <p id="record-category-error" class="field-error">{{ 'common.required' | transloco }}</p>
-        }
-      </label>
-
-      <label [class.field-invalid]="form.controls.amount.touched && form.controls.amount.invalid">
-        <span>{{ 'expenses.amount' | transloco }}</span>
-        <p-inputgroup [pt]="currencyGroupPt">
-          <p-inputgroup-addon [pt]="currencyAddonPt">{{
-            'common.currencySymbol' | transloco
-          }}</p-inputgroup-addon>
-          <p-inputNumber
-            formControlName="amount"
-            mode="decimal"
-            [min]="0"
-            [maxFractionDigits]="2"
-            [fluid]="true"
-           [invalid]="controlInvalid('amount')" [ariaDescribedBy]="controlDescriptions('amount', 'record-amount-error')" [pt]="controlInputPt('amount', 'record-amount-error', currencyInputPt)"></p-inputNumber>
-        </p-inputgroup>
-        @if (form.controls.amount.touched && form.controls.amount.invalid) {
-          <p id="record-amount-error" class="field-error">{{ 'common.required' | transloco }}</p>
-        }
-      </label>
-
-      <label [class.field-invalid]="form.controls.paidTo.touched && form.controls.paidTo.invalid">
-        <span>{{ 'expenses.paidTo' | transloco }}</span>
-        <input
-          pInputText
-          type="text"
-          formControlName="paidTo"
-         [attr.aria-invalid]="controlInvalid('paidTo') ? 'true' : null" [attr.aria-describedby]="controlDescriptions('paidTo', 'record-paid-to-error')" />
-        @if (form.controls.paidTo.touched && form.controls.paidTo.invalid) {
-          <p id="record-paid-to-error" class="field-error">{{ 'common.required' | transloco }}</p>
-        }
-      </label>
-
-      <label>
-        <span>{{ 'expenses.description' | transloco }}</span>
-        <textarea
-          pInputTextarea
-          rows="3"
-          formControlName="description"
-          [attr.aria-describedby]="
-            fieldError('description') ? 'record-expense-overlay-description-error' : null
+        <label
+          [class.field-invalid]="
+            form.controls.categoryName.touched && form.controls.categoryName.invalid
           "
-          [attr.aria-invalid]="fieldError('description') ? true : null"
-        ></textarea>
-      </label>
+        >
+          <span>{{ 'expenses.category' | transloco }}</span>
+          <p-select
+            formControlName="categoryName"
+            [invalid]="controlInvalid('categoryName')"
+            [pt]="{
+              label: {
+                'aria-describedby': controlDescriptions('categoryName', 'record-category-error'),
+                'aria-invalid': controlInvalid('categoryName') ? 'true' : undefined,
+              },
+            }"
+            [options]="selectableCategories()"
+            optionLabel="name"
+            optionValue="name"
+            [placeholder]="'expenses.category' | transloco"
+            [editable]="true"
+            [fluid]="true"
+          ></p-select>
+          @if (form.controls.categoryName.touched && form.controls.categoryName.invalid) {
+            <p id="record-category-error" class="field-error">
+              {{ 'common.required' | transloco }}
+            </p>
+          }
+        </label>
 
-      <label>
-        <span>{{ 'expenses.expenseDate' | transloco }}</span>
-        <p-datePicker
-          formControlName="expenseDate" [invalid]="controlInvalid('expenseDate')" [pt]="controlInputPt('expenseDate')"
-          dateFormat="yy-mm-dd"
-          [showIcon]="true"
-          [showButtonBar]="true"
-          [fluid]="true"
-        ></p-datePicker>
-      </label>
+        <label [class.field-invalid]="form.controls.amount.touched && form.controls.amount.invalid">
+          <span>{{ 'expenses.amount' | transloco }}</span>
+          <p-inputgroup [pt]="currencyGroupPt">
+            <p-inputgroup-addon [pt]="currencyAddonPt">{{
+              'common.currencySymbol' | transloco
+            }}</p-inputgroup-addon>
+            <p-inputNumber
+              formControlName="amount"
+              mode="decimal"
+              [min]="0"
+              [maxFractionDigits]="2"
+              [fluid]="true"
+              [invalid]="controlInvalid('amount')"
+              [ariaDescribedBy]="controlDescriptions('amount', 'record-amount-error')"
+              [pt]="controlInputPt('amount', 'record-amount-error', currencyInputPt)"
+            ></p-inputNumber>
+          </p-inputgroup>
+          @if (form.controls.amount.touched && form.controls.amount.invalid) {
+            <p id="record-amount-error" class="field-error">{{ 'common.required' | transloco }}</p>
+          }
+        </label>
+
+        <label>
+          <span>{{ 'expenses.expenseDate' | transloco }}</span>
+          <p-datePicker
+            formControlName="expenseDate"
+            [invalid]="controlInvalid('expenseDate')"
+            [pt]="controlInputPt('expenseDate')"
+            dateFormat="yy-mm-dd"
+            [showIcon]="true"
+            [showButtonBar]="true"
+            [fluid]="true"
+          ></p-datePicker>
+        </label>
+
+        <label
+          class="field-wide"
+          [class.field-invalid]="form.controls.paidTo.touched && form.controls.paidTo.invalid"
+        >
+          <span>{{ 'expenses.paidTo' | transloco }}</span>
+          <input
+            pInputText
+            type="text"
+            formControlName="paidTo"
+            [attr.aria-invalid]="controlInvalid('paidTo') ? 'true' : null"
+            [attr.aria-describedby]="controlDescriptions('paidTo', 'record-paid-to-error')"
+          />
+          @if (form.controls.paidTo.touched && form.controls.paidTo.invalid) {
+            <p id="record-paid-to-error" class="field-error">{{ 'common.required' | transloco }}</p>
+          }
+        </label>
+
+        <label class="field-wide">
+          <span>{{ 'expenses.description' | transloco }}</span>
+          <textarea
+            pInputTextarea
+            rows="3"
+            formControlName="description"
+            [attr.aria-describedby]="
+              fieldError('description') ? 'record-expense-overlay-description-error' : null
+            "
+            [attr.aria-invalid]="fieldError('description') ? true : null"
+          ></textarea>
+        </label>
+      </div>
 
       @if (serverError()) {
         <p class="error-message">{{ serverError() | transloco: localizedError()?.params ?? {} }}</p>
       }
 
-      <div class="actions">
-        <button
-          pButton
-          type="button"
-          [label]="'common.cancel' | transloco"
-          severity="secondary"
-          [disabled]="isSubmitting()"
-          (click)="onClose()"
-        ></button>
-        <button
-          pButton
-          type="submit"
-          [label]="'expenses.recordExpense' | transloco"
-          [disabled]="isSubmitting()"
-        ></button>
-      </div>
       <app-till-pending-actions
         (lockedChange)="onTillLocked($event)"
         action="expense-record"
@@ -158,6 +156,28 @@
         }}</small>
       }
     </form>
+
+    <footer class="overlay-footer">
+      <div class="actions editor-dialog-actions">
+        <button
+          pButton
+          type="button"
+          [label]="'common.cancel' | transloco"
+          severity="secondary"
+          [outlined]="true"
+          [disabled]="isSubmitting()"
+          (click)="onClose()"
+        ></button>
+        <button
+          pButton
+          type="submit"
+          form="record-expense-form"
+          icon="pi pi-check"
+          [label]="'expenses.recordExpense' | transloco"
+          [disabled]="isSubmitting()"
+        ></button>
+      </div>
+    </footer>
 
     @if (isSubmitting()) {
       <div class="submit-overlay">

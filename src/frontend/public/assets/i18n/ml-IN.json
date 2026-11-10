@@ -757,6 +757,7 @@
     "totalPurchaseCost": "മൊത്തം വാങ്ങൽ ചെലവ്",
     "mrp": "പരമാവധി വില്പന വില",
     "salesPrice": "വിൽപ്പന വില",
+    "salesTaxMode": "വിൽപ്പന വിലയുടെ നികുതി",
     "perUnitSalesPrice": "യൂണിറ്റിന് വിൽപ്പന വില",
     "taxRatePercent": "നികുതി %",
     "batchNumber": "ബാച്ച് നമ്പർ",

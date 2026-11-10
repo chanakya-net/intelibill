@@ -757,6 +757,7 @@
     "totalPurchaseCost": "মোট ক্রয় খরচ",
     "mrp": "সর্বোচ্চ খুচরা মূল্য",
     "salesPrice": "বিক্রয় মূল্য",
+    "salesTaxMode": "বিক্রয় মূল্যের কর",
     "perUnitSalesPrice": "প্রতি ইউনিট বিক্রয় মূল্য",
     "taxRatePercent": "কর %",
     "batchNumber": "ব্যাচ নম্বর",

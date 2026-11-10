@@ -15,6 +15,7 @@
         pInputText
         type="text"
         [(ngModel)]="searchValue"
+        [attr.aria-label]="'suppliers.searchLedger' | transloco"
         [placeholder]="'suppliers.searchLedger' | transloco"
         class="w-full"
       />
@@ -94,6 +95,7 @@
               pInputText
               type="text"
               [(ngModel)]="searchValue"
+              [attr.aria-label]="'suppliers.searchLedger' | transloco"
               (input)="ledgerTable.filterGlobal(searchValue(), 'contains')"
               [placeholder]="'suppliers.searchLedger' | transloco"
             />

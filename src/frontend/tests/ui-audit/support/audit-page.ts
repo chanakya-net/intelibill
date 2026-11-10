@@ -403,6 +403,17 @@ export async function mockExternalRequests(
       return;
     }
 
+    if (route.request().method() === 'GET' && requestUrl.pathname === '/api/tills/capabilities') {
+      await fulfillJson(route, {
+        enabled: false,
+        mixedTenderEnabled: false,
+        businessDate: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(
+          new Date(),
+        ),
+      });
+      return;
+    }
+
     if (route.request().method() === 'GET' && requestUrl.pathname === '/api/shops/me') {
       await fulfillJson(route, [
         {

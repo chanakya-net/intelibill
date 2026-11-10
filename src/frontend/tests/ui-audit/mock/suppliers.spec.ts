@@ -206,7 +206,7 @@ test.describe('suppliers', () => {
       const detail = await openSupplierDetail(page);
       await detail.getByRole('spinbutton', { name: 'Amount ₹' }).fill('1000');
       await detail.getByRole('button', { name: 'Record Payment', exact: true }).click();
-      expect(paymentRequests).toBe(1);
+      await expect.poll(() => paymentRequests).toBe(1);
       await expect(detail.locator('.ledger-table tbody tr')).toHaveCount(3);
       await detail.getByRole('button', { name: 'Payments', exact: true }).click();
       await expect(detail.locator('.ledger-table tbody tr')).toHaveCount(2);
@@ -232,7 +232,7 @@ test.describe('suppliers', () => {
       await expect(paymentOverlay).toContainText('Audit Supplier One');
       await paymentOverlay.getByRole('spinbutton', { name: 'Amount ₹' }).fill('1000');
       await paymentOverlay.getByRole('button', { name: 'Record Payment', exact: true }).click();
-      expect(paymentRequests).toBe(1);
+      await expect.poll(() => paymentRequests).toBe(1);
       await expect(paymentOverlay).toBeHidden();
       assertNoUnexpectedBrowserFailures(collector.failures);
     } finally {

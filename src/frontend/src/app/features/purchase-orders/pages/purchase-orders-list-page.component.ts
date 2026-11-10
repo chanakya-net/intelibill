@@ -281,66 +281,68 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
                     <td class="money">{{ order.expectedTotal | localeMoney }}</td>
                     <td>{{ order.createdAt | localeInstant }}</td>
                     <td>
-                      @if (permissions.canManagePurchaseOrders() && order.status === 'Draft') {
-                        <div class="po-row-actions">
+                      <div class="po-row-action-group">
+                        @if (permissions.canManagePurchaseOrders() && order.status === 'Draft') {
+                          <div class="po-row-actions">
+                            <button
+                              pButton
+                              type="button"
+                              severity="secondary"
+                              icon="pi pi-pencil"
+                              [label]="'purchaseOrders.editPo' | transloco"
+                              (click)="openEditOrder(order.purchaseOrderId, $event)"
+                            ></button>
+                            <button
+                              pButton
+                              type="button"
+                              severity="success"
+                              icon="pi pi-send"
+                              [label]="'purchaseOrders.actions.placeOrder' | transloco"
+                              (click)="placeOrder(order.purchaseOrderId, $event)"
+                            ></button>
+                            <button
+                              pButton
+                              type="button"
+                              severity="danger"
+                              icon="pi pi-trash"
+                              [label]="'purchaseOrders.actions.deleteDraft' | transloco"
+                              (click)="deleteDraft(order.purchaseOrderId, $event)"
+                            ></button>
+                          </div>
+                        } @else if (
+                          permissions.canManagePurchaseOrders() &&
+                          (order.status === 'Placed' ||
+                            order.status === 'PartiallyReceived' ||
+                            order.status === 'Received' ||
+                            order.status === 'Closed')
+                        ) {
+                          <div class="po-row-actions">
+                            <button
+                              pButton
+                              type="button"
+                              severity="success"
+                              icon="pi pi-inbox"
+                              [label]="
+                                (order.status === 'Received' || order.status === 'Closed'
+                                  ? 'purchaseOrders.receiving.recover'
+                                  : 'purchaseOrders.actions.receive'
+                                ) | transloco
+                              "
+                              (click)="openReceiveOrder(order.purchaseOrderId, $event)"
+                            ></button>
+                          </div>
+                        }
+                        @if (canOpenActionMenu(order)) {
                           <button
                             pButton
                             type="button"
-                            severity="secondary"
-                            icon="pi pi-pencil"
-                            [label]="'purchaseOrders.editPo' | transloco"
-                            (click)="openEditOrder(order.purchaseOrderId, $event)"
+                            class="po-row-action-menu-trigger"
+                            icon="pi pi-ellipsis-v"
+                            [label]="'purchaseOrders.actionsLabel' | transloco"
+                            (click)="openActionMenu(order, $event, actionMenu)"
                           ></button>
-                          <button
-                            pButton
-                            type="button"
-                            severity="success"
-                            icon="pi pi-send"
-                            [label]="'purchaseOrders.actions.placeOrder' | transloco"
-                            (click)="placeOrder(order.purchaseOrderId, $event)"
-                          ></button>
-                          <button
-                            pButton
-                            type="button"
-                            severity="danger"
-                            icon="pi pi-trash"
-                            [label]="'purchaseOrders.actions.deleteDraft' | transloco"
-                            (click)="deleteDraft(order.purchaseOrderId, $event)"
-                          ></button>
-                        </div>
-                      } @else if (
-                        permissions.canManagePurchaseOrders() &&
-                        (order.status === 'Placed' ||
-                          order.status === 'PartiallyReceived' ||
-                          order.status === 'Received' ||
-                          order.status === 'Closed')
-                      ) {
-                        <div class="po-row-actions">
-                          <button
-                            pButton
-                            type="button"
-                            severity="success"
-                            icon="pi pi-inbox"
-                            [label]="
-                              (order.status === 'Received' || order.status === 'Closed'
-                                ? 'purchaseOrders.receiving.recover'
-                                : 'purchaseOrders.actions.receive'
-                              ) | transloco
-                            "
-                            (click)="openReceiveOrder(order.purchaseOrderId, $event)"
-                          ></button>
-                        </div>
-                      }
-                      @if (canOpenActionMenu(order)) {
-                        <button
-                          pButton
-                          type="button"
-                          class="po-row-action-menu-trigger"
-                          icon="pi pi-ellipsis-v"
-                          [label]="'purchaseOrders.actionsLabel' | transloco"
-                          (click)="openActionMenu(order, $event, actionMenu)"
-                        ></button>
-                      }
+                        }
+                      </div>
                     </td>
                   </tr>
                 </ng-template>
@@ -649,12 +651,17 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
         background: #fee2e2;
         color: #b91c1c;
       }
+      .po-row-action-group,
       .po-row-actions {
         display: flex;
         align-items: center;
         justify-content: flex-end;
         gap: 0.35rem;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
+      }
+      .po-row-action-group {
+        width: max-content;
+        margin-inline-start: auto;
       }
       .empty-state {
         padding: 1.25rem;
@@ -711,16 +718,18 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
         padding: 0.35rem 0 0;
         min-height: 2.5rem;
       }
-      :host ::ng-deep .po-row-actions .p-button {
+      .po-row-action-group .p-button {
         min-height: 2.1rem;
         padding: 0.35rem 0.6rem;
+        flex-shrink: 0;
+        white-space: nowrap;
       }
       :host ::ng-deep .po-row-action-menu {
         min-width: 12rem;
       }
       .po-row-action-menu-trigger {
+        display: none;
         min-height: 2.1rem;
-        margin-left: 0.35rem;
         white-space: nowrap;
       }
       @media (max-width: 1100px) {
@@ -750,7 +759,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
           display: none;
         }
         .po-row-action-menu-trigger {
-          margin-left: 0;
+          display: inline-flex;
         }
       }
     `,

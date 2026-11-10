@@ -757,6 +757,7 @@
     "totalPurchaseCost": "कुल खरीद लागत",
     "mrp": "एमआरपी",
     "salesPrice": "बिक्री मूल्य",
+    "salesTaxMode": "बिक्री मूल्य पर कर",
     "perUnitSalesPrice": "प्रति यूनिट बिक्री मूल्य",
     "taxRatePercent": "कर %",
     "batchNumber": "बैच संख्या",

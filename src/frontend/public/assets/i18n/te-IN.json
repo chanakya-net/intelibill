@@ -757,6 +757,7 @@
     "totalPurchaseCost": "మొత్తం కొనుగోలు ఖర్చు",
     "mrp": "గరిష్ట రిటైల్ ధర",
     "salesPrice": "అమ్మకపు ధర",
+    "salesTaxMode": "అమ్మకపు ధర పన్ను",
     "perUnitSalesPrice": "యూనిట్‌కు అమ్మకపు ధర",
     "taxRatePercent": "పన్ను %",
     "batchNumber": "బ్యాచ్ నంబర్",

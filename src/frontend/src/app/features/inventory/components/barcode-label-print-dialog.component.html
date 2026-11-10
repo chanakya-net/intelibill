@@ -5,61 +5,83 @@
   [closable]="true"
   [draggable]="false"
   [resizable]="false"
-  styleClass="barcode-label-print-dialog-panel"
-  [style]="{ width: 'min(92vw, 640px)' }"
+  styleClass="editor-dialog barcode-label-print-dialog-panel"
+  [style]="{ width: 'min(640px, 96vw)', maxHeight: 'calc(100dvh - 1rem)' }"
   (visibleChange)="onVisibleChange($event)"
 >
-  @if (rows().length === 0) {
-    <p class="text-sm text-slate-500">{{ 'inventory.barcodeLabels.noItems' | transloco }}</p>
-  } @else {
-    <p class="text-sm text-slate-500 mb-3">{{ 'inventory.barcodeLabels.subtitle' | transloco }}</p>
+  <ng-template pTemplate="header" let-titleId="ariaLabelledBy">
+    <div class="editor-dialog-header">
+      <p class="eyebrow">{{ 'inventory.title' | transloco }}</p>
+      <h2 [id]="titleId">{{ 'inventory.barcodeLabels.title' | transloco }}</h2>
+      <p class="subtitle">{{ 'inventory.barcodeLabels.subtitle' | transloco }}</p>
+    </div>
+  </ng-template>
 
-    <div class="barcode-label-print-dialog__table">
-      <div class="barcode-label-print-dialog__header row-gap-2 mb-2">
-        <span class="font-medium">{{ 'inventory.barcodeLabels.table.item' | transloco }}</span>
-        <span class="font-medium">{{ 'inventory.barcodeLabels.table.barcode' | transloco }}</span>
-        <span class="font-medium">{{ 'inventory.barcodeLabels.table.quantity' | transloco }}</span>
+  @if (rows().length === 0) {
+    <p class="editor-dialog-hint">{{ 'inventory.barcodeLabels.noItems' | transloco }}</p>
+  } @else {
+    <section class="editor-dialog-section barcode-label-print-dialog__table">
+      <div class="barcode-label-print-dialog__header">
+        <span>{{ 'inventory.barcodeLabels.table.item' | transloco }}</span>
+        <span>{{ 'inventory.barcodeLabels.table.barcode' | transloco }}</span>
+        <span>{{ 'inventory.barcodeLabels.table.quantity' | transloco }}</span>
       </div>
 
       @for (line of rows(); track $index) {
         <div class="barcode-label-print-dialog__row">
-          <span class="barcode-label-print-dialog__item">{{ line.itemName }}</span>
+          <strong class="barcode-label-print-dialog__item">{{ line.itemName }}</strong>
           <span class="barcode-label-print-dialog__barcode">{{ line.barcode }}</span>
-          <p-inputNumber
-            styleClass="barcode-label-print-dialog__quantity-input"
-            [ngModel]="line.quantity"
-            [showButtons]="true"
-            buttonLayout="horizontal"
-            incrementButtonIcon="pi pi-plus"
-            decrementButtonIcon="pi pi-minus"
-            [min]="1"
-            [step]="1"
-            (ngModelChange)="onQuantityChange($index, $event)"
-          />
+          <div class="barcode-label-print-dialog__quantity">
+            <label
+              class="barcode-label-print-dialog__mobile-label"
+              [for]="'barcode-quantity-' + $index"
+              >{{ 'inventory.barcodeLabels.table.quantity' | transloco }}</label
+            >
+            <p-inputNumber
+              [inputId]="'barcode-quantity-' + $index"
+              [ariaLabel]="
+                ('inventory.barcodeLabels.table.quantity' | transloco) + ': ' + line.itemName
+              "
+              styleClass="barcode-label-print-dialog__quantity-input"
+              [ngModel]="line.quantity"
+              [showButtons]="true"
+              buttonLayout="horizontal"
+              incrementButtonIcon="pi pi-plus"
+              decrementButtonIcon="pi pi-minus"
+              [min]="1"
+              [step]="1"
+              (ngModelChange)="onQuantityChange($index, $event)"
+            />
+          </div>
         </div>
       }
-
-      <p class="mt-2 text-sm text-slate-600">
-        {{ 'inventory.barcodeLabels.totalQuantity' | transloco: { total: getTotalQuantity() } }}
-      </p>
-    </div>
+    </section>
+    <p class="barcode-label-print-dialog__total">
+      {{ 'inventory.barcodeLabels.totalQuantity' | transloco: { total: getTotalQuantity() } }}
+    </p>
   }
 
   @if (validationMessage()) {
-    <p class="barcode-label-print-dialog__validation text-sm text-red-600 mt-3">{{ validationMessage() | transloco }}</p>
+    <p class="barcode-label-print-dialog__validation" role="alert">
+      {{ validationMessage() | transloco }}
+    </p>
   }
 
-  <div class="barcode-label-print-dialog__actions">
-    <p-button
-      [label]="'inventory.barcodeLabels.actions.cancel' | transloco"
-      [text]="true"
-      (click)="onClose()"
-    />
-    <p-button
-      [label]="'inventory.barcodeLabels.actions.print' | transloco"
-      [severity]="'secondary'"
-      [disabled]="!canPrint"
-      (click)="onPrint()"
-    />
-  </div>
+  <ng-template pTemplate="footer">
+    <div class="editor-dialog-actions">
+      <p-button
+        [label]="'inventory.barcodeLabels.actions.cancel' | transloco"
+        severity="secondary"
+        [outlined]="true"
+        (click)="onClose()"
+      />
+      <p-button
+        [label]="'inventory.barcodeLabels.actions.print' | transloco"
+        [ariaLabel]="'inventory.barcodeLabels.actions.print' | transloco"
+        icon="pi pi-print"
+        [disabled]="!canPrint"
+        (click)="onPrint()"
+      />
+    </div>
+  </ng-template>
 </p-dialog>

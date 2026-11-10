@@ -1,19 +1,103 @@
-.ledger-content {
+@use '../../../shared/styles/editor-dialog';
+
+@include editor-dialog.styles;
+
+.supplier-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  gap: 1rem;
+  flex-wrap: wrap;
+  min-width: 0;
+
+  > a {
+    font-size: 0.82rem;
+  }
+}
+
+.ledger-content,
+.supplier-detail {
   display: flex;
   flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.ledger-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .details-heading {
-  margin: 0.25rem 0 0.35rem;
+  margin: 0;
+  color: #2a1b12;
   font-size: 1.05rem;
-  font-weight: 700;
-  color: #1f2937;
-  letter-spacing: 0.01em;
+  font-weight: 800;
 }
 
-.payment-section {
-  padding-top: 0.5rem;
-  border-top: 1px solid #e1d1c0;
+.filter-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
+.error {
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #fecaca;
+  border-radius: 0.8rem;
+  background: #fff1f2;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+:host ::ng-deep .supplier-detail-dialog {
+  .payment-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+
+    > label {
+      min-width: 0;
+    }
+
+    > label > span {
+      color: #6f5a48;
+    }
+
+    > label:nth-of-type(3),
+    > .actions,
+    > .error-message,
+    > app-till-pending-actions,
+    > app-till-posting-fields,
+    > [role='alert'] {
+      grid-column: 1 / -1;
+    }
+
+    > .actions {
+      gap: 0.55rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #ead7c1;
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .supplier-detail-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  :host ::ng-deep .supplier-detail-dialog .payment-form {
+    grid-template-columns: 1fr;
+
+    > .actions {
+      flex-direction: column-reverse;
+      align-items: stretch;
+    }
+  }
+}

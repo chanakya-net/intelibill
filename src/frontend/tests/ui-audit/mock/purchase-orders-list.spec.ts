@@ -152,17 +152,21 @@ test.describe('purchase-orders-list', () => {
       await page.getByRole('button', { name: 'Clear' }).click();
       await resetForActions;
       const draftRow = rowForStatus(page, 'Draft');
-      await draftRow.locator('.po-row-action-menu-trigger').click();
       const actionMenu = page.locator('.po-row-action-menu');
-      await expect(actionMenu).toContainText('Edit Purchase Order Draft');
-      await expect(actionMenu).toContainText('Place Order');
+      const mobile = page.viewportSize()!.width <= 720;
+      if (mobile) {
+        await draftRow.locator('.po-row-action-menu-trigger').click();
+        await expect(actionMenu).toContainText('Edit Purchase Order Draft');
+        await expect(actionMenu).toContainText('Place Order');
+      }
       const placed = page.waitForRequest((request) => {
         const url = new URL(request.url());
         return (
           request.method() === 'POST' && url.pathname === '/api/purchase-orders/po-draft/place'
         );
       });
-      await actionMenu.locator('.p-menu-item').nth(1).click();
+      if (mobile) await actionMenu.locator('.p-menu-item').nth(1).click();
+      else await draftRow.getByRole('button', { name: 'Place Order', exact: true }).click();
       await placed;
       await expect(rowForStatus(page, 'Draft')).toHaveCount(0);
       await expect(rowForStatus(page, 'Placed')).toHaveCount(2);
@@ -261,9 +265,11 @@ async function assertActionControls(page: Page, canManage: boolean): Promise<voi
     'Cancelled',
   ]) {
     const trigger = rowForStatus(page, status).locator('.po-row-action-menu-trigger');
-    await expect(trigger).toHaveCount(
-      canManage && !['Received', 'Closed', 'Cancelled'].includes(status) ? 1 : 0,
-    );
+    await expect(trigger).toHaveCount(canManage && status !== 'Cancelled' ? 1 : 0);
+    if (canManage && status !== 'Cancelled') {
+      if (page.viewportSize()!.width <= 720) await expect(trigger).toBeVisible();
+      else await expect(trigger).toBeHidden();
+    }
   }
 }
 
@@ -357,7 +363,8 @@ async function assertResponsivePurchaseOrders(
   await expect(surface).toBeVisible();
   await expect(supplier).toHaveAttribute('title', LONG_PURCHASE_ORDER.supplierName!);
   await expect(reference).toHaveAttribute('title', LONG_PURCHASE_ORDER.supplierReference!);
-  await expect(menuButton).toBeVisible();
+  if (viewport.width <= 720) await expect(menuButton).toBeVisible();
+  else await expect(menuButton).toBeHidden();
 
   const metrics = await page.evaluate(() => {
     const surface = document.querySelector<HTMLElement>('.directory-panel__surface');
@@ -433,5 +440,7 @@ async function assertLocalizedLabels(
   await expect(tableHeader).toContainText(labels.statusLabel);
   await expect(tableHeader).toContainText(labels.list.supplier);
   await expect(tableHeader).toContainText(labels.list.supplierReference);
-  await expect(page.getByRole('button', { name: labels.actionsLabel }).first()).toBeVisible();
+  if (page.viewportSize()!.width <= 720)
+    await expect(page.getByRole('button', { name: labels.actionsLabel }).first()).toBeVisible();
+  else await expect(page.locator('.po-row-actions').first()).toBeVisible();
 }

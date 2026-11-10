@@ -757,6 +757,7 @@
     "totalPurchaseCost": "மொத்த கொள்முதல் செலவு",
     "mrp": "அதிகபட்ச சில்லறை விலை",
     "salesPrice": "விற்பனை விலை",
+    "salesTaxMode": "விற்பனை விலை வரி",
     "perUnitSalesPrice": "யூனிட்டுக்கு விற்பனை விலை",
     "taxRatePercent": "வரி %",
     "batchNumber": "தொகுதி எண்",

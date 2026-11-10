@@ -54,481 +54,535 @@
   [header]="'inventory.editPricesAndDetails' | transloco"
   [(visible)]="isEditDialogOpen"
   [modal]="true"
-  [style]="{ width: '90vw', maxWidth: '600px' }"
+  styleClass="editor-dialog batch-price-dialog"
+  [style]="{ width: 'min(640px, 96vw)', maxHeight: 'calc(100dvh - 1rem)' }"
   [draggable]="false"
   [resizable]="false"
 >
-  <form [formGroup]="editForm" class="flex flex-col gap-4 mt-2" (ngSubmit)="onSaveEdit()">
-    <div class="flex flex-col gap-1 p-2 bg-blue-50 rounded border border-blue-100">
-      <span class="text-xs text-blue-600 font-semibold uppercase tracking-wider">
-        {{ 'inventory.batchNumber' | transloco }}
-      </span>
-      <span class="font-mono font-bold">{{ selectedBatch()?.batchNumber }}</span>
-      <span class="text-sm text-slate-600">{{ selectedBatch()?.itemName }}</span>
+  <ng-template pTemplate="header" let-titleId="ariaLabelledBy">
+    <div class="editor-dialog-header">
+      <p class="eyebrow">{{ 'inventory.title' | transloco }}</p>
+      <h2 [id]="titleId">{{ 'inventory.editPricesAndDetails' | transloco }}</h2>
+      <p class="subtitle" data-testid="edit-prices-hint">
+        {{ 'inventory.editPricesHint' | transloco }}
+      </p>
+    </div>
+  </ng-template>
+
+  <form
+    id="editor-dialog-form"
+    [formGroup]="editForm"
+    class="editor-dialog-form"
+    (ngSubmit)="onSaveEdit()"
+  >
+    <div class="editor-dialog-summary">
+      <span class="editor-dialog-summary__label">{{ 'inventory.batchNumber' | transloco }}</span>
+      <strong>{{ selectedBatch()?.batchNumber }}</strong>
+      <span class="editor-dialog-summary__name">{{ selectedBatch()?.itemName }}</span>
     </div>
 
-    <p class="text-sm text-slate-600 m-0" data-testid="edit-prices-hint">
-      {{ 'inventory.editPricesHint' | transloco }}
-    </p>
-
-    <div class="flex flex-col gap-1">
-      <label class="text-sm font-semibold" for="editBatchNumber">{{
-        'inventory.batchNumber' | transloco
-      }}</label>
-      <input id="editBatchNumber" pInputText formControlName="batchNumber" />
-    </div>
-
-    <div class="grid grid-cols-2 gap-4">
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold">{{ 'inventory.mrp' | transloco }}</label>
-        <p-inputgroup [pt]="currencyGroupPt">
-          <p-inputgroup-addon [pt]="currencyAddonPt">
-            {{ 'common.currencySymbol' | transloco }}
-          </p-inputgroup-addon>
+    <section class="editor-dialog-section">
+      <div class="editor-dialog-grid">
+        <div class="editor-dialog-field">
+          <label for="editMrp">{{ 'inventory.mrp' | transloco }}</label>
+          <p-inputgroup [pt]="currencyGroupPt">
+            <p-inputgroup-addon [pt]="currencyAddonPt">{{
+              'common.currencySymbol' | transloco
+            }}</p-inputgroup-addon>
+            <p-inputNumber
+              inputId="editMrp"
+              formControlName="mrp"
+              [min]="0"
+              mode="decimal"
+              [maxFractionDigits]="2"
+              [fluid]="true"
+              [pt]="currencyInputPt"
+            />
+          </p-inputgroup>
+        </div>
+        <div class="editor-dialog-field">
+          <label id="editSalesPriceLabel" for="editSalesPrice">{{
+            'inventory.salesPrice' | transloco
+          }}</label>
+          <p-inputgroup [pt]="currencyGroupPt">
+            <p-inputgroup-addon [pt]="currencyAddonPt">{{
+              'common.currencySymbol' | transloco
+            }}</p-inputgroup-addon>
+            <p-inputNumber
+              inputId="editSalesPrice"
+              formControlName="salesPrice"
+              [min]="0"
+              mode="decimal"
+              [maxFractionDigits]="2"
+              [fluid]="true"
+              [pt]="currencyInputPt"
+            />
+          </p-inputgroup>
+        </div>
+        <div class="editor-dialog-field">
+          <label for="editTaxRate">{{ 'inventory.taxRatePercent' | transloco }}</label>
           <p-inputNumber
-            formControlName="mrp"
+            inputId="editTaxRate"
+            formControlName="taxRatePercent"
             [min]="0"
-            mode="decimal"
-            [maxFractionDigits]="2"
+            [max]="100"
             [fluid]="true"
-            [pt]="currencyInputPt"
-          ></p-inputNumber>
-        </p-inputgroup>
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold">{{ 'inventory.salesPrice' | transloco }}</label>
-        <p-inputgroup class="w-full" [pt]="currencyGroupPt">
-          <p-inputgroup-addon [pt]="currencyAddonPt">
-            {{ 'common.currencySymbol' | transloco }}
-          </p-inputgroup-addon>
-          <p-inputNumber
-            formControlName="salesPrice"
-            [min]="0"
-            mode="decimal"
-            [maxFractionDigits]="2"
-            [fluid]="true"
-            [pt]="currencyInputPt"
-          ></p-inputNumber>
+            suffix="%"
+          />
+        </div>
+        <div class="editor-dialog-field">
+          <label id="editSalesTaxModeLabel" for="editSalesTaxMode">{{
+            'inventory.salesTaxMode' | transloco
+          }}</label>
           <p-select
+            inputId="editSalesTaxMode"
             formControlName="taxIncluded"
             [options]="taxModeOptions()"
             optionLabel="labelKey"
             optionValue="value"
-            class="w-32"
-            [pt]="currencySelectPt"
+            ariaLabelledBy="editSalesTaxModeLabel"
+            [fluid]="true"
           >
-            <ng-template pTemplate="selectedItem" let-option>
-              {{ option?.labelKey | transloco }}
-            </ng-template>
-            <ng-template pTemplate="item" let-option>
-              {{ option.labelKey | transloco }}
-            </ng-template>
+            <ng-template pTemplate="selectedItem" let-option>{{
+              option?.labelKey | transloco
+            }}</ng-template>
+            <ng-template pTemplate="item" let-option>{{ option.labelKey | transloco }}</ng-template>
           </p-select>
-        </p-inputgroup>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <div class="flex flex-col gap-1">
-      <label class="text-sm font-semibold">{{ 'inventory.taxRatePercent' | transloco }}</label>
-      <p-inputNumber
-        formControlName="taxRatePercent"
-        [min]="0"
-        [max]="100"
-        [fluid]="true"
-        suffix="%"
-      ></p-inputNumber>
-    </div>
-
-    <div class="grid grid-cols-2 gap-4">
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold">{{ 'inventory.expiryDate' | transloco }}</label>
-        <p-datepicker
-          formControlName="expiryDate"
-          dateFormat="dd/mm/yy"
-          [showIcon]="true"
-          [showButtonBar]="true"
-          appendTo="body"
-          [fluid]="true"
-        ></p-datepicker>
+    <section class="editor-dialog-section">
+      <div class="editor-dialog-field">
+        <label for="editBatchNumber">{{ 'inventory.batchNumber' | transloco }}</label>
+        <input id="editBatchNumber" pInputText formControlName="batchNumber" />
       </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold">{{ 'inventory.manufacturingDate' | transloco }}</label>
-        <p-datepicker
-          formControlName="manufacturingDate"
-          dateFormat="dd/mm/yy"
-          [showIcon]="true"
-          [showButtonBar]="true"
-          appendTo="body"
-          [fluid]="true"
-        ></p-datepicker>
+      <div class="editor-dialog-grid">
+        <div class="editor-dialog-field">
+          <label for="editExpiryDate">{{ 'inventory.expiryDate' | transloco }}</label>
+          <p-datepicker
+            inputId="editExpiryDate"
+            formControlName="expiryDate"
+            dateFormat="dd/mm/yy"
+            [showIcon]="true"
+            [showButtonBar]="true"
+            appendTo="body"
+            [fluid]="true"
+          />
+        </div>
+        <div class="editor-dialog-field">
+          <label for="editManufacturingDate">{{ 'inventory.manufacturingDate' | transloco }}</label>
+          <p-datepicker
+            inputId="editManufacturingDate"
+            formControlName="manufacturingDate"
+            dateFormat="dd/mm/yy"
+            [showIcon]="true"
+            [showButtonBar]="true"
+            appendTo="body"
+            [fluid]="true"
+          />
+        </div>
       </div>
-    </div>
+      <div class="editor-dialog-field">
+        <label for="editReason">{{ 'inventory.priceEditReason' | transloco }}</label>
+        <input
+          id="editReason"
+          pInputText
+          formControlName="reason"
+          [placeholder]="'inventory.priceEditReasonPlaceholder' | transloco"
+        />
+      </div>
+    </section>
+  </form>
 
-    <div class="flex flex-col gap-1">
-      <label class="text-sm font-semibold" for="editReason">{{
-        'inventory.priceEditReason' | transloco
-      }}</label>
-      <input
-        id="editReason"
-        pInputText
-        formControlName="reason"
-        [placeholder]="'inventory.priceEditReasonPlaceholder' | transloco"
-      />
-    </div>
-
-    <div class="flex justify-end gap-2 mt-4">
+  <ng-template pTemplate="footer">
+    <div class="editor-dialog-actions">
       <button
         pButton
         type="button"
+        severity="secondary"
+        [outlined]="true"
         [label]="'common.cancel' | transloco"
-        class="p-button-text"
         [disabled]="isSaving()"
         (click)="isEditDialogOpen.set(false)"
       ></button>
       <button
         pButton
         type="submit"
+        form="editor-dialog-form"
+        icon="pi pi-check"
         [label]="'common.save' | transloco"
         [loading]="isSaving()"
         [disabled]="editForm.invalid || isSaving()"
       ></button>
     </div>
-  </form>
+  </ng-template>
 </p-dialog>
 
 <p-dialog
   [header]="'inventory.adjustBatch' | transloco"
   [(visible)]="isAdjustmentDialogOpen"
   [modal]="true"
-  [style]="{ width: '92vw', maxWidth: '560px' }"
+  styleClass="editor-dialog"
+  [style]="{ width: 'min(560px, 96vw)', maxHeight: 'calc(100dvh - 1rem)' }"
   [draggable]="false"
   [resizable]="false"
 >
+  <ng-template pTemplate="header" let-titleId="ariaLabelledBy">
+    <div class="editor-dialog-header">
+      <p class="eyebrow">{{ 'inventory.title' | transloco }}</p>
+      <h2 [id]="titleId">{{ 'inventory.adjustBatch' | transloco }}</h2>
+    </div>
+  </ng-template>
+
   <form
     [formGroup]="adjustmentForm"
-    class="flex flex-col gap-4 mt-2"
+    class="editor-dialog-form"
+    id="batch-adjustment-form"
     (ngSubmit)="onSaveAdjustment()"
   >
-    <div class="flex flex-col gap-1 p-2 bg-blue-50 rounded border border-blue-100">
-      <span class="text-xs text-blue-600 font-semibold uppercase tracking-wider">
-        {{ 'inventory.batchNumber' | transloco }}
-      </span>
-      <span class="font-mono font-bold">{{ selectedBatch()?.batchNumber }}</span>
-      <span class="text-sm text-slate-600">{{ selectedBatch()?.itemName }}</span>
+    <div class="editor-dialog-summary">
+      <span class="editor-dialog-summary__label">{{ 'inventory.batchNumber' | transloco }}</span>
+      <strong>{{ selectedBatch()?.batchNumber }}</strong>
+      <span class="editor-dialog-summary__name">{{ selectedBatch()?.itemName }}</span>
     </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold">{{
-          'inventory.adjustmentDirectionLabel' | transloco
-        }}</label>
-        <p-select
-          formControlName="direction"
-          [options]="directionOptions()"
-          optionLabel="label"
-          optionValue="value"
-          [fluid]="true"
-        ></p-select>
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold">{{
-          'inventory.adjustmentReasonLabel' | transloco
-        }}</label>
-        <p-select
-          formControlName="reason"
-          [options]="adjustmentReasonOptions()"
-          optionLabel="label"
-          optionValue="value"
-          [fluid]="true"
-        ></p-select>
-      </div>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold">{{ 'inventory.quantity' | transloco }}</label>
-        <p-inputNumber
-          formControlName="quantity"
-          [min]="0.001"
-          mode="decimal"
-          [maxFractionDigits]="3"
-          [fluid]="true"
-        ></p-inputNumber>
-        @if (adjustmentQuantityError(); as precision) {
-          <small class="text-red-600" role="alert" data-testid="adjustment-quantity-precision">{{
-            precision.key | transloco: precision.params
-          }}</small>
-        }
-      </div>
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold">{{ 'inventory.performedAt' | transloco }}</label>
-        <p-datepicker
-          formControlName="performedAt"
-          dateFormat="dd/mm/yy"
-          [showTime]="true"
-          hourFormat="24"
-          [showIcon]="true"
-          [showButtonBar]="true"
-          appendTo="body"
-          [fluid]="true"
-        ></p-datepicker>
-      </div>
-    </div>
-
-    @if (adjustmentPreview(); as preview) {
-      <div class="adjustment-preview">
-        <div>
-          <span>{{ 'inventory.currentBatchQuantity' | transloco }}</span>
-          <strong>{{ preview.batchQuantityBefore | number: '1.0-2' }}</strong>
+    <section class="editor-dialog-section">
+      <div class="editor-dialog-grid">
+        <div class="editor-dialog-field">
+          <label>{{ 'inventory.adjustmentDirectionLabel' | transloco }}</label>
+          <p-select
+            formControlName="direction"
+            [options]="directionOptions()"
+            optionLabel="label"
+            optionValue="value"
+            [fluid]="true"
+          ></p-select>
         </div>
-        <div>
-          <span>{{ 'inventory.newBatchQuantity' | transloco }}</span>
-          <strong>{{ preview.batchQuantityAfter | number: '1.0-2' }}</strong>
-        </div>
-        <div>
-          <span>{{ 'inventory.unitCost' | transloco }}</span>
-          <strong>
-            {{ 'common.currencySymbol' | transloco }}
-            {{ preview.unitCost | number: '1.2-2' }}
-          </strong>
-        </div>
-        <div>
-          <span>{{ 'inventory.costImpact' | transloco }}</span>
-          <strong
-            [class.text-red-600]="preview.costImpact < 0"
-            [class.text-green-700]="preview.costImpact > 0"
-          >
-            {{ 'common.currencySymbol' | transloco }} {{ preview.costImpact | number: '1.2-2' }}
-          </strong>
+        <div class="editor-dialog-field">
+          <label>{{ 'inventory.adjustmentReasonLabel' | transloco }}</label>
+          <p-select
+            formControlName="reason"
+            [options]="adjustmentReasonOptions()"
+            optionLabel="label"
+            optionValue="value"
+            [fluid]="true"
+          ></p-select>
         </div>
       </div>
-    }
 
-    <div class="flex flex-col gap-1">
-      <label class="text-sm font-semibold">{{ 'inventory.notes' | transloco }}</label>
-      <textarea
-        pTextarea
-        formControlName="notes"
-        rows="3"
-        [placeholder]="'inventory.adjustmentNotesPlaceholder' | transloco"
-      ></textarea>
-    </div>
+      <div class="editor-dialog-grid">
+        <div class="editor-dialog-field">
+          <label>{{ 'inventory.quantity' | transloco }}</label>
+          <p-inputNumber
+            formControlName="quantity"
+            [min]="0.001"
+            mode="decimal"
+            [maxFractionDigits]="3"
+            [fluid]="true"
+          ></p-inputNumber>
+          @if (adjustmentQuantityError(); as precision) {
+            <small class="text-red-600" role="alert" data-testid="adjustment-quantity-precision">{{
+              precision.key | transloco: precision.params
+            }}</small>
+          }
+        </div>
+        <div class="editor-dialog-field">
+          <label>{{ 'inventory.performedAt' | transloco }}</label>
+          <p-datepicker
+            formControlName="performedAt"
+            dateFormat="dd/mm/yy"
+            [showTime]="true"
+            hourFormat="24"
+            [showIcon]="true"
+            [showButtonBar]="true"
+            appendTo="body"
+            [fluid]="true"
+          ></p-datepicker>
+        </div>
+      </div>
 
-    <div class="flex justify-end gap-2 mt-2">
+      @if (adjustmentPreview(); as preview) {
+        <div class="editor-dialog-preview">
+          <div>
+            <span>{{ 'inventory.currentBatchQuantity' | transloco }}</span>
+            <strong>{{ preview.batchQuantityBefore | number: '1.0-2' }}</strong>
+          </div>
+          <div>
+            <span>{{ 'inventory.newBatchQuantity' | transloco }}</span>
+            <strong>{{ preview.batchQuantityAfter | number: '1.0-2' }}</strong>
+          </div>
+          <div>
+            <span>{{ 'inventory.unitCost' | transloco }}</span>
+            <strong>
+              {{ 'common.currencySymbol' | transloco }}
+              {{ preview.unitCost | number: '1.2-2' }}
+            </strong>
+          </div>
+          <div>
+            <span>{{ 'inventory.costImpact' | transloco }}</span>
+            <strong
+              [class.text-red-600]="preview.costImpact < 0"
+              [class.text-green-700]="preview.costImpact > 0"
+            >
+              {{ 'common.currencySymbol' | transloco }} {{ preview.costImpact | number: '1.2-2' }}
+            </strong>
+          </div>
+        </div>
+      }
+
+      <div class="editor-dialog-field">
+        <label>{{ 'inventory.notes' | transloco }}</label>
+        <textarea
+          pTextarea
+          formControlName="notes"
+          rows="3"
+          [placeholder]="'inventory.adjustmentNotesPlaceholder' | transloco"
+        ></textarea>
+      </div>
+    </section>
+  </form>
+
+  <ng-template pTemplate="footer">
+    <div class="editor-dialog-actions">
       <button
         pButton
         type="button"
         [label]="'common.cancel' | transloco"
-        class="p-button-text"
+        severity="secondary"
+        [outlined]="true"
         [disabled]="isAdjustmentSaving()"
         (click)="isAdjustmentDialogOpen.set(false)"
       ></button>
       <button
         pButton
         type="submit"
+        form="batch-adjustment-form"
+        icon="pi pi-check"
         [label]="'inventory.submitAdjustment' | transloco"
         [loading]="isAdjustmentSaving()"
         [disabled]="adjustmentForm.invalid || isAdjustmentSaving()"
       ></button>
     </div>
-  </form>
+  </ng-template>
 </p-dialog>
 
 <p-dialog
   [header]="'inventory.countStock' | transloco"
   [(visible)]="isCountDialogOpen"
   [modal]="true"
-  [style]="{ width: '92vw', maxWidth: '520px' }"
+  styleClass="editor-dialog"
+  [style]="{ width: 'min(520px, 96vw)', maxHeight: 'calc(100dvh - 1rem)' }"
   [draggable]="false"
   [resizable]="false"
 >
-  <form [formGroup]="countForm" class="flex flex-col gap-4 mt-2" (ngSubmit)="onSaveCount()">
-    <div class="flex flex-col gap-1 p-2 bg-blue-50 rounded border border-blue-100">
-      <span class="text-xs text-blue-600 font-semibold uppercase tracking-wider">
-        {{ 'inventory.batchNumber' | transloco }}
-      </span>
-      <span class="font-mono font-bold">{{ selectedBatch()?.batchNumber }}</span>
-      <span class="text-sm text-slate-600">{{ selectedBatch()?.itemName }}</span>
+  <ng-template pTemplate="header" let-titleId="ariaLabelledBy">
+    <div class="editor-dialog-header">
+      <p class="eyebrow">{{ 'inventory.title' | transloco }}</p>
+      <h2 [id]="titleId">{{ 'inventory.countStock' | transloco }}</h2>
+      <p class="subtitle">{{ 'inventory.countHint' | transloco }}</p>
     </div>
+  </ng-template>
 
-    <p class="text-sm text-slate-600 m-0">{{ 'inventory.countHint' | transloco }}</p>
-
-    <div class="flex flex-col gap-1">
-      <label class="text-sm font-semibold" for="countedQuantity">{{
-        'inventory.countedQuantity' | transloco
-      }}</label>
-      <p-inputNumber
-        inputId="countedQuantity"
-        formControlName="countedQuantity"
-        [min]="0"
-        mode="decimal"
-        [maxFractionDigits]="3"
-        [fluid]="true"
-      ></p-inputNumber>
-      @if (countQuantityError(); as precision) {
-        <small class="text-red-600" role="alert" data-testid="count-quantity-precision">{{
-          precision.key | transloco: precision.params
-        }}</small>
-      }
+  <form
+    [formGroup]="countForm"
+    class="editor-dialog-form"
+    id="batch-count-form"
+    (ngSubmit)="onSaveCount()"
+  >
+    <div class="editor-dialog-summary">
+      <span class="editor-dialog-summary__label">{{ 'inventory.batchNumber' | transloco }}</span>
+      <strong>{{ selectedBatch()?.batchNumber }}</strong>
+      <span class="editor-dialog-summary__name">{{ selectedBatch()?.itemName }}</span>
     </div>
-
-    @if (countPreview(); as preview) {
-      <div class="adjustment-preview">
-        <div>
-          <span>{{ 'inventory.countSystemQuantity' | transloco }}</span>
-          <strong>{{ preview.systemQuantity | number: '1.0-3' }}</strong>
-        </div>
-        <div>
-          <span>{{ 'inventory.countDifference' | transloco }}</span>
-          <strong
-            [class.text-red-600]="preview.difference < 0"
-            [class.text-green-700]="preview.difference > 0"
-          >
-            {{ preview.difference > 0 ? '+' : '' }}{{ preview.difference | number: '1.0-3' }}
-          </strong>
-        </div>
+    <section class="editor-dialog-section">
+      <div class="editor-dialog-field">
+        <label for="countedQuantity">{{ 'inventory.countedQuantity' | transloco }}</label>
+        <p-inputNumber
+          inputId="countedQuantity"
+          formControlName="countedQuantity"
+          [min]="0"
+          mode="decimal"
+          [maxFractionDigits]="3"
+          [fluid]="true"
+        ></p-inputNumber>
+        @if (countQuantityError(); as precision) {
+          <small class="text-red-600" role="alert" data-testid="count-quantity-precision">{{
+            precision.key | transloco: precision.params
+          }}</small>
+        }
       </div>
-    }
 
-    <div class="flex flex-col gap-1">
-      <label class="text-sm font-semibold" for="countReason">{{
-        'inventory.countReason' | transloco
-      }}</label>
-      <textarea
-        id="countReason"
-        pTextarea
-        formControlName="reason"
-        rows="3"
-        [placeholder]="'inventory.countReasonPlaceholder' | transloco"
-      ></textarea>
-    </div>
+      @if (countPreview(); as preview) {
+        <div class="editor-dialog-preview">
+          <div>
+            <span>{{ 'inventory.countSystemQuantity' | transloco }}</span>
+            <strong>{{ preview.systemQuantity | number: '1.0-3' }}</strong>
+          </div>
+          <div>
+            <span>{{ 'inventory.countDifference' | transloco }}</span>
+            <strong
+              [class.text-red-600]="preview.difference < 0"
+              [class.text-green-700]="preview.difference > 0"
+            >
+              {{ preview.difference > 0 ? '+' : '' }}{{ preview.difference | number: '1.0-3' }}
+            </strong>
+          </div>
+        </div>
+      }
 
-    <div class="flex justify-end gap-2 mt-2">
+      <div class="editor-dialog-field">
+        <label for="countReason">{{ 'inventory.countReason' | transloco }}</label>
+        <textarea
+          id="countReason"
+          pTextarea
+          formControlName="reason"
+          rows="3"
+          [placeholder]="'inventory.countReasonPlaceholder' | transloco"
+        ></textarea>
+      </div>
+    </section>
+  </form>
+
+  <ng-template pTemplate="footer">
+    <div class="editor-dialog-actions">
       <button
         pButton
         type="button"
         [label]="'common.cancel' | transloco"
-        class="p-button-text"
+        severity="secondary"
+        [outlined]="true"
         [disabled]="isCountSaving()"
         (click)="isCountDialogOpen.set(false)"
       ></button>
       <button
         pButton
         type="submit"
+        form="batch-count-form"
+        icon="pi pi-check"
         [label]="'inventory.submitCount' | transloco"
         [loading]="isCountSaving()"
         [disabled]="countForm.invalid || isCountSaving()"
       ></button>
     </div>
-  </form>
+  </ng-template>
 </p-dialog>
 
 <p-dialog
   [header]="'inventory.correctReceiptCost' | transloco"
   [(visible)]="isCostCorrectionDialogOpen"
   [modal]="true"
-  [style]="{ width: '92vw', maxWidth: '520px' }"
+  styleClass="editor-dialog"
+  [style]="{ width: 'min(520px, 96vw)', maxHeight: 'calc(100dvh - 1rem)' }"
   [draggable]="false"
   [resizable]="false"
 >
+  <ng-template pTemplate="header" let-titleId="ariaLabelledBy">
+    <div class="editor-dialog-header">
+      <p class="eyebrow">{{ 'inventory.title' | transloco }}</p>
+      <h2 [id]="titleId">{{ 'inventory.correctReceiptCost' | transloco }}</h2>
+      @if (!costCorrectionBlocked()) {
+        <p class="subtitle">{{ 'inventory.receiptCostHint' | transloco }}</p>
+      }
+    </div>
+  </ng-template>
+
   <form
     [formGroup]="costCorrectionForm"
-    class="flex flex-col gap-4 mt-2"
+    class="editor-dialog-form"
+    id="receipt-cost-form"
     (ngSubmit)="onSaveCostCorrection()"
   >
-    <div class="flex flex-col gap-1 p-2 bg-blue-50 rounded border border-blue-100">
-      <span class="text-xs text-blue-600 font-semibold uppercase tracking-wider">
-        {{ 'inventory.batchNumber' | transloco }}
-      </span>
-      <span class="font-mono font-bold">{{ selectedBatch()?.batchNumber }}</span>
-      <span class="text-sm text-slate-600">{{ selectedBatch()?.itemName }}</span>
+    <div class="editor-dialog-summary">
+      <span class="editor-dialog-summary__label">{{ 'inventory.batchNumber' | transloco }}</span>
+      <strong>{{ selectedBatch()?.batchNumber }}</strong>
+      <span class="editor-dialog-summary__name">{{ selectedBatch()?.itemName }}</span>
     </div>
-
-    @if (costCorrectionBlocked()) {
-      <p class="text-sm text-slate-600 m-0" role="alert" data-testid="receipt-cost-unresolved">
-        {{ 'inventory.receiptCostUnresolved' | transloco }}
-      </p>
-    } @else {
-      <p class="text-sm text-slate-600 m-0">{{ 'inventory.receiptCostHint' | transloco }}</p>
-
-      @if (costCorrectionPreview(); as preview) {
-        <div class="adjustment-preview">
-          <div>
-            <span>{{ 'inventory.receiptOriginalTotal' | transloco }}</span>
-            <strong>
-              {{ 'common.currencySymbol' | transloco }}
-              {{ preview.originalTotal | number: '1.2-2' }}
-            </strong>
+    <section class="editor-dialog-section">
+      @if (costCorrectionBlocked()) {
+        <p class="text-sm text-slate-600 m-0" role="alert" data-testid="receipt-cost-unresolved">
+          {{ 'inventory.receiptCostUnresolved' | transloco }}
+        </p>
+      } @else {
+        @if (costCorrectionPreview(); as preview) {
+          <div class="editor-dialog-preview">
+            <div>
+              <span>{{ 'inventory.receiptOriginalTotal' | transloco }}</span>
+              <strong>
+                {{ 'common.currencySymbol' | transloco }}
+                {{ preview.originalTotal | number: '1.2-2' }}
+              </strong>
+            </div>
+            <div>
+              <span>{{ 'inventory.receiptCurrentTotal' | transloco }}</span>
+              <strong>
+                {{ 'common.currencySymbol' | transloco }}
+                {{ preview.currentTotal | number: '1.2-2' }}
+              </strong>
+            </div>
           </div>
-          <div>
-            <span>{{ 'inventory.receiptCurrentTotal' | transloco }}</span>
-            <strong>
+        }
+
+        <div class="editor-dialog-field">
+          <label for="revisedTotalCost">{{ 'inventory.receiptRevisedTotal' | transloco }}</label>
+          <p-inputgroup [pt]="currencyGroupPt">
+            <p-inputgroup-addon [pt]="currencyAddonPt">
               {{ 'common.currencySymbol' | transloco }}
-              {{ preview.currentTotal | number: '1.2-2' }}
-            </strong>
-          </div>
+            </p-inputgroup-addon>
+            <p-inputNumber
+              inputId="revisedTotalCost"
+              formControlName="revisedTotalCost"
+              [min]="0"
+              [max]="99999999.99"
+              mode="decimal"
+              [minFractionDigits]="2"
+              [maxFractionDigits]="2"
+              [fluid]="true"
+              [pt]="currencyInputPt"
+            ></p-inputNumber>
+          </p-inputgroup>
+        </div>
+
+        @if (costCorrectionPreview(); as preview) {
+          @if (preview.delta !== null) {
+            <p
+              class="text-sm font-semibold m-0"
+              data-testid="receipt-cost-delta"
+              [class.text-red-600]="preview.delta > 0"
+              [class.text-green-700]="preview.delta < 0"
+            >
+              {{
+                (preview.delta === 0
+                  ? 'inventory.receiptCostNoChange'
+                  : 'inventory.receiptCostDelta'
+                ) | transloco: { delta: preview.deltaText }
+              }}
+            </p>
+          }
+        }
+
+        <div class="editor-dialog-field">
+          <label for="receiptCostReason">{{ 'inventory.receiptCostReason' | transloco }}</label>
+          <textarea
+            id="receiptCostReason"
+            pTextarea
+            formControlName="reason"
+            rows="3"
+            maxlength="500"
+            [placeholder]="'inventory.receiptCostReasonPlaceholder' | transloco"
+          ></textarea>
         </div>
       }
+    </section>
+  </form>
 
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold" for="revisedTotalCost">{{
-          'inventory.receiptRevisedTotal' | transloco
-        }}</label>
-        <p-inputgroup [pt]="currencyGroupPt">
-          <p-inputgroup-addon [pt]="currencyAddonPt">
-            {{ 'common.currencySymbol' | transloco }}
-          </p-inputgroup-addon>
-          <p-inputNumber
-            inputId="revisedTotalCost"
-            formControlName="revisedTotalCost"
-            [min]="0"
-            [max]="99999999.99"
-            mode="decimal"
-            [minFractionDigits]="2"
-            [maxFractionDigits]="2"
-            [fluid]="true"
-            [pt]="currencyInputPt"
-          ></p-inputNumber>
-        </p-inputgroup>
-      </div>
-
-      @if (costCorrectionPreview(); as preview) {
-        @if (preview.delta !== null) {
-          <p
-            class="text-sm font-semibold m-0"
-            data-testid="receipt-cost-delta"
-            [class.text-red-600]="preview.delta > 0"
-            [class.text-green-700]="preview.delta < 0"
-          >
-            {{
-              (preview.delta === 0 ? 'inventory.receiptCostNoChange' : 'inventory.receiptCostDelta')
-                | transloco: { delta: preview.deltaText }
-            }}
-          </p>
-        }
-      }
-
-      <div class="flex flex-col gap-1">
-        <label class="text-sm font-semibold" for="receiptCostReason">{{
-          'inventory.receiptCostReason' | transloco
-        }}</label>
-        <textarea
-          id="receiptCostReason"
-          pTextarea
-          formControlName="reason"
-          rows="3"
-          maxlength="500"
-          [placeholder]="'inventory.receiptCostReasonPlaceholder' | transloco"
-        ></textarea>
-      </div>
-    }
-
-    <div class="flex justify-end gap-2 mt-2">
+  <ng-template pTemplate="footer">
+    <div class="editor-dialog-actions">
       <button
         pButton
         type="button"
         [label]="'common.cancel' | transloco"
-        class="p-button-text"
+        severity="secondary"
+        [outlined]="true"
         [disabled]="isCostCorrectionSaving()"
         (click)="isCostCorrectionDialogOpen.set(false)"
       ></button>
@@ -536,6 +590,8 @@
         <button
           pButton
           type="submit"
+          form="receipt-cost-form"
+          icon="pi pi-check"
           [label]="'inventory.submitReceiptCostCorrection' | transloco"
           [loading]="isCostCorrectionSaving()"
           [disabled]="
@@ -546,5 +602,5 @@
         ></button>
       }
     </div>
-  </form>
+  </ng-template>
 </p-dialog>
