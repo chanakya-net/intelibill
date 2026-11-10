@@ -1,0 +1,24 @@
+/* Checkout/account/receiving actions need readable orange text and white-on-orange contrast. */
+.new-sale-page,
+.account-statement-dialog,
+.p-dialog:has(app-quantity-field),
+.p-dialog:has(.sale-confirmation),
+.p-dialog:has([data-testid='receipt-row']) {
+  --p-button-primary-background: #c2410c;
+  --p-button-primary-border-color: #c2410c;
+  --p-button-primary-hover-background: #9a3412;
+  --p-button-primary-hover-border-color: #9a3412;
+  --p-button-primary-active-background: #7c2d12;
+  --p-button-primary-active-border-color: #7c2d12;
+  --p-button-primary-color: #ffffff;
+  --p-button-outlined-primary-color: #9a3412;
+  --p-button-text-primary-color: #9a3412;
+
+
+}
+
+:is(.new-sale-page, .account-statement-dialog, .p-dialog:has(.sale-confirmation)) .text-orange-600 { color: #c2410c; }
+
+/* Long translated verification actions wrap beside the code field on narrow checkout panels. */
+.new-sale-page .credit-note-verify > .flex { flex-wrap: wrap; }
+.new-sale-page .credit-note-verify input { min-width: 0; max-width: 100%; flex: 1 1 10rem; }

@@ -25,6 +25,7 @@ import { ShopPermissionsService } from './shop-permissions.service';
 import { MobileNavComponent } from './mobile-nav.component';
 import { SidebarNavComponent } from './sidebar-nav.component';
 import { SidebarProfileMenuComponent } from './sidebar-profile-menu.component';
+import { ShellGlobalStylesComponent } from './shell-global-styles.component';
 import { UiKitStylesComponent } from '../../shared/styles/ui-kit/ui-kit-styles.component';
 import { ShellMenuService } from './shell-menu.service';
 import { AppShellActions } from '../state/app-shell.actions';
@@ -51,6 +52,7 @@ import { offlineEnablementErrorKeyForReason } from '../../features/shops/compone
     SidebarProfileMenuComponent,
     TranslocoPipe,
     UiKitStylesComponent,
+    ShellGlobalStylesComponent,
   ],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',

@@ -204,7 +204,7 @@ describe('ShellComponent', () => {
       element.tagName.toLowerCase(),
     );
 
-    expect(hosts[0]).toBe('app-ui-kit-styles');
+    expect(hosts.slice(0, 2)).toEqual(['app-ui-kit-styles', 'app-shell-global-styles']);
   });
 
   it('opens add shop overlay and closes it after dismissal', () => {
