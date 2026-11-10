@@ -233,3 +233,124 @@ Other scales with near-duplicates (no token yet, or only the dominant value toke
   `0 8px 22px rgba(85, 49, 18, 0.07)` (11), `0 10px 30px rgba(78, 49, 20, 0.07)` (11),
   `0 8px 22px rgba(85, 49, 18, 0.06)` (4), `0 8px 24px rgba(87, 52, 20, 0.07)`,
   `0 8px 22px rgba(87, 52, 20, 0.07)`.
+
+## Phase 2 — results
+
+Ten commits on top of phase 1 (`77eb2634`): one preparation commit and one per family.
+
+### Kit structure
+
+- `UiKitStylesComponent` (shell) now lists, after `ui-kit-layer-order.css`: `ib-overlay.css`,
+  `ib-page-heading.css`, `ib-summary-cards.css`, `ib-panel.css`, `ib-chips.css`,
+  `ib-form-section.css`, `ib-search-shell.css`, `ib-editor-dialog.css` (largest 3.6 kB source).
+- `AuthKitStylesComponent` (new, same folder, selector `app-auth-kit-styles`) delivers
+  `ib-auth.scss` (6.1 kB source, uses the button mixin) to the four auth pages outside the shell
+  (login, forgot password, reset password, verify email), which render it as their last element.
+  Its CSS lands in one shared lazy chunk, not in the shell chunk; signed-in screens never load it.
+- **Preparation:** the unlayered `h1`–`h6` and `p` resets in `styles.css` moved into
+  `@layer ib-base`, declared after Tailwind's layers. Without that, every kit class that sets a margin
+  or font on a heading or paragraph would lose to `h2 { margin: 0 }` (unlayered beats layered),
+  where the component rule it replaces used to win on specificity. The resets still beat PrimeNG and
+  Tailwind utilities and still lose to every component rule. Layer order is now
+  `theme, base, primeng, properties, components, utilities, ib-base, ib-kit`; the cascade spec pins
+  it (and that a kit margin beats the `ib-base` reset). Checked in the production build: Beasties'
+  inlined critical CSS keeps `@layer ib-base` after Tailwind's layer statements.
+
+### Families moved
+
+| Family | Kit classes | Components |
+|---|---|---|
+| Overlay frame | `ib-overlay`, `__backdrop`, `__card`, `__header`, `__eyebrow`, `__title`, `__description`, `__close`, `__form`, `__actions`, `__error`, `__busy` | bank account, edit customer, add/edit supplier, supplier payment, add/edit shop user overlays (frame + content); expense correction (content only; its own frame differs) |
+| Page heading | `ib-page-title`, `ib-eyebrow` (+`--large` 0.7rem), `ib-subtitle` (+`--measure` line-height/max-width) | customers, discounts, expenses, users, account security, stock adjustments, profit and loss, inventory, services pages (title); + purchase order detail and till session (eyebrow only) |
+| Summary cards | `ib-summary-grid`, `ib-summary-card` (+ four tones), `__label`, `__value` | customers, discounts, expenses, users, purchase order detail pages, stock adjustment summary, dashboard KPI cards (card only) |
+| Directory panel | `ib-panel`, `__header`, `__title`, `__metrics`, `__surface` | customers, discounts, expenses, users, stock adjustments, purchase order detail (not the title), account security sections |
+| Meta / metric chips | `ib-meta-row`, `ib-meta-chip` (+`--primary`), `ib-metric-chip` | the seven pages of the panel family |
+| Form section | `ib-form-section`, `ib-section-label`, `ib-form-grid` (+`__wide`), `ib-field`, `ib-checkbox-field`, `ib-error-banner` | add product, edit item, add/edit service, stock adjustment row, discount conditions, discount target items, discount rule dialog |
+| Search shell | `ib-search-shell` | customers, discounts, expenses, users filter bars |
+| Editor dialog | `ib-editor-dialog-*` (grid, header + `__eyebrow`/`__title`/`__subtitle`, form, summary, section, field, actions, preview, hint) | add customer, record expense, change password, supplier detail, batch list page, barcode label dialog (the `styles` mixin's class-only rules) |
+| Auth pages | `ib-auth-*`, `ib-lang-pick`, `ib-form-busy` | login, forgot password, reset password, verify email |
+
+Where tests or remaining component rules use the old class names (summary cards, panel, chips,
+form section, editor dialog, auth), templates keep the old name beside the `ib-` one; the overlay
+frame, page heading and search shell classes were renamed and the plain locators in
+`bank-accounts`, `customers` and `suppliers` mocked specs and the bank account overlay unit spec
+were updated. Variants stayed in the components as small unlayered overrides (wider invite card,
+expense correction title size, extra `min-width`/`overflow-wrap` on the stock adjustment summary and
+panel, meta chip `gap` on customers/expenses, wrapping meta chips on discounts, every page's own
+breakpoints).
+
+### Left in place, and why
+
+- **Rules a kit rule would no longer beat.** A kit rule is layered, so it loses to *any* unlayered
+  rule, whatever its specificity. Kept for that reason: the overlays' `label`/`label span` and
+  `.toggle-row` (a `label` element rule would beat the toggle row); the purchase order page's panel
+  title (`PurchaseOrderBuilderPageComponent` is `ViewEncapsulation.None` and its global `h2` rule
+  applies while the builder is open); the discount conditions form's checkbox label (its own
+  `.field label` rule would win); the editor dialog's `:host ::ng-deep .editor-dialog` block and
+  `overlay` mixin, and the auth partial's input and spinner rules, which reach PrimeNG-rendered
+  elements through `pt` classes where component scoping decides what matches.
+- **Not identical:** the other eyebrows (0.14em brown, 0.22em red, 0.74rem supplier), subtitles
+  (greyer `#6f655d`, 1rem supplier, 0.875rem till), titles (2.6rem purchase order, credit notes,
+  supplier, till), the supplier page's panel/summary/meta chips, the shop and default-store
+  overlays (different frame), the PrimeNG `p-dialog` editor header and footer (`.editor-header`,
+  the `::ng-deep` dialog panel rules: still duplicate blocks #5–#11, #20 and the input block #4),
+  the page backgrounds and hero cards (#0, #2, #3: not in the plan's family list), the supplier and
+  sales search boxes.
+- **Kept on purpose:** `inventory-batch-page` (unencapsulated; its global `h1`/`.eyebrow` rules
+  apply while it is open) and `inventory-batches-list-page`'s page heading (shares the file with
+  the editor dialog; its `.eyebrow`/`.subtitle` page rules are why the dialog header uses its own
+  kit classes); the datatable header rules inside panel surfaces (`::ng-deep`, left alone per plan).
+- **Auth footer:** `.auth-footer` is not used by any auth template; it stays in the partial.
+
+### Numbers
+
+Same method for both columns (`bun run build`, production; gzip level 9 per file; first load =
+`index.html` + the files it references; JS excludes the four worker files).
+
+| Measure | Phase 1 (`77eb2634`) | Phase 2 |
+|---|---:|---:|
+| All JS raw / gzip | 4,505,654 / 1,173,262 (142 files) | 4,448,123 / 1,164,398 (143 files) |
+| First load raw / gzip | 294,669 / 68,370 | 294,701 / 68,402 (`@layer ib-base` wrapper in the critical CSS) |
+| Global stylesheet raw / gzip | 43,491 / 9,395 | 43,507 / 9,400 |
+| Angular "Initial total" | 739.03 kB | 739.05 kB |
+| Build warnings | 9 | 9 (same files; customers page 10.67 → 8.08 kB, profit and loss 8.97 → 8.71 kB, till session 8.65 → 8.54 kB) |
+| `audit:styles:duplicates` | 64 | 27 (ceiling lowered to 27; the audit now sees 103 stylesheets because `ib-auth.scss` is one) |
+
+(The phase 1 table's gzip figures used a different gzip setting; the raw figures match.)
+
+### Verification
+
+- **Declarations, per family:** every touched stylesheet was compiled with Sass before and after the
+  move (tokens resolved, selector lists split), old class names mapped to the kit classes, and the
+  result compared with the kit's declarations: every removed declaration exists in the kit for the
+  same element (or stays in the component as an override), and the kit adds nothing a component
+  did not have. A second check lists every remaining unlayered rule on a class kept beside a kit
+  class that sets a property the kit also sets; each one was confirmed to be a later override that
+  won before too (breakpoints, variants). That check caught the discount conditions form's checkbox
+  label, which stays in the component.
+- **Computed styles in the browser:** a temporary probe (not committed) recorded `getComputedStyle`
+  of every element (custom properties excluded, property order normalised) and a full-page
+  screenshot at each checkpoint of 17 mocked specs (login, public pages, bank accounts, customers,
+  dashboard, discounts, expenses, stock adjustments, batch entry, batch list, inventory list, profit
+  and loss, purchase order detail, services, shell layout, suppliers, users), on `77eb2634` and on
+  this branch: 707 checkpoints. Differences that were not also run-to-run noise on the same commit
+  were re-recorded with full property dumps. Result: no element's computed style changed. Remaining
+  differences: the added `<app-auth-kit-styles hidden>` element and the kit `<style>` elements; a
+  chart canvas width (chart.js sizing, 273px vs 273.2px, also varies between runs of one commit); and
+  on the users page an "Unable to load invitations" banner present in one run and not the other (a
+  race between the directory and the unmocked invitations request; the same request fails the same
+  way on both commits in isolation, and every other element is identical).
+- **Screenshots:** 236 of 252 identical byte for byte; the 16 others are the animated online
+  indicator, spinners, toasts, chart canvases and the users banner above.
+- **Mocked audit (`bun run audit:ui:mocked`), base `586e4974` vs branch:** 121 vs 124 failures
+  before the test fixes, all pre-existing apart from (a) the cascade spec's login assertion (the
+  login page now has an `ib-kit` layer, from the auth host: the assertion now checks that the
+  shell kit is absent and the auth kit present), (b) expenses and users specs that located the
+  correction and shop user overlays by the old `.error-message`/`.close-button`/`.overlay-card`
+  (locators updated), (c) one users locale test that timed out on the same locator. After the
+  fixes those specs were re-run: the cascade spec and the expenses fallback test pass, the users
+  dense test passes, and the remaining expenses/users failures are the ones that also fail on base
+  (translation text and fixture mismatches). Runs were done with other jobs in parallel; flaky
+  timing failures were compared by name only.
+- `bun run build`: exit 0, the same 9 warnings. `bun run test --watch=false`: 299 files, 2,946 tests
+  passed; 71 Bun script specs passed. `bun run audit:styles:duplicates`: 27, ceiling 27.
