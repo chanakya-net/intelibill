@@ -1,0 +1,6 @@
+<Project>
+  <!-- Stops the root Directory.Packages.props from applying: imported services pin versions in their csproj files. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>
