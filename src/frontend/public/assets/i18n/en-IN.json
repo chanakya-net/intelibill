@@ -757,6 +757,7 @@
     "totalPurchaseCost": "Total Purchase Cost",
     "mrp": "MRP",
     "salesPrice": "Sales Price",
+    "salesTaxMode": "Sales price tax",
     "perUnitSalesPrice": "Per Unit Sales Price",
     "taxRatePercent": "Tax %",
     "batchNumber": "Batch Number",

@@ -5,6 +5,9 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom, Observable, skip } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslocoPipe } from '@ngneat/transloco';
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { TextareaModule } from 'primeng/textarea';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import type { ShopScope } from '../../../core/context/shop-scope';
@@ -40,7 +43,16 @@ export function validCreditAmount(amount: unknown): boolean {
 @Component({
   selector: 'app-supplier-return-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, TranslocoPipe, SupplierReturnPrintViewComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    TranslocoPipe,
+    SupplierReturnPrintViewComponent,
+    ButtonModule,
+    InputTextModule,
+    TextareaModule,
+  ],
   templateUrl: './supplier-return-page.component.html',
   styleUrl: './supplier-return-page.component.scss',
 })

@@ -757,6 +757,7 @@
     "totalPurchaseCost": "કુલ ખરીદી ખર્ચ",
     "mrp": "MRP",
     "salesPrice": "વેચાણ કિંમત",
+    "salesTaxMode": "વેચાણ કિંમતનો કર",
     "perUnitSalesPrice": "પ્રતિ યુનિટ વેચાણ કિંમત",
     "taxRatePercent": "કર %",
     "batchNumber": "બૅચ નંબર",

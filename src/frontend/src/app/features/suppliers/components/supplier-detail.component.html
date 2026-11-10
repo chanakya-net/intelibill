@@ -3,16 +3,31 @@
   (visibleChange)="onVisibilityChange($event)"
   [header]="'suppliers.ledgerEntries' | transloco"
   [modal]="true"
-  [style]="{ width: '100%', maxWidth: '1120px' }"
+  [style]="{ width: 'min(1120px, 96vw)', maxHeight: 'calc(100dvh - 1rem)' }"
   [draggable]="false"
-  [styleClass]="'supplier-detail-dialog'"
+  [resizable]="false"
+  styleClass="editor-dialog supplier-detail-dialog"
 >
+  <ng-template pTemplate="header" let-titleId="ariaLabelledBy">
+    <div class="supplier-detail-header">
+      <div class="editor-dialog-header">
+        <p class="eyebrow">{{ 'suppliers.title' | transloco }}</p>
+        <h2 [id]="titleId">{{ 'suppliers.ledgerEntries' | transloco }}</h2>
+      </div>
+      @if (currentSupplierId()) {
+        <a
+          pButton
+          severity="secondary"
+          [outlined]="true"
+          icon="pi pi-history"
+          [label]="'supplierReturns.history' | transloco"
+          [routerLink]="['/supplier-returns']"
+          [queryParams]="{ supplierId: currentSupplierId() }"
+        ></a>
+      }
+    </div>
+  </ng-template>
   <div class="ledger-content">
-    @if (currentSupplierId()) {
-      <a [routerLink]="['/supplier-returns']" [queryParams]="{ supplierId: currentSupplierId() }">{{
-        'supplierReturns.history' | transloco
-      }}</a>
-    }
     @if (currentSupplier()) {
       <app-supplier-info-card [supplier]="currentSupplier()!" />
     }
@@ -21,37 +36,42 @@
       <div class="error">{{ facade.ledgerErrorMessage() | transloco }}</div>
     } @else {
       <div class="supplier-detail">
-        <div class="ledger-controls">
-          <h3 class="details-heading">{{ 'suppliers.details' | transloco }}</h3>
-          <div class="filter-buttons">
-            <p-button
-              [label]="'suppliers.all' | transloco"
-              [outlined]="ledgerFilter() !== 'all'"
-              severity="secondary"
-              size="small"
-              (click)="ledgerFilter.set('all')"
-            />
-            <p-button
-              [label]="'suppliers.goodsReceived' | transloco"
-              [outlined]="ledgerFilter() !== 'goods'"
-              severity="secondary"
-              size="small"
-              (click)="ledgerFilter.set('goods')"
-            />
-            <p-button
-              [label]="'suppliers.payments' | transloco"
-              [outlined]="ledgerFilter() !== 'payments'"
-              severity="secondary"
-              size="small"
-              (click)="ledgerFilter.set('payments')"
-            />
+        <section class="editor-dialog-section ledger-section">
+          <div class="ledger-controls">
+            <h3 class="details-heading">{{ 'suppliers.details' | transloco }}</h3>
+            <div class="filter-buttons">
+              <p-button
+                [label]="'suppliers.all' | transloco"
+                [outlined]="ledgerFilter() !== 'all'"
+                [severity]="ledgerFilter() === 'all' ? 'primary' : 'secondary'"
+                [attr.aria-pressed]="ledgerFilter() === 'all'"
+                size="small"
+                (click)="ledgerFilter.set('all')"
+              />
+              <p-button
+                [label]="'suppliers.goodsReceived' | transloco"
+                [outlined]="ledgerFilter() !== 'goods'"
+                [severity]="ledgerFilter() === 'goods' ? 'primary' : 'secondary'"
+                [attr.aria-pressed]="ledgerFilter() === 'goods'"
+                size="small"
+                (click)="ledgerFilter.set('goods')"
+              />
+              <p-button
+                [label]="'suppliers.payments' | transloco"
+                [outlined]="ledgerFilter() !== 'payments'"
+                [severity]="ledgerFilter() === 'payments' ? 'primary' : 'secondary'"
+                [attr.aria-pressed]="ledgerFilter() === 'payments'"
+                size="small"
+                (click)="ledgerFilter.set('payments')"
+              />
+            </div>
           </div>
-        </div>
 
-        <app-supplier-ledger-table [entries]="tableEntries()" [loading]="isLoading()" />
+          <app-supplier-ledger-table [entries]="tableEntries()" [loading]="isLoading()" />
+        </section>
 
         @if (canMakePayment) {
-          <div class="payment-section">
+          <section class="editor-dialog-section payment-section">
             <h3 class="details-heading">{{ 'suppliers.recordPayment' | transloco }}</h3>
             @if (paymentErrorMessage()) {
               <div class="error">{{ paymentErrorMessage() | transloco }}</div>
@@ -71,7 +91,7 @@
                 (paymentSubmitted)="onPaymentSubmitted($event)"
               />
             }
-          </div>
+          </section>
         }
       </div>
     }

@@ -279,6 +279,7 @@ test('owner grouped reversal sends every lot version', async ({ page }) => {
   );
   await page.getByRole('button', { name: 'Reverse entire receipt group', exact: true }).click();
   await page.getByRole('textbox', { name: 'Reason', exact: true }).fill('Wrong entire delivery');
+  await page.getByRole('textbox', { name: 'Reason', exact: true }).press('Tab');
   await page.getByRole('button', { name: 'Confirm full receipt reversal' }).click();
   await expect(page.getByText('Saved successfully')).toBeVisible();
   expect(reversed).toBe(true);

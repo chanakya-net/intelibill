@@ -45,7 +45,16 @@ type LedgerRow = {
   styleUrl: './supplier-ledger-table.component.scss',
 })
 export class SupplierLedgerTableComponent {
-  @Input({ required: true }) entries: LedgerRow[] = [];
+  private readonly entryRows = signal<LedgerRow[]>([]);
+
+  @Input({ required: true })
+  set entries(entries: LedgerRow[]) {
+    this.entryRows.set(entries ?? []);
+  }
+  get entries(): LedgerRow[] {
+    return this.entryRows();
+  }
+
   @Input({ required: true }) loading = false;
 
   protected readonly searchValue = signal('');

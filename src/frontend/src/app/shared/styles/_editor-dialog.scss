@@ -1,0 +1,439 @@
+@mixin styles {
+  .editor-dialog-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .editor-dialog-grid > div {
+    min-width: 0;
+  }
+
+  .editor-dialog-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding-right: 1.5rem;
+
+    .eyebrow {
+      margin: 0;
+      color: #9b5d20;
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+      letter-spacing: 0.14em;
+    }
+
+    h2 {
+      margin: 0;
+      color: #2a1b12;
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.45rem;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .subtitle {
+      color: #6f5a48;
+      margin: 0;
+      font-size: 0.9rem;
+      line-height: 1.35;
+    }
+  }
+
+  .editor-dialog-form {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .editor-dialog-summary,
+  .editor-dialog-section {
+    display: grid;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid #ead7c1;
+    border-radius: 1rem;
+    background: linear-gradient(180deg, rgba(255, 252, 248, 0.98), rgba(255, 245, 232, 0.92));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  }
+
+  .editor-dialog-summary {
+    gap: 0.25rem;
+    color: #2a1b12;
+    overflow-wrap: anywhere;
+
+    strong {
+      font-family: monospace;
+      font-size: 1rem;
+    }
+  }
+
+  .editor-dialog-summary__label {
+    color: #9b5d20;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .editor-dialog-summary__name {
+    color: #6f5a48;
+    font-size: 0.9rem;
+  }
+
+  .editor-dialog-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-width: 0;
+
+    > label {
+      color: #6f5a48;
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+  }
+
+  .editor-dialog-actions {
+    display: flex;
+    width: 100%;
+    justify-content: flex-end;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+  }
+
+  :host ::ng-deep .editor-dialog {
+    border: 1px solid #ead7c1;
+    border-radius: 1.2rem;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at top left, rgba(255, 224, 188, 0.35), transparent 34%),
+      linear-gradient(180deg, #fffaf4 0%, #f8efe4 100%);
+    box-shadow: 0 18px 42px rgba(87, 54, 20, 0.12);
+
+    .p-dialog-header,
+    .overlay-header {
+      align-items: flex-start;
+      padding: 1rem 1.15rem 0.35rem;
+      border-bottom: 0;
+      background: transparent;
+    }
+
+    .p-dialog-content,
+    .overlay-form {
+      min-height: 0;
+      padding: 0.35rem 1.15rem 1rem;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      background: transparent;
+    }
+
+    .p-dialog-footer,
+    .overlay-footer {
+      padding: 0.75rem 1.15rem 1rem;
+      border-top: 1px solid #ead7c1;
+      background: rgba(255, 252, 248, 0.72);
+    }
+
+    .p-inputtext,
+    .p-textarea,
+    .p-select,
+    .p-inputgroup {
+      width: 100%;
+      min-height: 2.75rem;
+      border-color: #e7d6c3;
+      border-radius: 0.75rem;
+      background: rgba(255, 255, 255, 0.92);
+      color: #2a1b12;
+    }
+
+    .p-textarea {
+      min-height: 5.5rem;
+      resize: vertical;
+    }
+
+    .p-inputnumber,
+    .p-datepicker {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .p-inputtext:enabled:focus,
+    .p-textarea:enabled:focus,
+    .p-select:not(.p-disabled).p-focus,
+    .p-inputgroup:focus-within {
+      border-color: #d97706;
+      box-shadow: 0 0 0 1px rgba(217, 119, 6, 0.18);
+    }
+
+    .p-inputgroup .p-inputnumber {
+      flex: 1 1 auto;
+      width: 1%;
+    }
+
+    .p-inputgroup .p-inputtext {
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      font-size: 1rem;
+    }
+
+    .p-inputgroup-addon {
+      min-width: 2.75rem;
+      padding-inline: 0.75rem;
+      border: 0;
+      border-right: 1px solid #e7d6c3;
+      border-radius: 0;
+      background: #fff5e7;
+      color: #9b5d20;
+      font-size: 1rem;
+    }
+
+    .p-datepicker-input {
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+
+    .p-datepicker-dropdown {
+      border-color: #e7d6c3;
+      border-radius: 0 0.75rem 0.75rem 0;
+      background: #fff5e7;
+      color: #9b5d20;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .editor-dialog-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .editor-dialog-actions {
+      flex-direction: column-reverse;
+      align-items: stretch;
+    }
+  }
+
+  .editor-dialog-preview {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem;
+    padding: 0.9rem 1rem;
+    border: 1px solid #ead7c1;
+    border-radius: 1rem;
+    background: rgba(255, 252, 248, 0.95);
+
+    > div {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 0;
+    }
+
+    span {
+      color: #6f5a48;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+
+    strong {
+      color: #2a1b12;
+      font-size: 1rem;
+      overflow-wrap: anywhere;
+    }
+
+    strong.text-red-600 {
+      color: #dc2626;
+    }
+    strong.text-green-700 {
+      color: #15803d;
+    }
+  }
+
+  .editor-dialog-hint {
+    margin: 0;
+    color: #6f5a48;
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+}
+
+// Native overlays share the same theme and scroll boundaries as PrimeNG dialogs.
+@mixin overlay($max-width: 42rem, $layer: 60) {
+  @include styles;
+
+  .overlay,
+  .profile-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: $layer;
+    display: grid;
+    place-items: center;
+    padding: 0.5rem;
+    overflow: hidden;
+  }
+
+  .overlay-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(42, 27, 18, 0.45);
+    backdrop-filter: blur(2px);
+  }
+
+  .overlay-card {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    width: min(#{$max-width}, 100%);
+    max-height: calc(100dvh - 1rem);
+    min-height: 0;
+  }
+
+  .overlay-header {
+    display: flex;
+    flex: 0 0 auto;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+
+  .editor-dialog-header {
+    min-width: 0;
+    padding-right: 0;
+  }
+
+  .close-button,
+  .overlay-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: #6f5a48;
+    cursor: pointer;
+
+    &:hover {
+      background: #fff0dc;
+    }
+    &:focus-visible {
+      outline: 2px solid #d97706;
+      outline-offset: 2px;
+    }
+  }
+
+  .overlay-form {
+    flex: 1 1 auto;
+    display: grid;
+    gap: 1rem;
+    overflow-x: hidden;
+  }
+
+  .overlay-footer {
+    flex: 0 0 auto;
+  }
+
+  label,
+  .field,
+  .field-wrap {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+    align-content: start;
+  }
+
+  label > span,
+  .field-wrap > label {
+    color: #6f5a48;
+    font-size: 0.82rem;
+    font-weight: 600;
+  }
+
+  .field-wide {
+    grid-column: 1 / -1;
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    align-self: center;
+    gap: 0.6rem;
+  }
+
+  .field-hint,
+  label > small:not(.field-error) {
+    color: #6f5a48;
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  .field-error,
+  .error-message,
+  .server-error {
+    margin: 0;
+    color: #b42318;
+    font-size: 0.82rem;
+  }
+
+  .error-reference {
+    margin: 0;
+    font-size: 0.78rem;
+    color: #6f5a48;
+  }
+
+  .submit-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 250, 244, 0.72);
+  }
+
+  :host ::ng-deep .editor-dialog {
+    input.p-inputtext,
+    textarea,
+    select {
+      box-sizing: border-box;
+      width: 100%;
+      min-width: 0;
+      padding: 0.65rem 0.75rem;
+      font-size: 0.95rem;
+    }
+
+    textarea,
+    select {
+      border: 1px solid #e7d6c3;
+      border-radius: 0.75rem;
+      background: rgba(255, 255, 255, 0.92);
+      color: #2a1b12;
+      font-family: inherit;
+    }
+
+    select {
+      min-height: 2.75rem;
+    }
+    textarea {
+      min-height: 5.5rem;
+      resize: vertical;
+    }
+    textarea:focus,
+    select:focus {
+      outline: 1px solid #d97706;
+    }
+    .p-password {
+      width: 100%;
+      min-width: 0;
+    }
+    .p-password-input {
+      padding-right: 3rem;
+    }
+    .p-password-toggle-mask-icon {
+      color: #9b5d20;
+    }
+  }
+}

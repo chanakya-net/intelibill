@@ -83,6 +83,42 @@ import { SupplierReturnDetail } from '../services/supplier-return.models';
         background: white;
         color: #23180f;
       }
+      @media screen {
+        .reference {
+          padding: 0;
+          background: transparent;
+        }
+        h1 {
+          margin: 0 0 0.5rem;
+          font-size: 1.2rem;
+          font-weight: 800;
+        }
+        h2 {
+          margin: 1rem 0 0.5rem;
+          font-family: Georgia, 'Times New Roman', serif;
+          font-size: 1.6rem;
+          font-weight: 700;
+        }
+        p {
+          margin: 0.5rem 0;
+          color: #7a6250;
+          line-height: 1.6;
+        }
+        table {
+          margin: 1rem 0;
+        }
+        th {
+          background: #fff5e7;
+          color: #7a6250;
+          font-size: 0.68rem;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+        }
+        td,
+        th {
+          border-color: #ead7c1;
+        }
+      }
       @media print {
         .reference {
           padding: 0;

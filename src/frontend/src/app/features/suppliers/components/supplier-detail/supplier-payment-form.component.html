@@ -23,6 +23,8 @@
       formControlName="paymentDate"
       dateFormat="dd/mm/yy"
       [maxDate]="maxDate"
+      [showIcon]="true"
+      [fluid]="true"
       appendTo="body"
     ></p-datepicker>
   </label>
@@ -42,6 +44,7 @@
       type="button"
       [label]="'common.cancel' | transloco"
       severity="secondary"
+      [outlined]="true"
       [disabled]="submitting"
       (click)="onCancel()"
     ></button>

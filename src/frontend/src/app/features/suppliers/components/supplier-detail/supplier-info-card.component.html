@@ -12,40 +12,40 @@
         }
       </div>
     </div>
+    <div class="supplier-info-card__balance">
+      <span class="label">{{ 'suppliers.balanceDue' | transloco }}</span>
+      <strong>{{ supplier.balanceDue | currency: 'INR' : 'symbol' : '1.0-2' }}</strong>
+    </div>
   </header>
 
   <div class="supplier-info-card__grid">
     <div class="info-row">
-      <span class="label">{{ 'suppliers.contactPerson' | transloco }}:</span>
+      <span class="label">{{ 'suppliers.contactPerson' | transloco }}</span>
       <span class="value">{{ supplier.contactPersonName || '-' }}</span>
     </div>
     <div class="info-row">
-      <span class="label">{{ 'suppliers.contactPhone' | transloco }}:</span>
+      <span class="label">{{ 'suppliers.contactPhone' | transloco }}</span>
       <span class="value">{{ supplier.contactPersonPhone || '-' }}</span>
     </div>
     <div class="info-row">
-      <span class="label">GSTIN:</span>
+      <span class="label">{{ 'shops.taxProfile.gstin' | transloco }}</span>
       <span class="value">{{ supplier.gstNumber || '-' }}</span>
     </div>
     <div class="info-row">
-      <span class="label">{{ 'suppliers.city' | transloco }}:</span>
+      <span class="label">{{ 'suppliers.city' | transloco }}</span>
       <span class="value">{{ supplier.city || '-' }}</span>
     </div>
     <div class="info-row">
-      <span class="label">{{ 'suppliers.state' | transloco }}:</span>
+      <span class="label">{{ 'suppliers.state' | transloco }}</span>
       <span class="value">{{ supplier.state || '-' }}</span>
     </div>
     <div class="info-row">
-      <span class="label">{{ 'suppliers.pin' | transloco }}:</span>
+      <span class="label">{{ 'suppliers.pin' | transloco }}</span>
       <span class="value">{{ supplier.pin || '-' }}</span>
     </div>
     <div class="info-row supplier-info-card__address">
-      <span class="label">{{ 'suppliers.address' | transloco }}:</span>
+      <span class="label">{{ 'suppliers.address' | transloco }}</span>
       <span class="value">{{ supplier.address || '-' }}</span>
-    </div>
-    <div class="info-row">
-      <span class="label">{{ 'suppliers.balanceDue' | transloco }}:</span>
-      <span class="value">{{ supplier.balanceDue | currency: 'INR' : 'symbol' : '1.0-2' }}</span>
     </div>
   </div>
 </section>

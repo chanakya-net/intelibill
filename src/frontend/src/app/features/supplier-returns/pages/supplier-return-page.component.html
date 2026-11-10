@@ -1,42 +1,68 @@
 <section class="returns-page">
-  <header class="no-print">
-    <a routerLink="/inventory/batches">{{ 'supplierReturns.back' | transloco }}</a>
+  <header class="returns-hero no-print">
+    <a
+      pButton
+      routerLink="/inventory/batches"
+      severity="secondary"
+      [text]="true"
+      icon="pi pi-arrow-left"
+      class="returns-back"
+      [label]="'supplierReturns.back' | transloco"
+    ></a>
+    <p class="eyebrow">{{ 'inventory.directory' | transloco }}</p>
     <h1>{{ 'supplierReturns.title' | transloco }}</h1>
+    <p class="returns-hero__description">{{ 'supplierReturns.noRefund' | transloco }}</p>
   </header>
   @if (busy()) {
-    <p role="status" aria-live="polite">{{ 'supplierReturns.loading' | transloco }}</p>
+    <p class="returns-notice" role="status" aria-live="polite">
+      <i class="pi pi-spinner pi-spin" aria-hidden="true"></i
+      >{{ 'supplierReturns.loading' | transloco }}
+    </p>
   }
   @if (error()) {
     <p role="alert" class="error no-print">{{ error() | transloco }}</p>
   }
   @if (status()) {
-    <p role="status" class="no-print">{{ status() | transloco }}</p>
+    <p role="status" class="returns-notice returns-notice--success no-print">
+      {{ status() | transloco }}
+    </p>
   }
   @if (document(); as doc) {
-    <app-supplier-return-print-view [document]="doc" />
-    <div class="no-print">
-      @for (line of doc.lines; track line.returnLineId) {
-        <p>
-          <a [routerLink]="['/purchase-receipts', line.receiptValueId]">{{
-            'supplierReturns.receiptLot' | transloco
-          }}</a>
-          · {{ line.batchNumberSnapshot || line.receiptValueId }}
-        </p>
-      }
-    </div>
-    <p class="no-print">
-      <button type="button" (click)="print()">{{ 'supplierReturns.print' | transloco }}</button>
-    </p>
+    <section class="returns-panel returns-document">
+      <app-supplier-return-print-view [document]="doc" />
+      <div class="returns-source-links no-print">
+        @for (line of doc.lines; track line.returnLineId) {
+          <p>
+            <a [routerLink]="['/purchase-receipts', line.receiptValueId]">{{
+              'supplierReturns.receiptLot' | transloco
+            }}</a>
+            · {{ line.batchNumberSnapshot || line.receiptValueId }}
+          </p>
+        }
+      </div>
+      <p class="no-print">
+        <button
+          pButton
+          severity="secondary"
+          [outlined]="true"
+          icon="pi pi-print"
+          type="button"
+          (click)="print()"
+        >
+          {{ 'supplierReturns.print' | transloco }}
+        </button>
+      </p>
+    </section>
     @if (doc.status === 'PendingSupplierCredit' && owner() && !printMode) {
-      <h2>{{ 'supplierReturns.acceptCredit' | transloco }}</h2>
-      <p>{{ 'supplierReturns.noRefund' | transloco }}</p>
-      <form (ngSubmit)="submit()">
+      <form class="returns-form returns-panel" (ngSubmit)="submit()">
+        <h2>{{ 'supplierReturns.acceptCredit' | transloco }}</h2>
         <fieldset [disabled]="busy() || frozen() || !ready()">
           <legend>{{ 'supplierReturns.agreedAmounts' | transloco }}</legend>
           @for (line of doc.lines; track line.returnLineId) {
             <label
               >{{ line.itemName
               }}<input
+                pInputText
                 type="number"
                 [name]="line.returnLineId"
                 min="0"
@@ -48,6 +74,8 @@
           <label
             >{{ 'supplierReturns.reason' | transloco
             }}<textarea
+              pTextarea
+              rows="3"
               name="creditReason"
               minlength="3"
               maxlength="255"
@@ -58,50 +86,72 @@
           </label>
           <label
             >{{ 'supplierReturns.supplierReference' | transloco
-            }}<input name="creditReference" maxlength="255" [(ngModel)]="reference" (blur)="save()"
+            }}<input
+              pInputText
+              name="creditReference"
+              maxlength="255"
+              [(ngModel)]="reference"
+              (blur)="save()"
           /></label>
-          <button type="submit" [disabled]="!valid() || !ready()">
-            {{ 'supplierReturns.acceptCredit' | transloco }}
-          </button>
+          <div class="returns-form__footer">
+            <button pButton icon="pi pi-check" type="submit" [disabled]="!valid() || !ready()">
+              {{ 'supplierReturns.acceptCredit' | transloco }}
+            </button>
+          </div>
         </fieldset>
       </form>
     }
   }
   @if (lots().length) {
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>{{ 'supplierReturns.item' | transloco }}</th>
-            <th>{{ 'supplierReturns.received' | transloco }}</th>
-            <th>{{ 'supplierReturns.available' | transloco }}</th>
-            <th>{{ 'supplierReturns.returned' | transloco }}</th>
-            <th>{{ 'supplierReturns.netRetained' | transloco }}</th>
-            <th>{{ 'supplierReturns.netPayable' | transloco }}</th>
-            <th>{{ 'supplierReturns.outstanding' | transloco }}</th>
-            <th>{{ 'supplierReturns.supplierCredit' | transloco }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (lot of lots(); track lot.receiptValueId) {
+    <section class="returns-panel returns-receipt-panel">
+      <header class="returns-panel__header">
+        <h2>{{ 'supplierReturns.receiptLot' | transloco }}</h2>
+        <i class="pi pi-box" aria-hidden="true"></i>
+      </header>
+      <div class="table-wrap">
+        <table>
+          <thead>
             <tr>
-              <td>{{ lot.itemName }} / {{ lot.batchNumber }}</td>
-              <td>{{ lot.receivedQuantity }}</td>
-              <td>{{ lot.availableQuantity }}</td>
-              <td>{{ lot.returnedQuantity }}</td>
-              <td>{{ lot.netRetainedQuantity }}</td>
-              <td>{{ lot.netPayableAmount | number: '1.2-2' }}</td>
-              <td>{{ lot.outstandingAmount | number: '1.2-2' }}</td>
-              <td>{{ lot.supplierCreditAmount | number: '1.2-2' }}</td>
+              <th>{{ 'supplierReturns.item' | transloco }}</th>
+              <th>{{ 'supplierReturns.received' | transloco }}</th>
+              <th>{{ 'supplierReturns.available' | transloco }}</th>
+              <th>{{ 'supplierReturns.returned' | transloco }}</th>
+              <th>{{ 'supplierReturns.netRetained' | transloco }}</th>
+              <th>{{ 'supplierReturns.netPayable' | transloco }}</th>
+              <th>{{ 'supplierReturns.outstanding' | transloco }}</th>
+              <th>{{ 'supplierReturns.supplierCredit' | transloco }}</th>
             </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-    <p>{{ 'supplierReturns.noRefund' | transloco }}</p>
+          </thead>
+          <tbody>
+            @for (lot of lots(); track lot.receiptValueId) {
+              <tr>
+                <td class="receipt-item">
+                  <strong>{{ lot.itemName }}</strong
+                  ><span>{{ lot.batchNumber }}</span>
+                </td>
+                <td>{{ lot.receivedQuantity }}</td>
+                <td>{{ lot.availableQuantity }}</td>
+                <td>{{ lot.returnedQuantity }}</td>
+                <td>{{ lot.netRetainedQuantity }}</td>
+                <td>{{ lot.netPayableAmount | number: '1.2-2' }}</td>
+                <td>{{ lot.outstandingAmount | number: '1.2-2' }}</td>
+                <td>{{ lot.supplierCreditAmount | number: '1.2-2' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
     @if (canShip()) {
-      <nav [attr.aria-label]="'supplierReturns.receiptActions' | transloco">
+      <nav
+        class="returns-action-switch"
+        [attr.aria-label]="'supplierReturns.receiptActions' | transloco"
+      >
         <button
+          pButton
+          icon="pi pi-send"
+          [outlined]="action !== 'shipment'"
+          [attr.aria-pressed]="action === 'shipment'"
           type="button"
           [disabled]="busy() || frozen() || !ready()"
           (click)="choose('shipment')"
@@ -110,6 +160,11 @@
         </button>
         @if (owner()) {
           <button
+            pButton
+            icon="pi pi-undo"
+            severity="danger"
+            [outlined]="action !== 'reversal'"
+            [attr.aria-pressed]="action === 'reversal'"
             type="button"
             [disabled]="busy() || frozen() || !ready()"
             (click)="choose('reversal')"
@@ -118,7 +173,7 @@
           </button>
         }
       </nav>
-      <form (ngSubmit)="submit()">
+      <form class="returns-form returns-panel" (ngSubmit)="submit()">
         <fieldset [disabled]="busy() || frozen() || !ready()">
           <legend>
             {{
@@ -127,19 +182,25 @@
             }}
           </legend>
           @if (action === 'shipment') {
-            <p>{{ 'supplierReturns.pendingExplanation' | transloco }}</p>
+            <p class="returns-form__description">
+              {{ 'supplierReturns.pendingExplanation' | transloco }}
+            </p>
             @for (lot of lots(); track lot.receiptValueId) {
               <div class="lot-inputs">
-                <label
+                <label class="lot-selection"
                   ><input
                     type="checkbox"
                     [name]="'select-' + lot.receiptValueId"
                     [(ngModel)]="selected[lot.receiptValueId]"
                     (change)="save()"
-                  />{{ lot.itemName }} / {{ lot.batchNumber }}</label
+                  /><span class="lot-selection__copy"
+                    ><strong>{{ lot.itemName }}</strong
+                    ><span>{{ lot.batchNumber }}</span></span
+                  ></label
                 ><label
                   >{{ 'supplierReturns.quantity' | transloco }} ({{ lot.uqc }}, ≤
                   {{ lot.returnableQuantity }})<input
+                    pInputText
                     type="number"
                     [name]="'q-' + lot.receiptValueId"
                     min="0"
@@ -158,6 +219,7 @@
                 ><label
                   >{{ 'supplierReturns.proposedCredit' | transloco
                   }}<input
+                    pInputText
                     type="number"
                     [name]="'c-' + lot.receiptValueId"
                     min="0"
@@ -167,21 +229,28 @@
                 /></label>
               </div>
             }
-            @if (owner()) {
+            <div class="returns-form__grid">
+              @if (owner()) {
+                <label
+                  >{{ 'supplierReturns.creditMode' | transloco
+                  }}<select name="accepted" [(ngModel)]="accepted" (change)="save()">
+                    <option [ngValue]="false">{{ 'supplierReturns.pending' | transloco }}</option>
+                    <option [ngValue]="true">{{ 'supplierReturns.accepted' | transloco }}</option>
+                  </select></label
+                >
+              } @else {
+                <p>{{ 'supplierReturns.managerPendingOnly' | transloco }}</p>
+              }
               <label
-                >{{ 'supplierReturns.creditMode' | transloco
-                }}<select name="accepted" [(ngModel)]="accepted" (change)="save()">
-                  <option [ngValue]="false">{{ 'supplierReturns.pending' | transloco }}</option>
-                  <option [ngValue]="true">{{ 'supplierReturns.accepted' | transloco }}</option>
-                </select></label
-              >
-            } @else {
-              <p>{{ 'supplierReturns.managerPendingOnly' | transloco }}</p>
-            }
-            <label
-              >{{ 'supplierReturns.supplierReference' | transloco
-              }}<input name="reference" maxlength="255" [(ngModel)]="reference" (blur)="save()"
-            /></label>
+                >{{ 'supplierReturns.supplierReference' | transloco
+                }}<input
+                  pInputText
+                  name="reference"
+                  maxlength="255"
+                  [(ngModel)]="reference"
+                  (blur)="save()"
+              /></label>
+            </div>
           } @else {
             <p>{{ 'supplierReturns.reversalWarning' | transloco }}</p>
             @for (lot of lots(); track lot.receiptValueId) {
@@ -197,6 +266,8 @@
           <label
             >{{ 'supplierReturns.reason' | transloco
             }}<textarea
+              pTextarea
+              rows="3"
               name="reason"
               required
               minlength="3"
@@ -205,69 +276,98 @@
               (blur)="save()"
             ></textarea>
           </label>
-          <button type="submit" [disabled]="!valid() || !ready()">
-            {{
-              (action === 'shipment' ? 'supplierReturns.ship' : 'supplierReturns.confirmReversal')
-                | transloco
-            }}
-          </button>
+          <div class="returns-form__footer">
+            <button
+              pButton
+              [icon]="action === 'shipment' ? 'pi pi-send' : 'pi pi-undo'"
+              [severity]="action === 'reversal' ? 'danger' : 'primary'"
+              type="submit"
+              [disabled]="!valid() || !ready()"
+            >
+              {{
+                (action === 'shipment' ? 'supplierReturns.ship' : 'supplierReturns.confirmReversal')
+                  | transloco
+              }}
+            </button>
+          </div>
         </fieldset>
       </form>
     }
-    <h2>{{ 'supplierReturns.history' | transloco }}</h2>
-    @for (lot of lots(); track lot.receiptValueId) {
-      @for (ret of lot.returns; track ret.returnId) {
-        <p>
-          <a [routerLink]="['/supplier-returns', ret.returnId]">{{ ret.returnNumber }}</a> ·
-          {{
-            'supplierReturns.' + (ret.status === 'CreditAccepted' ? 'accepted' : 'pending')
-              | transloco
-          }}
-        </p>
+    <section class="returns-panel returns-history">
+      <h2>{{ 'supplierReturns.history' | transloco }}</h2>
+      @for (lot of lots(); track lot.receiptValueId) {
+        @for (ret of lot.returns; track ret.returnId) {
+          <p>
+            <a [routerLink]="['/supplier-returns', ret.returnId]">{{ ret.returnNumber }}</a> ·
+            {{
+              'supplierReturns.' + (ret.status === 'CreditAccepted' ? 'accepted' : 'pending')
+                | transloco
+            }}
+          </p>
+        }
+        @for (reversal of lot.reversals; track reversal.reversalId) {
+          <p>
+            {{ 'supplierReturns.reversed' | transloco }}
+            {{ reversal.reversedAt | date: 'medium' }} ·
+            {{ reversal.effectiveAmount | number: '1.2-2' }} · {{ reversal.reason }}
+          </p>
+        }
+        @if (!lot.returns.length && !lot.reversals.length) {
+          <p class="returns-empty">{{ 'supplierReturns.empty' | transloco }}</p>
+        }
       }
-      @for (reversal of lot.reversals; track reversal.reversalId) {
-        <p>
-          {{ 'supplierReturns.reversed' | transloco }} {{ reversal.reversedAt | date: 'medium' }} ·
-          {{ reversal.effectiveAmount | number: '1.2-2' }} · {{ reversal.reason }}
-        </p>
-      }
-    }
+    </section>
   }
   @if (frozen()) {
-    <aside class="no-print" aria-live="polite">
+    <aside class="returns-notice returns-notice--warning no-print" aria-live="polite">
       <p>{{ 'supplierReturns.unknown' | transloco }}</p>
-      <button type="button" [disabled]="busy()" (click)="recover()">
+      <button pButton icon="pi pi-refresh" type="button" [disabled]="busy()" (click)="recover()">
         {{ 'supplierReturns.checkRetry' | transloco }}
       </button>
     </aside>
   }
   @if (!lots().length && !document() && ready()) {
-    <label
-      >{{ 'supplierReturns.status' | transloco
-      }}<select [(ngModel)]="filter" (change)="refresh()" [disabled]="busy()">
-        <option value="">{{ 'supplierReturns.all' | transloco }}</option>
-        <option value="PendingSupplierCredit">{{ 'supplierReturns.pending' | transloco }}</option>
-        <option value="CreditAccepted">{{ 'supplierReturns.accepted' | transloco }}</option>
-      </select></label
-    >
-    @for (ret of history(); track ret.returnId) {
-      <article>
-        <a [routerLink]="['/supplier-returns', ret.returnId]">{{ ret.returnNumber }}</a>
-        <p>
-          {{ ret.supplierName }} · {{ ret.shippedAt | date: 'medium' }} ·
-          {{
-            'supplierReturns.' + (ret.status === 'CreditAccepted' ? 'accepted' : 'pending')
-              | transloco
-          }}
-        </p>
-      </article>
-    } @empty {
-      <p>{{ 'supplierReturns.empty' | transloco }}</p>
-    }
-    @if (hasMoreHistory()) {
-      <button type="button" [disabled]="busy()" (click)="loadMoreHistory()">
-        {{ 'supplierReturns.loadMore' | transloco }}
-      </button>
-    }
+    <section class="returns-panel returns-history">
+      <header class="returns-panel__header">
+        <h2>{{ 'supplierReturns.history' | transloco }}</h2>
+        <label class="returns-filter"
+          >{{ 'supplierReturns.status' | transloco
+          }}<select [(ngModel)]="filter" (change)="refresh()" [disabled]="busy()">
+            <option value="">{{ 'supplierReturns.all' | transloco }}</option>
+            <option value="PendingSupplierCredit">
+              {{ 'supplierReturns.pending' | transloco }}
+            </option>
+            <option value="CreditAccepted">{{ 'supplierReturns.accepted' | transloco }}</option>
+          </select></label
+        >
+      </header>
+      @for (ret of history(); track ret.returnId) {
+        <article class="returns-history__entry">
+          <a [routerLink]="['/supplier-returns', ret.returnId]">{{ ret.returnNumber }}</a>
+          <p>
+            {{ ret.supplierName }} · {{ ret.shippedAt | date: 'medium' }} ·
+            {{
+              'supplierReturns.' + (ret.status === 'CreditAccepted' ? 'accepted' : 'pending')
+                | transloco
+            }}
+          </p>
+        </article>
+      } @empty {
+        <p class="returns-empty">{{ 'supplierReturns.empty' | transloco }}</p>
+      }
+      @if (hasMoreHistory()) {
+        <button
+          pButton
+          severity="secondary"
+          [outlined]="true"
+          icon="pi pi-chevron-down"
+          type="button"
+          [disabled]="busy()"
+          (click)="loadMoreHistory()"
+        >
+          {{ 'supplierReturns.loadMore' | transloco }}
+        </button>
+      }
+    </section>
   }
 </section>

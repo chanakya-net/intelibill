@@ -43,7 +43,6 @@ import {
   CURRENCY_ADDON_PT,
   CURRENCY_INPUT_GROUP_PT,
   CURRENCY_INPUT_NUMBER_PT,
-  CURRENCY_SELECT_PT,
 } from '../../../../shared/primeng-pt.config';
 import {
   formatLocalIsoDate,
@@ -110,7 +109,6 @@ export class InventoryBatchesListPageComponent {
   readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
   readonly currencyAddonPt = CURRENCY_ADDON_PT;
   readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
-  readonly currencySelectPt = CURRENCY_SELECT_PT;
   private readonly expiryPolicies = inject(ExpiryPolicyService);
   readonly batches = signal<InventoryBatchDto[]>([]);
   readonly loading = signal(false);
