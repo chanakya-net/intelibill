@@ -45,7 +45,10 @@ const BUILT_FILES: Readonly<Record<string, string>> = {
   '/fonts/manrope-400.woff2': 'font',
 };
 
+// Since the offline pack (phase 3), fonts and locale files are prefetched with the app in the full manifest.
 const PREFETCHED = [
+  '/assets/i18n/en-IN.json',
+  '/fonts/manrope-400.woff2',
   '/favicon.ico',
   '/index.csr.html',
   '/index.html',
