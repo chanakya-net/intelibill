@@ -5,6 +5,7 @@ import { Subject } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../auth/auth.service';
+import { REFRESH_LOCK_MANAGER, type RefreshLockManager } from '../auth/refresh-coordinator.service';
 import { ShopContextService, type LeaveReadiness } from '../context/shop-context.service';
 import { AppReloadService } from '../services/app-reload.service';
 import { NetworkStatusService } from '../services/network-status.service';
@@ -15,9 +16,13 @@ import { OfflinePackService } from './offline-pack.service';
 import {
   OfflinePackUpdateService,
   SNAPSHOT_REFRESH_AGE_MS,
+  SNAPSHOT_RETRY_BASE_MS,
   UPDATE_CHECK_INTERVAL_MS,
   UPDATE_SCHEDULE_ENVIRONMENT,
+  UPDATE_TRIGGER_MIN_GAP_MS,
 } from './offline-pack-update.service';
+
+const CYCLE_LOCK = 'intelibill.tab-task:offline-pack-update';
 
 function ready(currentBuild: string, latestBuild: string): VersionEvent {
   return {
@@ -65,6 +70,9 @@ function setup(options: { swEnabled?: boolean; withSwUpdate?: boolean } = {}) {
     addEventListener: (type: string, listener: () => void) => listeners.document.set(type, listener),
     removeEventListener: vi.fn(),
   };
+  const clock = { now: Date.now() };
+  /** localStorage shared by this browser's tabs. */
+  const shared = new Map<string, string>();
   const schedule = {
     window: {
       addEventListener: (type: string, listener: () => void) => listeners.window.set(type, listener),
@@ -73,6 +81,22 @@ function setup(options: { swEnabled?: boolean; withSwUpdate?: boolean } = {}) {
     document: doc,
     setInterval: (callback: () => void, ms: number) => timers.push({ callback, ms }),
     clearInterval: vi.fn(),
+    now: () => clock.now,
+    storage: {
+      getItem: (key: string) => shared.get(key) ?? null,
+      setItem: (key: string, value: string) => void shared.set(key, value),
+    },
+  };
+  /** Web Locks across tabs: one holder per name, the rest wait in order. */
+  const tails = new Map<string, Promise<unknown>>();
+  const locks: RefreshLockManager & { names: string[] } = {
+    names: [],
+    request(name, _options, callback) {
+      locks.names.push(name);
+      const run = (tails.get(name) ?? Promise.resolve()).then(() => callback());
+      tails.set(name, run.catch(() => undefined));
+      return run;
+    },
   };
 
   const providers: unknown[] = [
@@ -85,6 +109,7 @@ function setup(options: { swEnabled?: boolean; withSwUpdate?: boolean } = {}) {
     { provide: OfflineSalesSnapshotSyncService, useValue: snapshotSync },
     { provide: OfflineSalesSnapshotIndexedDbService, useValue: snapshotDb },
     { provide: UPDATE_SCHEDULE_ENVIRONMENT, useValue: schedule },
+    { provide: REFRESH_LOCK_MANAGER, useValue: locks },
   ];
   if (options.withSwUpdate !== false) providers.push({ provide: SwUpdate, useValue: swUpdate });
   TestBed.configureTestingModule({ providers: providers as never[] });
@@ -104,6 +129,9 @@ function setup(options: { swEnabled?: boolean; withSwUpdate?: boolean } = {}) {
     listeners,
     timers,
     doc,
+    clock,
+    shared,
+    locks,
   };
 }
 
@@ -156,15 +184,62 @@ describe('OfflinePackUpdateService', () => {
     await vi.waitFor(() => expect(harness.pack.checkForUpdate).toHaveBeenCalledTimes(3));
 
     await settled();
+    harness.clock.now += UPDATE_TRIGGER_MIN_GAP_MS;
     harness.listeners.window.get('online')?.();
     await vi.waitFor(() => expect(harness.pack.checkForUpdate).toHaveBeenCalledTimes(4));
 
     await settled();
+    harness.clock.now += UPDATE_TRIGGER_MIN_GAP_MS;
     harness.doc.visibilityState = 'hidden';
     harness.listeners.document.get('visibilitychange')?.();
     harness.doc.visibilityState = 'visible';
     harness.listeners.document.get('visibilitychange')?.();
     await vi.waitFor(() => expect(harness.pack.checkForUpdate).toHaveBeenCalledTimes(5));
+  });
+
+  it('holds focus and online triggers to a minimum gap after any cycle on the device, but not the timer or a request', async () => {
+    const harness = setup();
+    harness.service.start();
+    await vi.waitFor(() => expect(harness.pack.checkForUpdate).toHaveBeenCalledTimes(1));
+    await settled();
+
+    harness.listeners.window.get('online')?.();
+    harness.listeners.document.get('visibilitychange')?.();
+    await harness.service.runCycle('focus');
+    expect(harness.pack.checkForUpdate).toHaveBeenCalledTimes(1);
+
+    harness.timers[0].callback();
+    await vi.waitFor(() => expect(harness.pack.checkForUpdate).toHaveBeenCalledTimes(2));
+    await settled();
+    await harness.service.runCycle();
+    expect(harness.pack.checkForUpdate).toHaveBeenCalledTimes(3);
+
+    harness.clock.now += UPDATE_TRIGGER_MIN_GAP_MS - 1;
+    await harness.service.runCycle('online');
+    expect(harness.pack.checkForUpdate).toHaveBeenCalledTimes(3);
+    harness.clock.now += 1;
+    await harness.service.runCycle('online');
+    expect(harness.pack.checkForUpdate).toHaveBeenCalledTimes(4);
+  });
+
+  it("runs one tab at a time: a tab that waited for another tab's cycle skips its own focus check", async () => {
+    const harness = setup();
+    harness.clock.now += UPDATE_TRIGGER_MIN_GAP_MS;
+    let releaseOtherTab!: () => void;
+    // Another tab holds the cycle lock.
+    void harness.locks.request(CYCLE_LOCK, { mode: 'exclusive' }, () => new Promise<void>((resolve) => (releaseOtherTab = resolve)));
+
+    const waiting = harness.service.runCycle('focus');
+    await settled();
+    expect(harness.pack.checkForUpdate).not.toHaveBeenCalled();
+    expect(harness.locks.names).toEqual([CYCLE_LOCK, CYCLE_LOCK]);
+
+    // The other tab records its cycle, then lets go.
+    harness.shared.set('intelibill.offlineSales.offlinePackCycle.v1', JSON.stringify({ lastRunAt: harness.clock.now }));
+    releaseOtherTab();
+    await waiting;
+
+    expect(harness.pack.checkForUpdate).not.toHaveBeenCalled();
   });
 
   it('never runs two checks at once', async () => {
@@ -262,6 +337,40 @@ describe('OfflinePackUpdateService', () => {
     harness.settings.current = { enabled: true, lastCompleteSnapshotAt: null };
     await harness.service.runCycle();
     expect(harness.snapshotSync.syncForShop).toHaveBeenCalledTimes(1);
+  });
+
+  it('backs off after a snapshot refresh fails, doubling the wait, and resets once one succeeds', async () => {
+    const harness = setup();
+    harness.pack.deviceNeedsPack.mockReturnValue(true);
+    harness.settings.current = { enabled: true, lastCompleteSnapshotAt: null };
+    harness.snapshotSync.syncForShop.mockRejectedValue(new Error('stream failed'));
+
+    await harness.service.runCycle();
+    expect(harness.snapshotSync.syncForShop).toHaveBeenCalledTimes(1);
+
+    await harness.service.runCycle();
+    harness.clock.now += SNAPSHOT_RETRY_BASE_MS - 1;
+    await harness.service.runCycle();
+    expect(harness.snapshotSync.syncForShop).toHaveBeenCalledTimes(1);
+
+    harness.clock.now += 1;
+    await harness.service.runCycle();
+    expect(harness.snapshotSync.syncForShop).toHaveBeenCalledTimes(2);
+
+    // Second failure in a row: twice the wait.
+    harness.clock.now += SNAPSHOT_RETRY_BASE_MS;
+    await harness.service.runCycle();
+    expect(harness.snapshotSync.syncForShop).toHaveBeenCalledTimes(2);
+    harness.clock.now += SNAPSHOT_RETRY_BASE_MS;
+    harness.snapshotSync.syncForShop.mockResolvedValue(undefined);
+    await harness.service.runCycle();
+    expect(harness.snapshotSync.syncForShop).toHaveBeenCalledTimes(3);
+    expect(harness.settings.updateSettings).toHaveBeenCalledTimes(1);
+
+    // Succeeded: a stale snapshot later is refreshed without any wait.
+    harness.settings.current = { enabled: true, lastCompleteSnapshotAt: null };
+    await harness.service.runCycle();
+    expect(harness.snapshotSync.syncForShop).toHaveBeenCalledTimes(4);
   });
 
   it('does not judge the pack while the worker has not finished its check (a new build may still be downloading)', async () => {

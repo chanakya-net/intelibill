@@ -361,14 +361,21 @@ immutable for a year).
   immediately, the caches go on a later worker start. (d) A worker's very first install is not all-or-nothing:
   `VERSION_READY` is never the proof; the cache lookup is.
 - **Periodic update** (`OfflinePackUpdateService`): `checkForUpdate()` at start, every 30 minutes while the tab is
-  visible and the API reachable, on `online` and when the tab becomes visible; one check at a time (60 s cap). A
+  visible and the API reachable, on `online` and when the tab becomes visible; one check at a time (60 s cap). The
+  `online` and visibility triggers are skipped within `UPDATE_TRIGGER_MIN_GAP_MS` (5 min) of the last cycle on the
+  device (start, timer and explicit requests are not). One tab at a time runs a cycle:
+  `RefreshCoordinator.runExclusiveTask('offline-pack-update')` (Web Locks, localStorage lease fallback, the same
+  mechanism as token renewal under its own names); the cycle's start time and the snapshot back-off live in
+  localStorage `intelibill.offlineSales.offlinePackCycle.v1`, so a tab that waited re-checks the gap under the lock. A
   `VERSION_READY` of a different build shows the shell's `shell.appUpdate.*` notice; "Update now" runs
   `ShopContextService.prepareToLeave()` (refuses with `shell.appUpdate.busy` while a write is in flight or a draft
   cannot be saved), then `activateUpdate()` and a reload. Never reloads on its own; the next app start uses the new
   version anyway. `SwUpdate.unrecoverable` shows "reload while online". On an enabled device the same cycle
   re-verifies the pack (`refreshStatus`; `incomplete` shows as an amber shell toggle and "Enabled — offline files
   incomplete" in Manage shop) and refreshes the active shop's snapshot once older than `SNAPSHOT_REFRESH_AGE_MS`
-  (6 h; offline billing refuses one older than 48 h). Invoice leases are not touched.
+  (6 h; offline billing refuses one older than 48 h). A refresh that fails (throws or yields no newer complete
+  snapshot) waits `SNAPSHOT_RETRY_BASE_MS` (5 min), doubling per failure in a row up to `SNAPSHOT_RETRY_MAX_MS`
+  (2 h), per shop; a success clears it. Invoice leases are not touched.
 - **Device settings UI.** Manage shop → offline step lists "Offline files" (ready/incomplete), version (first 8 of
   `buildId`), last checked, last updated, and warns when the browser did not grant persistent storage (Safari may
   still evict an unused site's storage; the pack is re-verified on each online start).
