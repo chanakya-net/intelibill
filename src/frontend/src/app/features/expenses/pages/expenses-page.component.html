@@ -67,11 +67,11 @@
   }
 
   @if (loading()) {
-    <section class="directory-panel directory-panel--loading" aria-busy="true">
-      <div class="directory-panel__header">
+    <section class="directory-panel ib-panel directory-panel--loading" aria-busy="true">
+      <div class="directory-panel__header ib-panel__header">
         <div>
           <p class="ib-eyebrow">{{ 'expenses.expenseLedger' | transloco }}</p>
-          <h2>{{ 'expenses.title' | transloco }}</h2>
+          <h2 class="ib-panel__title">{{ 'expenses.title' | transloco }}</h2>
         </div>
       </div>
       <div class="loading-shell">
@@ -87,16 +87,16 @@
   }
 
   @if (!loading() && !listError()) {
-    <section class="directory-panel">
-      <header class="directory-panel__header">
+    <section class="directory-panel ib-panel">
+      <header class="directory-panel__header ib-panel__header">
         <div>
           <p class="ib-eyebrow">{{ 'expenses.expenseLedger' | transloco }}</p>
-          <h2>{{ 'expenses.title' | transloco }}</h2>
+          <h2 class="ib-panel__title">{{ 'expenses.title' | transloco }}</h2>
           <p class="ib-subtitle ib-subtitle--measure">{{ 'expenses.subtitle' | transloco }}</p>
         </div>
 
         <div
-          class="directory-panel__metrics"
+          class="directory-panel__metrics ib-panel__metrics"
           [attr.aria-label]="'expenses.ledgerMetrics' | transloco"
         >
           @for (metric of directoryMetrics(); track metric.labelKey) {
@@ -114,7 +114,7 @@
         </div>
       </header>
 
-      <div class="directory-panel__surface">
+      <div class="directory-panel__surface ib-panel__surface">
         <app-expenses-table
           [expenses]="filteredExpenses()"
           [visibleRows]="filteredRowCount()"

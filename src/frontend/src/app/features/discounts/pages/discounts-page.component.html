@@ -48,11 +48,11 @@
   }
 
   @if (listLoading()) {
-    <section class="directory-panel directory-panel--loading" aria-busy="true">
-      <div class="directory-panel__header">
+    <section class="directory-panel ib-panel directory-panel--loading" aria-busy="true">
+      <div class="directory-panel__header ib-panel__header">
         <div>
           <p class="ib-eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
-          <h2>{{ 'discounts.list.title' | transloco }}</h2>
+          <h2 class="ib-panel__title">{{ 'discounts.list.title' | transloco }}</h2>
         </div>
       </div>
       <div class="loading-shell">
@@ -68,16 +68,16 @@
   }
 
   @if (!listLoading()) {
-    <section class="directory-panel">
-      <header class="directory-panel__header">
+    <section class="directory-panel ib-panel">
+      <header class="directory-panel__header ib-panel__header">
         <div>
           <p class="ib-eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
-          <h2>{{ 'discounts.list.title' | transloco }}</h2>
+          <h2 class="ib-panel__title">{{ 'discounts.list.title' | transloco }}</h2>
           <p class="ib-subtitle ib-subtitle--measure">{{ 'discounts.subtitle' | transloco }}</p>
         </div>
 
         <div
-          class="directory-panel__metrics"
+          class="directory-panel__metrics ib-panel__metrics"
           [attr.aria-label]="'discounts.directoryMetrics' | transloco"
         >
           @for (metric of directoryMetrics(); track metric.labelKey) {
@@ -101,7 +101,7 @@
       />
 
       <div class="discounts-workspace">
-        <div class="directory-panel__surface discounts-list-surface">
+        <div class="directory-panel__surface ib-panel__surface discounts-list-surface">
           <app-discounts-table
             [listItems]="listItems()"
             [listLoading]="listLoading()"

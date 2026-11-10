@@ -2,7 +2,7 @@
   <p-confirmDialog />
 
   @if (facade.isLoadingDetail() && !facade.selectedOrder()) {
-    <section class="directory-panel directory-panel--loading" aria-busy="true">
+    <section class="directory-panel ib-panel directory-panel--loading" aria-busy="true">
       <div class="loading">
         <p-progressSpinner />
       </div>
@@ -130,7 +130,7 @@
     </div>
 
     @if (permissions.canManagePurchaseOrders() && order.status === 'Placed') {
-      <section class="directory-panel po-detail-form-panel">
+      <section class="directory-panel ib-panel po-detail-form-panel">
         <div class="po-cancel-form">
           <input
             pInputText
@@ -153,7 +153,7 @@
     }
 
     @if (permissions.canManagePurchaseOrders() && order.status === 'PartiallyReceived') {
-      <section class="directory-panel po-detail-form-panel">
+      <section class="directory-panel ib-panel po-detail-form-panel">
         <div class="po-cancel-form">
           <input
             pInputText
@@ -175,14 +175,14 @@
       </section>
     }
 
-    <section class="directory-panel">
-      <header class="directory-panel__header">
+    <section class="directory-panel ib-panel">
+      <header class="directory-panel__header ib-panel__header">
         <div>
           <p class="directory-panel__eyebrow ib-eyebrow">{{ 'purchaseOrders.detail.lines' | transloco }}</p>
           <h2>{{ 'purchaseOrders.detail.title' | transloco }}</h2>
         </div>
         <div
-          class="directory-panel__metrics"
+          class="directory-panel__metrics ib-panel__metrics"
           [attr.aria-label]="'purchaseOrders.detail.metrics' | transloco"
         >
           <span class="metric-chip">
@@ -226,7 +226,7 @@
         </div>
       }
 
-      <div class="directory-panel__surface">
+      <div class="directory-panel__surface ib-panel__surface">
         <p-table [value]="[...order.lines]" dataKey="lineId">
           <ng-template pTemplate="header">
             <tr>
@@ -269,7 +269,7 @@
       />
     }
   } @else if (facade.errorMessage()) {
-    <section class="directory-panel">
+    <section class="directory-panel ib-panel">
       <div role="alert" class="po-detail-error">
         {{ facade.errorMessage() | transloco: localizedError()?.params ?? {} }}
         @if (localizedError()?.correlationId; as reference) {

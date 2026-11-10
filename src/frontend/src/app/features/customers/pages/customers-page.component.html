@@ -54,11 +54,11 @@
   }
 
   @if (isLoading() && !customers().length) {
-    <section class="directory-panel directory-panel--loading" aria-busy="true">
-      <div class="directory-panel__header">
+    <section class="directory-panel ib-panel directory-panel--loading" aria-busy="true">
+      <div class="directory-panel__header ib-panel__header">
         <div>
           <p class="ib-eyebrow">{{ 'customers.customerDirectory' | transloco }}</p>
-          <h2>{{ 'customers.title' | transloco }}</h2>
+          <h2 class="ib-panel__title">{{ 'customers.title' | transloco }}</h2>
         </div>
       </div>
       <div class="loading-shell">
@@ -74,16 +74,16 @@
   }
 
   @if (true) {
-    <section class="directory-panel" [attr.aria-busy]="isLoading()">
-      <header class="directory-panel__header">
+    <section class="directory-panel ib-panel" [attr.aria-busy]="isLoading()">
+      <header class="directory-panel__header ib-panel__header">
         <div>
           <p class="ib-eyebrow">{{ 'customers.customerDirectory' | transloco }}</p>
-          <h2>{{ 'customers.title' | transloco }}</h2>
+          <h2 class="ib-panel__title">{{ 'customers.title' | transloco }}</h2>
           <p class="ib-subtitle ib-subtitle--measure">{{ 'customers.subtitle' | transloco }}</p>
         </div>
 
         <div
-          class="directory-panel__metrics"
+          class="directory-panel__metrics ib-panel__metrics"
           [attr.aria-label]="'customers.directoryMetrics' | transloco"
         >
           @for (metric of directoryMetrics(); track metric.labelKey) {
@@ -108,7 +108,7 @@
         (statusFilterChange)="onStatusFilterChange($event)"
       />
 
-      <div class="directory-panel__surface">
+      <div class="directory-panel__surface ib-panel__surface">
         <app-customers-table
           [customers]="filteredCustomers()"
           [visibleRows]="customers().length"

@@ -71,39 +71,6 @@
   font-size: 0.95rem;
 }
 
-.directory-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  padding: 0.75rem;
-  border: 1px solid #ead7c1;
-  border-radius: 1.2rem;
-  background: rgba(255, 251, 246, 0.92);
-  box-shadow: 0 10px 30px rgba(78, 49, 20, 0.07);
-}
-
-.directory-panel__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.directory-panel__header h2 {
-  margin: 0.2rem 0 0;
-  color: #271911;
-  font-size: 1.2rem;
-  font-weight: 800;
-}
-
-.directory-panel__metrics {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.45rem;
-}
-
 .metric-chip {
   display: inline-flex;
   flex-direction: column;
@@ -133,13 +100,6 @@
   grid-template-columns: minmax(0, 1.2fr) minmax(18rem, 0.8fr);
   gap: 0.65rem;
   min-width: 0;
-}
-
-.directory-panel__surface {
-  overflow: hidden;
-  border: 1px solid #eedcc8;
-  border-radius: 0.9rem;
-  background: #fffaf4;
 }
 
 .discounts-list-surface {

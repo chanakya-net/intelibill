@@ -41,7 +41,7 @@
 
   @if (loading()) {
     <section
-      class="directory-panel directory-panel--loading"
+      class="directory-panel ib-panel directory-panel--loading"
       data-testid="adjustment-ledger"
       aria-busy="true"
     >
@@ -51,14 +51,14 @@
     </section>
   } @else {
     <section
-      class="directory-panel"
+      class="directory-panel ib-panel"
       data-testid="adjustment-ledger"
       aria-busy="false"
     >
-      <header class="directory-panel__header">
+      <header class="directory-panel__header ib-panel__header">
         <div>
           <p class="ib-eyebrow">{{ 'inventory.adjustmentSummary' | transloco }}</p>
-          <h2>{{ 'inventory.adjustmentsTitle' | transloco }}</h2>
+          <h2 class="ib-panel__title">{{ 'inventory.adjustmentsTitle' | transloco }}</h2>
           <p class="ib-subtitle ib-subtitle--measure">{{ 'inventory.adjustmentsSubtitle' | transloco }}</p>
         </div>
       </header>
@@ -191,7 +191,7 @@
         </div>
       </form>
 
-      <div class="directory-panel__surface desktop-table">
+      <div class="directory-panel__surface ib-panel__surface desktop-table">
         <p-table
           [value]="adjustments()"
           [loading]="loading()"
