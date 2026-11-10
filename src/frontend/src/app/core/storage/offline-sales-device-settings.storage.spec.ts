@@ -129,4 +129,19 @@ describe('OfflineSalesDeviceSettingsStorage', () => {
       lastReservedLease: null,
     });
   });
+
+  it('reports whether any shop on this browser has offline billing enabled (the device then needs the pack)', () => {
+    expect(storage.anyShopEnabled()).toBe(false);
+
+    storage.updateSettings('shop-1', (current) => ({ ...current, label: 'Counter' }));
+    localStorage.setItem('unrelated', JSON.stringify({ enabled: true }));
+    localStorage.setItem('intelibill.offlineSales.deviceSettings.v1:shop-3:device-3', '{broken');
+    expect(storage.anyShopEnabled()).toBe(false);
+
+    storage.updateSettings('shop-2', (current) => ({ ...current, enabled: true }));
+    expect(storage.anyShopEnabled()).toBe(true);
+
+    storage.updateSettings('shop-2', (current) => ({ ...current, enabled: false }));
+    expect(storage.anyShopEnabled()).toBe(false);
+  });
 });

@@ -113,6 +113,25 @@ export class OfflineSalesDeviceSettingsStorage {
     return next;
   }
 
+  /** True when offline billing is enabled for any shop on this browser: the device then needs the pack. */
+  anyShopEnabled(): boolean {
+    if (typeof localStorage === 'undefined') {
+      return false;
+    }
+
+    try {
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (key?.startsWith(`${SETTINGS_KEY_PREFIX}:`) && safeJsonParse<{ enabled?: unknown }>(localStorage.getItem(key))?.enabled === true) {
+          return true;
+        }
+      }
+    } catch {
+      return false;
+    }
+    return false;
+  }
+
   private buildDeviceIdKey(shopId: string): string {
     return `${DEVICE_ID_KEY_PREFIX}:${shopId}`;
   }

@@ -18,3 +18,18 @@ export type OfflinePackFlag = 'on' | 'off';
 /** The manifest of the full pack and the one a device without offline billing installs. */
 export const FULL_MANIFEST_PATH = 'ngsw.json';
 export const LITE_MANIFEST_PATH = 'ngsw-lite.json';
+
+/**
+ * The hash Angular's worker files a manifest under: SHA-1 of `JSON.stringify(manifest)`, taking the
+ * low byte of each UTF-16 code unit (`ngsw-worker.js`, `hashManifest` / `sha1`). Manifests are ASCII,
+ * where that equals UTF-8.
+ */
+export async function angularManifestHash(manifest: unknown): Promise<string> {
+  const text = JSON.stringify(manifest);
+  const bytes = new Uint8Array(text.length);
+  for (let index = 0; index < text.length; index += 1) {
+    bytes[index] = text.charCodeAt(index) & 0xff;
+  }
+  const digest = await crypto.subtle.digest('SHA-1', bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}

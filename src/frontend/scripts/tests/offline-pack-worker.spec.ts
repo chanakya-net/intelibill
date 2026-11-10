@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   OFFLINE_PACK_STATE_CACHE,
   OFFLINE_PACK_STATE_KEY,
+  angularManifestHash,
 } from '../../src/app/core/service-worker/offline-pack-flag';
 
 /**
@@ -399,6 +400,7 @@ async function shippedWorker() {
   };
 
   return {
+    full,
     caches,
     requests,
     network,
@@ -491,5 +493,23 @@ describe('the shipped worker (wrapper + Angular) and the offline pack flag', () 
 
     expect(await worker.fetchFrom('tab-1', '/api/customers')).toBe('not handled');
     expect(worker.requests).not.toContain('/api/customers');
+  });
+
+  it("files the pack under the hash the page computes, so the page's verification looks in the right caches", async () => {
+    const worker = await shippedWorker();
+    worker.start();
+    await worker.fetchFrom('tab-1', '/main-ABC123.js');
+
+    const hash = await angularManifestHash(worker.full);
+
+    const names = [...worker.caches.stores.keys()].filter((name) => /:assets:[^:]+:cache$/.test(name));
+    expect(names.sort()).toEqual([
+      `ngsw:/:${hash}:assets:app:cache`,
+      `ngsw:/:${hash}:assets:assets:cache`,
+      `ngsw:/:${hash}:assets:offline:cache`,
+    ]);
+    // The control table names the same hash as the latest version.
+    const latest = await worker.caches.stores.get('ngsw:/:db:control')?.match(`${ORIGIN}/latest`);
+    expect(await latest?.json()).toEqual({ latest: hash });
   });
 });
