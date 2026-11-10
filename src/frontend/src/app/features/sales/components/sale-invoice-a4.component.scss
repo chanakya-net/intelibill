@@ -22,7 +22,7 @@
   overflow-wrap: anywhere;
 
   h1 {
-    font-family: Georgia, 'Times New Roman', serif;
+    font-family: var(--app-font-heading);
   }
 
   &__header {

@@ -36,7 +36,7 @@
 
 .empty-state {
   padding: 2rem 1rem;
-  color: #8b6e57;
+  color: var(--app-brown-500);
   text-align: center;
 }
 
@@ -50,13 +50,13 @@
   justify-content: center;
   gap: 0.5rem;
   padding: 0.65rem 0.8rem;
-  border-top: 1px solid #ead7c1;
+  border-top: 1px solid var(--app-sand-300);
   background: #fff5e7;
 }
 
 .page-info {
   margin: 0;
-  color: #8b6e57;
+  color: var(--app-brown-500);
   font-size: 0.82rem;
   font-weight: 700;
 }

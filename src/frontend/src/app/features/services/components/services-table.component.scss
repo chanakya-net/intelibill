@@ -32,7 +32,7 @@
   color: #271911;
 
   i {
-    color: #f97316; /* warm orange accent */
+    color: var(--app-orange-500); /* warm orange accent */
     font-size: 1.05rem;
   }
 }
@@ -41,10 +41,10 @@
   margin: 0;
   font-size: 0.75rem;
   font-weight: 500;
-  color: #64748b;
-  background: #f1f5f9;
+  color: var(--app-slate-500);
+  background: var(--app-slate-100);
   padding: 0.2rem 0.6rem;
-  border-radius: 999px;
+  border-radius: var(--app-radius-pill);
   white-space: nowrap;
 }
 
@@ -90,14 +90,14 @@
   }
 
   dt {
-    color: #78716c;
+    color: var(--app-stone-500);
     font-size: 0.72rem;
     font-weight: 600;
   }
 
   dd {
     margin: 0.15rem 0 0;
-    color: #292524;
+    color: var(--app-stone-800);
     font-size: 0.82rem;
     overflow-wrap: anywhere;
   }
@@ -105,7 +105,7 @@
 
 .code-cell {
   font-size: 0.8rem;
-  color: #92400e;
+  color: var(--app-amber-800);
   font-weight: 700;
 }
 
@@ -116,12 +116,12 @@
 
 .service-name {
   font-weight: 700;
-  color: #1c1917;
+  color: var(--app-stone-900);
   overflow-wrap: anywhere;
 }
 
 .service-description {
-  color: #78716c;
+  color: var(--app-stone-500);
   font-size: 0.85rem;
   overflow-wrap: anywhere;
 }
@@ -148,13 +148,13 @@
     margin: 0;
     font-size: 1.25rem;
     font-weight: 700;
-    color: #44403c;
+    color: var(--app-stone-700);
   }
 
   p {
     margin: 0.4rem 0 0;
     font-size: 0.9rem;
-    color: #78716c;
+    color: var(--app-stone-500);
   }
 }
 
@@ -175,8 +175,8 @@
       position: sticky;
       top: 0;
       z-index: 10;
-      background: #fafaf9 !important;
-      color: #57534e !important;
+      background: var(--app-stone-50) !important;
+      color: var(--app-stone-600) !important;
       font-weight: 600 !important;
       font-size: 0.85rem !important;
       border-bottom: 2px solid #f1f0ee !important;
@@ -185,11 +185,11 @@
 
     .p-datatable-tbody > tr {
       background-color: #ffffff;
-      color: #292524;
+      color: var(--app-stone-800);
       transition: background-color 0.2s ease;
 
       &:hover {
-        background-color: #fffbeb !important; /* warm highlight */
+        background-color: var(--app-amber-50) !important; /* warm highlight */
       }
 
       > td {

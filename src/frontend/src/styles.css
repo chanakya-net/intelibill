@@ -66,17 +66,88 @@
 @import 'tailwindcss';
 @import 'primeicons/primeicons.css';
 
+/*
+ * Design tokens. Component styles use these instead of literals; each value is the exact literal it
+ * replaced, so introducing a token never changes a pixel. Near-duplicates that are not tokens yet
+ * are listed in docs/superpowers/plans/2026-11-10-shared-styles-and-offline-pack-baseline.md.
+ * Defined on :root so body-mounted PrimeNG overlays and print pages see them too.
+ */
 :root {
   color-scheme: light;
+
+  /* Orange (Tailwind v3 hex values) */
   --app-orange-50: #fff7ed;
   --app-orange-100: #ffedd5;
   --app-orange-200: #fed7aa;
+  --app-orange-300: #fdba74;
   --app-orange-400: #fb923c;
   --app-orange-500: #f97316;
   --app-orange-600: #ea580c;
   --app-orange-700: #c2410c;
+  --app-orange-800: #9a3412;
   --app-orange-900: #7c2d12;
+  --app-orange-950: #431407;
   --app-button-primary-text: #fff7ed;
+
+  /* Warm brand neutrals: card surface, card border, body/heading browns, eyebrow bronze */
+  --app-sand-50: #fffaf4;
+  --app-sand-300: #ead7c1;
+  --app-brown-500: #8b6e57;
+  --app-brown-600: #7a6250;
+  --app-brown-700: #6f5a48;
+  --app-brown-900: #2a1b12;
+  --app-bronze-600: #9b5d20;
+
+  /* Stone, slate, red, amber (Tailwind v3 hex values, only the steps in use) */
+  --app-stone-50: #fafaf9;
+  --app-stone-200: #e7e5e4;
+  --app-stone-300: #d6d3d1;
+  --app-stone-500: #78716c;
+  --app-stone-600: #57534e;
+  --app-stone-700: #44403c;
+  --app-stone-800: #292524;
+  --app-stone-900: #1c1917;
+  --app-slate-50: #f8fafc;
+  --app-slate-100: #f1f5f9;
+  --app-slate-200: #e2e8f0;
+  --app-slate-300: #cbd5e1;
+  --app-slate-400: #94a3b8;
+  --app-slate-500: #64748b;
+  --app-slate-600: #475569;
+  --app-slate-700: #334155;
+  --app-slate-800: #1e293b;
+  --app-slate-900: #0f172a;
+  --app-red-50: #fef2f2;
+  --app-red-100: #fee2e2;
+  --app-red-200: #fecaca;
+  --app-red-500: #ef4444;
+  --app-red-600: #dc2626;
+  --app-red-700: #b91c1c;
+  --app-red-800: #991b1b;
+  --app-amber-50: #fffbeb;
+  --app-amber-100: #fef3c7;
+  --app-amber-200: #fde68a;
+  --app-amber-300: #fcd34d;
+  --app-amber-500: #f59e0b;
+  --app-amber-600: #d97706;
+  --app-amber-700: #b45309;
+  --app-amber-800: #92400e;
+  --app-amber-900: #78350f;
+
+  /* Radii */
+  --app-radius-md: 0.75rem;
+  --app-radius-lg: 1rem;
+  --app-radius-pill: 999px;
+
+  /* Shadows */
+  --app-shadow-card: 0 12px 32px rgba(87, 54, 20, 0.07);
+  --app-shadow-panel: 0 18px 42px rgba(87, 54, 20, 0.12);
+  --app-shadow-overlay: 0 24px 50px rgba(24, 24, 27, 0.2);
+
+  /* Type: families (font sizes are not tokens yet; see the baseline document) */
+  --app-font-body: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --app-font-display: 'Manrope', 'Segoe UI', sans-serif;
+  --app-font-heading: Georgia, 'Times New Roman', serif;
 }
 
 * {
@@ -87,7 +158,7 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  font-family: var(--app-font-body);
   background-color: #fffaf5;
   color: #0f172a;
 }
@@ -98,7 +169,7 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: 'Manrope', 'Segoe UI', sans-serif;
+  font-family: var(--app-font-display);
   letter-spacing: -0.02em;
   margin: 0;
 }

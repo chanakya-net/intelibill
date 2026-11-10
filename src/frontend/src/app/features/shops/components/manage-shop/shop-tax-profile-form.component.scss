@@ -3,7 +3,7 @@
 
 .tax-profile-card {
   border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: 1rem;
+  border-radius: var(--app-radius-lg);
   padding: 1rem 1.1rem;
   background: #ffffff;
 }
@@ -20,7 +20,7 @@
     font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #475569;
+    color: var(--app-slate-600);
     font-weight: 700;
   }
 }
@@ -28,9 +28,9 @@
 .owner-hint {
   margin: 0;
   border: 1px solid rgba(254, 215, 170, 0.8);
-  background: #fff7ed;
+  background: var(--app-orange-50);
   border-radius: 0.8rem;
-  color: #9a3412;
+  color: var(--app-orange-800);
   font-size: 0.86rem;
   padding: 0.6rem 0.75rem;
 }

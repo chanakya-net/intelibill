@@ -13,7 +13,7 @@
 
 h1,
 h2 {
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--app-font-heading);
 }
 
 .po-print-page {
@@ -57,8 +57,8 @@ h2 {
 }
 
 .print-state--error {
-  border-color: #b91c1c;
-  color: #b91c1c;
+  border-color: var(--app-red-700);
+  color: var(--app-red-700);
 }
 
 .po-document {

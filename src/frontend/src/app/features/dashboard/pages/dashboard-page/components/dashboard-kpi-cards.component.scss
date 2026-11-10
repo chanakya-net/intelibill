@@ -20,14 +20,14 @@
   min-height: 5.9rem;
   padding: 0.75rem 0.85rem;
   border: 1px solid #eadccf;
-  border-radius: 1rem;
+  border-radius: var(--app-radius-lg);
   background: linear-gradient(180deg, rgba(255, 251, 247, 0.96), rgba(255, 245, 235, 0.98));
   box-shadow: 0 8px 22px rgba(85, 49, 18, 0.07);
 }
 
 .kpi-label {
   margin: 0;
-  color: #7a6250;
+  color: var(--app-brown-600);
   text-transform: uppercase;
   letter-spacing: 0.14em;
   font-size: 0.66rem;
@@ -38,7 +38,7 @@
   margin: 0;
   max-width: 100%;
   color: #271911;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--app-font-heading);
   font-size: clamp(1.55rem, 1.8vw, 2.05rem);
   font-weight: 700;
   line-height: 1;
@@ -74,13 +74,13 @@
 }
 
 .kpi-change--negative {
-  color: #dc2626;
+  color: var(--app-red-600);
 }
 
 .kpi-context {
   min-width: 0;
   border: 1px solid #eadccf;
-  border-radius: 1rem;
+  border-radius: var(--app-radius-lg);
   background: #fff9f2;
   box-shadow: 0 8px 22px rgba(85, 49, 18, 0.06);
   overflow-wrap: anywhere;
@@ -110,7 +110,7 @@
 .kpi-context__value {
   margin: 0;
   color: #271911;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--app-font-heading);
   font-size: 1.4rem;
   font-weight: 700;
   line-height: 1.2;

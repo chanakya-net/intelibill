@@ -6,7 +6,9 @@
  * whitespace collapsed, `!important` kept) and the set is sorted, so order and formatting do not
  * hide a copy. A block counts when it has at least MIN_DECLARATIONS declarations and the same body
  * appears in at least MIN_FILES different component .scss files under src/app. The selector is not
- * part of the comparison: the same body under different class names is still a copy.
+ * part of the comparison: the same body under different class names is still a copy. Design tokens
+ * (`var(--app-…)` defined on `:root` in src/styles.css) are compared by their value, so replacing
+ * a literal with its token in some files neither hides nor creates a copy.
  *
  * The number of such distinct blocks may not exceed the ceiling in
  * audit-duplicate-styles.ceiling.json. Lower the ceiling whenever the count goes down, so it can
@@ -38,18 +40,33 @@ async function listComponentStyles(directory) {
   return found.sort();
 }
 
-export function normaliseDeclaration(declaration) {
-  const value = declaration.value.replace(/\s+/g, ' ').trim();
+/** `--name: value` pairs declared in the global stylesheet's `:root` rules. */
+export function readTokens(globalCss) {
+  const tokens = {};
+  scss.parse(globalCss).walkRules((rule) => {
+    if (rule.selector.trim() !== ':root') return;
+    rule.walkDecls((declaration) => {
+      if (declaration.prop.startsWith('--')) tokens[declaration.prop] = declaration.value.trim();
+    });
+  });
+  return tokens;
+}
+
+export function normaliseDeclaration(declaration, tokens = {}) {
+  const value = declaration.value
+    .replace(/var\(\s*(--[\w-]+)\s*\)/g, (reference, name) => tokens[name] ?? reference)
+    .replace(/\s+/g, ' ')
+    .trim();
   return `${declaration.prop.toLowerCase()}: ${value}${declaration.important ? ' !important' : ''}`;
 }
 
 /** Declaration bodies of every rule in one stylesheet, each sorted and joined. */
-export function blocksOf(source, from = 'inline.scss') {
+export function blocksOf(source, from = 'inline.scss', tokens = {}) {
   const blocks = [];
   scss.parse(source, { from }).walkRules((rule) => {
     const declarations = (rule.nodes ?? [])
       .filter((node) => node.type === 'decl')
-      .map(normaliseDeclaration);
+      .map((declaration) => normaliseDeclaration(declaration, tokens));
     if (declarations.length >= MIN_DECLARATIONS) {
       blocks.push({ selector: rule.selector, body: [...new Set(declarations)].sort().join('; ') });
     }
@@ -59,12 +76,13 @@ export function blocksOf(source, from = 'inline.scss') {
 
 /**
  * @param {Record<string, string>} files path -> source
+ * @param {Record<string, string>} tokens custom property -> value
  * @returns {{ count: number, blocks: { body: string, files: string[] }[] }}
  */
-export function findDuplicateBlocks(files) {
+export function findDuplicateBlocks(files, tokens = {}) {
   const filesByBody = new Map();
   for (const [path, source] of Object.entries(files)) {
-    for (const { body } of blocksOf(source, path)) {
+    for (const { body } of blocksOf(source, path, tokens)) {
       if (!filesByBody.has(body)) filesByBody.set(body, new Set());
       filesByBody.get(body).add(path);
     }
@@ -82,7 +100,9 @@ export async function auditDuplicateStyles({ root = join(scriptDirectory, '..'),
   for (const path of await listComponentStyles(appDirectory)) {
     files[relative(root, path).replaceAll('\\', '/')] = await readFile(path, 'utf8');
   }
-  const { count, blocks } = findDuplicateBlocks(files);
+  const globalSheet = join(root, 'src', 'styles.css');
+  const tokens = readTokens(await readFile(globalSheet, 'utf8').catch(() => ''));
+  const { count, blocks } = findDuplicateBlocks(files, tokens);
   const { ceiling } = JSON.parse(await readFile(ceilingFile, 'utf8'));
   return { count, ceiling, passed: count <= ceiling, files: Object.keys(files).length, blocks };
 }

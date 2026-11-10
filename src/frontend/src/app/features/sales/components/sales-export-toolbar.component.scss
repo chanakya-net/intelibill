@@ -16,11 +16,11 @@
 }
 
 .export-status {
-  color: #334155;
+  color: var(--app-slate-700);
 }
 
 .error {
-  color: #b91c1c;
+  color: var(--app-red-700);
 }
 
 :host-context(.inline-export) .sales-export-toolbar {

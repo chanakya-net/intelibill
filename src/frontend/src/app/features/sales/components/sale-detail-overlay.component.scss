@@ -80,7 +80,7 @@
 .sale-detail-title-wrap h2 {
   margin: 0;
   color: #241713;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--app-font-heading);
   font-size: clamp(2rem, 4vw, 2.85rem);
   font-weight: 800;
   line-height: 1;
@@ -91,7 +91,7 @@
   align-items: center;
   min-height: 1.85rem;
   padding: 0.38rem 0.9rem;
-  border-radius: 999px;
+  border-radius: var(--app-radius-pill);
   background: #f7dca9;
   color: #6d3f09;
   font-size: 0.72rem;
@@ -131,7 +131,7 @@
   margin-top: 1.25rem;
   padding: 0.65rem 1rem;
   border: 1px solid #ded4c7;
-  border-radius: 999px;
+  border-radius: var(--app-radius-pill);
   color: #76695f;
   font-family: 'Courier New', monospace;
   font-weight: 900;
@@ -292,8 +292,8 @@
   max-width: 100%;
   overflow-wrap: anywhere;
   white-space: normal;
-  background: #fffbeb;
-  color: #475569;
+  background: var(--app-amber-50);
+  color: var(--app-slate-600);
   border-radius: 0.5rem;
   font-size: 0.875rem;
 }

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 // @ts-expect-error The audit is intentionally a JavaScript CLI module.
-import { auditDuplicateStyles, blocksOf, CEILING_FILE, findDuplicateBlocks } from '../audit-duplicate-styles.mjs';
+import { auditDuplicateStyles, blocksOf, CEILING_FILE, findDuplicateBlocks, readTokens } from '../audit-duplicate-styles.mjs';
 
 const frontendRoot = join(import.meta.dir, '..', '..');
 const temporaryProjects: string[] = [];
@@ -66,6 +66,26 @@ describe('audit-duplicate-styles', () => {
     expect(findDuplicateBlocks(files(6, twoDeclarations)).count).toBe(0);
     // Repeats inside one file are one file.
     expect(findDuplicateBlocks({ 'a.scss': CARD.repeat(5) }).count).toBe(0);
+  });
+
+  it('compares design tokens by value, so tokenising some copies does not hide them', async () => {
+    const tokenised = CARD.replace('#ead7c1', 'var(--app-sand-300)').replace('1rem;\n  padding', 'var( --app-radius-lg );\n  padding');
+    const project = await fixtureProject(
+      {
+        'src/styles.css': ':root { --app-sand-300: #ead7c1; --app-radius-lg: 1rem; }\n.other { --app-unused: red; }',
+        'src/app/a.component.scss': CARD,
+        'src/app/b.component.scss': CARD,
+        'src/app/c.component.scss': tokenised,
+        'src/app/d.component.scss': tokenised,
+      },
+      1,
+    );
+
+    expect(readTokens(':root { --a: 1px; } .x { --b: 2px; }')).toEqual({ '--a': '1px' });
+    expect(blocksOf(tokenised, 'c.scss', { '--app-sand-300': '#ead7c1', '--app-radius-lg': '1rem' })[0].body).toBe(
+      blocksOf(CARD)[0].body,
+    );
+    expect((await auditDuplicateStyles(project)).count).toBe(1);
   });
 
   it('reads component stylesheets under src/app only, skipping partials', async () => {

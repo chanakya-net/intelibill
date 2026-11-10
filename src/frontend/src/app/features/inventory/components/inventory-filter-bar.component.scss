@@ -45,20 +45,20 @@
   .p-inputtext {
     width: 100%;
     border-radius: 8px !important; /* 8px or below under app control */
-    border-color: #e7e5e4;
+    border-color: var(--app-stone-200);
     padding-top: 0.5rem;
     padding-bottom: 0.5rem;
 
     &:focus {
-      border-color: #f97316 !important; /* warm orange */
-      box-shadow: 0 0 0 2px #ffedd5 !important;
+      border-color: var(--app-orange-500) !important; /* warm orange */
+      box-shadow: 0 0 0 2px var(--app-orange-100) !important;
     }
   }
 
   .p-select {
     width: 100%;
     border-radius: 8px !important;
-    border-color: #e7e5e4;
+    border-color: var(--app-stone-200);
     height: 38px;
     align-items: center;
 
@@ -67,8 +67,8 @@
     }
 
     &:focus-within {
-      border-color: #f97316 !important;
-      box-shadow: 0 0 0 2px #ffedd5 !important;
+      border-color: var(--app-orange-500) !important;
+      box-shadow: 0 0 0 2px var(--app-orange-100) !important;
     }
   }
 }

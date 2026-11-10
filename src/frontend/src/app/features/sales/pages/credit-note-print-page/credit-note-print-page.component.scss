@@ -29,7 +29,7 @@
 
 .screen-controls__button {
   border: 1px solid #3f2d22;
-  border-radius: 999px;
+  border-radius: var(--app-radius-pill);
   background: #3f2d22;
   color: #ffffff;
   cursor: pointer;
@@ -55,8 +55,8 @@
 }
 
 .print-state--error {
-  border-color: #b45309;
-  color: #b45309;
+  border-color: var(--app-amber-700);
+  color: var(--app-amber-700);
 }
 
 .credit-note {
@@ -92,7 +92,7 @@
 
 .credit-note__shop h1 {
   color: #24160f;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--app-font-heading);
   font-size: 24px;
   line-height: 1.1;
   margin-top: 4px;
@@ -114,18 +114,18 @@
 }
 
 .credit-note__status--expired {
-  border-color: #d97706;
+  border-color: var(--app-amber-600);
   background: linear-gradient(180deg, #fff8ed 0%, #ffedd5 100%);
 }
 
 .credit-note__status--voided {
-  border-color: #b91c1c;
+  border-color: var(--app-red-700);
   background: linear-gradient(180deg, #fff5f5 0%, #fee2e2 100%);
 }
 
 .credit-note__status-label {
   display: block;
-  color: #7c2d12;
+  color: var(--app-orange-900);
   font-size: 0.72rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -164,7 +164,7 @@
 .credit-note__panel h2,
 .credit-note__terms h2 {
   color: #24160f;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--app-font-heading);
   font-size: 18px;
   margin-bottom: 12px;
 }
@@ -228,7 +228,7 @@
 }
 
 .credit-note__marker {
-  border-radius: 999px;
+  border-radius: var(--app-radius-pill);
   font-size: 0.85rem;
   font-weight: 700;
   margin: 0;
@@ -236,13 +236,13 @@
 }
 
 .credit-note__marker--expired {
-  background: #ffedd5;
-  color: #9a3412;
+  background: var(--app-orange-100);
+  color: var(--app-orange-800);
 }
 
 .credit-note__marker--voided {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--app-red-100);
+  color: var(--app-red-800);
 }
 
 .credit-note__terms {

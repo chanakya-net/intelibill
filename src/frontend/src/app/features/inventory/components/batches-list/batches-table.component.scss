@@ -27,8 +27,8 @@
       position: sticky;
       top: 0;
       z-index: 10;
-      background: #fafaf9 !important;
-      color: #57534e !important;
+      background: var(--app-stone-50) !important;
+      color: var(--app-stone-600) !important;
       font-weight: 600 !important;
       font-size: 0.85rem !important;
       border-bottom: 2px solid #f1f0ee !important;
@@ -37,11 +37,11 @@
 
     .p-datatable-tbody > tr {
       background-color: #ffffff;
-      color: #292524;
+      color: var(--app-stone-800);
       transition: background-color 0.2s ease;
 
       &:hover {
-        background-color: #fffbeb !important; /* warm highlight */
+        background-color: var(--app-amber-50) !important; /* warm highlight */
       }
 
       > td {
@@ -113,7 +113,7 @@
 
 .batch-card-item-name {
   overflow-wrap: anywhere;
-  color: #1e293b;
+  color: var(--app-slate-800);
   font-size: 1rem;
   font-weight: 700;
   line-height: 1.2;
@@ -133,7 +133,7 @@
 
 .batch-card-meta span {
   flex: 0 0 auto;
-  color: #94a3b8;
+  color: var(--app-slate-400);
   font-size: 0.625rem;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -143,13 +143,13 @@
 .batch-card-meta strong {
   min-width: 0;
   overflow-wrap: anywhere;
-  color: #475569;
+  color: var(--app-slate-600);
   font-family: var(--font-family-monospace, monospace);
   font-size: 0.75rem;
 }
 
 .batch-card-price {
-  color: #1e293b;
+  color: var(--app-slate-800);
   font-size: 0.875rem;
   font-weight: 800;
   white-space: nowrap;
@@ -201,6 +201,6 @@
   min-width: 0;
   overflow-wrap: anywhere;
   font-size: 0.8rem;
-  color: #475569;
+  color: var(--app-slate-600);
 }
 .batch-card-expiry button { justify-self: start; text-align: left; }

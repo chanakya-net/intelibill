@@ -53,7 +53,7 @@
   height: 3rem;
   margin-bottom: 1rem;
   border: 1px solid #f5d5b6;
-  border-radius: 1rem;
+  border-radius: var(--app-radius-lg);
   background: #fff9f0;
   color: #a64110;
   font-size: 1.3rem;
@@ -109,7 +109,7 @@
       @include controls.text-input-focus;
     }
     &[aria-invalid='true'] {
-      border-color: #b91c1c;
+      border-color: var(--app-red-700);
     }
   }
 }
@@ -153,7 +153,7 @@ button {
     margin-top: 1rem;
     padding: 0.85rem 1rem;
     border: 1px solid #efdfce;
-    border-radius: 0.75rem;
+    border-radius: var(--app-radius-md);
     background: #fff8ef;
     color: #593c27;
     font-weight: 700;
@@ -173,7 +173,7 @@ button {
   margin-top: 1.25rem;
   padding: 0.85rem 1rem;
   border: 1px solid #f0caca;
-  border-radius: 0.75rem;
+  border-radius: var(--app-radius-md);
   background: #fff2f0;
 }
 
@@ -203,7 +203,7 @@ button {
 
   a:focus-visible,
   select:focus-visible {
-    outline: 2px solid #c2410c;
+    outline: 2px solid var(--app-orange-700);
     outline-offset: 3px;
     border-radius: 0.25rem;
   }
