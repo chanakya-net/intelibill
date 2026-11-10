@@ -30,11 +30,11 @@
     </div>
   </header>
 
-  <div class="summary-grid" [attr.aria-label]="'customers.summary.ariaLabel' | transloco">
+  <div class="summary-grid ib-summary-grid" [attr.aria-label]="'customers.summary.ariaLabel' | transloco">
     @for (card of summaryCards(); track card.labelKey) {
-      <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
-        <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
-        <div class="summary-card__value">
+      <article class="summary-card ib-summary-card" [ngClass]="'ib-summary-card--' + card.tone">
+        <div class="summary-card__label ib-summary-card__label">{{ card.labelKey | transloco }}</div>
+        <div class="summary-card__value ib-summary-card__value">
           @if (card.variant === 'money') {
             {{ card.value | localeMoney }}
           } @else {
