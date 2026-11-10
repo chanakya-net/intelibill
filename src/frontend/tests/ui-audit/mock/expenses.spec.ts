@@ -358,8 +358,8 @@ test.describe('expenses', () => {
       await correct.locator('input[formcontrolname="paidTo"]').fill('Corrected recipient');
       await correct.locator('button[type="submit"]').click();
       await expect(correct).toBeVisible();
-      await expect(correct.locator('.error-message')).toHaveText(expectedError);
-      await correct.locator('.close-button').click();
+      await expect(correct.locator('.ib-overlay__error')).toHaveText(expectedError);
+      await correct.locator('.ib-overlay__close').click();
     }
   });
 
@@ -455,11 +455,11 @@ test.describe('expenses', () => {
       await correct.getByRole('button', { name: 'Correct Expense' }).click();
       await page.waitForLoadState('networkidle');
       await expect(correct).toBeVisible();
-      await expect(correct.locator('.error-message')).toHaveText(
+      await expect(correct.locator('.ib-overlay__error')).toHaveText(
         'Unable to save expense. Please try again.',
       );
       expect(postCallCount).toBe(1);
-      await correct.locator('.close-button').click();
+      await correct.locator('.ib-overlay__close').click();
 
       await page.getByRole('button', { name: 'Record Expense' }).click();
       const record = page.locator('app-record-expense-overlay .overlay');

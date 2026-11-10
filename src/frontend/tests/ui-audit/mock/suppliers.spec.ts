@@ -123,7 +123,7 @@ test.describe('suppliers', () => {
     try {
       await openSuppliers(page);
       await page.getByRole('button', { name: /add supplier/i }).click();
-      const addOverlay = page.locator('app-add-supplier-overlay .overlay');
+      const addOverlay = page.locator('app-add-supplier-overlay .ib-overlay');
       await expect(addOverlay).toBeVisible();
       await addOverlay.getByRole('button', { name: /add supplier/i }).click();
       await expect(addOverlay.locator('input[formcontrolname="name"]')).toHaveClass(/ng-invalid/);
@@ -153,7 +153,7 @@ test.describe('suppliers', () => {
 
       const supplierRow = visibleSupplierRows(page).filter({ hasText: 'Audit Supplier One' });
       await supplierRow.getByRole('button', { name: /edit supplier/i }).click();
-      const editOverlay = page.locator('app-edit-supplier-overlay .overlay');
+      const editOverlay = page.locator('app-edit-supplier-overlay .ib-overlay');
       await expect(editOverlay).toBeVisible();
       await expect(editOverlay.locator('input[formcontrolname="name"]')).toHaveValue('Audit Supplier One');
       await editOverlay.locator('input[formcontrolname="name"]').fill('Updated Audit Supplier');
@@ -296,9 +296,9 @@ test.describe('suppliers', () => {
         await assertNoHorizontalOverflow(page);
 
         await page.getByRole('button', { name: /add supplier/i }).click();
-        const addOverlay = page.locator('app-add-supplier-overlay .overlay');
+        const addOverlay = page.locator('app-add-supplier-overlay .ib-overlay');
         await expect(addOverlay).toBeVisible();
-        await assertWithinViewport(page, addOverlay.locator('.overlay-card'));
+        await assertWithinViewport(page, addOverlay.locator('.ib-overlay__card'));
         await addOverlay.getByRole('button', { name: 'Close', exact: true }).click();
 
         const detail = await openSupplierDetail(page, LONG_SUPPLIER.name);
@@ -308,7 +308,7 @@ test.describe('suppliers', () => {
         await expect(detail).toBeHidden();
 
         const paymentOverlay = await openMakePaymentOverlay(page, LONG_SUPPLIER.name);
-        await assertWithinViewport(page, paymentOverlay.locator('.overlay-card'));
+        await assertWithinViewport(page, paymentOverlay.locator('.ib-overlay__card'));
         await assertNoHorizontalOverflow(page);
         await paymentOverlay.getByRole('button', { name: 'Close', exact: true }).click();
         await expect(paymentOverlay).toBeHidden();
@@ -376,7 +376,7 @@ async function openSupplierDetail(page: Page, supplierName = 'Audit Supplier One
 async function openMakePaymentOverlay(page: Page, supplierName = 'Audit Supplier One'): Promise<Locator> {
   const supplierRow = visibleSupplierRows(page).filter({ hasText: supplierName });
   await supplierRow.getByRole('button', { name: 'Make Payment' }).click();
-  const overlay = page.locator('app-make-payment-overlay .overlay');
+  const overlay = page.locator('app-make-payment-overlay .ib-overlay');
   await expect(overlay).toBeVisible();
   return overlay;
 }

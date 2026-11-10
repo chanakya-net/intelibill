@@ -1,21 +1,21 @@
 <section
-  class="overlay"
+  class="ib-overlay"
   aria-modal="true"
   role="dialog"
   [attr.aria-label]="'suppliers.supplierForm' | transloco"
 >
-  <div class="overlay-backdrop" (click)="onClose()"></div>
+  <div class="ib-overlay__backdrop" (click)="onClose()"></div>
 
-  <div class="overlay-card">
-    <header class="overlay-header">
+  <div class="ib-overlay__card">
+    <header class="ib-overlay__header">
       <div>
-        <p class="eyebrow">{{ 'suppliers.title' | transloco }}</p>
-        <h2>{{ 'suppliers.editSupplier' | transloco }}</h2>
-        <p class="description">{{ 'suppliers.editSupplierDescription' | transloco }}</p>
+        <p class="ib-overlay__eyebrow">{{ 'suppliers.title' | transloco }}</p>
+        <h2 class="ib-overlay__title">{{ 'suppliers.editSupplier' | transloco }}</h2>
+        <p class="ib-overlay__description">{{ 'suppliers.editSupplierDescription' | transloco }}</p>
       </div>
       <button
         type="button"
-        class="close-button"
+        class="ib-overlay__close"
         [attr.aria-label]="'common.close' | transloco"
         (click)="onClose()"
       >
@@ -23,7 +23,7 @@
       </button>
     </header>
 
-    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <form class="ib-overlay__form" [formGroup]="form" (ngSubmit)="onSubmit()">
       <label>
         <span>{{ 'suppliers.name' | transloco }}</span>
         <input pInputText type="text" formControlName="name" />
@@ -74,10 +74,10 @@
       </label>
 
       @if (serverError()) {
-        <p class="error-message">{{ serverError() | transloco }}</p>
+        <p class="ib-overlay__error">{{ serverError() | transloco }}</p>
       }
 
-      <div class="actions">
+      <div class="ib-overlay__actions">
         <button
           pButton
           type="button"
@@ -96,7 +96,7 @@
     </form>
 
     @if (isSubmitting()) {
-      <div class="submit-overlay">
+      <div class="ib-overlay__busy">
         <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
       </div>
     }

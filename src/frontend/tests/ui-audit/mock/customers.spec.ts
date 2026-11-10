@@ -134,7 +134,7 @@ test.describe('customers', () => {
 
       const customerRow = visibleCustomerRows(page).filter({ hasText: 'John Doe' });
       await customerRow.getByRole('button', { name: /edit customer/i }).click();
-      const editOverlay = page.locator('app-edit-customer-overlay .overlay');
+      const editOverlay = page.locator('app-edit-customer-overlay .ib-overlay');
       await expect(editOverlay).toBeVisible();
       await expect(editOverlay.locator('input[formcontrolname="name"]')).toHaveValue('John Doe');
       await editOverlay.locator('input[formcontrolname="name"]').fill('Updated Audit Customer');

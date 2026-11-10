@@ -1,21 +1,21 @@
 <section
-  class="overlay"
+  class="ib-overlay"
   aria-modal="true"
   role="dialog"
   [attr.aria-label]="'customers.customerForm' | transloco"
 >
-  <div class="overlay-backdrop" (click)="onClose()"></div>
+  <div class="ib-overlay__backdrop" (click)="onClose()"></div>
 
-  <div class="overlay-card">
-    <header class="overlay-header">
+  <div class="ib-overlay__card">
+    <header class="ib-overlay__header">
       <div>
-        <p class="eyebrow">{{ 'customers.title' | transloco }}</p>
-        <h2>{{ 'customers.editCustomer' | transloco }}</h2>
-        <p class="description">{{ 'customers.editCustomerDescription' | transloco }}</p>
+        <p class="ib-overlay__eyebrow">{{ 'customers.title' | transloco }}</p>
+        <h2 class="ib-overlay__title">{{ 'customers.editCustomer' | transloco }}</h2>
+        <p class="ib-overlay__description">{{ 'customers.editCustomerDescription' | transloco }}</p>
       </div>
       <button
         type="button"
-        class="close-button"
+        class="ib-overlay__close"
         [attr.aria-label]="'common.close' | transloco"
         (click)="onClose()"
       >
@@ -23,7 +23,7 @@
       </button>
     </header>
 
-    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <form class="ib-overlay__form" [formGroup]="form" (ngSubmit)="onSubmit()">
       <label>
         <span>{{ 'customers.name' | transloco }}</span>
         <input
@@ -205,10 +205,10 @@
       </label>
 
       @if (serverError()) {
-        <p class="error-message">{{ serverError() | transloco: localizedError()?.params ?? {} }}</p>
+        <p class="ib-overlay__error">{{ serverError() | transloco: localizedError()?.params ?? {} }}</p>
       }
 
-      <div class="actions">
+      <div class="ib-overlay__actions">
         <button
           pButton
           type="button"
@@ -235,7 +235,7 @@
     </form>
 
     @if (isSubmitting()) {
-      <div class="submit-overlay">
+      <div class="ib-overlay__busy">
         <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
       </div>
     }

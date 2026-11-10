@@ -18,7 +18,7 @@ import { ChangeDetectionStrategy, Component, ViewEncapsulation } from '@angular/
   selector: 'app-ui-kit-styles',
   standalone: true,
   template: '',
-  styleUrls: ['./ui-kit-layer-order.css'],
+  styleUrls: ['./ui-kit-layer-order.css', './ib-overlay.css'],
   encapsulation: ViewEncapsulation.None,
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { hidden: '', 'aria-hidden': 'true' },
