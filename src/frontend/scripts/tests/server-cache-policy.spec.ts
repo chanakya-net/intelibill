@@ -7,6 +7,7 @@ describe('cacheControlFor', () => {
     'index.html',
     'index.csr.html',
     'ngsw.json',
+    'ngsw-lite.json',
     'ngsw-worker.js',
     'ngsw-angular-worker.js',
     'safety-worker.js',

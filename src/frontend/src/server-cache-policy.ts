@@ -8,6 +8,8 @@ const REVALIDATED_ROOT_FILES: ReadonlySet<string> = new Set([
   'index.html',
   'index.csr.html',
   'ngsw.json',
+  // The manifest the worker reads instead of ngsw.json on a device without offline billing.
+  'ngsw-lite.json',
   'ngsw-worker.js',
   'ngsw-angular-worker.js',
   'safety-worker.js',
