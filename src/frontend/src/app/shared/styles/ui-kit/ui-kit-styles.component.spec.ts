@@ -6,7 +6,7 @@ import { UiKitStylesComponent } from './ui-kit-styles.component';
 
 function kitStyleElements(): HTMLStyleElement[] {
   return Array.from(document.head.querySelectorAll('style')).filter((style) =>
-    style.textContent?.includes('@layer primeng, ib-kit'),
+    style.textContent?.includes('@layer primeng, ib-base, ib-kit'),
   );
 }
 

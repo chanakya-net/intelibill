@@ -5,8 +5,9 @@ import { createShellScenario, installShellFixture } from '../fixtures/shell.fixt
 
 /**
  * The shared UI kit (`UiKitStylesComponent`) is delivered with the shell, never with the login
- * page, and sits in `@layer ib-kit` after PrimeNG's `primeng` layer and Tailwind's layers:
- * PrimeNG < Tailwind utilities < kit < unlayered component styles. See docs/superpowers/plans/2026-11-10-shared-styles-and-offline-pack.md § 3.1.
+ * page, and sits in `@layer ib-kit` after PrimeNG's `primeng` layer, Tailwind's layers and the
+ * global element resets (`ib-base`, from styles.css):
+ * PrimeNG < Tailwind utilities < element resets < kit < unlayered component styles. See docs/superpowers/plans/2026-11-10-shared-styles-and-offline-pack.md § 3.1.
  */
 
 /** Cascade layer names in the order the document establishes them (first appearance wins). */
@@ -43,7 +44,10 @@ test.describe('ui kit cascade', () => {
     await page.goto('/login');
     await waitForStablePage(page);
 
-    expect(await layerOrder(page)).not.toContain('ib-kit');
+    const order = await layerOrder(page);
+    expect(order).not.toContain('ib-kit');
+    // The element resets are layered on every page, still after Tailwind's utilities.
+    expect(order.indexOf('ib-base')).toBeGreaterThan(order.indexOf('utilities'));
     await expect(page.locator('app-ui-kit-styles')).toHaveCount(0);
   });
 
@@ -58,6 +62,9 @@ test.describe('ui kit cascade', () => {
     expect(order.indexOf('ib-kit')).toBeGreaterThan(order.indexOf('primeng'));
     // Kit rules replace unlayered component rules, which beat Tailwind utilities today.
     expect(order.indexOf('ib-kit')).toBeGreaterThan(order.indexOf('utilities'));
+    // Global heading and paragraph resets keep beating utilities, and lose to kit rules.
+    expect(order.indexOf('ib-base')).toBeGreaterThan(order.indexOf('utilities'));
+    expect(order.indexOf('ib-kit')).toBeGreaterThan(order.indexOf('ib-base'));
 
     const probe = async () =>
       page.evaluate(() => {
@@ -66,13 +73,14 @@ test.describe('ui kit cascade', () => {
         root.id = 'ib-cascade-root';
         root.innerHTML =
           '<button class="p-button ib-cascade-probe">kit</button>' +
-          '<span class="ib-cascade-probe ib-cascade-own">component</span>';
+          '<span class="ib-cascade-probe ib-cascade-own">component</span>' +
+          '<h2 class="ib-cascade-probe ib-cascade-heading">heading</h2>';
         document.body.append(root);
         // Appended the way Angular adds component styles. The PrimeNG rule is the most specific,
         // the component rule the least: only the layer order can decide these.
         for (const css of [
           '@layer primeng { html body #ib-cascade-root .ib-cascade-probe.p-button, html body #ib-cascade-root .ib-cascade-probe { color: rgb(10, 10, 10); background-color: rgb(11, 11, 11); } }',
-          '@layer ib-kit { #ib-cascade-root .ib-cascade-probe { color: rgb(1, 2, 3); background-color: rgb(4, 5, 6); } }',
+          '@layer ib-kit { #ib-cascade-root .ib-cascade-probe { color: rgb(1, 2, 3); background-color: rgb(4, 5, 6); margin-top: 7px; } }',
           '.ib-cascade-own { color: rgb(7, 8, 9); }',
         ]) {
           const style = document.createElement('style');
@@ -84,7 +92,12 @@ test.describe('ui kit cascade', () => {
           const computed = getComputedStyle(root.querySelector(selector)!);
           return { color: computed.color, background: computed.backgroundColor };
         };
-        const result = { kit: read('.p-button'), own: read('.ib-cascade-own') };
+        const result = {
+          kit: read('.p-button'),
+          own: read('.ib-cascade-own'),
+          // styles.css sets `margin: 0` on h2 in `ib-base`; the kit's margin must win.
+          headingMarginTop: getComputedStyle(root.querySelector('.ib-cascade-heading')!).marginTop,
+        };
         root.remove();
         document.querySelectorAll('style[data-cascade-probe]').forEach((style) => style.remove());
         return result;
@@ -93,6 +106,7 @@ test.describe('ui kit cascade', () => {
     expect(await probe()).toEqual({
       kit: { color: 'rgb(1, 2, 3)', background: 'rgb(4, 5, 6)' },
       own: { color: 'rgb(7, 8, 9)', background: 'rgb(4, 5, 6)' },
+      headingMarginTop: '7px',
     });
 
     // The kit stays while routes change inside the shell.
