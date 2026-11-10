@@ -195,6 +195,19 @@ describe('protected-api-worker.js offline pack switch', () => {
     ]);
   });
 
+  it.each([500, 502, 503, 504])(
+    'hands Angular a %i for the lite manifest as it is, never the full pack the device turned off',
+    async (status) => {
+      const worker = load({ lite: new Response('failed', { status }) });
+      await worker.caches!.writeFlag('off');
+
+      const response = await worker.fetch(manifestRequest());
+
+      expect(response.status).toBe(status);
+      expect(worker.calls.map((call) => new URL(String(call.args[0])).pathname)).toEqual(['/ngsw-lite.json']);
+    },
+  );
+
   it.each([
     `${ORIGIN}/main-ABC123.js`,
     `${ORIGIN}/assets/i18n/en-IN.json`,
@@ -304,7 +317,7 @@ async function shippedWorker() {
   const requests: string[] = [];
   const messages = new Map<string, Record<string, unknown>[]>();
   const openTabs = new Set<string>();
-  const network = { online: true };
+  const network = { online: true, liteStatus: 200 };
 
   class Client {
     constructor(
@@ -329,7 +342,9 @@ async function shippedWorker() {
     requests.push(url.pathname);
     if (!network.online) throw new TypeError('Failed to fetch');
     if (url.pathname === '/ngsw.json') return Response.json(full);
-    if (url.pathname === '/ngsw-lite.json') return Response.json(lite);
+    if (url.pathname === '/ngsw-lite.json') {
+      return network.liteStatus === 200 ? Response.json(lite) : new Response('failed', { status: network.liteStatus });
+    }
     const body = BUILT_FILES[url.pathname];
     return body === undefined ? new Response('missing', { status: 404 }) : new Response(body);
   };
@@ -483,6 +498,21 @@ describe('the shipped worker (wrapper + Angular) and the offline pack flag', () 
 
     expect(worker.caches.assetPaths()).toEqual([]);
     expect(await worker.caches.has(OFFLINE_PACK_STATE_CACHE)).toBe(true);
+  });
+
+  it('keeps the lite version when the lite manifest answers 503: the check is aborted, nothing is downloaded', async () => {
+    const worker = await shippedWorker();
+    await worker.caches.writeFlag('off');
+    worker.start();
+    await worker.fetchFrom('tab-1', '/main-ABC123.js');
+
+    worker.network.liteStatus = 503;
+    worker.requests.length = 0;
+    expect(await worker.send('tab-1', 'CHECK_FOR_UPDATES')).toBe(false);
+
+    expect(worker.requests).toEqual(['/ngsw-lite.json']);
+    expect(worker.caches.assetPaths()).toEqual([]);
+    expect(await worker.fetchFrom('tab-2', '/ngsw/state')).toContain('Driver state: NORMAL');
   });
 
   it('still hands protected requests to the network untouched', async () => {

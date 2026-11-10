@@ -319,8 +319,10 @@ immutable for a year).
   (`service-worker/protected-api-worker.js`) wraps `self.fetch`: a same-origin `GET` of `ngsw.json` is answered
   with `ngsw-lite.json` (same cache-bust query) only when the flag is exactly `off`. A missing or unreadable flag
   means full, so a device that had the pack before this existed keeps it even if the worker updates before a page
-  writes the flag; a lite answer that is not OK falls back to the full manifest (a 404 would make Angular wipe its
-  caches). Every other request passes through with its own arguments; `/api` and `/hubs` never reach Angular
+  writes the flag; a lite answer of 404 (a server without `ngsw-lite.json`, mixed rollout) falls back to the full
+  manifest (a 404 would make Angular wipe its caches). Any other failed lite answer goes to Angular as it is: a
+  503/504 aborts the check as offline and keeps the installed version, other errors fail the check, and a device
+  that chose lite never downloads the pack over a server error. Every other request passes through with its own arguments; `/api` and `/hubs` never reach Angular
   (§ Protected API Cache Isolation). `scripts/tests/offline-pack-worker.spec.ts` runs the wrapper with Angular's
   real worker behind it; `angular-worker-manifest.spec.ts` pins how Angular fetches the manifest.
 - **Flag reconciliation.** `OfflinePackUpdateService.start()` (app initializer, imported on demand, never awaited)

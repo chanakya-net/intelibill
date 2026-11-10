@@ -183,7 +183,9 @@
         return networkFetch.call(self, lite.href).then(function (response) {
           // A 404 would make Angular delete every cache and unregister. A server without the lite
           // manifest (a mixed rollout) gets the full one instead: the behaviour before this existed.
-          return response.ok ? response : networkFetch.apply(self, args);
+          // Any other failure goes to Angular as it is: a 503/504 aborts the check as "offline" and
+          // keeps what it has, and a device that chose lite never downloads the pack over an error.
+          return response.status === 404 ? networkFetch.apply(self, args) : response;
         });
       });
     };
