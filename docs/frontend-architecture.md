@@ -372,7 +372,12 @@ immutable for a year).
   cannot be saved), then `activateUpdate()` and a reload. Never reloads on its own; the next app start uses the new
   version anyway. `SwUpdate.unrecoverable` shows "reload while online". On an enabled device the same cycle
   re-verifies the pack (`refreshStatus`; `incomplete` shows as an amber shell toggle and "Enabled — offline files
-  incomplete" in Manage shop) and refreshes the active shop's snapshot once older than `SNAPSHOT_REFRESH_AGE_MS`
+  incomplete" in Manage shop). The page fetches the deployed manifest apart from the worker's check, so when that
+  build's files are missing, `refreshStatus` judges the version the worker serves instead: its latest version from
+  Angular's control table (`ngsw:<scope>:db:control`, `/latest` + `/manifests`; pinned by
+  `offline-pack-worker.spec.ts`). If that is a full manifest, every prefetched file is cached and the worker is not
+  degraded, the status stays `ready` with that build and the new one is pending for a later check; otherwise
+  `incomplete`. The cycle also refreshes the active shop's snapshot once older than `SNAPSHOT_REFRESH_AGE_MS`
   (6 h; offline billing refuses one older than 48 h). A refresh that fails (throws or yields no newer complete
   snapshot) waits `SNAPSHOT_RETRY_BASE_MS` (5 min), doubling per failure in a row up to `SNAPSHOT_RETRY_MAX_MS`
   (2 h), per shop; a success clears it. Invoice leases are not touched.

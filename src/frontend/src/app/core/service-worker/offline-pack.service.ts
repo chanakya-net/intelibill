@@ -251,6 +251,12 @@ export class OfflinePackService {
    * Re-verifies the pack against the deployed manifest and records the outcome. Does nothing when
    * the device does not need the pack, and leaves the last state when the manifest cannot be
    * fetched (offline: nothing new to compare against).
+   *
+   * The deployed manifest is fetched apart from the worker's own check, so a deploy in between finds
+   * the new build's files missing although the worker still serves its previous, complete version
+   * offline. Missing files of a build the worker has not taken up yet are therefore judged by the
+   * version the worker serves (its latest full version): complete there means ready, and the new
+   * build is pending, installed by a later check.
    */
   async refreshStatus(): Promise<OfflinePackStatus | null> {
     if (!this.isAvailable() || this.deviceNeedsPack() !== true) {
@@ -264,6 +270,11 @@ export class OfflinePackService {
 
     if (verification.complete) {
       return this.recordVerified(verification.manifest, this.statusSignal()?.persisted ?? null);
+    }
+
+    const served = await this.servedManifest();
+    if (served && served.hash !== verification.manifest.hash && (await this.verify(served))?.complete) {
+      return this.recordVerified(served, this.statusSignal()?.persisted ?? null);
     }
     return this.markIncomplete(verification.manifest);
   }
@@ -398,12 +409,43 @@ export class OfflinePackService {
       return null;
     }
 
-    const groups = (manifest.assetGroups ?? [])
-      .filter((group) => group.installMode === 'prefetch' && typeof group.name === 'string' && Array.isArray(group.urls))
-      .map((group) => ({ name: group.name as string, urls: (group.urls as unknown[]).filter((url): url is string => typeof url === 'string') }));
-    const buildId = typeof manifest.appData?.buildId === 'string' ? manifest.appData.buildId : null;
+    return toFullManifest(manifest, await angularManifestHash(manifest));
+  }
 
-    return { hash: await angularManifestHash(manifest), buildId, groups };
+  /**
+   * The full version Angular's worker currently serves new tabs from: its latest version, read from
+   * the control table it keeps in Cache Storage (`ngsw:<scope>:db:control`, entries `/latest` and
+   * `/manifests`). Null when there is none, it cannot be read, or it is the lite manifest.
+   */
+  private async servedManifest(): Promise<FullManifest | null> {
+    const storage = this.environment.caches;
+    if (!storage) {
+      return null;
+    }
+
+    try {
+      const name = `ngsw:${await this.scopePath()}:db:control`;
+      // `has` first: opening would create an empty cache under Angular's prefix.
+      if (!(await storage.has(name))) {
+        return null;
+      }
+      const control = await storage.open(name);
+      const origin = new URL(this.environment.baseUrl()).origin;
+      const latest = (await (await control.match(`${origin}/latest`))?.json()) as { latest?: unknown } | undefined;
+      const manifests = (await (await control.match(`${origin}/manifests`))?.json()) as
+        | Record<string, ManifestJson | undefined>
+        | undefined;
+      const hash = typeof latest?.latest === 'string' ? latest.latest : null;
+      const manifest = hash ? manifests?.[hash] : undefined;
+      if (!hash || !manifest || (manifest.appData as { offlinePack?: unknown } | undefined)?.offlinePack === 'lite') {
+        return null;
+      }
+
+      const served = toFullManifest(manifest, hash);
+      return served.groups.length > 0 ? served : null;
+    } catch {
+      return null;
+    }
   }
 
   private recordVerified(manifest: FullManifest, persisted: boolean | null): OfflinePackStatus {
@@ -530,6 +572,14 @@ export class OfflinePackService {
       );
     });
   }
+}
+
+function toFullManifest(manifest: ManifestJson, hash: string): FullManifest {
+  const groups = (manifest.assetGroups ?? [])
+    .filter((group) => group.installMode === 'prefetch' && typeof group.name === 'string' && Array.isArray(group.urls))
+    .map((group) => ({ name: group.name as string, urls: (group.urls as unknown[]).filter((url): url is string => typeof url === 'string') }));
+  const buildId = typeof manifest.appData?.buildId === 'string' ? manifest.appData.buildId : null;
+  return { hash, buildId, groups };
 }
 
 /** Angular's worker after a failed install: it serves tabs it has not seen from the network. */

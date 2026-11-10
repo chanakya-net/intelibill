@@ -541,5 +541,9 @@ describe('the shipped worker (wrapper + Angular) and the offline pack flag', () 
     // The control table names the same hash as the latest version.
     const latest = await worker.caches.stores.get('ngsw:/:db:control')?.match(`${ORIGIN}/latest`);
     expect(await latest?.json()).toEqual({ latest: hash });
+    // ... and holds that version's manifest, which the page reads to judge the version the worker
+    // serves (`OfflinePackService.servedManifest`).
+    const stored = await worker.caches.stores.get('ngsw:/:db:control')?.match(`${ORIGIN}/manifests`);
+    expect(((await stored?.json()) as Record<string, unknown>)[hash]).toEqual(worker.full);
   });
 });

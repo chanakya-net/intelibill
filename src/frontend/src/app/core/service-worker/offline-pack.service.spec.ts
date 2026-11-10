@@ -42,6 +42,11 @@ class FakeCache {
   async keys(): Promise<{ url: string }[]> {
     return [...this.entries.keys()].map((url) => ({ url }));
   }
+
+  async match(url: string): Promise<Response | undefined> {
+    const body = this.entries.get(url);
+    return body === undefined ? undefined : new Response(body);
+  }
 }
 
 class FakeCacheStorage {
@@ -69,6 +74,14 @@ class FakeCacheStorage {
     const cache = new FakeCache();
     for (const path of paths) cache.entries.set(`${ORIGIN}${path}`, 'body');
     this.stores.set(`ngsw:/:${hash}:assets:${group}:cache`, cache);
+  }
+
+  /** Angular's control table: the version the worker serves and the manifests it holds. */
+  control(latest: string, manifests: Record<string, unknown>): void {
+    const cache = new FakeCache();
+    cache.entries.set(`${ORIGIN}/latest`, JSON.stringify({ latest }));
+    cache.entries.set(`${ORIGIN}/manifests`, JSON.stringify(manifests));
+    this.stores.set('ngsw:/:db:control', cache);
   }
 }
 
@@ -410,6 +423,43 @@ describe('OfflinePackService', () => {
     harness.manifestOk = false;
     expect((await harness.service.refreshStatus())?.state).toBe('incomplete');
     expect(harness.settings.savePackStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a pack ready when a deploy landed after the worker check: the served complete version still works', async () => {
+    const harness = setup();
+    harness.settings.anyShopEnabled.mockReturnValue(true);
+    const previous = { ...MANIFEST, appData: { buildId: 'build-0', offlinePack: 'full' } };
+    const previousHash = await angularManifestHash(previous);
+    harness.caches.fill(previousHash, 'app', ['/index.html', '/main-ABC.js']);
+    harness.caches.fill(previousHash, 'offline', ['/assets/i18n/en-IN.json']);
+    harness.caches.control(previousHash, { [previousHash]: previous });
+
+    // The deployed manifest (build-1) is not in the caches yet.
+    const status = await harness.service.refreshStatus();
+
+    expect(status?.state).toBe('ready');
+    expect(status?.buildId).toBe('build-0');
+    expect(status?.manifestHash).toBe(previousHash);
+  });
+
+  it('still reports incomplete when the version the worker serves is not whole, lite, or degraded', async () => {
+    const harness = setup();
+    harness.settings.anyShopEnabled.mockReturnValue(true);
+    const previous = { ...MANIFEST, appData: { buildId: 'build-0', offlinePack: 'full' } };
+    const previousHash = await angularManifestHash(previous);
+    harness.caches.fill(previousHash, 'app', ['/index.html']);
+    harness.caches.control(previousHash, { [previousHash]: previous });
+    expect((await harness.service.refreshStatus())?.state).toBe('incomplete');
+
+    harness.caches.fill(previousHash, 'app', ['/index.html', '/main-ABC.js']);
+    harness.caches.fill(previousHash, 'offline', ['/assets/i18n/en-IN.json']);
+    harness.driverState = 'EXISTING_CLIENTS_ONLY';
+    expect((await harness.service.refreshStatus())?.state).toBe('incomplete');
+
+    harness.driverState = 'NORMAL';
+    const lite = { ...previous, appData: { buildId: 'build-0', offlinePack: 'lite' }, assetGroups: [] };
+    harness.caches.control('lite-hash', { 'lite-hash': lite });
+    expect((await harness.service.refreshStatus())?.state).toBe('incomplete');
   });
 
   it('keeps lastUpdatedAt until a different build is verified', async () => {
