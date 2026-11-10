@@ -1,11 +1,11 @@
-<section class="login-shell min-h-screen p-0">
-  <div class="auth-stage w-full min-h-screen">
+<section class="login-shell ib-auth-shell min-h-screen p-0">
+  <div class="auth-stage ib-auth-stage w-full min-h-screen">
     <article
-      class="auth-card mx-auto w-full max-w-[26rem] rounded-[1.7rem] shadow-2xl shadow-orange-950/20"
+      class="auth-card ib-auth-card mx-auto w-full max-w-[26rem] rounded-[1.7rem] shadow-2xl shadow-orange-950/20"
     >
-      <header class="auth-header">
+      <header class="auth-header ib-auth-header">
         @if (!emailChange()) {
-          <p class="auth-kicker">{{ 'register.newHere' | transloco }}</p>
+          <p class="auth-kicker ib-auth-kicker">{{ 'register.newHere' | transloco }}</p>
         }
         <h2>
           {{
@@ -23,7 +23,7 @@
       </header>
       <div class="space-y-4 p-6">
         @if (error()) {
-          <p role="alert" class="field-error">{{ error() | transloco }}</p>
+          <p role="alert" class="field-error ib-auth-field-error">{{ error() | transloco }}</p>
         }
         @if (valid()) {
           @if (emailChange()) {
@@ -35,7 +35,7 @@
                 [disabled]="busy()"
                 [loading]="busy()"
                 [label]="'identity.confirmEmailChange' | transloco"
-                class="auth-submit w-full"
+                class="auth-submit ib-auth-submit w-full"
               ></button>
               <button
                 pButton
@@ -52,12 +52,12 @@
                 type="button"
                 (click)="signIn()"
                 [label]="'auth.loginCta' | transloco"
-                class="auth-submit w-full"
+                class="auth-submit ib-auth-submit w-full"
               ></button>
             }
           } @else {
             <form [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
-              <div class="field-wrap space-y-1.5">
+              <div class="field-wrap ib-auth-field space-y-1.5">
                 <label for="first-name">{{ 'common.firstName' | transloco }}</label>
                 <input
                   id="first-name"
@@ -67,7 +67,7 @@
                   class="w-full"
                 />
               </div>
-              <div class="field-wrap space-y-1.5">
+              <div class="field-wrap ib-auth-field space-y-1.5">
                 <label for="last-name">{{ 'common.lastName' | transloco }}</label>
                 <input
                   id="last-name"
@@ -77,7 +77,7 @@
                   class="w-full"
                 />
               </div>
-              <div class="field-wrap space-y-1.5">
+              <div class="field-wrap ib-auth-field space-y-1.5">
                 <label for="chosen-password">{{ 'auth.password' | transloco }}</label>
                 <p-password
                   inputId="chosen-password"
@@ -89,7 +89,7 @@
                   inputStyleClass="w-full"
                 ></p-password>
               </div>
-              <div class="field-wrap space-y-1.5">
+              <div class="field-wrap ib-auth-field space-y-1.5">
                 <label for="confirm-password">{{ 'register.confirmPassword' | transloco }}</label>
                 <p-password
                   inputId="confirm-password"
@@ -102,7 +102,7 @@
                 ></p-password>
               </div>
               @if (form.touched && form.invalid) {
-                <p role="alert" class="field-error">
+                <p role="alert" class="field-error ib-auth-field-error">
                   {{ 'identity.credentialsInvalid' | transloco }}
                 </p>
               }
@@ -112,20 +112,20 @@
                 [disabled]="busy()"
                 [loading]="busy()"
                 [label]="'identity.finishSignup' | transloco"
-                class="auth-submit w-full"
+                class="auth-submit ib-auth-submit w-full"
               ></button>
             </form>
           }
         }
         <p class="verify-email-links">
           <a
-            class="auth-link"
+            class="auth-link ib-auth-link"
             [routerLink]="emailChange() ? '/account/security' : '/register'"
             >{{ 'identity.requestFreshLink' | transloco }}</a
           >
-          <a class="auth-link" routerLink="/login">{{ 'register.backToLogin' | transloco }}</a>
+          <a class="auth-link ib-auth-link" routerLink="/login">{{ 'register.backToLogin' | transloco }}</a>
         </p>
-        <div class="lang-pick">
+        <div class="lang-pick ib-lang-pick">
           <i class="pi pi-globe" aria-hidden="true"></i>
           <select
             id="language"
@@ -143,3 +143,4 @@
     </article>
   </div>
 </section>
+<app-auth-kit-styles />

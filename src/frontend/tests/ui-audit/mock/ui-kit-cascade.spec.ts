@@ -39,16 +39,27 @@ async function layerOrder(page: Page): Promise<string[]> {
 }
 
 test.describe('ui kit cascade', () => {
-  test('is absent from the login page', async ({ page }) => {
+  test('is absent from the login page, which gets only the auth part of the kit', async ({ page }) => {
     await mockExternalRequests(page);
     await page.goto('/login');
     await waitForStablePage(page);
 
+    // The shell's kit (overlays, panels, ...) never reaches the login page.
+    await expect(page.locator('app-ui-kit-styles')).toHaveCount(0);
+    const css = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('style'))
+        .map((style) => style.textContent ?? '')
+        .join('\n'),
+    );
+    expect(css).not.toContain('.ib-overlay');
+    expect(css).not.toContain('.ib-panel');
+    // The auth pages render their own host (AuthKitStylesComponent), in the same layer order.
+    await expect(page.locator('app-auth-kit-styles')).toHaveCount(1);
+    expect(css).toContain('.ib-auth-card');
     const order = await layerOrder(page);
-    expect(order).not.toContain('ib-kit');
     // The element resets are layered on every page, still after Tailwind's utilities.
     expect(order.indexOf('ib-base')).toBeGreaterThan(order.indexOf('utilities'));
-    await expect(page.locator('app-ui-kit-styles')).toHaveCount(0);
+    expect(order.indexOf('ib-kit')).toBeGreaterThan(order.indexOf('ib-base'));
   });
 
   test('loads with the shell, after PrimeNG and below unlayered component styles', async ({ page }, testInfo) => {

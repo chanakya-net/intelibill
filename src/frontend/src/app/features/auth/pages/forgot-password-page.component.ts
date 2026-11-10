@@ -12,11 +12,13 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { NATIVE_LANGUAGE_NAMES, SupportedLanguage } from '../../../core/i18n/language.constants';
 import { RootState } from '../../../core/state/app.state';
+import { AuthKitStylesComponent } from '../../../shared/styles/ui-kit/auth-kit-styles.component';
 
 @Component({
   selector: 'app-forgot-password-page',
   standalone: true,
   imports: [
+    AuthKitStylesComponent,
     ReactiveFormsModule,
     InputTextModule,
     ButtonModule,
