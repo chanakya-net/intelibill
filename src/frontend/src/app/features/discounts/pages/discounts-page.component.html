@@ -4,17 +4,17 @@
       <p class="ib-eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
       <h1 class="ib-page-title">{{ 'discounts.title' | transloco }}</h1>
       <p class="ib-subtitle ib-subtitle--measure">{{ 'discounts.subtitle' | transloco }}</p>
-      <div class="discounts-hero__meta">
-        <span class="meta-chip meta-chip--primary">
+      <div class="discounts-hero__meta ib-meta-row">
+        <span class="meta-chip ib-meta-chip meta-chip--primary ib-meta-chip--primary">
           {{
             'discounts.showingCount'
               | transloco: { visible: listItems().length, total: totalCount() }
           }}
         </span>
         @if (selectedRule()) {
-          <span class="meta-chip">{{ selectedRuleTitle() }}</span>
+          <span class="meta-chip ib-meta-chip">{{ selectedRuleTitle() }}</span>
         }
-        <span class="meta-chip">
+        <span class="meta-chip ib-meta-chip">
           {{
             'discounts.pagination.pageInfo' | transloco: { page: pageNumber(), total: totalCount() }
           }}
@@ -81,7 +81,7 @@
           [attr.aria-label]="'discounts.directoryMetrics' | transloco"
         >
           @for (metric of directoryMetrics(); track metric.labelKey) {
-            <span class="metric-chip">
+            <span class="metric-chip ib-metric-chip">
               <strong>{{ metric.value | number: '1.0-0' }}</strong>
               <span>{{ metric.labelKey | transloco }}</span>
             </span>

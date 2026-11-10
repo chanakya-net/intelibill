@@ -1,0 +1,56 @@
+/*
+ * Meta and metric chips: the pill chips in a page hero's meta row (with the highlighted `--primary`
+ * chip) and the two-line metric chips in a directory panel header, as the customers, discounts,
+ * expenses, users, purchase order, stock adjustment and account security pages write them.
+ */
+@layer ib-kit {
+  .ib-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.6rem;
+  }
+
+  .ib-meta-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.9rem;
+    padding: 0 0.7rem;
+    border: 1px solid #e7d6c3;
+    border-radius: 999px;
+    background: rgba(255, 252, 248, 0.9);
+    color: #5f4634;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .ib-meta-chip--primary {
+    border-color: #d58a4d;
+    background: #fff0df;
+    color: #8b4510;
+  }
+
+  .ib-metric-chip {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.12rem;
+    min-width: 8rem;
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--app-sand-300);
+    border-radius: 0.75rem;
+    background: linear-gradient(180deg, #fffaf3, #fff2e5);
+  }
+
+  .ib-metric-chip strong {
+    color: var(--app-brown-900);
+    font-size: 0.92rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .ib-metric-chip span {
+    color: #8b6e57;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+}

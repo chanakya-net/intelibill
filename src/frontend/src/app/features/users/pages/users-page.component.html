@@ -4,17 +4,17 @@
       <p class="ib-eyebrow">{{ 'users.teamAccess' | transloco }}</p>
       <h1 class="ib-page-title">{{ 'users.shopUsers' | transloco }}</h1>
       <p class="ib-subtitle ib-subtitle--measure">{{ 'users.subtitle' | transloco }}</p>
-      <div class="users-hero__meta">
-        <span class="meta-chip meta-chip--primary">
+      <div class="users-hero__meta ib-meta-row">
+        <span class="meta-chip ib-meta-chip meta-chip--primary ib-meta-chip--primary">
           {{
             'users.showingCount'
               | transloco: { visible: filteredUsers().length, total: totalUsers() }
           }}
         </span>
-        <span class="meta-chip"
+        <span class="meta-chip ib-meta-chip"
           >{{ 'users.summary.managers' | transloco }}: {{ managerCount() }}</span
         >
-        <span class="meta-chip"
+        <span class="meta-chip ib-meta-chip"
           >{{ 'users.summary.activeMembers' | transloco }}: {{ activeMemberCount() }}</span
         >
       </div>
@@ -88,7 +88,7 @@
           [attr.aria-label]="'users.directoryMetrics' | transloco"
         >
           @for (metric of directoryMetrics(); track metric.labelKey) {
-            <span class="metric-chip">
+            <span class="metric-chip ib-metric-chip">
               <strong>{{ metric.value | number: '1.0-0' }}</strong>
               <span>{{ metric.labelKey | transloco }}</span>
             </span>

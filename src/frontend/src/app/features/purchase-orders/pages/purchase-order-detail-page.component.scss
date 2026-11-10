@@ -53,32 +53,6 @@ h1 {
   line-height: 0.98;
 }
 
-.po-hero__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.6rem;
-}
-
-.meta-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.9rem;
-  padding: 0 0.7rem;
-  border: 1px solid #e7d6c3;
-  border-radius: var(--app-radius-pill);
-  background: rgba(255, 252, 248, 0.9);
-  color: #5f4634;
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.meta-chip--primary {
-  border-color: #d58a4d;
-  background: #fff0df;
-  color: #8b4510;
-}
-
 .po-hero__actions,
 .po-detail-actions {
   display: flex;
@@ -112,30 +86,6 @@ h1 {
   color: #271911;
   font-size: 1.2rem;
   font-weight: 800;
-}
-
-.metric-chip {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 0.12rem;
-  min-width: 8rem;
-  padding: 0.45rem 0.65rem;
-  border: 1px solid var(--app-sand-300);
-  border-radius: var(--app-radius-md);
-  background: linear-gradient(180deg, #fffaf3, #fff2e5);
-}
-
-.metric-chip strong {
-  color: var(--app-brown-900);
-  font-size: 0.92rem;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.metric-chip span {
-  color: var(--app-brown-500);
-  font-size: 0.72rem;
-  font-weight: 700;
 }
 
 .po-detail-meta-grid {

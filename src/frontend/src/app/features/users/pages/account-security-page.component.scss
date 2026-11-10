@@ -36,32 +36,6 @@
   min-width: 0;
 }
 
-.account-hero__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.6rem;
-}
-
-.meta-chip {
-  display: inline-flex;
-  align-items: center;
-  min-height: 1.9rem;
-  padding: 0 0.7rem;
-  border: 1px solid #e7d6c3;
-  border-radius: var(--app-radius-pill);
-  background: rgba(255, 252, 248, 0.9);
-  color: #5f4634;
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.meta-chip--primary {
-  border-color: #d58a4d;
-  background: #fff0df;
-  color: #8b4510;
-}
-
 .page-alert {
   padding: 0.65rem 0.8rem;
   border: 1px solid var(--app-sand-300);

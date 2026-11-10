@@ -27,26 +27,26 @@
             {{ 'purchaseOrders.status.' + order.status | transloco }}
           </span>
         </div>
-        <div class="po-hero__meta">
+        <div class="po-hero__meta ib-meta-row">
           @if (order.supplierName || order.supplierId) {
-            <span class="meta-chip meta-chip--primary">
+            <span class="meta-chip ib-meta-chip meta-chip--primary ib-meta-chip--primary">
               {{ 'purchaseOrders.detail.supplier' | transloco }}:
               {{ order.supplierName || order.supplierId }}
             </span>
           }
           @if (order.orderDate) {
-            <span class="meta-chip">
+            <span class="meta-chip ib-meta-chip">
               {{ 'purchaseOrders.detail.orderDate' | transloco }}:
               {{ order.orderDate | localeBusinessDate }}
             </span>
           }
           @if (order.expectedDeliveryDate) {
-            <span class="meta-chip">
+            <span class="meta-chip ib-meta-chip">
               {{ 'purchaseOrders.detail.expectedDeliveryDate' | transloco }}:
               {{ order.expectedDeliveryDate | localeBusinessDate }}
             </span>
           }
-          <span class="meta-chip">
+          <span class="meta-chip ib-meta-chip">
             {{ 'purchaseOrders.createdAt' | transloco }}: {{ order.createdAt | localeInstant }}
           </span>
         </div>
@@ -185,7 +185,7 @@
           class="directory-panel__metrics ib-panel__metrics"
           [attr.aria-label]="'purchaseOrders.detail.metrics' | transloco"
         >
-          <span class="metric-chip">
+          <span class="metric-chip ib-metric-chip">
             <strong>{{ order.expectedTotal | localeMoney }}</strong>
             <span>{{ 'purchaseOrders.expectedTotal' | transloco }}</span>
           </span>

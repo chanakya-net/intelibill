@@ -6,12 +6,12 @@
       <p class="ib-eyebrow">{{ 'inventory.adjustmentLedger' | transloco }}</p>
       <h1 class="ib-page-title">{{ 'inventory.adjustmentsTitle' | transloco }}</h1>
       <p class="ib-subtitle ib-subtitle--measure">{{ 'inventory.adjustmentsSubtitle' | transloco }}</p>
-      <div class="adjustments-hero__meta">
-        <span class="meta-chip meta-chip--primary">
+      <div class="adjustments-hero__meta ib-meta-row">
+        <span class="meta-chip ib-meta-chip meta-chip--primary ib-meta-chip--primary">
           {{ 'inventory.showingCount' | transloco:{ visible: adjustments().length, total: totalCount() } }}
         </span>
         @if (totalPages() > 1) {
-          <span class="meta-chip">
+          <span class="meta-chip ib-meta-chip">
             {{ 'inventory.pageInfo' | transloco:{ currentPage: pageNumber(), totalPages: totalPages() } }}
           </span>
         }

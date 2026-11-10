@@ -4,20 +4,20 @@
       <p class="ib-eyebrow">{{ 'profile.account' | transloco }}</p>
       <h1 class="ib-page-title">{{ 'identity.profileAndSecurity' | transloco }}</h1>
       <p class="ib-subtitle ib-subtitle--measure">{{ 'identity.accountDescription' | transloco }}</p>
-      <div class="account-hero__meta">
-        <span class="meta-chip meta-chip--primary">
+      <div class="account-hero__meta ib-meta-row">
+        <span class="meta-chip ib-meta-chip meta-chip--primary ib-meta-chip--primary">
           {{ 'identity.currentEmail' | transloco }}:
           {{ auth.session()?.user?.email || ('identity.noEmail' | transloco) }}
         </span>
         @if (methods(); as methods) {
-          <span class="meta-chip">
+          <span class="meta-chip ib-meta-chip">
             {{
               (methods.hasPassword ? 'identity.passwordAvailable' : 'identity.noPassword')
                 | transloco
             }}
           </span>
         }
-        <span class="meta-chip"
+        <span class="meta-chip ib-meta-chip"
           >{{ 'identity.devices' | transloco }}: {{ devices().length }}</span
         >
       </div>

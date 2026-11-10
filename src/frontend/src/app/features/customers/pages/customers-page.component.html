@@ -4,16 +4,16 @@
       <p class="ib-eyebrow">{{ 'customers.customerDirectory' | transloco }}</p>
       <h1 class="ib-page-title" tabindex="-1" data-dialog-focus-fallback>{{ 'customers.title' | transloco }}</h1>
       <p class="ib-subtitle ib-subtitle--measure">{{ 'customers.subtitle' | transloco }}</p>
-      <div class="customers-hero__meta">
-        <span class="meta-chip meta-chip--primary">{{
+      <div class="customers-hero__meta ib-meta-row">
+        <span class="meta-chip ib-meta-chip meta-chip--primary ib-meta-chip--primary">{{
           'customers.showingCount'
             | transloco: { visible: filteredRowCount(), total: totalCustomers() }
         }}</span>
-        <span class="meta-chip"
+        <span class="meta-chip ib-meta-chip"
           >{{ 'customers.summary.totalCreditIssued' | transloco }}:
           {{ totalCreditIssued() | localeMoney }}</span
         >
-        <span class="meta-chip"
+        <span class="meta-chip ib-meta-chip"
           >{{ 'customers.summary.accountsWithCredit' | transloco }}:
           {{ accountsWithCredit() }}</span
         >
@@ -87,7 +87,7 @@
           [attr.aria-label]="'customers.directoryMetrics' | transloco"
         >
           @for (metric of directoryMetrics(); track metric.labelKey) {
-            <span class="metric-chip">
+            <span class="metric-chip ib-metric-chip">
               <strong>
                 @if (metric.variant === 'money') {
                   {{ metric.value | localeMoney }}
