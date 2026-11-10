@@ -3,9 +3,9 @@
 <section class="adjustments-page">
   <header class="adjustments-hero">
     <div class="adjustments-hero__copy">
-      <p class="eyebrow">{{ 'inventory.adjustmentLedger' | transloco }}</p>
-      <h1>{{ 'inventory.adjustmentsTitle' | transloco }}</h1>
-      <p class="subtitle">{{ 'inventory.adjustmentsSubtitle' | transloco }}</p>
+      <p class="ib-eyebrow">{{ 'inventory.adjustmentLedger' | transloco }}</p>
+      <h1 class="ib-page-title">{{ 'inventory.adjustmentsTitle' | transloco }}</h1>
+      <p class="ib-subtitle ib-subtitle--measure">{{ 'inventory.adjustmentsSubtitle' | transloco }}</p>
       <div class="adjustments-hero__meta">
         <span class="meta-chip meta-chip--primary">
           {{ 'inventory.showingCount' | transloco:{ visible: adjustments().length, total: totalCount() } }}
@@ -57,9 +57,9 @@
     >
       <header class="directory-panel__header">
         <div>
-          <p class="directory-panel__eyebrow">{{ 'inventory.adjustmentSummary' | transloco }}</p>
+          <p class="ib-eyebrow">{{ 'inventory.adjustmentSummary' | transloco }}</p>
           <h2>{{ 'inventory.adjustmentsTitle' | transloco }}</h2>
-          <p class="directory-panel__subtitle">{{ 'inventory.adjustmentsSubtitle' | transloco }}</p>
+          <p class="ib-subtitle ib-subtitle--measure">{{ 'inventory.adjustmentsSubtitle' | transloco }}</p>
         </div>
       </header>
 

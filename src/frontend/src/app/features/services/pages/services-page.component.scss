@@ -25,30 +25,6 @@
   box-shadow: var(--app-shadow-card);
 }
 
-.eyebrow {
-  margin: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-size: 0.7rem;
-  font-weight: 800;
-  color: var(--app-bronze-600);
-}
-
-h1 {
-  margin: 0.18rem 0 0;
-  color: var(--app-brown-900);
-  font-family: var(--app-font-heading);
-  font-size: clamp(1.85rem, 3vw, 3.1rem);
-  font-weight: 700;
-  line-height: 0.98;
-}
-
-.subtitle {
-  margin: 0.35rem 0 0;
-  font-size: 0.92rem;
-  color: var(--app-brown-700); /* warm stone */
-}
-
 .error {
   margin: 0;
   color: var(--app-red-600);

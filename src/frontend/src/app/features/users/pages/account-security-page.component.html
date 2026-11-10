@@ -1,9 +1,9 @@
 <section class="account-page">
   <header class="account-hero">
     <div class="account-hero__copy">
-      <p class="eyebrow">{{ 'profile.account' | transloco }}</p>
-      <h1>{{ 'identity.profileAndSecurity' | transloco }}</h1>
-      <p class="subtitle">{{ 'identity.accountDescription' | transloco }}</p>
+      <p class="ib-eyebrow">{{ 'profile.account' | transloco }}</p>
+      <h1 class="ib-page-title">{{ 'identity.profileAndSecurity' | transloco }}</h1>
+      <p class="ib-subtitle ib-subtitle--measure">{{ 'identity.accountDescription' | transloco }}</p>
       <div class="account-hero__meta">
         <span class="meta-chip meta-chip--primary">
           {{ 'identity.currentEmail' | transloco }}:
@@ -35,9 +35,9 @@
   <section class="panel">
     <header class="panel__header">
       <div>
-        <p class="panel__eyebrow">{{ 'profile.account' | transloco }}</p>
+        <p class="ib-eyebrow">{{ 'profile.account' | transloco }}</p>
         <h2>{{ 'profile.updateProfile' | transloco }}</h2>
-        <p class="panel__subtitle">{{ 'profile.updateProfileDescription' | transloco }}</p>
+        <p class="ib-subtitle ib-subtitle--measure">{{ 'profile.updateProfileDescription' | transloco }}</p>
       </div>
     </header>
 
@@ -135,9 +135,9 @@
     <section class="panel">
       <header class="panel__header">
         <div>
-          <p class="panel__eyebrow">{{ 'profile.security' | transloco }}</p>
+          <p class="ib-eyebrow">{{ 'profile.security' | transloco }}</p>
           <h2>{{ 'identity.signInMethods' | transloco }}</h2>
-          <p class="panel__subtitle">
+          <p class="ib-subtitle ib-subtitle--measure">
             {{
               (methods.hasPassword ? 'identity.passwordAvailable' : 'identity.noPassword')
                 | transloco
@@ -151,9 +151,9 @@
       <section class="panel panel--reauth">
         <header class="panel__header">
           <div>
-            <p class="panel__eyebrow">{{ 'profile.security' | transloco }}</p>
+            <p class="ib-eyebrow">{{ 'profile.security' | transloco }}</p>
             <h2>{{ 'identity.reauthenticate' | transloco }}</h2>
-            <p class="panel__subtitle">{{ 'identity.reauthDescription' | transloco }}</p>
+            <p class="ib-subtitle ib-subtitle--measure">{{ 'identity.reauthDescription' | transloco }}</p>
           </div>
         </header>
 
@@ -222,9 +222,9 @@
   <section class="panel">
     <header class="panel__header">
       <div>
-        <p class="panel__eyebrow">{{ 'profile.security' | transloco }}</p>
+        <p class="ib-eyebrow">{{ 'profile.security' | transloco }}</p>
         <h2>{{ 'identity.devices' | transloco }}</h2>
-        <p class="panel__subtitle">{{ 'identity.devicesDescription' | transloco }}</p>
+        <p class="ib-subtitle ib-subtitle--measure">{{ 'identity.devicesDescription' | transloco }}</p>
       </div>
 
       @if (devices().length) {

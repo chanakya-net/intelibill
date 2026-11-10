@@ -1,0 +1,40 @@
+/*
+ * Page heading: the Georgia page title (h1), the bronze eyebrow above it and the subtitle below it,
+ * as the list and settings pages write them. Variants are modifiers, never merged: the 0.7rem
+ * eyebrow (`--large`) and the subtitle with a reading measure (`--measure`). The 0.14em section
+ * labels, the brown eyebrows and the greyer subtitles are not part of this family.
+ */
+@layer ib-kit {
+  .ib-page-title {
+    margin: 0.18rem 0 0;
+    color: var(--app-brown-900);
+    font-family: var(--app-font-heading);
+    font-size: clamp(1.85rem, 3vw, 3.1rem);
+    font-weight: 700;
+    line-height: 0.98;
+  }
+
+  .ib-eyebrow {
+    margin: 0;
+    color: var(--app-bronze-600);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .ib-eyebrow--large {
+    font-size: 0.7rem;
+  }
+
+  .ib-subtitle {
+    margin: 0.35rem 0 0;
+    color: var(--app-brown-700);
+    font-size: 0.92rem;
+  }
+
+  .ib-subtitle--measure {
+    max-width: 52rem;
+    line-height: 1.35;
+  }
+}

@@ -20,7 +20,7 @@
           [label]="'purchaseOrders.title' | transloco"
           (click)="goBack()"
         ></button>
-        <p class="eyebrow">{{ 'purchaseOrders.detail.title' | transloco }}</p>
+        <p class="ib-eyebrow">{{ 'purchaseOrders.detail.title' | transloco }}</p>
         <div class="po-detail-title-row">
           <h1>{{ order.purchaseOrderNumber }}</h1>
           <span class="po-status-pill" [ngClass]="'po-status-pill--' + statusTone(order.status)">
@@ -178,7 +178,7 @@
     <section class="directory-panel">
       <header class="directory-panel__header">
         <div>
-          <p class="directory-panel__eyebrow">{{ 'purchaseOrders.detail.lines' | transloco }}</p>
+          <p class="directory-panel__eyebrow ib-eyebrow">{{ 'purchaseOrders.detail.lines' | transloco }}</p>
           <h2>{{ 'purchaseOrders.detail.title' | transloco }}</h2>
         </div>
         <div

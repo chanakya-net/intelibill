@@ -1,9 +1,9 @@
 <section class="discounts-page">
   <header class="discounts-hero">
     <div class="discounts-hero__copy">
-      <p class="eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
-      <h1>{{ 'discounts.title' | transloco }}</h1>
-      <p class="subtitle">{{ 'discounts.subtitle' | transloco }}</p>
+      <p class="ib-eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
+      <h1 class="ib-page-title">{{ 'discounts.title' | transloco }}</h1>
+      <p class="ib-subtitle ib-subtitle--measure">{{ 'discounts.subtitle' | transloco }}</p>
       <div class="discounts-hero__meta">
         <span class="meta-chip meta-chip--primary">
           {{
@@ -51,7 +51,7 @@
     <section class="directory-panel directory-panel--loading" aria-busy="true">
       <div class="directory-panel__header">
         <div>
-          <p class="directory-panel__eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
+          <p class="ib-eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
           <h2>{{ 'discounts.list.title' | transloco }}</h2>
         </div>
       </div>
@@ -71,9 +71,9 @@
     <section class="directory-panel">
       <header class="directory-panel__header">
         <div>
-          <p class="directory-panel__eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
+          <p class="ib-eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
           <h2>{{ 'discounts.list.title' | transloco }}</h2>
-          <p class="directory-panel__subtitle">{{ 'discounts.subtitle' | transloco }}</p>
+          <p class="ib-subtitle ib-subtitle--measure">{{ 'discounts.subtitle' | transloco }}</p>
         </div>
 
         <div
@@ -120,7 +120,7 @@
         <aside class="detail-panel">
           <header class="detail-panel__header">
             <div>
-              <p class="detail-panel__eyebrow">{{ 'discounts.detail.title' | transloco }}</p>
+              <p class="ib-eyebrow">{{ 'discounts.detail.title' | transloco }}</p>
               <h3>
                 {{
                   selectedRule() ? selectedRuleTitle() : ('discounts.detail.emptyTitle' | transloco)
