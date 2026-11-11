@@ -1,8 +1,15 @@
 <article class="invoice">
-  <app-sale-cancellation-record [cancellation]="sale.cancellation ?? null" />
+  @if (sampleDocument) {
+    <div class="invoice__sample">
+      <strong>{{ 'shopSetup.sample.banner' | transloco }}</strong>
+      <p>{{ 'shopSetup.sample.disclaimer' | transloco }}</p>
+    </div>
+  } @else {
+    <app-sale-cancellation-record [cancellation]="sale.cancellation ?? null" />
+  }
   <!-- Header -->
   <header class="invoice__header">
-    <ng-container *ngIf="sale.document as doc; else legacyHeader">
+    <ng-container *ngIf="document as doc; else legacyHeader">
       <div class="invoice__shop-info">
         <h1 class="invoice__shop-name">{{ doc.seller.legalName }}</h1>
         <p *ngIf="hasDistinctTradeName(doc)" class="invoice__shop-trade-name">
@@ -21,7 +28,7 @@
 
       <div class="invoice__meta">
         <h2 class="invoice__document-title">{{ documentTitleKey(doc) | transloco }}</h2>
-        <div class="invoice__meta-item">
+        <div *ngIf="!sampleDocument" class="invoice__meta-item">
           <span class="invoice__meta-label">{{ 'sales.invoice.invoiceNumber' | transloco }}</span>
           <span class="invoice__meta-value">{{ doc.number }}</span>
         </div>
@@ -59,7 +66,7 @@
       </div>
 
       <div class="invoice__meta">
-        <div class="invoice__meta-item">
+        <div *ngIf="!sampleDocument" class="invoice__meta-item">
           <span class="invoice__meta-label">{{ 'sales.invoice.invoiceNumber' | transloco }}</span>
           <span class="invoice__meta-value">{{ sale.invoiceNumber }}</span>
         </div>
@@ -72,7 +79,7 @@
   </header>
 
   <!-- Customer Info -->
-  <section *ngIf="sale.document as doc; else legacyCustomer" class="invoice__customer">
+  <section *ngIf="document as doc; else legacyCustomer" class="invoice__customer">
     <div class="invoice__customer-label">{{ 'sales.invoice.billTo' | transloco }}:</div>
     <div class="invoice__customer-info">
       <span>{{ doc.buyer.name || ('sales.history.walkIn' | transloco) }}</span>
@@ -108,7 +115,7 @@
     tabindex="0"
     [attr.aria-label]="'sales.history.items' | transloco"
   >
-    <table *ngIf="sale.document as doc; else legacyItems" class="invoice__items">
+    <table *ngIf="document as doc; else legacyItems" class="invoice__items">
       <thead class="invoice__items-header">
         <tr>
           <th class="invoice__col-item">{{ 'inventory.name' | transloco }}</th>
@@ -148,7 +155,7 @@
     </table>
   </div>
 
-  <ng-container *ngIf="sale.document as doc">
+  <ng-container *ngIf="document as doc">
     <section *ngIf="taxSummary(doc).length" class="invoice__tax-summary">
       <h3 class="invoice__tax-summary-title">{{ 'sales.invoice.taxSummary' | transloco }}</h3>
       <table class="invoice__items invoice__tax-summary-table">
@@ -282,7 +289,7 @@
   </ng-template>
 
   <!-- Returns Section -->
-  <section *ngIf="sale.returns.length > 0" class="invoice__returns">
+  <section *ngIf="!sampleDocument && sale.returns.length > 0" class="invoice__returns">
     <h3 class="invoice__returns-title">{{ 'sales.invoice.returns' | transloco }}</h3>
     <div *ngFor="let saleReturn of sale.returns" class="invoice__return-block">
       <div class="invoice__return-header">
@@ -308,7 +315,7 @@
 
   <!-- Payment Summary -->
   <section class="invoice__totals">
-    <ng-container *ngIf="sale.document as doc; else legacyTotals">
+    <ng-container *ngIf="document as doc; else legacyTotals">
       <div class="invoice__totals-row">
         <span class="invoice__totals-label">{{ 'sales.invoice.taxableValue' | transloco }}</span>
         <span class="invoice__totals-value">
@@ -341,7 +348,7 @@
           {{ doc.totals.invoiceTotal | localeMoney }}
         </span>
       </div>
-      <div *ngIf="sale.creditNoteAppliedAmount > 0" class="invoice__totals-row">
+      <div *ngIf="!sampleDocument && sale.creditNoteAppliedAmount > 0" class="invoice__totals-row">
         <span class="invoice__totals-label">
           {{
             getCreditNoteSettlementLabelKey()
@@ -367,7 +374,7 @@
         <span class="invoice__totals-label">{{ 'sales.invoice.discount' | transloco }}</span>
         <span class="invoice__totals-value"> -{{ sale.totalDiscountAmount | localeMoney }} </span>
       </div>
-      <div *ngIf="sale.creditNoteAppliedAmount > 0" class="invoice__totals-row">
+      <div *ngIf="!sampleDocument && sale.creditNoteAppliedAmount > 0" class="invoice__totals-row">
         <span class="invoice__totals-label">
           {{
             getCreditNoteSettlementLabelKey()
@@ -392,9 +399,9 @@
       </div>
     </ng-template>
 
-    <div class="invoice__divider"></div>
+    <div *ngIf="!sampleDocument" class="invoice__divider"></div>
 
-    <div class="invoice__payment-info">
+    <div *ngIf="!sampleDocument" class="invoice__payment-info">
       <div class="invoice__payment-row">
         <span class="invoice__payment-label">{{ 'sales.invoice.paymentMode' | transloco }}:</span>
         <span class="invoice__payment-value">{{ getPaymentMethodLabel(sale.paymentMethod) }}</span>
@@ -424,14 +431,14 @@
     </div>
   </section>
 
-  <ng-container *ngIf="sale.document as doc">
+  <ng-container *ngIf="document as doc">
     <section *ngIf="doc.declarations.length" class="invoice__declarations">
       <p *ngFor="let declaration of doc.declarations" class="invoice__declaration">
         {{ declarationKey(declaration) | transloco }}
       </p>
     </section>
 
-    <footer class="invoice__signatory">
+    <footer *ngIf="!sampleDocument" class="invoice__signatory">
       <p class="invoice__signatory-for">
         {{ 'sales.invoice.signatoryFor' | transloco: { legalName: doc.seller.legalName } }}
       </p>
@@ -439,7 +446,7 @@
     </footer>
   </ng-container>
 
-  <p *ngIf="missingDocumentNoteKey() as noteKey" class="invoice__legacy-note">
+  <p *ngIf="!sampleDocument && missingDocumentNoteKey() as noteKey" class="invoice__legacy-note">
     {{ noteKey | transloco }}
   </p>
 </article>

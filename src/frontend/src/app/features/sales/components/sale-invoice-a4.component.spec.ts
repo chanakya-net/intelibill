@@ -207,6 +207,20 @@ describe('SaleInvoiceA4Component', () => {
     component = fixture.componentInstance;
   });
 
+  it('marks the sample and suppresses its number, payment status and signatory', () => {
+    component.sale = makeSale({ invoiceNumber: 'LIVE-NUMBER' });
+    component.shop = makeShop();
+    fixture.componentRef.setInput('sampleDocument', makeDocument({ number: 'UNSAFE-NUMBER' }));
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('SAMPLE — NOT A VALID INVOICE');
+    expect(text).toContain('Basmati Rice 5kg');
+    expect(text).not.toContain('UNSAFE-NUMBER');
+    expect(text).not.toContain('LIVE-NUMBER');
+    expect(text).not.toMatch(/invoice number|payment status|authorised signatory/i);
+  });
+
   it('reformats printed amounts and business days across nine languages without changing facts', () => {
     component.sale = makeSale({
       totalAmount: 123456.78,

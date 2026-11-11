@@ -1,0 +1,58 @@
+<main class="sample-page">
+  <header class="sample-controls">
+    <a routerLink="/shops/setup">{{ 'shopSetup.backToSetup' | transloco }}</a>
+    @if (sample()) {
+      <div class="flex flex-wrap gap-2">
+        <div role="group" class="flex flex-wrap gap-2" [attr.aria-label]="'shopSetup.sample.format' | transloco">
+          <button pButton type="button" severity="secondary" [outlined]="format() !== 'a4'"
+            [attr.aria-pressed]="format() === 'a4'" [label]="'shopSetup.sample.a4' | transloco" (click)="format.set('a4')"></button>
+          <button pButton type="button" severity="secondary" [outlined]="format() !== 'thermal'"
+            [attr.aria-pressed]="format() === 'thermal'" [label]="'shopSetup.sample.thermal' | transloco"
+            (click)="format.set('thermal')"></button>
+        </div>
+        <button pButton type="button" icon="pi pi-print" [label]="'shopSetup.sample.print' | transloco" (click)="print()"></button>
+      </div>
+    }
+  </header>
+
+  @if (loading()) {
+    <p role="status">{{ 'shopSetup.loading' | transloco }}</p>
+  }
+  @if (failureKey(); as key) {
+    <section class="sample-controls" role="alert">
+      <div>
+        <p>{{ key | transloco }}</p>
+        @if (failureReasons().length) {
+          <ul>
+            @for (reason of failureReasons(); track $index) {
+              <li>{{ reason | transloco }}</li>
+            }
+          </ul>
+        }
+      </div>
+      <button pButton type="button" severity="secondary" [label]="'shopSetup.refresh' | transloco" (click)="refresh()"></button>
+    </section>
+  }
+  @if (sample(); as receipt) {
+    <div class="sample-paper" [class.sample-paper--thermal]="format() === 'thermal'">
+      @if (format() === 'a4') {
+        <app-sale-invoice-a4 [sampleDocument]="receipt.document" />
+      } @else {
+        <app-sale-invoice-thermal [sampleDocument]="receipt.document" />
+      }
+    </div>
+    @if (preferences(); as saved) {
+      <footer class="sample-controls">
+        @if (saved.sampleReceiptAcknowledgedAt) {
+          <p role="status">{{ 'shopSetup.sample.checked' | transloco }}</p>
+        } @else {
+          <button pButton type="button" severity="secondary" [disabled]="saving()"
+            [label]="'shopSetup.sample.acknowledge' | transloco" (click)="acknowledge()"></button>
+        }
+      </footer>
+    }
+    @if (saveError(); as error) {
+      <p class="sample-controls" role="alert">{{ error | transloco }}</p>
+    }
+  }
+</main>
