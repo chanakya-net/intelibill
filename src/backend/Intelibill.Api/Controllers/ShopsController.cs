@@ -34,6 +34,36 @@ public sealed class ShopsController : AuthenticatedControllerBase
     {
     }
 
+    [HttpGet("{shopId:guid}/setup")]
+    public async Task<IActionResult> GetSetup(Guid shopId, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupStatusDto>>(
+            new GetShopSetupQuery(shopId, UserId!.Value, ActiveShopId), cancellationToken);
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("{shopId:guid}/setup/sample")]
+    public async Task<IActionResult> GetSetupSample(Guid shopId, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupSampleDto>>(
+            new GetShopSetupSampleQuery(shopId, UserId!.Value, ActiveShopId), cancellationToken);
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("{shopId:guid}/setup/preferences")]
+    public async Task<IActionResult> GetSetupPreferences(Guid shopId, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupPreferencesDto>>(
+            new GetShopSetupPreferencesQuery(shopId, UserId!.Value, ActiveShopId), cancellationToken);
+        return result.ToActionResult(Ok);
+    }
+
     [HttpPut("{shopId:guid}/setup/preferences")]
     public async Task<IActionResult> UpdateSetupPreferences(Guid shopId, [FromBody] UpdateShopSetupPreferencesRequest request, CancellationToken cancellationToken)
     {

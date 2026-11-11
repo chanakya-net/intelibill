@@ -22,7 +22,7 @@ public sealed partial class ShopSetupTests(PostgreSqlTestFixture fixture) : IAsy
     {
         using var client = CreateClient();
         var shopId = await CreateShopAsync(client);
-        var initial = await ReadAsync(await SaveAsync(client, shopId, 0, true));
+        var initial = await ReadAsync(await client.GetAsync($"/api/shops/{shopId}/setup/preferences"));
         Assert.Equal(0, initial.GetProperty("version").GetInt32());
         Assert.True(initial.GetProperty("showOnStartup").GetBoolean());
         Assert.Equal(JsonValueKind.Null, initial.GetProperty("sampleReceiptAcknowledgedAt").ValueKind);
@@ -55,7 +55,7 @@ public sealed partial class ShopSetupTests(PostgreSqlTestFixture fixture) : IAsy
         delete.Parameters.AddWithValue("shop", shopId);
         Assert.Equal(1, await delete.ExecuteNonQueryAsync());
 
-        var defaults = await ReadAsync(await SaveAsync(client, shopId, 0, false));
+        var defaults = await ReadAsync(await client.GetAsync($"/api/shops/{shopId}/setup/preferences"));
         Assert.Equal(0, defaults.GetProperty("version").GetInt32());
         Assert.False(defaults.GetProperty("showOnStartup").GetBoolean());
         Assert.Equal(JsonValueKind.Null, defaults.GetProperty("sampleReceiptAcknowledgedAt").ValueKind);
@@ -85,7 +85,7 @@ public sealed partial class ShopSetupTests(PostgreSqlTestFixture fixture) : IAsy
         AllowAutoRedirect = false
     });
 
-    private static async Task<Guid> CreateShopAsync(HttpClient client)
+    private static async Task<Guid> CreateShopAsync(HttpClient client, bool declareTax = true)
     {
         if (client.DefaultRequestHeaders.Authorization is null)
         {
@@ -106,7 +106,7 @@ public sealed partial class ShopSetupTests(PostgreSqlTestFixture fixture) : IAsy
             city = "Bengaluru",
             state = "Karnataka",
             pincode = "560001",
-            taxProfile = new { taxRegime = "Unregistered", stateCode = "29", invoiceSeriesCode = "A" }
+            taxProfile = declareTax ? new { taxRegime = "Unregistered", stateCode = "29", invoiceSeriesCode = "A" } : null
         }));
         SetToken(client, shop);
         return shop.GetProperty("activeShopId").GetGuid();
