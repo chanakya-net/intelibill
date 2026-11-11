@@ -20,14 +20,14 @@
 
   <form class="product-form" [formGroup]="form" (ngSubmit)="onSubmit()">
     @if (serverError()) {
-      <div class="error-banner" role="alert">{{ serverError() | transloco }}</div>
+      <div class="error-banner ib-error-banner" role="alert">{{ serverError() | transloco }}</div>
     }
 
-    <section class="form-section">
-      <p class="section-label">{{ 'inventory.productFormSections.details' | transloco }}</p>
+    <section class="form-section ib-form-section">
+      <p class="section-label ib-section-label">{{ 'inventory.productFormSections.details' | transloco }}</p>
 
-      <div class="editor-grid">
-        <div class="field wide">
+      <div class="editor-grid ib-form-grid">
+        <div class="field ib-field wide ib-form-grid__wide">
           <label for="edit-product-name">{{ 'inventory.name' | transloco }}</label>
           <input
             id="edit-product-name"
@@ -41,7 +41,7 @@
           }
         </div>
 
-        <div class="field wide">
+        <div class="field ib-field wide ib-form-grid__wide">
           <app-inventory-barcode-field
             [control]="form.controls.barcode"
             [suggestions]="barcodeSuggestions"
@@ -62,7 +62,7 @@
           }
         </div>
 
-        <div class="field wide">
+        <div class="field ib-field wide ib-form-grid__wide">
           <label for="edit-product-description">{{ 'inventory.description' | transloco }}</label>
           <textarea
             id="edit-product-description"
@@ -75,8 +75,8 @@
       </div>
     </section>
 
-    <section class="form-section">
-      <p class="section-label">{{ 'inventory.productFormSections.classification' | transloco }}</p>
+    <section class="form-section ib-form-section">
+      <p class="section-label ib-section-label">{{ 'inventory.productFormSections.classification' | transloco }}</p>
 
       @if (item.unitReviewRequired) {
         <div class="info-banner" role="note" data-testid="unit-review-note">
@@ -89,8 +89,8 @@
         </div>
       }
 
-      <div class="editor-grid">
-        <div class="field">
+      <div class="editor-grid ib-form-grid">
+        <div class="field ib-field">
           <label for="edit-product-uom">{{ 'inventory.uom' | transloco }}</label>
           <input
             id="edit-product-uom"
@@ -104,7 +104,7 @@
           }
         </div>
 
-        <div class="field">
+        <div class="field ib-field">
           <label for="edit-product-scale">{{ 'inventory.quantityScale.label' | transloco }}</label>
           <select
             id="edit-product-scale"
@@ -124,7 +124,7 @@
           }}</small>
         </div>
 
-        <div class="field">
+        <div class="field ib-field">
           <label for="edit-product-hsn">{{ 'hsn.hsnCode' | transloco }}</label>
           <input
             id="edit-product-hsn"
@@ -135,7 +135,7 @@
           />
         </div>
 
-        <div class="field">
+        <div class="field ib-field">
           <label for="edit-product-tax">{{ 'inventory.taxRatePercent' | transloco }}</label>
           <p-inputNumber
             inputId="edit-product-tax"
@@ -152,8 +152,8 @@
       </div>
     </section>
 
-    <section class="form-section stock-section">
-      <p class="section-label">{{ 'inventory.productFormSections.stock' | transloco }}</p>
+    <section class="form-section ib-form-section stock-section">
+      <p class="section-label ib-section-label">{{ 'inventory.productFormSections.stock' | transloco }}</p>
 
       <div class="stock-display">
         <span class="stock-label">{{ 'inventory.currentStock' | transloco }}</span>

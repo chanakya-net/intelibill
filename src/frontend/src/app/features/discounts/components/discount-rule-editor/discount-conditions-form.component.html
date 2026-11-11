@@ -1,9 +1,9 @@
 <div class="conditions-form" [formGroup]="form">
-  <section class="form-section">
-    <p class="section-label">{{ 'discounts.editor.sections.ruleDetails' | transloco }}</p>
+  <section class="form-section ib-form-section">
+    <p class="section-label ib-section-label">{{ 'discounts.editor.sections.ruleDetails' | transloco }}</p>
 
-    <div class="editor-grid">
-      <div class="field">
+    <div class="editor-grid ib-form-grid">
+      <div class="field ib-field">
         <label for="discount-rule-type">{{ 'discounts.editor.fields.ruleType' | transloco }}</label>
         <p-select
           inputId="discount-rule-type"
@@ -26,7 +26,7 @@
         </p-select>
       </div>
 
-      <div class="field">
+      <div class="field ib-field">
         <label for="discount-rule-name">{{ 'discounts.editor.fields.name' | transloco }}</label>
         <p-iconfield iconPosition="right" class="editor-iconfield">
           <input
@@ -49,7 +49,7 @@
         }
       </div>
 
-      <div class="field wide">
+      <div class="field ib-field wide ib-form-grid__wide">
         <label for="discount-rule-description">{{
           'discounts.editor.fields.description' | transloco
         }}</label>
@@ -64,11 +64,11 @@
     </div>
   </section>
 
-  <section class="form-section">
-    <p class="section-label">{{ 'discounts.editor.sections.discountTerms' | transloco }}</p>
+  <section class="form-section ib-form-section">
+    <p class="section-label ib-section-label">{{ 'discounts.editor.sections.discountTerms' | transloco }}</p>
 
-    <div class="editor-grid">
-      <div class="field">
+    <div class="editor-grid ib-form-grid">
+      <div class="field ib-field">
         <label for="discount-rule-percentage">{{
           'discounts.editor.fields.percentage' | transloco
         }}</label>
@@ -95,7 +95,7 @@
       </div>
 
       @if (isThresholdRule()) {
-        <div class="field">
+        <div class="field ib-field">
           <label for="discount-rule-threshold">{{
             'discounts.editor.fields.thresholdAmount' | transloco
           }}</label>
@@ -120,7 +120,7 @@
         </div>
       }
 
-      <div class="field">
+      <div class="field ib-field">
         <label for="discount-rule-starts-at">{{
           'discounts.editor.fields.startsAt' | transloco
         }}</label>
@@ -140,7 +140,7 @@
         />
       </div>
 
-      <div class="field">
+      <div class="field ib-field">
         <label for="discount-rule-ends-at">{{
           'discounts.editor.fields.endsAt' | transloco
         }}</label>
@@ -162,11 +162,11 @@
     </div>
   </section>
 
-  <section class="form-section">
-    <p class="section-label">{{ 'discounts.editor.sections.safety' | transloco }}</p>
+  <section class="form-section ib-form-section">
+    <p class="section-label ib-section-label">{{ 'discounts.editor.sections.safety' | transloco }}</p>
 
-    <div class="editor-grid">
-      <div class="field checkbox-field wide">
+    <div class="editor-grid ib-form-grid">
+      <div class="field ib-field checkbox-field ib-checkbox-field wide ib-form-grid__wide">
         <p-checkbox
           inputId="discount-below-cost-confirmed"
           formControlName="belowCostConfirmed"
@@ -178,7 +178,7 @@
       </div>
 
       @if (shouldShowBelowCostReason) {
-        <div class="field wide">
+        <div class="field ib-field wide ib-form-grid__wide">
           <label for="discount-rule-below-cost-reason">
             {{ 'discounts.editor.fields.belowCostConfirmationReason' | transloco }}
           </label>
@@ -193,7 +193,7 @@
       }
 
       @if (mode === 'edit') {
-        <div class="field wide">
+        <div class="field ib-field wide ib-form-grid__wide">
           <label for="discount-rule-disabled-reason">{{
             'discounts.editor.fields.disabledReason' | transloco
           }}</label>

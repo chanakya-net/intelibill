@@ -1,23 +1,23 @@
 <section class="expenses-page">
   <header class="expenses-hero">
     <div class="expenses-hero__copy">
-      <p class="eyebrow">{{ 'expenses.expenseLedger' | transloco }}</p>
-      <h1>{{ 'expenses.title' | transloco }}</h1>
-      <p class="subtitle">{{ 'expenses.subtitle' | transloco }}</p>
+      <p class="ib-eyebrow">{{ 'expenses.expenseLedger' | transloco }}</p>
+      <h1 class="ib-page-title">{{ 'expenses.title' | transloco }}</h1>
+      <p class="ib-subtitle ib-subtitle--measure">{{ 'expenses.subtitle' | transloco }}</p>
       @if (localizedError()?.correlationId; as reference) {
         <p class="error-reference">{{ 'apiErrors.supportReference' | transloco: { reference } }}</p>
       }
 
       @if (!loading() && !listError()) {
-        <div class="expenses-hero__meta">
-          <span class="meta-chip meta-chip--primary">{{
+        <div class="expenses-hero__meta ib-meta-row">
+          <span class="meta-chip ib-meta-chip meta-chip--primary ib-meta-chip--primary">{{
             'expenses.showingCount'
               | transloco: { visible: filteredRowCount(), total: totalExpenses() }
           }}</span>
-          <span class="meta-chip"
+          <span class="meta-chip ib-meta-chip"
             >{{ 'expenses.summary.pageAmount' | transloco }}: {{ pageAmount() | localeMoney }}</span
           >
-          <span class="meta-chip"
+          <span class="meta-chip ib-meta-chip"
             >{{ 'expenses.summary.activeCount' | transloco }}: {{ activeCount() }}</span
           >
         </div>
@@ -37,11 +37,11 @@
   </header>
 
   @if (!loading() && !listError()) {
-    <div class="summary-grid" [attr.aria-label]="'expenses.summary.ariaLabel' | transloco">
+    <div class="summary-grid ib-summary-grid" [attr.aria-label]="'expenses.summary.ariaLabel' | transloco">
       @for (card of summaryCards(); track card.labelKey) {
-        <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
-          <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
-          <div class="summary-card__value">
+        <article class="summary-card ib-summary-card" [ngClass]="'ib-summary-card--' + card.tone">
+          <div class="summary-card__label ib-summary-card__label">{{ card.labelKey | transloco }}</div>
+          <div class="summary-card__value ib-summary-card__value">
             @if (card.variant === 'money') {
               {{ card.value | localeMoney }}
             } @else {
@@ -67,11 +67,11 @@
   }
 
   @if (loading()) {
-    <section class="directory-panel directory-panel--loading" aria-busy="true">
-      <div class="directory-panel__header">
+    <section class="directory-panel ib-panel directory-panel--loading" aria-busy="true">
+      <div class="directory-panel__header ib-panel__header">
         <div>
-          <p class="directory-panel__eyebrow">{{ 'expenses.expenseLedger' | transloco }}</p>
-          <h2>{{ 'expenses.title' | transloco }}</h2>
+          <p class="ib-eyebrow">{{ 'expenses.expenseLedger' | transloco }}</p>
+          <h2 class="ib-panel__title">{{ 'expenses.title' | transloco }}</h2>
         </div>
       </div>
       <div class="loading-shell">
@@ -87,20 +87,20 @@
   }
 
   @if (!loading() && !listError()) {
-    <section class="directory-panel">
-      <header class="directory-panel__header">
+    <section class="directory-panel ib-panel">
+      <header class="directory-panel__header ib-panel__header">
         <div>
-          <p class="directory-panel__eyebrow">{{ 'expenses.expenseLedger' | transloco }}</p>
-          <h2>{{ 'expenses.title' | transloco }}</h2>
-          <p class="directory-panel__subtitle">{{ 'expenses.subtitle' | transloco }}</p>
+          <p class="ib-eyebrow">{{ 'expenses.expenseLedger' | transloco }}</p>
+          <h2 class="ib-panel__title">{{ 'expenses.title' | transloco }}</h2>
+          <p class="ib-subtitle ib-subtitle--measure">{{ 'expenses.subtitle' | transloco }}</p>
         </div>
 
         <div
-          class="directory-panel__metrics"
+          class="directory-panel__metrics ib-panel__metrics"
           [attr.aria-label]="'expenses.ledgerMetrics' | transloco"
         >
           @for (metric of directoryMetrics(); track metric.labelKey) {
-            <span class="metric-chip">
+            <span class="metric-chip ib-metric-chip">
               <strong>
                 @if (metric.variant === 'money') {
                   {{ metric.value | localeMoney }}
@@ -114,7 +114,7 @@
         </div>
       </header>
 
-      <div class="directory-panel__surface">
+      <div class="directory-panel__surface ib-panel__surface">
         <app-expenses-table
           [expenses]="filteredExpenses()"
           [visibleRows]="filteredRowCount()"

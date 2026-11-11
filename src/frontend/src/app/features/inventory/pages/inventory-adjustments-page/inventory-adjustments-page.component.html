@@ -3,15 +3,15 @@
 <section class="adjustments-page">
   <header class="adjustments-hero">
     <div class="adjustments-hero__copy">
-      <p class="eyebrow">{{ 'inventory.adjustmentLedger' | transloco }}</p>
-      <h1>{{ 'inventory.adjustmentsTitle' | transloco }}</h1>
-      <p class="subtitle">{{ 'inventory.adjustmentsSubtitle' | transloco }}</p>
-      <div class="adjustments-hero__meta">
-        <span class="meta-chip meta-chip--primary">
+      <p class="ib-eyebrow">{{ 'inventory.adjustmentLedger' | transloco }}</p>
+      <h1 class="ib-page-title">{{ 'inventory.adjustmentsTitle' | transloco }}</h1>
+      <p class="ib-subtitle ib-subtitle--measure">{{ 'inventory.adjustmentsSubtitle' | transloco }}</p>
+      <div class="adjustments-hero__meta ib-meta-row">
+        <span class="meta-chip ib-meta-chip meta-chip--primary ib-meta-chip--primary">
           {{ 'inventory.showingCount' | transloco:{ visible: adjustments().length, total: totalCount() } }}
         </span>
         @if (totalPages() > 1) {
-          <span class="meta-chip">
+          <span class="meta-chip ib-meta-chip">
             {{ 'inventory.pageInfo' | transloco:{ currentPage: pageNumber(), totalPages: totalPages() } }}
           </span>
         }
@@ -41,7 +41,7 @@
 
   @if (loading()) {
     <section
-      class="directory-panel directory-panel--loading"
+      class="directory-panel ib-panel directory-panel--loading"
       data-testid="adjustment-ledger"
       aria-busy="true"
     >
@@ -51,15 +51,15 @@
     </section>
   } @else {
     <section
-      class="directory-panel"
+      class="directory-panel ib-panel"
       data-testid="adjustment-ledger"
       aria-busy="false"
     >
-      <header class="directory-panel__header">
+      <header class="directory-panel__header ib-panel__header">
         <div>
-          <p class="directory-panel__eyebrow">{{ 'inventory.adjustmentSummary' | transloco }}</p>
-          <h2>{{ 'inventory.adjustmentsTitle' | transloco }}</h2>
-          <p class="directory-panel__subtitle">{{ 'inventory.adjustmentsSubtitle' | transloco }}</p>
+          <p class="ib-eyebrow">{{ 'inventory.adjustmentSummary' | transloco }}</p>
+          <h2 class="ib-panel__title">{{ 'inventory.adjustmentsTitle' | transloco }}</h2>
+          <p class="ib-subtitle ib-subtitle--measure">{{ 'inventory.adjustmentsSubtitle' | transloco }}</p>
         </div>
       </header>
 
@@ -191,7 +191,7 @@
         </div>
       </form>
 
-      <div class="directory-panel__surface desktop-table">
+      <div class="directory-panel__surface ib-panel__surface desktop-table">
         <p-table
           [value]="adjustments()"
           [loading]="loading()"

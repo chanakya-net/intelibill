@@ -13,6 +13,7 @@ import { OfflineSalesQueueSyncService } from './offline-sales-queue-sync.service
 import { OfflineSalesSnapshotSyncService } from './offline-sales-snapshot-sync.service';
 import { OfflineSalesDeviceEnablementService } from './offline-sales-device-enablement.service';
 import { SaleService } from './sale.service';
+import { OfflinePackService } from '../../../core/service-worker/offline-pack.service';
 
 describe('OfflineSalesDeviceEnablementService', () => {
   const session: AuthSession = {
@@ -225,5 +226,96 @@ describe('OfflineSalesDeviceEnablementService', () => {
 
     expect(result.ok).toBe(true);
     expect(queueSync.syncForShop).toHaveBeenCalledWith('shop-1', 'device-1');
+  });
+
+  describe('offline pack step', () => {
+    const pack = {
+      prepare: vi.fn(),
+      release: vi.fn(async () => undefined),
+    };
+
+    function setupWithPack(): OfflineSalesDeviceEnablementService {
+      TestBed.overrideProvider(OfflinePackService, { useValue: pack });
+      return setup();
+    }
+
+    beforeEach(() => {
+      pack.prepare.mockReset();
+      pack.release.mockClear();
+    });
+
+    it('downloads and verifies the app files before the snapshot, and keeps the flag when all steps pass', async () => {
+      const steps: (string | null)[] = [];
+      pack.prepare.mockImplementation(async () => ({ ok: true, skipped: false, status: {} }));
+      const service = setupWithPack();
+      snapshotSync.syncForShop.mockImplementationOnce(async () => {
+        steps.push(service.step());
+      });
+      pack.prepare.mockImplementationOnce(async () => {
+        steps.push(service.step());
+        return { ok: true, skipped: false, status: {} };
+      });
+
+      const result = await service.enableForShop('shop-1', 'Counter 1');
+
+      expect(result.ok).toBe(true);
+      expect(steps).toEqual(['appPack', 'snapshot']);
+      expect(pack.prepare.mock.invocationCallOrder[0]).toBeLessThan(snapshotSync.syncForShop.mock.invocationCallOrder[0]);
+      expect(pack.release).not.toHaveBeenCalled();
+      expect(service.step()).toBeNull();
+    });
+
+    it('reports that this tab needs the waiting update when the pack is of a newer build', async () => {
+      pack.prepare.mockResolvedValue({ ok: true, skipped: false, status: {}, reloadRequired: true });
+      const service = setupWithPack();
+
+      const result = await service.enableForShop('shop-1', 'Counter 1');
+
+      expect(result.ok && result.reloadRequired).toBe(true);
+      expect(pack.release).not.toHaveBeenCalled();
+    });
+
+    it('needs no update when the pack step was skipped (no service worker)', async () => {
+      pack.prepare.mockResolvedValue({ ok: true, skipped: true });
+      const service = setupWithPack();
+
+      const result = await service.enableForShop('shop-1', 'Counter 1');
+
+      expect(result.ok && result.reloadRequired).toBe(false);
+    });
+
+    it('fails with APP_PACK_INCOMPLETE before any snapshot or lease, and lets the flag go', async () => {
+      pack.prepare.mockResolvedValue({ ok: false, failure: 'TIMEOUT' });
+      const service = setupWithPack();
+
+      const result = await service.enableForShop('shop-1', 'Counter 1');
+
+      expect(result).toEqual({ ok: false, reason: 'APP_PACK_INCOMPLETE', packFailure: 'TIMEOUT' });
+      expect(snapshotSync.syncForShop).not.toHaveBeenCalled();
+      expect(saleService.reserveInvoiceLease).not.toHaveBeenCalled();
+      expect(settingsStorage.updateSettings).not.toHaveBeenCalled();
+      expect(pack.release).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets the flag go when a later step fails', async () => {
+      pack.prepare.mockResolvedValue({ ok: true, skipped: false, status: {} });
+      (snapshotDb.getUsableSnapshotInfo as ReturnType<typeof vi.fn>).mockResolvedValueOnce(null);
+      const service = setupWithPack();
+
+      const result = await service.enableForShop('shop-1', 'Counter 1');
+
+      expect(result).toEqual({ ok: false, reason: 'SNAPSHOT_INCOMPLETE' });
+      expect(pack.release).toHaveBeenCalledTimes(1);
+    });
+
+    it('never touches the pack when enabling stops before it (unreachable API)', async () => {
+      const service = setupWithPack();
+      canReachApi.set(false);
+
+      await service.enableForShop('shop-1', 'Counter 1');
+
+      expect(pack.prepare).not.toHaveBeenCalled();
+      expect(pack.release).not.toHaveBeenCalled();
+    });
   });
 });

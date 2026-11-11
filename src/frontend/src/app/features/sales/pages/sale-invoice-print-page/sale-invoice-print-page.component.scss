@@ -57,8 +57,8 @@
 
 .print-state--notice {
   margin-bottom: 16px;
-  border-color: #b45309;
-  color: #78350f;
+  border-color: var(--app-amber-700);
+  color: var(--app-amber-900);
 }
 
 .print-state__reconciliation {
@@ -69,8 +69,8 @@
 }
 
 .print-state--error {
-  border-color: #b91c1c;
-  color: #b91c1c;
+  border-color: var(--app-red-700);
+  color: var(--app-red-700);
 }
 
 .invoice-document {

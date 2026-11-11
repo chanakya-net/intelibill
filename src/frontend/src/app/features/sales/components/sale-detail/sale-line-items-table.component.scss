@@ -122,7 +122,7 @@
   justify-content: center;
   min-width: 3.75rem;
   padding: 0.38rem 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--app-radius-pill);
   background: #bff0c4;
   color: #12622a;
   font-size: 0.72rem;

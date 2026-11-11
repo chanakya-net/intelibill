@@ -10,17 +10,17 @@
   (visibleChange)="onVisibleChange($event)"
 >
   <ng-template pTemplate="header" let-titleId="ariaLabelledBy">
-    <div class="editor-dialog-header">
-      <p class="eyebrow">{{ 'inventory.title' | transloco }}</p>
-      <h2 [id]="titleId">{{ 'inventory.barcodeLabels.title' | transloco }}</h2>
-      <p class="subtitle">{{ 'inventory.barcodeLabels.subtitle' | transloco }}</p>
+    <div class="editor-dialog-header ib-editor-dialog-header">
+      <p class="ib-editor-dialog-header__eyebrow">{{ 'inventory.title' | transloco }}</p>
+      <h2 class="ib-editor-dialog-header__title" [id]="titleId">{{ 'inventory.barcodeLabels.title' | transloco }}</h2>
+      <p class="ib-editor-dialog-header__subtitle">{{ 'inventory.barcodeLabels.subtitle' | transloco }}</p>
     </div>
   </ng-template>
 
   @if (rows().length === 0) {
-    <p class="editor-dialog-hint">{{ 'inventory.barcodeLabels.noItems' | transloco }}</p>
+    <p class="editor-dialog-hint ib-editor-dialog-hint">{{ 'inventory.barcodeLabels.noItems' | transloco }}</p>
   } @else {
-    <section class="editor-dialog-section barcode-label-print-dialog__table">
+    <section class="editor-dialog-section ib-editor-dialog-section barcode-label-print-dialog__table">
       <div class="barcode-label-print-dialog__header">
         <span>{{ 'inventory.barcodeLabels.table.item' | transloco }}</span>
         <span>{{ 'inventory.barcodeLabels.table.barcode' | transloco }}</span>
@@ -68,7 +68,7 @@
   }
 
   <ng-template pTemplate="footer">
-    <div class="editor-dialog-actions">
+    <div class="editor-dialog-actions ib-editor-dialog-actions">
       <p-button
         [label]="'inventory.barcodeLabels.actions.cancel' | transloco"
         severity="secondary"

@@ -20,14 +20,14 @@
 
   <form class="product-form" [formGroup]="form" (ngSubmit)="onSubmit()">
     @if (serverError()) {
-      <div class="error-banner" role="alert">{{ serverError() | transloco }}</div>
+      <div class="error-banner ib-error-banner" role="alert">{{ serverError() | transloco }}</div>
     }
 
-    <section class="form-section">
-      <p class="section-label">{{ 'inventory.productFormSections.details' | transloco }}</p>
+    <section class="form-section ib-form-section">
+      <p class="section-label ib-section-label">{{ 'inventory.productFormSections.details' | transloco }}</p>
 
-      <div class="editor-grid">
-        <div class="field wide">
+      <div class="editor-grid ib-form-grid">
+        <div class="field ib-field wide ib-form-grid__wide">
           <label for="add-product-name">{{ 'inventory.name' | transloco }}</label>
           <p-autocomplete
             inputId="add-product-name"
@@ -45,7 +45,7 @@
           }
         </div>
 
-        <div class="field wide">
+        <div class="field ib-field wide ib-form-grid__wide">
           <app-inventory-barcode-field
             [control]="form.controls.barcode"
             [suggestions]="barcodeSuggestions()"
@@ -66,7 +66,7 @@
           }
         </div>
 
-        <div class="field wide">
+        <div class="field ib-field wide ib-form-grid__wide">
           <label for="add-product-description">{{ 'inventory.description' | transloco }}</label>
           <textarea
             id="add-product-description"
@@ -79,11 +79,11 @@
       </div>
     </section>
 
-    <section class="form-section">
-      <p class="section-label">{{ 'inventory.productFormSections.classification' | transloco }}</p>
+    <section class="form-section ib-form-section">
+      <p class="section-label ib-section-label">{{ 'inventory.productFormSections.classification' | transloco }}</p>
 
-      <div class="editor-grid">
-        <div class="field">
+      <div class="editor-grid ib-form-grid">
+        <div class="field ib-field">
           <label for="add-product-uom">{{ 'inventory.uom' | transloco }}</label>
           <input id="add-product-uom" pInputText type="text" class="w-full" formControlName="uom" />
           @if (form.controls.uom.invalid && form.controls.uom.touched) {
@@ -91,7 +91,7 @@
           }
         </div>
 
-        <div class="field">
+        <div class="field ib-field">
           <label for="add-product-scale">{{ 'inventory.quantityScale.label' | transloco }}</label>
           <select
             id="add-product-scale"
@@ -111,7 +111,7 @@
           }}</small>
         </div>
 
-        <div class="field">
+        <div class="field ib-field">
           <label for="add-product-hsn">{{ 'hsn.hsnCode' | transloco }}</label>
           <input
             id="add-product-hsn"
@@ -135,7 +135,7 @@
           }
         </div>
 
-        <div class="field">
+        <div class="field ib-field">
           <label for="add-product-tax">{{ 'inventory.taxRatePercent' | transloco }}</label>
           <p-inputNumber
             inputId="add-product-tax"
@@ -165,10 +165,10 @@
       </div>
     </section>
 
-    <section class="form-section">
-      <p class="section-label">{{ 'inventory.productFormSections.status' | transloco }}</p>
+    <section class="form-section ib-form-section">
+      <p class="section-label ib-section-label">{{ 'inventory.productFormSections.status' | transloco }}</p>
 
-      <div class="field checkbox-field">
+      <div class="field ib-field checkbox-field ib-checkbox-field">
         <p-checkbox inputId="isActive" formControlName="isActive" [binary]="true" />
         <label for="isActive">{{ 'inventory.isActive' | transloco }}</label>
       </div>

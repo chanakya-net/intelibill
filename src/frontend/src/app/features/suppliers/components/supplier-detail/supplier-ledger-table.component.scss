@@ -11,7 +11,7 @@
 }
 
 .ledger-table-card {
-  border: 1px solid #ead7c1;
+  border: 1px solid var(--app-sand-300);
   border-radius: 0.85rem;
   background: #fffaf3;
   overflow: hidden;
@@ -29,7 +29,7 @@
 .empty-state {
   text-align: center;
   padding: 2rem;
-  color: #8b6e57;
+  color: var(--app-brown-500);
 }
 
 .entry-type {
@@ -49,9 +49,9 @@
 
   .p-datatable-thead > tr > th {
     padding: 0.75rem;
-    border-color: #ead7c1;
+    border-color: var(--app-sand-300);
     background: #fff5e7;
-    color: #7a6250;
+    color: var(--app-brown-600);
     font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -60,7 +60,7 @@
 
   .p-datatable-tbody > tr > td {
     padding: 0.7rem 0.75rem;
-    border-color: #ead7c1;
+    border-color: var(--app-sand-300);
     background: #fff;
     color: #34281f;
     font-size: 0.88rem;
@@ -72,9 +72,9 @@
 
   .p-datatable-tfoot > tr > td {
     padding: 0.7rem 0.75rem;
-    border-color: #ead7c1;
+    border-color: var(--app-sand-300);
     background: #fff5e7;
-    color: #2a1b12;
+    color: var(--app-brown-900);
     font-size: 0.88rem;
     font-weight: 700;
   }
@@ -121,7 +121,7 @@
     flex-direction: column;
     gap: 0.45rem;
     padding: 0.85rem;
-    border: 1px solid #ead7c1;
+    border: 1px solid var(--app-sand-300);
     border-radius: 0.85rem;
     background: #fffaf3;
 
@@ -132,7 +132,7 @@
   }
 
   .ledger-entry-date {
-    color: #8b6e57;
+    color: var(--app-brown-500);
     font-size: 0.72rem;
     font-weight: 600;
   }
@@ -154,7 +154,7 @@
   .ledger-entry-balance,
   .ledger-entry-notes {
     margin: 0;
-    color: #6f5a48;
+    color: var(--app-brown-700);
     font-size: 0.8rem;
     overflow-wrap: anywhere;
   }
@@ -164,8 +164,8 @@
     justify-content: space-between;
     gap: 0.75rem;
     padding: 0.75rem;
-    border-top: 1px solid #ead7c1;
-    color: #2a1b12;
+    border-top: 1px solid var(--app-sand-300);
+    color: var(--app-brown-900);
     font-size: 0.88rem;
     font-weight: 700;
   }

@@ -113,7 +113,7 @@ test.describe('users', () => {
     expect(counts.add).toBe(0);
     await dialog.locator('p-password[formcontrolname="confirmPassword"] input').fill('password-one');
     await dialog.getByRole('button', { name: 'Add User' }).click();
-    await expect(dialog.locator('.error-message')).toContainText('This email is already used by another account.');
+    await expect(dialog.locator('.ib-overlay__error')).toContainText('This email is already used by another account.');
     await dialog.getByRole('button', { name: 'Add User' }).click();
     await expect(dialog).toBeHidden();
     await expect(visibleUser(page, 'Audit Created')).toBeVisible();
@@ -145,7 +145,7 @@ test.describe('users', () => {
 
     await dialog.locator('input[type="checkbox"]').first().check();
     await dialog.getByRole('button', { name: 'Save Changes' }).click();
-    await expect(dialog.locator('.error-message')).toContainText('Owner account cannot be modified from this screen.');
+    await expect(dialog.locator('.ib-overlay__error')).toContainText('Owner account cannot be modified from this screen.');
     await dialog.locator('input[formcontrolname="firstName"]').fill('Updated');
     await dialog.getByRole('button', { name: 'Save Changes' }).click();
     await expect(dialog).toBeHidden();
@@ -392,7 +392,8 @@ async function assertDialogFits(
   dialog: Locator,
   viewport: { readonly width: number; readonly height: number },
 ): Promise<void> {
-  const fits = await dialog.locator('.overlay-card').evaluate((card) => {
+  // The invite and membership overlays use the kit frame; the default store overlay keeps its own.
+  const fits = await dialog.locator('.ib-overlay__card, .overlay-card').evaluate((card) => {
     const box = card.getBoundingClientRect();
     return box.left >= 0 && box.top >= 0 && box.right <= innerWidth && box.bottom <= innerHeight;
   });

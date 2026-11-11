@@ -1,5 +1,5 @@
 .batch-option {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--app-slate-200);
   border-radius: 0.5rem;
   padding: 0.75rem;
   cursor: pointer;
@@ -8,13 +8,13 @@
     background-color 0.15s;
 
   &:hover {
-    border-color: #fdba74;
-    background-color: #fff7ed;
+    border-color: var(--app-orange-300);
+    background-color: var(--app-orange-50);
   }
 
   &.selected {
-    border-color: #f97316;
-    background-color: #fff7ed;
+    border-color: var(--app-orange-500);
+    background-color: var(--app-orange-50);
   }
 
   &:focus-visible {
@@ -59,14 +59,14 @@
 
 .batch-option-id {
   font-weight: 600;
-  color: #1e293b;
+  color: var(--app-slate-800);
 }
 
 .batch-option-name,
 .batch-option-expiry,
 .batch-option-price p + p {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--app-slate-500);
 }
 
 .batch-option-price {
@@ -80,7 +80,7 @@
 .batch-option-price p {
   margin: 0;
   font-weight: 700;
-  color: #c2410c;
+  color: var(--app-orange-700);
 }
 
 .batch-picker-selection {
@@ -89,7 +89,7 @@
   flex-wrap: wrap;
   gap: 0.75rem;
   padding-top: 0.75rem;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--app-slate-200);
 }
 
 @media (max-width: 640px) {

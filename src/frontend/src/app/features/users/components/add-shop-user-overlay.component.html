@@ -1,23 +1,23 @@
 <section
-  class="overlay"
+  class="ib-overlay"
   aria-modal="true"
   role="dialog"
   [attr.aria-label]="'users.inviteMember' | transloco"
 >
-  <div class="overlay-backdrop" (click)="onClose()"></div>
+  <div class="ib-overlay__backdrop" (click)="onClose()"></div>
 
-  <div class="overlay-card">
-    <header class="overlay-header">
+  <div class="ib-overlay__card">
+    <header class="ib-overlay__header">
       <div>
-        <p class="eyebrow">{{ 'users.shopUsers' | transloco }}</p>
-        <h2>{{ 'users.inviteMember' | transloco }}</h2>
-        <p class="description">
+        <p class="ib-overlay__eyebrow">{{ 'users.shopUsers' | transloco }}</p>
+        <h2 class="ib-overlay__title">{{ 'users.inviteMember' | transloco }}</h2>
+        <p class="ib-overlay__description">
           {{ 'users.inviteMemberDescription' | transloco: { shop: activeShopName() } }}
         </p>
       </div>
       <button
         type="button"
-        class="close-button"
+        class="ib-overlay__close"
         [attr.aria-label]="'common.close' | transloco"
         (click)="onClose()"
       >
@@ -25,7 +25,7 @@
       </button>
     </header>
 
-    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <form class="ib-overlay__form" [formGroup]="form" (ngSubmit)="onSubmit()">
       <label>
         <span>{{ 'users.email' | transloco }}</span>
         <input pInputText type="email" formControlName="email" autocomplete="email" />
@@ -39,13 +39,13 @@
         </select>
       </label>
 
-      <p class="description">{{ 'users.inviteMemberNoCredentials' | transloco }}</p>
+      <p class="ib-overlay__description">{{ 'users.inviteMemberNoCredentials' | transloco }}</p>
 
       @if (serverError()) {
-        <p class="error-message">{{ serverError() | transloco }}</p>
+        <p class="ib-overlay__error">{{ serverError() | transloco }}</p>
       }
 
-      <div class="actions">
+      <div class="ib-overlay__actions">
         <button
           pButton
           type="button"
@@ -64,7 +64,7 @@
     </form>
 
     @if (isSubmitting()) {
-      <div class="submit-overlay">
+      <div class="ib-overlay__busy">
         <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
       </div>
     }

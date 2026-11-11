@@ -1,0 +1,63 @@
+/*
+ * Summary cards: the four-up grid of tinted metric cards at the top of the customers, discounts,
+ * expenses, users, purchase order and stock adjustment screens (and the dashboard's KPI cards).
+ * Each screen keeps its own narrow-screen breakpoint; the shared one is the two-column step at
+ * 1100px. Tones are modifiers.
+ */
+@layer ib-kit {
+  .ib-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.65rem;
+  }
+
+  .ib-summary-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-height: 5.9rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid #eadccf;
+    border-radius: var(--app-radius-lg);
+    background: linear-gradient(180deg, rgba(255, 251, 247, 0.96), rgba(255, 245, 235, 0.98));
+    box-shadow: 0 8px 22px rgba(85, 49, 18, 0.07);
+  }
+
+  .ib-summary-card__label {
+    color: var(--app-brown-600);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.66rem;
+    font-weight: 800;
+  }
+
+  .ib-summary-card__value {
+    color: #271911;
+    font-family: var(--app-font-heading);
+    font-size: clamp(1.55rem, 1.8vw, 2.05rem);
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .ib-summary-card--amber {
+    background: linear-gradient(180deg, #fff7ed, #fff1dc);
+  }
+
+  .ib-summary-card--sage {
+    background: linear-gradient(180deg, #f5fbf4, #edf9ea);
+  }
+
+  .ib-summary-card--terracotta {
+    background: linear-gradient(180deg, #fff5ef, #ffe8dc);
+  }
+
+  .ib-summary-card--ink {
+    background: linear-gradient(180deg, #f9f8ff, #f1effd);
+  }
+
+  @media (max-width: 1100px) {
+    .ib-summary-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+}

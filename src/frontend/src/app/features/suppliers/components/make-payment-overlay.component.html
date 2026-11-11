@@ -1,23 +1,23 @@
 <section
-  class="overlay"
+  class="ib-overlay"
   aria-modal="true"
   role="dialog"
   [attr.aria-label]="'suppliers.paymentForm' | transloco"
 >
-  <div class="overlay-backdrop" (click)="onClose()"></div>
+  <div class="ib-overlay__backdrop" (click)="onClose()"></div>
 
-  <div class="overlay-card">
-    <header class="overlay-header">
+  <div class="ib-overlay__card">
+    <header class="ib-overlay__header">
       <div>
-        <p class="eyebrow">{{ 'suppliers.title' | transloco }}</p>
-        <h2>{{ 'suppliers.makePayment' | transloco }}</h2>
-        <p class="description">
+        <p class="ib-overlay__eyebrow">{{ 'suppliers.title' | transloco }}</p>
+        <h2 class="ib-overlay__title">{{ 'suppliers.makePayment' | transloco }}</h2>
+        <p class="ib-overlay__description">
           {{ 'suppliers.makePaymentDescription' | transloco: { name: supplier.name } }}
         </p>
       </div>
       <button
         type="button"
-        class="close-button"
+        class="ib-overlay__close"
         [attr.aria-label]="'common.close' | transloco"
         (click)="onClose()"
       >
@@ -26,7 +26,7 @@
     </header>
     @if (pendingPayment(); as pending) {
       <app-pending-financial-operation
-        class="overlay-form"
+        class="ib-overlay__form"
         [intent]="pending"
         [busy]="isSubmitting() || isCheckingPayment()"
         [notice]="pendingNotice() ?? (serverError() || null)"
@@ -36,7 +36,7 @@
     } @else {
       <app-supplier-payment-form
         [targetId]="supplier.supplierId"
-        class="overlay-form"
+        class="ib-overlay__form"
         [submitting]="isSubmitting()"
         [serverError]="serverError()"
         [maxDate]="today"

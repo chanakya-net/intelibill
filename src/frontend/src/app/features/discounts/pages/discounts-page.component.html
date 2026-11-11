@@ -1,20 +1,20 @@
 <section class="discounts-page">
   <header class="discounts-hero">
     <div class="discounts-hero__copy">
-      <p class="eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
-      <h1>{{ 'discounts.title' | transloco }}</h1>
-      <p class="subtitle">{{ 'discounts.subtitle' | transloco }}</p>
-      <div class="discounts-hero__meta">
-        <span class="meta-chip meta-chip--primary">
+      <p class="ib-eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
+      <h1 class="ib-page-title">{{ 'discounts.title' | transloco }}</h1>
+      <p class="ib-subtitle ib-subtitle--measure">{{ 'discounts.subtitle' | transloco }}</p>
+      <div class="discounts-hero__meta ib-meta-row">
+        <span class="meta-chip ib-meta-chip meta-chip--primary ib-meta-chip--primary">
           {{
             'discounts.showingCount'
               | transloco: { visible: listItems().length, total: totalCount() }
           }}
         </span>
         @if (selectedRule()) {
-          <span class="meta-chip">{{ selectedRuleTitle() }}</span>
+          <span class="meta-chip ib-meta-chip">{{ selectedRuleTitle() }}</span>
         }
-        <span class="meta-chip">
+        <span class="meta-chip ib-meta-chip">
           {{
             'discounts.pagination.pageInfo' | transloco: { page: pageNumber(), total: totalCount() }
           }}
@@ -34,11 +34,11 @@
     </div>
   </header>
 
-  <div class="summary-grid" [attr.aria-label]="'discounts.summary.ariaLabel' | transloco">
+  <div class="summary-grid ib-summary-grid" [attr.aria-label]="'discounts.summary.ariaLabel' | transloco">
     @for (card of summaryCards(); track card.labelKey) {
-      <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
-        <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
-        <div class="summary-card__value">{{ card.value | number: '1.0-0' }}</div>
+      <article class="summary-card ib-summary-card" [ngClass]="'ib-summary-card--' + card.tone">
+        <div class="summary-card__label ib-summary-card__label">{{ card.labelKey | transloco }}</div>
+        <div class="summary-card__value ib-summary-card__value">{{ card.value | number: '1.0-0' }}</div>
       </article>
     }
   </div>
@@ -48,11 +48,11 @@
   }
 
   @if (listLoading()) {
-    <section class="directory-panel directory-panel--loading" aria-busy="true">
-      <div class="directory-panel__header">
+    <section class="directory-panel ib-panel directory-panel--loading" aria-busy="true">
+      <div class="directory-panel__header ib-panel__header">
         <div>
-          <p class="directory-panel__eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
-          <h2>{{ 'discounts.list.title' | transloco }}</h2>
+          <p class="ib-eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
+          <h2 class="ib-panel__title">{{ 'discounts.list.title' | transloco }}</h2>
         </div>
       </div>
       <div class="loading-shell">
@@ -68,20 +68,20 @@
   }
 
   @if (!listLoading()) {
-    <section class="directory-panel">
-      <header class="directory-panel__header">
+    <section class="directory-panel ib-panel">
+      <header class="directory-panel__header ib-panel__header">
         <div>
-          <p class="directory-panel__eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
-          <h2>{{ 'discounts.list.title' | transloco }}</h2>
-          <p class="directory-panel__subtitle">{{ 'discounts.subtitle' | transloco }}</p>
+          <p class="ib-eyebrow">{{ 'shell.manageDiscounts' | transloco }}</p>
+          <h2 class="ib-panel__title">{{ 'discounts.list.title' | transloco }}</h2>
+          <p class="ib-subtitle ib-subtitle--measure">{{ 'discounts.subtitle' | transloco }}</p>
         </div>
 
         <div
-          class="directory-panel__metrics"
+          class="directory-panel__metrics ib-panel__metrics"
           [attr.aria-label]="'discounts.directoryMetrics' | transloco"
         >
           @for (metric of directoryMetrics(); track metric.labelKey) {
-            <span class="metric-chip">
+            <span class="metric-chip ib-metric-chip">
               <strong>{{ metric.value | number: '1.0-0' }}</strong>
               <span>{{ metric.labelKey | transloco }}</span>
             </span>
@@ -101,7 +101,7 @@
       />
 
       <div class="discounts-workspace">
-        <div class="directory-panel__surface discounts-list-surface">
+        <div class="directory-panel__surface ib-panel__surface discounts-list-surface">
           <app-discounts-table
             [listItems]="listItems()"
             [listLoading]="listLoading()"
@@ -120,7 +120,7 @@
         <aside class="detail-panel">
           <header class="detail-panel__header">
             <div>
-              <p class="detail-panel__eyebrow">{{ 'discounts.detail.title' | transloco }}</p>
+              <p class="ib-eyebrow">{{ 'discounts.detail.title' | transloco }}</p>
               <h3>
                 {{
                   selectedRule() ? selectedRuleTitle() : ('discounts.detail.emptyTitle' | transloco)

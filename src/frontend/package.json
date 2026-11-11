@@ -9,6 +9,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "node ./scripts/test-runner.mjs",
     "audit:styles": "bun run scripts/audit-unused-styles.mjs",
+    "audit:styles:duplicates": "bun run scripts/audit-duplicate-styles.mjs",
     "audit:ui:setup": "bun run scripts/run-ui-audit.mjs --setup",
     "audit:ui": "bun run scripts/run-ui-audit.mjs",
     "audit:ui:mocked": "bun run scripts/run-ui-audit.mjs --mocked",

@@ -34,6 +34,8 @@ export const REFRESH_LEASE_STORAGE = new InjectionToken<Storage | null>('REFRESH
 
 const LOCK_PREFIX = 'intelibill.auth.refresh';
 const LEASE_PREFIX = 'intelibill.auth.refresh-lease';
+const TASK_LOCK_PREFIX = 'intelibill.tab-task';
+const TASK_LEASE_PREFIX = 'intelibill.tab-task-lease';
 
 /**
  * Longer than the refresh request timeout, so a live holder is not overtaken; short enough that a
@@ -72,8 +74,18 @@ export class RefreshCoordinator {
    * `work` completes, errors or is unsubscribed.
    */
   runExclusive<T>(userId: string, work: () => Observable<T>): Observable<T> {
-    const name = userId;
+    return this.runLocked(`${LOCK_PREFIX}:${userId}`, `${LEASE_PREFIX}:${userId}`, work);
+  }
 
+  /**
+   * The same one-tab-at-a-time lock for device-wide background work that is not a session renewal
+   * (for example the offline pack's update cycle), under its own names.
+   */
+  runExclusiveTask<T>(task: string, work: () => Observable<T>): Observable<T> {
+    return this.runLocked(`${TASK_LOCK_PREFIX}:${task}`, `${TASK_LEASE_PREFIX}:${task}`, work);
+  }
+
+  private runLocked<T>(lockName: string, leaseKey: string, work: () => Observable<T>): Observable<T> {
     return new Observable<T>((subscriber) => {
       let release: () => void = () => undefined;
       const held = new Promise<void>((resolve) => {
@@ -96,13 +108,12 @@ export class RefreshCoordinator {
 
       if (this.locks) {
         this.locks
-          .request(`${LOCK_PREFIX}:${name}`, { mode: 'exclusive' }, () => {
+          .request(lockName, { mode: 'exclusive' }, () => {
             start();
             return held;
           })
           .catch((error: unknown) => subscriber.error(error));
       } else {
-        const leaseKey = `${LEASE_PREFIX}:${name}`;
         const deadline = Date.now() + REFRESH_LEASE_WAIT_LIMIT_MS;
         const attempt = (): void => {
           if (closed) {

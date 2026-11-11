@@ -52,13 +52,13 @@
     margin: 0;
     font-size: 1.25rem;
     font-weight: 700;
-    color: #44403c;
+    color: var(--app-stone-700);
   }
 
   p {
     margin: 0.4rem 0 0;
     font-size: 0.9rem;
-    color: #78716c;
+    color: var(--app-stone-500);
   }
 }
 
@@ -72,7 +72,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #ef4444;
+  background-color: var(--app-red-500);
   display: inline-block;
 
   &.active {
@@ -97,8 +97,8 @@
       position: sticky;
       top: 0;
       z-index: 10;
-      background: #fafaf9 !important;
-      color: #57534e !important;
+      background: var(--app-stone-50) !important;
+      color: var(--app-stone-600) !important;
       font-weight: 600 !important;
       font-size: 0.85rem !important;
       border-bottom: 2px solid #f1f0ee !important;
@@ -107,11 +107,11 @@
 
     .p-datatable-tbody > tr {
       background-color: #ffffff;
-      color: #292524;
+      color: var(--app-stone-800);
       transition: background-color 0.2s ease;
 
       &:hover {
-        background-color: #fffbeb !important; /* warm highlight */
+        background-color: var(--app-amber-50) !important; /* warm highlight */
       }
 
       > td {
@@ -149,10 +149,10 @@
   display: inline-block;
   margin-left: 0.4rem;
   padding: 0.05rem 0.45rem;
-  border: 1px solid #fde68a;
-  border-radius: 999px;
-  background: #fffbeb;
-  color: #92400e;
+  border: 1px solid var(--app-amber-200);
+  border-radius: var(--app-radius-pill);
+  background: var(--app-amber-50);
+  color: var(--app-amber-800);
   font-size: 0.7rem;
   font-weight: 600;
 }

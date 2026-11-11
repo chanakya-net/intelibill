@@ -35,7 +35,7 @@
   border: 1px solid rgba(226, 232, 240, 0.9);
   background: #ffffff;
   box-shadow: 0 26px 56px rgba(2, 6, 23, 0.34);
-  color: #0f172a;
+  color: var(--app-slate-900);
   overflow: hidden;
 }
 
@@ -56,7 +56,7 @@
 
   p {
     margin-top: 0.65rem;
-    color: #475569;
+    color: var(--app-slate-600);
     font-size: 0.95rem;
     line-height: 1.4;
   }
@@ -71,14 +71,14 @@
 
 .overlay-kicker {
   display: inline-flex;
-  border-radius: 999px;
-  border: 1px solid #fed7aa;
+  border-radius: var(--app-radius-pill);
+  border: 1px solid var(--app-orange-200);
   padding: 0.2rem 0.65rem;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.11em;
   font-weight: 700;
-  color: #c2410c;
+  color: var(--app-orange-700);
 }
 
 .overlay-stepper {
@@ -110,24 +110,24 @@
     font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #475569;
+    color: var(--app-slate-600);
     font-weight: 700;
   }
 }
 
 .shop-select {
   width: 100%;
-  border: 1px solid #cbd5e1;
-  border-radius: 0.75rem;
+  border: 1px solid var(--app-slate-300);
+  border-radius: var(--app-radius-md);
   background: #fff;
-  color: #0f172a;
+  color: var(--app-slate-900);
   min-height: 2.75rem;
   padding: 0.55rem 0.8rem;
   outline: none;
   transition: border-color 160ms ease, box-shadow 160ms ease;
 
   &:focus {
-    border-color: #fb923c;
+    border-color: var(--app-orange-400);
     box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.2);
   }
 }
@@ -135,9 +135,9 @@
 .owner-hint {
   margin: 0;
   border: 1px solid rgba(254, 215, 170, 0.8);
-  background: #fff7ed;
+  background: var(--app-orange-50);
   border-radius: 0.8rem;
-  color: #9a3412;
+  color: var(--app-orange-800);
   font-size: 0.86rem;
   padding: 0.6rem 0.75rem;
 }
@@ -159,7 +159,7 @@
 
 .offline-card {
   border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: 1rem;
+  border-radius: var(--app-radius-lg);
   padding: 1rem 1.1rem;
   background: #ffffff;
 }
@@ -168,7 +168,7 @@
   border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: 0.85rem;
   padding: 0.75rem 0.85rem;
-  background: #f8fafc;
+  background: var(--app-slate-50);
 }
 
 .status-row {
@@ -182,13 +182,13 @@
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: #475569;
+  color: var(--app-slate-600);
   font-weight: 700;
 }
 
 .status-value {
   font-size: 0.9rem;
-  color: #0f172a;
+  color: var(--app-slate-900);
   font-weight: 600;
 }
 
@@ -224,7 +224,7 @@ input.p-inputtext {
 // Progress spinner styling
 .manage-shop-spinner-root {
   :global(.p-progressspinner-circle) {
-    stroke: #f8fafc;
+    stroke: var(--app-slate-50);
   }
 }
 

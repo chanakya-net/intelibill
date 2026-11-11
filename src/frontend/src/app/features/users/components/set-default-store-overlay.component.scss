@@ -47,7 +47,7 @@
 
   p {
     margin-top: 0.6rem;
-    color: #475569;
+    color: var(--app-slate-600);
     font-size: 0.95rem;
   }
 }
@@ -61,7 +61,7 @@
 
 .overlay-kicker {
   display: inline-flex;
-  border-radius: 999px;
+  border-radius: var(--app-radius-pill);
   border: 1px solid #bbf7d0;
   padding: 0.2rem 0.65rem;
   font-size: 0.72rem;

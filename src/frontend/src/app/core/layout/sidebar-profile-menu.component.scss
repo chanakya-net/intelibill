@@ -41,10 +41,10 @@
   width: 2.15rem;
   height: 2.15rem;
   margin: 0;
-  border-radius: 999px;
-  border: 1px solid #fb923c;
+  border-radius: var(--app-radius-pill);
+  border: 1px solid var(--app-orange-400);
   background: linear-gradient(135deg, #ffedd5 0%, #fdba74 100%);
-  color: #7c2d12;
+  color: var(--app-orange-900);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -66,7 +66,7 @@
   line-height: 1.15;
   font-size: 0.82rem;
   font-weight: 700;
-  color: #292524;
+  color: var(--app-stone-800);
   min-width: 0;
   overflow: hidden;
   overflow-wrap: anywhere;

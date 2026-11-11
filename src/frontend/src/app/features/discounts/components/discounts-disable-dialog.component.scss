@@ -14,10 +14,10 @@
 .dialog-error {
   margin: 0;
   padding: 0.7rem 0.8rem;
-  border: 1px solid #fecaca;
-  border-radius: 0.75rem;
+  border: 1px solid var(--app-red-200);
+  border-radius: var(--app-radius-md);
   background: #fff1f2;
-  color: #b91c1c;
+  color: var(--app-red-700);
 }
 
 :host ::ng-deep {

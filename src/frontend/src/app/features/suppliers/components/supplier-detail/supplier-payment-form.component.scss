@@ -13,7 +13,7 @@ label {
 label > span {
   font-size: 0.82rem;
   font-weight: 600;
-  color: #44403c;
+  color: var(--app-stone-700);
 }
 
 /* Make every form control span the full row */
@@ -30,8 +30,8 @@ label > span {
     border-radius: 8px;
 
     &:focus {
-      border-color: #f97316 !important; /* warm orange */
-      box-shadow: 0 0 0 2px #ffedd5 !important;
+      border-color: var(--app-orange-500) !important; /* warm orange */
+      box-shadow: 0 0 0 2px var(--app-orange-100) !important;
     }
   }
 }

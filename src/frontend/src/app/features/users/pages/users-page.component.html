@@ -1,20 +1,20 @@
 <section class="users-page">
   <header class="users-hero">
     <div class="users-hero__copy">
-      <p class="eyebrow">{{ 'users.teamAccess' | transloco }}</p>
-      <h1>{{ 'users.shopUsers' | transloco }}</h1>
-      <p class="subtitle">{{ 'users.subtitle' | transloco }}</p>
-      <div class="users-hero__meta">
-        <span class="meta-chip meta-chip--primary">
+      <p class="ib-eyebrow">{{ 'users.teamAccess' | transloco }}</p>
+      <h1 class="ib-page-title">{{ 'users.shopUsers' | transloco }}</h1>
+      <p class="ib-subtitle ib-subtitle--measure">{{ 'users.subtitle' | transloco }}</p>
+      <div class="users-hero__meta ib-meta-row">
+        <span class="meta-chip ib-meta-chip meta-chip--primary ib-meta-chip--primary">
           {{
             'users.showingCount'
               | transloco: { visible: filteredUsers().length, total: totalUsers() }
           }}
         </span>
-        <span class="meta-chip"
+        <span class="meta-chip ib-meta-chip"
           >{{ 'users.summary.managers' | transloco }}: {{ managerCount() }}</span
         >
-        <span class="meta-chip"
+        <span class="meta-chip ib-meta-chip"
           >{{ 'users.summary.activeMembers' | transloco }}: {{ activeMemberCount() }}</span
         >
       </div>
@@ -41,11 +41,11 @@
     </div>
   </header>
 
-  <div class="summary-grid" [attr.aria-label]="'users.summary.ariaLabel' | transloco">
+  <div class="summary-grid ib-summary-grid" [attr.aria-label]="'users.summary.ariaLabel' | transloco">
     @for (card of summaryCards(); track card.labelKey) {
-      <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
-        <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
-        <div class="summary-card__value">{{ card.value | number: '1.0-0' }}</div>
+      <article class="summary-card ib-summary-card" [ngClass]="'ib-summary-card--' + card.tone">
+        <div class="summary-card__label ib-summary-card__label">{{ card.labelKey | transloco }}</div>
+        <div class="summary-card__value ib-summary-card__value">{{ card.value | number: '1.0-0' }}</div>
       </article>
     }
   </div>
@@ -55,11 +55,11 @@
   }
 
   @if (isLoading()) {
-    <section class="directory-panel directory-panel--loading" aria-busy="true">
-      <div class="directory-panel__header">
+    <section class="directory-panel ib-panel directory-panel--loading" aria-busy="true">
+      <div class="directory-panel__header ib-panel__header">
         <div>
-          <p class="directory-panel__eyebrow">{{ 'users.teamAccess' | transloco }}</p>
-          <h2>{{ 'users.shopUsers' | transloco }}</h2>
+          <p class="ib-eyebrow">{{ 'users.teamAccess' | transloco }}</p>
+          <h2 class="ib-panel__title">{{ 'users.shopUsers' | transloco }}</h2>
         </div>
       </div>
       <div class="loading-shell">
@@ -75,20 +75,20 @@
   }
 
   @if (!isLoading()) {
-    <section class="directory-panel">
-      <header class="directory-panel__header">
+    <section class="directory-panel ib-panel">
+      <header class="directory-panel__header ib-panel__header">
         <div>
-          <p class="directory-panel__eyebrow">{{ 'users.teamAccess' | transloco }}</p>
-          <h2>{{ 'users.shopUsers' | transloco }}</h2>
-          <p class="directory-panel__subtitle">{{ 'users.subtitle' | transloco }}</p>
+          <p class="ib-eyebrow">{{ 'users.teamAccess' | transloco }}</p>
+          <h2 class="ib-panel__title">{{ 'users.shopUsers' | transloco }}</h2>
+          <p class="ib-subtitle ib-subtitle--measure">{{ 'users.subtitle' | transloco }}</p>
         </div>
 
         <div
-          class="directory-panel__metrics"
+          class="directory-panel__metrics ib-panel__metrics"
           [attr.aria-label]="'users.directoryMetrics' | transloco"
         >
           @for (metric of directoryMetrics(); track metric.labelKey) {
-            <span class="metric-chip">
+            <span class="metric-chip ib-metric-chip">
               <strong>{{ metric.value | number: '1.0-0' }}</strong>
               <span>{{ metric.labelKey | transloco }}</span>
             </span>
@@ -160,7 +160,7 @@
       </div>
 
       <!-- Desktop table -->
-      <div class="directory-panel__surface desktop-table">
+      <div class="directory-panel__surface ib-panel__surface desktop-table">
         <p-table
           [value]="tableUsers()"
           [sortField]="'firstName'"
@@ -267,12 +267,12 @@
   }
 
   @if (canAddUsers() && pendingInvitations().length > 0) {
-    <section class="directory-panel invitations-panel">
-      <header class="directory-panel__header">
+    <section class="directory-panel ib-panel invitations-panel">
+      <header class="directory-panel__header ib-panel__header">
         <div>
-          <p class="directory-panel__eyebrow">{{ 'users.teamAccess' | transloco }}</p>
-          <h2>{{ 'users.pendingInvitations' | transloco }}</h2>
-          <p class="directory-panel__subtitle">
+          <p class="ib-eyebrow">{{ 'users.teamAccess' | transloco }}</p>
+          <h2 class="ib-panel__title">{{ 'users.pendingInvitations' | transloco }}</h2>
+          <p class="ib-subtitle ib-subtitle--measure">
             {{ 'users.pendingInvitationsDescription' | transloco }}
           </p>
         </div>

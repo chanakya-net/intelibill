@@ -8,10 +8,10 @@
   display: grid;
   gap: 1rem;
   padding: 1rem 1.1rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 1rem;
+  border: 1px solid var(--app-slate-200);
+  border-radius: var(--app-radius-lg);
   background: #fff;
-  color: #0f172a;
+  color: var(--app-slate-900);
   font-size: 0.875rem;
   line-height: 1.5;
   overflow-wrap: anywhere;
@@ -35,10 +35,10 @@
   place-items: center;
   flex: 0 0 2.5rem;
   height: 2.5rem;
-  border: 1px solid #fed7aa;
-  border-radius: 0.75rem;
-  background: #fff7ed;
-  color: #9a3412;
+  border: 1px solid var(--app-orange-200);
+  border-radius: var(--app-radius-md);
+  background: var(--app-orange-50);
+  color: var(--app-orange-800);
 }
 h3,
 h4 {
@@ -52,17 +52,17 @@ p {
 .settings-heading p,
 .settings-muted {
   margin-top: 0.25rem;
-  color: #475569;
+  color: var(--app-slate-600);
   font-size: 0.8125rem;
 }
 .settings-status {
   display: inline-flex;
   max-width: 100%;
   padding: 0.3rem 0.65rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  background: #f8fafc;
-  color: #475569;
+  border: 1px solid var(--app-slate-200);
+  border-radius: var(--app-radius-pill);
+  background: var(--app-slate-50);
+  color: var(--app-slate-600);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -77,10 +77,10 @@ p {
   align-items: flex-start;
   gap: 0.5rem;
   padding: 0.75rem;
-  border: 1px solid #fed7aa;
-  border-radius: 0.75rem;
-  background: #fff7ed;
-  color: #9a3412;
+  border: 1px solid var(--app-orange-200);
+  border-radius: var(--app-radius-md);
+  background: var(--app-orange-50);
+  color: var(--app-orange-800);
   font-size: 0.8125rem;
 }
 .settings-notice .pi {
@@ -120,7 +120,7 @@ dd {
   align-items: center;
   gap: 0.4rem;
   margin-right: auto;
-  color: #9a3412;
+  color: var(--app-orange-800);
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 0.2em;
@@ -132,16 +132,16 @@ dd {
   display: grid;
   gap: 0.85rem;
   padding: 1rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--app-slate-200);
   border-radius: 0.8rem;
-  background: #f8fafc;
+  background: var(--app-slate-50);
 }
 .settings-field {
   display: grid;
   gap: 0.4rem;
 }
 .settings-field label {
-  color: #475569;
+  color: var(--app-slate-600);
   font-size: 0.8125rem;
   font-weight: 600;
 }
@@ -171,7 +171,7 @@ textarea {
   color: #9f1239;
   background: #fff1f2;
   border: 1px solid #fecdd3;
-  border-radius: 0.75rem;
+  border-radius: var(--app-radius-md);
   padding: 0.75rem;
 }
 .settings-saved {
@@ -181,10 +181,10 @@ textarea {
   display: flex;
   justify-content: flex-end;
   padding-top: 0.5rem;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--app-slate-200);
 }
 .settings-link:focus-visible {
-  outline: 2px solid #c2410c;
+  outline: 2px solid var(--app-orange-700);
   outline-offset: 3px;
   border-radius: 0.2rem;
 }

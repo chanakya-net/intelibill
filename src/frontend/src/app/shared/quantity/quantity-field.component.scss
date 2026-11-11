@@ -26,7 +26,7 @@
 .quantity-field-unit {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--app-slate-500);
   white-space: nowrap;
 }
 
@@ -34,5 +34,5 @@
   margin: 0;
   max-width: 14rem;
   font-size: 0.75rem;
-  color: #dc2626;
+  color: var(--app-red-600);
 }

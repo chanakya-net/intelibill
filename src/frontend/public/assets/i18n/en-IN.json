@@ -151,6 +151,7 @@
     "offlineSalesEnabled": "Offline sales enabled. Click to disable.",
     "offlineSalesDisabled": "Offline sales disabled. Click to enable.",
     "offlineSalesEnabling": "Enabling offline sales…",
+    "offlineSalesPackIncomplete": "Offline sales enabled, but the offline files are incomplete. Stay online so they can be repaired. Click to disable.",
     "pinSidebar": "Pin sidebar",
     "unpinSidebar": "Unpin sidebar",
     "collapseSidebar": "Collapse sidebar",
@@ -163,6 +164,14 @@
       "reloadRequired": "Intelibill could not finish updating on this device. Reload this page to try again.",
       "blocked": "Cached data from an earlier version could not be cleared. Reload this page to try again; your sales and drafts are not affected.",
       "reload": "Reload"
+    },
+    "appUpdate": {
+      "ready": "A new version of Intelibill is ready. It is used the next time the app opens.",
+      "apply": "Update now",
+      "busy": "Save or finish the current work first, then update.",
+      "unrecoverable": "This version of Intelibill can no longer load its files. Reload the page while online.",
+      "reload": "Reload",
+      "offlineNeedsUpdate": "Offline billing is on, but this tab still runs an earlier version. Select “Update now” before you go offline."
     }
   },
   "dashboard": {
@@ -2524,16 +2533,34 @@
     "statusEnabled": "Enabled",
     "statusNeedsSetup": "Not enabled",
     "statusApiUnreachable": "API unreachable",
+    "statusPackIncomplete": "Enabled — offline files incomplete",
     "snapshotAge": "Last snapshot age",
     "invoiceRemaining": "Invoices remaining",
     "enable": "Enable offline billing",
     "enabling": "Enabling…",
+    "progress": {
+      "appPack": "Downloading app files for offline use…",
+      "snapshot": "Downloading shop data…",
+      "lease": "Reserving invoice numbers…"
+    },
+    "pack": {
+      "title": "Offline files",
+      "ready": "Ready",
+      "incomplete": "Incomplete — stay online so they can be repaired",
+      "version": "Version",
+      "lastChecked": "Last checked",
+      "lastUpdated": "Last updated",
+      "notPersisted": "This browser has not agreed to keep the offline files and may remove them when storage runs low. They are checked again whenever the app opens online.",
+      "needsUpdate": "This tab runs an earlier version than the offline files. Select “Update now” at the top of the page before you go offline."
+    },
     "errors": {
       "onlyOwnerOrManager": "Only Owners and Managers can enable offline billing for a device.",
       "apiUnreachable": "API is unreachable. Try again when connected.",
       "snapshotIncomplete": "Snapshot setup did not complete. Please retry.",
       "leaseUnavailable": "Invoice lease could not be reserved. Please retry.",
-      "enableFailed": "Offline setup failed. Please retry."
+      "enableFailed": "Offline setup failed. Please retry.",
+      "appPackIncomplete": "The app files for offline use could not be downloaded completely. Stay online and retry.",
+      "appPackStorageLow": "Not enough free storage on this device for the offline files. Free some space and retry."
     }
   },
   "purchaseOrders": {

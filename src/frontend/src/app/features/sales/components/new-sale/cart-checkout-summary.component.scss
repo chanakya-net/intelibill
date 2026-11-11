@@ -1,7 +1,7 @@
 .summary-box {
-  background: #fffaf4;
+  background: var(--app-sand-50);
   border: 1px solid #eadccf;
-  border-radius: 1rem;
+  border-radius: var(--app-radius-lg);
   padding: 1rem;
   min-width: 0;
 }
@@ -10,7 +10,7 @@
   margin-bottom: 1rem;
   padding: 0.85rem;
   border: 1px solid #dce4d7;
-  border-radius: 0.75rem;
+  border-radius: var(--app-radius-md);
   background: #f4f5ed;
 }
 
@@ -92,7 +92,7 @@
 
 .discount-editor label {
   font-size: 0.75rem;
-  color: #475569;
+  color: var(--app-slate-600);
 }
 
 :host ::ng-deep .p-select:focus-visible,

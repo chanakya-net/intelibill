@@ -17,6 +17,20 @@
       }
     },
     {
+      "name": "offline",
+      "installMode": "prefetch",
+      "updateMode": "prefetch",
+      "resources": {
+        "files": [
+          "/fonts/*.woff2",
+          "/media/*.woff2",
+          "/assets/i18n/*.json",
+          "/icons/*.png",
+          "/illustrations/*.svg"
+        ]
+      }
+    },
+    {
       "name": "assets",
       "installMode": "lazy",
       "updateMode": "prefetch",

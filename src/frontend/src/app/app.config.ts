@@ -107,6 +107,12 @@ function initializeAppServices(): () => Promise<void> {
   return async () => {
     // In the background: no request waits on it, since every API request bypasses the worker.
     injector.get(ProtectedCacheSafetyService).start();
+    // Also in the background, and loaded on demand so the first load does not carry it: writes this
+    // device's offline pack flag, then checks for a new version now and on its own schedule.
+    void import('./core/service-worker/offline-pack-update.service').then(
+      ({ OfflinePackUpdateService }) => injector.get(OfflinePackUpdateService).start(),
+      () => undefined,
+    );
     await localizationService.initialize();
     await firstValueFrom(authService.bootstrapSession());
 

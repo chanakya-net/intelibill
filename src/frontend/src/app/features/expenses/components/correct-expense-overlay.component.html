@@ -7,15 +7,15 @@
   <div class="overlay-backdrop" (click)="onClose()"></div>
 
   <div class="overlay-card">
-    <header class="overlay-header">
+    <header class="ib-overlay__header">
       <div>
-        <p class="eyebrow">{{ 'expenses.title' | transloco }}</p>
-        <h2>{{ 'expenses.correctExpense' | transloco }}</h2>
-        <p class="description">{{ 'expenses.correctExpenseDescription' | transloco }}</p>
+        <p class="ib-overlay__eyebrow">{{ 'expenses.title' | transloco }}</p>
+        <h2 class="ib-overlay__title">{{ 'expenses.correctExpense' | transloco }}</h2>
+        <p class="ib-overlay__description">{{ 'expenses.correctExpenseDescription' | transloco }}</p>
       </div>
       <button
         type="button"
-        class="close-button"
+        class="ib-overlay__close"
         [attr.aria-label]="'common.close' | transloco"
         (click)="onClose()"
       >
@@ -23,7 +23,7 @@
       </button>
     </header>
 
-    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <form class="ib-overlay__form" [formGroup]="form" (ngSubmit)="onSubmit()">
       @if (treatment() === 'SupplierSettlement') {
         <p data-testid="settlement-provenance">
           {{ 'expenses.treatment.supplierProvenance' | transloco }}
@@ -126,10 +126,10 @@
       </label>
 
       @if (serverError()) {
-        <p class="error-message">{{ serverError() | transloco: localizedError()?.params ?? {} }}</p>
+        <p class="ib-overlay__error">{{ serverError() | transloco: localizedError()?.params ?? {} }}</p>
       }
 
-      <div class="actions">
+      <div class="ib-overlay__actions">
         <button
           pButton
           type="button"
@@ -171,7 +171,7 @@
     </form>
 
     @if (isSubmitting()) {
-      <div class="submit-overlay">
+      <div class="ib-overlay__busy">
         <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
       </div>
     }

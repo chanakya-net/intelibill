@@ -23,7 +23,10 @@ const BUILT_FILES: Readonly<Record<string, string>> = {
   '/manifest.webmanifest': '{}',
   '/assets/i18n/en-IN.json': '{}',
   '/fonts/inter.woff2': 'font',
+  '/media/primeicons-ABC.woff2': 'icon font',
+  '/media/primeicons-ABC.ttf': 'legacy icon font',
   '/icons/icon-192.png': 'png',
+  '/illustrations/auth-bud.svg': 'svg',
 };
 
 class MemoryFilesystem implements Filesystem {
@@ -44,7 +47,7 @@ class MemoryFilesystem implements Filesystem {
 }
 
 interface GeneratedManifest {
-  readonly assetGroups: readonly { name: string; urls: string[]; patterns: string[] }[];
+  readonly assetGroups: readonly { name: string; installMode: string; urls: string[]; patterns: string[] }[];
   readonly dataGroups?: readonly { name: string; patterns: string[] }[];
   readonly navigationUrls: readonly { positive: boolean; regex: string }[];
 }
@@ -139,5 +142,26 @@ describe('ngsw-config.json', () => {
     // Angular's own exclusions are kept: files and harness-style `__` paths.
     expect(isNavigationUrl(manifest, '/assets/i18n/en-IN.json')).toBe(false);
     expect(isNavigationUrl(manifest, '/__harness')).toBe(false);
+  });
+
+  it('prefetches everything an offline device needs in the full manifest (docs/frontend-architecture.md § Offline Pack)', async () => {
+    const manifest = await generate();
+    const prefetched = manifest.assetGroups.filter((group) => group.installMode === 'prefetch').flatMap((group) => group.urls);
+
+    for (const file of [
+      '/index.html',
+      '/main-ABC123.js',
+      '/chunk-DEF456.js',
+      '/styles-GHI789.css',
+      '/assets/i18n/en-IN.json',
+      '/fonts/inter.woff2',
+      '/media/primeicons-ABC.woff2',
+      '/icons/icon-192.png',
+      '/illustrations/auth-bud.svg',
+    ]) {
+      expect(prefetched, file).toContain(file);
+    }
+    // Formats a browser never asks for when it has WOFF2 stay out of the download.
+    expect(prefetched).not.toContain('/media/primeicons-ABC.ttf');
   });
 });

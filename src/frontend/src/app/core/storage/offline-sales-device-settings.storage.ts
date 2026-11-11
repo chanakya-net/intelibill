@@ -113,6 +113,29 @@ export class OfflineSalesDeviceSettingsStorage {
     return next;
   }
 
+  /**
+   * True when offline billing is enabled for any shop on this browser: the device then needs the pack.
+   * Null when the settings cannot be read (storage blocked or throwing): unknown, never "no shop", so a
+   * caller keeps the pack rather than drop it over a storage error.
+   */
+  anyShopEnabled(): boolean | null {
+    try {
+      if (typeof localStorage === 'undefined') {
+        return null;
+      }
+
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index);
+        if (key?.startsWith(`${SETTINGS_KEY_PREFIX}:`) && safeJsonParse<{ enabled?: unknown }>(localStorage.getItem(key))?.enabled === true) {
+          return true;
+        }
+      }
+      return false;
+    } catch {
+      return null;
+    }
+  }
+
   private buildDeviceIdKey(shopId: string): string {
     return `${DEVICE_ID_KEY_PREFIX}:${shopId}`;
   }

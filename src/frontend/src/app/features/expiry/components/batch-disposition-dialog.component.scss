@@ -18,11 +18,11 @@
     min-width: 0;
   }
   span {
-    color: #6f5a48;
+    color: var(--app-brown-700);
     font-size: 0.78rem;
   }
   strong {
-    color: #2a1b12;
+    color: var(--app-brown-900);
     font-size: 1.35rem;
   }
 }
@@ -35,8 +35,8 @@
   padding: 0.75rem;
   border: 1px solid #f5d4a8;
   border-radius: 0.8rem;
-  background: #fff7ed;
-  color: #9a3412;
+  background: var(--app-orange-50);
+  color: var(--app-orange-800);
   font-size: 0.85rem;
 }
 .pending-section {
@@ -55,16 +55,16 @@
   list-style: none;
   li {
     padding: 0.75rem;
-    border: 1px solid #ead7c1;
+    border: 1px solid var(--app-sand-300);
     border-radius: 0.8rem;
     background: rgba(255, 255, 255, 0.8);
     font-size: 0.8rem;
     line-height: 1.5;
-    color: #6f5a48;
+    color: var(--app-brown-700);
     overflow-wrap: anywhere;
   }
   strong {
-    color: #2a1b12;
+    color: var(--app-brown-900);
     font-size: 0.85rem;
   }
   p {
@@ -73,7 +73,7 @@
   summary {
     margin-top: 0.5rem;
     cursor: pointer;
-    color: #9b5d20;
+    color: var(--app-bronze-600);
   }
 }
 :host ::ng-deep {
@@ -86,7 +86,7 @@
     }
     .p-select {
       min-height: 2.75rem;
-      border-radius: 0.75rem;
+      border-radius: var(--app-radius-md);
       border-color: #e7d6c3;
       background: rgba(255, 255, 255, 0.92);
       font-size: 0.9rem;
@@ -95,7 +95,7 @@
       align-self: center;
     }
     .p-dialog-title {
-      color: #2a1b12;
+      color: var(--app-brown-900);
     }
   }
 }

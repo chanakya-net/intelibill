@@ -33,7 +33,7 @@
     line-height: 1.1;
     font-weight: 800;
     letter-spacing: -0.04em;
-    color: #0f172a;
+    color: var(--app-slate-900);
   }
 
   .eyebrow {
@@ -42,7 +42,7 @@
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: #f97316;
+    color: var(--app-orange-500);
   }
 
   .subtitle {
@@ -50,7 +50,7 @@
     max-width: 52rem;
     font-size: 0.98rem;
     line-height: 1.55;
-    color: #475569;
+    color: var(--app-slate-600);
   }
 }
 
@@ -68,10 +68,10 @@
   gap: 0.4rem;
   min-height: 2.25rem;
   padding: 0.35rem 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--app-radius-pill);
   border: 1px solid rgba(245, 158, 11, 0.28);
   background: rgba(255, 247, 237, 0.95);
-  color: #9a3412;
+  color: var(--app-orange-800);
   font-size: 0.8rem;
   font-weight: 700;
   white-space: nowrap;
@@ -123,7 +123,7 @@
     margin: 0.25rem 0 0;
     font-size: 1.05rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--app-slate-900);
   }
 }
 
@@ -132,7 +132,7 @@
   flex-direction: column;
   gap: 0.65rem;
   padding: 0.85rem;
-  border-radius: 1rem;
+  border-radius: var(--app-radius-lg);
   border: 1px solid rgba(251, 146, 60, 0.28);
   background: rgba(255, 251, 247, 0.92);
 }
@@ -146,13 +146,13 @@
     margin: 0;
     font-size: 0.98rem;
     font-weight: 700;
-    color: #7c2d12;
+    color: var(--app-orange-900);
   }
 
   p {
     margin: 0;
     font-size: 0.76rem;
-    color: #57534e;
+    color: var(--app-stone-600);
     line-height: 1.35;
   }
 }
@@ -163,7 +163,7 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  color: #c2410c;
+  color: var(--app-orange-700);
 }
 
 .quick-product-tile-grid {
@@ -192,7 +192,7 @@
     box-shadow 0.2s ease;
 
   &:hover {
-    border-color: #fb923c;
+    border-color: var(--app-orange-400);
     box-shadow: 0 8px 18px rgba(249, 115, 22, 0.2);
     transform: translateY(-2px);
   }
@@ -213,7 +213,7 @@
 
   .quick-product-tile-stock {
     margin: 0;
-    color: #57534e;
+    color: var(--app-stone-600);
     font-size: 0.75rem;
   }
 
@@ -221,7 +221,7 @@
     margin: 0;
     font-size: 1.02rem;
     font-weight: 800;
-    color: #b45309;
+    color: var(--app-amber-700);
     letter-spacing: -0.02em;
   }
 
@@ -229,7 +229,7 @@
     margin-top: auto;
     font-size: 0.75rem;
     font-weight: 700;
-    color: #ea580c;
+    color: var(--app-orange-600);
     text-transform: uppercase;
   }
 }
@@ -240,7 +240,7 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #c2410c;
+  color: var(--app-orange-700);
 }
 
 .new-sale-product-lookup,
@@ -250,7 +250,7 @@
 }
 
 .error {
-  color: #dc2626;
+  color: var(--app-red-600);
   font-size: 0.875rem;
 }
 
@@ -259,10 +259,10 @@
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  background-color: #fffbeb;
-  border: 1px solid #fcd34d;
-  color: #78350f;
+  border-radius: var(--app-radius-md);
+  background-color: var(--app-amber-50);
+  border: 1px solid var(--app-amber-300);
+  color: var(--app-amber-900);
   font-size: 0.875rem;
 }
 
@@ -310,15 +310,15 @@
 .pending-checkouts__status,
 .pending-checkouts__current {
   padding: 0.125rem 0.5rem;
-  border-radius: 999px;
-  background: #fef3c7;
+  border-radius: var(--app-radius-pill);
+  background: var(--app-amber-100);
   font-size: 0.75rem;
   font-weight: 600;
 }
 
 .pending-checkouts__current {
-  background: #ffedd5;
-  color: #9a3412;
+  background: var(--app-orange-100);
+  color: var(--app-orange-800);
 }
 
 .pending-checkouts__actions {
@@ -328,7 +328,7 @@
 }
 
 .error-hint {
-  color: #dc2626;
+  color: var(--app-red-600);
   font-size: 0.75rem;
   margin: 0;
 }
@@ -338,7 +338,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
+  border-radius: var(--app-radius-md);
   background-color: #dbeafe;
   border: 1px solid #93c5fd;
   color: #1e40af;
@@ -368,7 +368,7 @@
 
 @keyframes highlightFade {
   0% {
-    background-color: #fef3c7 !important;
+    background-color: var(--app-amber-100) !important;
   }
   100% {
     background-color: transparent !important;

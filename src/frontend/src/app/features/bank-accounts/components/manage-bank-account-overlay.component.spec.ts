@@ -179,7 +179,7 @@ describe('ManageBankAccountOverlayComponent', () => {
     errorSignal.set('Error saving account');
     fixture.detectChanges();
 
-    const errorMsg = fixture.nativeElement.querySelector('.error-message');
+    const errorMsg = fixture.nativeElement.querySelector('.ib-overlay__error');
     expect(errorMsg).toBeTruthy();
   });
 });

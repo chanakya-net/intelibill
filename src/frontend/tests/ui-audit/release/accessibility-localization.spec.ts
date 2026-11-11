@@ -6,10 +6,11 @@ import { SUPPORTED_LANGUAGES } from '../../../src/app/core/i18n/language.constan
 import { startPurchaseReceivingServer, session, PO } from './purchase-receiving-server';
 import { accessibilityFixtures, LONG_NAME, SALE } from './accessibility-localization-fixtures';
 const BUILD = resolve(__dirname, '../../../dist/INVENTORY/browser');
-const EVIDENCE = resolve(
-  __dirname,
-  '../../../../../docs/reviews/2026-11-09-accessible-localized-workflows-evidence',
-);
+// Screenshots go to the ignored audit output; set ACCESSIBILITY_LOCALIZATION_EVIDENCE to a folder
+// (e.g. docs/reviews/2026-11-09-accessible-localized-workflows-evidence) to refresh review evidence.
+const EVIDENCE =
+  process.env['ACCESSIBILITY_LOCALIZATION_EVIDENCE'] ||
+  resolve(__dirname, '../../../.ui-audit/evidence/accessibility-localization');
 const tr = (lang: string, key: string): string =>
   key
     .split('.')

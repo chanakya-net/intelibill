@@ -40,7 +40,7 @@
 h1 {
   margin: 0.15rem 0 0;
   color: #241811;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--app-font-heading);
   font-size: clamp(2.35rem, 4vw, 3.75rem);
   font-weight: 700;
   letter-spacing: 0;
@@ -68,7 +68,7 @@ h1 {
   min-height: 2.25rem;
   padding: 0 0.9rem;
   border: 1px solid #e4d4c4;
-  border-radius: 999px;
+  border-radius: var(--app-radius-pill);
   background: rgba(255, 250, 244, 0.82);
   color: #6b594d;
   font-size: 0.85rem;
@@ -85,7 +85,7 @@ h1 {
   margin-top: 1.9rem;
   min-height: 2.9rem;
   padding: 0 1.2rem;
-  border-radius: 0.75rem;
+  border-radius: var(--app-radius-md);
   font-weight: 900;
 }
 
@@ -131,7 +131,7 @@ h1 {
   margin: 0;
   padding: 0.9rem 1rem;
   border: 1px solid #f0b9ad;
-  border-radius: 1rem;
+  border-radius: var(--app-radius-lg);
   background: #fff2ee;
   color: #b42318;
 }
@@ -162,7 +162,7 @@ h1 {
 }
 
 .directory-panel__surface {
-  background: #fffaf4;
+  background: var(--app-sand-50);
 }
 
 .directory-panel__footer {
@@ -183,7 +183,7 @@ h1 {
 }
 
 :host ::ng-deep .loading-shell .p-skeleton {
-  border-radius: 1rem;
+  border-radius: var(--app-radius-lg);
 }
 
 @media (max-width: 1180px) {

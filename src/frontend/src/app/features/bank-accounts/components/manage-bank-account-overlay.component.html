@@ -1,23 +1,23 @@
 <section
-  class="overlay"
+  class="ib-overlay"
   aria-modal="true"
   role="dialog"
   [attr.aria-label]="'bankAccounts.accountForm' | transloco"
 >
-  <div class="overlay-backdrop" (click)="onClose()"></div>
+  <div class="ib-overlay__backdrop" (click)="onClose()"></div>
 
-  <div class="overlay-card">
-    <header class="overlay-header">
+  <div class="ib-overlay__card">
+    <header class="ib-overlay__header">
       <div>
-        <p class="eyebrow">{{ 'bankAccounts.title' | transloco }}</p>
-        <h2>{{ (bankAccount ? 'bankAccounts.editAccount' : 'bankAccounts.addAccount') | transloco }}</h2>
-        <p class="description">
+        <p class="ib-overlay__eyebrow">{{ 'bankAccounts.title' | transloco }}</p>
+        <h2 class="ib-overlay__title">{{ (bankAccount ? 'bankAccounts.editAccount' : 'bankAccounts.addAccount') | transloco }}</h2>
+        <p class="ib-overlay__description">
           {{ (bankAccount ? 'bankAccounts.editAccountDescription' : 'bankAccounts.addAccountDescription') | transloco }}
         </p>
       </div>
       <button
         type="button"
-        class="close-button"
+        class="ib-overlay__close"
         [attr.aria-label]="'common.close' | transloco"
         (click)="onClose()"
       >
@@ -25,14 +25,14 @@
       </button>
     </header>
 
-    <form class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <form class="ib-overlay__form" [formGroup]="form" (ngSubmit)="onSubmit()">
       <app-bank-account-form [form]="form" idPrefix="manage"></app-bank-account-form>
 
       @if (serverError()) {
-        <p class="error-message">{{ serverError() | transloco }}</p>
+        <p class="ib-overlay__error">{{ serverError() | transloco }}</p>
       }
 
-      <div class="actions">
+      <div class="ib-overlay__actions">
         <button
           pButton
           type="button"
@@ -51,7 +51,7 @@
     </form>
 
     @if (isSubmitting()) {
-      <div class="submit-overlay">
+      <div class="ib-overlay__busy">
         <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
       </div>
     }

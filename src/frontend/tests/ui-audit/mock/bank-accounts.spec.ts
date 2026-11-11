@@ -92,7 +92,7 @@ test.describe('bank-accounts', () => {
     try {
       await openBankAccounts(page);
       await page.getByRole('button', { name: /add bank account/i }).click();
-      const overlay = page.locator('app-manage-bank-account-overlay .overlay');
+      const overlay = page.locator('app-manage-bank-account-overlay .ib-overlay');
       await expect(overlay).toBeVisible();
       await expect(overlay.locator('app-bank-account-form')).toBeVisible();
 
@@ -181,18 +181,18 @@ test.describe('bank-accounts', () => {
         ]) {
           await page.setViewportSize(viewport);
           await visitBankAccounts(page);
-          const overlay = page.locator('app-manage-bank-account-overlay .overlay');
+          const overlay = page.locator('app-manage-bank-account-overlay .ib-overlay');
           await page.locator('.page-header button').click();
           await expect(overlay).toBeVisible();
           await assertOverlayFits(page, overlay);
-          await overlay.locator('.close-button').click();
+          await overlay.locator('.ib-overlay__close').click();
           await page.locator('tbody tr').first().locator('button').first().click();
           await expect(overlay).toBeVisible();
           await expect(overlay.locator('input[formControlName="bankName"]')).toHaveValue(
             LONG_ACCOUNT.bankName,
           );
           await assertOverlayFits(page, overlay);
-          await overlay.locator('.close-button').click();
+          await overlay.locator('.ib-overlay__close').click();
         }
       }
       assertNoUnexpectedBrowserFailures(collector.failures);
@@ -239,7 +239,7 @@ async function assertNoHorizontalOverflow(page: Page): Promise<void> {
 }
 
 async function assertOverlayFits(page: Page, overlay: Locator): Promise<void> {
-  const bounds = await overlay.locator('.overlay-card').evaluate((element) => {
+  const bounds = await overlay.locator('.ib-overlay__card').evaluate((element) => {
     const box = element.getBoundingClientRect();
     return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
   });

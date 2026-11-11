@@ -245,6 +245,8 @@ export async function startPurchaseReceivingServer(root: string) {
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   return {
     origin: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+    /** The static release server behind this one (worker, manifests, request log). */
+    assets,
     posts,
     operations,
     lookups,

@@ -1,23 +1,23 @@
 <section class="account-page">
   <header class="account-hero">
     <div class="account-hero__copy">
-      <p class="eyebrow">{{ 'profile.account' | transloco }}</p>
-      <h1>{{ 'identity.profileAndSecurity' | transloco }}</h1>
-      <p class="subtitle">{{ 'identity.accountDescription' | transloco }}</p>
-      <div class="account-hero__meta">
-        <span class="meta-chip meta-chip--primary">
+      <p class="ib-eyebrow">{{ 'profile.account' | transloco }}</p>
+      <h1 class="ib-page-title">{{ 'identity.profileAndSecurity' | transloco }}</h1>
+      <p class="ib-subtitle ib-subtitle--measure">{{ 'identity.accountDescription' | transloco }}</p>
+      <div class="account-hero__meta ib-meta-row">
+        <span class="meta-chip ib-meta-chip meta-chip--primary ib-meta-chip--primary">
           {{ 'identity.currentEmail' | transloco }}:
           {{ auth.session()?.user?.email || ('identity.noEmail' | transloco) }}
         </span>
         @if (methods(); as methods) {
-          <span class="meta-chip">
+          <span class="meta-chip ib-meta-chip">
             {{
               (methods.hasPassword ? 'identity.passwordAvailable' : 'identity.noPassword')
                 | transloco
             }}
           </span>
         }
-        <span class="meta-chip"
+        <span class="meta-chip ib-meta-chip"
           >{{ 'identity.devices' | transloco }}: {{ devices().length }}</span
         >
       </div>
@@ -32,12 +32,12 @@
     <p role="status" class="page-alert">{{ notice() | transloco }}</p>
   }
 
-  <section class="panel">
-    <header class="panel__header">
+  <section class="panel ib-panel">
+    <header class="panel__header ib-panel__header">
       <div>
-        <p class="panel__eyebrow">{{ 'profile.account' | transloco }}</p>
-        <h2>{{ 'profile.updateProfile' | transloco }}</h2>
-        <p class="panel__subtitle">{{ 'profile.updateProfileDescription' | transloco }}</p>
+        <p class="ib-eyebrow">{{ 'profile.account' | transloco }}</p>
+        <h2 class="ib-panel__title">{{ 'profile.updateProfile' | transloco }}</h2>
+        <p class="ib-subtitle ib-subtitle--measure">{{ 'profile.updateProfileDescription' | transloco }}</p>
       </div>
     </header>
 
@@ -132,12 +132,12 @@
   </section>
 
   @if (methods(); as methods) {
-    <section class="panel">
-      <header class="panel__header">
+    <section class="panel ib-panel">
+      <header class="panel__header ib-panel__header">
         <div>
-          <p class="panel__eyebrow">{{ 'profile.security' | transloco }}</p>
-          <h2>{{ 'identity.signInMethods' | transloco }}</h2>
-          <p class="panel__subtitle">
+          <p class="ib-eyebrow">{{ 'profile.security' | transloco }}</p>
+          <h2 class="ib-panel__title">{{ 'identity.signInMethods' | transloco }}</h2>
+          <p class="ib-subtitle ib-subtitle--measure">
             {{
               (methods.hasPassword ? 'identity.passwordAvailable' : 'identity.noPassword')
                 | transloco
@@ -148,12 +148,12 @@
     </section>
 
     @if (operation()) {
-      <section class="panel panel--reauth">
-        <header class="panel__header">
+      <section class="panel ib-panel panel--reauth">
+        <header class="panel__header ib-panel__header">
           <div>
-            <p class="panel__eyebrow">{{ 'profile.security' | transloco }}</p>
-            <h2>{{ 'identity.reauthenticate' | transloco }}</h2>
-            <p class="panel__subtitle">{{ 'identity.reauthDescription' | transloco }}</p>
+            <p class="ib-eyebrow">{{ 'profile.security' | transloco }}</p>
+            <h2 class="ib-panel__title">{{ 'identity.reauthenticate' | transloco }}</h2>
+            <p class="ib-subtitle ib-subtitle--measure">{{ 'identity.reauthDescription' | transloco }}</p>
           </div>
         </header>
 
@@ -206,7 +206,7 @@
       </section>
     }
   } @else if (!busy()) {
-    <section class="panel">
+    <section class="panel ib-panel">
       <div class="panel__actions">
         <button
           pButton
@@ -219,12 +219,12 @@
     </section>
   }
 
-  <section class="panel">
-    <header class="panel__header">
+  <section class="panel ib-panel">
+    <header class="panel__header ib-panel__header">
       <div>
-        <p class="panel__eyebrow">{{ 'profile.security' | transloco }}</p>
-        <h2>{{ 'identity.devices' | transloco }}</h2>
-        <p class="panel__subtitle">{{ 'identity.devicesDescription' | transloco }}</p>
+        <p class="ib-eyebrow">{{ 'profile.security' | transloco }}</p>
+        <h2 class="ib-panel__title">{{ 'identity.devices' | transloco }}</h2>
+        <p class="ib-subtitle ib-subtitle--measure">{{ 'identity.devicesDescription' | transloco }}</p>
       </div>
 
       @if (devices().length) {

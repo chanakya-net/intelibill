@@ -34,7 +34,7 @@
 
 .details-heading {
   margin: 0;
-  color: #2a1b12;
+  color: var(--app-brown-900);
   font-size: 1.05rem;
   font-weight: 800;
 }
@@ -47,10 +47,10 @@
 
 .error {
   padding: 0.75rem 0.85rem;
-  border: 1px solid #fecaca;
+  border: 1px solid var(--app-red-200);
   border-radius: 0.8rem;
   background: #fff1f2;
-  color: #b91c1c;
+  color: var(--app-red-700);
   font-size: 0.9rem;
 }
 
@@ -65,7 +65,7 @@
     }
 
     > label > span {
-      color: #6f5a48;
+      color: var(--app-brown-700);
     }
 
     > label:nth-of-type(3),
@@ -80,7 +80,7 @@
     > .actions {
       gap: 0.55rem;
       padding-top: 0.75rem;
-      border-top: 1px solid #ead7c1;
+      border-top: 1px solid var(--app-sand-300);
     }
   }
 }

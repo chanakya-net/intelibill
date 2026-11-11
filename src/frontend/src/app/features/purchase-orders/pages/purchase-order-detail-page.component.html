@@ -2,7 +2,7 @@
   <p-confirmDialog />
 
   @if (facade.isLoadingDetail() && !facade.selectedOrder()) {
-    <section class="directory-panel directory-panel--loading" aria-busy="true">
+    <section class="directory-panel ib-panel directory-panel--loading" aria-busy="true">
       <div class="loading">
         <p-progressSpinner />
       </div>
@@ -20,33 +20,33 @@
           [label]="'purchaseOrders.title' | transloco"
           (click)="goBack()"
         ></button>
-        <p class="eyebrow">{{ 'purchaseOrders.detail.title' | transloco }}</p>
+        <p class="ib-eyebrow">{{ 'purchaseOrders.detail.title' | transloco }}</p>
         <div class="po-detail-title-row">
           <h1>{{ order.purchaseOrderNumber }}</h1>
           <span class="po-status-pill" [ngClass]="'po-status-pill--' + statusTone(order.status)">
             {{ 'purchaseOrders.status.' + order.status | transloco }}
           </span>
         </div>
-        <div class="po-hero__meta">
+        <div class="po-hero__meta ib-meta-row">
           @if (order.supplierName || order.supplierId) {
-            <span class="meta-chip meta-chip--primary">
+            <span class="meta-chip ib-meta-chip meta-chip--primary ib-meta-chip--primary">
               {{ 'purchaseOrders.detail.supplier' | transloco }}:
               {{ order.supplierName || order.supplierId }}
             </span>
           }
           @if (order.orderDate) {
-            <span class="meta-chip">
+            <span class="meta-chip ib-meta-chip">
               {{ 'purchaseOrders.detail.orderDate' | transloco }}:
               {{ order.orderDate | localeBusinessDate }}
             </span>
           }
           @if (order.expectedDeliveryDate) {
-            <span class="meta-chip">
+            <span class="meta-chip ib-meta-chip">
               {{ 'purchaseOrders.detail.expectedDeliveryDate' | transloco }}:
               {{ order.expectedDeliveryDate | localeBusinessDate }}
             </span>
           }
-          <span class="meta-chip">
+          <span class="meta-chip ib-meta-chip">
             {{ 'purchaseOrders.createdAt' | transloco }}: {{ order.createdAt | localeInstant }}
           </span>
         </div>
@@ -112,11 +112,11 @@
       </div>
     </header>
 
-    <div class="summary-grid" [attr.aria-label]="'purchaseOrders.summary.ariaLabel' | transloco">
+    <div class="summary-grid ib-summary-grid" [attr.aria-label]="'purchaseOrders.summary.ariaLabel' | transloco">
       @for (card of summaryCards(order); track card.labelKey) {
-        <article class="summary-card" [ngClass]="'summary-card--' + card.tone">
-          <div class="summary-card__label">{{ card.labelKey | transloco }}</div>
-          <div class="summary-card__value">
+        <article class="summary-card ib-summary-card" [ngClass]="'ib-summary-card--' + card.tone">
+          <div class="summary-card__label ib-summary-card__label">{{ card.labelKey | transloco }}</div>
+          <div class="summary-card__value ib-summary-card__value">
             @if (card.variant === 'money') {
               {{ card.value | localeMoney }}
             } @else if (card.variant === 'progress') {
@@ -130,7 +130,7 @@
     </div>
 
     @if (permissions.canManagePurchaseOrders() && order.status === 'Placed') {
-      <section class="directory-panel po-detail-form-panel">
+      <section class="directory-panel ib-panel po-detail-form-panel">
         <div class="po-cancel-form">
           <input
             pInputText
@@ -153,7 +153,7 @@
     }
 
     @if (permissions.canManagePurchaseOrders() && order.status === 'PartiallyReceived') {
-      <section class="directory-panel po-detail-form-panel">
+      <section class="directory-panel ib-panel po-detail-form-panel">
         <div class="po-cancel-form">
           <input
             pInputText
@@ -175,17 +175,17 @@
       </section>
     }
 
-    <section class="directory-panel">
-      <header class="directory-panel__header">
+    <section class="directory-panel ib-panel">
+      <header class="directory-panel__header ib-panel__header">
         <div>
-          <p class="directory-panel__eyebrow">{{ 'purchaseOrders.detail.lines' | transloco }}</p>
+          <p class="directory-panel__eyebrow ib-eyebrow">{{ 'purchaseOrders.detail.lines' | transloco }}</p>
           <h2>{{ 'purchaseOrders.detail.title' | transloco }}</h2>
         </div>
         <div
-          class="directory-panel__metrics"
+          class="directory-panel__metrics ib-panel__metrics"
           [attr.aria-label]="'purchaseOrders.detail.metrics' | transloco"
         >
-          <span class="metric-chip">
+          <span class="metric-chip ib-metric-chip">
             <strong>{{ order.expectedTotal | localeMoney }}</strong>
             <span>{{ 'purchaseOrders.expectedTotal' | transloco }}</span>
           </span>
@@ -226,7 +226,7 @@
         </div>
       }
 
-      <div class="directory-panel__surface">
+      <div class="directory-panel__surface ib-panel__surface">
         <p-table [value]="[...order.lines]" dataKey="lineId">
           <ng-template pTemplate="header">
             <tr>
@@ -269,7 +269,7 @@
       />
     }
   } @else if (facade.errorMessage()) {
-    <section class="directory-panel">
+    <section class="directory-panel ib-panel">
       <div role="alert" class="po-detail-error">
         {{ facade.errorMessage() | transloco: localizedError()?.params ?? {} }}
         @if (localizedError()?.correlationId; as reference) {

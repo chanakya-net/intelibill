@@ -11,14 +11,14 @@ import { DashboardDto } from '../../../services/dashboard.models';
   styleUrl: './dashboard-kpi-cards.component.scss',
   template: `
     <div class="kpi-cards">
-      <article class="kpi-card kpi-card--amber" data-testid="sales-revenue-card">
+      <article class="kpi-card ib-summary-card kpi-card--amber" data-testid="sales-revenue-card">
         <p class="kpi-label">{{ 'dashboard.kpis.salesRevenue' | transloco }}</p>
         <p class="kpi-value" data-testid="sales-revenue-value">
           {{ dashboard()?.salesRevenue | currency: 'INR' : 'symbol' : '1.0-0' }}
         </p>
       </article>
 
-      <article class="kpi-card kpi-card--sage" data-testid="net-profit-card">
+      <article class="kpi-card ib-summary-card kpi-card--sage" data-testid="net-profit-card">
         <p class="kpi-label">{{ 'sales.profitLoss.economics.trading' | transloco }}</p>
         <p class="kpi-value" data-testid="net-profit-value">
           {{
@@ -39,38 +39,38 @@ import { DashboardDto } from '../../../services/dashboard.models';
         }
       </article>
 
-      <article class="kpi-card kpi-card--stone" data-testid="invoice-count-card">
+      <article class="kpi-card ib-summary-card kpi-card--stone" data-testid="invoice-count-card">
         <p class="kpi-label">{{ 'dashboard.kpis.invoiceCount' | transloco }}</p>
         <p class="kpi-value" data-testid="invoice-count-value">
           {{ dashboard()?.salesCount | number }}
         </p>
       </article>
 
-      <article class="kpi-card kpi-card--rose" data-testid="low-stock-items-card">
+      <article class="kpi-card ib-summary-card kpi-card--rose" data-testid="low-stock-items-card">
         <p class="kpi-label">{{ 'dashboard.kpis.lowStockItems' | transloco }}</p>
         <p class="kpi-value" data-testid="low-stock-items-value">
           {{ dashboard()?.lowStockItemCount | number }}
         </p>
       </article>
 
-      <article class="kpi-card kpi-card--amber" data-testid="stock-value-kpi">
+      <article class="kpi-card ib-summary-card kpi-card--amber" data-testid="stock-value-kpi">
         <p class="kpi-label">{{ 'dashboard.kpis.stockValue' | transloco }}</p>
         <p class="kpi-value">{{ formattedStockValue() }}</p>
       </article>
 
-      <article class="kpi-card kpi-card--amber">
+      <article class="kpi-card ib-summary-card kpi-card--amber">
         <p class="kpi-label">{{ 'dashboard.kpis.customerCreditDue' | transloco }}</p>
         <p class="kpi-value" data-testid="customer-credit-due-value">
           {{ dashboard()?.customerCreditDue | currency: 'INR' : 'symbol' : '1.0-0' }}
         </p>
       </article>
 
-      <article class="kpi-card kpi-card--stone">
+      <article class="kpi-card ib-summary-card kpi-card--stone">
         <p class="kpi-label">{{ 'dashboard.kpis.supplierPayables' | transloco }}</p>
         <p class="kpi-value" data-testid="supplier-payables-kpi-value">{{ formattedSupplierPayables() }}</p>
       </article>
 
-      <article class="kpi-card kpi-card--rose">
+      <article class="kpi-card ib-summary-card kpi-card--rose">
         <p class="kpi-label">{{ 'dashboard.kpis.expenses' | transloco }}</p>
         <p class="kpi-value" data-testid="expenses-kpi-value">{{ formattedExpenses() }}</p>
       </article>

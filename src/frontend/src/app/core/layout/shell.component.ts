@@ -25,17 +25,24 @@ import { ShopPermissionsService } from './shop-permissions.service';
 import { MobileNavComponent } from './mobile-nav.component';
 import { SidebarNavComponent } from './sidebar-nav.component';
 import { SidebarProfileMenuComponent } from './sidebar-profile-menu.component';
+import { ShellGlobalStylesComponent } from './shell-global-styles.component';
+import { UiKitStylesComponent } from '../../shared/styles/ui-kit/ui-kit-styles.component';
 import { ShellMenuService } from './shell-menu.service';
 import { AppShellActions } from '../state/app-shell.actions';
 import { selectSidebarCollapsed, selectSidebarPinned } from '../state/app-shell.selectors';
 import { NetworkStatusService } from '../services/network-status.service';
 import { ProtectedCacheSafetyService } from '../service-worker/protected-cache-safety.service';
+import { OfflinePackService } from '../service-worker/offline-pack.service';
+import { OfflinePackUpdateService } from '../service-worker/offline-pack-update.service';
 import {
   OfflineSalesDeviceSettings,
   OfflineSalesDeviceSettingsStorage,
 } from '../storage/offline-sales-device-settings.storage';
 import { OfflineSalesDeviceEnablementService } from '../../features/sales/services/offline-sales-device-enablement.service';
-import { offlineEnablementErrorKeyForReason } from '../../features/shops/components/manage-shop/manage-shop-offline.helper';
+import {
+  offlineEnablementErrorKeyForReason,
+  offlineEnablementProgressKey,
+} from '../../features/shops/components/manage-shop/manage-shop-offline.helper';
 
 @Component({
   selector: 'app-shell',
@@ -49,6 +56,8 @@ import { offlineEnablementErrorKeyForReason } from '../../features/shops/compone
     SidebarNavComponent,
     SidebarProfileMenuComponent,
     TranslocoPipe,
+    UiKitStylesComponent,
+    ShellGlobalStylesComponent,
   ],
   templateUrl: './shell.component.html',
   styleUrl: './shell.component.scss',
@@ -62,6 +71,8 @@ export class ShellComponent {
   private readonly networkStatus = inject(NetworkStatusService);
   private readonly offlineDeviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
   private readonly offlineDeviceEnablement = inject(OfflineSalesDeviceEnablementService);
+  private readonly offlinePack = inject(OfflinePackService);
+  private readonly appUpdate = inject(OfflinePackUpdateService);
   readonly menuService = inject(ShellMenuService);
   /** While the tab leaves a scope, nothing routed may show beneath the next scope's header. */
   readonly isScopeTransitioning = inject(ShopContextService).transitioning;
@@ -77,6 +88,21 @@ export class ShellComponent {
         return null;
     }
   });
+
+  /**
+   * A new build is downloaded; applying it saves drafts first and reloads. Never applied on its own.
+   * Also shown when offline billing was enabled while a newer build waited: this tab still runs the
+   * earlier build, whose files the offline pack does not hold, until it is updated.
+   */
+  readonly isAppUpdateReady = computed(() => this.appUpdate.updateReady() || this.offlinePack.reloadRequired());
+  readonly isAppUpdateApplying = this.appUpdate.applying;
+  readonly appUpdateErrorKey = this.appUpdate.applyErrorKey;
+  readonly appUpdateMessageKey = computed(
+    () =>
+      this.appUpdate.applyErrorKey() ??
+      (this.offlinePack.reloadRequired() ? 'shell.appUpdate.offlineNeedsUpdate' : 'shell.appUpdate.ready'),
+  );
+  readonly isAppVersionUnrecoverable = this.appUpdate.unrecoverable;
 
   private readonly routedUrl = toSignal(
     this.router.events.pipe(
@@ -112,6 +138,21 @@ export class ShellComponent {
   readonly activeShopId = this.shopPermissionsService.activeShopId;
   readonly canManageOfflineSales = computed(() => this.shopPermissionsService.isOwnerOrManagerOfActiveShop());
   readonly isOfflineSalesEnabled = computed(() => !!this.offlineDeviceSettings()?.enabled);
+  /** Enabled, but the app's files for offline use were last found incomplete on this device. */
+  readonly isOfflinePackIncomplete = computed(
+    () => this.isOfflineSalesEnabled() && this.offlinePack.status()?.state === 'incomplete',
+  );
+  /** What an enable in progress is doing, for the toggle's label. */
+  readonly offlineSalesProgressKey = computed(() => offlineEnablementProgressKey(this.offlineDeviceEnablement.step()));
+  readonly offlineSalesToggleLabelKey = computed(() => {
+    if (this.isOfflineSalesEnablePending()) {
+      return this.offlineSalesProgressKey();
+    }
+    if (this.isOfflinePackIncomplete()) {
+      return 'shell.offlineSalesPackIncomplete';
+    }
+    return this.isOfflineSalesEnabled() ? 'shell.offlineSalesEnabled' : 'shell.offlineSalesDisabled';
+  });
   readonly activeShopLabel = computed(() => {
     const activeShop = this.activeShop();
     if (!activeShop) {
@@ -261,6 +302,8 @@ export class ShellComponent {
       }));
       this.offlineDeviceSettings.set(next);
       this.offlineSalesToggleErrorKey.set('');
+      // The last shop on this device to stop needing the app files lets the worker drop them.
+      void this.offlinePack.release();
       return;
     }
 
@@ -276,7 +319,9 @@ export class ShellComponent {
       const label = this.offlineDeviceSettings()?.label?.trim() ?? '';
       const result = await this.offlineDeviceEnablement.enableForShop(shopId, label);
       if (!result.ok) {
-        this.offlineSalesToggleErrorKey.set(offlineEnablementErrorKeyForReason(result.reason));
+        this.offlineSalesToggleErrorKey.set(
+          offlineEnablementErrorKeyForReason(result.reason, result.errorCode, result.packFailure),
+        );
         return;
       }
 
@@ -316,6 +361,14 @@ export class ShellComponent {
 
   onReloadForCacheSafety(): void {
     this.cacheSafety.reload();
+  }
+
+  onApplyAppUpdate(): void {
+    void this.appUpdate.applyUpdate();
+  }
+
+  onReloadUnrecoverableVersion(): void {
+    this.appUpdate.reload();
   }
 
   onToggleSidebar(): void {

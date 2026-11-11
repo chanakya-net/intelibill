@@ -20,15 +20,15 @@
 
   <div class="editor-shell">
     @if (serverError()) {
-      <div class="error-banner" role="alert">{{ serverError() | transloco }}</div>
+      <div class="error-banner ib-error-banner" role="alert">{{ serverError() | transloco }}</div>
     }
 
     <form id="edit-service-form" class="editor-form" [formGroup]="form" (ngSubmit)="onSubmit()">
-      <section class="form-section">
-        <p class="section-label">{{ 'services.title' | transloco }}</p>
+      <section class="form-section ib-form-section">
+        <p class="section-label ib-section-label">{{ 'services.title' | transloco }}</p>
 
-        <div class="editor-grid">
-          <div class="field">
+        <div class="editor-grid ib-form-grid">
+          <div class="field ib-field">
             <label for="edit-service-code">{{ 'services.code' | transloco }}</label>
             <input
               id="edit-service-code"
@@ -40,7 +40,7 @@
             />
           </div>
 
-          <div class="field">
+          <div class="field ib-field">
             <label for="edit-service-name">{{ 'services.name' | transloco }}</label>
             <input
               id="edit-service-name"
@@ -67,7 +67,7 @@
             }
           </div>
 
-          <div class="field">
+          <div class="field ib-field">
             <label for="edit-service-price">{{ 'services.price' | transloco }}</label>
             <p-inputNumber
               inputId="edit-service-price"
@@ -95,7 +95,7 @@
             }
           </div>
 
-          <div class="field wide">
+          <div class="field ib-field wide ib-form-grid__wide">
             <label for="edit-service-description">{{ 'services.description' | transloco }}</label>
             <textarea
               id="edit-service-description"
@@ -121,11 +121,11 @@
         </div>
       </section>
 
-      <section class="form-section">
-        <p class="section-label">{{ 'services.hsnSac' | transloco }}</p>
+      <section class="form-section ib-form-section">
+        <p class="section-label ib-section-label">{{ 'services.hsnSac' | transloco }}</p>
 
-        <div class="editor-grid">
-          <div class="field">
+        <div class="editor-grid ib-form-grid">
+          <div class="field ib-field">
             <label for="edit-service-tax">{{ 'services.taxRatePercent' | transloco }}</label>
             <p-inputNumber
               inputId="edit-service-tax"
@@ -170,7 +170,7 @@
             }
           </div>
 
-          <div class="field">
+          <div class="field ib-field">
             <label for="edit-service-hsn">{{ 'services.hsnSac' | transloco }}</label>
             <input
               id="edit-service-hsn"
@@ -207,7 +207,7 @@
             }
           </div>
 
-          <div class="field checkbox-field wide">
+          <div class="field ib-field checkbox-field ib-checkbox-field wide ib-form-grid__wide">
             <p-checkbox
               inputId="edit-service-tax-included"
               formControlName="taxIncluded"
