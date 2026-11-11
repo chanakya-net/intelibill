@@ -9,6 +9,7 @@ using Intelibill.Application.Features.Shops.Commands.SwitchActiveShop;
 using Intelibill.Application.Features.Shops.Commands.UpdateShop;
 using Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
 using Intelibill.Application.Features.Shops.DTOs;
+using Intelibill.Application.Features.Shops.Setup;
 using Intelibill.Application.Features.Shops.TillSettings;
 using Intelibill.Application.Features.Shops.Queries.GetShopDetails;
 using Intelibill.Application.Features.Shops.Queries.GetMyShops;
@@ -31,6 +32,17 @@ public sealed class ShopsController : AuthenticatedControllerBase
 {
     public ShopsController(IMessageBus bus) : base(bus)
     {
+    }
+
+    [HttpPut("{shopId:guid}/setup/preferences")]
+    public async Task<IActionResult> UpdateSetupPreferences(Guid shopId, [FromBody] UpdateShopSetupPreferencesRequest request, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupPreferencesDto>>(
+            new UpdateShopSetupPreferencesCommand(shopId, UserId!.Value, ActiveShopId,
+                request.ExpectedVersion, request.ShowOnStartup, request.AcknowledgeSample), cancellationToken);
+        return result.ToActionResult(Ok);
     }
 
     [HttpGet("{shopId:guid}/till-settings")]
@@ -281,6 +293,11 @@ public sealed class ShopsController : AuthenticatedControllerBase
         return result.ToActionResult(Ok);
     }
 }
+
+public sealed record UpdateShopSetupPreferencesRequest(
+    [property: JsonRequired] int ExpectedVersion,
+    [property: JsonRequired] bool ShowOnStartup,
+    bool AcknowledgeSample);
 
 public sealed record CreateShopRequest(
     string Name,

@@ -121,6 +121,7 @@ public static class DependencyInjection
         services.AddScoped<Intelibill.Application.Features.Expiry.IExpiryPolicyFence, Services.Expiry.ExpiryPolicyFence>();
         services.AddScoped<IShopRepository, ShopRepository>();
         services.AddScoped<IMembershipAuthorityRepository, MembershipAuthorityRepository>();
+        services.AddScoped<IShopSetupPreferencesRepository, ShopSetupPreferencesRepository>();
         services.AddScoped<ISupplierRepository, SupplierRepository>();
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<ICustomerLedgerEntryRepository, CustomerLedgerEntryRepository>();

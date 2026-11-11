@@ -1,0 +1,136 @@
+# Guided merchant onboarding Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. The user explicitly authorized analysis/planning with Astra, implementation with a separate Sol agent, independent thorough review, fixes and a PR. Proceed to that implementation handoff without another approval gate.
+
+**Goal:** Give a new owner a resumable path from verified enrollment and shop creation to a usable sample receipt and first real sale, while allowing existing merchants to open setup voluntarily.
+
+**Architecture:** Add an active-shop, server-derived setup projection and a small durable preference record. The setup page orchestrates existing business, tax, catalog, stock and service workflows. A read-only sample uses current saved seller/catalog facts and the existing document rules and print presentation without allocating a number or posting anything.
+
+**Tech Stack:** Existing ASP.NET Core 10, C#, EF Core/PostgreSQL, Wolverine/ErrorOr/FluentValidation; Angular 21, NgRx, PrimeNG, Transloco, Bun, Playwright and Testcontainers.
+
+**Spec:** The user-supplied “Guided merchant onboarding Implementation Plan” attachment (Task 37), revised here against `484b6c61` on 11 November 2026. This document supersedes its October source assumptions and “planning only” execution restriction under the user's current instruction. No separate design artifact is needed.
+
+## Global constraints
+
+- Web and API only. Preserve Domain ← Application ← Infrastructure ← Api, repository/unit-of-work boundaries, analyzer-clean C#, CPM and Bun-only frontend commands.
+- The checklist is advisory. It does not introduce a new sale gate, claim tax compliance, bypass any posting rule or require optional acknowledgements, bank details, import, offline billing or till adoption.
+- All setup requests target the token's active shop and check live membership. A membership in another shop does not authorize reading or changing it through these routes.
+- Persist only optional acknowledgement/navigation preferences, never calculated completion flags or a second tax/catalog model. Recompute business prerequisites from current saved facts on every status read.
+- Existing issued documents, fiscal numbering, financial facts, sale validation, expiry policies and stock selection remain authoritative and unchanged.
+- Apply additive migrations through the migration job before API/web. No production deployment or pilot enablement is part of this task.
+- Existing developer containers are running: release proof uses a fresh Testcontainers database and random loopback ports, and must not reset or stop the developer environment.
+
+## Current evidence and resolved choices
+
+1. `Shop.DeclareTaxProfile` and `InvoiceDocumentBuilder.CaptureSellerProfile` already implement the modern profile. Supported regimes are Unregistered, Composition and Regular; Regular requires an e-invoice attestation and `Required` is unsupported for issuance. Reuse these rules and `ShopTaxProfileFormComponent`, including state, GSTIN, legal name and series. Do not infer regime from GSTIN or create another numbering setup API.
+2. `CreateShopCommandHandler` creates the owner, system supplier and expiry policy under a temporary tenant scope, commits, then returns an `AccessScopeResult`. `ShopService.createShop()` adopts this scope; `ShopContextService.transition()` resets state and restarts signed-in scope changes at `/`. Therefore routing from a late overlay success callback alone cannot deliver reliable onboarding.
+3. `ShopTillSettingsService` demonstrates active-shop checks and live role checks; `IMembershipAuthorityRepository` gives the user → shop → membership transaction protocol. Reuse that protocol for preference mutations. Setup reads are available to active Owner/Manager/Staff; only a live Owner changes shop-wide preferences or business/tax settings. The page describes the required role and exposes only actions the current member can perform.
+4. `Service` is a separate active catalog entity. `SaleLineValidator` validates service IDs without inventory; goods require active items, nonvoided batches, sufficient unquarantined quantity and an inventory aggregate. `SaleExpiryEvaluation` / `ExpiryPolicyEvaluator` additionally enforce current expiry and quarantine policy. Positive total stock alone is not readiness.
+5. Current checkout search sorts goods by item, dated expiry before undated, expiry, batch number and ID (`SearchSellablesQueryHandler`). This is expiry-first/FEFO ordering, not FIFO. Use that existing ordering for a deterministic candidate; do not introduce a competing allocation policy under onboarding.
+6. `InvoiceDocumentBuilder.Build` is pure with respect to persistence, but takes an in-memory priced `Sale`. It can be reused with a nonfiscal `SAMPLE` marker and an output number cleared for the sample DTO. Never inject or call `IInvoiceNumberAllocator`, reserve a lease, attach a sample to the context, or call sale posting. `SaleInvoiceA4Component` and `SaleInvoiceThermalComponent` already own the print layout; add an explicit sample presentation mode there instead of copying their templates.
+7. `release-server.ts` replaces APIs with probes and current feature release fixtures use mocked data. Those are useful UI checks but cannot prove this first-sale journey. `ApiWebApplicationFactory` already provisions/migrates an isolated PostgreSQL database and uses a restricted runtime role. The locally installed .NET 10 MVC testing package has `UseKestrel(0)`; use it to expose the real API to a browser fixture.
+
+### Product decisions made for this implementation
+
+- The page is `/shops/setup`; a shell/shop-menu “Shop setup” entry makes it discoverable for existing shops. New shops start with `ShowOnStartup=true`; existing shops without a preference row default to false. Only at an application-root entry does the shell auto-open a new shop's setup. Do not hijack deep links, force a manager/staff into owner setup, or redirect every time the page reloads.
+- “Continue later” and “Start billing” set `ShowOnStartup=false` through the preferences endpoint and then leave the page. Failure to save is shown; it must not trap the merchant or claim saved dismissal. A persistent menu entry remains available.
+- Steps are Identity, Business details, Tax and numbering, Products/services, Opening stock, Sample receipt, and optional Bank details. Completed mandatory steps come only from saved facts; a service-only shop marks opening stock not applicable. A mixed shop with a usable service is able to begin service trading even if its goods need stock; show that goods warning without blocking all trading.
+- `CanTrade` means **setup prerequisites for at least one supported simple cash sale exist now**. UI copy says “Ready to start billing” plus “Checkout rechecks stock, posting periods, till sessions and permissions.” It is not a reservation or a promise that every item/customer/transaction will post.
+- Readiness requires a live enabled owner with a verified email or phone, complete required shop address/name fields, a supported captured seller profile/valid series, and at least one viable goods or service candidate. Keep owner identity details private: expose only the boolean/reason. Bank and sample acknowledgement never affect `CanTrade`.
+- The sample is one deterministic saved catalog line, walk-in customer, intrastate, cash, no due/store credit and no operator discount. Select a service or goods candidate that passes normal pricing and document rules. For goods use quantity 1 when available, otherwise the largest positive available quantity fitting the item's scale up to 1; require matching aggregate availability. Do not invent stock, HSN, prices, tax rates or buyer identity. Candidate selection continues past invalid candidates; do not declare a whole shop blocked because its first item is unsuitable.
+- The sample uses the same read-only candidate/document calculation as readiness. A supported shop with no viable candidate receives an actionable blocker, not a fabricated receipt. `Regular/Exempt` HSN requirements, composition/unregistered zero-tax restrictions and recorded-cost price protection therefore remain truthful.
+- An optional explicit “I checked this sample” action records a server timestamp and actor. It does not claim physical print success, is not sent automatically by `window.print()` or viewing the preview, and remains nonblocking even after data changes.
+
+## Review focus
+
+- An owner in A who is staff in B, suspended memberships and forged shop IDs must not expose or mutate B under A's scope; same-user shop changes must discard late setup/sample responses.
+- Expired, quarantined, voided, inactive, precision-invalid or aggregate-inconsistent stock must not make a goods-only merchant ready; service-only and mixed shops must not acquire irrelevant stock blockers.
+- Missing preferences on existing shops must remain benign. Two tabs saving at once must not overwrite an acknowledgement or change preferences under a different owner/shop.
+- A sample must remain conspicuously nonfiscal in screen and print media for both templates; no number allocation, sale, ledger, receipt, stock, till or outbox mutation may occur on repeated GETs.
+- A scope-changing create must land on setup after the normal root restart, while existing-shop deep links and “continue later” behavior remain intact. Real release proof must exercise browser actions against the actual API and database.
+
+## File map and interfaces
+
+Create focused files under `src/backend/Intelibill.Application/Features/Shops/Setup/`:
+
+- `ShopSetupContracts.cs`: `GetShopSetupQuery(Guid ShopId, Guid ActorUserId, Guid? ActiveShopId)`, `GetShopSetupSampleQuery` with the same fields, `UpdateShopSetupPreferencesCommand` with those fields plus `int ExpectedVersion`, `bool ShowOnStartup`, `bool AcknowledgeSample`.
+- `ShopSetupStatusDto(Guid ShopId, int ContractVersion, bool CanTrade, IReadOnlyList<ShopSetupStepDto> Steps, IReadOnlyList<string> BlockingReasons, ShopSetupPermissionsDto Permissions, ShopSetupPreferencesDto Preferences)`. Contract version is 1; distinguish it from preference concurrency version. Step IDs are `identity`, `business`, `tax`, `catalog`, `stock`, `sample`, `bank`; state is `complete`, `incomplete`, `optional` or `notApplicable`. Reasons are stable codes localized by the client.
+- `ShopSetupPreferencesDto(int Version, bool ShowOnStartup, DateTimeOffset? SampleReceiptAcknowledgedAt)`; absent row means version 0, false, null. Do not expose another owner's personal identity.
+- `ShopSetupSampleDto(bool IsSample, IssuedInvoiceSnapshot Document, string LineType, DateTimeOffset GeneratedAt)` with `IsSample=true` and `Document.Number=""`. Add the minimum source/display metadata necessary for a type-safe frontend adapter; do not return a persisted-looking sale ID.
+- `ShopSetupService.cs`: authorization, status composition and preference commands; Wolverine query/command adapters can be separate small handler files.
+- `ShopSetupSampleBuilder.cs`: read-only candidate validation, existing pricing reuse, in-memory sale/document composition. `BuildAsync(Guid shopId, Guid actorUserId, CancellationToken ct)` returns `ErrorOr<ShopSetupSampleDto>`; status and sample call the same candidate evaluation path so they cannot disagree by design.
+- `IShopSetupReadRepository.cs`: application-side read seam for boolean identity/catalog/bank facts and ordered candidate reads, implemented in Infrastructure. Avoid exposing DbContext to Application or loading all tenant history. Use bounded batches/streaming, continuing until a viable candidate or actual exhaustion; never let a fixed first-N limit create false “no sellable catalog” status.
+
+Other backend files:
+
+- New `Domain/Entities/ShopSetupPreferences.cs` and `Domain/Interfaces/Repositories/IShopSetupPreferencesRepository.cs`: shop primary key, integer optimistic version, show-on-startup flag, nullable acknowledgement time and actor; no mandatory-step flags. Repository read/add/update participates in the existing UoW/authority transaction.
+- New Infrastructure repositories/configuration; modify `ApplicationDbContext.cs`, layer DI, `ShopsController.cs`, `CreateShopCommandHandler.cs`, EF snapshot and generated `AddShopSetupPreferences` migration.
+- New focused application/domain unit tests and `tests/backend/integration/Intelibill.Integration.Tests/ShopSetupTests.cs`.
+
+Frontend files:
+
+- New `features/shops/services/shop-setup.models.ts`, `shop-setup.service.ts` and tests; new `pages/shop-setup-page.component.{ts,html,scss}` and spec; separate `pages/shop-setup-sample-page.component.*` plus a small typed sample-to-print-view adapter and tests.
+- Modify shell routes and shell menu/bootstrap, create overlay completion behavior, and focused corresponding tests. Reuse manage-shop/tax forms and the existing inventory/service routes instead of building catalog editors again.
+- Modify A4/thermal components, templates and their specs for `@Input() sample = false`; actual invoice behavior defaults unchanged. Add a top-level authenticated sample print route in `app.routes.ts` if needed to avoid printing the shell.
+- Add localized setup/reason/sample text to all shipped locale files under `public/assets/i18n`; use shared `ib-` styles and standard loading/error/focus behavior.
+
+## Task 1: Persist optional preferences safely
+
+- [ ] Write failing domain/application tests: defaults are false/null/version0 for an absent existing row; a new-shop row requests startup setup; acknowledging sets server time once; stale version returns `ShopSetup.VersionConflict`; disabling startup never clears acknowledgement.
+- [ ] Run the new focused tests and verify they fail for the missing behavior.
+- [ ] Implement the entity/repository/configuration and command. Read and write only the active shop; authorize mutation under user → shop → membership locks, rechecking enabled actor and live Owner. Compare integer version, increment once for an actual change, and preserve first acknowledgement. A stale competing writer receives 409, not last-writer-wins. Use FluentValidation for nonnegative version and normal ErrorOr responses.
+- [ ] Initialize the preference with startup enabled in the existing create-shop transaction/tenant scope. Existing shops remain rowless until they voluntarily change a preference; do not backfill fake completion or force onboarding.
+- [ ] Add the migration with shop FK, valid version/acknowledgement constraints and both ENABLE/FORCE RLS plus `USING`/`WITH CHECK` on `app.active_shop_id`, matching current tenant tables. Test migration and restricted runtime access, not just EF's owner connection.
+- [ ] Add `PUT /api/shops/{shopId}/setup/preferences` and tests for owner success; manager/staff denial; foreign active shop; removed/suspended owner; competing version0 inserts; acknowledgement reload; unchanged request behavior. Fetch current status after a conflict and require an intentional retry.
+- [ ] Run focused tests and commit this independently reviewable persistence slice.
+
+## Task 2: Derive readiness and build a nonposting sample
+
+- [ ] Write failing `ShopSetupTests` cases for no catalog, service-only, mixed service plus empty goods, stocked goods, bank absent, acknowledged but incomplete, and fact removal after prior readiness. Assert readiness regresses when saved facts regress.
+- [ ] Add authorization tests for anonymous/nonmember, wrong active shop even when a member, live suspended membership, active Owner/Manager/Staff reads and verified-phone-only owner. No hidden counts or source data are returned on denial.
+- [ ] Implement read projection/candidate evaluation. Reuse `CaptureSellerProfile`, quantity policy, actual pricing and document builder. Check active/nonvoided goods, aggregate quantity, unquarantined availability and current expiry evaluation on the shop business date. An expiry decision requiring operator approval is not a ready simple-sale candidate. Reuse the expiry read fence/current-policy path without adding a posting-period fence or stock mutation.
+- [ ] Test goods-only blocked variants independently: inactive item, voided batch, zero stock, all quarantined, expired blocked, unknown expiry history, approval-required expiry, aggregate missing/insufficient, quantity below its supported increment and unresolved/invalid unit facts. Positive usable fractional stock with a supported quantity scale succeeds. Add at least one later valid candidate after an invalid first candidate.
+- [ ] Test supported Unregistered/Composition/Regular profiles; missing profile; Regular e-invoice Required; tax-bearing unregistered/composition candidates; Regular Exempt candidate missing six-digit HSN; valid service candidate with no inventory. Preserve existing tax and pricing error codes as actionable blocker evidence rather than silently normalizing facts.
+- [ ] Expose `GET /api/shops/{shopId}/setup` and `GET /api/shops/{shopId}/setup/sample`. Status GET never creates a preference row. Sample returns 409 `ShopSetup.SampleUnavailable` with structured reasons when prerequisites are absent. It never returns a fiscal-looking number. Do not call `RecordSaleCommandHandler`, allocator, lease reservation or any save from either GET.
+- [ ] Add `Sample_DoesNotPostOrConsumeNumbers`: capture exact sequence values and stock/aggregate quantities plus row counts for sales, sale items, transactions, customer/supplier ledgers, receipts, allocations, till movements, operation receipts, preferences and relevant outboxes; repeated status/sample GETs leave them unchanged. Test both no existing invoice sequence and an existing sequence. Assert profile/document tax and UQC values match normal builder behavior.
+- [ ] Run focused application/integration tests and commit the projection/sample slice.
+
+## Task 3: Deliver the resumable journey and shared print presentation
+
+- [ ] Write failing service/page tests for server-derived steps, reload/resume, service-only stock skip, optional bank skip, permission-aware actions, failed loads and no false “complete” after a failed save. Unknown reason codes must render a safe fallback rather than a missing translation key.
+- [ ] Implement `ShopSetupService` calls with captured `{userId, shopId, epoch}` and `REQUEST_SCOPE` for writes; register/release scoped mutations, clear component state on detach, and ignore late success/error responses after a scope or request-generation change. Cancel obsolete reads and verify identity again before committing their result. Keep state page-local rather than adding another global completion store.
+- [ ] Build the page with named steps, current status/reasons, explicit refresh, and links/actions for existing business/tax, inventory and services workflows. Returning to the page refetches saved facts; closing an embedded edit overlay after a successful mutation refetches. Preserve normal workflow routes; the persistent “Shop setup” menu gives a return path. Import is optional and no new import subsystem is built.
+- [ ] Add active Owner bootstrap at root: fetch status once for the captured scope and auto-open `/shops/setup` only if its persisted startup preference is true. Existing rowless shops stay on their normal landing page. Remove reliance on the old create-overlay bank-step success surviving a scope restart; new shop onboarding provides the optional bank path. Test a no-shop owner's first create and an existing owner's second create across `AppReloadService` restart.
+- [ ] Implement optional acknowledgement and Continue later/Start billing using the preference version. Avoid optimistic success: refetch conflict/server outcomes, keep visible error, and allow the merchant to leave without claiming the preference saved. Do not clear unknown network outcomes by inventing another progress record.
+- [ ] Add `/shops/setup/sample` (authenticated, active-scope, print-friendly) with explicit A4/thermal selection, Print button and no automatic acknowledgement. Fetch fresh sample facts each visit. Reuse A4/thermal presentation via the typed adapter and `sample=true`.
+- [ ] In both templates show prominent **“SAMPLE — NOT A VALID INVOICE”** plus “For layout testing only. No payment or stock movement was recorded.” in print and screen media. Hide invoice number labels/values, actual-payment-success language, cancellation/return/history actions and legal signature implication in sample mode. Keep seller, line quantity/UQC, amounts, actual tax components and declarations. Number must stay absent in both branches, including legacy fallbacks.
+- [ ] Add tests for each print format's sample banner, no number/payment-confirmation display, and unchanged actual invoice rendering. Test delayed A response after switch to B, logout during sample load, preference save during a blocked switch and cross-tab preference conflict.
+- [ ] Run focused frontend tests, `bun run build`, and shared print/context/shell regressions; commit the complete web slice.
+
+## Task 4: Prove a real new-merchant release journey
+
+**New test-only files:** `tests/backend/release/Intelibill.Onboarding.Fixture/Intelibill.Onboarding.Fixture.csproj`, `Program.cs`; a minimal fixture bridge in the existing integration test assembly if needed to expose its captured mailbox/snapshot helpers; `src/frontend/tests/ui-audit/onboarding/playwright.onboarding.config.ts`, `guided-onboarding.spec.ts`, `onboarding-fixture.ts`; `audit:ui:onboarding` in frontend `package.json`. Keep fixture code out of production API registration.
+
+**Fixture contract:** The Node helper starts the fixture host; it constructs `ApiWebApplicationFactory`, calls `UseKestrel(0)` before host initialization, initializes its private Testcontainers DB and yields the assigned API origin. Use a small stdin/stdout JSON protocol for `mailbox(email)`, `snapshot(shopId)` and `stop`; keep test credentials/enrollment secrets out of logs. Reuse `IdentityTestMailbox` and the restricted runtime role. Serve the production frontend build on a second random loopback port, forwarding `/api` and `/hubs` to that API. No Playwright route mocks for business endpoints. Shutdown disposes only this fixture's processes/container, even after a failed test.
+
+- [ ] Add the failing release journey and run it against the built bundle to establish the actual missing step.
+- [ ] Through browser UI, request verified email enrollment, obtain the captured local-test verification link/token from the fixture (no real email), confirm through the real enrollment UI, create an Unregistered shop with state/series, and observe automatic setup entry after the real scope transition.
+- [ ] Enter one goods item with UOM/quantity scale and opening stock via existing UI/API workflows; skip bank; verify derived steps and readiness; reload then sign out/sign in and resume through the persistent entry.
+- [ ] Capture the fixture's sequence/financial/stock snapshot; open A4 and thermal sample and emulate print media; assert conspicuous sample disclaimer, absent fiscal number, correct saved seller/product/quantity/totals and no clipping at mobile/desktop sizes. Compare the database snapshot after repeated previews; it must be identical.
+- [ ] Return to normal checkout through Start billing and post exactly one real cash sale through the browser. Assert one new persisted sale with v2 issued receipt, the first actual series number ending `000001`, exactly one sale stock reduction, and matching displayed receipt facts. This is the end-to-end acceptance proof; a mocked success response is not sufficient.
+- [ ] Add a service-only browser case (no stock workflow/blocker) and existing-shop voluntary setup case. Cover a second-shop switch and confirm no first-shop sample/preferences appear. API integration tests own detailed authorization and concurrency permutations.
+- [ ] Make `bun run audit:ui:onboarding` run this dedicated nonmocked configuration and fail clearly if Docker or build output is unavailable. Do not quietly skip the required proof; keep ordinary mocked release fixtures independent of its API lifecycle.
+- [ ] Run the new proof with retained failure traces plus normal `bun run audit:ui:release`. Fix failures and record actual results, including any unavoidable pre-existing limitation, without misreporting a skip as a pass.
+
+## Task 5: Rollout documentation, complete validation and handoff
+
+- [ ] Add `docs/guided-merchant-onboarding-rollout.md` and update backend/frontend architecture and AGENTS.md with endpoint, active-scope/role rules, advisory semantics, sample guarantees, preference defaults, migration name and release command. Update the plan checkboxes to reflect what actually shipped.
+- [ ] Document rollout: migration first, API/readers next, web last; no readiness backfill, no inferred tax regime, no forced redirect for existing shops. Rollback removes entry points/auto-opening while retaining optional preference rows and all actual shop facts. It must not change any existing billing/tax/expiry gate. No destructive Down is needed for operational rollback.
+- [ ] Run all backend unit suites; run `ShopSetupTests` and the neighboring shop isolation, tax document, expiry and quantity integration suites. Run full integration if feasible with the isolated fixture, and record exact pass/failure counts. Run `dotnet ef migrations has-pending-model-changes` with the existing project/startup-project parameters.
+- [ ] Run focused frontend plus the full frontend suite, production build, duplicate-style audit (ceiling remains 27), existing release UI suite and the new real onboarding release suite. After these pass, repeat only tests affected by subsequent fixes.
+- [ ] Inspect git diff/status for only intended files, no local credentials or generated test artifacts, and no altered developer environment. Commit coherent slices with clear tests/results.
+- [ ] Hand the complete branch to the independent reviewer requested by the user. Reviewer should trace actual authority/scope flows, candidate/readiness equivalence, read-only sample guarantees, migration/RLS, shared print regressions and inspect the browser evidence. Fix actionable findings, rerun affected tests and update the PR description to the final implementation before creating the PR.
+
+## Planning verification and handoff
+
+This is a plan, not implementation evidence. Parent baseline checks reported 2,858 passing backend unit tests and 140 focused shop frontend tests on the clean starting branch. Docker and matching Chromium builds are available. All acceptance tests above still need to be implemented and executed. The plan was self-checked against reload, service-only, optional bank, unrelated-shop switching, preview-without-posting and first-real-receipt requirements. Ready for the separate Sol implementer.
