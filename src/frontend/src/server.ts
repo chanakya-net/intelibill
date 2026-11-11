@@ -79,12 +79,13 @@ app.use((_req, res) => {
 
 const port = Number(process.env['PORT'] ?? 4000);
 
-const server = app.listen(port, (error?: Error) => {
+const server = app.listen({ port, host: process.env['WEB_BIND_HOST'] }, (error?: Error) => {
   if (error) {
     throw error;
   }
 
-  console.log(`Web server listening on http://localhost:${port}`);
+  const address = server.address();
+  console.log(`Web server listening on http://localhost:${typeof address === 'object' && address ? address.port : port}`);
 });
 
 if (apiProxy) {

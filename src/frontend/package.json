@@ -15,6 +15,7 @@
     "audit:ui:mocked": "bun run scripts/run-ui-audit.mjs --mocked",
     "audit:ui:baseline": "bun run scripts/run-ui-audit.mjs --baseline",
     "audit:ui:live": "bun x playwright test --config tests/ui-audit/live/playwright.live.config.ts",
+    "audit:ui:onboarding": "bun x playwright test --config tests/ui-audit/onboarding/playwright.onboarding.config.ts",
     "audit:ui:release": "bun x playwright test --config tests/ui-audit/release/playwright.release.config.ts",
     "build:worker": "bun run scripts/finalize-service-worker.mjs",
     "build:server": "bun build src/server.ts --target=node --outfile=dist/INVENTORY/server/server.mjs",
