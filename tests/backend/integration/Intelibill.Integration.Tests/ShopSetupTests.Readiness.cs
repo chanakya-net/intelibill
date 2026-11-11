@@ -79,6 +79,47 @@ public sealed partial class ShopSetupTests
     }
 
     [Fact]
+    public async Task Sample_ScansPastTheFirstPageWithOneDiscountReadPerRequest()
+    {
+        using var client = CreateClient();
+        var shop = await CreateShopAsync(client);
+        for (var index = 0; index < 33; index++)
+            _ = await AddServiceAsync(client, $"Tax-bearing service {index:D2}", taxRate: 18);
+
+        var viableService = await AddServiceAsync(client, "Viable service");
+        var batch = await ReceiveGoodsAsync(client, "viable", "pcs", 2m);
+        _ = await ReadAsync(await client.PostAsJsonAsync("/api/discounts", new
+        {
+            ruleType = "BatchPercentage", name = "Sample batch discount", inventoryBatchId = batch, percentage = 10m
+        }));
+
+        var serviceSample = await GetWithDiscountBudgetAsync(client, $"/api/shops/{shop}/setup/sample");
+        Assert.Equal("Service", serviceSample.GetProperty("lineType").GetString());
+        Assert.Equal("Viable service", serviceSample.GetProperty("document").GetProperty("lines")[0].GetProperty("description").GetString());
+
+        using var deactivate = await client.PostAsync($"/api/services/{viableService}/deactivate", null);
+        Assert.Equal(HttpStatusCode.NoContent, deactivate.StatusCode);
+        var setup = await GetWithDiscountBudgetAsync(client, $"/api/shops/{shop}/setup");
+        Assert.True(setup.GetProperty("canTrade").GetBoolean());
+
+        var sample = await GetWithDiscountBudgetAsync(client, $"/api/shops/{shop}/setup/sample");
+        Assert.Equal("Goods", sample.GetProperty("lineType").GetString());
+        var document = sample.GetProperty("document");
+        Assert.Equal("Goods viable", document.GetProperty("lines")[0].GetProperty("description").GetString());
+        Assert.Equal(18m, document.GetProperty("totals").GetProperty("invoiceTotal").GetDecimal());
+    }
+
+    private async Task<JsonElement> GetWithDiscountBudgetAsync(HttpClient client, string path)
+    {
+        using var observed = _reads.Observe();
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Add(ReadQueryProbe.Header, observed.Id);
+        var result = await ReadAsync(await client.SendAsync(request));
+        Assert.Single(observed.Reads, read => read.Sql.Contains("FROM discount_rules ", StringComparison.Ordinal));
+        return result;
+    }
+
+    [Fact]
     public async Task Sample_FractionalStockAndExistingSequenceAreNotChangedByReads()
     {
         using var client = CreateClient();

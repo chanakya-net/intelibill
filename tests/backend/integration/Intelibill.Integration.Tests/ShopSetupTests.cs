@@ -2,7 +2,10 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
 namespace Intelibill.Integration.Tests;
@@ -10,9 +13,20 @@ namespace Intelibill.Integration.Tests;
 [Collection("Integration Tests")]
 public sealed partial class ShopSetupTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
 {
-    private readonly ApiWebApplicationFactory _factory = new(fixture);
+    private readonly ReadQueryProbe _reads = new();
+    private ApiWebApplicationFactory _factory = null!;
 
-    public Task InitializeAsync() => _factory.InitializeAsync();
+    public async Task InitializeAsync()
+    {
+        _factory = new(fixture, services => services.AddSingleton<IInterceptor>(provider =>
+        {
+            var http = provider.GetRequiredService<IHttpContextAccessor>();
+            _reads.RequestIdentity = () => http.HttpContext?.Request.Headers[ReadQueryProbe.Header].ToString();
+            return _reads;
+        }));
+        await _factory.InitializeAsync();
+    }
+
     public async Task DisposeAsync() => await _factory.DisposeAsync();
 
     public void Dispose() => _factory.Dispose();

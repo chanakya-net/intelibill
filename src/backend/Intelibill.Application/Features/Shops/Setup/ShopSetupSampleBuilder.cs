@@ -8,6 +8,7 @@ using Intelibill.Application.Features.Sales.Services.Pricing;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
+using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Shops.Setup;
@@ -21,7 +22,7 @@ public sealed class ShopSetupSampleBuilder(
     IUnitOfWork unitOfWork,
     IExpiryPolicyFence expiryFence,
     SaleExpiryGuard expiryGuard,
-    ISalePricingCalculator pricing,
+    IDiscountRuleRepository discountRules,
     IBusinessClock clock)
 {
     private const int PageSize = 32;
@@ -31,7 +32,10 @@ public sealed class ShopSetupSampleBuilder(
     {
         var now = clock.UtcNow;
         var date = clock.GetBusinessDay(now, shop.BusinessTimeZoneId);
-        var context = new SampleContext(shop.Id, actor, profile, date, now);
+        // Each request captures the rules when its first candidate reaches pricing.
+        var rules = new Lazy<Task<SalePricingCalculator.RuleSnapshot>>(async () =>
+            SalePricingCalculator.CaptureRules(await discountRules.GetActiveByShopAsync(shop.Id, now, ct)));
+        var context = new SampleContext(shop.Id, actor, profile, date, now, rules);
         var services = facts.HasActiveServices && profile is not null
             ? await FindServiceAsync(context, ct)
             : new ShopSetupCandidates(null, false, null, null);
@@ -139,7 +143,7 @@ public sealed class ShopSetupSampleBuilder(
         return quantity;
     }
 
-    private async Task<ErrorOr<ShopSetupSampleDto>> BuildAsync(SampleContext context, SalePricingLineCalculationRequest request,
+    private static async Task<ErrorOr<ShopSetupSampleDto>> BuildAsync(SampleContext context, SalePricingLineCalculationRequest request,
         string name, string code, string? hsn, Item? item, CancellationToken ct)
     {
         if (!SaleLineValidator.IsValidTaxRatePercent(request.TaxRatePercent))
@@ -147,7 +151,9 @@ public sealed class ShopSetupSampleBuilder(
         if (!string.IsNullOrWhiteSpace(hsn) && !SaleLineValidator.IsValidHsnCode(hsn))
             return Errors.Sale.InvalidHsnCode;
 
-        var priced = await pricing.CalculateAsync(new SalePricingCalculationRequest(context.ShopId, context.Now, [request], NoDiscount), ct);
+        var rules = await context.DiscountRules.Value;
+        ct.ThrowIfCancellationRequested();
+        var priced = SalePricingCalculator.Calculate(new SalePricingCalculationRequest(context.ShopId, context.Now, [request], NoDiscount), rules);
         if (priced.IsError)
             return priced.Errors;
 
@@ -176,5 +182,6 @@ public sealed class ShopSetupSampleBuilder(
         return new ShopSetupSampleDto(true, document.Value with { Number = string.Empty }, line.LineType, context.Now);
     }
 
-    private sealed record SampleContext(Guid ShopId, Guid Actor, InvoiceSellerProfile? Profile, BusinessDay Day, DateTimeOffset Now);
+    private sealed record SampleContext(Guid ShopId, Guid Actor, InvoiceSellerProfile? Profile, BusinessDay Day, DateTimeOffset Now,
+        Lazy<Task<SalePricingCalculator.RuleSnapshot>> DiscountRules);
 }
