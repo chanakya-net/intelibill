@@ -124,7 +124,7 @@ internal static class SalePricingMath
     }
 
     internal static DiscountRule? SelectBestSaleLevelRule(
-        List<DiscountRule> saleRules,
+        IReadOnlyList<DiscountRule> saleRules,
         decimal eligibleSubtotal)
     {
         if (saleRules.Count == 0)

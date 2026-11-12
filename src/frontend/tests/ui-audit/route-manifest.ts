@@ -24,6 +24,8 @@ const ROUTE_STATE_PROFILES = {
 } as const satisfies Record<RouteStateProfile, readonly RouteState[]>;
 
 export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
+  shellRoute('shops/setup'),
+  printRoute('shops/setup/sample', 'shop-setup-sample'),
   shellRoute('tills'),
   shellRoute('payments/:receiptId', MANAGEMENT_ROLES, () => ({ receiptId: 'receipt-001' })),
   shellRoute('tills/expenses/:expenseId', MANAGEMENT_ROLES, () => ({ expenseId: 'expense-001' })),
@@ -110,7 +112,7 @@ function publicRoute(path: string, stateProfile: RouteStateProfile): RouteManife
 function printRoute(
   path: string,
   document: PrintProfile['document'],
-  parameterFactory: NonNullable<RouteManifestEntry['parameterFactory']>,
+  parameterFactory?: NonNullable<RouteManifestEntry['parameterFactory']>,
 ): RouteManifestEntry {
   return {
     ...metadata(path, 'standalone-print', 'authenticated', 'print', ALL_ROLES),

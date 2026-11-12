@@ -9,6 +9,7 @@ using Intelibill.Application.Features.Shops.Commands.SwitchActiveShop;
 using Intelibill.Application.Features.Shops.Commands.UpdateShop;
 using Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
 using Intelibill.Application.Features.Shops.DTOs;
+using Intelibill.Application.Features.Shops.Setup;
 using Intelibill.Application.Features.Shops.TillSettings;
 using Intelibill.Application.Features.Shops.Queries.GetShopDetails;
 using Intelibill.Application.Features.Shops.Queries.GetMyShops;
@@ -31,6 +32,47 @@ public sealed class ShopsController : AuthenticatedControllerBase
 {
     public ShopsController(IMessageBus bus) : base(bus)
     {
+    }
+
+    [HttpGet("{shopId:guid}/setup")]
+    public async Task<IActionResult> GetSetup(Guid shopId, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupStatusDto>>(
+            new GetShopSetupQuery(shopId, UserId!.Value, ActiveShopId), cancellationToken);
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("{shopId:guid}/setup/sample")]
+    public async Task<IActionResult> GetSetupSample(Guid shopId, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupSampleDto>>(
+            new GetShopSetupSampleQuery(shopId, UserId!.Value, ActiveShopId), cancellationToken);
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpGet("{shopId:guid}/setup/preferences")]
+    public async Task<IActionResult> GetSetupPreferences(Guid shopId, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupPreferencesDto>>(
+            new GetShopSetupPreferencesQuery(shopId, UserId!.Value, ActiveShopId), cancellationToken);
+        return result.ToActionResult(Ok);
+    }
+
+    [HttpPut("{shopId:guid}/setup/preferences")]
+    public async Task<IActionResult> UpdateSetupPreferences(Guid shopId, [FromBody] UpdateShopSetupPreferencesRequest request, CancellationToken cancellationToken)
+    {
+        var auth = CheckAuth();
+        if (auth is not null) return auth;
+        var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupPreferencesDto>>(
+            new UpdateShopSetupPreferencesCommand(shopId, UserId!.Value, ActiveShopId,
+                request.ExpectedVersion, request.ShowOnStartup, request.AcknowledgeSample), cancellationToken);
+        return result.ToActionResult(Ok);
     }
 
     [HttpGet("{shopId:guid}/till-settings")]
@@ -281,6 +323,11 @@ public sealed class ShopsController : AuthenticatedControllerBase
         return result.ToActionResult(Ok);
     }
 }
+
+public sealed record UpdateShopSetupPreferencesRequest(
+    [property: JsonRequired] int ExpectedVersion,
+    [property: JsonRequired] bool ShowOnStartup,
+    bool AcknowledgeSample);
 
 public sealed record CreateShopRequest(
     string Name,

@@ -81,15 +81,10 @@
   color: var(--app-orange-700);
 }
 
-.overlay-stepper {
-  // Shrink beneath the fixed header and scroll the complete step, including its actions.
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-}
-
 .overlay-form {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior-y: contain;
   padding: 1.25rem 1.6rem 1.7rem;
 }
 

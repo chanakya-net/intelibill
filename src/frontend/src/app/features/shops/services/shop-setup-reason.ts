@@ -1,0 +1,35 @@
+const reasonLabels: Readonly<Record<string, string>> = {
+  'ShopSetup.VerifiedOwnerRequired': 'verifyOwner',
+  'ShopSetup.BusinessDetailsRequired': 'business',
+  'ShopSetup.CatalogRequired': 'catalog',
+  'ShopSetup.NoUsableCandidate': 'catalog',
+  'ShopSetup.OpeningStockRequired': 'stock',
+  'ShopSetup.AggregateStockInsufficient': 'aggregate',
+  'ShopSetup.UnitReviewRequired': 'unit',
+  'ShopSetup.InvoiceSeriesInvalid': 'series',
+  'Invoice.TaxProfileRequired': 'tax',
+  'Invoice.SellerGstinInvalid': 'gstin',
+  'Invoice.EInvoiceUnsupported': 'eInvoice',
+  'Invoice.CompositionCannotCollectTax': 'taxRate',
+  'Invoice.UnregisteredCannotCollectTax': 'taxRate',
+  'Invoice.HsnRequired': 'hsn',
+  'Invoice.BuyerDetailsRequired': 'walkIn',
+  'Expiry.Quarantined': 'quarantine',
+  'Expiry.Expired': 'expiry',
+  'Expiry.OverrideDisabled': 'expiry',
+  'Expiry.RequiredDateMissing': 'expiry',
+  'Expiry.ApprovalRequired': 'expiryApproval',
+  'Expiry.HistoryUnknown': 'expiryHistory',
+  'Expiry.PolicyBusy': 'busy',
+  'Sale.QuantityPrecisionExceeded': 'unit',
+  'Sale.InventoryAggregateNotFound': 'aggregate',
+  'Sale.InvalidHsnCode': 'hsn',
+  'Sale.InvalidTaxRatePercent': 'taxRate',
+  'SalePricing.BelowCost': 'price',
+  'SalePricing.ItemDiscountBelowCost': 'price',
+  'SalePricing.SaleDiscountBelowCost': 'price',
+};
+
+export function setupReasonKey(code: string): string {
+  return `shopSetup.reasons.${Object.hasOwn(reasonLabels, code) ? reasonLabels[code] : 'unknown'}`;
+}

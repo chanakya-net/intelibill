@@ -396,6 +396,10 @@ export class ShellComponent {
   onOpenChangePassword(): void { this.showChangePasswordOverlay.set(true); }
   onOpenAddShop(): void { this.showCreateShopOverlayManual.set(true); }
   onOpenManageShop(): void { this.showManageShopOverlay.set(true); }
+  onOpenShopSetup(): void {
+    this.onCloseMenus();
+    void this.router.navigateByUrl('/shops/setup');
+  }
   onProfileOverlayClose(): void { this.showChangePasswordOverlay.set(false); }
   onManageShopOverlayClose(): void { this.showManageShopOverlay.set(false); }
 

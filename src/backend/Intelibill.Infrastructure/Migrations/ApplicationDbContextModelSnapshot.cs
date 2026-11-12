@@ -5476,6 +5476,43 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("shop_memberships", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.ShopSetupPreferences", b =>
+                {
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("SampleReceiptAcknowledgedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sample_receipt_acknowledged_at");
+
+                    b.Property<Guid?>("SampleReceiptAcknowledgedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sample_receipt_acknowledged_by_user_id");
+
+                    b.Property<bool>("ShowOnStartup")
+                        .HasColumnType("boolean")
+                        .HasColumnName("show_on_startup");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("ShopId")
+                        .HasName("pk_shop_setup_preferences");
+
+                    b.HasIndex("ShopId", "SampleReceiptAcknowledgedByUserId")
+                        .HasDatabaseName("ix_shop_setup_preferences_shop_id_sample_receipt_acknowledged_");
+
+                    b.ToTable("shop_setup_preferences", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_shop_setup_preferences_acknowledgement", "(sample_receipt_acknowledged_at IS NULL) = (sample_receipt_acknowledged_by_user_id IS NULL)");
+
+                            t.HasCheckConstraint("ck_shop_setup_preferences_version", "version >= 0");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.ShopTillSetting", b =>
                 {
                     b.Property<Guid>("ShopId")
@@ -8168,6 +8205,23 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Navigation("Shop");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.ShopSetupPreferences", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_shop_setup_preferences_shops_shop_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.ShopMembership", null)
+                        .WithMany()
+                        .HasForeignKey("ShopId", "SampleReceiptAcknowledgedByUserId")
+                        .HasPrincipalKey("ShopId", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_shop_setup_preferences_shop_memberships_shop_id_sample_rece");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.ShopTillSetting", b =>
