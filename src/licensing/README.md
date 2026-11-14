@@ -44,10 +44,16 @@ shared redactor and spans lose exception text before export. Optional
 
 ## Migrations
 
-Provision the database and roles before running the migration job. Set the
-corresponding `LicensingMigrationDatabase__*` environment variables on the
-job and run the EF command from the repository root once schema migrations
-exist.
+The API never migrates. The `licensing-migrate` image
+(`src/licensing/Dockerfile.migrate`) is an EF migration bundle for
+`LicensingDbContext`; it reads `LicensingMigrationDatabase__Host`, `__Port`,
+`__Database`, `__Username` and `__Password` (all but `Port` required) and runs
+as the identity that owns the licensing database. Provision the database and
+roles before it runs and grant the runtime login afterwards.
+
+The EF model is still empty, so the bundle applies nothing and exits 0; it
+already validates its connection and will apply migrations as later issues add
+them. Run it directly from the repository root with:
 
 ```sh
 dotnet ef database update \
@@ -56,9 +62,11 @@ dotnet ef database update \
   --context LicensingDbContext
 ```
 
-The initial EF model is empty. The API uses its runtime settings for both EF
-and readiness. The migration job owns all schema changes. Issue #835 supplies
-Compose orchestration, provisioning, migration and role-grant jobs.
+Locally, `docker compose --profile full up -d --build` does all of this:
+`db-bootstrap` prepares the database and roles, `licensing-migrate` runs the
+bundle, `licensing-runtime-role` grants the runtime login and checks it holds
+no schema or role authority, and only then does `licensing-api` start. See
+[docs/licensing-rollout.md](../../docs/licensing-rollout.md).
 
 ## Security primitives
 

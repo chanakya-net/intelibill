@@ -1,13 +1,13 @@
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: intelibill_postgres
+    container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_postgres
     environment:
       POSTGRES_DB: intelibill_dev
       POSTGRES_USER: intelibill
       POSTGRES_PASSWORD: intelibill_dev_password
     ports:
-      - "5432:5432"
+      - "${INTELIBILL_POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -16,18 +16,66 @@ services:
       timeout: 5s
       retries: 5
 
+  # Local database preparation for the full stack, before any migrator or API.
+  # Creates the licensing database (owned by its migrator) and the licensing
+  # runtime login once, re-states their attributes every `up`, and confines
+  # CONNECT on each service database to its own identities so neither runtime
+  # login can open the other's database. Serialized and idempotent: safe on a
+  # fresh volume and on an existing merchant-only one. See
+  # scripts/db/local-licensing-role.sql and docs/licensing-rollout.md.
+  db-bootstrap:
+    profiles: [full]
+    image: postgres:17-alpine
+    container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_db_bootstrap
+    environment:
+      PGPASSWORD: intelibill_dev_password
+    entrypoint:
+      - psql
+      - -X
+      - --host=postgres
+      - --username=intelibill
+      - --dbname=postgres
+      - --set=environment=Development
+      - --set=stage=bootstrap
+      - --file=/scripts/local-licensing-role.sql
+    volumes:
+      - ./scripts/db:/scripts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # The merchant schema, applied by the migration bundle (src/backend/
+  # Dockerfile.migrate) as the schema owner `intelibill` -- the same identity
+  # `dotnet ef database update` uses locally. The API never migrates.
+  merchant-migrate:
+    profiles: [full]
+    build:
+      context: .
+      dockerfile: src/backend/Dockerfile.migrate
+    container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_merchant_migrate
+    environment:
+      - Database__Host=postgres
+      - Database__Port=5432
+      - Database__Database=intelibill_dev
+      - Database__Username=intelibill
+      - Database__Password=intelibill_dev_password
+    depends_on:
+      db-bootstrap:
+        condition: service_completed_successfully
+    restart: "no"
+
   # The restricted identity the API connects as, created before the API starts.
   #
   # `intelibill` above is the superuser that owns the schema; it holds BYPASSRLS,
   # so an API connecting as that role ignores every tenant policy with nothing in
   # the log to say so. RuntimeRoleGuard refuses to start on such an identity, so
-  # this one-shot is what the backend waits for. It is idempotent and re-runs on
-  # every `up`, which is also how a table added by a later migration picks up its
-  # grant.
+  # this one-shot is what the backend waits for. It runs after merchant-migrate on
+  # every `up`, so a table added by a later migration picks up its grant.
   db-runtime-role:
     profiles: [full]
     image: postgres:17-alpine
-    container_name: intelibill_db_runtime_role
+    container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_db_runtime_role
     environment:
       PGPASSWORD: intelibill_dev_password
     entrypoint:
@@ -39,8 +87,9 @@ services:
     volumes:
       - ./scripts/db:/scripts:ro
     depends_on:
-      postgres:
-        condition: service_healthy
+      merchant-migrate:
+        condition: service_completed_successfully
+    restart: "no"
 
   # Local email capture. Registration, password reset and every other identity
   # message goes here instead of to a real inbox, and nothing leaves the machine:
@@ -49,10 +98,10 @@ services:
   mailpit:
     profiles: [full]
     image: axllent/mailpit:v1.33
-    container_name: intelibill_mailpit
+    container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_mailpit
     ports:
-      - "127.0.0.1:1025:1025"
-      - "127.0.0.1:8025:8025"
+      - "127.0.0.1:${INTELIBILL_MAILPIT_SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${INTELIBILL_MAILPIT_UI_PORT:-8025}:8025"
     environment:
       # Keep the capture bounded; this is a scratch inbox, not a record.
       MP_MAX_MESSAGES: "500"
@@ -62,17 +111,15 @@ services:
     build:
       context: .
       dockerfile: src/backend/Dockerfile
-    container_name: intelibill_backend
+    container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_backend
     # The container listens on 8080, the same port it uses when deployed. The
-    # host mapping stays 5277 so local tooling and the Angular development
-    # environment file keep working unchanged.
+    # host mapping stays 5277 (loopback only) so local tooling and the Angular
+    # development environment file keep working unchanged.
     #
-    # Schema is not created here: startup no longer migrates. Run
-    #   dotnet ef database update --project src/backend/Intelibill.Infrastructure \
-    #     --startup-project src/backend/Intelibill.Api
-    # against this database first.
+    # Schema is not created here: startup never migrates. merchant-migrate
+    # applies it, and db-runtime-role grants it, before this starts.
     ports:
-      - "5277:8080"
+      - "127.0.0.1:${INTELIBILL_MERCHANT_API_PORT:-5277}:8080"
     environment:
       # Development, because local mail capture is only permitted there and in
       # Testing — Email:LocalCapture is refused outright in any other
@@ -96,7 +143,7 @@ services:
       - Jwt__Secret=YourSuperSecretKeyHereChangeInProduction
       - Jwt__Issuer=Intelibill
       - Jwt__Audience=Intelibill
-      - App__BaseUrl=http://localhost:4000
+      - App__BaseUrl=http://localhost:${INTELIBILL_WEB_PORT:-4000}
       # Sign-up is limited to 5 requests per 15 minutes with a 15-minute backoff,
       # and the bucket is keyed on the caller's address, not the address being
       # enrolled — so behind this stack's web proxy every browser shares one
@@ -123,6 +170,9 @@ services:
       # Local placeholder, base64 of 32 ASCII bytes. Deployed environments take
       # this from a secret store; it is no more secret than Jwt__Secret above.
       - Identity__OutboxKey=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      # Stated rather than inherited: the cache table belongs to the migration,
+      # and the runtime role could not create it anyway.
+      - DistributedCache__CreateIfNotExists=false
     depends_on:
       postgres:
         condition: service_healthy
@@ -145,15 +195,116 @@ services:
     build:
       context: .
       dockerfile: src/frontend/Dockerfile
-    container_name: intelibill_frontend
+    container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_frontend
     ports:
-      - "4000:4000"
+      - "127.0.0.1:${INTELIBILL_WEB_PORT:-4000}:4000"
     environment:
       - NODE_ENV=production
       # Where the web server forwards /api and /hubs. Nothing read API_URL.
       - API_ORIGIN=http://backend:8080
     depends_on:
       backend:
+        condition: service_healthy
+    restart: on-failure
+
+  # ---- Licensing (separate database, identities, API and admin web) --------
+  #
+  # Nothing below depends on the merchant branch, and nothing above depends on
+  # this one: a licensing failure never holds the merchant API or web back.
+
+  # The licensing schema, applied by its own migration bundle as the database
+  # owner `intelibill_licensing_migrator`. The model is empty until later
+  # issues add migrations; the job still runs and exits 0. The API never
+  # migrates.
+  licensing-migrate:
+    profiles: [full]
+    build:
+      context: .
+      dockerfile: src/licensing/Dockerfile.migrate
+    container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_licensing_migrate
+    environment:
+      - LicensingMigrationDatabase__Host=postgres
+      - LicensingMigrationDatabase__Port=5432
+      - LicensingMigrationDatabase__Database=intelibill_licensing_dev
+      - LicensingMigrationDatabase__Username=intelibill_licensing_migrator
+      - LicensingMigrationDatabase__Password=intelibill_licensing_migrator_password
+    depends_on:
+      db-bootstrap:
+        condition: service_completed_successfully
+    restart: "no"
+
+  # Grants the licensing runtime login data access to what the migration
+  # created (and default privileges for what it creates next), then refuses to
+  # exit 0 if that login could change schema or assume a privileged role.
+  licensing-runtime-role:
+    profiles: [full]
+    image: postgres:17-alpine
+    container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_licensing_runtime_role
+    environment:
+      PGPASSWORD: intelibill_dev_password
+    entrypoint:
+      - psql
+      - -X
+      - --host=postgres
+      - --username=intelibill
+      - --dbname=intelibill_licensing_dev
+      - --set=environment=Development
+      - --set=stage=grants
+      - --file=/scripts/local-licensing-role.sql
+    volumes:
+      - ./scripts/db:/scripts:ro
+    depends_on:
+      licensing-migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  licensing-api:
+    profiles: [full]
+    build:
+      context: .
+      dockerfile: src/licensing/Dockerfile
+    container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_licensing_api
+    ports:
+      - "127.0.0.1:${INTELIBILL_LICENSING_API_PORT:-5278}:8080"
+    environment:
+      # Development states this is a local stack; the image default is
+      # Production. No licensing identity, provider or payment setting exists
+      # yet, so none is configured here.
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+      - LicensingDatabase__Host=postgres
+      - LicensingDatabase__Port=5432
+      - LicensingDatabase__Database=intelibill_licensing_dev
+      # The restricted runtime login, never the migrator or the superuser.
+      - LicensingDatabase__Username=intelibill_licensing_app
+      - LicensingDatabase__Password=intelibill_licensing_app_password
+    depends_on:
+      licensing-runtime-role:
+        condition: service_completed_successfully
+    healthcheck:
+      # Readiness, not liveness: it answers 200 only when the runtime login
+      # reaches its database and holds no schema-changing or privileged role.
+      test: ["CMD", "curl", "-f", "--max-time", "25", "http://localhost:8080/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: on-failure
+
+  admin-frontend:
+    profiles: [full]
+    build:
+      context: .
+      dockerfile: src/admin-frontend/Dockerfile
+    container_name: ${INTELIBILL_CONTAINER_PREFIX:-intelibill}_admin_frontend
+    ports:
+      - "127.0.0.1:${INTELIBILL_ADMIN_WEB_PORT:-4001}:4000"
+    environment:
+      - NODE_ENV=production
+      # Only /api/admin/** is forwarded, and only here; merchant routes are
+      # refused on this origin.
+      - API_ORIGIN=http://licensing-api:8080
+    depends_on:
+      licensing-api:
         condition: service_healthy
     restart: on-failure
 
