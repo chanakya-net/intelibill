@@ -56,6 +56,7 @@ test('coordinated refresh across tabs, unknown outcomes and reuse-driven sign-ou
     await (await prepareSignIn(first))();
     await assertSignInWaitsForRefresh(first, tabs[1], tabs[2], prepareSignIn, refreshes, 200);
     await assertSignInWaitsForRefresh(tabs[1], first, tabs[2], prepareSignIn, refreshes, 401);
+    await assertAbandonedSignInRecovers(tabs[2], refreshes);
   } finally {
     await context.close();
   }
@@ -161,6 +162,35 @@ async function assertSignInWaitsForRefresh(
   await old.goto(origin + '/');
   await expectDashboard([old]);
   console.log(`Fresh sign-in waited behind the held old refresh ${refreshStatus} and kept its cookie pair. A stale protected 401 sent no refresh or retry.`);
+}
+
+async function assertAbandonedSignInRecovers(survivor: Page, refreshes: ReturnType<typeof watchRefreshes>) {
+  const abandoned = await survivor.context().newPage();
+  await abandoned.goto(origin + '/auth/sign-in');
+  await abandoned.getByLabel('Email', { exact: true }).fill(ownerEmail);
+  // The held POST never reaches the API, so these fixture values are never checked.
+  await fillSecret(abandoned, 'Password', 'Fixture-abandoned-sign-in');
+  await fillSecret(abandoned, 'Authenticator code', '000000');
+  const reached = deferred<void>();
+  await abandoned.route((url) => url.pathname === '/api/admin/auth/sign-in', () => reached.resolve());
+  refreshes.reset();
+  await abandoned.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await reached.promise;
+  expect(await coordinationState(abandoned)).toBe('replacing');
+  await abandoned.close();
+
+  // The closed tab released its lock but left its marker: automatic checks stay closed, explicit recovery works.
+  await survivor.goto(origin + '/');
+  await expectUncertain(survivor);
+  await survivor.getByRole('button', { name: 'Try again' }).click();
+  await expectDashboard([survivor]);
+  expect(await coordinationState(survivor)).toBe('uncertain');
+  expect(refreshes.attempts).toBe(0);
+  console.log('A sign-in tab closed with its POST in flight. Another tab stayed unconfirmed until Try again restored the session with zero refresh POSTs.');
+}
+
+function coordinationState(page: Page) {
+  return page.evaluate(() => JSON.parse(localStorage.getItem('intelibill.admin.session-coordination.v1') ?? 'null')?.state);
 }
 
 function deferred<T>() {

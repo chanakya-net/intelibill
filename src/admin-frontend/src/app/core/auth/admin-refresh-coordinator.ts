@@ -42,6 +42,19 @@ export class AdminRefreshCoordinator {
     }
   }
 
+  /**
+   * Explicit recovery from a sign-in that never settled (its tab closed with the POST in flight).
+   * The exclusive lock waits for any live sign-in; a marker still present afterwards is abandoned
+   * and becomes unconfirmed, so the caller checks the session before any rotation.
+   */
+  recoverAbandonedSignIn(): Promise<string | undefined> {
+    return this.exclusive(async () => {
+      const current = this.read();
+      if (current.state === 'replacing') this.write({ ...current, state: 'uncertain' });
+      return current.generation;
+    }).catch(() => undefined);
+  }
+
   retry<T>(generation: string | undefined, request: () => Promise<T>): Promise<T> {
     return this.exclusive(() => {
       const current = this.read();

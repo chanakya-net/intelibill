@@ -262,6 +262,9 @@ The console stores only a browser-generated generation and renewal state in
 local storage. It records a pending rotation before sending the POST. If the
 outcome stays unconfirmed, waiting tabs can check the live access session or
 offer an explicit retry. A retry of a consumed credential ends the session. A
+sign-in whose tab closed with its POST in flight leaves its marker behind:
+automatic checks stay unconfirmed, and an explicit retry first waits for the
+Web Lock, then checks the live session before any rotation. A
 definitive rejection clears grants and discards authorized invitation forms
 and their request proofs. Invitation recovery checks the session and requests
 a fresh proof before showing the form.

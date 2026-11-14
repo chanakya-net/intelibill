@@ -15,7 +15,7 @@ The concurrent tests saw no 200 among the presentations.
 | `dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj` | 65 passed. |
 | `dotnet test tests/shared/P0103ConsumerRegressionTests/Intelibill.Shared.P0103ConsumerRegressionTests.csproj` | 12 passed. |
 | `dotnet build Intelibill.slnx -warnaserror` | Passed with zero warnings and errors. |
-| `cd src/admin-frontend && bun run test --watch=false` | 21 passed. The invitation and session regressions cover hidden grants, discarded form/proof, explicit recovery, retried 401 and coordination failures. |
+| `cd src/admin-frontend && bun run test --watch=false` | 24 passed. The invitation and session regressions cover hidden grants, discarded form/proof, explicit recovery, retried 401, coordination failures and recovery from an abandoned sign-in marker (session check, explicit rotation to ended, and waiting for a sign-in that still holds the lock). |
 | `cd src/admin-frontend && bun test tests/server.test.mjs` | 13 passed. |
 | `cd src/admin-frontend && bun run audit:release` | Production build and Chromium release test passed. The static release server answers the API with 404, so no renewal is attempted. |
 | `cd src/frontend && bun run build` | Passed. |
@@ -42,6 +42,12 @@ Fresh sign-in waited behind both a held refresh 200 and a held refresh 401.
 The new cookie pair survived both interleavings and a protected session check
 succeeded. A third tab received its old protected 401 after the sign-in and
 returned to sign-in without a refresh POST under the new cookie pair.
+
+A fourth tab started a sign-in whose POST was held and then closed with the
+coordination record still `replacing`. Another tab reloaded the dashboard and
+stayed on the unconfirmed notice without sending a request. Try again waited
+for the lock, confirmed the live session and restored the dashboard with zero
+refresh POSTs, leaving the record `uncertain` so automatic rotation stays paused.
 
 The database started at `20261114194123_AddAdminSignInSessions` with a prior
 enrolled identity, session and sign-in audit row. The source API was ready

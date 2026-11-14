@@ -1,6 +1,13 @@
-import { HttpErrorResponse, HttpResponse, type HttpInterceptorFn } from '@angular/common/http';
+import {
+  HttpErrorResponse,
+  HttpResponse,
+  type HttpEvent,
+  type HttpHandlerFn,
+  type HttpInterceptorFn,
+  type HttpRequest,
+} from '@angular/common/http';
 import { inject } from '@angular/core';
-import { catchError, from, lastValueFrom, switchMap, tap, throwError } from 'rxjs';
+import { type Observable, catchError, from, lastValueFrom, switchMap, tap, throwError } from 'rxjs';
 import { AdminSessionService } from '../../features/auth/admin-session.service';
 import { AdminRefreshCoordinator, explicitSessionRecovery } from './admin-refresh-coordinator';
 
@@ -10,12 +17,25 @@ export const adminSessionInterceptor: HttpInterceptorFn = (request, next) => {
   if (!sessionScoped.test(request.url)) return next(request);
   const coordinator = inject(AdminRefreshCoordinator);
   const session = inject(AdminSessionService);
+  const explicit = request.context.get(explicitSessionRecovery);
   const generation = coordinator.generation();
-  if (generation === null) {
-    session.settle('uncertain');
-    return throwError(() => uncertain(request.url));
-  }
+  if (generation !== null) return send(request, next, coordinator, session, generation);
+  // A sign-in is (or was) replacing the cookies: only explicit recovery waits for it to settle.
+  if (!explicit) return unconfirmed(session, request.url);
+  return from(coordinator.recoverAbandonedSignIn()).pipe(
+    switchMap((recovered) => recovered === undefined
+      ? unconfirmed(session, request.url)
+      : send(request, next, coordinator, session, recovered)),
+  );
+};
 
+function send(
+  request: HttpRequest<unknown>,
+  next: HttpHandlerFn,
+  coordinator: AdminRefreshCoordinator,
+  session: AdminSessionService,
+  generation: string | undefined,
+): Observable<HttpEvent<unknown>> {
   return next(request).pipe(
     catchError((error: unknown) => {
       if (!isUnauthorized(error)) return throwError(() => error);
@@ -26,13 +46,15 @@ export const adminSessionInterceptor: HttpInterceptorFn = (request, next) => {
               catchError((retryError: unknown) => {
                 if (isUnauthorized(retryError)) session.settle('ended');
                 if (retryError instanceof HttpErrorResponse) return throwError(() => retryError);
-                session.settle('uncertain');
-                return throwError(() => uncertain(request.url));
+                return unconfirmed(session, request.url);
               }),
             );
           }
-          session.settle(outcome === 'rejected' ? 'ended' : 'uncertain');
-          return throwError(() => outcome === 'rejected' ? error : uncertain(request.url));
+          if (outcome === 'rejected') {
+            session.settle('ended');
+            return throwError(() => error);
+          }
+          return unconfirmed(session, request.url);
         }),
       );
     }),
@@ -43,7 +65,12 @@ export const adminSessionInterceptor: HttpInterceptorFn = (request, next) => {
       }
     }),
   );
-};
+}
+
+function unconfirmed(session: AdminSessionService, url: string) {
+  session.settle('uncertain');
+  return throwError(() => uncertain(url));
+}
 
 function isUnauthorized(error: unknown): error is HttpErrorResponse {
   return error instanceof HttpErrorResponse && error.status === 401;

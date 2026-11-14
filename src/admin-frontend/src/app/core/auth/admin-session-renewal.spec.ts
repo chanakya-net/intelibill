@@ -12,6 +12,7 @@ const session = '/api/admin/auth/session';
 const invitations = '/api/admin/invitations/context';
 const context = '/api/admin/auth/sign-in/context';
 const refresh = '/api/admin/auth/refresh';
+const coordinationKey = 'intelibill.admin.session-coordination.v1';
 const unauthorized = { status: 401, statusText: 'Unauthorized' };
 const snapshot = () => ({ capabilities: ['admin.invitations.manage'], accessExpiresAt: new Date(Date.now() + 60_000).toISOString() });
 
@@ -137,6 +138,61 @@ describe('admin session renewal', () => {
     backend.expectNone('/api/admin/invitations');
     request.flush({});
     await replacement;
+  });
+
+  it('recovers an abandoned sign-in marker only on explicit recovery', async () => {
+    localStorage.setItem(coordinationKey, JSON.stringify({ generation: 'abandoned', state: 'replacing' }));
+    const { backend, session: service } = setup();
+    expect(await firstValueFrom(service.check())).toBe('uncertain');
+    backend.expectNone(session);
+
+    const recovered = firstValueFrom(service.check(true));
+    await vi.waitFor(() => backend.expectOne(session).flush(snapshot()));
+    expect(await recovered).toBe('active');
+    expect(service.capabilities()).toEqual(['admin.invitations.manage']);
+    expect(JSON.parse(localStorage.getItem(coordinationKey)!)).toEqual({ generation: 'abandoned', state: 'uncertain' });
+    backend.expectNone(refresh);
+  });
+
+  it('ends an abandoned sign-in through explicit rotation when the server refuses it', async () => {
+    localStorage.setItem(coordinationKey, JSON.stringify({ generation: 'abandoned', state: 'replacing' }));
+    const { backend, session: service } = setup();
+    const recovered = firstValueFrom(service.check(true));
+    await vi.waitFor(() => backend.expectOne(session).flush(null, unauthorized));
+    await vi.waitFor(() => backend.expectOne(session).flush(null, unauthorized));
+    await renew(backend, (rotation) => rotation.flush(null, unauthorized));
+    expect(await recovered).toBe('ended');
+    expect(service.notice()).toBe('ended');
+    expect(service.capabilities()).toEqual([]);
+  });
+
+  it('waits for a sign-in that still holds the lock before explicit recovery', async () => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const queue: Promise<unknown>[] = [held];
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: {
+        request: (_name: string, _options: unknown, task: () => Promise<unknown>) => {
+          const run = Promise.all(queue.splice(0)).then(task);
+          queue.push(run.catch(() => undefined));
+          return run;
+        },
+      },
+    });
+    localStorage.setItem(coordinationKey, JSON.stringify({ generation: 'live', state: 'replacing' }));
+    const { backend, session: service } = setup();
+    let outcome: string | undefined;
+    service.check(true).subscribe((value) => (outcome = value));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    backend.expectNone(session);
+    expect(outcome).toBeUndefined();
+
+    localStorage.setItem(coordinationKey, JSON.stringify({ generation: 'live', state: 'ready' }));
+    release();
+    await vi.waitFor(() => backend.expectOne(session).flush(snapshot()));
+    await vi.waitFor(() => expect(outcome).toBe('active'));
+    expect(JSON.parse(localStorage.getItem(coordinationKey)!)).toEqual({ generation: 'live', state: 'ready' });
   });
 
   it('ends the session when the protected retry is refused', async () => {
