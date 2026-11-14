@@ -14,10 +14,10 @@ Run from the repository root unless the command changes directories. All API and
 | --- | --- |
 | `dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter FullyQualifiedName~P0111Tests` on baseline with the three regression tests | Expected exit 1. Real PostgreSQL setup, owner/invitee authenticator sign-in and prerequisite refresh succeeded. List expected 200 and received 404, revoke and sign-out expected 204 and received 404. |
 | `dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter FullyQualifiedName~P0111Tests` | 10 passed. Includes fixed MFA/idle/absolute boundaries, access and refresh survival/denial, scope and CSRF, and rollback after an audit insert failure. A PostgreSQL row lock held both API replicas at the same time. Either rotation outcome left the revoked target unusable and the sibling live. |
-| `dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj` | 710 passed. Includes the original refresh and audit suites and EF snapshot check. |
+| `dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj` | 80 passed. Includes the original refresh and audit suites and EF snapshot check. |
 | `dotnet test tests/shared/P0103ConsumerRegressionTests/Intelibill.Shared.P0103ConsumerRegressionTests.csproj` | 12 passed. |
 | `dotnet build Intelibill.slnx -warnaserror` | Built with zero warnings and errors. |
-| `cd src/admin-frontend && bun run test --watch=false` | 310 passed. Includes delayed 200 and 401 refreshes, stale protected results, abandoned sign-out intent, queued sign-in and unavailable Web Locks. |
+| `cd src/admin-frontend && bun run test --watch=false` | 40 passed across eight files. Includes delayed 200 and 401 refreshes, stale protected results, abandoned sign-out intent, queued sign-in and unavailable Web Locks. |
 | `cd src/admin-frontend && bun run audit:release` | Production build and release Chromium check passed. |
 | `cd src/frontend && bun run build` | Merchant production build and worker packaging passed. The build emitted existing style-budget warnings. |
 | `bash tests/licensing/acceptance/run-p0111-browser.sh` | Chromium scenario and explicit migration job checks passed. |
