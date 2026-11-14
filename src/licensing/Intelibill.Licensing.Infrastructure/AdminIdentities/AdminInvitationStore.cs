@@ -10,7 +10,7 @@ internal sealed class AdminInvitationStore(LicensingDbContext context) : IAdminI
     public Task<string?> FindOwnerOriginAsync(Guid adminId, CancellationToken cancellationToken) =>
         (from state in context.Set<InitialAdminBootstrap>()
          join owner in context.Set<AdminIdentity>() on state.OwnerId equals owner.Id
-         where owner.Id == adminId && state.ConsumedAt != null && owner.MfaEnrolledAt != null
+         where owner.Id == adminId && state.ConsumedAt != null && owner.MfaEnrolledAt != null && owner.DeactivatedAt == null
          select state.AdminOrigin).SingleOrDefaultAsync(cancellationToken);
 
     public Task<string?> FindProviderOriginAsync(CancellationToken cancellationToken) =>

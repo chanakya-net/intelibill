@@ -154,13 +154,11 @@ in Development or Testing. When delivery is unconfigured or fails, the
 invitation is retired and the API answers 503
 `Invitation.DeliveryUnavailable`.
 
-No production provider session exists on this base: TOTP enrollment and
-sign-in belong to P01-08 and P01-09. Until then `ProviderSession`
-authenticates nobody and issuance fails closed with 401. Local acceptance
-uses the `AdminFixtures` section (`SessionDigest`, the SHA-256 of a fixture
-cookie; `AdminId`; `Capabilities`; optional `MfaVerifiedAt`). Startup refuses
-a configured fixture outside Development or Testing. The fixture never
-replaces the persisted owner and MFA checks.
+The local invitation fixture uses `AdminFixtures` (`SessionDigest`, the SHA-256
+of a fixture cookie, `AdminId`, `Capabilities`, and optional `MfaVerifiedAt`).
+Startup refuses a configured fixture outside Development or Testing. The
+fixture only reaches invitation authority checks and still requires the
+persisted MFA-enrolled owner.
 
 ## Authenticator enrollment
 
@@ -190,5 +188,38 @@ database and generates ephemeral fixture keys.
 Every attempt against a started enrollment shares the administrator's
 database budget of five tries in 15 minutes. TOTP accepts the current counter
 and one step of drift in either direction, with a persisted high-water mark.
-Later sign-in and recovery handlers can use `IAdminMfaVerifier` after proving
-the administrator's identity. Business session issuance belongs to P01-09.
+Sign-in consumes an authenticator step and commits the new session in the same
+transaction. The verifier is also available to later credential workflows.
+
+## Provider sign-in
+
+Apply `20261114194123_AddAdminSignInSessions` through the explicit licensing
+migration job. The provider origin is the exact browser-facing origin recorded
+by first-owner bootstrap. Configure `AdminSessions__SigningKey` on the source
+API with a dedicated base64-encoded 32-byte random key shared by the licensing
+replicas. Share the existing ASP.NET Data Protection key ring across those
+replicas for request tokens. For local Compose sign-in, supply
+`AdminSessions__SigningKey` to the `licensing-api` service through a local
+Compose override alongside the MFA environment settings. With no signing key
+the API leaves the sign-in endpoints unavailable and still serves bootstrap,
+invitations and enrollment according to their own authorization.
+
+At `/auth/sign-in`, enter the enrolled email, password and a fresh authenticator
+code. The API issues a host-only, HttpOnly, SameSite=Strict cookie with a
+15-minute access lifetime. HTTPS uses the `__Host-` prefix and Secure.
+Development and Testing allow the existing loopback HTTP origin. Each authorized
+request checks the device session, admin status, 30-minute inactivity and
+12-hour absolute limit in PostgreSQL. The dashboard reads its capabilities
+from the session API and current platform ownership provides the invitation
+capability. An enrolled invitee can sign in and sees an empty capability list.
+
+Sign-in requires an exact Origin and the `X-Admin-CSRF` request proof. PostgreSQL
+enforces 5 sign-in attempts per normalized account per 15 minutes and 60
+overall per 5 minutes, across replicas. The authenticator keeps its existing
+separate proof budget. Provider audit events record accepted and refused
+sign-ins without credential material. Access expiry currently returns the
+operator to sign-in. Refresh rotation, operator revocation, recovery and grant
+management are the subsequent P01 slices.
+
+Run `bash tests/licensing/acceptance/run-p0109-browser.sh` for the disposable
+PostgreSQL, migration job and Chromium acceptance flow.

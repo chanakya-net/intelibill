@@ -6,14 +6,13 @@ using Microsoft.AspNetCore.Authentication;
 
 namespace Intelibill.Licensing.Api.AdminIdentities;
 
-/// <summary>
-/// The provider session that sensitive admin routes require. Its production producer (TOTP
-/// sign-in) arrives with P01-09; until then the scheme authenticates nobody, so every
-/// route behind it fails closed. Development and Testing may substitute the guarded fixture.
-/// </summary>
 internal static class ProviderSessions
 {
     internal const string Scheme = "ProviderSession";
+    internal const string FixtureScheme = "ProviderLocalFixture";
+    internal const string BusinessClaim = "provider_business_session";
+    internal const string SessionIdClaim = "provider_session_id";
+    internal const string AccessExpiresClaim = "provider_access_expires";
     internal const string InvitationPolicy = "ProviderInvitations";
     internal const string CapabilityClaim = "provider_capability";
     internal const string MfaVerifiedAtClaim = "provider_mfa_at";
@@ -27,10 +26,18 @@ internal static class ProviderSessions
             .Validate(fixture => !fixture.IsConfigured || (BootstrapHttp.AllowsLoopbackHttp(environment) && fixture.IsValid()),
                 "Admin fixture sessions are refused in this environment or configuration.")
             .ValidateOnStart();
-        services.AddAuthentication().AddScheme<AuthenticationSchemeOptions, ProviderSessionHandler>(Scheme, _ => { });
+        services.AddOptions<AdminSessionOptions>().BindConfiguration("AdminSessions")
+            .Validate(settings => settings.IsValid(),
+                "The provider session signing key must decode to 32 bytes.").ValidateOnStart();
+        services.AddSingleton<AdminAccessTokens>();
+        services.AddScoped<AdminSignInHttp>();
+        services.AddScoped<AdminSignInHandler>();
+        services.AddAuthentication()
+            .AddScheme<AuthenticationSchemeOptions, AdminAccessSessionHandler>(Scheme, _ => { })
+            .AddScheme<AuthenticationSchemeOptions, AdminFixtureSessionHandler>(FixtureScheme, _ => { });
 
         services.AddAuthorizationBuilder().AddPolicy(InvitationPolicy, policy => policy
-            .AddAuthenticationSchemes(Scheme)
+            .AddAuthenticationSchemes(Scheme, FixtureScheme)
             .RequireAuthenticatedUser()
             .RequireClaim(CapabilityClaim, ProviderActor.InvitationCapability));
     }

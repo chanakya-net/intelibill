@@ -10,6 +10,7 @@ public sealed class AdminIdentity(
     public DateTimeOffset VerifiedAt { get; private set; } = verifiedAt;
 
     public DateTimeOffset? MfaEnrolledAt { get; private set; }
+    public DateTimeOffset? DeactivatedAt { get; private set; }
     public uint Version { get; private set; }
 
     public void CompleteMfaEnrollment(DateTimeOffset now) => MfaEnrolledAt ??= now;

@@ -54,7 +54,7 @@ internal sealed class AdminMfaEnrollmentService(AdminMfaStore store, IBootstrapS
         store.WithAdminAsync<T>(adminId, async admin =>
         {
             var now = clock.GetUtcNow();
-            if (admin.MfaEnrolledAt is not null) return Refused;
+            if (admin.MfaEnrolledAt is not null || admin.DeactivatedAt is not null) return Refused;
             var enrollment = await bootstrap.FindEnrollmentAsync(digest, now, cancellationToken);
             if (enrollment?.OwnerId != adminId) return Refused;
             return await operation(admin, now);

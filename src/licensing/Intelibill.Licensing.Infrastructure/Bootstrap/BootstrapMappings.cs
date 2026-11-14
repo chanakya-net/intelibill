@@ -37,7 +37,10 @@ internal sealed class AdminIdentityMapping : IEntityTypeConfiguration<AdminIdent
     public void Configure(EntityTypeBuilder<AdminIdentity> builder)
     {
         builder.ToTable("admin_identities", table =>
-            table.HasCheckConstraint("ck_admin_mfa_date", "mfa_enrolled_at >= verified_at"));
+        {
+            table.HasCheckConstraint("ck_admin_mfa_date", "mfa_enrolled_at >= verified_at");
+            table.HasCheckConstraint("ck_admin_deactivation_date", "deactivated_at >= verified_at");
+        });
         builder.Property(owner => owner.Email).HasMaxLength(254);
         builder.HasIndex(owner => owner.Email).IsUnique();
         builder.Property(owner => owner.PasswordHash).HasMaxLength(60);
@@ -67,7 +70,7 @@ internal sealed class ProviderAuditMapping : IEntityTypeConfiguration<ProviderAu
     public void Configure(EntityTypeBuilder<ProviderAuditEvent> builder)
     {
         builder.ToTable("provider_audit_events", table =>
-            table.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 13"));
+            table.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 15"));
         builder.HasOne<AdminIdentity>().WithMany().HasForeignKey(audit => audit.OwnerId)
             .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<AdminInvitation>().WithMany().HasForeignKey(audit => audit.InvitationId)

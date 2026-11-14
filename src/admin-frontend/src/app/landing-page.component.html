@@ -1,23 +1,26 @@
 <main>
   <h1 class="ib-page-title">Provider Console</h1>
-
-  <section class="ib-panel" aria-labelledby="access-heading">
-    <h2 class="ib-panel__title" id="access-heading">Provider access</h2>
-    <p class="ib-error-banner" role="alert">{{ accessProblem().title }}</p>
-    @if (!hasPermissions()) {
-      <p class="ib-subtitle">No provider permissions</p>
-    }
-
-    <section class="ib-form-section" aria-label="Access help">
-      @if (showHelp()) {
-        <p>Provider access requires a provider session.</p>
+  @if (authenticated()) {
+    <section class="ib-panel" aria-labelledby="access-heading">
+      <h2 class="ib-panel__title" id="access-heading">Granted capabilities</h2>
+      @if (capabilities().length) {
+        <ul aria-label="Granted capabilities">
+          @for (capability of capabilities(); track capability) {
+            <li>
+              @if (capability === invitationCapability) {
+                <a routerLink="/admin-users/invite">Manage administrator invitations</a>
+              } @else {
+                {{ capability }}
+              }
+            </li>
+          }
+        </ul>
+      } @else {
+        <p>No provider capabilities are assigned to this account.</p>
       }
-      <div>
-        <button pButton type="button" (click)="toggleHelp($event)">
-          {{ showHelp() ? 'Hide access help' : 'Show access help' }}
-        </button>
-      </div>
     </section>
-  </section>
-  <ib-confirmation-dialog />
+  } @else {
+    <p class="ib-error-banner" role="alert">Your provider session ended.</p>
+    <a routerLink="/auth/sign-in">Sign in again</a>
+  }
 </main>

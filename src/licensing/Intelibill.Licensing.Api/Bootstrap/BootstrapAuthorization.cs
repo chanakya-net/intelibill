@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using Intelibill.Licensing.Api.AdminIdentities;
 using Intelibill.Licensing.Application.Bootstrap;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -18,9 +19,9 @@ internal static class BootstrapAuthorization
         services.AddAuthentication().AddScheme<AuthenticationSchemeOptions, BootstrapEnrollmentAuthenticationHandler>(
             EnrollmentScheme, _ => { });
         // A bare [Authorize] must enforce the same authority as the business routes.
-        var business = new AuthorizationPolicyBuilder(EnrollmentScheme)
+        var business = new AuthorizationPolicyBuilder(ProviderSessions.Scheme, EnrollmentScheme)
             .RequireAuthenticatedUser()
-            .RequireClaim("provider_business_session")
+            .RequireClaim(ProviderSessions.BusinessClaim)
             .Build();
         services.AddAuthorizationBuilder()
             .SetDefaultPolicy(business)

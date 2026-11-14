@@ -28,12 +28,12 @@ internal sealed class BootstrapStore(LicensingDbContext context) : IBootstrapSto
     public async Task<AdminIdentity?> LockPendingOwnerAsync(Guid id, CancellationToken cancellationToken)
     {
         var admin = await AdminMfaStore.LockAdminAsync(context, id, cancellationToken);
-        return admin?.MfaEnrolledAt is null ? admin : null;
+        return admin is { MfaEnrolledAt: null, DeactivatedAt: null } ? admin : null;
     }
 
     public Task<AdminIdentity?> FindPendingOwnerAsync(Guid id, CancellationToken cancellationToken) =>
         context.Set<AdminIdentity>().AsNoTracking()
-            .SingleOrDefaultAsync(owner => owner.Id == id && owner.MfaEnrolledAt == null, cancellationToken);
+            .SingleOrDefaultAsync(owner => owner.Id == id && owner.MfaEnrolledAt == null && owner.DeactivatedAt == null, cancellationToken);
 
     public Task<EnrollmentState?> FindEnrollmentAsync(string digest, DateTimeOffset now, CancellationToken cancellationToken)
     {
@@ -41,7 +41,7 @@ internal sealed class BootstrapStore(LicensingDbContext context) : IBootstrapSto
             from credential in context.Set<BootstrapEnrollmentCredential>()
             join owner in context.Set<AdminIdentity>() on credential.OwnerId equals owner.Id
             where credential.Digest == digest && credential.ExpiresAt > now && credential.RevokedAt == null
-                && owner.MfaEnrolledAt == null
+                && owner.MfaEnrolledAt == null && owner.DeactivatedAt == null
                 // Only the bootstrapped owner or an administrator who accepted an invitation.
                 && (context.Set<InitialAdminBootstrap>().Any(state => state.OwnerId == owner.Id && state.ConsumedAt != null)
                     || context.Set<AdminInvitation>().Any(invitation => invitation.AcceptedAdminId == owner.Id

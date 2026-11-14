@@ -37,6 +37,8 @@ public static class DependencyInjection
         services.AddOptions<AdminMfaOptions>().Bind(configuration.GetSection("AdminMfa"))
             .Validate(options => options.IsValid(), "Admin MFA key ring is invalid.").ValidateOnStart();
         services.AddSingleton<AdminMfaKeys>();
+        services.AddScoped<IAdminSignInBudget, PostgresAdminSignInBudget>();
+        services.AddScoped<IAdminSessionStore, AdminSessionStore>();
         services.AddScoped<AdminMfaStore>();
         services.AddScoped<IAdminMfaEnrollment, AdminMfaEnrollmentService>();
         services.AddScoped<IAdminMfaVerifier, AdminMfaVerifier>();
