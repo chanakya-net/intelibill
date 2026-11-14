@@ -123,6 +123,8 @@ function forward(target, request, response) {
   const headers = Object.fromEntries(
     Object.entries(request.headers).filter(([name]) => !HOP_BY_HOP.has(name.toLowerCase())),
   );
+  // Bootstrap binds its proof and cookie to the browser-facing authority.
+  if (request.headers.host) headers.host = request.headers.host;
   headers['x-forwarded-proto'] = 'http';
   headers['x-forwarded-for'] = request.socket.remoteAddress ?? '';
   const client = target.protocol === 'https:' ? https : http;
