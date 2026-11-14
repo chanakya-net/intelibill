@@ -10,27 +10,109 @@ fail() {
 }
 pass() { log "PASS: $*"; }
 
-compose() {
-  docker compose -p "${project}" --profile full "$@"
+failure_override=""
+
+compose() (
+  validate_project_name
+  local variable
+  for variable in ${!COMPOSE_@}; do unset "${variable}"; done
+  export INTELIBILL_CONTAINER_PREFIX="${project}"
+  local args=(--env-file /dev/null -f "${repository_root}/docker-compose.yml" -p "${project}" --profile full)
+  if [[ -n "${failure_override}" ]]; then
+    args+=(-f "${failure_override}")
+  fi
+  case "$1" in
+    config|ps) ;;
+    *) guard_project "${args[@]}" ;;
+  esac
+  docker compose "${args[@]}" "$@"
+)
+
+validate_model() {
+  jq -e --arg p "${project}" --arg db_scripts "${repository_root}/scripts/db" '
+    .name == $p and
+    .volumes == {postgres_data: {name: ($p + "_postgres_data")}} and
+    (.networks | keys == ["default"] and .default.name == ($p + "_default") and
+      (.default | del(.name) == {} or del(.name) == {ipam: {}})) and
+    (.services | length > 0 and (to_entries | all(
+      .key as $service | .value |
+      .container_name == ($p + "_" + ($service | gsub("-"; "_"))) and
+      (.networks == {default: null} or .networks == {default: {}}) and
+      ((has("volumes_from") or has("network_mode") or has("external_links")) | not) and
+      all(.volumes[]?;
+        if $service == "postgres" then
+          .type == "volume" and .source == "postgres_data" and .target == "/var/lib/postgresql/data"
+        else
+          .type == "bind" and .source == $db_scripts and .target == "/scripts" and .read_only == true
+        end
+      )
+    )))
+  ' >/dev/null
+}
+
+check_resource_labels() {
+  local kind="$1" rows name owner
+  rows="$(docker "${kind}" ls --filter "name=^${project}_" --format '{{.Name}}|{{.Label "com.docker.compose.project"}}')" \
+    || fail "could not inspect fixture ${kind} ownership"
+  while IFS='|' read -r name owner; do
+    [[ -z "${name}" || "${owner}" == "${project}" ]] || fail "${kind} ${name} is owned by another project"
+  done <<<"${rows}"
+}
+
+check_live_containers() {
+  local by_name by_label id containers anonymous ids=()
+  by_name="$(docker ps -aq --filter "name=^/${project}(_|-[a-z-]+-run-[a-f0-9]+$)")" \
+    || fail "could not list fixture container names"
+  by_label="$(docker ps -aq --filter "label=com.docker.compose.project=${project}")" || fail "could not list fixture container labels"
+  while IFS= read -r id; do
+    ids+=("${id}")
+  done < <(printf '%s\n' "${by_name}" "${by_label}" | awk 'NF && !seen[$0]++')
+  ((${#ids[@]} > 0)) || return 0
+  # PostgreSQL's image declares an anonymous data volume for the psql jobs.
+  containers="$(docker inspect "${ids[@]}")" || fail "could not inspect fixture containers"
+  jq -e --arg p "${project}" --arg db_scripts "${repository_root}/scripts/db" '
+    all(.[];
+      (.Name | startswith("/" + $p + "_") or startswith("/" + $p + "-")) and
+      .Config.Labels["com.docker.compose.project"] == $p and
+      all(.NetworkSettings.Networks | keys[]; . == ($p + "_default")) and
+      all(.Mounts[]?;
+        if .Type == "bind" then
+          .Source == $db_scripts and .Destination == "/scripts" and .RW == false
+        else
+          .Type == "volume" and .Destination == "/var/lib/postgresql/data" and
+          (.Name == ($p + "_postgres_data") or (.Name | test("^[a-f0-9]{64}$")))
+        end
+      )
+    )
+  ' <<<"${containers}" >/dev/null || fail "existing fixture containers have foreign ownership, mounts or networks"
+  anonymous="$(jq -r --arg named "${project}_postgres_data" \
+    '[.[].Mounts[]? | select(.Type == "volume" and .Name != $named) | .Name] | unique[]' <<<"${containers}")"
+  while IFS= read -r id; do
+    [[ -z "${id}" ]] && continue
+    docker volume inspect "${id}" --format '{{json .Labels}}' \
+      | jq -e 'has("com.docker.volume.anonymous") and (has("com.docker.compose.project") | not)' >/dev/null \
+      || fail "volume ${id} is not an anonymous PostgreSQL image volume"
+  done <<<"${anonymous}"
 }
 
 # Refuse to touch anything this run does not positively own.
 guard_project() {
+  local model
+  model="$(docker compose "$@" config --format json)" || fail "could not resolve fixture Compose model"
+  validate_model <<<"${model}" || fail "resolved Compose model targets non-fixture containers, networks or volumes"
+  check_resource_labels volume
+  check_resource_labels network
+  check_live_containers
+}
+
+validate_project_name() {
   [[ "${project}" =~ ^intelibill-p01-05-[a-z0-9-]+$ ]] \
     || fail "P0105_PROJECT must match intelibill-p01-05-*; got '${project}'"
-  local foreign
-  foreign="$(docker ps -a --filter "name=^${project}_" --format '{{.Names}} {{.Label "com.docker.compose.project"}}' \
-    | awk -v p="${project}" '$2 != p { print $1 }')"
-  [[ -z "${foreign}" ]] || fail "containers named ${project}_* belong to another project: ${foreign}"
-  foreign="$(docker volume ls --filter "name=^${project}_" --format '{{.Name}} {{.Label "com.docker.compose.project"}}' \
-    | awk -v p="${project}" '$2 != p { print $1 }')"
-  [[ -z "${foreign}" ]] || fail "volumes named ${project}_* belong to another project: ${foreign}"
 }
 
 # Host ports for this project; refuses ports something else already listens on.
 assign_ports() {
   local base="$1" name port
-  export INTELIBILL_CONTAINER_PREFIX="${project}"
   export INTELIBILL_POSTGRES_PORT="127.0.0.1:$((base + 432))"
   export INTELIBILL_MERCHANT_API_PORT="$((base + 277))"
   export INTELIBILL_WEB_PORT="$((base + 0))"
@@ -62,6 +144,18 @@ state_of() {
     return
   }
   docker inspect -f '{{.State.Status}} {{.State.ExitCode}} {{if .State.Health}}{{.State.Health.Status}}{{end}} {{.State.StartedAt}}' "${id}"
+}
+
+stack_up() {
+  local compose_log="${evidence}/${project}-compose.log" status
+  log "compose up --build (${project})"
+  if compose up -d --build >>"${compose_log}" 2>&1; then
+    wait_stack
+  else
+    status=$?
+    log "FAIL: compose up --build exit ${status}; see ${compose_log}"
+    return "${status}"
+  fi
 }
 
 wait_for() {

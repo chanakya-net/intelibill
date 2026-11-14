@@ -32,6 +32,8 @@ evidence="${P0105_ARTIFACTS:-/tmp/${main_project}-evidence}"
 mkdir -p "${evidence}"
 # shellcheck source=scripts/dev/licensing-stack-lib.sh
 source "${repository_root}/scripts/dev/licensing-stack-lib.sh"
+validate_project_name
+for variable in ${!INTELIBILL_@}; do unset "${variable}"; done
 
 case_name="all"
 while (($#)); do
@@ -43,12 +45,6 @@ done
 
 licensing_history() {
   sql intelibill_licensing_dev -c "select case when to_regclass('public.\"__EFMigrationsHistory\"') is null then 'absent' else 'present' end"
-}
-
-stack_up() {
-  log "compose up --build (${project})"
-  compose up -d --build >>"${evidence}/${project}-compose.log" 2>&1 || true
-  wait_stack
 }
 
 check_probes() {
@@ -182,7 +178,6 @@ check_independence() {
 
 case_fresh() {
   project="${main_project}"
-  guard_project
   assign_ports 14000
   stack_up
   compose config --format json | sed -E 's/("[A-Za-z_]*(Password|PASSWORD|Secret|Key)[A-Za-z_]*"?[=:] ?")[^"]*/\1<redacted>/g' >"${evidence}/resolved-compose.json"

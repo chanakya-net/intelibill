@@ -25,7 +25,7 @@ function rawGet(origin, path) {
     const request = http.request({ hostname, port, path, method: 'GET' }, (response) => {
       let body = '';
       response.on('data', (chunk) => (body += chunk));
-      response.on('end', () => resolve({ status: response.statusCode, body }));
+      response.on('end', () => resolve({ status: response.statusCode, headers: response.headers, body }));
     });
     request.on('error', reject);
     request.end();
@@ -129,6 +129,28 @@ describe('admin web runtime server', () => {
     assert.equal(upstreamRequests[0].method, 'POST');
     assert.equal(upstreamRequests[0].body, '{"probe":true}');
     assert.equal(upstreamRequests[0].headers['x-forwarded-proto'], 'http');
+  });
+
+  test('forwards the admin prefix itself and leaves the query intact', async () => {
+    const response = await rawGet(origin, '/api/admin?next=%2Fapi%2Fadmin');
+    assert.equal(response.status, 418);
+    assert.deepEqual(JSON.parse(response.body), { echoed: '/api/admin?next=%2Fapi%2Fadmin' });
+  });
+
+  test('denies mixed path separators before sending any upstream requests', async () => {
+    upstreamRequests.length = 0;
+    for (const path of [
+      String.raw`/api/admin/..\..\health/ready`,
+      String.raw`/api/admin/..\shops/me`,
+      '/api/admin/%2e%2e%5cshops/me',
+    ]) {
+      const response = await rawGet(origin, path);
+      assert.deepEqual(
+        { denied: [400, 404].includes(response.status), cache: response.headers['cache-control'], upstream: upstreamRequests.length },
+        { denied: true, cache: 'no-store', upstream: 0 },
+        path,
+      );
+    }
   });
 
   test('refuses merchant and other API routes without forwarding them', async () => {

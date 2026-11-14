@@ -157,6 +157,20 @@ Green after implementation (`P0105_PROJECT=intelibill-p01-05-835`):
   `.fixture-credentials.json`, never printed).
 - S8/S9: workflow contract passes; OpenTofu module 33/33, dev 3/3, prod 3/3.
 
+## Review regressions
+
+| Command | Before review fixes | Expected result |
+| --- | --- | --- |
+| `node --test src/admin-frontend/tests/server.test.mjs` | Exit 1. A raw mixed-separator path produced an upstream request. | Both mixed-separator requests return 400 or 404 with `Cache-Control: no-store` and zero upstream requests. The admin prefix and its descendants keep forwarding. |
+| `bash .github/scripts/tests/licensing-stack-harness.test.sh ambient` | Exit 1. A stubbed Docker up resolved a foreign volume. | Fresh startup and cleanup ignore ambient Compose files and `.env`. |
+| `bash .github/scripts/tests/licensing-stack-harness.test.sh foreign` | | The resolved model and ownership checks refuse a foreign volume before up or cleanup. |
+| `bash .github/scripts/tests/licensing-stack-harness.test.sh build` | Exit 1. The simulated Compose exit 17 became stack-up exit 0. | Stack-up returns 17, records the Compose log path and skips the health wait. |
+
+Run the full acceptance command above on a new project to exercise the
+fresh-volume, reused-volume, failed-migrator and Chromium cases with these
+guards. Use `--case cleanup` with the same project name. Compare container IDs,
+network ID and volume metadata for the developer project before and after.
+
 Known limits: the licensing EF model is empty, so its bundle applies nothing
 (it still connects and exits 0). `/api/admin/**` forwarding is proven against a
 controlled upstream in the server tests only; the licensing API has no admin

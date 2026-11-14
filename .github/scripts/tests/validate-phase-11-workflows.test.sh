@@ -363,6 +363,10 @@ assert(
   "validation must check the combined local stack contract",
 )
 assert(
+  validation_commands.include?("licensing-stack-harness.test.sh"),
+  "validation must check fixture isolation and Compose failure propagation",
+)
+assert(
   validation_commands.include?("node --test src/admin-frontend/tests/server.test.mjs"),
   "validation must exercise the admin web runtime server",
 )

@@ -2,8 +2,7 @@
 
 # Removes a disposable project this run created, after the ownership guard.
 discard_project() {
-  guard_project
-  compose down -v --remove-orphans >>"${evidence}/${project}-compose.log" 2>&1
+  compose down -v >>"${evidence}/${project}-compose.log" 2>&1
   log "removed disposable project ${project} and its own volumes"
 }
 
@@ -11,7 +10,6 @@ discard_project() {
 # schema applied by hand, the old runtime role, and merchant data.
 case_reused() {
   project="${main_project}-reused"
-  guard_project
   assign_ports 44000
   compose up -d postgres >>"${evidence}/${project}-compose.log" 2>&1
   wait_for postgres healthy
@@ -65,16 +63,15 @@ assert_never_started() {
 # services, so the other branch is then started alone: its dependency chain
 # never includes the failed job. A later full `up` that fails again leaves the
 # running branch serving.
-run_failure() {
+run_failure() (
   local broken="$1" base="$2" sibling_web="$3" sibling_api="$4" sibling_url_var="$5"
   shift 5
-  local blocked=("$@") override
+  local blocked=("$@")
   project="${main_project}-fail-${broken%%-*}"
-  guard_project
   assign_ports "${base}"
-  override="${evidence}/${project}.override.yml"
-  printf 'services:\n  %s:\n    entrypoint: ["/bin/sh", "-c", "echo forced migration failure >&2; exit 7"]\n' "${broken}" >"${override}"
-  export COMPOSE_FILE="docker-compose.yml:${override}"
+  failure_override="$(mktemp "${evidence}/${project}.override.XXXXXX")"
+  trap 'rm -f "${failure_override}"' EXIT
+  printf 'services:\n  %s:\n    entrypoint: ["/bin/sh", "-c", "echo forced migration failure >&2; exit 7"]\n' "${broken}" >"${failure_override}"
   ! compose up -d --build >>"${evidence}/${project}-compose.log" 2>&1 || fail "compose up hid the failing ${broken}"
   [[ "$(state_of "${broken}")" == "exited 7 "* ]] || fail "${broken} should have exited 7: $(state_of "${broken}")"
   assert_never_started "${blocked[@]}"
@@ -94,8 +91,7 @@ run_failure() {
   compose ps -a --format '{{.Service}} {{.State}} {{.ExitCode}}' >"${evidence}/${project}-states.txt"
   pass "a repeated failing up leaves the running ${sibling_api} branch serving"
   discard_project
-  unset COMPOSE_FILE
-}
+)
 
 case_failure() {
   run_failure licensing-migrate 24000 frontend backend merchant_web licensing-runtime-role licensing-api admin-frontend
@@ -145,7 +141,6 @@ check_rls_scope() {
 
 case_browser() {
   project="${main_project}"
-  guard_project
   assign_ports 14000
   [[ "$(state_of backend)" == "running 0 healthy"* ]] || stack_up
   browser_phase enroll || fail "browser enrollment phase failed"

@@ -119,15 +119,15 @@ async function serveStatic(root, request, response, pathname) {
   createReadStream(target).pipe(response);
 }
 
-function forward(apiOrigin, request, response) {
+function forward(target, request, response) {
   const headers = Object.fromEntries(
     Object.entries(request.headers).filter(([name]) => !HOP_BY_HOP.has(name.toLowerCase())),
   );
   headers['x-forwarded-proto'] = 'http';
   headers['x-forwarded-for'] = request.socket.remoteAddress ?? '';
-  const client = apiOrigin.protocol === 'https:' ? https : http;
+  const client = target.protocol === 'https:' ? https : http;
   const upstream = client.request(
-    new URL(request.url, apiOrigin),
+    target,
     { method: request.method, headers, timeout: PROXY_TIMEOUT_MS },
     (answer) => {
       const forwarded = Object.fromEntries(
@@ -149,6 +149,13 @@ function forward(apiOrigin, request, response) {
   request.pipe(upstream);
 }
 
+function adminTarget(rawPath, requestUrl, apiOrigin) {
+  if (!ADMIN_API.test(rawPath) || /\\|%2e|%2f|%5c/i.test(rawPath)) return null;
+  if (rawPath.split('/').some((part) => part === '.' || part === '..')) return null;
+  const target = new URL(requestUrl, apiOrigin);
+  return target.origin === apiOrigin.origin && ADMIN_API.test(target.pathname) ? target : null;
+}
+
 export function createAdminServer({ root, apiOrigin }) {
   const webRoot = resolve(root);
   const upstream = parseApiOrigin(typeof apiOrigin === 'string' ? apiOrigin : apiOrigin?.origin);
@@ -159,9 +166,9 @@ export function createAdminServer({ root, apiOrigin }) {
       return;
     }
     if (RESERVED.test(rawPath)) {
-      const traversal = rawPath.split('/').some((part) => part === '..' || part === '.' || /%2e|%2f|%5c/i.test(part));
-      if (ADMIN_API.test(rawPath) && !traversal) {
-        forward(upstream, request, response);
+      const target = adminTarget(rawPath, request.url, upstream);
+      if (target) {
+        forward(target, request, response);
       } else {
         plain(response, 404);
       }

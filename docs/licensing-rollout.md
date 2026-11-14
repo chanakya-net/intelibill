@@ -160,7 +160,10 @@ starts them, are unchanged.
 
 `scripts/dev/test-licensing-stack.sh` runs the real workflow under isolated
 Compose projects (never your default stack, containers or volume) and records
-evidence. See `tests/licensing/acceptance/p01-05-infrastructure.md`.
+evidence. The harness uses Docker Compose and `jq` to check resolved resources
+and existing ownership before changing or removing a fixture. It reads the
+checked-in Compose file with fixture-specific ports and skips local Compose
+overrides and `.env`. See `tests/licensing/acceptance/p01-05-infrastructure.md`.
 
 ```bash
 P0105_PROJECT=intelibill-p01-05-local P0105_ARTIFACTS=/tmp/p0105 \
