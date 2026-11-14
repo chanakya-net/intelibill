@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.Audit;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Domain.Entities;
 using Intelibill.Licensing.Infrastructure.Data;
@@ -5,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.AdminIdentities;
 
-internal sealed class AdminInvitationStore(LicensingDbContext context) : IAdminInvitationStore
+internal sealed class AdminInvitationStore(LicensingDbContext context, AuditEvidenceFactory audit) : IAdminInvitationStore
 {
     public Task<string?> FindOwnerOriginAsync(Guid adminId, CancellationToken cancellationToken) =>
         (from state in context.Set<InitialAdminBootstrap>()
@@ -34,13 +35,26 @@ internal sealed class AdminInvitationStore(LicensingDbContext context) : IAdminI
     public Task<bool> AdminExistsAsync(string email, CancellationToken cancellationToken) =>
         context.Set<AdminIdentity>().AnyAsync(admin => admin.Email == email, cancellationToken);
 
-    public async Task<IReadOnlyList<Guid>> SupersedeOpenAsync(string email, DateTimeOffset now, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<InvitationTransition>> SupersedeOpenAsync(string email, DateTimeOffset now,
+        CancellationToken cancellationToken)
     {
-        var open = context.Set<AdminInvitation>()
-            .Where(invitation => invitation.Email == email && invitation.AcceptedAt == null && invitation.RevokedAt == null);
-        var ids = await open.Select(invitation => invitation.Id).ToListAsync(cancellationToken);
-        await open.ExecuteUpdateAsync(set => set.SetProperty(invitation => invitation.RevokedAt, now), cancellationToken);
-        return ids;
+        var rows = await context.Set<AdminInvitation>().FromSql($"""
+            SELECT *, xmin FROM public.admin_invitations
+            WHERE email = {email} AND accepted_at IS NULL AND revoked_at IS NULL FOR UPDATE
+            """).ToListAsync(cancellationToken);
+        return await RetireAsync(rows, now, cancellationToken);
+    }
+
+    public Task FlushAsync(CancellationToken cancellationToken) => context.SaveChangesAsync(cancellationToken);
+
+    private async Task<InvitationTransition[]> RetireAsync(
+        List<AdminInvitation> rows, DateTimeOffset now, CancellationToken token)
+    {
+        if (rows.Count == 0) return [];
+        var before = rows.Select(row => row.AuditReferenceAt(now)).ToArray();
+        foreach (var row in rows) row.Retire(now);
+        await FlushAsync(token);
+        return rows.Select((row, index) => new InvitationTransition(before[index], row.AuditReferenceAt(now))).ToArray();
     }
 
     public Task<string?> FindInvitedEmailAsync(string digest, CancellationToken cancellationToken) =>
@@ -59,10 +73,15 @@ internal sealed class AdminInvitationStore(LicensingDbContext context) : IAdminI
     {
         await InTransactionAsync(async token =>
         {
-            await context.Set<AdminInvitation>()
-                .Where(invitation => invitation.Id == invitationId && invitation.AcceptedAt == null && invitation.RevokedAt == null)
-                .ExecuteUpdateAsync(set => set.SetProperty(invitation => invitation.RevokedAt, now), token);
-            context.Add(new ProviderAuditEvent(Guid.NewGuid(), BootstrapAuditAction.InvitationUndelivered, now, actorId, invitationId));
+            var local = context.Set<AdminInvitation>().Local.FindEntry(invitationId);
+            if (local is not null) local.State = EntityState.Detached;
+            var rows = await context.Set<AdminInvitation>().FromSql($"""
+                SELECT *, xmin FROM public.admin_invitations
+                WHERE id = {invitationId} AND accepted_at IS NULL AND revoked_at IS NULL FOR UPDATE
+                """).ToListAsync(token);
+            var change = (await RetireAsync(rows, now, token)).SingleOrDefault();
+            context.Add(audit.Create(BootstrapAuditAction.InvitationUndelivered, now, AuditActor.Administrator,
+                AuditReason.InvitationDeliveryFailed, actorId, invitationId, change?.Before, change?.After));
             return true;
         }, cancellationToken);
     }

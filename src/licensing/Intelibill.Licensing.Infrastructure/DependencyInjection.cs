@@ -1,4 +1,6 @@
 using Intelibill.Licensing.Application.AdminIdentities;
+using Intelibill.Licensing.Application.Audit;
+using Intelibill.Licensing.Infrastructure.Audit;
 using Intelibill.Licensing.Application.Bootstrap;
 using Intelibill.Licensing.Infrastructure.AdminIdentities;
 using Intelibill.Licensing.Infrastructure.Bootstrap;
@@ -49,6 +51,7 @@ public static class DependencyInjection
 
     public static IServiceCollection AddBootstrapPersistence(this IServiceCollection services)
     {
+        services.AddScoped<IAdminAuditStore, AdminAuditStore>();
         services.AddScoped<IBootstrapStore, BootstrapStore>();
         // The bootstrap CLI host validates the whole application graph, invitation handlers
         // included. Without a bound AdminMail section the mailer stays unusable (fail closed).

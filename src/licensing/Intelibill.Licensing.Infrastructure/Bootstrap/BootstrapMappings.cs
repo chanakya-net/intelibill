@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Intelibill.Licensing.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -70,7 +71,22 @@ internal sealed class ProviderAuditMapping : IEntityTypeConfiguration<ProviderAu
     public void Configure(EntityTypeBuilder<ProviderAuditEvent> builder)
     {
         builder.ToTable("provider_audit_events", table =>
-            table.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 16"));
+        {
+            table.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 16 OR action BETWEEN 101 AND 103");
+            table.HasCheckConstraint("ck_provider_audit_metadata", """
+                (num_nonnulls(actor_kind, reason, correlation_id) = 0 AND action BETWEEN 1 AND 16
+                    AND "before" IS NULL AND "after" IS NULL)
+                OR (num_nonnulls(actor_kind, reason, correlation_id) = 3
+                    AND actor_kind BETWEEN 1 AND 5 AND reason BETWEEN 1 AND 21)
+                """);
+        });
+        builder.HasIndex(audit => new { audit.OccurredAt, audit.Id }).IsDescending();
+        builder.Property(audit => audit.Before).HasColumnType("jsonb").HasConversion(
+            value => JsonSerializer.Serialize(value, (JsonSerializerOptions?)null),
+            value => JsonSerializer.Deserialize<AuditReference>(value, (JsonSerializerOptions?)null));
+        builder.Property(audit => audit.After).HasColumnType("jsonb").HasConversion(
+            value => JsonSerializer.Serialize(value, (JsonSerializerOptions?)null),
+            value => JsonSerializer.Deserialize<AuditReference>(value, (JsonSerializerOptions?)null));
         builder.HasOne<AdminIdentity>().WithMany().HasForeignKey(audit => audit.OwnerId)
             .OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<AdminInvitation>().WithMany().HasForeignKey(audit => audit.InvitationId)

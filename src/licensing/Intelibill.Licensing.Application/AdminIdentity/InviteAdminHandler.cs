@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.Audit;
 using ErrorOr;
 using Intelibill.Licensing.Application.Bootstrap;
 using Intelibill.Licensing.Domain.Entities;
@@ -5,7 +6,8 @@ using Intelibill.Licensing.Domain.Entities;
 namespace Intelibill.Licensing.Application.AdminIdentities;
 
 public sealed class InviteAdminHandler(
-    IAdminInvitationStore store, IBootstrapSecrets secrets, IAdminInvitationMailer mailer, TimeProvider clock)
+    IAdminInvitationStore store, IBootstrapSecrets secrets, IAdminInvitationMailer mailer, TimeProvider clock,
+    AuditEvidenceFactory audit)
 {
     /// <summary>
     /// Confirms the actor's recent MFA and persisted platform-owner authority, and returns the
@@ -55,12 +57,19 @@ public sealed class InviteAdminHandler(
             return Error.Conflict("Invitation.AlreadyAdmin", "This email already belongs to an administrator.");
 
         var now = clock.GetUtcNow();
-        foreach (var retired in await store.SupersedeOpenAsync(email, now, cancellationToken))
-            store.Add(new ProviderAuditEvent(Guid.NewGuid(), BootstrapAuditAction.InvitationSuperseded, now, actor.AdminId, retired));
-
+        var superseded = await store.SupersedeOpenAsync(email, now, cancellationToken);
         var invitation = new AdminInvitation(Guid.NewGuid(), email, digest, actor.AdminId, now, now + AdminInvitation.Lifetime);
         store.Add(invitation);
-        store.Add(new ProviderAuditEvent(Guid.NewGuid(), BootstrapAuditAction.InvitationIssued, now, actor.AdminId, invitation.Id));
+        await store.FlushAsync(cancellationToken);
+
+        foreach (var retired in superseded)
+        {
+            store.Add(audit.Create(BootstrapAuditAction.InvitationSuperseded, now, AuditActor.Administrator,
+                AuditReason.InvitationSuperseded, actor.AdminId, retired.After.TargetId, retired.Before, retired.After));
+        }
+
+        store.Add(audit.Create(BootstrapAuditAction.InvitationIssued, now, AuditActor.Administrator,
+            AuditReason.InvitationIssued, actor.AdminId, invitation.Id, after: invitation.AuditReferenceAt(now)));
         return invitation;
     }
 }

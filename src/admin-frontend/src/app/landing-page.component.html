@@ -9,6 +9,8 @@
             <li>
               @if (capability === invitationCapability) {
                 <a routerLink="/admin-users/invite">Manage administrator invitations</a>
+              } @else if (capability === auditCapability) {
+                <a routerLink="/audit">Audit history</a>
               } @else {
                 {{ capability }}
               }

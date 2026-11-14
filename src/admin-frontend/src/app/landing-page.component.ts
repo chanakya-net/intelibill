@@ -3,6 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { SESSION_PORT } from '@intelibill/api';
 import { ButtonDirective } from 'primeng/button';
+import { identityAuditCapability } from './features/audit/admin-audit-api.service';
 import { AdminSessionService } from './features/auth/admin-session.service';
 
 const invitationCapability = 'admin.invitations.manage';
@@ -22,6 +23,7 @@ export class LandingPageComponent {
   protected readonly notice = this.admin.notice;
   protected readonly capabilities = this.session.capabilities;
   protected readonly invitationCapability = invitationCapability;
+  protected readonly auditCapability = identityAuditCapability;
 
   /** A user action, so renewing here counts as activity; nothing renews in the background. */
   protected resume() {

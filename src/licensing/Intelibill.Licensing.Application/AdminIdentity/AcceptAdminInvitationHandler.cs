@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.Audit;
 using ErrorOr;
 using Intelibill.Licensing.Application.Bootstrap;
 using Intelibill.Licensing.Domain.Entities;
@@ -8,7 +9,8 @@ namespace Intelibill.Licensing.Application.AdminIdentities;
 /// Turns one open invitation into a verified, MFA-pending administrator. The result is the same
 /// enrollment-only credential the first owner receives: no business session and no capability.
 /// </summary>
-public sealed class AcceptAdminInvitationHandler(IAdminInvitationStore store, IBootstrapSecrets secrets, TimeProvider clock)
+public sealed class AcceptAdminInvitationHandler(IAdminInvitationStore store, IBootstrapSecrets secrets,
+    TimeProvider clock, AuditEvidenceFactory audit)
 {
     private static readonly TimeSpan EnrollmentLifetime = TimeSpan.FromMinutes(15);
 
@@ -37,26 +39,39 @@ public sealed class AcceptAdminInvitationHandler(IAdminInvitationStore store, IB
             if (invitation is null || !invitation.IsOpen(now)) return Unavailable;
             if (!string.Equals(claimed, invitation.Email, StringComparison.Ordinal))
             {
-                invitation.RecordMismatch(now);
-                store.Add(new ProviderAuditEvent(Guid.NewGuid(), BootstrapAuditAction.InvitationRefused, now, null, invitation.Id));
+                await RecordMismatchAsync(invitation, now, transaction);
                 return Invalid;
             }
 
             if (await store.AdminExistsAsync(invitation.Email, transaction)) return Unavailable;
-            return Enroll(invitation, passwordHash, now);
+            return await EnrollAsync(invitation, passwordHash, now, transaction);
         }, cancellationToken);
     }
 
-    private ErrorOr<EnrollmentGrant> Enroll(AdminInvitation invitation, string passwordHash, DateTimeOffset now)
+    private async Task RecordMismatchAsync(AdminInvitation invitation, DateTimeOffset now, CancellationToken token)
     {
+        var before = invitation.AuditReferenceAt(now);
+        invitation.RecordMismatch(now);
+        await store.FlushAsync(token);
+        store.Add(audit.Create(BootstrapAuditAction.InvitationRefused, now, AuditActor.Unauthenticated,
+            AuditReason.InvitationIdentityMismatch, invitationId: invitation.Id, before: before,
+            after: invitation.AuditReferenceAt(now)));
+    }
+
+    private async Task<ErrorOr<EnrollmentGrant>> EnrollAsync(AdminInvitation invitation, string passwordHash,
+        DateTimeOffset now, CancellationToken token)
+    {
+        var before = invitation.AuditReferenceAt(now);
         var adminId = Guid.NewGuid();
         store.Add(new AdminIdentity(adminId, invitation.Email, passwordHash, "invitation:" + invitation.Id, now));
         invitation.Accept(adminId, now);
-        store.Add(new ProviderAuditEvent(Guid.NewGuid(), BootstrapAuditAction.InvitationAccepted, now, adminId, invitation.Id));
 
         var credential = secrets.CreateEnrollment();
         var expiry = now + EnrollmentLifetime;
         store.Add(new BootstrapEnrollmentCredential(Guid.NewGuid(), adminId, credential.Digest, now, expiry));
+        await store.FlushAsync(token);
+        store.Add(audit.Create(BootstrapAuditAction.InvitationAccepted, now, AuditActor.Unauthenticated,
+            AuditReason.InvitationAccepted, adminId, invitation.Id, before, invitation.AuditReferenceAt(now)));
         return new EnrollmentGrant(credential, expiry);
     }
 }

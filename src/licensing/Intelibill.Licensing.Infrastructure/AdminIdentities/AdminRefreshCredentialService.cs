@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.Audit;
 using System.Security.Cryptography;
 using System.Text;
 using ErrorOr;
@@ -15,7 +16,8 @@ namespace Intelibill.Licensing.Infrastructure.AdminIdentities;
 /// replica serialize. A consumed credential presented again revokes the session: neither holder
 /// keeps a live successor.
 /// </summary>
-internal sealed class AdminRefreshCredentialService(LicensingDbContext context, TimeProvider clock) : IAdminRefreshCredentials
+internal sealed class AdminRefreshCredentialService(LicensingDbContext context, TimeProvider clock,
+    AuditEvidenceFactory audit) : IAdminRefreshCredentials
 {
     private const string Prefix = "r1_";
     private const int EncodedLength = 46;
@@ -69,8 +71,12 @@ internal sealed class AdminRefreshCredentialService(LicensingDbContext context, 
     private void RevokeForReuse(AdminSession session, DateTimeOffset now)
     {
         if (session.RevokedAt is not null) return;
+        var before = session.IsLiveAt(now) ? AuditState.Active : AuditState.Expired;
         session.Revoke(now);
-        context.Add(new ProviderAuditEvent(Guid.NewGuid(), BootstrapAuditAction.SessionReuseRevoked, now, session.AdminId));
+        context.Add(audit.Create(BootstrapAuditAction.SessionReuseRevoked, now, AuditActor.System,
+            AuditReason.RefreshCredentialReused, session.AdminId,
+            before: new(AuditTarget.Access, session.AdminId, before, MilestoneAt: session.CreatedAt),
+            after: new(AuditTarget.Access, session.AdminId, AuditState.Revoked, MilestoneAt: session.RevokedAt)));
     }
 
     private string Issue(AdminSession session, Guid? parentId, DateTimeOffset now)

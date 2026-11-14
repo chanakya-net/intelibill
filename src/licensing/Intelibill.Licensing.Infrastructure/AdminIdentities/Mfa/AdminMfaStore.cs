@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.Audit;
 using ErrorOr;
 using Intelibill.Licensing.Domain.Entities;
 using Intelibill.Licensing.Infrastructure.Data;
@@ -5,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.AdminIdentities.Mfa;
 
-internal sealed class AdminMfaStore(LicensingDbContext context)
+internal sealed class AdminMfaStore(LicensingDbContext context, AuditEvidenceFactory audit)
 {
     internal async Task<ErrorOr<T>> WithAdminAsync<T>(Guid adminId,
         Func<AdminIdentity, Task<ErrorOr<T>>> operation, CancellationToken cancellationToken)
@@ -48,6 +49,7 @@ internal sealed class AdminMfaStore(LicensingDbContext context)
 
     internal void Add(AdminTotp totp) => context.Add(totp);
     internal void Add(AdminRecoveryCode code) => context.Add(code);
-    internal void Audit(Guid adminId, BootstrapAuditAction action, DateTimeOffset now) =>
-        context.Add(new ProviderAuditEvent(Guid.NewGuid(), action, now, adminId));
+    internal void Audit(Guid adminId, BootstrapAuditAction action, AuditReason reason, DateTimeOffset now,
+        AuditReference? before = null, AuditReference? after = null) =>
+        context.Add(audit.Create(action, now, AuditActor.Enrollment, reason, adminId, before: before, after: after));
 }

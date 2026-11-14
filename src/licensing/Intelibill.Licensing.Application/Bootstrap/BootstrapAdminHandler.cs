@@ -1,9 +1,11 @@
+using Intelibill.Licensing.Application.Audit;
 using ErrorOr;
 using Intelibill.Licensing.Domain.Entities;
 
 namespace Intelibill.Licensing.Application.Bootstrap;
 
-public sealed class BootstrapAdminHandler(IBootstrapStore store, IBootstrapSecrets secrets, TimeProvider clock)
+public sealed class BootstrapAdminHandler(IBootstrapStore store, IBootstrapSecrets secrets, TimeProvider clock,
+    AuditEvidenceFactory audit)
 {
     public Task<ErrorOr<EnrollmentGrant>> BootstrapAsync(
         string? proofToken, string? password, string origin, CancellationToken cancellationToken) =>
@@ -20,7 +22,8 @@ public sealed class BootstrapAdminHandler(IBootstrapStore store, IBootstrapSecre
         if (!BootstrapValidation.IsProofValid(proofToken) || !BootstrapValidation.IsPasswordValid(password)
             || !secrets.MatchesProof(proofToken!, state.ProofDigest!))
         {
-            Audit(BootstrapAuditAction.ProofRefused, now, null);
+            store.Add(audit.Create(BootstrapAuditAction.ProofRefused, now, AuditActor.Unauthenticated,
+                AuditReason.SetupProofInvalid));
             return Error.Validation("Bootstrap.InvalidSetup", "Check the setup proof and password requirements.");
         }
 
@@ -33,7 +36,10 @@ public sealed class BootstrapAdminHandler(IBootstrapStore store, IBootstrapSecre
         var id = Guid.NewGuid();
         store.Add(new AdminIdentity(id, state.VerifiedEmail!, passwordHash, state.VerificationReference!, now));
         state.Consume(id, now);
-        Audit(BootstrapAuditAction.OwnerCreated, now, id);
+        store.Add(audit.Create(BootstrapAuditAction.OwnerCreated, now, AuditActor.Unauthenticated,
+            AuditReason.BootstrapConsumed, id,
+            before: new(AuditTarget.Bootstrap, null, AuditState.Prepared, MilestoneAt: state.PreparedAt),
+            after: new(AuditTarget.Bootstrap, null, AuditState.Consumed, MilestoneAt: now)));
         return IssueEnrollment(id, now);
     }
 
@@ -44,9 +50,6 @@ public sealed class BootstrapAdminHandler(IBootstrapStore store, IBootstrapSecre
         store.Add(new BootstrapEnrollmentCredential(Guid.NewGuid(), id, credential.Digest, now, expiry));
         return new EnrollmentGrant(credential, expiry);
     }
-
-    private void Audit(BootstrapAuditAction action, DateTimeOffset now, Guid? ownerId) =>
-        store.Add(new ProviderAuditEvent(Guid.NewGuid(), action, now, ownerId));
 
     public Task<ErrorOr<EnrollmentGrant>> ResumeAsync(
         string? email, string? password, string origin, CancellationToken cancellationToken) =>
@@ -65,12 +68,14 @@ public sealed class BootstrapAdminHandler(IBootstrapStore store, IBootstrapSecre
             var now = clock.GetUtcNow();
             if (!verified || !string.Equals(owner.Email, normalized, StringComparison.Ordinal))
             {
-                Audit(BootstrapAuditAction.ResumeRefused, now, ownerId);
+                store.Add(audit.Create(BootstrapAuditAction.ResumeRefused, now, AuditActor.Unauthenticated,
+                    AuditReason.EnrollmentProofInvalid, ownerId));
                 return Error.Unauthorized("Bootstrap.ResumeRefused", "Enrollment could not be resumed.");
             }
 
             await store.RevokeEnrollmentAsync(ownerId, now, token);
-            Audit(BootstrapAuditAction.EnrollmentResumed, now, ownerId);
+            store.Add(audit.Create(BootstrapAuditAction.EnrollmentResumed, now, AuditActor.Enrollment,
+                AuditReason.EnrollmentResumed, ownerId));
             return IssueEnrollment(ownerId, now);
         }, cancellationToken);
 }

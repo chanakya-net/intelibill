@@ -14,6 +14,7 @@ internal static class ProviderSessions
     internal const string SessionIdClaim = "provider_session_id";
     internal const string AccessExpiresClaim = "provider_access_expires";
     internal const string InvitationPolicy = "ProviderInvitations";
+    internal const string AuditPolicy = "ProviderIdentityAudit";
     internal const string CapabilityClaim = "provider_capability";
     internal const string MfaVerifiedAtClaim = "provider_mfa_at";
 
@@ -36,7 +37,12 @@ internal static class ProviderSessions
             .AddScheme<AuthenticationSchemeOptions, AdminAccessSessionHandler>(Scheme, _ => { })
             .AddScheme<AuthenticationSchemeOptions, AdminFixtureSessionHandler>(FixtureScheme, _ => { });
 
-        services.AddAuthorizationBuilder().AddPolicy(InvitationPolicy, policy => policy
+        services.AddAuthorizationBuilder().AddPolicy(AuditPolicy, policy => policy
+            .AddAuthenticationSchemes(Scheme)
+            .RequireAuthenticatedUser()
+            .RequireClaim(BusinessClaim, "true")
+            .RequireClaim(CapabilityClaim, ProviderActor.AuditIdentityReadCapability))
+            .AddPolicy(InvitationPolicy, policy => policy
             .AddAuthenticationSchemes(Scheme, FixtureScheme)
             .RequireAuthenticatedUser()
             .RequireClaim(CapabilityClaim, ProviderActor.InvitationCapability));
