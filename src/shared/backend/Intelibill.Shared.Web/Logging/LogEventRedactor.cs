@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 using Serilog.Events;
 using Serilog.Parsing;
 
-namespace Intelibill.Api.Logging;
+namespace Intelibill.Shared.Web.Logging;
 
 /// <summary>
 /// Rewrites a log event into one that is safe to keep: the exception object is replaced by its

@@ -31,6 +31,17 @@ Both probes send `Cache-Control: no-store`. Readiness checks the runtime
 connection and its role privileges. API startup works during a licensing
 database outage when settings are valid.
 
+## Errors and logging
+
+Unhandled failures answer the same `application/problem+json`
+`{type,title,status,code,traceId}` envelope as the merchant API
+(`Internal.Unexpected` for anything unplanned), from
+`src/shared/backend/Intelibill.Shared.Web`. Every log sink sits behind the
+shared redactor and spans lose exception text before export. Optional
+`Observability__Logging__MinimumLevel` (Information),
+`Observability__Logging__EnablePiiMasking` (true) and
+`Observability__Logging__AsyncBufferSize` (10000) tune logging.
+
 ## Migrations
 
 Provision the database and roles before running the migration job. Set the

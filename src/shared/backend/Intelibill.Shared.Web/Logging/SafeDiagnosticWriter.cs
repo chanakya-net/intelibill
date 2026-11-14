@@ -1,6 +1,6 @@
 using System.Text.RegularExpressions;
 
-namespace Intelibill.Api.Logging;
+namespace Intelibill.Shared.Web.Logging;
 
 /// <summary>Where a failure happened and how it was answered; nothing taken from the exception.</summary>
 public sealed partial record SafeDiagnosticContext(

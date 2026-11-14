@@ -8,8 +8,10 @@
   <Project Path="src/backend/Intelibill.Domain/Intelibill.Domain.csproj" />
   <Project Path="src/backend/Intelibill.Infrastructure/Intelibill.Infrastructure.csproj" />
   <Project Path="tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj" />
+  <Project Path="tests/shared/P0102ConsumerRegressionTests/Intelibill.Shared.P0102ConsumerRegressionTests.csproj" />
   <Project Path="src/licensing/Intelibill.Licensing.Api/Intelibill.Licensing.Api.csproj" />
   <Project Path="src/licensing/Intelibill.Licensing.Application/Intelibill.Licensing.Application.csproj" />
   <Project Path="src/licensing/Intelibill.Licensing.Domain/Intelibill.Licensing.Domain.csproj" />
   <Project Path="src/licensing/Intelibill.Licensing.Infrastructure/Intelibill.Licensing.Infrastructure.csproj" />
+  <Project Path="src/shared/backend/Intelibill.Shared.Web/Intelibill.Shared.Web.csproj" />
 </Solution>

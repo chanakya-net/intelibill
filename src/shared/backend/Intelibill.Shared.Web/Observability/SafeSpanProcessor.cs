@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using OpenTelemetry;
 
-namespace Intelibill.Infrastructure.Observability;
+namespace Intelibill.Shared.Web.Observability;
 
 /// <summary>
 /// Removes exception text from spans before they are exported. EF Core instrumentation sets a

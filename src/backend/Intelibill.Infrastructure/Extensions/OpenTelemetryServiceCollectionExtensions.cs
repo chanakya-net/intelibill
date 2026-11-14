@@ -2,6 +2,7 @@ using System.Diagnostics.Metrics;
 using System.Net.Http;
 using Intelibill.Infrastructure.Options;
 using Intelibill.Infrastructure.Observability;
+using Intelibill.Shared.Web.Observability;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;

@@ -1,6 +1,6 @@
 using System.Text;
 using Intelibill.Api.Extensions;
-using Intelibill.Api.Logging;
+using Intelibill.Shared.Web.Logging;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using Serilog;

@@ -10,6 +10,7 @@ run-name: "${{ github.workflow }} · ${{ github.event.pull_request.number && for
       - .github/workflows/deploy.yml
       - src/backend/**
       - src/frontend/**
+      - src/shared/**
       - tests/backend/**
       - Directory.Build.props
       - Directory.Packages.props
@@ -22,6 +23,7 @@ run-name: "${{ github.workflow }} · ${{ github.event.pull_request.number && for
       - .github/workflows/deploy.yml
       - src/backend/**
       - src/frontend/**
+      - src/shared/**
       - tests/backend/**
       - Directory.Build.props
       - Directory.Packages.props

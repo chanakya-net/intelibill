@@ -107,8 +107,12 @@ internal static class ProjectBoundaryAssertions
         var aggregate = SolutionProjects(Path.Combine(ProjectPaths.Root, "Intelibill.slnx"));
 
         Assert.Equal(production.Append(tests).Order(StringComparer.Ordinal), licensingSolution.Order(StringComparer.Ordinal));
-        Assert.Equal(merchant.Union(licensingSolution, StringComparer.Ordinal).Order(StringComparer.Ordinal),
-            aggregate.Order(StringComparer.Ordinal));
+        // Cross-consumer regression projects under tests/shared belong to neither sub-solution.
+        var sharedTests = Path.Combine(ProjectPaths.Root, "tests/shared");
+        var crossConsumerTests = aggregate.Where(path => IsUnder(path, sharedTests)).ToArray();
+        Assert.All(crossConsumerTests, path => Assert.Equal("true", (string?)Load(path).Descendants("IsTestProject").SingleOrDefault()));
+        Assert.Equal(merchant.Union(licensingSolution, StringComparer.Ordinal).Union(crossConsumerTests, StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal), aggregate.Order(StringComparer.Ordinal));
         Assert.DoesNotContain(aggregate, path => IsUnder(path, Path.Combine(ProjectPaths.Root, "src/services"))
             || IsUnder(path, Path.Combine(ProjectPaths.Root, "tests/services")));
     }

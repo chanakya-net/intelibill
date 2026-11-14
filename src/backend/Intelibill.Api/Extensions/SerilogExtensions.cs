@@ -1,9 +1,9 @@
 using Intelibill.Api.Logging;
-using Intelibill.Api.Middleware;
 using Intelibill.Infrastructure.Options;
+using Intelibill.Shared.Web.Logging;
+using Intelibill.Shared.Web.Middleware;
 using Microsoft.Extensions.Options;
 using Serilog;
-using Serilog.Configuration;
 using Serilog.Core;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
@@ -51,56 +51,32 @@ public static class SerilogExtensions
 
             // Every sink sits behind the redactor. Nothing is written beside it: a sink added
             // here outside Redacted() would receive raw exceptions and unmasked credentials.
-            config.WriteTo.Async(
-                a => a.Redacted(redactor, redacted =>
-                {
-                    // Console — compact JSON for local dev / container stdout
-                    redacted.Console(new CompactJsonFormatter());
-
-                    // New Relic via OTLP HTTP/protobuf
-                    redacted.OpenTelemetry(otlp =>
-                    {
-                        otlp.Endpoint = newRelic.OtlpEndpoint;
-                        otlp.Protocol = OtlpProtocol.HttpProtobuf;
-                        otlp.Headers = new Dictionary<string, string>
-                        {
-                            ["api-key"] = newRelic.ApiKey,
-                        };
-                        otlp.ResourceAttributes = new Dictionary<string, object>
-                        {
-                            ["service.name"] = newRelic.ServiceName,
-                            ["service.version"] = newRelic.ServiceVersion,
-                            ["deployment.environment"] = newRelic.Environment,
-                        };
-                    });
-                }),
-                bufferSize: logging.AsyncBufferSize);
-
-            // Sinks registered in the container (none in production) get the same treatment,
-            // synchronously, so what they record is exactly what an exporter would have sent.
-            var registeredSinks = services.GetServices<ILogEventSink>().ToArray();
-            if (registeredSinks.Length > 0)
+            config.WriteToRedactedSinks(services, redactor, logging.AsyncBufferSize, redacted =>
             {
-                config.WriteTo.Redacted(redactor, redacted =>
+                // Console — compact JSON for local dev / container stdout
+                redacted.Console(new CompactJsonFormatter());
+
+                // New Relic via OTLP HTTP/protobuf
+                redacted.OpenTelemetry(otlp =>
                 {
-                    foreach (var sink in registeredSinks)
-                        redacted.Sink(sink);
+                    otlp.Endpoint = newRelic.OtlpEndpoint;
+                    otlp.Protocol = OtlpProtocol.HttpProtobuf;
+                    otlp.Headers = new Dictionary<string, string>
+                    {
+                        ["api-key"] = newRelic.ApiKey,
+                    };
+                    otlp.ResourceAttributes = new Dictionary<string, object>
+                    {
+                        ["service.name"] = newRelic.ServiceName,
+                        ["service.version"] = newRelic.ServiceVersion,
+                        ["deployment.environment"] = newRelic.Environment,
+                    };
                 });
-            }
+            });
         });
 
         return builder;
     }
-
-    /// <summary>
-    /// Writes to the sinks <paramref name="configure"/> adds only after <paramref name="redactor"/>
-    /// has rewritten each event.
-    /// </summary>
-    public static LoggerConfiguration Redacted(
-        this LoggerSinkConfiguration writeTo,
-        LogEventRedactor redactor,
-        Action<LoggerSinkConfiguration> configure) =>
-        writeTo.Sink(LoggerSinkConfiguration.Wrap(sink => new RedactingSink(sink, redactor), configure));
 
     /// <summary>
     /// Pre-configured <see cref="RequestLoggingOptions"/> action for

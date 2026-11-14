@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Intelibill.Infrastructure.Observability;
+using Intelibill.Shared.Web.Observability;
 
 namespace Intelibill.Api.Unit.Tests.Infrastructure.Observability;
 

@@ -7,4 +7,5 @@
   <Project Path="Intelibill.Application/Intelibill.Application.csproj" />
   <Project Path="Intelibill.Domain/Intelibill.Domain.csproj" />
   <Project Path="Intelibill.Infrastructure/Intelibill.Infrastructure.csproj" />
+  <Project Path="../shared/backend/Intelibill.Shared.Web/Intelibill.Shared.Web.csproj" />
 </Solution>
