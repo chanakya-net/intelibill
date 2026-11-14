@@ -49,6 +49,11 @@ export const appConfig: ApplicationConfig = {
             (m) => m.AcceptInvitationPageComponent,
           ),
       },
+      {
+        path: 'auth/mfa-enrollment',
+        loadComponent: () => import('./features/auth/mfa-enrollment/mfa-enrollment-page.component')
+          .then((m) => m.MfaEnrollmentPageComponent),
+      },
       { path: '**', redirectTo: '' },
     ]),
   ],

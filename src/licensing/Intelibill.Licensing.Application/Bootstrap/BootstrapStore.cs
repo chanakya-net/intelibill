@@ -7,6 +7,7 @@ public interface IBootstrapStore
     Task<InitialAdminBootstrap> ReadAsync(CancellationToken cancellationToken);
     Task<T> WithLockedBootstrapAsync<T>(
         Func<InitialAdminBootstrap, CancellationToken, Task<T>> operation, CancellationToken cancellationToken);
+    Task<AdminIdentity?> LockPendingOwnerAsync(Guid id, CancellationToken cancellationToken);
     Task<AdminIdentity?> FindPendingOwnerAsync(Guid id, CancellationToken cancellationToken);
     Task<EnrollmentState?> FindEnrollmentAsync(string digest, DateTimeOffset now, CancellationToken cancellationToken);
     Task RevokeEnrollmentAsync(Guid ownerId, DateTimeOffset now, CancellationToken cancellationToken);

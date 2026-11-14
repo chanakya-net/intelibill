@@ -8,7 +8,7 @@ namespace Intelibill.Licensing.Api.AdminIdentities;
 
 /// <summary>
 /// The provider session that sensitive admin routes require. Its production producer (TOTP
-/// sign-in) arrives with P01-08/P01-09; until then the scheme authenticates nobody, so every
+/// sign-in) arrives with P01-09; until then the scheme authenticates nobody, so every
 /// route behind it fails closed. Development and Testing may substitute the guarded fixture.
 /// </summary>
 internal static class ProviderSessions

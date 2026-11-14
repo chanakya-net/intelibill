@@ -12,6 +12,7 @@
         <h2 class="ib-panel__title">MFA setup required</h2>
         <p>Your verified owner identity is ready for MFA enrollment.</p>
         <p>No provider permissions</p>
+        <a routerLink="/auth/mfa-enrollment">Set up authenticator</a>
       }
       @case ('closed') {
         @if (!error()) {

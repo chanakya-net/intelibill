@@ -2,6 +2,7 @@ using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Application.Bootstrap;
 using Intelibill.Licensing.Infrastructure.AdminIdentities;
 using Intelibill.Licensing.Infrastructure.Bootstrap;
+using Intelibill.Licensing.Infrastructure.AdminIdentities.Mfa;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Licensing.Infrastructure.Options;
 using Intelibill.Shared.Security;
@@ -33,6 +34,12 @@ public static class DependencyInjection
         services.AddSingleton<LicensingDatabaseReadiness>();
         services.AddSingleton<IBootstrapRateBudget, PostgresBootstrapRateBudget>();
         services.AddOptions<AdminMailOptions>().Bind(configuration.GetSection(AdminMailOptions.SectionName));
+        services.AddOptions<AdminMfaOptions>().Bind(configuration.GetSection("AdminMfa"))
+            .Validate(options => options.IsValid(), "Admin MFA key ring is invalid.").ValidateOnStart();
+        services.AddSingleton<AdminMfaKeys>();
+        services.AddScoped<AdminMfaStore>();
+        services.AddScoped<IAdminMfaEnrollment, AdminMfaEnrollmentService>();
+        services.AddScoped<IAdminMfaVerifier, AdminMfaVerifier>();
         return services.AddBootstrapPersistence();
     }
 

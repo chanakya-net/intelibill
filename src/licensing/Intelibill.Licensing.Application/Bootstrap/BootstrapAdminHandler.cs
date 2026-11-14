@@ -56,7 +56,7 @@ public sealed class BootstrapAdminHandler(IBootstrapStore store, IBootstrapSecre
             if (state.OwnerId is not { } ownerId || !string.Equals(state.AdminOrigin, origin, StringComparison.Ordinal))
                 return Error.Unauthorized("Bootstrap.ResumeRefused", "Enrollment could not be resumed.");
 
-            var owner = await store.FindPendingOwnerAsync(ownerId, token);
+            var owner = await store.LockPendingOwnerAsync(ownerId, token);
             if (owner is null) return Error.Unauthorized("Bootstrap.ResumeRefused", "Enrollment could not be resumed.");
 
             // Verify against the same stored hash for every well-formed password so email

@@ -287,6 +287,9 @@ services:
       - AdminFixtures__SessionDigest=${INTELIBILL_ADMIN_FIXTURE_SESSION_DIGEST:-}
       - AdminFixtures__AdminId=${INTELIBILL_ADMIN_FIXTURE_ADMIN_ID:-}
       - AdminFixtures__Capabilities=${INTELIBILL_ADMIN_FIXTURE_CAPABILITIES:-}
+      # Optional local-only enrollment root. Keep stable across restarts.
+      - AdminMfa__ActiveKeyId=${INTELIBILL_ADMIN_MFA_ACTIVE_KEY_ID:-}
+      - AdminMfa__Keys__local=${INTELIBILL_ADMIN_MFA_LOCAL_KEY:-}
     depends_on:
       licensing-runtime-role:
         condition: service_completed_successfully
