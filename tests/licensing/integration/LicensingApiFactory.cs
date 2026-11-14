@@ -1,6 +1,8 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 
@@ -8,12 +10,17 @@ namespace Intelibill.Licensing.Integration.Tests;
 
 internal sealed class LicensingApiFactory(
     NpgsqlConnectionStringBuilder runtime, NpgsqlConnectionStringBuilder? migrator = null,
-    string environment = "Testing") : WebApplicationFactory<Api.Program>
+    string environment = "Testing", TimeProvider? clock = null, Action<IServiceCollection>? configure = null) : WebApplicationFactory<Api.Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseContentRoot(Path.Combine(ProjectPaths.Root, "src/licensing/Intelibill.Licensing.Api"));
         builder.UseEnvironment(environment);
+        builder.ConfigureTestServices(services =>
+        {
+            if (clock is not null) services.AddSingleton(clock);
+            configure?.Invoke(services);
+        });
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddInMemoryCollection(DatabaseSettings("LicensingDatabase", runtime));

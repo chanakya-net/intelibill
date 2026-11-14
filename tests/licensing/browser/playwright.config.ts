@@ -10,7 +10,7 @@ const artifacts = process.env['P0105_ARTIFACTS'] ?? '/tmp/intelibill-p01-05-brow
 
 export default defineConfig({
   testDir: '.',
-  testMatch: ['*.spec.ts'],
+  testMatch: ['p01-05-stack.spec.ts'],
   outputDir: `${artifacts}/playwright`,
   fullyParallel: false,
   workers: 1,

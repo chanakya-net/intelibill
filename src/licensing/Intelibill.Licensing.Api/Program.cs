@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Api.Bootstrap;
 using Intelibill.Licensing.Api.Observability;
 using Intelibill.Licensing.Application;
 using Intelibill.Licensing.Infrastructure;
@@ -13,6 +14,9 @@ public sealed class Program
     {
         try
         {
+            if (args is ["bootstrap-admin", ..])
+                return await BootstrapAdminCommand.RunAsync(args);
+
             await BuildApplication(args).RunAsync();
             return 0;
         }
@@ -35,6 +39,17 @@ public sealed class Program
         builder.Services.AddLicensingApplication();
         builder.Services.AddLicensingInfrastructure(builder.Configuration);
 
+        builder.Services.AddBootstrapAuthorization();
+        builder.Services.AddScoped<BootstrapRequestGate>();
+        builder.Services.AddAntiforgery(options =>
+        {
+            options.HeaderName = "X-Bootstrap-CSRF";
+            options.SuppressReadingTokenFromFormBody = true;
+            options.Cookie.Name = BootstrapHttp.CsrfCookieName;
+            options.Cookie.Path = BootstrapHttp.Path;
+            options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        });
+
         var app = builder.Build();
         // First, so every failure — probes included — answers the shared safe envelope.
         app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -45,6 +60,13 @@ public sealed class Program
             return ready ? Probe(context, "ready") : Probe(context, "unavailable", StatusCodes.Status503ServiceUnavailable);
         }).AllowAnonymous();
 
+        app.UseRouting();
+        app.UseMiddleware<AdminRequestBoundary>();
+        app.UseAuthentication();
+        app.UseAuthorization();
+        app.MapBootstrap();
+        var business = app.MapGroup("/api/admin").RequireAuthorization(BootstrapAuthorization.BusinessPolicy);
+        business.MapGet("/access", () => Results.NoContent());
         return app;
     }
 
