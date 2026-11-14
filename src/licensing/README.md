@@ -95,7 +95,9 @@ Development or Testing. Run the command with `DOTNET_ENVIRONMENT=Development`
 for a loopback fixture. Terminate HTTPS at a trusted ingress, preserve the
 external Host header through the admin proxy, and keep the API upstream private.
 For multiple API replicas, configure a shared, access-controlled ASP.NET Core
-Data Protection key ring for the bootstrap CSRF tokens.
+Data Protection key ring for the bootstrap CSRF tokens. Set
+`AdminBootstrap__DataProtectionKeyDirectory` to its protected mount path when
+using a shared file-system key ring.
 
 Open `/auth/bootstrap` on the prepared admin origin and enter the proof and a
 chosen password. A successful request permanently consumes the proof and creates

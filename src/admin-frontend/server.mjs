@@ -133,7 +133,7 @@ function forward(target, request, response) {
     { method: request.method, headers, timeout: PROXY_TIMEOUT_MS },
     (answer) => {
       const forwarded = Object.fromEntries(
-        Object.entries(answer.headers).filter(([name]) => !HOP_BY_HOP.has(name.toLowerCase())),
+        Object.entries(answer.headers).filter(([name]) => !HOP_BY_HOP.has(name) && name !== 'cache-control'),
       );
       response.writeHead(answer.statusCode ?? 502, { ...forwarded, ...SECURITY_HEADERS, 'Cache-Control': 'no-store' });
       answer.pipe(response);

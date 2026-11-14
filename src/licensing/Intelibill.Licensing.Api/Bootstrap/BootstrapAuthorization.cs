@@ -17,15 +17,17 @@ internal static class BootstrapAuthorization
     {
         services.AddAuthentication().AddScheme<AuthenticationSchemeOptions, BootstrapEnrollmentAuthenticationHandler>(
             EnrollmentScheme, _ => { });
+        // A bare [Authorize] must enforce the same authority as the business routes.
+        var business = new AuthorizationPolicyBuilder(EnrollmentScheme)
+            .RequireAuthenticatedUser()
+            .RequireClaim("provider_business_session")
+            .Build();
         services.AddAuthorizationBuilder()
+            .SetDefaultPolicy(business)
             .AddPolicy(EnrollmentScheme, policy => policy
                 .AddAuthenticationSchemes(EnrollmentScheme)
                 .RequireAuthenticatedUser())
-            .AddPolicy(BusinessPolicy, policy => policy
-                .AddAuthenticationSchemes(EnrollmentScheme)
-                // No business scheme issues authenticated grants in this phase slice.
-                .RequireAuthenticatedUser()
-                .RequireClaim("provider_business_session"));
+            .AddPolicy(BusinessPolicy, business);
     }
 }
 

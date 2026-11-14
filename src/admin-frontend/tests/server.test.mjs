@@ -68,7 +68,7 @@ describe('admin web runtime server', () => {
       request.on('data', (chunk) => (body += chunk));
       request.on('end', () => {
         upstreamRequests.push({ method: request.method, url: request.url, body, headers: request.headers });
-        response.writeHead(418, { 'Content-Type': 'application/json' });
+        response.writeHead(418, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
         response.end(JSON.stringify({ echoed: request.url }));
       });
     });
@@ -149,6 +149,7 @@ describe('admin web runtime server', () => {
     const response = await rawGet(origin, '/api/admin?next=%2Fapi%2Fadmin');
     assert.equal(response.status, 418);
     assert.deepEqual(JSON.parse(response.body), { echoed: '/api/admin?next=%2Fapi%2Fadmin' });
+    assert.equal(response.headers['cache-control'], 'no-store');
   });
 
   test('denies mixed path separators before sending any upstream requests', async () => {

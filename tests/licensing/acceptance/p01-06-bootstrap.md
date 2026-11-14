@@ -43,3 +43,48 @@ only the pending enrollment screen after clearing secrets.
   with 7 passing tests after the PostgreSQL budget.
 - `cd src/admin-frontend && bun run test --watch=false` first exited 1
   with 1 failed and 1 passed. The setup URL redirected to the landing page.
+
+## Release evidence
+
+The P01-06 PostgreSQL suite passed 10 tests. The race ends with one 200
+and one 409 across independent hosts, one pending owner and one success
+audit event. Proof expiry was checked one second before, exactly at,
+and one second after the boundary with a fixed clock. A separate test
+observed the transaction waiting on the singleton in `pg_stat_activity`
+and advanced the clock before releasing the row. An injected audit constraint
+rolled back the owner, credential and proof consumption while the rate count
+survived. A restarted API enforced the durable budget with 429 and
+`Retry-After: 900`. The suite verified runtime audit and tombstone mutation
+refusals. The same valid credential received 200 from the enrollment endpoint
+and 403 from the production business policy at `/api/admin/access`.
+Submitting the proof as a cookie or the enrollment credential as a bearer
+received 401. No MFA state was synthesized.
+
+The initial current-source P01-05 fresh and browser runs ended with exit 0.
+All five jobs exited 0 on first and repeated startup. The only licensing
+migration history entry was `20261114170140_InitialAdminIdentityAndAudit`.
+The explicit job reported applying it on a fresh volume and subsequently
+reported the schema up to date. The bootstrap table belonged to
+`intelibill_licensing_migrator`. The restricted runtime could read and
+write its own data, was denied schema changes and had zero logged DDL during
+restarts and readiness probes. Both Chromium phases passed two tests each.
+The merchant retained one user, shop and membership and its shop-only RLS.
+The admin page issued no protected requests on landing and denied merchant
+API forwarding.
+
+The P01-06 Chromium scenario passed on a separately isolated PostgreSQL
+project with the built admin and licensing images. It observed setup 200,
+replay 409, business 403, pending enrollment after reload and API/web
+restart, and recovery after clearing the enrollment cookie. The CLI returned
+exit 2 when preparing again and emitted no proof. PostgreSQL evidence was
+`1|1|1|1|1|1` for verified pending owner, consumed proof, active credential,
+revoked credential, owner-created audit and resume audit, respectively.
+The pending screen was checked at 390 pixels. The test observed empty
+localStorage/sessionStorage and used no credential-bearing recording.
+
+The first proxy check showed that the upstream Host differed from the prepared
+browser authority. The test now verifies Host forwarding. The first Chromium
+bootstrap received a duplicate `no-store` directive from the proxy and API.
+The proxy now emits one directive. The server test sends literal request
+targets through a socket because Bun's HTTP client normalized the existing
+mixed-separator regression cases.

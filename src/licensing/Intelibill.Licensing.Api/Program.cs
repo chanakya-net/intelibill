@@ -5,6 +5,7 @@ using Intelibill.Licensing.Infrastructure;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Shared.Web;
 using Intelibill.Shared.Web.Middleware;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace Intelibill.Licensing.Api;
 
@@ -41,6 +42,9 @@ public sealed class Program
 
         builder.Services.AddBootstrapAuthorization();
         builder.Services.AddScoped<BootstrapRequestGate>();
+        var protection = builder.Services.AddDataProtection().SetApplicationName("InteliBill.Licensing.Admin");
+        if (builder.Configuration["AdminBootstrap:DataProtectionKeyDirectory"] is { Length: > 0 } keyDirectory)
+            protection.PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
         builder.Services.AddAntiforgery(options =>
         {
             options.HeaderName = "X-Bootstrap-CSRF";
