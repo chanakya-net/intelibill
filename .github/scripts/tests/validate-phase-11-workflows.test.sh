@@ -276,25 +276,135 @@ release_images.each do |job_name, image|
     "#{job_name} does not scan its immutable image",
   )
 end
-validation_commands = commands(deploy_jobs.fetch("validate"))
+validation_job = deploy_jobs.fetch("validate")
+validation_commands = commands(validation_job)
 assert(
   validation_commands.scan("dotnet test").length == 1,
   "backend tests must have exactly one owner in application validation",
 )
+
+# P01-05: both consumers of shared code are validated together. A change to
+# src/shared (or the root workspace) must build and test the merchant and
+# licensing backends and both web apps, each exactly once.
+pre_835_release_paths = %w[
+  .github/scripts/**
+  .github/workflows/deploy.yml
+  src/backend/**
+  src/frontend/**
+  src/shared/**
+  tests/backend/**
+  Directory.Build.props
+  Directory.Packages.props
+  global.json
+]
+validation_only_paths = %w[
+  src/licensing/**
+  src/admin-frontend/**
+  tests/licensing/**
+  tests/shared/**
+  tests/contracts/licensing/**
+  Intelibill.slnx
+  package.json
+  bun.lock
+  docker-compose.yml
+  scripts/db/**
+  scripts/dev/**
+  .dockerignore
+]
+pull_request_paths = deploy_triggers.dig("pull_request", "paths")
+(pre_835_release_paths + validation_only_paths).each do |path|
+  assert(
+    pull_request_paths.include?(path),
+    "pull-request validation does not watch #{path}",
+  )
+end
 assert(
-  validation_commands.scan("bun run test").length == 1,
-  "frontend tests must have exactly one owner in application validation",
+  deploy_triggers.dig("push", "paths") == pre_835_release_paths,
+  "main pushes must keep the pre-P01-05 release trigger set; licensing-only changes validate on pull requests without publishing merchant images",
+)
+assert(
+  validation_commands.include?("dotnet restore Intelibill.slnx") &&
+    validation_commands.include?("dotnet build Intelibill.slnx"),
+  "validation must restore and build the root solution so both backends compile against shared code",
+)
+%w[tests/backend tests/licensing tests/shared].each do |test_root|
+  assert(
+    validation_commands.include?(test_root),
+    "backend test enumeration omits #{test_root}",
+  )
+end
+
+validation_steps = Array(validation_job["steps"]).select { |step| step.is_a?(Hash) }
+root_install = validation_steps.select do |step|
+  step.fetch("run", "").include?("bun install --frozen-lockfile") && !step.key?("working-directory")
+end
+assert(root_install.length == 1, "web dependencies must be installed once from the root workspace")
+assert(
+  validation_steps.none? do |step|
+    step.key?("working-directory") && step.fetch("run", "").include?("bun install")
+  end,
+  "app-local bun install bypasses the root workspace lockfile",
+)
+{
+  "src/frontend" => "merchant web",
+  "src/admin-frontend" => "admin web",
+}.each do |directory, consumer|
+  owned = validation_steps.select { |step| step["working-directory"] == directory }
+  owned_runs = owned.map { |step| step.fetch("run", "") }.join("\n")
+  assert(owned_runs.scan("bun run build").length == 1, "#{consumer} must be built exactly once")
+  assert(owned_runs.scan("bun run test").length == 1, "#{consumer} tests must have exactly one owner")
+end
+assert(
+  validation_commands.scan("bun run test").length == 2,
+  "only the two web consumers may own frontend test runs",
+)
+assert(
+  validation_commands.include?("licensing-stack-contract.test.sh"),
+  "validation must check the combined local stack contract",
+)
+assert(
+  validation_commands.include?("licensing-stack-harness.test.sh"),
+  "validation must check fixture isolation and Compose failure propagation",
+)
+assert(
+  validation_commands.include?("node --test src/admin-frontend/tests/server.test.mjs"),
+  "validation must exercise the admin web runtime server",
 )
 %w[
   src/backend/Dockerfile
   src/frontend/Dockerfile
   src/backend/Dockerfile.migrate
+  src/licensing/Dockerfile
+  src/licensing/Dockerfile.migrate
+  src/admin-frontend/Dockerfile
 ].each do |dockerfile|
   assert(
     validation_commands.include?(dockerfile),
     "pull-request validation does not build #{dockerfile}",
   )
 end
+%w[intelibill-licensing-api-pr intelibill-licensing-migrate-pr intelibill-admin-web-pr].each do |local_tag|
+  scan = validation_steps.find do |step|
+    step.fetch("uses", "").start_with?("aquasecurity/trivy-action@") &&
+      step.dig("with", "image-ref").to_s.include?(local_tag)
+  end
+  assert(!scan.nil?, "pull-request validation does not scan #{local_tag}")
+end
+deploy_jobs.each do |job_name, job|
+  next if job_name == "validate"
+
+  job_text = commands(job)
+  %w[src/licensing src/admin-frontend licensing-api licensing-migrate admin-web].each do |marker|
+    assert(
+      !job_text.include?(marker),
+      "#{job_name} publishes or deploys licensing/admin output (#{marker}); P01-05 adds validation only",
+    )
+  end
+end
+assert(
+  (deploy.fetch("env", {}) || {}).keys.none? { |key| key.match?(/LICENSING|ADMIN/) },
+  "release workflow must not declare licensing/admin registry images",
+)
 badges_job = deploy_jobs.fetch("badges")
 assert(badges_job["needs"] == "validate", "badge publication must follow validation")
 assert(

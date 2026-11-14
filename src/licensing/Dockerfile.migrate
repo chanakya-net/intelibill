@@ -1,0 +1,63 @@
+# Licensing migration bundle. EF design-time code runs on the native build host
+# while the bundle is published for the requested target architecture, exactly
+# as the merchant migration image does.
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0@sha256:de4fe90a98845d75910b9769662465c84de1a934665c431279d1382b2bddc02b AS build
+WORKDIR /src
+
+COPY ["global.json", "./"]
+COPY ["Directory.Build.props", "./"]
+COPY ["Directory.Packages.props", "./"]
+COPY ["src/licensing/Intelibill.Licensing.Api/Intelibill.Licensing.Api.csproj", "src/licensing/Intelibill.Licensing.Api/"]
+COPY ["src/licensing/Intelibill.Licensing.Application/Intelibill.Licensing.Application.csproj", "src/licensing/Intelibill.Licensing.Application/"]
+COPY ["src/licensing/Intelibill.Licensing.Domain/Intelibill.Licensing.Domain.csproj", "src/licensing/Intelibill.Licensing.Domain/"]
+COPY ["src/licensing/Intelibill.Licensing.Infrastructure/Intelibill.Licensing.Infrastructure.csproj", "src/licensing/Intelibill.Licensing.Infrastructure/"]
+COPY ["src/shared/backend/Intelibill.Shared.Web/Intelibill.Shared.Web.csproj", "src/shared/backend/Intelibill.Shared.Web/"]
+COPY ["src/shared/backend/Intelibill.Shared.Contracts/Intelibill.Shared.Contracts.csproj", "src/shared/backend/Intelibill.Shared.Contracts/"]
+COPY ["src/shared/backend/Intelibill.Shared.Security/Intelibill.Shared.Security.csproj", "src/shared/backend/Intelibill.Shared.Security/"]
+RUN dotnet restore "src/licensing/Intelibill.Licensing.Api/Intelibill.Licensing.Api.csproj"
+
+COPY ["src/licensing/", "src/licensing/"]
+COPY ["src/shared/backend/", "src/shared/backend/"]
+
+# EF tooling constructs LicensingDbContext through LicensingDbContextFactory,
+# which refuses incomplete settings, but never connects while bundling. These
+# non-secret values exist only in the discarded build stage; the password
+# placeholder is scoped to the bundle RUN alone. The runtime bundle reads its
+# real LicensingMigrationDatabase__* configuration from the job.
+ENV LicensingMigrationDatabase__Host=localhost \
+    LicensingMigrationDatabase__Database=intelibill_licensing_build \
+    LicensingMigrationDatabase__Username=intelibill_licensing_build
+
+ARG TARGETARCH
+RUN dotnet tool install --tool-path /tools dotnet-ef --version 10.0.4 \
+    && case "${TARGETARCH}" in \
+       amd64) runtime_id="linux-x64" ;; \
+       arm64) runtime_id="linux-arm64" ;; \
+       *) printf 'Unsupported target architecture: %s\n' "${TARGETARCH}" >&2; exit 1 ;; \
+       esac \
+    && LicensingMigrationDatabase__Password=build-only-not-a-secret \
+       /tools/dotnet-ef migrations bundle \
+         --project src/licensing/Intelibill.Licensing.Infrastructure/Intelibill.Licensing.Infrastructure.csproj \
+         --startup-project src/licensing/Intelibill.Licensing.Api/Intelibill.Licensing.Api.csproj \
+         --context LicensingDbContext \
+         --configuration Release \
+         --self-contained \
+         --target-runtime "${runtime_id}" \
+         --output /out/efbundle
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:de0ee358cdd672f7017a003bed21e9ac9ed48a27c922a59b18175b6e82fa7fee AS runtime
+WORKDIR /app
+
+# libgssapi is loaded by Npgsql's integrated-authentication dependencies.
+# apt/libapt-pkg are upgraded past CVE-2026-109518 (fixed in 2.8.4ubuntu0.1),
+# which the newest pinned base still ships; drop this once the base carries it.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends --only-upgrade apt libapt-pkg6.0t64 \
+    && apt-get install -y --no-install-recommends ca-certificates libgssapi-krb5-2 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build --chown=$APP_UID:$APP_UID /out/efbundle /app/efbundle
+
+USER $APP_UID
+
+ENTRYPOINT ["/app/efbundle"]
