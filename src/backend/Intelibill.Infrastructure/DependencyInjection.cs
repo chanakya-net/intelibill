@@ -24,6 +24,7 @@ using Intelibill.Infrastructure.Services.Operations;
 using Intelibill.Infrastructure.Services.Payments;
 using Intelibill.Infrastructure.Services.StockIntake;
 using Intelibill.Infrastructure.Services.RateLimiting;
+using Intelibill.Shared.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
@@ -226,6 +227,8 @@ public static class DependencyInjection
                 ? new TwilioSmsSender(sp.GetRequiredService<IHttpClientFactory>(), sp.GetRequiredService<IOptions<PhoneAuthOptions>>())
                 : new UnconfiguredSmsSender();
         });
+        services.AddSingleton<IPasswordHashing, BcryptPasswordHashing>();
+        services.AddSingleton<OpaqueTokenPrimitives>();
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddSingleton<ISmtpClientFactory, MailKitSmtpClientFactory>();
         services.AddSingleton<IEmailService>(sp =>

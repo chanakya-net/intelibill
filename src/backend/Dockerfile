@@ -17,6 +17,8 @@ COPY ["src/backend/Intelibill.Infrastructure/Intelibill.Infrastructure.csproj", 
 COPY ["src/shared/backend/Intelibill.Shared.Web/Intelibill.Shared.Web.csproj", "src/shared/backend/Intelibill.Shared.Web/"]
 
 # Restore NuGet packages
+COPY ["src/shared/backend/Intelibill.Shared.Contracts/Intelibill.Shared.Contracts.csproj", "src/shared/backend/Intelibill.Shared.Contracts/"]
+COPY ["src/shared/backend/Intelibill.Shared.Security/Intelibill.Shared.Security.csproj", "src/shared/backend/Intelibill.Shared.Security/"]
 RUN dotnet restore "src/backend/Intelibill.Api/Intelibill.Api.csproj"
 
 # Copy the rest of the backend source code

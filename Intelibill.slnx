@@ -14,4 +14,7 @@
   <Project Path="src/licensing/Intelibill.Licensing.Domain/Intelibill.Licensing.Domain.csproj" />
   <Project Path="src/licensing/Intelibill.Licensing.Infrastructure/Intelibill.Licensing.Infrastructure.csproj" />
   <Project Path="src/shared/backend/Intelibill.Shared.Web/Intelibill.Shared.Web.csproj" />
+  <Project Path="src/shared/backend/Intelibill.Shared.Contracts/Intelibill.Shared.Contracts.csproj" />
+  <Project Path="src/shared/backend/Intelibill.Shared.Security/Intelibill.Shared.Security.csproj" />
+  <Project Path="tests/shared/P0103ConsumerRegressionTests/Intelibill.Shared.P0103ConsumerRegressionTests.csproj" />
 </Solution>

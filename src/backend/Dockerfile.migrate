@@ -12,6 +12,8 @@ COPY ["src/backend/Intelibill.Domain/Intelibill.Domain.csproj", "src/backend/Int
 COPY ["src/backend/Intelibill.Infrastructure/Intelibill.Infrastructure.csproj", "src/backend/Intelibill.Infrastructure/"]
 COPY ["src/shared/backend/Intelibill.Shared.Web/Intelibill.Shared.Web.csproj", "src/shared/backend/Intelibill.Shared.Web/"]
 
+COPY ["src/shared/backend/Intelibill.Shared.Contracts/Intelibill.Shared.Contracts.csproj", "src/shared/backend/Intelibill.Shared.Contracts/"]
+COPY ["src/shared/backend/Intelibill.Shared.Security/Intelibill.Shared.Security.csproj", "src/shared/backend/Intelibill.Shared.Security/"]
 RUN dotnet restore "src/backend/Intelibill.Api/Intelibill.Api.csproj"
 
 COPY ["src/backend/", "src/backend/"]
