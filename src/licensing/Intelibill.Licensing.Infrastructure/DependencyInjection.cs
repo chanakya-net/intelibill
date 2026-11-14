@@ -33,14 +33,16 @@ public static class DependencyInjection
         services.AddSingleton<LicensingDatabaseReadiness>();
         services.AddSingleton<IBootstrapRateBudget, PostgresBootstrapRateBudget>();
         services.AddOptions<AdminMailOptions>().Bind(configuration.GetSection(AdminMailOptions.SectionName));
-        services.AddSingleton<IAdminInvitationMailer, SmtpAdminInvitationMailer>();
-        services.AddScoped<IAdminInvitationStore, AdminInvitationStore>();
         return services.AddBootstrapPersistence();
     }
 
     public static IServiceCollection AddBootstrapPersistence(this IServiceCollection services)
     {
         services.AddScoped<IBootstrapStore, BootstrapStore>();
+        // The bootstrap CLI host validates the whole application graph, invitation handlers
+        // included. Without a bound AdminMail section the mailer stays unusable (fail closed).
+        services.AddScoped<IAdminInvitationStore, AdminInvitationStore>();
+        services.AddSingleton<IAdminInvitationMailer, SmtpAdminInvitationMailer>();
         services.AddSingleton<IBootstrapSecrets, BootstrapSecrets>();
         services.AddSingleton<IPasswordHashing, BcryptPasswordHashing>();
         services.AddSingleton<OpaqueTokenPrimitives>();
