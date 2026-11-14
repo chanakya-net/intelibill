@@ -20,7 +20,7 @@ internal static class BootstrapEndpoints
         group.MapGet("/enrollment", (HttpContext context) =>
         {
             var expires = context.User.FindFirst(BootstrapAuthorization.ExpiryClaim)!.Value;
-            return EnrollmentResponse(DateTimeOffset.Parse(expires, CultureInfo.InvariantCulture));
+            return BootstrapHttp.EnrollmentResponse(DateTimeOffset.Parse(expires, CultureInfo.InvariantCulture));
         }).RequireAuthorization(BootstrapAuthorization.EnrollmentScheme);
     }
 
@@ -80,15 +80,8 @@ internal static class BootstrapEndpoints
             return BootstrapHttp.Problem(context, status, error.Code, error.Description);
         }
 
-        var grant = result.Value;
-        var cookie = BootstrapHttp.Cookie(origin, "/api/admin");
-        cookie.MaxAge = TimeSpan.FromMinutes(15);
-        context.Response.Cookies.Append(BootstrapHttp.CookieName, grant.Credential.Value, cookie);
-        return EnrollmentResponse(grant.ExpiresAt);
+        return BootstrapHttp.Enrollment(context, origin, result.Value);
     }
-
-    private static IResult EnrollmentResponse(DateTimeOffset expiry) =>
-        Results.Ok(new { state = "enrollmentRequired", expiresAt = expiry });
 
     private static async Task<T?> ReadAsync<T>(HttpContext context) where T : class
     {

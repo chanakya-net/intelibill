@@ -275,9 +275,23 @@ services:
       # The restricted runtime login, never the migrator or the superuser.
       - LicensingDatabase__Username=intelibill_licensing_app
       - LicensingDatabase__Password=intelibill_licensing_app_password
+      # Administrator invitations are captured by the local Mailpit only; the
+      # API refuses this unauthenticated, unencrypted transport outside Development.
+      - AdminMail__Host=mailpit
+      - AdminMail__Port=1025
+      - AdminMail__LocalCapture=true
+      - AdminMail__FromEmail=provider-console@intelibill.local
+      # LOCAL FIXTURE ONLY, off unless an acceptance script sets the digest. No
+      # production provider session exists yet; startup refuses a fixture outside
+      # Development, and invitations still need the persisted MFA-enrolled owner.
+      - AdminFixtures__SessionDigest=${INTELIBILL_ADMIN_FIXTURE_SESSION_DIGEST:-}
+      - AdminFixtures__AdminId=${INTELIBILL_ADMIN_FIXTURE_ADMIN_ID:-}
+      - AdminFixtures__Capabilities=${INTELIBILL_ADMIN_FIXTURE_CAPABILITIES:-}
     depends_on:
       licensing-runtime-role:
         condition: service_completed_successfully
+      mailpit:
+        condition: service_started
     healthcheck:
       # Readiness, not liveness: it answers 200 only when the runtime login
       # reaches its database and holds no schema-changing or privileged role.

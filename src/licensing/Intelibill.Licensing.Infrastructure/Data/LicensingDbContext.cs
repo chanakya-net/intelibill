@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Infrastructure.AdminIdentities;
 using Intelibill.Licensing.Infrastructure.Bootstrap;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,5 +14,6 @@ public sealed class LicensingDbContext(DbContextOptions<LicensingDbContext> opti
         modelBuilder.ApplyConfiguration(new EnrollmentCredentialMapping());
         modelBuilder.ApplyConfiguration(new ProviderAuditMapping());
         modelBuilder.ApplyConfiguration(new BootstrapRateBucketMapping());
+        modelBuilder.ApplyConfiguration(new AdminInvitationMapping());
     }
 }

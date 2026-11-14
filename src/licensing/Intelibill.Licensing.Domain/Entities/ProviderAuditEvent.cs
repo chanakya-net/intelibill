@@ -8,13 +8,20 @@ public enum BootstrapAuditAction
     ProofRefused,
     EnrollmentResumed,
     ResumeRefused,
+    InvitationIssued,
+    InvitationAccepted,
+    InvitationRefused,
+    InvitationSuperseded,
+    InvitationUndelivered,
 }
 
 public sealed class ProviderAuditEvent(
-    Guid id, BootstrapAuditAction action, DateTimeOffset occurredAt, Guid? ownerId)
+    Guid id, BootstrapAuditAction action, DateTimeOffset occurredAt, Guid? ownerId, Guid? invitationId = null)
 {
     public Guid Id { get; private set; } = id;
     public BootstrapAuditAction Action { get; private set; } = action;
     public DateTimeOffset OccurredAt { get; private set; } = occurredAt;
+    /// <summary>The acting administrator, when one is known.</summary>
     public Guid? OwnerId { get; private set; } = ownerId;
+    public Guid? InvitationId { get; private set; } = invitationId;
 }

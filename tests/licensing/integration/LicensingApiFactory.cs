@@ -10,7 +10,8 @@ namespace Intelibill.Licensing.Integration.Tests;
 
 internal sealed class LicensingApiFactory(
     NpgsqlConnectionStringBuilder runtime, NpgsqlConnectionStringBuilder? migrator = null,
-    string environment = "Testing", TimeProvider? clock = null, Action<IServiceCollection>? configure = null) : WebApplicationFactory<Api.Program>
+    string environment = "Testing", TimeProvider? clock = null, Action<IServiceCollection>? configure = null,
+    IReadOnlyDictionary<string, string?>? settings = null) : WebApplicationFactory<Api.Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -26,6 +27,7 @@ internal sealed class LicensingApiFactory(
             configuration.AddInMemoryCollection(DatabaseSettings("LicensingDatabase", runtime));
             if (migrator is not null)
                 configuration.AddInMemoryCollection(DatabaseSettings("LicensingMigrationDatabase", migrator));
+            if (settings is not null) configuration.AddInMemoryCollection(settings);
         });
     }
 

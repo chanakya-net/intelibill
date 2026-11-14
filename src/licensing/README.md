@@ -112,3 +112,52 @@ The enrollment cookie grants pending enrollment access through
 `BootstrapEnrollment`. Provider business endpoints use
 `ProviderBusinessAccess` and require independent business authentication.
 P01-06 ends at pending enrollment.
+
+## Administrator invitations
+
+A platform owner invites further administrators; there is no public signup.
+Both routes need the `AddAdminInvitations` migration, applied by the explicit
+migration job before the API is updated.
+
+- `GET /api/admin/invitations/context` and `POST /api/admin/invitations`
+  (`{ email }`) run behind the `ProviderInvitations` policy: a provider session
+  carrying the `admin.invitations.manage` capability and an MFA time less than
+  five minutes old. The handler then requires that the actor is the persisted
+  bootstrapped owner with completed MFA. The POST also requires the exact
+  provider origin, the request token from the context read
+  (`X-Bootstrap-CSRF`) and a durable issuance budget (20 per hour). It answers
+  201 with the invitation identifier and expiry, never the token.
+- The invitation is stored as a SHA-256 digest, bound to one normalized email,
+  and expires after 72 hours. Re-inviting an address retires its open link. The
+  email carries `<origin>/auth/invitation#token=…`: the token stays in the URL
+  fragment, which browsers never send to a server, and the page moves it into
+  memory and out of the address bar at once.
+- `GET /api/admin/auth/invitation/context` and
+  `POST /api/admin/auth/invitation/accept`
+  (`{ invitationToken, email, password }`) need the provider origin, the
+  request token and a durable acceptance budget (30 per 15 minutes). Only the
+  invited email is accepted. Five wrong identities retire the link. An
+  expired, retired or used link answers 409 `Invitation.Unavailable`.
+  Concurrent acceptances serialize on the invitation row; exactly one succeeds.
+- Acceptance creates a verified administrator awaiting MFA and sets the same
+  15-minute enrollment cookie as the first owner. It grants no capability and
+  no business session: `/api/admin/access` answers 403 and the invitation
+  routes answer 401.
+- Issued, accepted, refused, superseded and undeliverable invitations append
+  provider audit events. Accepted or retired invitations cannot be changed or
+  deleted. Logs carry invitation identifiers and outcome codes only.
+
+Delivery uses the `AdminMail` section (`Host`, `Port`, `FromEmail`, `FromName`,
+`Username`, `Password`, `UseStartTls`). A real transport always uses TLS and
+authentication. `LocalCapture=true` (Mailpit, no TLS, no login) is honored only
+in Development or Testing. When delivery is unconfigured or fails, the
+invitation is retired and the API answers 503
+`Invitation.DeliveryUnavailable`.
+
+No production provider session exists on this base: TOTP enrollment and
+sign-in belong to P01-08 and P01-09. Until then `ProviderSession`
+authenticates nobody and issuance fails closed with 401. Local acceptance
+uses the `AdminFixtures` section (`SessionDigest`, the SHA-256 of a fixture
+cookie; `AdminId`; `Capabilities`; optional `MfaVerifiedAt`). Startup refuses
+a configured fixture outside Development or Testing. The fixture never
+replaces the persisted owner and MFA checks.

@@ -1,0 +1,46 @@
+<main>
+  <h1 class="ib-page-title">Administrator invitation</h1>
+  <section class="ib-panel" aria-label="Administrator invitation" [attr.aria-busy]="busy() || view() === 'loading'">
+    @if (error()) {
+      <p class="ib-error-banner" role="alert">{{ error() }}</p>
+    }
+    @switch (view()) {
+      @case ('loading') {
+        <p role="status">Checking your invitation…</p>
+      }
+      @case ('pending') {
+        <h2 class="ib-panel__title">MFA setup required</h2>
+        <p>Your verified administrator identity is ready for MFA enrollment.</p>
+        <p>No provider permissions</p>
+      }
+      @case ('closed') {
+        @if (!error()) {
+          <p>Open the invitation link from your email to continue. Invitations are the only way to join.</p>
+        }
+        <a routerLink="/">Return to the Provider Console</a>
+      }
+      @default {
+        <h2 class="ib-panel__title">Accept your invitation</h2>
+        <form class="ib-form-section" (submit)="submit($event, email, password)">
+          <label for="invitation-email">Invited email</label>
+          <input #email id="invitation-email" type="email" autocomplete="username" maxlength="254" required spellcheck="false" />
+          <label for="invitation-password">Password</label>
+          <input
+            #password
+            id="invitation-password"
+            type="password"
+            autocomplete="new-password"
+            aria-describedby="invitation-password-requirements"
+            minlength="12"
+            maxlength="72"
+            required
+          />
+          <p id="invitation-password-requirements">Use at least 12 characters. You will set up an authenticator app next.</p>
+          <div>
+            <button pButton type="submit" [disabled]="busy()">Accept invitation</button>
+          </div>
+        </form>
+      }
+    }
+  </section>
+</main>

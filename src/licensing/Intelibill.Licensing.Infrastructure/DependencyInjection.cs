@@ -1,4 +1,6 @@
+using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Application.Bootstrap;
+using Intelibill.Licensing.Infrastructure.AdminIdentities;
 using Intelibill.Licensing.Infrastructure.Bootstrap;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Licensing.Infrastructure.Options;
@@ -30,12 +32,17 @@ public static class DependencyInjection
             .UseSnakeCaseNamingConvention());
         services.AddSingleton<LicensingDatabaseReadiness>();
         services.AddSingleton<IBootstrapRateBudget, PostgresBootstrapRateBudget>();
+        services.AddOptions<AdminMailOptions>().Bind(configuration.GetSection(AdminMailOptions.SectionName));
         return services.AddBootstrapPersistence();
     }
 
     public static IServiceCollection AddBootstrapPersistence(this IServiceCollection services)
     {
         services.AddScoped<IBootstrapStore, BootstrapStore>();
+        // The bootstrap CLI host validates the whole application graph, invitation handlers
+        // included. Without a bound AdminMail section the mailer stays unusable (fail closed).
+        services.AddScoped<IAdminInvitationStore, AdminInvitationStore>();
+        services.AddSingleton<IAdminInvitationMailer, SmtpAdminInvitationMailer>();
         services.AddSingleton<IBootstrapSecrets, BootstrapSecrets>();
         services.AddSingleton<IPasswordHashing, BcryptPasswordHashing>();
         services.AddSingleton<OpaqueTokenPrimitives>();

@@ -46,8 +46,11 @@ running keeps serving when a later `up` fails in the other one. One-shot jobs ne
 which is how a newly added migration is applied and granted. An API restart never
 reruns a migration, and neither API issues DDL at startup.
 
-The licensing bundle applies `InitialAdminIdentityAndAudit` as the migrator.
-The migration creates the unarmed bootstrap state without an owner or proof.
+The licensing bundle applies `InitialAdminIdentityAndAudit` and then
+`AddAdminInvitations` as the migrator. The first creates the unarmed bootstrap
+state without an owner or proof. The second adds `admin_invitations`, the
+invitation audit link and two durable rate buckets. Apply it before any API that
+serves invitations. Its `Down` refuses once invitation evidence exists.
 
 ## Ports (loopback only)
 
@@ -121,11 +124,12 @@ merchant data:
   a merchant session in the same browser confers nothing there.
 - Probe `GET http://127.0.0.1:5278/health/live` and `/health/ready`.
 
-Not available yet, by design (each belongs to a later issue): provider
-identity bootstrap, invitations, sign-in, MFA and sessions for the admin web
-(`/api/admin/**` currently answers 404 from the licensing API); licensing email
-(Mailpit is reachable, but the licensing API has no mail sender yet); and every
-commercial flow — catalogue, simulator, payments, seeded plans or accounts.
+Administrator invitations are delivered to this Mailpit only (`AdminMail`
+with `LocalCapture`). Issuing one needs a provider session, which no
+production producer creates yet, so the stack refuses issuance unless an
+acceptance script sets the Development-only `INTELIBILL_ADMIN_FIXTURE_*`
+variables. Not available yet, by design (each belongs to a later issue):
+provider sign-in, MFA and sessions for the admin web; and every commercial flow — catalogue, simulator, payments, seeded plans or accounts.
 There are no default admin credentials and no production seed. No real charge
 or real email is ever made by this stack.
 

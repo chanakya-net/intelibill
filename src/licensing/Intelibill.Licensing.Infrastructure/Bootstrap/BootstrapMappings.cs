@@ -67,8 +67,10 @@ internal sealed class ProviderAuditMapping : IEntityTypeConfiguration<ProviderAu
     public void Configure(EntityTypeBuilder<ProviderAuditEvent> builder)
     {
         builder.ToTable("provider_audit_events", table =>
-            table.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 6"));
+            table.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 11"));
         builder.HasOne<AdminIdentity>().WithMany().HasForeignKey(audit => audit.OwnerId)
+            .OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<AdminInvitation>().WithMany().HasForeignKey(audit => audit.InvitationId)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

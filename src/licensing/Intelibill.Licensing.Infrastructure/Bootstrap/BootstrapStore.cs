@@ -33,9 +33,12 @@ internal sealed class BootstrapStore(LicensingDbContext context) : IBootstrapSto
         var query =
             from credential in context.Set<BootstrapEnrollmentCredential>()
             join owner in context.Set<AdminIdentity>() on credential.OwnerId equals owner.Id
-            join state in context.Set<InitialAdminBootstrap>() on (Guid?)owner.Id equals state.OwnerId
             where credential.Digest == digest && credential.ExpiresAt > now && credential.RevokedAt == null
-                && state.ConsumedAt != null && owner.MfaEnrolledAt == null
+                && owner.MfaEnrolledAt == null
+                // Only the bootstrapped owner or an administrator who accepted an invitation.
+                && (context.Set<InitialAdminBootstrap>().Any(state => state.OwnerId == owner.Id && state.ConsumedAt != null)
+                    || context.Set<AdminInvitation>().Any(invitation => invitation.AcceptedAdminId == owner.Id
+                        && invitation.AcceptedAt != null))
             select new EnrollmentState(owner.Id, credential.ExpiresAt);
         return query.SingleOrDefaultAsync(cancellationToken);
     }

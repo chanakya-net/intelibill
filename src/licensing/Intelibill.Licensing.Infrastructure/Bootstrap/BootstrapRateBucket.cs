@@ -15,7 +15,7 @@ internal sealed class BootstrapRateBucketMapping : IEntityTypeConfiguration<Boot
     public void Configure(EntityTypeBuilder<BootstrapRateBucket> builder)
     {
         builder.ToTable("bootstrap_rate_buckets", table =>
-            table.HasCheckConstraint("ck_bootstrap_rate_bucket", "id BETWEEN 1 AND 3 AND attempts >= 0"));
+            table.HasCheckConstraint("ck_bootstrap_rate_bucket", "id BETWEEN 1 AND 5 AND attempts >= 0"));
         builder.Property(bucket => bucket.Id).ValueGeneratedNever();
     }
 }
