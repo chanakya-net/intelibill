@@ -13,13 +13,19 @@ RUN apt-get update \
 	&& curl -fsSL https://bun.sh/install | bash -s -- bun-v1.3.11
 
 # Copy the package.json and bun.lock files
-COPY ["src/frontend/package.json", "src/frontend/bun.lock", "./"]
+COPY package.json bun.lock ./
+COPY src/frontend/package.json src/frontend/
+COPY src/admin-frontend/package.json src/admin-frontend/
+COPY src/shared/frontend/api/package.json src/shared/frontend/api/
+COPY src/shared/frontend/ui/package.json src/shared/frontend/ui/
 
 # Install dependencies using Bun
 RUN bun install --frozen-lockfile
 
 # Copy the rest of the frontend source code
-COPY ["src/frontend/", "./"]
+COPY src/shared/frontend/ src/shared/frontend/
+COPY src/frontend/ src/frontend/
+WORKDIR /app/src/frontend
 
 # Build the Angular application for production
 RUN bun run build
@@ -45,7 +51,7 @@ RUN apt-get update \
 # The build bundles express and the proxy into server.mjs, leaving only Node
 # built-ins external, so the runtime image needs neither package.json nor
 # node_modules.
-COPY --from=build /app/dist /app/dist
+COPY --from=build /app/src/frontend/dist /app/dist
 
 ENV NODE_ENV=production \
     PORT=4000

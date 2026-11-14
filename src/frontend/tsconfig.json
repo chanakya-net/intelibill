@@ -3,6 +3,13 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
+    // Compile workspace TypeScript with the app in development and in the Angular test builder.
+    "paths": {
+      "@intelibill/ui/confirmation-dialog": ["../shared/frontend/ui/src/confirmation-dialog.component.ts"],
+      "@intelibill/ui/theme": ["../shared/frontend/ui/src/theme.ts"],
+      "@intelibill/ui": ["../shared/frontend/ui/src/index.ts"],
+      "@intelibill/api": ["../shared/frontend/api/src/index.ts"]
+    },
     "strict": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,

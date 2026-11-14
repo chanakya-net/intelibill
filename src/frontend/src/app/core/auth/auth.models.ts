@@ -140,12 +140,7 @@ export interface AuthSession {
   readonly sessionId?: string | null;
 }
 
-export interface ApiErrorPayload {
-  readonly code?: string;
-  readonly title?: string;
-  readonly detail?: string;
-  readonly errors?: Record<string, string[]>;
-}
+export type { ProblemDetails as ApiErrorPayload } from '@intelibill/api';
 
 export type BootstrapSessionStatus =
   | 'READY'

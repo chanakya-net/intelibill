@@ -1,0 +1,23 @@
+<main>
+  <h1 class="ib-page-title">Provider Console</h1>
+
+  <section class="ib-panel" aria-labelledby="access-heading">
+    <h2 class="ib-panel__title" id="access-heading">Provider access</h2>
+    <p class="ib-error-banner" role="alert">{{ accessProblem().title }}</p>
+    @if (!hasPermissions()) {
+      <p class="ib-subtitle">No provider permissions</p>
+    }
+
+    <section class="ib-form-section" aria-label="Access help">
+      @if (showHelp()) {
+        <p>Provider access requires a provider session.</p>
+      }
+      <div>
+        <button pButton type="button" (click)="toggleHelp($event)">
+          {{ showHelp() ? 'Hide access help' : 'Show access help' }}
+        </button>
+      </div>
+    </section>
+  </section>
+  <ib-confirmation-dialog />
+</main>
