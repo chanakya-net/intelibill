@@ -59,3 +59,13 @@ dotnet ef database update \
 The initial EF model is empty. The API uses its runtime settings for both EF
 and readiness. The migration job owns all schema changes. Issue #835 supplies
 Compose orchestration, provisioning, migration and role-grant jobs.
+
+## Security primitives
+
+Both APIs register the bcrypt password hasher and opaque token primitives from
+`Intelibill.Shared.Security`. Opaque token creation returns the V1 carrier
+from `Intelibill.Shared.Contracts`. Each application owns credential storage,
+token issuance policy, sessions and authorization. The licensing API currently
+exposes its health probes. Fixture-based regression tests verify that merchant
+authentication retains its existing behavior and refuses credentials from a
+separate licensing issuer.

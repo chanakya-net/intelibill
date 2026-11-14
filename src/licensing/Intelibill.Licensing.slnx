@@ -5,4 +5,6 @@
   <Project Path="Intelibill.Licensing.Domain/Intelibill.Licensing.Domain.csproj" />
   <Project Path="Intelibill.Licensing.Infrastructure/Intelibill.Licensing.Infrastructure.csproj" />
   <Project Path="../shared/backend/Intelibill.Shared.Web/Intelibill.Shared.Web.csproj" />
+  <Project Path="../shared/backend/Intelibill.Shared.Contracts/Intelibill.Shared.Contracts.csproj" />
+  <Project Path="../shared/backend/Intelibill.Shared.Security/Intelibill.Shared.Security.csproj" />
 </Solution>

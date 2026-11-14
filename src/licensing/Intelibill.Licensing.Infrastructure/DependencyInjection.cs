@@ -1,5 +1,6 @@
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Licensing.Infrastructure.Options;
+using Intelibill.Shared.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +26,8 @@ public static class DependencyInjection
             .UseNpgsql(provider.GetRequiredService<NpgsqlDataSource>(),
                 npgsql => npgsql.MigrationsAssembly(typeof(LicensingDbContext).Assembly.GetName().Name))
             .UseSnakeCaseNamingConvention());
+        services.AddSingleton<IPasswordHashing, BcryptPasswordHashing>();
+        services.AddSingleton<OpaqueTokenPrimitives>();
         services.AddSingleton<LicensingDatabaseReadiness>();
         return services;
     }
