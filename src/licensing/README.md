@@ -217,9 +217,48 @@ Sign-in requires an exact Origin and the `X-Admin-CSRF` request proof. PostgreSQ
 enforces 5 sign-in attempts per normalized account per 15 minutes and 60
 overall per 5 minutes, across replicas. The authenticator keeps its existing
 separate proof budget. Provider audit events record accepted and refused
-sign-ins without credential material. Access expiry currently returns the
-operator to sign-in. Refresh rotation, operator revocation, recovery and grant
+sign-ins without credential material. Operator revocation, recovery and grant
 management are the subsequent P01 slices.
 
 Run `bash tests/licensing/acceptance/run-p0109-browser.sh` for the disposable
 PostgreSQL, migration job and Chromium acceptance flow.
+
+## Provider session refresh
+
+Apply `20261114202808_AddAdminRefreshCredentials` through the explicit licensing
+migration job before deploying the API or admin web. Sessions opened before the
+migration have no refresh credential: they end at access expiry and the operator
+signs in again. The migration's Down refuses once any refresh credential or
+reuse audit event exists.
+
+Sign-in also sets an HttpOnly, SameSite=Strict refresh cookie (`__Host-` and
+Secure over HTTPS, `/api/admin` on the loopback HTTP origin) that lasts until the
+session's 12-hour absolute end. `POST /api/admin/auth/refresh` needs the exact
+Origin and `X-Admin-CSRF` proof from `GET /api/admin/auth/sign-in/context`; a
+refused proof never reads the credential. A refresh consumes the presented
+credential and issues one successor in the same session (`parent_id` chain,
+unique per parent and one root per session) plus a new 15-minute access token.
+`admin_refresh_credentials` stores only the SHA-256 digest. Rotation locks the
+administrator, the session and then the credential, so presentations on any
+replica serialize.
+
+Refresh never changes the session's creation or MFA time: the 12-hour absolute
+limit and the five-minute recent-MFA window still count from sign-in. It
+honours the 30-minute inactivity limit and counts as activity. A deactivated
+administrator, a revoked or expired session and an unknown credential get 401
+`Admin.SessionEnded`, and both session cookies are cleared. A consumed
+credential presented again revokes the whole session and records audit action
+16 (`SessionReuseRevoked`), so neither holder keeps a live successor and the
+next protected request answers 401.
+
+The admin web renews only when a provider request returns 401 (never in the
+background, so idle time still ends a session). Requests in a tab share one
+renewal and tabs take turns under the `intelibill-admin-session-renewal` Web
+Lock. A refused renewal clears the dashboard grants and shows the sign-in link.
+A renewal with an unknown outcome (network failure, timeout, 5xx) hides the
+grants without signing out and waits for the operator's retry. If the lost
+answer had already rotated the credential, that retry presents a consumed
+credential and ends the session.
+
+Run `bash tests/licensing/acceptance/run-p0110-browser.sh` for the disposable
+PostgreSQL, migration upgrade from P01-09 and reapply, and Chromium flow.

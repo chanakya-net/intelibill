@@ -20,7 +20,19 @@
       }
     </section>
   } @else {
-    <p class="ib-error-banner" role="alert">Your provider session ended.</p>
-    <a routerLink="/auth/sign-in">Sign in again</a>
+    @switch (notice()) {
+      @case ('expired') {
+        <p>Your provider access paused.</p>
+        <button pButton type="button" (click)="resume()">Continue session</button>
+      }
+      @case ('uncertain') {
+        <p class="ib-error-banner" role="alert">We could not confirm your provider session. Check your connection and try again.</p>
+        <button pButton type="button" (click)="resume()">Try again</button>
+      }
+      @default {
+        <p class="ib-error-banner" role="alert">Your provider session ended.</p>
+        <a routerLink="/auth/sign-in">Sign in again</a>
+      }
+    }
   }
 </main>

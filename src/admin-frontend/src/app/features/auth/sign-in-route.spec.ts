@@ -19,6 +19,9 @@ describe('provider sign-in', () => {
     const harness = await RouterTestingHarness.create();
     const navigation = harness.navigateByUrl('/');
     await vi.waitFor(() => http.expectOne(session).flush(null, { status: 401, statusText: 'Unauthorized' }));
+    // Without a live refresh credential the renewal is refused and the dashboard redirects.
+    await vi.waitFor(() => http.expectOne(context).flush({ requestToken: 'renewal-csrf' }));
+    await vi.waitFor(() => http.expectOne('/api/admin/auth/refresh').flush(null, { status: 401, statusText: 'Unauthorized' }));
     await navigation;
     expect(TestBed.inject(Location).path()).toBe('/auth/sign-in');
     http.expectOne(context).flush({ requestToken: 'fixture-csrf' });

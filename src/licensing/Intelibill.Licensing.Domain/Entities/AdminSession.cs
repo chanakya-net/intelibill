@@ -12,4 +12,21 @@ public sealed class AdminSession(Guid id, Guid adminId, DateTimeOffset mfaVerifi
     public DateTimeOffset MfaVerifiedAt { get; private set; } = mfaVerifiedAt;
     public DateTimeOffset LastSeenAt { get; private set; } = mfaVerifiedAt;
     public DateTimeOffset? RevokedAt { get; private set; }
+
+    /// <summary>The instant the session ends however often it is renewed.</summary>
+    public DateTimeOffset AbsoluteEnd => CreatedAt + AbsoluteLifetime;
+
+    /// <summary>
+    /// Live at <paramref name="now"/>: not revoked, inside both the idle and absolute windows.
+    /// Renewal never moves <see cref="MfaVerifiedAt"/> or <see cref="CreatedAt"/>.
+    /// </summary>
+    public bool IsLiveAt(DateTimeOffset now) =>
+        RevokedAt is null && MfaVerifiedAt <= now && now < AbsoluteEnd && now < LastSeenAt + IdleLifetime;
+
+    public void Touch(DateTimeOffset now)
+    {
+        if (now > LastSeenAt) LastSeenAt = now;
+    }
+
+    public void Revoke(DateTimeOffset now) => RevokedAt ??= now < CreatedAt ? CreatedAt : now;
 }

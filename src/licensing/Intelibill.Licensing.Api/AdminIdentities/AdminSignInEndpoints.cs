@@ -50,9 +50,9 @@ internal static class AdminSignInEndpoints
 
         var result = await handler.HandleAsync(request?.Email, request?.Password, request?.Otp, context.RequestAborted);
         if (result.IsError) return Problem(context, result.FirstError, clock.GetUtcNow());
-        var session = result.Value;
-        AdminSignInHttp.WriteAccess(context, origin, tokens.Create(session), AdminSession.AccessLifetime);
-        return Results.Ok(new { accessExpiresAt = session.MfaVerifiedAt + AdminSession.AccessLifetime });
+        var grant = result.Value;
+        AdminSignInHttp.WriteSession(context, origin, tokens.Create(grant.Session, grant.AccessIssuedAt), grant);
+        return Results.Ok(new { accessExpiresAt = grant.AccessIssuedAt + AdminSession.AccessLifetime });
     }
 
     private static IResult ReadSession(HttpContext context) => Results.Ok(new

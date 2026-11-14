@@ -3,7 +3,7 @@ import { provideLocationMocks } from '@angular/common/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { appConfig } from '../../app.config';
 
 const token = 'i1_' + 'A'.repeat(43) + 'b'.repeat(43);
@@ -88,11 +88,15 @@ describe('administrator invitations', () => {
   it('refuses the invitation form without a provider session', async () => {
     const harness = await open('/admin-users/invite');
     http.expectOne('/api/admin/invitations/context').flush(null, { status: 401, statusText: 'Unauthorized' });
-    harness.detectChanges();
-
+    // The expired access token is renewed once; a refused refresh credential ends the session.
+    await vi.waitFor(() => http.expectOne('/api/admin/auth/sign-in/context').flush({ requestToken: 'csrf' }));
+    await vi.waitFor(() => http.expectOne('/api/admin/auth/refresh').flush(null, { status: 401, statusText: 'Unauthorized' }));
     const page: HTMLElement = harness.routeNativeElement!;
+    await vi.waitFor(() => {
+      harness.detectChanges();
+      expect(page.querySelector('[role="alert"]')?.textContent).toContain('Sign in with your provider account');
+    });
     expect(page.querySelector('form')).toBeNull();
-    expect(page.querySelector('[role="alert"]')?.textContent).toContain('Sign in with your provider account');
   });
 
   it('sends an invitation with the request token and confirms delivery', async () => {

@@ -39,6 +39,8 @@ public static class DependencyInjection
         services.AddSingleton<AdminMfaKeys>();
         services.AddScoped<IAdminSignInBudget, PostgresAdminSignInBudget>();
         services.AddScoped<IAdminSessionStore, AdminSessionStore>();
+        services.AddScoped<AdminRefreshCredentialService>();
+        services.AddScoped<IAdminRefreshCredentials>(provider => provider.GetRequiredService<AdminRefreshCredentialService>());
         services.AddScoped<AdminMfaStore>();
         services.AddScoped<IAdminMfaEnrollment, AdminMfaEnrollmentService>();
         services.AddScoped<IAdminMfaVerifier, AdminMfaVerifier>();

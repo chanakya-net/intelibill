@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Intelibill.Licensing.Api.Bootstrap;
 using Intelibill.Licensing.Application.AdminIdentities;
+using Intelibill.Licensing.Domain.Entities;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.WebUtilities;
 
@@ -13,6 +14,7 @@ internal sealed class AdminSignInHttp(IAdminInvitationStore provider, IHostEnvir
     internal const string CsrfHeader = "X-Admin-CSRF";
     private const string AccessSuffix = "InteliBill.Admin.Access";
     private const string CsrfSuffix = "InteliBill.Admin.Csrf";
+    private const string RefreshSuffix = "InteliBill.Admin.Refresh";
     private readonly IDataProtector _csrf = protection.CreateProtector("InteliBill.Licensing.Admin.SignInCsrf.v1");
 
     internal async Task<string?> ReadOriginAsync(HttpContext context) =>
@@ -56,6 +58,23 @@ internal sealed class AdminSignInHttp(IAdminInvitationStore provider, IHostEnvir
         var cookie = Cookie(origin);
         cookie.MaxAge = duration;
         context.Response.Cookies.Append(CookieName(origin, AccessSuffix), value, cookie);
+    }
+
+    internal static string? ReadRefresh(HttpContext context, string origin) => context.Request.Cookies[CookieName(origin, RefreshSuffix)];
+
+    /// <summary>Writes the renewed access token and the session's one live refresh credential.</summary>
+    internal static void WriteSession(HttpContext context, string origin, string access, AdminSessionGrant grant)
+    {
+        WriteAccess(context, origin, access, AdminSession.AccessLifetime);
+        var cookie = Cookie(origin);
+        cookie.MaxAge = grant.Session.AbsoluteEnd - grant.AccessIssuedAt;
+        context.Response.Cookies.Append(CookieName(origin, RefreshSuffix), grant.RefreshCredential, cookie);
+    }
+
+    internal static void ClearSession(HttpContext context, string origin)
+    {
+        context.Response.Cookies.Delete(CookieName(origin, AccessSuffix), Cookie(origin));
+        context.Response.Cookies.Delete(CookieName(origin, RefreshSuffix), Cookie(origin));
     }
 
     private static CookieOptions Cookie(string origin) =>
