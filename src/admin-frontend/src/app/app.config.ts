@@ -1,3 +1,4 @@
+import { provideHttpClient } from '@angular/common/http';
 import { type ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter } from '@angular/router';
@@ -10,6 +11,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideAnimationsAsync(),
+    provideHttpClient(),
     providePrimeNG({
       ripple: true,
       theme: {
@@ -25,6 +27,15 @@ export const appConfig: ApplicationConfig = {
       {
         path: '',
         loadComponent: () => import('./landing-page.component').then((m) => m.LandingPageComponent),
+      },
+      {
+        path: 'auth/bootstrap',
+        loadComponent: () => import('./features/auth/bootstrap-page.component').then((m) => m.BootstrapPageComponent),
+      },
+      {
+        path: 'auth/bootstrap/enrollment',
+        data: { enrollment: true },
+        loadComponent: () => import('./features/auth/bootstrap-page.component').then((m) => m.BootstrapPageComponent),
       },
       { path: '**', redirectTo: '' },
     ]),

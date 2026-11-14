@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import http from 'node:http';
+import net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, before, describe, test } from 'node:test';
@@ -19,16 +20,28 @@ const close = (server) =>
   });
 
 function rawGet(origin, path) {
-  // fetch() normalises "..", so traversal attempts go out on a raw request.
-  const { hostname, port } = new URL(origin);
+  // Write the request target literally. Some HTTP clients normalize mixed path separators.
+  const { hostname, port, host } = new URL(origin);
   return new Promise((resolve, reject) => {
-    const request = http.request({ hostname, port, path, method: 'GET' }, (response) => {
-      let body = '';
-      response.on('data', (chunk) => (body += chunk));
-      response.on('end', () => resolve({ status: response.statusCode, headers: response.headers, body }));
+    const socket = net.connect(Number(port), hostname, () => {
+      socket.write(`GET ${path} HTTP/1.0\r\nHost: ${host}\r\nConnection: close\r\n\r\n`);
     });
-    request.on('error', reject);
-    request.end();
+    socket.setEncoding('utf8');
+    let raw = '';
+    socket.on('data', (chunk) => { raw += chunk; });
+    socket.on('end', () => {
+      const separator = raw.indexOf('\r\n\r\n');
+      const [statusLine, ...headers] = raw.slice(0, separator).split('\r\n');
+      resolve({
+        status: Number(statusLine.split(' ')[1]),
+        headers: Object.fromEntries(headers.map((header) => {
+          const colon = header.indexOf(':');
+          return [header.slice(0, colon).toLowerCase(), header.slice(colon + 1).trim()];
+        })),
+        body: raw.slice(separator + 4),
+      });
+    });
+    socket.on('error', reject);
   });
 }
 
@@ -55,7 +68,7 @@ describe('admin web runtime server', () => {
       request.on('data', (chunk) => (body += chunk));
       request.on('end', () => {
         upstreamRequests.push({ method: request.method, url: request.url, body, headers: request.headers });
-        response.writeHead(418, { 'Content-Type': 'application/json' });
+        response.writeHead(418, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
         response.end(JSON.stringify({ echoed: request.url }));
       });
     });
@@ -129,12 +142,14 @@ describe('admin web runtime server', () => {
     assert.equal(upstreamRequests[0].method, 'POST');
     assert.equal(upstreamRequests[0].body, '{"probe":true}');
     assert.equal(upstreamRequests[0].headers['x-forwarded-proto'], 'http');
+    assert.equal(upstreamRequests[0].headers.host, new URL(origin).host);
   });
 
   test('forwards the admin prefix itself and leaves the query intact', async () => {
     const response = await rawGet(origin, '/api/admin?next=%2Fapi%2Fadmin');
     assert.equal(response.status, 418);
     assert.deepEqual(JSON.parse(response.body), { echoed: '/api/admin?next=%2Fapi%2Fadmin' });
+    assert.equal(response.headers['cache-control'], 'no-store');
   });
 
   test('denies mixed path separators before sending any upstream requests', async () => {

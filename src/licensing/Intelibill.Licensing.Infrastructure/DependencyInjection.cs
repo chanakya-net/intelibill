@@ -1,3 +1,5 @@
+using Intelibill.Licensing.Application.Bootstrap;
+using Intelibill.Licensing.Infrastructure.Bootstrap;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Licensing.Infrastructure.Options;
 using Intelibill.Shared.Security;
@@ -26,9 +28,17 @@ public static class DependencyInjection
             .UseNpgsql(provider.GetRequiredService<NpgsqlDataSource>(),
                 npgsql => npgsql.MigrationsAssembly(typeof(LicensingDbContext).Assembly.GetName().Name))
             .UseSnakeCaseNamingConvention());
+        services.AddSingleton<LicensingDatabaseReadiness>();
+        services.AddSingleton<IBootstrapRateBudget, PostgresBootstrapRateBudget>();
+        return services.AddBootstrapPersistence();
+    }
+
+    public static IServiceCollection AddBootstrapPersistence(this IServiceCollection services)
+    {
+        services.AddScoped<IBootstrapStore, BootstrapStore>();
+        services.AddSingleton<IBootstrapSecrets, BootstrapSecrets>();
         services.AddSingleton<IPasswordHashing, BcryptPasswordHashing>();
         services.AddSingleton<OpaqueTokenPrimitives>();
-        services.AddSingleton<LicensingDatabaseReadiness>();
         return services;
     }
 }

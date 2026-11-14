@@ -51,9 +51,8 @@ The API never migrates. The `licensing-migrate` image
 as the identity that owns the licensing database. Provision the database and
 roles before it runs and grant the runtime login afterwards.
 
-The EF model is still empty, so the bundle applies nothing and exits 0; it
-already validates its connection and will apply migrations as later issues add
-them. Run it directly from the repository root with:
+The first migration is `InitialAdminIdentityAndAudit`. Run the explicit
+migration from the repository root with:
 
 ```sh
 dotnet ef database update \
@@ -73,7 +72,43 @@ no schema or role authority, and only then does `licensing-api` start. See
 Both APIs register the bcrypt password hasher and opaque token primitives from
 `Intelibill.Shared.Security`. Opaque token creation returns the V1 carrier
 from `Intelibill.Shared.Contracts`. Each application owns credential storage,
-token issuance policy, sessions and authorization. The licensing API currently
-exposes its health probes. Fixture-based regression tests verify that merchant
-authentication retains its existing behavior and refuses credentials from a
-separate licensing issuer.
+token issuance policy, sessions and authorization. Fixture-based regression tests verify
+merchant and licensing authority independently.
+
+## First provider owner
+
+After the explicit migration, an operator with the separate migrator login can
+attest an independently verified email and prepare one 30-minute setup proof.
+Use a non-secret attestation reference. The command emits the proof once on
+stdout, so capture it in a protected file and deliver it out of band.
+
+```sh
+umask 077
+dotnet run --project src/licensing/Intelibill.Licensing.Api -- \
+  bootstrap-admin prepare --verified-email "$VERIFIED_EMAIL" \
+  --verification-reference "$ATTESTATION_REFERENCE" --admin-origin "$ADMIN_ORIGIN" \
+  > "$PROTECTED_PROOF_FILE"
+```
+
+The admin origin must be HTTPS. The local fixture permits HTTP loopback in
+Development or Testing. Run the command with `DOTNET_ENVIRONMENT=Development`
+for a loopback fixture. Terminate HTTPS at a trusted ingress, preserve the
+external Host header through the admin proxy, and keep the API upstream private.
+For multiple API replicas, configure a shared, access-controlled ASP.NET Core
+Data Protection key ring for the bootstrap CSRF tokens. Set
+`AdminBootstrap__DataProtectionKeyDirectory` to its protected mount path when
+using a shared file-system key ring.
+
+Open `/auth/bootstrap` on the prepared admin origin and enter the proof and a
+chosen password. A successful request permanently consumes the proof and creates
+one verified owner awaiting MFA. Setup uses a separate 15-minute enrollment
+cookie. If it is lost or expires, the initial owner can resume at
+`/auth/bootstrap/enrollment` using the verified email and chosen password while
+MFA enrollment remains pending. Resuming revokes the preceding enrollment
+credential. Both credentials are stored only as digests and the password is
+stored as a bcrypt hash.
+
+The enrollment cookie grants pending enrollment access through
+`BootstrapEnrollment`. Provider business endpoints use
+`ProviderBusinessAccess` and require independent business authentication.
+P01-06 ends at pending enrollment.

@@ -213,9 +213,7 @@ services:
   # this one: a licensing failure never holds the merchant API or web back.
 
   # The licensing schema, applied by its own migration bundle as the database
-  # owner `intelibill_licensing_migrator`. The model is empty until later
-  # issues add migrations; the job still runs and exits 0. The API never
-  # migrates.
+  # owner `intelibill_licensing_migrator`. The API never migrates.
   licensing-migrate:
     profiles: [full]
     build:
@@ -268,8 +266,7 @@ services:
       - "127.0.0.1:${INTELIBILL_LICENSING_API_PORT:-5278}:8080"
     environment:
       # Development states this is a local stack; the image default is
-      # Production. No licensing identity, provider or payment setting exists
-      # yet, so none is configured here.
+      # Production. Owner setup requires a separately prepared proof.
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
       - LicensingDatabase__Host=postgres

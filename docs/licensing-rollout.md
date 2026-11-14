@@ -46,8 +46,8 @@ running keeps serving when a later `up` fails in the other one. One-shot jobs ne
 which is how a newly added migration is applied and granted. An API restart never
 reruns a migration, and neither API issues DDL at startup.
 
-The licensing EF model is empty until later issues add migrations. Its bundle
-still runs, connects as the migrator and exits 0 with nothing to apply.
+The licensing bundle applies `InitialAdminIdentityAndAudit` as the migrator.
+The migration creates the unarmed bootstrap state without an owner or proof.
 
 ## Ports (loopback only)
 

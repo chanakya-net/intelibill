@@ -50,7 +50,7 @@ public sealed partial class P0101Tests
     {
         Directory.SetCurrentDirectory(workingDirectory);
         await using var context = factory.CreateDbContext([]);
-        Assert.Empty(context.Model.GetEntityTypes());
+        Assert.Contains(context.Model.GetEntityTypes(), entity => entity.GetTableName() == "initial_admin_bootstrap");
         var settings = new NpgsqlConnectionStringBuilder(context.Database.GetConnectionString());
         var identity = await LicensingPostgreSqlFixture.ReadScalarAsync(settings,
             "SELECT current_database() || ':' || current_user");

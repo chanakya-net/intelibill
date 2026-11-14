@@ -1,9 +1,11 @@
+using Intelibill.Licensing.Api.Bootstrap;
 using Intelibill.Licensing.Api.Observability;
 using Intelibill.Licensing.Application;
 using Intelibill.Licensing.Infrastructure;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Shared.Web;
 using Intelibill.Shared.Web.Middleware;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace Intelibill.Licensing.Api;
 
@@ -13,6 +15,9 @@ public sealed class Program
     {
         try
         {
+            if (args is ["bootstrap-admin", ..])
+                return await BootstrapAdminCommand.RunAsync(args);
+
             await BuildApplication(args).RunAsync();
             return 0;
         }
@@ -35,6 +40,20 @@ public sealed class Program
         builder.Services.AddLicensingApplication();
         builder.Services.AddLicensingInfrastructure(builder.Configuration);
 
+        builder.Services.AddBootstrapAuthorization();
+        builder.Services.AddScoped<BootstrapRequestGate>();
+        var protection = builder.Services.AddDataProtection().SetApplicationName("InteliBill.Licensing.Admin");
+        if (builder.Configuration["AdminBootstrap:DataProtectionKeyDirectory"] is { Length: > 0 } keyDirectory)
+            protection.PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
+        builder.Services.AddAntiforgery(options =>
+        {
+            options.HeaderName = "X-Bootstrap-CSRF";
+            options.SuppressReadingTokenFromFormBody = true;
+            options.Cookie.Name = BootstrapHttp.CsrfCookieName;
+            options.Cookie.Path = BootstrapHttp.Path;
+            options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        });
+
         var app = builder.Build();
         // First, so every failure — probes included — answers the shared safe envelope.
         app.UseMiddleware<ExceptionHandlingMiddleware>();
@@ -45,6 +64,13 @@ public sealed class Program
             return ready ? Probe(context, "ready") : Probe(context, "unavailable", StatusCodes.Status503ServiceUnavailable);
         }).AllowAnonymous();
 
+        app.UseRouting();
+        app.UseMiddleware<AdminRequestBoundary>();
+        app.UseAuthentication();
+        app.UseAuthorization();
+        app.MapBootstrap();
+        var business = app.MapGroup("/api/admin").RequireAuthorization(BootstrapAuthorization.BusinessPolicy);
+        business.MapGet("/access", () => Results.NoContent());
         return app;
     }
 
