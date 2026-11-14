@@ -74,6 +74,86 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.AdminInvitation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AcceptedAdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("accepted_admin_id");
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("email");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed_attempts");
+
+                    b.Property<Guid>("InvitedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invited_by");
+
+                    b.Property<DateTimeOffset>("IssuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("issued_at");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("TokenDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_digest");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_admin_invitations");
+
+                    b.HasIndex("AcceptedAdminId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_admin_invitations_accepted_admin_id");
+
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasDatabaseName("ix_admin_invitations_open_email")
+                        .HasFilter("accepted_at IS NULL AND revoked_at IS NULL");
+
+                    b.HasIndex("InvitedBy")
+                        .HasDatabaseName("ix_admin_invitations_invited_by");
+
+                    b.HasIndex("TokenDigest")
+                        .IsUnique()
+                        .HasDatabaseName("ix_admin_invitations_token_digest");
+
+                    b.ToTable("admin_invitations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_admin_invitation_acceptance", "(accepted_at IS NULL AND accepted_admin_id IS NULL)\nOR (accepted_at IS NOT NULL AND accepted_admin_id IS NOT NULL AND revoked_at IS NULL\n    AND accepted_at >= issued_at AND accepted_at < expires_at)");
+
+                            t.HasCheckConstraint("ck_admin_invitation_evidence", "token_digest ~ '^[0-9A-F]{64}$' AND issued_at < expires_at\nAND failed_attempts BETWEEN 0 AND 5\nAND (revoked_at IS NULL OR revoked_at >= issued_at)");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BootstrapEnrollmentCredential", b =>
                 {
                     b.Property<Guid>("Id")
@@ -207,6 +287,10 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("action");
 
+                    b.Property<Guid?>("InvitationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invitation_id");
+
                     b.Property<DateTimeOffset>("OccurredAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("occurred_at");
@@ -218,12 +302,15 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                     b.HasKey("Id")
                         .HasName("pk_provider_audit_events");
 
+                    b.HasIndex("InvitationId")
+                        .HasDatabaseName("ix_provider_audit_events_invitation_id");
+
                     b.HasIndex("OwnerId")
                         .HasDatabaseName("ix_provider_audit_events_owner_id");
 
                     b.ToTable("provider_audit_events", null, t =>
                         {
-                            t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 6");
+                            t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 11");
                         });
                 });
 
@@ -246,8 +333,24 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
 
                     b.ToTable("bootstrap_rate_buckets", null, t =>
                         {
-                            t.HasCheckConstraint("ck_bootstrap_rate_bucket", "id BETWEEN 1 AND 3 AND attempts >= 0");
+                            t.HasCheckConstraint("ck_bootstrap_rate_bucket", "id BETWEEN 1 AND 5 AND attempts >= 0");
                         });
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.AdminInvitation", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.AdminIdentity", null)
+                        .WithOne()
+                        .HasForeignKey("Intelibill.Licensing.Domain.Entities.AdminInvitation", "AcceptedAdminId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_admin_invitations_admin_identities_accepted_admin_id");
+
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.AdminIdentity", null)
+                        .WithMany()
+                        .HasForeignKey("InvitedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_admin_invitations_admin_identities_invited_by");
                 });
 
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BootstrapEnrollmentCredential", b =>
@@ -271,6 +374,12 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
 
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.ProviderAuditEvent", b =>
                 {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.AdminInvitation", null)
+                        .WithMany()
+                        .HasForeignKey("InvitationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_provider_audit_events_admin_invitation_invitation_id");
+
                     b.HasOne("Intelibill.Licensing.Domain.Entities.AdminIdentity", null)
                         .WithMany()
                         .HasForeignKey("OwnerId")

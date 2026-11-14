@@ -21,7 +21,7 @@ const messages: Readonly<Record<string, string>> = {
   selector: 'adm-bootstrap-page',
   imports: [ButtonDirective, RouterLink],
   templateUrl: './bootstrap-page.component.html',
-  styleUrl: './bootstrap-page.component.css',
+  styleUrl: '../form-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BootstrapPageComponent {

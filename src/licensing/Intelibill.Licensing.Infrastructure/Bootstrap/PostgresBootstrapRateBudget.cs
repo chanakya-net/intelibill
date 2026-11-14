@@ -19,6 +19,19 @@ internal sealed class PostgresBootstrapRateBudget(NpgsqlDataSource dataSource) :
         return reset;
     }
 
+    public async Task<DateTimeOffset?> TakeInvitationAsync(bool isAcceptance, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        await using var timeout = new NpgsqlCommand("SET LOCAL lock_timeout = '3s'", connection, transaction);
+        await timeout.ExecuteNonQueryAsync(cancellationToken);
+        var reset = isAcceptance
+            ? await TakeBucketAsync(connection, transaction, 4, 30, now, TimeSpan.FromMinutes(15), cancellationToken)
+            : await TakeBucketAsync(connection, transaction, 5, 20, now, TimeSpan.FromHours(1), cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return reset;
+    }
+
     private static async Task<DateTimeOffset?> TakeBucketAsync(NpgsqlConnection connection, NpgsqlTransaction transaction,
         int id, int limit, DateTimeOffset now, TimeSpan duration, CancellationToken cancellationToken)
     {

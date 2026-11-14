@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Api.AdminIdentities;
 using Intelibill.Licensing.Api.Bootstrap;
 using Intelibill.Licensing.Api.Observability;
 using Intelibill.Licensing.Application;
@@ -42,6 +43,8 @@ public sealed class Program
 
         builder.Services.AddBootstrapAuthorization();
         builder.Services.AddScoped<BootstrapRequestGate>();
+        builder.Services.AddProviderSessions(builder.Environment);
+        builder.Services.AddScoped<InvitationRequestGate>();
         var protection = builder.Services.AddDataProtection().SetApplicationName("InteliBill.Licensing.Admin");
         if (builder.Configuration["AdminBootstrap:DataProtectionKeyDirectory"] is { Length: > 0 } keyDirectory)
             protection.PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
@@ -69,6 +72,7 @@ public sealed class Program
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapBootstrap();
+        app.MapInvitations();
         var business = app.MapGroup("/api/admin").RequireAuthorization(BootstrapAuthorization.BusinessPolicy);
         business.MapGet("/access", () => Results.NoContent());
         return app;

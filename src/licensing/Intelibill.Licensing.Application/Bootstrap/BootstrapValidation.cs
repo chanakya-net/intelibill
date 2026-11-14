@@ -23,6 +23,8 @@ public static class BootstrapValidation
 
     public static bool IsEnrollmentValid(string? credential) => HasTokenShape(credential, "e1_");
 
+    public static bool IsInvitationValid(string? token) => HasTokenShape(token, "i1_");
+
     private static bool HasTokenShape(string? value, string prefix) =>
         value is { Length: 89 } && value.StartsWith(prefix, StringComparison.Ordinal)
         && value.AsSpan(3).IndexOfAnyExcept(TokenAlphabet) < 0;

@@ -37,6 +37,18 @@ export const appConfig: ApplicationConfig = {
         data: { enrollment: true },
         loadComponent: () => import('./features/auth/bootstrap-page.component').then((m) => m.BootstrapPageComponent),
       },
+      {
+        path: 'admin-users/invite',
+        loadComponent: () =>
+          import('./features/admin-users/invite-admin-page.component').then((m) => m.InviteAdminPageComponent),
+      },
+      {
+        path: 'auth/invitation',
+        loadComponent: () =>
+          import('./features/admin-users/accept-invitation-page.component').then(
+            (m) => m.AcceptInvitationPageComponent,
+          ),
+      },
       { path: '**', redirectTo: '' },
     ]),
   ],

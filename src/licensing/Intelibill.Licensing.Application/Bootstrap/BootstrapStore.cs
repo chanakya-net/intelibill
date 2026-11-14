@@ -27,8 +27,10 @@ public interface IBootstrapSecrets
 {
     BootstrapSecret CreateProof();
     BootstrapSecret CreateEnrollment();
+    BootstrapSecret CreateInvitation();
     bool MatchesProof(string value, string digest);
     string HashEnrollment(string credential);
+    string HashInvitation(string token);
     string HashPassword(string password);
     bool VerifyPassword(string password, string hash);
 }
@@ -37,4 +39,7 @@ public interface IBootstrapRateBudget
 {
     // Return the UTC reset time when the attempt exceeds a budget.
     Task<DateTimeOffset?> TakeAsync(bool isResume, DateTimeOffset now, CancellationToken cancellationToken);
+
+    // Durable budgets for invitation issuance and acceptance, shared by every replica.
+    Task<DateTimeOffset?> TakeInvitationAsync(bool isAcceptance, DateTimeOffset now, CancellationToken cancellationToken);
 }

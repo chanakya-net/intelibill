@@ -1,4 +1,6 @@
+using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Application.Bootstrap;
+using Intelibill.Licensing.Infrastructure.AdminIdentities;
 using Intelibill.Licensing.Infrastructure.Bootstrap;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Licensing.Infrastructure.Options;
@@ -30,6 +32,9 @@ public static class DependencyInjection
             .UseSnakeCaseNamingConvention());
         services.AddSingleton<LicensingDatabaseReadiness>();
         services.AddSingleton<IBootstrapRateBudget, PostgresBootstrapRateBudget>();
+        services.AddOptions<AdminMailOptions>().Bind(configuration.GetSection(AdminMailOptions.SectionName));
+        services.AddSingleton<IAdminInvitationMailer, SmtpAdminInvitationMailer>();
+        services.AddScoped<IAdminInvitationStore, AdminInvitationStore>();
         return services.AddBootstrapPersistence();
     }
 

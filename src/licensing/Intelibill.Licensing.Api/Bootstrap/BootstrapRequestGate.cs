@@ -1,4 +1,3 @@
-using System.Globalization;
 using Intelibill.Licensing.Application.Bootstrap;
 using Microsoft.AspNetCore.Antiforgery;
 
@@ -21,9 +20,7 @@ internal sealed class BootstrapRequestGate(IBootstrapStore store, IAntiforgery a
         var retryAt = await budget.TakeAsync(isResume, now, context.RequestAborted);
         if (retryAt is null) return null;
 
-        context.Response.Headers.RetryAfter = Math.Max(1, (long)Math.Ceiling((retryAt.Value - now).TotalSeconds))
-            .ToString(CultureInfo.InvariantCulture);
-        return BootstrapHttp.Problem(context, 429, "Bootstrap.Throttled", "Too many setup attempts. Try again later.");
+        return BootstrapHttp.Throttled(context, retryAt.Value, now, "Bootstrap.Throttled");
     }
 
     private static IResult Refused(HttpContext context) =>

@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Application.Bootstrap;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -11,6 +12,8 @@ public static class DependencyInjection
         services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<PrepareBootstrapAdminHandler>();
         services.AddScoped<BootstrapAdminHandler>();
+        services.AddScoped<InviteAdminHandler>();
+        services.AddScoped<AcceptAdminInvitationHandler>();
         return services;
     }
 }
