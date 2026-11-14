@@ -126,7 +126,7 @@ internal sealed class MerchantHost(NpgsqlConnectionStringBuilder runtime, bool m
     }
 }
 
-internal sealed class LicensingHost(NpgsqlConnectionStringBuilder runtime, bool maskPii)
+internal sealed class LicensingHost(NpgsqlConnectionStringBuilder runtime, bool maskPii, string minimumLevel = "Information")
     : WebApplicationFactory<Intelibill.Licensing.Api.Program>, IHostUnderTest
 {
     public string Name => "licensing";
@@ -142,7 +142,11 @@ internal sealed class LicensingHost(NpgsqlConnectionStringBuilder runtime, bool 
         builder.UseContentRoot(Path.Combine(HostProbes.Root, "src/licensing/Intelibill.Licensing.Api"));
         builder.UseEnvironment("Testing");
         builder.ConfigureAppConfiguration((_, configuration) =>
-            configuration.AddInMemoryCollection(HostProbes.Settings("LicensingDatabase", runtime, maskPii)));
+        {
+            var settings = HostProbes.Settings("LicensingDatabase", runtime, maskPii);
+            settings["Observability:Logging:MinimumLevel"] = minimumLevel;
+            configuration.AddInMemoryCollection(settings);
+        });
         HostProbes.Install(builder, Sink, Spans);
     }
 }

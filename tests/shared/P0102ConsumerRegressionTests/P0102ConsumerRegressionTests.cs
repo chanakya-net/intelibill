@@ -121,6 +121,71 @@ public sealed partial class P0102ConsumerRegressionTests(SharedPostgreSqlFixture
         }
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task BothApis_MfaCredentialsAreMaskedIndependentlyOfPii(bool maskPii)
+    {
+        var payload = new
+        {
+            Challenge = new
+            {
+                TotpCode = "p0102-totp-sentinel",
+                RecoveryCode = "p0102-recovery-sentinel",
+                RecoveryCodes = new[] { "p0102-recovery-collection-sentinel" },
+                ErrorCode = "Internal.Unexpected",
+                StatusCode = 500,
+            },
+            Form = new Dictionary<string, object>
+            {
+                ["totp_code"] = "p0102-totp-form-sentinel",
+                ["recovery-code"] = "p0102-recovery-form-sentinel",
+                ["recovery_codes"] = new[] { "p0102-recovery-form-collection-sentinel" },
+            },
+        };
+        foreach (var host in Hosts(maskPii))
+        {
+            using (host)
+            {
+                var logger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Intelibill.P0102.Mfa");
+                LogPayload(logger, payload, null);
+                var log = await host.Sink.WaitForAsync(e => e.Properties.ContainsKey("Payload"), $"{host.Name} MFA payload");
+                AssertMaskedMfa(log.Properties["Payload"]);
+                var rendered = host.Sink.Rendered();
+                Assert.DoesNotContain("p0102-totp-", rendered, StringComparison.Ordinal);
+                Assert.DoesNotContain("p0102-recovery-", rendered, StringComparison.Ordinal);
+            }
+        }
+    }
+
+    private static void AssertMaskedMfa(LogEventPropertyValue payload)
+    {
+        var properties = Assert.IsType<StructureValue>(payload).Properties.ToDictionary(p => p.Name, p => p.Value);
+        var challenge = Assert.IsType<StructureValue>(properties["Challenge"]).Properties.ToDictionary(p => p.Name, p => p.Value);
+        var form = Assert.IsType<DictionaryValue>(properties["Form"]).Elements;
+        string[] challengeFields = ["TotpCode", "RecoveryCode", "RecoveryCodes"];
+        string[] formFields = ["totp_code", "recovery-code", "recovery_codes"];
+
+        Assert.All(challengeFields, name => Assert.Equal(LogEventRedactor.Masked, Assert.IsType<ScalarValue>(challenge[name]).Value));
+        Assert.All(formFields, name => Assert.Equal(LogEventRedactor.Masked, Assert.IsType<ScalarValue>(form[new ScalarValue(name)]).Value));
+        Assert.Equal("Internal.Unexpected", Assert.IsType<ScalarValue>(challenge["ErrorCode"]).Value);
+        Assert.Equal(500, Assert.IsType<ScalarValue>(challenge["StatusCode"]).Value);
+    }
+
+    [Fact]
+    public async Task Licensing_MixedCaseLoggingLevelStillEmitsRequestDiagnostic()
+    {
+        using var host = new LicensingHost(database.LicensingRuntime, maskPii: true, minimumLevel: "eRrOr");
+        var (status, _, body) = await ThrowAsync(host);
+        Assert.Equal(HttpStatusCode.InternalServerError, status);
+        using var problem = JsonDocument.Parse(body);
+        var traceId = problem.RootElement.GetProperty("traceId").GetString();
+        var diagnostic = await host.Sink.WaitForAsync(
+            e => CapturingSink.Scalar(e, "TraceId") == traceId && CapturingSink.Scalar(e, "ErrorCode") == "Internal.Unexpected",
+            "licensing request diagnostic at mixed-case Error level");
+        Assert.Equal(LogEventLevel.Error, diagnostic.Level);
+    }
+
     [Fact]
     public async Task BothApis_ExportedSpansDropExceptionText()
     {

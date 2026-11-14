@@ -20,5 +20,7 @@ public sealed class LicensingLoggingOptions
     internal LogEventLevel Level => Enum.Parse<LogEventLevel>(MinimumLevel, ignoreCase: true);
 
     internal bool IsValid() =>
-        Enum.TryParse<LogEventLevel>(MinimumLevel, ignoreCase: true, out _) && AsyncBufferSize > 0;
+        Enum.TryParse<LogEventLevel>(MinimumLevel, ignoreCase: true, out var level)
+        && Enum.IsDefined(level)
+        && AsyncBufferSize > 0;
 }

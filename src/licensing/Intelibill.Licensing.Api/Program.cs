@@ -9,7 +9,24 @@ namespace Intelibill.Licensing.Api;
 
 public sealed class Program
 {
-    public static void Main(string[] args)
+    public static async Task<int> Main(string[] args)
+    {
+        try
+        {
+            await BuildApplication(args).RunAsync();
+            return 0;
+        }
+        // Host discovery (for example, WebApplicationFactory) uses HostAbortedException to stop the entry point.
+        catch (Exception exception) when (exception is not HostAbortedException)
+        {
+            // Host construction can fail before Serilog is available. Keep the process fatal
+            // without letting the runtime print the exception and its configuration values.
+            Console.Error.WriteLine($"Licensing host failed ({exception.GetType().Name}).");
+            return 1;
+        }
+    }
+
+    private static WebApplication BuildApplication(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
         builder.AddLicensingSerilog();
@@ -28,7 +45,7 @@ public sealed class Program
             return ready ? Probe(context, "ready") : Probe(context, "unavailable", StatusCodes.Status503ServiceUnavailable);
         }).AllowAnonymous();
 
-        app.Run();
+        return app;
     }
 
     private static IResult Probe(HttpContext context, string status, int statusCode = StatusCodes.Status200OK)

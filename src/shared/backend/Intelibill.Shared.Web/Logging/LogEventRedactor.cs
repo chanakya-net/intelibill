@@ -31,6 +31,7 @@ public sealed partial class LogEventRedactor(bool maskPersonalData)
     {
         "authorization", "proxyauthorization", "cookie", "setcookie", "querystring",
         "code", "verificationcode", "confirmationcode", "otp", "otpcode", "pin",
+        "totpcode", "recoverycode", "recoverycodes",
         "token", "accesstoken", "refreshtoken", "idtoken", "rawtoken", "bearer",
         "password", "secret", "clientsecret", "apikey", "xapikey", "privatekey",
         "signature", "connectionstring", "credential", "credentials", "link", "resetlink",
