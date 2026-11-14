@@ -256,9 +256,17 @@ on their own, so no target is ever locked out for longer than its window.
 
 ## Safe Errors and Diagnostics
 
+The mechanisms below live in `src/shared/backend/Intelibill.Shared.Web` (no application-project
+references) and serve both the merchant and the licensing API; each host injects its own policy
+(log level, PII masking, exporters). The licensing API reads `Observability:Logging`
+(`MinimumLevel`, `EnablePiiMasking` — on by default — and `AsyncBufferSize`), writes compact JSON
+to the console and traces requests through `SafeSpanProcessor` with no exporter yet.
+`tests/shared/P0102ConsumerRegressionTests` holds both hosts to the same envelope, sink and span
+outcome.
+
 **Public contract.** An exception that reaches `ExceptionHandlingMiddleware` is answered as
 `application/problem+json` `{ type, title, status, code, traceId, errors? }` by `SafeErrorFactory`
-(`Api/PublicErrors`). The exception's message, type, stack, inner exceptions and `Data` never
+(`Shared.Web/PublicErrors`). The exception's message, type, stack, inner exceptions and `Data` never
 appear. `FluentValidation.ValidationException` → 400 `Validation.Failed` with field `errors`
 (authored messages only; one that repeats the attempted value is replaced); `BadHttpRequestException`
 → its status, `Request.Invalid`; `ArgumentException` → 400 `Request.Invalid` with no text, because
@@ -288,7 +296,7 @@ type chain, `Type.Method` frames without file paths, and two reviewed adapters �
 object to the logger.
 
 **Redaction backstop.** Every Serilog sink — console, OTLP, and any `ILogEventSink` registered in
-the container — sits behind `LogEventRedactor` (`SerilogExtensions.Redacted`). Per event it drops
+the container — sits behind `LogEventRedactor` (`RedactedSinkExtensions.Redacted`/`WriteToRedactedSinks`). Per event it drops
 the exception object for the same type/frame description, masks credential-named properties
 (authorization, cookie, tokens, `*password`, secret, api key, `code`, otp, `*link`, connection and
 query strings…) at any depth in structures, sequences and dictionaries — and email/phone/card/

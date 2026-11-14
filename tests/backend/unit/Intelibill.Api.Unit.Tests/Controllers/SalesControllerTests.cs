@@ -4,7 +4,7 @@ using ErrorOr;
 using System.Text;
 using System.Text.Json;
 using Intelibill.Api.Controllers;
-using Intelibill.Api.Logging;
+using Intelibill.Shared.Web.Logging;
 using Intelibill.Api.Unit.Tests.Logging;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;

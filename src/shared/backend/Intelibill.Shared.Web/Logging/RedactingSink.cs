@@ -1,7 +1,7 @@
 using Serilog.Core;
 using Serilog.Events;
 
-namespace Intelibill.Api.Logging;
+namespace Intelibill.Shared.Web.Logging;
 
 /// <summary>Hands the sinks it wraps only events that have been through <see cref="LogEventRedactor"/>.</summary>
 internal sealed class RedactingSink(ILogEventSink inner, LogEventRedactor redactor) : ILogEventSink, IDisposable

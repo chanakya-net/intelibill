@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 using Serilog.Events;
 using Serilog.Parsing;
 
-namespace Intelibill.Api.Logging;
+namespace Intelibill.Shared.Web.Logging;
 
 /// <summary>
 /// Rewrites a log event into one that is safe to keep: the exception object is replaced by its
@@ -31,6 +31,7 @@ public sealed partial class LogEventRedactor(bool maskPersonalData)
     {
         "authorization", "proxyauthorization", "cookie", "setcookie", "querystring",
         "code", "verificationcode", "confirmationcode", "otp", "otpcode", "pin",
+        "totpcode", "recoverycode", "recoverycodes",
         "token", "accesstoken", "refreshtoken", "idtoken", "rawtoken", "bearer",
         "password", "secret", "clientsecret", "apikey", "xapikey", "privatekey",
         "signature", "connectionstring", "credential", "credentials", "link", "resetlink",

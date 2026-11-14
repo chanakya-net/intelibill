@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Text.RegularExpressions;
 
-namespace Intelibill.Api.Logging;
+namespace Intelibill.Shared.Web.Logging;
 
 /// <summary>
 /// What may be recorded about an exception: the types in its chain, where it was thrown from,

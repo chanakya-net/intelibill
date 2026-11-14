@@ -2,7 +2,7 @@ using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.EntityFrameworkCore;
 
-namespace Intelibill.Api.PublicErrors;
+namespace Intelibill.Shared.Web.PublicErrors;
 
 /// <summary>A field-level reason a request was refused, safe to show the caller.</summary>
 public sealed record PublicFieldError(string Code, string Description);

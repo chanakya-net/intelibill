@@ -1,9 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Intelibill.Api.PublicErrors;
-using Intelibill.Api.Logging;
+using Intelibill.Shared.Web.PublicErrors;
+using Intelibill.Shared.Web.Logging;
 
-namespace Intelibill.Api.Middleware;
+namespace Intelibill.Shared.Web.Middleware;
 
 public sealed class ExceptionHandlingMiddleware(
     RequestDelegate next,

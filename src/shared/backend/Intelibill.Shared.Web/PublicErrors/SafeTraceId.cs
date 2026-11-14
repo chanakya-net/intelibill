@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 
-namespace Intelibill.Api.PublicErrors;
+namespace Intelibill.Shared.Web.PublicErrors;
 
 /// <summary>
 /// The correlation id a failure is reported under, in the response and in its diagnostic.

@@ -1,6 +1,7 @@
-using Intelibill.Api.Logging;
+using Intelibill.Shared.Web.Logging;
 using Intelibill.Api.Middleware;
-using Intelibill.Api.PublicErrors;
+using Intelibill.Shared.Web.Middleware;
+using Intelibill.Shared.Web.PublicErrors;
 using Intelibill.Api.Unit.Tests.Logging;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;

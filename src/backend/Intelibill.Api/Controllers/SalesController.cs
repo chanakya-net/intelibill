@@ -1,8 +1,8 @@
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
-using Intelibill.Api.Logging;
-using Intelibill.Api.PublicErrors;
+using Intelibill.Shared.Web.Logging;
+using Intelibill.Shared.Web.PublicErrors;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
