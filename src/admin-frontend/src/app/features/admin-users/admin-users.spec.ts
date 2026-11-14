@@ -3,8 +3,11 @@ import { provideLocationMocks } from '@angular/common/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { firstValueFrom } from 'rxjs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { restoreAdminBrowserCoordination, stubAdminBrowserCoordination } from '../../core/auth/admin-browser-coordination.testing';
 import { appConfig } from '../../app.config';
+import { AdminSessionService } from '../auth/admin-session.service';
 
 const token = 'i1_' + 'A'.repeat(43) + 'b'.repeat(43);
 
@@ -23,13 +26,17 @@ describe('administrator invitations', () => {
   let http: HttpTestingController;
 
   beforeEach(() => {
+    stubAdminBrowserCoordination();
     TestBed.configureTestingModule({
       providers: [...appConfig.providers, provideHttpClientTesting(), provideLocationMocks()],
     });
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    restoreAdminBrowserCoordination();
+    http.verify();
+  });
 
   it('moves the link token out of the address bar and only sends it in the acceptance body', async () => {
     const harness = await open('/auth/invitation#token=' + token);
@@ -88,11 +95,64 @@ describe('administrator invitations', () => {
   it('refuses the invitation form without a provider session', async () => {
     const harness = await open('/admin-users/invite');
     http.expectOne('/api/admin/invitations/context').flush(null, { status: 401, statusText: 'Unauthorized' });
+    // The expired access token is renewed once; a refused refresh credential ends the session.
+    await vi.waitFor(() => http.expectOne('/api/admin/auth/sign-in/context').flush({ requestToken: 'csrf' }));
+    await vi.waitFor(() => http.expectOne('/api/admin/auth/refresh').flush(null, { status: 401, statusText: 'Unauthorized' }));
+    const page: HTMLElement = harness.routeNativeElement!;
+    await vi.waitFor(() => {
+      harness.detectChanges();
+      expect(page.querySelector('[role="alert"]')?.textContent).toContain('Sign in with your provider account');
+    });
+    expect(page.querySelector('form')).toBeNull();
+  });
+
+  it('discards the authorized form after an uncertain submit and rechecks only on explicit recovery', async () => {
+    const service = TestBed.inject(AdminSessionService);
+    const session = '/api/admin/auth/session';
+    const context = '/api/admin/invitations/context';
+    const signInContext = '/api/admin/auth/sign-in/context';
+    const refresh = '/api/admin/auth/refresh';
+    const snapshot = { capabilities: ['admin.invitations.manage'], accessExpiresAt: new Date(Date.now() + 60_000).toISOString() };
+    const unauthorized = { status: 401, statusText: 'Unauthorized' };
+    const checking = firstValueFrom(service.check());
+    http.expectOne(session).flush(snapshot);
+    await checking;
+    const harness = await open('/admin-users/invite');
+    http.expectOne(context).flush({ requestToken: 'old-proof' });
     harness.detectChanges();
 
     const page: HTMLElement = harness.routeNativeElement!;
-    expect(page.querySelector('form')).toBeNull();
-    expect(page.querySelector('[role="alert"]')?.textContent).toContain('Sign in with your provider account');
+    fill(page, 'invite-email', 'invitee@example.test');
+    const discardedForm = page.querySelector('form')!;
+    discardedForm.dispatchEvent(new Event('submit'));
+    http.expectOne('/api/admin/invitations').flush(null, unauthorized);
+    await vi.waitFor(() => http.expectOne(signInContext).flush({ requestToken: 'csrf' }));
+    await vi.waitFor(() => http.expectOne(refresh).error(new ProgressEvent('error')));
+    await vi.waitFor(() => {
+      harness.detectChanges();
+      expect(page.querySelector('form')).toBeNull();
+    });
+    expect(service.capabilities()).toEqual([]);
+    discardedForm.dispatchEvent(new Event('submit'));
+    http.expectNone('/api/admin/invitations');
+    http.expectNone(refresh);
+
+    const recovery = Array.from(page.querySelectorAll('button')).find((button) => button.textContent?.trim() === 'Try again')!;
+    recovery.click();
+    http.expectOne(session).flush(null, unauthorized);
+    await vi.waitFor(() => http.expectOne(session).flush(null, unauthorized));
+    await vi.waitFor(() => http.expectOne(signInContext).flush({ requestToken: 'new-csrf' }));
+    await vi.waitFor(() => http.expectOne(refresh).flush({}));
+    await vi.waitFor(() => http.expectOne(session).flush(snapshot));
+    await vi.waitFor(() => http.expectOne(context).flush({ requestToken: 'fresh-proof' }));
+    harness.detectChanges();
+
+    expect(page.querySelector<HTMLInputElement>('#invite-email')?.value).toBe('');
+    fill(page, 'invite-email', 'invitee@example.test');
+    page.querySelector('form')!.dispatchEvent(new Event('submit'));
+    const invite = http.expectOne('/api/admin/invitations');
+    expect(invite.request.headers.get('X-Bootstrap-CSRF')).toBe('fresh-proof');
+    invite.flush({ invitationId: 'id', expiresAt: '2026-11-17T12:00:00Z' });
   });
 
   it('sends an invitation with the request token and confirms delivery', async () => {

@@ -17,6 +17,7 @@ public enum BootstrapAuditAction
     MfaEnrollmentRefused,
     SignInSucceeded,
     SignInRefused,
+    SessionReuseRevoked,
 }
 
 public sealed class ProviderAuditEvent(

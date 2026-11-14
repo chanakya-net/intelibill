@@ -7,10 +7,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.AdminIdentities;
 
-internal sealed class AdminSessionStore(LicensingDbContext context, AdminMfaStore mfa, AdminMfaKeys keys, TimeProvider clock)
+internal sealed class AdminSessionStore(LicensingDbContext context, AdminMfaStore mfa, AdminMfaKeys keys,
+    AdminRefreshCredentialService refresh, TimeProvider clock)
     : IAdminSessionStore
 {
-    public async Task<ErrorOr<AdminSession>> OpenAsync(string? normalizedEmail, Func<string?, bool> passwordMatches,
+    public async Task<ErrorOr<AdminSessionGrant>> OpenAsync(string? normalizedEmail, Func<string?, bool> passwordMatches,
         string? otp, CancellationToken cancellationToken)
     {
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
@@ -29,7 +30,7 @@ internal sealed class AdminSessionStore(LicensingDbContext context, AdminMfaStor
         return result;
     }
 
-    private async Task<ErrorOr<AdminSession>> TryOpenAsync(AdminIdentity? admin, bool matches, string? otp,
+    private async Task<ErrorOr<AdminSessionGrant>> TryOpenAsync(AdminIdentity? admin, bool matches, string? otp,
         DateTimeOffset now, CancellationToken cancellationToken)
     {
         if (!matches || admin?.MfaEnrolledAt is null || admin.DeactivatedAt is not null)
@@ -42,7 +43,7 @@ internal sealed class AdminSessionStore(LicensingDbContext context, AdminMfaStor
             return proof.FirstError.Type == ErrorType.Failure ? proof.FirstError : AdminSignInHandler.Refused;
         var session = new AdminSession(Guid.NewGuid(), admin.Id, now);
         context.Add(session);
-        return session;
+        return new AdminSessionGrant(session, refresh.IssueRoot(session), now);
     }
 
     public async Task<AdminSessionAccess?> AuthorizeAsync(Guid adminId, Guid sessionId, DateTimeOffset accessExpiresAt,

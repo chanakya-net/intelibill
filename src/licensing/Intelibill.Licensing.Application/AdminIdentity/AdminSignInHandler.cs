@@ -6,7 +6,7 @@ namespace Intelibill.Licensing.Application.AdminIdentities;
 
 public interface IAdminSessionStore
 {
-    Task<ErrorOr<AdminSession>> OpenAsync(string? normalizedEmail, Func<string?, bool> passwordMatches,
+    Task<ErrorOr<AdminSessionGrant>> OpenAsync(string? normalizedEmail, Func<string?, bool> passwordMatches,
         string? otp, CancellationToken cancellationToken);
 
     Task<AdminSessionAccess?> AuthorizeAsync(Guid adminId, Guid sessionId, DateTimeOffset accessExpiresAt,
@@ -27,7 +27,7 @@ public sealed class AdminSignInHandler(IAdminSessionStore sessions, IBootstrapSe
 
     public static Error Refused => Error.Unauthorized("Admin.InvalidSignIn", "The sign-in details could not be verified.");
 
-    public Task<ErrorOr<AdminSession>> HandleAsync(string? email, string? password, string? otp, CancellationToken cancellationToken)
+    public Task<ErrorOr<AdminSessionGrant>> HandleAsync(string? email, string? password, string? otp, CancellationToken cancellationToken)
     {
         var normalizedEmail = BootstrapValidation.NormalizeEmail(email);
         return sessions.OpenAsync(normalizedEmail, hash => Matches(password, hash), otp, cancellationToken);

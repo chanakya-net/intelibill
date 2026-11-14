@@ -3,7 +3,8 @@ import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router, RouterLink } from '@angular/router';
 import { ButtonDirective } from 'primeng/button';
-import { finalize } from 'rxjs';
+import { finalize, from } from 'rxjs';
+import { AdminRefreshCoordinator } from '../../core/auth/admin-refresh-coordinator';
 
 const path = '/api/admin/auth/sign-in';
 
@@ -16,6 +17,7 @@ const path = '/api/admin/auth/sign-in';
 })
 export class SignInPageComponent {
   private readonly http = inject(HttpClient);
+  private readonly coordinator = inject(AdminRefreshCoordinator);
   private readonly router = inject(Router);
   private readonly destroy = inject(DestroyRef);
   private requestToken = '';
@@ -53,7 +55,7 @@ export class SignInPageComponent {
     this.busy.set(true);
     this.error.set('');
 
-    this.http.post(path, request, { headers: { 'X-Admin-CSRF': this.requestToken } }).pipe(
+    from(this.coordinator.signIn(request, this.requestToken)).pipe(
       takeUntilDestroyed(this.destroy),
       finalize(() => this.busy.set(false)),
     ).subscribe({

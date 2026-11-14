@@ -48,9 +48,9 @@ internal sealed class AdminAccessTokens(IOptions<AdminSessionOptions> options, T
 
     internal bool IsConfigured => _key is not null;
 
-    internal string Create(AdminSession session)
+    internal string Create(AdminSession session, DateTimeOffset issuedAt)
     {
-        var issued = session.MfaVerifiedAt.UtcDateTime;
+        var issued = issuedAt.UtcDateTime;
         var token = new JwtSecurityToken(Issuer, Audience,
             [new(JwtRegisteredClaimNames.Sub, session.AdminId.ToString()), new(SessionClaim, session.Id.ToString())],
             issued, issued + AdminSession.AccessLifetime, new SigningCredentials(_key!, SecurityAlgorithms.HmacSha256));

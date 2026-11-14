@@ -17,6 +17,7 @@ public sealed class LicensingDbContext(DbContextOptions<LicensingDbContext> opti
         modelBuilder.ApplyConfiguration(new BootstrapRateBucketMapping());
         modelBuilder.ApplyConfiguration(new AdminInvitationMapping());
         modelBuilder.ApplyConfiguration(new AdminSessionMapping());
+        modelBuilder.ApplyConfiguration(new AdminRefreshCredentialMapping());
         modelBuilder.ApplyConfiguration(new AdminSignInBucketMapping());
         modelBuilder.ApplyConfiguration(new AdminTotpMapping());
         modelBuilder.ApplyConfiguration(new AdminRecoveryCodeMapping());

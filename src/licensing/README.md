@@ -217,9 +217,57 @@ Sign-in requires an exact Origin and the `X-Admin-CSRF` request proof. PostgreSQ
 enforces 5 sign-in attempts per normalized account per 15 minutes and 60
 overall per 5 minutes, across replicas. The authenticator keeps its existing
 separate proof budget. Provider audit events record accepted and refused
-sign-ins without credential material. Access expiry currently returns the
-operator to sign-in. Refresh rotation, operator revocation, recovery and grant
+sign-ins without credential material. Operator revocation, recovery and grant
 management are the subsequent P01 slices.
 
 Run `bash tests/licensing/acceptance/run-p0109-browser.sh` for the disposable
 PostgreSQL, migration job and Chromium acceptance flow.
+
+## Provider session refresh
+
+Apply `20261114202808_AddAdminRefreshCredentials` through the explicit licensing
+migration job before deploying the API or admin web. Sessions opened before the
+migration have no refresh credential: they end at access expiry and the operator
+signs in again. Down locks the credential table before checking for refresh
+credentials or reuse audit events. It refuses when evidence exists and holds
+the table lock through the schema change when rollback can proceed.
+
+Sign-in also sets an HttpOnly, SameSite=Strict refresh cookie (`__Host-` and
+Secure over HTTPS, `/api/admin` on the loopback HTTP origin) that lasts until the
+session's 12-hour absolute end. `POST /api/admin/auth/refresh` needs the exact
+Origin and `X-Admin-CSRF` proof from `GET /api/admin/auth/sign-in/context`; a
+refused proof never reads the credential. A refresh consumes the presented
+credential and issues one successor in the same session (`parent_id` chain,
+unique per parent and one root per session) plus a new 15-minute access token.
+`admin_refresh_credentials` stores only the SHA-256 digest. Rotation locks the
+administrator, the session and then the credential, so presentations on any
+replica serialize.
+
+Refresh never changes the session's creation or MFA time: the 12-hour absolute
+limit and the five-minute recent-MFA window still count from sign-in. It
+honours the 30-minute inactivity limit and counts as activity. A deactivated
+administrator, a revoked or expired session and an unknown credential get 401
+`Admin.SessionEnded`, and both session cookies are cleared. A consumed
+credential presented again revokes the whole session and records audit action
+16 (`SessionReuseRevoked`), so neither holder keeps a live successor and the
+next protected request answers 401.
+
+The admin web renews when a protected request returns 401. Requests in one tab
+share a renewal. Refresh and sign-in take turns under the same Web Lock, and
+protected retries verify that the browser is still using the session generation
+that started the request. Browsers where coordination fails show a recovery
+notice and send zero refresh POSTs.
+
+The console stores only a browser-generated generation and renewal state in
+local storage. It records a pending rotation before sending the POST. If the
+outcome stays unconfirmed, waiting tabs can check the live access session or
+offer an explicit retry. A retry of a consumed credential ends the session. A
+sign-in whose tab closed with its POST in flight leaves its marker behind:
+automatic checks stay unconfirmed, and an explicit retry first waits for the
+Web Lock, then checks the live session before any rotation. A
+definitive rejection clears grants and discards authorized invitation forms
+and their request proofs. Invitation recovery checks the session and requests
+a fresh proof before showing the form.
+
+Run `bash tests/licensing/acceptance/run-p0110-browser.sh` for the disposable
+PostgreSQL, migration upgrade from P01-09 and reapply, and Chromium flow.

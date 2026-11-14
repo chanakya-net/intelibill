@@ -160,6 +160,69 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.AdminRefreshCredential", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset>("IssuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("issued_at");
+
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_id");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character(64)")
+                        .HasColumnName("token_hash")
+                        .IsFixedLength();
+
+                    b.HasKey("Id")
+                        .HasName("pk_admin_refresh_credentials");
+
+                    b.HasIndex("ParentId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_admin_refresh_credentials_parent_id");
+
+                    b.HasIndex("SessionId")
+                        .HasDatabaseName("ix_admin_refresh_credentials_session_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_admin_refresh_credentials_token_hash");
+
+                    b.HasIndex(new[] { "SessionId" }, "ix_admin_refresh_credentials_session_root")
+                        .IsUnique()
+                        .HasDatabaseName("ix_admin_refresh_credentials_session_root")
+                        .HasFilter("parent_id IS NULL");
+
+                    b.ToTable("admin_refresh_credentials", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_admin_refresh_credential_dates", "expires_at > issued_at AND (consumed_at IS NULL OR consumed_at >= issued_at)");
+
+                            t.HasCheckConstraint("ck_admin_refresh_credential_hash", "token_hash ~ '^[0-9A-F]{64}$'");
+
+                            t.HasCheckConstraint("ck_admin_refresh_credential_parent", "parent_id IS NULL OR parent_id <> id");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.AdminSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -355,7 +418,7 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
 
                     b.ToTable("provider_audit_events", null, t =>
                         {
-                            t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 15");
+                            t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 16");
                         });
                 });
 
@@ -487,6 +550,22 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_admin_invitations_admin_identities_invited_by");
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.AdminRefreshCredential", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.AdminRefreshCredential", null)
+                        .WithOne()
+                        .HasForeignKey("Intelibill.Licensing.Domain.Entities.AdminRefreshCredential", "ParentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_admin_refresh_credentials_admin_refresh_credentials_parent_");
+
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.AdminSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_admin_refresh_credentials_admin_sessions_session_id");
                 });
 
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.AdminSession", b =>

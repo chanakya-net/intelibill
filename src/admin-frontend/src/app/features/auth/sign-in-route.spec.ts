@@ -3,7 +3,8 @@ import { provideLocationMocks } from '@angular/common/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { RouterTestingHarness } from '@angular/router/testing';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { restoreAdminBrowserCoordination, stubAdminBrowserCoordination } from '../../core/auth/admin-browser-coordination.testing';
 import { appConfig } from '../../app.config';
 
 const context = '/api/admin/auth/sign-in/context';
@@ -11,6 +12,8 @@ const signIn = '/api/admin/auth/sign-in';
 const session = '/api/admin/auth/session';
 
 describe('provider sign-in', () => {
+  beforeEach(stubAdminBrowserCoordination);
+  afterEach(restoreAdminBrowserCoordination);
   it('redirects the protected dashboard and renders only capabilities from the authenticated API', async () => {
     TestBed.configureTestingModule({
       providers: [...appConfig.providers, provideHttpClientTesting(), provideLocationMocks()],
@@ -19,6 +22,9 @@ describe('provider sign-in', () => {
     const harness = await RouterTestingHarness.create();
     const navigation = harness.navigateByUrl('/');
     await vi.waitFor(() => http.expectOne(session).flush(null, { status: 401, statusText: 'Unauthorized' }));
+    // Without a live refresh credential the renewal is refused and the dashboard redirects.
+    await vi.waitFor(() => http.expectOne(context).flush({ requestToken: 'renewal-csrf' }));
+    await vi.waitFor(() => http.expectOne('/api/admin/auth/refresh').flush(null, { status: 401, statusText: 'Unauthorized' }));
     await navigation;
     expect(TestBed.inject(Location).path()).toBe('/auth/sign-in');
     http.expectOne(context).flush({ requestToken: 'fixture-csrf' });
