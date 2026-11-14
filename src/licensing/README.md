@@ -161,3 +161,34 @@ uses the `AdminFixtures` section (`SessionDigest`, the SHA-256 of a fixture
 cookie; `AdminId`; `Capabilities`; optional `MfaVerifiedAt`). Startup refuses
 a configured fixture outside Development or Testing. The fixture never
 replaces the persisted owner and MFA checks.
+
+## Authenticator enrollment
+
+Apply `20261114185900_AddAdminMfaEnrollment` through the explicit licensing
+migration job before serving enrollment. The owner setup and invitation
+acceptance pages both link to `/auth/mfa-enrollment`. That page requires the
+existing pending enrollment cookie, exact origin and CSRF token. It shows a
+manual setup key for a six-digit, 30-second TOTP. Verification records the used
+step, completes enrollment, retires the pending credential and returns ten
+one-use recovery codes in the successful response. Save the codes before
+leaving the page. A lost response or refresh cannot redisplay them.
+
+Configure `AdminMfa__ActiveKeyId` and `AdminMfa__Keys__<key-id>` with an
+independently generated, base64-encoded 32-byte root from the licensing API's
+secret store. Each key ID derives separate TOTP encryption and recovery HMAC
+keys. Keep every referenced key ID in the ring across replicas, restarts and
+rotation. Changing the active ID selects the key for new setups. Keep this ring
+separate from ASP.NET Data Protection, provider session keys and merchant keys.
+Without the required key, enrollment and proof verification fail closed. The
+migration job needs only its database credentials.
+
+For local Compose, set `INTELIBILL_ADMIN_MFA_ACTIVE_KEY_ID=local` and provide
+`INTELIBILL_ADMIN_MFA_LOCAL_KEY` from a stable, private local fixture value.
+The reproducible acceptance runner provisions and destroys its own isolated
+database and generates ephemeral fixture keys.
+
+Every attempt against a started enrollment shares the administrator's
+database budget of five tries in 15 minutes. TOTP accepts the current counter
+and one step of drift in either direction, with a persisted high-water mark.
+Later sign-in and recovery handlers can use `IAdminMfaVerifier` after proving
+the administrator's identity. Business session issuance belongs to P01-09.

@@ -1,6 +1,7 @@
 using Intelibill.Licensing.Application.Bootstrap;
 using Intelibill.Licensing.Domain.Entities;
 using Intelibill.Licensing.Infrastructure.Data;
+using Intelibill.Licensing.Infrastructure.AdminIdentities.Mfa;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.Bootstrap;
@@ -22,6 +23,12 @@ internal sealed class BootstrapStore(LicensingDbContext context) : IBootstrapSto
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return result;
+    }
+
+    public async Task<AdminIdentity?> LockPendingOwnerAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var admin = await AdminMfaStore.LockAdminAsync(context, id, cancellationToken);
+        return admin?.MfaEnrolledAt is null ? admin : null;
     }
 
     public Task<AdminIdentity?> FindPendingOwnerAsync(Guid id, CancellationToken cancellationToken) =>

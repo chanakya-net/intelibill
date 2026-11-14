@@ -310,7 +310,71 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
 
                     b.ToTable("provider_audit_events", null, t =>
                         {
-                            t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 11");
+                            t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 13");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Infrastructure.AdminIdentities.Mfa.AdminRecoveryCode", b =>
+                {
+                    b.Property<Guid>("AdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("admin_id");
+
+                    b.Property<string>("Digest")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("digest");
+
+                    b.Property<DateTimeOffset?>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.HasKey("AdminId", "Digest")
+                        .HasName("pk_admin_recovery_codes");
+
+                    b.ToTable("admin_recovery_codes", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_admin_recovery_digest", "digest ~ '^[0-9A-F]{64}$'");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Infrastructure.AdminIdentities.Mfa.AdminTotp", b =>
+                {
+                    b.Property<Guid>("AdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("admin_id");
+
+                    b.Property<DateTimeOffset?>("AttemptWindowEndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("attempt_window_ends_at");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<byte[]>("EncryptedSecret")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("encrypted_secret");
+
+                    b.Property<string>("KeyId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("key_id");
+
+                    b.Property<long?>("LastAcceptedStep")
+                        .HasColumnType("bigint")
+                        .HasColumnName("last_accepted_step");
+
+                    b.HasKey("AdminId")
+                        .HasName("pk_admin_totp");
+
+                    b.ToTable("admin_totp", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_admin_totp_attempts", "(attempts = 0 AND attempt_window_ends_at IS NULL)\nOR (attempts BETWEEN 1 AND 5 AND attempt_window_ends_at IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_admin_totp_secret", "octet_length(encrypted_secret) = 48 AND last_accepted_step >= 0");
                         });
                 });
 
@@ -385,6 +449,26 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_provider_audit_events_admin_identities_owner_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Infrastructure.AdminIdentities.Mfa.AdminRecoveryCode", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Infrastructure.AdminIdentities.Mfa.AdminTotp", null)
+                        .WithMany()
+                        .HasForeignKey("AdminId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_admin_recovery_codes_admin_totp_admin_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Infrastructure.AdminIdentities.Mfa.AdminTotp", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.AdminIdentity", null)
+                        .WithOne()
+                        .HasForeignKey("Intelibill.Licensing.Infrastructure.AdminIdentities.Mfa.AdminTotp", "AdminId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_admin_totp_admin_identities_admin_id");
                 });
 #pragma warning restore 612, 618
         }
