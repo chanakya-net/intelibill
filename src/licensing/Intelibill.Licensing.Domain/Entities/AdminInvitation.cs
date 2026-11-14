@@ -31,6 +31,13 @@ public sealed class AdminInvitation(
         if (FailedAttempts >= MaxFailedAttempts) RevokedAt = now;
     }
 
+    public void Retire(DateTimeOffset now) => RevokedAt = now;
+
+    public AuditReference AuditReferenceAt(DateTimeOffset now) => new(AuditTarget.Invitation, Id,
+        AcceptedAt is not null ? AuditState.Accepted
+        : RevokedAt is not null ? AuditState.Retired
+        : ExpiresAt <= now ? AuditState.Expired : AuditState.Open, Version);
+
     public void Accept(Guid adminId, DateTimeOffset now)
     {
         AcceptedAdminId = adminId;

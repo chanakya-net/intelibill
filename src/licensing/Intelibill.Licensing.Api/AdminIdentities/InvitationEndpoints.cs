@@ -1,7 +1,9 @@
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Licensing.Api.Bootstrap;
+using Intelibill.Licensing.Api.Audit;
 using Intelibill.Licensing.Application.AdminIdentities;
+using Intelibill.Licensing.Domain.Entities;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Http.Features;
 
@@ -17,7 +19,8 @@ internal static partial class InvitationEndpoints
     {
         var owner = app.MapGroup(OwnerPath).RequireAuthorization(ProviderSessions.InvitationPolicy);
         owner.MapGet("/context", OwnerContextAsync);
-        owner.MapPost("", InviteAsync);
+        owner.MapPost("", InviteAsync)
+            .WithMetadata(new AuditDenial(BootstrapAuditAction.InvitationManagementDenied));
 
         // Public signup does not exist: acceptance needs an emailed one-use invitation.
         var acceptance = app.MapGroup(AcceptancePath).AllowAnonymous();
@@ -38,17 +41,35 @@ internal static partial class InvitationEndpoints
         ILogger<InviteAdminHandler> logger)
     {
         var authority = await AuthorizeAsync(context, handler);
-        if (authority.IsError) return Problem(context, authority.FirstError);
+        if (authority.IsError) return await RefuseAuthorityAsync(context, authority.FirstError);
         var rejection = await CheckAsync(context, gate, authority.Value, isAcceptance: false);
-        if (rejection is not null) return rejection;
+        if (rejection is not null)
+        {
+            if (rejection is IStatusCodeHttpResult { StatusCode: 403 or 429 } status)
+                await AuditRefusalAsync(context, status.StatusCode == 403 ? AuditReason.RequestRejected : AuditReason.RequestThrottled);
+            return rejection;
+        }
 
         var request = await ReadAsync<InviteRequest>(context);
         var result = await handler.InviteAsync(ProviderSessions.ToActor(context.User)!, request?.Email, context.RequestAborted);
-        if (result.IsError) return Problem(context, result.FirstError, logger);
+        if (result.IsError)
+            return result.FirstError.Type == ErrorType.Forbidden
+                ? await RefuseAuthorityAsync(context, result.FirstError)
+                : Problem(context, result.FirstError, logger);
         LogIssued(logger, result.Value.InvitationId);
         return Results.Json(new { invitationId = result.Value.InvitationId, expiresAt = result.Value.ExpiresAt },
             statusCode: StatusCodes.Status201Created);
     }
+
+    private static async Task<IResult> RefuseAuthorityAsync(HttpContext context, Error error)
+    {
+        await AuditRefusalAsync(context, error.Code == "Admin.RecentMfaRequired"
+            ? AuditReason.RecentMfaRequired : AuditReason.CapabilityRequired);
+        return Problem(context, error);
+    }
+
+    private static Task AuditRefusalAsync(HttpContext context, AuditReason reason) =>
+        AdminAuditAccessDeniedHandler.RecordAsync(context, BootstrapAuditAction.InvitationManagementDenied, reason);
 
     private static async Task<IResult> AcceptanceContextAsync(HttpContext context, IAdminInvitationStore store,
         IAntiforgery antiforgery, IHostEnvironment environment)

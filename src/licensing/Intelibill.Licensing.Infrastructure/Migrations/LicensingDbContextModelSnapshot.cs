@@ -395,6 +395,22 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("action");
 
+                    b.Property<int?>("ActorKind")
+                        .HasColumnType("integer")
+                        .HasColumnName("actor_kind");
+
+                    b.Property<string>("After")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("after");
+
+                    b.Property<string>("Before")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("before");
+
+                    b.Property<Guid?>("CorrelationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("correlation_id");
+
                     b.Property<Guid?>("InvitationId")
                         .HasColumnType("uuid")
                         .HasColumnName("invitation_id");
@@ -407,6 +423,10 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("owner_id");
 
+                    b.Property<int?>("Reason")
+                        .HasColumnType("integer")
+                        .HasColumnName("reason");
+
                     b.HasKey("Id")
                         .HasName("pk_provider_audit_events");
 
@@ -416,9 +436,15 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                     b.HasIndex("OwnerId")
                         .HasDatabaseName("ix_provider_audit_events_owner_id");
 
+                    b.HasIndex("OccurredAt", "Id")
+                        .IsDescending()
+                        .HasDatabaseName("ix_provider_audit_events_occurred_at_id");
+
                     b.ToTable("provider_audit_events", null, t =>
                         {
-                            t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 16");
+                            t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 16 OR action BETWEEN 101 AND 103");
+
+                            t.HasCheckConstraint("ck_provider_audit_metadata", "(num_nonnulls(actor_kind, reason, correlation_id) = 0 AND action BETWEEN 1 AND 16\n    AND \"before\" IS NULL AND \"after\" IS NULL)\nOR (num_nonnulls(actor_kind, reason, correlation_id) = 3\n    AND actor_kind BETWEEN 1 AND 5 AND reason BETWEEN 1 AND 21)");
                         });
                 });
 

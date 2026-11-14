@@ -157,7 +157,7 @@ public sealed partial class P0109Tests
         await AssertStatusAsync(browser, Session, HttpStatusCode.Unauthorized);
     }
 
-    private static string CreateMerchantToken(DateTimeOffset now) => new JwtSecurityTokenHandler().WriteToken(
+    internal static string CreateMerchantToken(DateTimeOffset now) => new JwtSecurityTokenHandler().WriteToken(
         new JwtSecurityToken("merchant.test", "merchant.test",
             [new(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()), new("active_shop_id", Guid.NewGuid().ToString()),
              new Claim("sid", Guid.NewGuid().ToString())], now.UtcDateTime, now.AddMinutes(15).UtcDateTime,

@@ -18,8 +18,11 @@ public interface IAdminInvitationStore
 
     Task<bool> AdminExistsAsync(string email, CancellationToken cancellationToken);
 
-    /// <summary>Retires the address's open invitations and returns their identifiers.</summary>
-    Task<IReadOnlyList<Guid>> SupersedeOpenAsync(string email, DateTimeOffset now, CancellationToken cancellationToken);
+    /// <summary>Retires unsettled invitations and freezes their row versions.</summary>
+    Task<IReadOnlyList<InvitationTransition>> SupersedeOpenAsync(string email, DateTimeOffset now, CancellationToken cancellationToken);
+
+    /// <summary>Gets database-generated row versions within the current transaction.</summary>
+    Task FlushAsync(CancellationToken cancellationToken);
 
     Task<string?> FindInvitedEmailAsync(string digest, CancellationToken cancellationToken);
 
@@ -33,6 +36,8 @@ public interface IAdminInvitationStore
     void Add(BootstrapEnrollmentCredential credential);
     void Add(ProviderAuditEvent auditEvent);
 }
+
+public sealed record InvitationTransition(AuditReference Before, AuditReference After);
 
 public sealed record AdminInvitationMessage(string Recipient, Uri Link, DateTimeOffset ExpiresAt);
 

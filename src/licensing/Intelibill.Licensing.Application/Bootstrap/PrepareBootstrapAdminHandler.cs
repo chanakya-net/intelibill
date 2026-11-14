@@ -1,9 +1,11 @@
+using Intelibill.Licensing.Application.Audit;
 using ErrorOr;
 using Intelibill.Licensing.Domain.Entities;
 
 namespace Intelibill.Licensing.Application.Bootstrap;
 
-public sealed class PrepareBootstrapAdminHandler(IBootstrapStore store, IBootstrapSecrets secrets, TimeProvider clock)
+public sealed class PrepareBootstrapAdminHandler(IBootstrapStore store, IBootstrapSecrets secrets, TimeProvider clock,
+    AuditEvidenceFactory audit)
 {
     public Task<ErrorOr<BootstrapSecret>> PrepareAsync(
         string email, string reference, string origin, bool allowLoopbackHttp, CancellationToken cancellationToken)
@@ -23,10 +25,15 @@ public sealed class PrepareBootstrapAdminHandler(IBootstrapStore store, IBootstr
 
             var token = secrets.CreateProof();
             var now = clock.GetUtcNow();
-            var action = state.PreparedAt is null ? BootstrapAuditAction.ProofPrepared : BootstrapAuditAction.ProofReplaced;
+            var before = state.PreparedAt is { } preparedAt ? Prepared(preparedAt) : null;
+            var action = before is null ? BootstrapAuditAction.ProofPrepared : BootstrapAuditAction.ProofReplaced;
             state.Prepare(token.Digest, normalized, reference, origin, now);
-            store.Add(new ProviderAuditEvent(Guid.NewGuid(), action, now, null));
+            store.Add(audit.Create(action, now, AuditActor.Operator, AuditReason.BootstrapPrepared,
+                before: before, after: Prepared(now)));
             return Task.FromResult<ErrorOr<BootstrapSecret>>(token);
         }, cancellationToken);
     }
+
+    private static AuditReference Prepared(DateTimeOffset at) =>
+        new(AuditTarget.Bootstrap, null, AuditState.Prepared, MilestoneAt: at);
 }

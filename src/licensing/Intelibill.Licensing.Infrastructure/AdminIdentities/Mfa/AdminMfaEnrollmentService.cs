@@ -70,7 +70,7 @@ internal sealed class AdminMfaEnrollmentService(AdminMfaStore store, IBootstrapS
             var result = VerifyStep(keys, totp, otp, now);
             if (result.IsError)
             {
-                store.Audit(adminId, BootstrapAuditAction.MfaEnrollmentRefused, now);
+                store.Audit(adminId, BootstrapAuditAction.MfaEnrollmentRefused, AuditReason.AuthenticatorProofInvalid, now);
                 return result.Errors;
             }
 
@@ -78,7 +78,9 @@ internal sealed class AdminMfaEnrollmentService(AdminMfaStore store, IBootstrapS
             totp.AcceptStep(result.Value);
             admin.CompleteMfaEnrollment(now);
             await bootstrap.RevokeEnrollmentAsync(adminId, now, cancellationToken);
-            store.Audit(adminId, BootstrapAuditAction.MfaEnrolled, now);
+            store.Audit(adminId, BootstrapAuditAction.MfaEnrolled, AuditReason.AuthenticatorEnrolled, now,
+                before: new(AuditTarget.Administrator, adminId, AuditState.MfaPending, MilestoneAt: admin.VerifiedAt),
+                after: new(AuditTarget.Administrator, adminId, AuditState.MfaEnrolled, MilestoneAt: now));
             return new AdminMfaCompletion(codes);
         }, cancellationToken);
 

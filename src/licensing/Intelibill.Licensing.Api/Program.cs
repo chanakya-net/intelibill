@@ -1,4 +1,5 @@
 using Intelibill.Licensing.Api.AdminIdentities;
+using Intelibill.Licensing.Api.Audit;
 using Intelibill.Licensing.Api.Bootstrap;
 using Intelibill.Licensing.Api.Observability;
 using Intelibill.Licensing.Application;
@@ -7,6 +8,7 @@ using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Shared.Web;
 using Intelibill.Shared.Web.Middleware;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Intelibill.Licensing.Api;
 
@@ -45,6 +47,7 @@ public sealed class Program
         builder.Services.AddScoped<BootstrapRequestGate>();
         builder.Services.AddProviderSessions(builder.Environment);
         builder.Services.AddScoped<InvitationRequestGate>();
+        builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, AdminAuditAccessDeniedHandler>();
         var protection = builder.Services.AddDataProtection().SetApplicationName("InteliBill.Licensing.Admin");
         if (builder.Configuration["AdminBootstrap:DataProtectionKeyDirectory"] is { Length: > 0 } keyDirectory)
             protection.PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
@@ -76,6 +79,7 @@ public sealed class Program
         app.MapAdminMfa();
         app.MapAdminSignIn();
         app.MapAdminRefresh();
+        app.MapAdminAudit();
         var business = app.MapGroup("/api/admin").RequireAuthorization(BootstrapAuthorization.BusinessPolicy);
         business.MapGet("/access", () => Results.NoContent());
         return app;

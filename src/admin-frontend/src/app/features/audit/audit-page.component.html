@@ -1,0 +1,108 @@
+<main>
+  <header>
+    <a routerLink="/">Provider Console</a>
+    <h1 class="ib-page-title">Audit history</h1>
+  </header>
+
+  @if (mayRead()) {
+    <section class="ib-panel" aria-label="Provider identity audit history" [attr.aria-busy]="loading()">
+      <form class="ib-form-section audit-filters" (submit)="apply($event, action.value, from.value, to.value, size.value)">
+        <div class="audit-field">
+          <label for="audit-action">Action</label>
+          <select #action id="audit-action">
+            <option value="">All routine actions</option>
+            @for (entry of actions; track entry[0]) {
+              <option [value]="entry[0]">{{ entry[1] }}</option>
+            }
+          </select>
+        </div>
+        <div class="audit-field">
+          <label for="audit-from">From (UTC)</label>
+          <input #from id="audit-from" type="datetime-local" step="1" />
+        </div>
+        <div class="audit-field">
+          <label for="audit-to">Before (UTC)</label>
+          <input #to id="audit-to" type="datetime-local" step="1" />
+        </div>
+        <div class="audit-field">
+          <label for="audit-size">Rows per page</label>
+          <select #size id="audit-size">
+            <option>25</option>
+            <option>50</option>
+            <option>100</option>
+          </select>
+        </div>
+        <div><button pButton type="submit">Apply filters</button></div>
+      </form>
+      @if (loading()) {
+        <p role="status">Loading audit history…</p>
+      } @else if (error()) {
+        <p class="ib-error-banner" role="alert">{{ error() }}</p>
+        <div><button pButton type="button" (click)="retry()">Try again</button></div>
+      } @else if (page(); as history) {
+        @if (history.items.length) {
+          <ul class="audit-events" aria-label="Audit events">
+            @for (row of history.items; track row.id) {
+              <li>
+                <div class="event-summary">
+                  <strong>{{ actionTitles[row.action] }}</strong>
+                  <span>{{ row.outcome | titlecase }}</span>
+                  <time [attr.datetime]="row.occurredAt">{{ utcTime(row.occurredAt) }}</time>
+                </div>
+                <details>
+                  <summary>Event details</summary>
+                  <dl>
+                    <dt>Event ID</dt><dd>{{ row.id }}</dd>
+                    <dt>Scope</dt><dd>Provider identity</dd>
+                    <dt>Actor</dt><dd>{{ row.actorKind ? (row.actorKind | titlecase) : 'Unavailable' }} @if (row.actorId) { {{ row.actorId }} }</dd>
+                    <dt>Reason code</dt><dd>{{ row.reasonCode ?? 'Unavailable' }}</dd>
+                    <dt>Correlation ID</dt><dd>{{ row.correlationId ?? 'Unavailable' }}</dd>
+                    <dt>Before</dt><dd><ng-container [ngTemplateOutlet]="reference" [ngTemplateOutletContext]="{ $implicit: row.before }" /></dd>
+                    <dt>After</dt><dd><ng-container [ngTemplateOutlet]="reference" [ngTemplateOutletContext]="{ $implicit: row.after }" /></dd>
+                  </dl>
+                </details>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p role="status">No audit events match these filters.</p>
+        }
+        <nav class="audit-paging" aria-label="Audit pages">
+          <button pButton type="button" (click)="previous()" [disabled]="pageIndex() === 0">Previous page</button>
+          <span aria-live="polite">Page {{ pageIndex() + 1 }}</span>
+          <button pButton type="button" (click)="next()" [disabled]="!history.nextCursor">Next page</button>
+        </nav>
+      }
+    </section>
+  } @else {
+    <section class="ib-panel" aria-label="Audit access">
+      @switch (notice()) {
+        @case ('expired') {
+          <p role="alert">Your provider access paused.</p>
+          <div><button pButton type="button" (click)="retry()">Continue session</button></div>
+        }
+        @case ('uncertain') {
+          <p class="ib-error-banner" role="alert">We could not confirm your provider session.</p>
+          <div><button pButton type="button" (click)="retry()">Try again</button></div>
+        }
+        @case ('ended') {
+          <p class="ib-error-banner" role="alert">Your provider session ended.</p>
+          <a routerLink="/auth/sign-in">Sign in again</a>
+        }
+        @default {
+          <p class="ib-error-banner" role="alert">You cannot inspect provider audit history.</p>
+        }
+      }
+    </section>
+  }
+</main>
+
+<ng-template #reference let-entry>
+  @if (entry) {
+    <span>{{ entry.targetKind }} · {{ entry.state }}@if (entry.version !== null) { · version {{ entry.version }} }</span>
+    @if (entry.targetId) { <span class="reference-value">{{ entry.targetId }}</span> }
+    @if (entry.milestoneAt) { <time class="reference-value" [attr.datetime]="entry.milestoneAt">{{ utcTime(entry.milestoneAt) }}</time> }
+  } @else {
+    Unavailable
+  }
+</ng-template>

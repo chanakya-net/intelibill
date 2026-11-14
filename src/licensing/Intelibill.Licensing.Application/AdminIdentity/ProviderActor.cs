@@ -7,6 +7,7 @@ namespace Intelibill.Licensing.Application.AdminIdentities;
 public sealed record ProviderActor(Guid AdminId, DateTimeOffset MfaVerifiedAt)
 {
     public const string InvitationCapability = "admin.invitations.manage";
+    public const string AuditIdentityReadCapability = "admin.audit.identity.read";
     public static readonly TimeSpan RecentMfaWindow = TimeSpan.FromMinutes(5);
 
     public bool HasRecentMfa(DateTimeOffset now) =>

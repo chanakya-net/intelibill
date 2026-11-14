@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.Audit;
 using ErrorOr;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Domain.Entities;
@@ -8,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Intelibill.Licensing.Infrastructure.AdminIdentities;
 
 internal sealed class AdminSessionStore(LicensingDbContext context, AdminMfaStore mfa, AdminMfaKeys keys,
-    AdminRefreshCredentialService refresh, TimeProvider clock)
+    AdminRefreshCredentialService refresh, TimeProvider clock, AuditEvidenceFactory audit)
     : IAdminSessionStore
 {
     public async Task<ErrorOr<AdminSessionGrant>> OpenAsync(string? normalizedEmail, Func<string?, bool> passwordMatches,
@@ -23,8 +24,11 @@ internal sealed class AdminSessionStore(LicensingDbContext context, AdminMfaStor
         var matches = passwordMatches(admin?.PasswordHash);
         var now = clock.GetUtcNow();
         var result = await TryOpenAsync(admin, matches, otp, now, cancellationToken);
-        context.Add(new ProviderAuditEvent(Guid.NewGuid(), result.IsError
-            ? BootstrapAuditAction.SignInRefused : BootstrapAuditAction.SignInSucceeded, now, admin?.Id));
+        context.Add(result.IsError
+            ? audit.Create(BootstrapAuditAction.SignInRefused, now, AuditActor.Unauthenticated,
+                AuditReason.CredentialsRefused, admin?.Id)
+            : audit.Create(BootstrapAuditAction.SignInSucceeded, now, AuditActor.Administrator,
+                AuditReason.CredentialsVerified, admin!.Id));
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return result;
@@ -66,6 +70,7 @@ internal sealed class AdminSessionStore(LicensingDbContext context, AdminMfaStor
 
         var isOwner = await context.Set<InitialAdminBootstrap>().AnyAsync(state =>
             state.OwnerId == adminId && state.ConsumedAt != null, cancellationToken);
-        return new AdminSessionAccess(adminId, active[0], isOwner ? [ProviderActor.InvitationCapability] : []);
+        return new AdminSessionAccess(adminId, active[0], isOwner
+            ? [ProviderActor.InvitationCapability, ProviderActor.AuditIdentityReadCapability] : []);
     }
 }

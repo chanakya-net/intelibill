@@ -11,7 +11,7 @@ import { type Observable, catchError, from, lastValueFrom, switchMap, tap, throw
 import { AdminSessionChangedError, AdminSessionService } from '../../features/auth/admin-session.service';
 import { AdminRefreshCoordinator, explicitSessionRecovery } from './admin-refresh-coordinator';
 
-const sessionScoped = /^\/api\/admin\/(auth\/session|invitations|access)(?=$|[/?])/;
+const sessionScoped = /^\/api\/admin\/(auth\/session|invitations|access|audit)(?=$|[/?])/;
 
 export const adminSessionInterceptor: HttpInterceptorFn = (request, next) => {
   if (!sessionScoped.test(request.url)) return next(request);
