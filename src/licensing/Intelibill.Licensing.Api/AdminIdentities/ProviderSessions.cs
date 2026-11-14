@@ -14,6 +14,7 @@ internal static class ProviderSessions
     internal const string SessionIdClaim = "provider_session_id";
     internal const string AccessExpiresClaim = "provider_access_expires";
     internal const string InvitationPolicy = "ProviderInvitations";
+    internal const string DevicePolicy = "ProviderDeviceSessions";
     internal const string AuditPolicy = "ProviderIdentityAudit";
     internal const string CapabilityClaim = "provider_capability";
     internal const string MfaVerifiedAtClaim = "provider_mfa_at";
@@ -33,15 +34,22 @@ internal static class ProviderSessions
         services.AddSingleton<AdminAccessTokens>();
         services.AddScoped<AdminSignInHttp>();
         services.AddScoped<AdminSignInHandler>();
+        services.AddScoped<AdminDeviceSessions>();
+        services.AddScoped<AdminSignOutHandler>();
         services.AddAuthentication()
             .AddScheme<AuthenticationSchemeOptions, AdminAccessSessionHandler>(Scheme, _ => { })
             .AddScheme<AuthenticationSchemeOptions, AdminFixtureSessionHandler>(FixtureScheme, _ => { });
 
-        services.AddAuthorizationBuilder().AddPolicy(AuditPolicy, policy => policy
-            .AddAuthenticationSchemes(Scheme)
-            .RequireAuthenticatedUser()
-            .RequireClaim(BusinessClaim, "true")
-            .RequireClaim(CapabilityClaim, ProviderActor.AuditIdentityReadCapability))
+        services.AddAuthorizationBuilder()
+            .AddPolicy(DevicePolicy, policy => policy
+                .AddAuthenticationSchemes(Scheme)
+                .RequireAuthenticatedUser()
+                .RequireClaim(BusinessClaim, "true"))
+            .AddPolicy(AuditPolicy, policy => policy
+                .AddAuthenticationSchemes(Scheme)
+                .RequireAuthenticatedUser()
+                .RequireClaim(BusinessClaim, "true")
+                .RequireClaim(CapabilityClaim, ProviderActor.AuditIdentityReadCapability))
             .AddPolicy(InvitationPolicy, policy => policy
             .AddAuthenticationSchemes(Scheme, FixtureScheme)
             .RequireAuthenticatedUser()

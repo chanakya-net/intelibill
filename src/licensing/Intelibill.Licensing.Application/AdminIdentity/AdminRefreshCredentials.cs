@@ -16,6 +16,9 @@ public interface IAdminRefreshCredentials
     /// A consumed credential presented again ends the whole session.
     /// </summary>
     Task<ErrorOr<AdminSessionGrant>> RotateAsync(string? presented, CancellationToken cancellationToken);
+
+    /// <summary>Ends the presented family and reports whether the credential identified one.</summary>
+    Task<bool> EndAsync(string? presented, CancellationToken cancellationToken);
 }
 
 public static class AdminRefreshErrors

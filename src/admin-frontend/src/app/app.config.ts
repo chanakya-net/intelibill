@@ -33,6 +33,12 @@ export const appConfig: ApplicationConfig = {
         loadComponent: () => import('./landing-page.component').then((m) => m.LandingPageComponent),
       },
       {
+        path: 'security/sessions',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/security/sessions/sessions-page.component')
+          .then((m) => m.SessionsPageComponent),
+      },
+      {
         path: 'audit',
         canActivate: [requireAdminSession],
         loadComponent: () => import('./features/audit/audit-page.component').then((m) => m.AuditPageComponent),

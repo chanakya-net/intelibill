@@ -72,12 +72,12 @@ internal sealed class ProviderAuditMapping : IEntityTypeConfiguration<ProviderAu
     {
         builder.ToTable("provider_audit_events", table =>
         {
-            table.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 16 OR action BETWEEN 101 AND 103");
+            table.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 20 OR action BETWEEN 101 AND 103");
             table.HasCheckConstraint("ck_provider_audit_metadata", """
                 (num_nonnulls(actor_kind, reason, correlation_id) = 0 AND action BETWEEN 1 AND 16
                     AND "before" IS NULL AND "after" IS NULL)
                 OR (num_nonnulls(actor_kind, reason, correlation_id) = 3
-                    AND actor_kind BETWEEN 1 AND 5 AND reason BETWEEN 1 AND 21)
+                    AND actor_kind BETWEEN 1 AND 5 AND reason BETWEEN 1 AND 25)
                 """);
         });
         builder.HasIndex(audit => new { audit.OccurredAt, audit.Id }).IsDescending();

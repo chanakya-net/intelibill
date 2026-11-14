@@ -32,6 +32,10 @@ public enum AuditReason
     RecentMfaRequired = 19,
     RequestRejected = 20,
     RequestThrottled = 21,
+    DeviceSessionsInspected = 22,
+    DeviceUnused = 23,
+    DeviceUnrecognized = 24,
+    SignedOut = 25,
 }
 
 public enum AuditTarget
@@ -40,6 +44,7 @@ public enum AuditTarget
     Invitation = 2,
     Administrator = 3,
     Access = 4,
+    Session = 5,
 }
 
 public enum AuditState

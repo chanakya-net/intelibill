@@ -12,8 +12,8 @@ public sealed partial class P0114Tests
     private const string Invitations = "/api/admin/invitations";
     private const string Acceptance = "/api/admin/auth/invitation";
     private const string Enrollment = "/api/admin/auth/bootstrap/enrollment/mfa";
-    private const string Invitee = "merchant-record-canary@example.test";
-    private const string InviteePassword = "Fixture--Password-Canary-844";
+    internal const string Invitee = "merchant-record-canary@example.test";
+    internal const string InviteePassword = "Fixture--Password-Canary-844";
 
     [Fact]
     public async Task InvitationTransitionSurvivesRestartAndRollsBackWithoutAudit()
@@ -94,7 +94,7 @@ public sealed partial class P0114Tests
     private static async Task<long> VersionAsync(NpgsqlConnectionStringBuilder runtime, Guid id) =>
         (long)(await ScalarAsync(runtime, $"SELECT xmin::text::bigint FROM admin_invitations WHERE id = '{id}'"))!;
 
-    private static async Task<Guid> IssueAsync(P0110CookieBrowser owner, string email)
+    internal static async Task<Guid> IssueAsync(P0110CookieBrowser owner, string email)
     {
         using var context = await ReadAsync(owner, Invitations + "/context");
         using var issued = await owner.SendAsync(HttpMethod.Post, Invitations, new { email },
@@ -104,10 +104,10 @@ public sealed partial class P0114Tests
         return body.RootElement.GetProperty("invitationId").GetGuid();
     }
 
-    private static HttpClient EnrollmentClient(LicensingApiFactory api) =>
+    internal static HttpClient EnrollmentClient(LicensingApiFactory api) =>
         api.CreateClient(new() { BaseAddress = new Uri(P0110CookieBrowser.Origin) });
 
-    private static Task<HttpResponseMessage> AcceptAsync(HttpClient client, string invitationToken) =>
+    internal static Task<HttpResponseMessage> AcceptAsync(HttpClient client, string invitationToken) =>
         PostEnrollmentAsync(client, Acceptance + "/context", Acceptance + "/accept",
             new { invitationToken, email = Invitee, password = InviteePassword });
 
@@ -120,7 +120,7 @@ public sealed partial class P0114Tests
         return await client.SendAsync(request);
     }
 
-    private sealed class FixtureMailer : IAdminInvitationMailer
+    internal sealed class FixtureMailer : IAdminInvitationMailer
     {
         internal string Token { get; private set; } = "";
 

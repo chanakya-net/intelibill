@@ -27,30 +27,52 @@ internal sealed class AdminRefreshCredentialService(LicensingDbContext context, 
 
     public async Task<ErrorOr<AdminSessionGrant>> RotateAsync(string? presented, CancellationToken cancellationToken)
     {
-        if (presented is not { Length: EncodedLength } || !presented.StartsWith(Prefix, StringComparison.Ordinal))
-            return AdminRefreshErrors.SessionEnded;
-        var digest = Digest(presented);
+        if (!IsCredential(presented)) return AdminRefreshErrors.SessionEnded;
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var locked = await LockCredentialAsync(Digest(presented!), cancellationToken);
+        if (locked is null) return AdminRefreshErrors.SessionEnded;
+
+        var result = Decide(locked.Admin, locked.Session, locked.Credential, clock.GetUtcNow());
+        await context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return result;
+    }
+
+    public async Task<bool> EndAsync(string? presented, CancellationToken cancellationToken)
+    {
+        if (!IsCredential(presented)) return false;
+        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var locked = await LockCredentialAsync(Digest(presented!), cancellationToken);
+        if (locked is null) return false;
+        await AdminSessionRevocation.StageAsync(context, audit, locked.Session, clock.GetUtcNow(),
+            BootstrapAuditAction.DeviceSignedOut, AuditReason.SignedOut, cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return true;
+    }
+
+    private async Task<LockedCredential?> LockCredentialAsync(string digest, CancellationToken cancellationToken)
+    {
         await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", cancellationToken);
         var owner = await FindOwnerAsync(digest, cancellationToken);
-        if (owner is null) return AdminRefreshErrors.SessionEnded;
+        if (owner is null) return null;
 
         var admin = await LockAsync(context.Set<AdminIdentity>().FromSql($"""
             SELECT *, xmin FROM public.admin_identities WHERE id = {owner.AdminId} FOR UPDATE
             """), cancellationToken);
         var session = await LockAsync(context.Set<AdminSession>().FromSql($"""
-            SELECT * FROM public.admin_sessions WHERE id = {owner.SessionId} FOR UPDATE
+            SELECT *, xmin FROM public.admin_sessions WHERE id = {owner.SessionId} FOR UPDATE
             """), cancellationToken);
         var credential = await LockAsync(context.Set<AdminRefreshCredential>().FromSql($"""
-            SELECT * FROM public.admin_refresh_credentials WHERE token_hash = {digest} FOR UPDATE
+            SELECT * FROM public.admin_refresh_credentials WHERE session_id = {owner.SessionId}
+              AND token_hash = {digest} FOR UPDATE
             """), cancellationToken);
-        if (admin is null || session is null || credential is null) return AdminRefreshErrors.SessionEnded;
-
-        var result = Decide(admin, session, credential, clock.GetUtcNow());
-        await context.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
-        return result;
+        return admin is null || session is null || credential is null ? null : new(admin, session, credential);
     }
+
+    private static bool IsCredential(string? presented) =>
+        presented is { Length: EncodedLength } && presented.StartsWith(Prefix, StringComparison.Ordinal)
+        && Base64Url.IsValid(presented.AsSpan(Prefix.Length));
 
     private ErrorOr<AdminSessionGrant> Decide(AdminIdentity admin, AdminSession session, AdminRefreshCredential credential,
         DateTimeOffset now)
@@ -96,6 +118,8 @@ internal sealed class AdminRefreshCredentialService(LicensingDbContext context, 
         (await query.ToListAsync(cancellationToken)).SingleOrDefault();
 
     private static string Digest(string raw) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
+
+    private sealed record LockedCredential(AdminIdentity Admin, AdminSession Session, AdminRefreshCredential Credential);
 
     private sealed record CredentialOwner(Guid SessionId, Guid AdminId);
 }

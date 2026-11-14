@@ -7,6 +7,7 @@ public sealed class AdminSession(Guid id, Guid adminId, DateTimeOffset mfaVerifi
     public static readonly TimeSpan AbsoluteLifetime = TimeSpan.FromHours(12);
 
     public Guid Id { get; private set; } = id;
+    public uint Version { get; private set; }
     public Guid AdminId { get; private set; } = adminId;
     public DateTimeOffset CreatedAt { get; private set; } = mfaVerifiedAt;
     public DateTimeOffset MfaVerifiedAt { get; private set; } = mfaVerifiedAt;

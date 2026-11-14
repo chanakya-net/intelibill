@@ -58,6 +58,7 @@ internal static class AdminSignInEndpoints
     private static IResult ReadSession(HttpContext context) => Results.Ok(new
     {
         capabilities = context.User.FindAll(ProviderSessions.CapabilityClaim).Select(claim => claim.Value).Distinct(StringComparer.Ordinal),
+        sessionId = context.User.FindFirstValue(ProviderSessions.SessionIdClaim),
         accessExpiresAt = context.User.FindFirstValue(ProviderSessions.AccessExpiresClaim),
     });
 

@@ -11,6 +11,7 @@ internal sealed class AdminSessionMapping : IEntityTypeConfiguration<AdminSessio
         builder.ToTable("admin_sessions", table =>
             table.HasCheckConstraint("ck_admin_session_dates",
                 "mfa_verified_at >= created_at AND last_seen_at >= created_at AND (revoked_at IS NULL OR revoked_at >= created_at)"));
+        builder.Property(session => session.Version).IsRowVersion();
         builder.HasOne<AdminIdentity>().WithMany().HasForeignKey(session => session.AdminId).OnDelete(DeleteBehavior.Restrict);
     }
 }

@@ -1,6 +1,7 @@
 <main>
   <h1 class="ib-page-title">Provider Console</h1>
   @if (authenticated()) {
+    <div><a routerLink="/security/sessions">Device sessions</a></div>
     <section class="ib-panel" aria-labelledby="access-heading">
       <h2 class="ib-panel__title" id="access-heading">Granted capabilities</h2>
       @if (capabilities().length) {

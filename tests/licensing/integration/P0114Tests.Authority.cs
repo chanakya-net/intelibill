@@ -46,7 +46,7 @@ public sealed partial class P0114Tests
         await AssertUnauthenticatedAsync(api, runtime, owner, invitee, clock);
     }
 
-    private static async Task<string> CompleteEnrollmentAsync(HttpClient enrollment, P0106Tests.TestClock clock)
+    internal static async Task<string> CompleteEnrollmentAsync(HttpClient enrollment, P0106Tests.TestClock clock)
     {
         using var started = await PostEnrollmentAsync(enrollment, Enrollment, Enrollment + "/start", new { });
         Assert.Equal(HttpStatusCode.OK, started.StatusCode);

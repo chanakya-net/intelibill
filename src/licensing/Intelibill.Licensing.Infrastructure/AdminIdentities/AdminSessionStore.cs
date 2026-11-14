@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.AdminIdentities;
 
-internal sealed class AdminSessionStore(LicensingDbContext context, AdminMfaStore mfa, AdminMfaKeys keys,
+internal sealed partial class AdminSessionStore(LicensingDbContext context, AdminMfaStore mfa, AdminMfaKeys keys,
     AdminRefreshCredentialService refresh, TimeProvider clock, AuditEvidenceFactory audit)
     : IAdminSessionStore
 {

@@ -73,6 +73,8 @@ internal sealed class AdminAuditStore(LicensingDbContext context, TimeProvider c
             State: AuditState.MfaPending or AuditState.MfaEnrolled } => true,
         { TargetKind: AuditTarget.Access, TargetId: not null, Version: null, MilestoneAt: not null,
             State: AuditState.Active or AuditState.Expired or AuditState.Revoked } => true,
+        { TargetKind: AuditTarget.Session, TargetId: not null, Version: > 0, MilestoneAt: not null,
+            State: AuditState.Active or AuditState.Expired or AuditState.Revoked } => true,
         _ => false,
     };
 

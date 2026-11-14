@@ -1,5 +1,17 @@
 <main>
   <h1 class="ib-page-title">Sign in to the Provider Console</h1>
+  @switch (session.signOutNotice()) {
+    @case ('signing-out') {
+      <p role="status">Signing out…</p>
+    }
+    @case ('unconfirmed') {
+      <p class="ib-error-banner" role="alert">Local access ended. Server sign-out could not be confirmed.</p>
+      <div><button pButton type="button" (click)="session.retrySignOut()">Retry sign-out</button></div>
+    }
+    @case ('signed-out') {
+      <p role="status">Signed out.</p>
+    }
+  }
   <section class="ib-panel" aria-label="Provider sign-in" [attr.aria-busy]="loading() || busy()">
     @if (error()) {
       <p class="ib-error-banner" role="alert">{{ error() }}</p>
