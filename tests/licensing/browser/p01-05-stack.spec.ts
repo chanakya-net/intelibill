@@ -142,20 +142,15 @@ test('admin web: separate origin denies provider access to a signed-in merchant 
     if (request.url().startsWith(admin)) adminPaths.push(new URL(request.url()).pathname);
   });
   await page.goto(`${admin}/`);
-  await expect(page.getByRole('heading', { name: 'Provider Console' })).toBeVisible();
-  await expect(page.getByRole('alert')).toHaveText('No provider session');
-  await expect(page.getByText('No provider permissions')).toBeVisible();
-  await expect(page.locator('.ib-form-section')).toHaveCSS('display', 'grid');
-
-  const hideHelp = page.getByRole('button', { name: 'Hide access help' });
-  await hideHelp.click();
-  const prompt = page.getByRole('alertdialog', { name: 'Hide access help?' });
-  await expect(prompt).toBeVisible();
+  await expect(page).toHaveURL(`${admin}/auth/sign-in`);
+  await expect(page.getByRole('heading', { name: 'Sign in to the Provider Console' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Granted capabilities' })).toHaveCount(0);
   await page.screenshot({ path: `${artifacts}/admin-denied-${phase}.png`, fullPage: true });
-  await prompt.getByRole('button', { name: 'Cancel' }).click();
-  await expect(hideHelp).toBeVisible();
 
-  expect(adminPaths.filter((path) => /^\/(api|hubs|ngsw)([/.-]|$)/.test(path))).toEqual([]);
+  await expect.poll(() => adminPaths.filter((path) => /^\/(api|hubs|ngsw)([/.-]|$)/.test(path))).toEqual([
+    '/api/admin/auth/session',
+    '/api/admin/auth/sign-in/context',
+  ]);
   expect(await page.evaluate(() => Object.keys(localStorage).length)).toBe(0);
   expect(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length)).toBe(0);
   const borrowed = await page.evaluate(async () => {

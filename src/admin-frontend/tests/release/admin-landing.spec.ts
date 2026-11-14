@@ -5,38 +5,20 @@ import { startStaticServer } from './static-server';
 
 const admin = resolve('dist/ADMIN/browser');
 
-test('admin landing denies provider access and confirms a local display change', async ({
-  page,
-}) => {
-  await access(join(admin, 'index.html')).catch(() => {
-    throw new Error(`No admin build at ${admin}. Run \`bun run audit:release\` in src/admin-frontend.`);
-  });
+test('admin release requests only its own auth API and sends unauthenticated routes to sign-in', async ({ page }) => {
+  await access(join(admin, 'index.html'));
   const server = await startStaticServer(admin);
   try {
     await page.goto(server.origin + '/inventory');
-    await expect(page.getByRole('heading', { name: 'Provider Console' })).toBeVisible();
-    await expect(page).toHaveURL(server.origin + '/');
-    await expect(page.getByRole('alert')).toHaveText('No provider session');
-    await expect(page.getByText('No provider permissions')).toBeVisible();
-    await expect(page.locator('.ib-form-section')).toHaveCSS('display', 'grid');
-    await expect(page.getByRole('alert')).toHaveCSS('color', 'rgb(185, 28, 28)');
-
-    const hideHelp = page.getByRole('button', { name: 'Hide access help' });
-    const prompt = page.getByRole('alertdialog', { name: 'Hide access help?' });
-    await hideHelp.click();
-    await prompt.getByRole('button', { name: 'Cancel' }).click();
-    await expect(hideHelp).toBeVisible();
-    await hideHelp.click();
-    await prompt.getByRole('button', { name: 'Hide help' }).click();
-    await expect(page.getByRole('alert')).toHaveText('No provider session');
-    await expect(page.getByText('No provider permissions')).toBeVisible();
-    await expect(page.getByText('Provider access requires a provider session.')).toBeHidden();
-    await page.getByRole('button', { name: 'Show access help' }).click();
-    await expect(page.getByText('Provider access requires a provider session.')).toBeVisible();
-    expect(server.paths.filter((path) => /^\/(api|hubs|ngsw)([\/.-]|$)/.test(path))).toEqual([]);
-    expect(
-      await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length),
-    ).toBe(0);
+    await expect(page).toHaveURL(server.origin + '/auth/sign-in');
+    await expect(page.getByRole('heading', { name: 'Sign in to the Provider Console' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Granted capabilities' })).toHaveCount(0);
+    await expect(page.getByRole('alert')).toHaveText('Provider sign-in is unavailable. Try again.');
+    expect(server.paths.filter((path) => /^\/(api|hubs|ngsw)([\/.-]|$)/.test(path))).toEqual([
+      '/api/admin/auth/session',
+      '/api/admin/auth/sign-in/context',
+    ]);
+    expect(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length)).toBe(0);
   } finally {
     await server.close();
   }

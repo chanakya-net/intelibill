@@ -8,12 +8,15 @@ internal sealed class AdminMfaVerifier(AdminMfaStore store, AdminMfaKeys keys, T
     public Task<ErrorOr<AdminMfaProof>> ConsumeTotpAsync(
         Guid provedAdminId, string? otp, CancellationToken cancellationToken) =>
         WithEnrolledAsync(provedAdminId, (totp, now) =>
-        {
-            var match = AdminMfaEnrollmentService.VerifyStep(keys, totp, otp, now);
-            if (match.IsError) return Task.FromResult<ErrorOr<AdminMfaProof>>(match.Errors);
-            totp.AcceptStep(match.Value);
-            return Task.FromResult<ErrorOr<AdminMfaProof>>(new AdminMfaProof(now));
-        }, cancellationToken);
+            Task.FromResult(ConsumeStep(keys, totp, otp, now)), cancellationToken);
+
+    internal static ErrorOr<AdminMfaProof> ConsumeStep(AdminMfaKeys keys, AdminTotp totp, string? otp, DateTimeOffset now)
+    {
+        var match = AdminMfaEnrollmentService.VerifyStep(keys, totp, otp, now);
+        if (match.IsError) return match.Errors;
+        totp.AcceptStep(match.Value);
+        return new AdminMfaProof(now);
+    }
 
     public Task<ErrorOr<AdminMfaProof>> ConsumeRecoveryCodeAsync(
         Guid provedAdminId, string? recoveryCode, CancellationToken cancellationToken) =>
@@ -35,13 +38,16 @@ internal sealed class AdminMfaVerifier(AdminMfaStore store, AdminMfaKeys keys, T
         CancellationToken cancellationToken) =>
         store.WithAdminAsync<AdminMfaProof>(adminId, async admin =>
         {
-            if (admin.MfaEnrolledAt is null) return AdminMfaEnrollmentService.Refused;
+            if (admin.MfaEnrolledAt is null || admin.DeactivatedAt is not null) return AdminMfaEnrollmentService.Refused;
             var totp = await store.ReadTotpAsync(adminId, cancellationToken);
             if (totp?.LastAcceptedStep is null) return AdminMfaEnrollmentService.Refused;
             var now = clock.GetUtcNow();
-            if (totp.TakeAttempt(now) is { } retryAt) return AdminMfaEnrollmentService.Throttled(retryAt);
+            if (CheckBudget(totp, now) is { } error) return error;
             return await operation(totp, now);
         }, cancellationToken);
+
+    internal static Error? CheckBudget(AdminTotp totp, DateTimeOffset now) =>
+        totp.TakeAttempt(now) is { } retryAt ? AdminMfaEnrollmentService.Throttled(retryAt) : null;
 
     private static Error InvalidRecovery => Error.Validation("Mfa.InvalidRecoveryCode", "The recovery code could not be verified.");
 

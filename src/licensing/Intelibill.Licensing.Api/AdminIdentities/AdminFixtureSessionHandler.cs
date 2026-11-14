@@ -30,11 +30,7 @@ internal sealed class AdminFixtureOptions
         SessionDigest is { Length: 64 } && SessionDigest.All(char.IsAsciiHexDigitUpper) && AdminId is not null;
 }
 
-/// <summary>
-/// No production provider session exists yet, so this authenticates nobody unless the guarded
-/// local fixture is configured (validated at startup to Development/Testing only).
-/// </summary>
-internal sealed class ProviderSessionHandler(
+internal sealed class AdminFixtureSessionHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder,
     IOptions<AdminFixtureOptions> fixture, TimeProvider clock, IHostEnvironment environment)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
@@ -45,7 +41,7 @@ internal sealed class ProviderSessionHandler(
     {
         var settings = fixture.Value;
         var presented = Request.Cookies[FixtureCookieName];
-        if (!settings.IsConfigured || !settings.IsValid() || !Bootstrap.BootstrapHttp.AllowsLoopbackHttp(environment)
+        if (AdminSignInHttp.HasAccess(Context) || !settings.IsConfigured || !settings.IsValid() || !Bootstrap.BootstrapHttp.AllowsLoopbackHttp(environment)
             || presented is not { Length: > 0 and <= 256 }
             || !CryptographicOperations.FixedTimeEquals(SHA256.HashData(Encoding.UTF8.GetBytes(presented)),
                 Convert.FromHexString(settings.SessionDigest!)))

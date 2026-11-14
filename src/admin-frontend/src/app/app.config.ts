@@ -5,7 +5,8 @@ import { provideRouter } from '@angular/router';
 import { SESSION_PORT } from '@intelibill/api';
 import { INTELIBILL_PRIME_CSS_LAYER, INTELIBILL_PRIME_PRESET } from '@intelibill/ui/theme';
 import { providePrimeNG } from 'primeng/config';
-import { unavailableProviderSession } from './unavailable-provider-session';
+import { AdminSessionService } from './features/auth/admin-session.service';
+import { requireAdminSession } from './features/auth/require-admin-session';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -22,11 +23,17 @@ export const appConfig: ApplicationConfig = {
         },
       },
     }),
-    { provide: SESSION_PORT, useValue: unavailableProviderSession },
+    { provide: SESSION_PORT, useExisting: AdminSessionService },
     provideRouter([
       {
         path: '',
+        pathMatch: 'full',
+        canActivate: [requireAdminSession],
         loadComponent: () => import('./landing-page.component').then((m) => m.LandingPageComponent),
+      },
+      {
+        path: 'auth/sign-in',
+        loadComponent: () => import('./features/auth/sign-in-page.component').then((m) => m.SignInPageComponent),
       },
       {
         path: 'auth/bootstrap',

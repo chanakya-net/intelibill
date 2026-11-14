@@ -5,7 +5,3 @@ main {
   margin-inline: auto;
   padding: clamp(1rem, 4vw, 2.5rem);
 }
-
-.ib-form-section {
-  margin-top: 0.5rem;
-}

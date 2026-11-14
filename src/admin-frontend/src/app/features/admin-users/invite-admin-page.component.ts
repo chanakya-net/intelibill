@@ -79,10 +79,14 @@ export class InviteAdminPageComponent {
 
   private deny(error: HttpErrorResponse) {
     this.view.set('denied');
-    this.error.set(
-      error.status === 401
-        ? 'Sign in with your provider account and authenticator to invite administrators.'
-        : (messages[problemCode(error.error) ?? ''] ?? 'Administrator invitations are unavailable.'),
-    );
+    if (error.status === 401) {
+      this.error.set('Sign in with your provider account and authenticator to invite administrators.');
+      return;
+    }
+    const detail = messages[problemCode(error.error) ?? ''];
+    const fallback = error.status === 403
+      ? 'You cannot manage administrator invitations.'
+      : 'Administrator invitations are unavailable.';
+    this.error.set(detail ?? fallback);
   }
 }
