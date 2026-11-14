@@ -46,7 +46,7 @@ test('coordinated refresh across tabs, unknown outcomes and reuse-driven sign-ou
     await expectDashboard([first]);
     expect(refreshes.statuses).toEqual([200]);
 
-    await assertLostResponse(first, tabs[1], refreshes);
+    await assertLateSessionCheckAfterLostRefresh(first, tabs[1], tabs[2], refreshes);
     const ended = await first.request.get(origin + '/api/admin/auth/session');
     expect(ended.status()).toBe(401);
     expect(ended.headers()['cache-control']).toBe('no-store');
@@ -61,6 +61,25 @@ test('coordinated refresh across tabs, unknown outcomes and reuse-driven sign-ou
     await context.close();
   }
 });
+
+async function assertLateSessionCheckAfterLostRefresh(
+  first: Page, other: Page, late: Page, refreshes: ReturnType<typeof watchRefreshes>,
+) {
+  const held = await holdSessionCheck(late, 200);
+  const loading = late.reload();
+  try {
+    await held.ready;
+    await assertLostResponse(first, other, refreshes);
+  } finally {
+    held.release();
+  }
+  await loading;
+  await expect(late).toHaveURL(origin + '/auth/sign-in');
+  await expect(late.getByRole('heading', { name: 'Granted capabilities' })).toHaveCount(0);
+  expect(refreshes.attempts).toBe(2);
+  expect(refreshes.statuses).toEqual([401]);
+  console.log('A third tab received a held session 200 after the refusal and showed sign-in with no grants.');
+}
 
 async function assertCoordinationUnavailable(context: BrowserContext, refreshes: ReturnType<typeof watchRefreshes>) {
   for (const mode of ['absent', 'rejected'] as const) {
@@ -133,7 +152,7 @@ async function assertSignInWaitsForRefresh(
   await stale.goto(origin + '/auth/sign-in');
   await old.goto(origin + '/auth/sign-in');
   refreshes.reset();
-  const staleRequest = await holdRefusedSessionCheck(stale);
+  const staleRequest = await holdSessionCheck(stale, 401);
   const staleLoad = stale.goto(origin + '/');
   await staleRequest.ready;
   const held = await holdRefresh(old, refreshStatus);
@@ -217,7 +236,7 @@ async function holdRefresh(page: Page, status: number) {
   return { ready: observed, release: disposition.resolve };
 }
 
-async function holdRefusedSessionCheck(page: Page) {
+async function holdSessionCheck(page: Page, expectedStatus: number) {
   const ready = deferred<number>();
   const release = deferred<void>();
   await page.route('**/api/admin/auth/session', async (route) => {
@@ -226,7 +245,7 @@ async function holdRefusedSessionCheck(page: Page) {
     await release.promise;
     await route.fulfill({ response: answer });
   }, { times: 1 });
-  return { ready: ready.promise.then((status) => expect(status).toBe(401)), release: release.resolve };
+  return { ready: ready.promise.then((status) => expect(status).toBe(expectedStatus)), release: release.resolve };
 }
 
 async function waitForCookieWriter(page: Page) {

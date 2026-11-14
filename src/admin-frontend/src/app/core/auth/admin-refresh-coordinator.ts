@@ -29,6 +29,15 @@ export class AdminRefreshCoordinator {
     }
   }
 
+  acceptsResponse(generation: string | undefined): boolean {
+    try {
+      const current = this.read();
+      return current.generation === generation && current.state !== 'ended' && current.state !== 'replacing';
+    } catch {
+      return generation === undefined;
+    }
+  }
+
   async renew(generation: string | undefined, explicit: boolean): Promise<RenewalOutcome> {
     if (generation === undefined) return 'unknown';
     if (!explicit && this.pending?.generation === generation) return this.pending.result;

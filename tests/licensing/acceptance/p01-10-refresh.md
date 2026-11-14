@@ -15,7 +15,7 @@ The concurrent tests saw no 200 among the presentations.
 | `dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj` | 65 passed. |
 | `dotnet test tests/shared/P0103ConsumerRegressionTests/Intelibill.Shared.P0103ConsumerRegressionTests.csproj` | 12 passed. |
 | `dotnet build Intelibill.slnx -warnaserror` | Passed with zero warnings and errors. |
-| `cd src/admin-frontend && bun run test --watch=false` | 24 passed. The invitation and session regressions cover hidden grants, discarded form/proof, explicit recovery, retried 401, coordination failures and recovery from an abandoned sign-in marker (session check, explicit rotation to ended, and waiting for a sign-in that still holds the lock). |
+| `cd src/admin-frontend && bun run test --watch=false` | 29 passed. The invitation and session regressions cover stale responses after same-tab and cross-tab refusals, confirmed grants after fresh sign-in, hidden grants, discarded form/proof, explicit recovery, retried 401, coordination failures and recovery from an abandoned sign-in marker. |
 | `cd src/admin-frontend && bun test tests/server.test.mjs` | 13 passed. |
 | `cd src/admin-frontend && bun run audit:release` | Production build and Chromium release test passed. The static release server answers the API with 404, so no renewal is attempted. |
 | `cd src/frontend && bun run build` | Passed. |
@@ -35,6 +35,9 @@ the lock. Both tabs showed the retry notice and sent exactly one POST between
 them before explicit recovery. The explicit retry got 401, both tabs hid their
 grants, and the session API refused access with `Cache-Control: no-store`.
 Browser storage held only a generated coordination ID and its state.
+A third tab received a session 200 that the API had authorized before the
+refusal. It redirected to sign-in without showing grants or sending another
+refresh POST.
 Two concurrent tabs with Web Locks absent, and two with lock acquisition
 rejected, hid grants, offered Try again and sent zero refresh POSTs.
 

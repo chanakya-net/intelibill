@@ -13,17 +13,28 @@ export type SessionCheck = 'active' | 'ended' | 'uncertain';
 /** Why protected content is hidden: access lapsed locally, the server ended it, or it is unconfirmed. */
 export type SessionNotice = 'none' | 'expired' | 'ended' | 'uncertain';
 
+export class AdminSessionChangedError extends HttpErrorResponse {
+  constructor(url: string) {
+    super({ status: 401, url });
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class AdminSessionService implements SessionPort {
   private readonly http = inject(HttpClient);
   private readonly sessionState = signal<SessionState>('unauthenticated');
   private readonly grants = signal<readonly string[]>([]);
   private readonly reason = signal<SessionNotice>('none');
+  private endedVersion = 0;
   private expiry?: ReturnType<typeof setTimeout>;
 
   readonly state = this.sessionState.asReadonly();
   readonly capabilities = this.grants.asReadonly();
   readonly notice = this.reason.asReadonly();
+
+  get endVersion(): number {
+    return this.endedVersion;
+  }
 
   constructor() {
     const destroy = inject(DestroyRef);
@@ -39,15 +50,23 @@ export class AdminSessionService implements SessionPort {
     const context = new HttpContext().set(explicitSessionRecovery, explicit);
     return this.http.get<SessionSnapshot>('/api/admin/auth/session', { context }).pipe(
       map((snapshot) => (this.accept(snapshot) ? 'active' : this.settle('ended'))),
-      catchError((error: unknown) => of(this.settle(isUncertain(error) ? 'uncertain' : 'ended'))),
+      catchError((error: unknown) => of(error instanceof AdminSessionChangedError
+        ? this.currentCheck()
+        : this.settle(isUncertain(error) ? 'uncertain' : 'ended'))),
     );
   }
 
   /** Hides every grant; only a later successful check shows them again. */
   settle<T extends Exclude<SessionNotice, 'none'>>(notice: T): T {
+    if (notice === 'ended') this.endedVersion++;
     this.clear('unauthenticated');
     this.reason.set(notice);
     return notice;
+  }
+
+  private currentCheck(): SessionCheck {
+    if (this.state() === 'authenticated') return 'active';
+    return this.notice() === 'ended' ? 'ended' : 'uncertain';
   }
 
   private accept(snapshot: SessionSnapshot) {

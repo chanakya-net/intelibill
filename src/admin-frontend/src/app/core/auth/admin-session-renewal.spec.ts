@@ -78,6 +78,83 @@ describe('admin session renewal', () => {
     backend.expectNone(invitations);
   });
 
+  it.each(['delivered', 'pending'])('discards held responses when the same-generation end event is %s', async (event) => {
+    const current = JSON.stringify({ generation: 'current', state: 'ready' });
+    const ended = JSON.stringify({ generation: 'current', state: 'ended' });
+    localStorage.setItem(coordinationKey, current);
+    const { http, backend, session: service } = setup();
+    await signIn(backend, service);
+
+    const checked = firstValueFrom(service.check());
+    const oldSnapshot = backend.expectOne(session);
+    const contextResult = firstValueFrom(http.get(invitations)).catch((error: unknown) => error);
+    const oldContext = backend.expectOne(invitations);
+    localStorage.setItem(coordinationKey, ended);
+    if (event === 'delivered') {
+      window.dispatchEvent(new StorageEvent('storage', { key: coordinationKey, oldValue: current, newValue: ended }));
+      expect(service.notice()).toBe('ended');
+    }
+
+    oldSnapshot.flush(snapshot());
+    oldContext.flush({ requestToken: 'stale-fixture-proof' });
+    expect(await checked).toBe('ended');
+    expect(await contextResult).toMatchObject({ status: 401 });
+    expect(service.state()).toBe('unauthenticated');
+    expect(service.capabilities()).toEqual([]);
+    expect(service.notice()).toBe('ended');
+  });
+
+  it.each(['refresh', 'protected retry'])('discards a session snapshot held across a same-tab %s refusal', async (refusal) => {
+    const { http, backend, session: service } = setup();
+    await signIn(backend, service);
+
+    const checked = firstValueFrom(service.check());
+    const oldSnapshot = backend.expectOne(session);
+    const failed = firstValueFrom(http.get(invitations)).catch((error: unknown) => error);
+    backend.expectOne(invitations).flush(null, unauthorized);
+    if (refusal === 'refresh') {
+      await renew(backend, (rotation) => rotation.flush(null, unauthorized));
+    } else {
+      await renew(backend, (rotation) => rotation.flush({}));
+      await vi.waitFor(() => backend.expectOne(invitations).flush(null, unauthorized));
+    }
+    expect(await failed).toMatchObject({ status: 401 });
+    expect(service.notice()).toBe('ended');
+
+    oldSnapshot.flush(snapshot());
+    expect(await checked).toBe('ended');
+    expect(service.state()).toBe('unauthenticated');
+    expect(service.capabilities()).toEqual([]);
+    expect(service.notice()).toBe('ended');
+  });
+
+  it('preserves fresh grants when a pre-refusal session snapshot arrives after sign-in', async () => {
+    const { http, backend, session: service } = setup();
+    await signIn(backend, service);
+    const checked = firstValueFrom(service.check());
+    const held = backend.expectOne(session);
+
+    const refused = firstValueFrom(http.get(invitations)).catch((error: unknown) => error);
+    backend.expectOne(invitations).flush(null, unauthorized);
+    await renew(backend, (rotation) => rotation.flush(null, unauthorized));
+    expect(await refused).toMatchObject({ status: 401 });
+    expect(service.notice()).toBe('ended');
+
+    const signedIn = TestBed.inject(AdminRefreshCoordinator)
+      .signIn({ email: 'owner@example.test', password: '', otp: '' }, 'fixture-csrf');
+    backend.expectOne('/api/admin/auth/sign-in').flush({});
+    await signedIn;
+    const freshCheck = firstValueFrom(service.check());
+    backend.expectOne(session).flush({ ...snapshot(), capabilities: ['admin.access.manage'] });
+    expect(await freshCheck).toBe('active');
+
+    held.flush(snapshot());
+    expect(await checked).toBe('active');
+    expect(service.state()).toBe('authenticated');
+    expect(service.notice()).toBe('none');
+    expect(service.capabilities()).toEqual(['admin.access.manage']);
+  });
+
   it('keeps an ambiguous renewal unknown and never repeats it on its own', async () => {
     const { http, backend, session: service } = setup();
     await signIn(backend, service);

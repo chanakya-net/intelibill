@@ -8,7 +8,7 @@ import {
 } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { type Observable, catchError, from, lastValueFrom, switchMap, tap, throwError } from 'rxjs';
-import { AdminSessionService } from '../../features/auth/admin-session.service';
+import { AdminSessionChangedError, AdminSessionService } from '../../features/auth/admin-session.service';
 import { AdminRefreshCoordinator, explicitSessionRecovery } from './admin-refresh-coordinator';
 
 const sessionScoped = /^\/api\/admin\/(auth\/session|invitations|access)(?=$|[/?])/;
@@ -36,14 +36,21 @@ function send(
   session: AdminSessionService,
   generation: string | undefined,
 ): Observable<HttpEvent<unknown>> {
+  const endVersion = session.endVersion;
+  const ensureSessionHasNotEnded = () => {
+    if (session.endVersion !== endVersion) throw new AdminSessionChangedError(request.url);
+  };
   return next(request).pipe(
     catchError((error: unknown) => {
+      ensureSessionHasNotEnded();
       if (!isUnauthorized(error)) return throwError(() => error);
       return from(coordinator.renew(generation, request.context.get(explicitSessionRecovery))).pipe(
         switchMap((outcome) => {
+          ensureSessionHasNotEnded();
           if (outcome === 'renewed') {
             return from(coordinator.retry(generation, () => lastValueFrom(next(request)))).pipe(
               catchError((retryError: unknown) => {
+                ensureSessionHasNotEnded();
                 if (isUnauthorized(retryError)) session.settle('ended');
                 if (retryError instanceof HttpErrorResponse) return throwError(() => retryError);
                 return unconfirmed(session, request.url);
@@ -59,10 +66,12 @@ function send(
       );
     }),
     tap((event) => {
-      if (event instanceof HttpResponse && coordinator.generation() !== generation) {
-        session.settle('ended');
-        throw new HttpErrorResponse({ status: 401, url: request.url });
-      }
+      if (!(event instanceof HttpResponse)) return;
+      ensureSessionHasNotEnded();
+      // Storage can already contain the refusal even if its event has not reached this tab.
+      if (coordinator.acceptsResponse(generation)) return;
+      session.settle('ended');
+      throw new AdminSessionChangedError(request.url);
     }),
   );
 }
