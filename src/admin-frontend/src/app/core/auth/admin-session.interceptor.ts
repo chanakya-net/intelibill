@@ -11,12 +11,13 @@ import { type Observable, catchError, from, lastValueFrom, switchMap, tap, throw
 import { AdminSessionChangedError, AdminSessionService } from '../../features/auth/admin-session.service';
 import { AdminRefreshCoordinator, explicitSessionRecovery } from './admin-refresh-coordinator';
 
-const sessionScoped = /^\/api\/admin\/(auth\/session|invitations|access|audit)(?=$|[/?])/;
+const sessionScoped = /^\/api\/admin\/(auth\/session|invitations|access|audit|sessions)(?=$|[/?])/;
 
 export const adminSessionInterceptor: HttpInterceptorFn = (request, next) => {
   if (!sessionScoped.test(request.url)) return next(request);
   const coordinator = inject(AdminRefreshCoordinator);
   const session = inject(AdminSessionService);
+  if (session.syncSignOut()) return sessionChanged(request.url);
   const explicit = request.context.get(explicitSessionRecovery);
   const generation = coordinator.generation();
   if (generation !== null) return send(request, next, coordinator, session, generation);
@@ -25,7 +26,8 @@ export const adminSessionInterceptor: HttpInterceptorFn = (request, next) => {
   return from(coordinator.recoverAbandonedSignIn()).pipe(
     switchMap((recovered) => recovered === undefined
       ? unconfirmed(session, request.url)
-      : send(request, next, coordinator, session, recovered)),
+      : coordinator.generation() === recovered && !session.syncSignOut()
+        ? send(request, next, coordinator, session, recovered) : sessionChanged(request.url)),
   );
 };
 
@@ -38,7 +40,9 @@ function send(
 ): Observable<HttpEvent<unknown>> {
   const endVersion = session.endVersion;
   const ensureSessionHasNotEnded = () => {
-    if (session.endVersion !== endVersion) throw new AdminSessionChangedError(request.url);
+    if (session.syncSignOut() || session.endVersion !== endVersion || generation !== coordinator.generation()) {
+      throw new AdminSessionChangedError(request.url);
+    }
   };
   return next(request).pipe(
     catchError((error: unknown) => {
@@ -74,6 +78,10 @@ function send(
       throw new AdminSessionChangedError(request.url);
     }),
   );
+}
+
+function sessionChanged(url: string) {
+  return throwError(() => new AdminSessionChangedError(url));
 }
 
 function unconfirmed(session: AdminSessionService, url: string) {

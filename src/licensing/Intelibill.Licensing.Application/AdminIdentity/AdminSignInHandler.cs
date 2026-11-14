@@ -11,6 +11,14 @@ public interface IAdminSessionStore
 
     Task<AdminSessionAccess?> AuthorizeAsync(Guid adminId, Guid sessionId, DateTimeOffset accessExpiresAt,
         CancellationToken cancellationToken);
+
+    Task<ErrorOr<AdminDeviceSessionPage>> ListDevicesAsync(AdminSessionCaller caller, int pageSize,
+        AdminDeviceSessionSeek? seek, CancellationToken token);
+
+    Task<ErrorOr<Success>> RevokeDeviceAsync(AdminSessionCaller caller, Guid targetId, AuditReason reason,
+        CancellationToken token);
+
+    Task SignOutDeviceAsync(AdminSessionCaller caller, CancellationToken token);
 }
 
 public sealed record AdminSessionAccess(Guid AdminId, DateTimeOffset MfaVerifiedAt, IReadOnlyList<string> Capabilities);

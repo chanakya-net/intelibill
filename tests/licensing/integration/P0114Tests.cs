@@ -119,10 +119,10 @@ public sealed partial class P0114Tests(LicensingPostgreSqlFixture database) : IC
         return await SignInAsync(api, clock, "p0108.owner@example.test", password, seed);
     }
 
-    private static HttpClient RawClient(LicensingApiFactory api) =>
+    internal static HttpClient RawClient(LicensingApiFactory api) =>
         api.CreateClient(new() { BaseAddress = new Uri(P0110CookieBrowser.Origin), HandleCookies = false });
 
-    private static async Task<P0110CookieBrowser> SignInAsync(LicensingApiFactory api, P0106Tests.TestClock clock,
+    internal static async Task<P0110CookieBrowser> SignInAsync(LicensingApiFactory api, P0106Tests.TestClock clock,
         string email, string password, string seed)
     {
         var browser = new P0110CookieBrowser(RawClient(api));

@@ -6,6 +6,8 @@ import { ButtonDirective } from 'primeng/button';
 import { finalize, from } from 'rxjs';
 import { AdminRefreshCoordinator } from '../../core/auth/admin-refresh-coordinator';
 
+import { AdminSessionService } from './admin-session.service';
+
 const path = '/api/admin/auth/sign-in';
 
 @Component({
@@ -22,6 +24,7 @@ export class SignInPageComponent {
   private readonly destroy = inject(DestroyRef);
   private requestToken = '';
 
+  protected readonly session = inject(AdminSessionService);
   protected readonly ready = signal(false);
   protected readonly loading = signal(true);
   protected readonly busy = signal(false);

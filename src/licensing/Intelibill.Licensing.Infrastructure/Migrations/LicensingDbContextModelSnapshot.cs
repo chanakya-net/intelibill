@@ -250,6 +250,12 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("revoked_at");
 
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.HasKey("Id")
                         .HasName("pk_admin_sessions");
 
@@ -442,9 +448,9 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
 
                     b.ToTable("provider_audit_events", null, t =>
                         {
-                            t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 16 OR action BETWEEN 101 AND 103");
+                            t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 20 OR action BETWEEN 101 AND 103");
 
-                            t.HasCheckConstraint("ck_provider_audit_metadata", "(num_nonnulls(actor_kind, reason, correlation_id) = 0 AND action BETWEEN 1 AND 16\n    AND \"before\" IS NULL AND \"after\" IS NULL)\nOR (num_nonnulls(actor_kind, reason, correlation_id) = 3\n    AND actor_kind BETWEEN 1 AND 5 AND reason BETWEEN 1 AND 21)");
+                            t.HasCheckConstraint("ck_provider_audit_metadata", "(num_nonnulls(actor_kind, reason, correlation_id) = 0 AND action BETWEEN 1 AND 16\n    AND \"before\" IS NULL AND \"after\" IS NULL)\nOR (num_nonnulls(actor_kind, reason, correlation_id) = 3\n    AND actor_kind BETWEEN 1 AND 5 AND reason BETWEEN 1 AND 25)");
                         });
                 });
 

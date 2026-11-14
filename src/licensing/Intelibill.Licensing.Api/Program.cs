@@ -79,6 +79,7 @@ public sealed class Program
         app.MapAdminMfa();
         app.MapAdminSignIn();
         app.MapAdminRefresh();
+        app.MapAdminSessions();
         app.MapAdminAudit();
         var business = app.MapGroup("/api/admin").RequireAuthorization(BootstrapAuthorization.BusinessPolicy);
         business.MapGet("/access", () => Results.NoContent());
