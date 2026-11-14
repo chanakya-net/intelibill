@@ -35,6 +35,8 @@
     "@angular/router": "^21.2.0",
     "@angular/service-worker": "^21.2.0",
     "@hono/node-server": "^1.19.13",
+    "@intelibill/api": "workspace:*",
+    "@intelibill/ui": "workspace:*",
     "@microsoft/signalr": "^10.0.0",
     "@ngneat/transloco": "^6.0.4",
     "@ngrx/effects": "^21.1.0",

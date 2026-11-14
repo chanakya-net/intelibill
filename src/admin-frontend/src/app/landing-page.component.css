@@ -1,0 +1,11 @@
+main {
+  display: grid;
+  gap: 1.5rem;
+  max-width: 52rem;
+  margin-inline: auto;
+  padding: clamp(1rem, 4vw, 2.5rem);
+}
+
+.ib-form-section {
+  margin-top: 0.5rem;
+}
