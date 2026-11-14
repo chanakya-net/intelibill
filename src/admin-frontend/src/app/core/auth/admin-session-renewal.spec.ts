@@ -2,8 +2,10 @@ import { HttpClient, HttpErrorResponse, provideHttpClient, withInterceptors } fr
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminSessionService } from '../../features/auth/admin-session.service';
+import { restoreAdminBrowserCoordination, stubAdminBrowserCoordination } from './admin-browser-coordination.testing';
+import { AdminRefreshCoordinator } from './admin-refresh-coordinator';
 import { adminSessionInterceptor } from './admin-session.interceptor';
 
 const session = '/api/admin/auth/session';
@@ -39,9 +41,10 @@ async function signIn(backend: HttpTestingController, service: AdminSessionServi
 }
 
 describe('admin session renewal', () => {
+  beforeEach(stubAdminBrowserCoordination);
   afterEach(() => {
+    restoreAdminBrowserCoordination();
     TestBed.inject(HttpTestingController).verify();
-    Reflect.deleteProperty(navigator, 'locks');
   });
 
   it('renews once for concurrent protected requests and retries each of them', async () => {
@@ -55,7 +58,7 @@ describe('admin session renewal', () => {
     await renew(backend, (rotation) => rotation.flush({ accessExpiresAt: new Date().toISOString() }));
     await vi.waitFor(() => backend.expectOne(session).flush({ retried: 'session' }));
     await vi.waitFor(() => backend.expectOne(invitations).flush({ retried: 'invitations' }));
-    expect(answers).toEqual([{ retried: 'session' }, { retried: 'invitations' }]);
+    await vi.waitFor(() => expect(answers).toEqual([{ retried: 'session' }, { retried: 'invitations' }]));
     backend.expectNone(refresh);
   });
 
@@ -89,12 +92,83 @@ describe('admin session renewal', () => {
     backend.expectNone(invitations);
 
     // Only an explicit retry renews again; this time the server answers.
-    const retried = firstValueFrom(service.check());
+    const automatic = firstValueFrom(service.check());
     backend.expectOne(session).flush(null, unauthorized);
+    await vi.waitFor(() => backend.expectOne(session).flush(null, unauthorized));
+    expect(await automatic).toBe('uncertain');
+    backend.expectNone(refresh);
+
+    const retried = firstValueFrom(service.check(true));
+    backend.expectOne(session).flush(null, unauthorized);
+    await vi.waitFor(() => backend.expectOne(session).flush(null, unauthorized));
     await renew(backend, (rotation) => rotation.flush({ accessExpiresAt: new Date().toISOString() }));
     await vi.waitFor(() => backend.expectOne(session).flush(snapshot()));
     expect(await retried).toBe('active');
     expect(service.notice()).toBe('none');
+  });
+
+  it('uses a confirmed access cookie after an unknown outcome without rotating again', async () => {
+    const { backend, session: service } = setup();
+    const first = firstValueFrom(service.check());
+    backend.expectOne(session).flush(null, unauthorized);
+    await renew(backend, (rotation) => rotation.error(new ProgressEvent('error')));
+    expect(await first).toBe('uncertain');
+
+    const confirmed = firstValueFrom(service.check());
+    backend.expectOne(session).flush(null, unauthorized);
+    await vi.waitFor(() => backend.expectOne(session).flush(snapshot()));
+    await vi.waitFor(() => backend.expectOne(session).flush(snapshot()));
+    expect(await confirmed).toBe('active');
+    expect(service.capabilities()).toEqual(['admin.invitations.manage']);
+    backend.expectNone(refresh);
+  });
+
+  it('pauses protected writes while a sign-in is replacing the cookies', async () => {
+    const { http, backend, session: service } = setup();
+    await signIn(backend, service);
+    const coordinator = TestBed.inject(AdminRefreshCoordinator);
+    const replacement = coordinator.signIn({ email: 'owner@example.test', password: '', otp: '' }, 'csrf');
+    const request = backend.expectOne('/api/admin/auth/sign-in');
+
+    const failure = firstValueFrom(http.post('/api/admin/invitations', {})).catch((error: unknown) => error);
+    expect(await failure).toMatchObject({ status: 0 });
+    expect(service.capabilities()).toEqual([]);
+    expect(service.notice()).toBe('uncertain');
+    backend.expectNone('/api/admin/invitations');
+    request.flush({});
+    await replacement;
+  });
+
+  it('ends the session when the protected retry is refused', async () => {
+    const { http, backend, session: service } = setup();
+    await signIn(backend, service);
+    let failure: HttpErrorResponse | undefined;
+    http.get(invitations).subscribe({ error: (error: HttpErrorResponse) => (failure = error) });
+    backend.expectOne(invitations).flush(null, unauthorized);
+
+    await renew(backend, (rotation) => rotation.flush({}));
+    await vi.waitFor(() => backend.expectOne(invitations).flush(null, unauthorized));
+    await vi.waitFor(() => expect(failure?.status).toBe(401));
+    expect(service.notice()).toBe('ended');
+    expect(service.capabilities()).toEqual([]);
+    backend.expectNone(refresh);
+  });
+
+  it.each(['absent', 'rejected'])('hides grants without a renewal request when Web Locks are %s', async (mode) => {
+    const { http, backend, session: service } = setup();
+    Object.defineProperty(navigator, 'locks', {
+      configurable: true,
+      value: mode === 'absent' ? undefined : { request: () => Promise.reject(new Error('Lock unavailable')) },
+    });
+    await signIn(backend, service);
+    const failure = firstValueFrom(http.get(invitations)).catch((error: unknown) => error);
+    backend.expectOne(invitations).flush(null, unauthorized);
+
+    await vi.waitFor(() => expect(service.notice()).toBe('uncertain'), { timeout: 300 });
+    expect(await failure).toMatchObject({ status: 0 });
+    expect(service.capabilities()).toEqual([]);
+    backend.expectNone(context);
+    backend.expectNone(refresh);
   });
 
   it('treats a server outage during renewal as unknown rather than signed out', async () => {
@@ -120,6 +194,6 @@ describe('admin session renewal', () => {
     backend.expectOne(session).flush(null, unauthorized);
     await renew(backend, (rotation) => rotation.flush({ accessExpiresAt: new Date().toISOString() }));
     await vi.waitFor(() => backend.expectOne(session).flush(snapshot()));
-    expect(names).toEqual(['intelibill-admin-session-renewal']);
+    expect(names).toEqual(['intelibill-admin-session-renewal', 'intelibill-admin-session-renewal']);
   });
 });

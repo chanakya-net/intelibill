@@ -16,7 +16,7 @@ test('coordinated refresh across tabs, unknown outcomes and reuse-driven sign-ou
   const refreshes = watchRefreshes(context);
   try {
     const first = await context.newPage();
-    await signInOwner(first);
+    const prepareSignIn = await signInOwner(first);
     await assertRefreshCookie(context);
 
     // 1. Three tabs lose their access token together; renewals take turns, each presents the current credential.
@@ -32,6 +32,9 @@ test('coordinated refresh across tabs, unknown outcomes and reuse-driven sign-ou
     expect(refreshes.maxConcurrent).toBe(1);
     console.log(`Concurrent tabs renewed with ${refreshes.statuses.length} serialized refreshes, all 200, max in flight 1.`);
 
+    // Use separate pages with limited coordination support while preserving the same browser cookie jar.
+    await assertCoordinationUnavailable(context, refreshes);
+
     // 2. A renewal that never reached the API stays unknown: grants hidden, no sign-in redirect, no automatic retry.
     await context.clearCookies({ name: accessCookie });
     refreshes.reset();
@@ -43,39 +46,165 @@ test('coordinated refresh across tabs, unknown outcomes and reuse-driven sign-ou
     await expectDashboard([first]);
     expect(refreshes.statuses).toEqual([200]);
 
-    // 3. The API rotated but the answer was lost: the retry presents a consumed credential and ends the session.
-    await context.clearCookies({ name: accessCookie });
-    refreshes.reset();
-    await first.route('**' + refreshPath, async (route) => {
-      const held = (await context.cookies()).filter((cookie) => sessionCookie.test(cookie.name));
-      const answer = await route.fetch();
-      expect(answer.status()).toBe(200);
-      // route.fetch shares the context's cookie jar; put back exactly what the browser held before the lost answer.
-      await context.clearCookies({ name: sessionCookie });
-      await context.addCookies(held);
-      await route.abort('connectionreset');
-    }, { times: 1 });
-    await first.reload();
-    await expectUncertain(first);
-    await first.getByRole('button', { name: 'Try again' }).click();
-    await expect(first.getByRole('alert')).toHaveText('Your provider session ended.');
-    await expect(first.getByRole('heading', { name: 'Granted capabilities' })).toHaveCount(0);
-    expect(refreshes.statuses).toEqual([401]);
-
-    // 4. Every other tab of the revoked session is refused on its next protected request.
-    for (const tab of tabs.slice(1)) {
-      await tab.reload();
-      await expect(tab).toHaveURL(origin + '/auth/sign-in');
-    }
+    await assertLostResponse(first, tabs[1], refreshes);
     const ended = await first.request.get(origin + '/api/admin/auth/session');
     expect(ended.status()).toBe(401);
     expect(ended.headers()['cache-control']).toBe('no-store');
-    await assertNoBrowserStorage(first);
-    console.log('Unknown renewal kept the tab unconfirmed without retrying; the lost-answer retry revoked the session and every tab left the dashboard.');
+    await assertCredentialFreeStorage(first);
+
+    // Fresh sign-ins overlap a held old success and then a held refusal.
+    await (await prepareSignIn(first))();
+    await assertSignInWaitsForRefresh(first, tabs[1], tabs[2], prepareSignIn, refreshes, 200);
+    await assertSignInWaitsForRefresh(tabs[1], first, tabs[2], prepareSignIn, refreshes, 401);
   } finally {
     await context.close();
   }
 });
+
+async function assertCoordinationUnavailable(context: BrowserContext, refreshes: ReturnType<typeof watchRefreshes>) {
+  for (const mode of ['absent', 'rejected'] as const) {
+    const tabs = [await context.newPage(), await context.newPage()];
+    for (const tab of tabs) {
+      await tab.addInitScript((mode) => {
+        const locks = mode === 'absent' ? undefined : { request: () => Promise.reject(new Error('Fixture: Web Lock denied')) };
+        Object.defineProperty(navigator, 'locks', { value: locks });
+      }, mode);
+      await tab.goto(origin + '/');
+    }
+    await expectDashboard(tabs);
+    await context.clearCookies({ name: accessCookie });
+    refreshes.reset();
+    await Promise.all(tabs.map((tab) => tab.reload()));
+    for (const tab of tabs) await expectUncertain(tab);
+    await tabs[0].getByRole('button', { name: 'Try again' }).click();
+    await expectUncertain(tabs[0]);
+    expect(refreshes.attempts).toBe(0);
+    for (const tab of tabs) await tab.close();
+    console.log(`Two tabs with Web Locks ${mode} hid grants and offered recovery with zero refresh POSTs.`);
+    const normal = await context.newPage();
+    try {
+      await normal.goto(origin + '/');
+      await expectDashboard([normal]);
+    } finally {
+      await normal.close();
+    }
+  }
+}
+
+async function assertLostResponse(first: Page, other: Page, refreshes: ReturnType<typeof watchRefreshes>) {
+  const context = first.context();
+  await context.clearCookies({ name: accessCookie });
+  refreshes.reset();
+  const lost = await holdRefresh(first, 200);
+  const firstLoad = first.reload();
+  await lost.ready;
+  const secondLoad = other.reload();
+  try {
+    await waitForCookieWriter(other);
+  } finally {
+    lost.release('lose');
+  }
+  await Promise.all([firstLoad, secondLoad]);
+  for (const tab of [first, other]) await expectUncertain(tab);
+  expect(refreshes.attempts).toBe(1);
+
+  await first.getByRole('button', { name: 'Try again' }).click();
+  for (const tab of [first, other]) {
+    await expect(tab.getByRole('alert')).toHaveText('Your provider session ended.');
+    await expect(tab.getByRole('heading', { name: 'Granted capabilities' })).toHaveCount(0);
+  }
+  expect(refreshes.statuses).toEqual([401]);
+  console.log('Two tabs waited on a committed refresh with a lost response. Both hid grants after one POST. Explicit retry got 401.');
+}
+
+async function assertSignInWaitsForRefresh(
+  old: Page,
+  fresh: Page,
+  stale: Page,
+  prepareSignIn: PrepareSignIn,
+  refreshes: ReturnType<typeof watchRefreshes>,
+  refreshStatus: number,
+) {
+  const submit = await prepareSignIn(fresh);
+  const context = old.context();
+  await context.clearCookies({ name: refreshStatus === 200 ? accessCookie : sessionCookie });
+  // Reload the known protected route in both tabs, including after a refused previous check.
+  await stale.goto(origin + '/auth/sign-in');
+  await old.goto(origin + '/auth/sign-in');
+  refreshes.reset();
+  const staleRequest = await holdRefusedSessionCheck(stale);
+  const staleLoad = stale.goto(origin + '/');
+  await staleRequest.ready;
+  const held = await holdRefresh(old, refreshStatus);
+  const reload = old.goto(origin + '/');
+  await held.ready;
+  const replacement = submit();
+  try {
+    await waitForCookieWriter(fresh);
+  } finally {
+    held.release('deliver');
+  }
+  await Promise.all([reload, replacement]);
+  await assertRefreshCookie(context);
+  const cookies = (await context.cookies()).filter(({ name }) => sessionCookie.test(name));
+  expect(cookies).toHaveLength(2);
+  const started = await fresh.request.get(origin + '/api/admin/auth/session');
+  expect(started.status()).toBe(200);
+  await expectDashboard([fresh]);
+  staleRequest.release();
+  await staleLoad;
+  await expect(stale).toHaveURL(origin + '/auth/sign-in');
+  await stale.goto(origin + '/');
+  await expectDashboard([stale]);
+  expect(refreshes.attempts).toBe(1);
+  // A reload of the other tab can verify the fresh cookies without retrying an old protected operation.
+  await old.goto(origin + '/');
+  await expectDashboard([old]);
+  console.log(`Fresh sign-in waited behind the held old refresh ${refreshStatus} and kept its cookie pair. A stale protected 401 sent no refresh or retry.`);
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+
+async function holdRefresh(page: Page, status: number) {
+  const ready = deferred<number>();
+  const disposition = deferred<'lose' | 'deliver'>();
+  await page.route('**' + refreshPath, async (route) => {
+    const context = page.context();
+    const before = (await context.cookies()).filter((cookie) => sessionCookie.test(cookie.name));
+    const answer = await route.fetch();
+    // route.fetch shares the cookie jar. Restore it so the response is held until the test delivers it.
+    await context.clearCookies({ name: sessionCookie });
+    await context.addCookies(before);
+    ready.resolve(answer.status());
+    if (await disposition.promise === 'lose') await route.abort('connectionreset');
+    else await route.fulfill({ response: answer });
+  }, { times: 1 });
+  const observed = ready.promise.then((statusCode) => expect(statusCode).toBe(status));
+  return { ready: observed, release: disposition.resolve };
+}
+
+async function holdRefusedSessionCheck(page: Page) {
+  const ready = deferred<number>();
+  const release = deferred<void>();
+  await page.route('**/api/admin/auth/session', async (route) => {
+    const answer = await route.fetch();
+    ready.resolve(answer.status());
+    await release.promise;
+    await route.fulfill({ response: answer });
+  }, { times: 1 });
+  return { ready: ready.promise.then((status) => expect(status).toBe(401)), release: release.resolve };
+}
+
+async function waitForCookieWriter(page: Page) {
+  await expect.poll(() => page.evaluate(async () => {
+    const locks = await navigator.locks.query();
+    return locks.pending?.some(({ name }) => name === 'intelibill-admin-session-renewal');
+  }).catch(() => false)).toBe(true);
+}
 
 function watchRefreshes(context: BrowserContext) {
   const state = { attempts: 0, statuses: [] as number[], active: 0, maxConcurrent: 0 };
@@ -132,13 +261,24 @@ async function signInOwner(page: Page) {
   await page.getByRole('button', { name: 'Verify authenticator' }).click();
   await expect(page.getByRole('heading', { name: 'Authenticator enrolled' })).toBeVisible();
   await page.getByRole('button', { name: 'I saved my codes' }).click();
-  await page.getByRole('link', { name: 'Sign in to the Provider Console' }).click();
-  await page.getByLabel('Email', { exact: true }).fill(ownerEmail);
-  await fillSecret(page, 'Password', password);
-  await fillSecret(page, 'Authenticator code', otp(seed, time + 30_000));
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expectDashboard([page]);
+  let step = Math.floor(time / 30_000);
+  const prepareSignIn: PrepareSignIn = async (target) => {
+    await target.goto(origin + '/auth/sign-in');
+    await target.getByLabel('Email', { exact: true }).fill(ownerEmail);
+    step = Math.max(step + 1, Math.floor(Date.now() / 30_000));
+    await expect.poll(() => Math.floor(Date.now() / 30_000) + 1, { timeout: 35_000 }).toBeGreaterThanOrEqual(step);
+    return async () => {
+      await fillSecret(target, 'Password', password);
+      await fillSecret(target, 'Authenticator code', otp(seed, step * 30_000));
+      await target.getByRole('button', { name: 'Sign in', exact: true }).click();
+      await expectDashboard([target]);
+    };
+  };
+  await (await prepareSignIn(page))();
+  return prepareSignIn;
 }
+
+type PrepareSignIn = (page: Page) => Promise<() => Promise<void>>;
 
 async function assertRefreshCookie(context: BrowserContext) {
   const cookie = (await context.cookies()).find((item) => item.name === 'InteliBill.Admin.Refresh');
@@ -147,12 +287,18 @@ async function assertRefreshCookie(context: BrowserContext) {
   expect(cookie?.path).toBe('/api/admin');
 }
 
-async function assertNoBrowserStorage(page: Page) {
+async function assertCredentialFreeStorage(page: Page) {
   const storage = await page.evaluate(async () => ({
-    local: localStorage.length, session: sessionStorage.length, databases: (await indexedDB.databases()).length,
+    localKeys: Object.keys(localStorage),
+    coordination: JSON.parse(localStorage.getItem('intelibill.admin.session-coordination.v1') ?? 'null'),
+    session: sessionStorage.length, databases: (await indexedDB.databases()).length,
     caches: (await caches.keys()).length, cookies: document.cookie.length,
   }));
-  expect(storage).toEqual({ local: 0, session: 0, databases: 0, caches: 0, cookies: 0 });
+  expect(storage).toEqual({
+    localKeys: ['intelibill.admin.session-coordination.v1'],
+    coordination: { generation: expect.stringMatching(/^[a-f0-9-]{36}$/), state: 'ended' },
+    session: 0, databases: 0, caches: 0, cookies: 0,
+  });
 }
 
 async function fillSecret(page: Page, label: string, value: string) {

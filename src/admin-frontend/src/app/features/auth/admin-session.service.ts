@@ -1,7 +1,8 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpErrorResponse } from '@angular/common/http';
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 import type { SessionPort, SessionState } from '@intelibill/api';
 import { type Observable, catchError, map, of } from 'rxjs';
+import { AdminRefreshCoordinator, explicitSessionRecovery } from '../../core/auth/admin-refresh-coordinator';
 
 interface SessionSnapshot {
   capabilities: readonly string[];
@@ -25,12 +26,18 @@ export class AdminSessionService implements SessionPort {
   readonly notice = this.reason.asReadonly();
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => clearTimeout(this.expiry));
+    const destroy = inject(DestroyRef);
+    const stopObserving = inject(AdminRefreshCoordinator).observeSessionChange((reason) => this.settle(reason));
+    destroy.onDestroy(() => {
+      stopObserving();
+      clearTimeout(this.expiry);
+    });
   }
 
   /** Reads the live session; an expired access token is renewed on the way by the session interceptor. */
-  check(): Observable<SessionCheck> {
-    return this.http.get<SessionSnapshot>('/api/admin/auth/session').pipe(
+  check(explicit = false): Observable<SessionCheck> {
+    const context = new HttpContext().set(explicitSessionRecovery, explicit);
+    return this.http.get<SessionSnapshot>('/api/admin/auth/session', { context }).pipe(
       map((snapshot) => (this.accept(snapshot) ? 'active' : this.settle('ended'))),
       catchError((error: unknown) => of(this.settle(isUncertain(error) ? 'uncertain' : 'ended'))),
     );

@@ -1,34 +1,53 @@
-import { HttpErrorResponse, type HttpInterceptorFn } from '@angular/common/http';
+import { HttpErrorResponse, HttpResponse, type HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { catchError, from, switchMap, throwError } from 'rxjs';
+import { catchError, from, lastValueFrom, switchMap, tap, throwError } from 'rxjs';
 import { AdminSessionService } from '../../features/auth/admin-session.service';
-import { AdminRefreshCoordinator } from './admin-refresh-coordinator';
+import { AdminRefreshCoordinator, explicitSessionRecovery } from './admin-refresh-coordinator';
 
-// Requests authorized by the provider access cookie; bootstrap, invitation acceptance and sign-in are not.
 const sessionScoped = /^\/api\/admin\/(auth\/session|invitations|access)(?=$|[/?])/;
 
-/**
- * A provider request refused for an expired or missing access token renews the session once and is
- * sent again. A refused renewal ends the session in this tab; an unknown one is reported as a
- * network failure (status 0) so callers keep it distinct from a sign-out.
- */
 export const adminSessionInterceptor: HttpInterceptorFn = (request, next) => {
   if (!sessionScoped.test(request.url)) return next(request);
   const coordinator = inject(AdminRefreshCoordinator);
   const session = inject(AdminSessionService);
+  const generation = coordinator.generation();
+  if (generation === null) {
+    session.settle('uncertain');
+    return throwError(() => uncertain(request.url));
+  }
+
   return next(request).pipe(
     catchError((error: unknown) => {
-      if (!(error instanceof HttpErrorResponse) || error.status !== 401) return throwError(() => error);
-      return from(coordinator.renew()).pipe(
+      if (!isUnauthorized(error)) return throwError(() => error);
+      return from(coordinator.renew(generation, request.context.get(explicitSessionRecovery))).pipe(
         switchMap((outcome) => {
-          if (outcome === 'renewed') return next(request);
+          if (outcome === 'renewed') {
+            return from(coordinator.retry(generation, () => lastValueFrom(next(request)))).pipe(
+              catchError((retryError: unknown) => {
+                if (isUnauthorized(retryError)) session.settle('ended');
+                if (retryError instanceof HttpErrorResponse) return throwError(() => retryError);
+                session.settle('uncertain');
+                return throwError(() => uncertain(request.url));
+              }),
+            );
+          }
           session.settle(outcome === 'rejected' ? 'ended' : 'uncertain');
           return throwError(() => outcome === 'rejected' ? error : uncertain(request.url));
         }),
       );
     }),
+    tap((event) => {
+      if (event instanceof HttpResponse && coordinator.generation() !== generation) {
+        session.settle('ended');
+        throw new HttpErrorResponse({ status: 401, url: request.url });
+      }
+    }),
   );
 };
+
+function isUnauthorized(error: unknown): error is HttpErrorResponse {
+  return error instanceof HttpErrorResponse && error.status === 401;
+}
 
 function uncertain(url: string) {
   return new HttpErrorResponse({ status: 0, statusText: 'Session renewal outcome unknown', url });

@@ -1,6 +1,6 @@
 # P01-10 provider session refresh evidence
 
-The red regression ran on `b9e466e5482b456c8947e08fc0379e76b4384e49` (merged
+The red regression ran before implementation and again during review fixes on `b9e466e5482b456c8947e08fc0379e76b4384e49` (merged
 P01-09) with only the `P0110Tests*.cs` files and their cookie-jar helper added.
 Each test created an isolated PostgreSQL database through Testcontainers and
 completed owner bootstrap, authenticator enrollment and a 200 sign-in, so the
@@ -15,42 +15,48 @@ The concurrent tests saw no 200 among the presentations.
 | `dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj` | 65 passed. |
 | `dotnet test tests/shared/P0103ConsumerRegressionTests/Intelibill.Shared.P0103ConsumerRegressionTests.csproj` | 12 passed. |
 | `dotnet build Intelibill.slnx -warnaserror` | Passed with zero warnings and errors. |
-| `cd src/admin-frontend && bun run test --watch=false` | 15 passed. |
+| `cd src/admin-frontend && bun run test --watch=false` | 21 passed. The invitation and session regressions cover hidden grants, discarded form/proof, explicit recovery, retried 401 and coordination failures. |
 | `cd src/admin-frontend && bun test tests/server.test.mjs` | 13 passed. |
 | `cd src/admin-frontend && bun run audit:release` | Production build and Chromium release test passed. The static release server answers the API with 404, so no renewal is attempted. |
 | `cd src/frontend && bun run build` | Passed. |
-| `bash tests/licensing/acceptance/run-p0110-browser.sh` | One Chromium scenario passed; the migration job upgraded P01-09 and a second run changed nothing. |
+| `bash tests/licensing/acceptance/run-p0110-browser.sh` | One Chromium scenario passed. The explicit migration job upgraded P01-09, refused Down with a concurrent staged insert, and reapplied without changes. |
 | `git diff --check` | Clean. |
 
-The browser runner built the licensing API from source and the admin site in
-production mode, against disposable PostgreSQL. The owner bootstrapped,
-enrolled and signed in; the refresh cookie was HttpOnly and SameSite=Strict on
-the documented loopback path. With three tabs open, the access cookie was
-removed and all tabs reloaded together. Each tab renewed under the Web Lock:
-three refreshes, all 200, never more than one in flight, and every tab showed
-its dashboard. A refresh aborted before it reached the API left the tab on the
-dashboard route with grants hidden and a retry notice, without another refresh
-attempt; the operator's retry renewed it. A refresh the API completed while its
-answer was lost (cookies restored to their earlier state) also showed the
-retry notice. The retry presented the consumed credential, got 401, and showed
-"Your provider session ended." The other two tabs then went to sign-in and the
-session API answered 401 with `no-store`. Script-visible cookies, Web Storage,
-IndexedDB and Cache Storage stayed empty.
+The browser runner built the licensing API from source and served the
+production admin site against disposable PostgreSQL. The owner bootstrapped,
+enrolled and signed in. The loopback refresh cookie was HttpOnly and
+SameSite=Strict. Three tabs lost the access cookie and reloaded together.
+All returned to the dashboard and successful refreshes never overlapped.
 
-Migration facts checked by the runner: the database started at
-`20261114194123_AddAdminSignInSessions` with a prior enrolled identity, its
-P01-09 session and a sign-in audit row. The source API was ready while
-`admin_refresh_credentials` did not exist. The image built from
-`src/licensing/Dockerfile.migrate` applied
-`20261114202808_AddAdminRefreshCredentials` with the migrator role. The prior
-identity, session and audit rows were unchanged (md5). The new table had four
-unique indexes (primary key, digest, parent, session root), three check and two
-foreign-key constraints, and runtime INSERT/UPDATE/SELECT privilege. The audit
-check became `action >= 1 AND action <= 16` and no credential was backfilled.
-After the browser run there were 2 sessions (1 revoked by reuse), 6 chained
-credentials (1 unconsumed, 1 root) and 1 reuse audit event. Re-running the job
-left the history at 5 migrations, with predecessor facts, schema facts and the
-refresh chain digest unchanged.
+An aborted refresh hid dashboard grants and offered Try again. An explicit
+retry renewed the session. When the API committed a rotation and the browser
+lost its response, a second tab had already received 401 and was waiting for
+the lock. Both tabs showed the retry notice and sent exactly one POST between
+them before explicit recovery. The explicit retry got 401, both tabs hid their
+grants, and the session API refused access with `Cache-Control: no-store`.
+Browser storage held only a generated coordination ID and its state.
+Two concurrent tabs with Web Locks absent, and two with lock acquisition
+rejected, hid grants, offered Try again and sent zero refresh POSTs.
 
-These are local fixtures only. No live provider or deployed environment was
-verified.
+Fresh sign-in waited behind both a held refresh 200 and a held refresh 401.
+The new cookie pair survived both interleavings and a protected session check
+succeeded. A third tab received its old protected 401 after the sign-in and
+returned to sign-in without a refresh POST under the new cookie pair.
+
+The database started at `20261114194123_AddAdminSignInSessions` with a prior
+enrolled identity, session and sign-in audit row. The source API was ready
+before the explicit migration job applied
+`20261114202808_AddAdminRefreshCredentials`. The predecessor rows kept the
+same digest. The credential table had four unique indexes, three check
+constraints, two foreign keys and runtime INSERT/UPDATE/SELECT privileges.
+The audit constraint accepted actions 1 through 16 and the upgrade created no
+credential rows.
+
+The runner held a staged credential insert open while the predecessor
+migration job requested an exclusive lock. After the insert committed, Down
+refused with SQLSTATE 55000 and preserved the row, schema and migration history.
+With the old Down implementation, the same check reproduced table removal.
+After the browser scenario, the explicit migration job kept the five history
+rows, predecessor facts, schema and credential chain digest unchanged.
+
+Verification used local fixtures. Live provider behavior remains unverified.

@@ -80,7 +80,9 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            // Hold the fence until the transactional DDL commits so a first credential cannot race the evidence check.
             migrationBuilder.Sql("""
+                LOCK TABLE public.admin_refresh_credentials IN ACCESS EXCLUSIVE MODE;
                 DO $$
                 BEGIN
                     IF EXISTS (SELECT FROM public.admin_refresh_credentials)

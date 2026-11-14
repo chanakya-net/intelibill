@@ -8,6 +8,9 @@
       @case ('loading') {
         <p role="status">Checking your access…</p>
       }
+      @case ('uncertain') {
+        <button pButton type="button" (click)="recover()">Try again</button>
+      }
       @case ('denied') {
         <a routerLink="/">Return to the Provider Console</a>
       }

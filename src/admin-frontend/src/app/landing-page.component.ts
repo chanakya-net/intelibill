@@ -25,6 +25,6 @@ export class LandingPageComponent {
 
   /** A user action, so renewing here counts as activity; nothing renews in the background. */
   protected resume() {
-    this.admin.check().pipe(takeUntilDestroyed(this.destroy)).subscribe();
+    this.admin.check(true).pipe(takeUntilDestroyed(this.destroy)).subscribe();
   }
 }

@@ -1,14 +1,15 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { DatePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { problemCode } from '@intelibill/api';
 import { ButtonDirective } from 'primeng/button';
-import { finalize } from 'rxjs';
+import { EMPTY, finalize, switchMap } from 'rxjs';
+import { AdminSessionService } from '../auth/admin-session.service';
 import { AdminInvitationsApi } from './admin-invitations-api.service';
 
-type View = 'loading' | 'form' | 'sent' | 'denied';
+type View = 'loading' | 'form' | 'sent' | 'denied' | 'uncertain';
 
 const messages: Readonly<Record<string, string>> = {
   'Invitation.InvalidEmail': "Enter the administrator's email address.",
@@ -29,6 +30,7 @@ const messages: Readonly<Record<string, string>> = {
 })
 export class InviteAdminPageComponent {
   private readonly api = inject(AdminInvitationsApi);
+  private readonly session = inject(AdminSessionService);
   private readonly destroy = inject(DestroyRef);
   private requestToken?: string;
 
@@ -38,18 +40,42 @@ export class InviteAdminPageComponent {
   protected readonly sent = signal<{ email: string; expiresAt: string } | null>(null);
 
   constructor() {
+    effect(() => {
+      const notice = this.session.notice();
+      if (notice === 'none') return;
+      this.hideForm(notice === 'ended' ? 'denied' : 'uncertain');
+    });
     this.api.ownerContext().pipe(takeUntilDestroyed(this.destroy)).subscribe({
-      next: (context) => {
-        this.requestToken = context.requestToken;
-        this.view.set(context.requestToken ? 'form' : 'denied');
-      },
+      next: (context) => this.showForm(context.requestToken),
       error: (error: HttpErrorResponse) => this.deny(error),
     });
   }
 
+  protected recover() {
+    this.view.set('loading');
+    this.error.set('');
+    this.session.check(true).pipe(
+      switchMap((outcome) => {
+        if (outcome === 'active') return this.api.ownerContext();
+        this.hideForm(outcome === 'ended' ? 'denied' : 'uncertain');
+        return EMPTY;
+      }),
+      takeUntilDestroyed(this.destroy),
+    ).subscribe({
+      next: (context) => this.showForm(context.requestToken),
+      error: (error: HttpErrorResponse) => this.deny(error),
+    });
+  }
+
+  private showForm(token?: string) {
+    if (this.session.notice() !== 'none') return;
+    this.requestToken = token;
+    this.view.set(token ? 'form' : 'denied');
+  }
+
   protected submit(event: SubmitEvent, email: HTMLInputElement) {
     event.preventDefault();
-    if (this.busy() || !this.requestToken) return;
+    if (this.busy() || this.session.notice() !== 'none' || !this.requestToken) return;
     const address = email.value.trim();
     this.busy.set(true);
     this.error.set('');
@@ -58,12 +84,13 @@ export class InviteAdminPageComponent {
       .pipe(takeUntilDestroyed(this.destroy), finalize(() => this.busy.set(false)))
       .subscribe({
         next: (invitation) => {
+          if (this.session.notice() !== 'none') return;
           email.value = '';
           this.sent.set({ email: address, expiresAt: invitation.expiresAt });
           this.view.set('sent');
         },
         error: (error: HttpErrorResponse) => {
-          if (error.status === 401) {
+          if (error.status === 401 || this.session.notice() !== 'none') {
             this.deny(error);
             return;
           }
@@ -77,12 +104,22 @@ export class InviteAdminPageComponent {
     this.view.set('form');
   }
 
+  private hideForm(view: 'denied' | 'uncertain') {
+    this.requestToken = undefined;
+    this.sent.set(null);
+    this.view.set(view);
+    this.error.set(view === 'uncertain'
+      ? 'We could not confirm your provider session. Check your connection and try again.'
+      : 'Sign in with your provider account and authenticator to invite administrators.');
+  }
+
   private deny(error: HttpErrorResponse) {
-    this.view.set('denied');
-    if (error.status === 401) {
-      this.error.set('Sign in with your provider account and authenticator to invite administrators.');
+    if (this.session.notice() === 'uncertain' || this.session.notice() === 'expired') {
+      this.hideForm('uncertain');
       return;
     }
+    this.hideForm('denied');
+    if (error.status === 401 || this.session.notice() === 'ended') return;
     const detail = messages[problemCode(error.error) ?? ''];
     const fallback = error.status === 403
       ? 'You cannot manage administrator invitations.'

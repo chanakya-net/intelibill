@@ -228,8 +228,9 @@ PostgreSQL, migration job and Chromium acceptance flow.
 Apply `20261114202808_AddAdminRefreshCredentials` through the explicit licensing
 migration job before deploying the API or admin web. Sessions opened before the
 migration have no refresh credential: they end at access expiry and the operator
-signs in again. The migration's Down refuses once any refresh credential or
-reuse audit event exists.
+signs in again. Down locks the credential table before checking for refresh
+credentials or reuse audit events. It refuses when evidence exists and holds
+the table lock through the schema change when rollback can proceed.
 
 Sign-in also sets an HttpOnly, SameSite=Strict refresh cookie (`__Host-` and
 Secure over HTTPS, `/api/admin` on the loopback HTTP origin) that lasts until the
@@ -251,14 +252,19 @@ credential presented again revokes the whole session and records audit action
 16 (`SessionReuseRevoked`), so neither holder keeps a live successor and the
 next protected request answers 401.
 
-The admin web renews only when a provider request returns 401 (never in the
-background, so idle time still ends a session). Requests in a tab share one
-renewal and tabs take turns under the `intelibill-admin-session-renewal` Web
-Lock. A refused renewal clears the dashboard grants and shows the sign-in link.
-A renewal with an unknown outcome (network failure, timeout, 5xx) hides the
-grants without signing out and waits for the operator's retry. If the lost
-answer had already rotated the credential, that retry presents a consumed
-credential and ends the session.
+The admin web renews when a protected request returns 401. Requests in one tab
+share a renewal. Refresh and sign-in take turns under the same Web Lock, and
+protected retries verify that the browser is still using the session generation
+that started the request. Browsers where coordination fails show a recovery
+notice and send zero refresh POSTs.
+
+The console stores only a browser-generated generation and renewal state in
+local storage. It records a pending rotation before sending the POST. If the
+outcome stays unconfirmed, waiting tabs can check the live access session or
+offer an explicit retry. A retry of a consumed credential ends the session. A
+definitive rejection clears grants and discards authorized invitation forms
+and their request proofs. Invitation recovery checks the session and requests
+a fresh proof before showing the form.
 
 Run `bash tests/licensing/acceptance/run-p0110-browser.sh` for the disposable
 PostgreSQL, migration upgrade from P01-09 and reapply, and Chromium flow.

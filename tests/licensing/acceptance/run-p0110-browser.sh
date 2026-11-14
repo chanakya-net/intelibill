@@ -11,10 +11,10 @@ image="$(printf '%s' "$project" | tr '[:upper:]' '[:lower:]')-migrate:local"
 api_dll="$root/src/licensing/Intelibill.Licensing.Api/bin/Debug/net10.0/Intelibill.Licensing.Api.dll"
 predecessor=20261114194123_AddAdminSignInSessions
 migration=20261114202808_AddAdminRefreshCredentials
-api_pid= web_pid=
+api_pid= web_pid= writer_pid= down_pid=
 
 cleanup() {
-  for pid in "$web_pid" "$api_pid"; do
+  for pid in "$web_pid" "$api_pid" "$writer_pid" "$down_pid"; do
     if [[ -n "$pid" ]]; then kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi
   done
   docker rm -fv "$project-db" "$project-mail" >/dev/null 2>&1 || true
@@ -22,6 +22,10 @@ cleanup() {
   docker image rm "$image" >/dev/null 2>&1 || true
   rm -f "$artifacts/proof"
   rm -rf "$artifacts/keyring"
+  # Playwright failure snapshots can contain fixture-only form values.
+  if [[ -d "$artifacts/browser" ]]; then
+    find "$artifacts/browser" -name error-context.md -type f -delete
+  fi
 }
 trap cleanup EXIT
 
@@ -60,6 +64,49 @@ schema_facts() {
     (SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='ck_bootstrap_audit_action'),
     (SELECT count(*) FROM pg_constraint WHERE conrelid='admin_refresh_credentials'::regclass AND contype IN ('c','f')),
     has_table_privilege('licensing_runtime','admin_refresh_credentials','INSERT,UPDATE,SELECT'))"
+}
+
+wait_for_sql() {
+  for ((i=0;i<100;i++)); do
+    if [[ "$(sql -c "$1")" == t ]]; then return 0; fi
+    sleep .2
+  done
+  return 1
+}
+
+assert_down_fences_insert() {
+  local fifo="$artifacts/credential-writer"
+  mkfifo "$fifo"
+  sql <"$fifo" >"$artifacts/credential-writer.log" 2>&1 &
+  writer_pid=$!
+  exec 3>"$fifo"
+  cat >&3 <<'SQL'
+SET application_name = 'p0110-credential-writer';
+BEGIN;
+INSERT INTO admin_refresh_credentials(id,session_id,token_hash,issued_at,expires_at)
+SELECT 'bbf1e235-d19e-4b1e-a98a-573aff6fd6e4',id,repeat('A',64),now(),now()+interval '1 hour'
+FROM admin_sessions;
+SQL
+  wait_for_sql "SELECT EXISTS (SELECT FROM pg_stat_activity WHERE application_name='p0110-credential-writer' AND state='idle in transaction')"
+  bundle "$predecessor" >"$artifacts/down.log" 2>&1 &
+  down_pid=$!
+  # The predecessor job must reach the table fence while the staging insert still holds its write lock.
+  wait_for_sql "SELECT EXISTS (SELECT FROM pg_locks WHERE relation='admin_refresh_credentials'::regclass AND mode='AccessExclusiveLock' AND NOT granted)"
+  printf 'COMMIT;\n' >&3
+  exec 3>&-
+  wait "$writer_pid"
+  writer_pid=
+  if wait "$down_pid"; then
+    printf 'Down unexpectedly removed the table after the staged credential committed.\n' >&2
+    return 1
+  fi
+  down_pid=
+  rg -q '55000: Admin refresh evidence exists' "$artifacts/down.log"
+  [[ "$(latest)" == "$migration" && "$(schema_facts)" == "$schema" ]]
+  [[ "$(sql -c "SELECT count(*) FROM admin_refresh_credentials WHERE id='bbf1e235-d19e-4b1e-a98a-573aff6fd6e4'")" == 1 ]]
+  printf 'Down waited for a staged credential insert, refused with SQLSTATE 55000, and retained the row and migration history.\n'
+  # This disposable fixture stages the row only for the Down check.
+  sql -c "DELETE FROM admin_refresh_credentials WHERE id='bbf1e235-d19e-4b1e-a98a-573aff6fd6e4'"
 }
 
 printf 'P01-10 fixture output in %s\n' "$artifacts"
@@ -140,6 +187,7 @@ schema="$(schema_facts)"
 [[ "$(sql -c "SELECT count(*) FROM admin_refresh_credentials")" == 0 ]]
 printf 'Explicit migration job upgraded P01-09: prior identity, session and audit rows unchanged; schema %s.\n' "$schema"
 printf 'The P01-09 session has no refresh credential, so it ends at access expiry and needs a fresh sign-in.\n'
+assert_down_fences_insert
 
 (
   export DOTNET_ENVIRONMENT=Development
@@ -171,8 +219,8 @@ facts() {
 }
 settled="$(facts)"
 IFS='|' read -r sessions revoked credentials unconsumed reuse _ <<<"$settled"
-[[ "$sessions" == 2 && "$revoked" == 1 && "$credentials" -ge 4 && "$unconsumed" == 1 && "$reuse" == 1 ]]
-[[ "$(sql -c "SELECT count(*) FROM admin_refresh_credentials WHERE parent_id IS NULL")" == 1 ]]
+[[ "$sessions" == 5 && "$revoked" == 1 && "$credentials" -ge 8 && "$unconsumed" == 4 && "$reuse" == 1 ]]
+[[ "$(sql -c "SELECT count(*) FROM admin_refresh_credentials WHERE parent_id IS NULL")" == 4 ]]
 printf 'Browser run left %s sessions (%s revoked by reuse), %s chained credentials (%s unconsumed), %s reuse audit event.\n' \
   "$sessions" "$revoked" "$credentials" "$unconsumed" "$reuse"
 bundle >"$artifacts/reapply.log"
