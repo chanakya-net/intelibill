@@ -1,0 +1,15 @@
+<Solution>
+  <Project Path="tests/backend/integration/Intelibill.Integration.Tests/Intelibill.Integration.Tests.csproj" />
+  <Project Path="tests/backend/unit/Intelibill.Api.Unit.Tests/Intelibill.Api.Unit.Tests.csproj" />
+  <Project Path="tests/backend/unit/Intelibill.Application.Unit.Tests/Intelibill.Application.Unit.Tests.csproj" />
+  <Project Path="tests/backend/unit/Intelibill.Domain.Unit.Tests/Intelibill.Domain.Unit.Tests.csproj" />
+  <Project Path="src/backend/Intelibill.Api/Intelibill.Api.csproj" />
+  <Project Path="src/backend/Intelibill.Application/Intelibill.Application.csproj" />
+  <Project Path="src/backend/Intelibill.Domain/Intelibill.Domain.csproj" />
+  <Project Path="src/backend/Intelibill.Infrastructure/Intelibill.Infrastructure.csproj" />
+  <Project Path="tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj" />
+  <Project Path="src/licensing/Intelibill.Licensing.Api/Intelibill.Licensing.Api.csproj" />
+  <Project Path="src/licensing/Intelibill.Licensing.Application/Intelibill.Licensing.Application.csproj" />
+  <Project Path="src/licensing/Intelibill.Licensing.Domain/Intelibill.Licensing.Domain.csproj" />
+  <Project Path="src/licensing/Intelibill.Licensing.Infrastructure/Intelibill.Licensing.Infrastructure.csproj" />
+</Solution>
