@@ -276,7 +276,10 @@ Repeated component styles live once, in a lazily delivered UI kit; component fil
 Plan and measurements: `docs/superpowers/plans/2026-11-10-shared-styles-and-offline-pack.md` and its `-baseline.md`.
 
 - **Layers.** Tokens (`--app-*` custom properties: orange, sand/brown/bronze, stone, slate, red, amber, radii,
-  shadows, font families) sit on `:root` in `src/styles.css` and ship with the first load. Kit classes use the
+  shadows, font families) sit on `:root` in `@intelibill/ui/styles/tokens.css` (`src/shared/frontend/ui/styles/`,
+  beside `fonts.css` and `base.css`); `src/styles.css` imports them and they ship with the first load. The admin
+  app imports the same files. The `ib-form-section`, `ib-panel` and `ib-page-heading` families and the kit layer
+  order also live there; the merchant ui-kit files `@import` them. Kit classes use the
   `ib-` prefix so a generic component class (`.actions`) can never pick up a kit rule. Cascade order, pinned by
   `tests/ui-audit/mock/ui-kit-cascade.spec.ts`: `theme, base, primeng, properties, components, utilities, ib-base,
   ib-kit`, then unlayered component styles. The global `h1`-`h6`/`p` resets are in `@layer ib-base`, so a kit

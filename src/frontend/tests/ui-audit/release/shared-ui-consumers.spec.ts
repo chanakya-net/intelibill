@@ -36,44 +36,6 @@ test('merchant login retains its appearance and loads only the auth style kit', 
   }
 });
 
-test('admin landing denies provider access and confirms a local display change', async ({
-  page,
-}) => {
-  const admin = resolve('../admin-frontend/dist/ADMIN/browser');
-  const server = await startReleaseServer(admin);
-  try {
-    await access(join(admin, 'index.html'));
-    await page.goto(server.origin + '/inventory');
-    await expect(page.getByRole('heading', { name: 'Provider Console' })).toBeVisible();
-    await expect(page).toHaveURL(server.origin + '/');
-    await expect(page.getByRole('alert')).toHaveText('No provider session');
-    await expect(page.getByText('No provider permissions')).toBeVisible();
-    await expect(page.locator('.ib-form-section')).toHaveCSS('display', 'grid');
-    await expect(page.getByRole('alert')).toHaveCSS('color', 'rgb(185, 28, 28)');
-
-    const hideHelp = page.getByRole('button', { name: 'Hide access help' });
-    const prompt = page.getByRole('alertdialog', { name: 'Hide access help?' });
-    await hideHelp.click();
-    await prompt.getByRole('button', { name: 'Cancel' }).click();
-    await expect(hideHelp).toBeVisible();
-    await hideHelp.click();
-    await prompt.getByRole('button', { name: 'Hide help' }).click();
-    await expect(page.getByRole('alert')).toHaveText('No provider session');
-    await expect(page.getByText('No provider permissions')).toBeVisible();
-    await expect(page.getByText('Provider access requires a provider session.')).toBeHidden();
-    await page.getByRole('button', { name: 'Show access help' }).click();
-    await expect(page.getByText('Provider access requires a provider session.')).toBeVisible();
-    expect(server.requests.filter(({ path }) => /^\/(api|hubs|ngsw)([\/.-]|$)/.test(path))).toEqual(
-      [],
-    );
-    expect(
-      await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length),
-    ).toBe(0);
-  } finally {
-    await server.close();
-  }
-});
-
 test('merchant ships the protected wrapper with both offline packs and the shared fonts', async () => {
   const read = (path: string) => readFile(join(merchant, path), 'utf8');
   expect(await read('ngsw-worker.js')).toMatch(/^\/\* intelibill:protected-api-worker \*\//);

@@ -8,7 +8,8 @@
   "scripts": {
     "start": "NODE_NO_WARNINGS=1 ng serve",
     "build": "ng build",
-    "test": "ng test"
+    "test": "ng test",
+    "audit:release": "ng build && bun x playwright test --config tests/release/playwright.release.config.ts"
   },
   "dependencies": {
     "@angular/animations": "^21.2.6",
@@ -33,6 +34,7 @@
     "@angular/build": "^21.2.4",
     "@angular/cli": "^21.2.4",
     "@angular/compiler-cli": "^21.2.0",
+    "@playwright/test": "1.62.0",
     "@types/node": "^25.6.0",
     "jsdom": "^28.0.0",
     "typescript": "~5.9.2",
