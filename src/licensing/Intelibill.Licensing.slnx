@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="../../tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj" />
+  <Project Path="Intelibill.Licensing.Api/Intelibill.Licensing.Api.csproj" />
+  <Project Path="Intelibill.Licensing.Application/Intelibill.Licensing.Application.csproj" />
+  <Project Path="Intelibill.Licensing.Domain/Intelibill.Licensing.Domain.csproj" />
+  <Project Path="Intelibill.Licensing.Infrastructure/Intelibill.Licensing.Infrastructure.csproj" />
+</Solution>
