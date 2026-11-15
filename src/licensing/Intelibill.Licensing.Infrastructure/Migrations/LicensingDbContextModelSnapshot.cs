@@ -523,6 +523,57 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.CatalogueDraftChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActorAdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_admin_id");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_id");
+
+                    b.Property<int>("TargetKind")
+                        .HasColumnType("integer")
+                        .HasColumnName("target_kind");
+
+                    b.HasKey("Id")
+                        .HasName("pk_catalogue_draft_changes");
+
+                    b.HasIndex("ActorAdminId")
+                        .HasDatabaseName("ix_catalogue_draft_changes_actor_admin_id");
+
+                    b.HasIndex("TargetKind", "TargetId", "Revision")
+                        .IsUnique()
+                        .HasDatabaseName("ix_catalogue_draft_changes_target_kind_target_id_revision");
+
+                    b.ToTable("catalogue_draft_changes", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_catalogue_draft_changes_reason", "reason = btrim(reason) AND char_length(reason) BETWEEN 1 AND 500");
+
+                            t.HasCheckConstraint("ck_catalogue_draft_changes_revision", "revision >= 1");
+
+                            t.HasCheckConstraint("ck_catalogue_draft_changes_target", "target_kind IN (1, 2)");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.InitialAdminBootstrap", b =>
                 {
                     b.Property<int>("Id")
@@ -653,6 +704,165 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.Plan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedByAdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_admin_id");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer")
+                        .HasColumnName("kind");
+
+                    b.HasKey("Id")
+                        .HasName("pk_plans");
+
+                    b.HasIndex("CreatedByAdminId")
+                        .HasDatabaseName("ix_plans_created_by_admin_id");
+
+                    b.ToTable("plans", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_plans_id", "id <> '00000000-0000-0000-0000-000000000000'");
+
+                            t.HasCheckConstraint("ck_plans_kind", "kind IN (1, 2, 3)");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.PlanVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<long?>("AnnualPricePaise")
+                        .HasColumnType("bigint")
+                        .HasColumnName("annual_price_paise");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedByAdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_admin_id");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
+                    b.Property<string>("CustomerTermsVersion")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("customer_terms_version");
+
+                    b.Property<long?>("ExtraShopAnnualPricePaise")
+                        .HasColumnType("bigint")
+                        .HasColumnName("extra_shop_annual_price_paise");
+
+                    b.Property<long?>("ExtraShopMonthlyPricePaise")
+                        .HasColumnType("bigint")
+                        .HasColumnName("extra_shop_monthly_price_paise");
+
+                    b.Property<bool?>("ExtraShopsOffered")
+                        .HasColumnType("boolean")
+                        .HasColumnName("extra_shops_offered");
+
+                    b.Property<int?>("IncludedShops")
+                        .HasColumnType("integer")
+                        .HasColumnName("included_shops");
+
+                    b.Property<int?>("MembersPerShop")
+                        .HasColumnType("integer")
+                        .HasColumnName("members_per_shop");
+
+                    b.Property<long?>("MonthlyPricePaise")
+                        .HasColumnType("bigint")
+                        .HasColumnName("monthly_price_paise");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NegotiationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("negotiation_reason");
+
+                    b.Property<Guid>("PlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plan_id");
+
+                    b.Property<string>("RefundPolicyVersion")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("refund_policy_version");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UpdatedByAdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_admin_id");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("version_number");
+
+                    b.HasKey("Id")
+                        .HasName("pk_plan_versions");
+
+                    b.HasIndex("PlanId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_plan_versions_open_draft")
+                        .HasFilter("status = 1");
+
+                    b.HasIndex("PlanId", "VersionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_plan_versions_plan_id_version_number");
+
+                    b.ToTable("plan_versions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_plan_versions_amounts", "monthly_price_paise BETWEEN 0 AND 1000000000000\nAND annual_price_paise BETWEEN 0 AND 1000000000000\nAND extra_shop_monthly_price_paise BETWEEN 0 AND 1000000000000\nAND extra_shop_annual_price_paise BETWEEN 0 AND 1000000000000");
+
+                            t.HasCheckConstraint("ck_plan_versions_capacities", "included_shops BETWEEN 1 AND 100000 AND members_per_shop BETWEEN 1 AND 100000");
+
+                            t.HasCheckConstraint("ck_plan_versions_currency", "currency = 'INR'");
+
+                            t.HasCheckConstraint("ck_plan_versions_extra_shop_offer", "extra_shops_offered IS TRUE\nOR (extra_shop_monthly_price_paise IS NULL AND extra_shop_annual_price_paise IS NULL)");
+
+                            t.HasCheckConstraint("ck_plan_versions_name", "name = btrim(name) AND char_length(name) BETWEEN 1 AND 80");
+
+                            t.HasCheckConstraint("ck_plan_versions_numbers", "version_number >= 1 AND revision >= 1");
+
+                            t.HasCheckConstraint("ck_plan_versions_policy_versions", "customer_terms_version ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$' AND refund_policy_version ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$'");
+
+                            t.HasCheckConstraint("ck_plan_versions_reason", "negotiation_reason = btrim(negotiation_reason) AND char_length(negotiation_reason) BETWEEN 1 AND 500");
+
+                            t.HasCheckConstraint("ck_plan_versions_status", "status IN (1, 2, 3)");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.ProviderAuditEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -714,6 +924,83 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 25 OR action BETWEEN 101 AND 107");
 
                             t.HasCheckConstraint("ck_provider_audit_metadata", "(num_nonnulls(actor_kind, reason, correlation_id) = 0 AND action BETWEEN 1 AND 16\n    AND \"before\" IS NULL AND \"after\" IS NULL)\nOR (num_nonnulls(actor_kind, reason, correlation_id) = 3\n    AND actor_kind BETWEEN 1 AND 5 AND reason BETWEEN 1 AND 36)");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.TrialPolicyVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int?>("ActiveMemberCap")
+                        .HasColumnType("integer")
+                        .HasColumnName("active_member_cap");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedByAdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_admin_id");
+
+                    b.Property<int>("DurationDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_days");
+
+                    b.Property<int?>("MaxConcurrentTrialShops")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_concurrent_trial_shops");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TrialTermsVersion")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("trial_terms_version");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<Guid>("UpdatedByAdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updated_by_admin_id");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("version_number");
+
+                    b.HasKey("Id")
+                        .HasName("pk_trial_policy_versions");
+
+                    b.HasIndex("Status")
+                        .IsUnique()
+                        .HasDatabaseName("ux_trial_policy_versions_open_draft")
+                        .HasFilter("status = 1");
+
+                    b.HasIndex("VersionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_trial_policy_versions_version_number");
+
+                    b.ToTable("trial_policy_versions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_trial_policy_versions_caps", "active_member_cap BETWEEN 1 AND 100000 AND max_concurrent_trial_shops BETWEEN 1 AND 100000");
+
+                            t.HasCheckConstraint("ck_trial_policy_versions_duration", "duration_days = 14");
+
+                            t.HasCheckConstraint("ck_trial_policy_versions_numbers", "version_number >= 1 AND revision >= 1");
+
+                            t.HasCheckConstraint("ck_trial_policy_versions_status", "status IN (1, 2, 3)");
+
+                            t.HasCheckConstraint("ck_trial_policy_versions_terms", "trial_terms_version ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$'");
                         });
                 });
 
@@ -918,6 +1205,16 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasConstraintName("fk_bootstrap_enrollment_credentials_admin_identities_owner_id");
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.CatalogueDraftChange", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.AdminIdentity", null)
+                        .WithMany()
+                        .HasForeignKey("ActorAdminId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_catalogue_draft_changes_admin_identities_actor_admin_id");
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.InitialAdminBootstrap", b =>
                 {
                     b.HasOne("Intelibill.Licensing.Domain.Entities.AdminIdentity", null)
@@ -925,6 +1222,26 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasForeignKey("Intelibill.Licensing.Domain.Entities.InitialAdminBootstrap", "OwnerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_initial_admin_bootstrap_admin_identity_owner_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.Plan", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.AdminIdentity", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByAdminId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_plans_admin_identities_created_by_admin_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.PlanVersion", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.Plan", null)
+                        .WithMany()
+                        .HasForeignKey("PlanId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_plan_versions_plans_plan_id");
                 });
 
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.ProviderAuditEvent", b =>

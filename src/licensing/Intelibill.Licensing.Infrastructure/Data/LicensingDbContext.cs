@@ -26,5 +26,9 @@ public sealed class LicensingDbContext(DbContextOptions<LicensingDbContext> opti
         modelBuilder.ApplyConfiguration(new MerchantBillingDelegationUseConfiguration());
         modelBuilder.ApplyConfiguration(new BillingAccountConfiguration());
         modelBuilder.ApplyConfiguration(new BillingAccountMemberConfiguration());
+        modelBuilder.ApplyConfiguration(new PlanConfiguration());
+        modelBuilder.ApplyConfiguration(new PlanVersionConfiguration());
+        modelBuilder.ApplyConfiguration(new TrialPolicyVersionConfiguration());
+        modelBuilder.ApplyConfiguration(new CatalogueDraftChangeConfiguration());
     }
 }

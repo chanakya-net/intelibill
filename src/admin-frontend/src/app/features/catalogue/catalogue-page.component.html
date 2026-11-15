@@ -1,0 +1,62 @@
+<main>
+  <a routerLink="/">Provider Console</a>
+  <h1 class="ib-page-title">Plan catalogue drafts</h1>
+  @if (access()) {
+    <section class="ib-panel" aria-labelledby="plans-heading">
+      <h2 class="ib-panel__title" id="plans-heading">Plans</h2>
+      <p>Drafts are inactive: they are never published, offered, charged or enforced from here. Amounts are INR.</p>
+      @if (error()) { <p class="ib-error-banner" role="alert">{{ error() }}</p> }
+      @if (busy()) { <p role="status">Working…</p> }
+      @if (reloadRequired()) {
+        <p class="ib-error-banner" role="alert">A draft changed elsewhere. Reload before editing.</p>
+        <div><button pButton type="button" (click)="load()">Reload catalogue</button></div>
+      }
+      @if (loaded()) {
+        @if (plans().length) {
+          <ul class="plans" aria-label="Plan drafts">
+            @for (item of plans(); track item.planId) {
+              <li>
+                <button type="button" class="plan" (click)="edit(item)" [disabled]="reloadRequired()"
+                  [attr.aria-current]="selected()?.planId === item.planId">
+                  <strong>{{ item.draft.name }}</strong>
+                  <span>{{ kinds[item.kind] }} · {{ inr(item.draft.monthlyPricePaise) }} monthly</span>
+                  <span>Draft · not published · {{ item.draft.complete ? 'complete' : 'incomplete' }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p>No plan drafts yet.</p>
+        }
+        <div class="actions">
+          <button pButton type="button" (click)="edit(null)" [disabled]="reloadRequired()">New plan draft</button>
+          @if (nextCursor()) {
+            <button pButton type="button" (click)="more()" [disabled]="busy()">More plans</button>
+          }
+        </div>
+      }
+    </section>
+    @if (loaded() && !reloadRequired()) {
+      @for (key of editorKey() ? [editorKey()!] : []; track key) {
+        <adm-plan-draft-editor [plan]="selected()" (saved)="planSaved($event)" (conflict)="conflicted()" />
+      }
+      <adm-trial-policy-editor [draft]="trial()" (saved)="trial.set($event)" (conflict)="conflicted()" />
+    }
+  } @else {
+    <section class="ib-panel" aria-label="Catalogue access status">
+      @switch (notice()) {
+        @case ('expired') {
+          <p role="alert">Your provider access paused.</p>
+          <div><button pButton type="button" (click)="reconfirm()">Continue session</button></div>
+        }
+        @case ('ended') {
+          <p class="ib-error-banner" role="alert">Your provider session ended.</p>
+          <a routerLink="/auth/sign-in">Sign in again</a>
+        }
+        @default {
+          <p class="ib-error-banner" role="alert">Only a Licensing Manager can draft plans and the trial policy.</p>
+        }
+      }
+    </section>
+  }
+</main>

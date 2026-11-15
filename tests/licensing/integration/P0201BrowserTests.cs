@@ -79,20 +79,6 @@ public sealed class P0201BrowserTests(LicensingPostgreSqlFixture database, ITest
 
         Assert.True(run.Process.ExitCode == 0 && File.Exists(Path.Combine(evidence, "observations.json")), errors);
     }
-
-    private static async Task<OwnedProcess> StartAdminWebAsync(string root, Uri origin, CancellationToken cancellationToken)
-    {
-        Assert.True(File.Exists(Path.Combine(root, "dist/ADMIN/browser/index.html")), "Build the shipping admin web first.");
-        var start = NodeStart(root, origin);
-        start.ArgumentList.Add("--input-type=module");
-        start.ArgumentList.Add("-e");
-        start.ArgumentList.Add("""
-            import { createAdminServer } from './server.mjs';
-            const server = createAdminServer({ root: 'dist/ADMIN/browser', apiOrigin: process.env.API_ORIGIN });
-            server.listen(0, '127.0.0.1', () => console.log('http://localhost:' + server.address().port));
-            """);
-        return await StartWebAsync(start, cancellationToken);
-    }
 }
 
 internal sealed class P0201BrowserFactAttribute : FactAttribute

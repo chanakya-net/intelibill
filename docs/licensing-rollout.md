@@ -358,3 +358,34 @@ audit event in the same transaction that consumes the invitation.
 Verify through the local PostgreSQL and Chromium fixtures. This slice adds
 commercial membership under the observe-only configuration. Shop authorization
 continues through merchant sessions and memberships.
+
+### Draft plans and trial policy (P02-06)
+
+Rollout order is licensing migration `20261116090000_AddCatalogueDrafts`, then the
+licensing API, then the admin web. The migration adds `plans`, `plan_versions`,
+`trial_policy_versions` and the append-only `catalogue_draft_changes`, all with
+forced row-level security: a transaction sees or writes them only after naming,
+transaction-locally (`app.catalogue_admin_id`), an active, MFA-enrolled
+administrator who holds the Licensing Manager grant. Without that context the
+runtime role sees no rows and cannot insert, so drafts never reach merchant or
+customer surfaces. `Down` refuses (55000) while any catalogue row exists.
+
+Only the persisted `licensing-manager` grant may read or save drafts; Platform
+Owner alone is refused (403 `Catalogue.AccessDenied`). Saves need a live provider
+session, the admin origin and `X-Admin-CSRF`, and an explicit `expectedVersion`
+(`0` creates; a stale revision answers 409 `Catalogue.DraftVersionConflict`).
+
+- `GET /api/admin/plans?cursor=`, `PUT /api/admin/plans/{planId}/draft`
+- `GET /api/admin/trial-policy/draft`, `PUT /api/admin/trial-policy/draft`
+
+Every fact is optional while drafting and stays visibly missing (`missing[]`,
+`complete: false`); there is no unlimited value or default. Prices are whole INR
+paise from 0 to 1,000,000,000,000 (zero is an explicit fact), capacities and
+trial caps 1 to 100,000, the trial lasts a fixed 14 days. Single-shop covers one
+shop with no extra shops; Multi-shop needs at least two shops and prices extra
+shops only when offered; Custom needs a recorded negotiation reason. No invoice
+quotas, feature tiers, metered seats or extra fees exist. Every draft stays
+inactive: publication, retirement and customer catalogue reads are later slices.
+The admin web exposes the editor at `/catalogue`. Verify with `P0206Tests` and,
+after building the admin web, `P0206_RUN_BROWSER=1` `P0206BrowserTests`; all
+amounts in those runs are local fixture values.
