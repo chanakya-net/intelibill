@@ -68,12 +68,16 @@ MOCK
 }
 
 start_source_repo() {
-  local source_repo="$fixture/source" path
+  local source_repo="$fixture/source" path variable
   for path in scripts/dev/licensing-stack-lib.sh scripts/licensing/p01-foundation-evidence.sh scripts/licensing/test-p01-foundation.sh; do
     mkdir -p "$source_repo/$(dirname "$path")"
     cp "$path" "$source_repo/$path"
   done
   cd "$source_repo"
+  # A Git hook can pass an alternate repository to child commands.
+  while IFS= read -r variable; do
+    unset "$variable"
+  done < <(git rev-parse --local-env-vars)
   git init -q
   git config user.name 'P01 fixture'
   git config user.email p0115-fixture@example.test
