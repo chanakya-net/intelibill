@@ -42,4 +42,4 @@ public sealed record AdminAuditItem(Guid Id, string Scope, string Action, string
     AdminAuditReference? Before, AdminAuditReference? After);
 
 public sealed record AdminAuditReference(string TargetKind, Guid? TargetId, string State,
-    uint? Version, DateTimeOffset? MilestoneAt);
+    uint? Version, DateTimeOffset? MilestoneAt, string[]? Capabilities);

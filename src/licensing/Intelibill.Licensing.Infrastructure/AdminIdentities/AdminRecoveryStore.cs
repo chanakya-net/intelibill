@@ -1,3 +1,4 @@
+using System.Data;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Application.Audit;
 using Intelibill.Licensing.Domain.Entities;
@@ -8,21 +9,23 @@ using Microsoft.EntityFrameworkCore;
 namespace Intelibill.Licensing.Infrastructure.AdminIdentities;
 
 /// <summary>
-/// Recovery persistence. The administrator row is locked first (the sign-in, refresh and MFA order),
-/// so a recovery serializes with every other credential change for that administrator.
+/// Recovery locks identities before sessions and credentials, in the same order as sign-in and refresh.
 /// </summary>
 internal sealed class AdminRecoveryStore(LicensingDbContext context, AdminMfaStore mfa, AdminMfaKeys keys,
     AuditEvidenceFactory audit) : IAdminRecoveryStore
 {
     public async Task<T> InTransactionAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
     {
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
         await context.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", cancellationToken);
         var result = await operation(cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return result;
     }
+
+    public Task LockOwnerFenceAsync(CancellationToken cancellationToken) =>
+        AdminAuthorityLocks.LockOwnerFenceAsync(context, cancellationToken);
 
     public async Task<AdminIdentity?> LockByEmailAsync(string? normalizedEmail, CancellationToken cancellationToken)
     {
@@ -44,14 +47,8 @@ internal sealed class AdminRecoveryStore(LicensingDbContext context, AdminMfaSto
             rows.SingleOrDefault(row => string.Equals(row.Email, normalizedEmail, StringComparison.Ordinal)));
     }
 
-    public async Task<AdminSession?> LockReviewerSessionAsync(AdminSessionCaller caller, CancellationToken cancellationToken)
-    {
-        var rows = await context.Set<AdminSession>().FromSql($"""
-            SELECT *, xmin FROM public.admin_sessions WHERE id = {caller.SessionId} AND admin_id = {caller.AdminId}
-            FOR UPDATE
-            """).ToListAsync(cancellationToken);
-        return rows.SingleOrDefault();
-    }
+    public Task<AdminSession?> LockReviewerSessionAsync(AdminSessionCaller caller, CancellationToken cancellationToken) =>
+        AdminAuthorityLocks.LockSessionAsync(context, caller, cancellationToken);
 
     public async Task<RecoveryCodeUse> ConsumeRecoveryCodeAsync(Guid adminId, string normalizedCode, bool hasContinuation,
         DateTimeOffset now, CancellationToken cancellationToken)
@@ -76,24 +73,13 @@ internal sealed class AdminRecoveryStore(LicensingDbContext context, AdminMfaSto
         return rows.SingleOrDefault();
     }
 
-    public Task<bool> IsPlatformOwnerAsync(Guid adminId, CancellationToken cancellationToken) =>
-        context.Set<InitialAdminBootstrap>().AnyAsync(state => state.OwnerId == adminId && state.ConsumedAt != null,
-            cancellationToken);
-
     public Task<int> CountRecoverableOwnersAsync(Guid exceptAdminId, CancellationToken cancellationToken) =>
-        (from state in context.Set<InitialAdminBootstrap>()
-         join owner in context.Set<AdminIdentity>() on state.OwnerId equals owner.Id
-         where state.ConsumedAt != null && owner.Id != exceptAdminId
-             && owner.MfaEnrolledAt != null && owner.DeactivatedAt == null
-         select owner.Id).CountAsync(cancellationToken);
+        AdminAuthorityLocks.RecoverableOwners(context).CountAsync(owner => owner.Id != exceptAdminId, cancellationToken);
 
     public async Task ResetMfaAsync(AdminIdentity admin, DateTimeOffset now, bool keepRecoveryCodes,
         CancellationToken cancellationToken)
     {
-        var sessions = await context.Set<AdminSession>().FromSql($"""
-            SELECT *, xmin FROM public.admin_sessions WHERE admin_id = {admin.Id} AND revoked_at IS NULL
-            ORDER BY id FOR UPDATE
-            """).ToListAsync(cancellationToken);
+        var sessions = await AdminAuthorityLocks.LockOpenSessionsAsync(context, admin.Id, cancellationToken);
         foreach (var session in sessions)
             await AdminSessionRevocation.StageAsync(context, audit, session, now, BootstrapAuditAction.DeviceSessionRevoked,
                 AuditReason.RecoveryReset, cancellationToken, AuditActor.System);

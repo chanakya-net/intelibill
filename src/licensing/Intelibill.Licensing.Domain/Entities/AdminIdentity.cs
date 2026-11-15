@@ -1,7 +1,8 @@
 namespace Intelibill.Licensing.Domain.Entities;
 
 public sealed class AdminIdentity(
-    Guid id, string email, string passwordHash, string verificationReference, DateTimeOffset verifiedAt)
+    Guid id, string email, string passwordHash, string verificationReference, DateTimeOffset verifiedAt,
+    AdminCapability capabilities = AdminCapability.None)
 {
     public Guid Id { get; private set; } = id;
     public string Email { get; private set; } = email;
@@ -12,7 +13,15 @@ public sealed class AdminIdentity(
     public DateTimeOffset? MfaEnrolledAt { get; private set; }
     public DateTimeOffset? DeactivatedAt { get; private set; }
     public string? RecoveryContinuationDigest { get; private set; }
+    public AdminCapability Capabilities { get; private set; } = capabilities;
+    public bool IsPlatformOwner => Capabilities.HasFlag(AdminCapability.PlatformOwner);
     public uint Version { get; private set; }
+
+    public void UpdateCapabilities(AdminCapability grants, bool disable, DateTimeOffset now)
+    {
+        Capabilities = grants;
+        if (disable) DeactivatedAt ??= now;
+    }
 
     public void CompleteMfaEnrollment(DateTimeOffset now)
     {

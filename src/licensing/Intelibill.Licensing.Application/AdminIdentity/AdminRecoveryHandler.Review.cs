@@ -27,6 +27,7 @@ public sealed partial class AdminRecoveryHandler
     private async Task<ErrorOr<IssuedRecoveryReset>> ReviewLockedAsync(AdminSessionCaller caller, string email,
         AdminRecoveryEvidence evidence, BootstrapSecret secret, CancellationToken token)
     {
+        await store.LockOwnerFenceAsync(token);
         var (reviewer, target) = await store.LockReviewAsync(caller.AdminId, email, token);
         var session = await store.LockReviewerSessionAsync(caller, token);
         var now = clock.GetUtcNow();
@@ -34,12 +35,11 @@ public sealed partial class AdminRecoveryHandler
             return Deny(caller, now, AuditReason.ScopeUnavailable, AdminRefreshErrors.SessionEnded);
         if (!new ProviderActor(caller.AdminId, session.MfaVerifiedAt).HasRecentMfa(now))
             return Deny(caller, now, AuditReason.RecentMfaRequired, AdminRecoveryRules.RecentMfaRequired);
-        if (reviewer is not { DeactivatedAt: null, MfaEnrolledAt: not null }
-            || !await store.IsPlatformOwnerAsync(reviewer.Id, token))
+        if (reviewer is not { DeactivatedAt: null, MfaEnrolledAt: not null, IsPlatformOwner: true })
             return Deny(caller, now, AuditReason.CapabilityRequired, AdminRecoveryRules.AccessDenied);
         if (target is not { DeactivatedAt: null })
             return Deny(caller, now, AuditReason.ScopeUnavailable, AdminRecoveryRules.TargetUnavailable);
-        if (await store.IsPlatformOwnerAsync(target.Id, token) && await store.CountRecoverableOwnersAsync(target.Id, token) == 0)
+        if (target.IsPlatformOwner && await store.CountRecoverableOwnersAsync(target.Id, token) == 0)
             return Deny(caller, now, AuditReason.LastRecoverableOwner, AdminRecoveryRules.LastRecoverableOwner);
         if (target.Id == reviewer.Id)
             return Deny(caller, now, AuditReason.RequestRejected, AdminRecoveryRules.SelfReview);

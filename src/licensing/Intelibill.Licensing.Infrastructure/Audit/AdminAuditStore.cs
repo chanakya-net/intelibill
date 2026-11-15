@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Application.Audit;
 using Intelibill.Licensing.Domain.Entities;
 using Intelibill.Licensing.Infrastructure.Data;
@@ -61,10 +62,15 @@ internal sealed class AdminAuditStore(LicensingDbContext context, TimeProvider c
     private static AdminAuditReference? ProjectReference(AuditReference? reference) =>
         reference is null || !IsProviderReference(reference) ? null
             : new(reference.TargetKind.ToString(), reference.TargetId, reference.State.ToString(),
-                reference.Version, reference.MilestoneAt?.ToUniversalTime());
+                reference.Version, reference.MilestoneAt?.ToUniversalTime(),
+                reference.Capabilities is { } grants ? AdminCapabilityNames.ToNames(grants) : null);
 
     private static bool IsProviderReference(AuditReference reference) => reference switch
     {
+        { TargetKind: AuditTarget.Administrator, TargetId: not null, Version: > 0, MilestoneAt: null,
+            Capabilities: >= AdminCapability.None and <= (AdminCapability)31,
+            State: AuditState.MfaPending or AuditState.MfaEnrolled or AuditState.Disabled } => true,
+        { Capabilities: not null } => false,
         { TargetKind: AuditTarget.Bootstrap, TargetId: null, Version: null, MilestoneAt: not null,
             State: AuditState.Prepared or AuditState.Consumed } => true,
         { TargetKind: AuditTarget.Invitation, TargetId: not null, Version: not null, MilestoneAt: null,

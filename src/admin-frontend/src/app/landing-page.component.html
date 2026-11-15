@@ -14,8 +14,10 @@
                 <a routerLink="/audit">Audit history</a>
               } @else if (capability === recoveryCapability) {
                 <a routerLink="/security/recovery">Review administrator recovery</a>
+              } @else if (capability === accessManagementCapability) {
+                <a routerLink="/admin-users">Manage administrator access</a>
               } @else {
-                {{ capability }}
+                {{ capabilityLabel(capability) }}
               }
             </li>
           }

@@ -1,0 +1,95 @@
+<main>
+  <a routerLink="/">Provider Console</a>
+  <h1 class="ib-page-title">Administrator access</h1>
+  @if (access()) {
+    <section class="ib-panel">
+      @if (error()) {
+        <p class="ib-error-banner" role="alert">{{ error() }}</p>
+      }
+      @if (reauthenticate()) {
+        <a routerLink="/auth/sign-in">Sign in again</a>
+      }
+      @if (saved()) {
+        <p role="status">{{ saved() }}</p>
+      }
+      @if (busy()) {
+        <p role="status">Working…</p>
+      }
+      <label for="administrator">Administrator</label>
+      <select id="administrator" #picker [value]="selected()?.id ?? ''" (change)="select(picker.value)"
+        [disabled]="busy() || reloadRequired() || reauthenticate()">
+        <option value="">Select an administrator</option>
+        @for (row of rows(); track row.id) {
+          <option [value]="row.id" [selected]="selected()?.id === row.id">{{ row.email }}</option>
+        }
+      </select>
+      @if (hasPrevious() || nextCursor()) {
+        <nav class="actions" aria-label="Administrator pages">
+          <button pButton type="button" (click)="previous()" [disabled]="busy() || !hasPrevious()">Previous page</button>
+          <button pButton type="button" (click)="next()" [disabled]="busy() || !nextCursor()">Next page</button>
+        </nav>
+      }
+      @if (reloadRequired()) {
+        <div><button pButton type="button" (click)="reload()">Reload administrators</button></div>
+      }
+    </section>
+
+    @for (row of selected() ? [selected()!] : []; track row.id) {
+      <section class="ib-panel">
+        <h2 class="ib-panel__title">{{ row.email }}</h2>
+        @if (row.disabled) { <p>This administrator is disabled.</p> }
+        @else if (!row.mfaEnrolled) { <p>Authenticator enrollment is pending.</p> }
+        <form #editor (submit)="submit($event, editor)">
+          <fieldset [disabled]="row.disabled || busy() || reauthenticate()">
+            <legend>Capability grants</legend>
+            @for (grant of grants; track grant[0]) {
+              <label class="choice">
+                <input type="checkbox" name="grant" [value]="grant[0]" [checked]="row.capabilities.includes(grant[0])"
+                  [disabled]="grant[0] === 'platform-owner' && !row.mfaEnrolled && !row.capabilities.includes(grant[0])" />
+                {{ grant[1] }}
+              </label>
+            }
+          </fieldset>
+          @if (!row.disabled) {
+            <fieldset [disabled]="busy() || reauthenticate()">
+              <legend>Confirm access change</legend>
+              <label class="choice"><input type="checkbox" name="disable" /> Disable this administrator</label>
+              @if (row.isCurrent) {
+                <p>Saving changes to your own account ends your session.</p>
+              }
+              <label for="reason">Reason</label>
+              <select id="reason" name="reason" required>
+                <option value="">Select a reason</option>
+                <option value="responsibilities-changed">Responsibilities changed</option>
+                <option value="access-review">Access review</option>
+                <option value="access-withdrawn">Access withdrawn</option>
+              </select>
+              <label class="choice"><input type="checkbox" name="confirmed" required /> I confirm these access changes.</label>
+              <div><button pButton type="submit">Save administrator access</button></div>
+            </fieldset>
+          }
+        </form>
+      </section>
+    }
+  } @else {
+    <section class="ib-panel" aria-label="Administrator access status">
+      @switch (notice()) {
+        @case ('expired') {
+          <p role="alert">Your provider access paused.</p>
+          <div><button pButton type="button" (click)="reconfirm()">Continue session</button></div>
+        }
+        @case ('uncertain') {
+          <p class="ib-error-banner" role="alert">We could not confirm your provider session.</p>
+          <div><button pButton type="button" (click)="reconfirm()">Try again</button></div>
+        }
+        @case ('ended') {
+          <p class="ib-error-banner" role="alert">Your provider session ended.</p>
+          <a routerLink="/auth/sign-in">Sign in again</a>
+        }
+        @default {
+          <p class="ib-error-banner" role="alert">You cannot manage administrator access.</p>
+        }
+      }
+    </section>
+  }
+</main>

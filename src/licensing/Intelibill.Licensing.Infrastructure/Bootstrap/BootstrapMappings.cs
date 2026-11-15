@@ -39,6 +39,7 @@ internal sealed class AdminIdentityMapping : IEntityTypeConfiguration<AdminIdent
     {
         builder.ToTable("admin_identities", table =>
         {
+            table.HasCheckConstraint("ck_admin_capabilities", "capabilities BETWEEN 0 AND 31");
             table.HasCheckConstraint("ck_admin_mfa_date", "mfa_enrolled_at >= verified_at");
             table.HasCheckConstraint("ck_admin_deactivation_date", "deactivated_at >= verified_at");
             table.HasCheckConstraint("ck_admin_recovery_continuation",
@@ -49,6 +50,7 @@ internal sealed class AdminIdentityMapping : IEntityTypeConfiguration<AdminIdent
         builder.Property(owner => owner.PasswordHash).HasMaxLength(60);
         builder.Property(owner => owner.RecoveryContinuationDigest).HasMaxLength(64);
         builder.Property(owner => owner.VerificationReference).HasMaxLength(128);
+        builder.Property(owner => owner.Capabilities).HasDefaultValue(AdminCapability.None);
         builder.Property(owner => owner.Version).IsRowVersion();
     }
 }
@@ -76,12 +78,12 @@ internal sealed class ProviderAuditMapping : IEntityTypeConfiguration<ProviderAu
     {
         builder.ToTable("provider_audit_events", table =>
         {
-            table.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 25 OR action BETWEEN 101 AND 103");
+            table.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 25 OR action BETWEEN 101 AND 107");
             table.HasCheckConstraint("ck_provider_audit_metadata", """
                 (num_nonnulls(actor_kind, reason, correlation_id) = 0 AND action BETWEEN 1 AND 16
                     AND "before" IS NULL AND "after" IS NULL)
                 OR (num_nonnulls(actor_kind, reason, correlation_id) = 3
-                    AND actor_kind BETWEEN 1 AND 5 AND reason BETWEEN 1 AND 31)
+                    AND actor_kind BETWEEN 1 AND 5 AND reason BETWEEN 1 AND 36)
                 """);
         });
         builder.HasIndex(audit => new { audit.OccurredAt, audit.Id }).IsDescending();

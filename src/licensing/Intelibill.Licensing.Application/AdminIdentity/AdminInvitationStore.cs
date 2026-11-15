@@ -7,6 +7,9 @@ public interface IAdminInvitationStore
     /// <summary>The provider origin when <paramref name="adminId"/> is the persisted, MFA-enrolled platform owner.</summary>
     Task<string?> FindOwnerOriginAsync(Guid adminId, CancellationToken cancellationToken);
 
+    Task<AdminIdentity?> LockInviterAsync(Guid adminId, CancellationToken cancellationToken);
+    Task<AdminSession?> LockInviterSessionAsync(AdminSessionCaller caller, CancellationToken cancellationToken);
+
     /// <summary>The provider origin once the first owner exists; invitations are unavailable before that.</summary>
     Task<string?> FindProviderOriginAsync(CancellationToken cancellationToken);
 

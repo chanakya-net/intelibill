@@ -10,9 +10,20 @@ internal sealed class AdminInvitationStore(LicensingDbContext context, AuditEvid
 {
     public Task<string?> FindOwnerOriginAsync(Guid adminId, CancellationToken cancellationToken) =>
         (from state in context.Set<InitialAdminBootstrap>()
-         join owner in context.Set<AdminIdentity>() on state.OwnerId equals owner.Id
-         where owner.Id == adminId && state.ConsumedAt != null && owner.MfaEnrolledAt != null && owner.DeactivatedAt == null
+         from owner in AdminAuthorityLocks.RecoverableOwners(context)
+         where state.ConsumedAt != null && owner.Id == adminId
          select state.AdminOrigin).SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<AdminIdentity?> LockInviterAsync(Guid adminId, CancellationToken cancellationToken)
+    {
+        var rows = await context.Set<AdminIdentity>().FromSql($"""
+            SELECT *, xmin FROM public.admin_identities WHERE id = {adminId} FOR UPDATE
+            """).ToListAsync(cancellationToken);
+        return rows.SingleOrDefault();
+    }
+
+    public Task<AdminSession?> LockInviterSessionAsync(AdminSessionCaller caller, CancellationToken cancellationToken) =>
+        AdminAuthorityLocks.LockSessionAsync(context, caller, cancellationToken);
 
     public Task<string?> FindProviderOriginAsync(CancellationToken cancellationToken) =>
         context.Set<InitialAdminBootstrap>().Where(state => state.ConsumedAt != null)

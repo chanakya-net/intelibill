@@ -34,6 +34,10 @@ public static class AdminAuditActions
         new(BootstrapAuditAction.AuditReadSucceeded, "audit-read-succeeded", "succeeded", "administrator"),
         new(BootstrapAuditAction.AuditReadDenied, "audit-read-denied", "denied", "administrator"),
         new(BootstrapAuditAction.InvitationManagementDenied, "invitation-management-denied", "denied", "administrator"),
+        new(BootstrapAuditAction.AdminCapabilitiesInspected, "admin-capabilities-inspected", "succeeded", "administrator"),
+        new(BootstrapAuditAction.AdminCapabilitiesChanged, "admin-capabilities-changed", "succeeded", "administrator"),
+        new(BootstrapAuditAction.AdminDisabled, "admin-disabled", "succeeded", "administrator"),
+        new(BootstrapAuditAction.AdminCapabilitiesDenied, "admin-capabilities-denied", "denied", "administrator"),
     ];
 
     public static BootstrapAuditAction[] Readable(BootstrapAuditAction? action) => Entries

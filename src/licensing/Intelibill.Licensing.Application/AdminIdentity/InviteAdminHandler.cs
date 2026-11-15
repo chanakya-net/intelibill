@@ -52,11 +52,20 @@ public sealed class InviteAdminHandler(
     private async Task<ErrorOr<AdminInvitation>> IssueAsync(
         ProviderActor actor, string email, string digest, CancellationToken cancellationToken)
     {
+        var owner = await store.LockInviterAsync(actor.AdminId, cancellationToken);
+        var caller = actor.Session;
+        var session = caller is null ? null : await store.LockInviterSessionAsync(caller, cancellationToken);
         await store.LockEmailAsync(email, cancellationToken);
+        var now = clock.GetUtcNow();
+        if (owner is not { IsPlatformOwner: true, MfaEnrolledAt: not null, DeactivatedAt: null })
+            return Error.Forbidden("Admin.AccessDenied", "You cannot manage administrator invitations.");
+        if (caller is not null && (session is null || now >= caller.AccessExpiresAt || !session.IsLiveAt(now)))
+            return AdminRefreshErrors.SessionEnded;
+        if (!(actor with { MfaVerifiedAt = session?.MfaVerifiedAt ?? actor.MfaVerifiedAt }).HasRecentMfa(now))
+            return Error.Forbidden("Admin.RecentMfaRequired", "Verify your authenticator again to manage administrators.");
         if (await store.AdminExistsAsync(email, cancellationToken))
             return Error.Conflict("Invitation.AlreadyAdmin", "This email already belongs to an administrator.");
 
-        var now = clock.GetUtcNow();
         var superseded = await store.SupersedeOpenAsync(email, now, cancellationToken);
         var invitation = new AdminInvitation(Guid.NewGuid(), email, digest, actor.AdminId, now, now + AdminInvitation.Lifetime);
         store.Add(invitation);

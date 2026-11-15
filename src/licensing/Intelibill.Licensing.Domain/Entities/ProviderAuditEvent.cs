@@ -30,6 +30,10 @@ public enum BootstrapAuditAction
     AuditReadSucceeded = 101,
     AuditReadDenied = 102,
     InvitationManagementDenied = 103,
+    AdminCapabilitiesInspected = 104,
+    AdminCapabilitiesChanged = 105,
+    AdminDisabled = 106,
+    AdminCapabilitiesDenied = 107,
 }
 
 public sealed class ProviderAuditEvent(
