@@ -4,6 +4,7 @@
 **/node_modules
 **/.angular
 **/coverage
+**/dist
 
 # Local configuration and credentials must never enter Docker build contexts.
 .env
