@@ -91,6 +91,11 @@ export const shellRoutes: Routes = [
           ),
       },
       {
+        path: 'billing',
+        loadChildren: () =>
+          import('../../features/billing/billing.routes').then((m) => m.billingRoutes),
+      },
+      {
         path: 'dashboard',
         canActivate: [dashboardGuard],
         loadComponent: () =>

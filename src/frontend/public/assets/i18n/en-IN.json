@@ -172,7 +172,8 @@
       "unrecoverable": "This version of Intelibill can no longer load its files. Reload the page while online.",
       "reload": "Reload",
       "offlineNeedsUpdate": "Offline billing is on, but this tab still runs an earlier version. Select “Update now” before you go offline."
-    }
+    },
+    "billingAccounts": "Billing accounts"
   },
   "dashboard": {
     "header": {
@@ -3286,5 +3287,33 @@
   "partyDirectory": {
     "pageSummary": "Showing {{start}}–{{end}} of {{total}} results",
     "searchHint": "Up to 20 matches are shown. Refine your search to find another party."
+  },
+  "billing": {
+    "eyebrow": "Billing",
+    "title": "Billing accounts",
+    "description": "Billing accounts hold your plans and invoices from InteliBill. They are separate from your shops, customers and other sign-ins, and are never created automatically.",
+    "listHeading": "Your billing accounts",
+    "loading": "Loading billing accounts…",
+    "loadFailed": "Billing accounts could not be loaded.",
+    "reload": "Try again",
+    "empty": "You have no billing accounts yet.",
+    "createdOn": "Created {{date}}",
+    "createHeading": "Create a billing account",
+    "createDescription": "You become its only owner. Shops are not added to it.",
+    "nameLabel": "Billing account name",
+    "pendingNotice": "Your last request did not finish. Retry to complete it with the same name.",
+    "creating": "Creating…",
+    "retry": "Retry",
+    "create": "Create billing account",
+    "created": "Billing account created.",
+    "nameInvalid": "Enter a name of 1 to 120 characters.",
+    "payloadMismatch": "This request was already used with a different name. Start again with a new request.",
+    "denied": "You do not have access to this billing account.",
+    "unavailable": "Billing is temporarily unavailable. Try again later.",
+    "pendingRetry": "The request did not finish. Retry to complete it without creating a second account.",
+    "roles": {
+      "Owner": "Owner",
+      "Manager": "Manager"
+    }
   }
 }

@@ -1,0 +1,83 @@
+<section class="billing-page">
+  <header class="billing-page__header">
+    <p class="ib-eyebrow">{{ 'billing.eyebrow' | transloco }}</p>
+    <h1 class="ib-page-title">{{ 'billing.title' | transloco }}</h1>
+    <p class="ib-subtitle ib-subtitle--measure">{{ 'billing.description' | transloco }}</p>
+  </header>
+
+  @if (error()) {
+    <p role="alert" class="page-alert page-alert--error">{{ error() | transloco }}</p>
+  }
+  @if (notice()) {
+    <p role="status" class="page-alert">{{ notice() | transloco }}</p>
+  }
+
+  <section class="panel ib-panel" aria-labelledby="billing-accounts-heading">
+    <header class="panel__header ib-panel__header">
+      <h2 id="billing-accounts-heading" class="ib-panel__title">{{ 'billing.listHeading' | transloco }}</h2>
+    </header>
+
+    @if (loading()) {
+      <p role="status">{{ 'billing.loading' | transloco }}</p>
+    } @else if (loadFailed()) {
+      <div class="billing-page__load-failed">
+        <p role="alert">{{ 'billing.loadFailed' | transloco }}</p>
+        <button
+          pButton
+          type="button"
+          data-testid="billing-accounts-reload"
+          [label]="'billing.reload' | transloco"
+          (click)="reload()"
+        ></button>
+      </div>
+    } @else if (accounts().length === 0) {
+      <p data-testid="billing-accounts-empty">{{ 'billing.empty' | transloco }}</p>
+    } @else {
+      <ul class="billing-page__list">
+        @for (account of accounts(); track account.accountId) {
+          <li class="billing-page__row" data-testid="billing-account-row" [attr.data-account-id]="account.accountId">
+            <span class="billing-page__name">{{ account.name }}</span>
+            <span class="ib-meta-chip">{{ 'billing.roles.' + account.role | transloco }}</span>
+            <span class="billing-page__created">
+              {{ 'billing.createdOn' | transloco: { date: (account.createdAt | date: 'mediumDate') } }}
+            </span>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
+  <section class="panel ib-panel" aria-labelledby="billing-create-heading">
+    <header class="panel__header ib-panel__header">
+      <h2 id="billing-create-heading" class="ib-panel__title">{{ 'billing.createHeading' | transloco }}</h2>
+      <p class="ib-subtitle ib-subtitle--measure">{{ 'billing.createDescription' | transloco }}</p>
+    </header>
+
+    <form class="billing-page__form" data-testid="billing-account-form" (submit)="$event.preventDefault(); submit()">
+      <label for="billing-account-name">{{ 'billing.nameLabel' | transloco }}</label>
+      <input
+        pInputText
+        id="billing-account-name"
+        name="name"
+        data-testid="billing-account-name"
+        autocomplete="organization"
+        [attr.maxlength]="nameLimit"
+        [readOnly]="pending() !== null"
+        [value]="name()"
+        (input)="onNameInput($event)"
+      />
+      @if (pending()) {
+        <p data-testid="billing-account-pending" class="billing-page__pending">
+          {{ 'billing.pendingNotice' | transloco }}
+        </p>
+      }
+      <button
+        pButton
+        type="submit"
+        data-testid="billing-account-create"
+        [disabled]="!canSubmit()"
+        [label]="(submitting() ? 'billing.creating' : pending() ? 'billing.retry' : 'billing.create') | transloco"
+      ></button>
+    </form>
+  </section>
+</section>

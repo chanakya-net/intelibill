@@ -12,12 +12,22 @@ internal sealed partial class PostgresBillingDelegationAccess(
     LicensingDbContext db, IBillingAccountDelegationAuthority authority, TimeProvider clock,
     ILogger<PostgresBillingDelegationAccess> logger) : IBillingDelegationAccess
 {
-    public async Task<ErrorOr<BillingAccountAccessV1>> AuthorizeAsync(
+    public Task<ErrorOr<BillingAccountAccessV1>> AuthorizeAsync(
         VerifiedBillingDelegation delegation, CancellationToken cancellationToken)
+    {
+        if (delegation.AccountId is not { } account || delegation.Action != MerchantBillingDelegationV1.ReadAccount)
+            return Task.FromResult<ErrorOr<BillingAccountAccessV1>>(BillingDelegationErrors.Invalid);
+
+        return ExecuteAsync(delegation, (_, _) => Task.FromResult<ErrorOr<BillingAccountAccessV1>>(
+            new BillingAccountAccessV1(account, [delegation.Action])), cancellationToken);
+    }
+
+    public async Task<ErrorOr<T>> ExecuteAsync<T>(VerifiedBillingDelegation delegation,
+        Func<IBillingDelegationScope, CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken cancellationToken)
     {
         try
         {
-            return await AuthorizeInTransactionAsync(delegation, cancellationToken);
+            return await ExecuteInTransactionAsync(delegation, operation, cancellationToken);
         }
         catch (Exception exception) when (exception is NpgsqlException or TimeoutException
             || exception is DbUpdateException { InnerException: NpgsqlException })
@@ -29,16 +39,16 @@ internal sealed partial class PostgresBillingDelegationAccess(
         }
     }
 
-    private async Task<ErrorOr<BillingAccountAccessV1>> AuthorizeInTransactionAsync(
-        VerifiedBillingDelegation delegation, CancellationToken cancellationToken)
+    private async Task<ErrorOr<T>> ExecuteInTransactionAsync<T>(VerifiedBillingDelegation delegation,
+        Func<IBillingDelegationScope, CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken cancellationToken)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        // Transaction-local: commit or rollback clears the scope before the pooled connection is reused.
         await db.Database.ExecuteSqlInterpolatedAsync($"""
-            SELECT set_config('app.billing_account_id', {delegation.AccountId.ToString("D")}, true),
+            SELECT set_config('app.billing_account_id', {delegation.AccountId?.ToString("D") ?? string.Empty}, true),
                    set_config('app.billing_actor_id', {delegation.ActorId.ToString("D")}, true)
             """, cancellationToken);
-        var grant = await authority.AuthorizeAsync(
-            delegation.AccountId, delegation.ActorId, delegation.Action, cancellationToken);
+        var grant = await AuthorizeScopeAsync(delegation, cancellationToken);
         if (grant.IsError)
         {
             if (grant.FirstError == BillingDelegationErrors.MembershipUnavailable)
@@ -56,8 +66,25 @@ internal sealed partial class PostgresBillingDelegationAccess(
         if (inserted != 1)
             return BillingDelegationErrors.Replayed;
 
+        var result = await operation(new Scope(db, delegation), cancellationToken);
+        if (result.IsError)
+            return result.Errors;
+
         await transaction.CommitAsync(cancellationToken);
-        return new BillingAccountAccessV1(delegation.AccountId, [delegation.Action]);
+        return result;
+    }
+
+    // Account-scoped actions need live membership. Actor-scoped actions are the explicit pre-membership
+    // policy: only the named actions, for an actor whose verified identity the assertion states.
+    private Task<ErrorOr<Success>> AuthorizeScopeAsync(VerifiedBillingDelegation delegation, CancellationToken cancellationToken)
+    {
+        var actorScoped = MerchantBillingDelegationV1.IsActorScoped(delegation.Action);
+        if (delegation.AccountId is { } account)
+            return actorScoped
+                ? Task.FromResult<ErrorOr<Success>>(BillingDelegationErrors.Invalid)
+                : authority.AuthorizeAsync(account, delegation.ActorId, delegation.Action, cancellationToken);
+
+        return Task.FromResult<ErrorOr<Success>>(actorScoped ? Result.Success : BillingDelegationErrors.Invalid);
     }
 
     private Task<int> ConsumeAsync(VerifiedBillingDelegation proof, DateTimeOffset consumedAt, CancellationToken cancellationToken) =>
@@ -68,6 +95,20 @@ internal sealed partial class PostgresBillingDelegationAccess(
                 {proof.Action}, {proof.RequestId}, {proof.KeyId}, {proof.IssuedAt}, {proof.ExpiresAt}, {consumedAt})
             ON CONFLICT (issuer, replay_id) DO NOTHING
             """, cancellationToken);
+
+    private sealed class Scope(LicensingDbContext db, VerifiedBillingDelegation delegation) : IBillingDelegationScope
+    {
+        public Guid ActorId => delegation.ActorId;
+
+        public async Task UseAccountAsync(Guid accountId, CancellationToken cancellationToken)
+        {
+            if (delegation.AccountId is not null || accountId == Guid.Empty)
+                throw new InvalidOperationException("Only an actor-scoped delegation may choose its account context.");
+
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT set_config('app.billing_account_id', {accountId.ToString("D")}, true)", cancellationToken);
+        }
+    }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Licensing billing delegation failed (StorageUnavailable); cause={Cause}.")]
     private static partial void LogStorageUnavailable(ILogger logger, string cause);

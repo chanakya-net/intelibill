@@ -86,8 +86,12 @@ internal sealed class P0201Fixture(LicensingPostgreSqlFixture database, string n
     internal LicensingApiFactory LicensingApi(bool membership = true, Dictionary<string, string?>? settings = null,
         Action<IServiceCollection>? configure = null) => new(Runtime, clock: Clock, configure: services =>
     {
+        // membership: false keeps the #846 "no adapter" case: an unavailable authority must fail closed.
+        // P0202Fixture covers the production membership adapter.
         if (membership)
             services.AddScoped<IBillingAccountDelegationAuthority, FixtureBillingAuthority>();
+        else
+            services.AddScoped<IBillingAccountDelegationAuthority, UnavailableBillingAuthority>();
         configure?.Invoke(services);
     }, settings: settings ?? LicensingSettings());
 
@@ -126,6 +130,13 @@ internal sealed class P0201Fixture(LicensingPostgreSqlFixture database, string n
     }
 
     public void Dispose() => Key.Dispose();
+
+    private sealed class UnavailableBillingAuthority : IBillingAccountDelegationAuthority
+    {
+        public Task<ErrorOr<Success>> AuthorizeAsync(Guid accountId, Guid actorId, string action,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<ErrorOr<Success>>(BillingDelegationErrors.MembershipUnavailable);
+    }
 
     private sealed class FixtureBillingAuthority(
         LicensingDbContext db, P0201Tests.ReplicaGate? gate = null) : IBillingAccountDelegationAuthority

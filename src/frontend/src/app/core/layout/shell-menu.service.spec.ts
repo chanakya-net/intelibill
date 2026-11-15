@@ -188,6 +188,7 @@ describe('ShellMenuService', () => {
       role: 'Owner',
       labels: [
         'i18n:identity.profileAndSecurity',
+        'i18n:shell.billingAccounts',
         'i18n:shell.manageUsers',
         'i18n:shell.changePassword',
         'i18n:shell.addShop',
@@ -202,6 +203,7 @@ describe('ShellMenuService', () => {
       role: 'Manager',
       labels: [
         'i18n:identity.profileAndSecurity',
+        'i18n:shell.billingAccounts',
         'i18n:shell.manageUsers',
         'i18n:shell.changePassword',
         'i18n:shell.manageShop',
@@ -214,6 +216,7 @@ describe('ShellMenuService', () => {
       role: 'Staff',
       labels: [
         'i18n:identity.profileAndSecurity',
+        'i18n:shell.billingAccounts',
         'i18n:shell.manageUsers',
         'i18n:shell.changePassword',
         'i18n:shell.language',

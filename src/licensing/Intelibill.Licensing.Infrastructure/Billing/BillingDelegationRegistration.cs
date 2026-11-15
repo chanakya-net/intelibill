@@ -1,4 +1,5 @@
 using Intelibill.Licensing.Application.Billing;
+using Intelibill.Licensing.Application.BillingAccounts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -11,6 +12,10 @@ internal static class BillingDelegationRegistration
         services.AddOptions<MerchantBillingVerificationOptions>().BindConfiguration(MerchantBillingVerificationOptions.Section);
         services.AddSingleton<IMerchantBillingDelegationVerifier, MerchantBillingDelegationVerifier>();
         services.AddScoped<IBillingDelegationAccess, PostgresBillingDelegationAccess>();
-        services.TryAddScoped<IBillingAccountDelegationAuthority, UnavailableBillingAccountDelegationAuthority>();
+        services.AddScoped<IBillingAccountStore, BillingAccountStore>();
+        // Registered with their ports: the bootstrap CLI host validates its graph without billing.
+        services.AddScoped<CreateBillingAccountHandler>();
+        services.AddScoped<ListBillingAccountsHandler>();
+        services.TryAddScoped<IBillingAccountDelegationAuthority, BillingAccountMembershipAuthority>();
     }
 }

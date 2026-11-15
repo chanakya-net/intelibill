@@ -30,6 +30,7 @@ internal static class CustomerBillingEndpoints
             .RequireAuthenticatedUser().Build();
         app.MapGet(MerchantBillingDelegationV1.InternalPrefix + "/accounts/{accountId:guid}/access", GetAccessAsync)
             .RequireAuthorization(policy);
+        app.MapCustomerBillingAccounts(policy);
     }
 
     private static async Task<IResult> GetAccessAsync(
@@ -44,30 +45,41 @@ internal static class CustomerBillingEndpoints
         if (!result.IsError)
             return Results.Ok(result.Value);
 
-        var error = result.FirstError;
+        return Failure(context, result.FirstError);
+    }
+
+    internal static IResult Failure(HttpContext context, Error error)
+    {
         var status = error.Type switch
         {
+            ErrorType.Validation => StatusCodes.Status400BadRequest,
             ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
             ErrorType.Forbidden => StatusCodes.Status403Forbidden,
+            ErrorType.Conflict => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status503ServiceUnavailable,
         };
         return Problem(context, status, error);
     }
 
-    private static bool MatchesRequest(HttpRequest request, Guid accountId, VerifiedBillingDelegation delegation)
+    private static bool MatchesRequest(HttpRequest request, Guid accountId, VerifiedBillingDelegation delegation) =>
+        accountId == delegation.AccountId &&
+        MatchesBinding(request, delegation, MerchantBillingDelegationV1.ReadAccount, HttpMethods.Get,
+            MerchantBillingDelegationV1.AccountAccessPath(accountId)) &&
+        request.HttpContext.Features.Get<IHttpRequestBodyDetectionFeature>()?.CanHaveBody != true &&
+        request.ContentLength is null or 0 && !request.Headers.ContainsKey("Transfer-Encoding") &&
+        delegation.BodySha256 == MerchantBillingDelegationV1.EmptyBodySha256;
+
+    /// <summary>The request is exactly the action, method and path the assertion names, with its request ID.</summary>
+    internal static bool MatchesBinding(HttpRequest request, VerifiedBillingDelegation delegation, string action,
+        string method, string path)
     {
-        var path = MerchantBillingDelegationV1.AccountAccessPath(accountId);
         var requestIds = request.Headers[MerchantBillingDelegationV1.RequestIdHeader];
         var rawTarget = request.HttpContext.Features.Get<IHttpRequestFeature>()?.RawTarget;
         return requestIds.Count == 1 && Guid.TryParseExact(requestIds[0], "D", out var requestId) &&
-            requestId == delegation.RequestId && accountId == delegation.AccountId &&
-            delegation.Action == MerchantBillingDelegationV1.ReadAccount &&
-            delegation.Method == HttpMethods.Get && request.Method == delegation.Method &&
+            requestId == delegation.RequestId && delegation.Action == action &&
+            delegation.Method == method && request.Method == method &&
             delegation.Path == path && request.Path.Value == path && !request.PathBase.HasValue && !request.QueryString.HasValue &&
-            (string.IsNullOrEmpty(rawTarget) || rawTarget == path) &&
-            request.HttpContext.Features.Get<IHttpRequestBodyDetectionFeature>()?.CanHaveBody != true &&
-            request.ContentLength is null or 0 && !request.Headers.ContainsKey("Transfer-Encoding") &&
-            delegation.BodySha256 == MerchantBillingDelegationV1.EmptyBodySha256;
+            (string.IsNullOrEmpty(rawTarget) || rawTarget == path);
     }
 
     internal static IResult Problem(HttpContext context, int status, Error error) =>

@@ -247,25 +247,75 @@ A licensing clock trailing the merchant can cause intermittent 503
 Local PEM signing (`LocalKeyId`, `LocalPrivateKeyPem` under the merchant section)
 and loopback HTTP are restricted to Development and Testing.
 
-The default licensing membership adapter returns `Billing.MembershipUnavailable`.
-Issue #847 supplies the licensing-owned membership adapter. It must check the
-action against current account membership with the scoped `LicensingDbContext`
-and hold the membership lock in the existing transaction. Account and first-owner
-creation use their own explicit policy. Missing configuration or service failure
-leaves the merchant route unavailable. These changes apply to billing reads while
-merchant licence enforcement stays in observe-only mode.
+### Billing accounts (P02-02)
 
-Before #847 introduces normal billing traffic, decide how to retain or
-partition `merchant_billing_delegation_uses`. Each successful read appends an
-immutable use record. Plan retention around evidence requirements and preserve
-global replay uniqueness for all assertions that can still be accepted.
+A verified merchant creates a billing account explicitly. Nothing creates one
+from a shop, email address, phone number, GSTIN or login, and no table holds
+any of those. The creating merchant user becomes the account's only active
+owner. Billing membership grants billing actions only and never grants access
+to a merchant shop.
+
+Apply the licensing migration `20261115142000_BillingAccountsAndPlanLifecycle`
+through the migration job before deploying the licensing API, and deploy the
+licensing API before the merchant API. The migration adds `billing_accounts`
+and `billing_account_members` with forced row-level security and makes
+`merchant_billing_delegation_uses.account_id` nullable for actor-scoped uses.
+Its `Down` refuses (`55000`) while any account, member or actor-scoped use
+exists. A runtime `DELETE` or `TRUNCATE` on either table, or an `UPDATE` of an
+account, is refused (`55000`).
+
+The V1 delegation contract gains two actor-scoped actions,
+`billing.account.list` (`GET /internal/licensing/v1/customer/accounts`) and
+`billing.account.create` (`POST` on the same path). Their assertions carry the
+same fields as the account read without `account_id`; the read keeps its exact
+field set. Licensing rejects a token whose scope does not match its action. A
+new merchant against an older licensing API gets 401 upstream and answers 503,
+which fails closed. See `tests/contracts/licensing/billing-accounts-v1.json`.
+
+The create body is `{"operationKey","name"}`. The merchant serializes it from
+validated values, signs the SHA-256 of the exact bytes and sends those bytes.
+Licensing reads at most 1024 bytes, checks the digest, and then deserializes
+strictly. The account ID is derived from the verified actor and the operation
+key, so the primary key is the idempotency fence. A retry with the same key and
+name answers 200 with the same account. The same key with another name answers
+409 `Billing.OperationPayloadMismatch`. The account, its owner and the replay
+use commit in one transaction.
+
+Account context comes only from the delegation transaction
+(`set_config(..., true)`), never from a client value. Without an account
+context no account row is visible; with only the actor set, the actor sees its
+own membership index. The production membership adapter
+`BillingAccountMembershipAuthority` replaces the unavailable default. It locks
+the actor's active membership `FOR SHARE` and allows `billing.account.read` to
+Owners and Managers. `GET /api/billing/accounts/{id}/access` therefore answers
+200 for a member and 403 otherwise.
+
+The merchant exposes `GET /api/billing/accounts` and `POST /api/billing/accounts`
+for any live verified session, without a shop or role policy. Creation has its
+own budget of 10 per caller each hour. It checks no credential and sends no
+message, so it uses no subject budget and does not fail closed. The merchant
+web page `/billing` (profile menu, "Billing accounts") lists accounts and
+creates one only on explicit submit. It freezes the operation key and name in
+`localStorage` before sending and reuses them on every retry until a
+definitive answer.
+
+Replay-row retention: keep every `merchant_billing_delegation_uses` row through
+observe-only Phase 2. The page makes one list call per visit and one per
+create, with no polling. Before paid traffic (P03), schedule a migrator-only
+purge of rows past `expires_at` plus a retention window. Keep global replay
+uniqueness for every assertion that can still be accepted.
 
 Run the local browser check after `bun run build` from each of `src/frontend`
 and `src/admin-frontend`.
 
 ```sh
 P0201_RUN_BROWSER=1 dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0201BrowserTests'
+P0202_RUN_BROWSER=1 dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0202BrowserTests'
 ```
+
+The P0202 check needs only the merchant web build. It runs the production
+membership adapter and exercises explicit creation, retry, reload, the listing
+and another merchant's refusal at desktop and narrow mobile widths.
 
 The harness starts both APIs on loopback and both shipping web servers. It applies
 migrations to disposable PostgreSQL databases and supplies account membership
