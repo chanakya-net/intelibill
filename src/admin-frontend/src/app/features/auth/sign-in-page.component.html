@@ -1,0 +1,38 @@
+<main>
+  <h1 class="ib-page-title">Sign in to the Provider Console</h1>
+  @switch (session.signOutNotice()) {
+    @case ('signing-out') {
+      <p role="status">Signing out…</p>
+    }
+    @case ('unconfirmed') {
+      <p class="ib-error-banner" role="alert">Local access ended. Server sign-out could not be confirmed.</p>
+      <div><button pButton type="button" (click)="session.retrySignOut()">Retry sign-out</button></div>
+    }
+    @case ('signed-out') {
+      <p role="status">Signed out.</p>
+    }
+  }
+  <section class="ib-panel" aria-label="Provider sign-in" [attr.aria-busy]="loading() || busy()">
+    @if (error()) {
+      <p class="ib-error-banner" role="alert">{{ error() }}</p>
+    }
+    @if (loading()) {
+      <p role="status">Preparing sign-in…</p>
+    } @else if (ready()) {
+      <form class="ib-form-section" (submit)="submit($event, email, password, otp)">
+        <label for="sign-in-email">Email</label>
+        <input #email id="sign-in-email" type="email" autocomplete="username" maxlength="254" required />
+        <label for="sign-in-password">Password</label>
+        <input #password id="sign-in-password" type="password" autocomplete="current-password" maxlength="72" required />
+        <label for="sign-in-otp">Authenticator code</label>
+        <input #otp id="sign-in-otp" type="text" inputmode="numeric" autocomplete="one-time-code"
+          pattern="[0-9]{6}" maxlength="6" required />
+        <div><button pButton type="submit" [disabled]="busy()">Sign in</button></div>
+      </form>
+    } @else {
+      <div><button pButton type="button" (click)="prepare()">Try again</button></div>
+    }
+    <a routerLink="/auth/recovery">Lost your authenticator? Recover access</a>
+    <a routerLink="/auth/bootstrap/enrollment">Resume first owner setup</a>
+  </section>
+</main>

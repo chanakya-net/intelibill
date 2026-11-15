@@ -23,12 +23,15 @@ export const shops = [SHOP_A, SHOP_B].map((shopId, i) => ({
   lastUsedAt: null,
 }));
 export function session(shopId = SHOP_A) {
-  const jwt = `e30.${Buffer.from(JSON.stringify({ sub: USER, active_shop_id: shopId, exp: 4102444800 })).toString('base64url')}.fixture`;
+  const now = Date.now();
+  // Stay within Chromium's setTimeout range for the proactive refresh timer.
+  const expiry = now + 60 * 60 * 1000;
+  const jwt = `e30.${Buffer.from(JSON.stringify({ sub: USER, active_shop_id: shopId, exp: Math.floor(expiry / 1000) })).toString('base64url')}.fixture`;
   return {
     accessToken: jwt,
     refreshToken: 'fixture-refresh',
-    accessTokenExpiresAt: '2099-01-01T00:00:00Z',
-    refreshTokenExpiresAt: '2099-02-01T00:00:00Z',
+    accessTokenExpiresAt: new Date(expiry).toISOString(),
+    refreshTokenExpiresAt: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
     rememberMe: true,
     user: {
       id: USER,

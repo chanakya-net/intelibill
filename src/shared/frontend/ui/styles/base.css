@@ -1,0 +1,36 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: var(--app-font-body);
+  background-color: #fffaf5;
+  color: #0f172a;
+}
+
+/*
+ * Element resets that UI kit classes (`ib-`, in `@layer ib-kit`) override on headings and
+ * paragraphs. They sit in `ib-base`, declared here after Tailwind's layers and before the kit's
+ * layer, so they still beat PrimeNG and Tailwind utilities as they did unlayered, lose to every
+ * unlayered component rule as before (those are more specific), and lose to the kit too, as they
+ * lost to the component rules the kit replaces. See ui-kit-layer-order.css.
+ */
+@layer ib-base {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--app-font-display);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  p {
+    margin: 0;
+  }
+}

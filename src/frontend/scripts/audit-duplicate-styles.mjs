@@ -7,8 +7,8 @@
  * hide a copy. A block counts when it has at least MIN_DECLARATIONS declarations and the same body
  * appears in at least MIN_FILES different component .scss files under src/app. The selector is not
  * part of the comparison: the same body under different class names is still a copy. Design tokens
- * (`var(--app-…)` defined on `:root` in src/styles.css) are compared by their value, so replacing
- * a literal with its token in some files neither hides nor creates a copy.
+ * (`var(--app-…)` defined on `:root` in the shared or app styles) are compared by value. Replacing
+ * a literal with its token neither hides nor creates a copy.
  *
  * The number of such distinct blocks may not exceed the ceiling in
  * audit-duplicate-styles.ceiling.json. Lower the ceiling whenever the count goes down, so it can
@@ -101,7 +101,11 @@ export async function auditDuplicateStyles({ root = join(scriptDirectory, '..'),
     files[relative(root, path).replaceAll('\\', '/')] = await readFile(path, 'utf8');
   }
   const globalSheet = join(root, 'src', 'styles.css');
-  const tokens = readTokens(await readFile(globalSheet, 'utf8').catch(() => ''));
+  const sharedSheet = join(root, '..', 'shared', 'frontend', 'ui', 'styles', 'tokens.css');
+  const sheets = await Promise.all(
+    [sharedSheet, globalSheet].map((path) => readFile(path, 'utf8').catch(() => '')),
+  );
+  const tokens = readTokens(sheets.join('\n'));
   const { count, blocks } = findDuplicateBlocks(files, tokens);
   const { ceiling } = JSON.parse(await readFile(ceilingFile, 'utf8'));
   return { count, ceiling, passed: count <= ceiling, files: Object.keys(files).length, blocks };

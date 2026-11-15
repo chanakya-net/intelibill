@@ -1,0 +1,5 @@
+@import '@intelibill/ui/styles/fonts.css';
+@import 'tailwindcss';
+@import 'primeicons/primeicons.css';
+@import '@intelibill/ui/styles/tokens.css';
+@import '@intelibill/ui/styles/base.css';

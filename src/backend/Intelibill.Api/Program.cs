@@ -1,7 +1,5 @@
 using System.Text;
-using Intelibill.Api.PublicErrors;
 using Intelibill.Api.Extensions;
-using Intelibill.Api.Logging;
 using Intelibill.Api.Hubs;
 using Intelibill.Api.Middleware;
 using Intelibill.Api.Middleware.RateLimiting;
@@ -18,6 +16,8 @@ using Intelibill.Infrastructure.Extensions;
 using Scalar.AspNetCore;
 using Intelibill.Infrastructure.Options;
 using Intelibill.Infrastructure.Services.Auth;
+using Intelibill.Shared.Web;
+using Intelibill.Shared.Web.Middleware;
 using JasperFx;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
@@ -50,8 +50,7 @@ builder.Services.AddSingleton<RateLimitKeyHasher>();
 builder.Services.AddSingleton<RateBudgetFactory>();
 builder.Services.AddSingleton<LocalFallbackRateLimiter>();
 builder.Services.AddSingleton<RateLimitMetrics>();
-builder.Services.AddSingleton<ISafeErrorFactory, SafeErrorFactory>();
-builder.Services.AddSingleton<ISafeDiagnosticWriter, SafeDiagnosticWriter>();
+builder.Services.AddSafeErrorHandling();
 
 builder.Services.AddEdge(configuration, builder.Environment);
 

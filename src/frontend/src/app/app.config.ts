@@ -9,8 +9,7 @@ import {
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter } from '@angular/router';
-import { definePreset } from '@primeuix/themes';
-import Aura from '@primeuix/themes/aura';
+import { INTELIBILL_PRIME_CSS_LAYER, INTELIBILL_PRIME_PRESET } from '@intelibill/ui/theme';
 import { provideStore } from '@ngrx/store';
 import { provideStoreDevtools } from '@ngrx/store-devtools';
 import { providePrimeNG } from 'primeng/config';
@@ -32,24 +31,6 @@ import { ProtectedCacheSafetyService } from './core/service-worker/protected-cac
 import { APP_WORKER_SCRIPT } from './core/service-worker/service-worker-registration';
 import { OfflineSalesQueueSyncService } from './features/sales/services/offline-sales-queue-sync.service';
 
-const enterprisePreset = definePreset(Aura, {
-  semantic: {
-    primary: {
-      50: '#fff7ed',
-      100: '#ffedd5',
-      200: '#fed7aa',
-      300: '#fdba74',
-      400: '#fb923c',
-      500: '#f97316',
-      600: '#ea580c',
-      700: '#c2410c',
-      800: '#9a3412',
-      900: '#7c2d12',
-      950: '#431407',
-    },
-  },
-});
-
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
@@ -62,13 +43,10 @@ export const appConfig: ApplicationConfig = {
       // their tooltips must sit above those forms to remain visible and clickable.
       zIndex: { modal: 1100, overlay: 1300, menu: 1000, tooltip: 1400 },
       theme: {
-        preset: enterprisePreset,
+        preset: INTELIBILL_PRIME_PRESET,
         options: {
           darkModeSelector: false,
-          cssLayer: {
-            name: 'primeng',
-            order: 'theme, base, primeng',
-          },
+          cssLayer: INTELIBILL_PRIME_CSS_LAYER,
         },
       },
     }),

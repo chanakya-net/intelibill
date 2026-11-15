@@ -1,0 +1,17 @@
+{
+  "name": "@intelibill/ui",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles/*": "./styles/*",
+    "./theme": "./src/theme.ts",
+    "./confirmation-dialog": "./src/confirmation-dialog.component.ts"
+  },
+  "peerDependencies": {
+    "@angular/core": "^21.2.0",
+    "@primeuix/themes": "^2.0.3",
+    "primeng": "^21.1.3",
+    "tslib": "^2.3.0"
+  }
+}

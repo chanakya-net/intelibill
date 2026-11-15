@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Intelibill.Application\Intelibill.Application.csproj" />
+    <ProjectReference Include="..\..\shared\backend\Intelibill.Shared.Web\Intelibill.Shared.Web.csproj" />
     <ProjectReference Include="..\Intelibill.Infrastructure\Intelibill.Infrastructure.csproj" />
   </ItemGroup>
 

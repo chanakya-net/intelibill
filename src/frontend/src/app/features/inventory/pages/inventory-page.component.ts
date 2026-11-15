@@ -15,7 +15,7 @@ import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { SkeletonModule } from 'primeng/skeleton';
 import { TableModule } from 'primeng/table';
-import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { ConfirmationDialogComponent } from '@intelibill/ui/confirmation-dialog';
 import { ConfirmationService } from 'primeng/api';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -62,7 +62,7 @@ import {
     InputTextModule,
     SkeletonModule,
     TableModule,
-    ConfirmDialogModule,
+    ConfirmationDialogComponent,
     AddProductOverlayComponent,
     BarcodeLabelPrintDialogComponent,
     EditItemOverlayComponent,

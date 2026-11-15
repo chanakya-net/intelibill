@@ -410,6 +410,73 @@ run "prod_sizing_contract" {
   }
 }
 
+# P01-05: the local Compose stack's fixture settings (Development environment,
+# Mailpit capture, relaxed rate limits, literal JWT/outbox keys, fixed local
+# database logins, licensing database settings) must never reach production.
+run "prod_excludes_local_stack_settings" {
+  command = plan
+
+  variables {
+    env = "prod"
+    # The shared fixture names its database intelibill_dev, the local stack's
+    # merchant database; production names its own.
+    database = {
+      host          = "intelibill-pg-01.postgres.database.azure.com"
+      port          = 5432
+      name          = "intelibill_prod"
+      max_pool_size = 12
+    }
+  }
+
+  assert {
+    condition = alltrue([
+      for container in concat(
+        azurerm_container_app.api.template[0].container,
+        azurerm_container_app.web.template[0].container,
+        azurerm_container_app_job.migrate.template[0].container,
+        ) : alltrue([
+          for setting in container.env : !(
+            setting.name == "ASPNETCORE_ENVIRONMENT" && setting.value != "Production" ||
+            setting.name == "Email__LocalCapture" && setting.value != "false" ||
+            setting.name == "Email__Host" && setting.value == "mailpit" ||
+            setting.name == "RateLimiting__RelaxEndpointPolicies" ||
+            setting.name == "DistributedCache__CreateIfNotExists" && setting.value == "true" ||
+            setting.name == "Jwt__Secret" ||
+            setting.name == "Identity__OutboxKey" && setting.value != null ||
+            setting.name == "Database__Password" ||
+            setting.name == "Database__UseEntraAuth" && setting.value != "true" ||
+            startswith(setting.name, "LicensingDatabase__") ||
+            startswith(setting.name, "LicensingMigrationDatabase__") ||
+            contains([
+              "intelibill",
+              "intelibill_app",
+              "intelibill_licensing_migrator",
+              "intelibill_licensing_app",
+              "intelibill_dev",
+              "intelibill_licensing_dev",
+              "postgres",
+              "http://backend:8080",
+              "http://licensing-api:8080",
+              "http://localhost:4000",
+            ], coalesce(setting.value, "<secret reference>"))
+          )
+      ])
+    ])
+    error_message = "Production workloads must not carry local Compose stack, fixture or licensing development settings."
+  }
+
+  assert {
+    condition = alltrue([
+      for setting in azurerm_container_app.api.template[0].container[0].env :
+      setting.value == "Production" if setting.name == "ASPNETCORE_ENVIRONMENT"
+    ]) && length([
+      for setting in azurerm_container_app.api.template[0].container[0].env : setting
+      if setting.name == "ASPNETCORE_ENVIRONMENT"
+    ]) == 1
+    error_message = "The production API must state the Production environment exactly once."
+  }
+}
+
 run "optional_secret_contract" {
   command = plan
 

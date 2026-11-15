@@ -1,0 +1,11 @@
+{
+  "name": "@intelibill/api",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "peerDependencies": {
+    "@angular/core": "^21.2.0"
+  }
+}

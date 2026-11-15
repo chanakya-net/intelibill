@@ -1,0 +1,22 @@
+using Intelibill.Licensing.Application.AdminIdentities;
+using Intelibill.Licensing.Application.Audit;
+using Intelibill.Licensing.Application.Bootstrap;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+namespace Intelibill.Licensing.Application;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddLicensingApplication(this IServiceCollection services)
+    {
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddScoped<AuditEvidenceFactory>();
+        services.AddScoped<AdminAuditQuery>();
+        services.AddScoped<PrepareBootstrapAdminHandler>();
+        services.AddScoped<BootstrapAdminHandler>();
+        services.AddScoped<InviteAdminHandler>();
+        services.AddScoped<AcceptAdminInvitationHandler>();
+        return services;
+    }
+}

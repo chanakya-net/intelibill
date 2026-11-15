@@ -111,21 +111,24 @@ See [docs/mobile-architecture.md](docs/mobile-architecture.md) for architecture 
 # DB only (for local backend dev)
 docker compose up -d
 
-# Full stack
-docker compose --profile full up -d
+# Full stack: merchant API/web, licensing API/admin web, explicit migrations, Mailpit
+docker compose --profile full up -d --build
 ```
 
-The full stack runs the API as `intelibill_app`, a login role that holds table
-DML and nothing else — not as the schema owner `intelibill`, which holds
-`BYPASSRLS` and would therefore ignore every tenant policy. The `db-runtime-role`
-service creates that role before the API starts
-([scripts/db/local-runtime-role.sql](scripts/db/local-runtime-role.sql)), and the
-API refuses to start if it is ever pointed back at a privileged identity.
+The full stack prepares the databases and applies both schemas itself, in order,
+before either API starts: `db-bootstrap` (roles, licensing database, connection
+isolation) → `merchant-migrate` / `licensing-migrate` (EF migration bundles,
+run as each database's owner) → `db-runtime-role` / `licensing-runtime-role`
+(data grants) → `backend` / `licensing-api` → `frontend` / `admin-frontend`.
+Neither API migrates or creates anything at startup, and each connects as a
+restricted login (`intelibill_app`, `intelibill_licensing_app`) that cannot open
+the other's database, change schema or bypass row-level security. A failure in
+one branch never holds the other back. Details, configuration and
+troubleshooting: [docs/licensing-rollout.md](docs/licensing-rollout.md).
 
-The stack does not migrate: apply the schema yourself against the compose
-database before the API will serve anything — the `dotnet ef database update`
-command under [Backend](#backend) above, pointed at `localhost:5432`. Re-run `up`
-afterwards so a table added by that migration picks up its grant.
+When you run the DB-only profile and develop the API on the host, apply the
+merchant schema yourself with the `dotnet ef database update` command under
+[Backend](#backend) above, pointed at `localhost:5432`.
 
 Identity email is captured locally by the `mailpit` service rather than
 delivered: registration and password-reset messages appear at
@@ -140,16 +143,18 @@ setting in any environment but Development or Testing.
 
 | Service  | URL |
 |---|---|
-| Backend  | `http://localhost:5277` |
-| Frontend | `http://localhost:4000` |
-| Mail capture | `http://localhost:8025` |
+| Merchant API | `http://127.0.0.1:5277` |
+| Merchant web | `http://127.0.0.1:4000` |
+| Licensing API | `http://127.0.0.1:5278` |
+| Admin web | `http://127.0.0.1:4001` |
+| Mail capture | `http://127.0.0.1:8025` |
 | PostgreSQL | `localhost:5432` |
 
 ```bash
-# Rebuild after code changes
+# Rebuild after code changes (also re-runs migrations and grants)
 docker compose --profile full up -d --build
 
-# Tear down (add -v to wipe the database)
+# Stop, keeping data (add -v only if you mean to wipe both databases)
 docker compose --profile full down
 ```
 

@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Intelibill.Domain\Intelibill.Domain.csproj" />
+    <ProjectReference Include="..\..\shared\backend\Intelibill.Shared.Security\Intelibill.Shared.Security.csproj" />
   </ItemGroup>
 
   <ItemGroup>

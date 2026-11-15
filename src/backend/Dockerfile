@@ -14,12 +14,16 @@ COPY ["src/backend/Intelibill.Api/Intelibill.Api.csproj", "src/backend/Intelibil
 COPY ["src/backend/Intelibill.Application/Intelibill.Application.csproj", "src/backend/Intelibill.Application/"]
 COPY ["src/backend/Intelibill.Domain/Intelibill.Domain.csproj", "src/backend/Intelibill.Domain/"]
 COPY ["src/backend/Intelibill.Infrastructure/Intelibill.Infrastructure.csproj", "src/backend/Intelibill.Infrastructure/"]
+COPY ["src/shared/backend/Intelibill.Shared.Web/Intelibill.Shared.Web.csproj", "src/shared/backend/Intelibill.Shared.Web/"]
 
 # Restore NuGet packages
+COPY ["src/shared/backend/Intelibill.Shared.Contracts/Intelibill.Shared.Contracts.csproj", "src/shared/backend/Intelibill.Shared.Contracts/"]
+COPY ["src/shared/backend/Intelibill.Shared.Security/Intelibill.Shared.Security.csproj", "src/shared/backend/Intelibill.Shared.Security/"]
 RUN dotnet restore "src/backend/Intelibill.Api/Intelibill.Api.csproj"
 
 # Copy the rest of the backend source code
 COPY ["src/backend/", "src/backend/"]
+COPY ["src/shared/", "src/shared/"]
 
 # Build and publish the API project
 WORKDIR "/app/src/backend/Intelibill.Api"

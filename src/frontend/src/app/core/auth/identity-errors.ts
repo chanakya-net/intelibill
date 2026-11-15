@@ -1,6 +1,7 @@
-import { ApiErrorPayload } from './auth.models';
+import { problemCode } from '@intelibill/api';
+import type { ApiErrorPayload } from './auth.models';
 export function identityError(error: { error?: ApiErrorPayload }): string {
-  const code = error?.error?.code ?? error?.error?.title;
+  const code = problemCode(error?.error);
   switch (code) {
     case 'Auth.InvalidChallenge':
       return 'identity.invalidLink';

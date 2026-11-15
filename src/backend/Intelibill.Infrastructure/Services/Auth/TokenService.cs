@@ -106,10 +106,10 @@ internal sealed class TokenService(IOptions<JwtOptions> options, IJwtSigner sign
 
     public RefreshSecret CreateRefreshSecret()
     {
-        var token = RefreshTokenSecrets.NewToken();
+        var secret = RefreshTokenSecrets.Create();
         return new RefreshSecret(
-            token,
-            RefreshTokenSecrets.Hash(token),
+            secret.Token,
+            secret.TokenHash,
             timeProvider.GetUtcNow().AddDays(_jwt.RefreshTokenExpiryDays));
     }
 }

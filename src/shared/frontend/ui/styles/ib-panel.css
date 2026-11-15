@@ -1,0 +1,46 @@
+/*
+ * Directory panel: the bordered list panel on the customers, discounts, expenses, users, purchase
+ * order and stock adjustment pages and the account security sections, with its header (title and
+ * metric chips) and the table surface. Breakpoint padding and title sizes stay with each page.
+ */
+@layer ib-kit {
+  .ib-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.75rem;
+    border: 1px solid var(--app-sand-300);
+    border-radius: 1.2rem;
+    background: rgba(255, 251, 246, 0.92);
+    box-shadow: 0 10px 30px rgba(78, 49, 20, 0.07);
+  }
+
+  .ib-panel__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .ib-panel__title {
+    margin: 0.2rem 0 0;
+    color: #271911;
+    font-size: 1.2rem;
+    font-weight: 800;
+  }
+
+  .ib-panel__metrics {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.45rem;
+  }
+
+  .ib-panel__surface {
+    overflow: hidden;
+    border: 1px solid #eedcc8;
+    border-radius: 0.9rem;
+    background: var(--app-sand-50);
+  }
+}

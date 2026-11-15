@@ -33,6 +33,11 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "**/*",
+                "input": "../shared/frontend/ui/fonts",
+                "output": "fonts"
               }
             ],
             "styles": [

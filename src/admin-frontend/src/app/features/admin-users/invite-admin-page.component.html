@@ -1,0 +1,41 @@
+<main>
+  <h1 class="ib-page-title">Invite an administrator</h1>
+  <section class="ib-panel" aria-label="Administrator invitations" [attr.aria-busy]="busy() || view() === 'loading'">
+    @if (error()) {
+      <p class="ib-error-banner" role="alert">{{ error() }}</p>
+    }
+    @switch (view()) {
+      @case ('loading') {
+        <p role="status">Checking your access…</p>
+      }
+      @case ('uncertain') {
+        <button pButton type="button" (click)="recover()">Try again</button>
+      }
+      @case ('denied') {
+        <a routerLink="/">Return to the Provider Console</a>
+      }
+      @case ('sent') {
+        @let invitation = sent();
+        <h2 class="ib-panel__title">Invitation sent</h2>
+        <p role="status">
+          An invitation was emailed to {{ invitation?.email }}. The one-use link expires
+          {{ invitation?.expiresAt | date: 'medium' }}.
+        </p>
+        <p>The new administrator receives no capabilities until they are granted separately.</p>
+        <div>
+          <button pButton type="button" (click)="inviteAnother()">Invite another administrator</button>
+        </div>
+      }
+      @default {
+        <form class="ib-form-section" (submit)="submit($event, email)">
+          <label for="invite-email">Administrator email</label>
+          <input #email id="invite-email" type="email" autocomplete="off" maxlength="254" required spellcheck="false" />
+          <p>They will confirm this address, choose a password and set up an authenticator app.</p>
+          <div>
+            <button pButton type="submit" [disabled]="busy()">Send invitation</button>
+          </div>
+        </form>
+      }
+    }
+  </section>
+</main>

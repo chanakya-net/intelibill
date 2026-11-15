@@ -136,10 +136,10 @@ All EF mappings are in separate `IEntityTypeConfiguration<T>` classes, not in `O
 Unhandled exceptions are caught at the pipeline level and answered as RFC 7807 Problem Details with a stable `code` and `traceId` — never the exception's text. This is the last-resort safety net — expected errors use ErrorOr. See `docs/backend-architecture.md` § Safe Errors and Diagnostics.
 
 **Where it appears:**
-- Implementation: `src/backend/Intelibill.Api/Middleware/ExceptionHandlingMiddleware.cs`
-- Public mapping: `src/backend/Intelibill.Api/PublicErrors/SafeErrorFactory.cs`
-- Diagnostics: `src/backend/Intelibill.Api/Logging/SafeDiagnosticWriter.cs`
-- Registration: `src/backend/Intelibill.Api/Program.cs` (`UseMiddleware<ExceptionHandlingMiddleware>`)
+- Implementation (shared by the merchant and licensing APIs): `src/shared/backend/Intelibill.Shared.Web/Middleware/ExceptionHandlingMiddleware.cs`
+- Public mapping: `src/shared/backend/Intelibill.Shared.Web/PublicErrors/SafeErrorFactory.cs`
+- Diagnostics: `src/shared/backend/Intelibill.Shared.Web/Logging/SafeDiagnosticWriter.cs`
+- Registration: `AddSafeErrorHandling()` + `UseMiddleware<ExceptionHandlingMiddleware>` in `src/backend/Intelibill.Api/Program.cs` and `src/licensing/Intelibill.Licensing.Api/Program.cs`
 
 ---
 

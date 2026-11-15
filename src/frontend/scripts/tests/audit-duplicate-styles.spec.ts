@@ -88,6 +88,21 @@ describe('audit-duplicate-styles', () => {
     expect((await auditDuplicateStyles(project)).count).toBe(1);
   });
 
+  it('resolves design tokens from the shared stylesheet', async () => {
+    const project = await fixtureProject(
+      {
+        'web/src/styles.css': "@import '@intelibill/ui/styles/tokens.css';",
+        'shared/frontend/ui/styles/tokens.css': ':root { --app-sand-300: #ead7c1; }',
+        'web/src/app/a.scss': CARD,
+        'web/src/app/b.scss': CARD,
+        'web/src/app/c.scss': CARD,
+        'web/src/app/d.scss': CARD.replace('#ead7c1', 'var(--app-sand-300)'),
+      },
+      1,
+    );
+    expect((await auditDuplicateStyles({ ...project, root: join(project.root, 'web') })).count).toBe(1);
+  });
+
   it('reads component stylesheets under src/app only, skipping partials', async () => {
     const files = {
       'src/app/a/a.component.scss': CARD,
