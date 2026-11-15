@@ -29,7 +29,7 @@ public static partial class CatalogueDraftRules
 
     public static CatalogueRuleViolation Check(PlanKind kind, PlanDraftFacts facts)
     {
-        if (facts.Name is not { Length: >= 1 and <= MaxNameLength } || facts.Name != facts.Name.Trim())
+        if (facts.Name.Trim().Length is < 1 or > MaxNameLength || facts.Name.Any(char.IsControl))
             return CatalogueRuleViolation.NameInvalid;
         if (!Amount(facts.MonthlyPricePaise) || !Amount(facts.AnnualPricePaise)
             || !Amount(facts.ExtraShopMonthlyPricePaise) || !Amount(facts.ExtraShopAnnualPricePaise))
@@ -46,13 +46,21 @@ public static partial class CatalogueDraftRules
         };
     }
 
-    /// <summary>Facts implied by the kind: a single-shop plan covers one shop and offers no extra shops.</summary>
-    public static PlanDraftFacts Normalize(PlanKind kind, PlanDraftFacts facts) => kind switch
+    /// <summary>Trim validated text and fill facts implied by the plan kind.</summary>
+    public static PlanDraftFacts Normalize(PlanKind kind, PlanDraftFacts facts)
     {
-        PlanKind.SingleShop => facts with { IncludedShops = 1, ExtraShopsOffered = false },
-        PlanKind.Custom => facts with { ExtraShopsOffered = false },
-        _ => facts,
-    };
+        var normalized = facts with
+        {
+            Name = facts.Name.Trim(),
+            NegotiationReason = kind == PlanKind.Custom ? facts.NegotiationReason?.Trim() : null,
+        };
+        return kind switch
+        {
+            PlanKind.SingleShop => normalized with { IncludedShops = 1, ExtraShopsOffered = false },
+            PlanKind.Custom => normalized with { ExtraShopsOffered = false },
+            _ => normalized,
+        };
+    }
 
     public static string[] Missing(PlanKind kind, PlanDraftFacts facts)
     {
@@ -93,14 +101,14 @@ public static partial class CatalogueDraftRules
 
     private static CatalogueRuleViolation CheckSingleShop(PlanDraftFacts facts)
     {
-        if (facts.NegotiationReason is not null) return CatalogueRuleViolation.ReasonNotAllowed;
+        if (HasNegotiationReason(facts.NegotiationReason)) return CatalogueRuleViolation.ReasonNotAllowed;
         if (facts.IncludedShops is not (null or 1)) return CatalogueRuleViolation.CapacityInvalid;
         return NoExtraShopOffer(facts) ? CatalogueRuleViolation.None : CatalogueRuleViolation.ExtraShopTermsInvalid;
     }
 
     private static CatalogueRuleViolation CheckMultiShop(PlanDraftFacts facts)
     {
-        if (facts.NegotiationReason is not null) return CatalogueRuleViolation.ReasonNotAllowed;
+        if (HasNegotiationReason(facts.NegotiationReason)) return CatalogueRuleViolation.ReasonNotAllowed;
         if (facts.IncludedShops is < 2) return CatalogueRuleViolation.CapacityInvalid;
         var pricesSet = facts.ExtraShopMonthlyPricePaise is not null || facts.ExtraShopAnnualPricePaise is not null;
         return pricesSet && facts.ExtraShopsOffered is not true
@@ -109,11 +117,14 @@ public static partial class CatalogueDraftRules
 
     private static CatalogueRuleViolation CheckCustom(PlanDraftFacts facts)
     {
-        if (facts.NegotiationReason is not { } reason || reason.Trim().Length == 0)
+        if (facts.NegotiationReason is not { } reason || reason.Trim().Length is < 1 or > MaxReasonLength
+            || reason.Any(char.IsControl))
             return CatalogueRuleViolation.CustomReasonRequired;
-        if (reason.Length > MaxReasonLength || reason != reason.Trim()) return CatalogueRuleViolation.CustomReasonRequired;
         return NoExtraShopOffer(facts) ? CatalogueRuleViolation.None : CatalogueRuleViolation.ExtraShopTermsInvalid;
     }
+
+    private static bool HasNegotiationReason(string? reason) => reason is not null
+        && (!string.IsNullOrWhiteSpace(reason) || reason.Any(char.IsControl));
 
     private static void AddExtraShopGaps(PlanDraftFacts facts, List<string> missing)
     {

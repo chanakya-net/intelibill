@@ -78,6 +78,7 @@ public interface ICatalogueDraftStore
     Task EnterCatalogueAsync(Guid adminId, CancellationToken token);
     Task<IReadOnlyList<(Plan Plan, PlanVersion Draft)>> ListPlanDraftsAsync(Guid? after, int take, CancellationToken token);
     Task<(Plan? Plan, PlanVersion? Draft)> LockPlanAsync(Guid planId, CancellationToken token);
+    Task<TrialPolicyVersion?> ReadTrialDraftAsync(CancellationToken token);
     Task<TrialPolicyVersion?> LockTrialDraftAsync(CancellationToken token);
     Task<int> NextTrialVersionNumberAsync(CancellationToken token);
     void Add(object entity);

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Npgsql;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
@@ -71,6 +72,26 @@ public sealed partial class P0206Tests
         Assert.Single(outcomes, status => status == HttpStatusCode.Conflict);
         Assert.Equal(1L, await fixture.ScalarAsync("SELECT count(*) FROM trial_policy_versions"));
         Assert.Equal(1L, await fixture.ScalarAsync("SELECT count(*) FROM catalogue_draft_changes WHERE target_kind = 2"));
+    }
+
+    [Fact]
+    public async Task TrialPolicyDraft_ReadsCommittedCapsWhileTheDraftRowIsLocked()
+    {
+        await using var fixture = await P0206Fixture.StartAsync(database);
+        var (manager, _) = await fixture.ManagerAsync();
+        using var _manager = manager;
+        await SaveTrialAsync(manager, new { expectedVersion = 0, activeMemberCap = 5 }, HttpStatusCode.Created);
+
+        await using var gate = new NpgsqlConnection(fixture.Superuser.ConnectionString);
+        await gate.OpenAsync();
+        await using var hold = await gate.BeginTransactionAsync();
+        await using var lockRow = new NpgsqlCommand("SELECT active_member_cap FROM trial_policy_versions FOR UPDATE", gate, hold);
+        Assert.Equal(5, await lockRow.ExecuteScalarAsync());
+
+        using var response = await manager.SendAsync(HttpMethod.Get, Trial);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var draft = (await P0206Fixture.BodyAsync(response)).GetProperty("draft");
+        Assert.Equal(5, draft.GetProperty("activeMemberCap").GetInt32());
     }
 
     private static async Task<JsonElement> SaveTrialAsync(P0110CookieBrowser manager, object body,

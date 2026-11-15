@@ -34,6 +34,4 @@ internal static class CatalogueDraftViews
             draft.ActiveMemberCap, draft.MaxConcurrentTrialShops, draft.TrialTermsVersion, missing,
             missing.Length == 0, draft.UpdatedAt);
     }
-
-    internal static string? Trimmed(string? value) => value?.Trim() is { Length: > 0 } trimmed ? trimmed : null;
 }

@@ -1,6 +1,6 @@
 /** Rupee text such as "1,499.00" ↔ whole paise, by string arithmetic only (no floating point). */
 const maxPaise = 1_000_000_000_000;
-const rupees = /^(\d{1,10})(?:\.(\d{1,2}))?$/;
+const rupees = /^(\d{1,11})(?:\.(\d{1,2}))?$/;
 
 export const invalid = Symbol('invalid');
 export type Parsed<T> = T | null | typeof invalid;

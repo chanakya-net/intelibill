@@ -88,8 +88,13 @@ test('licensing manager drafts plans and the trial policy through the admin cons
     await page.getByLabel('Annual base price (₹)').fill('14,990.00');
     await page.getByLabel('Purchased shop slots').fill('3');
     await page.getByLabel('Members per shop').fill('5');
-    await page.getByLabel('Extra shops').selectOption('yes');
     await page.getByLabel('Extra-shop monthly price (₹)').fill('399');
+    await page.getByRole('button', { name: 'Save draft' }).click();
+    await expect(page.getByRole('alert')).toContainText('Extra-shop prices need an extra-shop offer');
+    expect((await plans(page))[0].draft).toMatchObject({ version: saved.draft['version'], extraShopMonthlyPricePaise: null });
+    observe('A price entered before opting in raised a visible error and left the persisted draft revision and price unchanged.');
+
+    await page.getByLabel('Extra shops').selectOption('yes');
     await page.getByLabel('Extra-shop annual price (₹)').fill('3,990');
     await page.getByLabel('Customer terms version').fill('terms-2026.11');
     await page.getByLabel('Refund policy version').fill('refund-2026.11');
@@ -167,6 +172,7 @@ test('licensing manager drafts plans and the trial policy through the admin cons
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: 'Reload catalogue' }).click();
+    await expect(page.getByLabel('Concurrent trial shop cap')).toHaveValue('2');
     await expect(page.getByText('Draft · not published · complete')).toBeVisible();
     await page.screenshot({ path: join(evidence, 'catalogue-390.png'), fullPage: true });
 

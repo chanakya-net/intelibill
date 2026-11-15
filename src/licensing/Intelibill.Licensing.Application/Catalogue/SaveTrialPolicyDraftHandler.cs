@@ -12,7 +12,7 @@ public sealed class SaveTrialPolicyDraftHandler(ICatalogueDraftStore store, Time
         store.InTransactionAsync<TrialDraftEnvelope>(async ct =>
         {
             if (await CatalogueAuthority.EnterAsync(store, caller, clock.GetUtcNow(), ct) is { } denied) return denied;
-            var draft = await store.LockTrialDraftAsync(ct);
+            var draft = await store.ReadTrialDraftAsync(ct);
             return new TrialDraftEnvelope(draft is null ? null : CatalogueDraftViews.ToView(draft));
         }, token);
 

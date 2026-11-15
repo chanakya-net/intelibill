@@ -75,6 +75,10 @@ internal sealed class CatalogueDraftStore(LicensingDbContext context) : ICatalog
         return (plan, drafts.SingleOrDefault());
     }
 
+    public Task<TrialPolicyVersion?> ReadTrialDraftAsync(CancellationToken token) =>
+        context.Set<TrialPolicyVersion>().AsNoTracking()
+            .SingleOrDefaultAsync(version => version.Status == CatalogueVersionStatus.Draft, token);
+
     public async Task<TrialPolicyVersion?> LockTrialDraftAsync(CancellationToken token)
     {
         var drafts = await context.Set<TrialPolicyVersion>().FromSql($"""

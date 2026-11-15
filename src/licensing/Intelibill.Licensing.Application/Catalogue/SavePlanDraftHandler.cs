@@ -54,10 +54,10 @@ public sealed class SavePlanDraftHandler(ICatalogueDraftStore store, TimeProvide
         if (planId == Guid.Empty || request is not { ExpectedVersion: >= 0 and var expected }
             || CatalogueDraftViews.ParseKind(request.Kind) is not { } kind)
             return CatalogueErrors.DraftInvalid;
-        var facts = new PlanDraftFacts(request.Name?.Trim() ?? string.Empty, request.MonthlyPricePaise,
+        var facts = new PlanDraftFacts(request.Name ?? string.Empty, request.MonthlyPricePaise,
             request.AnnualPricePaise, request.IncludedShops, request.MembersPerShop, request.ExtraShopsOffered,
             request.ExtraShopMonthlyPricePaise, request.ExtraShopAnnualPricePaise, request.CustomerTermsVersion,
-            request.RefundPolicyVersion, CatalogueDraftViews.Trimmed(request.Reason));
+            request.RefundPolicyVersion, request.Reason);
         if (CatalogueAuthority.ToError(CatalogueDraftRules.Check(kind, facts)) is { } invalid) return invalid;
         return (kind, CatalogueDraftRules.Normalize(kind, facts), expected);
     }

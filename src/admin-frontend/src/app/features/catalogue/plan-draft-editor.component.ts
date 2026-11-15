@@ -54,11 +54,11 @@ export class PlanDraftEditorComponent {
   protected submit(event: SubmitEvent, form: HTMLFormElement) {
     event.preventDefault();
     if (this.busy() || this.cleared()) return;
+    this.notice.set('');
     const command = this.read(new FormData(form));
     if (!command) return;
     this.busy.set(true);
     this.error.set('');
-    this.notice.set('');
     this.api.savePlan(this.plan()?.planId ?? this.newPlanId, command)
       .pipe(takeUntilDestroyed(this.destroy), finalize(() => this.busy.set(false)))
       .subscribe({
@@ -87,13 +87,16 @@ export class PlanDraftEditorComponent {
     }
     const offer = kind === 'multi-shop' ? text('extraShopsOffered') : '';
     const [monthly, annual, extraMonthly, extraAnnual] = prices as (number | null)[];
+    if (offer !== 'yes' && (extraMonthly !== null || extraAnnual !== null)) {
+      this.error.set(refusals['Catalogue.ExtraShopTermsInvalid']);
+      return null;
+    }
     return {
       expectedVersion: this.draft()?.version ?? 0, kind, name: text('name').trim(),
       monthlyPricePaise: monthly, annualPricePaise: annual,
       includedShops: counts[0] as number | null, membersPerShop: counts[1] as number | null,
       extraShopsOffered: offer === '' ? null : offer === 'yes',
-      extraShopMonthlyPricePaise: offer === 'yes' ? extraMonthly : null,
-      extraShopAnnualPricePaise: offer === 'yes' ? extraAnnual : null,
+      extraShopMonthlyPricePaise: extraMonthly, extraShopAnnualPricePaise: extraAnnual,
       customerTermsVersion: parseText(text('customerTermsVersion')),
       refundPolicyVersion: parseText(text('refundPolicyVersion')), reason,
     };

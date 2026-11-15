@@ -72,6 +72,7 @@ describe('catalogue money and capacity parsing', () => {
     expect(rupeesToPaise('  ')).toBeNull();
     expect(rupeesToPaise('-1')).toBe(invalid);
     expect(rupeesToPaise('1.005')).toBe(invalid);
+    expect(rupeesToPaise('10000000000')).toBe(1_000_000_000_000);
     expect(rupeesToPaise('10000000000.01')).toBe(invalid);
     expect(paiseToRupees(149907)).toBe('1499.07');
     expect(formatInr(149900)).toBe('₹1,499.00');
@@ -114,6 +115,22 @@ describe('catalogue draft editor', () => {
       membersPerShop: null, extraShopsOffered: null, reason: null,
     }));
     expect(page.querySelector('[role="status"]')?.textContent).toContain('not published');
+  });
+
+  it.each(['', 'no'])('refuses an extra-shop price when the offer is "%s"', (offer) => {
+    const { page, api, click, field, submit } = render();
+    click('Growth');
+    field('#offer', offer);
+    field('#extra-monthly', '0');
+    submit('adm-plan-draft-editor form');
+    expect(page.querySelector('[role="alert"]')?.textContent).toContain('Extra-shop prices need an extra-shop offer');
+    expect(api.savePlan).not.toHaveBeenCalled();
+
+    field('#offer', 'yes');
+    submit('adm-plan-draft-editor form');
+    expect(api.savePlan).toHaveBeenCalledWith('plan-1', expect.objectContaining({
+      extraShopsOffered: true, extraShopMonthlyPricePaise: 0, extraShopAnnualPricePaise: null,
+    }));
   });
 
   it('blocks negotiated Custom terms without a reason and creates with a fixed new identity', () => {

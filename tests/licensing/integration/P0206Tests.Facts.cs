@@ -180,4 +180,28 @@ public sealed partial class P0206Tests
         Assert.Equal(expected, response.StatusCode);
         return (await P0206Fixture.BodyAsync(response)).GetProperty("draft");
     }
+
+    [Theory]
+    [InlineData("multi-shop", "a\u0000b", "Catalogue.NameInvalid")]
+    [InlineData("multi-shop", "a\nb", "Catalogue.NameInvalid")]
+    [InlineData("multi-shop", "a\t", "Catalogue.NameInvalid")]
+    [InlineData("custom", "a\u0000b", "Catalogue.CustomReasonRequired")]
+    [InlineData("custom", "a\r\nb", "Catalogue.CustomReasonRequired")]
+    [InlineData("custom", "\r\na", "Catalogue.CustomReasonRequired")]
+    public async Task ControlCharacters_AreRefusedBeforeDraftOrChangeRowsAreCreated(string kind, string text, string code)
+    {
+        await using var fixture = await P0206Fixture.StartAsync(database);
+        var (manager, _) = await fixture.ManagerAsync();
+        using var _manager = manager;
+        using var refused = await P0206Fixture.PutPlanAsync(manager, Guid.NewGuid(), new
+        {
+            expectedVersion = 0, kind, name = kind == "custom" ? "Negotiated plan" : text,
+            reason = kind == "custom" ? text : null,
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+        Assert.Equal(code, await P0206Fixture.CodeAsync(refused));
+        Assert.Equal(0L, await fixture.ScalarAsync("SELECT count(*) FROM plans"));
+        Assert.Equal(0L, await fixture.ScalarAsync("SELECT count(*) FROM plan_versions"));
+        Assert.Equal(0L, await fixture.ScalarAsync("SELECT count(*) FROM catalogue_draft_changes"));
+    }
 }

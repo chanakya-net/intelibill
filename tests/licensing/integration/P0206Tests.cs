@@ -78,6 +78,36 @@ public sealed partial class P0206Tests(LicensingPostgreSqlFixture database) : IC
         Assert.Equal(1L, await fixture.ScalarAsync($"SELECT count(*) FROM catalogue_draft_changes WHERE target_id IN (SELECT id FROM plan_versions WHERE plan_id = '{planId}')"));
     }
 
+    [Fact]
+    public async Task PlanDrafts_PageFromTheLastReturnedPlanWithoutOverlap()
+    {
+        await using var fixture = await P0206Fixture.StartAsync(database);
+        var (manager, _) = await fixture.ManagerAsync();
+        using var _manager = manager;
+        var planIds = Enumerable.Range(0, 55).Select(_ => Guid.NewGuid()).ToArray();
+        foreach (var id in planIds)
+            await SaveAsync(manager, id, MultiShop(0), HttpStatusCode.Created);
+
+        using var first = await manager.SendAsync(HttpMethod.Get, Plans);
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        var firstPage = await P0206Fixture.BodyAsync(first);
+        var firstIds = PageIds(firstPage);
+        Assert.Equal(50, firstIds.Length);
+        var cursor = firstPage.GetProperty("nextCursor").GetGuid();
+        Assert.Equal(firstIds[^1], cursor);
+
+        using var second = await manager.SendAsync(HttpMethod.Get, $"{Plans}?cursor={cursor:D}");
+        Assert.Equal(HttpStatusCode.OK, second.StatusCode);
+        var secondPage = await P0206Fixture.BodyAsync(second);
+        var secondIds = PageIds(secondPage);
+        Assert.Equal(5, secondIds.Length);
+        Assert.Equal(JsonValueKind.Null, secondPage.GetProperty("nextCursor").ValueKind);
+        Assert.Equal(planIds.Order(), firstIds.Concat(secondIds));
+    }
+
+    private static Guid[] PageIds(JsonElement page) =>
+        page.GetProperty("items").EnumerateArray().Select(item => item.GetProperty("planId").GetGuid()).ToArray();
+
     internal static string[] Missing(JsonElement draft) =>
         draft.GetProperty("missing").EnumerateArray().Select(value => value.GetString()!).ToArray();
 }
