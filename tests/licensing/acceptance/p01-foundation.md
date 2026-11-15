@@ -2,13 +2,13 @@
 
 Issue [#845](https://github.com/chanakya-net/intelibill/issues/845) closes the local foundation gate defined by [#823](https://github.com/chanakya-net/intelibill/issues/823).
 
-**Local gate:** Full Compose acceptance in progress. **Live provider gate:** Unverified and unauthorized.
+**Local gate:** Verified with a clean Compose run and local consumer checks. **Live provider gate:** Unverified and unauthorized.
 
 The implementation run started from `966ba4a33f18c52ad0999157bed7dd22293b6e9f`. It uses synthetic identities, a local PostgreSQL instance and Mailpit. The two web image builds use Bun 1.3.11. Host web verification was repeated with Bun 1.3.11 and the frozen lockfile. The host SDK was .NET 10.0.403, selected by the repository's `latestMinor` roll-forward.
 
 ## Reproduce the local gate
 
-Use the repository's Bun and Playwright versions, Chromium installed for the admin workspace, and a local Docker Unix socket. The Compose runner also uses Bash, `jq`, `lsof` and OpenSSL. Run from the repository root.
+Use the repository's Bun and Playwright versions, Chromium installed for the admin workspace, and a local Docker Unix socket. The Compose runner also uses Bash, `jq`, `lsof` and OpenSSL. Run from the root of a clean checkout, with no untracked build inputs.
 
 ```bash
 bun install --frozen-lockfile
@@ -47,7 +47,8 @@ The first combined run also reproduced a stale P01-05 browser expectation. The u
 | `GREEN1.log`, `STACK-BROWSER-DEBUG.log` | 01:51:10Z, 01:56:37Z | 1, 1 | The old browser assertion expected a redirect on the unconfigured stack. The merchant enrollment test passed. |
 | `PROVIDER-DEBUG.log` | 01:58:05Z | 1 | The exploratory Chromium check waited for the compatibility login route. The current merchant UI posts to `/api/auth/login`. |
 | `GREEN.log` | 02:00:49Z | 1 | Merchant and provider enrollment completed. The restart snapshot then queried the wrong EF history column. The checked query uses `migration_id` in both databases. |
-| `L03.log` | 01:54:44Z | 1 | One existing P0107 test timed out waiting for the async invitation-accepted log. The isolated retry passed and both final full runs passed. The new cross-host tests use the existing serial licensing collection. |
+| First rebased Compose run | 06:13:03Z | 1 | The reused merchant image imported host `dist` with mode 0700. The root Docker context now excludes generated `dist` directories. |
+| `L03.log` | 01:54:44Z | 1 | One existing P0107 test timed out waiting for the async invitation-accepted log. An isolated retry passed. A later full run hit the same timeout and its immediate full rerun passed. The new cross-host tests use the existing serial licensing collection. |
 
 ## Child evidence
 
@@ -69,13 +70,45 @@ The command IDs below identify current verification. The release browser matches
 | P01-12 / #842 | Reviewed and continuation recovery, retained evidence and revocation without MFA bypass | L02 | `P0112Tests*` (10 tests) with real PostgreSQL and injected time | Server proof. Recovery ownership requires human input. |
 | P01-13 / #843 | Exact five-minute recent-MFA cutoff, last recoverable owner races and explicit grant editing | L01, L02, G01 | `P0113Tests*` (10 tests), `P0115Tests` and Chromium capability edit, denial and re-login | Local owner |
 | P01-14 / #844 | Immutable audit, constrained role, UTC and cursor boundaries, allowed and denied access | L02, G01 | `P0114Tests*` (5 tests), TCP runtime mutation denial and real audit page | Provider audit fixture only |
-| P01-15 / #845 | Combined rerun, fixed-clock authority tests and credential-safe evidence | L01, S01, G01, G02 | Two new integration tests and shell guards. Combined run pending. | Live gate unverified |
+| P01-15 / #845 | Combined rerun, fixed-clock authority tests and credential-safe evidence | L01, S01, G01, G02 | Two PostgreSQL regressions, shell guards and the full Chromium and Compose run passed. | Live gate unverified |
 
 ## Command log
 
-All entries run in the issue worktree unless a subshell names a consumer. Times are command start in UTC on 2026-11-15. The attempt's `verification/` directory retains command, exit, applicability, time and logs. Listed checks are applicable. The expected red is an intentional nonzero assertion, and failed retries are recorded separately.
+Local checks ran from clean source `8f4b2e50ac77b83befd7fb2d6587798733942a18` in an isolated worktree. Times are UTC on 2026-11-15. The Compose commands, shell acceptance tests and web image contract ran from clean source `fc681bba76ce96ff0ca309f6da6781f4d3bca54e`, which adds the Docker context correction and isolates the shell test Git environment. The two Compose commands used the same unique project and private evidence directory. Private command logs and exit files stay outside the repository.
 
-<!-- Command results generated from the verification ledger. -->
+| ID | Started (UTC) | Command | Exit | Result |
+| --- | --- | --- | --- | --- |
+| B01 | 06:12:34 | `dotnet build src/backend/Intelibill.slnx --configuration Release` | 0 | Merchant solution build |
+| B02 | 06:12:43 | `dotnet build src/licensing/Intelibill.Licensing.slnx --configuration Release` | 0 | Licensing solution build |
+| B03 | 06:12:49 | `dotnet build Intelibill.slnx --configuration Release` | 0 | Aggregate solution build |
+| B04 | 06:14:19 | `dotnet test tests/shared/P0102ConsumerRegressionTests/Intelibill.Shared.P0102ConsumerRegressionTests.csproj --configuration Release` | 0 | Shared diagnostics consumer tests (14 passed) |
+| B05 | 06:14:34 | `dotnet test tests/shared/P0103ConsumerRegressionTests/Intelibill.Shared.P0103ConsumerRegressionTests.csproj --configuration Release` | 0 | Shared security consumer tests (12 passed) |
+| B06 | 06:14:56 | `dotnet test tests/backend/unit/Intelibill.Domain.Unit.Tests --configuration Release` | 0 | Merchant domain unit tests (468 passed) |
+| B07 | 06:14:58 | `dotnet test tests/backend/unit/Intelibill.Application.Unit.Tests --configuration Release` | 0 | Merchant application unit tests (1802 passed) |
+| B08 | 06:15:01 | `dotnet test tests/backend/unit/Intelibill.Api.Unit.Tests --configuration Release` | 0 | Merchant API unit tests (588 passed) |
+| B09 | 06:15:07 | `dotnet test tests/backend/integration/Intelibill.Integration.Tests --configuration Release --filter 'FullyQualifiedName~AuthControllerTests\|FullyQualifiedName~SessionLifecycleIntegrationTests\|FullyQualifiedName~RealtimeAuthorizationIntegrationTests'` | 0 | Merchant PostgreSQL auth, session and realtime tests (49 passed) |
+| L01 | 06:12:52 | `dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --configuration Release --filter FullyQualifiedName~P0115Tests` | 0 | P0115 PostgreSQL authority and fixed-clock regressions (2 passed) |
+| L02 | 06:13:14 | `dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --configuration Release` | 0 | Full licensing PostgreSQL integration suite (102 passed) |
+| I01 | 06:12:35 | `bash .github/scripts/tests/licensing-stack-contract.test.sh` | 0 | 11-service Compose contract |
+| I02 | 06:12:35 | `bash .github/scripts/tests/licensing-stack-harness.test.sh` | 0 | Compose lifecycle and ownership guards |
+| I03 | 06:22:20 | `bash .github/scripts/tests/frontend-image-contract.test.sh` | 0 | Merchant and admin image contracts |
+| I04 | 06:17:41 | `bash .github/scripts/tests/migration-image-contract.test.sh` | 0 | Merchant and licensing migration image contracts |
+| I05 | 06:12:38 | `bash .github/scripts/tests/validate-phase-11-workflows.test.sh` | 0 | Release workflow contracts |
+| I06 | 06:12:38 | `node --test src/admin-frontend/tests/server.test.mjs` | 0 | Admin runtime server tests |
+| S01 | 06:22:20 | `bash tests/licensing/acceptance/p01-foundation-harness.test.sh` | 0 | Exit propagation, safe evidence, scope and source provenance |
+| W00 | 06:12:34 | `bun install --frozen-lockfile` | 0 | Frozen workspace install with Bun 1.3.11 |
+| W01 | 06:12:35 | `(cd src/frontend && bun run test --run scripts/tests/web-workspace.spec.ts)` | 0 | Web workspace boundary tests (3 passed) |
+| W02 | 06:12:35 | `(cd src/frontend && bun run test --watch=false)` | 0 | Merchant test suites (2998 Angular and 107 Bun tests passed) |
+| W03 | 06:13:09 | `(cd src/frontend && bun run build)` | 0 | Merchant production build and worker packaging |
+| W04 | 06:13:21 | `(cd src/frontend && bun run audit:styles:duplicates)` | 0 | 27 duplicate style blocks against a ceiling of 27 |
+| W05 | 06:13:57 | `(cd src/frontend && bun run audit:ui:release)` | 0 | Merchant production Chromium release audit (78 passed) |
+| W06 | 06:13:21 | `(cd src/admin-frontend && bun run test --watch=false)` | 0 | Admin Angular unit tests (48 passed) |
+| W07 | 06:13:25 | `(cd src/admin-frontend && bun run build)` | 0 | Admin production build |
+| W08 | 06:13:28 | `(cd src/admin-frontend && bun run audit:release)` | 0 | Admin production Chromium release audit (1 passed) |
+| G01 | 06:22:00 | `bash scripts/licensing/test-p01-foundation.sh --case all` | 0 | 4 merchant and 2 provider Chromium passes, database isolation, startup jobs, persistence and credential scan |
+| G02 | 06:29:28 | `bash scripts/licensing/test-p01-foundation.sh --case cleanup` | 0 | Label-checked fixture cleanup |
+
+In Chromium, the merchant enrolled through Mailpit and signed back into the same shop after Compose recreation. The owner completed provider bootstrap, TOTP and recovery-code acknowledgement, then invited a second administrator at 390px. A new sign-in reflected the delegated Support grant and revoked access and refresh credentials stayed invalid across restart. The provider audit UI showed the grant change and the audit API returned denied reads. Both runtime database roles remained restricted.
 
 ## Live prerequisites
 
