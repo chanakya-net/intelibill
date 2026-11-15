@@ -107,10 +107,20 @@ jobs:
       - name: Restore backends
         run: dotnet restore Intelibill.slnx
 
+      # The integration tests load pre-built Wolverine handler classes, as the
+      # deployed image does, instead of compiling them in every API host they
+      # start. Written before the build so the one solution build compiles them in.
+      - name: Generate Wolverine handlers
+        run: >-
+          dotnet run --project src/backend/Intelibill.Api --no-launch-profile
+          --no-restore --configuration Release -- codegen write
+
       - name: Build backends
         run: dotnet build Intelibill.slnx --configuration Release --no-restore
 
       - name: Test backend
+        env:
+          INTEGRATION_TEST_PREGENERATED_HANDLERS: "1"
         run: |
           set -euo pipefail
 

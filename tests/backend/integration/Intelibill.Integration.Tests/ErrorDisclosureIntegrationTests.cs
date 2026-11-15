@@ -22,7 +22,7 @@ namespace Intelibill.Integration.Tests;
 /// log event as a sink received it — and checks none of them escaped, while the trace id in the
 /// response still finds the failure's diagnostic.
 /// </summary>
-[Collection("Integration Tests")]
+[Collection(SerialIntegrationTestGroup.Name)]
 public sealed class ErrorDisclosureIntegrationTests : IAsyncLifetime, IDisposable
 {
     private const string BearerSentinel = "eyJdisclosure-bearer-sentinel";

@@ -1,4 +1,5 @@
 using System.Net;
+using JasperFx;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Infrastructure.Data;
 using Microsoft.AspNetCore.Builder;
@@ -19,22 +20,31 @@ namespace Intelibill.Integration.Tests;
 
 public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = null, Action<IServiceCollection>? configureTestServices = null, bool enableIdentityMail = true, bool enablePhoneAuth = true, int? maxPoolSize = null, bool runtimeIdentityOutsideRequests = false) : WebApplicationFactory<Program>, IAsyncLifetime
 {
+    private readonly Lock _clientGate = new();
+
     public new HttpClient CreateClient(WebApplicationFactoryClientOptions options)
     {
-        var client = base.CreateClient(options);
+        // The base class keeps its clients in a plain list. Tests that open several
+        // clients at once would corrupt it and fail later, on dispose.
+        HttpClient client;
+        lock (_clientGate)
+        {
+            client = base.CreateClient(options);
+        }
+
         IdentityTestMailbox.Factories.Add(client, this);
         return client;
     }
     private readonly Action<IServiceCollection>? _configureTestServices = configureTestServices;
 
     private PostgreSqlContainer? _localContainer;
-    private PostgreSqlContainer DbContainer => fixture?.DbContainer ?? _localContainer ?? throw new InvalidOperationException("Container not initialized");
+    private PostgreSqlContainer DbContainer => (fixture is null ? _localContainer : SharedPostgres.Container) ?? throw new InvalidOperationException("Container not initialized");
 
     /// <summary>
     /// Owner identity: applies migrations and backs the DbContext a test resolves
     /// outside a request, so assertions about rows the policies hide are possible.
     /// </summary>
-    public string MigratorConnectionString => DbContainer.GetConnectionString();
+    public string MigratorConnectionString => fixture?.MigratorConnectionString ?? DbContainer.GetConnectionString();
 
     /// <summary>
     /// What every API request authenticates as: DML only, no ownership, no
@@ -45,32 +55,34 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
 
     public async Task InitializeAsync()
     {
-        if (fixture == null)
+        if (fixture is not null)
         {
-            _localContainer = new PostgreSqlBuilder()
-                .WithImage("postgres:17-alpine")
-                .WithDatabase("integration")
-                .WithUsername("integration")
-                .WithPassword("integration")
-                .Build();
-            await _localContainer.StartAsync();
+            // The class owns one database on the shared server. Every factory starts
+            // from a fresh copy of the migrated template, so nothing a previous test
+            // wrote is visible and no migration is replayed.
+            await fixture.ResetDatabaseAsync();
+            return;
         }
+
+        _localContainer = new PostgreSqlBuilder()
+            .WithImage("postgres:17-alpine")
+            .WithDatabase("integration")
+            .WithUsername("integration")
+            .WithPassword("integration")
+            .Build();
+        await _localContainer.StartAsync();
 
         await RestrictedRuntimeRole.EnsureAsync(MigratorConnectionString);
 
-        // Tests in this project share the same PostgreSQL container through a collection fixture.
-        // Resetting the database per factory initialization prevents data leakage between tests.
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseNpgsql(MigratorConnectionString)
             .UseSnakeCaseNamingConvention()
             .Options;
 
         await using var context = new ApplicationDbContext(options);
-        await context.Database.EnsureDeletedAsync();
         await context.Database.MigrateAsync();
 
-        // Privileges are database objects: the drop above took the previous set
-        // with it, so the runtime role is re-granted after every migration.
+        // Privileges are database objects, granted once the schema exists.
         await RestrictedRuntimeRole.GrantAsync(MigratorConnectionString);
     }
 
@@ -108,7 +120,7 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
                 ["ConnectionStrings:DefaultConnection"] = RuntimeConnectionString,
                 ["Database:Host"] = DbContainer.Hostname,
                 ["Database:Port"] = DbContainer.GetMappedPublicPort(5432).ToString(System.Globalization.CultureInfo.InvariantCulture),
-                ["Database:Database"] = "integration",
+                ["Database:Database"] = fixture?.DatabaseName ?? "integration",
                 ["Database:Username"] = RestrictedRuntimeRole.Name,
                 ["Database:Password"] = RestrictedRuntimeRole.Password,
                 ["Jwt:Secret"] = "integration-secret-key-must-be-at-least-32-chars!",
@@ -176,9 +188,37 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
                 services.Remove(descriptor);
             services.RemoveAll<Intelibill.Application.Common.Interfaces.IEmailService>();
             services.AddSingleton<Intelibill.Application.Common.Interfaces.IEmailService, TestEmailService>();
+            if (PregeneratedHandlers.Enabled)
+            {
+                // Same mode as the deployed image: load the handler classes that
+                // `codegen write` compiled into the API instead of compiling them
+                // again with Roslyn in every host this suite starts.
+                services.CritterStackDefaults(options =>
+                {
+                    options.Development.GeneratedCodeMode = JasperFx.CodeGeneration.TypeLoadMode.Static;
+                    options.Development.AssertAllPreGeneratedTypesExist = true;
+                });
+            }
+
             _configureTestServices?.Invoke(services);
         });
     }
+}
+
+/// <summary>
+/// Whether the API under test loads pre-built Wolverine handler classes.
+/// </summary>
+/// <remarks>
+/// Off unless <c>INTEGRATION_TEST_PREGENERATED_HANDLERS=1</c>. Only the script that
+/// has just regenerated the handler code and rebuilt the API sets it, so the
+/// pre-built classes can never be older than the handlers they wrap. A plain
+/// <c>dotnet test</c> compiles handlers at run time, which is slower and always
+/// current.
+/// </remarks>
+internal static class PregeneratedHandlers
+{
+    public static bool Enabled { get; } =
+        Environment.GetEnvironmentVariable("INTEGRATION_TEST_PREGENERATED_HANDLERS") == "1";
 }
 
 internal sealed class NoOpOtlpHandler : HttpMessageHandler
