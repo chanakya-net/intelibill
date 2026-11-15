@@ -34,7 +34,8 @@ public sealed class BootstrapAdminHandler(IBootstrapStore store, IBootstrapSecre
             return Error.Conflict("Bootstrap.Unavailable", "Initial setup is unavailable.");
 
         var id = Guid.NewGuid();
-        store.Add(new AdminIdentity(id, state.VerifiedEmail!, passwordHash, state.VerificationReference!, now));
+        store.Add(new AdminIdentity(id, state.VerifiedEmail!, passwordHash, state.VerificationReference!, now,
+            AdminCapability.PlatformOwner));
         state.Consume(id, now);
         store.Add(audit.Create(BootstrapAuditAction.OwnerCreated, now, AuditActor.Unauthenticated,
             AuditReason.BootstrapConsumed, id,

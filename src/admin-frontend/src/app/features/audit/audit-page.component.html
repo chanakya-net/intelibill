@@ -100,6 +100,9 @@
 <ng-template #reference let-entry>
   @if (entry) {
     <span>{{ entry.targetKind }} · {{ entry.state }}@if (entry.version !== null) { · version {{ entry.version }} }</span>
+    @if (entry.capabilities) {
+      <span class="reference-value">{{ entry.capabilities.length ? entry.capabilities.join(', ') : 'No capability grants' }}</span>
+    }
     @if (entry.targetId) { <span class="reference-value">{{ entry.targetId }}</span> }
     @if (entry.milestoneAt) { <time class="reference-value" [attr.datetime]="entry.milestoneAt">{{ utcTime(entry.milestoneAt) }}</time> }
   } @else {

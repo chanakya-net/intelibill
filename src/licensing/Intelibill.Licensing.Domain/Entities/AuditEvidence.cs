@@ -42,6 +42,11 @@ public enum AuditReason
     RecoveryResetAccepted = 29,
     LastRecoverableOwner = 30,
     RecoveryReset = 31,
+    AdminCapabilitiesInspected = 32,
+    AdminResponsibilitiesChanged = 33,
+    AdminAccessReviewed = 34,
+    AdminAccessWithdrawn = 35,
+    AdminAuthorityChanged = 36,
 }
 
 public enum AuditTarget
@@ -65,7 +70,8 @@ public enum AuditState
     Active = 8,
     Revoked = 9,
     Expired = 10,
+    Disabled = 11,
 }
 
 public sealed record AuditReference(AuditTarget TargetKind, Guid? TargetId, AuditState State,
-    uint? Version = null, DateTimeOffset? MilestoneAt = null);
+    uint? Version = null, DateTimeOffset? MilestoneAt = null, AdminCapability? Capabilities = null);

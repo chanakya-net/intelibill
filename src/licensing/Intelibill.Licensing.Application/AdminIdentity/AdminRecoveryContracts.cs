@@ -10,6 +10,8 @@ public interface IAdminRecoveryStore
     /// <summary>Runs <paramref name="operation"/> in one transaction and saves whatever it staged, refusals included.</summary>
     Task<T> InTransactionAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken);
 
+    Task LockOwnerFenceAsync(CancellationToken cancellationToken);
+
     /// <summary>Locks the administrator row for <paramref name="normalizedEmail"/>, the order every MFA change uses.</summary>
     Task<AdminIdentity?> LockByEmailAsync(string? normalizedEmail, CancellationToken cancellationToken);
 
@@ -25,8 +27,6 @@ public interface IAdminRecoveryStore
         DateTimeOffset now, CancellationToken cancellationToken);
 
     Task<AdminRecovery?> LockResetAsync(Guid adminId, string grantDigest, CancellationToken cancellationToken);
-
-    Task<bool> IsPlatformOwnerAsync(Guid adminId, CancellationToken cancellationToken);
 
     /// <summary>Active, MFA-enrolled platform owners other than <paramref name="exceptAdminId"/>.</summary>
     Task<int> CountRecoverableOwnersAsync(Guid exceptAdminId, CancellationToken cancellationToken);

@@ -16,6 +16,7 @@ internal static class ProviderSessions
     internal const string InvitationPolicy = "ProviderInvitations";
     internal const string DevicePolicy = "ProviderDeviceSessions";
     internal const string AuditPolicy = "ProviderIdentityAudit";
+    internal const string CapabilityPolicy = "ProviderCapabilityManagement";
     internal const string RecoveryPolicy = "ProviderRecoveryReview";
     internal const string CapabilityClaim = "provider_capability";
     internal const string MfaVerifiedAtClaim = "provider_mfa_at";
@@ -36,6 +37,7 @@ internal static class ProviderSessions
         services.AddScoped<AdminSignInHttp>();
         services.AddScoped<AdminSignInHandler>();
         services.AddScoped<AdminRecoveryHandler>();
+        services.AddScoped<UpdateAdminCapabilitiesHandler>();
         services.AddScoped<AdminDeviceSessions>();
         services.AddScoped<AdminSignOutHandler>();
         services.AddAuthentication()
@@ -52,6 +54,11 @@ internal static class ProviderSessions
                 .RequireAuthenticatedUser()
                 .RequireClaim(BusinessClaim, "true")
                 .RequireClaim(CapabilityClaim, ProviderActor.AuditIdentityReadCapability))
+            .AddPolicy(CapabilityPolicy, policy => policy
+                .AddAuthenticationSchemes(Scheme)
+                .RequireAuthenticatedUser()
+                .RequireClaim(BusinessClaim, "true")
+                .RequireClaim(CapabilityClaim, ProviderActor.AccessManagementCapability))
             .AddPolicy(RecoveryPolicy, policy => policy
                 .AddAuthenticationSchemes(Scheme)
                 .RequireAuthenticatedUser()
@@ -74,6 +81,6 @@ internal static class ProviderSessions
         Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var adminId)
         && DateTimeOffset.TryParse(user.FindFirstValue(MfaVerifiedAtClaim), CultureInfo.InvariantCulture,
             DateTimeStyles.RoundtripKind, out var mfaVerifiedAt)
-            ? new ProviderActor(adminId, mfaVerifiedAt)
+            ? new ProviderActor(adminId, mfaVerifiedAt, ReadCaller(user))
             : null;
 }

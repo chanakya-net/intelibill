@@ -55,7 +55,7 @@ internal sealed partial class AdminSessionStore(LicensingDbContext context, Admi
     {
         var now = clock.GetUtcNow();
         if (now >= accessExpiresAt) return null;
-        var active = await context.Database.SqlQuery<DateTimeOffset>($"""
+        var active = await context.Database.SqlQuery<LiveAccess>($"""
             UPDATE public.admin_sessions AS session
             SET last_seen_at = GREATEST(session.last_seen_at, {now})
             FROM public.admin_identities AS admin
@@ -64,14 +64,14 @@ internal sealed partial class AdminSessionStore(LicensingDbContext context, Admi
               AND session.revoked_at IS NULL AND session.mfa_verified_at <= {now}
               AND session.created_at > {now - AdminSession.AbsoluteLifetime}
               AND session.last_seen_at > {now - AdminSession.IdleLifetime}
-            RETURNING session.mfa_verified_at AS "Value"
+            RETURNING session.mfa_verified_at, admin.capabilities AS capability_mask
             """).ToListAsync(cancellationToken);
         if (active.Count == 0) return null;
 
-        var isOwner = await context.Set<InitialAdminBootstrap>().AnyAsync(state =>
-            state.OwnerId == adminId && state.ConsumedAt != null, cancellationToken);
-        return new AdminSessionAccess(adminId, active[0], isOwner
-            ? [ProviderActor.InvitationCapability, ProviderActor.AuditIdentityReadCapability,
-                ProviderActor.RecoveryReviewCapability] : []);
+        var access = active[0];
+        return new AdminSessionAccess(adminId, access.MfaVerifiedAt,
+            AdminCapabilityNames.ToClaims((AdminCapability)access.CapabilityMask));
     }
+
+    private sealed record LiveAccess(DateTimeOffset MfaVerifiedAt, int CapabilityMask);
 }

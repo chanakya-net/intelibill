@@ -27,6 +27,7 @@ public sealed partial class AdminRecoveryHandler(IAdminRecoveryStore store, IBoo
         var continuationDigest = ContinuationDigest(continuationKey);
         return store.InTransactionAsync<ErrorOr<EnrollmentGrant>>(async token =>
         {
+            await store.LockOwnerFenceAsync(token);
             var admin = await store.LockByEmailAsync(normalizedEmail, token);
             var verified = PasswordMatches(password, admin?.PasswordHash);
             var now = clock.GetUtcNow();

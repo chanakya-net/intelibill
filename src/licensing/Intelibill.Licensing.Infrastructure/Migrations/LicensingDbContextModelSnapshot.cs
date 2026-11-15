@@ -29,6 +29,12 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<int>("Capabilities")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("capabilities");
+
                     b.Property<DateTimeOffset?>("DeactivatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deactivated_at");
@@ -79,6 +85,8 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
 
                     b.ToTable("admin_identities", null, t =>
                         {
+                            t.HasCheckConstraint("ck_admin_capabilities", "capabilities BETWEEN 0 AND 31");
+
                             t.HasCheckConstraint("ck_admin_deactivation_date", "deactivated_at >= verified_at");
 
                             t.HasCheckConstraint("ck_admin_mfa_date", "mfa_enrolled_at >= verified_at");
@@ -538,9 +546,9 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
 
                     b.ToTable("provider_audit_events", null, t =>
                         {
-                            t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 25 OR action BETWEEN 101 AND 103");
+                            t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 25 OR action BETWEEN 101 AND 107");
 
-                            t.HasCheckConstraint("ck_provider_audit_metadata", "(num_nonnulls(actor_kind, reason, correlation_id) = 0 AND action BETWEEN 1 AND 16\n    AND \"before\" IS NULL AND \"after\" IS NULL)\nOR (num_nonnulls(actor_kind, reason, correlation_id) = 3\n    AND actor_kind BETWEEN 1 AND 5 AND reason BETWEEN 1 AND 31)");
+                            t.HasCheckConstraint("ck_provider_audit_metadata", "(num_nonnulls(actor_kind, reason, correlation_id) = 0 AND action BETWEEN 1 AND 16\n    AND \"before\" IS NULL AND \"after\" IS NULL)\nOR (num_nonnulls(actor_kind, reason, correlation_id) = 3\n    AND actor_kind BETWEEN 1 AND 5 AND reason BETWEEN 1 AND 36)");
                         });
                 });
 

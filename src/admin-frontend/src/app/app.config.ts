@@ -68,6 +68,12 @@ export const appConfig: ApplicationConfig = {
         loadComponent: () => import('./features/auth/bootstrap-page.component').then((m) => m.BootstrapPageComponent),
       },
       {
+        path: 'admin-users',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/admin-users/admin-capabilities-page.component')
+          .then((m) => m.AdminCapabilitiesPageComponent),
+      },
+      {
         path: 'admin-users/invite',
         loadComponent: () =>
           import('./features/admin-users/invite-admin-page.component').then((m) => m.InviteAdminPageComponent),

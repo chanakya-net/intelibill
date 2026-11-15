@@ -32,6 +32,10 @@ export const auditActions = {
   'audit-read-succeeded': 'Audit history inspected',
   'audit-read-denied': 'Audit history access denied',
   'invitation-management-denied': 'Invitation management denied',
+  'admin-capabilities-inspected': 'Administrator capabilities inspected',
+  'admin-capabilities-changed': 'Administrator capabilities changed',
+  'admin-disabled': 'Administrator disabled',
+  'admin-capabilities-denied': 'Administrator access denied',
 } as const;
 
 export interface AuditFilters {
@@ -47,6 +51,7 @@ export interface AuditReference {
   state: string;
   version: number | null;
   milestoneAt: string | null;
+  capabilities?: readonly string[] | null;
 }
 
 export interface AuditEvent {
