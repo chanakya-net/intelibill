@@ -141,9 +141,16 @@ test('admin web: separate origin denies provider access to a signed-in merchant 
   page.on('request', (request) => {
     if (request.url().startsWith(admin)) adminPaths.push(new URL(request.url()).pathname);
   });
+  // This stack has no provider owner or signing root. An unavailable refresh
+  // context leaves the session unconfirmed and the Console closed.
+  const context = page.waitForResponse(response =>
+    new URL(response.url()).pathname === '/api/admin/auth/sign-in/context');
   await page.goto(`${admin}/`);
-  await expect(page).toHaveURL(`${admin}/auth/sign-in`);
-  await expect(page.getByRole('heading', { name: 'Sign in to the Provider Console' })).toBeVisible();
+  const unavailable = await context;
+  expect(unavailable.status()).toBe(503);
+  expect(unavailable.headers()['cache-control']).toBe('no-store');
+  await expect(page).toHaveURL(`${admin}/`);
+  await expect(page.getByRole('alert')).toContainText('We could not confirm your provider session.');
   await expect(page.getByRole('heading', { name: 'Granted capabilities' })).toHaveCount(0);
   await page.screenshot({ path: `${artifacts}/admin-denied-${phase}.png`, fullPage: true });
 
