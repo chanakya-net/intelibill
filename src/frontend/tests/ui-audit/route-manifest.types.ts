@@ -15,7 +15,7 @@ export type AuditViewport = 'mobile' | 'desktop';
 export type RouteParameterFactory = () => Readonly<Record<string, string>>;
 
 export interface PrintProfile {
-  readonly document: 'sale-invoice' | 'credit-note' | 'purchase-order' | 'till-close';
+  readonly document: 'sale-invoice' | 'credit-note' | 'purchase-order' | 'till-close' | 'shop-setup-sample';
   readonly layout: 'print';
 }
 

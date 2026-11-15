@@ -159,6 +159,9 @@
                     }
                   </button>
                 }
+                <button type="button" role="menuitem" class="shop-menu-item" (click)="onOpenShopSetup()">
+                  {{ 'shopSetup.title' | transloco }}
+                </button>
               </div>
             }
           </div>
@@ -238,6 +241,7 @@
 
   @if (showCreateShopOverlayAuto() || showCreateShopOverlayManual()) {
     <app-create-shop-overlay
+      [firstShop]="showCreateShopOverlayAuto()"
       (closeRequested)="onCreateShopOverlayClose()"
       (accountSecurityRequested)="onOpenAccountSecurity()"
     ></app-create-shop-overlay>

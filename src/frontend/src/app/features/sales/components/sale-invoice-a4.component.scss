@@ -421,3 +421,15 @@
     min-width: 42rem;
   }
 }
+
+.invoice__sample {
+  border: 2px solid currentColor;
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  text-align: center;
+  break-inside: avoid;
+
+  p {
+    margin: 0.25rem 0 0;
+  }
+}

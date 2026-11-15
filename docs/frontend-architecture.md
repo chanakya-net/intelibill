@@ -198,6 +198,14 @@ with a tab-local `epoch`.
   or the offline invoices `Failed` (`offline_sync.scope_changed`, retried by their issuer) — never another
   owner's draft rewritten or a verdict applied under another token.
 
+## Guided Merchant Onboarding
+
+The active-shop menu opens `/shops/setup` for a live member. At the application root only, an owner's lightweight preference lookup can select setup after the normal scope restart. Existing shops default to their usual entry, and direct routes keep their destinations. Setup reads current facts on entry, refresh and return from shop settings. Catalog and stock actions open the existing inventory, intake and services pages.
+
+Setup HTTP reads capture the owner and tab epoch, cancel on scope change, and clear page state on detach. Preference writes use the captured request scope, hold a scoped mutation until their outcome, and compare the last read version. A conflict refreshes the saved facts and offers an explicit retry or exit. The authenticated sample route uses the same A4 and thermal presentation as the issued document, with a sample banner and without the invoice number or payment and signatory sections. Preview and print require no acknowledgement.
+
+Run `bun run build && bun run audit:ui:onboarding` for the isolated browser journey. See [Guided merchant onboarding rollout](guided-merchant-onboarding-rollout.md).
+
 ## Protected API Cache Isolation
 
 An answer under `/api` or `/hubs` belongs to the user and shop that asked for it, and every cache keys what it

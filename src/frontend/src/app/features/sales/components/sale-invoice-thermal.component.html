@@ -1,7 +1,14 @@
 <article class="thermal-invoice">
-  <app-sale-cancellation-record [cancellation]="sale.cancellation ?? null" />
+  @if (sampleDocument) {
+    <div class="thermal-invoice__sample">
+      <strong>{{ 'shopSetup.sample.banner' | transloco }}</strong>
+      <p>{{ 'shopSetup.sample.disclaimer' | transloco }}</p>
+    </div>
+  } @else {
+    <app-sale-cancellation-record [cancellation]="sale.cancellation ?? null" />
+  }
   <header
-    *ngIf="sale.document as doc; else legacyHeader"
+    *ngIf="document as doc; else legacyHeader"
     class="thermal-invoice__section thermal-invoice__header"
   >
     <p class="thermal-invoice__shop-name">{{ doc.seller.legalName }}</p>
@@ -33,9 +40,9 @@
     </header>
   </ng-template>
 
-  <section *ngIf="sale.document as doc; else legacyMeta" class="thermal-invoice__section">
+  <section *ngIf="document as doc; else legacyMeta" class="thermal-invoice__section">
     <div class="thermal-invoice__meta">
-      <span>{{ 'sales.invoice.invoiceNumber' | transloco }} {{ doc.number }}</span>
+      <span *ngIf="!sampleDocument">{{ 'sales.invoice.invoiceNumber' | transloco }} {{ doc.number }}</span>
       <span
         ><time [attr.datetime]="doc.businessDate">{{ doc.businessDate | localeBusinessDate }}</time>
         · {{ doc.issuedAt | localeInstant }}</span
@@ -72,7 +79,7 @@
   <ng-template #legacyMeta>
     <section class="thermal-invoice__section">
       <div class="thermal-invoice__meta">
-        <span>{{ 'sales.invoice.invoiceNumber' | transloco }} {{ sale.invoiceNumber }}</span>
+        <span *ngIf="!sampleDocument">{{ 'sales.invoice.invoiceNumber' | transloco }} {{ sale.invoiceNumber }}</span>
         <span>{{ sale.soldAt | localeInstant }}</span>
       </div>
       <div class="thermal-invoice__customer">
@@ -82,7 +89,7 @@
     </section>
   </ng-template>
 
-  <section *ngIf="sale.document as doc; else legacyItems" class="thermal-invoice__section">
+  <section *ngIf="document as doc; else legacyItems" class="thermal-invoice__section">
     <div *ngFor="let line of doc.lines" class="thermal-invoice__item">
       <div class="thermal-invoice__item-row">
         <span class="thermal-invoice__item-name">{{ line.description }}</span>
@@ -201,7 +208,7 @@
   </ng-template>
 
   <section
-    *ngIf="sale.document as doc; else legacyTotals"
+    *ngIf="document as doc; else legacyTotals"
     class="thermal-invoice__section thermal-invoice__totals"
   >
     <div class="thermal-invoice__summary-row">
@@ -236,7 +243,7 @@
       <span>{{ 'sales.invoice.invoiceTotal' | transloco }}</span>
       <span>{{ doc.totals.invoiceTotal | localeMoney }}</span>
     </div>
-    <div *ngIf="sale.creditNoteAppliedAmount > 0" class="thermal-invoice__summary-row">
+    <div *ngIf="!sampleDocument && sale.creditNoteAppliedAmount > 0" class="thermal-invoice__summary-row">
       <span>{{
         getCreditNoteSettlementLabelKey()
           | transloco: { codes: getCreditNoteSettlementCodes().join(', ') }
@@ -255,7 +262,7 @@
         <span>{{ 'sales.invoice.discount' | transloco }}</span>
         <span>-{{ sale.totalDiscountAmount | localeMoney }}</span>
       </div>
-      <div *ngIf="sale.creditNoteAppliedAmount > 0" class="thermal-invoice__summary-row">
+      <div *ngIf="!sampleDocument && sale.creditNoteAppliedAmount > 0" class="thermal-invoice__summary-row">
         <span>{{
           getCreditNoteSettlementLabelKey()
             | transloco: { codes: getCreditNoteSettlementCodes().join(', ') }
@@ -273,7 +280,7 @@
     </section>
   </ng-template>
 
-  <section class="thermal-invoice__section">
+  <section *ngIf="!sampleDocument" class="thermal-invoice__section">
     <div class="thermal-invoice__payment-row">
       <span>{{ 'sales.invoice.paymentMode' | transloco }}</span>
       <span>{{ getPaymentMethodLabel(sale.paymentMethod) }}</span>
@@ -301,7 +308,7 @@
   </section>
 
   <section
-    *ngIf="sale.returns.length > 0"
+    *ngIf="!sampleDocument && sale.returns.length > 0"
     class="thermal-invoice__section thermal-invoice__returns"
   >
     <p class="thermal-invoice__returns-title">{{ 'sales.invoice.returns' | transloco }}</p>
@@ -323,17 +330,17 @@
     </article>
   </section>
 
-  <section *ngIf="sale.document as doc" class="thermal-invoice__section thermal-invoice__signatory">
+  <section *ngIf="document as doc" class="thermal-invoice__section thermal-invoice__signatory">
     <p *ngFor="let declaration of doc.declarations" class="thermal-invoice__line">
       {{ declarationKey(declaration) | transloco }}
     </p>
-    <p class="thermal-invoice__signatory-for">
+    <p *ngIf="!sampleDocument" class="thermal-invoice__signatory-for">
       {{ 'sales.invoice.signatoryFor' | transloco: { legalName: doc.seller.legalName } }}
     </p>
-    <p class="thermal-invoice__line">{{ 'sales.invoice.authorisedSignatory' | transloco }}</p>
+    <p *ngIf="!sampleDocument" class="thermal-invoice__line">{{ 'sales.invoice.authorisedSignatory' | transloco }}</p>
   </section>
 
-  <p *ngIf="missingDocumentNoteKey() as noteKey" class="thermal-invoice__legacy-note">
+  <p *ngIf="!sampleDocument && missingDocumentNoteKey() as noteKey" class="thermal-invoice__legacy-note">
     {{ noteKey | transloco }}
   </p>
 </article>

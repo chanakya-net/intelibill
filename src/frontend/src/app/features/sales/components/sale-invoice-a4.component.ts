@@ -48,6 +48,12 @@ export class SaleInvoiceA4Component {
   /** The live shop: used only for a sale without an issued document. An issued document carries its own seller. */
   @Input() shop!: ShopDetails;
   @Input() pendingSync = false;
+  /** Saved document facts for a nonfiscal preview, without a posted sale. */
+  @Input() sampleDocument: InvoiceDocument | null = null;
+
+  get document(): InvoiceDocument | null {
+    return this.sampleDocument ?? this.sale?.document ?? null;
+  }
 
   getCreditNoteSettlementCodes(): string[] {
     return redeemedCreditNoteCodes(this.sale);

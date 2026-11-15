@@ -3,6 +3,7 @@ import { provideEffects } from '@ngrx/effects';
 import { provideState } from '@ngrx/store';
 
 import { ShellComponent } from './shell.component';
+import { shopSetupEntry } from '../../features/shops/services/shop-setup-entry';
 import { ShopsEffects } from '../../features/shops/state/shops.effects';
 import { shopsFeature } from '../../features/shops/state/shops.reducer';
 import { SuppliersEffects } from '../../features/suppliers/state/suppliers.effects';
@@ -54,6 +55,13 @@ export const shellRoutes: Routes = [
       ),
     ],
     children: [
+      {
+        path: 'shops/setup',
+        loadComponent: () =>
+          import('../../features/shops/pages/shop-setup-page.component').then(
+            (m) => m.ShopSetupPageComponent,
+          ),
+      },
       {
         path: 'payments/:receiptId',
         loadComponent: () =>
@@ -228,7 +236,7 @@ export const shellRoutes: Routes = [
       {
         path: '',
         pathMatch: 'full',
-        redirectTo: 'dashboard',
+        redirectTo: shopSetupEntry,
       },
     ],
   },

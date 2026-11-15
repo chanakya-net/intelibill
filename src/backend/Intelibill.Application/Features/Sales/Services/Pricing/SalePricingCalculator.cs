@@ -23,21 +23,11 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
             request.SaleTime,
             cancellationToken);
 
-        var batchRulesByBatchId = activeRules
-            .Where(r => r.RuleType == DiscountRuleType.BatchPercentage && r.InventoryBatchId.HasValue)
-            .GroupBy(r => r.InventoryBatchId!.Value)
-            .ToDictionary(
-                g => g.Key,
-                g => g
-                    .OrderByDescending(r => r.Percentage)
-                    .ThenByDescending(r => r.CreatedAt)
-                    .First());
+        return Calculate(request, CaptureRules(activeRules));
+    }
 
-        var saleLevelRules = activeRules
-            .Where(r => r.InventoryBatchId is null
-                && (r.RuleType == DiscountRuleType.SalePercentage || r.RuleType == DiscountRuleType.SaleThresholdPercentage))
-            .ToList();
-
+    internal static ErrorOr<SalePricingCalculationResult> Calculate(SalePricingCalculationRequest request, RuleSnapshot rules)
+    {
         var lineDrafts = new List<LineDraft>(request.Lines.Count);
         for (var lineIndex = 0; lineIndex < request.Lines.Count; lineIndex++)
         {
@@ -45,7 +35,7 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
             DiscountRule? batchRule = null;
             if (line.LineType == SaleLineType.Goods)
             {
-                batchRulesByBatchId.TryGetValue(line.InventoryBatchId, out batchRule);
+                rules.BatchRules.TryGetValue(line.InventoryBatchId, out batchRule);
             }
             var draftOrError = DraftLine(line, lineIndex, batchRule);
             if (draftOrError.IsError)
@@ -65,7 +55,7 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
 
         var infos = new List<SalePricingInfoMessage>();
 
-        DiscountRule? bestConfiguredSaleRule = SalePricingMath.SelectBestSaleLevelRule(saleLevelRules, saleLevelEligibleSubtotal);
+        DiscountRule? bestConfiguredSaleRule = SalePricingMath.SelectBestSaleLevelRule(rules.SaleRules, saleLevelEligibleSubtotal);
         if (bestConfiguredSaleRule is not null && saleLevelEligibleSubtotal <= 0m && !isSaleDiscountRequested)
         {
             infos.Add(new SalePricingInfoMessage("sale_pricing.info.no_eligible_lines_for_configured_sale_discount", "Configured sale-level discount was available, but no eligible lines remained for sale-level discounts."));
@@ -105,6 +95,30 @@ internal sealed class SalePricingCalculator(IDiscountRuleRepository discountRule
         var totalAmountSum = SalePricingMath.RoundMoney(finalLines.Sum(l => l.TotalAmount));
         return new SalePricingCalculationResult(finalLines, saleLevelEligibleSubtotal, totalTaxableAmount, totalTaxAmount, totalDiscountAmount, totalAmountSum, bestConfiguredSaleRule is null ? null : new SalePricingConfiguredSaleRule(bestConfiguredSaleRule.Id, bestConfiguredSaleRule.RuleType, bestConfiguredSaleRule.Percentage, bestConfiguredSaleRule.ThresholdAmount), infos);
     }
+
+    internal static RuleSnapshot CaptureRules(IReadOnlyList<DiscountRule> activeRules)
+    {
+        var batchRulesByBatchId = activeRules
+            .Where(r => r.RuleType == DiscountRuleType.BatchPercentage && r.InventoryBatchId.HasValue)
+            .GroupBy(r => r.InventoryBatchId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g
+                    .OrderByDescending(r => r.Percentage)
+                    .ThenByDescending(r => r.CreatedAt)
+                    .First());
+
+        var saleLevelRules = activeRules
+            .Where(r => r.InventoryBatchId is null
+                && (r.RuleType == DiscountRuleType.SalePercentage || r.RuleType == DiscountRuleType.SaleThresholdPercentage))
+            .ToList();
+
+        return new(batchRulesByBatchId, saleLevelRules);
+    }
+
+    internal sealed record RuleSnapshot(
+        IReadOnlyDictionary<Guid, DiscountRule> BatchRules,
+        IReadOnlyList<DiscountRule> SaleRules);
 
     private static ErrorOr<LineDraft> DraftLine(
         SalePricingLineCalculationRequest line,
