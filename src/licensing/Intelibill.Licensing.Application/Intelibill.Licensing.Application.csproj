@@ -4,6 +4,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../shared/backend/Intelibill.Shared.Contracts/Intelibill.Shared.Contracts.csproj" />
     <ProjectReference Include="../Intelibill.Licensing.Domain/Intelibill.Licensing.Domain.csproj" />
   </ItemGroup>
 

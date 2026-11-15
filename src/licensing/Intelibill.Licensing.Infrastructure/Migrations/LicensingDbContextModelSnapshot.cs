@@ -488,6 +488,67 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.MerchantBillingDelegationUse", b =>
+                {
+                    b.Property<string>("Issuer")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("issuer");
+
+                    b.Property<Guid>("ReplayId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("replay_id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("action");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_id");
+
+                    b.Property<DateTimeOffset>("ConsumedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("consumed_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset>("IssuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("issued_at");
+
+                    b.Property<string>("KeyId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("key_id");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id");
+
+                    b.HasKey("Issuer", "ReplayId")
+                        .HasName("pk_merchant_billing_delegation_uses");
+
+                    b.HasIndex("AccountId", "ActorId")
+                        .HasDatabaseName("ix_merchant_billing_delegation_uses_account_id_actor_id");
+
+                    b.ToTable("merchant_billing_delegation_uses", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_merchant_billing_delegation_use_ids", "replay_id <> '00000000-0000-0000-0000-000000000000'\nAND account_id <> '00000000-0000-0000-0000-000000000000'\nAND actor_id <> '00000000-0000-0000-0000-000000000000'\nAND request_id <> '00000000-0000-0000-0000-000000000000'\nAND request_id <> replay_id\nAND key_id ~ '^[A-Za-z0-9_-]{1,128}$'");
+
+                            t.HasCheckConstraint("ck_merchant_billing_delegation_use_window", "issued_at <= consumed_at AND consumed_at < expires_at\nAND expires_at - issued_at <= interval '60 seconds'");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.ProviderAuditEvent", b =>
                 {
                     b.Property<Guid>("Id")

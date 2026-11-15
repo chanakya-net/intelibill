@@ -1,6 +1,7 @@
 using Intelibill.Licensing.Infrastructure.AdminIdentities;
 using Intelibill.Licensing.Infrastructure.Bootstrap;
 using Intelibill.Licensing.Infrastructure.AdminIdentities.Mfa;
+using Intelibill.Licensing.Infrastructure.Data.Configurations;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.Data;
@@ -22,5 +23,6 @@ public sealed class LicensingDbContext(DbContextOptions<LicensingDbContext> opti
         modelBuilder.ApplyConfiguration(new AdminTotpMapping());
         modelBuilder.ApplyConfiguration(new AdminRecoveryCodeMapping());
         modelBuilder.ApplyConfiguration(new AdminRecoveryMapping());
+        modelBuilder.ApplyConfiguration(new MerchantBillingDelegationUseConfiguration());
     }
 }

@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Api.Billing;
 using Intelibill.Licensing.Api.AdminIdentities;
 using Intelibill.Licensing.Api.Audit;
 using Intelibill.Licensing.Api.Bootstrap;
@@ -46,6 +47,7 @@ public sealed class Program
         builder.Services.AddBootstrapAuthorization();
         builder.Services.AddScoped<BootstrapRequestGate>();
         builder.Services.AddProviderSessions(builder.Environment);
+        builder.Services.AddCustomerBillingAuthentication();
         builder.Services.AddScoped<InvitationRequestGate>();
         builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, AdminAuditAccessDeniedHandler>();
         var protection = builder.Services.AddDataProtection().SetApplicationName("InteliBill.Licensing.Admin");
@@ -72,6 +74,7 @@ public sealed class Program
 
         app.UseRouting();
         app.UseMiddleware<AdminRequestBoundary>();
+        app.MapCustomerBilling();
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapBootstrap();
