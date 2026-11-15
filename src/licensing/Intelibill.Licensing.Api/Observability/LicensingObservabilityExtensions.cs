@@ -26,6 +26,7 @@ public static class LicensingObservabilityExtensions
             .Validate(options => options.IsValid(), "Observability:Logging needs a Serilog level and a positive buffer size.")
             .ValidateOnStart();
 
+        // Multiple hosts can run in one process. Bind each logger to that host's sinks.
         builder.Host.UseSerilog((_, services, config) =>
         {
             var logging = services.GetRequiredService<IOptions<LicensingLoggingOptions>>().Value;
@@ -40,7 +41,7 @@ public static class LicensingObservabilityExtensions
                     new LogEventRedactor(maskPersonalData: logging.EnablePiiMasking),
                     logging.AsyncBufferSize,
                     redacted => redacted.Console(new CompactJsonFormatter()));
-        });
+        }, preserveStaticLogger: true);
 
         return builder;
     }
