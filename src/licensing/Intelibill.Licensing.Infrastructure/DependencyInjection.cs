@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Infrastructure.Billing;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Application.Audit;
 using Intelibill.Licensing.Infrastructure.Audit;
@@ -34,6 +35,7 @@ public static class DependencyInjection
                 npgsql => npgsql.MigrationsAssembly(typeof(LicensingDbContext).Assembly.GetName().Name))
             .UseSnakeCaseNamingConvention());
         services.AddSingleton<LicensingDatabaseReadiness>();
+        services.AddBillingDelegation();
         services.AddSingleton<IBootstrapRateBudget, PostgresBootstrapRateBudget>();
         services.AddOptions<AdminMailOptions>().Bind(configuration.GetSection(AdminMailOptions.SectionName));
         services.AddOptions<AdminMfaOptions>().Bind(configuration.GetSection("AdminMfa"))

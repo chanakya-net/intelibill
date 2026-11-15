@@ -1,3 +1,4 @@
+using Intelibill.Infrastructure.Billing;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Features.Exports.ProfitLoss;
@@ -197,6 +198,7 @@ public static class DependencyInjection
         }
 
         services.AddSingleton(TimeProvider.System);
+        services.AddMerchantBillingDelegation();
         services.Configure<Options.SaleCancellationOptions>(configuration.GetSection(Options.SaleCancellationOptions.SectionName));
         services.AddScoped<Application.Features.Sales.Services.Cancellations.ISaleCancellationRollout, Services.Sales.SaleCancellationRollout>();
         services.AddSingleton<Application.Common.Time.IBusinessClock, Services.Time.BusinessClock>();

@@ -190,3 +190,56 @@ P0105_PROJECT=intelibill-p01-05-local P0105_ARTIFACTS=/tmp/p0105 \
   bash scripts/dev/test-licensing-stack.sh --case all
 bash scripts/dev/test-licensing-stack.sh --case cleanup   # same P0105_PROJECT
 ```
+
+## Merchant billing delegation
+
+The merchant serves `GET /api/billing/accounts/{accountId}/access` under its
+existing origin. It checks the current session and verified identity before
+sending a one-use RS256 assertion. The licensing service binds the assertion to
+`GET /internal/licensing/v1/customer/accounts/{accountId}/access` and independently
+checks account membership before recording its use. The response contains only
+the account ID and permitted action. The wire contract allows a verified-identity
+flag and identifiers for the actor, operation and request. It carries no contact
+details, shop data, consent or capacity. Both responses use `Cache-Control: no-store`.
+The merchant and admin web proxies expose only their existing API paths.
+
+Apply the licensing migration `20261115124718_AddMerchantBillingDelegationUses`
+through the migration job before running the new licensing API. Preserve the
+replay table on application rollback. The migration refuses to drop recorded uses.
+The runtime may append and read within the verified actor and account scope.
+Scope is set inside the membership and replay transaction and clears when it
+ends. PostgreSQL arbitrates simultaneous uses across replicas.
+
+The merchant uses `MerchantBillingDelegation__LicensingOrigin` for an HTTPS
+origin and `MerchantBillingDelegation__KeyVaultKeyId` for a separate versionless
+`https://<vault>/keys/<name>` key. The merchant selects the current version and
+signs using that exact version. `MerchantBillingDelegation__ManagedIdentityClientId`
+can select the signing identity. Licensing receives the corresponding RSA public
+key in SubjectPublicKeyInfo PEM at `MerchantBillingVerification__PublicKeys__<kid>`
+where the key ID is the vault key version. Add the new version to the verification
+ring before switching the signer. Keep the old public key through the maximum
+60-second assertion lifetime and retain public verification material as required
+for historical evidence. Remove a revoked key from the accepted ring on all
+replicas. Local PEM signing (`LocalKeyId`, `LocalPrivateKeyPem` under the merchant
+section) and loopback HTTP are restricted to Development and Testing.
+
+The default licensing membership adapter returns `Billing.MembershipUnavailable`.
+Issue #847 supplies the licensing-owned membership adapter. It must check the
+action against current account membership with the scoped `LicensingDbContext`
+and hold the membership lock in the existing transaction. Account and first-owner
+creation use their own explicit policy. Missing configuration or service failure
+leaves the merchant route unavailable. These changes apply to billing reads while
+merchant licence enforcement stays in observe-only mode.
+
+Run the local browser check after `bun run build` from each of `src/frontend`
+and `src/admin-frontend`.
+
+```sh
+P0201_RUN_BROWSER=1 dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0201BrowserTests'
+```
+
+The harness starts both APIs on loopback and both shipping web servers. It applies
+migrations to disposable PostgreSQL databases and supplies account membership
+from a test-only schema. Chromium exercises merchant sign-in, allowed and denied
+billing access, an existing merchant read and the proxy boundaries. The harness
+prints the location of its sanitized observations.

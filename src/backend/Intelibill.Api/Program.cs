@@ -1,4 +1,5 @@
 using System.Text;
+using Intelibill.Api.Controllers;
 using Intelibill.Api.Extensions;
 using Intelibill.Api.Hubs;
 using Intelibill.Api.Middleware;
@@ -110,6 +111,7 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
 
         bearerOptions.Events = new JwtBearerEvents
         {
+            OnChallenge = BillingController.WriteChallengeAsync,
             OnTokenValidated = async context =>
             {
                 // A token that names no session is refused here rather than adopted: the account's
