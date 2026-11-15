@@ -237,11 +237,13 @@ public sealed class RealtimeAuthorizationIntegrationTests(PostgreSqlTestFixture 
         var watcher = await SignInAsync(client);
 
         var hub = await ConnectAsync(_factory, watcher.AccessToken);
-        await WaitForAsync(async () => await LeaseCountAsync(watcher.SessionId) == 1, Settle);
 
         await hub.DisposeAsync();
 
-        await WaitForAsync(async () => await LeaseCountAsync(watcher.SessionId) == 0, Settle);
+        await WaitForAsync(
+            async () => await LeaseCountAsync(watcher.SessionId) == 0,
+            Settle,
+            "The product hub did not remove the disconnected session's lease.");
     }
 
     // ── Transport ───────────────────────────────────────────────────────────
@@ -256,8 +258,28 @@ public sealed class RealtimeAuthorizationIntegrationTests(PostgreSqlTestFixture 
             })
             .Build();
 
-        await connection.StartAsync();
-        return connection;
+        try
+        {
+            await connection.StartAsync();
+
+            // SignalR completes its handshake before the hub has registered the connection.
+            // Wait for the lease the dispatcher reads before any test publishes an event.
+            var connectionId = connection.ConnectionId;
+            Assert.NotNull(connectionId);
+            await using var scope = factory.Services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await WaitForAsync(
+                () => db.RealtimeConnectionLeases.AnyAsync(lease => lease.ConnectionId == connectionId),
+                TimeSpan.FromSeconds(10),
+                "The product hub did not register its connection lease.");
+
+            return connection;
+        }
+        catch
+        {
+            await connection.DisposeAsync();
+            throw;
+        }
     }
 
 /// <summary>
@@ -434,7 +456,7 @@ public sealed class RealtimeAuthorizationIntegrationTests(PostgreSqlTestFixture 
         return await db.RealtimeConnectionLeases.CountAsync(lease => lease.SessionId == sessionId);
     }
 
-    private static async Task WaitForAsync(Func<Task<bool>> condition, TimeSpan within)
+    private static async Task WaitForAsync(Func<Task<bool>> condition, TimeSpan within, string failureMessage)
     {
         var deadline = DateTimeOffset.UtcNow + within;
         while (DateTimeOffset.UtcNow < deadline)
@@ -444,7 +466,7 @@ public sealed class RealtimeAuthorizationIntegrationTests(PostgreSqlTestFixture 
             await Task.Delay(50);
         }
 
-        Assert.Fail($"The condition was still false after {within}.");
+        Assert.Fail($"{failureMessage} Waited {within}.");
     }
 
     private static Guid ReadSessionId(string accessToken)
