@@ -18,7 +18,8 @@ public sealed class CreateShopCommandHandler(
     ITenantWriteScope tenantWriteScope,
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider,
-    IExpiryPolicyRepository expiryPolicies)
+    IExpiryPolicyRepository expiryPolicies,
+    IShopSetupPreferencesRepository setupPreferences)
 {
     public async Task<ErrorOr<AccessScopeResult>> HandleAsync(CreateShopCommand command, CancellationToken cancellationToken)
     {
@@ -60,6 +61,7 @@ public sealed class CreateShopCommandHandler(
             await shopRepository.AddAsync(shop, cancellationToken);
             await supplierRepository.AddAsync(Supplier.CreateUnknownSystemSupplier(shop.Id), cancellationToken);
             await expiryPolicies.InitializeAsync(shop.Id, user.Id, timeProvider.GetUtcNow(), cancellationToken);
+            setupPreferences.Add(ShopSetupPreferences.Create(shop.Id, showOnStartup: true));
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
             await unitOfWork.CommitTransactionAsync(cancellationToken);

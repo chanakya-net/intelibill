@@ -1,0 +1,65 @@
+.setup-page {
+  display: grid;
+  gap: 1rem;
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.setup-heading p,
+.setup-step p,
+.setup-summary p {
+  color: var(--app-slate-600);
+  margin: 0.25rem 0 0;
+}
+
+.setup-summary,
+.setup-steps {
+  border: 1px solid var(--app-slate-200);
+  border-radius: 0.75rem;
+  background: white;
+}
+
+.setup-summary,
+.setup-step {
+  padding: 1rem;
+}
+
+.setup-summary h2,
+.setup-step h3 {
+  font-weight: 650;
+  margin: 0;
+}
+
+.setup-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.setup-step + .setup-step {
+  border-top: 1px solid var(--app-slate-200);
+}
+
+.setup-step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.setup-page a {
+  color: var(--app-amber-800);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.setup-step-state {
+  font-size: 0.875rem;
+  color: var(--app-slate-600);
+}
+
+.setup-step-state--complete {
+  color: var(--app-slate-900);
+  font-weight: 650;
+}

@@ -1,0 +1,114 @@
+<section class="setup-page" [attr.aria-busy]="loading() || saving()">
+  <header class="setup-heading flex flex-wrap items-center justify-between gap-4">
+    <div>
+      <h1 class="ib-page-title">{{ 'shopSetup.title' | transloco }}</h1>
+      @if (activeShops()[0]; as shop) {
+        <p>{{ shop.shopName }}</p>
+      }
+    </div>
+    <button pButton type="button" severity="secondary" icon="pi pi-refresh"
+      [disabled]="loading() || saving()" [label]="'shopSetup.refresh' | transloco" (click)="refresh()">
+    </button>
+  </header>
+
+  @if (loading() && !status()) {
+    <p role="status">{{ 'shopSetup.loading' | transloco }}</p>
+  }
+  @if (loadFailed()) {
+    <p role="alert">{{ 'shopSetup.loadFailed' | transloco }}</p>
+  }
+
+  @if (status(); as setup) {
+    <div class="setup-summary" aria-live="polite">
+      <h2>{{ (setup.canTrade ? 'shopSetup.ready' : 'shopSetup.inProgress') | transloco }}</h2>
+      @if (setup.canTrade) {
+        <p>{{ 'shopSetup.checkoutChecks' | transloco }}</p>
+      }
+    </div>
+
+    <ol class="setup-steps" [attr.aria-label]="'shopSetup.title' | transloco">
+      @for (step of setup.steps; track step.id) {
+        <li class="setup-step flex flex-wrap items-center justify-between gap-4" [attr.data-step]="step.id">
+          <div>
+            <h3>{{ ('shopSetup.steps.' + step.id) | transloco }}</h3>
+            @for (reason of step.reasons; track reason) {
+              <p>{{ reasonKey(reason) | transloco }}</p>
+            }
+            @if (step.id === 'bank' && step.state === 'optional') {
+              <p>{{ 'shopSetup.bankHint' | transloco }}</p>
+            }
+            @if ((step.id === 'business' || step.id === 'tax') && step.state === 'incomplete' && !setup.permissions.canEditShop) {
+              <p>{{ 'shopSetup.ownerOnly' | transloco }}</p>
+            }
+            @if ((step.id === 'catalog' || step.id === 'stock') && step.state === 'incomplete' && !setup.permissions.canEditCatalog) {
+              <p>{{ 'shopSetup.catalogRole' | transloco }}</p>
+            }
+          </div>
+          <div class="setup-step-actions">
+            <span class="setup-step-state" [class.setup-step-state--complete]="step.state === 'complete'">
+              {{ ('shopSetup.states.' + step.state) | transloco }}
+            </span>
+            @switch (step.id) {
+              @case ('identity') {
+                @if (step.state === 'incomplete' && setup.permissions.canEditShop) {
+                  <a routerLink="/account/security">{{ 'identity.profileAndSecurity' | transloco }}</a>
+                }
+              }
+              @case ('business') {
+                @if (setup.permissions.canEditShop) {
+                  <button pButton type="button" [text]="true" [label]="'shell.manageShop' | transloco"
+                    (click)="settingsStep.set(1)"></button>
+                }
+              }
+              @case ('tax') {
+                @if (setup.permissions.canEditShop) {
+                  <button pButton type="button" [text]="true" [label]="'shopSetup.editTax' | transloco"
+                    (click)="settingsStep.set(1)"></button>
+                }
+              }
+              @case ('catalog') {
+                @if (setup.permissions.canEditCatalog) {
+                  <a routerLink="/inventory">{{ 'shopSetup.products' | transloco }}</a>
+                  <a routerLink="/services">{{ 'services.title' | transloco }}</a>
+                }
+              }
+              @case ('stock') {
+                @if (setup.permissions.canEditCatalog && step.state !== 'notApplicable') {
+                  <a routerLink="/inventory/batch">{{ 'shopSetup.receiveStock' | transloco }}</a>
+                }
+              }
+              @case ('sample') {
+                @if (setup.canTrade) {
+                  <a routerLink="/shops/setup/sample">{{ 'shopSetup.preview' | transloco }}</a>
+                }
+              }
+              @case ('bank') {
+                @if (setup.permissions.canEditShop) {
+                  <button pButton type="button" [text]="true" [label]="'shopSetup.editBank' | transloco"
+                    (click)="settingsStep.set(2)"></button>
+                }
+              }
+            }
+          </div>
+        </li>
+      }
+    </ol>
+  }
+
+  @if (saveError(); as error) {
+    <p role="alert">{{ error | transloco }}</p>
+    <a routerLink="/dashboard">{{ 'shopSetup.leaveWithoutSaving' | transloco }}</a>
+  }
+  <footer class="flex flex-wrap items-center justify-end gap-4">
+    <button pButton type="button" severity="secondary" [disabled]="saving() || loading()"
+      [label]="'shopSetup.continueLater' | transloco" (click)="leave('/dashboard')"></button>
+    @if (status()?.canTrade) {
+      <button pButton type="button" [disabled]="saving() || loading() || loadFailed()"
+        [label]="'shopSetup.startBilling' | transloco" (click)="leave('/sales/new')"></button>
+    }
+  </footer>
+</section>
+
+@if (settingsStep(); as step) {
+  <app-manage-shop-overlay [shops]="activeShops()" [initialStep]="step" (closeRequested)="closeSettings()" />
+}

@@ -9,7 +9,7 @@ namespace Intelibill.Integration.Tests;
 /// <summary>Request/operation-local observations; never captures SQL parameter values.</summary>
 internal sealed class ReadQueryProbe : DbCommandInterceptor
 {
-    private static readonly string[] BusinessTables = ["sales", "sale_items", "sale_returns", "sale_return_items", "sale_return_settlements", "sale_cancellations", "sale_cancellation_lines", "credit_notes", "items", "customers", "suppliers", "customer_ledger_entries", "supplier_ledger_entries"];
+    private static readonly string[] BusinessTables = ["sales", "sale_items", "sale_returns", "sale_return_items", "sale_return_settlements", "sale_cancellations", "sale_cancellation_lines", "credit_notes", "items", "customers", "suppliers", "customer_ledger_entries", "supplier_ledger_entries", "discount_rules"];
     private readonly AsyncLocal<Observation?> _current = new();
     private readonly ConcurrentDictionary<string, Observation> _requests = new();
     public Func<string?>? RequestIdentity { get; set; }

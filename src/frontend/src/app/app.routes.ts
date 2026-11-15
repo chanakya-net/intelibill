@@ -5,6 +5,14 @@ import { offlineInvoicePrintGuard } from './core/guards/offline-invoice-print.gu
 
 export const routes: Routes = [
   {
+    path: 'shops/setup/sample',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/shops/pages/shop-setup-sample-page.component').then(
+        (m) => m.ShopSetupSamplePageComponent,
+      ),
+  },
+  {
     path: 'tills/sessions/:id/print',
     canActivate: [authGuard],
     loadComponent: () =>

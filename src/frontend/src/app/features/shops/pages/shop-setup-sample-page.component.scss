@@ -1,0 +1,45 @@
+.sample-page {
+  min-height: 100vh;
+  padding: clamp(0.5rem, 3vw, 1.5rem);
+  background: #f5f5f5;
+  color: #111827;
+}
+
+.sample-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  max-width: 210mm;
+  margin: 0.75rem auto;
+}
+
+.sample-controls a {
+  text-decoration: underline;
+}
+
+.sample-paper {
+  width: min(100%, 210mm);
+  margin: 0 auto;
+  padding: clamp(0.5rem, 4vw, 1.5rem);
+  background: white;
+}
+
+.sample-paper--thermal {
+  width: min(100%, 80mm);
+  padding: 0;
+}
+
+@media print {
+  .sample-page,
+  .sample-paper {
+    min-height: auto;
+    padding: 0;
+    background: white;
+  }
+
+  .sample-controls {
+    display: none;
+  }
+}

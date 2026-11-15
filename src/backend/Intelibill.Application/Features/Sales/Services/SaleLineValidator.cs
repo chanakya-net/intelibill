@@ -217,13 +217,13 @@ internal sealed class SaleLineValidator(
         return new SaleLineValidationResult(validated, itemNameById);
     }
 
-    private static bool IsValidHsnCode(string value)
+    internal static bool IsValidHsnCode(string value)
     {
         var normalized = value.Trim();
         return normalized.Length is >= 4 and <= 8 && normalized.All(char.IsDigit);
     }
 
-    private static bool IsValidTaxRatePercent(decimal value)
+    internal static bool IsValidTaxRatePercent(decimal value)
     {
         if (value < 0m || value > 100m)
         {

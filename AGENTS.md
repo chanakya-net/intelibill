@@ -241,6 +241,13 @@ Supplier return print rollout also requires `20261107190743_AddSupplierReturnLot
 - Manage shop → Tills & day close is active-shop scoped. Owners configure; Owner/Manager read readiness. GET/PUT `shops/{shopId}/till-settings`; PUT requires explicit enabled, observed version (zero valid), reason and confirmation. Release `TillSessions.Enabled` plus exact allowlist remains necessary; new shops opt in, existing till users are preserved by migration.
 - Shared shop settings gate spans every source transaction, including disabled/no-till paths; changes/opening take exclusive catalog. Disable refuses open/overdue sessions, awaiting reviews and unresolved offline evidence; owner also confirms every device queue was checked. Retain history/audit/replay and immutable change events. Unknown PUT + old-version GET stays uncertain; exact retry/newer read recovers. Browser setting events invalidate verified capability and selection across tabs.
 
+## Guided Merchant Onboarding
+
+- Migration `20261111145704_AddShopSetupPreferences` precedes API/web. New shops start with startup setup enabled. Existing shops have no preference row and open setup voluntarily. Rollback retains the schema and saved facts.
+- Active membership can read `GET /api/shops/{shopId}/setup` and `GET /api/shops/{shopId}/setup/sample`. Live Owner only for `GET/PUT /api/shops/{shopId}/setup/preferences`. Writes compare version and preserve the first explicit acknowledgement. Scope is always the token's active shop.
+- Readiness is advisory and recomputed from saved business, tax, catalog and stock facts. Services can trade without stock. Bank details and sample acknowledgement are optional. Samples take no invoice number and post nothing.
+- Verify with `ShopSetupTests` and `bun run build && bun run audit:ui:onboarding` from the frontend. The browser audit uses an isolated Testcontainers database and the built web proxy. See `docs/guided-merchant-onboarding-rollout.md`.
+
 ## Supporting Services (`src/services/`, `tests/services/`)
 
 - `src/services/barcode-master-api` (`BarcodeAPI.sln`, own `AGENTS.md`, tests in `tests/services/barcode-master-api`, docs in `docs/services/barcode-master-api`) and `src/services/hsn-finder-ai` (`Sankra.HsnFinder.sln`, no test project yet) were imported from their standalone repositories with history (`git subtree add`, then moved). They are separate deployables, not part of `src/backend/Intelibill.slnx`.

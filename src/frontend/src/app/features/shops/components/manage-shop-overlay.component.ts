@@ -107,6 +107,7 @@ export class ManageShopOverlayComponent implements OnInit {
     { value: 4, icon: 'pi pi-check' },
   ] as const;
 
+  @Input() initialStep: 1 | 2 = 1;
   @Input({ required: true }) shops: readonly UserShop[] = [];
   @Output() readonly closeRequested = new EventEmitter<void>();
 
@@ -175,6 +176,7 @@ export class ManageShopOverlayComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.activeStep.set(this.initialStep);
     this.store.dispatch(ShopsActions.clearError());
     this.store.dispatch(ShopsActions.clearMutationStatus());
     if (!this.shops.length) return;
