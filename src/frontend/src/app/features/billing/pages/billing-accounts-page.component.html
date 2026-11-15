@@ -3,6 +3,7 @@
     <p class="ib-eyebrow">{{ 'billing.eyebrow' | transloco }}</p>
     <h1 class="ib-page-title">{{ 'billing.title' | transloco }}</h1>
     <p class="ib-subtitle ib-subtitle--measure">{{ 'billing.description' | transloco }}</p>
+    <a routerLink="/billing/invitations" data-testid="billing-inbox-link">{{ 'billing.invitations.heading' | transloco }}</a>
   </header>
 
   @if (error()) {
@@ -44,6 +45,8 @@
             <span class="billing-page__created">
               {{ 'billing.createdOn' | transloco: { date: (account.createdAt | date: 'mediumDate') } }}
             </span>
+            <a [routerLink]="['/billing/accounts', account.accountId, 'members']"
+               data-testid="billing-members-link">{{ 'billing.invitations.members' | transloco }}</a>
           </li>
         }
       </ul>

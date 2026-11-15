@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { problemCode } from '@intelibill/api';
 import { ButtonModule } from 'primeng/button';
@@ -29,7 +30,7 @@ const DEFINITIVE_FAILURES: Readonly<Record<string, string>> = {
 @Component({
   selector: 'app-billing-accounts-page',
   standalone: true,
-  imports: [DatePipe, TranslocoPipe, ButtonModule, InputTextModule],
+  imports: [DatePipe, RouterLink, TranslocoPipe, ButtonModule, InputTextModule],
   templateUrl: './billing-accounts-page.component.html',
   styleUrl: './billing-accounts-page.component.scss',
 })

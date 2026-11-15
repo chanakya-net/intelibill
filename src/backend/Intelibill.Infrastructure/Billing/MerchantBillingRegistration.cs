@@ -12,7 +12,9 @@ internal static class MerchantBillingRegistration
         services.AddOptions<MerchantBillingDelegationOptions>().BindConfiguration(MerchantBillingDelegationOptions.Section);
         services.AddSingleton<IMerchantBillingSigningKeys, MerchantBillingDelegationKeys>();
         services.AddScoped<MerchantBillingDelegationIssuer>();
-        services.AddHttpClient<IMerchantBillingAccess, MerchantBillingClient>(ClientName)
+        services.AddHttpClient(ClientName)
+            .AddTypedClient<IMerchantBillingAccess, MerchantBillingClient>()
+            .AddTypedClient<IMerchantBillingInvitations, MerchantBillingClient>()
             .RemoveAllLoggers()
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {

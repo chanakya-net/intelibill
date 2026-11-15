@@ -1,0 +1,45 @@
+<section class="billing-page">
+  <header>
+    <a routerLink="/billing">{{ 'billing.title' | transloco }}</a>
+    <h1 class="ib-page-title">{{ 'billing.invitations.heading' | transloco }}</h1>
+  </header>
+  @if (error()) {
+    <p class="page-alert page-alert--error" role="alert">{{ error() | transloco }}</p>
+  }
+  @if (accepted(); as account) {
+    <p class="page-alert" role="status" data-testid="billing-invitation-accepted">
+      {{ 'billing.invitations.accepted' | transloco: { name: account.name } }}
+      <a [routerLink]="['/billing/accounts', account.accountId, 'members']">{{ 'billing.invitations.members' | transloco }}</a>
+    </p>
+  }
+  <section class="panel ib-panel">
+    @if (loading()) {
+      <p role="status">{{ 'billing.invitations.loading' | transloco }}</p>
+    }
+    @if (loadFailed()) {
+      <p role="alert">{{ 'billing.invitations.inboxUnavailable' | transloco }}</p>
+      <button pButton type="button" [label]="'billing.reload' | transloco" (click)="load()"></button>
+    }
+    @if (invitations().length) {
+      <ul class="billing-page__list">
+        @for (invitation of invitations(); track invitation.invitationId) {
+          <li class="billing-page__row" data-testid="billing-invitation-row">
+            <div class="billing-page__name">
+              <div>{{ invitation.accountName }}</div>
+              <small>{{ 'billing.invitations.expires' | transloco: { date: (invitation.expiresAt | date: 'medium') } }}</small>
+            </div>
+            <button pButton type="button" data-testid="billing-invitation-accept"
+                    [label]="'billing.invitations.accept' | transloco"
+                    [disabled]="loading() || accepting() !== null" (click)="accept(invitation)"></button>
+          </li>
+        }
+      </ul>
+    } @else if (!loading() && !loadFailed()) {
+      <p data-testid="billing-inbox-empty">{{ 'billing.invitations.empty' | transloco }}</p>
+    }
+    @if (nextCursor(); as cursor) {
+      <button pButton type="button" [label]="'billing.invitations.more' | transloco"
+              [disabled]="loading() || accepting() !== null" (click)="load(cursor)"></button>
+    }
+  </section>
+</section>

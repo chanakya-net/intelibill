@@ -1,0 +1,60 @@
+<section class="billing-page">
+  <header>
+    <a routerLink="/billing">{{ 'billing.title' | transloco }}</a>
+    <h1 class="ib-page-title">{{ 'billing.invitations.members' | transloco }}</h1>
+    @if (roster(); as account) {
+      <p class="ib-subtitle">{{ account.accountName }}</p>
+    }
+  </header>
+  @if (error()) {
+    <p class="page-alert page-alert--error" role="alert">{{ error() | transloco }}</p>
+  }
+  @if (notice()) {
+    <p class="page-alert" role="status" data-testid="billing-invite-notice">{{ notice() | transloco }}</p>
+  }
+  @if (loading()) {
+    <p role="status">{{ 'billing.invitations.loading' | transloco }}</p>
+  } @else if (!roster()) {
+    <button pButton type="button" [label]="'billing.reload' | transloco" (click)="load()"></button>
+  }
+  @if (roster(); as account) {
+    <section class="panel ib-panel">
+      <ul class="billing-page__list">
+        @for (member of account.members; track member.memberId) {
+          <li class="billing-page__row" data-testid="billing-member-row">
+            <span class="billing-page__name">
+              {{ (member.isCurrent ? 'billing.invitations.you' : 'billing.invitations.memberReference') |
+                 transloco: { id: member.memberId.slice(-8) } }}
+            </span>
+            <span class="ib-meta-chip">{{ 'billing.roles.' + member.role | transloco }}</span>
+          </li>
+        }
+      </ul>
+      @if (account.nextCursor; as cursor) {
+        <button pButton type="button" [disabled]="loading() || submitting()"
+                [label]="'billing.invitations.more' | transloco" (click)="load(cursor)"></button>
+      }
+    </section>
+    @if (account.ownerRevision) {
+      <section class="panel ib-panel" aria-labelledby="billing-invite-title">
+        <header class="panel__header ib-panel__header">
+          <h2 class="ib-panel__title" id="billing-invite-title">{{ 'billing.invitations.invite' | transloco }}</h2>
+        </header>
+        <form class="billing-page__form" (submit)="submit($event, recipient)">
+          <label for="billing-recipient-kind">{{ 'billing.invitations.recipientKind' | transloco }}</label>
+          <select id="billing-recipient-kind" #recipientKind [value]="kind()" [disabled]="pending() !== null"
+                  (change)="kind.set(recipientKind.value === 'phone' ? 'phone' : 'email')">
+            <option value="email">{{ 'billing.invitations.email' | transloco }}</option>
+            <option value="phone">{{ 'billing.invitations.phone' | transloco }}</option>
+          </select>
+          <label for="billing-recipient">{{ ('billing.invitations.' + kind()) | transloco }}</label>
+          <input pInputText id="billing-recipient" #recipient [type]="kind() === 'email' ? 'email' : 'tel'"
+                 [readOnly]="pending() !== null" maxlength="254" required autocomplete="off"
+                 data-testid="billing-invite-recipient" />
+          <button pButton type="submit" data-testid="billing-invite-submit" [disabled]="submitting() || loading()"
+                  [label]="(pending() && !submitting() ? 'billing.retry' : 'billing.invitations.invite') | transloco"></button>
+        </form>
+      </section>
+    }
+  }
+</section>

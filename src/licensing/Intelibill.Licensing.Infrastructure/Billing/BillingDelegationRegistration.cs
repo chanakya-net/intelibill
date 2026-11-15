@@ -13,6 +13,9 @@ internal static class BillingDelegationRegistration
         services.AddSingleton<IMerchantBillingDelegationVerifier, MerchantBillingDelegationVerifier>();
         services.AddScoped<IBillingDelegationAccess, PostgresBillingDelegationAccess>();
         services.AddScoped<IBillingAccountStore, BillingAccountStore>();
+        services.AddScoped<IBillingInvitationStore, BillingInvitationStore>();
+        services.AddScoped<BillingInvitationSecrets>();
+        services.AddScoped<BillingInvitationHandlers>();
         // Registered with their ports: the bootstrap CLI host validates its graph without billing.
         services.AddScoped<CreateBillingAccountHandler>();
         services.AddScoped<ListBillingAccountsHandler>();

@@ -31,6 +31,7 @@ internal static class CustomerBillingEndpoints
         app.MapGet(MerchantBillingDelegationV1.InternalPrefix + "/accounts/{accountId:guid}/access", GetAccessAsync)
             .RequireAuthorization(policy);
         app.MapCustomerBillingAccounts(policy);
+        app.MapBillingInvitations(policy);
     }
 
     private static async Task<IResult> GetAccessAsync(
@@ -56,6 +57,7 @@ internal static class CustomerBillingEndpoints
             ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
             ErrorType.Forbidden => StatusCodes.Status403Forbidden,
             ErrorType.Conflict => StatusCodes.Status409Conflict,
+            ErrorType.NotFound => StatusCodes.Status404NotFound,
             _ => StatusCodes.Status503ServiceUnavailable,
         };
         return Problem(context, status, error);
