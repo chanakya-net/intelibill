@@ -1,10 +1,8 @@
-# Licensing rollout: local stack and CI (P01-05)
+# Licensing foundation rollout
 
-This covers what exists after issue #835: one Docker command that starts the
-merchant and licensing systems side by side for local development, and CI that
-validates both consumers of shared code. **Nothing here deploys licensing or
-the admin web anywhere.** Production deployment, provider access and every
-commercial flow stay behind their own later issues and gates.
+One Docker Compose command starts the merchant and licensing systems for local
+development. CI validates both consumers of shared code. Production provider
+access and commercial flows require separate rollout gates.
 
 ## Start, restart, stop
 
@@ -46,11 +44,23 @@ running keeps serving when a later `up` fails in the other one. One-shot jobs ne
 which is how a newly added migration is applied and granted. An API restart never
 reruns a migration, and neither API issues DDL at startup.
 
-The licensing bundle applies `InitialAdminIdentityAndAudit` and then
-`AddAdminInvitations` as the migrator. The first creates the unarmed bootstrap
-state without an owner or proof. The second adds `admin_invitations`, the
-invitation audit link and two durable rate buckets. Apply it before any API that
-serves invitations. Its `Down` refuses once invitation evidence exists.
+Run the licensing bundle as the migrator before starting API writers. The
+bundle applies these migrations in order:
+
+- `20261114170140_InitialAdminIdentityAndAudit`
+- `20261114181011_AddAdminInvitations`
+- `20261114185900_AddAdminMfaEnrollment`
+- `20261114194123_AddAdminSignInSessions`
+- `20261114202808_AddAdminRefreshCredentials`
+- `20261114221354_AddProviderAuditInspection`
+- `20261114225609_AddAdminSessionRevocationAudit`
+- `20261115000319_AddAdminRecovery`
+- `20261115002745_ProtectAdminRecovery`
+- `20261115010116_AddAdminCapabilities`
+
+The initial migration creates an unarmed bootstrap without an owner or proof.
+Keep the identity, session and audit history on rollback. Migrations that
+protect recorded evidence can refuse a downgrade.
 
 ## Ports (loopback only)
 
@@ -119,19 +129,25 @@ merchant data:
 - Enrol a merchant through the merchant web with any address (for example
   `you@example.test`): the verification email lands in Mailpit at
   `http://127.0.0.1:8025`, and nothing leaves the machine.
-- Open the admin web at `http://127.0.0.1:4001`: the Provider Console shell
-  loads, reports **No provider session** and **No provider permissions**, and
-  a merchant session in the same browser confers nothing there.
+- Open the admin web at `http://localhost:4001`. Before provider setup, the
+  Console reports an unconfirmed session and hides capabilities. Once setup
+  and signing are configured, an unauthenticated browser is sent to sign-in.
+  Merchant credentials carry no provider authority.
 - Probe `GET http://127.0.0.1:5278/health/live` and `/health/ready`.
 
-Administrator invitations are delivered to this Mailpit only (`AdminMail`
-with `LocalCapture`). Issuing one needs a provider session, which no
-production producer creates yet, so the stack refuses issuance unless an
-acceptance script sets the Development-only `INTELIBILL_ADMIN_FIXTURE_*`
-variables. Not available yet, by design (each belongs to a later issue):
-provider sign-in, MFA and sessions for the admin web; and every commercial flow — catalogue, simulator, payments, seeded plans or accounts.
-There are no default admin credentials and no production seed. No real charge
-or real email is ever made by this stack.
+For a disposable fixture, run [the P01 foundation smoke check](../tests/licensing/acceptance/p01-foundation.md).
+It supplies separate local MFA and session-signing roots, prepares a one-use
+owner proof and exercises invitation delivery through Mailpit. The owner
+chooses a password, enrolls an authenticator, acknowledges recovery codes and
+signs in with password and TOTP. The console shows the session's explicit
+capabilities. Invited operators complete the same MFA setup and start with
+zero grants. Device session and audit views apply their own authorization.
+Without configured roots, MFA setup and sign-in fail closed.
+
+Live access still requires verified initial owner identity, approved key custody
+and recovery ownership, and a verified production hostname, TLS, exact origin,
+secret delivery and database roles. The local fixture uses only loopback
+services and synthetic identities.
 
 ## Troubleshooting
 
