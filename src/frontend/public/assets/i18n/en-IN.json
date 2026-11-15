@@ -3289,6 +3289,33 @@
     "searchHint": "Up to 20 matches are shown. Refine your search to find another party."
   },
   "billing": {
+    "plans": {
+      "heading": "Published plans",
+      "description": "Prices are final, tax-inclusive INR amounts. Payment confirmations serve as proof of payment only.",
+      "empty": "No plans have been published yet.",
+      "singleShop": "Single-shop",
+      "multiShop": "Multi-shop",
+      "planVersion": "{{kind}} · version {{version}}",
+      "fixture": "Development fixture · Local evaluation",
+      "monthly": "Calendar month",
+      "annual": "Calendar year",
+      "includedShops": "Included shop slots",
+      "memberLimit": "Active members per shop, including the owner",
+      "extraMonthly": "Extra shop per calendar month",
+      "extraAnnual": "Extra shop per calendar year",
+      "customerTerms": "Customer terms",
+      "refundPolicy": "Refund policy",
+      "trialPolicy": "Trial policy",
+      "trialVersion": "Version {{version}} · {{terms}}",
+      "trialDuration": "Trial duration",
+      "calendarDays": "{{count}} calendar days",
+      "activeTrialMembers": "Active members per trial shop",
+      "concurrentTrialShops": "Concurrent trial shops per billing account",
+      "billingTimeZone": "Billing time zone",
+      "paidGrace": "Eligible paid grace",
+      "days": "{{count}} days",
+      "more": "More plans"
+    },
     "affiliation": {
       "heading": "Shop coverage",
       "consent": "Shop owner consent",

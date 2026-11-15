@@ -27,6 +27,10 @@ internal sealed class PlanVersionConfiguration : IEntityTypeConfiguration<PlanVe
                 """);
             table.HasCheckConstraint("ck_plan_versions_currency", "currency = 'INR'");
             table.HasCheckConstraint("ck_plan_versions_status", "status IN (1, 2, 3)");
+            table.HasCheckConstraint("ck_plan_versions_source", """
+                source IN (0, 1, 2) AND (source_version_id IS NULL) = (source_expected_version IS NULL)
+                AND (source_expected_version IS NULL OR source_expected_version > 0)
+                """);
             table.HasCheckConstraint("ck_plan_versions_numbers", "version_number >= 1 AND revision >= 1");
             table.HasCheckConstraint("ck_plan_versions_name", "name = btrim(name) AND char_length(name) BETWEEN 1 AND 80");
             table.HasCheckConstraint("ck_plan_versions_policy_versions",
@@ -41,9 +45,12 @@ internal sealed class PlanVersionConfiguration : IEntityTypeConfiguration<PlanVe
         builder.Property(version => version.CustomerTermsVersion).HasMaxLength(40);
         builder.Property(version => version.RefundPolicyVersion).HasMaxLength(40);
         builder.Property(version => version.NegotiationReason).HasMaxLength(500);
+        builder.Property(version => version.Source).HasDefaultValue(CatalogueSource.Unknown);
         builder.Ignore(version => version.Facts);
         builder.HasOne<Plan>().WithMany().HasForeignKey(version => version.PlanId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(version => new { version.PlanId, version.VersionNumber }).IsUnique();
+        builder.HasIndex(version => version.PlanId, "PublishedPlanPerPlan").IsUnique().HasFilter("status = 2")
+            .HasDatabaseName("ux_plan_versions_published");
         // One open draft per plan.
         builder.HasIndex(version => version.PlanId).IsUnique().HasFilter("status = 1")
             .HasDatabaseName("ux_plan_versions_open_draft");

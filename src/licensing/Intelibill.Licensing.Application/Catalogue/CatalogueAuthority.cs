@@ -12,16 +12,23 @@ namespace Intelibill.Licensing.Application.Catalogue;
 internal static class CatalogueAuthority
 {
     internal static async Task<Error?> EnterAsync(ICatalogueDraftStore store, AdminSessionCaller caller,
-        DateTimeOffset now, CancellationToken token)
+        TimeProvider clock, CancellationToken token, bool recentMfa = false)
     {
         var (actor, session) = await store.LockAuthorityAsync(caller, token);
+        var now = clock.GetUtcNow();
         if (session is null || now >= caller.AccessExpiresAt || !session.IsLiveAt(now)
             || actor is not { DeactivatedAt: null, MfaEnrolledAt: not null })
             return AdminRefreshErrors.SessionEnded;
         if (!actor.Capabilities.HasFlag(AdminCapability.LicensingManager)) return CatalogueErrors.AccessDenied;
+        if (recentMfa && !new ProviderActor(caller.AdminId, session.MfaVerifiedAt).HasRecentMfa(now))
+            return CataloguePublicationErrors.Mfa;
         await store.EnterCatalogueAsync(actor.Id, token);
         return null;
     }
+
+    internal static bool ValidSource(int expected, Guid? source, int? sourceRevision) =>
+        source is null && sourceRevision is null
+        || expected == 0 && source is { } id && id != Guid.Empty && sourceRevision is > 0;
 
     internal static Error? ToError(CatalogueRuleViolation violation) => violation switch
     {

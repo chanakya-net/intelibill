@@ -1,0 +1,37 @@
+<h3>{{ name() }} · version {{ version() }}</h3>
+@if (trial().developmentFixture) {
+  <p><strong>Development fixture</strong> · Local evaluation</p>
+}
+@if (plan()) { <p>Prices are final, tax-inclusive INR amounts.</p> }
+<dl class="terms">
+  @if (plan(); as terms) {
+    <dt>Plan type</dt><dd>{{ kinds[terms.kind] }}</dd>
+    @if (terms.monthlyPricePaise !== null) {
+      <dt>Calendar month · final gross</dt><dd>{{ inr(terms.monthlyPricePaise) }}</dd>
+    }
+    @if (terms.annualPricePaise !== null) {
+      <dt>Calendar year · final gross</dt><dd>{{ inr(terms.annualPricePaise) }}</dd>
+    }
+    <dt>Purchased shop slots</dt><dd>{{ terms.includedShops }}</dd>
+    <dt>Active members per shop, including the owner</dt><dd>{{ terms.membersPerShop }}</dd>
+    @if (terms.extraShopsOffered) {
+      <dt>Extra shop · monthly / annual gross</dt>
+      <dd>{{ inr(terms.extraShopMonthlyPricePaise) }} / {{ inr(terms.extraShopAnnualPricePaise) }}</dd>
+    } @else {
+      <dt>Extra-shop offer</dt><dd>None</dd>
+    }
+    <dt>Customer terms</dt><dd>{{ terms.customerTermsVersion }}</dd>
+    <dt>Refund policy</dt><dd>{{ terms.refundPolicyVersion }}</dd>
+    <dt>Accounting treatment reference</dt><dd>{{ accounting() }}</dd>
+    <dt>Billing time zone</dt><dd>{{ terms.billingTimeZone }}</dd>
+    <dt>Eligible paid grace</dt><dd>{{ terms.eligiblePaidGraceDays }} days</dd>
+    <dt>Grace exclusions</dt><dd>{{ graceExclusions() }}</dd>
+    @if (reason(); as negotiation) {
+      <dt>Private negotiation reason</dt><dd>{{ negotiation }}</dd>
+    }
+  }
+  <dt>Trial policy version</dt><dd>{{ trial().versionNumber }} · {{ trial().trialTermsVersion }}</dd>
+  <dt>Trial duration</dt><dd>{{ trial().durationDays }} calendar days</dd>
+  <dt>Active members per trial shop</dt><dd>{{ trial().activeMemberCap }}</dd>
+  <dt>Concurrent trial shops per billing account</dt><dd>{{ trial().maxConcurrentTrialShops }}</dd>
+</dl>

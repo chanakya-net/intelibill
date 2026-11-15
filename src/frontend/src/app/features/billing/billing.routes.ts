@@ -32,6 +32,10 @@ export const billingRoutes: Routes = [
       import('./members/billing-members.component').then((m) => m.BillingMembersComponent),
   },
   {
+    path: 'plans',
+    loadComponent: () => import('./plans/billing-plans-page.component').then((m) => m.BillingPlansPageComponent),
+  },
+  {
     path: '',
     loadComponent: () =>
       import('./pages/billing-accounts-page.component').then((m) => m.BillingAccountsPageComponent),

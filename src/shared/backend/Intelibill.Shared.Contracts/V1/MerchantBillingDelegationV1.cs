@@ -37,7 +37,7 @@ public static class MerchantBillingDelegationV1
     public static string AccountAccessPath(Guid accountId) => $"{AccountsPath}/{accountId:D}/access";
 
     /// <summary>Actions that act for the verified actor before any account exists, so they carry no account.</summary>
-    public static bool IsActorScoped(string? action) => action is CreateAccount or ListAccounts
+    public static bool IsActorScoped(string? action) => action is CreateAccount or ListAccounts or PublishedCatalogueV1.Read
         or BillingOwnershipTransfersV1.Inbox or BillingOwnershipTransfersV1.Preview
         or BillingOwnershipTransfersV1.Accept or BillingOwnershipTransfersV1.Recover
         or ShopAffiliationsV1.OwnerRead or BillingInvitationsV1.Inbox or BillingInvitationsV1.Proof or BillingInvitationsV1.Accept;

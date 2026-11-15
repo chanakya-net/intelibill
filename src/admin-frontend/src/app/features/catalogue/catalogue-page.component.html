@@ -4,7 +4,7 @@
   @if (access()) {
     <section class="ib-panel" aria-labelledby="plans-heading">
       <h2 class="ib-panel__title" id="plans-heading">Plans</h2>
-      <p>Drafts are inactive: they are never published, offered, charged or enforced from here. Amounts are INR.</p>
+      <p>Drafts are private until a Licensing Manager confirms publication. Amounts are in INR.</p>
       @if (error()) { <p class="ib-error-banner" role="alert">{{ error() }}</p> }
       @if (busy()) { <p role="status">Working…</p> }
       @if (reloadRequired()) {
@@ -40,7 +40,32 @@
       @for (key of editorKey() ? [editorKey()!] : []; track key) {
         <adm-plan-draft-editor [plan]="selected()" (saved)="planSaved($event)" (conflict)="conflicted()" />
       }
-      <adm-trial-policy-editor [draft]="trial()" (saved)="trial.set($event)" (conflict)="conflicted()" />
+      @if (trial() || !currentTrial()) {
+        <adm-trial-policy-editor [draft]="trial()" (saved)="trial.set($event)" (conflict)="conflicted()" />
+      }
+      <adm-catalogue-publication [plan]="selected()" [trial]="trial()" [currentTrialVersionId]="currentTrial()"
+        (published)="publicationSaved($event)" (denied)="publicationDenied()" />
+      <section class="ib-panel" aria-labelledby="published-heading">
+        <h2 class="ib-panel__title" id="published-heading">Published versions</h2>
+        @if (historyError()) {
+          <p class="ib-error-banner" role="alert">{{ historyError() }}</p>
+          <button pButton type="button" (click)="loadHistory()" [disabled]="historyBusy()">Reload history</button>
+        }
+        @for (row of history(); track row.versionId) {
+          <details>
+            <summary>{{ publishedName(row) }} · version {{ publishedNumber(row) }} · {{ row.status }}</summary>
+            <adm-catalogue-snapshot [snapshot]="row.snapshot" />
+            <button pButton type="button" (click)="createSuccessor(row)" [disabled]="historyBusy()">
+              Create successor draft
+            </button>
+          </details>
+        } @empty {
+          @if (!historyBusy() && !historyError()) { <p>No versions published yet.</p> }
+        }
+        @if (historyCursor(); as after) {
+          <button pButton type="button" (click)="loadHistory(after)" [disabled]="historyBusy()">More published versions</button>
+        }
+      </section>
     }
   } @else {
     <section class="ib-panel" aria-label="Catalogue access status">

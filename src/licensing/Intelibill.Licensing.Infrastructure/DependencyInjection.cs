@@ -53,6 +53,12 @@ public static class DependencyInjection
         services.AddScoped<IAdminRecoveryStore, AdminRecoveryStore>();
         services.AddScoped<IAdminCapabilitiesStore, AdminCapabilitiesStore>();
         services.AddScoped<ICatalogueDraftStore, CatalogueDraftStore>();
+        services.AddScoped<ICataloguePublicationStore, CataloguePublicationStore>();
+        services.AddScoped<ICatalogueHistoryStore, CatalogueHistoryStore>();
+        services.AddScoped<IPublishedCatalogueReader, PublishedCatalogueReader>();
+        services.AddScoped<ReadPublishedCatalogueHandler>();
+        services.AddOptions<CataloguePublicationOptions>().Bind(configuration.GetSection("CataloguePublication"));
+        services.AddScoped<ICataloguePublicationApproval, CataloguePublicationApproval>();
         return services.AddBootstrapPersistence();
     }
 

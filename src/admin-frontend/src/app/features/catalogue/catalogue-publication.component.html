@@ -1,0 +1,52 @@
+<section class="ib-panel" aria-labelledby="publication-heading">
+  <h2 class="ib-panel__title" id="publication-heading">Publish catalogue version</h2>
+  @if (error()) { <p class="ib-error-banner" role="alert">{{ error() }}</p> }
+  @if (mfaNeeded()) {
+    <a routerLink="/auth/sign-in" target="_blank" rel="noopener">Sign in again</a>
+  }
+  @if (operation(); as result) {
+    <div data-testid="publication-snapshot">
+      <adm-catalogue-snapshot [snapshot]="result.snapshot" />
+    </div>
+    @if (result.publishedAt) {
+      <p role="status">Version published</p>
+      <button pButton type="button" (click)="close()">Close publication</button>
+    } @else {
+      <p>Publication reason · {{ result.reason }}</p>
+      <p>Existing agreements retain their accepted prices, capacity and policy.</p>
+      <label class="acknowledgement">
+        <input type="checkbox" [checked]="acknowledged()" [disabled]="busy() || stale() || mfaNeeded()"
+          (change)="acknowledged.set($any($event.target).checked)" />
+        I approve publication of these exact terms.
+      </label>
+      <div class="actions">
+        <button pButton type="button" (click)="confirm()"
+          [disabled]="!acknowledged() || busy() || stale() || mfaNeeded()">Confirm publication</button>
+        <button pButton type="button" (click)="recover()" [disabled]="busy()">Check publication outcome</button>
+        @if (!error() || stale()) {
+          <button pButton type="button" (click)="close()" [disabled]="busy()">Close preview</button>
+        }
+      </div>
+    }
+  } @else if (key()) {
+    <p>Operation {{ key() }}</p>
+    <button pButton type="button" (click)="recover()" [disabled]="busy()">Check publication outcome</button>
+  } @else if (target(); as draft) {
+    <form (submit)="prepare($event, reasonForm)" #reasonForm>
+      <label for="publication-reason">Publication reason</label>
+      <textarea id="publication-reason" name="publicationReason" required maxlength="500"></textarea>
+      <div class="actions">
+        <button pButton type="submit" [disabled]="busy()">Prepare {{ draft.planId ? 'plan' : 'trial policy' }} preview</button>
+        <button pButton type="button" (click)="close()" [disabled]="busy()">Cancel preview</button>
+      </div>
+    </form>
+  } @else {
+    <div class="actions">
+      <button pButton type="button" (click)="chooseTrial()" [disabled]="!trial()?.complete">Review trial policy draft</button>
+      <button pButton type="button" (click)="choosePlan()" [disabled]="!planReady()">Review selected plan draft</button>
+    </div>
+    @if (plan()?.draft?.complete && !currentTrialVersionId()) {
+      <p>Publish a trial policy before preparing a plan.</p>
+    }
+  }
+</section>

@@ -574,6 +574,96 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.CataloguePreparation", b =>
+                {
+                    b.Property<Guid>("AdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("admin_id");
+
+                    b.Property<Guid>("OperationKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("operation_key");
+
+                    b.Property<string>("ConfigurationRevision")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("configuration_revision");
+
+                    b.Property<int>("ExpectedVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("expected_version");
+
+                    b.Property<Guid?>("PlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plan_id");
+
+                    b.Property<DateTimeOffset>("PreparedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("prepared_at");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("Snapshot")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("snapshot");
+
+                    b.Property<string>("SnapshotHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("snapshot_hash");
+
+                    b.Property<Guid?>("TrialPolicyVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("trial_policy_version_id");
+
+                    b.Property<Guid>("VersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("version_id");
+
+                    b.HasKey("AdminId", "OperationKey")
+                        .HasName("pk_catalogue_preparations");
+
+                    b.ToTable("catalogue_preparations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_catalogue_preparation", "expected_version > 0 AND snapshot_hash ~ '^[A-F0-9]{64}$' AND char_length(reason) BETWEEN 1 AND 500 AND (plan_id IS NULL) = (trial_policy_version_id IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.CataloguePublication", b =>
+                {
+                    b.Property<Guid>("VersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("version_id");
+
+                    b.Property<Guid>("AdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("admin_id");
+
+                    b.Property<Guid>("OperationKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("operation_key");
+
+                    b.Property<DateTimeOffset>("PublishedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("published_at");
+
+                    b.HasKey("VersionId")
+                        .HasName("pk_catalogue_publications");
+
+                    b.HasIndex("AdminId", "OperationKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_catalogue_publications_admin_id_operation_key");
+
+                    b.ToTable("catalogue_publications", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.InitialAdminBootstrap", b =>
                 {
                     b.Property<int>("Id")
@@ -813,6 +903,20 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("revision");
 
+                    b.Property<int>("Source")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("source");
+
+                    b.Property<int?>("SourceExpectedVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("source_expected_version");
+
+                    b.Property<Guid?>("SourceVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_version_id");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer")
                         .HasColumnName("status");
@@ -841,6 +945,11 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_plan_versions_plan_id_version_number");
 
+                    b.HasIndex(new[] { "PlanId" }, "PublishedPlanPerPlan")
+                        .IsUnique()
+                        .HasDatabaseName("ux_plan_versions_published")
+                        .HasFilter("status = 2");
+
                     b.ToTable("plan_versions", null, t =>
                         {
                             t.HasCheckConstraint("ck_plan_versions_amounts", "monthly_price_paise BETWEEN 0 AND 1000000000000\nAND annual_price_paise BETWEEN 0 AND 1000000000000\nAND extra_shop_monthly_price_paise BETWEEN 0 AND 1000000000000\nAND extra_shop_annual_price_paise BETWEEN 0 AND 1000000000000");
@@ -858,6 +967,8 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_plan_versions_policy_versions", "customer_terms_version ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$' AND refund_policy_version ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$'");
 
                             t.HasCheckConstraint("ck_plan_versions_reason", "negotiation_reason = btrim(negotiation_reason) AND char_length(negotiation_reason) BETWEEN 1 AND 500");
+
+                            t.HasCheckConstraint("ck_plan_versions_source", "source IN (0, 1, 2) AND (source_version_id IS NULL) = (source_expected_version IS NULL)\nAND (source_expected_version IS NULL OR source_expected_version > 0)");
 
                             t.HasCheckConstraint("ck_plan_versions_status", "status IN (1, 2, 3)");
                         });
@@ -927,6 +1038,42 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.PublishedCatalogueOffer", b =>
+                {
+                    b.Property<Guid>("VersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("version_id");
+
+                    b.Property<bool>("DevelopmentFixture")
+                        .HasColumnType("boolean")
+                        .HasColumnName("development_fixture");
+
+                    b.Property<Guid>("PlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plan_id");
+
+                    b.Property<string>("Snapshot")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("snapshot");
+
+                    b.Property<int>("VersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("version_number");
+
+                    b.HasKey("VersionId")
+                        .HasName("pk_published_catalogue_offers");
+
+                    b.HasIndex("DevelopmentFixture", "PlanId", "VersionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_published_catalogue_offers_development_fixture_plan_id_vers");
+
+                    b.ToTable("published_catalogue_offers", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_published_catalogue_offer", "version_number > 0 AND octet_length(snapshot) BETWEEN 2 AND 2400");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.TrialPolicyVersion", b =>
                 {
                     b.Property<Guid>("Id")
@@ -956,6 +1103,20 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                     b.Property<int>("Revision")
                         .HasColumnType("integer")
                         .HasColumnName("revision");
+
+                    b.Property<int>("Source")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("source");
+
+                    b.Property<int?>("SourceExpectedVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("source_expected_version");
+
+                    b.Property<Guid?>("SourceVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_version_id");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer")
@@ -990,6 +1151,11 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_trial_policy_versions_version_number");
 
+                    b.HasIndex(new[] { "Status" }, "PublishedTrialPolicy")
+                        .IsUnique()
+                        .HasDatabaseName("ux_trial_policy_versions_published")
+                        .HasFilter("status = 2");
+
                     b.ToTable("trial_policy_versions", null, t =>
                         {
                             t.HasCheckConstraint("ck_trial_policy_versions_caps", "active_member_cap BETWEEN 1 AND 100000 AND max_concurrent_trial_shops BETWEEN 1 AND 100000");
@@ -997,6 +1163,8 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_trial_policy_versions_duration", "duration_days = 14");
 
                             t.HasCheckConstraint("ck_trial_policy_versions_numbers", "version_number >= 1 AND revision >= 1");
+
+                            t.HasCheckConstraint("ck_trial_policy_versions_source", "source IN (0, 1, 2) AND (source_version_id IS NULL) = (source_expected_version IS NULL)\nAND (source_expected_version IS NULL OR source_expected_version > 0)");
 
                             t.HasCheckConstraint("ck_trial_policy_versions_status", "status IN (1, 2, 3)");
 
@@ -1215,6 +1383,16 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasConstraintName("fk_catalogue_draft_changes_admin_identities_actor_admin_id");
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.CataloguePublication", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.CataloguePreparation", null)
+                        .WithMany()
+                        .HasForeignKey("AdminId", "OperationKey")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_catalogue_publications_catalogue_preparations_admin_id_oper");
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.InitialAdminBootstrap", b =>
                 {
                     b.HasOne("Intelibill.Licensing.Domain.Entities.AdminIdentity", null)
@@ -1257,6 +1435,16 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_provider_audit_events_admin_identities_owner_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.PublishedCatalogueOffer", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.CataloguePublication", null)
+                        .WithOne()
+                        .HasForeignKey("Intelibill.Licensing.Domain.Entities.PublishedCatalogueOffer", "VersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_published_catalogue_offers_catalogue_publications_version_id");
                 });
 
             modelBuilder.Entity("Intelibill.Licensing.Infrastructure.AdminIdentities.Mfa.AdminRecoveryCode", b =>

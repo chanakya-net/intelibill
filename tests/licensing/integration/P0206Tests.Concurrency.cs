@@ -50,7 +50,7 @@ public sealed partial class P0206Tests
         Assert.Single(creates, status => status == HttpStatusCode.Created);
         Assert.Single(creates, status => status == HttpStatusCode.Conflict);
 
-        // Hold the draft row so both saves are provably waiting on it before either decides.
+        // Hold the draft row so one save waits for the row and its competitor queues behind the same plan fence.
         var proofs = (await P0206Fixture.ProofAsync(first), await P0206Fixture.ProofAsync(second));
         await using var gate = new NpgsqlConnection(fixture.Superuser.ConnectionString);
         await gate.OpenAsync();
@@ -89,11 +89,11 @@ public sealed partial class P0206Tests
             var waiting = await fixture.ScalarAsync("""
                 SELECT count(*) FROM pg_stat_activity WHERE datname = current_database()
                   AND usename = 'licensing_runtime' AND wait_event_type = 'Lock'
-                  AND query LIKE '%plan_versions%FOR UPDATE%'
+                  AND (query LIKE '%plan_versions%FOR UPDATE%' OR wait_event = 'advisory')
                 """);
             if ((long)waiting! >= expected) return;
             await Task.Delay(10);
         }
-        Assert.Fail($"Expected {expected} saves waiting on the draft row lock.");
+        Assert.Fail($"Expected {expected} saves waiting on the draft row or plan advisory lock.");
     }
 }

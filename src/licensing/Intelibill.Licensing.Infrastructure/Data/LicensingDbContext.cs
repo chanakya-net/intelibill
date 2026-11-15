@@ -30,5 +30,8 @@ public sealed class LicensingDbContext(DbContextOptions<LicensingDbContext> opti
         modelBuilder.ApplyConfiguration(new PlanVersionConfiguration());
         modelBuilder.ApplyConfiguration(new TrialPolicyVersionConfiguration());
         modelBuilder.ApplyConfiguration(new CatalogueDraftChangeConfiguration());
+        modelBuilder.ApplyConfiguration(new CataloguePreparationConfiguration());
+        modelBuilder.ApplyConfiguration(new CataloguePublicationConfiguration());
+        modelBuilder.ApplyConfiguration(new PublishedCatalogueOfferConfiguration());
     }
 }

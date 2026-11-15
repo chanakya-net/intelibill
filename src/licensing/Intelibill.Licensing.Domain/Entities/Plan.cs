@@ -7,7 +7,7 @@ public enum PlanKind
     Custom = 3,
 }
 
-/// <summary>Draft, published or retired. Only drafts exist until publication is built; a draft is never offered.</summary>
+/// <summary>Catalogue lifecycle of a numbered version.</summary>
 public enum CatalogueVersionStatus
 {
     Draft = 1,

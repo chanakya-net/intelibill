@@ -1,8 +1,7 @@
 namespace Intelibill.Licensing.Domain.Entities;
 
 /// <summary>
-/// One numbered version of a plan. While a draft it is revised in place (each save is one revision);
-/// it is never offered, priced to a customer or enforced.
+/// One numbered plan version. Draft saves advance the revision, and publication freezes the commercial facts.
 /// </summary>
 public sealed class PlanVersion
 {
@@ -25,6 +24,9 @@ public sealed class PlanVersion
     public int VersionNumber { get; private set; }
     public CatalogueVersionStatus Status { get; private set; }
     public int Revision { get; private set; }
+    public CatalogueSource Source { get; private set; }
+    public Guid? SourceVersionId { get; private set; }
+    public int? SourceExpectedVersion { get; private set; }
     public string Name { get; private set; }
     public string CurrencyCode { get; private set; }
     public long? MonthlyPricePaise { get; private set; }
@@ -47,9 +49,9 @@ public sealed class PlanVersion
         RefundPolicyVersion, NegotiationReason);
 
     public static PlanVersion Draft(Guid id, Guid planId, int versionNumber, PlanDraftFacts facts, Guid adminId,
-        DateTimeOffset now)
+        DateTimeOffset now, CatalogueSource source = CatalogueSource.Unknown, Guid? sourceVersionId = null, int? sourceExpectedVersion = null)
     {
-        var version = new PlanVersion(id, planId, versionNumber, now, adminId);
+        var version = new PlanVersion(id, planId, versionNumber, now, adminId) { Source = source, SourceVersionId = sourceVersionId, SourceExpectedVersion = sourceExpectedVersion };
         version.Revise(facts, adminId, now);
         return version;
     }
@@ -70,6 +72,21 @@ public sealed class PlanVersion
         CustomerTermsVersion = facts.CustomerTermsVersion;
         RefundPolicyVersion = facts.RefundPolicyVersion;
         NegotiationReason = facts.NegotiationReason;
+        Revision++;
+        UpdatedAt = now;
+        UpdatedByAdminId = adminId;
+    }
+
+    public void Publish(Guid adminId, DateTimeOffset now) =>
+        Transition(CatalogueVersionStatus.Draft, CatalogueVersionStatus.Published, adminId, now);
+
+    public void Retire(Guid adminId, DateTimeOffset now) =>
+        Transition(CatalogueVersionStatus.Published, CatalogueVersionStatus.Retired, adminId, now);
+
+    private void Transition(CatalogueVersionStatus from, CatalogueVersionStatus to, Guid adminId, DateTimeOffset now)
+    {
+        if (Status != from) throw new InvalidOperationException("Invalid catalogue lifecycle transition.");
+        Status = to;
         Revision++;
         UpdatedAt = now;
         UpdatedByAdminId = adminId;

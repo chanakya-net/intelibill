@@ -15,7 +15,7 @@ public sealed partial class P0206Tests
         "created_at", "created_by_admin_id", "currency", "customer_terms_version", "duration_days",
         "extra_shop_annual_price_paise", "extra_shop_monthly_price_paise", "extra_shops_offered", "id", "included_shops",
         "kind", "max_concurrent_trial_shops", "members_per_shop", "monthly_price_paise", "name", "negotiation_reason",
-        "occurred_at", "plan_id", "reason", "refund_policy_version", "revision", "status", "target_id", "target_kind",
+        "occurred_at", "plan_id", "reason", "refund_policy_version", "revision", "source", "source_expected_version", "source_version_id", "status", "target_id", "target_kind",
         "trial_terms_version", "updated_at", "updated_by_admin_id", "version_number"];
 
     /// <summary>A complete multi-shop body; overrides replace (or, with a null value, blank) single members.</summary>

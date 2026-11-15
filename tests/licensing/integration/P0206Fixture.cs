@@ -42,7 +42,8 @@ internal sealed class P0206Fixture : IAsyncDisposable
     private string OwnerSeed { get; }
     internal NpgsqlConnectionStringBuilder Superuser => Database.Bootstrap(Runtime.Database);
 
-    internal static async Task<P0206Fixture> StartAsync(LicensingPostgreSqlFixture database)
+    internal static async Task<P0206Fixture> StartAsync(LicensingPostgreSqlFixture database,
+        IReadOnlyDictionary<string, string?>? overrides = null)
     {
         var runtime = await new P0108Tests(database).SignInDatabaseAsync();
         var clock = new P0106Tests.TestClock();
@@ -53,6 +54,8 @@ internal sealed class P0206Fixture : IAsyncDisposable
         settings["AdminFixtures:Capabilities"] = Manager;
         settings["AdminFixtures:SessionDigest"] = Convert.ToHexString(
             System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(FixtureToken)));
+        if (overrides is not null)
+            foreach (var (key, value) in overrides) settings[key] = value;
         var mailer = new P0114Tests.FixtureMailer();
         var api = new LicensingApiFactory(runtime, clock: clock, settings: settings,
             configure: services => services.AddSingleton<IAdminInvitationMailer>(mailer));

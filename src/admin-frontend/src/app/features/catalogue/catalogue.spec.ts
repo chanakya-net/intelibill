@@ -32,6 +32,7 @@ function render(capabilities: string[] = ['licensing-manager'], trial: TrialDraf
   const notice = signal<SessionNotice>('none');
   const api = {
     listPlans: vi.fn(() => of({ items: [incomplete], nextCursor: null })),
+    history: vi.fn(() => of({ items: [], nextCursor: null, currentTrialVersionId: null })),
     trialDraft: vi.fn(() => of({ draft: trial })),
     savePlan: vi.fn((_id: string, command: { name: string }) =>
       of({ ...incomplete, draft: { ...incomplete.draft, name: command.name, version: 5 } })),
@@ -182,4 +183,9 @@ describe('catalogue draft editor', () => {
       expectedVersion: 2, activeMemberCap: 5, maxConcurrentTrialShops: 2, trialTermsVersion: 'trial-2026.11',
     });
   });
+});
+
+it('shows immutable publication history on the Licensing Manager catalogue', () => {
+  const { page } = render();
+  expect([...page.querySelectorAll('h2')].map(heading => heading.textContent?.trim())).toContain('Published versions');
 });
