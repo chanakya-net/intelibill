@@ -37,7 +37,8 @@ public static class MerchantBillingDelegationV1
     public static string AccountAccessPath(Guid accountId) => $"{AccountsPath}/{accountId:D}/access";
 
     /// <summary>Actions that act for the verified actor before any account exists, so they carry no account.</summary>
-    public static bool IsActorScoped(string? action) => action is CreateAccount or ListAccounts;
+    public static bool IsActorScoped(string? action) => action is CreateAccount or ListAccounts
+        or BillingInvitationsV1.Inbox or BillingInvitationsV1.Proof or BillingInvitationsV1.Accept;
 
     /// <summary>Trimmed, 1 to 120 characters, NFC, no control characters; otherwise null. Both services apply it.</summary>
     public static string? NormalizeAccountName(string? name)
@@ -73,19 +74,19 @@ public sealed record MerchantBillingAssertionV1(
     public bool VerifiedIdentity { get; } = true;
 
     [JsonPropertyName("action")]
-    public string Action { get; } = MerchantBillingDelegationV1.ReadAccount;
+    public string Action { get; init; } = MerchantBillingDelegationV1.ReadAccount;
 
     [JsonPropertyName("nbf")]
     public long NotBefore => IssuedAt;
 
     [JsonPropertyName("method")]
-    public string Method { get; } = "GET";
+    public string Method { get; init; } = "GET";
 
     [JsonPropertyName("path")]
-    public string Path => MerchantBillingDelegationV1.AccountAccessPath(AccountId);
+    public string Path { get; init; } = MerchantBillingDelegationV1.AccountAccessPath(AccountId);
 
     [JsonPropertyName("body_sha256")]
-    public string BodySha256 { get; } = MerchantBillingDelegationV1.EmptyBodySha256;
+    public string BodySha256 { get; init; } = MerchantBillingDelegationV1.EmptyBodySha256;
 }
 
 /// <summary>

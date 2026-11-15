@@ -6,6 +6,8 @@ using Azure.Identity;
 using ErrorOr;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Shared.Contracts.V1;
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Infrastructure.Data;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -16,7 +18,8 @@ namespace Intelibill.Infrastructure.Billing;
 internal sealed partial class MerchantBillingClient(
     HttpClient client, MerchantBillingDelegationIssuer issuer,
     IOptionsMonitor<MerchantBillingDelegationOptions> options, IHostEnvironment environment,
-    ILogger<MerchantBillingClient> logger) : IMerchantBillingAccess
+    ILogger<MerchantBillingClient> logger, ApplicationDbContext db, IPhoneAuthPolicy phones)
+    : IMerchantBillingAccess, IMerchantBillingInvitations
 {
     private const int MaximumResponseBytes = 4096;
     // Sized for a full page of the longest valid names, so no account the actor holds can hide the list.
@@ -131,7 +134,7 @@ internal sealed partial class MerchantBillingClient(
         }
 
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        var failure = await MapFailureAsync(response, intent.Action == MerchantBillingDelegationV1.CreateAccount, cancellationToken);
+        var failure = await MapFailureAsync(response, intent.Action, cancellationToken);
         if (failure is { } error)
             return error;
         if (response.Content.Headers.ContentType?.MediaType != "application/json")
@@ -144,23 +147,29 @@ internal sealed partial class MerchantBillingClient(
     }
 
     /// <summary>Relay only the allow-listed upstream outcomes; everything else is unavailable.</summary>
-    private async Task<Error?> MapFailureAsync(HttpResponseMessage response, bool creation,
+    private async Task<Error?> MapFailureAsync(HttpResponseMessage response, string action,
         CancellationToken cancellationToken)
     {
         switch (response.StatusCode)
         {
             case HttpStatusCode.OK:
-            case HttpStatusCode.Created when creation:
+            case HttpStatusCode.Created when action == MerchantBillingDelegationV1.CreateAccount:
+            case HttpStatusCode.Accepted when action == BillingInvitationsV1.Issue:
                 return null;
             case HttpStatusCode.Forbidden:
                 return MerchantBillingErrors.Denied;
             case HttpStatusCode.Unauthorized:
                 return Unavailable("UpstreamAuthentication");
-            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict when creation:
+            case HttpStatusCode.NotFound when action is BillingInvitationsV1.Proof or BillingInvitationsV1.Accept:
+                return MerchantBillingInvitationErrors.UnavailableInvitation;
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict when action is
+                MerchantBillingDelegationV1.CreateAccount or BillingInvitationsV1.Issue:
                 return await ReadProblemCodeAsync(response, cancellationToken) switch
                 {
                     "Billing.AccountNameInvalid" when response.StatusCode == HttpStatusCode.BadRequest => MerchantBillingErrors.NameInvalid,
                     "Billing.OperationKeyInvalid" when response.StatusCode == HttpStatusCode.BadRequest => MerchantBillingErrors.OperationKeyInvalid,
+                    "Billing.InvitationRevisionConflict" when action == BillingInvitationsV1.Issue
+                        && response.StatusCode == HttpStatusCode.Conflict => MerchantBillingInvitationErrors.StaleRevision,
                     "Billing.OperationPayloadMismatch" when response.StatusCode == HttpStatusCode.Conflict => MerchantBillingErrors.PayloadMismatch,
                     _ => Unavailable("UpstreamStatus"),
                 };

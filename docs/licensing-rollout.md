@@ -335,3 +335,26 @@ migrations to disposable PostgreSQL databases and supplies account membership
 from a test-only schema. Chromium exercises merchant sign-in, allowed and denied
 billing access, an existing merchant read and the proxy boundaries. The harness
 prints the location of its sanitized observations.
+
+### Billing manager invitations (P02-03)
+
+Rollout order is licensing migration `20261115152000_AddBillingManagerInvitations`,
+licensing API, merchant API, then merchant web. The migration preserves existing
+billing accounts, members and delegation-use records. Its `Down` refuses while
+invitation, receipt or audit evidence exists. Application rollback retains those
+facts and the existing licensing Data Protection key ring. All licensing API
+replicas issuing or exchanging invitations need the same retained key ring.
+
+An active Billing Owner requests an invitation using an existing user's verified
+email address or phone number. After an owner check, the merchant resolves the
+credential privately and signs only the resolved identity and request digest.
+An eligible recipient sees the invitation in their signed-in Billing inbox for
+seven days. Issuance acknowledges the keyed request uniformly. A recipient
+explicitly accepts one invitation revision. A purpose-bound proof travels only
+between the APIs. The invitation retains its hash and clears its protected copy
+on acceptance. Licensing commits one active Manager membership and a versioned
+audit event in the same transaction that consumes the invitation.
+
+Verify through the local PostgreSQL and Chromium fixtures. This slice adds
+commercial membership under the observe-only configuration. Shop authorization
+continues through merchant sessions and memberships.

@@ -45,7 +45,8 @@ public static class BillingAccountRules
     /// <summary>Account-scoped actions each role may delegate. Membership never grants merchant shop access.</summary>
     public static bool Allows(BillingAccountRole role, string action) => action switch
     {
-        MerchantBillingDelegationV1.ReadAccount => role is BillingAccountRole.Owner or BillingAccountRole.Manager,
+        BillingInvitationsV1.OwnerCheck or BillingInvitationsV1.Issue => role == BillingAccountRole.Owner,
+        MerchantBillingDelegationV1.ReadAccount or BillingInvitationsV1.Roster => role is BillingAccountRole.Owner or BillingAccountRole.Manager,
         _ => false,
     };
 

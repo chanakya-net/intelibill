@@ -48,7 +48,8 @@ internal static class CustomerBillingAccountEndpoints
         if (delegation is null || delegation.AccountId is not null ||
             !CustomerBillingEndpoints.MatchesBinding(context.Request, delegation, MerchantBillingDelegationV1.CreateAccount,
                 HttpMethods.Post, MerchantBillingDelegationV1.AccountsPath) ||
-            await ReadBoundBodyAsync(context.Request, delegation, cancellationToken) is not { } body)
+            await ReadBoundBodyAsync<CreateBillingAccountRequestV1>(context.Request, delegation,
+                MerchantBillingDelegationV1.MaximumCreateBodyBytes, cancellationToken) is not { } body)
             return CustomerBillingEndpoints.Problem(context, StatusCodes.Status401Unauthorized, BillingDelegationErrors.Invalid);
 
         var result = await handler.HandleAsync(delegation, body, cancellationToken);
@@ -62,10 +63,10 @@ internal static class CustomerBillingAccountEndpoints
     /// Read at most the contract's body size, require the signed digest of the exact bytes received, then
     /// deserialize strictly. Anything else is a request the assertion does not describe.
     /// </summary>
-    private static async Task<CreateBillingAccountRequestV1?> ReadBoundBodyAsync(HttpRequest request,
-        VerifiedBillingDelegation delegation, CancellationToken cancellationToken)
+    internal static async Task<T?> ReadBoundBodyAsync<T>(HttpRequest request,
+        VerifiedBillingDelegation delegation, int limit, CancellationToken cancellationToken) where T : class
     {
-        if (request.ContentLength is not (> 0 and <= MerchantBillingDelegationV1.MaximumCreateBodyBytes) ||
+        if (request.ContentLength is not > 0 || request.ContentLength > limit ||
             request.Headers.ContainsKey("Transfer-Encoding") ||
             !string.Equals(request.ContentType?.Split(';')[0].Trim(), "application/json", StringComparison.OrdinalIgnoreCase))
             return null;
@@ -77,7 +78,7 @@ internal static class CustomerBillingAccountEndpoints
             if (await request.Body.ReadAsync(new byte[1], cancellationToken) != 0 ||
                 Convert.ToHexStringLower(SHA256.HashData(buffer)) != delegation.BodySha256)
                 return null;
-            return JsonSerializer.Deserialize<CreateBillingAccountRequestV1>(buffer, StrictJson);
+            return JsonSerializer.Deserialize<T>(buffer, StrictJson);
         }
         catch (Exception exception) when (exception is JsonException or EndOfStreamException or BadHttpRequestException)
         {

@@ -17,7 +17,7 @@ namespace Intelibill.Api.Controllers;
 [ApiController]
 [Route("api/billing/accounts")]
 [Authorize]
-public sealed class BillingController(IMerchantBillingAccess billing) : ControllerBase
+public sealed partial class BillingController(IMerchantBillingAccess billing) : ControllerBase
 {
     public sealed record CreateBillingAccountRequest(Guid OperationKey, string? Name);
 
@@ -97,6 +97,7 @@ public sealed class BillingController(IMerchantBillingAccess billing) : Controll
             ErrorOr.ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
             ErrorOr.ErrorType.Forbidden => StatusCodes.Status403Forbidden,
             ErrorOr.ErrorType.Conflict => StatusCodes.Status409Conflict,
+            ErrorOr.ErrorType.NotFound => StatusCodes.Status404NotFound,
             _ => StatusCodes.Status503ServiceUnavailable,
         };
         return BillingProblem(status, problem.Code, problem.Description);

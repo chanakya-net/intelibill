@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 
 import { AuthService } from '../../../core/auth/auth.service';
@@ -28,6 +29,7 @@ describe('BillingAccountsPageComponent', () => {
     TestBed.configureTestingModule({
       imports: [BillingAccountsPageComponent, TranslocoTestingModule.forRoot({ langs: {} })],
       providers: [
+        provideRouter([]),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: AuthService, useValue: { session: signal({ user: { id: owner } }) } },

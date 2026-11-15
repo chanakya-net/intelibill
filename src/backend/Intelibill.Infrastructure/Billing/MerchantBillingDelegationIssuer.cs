@@ -75,7 +75,10 @@ internal sealed class MerchantBillingDelegationIssuer(
         // The account read keeps its original field set byte for byte; actor-scoped actions omit the account.
         byte[] payload = intent.AccountId is { } account
             ? JsonSerializer.SerializeToUtf8Bytes(new MerchantBillingAssertionV1(
-                actorId, account, requestId, Guid.NewGuid(), issued, expiry))
+                actorId, account, requestId, Guid.NewGuid(), issued, expiry)
+            {
+                Action = intent.Action, Method = intent.Method.Method, Path = intent.Path, BodySha256 = intent.BodySha256,
+            })
             : JsonSerializer.SerializeToUtf8Bytes(new MerchantBillingActorAssertionV1(actorId, intent.Action,
                 intent.Method.Method, intent.Path, intent.BodySha256, requestId, Guid.NewGuid(), issued, expiry));
         return Base64UrlEncoder.Encode(JsonSerializer.SerializeToUtf8Bytes(header)) + "." +
