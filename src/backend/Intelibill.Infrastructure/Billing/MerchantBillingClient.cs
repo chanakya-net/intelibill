@@ -170,6 +170,9 @@ internal sealed partial class MerchantBillingClient(
                     "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
                     _ => Unavailable("UpstreamStatus"),
                 };
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound
+                when action == BillingInvitationsV1.RemoveMember:
+                return MapRemovalFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.NotFound when action is BillingInvitationsV1.Proof or BillingInvitationsV1.Accept:
                 return MerchantBillingInvitationErrors.UnavailableInvitation;
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict when action is

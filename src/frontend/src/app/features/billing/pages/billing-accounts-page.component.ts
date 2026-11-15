@@ -8,6 +8,7 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { BillingAccountAuthority } from '../services/billing-account-authority.service';
 import { BillingAccountDraftStore } from '../services/billing-account-draft.store';
 import { BillingAccount, BillingAccountDraft } from '../services/billing-account.models';
 import { BillingAccountService } from '../services/billing-account.service';
@@ -33,14 +34,22 @@ const DEFINITIVE_FAILURES: Readonly<Record<string, string>> = {
   imports: [DatePipe, RouterLink, TranslocoPipe, ButtonModule, InputTextModule],
   templateUrl: './billing-accounts-page.component.html',
   styleUrl: './billing-accounts-page.component.scss',
+  host: {
+    '(window:focus)': 'revalidate()',
+    '(document:visibilitychange)': 'revalidate()',
+  },
 })
 export class BillingAccountsPageComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly billing = inject(BillingAccountService);
   private readonly drafts = inject(BillingAccountDraftStore);
+  private readonly authority = inject(BillingAccountAuthority);
+  private readonly listedAccounts = signal<readonly BillingAccount[]>([]);
 
   readonly nameLimit = NAME_LIMIT;
-  readonly accounts = signal<readonly BillingAccount[]>([]);
+  readonly accounts = computed(() => this.listedAccounts().filter(
+    account => !this.authority.state(this.ownerUserId() ?? '', account.accountId).denied,
+  ));
   readonly loading = signal(true);
   readonly loadFailed = signal(false);
   readonly submitting = signal(false);
@@ -69,18 +78,23 @@ export class BillingAccountsPageComponent implements OnInit {
     if (!this.pending()) this.name.set((event.target as HTMLInputElement).value);
   }
 
+  revalidate(): void {
+    if (!document.hidden && !this.loading()) this.reload();
+  }
+
   reload(): void {
     const generation = ++this.listGeneration;
     this.loading.set(true);
     this.loadFailed.set(false);
+    const user = this.ownerUserId();
     this.billing.list().subscribe({
       next: (accounts) => {
-        if (generation !== this.listGeneration) return;
-        this.accounts.set(accounts);
+        if (this.destroyed || user !== this.ownerUserId() || generation !== this.listGeneration) return;
+        this.listedAccounts.set(accounts);
         this.loading.set(false);
       },
       error: () => {
-        if (generation !== this.listGeneration) return;
+        if (this.destroyed || user !== this.ownerUserId() || generation !== this.listGeneration) return;
         this.loadFailed.set(true);
         this.loading.set(false);
       },
@@ -148,7 +162,7 @@ export class BillingAccountsPageComponent implements OnInit {
     this.finish(draft);
     if (this.destroyed) return;
     if (current) this.notice.set('billing.created');
-    this.accounts.update((accounts) =>
+    this.listedAccounts.update((accounts) =>
       accounts.some((item) => item.accountId === account.accountId) ? accounts : [...accounts, account],
     );
     // Supersedes any list read started before the creation committed.

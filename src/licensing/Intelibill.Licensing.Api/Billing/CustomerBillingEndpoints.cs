@@ -32,6 +32,7 @@ internal static class CustomerBillingEndpoints
             .RequireAuthorization(policy);
         app.MapCustomerBillingAccounts(policy);
         app.MapBillingInvitations(policy);
+        app.MapBillingMembers(policy);
         app.MapShopAffiliations(policy);
         app.MapAffiliationDelivery();
     }
