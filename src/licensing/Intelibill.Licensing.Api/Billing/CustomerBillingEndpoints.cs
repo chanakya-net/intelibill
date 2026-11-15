@@ -33,6 +33,7 @@ internal static class CustomerBillingEndpoints
         app.MapCustomerBillingAccounts(policy);
         app.MapBillingInvitations(policy);
         app.MapBillingMembers(policy);
+        app.MapOwnershipTransfers(policy);
         app.MapShopAffiliations(policy);
         app.MapAffiliationDelivery();
     }

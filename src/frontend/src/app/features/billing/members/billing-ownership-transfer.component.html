@@ -1,0 +1,90 @@
+<section class="billing-page">
+  <header>
+    @if (account()) {
+      <a [routerLink]="['/billing/accounts', account(), 'members']">{{ 'billing.invitations.members' | transloco }}</a>
+    } @else {
+      <a routerLink="/billing/ownership-transfers">{{ 'billing.transfer.inbox' | transloco }}</a>
+    }
+    <h1 class="ib-page-title">{{ (account() ? 'billing.transfer.action' : 'billing.transfer.review') | transloco }}</h1>
+  </header>
+  @if (error()) {
+    <p class="page-alert page-alert--error" role="alert">{{ error() | transloco }}</p>
+  }
+  @if (result()) {
+    <p class="page-alert" role="status" data-testid="billing-transfer-result">{{ result() | transloco }}</p>
+  }
+  @if (outcome(); as accepted) {
+    <a [routerLink]="['/billing/accounts', accepted.accountId, 'members']" data-testid="billing-transfer-roster">
+      {{ 'billing.invitations.members' | transloco }}
+    </a>
+  }
+  @if (pending(); as draft) {
+    <section class="panel ib-panel">
+      <p>{{ 'billing.transfer.recover' | transloco }}</p>
+      @if (draft.action === 'issue') {
+        <p>{{ 'billing.transfer.recipient' | transloco: { recipient: draft.body.recipient } }}</p>
+      }
+      <div class="removal-actions">
+        <button pButton type="button" data-testid="billing-transfer-lookup" [disabled]="busy()"
+          [label]="'billing.transfer.check' | transloco" (click)="retry(true)"></button>
+        <button pButton type="button" [disabled]="busy()" severity="secondary"
+          [label]="'billing.retry' | transloco" (click)="retry(false)"></button>
+      </div>
+    </section>
+  } @else if (busy()) {
+    <p role="status">{{ 'billing.loading' | transloco }}</p>
+  } @else if (!result()) {
+    @if (preview(); as issue) {
+      <section class="panel ib-panel" data-testid="billing-transfer-preview">
+        <h2 class="ib-panel__title">{{ roster()?.accountName }}</h2>
+        <p>{{ 'billing.transfer.recipient' | transloco: { recipient: issue.recipient } }}</p>
+        <p>{{ 'billing.removal.reason' | transloco }} · {{ issue.reason }}</p>
+        <p>{{ 'billing.transfer.window' | transloco }}</p>
+        <ng-container [ngTemplateOutlet]="disclosure" />
+        <form class="billing-page__form" (submit)="confirm($event, consent.checked)">
+          <label><input #consent type="checkbox" required data-testid="billing-transfer-consent" /> {{ 'billing.transfer.confirmIssue' | transloco }}</label>
+          <div class="removal-actions">
+            <button pButton type="button" severity="secondary" [label]="'billing.transfer.edit' | transloco" (click)="preview.set(null)"></button>
+            <button pButton type="submit" data-testid="billing-transfer-confirm" [label]="'billing.transfer.send' | transloco"></button>
+          </div>
+        </form>
+      </section>
+    } @else if (roster()?.ownerRevision) {
+      <form class="panel ib-panel billing-page__form" (submit)="review($event, recipient.value, reason.value)">
+        <h2 class="ib-panel__title">{{ roster()?.accountName }}</h2>
+        <label for="transfer-recipient-kind">{{ 'billing.invitations.recipientKind' | transloco }}</label>
+        <select id="transfer-recipient-kind" #recipientKind [value]="kind()" (change)="kind.set(recipientKind.value === 'phone' ? 'phone' : 'email')">
+          <option value="email">{{ 'billing.invitations.email' | transloco }}</option>
+          <option value="phone">{{ 'billing.invitations.phone' | transloco }}</option>
+        </select>
+        <label for="transfer-recipient">{{ ('billing.invitations.' + kind()) | transloco }}</label>
+        <input pInputText id="transfer-recipient" #recipient [type]="kind() === 'email' ? 'email' : 'tel'"
+          maxlength="254" required autocomplete="off" data-testid="billing-transfer-recipient" />
+        <label for="transfer-reason">{{ 'billing.removal.reason' | transloco }}</label>
+        <textarea pTextarea id="transfer-reason" #reason maxlength="500" rows="3" required data-testid="billing-transfer-reason"></textarea>
+        <button pButton type="submit" data-testid="billing-transfer-review" [label]="'billing.transfer.review' | transloco"></button>
+      </form>
+    } @else if (proposal(); as entry) {
+      <section class="panel ib-panel" data-testid="billing-transfer-preview">
+        <h2 class="ib-panel__title">{{ entry.accountName }}</h2>
+        <p>{{ 'billing.transfer.sender' | transloco: { id: entry.ownerActorId.slice(-8) } }}</p>
+        <p>{{ 'billing.transfer.recipient' | transloco: { recipient: ('billing.invitations.you' | transloco) } }}</p>
+        <p>{{ 'billing.transfer.expires' | transloco: { date: (entry.expiresAt | date: 'medium' : '+0530') } }}</p>
+        <ng-container [ngTemplateOutlet]="disclosure" />
+        <form class="billing-page__form" (submit)="confirm($event, consent.checked)">
+          <label><input #consent type="checkbox" required data-testid="billing-transfer-consent" /> {{ 'billing.transfer.confirmAccept' | transloco }}</label>
+          <button pButton type="submit" data-testid="billing-transfer-confirm" [label]="'billing.transfer.accept' | transloco"></button>
+        </form>
+      </section>
+    }
+  }
+</section>
+
+<ng-template #disclosure>
+  <ul>
+    <li>{{ 'billing.transfer.responsibility' | transloco }}</li>
+    <li>{{ 'billing.transfer.previousOwner' | transloco }}</li>
+    <li>{{ 'billing.transfer.history' | transloco }}</li>
+    <li>{{ 'billing.transfer.shopAccess' | transloco }}</li>
+  </ul>
+</ng-template>

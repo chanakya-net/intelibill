@@ -389,3 +389,27 @@ inactive: publication, retirement and customer catalogue reads are later slices.
 The admin web exposes the editor at `/catalogue`. Verify with `P0206Tests` and,
 after building the admin web, `P0206_RUN_BROWSER=1` `P0206BrowserTests`; all
 amounts in those runs are local fixture values.
+
+### Billing ownership transfer (P02-04)
+
+Apply licensing migration `20261116120000_AddBillingOwnershipTransfers` before
+deploying the licensing API, merchant API and merchant web. All licensing
+writers must use the account fence before taking membership locks. Coordinate
+the writer cutover before serving transfer requests. The migration validates
+existing accounts and enforces one active owner at commit. Its downgrade refuses
+while transfer evidence exists. An application rollback retains that evidence.
+
+The owner confirms a request for a verified existing merchant identity. The
+named recipient has seven days to review the responsibility disclosure and
+accept in the merchant app. Acceptance promotes the recipient to Owner and
+makes the former Owner an active Manager in one licensing transaction. Existing
+financial obligations, coverage and shop memberships continue under their
+original recorded terms. The versioned proposal and acceptance jointly retain
+both participants' authority and request evidence.
+
+Local verification, after building the merchant web from `src/frontend`:
+
+```bash
+dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0204Tests'
+P0204_RUN_BROWSER=1 dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0204BrowserTests' --logger 'console;verbosity=normal'
+```

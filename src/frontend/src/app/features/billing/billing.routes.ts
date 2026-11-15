@@ -2,6 +2,18 @@ import { Routes } from '@angular/router';
 
 export const billingRoutes: Routes = [
   {
+    path: 'accounts/:accountId/ownership-transfer',
+    loadComponent: () => import('./members/billing-ownership-transfer.component').then(m => m.BillingOwnershipTransferComponent),
+  },
+  {
+    path: 'ownership-transfers/:transferId',
+    loadComponent: () => import('./members/billing-ownership-transfer.component').then(m => m.BillingOwnershipTransferComponent),
+  },
+  {
+    path: 'ownership-transfers',
+    loadComponent: () => import('./members/billing-ownership-inbox.component').then(m => m.BillingOwnershipInboxComponent),
+  },
+  {
     path: 'accounts/:accountId/coverage',
     loadComponent: () => import('./affiliations/account-coverage.component').then((m) => m.AccountCoverageComponent),
   },

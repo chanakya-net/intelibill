@@ -2,6 +2,7 @@
   <header>
     <a routerLink="/billing">{{ 'billing.title' | transloco }}</a>
     <h1 class="ib-page-title">{{ 'billing.invitations.heading' | transloco }}</h1>
+    <a routerLink="/billing/ownership-transfers" data-testid="billing-transfer-inbox-link">{{ 'billing.transfer.inbox' | transloco }}</a>
   </header>
   @if (error()) {
     <p class="page-alert page-alert--error" role="alert">{{ error() | transloco }}</p>

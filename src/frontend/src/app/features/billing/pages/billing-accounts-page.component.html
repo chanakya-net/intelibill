@@ -4,6 +4,7 @@
     <h1 class="ib-page-title">{{ 'billing.title' | transloco }}</h1>
     <p class="ib-subtitle ib-subtitle--measure">{{ 'billing.description' | transloco }}</p>
     <a routerLink="/billing/invitations" data-testid="billing-inbox-link">{{ 'billing.invitations.heading' | transloco }}</a>
+    <a routerLink="/billing/ownership-transfers" data-testid="billing-transfer-inbox-link">{{ 'billing.transfer.inbox' | transloco }}</a>
   </header>
 
   @if (error()) {
