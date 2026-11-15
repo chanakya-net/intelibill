@@ -10,4 +10,11 @@ public sealed class BootstrapEnrollmentCredential(
     public DateTimeOffset ExpiresAt { get; private set; } = expiresAt;
     public DateTimeOffset? RevokedAt { get; private set; }
     public uint Version { get; private set; }
+    public bool IssuedForRecovery { get; private set; }
+
+    public BootstrapEnrollmentCredential ForRecovery()
+    {
+        IssuedForRecovery = true;
+        return this;
+    }
 }

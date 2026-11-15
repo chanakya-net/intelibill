@@ -53,6 +53,49 @@ describe('administrator recovery', () => {
     http.verify();
   });
 
+  it('asks the operator to save a continuation before using their final recovery code', async () => {
+    const http = configure();
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/auth/recovery');
+    http.expectOne(context).flush({ requestToken: 'recovery-csrf' });
+    harness.detectChanges();
+    const page = harness.routeNativeElement!;
+    fill(page, '#recovery-email', 'owner@example.test');
+    fill(page, '#recovery-password', 'Fixture-password-123');
+    fill(page, '#recovery-proof', code);
+    submit(page);
+
+    http.expectOne('/api/admin/auth/recovery/code').flush({ code: 'Admin.RecoveryContinuationRequired' },
+      { status: 409, statusText: 'Conflict' });
+    harness.detectChanges();
+    const key = page.querySelector('[data-testid="continuation-key"]')!.textContent!;
+    expect(key).toMatch(/^[0-9A-F]{64}$/);
+    const saved = page.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(saved.validity.valueMissing).toBe(true);
+    saved.checked = true;
+    fill(page, '#recovery-password', 'Fixture-password-123');
+    fill(page, '#recovery-proof', code);
+    submit(page);
+    const redemption = http.expectOne('/api/admin/auth/recovery/code');
+    expect(redemption.request.body.continuationKey).toBe(key);
+    redemption.flush(null, { status: 503, statusText: 'Service Unavailable' });
+
+    page.querySelector<HTMLInputElement>('input[value="continue"]')!.dispatchEvent(new Event('change'));
+    harness.detectChanges();
+    expect(page.querySelector('[data-testid="continuation-key"]')).toBeNull();
+    fill(page, '#recovery-password', 'Fixture-password-123');
+    fill(page, '#recovery-proof', key);
+    submit(page);
+    const continuation = http.expectOne('/api/admin/auth/recovery/continue');
+    expect(continuation.request.body).toEqual({
+      email: 'owner@example.test', password: 'Fixture-password-123', continuationKey: key,
+    });
+    continuation.flush({ state: 'enrollmentRequired', expiresAt: new Date(Date.now() + 900_000).toISOString() });
+    await vi.waitFor(() => expect(TestBed.inject(Location).path()).toBe('/auth/mfa-enrollment'));
+    http.expectOne('/api/admin/auth/bootstrap/enrollment/mfa').flush(null, { status: 401, statusText: 'Unauthorized' });
+    http.verify();
+  });
+
   it('sends an owner reset grant to the reset route and keeps a refused proof on the page', async () => {
     const http = configure();
     const harness = await RouterTestingHarness.create();

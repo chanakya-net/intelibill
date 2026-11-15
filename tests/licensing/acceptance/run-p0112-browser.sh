@@ -6,22 +6,25 @@ umask 077
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$root"
 artifacts="$(mktemp -d "${TMPDIR:-/tmp}/intelibill-p0112.XXXXXX")"
+artifacts="$(cd "$artifacts" && pwd -P)"
 project="intelibill-p0112-${artifacts##*.}"
 image="$(printf '%s' "$project" | tr '[:upper:]' '[:lower:]')-migrate:local"
 api_dll="$root/src/licensing/Intelibill.Licensing.Api/bin/Debug/net10.0/Intelibill.Licensing.Api.dll"
 predecessor=20261114225609_AddAdminSessionRevocationAudit
-migration=20261115000319_AddAdminRecovery
-api_pid= web_pid=
+migration=20261115002745_ProtectAdminRecovery
+predecessor_ref=be9e347661f70672b5d7ec3467ae36a569b38677
+predecessor_src="$artifacts/predecessor"
+api_pid= web_pid= predecessor_pid=
 
 cleanup() {
-  for pid in "$web_pid" "$api_pid"; do
+  for pid in "$web_pid" "$api_pid" "$predecessor_pid"; do
     if [[ -n "$pid" ]]; then kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi
   done
   docker rm -fv "$project-db" "$project-mail" >/dev/null 2>&1 || true
   docker network rm "$project" >/dev/null 2>&1 || true
   docker image rm "$image" >/dev/null 2>&1 || true
   rm -f "$artifacts/proof"
-  rm -rf "$artifacts/keyring"
+  rm -rf "$artifacts/keyring" "$predecessor_src"
   # Playwright failure snapshots can contain fixture-only form values.
   if [[ -d "$artifacts/browser" ]]; then
     find "$artifacts/browser" -name error-context.md -type f -delete
@@ -54,7 +57,8 @@ latest() { sql -c 'SELECT max(migration_id) FROM "__EFMigrationsHistory"'; }
 # Explicit admin_totp columns: the upgrade adds retired_at, checked separately to stay NULL for prior facts.
 predecessor_facts() {
   sql -c "SELECT md5(concat(
-    (SELECT row_to_json(a)::text FROM admin_identities a WHERE verification_reference='p0112-prior'),
+    (SELECT (to_jsonb(a) - 'recovery_continuation_digest')::text FROM admin_identities a
+      WHERE verification_reference='p0112-prior'),
     (SELECT concat_ws('|', t.admin_id, t.key_id, encode(t.encrypted_secret,'hex'), t.last_accepted_step, t.attempts)
       FROM admin_totp t JOIN admin_identities a ON a.id=t.admin_id WHERE a.verification_reference='p0112-prior'),
     (SELECT string_agg(row_to_json(r)::text, '' ORDER BY r.digest) FROM admin_recovery_codes r
@@ -65,6 +69,11 @@ predecessor_facts() {
 }
 
 printf 'P01-12 fixture output in %s\n' "$artifacts"
+mkdir "$predecessor_src"
+git archive "$predecessor_ref" global.json Directory.Build.props Directory.Packages.props src/licensing src/shared/backend \
+  | tar -x -C "$predecessor_src"
+predecessor_api="$predecessor_src/src/licensing/Intelibill.Licensing.Api"
+dotnet build "$predecessor_api" -warnaserror >"$artifacts/predecessor-build.log"
 dotnet build src/licensing/Intelibill.Licensing.Api -warnaserror >"$artifacts/api-build.log"
 (cd src/admin-frontend && bun run build --output-path "$artifacts/admin") >"$artifacts/web-build.log"
 docker build -f src/licensing/Dockerfile.migrate -t "$image" . >"$artifacts/bundle-build.log" 2>&1
@@ -76,15 +85,16 @@ docker run -d --name "$project-mail" -p 127.0.0.1::1025 -p 127.0.0.1::8025 axlle
 db_port="$(docker port "$project-db" 5432/tcp | cut -d: -f2)"
 smtp_port="$(docker port "$project-mail" 1025/tcp | cut -d: -f2)"
 mail="http://$(docker port "$project-mail" 8025/tcp)"
-read -r api_port admin_port < <(python3 - <<'PY'
+read -r api_port admin_port predecessor_port < <(python3 - <<'PY'
 import socket
-with socket.socket() as a, socket.socket() as b:
-    a.bind(('127.0.0.1', 0))
-    b.bind(('127.0.0.1', 0))
-    print(a.getsockname()[1], b.getsockname()[1])
+with socket.socket() as a, socket.socket() as b, socket.socket() as c:
+    for listener in (a, b, c):
+        listener.bind(('127.0.0.1', 0))
+    print(*(listener.getsockname()[1] for listener in (a, b, c)))
 PY
 )
 api="http://127.0.0.1:$api_port"
+old_api="http://127.0.0.1:$predecessor_port"
 admin="http://127.0.0.1:$admin_port"
 for ((i=0;i<100;i++)); do
   if docker exec "$project-db" pg_isready -h 127.0.0.1 -U postgres >/dev/null; then break; fi
@@ -128,8 +138,9 @@ FROM admin_identities WHERE verification_reference='p0112-prior';
 SQL
 before="$(predecessor_facts)"
 
-(
-  cd src/licensing/Intelibill.Licensing.Api
+start_api() {
+  local dll="$1" origin="$2"
+  cd "$(dirname "$dll")"
   export ASPNETCORE_ENVIRONMENT=Development
   export LicensingDatabase__Host=127.0.0.1 LicensingDatabase__Port="$db_port"
   export LicensingDatabase__Database=licensing LicensingDatabase__Username=licensing_runtime
@@ -137,10 +148,17 @@ before="$(predecessor_facts)"
   export AdminMail__Host=127.0.0.1 AdminMail__Port="$smtp_port" AdminMail__LocalCapture=true
   export AdminMail__FromEmail=provider-console@example.test
   export AdminBootstrap__DataProtectionKeyDirectory="$artifacts/keyring"
-  export AdminMfa__ActiveKeyId=fixture AdminMfa__Keys__fixture="$(openssl rand -base64 32)"
-  export AdminSessions__SigningKey="$(openssl rand -base64 32)"
-  exec dotnet "$api_dll" --urls "$api"
-) >"$artifacts/api.log" 2>&1 &
+  export AdminMfa__ActiveKeyId=fixture AdminMfa__Keys__fixture="$fixture_mfa_key"
+  export AdminSessions__SigningKey="$fixture_signing_key"
+  exec dotnet "$dll" --urls "$origin"
+}
+
+fixture_mfa_key="$(openssl rand -base64 32)"
+fixture_signing_key="$(openssl rand -base64 32)"
+start_api "$predecessor_api/bin/Debug/net10.0/Intelibill.Licensing.Api.dll" "$old_api" >"$artifacts/predecessor-api.log" 2>&1 &
+predecessor_pid=$!
+wait_http "$old_api/health/ready"
+start_api "$api_dll" "$api" >"$artifacts/api.log" 2>&1 &
 api_pid=$!
 wait_http "$api/health/ready"
 [[ "$(latest)" == "$predecessor" ]]
@@ -149,6 +167,13 @@ bundle >"$artifacts/upgrade.log"
 [[ "$(latest)" == "$migration" && "$(predecessor_facts)" == "$before" ]]
 [[ "$(sql -c "SELECT count(*) FROM admin_totp WHERE retired_at IS NULL")" == 1 ]]
 printf 'Explicit migration job upgraded P01-11 and preserved prior identity, authenticator, recovery code, session and audit facts.\n'
+wait_http "$old_api/health/ready"
+kill "$predecessor_pid"
+wait "$predecessor_pid" || test "$?" -eq 143
+predecessor_pid=
+if curl -fsS --max-time 3 "$old_api/health/ready" >/dev/null 2>&1; then exit 1; fi
+printf 'Predecessor and recovery-aware APIs shared the upgraded database. Predecessor was stopped and unreachable before recovery.\n'
+
 
 (
   export DOTNET_ENVIRONMENT=Development
@@ -188,3 +213,6 @@ rg -q 'already up to date' "$artifacts/reapply.log"
 [[ "$(latest)" == "$migration" && "$(predecessor_facts)" == "$before" ]]
 [[ "$(sql -c "SELECT md5(string_agg(row_to_json(e)::text, '' ORDER BY e.id)) FROM provider_audit_events e")" == "$settled" ]]
 printf 'Down refused with SQLSTATE 55000 once recovery evidence existed; reapply kept every fact and audit row.\n'
+if curl -fsS --max-time 3 "$old_api/health/ready" >/dev/null 2>&1; then exit 1; fi
+wait_http "$api/health/ready"
+printf 'Rollback kept the recovery-aware API serving and the predecessor unreachable.\n'

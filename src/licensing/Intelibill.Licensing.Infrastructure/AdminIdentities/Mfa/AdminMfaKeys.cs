@@ -79,7 +79,7 @@ internal sealed class AdminMfaKeys(IOptions<AdminMfaOptions> options)
 
     internal string? HashRecovery(AdminTotp totp, string normalized)
     {
-        var key = Derive(totp.KeyId, "intelibill-admin/recovery-hmac/v1"u8);
+        var key = Derive(totp.RecoveryKeyId ?? totp.KeyId, "intelibill-admin/recovery-hmac/v1"u8);
         if (key is null) return null;
         try
         {

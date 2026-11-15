@@ -11,36 +11,38 @@ public sealed partial class AdminRecoveryHandler
     /// evidence. The target's sessions end at once; the returned one-use grant is handed over
     /// out of band and is useless without the target's own password.
     /// </summary>
-    public async Task<ErrorOr<IssuedRecoveryReset>> ReviewResetAsync(ProviderActor actor, AdminRecoveryReview review,
+    public async Task<ErrorOr<IssuedRecoveryReset>> ReviewResetAsync(AdminSessionCaller caller, AdminRecoveryReview review,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(actor);
+        ArgumentNullException.ThrowIfNull(caller);
         ArgumentNullException.ThrowIfNull(review);
-        if (!actor.HasRecentMfa(clock.GetUtcNow()))
-            return await DenyAsync(actor, AuditReason.RecentMfaRequired, AdminRecoveryRules.RecentMfaRequired, cancellationToken);
-
         var evidence = AdminRecoveryRules.ParseEvidence(review);
         var email = BootstrapValidation.NormalizeEmail(review.Email);
         if (evidence is null || email is null) return AdminRecoveryRules.InvalidReview;
         var secret = secrets.CreateRecoveryReset();
-        return await store.InTransactionAsync(token => ReviewLockedAsync(actor, email, evidence, secret, token),
+        return await store.InTransactionAsync(token => ReviewLockedAsync(caller, email, evidence, secret, token),
             cancellationToken);
     }
 
-    private async Task<ErrorOr<IssuedRecoveryReset>> ReviewLockedAsync(ProviderActor actor, string email,
+    private async Task<ErrorOr<IssuedRecoveryReset>> ReviewLockedAsync(AdminSessionCaller caller, string email,
         AdminRecoveryEvidence evidence, BootstrapSecret secret, CancellationToken token)
     {
-        var (reviewer, target) = await store.LockReviewAsync(actor.AdminId, email, token);
+        var (reviewer, target) = await store.LockReviewAsync(caller.AdminId, email, token);
+        var session = await store.LockReviewerSessionAsync(caller, token);
         var now = clock.GetUtcNow();
-        if (reviewer is not { DeactivatedAt: null, MfaEnrolledAt: not null } || !actor.HasRecentMfa(now)
+        if (session is null || now >= caller.AccessExpiresAt || !session.IsLiveAt(now))
+            return Deny(caller, now, AuditReason.ScopeUnavailable, AdminRefreshErrors.SessionEnded);
+        if (!new ProviderActor(caller.AdminId, session.MfaVerifiedAt).HasRecentMfa(now))
+            return Deny(caller, now, AuditReason.RecentMfaRequired, AdminRecoveryRules.RecentMfaRequired);
+        if (reviewer is not { DeactivatedAt: null, MfaEnrolledAt: not null }
             || !await store.IsPlatformOwnerAsync(reviewer.Id, token))
-            return Deny(actor, now, AuditReason.CapabilityRequired, AdminRecoveryRules.AccessDenied);
+            return Deny(caller, now, AuditReason.CapabilityRequired, AdminRecoveryRules.AccessDenied);
         if (target is not { DeactivatedAt: null })
-            return Deny(actor, now, AuditReason.ScopeUnavailable, AdminRecoveryRules.TargetUnavailable);
+            return Deny(caller, now, AuditReason.ScopeUnavailable, AdminRecoveryRules.TargetUnavailable);
         if (await store.IsPlatformOwnerAsync(target.Id, token) && await store.CountRecoverableOwnersAsync(target.Id, token) == 0)
-            return Deny(actor, now, AuditReason.LastRecoverableOwner, AdminRecoveryRules.LastRecoverableOwner);
+            return Deny(caller, now, AuditReason.LastRecoverableOwner, AdminRecoveryRules.LastRecoverableOwner);
         if (target.Id == reviewer.Id)
-            return Deny(actor, now, AuditReason.RequestRejected, AdminRecoveryRules.SelfReview);
+            return Deny(caller, now, AuditReason.RequestRejected, AdminRecoveryRules.SelfReview);
 
         var before = Reference(target);
         await store.ResetMfaAsync(target, now, keepRecoveryCodes: false, token);
@@ -51,14 +53,9 @@ public sealed partial class AdminRecoveryHandler
         return new IssuedRecoveryReset(recovery.Id, secret.Value, recovery.GrantExpiresAt!.Value);
     }
 
-    private Task<ErrorOr<IssuedRecoveryReset>> DenyAsync(ProviderActor actor, AuditReason reason, Error error,
-        CancellationToken cancellationToken) =>
-        store.InTransactionAsync<ErrorOr<IssuedRecoveryReset>>(_ =>
-            Task.FromResult<ErrorOr<IssuedRecoveryReset>>(Deny(actor, clock.GetUtcNow(), reason, error)), cancellationToken);
-
-    private Error Deny(ProviderActor actor, DateTimeOffset now, AuditReason reason, Error error)
+    private Error Deny(AdminSessionCaller caller, DateTimeOffset now, AuditReason reason, Error error)
     {
-        store.Add(audit.Create(BootstrapAuditAction.RecoveryResetDenied, now, AuditActor.Administrator, reason, actor.AdminId));
+        store.Add(audit.Create(BootstrapAuditAction.RecoveryResetDenied, now, AuditActor.Administrator, reason, caller.AdminId));
         return error;
     }
 }

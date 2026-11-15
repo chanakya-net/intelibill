@@ -49,6 +49,11 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasColumnType("character varying(60)")
                         .HasColumnName("password_hash");
 
+                    b.Property<string>("RecoveryContinuationDigest")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("recovery_continuation_digest");
+
                     b.Property<string>("VerificationReference")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -77,6 +82,8 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                             t.HasCheckConstraint("ck_admin_deactivation_date", "deactivated_at >= verified_at");
 
                             t.HasCheckConstraint("ck_admin_mfa_date", "mfa_enrolled_at >= verified_at");
+
+                            t.HasCheckConstraint("ck_admin_recovery_continuation", "recovery_continuation_digest IS NULL OR (mfa_enrolled_at IS NULL AND recovery_continuation_digest ~ '^[0-9A-F]{64}$')");
                         });
                 });
 
@@ -366,6 +373,12 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("issued_at");
 
+                    b.Property<bool>("IssuedForRecovery")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("issued_for_recovery");
+
                     b.Property<Guid>("OwnerId")
                         .HasColumnType("uuid")
                         .HasColumnName("owner_id");
@@ -610,6 +623,11 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                     b.Property<long?>("LastAcceptedStep")
                         .HasColumnType("bigint")
                         .HasColumnName("last_accepted_step");
+
+                    b.Property<string>("RecoveryKeyId")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("recovery_key_id");
 
                     b.Property<DateTimeOffset?>("RetiredAt")
                         .HasColumnType("timestamp with time zone")

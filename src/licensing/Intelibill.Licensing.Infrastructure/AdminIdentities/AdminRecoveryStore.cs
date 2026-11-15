@@ -44,14 +44,27 @@ internal sealed class AdminRecoveryStore(LicensingDbContext context, AdminMfaSto
             rows.SingleOrDefault(row => string.Equals(row.Email, normalizedEmail, StringComparison.Ordinal)));
     }
 
-    public async Task<bool> ConsumeRecoveryCodeAsync(Guid adminId, string normalizedCode, DateTimeOffset now,
-        CancellationToken cancellationToken)
+    public async Task<AdminSession?> LockReviewerSessionAsync(AdminSessionCaller caller, CancellationToken cancellationToken)
+    {
+        var rows = await context.Set<AdminSession>().FromSql($"""
+            SELECT *, xmin FROM public.admin_sessions WHERE id = {caller.SessionId} AND admin_id = {caller.AdminId}
+            FOR UPDATE
+            """).ToListAsync(cancellationToken);
+        return rows.SingleOrDefault();
+    }
+
+    public async Task<RecoveryCodeUse> ConsumeRecoveryCodeAsync(Guid adminId, string normalizedCode, bool hasContinuation,
+        DateTimeOffset now, CancellationToken cancellationToken)
     {
         var totp = await mfa.ReadTotpAsync(adminId, cancellationToken);
-        if (totp is null || keys.HashRecovery(totp, normalizedCode) is not { } digest) return false;
+        if (totp is null || keys.HashRecovery(totp, normalizedCode) is not { } digest) return RecoveryCodeUse.Invalid;
         var code = await mfa.ReadRecoveryAsync(adminId, digest, cancellationToken);
-        code?.Consume(now);
-        return code is not null;
+        if (code is null) return RecoveryCodeUse.Invalid;
+        var final = !await context.Set<AdminRecoveryCode>().AnyAsync(candidate =>
+            candidate.AdminId == adminId && candidate.Digest != digest && candidate.ConsumedAt == null, cancellationToken);
+        if (final && !hasContinuation) return RecoveryCodeUse.ContinuationRequired;
+        code.Consume(now);
+        return final ? RecoveryCodeUse.FinalCodeConsumed : RecoveryCodeUse.Consumed;
     }
 
     public async Task<AdminRecovery?> LockResetAsync(Guid adminId, string grantDigest, CancellationToken cancellationToken)

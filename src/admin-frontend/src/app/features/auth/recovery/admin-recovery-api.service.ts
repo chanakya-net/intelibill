@@ -6,7 +6,10 @@ interface PendingEnrollment {
   expiresAt: string;
 }
 
-export type RecoveryProof = { kind: 'code'; recoveryCode: string } | { kind: 'reset'; resetToken: string };
+export type RecoveryProof =
+  | { kind: 'code'; recoveryCode: string; continuationKey?: string }
+  | { kind: 'reset'; resetToken: string }
+  | { kind: 'continue'; continuationKey: string };
 
 export interface RecoveryReview {
   email: string;
@@ -36,11 +39,10 @@ export class AdminRecoveryApi {
   }
 
   redeem(requestToken: string, email: string, password: string, proof: RecoveryProof) {
-    const body = proof.kind === 'code'
-      ? { email, password, recoveryCode: proof.recoveryCode }
-      : { email, password, resetToken: proof.resetToken };
+    const { kind, ...details } = proof;
+    const body = { email, password, ...details };
     return this.http.post<PendingEnrollment>(
-      `/api/admin/auth/recovery/${proof.kind}`, body, this.csrf(requestToken),
+      `/api/admin/auth/recovery/${kind}`, body, this.csrf(requestToken),
     );
   }
 

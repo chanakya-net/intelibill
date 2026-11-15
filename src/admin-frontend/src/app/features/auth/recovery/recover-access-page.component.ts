@@ -8,10 +8,11 @@ import { finalize } from 'rxjs';
 import { AdminSessionService } from '../admin-session.service';
 import { AdminRecoveryApi, type RecoveryProof } from './admin-recovery-api.service';
 
-type Method = 'code' | 'reset';
+type Method = RecoveryProof['kind'];
 
 const messages: Readonly<Record<string, string>> = {
   'Admin.RecoveryRefused': 'Check your email, password and recovery proof. A used code or reset never works twice.',
+  'Admin.RecoveryContinuationRequired': 'This is your final recovery code. Save the continuation key, then submit again.',
   'Admin.Throttled': 'Too many attempts. Try again later.',
   'Admin.RequestRejected': 'This recovery request expired. Try again.',
   'Admin.RequestTooLarge': 'The request is too large.',
@@ -36,6 +37,13 @@ export class RecoverAccessPageComponent {
   private requestToken = '';
 
   protected readonly method = signal<Method>('code');
+  protected readonly continuationKey = signal('');
+  protected readonly proofLabels: Record<Method, string> = {
+    code: 'Recovery code',
+    reset: 'Reset code from your platform owner',
+    continue: 'Saved enrollment continuation key',
+  };
+  protected readonly proofLengths: Record<Method, number> = { code: 35, reset: 89, continue: 64 };
   protected readonly ready = signal(false);
   protected readonly busy = signal(false);
   protected readonly error = signal('');
@@ -57,15 +65,14 @@ export class RecoverAccessPageComponent {
 
   protected choose(method: Method) {
     this.method.set(method);
+    this.continuationKey.set('');
     this.error.set('');
   }
 
   protected submit(event: SubmitEvent, email: HTMLInputElement, password: HTMLInputElement, proof: HTMLInputElement) {
     event.preventDefault();
     if (this.busy() || !this.ready()) return;
-    const value = proof.value.trim();
-    const recovery: RecoveryProof = this.method() === 'code'
-      ? { kind: 'code', recoveryCode: value } : { kind: 'reset', resetToken: value };
+    const recovery = this.readProof(proof.value.trim());
     const request = this.api.redeem(this.requestToken, email.value.trim(), password.value, recovery);
     password.value = '';
     proof.value = '';
@@ -81,8 +88,22 @@ export class RecoverAccessPageComponent {
     });
   }
 
+  private readProof(value: string): RecoveryProof {
+    switch (this.method()) {
+      case 'reset': return { kind: 'reset', resetToken: value };
+      case 'continue': return { kind: 'continue', continuationKey: value };
+      case 'code': return {
+        kind: 'code', recoveryCode: value, continuationKey: this.continuationKey() || undefined,
+      };
+    }
+  }
+
   private failed(error: HttpErrorResponse) {
     const code = problemCode(error.error) ?? '';
+    if (code === 'Admin.RecoveryContinuationRequired' && !this.continuationKey()) {
+      const bytes = globalThis.crypto.getRandomValues(new Uint8Array(32));
+      this.continuationKey.set(Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('').toUpperCase());
+    }
     if (error.status === 403) {
       this.ready.set(false);
       this.requestToken = '';

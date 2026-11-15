@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Security.Claims;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Licensing.Api.Bootstrap;
@@ -22,7 +20,7 @@ internal static class AdminSessionEndpoints
 
     private static async Task<IResult> ListAsync(HttpContext context, AdminDeviceSessions sessions)
     {
-        if (ReadCaller(context.User) is not { } caller) return Problem(context, AdminRefreshErrors.SessionEnded);
+        if (ProviderSessions.ReadCaller(context.User) is not { } caller) return Problem(context, AdminRefreshErrors.SessionEnded);
         var query = context.Request.Query;
         if (query.Any(pair => (pair.Key != "pageSize" && pair.Key != "cursor") || pair.Value.Count != 1))
             return Problem(context, AdminDeviceSessions.InvalidQuery);
@@ -36,7 +34,7 @@ internal static class AdminSessionEndpoints
     {
         var origin = await http.ReadOriginAsync(context);
         if (origin is null || !http.AcceptsMutation(context, origin)) return InvitationRequestGate.Refused(context);
-        if (ReadCaller(context.User) is not { } caller) return Problem(context, AdminRefreshErrors.SessionEnded);
+        if (ProviderSessions.ReadCaller(context.User) is not { } caller) return Problem(context, AdminRefreshErrors.SessionEnded);
         if (context.Request.ContentLength > MaxRevokeBytes)
             return BootstrapHttp.Problem(context, 413, "Admin.RequestTooLarge", "The request is too large.");
         if (context.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } size)
@@ -74,13 +72,6 @@ internal static class AdminSessionEndpoints
         AdminSignInHttp.ClearSession(context, origin);
         return Results.NoContent();
     }
-
-    private static AdminSessionCaller? ReadCaller(ClaimsPrincipal user) =>
-        Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var adminId)
-        && Guid.TryParse(user.FindFirstValue(ProviderSessions.SessionIdClaim), out var sessionId)
-        && DateTimeOffset.TryParse(user.FindFirstValue(ProviderSessions.AccessExpiresClaim), CultureInfo.InvariantCulture,
-            DateTimeStyles.RoundtripKind, out var expires)
-            ? new(adminId, sessionId, expires) : null;
 
     private static IResult Problem(HttpContext context, Error error) => BootstrapHttp.Problem(context, error.Type switch
     {

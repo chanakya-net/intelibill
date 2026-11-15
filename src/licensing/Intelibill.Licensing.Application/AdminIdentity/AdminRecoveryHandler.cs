@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using ErrorOr;
 using Intelibill.Licensing.Application.Audit;
 using Intelibill.Licensing.Application.Bootstrap;
@@ -19,27 +20,56 @@ public sealed partial class AdminRecoveryHandler(IAdminRecoveryStore store, IBoo
     private const string DummyHash = "$2a$12$NWpJQSOVZnhhNj/xRbce9OC13H4oFaYY7JKO1ls74MlFszrCNuoJm";
 
     public Task<ErrorOr<EnrollmentGrant>> RedeemCodeAsync(string? email, string? password, string? recoveryCode,
-        CancellationToken cancellationToken)
+        string? continuationKey, CancellationToken cancellationToken)
     {
         var normalizedEmail = BootstrapValidation.NormalizeEmail(email);
         var code = AdminRecoveryRules.NormalizeCode(recoveryCode);
+        var continuationDigest = ContinuationDigest(continuationKey);
         return store.InTransactionAsync<ErrorOr<EnrollmentGrant>>(async token =>
         {
             var admin = await store.LockByEmailAsync(normalizedEmail, token);
             var verified = PasswordMatches(password, admin?.PasswordHash);
             var now = clock.GetUtcNow();
-            if (!verified || admin is not { DeactivatedAt: null } || code is null
-                || !await store.ConsumeRecoveryCodeAsync(admin.Id, code, now, token))
+            if (!verified || admin is not { DeactivatedAt: null } || code is null)
                 return Refuse(admin?.Id, now);
 
+            var use = await store.ConsumeRecoveryCodeAsync(admin.Id, code, continuationDigest is not null, now, token);
+            if (use == RecoveryCodeUse.Invalid) return Refuse(admin.Id, now);
+            if (use == RecoveryCodeUse.ContinuationRequired) return AdminRecoveryRules.ContinuationRequired;
             var before = Reference(admin);
             await store.ResetMfaAsync(admin, now, keepRecoveryCodes: true, token);
+            if (use == RecoveryCodeUse.FinalCodeConsumed) admin.SaveRecoveryContinuation(continuationDigest!);
             store.Add(AdminRecovery.FromCode(admin.Id, now));
             store.Add(audit.Create(BootstrapAuditAction.RecoveryCodeRedeemed, now, AuditActor.Enrollment,
                 AuditReason.RecoveryCodeAccepted, admin.Id, before: before, after: Reference(admin, now)));
             return IssueEnrollment(admin.Id, now);
         }, cancellationToken);
     }
+
+    public Task<ErrorOr<EnrollmentGrant>> ContinueEnrollmentAsync(string? email, string? password, string? continuationKey,
+        CancellationToken cancellationToken)
+    {
+        var normalizedEmail = BootstrapValidation.NormalizeEmail(email);
+        var digest = ContinuationDigest(continuationKey);
+        return store.InTransactionAsync<ErrorOr<EnrollmentGrant>>(async token =>
+        {
+            var admin = await store.LockByEmailAsync(normalizedEmail, token);
+            var verified = PasswordMatches(password, admin?.PasswordHash);
+            var now = clock.GetUtcNow();
+            if (!verified || admin is not { DeactivatedAt: null, MfaEnrolledAt: null, RecoveryContinuationDigest: { } saved }
+                || digest is null || !CryptographicOperations.FixedTimeEquals(Convert.FromHexString(digest), Convert.FromHexString(saved)))
+                return Refuse(admin?.Id, now);
+
+            await store.RevokeEnrollmentAsync(admin.Id, now, token);
+            store.Add(audit.Create(BootstrapAuditAction.EnrollmentResumed, now, AuditActor.Enrollment,
+                AuditReason.EnrollmentResumed, admin.Id));
+            return IssueEnrollment(admin.Id, now);
+        }, cancellationToken);
+    }
+
+    private static string? ContinuationDigest(string? key) =>
+        key is { Length: 64 } && key.All(char.IsAsciiHexDigit)
+            ? Convert.ToHexString(SHA256.HashData(Convert.FromHexString(key))) : null;
 
     public Task<ErrorOr<EnrollmentGrant>> RedeemResetAsync(string? email, string? password, string? resetToken,
         CancellationToken cancellationToken)
@@ -74,7 +104,7 @@ public sealed partial class AdminRecoveryHandler(IAdminRecoveryStore store, IBoo
     {
         var credential = secrets.CreateEnrollment();
         var expiry = now + EnrollmentLifetime;
-        store.Add(new BootstrapEnrollmentCredential(Guid.NewGuid(), adminId, credential.Digest, now, expiry));
+        store.Add(new BootstrapEnrollmentCredential(Guid.NewGuid(), adminId, credential.Digest, now, expiry).ForRecovery());
         return new EnrollmentGrant(credential, expiry);
     }
 

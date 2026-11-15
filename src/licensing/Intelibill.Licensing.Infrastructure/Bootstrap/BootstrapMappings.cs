@@ -41,10 +41,13 @@ internal sealed class AdminIdentityMapping : IEntityTypeConfiguration<AdminIdent
         {
             table.HasCheckConstraint("ck_admin_mfa_date", "mfa_enrolled_at >= verified_at");
             table.HasCheckConstraint("ck_admin_deactivation_date", "deactivated_at >= verified_at");
+            table.HasCheckConstraint("ck_admin_recovery_continuation",
+                "recovery_continuation_digest IS NULL OR (mfa_enrolled_at IS NULL AND recovery_continuation_digest ~ '^[0-9A-F]{64}$')");
         });
         builder.Property(owner => owner.Email).HasMaxLength(254);
         builder.HasIndex(owner => owner.Email).IsUnique();
         builder.Property(owner => owner.PasswordHash).HasMaxLength(60);
+        builder.Property(owner => owner.RecoveryContinuationDigest).HasMaxLength(64);
         builder.Property(owner => owner.VerificationReference).HasMaxLength(128);
         builder.Property(owner => owner.Version).IsRowVersion();
     }
@@ -58,6 +61,7 @@ internal sealed class EnrollmentCredentialMapping : IEntityTypeConfiguration<Boo
             table.HasCheckConstraint("ck_bootstrap_enrollment_evidence",
                 "digest ~ '^[0-9A-F]{64}$' AND issued_at < expires_at AND (revoked_at IS NULL OR revoked_at >= issued_at)"));
         builder.Property(credential => credential.Digest).HasMaxLength(64);
+        builder.Property(credential => credential.IssuedForRecovery).HasDefaultValue(false);
         builder.Property(credential => credential.Version).IsRowVersion();
         builder.HasIndex(credential => credential.Digest).IsUnique();
         builder.HasIndex(credential => credential.OwnerId).IsUnique().HasFilter("revoked_at IS NULL");

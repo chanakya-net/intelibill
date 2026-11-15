@@ -63,6 +63,13 @@ internal static class ProviderSessions
             .RequireClaim(CapabilityClaim, ProviderActor.InvitationCapability));
     }
 
+    internal static AdminSessionCaller? ReadCaller(ClaimsPrincipal user) =>
+        Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var adminId)
+        && Guid.TryParse(user.FindFirstValue(SessionIdClaim), out var sessionId)
+        && DateTimeOffset.TryParse(user.FindFirstValue(AccessExpiresClaim), CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind, out var expires)
+            ? new(adminId, sessionId, expires) : null;
+
     internal static ProviderActor? ToActor(ClaimsPrincipal user) =>
         Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var adminId)
         && DateTimeOffset.TryParse(user.FindFirstValue(MfaVerifiedAtClaim), CultureInfo.InvariantCulture,

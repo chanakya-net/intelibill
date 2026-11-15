@@ -38,7 +38,7 @@ public sealed partial class P0112Tests
     private const string Mfa = "/api/admin/auth/bootstrap/enrollment/mfa";
     private const string Resume = "/api/admin/auth/bootstrap/enrollment/resume";
 
-    private async Task<Fixture> StartAsync()
+    private async Task<Fixture> StartAsync(Action<IServiceCollection>? configure = null)
     {
         var runtime = await new P0108Tests(database).SignInDatabaseAsync();
         var clock = new P0106Tests.TestClock();
@@ -46,13 +46,17 @@ public sealed partial class P0112Tests
         settings["AdminSessions:SigningKey"] = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
         var mailer = new P0114Tests.FixtureMailer();
         var api = new LicensingApiFactory(runtime, clock: clock, settings: settings,
-            configure: services => services.AddSingleton<IAdminInvitationMailer>(mailer));
+            configure: services =>
+            {
+                services.AddSingleton<IAdminInvitationMailer>(mailer);
+                configure?.Invoke(services);
+            });
         var (password, seed, codes) = await P0108Tests.EnrollOwnerWithCodesAsync(api, clock);
-        return new(runtime, clock, api, mailer, password, seed, codes);
+        return new(runtime, clock, api, mailer, password, seed, codes, settings);
     }
 
     internal sealed record Fixture(NpgsqlConnectionStringBuilder Runtime, P0106Tests.TestClock Clock,
-        LicensingApiFactory Api, P0114Tests.FixtureMailer Mailer, string Password, string Seed, string[] Codes)
+        LicensingApiFactory Api, P0114Tests.FixtureMailer Mailer, string Password, string Seed, string[] Codes, Dictionary<string, string?> Settings)
         : IAsyncDisposable
     {
         internal P0110CookieBrowser Browser() => new(P0114Tests.RawClient(Api));
@@ -102,6 +106,17 @@ public sealed partial class P0112Tests
     /// <summary>Completes authenticator enrollment with the enrollment cookie this browser holds.</summary>
     private static async Task<(string Seed, string[] Codes)> EnrollAsync(P0110CookieBrowser browser, P0106Tests.TestClock clock)
     {
+        var (seed, token) = await StartEnrollmentAsync(browser);
+        using var verified = await browser.SendAsync(HttpMethod.Post, Mfa + "/verify",
+            new { otp = P0108Tests.SignInOtp(seed, clock.GetUtcNow()) }, token, csrfHeader: "X-Bootstrap-CSRF");
+        Assert.Equal(HttpStatusCode.OK, verified.StatusCode);
+        using var body = JsonDocument.Parse(await verified.Content.ReadAsStringAsync());
+        clock.Advance(TimeSpan.FromSeconds(30));
+        return (seed, body.RootElement.GetProperty("recoveryCodes").EnumerateArray().Select(code => code.GetString()!).ToArray());
+    }
+
+    private static async Task<(string Seed, string? Token)> StartEnrollmentAsync(P0110CookieBrowser browser)
+    {
         using var context = await browser.SendAsync(HttpMethod.Get, Mfa);
         Assert.Equal(HttpStatusCode.OK, context.StatusCode);
         using var csrf = JsonDocument.Parse(await context.Content.ReadAsStringAsync());
@@ -109,13 +124,7 @@ public sealed partial class P0112Tests
         using var started = await browser.SendAsync(HttpMethod.Post, Mfa + "/start", new { }, token, csrfHeader: "X-Bootstrap-CSRF");
         Assert.Equal(HttpStatusCode.OK, started.StatusCode);
         using var setup = JsonDocument.Parse(await started.Content.ReadAsStringAsync());
-        var seed = setup.RootElement.GetProperty("setupSecret").GetString()!;
-        using var verified = await browser.SendAsync(HttpMethod.Post, Mfa + "/verify",
-            new { otp = P0108Tests.SignInOtp(seed, clock.GetUtcNow()) }, token, csrfHeader: "X-Bootstrap-CSRF");
-        Assert.Equal(HttpStatusCode.OK, verified.StatusCode);
-        using var body = JsonDocument.Parse(await verified.Content.ReadAsStringAsync());
-        clock.Advance(TimeSpan.FromSeconds(30));
-        return (seed, body.RootElement.GetProperty("recoveryCodes").EnumerateArray().Select(code => code.GetString()!).ToArray());
+        return (setup.RootElement.GetProperty("setupSecret").GetString()!, token);
     }
 
     private static async Task<HttpStatusCode> StatusAsync(P0110CookieBrowser browser, HttpMethod method, string path)

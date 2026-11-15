@@ -78,6 +78,7 @@ internal sealed class AdminMfaEnrollmentService(AdminMfaStore store, IBootstrapS
 
             // Codes left over from before a recovery stop working once the new authenticator is verified.
             await store.VoidRecoveryCodesAsync(adminId, now, cancellationToken);
+            totp.UseSetupKeyForRecoveryCodes();
             var codes = IssueRecoveryCodes(totp);
             totp.AcceptStep(result.Value);
             admin.CompleteMfaEnrollment(now);

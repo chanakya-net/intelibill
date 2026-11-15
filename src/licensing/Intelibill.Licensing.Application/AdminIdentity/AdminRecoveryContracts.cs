@@ -17,9 +17,12 @@ public interface IAdminRecoveryStore
     Task<(AdminIdentity? Reviewer, AdminIdentity? Target)> LockReviewAsync(Guid reviewerId, string normalizedEmail,
         CancellationToken cancellationToken);
 
-    /// <summary>Consumes one unused recovery code that matches; false when none does.</summary>
-    Task<bool> ConsumeRecoveryCodeAsync(Guid adminId, string normalizedCode, DateTimeOffset now,
-        CancellationToken cancellationToken);
+    /// <summary>Locks the specific reviewer session after the administrator rows.</summary>
+    Task<AdminSession?> LockReviewerSessionAsync(AdminSessionCaller caller, CancellationToken cancellationToken);
+
+    /// <summary>Consumes a valid unused code, with a continuation required for the last code.</summary>
+    Task<RecoveryCodeUse> ConsumeRecoveryCodeAsync(Guid adminId, string normalizedCode, bool hasContinuation,
+        DateTimeOffset now, CancellationToken cancellationToken);
 
     Task<AdminRecovery?> LockResetAsync(Guid adminId, string grantDigest, CancellationToken cancellationToken);
 
@@ -43,6 +46,14 @@ public interface IAdminRecoveryStore
     void Add(ProviderAuditEvent auditEvent);
 }
 
+public enum RecoveryCodeUse
+{
+    Invalid,
+    Consumed,
+    ContinuationRequired,
+    FinalCodeConsumed,
+}
+
 /// <summary>The raw review request. Parsing turns it into closed evidence or refuses it.</summary>
 public sealed record AdminRecoveryReview(string? Email, string? Reason, string? Verification,
     string? EvidenceReference, bool? Confirmed);
@@ -59,6 +70,8 @@ public static partial class AdminRecoveryRules
     public static Error TargetUnavailable => Error.NotFound("Admin.RecoveryTargetUnavailable", "No active administrator uses that email.");
     public static Error LastRecoverableOwner => Error.Conflict("Admin.LastRecoverableOwner",
         "This reset would leave no platform owner able to recover access.");
+    public static Error ContinuationRequired => Error.Conflict("Admin.RecoveryContinuationRequired",
+        "Save an enrollment continuation key before using your final recovery code.");
     public static Error SelfReview => Error.Conflict("Admin.RecoverySelfReview", "Use your own recovery codes to recover your access.");
 
     /// <summary>Accepts 32 hexadecimal digits, optionally grouped by dashes as issued.</summary>

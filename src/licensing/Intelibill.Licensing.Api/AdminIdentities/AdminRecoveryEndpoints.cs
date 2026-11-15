@@ -27,11 +27,16 @@ internal static partial class AdminRecoveryEndpoints
         recovery.MapPost("/code", (HttpContext context, AdminRecoveryHandler handler, AdminSignInHttp http,
             IAdminSignInBudget budget, TimeProvider clock, ILogger<AdminRecoveryHandler> logger) =>
             RedeemAsync(context, http, budget, clock, logger, request =>
-                handler.RedeemCodeAsync(request?.Email, request?.Password, request?.RecoveryCode, CancellationToken.None)));
+                handler.RedeemCodeAsync(request?.Email, request?.Password, request?.RecoveryCode,
+                    request?.ContinuationKey, CancellationToken.None)));
         recovery.MapPost("/reset", (HttpContext context, AdminRecoveryHandler handler, AdminSignInHttp http,
             IAdminSignInBudget budget, TimeProvider clock, ILogger<AdminRecoveryHandler> logger) =>
             RedeemAsync(context, http, budget, clock, logger, request =>
                 handler.RedeemResetAsync(request?.Email, request?.Password, request?.ResetToken, CancellationToken.None)));
+        recovery.MapPost("/continue", (HttpContext context, AdminRecoveryHandler handler, AdminSignInHttp http,
+            IAdminSignInBudget budget, TimeProvider clock, ILogger<AdminRecoveryHandler> logger) =>
+            RedeemAsync(context, http, budget, clock, logger, request =>
+                handler.ContinueEnrollmentAsync(request?.Email, request?.Password, request?.ContinuationKey, CancellationToken.None)));
         app.MapPost(ResetPath, ReviewAsync).RequireAuthorization(ProviderSessions.RecoveryPolicy)
             .WithMetadata(new AuditDenial(BootstrapAuditAction.RecoveryResetDenied));
     }
@@ -63,21 +68,21 @@ internal static partial class AdminRecoveryEndpoints
         IAdminSignInBudget budget, TimeProvider clock, ILogger<AdminRecoveryHandler> logger)
     {
         var origin = await http.ReadOriginAsync(context);
-        var actor = ProviderSessions.ToActor(context.User);
-        if (origin is null || actor is null || !http.AcceptsMutation(context, origin))
+        var caller = ProviderSessions.ReadCaller(context.User);
+        if (origin is null || caller is null || !http.AcceptsMutation(context, origin))
         {
             await AdminAuditAccessDeniedHandler.RecordAsync(context, BootstrapAuditAction.RecoveryResetDenied, AuditReason.RequestRejected);
             return InvitationRequestGate.Refused(context);
         }
         if (Oversized(context) is { } tooLarge) return tooLarge;
         var now = clock.GetUtcNow();
-        if (await budget.TakeAsync(Digest("recovery-review:" + actor.AdminId), now, context.RequestAborted) is { } retryAt)
+        if (await budget.TakeAsync(Digest("recovery-review:" + caller.AdminId), now, context.RequestAborted) is { } retryAt)
             return BootstrapHttp.Throttled(context, retryAt, now, "Admin.Throttled");
 
         var request = await ReadAsync<ReviewRequest>(context);
         var review = new AdminRecoveryReview(request?.Email, request?.Reason, request?.Verification,
             request?.EvidenceReference, request?.Confirmed);
-        var result = await handler.ReviewResetAsync(actor, review, CancellationToken.None);
+        var result = await handler.ReviewResetAsync(caller, review, CancellationToken.None);
         if (result.IsError) return Problem(context, result.FirstError, logger);
         LogReviewed(logger, result.Value.RecoveryId);
         return Results.Json(new
@@ -142,6 +147,7 @@ internal static partial class AdminRecoveryEndpoints
         public string? Password { get; init; }
         public string? RecoveryCode { get; init; }
         public string? ResetToken { get; init; }
+        public string? ContinuationKey { get; init; }
     }
 
     private sealed class ReviewRequest

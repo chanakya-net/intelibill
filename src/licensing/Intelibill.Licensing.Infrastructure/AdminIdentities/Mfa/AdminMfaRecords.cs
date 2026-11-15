@@ -7,6 +7,7 @@ internal sealed class AdminTotp(Guid adminId, string keyId, byte[] encryptedSecr
 
     public Guid AdminId { get; private set; } = adminId;
     public string KeyId { get; private set; } = keyId;
+    public string? RecoveryKeyId { get; private set; }
     public byte[] EncryptedSecret { get; private set; } = encryptedSecret;
     public long? LastAcceptedStep { get; private set; }
     public DateTimeOffset? AttemptWindowEndsAt { get; private set; }
@@ -14,16 +15,24 @@ internal sealed class AdminTotp(Guid adminId, string keyId, byte[] encryptedSecr
     /// <summary>Set by a recovery: the secret can no longer be shown or verified and enrollment replaces it.</summary>
     public DateTimeOffset? RetiredAt { get; private set; }
 
-    internal void Retire(DateTimeOffset now) => RetiredAt ??= now;
+    internal void Retire(DateTimeOffset now)
+    {
+        RetiredAt ??= now;
+        // Erase the ciphertext as well as marking it retired, including for predecessor readers.
+        EncryptedSecret = new byte[EncryptedSecret.Length];
+    }
 
     internal void Replace(string keyId, byte[] encryptedSecret)
     {
+        RecoveryKeyId ??= KeyId;
         KeyId = keyId;
         EncryptedSecret = encryptedSecret;
         LastAcceptedStep = null;
         RetiredAt = null;
         ResetAttempts();
     }
+
+    internal void UseSetupKeyForRecoveryCodes() => RecoveryKeyId = null;
 
     internal DateTimeOffset? TakeAttempt(DateTimeOffset now)
     {

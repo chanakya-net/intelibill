@@ -52,7 +52,12 @@ async function reviewReset(owner: Page, email: string) {
   await owner.getByLabel('Administrator email').fill(email);
   await owner.getByLabel('Reason').selectOption('authenticator-lost');
   await owner.getByLabel('How you verified the person').selectOption('video-call');
-  await owner.getByLabel('Evidence reference').fill(evidenceReference);
+  const evidence = owner.getByLabel('Evidence reference');
+  await evidence.fill('SEC/2026@0412');
+  expect(await evidence.evaluate((input: HTMLInputElement) => input.validity.patternMismatch)).toBe(true);
+  await evidence.fill('SEC/2026-0412');
+  expect(await evidence.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(true);
+  await evidence.fill(evidenceReference);
   await owner.getByLabel('I verified this person out of band and reviewed this reset.').check();
   await owner.getByRole('button', { name: 'Reset authenticator' }).click();
   const code = (await owner.getByTestId('reset-code').textContent())!.trim();
