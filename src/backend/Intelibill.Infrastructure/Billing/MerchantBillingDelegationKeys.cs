@@ -22,7 +22,7 @@ internal abstract class MerchantBillingSigningKey(string id) : IDisposable
 
 internal sealed class MerchantBillingDelegationKeys(
     IOptionsMonitor<MerchantBillingDelegationOptions> options, IOptions<JwtOptions> merchantJwt,
-    IHostEnvironment environment, TimeProvider clock, Func<Uri, string?, KeyClient> createVaultClient)
+    IHostEnvironment environment, TimeProvider clock, Func<Uri, string?, KeyClient> createVaultClient, string? optionsName = null)
     : IMerchantBillingSigningKeys, IDisposable
 {
     private static readonly TimeSpan VersionRefreshInterval = TimeSpan.FromMinutes(5);
@@ -36,9 +36,15 @@ internal sealed class MerchantBillingDelegationKeys(
     {
     }
 
+    internal static MerchantBillingDelegationKeys ForAffiliation(IOptionsMonitor<MerchantBillingDelegationOptions> options,
+        IOptions<JwtOptions> merchantJwt, IHostEnvironment environment, TimeProvider clock) =>
+        new(options, merchantJwt, environment, clock,
+            (vault, identity) => new KeyClient(vault, AzureCredentials.Create(identity)),
+            ShopAffiliationDeliveryV1.Section);
+
     public async ValueTask<MerchantBillingSigningKey?> ResolveAsync(CancellationToken cancellationToken)
     {
-        var settings = options.CurrentValue;
+        var settings = options.Get(optionsName);
         if (settings.LocalPrivateKeyPem is { Length: > 0 } pem)
         {
             return settings.KeyVaultKeyId is null && MerchantBillingDelegationOptions.AllowsLocalCredentials(environment)
@@ -54,7 +60,7 @@ internal sealed class MerchantBillingDelegationKeys(
         await _vaultGate.WaitAsync(cancellationToken);
         try
         {
-            var settings = options.CurrentValue;
+            var settings = options.Get(optionsName);
             var reference = ParseVaultReference(settings, merchantJwt.Value.KeyVaultKeyId);
             if (reference is null)
                 return null;

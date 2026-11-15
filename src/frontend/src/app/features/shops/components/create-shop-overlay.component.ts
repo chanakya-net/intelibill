@@ -50,6 +50,7 @@ export class CreateShopOverlayComponent implements OnInit {
 
   @Input() firstShop = true;
   @Output() readonly closeRequested = new EventEmitter<void>();
+  @Output() readonly billingRequested = new EventEmitter<void>();
   @Output() readonly accountSecurityRequested = new EventEmitter<void>();
 
   readonly stateOptions = [...GST_STATE_OPTIONS];

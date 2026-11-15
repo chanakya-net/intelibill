@@ -38,7 +38,7 @@ public static class MerchantBillingDelegationV1
 
     /// <summary>Actions that act for the verified actor before any account exists, so they carry no account.</summary>
     public static bool IsActorScoped(string? action) => action is CreateAccount or ListAccounts
-        or BillingInvitationsV1.Inbox or BillingInvitationsV1.Proof or BillingInvitationsV1.Accept;
+        or ShopAffiliationsV1.OwnerRead or BillingInvitationsV1.Inbox or BillingInvitationsV1.Proof or BillingInvitationsV1.Accept;
 
     /// <summary>Trimmed, 1 to 120 characters, NFC, no control characters; otherwise null. Both services apply it.</summary>
     public static string? NormalizeAccountName(string? name)

@@ -111,9 +111,10 @@ export class ShellComponent {
     ),
     { initialValue: this.router.getCurrentNavigation()?.finalUrl?.toString() ?? this.router.url },
   );
-  private readonly isAccountSecurityRoute = computed(() => {
+  private readonly isShopIndependentRoute = computed(() => {
     const primary = this.router.parseUrl(this.routedUrl()).root.children[PRIMARY_OUTLET];
-    return primary?.segments.map((segment) => segment.path).join('/') === 'account/security';
+    const segments = primary?.segments.map((segment) => segment.path);
+    return segments?.[0] === 'billing' || segments?.join('/') === 'account/security';
   });
 
 
@@ -204,7 +205,7 @@ export class ShellComponent {
 
   constructor() {
     effect(() => {
-      if (this.isAccountSecurityRoute()) {
+      if (this.isShopIndependentRoute()) {
         this.showCreateShopOverlayAuto.set(false);
       } else if (this.authService.needsShopSetup()) {
         this.showCreateShopOverlayAuto.set(true);
@@ -407,6 +408,12 @@ export class ShellComponent {
     if (this.isShopsSubmitting()) return;
     this.showCreateShopOverlayManual.set(false);
     void this.router.navigateByUrl('/account/security');
+  }
+
+  onOpenBilling(): void {
+    if (this.isShopsSubmitting()) return;
+    this.showCreateShopOverlayManual.set(false);
+    void this.router.navigateByUrl('/billing');
   }
 
   onCreateShopOverlayClose(): void {
