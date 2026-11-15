@@ -1,4 +1,4 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -7,6 +7,7 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { stubMemoryStorage } from '../billing.test-utils';
+import { BillingAccountAuthority } from '../services/billing-account-authority.service';
 import { BillingAccountDraftStore } from '../services/billing-account-draft.store';
 import { BillingAccount } from '../services/billing-account.models';
 import { BILLING_ACCOUNT_ENDPOINTS } from '../services/billing-account.service';
@@ -315,5 +316,18 @@ describe('BillingAccountsPageComponent', () => {
       expect(rows(instance)).toBe(1);
       expect(query(root, '[data-testid="billing-accounts-reload"]')).toBeNull();
     });
+  });
+
+  it('filters only the denied account from an older list response', () => {
+    render([account, second]);
+    fixture.componentInstance.reload();
+    const earlier = http.expectOne({ method: 'GET', url });
+    const authority = TestBed.inject(BillingAccountAuthority);
+    authority.deny(owner, account.accountId, new HttpErrorResponse({
+      status: 403, error: { code: 'Billing.AccountAccessDenied' },
+    }));
+    expect(fixture.componentInstance.accounts()).toEqual([second]);
+    earlier.flush({ accounts: [account, second] });
+    expect(fixture.componentInstance.accounts()).toEqual([second]);
   });
 });

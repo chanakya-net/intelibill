@@ -10,6 +10,9 @@ public static class BillingInvitationsV1
     public const string Proof = "billing.invitation.proof";
     public const string Accept = "billing.invitation.accept";
     public const string Roster = "billing.member.list";
+    public const string RemoveMember = "billing.member.remove";
+    public const int MaximumRemovalBodyBytes = 4096;
+    public const int MaximumRemovalReasonLength = 500;
 
     public const string InboxPath = MerchantBillingDelegationV1.InternalPrefix + "/invitations";
     public const string AccountRoute = MerchantBillingDelegationV1.AccountsPath + "/{accountId:guid}";
@@ -22,6 +25,7 @@ public static class BillingInvitationsV1
     public static string Members(Guid accountId, Guid? after) => after is { } cursor
         ? $"{MerchantBillingDelegationV1.AccountsPath}/{accountId:D}/members/after/{cursor:D}"
         : $"{MerchantBillingDelegationV1.AccountsPath}/{accountId:D}/members";
+    public static string MemberRemoval(Guid accountId, Guid memberId) => $"{Members(accountId, null)}/{memberId:D}/remove";
     public static string Invitation(Guid invitationId, string action) => $"{InboxPath}/{invitationId:D}/{action}";
     public static string InboxPage(Guid? after) => after is { } cursor ? $"{InboxPath}/after/{cursor:D}" : InboxPath;
 }
@@ -54,3 +58,15 @@ public sealed record AcceptBillingInvitationV1(
 
 public sealed record BillingMemberV1(Guid MemberId, string Role, int Revision, bool IsCurrent);
 public sealed record BillingRosterV1(string AccountName, BillingMemberV1[] Members, Guid? NextCursor, int? OwnerRevision);
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record RemoveBillingManagerV1(
+    [property: JsonPropertyName("operationKey")] Guid OperationKey,
+    [property: JsonPropertyName("expectedVersion")] int ExpectedVersion,
+    [property: JsonPropertyName("reason")] string? Reason)
+{
+    public override string ToString() => "[REDACTED]";
+}
+
+public sealed record BillingManagerRemovalV1(Guid AccountId, Guid MemberId, Guid OperationKey,
+    string Status, int Revision, DateTimeOffset RemovedAt);

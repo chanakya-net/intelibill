@@ -20,9 +20,14 @@ export class AffiliationOperation {
   readonly saving = signal(false);
   readonly error = signal('');
 
-  restore(key: readonly string[]): void {
+  suspend(): void {
     this.saving.set(false);
     this.error.set('');
+    this.pending.set(null);
+  }
+
+  restore(key: readonly string[]): void {
+    this.suspend();
     try {
       this.pending.set(this.drafts.read(key));
     } catch {

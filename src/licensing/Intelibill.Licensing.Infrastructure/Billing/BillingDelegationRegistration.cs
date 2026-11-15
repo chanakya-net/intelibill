@@ -23,6 +23,8 @@ internal static class BillingDelegationRegistration
         services.AddScoped<IBillingInvitationStore, BillingInvitationStore>();
         services.AddScoped<BillingInvitationSecrets>();
         services.AddScoped<BillingInvitationHandlers>();
+        services.AddScoped<IBillingMemberRemovalStore, BillingMemberRemovalStore>();
+        services.AddScoped<RemoveBillingManagerHandler>();
         // Registered with their ports: the bootstrap CLI host validates its graph without billing.
         services.AddScoped<CreateBillingAccountHandler>();
         services.AddScoped<ListBillingAccountsHandler>();

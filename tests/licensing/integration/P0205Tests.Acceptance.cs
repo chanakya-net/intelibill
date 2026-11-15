@@ -75,7 +75,7 @@ public sealed partial class P0205Tests
         COMMIT;
         """);
 
-    private static async Task WaitForConsentAsync(HttpClient owner, string path, string status)
+    internal static async Task WaitForConsentAsync(HttpClient owner, string path, string status)
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
         while (true)
@@ -105,7 +105,7 @@ public sealed partial class P0205Tests
         }
     }
 
-    private static async Task<string?> DecideAsync(HttpClient owner, string path, string action, Guid? key = null)
+    internal static async Task<string?> DecideAsync(HttpClient owner, string path, string action, Guid? key = null)
     {
         using var response = await owner.PostAsJsonAsync(path + "/" + action, new { operationKey = key ?? Guid.NewGuid() });
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);

@@ -3348,6 +3348,17 @@
     "denied": "You do not have access to this billing account.",
     "unavailable": "Billing is temporarily unavailable. Try again later.",
     "pendingRetry": "The request did not finish. Retry to complete it without creating a second account.",
+    "removal": {
+      "action": "Remove billing manager",
+      "confirm": "Remove member {{id}} from {{account}}? Their shop access stays the same.",
+      "reason": "Reason for removal",
+      "cancel": "Cancel",
+      "pending": "A removal for member {{id}} needs confirmation from the server.",
+      "retry": "Could not confirm the removal. Retry the saved request.",
+      "storageUnavailable": "Local storage is unavailable.",
+      "removed": "Billing manager removed.",
+      "rejected": "The removal was rejected. Review the updated roster."
+    },
     "invitations": {
       "heading": "Billing invitations",
       "members": "Members",

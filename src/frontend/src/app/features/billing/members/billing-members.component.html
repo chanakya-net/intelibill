@@ -27,6 +27,11 @@
                  transloco: { id: member.memberId.slice(-8) } }}
             </span>
             <span class="ib-meta-chip">{{ 'billing.roles.' + member.role | transloco }}</span>
+            @if (account.ownerRevision && member.role === 'Manager') {
+              <button pButton type="button" severity="danger" [outlined]="true" data-testid="billing-remove-manager"
+                [disabled]="submitting() || loading() || !!removalDraft()" (click)="removing.set(member)"
+                [label]="'billing.removal.action' | transloco"></button>
+            }
           </li>
         }
       </ul>
@@ -36,6 +41,13 @@
       }
     </section>
     @if (account.ownerRevision) {
+      @if (removalDraft(); as draft) {
+        <section class="panel ib-panel">
+          <p>{{ 'billing.removal.pending' | transloco: { id: draft.memberId.slice(-8) } }}</p>
+          <button pButton type="button" data-testid="billing-remove-retry" [disabled]="submitting() || loading()"
+            (click)="retryRemoval()" [label]="'billing.retry' | transloco"></button>
+        </section>
+      }
       <section class="panel ib-panel" aria-labelledby="billing-invite-title">
         <header class="panel__header ib-panel__header">
           <h2 class="ib-panel__title" id="billing-invite-title">{{ 'billing.invitations.invite' | transloco }}</h2>
@@ -58,3 +70,20 @@
     }
   }
 </section>
+
+<p-dialog [visible]="!!removing()" (visibleChange)="!$event && removing.set(null)" [modal]="true" appendTo="body"
+  [header]="'billing.removal.action' | transloco" [style]="{ width: '30rem', maxWidth: 'calc(100vw - 2rem)' }">
+  @if (removing(); as member) {
+    <form class="billing-page__form" data-testid="billing-remove-form" (submit)="confirmRemoval($event, reason.value)">
+      <p>{{ 'billing.removal.confirm' | transloco: { account: roster()?.accountName, id: member.memberId.slice(-8) } }}</p>
+      <label for="billing-removal-reason">{{ 'billing.removal.reason' | transloco }}</label>
+      <textarea pTextarea id="billing-removal-reason" #reason rows="3" maxlength="500" required></textarea>
+      <div class="removal-actions">
+        <button pButton type="button" severity="secondary" data-testid="billing-remove-cancel"
+          (click)="removing.set(null)" [label]="'billing.removal.cancel' | transloco"></button>
+        <button pButton type="submit" severity="danger" data-testid="billing-remove-confirm"
+          [disabled]="loading() || submitting()" [label]="'billing.removal.action' | transloco"></button>
+      </div>
+    </form>
+  }
+</p-dialog>

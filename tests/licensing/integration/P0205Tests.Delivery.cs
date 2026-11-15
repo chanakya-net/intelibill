@@ -165,7 +165,7 @@ public sealed partial class P0205Tests
             HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
     }
 
-    private sealed class CaptureDelivery : DelegatingHandler
+    internal sealed class CaptureDelivery : DelegatingHandler
     {
         private readonly TaskCompletionSource<Guid> _watched = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource<byte[]> _captured = new(TaskCreationOptions.RunContinuationsAsynchronously);

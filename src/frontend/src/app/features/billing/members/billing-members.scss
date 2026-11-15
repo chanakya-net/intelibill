@@ -11,3 +11,10 @@
 .billing-page__list + button {
   margin-top: 0.75rem;
 }
+
+.removal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}

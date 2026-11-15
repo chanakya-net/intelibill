@@ -33,6 +33,12 @@ export interface IssueInvitation {
   readonly recipient: string;
 }
 
+export interface RemoveManager {
+  readonly operationKey: string;
+  readonly expectedVersion: number;
+  readonly reason: string;
+}
+
 const billing = `${API_BASE_URL}/billing`;
 
 @Injectable({ providedIn: 'root' })
@@ -54,6 +60,12 @@ export class BillingMembersService {
   issue(accountId: string, invitation: IssueInvitation) {
     return this.http.post<{ operationKey: string }>(
       `${billing}/accounts/${encodeURIComponent(accountId)}/invitations`, invitation,
+    );
+  }
+
+  remove(accountId: string, memberId: string, request: RemoveManager) {
+    return this.http.post(
+      `${billing}/accounts/${encodeURIComponent(accountId)}/members/${encodeURIComponent(memberId)}/remove`, request,
     );
   }
 
