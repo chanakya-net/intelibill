@@ -25,10 +25,9 @@ public sealed class BatchDispositionService(IBatchDispositionRepository journal,
         var reason = expired ? "Expiry.Expired" : policy.ExpiryRequired && !batch.ExpiryDate.HasValue ? "Expiry.RequiredDateMissing" : null;
         return new(quantity, reason is null ? 0m : quantity, reason);
     }
-    public async Task LockBatchesAsync(Guid shopId, IEnumerable<Guid> batchIds, CancellationToken ct)
-    {
-        foreach (var id in batchIds.Distinct().Order()) await journal.LockBatchAsync(shopId, id, ct);
-    }
+    // One call, not one per batch: all item totals are locked before any batch row.
+    public Task LockBatchesAsync(Guid shopId, IEnumerable<Guid> batchIds, CancellationToken ct) =>
+        journal.LockBatchesAsync(shopId, batchIds.Distinct().ToArray(), ct);
     public async Task<ErrorOr<RestorationDisposition>> EvaluateAsync(InventoryBatch batch, DateOnly date, decimal quantity, CancellationToken ct)
     {
         var policy = await policies.GetEffectiveAsync(batch.ShopId, batch.ItemId, null, ct);
