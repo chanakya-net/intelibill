@@ -52,6 +52,7 @@ export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
   })),
   wildcardRoute(),
   shellRoute('account/security'),
+  shellRoute('billing'),
   shellRoute('dashboard', MANAGEMENT_ROLES),
   shellRoute('sales/new'),
   shellRoute('sales/profit-loss', MANAGEMENT_ROLES),

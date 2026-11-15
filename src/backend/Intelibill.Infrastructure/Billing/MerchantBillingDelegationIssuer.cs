@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using ErrorOr;
@@ -10,17 +11,35 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Intelibill.Infrastructure.Billing;
 
+/// <summary>
+/// A request the merchant server builds itself. Callers never choose the action, method or path freely:
+/// each factory binds one licensing route, and the body digest covers the exact bytes that will be sent.
+/// </summary>
+internal sealed record BillingDelegationIntent(string Action, HttpMethod Method, string Path, Guid? AccountId, byte[] Body)
+{
+    internal static BillingDelegationIntent ReadAccount(Guid accountId) => new(MerchantBillingDelegationV1.ReadAccount,
+        HttpMethod.Get, MerchantBillingDelegationV1.AccountAccessPath(accountId), accountId, []);
+
+    internal static BillingDelegationIntent ListAccounts(Guid? after) => new(MerchantBillingDelegationV1.ListAccounts,
+        HttpMethod.Get, MerchantBillingDelegationV1.AccountListPath(after), null, []);
+
+    internal static BillingDelegationIntent CreateAccount(byte[] body) => new(MerchantBillingDelegationV1.CreateAccount,
+        HttpMethod.Post, MerchantBillingDelegationV1.AccountsPath, null, body);
+
+    internal string BodySha256 => Convert.ToHexStringLower(SHA256.HashData(Body));
+}
+
 internal sealed class MerchantBillingDelegationIssuer(
     IMerchantBillingSigningKeys keys, ILiveSessionAuthority authority, ApplicationDbContext db, TimeProvider clock)
 {
     internal async Task<ErrorOr<IssuedBillingDelegationToken>> IssueAsync(
-        MerchantBillingAccessRequest access, Guid requestId, CancellationToken cancellationToken)
+        MerchantBillingCaller caller, BillingDelegationIntent intent, Guid requestId, CancellationToken cancellationToken)
     {
         using var key = await keys.ResolveAsync(cancellationToken);
         if (key is null)
             return MerchantBillingErrors.Unavailable;
 
-        var session = access.Session;
+        var session = caller.Session;
         if (!await authority.IsValidAsync(session, cancellationToken))
             return MerchantBillingErrors.SessionInvalid;
 
@@ -37,26 +56,30 @@ internal sealed class MerchantBillingDelegationIssuer(
             return MerchantBillingErrors.SessionInvalid;
 
         var issued = clock.GetUtcNow().ToUnixTimeSeconds();
-        var expiry = Math.Min(Math.Min(sessionExpiry.Value.ToUnixTimeSeconds(), access.AccessExpiry),
+        var expiry = Math.Min(Math.Min(sessionExpiry.Value.ToUnixTimeSeconds(), caller.AccessExpiry),
             issued + MerchantBillingDelegationV1.LifetimeSeconds);
         if (expiry <= issued)
             return MerchantBillingErrors.SessionInvalid;
 
-        var signingInput = EncodeSigningInput(key.Id, access, requestId, issued, expiry);
+        var signingInput = EncodeSigningInput(key.Id, session.UserId, intent, requestId, issued, expiry);
         var signature = await key.SignAsync(Encoding.ASCII.GetBytes(signingInput), cancellationToken);
         return clock.GetUtcNow().ToUnixTimeSeconds() < expiry
             ? new IssuedBillingDelegationToken(signingInput + "." + Base64UrlEncoder.Encode(signature))
             : MerchantBillingErrors.SessionInvalid;
     }
 
-    private static string EncodeSigningInput(string keyId, MerchantBillingAccessRequest access, Guid requestId,
+    private static string EncodeSigningInput(string keyId, Guid actorId, BillingDelegationIntent intent, Guid requestId,
         long issued, long expiry)
     {
         var header = new { alg = "RS256", typ = MerchantBillingDelegationV1.TokenType, kid = keyId };
-        var payload = new MerchantBillingAssertionV1(
-            access.Session.UserId, access.AccountId, requestId, Guid.NewGuid(), issued, expiry);
+        // The account read keeps its original field set byte for byte; actor-scoped actions omit the account.
+        byte[] payload = intent.AccountId is { } account
+            ? JsonSerializer.SerializeToUtf8Bytes(new MerchantBillingAssertionV1(
+                actorId, account, requestId, Guid.NewGuid(), issued, expiry))
+            : JsonSerializer.SerializeToUtf8Bytes(new MerchantBillingActorAssertionV1(actorId, intent.Action,
+                intent.Method.Method, intent.Path, intent.BodySha256, requestId, Guid.NewGuid(), issued, expiry));
         return Base64UrlEncoder.Encode(JsonSerializer.SerializeToUtf8Bytes(header)) + "." +
-            Base64UrlEncoder.Encode(JsonSerializer.SerializeToUtf8Bytes(payload));
+            Base64UrlEncoder.Encode(payload);
     }
 }
 

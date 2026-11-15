@@ -13,8 +13,8 @@ public sealed partial class P0201Tests
     public async Task InvalidAssertion_IsRejectedBeforeMembershipOrReplay()
     {
         using var fixture = await P0201Fixture.CreateAsync(database);
-        // The production adapter returns 503 if reached. Every invalid proof must instead
-        // be refused before the adapter runs.
+        // The unavailable authority returns 503 if reached. Every invalid proof must instead
+        // be refused before any authority runs.
         await using var licensing = fixture.LicensingApi(membership: false);
         using var client = licensing.CreateClient();
         var account = Guid.NewGuid();
@@ -143,6 +143,13 @@ public sealed partial class P0201Tests
         var signature = (key ?? fixture.Key).SignData(Encoding.ASCII.GetBytes(input),
             HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         return new LocalAssertion(account, request, input + "." + Base64UrlEncoder.Encode(signature));
+    }
+
+    internal static string SignReadAssertion(P0201Fixture fixture, Guid account, Guid actor, out Guid request)
+    {
+        var assertion = CreateAssertion(fixture, account, actor);
+        request = assertion.Request;
+        return assertion.Token;
     }
 
     private sealed record LocalAssertion(Guid Account, Guid Request, string Token)

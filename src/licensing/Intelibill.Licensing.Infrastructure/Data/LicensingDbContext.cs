@@ -24,5 +24,7 @@ public sealed class LicensingDbContext(DbContextOptions<LicensingDbContext> opti
         modelBuilder.ApplyConfiguration(new AdminRecoveryCodeMapping());
         modelBuilder.ApplyConfiguration(new AdminRecoveryMapping());
         modelBuilder.ApplyConfiguration(new MerchantBillingDelegationUseConfiguration());
+        modelBuilder.ApplyConfiguration(new BillingAccountConfiguration());
+        modelBuilder.ApplyConfiguration(new BillingAccountMemberConfiguration());
     }
 }

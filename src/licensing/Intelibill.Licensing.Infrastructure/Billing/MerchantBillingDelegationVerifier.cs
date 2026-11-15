@@ -22,6 +22,8 @@ internal sealed class MerchantBillingDelegationVerifier(
         "v", "iss", "aud", "sub", "verified_identity", "account_id", "action", "request_id",
         "jti", "iat", "nbf", "exp", "method", "path", "body_sha256",
     ];
+    // Actor-scoped actions (account creation and listing) carry the same fields without an account.
+    private static readonly string[] ActorPayloadNames = [.. PayloadNames.Where(name => name != "account_id")];
 
     public VerifiedBillingDelegation? Verify(string token)
     {
@@ -68,12 +70,17 @@ internal sealed class MerchantBillingDelegationVerifier(
 
     private static VerifiedBillingDelegation? ReadPayload(JsonElement data, string keyId, long now)
     {
-        if (!HasExactFields(data, PayloadNames) ||
+        if (data.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var accountScoped = data.TryGetProperty("account_id", out _);
+        Guid account = Guid.Empty;
+        if (!HasExactFields(data, accountScoped ? PayloadNames : ActorPayloadNames) ||
             ReadString(data, "iss") != MerchantBillingDelegationV1.Issuer ||
             ReadString(data, "aud") != MerchantBillingDelegationV1.Audience ||
             !ReadInteger(data, "v", out var version) || version != MerchantBillingDelegationV1.Version ||
             data.GetProperty("verified_identity").ValueKind != JsonValueKind.True ||
-            !ReadGuid(data, "sub", out var actor) || !ReadGuid(data, "account_id", out var account) ||
+            !ReadGuid(data, "sub", out var actor) || (accountScoped && !ReadGuid(data, "account_id", out account)) ||
             !ReadGuid(data, "request_id", out var request) || !ReadGuid(data, "jti", out var replay) || request == replay ||
             !ReadInteger(data, "iat", out var issued) || !ReadInteger(data, "nbf", out var start) ||
             !ReadInteger(data, "exp", out var expiry) || issued < 0 || start != issued ||
@@ -84,10 +91,12 @@ internal sealed class MerchantBillingDelegationVerifier(
         var method = ReadString(data, "method");
         var path = ReadString(data, "path");
         var digest = ReadString(data, "body_sha256");
-        if (action is null || method is null || path is null || digest is null)
+        // The scope must match the action: an account read names its account, creation and listing never do.
+        if (action is null || method is null || path is null || digest is null ||
+            accountScoped == MerchantBillingDelegationV1.IsActorScoped(action))
             return null;
 
-        return new VerifiedBillingDelegation(actor, account, action, request, replay, keyId,
+        return new VerifiedBillingDelegation(actor, accountScoped ? account : null, action, request, replay, keyId,
             DateTimeOffset.FromUnixTimeSeconds(issued), DateTimeOffset.FromUnixTimeSeconds(expiry), method, path, digest);
     }
 

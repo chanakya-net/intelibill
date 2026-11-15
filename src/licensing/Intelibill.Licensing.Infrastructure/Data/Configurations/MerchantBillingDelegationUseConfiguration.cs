@@ -12,7 +12,7 @@ internal sealed class MerchantBillingDelegationUseConfiguration : IEntityTypeCon
         {
             table.HasCheckConstraint("ck_merchant_billing_delegation_use_ids", """
                 replay_id <> '00000000-0000-0000-0000-000000000000'
-                AND account_id <> '00000000-0000-0000-0000-000000000000'
+                AND (account_id IS NULL OR account_id <> '00000000-0000-0000-0000-000000000000')
                 AND actor_id <> '00000000-0000-0000-0000-000000000000'
                 AND request_id <> '00000000-0000-0000-0000-000000000000'
                 AND request_id <> replay_id

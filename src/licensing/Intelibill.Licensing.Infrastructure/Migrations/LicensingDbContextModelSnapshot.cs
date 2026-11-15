@@ -360,6 +360,110 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BillingAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedByMerchantUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_merchant_user_id");
+
+                    b.Property<Guid>("CreationKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("creation_key");
+
+                    b.Property<byte[]>("CreationRequestHash")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("creation_request_hash");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_billing_accounts");
+
+                    b.HasIndex("CreatedByMerchantUserId", "CreationKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_billing_accounts_created_by_merchant_user_id_creation_key");
+
+                    b.ToTable("billing_accounts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_billing_accounts_creation_request_hash", "octet_length(creation_request_hash) = 32");
+
+                            t.HasCheckConstraint("ck_billing_accounts_ids", "id <> '00000000-0000-0000-0000-000000000000'\nAND created_by_merchant_user_id <> '00000000-0000-0000-0000-000000000000'\nAND creation_key <> '00000000-0000-0000-0000-000000000000'");
+
+                            t.HasCheckConstraint("ck_billing_accounts_name", "name = btrim(name) AND char_length(name) BETWEEN 1 AND 120");
+                        });
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BillingAccountMember", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("MerchantUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("merchant_user_id");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("integer")
+                        .HasColumnName("role");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id")
+                        .HasName("pk_billing_account_members");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_billing_account_members_active_owner")
+                        .HasFilter("role = 1 AND status = 1");
+
+                    b.HasIndex("AccountId", "MerchantUserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_billing_account_members_active_member")
+                        .HasFilter("status = 1");
+
+                    b.HasIndex("MerchantUserId", "Status", "CreatedAt")
+                        .HasDatabaseName("ix_billing_account_members_actor");
+
+                    b.ToTable("billing_account_members", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_billing_account_members_ids", "id <> '00000000-0000-0000-0000-000000000000'\nAND merchant_user_id <> '00000000-0000-0000-0000-000000000000'");
+
+                            t.HasCheckConstraint("ck_billing_account_members_revision", "revision >= 1");
+
+                            t.HasCheckConstraint("ck_billing_account_members_role", "role IN (1, 2)");
+
+                            t.HasCheckConstraint("ck_billing_account_members_status", "status IN (1, 2)");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BootstrapEnrollmentCredential", b =>
                 {
                     b.Property<Guid>("Id")
@@ -499,7 +603,7 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("replay_id");
 
-                    b.Property<Guid>("AccountId")
+                    b.Property<Guid?>("AccountId")
                         .HasColumnType("uuid")
                         .HasColumnName("account_id");
 
@@ -543,7 +647,7 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
 
                     b.ToTable("merchant_billing_delegation_uses", null, t =>
                         {
-                            t.HasCheckConstraint("ck_merchant_billing_delegation_use_ids", "replay_id <> '00000000-0000-0000-0000-000000000000'\nAND account_id <> '00000000-0000-0000-0000-000000000000'\nAND actor_id <> '00000000-0000-0000-0000-000000000000'\nAND request_id <> '00000000-0000-0000-0000-000000000000'\nAND request_id <> replay_id\nAND key_id ~ '^[A-Za-z0-9_-]{1,128}$'");
+                            t.HasCheckConstraint("ck_merchant_billing_delegation_use_ids", "replay_id <> '00000000-0000-0000-0000-000000000000'\nAND (account_id IS NULL OR account_id <> '00000000-0000-0000-0000-000000000000')\nAND actor_id <> '00000000-0000-0000-0000-000000000000'\nAND request_id <> '00000000-0000-0000-0000-000000000000'\nAND request_id <> replay_id\nAND key_id ~ '^[A-Za-z0-9_-]{1,128}$'");
 
                             t.HasCheckConstraint("ck_merchant_billing_delegation_use_window", "issued_at <= consumed_at AND consumed_at < expires_at\nAND expires_at - issued_at <= interval '60 seconds'");
                         });
@@ -792,6 +896,16 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_admin_sessions_admin_identities_admin_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BillingAccountMember", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.BillingAccount", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_billing_account_members_billing_accounts_account_id");
                 });
 
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.BootstrapEnrollmentCredential", b =>

@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
+[Collection(MerchantBillingHosts.Name)]
 public sealed partial class P0201Tests(LicensingPostgreSqlFixture database)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
@@ -81,7 +82,7 @@ public sealed partial class P0201Tests(LicensingPostgreSqlFixture database)
         return actor.Id;
     }
 
-    private static async Task<string> LoginAsync(HttpClient client, string email = Email)
+    internal static async Task<string> LoginAsync(HttpClient client, string email = Email)
     {
         using var response = await client.PostAsJsonAsync(new Uri("/api/auth/login/email", UriKind.Relative),
             new { email, password = Password });

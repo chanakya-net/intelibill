@@ -237,6 +237,15 @@ export class ShellMenuService {
         },
       },
       {
+        // Billing accounts belong to the person, not the active shop: every role sees its own.
+        label: this.localizationService.translate('shell.billingAccounts'),
+        icon: 'pi pi-credit-card',
+        command: () => {
+          actions.closeMenus();
+          actions.navigate('/billing');
+        },
+      },
+      {
         label: this.localizationService.translate('shell.manageUsers'),
         icon: 'pi pi-users',
         command: () => {
