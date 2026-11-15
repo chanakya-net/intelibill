@@ -188,5 +188,16 @@ public sealed partial class P0107Tests(LicensingPostgreSqlFixture database, Mail
         }
 
         internal string[] Events => [.. _events];
+
+        internal async Task WaitForAsync(string fragment)
+        {
+            for (var attempt = 0; attempt < 100; attempt++)
+            {
+                if (_events.Any(entry => entry.Contains(fragment, StringComparison.Ordinal))) return;
+                await Task.Delay(50);
+            }
+
+            Assert.Fail($"No captured log contained '{fragment}'.");
+        }
     }
 }

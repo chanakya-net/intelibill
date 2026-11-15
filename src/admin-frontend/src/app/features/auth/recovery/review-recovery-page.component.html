@@ -1,0 +1,51 @@
+<main>
+  <h1 class="ib-page-title">Review administrator recovery</h1>
+  <section class="ib-panel" aria-label="Review administrator recovery" [attr.aria-busy]="busy()">
+    @if (error()) {
+      <p class="ib-error-banner" role="alert">{{ error() }}</p>
+    }
+    @if (issued(); as reset) {
+      <h2 class="ib-panel__title">Reset issued</h2>
+      <p role="status">
+        Every session of {{ reset.email }} has ended and their authenticator was removed.
+        Hand this one-use reset code to them over the channel you verified. It expires
+        {{ reset.expiresAt | date: 'medium' }} and works only with their own password.
+      </p>
+      <p><strong>Reset code</strong><br /><code data-testid="reset-code">{{ reset.resetToken }}</code></p>
+      <p>This is the only time the code is shown. It is never stored in audit history.</p>
+      <div><button pButton type="button" (click)="done()">I handed over the code</button></div>
+    } @else {
+      <p>
+        Use this only after verifying the person out of band. The administrator's devices are signed out
+        immediately, and they must enroll a new authenticator before any provider access returns.
+      </p>
+      <form #form class="ib-form-section" (submit)="submit($event, form)">
+        <label for="review-email">Administrator email</label>
+        <input id="review-email" name="email" type="email" autocomplete="off" maxlength="254" required spellcheck="false" />
+        <label for="review-reason">Reason</label>
+        <select id="review-reason" name="reason" required>
+          <option value="authenticator-lost">Authenticator lost</option>
+          <option value="recovery-codes-lost">Recovery codes lost</option>
+          <option value="suspected-compromise">Suspected compromise</option>
+        </select>
+        <label for="review-verification">How you verified the person</label>
+        <select id="review-verification" name="verification" required>
+          <option value="video-call">Video call</option>
+          <option value="in-person">In person</option>
+          <option value="verified-callback">Call back on a verified number</option>
+        </select>
+        <label for="review-evidence">Evidence reference</label>
+        <input id="review-evidence" name="evidenceReference" type="text" autocomplete="off" spellcheck="false"
+          minlength="3" maxlength="64" pattern="[A-Za-z0-9][A-Za-z0-9._:#\/\-]{2,63}" required
+          aria-describedby="review-evidence-hint" />
+        <p id="review-evidence-hint">A ticket or case reference such as SEC-2026-0412. No names, emails or notes.</p>
+        <label>
+          <input name="confirmed" type="checkbox" required />
+          I verified this person out of band and reviewed this reset.
+        </label>
+        <div><button pButton type="submit" [disabled]="busy()">Reset authenticator</button></div>
+      </form>
+    }
+    <a routerLink="/">Return to the Provider Console</a>
+  </section>
+</main>

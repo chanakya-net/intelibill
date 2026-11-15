@@ -22,7 +22,7 @@ internal sealed class AdminMfaVerifier(AdminMfaStore store, AdminMfaKeys keys, T
         Guid provedAdminId, string? recoveryCode, CancellationToken cancellationToken) =>
         WithEnrolledAsync(provedAdminId, async (totp, now) =>
         {
-            var normalized = NormalizeRecoveryCode(recoveryCode);
+            var normalized = AdminRecoveryRules.NormalizeCode(recoveryCode);
             if (normalized is null) return InvalidRecovery;
             var digest = keys.HashRecovery(totp, normalized);
             if (digest is null) return AdminMfaEnrollmentService.KeyUnavailable;
@@ -51,10 +51,4 @@ internal sealed class AdminMfaVerifier(AdminMfaStore store, AdminMfaKeys keys, T
 
     private static Error InvalidRecovery => Error.Validation("Mfa.InvalidRecoveryCode", "The recovery code could not be verified.");
 
-    private static string? NormalizeRecoveryCode(string? input)
-    {
-        if (input is null || input.Length is not (32 or 35)) return null;
-        var normalized = input.Replace("-", "", StringComparison.Ordinal);
-        return normalized.Length == 32 && normalized.All(char.IsAsciiHexDigit) ? normalized.ToUpperInvariant() : null;
-    }
 }

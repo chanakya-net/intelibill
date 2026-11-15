@@ -7,6 +7,7 @@ import { identityAuditCapability } from './features/audit/admin-audit-api.servic
 import { AdminSessionService } from './features/auth/admin-session.service';
 
 const invitationCapability = 'admin.invitations.manage';
+const recoveryCapability = 'admin.recovery.review';
 
 @Component({
   selector: 'adm-landing-page',
@@ -24,6 +25,7 @@ export class LandingPageComponent {
   protected readonly capabilities = this.session.capabilities;
   protected readonly invitationCapability = invitationCapability;
   protected readonly auditCapability = identityAuditCapability;
+  protected readonly recoveryCapability = recoveryCapability;
 
   /** A user action, so renewing here counts as activity; nothing renews in the background. */
   protected resume() {

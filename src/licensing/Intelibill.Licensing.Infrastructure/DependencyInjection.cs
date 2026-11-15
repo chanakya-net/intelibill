@@ -46,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<AdminMfaStore>();
         services.AddScoped<IAdminMfaEnrollment, AdminMfaEnrollmentService>();
         services.AddScoped<IAdminMfaVerifier, AdminMfaVerifier>();
+        services.AddScoped<IAdminRecoveryStore, AdminRecoveryStore>();
         return services.AddBootstrapPersistence();
     }
 

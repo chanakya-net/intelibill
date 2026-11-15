@@ -18,6 +18,7 @@ internal sealed class AdminTotpMapping : IEntityTypeConfiguration<AdminTotp>
         });
         builder.HasKey(totp => totp.AdminId);
         builder.Property(totp => totp.KeyId).HasMaxLength(32);
+        builder.Property(totp => totp.RecoveryKeyId).HasMaxLength(32);
         builder.HasOne<AdminIdentity>().WithOne().HasForeignKey<AdminTotp>(totp => totp.AdminId)
             .OnDelete(DeleteBehavior.Restrict);
     }

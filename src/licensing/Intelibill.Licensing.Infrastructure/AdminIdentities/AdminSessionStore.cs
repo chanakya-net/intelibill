@@ -71,6 +71,7 @@ internal sealed partial class AdminSessionStore(LicensingDbContext context, Admi
         var isOwner = await context.Set<InitialAdminBootstrap>().AnyAsync(state =>
             state.OwnerId == adminId && state.ConsumedAt != null, cancellationToken);
         return new AdminSessionAccess(adminId, active[0], isOwner
-            ? [ProviderActor.InvitationCapability, ProviderActor.AuditIdentityReadCapability] : []);
+            ? [ProviderActor.InvitationCapability, ProviderActor.AuditIdentityReadCapability,
+                ProviderActor.RecoveryReviewCapability] : []);
     }
 }

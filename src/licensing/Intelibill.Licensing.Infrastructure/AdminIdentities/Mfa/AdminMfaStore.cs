@@ -47,6 +47,11 @@ internal sealed class AdminMfaStore(LicensingDbContext context, AuditEvidenceFac
         context.Set<AdminRecoveryCode>().SingleOrDefaultAsync(
             code => code.AdminId == adminId && code.Digest == digest && code.ConsumedAt == null, cancellationToken);
 
+    /// <summary>Unused codes of an earlier enrollment stop working; consumed ones keep their instant.</summary>
+    internal Task VoidRecoveryCodesAsync(Guid adminId, DateTimeOffset now, CancellationToken cancellationToken) =>
+        context.Set<AdminRecoveryCode>().Where(code => code.AdminId == adminId && code.ConsumedAt == null)
+            .ExecuteUpdateAsync(set => set.SetProperty(code => code.ConsumedAt, now), cancellationToken);
+
     internal void Add(AdminTotp totp) => context.Add(totp);
     internal void Add(AdminRecoveryCode code) => context.Add(code);
     internal void Audit(Guid adminId, BootstrapAuditAction action, AuditReason reason, DateTimeOffset now,

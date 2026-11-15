@@ -16,6 +16,7 @@ internal static class ProviderSessions
     internal const string InvitationPolicy = "ProviderInvitations";
     internal const string DevicePolicy = "ProviderDeviceSessions";
     internal const string AuditPolicy = "ProviderIdentityAudit";
+    internal const string RecoveryPolicy = "ProviderRecoveryReview";
     internal const string CapabilityClaim = "provider_capability";
     internal const string MfaVerifiedAtClaim = "provider_mfa_at";
 
@@ -34,6 +35,7 @@ internal static class ProviderSessions
         services.AddSingleton<AdminAccessTokens>();
         services.AddScoped<AdminSignInHttp>();
         services.AddScoped<AdminSignInHandler>();
+        services.AddScoped<AdminRecoveryHandler>();
         services.AddScoped<AdminDeviceSessions>();
         services.AddScoped<AdminSignOutHandler>();
         services.AddAuthentication()
@@ -50,11 +52,23 @@ internal static class ProviderSessions
                 .RequireAuthenticatedUser()
                 .RequireClaim(BusinessClaim, "true")
                 .RequireClaim(CapabilityClaim, ProviderActor.AuditIdentityReadCapability))
+            .AddPolicy(RecoveryPolicy, policy => policy
+                .AddAuthenticationSchemes(Scheme)
+                .RequireAuthenticatedUser()
+                .RequireClaim(BusinessClaim, "true")
+                .RequireClaim(CapabilityClaim, ProviderActor.RecoveryReviewCapability))
             .AddPolicy(InvitationPolicy, policy => policy
             .AddAuthenticationSchemes(Scheme, FixtureScheme)
             .RequireAuthenticatedUser()
             .RequireClaim(CapabilityClaim, ProviderActor.InvitationCapability));
     }
+
+    internal static AdminSessionCaller? ReadCaller(ClaimsPrincipal user) =>
+        Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var adminId)
+        && Guid.TryParse(user.FindFirstValue(SessionIdClaim), out var sessionId)
+        && DateTimeOffset.TryParse(user.FindFirstValue(AccessExpiresClaim), CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind, out var expires)
+            ? new(adminId, sessionId, expires) : null;
 
     internal static ProviderActor? ToActor(ClaimsPrincipal user) =>
         Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var adminId)

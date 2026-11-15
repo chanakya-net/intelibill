@@ -8,6 +8,7 @@ public sealed record ProviderActor(Guid AdminId, DateTimeOffset MfaVerifiedAt)
 {
     public const string InvitationCapability = "admin.invitations.manage";
     public const string AuditIdentityReadCapability = "admin.audit.identity.read";
+    public const string RecoveryReviewCapability = "admin.recovery.review";
     public static readonly TimeSpan RecentMfaWindow = TimeSpan.FromMinutes(5);
 
     public bool HasRecentMfa(DateTimeOffset now) =>

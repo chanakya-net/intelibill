@@ -34,7 +34,10 @@ internal sealed class AdminMfaKeys(IOptions<AdminMfaOptions> options)
 
     internal string? ActiveKeyId => options.Value.ActiveKeyId;
 
-    internal AdminTotp Encrypt(Guid adminId, string keyId, ReadOnlySpan<byte> secret)
+    internal AdminTotp Encrypt(Guid adminId, string keyId, ReadOnlySpan<byte> secret) =>
+        new(adminId, keyId, EncryptSecret(adminId, keyId, secret));
+
+    internal byte[] EncryptSecret(Guid adminId, string keyId, ReadOnlySpan<byte> secret)
     {
         var key = Derive(keyId, "intelibill-admin/totp-encryption/v1"u8)!;
         try
@@ -44,7 +47,7 @@ internal sealed class AdminMfaKeys(IOptions<AdminMfaOptions> options)
             using var aes = new AesGcm(key, TagBytes);
             aes.Encrypt(payload.AsSpan(0, NonceBytes), secret, payload.AsSpan(NonceBytes + TagBytes),
                 payload.AsSpan(NonceBytes, TagBytes), adminId.ToByteArray());
-            return new AdminTotp(adminId, keyId, payload);
+            return payload;
         }
         finally
         {
@@ -76,7 +79,7 @@ internal sealed class AdminMfaKeys(IOptions<AdminMfaOptions> options)
 
     internal string? HashRecovery(AdminTotp totp, string normalized)
     {
-        var key = Derive(totp.KeyId, "intelibill-admin/recovery-hmac/v1"u8);
+        var key = Derive(totp.RecoveryKeyId ?? totp.KeyId, "intelibill-admin/recovery-hmac/v1"u8);
         if (key is null) return null;
         try
         {

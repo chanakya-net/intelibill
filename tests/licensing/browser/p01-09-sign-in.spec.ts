@@ -28,7 +28,7 @@ test('real sign-in, reload, invitation scope and request boundaries', async ({ b
     await expect(page.getByRole('link', { name: 'Manage administrator invitations' })).toBeVisible();
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Granted capabilities' })).toBeVisible();
-    await expect(page.getByRole('list', { name: 'Granted capabilities' }).getByRole('listitem')).toHaveCount(2);
+    await expect(page.getByRole('list', { name: 'Granted capabilities' }).getByRole('listitem')).toHaveCount(3);
     await assertSessionIsolation(page);
     await assertMutationBoundaries(page);
     const invitation = await invite(page);

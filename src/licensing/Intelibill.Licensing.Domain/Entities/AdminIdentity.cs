@@ -11,7 +11,21 @@ public sealed class AdminIdentity(
 
     public DateTimeOffset? MfaEnrolledAt { get; private set; }
     public DateTimeOffset? DeactivatedAt { get; private set; }
+    public string? RecoveryContinuationDigest { get; private set; }
     public uint Version { get; private set; }
 
-    public void CompleteMfaEnrollment(DateTimeOffset now) => MfaEnrolledAt ??= now;
+    public void CompleteMfaEnrollment(DateTimeOffset now)
+    {
+        MfaEnrolledAt ??= now;
+        RecoveryContinuationDigest = null;
+    }
+
+    public void SaveRecoveryContinuation(string digest) => RecoveryContinuationDigest = digest;
+
+    /// <summary>Returns the administrator to MFA-pending; only a new enrollment restores business access.</summary>
+    public void ResetMfa()
+    {
+        MfaEnrolledAt = null;
+        RecoveryContinuationDigest = null;
+    }
 }
