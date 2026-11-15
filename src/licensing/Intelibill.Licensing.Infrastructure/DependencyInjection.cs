@@ -1,6 +1,8 @@
 using Intelibill.Licensing.Infrastructure.Billing;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Application.Audit;
+using Intelibill.Licensing.Application.Catalogue;
+using Intelibill.Licensing.Infrastructure.Catalogue;
 using Intelibill.Licensing.Infrastructure.Audit;
 using Intelibill.Licensing.Application.Bootstrap;
 using Intelibill.Licensing.Infrastructure.AdminIdentities;
@@ -50,6 +52,7 @@ public static class DependencyInjection
         services.AddScoped<IAdminMfaVerifier, AdminMfaVerifier>();
         services.AddScoped<IAdminRecoveryStore, AdminRecoveryStore>();
         services.AddScoped<IAdminCapabilitiesStore, AdminCapabilitiesStore>();
+        services.AddScoped<ICatalogueDraftStore, CatalogueDraftStore>();
         return services.AddBootstrapPersistence();
     }
 

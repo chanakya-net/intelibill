@@ -7,14 +7,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { AdminSessionService, type SessionNotice } from './features/auth/admin-session.service';
 import { LandingPageComponent } from './landing-page.component';
 
-function render(notice: SessionNotice = 'none') {
+function render(notice: SessionNotice = 'none', grants: string[] = ['admin.invitations.manage']) {
   const state = signal<SessionState>('authenticated');
   const reason = signal<SessionNotice>(notice);
   const check = vi.fn(() => of('active' as const));
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
-      { provide: SESSION_PORT, useValue: { state, capabilities: signal(['admin.invitations.manage']) } },
+      { provide: SESSION_PORT, useValue: { state, capabilities: signal(grants) } },
       { provide: AdminSessionService, useValue: { notice: reason, check } },
     ],
   });
@@ -63,5 +63,13 @@ describe('provider console landing', () => {
     expect(check).not.toHaveBeenCalled();
     page.querySelector<HTMLButtonElement>('button')!.click();
     expect(check).toHaveBeenCalledOnce();
+  });
+
+  it('links the catalogue drafts only for the Licensing Manager grant', () => {
+    const { page } = render('none', ['licensing-manager']);
+    expect(page.querySelector('a[href="/catalogue"]')?.textContent).toContain('Plan catalogue drafts');
+    TestBed.resetTestingModule();
+    const other = render('none', ['support', 'platform-owner']);
+    expect(other.page.querySelector('a[href="/catalogue"]')).toBeNull();
   });
 });

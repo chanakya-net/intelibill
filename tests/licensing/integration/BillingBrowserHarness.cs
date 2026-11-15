@@ -17,6 +17,21 @@ internal static class BillingBrowserHarness
         return await StartWebAsync(start, cancellationToken);
     }
 
+    /// <summary>The shipping admin web server (dist/ADMIN), forwarding /api/admin to the licensing API.</summary>
+    internal static async Task<OwnedProcess> StartAdminWebAsync(string root, Uri origin, CancellationToken cancellationToken)
+    {
+        Assert.True(File.Exists(Path.Combine(root, "dist/ADMIN/browser/index.html")), "Build the shipping admin web first.");
+        var start = NodeStart(root, origin);
+        start.ArgumentList.Add("--input-type=module");
+        start.ArgumentList.Add("-e");
+        start.ArgumentList.Add("""
+            import { createAdminServer } from './server.mjs';
+            const server = createAdminServer({ root: 'dist/ADMIN/browser', apiOrigin: process.env.API_ORIGIN });
+            server.listen(0, '127.0.0.1', () => console.log('http://localhost:' + server.address().port));
+            """);
+        return await StartWebAsync(start, cancellationToken);
+    }
+
     internal static ProcessStartInfo NodeStart(string root, Uri origin) => new("node")
     {
         WorkingDirectory = root, RedirectStandardOutput = true,

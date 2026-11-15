@@ -1,0 +1,30 @@
+<section class="ib-panel" aria-labelledby="trial-heading">
+  <h2 class="ib-panel__title" id="trial-heading">Trial policy</h2>
+  <p class="status" data-testid="trial-status">Draft · not published</p>
+  <p>Trials last a fixed {{ draft()?.durationDays ?? 14 }} calendar days.</p>
+  @if (draft(); as current) {
+    <p>{{ current.complete ? 'All trial facts are recorded.' : 'Incomplete draft.' }} Revision {{ current.version }}.</p>
+    @if (current.missing.length) {
+      <ul aria-label="Missing trial facts" data-testid="trial-missing">
+        @for (fact of current.missing; track fact) { <li>{{ label(fact) }}</li> }
+      </ul>
+    }
+  }
+  @if (error()) { <p class="ib-error-banner" role="alert">{{ error() }}</p> }
+  @if (notice()) { <p role="status">{{ notice() }}</p> }
+  @if (!cleared()) {
+    <form #trial (submit)="submit($event, trial)" [attr.aria-busy]="busy()">
+      <fieldset [disabled]="busy()">
+        <label for="member-cap">Active member cap</label>
+        <input id="member-cap" name="activeMemberCap" inputmode="numeric" [value]="draft()?.activeMemberCap ?? ''" placeholder="Not set" />
+        <label for="shop-cap">Concurrent trial shop cap</label>
+        <input id="shop-cap" name="maxConcurrentTrialShops" inputmode="numeric"
+          [value]="draft()?.maxConcurrentTrialShops ?? ''" placeholder="Not set" />
+        <label for="trial-terms">Trial terms version</label>
+        <input id="trial-terms" name="trialTermsVersion" [value]="draft()?.trialTermsVersion ?? ''" placeholder="Not set" />
+        <p>Blank caps stay missing; there is no unlimited trial.</p>
+        <div><button pButton type="submit">Save trial policy draft</button></div>
+      </fieldset>
+    </form>
+  }
+</section>

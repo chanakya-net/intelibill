@@ -28,7 +28,7 @@ internal sealed class P0110CookieBrowser(HttpClient client) : IDisposable
         string? csrf = null, string origin = Origin, string csrfHeader = "X-Admin-CSRF")
     {
         using var request = new HttpRequestMessage(method, new Uri(path, UriKind.Relative));
-        if (body is not null) request.Content = JsonContent.Create(body);
+        if (body is not null) request.Content = body as HttpContent ?? JsonContent.Create(body);
         if (method != HttpMethod.Get) request.Headers.Add("Origin", origin);
         if (csrf is not null) request.Headers.Add(csrfHeader, csrf);
         if (_jar.Count > 0) request.Headers.Add("Cookie", string.Join("; ", _jar.Select(pair => pair.Key + "=" + pair.Value)));
