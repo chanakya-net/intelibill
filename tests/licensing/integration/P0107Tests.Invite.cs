@@ -50,8 +50,9 @@ public sealed partial class P0107Tests
         Assert.Null(EnrollmentCookieOf(replay));
 
         await AssertEnrolledOnceAsync(provider, invitee);
-        Assert.Contains(logs.Events, entry => entry.Contains("Admin invitation accepted", StringComparison.Ordinal));
-        Assert.Contains(logs.Events, entry => entry.Contains("Invitation.Unavailable", StringComparison.Ordinal));
+        // The async Serilog sink delivers after the response; wait for it instead of racing it.
+        await logs.WaitForAsync("Admin invitation accepted");
+        await logs.WaitForAsync("Invitation.Unavailable");
         Assert.DoesNotContain(logs.Events, entry => entry.Contains(token, StringComparison.Ordinal)
             || entry.Contains(token[3..], StringComparison.Ordinal) || entry.Contains(password, StringComparison.Ordinal)
             || entry.Contains(invitee, StringComparison.OrdinalIgnoreCase));
