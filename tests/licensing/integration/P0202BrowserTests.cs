@@ -38,8 +38,12 @@ public sealed class P0202BrowserTests(LicensingPostgreSqlFixture database, ITest
 
         var emailA = P0202Fixture.UniqueEmail();
         var emailB = P0202Fixture.UniqueEmail();
+        var emailC = P0202Fixture.UniqueEmail();
         var actorA = await P0201Tests.SeedMerchantAsync(merchant.Services, emailA);
         var actorB = await P0201Tests.SeedMerchantAsync(merchant.Services, emailB);
+        var actorC = await P0201Tests.SeedMerchantAsync(merchant.Services, emailC);
+        await SeedShopAsync(actorC);
+        await BillingPaginationFixture.SeedAsync(database, fixture, actorC, 100);
         await SeedShopAsync(actorA);
         var shopB = await SeedShopAsync(actorB);
         var memberships = await CountMerchantAsync("SELECT count(*) FROM shop_memberships");
@@ -48,10 +52,16 @@ public sealed class P0202BrowserTests(LicensingPostgreSqlFixture database, ITest
         using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend"));
         await using var merchantWeb = await StartMerchantWebAsync(staging.Root, merchantClient.BaseAddress!, deadline.Token);
         var evidence = Directory.CreateTempSubdirectory("intelibill-p0202-").FullName;
-        var observations = await RunPlaywrightAsync(merchantWeb.Origin, licensingOrigin, emailA, emailB, shopB,
+        var observations = await RunPlaywrightAsync(merchantWeb.Origin, licensingOrigin, emailA, emailB, emailC, shopB,
             evidence, deadline.Token);
 
         var rows = await P0202Fixture.ReadAccountRowsAsync(database, fixture);
+        Assert.Equal(105, rows.Length);
+        var pageRows = rows.Where(row => row.MerchantUserId == actorC).ToArray();
+        Assert.Equal(101, pageRows.Length);
+        Assert.All(pageRows, row => Assert.Equal((1, 1), (row.Role, row.Status)));
+        Assert.Contains(pageRows, row => row.AccountId == observations.GetProperty("createdPastFirstPage").GetGuid());
+        rows = rows.Where(row => row.MerchantUserId != actorC).ToArray();
         Assert.Equal(4, rows.Length);
         Assert.All(rows, row => Assert.Equal((actorA, 1, 1), (row.MerchantUserId, row.Role, row.Status)));
         Assert.Equal(
@@ -60,12 +70,12 @@ public sealed class P0202BrowserTests(LicensingPostgreSqlFixture database, ITest
         Assert.DoesNotContain(rows, row => row.MerchantUserId == actorB);
         Assert.Equal(memberships, await CountMerchantAsync("SELECT count(*) FROM shop_memberships"));
         Assert.Equal(observations.GetProperty("delegatedCalls").GetInt32(), traffic.Requests);
-        output.WriteLine($"Local fixture verification: {traffic.Requests} delegated licensing requests; four accounts owned by A only (two-tab lost answer recovered by its key).");
+        output.WriteLine($"Local fixture verification: {traffic.Requests} delegated licensing requests; four accounts owned by A; 101 by C, including a creation beyond page one retained after reload.");
         output.WriteLine($"Sanitized browser output directory {evidence}");
     }
 
     private async Task<JsonElement> RunPlaywrightAsync(string merchantWeb, Uri licensingOrigin, string emailA,
-        string emailB, Guid shopB, string evidence, CancellationToken cancellationToken)
+        string emailB, string emailC, Guid shopB, string evidence, CancellationToken cancellationToken)
     {
         var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
         var playwright = new ProcessStartInfo("bun") { WorkingDirectory = adminRoot, RedirectStandardOutput = true, RedirectStandardError = true };
@@ -76,6 +86,7 @@ public sealed class P0202BrowserTests(LicensingPostgreSqlFixture database, ITest
         playwright.Environment["P0202_LICENSING_API"] = licensingOrigin.AbsoluteUri;
         playwright.Environment["P0202_EMAIL_A"] = emailA;
         playwright.Environment["P0202_EMAIL_B"] = emailB;
+        playwright.Environment["P0202_EMAIL_C"] = emailC;
         playwright.Environment["P0202_PASSWORD"] = P0201Tests.Password;
         playwright.Environment["P0202_SHOP_B"] = shopB.ToString("D");
         playwright.Environment["P0202_MENU_LABEL"] = "Billing accounts";

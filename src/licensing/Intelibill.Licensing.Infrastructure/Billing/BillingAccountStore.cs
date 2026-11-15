@@ -48,13 +48,14 @@ internal sealed class BillingAccountStore(LicensingDbContext db) : IBillingAccou
             : null;
     }
 
-    public async Task<IReadOnlyList<Guid>> ListActorAccountIdsAsync(Guid actorId, int limit,
+    public async Task<IReadOnlyList<Guid>> ListActorAccountIdsAsync(Guid actorId, Guid? after, int limit,
         CancellationToken cancellationToken) =>
         await db.Database.SqlQuery<Guid>($"""
             SELECT account_id AS "Value"
             FROM public.billing_account_members
             WHERE merchant_user_id = {actorId} AND status = {(int)BillingAccountMemberStatus.Active}
-            ORDER BY created_at, account_id
+            AND account_id > {after ?? Guid.Empty}
+            ORDER BY account_id
             LIMIT {limit}
             """).ToListAsync(cancellationToken);
 

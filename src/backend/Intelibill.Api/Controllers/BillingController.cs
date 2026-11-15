@@ -22,12 +22,12 @@ public sealed class BillingController(IMerchantBillingAccess billing) : Controll
     public sealed record CreateBillingAccountRequest(Guid OperationKey, string? Name);
 
     [HttpGet]
-    public async Task<IActionResult> List(CancellationToken cancellationToken)
+    public async Task<IActionResult> List([FromQuery] Guid? after, CancellationToken cancellationToken)
     {
         if (ReadCaller() is not { } caller)
             return SessionInvalid();
 
-        var result = await billing.ListAccountsAsync(caller, cancellationToken);
+        var result = await billing.ListAccountsAsync(caller, after, cancellationToken);
         return result.IsError ? Failure(result.FirstError) : Ok(result.Value);
     }
 

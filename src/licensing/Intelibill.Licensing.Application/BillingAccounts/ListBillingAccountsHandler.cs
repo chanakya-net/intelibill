@@ -10,17 +10,17 @@ namespace Intelibill.Licensing.Application.BillingAccounts;
 /// </summary>
 public sealed class ListBillingAccountsHandler(IBillingDelegationAccess access, IBillingAccountStore store)
 {
-    public Task<ErrorOr<BillingAccountListV1>> HandleAsync(VerifiedBillingDelegation delegation,
+    public Task<ErrorOr<BillingAccountListV1>> HandleAsync(VerifiedBillingDelegation delegation, Guid? after,
         CancellationToken cancellationToken) =>
-        access.ExecuteAsync(delegation, ListAsync, cancellationToken);
+        access.ExecuteAsync(delegation, (scope, token) => ListAsync(scope, after, token), cancellationToken);
 
-    private async Task<ErrorOr<BillingAccountListV1>> ListAsync(IBillingDelegationScope scope,
+    private async Task<ErrorOr<BillingAccountListV1>> ListAsync(IBillingDelegationScope scope, Guid? after,
         CancellationToken cancellationToken)
     {
-        var ids = await store.ListActorAccountIdsAsync(scope.ActorId,
-            MerchantBillingDelegationV1.MaximumListedAccounts, cancellationToken);
+        var ids = await store.ListActorAccountIdsAsync(scope.ActorId, after,
+            MerchantBillingDelegationV1.MaximumListedAccounts + 1, cancellationToken);
         var accounts = new List<BillingAccountV1>(ids.Count);
-        foreach (var id in ids)
+        foreach (var id in ids.Take(MerchantBillingDelegationV1.MaximumListedAccounts))
         {
             await scope.UseAccountAsync(id, cancellationToken);
             // A membership the actor can see must name an account it can read; anything else fails closed.
@@ -28,6 +28,7 @@ public sealed class ListBillingAccountsHandler(IBillingDelegationAccess access, 
                 return BillingDelegationErrors.StorageUnavailable;
             accounts.Add(CreateBillingAccountHandler.ToContract(account.Id, account.Name, account.Role, account.CreatedAt));
         }
-        return new BillingAccountListV1([.. accounts]);
+        return new BillingAccountListV1([.. accounts],
+            ids.Count > MerchantBillingDelegationV1.MaximumListedAccounts ? accounts[^1].AccountId : null);
     }
 }

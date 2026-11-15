@@ -20,23 +20,24 @@ internal static class CustomerBillingAccountEndpoints
     internal static void MapCustomerBillingAccounts(this WebApplication app, AuthorizationPolicy policy)
     {
         app.MapGet(MerchantBillingDelegationV1.AccountsPath, ListAsync).RequireAuthorization(policy);
+        app.MapGet(MerchantBillingDelegationV1.AccountsPath + "/after/{after:guid}", ListAsync).RequireAuthorization(policy);
         app.MapPost(MerchantBillingDelegationV1.AccountsPath, CreateAsync).RequireAuthorization(policy);
     }
 
     private static async Task<IResult> ListAsync(HttpContext context, ListBillingAccountsHandler handler,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, Guid? after = null)
     {
         var request = context.Request;
         var delegation = context.Features.Get<VerifiedBillingDelegation>();
         if (delegation is null || delegation.AccountId is not null ||
             !CustomerBillingEndpoints.MatchesBinding(request, delegation, MerchantBillingDelegationV1.ListAccounts,
-                HttpMethods.Get, MerchantBillingDelegationV1.AccountsPath) ||
+                HttpMethods.Get, MerchantBillingDelegationV1.AccountListPath(after)) ||
             context.Features.Get<IHttpRequestBodyDetectionFeature>()?.CanHaveBody == true ||
             request.ContentLength is not (null or 0) || request.Headers.ContainsKey("Transfer-Encoding") ||
             delegation.BodySha256 != MerchantBillingDelegationV1.EmptyBodySha256)
             return CustomerBillingEndpoints.Problem(context, StatusCodes.Status401Unauthorized, BillingDelegationErrors.Invalid);
 
-        var result = await handler.HandleAsync(delegation, cancellationToken);
+        var result = await handler.HandleAsync(delegation, after, cancellationToken);
         return result.IsError ? CustomerBillingEndpoints.Failure(context, result.FirstError) : Results.Ok(result.Value);
     }
 

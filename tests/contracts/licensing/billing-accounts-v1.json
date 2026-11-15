@@ -24,7 +24,16 @@
     }
   },
   "accountFields": ["accountId", "createdAt", "name", "role"],
-  "listFields": ["accounts"],
+  "listFields": ["accounts", "nextCursor"],
+  "pagination": {
+    "pageSize": 100,
+    "order": "accountId ascending (PostgreSQL uuid order)",
+    "merchantContinuation": "GET /api/billing/accounts?after={nextCursor}",
+    "internalContinuation": "GET /internal/licensing/v1/customer/accounts/after/{nextCursor}",
+    "binding": "The canonical continuation path is signed in path; query strings are rejected internally.",
+    "completion": "nextCursor null; otherwise the final returned accountId",
+    "authority": "Cursor is only a position; each page rechecks live session and actor memberships."
+  },
   "roles": ["Owner", "Manager"],
   "nameRule": { "trimmed": true, "minLength": 1, "maxLength": 120, "normalization": "NFC", "controlCharacters": false },
   "createOutcomes": {

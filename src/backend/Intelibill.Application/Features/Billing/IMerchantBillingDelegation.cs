@@ -17,7 +17,7 @@ public interface IMerchantBillingAccess
 {
     Task<ErrorOr<BillingAccountAccessV1>> GetAsync(MerchantBillingAccessRequest access, CancellationToken cancellationToken);
 
-    Task<ErrorOr<BillingAccountListV1>> ListAccountsAsync(MerchantBillingCaller caller, CancellationToken cancellationToken);
+    Task<ErrorOr<BillingAccountListV1>> ListAccountsAsync(MerchantBillingCaller caller, Guid? after, CancellationToken cancellationToken);
 
     Task<ErrorOr<MerchantCreatedBillingAccount>> CreateAccountAsync(MerchantBillingCaller caller,
         MerchantCreateBillingAccount request, CancellationToken cancellationToken);

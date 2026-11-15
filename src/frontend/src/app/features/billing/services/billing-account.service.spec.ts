@@ -35,6 +35,26 @@ describe('BillingAccountService', () => {
     expect(listed).toEqual([account]);
   });
 
+  it('traverses bounded pages before publishing a complete refreshed list', () => {
+    let listed: readonly BillingAccount[] = [];
+    const later = { ...account, accountId: 'ffffffff-ffff-8fff-9fff-ffffffffffff', name: 'New account' };
+    service.list().subscribe((value) => (listed = value));
+    http.expectOne(accounts).flush({ accounts: [account], nextCursor: account.accountId });
+    expect(listed).toEqual([]);
+    http.expectOne(`${accounts}?after=${account.accountId}`).flush({ accounts: [later], nextCursor: null });
+    expect(listed).toEqual([account, later]);
+  });
+
+  it('does not publish a truncated list when a later page fails', () => {
+    let emitted = false;
+    let failed = false;
+    service.list().subscribe({ next: () => (emitted = true), error: () => (failed = true) });
+    http.expectOne(accounts).flush({ accounts: [account], nextCursor: account.accountId });
+    http.expectOne(`${accounts}?after=${account.accountId}`).flush({}, { status: 503, statusText: 'Unavailable' });
+    expect(emitted).toBe(false);
+    expect(failed).toBe(true);
+  });
+
   it('sends exactly the frozen operation key and name, and reports first creation', () => {
     let result: CreatedBillingAccount | null = null;
     service

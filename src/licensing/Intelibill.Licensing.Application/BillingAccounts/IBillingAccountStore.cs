@@ -18,6 +18,6 @@ public interface IBillingAccountStore
     /// <summary>The account with the actor's active role, or null when it is not visible to the actor.</summary>
     Task<StoredBillingAccount?> FindAsync(Guid accountId, Guid actorId, CancellationToken cancellationToken);
 
-    /// <summary>The actor's own active memberships, oldest first, at most <paramref name="limit"/>.</summary>
-    Task<IReadOnlyList<Guid>> ListActorAccountIdsAsync(Guid actorId, int limit, CancellationToken cancellationToken);
+    /// <summary>The actor's own active memberships, ordered by account ID after the cursor, at most <paramref name="limit"/>.</summary>
+    Task<IReadOnlyList<Guid>> ListActorAccountIdsAsync(Guid actorId, Guid? after, int limit, CancellationToken cancellationToken);
 }

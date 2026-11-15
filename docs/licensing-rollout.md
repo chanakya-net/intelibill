@@ -299,9 +299,20 @@ creates one only on explicit submit. It freezes the operation key and name in
 `localStorage` before sending and reuses them on every retry until a
 definitive answer.
 
+Listing returns `{ accounts, nextCursor }` with at most 100 accounts per response,
+ordered by account ID. Continue using `GET /api/billing/accounts?after={nextCursor}`
+until the cursor is null. The merchant signs the canonical internal path
+`/internal/licensing/v1/customer/accounts/after/{cursor}`; licensing rejects changed
+paths and extra query parameters. A cursor is only a position, never account authority.
+Every page authorizes the live caller and reads its own active memberships under RLS.
+The web collects the traversal before replacing its list, preserving the current rows
+if any page fails. Creation triggers a fresh traversal, as does reload. Concurrent
+membership changes are reflected by a fresh traversal; pages are not a frozen snapshot.
+Deploy licensing, then merchant, then web so all consumers understand continuation.
+
 Replay-row retention: keep every `merchant_billing_delegation_uses` row through
-observe-only Phase 2. The page makes one list call per visit and one per
-create, with no polling. Before paid traffic (P03), schedule a migrator-only
+observe-only Phase 2. The page traverses the list once per visit and once per
+create (one delegated call per page), with no polling. Before paid traffic (P03), schedule a migrator-only
 purge of rows past `expires_at` plus a retention window. Keep global replay
 uniqueness for every assertion that can still be accepted.
 

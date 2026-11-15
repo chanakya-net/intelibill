@@ -25,6 +25,10 @@ public static class MerchantBillingDelegationV1
     public const string OwnerRole = "Owner";
     public const string ManagerRole = "Manager";
 
+    // Continuation is a position, never account authority. The entire canonical path is signed.
+    public static string AccountListPath(Guid? after) => after is { } id
+        ? $"{AccountsPath}/after/{id:D}" : AccountsPath;
+
     public static string AccountAccessPath(Guid accountId) => $"{AccountsPath}/{accountId:D}/access";
 
     /// <summary>Actions that act for the verified actor before any account exists, so they carry no account.</summary>
@@ -123,4 +127,5 @@ public sealed record BillingAccountV1(
     [property: JsonPropertyName("createdAt")] DateTimeOffset CreatedAt);
 
 public sealed record BillingAccountListV1(
-    [property: JsonPropertyName("accounts")] BillingAccountV1[] Accounts);
+    [property: JsonPropertyName("accounts")] BillingAccountV1[] Accounts,
+    [property: JsonPropertyName("nextCursor")] Guid? NextCursor = null);

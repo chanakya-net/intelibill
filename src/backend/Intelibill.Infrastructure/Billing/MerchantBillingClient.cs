@@ -39,16 +39,29 @@ internal sealed partial class MerchantBillingClient(
             }, cancellationToken);
     }
 
-    public Task<ErrorOr<BillingAccountListV1>> ListAccountsAsync(MerchantBillingCaller caller,
+    public Task<ErrorOr<BillingAccountListV1>> ListAccountsAsync(MerchantBillingCaller caller, Guid? after,
         CancellationToken cancellationToken) =>
-        RunAsync<BillingAccountListV1>(caller, BillingDelegationIntent.ListAccounts(), MaximumListResponseBytes, async (response, token) =>
+        RunAsync<BillingAccountListV1>(caller, BillingDelegationIntent.ListAccounts(after), MaximumListResponseBytes, async (response, token) =>
         {
             var result = await ReadJsonAsync<BillingAccountListV1>(response, token);
             return result?.Accounts is { Length: <= MerchantBillingDelegationV1.MaximumListedAccounts } accounts &&
-                accounts.All(IsValidAccount)
-                ? new BillingAccountListV1([.. accounts.Select(Copy)])
+                accounts.All(IsValidAccount) && ValidContinuation(result, after)
+                ? new BillingAccountListV1([.. accounts.Select(Copy)], result.NextCursor)
                 : Unavailable("InvalidResponseContract");
         }, cancellationToken);
+
+    private static bool ValidContinuation(BillingAccountListV1 page, Guid? after)
+    {
+        var previous = after;
+        foreach (var account in page.Accounts)
+        {
+            if (previous is { } id && account.AccountId.CompareTo(id) <= 0)
+                return false;
+            previous = account.AccountId;
+        }
+        return page.NextCursor is null ||
+            (page.Accounts.Length == MerchantBillingDelegationV1.MaximumListedAccounts && page.NextCursor == previous);
+    }
 
     public Task<ErrorOr<MerchantCreatedBillingAccount>> CreateAccountAsync(MerchantBillingCaller caller,
         MerchantCreateBillingAccount request, CancellationToken cancellationToken)

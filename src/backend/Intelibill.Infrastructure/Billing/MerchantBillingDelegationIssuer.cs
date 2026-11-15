@@ -20,8 +20,8 @@ internal sealed record BillingDelegationIntent(string Action, HttpMethod Method,
     internal static BillingDelegationIntent ReadAccount(Guid accountId) => new(MerchantBillingDelegationV1.ReadAccount,
         HttpMethod.Get, MerchantBillingDelegationV1.AccountAccessPath(accountId), accountId, []);
 
-    internal static BillingDelegationIntent ListAccounts() => new(MerchantBillingDelegationV1.ListAccounts,
-        HttpMethod.Get, MerchantBillingDelegationV1.AccountsPath, null, []);
+    internal static BillingDelegationIntent ListAccounts(Guid? after) => new(MerchantBillingDelegationV1.ListAccounts,
+        HttpMethod.Get, MerchantBillingDelegationV1.AccountListPath(after), null, []);
 
     internal static BillingDelegationIntent CreateAccount(byte[] body) => new(MerchantBillingDelegationV1.CreateAccount,
         HttpMethod.Post, MerchantBillingDelegationV1.AccountsPath, null, body);

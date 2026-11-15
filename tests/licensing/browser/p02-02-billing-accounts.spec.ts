@@ -2,6 +2,8 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type BrowserContext, type Page, type Response } from '@playwright/test';
 
+import { verifyAccountPagination } from './p02-02-pagination';
+
 // Local fixture verification only: loopback hosts, disposable databases, a local signing key.
 function setting(name: string): string {
   const value = process.env['P0202_' + name];
@@ -283,9 +285,17 @@ test('a verified merchant explicitly creates and lists billing accounts it alone
   expect(JSON.parse(foreign.body).code).toBe('Billing.AccountAccessDenied');
   expect(await storageHasDelegation(pageB, contextB)).toBe(false);
 
+  // A third actor with 100 fixture accounts creates account 101 through the shipping form.
+  const contextC = await browser.newContext({ viewport: { width: 1366, height: 900 } });
+  watch.attach(contextC);
+  const pageC = await contextC.newPage();
+  await signIn(pageC, merchant, setting('EMAIL_C'));
+  const createdPastFirstPage = await verifyAccountPagination(pageC, merchant);
+  delegatedCalls += 6; // initial page; POST + two-page refresh; two-page reload
+
   expect(watch.leaked).toBe(false);
   expect(watch.destinations.has(licensing)).toBe(false);
-  expect(watch.billingPosts).toBe(4 + tabs.browserPosts);
+  expect(watch.billingPosts).toBe(5 + tabs.browserPosts);
 
   const summary = {
     mode: 'local fixture verification',
@@ -293,10 +303,11 @@ test('a verified merchant explicitly creates and lists billing accounts it alone
     secondCreated: secondResponse.status(), listedAfterReload: 2, foreignAccess: foreign.status,
     twoTabLostAnswerRecovered: tabs.lostAndRecovered, listedAfterTwoTabs: 4,
     mobileOverflowPx: overflow, delegatedCalls, browserSawDelegation: false, browserContactedLicensing: false,
-    accountIds,
+    accountIds, createdPastFirstPage, listedAfterPaginationReload: 101,
   };
   writeFileSync(join(setting('EVIDENCE'), 'observations.json'), JSON.stringify(summary, null, 2), { mode: 0o600 });
   console.log(JSON.stringify(summary));
   await contextA.close();
   await contextB.close();
+  await contextC.close();
 });
