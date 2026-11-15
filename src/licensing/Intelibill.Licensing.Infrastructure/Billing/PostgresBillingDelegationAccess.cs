@@ -3,12 +3,14 @@ using Intelibill.Licensing.Application.Billing;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace Intelibill.Licensing.Infrastructure.Billing;
 
-internal sealed class PostgresBillingDelegationAccess(
-    LicensingDbContext db, IBillingAccountDelegationAuthority authority, TimeProvider clock) : IBillingDelegationAccess
+internal sealed partial class PostgresBillingDelegationAccess(
+    LicensingDbContext db, IBillingAccountDelegationAuthority authority, TimeProvider clock,
+    ILogger<PostgresBillingDelegationAccess> logger) : IBillingDelegationAccess
 {
     public async Task<ErrorOr<BillingAccountAccessV1>> AuthorizeAsync(
         VerifiedBillingDelegation delegation, CancellationToken cancellationToken)
@@ -21,6 +23,8 @@ internal sealed class PostgresBillingDelegationAccess(
             || exception is DbUpdateException { InnerException: NpgsqlException })
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var cause = exception is DbUpdateException ? exception.InnerException! : exception;
+            LogStorageUnavailable(logger, cause.GetType().Name);
             return BillingDelegationErrors.StorageUnavailable;
         }
     }
@@ -36,7 +40,11 @@ internal sealed class PostgresBillingDelegationAccess(
         var grant = await authority.AuthorizeAsync(
             delegation.AccountId, delegation.ActorId, delegation.Action, cancellationToken);
         if (grant.IsError)
+        {
+            if (grant.FirstError == BillingDelegationErrors.MembershipUnavailable)
+                LogMembershipUnavailable(logger);
             return grant.Errors;
+        }
         var consumedAt = clock.GetUtcNow();
         if (consumedAt < delegation.IssuedAt || consumedAt >= delegation.ExpiresAt)
             return BillingDelegationErrors.Invalid;
@@ -60,4 +68,10 @@ internal sealed class PostgresBillingDelegationAccess(
                 {proof.Action}, {proof.RequestId}, {proof.KeyId}, {proof.IssuedAt}, {proof.ExpiresAt}, {consumedAt})
             ON CONFLICT (issuer, replay_id) DO NOTHING
             """, cancellationToken);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Licensing billing delegation failed (StorageUnavailable); cause={Cause}.")]
+    private static partial void LogStorageUnavailable(ILogger logger, string cause);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Licensing billing delegation failed (MembershipUnavailable).")]
+    private static partial void LogMembershipUnavailable(ILogger logger);
 }

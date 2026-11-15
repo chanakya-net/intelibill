@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Serilog.Core;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
@@ -26,7 +27,7 @@ public sealed partial class P0201Tests
         await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase), $"""
             UPDATE auth_sessions SET expires_at = to_timestamp({sessionExpiry}) WHERE user_id = '{actor:D}'
             """);
-        var account = Guid.NewGuid();
+        var account = Guid.Parse("11111111-1111-1111-1111-111111111111");
         await fixture.GrantAsync(account, actor);
 
         var injected = Guid.NewGuid();
@@ -45,7 +46,10 @@ public sealed partial class P0201Tests
         var parts = capture.DelegationToken!.Split('.');
         using var payload = JsonDocument.Parse(Base64UrlEncoder.DecodeBytes(parts[1]));
         using var header = JsonDocument.Parse(Base64UrlEncoder.DecodeBytes(parts[0]));
-        await AssertWireFieldsAsync(header.RootElement, payload.RootElement);
+        using var contract = await ReadDelegationContractAsync();
+        AssertWireFields(contract.RootElement, header.RootElement, payload.RootElement);
+        var binding = contract.RootElement.GetProperty("binding");
+        Assert.Contains(binding.GetProperty("requestIdHeader").GetString(), capture.Headers);
         var facts = payload.RootElement;
         Assert.Equal(actor, facts.GetProperty("sub").GetGuid());
         Assert.Equal(account, facts.GetProperty("account_id").GetGuid());
@@ -65,12 +69,14 @@ public sealed partial class P0201Tests
         using var fixture = await P0201Fixture.CreateAsync(database);
         var status = HttpStatusCode.Redirect;
         var content = "{";
+        var logs = new P0107Tests.CapturedLogs();
         var transport = new LocalTransport(_ => new HttpResponseMessage(status)
         {
             Content = new StringContent(content, System.Text.Encoding.UTF8, "application/json"),
             Headers = { Location = new Uri("https://never-contact.test/") },
         });
-        await using var merchant = fixture.MerchantApi(handler: () => transport);
+        await using var merchant = fixture.MerchantApi(handler: () => transport,
+            configure: services => services.AddSingleton<ILogEventSink>(logs));
         using var client = merchant.CreateClient();
         await SeedMerchantAsync(merchant.Services);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await LoginAsync(client));
@@ -80,7 +86,8 @@ public sealed partial class P0201Tests
         await AssertUnavailableAsync(client);
         status = HttpStatusCode.OK;
         await AssertUnavailableAsync(client);
-        content = new string('x', 8192);
+        const string privatePayload = "fixture-response-body-must-not-be-logged";
+        content = privatePayload + new string('x', 8192);
         await AssertUnavailableAsync(client);
         Assert.Equal(4, transport.Calls);
 
@@ -98,18 +105,32 @@ public sealed partial class P0201Tests
         using var ordinaryAccess = await noConfig.GetAsync(new Uri("/api/shops/me", UriKind.Relative));
         Assert.Equal(HttpStatusCode.OK, ordinaryAccess.StatusCode);
         Assert.Equal(0L, await ReplayCountAsync(fixture));
+        foreach (var reason in new[] { "UpstreamStatus", "UpstreamAuthentication", "InvalidResponseJson", "ResponseTooLarge" })
+        {
+            await logs.WaitForAsync(reason);
+            Assert.Single(logs.Events, entry => entry.Contains(reason, StringComparison.Ordinal));
+        }
+        Assert.DoesNotContain(logs.Events, entry => entry.Contains(privatePayload, StringComparison.Ordinal));
     }
 
-    private static async Task AssertWireFieldsAsync(JsonElement header, JsonElement payload)
-    {
-        using var contract = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(ProjectPaths.Root,
+    private static async Task<JsonDocument> ReadDelegationContractAsync() =>
+        JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(ProjectPaths.Root,
             "tests/contracts/licensing/merchant-billing-delegation-v1.json")));
-        var rules = contract.RootElement;
+
+    private static void AssertWireFields(JsonElement rules, JsonElement header, JsonElement payload)
+    {
         Assert.Equal(FieldNames(rules, "headerFields"), Names(header));
         Assert.Equal(FieldNames(rules, "payloadFields"), Names(payload));
+        Assert.Equal(rules.GetProperty("version").GetInt32(), payload.GetProperty("v").GetInt32());
+        Assert.Equal(rules.GetProperty("algorithm").GetString(), header.GetProperty("alg").GetString());
         Assert.Equal(rules.GetProperty("issuer").GetString(), payload.GetProperty("iss").GetString());
         Assert.Equal(rules.GetProperty("audience").GetString(), payload.GetProperty("aud").GetString());
         Assert.Equal(rules.GetProperty("type").GetString(), header.GetProperty("typ").GetString());
+        var binding = rules.GetProperty("binding");
+        Assert.Equal(binding.GetProperty("action").GetString(), payload.GetProperty("action").GetString());
+        Assert.Equal(binding.GetProperty("method").GetString(), payload.GetProperty("method").GetString());
+        Assert.Equal(binding.GetProperty("path").GetString(), payload.GetProperty("path").GetString());
+        Assert.Equal(binding.GetProperty("bodySha256").GetString(), payload.GetProperty("body_sha256").GetString());
     }
 
     private static string?[] FieldNames(JsonElement contract, string name) =>

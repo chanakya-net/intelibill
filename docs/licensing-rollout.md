@@ -211,17 +211,41 @@ Scope is set inside the membership and replay transaction and clears when it
 ends. PostgreSQL arbitrates simultaneous uses across replicas.
 
 The merchant uses `MerchantBillingDelegation__LicensingOrigin` for an HTTPS
-origin and `MerchantBillingDelegation__KeyVaultKeyId` for a separate versionless
-`https://<vault>/keys/<name>` key. The merchant selects the current version and
-signs using that exact version. `MerchantBillingDelegation__ManagedIdentityClientId`
-can select the signing identity. Licensing receives the corresponding RSA public
-key in SubjectPublicKeyInfo PEM at `MerchantBillingVerification__PublicKeys__<kid>`
-where the key ID is the vault key version. Add the new version to the verification
-ring before switching the signer. Keep the old public key through the maximum
-60-second assertion lifetime and retain public verification material as required
-for historical evidence. Remove a revoked key from the accepted ring on all
-replicas. Local PEM signing (`LocalKeyId`, `LocalPrivateKeyPem` under the merchant
-section) and loopback HTTP are restricted to Development and Testing.
+origin and `MerchantBillingDelegation__KeyVaultKeyId` for a separate vault key.
+`MerchantBillingDelegation__ManagedIdentityClientId` can select the signing
+identity. Licensing receives the corresponding RSA public key in
+SubjectPublicKeyInfo PEM at `MerchantBillingVerification__PublicKeys__<kid>`,
+where the key ID is the vault key version.
+
+For a staged rotation, configure the merchant with
+`https://<vault>/keys/<name>/<version>` and use this order.
+
+1. If the merchant uses a versionless reference, pin the currently accepted
+   version on every merchant replica before creating a new version.
+2. Create the new version. Add its public key to the verification ring on
+   every licensing replica and confirm that each has loaded the updated ring.
+3. Change the merchant pin to the new version on every merchant replica.
+   The signer picks up the pin on the next request after configuration reload,
+   or after restart for environment variable changes.
+4. Wait at least 60 seconds after the last old signer stops issuing assertions
+   before removing its public key from the accepted ring. Retain public
+   verification material as required for historical evidence. Remove a revoked
+   key from the accepted ring on every replica immediately.
+
+A versionless `https://<vault>/keys/<name>` reference follows the current
+version on first use, then on the first request at or after the five-minute
+refresh interval. A restart can pick up a new version immediately. If an
+unstaged rotation selects a key that licensing has yet to accept, the merchant
+returns 503 `Billing.DelegationUnavailable` and records
+`UpstreamAuthentication`.
+
+Keep the clocks on both hosts synchronized. Licensing gives no tolerance to
+a future whole-second `iat` or `nbf` and rejects an assertion at its expiry.
+A licensing clock trailing the merchant can cause intermittent 503
+`Billing.DelegationUnavailable` responses at the merchant.
+
+Local PEM signing (`LocalKeyId`, `LocalPrivateKeyPem` under the merchant section)
+and loopback HTTP are restricted to Development and Testing.
 
 The default licensing membership adapter returns `Billing.MembershipUnavailable`.
 Issue #847 supplies the licensing-owned membership adapter. It must check the
@@ -230,6 +254,11 @@ and hold the membership lock in the existing transaction. Account and first-owne
 creation use their own explicit policy. Missing configuration or service failure
 leaves the merchant route unavailable. These changes apply to billing reads while
 merchant licence enforcement stays in observe-only mode.
+
+Before #847 introduces normal billing traffic, decide how to retain or
+partition `merchant_billing_delegation_uses`. Each successful read appends an
+immutable use record. Plan retention around evidence requirements and preserve
+global replay uniqueness for all assertions that can still be accepted.
 
 Run the local browser check after `bun run build` from each of `src/frontend`
 and `src/admin-frontend`.
