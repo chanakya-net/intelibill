@@ -1187,8 +1187,11 @@ Rules for a new test class:
 - A query over `pg_stat_activity` must filter on `datname = current_database()` or a known
   pid; other classes hold locks at the same time.
 - A class that observes process-wide state (Serilog's static `Log.Logger`, which every
-  started host replaces) goes in `[Collection(SerialIntegrationTestGroup.Name)]`, which
-  runs alone after the parallel classes.
+  started host replaces), or whose assertions are short wall-clock windows (the realtime
+  delivery tests wait two seconds for a notification), goes in
+  `[Collection(SerialIntegrationTestGroup.Name)]`, which runs alone after the parallel classes.
+- The test host starts with 64 thread-pool threads (`ThreadPoolMinThreads`): with one per
+  processor, a 4-processor runner queued continuations behind blocked threads for seconds.
 
 ## Recorded-cost Profit and Discount Economics
 

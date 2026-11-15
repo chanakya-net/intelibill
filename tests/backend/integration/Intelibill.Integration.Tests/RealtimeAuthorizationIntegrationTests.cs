@@ -24,7 +24,7 @@ namespace Intelibill.Integration.Tests;
 /// token travels in the query string on the hub handshake, so it is never written into a message, a
 /// log line or a test name here.
 /// </remarks>
-[Collection("Integration Tests")]
+[Collection(SerialIntegrationTestGroup.Name)]
 public sealed class RealtimeAuthorizationIntegrationTests(PostgreSqlTestFixture fixture) : IAsyncLifetime, IDisposable
 {
     private const string Password = "OwnersPassword!1";

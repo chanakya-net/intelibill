@@ -188,9 +188,12 @@ public class IntegrationTestGroup : ICollectionFixture<PostgreSqlTestFixture>
 }
 
 /// <summary>
-/// For the few classes that observe state the whole test process shares, such as
-/// Serilog's static logger, which every started API host replaces. xUnit runs this
-/// collection alone, after the parallel classes have finished.
+/// For the few classes that cannot share the machine with other classes: those that
+/// observe state the whole test process shares (Serilog's static logger, which every
+/// started API host replaces), and those whose assertions are short wall-clock windows
+/// ("a live notification arrives within two seconds", "nothing arrives for two
+/// seconds"), which a busy CI runner stretches. xUnit runs this collection alone,
+/// after the parallel classes have finished.
 /// </summary>
 [CollectionDefinition(Name, DisableParallelization = true)]
 public class SerialIntegrationTestGroup : ICollectionFixture<PostgreSqlTestFixture>
