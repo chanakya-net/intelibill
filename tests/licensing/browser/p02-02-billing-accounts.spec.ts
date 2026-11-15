@@ -88,14 +88,99 @@ function isList(response: Response): boolean {
   return new URL(response.url()).pathname === '/api/billing/accounts' && response.request().method() === 'GET';
 }
 
-/** Submit the visible form and return the merchant's answer to that one explicit creation. */
+function isCreate(response: Response): boolean {
+  return new URL(response.url()).pathname === '/api/billing/accounts' && response.request().method() === 'POST';
+}
+
+/**
+ * Submit the visible form and return the merchant's answer to that one explicit creation, after the
+ * page's authoritative list refresh that follows it (two delegated calls).
+ */
 async function createThroughForm(page: Page, name: string): Promise<Response> {
-  const answer = page.waitForResponse(
-    (r) => r.request().method() === 'POST' && new URL(r.url()).pathname === '/api/billing/accounts',
-  );
+  const answer = page.waitForResponse(isCreate);
+  const refresh = page.waitForResponse(isList);
   await page.getByTestId('billing-account-name').fill(name);
   await page.getByTestId('billing-account-create').click();
+  expect((await refresh).status()).toBe(200);
   return answer;
+}
+
+interface TwoTabRecovery {
+  delegatedCalls: number;
+  browserPosts: number;
+  accountIds: string[];
+  lostAndRecovered: boolean;
+}
+
+/**
+ * Two tabs of one person start creations A and B before either is answered. A is answered only after
+ * B was sent; B commits on the server but its answer never reaches the browser. Reloading B's tab must
+ * recover B with its original key and name, answered as the same account, with no extra account.
+ */
+async function twoTabRecovery(context: BrowserContext, tabA: Page): Promise<TwoTabRecovery> {
+  const tabB = await context.newPage();
+  const firstList = tabB.waitForResponse(isList);
+  await tabB.goto(loopback('MERCHANT_WEB') + '/billing');
+  expect((await firstList).status()).toBe(200);
+
+  let releaseA!: () => void;
+  const aHeld = new Promise<void>((resolve) => (releaseA = resolve));
+  let aSent!: () => void;
+  const aWasSent = new Promise<void>((resolve) => (aSent = resolve));
+  await tabA.route('**/api/billing/accounts', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    aSent();
+    await aHeld;
+    await route.continue();
+  });
+  let lostB!: (value: { key: string; name: string; accountId: string }) => void;
+  const bLost = new Promise<{ key: string; name: string; accountId: string }>((resolve) => (lostB = resolve));
+  await tabB.route('**/api/billing/accounts', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    const committed = await route.fetch();
+    expect(committed.status()).toBe(201);
+    const sent = route.request().postDataJSON() as { operationKey: string; name: string };
+    lostB({ key: sent.operationKey, name: sent.name, accountId: ((await committed.json()) as { accountId: string }).accountId });
+    await route.abort('failed');
+  });
+
+  await tabA.getByTestId('billing-account-name').fill('Tab A Billing');
+  await tabA.getByTestId('billing-account-create').click();
+  await aWasSent;
+  await tabB.getByTestId('billing-account-name').fill('Tab B Billing');
+  await tabB.getByTestId('billing-account-create').click();
+  const lost = await bLost;
+  await expect(tabB.getByTestId('billing-account-pending')).toBeVisible();
+
+  const aAnswer = tabA.waitForResponse(isCreate);
+  const aRefresh = tabA.waitForResponse(isList);
+  releaseA();
+  expect((await aAnswer).status()).toBe(201);
+  const accountA = ((await (await aAnswer).json()) as { accountId: string }).accountId;
+  expect((await aRefresh).status()).toBe(200);
+  await tabA.unroute('**/api/billing/accounts');
+  await tabB.unroute('**/api/billing/accounts');
+
+  const reloadList = tabB.waitForResponse(isList);
+  await tabB.reload();
+  expect((await reloadList).status()).toBe(200);
+  await expect(tabB.getByTestId('billing-account-name')).toHaveValue(lost.name);
+  const retry = tabB.waitForResponse(isCreate);
+  const retryRefresh = tabB.waitForResponse(isList);
+  await tabB.getByTestId('billing-account-create').click();
+  const recovered = await retry;
+  expect(recovered.request().postDataJSON()).toEqual({ operationKey: lost.key, name: lost.name });
+  expect(recovered.status()).toBe(200);
+  const recoveredId = ((await recovered.json()) as { accountId: string }).accountId;
+  expect((await retryRefresh).status()).toBe(200);
+  await expect(tabB.getByTestId('billing-account-row')).toHaveCount(4);
+  const drafts = await tabB.evaluate(() =>
+    Object.keys(localStorage).filter((key) => key.startsWith('intelibill.billing.accountDraft')),
+  );
+  expect(drafts).toEqual([]);
+  await tabB.close();
+  // Tab B list, A post, B post, A refresh, B reload list, B retry, B refresh.
+  return { delegatedCalls: 7, browserPosts: 3, accountIds: [accountA, lost.accountId], lostAndRecovered: recoveredId === lost.accountId };
 }
 
 async function storageHasDelegation(page: Page, context: BrowserContext): Promise<boolean> {
@@ -128,7 +213,7 @@ test('a verified merchant explicitly creates and lists billing accounts it alone
 
   // 1. Explicit creation through the form.
   const createdResponse = await createThroughForm(page, 'Acme Billing');
-  delegatedCalls++;
+  delegatedCalls += 2;
   expect(createdResponse.status()).toBe(201);
   expect(createdResponse.headers()['cache-control']).toContain('no-store');
   const createdBody = createdResponse.request().postDataJSON() as { operationKey: string; name: string };
@@ -149,7 +234,7 @@ test('a verified merchant explicitly creates and lists billing accounts it alone
 
   // 3. The same name again is a second, separate account; reload reads both from the server.
   const secondResponse = await createThroughForm(page, 'Acme Billing');
-  delegatedCalls++;
+  delegatedCalls += 2;
   expect(secondResponse.status()).toBe(201);
   const secondAccount = await secondResponse.json();
   expect(secondAccount.accountId).not.toBe(first.accountId);
@@ -159,7 +244,14 @@ test('a verified merchant explicitly creates and lists billing accounts it alone
   delegatedCalls++;
   await expect(page.getByTestId('billing-account-row')).toHaveCount(2);
 
-  for (const id of [first.accountId, secondAccount.accountId]) {
+  // 4. Competing tabs: a lost answer is recovered by its own key; the other tab's success never clears it.
+  const tabs = await twoTabRecovery(contextA, page);
+  delegatedCalls += tabs.delegatedCalls;
+  expect(tabs.lostAndRecovered).toBe(true);
+
+  const accountIds = [first.accountId, secondAccount.accountId, ...tabs.accountIds];
+  expect(new Set(accountIds).size).toBe(4);
+  for (const id of accountIds) {
     const access = await pageCall(page, 'GET', `/api/billing/accounts/${id}/access`, tokenA);
     delegatedCalls++;
     expect(access.status).toBe(200);
@@ -193,14 +285,15 @@ test('a verified merchant explicitly creates and lists billing accounts it alone
 
   expect(watch.leaked).toBe(false);
   expect(watch.destinations.has(licensing)).toBe(false);
-  expect(watch.billingPosts).toBe(4);
+  expect(watch.billingPosts).toBe(4 + tabs.browserPosts);
 
   const summary = {
     mode: 'local fixture verification',
     created: createdResponse.status(), retried: retry.status, conflict: conflict.status,
     secondCreated: secondResponse.status(), listedAfterReload: 2, foreignAccess: foreign.status,
+    twoTabLostAnswerRecovered: tabs.lostAndRecovered, listedAfterTwoTabs: 4,
     mobileOverflowPx: overflow, delegatedCalls, browserSawDelegation: false, browserContactedLicensing: false,
-    accountIds: [first.accountId, secondAccount.accountId],
+    accountIds,
   };
   writeFileSync(join(setting('EVIDENCE'), 'observations.json'), JSON.stringify(summary, null, 2), { mode: 0o600 });
   console.log(JSON.stringify(summary));

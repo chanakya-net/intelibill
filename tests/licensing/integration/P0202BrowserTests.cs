@@ -52,7 +52,7 @@ public sealed class P0202BrowserTests(LicensingPostgreSqlFixture database, ITest
             evidence, deadline.Token);
 
         var rows = await P0202Fixture.ReadAccountRowsAsync(database, fixture);
-        Assert.Equal(2, rows.Length);
+        Assert.Equal(4, rows.Length);
         Assert.All(rows, row => Assert.Equal((actorA, 1, 1), (row.MerchantUserId, row.Role, row.Status)));
         Assert.Equal(
             observations.GetProperty("accountIds").EnumerateArray().Select(id => id.GetGuid()).Order(),
@@ -60,7 +60,7 @@ public sealed class P0202BrowserTests(LicensingPostgreSqlFixture database, ITest
         Assert.DoesNotContain(rows, row => row.MerchantUserId == actorB);
         Assert.Equal(memberships, await CountMerchantAsync("SELECT count(*) FROM shop_memberships"));
         Assert.Equal(observations.GetProperty("delegatedCalls").GetInt32(), traffic.Requests);
-        output.WriteLine($"Local fixture verification: {traffic.Requests} delegated licensing requests; two accounts owned by A only.");
+        output.WriteLine($"Local fixture verification: {traffic.Requests} delegated licensing requests; four accounts owned by A only (two-tab lost answer recovered by its key).");
         output.WriteLine($"Sanitized browser output directory {evidence}");
     }
 

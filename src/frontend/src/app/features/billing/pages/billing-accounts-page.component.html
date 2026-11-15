@@ -17,9 +17,7 @@
       <h2 id="billing-accounts-heading" class="ib-panel__title">{{ 'billing.listHeading' | transloco }}</h2>
     </header>
 
-    @if (loading()) {
-      <p role="status">{{ 'billing.loading' | transloco }}</p>
-    } @else if (loadFailed()) {
+    @if (loadFailed()) {
       <div class="billing-page__load-failed">
         <p role="alert">{{ 'billing.loadFailed' | transloco }}</p>
         <button
@@ -30,8 +28,13 @@
           (click)="reload()"
         ></button>
       </div>
-    } @else if (accounts().length === 0) {
-      <p data-testid="billing-accounts-empty">{{ 'billing.empty' | transloco }}</p>
+    }
+    @if (accounts().length === 0) {
+      @if (loading()) {
+        <p role="status">{{ 'billing.loading' | transloco }}</p>
+      } @else if (!loadFailed()) {
+        <p data-testid="billing-accounts-empty">{{ 'billing.empty' | transloco }}</p>
+      }
     } @else {
       <ul class="billing-page__list">
         @for (account of accounts(); track account.accountId) {

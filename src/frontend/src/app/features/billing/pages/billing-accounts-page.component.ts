@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { problemCode } from '@intelibill/api';
 import { ButtonModule } from 'primeng/button';
@@ -51,11 +51,16 @@ export class BillingAccountsPageComponent implements OnInit {
     () => !this.submitting() && (this.pending() !== null || this.normalizedName() !== null),
   );
   private readonly ownerUserId = computed(() => this.auth.session()?.user.id ?? null);
+  /** Only the newest list request may replace the shown accounts. */
+  private listGeneration = 0;
+  private destroyed = false;
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => (this.destroyed = true));
+  }
 
   ngOnInit(): void {
-    const owner = this.ownerUserId();
-    const draft = owner ? this.drafts.load(owner) : null;
-    if (draft) this.adopt(draft);
+    this.adoptOldestDraft();
     this.reload();
   }
 
@@ -64,14 +69,17 @@ export class BillingAccountsPageComponent implements OnInit {
   }
 
   reload(): void {
+    const generation = ++this.listGeneration;
     this.loading.set(true);
     this.loadFailed.set(false);
     this.billing.list().subscribe({
       next: (accounts) => {
+        if (generation !== this.listGeneration) return;
         this.accounts.set(accounts);
         this.loading.set(false);
       },
       error: () => {
+        if (generation !== this.listGeneration) return;
         this.loadFailed.set(true);
         this.loading.set(false);
       },
@@ -93,8 +101,8 @@ export class BillingAccountsPageComponent implements OnInit {
     this.error.set('');
     this.notice.set('');
     this.billing.create({ operationKey: draft.operationKey, name: draft.name }).subscribe({
-      next: ({ account }) => this.settle(owner, account),
-      error: (failure: unknown) => this.fail(owner, failure),
+      next: ({ account }) => this.settle(draft, account),
+      error: (failure: unknown) => this.fail(draft, failure),
     });
   }
 
@@ -113,28 +121,52 @@ export class BillingAccountsPageComponent implements OnInit {
     this.name.set(draft.name);
   }
 
-  private settle(owner: string, account: BillingAccount): void {
-    this.drafts.clear(owner);
+  /** Surfaces another unfinished attempt (another tab's, or an earlier lost one) for retry. */
+  private adoptOldestDraft(): void {
+    const owner = this.ownerUserId();
+    const draft = owner ? this.drafts.load(owner) : null;
+    if (draft) this.adopt(draft);
+  }
+
+  private isCurrent(draft: BillingAccountDraft): boolean {
+    return !this.destroyed && this.pending()?.operationKey === draft.operationKey;
+  }
+
+  /** Ends this attempt only; a left page or another tab's attempt is never touched. */
+  private finish(draft: BillingAccountDraft): void {
+    this.drafts.clear(draft);
+    if (!this.isCurrent(draft)) return;
+    this.submitting.set(false);
     this.pending.set(null);
     this.name.set('');
-    this.submitting.set(false);
-    this.notice.set('billing.created');
+    this.adoptOldestDraft();
+  }
+
+  private settle(draft: BillingAccountDraft, account: BillingAccount): void {
+    const current = this.isCurrent(draft);
+    this.finish(draft);
+    if (this.destroyed) return;
+    if (current) this.notice.set('billing.created');
     this.accounts.update((accounts) =>
       accounts.some((item) => item.accountId === account.accountId) ? accounts : [...accounts, account],
     );
+    // Supersedes any list read started before the creation committed.
+    this.reload();
   }
 
-  private fail(owner: string, failure: unknown): void {
-    this.submitting.set(false);
+  private fail(draft: BillingAccountDraft, failure: unknown): void {
     const code = failure instanceof HttpErrorResponse ? problemCode(failure.error) : null;
     const message = code ? DEFINITIVE_FAILURES[code] : undefined;
     if (!message) {
       // Unknown outcome: keep the frozen attempt so a retry cannot create a second account.
-      this.error.set('billing.pendingRetry');
+      if (this.isCurrent(draft)) {
+        this.submitting.set(false);
+        this.error.set('billing.pendingRetry');
+      }
       return;
     }
-    this.drafts.clear(owner);
-    this.pending.set(null);
-    this.error.set(message);
+    const current = this.isCurrent(draft);
+    this.finish(draft);
+    if (current) this.error.set(message);
   }
 }
