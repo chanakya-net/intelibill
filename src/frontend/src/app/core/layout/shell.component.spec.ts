@@ -355,7 +355,10 @@ describe('ShellComponent', () => {
       expect(component.isShopMenuOpen()).toBe(false);
     },
   );
-  it('lets a no-shop provider use Account security and restores mandatory onboarding on return', async () => {
+  it.each([
+    ['account/security', '?identity=pending'],
+    ['billing/accounts/:id/coverage', ''],
+  ])('allows a no-shop account to use %s and restores onboarding on return', async (route, query) => {
     sessionSignal.set({
       ...sessionSignal(),
       activeShopId: null,
@@ -367,11 +370,11 @@ describe('ShellComponent', () => {
     const fixture = createFixture();
     const router = TestBed.inject(Router);
     router.resetConfig([
-      { path: 'account/security', component: AccountRouteStub },
+      { path: route, component: AccountRouteStub },
       { path: 'dashboard', component: AccountRouteStub },
     ]);
     expect(fixture.nativeElement.querySelector('app-create-shop-overlay')).not.toBeNull();
-    await router.navigateByUrl('/account/security?identity=pending');
+    await router.navigateByUrl('/' + route.replace(':id', 'local-account') + query);
     fixture.detectChanges();
     expect(fixture.componentInstance.showCreateShopOverlayAuto()).toBe(false);
     expect(fixture.nativeElement.querySelector('app-create-shop-overlay')).toBeNull();

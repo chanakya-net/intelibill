@@ -64,7 +64,11 @@ internal static class CustomerBillingAccountEndpoints
     /// deserialize strictly. Anything else is a request the assertion does not describe.
     /// </summary>
     internal static async Task<T?> ReadBoundBodyAsync<T>(HttpRequest request,
-        VerifiedBillingDelegation delegation, int limit, CancellationToken cancellationToken) where T : class
+        VerifiedBillingDelegation delegation, int limit, CancellationToken cancellationToken) where T : class =>
+        await ReadBoundBodyAsync<T>(request, delegation.BodySha256, limit, cancellationToken);
+
+    internal static async Task<T?> ReadBoundBodyAsync<T>(HttpRequest request, string digest, int limit,
+        CancellationToken cancellationToken) where T : class
     {
         if (request.ContentLength is not > 0 || request.ContentLength > limit ||
             request.Headers.ContainsKey("Transfer-Encoding") ||
@@ -76,7 +80,7 @@ internal static class CustomerBillingAccountEndpoints
         {
             await request.Body.ReadExactlyAsync(buffer, cancellationToken);
             if (await request.Body.ReadAsync(new byte[1], cancellationToken) != 0 ||
-                Convert.ToHexStringLower(SHA256.HashData(buffer)) != delegation.BodySha256)
+                Convert.ToHexStringLower(SHA256.HashData(buffer)) != digest)
                 return null;
             return JsonSerializer.Deserialize<T>(buffer, StrictJson);
         }

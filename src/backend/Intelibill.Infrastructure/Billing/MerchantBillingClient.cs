@@ -18,8 +18,8 @@ namespace Intelibill.Infrastructure.Billing;
 internal sealed partial class MerchantBillingClient(
     HttpClient client, MerchantBillingDelegationIssuer issuer,
     IOptionsMonitor<MerchantBillingDelegationOptions> options, IHostEnvironment environment,
-    ILogger<MerchantBillingClient> logger, ApplicationDbContext db, IPhoneAuthPolicy phones)
-    : IMerchantBillingAccess, IMerchantBillingInvitations
+    ILogger<MerchantBillingClient> logger, ApplicationDbContext db, IPhoneAuthPolicy phones, ShopAffiliationConsentStore consents)
+    : IMerchantBillingAccess, IMerchantBillingInvitations, IMerchantShopAffiliations
 {
     private const int MaximumResponseBytes = 4096;
     // Sized for a full page of the longest valid names, so no account the actor holds can hide the list.
@@ -153,13 +153,23 @@ internal sealed partial class MerchantBillingClient(
         switch (response.StatusCode)
         {
             case HttpStatusCode.OK:
-            case HttpStatusCode.Created when action == MerchantBillingDelegationV1.CreateAccount:
+            case HttpStatusCode.Created when action is MerchantBillingDelegationV1.CreateAccount or ShopAffiliationsV1.Request:
             case HttpStatusCode.Accepted when action == BillingInvitationsV1.Issue:
                 return null;
             case HttpStatusCode.Forbidden:
                 return MerchantBillingErrors.Denied;
             case HttpStatusCode.Unauthorized:
                 return Unavailable("UpstreamAuthentication");
+            case HttpStatusCode.NotFound when action == ShopAffiliationsV1.OwnerRead:
+                return ShopAffiliationConsentErrors.Missing;
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict when action == ShopAffiliationsV1.Request:
+                return await ReadProblemCodeAsync(response, cancellationToken) switch
+                {
+                    "Billing.AffiliationInvalid" => ShopAffiliationConsentErrors.Invalid,
+                    "Billing.AffiliationConflict" => ShopAffiliationConsentErrors.Conflict,
+                    "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
+                    _ => Unavailable("UpstreamStatus"),
+                };
             case HttpStatusCode.NotFound when action is BillingInvitationsV1.Proof or BillingInvitationsV1.Accept:
                 return MerchantBillingInvitationErrors.UnavailableInvitation;
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict when action is

@@ -29,6 +29,10 @@
         [label]="'identity.manageIdentity' | transloco"
         (click)="accountSecurityRequested.emit()"
       ></button>
+      @if (firstShop) {
+        <button pButton type="button" severity="secondary" [disabled]="isSubmitting()"
+          [label]="'billing.title' | transloco" (click)="billingRequested.emit()"></button>
+      }
     </header>
 
     <form [formGroup]="shopForm" (ngSubmit)="submit()" class="overlay-form space-y-4">

@@ -45,6 +45,7 @@
             <span class="billing-page__created">
               {{ 'billing.createdOn' | transloco: { date: (account.createdAt | date: 'mediumDate') } }}
             </span>
+            <a [routerLink]="['/billing/accounts', account.accountId, 'coverage']">{{ 'billing.affiliation.heading' | transloco }}</a>
             <a [routerLink]="['/billing/accounts', account.accountId, 'members']"
                data-testid="billing-members-link">{{ 'billing.invitations.members' | transloco }}</a>
           </li>

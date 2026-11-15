@@ -32,6 +32,8 @@ internal static class CustomerBillingEndpoints
             .RequireAuthorization(policy);
         app.MapCustomerBillingAccounts(policy);
         app.MapBillingInvitations(policy);
+        app.MapShopAffiliations(policy);
+        app.MapAffiliationDelivery();
     }
 
     private static async Task<IResult> GetAccessAsync(

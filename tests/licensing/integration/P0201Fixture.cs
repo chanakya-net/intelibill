@@ -97,7 +97,7 @@ internal sealed class P0201Fixture(LicensingPostgreSqlFixture database, string n
 
     internal MerchantStartupProbeFactory MerchantApi(string origin = "https://licensing.test",
         Func<HttpMessageHandler>? handler = null, Action<IServiceCollection>? configure = null,
-        string environment = "Development") => new(MerchantRuntime, environment, new Dictionary<string, string?>
+        string environment = "Development", IReadOnlyDictionary<string, string?>? settings = null) => new(MerchantRuntime, environment, new Dictionary<string, string?>
         {
             ["MerchantBillingDelegation:LicensingOrigin"] = origin,
             ["MerchantBillingDelegation:LocalKeyId"] = KeyId,
@@ -110,7 +110,7 @@ internal sealed class P0201Fixture(LicensingPostgreSqlFixture database, string n
             ["Email:FromEmail"] = "fixture@example.test",
             ["Email:FromName"] = "Billing fixture",
             ["Identity:OutboxKey"] = Convert.ToBase64String(new byte[32]),
-        }, services =>
+        }.Concat(settings ?? new Dictionary<string, string?>()).ToDictionary(), services =>
         {
             if (handler is not null)
                 services.AddHttpClient("MerchantBillingDelegation").ConfigurePrimaryHttpMessageHandler(handler);
