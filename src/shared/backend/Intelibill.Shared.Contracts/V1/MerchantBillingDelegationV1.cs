@@ -22,6 +22,11 @@ public static class MerchantBillingDelegationV1
     public const int MaximumAccountNameLength = 120;
     public const int MaximumCreateBodyBytes = 1024;
     public const int MaximumListedAccounts = 100;
+
+    // A JSON encoder writes at most six bytes per UTF-16 unit of a name (\uXXXX; a supplementary character is
+    // two escaped units); 160 bytes cover an account's other fields and 256 the list envelope with its cursor.
+    public const int MaximumAccountJsonBytes = MaximumAccountNameLength * 6 + 160;
+    public const int MaximumAccountListBytes = MaximumListedAccounts * MaximumAccountJsonBytes + 256;
     public const string OwnerRole = "Owner";
     public const string ManagerRole = "Manager";
 

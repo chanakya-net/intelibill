@@ -300,7 +300,9 @@ creates one only on explicit submit. It freezes the operation key and name in
 definitive answer.
 
 Listing returns `{ accounts, nextCursor }` with at most 100 accounts per response,
-ordered by account ID. Continue using `GET /api/billing/accounts?after={nextCursor}`
+ordered by account ID. The merchant accepts a licensing page of at most 88,256 bytes:
+100 accounts whose 120-character names are fully JSON-escaped (six bytes per UTF-16
+unit, as for emoji), so no valid name can make a page unreadable. Continue using `GET /api/billing/accounts?after={nextCursor}`
 until the cursor is null. The merchant signs the canonical internal path
 `/internal/licensing/v1/customer/accounts/after/{cursor}`; licensing rejects changed
 paths and extra query parameters. A cursor is only a position, never account authority.

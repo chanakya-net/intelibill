@@ -27,6 +27,8 @@
   "listFields": ["accounts", "nextCursor"],
   "pagination": {
     "pageSize": 100,
+    "maxResponseBytes": 88256,
+    "responseBudget": "pageSize * (maxLength * 6 + 160) + 256: every UTF-16 unit of a name escaped as \\uXXXX",
     "order": "accountId ascending (PostgreSQL uuid order)",
     "merchantContinuation": "GET /api/billing/accounts?after={nextCursor}",
     "internalContinuation": "GET /internal/licensing/v1/customer/accounts/after/{nextCursor}",

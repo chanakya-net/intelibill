@@ -19,7 +19,8 @@ internal sealed partial class MerchantBillingClient(
     ILogger<MerchantBillingClient> logger) : IMerchantBillingAccess
 {
     private const int MaximumResponseBytes = 4096;
-    private const int MaximumListResponseBytes = 65536;
+    // Sized for a full page of the longest valid names, so no account the actor holds can hide the list.
+    private const int MaximumListResponseBytes = MerchantBillingDelegationV1.MaximumAccountListBytes;
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     public Task<ErrorOr<BillingAccountAccessV1>> GetAsync(
