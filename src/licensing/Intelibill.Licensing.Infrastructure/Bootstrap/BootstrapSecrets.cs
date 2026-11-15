@@ -12,12 +12,16 @@ internal sealed class BootstrapSecrets(OpaqueTokenPrimitives tokens, IPasswordHa
 
     public BootstrapSecret CreateInvitation() => Create("i1_");
 
+    public BootstrapSecret CreateRecoveryReset() => Create("k1_");
+
     public bool MatchesProof(string value, string digest) => CryptographicOperations.FixedTimeEquals(
         Convert.FromHexString(tokens.Hash(value)), Convert.FromHexString(digest));
 
     public string HashEnrollment(string credential) => tokens.Hash(credential);
 
     public string HashInvitation(string token) => tokens.Hash(token);
+
+    public string HashRecoveryReset(string token) => tokens.Hash(token);
 
     public string HashPassword(string password) => passwords.Hash(password);
 

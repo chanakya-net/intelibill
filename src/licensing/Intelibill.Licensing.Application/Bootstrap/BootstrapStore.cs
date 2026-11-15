@@ -29,9 +29,11 @@ public interface IBootstrapSecrets
     BootstrapSecret CreateProof();
     BootstrapSecret CreateEnrollment();
     BootstrapSecret CreateInvitation();
+    BootstrapSecret CreateRecoveryReset();
     bool MatchesProof(string value, string digest);
     string HashEnrollment(string credential);
     string HashInvitation(string token);
+    string HashRecoveryReset(string token);
     string HashPassword(string password);
     bool VerifyPassword(string password, string hash);
 }

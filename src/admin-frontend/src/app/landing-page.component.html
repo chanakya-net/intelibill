@@ -12,6 +12,8 @@
                 <a routerLink="/admin-users/invite">Manage administrator invitations</a>
               } @else if (capability === auditCapability) {
                 <a routerLink="/audit">Audit history</a>
+              } @else if (capability === recoveryCapability) {
+                <a routerLink="/security/recovery">Review administrator recovery</a>
               } @else {
                 {{ capability }}
               }

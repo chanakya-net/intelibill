@@ -36,6 +36,12 @@ public enum AuditReason
     DeviceUnused = 23,
     DeviceUnrecognized = 24,
     SignedOut = 25,
+    RecoveryCodeAccepted = 26,
+    RecoveryProofInvalid = 27,
+    RecoveryResetReviewed = 28,
+    RecoveryResetAccepted = 29,
+    LastRecoverableOwner = 30,
+    RecoveryReset = 31,
 }
 
 public enum AuditTarget

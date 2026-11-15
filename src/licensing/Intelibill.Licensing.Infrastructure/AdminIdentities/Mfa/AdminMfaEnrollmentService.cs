@@ -16,17 +16,19 @@ internal sealed class AdminMfaEnrollmentService(AdminMfaStore store, IBootstrapS
         WithPendingAsync<AdminMfaSetup>(adminId, credentialDigest, async (_, _) =>
         {
             var totp = await store.ReadTotpAsync(adminId, cancellationToken);
-            return totp is null ? CreateSetup(adminId) : ReadSetup(totp);
+            return totp is null || totp.RetiredAt is not null ? CreateSetup(adminId, totp) : ReadSetup(totp);
         }, cancellationToken);
 
-    private ErrorOr<AdminMfaSetup> CreateSetup(Guid adminId)
+    /// <summary>Creates a new secret, replacing one a recovery retired; the retired secret is never shown again.</summary>
+    private ErrorOr<AdminMfaSetup> CreateSetup(Guid adminId, AdminTotp? retired)
     {
         if (keys.ActiveKeyId is not { Length: > 0 } keyId) return KeyUnavailable;
         Span<byte> secret = stackalloc byte[AdminTotpAlgorithm.SecretBytes];
         RandomNumberGenerator.Fill(secret);
         try
         {
-            store.Add(keys.Encrypt(adminId, keyId, secret));
+            if (retired is null) store.Add(keys.Encrypt(adminId, keyId, secret));
+            else retired.Replace(keyId, keys.EncryptSecret(adminId, keyId, secret));
             return new AdminMfaSetup(AdminTotpAlgorithm.EncodeSecret(secret));
         }
         finally
@@ -65,7 +67,7 @@ internal sealed class AdminMfaEnrollmentService(AdminMfaStore store, IBootstrapS
         WithPendingAsync<AdminMfaCompletion>(adminId, credentialDigest, async (admin, now) =>
         {
             var totp = await store.ReadTotpAsync(adminId, cancellationToken);
-            if (totp is null) return Refused;
+            if (totp is null || totp.RetiredAt is not null) return Refused;
             if (totp.TakeAttempt(now) is { } retryAt) return Throttled(retryAt);
             var result = VerifyStep(keys, totp, otp, now);
             if (result.IsError)
@@ -74,6 +76,8 @@ internal sealed class AdminMfaEnrollmentService(AdminMfaStore store, IBootstrapS
                 return result.Errors;
             }
 
+            // Codes left over from before a recovery stop working once the new authenticator is verified.
+            await store.VoidRecoveryCodesAsync(adminId, now, cancellationToken);
             var codes = IssueRecoveryCodes(totp);
             totp.AcceptStep(result.Value);
             admin.CompleteMfaEnrollment(now);

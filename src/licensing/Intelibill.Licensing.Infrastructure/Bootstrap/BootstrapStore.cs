@@ -28,12 +28,16 @@ internal sealed class BootstrapStore(LicensingDbContext context) : IBootstrapSto
     public async Task<AdminIdentity?> LockPendingOwnerAsync(Guid id, CancellationToken cancellationToken)
     {
         var admin = await AdminMfaStore.LockAdminAsync(context, id, cancellationToken);
-        return admin is { MfaEnrolledAt: null, DeactivatedAt: null } ? admin : null;
+        return admin is { MfaEnrolledAt: null, DeactivatedAt: null }
+            && !await context.Set<AdminRecovery>().AnyAsync(recovery => recovery.AdminId == id, cancellationToken)
+            ? admin : null;
     }
 
     public Task<AdminIdentity?> FindPendingOwnerAsync(Guid id, CancellationToken cancellationToken) =>
         context.Set<AdminIdentity>().AsNoTracking()
-            .SingleOrDefaultAsync(owner => owner.Id == id && owner.MfaEnrolledAt == null && owner.DeactivatedAt == null, cancellationToken);
+            // A password alone never re-opens enrollment once a recovery has happened.
+            .SingleOrDefaultAsync(owner => owner.Id == id && owner.MfaEnrolledAt == null && owner.DeactivatedAt == null
+                && !context.Set<AdminRecovery>().Any(recovery => recovery.AdminId == owner.Id), cancellationToken);
 
     public Task<EnrollmentState?> FindEnrollmentAsync(string digest, DateTimeOffset now, CancellationToken cancellationToken)
     {

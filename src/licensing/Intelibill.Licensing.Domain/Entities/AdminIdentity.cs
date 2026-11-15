@@ -14,4 +14,7 @@ public sealed class AdminIdentity(
     public uint Version { get; private set; }
 
     public void CompleteMfaEnrollment(DateTimeOffset now) => MfaEnrolledAt ??= now;
+
+    /// <summary>Returns the administrator to MFA-pending; only a new enrollment restores business access.</summary>
+    public void ResetMfa() => MfaEnrolledAt = null;
 }

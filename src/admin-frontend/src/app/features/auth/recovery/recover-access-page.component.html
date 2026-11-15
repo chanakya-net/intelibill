@@ -1,0 +1,38 @@
+<main>
+  <h1 class="ib-page-title">Recover provider access</h1>
+  <section class="ib-panel" aria-label="Recover provider access" [attr.aria-busy]="busy()">
+    @if (error()) {
+      <p class="ib-error-banner" role="alert">{{ error() }}</p>
+    }
+    <p>
+      Recovery signs out every device on this account and removes your old authenticator.
+      You must set up a new authenticator before you can use the Provider Console again.
+    </p>
+    @if (ready()) {
+      <fieldset class="ib-form-section">
+        <legend>Recovery proof</legend>
+        <label>
+          <input type="radio" name="recovery-method" value="code" [checked]="method() === 'code'" (change)="choose('code')" />
+          One of my recovery codes
+        </label>
+        <label>
+          <input type="radio" name="recovery-method" value="reset" [checked]="method() === 'reset'" (change)="choose('reset')" />
+          A reset issued by a platform owner
+        </label>
+      </fieldset>
+      <form class="ib-form-section" (submit)="submit($event, email, password, proof)">
+        <label for="recovery-email">Email</label>
+        <input #email id="recovery-email" type="email" autocomplete="username" maxlength="254" required spellcheck="false" />
+        <label for="recovery-password">Password</label>
+        <input #password id="recovery-password" type="password" autocomplete="current-password" maxlength="72" required />
+        <label for="recovery-proof">{{ method() === 'code' ? 'Recovery code' : 'Reset code from your platform owner' }}</label>
+        <input #proof id="recovery-proof" type="text" autocomplete="off" spellcheck="false"
+          [attr.maxlength]="method() === 'code' ? 35 : 89" required />
+        <div><button pButton type="submit" [disabled]="busy()">Recover access</button></div>
+      </form>
+    } @else {
+      <div><button pButton type="button" (click)="prepare()">Try again</button></div>
+    }
+    <a routerLink="/auth/sign-in">Back to sign-in</a>
+  </section>
+</main>

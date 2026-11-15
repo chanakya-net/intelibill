@@ -39,6 +39,12 @@ export const appConfig: ApplicationConfig = {
           .then((m) => m.SessionsPageComponent),
       },
       {
+        path: 'security/recovery',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/auth/recovery/review-recovery-page.component')
+          .then((m) => m.ReviewRecoveryPageComponent),
+      },
+      {
         path: 'audit',
         canActivate: [requireAdminSession],
         loadComponent: () => import('./features/audit/audit-page.component').then((m) => m.AuditPageComponent),
@@ -46,6 +52,11 @@ export const appConfig: ApplicationConfig = {
       {
         path: 'auth/sign-in',
         loadComponent: () => import('./features/auth/sign-in-page.component').then((m) => m.SignInPageComponent),
+      },
+      {
+        path: 'auth/recovery',
+        loadComponent: () => import('./features/auth/recovery/recover-access-page.component')
+          .then((m) => m.RecoverAccessPageComponent),
       },
       {
         path: 'auth/bootstrap',

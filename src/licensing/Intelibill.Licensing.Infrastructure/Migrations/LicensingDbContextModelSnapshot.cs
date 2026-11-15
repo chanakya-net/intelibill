@@ -160,6 +160,83 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.AdminRecovery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("admin_id");
+
+                    b.Property<string>("EvidenceReference")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("evidence_reference");
+
+                    b.Property<string>("GrantDigest")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("grant_digest");
+
+                    b.Property<DateTimeOffset?>("GrantExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("grant_expires_at");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer")
+                        .HasColumnName("kind");
+
+                    b.Property<int?>("Reason")
+                        .HasColumnType("integer")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset?>("RedeemedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("redeemed_at");
+
+                    b.Property<DateTimeOffset?>("RetiredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retired_at");
+
+                    b.Property<Guid?>("ReviewerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("reviewer_id");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<int?>("Verification")
+                        .HasColumnType("integer")
+                        .HasColumnName("verification");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.HasKey("Id")
+                        .HasName("pk_admin_recoveries");
+
+                    b.HasIndex("AdminId")
+                        .HasDatabaseName("ix_admin_recoveries_admin_id");
+
+                    b.HasIndex("GrantDigest")
+                        .IsUnique()
+                        .HasDatabaseName("ix_admin_recoveries_grant_digest");
+
+                    b.HasIndex("ReviewerId")
+                        .HasDatabaseName("ix_admin_recoveries_reviewer_id");
+
+                    b.ToTable("admin_recoveries", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_admin_recovery_evidence", "(kind = 1 AND redeemed_at = started_at AND num_nonnulls(reviewer_id, reason, verification,\n    evidence_reference, grant_digest, grant_expires_at, retired_at) = 0)\nOR (kind = 2 AND num_nonnulls(reviewer_id, reason, verification, evidence_reference,\n        grant_digest, grant_expires_at) = 6\n    AND reviewer_id <> admin_id AND reason BETWEEN 1 AND 3 AND verification BETWEEN 1 AND 3\n    AND evidence_reference ~ '^[A-Za-z0-9][A-Za-z0-9._:#/-]{2,63}$'\n    AND grant_digest ~ '^[0-9A-F]{64}$' AND started_at < grant_expires_at\n    AND (redeemed_at IS NULL OR retired_at IS NULL)\n    AND (redeemed_at IS NULL OR redeemed_at >= started_at)\n    AND (retired_at IS NULL OR retired_at >= started_at))");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.AdminRefreshCredential", b =>
                 {
                     b.Property<Guid>("Id")
@@ -448,9 +525,9 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
 
                     b.ToTable("provider_audit_events", null, t =>
                         {
-                            t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 20 OR action BETWEEN 101 AND 103");
+                            t.HasCheckConstraint("ck_bootstrap_audit_action", "action BETWEEN 1 AND 25 OR action BETWEEN 101 AND 103");
 
-                            t.HasCheckConstraint("ck_provider_audit_metadata", "(num_nonnulls(actor_kind, reason, correlation_id) = 0 AND action BETWEEN 1 AND 16\n    AND \"before\" IS NULL AND \"after\" IS NULL)\nOR (num_nonnulls(actor_kind, reason, correlation_id) = 3\n    AND actor_kind BETWEEN 1 AND 5 AND reason BETWEEN 1 AND 25)");
+                            t.HasCheckConstraint("ck_provider_audit_metadata", "(num_nonnulls(actor_kind, reason, correlation_id) = 0 AND action BETWEEN 1 AND 16\n    AND \"before\" IS NULL AND \"after\" IS NULL)\nOR (num_nonnulls(actor_kind, reason, correlation_id) = 3\n    AND actor_kind BETWEEN 1 AND 5 AND reason BETWEEN 1 AND 31)");
                         });
                 });
 
@@ -534,6 +611,10 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("last_accepted_step");
 
+                    b.Property<DateTimeOffset?>("RetiredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retired_at");
+
                     b.HasKey("AdminId")
                         .HasName("pk_admin_totp");
 
@@ -582,6 +663,22 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_admin_invitations_admin_identities_invited_by");
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.AdminRecovery", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.AdminIdentity", null)
+                        .WithMany()
+                        .HasForeignKey("AdminId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_admin_recoveries_admin_identities_admin_id");
+
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.AdminIdentity", null)
+                        .WithMany()
+                        .HasForeignKey("ReviewerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_admin_recoveries_admin_identities_reviewer_id");
                 });
 
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.AdminRefreshCredential", b =>
