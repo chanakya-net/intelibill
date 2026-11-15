@@ -161,7 +161,11 @@ test('publishes a local plan after preview and preserves its immutable version a
     const saved = admin.waitForResponse(response => new URL(response.url()).pathname.endsWith('/draft')
       && response.request().method() === 'PUT');
     await admin.getByRole('button', { name: 'Save draft', exact: true }).click();
-    expect((await saved).status()).toBe(200);
+    const successorSave = await saved;
+    expect(successorSave.status()).toBe(200);
+    const successorId = (await successorSave.json()).draft.versionId;
+    expect(successorId).not.toBe(original.versionId);
+    expect(successorSave.request().postDataJSON()).toMatchObject({ expectedVersion: 1, expectedDraftVersionId: successorId });
     await expect(admin.getByText('Draft saved. It is not published and no customer can see it.')).toBeVisible();
     await expect(await prepare(admin, 'plan')).toContainText('₹17,990.00');
     await dropConfirmationAfterCommit(admin);

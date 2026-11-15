@@ -5,7 +5,7 @@ using Intelibill.Licensing.Domain.Policies;
 
 namespace Intelibill.Licensing.Application.Catalogue;
 
-/// <summary>Lists and saves plan drafts. Every save is a full replacement guarded by the expected revision.</summary>
+/// <summary>Lists and saves plan drafts. Every save is a full replacement guarded by the expected draft version and revision.</summary>
 public sealed class SavePlanDraftHandler(ICatalogueDraftStore store, TimeProvider clock, ICataloguePublicationApproval approval)
 {
     private const int PageSize = 50;
@@ -40,7 +40,8 @@ public sealed class SavePlanDraftHandler(ICatalogueDraftStore store, TimeProvide
             }
             if (plan is null || draft is null) return CatalogueErrors.DraftNotFound;
             if (plan.Kind != kind) return CatalogueErrors.KindFixed;
-            if (draft.Revision != expected) return CatalogueErrors.VersionConflict;
+            if (!CatalogueAuthority.Targets(draft.Id, draft.Revision, request!.ExpectedDraftVersionId, expected))
+                return CatalogueErrors.VersionConflict;
             draft.Revise(facts, caller.AdminId, now);
             store.Add(CatalogueDraftChange.For(draft));
             return new PlanDraftSaved(CatalogueDraftViews.ToItem(plan, draft), Created: false);
@@ -76,7 +77,8 @@ public sealed class SavePlanDraftHandler(ICatalogueDraftStore store, TimeProvide
     {
         if (planId == Guid.Empty || request is not { ExpectedVersion: >= 0 and var expected }
             || CatalogueDraftViews.ParseKind(request.Kind) is not { } kind
-            || !CatalogueAuthority.ValidSource(expected, request.SourceVersionId, request.SourceExpectedVersion))
+            || !CatalogueAuthority.ValidSource(expected, request.SourceVersionId, request.SourceExpectedVersion)
+            || !CatalogueAuthority.ValidTarget(expected, request.ExpectedDraftVersionId))
             return CatalogueErrors.DraftInvalid;
         var facts = new PlanDraftFacts(request.Name ?? string.Empty, request.MonthlyPricePaise,
             request.AnnualPricePaise, request.IncludedShops, request.MembersPerShop, request.ExtraShopsOffered,

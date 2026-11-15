@@ -22,7 +22,8 @@ public sealed class SaveTrialPolicyDraftHandler(ICatalogueDraftStore store, Time
         {
             if (await CatalogueAuthority.EnterAsync(store, caller, clock, ct) is { } denied) return denied;
             if (request is not { ExpectedVersion: >= 0 and var expected }
-                || !CatalogueAuthority.ValidSource(expected, request.SourceVersionId, request.SourceExpectedVersion))
+                || !CatalogueAuthority.ValidSource(expected, request.SourceVersionId, request.SourceExpectedVersion)
+                || !CatalogueAuthority.ValidTarget(expected, request.ExpectedDraftVersionId))
                 return CatalogueErrors.DraftInvalid;
             var facts = new TrialPolicyFacts(request.ActiveMemberCap, request.MaxConcurrentTrialShops,
                 request.TrialTermsVersion);
@@ -46,7 +47,8 @@ public sealed class SaveTrialPolicyDraftHandler(ICatalogueDraftStore store, Time
             else
             {
                 if (draft is null) return CatalogueErrors.DraftNotFound;
-                if (draft.Revision != expected) return CatalogueErrors.VersionConflict;
+                if (!CatalogueAuthority.Targets(draft.Id, draft.Revision, request.ExpectedDraftVersionId, expected))
+                    return CatalogueErrors.VersionConflict;
                 draft.Revise(facts, caller.AdminId, now);
             }
             store.Add(CatalogueDraftChange.For(draft));

@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { problemCode } from '@intelibill/api';
 import { ButtonDirective } from 'primeng/button';
 import { finalize } from 'rxjs';
-import { CatalogueApi, factLabels, type TrialDraft } from './catalogue-api.service';
+import { CatalogueApi, draftTarget, factLabels, type TrialDraft } from './catalogue-api.service';
 import { invalid, parseCount, parseText } from './catalogue-money';
 
 @Component({
@@ -42,7 +42,7 @@ export class TrialPolicyEditorComponent {
     this.error.set('');
     this.notice.set('');
     this.api.saveTrial({
-      expectedVersion: this.draft()?.version ?? 0,
+      ...draftTarget(this.draft()),
       activeMemberCap: caps[0] as number | null,
       maxConcurrentTrialShops: caps[1] as number | null,
       trialTermsVersion: parseText(String(data.get('trialTermsVersion') ?? '')),

@@ -105,15 +105,15 @@ describe('catalogue draft editor', () => {
     expect(page.querySelector<HTMLInputElement>('#annual')!.value).toBe('');
   });
 
-  it('sends blank as missing, zero as a fact and the loaded version', () => {
+  it('sends blank as missing, zero as a fact and the loaded draft version and revision', () => {
     const { page, api, click, field, submit } = render();
     click('Growth');
     field('#monthly', '0');
     field('#members', '');
     submit('adm-plan-draft-editor form');
     expect(api.savePlan).toHaveBeenCalledWith('plan-1', expect.objectContaining({
-      expectedVersion: 4, kind: 'multi-shop', name: 'Growth', monthlyPricePaise: 0, annualPricePaise: null,
-      membersPerShop: null, extraShopsOffered: null, reason: null,
+      expectedVersion: 4, expectedDraftVersionId: 'version-1', kind: 'multi-shop', name: 'Growth',
+      monthlyPricePaise: 0, annualPricePaise: null, membersPerShop: null, extraShopsOffered: null, reason: null,
     }));
     expect(page.querySelector('[role="status"]')?.textContent).toContain('not published');
   });
@@ -154,6 +154,7 @@ describe('catalogue draft editor', () => {
       expectedVersion: 0, kind: 'custom', annualPricePaise: 5_000_000, reason: 'Twelve-shop chain',
       extraShopsOffered: null,
     }));
+    expect(first[1]).not.toHaveProperty('expectedDraftVersionId');
   });
 
   it('clears the editor after a version conflict until the catalogue reloads', () => {
@@ -180,7 +181,17 @@ describe('catalogue draft editor', () => {
     field('#trial-terms', 'trial-2026.11');
     submit('adm-trial-policy-editor form');
     expect(api.saveTrial).toHaveBeenCalledWith({
-      expectedVersion: 2, activeMemberCap: 5, maxConcurrentTrialShops: 2, trialTermsVersion: 'trial-2026.11',
+      expectedVersion: 2, expectedDraftVersionId: 'trial-1', activeMemberCap: 5, maxConcurrentTrialShops: 2,
+      trialTermsVersion: 'trial-2026.11',
+    });
+  });
+
+  it('creates the first trial policy draft without naming a draft version', () => {
+    const { api, field, submit } = render();
+    field('#member-cap', '5');
+    submit('adm-trial-policy-editor form');
+    expect(api.saveTrial).toHaveBeenCalledWith({
+      expectedVersion: 0, activeMemberCap: 5, maxConcurrentTrialShops: null, trialTermsVersion: null,
     });
   });
 });

@@ -18,6 +18,9 @@ public sealed partial class P0206Tests
         "occurred_at", "plan_id", "reason", "refund_policy_version", "revision", "source", "source_expected_version", "source_version_id", "status", "target_id", "target_kind",
         "trial_terms_version", "updated_at", "updated_by_admin_id", "version_number"];
 
+    /// <summary>The exact draft version an ordinary save edits; a create names none.</summary>
+    internal const string DraftId = "expectedDraftVersionId";
+
     /// <summary>A complete multi-shop body; overrides replace (or, with a null value, blank) single members.</summary>
     internal static Dictionary<string, object?> MultiShop(int expectedVersion, params (string Name, object? Value)[] overrides)
     {
@@ -40,13 +43,15 @@ public sealed partial class P0206Tests
         var (manager, _) = await fixture.ManagerAsync();
         using var _manager = manager;
         var planId = Guid.NewGuid();
-        await SaveAsync(manager, planId, MultiShop(0, ("annualPricePaise", null), ("membersPerShop", null)), HttpStatusCode.Created);
-        var zero = await SaveAsync(manager, planId, MultiShop(1, ("monthlyPricePaise", 0L), ("membersPerShop", null)));
+        var draftId = (await SaveAsync(manager, planId, MultiShop(0, ("annualPricePaise", null), ("membersPerShop", null)),
+            HttpStatusCode.Created)).GetProperty("versionId").GetGuid();
+        var zero = await SaveAsync(manager, planId, MultiShop(1, ("monthlyPricePaise", 0L), ("membersPerShop", null),
+            (DraftId, draftId)));
         Assert.Equal(0L, zero.GetProperty("monthlyPricePaise").GetInt64());
         Assert.Equal(["membersPerShop"], Missing(zero));
         Assert.False(zero.GetProperty("complete").GetBoolean());
 
-        var complete = await SaveAsync(manager, planId, MultiShop(2, ("monthlyPricePaise", 0L)));
+        var complete = await SaveAsync(manager, planId, MultiShop(2, ("monthlyPricePaise", 0L), (DraftId, draftId)));
         Assert.Empty(Missing(complete));
         Assert.True(complete.GetProperty("complete").GetBoolean());
         Assert.Equal("draft", complete.GetProperty("status").GetString());
@@ -148,10 +153,10 @@ public sealed partial class P0206Tests
         var (manager, _) = await fixture.ManagerAsync();
         using var _manager = manager;
         var planId = Guid.NewGuid();
-        object Custom(int version, string? reason) => new
+        object Custom(int version, string? reason, Guid? expectedDraftVersionId = null) => new
         {
             expectedVersion = version, kind = "custom", name = "Chain negotiated (local fixture)",
-            annualPricePaise = 5000000L, includedShops = 12, membersPerShop = 8, reason,
+            annualPricePaise = 5000000L, includedShops = 12, membersPerShop = 8, reason, expectedDraftVersionId,
         };
         foreach (var reason in new[] { null, "   " })
         {
@@ -162,7 +167,7 @@ public sealed partial class P0206Tests
         var saved = await SaveAsync(manager, planId, Custom(0, " Twelve-shop chain asked for annual terms "), HttpStatusCode.Created);
         Assert.Equal("Twelve-shop chain asked for annual terms", saved.GetProperty("negotiationReason").GetString());
         Assert.Equal(["customerTermsVersion", "refundPolicyVersion"], Missing(saved));
-        await SaveAsync(manager, planId, Custom(1, "Renewed negotiation"));
+        await SaveAsync(manager, planId, Custom(1, "Renewed negotiation", saved.GetProperty("versionId").GetGuid()));
         Assert.Equal(2L, await fixture.ScalarAsync($"""
             SELECT count(*) FROM catalogue_draft_changes c JOIN plan_versions v ON v.id = c.target_id
             WHERE v.plan_id = '{planId}' AND c.reason IS NOT NULL

@@ -30,6 +30,17 @@ internal static class CatalogueAuthority
         source is null && sourceRevision is null
         || expected == 0 && source is { } id && id != Guid.Empty && sourceRevision is > 0;
 
+    /// <summary>A create names no draft; an ordinary save may name only a real draft version (checked under lock).</summary>
+    internal static bool ValidTarget(int expected, Guid? draftVersionId) =>
+        draftVersionId is null || expected > 0 && draftVersionId != Guid.Empty;
+
+    /// <summary>
+    /// A successor restarts its revision at 1, so the revision alone cannot tell a stale predecessor editor from the
+    /// current one: an ordinary save must name the exact open draft version as well.
+    /// </summary>
+    internal static bool Targets(Guid draftId, int revision, Guid? expectedDraftVersionId, int expected) =>
+        expectedDraftVersionId == draftId && revision == expected;
+
     internal static Error? ToError(CatalogueRuleViolation violation) => violation switch
     {
         CatalogueRuleViolation.None => null,

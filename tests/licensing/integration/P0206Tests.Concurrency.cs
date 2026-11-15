@@ -12,8 +12,8 @@ public sealed partial class P0206Tests
         var (manager, _) = await fixture.ManagerAsync();
         using var _manager = manager;
         var planId = Guid.NewGuid();
-        await SaveAsync(manager, planId, MultiShop(0), HttpStatusCode.Created);
-        await SaveAsync(manager, planId, MultiShop(1, ("membersPerShop", 6)));
+        var draftId = (await SaveAsync(manager, planId, MultiShop(0), HttpStatusCode.Created)).GetProperty("versionId").GetGuid();
+        await SaveAsync(manager, planId, MultiShop(1, ("membersPerShop", 6), (DraftId, draftId)));
 
         foreach (var (version, status, code) in new[]
                  {
@@ -22,7 +22,8 @@ public sealed partial class P0206Tests
                      (0, HttpStatusCode.Conflict, "Catalogue.DraftVersionConflict"),
                  })
         {
-            using var stale = await P0206Fixture.PutPlanAsync(manager, planId, MultiShop(version, ("membersPerShop", 99)));
+            using var stale = await P0206Fixture.PutPlanAsync(manager, planId,
+                MultiShop(version, ("membersPerShop", 99), (DraftId, version == 0 ? null : draftId)));
             Assert.Equal(status, stale.StatusCode);
             Assert.Equal(code, await P0206Fixture.CodeAsync(stale));
         }
@@ -49,6 +50,7 @@ public sealed partial class P0206Tests
             StatusAsync(P0206Fixture.PutPlanAsync(second, planId, MultiShop(0, ("name", "Other")))));
         Assert.Single(creates, status => status == HttpStatusCode.Created);
         Assert.Single(creates, status => status == HttpStatusCode.Conflict);
+        var draftId = (Guid)(await fixture.ScalarAsync($"SELECT id FROM plan_versions WHERE plan_id = '{planId}'"))!;
 
         // Hold the draft row so one save waits for the row and its competitor queues behind the same plan fence.
         var proofs = (await P0206Fixture.ProofAsync(first), await P0206Fixture.ProofAsync(second));
@@ -61,9 +63,9 @@ public sealed partial class P0206Tests
                              $"SELECT 1 FROM plan_versions WHERE plan_id = '{planId}' FOR UPDATE", gate, hold))
                 await lockRow.ExecuteNonQueryAsync();
             saves.Add(StatusAsync(first.SendAsync(HttpMethod.Put, $"{Plans}/{planId}/draft",
-                MultiShop(1, ("membersPerShop", 7)), proofs.Item1)));
+                MultiShop(1, ("membersPerShop", 7), (DraftId, draftId)), proofs.Item1)));
             saves.Add(StatusAsync(second.SendAsync(HttpMethod.Put, $"{Plans}/{planId}/draft",
-                MultiShop(1, ("membersPerShop", 8)), proofs.Item2)));
+                MultiShop(1, ("membersPerShop", 8), (DraftId, draftId)), proofs.Item2)));
             await WaitForDraftLockAsync(fixture, 2);
             await hold.RollbackAsync();
         }

@@ -11,6 +11,20 @@ export interface SuccessorSource {
   sourceExpectedVersion: number;
 }
 
+/**
+ * An ordinary save names the exact draft version it edits as well as its revision: a successor restarts at
+ * revision 1, so a revision alone could land a stale predecessor form on the newer draft. Creates name none.
+ */
+export interface DraftTarget {
+  expectedVersion: number;
+  expectedDraftVersionId?: string;
+}
+
+/** The revision and identity of the loaded draft, or a create when none is loaded. */
+export function draftTarget(draft: { versionId: string; version: number } | null | undefined): DraftTarget {
+  return draft ? { expectedVersion: draft.version, expectedDraftVersionId: draft.versionId } : { expectedVersion: 0 };
+}
+
 export const licensingManager = 'licensing-manager';
 export type PlanKind = 'single-shop' | 'multi-shop' | 'custom';
 
@@ -52,8 +66,7 @@ export interface PlanItem {
   draft: PlanDraft;
 }
 
-export interface PlanDraftCommand extends PlanFacts, Partial<SuccessorSource> {
-  expectedVersion: number;
+export interface PlanDraftCommand extends PlanFacts, Partial<SuccessorSource>, DraftTarget {
   kind: PlanKind;
   reason: string | null;
 }
@@ -109,7 +122,7 @@ export class CatalogueApi {
     return this.http.get<{ draft: TrialDraft | null }>('/api/admin/trial-policy/draft');
   }
 
-  saveTrial(command: TrialFacts & Partial<SuccessorSource> & { expectedVersion: number }) {
+  saveTrial(command: TrialFacts & Partial<SuccessorSource> & DraftTarget) {
     return this.withProof((headers) =>
       this.http.put<{ draft: TrialDraft }>('/api/admin/trial-policy/draft', command, { headers }));
   }

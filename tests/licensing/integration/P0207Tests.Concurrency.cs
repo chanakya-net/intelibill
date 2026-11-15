@@ -26,7 +26,9 @@ public sealed partial class P0207Tests
         await using var hold = new NpgsqlCommand("SELECT id FROM plan_versions WHERE id = $1 FOR UPDATE", connection, gate);
         hold.Parameters.AddWithValue(id);
         Assert.Equal(id, await hold.ExecuteScalarAsync());
-        var saving = P0206Fixture.PutPlanAsync(editor, plan, PlanFacts(1, 999900));
+        var edit = PlanFacts(1, 999900);
+        edit["expectedDraftVersionId"] = id;
+        var saving = P0206Fixture.PutPlanAsync(editor, plan, edit);
         await WaitForSaveRowLockAsync(fixture);
         var confirming = ConfirmAsync(manager, path, prepared);
         await WaitForAdvisoryWaitersAsync(fixture, 1);

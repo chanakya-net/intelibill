@@ -20,7 +20,8 @@ public sealed record PlanDraftRequest(
     string? RefundPolicyVersion,
     string? Reason,
     Guid? SourceVersionId = null,
-    int? SourceExpectedVersion = null);
+    int? SourceExpectedVersion = null,
+    Guid? ExpectedDraftVersionId = null);
 
 public sealed record TrialPolicyDraftRequest(
     int? ExpectedVersion,
@@ -28,7 +29,8 @@ public sealed record TrialPolicyDraftRequest(
     int? MaxConcurrentTrialShops,
     string? TrialTermsVersion,
     Guid? SourceVersionId = null,
-    int? SourceExpectedVersion = null);
+    int? SourceExpectedVersion = null,
+    Guid? ExpectedDraftVersionId = null);
 
 public sealed record PlanDraftView(
     Guid VersionId,

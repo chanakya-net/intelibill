@@ -23,7 +23,8 @@ public sealed partial class P0207Tests(LicensingPostgreSqlFixture database) : IC
         Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
         Assert.Equal("Catalogue.Incomplete", await P0206Fixture.CodeAsync(refused));
         using var complete = await manager.SendAsync(HttpMethod.Put, P0206Fixture.Trial,
-            new { expectedVersion = 1, activeMemberCap = 5, maxConcurrentTrialShops = 2, trialTermsVersion = "trial-local-1" }, proof);
+            new { expectedVersion = 1, expectedDraftVersionId = id, activeMemberCap = 5, maxConcurrentTrialShops = 2,
+                trialTermsVersion = "trial-local-1" }, proof);
         Assert.Equal(HttpStatusCode.OK, complete.StatusCode);
         using var preview = await manager.SendAsync(HttpMethod.Post, path + "/publish-preview",
             new { expectedVersion = 2, operationKey, reason = "Local verification" }, proof);
