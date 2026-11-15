@@ -67,21 +67,46 @@ async function grant(page: Page, id: string) {
   await expect(page.getByText('Consent granted', { exact: true })).toBeVisible();
 }
 
-async function loseAndRecover(page: Page, id: string) {
+const retryAcceptance = 'Retry · Accept affiliation';
+
+async function verifyConflictingTabClick(first: Page, second: Page, id: string) {
+  await second.goto(web.origin + consentLink(id));
+  await expect(second.getByText('Consent granted', { exact: true })).toBeVisible();
+  const path = consentApi(id);
+  let frozenKey: string | undefined;
+  await first.route('**' + path + '/accept', async route => {
+    frozenKey = route.request().postDataJSON().operationKey as string;
+    await route.abort('failed');
+  }, { times: 1 });
+  await first.getByRole('button', { name: 'Accept affiliation', exact: true }).click();
+  await expect(first.getByRole('button', { name: retryAcceptance, exact: true })).toBeEnabled();
+  const sent: string[] = [];
+  second.on('request', request => {
+    const pathname = new URL(request.url()).pathname;
+    if (request.method() === 'POST' && pathname.startsWith(path + '/')) sent.push(pathname);
+  });
+  await second.getByRole('button', { name: 'Revoke consent', exact: true }).click();
+  await expect(second.getByRole('alert').filter({ hasText: 'Saved operations changed in another tab.' })).toBeVisible();
+  await expect(second.getByText('Consent granted', { exact: true })).toBeVisible();
+  await expect(second.getByRole('button', { name: retryAcceptance, exact: true })).toBeEnabled();
+  expect(sent).toEqual([]);
+  expect(frozenKey).toBeTruthy();
+  return frozenKey;
+}
+
+async function loseAcknowledgementAndRecover(page: Page, id: string, frozenKey: string | undefined) {
   const path = consentApi(id) + '/accept';
-  let originalKey: string | undefined;
   await page.route('**' + path, async route => {
-    originalKey = route.request().postDataJSON().operationKey as string;
+    expect(route.request().postDataJSON().operationKey).toBe(frozenKey);
     const response = await route.fetch();
     expect(response.status()).toBe(200);
     await route.abort('failed');
   }, { times: 1 });
-  await page.getByRole('button', { name: 'Accept affiliation' }).click();
-  await expect(page.getByRole('button', { name: /Retry/ })).toBeEnabled();
+  await page.getByRole('button', { name: retryAcceptance, exact: true }).click();
+  await expect(page.getByRole('button', { name: retryAcceptance, exact: true })).toBeEnabled();
   await page.reload();
-  const retry = await respond(page, path, () => page.getByRole('button', { name: /Retry/ }).click());
-  expect(originalKey).toBeTruthy();
-  expect(retry.request().postDataJSON().operationKey).toBe(originalKey);
+  const retry = await respond(page, path, () => page.getByRole('button', { name: retryAcceptance, exact: true }).click());
+  expect(retry.request().postDataJSON().operationKey).toBe(frozenKey);
   expect(retry.status()).toBe(200);
   return retry.status();
 }
@@ -124,7 +149,10 @@ test('explicit coverage, named owner consent and payer shop isolation', async ({
   await owner.reload();
   await expect(owner.getByText('Consent granted', { exact: true })).toBeVisible();
   await owner.screenshot({ path: join(evidence, 'owner-consent-mobile.png') });
-  const retriedAcceptance = await loseAndRecover(owner, accepted);
+  const otherOwnerTab = await ownerClient.newPage();
+  const frozenKey = await verifyConflictingTabClick(owner, otherOwnerTab, accepted);
+  const retriedAcceptance = await loseAcknowledgementAndRecover(otherOwnerTab, accepted, frozenKey);
+  await otherOwnerTab.close();
   const requestRow = payer.getByTestId('affiliation-request').and(payer.locator('[data-request-id="' + accepted + '"]'));
   await expect(async () => {
     await payer.getByRole('button', { name: 'Refresh status' }).click();
@@ -147,6 +175,7 @@ test('explicit coverage, named owner consent and payer shop isolation', async ({
   writeFileSync(join(evidence, 'observations.json'), JSON.stringify({
     coverage: 'Grouped, exact existing terms shown in IST', independentTermsUnchanged: true,
     liveOwner: 'Billing Fixture', namedShop: 'Fixture Retail Shop', affiliation: 'Applied',
+    conflictingRevokeSentNoRequest: true, retryLabel: retryAcceptance,
     revokedAcceptance: replay.status, retriedAcceptance, sameOperationKey: true,
     payerShopDetails: readShop.status, payerSwitch: switchShop.status, payerConsent: ownerRoute.status,
     payerShopListUnchanged: true, boundaryLeak,

@@ -58,13 +58,14 @@ export class OwnerConsentComponent {
     this.refresh.update((current) => current + 1);
   }
 
-  decide(decision: ConsentDecision): void {
+  decide(decision: ConsentDecision, retryKey?: string): void {
     const scope = this.context.scope();
     const { account, shop, id } = this.ids();
     const key = this.draftKey();
     if (!scope || scope.shopId !== shop || !this.detail()) return;
-    this.operation.submit(scope, key, { decision },
-      (draft) => this.api.decide(account, shop, id, draft.decision ?? decision, draft.operationKey, scope),
+    const intent = retryKey ? { retryKey } : { newDraft: { decision } };
+    this.operation.submit(scope, key, intent,
+      (draft) => this.api.decide(account, shop, id, decision, draft.operationKey, scope),
       () => this.draftKey() === key, () => this.reload());
   }
 }

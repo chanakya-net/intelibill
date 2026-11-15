@@ -8,6 +8,7 @@ import { affiliationError, definitiveAffiliationFailure } from './affiliation-ap
 
 type Draft = NonNullable<ReturnType<AffiliationDrafts['read']>>;
 type NewDraft = Parameters<AffiliationDrafts['freeze']>[1];
+type AffiliationIntent = { newDraft: NewDraft } | { retryKey: string };
 
 @Injectable()
 export class AffiliationOperation {
@@ -30,23 +31,35 @@ export class AffiliationOperation {
     }
   }
 
-  submit<T>(scope: ShopScope, key: readonly string[], body: NewDraft,
+  submit<T>(scope: ShopScope, key: readonly string[], intent: AffiliationIntent,
     send: (draft: Draft) => Observable<T>, samePage: () => boolean, completed: (succeeded: boolean) => void): void {
     if (this.saving()) return;
-    let draft: Draft;
-    try {
-      draft = this.drafts.freeze(key, body);
-    } catch {
-      this.error.set('billing.affiliation.storageUnavailable');
-      return;
-    }
-    this.pending.set(draft);
+    const draft = this.prepare(key, intent);
+    if (!draft) return;
     this.saving.set(true);
     this.error.set('');
     send(draft).pipe(this.untilDestroyed).subscribe({
       next: () => this.finish(scope, key, draft, samePage, completed),
       error: (error: unknown) => this.finish(scope, key, draft, samePage, completed, error),
     });
+  }
+
+  private prepare(key: readonly string[], intent: AffiliationIntent): Draft | null {
+    try {
+      if ('retryKey' in intent) {
+        const draft = this.drafts.read(key);
+        this.pending.set(draft);
+        if (draft?.operationKey === intent.retryKey) return draft;
+      } else {
+        const { draft, created } = this.drafts.freeze(key, intent.newDraft);
+        this.pending.set(draft);
+        if (created) return draft;
+      }
+      this.error.set('billing.affiliation.reviewPending');
+    } catch {
+      this.error.set('billing.affiliation.storageUnavailable');
+    }
+    return null;
   }
 
   private finish(scope: ShopScope, key: readonly string[], draft: Draft, samePage: () => boolean,

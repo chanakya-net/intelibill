@@ -17,6 +17,9 @@
         [ngModelOptions]="{ standalone: true }" (ngModelChange)="selection.set($event)">
         <option value="">{{ 'billing.affiliation.choose' | transloco }}</option>
         <option value="none">{{ 'billing.affiliation.none' | transloco }}</option>
+        @if (unlistedPendingTerm(); as termId) {
+          <option [value]="termId">{{ termId }}</option>
+        }
         @for (term of view.terms; track term.termId) {
           <option [value]="term.termId">
             {{ 'billing.affiliation.mode.' + term.mode | transloco }} · {{ 'billing.affiliation.termDates' | transloco: {
@@ -25,8 +28,12 @@
           </option>
         }
       </select>
-      <button pButton type="submit" [disabled]="!canSubmit()"
-        [label]="(operation.pending() ? 'billing.retry' : 'billing.affiliation.request') | transloco"></button>
+      @if (operation.pending(); as draft) {
+        <button pButton type="button" (click)="request(draft.operationKey)" [disabled]="operation.saving()"
+          [label]="('billing.retry' | transloco) + ' · ' + ('billing.affiliation.request' | transloco)"></button>
+      } @else {
+        <button pButton type="submit" [disabled]="!canSubmit()" [label]="'billing.affiliation.request' | transloco"></button>
+      }
     </form>
     <h2 class="ib-panel__title">{{ 'billing.affiliation.requests' | transloco }}</h2>
     @for (request of view.requests; track request.requestId) {

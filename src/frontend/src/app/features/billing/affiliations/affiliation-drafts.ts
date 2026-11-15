@@ -31,13 +31,13 @@ export class AffiliationDrafts {
     return draft;
   }
 
-  freeze(scope: readonly string[], body: Omit<Draft, 'operationKey'>): Draft {
+  freeze(scope: readonly string[], body: Omit<Draft, 'operationKey'>): { draft: Draft; created: boolean } {
     const existing = this.read(scope);
-    if (existing) return existing;
+    if (existing) return { draft: existing, created: false };
     const draft = { ...body, operationKey: crypto.randomUUID() };
     // Distinct entries preserve both attempts if two tabs start before either sees the other's save.
     localStorage.setItem(this.prefix(scope) + draft.operationKey, JSON.stringify({ ...draft, savedAt: Date.now() }));
-    return draft;
+    return { draft, created: true };
   }
 
   settle(scope: readonly string[], operationKey: string): void {

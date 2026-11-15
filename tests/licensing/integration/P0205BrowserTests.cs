@@ -111,6 +111,7 @@ public sealed class P0205BrowserTests(LicensingPostgreSqlFixture database, ITest
         using var evidence = JsonDocument.Parse(await File.ReadAllBytesAsync(observations, ct));
         Assert.Equal(409, evidence.RootElement.GetProperty("revokedAcceptance").GetInt32());
         Assert.Equal(200, evidence.RootElement.GetProperty("retriedAcceptance").GetInt32());
+        Assert.True(evidence.RootElement.GetProperty("conflictingRevokeSentNoRequest").GetBoolean());
     }
 
     private sealed record BrowserFixture(string Web, string Payer, string Owner, Guid Shop, Guid Account, string Evidence)

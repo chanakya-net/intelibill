@@ -23,9 +23,11 @@
       </dl>
       <p role="status">{{ 'billing.affiliation.status.' + view.status | transloco }}</p>
       <div class="affiliation-actions">
-        @if (operation.pending()?.decision; as action) {
-          <button pButton type="button" (click)="decide(action)" [disabled]="operation.saving()"
-            [label]="'billing.retry' | transloco"></button>
+        @if (operation.pending(); as draft) {
+          @if (draft.decision; as action) {
+            <button pButton type="button" (click)="decide(action, draft.operationKey)" [disabled]="operation.saving()"
+              [label]="('billing.retry' | transloco) + ' · ' + ('billing.affiliation.' + action | transloco)"></button>
+          }
         } @else if (view.status === 'AwaitingConsent') {
           <button pButton type="button" (click)="decide('grant')" [disabled]="operation.saving()"
             [label]="'billing.affiliation.grant' | transloco"></button>

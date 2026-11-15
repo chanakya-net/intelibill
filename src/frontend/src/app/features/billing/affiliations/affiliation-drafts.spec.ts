@@ -8,9 +8,10 @@ describe('affiliation drafts', () => {
     stubMemoryStorage();
     const first = new AffiliationDrafts();
     const scope = ['payer', 'account', 'request'];
-    const saved = first.freeze(scope, { shopId: 'shop-a', termId: null, withoutCoverage: true });
+    const { draft: saved } = first.freeze(scope, { shopId: 'shop-a', termId: null, withoutCoverage: true });
     const afterReload = new AffiliationDrafts();
-    expect(afterReload.freeze(scope, { shopId: 'shop-b', termId: 'term', withoutCoverage: false })).toEqual(saved);
+    expect(afterReload.freeze(scope, { shopId: 'shop-b', termId: 'term', withoutCoverage: false }))
+      .toEqual({ draft: saved, created: false });
     expect(afterReload.read(['other', 'account', 'request'])).toBeNull();
     expect(afterReload.read(['payer', 'different-account', 'request'])).toBeNull();
     afterReload.settle(scope, saved.operationKey);
@@ -21,7 +22,7 @@ describe('affiliation drafts', () => {
     const storage = stubMemoryStorage();
     const scope = ['owner', 'account', 'shop', 'request', 'consent'];
     const drafts = new AffiliationDrafts();
-    const first = drafts.freeze(scope, { decision: 'grant' });
+    const { draft: first } = drafts.freeze(scope, { decision: 'grant' });
     const [firstKey, firstEntry] = [...storage.entries()][0];
     storage.set(firstKey.replace(first.operationKey, 'other-operation'),
       JSON.stringify({ operationKey: 'other-operation', decision: 'grant', savedAt: JSON.parse(firstEntry).savedAt + 1 }));

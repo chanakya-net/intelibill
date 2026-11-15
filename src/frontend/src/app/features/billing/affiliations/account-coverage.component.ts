@@ -30,8 +30,12 @@ export class AccountCoverageComponent {
   readonly readError = signal('');
   readonly shop = signal('');
   readonly selection = signal('');
-  readonly canSubmit = computed(() => !this.operation.saving() && (this.operation.pending() !== null ||
-    (this.data() !== null && this.selection() !== '' && /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(this.shop().trim()))));
+  readonly canSubmit = computed(() => !this.operation.saving() && this.operation.pending() === null &&
+    this.data() !== null && this.selection() !== '' && /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(this.shop().trim()));
+  readonly unlistedPendingTerm = computed(() => {
+    const termId = this.operation.pending()?.termId;
+    return termId && !this.data()?.terms.some((term) => term.termId === termId) ? termId : null;
+  });
 
   constructor() {
     effect(() => {
@@ -58,13 +62,16 @@ export class AccountCoverageComponent {
     this.refresh.update((current) => current + 1);
   }
 
-  request(): void {
+  request(retryKey?: string): void {
     const scope = this.context.scope();
     const key = this.draftKey();
     const account = this.accountId();
-    if (!scope || !account || !this.canSubmit()) return;
+    if (!scope || !account || (!retryKey && !this.canSubmit())) return;
     const termId = this.selection() === 'none' ? null : this.selection();
-    this.operation.submit(scope, key, { shopId: this.shop().trim(), termId, withoutCoverage: termId === null },
+    const intent = retryKey ? { retryKey } : {
+      newDraft: { shopId: this.shop().trim(), termId, withoutCoverage: termId === null },
+    };
+    this.operation.submit(scope, key, intent,
       (draft) => this.api.request(account, draft, scope), () => this.draftKey() === key, (succeeded) => {
         if (succeeded) {
           this.shop.set('');

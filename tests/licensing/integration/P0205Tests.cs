@@ -33,14 +33,15 @@ public sealed partial class P0205Tests(LicensingPostgreSqlFixture database) : IC
         Assert.Equal("Granted", (await owner.GetFromJsonAsync<JsonElement>(path)).GetProperty("status").GetString());
     }
 
-    private async Task<Hosts> StartAsync(Func<HttpMessageHandler, HttpMessageHandler>? transport = null)
+    private async Task<Hosts> StartAsync(Func<HttpMessageHandler, HttpMessageHandler>? transport = null, RSA? deliveryKey = null)
     {
         await database.PrepareMerchantAsync();
         await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase),
             "TRUNCATE public.rate_limit_buckets");
         var fixture = await P0201Fixture.CreateAsync(database);
         fixture.Clock.Now = P0202Fixture.WholeSecondNow();
-        using var delivery = RSA.Create(2048);
+        using var generatedKey = deliveryKey is null ? RSA.Create(2048) : null;
+        var delivery = deliveryKey ?? generatedKey!;
         var licensing = P0202Fixture.LicensingApi(fixture, settings: LicensingSettings(fixture, delivery));
         var merchant = fixture.MerchantApi(handler: () => transport?.Invoke(licensing.Server.CreateHandler()) ?? licensing.Server.CreateHandler(),
             configure: services => services.AddSingleton<TimeProvider>(fixture.Clock), settings: MerchantSettings(delivery));

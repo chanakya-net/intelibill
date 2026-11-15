@@ -3312,6 +3312,7 @@
       "selectionUnavailable": "That coverage selection is no longer available.",
       "invalidChoice": "Enter a shop ID and choose one coverage option.",
       "consentInvalid": "This request requires current, unrevoked consent.",
+      "reviewPending": "Saved operations changed in another tab. Review the current status before continuing.",
       "storageUnavailable": "The browser could not save or recover your request.",
       "mode": { "Independent": "Independent", "Grouped": "Grouped" },
       "status": {
