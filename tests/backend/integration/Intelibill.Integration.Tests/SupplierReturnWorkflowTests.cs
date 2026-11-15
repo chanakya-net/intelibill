@@ -505,4 +505,197 @@ public sealed class SupplierReturnWorkflowTests : IAsyncLifetime, IDisposable
         var accepted=await JsonAsync(await client.PostAsJsonAsync($"/api/supplier-returns/{id}/credit",new{operationKey=Guid.NewGuid().ToString(),expectedVersion=document.GetProperty("version").GetUInt32(),reason="Agreed paise credit",lines=new[]{new{returnLineId=document.GetProperty("lines")[0].GetProperty("returnLineId").GetGuid(),acceptedAmount=amount}}}));Assert.Equal(amount,accepted.GetProperty("lines")[0].GetProperty("acceptedAmount").GetDecimal());
         var after=await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));Assert.Equal(1000-amount,after.GetProperty("netPayableAmount").GetDecimal());
     }
+
+    // ── Collisions with a shipment or receipt reversal ────────────────────────────────────────
+    //
+    // A supplier return shipment and a receipt reversal take the supplier row, then the receipt
+    // row, and write the stock rows (item total, batch) only when they save. Cost correction, void
+    // and supplier reassignment write the stock rows first and the receipt last. Arriving in
+    // between, one of those must wait without holding a stock row, or the two wait for each other
+    // and PostgreSQL ends one of them with a deadlock, which the API answers with a 500.
+    //
+    // The shipment or reversal is played by a plain session here, so it can be paused between its
+    // locks and its save. That makes the collision happen every time instead of once in a while.
+
+    [Fact]
+    public async Task CostCorrection_BehindAShipmentsLocks_LeavesTheBatchFreeAndConflicts()
+    {
+        var x = await SetupAsync();
+        using var client = x.Client;
+        var detail = await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{x.Receipt}"));
+        await using var shipment = await HeldReceipt.TakeAsync(_factory.MigratorConnectionString, x.Supplier, x.Receipt, x.Batch);
+
+        var correction = client.PostAsJsonAsync($"/api/inventory/receipts/{x.Receipt}/cost-corrections", new
+        {
+            expectedVersion = detail.GetProperty("receiptVersion").GetUInt32(),
+            revisedTotalCost = 1100,
+            reason = "Correct invoice",
+            operationKey = Guid.NewGuid().ToString(),
+        });
+        await shipment.SaveBehindAsync();
+
+        using var response = await correction;
+        await AssertConflictAsync(response, "PurchaseReceipt.VersionConflict");
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(0, await db.PurchaseReceiptCostAdjustments.CountAsync(a => a.PurchaseReceiptValueId == x.Receipt));
+        Assert.Equal(1000m, (await db.PurchaseReceiptValues.SingleAsync(r => r.Id == x.Receipt)).EffectiveTotalCost);
+    }
+
+    [Fact]
+    public async Task Void_BehindAShipmentsLocks_LeavesTheStockRowsFreeAndConflicts()
+    {
+        var x = await SetupAsync();
+        using var client = x.Client;
+        await using var shipment = await HeldReceipt.TakeAsync(_factory.MigratorConnectionString, x.Supplier, x.Receipt, x.Batch);
+
+        var voiding = client.PostAsJsonAsync($"/api/inventory/batches/{x.Batch}/void", new { });
+        await shipment.SaveBehindAsync();
+
+        using var response = await voiding;
+        await AssertConflictAsync(response, "Inventory.ConcurrentChange");
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var batch = await db.InventoryBatches.SingleAsync(b => b.Id == x.Batch);
+        Assert.False(batch.IsVoided);
+        Assert.Equal(10m, batch.Quantity);
+        Assert.Equal(0, await db.SupplierLedgerEntries.CountAsync(e => e.BatchId == x.Batch && e.EntryType == SupplierLedgerEntryType.Reversal));
+    }
+
+    [Fact]
+    public async Task SupplierReassignment_BehindAReversalsLocks_LeavesTheBatchFreeAndConflicts()
+    {
+        // Received with no supplier: the receipt sits under the shop's placeholder supplier, the
+        // only kind a reassignment moves, and one a receipt reversal accepts.
+        var client = CreateClient();
+        var token = await CreateShopAsync(client, await RegisterAsync(client));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var target = await CreateSupplierAsync(client, token, "Real supplier");
+        var inbound = await client.PostAsJsonAsync("/api/inventory/inbound", new { itemName = "Unassigned item", barcode = $"SR-{Guid.NewGuid():N}", uom = "pcs", batchNumber = $"B-{Guid.NewGuid():N}", quantity = 10, totalPurchaseCost = 1000m, mrp = 150, salesPrice = 120 });
+        inbound.EnsureSuccessStatusCode();
+        var batchId = (await inbound.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("inventoryBatchId").GetGuid();
+        Guid receiptId, placeholder;
+        using (var setup = _factory.Services.CreateScope())
+        {
+            var receipt = await setup.ServiceProvider.GetRequiredService<ApplicationDbContext>().PurchaseReceiptValues.SingleAsync(r => r.InventoryBatchId == batchId);
+            (receiptId, placeholder) = (receipt.Id, receipt.SupplierId!.Value);
+        }
+
+        await using var reversal = await HeldReceipt.TakeAsync(_factory.MigratorConnectionString, placeholder, receiptId, batchId);
+
+        var reassignment = client.PostAsJsonAsync($"/api/inventory/batches/{batchId}/reassign-supplier", new { newSupplierId = target });
+        await reversal.SaveBehindAsync();
+
+        using var response = await reassignment;
+        await AssertConflictAsync(response, "Inventory.ConcurrentChange");
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Equal(placeholder, (await db.PurchaseReceiptValues.SingleAsync(r => r.Id == receiptId)).SupplierId);
+        Assert.Equal(placeholder, (await db.InventoryBatches.SingleAsync(b => b.Id == batchId)).SupplierId);
+        Assert.Equal(0, await db.SupplierLedgerEntries.CountAsync(e => e.BatchId == batchId && e.SupplierId == target));
+        client.Dispose();
+    }
+
+    /// <summary>
+    /// What the placeholder-supplier test above depends on: the API really does reverse a receipt
+    /// that has no real supplier, so a reversal can be the other side of that collision.
+    /// </summary>
+    [Fact]
+    public async Task ReceiptReversal_AcceptsAReceiptUnderThePlaceholderSupplier()
+    {
+        using var client = CreateClient();
+        var token = await CreateShopAsync(client, await RegisterAsync(client));
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var inbound = await client.PostAsJsonAsync("/api/inventory/inbound", new { itemName = "Unassigned item", barcode = $"SR-{Guid.NewGuid():N}", uom = "pcs", batchNumber = $"B-{Guid.NewGuid():N}", quantity = 10, totalPurchaseCost = 1000m, mrp = 150, salesPrice = 120 });
+        inbound.EnsureSuccessStatusCode();
+        var batchId = (await inbound.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("inventoryBatchId").GetGuid();
+        Guid receiptId;
+        using (var setup = _factory.Services.CreateScope())
+            receiptId = (await setup.ServiceProvider.GetRequiredService<ApplicationDbContext>().PurchaseReceiptValues.SingleAsync(r => r.InventoryBatchId == batchId)).Id;
+        var detail = await JsonAsync(await client.GetAsync($"/api/purchase-receipts/{receiptId}"));
+
+        using var response = await client.PostAsJsonAsync($"/api/purchase-receipts/{receiptId}/reversal", new
+        {
+            operationKey = Guid.NewGuid().ToString(),
+            reason = "Erroneous receipt",
+            expectedReceiptVersion = detail.GetProperty("receiptVersion").GetUInt32(),
+            expectedBatchVersion = detail.GetProperty("batchVersion").GetUInt32(),
+        });
+
+        Assert.True(response.IsSuccessStatusCode, $"{response.StatusCode} {await response.Content.ReadAsStringAsync()}");
+    }
+
+    private static async Task AssertConflictAsync(HttpResponseMessage response, string code)
+    {
+        var answer = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.Conflict, $"{response.StatusCode} {answer}");
+        Assert.Contains(code, answer, StringComparison.Ordinal);
+    }
+
+    /// <summary>A session holding what a shipment or receipt reversal holds before it saves.</summary>
+    private sealed class HeldReceipt : IAsyncDisposable
+    {
+        private readonly NpgsqlConnection _session;
+        private readonly NpgsqlConnection _observer;
+        private readonly NpgsqlTransaction _transaction;
+        private readonly Guid _receipt;
+        private readonly Guid _batch;
+
+        private HeldReceipt(NpgsqlConnection session, NpgsqlConnection observer, NpgsqlTransaction transaction, Guid receipt, Guid batch) =>
+            (_session, _observer, _transaction, _receipt, _batch) = (session, observer, transaction, receipt, batch);
+
+        public static async Task<HeldReceipt> TakeAsync(string connectionString, Guid supplier, Guid receipt, Guid batch)
+        {
+            var session = new NpgsqlConnection(connectionString);
+            var observer = new NpgsqlConnection(connectionString);
+            await session.OpenAsync();
+            await observer.OpenAsync();
+            var held = new HeldReceipt(session, observer, await session.BeginTransactionAsync(), receipt, batch);
+
+            // The same rows, in the same order, as SupplierReturnMutationLock.
+            await held.ExecuteAsync("SELECT id FROM suppliers WHERE id = @id FOR NO KEY UPDATE", supplier);
+            await held.ExecuteAsync("SELECT id FROM purchase_receipt_values WHERE id = @id FOR NO KEY UPDATE", receipt);
+            return held;
+        }
+
+        /// <summary>
+        /// Waits for the request under test to queue behind this session, then writes what a
+        /// shipment or reversal writes when it saves, and commits. None of those writes may wait:
+        /// the request is itself waiting on this session.
+        /// </summary>
+        public async Task SaveBehindAsync()
+        {
+            using (var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(4)))
+            {
+                while (true)
+                {
+                    await using var command = new NpgsqlCommand(
+                        "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND @blocker = ANY(pg_blocking_pids(pid))",
+                        _observer);
+                    command.Parameters.AddWithValue("blocker", _session.ProcessID);
+                    if ((long)(await command.ExecuteScalarAsync(timeout.Token))! > 0) break;
+                    await Task.Delay(10, timeout.Token);
+                }
+            }
+
+            await ExecuteAsync("UPDATE inventory SET quantity = quantity WHERE item_id = (SELECT item_id FROM inventory_batches WHERE id = @id)", _batch);
+            await ExecuteAsync("UPDATE inventory_batches SET quantity = quantity WHERE id = @id", _batch);
+            await ExecuteAsync("UPDATE purchase_receipt_values SET status = status WHERE id = @id", _receipt);
+            await _transaction.CommitAsync();
+        }
+
+        private async Task ExecuteAsync(string sql, Guid id)
+        {
+            await using var command = new NpgsqlCommand(sql, _session, _transaction);
+            command.Parameters.AddWithValue("id", id);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await _transaction.DisposeAsync();
+            await _session.DisposeAsync();
+            await _observer.DisposeAsync();
+        }
+    }
 }

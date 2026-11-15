@@ -392,7 +392,71 @@ public class VoidBatchCommandHandlerTests
             _postingPeriods,
             BusinessTestDoubles.RealClock(),
             new PurchaseReceiptReversalPolicy(_supplierReturns,_stockTransactionRepository,Substitute.For<IBatchDispositionRepository>()),
-            _reversals);
+            _reversals,
+            _supplierLock);
+
+    private readonly ISupplierReturnMutationLock _supplierLock = AcquiringSupplierLock();
+
+    private static ISupplierReturnMutationLock AcquiringSupplierLock()
+    {
+        var supplierLock = Substitute.For<ISupplierReturnMutationLock>();
+        supplierLock.LockAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(RowLockOutcome.Acquired);
+        return supplierLock;
+    }
+
+    private (User Actor, Shop Shop, InventoryBatch Batch, DomainInventory Inventory, Guid SupplierId) ArrangeVoidableBatch()
+    {
+        var actor = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
+        var supplierId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var batch = InventoryBatch.Create(shop.Id, itemId, "B-1", 10m, 80m, 120m, 110m, 5m, false, null, null, supplierId, actor.Id).Value;
+        var receipt = StockTransaction.Create(shop.Id, itemId, batch.Id, StockTransactionType.In, 10m, "GRN-1", null, DateTimeOffset.UtcNow, actor.Id, actor.Id).Value;
+        var inventory = DomainInventory.Create(shop.Id, itemId, 30m, 2m, 50m, actor.Id).Value;
+        _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
+        _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
+        _stockTransactionRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns([receipt]);
+        return (actor, shop, batch, inventory, supplierId);
+    }
+
+    [Fact]
+    public async Task HandleAsync_TakesTheSupplierLock_BeforeItWrites()
+    {
+        var x = ArrangeVoidableBatch();
+
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(x.Batch.Id, x.Actor.Id, x.Shop.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Received.InOrder(() =>
+        {
+            _supplierLock.LockAsync(x.Shop.Id, x.SupplierId, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+            _inventoryBatchRepository.Update(x.Batch);
+            _inventoryRepository.Update(x.Inventory);
+            _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task HandleAsync_SupplierLockHeldPastItsBudget_IsBusyAndWritesNothing()
+    {
+        var x = ArrangeVoidableBatch();
+        _supplierLock.LockAsync(x.Shop.Id, x.SupplierId, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(RowLockOutcome.TimedOut);
+
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(x.Batch.Id, x.Actor.Id, x.Shop.Id), CancellationToken.None);
+
+        Assert.Equal(Errors.PurchaseReceipt.Busy.Code, result.FirstError.Code);
+        Assert.Equal(ErrorOr.ErrorType.Conflict, result.FirstError.Type);
+        Assert.False(x.Batch.IsVoided);
+        Assert.Equal(30m, x.Inventory.Quantity);
+        _inventoryBatchRepository.DidNotReceive().Update(Arg.Any<InventoryBatch>());
+        await _supplierLedgerEntryRepository.DidNotReceive().AddAsync(Arg.Any<SupplierLedgerEntry>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _messageBus.DidNotReceive().PublishAsync(Arg.Any<InventoryBatchVoidedDomainEvent>());
+    }
 
     [Fact]
     public async Task ClosedPeriod_RefusesVoid_AndPublishesNothing()

@@ -1,7 +1,7 @@
 -- Local database preparation for the combined Docker stack (docker-compose.yml).
 --
 -- LOCAL DEVELOPMENT AND TESTING ONLY. Deployed environments provision their
--- databases and identities through OpenTofu and scripts/db/phase7-bootstrap.sql;
+-- databases and identities through OpenTofu and scripts/db/bootstrap-environment-databases.sql;
 -- the passwords below are fixed, public and no more secret than the ones
 -- already in docker-compose.yml.
 --

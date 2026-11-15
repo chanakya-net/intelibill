@@ -332,7 +332,7 @@ public sealed class TillPaymentExpenseTests(PostgreSqlTestFixture fixture)
     private static async Task WaitForLockAsync(Setup setup, string queryPattern)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!await setup.App.Db.Database.SqlQuery<bool>($"SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE {queryPattern} AND pid <> pg_backend_pid()) AS \"Value\"").SingleAsync(timeout.Token))
+        while (!await setup.App.Db.Database.SqlQuery<bool>($"SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type='Lock' AND query LIKE {queryPattern} AND pid <> pg_backend_pid()) AS \"Value\"").SingleAsync(timeout.Token))
             await Task.Delay(10, timeout.Token);
     }
 

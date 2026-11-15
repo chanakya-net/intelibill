@@ -864,7 +864,7 @@ public sealed partial class SaleCancellationTests(PostgreSqlTestFixture fixture)
         blocker.Db.TillCloses.Add(close); await blocker.Db.SaveChangesAsync();
         var posting = s.Client.PostAsJsonAsync($"/api/sales/{s.Sale.Id}/returns", ReturnRequest(s, session.Id));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!await app.Db.Database.SqlQuery<bool>($"SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE '%FROM till_sessions%' AND pid <> pg_backend_pid()) AS \"Value\"").SingleAsync(timeout.Token))
+        while (!await app.Db.Database.SqlQuery<bool>($"SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type='Lock' AND query LIKE '%FROM till_sessions%' AND pid <> pg_backend_pid()) AS \"Value\"").SingleAsync(timeout.Token))
             await Task.Delay(10, timeout.Token);
         Assert.False(posting.IsCompleted);
         // The business lock is still available while the request waits on the till.

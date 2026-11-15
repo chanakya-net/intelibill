@@ -10,10 +10,10 @@ namespace Intelibill.Integration.Tests;
 /// makes a green run say nothing about tenant isolation.
 /// </summary>
 /// <remarks>
-/// Mirrors <c>scripts/db/phase7-bootstrap.sql</c>: USAGE on the schema without
-/// CREATE, no ownership, no BYPASSRLS. The role is a cluster object, so it
-/// survives the per-factory drop and recreate of the database; the privileges
-/// are database objects and are re-applied after every migration.
+/// Mirrors <c>scripts/db/bootstrap-environment-databases.sql</c>: USAGE on the schema without
+/// CREATE, no ownership, no BYPASSRLS. The role is a cluster object, shared by
+/// every test database; the privileges are database objects, granted once on the
+/// migrated template and inherited by each copy of it.
 /// </remarks>
 internal static class RestrictedRuntimeRole
 {
@@ -48,7 +48,10 @@ internal static class RestrictedRuntimeRole
         await using var connection = new NpgsqlConnection(migratorConnectionString);
         await connection.OpenAsync();
 
+        // One transaction, one caller at a time: classes run side by side, and two
+        // sessions restating the same role would fail with a concurrent-update error.
         await ExecuteAsync(connection, $"""
+            select pg_advisory_xact_lock(7403115);
             do $$
             begin
                 if not exists (select 1 from pg_roles where rolname = '{Name}') then
@@ -63,8 +66,8 @@ internal static class RestrictedRuntimeRole
 
     /// <summary>
     /// Grants the runtime role exactly what the application needs: schema
-    /// USAGE, table DML, sequence usage. Called after every migration, because
-    /// the privileges live in the database the factory drops and recreates.
+    /// USAGE, table DML, sequence usage. Called once the schema exists: on the
+    /// template, and by tests that migrate a database of their own.
     /// </summary>
     public static async Task GrantAsync(string migratorConnectionString)
     {

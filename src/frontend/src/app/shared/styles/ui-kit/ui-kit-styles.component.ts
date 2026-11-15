@@ -12,7 +12,7 @@ import { ChangeDetectionStrategy, Component, ViewEncapsulation } from '@angular/
  * after PrimeNG's `primeng` layer: the kit beats PrimeNG, and unlayered component styles beat the
  * kit. Keep each family file under the `anyComponentStyle` budget (angular.json).
  *
- * See docs/superpowers/plans/2026-11-10-shared-styles-and-offline-pack.md § 3.1.
+ * See docs/frontend-architecture.md § Shared Styles.
  */
 @Component({
   selector: 'app-ui-kit-styles',

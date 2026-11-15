@@ -3,6 +3,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.PurchaseReceipts.DTOs;
+using Intelibill.Application.Features.SupplierReturns.Services;
 using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -27,6 +28,10 @@ namespace Intelibill.Application.Features.PurchaseReceipts.Commands.CorrectRecei
 /// treated in valuation is an accounting decision outside this command. A receipt whose original
 /// total is not on record is refused rather than estimated.
 /// </para>
+/// <para>
+/// Before writing, the correction takes the supplier's row lock, so it cannot deadlock with a
+/// supplier return shipment or a receipt reversal: see <see cref="SupplierReceiptWriteLock"/>.
+/// </para>
 /// </remarks>
 public sealed class CorrectReceiptCostCommandHandler(
     IUserRepository userRepository,
@@ -39,7 +44,8 @@ public sealed class CorrectReceiptCostCommandHandler(
     IFinancialOperationExecutor operationExecutor,
     IShopRepository shopRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
-    IBusinessClock businessClock)
+    IBusinessClock businessClock,
+    ISupplierReturnMutationLock supplierReturnLock)
 {
     private static readonly CorrectReceiptCostCommandValidator Validator = new();
 
@@ -124,6 +130,12 @@ public sealed class CorrectReceiptCostCommandHandler(
 
         if (receipt.SupplierId is not { } supplierId)
             return Errors.PurchaseReceipt.SupplierMissing;
+
+        // After the period fence and before any row this command writes.
+        var supplierLock = await supplierReturnLock.TakeBeforeReceiptWriteAsync(
+            command.ActiveShopId, supplierId, Errors.PurchaseReceipt.SupplierMissing, cancellationToken);
+        if (supplierLock.IsError)
+            return supplierLock.Errors;
 
         // Payments already allocated to this receipt settled part of its payable; the payable cannot
         // fall below them, or the supplier would show as overpaid on a receipt that was settled.

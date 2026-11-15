@@ -5,6 +5,13 @@
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);CA1707;CA1852</NoWarn>
     <RunSettingsFilePath>$(MSBuildThisFileDirectory)integration.runsettings</RunSettingsFilePath>
+    <!--
+      Classes run side by side and each keeps API hosts busy, some of it in blocking calls
+      (host start and dispose). The thread pool starts with one thread per processor and adds
+      more only slowly, so on a 4-processor CI runner continuations queued behind blocked threads
+      for seconds and tests with short waits timed out. Start with enough threads instead.
+    -->
+    <ThreadPoolMinThreads>64</ThreadPoolMinThreads>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,6 +37,10 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

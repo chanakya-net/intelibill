@@ -281,7 +281,6 @@ may hold a protected answer now:
 ## Shared Styles
 
 Repeated component styles live once, in a lazily delivered UI kit; component files keep only what is unique.
-Plan and measurements: `docs/superpowers/plans/2026-11-10-shared-styles-and-offline-pack.md` and its `-baseline.md`.
 
 - **Layers.** Tokens (`--app-*` custom properties: orange, sand/brown/bronze, stone, slate, red, amber, radii,
   shadows, font families) sit on `:root` in `@intelibill/ui/styles/tokens.css` (`src/shared/frontend/ui/styles/`,

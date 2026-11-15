@@ -38,7 +38,8 @@ public sealed class VoidBatchCommandHandler(
     IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock,
     PurchaseReceiptReversalPolicy reversalPolicy,
-    IPurchaseReceiptReversalRepository receiptReversals)
+    IPurchaseReceiptReversalRepository receiptReversals,
+    ISupplierReturnMutationLock supplierReturnLock)
 {
     public async Task<ErrorOr<VoidBatchResultDto>> HandleAsync(VoidBatchCommand command, CancellationToken cancellationToken)
     {
@@ -108,6 +109,16 @@ public sealed class VoidBatchCommandHandler(
         var originalQuantity = batch.OriginalQuantity;
         var supplierId = receiptValue.SupplierId;
         var itemId = batch.ItemId;
+
+        // After both period fences and before any row this command writes, so it cannot deadlock
+        // with a supplier return shipment or a receipt reversal: see SupplierReceiptWriteLock.
+        var supplierLock = await supplierReturnLock.TakeBeforeReceiptWriteAsync(
+            command.ActiveShopId,
+            receiptValue.SupplierId.Value,
+            Error.Conflict("PurchaseReceipt.SupplierMissing", "The source receipt needs a supplier before it can be reversed."),
+            cancellationToken);
+        if (supplierLock.IsError)
+            return supplierLock.Errors;
 
         batch.Void(command.ActorUserId);
         inventoryBatchRepository.Update(batch);

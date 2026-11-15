@@ -111,7 +111,7 @@ public sealed class SaleDiscountPersistenceTests(PostgreSqlTestFixture fixture) 
     public async Task Migration_BackfillsHistoricalSalesAsZeroDiscountSnapshots()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseNpgsql(fixture.DbContainer.GetConnectionString())
+            .UseNpgsql(fixture.MigratorConnectionString)
             .UseSnakeCaseNamingConvention()
             .Options;
 

@@ -5,26 +5,54 @@ using Microsoft.EntityFrameworkCore;
 namespace Intelibill.Infrastructure.Repositories;
 internal sealed class BatchDispositionRepository(ApplicationDbContext db) : IBatchDispositionRepository
 {
-    public async Task<InventoryBatch?> LockBatchAsync(Guid shopId, Guid batchId, CancellationToken ct)
+    public async Task<InventoryBatch?> LockBatchAsync(Guid shopId, Guid batchId, CancellationToken ct) =>
+        (await LockStockRowsAsync(shopId, [batchId], ct)).SingleOrDefault();
+
+    public async Task LockBatchesAsync(Guid shopId, IReadOnlyCollection<Guid> batchIds, CancellationToken ct) =>
+        await LockStockRowsAsync(shopId, batchIds, ct);
+
+    /// <summary>
+    /// Locks the item total rows of the batches, then the batch rows, each set in key order.
+    /// </summary>
+    /// <remarks>
+    /// That is the order every writer without a lock of its own takes them in: a sale, count or
+    /// adjustment saves through EF Core, which writes <c>inventory</c> before
+    /// <c>inventory_batches</c> and each table's rows in key order. Locking the batch first would
+    /// let such a writer hold the item total and wait for the batch while this holds the batch and
+    /// waits for the total, and PostgreSQL would end one of them as a deadlock.
+    /// </remarks>
+    private async Task<IReadOnlyList<InventoryBatch>> LockStockRowsAsync(Guid shopId, IReadOnlyCollection<Guid> batchIds, CancellationToken ct)
     {
         if (db.Database.CurrentTransaction is null) throw new InvalidOperationException("Disposition requires the source transaction.");
         var previousTimeout = (await db.Database.SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"").ToListAsync(ct)).Single();
         await db.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {"5s"}, true)", ct);
+
+        // Read without locking: a batch never moves to another item, and an item has one total row.
+        var wanted = batchIds.Distinct().Order().ToArray();
+        var itemIds = await db.InventoryBatches.AsNoTracking().Where(x => x.ShopId == shopId && wanted.Contains(x.Id)).Select(x => x.ItemId).Distinct().ToListAsync(ct);
+        var stockIds = await db.Inventory.AsNoTracking().Where(x => x.ShopId == shopId && itemIds.Contains(x.ItemId)).Select(x => x.Id).ToListAsync(ct);
+
         db.ChangeTracker.DetectChanges();
-        var tracked = db.ChangeTracker.Entries<InventoryBatch>().SingleOrDefault(x => x.Entity.Id == batchId);
-        var changed = tracked?.State == EntityState.Modified;
-        var rows = await db.InventoryBatches.FromSqlInterpolated($"SELECT *, xmin FROM inventory_batches WHERE shop_id = {shopId} AND id = {batchId} FOR NO KEY UPDATE").ToListAsync(ct);
-        var batch = rows.SingleOrDefault();
-        if (batch is not null && tracked is not null && !changed) await db.Entry(batch).ReloadAsync(ct);
-        if (batch is not null)
+        foreach (var stockId in stockIds.Order())
         {
-            db.ChangeTracker.DetectChanges();
-            var stockEntry = db.ChangeTracker.Entries<Inventory>().SingleOrDefault(x => x.Entity.ShopId == shopId && x.Entity.ItemId == batch.ItemId);
-            var stocks = await db.Inventory.FromSqlInterpolated($"SELECT *, xmin FROM inventory WHERE shop_id = {shopId} AND item_id = {batch.ItemId} FOR NO KEY UPDATE").ToListAsync(ct);
+            var stockEntry = db.ChangeTracker.Entries<Inventory>().SingleOrDefault(x => x.Entity.Id == stockId);
+            var stocks = await db.Inventory.FromSqlInterpolated($"SELECT *, xmin FROM inventory WHERE shop_id = {shopId} AND id = {stockId} FOR NO KEY UPDATE").ToListAsync(ct);
             if (stockEntry is not null && stockEntry.State != EntityState.Modified && stocks.Count > 0) await stockEntry.ReloadAsync(ct);
         }
+
+        var locked = new List<InventoryBatch>(wanted.Length);
+        foreach (var batchId in wanted)
+        {
+            var tracked = db.ChangeTracker.Entries<InventoryBatch>().SingleOrDefault(x => x.Entity.Id == batchId);
+            var changed = tracked?.State == EntityState.Modified;
+            var rows = await db.InventoryBatches.FromSqlInterpolated($"SELECT *, xmin FROM inventory_batches WHERE shop_id = {shopId} AND id = {batchId} FOR NO KEY UPDATE").ToListAsync(ct);
+            var batch = rows.SingleOrDefault();
+            if (batch is not null && tracked is not null && !changed) await db.Entry(batch).ReloadAsync(ct);
+            if (batch is not null) locked.Add(batch);
+        }
+
         await db.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {previousTimeout}, true)", ct);
-        return batch;
+        return locked;
     }
     public Task<BatchDispositionChange?> GetRootAsync(Guid shopId, Guid batchId, Guid rootId, CancellationToken ct) =>
         db.BatchDispositionChanges.AsNoTracking().SingleOrDefaultAsync(x => x.ShopId == shopId && x.InventoryBatchId == batchId && x.Id == rootId && x.RootChangeId == null, ct);

@@ -504,6 +504,17 @@ race answers 409 `PurchaseReceipt.VersionConflict`; an unchanged total 400 `Purc
 A correction writes the batch row and a void writes the receipt row, so a correction racing a void
 of the same batch fails one of the two saves: a voided receipt can never keep a correction's delta.
 
+**Supplier lock before a receipt write.** A supplier return shipment and a receipt reversal lock the
+supplier row, then the receipt row, and write the stock rows (item total, batch) only at save. Cost
+correction, void and supplier reassignment write the stock rows first and the receipt row last. To
+keep the two kinds from waiting on each other (a deadlock, answered 500), all three take the
+supplier's row lock before they write anything (`SupplierReceiptWriteLock`, over
+`ISupplierReturnMutationLock`: `FOR NO KEY UPDATE`, 5 s → 409 `PurchaseReceipt.Busy`), after their
+period fences and after every check that can refuse the request. Reassignment locks the receipt's
+current supplier and skips the lock for a batch with no receipt row. Whichever command goes second
+still fails its row-version check. Pinned by `SupplierReturnWorkflowTests.*_Behind*Locks_*`, which
+hold a shipment's or reversal's locks in a plain session so the collision happens every time.
+
 **Voids and reassignment.** A void reverses the receipt's effective total to the receipt's supplier
 (falling back to `original quantity × unit cost` and the batch supplier only for batches without a
 resolved receipt value), so a corrected, unconsumed receipt nets to zero. Reassigning a batch from the
@@ -889,8 +900,7 @@ attestation of the issue time, and reprint polish (backlog 21).
 
 ## Issued Invoice Documents and Fiscal Numbering
 
-Every sale is issued as a document whose particulars are frozen at issue. Plan:
-`docs/superpowers/plans/2026-11-03-gst-invoice-contract-and-numbering.md`; the supported matrix for
+Every sale is issued as a document whose particulars are frozen at issue. The supported matrix for
 accountant sign-off: `docs/gst-invoice-capability-matrix.md`.
 
 **Tax profile.** A shop declares its GST registration (`PUT api/shops/{shopId}/tax-profile`, owner, or
@@ -1145,6 +1155,44 @@ data stays valid in `numeric(18,3)`, and no quantity is downgraded.
 
 Integration tests use `WebApplicationFactory<Program>` backed by **Testcontainers** (`Testcontainers.PostgreSql`) — Docker required. Non-integration suite: 2493 passing.
 
+### Integration test databases and parallelism
+
+One PostgreSQL container serves the whole run (`SharedPostgres`, durability off, data
+directory in memory). The migration chain is applied once, to `integration_template`; every
+test database is a `CREATE DATABASE … TEMPLATE` copy of it, so a test never replays
+migrations. The copy carries the runtime role's privileges.
+
+`[Collection("Integration Tests")]` means one collection per class
+(`IntegrationCollectionFactory`): each class gets its own `PostgreSqlTestFixture`, hence its
+own database, and classes run side by side. `IntegrationParallelism` decides how many at once:
+one per processor, as many as memory allows, at most eight (`INTEGRATION_TEST_PARALLELISM`
+overrides it; `1` is strictly serial).
+Tests inside a class still run one at a time, and `ApiWebApplicationFactory.InitializeAsync`
+replaces the class's database with a fresh copy before each of them.
+
+Every test starts its own API host. A plain `dotnet test` lets each host compile its Wolverine
+handlers at run time. `scripts/dev/test-integration.sh` and CI instead run `codegen write`,
+build, and set `INTEGRATION_TEST_PREGENERATED_HANDLERS=1`, so hosts load the pre-built handler
+classes in `Static` mode, as the deployed image does: roughly half the time and a quarter of
+the memory. The switch is only ever set right after regenerating, and the script deletes
+`Internal/Generated` afterwards, so pre-built handlers are never stale. Never commit that
+folder.
+
+Rules for a new test class:
+
+- Reach the database only through `fixture.MigratorConnectionString` /
+  `fixture.RuntimeConnectionString` or the factory's equivalents. Never the container's
+  default database.
+- Cluster-wide objects (extra databases, roles) need a unique name per test.
+- A query over `pg_stat_activity` must filter on `datname = current_database()` or a known
+  pid; other classes hold locks at the same time.
+- A class that observes process-wide state (Serilog's static `Log.Logger`, which every
+  started host replaces), or whose assertions are short wall-clock windows (the realtime
+  delivery tests wait two seconds for a notification), goes in
+  `[Collection(SerialIntegrationTestGroup.Name)]`, which runs alone after the parallel classes.
+- The test host starts with 64 thread-pool threads (`ThreadPoolMinThreads`): with one per
+  processor, a 4-processor runner queued continuations behind blocked threads for seconds.
+
 ## Recorded-cost Profit and Discount Economics
 
 Online sale preview and posting use the same pricing calculator. Every goods line must retain
@@ -1289,7 +1337,7 @@ Recorded non-cash evidence is not a gateway/bank confirmation. Disable new work 
 
 `ExpiryPolicyEvaluator` applies shop-local date inclusivity, required-date hard blocks, Warn approval and physical-minus-quarantine availability consistently to availability/FEFO, preview and posting. Default Ignore/optional date/sell-through/7 days/no override preserves selling compatibility; required missing dates still block. Owner changes default/item inheritance via `GET/PUT /api/expiry-policies[/items/{id}]` with expected catalog and reason; Owner/Manager readiness is `GET /api/expiry-policies/readiness`. `shop_expiry_states` is a transaction fence and monotonic catalog, with retained policy/date revisions. Missing history never creates a runtime baseline. New-shop state/history is initialized inside creation's tenant transaction.
 
-Posting order is operation/reconciliation → period → shared expiry (`FOR SHARE`) → till → party → document/credit → batch/item. Policy/date changes take exclusive expiry (`FOR UPDATE`) before any batch; timeout5s returns `Expiry.PolicyBusy` and restores lock_timeout. Final online Warn approval binds actor authority, batch/summed quantity/xmin/policy/catalog/reason; immutable `SaleExpiryDecision` is separate from invoice JSON. Date edits require xmin/reason, append `BatchExpiryRevision` and advance catalog. Intake/PO/bulk/inbound merge validate required dates and date order under the fence; bulk keeps per-row commits.
+Posting order is operation/reconciliation → period → shared expiry (`FOR SHARE`) → till → party → document/credit → batch/item. Within stock, the item total row comes before the batch row: `IBatchDispositionRepository.LockBatchAsync`/`LockBatchesAsync` lock every `inventory` row of the batches, then every `inventory_batches` row, each in key order. That is the order a writer with no stock lock of its own (sale, count, adjustment) takes them when EF Core saves, so a disposal, return or cancellation that locks stock cannot hold a batch while such a writer holds its item total and waits for that batch (a deadlock the sale answered with 500). Pinned by `ExpiryDispositionConcurrencyTests.Sale_WritesTheItemTotalBeforeItsBatch` and `Disposal_BetweenASalesTwoWrites_LeavesTheBatchFreeAndConflicts`. Policy/date changes take exclusive expiry (`FOR UPDATE`) before any batch; timeout5s returns `Expiry.PolicyBusy` and restores lock_timeout. Final online Warn approval binds actor authority, batch/summed quantity/xmin/policy/catalog/reason; immutable `SaleExpiryDecision` is separate from invoice JSON. Date edits require xmin/reason, append `BatchExpiryRevision` and advance catalog. Intake/PO/bulk/inbound merge validate required dates and date order under the fence; bulk keeps per-row commits.
 
 Schema4 catalogs persist immutable seven-day `OfflineExpiryEvidence` before yielding records. The shared offline poster validates historical server policy/date facts, issue/lease/issuer standing and relevant revisions; partial/untrusted proof holds `ExpiryReview=14`. Legacy compatibility requires proven migrated pre-feature Ignore, not a new shop or changed-back Ignore. Offline approval is unavailable; disconnected stale-policy authority is conservatively held on sync. Issued invoices/hashes are never decorated with current proof.
 

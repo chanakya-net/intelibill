@@ -9,7 +9,7 @@ import { ChangeDetectionStrategy, Component, ViewEncapsulation } from '@angular/
  * unlayered styles. Angular adds the styles with the first instance and builds them into the auth
  * pages' lazy chunks, so the signed-in screens never download them.
  *
- * See docs/superpowers/plans/2026-11-10-shared-styles-and-offline-pack.md § 3.1.
+ * See docs/frontend-architecture.md § Shared Styles.
  */
 @Component({
   selector: 'app-auth-kit-styles',

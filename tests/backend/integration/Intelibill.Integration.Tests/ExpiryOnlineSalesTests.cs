@@ -363,7 +363,7 @@ public sealed class ExpiryOnlineSalesTests : IAsyncLifetime, IDisposable
         var timeout = DateTimeOffset.UtcNow.AddSeconds(4);
         while (DateTimeOffset.UtcNow < timeout)
         {
-            var count = await db.Database.SqlQuery<int>($"SELECT count(*)::int AS \"Value\" FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE '%shop_expiry_states%'").SingleAsync(cancellationToken);
+            var count = await db.Database.SqlQuery<int>($"SELECT count(*)::int AS \"Value\" FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE '%shop_expiry_states%'").SingleAsync(cancellationToken);
             if (count > 0) return;
             await Task.Delay(20, cancellationToken);
         }

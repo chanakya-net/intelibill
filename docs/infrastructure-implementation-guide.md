@@ -1036,7 +1036,7 @@ export PATH="$(brew --prefix libpq)/bin:$PATH"   # keg-only; not linked by defau
 psql --version
 ```
 
-**The whole phase is scripted** in [`scripts/db/phase7-bootstrap.sql`](../scripts/db/phase7-bootstrap.sql), which takes the object IDs as psql variables rather than hardcoding them. The sections below explain what it does and why; run the script rather than retyping the statements.
+**The whole phase is scripted** in [`scripts/db/bootstrap-environment-databases.sql`](../scripts/db/bootstrap-environment-databases.sql), which takes the object IDs as psql variables rather than hardcoding them. The sections below explain what it does and why; run the script rather than retyping the statements.
 
 ### 7.1 Make yourself an Entra admin
 

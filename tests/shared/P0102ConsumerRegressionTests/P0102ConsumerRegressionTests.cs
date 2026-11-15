@@ -187,6 +187,30 @@ public sealed partial class P0102ConsumerRegressionTests(SharedPostgreSqlFixture
     }
 
     [Fact]
+    public void LicensingHosts_KeepLogsInTheirOwnSinks()
+    {
+        const string firstCategory = "Intelibill.P0102.FirstLicensingHost";
+        const string secondCategory = "Intelibill.P0102.SecondLicensingHost";
+        using var first = new LicensingHost(database.LicensingRuntime, maskPii: true);
+        using var second = new LicensingHost(database.LicensingRuntime, maskPii: true);
+        var firstFactory = first.Services.GetRequiredService<ILoggerFactory>();
+        var secondFactory = second.Services.GetRequiredService<ILoggerFactory>();
+
+        // A request can first resolve its logger after another host has started.
+        var firstLogger = firstFactory.CreateLogger(firstCategory);
+        var secondLogger = secondFactory.CreateLogger(secondCategory);
+        LogContact(firstLogger, Sentinels.Email, Sentinels.Email, Sentinels.NestedToken);
+        LogContact(secondLogger, Sentinels.Email, Sentinels.Email, Sentinels.NestedToken);
+
+        var firstLogs = first.Sink.Rendered();
+        var secondLogs = second.Sink.Rendered();
+        Assert.Contains(firstCategory, firstLogs, StringComparison.Ordinal);
+        Assert.DoesNotContain(secondCategory, firstLogs, StringComparison.Ordinal);
+        Assert.Contains(secondCategory, secondLogs, StringComparison.Ordinal);
+        Assert.DoesNotContain(firstCategory, secondLogs, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task BothApis_ExportedSpansDropExceptionText()
     {
         foreach (var host in Hosts(maskPii: true))
