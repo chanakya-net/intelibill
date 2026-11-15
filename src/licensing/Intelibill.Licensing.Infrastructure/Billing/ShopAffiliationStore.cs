@@ -13,7 +13,6 @@ internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimePr
     public async Task<ErrorOr<ShopAffiliationRequestV1>> RequestAsync(Guid account, Guid actor,
         RequestShopAffiliationV1 request, CancellationToken ct)
     {
-        await LockAccountAsync(account, ct);
         var prior = await db.Database.SqlQuery<Guid>($"""
             SELECT request_id AS "Value" FROM public.shop_affiliation_requests
             WHERE account_id = {account} AND requester_id = {actor} AND operation_key = {request.OperationKey}
@@ -72,11 +71,6 @@ internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimePr
     }
 
     private DateTimeOffset Now => BillingAccountRules.StorageInstant(clock.GetUtcNow());
-
-    private Task<int> LockAccountAsync(Guid account, CancellationToken ct) =>
-        db.Database.ExecuteSqlInterpolatedAsync($"""
-            SELECT pg_advisory_xact_lock(hashtextextended({'b' + account.ToString("D")}, 0))
-            """, ct);
 
     private Task<bool> CanAssignAsync(Guid account, Guid term, DateTimeOffset now, CancellationToken ct) =>
         db.Database.SqlQuery<bool>($"""

@@ -23,7 +23,6 @@ internal sealed partial class BillingInvitationStore(LicensingDbContext db, Bill
     public async Task<ErrorOr<BillingInvitationAcknowledgementV1>> IssueAsync(BillingInvitationIssue command, CancellationToken ct)
     {
         var (account, actor, requestId, request, expiry) = command;
-        await LockAccountAsync(account, ct);
         var now = Now();
         if (now >= expiry)
             return BillingDelegationErrors.Invalid;
@@ -101,14 +100,6 @@ internal sealed partial class BillingInvitationStore(LicensingDbContext db, Bill
             SELECT name AS "Value" FROM public.billing_accounts WHERE id = {accountId}
             """).SingleAsync(ct);
         return new(name, items, rows.Count > items.Length ? items[^1].MemberId : null, revision == 0 ? null : revision);
-    }
-
-    private async Task LockAccountAsync(Guid account, CancellationToken ct)
-    {
-        await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
-        await db.Database.ExecuteSqlInterpolatedAsync($"""
-            SELECT pg_advisory_xact_lock(hashtextextended({'b' + account.ToString("D")}, 0))
-            """, ct);
     }
 
     private Task<int> AuditAsync(Guid invitation, Guid account, Guid actor, Guid requestId, DateTimeOffset at,

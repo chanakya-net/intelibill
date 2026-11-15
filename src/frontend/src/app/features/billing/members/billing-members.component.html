@@ -41,6 +41,7 @@
       }
     </section>
     @if (account.ownerRevision) {
+      <a routerLink="../ownership-transfer" data-testid="billing-transfer-link">{{ 'billing.transfer.action' | transloco }}</a>
       @if (removalDraft(); as draft) {
         <section class="panel ib-panel">
           <p>{{ 'billing.removal.pending' | transloco: { id: draft.memberId.slice(-8) } }}</p>

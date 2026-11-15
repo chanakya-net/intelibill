@@ -19,7 +19,7 @@ internal sealed partial class MerchantBillingClient(
     HttpClient client, MerchantBillingDelegationIssuer issuer,
     IOptionsMonitor<MerchantBillingDelegationOptions> options, IHostEnvironment environment,
     ILogger<MerchantBillingClient> logger, ApplicationDbContext db, IPhoneAuthPolicy phones, ShopAffiliationConsentStore consents)
-    : IMerchantBillingAccess, IMerchantBillingInvitations, IMerchantShopAffiliations
+    : IMerchantBillingAccess, IMerchantBillingInvitations, IMerchantShopAffiliations, IMerchantBillingOwnershipTransfers
 {
     private const int MaximumResponseBytes = 4096;
     // Sized for a full page of the longest valid names, so no account the actor holds can hide the list.
@@ -80,9 +80,10 @@ internal sealed partial class MerchantBillingClient(
         return RunAsync<MerchantCreatedBillingAccount>(caller, BillingDelegationIntent.CreateAccount(body), MaximumResponseBytes, async (response, token) =>
         {
             var result = await ReadJsonAsync<BillingAccountV1>(response, token);
+            var created = response.StatusCode == HttpStatusCode.Created;
             return result is not null && IsValidAccount(result) && result.Name == name &&
-                result.Role == MerchantBillingDelegationV1.OwnerRole
-                ? new MerchantCreatedBillingAccount(Copy(result), response.StatusCode == HttpStatusCode.Created)
+                (!created || result.Role == MerchantBillingDelegationV1.OwnerRole)
+                ? new MerchantCreatedBillingAccount(Copy(result), created)
                 : Unavailable("InvalidResponseContract");
         }, cancellationToken);
     }
@@ -154,12 +155,14 @@ internal sealed partial class MerchantBillingClient(
         {
             case HttpStatusCode.OK:
             case HttpStatusCode.Created when action is MerchantBillingDelegationV1.CreateAccount or ShopAffiliationsV1.Request:
-            case HttpStatusCode.Accepted when action == BillingInvitationsV1.Issue:
+            case HttpStatusCode.Accepted when action is BillingInvitationsV1.Issue or BillingOwnershipTransfersV1.Issue:
                 return null;
             case HttpStatusCode.Forbidden:
                 return MerchantBillingErrors.Denied;
             case HttpStatusCode.Unauthorized:
                 return Unavailable("UpstreamAuthentication");
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when BillingOwnershipTransfersV1.IsAction(action):
+                return MapTransferFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.NotFound when action == ShopAffiliationsV1.OwnerRead:
                 return ShopAffiliationConsentErrors.Missing;
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict when action == ShopAffiliationsV1.Request:

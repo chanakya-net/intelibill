@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Licensing.Application.Billing;
+using Intelibill.Licensing.Application.BillingAccounts;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.EntityFrameworkCore;
@@ -48,6 +49,8 @@ internal sealed partial class PostgresBillingDelegationAccess(
             SELECT set_config('app.billing_account_id', {delegation.AccountId?.ToString("D") ?? string.Empty}, true),
                    set_config('app.billing_actor_id', {delegation.ActorId.ToString("D")}, true)
             """, cancellationToken);
+        if (delegation.AccountId is { } account && BillingAccountRules.SerializesAccountMutation(delegation.Action))
+            await BillingAccountLock.TakeAsync(db, account, cancellationToken);
         var grant = await AuthorizeScopeAsync(delegation, cancellationToken);
         if (grant.IsError)
         {

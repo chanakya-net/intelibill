@@ -30,7 +30,6 @@ internal sealed partial class BillingInvitationStore
         if (row is null)
             return BillingInvitationErrors.Unavailable;
 
-        await LockAccountAsync(row.AccountId, ct);
         row = await LockPendingAsync(invitationId, scope.ActorId, ct);
         var now = Now();
         if (now >= delegationExpiry)
@@ -51,7 +50,7 @@ internal sealed partial class BillingInvitationStore
             return null;
 
         await scope.UseAccountAsync(row.AccountId, ct);
-        await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
+        await BillingAccountLock.TakeAsync(db, row.AccountId, ct);
         var current = await db.Database.SqlQuery<bool>($"""
             SELECT public.billing_inviter_is_current({invitationId}) AS "Value"
             """).SingleAsync(ct);

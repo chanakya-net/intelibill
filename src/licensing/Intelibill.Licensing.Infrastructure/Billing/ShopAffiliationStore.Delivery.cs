@@ -35,8 +35,8 @@ internal sealed partial class ShopAffiliationStore
             decision.AcceptedAt < request.CreatedAt || decision.AcceptedAt >= request.ExpiresAt || decision.AcceptedAt > Now)
             return ShopAffiliationPolicy.Conflict;
 
+        await BillingAccountLock.TakeAsync(db, decision.AccountId, ct);
         var authorized = await LockRequesterAsync(decision.AccountId, request, ct);
-        await LockAccountAsync(decision.AccountId, ct);
         if (Now >= expiresAt || !await ConsumeDeliveryAsync(decision.AccountId, replayId, expiresAt, ct) || Now >= expiresAt)
             return BillingDelegationErrors.Replayed;
 

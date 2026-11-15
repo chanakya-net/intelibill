@@ -14,7 +14,7 @@ internal sealed class BillingMemberRemovalStore(LicensingDbContext db, TimeProvi
 {
     public async Task<ErrorOr<BillingManagerRemovalV1>> RemoveAsync(BillingMemberRemoval command, CancellationToken ct)
     {
-        var target = await LockTargetAndAccountAsync(command, ct);
+        var target = await LockTargetAsync(command, ct);
         if (clock.GetUtcNow() >= command.ExpiresAt)
             return BillingDelegationErrors.Invalid;
 
@@ -39,18 +39,10 @@ internal sealed class BillingMemberRemovalStore(LicensingDbContext db, TimeProvi
         return await ApplyAsync(command, hash, now, ct);
     }
 
-    private async Task<TargetRow?> LockTargetAndAccountAsync(BillingMemberRemoval command, CancellationToken ct)
-    {
-        await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
-        // Commercial requests hold the manager's share lock before the account fence.
-        var target = await db.Database.SqlQuery<TargetRow>($"""
+    private Task<TargetRow?> LockTargetAsync(BillingMemberRemoval command, CancellationToken ct) =>
+        db.Database.SqlQuery<TargetRow>($"""
             SELECT role, status, revision FROM public.lock_billing_removal_target({command.MemberId})
             """).SingleOrDefaultAsync(ct);
-        await db.Database.ExecuteSqlInterpolatedAsync($"""
-            SELECT pg_advisory_xact_lock(hashtextextended({'b' + command.AccountId.ToString("D")}, 0))
-            """, ct);
-        return target;
-    }
 
     private Task<ReceiptRow?> FindReceiptAsync(BillingMemberRemoval command, CancellationToken ct) =>
         db.Database.SqlQuery<ReceiptRow>($"""

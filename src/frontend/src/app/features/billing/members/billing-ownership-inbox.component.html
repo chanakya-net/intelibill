@@ -1,0 +1,52 @@
+<section class="billing-page">
+  <header>
+    <a routerLink="/billing">{{ 'billing.title' | transloco }}</a>
+    <h1 class="ib-page-title">{{ 'billing.transfer.inbox' | transloco }}</h1>
+  </header>
+  @if (storageUnavailable()) {
+    <p class="page-alert page-alert--error" role="alert">{{ 'billing.transfer.storage' | transloco }}</p>
+  }
+  @if (pending().length) {
+    <section class="panel ib-panel">
+      <h2 class="ib-panel__title">{{ 'billing.transfer.recover' | transloco }}</h2>
+      <ul class="billing-page__list">
+        @for (draft of pending(); track draft.body.operationKey) {
+          <li class="billing-page__row">
+            <a [routerLink]="draft.action === 'issue'
+              ? ['/billing/accounts', draft.accountId, 'ownership-transfer']
+              : ['/billing/ownership-transfers', draft.target]" [queryParams]="{ attempt: draft.body.operationKey }">
+              {{ (draft.action === 'issue' ? 'billing.transfer.action' : 'billing.transfer.accept') | transloco }}
+              · {{ draft.body.operationKey.slice(-8) }}
+            </a>
+          </li>
+        }
+      </ul>
+    </section>
+  }
+  <section class="panel ib-panel">
+    @if (loading()) {
+      <p role="status">{{ 'billing.loading' | transloco }}</p>
+    }
+    @if (error()) {
+      <p role="alert">{{ error() | transloco }}</p>
+      <button pButton type="button" [label]="'billing.reload' | transloco" (click)="load()"></button>
+    }
+    @if (transfers().length) {
+      <ul class="billing-page__list">
+        @for (transfer of transfers(); track transfer.transferId) {
+          <li class="billing-page__row" data-testid="billing-transfer-inbox-row">
+            <span class="billing-page__name">{{ transfer.accountName }}</span>
+            <a [routerLink]="['/billing/ownership-transfers', transfer.transferId]" data-testid="billing-transfer-inbox-review">
+              {{ 'billing.transfer.review' | transloco }}
+            </a>
+          </li>
+        }
+      </ul>
+    } @else if (!loading() && !error()) {
+      <p data-testid="billing-transfer-inbox-empty">{{ 'billing.transfer.empty' | transloco }}</p>
+    }
+    @if (cursor(); as next) {
+      <button pButton type="button" [disabled]="loading()" [label]="'billing.invitations.more' | transloco" (click)="load(next)"></button>
+    }
+  </section>
+</section>

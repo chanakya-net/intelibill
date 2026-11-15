@@ -30,6 +30,7 @@ internal static class MerchantBillingRegistration
             .AddTypedClient<IMerchantBillingAccess, MerchantBillingClient>()
             .AddTypedClient<IMerchantBillingInvitations, MerchantBillingClient>()
             .AddTypedClient<IMerchantShopAffiliations, MerchantBillingClient>()
+            .AddTypedClient<IMerchantBillingOwnershipTransfers, MerchantBillingClient>()
             .RemoveAllLoggers()
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {

@@ -36,7 +36,7 @@ public sealed partial class P0203bTests
         var first = affiliationFirst ? RequestAsync() : RemoveAsync();
         await WaitForLockAsync(db, fence, "advisory");
         var second = affiliationFirst ? RemoveAsync() : RequestAsync();
-        await WaitForLockAsync(db, fence, "transactionid");
+        await WaitForLockAsync(db, fence, "advisory", 2);
         await fence.CommitAsync();
 
         using var affiliation = await (affiliationFirst ? first : second);
@@ -168,7 +168,7 @@ public sealed partial class P0203bTests
         });
     }
 
-    private static async Task<NpgsqlTransaction> HoldAccountFenceAsync(NpgsqlConnection db, Guid account)
+    internal static async Task<NpgsqlTransaction> HoldAccountFenceAsync(NpgsqlConnection db, Guid account)
     {
         var transaction = await db.BeginTransactionAsync();
         await using var fence = new NpgsqlCommand("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", db, transaction);
@@ -177,15 +177,16 @@ public sealed partial class P0203bTests
         return transaction;
     }
 
-    private static async Task WaitForLockAsync(NpgsqlConnection db, NpgsqlTransaction transaction, string type)
+    internal static async Task WaitForLockAsync(NpgsqlConnection db, NpgsqlTransaction transaction, string type, int waiters = 1)
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2.5));
         await using var wait = new NpgsqlCommand("""
-            SELECT EXISTS (SELECT FROM pg_locks l JOIN pg_stat_activity a USING (pid)
-                WHERE NOT l.granted AND l.locktype = $1 AND a.datname = current_database())
+            SELECT (SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a USING (pid)
+                WHERE NOT l.granted AND l.locktype = $1 AND a.datname = current_database()) >= $2
             FROM pg_stat_clear_snapshot()
             """, db, transaction);
         wait.Parameters.AddWithValue(type);
+        wait.Parameters.AddWithValue(waiters);
         while (!(bool)(await wait.ExecuteScalarAsync(deadline.Token))!)
             await Task.Delay(10, deadline.Token);
     }

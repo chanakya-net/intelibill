@@ -16,7 +16,7 @@ internal sealed partial class MerchantBillingClient
     {
         if (request.OperationKey == Guid.Empty)
             return MerchantBillingErrors.OperationKeyInvalid;
-        if (NormalizeRecipient(request) is not { } recipient)
+        if (NormalizeRecipient(request.RecipientKind, request.Recipient) is not { } recipient)
             return MerchantBillingInvitationErrors.InvalidRecipient;
 
         var path = BillingInvitationsV1.AccountInvitations(accountId);
@@ -37,33 +37,38 @@ internal sealed partial class MerchantBillingClient
         Guid accountId, string path, MerchantBillingInvitation request, string recipient, string digest,
         CancellationToken cancellationToken)
     {
-        Guid? actor;
-        try
-        {
-            var candidates = db.Users.AsNoTracking().Where(user => user.IsLoginEnabled);
-            var verified = request.RecipientKind == "email"
-                ? candidates.Where(user => user.IsEmailVerified && user.Email == recipient)
-                : candidates.Where(user => user.IsPhoneVerified && user.PhoneNumber == recipient);
-            var ids = await verified.Select(user => user.Id).Take(2).ToListAsync(cancellationToken);
-            actor = ids is [var id] ? id : null;
-        }
-        catch (Exception exception) when (exception is Npgsql.NpgsqlException or TimeoutException)
-        {
-            return Unavailable("RecipientLookupUnavailable", exception);
-        }
-
+        var actor = await ResolveVerifiedRecipientAsync(request.RecipientKind, recipient, cancellationToken);
+        if (actor.IsError)
+            return actor.Errors;
         var bytes = JsonSerializer.SerializeToUtf8Bytes(new IssueBillingInvitationV1(request.OperationKey,
-            request.ExpectedOwnerRevision, actor, digest));
+            request.ExpectedOwnerRevision, actor.Value, digest));
         return await ReadInvitationAsync<BillingInvitationAcknowledgementV1>(caller,
             new(BillingInvitationsV1.Issue, HttpMethod.Post, path, accountId, bytes),
             result => result.OperationKey == request.OperationKey, cancellationToken);
     }
 
-    private string? NormalizeRecipient(MerchantBillingInvitation request)
+    private async Task<ErrorOr<Guid?>> ResolveVerifiedRecipientAsync(string? kind, string recipient, CancellationToken ct)
     {
-        if (request.Recipient?.Trim() is not { Length: > 0 and <= 254 } value || value.Any(char.IsControl))
+        try
+        {
+            var candidates = db.Users.AsNoTracking().Where(user => user.IsLoginEnabled);
+            var verified = kind == "email"
+                ? candidates.Where(user => user.IsEmailVerified && user.Email == recipient)
+                : candidates.Where(user => user.IsPhoneVerified && user.PhoneNumber == recipient);
+            var ids = await verified.Select(user => user.Id).Take(2).ToListAsync(ct);
+            return ids is [var id] ? id : (Guid?)null;
+        }
+        catch (Exception exception) when (exception is Npgsql.NpgsqlException or TimeoutException)
+        {
+            return Unavailable("RecipientLookupUnavailable", exception);
+        }
+    }
+
+    private string? NormalizeRecipient(string? kind, string? recipient)
+    {
+        if (recipient?.Trim() is not { Length: > 0 and <= 254 } value || value.Any(char.IsControl))
             return null;
-        return request.RecipientKind switch
+        return kind switch
         {
             "email" when MailAddress.TryCreate(value, out var parsed) && parsed.Address == value => value.ToLowerInvariant(),
             "phone" when PhoneNumberFormat.TryNormalize(value, phones.DefaultCountryCode, out var e164) => e164,
