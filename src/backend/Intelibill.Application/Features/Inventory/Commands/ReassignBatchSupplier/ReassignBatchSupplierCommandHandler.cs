@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Application.Features.SupplierReturns.Services;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Time;
@@ -20,7 +21,8 @@ public sealed class ReassignBatchSupplierCommandHandler(
     IShopRepository shopRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    ISupplierReturnMutationLock supplierReturnLock)
 {
     public async Task<ErrorOr<Success>> HandleAsync(ReassignBatchSupplierCommand command, CancellationToken cancellationToken)
     {
@@ -103,6 +105,17 @@ public sealed class ReassignBatchSupplierCommandHandler(
             cancellationToken);
         if (fence.IsError)
             return fence.Errors;
+
+        // After the period fence and before any row this command writes, so it cannot deadlock with
+        // a receipt reversal, which locks the receipt's current supplier first: see
+        // SupplierReceiptWriteLock. A batch with no receipt row has nothing a reversal can hold.
+        if (receiptValue?.SupplierId is { } receiptSupplierId)
+        {
+            var supplierLock = await supplierReturnLock.TakeBeforeReceiptWriteAsync(
+                command.ActiveShopId, receiptSupplierId, Errors.Supplier.SupplierNotFound, cancellationToken);
+            if (supplierLock.IsError)
+                return supplierLock.Errors;
+        }
 
         if (goodsReceivedEntry is not null)
         {

@@ -35,5 +35,8 @@ public static partial class Errors
 
         public static Error SupplierMissing =>
             Error.Validation("PurchaseReceipt.SupplierMissing", "The receipt has no supplier to post the correction to.");
+
+        public static Error Busy =>
+            Error.Conflict("PurchaseReceipt.Busy", "Another change to this supplier's receipts is in progress. Try again.");
     }
 }

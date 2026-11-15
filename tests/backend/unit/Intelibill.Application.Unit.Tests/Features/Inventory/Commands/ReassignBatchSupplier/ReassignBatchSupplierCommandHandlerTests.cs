@@ -1,3 +1,4 @@
+using Intelibill.Application.Features.SupplierReturns.Services;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
 using Intelibill.Domain.Entities;
@@ -101,7 +102,83 @@ public class ReassignBatchSupplierCommandHandlerTests
 
     private ReassignBatchSupplierCommandHandler CreateHandler() =>
         new(_userRepository, _inventoryBatchRepository, _supplierLedgerEntryRepository, _supplierRepository, _purchaseReceiptValueRepository, _paymentReceiptRepository,
-            BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _unitOfWork);
+            BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _unitOfWork, _supplierLock);
+
+    private readonly ISupplierReturnMutationLock _supplierLock = AcquiringSupplierLock();
+
+    private static ISupplierReturnMutationLock AcquiringSupplierLock()
+    {
+        var supplierLock = Substitute.For<ISupplierReturnMutationLock>();
+        supplierLock.LockAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(RowLockOutcome.Acquired);
+        return supplierLock;
+    }
+
+    private (User Owner, Shop Shop, Supplier Placeholder, Supplier Target, InventoryBatch Batch, PurchaseReceiptValue Receipt) ArrangeReceiptUnderPlaceholder()
+    {
+        var owner = User.CreateWithEmail("owner@test.com", "hash", "Owner", "User");
+        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
+        owner.AddShopMembership(ShopMembership.Create(shop.Id, owner.Id, ShopRole.Owner, true));
+        var placeholder = Supplier.CreateUnknownSystemSupplier(shop.Id);
+        var target = Supplier.Create(shop.Id, "Real Supplier", null, null, null, null, null, null, true, false, false);
+        var batch = InventoryBatch.Create(shop.Id, Guid.NewGuid(), "B-1", 5m, 10m, 15m, 14m, 5m, false, null, null, placeholder.Id, owner.Id).Value;
+        var goods = SupplierLedgerEntry.Create(shop.Id, placeholder.Id, batch.Id, SupplierLedgerEntryType.GoodsReceived, 50m, DateOnly.FromDateTime(DateTime.UtcNow), null, owner.Id).Value;
+        var receipt = PurchaseReceiptValue.Create(shop.Id, batch.Id, batch.ItemId, placeholder.Id, 5m, 50m, null, DateTimeOffset.UtcNow, owner.Id).Value;
+        _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
+        _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
+        _supplierLedgerEntryRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns(new[] { goods });
+        _purchaseReceiptValueRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns(receipt);
+        _supplierRepository.GetByIdAsync(placeholder.Id, Arg.Any<CancellationToken>()).Returns(placeholder);
+        _supplierRepository.GetByIdAsync(target.Id, Arg.Any<CancellationToken>()).Returns(target);
+        return (owner, shop, placeholder, target, batch, receipt);
+    }
+
+    [Fact]
+    public async Task HandleAsync_TakesTheReceiptsCurrentSupplierLock_BeforeItWrites()
+    {
+        var x = ArrangeReceiptUnderPlaceholder();
+
+        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(x.Owner.Id, x.Shop.Id, x.Batch.Id, x.Target.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Received.InOrder(() =>
+        {
+            _supplierLock.LockAsync(x.Shop.Id, x.Placeholder.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+            _purchaseReceiptValueRepository.Update(x.Receipt);
+            _inventoryBatchRepository.Update(x.Batch);
+            _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task HandleAsync_SupplierLockHeldPastItsBudget_IsBusyAndMovesNothing()
+    {
+        var x = ArrangeReceiptUnderPlaceholder();
+        _supplierLock.LockAsync(x.Shop.Id, x.Placeholder.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(RowLockOutcome.TimedOut);
+
+        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(x.Owner.Id, x.Shop.Id, x.Batch.Id, x.Target.Id), CancellationToken.None);
+
+        Assert.Equal(Errors.PurchaseReceipt.Busy.Code, result.FirstError.Code);
+        Assert.Equal(ErrorOr.ErrorType.Conflict, result.FirstError.Type);
+        Assert.Equal(x.Placeholder.Id, x.Batch.SupplierId);
+        Assert.Equal(x.Placeholder.Id, x.Receipt.SupplierId);
+        _supplierLedgerEntryRepository.DidNotReceive().Update(Arg.Any<SupplierLedgerEntry>());
+        _inventoryBatchRepository.DidNotReceive().Update(Arg.Any<InventoryBatch>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_BatchWithoutAReceiptRow_TakesNoSupplierLock()
+    {
+        var x = ArrangeReceiptUnderPlaceholder();
+        _purchaseReceiptValueRepository.GetByBatchAsync(x.Shop.Id, x.Batch.Id, Arg.Any<CancellationToken>()).Returns((PurchaseReceiptValue?)null);
+
+        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(x.Owner.Id, x.Shop.Id, x.Batch.Id, x.Target.Id), CancellationToken.None);
+
+        Assert.False(result.IsError);
+        await _supplierLock.DidNotReceive().LockAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
+    }
 
     [Fact]
     public async Task HandleAsync_WhenFreeReceiptHasNoPayable_ReassignsBatchOnly()
