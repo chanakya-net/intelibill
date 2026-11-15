@@ -58,10 +58,27 @@ MOCK
 #!/bin/bash
 [[ "$1" == scripts/dev/test-licensing-stack.sh && "$2" == --case && "$3" == all ]] || exit 96
 printf 'child invoked\n' >>"$P0115_TEST_CALLS"
+if [[ "${P0115_TEST_MOVE_HEAD:-0}" == 1 ]]; then
+  git -c core.hooksPath=/dev/null commit --allow-empty --no-gpg-sign -qm 'Advance fixture source'
+fi
 exit "$P0115_TEST_CHILD_STATUS"
 MOCK
   chmod +x "$fixture/bin/docker" "$fixture/bin/bash"
   export PATH="$fixture/bin:$PATH"
+}
+
+start_source_repo() {
+  local source_repo="$fixture/source" path
+  for path in scripts/dev/licensing-stack-lib.sh scripts/licensing/p01-foundation-evidence.sh scripts/licensing/test-p01-foundation.sh; do
+    mkdir -p "$source_repo/$(dirname "$path")"
+    cp "$path" "$source_repo/$path"
+  done
+  cd "$source_repo"
+  git init -q
+  git config user.name 'P01 fixture'
+  git config user.email p0115-fixture@example.test
+  git add scripts
+  git -c core.hooksPath=/dev/null commit --no-gpg-sign -qm 'Record fixture source'
 }
 
 expect_exit() {
@@ -74,6 +91,7 @@ expect_exit() {
 
 evidence_contract
 start_doubles
+start_source_repo
 export P0115_PROJECT=default P0115_ARTIFACTS="$fixture"
 export DOTNET_ENVIRONMENT=Development ASPNETCORE_ENVIRONMENT=Development
 export P0115_TEST_CHILD_STATUS=19
@@ -83,8 +101,17 @@ DOTNET_ENVIRONMENT=Production expect_exit 1 'Use Development or Testing.'
 DOCKER_HOST=tcp://127.0.0.1:2375 expect_exit 1 'Use a local Docker Unix socket.'
 [[ ! -e "$P0115_TEST_CALLS" ]] || die 'invalid input reached the child'
 printf '%s\n' 'PASS unsafe project and environment refused before Compose'
+printf '\n# Local tracked edit\n' >>scripts/dev/licensing-stack-lib.sh
+expect_exit 1 'Commit tracked changes before running acceptance.'
+[[ ! -e "$P0115_TEST_CALLS" ]] || die 'dirty source reached the child'
+git restore scripts/dev/licensing-stack-lib.sh
+printf '%s\n' 'PASS dirty source refused before Compose'
 expect_exit 19 'P01-15 failed at combined-stack (exit 19)'
 mkdir "$fixture/missing"
 export P0115_ARTIFACTS="$fixture/missing" P0115_TEST_CHILD_STATUS=0
 expect_exit 1 'Missing P01-05 completion evidence.'
 printf '%s\n' 'PASS child exit propagated and absent child evidence refused'
+mkdir "$fixture/advanced"
+export P0115_ARTIFACTS="$fixture/advanced"
+P0115_TEST_MOVE_HEAD=1 expect_exit 1 'Source commit changed during acceptance.'
+printf '%s\n' 'PASS changed source commit refused'

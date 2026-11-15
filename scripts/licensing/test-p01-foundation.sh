@@ -63,6 +63,14 @@ assert_fresh() {
   (set -o noclobber; printf '%s\n' "$project" >"$destination/project")
 }
 
+assert_checked_source() {
+  local current changes
+  current="$(git rev-parse --verify HEAD)" || refuse 'Could not identify the source commit.'
+  [[ "$current" == "$source_sha" ]] || refuse 'Source commit changed during acceptance.'
+  changes="$(git status --porcelain=v1 --untracked-files=no)" || refuse 'Could not check the tracked source tree.'
+  [[ -z "$changes" ]] || refuse 'Commit tracked changes before running acceptance.'
+}
+
 run_stack_case() {
   P0105_PROJECT="$project" P0105_ARTIFACTS="$evidence" \
     bash scripts/dev/test-licensing-stack.sh --case "$1" >"$scratch/stack-$1.log" 2>&1
@@ -172,7 +180,7 @@ restart_provider() {
 write_summary() {
   local output="$scratch/summary"
   {
-    printf 'source_base=%s\nrun_utc=%s\nproject=%s\n' "$(git rev-parse HEAD)" "$run_utc" "$project"
+    printf 'source_base=%s\nrun_utc=%s\nproject=%s\n' "$source_sha" "$run_utc" "$project"
     printf 'Primary Compose build: docker compose --env-file /dev/null -f "%s/docker-compose.yml" -p %s --profile full up -d --build\n' "$repository_root" "$project"
     printf '%s\n' \
       'PASS existing P01-05 all cases (fresh, reused, migration failures, browser)' \
@@ -195,11 +203,14 @@ write_summary() {
 }
 
 run_all() {
+  source_sha="$(git rev-parse --verify HEAD)" || refuse 'Could not identify the source commit.'
+  assert_checked_source
   assert_fresh
   run_utc="$(date -u +%FT%TZ)"
   original_resources | sort >"$scratch/original"
   stage=combined-stack
   run_stack_case all
+  assert_checked_source
   grep -q 'case all complete' "$evidence/run.log" || refuse 'Missing P01-05 completion evidence.'
   require_pass_count "$evidence/browser-enroll.log" 2 &&
     require_pass_count "$evidence/browser-restart.log" 2 || refuse 'Missing merchant Chromium pass counts.'
@@ -217,6 +228,7 @@ run_all() {
   stage=evidence
   original_resources | sort >"$scratch/after"
   cmp -s "$scratch/original" "$scratch/after" || refuse 'Original developer resource identities changed.'
+  assert_checked_source
   write_summary
 }
 

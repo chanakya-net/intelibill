@@ -52,7 +52,7 @@ if (phase === 'enroll') {
         'Owner delegated Support in the editor. Old access and refresh returned 401. New sign-in showed Support alone.',
         'HttpOnly SameSite=Strict cookies, no credential storage or worker, no-store, CSRF/origin denial and device sign-out observed.',
         'Merchant and provider credentials were rejected across authorities. Merchant login and its shop remained usable.',
-        'Owner audit page displayed the capability change and denied read events.',
+        'Owner audit page displayed the capability change. The audit API returned denied read events.',
       ]);
     } catch (error) {
       if (error instanceof SetupUnavailable) throw error;
