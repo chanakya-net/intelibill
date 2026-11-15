@@ -12,7 +12,7 @@
  *
  * The number of such distinct blocks may not exceed the ceiling in
  * audit-duplicate-styles.ceiling.json. Lower the ceiling whenever the count goes down, so it can
- * only fall (docs/superpowers/plans/2026-11-10-shared-styles-and-offline-pack.md, phase 0).
+ * only fall (docs/frontend-architecture.md § Shared Styles).
  *
  * Usage: bun run audit:styles:duplicates [--json] [--list]
  */

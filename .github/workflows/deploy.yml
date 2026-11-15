@@ -89,7 +89,7 @@ jobs:
         run: |
           .github/scripts/tests/wait-for-container-app-job.test.sh
           .github/scripts/tests/wait-for-container-app-revisions.test.sh
-          .github/scripts/tests/validate-phase-11-workflows.test.sh
+          .github/scripts/tests/workflow-contracts.test.sh
           .github/scripts/tests/licensing-stack-contract.test.sh
           bash .github/scripts/tests/licensing-stack-harness.test.sh
 

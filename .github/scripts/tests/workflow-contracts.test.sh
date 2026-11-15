@@ -463,5 +463,5 @@ assert(deploy_jobs.to_s.include?("GHCR_PUBLIC"), "public-package deployment gate
   )
 end
 
-puts "Phase 11 workflow contracts passed."
+puts "Workflow contracts passed."
 RUBY

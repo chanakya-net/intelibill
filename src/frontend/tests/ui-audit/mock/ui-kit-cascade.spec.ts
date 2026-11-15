@@ -7,7 +7,7 @@ import { createShellScenario, installShellFixture } from '../fixtures/shell.fixt
  * The shared UI kit (`UiKitStylesComponent`) is delivered with the shell, never with the login
  * page, and sits in `@layer ib-kit` after PrimeNG's `primeng` layer, Tailwind's layers and the
  * global element resets (`ib-base`, from styles.css):
- * PrimeNG < Tailwind utilities < element resets < kit < unlayered component styles. See docs/superpowers/plans/2026-11-10-shared-styles-and-offline-pack.md § 3.1.
+ * PrimeNG < Tailwind utilities < element resets < kit < unlayered component styles. See docs/frontend-architecture.md § Shared Styles.
  */
 
 /** Cascade layer names in the order the document establishes them (first appearance wins). */

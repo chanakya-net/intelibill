@@ -10,7 +10,7 @@
 --     -v mig_dev_oid="$(tofu -chdir=.tofu/envs/dev  output -json identities | jq -r .migrator.principal_id)" \
 --     -v app_prod_oid="$(tofu -chdir=.tofu/envs/prod output -json identities | jq -r .app.principal_id)" \
 --     -v mig_prod_oid="$(tofu -chdir=.tofu/envs/prod output -json identities | jq -r .migrator.principal_id)" \
---     -f scripts/db/phase7-bootstrap.sql
+--     -f scripts/db/bootstrap-environment-databases.sql
 --
 -- IMPORTANT: pass the *principal* (object) ID, not the client ID. They are both
 -- GUIDs on the same identity and using the wrong one produces a principal that

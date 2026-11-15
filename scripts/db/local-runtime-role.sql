@@ -1,6 +1,6 @@
 -- The restricted runtime role for the LOCAL Docker stack (docker-compose.yml).
 --
--- Deployed environments get this from scripts/db/phase7-bootstrap.sql, where the
+-- Deployed environments get this from scripts/db/bootstrap-environment-databases.sql, where the
 -- identities are managed and the names come from Terraform output. This file is
 -- the same shape for one local database, with a fixed name and a password that
 -- is no more secret than the one already in docker-compose.yml.

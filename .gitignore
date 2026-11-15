@@ -228,6 +228,9 @@ Temporary Items
 .codegraph/
 .gemini/
 .superpowers/
+docs/superpowers/
+docs/reviews/
+docs/environment-infrastructure-handoff.md
 CLAUDE.md
 GEMINI.md
 band

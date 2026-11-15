@@ -16,7 +16,7 @@ identities are fixed local development values.
 | Check | Command (repository root) |
 | --- | --- |
 | Compose graph contract | `bash .github/scripts/tests/licensing-stack-contract.test.sh` |
-| Workflow contract | `bash .github/scripts/tests/validate-phase-11-workflows.test.sh` |
+| Workflow contract | `bash .github/scripts/tests/workflow-contracts.test.sh` |
 | Web image contract | `bash .github/scripts/tests/frontend-image-contract.test.sh` |
 | Migration image contract (builds both bundles) | `bash .github/scripts/tests/migration-image-contract.test.sh` |
 | Admin runtime server | `node --test src/admin-frontend/tests/server.test.mjs` |
