@@ -90,6 +90,7 @@ async function ownerIssues(browser: Browser, observe: Observe) {
   const preview = page.getByTestId('billing-transfer-preview');
   await expect(preview).toContainText(accountName);
   await expect(preview).toContainText(setting('RECIPIENT'));
+  await expect(preview).toContainText('Reason for transfer · Fixture ownership handover');
   await expect(preview).toContainText('Shop roles and access stay the same');
   await expect(preview).toContainText('Existing financial obligations');
   await expect(page.getByTestId('billing-transfer-consent')).not.toBeChecked();

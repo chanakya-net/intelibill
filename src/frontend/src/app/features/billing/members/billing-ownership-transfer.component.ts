@@ -8,6 +8,7 @@ import { problemCode } from '@intelibill/api';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { TextareaModule } from 'primeng/textarea';
+import { finalize, type Observable } from 'rxjs';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { BillingMembersService, type BillingRoster } from './billing-members.service';
@@ -44,6 +45,7 @@ export class BillingOwnershipTransferComponent {
   protected readonly result = signal('');
   protected readonly error = signal('');
   protected readonly busy = signal(false);
+  protected readonly refreshing = signal(false);
   protected readonly kind = signal<OwnershipIssue['recipientKind']>('email');
   private revision = 0;
 
@@ -57,7 +59,11 @@ export class BillingOwnershipTransferComponent {
   }
 
   protected refresh(): void {
-    if (!this.busy() && !this.result() && !this.pending()) this.load(this.actor(), this.account() || this.transfer(), this.attempt());
+    const actor = this.actor();
+    const target = this.account() || this.transfer();
+    if (!actor || !target || document.hidden || this.busy() || this.refreshing() || this.result() ||
+        this.pending() || this.error() === 'billing.transfer.noLongerAvailable') return;
+    this.fetch(actor, target, true);
   }
 
   protected review(event: SubmitEvent, recipient: string, reason: string): void {
@@ -71,7 +77,7 @@ export class BillingOwnershipTransferComponent {
     event.preventDefault();
     const actor = this.actor();
     const target = this.account() || this.transfer();
-    if (!actor || !target || !consent || this.busy() || this.pending()) return;
+    if (!actor || !target || !consent || this.busy() || this.refreshing() || this.pending()) return;
     const draft = this.createDraft(target);
     if (!draft) return;
     try {
@@ -114,8 +120,9 @@ export class BillingOwnershipTransferComponent {
   }
 
   private load(actor: string, target: string, key: string | null): void {
-    const current = this.current(actor, target, ++this.revision);
+    this.revision++;
     this.busy.set(false);
+    this.refreshing.set(false);
     this.preview.set(null);
     this.roster.set(null);
     this.proposal.set(null);
@@ -130,35 +137,43 @@ export class BillingOwnershipTransferComponent {
       this.error.set('billing.transfer.storage');
       return;
     }
-    if (this.pending()) return;
-    this.busy.set(true);
-    if (this.account()) {
-      this.members.roster(target).pipe(takeUntilDestroyed(this.destroy)).subscribe({
-        next: (roster) => {
-          if (!current()) return;
-          this.roster.set(roster);
-          this.busy.set(false);
-          if (!roster.ownerRevision) this.error.set('billing.denied');
-        },
-        error: () => this.unavailable(current),
-      });
-    } else {
-      this.api.preview(target).pipe(takeUntilDestroyed(this.destroy)).subscribe({
-        next: (proposal) => {
-          if (!current()) return;
-          this.busy.set(false);
-          if (proposal.recipientActorId === actor) this.proposal.set(proposal);
-          else this.unavailable(current);
-        },
-        error: () => this.unavailable(current),
-      });
-    }
+    if (!this.pending()) this.fetch(actor, target);
   }
 
-  private unavailable(current: () => boolean): void {
-    if (!current()) return;
+  private fetch(actor: string, target: string, background = false): void {
+    const current = this.current(actor, target, this.revision);
+    const loading = background ? this.refreshing : this.busy;
+    loading.set(true);
+    const request: Observable<BillingRoster | OwnershipProposal> = this.account()
+      ? this.members.roster(target) : this.api.preview(target);
+    request.pipe(takeUntilDestroyed(this.destroy), finalize(() => {
+      if (current()) loading.set(false);
+    })).subscribe({
+      next: view => {
+        if (!current()) return;
+        if (this.error() === 'billing.denied' || this.error() === 'billing.transfer.unavailable') this.error.set('');
+        if ('members' in view) {
+          this.roster.set(view);
+          if (this.preview()?.expectedVersion !== view.ownerRevision) this.preview.set(null);
+          if (!view.ownerRevision) this.error.set('billing.denied');
+        } else if (view.recipientActorId === actor) {
+          this.proposal.set(view);
+        } else {
+          this.unavailable();
+        }
+      },
+      error: (failure: unknown) => {
+        if (current() && (!background || (!this.roster() && !this.proposal()) ||
+            (failure instanceof HttpErrorResponse && [401, 403, 404].includes(failure.status)))) this.unavailable();
+      },
+    });
+  }
+
+  private unavailable(): void {
+    this.roster.set(null);
+    this.proposal.set(null);
+    this.preview.set(null);
     this.error.set('billing.transfer.unavailable');
-    this.busy.set(false);
   }
 
   private exchange(draft: OwnershipDraft, lookup: boolean, firstSubmission = false): void {
@@ -196,18 +211,36 @@ export class BillingOwnershipTransferComponent {
   private refuse(actor: string, draft: OwnershipDraft, lookup: boolean, firstSubmission: boolean, failure: unknown): void {
     this.unknown(draft);
     if (lookup || !(failure instanceof HttpErrorResponse)) return;
+    const code = problemCode(failure.error);
+    const conflict = failure.status === 409 && code === 'Billing.OwnershipTransferConflict';
+    if (draft.action === 'accept' && (conflict || (failure.status === 404 && code === 'Billing.OwnershipTransferMissing'))) {
+      this.proposal.set(null);
+      this.settleRefusal(actor, draft, 'billing.transfer.noLongerAvailable');
+      return;
+    }
+    if (draft.action === 'issue' && firstSubmission && conflict) {
+      this.preview.set(null);
+      this.roster.set(null);
+      this.settleRefusal(actor, draft, 'billing.transfer.reviewAgain');
+      this.fetch(actor, draft.target);
+      return;
+    }
     if (failure.status === 403) {
       this.roster.set(null);
       this.error.set('billing.denied');
     }
-    if (firstSubmission && failure.status === 400 && problemCode(failure.error) === 'Billing.OwnershipTransferInvalid') {
-      try {
-        this.drafts.settle(actor, draft);
-        this.pending.set(null);
-        this.error.set('billing.transfer.invalid');
-      } catch {
-        this.error.set('billing.transfer.storage');
-      }
+    if (firstSubmission && failure.status === 400 && code === 'Billing.OwnershipTransferInvalid') {
+      this.settleRefusal(actor, draft, 'billing.transfer.invalid');
+    }
+  }
+
+  private settleRefusal(actor: string, draft: OwnershipDraft, message: string): void {
+    try {
+      this.drafts.settle(actor, draft);
+      this.pending.set(this.findDraft(actor, draft.target));
+      this.error.set(message);
+    } catch {
+      this.error.set('billing.transfer.storage');
     }
   }
 

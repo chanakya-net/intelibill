@@ -7,6 +7,31 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed partial class P0204Tests
 {
     [Fact]
+    public async Task AccountCreationKeyReplaysWithFormerOwnersCurrentRole()
+    {
+        await using var host = await StartAsync();
+        var owner = await host.SignInAsync();
+        var recipient = await host.SignInAsync();
+        var request = new { operationKey = Guid.NewGuid(), name = "Billing transfer fixture" };
+        var accounts = Path("/api/billing/accounts");
+        using var created = await owner.Client.PostAsJsonAsync(accounts, request);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var createdAccount = await JsonAsync(created);
+        Assert.Equal("Owner", createdAccount.GetProperty("role").GetString());
+        var account = createdAccount.GetProperty("accountId").GetGuid();
+        var transfer = await ProposeAsync(owner.Client, account, recipient.Client, recipient.Email);
+        using var accepted = await AcceptAsync(recipient.Client, transfer, Guid.NewGuid());
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+
+        using var replay = await owner.Client.PostAsJsonAsync(accounts, request);
+        Assert.Equal(HttpStatusCode.OK, replay.StatusCode);
+        var replayedAccount = await JsonAsync(replay);
+        Assert.Equal(account, replayedAccount.GetProperty("accountId").GetGuid());
+        Assert.Equal(request.name, replayedAccount.GetProperty("name").GetString());
+        Assert.Equal("Manager", replayedAccount.GetProperty("role").GetString());
+    }
+
+    [Fact]
     public async Task NamedRecipientAccepts_OneOwnerAndHistoricalResponsibilityRemain()
     {
         await using var host = await StartAsync();

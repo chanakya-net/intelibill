@@ -80,9 +80,10 @@ internal sealed partial class MerchantBillingClient(
         return RunAsync<MerchantCreatedBillingAccount>(caller, BillingDelegationIntent.CreateAccount(body), MaximumResponseBytes, async (response, token) =>
         {
             var result = await ReadJsonAsync<BillingAccountV1>(response, token);
+            var created = response.StatusCode == HttpStatusCode.Created;
             return result is not null && IsValidAccount(result) && result.Name == name &&
-                result.Role == MerchantBillingDelegationV1.OwnerRole
-                ? new MerchantCreatedBillingAccount(Copy(result), response.StatusCode == HttpStatusCode.Created)
+                (!created || result.Role == MerchantBillingDelegationV1.OwnerRole)
+                ? new MerchantCreatedBillingAccount(Copy(result), created)
                 : Unavailable("InvalidResponseContract");
         }, cancellationToken);
     }

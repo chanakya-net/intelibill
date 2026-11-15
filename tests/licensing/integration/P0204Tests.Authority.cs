@@ -11,6 +11,50 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed partial class P0204Tests
 {
     [Fact]
+    public async Task UnknownSelfAndUnverifiedRecipientsGetUniformAcknowledgementWithoutAcceptance()
+    {
+        await using var host = await StartAsync();
+        var owner = await host.SignInAsync();
+        var unverified = await host.SignInAsync();
+        var stranger = await host.SignInAsync();
+        var account = await CreateAccountAsync(owner.Client);
+        var merchant = database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase);
+        await LicensingPostgreSqlFixture.ExecuteAsync(merchant,
+            $"UPDATE users SET is_email_verified = false WHERE id = '{unverified.Actor:D}'");
+
+        var proposals = new List<Guid>();
+        foreach (var email in new[] { P0202Fixture.UniqueEmail(), owner.Email, unverified.Email })
+        {
+            var key = Guid.NewGuid();
+            using var issued = await IssueAsync(owner.Client, account, email, key: key);
+            Assert.Equal(HttpStatusCode.Accepted, issued.StatusCode);
+            var acknowledgement = Assert.Single((await JsonAsync(issued)).EnumerateObject());
+            Assert.Equal("operationKey", acknowledgement.Name);
+            Assert.Equal(key, acknowledgement.Value.GetGuid());
+
+            var proposal = await LicensingPostgreSqlFixture.ReadScalarAsync(database.Bootstrap(host.Fixture.Owner.Database),
+                $"SELECT id FROM billing_ownership_proposals WHERE operation_key = '{key:D}' AND recipient_actor_id IS NULL");
+            proposals.Add(Assert.IsType<Guid>(proposal));
+        }
+
+        // Reverify the formerly unverified user so the check reaches recipient scope and RLS.
+        await LicensingPostgreSqlFixture.ExecuteAsync(merchant,
+            $"UPDATE users SET is_email_verified = true WHERE id = '{unverified.Actor:D}'");
+        foreach (var actor in new[] { owner.Client, unverified.Client, stranger.Client })
+        {
+            Assert.Empty(await InboxAsync(actor));
+            foreach (var proposal in proposals)
+            {
+                using var refused = await AcceptAsync(actor, proposal, Guid.NewGuid());
+                Assert.Equal(HttpStatusCode.NotFound, refused.StatusCode);
+            }
+        }
+
+        var member = Assert.Single(await P0202Fixture.ReadAccountRowsAsync(database, host.Fixture));
+        Assert.Equal((account, owner.Actor, 1, 1), (member.AccountId, member.MerchantUserId, member.Role, member.Status));
+    }
+
+    [Fact]
     public async Task RepeatedTransfersPreserveRecordedCoverageAndEarlierResponsibility()
     {
         await using var host = await StartAsync();

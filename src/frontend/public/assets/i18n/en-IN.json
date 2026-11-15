@@ -3383,6 +3383,9 @@
       "more": "Show more"
     },
     "transfer": {
+      "reason": "Reason for transfer",
+      "noLongerAvailable": "This transfer is no longer available.",
+      "reviewAgain": "Billing ownership has changed. Review the transfer again.",
       "action": "Transfer billing ownership",
       "review": "Review ownership transfer",
       "inbox": "Ownership transfers",
