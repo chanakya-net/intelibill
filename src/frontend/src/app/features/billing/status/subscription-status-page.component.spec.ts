@@ -60,6 +60,19 @@ describe('subscription status', () => {
     expect(paths.indexOf('status')).toBeLessThan(paths.indexOf(''));
   });
 
+  it('shows an extended trial deadline exactly as evaluated', () => {
+    const ends = '2027-03-10T13:15:30.123456Z';
+    const trial: SubscriptionTermStatus = {
+      ...term, basis: 'Trial', billingPeriod: null, paidThrough: ends, accessEndsAt: ends, nextDeadline: ends,
+      graceEndsAt: null, nextPeriodEndsAt: null, coverageMode: 'Independent', purchasedCapacity: 1,
+    };
+    const { page } = render({ shop: vi.fn(() => of(status(shopA, { term: trial }))) });
+    for (const selector of ['paid-through', 'next-deadline']) {
+      expect(page.querySelector(`[data-testid="${selector}"]`)!.textContent).toBe('10 Mar 2027, 18:45:30.123456 IST');
+    }
+    expect(page.querySelector('[data-testid="grace-ends"]')?.textContent).toContain('No grace period');
+  });
+
   it('explains courtesy access by its exact end and included capacity, with no price, grace or paid wording', () => {
     const courtesy: SubscriptionTermStatus = {
       ...term, basis: 'Complimentary', billingPeriod: null, startsAt: '2027-02-28T18:30:00Z',

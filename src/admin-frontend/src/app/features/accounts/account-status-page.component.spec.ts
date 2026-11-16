@@ -8,6 +8,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AccountStatusApi, formatIst, type AccountStatus, type TermStatus } from './account-status-api.service';
 import { AccountStatusPageComponent } from './account-status-page.component';
 import { AdminSessionService } from '../auth/admin-session.service';
+import { TrialExtensionApi } from './trial-extension-api.service';
+import { TrialExtensionDrafts } from './trial-extension-drafts';
 import { ComplimentaryGrantApi } from './complimentary-grant-api.service';
 
 const account = '33333333-3333-4333-8333-333333333333';
@@ -34,6 +36,8 @@ function render(read: AccountStatusApi['read'], grants: string[] = ['support']) 
       { provide: AccountStatusApi, useValue: { read } },
       { provide: AdminSessionService, useValue: { adminId: signal('admin-1'), sessionId: signal('session-1') } },
       { provide: ComplimentaryGrantApi, useValue: {} },
+      { provide: TrialExtensionApi, useValue: {} },
+      { provide: TrialExtensionDrafts, useValue: { read: () => Promise.resolve(null) } },
     ],
   });
   const view = TestBed.createComponent(AccountStatusPageComponent);
@@ -66,12 +70,15 @@ describe('provider account access status', () => {
     expect(page.textContent).toContain('Observe-only');
   });
 
-  it('labels a Complete Trial as having no grace period', () => {
+  it('shows an exact Trial end and no grace period', () => {
     const current = status();
-    const trial = { ...term, state: 'Active' as const, basis: 'Trial' as const, graceEndsAt: null };
+    const trial = { ...term, state: 'Active' as const, basis: 'Trial' as const, graceEndsAt: null,
+      accessEndsAt: '2027-03-10T13:15:30.123456Z' };
     const { page, lookup } = render(() => of({ ...current, items: [{ ...current.items[0], status: trial }] }));
     lookup();
     expect(page.querySelector('[data-testid="provider-term"]')?.textContent).toContain('No grace period');
+    expect(page.querySelector('[data-testid="provider-trial-ends"]')?.textContent).toBe('10 Mar 2027, 18:45:30.123456 IST');
+    expect(page.querySelector('adm-trial-extension')).toBeNull();
   });
 
   it('coalesces visibilitychange and focus for the selected account', () => {
@@ -146,6 +153,7 @@ describe('provider account access status', () => {
     const manager = render(() => of(status()), ['licensing-manager']);
     manager.lookup();
     expect(manager.page.querySelector('[data-testid="grant-editor"]')).not.toBeNull();
+    expect(manager.page.querySelector('adm-trial-extension')).not.toBeNull();
     manager.capabilities.set(['support']);
     manager.view.detectChanges();
     expect(manager.page.querySelector('[data-testid="grant-editor"]')).toBeNull();

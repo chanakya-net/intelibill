@@ -16,7 +16,7 @@ public sealed record TermFactsRow(Guid TermId, Guid AccountId, string Mode, int 
     TrialTermProvenance? Trial = null, ComplimentaryTermProvenance? Complimentary = null);
 
 public sealed record TrialTermProvenance(string ComputationVersion, int MemberCap, int ActiveMembers,
-    int AccountTrialCap, bool DevelopmentFixture, bool ConflictingCoverage = false);
+    int AccountTrialCap, bool DevelopmentFixture, bool ConflictingCoverage = false, DateTimeOffset? ExtendedEndsAt = null);
 
 /// <summary>
 /// Operational provenance of a dated complimentary grant: never its reason, actor or receipt. <c>Consistent</c> is
