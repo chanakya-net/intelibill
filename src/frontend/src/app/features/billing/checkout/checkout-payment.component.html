@@ -3,10 +3,14 @@
   @if (problem(); as issue) {
     <p role="alert" class="checkout-alert" data-testid="payment-problem">{{ 'billing.checkout.payment.errors.' + issue | transloco }}</p>
   }
-  @if ((payment()?.payment ?? 'NotStarted') === 'NotStarted') {
+  @if (!pending() && (payment()?.payment ?? 'NotStarted') === 'NotStarted') {
     <p role="status" data-testid="checkout-accepted">{{ 'billing.checkout.accepted' | transloco }}</p>
   }
-  @if (payment(); as status) {
+  @if (pending()) {
+    <p role="status" data-testid="payment-pending">{{ 'billing.checkout.payment.pending' | transloco }}</p>
+    <button pButton type="button" data-testid="payment-check" [disabled]="busy()"
+      [label]="'billing.checkout.payment.checkAgain' | transloco" (click)="checkAgain()"></button>
+  } @else if (payment(); as status) {
     @switch (status.payment) {
       @case ('NotStarted') {
         @if (status.canStart) {
@@ -20,15 +24,13 @@
       @case ('AwaitingPayment') {
         <p data-testid="payment-awaiting">{{ 'billing.checkout.payment.awaiting' | transloco }}</p>
         @if (launcher() === 'simulator') {
-          <app-development-simulator-launcher [busy]="busy()" (capture)="capture()" (returnWithoutCapture)="verify('Success')" />
+          <app-development-simulator-launcher [busy]="busy()" (simulate)="simulate($event)" (returnWithoutCapture)="verify('Success')" />
         } @else {
           <p data-testid="payment-launcher-unavailable">{{ 'billing.checkout.payment.launcherUnavailable' | transloco }}</p>
         }
       }
-      @case ('PendingVerification') {
-        <p role="status" data-testid="payment-pending">{{ 'billing.checkout.payment.pending' | transloco }}</p>
-        <button pButton type="button" data-testid="payment-check" [disabled]="busy()"
-          [label]="'billing.checkout.payment.checkAgain' | transloco" (click)="verify(null)"></button>
+      @case ('Failed') {
+        <p role="status" data-testid="payment-failed">{{ 'billing.checkout.payment.failed' | transloco }}</p>
       }
       @case ('Verified') {
         <p role="status" data-testid="payment-confirmed">{{ 'billing.checkout.payment.confirmed' | transloco }}</p>

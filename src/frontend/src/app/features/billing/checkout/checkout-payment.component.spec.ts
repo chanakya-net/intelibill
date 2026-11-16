@@ -39,6 +39,11 @@ const verified = (access: CheckoutPayment['access'], applied: number) => status(
 let http: HttpTestingController;
 
 beforeEach(() => {
+  const storage = new Map<string, string>();
+  vi.stubGlobal('localStorage', { getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => storage.set(key, value) });
+  const locks = { request: <T>(_key: string, run: () => T) => Promise.resolve().then(run) };
+  Object.defineProperty(navigator, 'locks', { configurable: true, value: locks });
   vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
   TestBed.configureTestingModule({
     imports: [TranslocoTestingModule.forRoot({
@@ -58,6 +63,8 @@ afterEach(() => {
     http.verify();
   } finally {
     TestBed.resetTestingModule();
+    Reflect.deleteProperty(navigator, 'locks');
+    vi.unstubAllGlobals();
     vi.useRealTimers();
   }
 });
@@ -78,11 +85,32 @@ async function render(first: CheckoutPayment) {
 }
 
 describe('CheckoutPaymentComponent', () => {
+  it('retains the original operation after timeout and lookup404', async () => {
+    const page = await render(notStarted);
+    page.click('payment-start');
+    const first = await vi.waitFor(() => http.expectOne({ method: 'POST', url: path + '/attempts' }));
+    const command = first.request.body;
+    first.error(new ProgressEvent('timeout'));
+    await page.update();
+    expect(page.text('payment-pending')).toBe(t.pending);
+    expect(page.text('payment-start')).toBeNull();
+
+    page.click('payment-check');
+    http.expectOne({ method: 'GET', url: path }).flush({}, { status: 404, statusText: 'Not Found' });
+    await vi.waitFor(() => {
+      const retry = http.expectOne({ method: 'POST', url: path + '/attempts' });
+      expect(retry.request.body).toEqual(command);
+      retry.flush(status({ payment: 'PendingVerification', launch: null }));
+    });
+    await page.update();
+    expect(page.text('payment-pending')).toBe(t.pending);
+  });
+
   it('shows applying access until every covered shop is acknowledged', async () => {
     const page = await render(notStarted);
     expect(page.text('checkout-accepted')).toBe(en.billing.checkout.accepted);
     page.click('payment-start');
-    const start = http.expectOne({ method: 'POST', url: path + '/attempts' });
+    const start = await vi.waitFor(() => http.expectOne({ method: 'POST', url: path + '/attempts' }));
     expect(start.request.body).toEqual({ operationKey: expect.any(String), expectedRevision: 1, snapshotHash: 'a'.repeat(64) });
     start.flush(status());
     await page.update();
@@ -113,7 +141,7 @@ describe('CheckoutPaymentComponent', () => {
   it('keeps a browser success report pending until the server verifies captured funds', async () => {
     const page = await render(status());
     page.click('payment-simulator-return');
-    const verify = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+    const verify = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
     expect(verify.request.body).toEqual({ launcherOutcome: 'Success' });
     verify.flush(status({ payment: 'PendingVerification', launch: null }));
     await page.update();
@@ -153,7 +181,7 @@ describe('CheckoutPaymentComponent', () => {
   it('adopts the attempt another tab already started instead of paying twice', async () => {
     const page = await render(notStarted);
     page.click('payment-start');
-    http.expectOne({ method: 'POST', url: path + '/attempts' })
+    (await vi.waitFor(() => http.expectOne({ method: 'POST', url: path + '/attempts' })))
       .flush({ code: 'Billing.PaymentAlreadyStarted' }, { status: 409, statusText: 'Conflict' });
     await vi.waitFor(() => http.expectOne({ method: 'GET', url: path }).flush(status()));
     await page.update();

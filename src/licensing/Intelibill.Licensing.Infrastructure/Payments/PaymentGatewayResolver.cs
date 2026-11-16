@@ -11,6 +11,7 @@ internal sealed class PaymentOptions
     public const string Section = "Payments";
     public const string LocalSimulator = "LocalSimulator";
     public string? Mode { get; init; }
+    public bool ReconcileInBackground { get; init; } = true;
 }
 
 /// <summary>

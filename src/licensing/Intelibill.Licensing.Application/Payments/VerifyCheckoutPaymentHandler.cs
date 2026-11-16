@@ -10,7 +10,7 @@ namespace Intelibill.Licensing.Application.Payments;
 /// open, whether the full amount was captured. Only a captured observation reaches fulfilment.
 /// </summary>
 public sealed class VerifyCheckoutPaymentHandler(IBillingDelegationAccess access, IPaymentStore store,
-    IPaymentGatewayResolver gateways, FulfilPaidOrderHandler fulfil, CheckoutPaymentStatusReader status, TimeProvider clock)
+    ReconcilePaymentHandler reconcile, CheckoutPaymentStatusReader status, TimeProvider clock)
 {
     public async Task<ErrorOr<CheckoutPaymentV1>> HandleAsync(VerifiedBillingDelegation proof, Guid account, Guid order,
         Guid attemptId, VerifyCheckoutPaymentV1 request, CancellationToken ct)
@@ -32,15 +32,11 @@ public sealed class VerifyCheckoutPaymentHandler(IBillingDelegationAccess access
             return claimed.Errors;
 
         var (stored, alreadyVerified) = claimed.Value;
-        if (!alreadyVerified && stored.ProviderOrderReference is { } reference && gateways.ForPin(stored.Pin) is { } gateway)
+        if (!alreadyVerified)
         {
-            var observed = await gateway.VerifyCheckoutAsync(new(reference, stored.AmountPaise, stored.Currency), ct);
-            if (observed is { Outcome: GatewayOutcome.Succeeded, Value: { State: ObservedPaymentState.Captured } payment })
-            {
-                var fulfilled = await fulfil.HandleAsync(stored, payment, ct);
-                if (fulfilled.IsError)
-                    return fulfilled.Errors;
-            }
+            var outcome = await reconcile.HandleAsync(stored, ct);
+            if (outcome.IsError)
+                return outcome.Errors;
         }
         return await store.InAttemptScopeAsync(account, attemptId, false, token => status.ReadAsync(account, order, token), ct);
     }

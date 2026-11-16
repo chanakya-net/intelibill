@@ -276,3 +276,26 @@ a fresh proof before showing the form.
 
 Run `bash tests/licensing/acceptance/run-p0110-browser.sh` for the disposable
 PostgreSQL, migration upgrade from P01-09 and reapply, and Chromium flow.
+
+## Recovering a checkout
+
+Apply licensing migration `20261117100000_PendingPaymentReconciliation` before
+starting the updated API. The local Compose role preparation script grants the
+runtime execute permission on the payment scheduler's private routines. Refresh
+those grants after manually migrating a local database.
+
+The original payment attempt is queued in the same transaction that saves its
+operation key and provider pin. The local simulator worker claims due attempts
+with 30-second leases, performs provider reads outside SQL transactions, and
+validates the live claim when it records the result. Twelve observations with
+bounded backoff leave unresolved attempts available for an owner to check
+again. Use `Payments:ReconcileInBackground=false` to control the worker manually
+in a fixture. The simulator and its controls require Development or Testing
+with `Payments:Mode=LocalSimulator`.
+
+The merchant web app keeps the frozen start command in owner, account and order
+scoped browser storage. The existing payment status and verification routes
+recover that attempt. The simulator offers timeout, delayed full capture and
+definitive failure on an existing session. See
+[P03-03 checkout recovery](../../tests/licensing/acceptance/p03-03-checkout-recovery.md)
+for the PostgreSQL and browser fixtures.

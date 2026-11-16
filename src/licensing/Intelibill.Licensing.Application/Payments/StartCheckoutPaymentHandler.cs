@@ -66,7 +66,8 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
             return CheckoutPaymentErrors.NotAccepted;
         if (quote.Revision != request.ExpectedRevision || quote.SnapshotHash != request.SnapshotHash)
             return CheckoutOrderErrors.Changed;
-        if (await store.FindOrderAttemptAsync(account, quote.OrderId, ct) is not null)
+        if (await store.FindOrderAttemptAsync(account, quote.OrderId, ct) is not null ||
+            await store.HasOverlappingPaymentAsync(account, quote.OrderId, ct))
             return CheckoutPaymentErrors.AlreadyStarted;
         // Renewals (#871), trial conversion and restored-access purchases (#872) are refused before any money moves.
         if (!CheckoutPaymentStatusReader.Startable(quote))
@@ -79,19 +80,18 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
 
     private async Task DispatchAsync(StoredPaymentAttempt attempt, CancellationToken ct)
     {
-        if (gateways.ForPin(attempt.Pin) is not { } gateway)
+        if (gateways.ForPin(attempt.Pin) is not { } gateway || gateway.Pin != attempt.Pin)
             return;
-        var session = await gateway.CreateCheckoutAsync(
-            new(attempt.AccountId, attempt.OrderId, attempt.AttemptId, attempt.AmountPaise, attempt.Currency), ct);
-        // An unknown or failed dispatch leaves the attempt pending verification; recovery is a separate slice.
+        var session = await PaymentGatewayCall.RunAsync(token => gateway.CreateCheckoutAsync(
+            ReconcilePaymentHandler.Request(attempt), token), ct);
         if (session is not { Outcome: GatewayOutcome.Succeeded, Value: { } value } ||
-            !CheckoutPaymentsV1.LauncherFlows.Contains(value.LauncherFlow))
+            !ReconcilePaymentHandler.ValidSession(value))
             return;
-        await store.InAttemptScopeAsync<Success>(attempt.AccountId, attempt.AttemptId, false, async token =>
+        await store.InAttemptScopeAsync<Success>(attempt.AccountId, attempt.AttemptId, true, async token =>
         {
             var at = BillingAccountRules.StorageInstant(clock.GetUtcNow());
-            await store.RecordSessionAsync(attempt, value, at, token);
-            await store.AppendEventAsync(attempt, PaymentEventKinds.SessionRecorded, null, at, token);
+            if (await store.RecordSessionAsync(attempt, value, at, token))
+                await store.AppendEventAsync(attempt, PaymentEventKinds.SessionRecorded, null, at, token);
             return Result.Success;
         }, ct);
     }

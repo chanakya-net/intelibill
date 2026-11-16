@@ -4,7 +4,7 @@ import { firstValueFrom, type Observable } from 'rxjs';
 import { API_BASE_URL } from '../../../core/auth/auth.constants';
 import { scopedRequestContext } from '../../../core/context/scoped-request';
 import type { CheckoutScope } from './checkout.models';
-import { isCheckoutPayment, type CheckoutPayment } from './checkout-payment.models';
+import { isCheckoutPayment, type CheckoutPayment, type SimulatorOutcome } from './checkout-payment.models';
 
 @Injectable({ providedIn: 'root' })
 export class CheckoutPaymentService {
@@ -21,18 +21,19 @@ export class CheckoutPaymentService {
   /** The launcher's report is only a hint; the server verifies captured funds itself. */
   verify(scope: CheckoutScope, order: string, attempt: string, launcherOutcome: 'Success' | 'Cancelled' | null) {
     return this.checked(scope, order, this.http.post<unknown>(this.attempt(scope, order, attempt) + '/verify',
-      { launcherOutcome }, this.options(scope)));
+      { launcherOutcome }, this.options(scope)), attempt);
   }
 
   /** Development simulator only; the server answers 404 outside a local simulator runtime. */
-  simulateCapture(scope: CheckoutScope, order: string, attempt: string) {
+  simulateCapture(scope: CheckoutScope, order: string, attempt: string, outcome: SimulatorOutcome) {
     return this.checked(scope, order, this.http.post<unknown>(this.attempt(scope, order, attempt) + '/simulator/capture',
-      { outcome: 'Captured' }, this.options(scope)));
+      { outcome }, this.options(scope)), attempt);
   }
 
-  private async checked(scope: CheckoutScope, order: string, request: Observable<unknown>): Promise<CheckoutPayment> {
+  private async checked(scope: CheckoutScope, order: string, request: Observable<unknown>, attempt?: string): Promise<CheckoutPayment> {
     const value = await firstValueFrom(request);
-    if (!isCheckoutPayment(value, scope.account, order)) throw new Error('Invalid checkout payment');
+    if (!isCheckoutPayment(value, scope.account, order) || (attempt && value.attemptId !== attempt))
+      throw new Error('Invalid checkout payment');
     return value;
   }
 

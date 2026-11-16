@@ -15,36 +15,40 @@ public sealed class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderSt
 {
     public Task<ErrorOr<FulfilmentOutcome>> HandleAsync(StoredPaymentAttempt attempt, PaymentObservation payment,
         CancellationToken ct) =>
-        store.InAttemptScopeAsync<FulfilmentOutcome>(attempt.AccountId, attempt.AttemptId, true, async token =>
+        store.InAttemptScopeAsync<FulfilmentOutcome>(attempt.AccountId, attempt.AttemptId, true,
+            token => ApplyAsync(attempt, payment, token), ct);
+
+    internal async Task<ErrorOr<FulfilmentOutcome>> ApplyAsync(StoredPaymentAttempt attempt, PaymentObservation payment,
+        CancellationToken ct)
+    {
+        if (await store.HasVerifiedPaymentAsync(attempt.AttemptId, ct))
+            return FulfilmentOutcome.AlreadyRecorded;
+        // Wrong amount, currency, account or environment fails closed; durable unmatched-funds records are #870.
+        if (!PaymentFulfilmentPolicy.Funds(attempt, payment))
+            return FulfilmentOutcome.Rejected;
+        if (await orders.FindAsync(attempt.AccountId, attempt.OrderId, false, ct) is not { Quote: var quote })
+            return FulfilmentOutcome.Rejected;
+
+        var ids = await orders.ShopIdsAsync(attempt.AccountId, attempt.OrderId, ct);
+        var source = await orders.SourceAsync(attempt.AccountId, null, ids, ct);
+        var now = BillingAccountRules.StorageInstant(lifecycle.GetUtcNow());
+        await store.RecordVerifiedAsync(attempt, payment, now, ct);
+        if (source?.Hash() != quote.SourceHash || await store.AnyTrialAsync(attempt.AccountId, ids, ct))
         {
-            if (await store.HasVerifiedPaymentAsync(attempt.AttemptId, token))
-                return FulfilmentOutcome.AlreadyRecorded;
-            // Wrong amount, currency, account or environment fails closed; durable unmatched-funds records are #870.
-            if (!PaymentFulfilmentPolicy.Funds(attempt, payment))
-                return FulfilmentOutcome.Rejected;
-            if (await orders.FindAsync(attempt.AccountId, attempt.OrderId, false, token) is not { Quote: var quote })
-                return FulfilmentOutcome.Rejected;
+            await store.AppendEventAsync(attempt, PaymentEventKinds.PaidNeedsReview, null, now, ct);
+            return FulfilmentOutcome.NeedsReview;
+        }
 
-            var ids = await orders.ShopIdsAsync(attempt.AccountId, attempt.OrderId, token);
-            var source = await orders.SourceAsync(attempt.AccountId, null, ids, token);
-            var now = BillingAccountRules.StorageInstant(lifecycle.GetUtcNow());
-            await store.RecordVerifiedAsync(attempt, payment, now, token);
-            if (source?.Hash() != quote.SourceHash || await store.AnyTrialAsync(attempt.AccountId, ids, token))
-            {
-                await store.AppendEventAsync(attempt, PaymentEventKinds.PaidNeedsReview, null, now, token);
-                return FulfilmentOutcome.NeedsReview;
-            }
-
-            var period = quote.Period == "Month" ? BillingPeriod.Month : BillingPeriod.Year;
-            if (RenewalPolicy.DetermineTerm(new(period, now)) is not { Anchor: { } anchor, Ordinal: { } ordinal,
-                    StartsAt: { } starts, EndsAt: { } ends })
-                return FulfilmentOutcome.Rejected;
-            var term = new PaidTerm(Guid.NewGuid(), quote.Capacity == 1 ? "Independent" : "Grouped", quote.Capacity,
-                starts, ends, quote.Period, anchor.LocalStart, ordinal);
-            await store.FulfilAsync(new(attempt, payment, term, quote.PlanVersionId, quote.MembersPerShop,
-                quote.DevelopmentFixture, ids, now), token);
-            return FulfilmentOutcome.Fulfilled;
-        }, ct);
+        var period = quote.Period == "Month" ? BillingPeriod.Month : BillingPeriod.Year;
+        if (RenewalPolicy.DetermineTerm(new(period, now)) is not { Anchor: { } anchor, Ordinal: { } ordinal,
+                StartsAt: { } starts, EndsAt: { } ends })
+            return FulfilmentOutcome.Rejected;
+        var term = new PaidTerm(Guid.NewGuid(), quote.Capacity == 1 ? "Independent" : "Grouped", quote.Capacity,
+            starts, ends, quote.Period, anchor.LocalStart, ordinal);
+        await store.FulfilAsync(new(attempt, payment, term, quote.PlanVersionId, quote.MembersPerShop,
+            quote.DevelopmentFixture, ids, now), ct);
+        return FulfilmentOutcome.Fulfilled;
+    }
 }
 
 public static class PaymentFulfilmentPolicy

@@ -24,7 +24,7 @@ public static class CheckoutPaymentsV1
     public const string AlreadyStarted = "Billing.PaymentAlreadyStarted";
     public const string NotFound = "Billing.PaymentNotFound";
 
-    public static readonly string[] PaymentStates = ["NotStarted", "AwaitingPayment", "PendingVerification", "Verified"];
+    public static readonly string[] PaymentStates = ["NotStarted", "AwaitingPayment", "PendingVerification", "Verified", "Failed"];
     public static readonly string[] FulfilmentStates = ["NotFulfilled", "Fulfilled", "NeedsReview"];
     public static readonly string[] AccessStates = ["NotApplicable", "Applying", "Applied", "NeedsReview"];
     public static readonly string[] LauncherFlows = [SimulatorFlow];
@@ -59,7 +59,7 @@ public sealed record VerifyCheckoutPaymentV1([property: JsonPropertyName("launch
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record SimulateCheckoutCaptureV1([property: JsonPropertyName("outcome")] string Outcome)
 {
-    public bool IsValid() => Outcome == "Captured";
+    public bool IsValid() => Outcome is "Captured" or "Timeout" or "Delayed" or "Failed";
 }
 
 public sealed record CheckoutLaunchV1(

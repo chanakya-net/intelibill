@@ -3344,12 +3344,16 @@
         "reviewAccess": "Applying access needs support review. Your payment is recorded.",
         "reviewPayment": "Your payment is recorded, but this order needs review before access is applied.",
         "term": "Paid term",
+        "failed": "Payment failed. No funds were captured for this checkout.",
         "launcherUnavailable": "This checkout method is not available.",
         "simulator": {
           "title": "Development payment simulator",
           "notice": "Development only. No real money moves and no real payment provider is contacted.",
           "capture": "Capture full payment (simulated)",
-          "return": "Return without capturing"
+          "return": "Return without capturing",
+          "timeout": "Simulate verification timeout",
+          "delayed": "Simulate delayed capture",
+          "failed": "Simulate payment failure"
         },
         "errors": {
           "unavailable": "Payment could not be started or checked. Try again.",

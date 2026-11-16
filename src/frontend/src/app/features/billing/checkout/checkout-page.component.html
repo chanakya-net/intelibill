@@ -61,7 +61,7 @@
         <button pButton type="button" [disabled]="!canAccept()" [label]="'billing.checkout.accept' | transloco"
           (click)="accept()"></button>
       }
-      @if (!acceptDraft() || acceptDraft()?.settled) {
+      @if ((!acceptDraft() || acceptDraft()?.settled) && !blocksNewQuote()) {
         <button pButton type="button" severity="secondary" [disabled]="busy()"
           [label]="'billing.checkout.newQuote' | transloco" (click)="startOver()"></button>
       }

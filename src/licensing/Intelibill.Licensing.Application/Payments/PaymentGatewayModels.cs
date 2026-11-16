@@ -5,7 +5,7 @@ public sealed record PaymentProviderPin(string ProviderId, string ProviderAccoun
 
 public sealed record PaymentGatewayCapabilities(bool FullPaymentOnly, bool Refunds, bool Webhooks);
 
-public enum GatewayOutcome { Succeeded, Unsupported, Unavailable, Rejected }
+public enum GatewayOutcome { Succeeded, Unsupported, Unavailable, Rejected, NotFound }
 
 public sealed record GatewayResult<T>(GatewayOutcome Outcome, T? Value);
 
@@ -23,13 +23,16 @@ public sealed record CheckoutRequest(Guid AccountId, Guid OrderId, Guid AttemptI
 public sealed record CheckoutSession(string ProviderOrderReference, string LauncherFlow,
     IReadOnlyDictionary<string, string> LauncherParameters);
 
+public sealed record CheckoutLookup(PaymentProviderPin Pin, CheckoutRequest Request, CheckoutSession Session);
+
 public sealed record CheckoutVerification(string ProviderOrderReference, long ExpectedAmountPaise, string ExpectedCurrency);
 
 public enum ObservedPaymentState { Pending, Authorized, Captured, Failed }
 
 /// <summary>A server-side provider observation. Only <see cref="ObservedPaymentState.Captured"/> can fund an order.</summary>
 public sealed record PaymentObservation(PaymentProviderPin Pin, string ProviderOrderReference, string? ProviderPaymentReference,
-    ObservedPaymentState State, long AmountPaise, string Currency, DateTimeOffset? CapturedAt);
+    ObservedPaymentState State, long AmountPaise, string Currency, DateTimeOffset? CapturedAt,
+    bool CheckoutDefinitivelyFailed = false);
 
 public sealed record RefundRequest(PaymentProviderPin Pin, string ProviderPaymentReference, long AmountPaise, string Currency, Guid RefundId);
 

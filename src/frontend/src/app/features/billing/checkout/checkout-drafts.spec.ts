@@ -71,6 +71,28 @@ describe('CheckoutDrafts', () => {
     expect(await second.prepareAccept(owner, order, another)).toEqual({ ...saved, settled: true });
   });
 
+  it('shares one frozen payment command and retains a terminal tombstone across tabs', async () => {
+    stubMemoryStorage();
+    sharedLocks();
+    const first = new CheckoutDrafts();
+    const second = new CheckoutDrafts();
+    const [original, adopted] = await Promise.all([
+      first.preparePayment(owner, order, 1, 'a'.repeat(64)),
+      second.preparePayment(owner, order, 2, 'b'.repeat(64)),
+    ]);
+    expect(adopted).toEqual(original);
+    expect(original.command?.expectedRevision).toBe(1);
+    expect(second.readPayment({ ...owner, account: id(8) }, order)).toBeNull();
+    expect(second.readPayment({ ...owner, userId: id(8) }, order)).toBeNull();
+    const attempt = id(9);
+    await first.recordPayment(owner, order, attempt, 'pending');
+    await second.recordPayment(owner, order, attempt, 'verified');
+    await expect(first.recordPayment(owner, order, attempt, 'awaiting')).resolves.toMatchObject({
+      attempt, command: original.command, state: 'verified',
+    });
+    await expect(first.recordPayment(owner, order, id(8), 'pending')).rejects.toThrow('Checkout attempt changed');
+  });
+
   it('fails to prepare a request when durable storage or locking is unavailable', async () => {
     const drafts = new CheckoutDrafts();
     stubMemoryStorage();
