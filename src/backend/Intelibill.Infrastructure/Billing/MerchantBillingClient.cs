@@ -163,6 +163,9 @@ internal sealed partial class MerchantBillingClient(
                 return Unavailable("UpstreamAuthentication");
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when BillingOwnershipTransfersV1.IsAction(action):
                 return MapTransferFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
+            case HttpStatusCode.NotFound when action == PublishedCatalogueV1.Read:
+                return await ReadProblemCodeAsync(response, cancellationToken) == MerchantBillingErrors.PlanVersionNotFound.Code
+                    ? MerchantBillingErrors.PlanVersionNotFound : Unavailable("UpstreamStatus");
             case HttpStatusCode.NotFound when action == ShopAffiliationsV1.OwnerRead:
                 return ShopAffiliationConsentErrors.Missing;
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict when action == ShopAffiliationsV1.Request:

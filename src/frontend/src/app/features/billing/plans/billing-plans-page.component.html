@@ -4,50 +4,77 @@
     <h1 class="ib-page-title">{{ 'billing.plans.heading' | transloco }}</h1>
     <p class="ib-subtitle">{{ 'billing.plans.description' | transloco }}</p>
   </header>
-  @if (loading()) {
-    <p role="status">{{ 'common.loading' | transloco }}</p>
-  }
-  @if (unavailable()) {
-    <p role="alert">{{ 'billing.unavailable' | transloco }}</p>
-    <button class="ib-btn-secondary" type="button" (click)="load(nextCursor())">{{ 'billing.retry' | transloco }}</button>
-  }
-  @if (plans().length) {
-    <ul class="offers" [attr.aria-label]="'billing.plans.heading' | transloco">
-      @for (plan of plans(); track plan.planId) {
-        <li class="ib-panel" data-testid="published-plan">
-          <h2 class="ib-panel__title">{{ plan.name }}</h2>
-          <p>{{ 'billing.plans.planVersion' | transloco: {
-            kind: ((plan.kind === 'single-shop' ? 'billing.plans.singleShop' : 'billing.plans.multiShop') | transloco),
-            version: plan.versionNumber
-          } }}</p>
-          @if (plan.developmentFixture) { <p><strong>{{ 'billing.plans.fixture' | transloco }}</strong></p> }
-          <dl class="facts">
-            <dt>{{ 'billing.plans.monthly' | transloco }}</dt><dd>{{ rupees(plan.monthlyPricePaise) | localeMoney }}</dd>
-            <dt>{{ 'billing.plans.annual' | transloco }}</dt><dd>{{ rupees(plan.annualPricePaise) | localeMoney }}</dd>
-            <dt>{{ 'billing.plans.includedShops' | transloco }}</dt><dd>{{ plan.includedShops }}</dd>
-            <dt>{{ 'billing.plans.memberLimit' | transloco }}</dt><dd>{{ plan.membersPerShop }}</dd>
-            @if (plan.extraShopsOffered) {
-              <dt>{{ 'billing.plans.extraMonthly' | transloco }}</dt><dd>{{ rupees(plan.extraShopMonthlyPricePaise) | localeMoney }}</dd>
-              <dt>{{ 'billing.plans.extraAnnual' | transloco }}</dt><dd>{{ rupees(plan.extraShopAnnualPricePaise) | localeMoney }}</dd>
-            }
-            <dt>{{ 'billing.plans.customerTerms' | transloco }}</dt><dd>{{ plan.customerTermsVersion }}</dd>
-            <dt>{{ 'billing.plans.refundPolicy' | transloco }}</dt><dd>{{ plan.refundPolicyVersion }}</dd>
-            <dt>{{ 'billing.plans.trialPolicy' | transloco }}</dt><dd>{{ 'billing.plans.trialVersion' | transloco: {
-              version: plan.trialPolicy.versionNumber, terms: plan.trialPolicy.trialTermsVersion
-            } }}</dd>
-            <dt>{{ 'billing.plans.trialDuration' | transloco }}</dt><dd>{{ 'billing.plans.calendarDays' | transloco: { count: plan.trialPolicy.durationDays } }}</dd>
-            <dt>{{ 'billing.plans.activeTrialMembers' | transloco }}</dt><dd>{{ plan.trialPolicy.activeMemberCap }}</dd>
-            <dt>{{ 'billing.plans.concurrentTrialShops' | transloco }}</dt><dd>{{ plan.trialPolicy.maxConcurrentTrialShops }}</dd>
-            <dt>{{ 'billing.plans.billingTimeZone' | transloco }}</dt><dd>{{ plan.billingTimeZone }}</dd>
-            <dt>{{ 'billing.plans.paidGrace' | transloco }}</dt><dd>{{ 'billing.plans.days' | transloco: { count: plan.eligiblePaidGraceDays } }}</dd>
-          </dl>
-        </li>
+  @let current = selection();
+  @if (current.status === 'catalogue') {
+    @if (loading()) {
+      <p role="status">{{ 'common.loading' | transloco }}</p>
+    }
+    @if (unavailable()) {
+      <p role="alert">{{ 'billing.unavailable' | transloco }}</p>
+      <button class="ib-btn-secondary" type="button" (click)="load(nextCursor())">{{ 'billing.retry' | transloco }}</button>
+    }
+    @if (plans().length) {
+      <ul class="offers" [attr.aria-label]="'billing.plans.heading' | transloco">
+        @for (plan of plans(); track plan.planId) {
+          <li class="ib-panel" data-testid="published-plan">
+            <ng-container [ngTemplateOutlet]="terms" [ngTemplateOutletContext]="{ $implicit: plan }" />
+            <a class="terms-link" routerLink="/billing/plans" [queryParams]="{ version: plan.versionId }">
+              {{ 'billing.plans.viewTerms' | transloco }}
+            </a>
+          </li>
+        }
+      </ul>
+    } @else if (!loading() && !unavailable()) {
+      <p>{{ 'billing.plans.empty' | transloco }}</p>
+    }
+    @if (nextCursor() && !unavailable()) {
+      <button class="ib-btn-secondary" type="button" (click)="load(nextCursor())" [disabled]="loading()">{{ 'billing.plans.more' | transloco }}</button>
+    }
+  } @else {
+    <a routerLink="/billing/plans">{{ 'billing.plans.backToPlans' | transloco }}</a>
+    @switch (current.status) {
+      @case ('loading') { <p role="status">{{ 'common.loading' | transloco }}</p> }
+      @case ('missing') { <p role="alert">{{ 'billing.plans.versionMissing' | transloco }}</p> }
+      @case ('unavailable') { <p role="alert">{{ 'billing.unavailable' | transloco }}</p> }
+      @case ('ready') {
+        <article class="ib-panel" data-testid="retained-plan">
+          <p class="availability"><strong>{{ (current.version.availableForNewPurchase
+            ? 'billing.plans.availableForPurchase' : 'billing.plans.unavailableForPurchase') | transloco }}</strong></p>
+          @if (!current.version.availableForNewPurchase) {
+            <p>{{ 'billing.plans.retainedTerms' | transloco }}</p>
+          }
+          <ng-container [ngTemplateOutlet]="terms" [ngTemplateOutletContext]="{ $implicit: current.version.terms }" />
+        </article>
       }
-    </ul>
-  } @else if (!loading() && !unavailable()) {
-    <p>{{ 'billing.plans.empty' | transloco }}</p>
-  }
-  @if (nextCursor() && !unavailable()) {
-    <button class="ib-btn-secondary" type="button" (click)="load(nextCursor())" [disabled]="loading()">{{ 'billing.plans.more' | transloco }}</button>
+    }
   }
 </section>
+
+<ng-template #terms let-plan>
+  <h2 class="ib-panel__title">{{ plan.name }}</h2>
+  <p>{{ 'billing.plans.planVersion' | transloco: {
+    kind: ((plan.kind === 'single-shop' ? 'billing.plans.singleShop' : 'billing.plans.multiShop') | transloco),
+    version: plan.versionNumber
+  } }}</p>
+  @if (plan.developmentFixture) { <p><strong>{{ 'billing.plans.fixture' | transloco }}</strong></p> }
+  <dl class="facts">
+    <dt>{{ 'billing.plans.monthly' | transloco }}</dt><dd>{{ rupees(plan.monthlyPricePaise) | localeMoney }}</dd>
+    <dt>{{ 'billing.plans.annual' | transloco }}</dt><dd>{{ rupees(plan.annualPricePaise) | localeMoney }}</dd>
+    <dt>{{ 'billing.plans.includedShops' | transloco }}</dt><dd>{{ plan.includedShops }}</dd>
+    <dt>{{ 'billing.plans.memberLimit' | transloco }}</dt><dd>{{ plan.membersPerShop }}</dd>
+    @if (plan.extraShopsOffered) {
+      <dt>{{ 'billing.plans.extraMonthly' | transloco }}</dt><dd>{{ rupees(plan.extraShopMonthlyPricePaise) | localeMoney }}</dd>
+      <dt>{{ 'billing.plans.extraAnnual' | transloco }}</dt><dd>{{ rupees(plan.extraShopAnnualPricePaise) | localeMoney }}</dd>
+    }
+    <dt>{{ 'billing.plans.customerTerms' | transloco }}</dt><dd>{{ plan.customerTermsVersion }}</dd>
+    <dt>{{ 'billing.plans.refundPolicy' | transloco }}</dt><dd>{{ plan.refundPolicyVersion }}</dd>
+    <dt>{{ 'billing.plans.trialPolicy' | transloco }}</dt><dd>{{ 'billing.plans.trialVersion' | transloco: {
+      version: plan.trialPolicy.versionNumber, terms: plan.trialPolicy.trialTermsVersion
+    } }}</dd>
+    <dt>{{ 'billing.plans.trialDuration' | transloco }}</dt><dd>{{ 'billing.plans.calendarDays' | transloco: { count: plan.trialPolicy.durationDays } }}</dd>
+    <dt>{{ 'billing.plans.activeTrialMembers' | transloco }}</dt><dd>{{ plan.trialPolicy.activeMemberCap }}</dd>
+    <dt>{{ 'billing.plans.concurrentTrialShops' | transloco }}</dt><dd>{{ plan.trialPolicy.maxConcurrentTrialShops }}</dd>
+    <dt>{{ 'billing.plans.billingTimeZone' | transloco }}</dt><dd>{{ plan.billingTimeZone }}</dd>
+    <dt>{{ 'billing.plans.paidGrace' | transloco }}</dt><dd>{{ 'billing.plans.days' | transloco: { count: plan.eligiblePaidGraceDays } }}</dd>
+  </dl>
+</ng-template>

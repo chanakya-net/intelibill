@@ -21,12 +21,16 @@ public interface IMerchantBillingAccess
 
     Task<ErrorOr<PublishedCatalogueV1>> ListPlansAsync(MerchantBillingCaller caller, Guid? after, CancellationToken cancellationToken);
 
+    Task<ErrorOr<PublishedPlanVersionV1>> ReadPlanVersionAsync(MerchantBillingCaller caller, Guid versionId,
+        CancellationToken cancellationToken);
+
     Task<ErrorOr<MerchantCreatedBillingAccount>> CreateAccountAsync(MerchantBillingCaller caller,
         MerchantCreateBillingAccount request, CancellationToken cancellationToken);
 }
 
 public static class MerchantBillingErrors
 {
+    public static Error PlanVersionNotFound => Error.NotFound("Billing.PlanVersionNotFound", "The plan version was not found.");
     public static Error Unavailable => Error.Failure("Billing.DelegationUnavailable", "Billing access is temporarily unavailable.");
     public static Error Denied => Error.Forbidden("Billing.AccountAccessDenied", "Billing account access was denied.");
     public static Error SessionInvalid => Error.Unauthorized("Billing.SessionInvalid", "A live verified merchant session is required.");

@@ -31,7 +31,7 @@ public sealed class P0207BrowserTests(LicensingPostgreSqlFixture database, ITest
         merchant.UseKestrel(options => options.Listen(IPAddress.Loopback, 0));
         using var merchantClient = merchant.CreateClient();
         var email = P0202Fixture.UniqueEmail();
-        await SeedShopAsync(await P0201Tests.SeedMerchantAsync(merchant.Services, email));
+        await SeedShopAsync(database, await P0201Tests.SeedMerchantAsync(merchant.Services, email));
 
         var bootstrap = database.Bootstrap(runtime.Database);
         await P0207Tests.SeedCoverageAsync(bootstrap);
@@ -46,7 +46,8 @@ public sealed class P0207BrowserTests(LicensingPostgreSqlFixture database, ITest
         var proof = await WriteBootstrapProofAsync(licensing.Services, evidence, adminWeb.Origin, timeout.Token);
         try
         {
-            await RunBrowserAsync(adminRoot, adminWeb.Origin, merchantWeb.Origin, email, evidence, proof, timeout.Token);
+            await RunBrowserAsync(adminRoot, adminWeb.Origin, merchantWeb.Origin, email, evidence, proof,
+                "playwright.p0207.config.ts", output, timeout.Token);
         }
         finally
         {
@@ -66,7 +67,7 @@ public sealed class P0207BrowserTests(LicensingPostgreSqlFixture database, ITest
         output.WriteLine($"Sanitized catalogue browser evidence: {evidence}");
     }
 
-    private static Dictionary<string, string?> Settings(P0201Fixture signing)
+    internal static Dictionary<string, string?> Settings(P0201Fixture signing)
     {
         var settings = P0108Tests.SignInMfaSettings();
         settings["AdminSessions:SigningKey"] = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
@@ -75,7 +76,7 @@ public sealed class P0207BrowserTests(LicensingPostgreSqlFixture database, ITest
         return settings;
     }
 
-    private async Task SeedShopAsync(Guid owner)
+    internal static async Task SeedShopAsync(LicensingPostgreSqlFixture database, Guid owner)
     {
         await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseNpgsql(database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase).ConnectionString)
@@ -86,15 +87,15 @@ public sealed class P0207BrowserTests(LicensingPostgreSqlFixture database, ITest
         await db.SaveChangesAsync();
     }
 
-    private static Task<object?> ScalarAsync(NpgsqlConnectionStringBuilder settings, string sql) =>
+    internal static Task<object?> ScalarAsync(NpgsqlConnectionStringBuilder settings, string sql) =>
         LicensingPostgreSqlFixture.ReadScalarAsync(settings, sql);
 
-    private static Task<object?> CoverageAsync(NpgsqlConnectionStringBuilder settings) => ScalarAsync(settings, """
+    internal static Task<object?> CoverageAsync(NpgsqlConnectionStringBuilder settings) => ScalarAsync(settings, """
         SELECT json_build_array((SELECT json_agg(t ORDER BY term_id) FROM subscription_coverage_terms t),
             (SELECT json_agg(a ORDER BY request_id) FROM shop_affiliations a))::text
         """);
 
-    private static async Task<string> WriteBootstrapProofAsync(IServiceProvider services, string evidence, string origin,
+    internal static async Task<string> WriteBootstrapProofAsync(IServiceProvider services, string evidence, string origin,
         CancellationToken token)
     {
         await using var scope = services.CreateAsyncScope();
@@ -110,14 +111,14 @@ public sealed class P0207BrowserTests(LicensingPostgreSqlFixture database, ITest
         return path;
     }
 
-    private async Task RunBrowserAsync(string root, string admin, string merchant, string email, string evidence,
-        string proof, CancellationToken token)
+    internal static async Task RunBrowserAsync(string root, string admin, string merchant, string email, string evidence,
+        string proof, string config, ITestOutputHelper output, CancellationToken token)
     {
         var start = new ProcessStartInfo("bun")
         {
             WorkingDirectory = root, RedirectStandardOutput = true, RedirectStandardError = true,
         };
-        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../tests/licensing/browser/playwright.p0207.config.ts" })
+        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../tests/licensing/browser/" + config })
             start.ArgumentList.Add(arg);
         start.Environment["NODE_PATH"] = Path.Combine(root, "node_modules");
         start.Environment["P0112_ADMIN_WEB"] = admin;

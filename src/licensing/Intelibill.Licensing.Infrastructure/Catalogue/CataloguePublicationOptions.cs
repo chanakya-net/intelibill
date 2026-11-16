@@ -29,6 +29,8 @@ internal sealed class CataloguePublicationApproval(IOptionsSnapshot<CataloguePub
     public string? Revision => ValidReference(settings.Revision, 80);
     public string? AccountingTreatmentReference => ValidReference(settings.AccountingTreatmentReference, 120);
 
+    public bool HistoricalFixtureFilter => IsLocal;
+
     public bool? PublicFixtureFilter => Allows(CatalogueSource.DevelopmentFixture) ? true
         : Allows(CatalogueSource.CommercialCandidate) ? false : null;
 

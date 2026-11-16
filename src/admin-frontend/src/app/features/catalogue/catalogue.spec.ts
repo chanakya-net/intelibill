@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
@@ -7,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { AdminSessionService, type SessionNotice } from '../auth/admin-session.service';
 import { CatalogueApi, type PlanItem, type TrialDraft } from './catalogue-api.service';
 import { formatInr, invalid, paiseToRupees, parseCount, rupeesToPaise } from './catalogue-money';
+import type { PublishedVersion } from './catalogue-publication.models';
 import { CataloguePageComponent } from './catalogue-page.component';
 
 // Browser-only fixtures: every API answer below is mocked. The real licensing API is exercised by P0206BrowserTests.
@@ -27,12 +29,16 @@ const trialDraft: TrialDraft = {
   complete: false, updatedAt: '2026-11-16T09:00:00Z',
 };
 
-function render(capabilities: string[] = ['licensing-manager'], trial: TrialDraft | null = null) {
+function render(capabilities: string[] = ['licensing-manager'], trial: TrialDraft | null = null,
+  history: PublishedVersion[] = []) {
   const grants = signal(capabilities);
   const notice = signal<SessionNotice>('none');
   const api = {
     listPlans: vi.fn(() => of({ items: [incomplete], nextCursor: null })),
-    history: vi.fn(() => of({ items: [], nextCursor: null, currentTrialVersionId: null })),
+    history: vi.fn(() => of({ items: history, nextCursor: null, currentTrialVersionId: null })),
+    retirePlan: vi.fn((_target: unknown, _body: { operationKey: string }) =>
+      throwError(() => new HttpErrorResponse({ status: 0 }))),
+    recoverRetirement: vi.fn((_key: string) => throwError(() => new HttpErrorResponse({ status: 404 }))),
     trialDraft: vi.fn(() => of({ draft: trial })),
     savePlan: vi.fn((_id: string, command: { name: string }) =>
       of({ ...incomplete, draft: { ...incomplete.draft, name: command.name, version: 5 } })),
@@ -41,7 +47,7 @@ function render(capabilities: string[] = ['licensing-manager'], trial: TrialDraf
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
-      { provide: AdminSessionService, useValue: { capabilities: grants, notice, check: vi.fn(() => of('active')) } },
+      { provide: AdminSessionService, useValue: { capabilities: grants, notice, sessionId: signal('test-session'), check: vi.fn(() => of('active')) } },
       { provide: CatalogueApi, useValue: api },
     ],
   });
@@ -199,4 +205,38 @@ describe('catalogue draft editor', () => {
 it('shows immutable publication history on the Licensing Manager catalogue', () => {
   const { page } = render();
   expect([...page.querySelectorAll('h2')].map(heading => heading.textContent?.trim())).toContain('Published versions');
+});
+
+
+const publishedPlan: PublishedVersion = {
+  planId: 'plan-1', versionId: 'version-1', version: 2, status: 'published', publishedAt: '2026-11-16T09:00:00Z',
+  snapshot: {
+    plan: { ...incomplete.draft, kind: 'multi-shop', developmentFixture: true,
+      trialPolicy: { ...trialDraft, developmentFixture: true }, eligiblePaidGraceDays: 7, graceExclusions: [],
+      billingTimeZone: 'Asia/Kolkata' },
+    negotiationReason: null, accountingTreatmentReference: 'fixture-accounting',
+  },
+};
+
+it('retires after confirmation and keeps the original key after an unknown outcome and missing lookup', () => {
+  const { page, view, api, click, field, submit } = render(undefined, null, [publishedPlan]);
+  click('Retire from new purchase');
+  const confirm = page.querySelector<HTMLButtonElement>('adm-catalogue-retirement button[type="submit"]')!;
+  expect(confirm.disabled).toBe(true);
+  field('#retirement-reason', 'Local fixture withdrawal');
+  const checkbox = page.querySelector<HTMLInputElement>('adm-catalogue-retirement input[type="checkbox"]')!;
+  checkbox.checked = true;
+  checkbox.dispatchEvent(new Event('change'));
+  view.detectChanges();
+  expect(confirm.disabled).toBe(false);
+  submit('adm-catalogue-retirement form');
+  const key = api.retirePlan.mock.calls[0]![1].operationKey;
+  expect(TestBed.inject(Location).path()).toContain('retirement=' + key);
+  expect(page.querySelector('[role="alert"]')?.textContent).toContain('retirement outcome is unconfirmed');
+
+  click('Check retirement outcome');
+  expect(api.recoverRetirement).toHaveBeenCalledWith(key);
+  expect(TestBed.inject(Location).path()).toContain('retirement=' + key);
+  click('Retry original retirement');
+  expect(api.retirePlan.mock.calls[1]).toEqual(api.retirePlan.mock.calls[0]);
 });

@@ -7,6 +7,7 @@ import { finalize, forkJoin } from 'rxjs';
 import { AdminSessionService } from '../auth/admin-session.service';
 import { CatalogueApi, licensingManager, planKinds, type PlanItem, type TrialDraft } from './catalogue-api.service';
 import { CataloguePublicationComponent } from './catalogue-publication.component';
+import { CatalogueRetirementComponent } from './catalogue-retirement.component';
 import { CatalogueSnapshotComponent } from './catalogue-snapshot.component';
 import type { PreparedPublication, PublishedVersion } from './catalogue-publication.models';
 import { formatInr } from './catalogue-money';
@@ -15,7 +16,7 @@ import { TrialPolicyEditorComponent } from './trial-policy-editor.component';
 
 @Component({
   selector: 'adm-catalogue-page',
-  imports: [ButtonDirective, RouterLink, PlanDraftEditorComponent, TrialPolicyEditorComponent, CataloguePublicationComponent, CatalogueSnapshotComponent],
+  imports: [ButtonDirective, RouterLink, PlanDraftEditorComponent, TrialPolicyEditorComponent, CataloguePublicationComponent, CatalogueSnapshotComponent, CatalogueRetirementComponent],
   templateUrl: './catalogue-page.component.html',
   styleUrls: ['../form-page.css', './catalogue-page.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,6 +38,7 @@ export class CataloguePageComponent {
   protected readonly error = signal('');
   protected readonly reloadRequired = signal(false);
   protected readonly history = signal<readonly PublishedVersion[]>([]);
+  protected readonly retirementTarget = signal<PublishedVersion | null>(null);
   protected readonly historyCursor = signal<string | null>(null);
   protected readonly currentTrial = signal<string | null>(null);
   protected readonly historyBusy = signal(false);
@@ -180,6 +182,7 @@ export class CataloguePageComponent {
     this.error.set('');
     this.reloadRequired.set(false);
     this.history.set([]);
+    this.retirementTarget.set(null);
     this.historyCursor.set(null);
     this.currentTrial.set(null);
     this.historyError.set('');

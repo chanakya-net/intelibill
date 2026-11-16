@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { type Observable, switchMap } from 'rxjs';
 
 import type {
-  PreparedPublication, PublicationHistory, PublicationPreparation, PublicationTarget,
+  PlanRetirement, PlanRetirementTarget, PreparedPublication, PublicationHistory, PublicationPreparation, PublicationTarget,
 } from './catalogue-publication.models';
 
 export interface SuccessorSource {
@@ -145,6 +145,15 @@ export class CatalogueApi {
 
   recoverPublication(key: string) {
     return this.http.get<PreparedPublication>('/api/admin/catalogue/operations/' + encodeURIComponent(key));
+  }
+
+  retirePlan(target: PlanRetirementTarget, command: { operationKey: string; reason: string }) {
+    return this.withProof((headers) => this.http.post<PlanRetirement>(
+      this.publicationPath(target) + '/retire', { expectedVersion: target.expectedVersion, ...command, confirmed: true }, { headers }));
+  }
+
+  recoverRetirement(key: string) {
+    return this.http.get<PlanRetirement>('/api/admin/catalogue/retirements/' + encodeURIComponent(key));
   }
 
   private publicationPath({ planId, versionId }: PublicationTarget) {

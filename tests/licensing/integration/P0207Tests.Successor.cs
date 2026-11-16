@@ -91,7 +91,7 @@ public sealed partial class P0207Tests
         }
     }
 
-    private static async Task WaitForAdvisoryWaitersAsync(P0206Fixture fixture, int expected)
+    internal static async Task WaitForAdvisoryWaitersAsync(P0206Fixture fixture, int expected)
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2.5));
         while (!deadline.IsCancellationRequested)
