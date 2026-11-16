@@ -66,9 +66,12 @@ exists (`55000`); a rollback keeps schema and facts.
 ## Web
 
 - Provider Console → Account access status: Licensing Managers get the grant editor (IST date-times, preview,
-  explicit confirmation). The exact confirmation is stored per administrator and account in `localStorage` before
-  sending; if that fails nothing is sent. A lost response or lookup 404 keeps the original key: "Check grant outcome"
-  and "Retry original grant" only. A 4xx to the first send is definitive and frees the editor.
+  explicit confirmation). Any edit, including one made while a preview is still loading, discards that preview, so
+  only a preview of the current values can be confirmed. The exact confirmation is stored in `localStorage` before
+  sending, one record per administrator, account and operation key; if that fails nothing is sent. A tab never sends
+  while another operation for the same administrator and account is unresolved in this browser: it shows that
+  original operation instead. A lost response or lookup 404 keeps the original key: "Check grant outcome" and "Retry
+  original grant" only. A 4xx to the first send is definitive and clears only that operation's record.
 - Both apps show courtesy terms as "Courtesy access ends" and "Included capacity", to the exact second (and any
   recorded fraction) in IST, never "Paid through", a price or a grace end.
 

@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Locator, type Page } from '@playwright/test';
 import { createOwner, origin, signIn, type Enrolled } from './p01-12-fixture';
 
 const merchant = process.env['P0212_MERCHANT_WEB']!;
@@ -41,6 +41,14 @@ async function openAccount(page: Page) {
   const read = page.waitForResponse(response => new URL(response.url()).pathname === `/api/admin/accounts/${account}/status`);
   await page.getByRole('button', { name: 'Read access status' }).click();
   expect((await read).status()).toBe(200);
+}
+
+async function fillGrant(editor: Locator) {
+  await editor.getByLabel(/Named shop IDs/).fill(`${tradingShop}\n${paidShop}`);
+  await editor.getByLabel('Starts (IST)').fill('2027-03-01T00:00');
+  await editor.getByLabel('Ends, exclusive (IST)').fill('2027-04-01T00:00');
+  await editor.getByLabel('Members per shop').fill('4');
+  await editor.getByLabel(/^Reason/).fill('Launch partner courtesy (local fixture)');
 }
 
 async function signInMerchant(page: Page, email: string) {
@@ -90,11 +98,7 @@ test('@grant provider previews, confirms and recovers a dated grant after a lost
     owner = await grantCapability(admin, owner, 'Licensing Manager');
     await openAccount(admin);
     const editor = admin.getByTestId('grant-editor');
-    await editor.getByLabel(/Named shop IDs/).fill(`${tradingShop}\n${paidShop}`);
-    await editor.getByLabel('Starts (IST)').fill('2027-03-01T00:00');
-    await editor.getByLabel('Ends, exclusive (IST)').fill('2027-04-01T00:00');
-    await editor.getByLabel('Members per shop').fill('4');
-    await editor.getByLabel(/^Reason/).fill('Launch partner courtesy (local fixture)');
+    await fillGrant(editor);
     await editor.getByRole('button', { name: 'Preview grant' }).click();
     const preview = editor.getByTestId('grant-preview');
     await expect(preview.getByTestId('grant-preview-starts')).toHaveText(courtesyStarts);
@@ -105,6 +109,18 @@ test('@grant provider previews, confirms and recovers a dated grant after a lost
     await expect(preview.getByTestId('grant-preview-shop').filter({ hasText: 'Paid subscription' }))
       .toContainText('Existing access stays in effect first.');
     await admin.screenshot({ path: join(evidence, 'provider-preview.png'), fullPage: true });
+
+    // A second tab for the same administrator and account previews the same facts before tab A sends.
+    const tabB = await context.newPage();
+    let tabBGrantPosts = 0;
+    tabB.on('request', request => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname === grantPath) tabBGrantPosts++;
+    });
+    await openAccount(tabB);
+    const editorB = tabB.getByTestId('grant-editor');
+    await fillGrant(editorB);
+    await editorB.getByRole('button', { name: 'Preview grant' }).click();
+    await expect(editorB.getByTestId('grant-preview-capacity')).toHaveText('Grouped, 2 named shop(s)');
 
     // The confirmation reaches the server, but its response is lost: the outcome is unknown.
     let committed = 0;
@@ -120,6 +136,19 @@ test('@grant provider previews, confirms and recovers a dated grant after a lost
     const key = (await editor.getByTestId('grant-pending-key').textContent())!.trim();
     await expect.poll(() => committed).toBe(201);
     await admin.unroute('**' + grantPath);
+
+    // Tab B now confirms its own preview: it must not send, overwrite or clear tab A's unknown operation.
+    await editorB.getByTestId('grant-preview').getByRole('checkbox').check();
+    await editorB.getByRole('button', { name: 'Confirm grant' }).click();
+    await expect(editorB.getByTestId('grant-error')).toContainText('another tab');
+    await expect(editorB.getByTestId('grant-pending-key')).toHaveText(key);
+    const stored = await tabB.evaluate(([prefix]) => Object.keys(localStorage).filter(item => item.startsWith(prefix)),
+      [`intelibill.admin.complimentary-grant.v1.`]);
+    expect(stored).toHaveLength(1);
+    expect(stored[0]).toContain(key);
+    await tabB.screenshot({ path: join(evidence, 'second-tab-refused.png'), fullPage: true });
+    await tabB.close();
+    expect(tabBGrantPosts).toBe(0);
 
     // Reload: the original operation is restored; a temporary lookup 404 stays unknown and never mints a new key.
     await admin.reload();
@@ -152,6 +181,8 @@ test('@grant provider previews, confirms and recovers a dated grant after a lost
       preview: { starts: courtesyStarts, ends: courtesyEnds, capacity: 'Grouped, 2 named shop(s)', payment: 'None recorded',
         grace: 'No grace period', paidShopKeepsBaselineFirst: true, browserZone: 'UTC' },
       lostResponse: { serverStatus: committed, browserOutcome: 'unknown', operationKey: key },
+      secondTab: { previewedBeforeTabASent: true, grantRequestsSent: tabBGrantPosts, shownOperationKey: key,
+        storedOperationKeys: stored.length, tabAKeyRetained: stored[0].endsWith(key) },
       reloadRecovery: { temporaryLookup404KeptKey: true, recoveredOperationKey: result.operationKey, sameKey: result.operationKey === key,
         grantedVersion: result.grantedVersion, endsAt: result.endsAt, paymentRecorded: result.paymentRecorded, graceEndsAt: result.graceEndsAt },
       providerStatus: { basis: 'Courtesy access', ends: courtesyEnds, label: 'Included capacity', priceShown: false },

@@ -60,7 +60,8 @@ export class ComplimentaryGrantComponent {
 
   protected edit(field: 'shopIds' | 'startsAt' | 'endsAt' | 'memberAllowance' | 'reason', value: string) {
     this[field].set(value);
-    if (this.phase() === 'edit') this.invalidate();
+    // A preview still in flight describes the old values: drop it too, so its late answer is never confirmable.
+    if (this.phase() === 'edit' || this.phase() === 'previewing') this.invalidate();
   }
 
   protected requestPreview(event: Event) {
@@ -89,9 +90,14 @@ export class ComplimentaryGrantComponent {
       memberAllowance: preview.memberAllowance, reason: preview.reason, expectedVersion: preview.expectedVersion,
       sourceHash: preview.sourceHash, confirmed: true,
     };
-    const pending: PendingGrant = { adminId, accountId: this.accountId(), command };
-    if (!grantDrafts.write(pending)) {
+    const pending: PendingGrant = { adminId, accountId: this.accountId(), command, createdAt: Date.now() };
+    const owner = grantDrafts.acquire(pending);
+    if (!owner) {
       this.error.set('This browser could not keep a copy of the grant request, so it was not sent. Free storage and try again.');
+      return;
+    }
+    if (owner.command.operationKey !== command.operationKey) {
+      this.adoptOther(owner);
       return;
     }
     this.pending.set(pending);
@@ -108,7 +114,13 @@ export class ComplimentaryGrantComponent {
   protected retryOriginal() {
     const pending = this.pending();
     const sessionId = this.session.sessionId();
-    if (pending && sessionId && !this.busy()) this.send(this.api.confirm(pending.accountId, pending.command, sessionId), false);
+    if (!pending || !sessionId || this.busy()) return;
+    // Resend only an operation this browser still holds; another tab may have resolved or withdrawn it.
+    if (!grantDrafts.holds(pending)) {
+      this.restart(pending.accountId, pending.adminId);
+      return;
+    }
+    this.send(this.api.confirm(pending.accountId, pending.command, sessionId), false);
   }
 
   protected instant(value: string | null) {
@@ -120,7 +132,7 @@ export class ComplimentaryGrantComponent {
     this.phase.set('sending');
     this.error.set('');
     this.run(request, result => {
-      grantDrafts.clear(pending.adminId, pending.accountId);
+      grantDrafts.clear(pending);
       this.pending.set(null);
       this.preview.set(null);
       this.confirmed.set(false);
@@ -132,7 +144,7 @@ export class ComplimentaryGrantComponent {
       // Authority and validation are checked before any write, so a 4xx to the first send is definitive.
       const definitive = initial && error.status >= 400 && error.status < 500;
       if (definitive) {
-        grantDrafts.clear(pending.adminId, pending.accountId);
+        grantDrafts.clear(pending);
         this.pending.set(null);
         this.invalidate();
         this.refuse(error, 'Grant');
@@ -180,6 +192,15 @@ export class ComplimentaryGrantComponent {
       || !startsAt || !endsAt || !Number.isInteger(members) || members < 1 || members > 100000 || !reason || reason.length > 500)
       return null;
     return { shopIds, startsAt, endsAt, memberAllowance: members, reason };
+  }
+
+  /** Another tab already sent a grant for this account: show that original operation instead of sending a second. */
+  private adoptOther(other: PendingGrant) {
+    this.invalidate();
+    this.pending.set(other);
+    this.phase.set('unknown');
+    this.error.set('Another grant request for this account was already sent from another tab and is unconfirmed. '
+      + 'Check that original operation; this request was not sent.');
   }
 
   private invalidate() {

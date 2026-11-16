@@ -108,16 +108,16 @@ describe('complimentary grant editor', () => {
   });
 
   it('stores the exact command before sending and clears it once the grant is confirmed', () => {
-    let stored: string | null = null;
+    let stored: unknown = null;
     const confirmCall = vi.fn(() => {
-      stored = localStorage.getItem(`intelibill.admin.complimentary-grant.v1.admin-1.${account}`);
+      stored = grantDrafts.read('admin-1', account)?.command ?? null;
       return of(granted);
     });
     const { page, fill, confirm } = render({ preview: vi.fn(() => of(preview)), confirm: confirmCall });
     fill();
     confirm();
     const command = (confirmCall.mock.calls[0] as unknown[])[1] as { operationKey: string };
-    expect(JSON.parse(stored!).command).toEqual(command);
+    expect(stored).toEqual(command);
     expect(command).toMatchObject({ expectedVersion: 0, sourceHash: 'a'.repeat(64), confirmed: true, endsAt: preview.endsAt });
     expect(page.querySelector('[data-testid="grant-result"]')!.textContent).toContain('1 Apr 2027, 00:00:00.000001 IST');
     expect(grantDrafts.read('admin-1', account)).toBeNull();
@@ -168,6 +168,66 @@ describe('complimentary grant editor', () => {
     TestBed.resetTestingModule();
     const other = render({}, 'admin-2');
     expect(other.page.querySelector('[data-testid="grant-pending"]')).toBeNull();
+  });
+
+  it('discards a preview that was still pending when the draft changed; only a fresh preview enables confirmation', () => {
+    const answers = [new Subject<GrantPreview>(), new Subject<GrantPreview>()];
+    const previewCall = vi.fn((_account: string, _draft: unknown, _session: string) => answers[previewCall.mock.calls.length - 1]);
+    const { view, page, fill, type } = render({ preview: previewCall });
+    fill();
+    expect((previewCall.mock.calls[0][1] as { memberAllowance: number }).memberAllowance).toBe(4);
+    type('#grant-members', '9');
+    answers[0].next(preview);
+    view.detectChanges();
+    expect(page.querySelector('[data-testid="grant-preview"]')).toBeNull();
+    expect([...page.querySelectorAll('button')].some(button => button.textContent?.includes('Confirm grant'))).toBe(false);
+    expect(page.querySelector<HTMLInputElement>('#grant-members')!.value).toBe('9');
+
+    page.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    view.detectChanges();
+    expect((previewCall.mock.calls[1][1] as { memberAllowance: number }).memberAllowance).toBe(9);
+    answers[1].next({ ...preview, memberAllowance: 9 });
+    view.detectChanges();
+    expect(page.querySelector('[data-testid="grant-preview-members"]')!.textContent).toBe('9');
+    const box = page.querySelector<HTMLInputElement>('.acknowledgement input')!;
+    box.checked = true;
+    box.dispatchEvent(new Event('change'));
+    view.detectChanges();
+    const confirmButton = [...page.querySelectorAll('button')].find(button => button.textContent?.includes('Confirm grant'))!;
+    expect(confirmButton.disabled).toBe(false);
+  });
+
+  it('a second tab never replaces or clears another tab\'s unresolved operation for the same account', () => {
+    const otherTab = { adminId: 'admin-1', accountId: account, createdAt: 1,
+      command: { ...preview, operationKey: 'tab-a-key', confirmed: true as const } };
+    const confirmCall = vi.fn(() => of(granted));
+    const tabB = render({ preview: vi.fn(() => of(preview)), confirm: confirmCall });
+    tabB.fill();
+    // Tab A sends while tab B already shows its own preview; A's response is lost, so A stays unresolved.
+    grantDrafts.write(otherTab);
+    tabB.confirm();
+    expect(confirmCall).not.toHaveBeenCalled();
+    expect(tabB.page.querySelector('[data-testid="grant-pending-key"]')!.textContent).toBe('tab-a-key');
+    expect(tabB.page.querySelector('[data-testid="grant-error"]')!.textContent).toContain('another tab');
+    expect(grantDrafts.list('admin-1', account).map(item => item.command.operationKey)).toEqual(['tab-a-key']);
+    TestBed.resetTestingModule();
+
+    const reloadedA = render({});
+    expect(reloadedA.page.querySelector('[data-testid="grant-pending-key"]')!.textContent).toBe('tab-a-key');
+  });
+
+  it('a definitive refusal of one operation clears only that operation', () => {
+    const otherTab = { adminId: 'admin-1', accountId: account, createdAt: 1,
+      command: { ...preview, operationKey: 'tab-a-key', confirmed: true as const } };
+    const conflict = vi.fn(() => {
+      grantDrafts.write(otherTab);
+      return throwError(() => new HttpErrorResponse({ status: 409, error: { code: 'Grant.VersionConflict' } }));
+    });
+    const tabB = render({ preview: vi.fn(() => of(preview)), confirm: conflict });
+    tabB.fill();
+    tabB.confirm();
+    expect(conflict).toHaveBeenCalledTimes(1);
+    expect(grantDrafts.list('admin-1', account).map(item => item.command.operationKey)).toEqual(['tab-a-key']);
   });
 
   it('discards a late preview after the account changes', () => {

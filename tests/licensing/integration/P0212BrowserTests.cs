@@ -164,6 +164,7 @@ public sealed class P0212BrowserTests(LicensingPostgreSqlFixture database, ITest
         var grant = (string)(await LicensingPostgreSqlFixture.ReadScalarAsync(licensing, $"""
             SELECT json_build_object('grants', (SELECT count(*) FROM complimentary_grants),
                 'receipts', (SELECT count(*) FROM complimentary_grant_receipts WHERE operation_key = '{key}'),
+                'allReceipts', (SELECT count(*) FROM complimentary_grant_receipts),
                 'namedShops', (SELECT json_agg(shop_id ORDER BY shop_id) FROM complimentary_grant_shops),
                 'revision', (SELECT revision FROM complimentary_grant_scopes WHERE account_id = '{run.Seeded.Account:D}'),
                 'grant', (SELECT json_build_object('basis', basis, 'startsAt', starts_at, 'endsAt', ends_at, 'coverageMode', coverage_mode,
@@ -177,6 +178,9 @@ public sealed class P0212BrowserTests(LicensingPostgreSqlFixture database, ITest
         var root = facts.RootElement;
         Assert.Equal(1, root.GetProperty("grants").GetInt32());
         Assert.Equal(1, root.GetProperty("receipts").GetInt32());
+        // The second tab's refused confirmation created no replacement operation.
+        Assert.Equal(1, root.GetProperty("allReceipts").GetInt32());
+        Assert.Equal(0, observations["grant"]!["secondTab"]!["grantRequestsSent"]!.GetValue<int>());
         Assert.Equal(1, root.GetProperty("revision").GetInt32());
         Assert.Equal(0, root.GetProperty("grantTermFacts").GetInt32());
         Assert.Equal(new[] { run.Seeded.TradingShop, run.Seeded.PaidShop }.Order().ToArray(),
