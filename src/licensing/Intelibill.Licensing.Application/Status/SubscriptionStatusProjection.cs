@@ -1,4 +1,5 @@
 using Intelibill.Licensing.Domain.Policies;
+using Intelibill.Licensing.Domain.Entities;
 using Intelibill.Licensing.Domain.ValueObjects;
 using Intelibill.Shared.Contracts.V1;
 
@@ -12,6 +13,16 @@ public static class SubscriptionStatusProjection
 {
     public static SubscriptionAccessFacts ToFacts(TermFactsRow row)
     {
+        if (row.Trial is { } trial)
+        {
+            var complete = row.Basis is null && row.Mode == "Independent" && row.Capacity == 1
+                && trial is { ComputationVersion: TrialHistory.ComputationVersion, MemberCap: > 0, ActiveMembers: > 0,
+                    AccountTrialCap: > 0, ConflictingCoverage: false }
+                && trial.ActiveMembers <= trial.MemberCap && row.EndsAt - row.StartsAt == TimeSpan.FromDays(ShopTrialsV1.DurationDays);
+            return new SubscriptionAccessFacts(row.StartsAt, row.EndsAt,
+                complete ? TermEvidenceState.Complete : TermEvidenceState.NeedsReview, SubscriptionBasis.Trial);
+        }
+
         if (row.Basis is null)
             return new SubscriptionAccessFacts(row.StartsAt, row.EndsAt, TermEvidenceState.Incomplete);
         if (row.CalendarVersion != BillingCalendar.Version || row.AccessPolicyVersion != GracePolicy.Version
@@ -40,12 +51,13 @@ public static class SubscriptionStatusProjection
         var facts = ToFacts(row);
         var result = SubscriptionAccessPolicy.Evaluate(facts, at);
         var complete = facts.Evidence == TermEvidenceState.Complete;
+        var basis = row.Trial is null ? row.Basis : nameof(SubscriptionBasis.Trial);
         return new SubscriptionTermStatusV1(row.TermId, result.State.ToString(), facts.Evidence.ToString(),
-            complete ? row.Basis : null, complete ? row.BillingPeriod : null, BillingCalendar.Zone,
+            complete ? basis : null, complete ? row.BillingPeriod : null, BillingCalendar.Zone,
             result.StartsAt, result.PaidThrough, result.GraceEndsAt, result.AccessEndsAt, result.NextDeadline,
-            result.NextPeriodEndsAt, row.Mode, row.Capacity, complete ? row.MemberAllowance : null,
-            row.SourceReference, row.DevelopmentFixture == true,
-            commercial && row.Basis is not null ? new SubscriptionCommercialV1(row.PricePaise, row.Currency, row.PlanVersionId) : null);
+            result.NextPeriodEndsAt, row.Mode, row.Capacity, complete ? row.Trial?.MemberCap ?? row.MemberAllowance : null,
+            row.Trial?.ComputationVersion ?? row.SourceReference, row.Trial?.DevelopmentFixture ?? row.DevelopmentFixture == true,
+            commercial && row.Basis is not null && row.Trial is null ? new SubscriptionCommercialV1(row.PricePaise, row.Currency, row.PlanVersionId) : null);
     }
 
     public static ShopSubscriptionStatusV1 Shop(Guid shop, DateTimeOffset at, ShopCoverage? coverage, bool commercial)

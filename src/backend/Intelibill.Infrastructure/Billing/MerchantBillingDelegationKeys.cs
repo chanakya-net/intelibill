@@ -36,11 +36,11 @@ internal sealed class MerchantBillingDelegationKeys(
     {
     }
 
-    internal static MerchantBillingDelegationKeys ForAffiliation(IOptionsMonitor<MerchantBillingDelegationOptions> options,
-        IOptions<JwtOptions> merchantJwt, IHostEnvironment environment, TimeProvider clock) =>
+    internal static MerchantBillingDelegationKeys ForDelivery(IOptionsMonitor<MerchantBillingDelegationOptions> options,
+        IOptions<JwtOptions> merchantJwt, IHostEnvironment environment, TimeProvider clock, string section) =>
         new(options, merchantJwt, environment, clock,
             (vault, identity) => new KeyClient(vault, AzureCredentials.Create(identity)),
-            ShopAffiliationDeliveryV1.Section);
+            section);
 
     public async ValueTask<MerchantBillingSigningKey?> ResolveAsync(CancellationToken cancellationToken)
     {

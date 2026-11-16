@@ -67,12 +67,14 @@ export const BILLING_TIME_ZONE = 'Asia/Kolkata';
  * An absolute instant in the billing zone, independent of the browser's own time zone, on a 24-hour clock so the
  * text never depends on a runtime's day-period spelling: "28 Feb 2027, 10:00 IST".
  */
-export function formatBillingInstant(value: string | null, locale: string): string | null {
+export function formatBillingInstant(value: string | null, locale: string, exact = false): string | null {
   if (!value) return null;
   const parts = new Intl.DateTimeFormat(locale, {
     timeZone: BILLING_TIME_ZONE, day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    hour: '2-digit', minute: '2-digit', second: exact ? '2-digit' : undefined, hourCycle: 'h23',
   }).formatToParts(new Date(value));
   const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)?.value ?? '';
-  return `${part('day')} ${part('month')} ${part('year')}, ${part('hour')}:${part('minute')} IST`;
+  const fraction = exact ? value.match(/T\d{2}:\d{2}:\d{2}(\.\d+)/)?.[1] ?? '' : '';
+  const seconds = exact ? `:${part('second')}${fraction}` : '';
+  return `${part('day')} ${part('month')} ${part('year')}, ${part('hour')}:${part('minute')}${seconds} IST`;
 }

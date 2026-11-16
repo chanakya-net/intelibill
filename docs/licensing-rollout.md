@@ -456,3 +456,11 @@ access with grace. Licensing storage or transport failure answers 503
 `Billing.DelegationUnavailable`, which the web apps show as an outage, never as
 an expiry. Entitlement delivery and payment verification read `NotAvailable`
 until their owning slices land. Details: `docs/licensing-p02-09-status.md`.
+
+### Explicit shop trials (P02-10)
+
+Apply both trial migrations before deploying the writers. The trial flow uses
+separate service-delivery credentials, a complete published policy and live
+owner consent. Trial status remains observe-only. See
+[Shop trial activation](licensing-p02-10-trials.md) for the migration identifiers,
+fixture configuration and Chromium checks.

@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Licensing.Api.Catalogue;
 using Intelibill.Licensing.Api.Status;
+using Intelibill.Licensing.Api.Trials;
 using Intelibill.Licensing.Application.Billing;
 using Intelibill.Shared.Contracts.V1;
 using Intelibill.Shared.Web.PublicErrors;
@@ -40,6 +41,7 @@ internal static class CustomerBillingEndpoints
         app.MapShopAffiliations(policy);
         app.MapCustomerSubscriptionStatus(policy);
         app.MapAffiliationDelivery();
+        app.MapShopTrials(policy);
     }
 
     private static async Task<IResult> GetAccessAsync(

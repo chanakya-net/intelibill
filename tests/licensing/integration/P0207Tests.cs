@@ -83,9 +83,9 @@ public sealed partial class P0207Tests(LicensingPostgreSqlFixture database) : IC
         ["refundPolicyVersion"] = "refund-local-1",
     };
 
-    internal static async Task<Guid> PublishTrialAsync(P0110CookieBrowser manager)
+    internal static async Task<Guid> PublishTrialAsync(P0110CookieBrowser manager, int maxConcurrentTrialShops = 2)
     {
-        var id = await CreateTrialDraftAsync(manager);
+        var id = await CreateTrialDraftAsync(manager, maxConcurrentTrialShops);
         var path = $"/api/admin/trial-policy/versions/{id}";
         var prepared = await PrepareAsync(manager, path, Guid.NewGuid(), 1);
         using var published = await ConfirmAsync(manager, path, prepared);

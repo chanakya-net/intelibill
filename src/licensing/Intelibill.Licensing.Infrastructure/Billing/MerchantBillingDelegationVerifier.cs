@@ -14,7 +14,7 @@ public interface IMerchantBillingDelegationVerifier
 }
 
 internal sealed partial class MerchantBillingDelegationVerifier(
-    IOptionsMonitor<MerchantBillingVerificationOptions> options, TimeProvider clock) : IMerchantBillingDelegationVerifier, IShopAffiliationDeliveryVerifier
+    IOptionsMonitor<MerchantBillingVerificationOptions> options, TimeProvider clock) : IMerchantBillingDelegationVerifier, IShopAffiliationDeliveryVerifier, ITrialDeliveryVerifier
 {
     private static readonly string[] HeaderNames = ["alg", "typ", "kid"];
     private static readonly string[] PayloadNames =

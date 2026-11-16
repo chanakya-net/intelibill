@@ -33,6 +33,10 @@ export class SubscriptionStatusPageComponent {
   private readonly auth = inject(AuthService);
   private readonly localization = inject(LocalizationService);
   protected readonly accountId = inject(ActivatedRoute).snapshot.paramMap.get('accountId');
+  protected readonly isShopOwner = computed(() => {
+    const session = this.auth.session();
+    return !!session?.activeShopId && session.shops?.some(shop => shop.shopId === session.activeShopId && shop.role === 'Owner');
+  });
   private readonly scope = computed(() => {
     const session = this.auth.session();
     return session ? `${session.user.id}|${session.activeShopId ?? ''}` : '';
@@ -77,8 +81,8 @@ export class SubscriptionStatusPageComponent {
     if (document.visibilityState === 'visible') this.load();
   }
 
-  protected instant(value: string | null) {
-    return formatBillingInstant(value, this.localization.currentLanguage());
+  protected instant(value: string | null, exact = false) {
+    return formatBillingInstant(value, this.localization.currentLanguage(), exact);
   }
 
   protected rupees(paise: number | null) {
