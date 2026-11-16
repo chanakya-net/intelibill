@@ -1,0 +1,47 @@
+{
+  "contract": "subscription-status",
+  "version": 1,
+  "actions": {
+    "shop": { "action": "licensing.shop-status.read", "scope": "actor", "method": "GET",
+      "path": "/internal/licensing/v1/customer/shops/{shopId}/status", "bodySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" },
+    "account": { "action": "licensing.account-status.read", "scope": "account", "roles": ["Owner", "Manager"], "method": "GET",
+      "path": "/internal/licensing/v1/customer/accounts/{accountId}/subscriptions",
+      "continuation": "/internal/licensing/v1/customer/accounts/{accountId}/subscriptions/after/{termId}" }
+  },
+  "publicRoutes": {
+    "merchantShop": "GET /api/licensing/shops/{shopId}/status (live member of the active shop, any role)",
+    "merchantAccount": "GET /api/billing/accounts/{accountId}/subscriptions?after= (billing Owner/Manager, no shop needed)",
+    "providerAccount": "GET /api/admin/accounts/{accountId}/status?after= (Support, Billing or Licensing Manager)",
+    "providerShop": "GET /api/admin/accounts/{accountId}/shops/{shopId}/status (Support, Billing or Licensing Manager)"
+  },
+  "pageSize": 50,
+  "maximumCoveredShops": 100,
+  "states": ["PendingActivation", "Scheduled", "Active", "Grace", "Expired", "Suspended", "EvidenceIncomplete", "NeedsReview"],
+  "evidenceStates": ["Complete", "Incomplete", "NeedsReview"],
+  "bases": ["Paid", "Trial", "Complimentary", "Temporary", "Transition"],
+  "notAvailable": "NotAvailable",
+  "redaction": {
+    "operational": ["state", "evidenceState", "basis", "billingPeriod", "timeZone", "startsAt", "paidThrough", "graceEndsAt",
+      "accessEndsAt", "nextDeadline", "nextPeriodEndsAt", "coverageMode", "purchasedCapacity", "memberAllowance",
+      "sourceReference", "developmentFixture"],
+    "commercialOnly": ["accountId", "commercial.pricePaise", "commercial.currency", "commercial.planVersionId"]
+  },
+  "outcomes": {
+    "expired": { "status": 200, "state": "Expired", "meaning": "A successful evaluation after the access end." },
+    "verificationUnavailable": { "status": 503, "code": "Billing.DelegationUnavailable",
+      "meaning": "Licensing could not be reached or could not read its facts; nothing about access is implied." },
+    "shopScope": { "status": 403, "code": "Licensing.ShopScopeRequired" },
+    "providerDenied": { "status": 403, "code": "Status.AccessDenied" }
+  },
+  "example": {
+    "schemaVersion": 1, "shopId": "00000000-0000-0000-0000-000000000001", "evaluatedAt": "2027-02-10T00:00:00+00:00",
+    "state": "Active", "accountId": null, "observeOnly": true, "entitlementSynchronization": "NotAvailable",
+    "paymentVerification": "NotAvailable",
+    "term": { "termId": "00000000-0000-0000-0000-000000000002", "state": "Active", "evidenceState": "Complete",
+      "basis": "Paid", "billingPeriod": "Month", "timeZone": "Asia/Kolkata", "startsAt": "2027-01-31T04:30:00+00:00",
+      "paidThrough": "2027-02-28T04:30:00+00:00", "graceEndsAt": "2027-03-07T04:30:00+00:00",
+      "accessEndsAt": "2027-03-07T04:30:00+00:00", "nextDeadline": "2027-02-28T04:30:00+00:00",
+      "nextPeriodEndsAt": "2027-03-31T04:30:00+00:00", "coverageMode": "Independent", "purchasedCapacity": 1,
+      "memberAllowance": 5, "sourceReference": "local-fixture-p0209", "developmentFixture": true, "commercial": null }
+  }
+}

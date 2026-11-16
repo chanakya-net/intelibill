@@ -1,0 +1,78 @@
+/** Mirror of the versioned licensing status contract (subscription-status-v1). No entitlement arithmetic here. */
+export type AccessState =
+  | 'PendingActivation' | 'Scheduled' | 'Active' | 'Grace' | 'Expired' | 'Suspended' | 'EvidenceIncomplete' | 'NeedsReview';
+
+export interface SubscriptionCommercial {
+  readonly pricePaise: number | null;
+  readonly currency: string | null;
+  readonly planVersionId: string | null;
+}
+
+export interface SubscriptionTermStatus {
+  readonly termId: string;
+  readonly state: AccessState;
+  readonly evidenceState: 'Complete' | 'Incomplete' | 'NeedsReview';
+  readonly basis: string | null;
+  readonly billingPeriod: string | null;
+  readonly timeZone: string;
+  readonly startsAt: string;
+  readonly paidThrough: string;
+  readonly graceEndsAt: string | null;
+  readonly accessEndsAt: string | null;
+  readonly nextDeadline: string | null;
+  readonly nextPeriodEndsAt: string | null;
+  readonly coverageMode: 'Independent' | 'Grouped';
+  readonly purchasedCapacity: number;
+  readonly memberAllowance: number | null;
+  readonly sourceReference: string | null;
+  readonly developmentFixture: boolean;
+  readonly commercial: SubscriptionCommercial | null;
+}
+
+export interface ShopSubscriptionStatus {
+  readonly schemaVersion: 1;
+  readonly shopId: string;
+  readonly evaluatedAt: string;
+  readonly state: AccessState;
+  readonly term: SubscriptionTermStatus | null;
+  readonly accountId: string | null;
+  readonly observeOnly: true;
+  readonly entitlementSynchronization: string;
+  readonly paymentVerification: string;
+}
+
+export interface AccountTermStatus {
+  readonly status: SubscriptionTermStatus;
+  readonly coveredShops: readonly { readonly shopId: string; readonly shopName: string }[];
+  readonly coveredShopCount: number;
+}
+
+export interface AccountSubscriptionStatus {
+  readonly schemaVersion: 1;
+  readonly accountId: string;
+  readonly evaluatedAt: string;
+  readonly items: readonly AccountTermStatus[];
+  readonly nextCursor: string | null;
+  readonly observeOnly: true;
+  readonly entitlementSynchronization: string;
+  readonly paymentVerification: string;
+}
+
+/** Why a status could not be shown. `unavailable` is a verification outage and never means expiry. */
+export type StatusFailure = 'denied' | 'scope' | 'unavailable' | 'session';
+
+export const BILLING_TIME_ZONE = 'Asia/Kolkata';
+
+/**
+ * An absolute instant in the billing zone, independent of the browser's own time zone, on a 24-hour clock so the
+ * text never depends on a runtime's day-period spelling: "28 Feb 2027, 10:00 IST".
+ */
+export function formatBillingInstant(value: string | null, locale: string): string | null {
+  if (!value) return null;
+  const parts = new Intl.DateTimeFormat(locale, {
+    timeZone: BILLING_TIME_ZONE, day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)?.value ?? '';
+  return `${part('day')} ${part('month')} ${part('year')}, ${part('hour')}:${part('minute')} IST`;
+}

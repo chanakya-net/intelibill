@@ -1,0 +1,81 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal, untracked } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { SESSION_PORT } from '@intelibill/api';
+import { ButtonDirective } from 'primeng/button';
+import type { Subscription } from 'rxjs';
+import { AccountStatusApi, type AccountStatus, basisLabels, formatIst, stateLabels, statusReaders } from './account-status-api.service';
+
+type Outcome = 'idle' | 'loading' | 'denied' | 'missing' | 'unavailable' | 'session';
+const accountPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Read-only account access status for Support and commercial operators. The server decides redaction and
+ * re-checks the live grant; this page only clears its view when grants change and drops late answers.
+ */
+@Component({
+  selector: 'adm-account-status-page',
+  imports: [ButtonDirective, RouterLink],
+  templateUrl: './account-status-page.component.html',
+  styleUrls: ['../form-page.css', './account-status-page.component.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class AccountStatusPageComponent {
+  private readonly api = inject(AccountStatusApi);
+  private readonly session = inject(SESSION_PORT);
+  protected readonly mayRead = computed(() => this.session.state() === 'authenticated'
+    && this.session.capabilities().some(grant => (statusReaders as readonly string[]).includes(grant)));
+  protected readonly accountId = signal('');
+  protected readonly status = signal<AccountStatus | null>(null);
+  protected readonly outcome = signal<Outcome>('idle');
+  protected readonly states = stateLabels;
+  protected readonly bases = basisLabels;
+  private request?: Subscription;
+  private generation = 0;
+
+  constructor() {
+    effect(() => {
+      this.session.capabilities();
+      this.session.state();
+      untracked(() => this.reset());
+    });
+    inject(DestroyRef).onDestroy(() => this.request?.unsubscribe());
+  }
+
+  protected lookup(event: Event) {
+    event.preventDefault();
+    const account = this.accountId().trim();
+    if (!accountPattern.test(account) || !this.mayRead()) return;
+    this.reset();
+    const generation = this.generation;
+    this.outcome.set('loading');
+    this.request = this.api.read(account).subscribe({
+      next: status => {
+        if (generation !== this.generation) return;
+        this.status.set(status);
+        this.outcome.set('idle');
+      },
+      error: (error: unknown) => {
+        if (generation !== this.generation) return;
+        const code = error instanceof HttpErrorResponse ? error.status : 0;
+        this.outcome.set(code === 401 ? 'session' : code === 403 ? 'denied' : code === 404 ? 'missing' : 'unavailable');
+      },
+    });
+  }
+
+  protected instant(value: string | null) {
+    return formatIst(value);
+  }
+
+  protected rupees(paise: number | null) {
+    return paise === null ? 'Not recorded'
+      : new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(paise / 100);
+  }
+
+  private reset() {
+    this.request?.unsubscribe();
+    this.generation++;
+    this.status.set(null);
+    this.outcome.set('idle');
+  }
+}

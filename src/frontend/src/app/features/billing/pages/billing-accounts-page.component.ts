@@ -61,6 +61,8 @@ export class BillingAccountsPageComponent implements OnInit {
     () => !this.submitting() && (this.pending() !== null || this.normalizedName() !== null),
   );
   private readonly ownerUserId = computed(() => this.auth.session()?.user.id ?? null);
+  /** Only a link target: any member of the active shop may read its status, whatever their billing role. */
+  readonly activeShopId = computed(() => this.auth.session()?.activeShopId ?? null);
   /** Only the newest list request may replace the shown accounts. */
   private listGeneration = 0;
   private destroyed = false;

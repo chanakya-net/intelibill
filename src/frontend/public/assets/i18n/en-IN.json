@@ -3448,6 +3448,62 @@
     "roles": {
       "Owner": "Owner",
       "Manager": "Manager"
+    },
+    "status": {
+      "heading": "Access status",
+      "link": "Access status for this shop",
+      "accountLink": "Access status",
+      "shopDescription": "How licensing currently evaluates access for your active shop.",
+      "accountDescription": "How licensing currently evaluates each subscription term of this billing account.",
+      "observeOnly": "Observe-only: this status is shown for information and does not block selling, stock or any other work.",
+      "evaluatedAt": "Evaluated at {{time}}",
+      "pending": "This shop has no subscription coverage recorded yet.",
+      "noTerms": "This billing account has no subscription terms yet.",
+      "noShop": "Select a shop to see its access status.",
+      "unavailable": "Access status could not be verified right now. This is not an expiry; try again shortly.",
+      "denied": "You do not have access to this billing account's status.",
+      "scope": "Select this shop as your active shop to read its access status.",
+      "session": "Sign in again to read access status.",
+      "refresh": "Check again",
+      "synchronization": "Entitlement delivery to devices is not available yet.",
+      "incomplete": "Some subscription facts are not recorded. Only the recorded dates are shown and no grace is assumed.",
+      "needsReview": "The recorded subscription facts disagree and need provider review. No access basis or grace is assumed.",
+      "basis": "Access basis",
+      "startsAt": "Starts",
+      "paidThrough": "Paid through",
+      "graceEndsAt": "Grace ends",
+      "nextDeadline": "Next deadline",
+      "nextPeriodEndsAt": "A renewal would run to",
+      "capacity": "Purchased capacity",
+      "memberAllowance": "Members per shop",
+      "timeZone": "Billing time zone",
+      "zone": "Asia/Kolkata (IST, UTC+05:30)",
+      "price": "Subscription price",
+      "notRecorded": "Not recorded",
+      "none": "None",
+      "endExclusive": "Each date is the exact moment access ends; access applies up to, not including, that moment.",
+      "coveredShops": "Covered shops: {{count}}",
+      "coverage": {
+        "Independent": "Independent subscription, {{count}} shop",
+        "Grouped": "Grouped subscription, {{count}} shop slots"
+      },
+      "bases": {
+        "Paid": "Paid subscription",
+        "Trial": "Trial",
+        "Complimentary": "Courtesy access",
+        "Temporary": "Temporary access",
+        "Transition": "Transition access"
+      },
+      "states": {
+        "PendingActivation": "Not yet active",
+        "Scheduled": "Scheduled",
+        "Active": "Active",
+        "Grace": "In grace period",
+        "Expired": "Expired",
+        "Suspended": "Suspended",
+        "EvidenceIncomplete": "Facts incomplete",
+        "NeedsReview": "Needs review"
+      }
     }
   }
 }

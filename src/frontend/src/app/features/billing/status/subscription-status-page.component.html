@@ -1,0 +1,80 @@
+<section class="status-page" aria-labelledby="status-heading">
+  <header>
+    <a routerLink="/billing">{{ 'billing.title' | transloco }}</a>
+    <h1 id="status-heading" class="ib-page-title">{{ 'billing.status.heading' | transloco }}</h1>
+    <p class="ib-subtitle">{{ (accountId ? 'billing.status.accountDescription' : 'billing.status.shopDescription') | transloco }}</p>
+  </header>
+  <p class="ib-panel notice" data-testid="observe-only">{{ 'billing.status.observeOnly' | transloco }}</p>
+
+  @let current = view();
+  @switch (current.kind) {
+    @case ('loading') { <p role="status">{{ 'common.loading' | transloco }}</p> }
+    @case ('noShop') { <p role="alert">{{ 'billing.status.noShop' | transloco }}</p> }
+    @case ('failed') {
+      @if (current.failure === 'unavailable') {
+        <p role="alert" data-testid="verification-unavailable">{{ 'billing.status.unavailable' | transloco }}</p>
+      } @else {
+        <p role="alert">{{ 'billing.status.' + current.failure | transloco }}</p>
+      }
+    }
+    @case ('shop') {
+      <p>{{ 'billing.status.evaluatedAt' | transloco: { time: instant(current.status.evaluatedAt) } }}</p>
+      <p class="state" data-testid="status-state"><strong>{{ 'billing.status.states.' + current.status.state | transloco }}</strong></p>
+      @if (current.status.term; as term) {
+        <ng-container *ngTemplateOutlet="termFacts; context: { $implicit: term }" />
+      } @else {
+        <p>{{ 'billing.status.pending' | transloco }}</p>
+      }
+      <p>{{ 'billing.status.synchronization' | transloco }}</p>
+    }
+    @case ('account') {
+      <p>{{ 'billing.status.evaluatedAt' | transloco: { time: instant(current.evaluatedAt) } }}</p>
+      @for (item of current.items; track item.status.termId) {
+        <article class="ib-panel" data-testid="account-term">
+          <p class="state"><strong>{{ 'billing.status.states.' + item.status.state | transloco }}</strong></p>
+          <ng-container *ngTemplateOutlet="termFacts; context: { $implicit: item.status }" />
+          <p>{{ 'billing.status.coveredShops' | transloco: { count: item.coveredShopCount } }}</p>
+          <ul>
+            @for (shop of item.coveredShops; track shop.shopId) { <li>{{ shop.shopName }}</li> }
+          </ul>
+        </article>
+      } @empty {
+        <p>{{ 'billing.status.noTerms' | transloco }}</p>
+      }
+      <p>{{ 'billing.status.synchronization' | transloco }}</p>
+    }
+  }
+  <button class="ib-btn-secondary" type="button" data-testid="status-retry" (click)="load()">{{ 'billing.status.refresh' | transloco }}</button>
+</section>
+
+<ng-template #termFacts let-term>
+  <div class="ib-panel" data-testid="status-term">
+    @if (term.evidenceState === 'Incomplete') { <p>{{ 'billing.status.incomplete' | transloco }}</p> }
+    @if (term.evidenceState === 'NeedsReview') { <p>{{ 'billing.status.needsReview' | transloco }}</p> }
+    @if (term.developmentFixture) { <p><strong>{{ 'billing.plans.fixture' | transloco }}</strong></p> }
+    <dl class="facts">
+      <dt>{{ 'billing.status.basis' | transloco }}</dt>
+      <dd>{{ term.basis ? ('billing.status.bases.' + term.basis | transloco) : ('billing.status.notRecorded' | transloco) }}</dd>
+      <dt>{{ 'billing.status.startsAt' | transloco }}</dt><dd>{{ instant(term.startsAt) }}</dd>
+      <dt>{{ 'billing.status.paidThrough' | transloco }}</dt><dd data-testid="paid-through">{{ instant(term.paidThrough) }}</dd>
+      <dt>{{ 'billing.status.graceEndsAt' | transloco }}</dt>
+      <dd data-testid="grace-ends">{{ instant(term.graceEndsAt) ?? ('billing.status.notRecorded' | transloco) }}</dd>
+      <dt>{{ 'billing.status.nextDeadline' | transloco }}</dt>
+      <dd data-testid="next-deadline">{{ instant(term.nextDeadline) ?? ('billing.status.none' | transloco) }}</dd>
+      @if (term.nextPeriodEndsAt) {
+        <dt>{{ 'billing.status.nextPeriodEndsAt' | transloco }}</dt><dd>{{ instant(term.nextPeriodEndsAt) }}</dd>
+      }
+      <dt>{{ 'billing.status.capacity' | transloco }}</dt>
+      <dd data-testid="capacity">{{ 'billing.status.coverage.' + term.coverageMode | transloco: { count: term.purchasedCapacity } }}</dd>
+      <dt>{{ 'billing.status.memberAllowance' | transloco }}</dt>
+      <dd data-testid="member-allowance">{{ term.memberAllowance ?? ('billing.status.notRecorded' | transloco) }}</dd>
+      <dt>{{ 'billing.status.timeZone' | transloco }}</dt><dd>{{ 'billing.status.zone' | transloco }}</dd>
+      @if (term.commercial; as commercial) {
+        <dt>{{ 'billing.status.price' | transloco }}</dt>
+        <dd data-testid="commercial-price">{{ commercial.pricePaise === null ? ('billing.status.notRecorded' | transloco)
+          : (rupees(commercial.pricePaise) | localeMoney) }}</dd>
+      }
+    </dl>
+    <p class="hint">{{ 'billing.status.endExclusive' | transloco }}</p>
+  </div>
+</ng-template>

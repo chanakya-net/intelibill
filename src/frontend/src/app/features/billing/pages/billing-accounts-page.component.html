@@ -6,6 +6,9 @@
     <a routerLink="/billing/plans">{{ 'billing.plans.heading' | transloco }}</a>
     <a routerLink="/billing/invitations" data-testid="billing-inbox-link">{{ 'billing.invitations.heading' | transloco }}</a>
     <a routerLink="/billing/ownership-transfers" data-testid="billing-transfer-inbox-link">{{ 'billing.transfer.inbox' | transloco }}</a>
+    @if (activeShopId()) {
+      <a routerLink="/billing/status" data-testid="shop-status-link">{{ 'billing.status.link' | transloco }}</a>
+    }
   </header>
 
   @if (error()) {
@@ -48,6 +51,8 @@
               {{ 'billing.createdOn' | transloco: { date: (account.createdAt | date: 'mediumDate') } }}
             </span>
             <a [routerLink]="['/billing/accounts', account.accountId, 'coverage']">{{ 'billing.affiliation.heading' | transloco }}</a>
+            <a [routerLink]="['/billing/accounts', account.accountId, 'status']"
+               data-testid="account-status-link">{{ 'billing.status.accountLink' | transloco }}</a>
             <a [routerLink]="['/billing/accounts', account.accountId, 'members']"
                data-testid="billing-members-link">{{ 'billing.invitations.members' | transloco }}</a>
           </li>

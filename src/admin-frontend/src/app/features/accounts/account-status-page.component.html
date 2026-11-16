@@ -1,0 +1,57 @@
+<main>
+  <header>
+    <a routerLink="/">Provider Console</a>
+    <h1 class="ib-page-title">Account access status</h1>
+  </header>
+  <p class="ib-panel" data-testid="provider-observe-only">Observe-only: this evaluation is informational and does not block any merchant.
+    Entitlement delivery to devices is not available yet.</p>
+
+  @if (!mayRead()) {
+    <p class="ib-error-banner" role="alert">Only Support, Billing or Licensing Manager administrators can read access status.</p>
+  } @else {
+    <form class="ib-form-section status-lookup" (submit)="lookup($event)">
+      <label for="status-account">Billing account ID</label>
+      <input id="status-account" autocomplete="off" spellcheck="false" [value]="accountId()"
+        (input)="accountId.set($any($event.target).value)" />
+      <button pButton type="submit" [disabled]="outcome() === 'loading'">Read access status</button>
+    </form>
+
+    @switch (outcome()) {
+      @case ('loading') { <p role="status">Loading access status…</p> }
+      @case ('denied') { <p class="ib-error-banner" role="alert">Only Support, Billing or Licensing Manager administrators can read access status.</p> }
+      @case ('missing') { <p class="ib-error-banner" role="alert">No access status exists for that account.</p> }
+      @case ('session') { <p class="ib-error-banner" role="alert">Your provider session ended. Sign in again.</p> }
+      @case ('unavailable') { <p class="ib-error-banner" role="alert">Access status could not be verified right now. This is not an expiry; try again.</p> }
+    }
+
+    @if (status(); as current) {
+      <p>Evaluated at {{ instant(current.evaluatedAt) }}. Times are Asia/Kolkata (IST, UTC+05:30); each deadline is the exact end of access.</p>
+      @for (item of current.items; track item.status.termId) {
+        <section class="ib-panel" data-testid="provider-term" [attr.aria-label]="'Term ' + item.status.termId">
+          <h2 class="ib-panel__title">{{ states[item.status.state] ?? item.status.state }}</h2>
+          @if (item.status.evidenceState === 'Incomplete') { <p>Some subscription facts are not recorded; no grace is assumed.</p> }
+          @if (item.status.evidenceState === 'NeedsReview') { <p>The recorded facts disagree and need review; no basis or grace is assumed.</p> }
+          @if (item.status.developmentFixture) { <p><strong>Development fixture</strong></p> }
+          <dl class="status-facts">
+            <dt>Access basis</dt><dd>{{ item.status.basis ? bases[item.status.basis] : 'Not recorded' }}</dd>
+            <dt>Starts</dt><dd>{{ instant(item.status.startsAt) }}</dd>
+            <dt>Paid through</dt><dd>{{ instant(item.status.paidThrough) }}</dd>
+            <dt>Grace ends</dt><dd>{{ instant(item.status.graceEndsAt) ?? 'Not recorded' }}</dd>
+            <dt>Next deadline</dt><dd>{{ instant(item.status.nextDeadline) ?? 'None' }}</dd>
+            <dt>Purchased capacity</dt><dd>{{ item.status.coverageMode }}, {{ item.status.purchasedCapacity }}</dd>
+            <dt>Members per shop</dt><dd>{{ item.status.memberAllowance ?? 'Not recorded' }}</dd>
+            @if (item.status.commercial; as commercial) {
+              <dt>Subscription price</dt><dd data-testid="provider-price">{{ rupees(commercial.pricePaise) }}</dd>
+            }
+            <dt>Covered shops ({{ item.coveredShopCount }})</dt>
+            <dd>
+              @for (shop of item.coveredShops; track shop.shopId) { <span class="shop">{{ shop.shopName }}</span> }
+            </dd>
+          </dl>
+        </section>
+      } @empty {
+        <p>This account has no subscription terms.</p>
+      }
+    }
+  }
+</main>
