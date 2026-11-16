@@ -31,4 +31,19 @@ describe('SubscriptionCancellationDrafts', () => {
     await first.settle(scope, command.operationKey);
     expect(await reloaded.prepare(scope, different)).toEqual({ command, settled: true });
   });
+
+  it('lets a newer open version supersede a settled acceptance but never an unsettled one', async () => {
+    stubMemoryStorage();
+    vi.stubGlobal('navigator', { locks: { request: async (_: string, run: () => unknown) => run() } });
+    const drafts = new SubscriptionCancellationDrafts();
+    const again = { ...command, operationKey: 'again', expectedVersion: 2 };
+    expect(await drafts.prepare(scope, command)).toEqual({ command, settled: false });
+    expect(await drafts.prepare(scope, again)).toEqual({ command, settled: false });
+    await drafts.settle(scope, command.operationKey);
+    expect(await drafts.prepare(scope, again)).toEqual({ command: again, settled: false });
+    expect(drafts.read(scope)?.command.expectedVersion).toBe(2);
+    localStorage.setItem('intelibill.billing.cancellation.v1:' + JSON.stringify(['actor', 'account', 'term']),
+      JSON.stringify({ command: { ...command, expectedVersion: 1 }, settled: true }));
+    expect(() => drafts.read(scope)).toThrow();
+  });
 });

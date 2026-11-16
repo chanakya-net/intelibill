@@ -47,6 +47,26 @@ export interface CancellationOutcome {
   readonly affectedShopCount: number;
 }
 
+export interface WithdrawalCommand {
+  readonly operationKey: string;
+  readonly currentVersion: number;
+  readonly changeId: string;
+  readonly acceptedEffectiveAt: string;
+  readonly confirmed: true;
+}
+
+export interface WithdrawalOutcome {
+  readonly schemaVersion: 1;
+  readonly accountId: string;
+  readonly termId: string;
+  readonly operationKey: string;
+  readonly withdrawnChangeId: string;
+  readonly version: number;
+  readonly effectiveAt: string;
+  readonly withdrawnAt: string;
+  readonly affectedShopCount: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SubscriptionCancellationService {
   private readonly http = inject(HttpClient);
@@ -80,6 +100,15 @@ export class SubscriptionCancellationService {
   recover(account: string, term: string, operation: string) {
     return firstValueFrom(this.http.get<CancellationOutcome>(
       this.path(account, term) + '/operations/' + encodeURIComponent(operation)));
+  }
+
+  withdraw(account: string, term: string, command: WithdrawalCommand) {
+    return firstValueFrom(this.http.post<WithdrawalOutcome>(this.path(account, term) + '/withdrawal', command));
+  }
+
+  recoverWithdrawal(account: string, term: string, operation: string) {
+    return firstValueFrom(this.http.get<WithdrawalOutcome>(
+      this.path(account, term) + '/withdrawal/operations/' + encodeURIComponent(operation)));
   }
 
   private path(account: string, term: string) {

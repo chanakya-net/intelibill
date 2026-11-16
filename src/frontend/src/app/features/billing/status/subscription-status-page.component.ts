@@ -11,6 +11,7 @@ import {
   formatBillingInstant, type AccountTermStatus, type ShopSubscriptionStatus, type StatusFailure, type SubscriptionTermStatus,
 } from './subscription-status.models';
 import { SubscriptionCancellationComponent } from '../subscriptions/subscription-cancellation.component';
+import { SubscriptionCancellationWithdrawalComponent } from '../subscriptions/subscription-cancellation-withdrawal.component';
 import { EntitlementSynchronizationComponent } from './entitlement-synchronization.component';
 import { StatusReadError, SubscriptionStatusService } from './subscription-status.service';
 
@@ -27,7 +28,8 @@ type StatusView =
  */
 @Component({
   selector: 'app-subscription-status-page',
-  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, LocaleMoneyPipe, EntitlementSynchronizationComponent, SubscriptionCancellationComponent],
+  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, LocaleMoneyPipe, EntitlementSynchronizationComponent, SubscriptionCancellationComponent,
+    SubscriptionCancellationWithdrawalComponent],
   templateUrl: './subscription-status-page.component.html',
   styleUrl: './subscription-status-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -7,6 +7,8 @@ public static class SubscriptionCancellationsV1
     public const string Read = "billing.subscription.cancellation.read";
     public const string Schedule = "billing.subscription.cancellation.schedule";
     public const string Recover = "billing.subscription.cancellation.recover";
+    public const string Withdraw = "billing.subscription.cancellation.withdraw";
+    public const string WithdrawRecover = "billing.subscription.cancellation.withdraw.recover";
     public const string Policy = "term-boundary/1";
     public const int PageSize = 100;
     public const int MaximumBodyBytes = 2048;
@@ -14,7 +16,7 @@ public static class SubscriptionCancellationsV1
     // Each UTF-16 unit can require a six-byte JSON escape. Allow for shop IDs, structure and the envelope.
     public const int MaximumResponseBytes = PageSize * (MaximumShopNameLength * 6 + 96) + 2048;
 
-    public static bool IsAction(string action) => action is Read or Schedule or Recover;
+    public static bool IsAction(string action) => action is Read or Schedule or Recover or Withdraw or WithdrawRecover;
 
     public static string Path(Guid account, Guid term) =>
         $"{MerchantBillingDelegationV1.AccountsPath}/{account:D}/subscriptions/{term:D}/cancellation";
@@ -24,6 +26,17 @@ public static class SubscriptionCancellationsV1
 
     public static string OperationPath(Guid account, Guid term, Guid operation) =>
         $"{Path(account, term)}/operations/{operation:D}";
+
+    public static string WithdrawalPath(Guid account, Guid term) => $"{Path(account, term)}/withdrawal";
+
+    public static string WithdrawalOperationPath(Guid account, Guid term, Guid operation) =>
+        $"{WithdrawalPath(account, term)}/operations/{operation:D}";
+
+    /// <summary>A scheduled cancellation is an odd revision; its withdrawal the next, even one.</summary>
+    public static bool IsScheduledVersion(long version) => version >= 1 && version % 2 == 1;
+
+    /// <summary>A term with no active cancellation is at an even revision: 0, or the latest withdrawal.</summary>
+    public static bool IsOpenVersion(long version) => version >= 0 && version % 2 == 0;
 
     public static bool IsDigest(string? value) =>
         value is { Length: 64 } && value.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
@@ -56,3 +69,19 @@ public sealed record SubscriptionCancellationDetailV1(int SchemaVersion, Guid Ac
 
 public sealed record SubscriptionCancellationOutcomeV1(int SchemaVersion, Guid AccountId, Guid TermId, Guid OperationKey,
     SubscriptionCancellationSummaryV1 Cancellation, int AffectedShopCount);
+
+public sealed record WithdrawSubscriptionCancellationV1(
+    [property: JsonPropertyName("operationKey")] Guid OperationKey,
+    [property: JsonPropertyName("currentVersion")] long? CurrentVersion,
+    [property: JsonPropertyName("changeId")] Guid ChangeId,
+    [property: JsonPropertyName("acceptedEffectiveAt")] DateTimeOffset AcceptedEffectiveAt,
+    [property: JsonPropertyName("confirmed")] bool Confirmed)
+{
+    public bool IsValid() => OperationKey != Guid.Empty && ChangeId != Guid.Empty && Confirmed
+        && CurrentVersion is { } version && SubscriptionCancellationsV1.IsScheduledVersion(version)
+        && EntitlementSnapshotsV1.IsInstant(AcceptedEffectiveAt);
+}
+
+public sealed record SubscriptionCancellationWithdrawalOutcomeV1(int SchemaVersion, Guid AccountId, Guid TermId,
+    Guid OperationKey, Guid WithdrawnChangeId, long Version, DateTimeOffset EffectiveAt, DateTimeOffset WithdrawnAt,
+    int AffectedShopCount);

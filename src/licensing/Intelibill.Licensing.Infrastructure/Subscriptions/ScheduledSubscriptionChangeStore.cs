@@ -28,25 +28,22 @@ internal sealed class ScheduledSubscriptionChangeStore(LicensingDbContext db, Su
             ORDER BY shop_id LIMIT {SubscriptionCancellationsV1.PageSize + 1}
             """).ToArrayAsync(ct);
 
-    public async Task<CancellationReceipt?> FindReceiptAsync(Guid account, Guid key, CancellationToken ct)
-    {
-        var receipt = await db.Database.SqlQuery<ReceiptRow>($"""
-            SELECT r.actor_id, r.payload_hash, c.change_id, c.term_id, c.revision, c.effective_at, c.policy_version, c.shop_count
+    public Task<CancellationReceipt?> FindReceiptAsync(Guid account, Guid key, CancellationToken ct) =>
+        db.Database.SqlQuery<CancellationReceipt>($"""
+            SELECT r.actor_id, r.payload_hash, c.term_id, c.kind, c.change_id, c.withdraws_change_id AS withdrawn_change_id,
+                c.revision, c.effective_at, c.recorded_at, c.policy_version, c.shop_count
             FROM public.subscription_cancellation_receipts r JOIN public.scheduled_subscription_changes c USING (account_id, change_id)
             WHERE r.account_id = {account} AND r.operation_key = {key}
             """).SingleOrDefaultAsync(ct);
-        return receipt is null ? null : new(receipt.ActorId, receipt.PayloadHash, new(1, account, receipt.TermId, key,
-            new(receipt.ChangeId, receipt.Revision, receipt.EffectiveAt, receipt.PolicyVersion), receipt.ShopCount));
-    }
 
-    public async Task AppendAsync(VerifiedBillingDelegation proof, CancellationSource source, Guid change,
+    public async Task AppendAsync(VerifiedBillingDelegation proof, CancellationSource source, Guid change, long revision,
         Guid operationKey, string payloadHash, DateTimeOffset at, CancellationToken ct)
     {
         var row = source.Term;
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.scheduled_subscription_changes
                 (change_id, account_id, term_id, revision, kind, effective_at, recorded_at, policy_version, shop_count, shop_hash)
-            VALUES ({change}, {row.AccountId}, {row.TermId}, 1, 'ScheduleCancellation', {row.EndsAt}, {at},
+            VALUES ({change}, {row.AccountId}, {row.TermId}, {revision}, 'ScheduleCancellation', {row.EndsAt}, {at},
                 {SubscriptionCancellationsV1.Policy}, {source.Shops.Length}, {source.ShopHash})
             """, ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
@@ -56,15 +53,30 @@ internal sealed class ScheduledSubscriptionChangeStore(LicensingDbContext db, Su
                 {source.Shops.Select(s => s.RequestId).ToArray()}::uuid[],
                 {source.Shops.Select(s => s.ShopName).ToArray()}::text[]) AS shops(shop_id, request_id, shop_name)
             """, ct);
-        await db.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO public.subscription_cancellation_receipts
-                (change_id, account_id, operation_key, actor_id, membership_revision, request_id, payload_hash, source_hash)
-            SELECT {change}, {row.AccountId}, {operationKey}, {proof.ActorId}, m.revision, {proof.RequestId}, {payloadHash}, {source.SourceHash}
-            FROM public.billing_account_members m
-            WHERE m.account_id = {row.AccountId} AND m.merchant_user_id = {proof.ActorId} AND m.status = 1
-            """, ct);
+        await AppendReceiptAsync(proof, row.AccountId, change, operationKey, payloadHash, source.SourceHash, ct);
     }
 
-    private sealed record ReceiptRow(Guid ActorId, string PayloadHash, Guid ChangeId, Guid TermId, long Revision,
-        DateTimeOffset EffectiveAt, string PolicyVersion, int ShopCount);
+    public async Task AppendWithdrawalAsync(VerifiedBillingDelegation proof, CancellationWithdrawal withdrawal, CancellationToken ct)
+    {
+        var saved = withdrawal.Withdrawn;
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO public.scheduled_subscription_changes (change_id, account_id, term_id, revision, kind, effective_at,
+                recorded_at, policy_version, shop_count, shop_hash, withdraws_change_id)
+            VALUES ({withdrawal.Change}, {withdrawal.AccountId}, {withdrawal.TermId}, {withdrawal.Revision},
+                {CancellationReceipt.WithdrawKind}, {saved.EffectiveAt}, {withdrawal.At}, {saved.PolicyVersion},
+                {saved.ShopCount}, {saved.ShopHash}, {saved.ChangeId})
+            """, ct);
+        await AppendReceiptAsync(proof, withdrawal.AccountId, withdrawal.Change, withdrawal.OperationKey,
+            withdrawal.PayloadHash, withdrawal.SourceHash, ct);
+    }
+
+    private Task<int> AppendReceiptAsync(VerifiedBillingDelegation proof, Guid account, Guid change, Guid operationKey,
+        string payloadHash, string sourceHash, CancellationToken ct) =>
+        db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO public.subscription_cancellation_receipts
+                (change_id, account_id, operation_key, actor_id, membership_revision, request_id, payload_hash, source_hash)
+            SELECT {change}, {account}, {operationKey}, {proof.ActorId}, m.revision, {proof.RequestId}, {payloadHash}, {sourceHash}
+            FROM public.billing_account_members m
+            WHERE m.account_id = {account} AND m.merchant_user_id = {proof.ActorId} AND m.status = 1
+            """, ct);
 }

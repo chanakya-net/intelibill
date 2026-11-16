@@ -11,4 +11,8 @@ public interface IMerchantSubscriptionCancellations
         Guid term, ScheduleSubscriptionCancellationV1 request, CancellationToken ct);
     Task<ErrorOr<SubscriptionCancellationOutcomeV1>> RecoverCancellationAsync(MerchantBillingCaller caller, Guid account,
         Guid term, Guid operation, CancellationToken ct);
+    Task<ErrorOr<SubscriptionCancellationWithdrawalOutcomeV1>> WithdrawCancellationAsync(MerchantBillingCaller caller,
+        Guid account, Guid term, WithdrawSubscriptionCancellationV1 request, CancellationToken ct);
+    Task<ErrorOr<SubscriptionCancellationWithdrawalOutcomeV1>> RecoverCancellationWithdrawalAsync(MerchantBillingCaller caller,
+        Guid account, Guid term, Guid operation, CancellationToken ct);
 }

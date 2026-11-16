@@ -26,6 +26,9 @@ internal static class SubscriptionStatusRegistration
         services.AddScoped(provider => new ScheduleCancellationHandler(
             provider.GetRequiredService<IBillingDelegationAccess>(), provider.GetRequiredService<IScheduledSubscriptionChangeStore>(),
             provider.GetRequiredService<IEntitlementPublisher>(), provider.GetRequiredKeyedService<TimeProvider>(ClockKey)));
+        services.AddScoped(provider => new WithdrawCancellationHandler(
+            provider.GetRequiredService<IBillingDelegationAccess>(), provider.GetRequiredService<IScheduledSubscriptionChangeStore>(),
+            provider.GetRequiredService<IEntitlementPublisher>(), provider.GetRequiredKeyedService<TimeProvider>(ClockKey)));
         services.AddScoped(provider => new ReadSubscriptionStatusHandler(
             provider.GetRequiredService<IBillingDelegationAccess>(), provider.GetRequiredService<ISubscriptionStatusStore>(),
             provider.GetRequiredService<ISubscriptionAccessFactsReader>(), provider.GetRequiredKeyedService<TimeProvider>(ClockKey),

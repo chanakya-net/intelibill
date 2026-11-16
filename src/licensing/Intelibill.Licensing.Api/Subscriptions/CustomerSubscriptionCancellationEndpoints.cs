@@ -19,6 +19,8 @@ internal static class CustomerSubscriptionCancellationEndpoints
         routes.MapGet("/after/{after:guid}", ReadAsync);
         routes.MapPost("", ScheduleAsync);
         routes.MapGet("/operations/{operation:guid}", RecoverAsync);
+        routes.MapPost("/withdrawal", WithdrawAsync);
+        routes.MapGet("/withdrawal/operations/{operation:guid}", RecoverWithdrawalAsync);
     }
 
     private static async Task<IResult> ReadAsync(HttpContext context, Guid account, Guid term, Guid? after,
@@ -47,6 +49,27 @@ internal static class CustomerSubscriptionCancellationEndpoints
     {
         var proof = CustomerSubscriptionStatusEndpoints.ReadProof(context, account, SubscriptionCancellationsV1.Recover,
             SubscriptionCancellationsV1.OperationPath(account, term, operation));
+        return proof is null ? Invalid(context) : Respond(context, await handler.RecoverAsync(proof, account, term, operation, ct));
+    }
+
+    private static async Task<IResult> WithdrawAsync(HttpContext context, Guid account, Guid term,
+        WithdrawCancellationHandler handler, CancellationToken ct)
+    {
+        var proof = context.Features.Get<VerifiedBillingDelegation>();
+        if (proof is null || proof.AccountId != account || !CustomerBillingEndpoints.MatchesBinding(context.Request,
+                proof, SubscriptionCancellationsV1.Withdraw, HttpMethods.Post, SubscriptionCancellationsV1.WithdrawalPath(account, term))
+            || await CustomerBillingAccountEndpoints.ReadBoundBodyAsync<WithdrawSubscriptionCancellationV1>(
+                context.Request, proof, SubscriptionCancellationsV1.MaximumBodyBytes, ct) is not { } request)
+            return Invalid(context);
+
+        return Respond(context, await handler.WithdrawAsync(proof, account, term, request, ct));
+    }
+
+    private static async Task<IResult> RecoverWithdrawalAsync(HttpContext context, Guid account, Guid term, Guid operation,
+        WithdrawCancellationHandler handler, CancellationToken ct)
+    {
+        var proof = CustomerSubscriptionStatusEndpoints.ReadProof(context, account, SubscriptionCancellationsV1.WithdrawRecover,
+            SubscriptionCancellationsV1.WithdrawalOperationPath(account, term, operation));
         return proof is null ? Invalid(context) : Respond(context, await handler.RecoverAsync(proof, account, term, operation, ct));
     }
 

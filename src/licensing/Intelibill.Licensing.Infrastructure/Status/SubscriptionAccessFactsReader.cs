@@ -26,8 +26,9 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
                 f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version,
                 e.ends_at AS extended_ends_at,
                 CASE WHEN c.change_id IS NOT NULL THEN jsonb_build_object(
-                    'ChangeId', c.change_id, 'Version', c.revision, 'EffectiveAt', c.effective_at,
-                    'PolicyVersion', c.policy_version, 'ShopHash', c.shop_hash, 'ShopCount', c.shop_count)::text END AS cancellation,
+                    'ChangeId', coalesce(c.withdraws_change_id, c.change_id), 'Version', c.revision, 'EffectiveAt', c.effective_at,
+                    'PolicyVersion', c.policy_version, 'ShopHash', c.shop_hash, 'ShopCount', c.shop_count,
+                    'WithdrawnAt', CASE WHEN c.kind = 'WithdrawCancellation' THEN c.recorded_at END)::text END AS cancellation,
                 CASE WHEN h.shop_id IS NOT NULL THEN jsonb_build_object(
                     'ComputationVersion', h.computation_version, 'MemberCap', h.member_cap, 'ActiveMembers', h.active_members,
                     'AccountTrialCap', h.account_trial_cap, 'DevelopmentFixture', h.development_fixture,
@@ -39,7 +40,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
             LEFT JOIN LATERAL (SELECT ends_at FROM public.trial_extensions
                 WHERE shop_id = h.shop_id AND account_id = h.account_id ORDER BY revision DESC LIMIT 1) e ON true
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
-            LEFT JOIN public.scheduled_subscription_changes c ON c.account_id = t.account_id AND c.term_id = t.term_id
+            LEFT JOIN LATERAL (SELECT * FROM public.scheduled_subscription_changes
+                WHERE account_id = t.account_id AND term_id = t.term_id ORDER BY revision DESC LIMIT 1) c ON true
             WHERE a.shop_id = {shop}
             """).ToListAsync(ct);
         return rows switch
@@ -115,8 +117,9 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
                 f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version,
                 e.ends_at AS extended_ends_at,
                 CASE WHEN c.change_id IS NOT NULL THEN jsonb_build_object(
-                    'ChangeId', c.change_id, 'Version', c.revision, 'EffectiveAt', c.effective_at,
-                    'PolicyVersion', c.policy_version, 'ShopHash', c.shop_hash, 'ShopCount', c.shop_count)::text END AS cancellation,
+                    'ChangeId', coalesce(c.withdraws_change_id, c.change_id), 'Version', c.revision, 'EffectiveAt', c.effective_at,
+                    'PolicyVersion', c.policy_version, 'ShopHash', c.shop_hash, 'ShopCount', c.shop_count,
+                    'WithdrawnAt', CASE WHEN c.kind = 'WithdrawCancellation' THEN c.recorded_at END)::text END AS cancellation,
                 CASE WHEN h.shop_id IS NOT NULL THEN jsonb_build_object(
                     'ComputationVersion', h.computation_version, 'MemberCap', h.member_cap, 'ActiveMembers', h.active_members,
                     'AccountTrialCap', h.account_trial_cap, 'DevelopmentFixture', h.development_fixture,
@@ -131,7 +134,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
                 WHERE shop_id = h.shop_id AND account_id = h.account_id ORDER BY revision DESC LIMIT 1) e ON true
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
             LEFT JOIN public.complimentary_grants g ON g.term_id = t.term_id AND g.account_id = t.account_id
-            LEFT JOIN public.scheduled_subscription_changes c ON c.account_id = t.account_id AND c.term_id = t.term_id
+            LEFT JOIN LATERAL (SELECT * FROM public.scheduled_subscription_changes
+                WHERE account_id = t.account_id AND term_id = t.term_id ORDER BY revision DESC LIMIT 1) c ON true
             WHERE t.account_id = {account} AND ({term}::uuid IS NULL OR t.term_id = {term}::uuid) AND ({after}::uuid IS NULL OR t.term_id > {after}::uuid)
             ORDER BY t.term_id LIMIT {take}
             """);
@@ -173,7 +177,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
 
     private static ScheduledSubscriptionChange? ParseCancellation(string? json) =>
         json is not null && JsonSerializer.Deserialize<ScheduledSubscriptionChange>(json) is { } change
-            ? change with { EffectiveAt = change.EffectiveAt.ToUniversalTime() } : null;
+            ? change with { EffectiveAt = change.EffectiveAt.ToUniversalTime(), WithdrawnAt = change.WithdrawnAt?.ToUniversalTime() }
+            : null;
 
     private sealed record CoveredRow(Guid TermId, Guid ShopId, string ShopName, long Total);
 }
