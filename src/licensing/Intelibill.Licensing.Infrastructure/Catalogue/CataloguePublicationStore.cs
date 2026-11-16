@@ -10,6 +10,10 @@ internal sealed class CataloguePublicationStore(LicensingDbContext context) : IC
     public Task LockOperationAsync(Guid adminId, Guid key, CancellationToken token) =>
         CatalogueDraftStore.LockFenceAsync(context, $"catalogue:operation:{adminId:D}:{key:D}", token);
 
+    public Task<CatalogueRetirement?> ReadRetirementAsync(Guid adminId, Guid key, CancellationToken token) =>
+        context.Set<CatalogueRetirement>().AsNoTracking().SingleOrDefaultAsync(
+            item => item.AdminId == adminId && item.OperationKey == key, token);
+
     public Task<CataloguePreparation?> ReadPreparationAsync(Guid adminId, Guid key, CancellationToken token) =>
         context.Set<CataloguePreparation>().AsNoTracking().SingleOrDefaultAsync(
             item => item.AdminId == adminId && item.OperationKey == key, token);

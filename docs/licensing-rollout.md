@@ -413,3 +413,29 @@ Local verification, after building the merchant web from `src/frontend`:
 dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0204Tests'
 P0204_RUN_BROWSER=1 dotnet test tests/licensing/integration/Intelibill.Licensing.Integration.Tests.csproj --filter 'FullyQualifiedName~P0204BrowserTests' --logger 'console;verbosity=normal'
 ```
+
+### Plan retirement (P02-08)
+
+Apply licensing migration `20261116140000_AddCatalogueRetirement` before the
+licensing API, merchant API and both web builds. Upgrade all licensing catalogue
+readers before accepting retirement requests. Older readers cannot see the
+withdrawal markers. Keep the migration and retained evidence during an application
+rollback. Its downgrade refuses with PostgreSQL error `55000` after a retirement.
+
+The Licensing Manager selects a published plan version under **Published versions**
+in `/catalogue`, gives a reason and confirms retirement with recent MFA. Recovery
+uses the original operation key and the same administrator's live authority.
+A public withdrawal and its provider-only reason commit together. The next
+catalogue read omits the withdrawn offer. Publishing a successor makes the
+new version available for selection.
+
+A saved `/billing/plans?version=<versionId>` link shows the frozen terms and
+current availability of a previously public version. Existing coverage and
+shop affiliations continue under their recorded terms. The version read works
+within its original environment even when new publication is disabled.
+
+Verify locally with `P0208Tests` and `P0208_RUN_BROWSER=1` `P0208BrowserTests`
+after building both apps. The Chromium fixture drops the retirement response
+after it commits, reloads the console to recover it, and checks the fresh
+merchant catalogue and the saved terms link. The fixtures use local prices and
+preserve the observe-only licensing configuration.

@@ -44,6 +44,7 @@ export interface PublishedVersion {
   status: 'published' | 'retired';
   snapshot: CatalogueSnapshot;
   publishedAt: string;
+  retirement?: PlanRetirementSummary | null;
 }
 
 export interface PublicationHistory {
@@ -56,4 +57,20 @@ export interface PublicationPreparation {
   operationKey: string;
   reason: string;
   trialPolicyVersionId: string | null;
+}
+
+
+export interface PlanRetirementSummary {
+  reason: string;
+  retiredAt: string;
+}
+
+export interface PlanRetirementTarget {
+  planId: string;
+  versionId: string;
+  expectedVersion: number;
+}
+
+export interface PlanRetirement extends PlanRetirementTarget, PlanRetirementSummary {
+  operationKey: string;
 }

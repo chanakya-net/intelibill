@@ -74,7 +74,7 @@ public sealed partial class P0207Tests(LicensingPostgreSqlFixture database) : IC
         ["CataloguePublication:AccountingTreatmentReference"] = "fixture-accounting",
     };
 
-    private static Dictionary<string, object?> PlanFacts(int version, long annualPrice = 120000) => new()
+    internal static Dictionary<string, object?> PlanFacts(int version, long annualPrice = 120000) => new()
     {
         ["expectedVersion"] = version, ["kind"] = "multi-shop", ["name"] = "Local growth",
         ["monthlyPricePaise"] = 0L, ["annualPricePaise"] = annualPrice, ["includedShops"] = 3,
@@ -83,7 +83,7 @@ public sealed partial class P0207Tests(LicensingPostgreSqlFixture database) : IC
         ["refundPolicyVersion"] = "refund-local-1",
     };
 
-    private static async Task<Guid> PublishTrialAsync(P0110CookieBrowser manager)
+    internal static async Task<Guid> PublishTrialAsync(P0110CookieBrowser manager)
     {
         var id = await CreateTrialDraftAsync(manager);
         var path = $"/api/admin/trial-policy/versions/{id}";
@@ -93,7 +93,7 @@ public sealed partial class P0207Tests(LicensingPostgreSqlFixture database) : IC
         return id;
     }
 
-    private static async Task<JsonElement> SavePlanAsync(P0110CookieBrowser manager, Guid planId, object body,
+    internal static async Task<JsonElement> SavePlanAsync(P0110CookieBrowser manager, Guid planId, object body,
         HttpStatusCode status)
     {
         using var response = await P0206Fixture.PutPlanAsync(manager, planId, body);
@@ -102,7 +102,7 @@ public sealed partial class P0207Tests(LicensingPostgreSqlFixture database) : IC
             ? (await P0206Fixture.BodyAsync(response)).GetProperty("draft") : default;
     }
 
-    private static async Task<JsonElement> PrepareAsync(P0110CookieBrowser manager, string path, Guid key, int expected,
+    internal static async Task<JsonElement> PrepareAsync(P0110CookieBrowser manager, string path, Guid key, int expected,
         Guid? trial = null)
     {
         using var response = await manager.SendAsync(HttpMethod.Post, path + "/publish-preview",
@@ -112,7 +112,7 @@ public sealed partial class P0207Tests(LicensingPostgreSqlFixture database) : IC
         return await P0206Fixture.BodyAsync(response);
     }
 
-    private static async Task<HttpResponseMessage> ConfirmAsync(P0110CookieBrowser manager, string path, JsonElement prepared) =>
+    internal static async Task<HttpResponseMessage> ConfirmAsync(P0110CookieBrowser manager, string path, JsonElement prepared) =>
         await manager.SendAsync(HttpMethod.Post, path + "/publish", new
         {
             operationKey = prepared.GetProperty("operationKey").GetGuid(),

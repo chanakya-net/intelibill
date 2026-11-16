@@ -664,6 +664,51 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                     b.ToTable("catalogue_publications", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.CatalogueRetirement", b =>
+                {
+                    b.Property<Guid>("VersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("version_id");
+
+                    b.Property<Guid>("AdminId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("admin_id");
+
+                    b.Property<int>("ExpectedVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("expected_version");
+
+                    b.Property<Guid>("OperationKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("operation_key");
+
+                    b.Property<Guid>("PlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("plan_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset>("RetiredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("retired_at");
+
+                    b.HasKey("VersionId")
+                        .HasName("pk_catalogue_retirements");
+
+                    b.HasIndex("AdminId", "OperationKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_catalogue_retirements_admin_id_operation_key");
+
+                    b.ToTable("catalogue_retirements", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_catalogue_retirement", "expected_version > 0 AND char_length(btrim(reason)) BETWEEN 1 AND 500");
+                        });
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.InitialAdminBootstrap", b =>
                 {
                     b.Property<int>("Id")
@@ -1172,6 +1217,18 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.WithdrawnCatalogueOffer", b =>
+                {
+                    b.Property<Guid>("VersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("version_id");
+
+                    b.HasKey("VersionId")
+                        .HasName("pk_withdrawn_catalogue_offers");
+
+                    b.ToTable("withdrawn_catalogue_offers", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Infrastructure.AdminIdentities.AdminSignInBucket", b =>
                 {
                     b.Property<string>("Subject")
@@ -1393,6 +1450,16 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .HasConstraintName("fk_catalogue_publications_catalogue_preparations_admin_id_oper");
                 });
 
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.CatalogueRetirement", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.CataloguePublication", null)
+                        .WithOne()
+                        .HasForeignKey("Intelibill.Licensing.Domain.Entities.CatalogueRetirement", "VersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_catalogue_retirements_catalogue_publications_version_id");
+                });
+
             modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.InitialAdminBootstrap", b =>
                 {
                     b.HasOne("Intelibill.Licensing.Domain.Entities.AdminIdentity", null)
@@ -1445,6 +1512,23 @@ namespace Intelibill.Licensing.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_published_catalogue_offers_catalogue_publications_version_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Licensing.Domain.Entities.WithdrawnCatalogueOffer", b =>
+                {
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.CatalogueRetirement", null)
+                        .WithOne()
+                        .HasForeignKey("Intelibill.Licensing.Domain.Entities.WithdrawnCatalogueOffer", "VersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_withdrawn_catalogue_offers_catalogue_retirements_version_id");
+
+                    b.HasOne("Intelibill.Licensing.Domain.Entities.PublishedCatalogueOffer", null)
+                        .WithOne()
+                        .HasForeignKey("Intelibill.Licensing.Domain.Entities.WithdrawnCatalogueOffer", "VersionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_withdrawn_catalogue_offers_published_catalogue_offers_versi");
                 });
 
             modelBuilder.Entity("Intelibill.Licensing.Infrastructure.AdminIdentities.Mfa.AdminRecoveryCode", b =>

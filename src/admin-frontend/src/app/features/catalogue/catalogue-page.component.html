@@ -45,6 +45,8 @@
       }
       <adm-catalogue-publication [plan]="selected()" [trial]="trial()" [currentTrialVersionId]="currentTrial()"
         (published)="publicationSaved($event)" (denied)="publicationDenied()" />
+      <adm-catalogue-retirement #retirement [target]="retirementTarget()"
+        (saved)="loadHistory()" (dismissed)="retirementTarget.set(null)" (denied)="publicationDenied()" />
       <section class="ib-panel" aria-labelledby="published-heading">
         <h2 class="ib-panel__title" id="published-heading">Published versions</h2>
         @if (historyError()) {
@@ -55,6 +57,14 @@
           <details>
             <summary>{{ publishedName(row) }} · version {{ publishedNumber(row) }} · {{ row.status }}</summary>
             <adm-catalogue-snapshot [snapshot]="row.snapshot" />
+            @if (row.retirement; as evidence) {
+              <p>Retired from new purchase on <time [attr.datetime]="evidence.retiredAt">{{ evidence.retiredAt }}</time></p>
+              <p>Retirement reason · {{ evidence.reason }}</p>
+            }
+            @if (row.planId && row.status === 'published') {
+              <button pButton type="button" (click)="retirementTarget.set(row)"
+                [disabled]="historyBusy() || !!retirement.key()">Retire from new purchase</button>
+            }
             <button pButton type="button" (click)="createSuccessor(row)" [disabled]="historyBusy()">
               Create successor draft
             </button>

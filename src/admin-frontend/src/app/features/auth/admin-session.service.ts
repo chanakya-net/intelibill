@@ -6,6 +6,7 @@ import { AdminRefreshCoordinator, explicitSessionRecovery } from '../../core/aut
 
 interface SessionSnapshot {
   capabilities: readonly string[];
+  adminId: string;
   sessionId: string;
   accessExpiresAt: string;
 }
@@ -27,6 +28,7 @@ export class AdminSessionService implements SessionPort {
   private readonly coordinator = inject(AdminRefreshCoordinator);
   private readonly endNotice = signal<SignOutNotice | null>(null);
   private readonly currentId = signal<string | null>(null);
+  private readonly currentAdminId = signal<string | null>(null);
   private confirmedGeneration: string | undefined;
   private endGeneration: string | undefined;
   private ending?: Promise<void>;
@@ -41,6 +43,7 @@ export class AdminSessionService implements SessionPort {
   readonly notice = this.reason.asReadonly();
   readonly signOutNotice = this.endNotice.asReadonly();
   readonly sessionId = this.currentId.asReadonly();
+  readonly adminId = this.currentAdminId.asReadonly();
 
   get endVersion(): number {
     return this.endedVersion;
@@ -141,6 +144,7 @@ export class AdminSessionService implements SessionPort {
     const generation = this.coordinator.generation();
     this.confirmedGeneration = generation === null ? undefined : generation;
     this.currentId.set(snapshot.sessionId ?? null);
+    this.currentAdminId.set(snapshot.adminId ?? null);
     this.reason.set('none');
     this.grants.set(snapshot.capabilities);
     // No background renewal: renewing without user activity would defeat the idle limit.
@@ -152,6 +156,7 @@ export class AdminSessionService implements SessionPort {
     clearTimeout(this.expiry);
     this.grants.set([]);
     this.currentId.set(null);
+    this.currentAdminId.set(null);
     this.sessionState.set(state);
   }
 }

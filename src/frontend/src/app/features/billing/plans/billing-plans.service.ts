@@ -34,11 +34,20 @@ export interface BillingPlansPage {
   readonly nextCursor: string | null;
 }
 
+export interface PublishedPlanVersion {
+  readonly terms: PublishedPlan;
+  readonly availableForNewPurchase: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class BillingPlansService {
   private readonly http = inject(HttpClient);
 
   list(after: string | null) {
     return this.http.get<BillingPlansPage>(API_BASE_URL + '/billing/plans', { params: after ? { after } : {} });
+  }
+
+  version(versionId: string) {
+    return this.http.get<PublishedPlanVersion>(API_BASE_URL + '/billing/plans/versions/' + encodeURIComponent(versionId));
   }
 }

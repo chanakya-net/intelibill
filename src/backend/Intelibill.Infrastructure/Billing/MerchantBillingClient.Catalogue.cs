@@ -23,6 +23,21 @@ internal sealed partial class MerchantBillingClient
             }, cancellationToken);
     }
 
+    public Task<ErrorOr<PublishedPlanVersionV1>> ReadPlanVersionAsync(MerchantBillingCaller caller, Guid versionId,
+        CancellationToken cancellationToken)
+    {
+        if (versionId == Guid.Empty)
+            return Task.FromResult<ErrorOr<PublishedPlanVersionV1>>(MerchantBillingErrors.PlanVersionNotFound);
+        return RunAsync<PublishedPlanVersionV1>(caller,
+            new BillingDelegationIntent(PublishedCatalogueV1.Read, HttpMethod.Get, PublishedCatalogueV1.VersionPath(versionId), null, []),
+            PublishedCatalogueV1.MaxVersionResponseBytes, async (response, token) =>
+            {
+                var version = await ReadJsonAsync<PublishedPlanVersionV1>(response, token);
+                return version?.Terms?.VersionId == versionId && ValidOffer(version.Terms)
+                    ? version : Unavailable("InvalidResponseContract");
+            }, cancellationToken);
+    }
+
     private static bool ValidCatalogue(PublishedCatalogueV1 page, Guid? after)
     {
         var last = after;

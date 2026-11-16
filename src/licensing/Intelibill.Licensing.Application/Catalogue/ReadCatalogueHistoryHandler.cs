@@ -6,14 +6,16 @@ using Intelibill.Licensing.Domain.Entities;
 namespace Intelibill.Licensing.Application.Catalogue;
 
 public sealed record CatalogueHistoryItem(Guid? PlanId, Guid VersionId, int Version, string Status, JsonElement Snapshot,
-    DateTimeOffset PublishedAt);
+    DateTimeOffset PublishedAt, string SnapshotHash, PlanRetirementSummary? Retirement);
 public sealed record CatalogueHistoryPage(CatalogueHistoryItem[] Items, Guid? NextCursor, Guid? CurrentTrialVersionId);
+
+public sealed record CatalogueHistoryState(int Revision, CatalogueVersionStatus Status, PlanRetirementSummary? Retirement);
 
 public interface ICatalogueHistoryStore
 {
     Task<IReadOnlyList<(CataloguePreparation Preparation, CataloguePublication Publication)>> ListAsync(Guid? after,
         int take, CancellationToken token);
-    Task<IReadOnlyDictionary<Guid, (int Revision, CatalogueVersionStatus Status)>> ReadStatusesAsync(
+    Task<IReadOnlyDictionary<Guid, CatalogueHistoryState>> ReadStatusesAsync(
         Guid[] planVersions, Guid[] trialVersions, CancellationToken token);
     Task<Guid?> CurrentTrialVersionIdAsync(CancellationToken token);
 }
@@ -37,7 +39,7 @@ public sealed class ReadCatalogueHistoryHandler(ICatalogueDraftStore drafts, ICa
         }, token);
 
     private static CatalogueHistoryItem ToItem(CataloguePreparation prep, CataloguePublication publication,
-        (int Revision, CatalogueVersionStatus Status) version) =>
+        CatalogueHistoryState version) =>
         new(prep.PlanId, prep.VersionId, version.Revision, version.Status == CatalogueVersionStatus.Published ? "published" : "retired",
-            CataloguePublicationOperation.View(prep, publication.PublishedAt).Snapshot, publication.PublishedAt);
+            CataloguePublicationOperation.View(prep, publication.PublishedAt).Snapshot, publication.PublishedAt, prep.SnapshotHash, version.Retirement);
 }

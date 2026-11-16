@@ -1,12 +1,14 @@
+import { Location } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { type Observable, of, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { AdminSessionService, type SessionNotice } from '../auth/admin-session.service';
 import { CatalogueApi, type PlanItem, type TrialDraft } from './catalogue-api.service';
 import { formatInr, invalid, paiseToRupees, parseCount, rupeesToPaise } from './catalogue-money';
+import type { PlanRetirement, PlanRetirementTarget, PublishedVersion } from './catalogue-publication.models';
 import { CataloguePageComponent } from './catalogue-page.component';
 
 // Browser-only fixtures: every API answer below is mocked. The real licensing API is exercised by P0206BrowserTests.
@@ -27,12 +29,18 @@ const trialDraft: TrialDraft = {
   complete: false, updatedAt: '2026-11-16T09:00:00Z',
 };
 
-function render(capabilities: string[] = ['licensing-manager'], trial: TrialDraft | null = null) {
+function render(capabilities: string[] = ['licensing-manager'], trial: TrialDraft | null = null,
+  history: PublishedVersion[] = []) {
   const grants = signal(capabilities);
   const notice = signal<SessionNotice>('none');
+  const adminId = signal('original-admin');
+  const sessionId = signal('original-session');
   const api = {
     listPlans: vi.fn(() => of({ items: [incomplete], nextCursor: null })),
-    history: vi.fn(() => of({ items: [], nextCursor: null, currentTrialVersionId: null })),
+    history: vi.fn(() => of({ items: history, nextCursor: null, currentTrialVersionId: null })),
+    retirePlan: vi.fn((_target: PlanRetirementTarget, _body: { operationKey: string; reason: string }, _session: string): Observable<PlanRetirement> =>
+      throwError(() => new HttpErrorResponse({ status: 0 }))),
+    recoverRetirement: vi.fn((_key: string, _session: string) => throwError(() => new HttpErrorResponse({ status: 404 }))),
     trialDraft: vi.fn(() => of({ draft: trial })),
     savePlan: vi.fn((_id: string, command: { name: string }) =>
       of({ ...incomplete, draft: { ...incomplete.draft, name: command.name, version: 5 } })),
@@ -41,10 +49,14 @@ function render(capabilities: string[] = ['licensing-manager'], trial: TrialDraf
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
-      { provide: AdminSessionService, useValue: { capabilities: grants, notice, check: vi.fn(() => of('active')) } },
+      { provide: AdminSessionService, useValue: { capabilities: grants, notice, adminId, sessionId, check: vi.fn(() => of('active')) } },
       { provide: CatalogueApi, useValue: api },
     ],
   });
+  return { ...renderCatalogue(), api, adminId, sessionId, reload: renderCatalogue };
+}
+
+function renderCatalogue() {
   const view = TestBed.createComponent(CataloguePageComponent);
   view.detectChanges();
   const page = view.nativeElement as HTMLElement;
@@ -62,7 +74,7 @@ function render(capabilities: string[] = ['licensing-manager'], trial: TrialDraf
     [...page.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent!.includes(text))!.click();
     view.detectChanges();
   };
-  return { page, view, api, field, submit, click };
+  return { page, view, field, submit, click };
 }
 
 describe('catalogue money and capacity parsing', () => {
@@ -199,4 +211,86 @@ describe('catalogue draft editor', () => {
 it('shows immutable publication history on the Licensing Manager catalogue', () => {
   const { page } = render();
   expect([...page.querySelectorAll('h2')].map(heading => heading.textContent?.trim())).toContain('Published versions');
+});
+
+
+const publishedPlan: PublishedVersion = {
+  planId: 'plan-1', versionId: 'version-1', version: 2, status: 'published', publishedAt: '2026-11-16T09:00:00Z',
+  snapshot: {
+    plan: { ...incomplete.draft, kind: 'multi-shop', developmentFixture: true,
+      trialPolicy: { ...trialDraft, developmentFixture: true }, eligiblePaidGraceDays: 7, graceExclusions: [],
+      billingTimeZone: 'Asia/Kolkata' },
+    negotiationReason: null, accountingTreatmentReference: 'fixture-accounting',
+  },
+};
+
+it('retires after confirmation and keeps the original key after an unknown outcome and missing lookup', () => {
+  const { page, view, api, click, field, submit } = render(undefined, null, [publishedPlan]);
+  click('Retire from new purchase');
+  const confirm = page.querySelector<HTMLButtonElement>('adm-catalogue-retirement button[type="submit"]')!;
+  expect(confirm.disabled).toBe(true);
+  field('#retirement-reason', 'Local fixture withdrawal');
+  const checkbox = page.querySelector<HTMLInputElement>('adm-catalogue-retirement input[type="checkbox"]')!;
+  checkbox.checked = true;
+  checkbox.dispatchEvent(new Event('change'));
+  view.detectChanges();
+  expect(confirm.disabled).toBe(false);
+  submit('adm-catalogue-retirement form');
+  const key = api.retirePlan.mock.calls[0]![1].operationKey;
+  expect(TestBed.inject(Location).path()).toContain('retirement=' + key);
+  expect(page.querySelector('[role="alert"]')?.textContent).toContain('retirement outcome is unconfirmed');
+
+  click('Check retirement outcome');
+  expect(api.recoverRetirement).toHaveBeenCalledWith(key, 'original-session');
+  expect(TestBed.inject(Location).path()).toContain('retirement=' + key);
+  click('Retry original retirement');
+  expect(api.retirePlan.mock.calls[1]).toEqual(api.retirePlan.mock.calls[0]);
+});
+
+it('retries an uncommitted retirement after fresh MFA only for the original administrator', () => {
+  const initial = render(undefined, null, [publishedPlan]);
+  const { api, adminId, sessionId, reload } = initial;
+  initial.click('Retire from new purchase');
+  initial.field('#retirement-reason', 'Local fixture withdrawal');
+  initial.page.querySelector<HTMLInputElement>('adm-catalogue-retirement input[type="checkbox"]')!.click();
+  initial.view.detectChanges();
+  initial.submit('adm-catalogue-retirement form');
+  const original = api.retirePlan.mock.calls[0]!;
+  const { operationKey } = original[1];
+  const storageKey = 'catalogue.retirement.' + operationKey;
+  const pending = sessionStorage.getItem(storageKey);
+  try {
+    expect(initial.page.textContent).toContain('retirement outcome is unconfirmed');
+    expect(pending).not.toBeNull();
+    api.recoverRetirement.mockReturnValueOnce(throwError(() => new HttpErrorResponse({
+      status: 403, error: { code: 'Catalogue.RecentMfaRequired' },
+    })));
+    initial.click('Check retirement outcome');
+    expect(initial.page.textContent).toContain('Sign in again with MFA');
+    initial.view.destroy();
+
+    adminId.set('different-admin');
+    sessionId.set('different-session');
+    const different = reload();
+    expect(different.page.textContent).not.toContain('Retry original retirement');
+    expect(api.retirePlan).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(storageKey)).toBe(pending);
+    different.view.destroy();
+
+    adminId.set('original-admin');
+    sessionId.set('fresh-session');
+    const fresh = reload();
+    expect(api.recoverRetirement).toHaveBeenLastCalledWith(operationKey, 'fresh-session');
+    expect(fresh.page.textContent).toContain('retirement outcome is unconfirmed');
+    expect(TestBed.inject(Location).path()).toContain('retirement=' + operationKey);
+    expect(sessionStorage.getItem(storageKey)).toBe(pending);
+    api.retirePlan.mockReturnValueOnce(of({ ...original[0], ...original[1], retiredAt: '2026-11-16T09:10:00Z' }));
+    expect(fresh.page.textContent).toContain('Retry original retirement');
+    fresh.click('Retry original retirement');
+    expect(api.retirePlan.mock.calls).toEqual([original, [original[0], original[1], 'fresh-session']]);
+    expect(fresh.page.textContent).toContain('Plan version retired from new purchase');
+    expect(sessionStorage.getItem(storageKey)).toBeNull();
+  } finally {
+    sessionStorage.removeItem(storageKey);
+  }
 });

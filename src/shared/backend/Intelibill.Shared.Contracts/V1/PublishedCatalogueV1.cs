@@ -29,12 +29,17 @@ public sealed record PublishedPlanTermsV1(Guid PlanId, Guid VersionId, int Versi
     public bool PaymentConfirmationIsTaxInvoice { get; init; }
 }
 
+public sealed record PublishedPlanVersionV1(PublishedPlanTermsV1 Terms, [property: JsonRequired] bool AvailableForNewPurchase);
+
 public sealed record PublishedCatalogueV1(PublishedPlanTermsV1[] Items, Guid? NextCursor)
 {
     public const string Read = "billing.catalogue.read";
     public const string Path = MerchantBillingDelegationV1.InternalPrefix + "/plans";
     public const int PageSize = 30;
     public const int MaxResponseBytes = PageSize * 2400 + 256;
+
+    public const int MaxVersionResponseBytes = 2400 + 128;
+    public static string VersionPath(Guid versionId) => $"{Path}/versions/{versionId:D}";
 
     public static string ReadPath(Guid? after) => after is { } id ? $"{Path}/after/{id:D}" : Path;
 }

@@ -33,6 +33,7 @@ internal static class CatalogueDraftEndpoints
         group.MapGet("/trial-policy/draft", GetTrialAsync);
         group.MapPut("/trial-policy/draft", SaveTrialAsync);
         group.MapCataloguePublication();
+        group.MapCatalogueRetirement();
     }
 
     private static async Task<IResult> ListPlansAsync(HttpContext context, SavePlanDraftHandler handler, Guid? cursor)

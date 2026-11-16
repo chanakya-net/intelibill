@@ -44,6 +44,7 @@ internal static class ProviderSessions
         services.AddScoped<SaveTrialPolicyDraftHandler>();
         services.AddScoped<PublishTrialPolicyVersionHandler>();
         services.AddScoped<PublishPlanVersionHandler>();
+        services.AddScoped<RetirePlanHandler>();
         services.AddScoped<CataloguePublicationOperation>();
         services.AddScoped<ReadCatalogueHistoryHandler>();
         services.AddScoped<AdminDeviceSessions>();
