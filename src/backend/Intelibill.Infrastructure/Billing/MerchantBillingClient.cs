@@ -19,7 +19,8 @@ internal sealed partial class MerchantBillingClient(
     HttpClient client, MerchantBillingDelegationIssuer issuer,
     IOptionsMonitor<MerchantBillingDelegationOptions> options, IHostEnvironment environment,
     ILogger<MerchantBillingClient> logger, ApplicationDbContext db, IPhoneAuthPolicy phones, ShopAffiliationConsentStore consents)
-    : IMerchantBillingAccess, IMerchantBillingInvitations, IMerchantShopAffiliations, IMerchantBillingOwnershipTransfers
+    : IMerchantBillingAccess, IMerchantBillingInvitations, IMerchantShopAffiliations, IMerchantBillingOwnershipTransfers,
+        IMerchantSubscriptionStatus
 {
     private const int MaximumResponseBytes = 4096;
     // Sized for a full page of the longest valid names, so no account the actor holds can hide the list.

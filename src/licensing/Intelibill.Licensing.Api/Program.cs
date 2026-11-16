@@ -4,6 +4,7 @@ using Intelibill.Licensing.Api.Audit;
 using Intelibill.Licensing.Api.Bootstrap;
 using Intelibill.Licensing.Api.Catalogue;
 using Intelibill.Licensing.Api.Observability;
+using Intelibill.Licensing.Api.Status;
 using Intelibill.Licensing.Application;
 using Intelibill.Licensing.Infrastructure;
 using Intelibill.Licensing.Infrastructure.Data;
@@ -88,6 +89,7 @@ public sealed class Program
         app.MapAdminCapabilities();
         app.MapAdminAudit();
         app.MapCatalogueDrafts();
+        app.MapAdminSubscriptionStatus();
         var business = app.MapGroup("/api/admin").RequireAuthorization(BootstrapAuthorization.BusinessPolicy);
         business.MapGet("/access", () => Results.NoContent());
         return app;

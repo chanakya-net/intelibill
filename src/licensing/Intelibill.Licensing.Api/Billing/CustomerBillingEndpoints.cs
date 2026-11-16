@@ -1,5 +1,6 @@
 using ErrorOr;
 using Intelibill.Licensing.Api.Catalogue;
+using Intelibill.Licensing.Api.Status;
 using Intelibill.Licensing.Application.Billing;
 using Intelibill.Shared.Contracts.V1;
 using Intelibill.Shared.Web.PublicErrors;
@@ -37,6 +38,7 @@ internal static class CustomerBillingEndpoints
         app.MapBillingMembers(policy);
         app.MapOwnershipTransfers(policy);
         app.MapShopAffiliations(policy);
+        app.MapCustomerSubscriptionStatus(policy);
         app.MapAffiliationDelivery();
     }
 

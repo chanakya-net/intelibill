@@ -62,7 +62,7 @@ public sealed partial class BillingController(IMerchantBillingAccess billing) : 
 
     internal static Task WriteChallengeAsync(JwtBearerChallengeContext context)
     {
-        if (!context.Request.Path.StartsWithSegments("/api/billing"))
+        if (!context.Request.Path.StartsWithSegments("/api/billing") && !context.Request.Path.StartsWithSegments("/api/licensing"))
             return Task.CompletedTask;
 
         context.HandleResponse();

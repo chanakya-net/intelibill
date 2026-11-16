@@ -439,3 +439,20 @@ after building both apps. The Chromium fixture drops the retirement response
 after it commits, reloads the console to recover it, and checks the fresh
 merchant catalogue and the saved terms link. The fixtures use local prices and
 preserve the observe-only licensing configuration.
+
+### Access status and exact deadlines (P02-09)
+
+Apply licensing migration `20261116150000_AddSubscriptionStatusFacts` before the
+licensing API, merchant API and both web builds. It adds the append-only
+`subscription_term_facts` supplement and narrow shop-scoped read policies; it
+backfills nothing and seeds nothing. Its downgrade refuses with PostgreSQL error
+`55000` once a fact exists. Keep the migration and facts during an application
+rollback.
+
+Status is observe-only. No route, guard or merchant gate consumes it, and no
+scheduler moves a term: each read evaluates the stored facts at one instant.
+Coverage without a supplement reads as incomplete evidence, never as paid
+access with grace. Licensing storage or transport failure answers 503
+`Billing.DelegationUnavailable`, which the web apps show as an outage, never as
+an expiry. Entitlement delivery and payment verification read `NotAvailable`
+until their owning slices land. Details: `docs/licensing-p02-09-status.md`.

@@ -14,6 +14,14 @@ export const billingRoutes: Routes = [
     loadComponent: () => import('./members/billing-ownership-inbox.component').then(m => m.BillingOwnershipInboxComponent),
   },
   {
+    path: 'status',
+    loadComponent: () => import('./status/subscription-status-page.component').then((m) => m.SubscriptionStatusPageComponent),
+  },
+  {
+    path: 'accounts/:accountId/status',
+    loadComponent: () => import('./status/subscription-status-page.component').then((m) => m.SubscriptionStatusPageComponent),
+  },
+  {
     path: 'accounts/:accountId/coverage',
     loadComponent: () => import('./affiliations/account-coverage.component').then((m) => m.AccountCoverageComponent),
   },

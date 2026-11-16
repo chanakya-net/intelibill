@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { SESSION_PORT } from '@intelibill/api';
 import { ButtonDirective } from 'primeng/button';
 import { adminGrants, manageAdminAccess, type AdminGrant } from './features/admin-users/admin-capabilities-api.service';
+import { statusReaders } from './features/accounts/account-status-api.service';
 import { identityAuditCapability } from './features/audit/admin-audit-api.service';
 import { licensingManager } from './features/catalogue/catalogue-api.service';
 import { AdminSessionService } from './features/auth/admin-session.service';
@@ -30,6 +31,8 @@ export class LandingPageComponent {
   protected readonly recoveryCapability = recoveryCapability;
   protected readonly accessManagementCapability = manageAdminAccess;
   protected readonly licensingManager = licensingManager;
+  protected readonly canReadStatus = computed(() =>
+    this.capabilities().some(grant => (statusReaders as readonly string[]).includes(grant)));
 
   protected capabilityLabel(capability: string) {
     return adminGrants[capability as AdminGrant] ?? capability;
