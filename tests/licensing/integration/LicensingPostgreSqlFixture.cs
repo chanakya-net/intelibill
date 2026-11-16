@@ -74,12 +74,17 @@ public sealed class LicensingPostgreSqlFixture : IAsyncLifetime
             GRANT USAGE ON SCHEMA public TO merchant_runtime;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO merchant_runtime;
             GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO merchant_runtime;
+            GRANT EXECUTE ON FUNCTION public.claim_entitlement_delivery(timestamptz,uuid) TO merchant_runtime;
+            GRANT EXECUTE ON FUNCTION public.finish_entitlement_delivery(uuid,uuid,timestamptz,boolean,boolean,text) TO merchant_runtime;
+            GRANT EXECUTE ON FUNCTION public.due_merchant_entitlement_reconciliation(timestamptz) TO merchant_runtime;
             """);
     }
 
     internal async Task SetConnectionsAsync(string database, bool allowed)
     {
-        Assert.Contains(database, new[] { LicensingDatabase, MerchantDatabase });
+        Assert.True(database is LicensingDatabase or MerchantDatabase ||
+            database.StartsWith("p0108_", StringComparison.Ordinal) && Guid.TryParseExact(database.AsSpan(6), "N", out _),
+            "Only databases created by this Testcontainers fixture can be paused.");
         await ExecuteAsync(Bootstrap(), $"""ALTER DATABASE "{database}" ALLOW_CONNECTIONS {allowed}""");
         if (!allowed)
         {

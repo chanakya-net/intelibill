@@ -82,6 +82,10 @@ public static class TenantPolicyManifest
     [
         // ── Tenant business data: isolated on its own shop_id ────────────────
         Tenant("bank_accounts"),
+        Tenant("license_grant_evidence"),
+        Tenant("shop_license_states"),
+        new("account_license_restrictions", TenantSecurityClassification.TenantBusinessData,
+            "account_license_restrictions_shop_isolation", "account_id", null, "account_id", null),
         Tenant("batch_price_revisions"),
         Tenant("credit_note_redemptions"),
         Tenant("credit_notes"),

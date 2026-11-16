@@ -44,7 +44,7 @@ public sealed partial class P0211Tests
     [Fact]
     public async Task MigrationRetainsFactsAndRefusesRollbackOnceExtensionsExist()
     {
-        await using var fixture = await P0210Fixture.StartAsync(database);
+        await using var fixture = await P0210Fixture.StartAsync(database, publishEntitlements: false);
         var (owner, account) = await StartTrialAsync(fixture);
         var before = await OriginalFactsAsync(fixture, owner.ShopId);
         using var migrations = new P0201Fixture(database, fixture.Catalogue.Runtime.Database!);

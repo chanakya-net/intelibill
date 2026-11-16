@@ -1,3 +1,7 @@
+using Intelibill.Infrastructure.Data;
+using Intelibill.Infrastructure.Licensing;
+using Intelibill.Shared.Security;
+using Intelibill.Shared.Web.Delivery;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Infrastructure.Options;
 using Intelibill.Shared.Contracts.V1;
@@ -20,6 +24,13 @@ internal static class MerchantBillingRegistration
         services.AddScoped<ShopAffiliationConsentStore>();
         AddDeliveryKey(services, ShopAffiliationDeliveryV1.Section);
         AddDeliveryKey(services, ShopTrialsV1.DeliverySection);
+        AddDeliveryKey(services, EntitlementSnapshotsV1.Section);
+        services.AddOptions<EntitlementTransportOptions>().BindConfiguration(EntitlementSnapshotsV1.Section);
+        services.AddScoped<MerchantEntitlementTransport>();
+        services.AddScoped<EntitlementProjectionStore>();
+        services.AddScoped(provider => new LeasedHttpOutbox(provider.GetRequiredService<ApplicationDbContext>()));
+        services.AddScoped<ILeasedHttpDestination, MerchantEntitlementDelivery>();
+        LeasedHttpDeliveryPump.Register(services);
         services.TryAddKeyedSingleton<TimeProvider>(ShopTrialsV1.DeliverySection,
             (provider, _) => provider.GetRequiredService<TimeProvider>());
         services.AddScoped<TrialActivationConsentStore>();

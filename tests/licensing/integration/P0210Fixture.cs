@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
@@ -23,47 +24,73 @@ internal sealed class P0210Fixture(P0206Fixture catalogue, RSA deliveryKey, P020
     internal P0110CookieBrowser? CatalogueManager => manager;
 
     internal static async Task<P0210Fixture> StartAsync(LicensingPostgreSqlFixture database, bool publish = true, bool browser = false,
-        Func<HttpMessageHandler, HttpMessageHandler>? transport = null, bool approve = true)
+        Func<HttpMessageHandler, HttpMessageHandler>? transport = null, bool approve = true, P0210HostSetup? setup = null, bool publishEntitlements = true)
     {
         await database.PrepareMerchantAsync();
         await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase),
             "TRUNCATE public.rate_limit_buckets");
         var businessClock = new P0201Clock { Now = Start };
+        var prepareProvider = setup?.PrepareProvider != false;
         var catalogue = await P0206Fixture.StartAsync(database, P0207Tests.LocalSettings(), services =>
-            services.AddKeyedSingleton<TimeProvider>(P0209Fixture.StatusClockKey, businessClock));
+        {
+            services.AddKeyedSingleton<TimeProvider>(P0209Fixture.StatusClockKey, businessClock);
+            if (!publishEntitlements) services.AddPreEntitlementPublisher();
+        }, prepareProvider: prepareProvider);
         var (manager, seed) = publish ? await catalogue.ManagerAsync() : (null, null);
         var policy = manager is not null ? await P0207Tests.PublishTrialAsync(manager, 1) : Guid.NewGuid();
         var revision = publish ? (int)(await catalogue.ScalarAsync($"SELECT revision FROM trial_policy_versions WHERE id = '{policy:D}'"))! : 2;
         var signing = new P0201Fixture(database, catalogue.Runtime.Database!);
         signing.Clock.Now = P0202Fixture.WholeSecondNow();
         var key = RSA.Create(2048);
+        var settings = LicensingSettings(signing, catalogue, key, approve, browser, setup);
+        var licensing = P0202Fixture.LicensingApi(signing, configure: services =>
+        {
+            services.AddKeyedSingleton<TimeProvider>(P0209Fixture.StatusClockKey, businessClock);
+            services.AddKeyedSingleton<TimeProvider>(ShopTrialsV1.DeliverySection, businessClock);
+            if (!publishEntitlements) services.AddPreEntitlementPublisher();
+            setup?.ConfigureLicensing(services);
+        }, clock: prepareProvider ? null : TimeProvider.System, settings: settings);
+        if (browser)
+            licensing.UseKestrel(options => options.Listen(System.Net.IPAddress.Loopback, 0));
+        using var client = licensing.CreateClient();
+        var merchantSettings = new Dictionary<string, string?>
+        {
+            [$"{ShopTrialsV1.DeliverySection}:LocalPrivateKeyPem"] = key.ExportPkcs8PrivateKeyPem(),
+            [$"{ShopTrialsV1.DeliverySection}:LocalKeyId"] = "trial-fixture",
+        };
+        if (setup is not null)
+            foreach (var (name, value) in setup.MerchantSettings) merchantSettings[name] = value;
+        var merchant = signing.MerchantApi(browser ? client.BaseAddress!.AbsoluteUri : "https://licensing.test",
+            handler: browser ? null : () => transport?.Invoke(licensing.Server.CreateHandler()) ?? licensing.Server.CreateHandler(),
+            configure: services =>
+            {
+                services.AddSingleton<TimeProvider>(prepareProvider ? signing.Clock : TimeProvider.System);
+                services.AddKeyedSingleton<TimeProvider>(ShopTrialsV1.DeliverySection, businessClock);
+                setup?.ConfigureMerchant(services);
+            }, settings: merchantSettings);
+        if (browser)
+            merchant.UseKestrel(options => options.Listen(System.Net.IPAddress.Loopback, 0));
+        return new(catalogue, key, new(signing, licensing, merchant, businessClock, database), policy, revision, manager, seed);
+    }
+
+    private static Dictionary<string, string?> LicensingSettings(P0201Fixture signing, P0206Fixture catalogue,
+        RSA key, bool approve, bool browser, P0210HostSetup? setup)
+    {
         var settings = signing.LicensingSettings();
         if (approve)
             foreach (var (name, value) in P0207Tests.LocalSettings()) settings[name] = value;
         settings[$"{ShopTrialsV1.DeliverySection}:PublicKeys:trial-fixture"] = key.ExportSubjectPublicKeyInfoPem();
         settings["LicensingDatabase:MaxPoolSize"] = "8";
-        var licensing = P0202Fixture.LicensingApi(signing, configure: services =>
+        if (browser)
         {
-            services.AddKeyedSingleton<TimeProvider>(P0209Fixture.StatusClockKey, businessClock);
-            services.AddKeyedSingleton<TimeProvider>(ShopTrialsV1.DeliverySection, businessClock);
-        }, settings: settings);
-        if (browser)
-            licensing.UseKestrel(options => options.Listen(System.Net.IPAddress.Loopback, 0));
-        using var client = licensing.CreateClient();
-        var merchant = signing.MerchantApi(browser ? client.BaseAddress!.AbsoluteUri : "https://licensing.test",
-            handler: browser ? null : () => transport?.Invoke(licensing.Server.CreateHandler()) ?? licensing.Server.CreateHandler(),
-            configure: services =>
-            {
-                services.AddSingleton<TimeProvider>(signing.Clock);
-                services.AddKeyedSingleton<TimeProvider>(ShopTrialsV1.DeliverySection, businessClock);
-            }, settings: new Dictionary<string, string?>
-            {
-                [$"{ShopTrialsV1.DeliverySection}:LocalPrivateKeyPem"] = key.ExportPkcs8PrivateKeyPem(),
-                [$"{ShopTrialsV1.DeliverySection}:LocalKeyId"] = "trial-fixture",
-            });
-        if (browser)
-            merchant.UseKestrel(options => options.Listen(System.Net.IPAddress.Loopback, 0));
-        return new(catalogue, key, new(signing, licensing, merchant, businessClock, database), policy, revision, manager, seed);
+            var admin = catalogue.Api.Services.GetRequiredService<IConfiguration>();
+            settings["AdminMfa:ActiveKeyId"] = admin["AdminMfa:ActiveKeyId"];
+            foreach (var material in admin.GetSection("AdminMfa:Keys").GetChildren()) settings[material.Path] = material.Value;
+            settings["AdminSessions:SigningKey"] = admin["AdminSessions:SigningKey"];
+        }
+        if (setup is not null)
+            foreach (var (name, value) in setup.LicensingSettings) settings[name] = value;
+        return settings;
     }
 
     internal async Task LinkAsync(Guid account, Guid payer, P0209Fixture.Merchant shop) =>
@@ -108,3 +135,11 @@ internal sealed class P0210Fixture(P0206Fixture catalogue, RSA deliveryKey, P020
         await catalogue.DisposeAsync();
     }
 }
+
+
+internal sealed record P0210HostSetup(
+    IReadOnlyDictionary<string, string?> LicensingSettings,
+    IReadOnlyDictionary<string, string?> MerchantSettings,
+    Action<IServiceCollection> ConfigureLicensing,
+    Action<IServiceCollection> ConfigureMerchant,
+    bool PrepareProvider = true);

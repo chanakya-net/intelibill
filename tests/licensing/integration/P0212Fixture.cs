@@ -24,11 +24,15 @@ internal sealed class P0212Fixture(P0206Fixture provider, P0201Clock lifecycle) 
     internal NpgsqlConnectionStringBuilder Owner => Provider.Superuser;
 
     internal static async Task<P0212Fixture> StartAsync(LicensingPostgreSqlFixture database, DateTimeOffset? at = null,
-        IReadOnlyDictionary<string, string?>? overrides = null)
+        IReadOnlyDictionary<string, string?>? overrides = null, bool publishEntitlements = true)
     {
         var lifecycle = new P0201Clock { Now = at ?? Now };
         var provider = await P0206Fixture.StartAsync(database, overrides,
-            services => services.AddKeyedSingleton<TimeProvider>(P0209Fixture.StatusClockKey, lifecycle));
+            services =>
+            {
+                services.AddKeyedSingleton<TimeProvider>(P0209Fixture.StatusClockKey, lifecycle);
+                if (!publishEntitlements) services.AddPreEntitlementPublisher();
+            });
         return new(provider, lifecycle);
     }
 

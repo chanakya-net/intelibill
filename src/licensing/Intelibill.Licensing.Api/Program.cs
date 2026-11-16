@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Api.Entitlements;
 using Intelibill.Licensing.Api.Trials;
 using Intelibill.Licensing.Api.Billing;
 using Intelibill.Licensing.Api.AdminIdentities;
@@ -79,6 +80,7 @@ public sealed class Program
         app.UseRouting();
         app.UseMiddleware<AdminRequestBoundary>();
         app.MapCustomerBilling();
+        app.MapEntitlementIntegration();
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapBootstrap();

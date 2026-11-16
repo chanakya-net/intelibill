@@ -94,6 +94,20 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "id-migrator-dev" IN SCHEMA public
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA public TO "id-app-dev";
 GRANT USAGE, SELECT                 ON ALL SEQUENCES  IN SCHEMA public TO "id-app-dev";
 
+-- Re-run after the explicit migration job to grant the private worker routines.
+DO $$ BEGIN
+  IF to_regprocedure('public.claim_entitlement_delivery(timestamptz,uuid)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.claim_entitlement_delivery(timestamptz,uuid) TO "id-app-dev";
+  END IF;
+  IF to_regprocedure('public.finish_entitlement_delivery(uuid,uuid,timestamptz,boolean,boolean,text)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.finish_entitlement_delivery(uuid,uuid,timestamptz,boolean,boolean,text) TO "id-app-dev";
+  END IF;
+  IF to_regprocedure('public.due_merchant_entitlement_reconciliation(timestamptz)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.due_merchant_entitlement_reconciliation(timestamptz) TO "id-app-dev";
+  END IF;
+END $$;
+
+
 -- The runtime identity must not be able to turn the tenant boundary off. It
 -- owns no table, so ALTER TABLE ... DISABLE ROW LEVEL SECURITY is refused for
 -- it; this states the intent so a future ownership change is a visible break.
@@ -118,6 +132,20 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "id-migrator-prod" IN SCHEMA public
 -- the tables nobody thought to re-check.
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES    IN SCHEMA public TO "id-app-prod";
 GRANT USAGE, SELECT                 ON ALL SEQUENCES  IN SCHEMA public TO "id-app-prod";
+
+-- Re-run after the explicit migration job to grant the private worker routines.
+DO $$ BEGIN
+  IF to_regprocedure('public.claim_entitlement_delivery(timestamptz,uuid)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.claim_entitlement_delivery(timestamptz,uuid) TO "id-app-prod";
+  END IF;
+  IF to_regprocedure('public.finish_entitlement_delivery(uuid,uuid,timestamptz,boolean,boolean,text)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.finish_entitlement_delivery(uuid,uuid,timestamptz,boolean,boolean,text) TO "id-app-prod";
+  END IF;
+  IF to_regprocedure('public.due_merchant_entitlement_reconciliation(timestamptz)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.due_merchant_entitlement_reconciliation(timestamptz) TO "id-app-prod";
+  END IF;
+END $$;
+
 
 -- The runtime identity must not be able to turn the tenant boundary off. It
 -- owns no table, so ALTER TABLE ... DISABLE ROW LEVEL SECURITY is refused for

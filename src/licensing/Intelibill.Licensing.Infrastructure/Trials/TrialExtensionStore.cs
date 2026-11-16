@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.Entitlements;
 using System.Data;
 using ErrorOr;
 using Intelibill.Licensing.Application.AdminIdentities;
@@ -13,7 +14,7 @@ using Npgsql;
 
 namespace Intelibill.Licensing.Infrastructure.Trials;
 
-internal sealed partial class TrialExtensionStore(LicensingDbContext db, ILogger<TrialExtensionStore> logger)
+internal sealed partial class TrialExtensionStore(LicensingDbContext db, ILogger<TrialExtensionStore> logger, IEntitlementPublisher publisher)
     : ITrialExtensionStore
 {
     public async Task<ErrorOr<T>> InTransactionAsync<T>(Func<CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken ct)
@@ -109,6 +110,7 @@ internal sealed partial class TrialExtensionStore(LicensingDbContext db, ILogger
                 {item.ShopName}, {item.Reason}, {item.ReviewReference}, {receipt.PayloadDigest}, {item.SourceHash},
                 {item.CurrentVersion}, {item.AccountTrialCapReached})
             """, ct);
+        await publisher.PublishAsync(item.AccountId, item.ShopId, ct);
     }
 
     private sealed record ReceiptRow(Guid ExtensionId, Guid AccountId, Guid ShopId, Guid TermId, DateTimeOffset StartsAt,

@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Infrastructure.Entitlements;
 using Intelibill.Licensing.Application.Billing;
 using Intelibill.Licensing.Application.BillingAccounts;
 using Intelibill.Licensing.Application.Coverage;
@@ -36,6 +37,7 @@ internal static class BillingDelegationRegistration
         services.TryAddScoped<IBillingAccountDelegationAuthority, BillingAccountMembershipAuthority>();
         services.AddSubscriptionStatus();
         services.AddShopTrials();
+        services.AddEntitlementDelivery();
         services.AddComplimentaryGrants();
     }
 }

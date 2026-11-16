@@ -65,7 +65,7 @@ public sealed partial class P0212Tests
     [Fact]
     public async Task MigrationUpgradesRetainsFactsAndRefusesRollbackOnceGrantsExist()
     {
-        await using var fixture = await StartAsync(database);
+        await using var fixture = await StartAsync(database, publishEntitlements: false);
         var (manager, _) = await fixture.ManagerAsync();
         using var session = manager;
         var (account, payer, shops) = await fixture.SeedAccountAsync(1);

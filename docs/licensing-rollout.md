@@ -464,3 +464,7 @@ separate service-delivery credentials, a complete published policy and live
 owner consent. Trial status remains observe-only. See
 [Shop trial activation](licensing-p02-10-trials.md) for the migration identifiers,
 fixture configuration and Chromium checks.
+
+### P02-13 entitlement delivery
+
+Apply both entitlement migrations and runtime grants before enabling local transport. New projections stay observe-only. P02-14 owns saved-versus-applied browser status. [Entitlement snapshot delivery](licensing-p02-13-entitlement-delivery.md)
