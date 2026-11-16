@@ -47,12 +47,14 @@ public static class BillingAccountRules
     {
         BillingOwnershipTransfersV1.Issue or BillingInvitationsV1.OwnerCheck or BillingInvitationsV1.Issue or BillingInvitationsV1.RemoveMember => role == BillingAccountRole.Owner,
         MerchantBillingDelegationV1.ReadAccount or BillingInvitationsV1.Roster or ShopAffiliationsV1.Read or ShopAffiliationsV1.Request or SubscriptionStatusV1.AccountRead
-        or SubscriptionCancellationsV1.Read or SubscriptionCancellationsV1.Schedule or SubscriptionCancellationsV1.Recover => role is BillingAccountRole.Owner or BillingAccountRole.Manager,
+        or SubscriptionCancellationsV1.Read or SubscriptionCancellationsV1.Schedule or SubscriptionCancellationsV1.Recover
+        or SubscriptionCancellationsV1.Withdraw or SubscriptionCancellationsV1.WithdrawRecover => role is BillingAccountRole.Owner or BillingAccountRole.Manager,
         _ => false,
     };
 
     public static bool SerializesAccountMutation(string action) => action is BillingOwnershipTransfersV1.Issue
-        or BillingInvitationsV1.Issue or BillingInvitationsV1.RemoveMember or ShopAffiliationsV1.Request or SubscriptionCancellationsV1.Schedule;
+        or BillingInvitationsV1.Issue or BillingInvitationsV1.RemoveMember or ShopAffiliationsV1.Request or SubscriptionCancellationsV1.Schedule
+        or SubscriptionCancellationsV1.Withdraw;
 
     public static string RoleName(BillingAccountRole role) => role switch
     {

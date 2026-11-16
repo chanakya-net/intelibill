@@ -1,0 +1,42 @@
+@if (canStart() && !reviewing()) {
+  <button type="button" pButton severity="secondary" size="small" data-testid="withdrawal-review" [disabled]="waiting()"
+    (click)="reviewing.set(true); checked.set(false)">
+    {{ 'billing.cancellation.withdrawal.review' | transloco }}
+  </button>
+}
+@if (reviewing() && canStart() && term().cancellation; as change) {
+  <section class="ib-panel" data-testid="withdrawal-detail">
+    <p>{{ 'billing.cancellation.withdrawal.explain' | transloco: {time: instant(change.effectiveAt)} }}</p>
+    <label>
+      <input type="checkbox" data-testid="withdrawal-accept" [checked]="checked()" [disabled]="waiting()"
+        (change)="checked.set($any($event.target).checked)" />
+      {{ 'billing.cancellation.withdrawal.accept' | transloco }}
+    </label>
+    <button type="button" pButton severity="primary" size="small" data-testid="withdrawal-confirm"
+      [disabled]="!checked() || waiting() || error() === 'storage'" (click)="confirm()">
+      {{ 'billing.cancellation.withdrawal.confirm' | transloco }}
+    </button>
+  </section>
+}
+@if (draft(); as operation) {
+  @if (!operation.settled) {
+    <p role="status" data-testid="withdrawal-pending">{{ 'billing.cancellation.withdrawal.pending' | transloco }}</p>
+    <div class="actions">
+      <button type="button" pButton severity="secondary" size="small" data-testid="withdrawal-check" [disabled]="waiting()" (click)="resolve(false)">
+        {{ 'billing.cancellation.withdrawal.check' | transloco }}
+      </button>
+      <button type="button" pButton severity="secondary" size="small" data-testid="withdrawal-retry" [disabled]="waiting()" (click)="resolve(true)">
+        {{ 'billing.cancellation.withdrawal.retry' | transloco }}
+      </button>
+    </div>
+  }
+}
+@if (withdrawn(); as done) {
+  <p role="status" data-testid="withdrawal-done">
+    {{ 'billing.cancellation.withdrawal.done' | transloco: {time: instant(done.command.acceptedEffectiveAt)} }}
+  </p>
+  <p data-testid="withdrawal-propagation">{{ 'billing.cancellation.withdrawal.propagation' | transloco }}</p>
+}
+@if (error(); as failure) {
+  <p role="alert" data-testid="withdrawal-error">{{ 'billing.cancellation.withdrawal.' + failure | transloco }}</p>
+}

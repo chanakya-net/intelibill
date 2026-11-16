@@ -91,7 +91,7 @@ export class SubscriptionCancellationComponent {
   protected async confirm() {
     const scope = this.scope();
     const detail = this.detail();
-    if (!scope || !detail?.sourceHash || !this.checked() || this.waiting() || this.draft()) return;
+    if (!scope || !detail?.sourceHash || !this.checked() || this.waiting() || this.blocks(detail)) return;
     const generation = this.generation;
     this.waiting.set(true);
     let draft: CancellationDraft;
@@ -157,6 +157,12 @@ export class SubscriptionCancellationComponent {
     } catch {
       if (this.current(scope, generation)) this.error.set('storage');
     }
+  }
+
+  /** An unsettled operation, or a settled one for this or a newer version, blocks a new acceptance. */
+  protected blocks(review: CancellationDetail) {
+    const draft = this.draft();
+    return draft !== null && (!draft.settled || draft.command.expectedVersion >= review.version);
   }
 
   protected instant(value: string) {

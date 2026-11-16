@@ -32,8 +32,8 @@ public sealed class ScheduleCancellationHandler(IBillingDelegationAccess access,
         access.ExecuteAsync<SubscriptionCancellationOutcomeV1>(proof, async (_, token) =>
         {
             var receipt = await store.FindReceiptAsync(account, key, token);
-            return receipt is not null && receipt.ActorId == proof.ActorId && receipt.Outcome.TermId == term
-                ? receipt.Outcome : Missing;
+            return receipt is { Kind: CancellationReceipt.ScheduleKind } && receipt.ActorId == proof.ActorId
+                && receipt.TermId == term ? receipt.Scheduled(account, key) : Missing;
         }, ct);
 
     public async Task<ErrorOr<SubscriptionCancellationDetailV1>> ReadDetailAsync(Guid account, Guid term, Guid? after,
@@ -41,7 +41,8 @@ public sealed class ScheduleCancellationHandler(IBillingDelegationAccess access,
     {
         var row = await store.ReadTermAsync(account, term, ct);
         if (row is null) return Missing;
-        if (row.Cancellation is { } saved && SubscriptionStatusProjection.ToFacts(row).Evidence == TermEvidenceState.Complete)
+        if (SubscriptionStatusProjection.ActiveCancellation(row) is { } saved
+            && SubscriptionStatusProjection.ToFacts(row).Evidence == TermEvidenceState.Complete)
         {
             var frozen = await store.ReadFrozenShopsAsync(account, saved.ChangeId, after, ct);
             return Detail(row, saved.Version, saved.ChangeId, commercial, null, saved.ShopHash, saved.ShopCount, frozen);
@@ -53,7 +54,7 @@ public sealed class ScheduleCancellationHandler(IBillingDelegationAccess access,
         var page = source.Shops.Where(shop => after is null || shop.ShopId.CompareTo(after.Value) > 0)
             .Take(SubscriptionCancellationsV1.PageSize + 1).Select(shop => new CancellationShopV1(shop.ShopId, shop.ShopName))
             .ToArray();
-        return Detail(row, 0, null, commercial, source.SourceHash, source.ShopHash, source.Shops.Length, page);
+        return Detail(row, row.Cancellation?.Version ?? 0, null, commercial, source.SourceHash, source.ShopHash, source.Shops.Length, page);
     }
 
     private async Task<ErrorOr<SubscriptionCancellationOutcomeV1>> AcceptAsync(VerifiedBillingDelegation proof, Guid account,
@@ -63,30 +64,32 @@ public sealed class ScheduleCancellationHandler(IBillingDelegationAccess access,
         var digest = Hash(request);
         var receipt = await store.FindReceiptAsync(account, request.OperationKey, ct);
         if (receipt is not null)
-            return receipt.ActorId == proof.ActorId && receipt.Outcome.TermId == term && receipt.PayloadHash == digest
-                ? receipt.Outcome : BillingAccountErrors.PayloadMismatch;
+            return receipt is { Kind: CancellationReceipt.ScheduleKind } && receipt.ActorId == proof.ActorId
+                && receipt.TermId == term && receipt.PayloadHash == digest
+                ? receipt.Scheduled(account, request.OperationKey) : BillingAccountErrors.PayloadMismatch;
 
         var row = await store.ReadTermAsync(account, term, ct);
         if (row is null) return Missing;
         var at = SubscriptionStatusProjection.EvaluationInstant(clock);
         var source = await ReadSourceAsync(row, at, ct);
-        if (source is null || request.ExpectedVersion != 0 || request.AcceptedEffectiveAt != row.EndsAt
+        var current = row.Cancellation?.Version ?? 0;
+        if (source is null || request.ExpectedVersion != current || request.AcceptedEffectiveAt != row.EndsAt
             || request.SourceHash != source.SourceHash || request.AffectedShopSetHash != source.ShopHash
             || request.AffectedShopCount != source.Shops.Length)
             return Conflict;
 
         var change = Guid.NewGuid();
-        await store.AppendAsync(proof, source, change, request.OperationKey, digest, at, ct);
+        await store.AppendAsync(proof, source, change, current + 1, request.OperationKey, digest, at, ct);
         foreach (var shop in source.Shops)
             await publisher.PublishAsync(account, shop.ShopId, ct);
         return new SubscriptionCancellationOutcomeV1(1, account, term, request.OperationKey,
-            new(change, 1, row.EndsAt, SubscriptionCancellationsV1.Policy), source.Shops.Length);
+            new(change, current + 1, row.EndsAt, SubscriptionCancellationsV1.Policy), source.Shops.Length);
     }
 
     private async Task<CancellationSource?> ReadSourceAsync(TermFactsRow row, DateTimeOffset at, CancellationToken ct)
     {
         var facts = SubscriptionStatusProjection.ToFacts(row);
-        if (row.Cancellation is not null || facts is not { Evidence: TermEvidenceState.Complete, Basis: SubscriptionBasis.Paid }
+        if (SubscriptionStatusProjection.ActiveCancellation(row) is not null || facts is not { Evidence: TermEvidenceState.Complete, Basis: SubscriptionBasis.Paid }
             || row.PricePaise is not >= 0 || row.Currency != "INR" || at < row.StartsAt || at >= row.EndsAt)
             return null;
 

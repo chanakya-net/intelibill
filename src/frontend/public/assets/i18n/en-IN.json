@@ -3304,7 +3304,22 @@
       "unavailable": "Could not verify the cancellation details.",
       "storage": "This browser could not save your cancellation request.",
       "unknown": "The request outcome is unknown. Check it or retry the saved request.",
-      "conflict": "The term or covered shops changed. Review the current status."
+      "conflict": "The term or covered shops changed. Review the current status.",
+      "withdrawal": {
+        "review": "Withdraw cancellation",
+        "explain": "Withdrawing keeps the original term end of {{time}}. The usual grace period applies again; dates, price and covered shops do not change.",
+        "accept": "I want to keep this subscription and withdraw the scheduled cancellation.",
+        "confirm": "Withdraw cancellation",
+        "pending": "Check the saved withdrawal request or retry it.",
+        "check": "Check withdrawal",
+        "retry": "Retry withdrawal",
+        "storage": "This browser could not save your withdrawal request.",
+        "unknown": "The withdrawal outcome is unknown. Check it or retry the saved request.",
+        "conflict": "The cancellation changed. Review the current status.",
+        "effective": "The cancellation has already taken effect and can no longer be withdrawn.",
+        "done": "The cancellation was withdrawn. The term still ends at {{time}} and the usual grace period applies.",
+        "propagation": "Covered shops receive this change automatically. Each shop's synchronization status shows when it is applied."
+      }
     },
     "trial": {
       "coveredShops": "Shops covered by this trial",

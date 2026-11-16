@@ -109,4 +109,23 @@ describe('scheduled cancellation', () => {
     expect(element('cancellation-check')).toBeNull();
     expect(store.read(scope)?.command).toEqual(draft);
   });
+
+  it('offers scheduling again after a settled acceptance was withdrawn', async () => {
+    const { element, update, api } = render();
+    await new SubscriptionCancellationDrafts().prepare(scope, { operationKey: 'old', expectedVersion: 0,
+      sourceHash: preview.sourceHash!, acceptedEffectiveAt: preview.effectiveAt, affectedShopSetHash: preview.affectedShopSetHash,
+      affectedShopCount: 2, policyVersion: preview.policyVersion, confirmed: true });
+    await new SubscriptionCancellationDrafts().settle(scope, 'old');
+    api.detail.mockResolvedValue({ ...preview, version: 2 });
+    window.dispatchEvent(new StorageEvent('storage'));
+    await update();
+    element<HTMLButtonElement>('cancellation-review')!.click();
+    await update();
+    element<HTMLInputElement>('cancellation-accept')!.click();
+    await update();
+    element<HTMLButtonElement>('cancellation-confirm')!.click();
+    await update();
+    expect(api.schedule.mock.calls[0][2].expectedVersion).toBe(2);
+    expect(api.schedule.mock.calls[0][2].operationKey).not.toBe('old');
+  });
 });

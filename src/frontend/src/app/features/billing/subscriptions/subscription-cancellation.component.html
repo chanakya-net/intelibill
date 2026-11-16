@@ -20,7 +20,7 @@
         <li [attr.data-shop-id]="shop.shopId">{{ shop.shopName }}</li>
       }
     </ul>
-    @if (review.sourceHash && !draft()) {
+    @if (review.sourceHash && !blocks(review)) {
       <label>
         <input type="checkbox" data-testid="cancellation-accept" [checked]="checked()" [disabled]="waiting()"
           (change)="checked.set($any($event.target).checked)" />

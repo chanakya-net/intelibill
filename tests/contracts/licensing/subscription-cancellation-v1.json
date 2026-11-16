@@ -25,5 +25,43 @@
   "receiptScope": "same live billing actor, account, term and operation key",
   "providerSupportRedacts": ["commercial", "actorId", "operationKey", "sourceHash"],
   "shopStatusOmits": ["affectedShops", "actorId", "operationKey", "sourceHash"],
-  "consequences": { "noRefund": true, "noGrace": true }
+  "consequences": { "noRefund": true, "noGrace": true },
+  "withdrawal": {
+    "publicPath": "/api/billing/accounts/{accountId}/subscriptions/{termId}/cancellation/withdrawal",
+    "internalPath": "/internal/licensing/v1/customer/accounts/{accountId}/subscriptions/{termId}/cancellation/withdrawal",
+    "recoveryPath": "/internal/licensing/v1/customer/accounts/{accountId}/subscriptions/{termId}/cancellation/withdrawal/operations/{operationKey}",
+    "actions": {
+      "withdraw": "billing.subscription.cancellation.withdraw",
+      "recover": "billing.subscription.cancellation.withdraw.recover"
+    },
+    "requestExample": {
+      "operationKey": "00000000-0000-0000-0000-000000000002",
+      "currentVersion": 1,
+      "changeId": "00000000-0000-0000-0000-000000000003",
+      "acceptedEffectiveAt": "2027-02-28T04:30:00+00:00",
+      "confirmed": true
+    },
+    "outcomeExample": {
+      "schemaVersion": 1,
+      "accountId": "00000000-0000-0000-0000-000000000004",
+      "termId": "00000000-0000-0000-0000-000000000005",
+      "operationKey": "00000000-0000-0000-0000-000000000002",
+      "withdrawnChangeId": "00000000-0000-0000-0000-000000000003",
+      "version": 2,
+      "effectiveAt": "2027-02-28T04:30:00+00:00",
+      "withdrawnAt": "2027-02-25T04:30:00+00:00",
+      "affectedShopCount": 2
+    },
+    "versions": { "scheduled": "odd revision >= 1", "open": "even revision >= 0 (0 = never scheduled)" },
+    "cutoff": "strictly before effectiveAt, judged inside the account fence by the lifecycle clock",
+    "retained": ["startsAt", "paidThrough", "basis", "pricePaise", "termId", "effectiveAt", "graceEndsAt"],
+    "refusals": {
+      "effective": "Billing.CancellationEffective",
+      "stale": "Billing.CancellationConflict",
+      "invalid": "Billing.CancellationInvalid",
+      "payloadMismatch": "Billing.OperationPayloadMismatch",
+      "missing": "Billing.CancellationNotFound"
+    },
+    "statusAfterWithdrawal": "term omits cancellation and shows the original graceEndsAt"
+  }
 }

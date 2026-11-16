@@ -203,4 +203,17 @@ describe('subscription status', () => {
     expect(accountRead).toHaveBeenCalledWith(account);
     expect(page.querySelector('[data-testid="account-term"]')?.textContent).toContain('Fixture Shop');
   });
+
+  it('offers withdrawal only for an account term whose cancellation is still scheduled', () => {
+    const cancellation = { changeId: 'change', version: 1, effectiveAt: term.paidThrough, policyVersion: 'term-boundary/1' };
+    const scheduled = { ...term, graceEndsAt: null, accessEndsAt: term.paidThrough, cancellation };
+    const accountRead = vi.fn(() => of({ evaluatedAt: '2027-02-10T00:00:00Z', items: [
+      { status: scheduled, coveredShops: [], coveredShopCount: 0 },
+      { status: { ...term, termId: '55555555-5555-4555-8555-555555555555' }, coveredShops: [], coveredShopCount: 0 },
+    ] }));
+    const { page } = render({ account: accountRead, shop: vi.fn() }, { accountId: account });
+    const terms = page.querySelectorAll('[data-testid="account-term"]');
+    expect(terms[0].querySelector('[data-testid="withdrawal-review"]')).toBeTruthy();
+    expect(terms[1].querySelector('[data-testid="withdrawal-review"]')).toBeNull();
+  });
 });

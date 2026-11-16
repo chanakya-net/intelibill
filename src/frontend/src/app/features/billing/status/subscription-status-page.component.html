@@ -42,6 +42,7 @@
           @if (accountId(); as account) {
             @if (item.status.basis === 'Paid') {
               <app-subscription-cancellation [account]="account" [term]="item.status" (saved)="load()" />
+              <app-subscription-cancellation-withdrawal [account]="account" [term]="item.status" (saved)="load()" />
             }
           }
           <p>{{ 'billing.status.coveredShops' | transloco: { count: item.coveredShopCount } }}</p>

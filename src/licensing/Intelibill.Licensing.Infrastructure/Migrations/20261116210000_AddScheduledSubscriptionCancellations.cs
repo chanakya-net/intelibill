@@ -88,7 +88,7 @@ public sealed class AddScheduledSubscriptionCancellations : Migration
             WITH CHECK (account_id = {Account} AND actor_id = {Actor});
         """;
 
-    private const string Guards = """
+    internal const string Guards = """
         CREATE FUNCTION public.guard_subscription_cancellation() RETURNS trigger
         LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         BEGIN
