@@ -11,7 +11,7 @@ namespace Intelibill.Licensing.Application.Status;
 /// Platform Owner and Security Administrator alone grant nothing here. No merchant business data is read.
 /// </summary>
 public sealed class ReadProviderStatusHandler(ISubscriptionStatusStore store, ISubscriptionAccessFactsReader reader,
-    TimeProvider statusClock, TimeProvider sessionClock)
+    TimeProvider statusClock, TimeProvider sessionClock, IEntitlementSynchronizationReader synchronization)
 {
     private const AdminCapability Readers = AdminCapability.Support | AdminCapability.Billing | AdminCapability.LicensingManager;
     private const AdminCapability Commercial = AdminCapability.Billing | AdminCapability.LicensingManager;
@@ -24,8 +24,9 @@ public sealed class ReadProviderStatusHandler(ISubscriptionStatusStore store, IS
         if (grant.IsError) return grant.Errors;
         await store.UseAccountAsync(account, token);
         var rows = await reader.ReadAccountAsync(account, after, SubscriptionStatusV1.PageSize + 1, token);
+        var sync = await synchronization.ReadPageAsync(account, rows, token);
         return SubscriptionStatusProjection.Account(account, SubscriptionStatusProjection.EvaluationInstant(statusClock),
-            rows, grant.Value);
+            rows, grant.Value, sync);
     }, ct);
 
     public Task<ErrorOr<ShopSubscriptionStatusV1>> ReadShopAsync(AdminSessionCaller caller, Guid account, Guid shop,
@@ -37,8 +38,9 @@ public sealed class ReadProviderStatusHandler(ISubscriptionStatusStore store, IS
         await store.UseAccountAsync(account, token);
         var coverage = await reader.ReadShopAsync(shop, token);
         if (coverage is null || coverage.AccountId != account) return SubscriptionStatusErrors.ShopNotCovered;
+        var sync = await synchronization.ReadAsync(account, [shop], token);
         return SubscriptionStatusProjection.Shop(shop, SubscriptionStatusProjection.EvaluationInstant(statusClock),
-            coverage, grant.Value);
+            coverage, grant.Value, sync.GetValueOrDefault(shop));
     }, ct);
 
     /// <summary>Live authority under the identity → session lock order; the value says whether commercial facts are allowed.</summary>

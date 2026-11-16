@@ -98,23 +98,25 @@ public static class SubscriptionStatusProjection
         return Project(row, facts, ComplimentaryAccessPolicy.Evaluate(facts, at, suspensions), commercial);
     }
 
-    public static ShopSubscriptionStatusV1 Shop(Guid shop, DateTimeOffset at, ShopCoverage? coverage, bool commercial)
+    public static ShopSubscriptionStatusV1 Shop(Guid shop, DateTimeOffset at, ShopCoverage? coverage, bool commercial,
+        EntitlementSynchronizationV1? sync = null)
     {
         var term = Choose(coverage, at, commercial);
         return new ShopSubscriptionStatusV1(SubscriptionStatusV1.SchemaVersion, shop, at,
             term?.State ?? "PendingActivation", term, commercial ? coverage?.AccountId : null, ObserveOnly: true,
-            SubscriptionStatusV1.NotAvailable, SubscriptionStatusV1.NotAvailable);
+            sync?.State ?? SubscriptionStatusV1.NotAvailable, SubscriptionStatusV1.NotAvailable, sync);
     }
 
     public static AccountSubscriptionStatusV1 Account(Guid account, DateTimeOffset at, IReadOnlyList<AccountTermRow> rows,
-        bool commercial)
+        bool commercial, IReadOnlyDictionary<Guid, EntitlementSynchronizationV1> sync)
     {
         var page = rows.Take(SubscriptionStatusV1.PageSize).ToArray();
         var items = page.Select(row => new AccountTermStatusV1(Project(row.Term, at, commercial),
-            row.CoveredShops, row.CoveredShopCount)).ToArray();
+            [.. row.CoveredShops.Select(shop => shop with { Synchronization = sync.GetValueOrDefault(shop.ShopId) })],
+            row.CoveredShopCount)).ToArray();
         return new AccountSubscriptionStatusV1(SubscriptionStatusV1.SchemaVersion, account, at, items,
             rows.Count > page.Length ? page[^1].Term.TermId : null, ObserveOnly: true,
-            SubscriptionStatusV1.NotAvailable, SubscriptionStatusV1.NotAvailable);
+            SubscriptionStatusV1.Summarize(items.SelectMany(item => item.CoveredShops)), SubscriptionStatusV1.NotAvailable);
     }
 
     /// <summary>PostgreSQL keeps microseconds; one evaluation instant per response, truncated to match storage.</summary>

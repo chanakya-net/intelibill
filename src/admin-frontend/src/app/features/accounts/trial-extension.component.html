@@ -10,6 +10,7 @@
       <button pButton type="button" [disabled]="busy()" (click)="retry()">Retry original extension</button>
     } @else if (result(); as approved) {
       <p role="status" data-testid="trial-extension-result">{{ approved.shopName }} trial extended to {{ instant(approved.endsAt) }}.</p>
+      <p>Saved in licensing. Merchant confirmation is shown in the covered shop’s status.</p>
       <button pButton type="button" (click)="reset()">Review another extension</button>
     } @else if (phase() === 'storage') {
       <button pButton type="button" (click)="reset()">Check saved extensions</button>

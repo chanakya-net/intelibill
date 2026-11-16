@@ -39,6 +39,13 @@ export class AccountStatusPageComponent {
   protected readonly outcome = signal<Outcome>('idle');
   protected readonly states = stateLabels;
   protected readonly bases = basisLabels;
+  protected readonly syncStates = { Pending: 'Saved, waiting for confirmation', Applied: 'Applied', NeedsReview: 'Needs review' };
+  protected readonly deliveries = {
+    Queued: 'Queued', Retrying: 'Retrying', AwaitingAcknowledgement: 'Awaiting acknowledgement',
+    Acknowledged: 'Acknowledged', DeadLetter: 'Delivery attempts exhausted',
+  };
+  protected readonly hasSynchronization = computed(() => this.status()?.items
+    .some(item => item.coveredShops.some(shop => shop.synchronization)));
   private request?: Subscription;
   private selectedAccount?: string;
   private generation = 0;

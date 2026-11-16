@@ -1,0 +1,29 @@
+@if (synchronization(); as sync) {
+  <div class="ib-panel" data-testid="entitlement-sync">
+    <p><strong data-testid="sync-state">{{ 'billing.status.sync.states.' + sync.state | transloco }}</strong></p>
+    <dl class="facts">
+      <dt>{{ 'billing.status.sync.saved' | transloco }}</dt>
+      <dd data-testid="sync-saved">{{ 'billing.status.sync.revisions' | transloco: { account: sync.savedAccountRevision, shop: sync.savedShopRevision } }}</dd>
+      <dt>{{ 'billing.status.sync.verifiedAt' | transloco }}</dt>
+      <dd>{{ instant(sync.savedVerifiedAt) }}</dd>
+      <dt>{{ 'billing.status.sync.applied' | transloco }}</dt>
+      <dd data-testid="sync-applied">
+        @if (sync.appliedShopRevision !== null) {
+          {{ 'billing.status.sync.revisions' | transloco: { account: sync.appliedAccountRevision, shop: sync.appliedShopRevision } }}
+        } @else {
+          {{ 'billing.status.sync.unconfirmed' | transloco }}
+        }
+      </dd>
+      <dt>{{ 'billing.status.sync.lastSynchronized' | transloco }}</dt>
+      <dd data-testid="sync-time">{{ instant(sync.lastSynchronizedAt) ?? ('billing.status.sync.unconfirmed' | transloco) }}</dd>
+      <dt>{{ 'billing.status.sync.delivery' | transloco }}</dt>
+      <dd data-testid="sync-delivery">{{ 'billing.status.sync.deliveries.' + sync.delivery | transloco }}</dd>
+      @if (sync.attention; as attention) {
+        <dt>{{ 'billing.status.sync.attention' | transloco }}</dt>
+        <dd data-testid="sync-attention">{{ attention }}</dd>
+      }
+    </dl>
+  </div>
+} @else {
+  <p>{{ 'billing.status.synchronization' | transloco }}</p>
+}

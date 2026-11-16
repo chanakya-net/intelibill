@@ -23,8 +23,16 @@ main {
   overflow-wrap: anywhere;
 }
 
+.status-facts .covered-shops {
+  grid-column: 1 / -1;
+}
+
 .shop {
-  display: block;
+  padding-block: 0.75rem;
+}
+
+.shop + .shop {
+  border-top: 1px solid var(--app-sand-300);
 }
 
 .grant-shops {

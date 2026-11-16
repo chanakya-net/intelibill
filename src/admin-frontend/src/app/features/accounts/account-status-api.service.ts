@@ -1,5 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
+import type { EntitlementSynchronization } from '@intelibill/api';
 import { EMPTY, type Observable, expand, reduce } from 'rxjs';
 
 /** Provider grants that may read access status; Platform Owner and Security Administrator alone may not. */
@@ -28,7 +29,11 @@ export interface TermStatus {
 
 export interface AccountTerm {
   readonly status: TermStatus;
-  readonly coveredShops: readonly { readonly shopId: string; readonly shopName: string }[];
+  readonly coveredShops: readonly {
+    readonly shopId: string;
+    readonly shopName: string;
+    readonly synchronization?: EntitlementSynchronization | null;
+  }[];
   readonly coveredShopCount: number;
 }
 

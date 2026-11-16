@@ -3500,6 +3500,28 @@
       "session": "Sign in again to read access status.",
       "refresh": "Check again",
       "synchronization": "Entitlement delivery to devices is not available yet.",
+      "sync": {
+        "states": {
+          "Pending": "Saved, waiting for confirmation",
+          "Applied": "Applied",
+          "NeedsReview": "Needs review"
+        },
+        "saved": "Saved in licensing",
+        "verifiedAt": "Saved policy verified",
+        "applied": "Confirmed by merchant",
+        "lastSynchronized": "Last synchronized",
+        "delivery": "Delivery",
+        "attention": "Review reference",
+        "unconfirmed": "Not confirmed yet",
+        "revisions": "Account {{account}} · Shop {{shop}}",
+        "deliveries": {
+          "Queued": "Queued",
+          "Retrying": "Retrying",
+          "AwaitingAcknowledgement": "Awaiting acknowledgement",
+          "Acknowledged": "Acknowledged",
+          "DeadLetter": "Delivery attempts exhausted"
+        }
+      },
       "incomplete": "Some subscription facts are not recorded. Only the recorded dates are shown and no grace is assumed.",
       "needsReview": "The recorded subscription facts disagree and need provider review. No access basis or grace is assumed.",
       "basis": "Access basis",

@@ -26,7 +26,7 @@
         <p>{{ 'billing.status.pending' | transloco }}</p>
         @if (isShopOwner()) { <p><a routerLink="/billing/trial">{{ 'billing.trial.title' | transloco }}</a></p> }
       }
-      <p>{{ 'billing.status.synchronization' | transloco }}</p>
+      <app-entitlement-synchronization [synchronization]="current.status.synchronization ?? null" />
     }
     @case ('account') {
       <p>{{ 'billing.status.evaluatedAt' | transloco: { time: instant(current.evaluatedAt) } }}</p>
@@ -36,13 +36,17 @@
           <ng-container *ngTemplateOutlet="termFacts; context: { $implicit: item.status }" />
           <p>{{ 'billing.status.coveredShops' | transloco: { count: item.coveredShopCount } }}</p>
           <ul>
-            @for (shop of item.coveredShops; track shop.shopId) { <li>{{ shop.shopName }}</li> }
+            @for (shop of item.coveredShops; track shop.shopId) {
+              <li>
+                {{ shop.shopName }}
+                <app-entitlement-synchronization [synchronization]="shop.synchronization ?? null" />
+              </li>
+            }
           </ul>
         </article>
       } @empty {
         <p>{{ 'billing.status.noTerms' | transloco }}</p>
       }
-      <p>{{ 'billing.status.synchronization' | transloco }}</p>
     }
   }
   <button class="ib-btn-secondary" type="button" data-testid="status-retry" (click)="load()">{{ 'billing.status.refresh' | transloco }}</button>
