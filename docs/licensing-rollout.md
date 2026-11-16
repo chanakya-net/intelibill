@@ -472,3 +472,7 @@ Apply both entitlement migrations and runtime grants before enabling local trans
 Apply `20261116210000_AddScheduledSubscriptionCancellations` before starting the cancellation-aware licensing API. Upgrade all licensing coverage writers and status readers before accepting cancellations. See [scheduled subscription cancellation](licensing-p02-15-cancellation.md) for deployment order, retained evidence and the local verification entry points.
 
 Apply `20261116220000_AddSubscriptionCancellationWithdrawals` after the cancellation migration, then upgrade every licensing API replica before accepting a withdrawal. See [withdrawing a scheduled cancellation](licensing-p02-16-cancellation-withdrawal.md) for the revision model, deployment order and local verification.
+
+### P02 lifecycle acceptance
+
+Use the [P02 acceptance guide](../tests/licensing/acceptance/p02-lifecycle.md) for the PostgreSQL and shipping Chromium scenarios, P03 synchronization contracts and commercial launch inputs. Keep this phase observe-only.
