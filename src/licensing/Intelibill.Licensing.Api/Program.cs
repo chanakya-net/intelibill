@@ -1,7 +1,13 @@
+using Intelibill.Licensing.Api.Entitlements;
+using Intelibill.Licensing.Api.Trials;
+using Intelibill.Licensing.Api.Billing;
 using Intelibill.Licensing.Api.AdminIdentities;
 using Intelibill.Licensing.Api.Audit;
 using Intelibill.Licensing.Api.Bootstrap;
+using Intelibill.Licensing.Api.Catalogue;
+using Intelibill.Licensing.Api.Grants;
 using Intelibill.Licensing.Api.Observability;
+using Intelibill.Licensing.Api.Status;
 using Intelibill.Licensing.Application;
 using Intelibill.Licensing.Infrastructure;
 using Intelibill.Licensing.Infrastructure.Data;
@@ -46,6 +52,7 @@ public sealed class Program
         builder.Services.AddBootstrapAuthorization();
         builder.Services.AddScoped<BootstrapRequestGate>();
         builder.Services.AddProviderSessions(builder.Environment);
+        builder.Services.AddCustomerBillingAuthentication();
         builder.Services.AddScoped<InvitationRequestGate>();
         builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, AdminAuditAccessDeniedHandler>();
         var protection = builder.Services.AddDataProtection().SetApplicationName("InteliBill.Licensing.Admin");
@@ -72,6 +79,8 @@ public sealed class Program
 
         app.UseRouting();
         app.UseMiddleware<AdminRequestBoundary>();
+        app.MapCustomerBilling();
+        app.MapEntitlementIntegration();
         app.UseAuthentication();
         app.UseAuthorization();
         app.MapBootstrap();
@@ -83,6 +92,10 @@ public sealed class Program
         app.MapAdminRecovery();
         app.MapAdminCapabilities();
         app.MapAdminAudit();
+        app.MapCatalogueDrafts();
+        app.MapAdminSubscriptionStatus();
+        app.MapComplimentaryGrants();
+        app.MapTrialExtensions();
         var business = app.MapGroup("/api/admin").RequireAuthorization(BootstrapAuthorization.BusinessPolicy);
         business.MapGet("/access", () => Results.NoContent());
         return app;

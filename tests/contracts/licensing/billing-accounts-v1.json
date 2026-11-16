@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "extends": "merchant-billing-delegation-v1.json",
+  "actorScopedPayloadFields": [
+    "action", "aud", "body_sha256", "exp", "iat", "iss", "jti",
+    "method", "nbf", "path", "request_id", "sub", "v", "verified_identity"
+  ],
+  "outboundHeaders": ["Authorization", "X-Billing-Request-Id"],
+  "bindings": {
+    "list": {
+      "action": "billing.account.list",
+      "method": "GET",
+      "path": "/internal/licensing/v1/customer/accounts",
+      "bodySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "create": {
+      "action": "billing.account.create",
+      "method": "POST",
+      "path": "/internal/licensing/v1/customer/accounts",
+      "contentType": "application/json",
+      "maxBodyBytes": 1024,
+      "bodyFields": ["name", "operationKey"],
+      "bodySha256": "sha256 of the exact request bytes, lowercase hex"
+    }
+  },
+  "accountFields": ["accountId", "createdAt", "name", "role"],
+  "listFields": ["accounts", "nextCursor"],
+  "pagination": {
+    "pageSize": 100,
+    "maxResponseBytes": 88256,
+    "responseBudget": "pageSize * (maxLength * 6 + 160) + 256: every UTF-16 unit of a name escaped as \\uXXXX",
+    "order": "accountId ascending (PostgreSQL uuid order)",
+    "merchantContinuation": "GET /api/billing/accounts?after={nextCursor}",
+    "internalContinuation": "GET /internal/licensing/v1/customer/accounts/after/{nextCursor}",
+    "binding": "The canonical continuation path is signed in path; query strings are rejected internally.",
+    "completion": "nextCursor null; otherwise the final returned accountId",
+    "authority": "Cursor is only a position; each page rechecks live session and actor memberships."
+  },
+  "roles": ["Owner", "Manager"],
+  "nameRule": { "trimmed": true, "minLength": 1, "maxLength": 120, "normalization": "NFC", "controlCharacters": false },
+  "createOutcomes": {
+    "created": { "status": 201 },
+    "replayed": { "status": 200 }
+  },
+  "internalFailures": {
+    "nameInvalid": { "status": 400, "code": "Billing.AccountNameInvalid" },
+    "operationKeyInvalid": { "status": 400, "code": "Billing.OperationKeyInvalid" },
+    "payloadMismatch": { "status": 409, "code": "Billing.OperationPayloadMismatch" },
+    "denied": { "status": 403, "code": "Billing.AccountAccessDenied" },
+    "invalid": { "status": 401, "code": "Billing.DelegationInvalid" },
+    "replay": { "status": 401, "code": "Billing.DelegationReplayed" },
+    "unavailable": { "status": 503, "code": "Billing.DelegationUnavailable" }
+  }
+}

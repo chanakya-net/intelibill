@@ -50,6 +50,18 @@ export const appConfig: ApplicationConfig = {
         loadComponent: () => import('./features/audit/audit-page.component').then((m) => m.AuditPageComponent),
       },
       {
+        path: 'accounts',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/accounts/account-status-page.component')
+          .then((m) => m.AccountStatusPageComponent),
+      },
+      {
+        path: 'catalogue',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/catalogue/catalogue-page.component')
+          .then((m) => m.CataloguePageComponent),
+      },
+      {
         path: 'auth/sign-in',
         loadComponent: () => import('./features/auth/sign-in-page.component').then((m) => m.SignInPageComponent),
       },

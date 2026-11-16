@@ -1,0 +1,44 @@
+<section class="affiliation-page">
+  <a routerLink="/billing">{{ 'billing.title' | transloco }}</a>
+  <h1 class="ib-page-title">{{ 'billing.affiliation.consent' | transloco }}</h1>
+  @if (readError() || operation.error()) {
+    <p role="alert">{{ (readError() || operation.error()) | transloco }}</p>
+  }
+  @if (detail(); as view) {
+    <article class="ib-panel affiliation-form">
+      <dl>
+        <dt>{{ 'billing.affiliation.account' | transloco }}</dt><dd>{{ view.request.accountName }}</dd>
+        <dt>{{ 'billing.affiliation.shop' | transloco }}</dt><dd>{{ view.shopName }}</dd>
+        <dt>{{ 'billing.affiliation.owner' | transloco }}</dt><dd>{{ view.ownerName }}</dd>
+        <dt>{{ 'billing.affiliation.selectCoverage' | transloco }}</dt>
+        <dd>
+          @if (view.request.term; as term) {
+            {{ 'billing.affiliation.mode.' + term.mode | transloco }} · {{ 'billing.affiliation.termDates' | transloco: {
+              from: (term.startsAt | date:'medium':'+0530'), until: (term.endsAt | date:'medium':'+0530')
+            } }} · {{ term.termId }}
+          } @else {
+            {{ 'billing.affiliation.none' | transloco }}
+          }
+        </dd>
+      </dl>
+      <p role="status">{{ 'billing.affiliation.status.' + view.status | transloco }}</p>
+      <div class="affiliation-actions">
+        @if (operation.pending(); as draft) {
+          @if (draft.decision; as action) {
+            <button pButton type="button" (click)="decide(action, draft.operationKey)" [disabled]="operation.saving()"
+              [label]="('billing.retry' | transloco) + ' · ' + ('billing.affiliation.' + action | transloco)"></button>
+          }
+        } @else if (view.status === 'AwaitingConsent') {
+          <button pButton type="button" (click)="decide('grant')" [disabled]="operation.saving()"
+            [label]="'billing.affiliation.grant' | transloco"></button>
+        } @else if (view.status === 'Granted') {
+          <button pButton type="button" (click)="decide('accept')" [disabled]="operation.saving()"
+            [label]="'billing.affiliation.accept' | transloco"></button>
+          <button pButton type="button" severity="secondary" (click)="decide('revoke')" [disabled]="operation.saving()"
+            [label]="'billing.affiliation.revoke' | transloco"></button>
+        }
+      </div>
+    </article>
+  }
+  <button pButton type="button" severity="secondary" (click)="reload()" [label]="'billing.affiliation.refresh' | transloco"></button>
+</section>

@@ -7,7 +7,9 @@ using Npgsql;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
-internal sealed class MerchantStartupProbeFactory(NpgsqlConnectionStringBuilder runtime)
+internal sealed class MerchantStartupProbeFactory(
+    NpgsqlConnectionStringBuilder runtime, string environment = "Testing",
+    IReadOnlyDictionary<string, string?>? settings = null, Action<IServiceCollection>? configure = null)
     : WebApplicationFactory<global::Program>
 {
     private static readonly string[] ExporterNames = ["OtlpTraceExporter", "OtlpMetricExporter"];
@@ -16,7 +18,7 @@ internal sealed class MerchantStartupProbeFactory(NpgsqlConnectionStringBuilder 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseContentRoot(Path.Combine(ProjectPaths.Root, "src/backend/Intelibill.Api"));
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(environment);
         builder.ConfigureAppConfiguration((_, configuration) =>
         {
             configuration.AddInMemoryCollection(LicensingApiFactory.DatabaseSettings("Database", runtime));
@@ -35,6 +37,7 @@ internal sealed class MerchantStartupProbeFactory(NpgsqlConnectionStringBuilder 
                 // Merchant Serilog creates its own OTLP transport outside the named clients.
                 ["Observability:NewRelic:OtlpEndpoint"] = "http://127.0.0.1:1",
             });
+            if (settings is not null) configuration.AddInMemoryCollection(settings);
         });
         builder.ConfigureServices(services =>
         {
@@ -45,6 +48,7 @@ internal sealed class MerchantStartupProbeFactory(NpgsqlConnectionStringBuilder 
                 && service.ImplementationType?.Name is "IdentityMailWorker" or "IdentitySmsWorker").ToArray();
             foreach (var worker in mailWorkers)
                 services.Remove(worker);
+            configure?.Invoke(services);
         });
     }
 

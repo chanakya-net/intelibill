@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "responsibilityPolicyVersion": "prospective-billing-owner/1",
+  "lifetimeDays": 7,
+  "routes": [
+    { "action": "billing.ownership-transfer.issue", "scope": "account", "method": "POST", "path": "/internal/licensing/v1/customer/accounts/91b27e17-df9f-41bb-9e35-28f14bfc3250/ownership-transfers" },
+    { "action": "billing.ownership-transfer.inbox", "scope": "actor", "method": "GET", "path": "/internal/licensing/v1/customer/ownership-transfers" },
+    { "action": "billing.ownership-transfer.preview", "scope": "actor", "method": "GET", "path": "/internal/licensing/v1/customer/ownership-transfers/35bc6eb7-d147-4be3-8659-75ad72a47ec7" },
+    { "action": "billing.ownership-transfer.accept", "scope": "actor", "method": "POST", "path": "/internal/licensing/v1/customer/ownership-transfers/35bc6eb7-d147-4be3-8659-75ad72a47ec7/accept" },
+    { "action": "billing.ownership-transfer.recover", "scope": "actor", "method": "GET", "path": "/internal/licensing/v1/customer/ownership-transfer-operations/accept/35bc6eb7-d147-4be3-8659-75ad72a47ec7" }
+  ],
+  "acceptanceFields": ["operationKey", "expectedVersion", "responsibilityPolicyVersion", "acceptResponsibility"]
+}

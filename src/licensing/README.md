@@ -67,6 +67,11 @@ bundle, `licensing-runtime-role` grants the runtime login and checks it holds
 no schema or role authority, and only then does `licensing-api` start. See
 [docs/licensing-rollout.md](../../docs/licensing-rollout.md).
 
+`20261116090000_AddCatalogueDrafts` adds the provider-only draft catalogue (plans,
+plan versions, trial policy versions and their change evidence) under forced
+row-level security. Its `Down` refuses while drafts exist. See "Draft plans and
+trial policy (P02-06)" in the rollout guide.
+
 ## Security primitives
 
 Both APIs register the bcrypt password hasher and opaque token primitives from

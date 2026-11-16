@@ -1,0 +1,110 @@
+using Intelibill.Licensing.Application.Entitlements;
+using System.Text.Json;
+using Intelibill.Licensing.Application.Status;
+using Intelibill.Licensing.Infrastructure.Data;
+using Intelibill.Licensing.Infrastructure.Status;
+using Intelibill.Shared.Contracts.V1;
+using Intelibill.Shared.Security;
+using Intelibill.Shared.Web.Delivery;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Intelibill.Licensing.Infrastructure.Entitlements;
+
+/// <summary>Freezes source facts inside the writer's existing account-fenced transaction.</summary>
+internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionAccessFactsReader reader,
+    [FromKeyedServices(SubscriptionStatusRegistration.ClockKey)] TimeProvider lifecycle, TimeProvider deliveryClock)
+    : IEntitlementPublisher
+{
+    internal DateTimeOffset Now => EntitlementSnapshotsV1.Instant(lifecycle);
+
+    public async Task PublishAsync(Guid account, Guid shop, CancellationToken ct)
+    {
+        if (!await PublishAsync(account, shop, reconcile: false, ct))
+            throw new InvalidOperationException("A committed entitlement source requires an affiliation.");
+    }
+
+    internal async Task<bool> PublishAsync(Guid account, Guid shop, bool reconcile, CancellationToken ct)
+    {
+        if (db.Database.CurrentTransaction is null)
+            throw new InvalidOperationException("Entitlement publication requires the owning transaction.");
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            SELECT set_config('app.status_shop_id', {shop.ToString("D")}, true)
+            """, ct);
+        var request = await db.Database.SqlQuery<Guid>($"""
+            SELECT request_id AS "Value" FROM public.shop_affiliations WHERE shop_id = {shop} AND account_id = {account}
+            """).SingleOrDefaultAsync(ct);
+        if (request == Guid.Empty || await reader.ReadShopAsync(shop, ct) is not { } coverage || coverage.AccountId != account)
+            return false;
+
+        var now = Now;
+        var accountHead = await ReadAccountAsync(account, reconcile, now, ct);
+        var term = SubscriptionStatusProjection.Choose(coverage, now, commercial: false);
+        var next = NextBoundary(coverage, now);
+        var nextVerification = Earlier(next, Earlier(accountHead.UpstreamVerifiedAt.AddHours(47), now.AddHours(47)));
+        var revision = await NextShopRevisionAsync(account, shop, nextVerification, ct);
+        var shopHead = new ShopEntitlementSnapshotV1(revision, now, term?.State ?? "PendingActivation", term?.TermId,
+            term?.Basis, term?.StartsAt, term?.AccessEndsAt, next, term?.PurchasedCapacity, term?.MemberAllowance);
+        await AppendAsync(new(1, EntitlementSnapshotsV1.PolicyVersion, Guid.NewGuid(), account,
+            shop, request, accountHead, shopHead), ct);
+        return true;
+    }
+
+    private async Task<AccountRestrictionSnapshotV1> ReadAccountAsync(Guid account, bool reconcile,
+        DateTimeOffset now, CancellationToken ct)
+    {
+        // Phase 2 has no restriction writer. Reconciliation re-verifies the authoritative head in place,
+        // retaining any restriction/release facts supplied by a later authority.
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO public.entitlement_account_heads (account_id, revision, upstream_verified_at, restriction)
+            VALUES ({account}, 1, {now}, 'Unrestricted')
+            ON CONFLICT (account_id) DO UPDATE SET revision = entitlement_account_heads.revision + 1,
+                upstream_verified_at = EXCLUDED.upstream_verified_at
+            WHERE {reconcile} AND entitlement_account_heads.upstream_verified_at < EXCLUDED.upstream_verified_at
+            """, ct);
+        return await db.Database.SqlQuery<AccountRestrictionSnapshotV1>($"""
+            SELECT revision, upstream_verified_at, restriction, released_revision
+            FROM public.entitlement_account_heads WHERE account_id = {account}
+            """).SingleAsync(ct);
+    }
+
+    private async Task<long> NextShopRevisionAsync(Guid account, Guid shop, DateTimeOffset due, CancellationToken ct)
+    {
+        var rows = await db.Database.SqlQuery<long>($"""
+            INSERT INTO public.entitlement_shop_heads (shop_id, account_id, revision, next_verification_at)
+            VALUES ({shop}, {account}, 1, {due})
+            ON CONFLICT (shop_id) DO UPDATE SET revision = entitlement_shop_heads.revision + 1,
+                next_verification_at = EXCLUDED.next_verification_at
+            WHERE entitlement_shop_heads.account_id = EXCLUDED.account_id
+            RETURNING revision AS "Value"
+            """).ToListAsync(ct);
+        return rows.Single();
+    }
+
+    private async Task AppendAsync(EntitlementSnapshotV1 snapshot, CancellationToken ct)
+    {
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(snapshot, EntitlementSnapshotsV1.Json);
+        await new LeasedHttpOutbox(db).AppendAsync(snapshot.EventId, snapshot.AccountId, snapshot.ShopId, "Snapshot",
+            bytes, SignedServiceAssertion.Digest(bytes), EntitlementSnapshotsV1.Instant(deliveryClock), ct);
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO public.entitlement_snapshots
+                (event_id, account_id, shop_id, affiliation_request_id, account_revision, shop_revision)
+            VALUES ({snapshot.EventId}, {snapshot.AccountId}, {snapshot.ShopId}, {snapshot.AffiliationRequestId},
+                {snapshot.Account!.Revision}, {snapshot.Shop!.Revision})
+            """, ct);
+    }
+
+    private static DateTimeOffset? NextBoundary(ShopCoverage coverage, DateTimeOffset now)
+    {
+        IEnumerable<TermFactsRow> rows = coverage.Grants ?? [];
+        if (coverage.Term is { } baseline) rows = rows.Prepend(baseline);
+        return rows.SelectMany(row =>
+            {
+                var status = SubscriptionStatusProjection.Project(row, now, commercial: false);
+                return new DateTimeOffset?[] { status.StartsAt, status.PaidThrough, status.GraceEndsAt, status.NextDeadline };
+            }).Where(date => date > now).Min();
+    }
+
+    private static DateTimeOffset Earlier(DateTimeOffset? first, DateTimeOffset other) =>
+        first is { } value && value < other ? value : other;
+}

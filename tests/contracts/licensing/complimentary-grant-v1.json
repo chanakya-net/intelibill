@@ -1,0 +1,74 @@
+{
+  "contract": "complimentary-grant",
+  "version": 1,
+  "policyVersion": "complimentary-access/1",
+  "basis": "Complimentary",
+  "timeZone": "Asia/Kolkata",
+  "routes": {
+    "preview": "POST /api/admin/accounts/{accountId}/grants/complimentary/preview",
+    "confirm": "POST /api/admin/accounts/{accountId}/grants/complimentary",
+    "recover": "GET /api/admin/accounts/{accountId}/grants/complimentary/operations/{operationKey}"
+  },
+  "authority": {
+    "capability": "LicensingManager",
+    "recentMfaMinutes": 5,
+    "recentMfaFor": ["confirm", "recover"],
+    "notSufficient": ["PlatformOwner", "SecurityAdministrator", "Support", "Billing"]
+  },
+  "limits": { "maximumShops": 100, "memberAllowance": [1, 100000], "reasonLength": [1, 500], "requestBytes": 16384 },
+  "instants": {
+    "accepted": ["2027-02-28T18:30:00Z", "2027-03-01T00:00:00+05:30", "2027-03-31T18:30:00.000001Z", "2027-03-31T18:30:00.0000000+00:00"],
+    "refused": ["2027-03-01T00:00:00", "2027-03-01T00:00:00.0000001Z", "+10000-01-01T00:00:00Z", "2027-03-01", null],
+    "canonical": { "input": "2027-03-01T00:00:00+05:30", "output": "2027-02-28T18:30:00.000000Z" }
+  },
+  "capacity": [
+    { "shops": 1, "coverageMode": "Independent", "shopCapacity": 1 },
+    { "shops": 3, "coverageMode": "Grouped", "shopCapacity": 3 }
+  ],
+  "outcomes": {
+    "created": { "status": 201 },
+    "replayed": { "status": 200, "meaning": "Same administrator, account, key and payload: the original outcome, even after expiry." },
+    "invalid": { "status": 400, "code": "Grant.Invalid" },
+    "shopNotAffiliated": { "status": 400, "code": "Grant.ShopNotAffiliated" },
+    "alreadyEnded": { "status": 400, "code": "Grant.AlreadyEnded" },
+    "accessDenied": { "status": 403, "code": "Grant.AccessDenied" },
+    "recentMfa": { "status": 403, "code": "Grant.RecentMfaRequired" },
+    "overlap": { "status": 409, "code": "Grant.Overlap" },
+    "versionConflict": { "status": 409, "code": "Grant.VersionConflict" },
+    "payloadMismatch": { "status": 409, "code": "Grant.PayloadMismatch" },
+    "busy": { "status": 409, "code": "Grant.Busy" },
+    "missing": { "status": 404, "code": "Grant.OperationNotFound" },
+    "unavailable": { "status": 503, "code": "Grant.Unavailable" }
+  },
+  "money": { "paymentRecorded": false, "commercial": null, "graceEndsAt": null, "nextPeriodEndsAt": null },
+  "terms": {
+    "grant": { "basis": "Complimentary", "startsAt": "2027-02-28T18:30:00Z", "endsAt": "2027-03-31T18:30:00Z" },
+    "paid": { "basis": "Paid", "startsAt": "2027-02-01T04:30:00Z", "endsAt": "2027-03-01T04:30:00Z", "anchorLocal": "2027-02-01T10:00:00", "ordinal": 0 },
+    "futurePaid": { "basis": "Paid", "startsAt": "2027-03-15T04:30:00Z", "endsAt": "2027-04-15T04:30:00Z", "anchorLocal": "2027-03-15T10:00:00", "ordinal": 0 },
+    "trial": { "basis": "Trial", "startsAt": "2027-02-20T00:00:00Z", "endsAt": "2027-03-06T00:00:00Z" },
+    "incomplete": { "basis": null, "startsAt": "2027-01-01T00:00:00Z", "endsAt": "2027-06-01T00:00:00Z" }
+  },
+  "selection": [
+    { "name": "no baseline before start", "baseline": null, "at": "2027-02-28T18:29:59.999999Z", "source": "grant", "state": "Scheduled" },
+    { "name": "no baseline at start", "baseline": null, "at": "2027-02-28T18:30:00Z", "source": "grant", "state": "Active" },
+    { "name": "no baseline last instant", "baseline": null, "at": "2027-03-31T18:29:59.999999Z", "source": "grant", "state": "Active" },
+    { "name": "no baseline at end", "baseline": null, "at": "2027-03-31T18:30:00Z", "source": "grant", "state": "Expired" },
+    { "name": "no grace a week later", "baseline": null, "at": "2027-04-07T18:30:00Z", "source": "grant", "state": "Expired" },
+    { "name": "active paid wins", "baseline": "paid", "at": "2027-03-01T00:00:00Z", "source": "baseline", "state": "Active" },
+    { "name": "paid grace wins", "baseline": "paid", "at": "2027-03-08T04:29:59.999999Z", "source": "baseline", "state": "Grace" },
+    { "name": "grant after paid grace", "baseline": "paid", "at": "2027-03-08T04:30:00Z", "source": "grant", "state": "Active" },
+    { "name": "active trial wins", "baseline": "trial", "at": "2027-03-05T23:59:59.999999Z", "source": "baseline", "state": "Active" },
+    { "name": "grant after expired trial", "baseline": "trial", "at": "2027-03-06T00:00:00Z", "source": "grant", "state": "Active" },
+    { "name": "grant fills gap before future paid", "baseline": "futurePaid", "at": "2027-03-01T00:00:00Z", "source": "grant", "state": "Active" },
+    { "name": "future paid wins once started", "baseline": "futurePaid", "at": "2027-03-15T04:30:00Z", "source": "baseline", "state": "Active" },
+    { "name": "incomplete baseline is never concealed", "baseline": "incomplete", "at": "2027-03-10T00:00:00Z", "source": "baseline", "state": "EvidenceIncomplete" },
+    { "name": "suspension overrides the grant", "baseline": null, "at": "2027-03-10T00:00:00Z", "source": "grant", "state": "Suspended",
+      "suspensions": [{ "startsAt": "2027-03-09T00:00:00Z", "releasedAt": "2027-03-12T00:00:00Z" }] },
+    { "name": "release reveals only the original interval", "baseline": null, "at": "2027-03-12T00:00:00Z", "source": "grant", "state": "Active",
+      "suspensions": [{ "startsAt": "2027-03-09T00:00:00Z", "releasedAt": "2027-03-12T00:00:00Z" }], "accessEndsAt": "2027-03-31T18:30:00Z" },
+    { "name": "release after grant end does not revive it", "baseline": null, "at": "2027-04-02T00:00:00Z", "source": "grant", "state": "Expired",
+      "suspensions": [{ "startsAt": "2027-03-09T00:00:00Z", "releasedAt": "2027-04-01T00:00:00Z" }] },
+    { "name": "suspended paid baseline is never displaced", "baseline": "paid", "at": "2027-03-01T00:00:00Z", "source": "baseline", "state": "Suspended",
+      "suspensions": [{ "startsAt": "2027-02-27T00:00:00Z" }] }
+  ]
+}

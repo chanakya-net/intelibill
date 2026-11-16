@@ -1,6 +1,7 @@
 using Intelibill.Licensing.Infrastructure.AdminIdentities;
 using Intelibill.Licensing.Infrastructure.Bootstrap;
 using Intelibill.Licensing.Infrastructure.AdminIdentities.Mfa;
+using Intelibill.Licensing.Infrastructure.Data.Configurations;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.Data;
@@ -22,5 +23,17 @@ public sealed class LicensingDbContext(DbContextOptions<LicensingDbContext> opti
         modelBuilder.ApplyConfiguration(new AdminTotpMapping());
         modelBuilder.ApplyConfiguration(new AdminRecoveryCodeMapping());
         modelBuilder.ApplyConfiguration(new AdminRecoveryMapping());
+        modelBuilder.ApplyConfiguration(new MerchantBillingDelegationUseConfiguration());
+        modelBuilder.ApplyConfiguration(new BillingAccountConfiguration());
+        modelBuilder.ApplyConfiguration(new BillingAccountMemberConfiguration());
+        modelBuilder.ApplyConfiguration(new PlanConfiguration());
+        modelBuilder.ApplyConfiguration(new PlanVersionConfiguration());
+        modelBuilder.ApplyConfiguration(new TrialPolicyVersionConfiguration());
+        modelBuilder.ApplyConfiguration(new CatalogueDraftChangeConfiguration());
+        modelBuilder.ApplyConfiguration(new CataloguePreparationConfiguration());
+        modelBuilder.ApplyConfiguration(new CataloguePublicationConfiguration());
+        modelBuilder.ApplyConfiguration(new PublishedCatalogueOfferConfiguration());
+        modelBuilder.ApplyConfiguration(new CatalogueRetirementConfiguration());
+        modelBuilder.ApplyConfiguration(new WithdrawnCatalogueOfferConfiguration());
     }
 }

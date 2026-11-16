@@ -1,0 +1,40 @@
+.plans-page {
+  display: grid;
+  gap: 1rem;
+  max-width: 74rem;
+  margin-inline: auto;
+  padding: clamp(0.75rem, 3vw, 1.5rem);
+}
+
+.offers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+  gap: 1rem;
+  list-style: none;
+  padding: 0;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem;
+  margin-block: 0.75rem 0;
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+button {
+  justify-self: start;
+}
+
+.terms-link {
+  display: inline-block;
+  margin-block-start: 1rem;
+}
+
+.availability {
+  margin-block-start: 0;
+}

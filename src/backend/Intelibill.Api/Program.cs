@@ -1,4 +1,6 @@
+using Intelibill.Api.Internal;
 using System.Text;
+using Intelibill.Api.Controllers;
 using Intelibill.Api.Extensions;
 using Intelibill.Api.Hubs;
 using Intelibill.Api.Middleware;
@@ -110,6 +112,7 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
 
         bearerOptions.Events = new JwtBearerEvents
         {
+            OnChallenge = BillingController.WriteChallengeAsync,
             OnTokenValidated = async context =>
             {
                 // A token that names no session is refused here rather than adopted: the account's
@@ -216,6 +219,7 @@ app.UseAuthorization();
 app.UseMiddleware<JwtContextEnrichmentMiddleware>();
 app.UseSerilogRequestLogging(SerilogExtensions.RequestLoggingOptions);
 app.MapControllers();
+app.MapEntitlementReceiver();
 app.MapWolverineEndpoints();
 // CloseOnAuthenticationExpiration: without it a transport outlives the token that opened it,
 // because the handshake is the only time SignalR looks at authentication. The client reconnects

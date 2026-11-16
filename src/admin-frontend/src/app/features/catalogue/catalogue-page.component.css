@@ -1,0 +1,87 @@
+label {
+  font-weight: 600;
+}
+
+select,
+textarea {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--app-sand-400);
+  border-radius: 0.5rem;
+  background: var(--app-sand-50);
+  color: var(--app-brown-900);
+}
+
+fieldset {
+  display: grid;
+  gap: 0.5rem;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.status {
+  justify-self: start;
+  padding: 0.125rem 0.625rem;
+  border-radius: 999px;
+  background: var(--app-sand-300);
+  font-weight: 600;
+}
+
+.plans {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.plan {
+  display: grid;
+  gap: 0.125rem;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--app-sand-400);
+  border-radius: 0.5rem;
+  background: var(--app-sand-50);
+  color: var(--app-brown-900);
+  text-align: start;
+  cursor: pointer;
+}
+
+.plan[aria-current='true'] {
+  border-color: var(--app-brown-800);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.terms {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.375rem 0.75rem;
+}
+
+.terms dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.acknowledgement {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.acknowledgement input {
+  flex: 0 0 auto;
+  width: 1.125rem;
+  height: 1.125rem;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--p-primary-color);
+}

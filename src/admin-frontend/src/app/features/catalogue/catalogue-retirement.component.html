@@ -1,0 +1,36 @@
+@if (target() || key()) {
+  <section class="ib-panel" aria-labelledby="retirement-heading">
+    <h2 class="ib-panel__title" id="retirement-heading">Retire plan version</h2>
+    @if (busy()) { <p role="status">Checking retirement…</p> }
+    @if (error()) { <p class="ib-error-banner" role="alert">{{ error() }}</p> }
+    @if (mfaNeeded()) {
+      <a routerLink="/auth/sign-in" target="_blank" rel="noopener">Sign in again</a>
+    }
+    @if (result(); as retired) {
+      <p role="status">Plan version retired from new purchase</p>
+      <p>Retirement reason · {{ retired.reason }}</p>
+      <button pButton type="button" (click)="close()">Close retirement</button>
+    } @else if (key()) {
+      <button pButton type="button" (click)="recover()" [disabled]="busy()">Check retirement outcome</button>
+      @if (canRetry() && !mfaNeeded()) {
+        <button pButton type="button" (click)="retry()" [disabled]="busy()">Retry original retirement</button>
+      }
+    } @else if (target(); as version) {
+      <adm-catalogue-snapshot [snapshot]="version.snapshot" />
+      <p>Existing agreements retain their accepted terms and access.</p>
+      <form (submit)="submit($event)">
+        <label for="retirement-reason">Retirement reason</label>
+        <textarea id="retirement-reason" required maxlength="500" [value]="reason()"
+          (input)="reason.set($any($event.target).value)" (change)="reason.set($any($event.target).value)"></textarea>
+        <label class="acknowledgement">
+          <input type="checkbox" [checked]="confirmed()" (change)="confirmed.set($any($event.target).checked)" />
+          I confirm this version should leave new selection.
+        </label>
+        <div class="actions">
+          <button pButton type="submit" [disabled]="!reason().trim() || !confirmed() || mfaNeeded()">Confirm retirement</button>
+          <button pButton type="button" (click)="close()">Cancel retirement</button>
+        </div>
+      </form>
+    }
+  </section>
+}

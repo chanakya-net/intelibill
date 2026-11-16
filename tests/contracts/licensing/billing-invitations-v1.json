@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "internalPrefix": "/internal/licensing/v1/customer",
+  "maximumRequestBytes": 2048,
+  "maximumResponseBytes": 100000,
+  "pageSize": 100,
+  "lifetimeDays": 7,
+  "bindings": {
+    "billing.invitation.owner-check": { "method": "GET", "path": "/accounts/{accountId}/invitations/owner", "scope": "account", "responseFields": ["ownerRevision"] },
+    "billing.invitation.issue": { "method": "POST", "path": "/accounts/{accountId}/invitations", "scope": "account", "requestFields": ["operationKey", "ownerRevision", "invitedActorId", "requestSha256"], "responseFields": ["operationKey"], "successStatus": 202 },
+    "billing.member.list": { "method": "GET", "path": "/accounts/{accountId}/members[/after/{cursor}]", "scope": "account", "responseFields": ["accountName", "members", "nextCursor", "ownerRevision"] },
+    "billing.invitation.inbox": { "method": "GET", "path": "/invitations[/after/{cursor}]", "scope": "actor", "responseFields": ["invitations", "nextCursor"] },
+    "billing.invitation.proof": { "method": "POST", "path": "/invitations/{invitationId}/proof", "scope": "actor", "responseFields": ["token", "revision"] },
+    "billing.invitation.accept": { "method": "POST", "path": "/invitations/{invitationId}/accept", "scope": "actor", "requestFields": ["token", "expectedInvitationRevision"], "responseFields": ["accountId", "name", "role", "createdAt"] }
+  },
+  "merchant": {
+    "issue": { "requestFields": ["operationKey", "expectedOwnerRevision", "recipientKind", "recipient"], "responseFields": ["operationKey"] },
+    "accept": { "requestFields": ["expectedInvitationRevision"], "role": "Manager" },
+    "cacheControl": "no-store",
+    "inviteeFailures": { "status": 404, "code": "Billing.InvitationUnavailable" }
+  }
+}

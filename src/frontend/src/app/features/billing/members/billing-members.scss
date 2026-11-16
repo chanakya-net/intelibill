@@ -1,0 +1,20 @@
+.billing-page__form select {
+  width: 100%;
+  border: 1px solid var(--p-inputtext-border-color);
+  border-radius: var(--p-inputtext-border-radius);
+  background: var(--p-inputtext-background);
+  color: var(--p-inputtext-color);
+  font: inherit;
+  padding: 0.65rem 0.75rem;
+}
+
+.billing-page__list + button {
+  margin-top: 0.75rem;
+}
+
+.removal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}

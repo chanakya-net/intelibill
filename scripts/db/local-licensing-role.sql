@@ -164,6 +164,20 @@ alter default privileges for role intelibill_licensing_migrator in schema public
 grant select, insert, update, delete on all tables in schema public to intelibill_licensing_app;
 grant usage, select on all sequences in schema public to intelibill_licensing_app;
 
+-- Bounded integration worker routines are private until explicitly granted.
+DO $$ BEGIN
+  IF to_regprocedure('public.claim_entitlement_delivery(timestamptz,uuid)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.claim_entitlement_delivery(timestamptz,uuid) TO intelibill_licensing_app;
+  END IF;
+  IF to_regprocedure('public.finish_entitlement_delivery(uuid,uuid,timestamptz,boolean,boolean,text)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.finish_entitlement_delivery(uuid,uuid,timestamptz,boolean,boolean,text) TO intelibill_licensing_app;
+  END IF;
+  IF to_regprocedure('public.due_entitlement_verification(timestamptz)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.due_entitlement_verification(timestamptz) TO intelibill_licensing_app;
+  END IF;
+END $$;
+
+
 -- Migration history is the migrator's record; the runtime may read it only.
 do $$
 begin

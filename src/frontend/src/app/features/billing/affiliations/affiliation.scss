@@ -1,0 +1,37 @@
+.affiliation-page,
+.affiliation-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.affiliation-page {
+  max-width: 64rem;
+}
+
+.affiliation-form {
+  padding: 1rem;
+  overflow-wrap: anywhere;
+
+  select {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  dt {
+    font-weight: 600;
+  }
+
+  dd {
+    margin: 0 0 0.75rem;
+  }
+}
+
+.affiliation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+button {
+  justify-self: start;
+}

@@ -1,0 +1,63 @@
+@if (trials().length || pending() || result()) {
+  <section class="ib-panel" data-testid="trial-extension-editor" aria-labelledby="trial-extension-title">
+    <h2 class="ib-panel__title" id="trial-extension-title">Trial extension</h2>
+    @if (error()) {
+      <p class="ib-error-banner" role="alert" data-testid="trial-extension-error">{{ error() }}</p>
+    }
+    @if (pending(); as saved) {
+      <p data-testid="trial-extension-pending">Saved operation <code>{{ saved.command.operationKey }}</code></p>
+      <button pButton type="button" [disabled]="busy()" (click)="recover()">Check extension outcome</button>
+      <button pButton type="button" [disabled]="busy()" (click)="retry()">Retry original extension</button>
+    } @else if (result(); as approved) {
+      <p role="status" data-testid="trial-extension-result">{{ approved.shopName }} trial extended to {{ instant(approved.endsAt) }}.</p>
+      <p>Saved in licensing. Merchant confirmation is shown in the covered shop’s status.</p>
+      <button pButton type="button" (click)="reset()">Review another extension</button>
+    } @else if (phase() === 'storage') {
+      <button pButton type="button" (click)="reset()">Check saved extensions</button>
+    } @else if (phase() === 'loading' || phase() === 'sending') {
+      <p role="status">Checking saved extension requests…</p>
+    } @else {
+      <form class="ib-form-section status-lookup" (submit)="requestPreview($event)">
+        <label for="extension-shop">Trial shop</label>
+        <select id="extension-shop" [value]="shop()" (change)="edit('shop', $any($event.target).value)">
+          <option value="">Select a shop</option>
+          @for (trial of trials(); track trial.shopId) {
+            <option [value]="trial.shopId">{{ trial.shopName }}</option>
+          }
+        </select>
+        <label for="extension-end">New trial end (IST)</label>
+        <input id="extension-end" type="text" placeholder="YYYY-MM-DD HH:mm:ss" aria-describedby="extension-end-format"
+          [value]="endsAt()" (input)="edit('endsAt', $any($event.target).value)" />
+        <small id="extension-end-format">Enter a 24-hour time. Seconds may include up to six decimal places.</small>
+        <label for="extension-reason">Reason</label>
+        <textarea id="extension-reason" maxlength="500" [value]="reason()" (input)="edit('reason', $any($event.target).value)"></textarea>
+        <label for="extension-reference">Review reference</label>
+        <input id="extension-reference" type="text" maxlength="80" [value]="reviewReference()"
+          (input)="edit('reviewReference', $any($event.target).value)" />
+        <button pButton type="submit" [disabled]="busy()">Preview extension</button>
+      </form>
+      @if (preview(); as exact) {
+        <section class="ib-form-section" data-testid="trial-extension-preview" aria-label="Extension preview">
+          <dl class="status-facts">
+            <dt>Shop</dt><dd>{{ exact.shopName }}</dd>
+            <dt>Original trial</dt><dd>{{ instant(exact.startsAt) }} to {{ instant(exact.originalEndsAt) }}</dd>
+            <dt>Current trial end</dt><dd>{{ instant(exact.currentEndsAt) }}</dd>
+            <dt>New trial end</dt><dd data-testid="trial-extension-preview-end">{{ instant(exact.endsAt) }}</dd>
+            <dt>Reason</dt><dd>{{ exact.reason }}</dd>
+            <dt>Review reference</dt><dd>{{ exact.reviewReference }}</dd>
+            <dt>Payment</dt><dd>None recorded</dd>
+            <dt>Grace</dt><dd>No grace period</dd>
+          </dl>
+          @if (exact.accountTrialCapReached) {
+            <p role="status">This exception exceeds the account’s cap of {{ exact.accountTrialCap }} concurrent trials.</p>
+          }
+          <label class="acknowledgement">
+            <input type="checkbox" [checked]="confirmed()" (change)="confirmed.set($any($event.target).checked)" />
+            I approve this exact deadline and review reference.
+          </label>
+          <button pButton type="button" [disabled]="!confirmed() || busy()" (click)="approve()">Approve extension</button>
+        </section>
+      }
+    }
+  </section>
+}

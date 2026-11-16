@@ -1,0 +1,41 @@
+main {
+  max-width: 60rem;
+}
+
+.status-lookup {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.status-lookup input {
+  min-height: 2.75rem;
+  padding: 0.5rem;
+}
+
+.status-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.status-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.status-facts .covered-shops {
+  grid-column: 1 / -1;
+}
+
+.shop {
+  padding-block: 0.75rem;
+}
+
+.shop + .shop {
+  border-top: 1px solid var(--app-sand-300);
+}
+
+.grant-shops {
+  margin: 0.75rem 0;
+  padding-left: 1.25rem;
+}

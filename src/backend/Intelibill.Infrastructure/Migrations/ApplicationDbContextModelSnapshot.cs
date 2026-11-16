@@ -23,6 +23,42 @@ namespace Intelibill.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.AccountLicenseRestriction", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid>("EvidenceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("evidence_id");
+
+                    b.Property<long?>("ReleasedRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("released_revision");
+
+                    b.Property<string>("Restriction")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("restriction");
+
+                    b.Property<long>("Revision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("revision");
+
+                    b.Property<DateTimeOffset>("UpstreamVerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("upstream_verified_at");
+
+                    b.HasKey("AccountId")
+                        .HasName("pk_account_license_restrictions");
+
+                    b.HasIndex("EvidenceId")
+                        .HasDatabaseName("ix_account_license_restrictions_evidence_id");
+
+                    b.ToTable("account_license_restrictions", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.AuthSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2071,6 +2107,90 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasDatabaseName("ix_item_barcode_sequences_shop_id");
 
                     b.ToTable("item_barcode_sequences", (string)null);
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.LicenseGrantEvidence", b =>
+                {
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("event_id");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<long?>("AccountRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("account_revision");
+
+                    b.Property<DateTimeOffset?>("AccountUpstreamVerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("account_upstream_verified_at");
+
+                    b.Property<Guid>("AffiliationRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("affiliation_request_id");
+
+                    b.Property<DateTimeOffset>("AppliedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("applied_at");
+
+                    b.Property<string>("Assertion")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)")
+                        .HasColumnName("assertion");
+
+                    b.Property<string>("Digest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("digest");
+
+                    b.Property<DateTimeOffset>("IssuedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("issued_at");
+
+                    b.Property<string>("KeyId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("key_id");
+
+                    b.Property<byte[]>("Payload")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("payload");
+
+                    b.Property<string>("PublicKey")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("public_key");
+
+                    b.Property<DateTimeOffset>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("received_at");
+
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<long?>("ShopRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("shop_revision");
+
+                    b.Property<DateTimeOffset?>("ShopUpstreamVerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("shop_upstream_verified_at");
+
+                    b.HasKey("EventId")
+                        .HasName("pk_license_grant_evidence");
+
+                    b.HasIndex("ShopId")
+                        .HasDatabaseName("ix_license_grant_evidence_shop_id");
+
+                    b.ToTable("license_grant_evidence", (string)null);
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.OfflineExpiryEvidence", b =>
@@ -5403,6 +5523,81 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("shop_invitations", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.ShopLicenseState", b =>
+                {
+                    b.Property<Guid>("ShopId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("shop_id");
+
+                    b.Property<DateTimeOffset?>("AccessEndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("access_ends_at");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("account_id");
+
+                    b.Property<Guid>("AffiliationRequestId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("affiliation_request_id");
+
+                    b.Property<string>("Basis")
+                        .HasColumnType("text")
+                        .HasColumnName("basis");
+
+                    b.Property<DateTimeOffset?>("EnforcementActivatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("enforcement_activated_at");
+
+                    b.Property<Guid>("EvidenceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("evidence_id");
+
+                    b.Property<int?>("MemberAllowance")
+                        .HasColumnType("integer")
+                        .HasColumnName("member_allowance");
+
+                    b.Property<DateTimeOffset?>("NextBoundary")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_boundary");
+
+                    b.Property<long>("Revision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("revision");
+
+                    b.Property<int?>("ShopCapacity")
+                        .HasColumnType("integer")
+                        .HasColumnName("shop_capacity");
+
+                    b.Property<DateTimeOffset?>("StartsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("state");
+
+                    b.Property<Guid?>("TermId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("term_id");
+
+                    b.Property<DateTimeOffset>("UpstreamVerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("upstream_verified_at");
+
+                    b.HasKey("ShopId")
+                        .HasName("pk_shop_license_states");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_shop_license_states_account_id");
+
+                    b.HasIndex("EvidenceId")
+                        .HasDatabaseName("ix_shop_license_states_evidence_id");
+
+                    b.ToTable("shop_license_states", (string)null);
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.ShopMembership", b =>
                 {
                     b.Property<Guid>("Id")
@@ -7115,6 +7310,16 @@ namespace Intelibill.Infrastructure.Migrations
                     b.ToTable("users", (string)null);
                 });
 
+            modelBuilder.Entity("Intelibill.Domain.Entities.AccountLicenseRestriction", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.LicenseGrantEvidence", null)
+                        .WithMany()
+                        .HasForeignKey("EvidenceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_account_license_restrictions_license_grant_evidence_evidenc");
+                });
+
             modelBuilder.Entity("Intelibill.Domain.Entities.AuthSession", b =>
                 {
                     b.HasOne("Intelibill.Domain.Entities.User", "User")
@@ -8184,6 +8389,30 @@ namespace Intelibill.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_shop_expiry_states_shops_shop_id");
+                });
+
+            modelBuilder.Entity("Intelibill.Domain.Entities.ShopLicenseState", b =>
+                {
+                    b.HasOne("Intelibill.Domain.Entities.AccountLicenseRestriction", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_shop_license_states_account_license_restrictions_account_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.LicenseGrantEvidence", null)
+                        .WithMany()
+                        .HasForeignKey("EvidenceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_shop_license_states_license_grant_evidence_evidence_id");
+
+                    b.HasOne("Intelibill.Domain.Entities.Shop", null)
+                        .WithOne()
+                        .HasForeignKey("Intelibill.Domain.Entities.ShopLicenseState", "ShopId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_shop_license_states_shops_shop_id");
                 });
 
             modelBuilder.Entity("Intelibill.Domain.Entities.ShopMembership", b =>

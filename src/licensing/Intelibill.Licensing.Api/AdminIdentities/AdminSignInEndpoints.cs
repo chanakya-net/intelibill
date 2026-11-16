@@ -55,12 +55,18 @@ internal static class AdminSignInEndpoints
         return Results.Ok(new { accessExpiresAt = grant.AccessIssuedAt + AdminSession.AccessLifetime });
     }
 
-    private static IResult ReadSession(HttpContext context) => Results.Ok(new
+    private static IResult ReadSession(HttpContext context)
     {
-        capabilities = context.User.FindAll(ProviderSessions.CapabilityClaim).Select(claim => claim.Value).Distinct(StringComparer.Ordinal),
-        sessionId = context.User.FindFirstValue(ProviderSessions.SessionIdClaim),
-        accessExpiresAt = context.User.FindFirstValue(ProviderSessions.AccessExpiresClaim),
-    });
+        var identity = context.User.Identities.FirstOrDefault(item => item.AuthenticationType == ProviderSessions.Scheme);
+        if (identity is null) return Results.Unauthorized();
+        return Results.Ok(new
+        {
+            capabilities = identity.FindAll(ProviderSessions.CapabilityClaim).Select(claim => claim.Value).Distinct(StringComparer.Ordinal),
+            adminId = identity.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+            sessionId = identity.FindFirst(ProviderSessions.SessionIdClaim)?.Value,
+            accessExpiresAt = identity.FindFirst(ProviderSessions.AccessExpiresClaim)?.Value,
+        });
+    }
 
     private static async Task<SignInRequest?> ReadRequestAsync(HttpContext context)
     {

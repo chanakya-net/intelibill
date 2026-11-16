@@ -1,5 +1,8 @@
+using Intelibill.Licensing.Infrastructure.Billing;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Application.Audit;
+using Intelibill.Licensing.Application.Catalogue;
+using Intelibill.Licensing.Infrastructure.Catalogue;
 using Intelibill.Licensing.Infrastructure.Audit;
 using Intelibill.Licensing.Application.Bootstrap;
 using Intelibill.Licensing.Infrastructure.AdminIdentities;
@@ -34,6 +37,7 @@ public static class DependencyInjection
                 npgsql => npgsql.MigrationsAssembly(typeof(LicensingDbContext).Assembly.GetName().Name))
             .UseSnakeCaseNamingConvention());
         services.AddSingleton<LicensingDatabaseReadiness>();
+        services.AddBillingDelegation();
         services.AddSingleton<IBootstrapRateBudget, PostgresBootstrapRateBudget>();
         services.AddOptions<AdminMailOptions>().Bind(configuration.GetSection(AdminMailOptions.SectionName));
         services.AddOptions<AdminMfaOptions>().Bind(configuration.GetSection("AdminMfa"))
@@ -48,6 +52,13 @@ public static class DependencyInjection
         services.AddScoped<IAdminMfaVerifier, AdminMfaVerifier>();
         services.AddScoped<IAdminRecoveryStore, AdminRecoveryStore>();
         services.AddScoped<IAdminCapabilitiesStore, AdminCapabilitiesStore>();
+        services.AddScoped<ICatalogueDraftStore, CatalogueDraftStore>();
+        services.AddScoped<ICataloguePublicationStore, CataloguePublicationStore>();
+        services.AddScoped<ICatalogueHistoryStore, CatalogueHistoryStore>();
+        services.AddScoped<IPublishedCatalogueReader, PublishedCatalogueReader>();
+        services.AddScoped<ReadPublishedCatalogueHandler>();
+        services.AddOptions<CataloguePublicationOptions>().Bind(configuration.GetSection("CataloguePublication"));
+        services.AddScoped<ICataloguePublicationApproval, CataloguePublicationApproval>();
         return services.AddBootstrapPersistence();
     }
 

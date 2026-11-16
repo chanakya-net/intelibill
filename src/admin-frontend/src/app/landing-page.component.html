@@ -2,6 +2,9 @@
   <h1 class="ib-page-title">Provider Console</h1>
   @if (authenticated()) {
     <div><a routerLink="/security/sessions">Device sessions</a></div>
+    @if (canReadStatus()) {
+      <div><a routerLink="/accounts">Account access status</a></div>
+    }
     <section class="ib-panel" aria-labelledby="access-heading">
       <h2 class="ib-panel__title" id="access-heading">Granted capabilities</h2>
       @if (capabilities().length) {
@@ -16,6 +19,8 @@
                 <a routerLink="/security/recovery">Review administrator recovery</a>
               } @else if (capability === accessManagementCapability) {
                 <a routerLink="/admin-users">Manage administrator access</a>
+              } @else if (capability === licensingManager) {
+                <a routerLink="/catalogue">Plan catalogue drafts</a>
               } @else {
                 {{ capabilityLabel(capability) }}
               }

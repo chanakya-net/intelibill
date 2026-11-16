@@ -1,0 +1,90 @@
+<section class="billing-page">
+  <header>
+    <a routerLink="/billing">{{ 'billing.title' | transloco }}</a>
+    <h1 class="ib-page-title">{{ 'billing.invitations.members' | transloco }}</h1>
+    @if (roster(); as account) {
+      <p class="ib-subtitle">{{ account.accountName }}</p>
+    }
+  </header>
+  @if (error()) {
+    <p class="page-alert page-alert--error" role="alert">{{ error() | transloco }}</p>
+  }
+  @if (notice()) {
+    <p class="page-alert" role="status" data-testid="billing-invite-notice">{{ notice() | transloco }}</p>
+  }
+  @if (loading()) {
+    <p role="status">{{ 'billing.invitations.loading' | transloco }}</p>
+  } @else if (!roster()) {
+    <button pButton type="button" [label]="'billing.reload' | transloco" (click)="load()"></button>
+  }
+  @if (roster(); as account) {
+    <section class="panel ib-panel">
+      <ul class="billing-page__list">
+        @for (member of account.members; track member.memberId) {
+          <li class="billing-page__row" data-testid="billing-member-row">
+            <span class="billing-page__name">
+              {{ (member.isCurrent ? 'billing.invitations.you' : 'billing.invitations.memberReference') |
+                 transloco: { id: member.memberId.slice(-8) } }}
+            </span>
+            <span class="ib-meta-chip">{{ 'billing.roles.' + member.role | transloco }}</span>
+            @if (account.ownerRevision && member.role === 'Manager') {
+              <button pButton type="button" severity="danger" [outlined]="true" data-testid="billing-remove-manager"
+                [disabled]="submitting() || loading() || !!removalDraft()" (click)="removing.set(member)"
+                [label]="'billing.removal.action' | transloco"></button>
+            }
+          </li>
+        }
+      </ul>
+      @if (account.nextCursor; as cursor) {
+        <button pButton type="button" [disabled]="loading() || submitting()"
+                [label]="'billing.invitations.more' | transloco" (click)="load(cursor)"></button>
+      }
+    </section>
+    @if (account.ownerRevision) {
+      <a routerLink="../ownership-transfer" data-testid="billing-transfer-link">{{ 'billing.transfer.action' | transloco }}</a>
+      @if (removalDraft(); as draft) {
+        <section class="panel ib-panel">
+          <p>{{ 'billing.removal.pending' | transloco: { id: draft.memberId.slice(-8) } }}</p>
+          <button pButton type="button" data-testid="billing-remove-retry" [disabled]="submitting() || loading()"
+            (click)="retryRemoval()" [label]="'billing.retry' | transloco"></button>
+        </section>
+      }
+      <section class="panel ib-panel" aria-labelledby="billing-invite-title">
+        <header class="panel__header ib-panel__header">
+          <h2 class="ib-panel__title" id="billing-invite-title">{{ 'billing.invitations.invite' | transloco }}</h2>
+        </header>
+        <form class="billing-page__form" (submit)="submit($event, recipient)">
+          <label for="billing-recipient-kind">{{ 'billing.invitations.recipientKind' | transloco }}</label>
+          <select id="billing-recipient-kind" #recipientKind [value]="kind()" [disabled]="pending() !== null"
+                  (change)="kind.set(recipientKind.value === 'phone' ? 'phone' : 'email')">
+            <option value="email">{{ 'billing.invitations.email' | transloco }}</option>
+            <option value="phone">{{ 'billing.invitations.phone' | transloco }}</option>
+          </select>
+          <label for="billing-recipient">{{ ('billing.invitations.' + kind()) | transloco }}</label>
+          <input pInputText id="billing-recipient" #recipient [type]="kind() === 'email' ? 'email' : 'tel'"
+                 [readOnly]="pending() !== null" maxlength="254" required autocomplete="off"
+                 data-testid="billing-invite-recipient" />
+          <button pButton type="submit" data-testid="billing-invite-submit" [disabled]="submitting() || loading()"
+                  [label]="(pending() && !submitting() ? 'billing.retry' : 'billing.invitations.invite') | transloco"></button>
+        </form>
+      </section>
+    }
+  }
+</section>
+
+<p-dialog [visible]="!!removing()" (visibleChange)="!$event && removing.set(null)" [modal]="true" appendTo="body"
+  [header]="'billing.removal.action' | transloco" [style]="{ width: '30rem', maxWidth: 'calc(100vw - 2rem)' }">
+  @if (removing(); as member) {
+    <form class="billing-page__form" data-testid="billing-remove-form" (submit)="confirmRemoval($event, reason.value)">
+      <p>{{ 'billing.removal.confirm' | transloco: { account: roster()?.accountName, id: member.memberId.slice(-8) } }}</p>
+      <label for="billing-removal-reason">{{ 'billing.removal.reason' | transloco }}</label>
+      <textarea pTextarea id="billing-removal-reason" #reason rows="3" maxlength="500" required></textarea>
+      <div class="removal-actions">
+        <button pButton type="button" severity="secondary" data-testid="billing-remove-cancel"
+          (click)="removing.set(null)" [label]="'billing.removal.cancel' | transloco"></button>
+        <button pButton type="submit" severity="danger" data-testid="billing-remove-confirm"
+          [disabled]="loading() || submitting()" [label]="'billing.removal.action' | transloco"></button>
+      </div>
+    </form>
+  }
+</p-dialog>

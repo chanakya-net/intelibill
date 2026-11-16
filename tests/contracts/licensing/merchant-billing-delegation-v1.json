@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "issuer": "InteliBill.Merchant.Billing",
+  "audience": "InteliBill.Licensing.Customer",
+  "type": "intelibill-merchant-billing-delegation+jwt",
+  "algorithm": "RS256",
+  "headerFields": ["alg", "kid", "typ"],
+  "payloadFields": [
+    "account_id", "action", "aud", "body_sha256", "exp", "iat", "iss", "jti",
+    "method", "nbf", "path", "request_id", "sub", "v", "verified_identity"
+  ],
+  "binding": {
+    "action": "billing.account.read",
+    "method": "GET",
+    "path": "/internal/licensing/v1/customer/accounts/11111111-1111-1111-1111-111111111111/access",
+    "requestIdHeader": "X-Billing-Request-Id",
+    "bodySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "lifetime": {
+    "maxSeconds": 60,
+    "issuedAt": 1935403200,
+    "notBefore": 1935403200,
+    "expiresAt": 1935403260,
+    "validSeconds": [1935403200, 1935403259],
+    "invalidSeconds": [1935403199, 1935403260]
+  },
+  "internalFailures": {
+    "invalid": { "status": 401, "code": "Billing.DelegationInvalid" },
+    "replay": { "status": 401, "code": "Billing.DelegationReplayed" },
+    "denied": { "status": 403, "code": "Billing.AccountAccessDenied" },
+    "membershipUnavailable": { "status": 503, "code": "Billing.MembershipUnavailable" }
+  }
+}
