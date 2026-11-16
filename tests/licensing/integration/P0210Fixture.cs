@@ -10,7 +10,7 @@ using Npgsql;
 namespace Intelibill.Licensing.Integration.Tests;
 
 internal sealed class P0210Fixture(P0206Fixture catalogue, RSA deliveryKey, P0209Fixture.Hosts hosts, Guid policyId,
-    int policyRevision, P0110CookieBrowser? manager) : IAsyncDisposable
+    int policyRevision, P0110CookieBrowser? manager, string? managerSeed) : IAsyncDisposable
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     internal static readonly DateTimeOffset Start = P0209Fixture.Utc("2027-02-10T00:00:00.123456Z");
@@ -18,6 +18,8 @@ internal sealed class P0210Fixture(P0206Fixture catalogue, RSA deliveryKey, P020
     internal Guid PolicyId { get; } = policyId;
     internal int PolicyRevision { get; } = policyRevision;
     internal NpgsqlConnectionStringBuilder LicensingOwner => Hosts.LicensingOwner;
+    internal P0206Fixture Catalogue => catalogue;
+    internal string? CatalogueManagerSeed => managerSeed;
     internal P0110CookieBrowser? CatalogueManager => manager;
 
     internal static async Task<P0210Fixture> StartAsync(LicensingPostgreSqlFixture database, bool publish = true, bool browser = false,
@@ -26,13 +28,14 @@ internal sealed class P0210Fixture(P0206Fixture catalogue, RSA deliveryKey, P020
         await database.PrepareMerchantAsync();
         await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase),
             "TRUNCATE public.rate_limit_buckets");
-        var catalogue = await P0206Fixture.StartAsync(database, P0207Tests.LocalSettings());
-        var manager = publish ? (await catalogue.ManagerAsync()).Manager : null;
+        var businessClock = new P0201Clock { Now = Start };
+        var catalogue = await P0206Fixture.StartAsync(database, P0207Tests.LocalSettings(), services =>
+            services.AddKeyedSingleton<TimeProvider>(P0209Fixture.StatusClockKey, businessClock));
+        var (manager, seed) = publish ? await catalogue.ManagerAsync() : (null, null);
         var policy = manager is not null ? await P0207Tests.PublishTrialAsync(manager, 1) : Guid.NewGuid();
         var revision = publish ? (int)(await catalogue.ScalarAsync($"SELECT revision FROM trial_policy_versions WHERE id = '{policy:D}'"))! : 2;
         var signing = new P0201Fixture(database, catalogue.Runtime.Database!);
         signing.Clock.Now = P0202Fixture.WholeSecondNow();
-        var businessClock = new P0201Clock { Now = Start };
         var key = RSA.Create(2048);
         var settings = signing.LicensingSettings();
         if (approve)
@@ -60,7 +63,7 @@ internal sealed class P0210Fixture(P0206Fixture catalogue, RSA deliveryKey, P020
             });
         if (browser)
             merchant.UseKestrel(options => options.Listen(System.Net.IPAddress.Loopback, 0));
-        return new(catalogue, key, new(signing, licensing, merchant, businessClock, database), policy, revision, manager);
+        return new(catalogue, key, new(signing, licensing, merchant, businessClock, database), policy, revision, manager, seed);
     }
 
     internal async Task LinkAsync(Guid account, Guid payer, P0209Fixture.Merchant shop) =>

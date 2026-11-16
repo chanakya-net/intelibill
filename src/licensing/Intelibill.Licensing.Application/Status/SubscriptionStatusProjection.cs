@@ -22,8 +22,9 @@ public static class SubscriptionStatusProjection
             var complete = row.Basis is null && row.Mode == "Independent" && row.Capacity == 1
                 && trial is { ComputationVersion: TrialHistory.ComputationVersion, MemberCap: > 0, ActiveMembers: > 0,
                     AccountTrialCap: > 0, ConflictingCoverage: false }
-                && trial.ActiveMembers <= trial.MemberCap && row.EndsAt - row.StartsAt == TimeSpan.FromDays(ShopTrialsV1.DurationDays);
-            return new SubscriptionAccessFacts(row.StartsAt, row.EndsAt,
+                && trial.ActiveMembers <= trial.MemberCap && row.EndsAt - row.StartsAt == TimeSpan.FromDays(ShopTrialsV1.DurationDays)
+                && (trial.ExtendedEndsAt is null || trial.ExtendedEndsAt > row.EndsAt);
+            return new SubscriptionAccessFacts(row.StartsAt, trial.ExtendedEndsAt ?? row.EndsAt,
                 complete ? TermEvidenceState.Complete : TermEvidenceState.NeedsReview, SubscriptionBasis.Trial);
         }
 

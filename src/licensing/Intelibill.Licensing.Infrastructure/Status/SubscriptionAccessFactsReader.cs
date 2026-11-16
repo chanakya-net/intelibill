@@ -23,6 +23,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
                 f.price_paise AS price_paise, f.currency AS currency, f.plan_version_id AS plan_version_id,
                 f.source_reference AS source_reference, f.development_fixture AS development_fixture,
                 f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version,
+                e.ends_at AS extended_ends_at,
                 CASE WHEN h.shop_id IS NOT NULL THEN jsonb_build_object(
                     'ComputationVersion', h.computation_version, 'MemberCap', h.member_cap, 'ActiveMembers', h.active_members,
                     'AccountTrialCap', h.account_trial_cap, 'DevelopmentFixture', h.development_fixture,
@@ -31,6 +32,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
             LEFT JOIN public.trial_history h ON h.shop_id = a.shop_id
             LEFT JOIN public.subscription_coverage_terms t
                 ON t.account_id = coalesce(h.account_id, a.account_id) AND t.term_id = coalesce(h.term_id, a.term_id)
+            LEFT JOIN LATERAL (SELECT ends_at FROM public.trial_extensions
+                WHERE shop_id = h.shop_id AND account_id = h.account_id ORDER BY revision DESC LIMIT 1) e ON true
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
             WHERE a.shop_id = {shop}
             """).ToListAsync(ct);
@@ -71,6 +74,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
                 f.plan_version_id AS plan_version_id, f.source_reference AS source_reference,
                 f.development_fixture AS development_fixture,
                 f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version,
+                e.ends_at AS extended_ends_at,
                 CASE WHEN h.shop_id IS NOT NULL THEN jsonb_build_object(
                     'ComputationVersion', h.computation_version, 'MemberCap', h.member_cap, 'ActiveMembers', h.active_members,
                     'AccountTrialCap', h.account_trial_cap, 'DevelopmentFixture', h.development_fixture,
@@ -81,6 +85,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
             FROM public.subscription_coverage_terms t
             LEFT JOIN public.trial_history h ON h.term_id = t.term_id AND h.account_id = t.account_id
             LEFT JOIN public.shop_affiliations a ON a.shop_id = h.shop_id AND a.account_id = h.account_id
+            LEFT JOIN LATERAL (SELECT ends_at FROM public.trial_extensions
+                WHERE shop_id = h.shop_id AND account_id = h.account_id ORDER BY revision DESC LIMIT 1) e ON true
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
             LEFT JOIN public.complimentary_grants g ON g.term_id = t.term_id AND g.account_id = t.account_id
             WHERE t.account_id = {account} AND ({after}::uuid IS NULL OR t.term_id > {after}::uuid)
@@ -118,22 +124,23 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
     private sealed record ShopRow(Guid AffiliationAccountId, Guid? TermId, Guid? AccountId, string? Mode, int? Capacity,
         DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal,
         string? TimeZone, int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency,
-        Guid? PlanVersionId, string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion, string? Trial)
+        Guid? PlanVersionId, string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion,
+        string? Trial, DateTimeOffset? ExtendedEndsAt)
     {
         internal TermFactsRow ToTerm() => new(TermId!.Value, AccountId!.Value, Mode!, Capacity!.Value, StartsAt!.Value,
             EndsAt!.Value, Basis, BillingPeriod, AnchorLocal, TimeZone, PeriodOrdinal, MemberAllowance, PricePaise,
-            Currency, PlanVersionId, SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion, ParseTrial(Trial));
+            Currency, PlanVersionId, SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion, ParseTrial(Trial, ExtendedEndsAt));
     }
 
     private sealed record TermRow(Guid TermId, Guid AccountId, string Mode, int Capacity, DateTimeOffset StartsAt,
         DateTimeOffset EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal, string? TimeZone,
         int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency, Guid? PlanVersionId,
         string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion, string? Trial,
-        string? Complimentary)
+        string? Complimentary, DateTimeOffset? ExtendedEndsAt)
     {
         internal TermFactsRow ToTerm() => new(TermId, AccountId, Mode, Capacity, StartsAt, EndsAt, Basis, BillingPeriod,
             AnchorLocal, TimeZone, PeriodOrdinal, MemberAllowance, PricePaise, Currency, PlanVersionId,
-            SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion, ParseTrial(Trial), ParseGrant(Complimentary));
+            SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion, ParseTrial(Trial, ExtendedEndsAt), ParseGrant(Complimentary));
     }
 
     private sealed record GrantRow(Guid TermId, Guid AccountId, string Mode, int Capacity, DateTimeOffset StartsAt,
@@ -143,8 +150,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
             null, null, null, null, null, null, null, null, null, Complimentary: ParseGrant(Complimentary));
     }
 
-    private static TrialTermProvenance? ParseTrial(string? json) =>
-        json is null ? null : JsonSerializer.Deserialize<TrialTermProvenance>(json);
+    private static TrialTermProvenance? ParseTrial(string? json, DateTimeOffset? extendedEndsAt) =>
+        json is null ? null : JsonSerializer.Deserialize<TrialTermProvenance>(json)! with { ExtendedEndsAt = extendedEndsAt };
 
     private static ComplimentaryTermProvenance? ParseGrant(string? json) =>
         json is null ? null : JsonSerializer.Deserialize<ComplimentaryTermProvenance>(json);

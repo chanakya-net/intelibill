@@ -6,6 +6,7 @@ import { ButtonDirective } from 'primeng/button';
 import type { Subscription } from 'rxjs';
 import { AccountStatusApi, type AccountStatus, basisLabels, formatIst, formatIstExact, stateLabels, statusReaders } from './account-status-api.service';
 import { ComplimentaryGrantComponent } from './complimentary-grant.component';
+import { TrialExtensionComponent } from './trial-extension.component';
 
 type Outcome = 'idle' | 'loading' | 'denied' | 'missing' | 'unavailable' | 'session';
 const accountPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -16,7 +17,7 @@ const accountPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
  */
 @Component({
   selector: 'adm-account-status-page',
-  imports: [ButtonDirective, RouterLink, ComplimentaryGrantComponent],
+  imports: [ButtonDirective, RouterLink, ComplimentaryGrantComponent, TrialExtensionComponent],
   templateUrl: './account-status-page.component.html',
   styleUrls: ['../form-page.css', './account-status-page.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,6 +33,9 @@ export class AccountStatusPageComponent {
   protected readonly accountId = signal('');
   protected readonly selected = signal<string | null>(null);
   protected readonly status = signal<AccountStatus | null>(null);
+  protected readonly trialShops = computed(() => this.status()?.items
+    .filter(item => item.status.basis === 'Trial')
+    .flatMap(item => item.coveredShops) ?? []);
   protected readonly outcome = signal<Outcome>('idle');
   protected readonly states = stateLabels;
   protected readonly bases = basisLabels;
@@ -54,14 +58,14 @@ export class AccountStatusPageComponent {
 
   protected lookup(event: Event) {
     event.preventDefault();
-    const account = this.accountId().trim();
+    const account = this.accountId().trim().toLowerCase();
     if (!accountPattern.test(account) || !this.mayRead()) return;
     this.selectedAccount = account;
     this.selected.set(account);
     this.read(account);
   }
 
-  /** A committed grant changes the account's terms: read them again for the same account. */
+  /** Refresh the evaluated account terms after an access change. */
   protected reload() {
     const account = this.selectedAccount;
     if (account && this.mayRead()) this.read(account);
@@ -69,7 +73,7 @@ export class AccountStatusPageComponent {
 
   protected revalidate() {
     const account = this.selectedAccount;
-    if (!account || account !== this.accountId().trim() || !this.mayRead()) return;
+    if (!account || account !== this.accountId().trim().toLowerCase() || !this.mayRead()) return;
     if (document.visibilityState !== 'visible' || (this.request && !this.request.closed)) return;
     this.read(account);
   }

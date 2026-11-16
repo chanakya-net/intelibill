@@ -89,8 +89,11 @@ internal sealed partial class TrialStore(LicensingDbContext db, TimeProvider aut
 
     public async Task<IReadOnlyList<TrialInterval>> ReadOverlapsAsync(Guid account, TrialInterval interval, CancellationToken ct) =>
         await db.Database.SqlQuery<TrialInterval>($"""
-            SELECT starts_at, ends_at FROM public.trial_history WHERE account_id = {account}
-                AND starts_at < {interval.EndsAt} AND ends_at > {interval.StartsAt}
+            SELECT h.starts_at, coalesce(e.ends_at, h.ends_at) AS ends_at FROM public.trial_history h
+            LEFT JOIN LATERAL (SELECT ends_at FROM public.trial_extensions
+                WHERE shop_id = h.shop_id AND account_id = h.account_id ORDER BY revision DESC LIMIT 1) e ON true
+            WHERE h.account_id = {account} AND h.starts_at < {interval.EndsAt}
+                AND coalesce(e.ends_at, h.ends_at) > {interval.StartsAt}
             """).ToListAsync(ct);
 
     public async Task SaveAsync(ShopTrialConsentV1 consent, TrialDeliveryProof proof, ShopTrialDeliveryResultV1 result,

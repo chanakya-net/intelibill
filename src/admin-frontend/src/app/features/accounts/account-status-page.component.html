@@ -38,14 +38,18 @@
               <dt>Courtesy access starts</dt><dd>{{ exact(item.status.startsAt) }}</dd>
               <dt>Courtesy access ends</dt><dd data-testid="provider-courtesy-ends">{{ exact(item.status.accessEndsAt) }}</dd>
               <dt>Payment</dt><dd>None recorded (complimentary)</dd>
+            } @else if (item.status.basis === 'Trial') {
+              <dt>Trial starts</dt><dd>{{ exact(item.status.startsAt) }}</dd>
+              <dt>Trial ends</dt><dd data-testid="provider-trial-ends">{{ exact(item.status.accessEndsAt) }}</dd>
+              <dt>Payment</dt><dd>None recorded (trial)</dd>
             } @else {
               <dt>Starts</dt><dd>{{ instant(item.status.startsAt) }}</dd>
               <dt>Paid through</dt><dd>{{ instant(item.status.paidThrough) }}</dd>
             }
             <dt>Grace ends</dt><dd>{{ instant(item.status.graceEndsAt)
               ?? (item.status.evidenceState === 'Complete' ? 'No grace period' : 'Not recorded') }}</dd>
-            <dt>Next deadline</dt><dd>{{ (item.status.basis === 'Complimentary' ? exact(item.status.nextDeadline) : instant(item.status.nextDeadline)) ?? 'None' }}</dd>
-            <dt>{{ item.status.basis === 'Complimentary' ? 'Included capacity' : 'Purchased capacity' }}</dt>
+            <dt>Next deadline</dt><dd>{{ (item.status.basis === 'Complimentary' || item.status.basis === 'Trial' ? exact(item.status.nextDeadline) : instant(item.status.nextDeadline)) ?? 'None' }}</dd>
+            <dt>{{ item.status.basis === 'Complimentary' || item.status.basis === 'Trial' ? 'Included capacity' : 'Purchased capacity' }}</dt>
             <dd>{{ item.status.coverageMode }}, {{ item.status.purchasedCapacity }}</dd>
             <dt>Members per shop</dt><dd>{{ item.status.memberAllowance ?? 'Not recorded' }}</dd>
             @if (item.status.commercial; as commercial) {
@@ -63,6 +67,7 @@
     }
     @if (mayGrant() && selected(); as account) {
       <adm-complimentary-grant [accountId]="account" (granted)="reload()" />
+      <adm-trial-extension [accountId]="account" [trials]="trialShops()" (extended)="reload()" />
     }
   }
 </main>
