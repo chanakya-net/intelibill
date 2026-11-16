@@ -80,19 +80,20 @@ internal static class CatalogueDraftEndpoints
         return origin is null || !http.AcceptsMutation(context, origin) ? InvitationRequestGate.Refused(context) : null;
     }
 
-    internal static async Task<(AdminSessionCaller? Caller, T? Value, IResult? Refusal)> ReadAsync<T>(HttpContext context)
+    internal static async Task<(AdminSessionCaller? Caller, T? Value, IResult? Refusal)> ReadAsync<T>(HttpContext context,
+        int maxRequestBytes = MaxRequestBytes)
         where T : class
     {
         if (ProviderSessions.ReadCaller(context.User) is not { } caller)
             return (null, null, Problem(context, AdminRefreshErrors.SessionEnded));
-        if (context.Request.ContentLength > MaxRequestBytes) return (caller, null, TooLarge(context));
-        var buffer = new byte[MaxRequestBytes + 1];
+        if (context.Request.ContentLength > maxRequestBytes) return (caller, null, TooLarge(context));
+        var buffer = new byte[maxRequestBytes + 1];
         var length = 0;
         int read;
         while (length < buffer.Length
                && (read = await context.Request.Body.ReadAsync(buffer.AsMemory(length), context.RequestAborted)) > 0)
             length += read;
-        if (length > MaxRequestBytes) return (caller, null, TooLarge(context));
+        if (length > maxRequestBytes) return (caller, null, TooLarge(context));
         if (!context.Request.HasJsonContentType()) return (caller, null, null);
         try
         {

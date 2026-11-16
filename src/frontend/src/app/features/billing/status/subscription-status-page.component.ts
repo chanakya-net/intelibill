@@ -6,7 +6,9 @@ import { Subscription } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
-import { formatBillingInstant, type AccountTermStatus, type ShopSubscriptionStatus, type StatusFailure } from './subscription-status.models';
+import {
+  formatBillingInstant, type AccountTermStatus, type ShopSubscriptionStatus, type StatusFailure, type SubscriptionTermStatus,
+} from './subscription-status.models';
 import { StatusReadError, SubscriptionStatusService } from './subscription-status.service';
 
 type StatusView =
@@ -83,6 +85,17 @@ export class SubscriptionStatusPageComponent {
 
   protected instant(value: string | null, exact = false) {
     return formatBillingInstant(value, this.localization.currentLanguage(), exact);
+  }
+
+  /** Trial and courtesy deadlines are exact instants (not calendar boundaries), shown to the recorded second. */
+  protected exact(term: SubscriptionTermStatus) {
+    return term.basis === 'Trial' || term.basis === 'Complimentary';
+  }
+
+  /** A courtesy grant has an access end, never a paid-through date. */
+  protected endLabel(term: SubscriptionTermStatus) {
+    return term.basis === 'Trial' ? 'billing.trial.deadline'
+      : term.basis === 'Complimentary' ? 'billing.status.courtesyEnds' : 'billing.status.paidThrough';
   }
 
   protected rupees(paise: number | null) {

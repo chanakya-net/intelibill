@@ -56,14 +56,14 @@
     <dl class="facts">
       <dt>{{ 'billing.status.basis' | transloco }}</dt>
       <dd>{{ term.basis ? ('billing.status.bases.' + term.basis | transloco) : ('billing.status.notRecorded' | transloco) }}</dd>
-      <dt>{{ 'billing.status.startsAt' | transloco }}</dt><dd>{{ instant(term.startsAt, term.basis === 'Trial') }}</dd>
-      <dt>{{ (term.basis === 'Trial' ? 'billing.trial.deadline' : 'billing.status.paidThrough') | transloco }}</dt>
-      <dd data-testid="paid-through">{{ instant(term.paidThrough, term.basis === 'Trial') }}</dd>
+      <dt>{{ 'billing.status.startsAt' | transloco }}</dt><dd data-testid="starts-at">{{ instant(term.startsAt, exact(term)) }}</dd>
+      <dt>{{ endLabel(term) | transloco }}</dt>
+      <dd data-testid="paid-through">{{ instant(term.paidThrough, exact(term)) }}</dd>
       <dt>{{ 'billing.status.graceEndsAt' | transloco }}</dt>
       <dd data-testid="grace-ends">{{ instant(term.graceEndsAt) ?? ((term.evidenceState === 'Complete'
         ? 'billing.status.noGrace' : 'billing.status.notRecorded') | transloco) }}</dd>
       <dt>{{ 'billing.status.nextDeadline' | transloco }}</dt>
-      <dd data-testid="next-deadline">{{ instant(term.nextDeadline, term.basis === 'Trial') ?? ('billing.status.none' | transloco) }}</dd>
+      <dd data-testid="next-deadline">{{ instant(term.nextDeadline, exact(term)) ?? ('billing.status.none' | transloco) }}</dd>
       @if (term.nextPeriodEndsAt) {
         <dt>{{ 'billing.status.nextPeriodEndsAt' | transloco }}</dt><dd>{{ instant(term.nextPeriodEndsAt) }}</dd>
       }
@@ -71,7 +71,7 @@
         <dt>{{ 'billing.trial.coveredShops' | transloco }}</dt>
         <dd data-testid="capacity">{{ term.purchasedCapacity }}</dd>
       } @else {
-        <dt>{{ 'billing.status.capacity' | transloco }}</dt>
+        <dt>{{ (term.basis === 'Complimentary' ? 'billing.status.includedCapacity' : 'billing.status.capacity') | transloco }}</dt>
         <dd data-testid="capacity">{{ 'billing.status.coverage.' + term.coverageMode | transloco: { count: term.purchasedCapacity } }}</dd>
       }
       <dt>{{ 'billing.status.memberAllowance' | transloco }}</dt>
@@ -83,6 +83,7 @@
           : (rupees(commercial.pricePaise) | localeMoney) }}</dd>
       }
     </dl>
+    @if (term.basis === 'Complimentary') { <p class="hint" data-testid="courtesy-note">{{ 'billing.status.courtesyNote' | transloco }}</p> }
     <p class="hint">{{ 'billing.status.endExclusive' | transloco }}</p>
   </div>
 </ng-template>

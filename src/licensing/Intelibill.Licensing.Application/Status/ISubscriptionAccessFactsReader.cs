@@ -13,13 +13,22 @@ public sealed record TermFactsRow(Guid TermId, Guid AccountId, string Mode, int 
     DateTimeOffset EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal, string? TimeZone,
     int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency, Guid? PlanVersionId,
     string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion,
-    TrialTermProvenance? Trial = null);
+    TrialTermProvenance? Trial = null, ComplimentaryTermProvenance? Complimentary = null);
 
 public sealed record TrialTermProvenance(string ComputationVersion, int MemberCap, int ActiveMembers,
     int AccountTrialCap, bool DevelopmentFixture, bool ConflictingCoverage = false);
 
-/// <summary>The shop's applied affiliation (its account) and the term it was assigned, when it has one.</summary>
-public sealed record ShopCoverage(Guid AccountId, TermFactsRow? Term);
+/// <summary>
+/// Operational provenance of a dated complimentary grant: never its reason, actor or receipt. <c>Consistent</c> is
+/// false when the grant, its coverage term and the shop's link disagree on dates or account.
+/// </summary>
+public sealed record ComplimentaryTermProvenance(string PolicyVersion, int MemberAllowance, int ShopCount, bool Consistent);
+
+/// <summary>
+/// The shop's applied affiliation (its account), the baseline term it was assigned (affiliation or trial), and
+/// the complimentary grants naming it in that same account, ordered by term id.
+/// </summary>
+public sealed record ShopCoverage(Guid AccountId, TermFactsRow? Term, IReadOnlyList<TermFactsRow>? Grants = null);
 
 public sealed record AccountTermRow(TermFactsRow Term, CoveredShopV1[] CoveredShops, int CoveredShopCount);
 

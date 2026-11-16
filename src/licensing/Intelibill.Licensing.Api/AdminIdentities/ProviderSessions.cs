@@ -21,6 +21,7 @@ internal static class ProviderSessions
     internal const string RecoveryPolicy = "ProviderRecoveryReview";
     internal const string CataloguePolicy = "ProviderCatalogueDrafts";
     internal const string StatusPolicy = "ProviderSubscriptionStatus";
+    internal const string GrantPolicy = "ProviderComplimentaryGrants";
     internal const string CapabilityClaim = "provider_capability";
     internal const string MfaVerifiedAtClaim = "provider_mfa_at";
 
@@ -76,6 +77,11 @@ internal static class ProviderSessions
                 .RequireClaim(BusinessClaim, "true"))
             // Status capability (Support, Billing or Licensing Manager) is re-checked against the live identity.
             .AddPolicy(StatusPolicy, policy => policy
+                .AddAuthenticationSchemes(Scheme)
+                .RequireAuthenticatedUser()
+                .RequireClaim(BusinessClaim, "true"))
+            // Complimentary grants: the Licensing Manager grant and recent MFA are re-checked against live authority.
+            .AddPolicy(GrantPolicy, policy => policy
                 .AddAuthenticationSchemes(Scheme)
                 .RequireAuthenticatedUser()
                 .RequireClaim(BusinessClaim, "true"))
