@@ -53,6 +53,24 @@ function render(api: Partial<SubscriptionStatusService>, params: Record<string, 
 afterEach(() => TestBed.resetTestingModule());
 
 describe('subscription status', () => {
+  it('shows the saved revision while merchant confirmation is pending, then clears it on a shop change', () => {
+    const synchronization = {
+      state: 'Pending' as const, delivery: 'AwaitingAcknowledgement' as const, savedAccountRevision: 2, savedShopRevision: 3,
+      savedVerifiedAt: '2027-02-10T00:00:00.123456Z', appliedAccountRevision: null, appliedShopRevision: null,
+      lastSynchronizedAt: null, attention: null,
+    };
+    const shop = (id: string) => of(id === shopA ? { ...status(id), synchronization } : status(id));
+    const { fixture, page, session } = render({ shop });
+    const sync = page.querySelector('[data-testid="entitlement-sync"]');
+    expect(sync?.textContent).toContain('Saved, waiting for confirmation');
+    expect(sync?.textContent).toContain('Account 2 · Shop 3');
+    expect(sync?.textContent).toContain('Not confirmed yet');
+    session.set({ user: { id: 'u1' }, activeShopId: shopB });
+    fixture.detectChanges();
+    expect(page.querySelector('[data-testid="entitlement-sync"]')).toBeNull();
+    expect(page.textContent).toContain('Entitlement delivery to devices is not available yet.');
+  });
+
   it('has shop and account destinations before the billing landing route', () => {
     const paths = billingRoutes.map(route => route.path);
     expect(paths).toContain('status');

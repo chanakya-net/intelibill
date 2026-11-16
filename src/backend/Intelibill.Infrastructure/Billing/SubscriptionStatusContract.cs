@@ -7,7 +7,9 @@ internal static class SubscriptionStatusContract
 {
     internal static bool IsValidShop(ShopSubscriptionStatusV1 status, Guid shop) =>
         status is { SchemaVersion: SubscriptionStatusV1.SchemaVersion, ObserveOnly: true }
-        && status.ShopId == shop && Common(status.EntitlementSynchronization, status.PaymentVerification)
+        && status.ShopId == shop && status.PaymentVerification == SubscriptionStatusV1.NotAvailable
+        && status.EntitlementSynchronization == (status.Synchronization?.State ?? SubscriptionStatusV1.NotAvailable)
+        && IsValidSynchronization(status.Synchronization)
         && SubscriptionStatusV1.States.Contains(status.State)
         && (status.Term is null ? status.State == "PendingActivation" : status.State == status.Term.State && IsValidTerm(status.Term))
         && (status.AccountId is null || status.AccountId != Guid.Empty)
@@ -17,22 +19,48 @@ internal static class SubscriptionStatusContract
     {
         if (status is not { SchemaVersion: SubscriptionStatusV1.SchemaVersion, ObserveOnly: true }
             || status.AccountId != account || status.Items is not { Length: <= SubscriptionStatusV1.PageSize } items
-            || !Common(status.EntitlementSynchronization, status.PaymentVerification))
+            || status.PaymentVerification != SubscriptionStatusV1.NotAvailable)
             return false;
         var previous = after;
         foreach (var item in items)
         {
             if (item?.Status is not { } term || !IsValidTerm(term) || item.CoveredShops is not { } shops
                 || shops.Length > SubscriptionStatusV1.MaximumCoveredShops || item.CoveredShopCount < shops.Length
+                || shops.Any(shop => shop is null || !IsValidSynchronization(shop.Synchronization))
                 || (previous is { } prior && term.TermId.CompareTo(prior) <= 0))
                 return false;
             previous = term.TermId;
         }
-        return status.NextCursor is null || (items.Length == SubscriptionStatusV1.PageSize && status.NextCursor == previous);
+        return status.EntitlementSynchronization == SubscriptionStatusV1.Summarize(items.SelectMany(item => item.CoveredShops))
+            && (status.NextCursor is null || (items.Length == SubscriptionStatusV1.PageSize && status.NextCursor == previous));
     }
 
-    private static bool Common(string synchronization, string verification) =>
-        synchronization == SubscriptionStatusV1.NotAvailable && verification == SubscriptionStatusV1.NotAvailable;
+    private static bool IsValidSynchronization(EntitlementSynchronizationV1? sync)
+    {
+        if (sync is null) return true;
+        if (sync.SavedAccountRevision <= 0 || sync.SavedShopRevision <= 0 ||
+            !EntitlementSnapshotsV1.IsInstant(sync.SavedVerifiedAt) || !HasCoherentConfirmation(sync))
+            return false;
+
+        return sync.State switch
+        {
+            "Pending" => sync.Attention is null && sync.Delivery is "Queued" or "Retrying" or "AwaitingAcknowledgement",
+            "Applied" => sync.Delivery == "Acknowledged" && sync.Attention is null &&
+                sync.AppliedAccountRevision >= sync.SavedAccountRevision && sync.AppliedShopRevision >= sync.SavedShopRevision,
+            "NeedsReview" => sync.Delivery switch
+            {
+                "Acknowledged" => SubscriptionStatusV1.ReviewDispositions.Contains(sync.Attention ?? ""),
+                "DeadLetter" => SubscriptionStatusV1.DeliveryFailures.Contains(sync.Attention ?? ""),
+                _ => false,
+            },
+            _ => false,
+        };
+    }
+
+    private static bool HasCoherentConfirmation(EntitlementSynchronizationV1 sync) =>
+        sync.LastSynchronizedAt is { } at
+            ? sync.AppliedAccountRevision > 0 && sync.AppliedShopRevision > 0 && EntitlementSnapshotsV1.IsInstant(at)
+            : sync.AppliedAccountRevision is null && sync.AppliedShopRevision is null;
 
     private static bool IsValidTerm(SubscriptionTermStatusV1 term) =>
         term.TermId != Guid.Empty && SubscriptionStatusV1.States.Contains(term.State)

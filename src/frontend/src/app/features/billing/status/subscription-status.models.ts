@@ -1,3 +1,5 @@
+import type { EntitlementSynchronization } from '@intelibill/api';
+
 /** Mirror of the versioned licensing status contract (subscription-status-v1). No entitlement arithmetic here. */
 export type AccessState =
   | 'PendingActivation' | 'Scheduled' | 'Active' | 'Grace' | 'Expired' | 'Suspended' | 'EvidenceIncomplete' | 'NeedsReview';
@@ -39,11 +41,16 @@ export interface ShopSubscriptionStatus {
   readonly observeOnly: true;
   readonly entitlementSynchronization: string;
   readonly paymentVerification: string;
+  readonly synchronization?: EntitlementSynchronization | null;
 }
 
 export interface AccountTermStatus {
   readonly status: SubscriptionTermStatus;
-  readonly coveredShops: readonly { readonly shopId: string; readonly shopName: string }[];
+  readonly coveredShops: readonly {
+    readonly shopId: string;
+    readonly shopName: string;
+    readonly synchronization?: EntitlementSynchronization | null;
+  }[];
   readonly coveredShopCount: number;
 }
 

@@ -1,4 +1,5 @@
 using Intelibill.Licensing.Application.Entitlements;
+using Intelibill.Licensing.Application.Status;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Shared.Contracts.V1;
 using Intelibill.Shared.Security;
@@ -15,6 +16,7 @@ internal static class EntitlementDeliveryRegistration
         services.AddScoped<EntitlementPublisher>();
         services.AddScoped<IEntitlementPublisher>(provider => provider.GetRequiredService<EntitlementPublisher>());
         services.AddScoped<LicensingEntitlementTransport>();
+        services.AddScoped<IEntitlementSynchronizationReader, EntitlementSynchronizationReader>();
         services.AddScoped(provider => new EntitlementMerchantEvents(provider.GetRequiredService<LicensingDbContext>(),
             provider.GetRequiredService<TimeProvider>(), provider.GetRequiredService<EntitlementPublisher>()));
         services.AddScoped(provider => new LeasedHttpOutbox(provider.GetRequiredService<LicensingDbContext>()));

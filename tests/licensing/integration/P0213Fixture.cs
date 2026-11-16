@@ -41,7 +41,7 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
         var licensingTraffic = new P0213Traffic();
         var setup = new P0210HostSetup(destination, source,
             services => Configure(services, transport, licensingTraffic, licensing: true),
-            services => Configure(services, transport, merchantTraffic, licensing: false), PrepareProvider: !browser);
+            services => Configure(services, transport, merchantTraffic, licensing: false), PrepareProvider: !browser, UseDeliveryOnCatalogue: true);
         var trial = await P0210Fixture.StartAsync(db, publish: !browser, browser: browser, setup: setup);
         var licensing = trial.Hosts.Licensing.CreateClient();
         var merchant = trial.Hosts.Merchant.CreateClient();

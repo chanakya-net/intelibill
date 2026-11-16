@@ -454,8 +454,8 @@ scheduler moves a term: each read evaluates the stored facts at one instant.
 Coverage without a supplement reads as incomplete evidence, never as paid
 access with grace. Licensing storage or transport failure answers 503
 `Billing.DelegationUnavailable`, which the web apps show as an outage, never as
-an expiry. Entitlement delivery and payment verification read `NotAvailable`
-until their owning slices land. Details: `docs/licensing-p02-09-status.md`.
+an expiry. Payment verification reads `NotAvailable`. See
+[access status and deadlines](licensing-p02-09-status.md).
 
 ### Explicit shop trials (P02-10)
 
@@ -467,4 +467,4 @@ fixture configuration and Chromium checks.
 
 ### P02-13 entitlement delivery
 
-Apply both entitlement migrations and runtime grants before enabling local transport. New projections stay observe-only. P02-14 owns saved-versus-applied browser status. [Entitlement snapshot delivery](licensing-p02-13-entitlement-delivery.md)
+Apply both entitlement migrations and runtime grants before enabling local transport. New projections stay observe-only. See [entitlement snapshot delivery](licensing-p02-13-entitlement-delivery.md) and [P02-14 synchronization status](licensing-p02-14-synchronization-status.md) for the UI and API rollout order.

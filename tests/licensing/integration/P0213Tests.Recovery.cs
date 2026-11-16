@@ -81,7 +81,7 @@ public sealed partial class P0213Tests
             $"SELECT attempts FROM public.entitlement_outbox WHERE event_id = '{snapshot.EventId:D}'"));
     }
 
-    internal static async Task DiscardAcknowledgementResponseAsync(P0213Fixture fixture, EntitlementSnapshotV1 snapshot)
+    internal static async Task DiscardAcknowledgementResponseAsync(P0213Fixture fixture, EntitlementSnapshotV1 snapshot, int retrySeconds = 5)
     {
         fixture.Transport.AfterCommit = (request, response, _) =>
         {
@@ -93,7 +93,7 @@ public sealed partial class P0213Tests
         fixture.Transport.AfterCommit = null;
         Assert.Equal("Applied", await OutboxAsync(fixture, snapshot.EventId));
         Assert.Equal("Pending", await MerchantOutboxAsync(fixture, snapshot.EventId));
-        fixture.Transport.LeaseClock.Now += TimeSpan.FromSeconds(5);
+        fixture.Transport.LeaseClock.Now += TimeSpan.FromSeconds(retrySeconds);
         Assert.True(await fixture.DeliverAsync(source: false));
         Assert.Equal("Delivered", await MerchantOutboxAsync(fixture, snapshot.EventId));
         Assert.Equal(1L, await fixture.SourceScalarAsync($"""

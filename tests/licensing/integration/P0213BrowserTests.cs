@@ -1,9 +1,7 @@
-using System.Diagnostics;
 using System.Text.Json;
 using Intelibill.Domain.Enums;
 using Intelibill.Shared.Contracts.V1;
 using Xunit.Abstractions;
-using static Intelibill.Licensing.Integration.Tests.BillingBrowserHarness;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 using static Intelibill.Licensing.Integration.Tests.P0213Tests;
 
@@ -30,29 +28,13 @@ public sealed class P0213BrowserTests(LicensingPostgreSqlFixture database, ITest
         await DeliverRestrictionAsync(fixture, account);
         var before = await EvidenceCountAsync(fixture, owner.ShopId);
 
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-        var adminRoot = Path.Combine(ProjectPaths.Root, "src/admin-frontend");
-        await using var adminWeb = await StartAdminWebAsync(adminRoot, fixture.LicensingApi.BaseAddress!, timeout.Token);
-        using var staging = new MerchantWebBuild(Path.Combine(ProjectPaths.Root, "src/frontend"));
-        await using var merchantWeb = await StartMerchantWebAsync(staging.Root, fixture.MerchantApi.BaseAddress!, timeout.Token);
-        var secrets = Directory.CreateTempSubdirectory("intelibill-p0213-provider-");
-        try
-        {
-            var proof = await P0207BrowserTests.WriteBootstrapProofAsync(fixture.Hosts.Licensing.Services, secrets.FullName,
-                adminWeb.Origin, timeout.Token);
-            var run = new BrowserRun(adminRoot, evidence, adminWeb.Origin, merchantWeb.Origin, owner.Email, staff.Email,
-                account, proof, Path.Combine(secrets.FullName, "browser-state.json"));
-            await PrepareAndDemonstrateAsync(fixture, run, owner, before, timeout.Token);
-        }
-        finally
-        {
-            secrets.Delete(recursive: true);
-        }
+        await EntitlementBrowserRun.WithWebAsync(fixture, owner, staff, account, evidence, "p0213", output,
+            (run, ct) => PrepareAndDemonstrateAsync(fixture, run, owner, before, ct));
     }
 
-    private async Task PrepareAndDemonstrateAsync(P0213Fixture fixture, BrowserRun run, Merchant owner, long before, CancellationToken ct)
+    private async Task PrepareAndDemonstrateAsync(P0213Fixture fixture, EntitlementBrowserRun run, Merchant owner, long before, CancellationToken ct)
     {
-        await AssertBrowserPhaseAsync(fixture, run, "prepare", ct);
+        await run.AssertPhaseAsync(fixture, "prepare", ct);
         var policy = (Guid)(await fixture.SourceScalarAsync("SELECT id FROM public.trial_policy_versions WHERE status = 2"))!;
         var revision = (int)(await fixture.SourceScalarAsync($"SELECT revision FROM public.trial_policy_versions WHERE id = '{policy:D}'"))!;
         fixture.Transport.LeaseClock.Now = P0202Fixture.WholeSecondNow().AddMinutes(1);
@@ -60,17 +42,17 @@ public sealed class P0213BrowserTests(LicensingPostgreSqlFixture database, ITest
         Assert.Equal("Applied", (await P0210Tests.StartAndWaitAsync(owner, acceptance)).Status);
         var trial = await fixture.LatestSnapshotAsync(owner.ShopId);
         Assert.Equal("Pending", await OutboxAsync(fixture, trial.EventId));
-        await AssertBrowserPhaseAsync(fixture, run, "delayed", ct);
+        await run.AssertPhaseAsync(fixture, "delayed", ct);
         Assert.Equal(before, await EvidenceCountAsync(fixture, owner.ShopId));
 
         var times = await RecoverAsync(fixture, owner.ShopId, trial, before);
-        await AssertBrowserPhaseAsync(fixture, run, "recovered", ct);
+        await run.AssertPhaseAsync(fixture, "recovered", ct);
         await AssertOutageAsync(fixture, run, ct);
         fixture.Hosts.StatusClock.Now = P0210Fixture.Start.AddDays(14);
         fixture.Transport.LeaseClock.Now = P0202Fixture.WholeSecondNow().AddMinutes(1);
         await fixture.ScanAsync(source: true);
         await fixture.DrainAsync(source: true);
-        await AssertBrowserPhaseAsync(fixture, run, "expired", ct);
+        await run.AssertPhaseAsync(fixture, "expired", ct);
         await WriteEvidenceAsync(fixture, run, trial, owner.ShopId, before, times, ct);
     }
 
@@ -104,13 +86,13 @@ public sealed class P0213BrowserTests(LicensingPostgreSqlFixture database, ITest
         return times;
     }
 
-    private async Task AssertOutageAsync(P0213Fixture fixture, BrowserRun run, CancellationToken ct)
+    private async Task AssertOutageAsync(P0213Fixture fixture, EntitlementBrowserRun run, CancellationToken ct)
     {
         var name = fixture.Hosts.Fixture.Runtime.Database!;
         await database.SetConnectionsAsync(name, allowed: false);
         try
         {
-            await AssertBrowserPhaseAsync(fixture, run, "outage", ct);
+            await run.AssertPhaseAsync(fixture, "outage", ct);
         }
         finally
         {
@@ -118,35 +100,8 @@ public sealed class P0213BrowserTests(LicensingPostgreSqlFixture database, ITest
         }
     }
 
-    private async Task AssertBrowserPhaseAsync(P0213Fixture fixture, BrowserRun run, string phase, CancellationToken ct)
-    {
-        var before = (fixture.MerchantTraffic.Count, fixture.LicensingTraffic.Count);
-        var start = new ProcessStartInfo("bun") { WorkingDirectory = run.Root, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var arg in new[] { "x", "playwright", "test", "--config", "../../tests/licensing/browser/playwright.p0213.config.ts",
-            "--grep", "@" + phase })
-            start.ArgumentList.Add(arg);
-        start.Environment["NODE_PATH"] = Path.Combine(run.Root, "node_modules");
-        start.Environment["P0112_ADMIN_WEB"] = run.Admin;
-        start.Environment["P0213_MERCHANT_WEB"] = run.Merchant;
-        start.Environment["P0213_OWNER_EMAIL"] = run.OwnerEmail;
-        start.Environment["P0213_STAFF_EMAIL"] = run.StaffEmail;
-        start.Environment["P0213_MERCHANT_PASSWORD"] = P0201Tests.Password;
-        start.Environment["P0112_PROOF_FILE"] = run.Proof;
-        start.Environment["P0213_PROVIDER_STATE"] = run.ProviderState;
-        start.Environment["P0213_ACCOUNT"] = run.Account.ToString("D");
-        start.Environment["P0213_EVIDENCE"] = run.Evidence;
-        await using var browser = new OwnedProcess(start);
-        var stdout = browser.Process.StandardOutput.ReadToEndAsync(ct);
-        var stderr = browser.Process.StandardError.ReadToEndAsync(ct);
-        await browser.Process.WaitForExitAsync(ct);
-        var log = await stdout;
-        output.WriteLine(log);
-        Assert.True(browser.Process.ExitCode == 0 && log.Contains("1 passed", StringComparison.Ordinal)
-            && File.Exists(Path.Combine(run.Evidence, $"observations-{phase}.json")), log + await stderr);
-        Assert.Equal(before, (fixture.MerchantTraffic.Count, fixture.LicensingTraffic.Count));
-    }
 
-    private static async Task WriteEvidenceAsync(P0213Fixture fixture, BrowserRun run,
+    private static async Task WriteEvidenceAsync(P0213Fixture fixture, EntitlementBrowserRun run,
         EntitlementSnapshotV1 trial, Guid shop, long before, string times, CancellationToken ct)
     {
         var stock = await fixture.MerchantScalarAsync($"SELECT count(*) FROM public.inventory_batches WHERE shop_id = '{shop:D}'");
@@ -170,8 +125,6 @@ public sealed class P0213BrowserTests(LicensingPostgreSqlFixture database, ITest
         }, Indented), ct);
     }
 
-    private sealed record BrowserRun(string Root, string Evidence, string Admin, string Merchant,
-        string OwnerEmail, string StaffEmail, Guid Account, string Proof, string ProviderState);
 }
 
 internal sealed class P0213BrowserFactAttribute : FactAttribute

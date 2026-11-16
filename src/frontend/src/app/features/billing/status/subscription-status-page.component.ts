@@ -9,6 +9,7 @@ import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import {
   formatBillingInstant, type AccountTermStatus, type ShopSubscriptionStatus, type StatusFailure, type SubscriptionTermStatus,
 } from './subscription-status.models';
+import { EntitlementSynchronizationComponent } from './entitlement-synchronization.component';
 import { StatusReadError, SubscriptionStatusService } from './subscription-status.service';
 
 type StatusView =
@@ -24,7 +25,7 @@ type StatusView =
  */
 @Component({
   selector: 'app-subscription-status-page',
-  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, LocaleMoneyPipe],
+  imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, LocaleMoneyPipe, EntitlementSynchronizationComponent],
   templateUrl: './subscription-status-page.component.html',
   styleUrl: './subscription-status-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

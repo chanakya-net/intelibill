@@ -11,7 +11,8 @@ namespace Intelibill.Licensing.Application.Status;
 /// Owner/Manager billing role in the shop's account, checked here independently of any shop role.
 /// </summary>
 public sealed class ReadSubscriptionStatusHandler(
-    IBillingDelegationAccess access, ISubscriptionStatusStore store, ISubscriptionAccessFactsReader reader, TimeProvider clock)
+    IBillingDelegationAccess access, ISubscriptionStatusStore store, ISubscriptionAccessFactsReader reader,
+    TimeProvider clock, IEntitlementSynchronizationReader synchronization)
 {
     public Task<ErrorOr<ShopSubscriptionStatusV1>> ReadShopAsync(VerifiedBillingDelegation delegation, Guid shop,
         CancellationToken ct)
@@ -29,7 +30,8 @@ public sealed class ReadSubscriptionStatusHandler(
 
             await scope.UseAccountAsync(coverage.AccountId, token);
             var commercial = await store.HoldsCommercialRoleAsync(coverage.AccountId, scope.ActorId, token);
-            return SubscriptionStatusProjection.Shop(shop, at, coverage, commercial);
+            var sync = await synchronization.ReadAsync(coverage.AccountId, [shop], token);
+            return SubscriptionStatusProjection.Shop(shop, at, coverage, commercial, sync.GetValueOrDefault(shop));
         }, ct);
     }
 
@@ -41,7 +43,11 @@ public sealed class ReadSubscriptionStatusHandler(
 
         // The delegation transaction already holds the actor's live Owner/Manager membership FOR SHARE.
         return access.ExecuteAsync<AccountSubscriptionStatusV1>(delegation, async (_, token) =>
-            SubscriptionStatusProjection.Account(account, SubscriptionStatusProjection.EvaluationInstant(clock),
-                await reader.ReadAccountAsync(account, after, SubscriptionStatusV1.PageSize + 1, token), commercial: true), ct);
+        {
+            var at = SubscriptionStatusProjection.EvaluationInstant(clock);
+            var rows = await reader.ReadAccountAsync(account, after, SubscriptionStatusV1.PageSize + 1, token);
+            var sync = await synchronization.ReadPageAsync(account, rows, token);
+            return SubscriptionStatusProjection.Account(account, at, rows, commercial: true, sync);
+        }, ct);
     }
 }

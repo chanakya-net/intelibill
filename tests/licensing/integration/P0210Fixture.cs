@@ -31,10 +31,14 @@ internal sealed class P0210Fixture(P0206Fixture catalogue, RSA deliveryKey, P020
             "TRUNCATE public.rate_limit_buckets");
         var businessClock = new P0201Clock { Now = Start };
         var prepareProvider = setup?.PrepareProvider != false;
-        var catalogue = await P0206Fixture.StartAsync(database, P0207Tests.LocalSettings(), services =>
+        var catalogueSettings = P0207Tests.LocalSettings();
+        if (setup?.UseDeliveryOnCatalogue == true)
+            foreach (var (name, value) in setup.LicensingSettings) catalogueSettings[name] = value;
+        var catalogue = await P0206Fixture.StartAsync(database, catalogueSettings, services =>
         {
             services.AddKeyedSingleton<TimeProvider>(P0209Fixture.StatusClockKey, businessClock);
             if (!publishEntitlements) services.AddPreEntitlementPublisher();
+            if (setup?.UseDeliveryOnCatalogue == true) setup.ConfigureLicensing(services);
         }, prepareProvider: prepareProvider);
         var (manager, seed) = publish ? await catalogue.ManagerAsync() : (null, null);
         var policy = manager is not null ? await P0207Tests.PublishTrialAsync(manager, 1) : Guid.NewGuid();
@@ -142,4 +146,4 @@ internal sealed record P0210HostSetup(
     IReadOnlyDictionary<string, string?> MerchantSettings,
     Action<IServiceCollection> ConfigureLicensing,
     Action<IServiceCollection> ConfigureMerchant,
-    bool PrepareProvider = true);
+    bool PrepareProvider = true, bool UseDeliveryOnCatalogue = false);

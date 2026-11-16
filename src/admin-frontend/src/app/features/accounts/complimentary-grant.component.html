@@ -7,6 +7,7 @@
   @if (result(); as granted) {
     <div role="status" data-testid="grant-result">
       <p><strong>Complimentary access granted</strong> (account grant version {{ granted.grantedVersion }}).</p>
+      <p>Saved in licensing. Merchant confirmation is shown in the covered shop’s status.</p>
       <dl class="status-facts">
         <dt>Courtesy access starts</dt><dd data-testid="grant-result-starts">{{ instant(granted.startsAt) }}</dd>
         <dt>Courtesy access ends</dt><dd data-testid="grant-result-ends">{{ instant(granted.endsAt) }}</dd>

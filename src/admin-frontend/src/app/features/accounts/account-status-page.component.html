@@ -3,8 +3,7 @@
     <a routerLink="/">Provider Console</a>
     <h1 class="ib-page-title">Account access status</h1>
   </header>
-  <p class="ib-panel" data-testid="provider-observe-only">Observe-only: this evaluation is informational and does not block any merchant.
-    Entitlement delivery to devices is not available yet.</p>
+  <p class="ib-panel" data-testid="provider-observe-only">Observe-only: this evaluation is informational and does not block any merchant.</p>
 
   @if (!mayRead()) {
     <p class="ib-error-banner" role="alert">Only Support, Billing or Licensing Manager administrators can read access status.</p>
@@ -25,6 +24,7 @@
     }
 
     @if (status(); as current) {
+      @if (!hasSynchronization()) { <p>Entitlement delivery to devices is not available yet.</p> }
       <p>Evaluated at {{ instant(current.evaluatedAt) }}. Times are Asia/Kolkata (IST, UTC+05:30); each deadline is the exact end of access.</p>
       @for (item of current.items; track item.status.termId) {
         <section class="ib-panel" data-testid="provider-term" [attr.aria-label]="'Term ' + item.status.termId">
@@ -56,8 +56,29 @@
               <dt>Subscription price</dt><dd data-testid="provider-price">{{ rupees(commercial.pricePaise) }}</dd>
             }
             <dt>Covered shops ({{ item.coveredShopCount }})</dt>
-            <dd>
-              @for (shop of item.coveredShops; track shop.shopId) { <span class="shop">{{ shop.shopName }}</span> }
+            <dd class="covered-shops">
+              @for (shop of item.coveredShops; track shop.shopId) {
+                <div class="shop">
+                  <strong>{{ shop.shopName }}</strong>
+                  @if (shop.synchronization; as sync) {
+                    <p><strong data-testid="provider-sync-state">{{ syncStates[sync.state] }}</strong></p>
+                    <dl class="status-facts">
+                      <dt>Saved in licensing</dt><dd data-testid="provider-sync-saved">Account {{ sync.savedAccountRevision }} · Shop {{ sync.savedShopRevision }}</dd>
+                      <dt>Saved policy verified</dt><dd>{{ exact(sync.savedVerifiedAt) }}</dd>
+                      <dt>Confirmed by merchant</dt>
+                      <dd data-testid="provider-sync-applied">{{ sync.appliedShopRevision === null
+                        ? 'Not confirmed yet' : 'Account ' + sync.appliedAccountRevision + ' · Shop ' + sync.appliedShopRevision }}</dd>
+                      <dt>Last synchronized</dt><dd data-testid="provider-sync-time">{{ exact(sync.lastSynchronizedAt) ?? 'Not confirmed yet' }}</dd>
+                      <dt>Delivery</dt><dd data-testid="provider-sync-delivery">{{ deliveries[sync.delivery] }}</dd>
+                      @if (sync.attention; as attention) {
+                        <dt>Review reference</dt><dd data-testid="provider-sync-attention">{{ attention }}</dd>
+                      }
+                    </dl>
+                  } @else if (hasSynchronization()) {
+                    <p>Entitlement synchronization is unavailable for this shop.</p>
+                  }
+                </div>
+              }
             </dd>
           </dl>
         </section>

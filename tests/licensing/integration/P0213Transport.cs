@@ -40,6 +40,7 @@ internal sealed class P0213Transport : IDisposable
     private Uri? _licensingOrigin;
 
     internal P0201Clock LeaseClock { get; } = new() { Now = P0202Fixture.WholeSecondNow().AddMinutes(1) };
+    internal Action<HttpRequestMessage>? BeforeSend { get; set; }
     internal Func<HttpRequestMessage, HttpResponseMessage, CancellationToken, Task>? AfterCommit { get; set; }
 
     internal void AddSettings(Dictionary<string, string?> settings, bool licensing)
@@ -74,6 +75,7 @@ internal sealed class P0213Transport : IDisposable
             var origin = licensing ? fixture._merchantOrigin : fixture._licensingOrigin;
             Assert.NotNull(next);
             request.RequestUri = new Uri(origin!, request.RequestUri!.PathAndQuery);
+            fixture.BeforeSend?.Invoke(request);
             var response = await next.SendAsync(request, cancellationToken);
             try
             {

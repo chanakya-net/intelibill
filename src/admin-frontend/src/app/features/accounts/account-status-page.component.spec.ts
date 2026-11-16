@@ -56,6 +56,29 @@ function render(read: AccountStatusApi['read'], grants: string[] = ['support']) 
 afterEach(() => TestBed.resetTestingModule());
 
 describe('provider account access status', () => {
+  it.each([
+    ['Pending', 'Retrying', null, 'Saved, waiting for confirmation'],
+    ['Applied', 'Acknowledged', null, 'Applied'],
+    ['NeedsReview', 'DeadLetter', 'Unavailable', 'Needs review'],
+  ] as const)('renders %s per shop with separate saved and confirmed revisions', (state, delivery, attention, label) => {
+    const current = status();
+    const item = current.items[0];
+    const synchronization = {
+      state, delivery, attention, savedAccountRevision: 2, savedShopRevision: 3, savedVerifiedAt: '2027-02-10T00:00:00Z',
+      appliedAccountRevision: 2, appliedShopRevision: state === 'Applied' ? 3 : 2,
+      lastSynchronizedAt: '2027-02-10T00:00:01.123456Z',
+    };
+    const coveredShops = [{ ...item.coveredShops[0], synchronization }];
+    const { page, lookup } = render(() => of({ ...current, items: [{ ...item, coveredShops }] }));
+    lookup();
+    expect(page.querySelector('[data-testid="provider-sync-state"]')?.textContent).toBe(label);
+    expect(page.querySelector('[data-testid="provider-sync-saved"]')?.textContent).toBe('Account 2 · Shop 3');
+    expect(page.querySelector('[data-testid="provider-sync-applied"]')?.textContent)
+      .toBe(state === 'Applied' ? 'Account 2 · Shop 3' : 'Account 2 · Shop 2');
+    expect(page.querySelector('[data-testid="provider-sync-time"]')?.textContent).toBe('10 Feb 2027, 05:30:01.123456 IST');
+    expect(page.querySelector('[data-testid="provider-sync-attention"]')?.textContent ?? null).toBe(attention);
+  });
+
   it('renders exact IST deadlines for Support without commercial details', () => {
     const read = vi.fn(() => of(status()));
     const { page, lookup } = render(read);

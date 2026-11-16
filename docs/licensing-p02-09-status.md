@@ -70,6 +70,8 @@ Redaction happens on the server.
 `evaluatedAt` is the single instant used for the response. The web apps render
 every instant as absolute date and time in IST, whatever the browser zone is.
 They clear old data on scope change or failed verification and drop late answers.
+[P02-14 synchronization status](licensing-p02-14-synchronization-status.md)
+reports the saved policy and merchant confirmation separately.
 
 ## Verification
 
