@@ -40,7 +40,7 @@ internal static class CustomerSubscriptionStatusEndpoints
         return proof is null ? Invalid(context) : Respond(context, await handler.ReadAccountAsync(proof, account, after, ct));
     }
 
-    private static VerifiedBillingDelegation? ReadProof(HttpContext context, Guid? account, string action, string path)
+    internal static VerifiedBillingDelegation? ReadProof(HttpContext context, Guid? account, string action, string path)
     {
         var proof = context.Features.Get<VerifiedBillingDelegation>();
         var request = context.Request;

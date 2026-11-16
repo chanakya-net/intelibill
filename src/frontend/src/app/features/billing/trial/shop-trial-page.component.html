@@ -1,0 +1,62 @@
+<section class="status-page" aria-labelledby="trial-title">
+  <header>
+    <a routerLink="/billing/status">{{ 'billing.status.heading' | transloco }}</a>
+    <h1 id="trial-title" class="ib-page-title">{{ 'billing.trial.title' | transloco }}</h1>
+  </header>
+
+  @if (error()) { <p role="alert">{{ error() | transloco }}</p> }
+  @if (busy() && !preview() && !operation()) { <p role="status">{{ 'common.loading' | transloco }}</p> }
+  @if (operation(); as result) {
+    <p role="status" data-testid="trial-operation">{{ 'billing.trial.outcomes.' + result.status | transloco }}</p>
+    @if (result.status === 'NeedsReview') {
+      <p>{{ 'billing.trial.reasons.' + result.reason | transloco }}</p>
+    } @else {
+      <p data-testid="trial-end">{{ (result.status === 'Applied' ? 'billing.trial.ends' : 'billing.trial.pendingEnd')
+        | transloco: { time: instant(result.endsAt) } }}</p>
+    }
+  }
+
+  @if (draft() && error()) {
+    <button pButton severity="secondary" type="button" (click)="retry()" [disabled]="busy()">
+      <span pButtonLabel>{{ 'billing.trial.retry' | transloco }}</span>
+    </button>
+  } @else if (!draft() && (error() || operation()?.status === 'NeedsReview')) {
+    <button pButton severity="secondary" type="button" (click)="reload()" [disabled]="busy()">
+      <span pButtonLabel>{{ 'billing.status.refresh' | transloco }}</span>
+    </button>
+  }
+
+  @if (preview(); as trial) {
+    @if (!trial.eligible) {
+      <p data-testid="trial-ineligible">{{ 'billing.trial.reasons.' + trial.reason | transloco }}</p>
+    }
+    @if (trial.policy; as policy) {
+      <article class="ib-panel">
+        @if (policy.developmentFixture) { <p>{{ 'billing.plans.fixture' | transloco }}</p> }
+        <p>{{ 'billing.trial.capabilities' | transloco }}</p>
+        <p>{{ 'billing.trial.noCharge' | transloco }}</p>
+        <dl class="facts">
+          <dt>{{ 'billing.trial.terms' | transloco }}</dt>
+          <dd data-testid="trial-terms">{{ policy.termsVersion }} ({{ policy.policyRevision }})</dd>
+          <dt>{{ 'billing.trial.memberCap' | transloco }}</dt>
+          <dd data-testid="trial-member-cap">{{ trial.activeMembers }} / {{ policy.memberCap }}</dd>
+          <dt>{{ 'billing.trial.accountCap' | transloco }}</dt>
+          <dd data-testid="trial-account-cap">{{ policy.accountTrialCap }}</dd>
+          @if (trial.eligible) {
+            <dt>{{ 'billing.trial.prospectiveEnd' | transloco }}</dt>
+            <dd data-testid="trial-prospective-end">{{ instant(trial.prospectiveEnd) }}</dd>
+          }
+        </dl>
+        @if (trial.eligible && !draft()) {
+          <label class="trial-confirmation">
+            <input type="checkbox" [checked]="checked()" [disabled]="busy()" (change)="checked.set($any($event.target).checked)" />
+            {{ 'billing.trial.confirmTerms' | transloco }}
+          </label>
+          <button pButton type="button" (click)="confirm()" [disabled]="!checked() || busy()">
+            <span pButtonLabel>{{ 'billing.trial.start' | transloco }}</span>
+          </button>
+        }
+      </article>
+    }
+  }
+</section>

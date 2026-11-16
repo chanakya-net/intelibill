@@ -2,6 +2,7 @@ using Intelibill.Application.Features.Billing;
 using Intelibill.Infrastructure.Options;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
@@ -17,13 +18,13 @@ internal static class MerchantBillingRegistration
         services.AddSingleton<IMerchantBillingSigningKeys, MerchantBillingDelegationKeys>();
         services.AddScoped<MerchantBillingDelegationIssuer>();
         services.AddScoped<ShopAffiliationConsentStore>();
-        services.AddOptions<MerchantBillingDelegationOptions>(ShopAffiliationDeliveryV1.Section)
-            .BindConfiguration(ShopAffiliationDeliveryV1.Section);
-        services.AddKeyedSingleton<IMerchantBillingSigningKeys>(ShopAffiliationDeliveryV1.Section, (provider, _) =>
-            MerchantBillingDelegationKeys.ForAffiliation(
-                provider.GetRequiredService<IOptionsMonitor<MerchantBillingDelegationOptions>>(),
-                provider.GetRequiredService<IOptions<JwtOptions>>(), provider.GetRequiredService<IHostEnvironment>(),
-                provider.GetRequiredService<TimeProvider>()));
+        AddDeliveryKey(services, ShopAffiliationDeliveryV1.Section);
+        AddDeliveryKey(services, ShopTrialsV1.DeliverySection);
+        services.TryAddKeyedSingleton<TimeProvider>(ShopTrialsV1.DeliverySection,
+            (provider, _) => provider.GetRequiredService<TimeProvider>());
+        services.AddScoped<TrialActivationConsentStore>();
+        services.AddScoped<TrialActivationDelivery>();
+        services.AddHostedService<TrialActivationDeliveryWorker>();
         services.AddScoped<ShopAffiliationDelivery>();
         services.AddHostedService<ShopAffiliationDeliveryWorker>();
         services.AddHttpClient(ClientName)
@@ -32,6 +33,7 @@ internal static class MerchantBillingRegistration
             .AddTypedClient<IMerchantShopAffiliations, MerchantBillingClient>()
             .AddTypedClient<IMerchantBillingOwnershipTransfers, MerchantBillingClient>()
             .AddTypedClient<IMerchantSubscriptionStatus, MerchantBillingClient>()
+            .AddTypedClient<IMerchantShopTrials, MerchantBillingClient>()
             .RemoveAllLoggers()
             .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
             {
@@ -41,5 +43,15 @@ internal static class MerchantBillingRegistration
                 MaxResponseHeadersLength = 8,
                 ActivityHeadersPropagator = null,
             });
+    }
+
+    private static void AddDeliveryKey(IServiceCollection services, string section)
+    {
+        services.AddOptions<MerchantBillingDelegationOptions>(section).BindConfiguration(section);
+        services.AddKeyedSingleton<IMerchantBillingSigningKeys>(section, (provider, _) =>
+            MerchantBillingDelegationKeys.ForDelivery(
+                provider.GetRequiredService<IOptionsMonitor<MerchantBillingDelegationOptions>>(),
+                provider.GetRequiredService<IOptions<JwtOptions>>(), provider.GetRequiredService<IHostEnvironment>(),
+                provider.GetRequiredService<TimeProvider>(), section));
     }
 }

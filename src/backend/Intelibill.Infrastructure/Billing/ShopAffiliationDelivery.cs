@@ -105,7 +105,8 @@ internal sealed partial class ShopAffiliationDelivery(ApplicationDbContext db, I
         using var message = new HttpRequestMessage(HttpMethod.Post, new Uri(origin, Path));
         message.Content = new ByteArrayContent(body);
         message.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
-        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await SignAsync(key, body, timeout.Token));
+        message.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await SignAsync(key, body, clock, Path, ShopAffiliationDeliveryV1.TokenType,
+            ShopAffiliationDeliveryV1.Issuer, ShopAffiliationDeliveryV1.Audience, timeout.Token));
         using var response = await client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
         if (!response.IsSuccessStatusCode || response.Content.Headers.ContentType?.MediaType != "application/json")
             return null;
@@ -118,15 +119,16 @@ internal sealed partial class ShopAffiliationDelivery(ApplicationDbContext db, I
     [LoggerMessage(Level = LogLevel.Warning, Message = "An affiliation decision remains pending ({Cause}).")]
     private static partial void LogRetry(ILogger logger, string cause);
 
-    private async Task<string> SignAsync(MerchantBillingSigningKey key, byte[] body, CancellationToken ct)
+    internal static async Task<string> SignAsync(MerchantBillingSigningKey key, byte[] body, TimeProvider clock,
+        string path, string type, string issuer, string audience, CancellationToken ct)
     {
         var now = clock.GetUtcNow().ToUnixTimeSeconds();
-        var header = new { alg = "RS256", typ = ShopAffiliationDeliveryV1.TokenType, kid = key.Id };
+        var header = new { alg = "RS256", typ = type, kid = key.Id };
         var payload = new
         {
-            v = 1, iss = ShopAffiliationDeliveryV1.Issuer, aud = ShopAffiliationDeliveryV1.Audience,
+            v = 1, iss = issuer, aud = audience,
             jti = Guid.NewGuid(), iat = now, nbf = now, exp = now + ShopAffiliationDeliveryV1.LifetimeSeconds,
-            method = "POST", path = Path, body_sha256 = Convert.ToHexStringLower(SHA256.HashData(body)),
+            method = "POST", path, body_sha256 = Convert.ToHexStringLower(SHA256.HashData(body)),
         };
         var input = Base64UrlEncoder.Encode(JsonSerializer.SerializeToUtf8Bytes(header)) + "." +
             Base64UrlEncoder.Encode(JsonSerializer.SerializeToUtf8Bytes(payload));

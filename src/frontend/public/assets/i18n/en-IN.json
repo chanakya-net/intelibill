@@ -3289,6 +3289,40 @@
     "searchHint": "Up to 20 matches are shown. Refine your search to find another party."
   },
   "billing": {
+    "trial": {
+      "coveredShops": "Shops covered by this trial",
+      "deadline": "Trial deadline",
+      "title": "Start a shop trial",
+      "capabilities": "14 days to evaluate inventory, sales, purchases and reports, subject to your existing shop permissions.",
+      "noCharge": "No card required. No automatic charge or grace period.",
+      "terms": "Trial terms version (policy revision)",
+      "memberCap": "Active members / limit (includes the owner)",
+      "accountCap": "Concurrent trial shops per billing account",
+      "prospectiveEnd": "Trial ends if started now",
+      "confirmTerms": "I accept these trial terms.",
+      "start": "Start 14-day trial",
+      "retry": "Retry the same activation",
+      "ownerRequired": "Only the active shop owner can manage its trial.",
+      "outcomeUnknown": "Trial outcome is unknown. Retry the saved activation to recover it.",
+      "storageUnavailable": "Trial storage is unavailable.",
+      "ends": "Trial ends {{ time }}.",
+      "pendingEnd": "Proposed end if activation is applied is {{ time }}.",
+      "outcomes": {
+        "Pending": "Activation pending",
+        "Applied": "Trial activated",
+        "NeedsReview": "Trial activation needs review"
+      },
+      "reasons": {
+        "AlreadyUsed": "This shop has already used its standard trial.",
+        "AffiliationRequired": "Link the shop to a billing account first.",
+        "CoverageExists": "This shop already has assigned coverage.",
+        "PolicyUnavailable": "Trial policy is unavailable.",
+        "PolicyChanged": "Trial terms have changed. Refresh and review the new terms.",
+        "MemberCap": "The shop exceeds the active member limit.",
+        "AccountCap": "This billing account has reached its concurrent trial shop limit.",
+        "ConsentOutsideWindow": "The consent is outside its activation window."
+      }
+    },
     "plans": {
       "heading": "Published plans",
       "description": "Prices are final, tax-inclusive INR amounts. Payment confirmations serve as proof of payment only.",

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Intelibill.Licensing.Application.Status;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Shared.Contracts.V1;
@@ -20,9 +21,15 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
                 f.time_zone AS time_zone, f.period_ordinal AS period_ordinal, f.member_allowance AS member_allowance,
                 f.price_paise AS price_paise, f.currency AS currency, f.plan_version_id AS plan_version_id,
                 f.source_reference AS source_reference, f.development_fixture AS development_fixture,
-                f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version
+                f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version,
+                CASE WHEN h.shop_id IS NOT NULL THEN jsonb_build_object(
+                    'ComputationVersion', h.computation_version, 'MemberCap', h.member_cap, 'ActiveMembers', h.active_members,
+                    'AccountTrialCap', h.account_trial_cap, 'DevelopmentFixture', h.development_fixture,
+                    'ConflictingCoverage', a.term_id IS NOT NULL OR a.account_id <> h.account_id)::text END AS trial
             FROM public.shop_affiliations a
-            LEFT JOIN public.subscription_coverage_terms t ON t.account_id = a.account_id AND t.term_id = a.term_id
+            LEFT JOIN public.trial_history h ON h.shop_id = a.shop_id
+            LEFT JOIN public.subscription_coverage_terms t
+                ON t.account_id = coalesce(h.account_id, a.account_id) AND t.term_id = coalesce(h.term_id, a.term_id)
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
             WHERE a.shop_id = {shop}
             """).ToListAsync(ct);
@@ -43,8 +50,14 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
                 f.member_allowance AS member_allowance, f.price_paise AS price_paise, f.currency AS currency,
                 f.plan_version_id AS plan_version_id, f.source_reference AS source_reference,
                 f.development_fixture AS development_fixture,
-                f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version
+                f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version,
+                CASE WHEN h.shop_id IS NOT NULL THEN jsonb_build_object(
+                    'ComputationVersion', h.computation_version, 'MemberCap', h.member_cap, 'ActiveMembers', h.active_members,
+                    'AccountTrialCap', h.account_trial_cap, 'DevelopmentFixture', h.development_fixture,
+                    'ConflictingCoverage', a.term_id IS NOT NULL OR a.account_id IS DISTINCT FROM h.account_id)::text END AS trial
             FROM public.subscription_coverage_terms t
+            LEFT JOIN public.trial_history h ON h.term_id = t.term_id AND h.account_id = t.account_id
+            LEFT JOIN public.shop_affiliations a ON a.shop_id = h.shop_id AND a.account_id = h.account_id
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
             WHERE t.account_id = {account} AND ({after}::uuid IS NULL OR t.term_id > {after}::uuid)
             ORDER BY t.term_id LIMIT {take}
@@ -56,7 +69,14 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
             SELECT term_id AS term_id, shop_id AS shop_id, shop_name AS shop_name, total AS total FROM (
                 SELECT term_id, shop_id, shop_name, count(*) OVER (PARTITION BY term_id) AS total,
                     row_number() OVER (PARTITION BY term_id ORDER BY shop_id) AS position
-                FROM public.shop_affiliations WHERE account_id = {account} AND term_id = ANY({ids})
+                FROM (
+                    SELECT term_id, shop_id, shop_name
+                    FROM public.shop_affiliations WHERE account_id = {account} AND term_id = ANY({ids})
+                    UNION ALL
+                    SELECT h.term_id, h.shop_id, a.shop_name
+                    FROM public.trial_history h JOIN public.shop_affiliations a USING (account_id, shop_id)
+                    WHERE h.account_id = {account} AND h.term_id = ANY({ids})
+                ) assignments
             ) covered WHERE position <= {SubscriptionStatusV1.MaximumCoveredShops}
             ORDER BY term_id, shop_id
             """).ToListAsync(ct);
@@ -69,22 +89,25 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
     private sealed record ShopRow(Guid AffiliationAccountId, Guid? TermId, Guid? AccountId, string? Mode, int? Capacity,
         DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal,
         string? TimeZone, int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency,
-        Guid? PlanVersionId, string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion)
+        Guid? PlanVersionId, string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion, string? Trial)
     {
         internal TermFactsRow ToTerm() => new(TermId!.Value, AccountId!.Value, Mode!, Capacity!.Value, StartsAt!.Value,
             EndsAt!.Value, Basis, BillingPeriod, AnchorLocal, TimeZone, PeriodOrdinal, MemberAllowance, PricePaise,
-            Currency, PlanVersionId, SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion);
+            Currency, PlanVersionId, SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion, ParseTrial(Trial));
     }
 
     private sealed record TermRow(Guid TermId, Guid AccountId, string Mode, int Capacity, DateTimeOffset StartsAt,
         DateTimeOffset EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal, string? TimeZone,
         int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency, Guid? PlanVersionId,
-        string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion)
+        string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion, string? Trial)
     {
         internal TermFactsRow ToTerm() => new(TermId, AccountId, Mode, Capacity, StartsAt, EndsAt, Basis, BillingPeriod,
             AnchorLocal, TimeZone, PeriodOrdinal, MemberAllowance, PricePaise, Currency, PlanVersionId,
-            SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion);
+            SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion, ParseTrial(Trial));
     }
+
+    private static TrialTermProvenance? ParseTrial(string? json) =>
+        json is null ? null : JsonSerializer.Deserialize<TrialTermProvenance>(json);
 
     private sealed record CoveredRow(Guid TermId, Guid ShopId, string ShopName, long Total);
 }

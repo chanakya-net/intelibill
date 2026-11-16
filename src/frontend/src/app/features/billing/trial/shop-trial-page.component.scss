@@ -1,0 +1,11 @@
+.trial-confirmation {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-block: 1rem 0.75rem;
+}
+
+.trial-confirmation input {
+  flex: 0 0 auto;
+  accent-color: var(--app-primary);
+}

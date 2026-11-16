@@ -138,10 +138,10 @@ public sealed partial class P0207Tests
         Assert.Equal(0L, await LicensingPostgreSqlFixture.ReadScalarAsync(superuser, "SELECT count(*) FROM catalogue_publications"));
     }
 
-    private static async Task<Guid> CreateTrialDraftAsync(P0110CookieBrowser manager)
+    private static async Task<Guid> CreateTrialDraftAsync(P0110CookieBrowser manager, int maxConcurrentTrialShops = 2)
     {
         using var draft = await manager.SendAsync(HttpMethod.Put, P0206Fixture.Trial,
-            new { expectedVersion = 0, activeMemberCap = 5, maxConcurrentTrialShops = 2, trialTermsVersion = "trial-local-1" },
+            new { expectedVersion = 0, activeMemberCap = 5, maxConcurrentTrialShops, trialTermsVersion = "trial-local-1" },
             await P0206Fixture.ProofAsync(manager));
         Assert.Equal(HttpStatusCode.Created, draft.StatusCode);
         return (await P0206Fixture.BodyAsync(draft)).GetProperty("draft").GetProperty("versionId").GetGuid();

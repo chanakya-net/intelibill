@@ -38,7 +38,7 @@ internal sealed class ShopAffiliationConsentStore(ApplicationDbContext db, IMemb
             m.ShopId == shop && m.UserId == caller.Session.UserId && m.Role == ShopRole.Owner &&
             m.Status == MembershipStatus.Active, ct);
 
-    private async Task<LiveOwner?> LockOwnerAsync(MerchantBillingCaller caller, Guid shop, CancellationToken ct)
+    internal async Task<LiveOwner?> LockOwnerAsync(MerchantBillingCaller caller, Guid shop, CancellationToken ct)
     {
         var claim = caller.Session;
         if (claim.ActiveShopId != shop)
@@ -128,5 +128,5 @@ internal sealed class ShopAffiliationConsentStore(ApplicationDbContext db, IMemb
             ActorId == owner.ActorId && MembershipId == owner.MembershipId && Version == owner.Version;
     }
 
-    private sealed record LiveOwner(Guid ActorId, Guid MembershipId, long Version, string ShopName, string OwnerName);
+    internal sealed record LiveOwner(Guid ActorId, Guid MembershipId, long Version, string ShopName, string OwnerName);
 }

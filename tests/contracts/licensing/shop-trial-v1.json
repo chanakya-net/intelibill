@@ -1,0 +1,16 @@
+{
+  "acceptance": {
+    "operationKey": "9e99030f-29ea-4fb5-94f2-551671071b7e",
+    "policyId": "98e6952b-e8cf-46ba-9740-657aa7bbdc36",
+    "policyRevision": 2,
+    "termsVersion": "trial-local-1",
+    "termsAccepted": true
+  },
+  "startsAt": "2027-02-10T00:00:00.123456Z",
+  "endsAt": "2027-02-24T00:00:00.123456Z",
+  "timeZone": "Asia/Kolkata",
+  "durationDays": 14,
+  "statusAtEnd": "Expired",
+  "automaticCharge": false,
+  "graceEndsAt": null
+}

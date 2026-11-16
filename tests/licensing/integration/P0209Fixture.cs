@@ -170,12 +170,12 @@ internal static class P0209Fixture
     }
 
     /// <summary>The applied affiliation the P02-05 consent flow would have written, seeded at the term start.</summary>
-    internal static Task AffiliateAsync(Hosts host, Guid account, Guid payer, Guid shop, Guid owner, Guid term,
-        DateTimeOffset appliedAt, DateTimeOffset endsAt) =>
+    internal static Task AffiliateAsync(Hosts host, Guid account, Guid payer, Guid shop, Guid owner, Guid? term,
+        DateTimeOffset appliedAt, DateTimeOffset? endsAt) =>
         AffiliateAsync(host.LicensingOwner, account, payer, shop, owner, term, appliedAt, endsAt);
 
     internal static async Task AffiliateAsync(NpgsqlConnectionStringBuilder settings, Guid account, Guid payer, Guid shop,
-        Guid owner, Guid term, DateTimeOffset appliedAt, DateTimeOffset endsAt)
+        Guid owner, Guid? term, DateTimeOffset appliedAt, DateTimeOffset? endsAt)
     {
         await using var connection = new NpgsqlConnection(settings.ConnectionString);
         await connection.OpenAsync();
@@ -187,7 +187,7 @@ internal static class P0209Fixture
                  term_id, created_at, expires_at)
             VALUES ($1, $2, 'Status Fixture Payer', $3, $4, 1, gen_random_uuid(), $5, $6, $6 + interval '7 days')
             """) { Parameters = { new() { Value = request }, new() { Value = account }, new() { Value = shop },
-                new() { Value = payer }, new() { Value = term }, new() { Value = appliedAt } } });
+                new() { Value = payer }, new() { Value = (object?)term ?? DBNull.Value }, new() { Value = appliedAt } } });
         sql.BatchCommands.Add(new NpgsqlBatchCommand("""
             INSERT INTO public.shop_affiliations
                 (request_id, account_id, shop_id, term_id, event_id, actor_id, membership_id, authority_version,
@@ -195,7 +195,7 @@ internal static class P0209Fixture
             VALUES ($1, $2, $3, $4, gen_random_uuid(), $5, gen_random_uuid(), 1, 'Status Fixture Shop',
                 'Fixture Owner', $6, $6, $7)
             """) { Parameters = { new() { Value = request }, new() { Value = account }, new() { Value = shop },
-                new() { Value = term }, new() { Value = owner }, new() { Value = appliedAt }, new() { Value = endsAt } } });
+                new() { Value = (object?)term ?? DBNull.Value }, new() { Value = owner }, new() { Value = appliedAt }, new() { Value = (object?)endsAt ?? DBNull.Value } } });
         await sql.ExecuteNonQueryAsync();
     }
 

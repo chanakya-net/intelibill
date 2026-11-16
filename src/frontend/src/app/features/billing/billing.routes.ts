@@ -2,6 +2,10 @@ import { Routes } from '@angular/router';
 
 export const billingRoutes: Routes = [
   {
+    path: 'trial',
+    loadComponent: () => import('./trial/shop-trial-page.component').then(m => m.ShopTrialPageComponent),
+  },
+  {
     path: 'accounts/:accountId/ownership-transfer',
     loadComponent: () => import('./members/billing-ownership-transfer.component').then(m => m.BillingOwnershipTransferComponent),
   },
