@@ -3,6 +3,19 @@ import { isHash, isUuid, type AcceptQuote, type CheckoutScope, type CreateQuote 
 
 export type CreateDraft = { readonly command: CreateQuote; readonly order: string | null };
 export type AcceptDraft = { readonly command: AcceptQuote; readonly settled: boolean };
+export type StartPayment = { readonly operationKey: string; readonly expectedRevision: number; readonly snapshotHash: string };
+export type PaymentDraftState = 'intent' | 'awaiting' | 'pending' | 'failed' | 'verified';
+export type PaymentDraft = {
+  readonly schemaVersion: 1;
+  readonly userId: string;
+  readonly account: string;
+  readonly order: string;
+  readonly command: StartPayment | null;
+  readonly attempt: string | null;
+  readonly state: PaymentDraftState;
+};
+
+const paymentStates: readonly PaymentDraftState[] = ['intent', 'awaiting', 'pending', 'failed', 'verified'];
 const prefix = 'intelibill.billing.checkout.v1:';
 
 @Injectable({ providedIn: 'root' })
@@ -66,6 +79,44 @@ export class CheckoutDrafts {
       if (draft?.command.operationKey !== key || draft.settled) return;
       if (accepted) this.write(storageKey, { ...draft, settled: true });
       else localStorage.removeItem(storageKey);
+    });
+  }
+
+  paymentKey(scope: CheckoutScope, order: string): string {
+    return prefix + 'payment:' + JSON.stringify([scope.userId, scope.account, order]);
+  }
+
+  readPayment(scope: CheckoutScope, order: string): PaymentDraft | null {
+    const key = this.paymentKey(scope, order);
+    const value = this.read<PaymentDraft>(key);
+    const command = value?.command;
+    if (value === null && localStorage.getItem(key) === null) return null;
+    if (!value || value.schemaVersion !== 1 || value.userId !== scope.userId || value.account !== scope.account ||
+      value.order !== order || !paymentStates.includes(value.state) ||
+      (value.state === 'intent' ? value.attempt !== null || !command : !isUuid(value.attempt)) ||
+      (command !== null && (!command || !isUuid(command.operationKey) || !isHash(command.snapshotHash) ||
+      !Number.isSafeInteger(command.expectedRevision) || command.expectedRevision < 1))) throw new Error('Invalid payment draft');
+    return value;
+  }
+
+  preparePayment(scope: CheckoutScope, order: string, revision: number, hash: string): Promise<PaymentDraft> {
+    const key = this.paymentKey(scope, order);
+    return navigator.locks.request(key, () => this.readPayment(scope, order) ?? this.write(key, {
+      schemaVersion: 1, userId: scope.userId, account: scope.account, order, state: 'intent', attempt: null,
+      command: { operationKey: crypto.randomUUID(), expectedRevision: revision, snapshotHash: hash },
+    }));
+  }
+
+  recordPayment(scope: CheckoutScope, order: string, attempt: string, state: Exclude<PaymentDraftState, 'intent'>) {
+    const key = this.paymentKey(scope, order);
+    return navigator.locks.request(key, () => {
+      const saved = this.readPayment(scope, order);
+      if (saved?.attempt && saved.attempt !== attempt) throw new Error('Checkout attempt changed');
+      if (saved && paymentStates.indexOf(saved.state) >= paymentStates.indexOf(state)) return saved;
+      return this.write<PaymentDraft>(key, {
+        schemaVersion: 1, userId: scope.userId, account: scope.account, order, attempt, state,
+        command: saved?.command ?? null,
+      });
     });
   }
 

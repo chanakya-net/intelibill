@@ -18,7 +18,7 @@ public sealed record PaymentFulfilment(StoredPaymentAttempt Attempt, PaymentObse
 public sealed record PaymentShopDelivery(Guid ShopId, long ShopRevision);
 
 public sealed record PaymentStatusRow(StoredPaymentAttempt? Attempt, bool VerificationRequested, DateTimeOffset? VerifiedAt,
-    bool NeedsReview, Guid? TermId, DateTimeOffset? TermStartsAt, DateTimeOffset? TermEndsAt,
+    bool DefinitivelyFailed, bool NeedsReview, Guid? TermId, DateTimeOffset? TermStartsAt, DateTimeOffset? TermEndsAt,
     IReadOnlyList<PaymentShopDelivery> Deliveries);
 
 public static class PaymentEventKinds
@@ -27,6 +27,7 @@ public static class PaymentEventKinds
     public const string SessionRecorded = "SessionRecorded";
     public const string VerificationRequested = "VerificationRequested";
     public const string OrderFulfilled = "OrderFulfilled";
+    public const string CheckoutFailed = "CheckoutFailed";
     public const string PaidNeedsReview = "PaidNeedsReview";
 }
 
@@ -42,10 +43,12 @@ public interface IPaymentStore
     Task UseAttemptAsync(Guid attempt, CancellationToken ct);
     Task<StoredPaymentAttempt?> FindAttemptAsync(Guid account, Guid id, bool byOperation, CancellationToken ct);
     Task<StoredPaymentAttempt?> FindOrderAttemptAsync(Guid account, Guid order, CancellationToken ct);
+    Task<bool> HasOverlappingPaymentAsync(Guid account, Guid order, CancellationToken ct);
     Task<bool> AnyTrialAsync(Guid account, Guid[] shops, CancellationToken ct);
     Task InsertAttemptAsync(NewPaymentAttempt attempt, CancellationToken ct);
-    Task RecordSessionAsync(StoredPaymentAttempt attempt, CheckoutSession session, DateTimeOffset at, CancellationToken ct);
+    Task<bool> RecordSessionAsync(StoredPaymentAttempt attempt, CheckoutSession session, DateTimeOffset at, CancellationToken ct);
     Task AppendEventAsync(StoredPaymentAttempt attempt, string kind, Guid? actor, DateTimeOffset at, CancellationToken ct);
+    Task<bool> HasDefinitiveFailureAsync(Guid attempt, CancellationToken ct);
     Task<bool> HasVerifiedPaymentAsync(Guid attempt, CancellationToken ct);
     Task RecordVerifiedAsync(StoredPaymentAttempt attempt, PaymentObservation payment, DateTimeOffset at, CancellationToken ct);
     Task FulfilAsync(PaymentFulfilment fulfilment, CancellationToken ct);

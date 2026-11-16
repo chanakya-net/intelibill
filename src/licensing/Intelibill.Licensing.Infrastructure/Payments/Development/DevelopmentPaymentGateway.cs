@@ -23,22 +23,46 @@ internal sealed class DevelopmentPaymentGateway(LicensingDbContext db, TimeProvi
     {
         var reference = "dev_order_" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(12));
         await InGatewayAsync(token => db.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO public.development_gateway_sessions (provider_order_reference, account_id, attempt_id, amount_paise,
+            INSERT INTO public.development_gateway_sessions (provider_order_reference, account_id, attempt_id, order_id, amount_paise,
                 currency, created_at)
-            VALUES ({reference}, {request.AccountId}, {request.AttemptId}, {request.AmountPaise}, {request.Currency}, {Now()})
+            VALUES ({reference}, {request.AccountId}, {request.AttemptId}, {request.OrderId}, {request.AmountPaise}, {request.Currency}, {Now()})
             """, token), ct);
         return GatewayResult.Success<CheckoutSession>(new(reference, CheckoutPaymentsV1.SimulatorFlow, new Dictionary<string, string>()));
     }
 
-    public async Task<GatewayResult<PaymentObservation>> VerifyCheckoutAsync(CheckoutVerification request, CancellationToken ct)
+    public async Task<GatewayResult<CheckoutLookup>> LookupCheckoutAsync(CheckoutRequest request, CancellationToken ct)
     {
-        var payments = await GetOrderPaymentsAsync(request.ProviderOrderReference, ct);
-        if (payments.Value is not { } observed)
-            return GatewayResult.Unavailable<PaymentObservation>();
-        return GatewayResult.Success<PaymentObservation>(
-            observed.FirstOrDefault(p => p.State == ObservedPaymentState.Captured) ??
-            new(Pin, request.ProviderOrderReference, null, ObservedPaymentState.Pending, 0, request.ExpectedCurrency, null));
+        var rows = await InGatewayAsync(token => db.Database.SqlQuery<SessionRow>($"""
+            SELECT provider_order_reference, order_id, amount_paise, currency
+            FROM public.development_gateway_sessions
+            WHERE account_id = {request.AccountId} AND attempt_id = {request.AttemptId}
+            """).ToListAsync(token), ct);
+        if (rows is not [{ OrderId: { } order } row])
+            return new(GatewayOutcome.NotFound, null);
+        var session = new CheckoutSession(row.ProviderOrderReference, CheckoutPaymentsV1.SimulatorFlow,
+            new Dictionary<string, string>());
+        return GatewayResult.Success(new CheckoutLookup(Pin,
+            request with { OrderId = order, AmountPaise = row.AmountPaise, Currency = row.Currency }, session));
     }
+
+    public Task<GatewayResult<PaymentObservation>> VerifyCheckoutAsync(CheckoutVerification request, CancellationToken ct) =>
+        InGatewayAsync(async token =>
+        {
+            var reference = request.ProviderOrderReference;
+            if (await LockSessionAsync(reference, token) is not { } session)
+                return new GatewayResult<PaymentObservation>(GatewayOutcome.NotFound, null);
+            var control = await ReadControlAsync(reference, token);
+            await MaterializeCaptureAsync(session, control, token);
+            var captured = await Payments().SingleOrDefaultAsync(p => p.ProviderOrderReference == reference, token);
+            if (captured is not null)
+                return GatewayResult.Success(captured.ToObservation());
+            if (control?.Outcome == "Timeout")
+                return GatewayResult.Unavailable<PaymentObservation>();
+            var failed = control?.Outcome == "Failed";
+            return GatewayResult.Success(new PaymentObservation(Pin, reference, null,
+                failed ? ObservedPaymentState.Failed : ObservedPaymentState.Pending, session.AmountPaise, session.Currency, null,
+                CheckoutDefinitivelyFailed: failed));
+        }, ct);
 
     public async Task<GatewayResult<PaymentObservation>> GetPaymentAsync(string providerPaymentReference, CancellationToken ct)
     {
@@ -65,16 +89,56 @@ internal sealed class DevelopmentPaymentGateway(LicensingDbContext db, TimeProvi
     public GatewayResult<VerifiedGatewayEvent> ValidateWebhook(ReadOnlySpan<byte> body, IReadOnlyDictionary<string, string> headers) =>
         GatewayResult.Unsupported<VerifiedGatewayEvent>();
 
-    /// <summary>Records one full capture at the session amount; a repeat keeps the first capture.</summary>
-    public async Task<bool> CaptureAsync(string providerOrderReference, CancellationToken ct) =>
-        await InGatewayAsync(token => db.Database.ExecuteSqlInterpolatedAsync($"""
+    public Task SimulateAsync(string providerOrderReference, string outcome, CancellationToken ct) =>
+        InGatewayAsync(async token =>
+        {
+            if (await LockSessionAsync(providerOrderReference, token) is not { } session)
+                return false;
+            var control = await ReadControlAsync(providerOrderReference, token);
+            await MaterializeCaptureAsync(session, control, token);
+            if (control?.Outcome == "Failed" || await Payments().AnyAsync(p => p.ProviderOrderReference == providerOrderReference, token))
+                return false;
+            if (outcome == "Captured")
+                await CaptureAsync(session, Now(), token);
+            else if (outcome != control?.Outcome)
+                await SetControlAsync(providerOrderReference, outcome, token);
+            return true;
+        }, ct);
+
+    private async Task<SessionRow?> LockSessionAsync(string reference, CancellationToken ct) =>
+        (await db.Database.SqlQuery<SessionRow>($"""
+            SELECT provider_order_reference, order_id, amount_paise, currency
+            FROM public.development_gateway_sessions WHERE provider_order_reference = {reference}
+            FOR UPDATE
+            """).ToListAsync(ct)).SingleOrDefault();
+
+    private Task<ControlRow?> ReadControlAsync(string reference, CancellationToken ct) =>
+        db.Database.SqlQuery<ControlRow>($"""
+            SELECT outcome, capture_at FROM public.development_gateway_controls WHERE provider_order_reference = {reference}
+            """).SingleOrDefaultAsync(ct);
+
+    private Task<int> SetControlAsync(string reference, string outcome, CancellationToken ct)
+    {
+        DateTimeOffset? captureAt = outcome == "Delayed" ? Now().AddSeconds(30) : null;
+        return db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO public.development_gateway_controls (provider_order_reference, outcome, capture_at)
+            VALUES ({reference}, {outcome}, {captureAt})
+            ON CONFLICT (provider_order_reference) DO UPDATE SET outcome = excluded.outcome, capture_at = excluded.capture_at
+            """, ct);
+    }
+
+    private Task MaterializeCaptureAsync(SessionRow session, ControlRow? control, CancellationToken ct) =>
+        control?.CaptureAt is { } due && Now() >= due ? CaptureAsync(session, due.ToUniversalTime(), ct) : Task.CompletedTask;
+
+    /// <summary>Records one full capture at the session amount. A repeat keeps the first capture.</summary>
+    private Task<int> CaptureAsync(SessionRow session, DateTimeOffset capturedAt, CancellationToken ct) =>
+        db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.development_gateway_payments (provider_payment_reference, provider_order_reference,
                 amount_paise, currency, state, captured_at)
-            SELECT {"dev_pay_" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(12))}, provider_order_reference,
-                amount_paise, currency, 'Captured', {Now()}
-            FROM public.development_gateway_sessions WHERE provider_order_reference = {providerOrderReference}
+            VALUES ({"dev_pay_" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(12))}, {session.ProviderOrderReference},
+                {session.AmountPaise}, {session.Currency}, 'Captured', {capturedAt})
             ON CONFLICT (provider_order_reference) DO NOTHING
-            """, token), ct) == 1;
+            """, ct);
 
     private IQueryable<PaymentRow> Payments() => db.Database.SqlQuery<PaymentRow>($"""
         SELECT provider_payment_reference, provider_order_reference, amount_paise, currency, state, captured_at
@@ -95,6 +159,9 @@ internal sealed class DevelopmentPaymentGateway(LicensingDbContext db, TimeProvi
         var now = clock.GetUtcNow();
         return new(now.UtcTicks - now.UtcTicks % 10, TimeSpan.Zero);
     }
+
+    private sealed record SessionRow(string ProviderOrderReference, Guid? OrderId, long AmountPaise, string Currency);
+    private sealed record ControlRow(string Outcome, DateTimeOffset? CaptureAt);
 
     private sealed record PaymentRow(string ProviderPaymentReference, string ProviderOrderReference, long AmountPaise,
         string Currency, string State, DateTimeOffset CapturedAt)

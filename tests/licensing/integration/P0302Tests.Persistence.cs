@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
 using Intelibill.Licensing.Application.Payments;
@@ -121,12 +122,18 @@ public sealed partial class P0302Tests
     }
 
     /// <summary>Wraps the registered resolver; observes the database from an independent connection during calls.</summary>
-    private sealed class GatewayProbe
+    internal sealed class GatewayProbe
     {
         internal NpgsqlConnectionStringBuilder? Database { get; set; }
         internal Guid Account { get; set; }
         internal Func<PaymentObservation, PaymentObservation>? Tamper { get; set; }
-        internal List<string> Observations { get; } = [];
+        internal Func<CancellationToken, Task>? BeforeVerify;
+        internal bool LoseCreateResponse { get; set; }
+        internal bool LookupNotFound { get; set; }
+        internal bool DisableNewAttempts { get; set; }
+        internal int LookupCalls;
+        internal string? OriginalReference { get; private set; }
+        internal ConcurrentQueue<string> Observations { get; } = new();
 
         internal void Install(IServiceCollection services)
         {
@@ -148,12 +155,13 @@ public sealed partial class P0302Tests
             command.Parameters.AddWithValue(Account.ToString("D"));
             await using var reader = await command.ExecuteReaderAsync();
             await reader.ReadAsync();
-            Observations.Add($"{call}:{(reader.GetBoolean(0) ? "committed" : "missing")}:{(reader.GetBoolean(1) ? "unlocked" : "locked")}");
+            Observations.Enqueue($"{call}:{(reader.GetBoolean(0) ? "committed" : "missing")}:{(reader.GetBoolean(1) ? "unlocked" : "locked")}");
         }
 
         private sealed class Resolver(IPaymentGatewayResolver inner, GatewayProbe probe) : IPaymentGatewayResolver
         {
-            public IPaymentGateway? ForNewAttempts() => inner.ForNewAttempts() is { } gateway ? new Gateway(gateway, probe) : null;
+            public IPaymentGateway? ForNewAttempts() =>
+                !probe.DisableNewAttempts && inner.ForNewAttempts() is { } gateway ? new Gateway(gateway, probe) : null;
             public IPaymentGateway? ForPin(PaymentProviderPin pin) => inner.ForPin(pin) is { } gateway ? new Gateway(gateway, probe) : null;
         }
 
@@ -167,13 +175,18 @@ public sealed partial class P0302Tests
             {
                 _attempt = request.AttemptId;
                 await probe.ObserveAsync("create", request.AttemptId);
-                return await inner.CreateCheckoutAsync(request, ct);
+                var result = await inner.CreateCheckoutAsync(request, ct);
+                probe.OriginalReference = result.Value?.ProviderOrderReference;
+                return probe.LoseCreateResponse ? GatewayResult.Unavailable<CheckoutSession>() : result;
             }
 
             public async Task<GatewayResult<PaymentObservation>> VerifyCheckoutAsync(CheckoutVerification request, CancellationToken ct)
             {
                 if (probe.Tamper is null)
                     await probe.ObserveAsync("verify", await AttemptAsync(request.ProviderOrderReference));
+                var beforeVerify = Interlocked.Exchange(ref probe.BeforeVerify, null);
+                if (beforeVerify is not null)
+                    await beforeVerify(ct);
                 var result = await inner.VerifyCheckoutAsync(request, ct);
                 return probe.Tamper is { } tamper && result.Value is { } value ? result with { Value = tamper(value) } : result;
             }
@@ -184,6 +197,15 @@ public sealed partial class P0302Tests
                 var value = await LicensingPostgreSqlFixture.ReadScalarAsync(probe.Database!,
                     $"SELECT attempt_id FROM public.payment_attempt_sessions WHERE provider_order_reference = '{reference}'");
                 return (Guid)value!;
+            }
+
+            public Task<GatewayResult<CheckoutLookup>> LookupCheckoutAsync(CheckoutRequest request, CancellationToken ct)
+            {
+                _attempt = request.AttemptId;
+                Interlocked.Increment(ref probe.LookupCalls);
+                return probe.LookupNotFound
+                    ? Task.FromResult(new GatewayResult<CheckoutLookup>(GatewayOutcome.NotFound, null))
+                    : inner.LookupCheckoutAsync(request, ct);
             }
 
             public Task<GatewayResult<PaymentObservation>> GetPaymentAsync(string reference, CancellationToken ct) =>

@@ -32,6 +32,9 @@ internal static class CheckoutRegistration
     {
         services.AddOptions<PaymentOptions>().BindConfiguration(PaymentOptions.Section);
         services.AddScoped<IPaymentStore, PaymentStore>();
+        services.AddScoped<IPendingPaymentAttemptStore, PendingPaymentAttemptStore>();
+        services.TryAddKeyedSingleton<TimeProvider>(PendingPaymentAttemptWorker.ClockKey, (_, _) => TimeProvider.System);
+        services.AddHostedService<PendingPaymentAttemptWorker>();
         services.AddScoped(provider => new DevelopmentPaymentGateway(
             provider.GetRequiredService<Data.LicensingDbContext>(), CheckoutClock(provider)));
         services.AddScoped<IPaymentGatewayResolver, PaymentGatewayResolver>();
@@ -47,10 +50,14 @@ internal static class CheckoutRegistration
         services.AddScoped(provider => new FulfilPaidOrderHandler(provider.GetRequiredService<IPaymentStore>(),
             provider.GetRequiredService<ICheckoutOrderStore>(),
             provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey)));
+        services.AddScoped(provider => new ReconcilePaymentHandler(provider.GetRequiredService<IPaymentStore>(),
+            provider.GetRequiredService<IPaymentGatewayResolver>(), provider.GetRequiredService<FulfilPaidOrderHandler>(),
+            provider.GetRequiredService<IPendingPaymentAttemptStore>(), CheckoutClock(provider),
+            provider.GetRequiredKeyedService<TimeProvider>(PendingPaymentAttemptWorker.ClockKey)));
         services.AddScoped(provider => ActivatorUtilities.CreateInstance<StartCheckoutPaymentHandler>(provider, CheckoutClock(provider)));
         services.AddScoped(provider => ActivatorUtilities.CreateInstance<VerifyCheckoutPaymentHandler>(provider, CheckoutClock(provider)));
         services.AddScoped<ReadCheckoutPaymentHandler>();
-        services.AddScoped<SimulateCheckoutCaptureHandler>();
+        services.AddScoped(provider => ActivatorUtilities.CreateInstance<SimulateCheckoutCaptureHandler>(provider, CheckoutClock(provider)));
     }
 
     private static TimeProvider CheckoutClock(IServiceProvider provider) =>

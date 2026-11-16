@@ -175,6 +175,18 @@ DO $$ BEGIN
   IF to_regprocedure('public.due_entitlement_verification(timestamptz)') IS NOT NULL THEN
     GRANT EXECUTE ON FUNCTION public.due_entitlement_verification(timestamptz) TO intelibill_licensing_app;
   END IF;
+  IF to_regprocedure('public.claim_pending_payment(timestamptz,uuid)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.claim_pending_payment(timestamptz,uuid) TO intelibill_licensing_app;
+  END IF;
+  IF to_regprocedure('public.lock_pending_payment(uuid,timestamptz)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.lock_pending_payment(uuid,timestamptz) TO intelibill_licensing_app;
+  END IF;
+  IF to_regprocedure('public.finish_pending_payment(uuid,timestamptz,boolean)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.finish_pending_payment(uuid,timestamptz,boolean) TO intelibill_licensing_app;
+  END IF;
+  IF to_regprocedure('public.complete_pending_payment()') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.complete_pending_payment() TO intelibill_licensing_app;
+  END IF;
 END $$;
 
 

@@ -1,5 +1,5 @@
 import { KeyValuePipe, isPlatformBrowser } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, PLATFORM_ID, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, PLATFORM_ID, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -41,6 +41,10 @@ export class CheckoutPageComponent {
   private readonly orderParam = toSignal(this.route.queryParamMap);
   private generation = 0;
   private readonly clock = signal(Date.now());
+
+  private readonly checkoutPayment = viewChild(CheckoutPaymentComponent);
+  protected readonly blocksNewQuote = computed(() =>
+    !!this.quote()?.acceptance && (this.checkoutPayment()?.blocksNewQuote() ?? true));
 
   protected readonly quote = this.review.quote;
   protected readonly covered = this.review.covered;
@@ -127,6 +131,7 @@ export class CheckoutPageComponent {
   protected async startOver() {
     const quote = this.quote();
     if (!quote || this.busy() || (this.acceptDraft() && !this.acceptDraft()?.settled)) return;
+    if (quote.acceptance && !this.checkoutPayment()?.canReviewNewQuote()) return;
     await this.perform(async invocation => {
       await this.drafts.startOver(invocation.scope, quote.orderId);
       if (!invocation.current()) return;

@@ -10,6 +10,8 @@ public interface IPaymentGateway
     PaymentProviderPin Pin { get; }
     PaymentGatewayCapabilities Capabilities { get; }
     Task<GatewayResult<CheckoutSession>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct);
+    Task<GatewayResult<CheckoutLookup>> LookupCheckoutAsync(CheckoutRequest request, CancellationToken ct) =>
+        Task.FromResult(GatewayResult.Unsupported<CheckoutLookup>());
     Task<GatewayResult<PaymentObservation>> VerifyCheckoutAsync(CheckoutVerification request, CancellationToken ct);
     Task<GatewayResult<PaymentObservation>> GetPaymentAsync(string providerPaymentReference, CancellationToken ct);
     Task<GatewayResult<IReadOnlyList<PaymentObservation>>> GetOrderPaymentsAsync(string providerOrderReference, CancellationToken ct);
@@ -28,5 +30,5 @@ public interface IPaymentGatewayResolver
 /// <summary>Local-only capture control; registered only by the development simulator runtime.</summary>
 public interface IPaymentSimulator
 {
-    Task<bool> CaptureAsync(string providerOrderReference, CancellationToken ct);
+    Task SimulateAsync(string providerOrderReference, string outcome, CancellationToken ct);
 }

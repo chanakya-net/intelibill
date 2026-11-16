@@ -22,7 +22,8 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         var synced = shops.Length == 0 ? new Dictionary<Guid, EntitlementSynchronizationV1>()
             : await synchronization.ReadAsync(account, shops, ct);
         var launchable = row.Attempt is { } attempt && gateways.ForPin(attempt.Pin) is not null;
-        return Project(quote, row, synced, row.Attempt is null && CanStart(quote), launchable);
+        var canStart = row.Attempt is null && CanStart(quote) && !await store.HasOverlappingPaymentAsync(account, order, ct);
+        return Project(quote, row, synced, canStart, launchable);
     }
 
     internal bool CanStart(CheckoutQuoteV1 quote) => Startable(quote) && gateways.ForNewAttempts() is not null &&
@@ -36,7 +37,7 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
     {
         var attempt = row.Attempt;
         var payment = attempt is null ? "NotStarted" : row.VerifiedAt is not null ? "Verified"
-            : attempt.ProviderOrderReference is null || row.VerificationRequested ? "PendingVerification" : "AwaitingPayment";
+            : row.DefinitivelyFailed ? "Failed" : attempt.ProviderOrderReference is null || row.VerificationRequested ? "PendingVerification" : "AwaitingPayment";
         var fulfilment = row.TermId is not null ? "Fulfilled" : row.NeedsReview ? "NeedsReview" : "NotFulfilled";
         var applied = row.Deliveries.Count(d => synced.TryGetValue(d.ShopId, out var s) && s.AppliedShopRevision >= d.ShopRevision);
         var review = row.Deliveries.Any(d => synced.TryGetValue(d.ShopId, out var s) && s.State == "NeedsReview" &&

@@ -67,6 +67,17 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
         WHERE a.account_id = {account}
         """);
 
+    public Task<bool> HasOverlappingPaymentAsync(Guid account, Guid order, CancellationToken ct) =>
+        db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (SELECT FROM public.checkout_order_shops requested
+                JOIN public.checkout_order_shops covered USING (account_id, shop_id)
+                JOIN public.payment_attempts a ON a.account_id = covered.account_id AND a.order_id = covered.order_id
+                WHERE requested.account_id = {account} AND requested.order_id = {order} AND a.order_id <> {order}
+                  AND NOT EXISTS (SELECT FROM public.payment_fulfilments f WHERE f.attempt_id = a.attempt_id)
+                  AND (NOT EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = a.attempt_id AND e.kind = 'CheckoutFailed')
+                       OR EXISTS (SELECT FROM public.verified_payments v WHERE v.attempt_id = a.attempt_id))) AS "Value"
+            """).SingleAsync(ct);
+
     public Task<bool> AnyTrialAsync(Guid account, Guid[] shops, CancellationToken ct) =>
         db.Database.SqlQuery<bool>($"""
             SELECT EXISTS (SELECT FROM public.trial_history WHERE account_id = {account} AND shop_id = ANY({shops})) AS "Value"
@@ -82,17 +93,23 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
             {a.AmountPaise}, {a.Currency}, {a.SnapshotHash}, {a.CreatedAt}
         """, ct);
 
-    public Task RecordSessionAsync(StoredPaymentAttempt attempt, CheckoutSession session, DateTimeOffset at, CancellationToken ct) =>
-        db.Database.ExecuteSqlInterpolatedAsync($"""
+    public async Task<bool> RecordSessionAsync(StoredPaymentAttempt attempt, CheckoutSession session, DateTimeOffset at, CancellationToken ct) =>
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.payment_attempt_sessions (attempt_id, account_id, provider_order_reference, launcher_flow, recorded_at)
             VALUES ({attempt.AttemptId}, {attempt.AccountId}, {session.ProviderOrderReference}, {session.LauncherFlow}, {at})
-            """, ct);
+            ON CONFLICT (attempt_id) DO NOTHING
+            """, ct) == 1;
 
     public Task AppendEventAsync(StoredPaymentAttempt attempt, string kind, Guid? actor, DateTimeOffset at, CancellationToken ct) =>
         db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.payment_events (event_id, account_id, attempt_id, order_id, kind, actor_id, recorded_at)
             VALUES ({Guid.NewGuid()}, {attempt.AccountId}, {attempt.AttemptId}, {attempt.OrderId}, {kind}, {actor}, {at})
             """, ct);
+
+    public Task<bool> HasDefinitiveFailureAsync(Guid attempt, CancellationToken ct) =>
+        db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (SELECT FROM public.payment_events WHERE attempt_id = {attempt} AND kind = 'CheckoutFailed') AS "Value"
+            """).SingleAsync(ct);
 
     public Task<bool> HasVerifiedPaymentAsync(Guid attempt, CancellationToken ct) =>
         db.Database.SqlQuery<bool>($"""
@@ -103,10 +120,12 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
     {
         var attempt = await FindOrderAttemptAsync(account, order, ct);
         if (attempt is null)
-            return new(null, false, null, false, null, null, null, []);
+            return new(null, false, null, false, false, null, null, null, []);
         var row = await db.Database.SqlQuery<StatusRow>($"""
             SELECT EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = a.attempt_id
                     AND e.kind = 'VerificationRequested') AS verification_requested,
+                EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = a.attempt_id
+                    AND e.kind = 'CheckoutFailed') AS definitively_failed,
                 v.verified_at, EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = a.attempt_id
                     AND e.kind = 'PaidNeedsReview') AS needs_review,
                 f.term_id, t.starts_at AS term_starts_at, t.ends_at AS term_ends_at
@@ -120,7 +139,7 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
             SELECT shop_id, shop_revision FROM public.payment_fulfilment_deliveries
             WHERE account_id = {account} AND order_id = {order} ORDER BY shop_id
             """).ToListAsync(ct);
-        return new(attempt, row.VerificationRequested, row.VerifiedAt?.ToUniversalTime(), row.NeedsReview, row.TermId,
+        return new(attempt, row.VerificationRequested, row.VerifiedAt?.ToUniversalTime(), row.DefinitivelyFailed, row.NeedsReview, row.TermId,
             row.TermStartsAt?.ToUniversalTime(), row.TermEndsAt?.ToUniversalTime(), deliveries);
     }
 
@@ -130,7 +149,7 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
     [LoggerMessage(Level = LogLevel.Warning, Message = "Payment storage unavailable ({Cause}).")]
     private static partial void LogUnavailable(ILogger logger, string cause);
 
-    private sealed record StatusRow(bool VerificationRequested, DateTimeOffset? VerifiedAt, bool NeedsReview, Guid? TermId,
+    private sealed record StatusRow(bool VerificationRequested, DateTimeOffset? VerifiedAt, bool DefinitivelyFailed, bool NeedsReview, Guid? TermId,
         DateTimeOffset? TermStartsAt, DateTimeOffset? TermEndsAt);
 
     private sealed record AttemptRow(Guid AttemptId, Guid AccountId, Guid OrderId, Guid OperationKey, Guid ActorId,

@@ -14,15 +14,24 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// </summary>
 internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) : IAsyncDisposable
 {
-    internal static readonly Dictionary<string, string?> SimulatorSettings = new() { ["Payments:Mode"] = "LocalSimulator" };
+    internal static readonly Dictionary<string, string?> SimulatorSettings = new()
+    {
+        ["Payments:Mode"] = "LocalSimulator",
+        ["Payments:ReconcileInBackground"] = "false",
+    };
 
     /// <summary>The runtime grant step for tables a test re-creates by migrating down and up again.</summary>
     internal const string RuntimeGrant = """
         GRANT SELECT, INSERT, UPDATE, DELETE ON public.checkout_orders, public.checkout_order_shops,
             public.checkout_order_acceptances, public.payment_attempts, public.payment_attempt_sessions,
             public.payment_events, public.verified_payments, public.payment_fulfilments, public.payment_fulfilment_shops,
-            public.payment_fulfilment_deliveries, public.development_gateway_sessions, public.development_gateway_payments
-            TO licensing_runtime
+            public.payment_fulfilment_deliveries, public.development_gateway_sessions, public.development_gateway_payments,
+            public.development_gateway_controls
+            TO licensing_runtime;
+        GRANT EXECUTE ON FUNCTION public.claim_pending_payment(timestamptz,uuid) TO licensing_runtime;
+        GRANT EXECUTE ON FUNCTION public.lock_pending_payment(uuid,timestamptz) TO licensing_runtime;
+        GRANT EXECUTE ON FUNCTION public.finish_pending_payment(uuid,timestamptz,boolean) TO licensing_runtime;
+        GRANT EXECUTE ON FUNCTION public.complete_pending_payment() TO licensing_runtime;
         """;
 
     internal P0213Fixture Delivery { get; } = delivery;
@@ -36,8 +45,10 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
         var delivery = await P0213Fixture.StartAsync(database, browser, settings ?? SimulatorSettings, collection =>
         {
             collection.AddKeyedSingleton<TimeProvider>(CheckoutOrdersV1.Policy, checkout);
+            collection.AddKeyedSingleton<TimeProvider>("pending-payment-lease", checkout);
             services?.Invoke(collection);
         }, prepareProvider: true);
+        await LicensingPostgreSqlFixture.ExecuteAsync(delivery.Hosts.LicensingOwner, RuntimeGrant);
         return new(delivery, checkout);
     }
 
@@ -94,7 +105,7 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
         return await ReadAsync(response);
     }
 
-    private static async Task<JsonElement> PostAsync(HttpClient client, string path, object body)
+    internal static async Task<JsonElement> PostAsync(HttpClient client, string path, object body)
     {
         using var response = await client.PostAsJsonAsync(path, body);
         Assert.True(response.Headers.CacheControl?.NoStore);
