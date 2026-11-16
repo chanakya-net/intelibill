@@ -32,6 +32,12 @@ const shopPage = (items: typeof shops, nextCursor: string | null = null) => ({
   accountId: scope.account, orderId: order, items, nextCursor,
 });
 const acceptPath = path + '/accept';
+const notStarted = () => ({
+  schemaVersion: 1, accountId: scope.account, orderId: order, attemptId: null, payment: 'NotStarted',
+  fulfilment: 'NotFulfilled', access: 'NotApplicable', amountPaise: 27005, currency: 'INR', startedAt: null,
+  verifiedAt: null, termId: null, termStartsAt: null, termEndsAt: null, shopsTotal: 2, shopsApplied: 0,
+  canStart: false, launch: null,
+});
 
 let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 let query: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
@@ -212,6 +218,7 @@ describe('CheckoutPageComponent', () => {
       expect(reopened.element('accepted')).toBeTruthy();
     });
     await showCoverage(reopened);
+    http.expectOne(path + '/payment').flush(notStarted());
     expect(drafts.readAccept(scope, order)).toEqual({ command, settled: true });
   });
 

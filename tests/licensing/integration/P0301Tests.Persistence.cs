@@ -53,10 +53,7 @@ public sealed partial class P0301Tests
         var before = await ExistingFactsAsync(fixture);
         Assert.NotNull(before);
         await migrator.MigrateAsync();
-        await fixture.Catalogue.ExecuteAsync("""
-            GRANT SELECT, INSERT, UPDATE, DELETE ON public.checkout_orders,
-                public.checkout_order_shops, public.checkout_order_acceptances TO licensing_runtime
-            """);
+        await fixture.Catalogue.ExecuteAsync(P0302Fixture.RuntimeGrant);
         Assert.Equal(before, await ExistingFactsAsync(fixture));
         var quote = await CreateQuoteAsync(payer.Client, account, command);
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => migrator.MigrateAsync(predecessor));

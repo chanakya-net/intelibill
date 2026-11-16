@@ -51,7 +51,7 @@
         <dt>{{ 'billing.checkout.refundPolicy' | transloco }}</dt><dd>{{ review.refundPolicyVersion }}</dd>
       </dl>
       @if (review.acceptance) {
-        <p role="status" data-testid="checkout-accepted">{{ 'billing.checkout.accepted' | transloco }}</p>
+        <app-checkout-payment [quote]="review" />
       } @else if (!acceptDraft()) {
         <label class="checkout-check">
           <input type="checkbox" [disabled]="busy() || !covered() || expired() || !!problem()"

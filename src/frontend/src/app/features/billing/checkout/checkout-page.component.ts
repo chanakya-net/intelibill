@@ -13,10 +13,11 @@ import { CheckoutDrafts } from './checkout-drafts';
 import { isUuid, type CheckoutShop, type Period } from './checkout.models';
 import { CheckoutReview, DraftError, checkoutFailure, type Failure, type Invocation } from './checkout-review';
 import { CheckoutService } from './checkout.service';
+import { CheckoutPaymentComponent } from './checkout-payment.component';
 
 @Component({
   selector: 'app-checkout-page',
-  imports: [KeyValuePipe, ButtonDirective, RouterLink, TranslocoPipe, LocaleMoneyPipe],
+  imports: [KeyValuePipe, ButtonDirective, RouterLink, TranslocoPipe, LocaleMoneyPipe, CheckoutPaymentComponent],
   providers: [CheckoutReview],
   templateUrl: './checkout-page.component.html',
   styleUrl: './checkout-page.component.scss',

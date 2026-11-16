@@ -46,11 +46,12 @@ internal sealed class CheckoutOrderStore(LicensingDbContext db) : ICheckoutOrder
     private async Task<CheckoutSourceShop[]> ReadSourceShopsAsync(Guid account, Guid? term, Guid[] requested,
         CancellationToken ct) =>
         await db.Database.SqlQuery<CheckoutSourceShop>($"""
-            SELECT shop_id AS shop_id, shop_name AS name, request_id AS request_id, term_id AS term_id,
-                   applied_at AS applied_at, coverage_ends_at AS coverage_ends_at
-            FROM public.shop_affiliations
-            WHERE account_id = {account} AND (term_id = {term} OR shop_id = ANY({requested}))
-            ORDER BY shop_id LIMIT {CheckoutOrdersV1.MaxShops + 1}
+            SELECT a.shop_id AS shop_id, a.shop_name AS name, a.request_id AS request_id,
+                   coalesce(a.term_id, p.term_id) AS term_id, a.applied_at AS applied_at, a.coverage_ends_at AS coverage_ends_at
+            FROM public.shop_affiliations a
+            LEFT JOIN public.payment_fulfilment_shops p ON p.account_id = a.account_id AND p.shop_id = a.shop_id
+            WHERE a.account_id = {account} AND (a.term_id = {term} OR a.shop_id = ANY({requested}))
+            ORDER BY a.shop_id LIMIT {CheckoutOrdersV1.MaxShops + 1}
             """).ToArrayAsync(ct);
 
     private Task<CheckoutRenewalSource?> ReadTermAsync(Guid account, Guid term, CancellationToken ct) =>
@@ -97,10 +98,11 @@ internal sealed class CheckoutOrderStore(LicensingDbContext db) : ICheckoutOrder
                 ORDER BY s.shop_id LIMIT {CheckoutOrdersV1.PageSize + 1}
                 """)
             : db.Database.SqlQuery<CheckoutShopV1>($"""
-                SELECT shop_id AS shop_id, shop_name AS name, term_id AS term_id
-                FROM public.shop_affiliations WHERE account_id = {account}
-                    AND ({after}::uuid IS NULL OR shop_id > {after})
-                ORDER BY shop_id LIMIT {CheckoutOrdersV1.PageSize + 1}
+                SELECT a.shop_id AS shop_id, a.shop_name AS name, coalesce(a.term_id, p.term_id) AS term_id
+                FROM public.shop_affiliations a
+                LEFT JOIN public.payment_fulfilment_shops p ON p.account_id = a.account_id AND p.shop_id = a.shop_id
+                WHERE a.account_id = {account} AND ({after}::uuid IS NULL OR a.shop_id > {after})
+                ORDER BY a.shop_id LIMIT {CheckoutOrdersV1.PageSize + 1}
                 """)).ToListAsync(ct);
         var items = rows.Take(CheckoutOrdersV1.PageSize).ToArray();
         return new(account, order, items, rows.Count > items.Length ? items[^1].ShopId : null);

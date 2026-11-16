@@ -99,6 +99,9 @@ public sealed partial class P0216Tests
         Assert.Equal(retained, await ChangeHistoryAsync(fixture));
         await migrator.MigrateAsync(withdrawals);
         Assert.Equal(retained, await ChangeHistoryAsync(fixture));
+        // The current binary reads the later checkout and payment schema; apply it and its runtime grants first.
+        await migrator.MigrateAsync();
+        await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, P0302Fixture.RuntimeGrant);
         Assert.Equal(cancellation.GetProperty("changeId").GetGuid(),
             (await StatusAsync(payer)).GetProperty("term").GetProperty("cancellation").GetProperty("changeId").GetGuid());
 
