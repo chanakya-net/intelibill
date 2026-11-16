@@ -14,7 +14,7 @@ import { CatalogueSnapshotComponent } from './catalogue-snapshot.component';
 const operationKeyPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface PendingRetirement {
-  sessionId: string;
+  adminId: string;
   target: PlanRetirementTarget;
   reason: string;
 }
@@ -44,7 +44,7 @@ export class CatalogueRetirementComponent {
   protected readonly mfaNeeded = signal(false);
   protected readonly reason = signal('');
   protected readonly confirmed = signal(false);
-  protected readonly canRetry = computed(() => !!this.pending() && this.pending()?.sessionId === this.session.sessionId());
+  protected readonly canRetry = computed(() => !!this.session.sessionId() && this.pending()?.adminId === this.session.adminId());
 
   constructor() {
     effect(() => {
@@ -62,28 +62,31 @@ export class CatalogueRetirementComponent {
   protected submit(event: SubmitEvent) {
     event.preventDefault();
     const target = this.target();
+    const adminId = this.session.adminId();
     const sessionId = this.session.sessionId();
     const reason = this.reason().trim();
-    if (!target?.planId || target.status !== 'published' || !sessionId || !reason || reason.length > 500
+    if (!target?.planId || target.status !== 'published' || !adminId || !sessionId || !reason || reason.length > 500
       || !this.confirmed() || this.busy() || this.key()) return;
     const key = crypto.randomUUID();
-    const pending = { sessionId, reason, target: { planId: target.planId, versionId: target.versionId, expectedVersion: target.version } };
+    const pending = { adminId, reason, target: { planId: target.planId, versionId: target.versionId, expectedVersion: target.version } };
     this.pending.set(pending);
     this.writePending(key, pending);
     this.setKey(key);
-    this.run(this.api.retirePlan(pending.target, { operationKey: key, reason }), true);
+    this.run(this.api.retirePlan(pending.target, { operationKey: key, reason }, sessionId), sessionId, true);
   }
 
   protected recover() {
     const key = this.key();
-    if (key && !this.busy()) this.run(this.api.recoverRetirement(key));
+    const sessionId = this.session.sessionId();
+    if (key && sessionId && !this.busy()) this.run(this.api.recoverRetirement(key, sessionId), sessionId);
   }
 
   protected retry() {
     const key = this.key();
     const pending = this.pending();
-    if (!key || !pending || !this.canRetry() || this.busy() || this.mfaNeeded()) return;
-    this.run(this.api.retirePlan(pending.target, { operationKey: key, reason: pending.reason }));
+    const sessionId = this.session.sessionId();
+    if (!key || !pending || !sessionId || !this.canRetry() || this.busy() || this.mfaNeeded()) return;
+    this.run(this.api.retirePlan(pending.target, { operationKey: key, reason: pending.reason }, sessionId), sessionId);
   }
 
   protected close() {
@@ -97,8 +100,7 @@ export class CatalogueRetirementComponent {
     this.dismissed.emit();
   }
 
-  private run(request: Observable<PlanRetirement>, initial = false) {
-    const sessionId = this.session.sessionId();
+  private run(request: Observable<PlanRetirement>, sessionId: string, initial = false) {
     this.busy.set(true);
     this.error.set('');
     this.mfaNeeded.set(false);
@@ -152,7 +154,7 @@ export class CatalogueRetirementComponent {
     try {
       const raw = sessionStorage.getItem('catalogue.retirement.' + key);
       const pending = raw ? JSON.parse(raw) as PendingRetirement : null;
-      return pending?.sessionId && pending.sessionId === this.session.sessionId() ? pending : null;
+      return pending?.adminId && pending.adminId === this.session.adminId() ? pending : null;
     } catch {
       return null;
     }
@@ -169,7 +171,7 @@ export class CatalogueRetirementComponent {
 
   private clearPending() {
     const key = this.key();
-    if (key) this.writePending(key, null);
+    if (key && this.canRetry()) this.writePending(key, null);
     this.pending.set(null);
   }
 }

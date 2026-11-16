@@ -63,6 +63,34 @@ public sealed partial class P0208Tests
         Assert.Equal(2, await fixture.ScalarAsync($"SELECT status FROM plan_versions WHERE id = '{version}'"));
     }
 
+    [Fact]
+    public async Task RetirementRecovery_SessionSnapshotIdentifiesTheSameAdministratorAfterFreshMfa()
+    {
+        await using var fixture = await P0206Fixture.StartAsync(database, P0207Tests.LocalSettings());
+        var (manager, seed) = await fixture.ManagerAsync();
+        using var original = manager;
+        var before = await SessionIdentityAsync(original);
+
+        fixture.Clock.Advance(TimeSpan.FromMinutes(5));
+        using var fresh = await fixture.SignInOperatorAsync(seed);
+        var after = await SessionIdentityAsync(fresh);
+        Assert.Equal(before.AdminId, after.AdminId);
+        Assert.NotEqual(before.SessionId, after.SessionId);
+
+        var (other, _) = await fixture.ManagerAsync("retirement-other@example.test");
+        using var different = other;
+        Assert.NotEqual(before.AdminId, (await SessionIdentityAsync(different)).AdminId);
+    }
+
+    private static async Task<(Guid AdminId, Guid SessionId)> SessionIdentityAsync(P0110CookieBrowser browser)
+    {
+        using var response = await browser.SendAsync(HttpMethod.Get, "/api/admin/auth/session");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        var session = await P0206Fixture.BodyAsync(response);
+        return (session.GetProperty("adminId").GetGuid(), session.GetProperty("sessionId").GetGuid());
+    }
+
     private static async Task AssertInvalidRetirementRequestsAsync(P0110CookieBrowser manager, Guid plan, Guid version, Guid key)
     {
         var path = PlanPath(plan, version) + "/retire";

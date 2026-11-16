@@ -147,13 +147,15 @@ export class CatalogueApi {
     return this.http.get<PreparedPublication>('/api/admin/catalogue/operations/' + encodeURIComponent(key));
   }
 
-  retirePlan(target: PlanRetirementTarget, command: { operationKey: string; reason: string }) {
+  retirePlan(target: PlanRetirementTarget, command: { operationKey: string; reason: string }, sessionId: string) {
     return this.withProof((headers) => this.http.post<PlanRetirement>(
-      this.publicationPath(target) + '/retire', { expectedVersion: target.expectedVersion, ...command, confirmed: true }, { headers }));
+      this.publicationPath(target) + '/retire', { expectedVersion: target.expectedVersion, ...command, confirmed: true },
+      { headers: { ...headers, 'X-Admin-Session': sessionId } }));
   }
 
-  recoverRetirement(key: string) {
-    return this.http.get<PlanRetirement>('/api/admin/catalogue/retirements/' + encodeURIComponent(key));
+  recoverRetirement(key: string, sessionId: string) {
+    return this.http.get<PlanRetirement>('/api/admin/catalogue/retirements/' + encodeURIComponent(key),
+      { headers: { 'X-Admin-Session': sessionId } });
   }
 
   private publicationPath({ planId, versionId }: PublicationTarget) {

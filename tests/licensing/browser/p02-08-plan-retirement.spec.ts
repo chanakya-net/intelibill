@@ -1,7 +1,7 @@
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { createOwner, signIn } from './p01-12-fixture';
+import { createOwner, origin, sessionPath, signIn } from './p01-12-fixture';
 import { confirm, draftPlan, draftTrial, enableCatalogue, history, name, openPlans, prepare, signInMerchant } from './p02-07-fixture';
 
 const evidence = process.env['P0207_EVIDENCE']!;
@@ -41,7 +41,14 @@ async function retireAndRecover(admin: Page) {
   await panel.getByLabel('Retirement reason').fill(reason);
   await panel.getByLabel('I confirm this version should leave new selection.').check();
 
+  const session = await admin.request.get(origin + sessionPath);
+  expect(session.status()).toBe(200);
+  const { sessionId } = await session.json();
   await admin.route('**/api/admin/plans/*/versions/*/retire', async route => {
+    const headers = await route.request().allHeaders();
+    expect(headers['x-admin-session']).toBe(sessionId);
+    const stale = await route.fetch({ headers: { ...headers, 'x-admin-session': crypto.randomUUID() } });
+    expect(stale.status()).toBe(401);
     const committed = await route.fetch();
     expect(committed.status()).toBe(200);
     expect(route.request().postDataJSON().operationKey === new URL(admin.url()).searchParams.get('retirement')).toBe(true);
@@ -105,6 +112,7 @@ test('retirement disappears from new selection and exact terms remain recoverabl
     writeFileSync(join(evidence, 'observations.json'), JSON.stringify({
       environment: 'Development fixture on loopback, shipping admin and merchant web applications',
       confirmationRecoveredAfterReload: true,
+      staleSessionRequestRefused: true,
       freshCatalogueCount: 0,
       versionBeforeAvailable: true,
       versionAfterAvailable: false,
