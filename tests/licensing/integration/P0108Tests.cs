@@ -60,6 +60,9 @@ public sealed partial class P0108Tests(LicensingPostgreSqlFixture database) : IC
             REVOKE ALL ON SCHEMA public FROM PUBLIC;
             GRANT USAGE ON SCHEMA public TO licensing_runtime;
             GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO licensing_runtime;
+            GRANT EXECUTE ON FUNCTION public.claim_entitlement_delivery(timestamptz,uuid) TO licensing_runtime;
+            GRANT EXECUTE ON FUNCTION public.finish_entitlement_delivery(uuid,uuid,timestamptz,boolean,boolean,text) TO licensing_runtime;
+            GRANT EXECUTE ON FUNCTION public.due_entitlement_verification(timestamptz) TO licensing_runtime;
             """);
         return database.Login(name, LicensingPostgreSqlFixture.RuntimeRole);
     }

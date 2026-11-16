@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.Entitlements;
 using System.Data;
 using ErrorOr;
 using Intelibill.Licensing.Application.AdminIdentities;
@@ -17,7 +18,7 @@ namespace Intelibill.Licensing.Infrastructure.Grants;
 /// transaction-local, so commit or rollback clears them before a pooled connection is reused. One transaction
 /// writes the revision, grant, coverage term, receipt and named shops; deferred checks require all of them.
 /// </summary>
-internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILogger<ComplimentaryGrantStore> logger)
+internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILogger<ComplimentaryGrantStore> logger, IEntitlementPublisher publisher)
     : IComplimentaryGrantStore
 {
     public async Task<ErrorOr<T>> InTransactionAsync<T>(Func<CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken ct)
@@ -138,6 +139,8 @@ internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILo
                     {facts.StartsAt}, {facts.EndsAt})
                 """, ct);
         await db.Database.ExecuteSqlRawAsync("SET CONSTRAINTS ALL IMMEDIATE", ct);
+        foreach (var shop in grant.Shops.OrderBy(shop => shop.ShopId))
+            await publisher.PublishAsync(grant.AccountId, shop.ShopId, ct);
     }
 
     private sealed record ReceiptRow(Guid GrantId, Guid TermId, Guid AccountId, Guid OperationKey, Guid AdminId, Guid SessionId,

@@ -1,0 +1,134 @@
+using ErrorOr;
+using Intelibill.Licensing.Infrastructure.Billing;
+using Intelibill.Licensing.Infrastructure.Data;
+using Intelibill.Shared.Contracts.V1;
+using Intelibill.Shared.Security;
+using Microsoft.EntityFrameworkCore;
+
+namespace Intelibill.Licensing.Infrastructure.Entitlements;
+
+public sealed class EntitlementMerchantEvents
+{
+    private readonly LicensingDbContext db;
+    private readonly TimeProvider clock;
+    private readonly EntitlementPublisher publisher;
+
+    internal EntitlementMerchantEvents(LicensingDbContext db, TimeProvider clock, EntitlementPublisher publisher)
+    {
+        this.db = db;
+        this.clock = clock;
+        this.publisher = publisher;
+    }
+    public Task<ErrorOr<Success>> AcknowledgeAsync(EntitlementAcknowledgementV1 ack, byte[] body, VerifiedServiceAssertion proof,
+        CancellationToken ct)
+    {
+        if (!ValidAck(ack))
+            return Task.FromResult<ErrorOr<Success>>(Error.Validation("Entitlement.InvalidMerchantEvent"));
+        return InEventAsync(ack.AccountId, ack.EventId, "Acknowledgement", body, proof,
+            token => SaveAcknowledgementAsync(ack, token), ct);
+    }
+
+    public Task<ErrorOr<Success>> ReconcileAsync(EntitlementReconciliationV1 request, byte[] body, VerifiedServiceAssertion proof,
+        CancellationToken ct)
+    {
+        if (request.SchemaVersion != 1 || request.EventId == Guid.Empty || request.AccountId == Guid.Empty ||
+            request.ShopId == Guid.Empty || request.AffiliationRequestId == Guid.Empty ||
+            request.AccountRevision is <= 0 || request.ShopRevision is <= 0)
+            return Task.FromResult<ErrorOr<Success>>(Error.Validation("Entitlement.InvalidMerchantEvent"));
+        return InEventAsync(request.AccountId, request.EventId, "Reconciliation", body, proof,
+            token => SaveReconciliationAsync(request, token), ct);
+    }
+
+    private async Task<ErrorOr<Success>> InEventAsync(Guid account, Guid id, string kind, byte[] body, VerifiedServiceAssertion proof,
+        Func<CancellationToken, Task<bool>> apply, CancellationToken ct)
+    {
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await EnterAccountAsync(db, account, ct);
+        if (!await ConsumeAsync(proof, ct))
+            return Error.Unauthorized("Entitlement.Replayed");
+
+        var prior = await db.Database.SqlQuery<string>($"""
+            SELECT digest AS "Value" FROM public.entitlement_merchant_inbox WHERE event_id = {id} AND kind = {kind}
+            """).SingleOrDefaultAsync(ct);
+        var matched = prior is not null
+            ? prior == proof.Digest
+            : await SaveInboxAsync(id, kind, account, body, proof, ct) && await apply(ct);
+        if (clock.GetUtcNow() >= proof.ExpiresAt)
+            return Error.Unauthorized("Entitlement.Replayed");
+        if (matched || prior is not null)
+            await tx.CommitAsync(ct);
+        return matched ? Result.Success : Error.Conflict("Entitlement.EventMismatch");
+    }
+
+    private async Task<bool> SaveAcknowledgementAsync(EntitlementAcknowledgementV1 ack, CancellationToken ct)
+    {
+        var matches = await db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (SELECT FROM public.entitlement_snapshots s JOIN public.entitlement_messages m
+                USING (event_id, account_id, shop_id) WHERE s.event_id = {ack.EventId} AND s.account_id = {ack.AccountId}
+                AND s.shop_id = {ack.ShopId} AND s.affiliation_request_id = {ack.AffiliationRequestId}
+                AND s.account_revision = {ack.AccountRevision} AND s.shop_revision = {ack.ShopRevision}
+                AND m.digest = {ack.Digest}) AS "Value"
+            """).SingleAsync(ct);
+        if (!matches) return false;
+        return await db.Database.ExecuteSqlInterpolatedAsync($"""
+            UPDATE public.entitlement_outbox SET status = {ack.Outcome},
+                lease_token = NULL, lease_expires_at = NULL, last_failure = NULL
+            WHERE event_id = {ack.EventId} AND account_id = {ack.AccountId}
+            """, ct) == 1;
+    }
+
+    private async Task<bool> SaveReconciliationAsync(EntitlementReconciliationV1 request, CancellationToken ct)
+    {
+        var matches = await db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (SELECT FROM public.shop_affiliations WHERE account_id = {request.AccountId}
+                AND shop_id = {request.ShopId} AND request_id = {request.AffiliationRequestId}) AS "Value"
+            """).SingleAsync(ct);
+        return matches && await publisher.PublishAsync(request.AccountId, request.ShopId, reconcile: true, ct);
+    }
+
+    internal static async Task EnterAccountAsync(LicensingDbContext db, Guid account, CancellationToken ct)
+    {
+        await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            SELECT set_config('app.billing_account_id', {account.ToString("D")}, true)
+            """, ct);
+        await BillingAccountLock.TakeAsync(db, account, ct);
+    }
+
+    private async Task<bool> ConsumeAsync(VerifiedServiceAssertion proof, CancellationToken ct)
+    {
+        if (clock.GetUtcNow() >= proof.ExpiresAt) return false;
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            SELECT set_config('app.entitlement_replay_id', {proof.ReplayId.ToString("D")}, true)
+            """, ct);
+        var inserted = await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO public.entitlement_request_uses (replay_id, expires_at) VALUES ({proof.ReplayId}, {proof.ExpiresAt})
+            ON CONFLICT (replay_id) DO NOTHING
+            """, ct);
+        return inserted == 1 && clock.GetUtcNow() < proof.ExpiresAt;
+    }
+
+    private async Task<bool> SaveInboxAsync(Guid id, string kind, Guid account, byte[] body, VerifiedServiceAssertion proof,
+        CancellationToken ct) =>
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO public.entitlement_merchant_inbox (event_id, kind, account_id, digest, payload, assertion, public_key)
+            VALUES ({id}, {kind}, {account}, {proof.Digest}, {body}, {proof.Assertion}, {proof.PublicKey})
+            ON CONFLICT (event_id, kind) DO NOTHING
+            """, ct) == 1;
+
+    private bool ValidAck(EntitlementAcknowledgementV1 ack) =>
+        ack.SchemaVersion == 1 && ack.EventId != Guid.Empty && ack.AccountId != Guid.Empty && ack.ShopId != Guid.Empty &&
+        ack.AffiliationRequestId != Guid.Empty && EntitlementSnapshotsV1.IsDigest(ack.Digest) &&
+        ack.AccountRevision > 0 && ack.ShopRevision > 0 && ack.AppliedAccountRevision is not <= 0 &&
+        ack.AppliedShopRevision is not <= 0 && EntitlementSnapshotsV1.IsInstant(ack.AppliedAt) && ack.AppliedAt <= clock.GetUtcNow() &&
+        IsValidDisposition(ack);
+
+    private static bool IsValidDisposition(EntitlementAcknowledgementV1 ack) => ack.Outcome switch
+    {
+        "Applied" => ack.Disposition is "Applied" or "Superseded" &&
+            ack.AppliedAccountRevision >= ack.AccountRevision && ack.AppliedShopRevision >= ack.ShopRevision,
+        "NeedsReview" => ack.Disposition is "AffiliationUnresolved" or "MissingScope" or "InvalidAccountScope" or
+            "InvalidShopScope" or "ConflictingAccountScope" or "ConflictingShopScope",
+        _ => false,
+    };
+}

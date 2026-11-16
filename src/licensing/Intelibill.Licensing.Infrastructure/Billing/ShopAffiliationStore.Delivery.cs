@@ -66,6 +66,8 @@ internal sealed partial class ShopAffiliationStore
             VALUES ({decision.EventId}, {decision.AccountId}, {decision.ShopId}, {decision.RequestId}, {digest}, {status})
             ON CONFLICT DO NOTHING
             """, ct);
+        if (inserted == 1 && applied)
+            await publisher.PublishAsync(decision.AccountId, decision.ShopId, ct);
         return inserted == 1 ? new ShopAffiliationAcknowledgementV1(decision.EventId, status) : ShopAffiliationPolicy.Conflict;
     }
 

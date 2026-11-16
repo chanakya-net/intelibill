@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.Entitlements;
 using ErrorOr;
 using Intelibill.Licensing.Application.Billing;
 using Intelibill.Licensing.Application.Trials;
@@ -11,7 +12,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Intelibill.Licensing.Infrastructure.Trials;
 
-internal sealed partial class TrialStore(LicensingDbContext db, TimeProvider authClock, ILogger<TrialStore> logger) : ITrialStore
+internal sealed partial class TrialStore(LicensingDbContext db, TimeProvider authClock, ILogger<TrialStore> logger, IEntitlementPublisher publisher) : ITrialStore
 {
     public async Task<ErrorOr<ShopTrialDeliveryResultV1>> InDeliveryAsync(ShopTrialConsentV1 consent,
         TrialDeliveryProof proof, Func<TrialAffiliation?, CancellationToken, Task<ErrorOr<ShopTrialDeliveryResultV1>>> apply,
@@ -106,7 +107,10 @@ internal sealed partial class TrialStore(LicensingDbContext db, TimeProvider aut
                 {affiliation?.AccountId}, {history?.TermId}, {proof.ReplayId}, {proof.Digest}, {result.Status}, {result.Reason})
             """, ct);
         if (history is not null)
+        {
             await InsertTrialAsync(history, ct);
+            await publisher.PublishAsync(history.AccountId, history.ShopId, ct);
+        }
     }
 
     private async Task InsertTrialAsync(TrialHistory trial, CancellationToken ct)

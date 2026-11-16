@@ -1,3 +1,4 @@
+using Intelibill.Api.Internal;
 using System.Text;
 using Intelibill.Api.Controllers;
 using Intelibill.Api.Extensions;
@@ -218,6 +219,7 @@ app.UseAuthorization();
 app.UseMiddleware<JwtContextEnrichmentMiddleware>();
 app.UseSerilogRequestLogging(SerilogExtensions.RequestLoggingOptions);
 app.MapControllers();
+app.MapEntitlementReceiver();
 app.MapWolverineEndpoints();
 // CloseOnAuthenticationExpiration: without it a transport outlives the token that opened it,
 // because the handshake is the only time SignalR looks at authentication. The client reconnects

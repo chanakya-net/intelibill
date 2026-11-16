@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.Entitlements;
 using ErrorOr;
 using Intelibill.Licensing.Application.Billing;
 using Intelibill.Licensing.Application.BillingAccounts;
@@ -8,7 +9,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.Billing;
 
-internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimeProvider clock) : IShopAffiliationStore
+internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimeProvider clock, IEntitlementPublisher publisher) : IShopAffiliationStore
 {
     public async Task<ErrorOr<ShopAffiliationRequestV1>> RequestAsync(Guid account, Guid actor,
         RequestShopAffiliationV1 request, CancellationToken ct)

@@ -53,6 +53,20 @@ alter default privileges in schema public
 grant select, insert, update, delete on all tables in schema public to intelibill_app;
 grant usage, select on all sequences in schema public to intelibill_app;
 
+-- Bounded integration worker routines are private until explicitly granted.
+DO $$ BEGIN
+  IF to_regprocedure('public.claim_entitlement_delivery(timestamptz,uuid)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.claim_entitlement_delivery(timestamptz,uuid) TO intelibill_app;
+  END IF;
+  IF to_regprocedure('public.finish_entitlement_delivery(uuid,uuid,timestamptz,boolean,boolean,text)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.finish_entitlement_delivery(uuid,uuid,timestamptz,boolean,boolean,text) TO intelibill_app;
+  END IF;
+  IF to_regprocedure('public.due_merchant_entitlement_reconciliation(timestamptz)') IS NOT NULL THEN
+    GRANT EXECUTE ON FUNCTION public.due_merchant_entitlement_reconciliation(timestamptz) TO intelibill_app;
+  END IF;
+END $$;
+
+
 \echo ''
 \echo '== the runtime role must not be able to ignore a policy: expect zero rows =='
 select rolname, rolsuper, rolbypassrls, rolcreatedb, rolcreaterole
