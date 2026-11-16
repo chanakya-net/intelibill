@@ -2,6 +2,10 @@ import { Routes } from '@angular/router';
 
 export const billingRoutes: Routes = [
   {
+    path: 'accounts/:accountId/checkout',
+    loadComponent: () => import('./checkout/checkout-page.component').then(m => m.CheckoutPageComponent),
+  },
+  {
     path: 'trial',
     loadComponent: () => import('./trial/shop-trial-page.component').then(m => m.ShopTrialPageComponent),
   },
