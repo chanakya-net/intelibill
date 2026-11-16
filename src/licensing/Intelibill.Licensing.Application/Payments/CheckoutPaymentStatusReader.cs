@@ -7,7 +7,8 @@ namespace Intelibill.Licensing.Application.Payments;
 
 /// <summary>
 /// Projects the neutral payment, fulfilment and access states of one order. Access is applied for a shop only once
-/// the merchant's signed acknowledgement confirms the snapshot published by the fulfilment (or a later one).
+/// the merchant's signed acknowledgement confirms the snapshot published by the fulfilment (or a later one). An
+/// attempt keeps its status when its adapter is no longer enabled, but no launcher is offered for it.
 /// </summary>
 public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPaymentStore store,
     IEntitlementSynchronizationReader synchronization, IPaymentGatewayResolver gateways, TimeProvider clock)
@@ -20,7 +21,8 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         var shops = row.Deliveries.Select(delivery => delivery.ShopId).ToArray();
         var synced = shops.Length == 0 ? new Dictionary<Guid, EntitlementSynchronizationV1>()
             : await synchronization.ReadAsync(account, shops, ct);
-        return Project(quote, row, synced, row.Attempt is null && CanStart(quote));
+        var launchable = row.Attempt is { } attempt && gateways.ForPin(attempt.Pin) is not null;
+        return Project(quote, row, synced, row.Attempt is null && CanStart(quote), launchable);
     }
 
     internal bool CanStart(CheckoutQuoteV1 quote) => Startable(quote) && gateways.ForNewAttempts() is not null &&
@@ -30,7 +32,7 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         quote.Acceptance is not null && quote.TermId is null && quote.StartRule == "Fulfilment";
 
     private static CheckoutPaymentV1 Project(CheckoutQuoteV1 quote, PaymentStatusRow row,
-        IReadOnlyDictionary<Guid, EntitlementSynchronizationV1> synced, bool canStart)
+        IReadOnlyDictionary<Guid, EntitlementSynchronizationV1> synced, bool canStart, bool launchable)
     {
         var attempt = row.Attempt;
         var payment = attempt is null ? "NotStarted" : row.VerifiedAt is not null ? "Verified"
@@ -41,7 +43,8 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
             !(s.AppliedShopRevision >= d.ShopRevision));
         var access = row.TermId is null ? "NotApplicable"
             : applied == quote.ShopCount ? "Applied" : review ? "NeedsReview" : "Applying";
-        var launch = payment == "AwaitingPayment" && attempt?.LauncherFlow is { } flow
+        // A persisted launcher is offered only while the runtime still permits the attempt's pinned adapter.
+        var launch = payment == "AwaitingPayment" && launchable && attempt?.LauncherFlow is { } flow
             ? new CheckoutLaunchV1(flow, new Dictionary<string, string>()) : null;
         return new(quote.AccountId, quote.OrderId, attempt?.AttemptId, payment, fulfilment, access, quote.AmountPaise,
             quote.Currency, attempt?.CreatedAt, row.VerifiedAt, row.TermId, row.TermStartsAt, row.TermEndsAt,

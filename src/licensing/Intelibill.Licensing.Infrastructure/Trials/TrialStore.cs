@@ -27,6 +27,8 @@ internal sealed partial class TrialStore(LicensingDbContext db, TimeProvider aut
             {
                 await UseAccountAsync(bound.AccountId, ct);
                 await BillingAccountLock.TakeAsync(db, bound.AccountId, ct);
+                // Coverage committed while this delivery waited (a paid fulfilment) must decide eligibility.
+                affiliation = await UseShopAsync(consent.ShopId, ct);
             }
 
             await db.Database.ExecuteSqlInterpolatedAsync($"""

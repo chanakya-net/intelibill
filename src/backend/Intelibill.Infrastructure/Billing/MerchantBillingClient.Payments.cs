@@ -3,6 +3,7 @@ using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Shared.Contracts.V1;
+using Microsoft.Extensions.Hosting;
 
 namespace Intelibill.Infrastructure.Billing;
 
@@ -46,9 +47,24 @@ internal sealed partial class MerchantBillingClient : IMerchantCheckoutPayments
         Guid order, CancellationToken ct)
     {
         var payment = await ReadJsonAsync<CheckoutPaymentV1>(response, ct);
-        return payment is not null && IsPaymentValid(payment, account, order)
-            ? payment with { Launch = payment.Launch is { } launch ? new(launch.Flow, new Dictionary<string, string>()) : null }
+        return payment is not null && RelayPayment(payment, account, order, environment) is { } relayed
+            ? relayed
             : Unavailable("InvalidCheckoutPayment");
+    }
+
+    /// <summary>
+    /// A valid payment keeps its neutral state; its launcher is relayed without parameters, and a simulator launcher
+    /// only by a Development or Testing merchant host, whatever the licensing service answered.
+    /// </summary>
+    internal static CheckoutPaymentV1? RelayPayment(CheckoutPaymentV1 payment, Guid account, Guid order,
+        IHostEnvironment environment)
+    {
+        if (!IsPaymentValid(payment, account, order))
+            return null;
+        var launch = payment.Launch is { } offered &&
+            (offered.Flow != CheckoutPaymentsV1.SimulatorFlow || MerchantBillingDelegationOptions.AllowsLocalCredentials(environment))
+            ? new CheckoutLaunchV1(offered.Flow, new Dictionary<string, string>()) : null;
+        return payment with { Launch = launch };
     }
 
     /// <summary>Only the neutral vocabulary, allow-listed launcher flows and no launcher parameters are relayed.</summary>

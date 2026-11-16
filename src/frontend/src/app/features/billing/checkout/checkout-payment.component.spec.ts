@@ -135,6 +135,14 @@ describe('CheckoutPaymentComponent', () => {
     expect(page.text('payment-simulator')).toBeNull();
   });
 
+  it('shows no simulator controls for a started attempt the runtime no longer launches', async () => {
+    const page = await render(status({ launch: null }));
+    expect(page.text('payment-awaiting')).toBe(t.awaiting);
+    expect(page.text('payment-launcher-unavailable')).toBe(t.launcherUnavailable);
+    expect(page.text('payment-simulator')).toBeNull();
+    expect(page.text('payment-simulator-capture')).toBeNull();
+  });
+
   it('keeps the accepted quote without a launcher when online payment is unavailable', async () => {
     const page = await render({ ...notStarted, canStart: false });
     expect(page.text('checkout-accepted')).toBe(en.billing.checkout.accepted);

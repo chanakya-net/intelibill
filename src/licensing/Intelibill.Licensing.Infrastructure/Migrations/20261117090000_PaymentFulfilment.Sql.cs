@@ -104,6 +104,19 @@ public sealed partial class PaymentFulfilment
         CREATE TRIGGER guard_payment_fulfilment_shop BEFORE INSERT ON public.payment_fulfilment_shops
             FOR EACH ROW EXECUTE FUNCTION public.guard_payment_fulfilment_shop();
 
+        -- The reverse guard: under the same account lock, a trial is never recorded for a shop with paid coverage.
+        CREATE FUNCTION public.guard_trial_against_paid_coverage() RETURNS trigger LANGUAGE plpgsql
+        SET search_path = pg_catalog AS $$
+        BEGIN
+            PERFORM pg_advisory_xact_lock(hashtextextended('b' || NEW.account_id::text, 0));
+            IF EXISTS (SELECT FROM public.payment_fulfilment_shops p WHERE p.shop_id = NEW.shop_id) THEN
+                RAISE EXCEPTION 'Trial coverage conflicts with paid coverage' USING ERRCODE = '23514';
+            END IF;
+            RETURN NEW;
+        END $$;
+        CREATE TRIGGER guard_trial_against_paid_coverage BEFORE INSERT ON public.trial_history
+            FOR EACH ROW EXECUTE FUNCTION public.guard_trial_against_paid_coverage();
+
         CREATE FUNCTION public.reserve_paid_fulfilment_coverage() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         BEGIN
             IF NEW.term_id IS NOT NULL AND EXISTS (SELECT FROM public.payment_fulfilments f
@@ -148,6 +161,7 @@ public sealed partial class PaymentFulfilment
                 RAISE EXCEPTION 'Payment evidence exists' USING ERRCODE = '55000';
             END IF;
         END $$;
+        DROP TRIGGER guard_trial_against_paid_coverage ON public.trial_history;
         DROP TRIGGER reserve_paid_fulfilment_coverage ON public.shop_affiliation_requests;
         DROP TRIGGER reserve_paid_fulfilment_coverage ON public.shop_affiliations;
         DROP POLICY paid_term_insert ON public.subscription_coverage_terms;
@@ -161,6 +175,7 @@ public sealed partial class PaymentFulfilment
             public.verified_payments, public.payment_events, public.payment_attempt_sessions, public.payment_attempts,
             public.development_gateway_payments, public.development_gateway_sessions;
         DROP FUNCTION public.guard_payment_attempt(), public.guard_verified_payment(), public.guard_payment_fulfilment_shop(),
-            public.reserve_paid_fulfilment_coverage(), public.require_complete_payment_fulfilment();
+            public.reserve_paid_fulfilment_coverage(), public.require_complete_payment_fulfilment(),
+            public.guard_trial_against_paid_coverage();
         """;
 }

@@ -2,6 +2,10 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Shared.Contracts.V1;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using static Intelibill.Licensing.Integration.Tests.P0302Fixture;
 
 namespace Intelibill.Licensing.Integration.Tests;
@@ -54,5 +58,46 @@ public sealed partial class P0302Tests
         Assert.Empty(launch.GetProperty("parameters").EnumerateObject());
         Assert.Equal(1L, await fixture.CountAsync("verified_payments", "provider_payment_reference LIKE 'dev_pay_%'"));
         Assert.Equal(1L, await fixture.CountAsync("payment_attempt_sessions", "provider_order_reference LIKE 'dev_order_%'"));
+    }
+
+    /// <summary>
+    /// The attempt was started under the local simulator; the same database is then served by a licensing host that
+    /// no longer permits the simulator. The attempt and its neutral status survive, but no launcher is offered.
+    /// </summary>
+    [Theory]
+    [InlineData("Testing", "Disabled")]
+    [InlineData("Production", "LocalSimulator")]
+    public async Task PersistedSimulatorAttemptOffersNoLauncherOnceTheRuntimeRefusesIt(string environment, string mode)
+    {
+        await using var fixture = await P0302Fixture.StartAsync(database, new P0201Clock { Now = P0210Fixture.Start });
+        var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1);
+        var started = await StartAsync(payer.Client, quote, HttpStatusCode.Created);
+        var attempt = started.GetProperty("attemptId").GetGuid();
+        Assert.Equal(CheckoutPaymentsV1.SimulatorFlow, started.GetProperty("launch").GetProperty("flow").GetString());
+
+        await using var licensing = fixture.Hosts.Licensing.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment(environment);
+            builder.ConfigureAppConfiguration((_, configuration) =>
+                configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["Payments:Mode"] = mode }));
+        });
+        await using var merchant = fixture.Hosts.Merchant.WithWebHostBuilder(builder => builder.ConfigureTestServices(
+            services => services.AddHttpClient("MerchantBillingDelegation")
+                .ConfigurePrimaryHttpMessageHandler(() => licensing.Server.CreateHandler())));
+        using var reopened = merchant.CreateClient();
+        reopened.DefaultRequestHeaders.Authorization = payer.Client.DefaultRequestHeaders.Authorization;
+
+        var status = await StatusAsync(reopened, quote);
+        AssertStatus(status, "AwaitingPayment", "NotFulfilled", "NotApplicable");
+        Assert.Equal(attempt, status.GetProperty("attemptId").GetGuid());
+        Assert.Equal(JsonValueKind.Null, status.GetProperty("launch").ValueKind);
+        Assert.False(status.GetProperty("canStart").GetBoolean());
+        using var capture = await reopened.PostAsJsonAsync(CapturePath(quote, attempt), new { outcome = "Captured" });
+        Assert.Equal(HttpStatusCode.NotFound, capture.StatusCode);
+
+        Assert.Equal(1L, await fixture.CountAsync("payment_attempts"));
+        Assert.Equal(1L, await fixture.CountAsync("payment_attempt_sessions", "provider_order_reference IS NOT NULL"));
+        Assert.Equal(0L, await fixture.CountAsync("verified_payments"));
+        Assert.Equal(attempt, (await StatusAsync(payer.Client, quote)).GetProperty("attemptId").GetGuid());
     }
 }
