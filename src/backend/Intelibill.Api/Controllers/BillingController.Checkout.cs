@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.AspNetCore.Mvc;
@@ -10,6 +11,7 @@ public sealed partial class BillingController
     private const string OrdersRoute = "{accountId:guid}/orders";
 
     [HttpPost(OrdersRoute)]
+    [RateLimit(Limit = 30, PeriodInMinutes = 60, BackoffMinutes = 5, FailClosed = true)]
     [RequestSizeLimit(CheckoutOrdersV1.MaxCreateBytes)]
     public async Task<IActionResult> CreateQuote(Guid accountId, CreateCheckoutQuoteV1 request,
         [FromServices] IMerchantCheckoutOrders service, CancellationToken ct)

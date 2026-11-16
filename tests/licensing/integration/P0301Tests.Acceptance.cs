@@ -42,6 +42,56 @@ public sealed partial class P0301Tests
         Assert.Equal(0L, await fixture.CountAsync("subscription_term_facts"));
     }
 
+    [Fact]
+    public async Task QuoteCreationBudgetRefusesNextRequestWithoutRetainingAnOrder()
+    {
+        var clock = new P0201Clock { Now = P0210Fixture.Start };
+        await using var fixture = await StartCheckoutAsync(database, clock);
+        var (payer, account, command) = await PrepareAsync(fixture);
+
+        for (var attempt = 0; attempt < 30; attempt++)
+            await CreateQuoteAsync(payer.Client, account, command with { OperationKey = Guid.NewGuid() });
+
+        using var limited = await payer.Client.PostAsJsonAsync(OrdersPath(account),
+            command with { OperationKey = Guid.NewGuid() });
+        var retained = await fixture.CountAsync("checkout_orders");
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        Assert.Equal(30L, retained);
+    }
+
+    [Fact]
+    public async Task FirstAcceptanceRequiresConfirmationAndMatchingReviewFacts()
+    {
+        var clock = new P0201Clock { Now = P0210Fixture.Start };
+        await using var fixture = await StartCheckoutAsync(database, clock);
+        var (payer, account, command) = await PrepareAsync(fixture);
+        var quote = await CreateQuoteAsync(payer.Client, account, command);
+        var path = AcceptPath(quote);
+        var differentHash = (quote.SnapshotHash[0] == '0' ? "1" : "0") + quote.SnapshotHash[1..];
+        var refusals = new[]
+        {
+            (Accept(quote) with { Confirmed = false }, HttpStatusCode.BadRequest, CheckoutOrdersV1.Invalid),
+            (Accept(quote) with { SnapshotHash = differentHash }, HttpStatusCode.Conflict, CheckoutOrdersV1.SourceChanged),
+            (Accept(quote) with { CustomerTermsVersion = "different-terms" }, HttpStatusCode.Conflict, CheckoutOrdersV1.SourceChanged),
+            (Accept(quote) with { RefundPolicyVersion = "different-refund" }, HttpStatusCode.Conflict, CheckoutOrdersV1.SourceChanged),
+        };
+
+        foreach (var (request, status, code) in refusals)
+        {
+            using var refused = await payer.Client.PostAsJsonAsync(path, request);
+            Assert.Equal(status, refused.StatusCode);
+            Assert.Equal(code, await P0206Fixture.CodeAsync(refused));
+        }
+        Assert.Equal(0L, await fixture.CountAsync("checkout_order_acceptances"));
+
+        var correct = Accept(quote);
+        using var accepted = await payer.Client.PostAsJsonAsync(path, correct);
+        Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
+        var receipt = await accepted.Content.ReadFromJsonAsync<CheckoutQuoteV1>();
+        Assert.Equal(correct.OperationKey, receipt?.Acceptance?.OperationKey);
+        Assert.Equal(1L, await fixture.CountAsync("checkout_order_acceptances"));
+    }
+
     internal static async Task RetirePlanAsync(P0210Fixture fixture, CheckoutQuoteV1 quote)
     {
         var manager = fixture.CatalogueManager!;
