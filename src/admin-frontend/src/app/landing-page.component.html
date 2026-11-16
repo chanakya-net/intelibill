@@ -19,6 +19,8 @@
                 <a routerLink="/security/recovery">Review administrator recovery</a>
               } @else if (capability === accessManagementCapability) {
                 <a routerLink="/admin-users">Manage administrator access</a>
+              } @else if (capability === 'billing') {
+                <a routerLink="/payments">Manual payments</a>
               } @else if (capability === licensingManager) {
                 <a routerLink="/catalogue">Plan catalogue drafts</a>
               } @else {

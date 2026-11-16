@@ -1,0 +1,125 @@
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { firstValueFrom, switchMap } from 'rxjs';
+
+export interface PaymentScope {
+  readonly admin: string;
+  readonly account: string;
+  readonly order: string;
+}
+
+export interface ManualPaymentCommand {
+  readonly operationKey: string;
+  readonly expectedRevision: number;
+  readonly snapshotHash: string;
+  readonly receivingAccountId: string;
+  readonly configurationVersion: string;
+  readonly reference: string;
+  readonly evidence: string;
+  readonly receivedAt: string;
+  readonly amountPaise: number;
+  readonly currency: 'INR';
+  readonly reason: string;
+  readonly verified: boolean;
+}
+
+interface FrozenOrder {
+  readonly revision: number;
+  readonly snapshotHash: string;
+  readonly planName: string;
+  readonly period: string;
+  readonly amountPaise: number;
+  readonly currency: 'INR';
+  readonly shopCount: number;
+  readonly shops: readonly { shopId: string; name: string }[];
+  readonly nextShop: string | null;
+}
+
+interface ReceivingAccount {
+  readonly id: string;
+  readonly label: string;
+  readonly environment: string;
+  readonly configurationVersion: string;
+  readonly evidencePolicyVersion: string;
+}
+
+export interface ManualPaymentReceipt {
+  readonly receiptId: string;
+  readonly operationKey: string;
+  readonly adminId: string;
+  readonly verifiedAt: string;
+  readonly receivedAt: string;
+  readonly mfaVerifiedAt: string;
+  readonly configurationVersion: string;
+  readonly evidencePolicyVersion: string;
+  readonly amountPaise: number;
+  readonly currency: string;
+  readonly source: 'Manual';
+  readonly payment: 'Verified';
+  readonly fulfilment: 'NeedsReview' | 'Fulfilled';
+  readonly reviewReason: string | null;
+  readonly termId: string | null;
+}
+
+export interface ManualPaymentView {
+  readonly order: FrozenOrder;
+  readonly receivingAccount: ReceivingAccount | null;
+  readonly status: { payment: string; attemptId: string | null; fulfilment: string; access: string };
+  readonly onlineFundsNeedReview: boolean;
+  readonly receipts: readonly ManualPaymentReceipt[];
+}
+
+export interface ManualPaymentEvidence {
+  readonly reference: string;
+  readonly evidence: string;
+  readonly reason: string;
+}
+
+export interface ManualPaymentPreview {
+  readonly order: FrozenOrder;
+  readonly receivingAccount: ReceivingAccount;
+  readonly receivedAt: string;
+  readonly reviewReason: string | null;
+  readonly estimatedStart: string | null;
+  readonly estimatedEnd: string | null;
+}
+
+@Injectable({ providedIn: 'root' })
+export class ManualPaymentApi {
+  private readonly http = inject(HttpClient);
+
+  read(scope: PaymentScope, session: string, after?: string) {
+    return firstValueFrom(this.http.get<ManualPaymentView>(this.path(scope), {
+      headers: { 'X-Admin-Session': session }, params: after ? { after } : {},
+    }));
+  }
+
+  preview(scope: PaymentScope, session: string, command: ManualPaymentCommand) {
+    return this.post<ManualPaymentPreview>(this.path(scope) + '/preview', session, command);
+  }
+
+  confirm(scope: PaymentScope, session: string, command: ManualPaymentCommand) {
+    return this.post<ManualPaymentReceipt>(this.path(scope), session, command);
+  }
+
+  recover(scope: PaymentScope, session: string, key: string) {
+    return firstValueFrom(this.http.get<ManualPaymentReceipt>(this.path(scope) + '/operations/' + encodeURIComponent(key),
+      { headers: { 'X-Admin-Session': session } }));
+  }
+
+  evidence(scope: PaymentScope, session: string, receipt: string) {
+    return firstValueFrom(this.http.get<ManualPaymentEvidence>(
+      this.path(scope) + '/receipts/' + encodeURIComponent(receipt) + '/evidence', { headers: { 'X-Admin-Session': session } }));
+  }
+
+  private post<T>(path: string, session: string, body: ManualPaymentCommand) {
+    return firstValueFrom(this.http.get<{ requestToken: string }>('/api/admin/auth/sign-in/context').pipe(
+      switchMap(({ requestToken }) => this.http.post<T>(path, body,
+        { headers: { 'X-Admin-Session': session, 'X-Admin-CSRF': requestToken } })),
+    ));
+  }
+
+  private path(scope: PaymentScope) {
+    return `/api/admin/accounts/${encodeURIComponent(scope.account)}/orders/${encodeURIComponent(scope.order)}/manual-payments`;
+  }
+}

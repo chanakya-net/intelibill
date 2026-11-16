@@ -111,7 +111,7 @@ function fixturePassword() {
   return 'Fixture-' + randomBytes(20).toString('hex');
 }
 
-function otp(seed: string, step: number) {
+export function otp(seed: string, step: number) {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
   const bits = [...seed].map((character) => alphabet.indexOf(character).toString(2).padStart(5, '0')).join('');
   const key = Buffer.from(bits.match(/.{8}/g)!.map((byte) => parseInt(byte, 2)));

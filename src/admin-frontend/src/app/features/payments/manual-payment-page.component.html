@@ -1,0 +1,113 @@
+<main>
+  <a routerLink="/">Provider console</a>
+  <h1 class="ib-page-title">Manual payments</h1>
+  @if (!allowed()) {
+    <p>Billing capability is required.</p>
+  } @else {
+    <form class="ib-form-section" (submit)="search($event, accountId.value, orderId.value)">
+      <label>Billing account ID <input #accountId required [value]="account()"></label>
+      <label>Accepted order ID <input #orderId required [value]="order()"></label>
+      <button pButton type="submit" [disabled]="busy()">Load order</button>
+    </form>
+    @if (error()) {
+      <p role="alert" class="ib-error-banner">{{ error() }}</p>
+    }
+    @if (reauthenticate()) {
+      <a routerLink="/auth/sign-in" [queryParams]="{ paymentAccount: account(), paymentOrder: order() }">Sign in with MFA</a>
+    }
+    @if (pending(); as saved) {
+      <section class="ib-panel" aria-labelledby="pending-heading">
+        <h2 id="pending-heading">Saved confirmation</h2>
+        <p>Operation {{ saved.operationKey }}</p>
+        <button pButton type="button" [disabled]="busy()" (click)="recover(false)">Check original confirmation</button>
+        <button pButton type="button" [disabled]="busy()" (click)="recover(true)">Retry original confirmation</button>
+      </section>
+    }
+    @if (view(); as item) {
+      <section class="ib-panel" aria-labelledby="order-heading">
+        <h2 id="order-heading">Accepted order</h2>
+        <p>{{ item.order.planName }} · {{ item.order.period }} · {{ item.order.shopCount }} shops · {{ money(item.order.amountPaise) }}</p>
+        @if (item.status.attemptId) {
+          <p>Online payment · {{ item.status.payment }} @if (item.onlineFundsNeedReview) { · Funds need review }</p>
+        }
+        <p data-testid="order-access">Access · {{ item.status.access }}</p>
+        <button pButton type="button" [disabled]="busy()" (click)="reload()">Refresh order</button>
+      </section>
+      @if (receipt(); as completed) {
+        <p role="status" data-testid="receipt-result">{{ completed.source }} payment {{ completed.payment }} · {{ completed.fulfilment }}</p>
+      }
+      @if (item.receipts.length > 0) {
+        <section class="ib-panel" aria-labelledby="receipt-heading">
+          <h2 id="receipt-heading">Recorded manual receipts</h2>
+          <ul>
+            @for (record of item.receipts; track record.receiptId) {
+              <li data-testid="receipt-audit">
+                {{ record.source }} · {{ record.payment }} · {{ money(record.amountPaise) }} · {{ record.fulfilment }}
+                @if (record.reviewReason) { · {{ record.reviewReason }} }
+                <div>Received {{ instant(record.receivedAt) }} · Verified {{ instant(record.verifiedAt) }}</div>
+                <div>Receipt {{ record.receiptId }} · Administrator {{ record.adminId }}</div>
+                <div>MFA {{ instant(record.mfaVerifiedAt) }} · Policy {{ record.evidencePolicyVersion }} · Configuration {{ record.configurationVersion }}</div>
+                <button pButton type="button" [disabled]="busy()" (click)="inspect(record.receiptId)">
+                  {{ evidence()?.receipt === record.receiptId ? 'Hide receipt evidence' : 'View verified evidence' }}
+                </button>
+                @if (evidence(); as audit) {
+                  @if (audit.receipt === record.receiptId) {
+                    <dl>
+                      <dt>Bank payment reference</dt><dd>{{ audit.details.reference }}</dd>
+                      <dt>Evidence reference</dt><dd>{{ audit.details.evidence }}</dd>
+                      <dt>Reason</dt><dd>{{ audit.details.reason }}</dd>
+                    </dl>
+                  }
+                }
+              </li>
+            }
+          </ul>
+        </section>
+      }
+      @if (item.receivingAccount; as receiving) {
+        @if (!pending()) {
+          <form #draft class="ib-form-section" aria-labelledby="evidence-heading"
+          (submit)="requestPreview($event, draft)" (input)="invalidatePreview()">
+          <h2 id="evidence-heading">Receipt evidence</h2>
+          <p>{{ receiving.label }} · {{ receiving.environment }}</p>
+          <fieldset [disabled]="busy()">
+            <label>Received amount in paise <input type="number" name="amountPaise" min="1" step="1" required></label>
+            <label>Received at (IST) <input type="datetime-local" name="receivedAt" step="1" required></label>
+            <label>Bank payment reference <input name="reference" maxlength="120" required autocomplete="off"></label>
+            <label>Evidence reference <input name="evidence" maxlength="200" required autocomplete="off"></label>
+            <label>Reason <textarea name="reason" maxlength="400" required autocomplete="off"></textarea></label>
+          </fieldset>
+          <button pButton type="submit" [disabled]="busy()">Preview full receipt</button>
+          </form>
+        }
+      } @else {
+        <p>Manual confirmation is unavailable for this environment.</p>
+      }
+    }
+    @if (preview(); as review) {
+      <section class="ib-panel" aria-labelledby="preview-heading">
+        <h2 id="preview-heading">Confirm the full receipt</h2>
+        <p>{{ money(review.order.amountPaise) }} for {{ review.order.shopCount }} shops · {{ review.order.planName }} · {{ review.order.period }}</p>
+        @if (review.estimatedStart && review.estimatedEnd) {
+          <p>Estimated term · {{ instant(review.estimatedStart) }} to {{ instant(review.estimatedEnd) }}</p>
+        }
+        <p>Received {{ instant(review.receivedAt) }} · {{ review.receivingAccount.label }}</p>
+        <ul>
+          @for (shop of review.order.shops; track shop.shopId) { <li data-testid="preview-shop">{{ shop.name }}</li> }
+        </ul>
+        @if (review.order.nextShop) {
+          <button pButton type="button" [disabled]="busy()" (click)="nextShops()">Review next shops</button>
+        }
+        @if (review.reviewReason) {
+          <p>This receipt will be recorded for review · {{ review.reviewReason }}.</p>
+        }
+        <label><input type="checkbox" #ack [checked]="confirmed()" (change)="confirmed.set(ack.checked)">
+          I verified one full receipt against the receiving account evidence.
+        </label>
+        <button pButton type="button" [disabled]="busy() || !confirmed() || !!review.order.nextShop" (click)="confirm()">
+          Confirm verified receipt
+        </button>
+      </section>
+    }
+  }
+</main>

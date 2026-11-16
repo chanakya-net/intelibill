@@ -1,5 +1,6 @@
 using Intelibill.Licensing.Api.Entitlements;
 using Intelibill.Licensing.Api.Trials;
+using Intelibill.Licensing.Api.Payments;
 using Intelibill.Licensing.Api.Billing;
 using Intelibill.Licensing.Api.AdminIdentities;
 using Intelibill.Licensing.Api.Audit;
@@ -96,6 +97,7 @@ public sealed class Program
         app.MapAdminSubscriptionStatus();
         app.MapComplimentaryGrants();
         app.MapTrialExtensions();
+        app.MapAdminManualPayments();
         var business = app.MapGroup("/api/admin").RequireAuthorization(BootstrapAuthorization.BusinessPolicy);
         business.MapGet("/access", () => Results.NoContent());
         return app;

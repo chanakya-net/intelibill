@@ -30,6 +30,7 @@ export interface CheckoutPayment {
   readonly shopsApplied: number;
   readonly canStart: boolean;
   readonly launch: CheckoutLaunch | null;
+  readonly manualPayment?: { readonly payment: 'Verified'; readonly verifiedAt: string } | null;
 }
 
 export const SIMULATOR_FLOW = 'development-simulator';
@@ -40,13 +41,29 @@ const ACCESS: readonly string[] = ['NotApplicable', 'Applying', 'Applied', 'Need
 export function isCheckoutPayment(value: unknown, account: string, order: string): value is CheckoutPayment {
   const p = value as CheckoutPayment | null;
   return !!p && typeof p === 'object' && p.schemaVersion === 1 && p.accountId === account && p.orderId === order &&
-    (p.payment === 'NotStarted' ? p.attemptId === null : isUuid(p.attemptId)) && PAYMENTS.includes(p.payment) &&
+    hasValidSource(p) && PAYMENTS.includes(p.payment) &&
     FULFILMENTS.includes(p.fulfilment) && ACCESS.includes(p.access) && Number.isSafeInteger(p.amountPaise) &&
     p.amountPaise > 0 && p.currency === 'INR' && Number.isInteger(p.shopsTotal) && Number.isInteger(p.shopsApplied) &&
     p.shopsApplied >= 0 && p.shopsApplied <= p.shopsTotal && typeof p.canStart === 'boolean' &&
     (!p.canStart || p.payment === 'NotStarted') &&
-    (p.payment !== 'Failed' || (p.fulfilment === 'NotFulfilled' && p.access === 'NotApplicable' &&
+    (p.manualPayment != null || p.payment !== 'Failed' || (p.fulfilment === 'NotFulfilled' && p.access === 'NotApplicable' &&
       p.verifiedAt === null && p.termId === null)) &&
     (p.launch === null || (p.payment === 'AwaitingPayment' && typeof p.launch?.flow === 'string' &&
       !!p.launch.parameters && typeof p.launch.parameters === 'object'));
+}
+
+function hasValidSource(payment: CheckoutPayment): boolean {
+  const manual = payment.manualPayment;
+  if (manual == null)
+    return payment.payment === 'NotStarted' ? payment.attemptId === null : isUuid(payment.attemptId);
+
+  if (manual.payment !== 'Verified' || typeof manual.verifiedAt !== 'string' ||
+    !/(Z|\+00:00)$/.test(manual.verifiedAt) || !(Date.parse(manual.verifiedAt) > 0) ||
+    payment.canStart || payment.launch !== null || payment.fulfilment === 'NotFulfilled' ||
+    ((payment.fulfilment === 'Fulfilled') !== (payment.access !== 'NotApplicable'))) return false;
+
+  return payment.attemptId === null
+    ? payment.payment === 'Verified' && payment.startedAt === null && payment.verifiedAt === manual.verifiedAt
+    : isUuid(payment.attemptId) && payment.payment !== 'NotStarted' && typeof payment.startedAt === 'string' &&
+      ((payment.payment === 'Verified') === (typeof payment.verifiedAt === 'string'));
 }

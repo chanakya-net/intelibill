@@ -85,6 +85,29 @@ async function render(first: CheckoutPayment) {
 }
 
 describe('CheckoutPaymentComponent', () => {
+  it('shows a manual settlement while retaining an uncertain online operation', async () => {
+    const page = await render(notStarted);
+    page.click('payment-start');
+    const delivery = await vi.waitFor(() => http.expectOne({ method: 'POST', url: path + '/attempts' }));
+    const command = delivery.request.body;
+    delivery.error(new ProgressEvent('timeout'));
+    await page.update();
+
+    const proof = verified('Applying', 0);
+    page.click('payment-check');
+    http.expectOne({ method: 'GET', url: path }).flush({
+      ...proof, attemptId: null, startedAt: null, manualPayment: { payment: 'Verified', verifiedAt: proof.verifiedAt },
+    });
+    const retry = await vi.waitFor(() => http.expectOne({ method: 'POST', url: path + '/attempts' }));
+    expect(retry.request.body).toEqual(command);
+    retry.flush({}, { status: 409, statusText: 'Conflict' });
+    await page.update();
+    expect(page.text('payment-manual-confirmed')).toBe(t.manualConfirmed);
+    expect(page.text('payment-applying')).toContain('0');
+    expect(page.text('payment-pending')).toBe(t.pending);
+    expect(page.text('payment-start')).toBeNull();
+  });
+
   it('retains the original operation after timeout and lookup404', async () => {
     const page = await render(notStarted);
     page.click('payment-start');

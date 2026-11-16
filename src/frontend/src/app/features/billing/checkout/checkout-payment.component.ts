@@ -50,7 +50,9 @@ export class CheckoutPaymentComponent {
   private readonly draft = signal<PaymentDraft | null>(null);
   protected readonly pending = computed(() => {
     const state = this.draft()?.state;
-    return state === 'intent' || state === 'pending' || (state === 'awaiting' && !this.payment()) || this.payment()?.payment === 'PendingVerification';
+    const payment = this.payment();
+    return state === 'intent' || state === 'pending' || (state === 'awaiting' && !payment) ||
+      payment?.payment === 'PendingVerification' || (!!payment?.manualPayment && payment.payment === 'AwaitingPayment');
   });
   protected readonly launcher = computed(() => resolvePaymentLauncher(this.payment()?.launch ?? null));
   private readonly scope = computed<CheckoutScope | null>(() => {
@@ -215,7 +217,7 @@ export class CheckoutPaymentComponent {
     } else {
       const saved = this.drafts.readPayment(invocation.scope, invocation.order);
       this.draft.set(saved);
-      if (saved) return;
+      if (saved && !status.manualPayment) return;
     }
     this.payment.set(status);
     this.problem.set(null);

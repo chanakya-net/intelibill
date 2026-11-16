@@ -131,7 +131,7 @@ public sealed partial class P0302Tests
         }
     }
 
-    private static async Task<TableFence> FenceAsync(P0302Fixture fixture, string table)
+    internal static async Task<TableFence> FenceAsync(P0302Fixture fixture, string table)
     {
         var connection = new NpgsqlConnection(fixture.Hosts.LicensingOwner.ConnectionString);
         await connection.OpenAsync();
@@ -142,7 +142,7 @@ public sealed partial class P0302Tests
     }
 
     /// <summary>Waits until <paramref name="expected"/> licensing sessions are blocked, directly or through each other, by the fence.</summary>
-    private static async Task WaitForBlockedChainAsync(P0302Fixture fixture, int fence, int expected)
+    internal static async Task<int[]> WaitForBlockedChainAsync(P0302Fixture fixture, int fence, int expected)
     {
         await using var observer = new NpgsqlConnection(fixture.Hosts.LicensingOwner.ConnectionString);
         await observer.OpenAsync();
@@ -152,15 +152,19 @@ public sealed partial class P0302Tests
                 UNION
                 SELECT a.pid FROM pg_stat_activity a JOIN blocked b ON b.pid = ANY(pg_blocking_pids(a.pid))
                 WHERE a.datname = current_database())
-            SELECT count(*) FROM blocked
+            SELECT coalesce(array_agg(pid ORDER BY pid), ARRAY[]::int[]) FROM blocked
             """, observer);
         count.Parameters.AddWithValue(fence);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        while ((long)(await count.ExecuteScalarAsync(timeout.Token))! < expected)
+        while (true)
+        {
+            var pids = (int[])(await count.ExecuteScalarAsync(timeout.Token))!;
+            if (pids.Length >= expected) return pids;
             await Task.Delay(15, timeout.Token);
+        }
     }
 
-    private sealed class TableFence(NpgsqlConnection connection, NpgsqlTransaction transaction) : IAsyncDisposable
+    internal sealed class TableFence(NpgsqlConnection connection, NpgsqlTransaction transaction) : IAsyncDisposable
     {
         internal int Pid => connection.ProcessID;
 

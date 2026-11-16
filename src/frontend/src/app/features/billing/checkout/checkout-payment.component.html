@@ -33,27 +33,36 @@
         <p role="status" data-testid="payment-failed">{{ 'billing.checkout.payment.failed' | transloco }}</p>
       }
       @case ('Verified') {
-        <p role="status" data-testid="payment-confirmed">{{ 'billing.checkout.payment.confirmed' | transloco }}</p>
-        @switch (status.access) {
-          @case ('Applying') {
-            <p data-testid="payment-applying">
-              {{ 'billing.checkout.payment.applying' | transloco: { applied: status.shopsApplied, total: status.shopsTotal } }}
-            </p>
-          }
-          @case ('Applied') {
-            <p data-testid="payment-applied">{{ 'billing.checkout.payment.applied' | transloco: { total: status.shopsTotal } }}</p>
-          }
-          @case ('NeedsReview') {
-            <p data-testid="payment-access-review">{{ 'billing.checkout.payment.reviewAccess' | transloco }}</p>
-          }
+        @if (status.attemptId || !status.manualPayment) {
+          <p role="status" data-testid="payment-confirmed">{{ 'billing.checkout.payment.confirmed' | transloco }}</p>
         }
-        @if (status.fulfilment === 'NeedsReview') {
-          <p data-testid="payment-review">{{ 'billing.checkout.payment.reviewPayment' | transloco }}</p>
+      }
+    }
+  }
+  @if (payment(); as status) {
+    @if (status.manualPayment) {
+      <p role="status" data-testid="payment-manual-confirmed">{{ 'billing.checkout.payment.manualConfirmed' | transloco }}</p>
+    }
+    @if (status.manualPayment || status.payment === 'Verified') {
+      @switch (status.access) {
+        @case ('Applying') {
+          <p data-testid="payment-applying">
+            {{ 'billing.checkout.payment.applying' | transloco: { applied: status.shopsApplied, total: status.shopsTotal } }}
+          </p>
         }
-        @if (status.termStartsAt && status.termEndsAt) {
-          <p data-testid="payment-term">{{ 'billing.checkout.payment.term' | transloco }}:
-            {{ instant(status.termStartsAt) }} – {{ instant(status.termEndsAt) }} · {{ quote().billingTimeZone }}</p>
+        @case ('Applied') {
+          <p data-testid="payment-applied">{{ 'billing.checkout.payment.applied' | transloco: { total: status.shopsTotal } }}</p>
         }
+        @case ('NeedsReview') {
+          <p data-testid="payment-access-review">{{ 'billing.checkout.payment.reviewAccess' | transloco }}</p>
+        }
+      }
+      @if (status.fulfilment === 'NeedsReview') {
+        <p data-testid="payment-review">{{ 'billing.checkout.payment.reviewPayment' | transloco }}</p>
+      }
+      @if (status.termStartsAt && status.termEndsAt) {
+        <p data-testid="payment-term">{{ 'billing.checkout.payment.term' | transloco }}:
+          {{ instant(status.termStartsAt) }} – {{ instant(status.termEndsAt) }} · {{ quote().billingTimeZone }}</p>
       }
     }
   }
