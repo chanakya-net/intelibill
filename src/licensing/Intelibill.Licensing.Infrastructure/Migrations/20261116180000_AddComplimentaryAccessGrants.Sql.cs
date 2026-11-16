@@ -41,7 +41,8 @@ public sealed partial class AddComplimentaryAccessGrants
                 AND l.shop_id = {ShopScope}));
         """;
 
-    // Each named shop must belong to the grant's account through its own affiliation; windows for one shop never
+    // Each named shop must belong to the grant's account through its own affiliation (checked by trigger, not a
+    // foreign key, so the retained affiliation table keeps refusing truncation with its own 55000); windows for one shop never
     // overlap (adjacent windows are legal); a grant's coverage term can never be assigned to any other shop.
     private const string Guards = """
         CREATE FUNCTION public.guard_complimentary_grant_shop() RETURNS trigger

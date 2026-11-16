@@ -86,7 +86,7 @@ public sealed partial class AddComplimentaryAccessGrants : Migration
             account_id uuid NOT NULL,
             term_id uuid NOT NULL,
             shop_id uuid NOT NULL,
-            affiliation_request_id uuid NOT NULL REFERENCES public.shop_affiliations(request_id),
+            affiliation_request_id uuid NOT NULL,
             starts_at timestamptz NOT NULL,
             ends_at timestamptz NOT NULL,
             PRIMARY KEY (grant_id, shop_id),
