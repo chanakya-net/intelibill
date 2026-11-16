@@ -81,6 +81,11 @@
               }
             </dd>
           </dl>
+          @if (selected(); as account) {
+            @if (item.status.cancellation; as change) {
+              <adm-account-cancellation-detail [account]="account" [term]="item.status.termId" [change]="change" />
+            }
+          }
         </section>
       } @empty {
         <p>This account has no subscription terms.</p>

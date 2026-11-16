@@ -1,0 +1,11 @@
+# Scheduled subscription cancellation
+
+A live billing Owner or Manager can open an active paid term in merchant Billing → Access status and review its exact end in IST, purchased basis and price, and all affected shops. Confirmation accepts the frozen paid boundary and the complete shop-set digest. The licensing API rechecks commercial authority, term evidence and scope under the account lock. A changed preview requires fresh acceptance. Existing paid facts stay immutable, and paid access runs through the original end-exclusive boundary with no grace period following it. Cancellation makes no money movement.
+
+The signed billing relay provides preview, confirmation and original-actor receipt lookup. The merchant browser retains the accepted command by actor, account and term before sending. Check looks up that key and Retry resends the command. An unresolved outcome stays available after reload. PostgreSQL records the accepted shops and receipt with the cancellation and its shop entitlement outbox messages in one transaction. Same-key replay returns the receipt without publishing new messages.
+
+Provider Access status displays the same frozen boundary and affected shops for Support, Billing and Licensing Manager. Support sees operational detail and Billing or Licensing Manager can also see the original price. Each screen retains saved and merchant-confirmed entitlement revisions. The status evaluates the boundary directly on each read.
+
+Apply licensing migration `20261116210000_AddScheduledSubscriptionCancellations` before starting the new APIs. Upgrade all licensing API replicas together before accepting cancellations so coverage writers share the cancellation guard. Deploy both web consumers after the APIs. Runtime grants follow the normal SQL-owned table provisioning. The migration can be rolled back while empty. Once a cancellation has been accepted, preserve the evidence, retain the schema, and keep cancellation-aware readers in service. Phase 2 remains observe-only.
+
+For local verification, run `P0215Tests` against real PostgreSQL and build both web consumers. Run `P0215BrowserTests` with `P0215_RUN_BROWSER=1` and `P0215_EVIDENCE_DIR` set to your local evidence directory. The browser run uses local fixture prices, actors, subscriptions and transport.

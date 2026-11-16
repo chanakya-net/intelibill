@@ -76,7 +76,9 @@ public sealed record SubscriptionTermStatusV1(
     [property: JsonPropertyName("memberAllowance")] int? MemberAllowance,
     [property: JsonPropertyName("sourceReference")] string? SourceReference,
     [property: JsonPropertyName("developmentFixture")] bool DevelopmentFixture,
-    [property: JsonPropertyName("commercial")] SubscriptionCommercialV1? Commercial);
+    [property: JsonPropertyName("commercial")] SubscriptionCommercialV1? Commercial,
+    [property: JsonPropertyName("cancellation"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    SubscriptionCancellationSummaryV1? Cancellation = null);
 
 public sealed record ShopSubscriptionStatusV1(
     [property: JsonPropertyName("schemaVersion")] int SchemaVersion,

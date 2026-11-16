@@ -1,3 +1,4 @@
+import { provideHttpClient } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
@@ -39,7 +40,8 @@ function render(api: Partial<SubscriptionStatusService>, params: Record<string, 
     })],
     providers: [
       provideRouter([]),
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(params) } } },
+      provideHttpClient(),
+      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(params) }, paramMap: of(convertToParamMap(params)) } },
       { provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } },
       { provide: AuthService, useValue: { session } },
       { provide: SubscriptionStatusService, useValue: api },

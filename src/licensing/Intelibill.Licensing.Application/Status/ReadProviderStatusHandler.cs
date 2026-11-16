@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Licensing.Application.Subscriptions;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Domain.Entities;
 using Intelibill.Shared.Contracts.V1;
@@ -11,7 +12,8 @@ namespace Intelibill.Licensing.Application.Status;
 /// Platform Owner and Security Administrator alone grant nothing here. No merchant business data is read.
 /// </summary>
 public sealed class ReadProviderStatusHandler(ISubscriptionStatusStore store, ISubscriptionAccessFactsReader reader,
-    TimeProvider statusClock, TimeProvider sessionClock, IEntitlementSynchronizationReader synchronization)
+    TimeProvider statusClock, TimeProvider sessionClock, IEntitlementSynchronizationReader synchronization,
+    ScheduleCancellationHandler cancellation)
 {
     private const AdminCapability Readers = AdminCapability.Support | AdminCapability.Billing | AdminCapability.LicensingManager;
     private const AdminCapability Commercial = AdminCapability.Billing | AdminCapability.LicensingManager;
@@ -41,6 +43,15 @@ public sealed class ReadProviderStatusHandler(ISubscriptionStatusStore store, IS
         var sync = await synchronization.ReadAsync(account, [shop], token);
         return SubscriptionStatusProjection.Shop(shop, SubscriptionStatusProjection.EvaluationInstant(statusClock),
             coverage, grant.Value, sync.GetValueOrDefault(shop));
+    }, ct);
+
+    public Task<ErrorOr<SubscriptionCancellationDetailV1>> ReadCancellationAsync(AdminSessionCaller caller, Guid account,
+        Guid term, Guid? after, CancellationToken ct) => store.InProviderTransactionAsync<SubscriptionCancellationDetailV1>(async token =>
+    {
+        var grant = await AuthorizeAsync(caller, token);
+        if (grant.IsError) return grant.Errors;
+        await store.UseAccountAsync(account, token);
+        return await cancellation.ReadDetailAsync(account, term, after, grant.Value, savedOnly: true, token);
     }, ct);
 
     /// <summary>Live authority under the identity → session lock order; the value says whether commercial facts are allowed.</summary>

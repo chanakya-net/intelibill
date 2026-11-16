@@ -1,4 +1,7 @@
 using Intelibill.Licensing.Application.Billing;
+using Intelibill.Licensing.Application.Entitlements;
+using Intelibill.Licensing.Application.Subscriptions;
+using Intelibill.Licensing.Infrastructure.Subscriptions;
 using Intelibill.Licensing.Application.Status;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -17,7 +20,12 @@ internal static class SubscriptionStatusRegistration
     {
         services.TryAddKeyedSingleton<TimeProvider>(ClockKey, (provider, _) => provider.GetRequiredService<TimeProvider>());
         services.AddScoped<ISubscriptionStatusStore, SubscriptionStatusStore>();
-        services.AddScoped<ISubscriptionAccessFactsReader, SubscriptionAccessFactsReader>();
+        services.AddScoped<SubscriptionAccessFactsReader>();
+        services.AddScoped<ISubscriptionAccessFactsReader>(provider => provider.GetRequiredService<SubscriptionAccessFactsReader>());
+        services.AddScoped<IScheduledSubscriptionChangeStore, ScheduledSubscriptionChangeStore>();
+        services.AddScoped(provider => new ScheduleCancellationHandler(
+            provider.GetRequiredService<IBillingDelegationAccess>(), provider.GetRequiredService<IScheduledSubscriptionChangeStore>(),
+            provider.GetRequiredService<IEntitlementPublisher>(), provider.GetRequiredKeyedService<TimeProvider>(ClockKey)));
         services.AddScoped(provider => new ReadSubscriptionStatusHandler(
             provider.GetRequiredService<IBillingDelegationAccess>(), provider.GetRequiredService<ISubscriptionStatusStore>(),
             provider.GetRequiredService<ISubscriptionAccessFactsReader>(), provider.GetRequiredKeyedService<TimeProvider>(ClockKey),
@@ -25,6 +33,6 @@ internal static class SubscriptionStatusRegistration
         services.AddScoped(provider => new ReadProviderStatusHandler(
             provider.GetRequiredService<ISubscriptionStatusStore>(), provider.GetRequiredService<ISubscriptionAccessFactsReader>(),
             provider.GetRequiredKeyedService<TimeProvider>(ClockKey), provider.GetRequiredService<TimeProvider>(),
-            provider.GetRequiredService<IEntitlementSynchronizationReader>()));
+            provider.GetRequiredService<IEntitlementSynchronizationReader>(), provider.GetRequiredService<ScheduleCancellationHandler>()));
     }
 }

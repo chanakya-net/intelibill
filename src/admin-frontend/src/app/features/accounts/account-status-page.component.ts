@@ -5,6 +5,7 @@ import { SESSION_PORT } from '@intelibill/api';
 import { ButtonDirective } from 'primeng/button';
 import type { Subscription } from 'rxjs';
 import { AccountStatusApi, type AccountStatus, basisLabels, formatIst, formatIstExact, stateLabels, statusReaders } from './account-status-api.service';
+import { AccountCancellationDetailComponent } from './account-cancellation-detail.component';
 import { ComplimentaryGrantComponent } from './complimentary-grant.component';
 import { TrialExtensionComponent } from './trial-extension.component';
 
@@ -17,7 +18,7 @@ const accountPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
  */
 @Component({
   selector: 'adm-account-status-page',
-  imports: [ButtonDirective, RouterLink, ComplimentaryGrantComponent, TrialExtensionComponent],
+  imports: [ButtonDirective, RouterLink, ComplimentaryGrantComponent, TrialExtensionComponent, AccountCancellationDetailComponent],
   templateUrl: './account-status-page.component.html',
   styleUrls: ['../form-page.css', './account-status-page.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
