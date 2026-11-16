@@ -3338,6 +3338,7 @@
         "awaiting": "Complete the full payment in the checkout window.",
         "pending": "Payment pending verification. Do not pay again for this order; check again shortly.",
         "checkAgain": "Check again",
+        "manualConfirmed": "Manual payment verified",
         "confirmed": "Payment confirmed",
         "applying": "Applying access to {{applied}} of {{total}} shops",
         "applied": "Access applied to all {{total}} shops",

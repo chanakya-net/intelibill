@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Licensing.Application.BillingAccounts;
 using Intelibill.Licensing.Domain.Policies;
+using Intelibill.Shared.Contracts.V1;
 
 namespace Intelibill.Licensing.Application.Payments;
 
@@ -29,26 +30,43 @@ public sealed class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderSt
         if (await orders.FindAsync(attempt.AccountId, attempt.OrderId, false, ct) is not { Quote: var quote })
             return FulfilmentOutcome.Rejected;
 
-        var ids = await orders.ShopIdsAsync(attempt.AccountId, attempt.OrderId, ct);
-        var source = await orders.SourceAsync(attempt.AccountId, null, ids, ct);
-        var now = BillingAccountRules.StorageInstant(lifecycle.GetUtcNow());
-        await store.RecordVerifiedAsync(attempt, payment, now, ct);
-        if (source?.Hash() != quote.SourceHash || await store.AnyTrialAsync(attempt.AccountId, ids, ct))
+        var decision = await DecideAsync(quote, ct);
+        await store.RecordVerifiedAsync(attempt, payment, decision.At, ct);
+        if (decision.Term is null)
         {
-            await store.AppendEventAsync(attempt, PaymentEventKinds.PaidNeedsReview, null, now, ct);
+            await store.AppendEventAsync(attempt, PaymentEventKinds.PaidNeedsReview, null, decision.At, ct);
             return FulfilmentOutcome.NeedsReview;
         }
+
+        await FulfilAsync(quote, decision, attempt, null, ct);
+        return FulfilmentOutcome.Fulfilled;
+    }
+
+    internal async Task<PaidOrderDecision> DecideAsync(CheckoutQuoteV1 quote, CancellationToken ct)
+    {
+        var now = BillingAccountRules.StorageInstant(lifecycle.GetUtcNow());
+        if (await store.HasFulfilmentAsync(quote.AccountId, quote.OrderId, ct))
+            return new(null, [], now, "DuplicateFunds");
+        var ids = await orders.ShopIdsAsync(quote.AccountId, quote.OrderId, ct);
+        var source = await orders.SourceAsync(quote.AccountId, null, ids, ct);
+        if (source?.Hash() != quote.SourceHash || await store.AnyTrialAsync(quote.AccountId, ids, ct))
+            return new(null, [], now, "CoverageChanged");
 
         var period = quote.Period == "Month" ? BillingPeriod.Month : BillingPeriod.Year;
         if (RenewalPolicy.DetermineTerm(new(period, now)) is not { Anchor: { } anchor, Ordinal: { } ordinal,
                 StartsAt: { } starts, EndsAt: { } ends })
-            return FulfilmentOutcome.Rejected;
+            return new(null, [], now, "TermUnavailable");
         var term = new PaidTerm(Guid.NewGuid(), quote.Capacity == 1 ? "Independent" : "Grouped", quote.Capacity,
             starts, ends, quote.Period, anchor.LocalStart, ordinal);
-        await store.FulfilAsync(new(attempt, payment, term, quote.PlanVersionId, quote.MembersPerShop,
-            quote.DevelopmentFixture, ids, now), ct);
-        return FulfilmentOutcome.Fulfilled;
+        return new(term, ids, now, null);
     }
+
+    internal Task FulfilAsync(CheckoutQuoteV1 quote, PaidOrderDecision decision, StoredPaymentAttempt? attempt,
+        Guid? manualReceipt, CancellationToken ct) =>
+        store.FulfilAsync(new(quote.AccountId, quote.OrderId, attempt, manualReceipt, quote.AmountPaise, quote.Currency,
+            decision.Term!, quote.PlanVersionId, quote.MembersPerShop, quote.DevelopmentFixture, decision.Shops, decision.At), ct);
+
+    internal sealed record PaidOrderDecision(PaidTerm? Term, Guid[] Shops, DateTimeOffset At, string? ReviewReason);
 }
 
 public static class PaymentFulfilmentPolicy

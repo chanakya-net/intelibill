@@ -12,14 +12,15 @@ public sealed record NewPaymentAttempt(Guid AttemptId, Guid AccountId, Guid Orde
 public sealed record PaidTerm(Guid TermId, string Mode, int Capacity, DateTimeOffset StartsAt, DateTimeOffset EndsAt,
     string Period, DateTime AnchorLocal, int Ordinal);
 
-public sealed record PaymentFulfilment(StoredPaymentAttempt Attempt, PaymentObservation Payment, PaidTerm Term,
+public sealed record PaymentFulfilment(Guid AccountId, Guid OrderId, StoredPaymentAttempt? Attempt, Guid? ManualReceiptId,
+    long AmountPaise, string Currency, PaidTerm Term,
     Guid PlanVersionId, int MemberAllowance, bool DevelopmentFixture, Guid[] ShopIds, DateTimeOffset At);
 
 public sealed record PaymentShopDelivery(Guid ShopId, long ShopRevision);
 
 public sealed record PaymentStatusRow(StoredPaymentAttempt? Attempt, bool VerificationRequested, DateTimeOffset? VerifiedAt,
     bool DefinitivelyFailed, bool NeedsReview, Guid? TermId, DateTimeOffset? TermStartsAt, DateTimeOffset? TermEndsAt,
-    IReadOnlyList<PaymentShopDelivery> Deliveries);
+    IReadOnlyList<PaymentShopDelivery> Deliveries, DateTimeOffset? ManualVerifiedAt);
 
 public static class PaymentEventKinds
 {
@@ -51,6 +52,8 @@ public interface IPaymentStore
     Task<bool> HasDefinitiveFailureAsync(Guid attempt, CancellationToken ct);
     Task<bool> HasVerifiedPaymentAsync(Guid attempt, CancellationToken ct);
     Task RecordVerifiedAsync(StoredPaymentAttempt attempt, PaymentObservation payment, DateTimeOffset at, CancellationToken ct);
+    Task<bool> HasFulfilmentAsync(Guid account, Guid order, CancellationToken ct);
+    Task<DateTimeOffset?> ManualVerifiedAtAsync(Guid account, Guid order, CancellationToken ct);
     Task FulfilAsync(PaymentFulfilment fulfilment, CancellationToken ct);
     Task<PaymentStatusRow> ReadStatusAsync(Guid account, Guid order, CancellationToken ct);
 }

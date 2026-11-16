@@ -71,7 +71,7 @@ internal sealed partial class MerchantBillingClient : IMerchantCheckoutPayments
     internal static bool IsPaymentValid(CheckoutPaymentV1 p, Guid account, Guid order) =>
         p.SchemaVersion == 1 && p.AccountId == account && p.OrderId == order && p.AttemptId != Guid.Empty &&
         CheckoutPaymentsV1.PaymentStates.Contains(p.Payment) && CheckoutPaymentsV1.FulfilmentStates.Contains(p.Fulfilment) &&
-        CheckoutPaymentsV1.AccessStates.Contains(p.Access) && (p.Payment == "NotStarted") == (p.AttemptId is null) &&
+        CheckoutPaymentsV1.AccessStates.Contains(p.Access) && CheckoutPaymentsV1.HasValidPaymentSource(p) &&
         p.AmountPaise is > 0 and <= CheckoutOrdersV1.MaxPaise && p.Currency == "INR" &&
         p.ShopsTotal is > 0 and <= CheckoutOrdersV1.MaxShops && p.ShopsApplied >= 0 && p.ShopsApplied <= p.ShopsTotal &&
         (p.Fulfilment == "Fulfilled") == (p.TermId is not null && p.TermStartsAt < p.TermEndsAt) &&

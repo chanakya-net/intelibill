@@ -22,7 +22,8 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         var synced = shops.Length == 0 ? new Dictionary<Guid, EntitlementSynchronizationV1>()
             : await synchronization.ReadAsync(account, shops, ct);
         var launchable = row.Attempt is { } attempt && gateways.ForPin(attempt.Pin) is not null;
-        var canStart = row.Attempt is null && CanStart(quote) && !await store.HasOverlappingPaymentAsync(account, order, ct);
+        var canStart = row.Attempt is null && row.ManualVerifiedAt is null && row.TermId is null &&
+            CanStart(quote) && !await store.HasOverlappingPaymentAsync(account, order, ct);
         return Project(quote, row, synced, canStart, launchable);
     }
 
@@ -36,7 +37,7 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         IReadOnlyDictionary<Guid, EntitlementSynchronizationV1> synced, bool canStart, bool launchable)
     {
         var attempt = row.Attempt;
-        var payment = attempt is null ? "NotStarted" : row.VerifiedAt is not null ? "Verified"
+        var payment = attempt is null ? (row.ManualVerifiedAt is null ? "NotStarted" : "Verified") : row.VerifiedAt is not null ? "Verified"
             : row.DefinitivelyFailed ? "Failed" : attempt.ProviderOrderReference is null || row.VerificationRequested ? "PendingVerification" : "AwaitingPayment";
         var fulfilment = row.TermId is not null ? "Fulfilled" : row.NeedsReview ? "NeedsReview" : "NotFulfilled";
         var applied = row.Deliveries.Count(d => synced.TryGetValue(d.ShopId, out var s) && s.AppliedShopRevision >= d.ShopRevision);
@@ -45,10 +46,10 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         var access = row.TermId is null ? "NotApplicable"
             : applied == quote.ShopCount ? "Applied" : review ? "NeedsReview" : "Applying";
         // A persisted launcher is offered only while the runtime still permits the attempt's pinned adapter.
-        var launch = payment == "AwaitingPayment" && launchable && attempt?.LauncherFlow is { } flow
+        var launch = payment == "AwaitingPayment" && row.ManualVerifiedAt is null && launchable && attempt?.LauncherFlow is { } flow
             ? new CheckoutLaunchV1(flow, new Dictionary<string, string>()) : null;
         return new(quote.AccountId, quote.OrderId, attempt?.AttemptId, payment, fulfilment, access, quote.AmountPaise,
-            quote.Currency, attempt?.CreatedAt, row.VerifiedAt, row.TermId, row.TermStartsAt, row.TermEndsAt,
-            quote.ShopCount, applied, canStart, launch);
+            quote.Currency, attempt?.CreatedAt, attempt is null ? row.ManualVerifiedAt : row.VerifiedAt, row.TermId, row.TermStartsAt, row.TermEndsAt,
+            quote.ShopCount, applied, canStart, launch, row.ManualVerifiedAt is { } verified ? new("Verified", verified) : null);
     }
 }

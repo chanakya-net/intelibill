@@ -4,6 +4,7 @@ using System.Text.Json;
 using Intelibill.Domain.Enums;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
 namespace Intelibill.Licensing.Integration.Tests;
@@ -26,7 +27,7 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
             public.checkout_order_acceptances, public.payment_attempts, public.payment_attempt_sessions,
             public.payment_events, public.verified_payments, public.payment_fulfilments, public.payment_fulfilment_shops,
             public.payment_fulfilment_deliveries, public.development_gateway_sessions, public.development_gateway_payments,
-            public.development_gateway_controls
+            public.development_gateway_controls, public.manual_payment_receipts
             TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.claim_pending_payment(timestamptz,uuid) TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.lock_pending_payment(uuid,timestamptz) TO licensing_runtime;
@@ -53,13 +54,15 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
     }
 
     /// <summary>One billing owner, <paramref name="count"/> really affiliated shops and an accepted monthly quote.</summary>
-    internal async Task<Purchase> AcceptedQuoteAsync(int count = 3)
+    internal async Task<Purchase> AcceptedQuoteAsync(int count = 3, string[]? names = null)
     {
         var payer = await SignInAsync(Hosts, ShopRole.Owner);
         var account = await CreateAccountAsync(payer.Client);
         var shops = new List<Merchant> { payer };
         for (var index = 1; index < count; index++)
             shops.Add(await SignInAsync(Hosts, ShopRole.Owner));
+        if (names is not null)
+            await NameFixtureShopsAsync(shops, names);
         foreach (var shop in shops)
             await P0213Fixture.LinkAsync(account, payer, shop);
         await Delivery.DrainAsync(source: true);
@@ -71,6 +74,20 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
         using var accepted = await payer.Client.PostAsJsonAsync(P0301Tests.AcceptPath(quote), P0301Tests.Accept(quote));
         Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
         return new(payer, account, [.. shops], (await accepted.Content.ReadFromJsonAsync<CheckoutQuoteV1>())!);
+    }
+
+    private async Task NameFixtureShopsAsync(List<Merchant> shops, string[] names)
+    {
+        Assert.Equal(shops.Count, names.Length);
+        await using var connection = new NpgsqlConnection(Delivery.MerchantDb.ConnectionString);
+        await connection.OpenAsync();
+        foreach (var (shop, name) in shops.Zip(names))
+        {
+            await using var update = new NpgsqlCommand("UPDATE public.shops SET name = $1 WHERE id = $2", connection);
+            update.Parameters.AddWithValue(name);
+            update.Parameters.AddWithValue(shop.ShopId);
+            Assert.Equal(1, await update.ExecuteNonQueryAsync());
+        }
     }
 
     internal static string PaymentPath(CheckoutQuoteV1 quote) => $"{P0301Tests.OrdersPath(quote.AccountId)}/{quote.OrderId:D}/payment";

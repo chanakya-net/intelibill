@@ -41,7 +41,7 @@ public sealed partial class P0303Tests
         await P0302Tests.AssertSingleFulfilmentAsync(fixture, quote, 1);
     }
 
-    private static Task CaptureOriginalSessionAsync(P0302Fixture fixture, Guid attempt) =>
+    internal static Task CaptureOriginalSessionAsync(P0302Fixture fixture, Guid attempt) =>
         LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, $"""
             INSERT INTO public.development_gateway_payments
                 (provider_payment_reference, provider_order_reference, amount_paise, currency, state, captured_at)

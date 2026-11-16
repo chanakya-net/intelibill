@@ -8,6 +8,21 @@ namespace Intelibill.Shared.Contracts.V1;
 /// </summary>
 public static class CheckoutPaymentsV1
 {
+    public static bool HasValidPaymentSource(CheckoutPaymentV1 p)
+    {
+        if (p.ManualPayment is not { } manual)
+            return (p.Payment == "NotStarted") == (p.AttemptId is null);
+
+        if (manual.Payment != "Verified" || manual.VerifiedAt.Offset != TimeSpan.Zero ||
+            manual.VerifiedAt <= DateTimeOffset.UnixEpoch || p.CanStart || p.Launch is not null ||
+            p.Fulfilment == "NotFulfilled")
+            return false;
+
+        return p.AttemptId is null
+            ? p.Payment == "Verified" && p.StartedAt is null && p.VerifiedAt == manual.VerifiedAt
+            : p.Payment != "NotStarted" && p.StartedAt is not null && (p.Payment == "Verified") == (p.VerifiedAt is not null);
+    }
+
     public const string Policy = "checkout-payment/1";
     public const string Start = "billing.checkout.payment.start";
     public const string Read = "billing.checkout.payment.read";
@@ -66,6 +81,10 @@ public sealed record CheckoutLaunchV1(
     [property: JsonPropertyName("flow")] string Flow,
     [property: JsonPropertyName("parameters")] IReadOnlyDictionary<string, string> Parameters);
 
+public sealed record ManualCheckoutPaymentV1(
+    [property: JsonPropertyName("payment")] string Payment,
+    [property: JsonPropertyName("verifiedAt")] DateTimeOffset VerifiedAt);
+
 public sealed record CheckoutPaymentV1(
     [property: JsonPropertyName("accountId")] Guid AccountId,
     [property: JsonPropertyName("orderId")] Guid OrderId,
@@ -83,7 +102,9 @@ public sealed record CheckoutPaymentV1(
     [property: JsonPropertyName("shopsTotal")] int ShopsTotal,
     [property: JsonPropertyName("shopsApplied")] int ShopsApplied,
     [property: JsonPropertyName("canStart")] bool CanStart,
-    [property: JsonPropertyName("launch")] CheckoutLaunchV1? Launch)
+    [property: JsonPropertyName("launch")] CheckoutLaunchV1? Launch,
+    [property: JsonPropertyName("manualPayment"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    ManualCheckoutPaymentV1? ManualPayment = null)
 {
     [JsonPropertyName("schemaVersion")]
     public int SchemaVersion { get; init; } = 1;

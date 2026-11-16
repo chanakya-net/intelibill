@@ -10,12 +10,12 @@ using Npgsql;
 namespace Intelibill.Licensing.Infrastructure.Payments;
 
 /// <summary>
-/// SQL-owned payment evidence under forced row-level security. Settings are transaction-local; the attempt scope
-/// (<c>app.payment_attempt_id</c>) is the only write authority for sessions, events, verified payments and
-/// fulfilments. An attempt-scoped transaction refuses to start inside another, so no gateway call can sit in one.
+/// SQL-owned payment evidence under forced row-level security. Online sessions, events and money use the attempt
+/// scope. Manual evidence uses the authorized admin receipt scope. Both write fulfilment under the account lock.
+/// An attempt-scoped transaction refuses to nest and never spans a gateway call.
 /// </summary>
-internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPublisher publisher, ILogger<PaymentStore> logger)
-    : IPaymentStore
+internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPublisher publisher, ILogger<PaymentStore> logger, TimeProvider sessionClock)
+    : IPaymentStore, IManualPaymentStore
 {
     public async Task<ErrorOr<T>> InAttemptScopeAsync<T>(Guid account, Guid attempt, bool lockAccount,
         Func<CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken ct)
@@ -119,29 +119,35 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
     public async Task<PaymentStatusRow> ReadStatusAsync(Guid account, Guid order, CancellationToken ct)
     {
         var attempt = await FindOrderAttemptAsync(account, order, ct);
-        if (attempt is null)
-            return new(null, false, null, false, false, null, null, null, []);
         var row = await db.Database.SqlQuery<StatusRow>($"""
-            SELECT EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = a.attempt_id
+            SELECT EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = {attempt?.AttemptId}
                     AND e.kind = 'VerificationRequested') AS verification_requested,
-                EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = a.attempt_id
+                EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = {attempt?.AttemptId}
                     AND e.kind = 'CheckoutFailed') AS definitively_failed,
-                v.verified_at, EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = a.attempt_id
+                v.verified_at, EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = {attempt?.AttemptId}
                     AND e.kind = 'PaidNeedsReview') AS needs_review,
-                f.term_id, t.starts_at AS term_starts_at, t.ends_at AS term_ends_at
-            FROM public.payment_attempts a
-            LEFT JOIN public.verified_payments v ON v.attempt_id = a.attempt_id
-            LEFT JOIN public.payment_fulfilments f ON f.account_id = a.account_id AND f.order_id = a.order_id
+                f.term_id, t.starts_at AS term_starts_at, t.ends_at AS term_ends_at,
+                (SELECT min(r.verified_at) FROM public.manual_payment_receipts r
+                    WHERE r.account_id = q.account_id AND r.order_id = q.order_id) AS manual_verified_at
+            FROM (SELECT {account} AS account_id, {order} AS order_id) q
+            LEFT JOIN public.verified_payments v ON v.attempt_id = {attempt?.AttemptId}
+            LEFT JOIN public.payment_fulfilments f ON f.account_id = q.account_id AND f.order_id = q.order_id
             LEFT JOIN public.subscription_coverage_terms t ON t.account_id = f.account_id AND t.term_id = f.term_id
-            WHERE a.account_id = {account} AND a.attempt_id = {attempt.AttemptId}
             """).SingleAsync(ct);
+        var manual = row.ManualVerifiedAt?.ToUniversalTime();
         var deliveries = await db.Database.SqlQuery<PaymentShopDelivery>($"""
             SELECT shop_id, shop_revision FROM public.payment_fulfilment_deliveries
             WHERE account_id = {account} AND order_id = {order} ORDER BY shop_id
             """).ToListAsync(ct);
-        return new(attempt, row.VerificationRequested, row.VerifiedAt?.ToUniversalTime(), row.DefinitivelyFailed, row.NeedsReview, row.TermId,
-            row.TermStartsAt?.ToUniversalTime(), row.TermEndsAt?.ToUniversalTime(), deliveries);
+        return new(attempt, row.VerificationRequested, row.VerifiedAt?.ToUniversalTime(), row.DefinitivelyFailed, row.NeedsReview || manual is not null && row.TermId is null, row.TermId,
+            row.TermStartsAt?.ToUniversalTime(), row.TermEndsAt?.ToUniversalTime(), deliveries, manual);
     }
+
+    public Task<bool> HasFulfilmentAsync(Guid account, Guid order, CancellationToken ct) =>
+        db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (SELECT FROM public.payment_fulfilments WHERE account_id = {account}
+                AND order_id = {order}) AS "Value"
+            """).SingleAsync(ct);
 
     private static string? SqlState(Exception error) =>
         (error as PostgresException ?? error.InnerException as PostgresException)?.SqlState;
@@ -150,7 +156,7 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
     private static partial void LogUnavailable(ILogger logger, string cause);
 
     private sealed record StatusRow(bool VerificationRequested, DateTimeOffset? VerifiedAt, bool DefinitivelyFailed, bool NeedsReview, Guid? TermId,
-        DateTimeOffset? TermStartsAt, DateTimeOffset? TermEndsAt);
+        DateTimeOffset? TermStartsAt, DateTimeOffset? TermEndsAt, DateTimeOffset? ManualVerifiedAt);
 
     private sealed record AttemptRow(Guid AttemptId, Guid AccountId, Guid OrderId, Guid OperationKey, Guid ActorId,
         string RequestHash, string ProviderId, string ProviderAccountId, string Environment, string ConfigurationVersion,

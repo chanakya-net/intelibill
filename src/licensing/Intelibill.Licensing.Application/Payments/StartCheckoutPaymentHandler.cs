@@ -66,7 +66,8 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
             return CheckoutPaymentErrors.NotAccepted;
         if (quote.Revision != request.ExpectedRevision || quote.SnapshotHash != request.SnapshotHash)
             return CheckoutOrderErrors.Changed;
-        if (await store.FindOrderAttemptAsync(account, quote.OrderId, ct) is not null ||
+        if (await store.ManualVerifiedAtAsync(account, quote.OrderId, ct) is not null ||
+            await store.FindOrderAttemptAsync(account, quote.OrderId, ct) is not null ||
             await store.HasOverlappingPaymentAsync(account, quote.OrderId, ct))
             return CheckoutPaymentErrors.AlreadyStarted;
         // Renewals (#871), trial conversion and restored-access purchases (#872) are refused before any money moves.

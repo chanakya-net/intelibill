@@ -31,7 +31,13 @@ internal static class CheckoutRegistration
     private static void AddPayments(this IServiceCollection services)
     {
         services.AddOptions<PaymentOptions>().BindConfiguration(PaymentOptions.Section);
-        services.AddScoped<IPaymentStore, PaymentStore>();
+        services.AddScoped<PaymentStore>();
+        services.AddScoped<IPaymentStore>(provider => provider.GetRequiredService<PaymentStore>());
+        services.AddScoped<IManualPaymentStore>(provider => provider.GetRequiredService<PaymentStore>());
+        services.AddOptions<ManualReceivingAccountOptions>().BindConfiguration("ManualPayments");
+        services.AddScoped<IManualPaymentEvidence, ManualPaymentEvidenceProtector>();
+        services.AddScoped<FluentValidation.IValidator<ConfirmManualPayment>, ConfirmManualPaymentValidator>();
+        services.AddScoped(provider => ActivatorUtilities.CreateInstance<ConfirmManualPaymentHandler>(provider, CheckoutClock(provider)));
         services.AddScoped<IPendingPaymentAttemptStore, PendingPaymentAttemptStore>();
         services.TryAddKeyedSingleton<TimeProvider>(PendingPaymentAttemptWorker.ClockKey, (_, _) => TimeProvider.System);
         services.AddHostedService<PendingPaymentAttemptWorker>();
