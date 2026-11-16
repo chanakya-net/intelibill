@@ -67,6 +67,7 @@ internal sealed class CatalogueDraftStore(LicensingDbContext context) : ICatalog
 
     public async Task<(Plan? Plan, PlanVersion? Draft)> LockPlanAsync(Guid planId, CancellationToken token)
     {
+        await LockFenceAsync(context, $"catalogue:plan:{planId:D}", token);
         var plan = await context.Set<Plan>().AsNoTracking().SingleOrDefaultAsync(row => row.Id == planId, token);
         if (plan is null) return (null, null);
         var drafts = await context.Set<PlanVersion>().FromSql($"""
@@ -81,14 +82,30 @@ internal sealed class CatalogueDraftStore(LicensingDbContext context) : ICatalog
 
     public async Task<TrialPolicyVersion?> LockTrialDraftAsync(CancellationToken token)
     {
+        await LockFenceAsync(context, "catalogue:trial", token);
         var drafts = await context.Set<TrialPolicyVersion>().FromSql($"""
             SELECT * FROM public.trial_policy_versions WHERE status = 1 FOR UPDATE
             """).ToListAsync(token);
         return drafts.SingleOrDefault();
     }
 
+    public Task<PlanVersion?> ReadPlanSourceAsync(Guid planId, Guid sourceId, CancellationToken token) =>
+        context.Set<PlanVersion>().AsNoTracking().SingleOrDefaultAsync(
+            version => version.PlanId == planId && version.Id == sourceId && version.Status != CatalogueVersionStatus.Draft, token);
+
+    public Task<TrialPolicyVersion?> ReadTrialSourceAsync(Guid sourceId, CancellationToken token) =>
+        context.Set<TrialPolicyVersion>().AsNoTracking().SingleOrDefaultAsync(
+            version => version.Id == sourceId && version.Status != CatalogueVersionStatus.Draft, token);
+
+    public async Task<int> NextPlanVersionNumberAsync(Guid planId, CancellationToken token) =>
+        (await context.Set<PlanVersion>().Where(version => version.PlanId == planId)
+            .MaxAsync(version => (int?)version.VersionNumber, token) ?? 0) + 1;
+
     public async Task<int> NextTrialVersionNumberAsync(CancellationToken token) =>
         (await context.Set<TrialPolicyVersion>().MaxAsync(version => (int?)version.VersionNumber, token) ?? 0) + 1;
+
+    internal static Task LockFenceAsync(LicensingDbContext db, string resource, CancellationToken token) =>
+        db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({resource}, 0))", token);
 
     public void Add(object entity) => context.Add(entity);
 

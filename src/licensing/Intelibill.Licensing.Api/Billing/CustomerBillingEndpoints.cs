@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Licensing.Api.Catalogue;
 using Intelibill.Licensing.Application.Billing;
 using Intelibill.Shared.Contracts.V1;
 using Intelibill.Shared.Web.PublicErrors;
@@ -31,6 +32,7 @@ internal static class CustomerBillingEndpoints
         app.MapGet(MerchantBillingDelegationV1.InternalPrefix + "/accounts/{accountId:guid}/access", GetAccessAsync)
             .RequireAuthorization(policy);
         app.MapCustomerBillingAccounts(policy);
+        app.MapCustomerCatalogue(policy);
         app.MapBillingInvitations(policy);
         app.MapBillingMembers(policy);
         app.MapOwnershipTransfers(policy);

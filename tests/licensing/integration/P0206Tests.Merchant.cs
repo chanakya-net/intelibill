@@ -66,7 +66,8 @@ public sealed partial class P0206Tests
 
         var assertion = P0202Fixture.Sign(fixture, actor, P0202Fixture.List, []);
         using var customerPlans = await P0202Fixture.SendAsync(client, assertion, path: "/internal/licensing/v1/customer/plans");
-        Assert.Equal(HttpStatusCode.NotFound, customerPlans.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, customerPlans.StatusCode);
+        Assert.DoesNotContain(Canary, await customerPlans.Content.ReadAsStringAsync(), StringComparison.Ordinal);
         using var delegated = new HttpRequestMessage(HttpMethod.Get, new Uri(Plans, UriKind.Relative));
         delegated.Headers.Authorization = new AuthenticationHeaderValue("Bearer",
             P0202Fixture.Sign(fixture, actor, P0202Fixture.List, []).Token);

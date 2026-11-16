@@ -5,7 +5,7 @@ import { problemCode } from '@intelibill/api';
 import { ButtonDirective } from 'primeng/button';
 import { finalize } from 'rxjs';
 import {
-  CatalogueApi, factLabels, planKinds, type PlanDraftCommand, type PlanItem, type PlanKind,
+  CatalogueApi, draftTarget, factLabels, planKinds, type PlanDraftCommand, type PlanItem, type PlanKind,
 } from './catalogue-api.service';
 import { invalid, paiseToRupees, parseCount, parseText, rupeesToPaise } from './catalogue-money';
 
@@ -92,7 +92,7 @@ export class PlanDraftEditorComponent {
       return null;
     }
     return {
-      expectedVersion: this.draft()?.version ?? 0, kind, name: text('name').trim(),
+      ...draftTarget(this.draft()), kind, name: text('name').trim(),
       monthlyPricePaise: monthly, annualPricePaise: annual,
       includedShops: counts[0] as number | null, membersPerShop: counts[1] as number | null,
       extraShopsOffered: offer === '' ? null : offer === 'yes',

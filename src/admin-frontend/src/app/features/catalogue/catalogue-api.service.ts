@@ -2,6 +2,29 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { type Observable, switchMap } from 'rxjs';
 
+import type {
+  PreparedPublication, PublicationHistory, PublicationPreparation, PublicationTarget,
+} from './catalogue-publication.models';
+
+export interface SuccessorSource {
+  sourceVersionId: string;
+  sourceExpectedVersion: number;
+}
+
+/**
+ * An ordinary save names the exact draft version it edits as well as its revision: a successor restarts at
+ * revision 1, so a revision alone could land a stale predecessor form on the newer draft. Creates name none.
+ */
+export interface DraftTarget {
+  expectedVersion: number;
+  expectedDraftVersionId?: string;
+}
+
+/** The revision and identity of the loaded draft, or a create when none is loaded. */
+export function draftTarget(draft: { versionId: string; version: number } | null | undefined): DraftTarget {
+  return draft ? { expectedVersion: draft.version, expectedDraftVersionId: draft.versionId } : { expectedVersion: 0 };
+}
+
 export const licensingManager = 'licensing-manager';
 export type PlanKind = 'single-shop' | 'multi-shop' | 'custom';
 
@@ -43,8 +66,7 @@ export interface PlanItem {
   draft: PlanDraft;
 }
 
-export interface PlanDraftCommand extends PlanFacts {
-  expectedVersion: number;
+export interface PlanDraftCommand extends PlanFacts, Partial<SuccessorSource>, DraftTarget {
   kind: PlanKind;
   reason: string | null;
 }
@@ -100,9 +122,33 @@ export class CatalogueApi {
     return this.http.get<{ draft: TrialDraft | null }>('/api/admin/trial-policy/draft');
   }
 
-  saveTrial(command: TrialFacts & { expectedVersion: number }) {
+  saveTrial(command: TrialFacts & Partial<SuccessorSource> & DraftTarget) {
     return this.withProof((headers) =>
       this.http.put<{ draft: TrialDraft }>('/api/admin/trial-policy/draft', command, { headers }));
+  }
+
+  history(after: string | null) {
+    return this.http.get<PublicationHistory>('/api/admin/catalogue/history', { params: after ? { after } : {} });
+  }
+
+  preparePublication(target: PublicationTarget, preparation: PublicationPreparation) {
+    return this.withProof((headers) => this.http.post<PreparedPublication>(
+      this.publicationPath(target) + '/publish-preview',
+      { expectedVersion: target.expectedVersion, ...preparation }, { headers }));
+  }
+
+  confirmPublication(prepared: PreparedPublication) {
+    const { operationKey, expectedVersion, snapshotHash } = prepared;
+    return this.withProof((headers) => this.http.post<PreparedPublication>(
+      this.publicationPath(prepared) + '/publish', { operationKey, expectedVersion, snapshotHash, confirmed: true }, { headers }));
+  }
+
+  recoverPublication(key: string) {
+    return this.http.get<PreparedPublication>('/api/admin/catalogue/operations/' + encodeURIComponent(key));
+  }
+
+  private publicationPath({ planId, versionId }: PublicationTarget) {
+    return '/api/admin/' + (planId ? 'plans/' + planId : 'trial-policy') + '/versions/' + versionId;
   }
 
   private withProof<T>(send: (headers: Record<string, string>) => Observable<T>) {

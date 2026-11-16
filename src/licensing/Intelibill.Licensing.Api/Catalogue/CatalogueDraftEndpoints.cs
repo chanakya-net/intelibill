@@ -32,6 +32,7 @@ internal static class CatalogueDraftEndpoints
         group.MapPut("/plans/{planId:guid}/draft", SavePlanAsync);
         group.MapGet("/trial-policy/draft", GetTrialAsync);
         group.MapPut("/trial-policy/draft", SaveTrialAsync);
+        group.MapCataloguePublication();
     }
 
     private static async Task<IResult> ListPlansAsync(HttpContext context, SavePlanDraftHandler handler, Guid? cursor)
@@ -72,13 +73,13 @@ internal static class CatalogueDraftEndpoints
             : Results.Json(result.Value.Body, statusCode: result.Value.Created ? 201 : 200);
     }
 
-    private static async Task<IResult?> AcceptAsync(HttpContext context, AdminSignInHttp http)
+    internal static async Task<IResult?> AcceptAsync(HttpContext context, AdminSignInHttp http)
     {
         var origin = await http.ReadOriginAsync(context);
         return origin is null || !http.AcceptsMutation(context, origin) ? InvitationRequestGate.Refused(context) : null;
     }
 
-    private static async Task<(AdminSessionCaller? Caller, T? Value, IResult? Refusal)> ReadAsync<T>(HttpContext context)
+    internal static async Task<(AdminSessionCaller? Caller, T? Value, IResult? Refusal)> ReadAsync<T>(HttpContext context)
         where T : class
     {
         if (ProviderSessions.ReadCaller(context.User) is not { } caller)
@@ -105,7 +106,7 @@ internal static class CatalogueDraftEndpoints
     private static IResult TooLarge(HttpContext context) =>
         BootstrapHttp.Problem(context, 413, "Admin.RequestTooLarge", "The request is too large.");
 
-    private static IResult Problem(HttpContext context, Error error) =>
+    internal static IResult Problem(HttpContext context, Error error) =>
         BootstrapHttp.Problem(context, error.Type switch
         {
             ErrorType.Unauthorized => 401,

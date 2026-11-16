@@ -154,7 +154,8 @@ test('licensing manager drafts plans and the trial policy through the admin cons
     const bump = await page.request.put(origin + plansPath + '/' + current.planId + '/draft', {
       headers: { Origin: origin, 'X-Admin-CSRF': requestToken },
       data: {
-        expectedVersion: current.draft['version'], kind: 'multi-shop', name: growth, monthlyPricePaise: 149900,
+        expectedVersion: current.draft['version'], expectedDraftVersionId: current.draft['versionId'],
+        kind: 'multi-shop', name: growth, monthlyPricePaise: 149900,
         annualPricePaise: 1499000, includedShops: 3, membersPerShop: 5, extraShopsOffered: true,
         extraShopMonthlyPricePaise: 39900, extraShopAnnualPricePaise: 399000,
         customerTermsVersion: 'terms-2026.11', refundPolicyVersion: 'refund-2026.11',

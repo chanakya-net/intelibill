@@ -22,6 +22,7 @@ public sealed partial class P0206Tests
         }
 
         var partial = await SaveTrialAsync(manager, new { expectedVersion = 0, activeMemberCap = 5 }, HttpStatusCode.Created);
+        var draftId = partial.GetProperty("versionId").GetGuid();
         Assert.Equal(TrialGaps, Missing(partial));
         Assert.False(partial.GetProperty("complete").GetBoolean());
         Assert.Equal(14, partial.GetProperty("durationDays").GetInt32());
@@ -43,12 +44,14 @@ public sealed partial class P0206Tests
 
         var complete = await SaveTrialAsync(manager, new
         {
-            expectedVersion = 1, activeMemberCap = 5, maxConcurrentTrialShops = 2, trialTermsVersion = "trial-2026.11",
+            expectedVersion = 1, expectedDraftVersionId = draftId, activeMemberCap = 5, maxConcurrentTrialShops = 2,
+            trialTermsVersion = "trial-2026.11",
         });
         Assert.True(complete.GetProperty("complete").GetBoolean());
         Assert.Equal("draft", complete.GetProperty("status").GetString());
         Assert.Equal(2, complete.GetProperty("version").GetInt32());
-        using var stale = await manager.SendAsync(HttpMethod.Put, Trial, new { expectedVersion = 1, activeMemberCap = 9 },
+        using var stale = await manager.SendAsync(HttpMethod.Put, Trial,
+            new { expectedVersion = 1, expectedDraftVersionId = draftId, activeMemberCap = 9 },
             await P0206Fixture.ProofAsync(manager));
         Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
         Assert.Equal(1L, await fixture.ScalarAsync("""

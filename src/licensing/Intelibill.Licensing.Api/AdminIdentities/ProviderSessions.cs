@@ -42,6 +42,10 @@ internal static class ProviderSessions
         services.AddScoped<UpdateAdminCapabilitiesHandler>();
         services.AddScoped<SavePlanDraftHandler>();
         services.AddScoped<SaveTrialPolicyDraftHandler>();
+        services.AddScoped<PublishTrialPolicyVersionHandler>();
+        services.AddScoped<PublishPlanVersionHandler>();
+        services.AddScoped<CataloguePublicationOperation>();
+        services.AddScoped<ReadCatalogueHistoryHandler>();
         services.AddScoped<AdminDeviceSessions>();
         services.AddScoped<AdminSignOutHandler>();
         services.AddAuthentication()

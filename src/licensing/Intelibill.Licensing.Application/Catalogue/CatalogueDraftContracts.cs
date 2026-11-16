@@ -18,13 +18,19 @@ public sealed record PlanDraftRequest(
     long? ExtraShopAnnualPricePaise,
     string? CustomerTermsVersion,
     string? RefundPolicyVersion,
-    string? Reason);
+    string? Reason,
+    Guid? SourceVersionId = null,
+    int? SourceExpectedVersion = null,
+    Guid? ExpectedDraftVersionId = null);
 
 public sealed record TrialPolicyDraftRequest(
     int? ExpectedVersion,
     int? ActiveMemberCap,
     int? MaxConcurrentTrialShops,
-    string? TrialTermsVersion);
+    string? TrialTermsVersion,
+    Guid? SourceVersionId = null,
+    int? SourceExpectedVersion = null,
+    Guid? ExpectedDraftVersionId = null);
 
 public sealed record PlanDraftView(
     Guid VersionId,
@@ -80,6 +86,9 @@ public interface ICatalogueDraftStore
     Task<(Plan? Plan, PlanVersion? Draft)> LockPlanAsync(Guid planId, CancellationToken token);
     Task<TrialPolicyVersion?> ReadTrialDraftAsync(CancellationToken token);
     Task<TrialPolicyVersion?> LockTrialDraftAsync(CancellationToken token);
+    Task<PlanVersion?> ReadPlanSourceAsync(Guid planId, Guid sourceId, CancellationToken token);
+    Task<TrialPolicyVersion?> ReadTrialSourceAsync(Guid sourceId, CancellationToken token);
+    Task<int> NextPlanVersionNumberAsync(Guid planId, CancellationToken token);
     Task<int> NextTrialVersionNumberAsync(CancellationToken token);
     void Add(object entity);
 }

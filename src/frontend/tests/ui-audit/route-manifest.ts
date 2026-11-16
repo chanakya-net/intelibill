@@ -54,6 +54,14 @@ export const ROUTE_MANIFEST: readonly RouteManifestEntry[] = [
   shellRoute('account/security'),
   shellRoute('billing'),
   shellRoute('billing/invitations'),
+  shellRoute('billing/plans'),
+  shellRoute('billing/accounts/:accountId/ownership-transfer', ALL_ROLES, () => ({
+    accountId: '00000000-0000-4000-8000-000000000001',
+  })),
+  shellRoute('billing/ownership-transfers'),
+  shellRoute('billing/ownership-transfers/:transferId', ALL_ROLES, () => ({
+    transferId: '00000000-0000-4000-8000-000000000003',
+  })),
   shellRoute('billing/accounts/:accountId/members', ALL_ROLES, () => ({
     accountId: '00000000-0000-4000-8000-000000000001',
   })),
