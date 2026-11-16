@@ -60,6 +60,28 @@ describe('subscription status', () => {
     expect(paths.indexOf('status')).toBeLessThan(paths.indexOf(''));
   });
 
+  it('explains courtesy access by its exact end and included capacity, with no price, grace or paid wording', () => {
+    const courtesy: SubscriptionTermStatus = {
+      ...term, basis: 'Complimentary', billingPeriod: null, startsAt: '2027-02-28T18:30:00Z',
+      paidThrough: '2027-03-31T18:30:00.000001Z', accessEndsAt: '2027-03-31T18:30:00.000001Z', graceEndsAt: null,
+      nextDeadline: '2027-03-31T18:30:00.000001Z', nextPeriodEndsAt: null, coverageMode: 'Independent', purchasedCapacity: 1,
+      memberAllowance: 4, sourceReference: 'complimentary-access/1', developmentFixture: false, commercial: null,
+    };
+    const { page } = render({ shop: vi.fn(() => of(status(shopA, { term: courtesy }))) });
+    const facts = page.querySelector('[data-testid="status-term"]')!.textContent!;
+    expect(facts).toContain('Courtesy access');
+    expect(facts).toContain('Courtesy access ends');
+    expect(facts).toContain('Included capacity');
+    expect(facts).not.toContain('Paid through');
+    expect(facts).not.toContain('Purchased capacity');
+    expect(page.querySelector('[data-testid="paid-through"]')!.textContent).toBe('1 Apr 2027, 00:00:00.000001 IST');
+    expect(page.querySelector('[data-testid="starts-at"]')!.textContent).toBe('1 Mar 2027, 00:00:00 IST');
+    expect(page.querySelector('[data-testid="grace-ends"]')!.textContent).toContain('No grace period');
+    expect(page.querySelector('[data-testid="member-allowance"]')!.textContent).toBe('4');
+    expect(page.querySelector('[data-testid="commercial-price"]')).toBeNull();
+    expect(page.querySelector('[data-testid="courtesy-note"]')!.textContent).toContain('no payment is recorded');
+  });
+
   it('formats absolute IST deadlines whatever the browser zone is', () => {
     expect(formatBillingInstant('2027-02-28T04:30:00Z', 'en-IN')).toBe('28 Feb 2027, 10:00 IST');
     expect(formatBillingInstant('2027-03-30T20:30:00Z', 'en-IN')).toBe('31 Mar 2027, 02:00 IST');

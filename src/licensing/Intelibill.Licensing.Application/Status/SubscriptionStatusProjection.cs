@@ -13,6 +13,10 @@ public static class SubscriptionStatusProjection
 {
     public static SubscriptionAccessFacts ToFacts(TermFactsRow row)
     {
+        if (row.Complimentary is { } grant)
+            return new SubscriptionAccessFacts(row.StartsAt, row.EndsAt,
+                ComplimentaryComplete(row, grant) ? TermEvidenceState.Complete : TermEvidenceState.NeedsReview,
+                SubscriptionBasis.Complimentary);
         if (row.Trial is { } trial)
         {
             var complete = row.Basis is null && row.Mode == "Independent" && row.Capacity == 1
@@ -36,6 +40,12 @@ public static class SubscriptionStatusProjection
             ? TermEvidenceState.Complete : TermEvidenceState.NeedsReview, basis, anchor, ordinal);
     }
 
+    // A grant's frozen capacity, mode and dates must agree with its coverage term; nothing else is inferred.
+    private static bool ComplimentaryComplete(TermFactsRow row, ComplimentaryTermProvenance grant) =>
+        row.Basis is null && row.Trial is null && grant.Consistent && grant.PolicyVersion == ComplimentaryAccessPolicy.Version
+        && ComplimentaryAccessPolicy.ValidCapacity(grant.ShopCount, grant.MemberAllowance)
+        && row.Capacity == grant.ShopCount && row.Mode == ComplimentaryAccessPolicy.CoverageMode(grant.ShopCount);
+
     // A paid term is exactly one calendar period of its retained anchor; anything else needs review.
     private static bool Agrees(TermFactsRow row, SubscriptionBasis basis, BillingAnchor anchor, int ordinal)
     {
@@ -49,20 +59,47 @@ public static class SubscriptionStatusProjection
     public static SubscriptionTermStatusV1 Project(TermFactsRow row, DateTimeOffset at, bool commercial)
     {
         var facts = ToFacts(row);
-        var result = SubscriptionAccessPolicy.Evaluate(facts, at);
+        return Project(row, facts, SubscriptionAccessPolicy.Evaluate(facts, at), commercial);
+    }
+
+    private static SubscriptionTermStatusV1 Project(TermFactsRow row, SubscriptionAccessFacts facts,
+        SubscriptionAccessEvaluation result, bool commercial)
+    {
         var complete = facts.Evidence == TermEvidenceState.Complete;
-        var basis = row.Trial is null ? row.Basis : nameof(SubscriptionBasis.Trial);
+        var basis = row.Trial is not null ? nameof(SubscriptionBasis.Trial)
+            : row.Complimentary is not null ? nameof(SubscriptionBasis.Complimentary) : row.Basis;
         return new SubscriptionTermStatusV1(row.TermId, result.State.ToString(), facts.Evidence.ToString(),
             complete ? basis : null, complete ? row.BillingPeriod : null, BillingCalendar.Zone,
             result.StartsAt, result.PaidThrough, result.GraceEndsAt, result.AccessEndsAt, result.NextDeadline,
-            result.NextPeriodEndsAt, row.Mode, row.Capacity, complete ? row.Trial?.MemberCap ?? row.MemberAllowance : null,
-            row.Trial?.ComputationVersion ?? row.SourceReference, row.Trial?.DevelopmentFixture ?? row.DevelopmentFixture == true,
-            commercial && row.Basis is not null && row.Trial is null ? new SubscriptionCommercialV1(row.PricePaise, row.Currency, row.PlanVersionId) : null);
+            result.NextPeriodEndsAt, row.Mode, row.Capacity,
+            complete ? row.Trial?.MemberCap ?? row.Complimentary?.MemberAllowance ?? row.MemberAllowance : null,
+            row.Trial?.ComputationVersion ?? row.Complimentary?.PolicyVersion ?? row.SourceReference,
+            row.Trial?.DevelopmentFixture ?? row.DevelopmentFixture == true,
+            commercial && row.Basis is not null && row.Trial is null && row.Complimentary is null
+                ? new SubscriptionCommercialV1(row.PricePaise, row.Currency, row.PlanVersionId) : null);
+    }
+
+    /// <summary>
+    /// The shop's one shown source at <paramref name="at"/>: its baseline (affiliation or trial) term unless that
+    /// supplies no current access and a complimentary grant naming the shop does (see <see cref="ComplimentaryAccessPolicy"/>).
+    /// Account suspension intervals, when a source supplies them, are applied to the chosen term.
+    /// </summary>
+    public static SubscriptionTermStatusV1? Choose(ShopCoverage? coverage, DateTimeOffset at, bool commercial,
+        IReadOnlyList<SuspensionInterval>? suspensions = null)
+    {
+        if (coverage is null) return null;
+        var grants = coverage.Grants ?? [];
+        var baseline = coverage.Term is { } term ? ToFacts(term) : null;
+        var grantFacts = grants.Select(ToFacts).ToArray();
+        var chosen = ComplimentaryAccessPolicy.Select(baseline, grantFacts, at);
+        if (chosen is not { } index) return null;
+        var (row, facts) = index < 0 ? (coverage.Term!, baseline!) : (grants[index], grantFacts[index]);
+        return Project(row, facts, ComplimentaryAccessPolicy.Evaluate(facts, at, suspensions), commercial);
     }
 
     public static ShopSubscriptionStatusV1 Shop(Guid shop, DateTimeOffset at, ShopCoverage? coverage, bool commercial)
     {
-        var term = coverage?.Term is { } row ? Project(row, at, commercial) : null;
+        var term = Choose(coverage, at, commercial);
         return new ShopSubscriptionStatusV1(SubscriptionStatusV1.SchemaVersion, shop, at,
             term?.State ?? "PendingActivation", term, commercial ? coverage?.AccountId : null, ObserveOnly: true,
             SubscriptionStatusV1.NotAvailable, SubscriptionStatusV1.NotAvailable);

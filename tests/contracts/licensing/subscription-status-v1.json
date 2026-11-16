@@ -43,5 +43,10 @@
       "accessEndsAt": "2027-03-07T04:30:00+00:00", "nextDeadline": "2027-02-28T04:30:00+00:00",
       "nextPeriodEndsAt": "2027-03-31T04:30:00+00:00", "coverageMode": "Independent", "purchasedCapacity": 1,
       "memberAllowance": 5, "sourceReference": "local-fixture-p0209", "developmentFixture": true, "commercial": null }
-  }
+  },
+  "complimentaryExample": { "termId": "00000000-0000-0000-0000-000000000003", "state": "Active", "evidenceState": "Complete",
+    "basis": "Complimentary", "billingPeriod": null, "timeZone": "Asia/Kolkata", "startsAt": "2027-02-28T18:30:00+00:00",
+    "paidThrough": "2027-03-31T18:30:00+00:00", "graceEndsAt": null, "accessEndsAt": "2027-03-31T18:30:00+00:00",
+    "nextDeadline": "2027-03-31T18:30:00+00:00", "nextPeriodEndsAt": null, "coverageMode": "Grouped", "purchasedCapacity": 2,
+    "memberAllowance": 4, "sourceReference": "complimentary-access/1", "developmentFixture": false, "commercial": null }
 }

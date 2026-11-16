@@ -26,3 +26,8 @@ main {
 .shop {
   display: block;
 }
+
+.grant-shops {
+  margin: 0.75rem 0;
+  padding-left: 1.25rem;
+}

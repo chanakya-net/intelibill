@@ -7,6 +7,8 @@ import { Subject, of, throwError } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AccountStatusApi, formatIst, type AccountStatus, type TermStatus } from './account-status-api.service';
 import { AccountStatusPageComponent } from './account-status-page.component';
+import { AdminSessionService } from '../auth/admin-session.service';
+import { ComplimentaryGrantApi } from './complimentary-grant-api.service';
 
 const account = '33333333-3333-4333-8333-333333333333';
 const term: TermStatus = {
@@ -30,6 +32,8 @@ function render(read: AccountStatusApi['read'], grants: string[] = ['support']) 
       provideRouter([]),
       { provide: SESSION_PORT, useValue: { state, capabilities } },
       { provide: AccountStatusApi, useValue: { read } },
+      { provide: AdminSessionService, useValue: { adminId: signal('admin-1'), sessionId: signal('session-1') } },
+      { provide: ComplimentaryGrantApi, useValue: {} },
     ],
   });
   const view = TestBed.createComponent(AccountStatusPageComponent);
@@ -115,6 +119,36 @@ describe('provider account access status', () => {
     const { page, lookup } = render(() => throwError(() => new HttpErrorResponse({ status: 503 })));
     lookup();
     expect(page.querySelector('[role="alert"]')?.textContent).toContain('not an expiry');
+  });
+
+  it('labels courtesy access by its exact end and included capacity, never as paid', () => {
+    const current = status();
+    const courtesy: TermStatus = { ...term, state: 'Active', basis: 'Complimentary', billingPeriod: null, graceEndsAt: null,
+      paidThrough: '2027-03-31T18:30:00.000001Z', accessEndsAt: '2027-03-31T18:30:00.000001Z', nextDeadline: '2027-03-31T18:30:00.000001Z',
+      nextPeriodEndsAt: null, coverageMode: 'Grouped', purchasedCapacity: 2, memberAllowance: 4, developmentFixture: false };
+    const { page, lookup } = render(() => of({ ...current, items: [{ ...current.items[0], status: courtesy }] }));
+    lookup();
+    const text = page.querySelector('[data-testid="provider-term"]')!.textContent!;
+    expect(page.querySelector('[data-testid="provider-courtesy-ends"]')!.textContent).toBe('1 Apr 2027, 00:00:00.000001 IST');
+    expect(text).toContain('Courtesy access');
+    expect(text).toContain('Included capacity');
+    expect(text).toContain('None recorded (complimentary)');
+    expect(text).toContain('No grace period');
+    expect(text).not.toContain('Paid through');
+    expect(text).not.toContain('Purchased capacity');
+  });
+
+  it('offers the grant editor only to a Licensing Manager', () => {
+    const support = render(() => of(status()));
+    support.lookup();
+    expect(support.page.querySelector('[data-testid="grant-editor"]')).toBeNull();
+    TestBed.resetTestingModule();
+    const manager = render(() => of(status()), ['licensing-manager']);
+    manager.lookup();
+    expect(manager.page.querySelector('[data-testid="grant-editor"]')).not.toBeNull();
+    manager.capabilities.set(['support']);
+    manager.view.detectChanges();
+    expect(manager.page.querySelector('[data-testid="grant-editor"]')).toBeNull();
   });
 
   it('formats the billing zone whatever the browser zone is', () => {

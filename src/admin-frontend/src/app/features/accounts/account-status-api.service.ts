@@ -69,6 +69,22 @@ export function formatIst(value: string | null): string | null {
   return `${part('day')} ${part('month')} ${part('year')}, ${part('hour')}:${part('minute')} IST`;
 }
 
+/**
+ * The exact instant in Asia/Kolkata with seconds and any sub-second digits the server recorded (microseconds are
+ * read from the text, since a browser Date keeps only milliseconds). IST has no DST, so fractions are unchanged.
+ */
+export function formatIstExact(value: string | null): string | null {
+  if (!value) return null;
+  const parts = new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find(item => item.type === type)?.value ?? '';
+  const fraction = /T\d{2}:\d{2}:\d{2}\.(\d+)/.exec(value)?.[1]?.replace(/0+$/, '') ?? '';
+  return `${part('day')} ${part('month')} ${part('year')}, ${part('hour')}:${part('minute')}:${part('second')}`
+    + `${fraction ? '.' + fraction : ''} IST`;
+}
+
 export const stateLabels: Readonly<Partial<Record<string, string>>> = {
   PendingActivation: 'Not yet active', Scheduled: 'Scheduled', Active: 'Active', Grace: 'In grace period',
   Expired: 'Expired', Suspended: 'Suspended', EvidenceIncomplete: 'Facts incomplete', NeedsReview: 'Needs review',
