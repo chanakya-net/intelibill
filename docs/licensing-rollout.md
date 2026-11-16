@@ -476,3 +476,11 @@ Apply `20261116220000_AddSubscriptionCancellationWithdrawals` after the cancella
 ### P02 lifecycle acceptance
 
 Use the [P02 acceptance guide](../tests/licensing/acceptance/p02-lifecycle.md) for the PostgreSQL and shipping Chromium scenarios, P03 synchronization contracts and commercial launch inputs. Keep this phase observe-only.
+
+### Full-payment quote review
+
+Apply `20261116230000_CheckoutPayments` to the licensing database, apply the existing runtime grants, then roll out licensing API, merchant API and merchant web in that order. The merchant Billing page opens the account's checkout review. A live Billing Owner or Manager may request a 15-minute INR quote from a published plan and the account's applied shop affiliations. The review shows the final tax-inclusive amount, named coverage, capacity, intended dates and policy versions.
+
+Acceptance appends a receipt to the frozen quote. The merchant can reload or recover the original operation when a response is lost. Quote acceptance creates no payment attempt and confers no entitlement. Roll back by retiring the quote reviewers and writers while retaining the tables and their facts. The migration refuses a downgrade after the first quote.
+
+See [P03-01 fixture verification](../tests/licensing/acceptance/p03-01-checkout.md) for the browser run.

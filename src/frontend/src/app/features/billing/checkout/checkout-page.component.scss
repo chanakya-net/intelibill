@@ -1,0 +1,30 @@
+.checkout-page {
+  display: grid;
+  gap: 1rem;
+  inline-size: min(100%, 48rem);
+}
+
+.ib-panel {
+  padding: 1rem;
+  display: grid;
+  gap: 0.75rem;
+  min-inline-size: 0;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+dt, dd, small { overflow-wrap: anywhere; }
+dd { margin: 0; }
+.checkout-total { font-weight: 700; }
+.checkout-check { display: flex; align-items: baseline; gap: 0.5rem; }
+.checkout-shops { list-style: disc; padding-inline-start: 1.5rem; }
+.checkout-shops small { display: block; }
+.checkout-alert { color: var(--app-error-text, #a82622); }
+button { justify-self: start; }
+select { inline-size: min(100%, 26rem); padding: 0.55rem; }
+fieldset { min-inline-size: 0; }

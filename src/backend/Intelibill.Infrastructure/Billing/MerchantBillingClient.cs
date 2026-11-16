@@ -20,7 +20,7 @@ internal sealed partial class MerchantBillingClient(
     IOptionsMonitor<MerchantBillingDelegationOptions> options, IHostEnvironment environment,
     ILogger<MerchantBillingClient> logger, ApplicationDbContext db, IPhoneAuthPolicy phones, ShopAffiliationConsentStore consents, TrialActivationConsentStore trials)
     : IMerchantBillingAccess, IMerchantBillingInvitations, IMerchantShopAffiliations, IMerchantBillingOwnershipTransfers,
-        IMerchantSubscriptionStatus, IMerchantShopTrials, IMerchantSubscriptionCancellations
+        IMerchantSubscriptionStatus, IMerchantShopTrials, IMerchantSubscriptionCancellations, IMerchantCheckoutOrders
 {
     private const int MaximumResponseBytes = 4096;
     // Sized for a full page of the longest valid names, so no account the actor holds can hide the list.
@@ -155,7 +155,7 @@ internal sealed partial class MerchantBillingClient(
         switch (response.StatusCode)
         {
             case HttpStatusCode.OK:
-            case HttpStatusCode.Created when action is MerchantBillingDelegationV1.CreateAccount or ShopAffiliationsV1.Request:
+            case HttpStatusCode.Created when action is MerchantBillingDelegationV1.CreateAccount or ShopAffiliationsV1.Request or CheckoutOrdersV1.Create:
             case HttpStatusCode.Accepted when action is BillingInvitationsV1.Issue or BillingOwnershipTransfersV1.Issue:
                 return null;
             case HttpStatusCode.Forbidden:
@@ -166,6 +166,8 @@ internal sealed partial class MerchantBillingClient(
                 return MapTransferFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when SubscriptionCancellationsV1.IsAction(action):
                 return MapCancellationFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CheckoutOrdersV1.IsAction(action):
+                return MapCheckoutFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.NotFound when action == PublishedCatalogueV1.Read:
                 return await ReadProblemCodeAsync(response, cancellationToken) == MerchantBillingErrors.PlanVersionNotFound.Code
                     ? MerchantBillingErrors.PlanVersionNotFound : Unavailable("UpstreamStatus");

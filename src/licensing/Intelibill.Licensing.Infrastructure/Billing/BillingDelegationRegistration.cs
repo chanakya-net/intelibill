@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Infrastructure.Payments;
 using Intelibill.Licensing.Infrastructure.Entitlements;
 using Intelibill.Licensing.Application.Billing;
 using Intelibill.Licensing.Application.BillingAccounts;
@@ -36,6 +37,7 @@ internal static class BillingDelegationRegistration
         services.AddScoped<ListBillingAccountsHandler>();
         services.TryAddScoped<IBillingAccountDelegationAuthority, BillingAccountMembershipAuthority>();
         services.AddSubscriptionStatus();
+        services.AddCheckout();
         services.AddShopTrials();
         services.AddEntitlementDelivery();
         services.AddComplimentaryGrants();

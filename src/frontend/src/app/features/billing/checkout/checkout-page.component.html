@@ -1,0 +1,118 @@
+<section class="checkout-page">
+  <header>
+    <a routerLink="/billing">{{ 'billing.title' | transloco }}</a>
+    <h1 class="ib-page-title">{{ 'billing.checkout.title' | transloco }}</h1>
+  </header>
+
+  @if (problem(); as issue) {
+    <p role="alert" class="checkout-alert">{{ 'billing.checkout.errors.' + issue | transloco }}</p>
+  } @else if (expired()) {
+    <p role="alert" class="checkout-alert">{{ 'billing.checkout.errors.expired' | transloco }}</p>
+  }
+  @if (busy()) {
+    <p role="status">{{ 'billing.loading' | transloco }}</p>
+  }
+
+  @if (quote(); as review) {
+    <section class="ib-panel" aria-labelledby="quote-heading">
+      <header class="ib-panel__header">
+        <h2 class="ib-panel__title" id="quote-heading">{{ review.planName }} · {{ 'billing.checkout.planVersion' | transloco: { version: review.planVersion } }}</h2>
+        @if (review.developmentFixture) {
+          <p>{{ 'billing.plans.fixture' | transloco }}</p>
+        }
+      </header>
+      <dl>
+        <dt>{{ 'billing.checkout.total' | transloco }}</dt>
+        <dd class="checkout-total" data-testid="checkout-total">{{ review.amountPaise / 100 | localeMoney }}</dd>
+        <dt>{{ 'billing.checkout.capacity' | transloco }}</dt>
+        <dd data-testid="checkout-capacity">{{ review.capacity }}</dd>
+        <dt>{{ 'billing.checkout.members' | transloco }}</dt>
+        <dd data-testid="checkout-member-limit">{{ review.membersPerShop }}</dd>
+        <dt>{{ 'billing.checkout.expiry' | transloco }}</dt>
+        <dd data-testid="checkout-expiry">{{ instant(review.expiresAt) }} · {{ review.billingTimeZone }}</dd>
+        <dt>{{ 'billing.checkout.dates' | transloco }}</dt>
+        <dd>{{ instant(review.previewStartsAt) }} – {{ instant(review.previewEndsAt) }} · {{ review.billingTimeZone }}</dd>
+      </dl>
+      <p>{{ 'billing.checkout.fullPayment' | transloco }}</p>
+      <p>{{ 'billing.checkout.start.' + review.startRule | transloco }}</p>
+      @if (review.graceDaysIncluded) {
+        <p>{{ 'billing.checkout.grace' | transloco: { days: review.graceDaysIncluded } }}</p>
+      }
+      <h3>{{ 'billing.checkout.covered' | transloco: { count: review.shopCount } }}</h3>
+      @if (covered(); as shops) {
+        <ul class="checkout-shops">
+          @for (shop of shops; track shop.shopId) {
+            <li data-testid="checkout-covered-shop"><span>{{ shop.name }}</span> <small>{{ shop.shopId }}</small></li>
+          }
+        </ul>
+      }
+      <dl data-testid="checkout-policies">
+        <dt>{{ 'billing.checkout.customerTerms' | transloco }}</dt><dd>{{ review.customerTermsVersion }}</dd>
+        <dt>{{ 'billing.checkout.refundPolicy' | transloco }}</dt><dd>{{ review.refundPolicyVersion }}</dd>
+      </dl>
+      @if (review.acceptance) {
+        <p role="status" data-testid="checkout-accepted">{{ 'billing.checkout.accepted' | transloco }}</p>
+      } @else if (!acceptDraft()) {
+        <label class="checkout-check">
+          <input type="checkbox" [disabled]="busy() || !covered() || expired() || !!problem()"
+            [checked]="confirmed()" (change)="confirmed.set($any($event.target).checked)" />
+          {{ 'billing.checkout.confirm' | transloco }}
+        </label>
+        <button pButton type="button" [disabled]="!canAccept()" [label]="'billing.checkout.accept' | transloco"
+          (click)="accept()"></button>
+      }
+      @if (!acceptDraft() || acceptDraft()?.settled) {
+        <button pButton type="button" severity="secondary" [disabled]="busy()"
+          [label]="'billing.checkout.newQuote' | transloco" (click)="startOver()"></button>
+      }
+    </section>
+  } @else if (!createDraft() && plans().length) {
+    <section class="ib-panel checkout-fields" aria-labelledby="select-heading">
+      <h2 class="ib-panel__title" id="select-heading">{{ 'billing.checkout.selection' | transloco }}</h2>
+      <label for="checkout-plan">{{ 'billing.checkout.plan' | transloco }}</label>
+      <select id="checkout-plan" [value]="planId()" (change)="choose($event, 'plan')">
+        <option value="">{{ 'billing.checkout.selectPlan' | transloco }}</option>
+        @for (plan of plans(); track plan.versionId) {
+          <option [value]="plan.versionId">{{ plan.name }}</option>
+        }
+      </select>
+      <label for="checkout-period">{{ 'billing.checkout.period' | transloco }}</label>
+      <select id="checkout-period" [value]="period()" (change)="choose($event, 'period')">
+        <option value="Month">{{ 'billing.plans.monthly' | transloco }}</option>
+        <option value="Year">{{ 'billing.plans.annual' | transloco }}</option>
+      </select>
+      @if (renewals().size) {
+        <label for="checkout-renewal">{{ 'billing.checkout.package' | transloco }}</label>
+        <select id="checkout-renewal" [value]="term()" (change)="choose($event, 'term')">
+          <option value="">{{ 'billing.checkout.newPackage' | transloco }}</option>
+          @for (package of renewals() | keyvalue; track package.key) {
+            <option [value]="package.key">{{ package.value.join(', ') }}</option>
+          }
+        </select>
+      }
+      @if (!term()) {
+        <fieldset>
+          <legend>{{ 'billing.checkout.selectShops' | transloco }}</legend>
+          @for (shop of openShops(); track shop.shopId) {
+            <label class="checkout-check">
+              <input type="checkbox" [checked]="selected().has(shop.shopId)" (change)="toggle(shop.shopId, $event)" />
+              {{ shop.name }}
+            </label>
+          }
+        </fieldset>
+      }
+      <button pButton type="button" [disabled]="busy() || !planId() || (!term() && !selected().size)"
+        [label]="'billing.checkout.create' | transloco" (click)="create()"></button>
+    </section>
+  } @else if (!busy() && !problem() && !createDraft()) {
+    <p>{{ 'billing.plans.empty' | transloco }}</p>
+  }
+
+  @if ((createDraft() && !createDraft()?.order) || (acceptDraft() && !acceptDraft()?.settled && !quote()?.acceptance)) {
+    <button pButton type="button" [disabled]="busy()" [label]="'billing.checkout.retry' | transloco"
+      (click)="retry()"></button>
+  } @else if (problem() === 'unavailable' || problem() === 'storage') {
+    <button pButton type="button" [disabled]="busy()" [label]="'billing.reload' | transloco"
+      (click)="reload()"></button>
+  }
+</section>

@@ -3289,6 +3289,48 @@
     "searchHint": "Up to 20 matches are shown. Refine your search to find another party."
   },
   "billing": {
+    "checkout": {
+      "link": "Review a quote",
+      "title": "Review a full-payment quote",
+      "planVersion": "Version {{version}}",
+      "total": "Total payable in INR",
+      "capacity": "Shop capacity",
+      "members": "Active members per shop",
+      "expiry": "Quote expires",
+      "dates": "Intended term",
+      "fullPayment": "One full payment covers every named shop. The displayed total includes tax and any charges.",
+      "grace": "The renewal includes {{days}} days already used in grace.",
+      "covered": "Covered shops ({{count}})",
+      "customerTerms": "Customer terms version",
+      "refundPolicy": "Refund policy version",
+      "accepted": "Quote accepted. Payment has not started. Access is unchanged.",
+      "confirm": "I accept the full amount, all listed shops and the policy versions shown.",
+      "accept": "Accept quote",
+      "newQuote": "Review a new quote",
+      "selection": "Choose a package",
+      "plan": "Plan",
+      "selectPlan": "Choose a plan",
+      "period": "Billing period",
+      "package": "Package to renew",
+      "newPackage": "New package",
+      "selectShops": "Select shops",
+      "create": "Create quote",
+      "retry": "Retry original request",
+      "start": {
+        "Fulfilment": "The term starts when the purchase can be fulfilled. These dates are a preview.",
+        "PriorPaidThrough": "The term extends from the previous paid-through date.",
+        "RestoredAccess": "The term starts when access is restored. These dates are a preview."
+      },
+      "errors": {
+        "unavailable": "The quote details could not be loaded.",
+        "storage": "This device could not save your request. Try again with site storage available.",
+        "unknown": "The quote outcome is unknown. Retry the original request to check its result.",
+        "invalid": "Choose a supported package or review the confirmation again.",
+        "changed": "The quote or its covered shops changed. Review a new quote.",
+        "expired": "This quote expired before acceptance.",
+        "denied": "You no longer have access to this billing account."
+      }
+    },
     "cancellation": {
       "review": "Review cancellation",
       "details": "View affected shops",
