@@ -44,7 +44,7 @@ public sealed partial class P0204Tests
         Assert.Equal(acceptFirst ? 1L : 0L, await CountAsync(host, "SELECT count(*) FROM billing_ownership_acceptances"));
     }
 
-    private static async Task<Guid> InviteManagerAsync(HttpClient owner, Guid account, HttpClient recipient, string email)
+    internal static async Task<Guid> InviteManagerAsync(HttpClient owner, Guid account, HttpClient recipient, string email)
     {
         var path = $"/api/billing/accounts/{account:D}";
         using var issued = await owner.PostAsJsonAsync(path + "/invitations",

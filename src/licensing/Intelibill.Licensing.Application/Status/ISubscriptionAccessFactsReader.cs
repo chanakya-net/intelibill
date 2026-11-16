@@ -12,7 +12,7 @@ namespace Intelibill.Licensing.Application.Status;
 public sealed record TermFactsRow(Guid TermId, Guid AccountId, string Mode, int Capacity, DateTimeOffset StartsAt,
     DateTimeOffset EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal, string? TimeZone,
     int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency, Guid? PlanVersionId,
-    string? SourceReference, bool? DevelopmentFixture);
+    string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion);
 
 /// <summary>The shop's applied affiliation (its account) and the term it was assigned, when it has one.</summary>
 public sealed record ShopCoverage(Guid AccountId, TermFactsRow? Term);

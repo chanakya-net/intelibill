@@ -36,7 +36,8 @@
             <dt>Access basis</dt><dd>{{ item.status.basis ? bases[item.status.basis] : 'Not recorded' }}</dd>
             <dt>Starts</dt><dd>{{ instant(item.status.startsAt) }}</dd>
             <dt>Paid through</dt><dd>{{ instant(item.status.paidThrough) }}</dd>
-            <dt>Grace ends</dt><dd>{{ instant(item.status.graceEndsAt) ?? 'Not recorded' }}</dd>
+            <dt>Grace ends</dt><dd>{{ instant(item.status.graceEndsAt)
+              ?? (item.status.evidenceState === 'Complete' ? 'No grace period' : 'Not recorded') }}</dd>
             <dt>Next deadline</dt><dd>{{ instant(item.status.nextDeadline) ?? 'None' }}</dd>
             <dt>Purchased capacity</dt><dd>{{ item.status.coverageMode }}, {{ item.status.purchasedCapacity }}</dd>
             <dt>Members per shop</dt><dd>{{ item.status.memberAllowance ?? 'Not recorded' }}</dd>

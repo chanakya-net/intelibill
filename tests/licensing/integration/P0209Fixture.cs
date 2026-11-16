@@ -5,6 +5,7 @@ using System.Text.Json;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Data;
+using Intelibill.Licensing.Domain.Policies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -33,10 +34,10 @@ internal static class P0209Fixture
         }
     }
 
-    internal sealed record Merchant(Guid UserId, Guid ShopId, HttpClient Client);
+    internal sealed record Merchant(Guid UserId, Guid ShopId, HttpClient Client, string Email);
 
     internal static async Task<Hosts> StartAsync(LicensingPostgreSqlFixture database, DateTimeOffset evaluatedAt,
-        Func<HttpMessageHandler, HttpMessageHandler>? transport = null)
+        Func<HttpMessageHandler, HttpMessageHandler>? transport = null, int licensingPoolSize = 1)
     {
         await database.PrepareMerchantAsync();
         await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase),
@@ -44,8 +45,10 @@ internal static class P0209Fixture
         var fixture = await P0201Fixture.CreateAsync(database);
         fixture.Clock.Now = P0202Fixture.WholeSecondNow();
         var statusClock = new P0201Clock { Now = evaluatedAt };
+        var settings = fixture.LicensingSettings();
+        settings["LicensingDatabase:MaxPoolSize"] = licensingPoolSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
         var licensing = P0202Fixture.LicensingApi(fixture, configure: services =>
-            services.AddKeyedSingleton<TimeProvider>(StatusClockKey, statusClock));
+            services.AddKeyedSingleton<TimeProvider>(StatusClockKey, statusClock), settings: settings);
         var merchant = fixture.MerchantApi(
             handler: () => transport?.Invoke(licensing.Server.CreateHandler()) ?? licensing.Server.CreateHandler(),
             configure: services => services.AddSingleton<TimeProvider>(fixture.Clock));
@@ -75,7 +78,7 @@ internal static class P0209Fixture
 
         var client = host.Merchant.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await P0201Tests.LoginAsync(client, email));
-        return new Merchant(user, shopId, client);
+        return new Merchant(user, shopId, client, email);
     }
 
     /// <summary>An owner whose shop is created through the real shop route, so every trading prerequisite exists.</summary>
@@ -111,7 +114,8 @@ internal static class P0209Fixture
     /// <summary>Explicit local term facts: the supplement row the reader evaluates. Null basis seeds coverage only.</summary>
     internal sealed record TermSeed(DateTimeOffset StartsAt, DateTimeOffset EndsAt, string? Basis = "Paid",
         string Period = "Month", string AnchorLocal = "", int Ordinal = 0, int MemberAllowance = 5,
-        long? PricePaise = 149900, bool Grouped = false, int Capacity = 1, string? Zone = "Asia/Kolkata");
+        long? PricePaise = 149900, bool Grouped = false, int Capacity = 1, string? Zone = "Asia/Kolkata",
+        string CalendarVersion = BillingCalendar.Version, string AccessPolicyVersion = GracePolicy.Version);
 
     internal static Task<Guid> SeedTermAsync(Hosts host, Guid account, TermSeed seed) =>
         SeedTermAsync(host.LicensingOwner, account, seed);
@@ -147,7 +151,7 @@ internal static class P0209Fixture
                 (term_id, account_id, basis, billing_period, anchor_local, time_zone, period_ordinal,
                  calendar_version, access_policy_version, member_allowance, price_paise, currency,
                  source_reference, development_fixture, recorded_at)
-            VALUES ($1, $2, $3, $4, $5::timestamp, $6, $7, 'calendar-month-year/1', 'access-grace/1', $8, $9, $10,
+            VALUES ($1, $2, $3, $4, $5::timestamp, $6, $7, $8, $9, $10, $11, $12,
                 'local-fixture-p0209', true, now())
             """, connection);
         facts.Parameters.AddWithValue(term);
@@ -157,6 +161,8 @@ internal static class P0209Fixture
         facts.Parameters.AddWithValue(seed.AnchorLocal);
         facts.Parameters.AddWithValue((object?)seed.Zone ?? DBNull.Value);
         facts.Parameters.AddWithValue(seed.Ordinal);
+        facts.Parameters.AddWithValue(seed.CalendarVersion);
+        facts.Parameters.AddWithValue(seed.AccessPolicyVersion);
         facts.Parameters.AddWithValue(seed.MemberAllowance);
         facts.Parameters.AddWithValue((object?)seed.PricePaise ?? DBNull.Value);
         facts.Parameters.AddWithValue(seed.PricePaise is null ? DBNull.Value : "INR");

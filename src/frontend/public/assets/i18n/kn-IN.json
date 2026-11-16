@@ -3475,6 +3475,7 @@
       "startsAt": "ಆರಂಭ",
       "paidThrough": "ಪಾವತಿ ಈ ತನಕ",
       "graceEndsAt": "ರಿಯಾಯಿತಿ ಅವಧಿ ಮುಕ್ತಾಯ",
+      "noGrace": "ರಿಯಾಯಿತಿ ಅವಧಿ ಇಲ್ಲ",
       "nextDeadline": "ಮುಂದಿನ ಗಡುವು",
       "nextPeriodEndsAt": "ನವೀಕರಣ ಈ ತನಕ ನಡೆಯುತ್ತದೆ",
       "capacity": "ಖರೀದಿಸಿದ ಸಾಮರ್ಥ್ಯ",

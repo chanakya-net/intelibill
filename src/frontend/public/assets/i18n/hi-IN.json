@@ -3475,6 +3475,7 @@
       "startsAt": "आरंभ",
       "paidThrough": "भुगतान इस समय तक",
       "graceEndsAt": "छूट अवधि समाप्त",
+      "noGrace": "कोई छूट अवधि नहीं",
       "nextDeadline": "अगली समय-सीमा",
       "nextPeriodEndsAt": "नवीनीकरण इस समय तक चलेगा",
       "capacity": "खरीदी गई क्षमता",

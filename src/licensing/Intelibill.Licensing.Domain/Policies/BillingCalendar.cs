@@ -16,6 +16,7 @@ public static class BillingCalendar
 {
     public const string Version = "calendar-month-year/1";
     public const string Zone = "Asia/Kolkata";
+    public const int MaxPeriodOrdinal = 1200;
 
     private static readonly TimeZoneInfo Kolkata = TimeZoneInfo.FindSystemTimeZoneById(Zone);
 
@@ -37,6 +38,19 @@ public static class BillingCalendar
         var day = Math.Min(start.Day, DateTime.DaysInMonth(firstOfMonth.Year, firstOfMonth.Month));
         var local = DateTime.SpecifyKind(firstOfMonth.AddDays(day - 1) + start.TimeOfDay, DateTimeKind.Unspecified);
         return new DateTimeOffset(TimeZoneInfo.ConvertTimeToUtc(local, Kolkata), TimeSpan.Zero);
+    }
+
+    public static DateTimeOffset? TryBoundary(BillingAnchor anchor, long ordinal)
+    {
+        if (!IsSupported(anchor) || ordinal < 0) return null;
+
+        var monthsLeft = (DateTime.MaxValue.Year - anchor.LocalStart.Year) * 12
+            + DateTime.MaxValue.Month - anchor.LocalStart.Month;
+        var periodsLeft = anchor.Period == BillingPeriod.Month ? monthsLeft : monthsLeft / 12;
+        if (ordinal > periodsLeft) return null;
+
+        try { return Boundary(anchor, (int)ordinal); }
+        catch (ArgumentException) { return null; }
     }
 
     /// <summary>The <c>[start, end)</c> interval of period <paramref name="ordinal"/>.</summary>

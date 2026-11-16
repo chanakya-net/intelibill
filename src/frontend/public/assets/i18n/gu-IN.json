@@ -3475,6 +3475,7 @@
       "startsAt": "શરૂઆત",
       "paidThrough": "આ સમય સુધી ચૂકવેલ",
       "graceEndsAt": "છૂટ સમયગાળો પૂરો",
+      "noGrace": "છૂટનો સમયગાળો નથી",
       "nextDeadline": "આગામી સમયમર્યાદા",
       "nextPeriodEndsAt": "નવીકરણ આ સમય સુધી ચાલશે",
       "capacity": "ખરીદેલી ક્ષમતા",

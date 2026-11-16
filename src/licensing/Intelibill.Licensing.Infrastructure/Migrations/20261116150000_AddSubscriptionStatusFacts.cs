@@ -27,7 +27,7 @@ public sealed class AddSubscriptionStatusFacts : Migration
             billing_period text NOT NULL CHECK (billing_period IN ('Month', 'Year')),
             anchor_local timestamp without time zone NOT NULL CHECK (anchor_local = date_trunc('second', anchor_local)),
             time_zone text NOT NULL CHECK (time_zone = 'Asia/Kolkata'),
-            period_ordinal integer NOT NULL CHECK (period_ordinal >= 0),
+            period_ordinal integer NOT NULL CHECK (period_ordinal BETWEEN 0 AND 1200),
             calendar_version varchar(40) NOT NULL CHECK (length(calendar_version) > 0),
             access_policy_version varchar(40) NOT NULL CHECK (length(access_policy_version) > 0),
             member_allowance integer NOT NULL CHECK (member_allowance BETWEEN 1 AND 100000),

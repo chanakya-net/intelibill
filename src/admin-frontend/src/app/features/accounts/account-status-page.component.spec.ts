@@ -62,6 +62,37 @@ describe('provider account access status', () => {
     expect(page.textContent).toContain('Observe-only');
   });
 
+  it('labels a Complete Trial as having no grace period', () => {
+    const current = status();
+    const trial = { ...term, state: 'Active' as const, basis: 'Trial' as const, graceEndsAt: null };
+    const { page, lookup } = render(() => of({ ...current, items: [{ ...current.items[0], status: trial }] }));
+    lookup();
+    expect(page.querySelector('[data-testid="provider-term"]')?.textContent).toContain('No grace period');
+  });
+
+  it('coalesces visibilitychange and focus for the selected account', () => {
+    const pending = new Subject<AccountStatus>();
+    const read = vi.fn().mockReturnValueOnce(of(status())).mockReturnValue(pending);
+    const { lookup, capabilities, view } = render(read);
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    try {
+      window.dispatchEvent(new Event('focus'));
+      expect(read).not.toHaveBeenCalled();
+      lookup();
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('focus'));
+      expect(read).toHaveBeenCalledTimes(2);
+      expect(read).toHaveBeenLastCalledWith(account);
+
+      capabilities.set(['billing']);
+      view.detectChanges();
+      window.dispatchEvent(new Event('focus'));
+      expect(read).toHaveBeenCalledTimes(2);
+    } finally {
+      visibility.mockRestore();
+    }
+  });
+
   it('shows the price only when the server includes it for commercial grants', () => {
     const { page, lookup } = render(() => of(status(true)), ['billing']);
     lookup();

@@ -3475,6 +3475,7 @@
       "startsAt": "শুরু",
       "paidThrough": "পরিশোধিত এই সময় পর্যন্ত",
       "graceEndsAt": "গ্রেস মেয়াদ শেষ",
+      "noGrace": "কোনো গ্রেস মেয়াদ নেই",
       "nextDeadline": "পরবর্তী সময়সীমা",
       "nextPeriodEndsAt": "নবীকরণ এই সময় পর্যন্ত চলবে",
       "capacity": "কেনা ক্ষমতা",

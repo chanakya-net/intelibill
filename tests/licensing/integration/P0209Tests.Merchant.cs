@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Domain.Enums;
+using Intelibill.Shared.Contracts.V1;
+using Microsoft.EntityFrameworkCore;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
 namespace Intelibill.Licensing.Integration.Tests;
@@ -98,6 +100,64 @@ public sealed partial class P0209Tests
             claims => claims["path"] = $"/api/admin/accounts/{other:D}/status");
         using var admin = await P0202Fixture.SendAsync(licensing, provider, path: $"/api/admin/accounts/{other:D}/status");
         Assert.Equal(HttpStatusCode.Unauthorized, admin.StatusCode);
+    }
+
+    [Fact]
+    public async Task ShopStatusDiscardsTheReplyWhenMembershipChangesInFlight()
+    {
+        var transport = new AfterShopReadTransport();
+        await using var host = await StartAsync(database, Utc("2027-02-10T00:00:00Z"), inner =>
+        {
+            transport.InnerHandler = inner;
+            return transport;
+        });
+        var payer = await SignInAsync(host);
+        var account = await CreateAccountAsync(payer.Client);
+        var owner = await SignInAsync(host, ShopRole.Owner);
+        var staff = await SignInAsync(host, ShopRole.Staff, owner.ShopId);
+        var term = await SeedTermAsync(host, account, new TermSeed(Jan31, Feb28, AnchorLocal: "2027-01-31 10:00:00"));
+        await AffiliateAsync(host, account, payer.UserId, owner.ShopId, owner.UserId, term, Jan31, Feb28);
+
+        transport.Path = SubscriptionStatusV1.ShopPath(owner.ShopId);
+        transport.AfterRead = async () =>
+        {
+            await using var db = MerchantDb(database);
+            var membership = await db.ShopMemberships.SingleAsync(row => row.ShopId == owner.ShopId && row.UserId == staff.UserId);
+            membership.ChangeAuthority(ShopRole.Staff, MembershipStatus.Suspended);
+            await db.SaveChangesAsync();
+        };
+
+        using var response = await ShopStatusAsync(staff.Client, owner.ShopId);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.True(transport.CompletedSuccessfulRead);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("Licensing.ShopScopeRequired", JsonDocument.Parse(body).RootElement.GetProperty("code").GetString());
+        Assert.DoesNotContain("paidThrough", body);
+    }
+
+    private sealed class AfterShopReadTransport : DelegatingHandler
+    {
+        internal string? Path { get; set; }
+        internal Func<Task>? AfterRead { get; set; }
+        internal bool CompletedSuccessfulRead { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var response = await base.SendAsync(request, ct);
+            if (request.RequestUri?.AbsolutePath != Path || AfterRead is not { } after || !response.IsSuccessStatusCode)
+                return response;
+            try
+            {
+                CompletedSuccessfulRead = true;
+                await after();
+                return response;
+            }
+            catch
+            {
+                response.Dispose();
+                throw;
+            }
+        }
     }
 
     private static string Without(JsonElement status, params string[] fields)

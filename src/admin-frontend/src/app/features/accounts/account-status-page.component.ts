@@ -19,6 +19,7 @@ const accountPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
   templateUrl: './account-status-page.component.html',
   styleUrls: ['../form-page.css', './account-status-page.component.css'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(window:focus)': 'revalidate()', '(document:visibilitychange)': 'revalidate()' },
 })
 export class AccountStatusPageComponent {
   private readonly api = inject(AccountStatusApi);
@@ -31,13 +32,17 @@ export class AccountStatusPageComponent {
   protected readonly states = stateLabels;
   protected readonly bases = basisLabels;
   private request?: Subscription;
+  private selectedAccount?: string;
   private generation = 0;
 
   constructor() {
     effect(() => {
       this.session.capabilities();
       this.session.state();
-      untracked(() => this.reset());
+      untracked(() => {
+        this.selectedAccount = undefined;
+        this.reset();
+      });
     });
     inject(DestroyRef).onDestroy(() => this.request?.unsubscribe());
   }
@@ -46,6 +51,18 @@ export class AccountStatusPageComponent {
     event.preventDefault();
     const account = this.accountId().trim();
     if (!accountPattern.test(account) || !this.mayRead()) return;
+    this.selectedAccount = account;
+    this.read(account);
+  }
+
+  protected revalidate() {
+    const account = this.selectedAccount;
+    if (!account || account !== this.accountId().trim() || !this.mayRead()) return;
+    if (document.visibilityState !== 'visible' || (this.request && !this.request.closed)) return;
+    this.read(account);
+  }
+
+  private read(account: string) {
     this.reset();
     const generation = this.generation;
     this.outcome.set('loading');

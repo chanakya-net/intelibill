@@ -29,6 +29,10 @@ explicit price. A missing value is never treated as unlimited.
   seven elapsed days after paid-through. Trial, courtesy, temporary, transition,
   incomplete evidence and an effective cancellation at the boundary get none.
   Withdrawing the cancellation before the boundary keeps the original grace.
+- Frozen `calendar_version` selects the anchor rules and `access_policy_version`
+  selects the paid-grace rules (`GracePolicy.Version`, currently `access-grace/1`).
+  Unknown versions or unrepresentable paid calendar boundaries produce
+  `NeedsReview`. Stored period ordinals are limited to 0–1200.
 - `SubscriptionAccessPolicy` (`subscription-access/1`): Scheduled, Active, Grace,
   Expired, Suspended, EvidenceIncomplete, NeedsReview or PendingActivation.
   Suspension overrides the label but never moves a deadline. A release reveals

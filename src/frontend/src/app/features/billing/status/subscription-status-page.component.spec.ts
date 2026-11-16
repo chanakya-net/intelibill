@@ -108,6 +108,30 @@ describe('subscription status', () => {
     expect(page.textContent).not.toContain('28 Feb 2027');
   });
 
+  it('labels a Complete Trial as having no grace period', () => {
+    const trial = { ...term, basis: 'Trial' as const, graceEndsAt: null };
+    const { page } = render({ shop: () => of(status(shopA, { term: trial })) });
+    expect(page.querySelector('[data-testid="grace-ends"]')?.textContent).toContain('No grace period');
+  });
+
+  it('coalesces visibilitychange and focus while revalidating', () => {
+    const pending = new Subject<ShopSubscriptionStatus>();
+    const shop = vi.fn().mockReturnValueOnce(of(status(shopA))).mockReturnValue(pending);
+    render({ shop });
+    const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    try {
+      document.dispatchEvent(new Event('visibilitychange'));
+      window.dispatchEvent(new Event('focus'));
+      expect(shop).toHaveBeenCalledTimes(2);
+      pending.next(status(shopA));
+      pending.complete();
+      window.dispatchEvent(new Event('focus'));
+      expect(shop).toHaveBeenCalledTimes(3);
+    } finally {
+      visibility.mockRestore();
+    }
+  });
+
   it('labels incomplete legacy evidence instead of inventing grace', () => {
     const incomplete = { ...term, state: 'EvidenceIncomplete' as const, evidenceState: 'Incomplete' as const, basis: null,
       graceEndsAt: null, accessEndsAt: null, nextDeadline: null, memberAllowance: null };

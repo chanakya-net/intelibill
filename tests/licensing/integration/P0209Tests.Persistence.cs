@@ -1,5 +1,8 @@
 using System.Text.Json;
 using Intelibill.Domain.Enums;
+using Intelibill.Licensing.Application.Status;
+using Intelibill.Licensing.Domain.Policies;
+using Intelibill.Licensing.Domain.ValueObjects;
 using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
@@ -82,6 +85,54 @@ public sealed partial class P0209Tests
         Assert.Equal(1L, await P0202Fixture.RuntimeScalarAsync(host.Fixture, account, null, "SELECT count(*) FROM public.subscription_term_facts"));
     }
 
+    [Theory]
+    [InlineData("calendar-month-year/2", "access-grace/1")]
+    [InlineData("calendar-month-year/1", "access-grace/2")]
+    public async Task UnknownFrozenPolicyNeedsReviewInBothReadScopes(string calendarVersion, string accessPolicyVersion)
+    {
+        await using var host = await StartAsync(database, Utc("2027-02-10T00:00:00Z"));
+        var payer = await SignInAsync(host);
+        var account = await CreateAccountAsync(payer.Client);
+        var owner = await SignInAsync(host, ShopRole.Owner);
+        var term = await SeedTermAsync(host, account, new TermSeed(Jan31, Feb28, AnchorLocal: "2027-01-31 10:00:00",
+            CalendarVersion: calendarVersion, AccessPolicyVersion: accessPolicyVersion));
+        await AffiliateAsync(host, account, payer.UserId, owner.ShopId, owner.UserId, term, Jan31, Feb28);
+
+        using var shopResponse = await ShopStatusAsync(owner.Client, owner.ShopId);
+        var shop = await ReadAsync(shopResponse);
+        Assert.Equal("NeedsReview", shop.GetProperty("state").GetString());
+        AssertUnknownAccess(shop.GetProperty("term"));
+
+        using var accountResponse = await payer.Client.GetAsync($"/api/billing/accounts/{account:D}/subscriptions");
+        var accountStatus = await ReadAsync(accountResponse);
+        AssertUnknownAccess(Assert.Single(accountStatus.GetProperty("items").EnumerateArray()).GetProperty("status"));
+    }
+
+    [Theory]
+    [InlineData("2027-01-31T10:00:00", "Year", int.MaxValue)]
+    [InlineData("9999-12-31T10:00:00", "Month", 0)]
+    [InlineData("9999-11-30T10:00:00", "Month", 0)]
+    public void UnrepresentableCalendarNeedsReview(string local, string period, int ordinal)
+    {
+        var anchor = DateTime.Parse(local, System.Globalization.CultureInfo.InvariantCulture);
+        var starts = new DateTimeOffset(anchor, TimeSpan.FromMinutes(330)).ToUniversalTime();
+        var ends = period == "Month" && anchor.Month == 11 ? starts.AddMonths(1) : starts.AddHours(1);
+        var row = new TermFactsRow(Guid.NewGuid(), Guid.NewGuid(), "Independent", 1, starts, ends,
+            "Paid", period, anchor, "Asia/Kolkata", ordinal, 5, 149900, "INR", null, "fixture", true, BillingCalendar.Version, GracePolicy.Version);
+        Assert.Equal(TermEvidenceState.NeedsReview, SubscriptionStatusProjection.ToFacts(row).Evidence);
+        var projected = SubscriptionStatusProjection.Project(row, starts, commercial: false);
+        Assert.Null(projected.GraceEndsAt);
+        Assert.Null(projected.NextPeriodEndsAt);
+    }
+
+    private static void AssertUnknownAccess(JsonElement term)
+    {
+        Assert.Equal("NeedsReview", term.GetProperty("state").GetString());
+        Assert.Equal("NeedsReview", term.GetProperty("evidenceState").GetString());
+        Assert.Equal(JsonValueKind.Null, term.GetProperty("basis").ValueKind);
+        Assert.Equal(JsonValueKind.Null, term.GetProperty("graceEndsAt").ValueKind);
+    }
+
     [Fact]
     public async Task FactConstraintsRefuseInventedOrUnlimitedValues()
     {
@@ -97,6 +148,7 @@ public sealed partial class P0209Tests
             new(Jan31, Feb28, AnchorLocal: "2027-01-31 10:00:00", PricePaise: -1),
             new(Jan31, Feb28, AnchorLocal: "2027-01-31 10:00:00.5"),
             new(Jan31, Feb28, AnchorLocal: "2027-01-31 10:00:00", Zone: "UTC"),
+            new(Jan31, Feb28, AnchorLocal: "2027-01-31 10:00:00", Ordinal: 1201),
             new(Jan31, Feb28, Basis: "Gift", AnchorLocal: "2027-01-31 10:00:00"),
         ];
         foreach (var seed in invalid)

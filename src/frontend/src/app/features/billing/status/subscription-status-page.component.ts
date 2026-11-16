@@ -73,7 +73,8 @@ export class SubscriptionStatusPageComponent {
   }
 
   protected revalidate() {
-    if (typeof document === 'undefined' || document.visibilityState === 'visible') this.load();
+    if (this.request && !this.request.closed) return;
+    if (document.visibilityState === 'visible') this.load();
   }
 
   protected instant(value: string | null) {

@@ -3472,6 +3472,7 @@
       "startsAt": "Starts",
       "paidThrough": "Paid through",
       "graceEndsAt": "Grace ends",
+      "noGrace": "No grace period",
       "nextDeadline": "Next deadline",
       "nextPeriodEndsAt": "A renewal would run to",
       "capacity": "Purchased capacity",

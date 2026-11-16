@@ -19,7 +19,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
                 f.basis AS basis, f.billing_period AS billing_period, f.anchor_local AS anchor_local,
                 f.time_zone AS time_zone, f.period_ordinal AS period_ordinal, f.member_allowance AS member_allowance,
                 f.price_paise AS price_paise, f.currency AS currency, f.plan_version_id AS plan_version_id,
-                f.source_reference AS source_reference, f.development_fixture AS development_fixture
+                f.source_reference AS source_reference, f.development_fixture AS development_fixture,
+                f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version
             FROM public.shop_affiliations a
             LEFT JOIN public.subscription_coverage_terms t ON t.account_id = a.account_id AND t.term_id = a.term_id
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
@@ -41,7 +42,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
                 f.anchor_local AS anchor_local, f.time_zone AS time_zone, f.period_ordinal AS period_ordinal,
                 f.member_allowance AS member_allowance, f.price_paise AS price_paise, f.currency AS currency,
                 f.plan_version_id AS plan_version_id, f.source_reference AS source_reference,
-                f.development_fixture AS development_fixture
+                f.development_fixture AS development_fixture,
+                f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version
             FROM public.subscription_coverage_terms t
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
             WHERE t.account_id = {account} AND ({after}::uuid IS NULL OR t.term_id > {after}::uuid)
@@ -67,21 +69,21 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
     private sealed record ShopRow(Guid AffiliationAccountId, Guid? TermId, Guid? AccountId, string? Mode, int? Capacity,
         DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal,
         string? TimeZone, int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency,
-        Guid? PlanVersionId, string? SourceReference, bool? DevelopmentFixture)
+        Guid? PlanVersionId, string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion)
     {
         internal TermFactsRow ToTerm() => new(TermId!.Value, AccountId!.Value, Mode!, Capacity!.Value, StartsAt!.Value,
             EndsAt!.Value, Basis, BillingPeriod, AnchorLocal, TimeZone, PeriodOrdinal, MemberAllowance, PricePaise,
-            Currency, PlanVersionId, SourceReference, DevelopmentFixture);
+            Currency, PlanVersionId, SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion);
     }
 
     private sealed record TermRow(Guid TermId, Guid AccountId, string Mode, int Capacity, DateTimeOffset StartsAt,
         DateTimeOffset EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal, string? TimeZone,
         int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency, Guid? PlanVersionId,
-        string? SourceReference, bool? DevelopmentFixture)
+        string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion)
     {
         internal TermFactsRow ToTerm() => new(TermId, AccountId, Mode, Capacity, StartsAt, EndsAt, Basis, BillingPeriod,
             AnchorLocal, TimeZone, PeriodOrdinal, MemberAllowance, PricePaise, Currency, PlanVersionId,
-            SourceReference, DevelopmentFixture);
+            SourceReference, DevelopmentFixture, CalendarVersion, AccessPolicyVersion);
     }
 
     private sealed record CoveredRow(Guid TermId, Guid ShopId, string ShopName, long Total);

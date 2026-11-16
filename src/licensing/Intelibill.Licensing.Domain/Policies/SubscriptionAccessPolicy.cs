@@ -49,6 +49,6 @@ public static class SubscriptionAccessPolicy
     // The boundary a renewal of this term would run to: the anchor's next ordinal, never a chained clipped date.
     private static DateTimeOffset? NextPeriodEnd(SubscriptionAccessFacts facts, DateTimeOffset paidThrough) =>
         facts is { Evidence: TermEvidenceState.Complete, Basis: SubscriptionBasis.Paid, Anchor: { } anchor, PeriodOrdinal: { } ordinal }
-        && paidThrough == facts.EndsAt && BillingCalendar.IsSupported(anchor)
-            ? BillingCalendar.Boundary(anchor, ordinal + 2) : null;
+        && paidThrough == facts.EndsAt && ordinal is >= 0 and <= BillingCalendar.MaxPeriodOrdinal
+            ? BillingCalendar.TryBoundary(anchor, ordinal + 2L) : null;
 }

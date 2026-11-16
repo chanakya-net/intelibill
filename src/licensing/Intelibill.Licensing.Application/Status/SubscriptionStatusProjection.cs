@@ -14,7 +14,8 @@ public static class SubscriptionStatusProjection
     {
         if (row.Basis is null)
             return new SubscriptionAccessFacts(row.StartsAt, row.EndsAt, TermEvidenceState.Incomplete);
-        if (!Enum.TryParse<SubscriptionBasis>(row.Basis, out var basis)
+        if (row.CalendarVersion != BillingCalendar.Version || row.AccessPolicyVersion != GracePolicy.Version
+            || !Enum.TryParse<SubscriptionBasis>(row.Basis, out var basis)
             || !Enum.TryParse<BillingPeriod>(row.BillingPeriod, out var period)
             || row.AnchorLocal is not { } local || row.TimeZone is not { } zone || row.PeriodOrdinal is not { } ordinal)
             return new SubscriptionAccessFacts(row.StartsAt, row.EndsAt, TermEvidenceState.NeedsReview);
@@ -27,10 +28,11 @@ public static class SubscriptionStatusProjection
     // A paid term is exactly one calendar period of its retained anchor; anything else needs review.
     private static bool Agrees(TermFactsRow row, SubscriptionBasis basis, BillingAnchor anchor, int ordinal)
     {
-        if (!BillingCalendar.IsSupported(anchor)) return false;
+        if (ordinal is < 0 or > BillingCalendar.MaxPeriodOrdinal || !BillingCalendar.IsSupported(anchor)) return false;
         if (basis != SubscriptionBasis.Paid) return true;
-        var (start, end) = BillingCalendar.Period(anchor, ordinal);
-        return start == row.StartsAt && end == row.EndsAt;
+        return BillingCalendar.TryBoundary(anchor, ordinal) == row.StartsAt
+            && BillingCalendar.TryBoundary(anchor, ordinal + 1L) == row.EndsAt
+            && BillingCalendar.TryBoundary(anchor, ordinal + 2L) is not null;
     }
 
     public static SubscriptionTermStatusV1 Project(TermFactsRow row, DateTimeOffset at, bool commercial)

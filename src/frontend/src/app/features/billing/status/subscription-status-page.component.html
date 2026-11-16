@@ -58,7 +58,8 @@
       <dt>{{ 'billing.status.startsAt' | transloco }}</dt><dd>{{ instant(term.startsAt) }}</dd>
       <dt>{{ 'billing.status.paidThrough' | transloco }}</dt><dd data-testid="paid-through">{{ instant(term.paidThrough) }}</dd>
       <dt>{{ 'billing.status.graceEndsAt' | transloco }}</dt>
-      <dd data-testid="grace-ends">{{ instant(term.graceEndsAt) ?? ('billing.status.notRecorded' | transloco) }}</dd>
+      <dd data-testid="grace-ends">{{ instant(term.graceEndsAt) ?? ((term.evidenceState === 'Complete'
+        ? 'billing.status.noGrace' : 'billing.status.notRecorded') | transloco) }}</dd>
       <dt>{{ 'billing.status.nextDeadline' | transloco }}</dt>
       <dd data-testid="next-deadline">{{ instant(term.nextDeadline) ?? ('billing.status.none' | transloco) }}</dd>
       @if (term.nextPeriodEndsAt) {

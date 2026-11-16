@@ -15,7 +15,7 @@ const graceEnds = ist('2027-03-07T04:30:00Z');
 /** Status values that must match exactly between every reader of the same evaluation. */
 const basis = (term: Record<string, unknown>) => ({
   state: term['state'], basis: term['basis'], startsAt: term['startsAt'], paidThrough: term['paidThrough'],
-  graceEndsAt: term['graceEndsAt'], nextDeadline: term['nextDeadline'], purchasedCapacity: term['purchasedCapacity'],
+  graceEndsAt: term['graceEndsAt'], accessEndsAt: term['accessEndsAt'], nextDeadline: term['nextDeadline'], purchasedCapacity: term['purchasedCapacity'],
   memberAllowance: term['memberAllowance'], timeZone: term['timeZone'],
 });
 
@@ -121,6 +121,7 @@ test('@main merchant and provider explain the same access basis, capacity and IS
     await expect(terms).toHaveCount(3);
     await expect(terms.filter({ hasText: 'Paid subscription' }).getByTestId('commercial-price')).toHaveText('₹1,499.00');
     await expect(terms.filter({ hasText: 'Trial' })).toContainText('Expired');
+    await expect(terms.filter({ hasText: 'Trial' }).getByTestId('grace-ends')).toHaveText('No grace period');
     await expect(terms.filter({ hasText: 'Facts incomplete' })).toContainText('Grouped subscription, 3 shop slots');
     await payer.screenshot({ path: join(evidence, 'merchant-billing-only-desktop.png'), fullPage: true });
     const paidForPayer = payerItems.find(item => item.status['basis'] === 'Paid')!.status;
@@ -139,7 +140,11 @@ test('@main merchant and provider explain the same access basis, capacity and IS
     expect(basis(supportPaid)).toEqual(basis(shop.term));
     expect(supportItems.every(item => item.status['commercial'] === null)).toBe(true);
     await expect(admin.getByTestId('provider-price')).toHaveCount(0);
-    await expect(admin.getByTestId('provider-term').filter({ hasText: 'In grace period' })).toContainText(graceEnds);
+    const supportPanel = admin.getByTestId('provider-term').filter({ hasText: 'In grace period' });
+    await expect(supportPanel).toContainText(paidThrough);
+    await expect(supportPanel).toContainText(graceEnds);
+    await expect(supportPanel).toContainText('Independent, 1');
+    await expect(admin.getByTestId('provider-term').filter({ hasText: 'Trial' })).toContainText('No grace period');
     await admin.screenshot({ path: join(evidence, 'provider-support-desktop.png'), fullPage: true });
 
     owner = await grant(admin, owner, 'Billing');
