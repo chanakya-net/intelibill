@@ -1,0 +1,58 @@
+<section class="checkout-payment" aria-labelledby="payment-heading" data-testid="checkout-payment">
+  <h3 id="payment-heading">{{ 'billing.checkout.payment.title' | transloco }}</h3>
+  @if (problem(); as issue) {
+    <p role="alert" class="checkout-alert" data-testid="payment-problem">{{ 'billing.checkout.payment.errors.' + issue | transloco }}</p>
+  }
+  @if ((payment()?.payment ?? 'NotStarted') === 'NotStarted') {
+    <p role="status" data-testid="checkout-accepted">{{ 'billing.checkout.accepted' | transloco }}</p>
+  }
+  @if (payment(); as status) {
+    @switch (status.payment) {
+      @case ('NotStarted') {
+        @if (status.canStart) {
+          <p>{{ 'billing.checkout.payment.notStarted' | transloco }}</p>
+          <button pButton type="button" data-testid="payment-start" [disabled]="busy()"
+            [label]="'billing.checkout.payment.continue' | transloco" (click)="start()"></button>
+        } @else {
+          <p data-testid="payment-unavailable">{{ 'billing.checkout.payment.unavailable' | transloco }}</p>
+        }
+      }
+      @case ('AwaitingPayment') {
+        <p data-testid="payment-awaiting">{{ 'billing.checkout.payment.awaiting' | transloco }}</p>
+        @if (launcher() === 'simulator') {
+          <app-development-simulator-launcher [busy]="busy()" (capture)="capture()" (returnWithoutCapture)="verify('Success')" />
+        } @else {
+          <p data-testid="payment-launcher-unavailable">{{ 'billing.checkout.payment.launcherUnavailable' | transloco }}</p>
+        }
+      }
+      @case ('PendingVerification') {
+        <p role="status" data-testid="payment-pending">{{ 'billing.checkout.payment.pending' | transloco }}</p>
+        <button pButton type="button" data-testid="payment-check" [disabled]="busy()"
+          [label]="'billing.checkout.payment.checkAgain' | transloco" (click)="verify(null)"></button>
+      }
+      @case ('Verified') {
+        <p role="status" data-testid="payment-confirmed">{{ 'billing.checkout.payment.confirmed' | transloco }}</p>
+        @switch (status.access) {
+          @case ('Applying') {
+            <p data-testid="payment-applying">
+              {{ 'billing.checkout.payment.applying' | transloco: { applied: status.shopsApplied, total: status.shopsTotal } }}
+            </p>
+          }
+          @case ('Applied') {
+            <p data-testid="payment-applied">{{ 'billing.checkout.payment.applied' | transloco: { total: status.shopsTotal } }}</p>
+          }
+          @case ('NeedsReview') {
+            <p data-testid="payment-access-review">{{ 'billing.checkout.payment.reviewAccess' | transloco }}</p>
+          }
+        }
+        @if (status.fulfilment === 'NeedsReview') {
+          <p data-testid="payment-review">{{ 'billing.checkout.payment.reviewPayment' | transloco }}</p>
+        }
+        @if (status.termStartsAt && status.termEndsAt) {
+          <p data-testid="payment-term">{{ 'billing.checkout.payment.term' | transloco }}:
+            {{ instant(status.termStartsAt) }} – {{ instant(status.termEndsAt) }} · {{ quote().billingTimeZone }}</p>
+        }
+      }
+    }
+  }
+</section>

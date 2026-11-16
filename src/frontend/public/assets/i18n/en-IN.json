@@ -3329,6 +3329,35 @@
         "changed": "The quote or its covered shops changed. Review a new quote.",
         "expired": "This quote expired before acceptance.",
         "denied": "You no longer have access to this billing account."
+      },
+      "payment": {
+        "title": "Payment",
+        "notStarted": "Pay the full amount in one payment to start this package.",
+        "continue": "Continue to payment",
+        "unavailable": "Online payment is not available here. Your accepted quote is kept.",
+        "awaiting": "Complete the full payment in the checkout window.",
+        "pending": "Payment pending verification. Do not pay again for this order; check again shortly.",
+        "checkAgain": "Check again",
+        "confirmed": "Payment confirmed",
+        "applying": "Applying access to {{applied}} of {{total}} shops",
+        "applied": "Access applied to all {{total}} shops",
+        "reviewAccess": "Applying access needs support review. Your payment is recorded.",
+        "reviewPayment": "Your payment is recorded, but this order needs review before access is applied.",
+        "term": "Paid term",
+        "launcherUnavailable": "This checkout method is not available.",
+        "simulator": {
+          "title": "Development payment simulator",
+          "notice": "Development only. No real money moves and no real payment provider is contacted.",
+          "capture": "Capture full payment (simulated)",
+          "return": "Return without capturing"
+        },
+        "errors": {
+          "unavailable": "Payment could not be started or checked. Try again.",
+          "unsupported": "This order cannot be paid online yet.",
+          "expired": "This quote expired before payment started. Review a new quote.",
+          "changed": "The quote or its covered shops changed. Review a new quote.",
+          "denied": "You no longer have access to this billing account."
+        }
       }
     },
     "cancellation": {

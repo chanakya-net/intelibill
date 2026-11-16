@@ -10,7 +10,8 @@ namespace Intelibill.Licensing.Infrastructure.Status;
 /// <summary>
 /// Reads coverage rows, ended ones included, with their optional supplement in one statement under the
 /// transaction's row-level scope. A missing supplement stays missing; overlapping sources are not merged.
-/// Complimentary grants are read as separate candidates beside the baseline term, never in its place.
+/// Complimentary grants are read as separate candidates beside the baseline term, never in its place. A paid
+/// fulfilment link is the last baseline fallback after trial and affiliation coverage.
 /// </summary>
 internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISubscriptionAccessFactsReader
 {
@@ -35,8 +36,9 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
                     'ConflictingCoverage', a.term_id IS NOT NULL OR a.account_id <> h.account_id)::text END AS trial
             FROM public.shop_affiliations a
             LEFT JOIN public.trial_history h ON h.shop_id = a.shop_id
+            LEFT JOIN public.payment_fulfilment_shops p ON p.shop_id = a.shop_id AND p.account_id = a.account_id
             LEFT JOIN public.subscription_coverage_terms t
-                ON t.account_id = coalesce(h.account_id, a.account_id) AND t.term_id = coalesce(h.term_id, a.term_id)
+                ON t.account_id = coalesce(h.account_id, a.account_id) AND t.term_id = coalesce(h.term_id, a.term_id, p.term_id)
             LEFT JOIN LATERAL (SELECT ends_at FROM public.trial_extensions
                 WHERE shop_id = h.shop_id AND account_id = h.account_id ORDER BY revision DESC LIMIT 1) e ON true
             LEFT JOIN public.subscription_term_facts f ON f.account_id = t.account_id AND f.term_id = t.term_id
@@ -93,6 +95,11 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
                     FROM public.complimentary_grant_shops l JOIN public.shop_affiliations a
                         ON a.request_id = l.affiliation_request_id AND a.account_id = l.account_id
                     WHERE l.account_id = {account} AND l.term_id = ANY({ids})
+                    UNION ALL
+                    SELECT p.term_id, p.shop_id, a.shop_name
+                    FROM public.payment_fulfilment_shops p JOIN public.shop_affiliations a
+                        ON a.request_id = p.affiliation_request_id AND a.account_id = p.account_id
+                    WHERE p.account_id = {account} AND p.term_id = ANY({ids})
                 ) assignments
             ) covered WHERE position <= {SubscriptionStatusV1.MaximumCoveredShops}
             ORDER BY term_id, shop_id

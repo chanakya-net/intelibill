@@ -27,6 +27,8 @@ internal sealed partial class TrialStore(LicensingDbContext db, TimeProvider aut
             {
                 await UseAccountAsync(bound.AccountId, ct);
                 await BillingAccountLock.TakeAsync(db, bound.AccountId, ct);
+                // Coverage committed while this delivery waited (a paid fulfilment) must decide eligibility.
+                affiliation = await UseShopAsync(consent.ShopId, ct);
             }
 
             await db.Database.ExecuteSqlInterpolatedAsync($"""
@@ -56,7 +58,10 @@ internal sealed partial class TrialStore(LicensingDbContext db, TimeProvider aut
             SELECT set_config('app.status_shop_id', {shop.ToString("D")}, true)
             """, ct);
         return await db.Database.SqlQuery<TrialAffiliation>($"""
-            SELECT account_id, term_id, applied_at FROM public.shop_affiliations WHERE shop_id = {shop}
+            SELECT a.account_id, coalesce(a.term_id, p.term_id) AS term_id, a.applied_at
+            FROM public.shop_affiliations a
+            LEFT JOIN public.payment_fulfilment_shops p ON p.shop_id = a.shop_id AND p.account_id = a.account_id
+            WHERE a.shop_id = {shop}
             """).SingleOrDefaultAsync(ct);
     }
 

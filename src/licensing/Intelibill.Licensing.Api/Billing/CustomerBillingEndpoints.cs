@@ -46,6 +46,7 @@ internal static class CustomerBillingEndpoints
         app.MapAffiliationDelivery();
         app.MapShopTrials(policy);
         app.MapCustomerCheckout(policy);
+        app.MapCustomerPayments(policy);
     }
 
     private static async Task<IResult> GetAccessAsync(
