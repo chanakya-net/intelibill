@@ -62,6 +62,9 @@ public sealed partial class P0213Tests
         var destination = await Assert.ThrowsAsync<InvalidOperationException>(() => merchant.GetService<IMigrator>().MigrateAsync(PreviousMerchant));
         Assert.Equal("55000", Assert.IsType<PostgresException>(source.InnerException).SqlState);
         Assert.Equal("55000", Assert.IsType<PostgresException>(destination.InnerException).SqlState);
+        // Empty successor migrations may already have rolled back before the populated entitlement migration refuses.
+        Assert.Contains("20261116200000_EntitlementDelivery", await licensing.Database.GetAppliedMigrationsAsync());
+        await licensing.Database.MigrateAsync();
         Assert.Empty(await licensing.Database.GetPendingMigrationsAsync());
         Assert.Empty(await merchant.Database.GetPendingMigrationsAsync());
     }

@@ -1,0 +1,51 @@
+@if (!detail() && term().cancellation; as change) {
+  <p data-testid="cancellation-saved">{{ 'billing.cancellation.scheduled' | transloco: {time: instant(change.effectiveAt)} }}</p>
+}
+@if (term().cancellation || (term().basis === 'Paid' && term().state === 'Active')) {
+  <button type="button" pButton severity="secondary" size="small" data-testid="cancellation-review" [disabled]="waiting()" (click)="review()">
+    {{ (term().cancellation ? 'billing.cancellation.details' : 'billing.cancellation.review') | transloco }}
+  </button>
+}
+@if (detail(); as review) {
+  <section class="ib-panel" data-testid="cancellation-detail">
+    <p data-testid="cancellation-end">{{ (review.changeId ? 'billing.cancellation.scheduled' : 'billing.cancellation.effectiveAt')
+      | transloco: {time: instant(review.effectiveAt)} }}</p>
+    <p data-testid="cancellation-basis">{{ 'billing.status.bases.Paid' | transloco }}
+      @if (review.commercial.pricePaise !== null) { · {{ review.commercial.pricePaise / 100 | localeMoney }} }
+    </p>
+    <p>{{ 'billing.cancellation.consequences' | transloco }}</p>
+    <p>{{ 'billing.cancellation.affectedShops' | transloco: {count: review.affectedShopCount} }}</p>
+    <ul>
+      @for (shop of review.affectedShops; track shop.shopId) {
+        <li [attr.data-shop-id]="shop.shopId">{{ shop.shopName }}</li>
+      }
+    </ul>
+    @if (review.sourceHash && !draft()) {
+      <label>
+        <input type="checkbox" data-testid="cancellation-accept" [checked]="checked()" [disabled]="waiting()"
+          (change)="checked.set($any($event.target).checked)" />
+        {{ 'billing.cancellation.accept' | transloco }}
+      </label>
+      <button type="button" pButton severity="danger" size="small" data-testid="cancellation-confirm"
+        [disabled]="!checked() || waiting() || error() === 'storage'" (click)="confirm()">
+        {{ 'billing.cancellation.confirm' | transloco }}
+      </button>
+    }
+  </section>
+}
+@if (draft(); as operation) {
+  @if (!operation.settled) {
+    <p role="status">{{ 'billing.cancellation.pending' | transloco }}</p>
+    <div class="actions">
+      <button type="button" pButton severity="secondary" size="small" data-testid="cancellation-check" [disabled]="waiting()" (click)="resolve(false)">
+        {{ 'billing.cancellation.check' | transloco }}
+      </button>
+      <button type="button" pButton severity="secondary" size="small" data-testid="cancellation-retry" [disabled]="waiting()" (click)="resolve(true)">
+        {{ 'billing.cancellation.retry' | transloco }}
+      </button>
+    </div>
+  }
+}
+@if (error(); as failure) {
+  <p role="alert" data-testid="cancellation-error">{{ 'billing.cancellation.' + failure | transloco }}</p>
+}

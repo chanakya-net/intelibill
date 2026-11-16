@@ -3289,6 +3289,23 @@
     "searchHint": "Up to 20 matches are shown. Refine your search to find another party."
   },
   "billing": {
+    "cancellation": {
+      "review": "Review cancellation",
+      "details": "View affected shops",
+      "effectiveAt": "Cancellation takes effect at {{time}}.",
+      "scheduled": "Cancellation scheduled for {{time}}.",
+      "consequences": "Paid access continues until the term ends. There is no refund or grace period.",
+      "affectedShops": "Affected shops ({{count}})",
+      "accept": "I accept the term end and cancellation for all shops listed here.",
+      "confirm": "Schedule cancellation",
+      "pending": "Check the saved cancellation request or retry it.",
+      "check": "Check request",
+      "retry": "Retry request",
+      "unavailable": "Could not verify the cancellation details.",
+      "storage": "This browser could not save your cancellation request.",
+      "unknown": "The request outcome is unknown. Check it or retry the saved request.",
+      "conflict": "The term or covered shops changed. Review the current status."
+    },
     "trial": {
       "coveredShops": "Shops covered by this trial",
       "deadline": "Trial deadline",

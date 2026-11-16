@@ -468,3 +468,5 @@ fixture configuration and Chromium checks.
 ### P02-13 entitlement delivery
 
 Apply both entitlement migrations and runtime grants before enabling local transport. New projections stay observe-only. See [entitlement snapshot delivery](licensing-p02-13-entitlement-delivery.md) and [P02-14 synchronization status](licensing-p02-14-synchronization-status.md) for the UI and API rollout order.
+
+Apply `20261116210000_AddScheduledSubscriptionCancellations` before starting the cancellation-aware licensing API. Upgrade all licensing coverage writers and status readers before accepting cancellations. See [scheduled subscription cancellation](licensing-p02-15-cancellation.md) for deployment order, retained evidence and the local verification entry points.

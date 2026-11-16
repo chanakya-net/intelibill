@@ -2,7 +2,7 @@
   <header>
     <a routerLink="/billing">{{ 'billing.title' | transloco }}</a>
     <h1 id="status-heading" class="ib-page-title">{{ 'billing.status.heading' | transloco }}</h1>
-    <p class="ib-subtitle">{{ (accountId ? 'billing.status.accountDescription' : 'billing.status.shopDescription') | transloco }}</p>
+    <p class="ib-subtitle">{{ (accountId() ? 'billing.status.accountDescription' : 'billing.status.shopDescription') | transloco }}</p>
   </header>
   <p class="ib-panel notice" data-testid="observe-only">{{ 'billing.status.observeOnly' | transloco }}</p>
 
@@ -22,6 +22,11 @@
       <p class="state" data-testid="status-state"><strong>{{ 'billing.status.states.' + current.status.state | transloco }}</strong></p>
       @if (current.status.term; as term) {
         <ng-container *ngTemplateOutlet="termFacts; context: { $implicit: term }" />
+        @if (term.cancellation; as change) {
+          <p data-testid="shop-cancellation-end">
+            {{ 'billing.cancellation.scheduled' | transloco: {time: instant(change.effectiveAt, true)} }}
+          </p>
+        }
       } @else {
         <p>{{ 'billing.status.pending' | transloco }}</p>
         @if (isShopOwner()) { <p><a routerLink="/billing/trial">{{ 'billing.trial.title' | transloco }}</a></p> }
@@ -34,6 +39,11 @@
         <article class="ib-panel" data-testid="account-term">
           <p class="state"><strong>{{ 'billing.status.states.' + item.status.state | transloco }}</strong></p>
           <ng-container *ngTemplateOutlet="termFacts; context: { $implicit: item.status }" />
+          @if (accountId(); as account) {
+            @if (item.status.basis === 'Paid') {
+              <app-subscription-cancellation [account]="account" [term]="item.status" (saved)="load()" />
+            }
+          }
           <p>{{ 'billing.status.coveredShops' | transloco: { count: item.coveredShopCount } }}</p>
           <ul>
             @for (shop of item.coveredShops; track shop.shopId) {
@@ -53,7 +63,7 @@
 </section>
 
 <ng-template #termFacts let-term>
-  <div class="ib-panel" data-testid="status-term">
+  <div class="ib-panel" data-testid="status-term" [attr.data-term-id]="term.termId">
     @if (term.evidenceState === 'Incomplete') { <p>{{ 'billing.status.incomplete' | transloco }}</p> }
     @if (term.evidenceState === 'NeedsReview') { <p>{{ 'billing.status.needsReview' | transloco }}</p> }
     @if (term.developmentFixture) { <p><strong>{{ 'billing.plans.fixture' | transloco }}</strong></p> }

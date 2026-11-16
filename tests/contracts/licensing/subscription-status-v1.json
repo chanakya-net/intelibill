@@ -28,10 +28,16 @@
     "appliedAccountRevision": 1, "appliedShopRevision": 6,
     "lastSynchronizedAt": "2027-02-09T23:00:00.123456+00:00", "attention": null
   },
+  "cancellationExample": {
+    "changeId": "00000000-0000-0000-0000-000000000004",
+    "version": 1,
+    "effectiveAt": "2027-02-28T04:30:00+00:00",
+    "policyVersion": "term-boundary/1"
+  },
   "redaction": {
     "operational": ["state", "evidenceState", "basis", "billingPeriod", "timeZone", "startsAt", "paidThrough", "graceEndsAt",
       "accessEndsAt", "nextDeadline", "nextPeriodEndsAt", "coverageMode", "purchasedCapacity", "memberAllowance",
-      "sourceReference", "developmentFixture", "synchronization"],
+      "sourceReference", "developmentFixture", "synchronization", "cancellation"],
     "commercialOnly": ["accountId", "commercial.pricePaise", "commercial.currency", "commercial.planVersionId"]
   },
   "outcomes": {

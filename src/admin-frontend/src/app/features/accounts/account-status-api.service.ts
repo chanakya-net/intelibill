@@ -6,8 +6,25 @@ import { EMPTY, type Observable, expand, reduce } from 'rxjs';
 /** Provider grants that may read access status; Platform Owner and Security Administrator alone may not. */
 export const statusReaders = ['support', 'billing', 'licensing-manager'] as const;
 
+export interface CancellationSummary {
+  readonly changeId: string;
+  readonly version: number;
+  readonly effectiveAt: string;
+  readonly policyVersion: string;
+}
+
+export interface ProviderCancellationDetail extends CancellationSummary {
+  readonly accountId: string;
+  readonly termId: string;
+  readonly affectedShopCount: number;
+  readonly affectedShopSetHash: string;
+  readonly affectedShops: readonly { readonly shopId: string; readonly shopName: string }[];
+  readonly nextCursor: string | null;
+}
+
 export interface TermStatus {
   readonly termId: string;
+  readonly cancellation?: CancellationSummary;
   readonly state: string;
   readonly evidenceState: 'Complete' | 'Incomplete' | 'NeedsReview';
   readonly basis: string | null;
@@ -49,6 +66,12 @@ interface AccountStatusPage extends AccountStatus {
 @Injectable({ providedIn: 'root' })
 export class AccountStatusApi {
   private readonly http = inject(HttpClient);
+
+  cancellation(account: string, term: string, after?: string) {
+    return this.http.get<ProviderCancellationDetail>(
+      `/api/admin/accounts/${encodeURIComponent(account)}/subscriptions/${encodeURIComponent(term)}/cancellation`,
+      { params: after ? { after } : {} });
+  }
 
   /** Every page of the account's terms in order; a lookup is never silently truncated. */
   read(accountId: string): Observable<AccountStatus> {

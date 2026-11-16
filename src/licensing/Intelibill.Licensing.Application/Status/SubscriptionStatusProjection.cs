@@ -13,6 +13,12 @@ public static class SubscriptionStatusProjection
 {
     public static SubscriptionAccessFacts ToFacts(TermFactsRow row)
     {
+        if (row.Cancellation is { } change && (row.Basis != nameof(SubscriptionBasis.Paid)
+            || change.EffectiveAt != row.EndsAt || change.PolicyVersion != SubscriptionCancellationsV1.Policy
+            || change.ChangeId == Guid.Empty || change.Version != 1 || change.ShopCount <= 0 || change.ShopCount > row.Capacity
+            || !SubscriptionCancellationsV1.IsDigest(change.ShopHash)
+            || row.Trial is not null || row.Complimentary is not null))
+            return new SubscriptionAccessFacts(row.StartsAt, row.EndsAt, TermEvidenceState.NeedsReview);
         if (row.Complimentary is { } grant)
             return new SubscriptionAccessFacts(row.StartsAt, row.EndsAt,
                 ComplimentaryComplete(row, grant) ? TermEvidenceState.Complete : TermEvidenceState.NeedsReview,
@@ -38,7 +44,8 @@ public static class SubscriptionStatusProjection
 
         var anchor = new BillingAnchor(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), zone, period);
         return new SubscriptionAccessFacts(row.StartsAt, row.EndsAt, Agrees(row, basis, anchor, ordinal)
-            ? TermEvidenceState.Complete : TermEvidenceState.NeedsReview, basis, anchor, ordinal);
+            ? TermEvidenceState.Complete : TermEvidenceState.NeedsReview, basis, anchor, ordinal,
+            row.Cancellation is { } saved ? new ScheduledCancellation(saved.EffectiveAt) : null);
     }
 
     // A grant's frozen capacity, mode and dates must agree with its coverage term; nothing else is inferred.
@@ -77,7 +84,9 @@ public static class SubscriptionStatusProjection
             row.Trial?.ComputationVersion ?? row.Complimentary?.PolicyVersion ?? row.SourceReference,
             row.Trial?.DevelopmentFixture ?? row.DevelopmentFixture == true,
             commercial && row.Basis is not null && row.Trial is null && row.Complimentary is null
-                ? new SubscriptionCommercialV1(row.PricePaise, row.Currency, row.PlanVersionId) : null);
+                ? new SubscriptionCommercialV1(row.PricePaise, row.Currency, row.PlanVersionId) : null,
+            complete && row.Cancellation is { } saved
+                ? new(saved.ChangeId, saved.Version, saved.EffectiveAt, saved.PolicyVersion) : null);
     }
 
     /// <summary>

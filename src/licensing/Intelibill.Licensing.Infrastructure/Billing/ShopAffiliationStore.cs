@@ -55,6 +55,8 @@ internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimePr
                 starts_at AS starts_at, ends_at AS ends_at
             FROM public.subscription_coverage_terms t WHERE t.account_id = {account} AND t.ends_at > {Now}
                 AND NOT EXISTS (SELECT FROM public.trial_history h WHERE h.term_id = t.term_id)
+                AND NOT EXISTS (SELECT FROM public.scheduled_subscription_changes c
+                    WHERE c.account_id = t.account_id AND c.term_id = t.term_id)
             ORDER BY starts_at, term_id LIMIT {ShopAffiliationsV1.PageSize}
             """).ToArrayAsync(ct);
         var requests = await Requests(account).OrderByDescending(row => row.CreatedAt)
@@ -79,6 +81,8 @@ internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimePr
             SELECT EXISTS (
                 SELECT FROM public.subscription_coverage_terms t WHERE t.account_id = {account} AND t.term_id = {term}
                   AND NOT EXISTS (SELECT FROM public.trial_history h WHERE h.term_id = t.term_id)
+                AND NOT EXISTS (SELECT FROM public.scheduled_subscription_changes c
+                    WHERE c.account_id = t.account_id AND c.term_id = t.term_id)
                   AND t.starts_at <= {now} AND {now} < t.ends_at AND t.capacity >
                       (SELECT count(*) FROM public.shop_affiliations a WHERE a.term_id = t.term_id)
             ) AS "Value"

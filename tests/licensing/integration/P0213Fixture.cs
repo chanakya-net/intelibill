@@ -66,11 +66,11 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
         services.AddSingleton<IStartupFilter>(traffic);
     }
 
-    internal static async Task<Guid> LinkAsync(Guid account, Merchant payer, Merchant owner)
+    internal static async Task<Guid> LinkAsync(Guid account, Merchant payer, Merchant owner, Guid? term = null)
     {
         using var response = await payer.Client.PostAsJsonAsync($"/api/billing/accounts/{account:D}/affiliations", new
         {
-            operationKey = Guid.NewGuid(), shopId = owner.ShopId, withoutCoverage = true,
+            operationKey = Guid.NewGuid(), shopId = owner.ShopId, withoutCoverage = term is null, termId = term,
         });
         Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         var request = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("requestId").GetGuid();

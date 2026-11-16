@@ -68,5 +68,8 @@ internal static class SubscriptionStatusContract
         && (term.Basis is null || SubscriptionStatusV1.Bases.Contains(term.Basis)) && term.PaidThrough > term.StartsAt
         && (term.GraceEndsAt is null || term.GraceEndsAt > term.PaidThrough) && term.PurchasedCapacity >= 1
         && term.CoverageMode is "Independent" or "Grouped" && term.MemberAllowance is null or >= 1
-        && (term.Commercial is null || term.Commercial.PricePaise is null or >= 0);
+        && (term.Commercial is null || term.Commercial.PricePaise is null or >= 0)
+        && (term.Cancellation is null || (term.Basis == "Paid" && term.GraceEndsAt is null && term.EvidenceState == "Complete"
+            && term.State is "Scheduled" or "Active" or "Expired" or "Suspended"
+            && term.AccessEndsAt == term.PaidThrough && MerchantBillingClient.IsCancellationValid(term.Cancellation, term.PaidThrough)));
 }

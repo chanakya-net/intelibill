@@ -67,10 +67,11 @@ export async function prepareProvider(page: Page) {
   await page.getByLabel('I confirm these access changes.').check();
   await page.getByRole('button', { name: 'Save administrator access' }).click();
   await expect.poll(async () => (await page.request.get(admin + '/api/admin/auth/session')).status()).toBe(401);
-  await signIn(page, owner);
+  const active = await signIn(page, owner);
   await publishTrialPolicy(page);
   await page.context().storageState({ path: process.env['P0213_PROVIDER_STATE']! });
   writeFileSync(join(evidence, 'observations-prepare.json'), JSON.stringify({ signedInWithMfa: true, publishedLocalTrialPolicy: true }));
+  return active;
 }
 
 

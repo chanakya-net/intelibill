@@ -54,10 +54,11 @@ public sealed partial class P0211Tests
 
         await context.GetService<IMigrator>().MigrateAsync(PreviousMigration);
         Assert.Equal(false, await fixture.Catalogue.ScalarAsync("SELECT to_regclass('public.trial_extensions') IS NOT NULL"));
-        await context.Database.MigrateAsync();
-        await fixture.Catalogue.ExecuteAsync("""
-            GRANT SELECT, INSERT ON public.trial_extensions, public.trial_extension_receipts TO licensing_runtime
+        await context.Database.ExecuteSqlRawAsync("""
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public
+                GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO licensing_runtime
             """);
+        await context.Database.MigrateAsync();
         Assert.Equal(before, await OriginalFactsAsync(fixture, owner.ShopId));
         await ApproveAsync(fixture, account, owner.ShopId);
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(

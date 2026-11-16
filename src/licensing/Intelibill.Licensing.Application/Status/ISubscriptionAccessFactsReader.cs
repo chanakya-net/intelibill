@@ -13,7 +13,8 @@ public sealed record TermFactsRow(Guid TermId, Guid AccountId, string Mode, int 
     DateTimeOffset EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal, string? TimeZone,
     int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency, Guid? PlanVersionId,
     string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion,
-    TrialTermProvenance? Trial = null, ComplimentaryTermProvenance? Complimentary = null);
+    TrialTermProvenance? Trial = null, ComplimentaryTermProvenance? Complimentary = null,
+    ScheduledSubscriptionChange? Cancellation = null);
 
 public sealed record TrialTermProvenance(string ComputationVersion, int MemberCap, int ActiveMembers,
     int AccountTrialCap, bool DevelopmentFixture, bool ConflictingCoverage = false, DateTimeOffset? ExtendedEndsAt = null);

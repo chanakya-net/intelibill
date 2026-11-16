@@ -1,4 +1,5 @@
 import type { EntitlementSynchronization } from '@intelibill/api';
+import type { CancellationSummary } from '../subscriptions/subscription-cancellation.service';
 
 /** Mirror of the versioned licensing status contract (subscription-status-v1). No entitlement arithmetic here. */
 export type AccessState =
@@ -29,6 +30,7 @@ export interface SubscriptionTermStatus {
   readonly sourceReference: string | null;
   readonly developmentFixture: boolean;
   readonly commercial: SubscriptionCommercial | null;
+  readonly cancellation?: CancellationSummary;
 }
 
 export interface ShopSubscriptionStatus {
