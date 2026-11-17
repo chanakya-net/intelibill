@@ -2,6 +2,7 @@ using System.Text.Json;
 using Intelibill.Licensing.Application.Status;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Licensing.Domain.Entities;
+using Intelibill.Licensing.Domain.ValueObjects;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.EntityFrameworkCore;
 
@@ -38,7 +39,8 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
             LEFT JOIN public.trial_history h ON h.shop_id = a.shop_id
             LEFT JOIN LATERAL (SELECT l.term_id FROM public.payment_fulfilment_shops l
                 JOIN public.subscription_coverage_terms lt ON lt.account_id = l.account_id AND lt.term_id = l.term_id
-                WHERE l.shop_id = a.shop_id AND l.account_id = a.account_id ORDER BY lt.ends_at DESC LIMIT 1) p ON true
+                WHERE l.shop_id = a.shop_id AND l.account_id = a.account_id AND l.affiliation_request_id = a.request_id
+                ORDER BY lt.ends_at DESC LIMIT 1) p ON true
             LEFT JOIN public.subscription_coverage_terms t
                 ON t.account_id = coalesce(h.account_id, a.account_id) AND t.term_id = coalesce(h.term_id, p.term_id, a.term_id)
             LEFT JOIN LATERAL (SELECT ends_at FROM public.trial_extensions
@@ -51,34 +53,42 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
         return rows switch
         {
             [] => null,
-            [var row] => new ShopCoverage(row.AffiliationAccountId, row.TermId is null ? null
-                    : await WithPaidChainAsync(shop, row.ToTerm(), ct),
-                await ReadGrantsAsync(shop, row.AffiliationAccountId, ct)),
+            [var row] => await ReadCoverageAsync(shop, row, ct),
             _ => throw new InvalidOperationException("A shop has at most one affiliation."),
         };
     }
 
-    // Walks back from the paid tail through the shop's own contiguous, same-anchor paid periods.
-    private async Task<TermFactsRow> WithPaidChainAsync(Guid shop, TermFactsRow tail, CancellationToken ct)
+    private async Task<ShopCoverage> ReadCoverageAsync(Guid shop, ShopRow row, CancellationToken ct)
     {
-        if (tail is not { Basis: "Paid", PeriodOrdinal: > 0, AnchorLocal: { } anchor })
-            return tail;
-        var periods = await db.Database.SqlQuery<PaidPeriod>($"""
-            SELECT t.starts_at, t.ends_at, f.anchor_local, f.billing_period, f.period_ordinal
-            FROM public.subscription_coverage_terms t JOIN public.subscription_term_facts f USING (account_id, term_id)
-            WHERE t.account_id = {tail.AccountId} AND f.basis = 'Paid' AND (t.term_id IN (SELECT term_id
-                FROM public.payment_fulfilment_shops WHERE shop_id = {shop} AND account_id = {tail.AccountId})
-                OR t.term_id = (SELECT term_id FROM public.shop_affiliations WHERE shop_id = {shop} AND account_id = {tail.AccountId}))
-            """).ToListAsync(ct);
-        var (from, ordinal) = (tail.StartsAt, tail.PeriodOrdinal.Value);
-        while (periods.FirstOrDefault(p => p.EndsAt == from && p.PeriodOrdinal == ordinal - 1 && p.AnchorLocal == anchor
-            && p.BillingPeriod == tail.BillingPeriod) is { } previous)
-            (from, ordinal) = (previous.StartsAt, previous.PeriodOrdinal);
-        return from < tail.StartsAt ? tail with { PaidFrom = from } : tail;
+        var term = row.TermId is null ? null : row.ToTerm();
+        var predecessors = term is { Basis: "Paid", PeriodOrdinal: > 0 }
+            ? await ReadPaidPredecessorsAsync(shop, term, ct) : [];
+        if (term is not null && predecessors.Count > 0)
+            term = term with { PaidFrom = predecessors[^1].StartsAt };
+        return new ShopCoverage(row.AffiliationAccountId, term, await ReadGrantsAsync(shop, row.AffiliationAccountId, ct),
+            predecessors);
     }
 
-    private sealed record PaidPeriod(DateTimeOffset StartsAt, DateTimeOffset EndsAt, DateTime AnchorLocal, string BillingPeriod,
-        int PeriodOrdinal);
+    private async Task<List<TermFactsRow>> ReadPaidPredecessorsAsync(Guid shop, TermFactsRow tail, CancellationToken ct)
+    {
+        var facts = SubscriptionStatusProjection.ToFacts(tail);
+        if (facts.Evidence != TermEvidenceState.Complete) return [];
+
+        var rows = await Terms(tail.AccountId, null, null, null, paidShop: shop).ToListAsync(ct);
+        var candidates = rows.Select(row => row.ToTerm()).ToLookup(row => row.EndsAt);
+        var periods = new List<TermFactsRow>();
+        var successor = tail;
+        while (candidates[successor.StartsAt].Where(row => row.PeriodOrdinal == successor.PeriodOrdinal - 1
+                   && row.Capacity == tail.Capacity && row.Mode == tail.Mode
+                   && SubscriptionStatusProjection.ToFacts(row) is { Evidence: TermEvidenceState.Complete, Anchor: var anchor }
+                   && anchor == facts.Anchor && SubscriptionStatusProjection.ActiveCancellation(row) is null)
+               .Take(2).ToArray() is [var previous])
+        {
+            periods.Add(previous);
+            successor = previous;
+        }
+        return periods;
+    }
 
     // Only grants naming this shop in its current account; operational columns only, never reason or actor.
     private async Task<IReadOnlyList<TermFactsRow>> ReadGrantsAsync(Guid shop, Guid account, CancellationToken ct)
@@ -138,7 +148,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
     internal async Task<TermFactsRow?> ReadTermAsync(Guid account, Guid term, CancellationToken ct) =>
         (await Terms(account, term, null, 1).SingleOrDefaultAsync(ct))?.ToTerm();
 
-    private IQueryable<TermRow> Terms(Guid account, Guid? term, Guid? after, int take) =>
+    private IQueryable<TermRow> Terms(Guid account, Guid? term, Guid? after, int? take, Guid? paidShop = null) =>
         db.Database.SqlQuery<TermRow>($"""
             SELECT t.term_id AS term_id, t.account_id AS account_id, t.mode AS mode, t.capacity AS capacity,
                 t.starts_at AS starts_at, t.ends_at AS ends_at, f.basis AS basis, f.billing_period AS billing_period,
@@ -171,6 +181,12 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
             LEFT JOIN LATERAL (SELECT * FROM public.scheduled_subscription_changes
                 WHERE account_id = t.account_id AND term_id = t.term_id ORDER BY revision DESC LIMIT 1) c ON true
             WHERE t.account_id = {account} AND ({term}::uuid IS NULL OR t.term_id = {term}::uuid) AND ({after}::uuid IS NULL OR t.term_id > {after}::uuid)
+                AND ({paidShop}::uuid IS NULL OR f.basis = 'Paid' AND EXISTS (
+                    SELECT FROM public.shop_affiliations s
+                    WHERE s.shop_id = {paidShop} AND s.account_id = t.account_id
+                        AND (s.term_id = t.term_id OR EXISTS (SELECT FROM public.payment_fulfilment_shops l
+                            WHERE l.account_id = s.account_id AND l.shop_id = s.shop_id
+                                AND l.affiliation_request_id = s.request_id AND l.term_id = t.term_id))))
             ORDER BY t.term_id LIMIT {take}
             """);
 

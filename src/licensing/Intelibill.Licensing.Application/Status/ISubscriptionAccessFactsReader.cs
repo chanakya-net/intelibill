@@ -29,9 +29,11 @@ public sealed record ComplimentaryTermProvenance(string PolicyVersion, int Membe
 
 /// <summary>
 /// The shop's applied affiliation (its account), the baseline term it was assigned (affiliation or trial), and
-/// the complimentary grants naming it in that same account, ordered by term id.
+/// the complimentary grants naming it in that same account, ordered by term id. Validated paid predecessors
+/// are retained newest first so a future term's rules do not apply before its start.
 /// </summary>
-public sealed record ShopCoverage(Guid AccountId, TermFactsRow? Term, IReadOnlyList<TermFactsRow>? Grants = null);
+public sealed record ShopCoverage(Guid AccountId, TermFactsRow? Term, IReadOnlyList<TermFactsRow>? Grants = null,
+    IReadOnlyList<TermFactsRow>? PaidPredecessors = null);
 
 public sealed record AccountTermRow(TermFactsRow Term, CoveredShopV1[] CoveredShops, int CoveredShopCount);
 

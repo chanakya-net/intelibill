@@ -85,6 +85,9 @@ public sealed partial class P0308Tests(LicensingPostgreSqlFixture database) : IC
         var shop = Guid.NewGuid();
         await P0209Fixture.AffiliateAsync(fixture.Hosts, package.Account, package.Payer.UserId, shop, package.Payer.UserId,
             imported, starts, ends);
+        var original = await TermRowAsync(fixture, imported);
+        var originalAffiliation = $"SELECT to_jsonb(a)::text FROM shop_affiliations a WHERE shop_id = '{shop:D}'";
+        var affiliation = await fixture.ScalarAsync(originalAffiliation);
         var digest = new CheckoutSource([new(shop, "Status Fixture Shop",
             (Guid)(await fixture.ScalarAsync($"SELECT request_id FROM shop_affiliations WHERE shop_id = '{shop:D}'"))!,
             imported, starts, ends)], new(starts, ends, 3, "Paid", "Month", anchor.LocalStart, 0, BillingCalendar.Version,
@@ -94,7 +97,8 @@ public sealed partial class P0308Tests(LicensingPostgreSqlFixture database) : IC
         Assert.Equal(digest, quote.SourceHash);
         Assert.Equal(ends, quote.PreviewStartsAt);
         Assert.Equal(BillingCalendar.Boundary(anchor, 2), quote.PreviewEndsAt);
-        var paid = await PayAsync(package, await AcceptAsync(package, quote));
+        var accepted = await AcceptAsync(package, quote);
+        var paid = await PayAsync(package, accepted);
         P0302Fixture.AssertStatus(paid, "Verified", "Fulfilled", "Applying");
         var renewed = paid.GetProperty("termId").GetGuid();
         Assert.Equal($"{Iso(ends)}|{Iso(BillingCalendar.Boundary(anchor, 2))}|2027-01-31T10:00:00|1|Paid",
@@ -103,6 +107,23 @@ public sealed partial class P0308Tests(LicensingPostgreSqlFixture database) : IC
         Assert.Equal(renewed, await fixture.ScalarAsync($"SELECT term_id FROM payment_fulfilment_shops WHERE shop_id = '{shop:D}'"));
         using var stale = await TryRenewalQuoteAsync(package, imported, "Month");
         Assert.Equal(HttpStatusCode.BadRequest, stale.StatusCode);
+
+        fixture.At(Utc("2027-03-20T06:00:00Z"));
+        var (next, paidAgain) = await RenewAsync(package, renewed, "Month");
+        P0302Fixture.AssertStatus(paidAgain, "Verified", "Fulfilled", "Applying");
+        var second = paidAgain.GetProperty("termId").GetGuid();
+        var march = BillingCalendar.Boundary(anchor, 2);
+        var april = BillingCalendar.Boundary(anchor, 3);
+        Assert.Equal(march, next.PreviewStartsAt);
+        Assert.Equal(april, next.PreviewEndsAt);
+        Assert.Equal($"{Iso(march)}|{Iso(april)}|2027-01-31T10:00:00|2|Paid", await TermRowAsync(fixture, second));
+        Assert.Equal(original, await TermRowAsync(fixture, imported));
+        Assert.Equal(affiliation, await fixture.ScalarAsync(originalAffiliation));
+        Assert.Equal(1L, await fixture.CountAsync("payment_fulfilments",
+            $"order_id = '{accepted.OrderId:D}' AND predecessor_term_id = '{imported:D}'"));
+        Assert.Equal(1L, await fixture.CountAsync("payment_fulfilments", $"predecessor_term_id = '{renewed:D}'"));
+        Assert.Equal(1L, await fixture.CountAsync("payment_fulfilments", $"order_id = '{next.OrderId:D}'"));
+        Assert.Equal(2L, await fixture.CountAsync("verified_payments"));
     }
 
     internal static async Task<string> TermRowAsync(P0308Fixture fixture, Guid term) =>

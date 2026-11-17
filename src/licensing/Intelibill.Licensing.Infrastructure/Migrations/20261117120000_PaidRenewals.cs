@@ -22,6 +22,8 @@ public sealed partial class PaidRenewals : Migration
         migrationBuilder.Sql(PaymentGuards);
         migrationBuilder.Sql(ShopLinkGuard);
         migrationBuilder.Sql(Completeness);
+        migrationBuilder.Sql(CancellationScope);
+        migrationBuilder.Sql(RenewalCancellationGuards);
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
@@ -47,6 +49,8 @@ public sealed partial class PaidRenewals : Migration
             ALTER TABLE public.manual_payment_receipts FORCE ROW LEVEL SECURITY;
             ALTER TABLE public.checkout_orders FORCE ROW LEVEL SECURITY;
             """);
+        migrationBuilder.Sql(AddSubscriptionCancellationWithdrawals.Guards);
+        migrationBuilder.Sql("DROP FUNCTION public.subscription_cancellation_scope(uuid, uuid);");
         migrationBuilder.Sql(RollbackSql);
     }
 

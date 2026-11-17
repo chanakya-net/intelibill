@@ -47,7 +47,7 @@ public sealed class AddSubscriptionCancellationWithdrawals : Migration
                 REFERENCES public.scheduled_subscription_changes(account_id, change_id);
         """;
 
-    private const string Guards = """
+    internal const string Guards = """
         CREATE OR REPLACE FUNCTION public.guard_subscription_cancellation() RETURNS trigger
         LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         BEGIN

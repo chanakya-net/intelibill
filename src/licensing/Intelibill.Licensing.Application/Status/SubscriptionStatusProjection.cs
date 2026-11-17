@@ -116,7 +116,14 @@ public static class SubscriptionStatusProjection
         var chosen = ComplimentaryAccessPolicy.Select(baseline, grantFacts, at);
         if (chosen is not { } index) return null;
         var (row, facts) = index < 0 ? (coverage.Term!, baseline!) : (grants[index], grantFacts[index]);
-        return Project(row, facts, ComplimentaryAccessPolicy.Evaluate(facts, at, suspensions), commercial);
+        var status = Project(row, facts, ComplimentaryAccessPolicy.Evaluate(facts, at, suspensions), commercial);
+        var current = index < 0 && facts.Evidence == TermEvidenceState.Complete
+            ? coverage.PaidPredecessors?.FirstOrDefault(period => period.StartsAt <= at && at < period.EndsAt) : null;
+        return current is null ? status : status with
+        {
+            MemberAllowance = current.MemberAllowance,
+            NextDeadline = current.EndsAt,
+        };
     }
 
     public static ShopSubscriptionStatusV1 Shop(Guid shop, DateTimeOffset at, ShopCoverage? coverage, bool commercial,

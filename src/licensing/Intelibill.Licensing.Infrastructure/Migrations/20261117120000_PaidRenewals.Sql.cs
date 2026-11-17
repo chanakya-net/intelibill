@@ -16,7 +16,7 @@ public sealed partial class PaidRenewals
                         AND s.shop_id = NEW.shop_id AND s.affiliation_request_id = NEW.affiliation_request_id)
                 OR NOT EXISTS (SELECT FROM public.shop_affiliations a WHERE a.account_id = NEW.account_id
                     AND a.shop_id = NEW.shop_id AND a.request_id = NEW.affiliation_request_id
-                    AND (a.term_id IS NULL OR a.term_id = prior))
+                    AND (prior IS NOT NULL OR a.term_id IS NULL))
                 OR (prior IS NULL AND EXISTS (SELECT FROM public.payment_fulfilment_shops p WHERE p.shop_id = NEW.shop_id))
                 OR (prior IS NOT NULL AND NOT EXISTS (SELECT FROM public.shop_affiliations a
                         WHERE a.account_id = NEW.account_id AND a.shop_id = NEW.shop_id AND a.term_id = prior)
