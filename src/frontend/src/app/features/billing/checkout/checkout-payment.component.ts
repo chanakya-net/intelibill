@@ -32,12 +32,27 @@ type LaunchTicket = {
   readonly attempt: string | null | undefined;
   readonly providerOrder: string;
 };
-/** A signed success relays its proof; a dismissed window (`proof: null`) asks for a proof-free check of the order. */
-type QueuedOutcome = { readonly ticket: LaunchTicket; readonly proof: Readonly<Record<string, string>> | null };
+/**
+ * A signed success relays its proof; a success without valid proof is relayed as an unverified claim the server
+ * refuses; a dismissed window (`claimed: false`) asks for a proof-free check of the order.
+ */
+type QueuedOutcome = {
+  readonly ticket: LaunchTicket; readonly proof: Readonly<Record<string, string>> | null; readonly claimed: boolean;
+};
 
 const draftStates: Record<Exclude<CheckoutPayment['payment'], 'NotStarted'>, Exclude<PaymentDraftState, 'intent'>> = {
   AwaitingPayment: 'awaiting', PendingVerification: 'pending', Verified: 'verified', Failed: 'failed',
 };
+const draftOrder: readonly PaymentDraftState[] = ['intent', 'awaiting', 'pending', 'failed', 'verified'];
+
+/**
+ * The saved draft reached a terminal result past the attempt state on screen, as another tab's later result would
+ * move it. (A pending draft over an awaiting projection is already shown as pending.)
+ */
+function draftAhead(state: PaymentDraftState | undefined, payment: CheckoutPayment | null) {
+  return (state === 'failed' || state === 'verified') && !!payment?.attemptId && payment.payment !== 'NotStarted' &&
+    draftOrder.indexOf(state) > draftOrder.indexOf(draftStates[payment.payment]);
+}
 
 @Component({
   selector: 'app-checkout-payment',
@@ -64,10 +79,13 @@ export class CheckoutPaymentComponent {
   protected readonly busy = signal(false);
   protected readonly problem = signal<PaymentProblem | null>(null);
   private readonly draft = signal<PaymentDraft | null>(null);
+  /** This tab's hosted window is open: its own saved pending claim keeps the launcher (and window) on screen. */
+  private readonly windowOpen = signal(false);
   protected readonly pending = computed(() => {
     const state = this.draft()?.state;
     const payment = this.payment();
-    return state === 'intent' || state === 'pending' || (state === 'awaiting' && !payment) ||
+    if (this.windowOpen() && state === 'pending' && payment?.payment === 'AwaitingPayment') return false;
+    return state === 'intent' || state === 'pending' || (state === 'awaiting' && !payment) || draftAhead(state, payment) ||
       payment?.payment === 'PendingVerification' || (!!payment?.manualPayment && payment.payment === 'AwaitingPayment');
   });
   protected readonly launcher = computed(() => resolvePaymentLauncher(this.payment()?.launch ?? null));
@@ -107,7 +125,7 @@ export class CheckoutPaymentComponent {
   protected onStorage(event: StorageEvent) {
     const scope = this.scope();
     if (!scope || event.key !== this.drafts.paymentKey(scope, this.quote().orderId)) return;
-    if (this.busy()) this.storageDeferred = true;
+    if (this.busy() || this.windowOpen()) this.storageDeferred = true;
     else this.restore();
   }
 
@@ -133,6 +151,23 @@ export class CheckoutPaymentComponent {
     });
   }
 
+  /**
+   * Saves the owner-bound pending claim before the hosted window opens. If the page then reloads or closes before
+   * the window reports anything, the restored draft is pending and the original order is verified before any Pay.
+   */
+  protected readonly prepareOpen = async (launch: RazorpayLaunch) => {
+    const ticket = this.ticket;
+    if (!ticket?.attempt || ticket.providerOrder !== launch.orderId) return false;
+    const attempt = ticket.attempt;
+    let opened = false;
+    await this.run(async invocation => {
+      this.windowOpen.set(true);
+      opened = await this.rememberPending(invocation, attempt) && this.ticket === ticket;
+    });
+    if (!opened) this.windowOpen.set(false);
+    return opened;
+  };
+
   protected razorpayOpened(launch: RazorpayLaunch) {
     this.ticket = {
       scope: this.scope(), order: this.quote().orderId, generation: this.generation,
@@ -149,8 +184,9 @@ export class CheckoutPaymentComponent {
   protected razorpayOutcome(outcome: RazorpayOutcome) {
     const ticket = this.ticket;
     this.ticket = null;
+    this.windowOpen.set(false);
     if (!ticket || !this.ticketCurrent(ticket) || !ticket.attempt) return;
-    this.queued = { ticket, proof: outcome.kind === 'success' ? outcome.proof : null };
+    this.queued = { ticket, proof: outcome.kind === 'success' ? outcome.proof : null, claimed: outcome.kind !== 'cancelled' };
     this.drainQueued();
   }
 
@@ -167,7 +203,7 @@ export class CheckoutPaymentComponent {
     void this.run(async invocation => {
       if (!await this.rememberPending(invocation, attempt)) return;
       if (queued.proof) await this.verifyAttempt(invocation, attempt, 'Success', queued.proof);
-      else await this.verifyAttempt(invocation, attempt, null);
+      else await this.verifyAttempt(invocation, attempt, queued.claimed ? 'Success' : null);
     });
   }
 
@@ -200,6 +236,7 @@ export class CheckoutPaymentComponent {
   private restore() {
     this.generation++;
     this.ticket = this.queued = null;
+    this.windowOpen.set(false);
     this.storageDeferred = false;
     this.polls = this.ticks = 0;
     this.busy.set(false);
@@ -300,8 +337,13 @@ export class CheckoutPaymentComponent {
     } finally {
       if (current()) this.applyDeferredStorage(scope, order);
       if (current()) this.busy.set(false);
-      if (current()) queueMicrotask(() => this.drainQueued());
+      if (current()) queueMicrotask(() => { this.drainQueued(); this.catchUp(); });
     }
+  }
+
+  /** Reads the authoritative status once a deferred cross-tab change left the draft ahead of what is on screen. */
+  private catchUp() {
+    if (!this.busy() && draftAhead(this.draft()?.state, this.payment())) void this.run(invocation => this.read(invocation));
   }
 
   /** Rereads the owner-bound draft another tab changed mid-request, so a newer pending claim keeps Pay hidden. */

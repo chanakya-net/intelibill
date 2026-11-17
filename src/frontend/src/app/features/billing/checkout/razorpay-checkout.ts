@@ -21,9 +21,11 @@ export interface RazorpayLaunch {
 
 export type RazorpayOutcome =
   | { readonly kind: 'success'; readonly proof: Readonly<Record<string, string>> }
+  /** The checkout reported success without a valid signature for this order: still a claim, never a dismissal. */
+  | { readonly kind: 'unverified' }
   | { readonly kind: 'cancelled' };
 
-/** The signal closes the modal when its owner is torn down; a closed window reports `cancelled`, never success. */
+/** The signal closes the modal when its owner is torn down; a closed window reports `cancelled`, never a claim. */
 export type RazorpayOpener = (launch: RazorpayLaunch, signal?: AbortSignal) => Promise<RazorpayOutcome>;
 export const RAZORPAY_OPENER = new InjectionToken<RazorpayOpener>('RAZORPAY_OPENER', {
   providedIn: 'root',
@@ -111,7 +113,9 @@ export async function openRazorpayCheckout(launch: RazorpayLaunch, signal?: Abor
       config: displayConfig(launch.methods),
       handler: (response: unknown) => {
         const proof = proofOf(response, launch.orderId);
-        resolve(proof ? { kind: 'success', proof } : { kind: 'cancelled' });
+        // A success callback stays a success claim even when its proof is missing or for another order: the server
+        // then refuses it, while only a genuine dismissal takes the proof-free recovery path.
+        resolve(proof ? { kind: 'success', proof } : { kind: 'unverified' });
       },
       modal: { ondismiss: () => resolve({ kind: 'cancelled' }) },
     });

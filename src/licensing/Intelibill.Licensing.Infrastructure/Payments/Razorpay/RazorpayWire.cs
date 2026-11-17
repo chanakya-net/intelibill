@@ -6,7 +6,7 @@ namespace Intelibill.Licensing.Infrastructure.Payments.Razorpay;
 
 /// <summary>The provider's order entity, reduced to the fields licensing relies on.</summary>
 internal sealed record WireOrder(string Id, long Amount, string Currency, string? Receipt, string? Status,
-    string? AccountNote, string? OrderNote, string? AttemptNote, bool PartialPayment, long? AmountPaid = null, long? AmountDue = null);
+    string? AccountNote, string? OrderNote, string? AttemptNote, bool PartialPayment, long? AmountPaid = null, long? AmountDue = null, long? Attempts = null);
 
 /// <summary>The provider's payment entity, reduced to the fields licensing relies on.</summary>
 internal sealed record WirePayment(string Id, string OrderId, long Amount, string Currency, string Status, bool Captured,
@@ -38,9 +38,10 @@ internal static class RazorpayWire
                 return null;
             partial = flag.ValueKind == JsonValueKind.True;
         }
-        if (!OptionalInteger(item, "amount_paid", out var paid) || !OptionalInteger(item, "amount_due", out var due))
+        if (!OptionalInteger(item, "amount_paid", out var paid) || !OptionalInteger(item, "amount_due", out var due) ||
+            !OptionalInteger(item, "attempts", out var attempts))
             return null;
-        return new(id, amount, currency, receipt, status, account, order, attempt, partial, paid, due);
+        return new(id, amount, currency, receipt, status, account, order, attempt, partial, paid, due, attempts);
     }
 
     internal static WirePayment? Payment(JsonElement item)
@@ -61,11 +62,15 @@ internal static class RazorpayWire
             DateTimeOffset.FromUnixTimeSeconds(created), capturedAmount, refunded, refund, method);
     }
 
-    /// <summary>Items of a documented <c>collection</c> response, or null when the shape is wrong.</summary>
+    /// <summary>
+    /// Items of a documented <c>collection</c> response, or null when the shape is wrong or its stated
+    /// <c>count</c> disagrees with the items it carries (an incomplete page proves nothing).
+    /// </summary>
     internal static IReadOnlyList<JsonElement>? Items(JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Object || !Text(root, "entity", out var entity) || entity != "collection" ||
-            !root.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array || items.GetArrayLength() > 100)
+            !root.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array || items.GetArrayLength() > 100 ||
+            !OptionalInteger(root, "count", out var count) || count is { } stated && stated != items.GetArrayLength())
             return null;
         return [.. items.EnumerateArray()];
     }
@@ -106,13 +111,22 @@ internal static class RazorpayWire
 
     /// <summary>
     /// The order is provably unpaid and may be resumed: still open, explicitly nothing paid and the full amount due,
-    /// and every payment made against it failed long enough ago that no late authorization can still arrive. A
-    /// timed-out or otherwise recent failure is indeterminate, whatever its stated reason.
+    /// every attempt the order counts present in its payment collection, and every payment made against it failed
+    /// long enough ago that no late authorization can still arrive. A timed-out or otherwise recent failure is
+    /// indeterminate, whatever its stated reason, and so is an attempt the collection does not (yet) list.
     /// </summary>
     internal static bool ConfirmedUnpaid(WireOrder order, IReadOnlyList<WirePayment> payments, DateTimeOffset now) =>
         order.Status is "created" or "attempted" && order.AmountPaid == 0 && order.AmountDue == order.Amount &&
+        AccountsForEveryAttempt(order, payments) &&
         payments.All(payment => payment is { Status: "failed", Captured: false } &&
             now - payment.CreatedAt > LateAuthorizationWindow);
+
+    /// <summary>
+    /// The collection lists at least as many payments as the order states attempts, and an attempted order lists at
+    /// least one. An order that does not state its attempts cannot be shown complete.
+    /// </summary>
+    private static bool AccountsForEveryAttempt(WireOrder order, IReadOnlyList<WirePayment> payments) =>
+        order.Attempts is { } attempts && payments.Count >= attempts && (order.Status != "attempted" || payments.Count > 0);
 
     /// <summary>
     /// A late authorization Razorpay refunded on its own without capturing it, as it does for a duplicate payment on an

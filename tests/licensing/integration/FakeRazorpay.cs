@@ -20,6 +20,7 @@ internal sealed class FakeRazorpay : HttpMessageHandler
     private readonly List<JsonObject> payments = [];
     private readonly Dictionary<string, JsonObject> collectionPatches = [];
     private readonly Dictionary<string, HashSet<string>> collectionOmissions = [];
+    private readonly HashSet<string> hiddenFromCollection = [];
     private int sequence;
 
     internal Func<DateTimeOffset> Clock { get; set; } = () => DateTimeOffset.UnixEpoch.AddDays(1);
@@ -28,6 +29,8 @@ internal sealed class FakeRazorpay : HttpMessageHandler
     internal bool LengthlessOversize { get; set; }
     /// <summary>The next <c>n</c> reads of an order entity answer 503, as a transient provider outage would.</summary>
     internal int FailOrderReads { get; set; }
+    /// <summary>Added to the <c>count</c> every collection answer states, to model a truncated or inconsistent page.</summary>
+    internal int CollectionCountOffset { get; set; }
     internal int OversizeBytesServed { get; private set; }
     /// <summary>The first call matching this answers its headers, then the connection ends mid-body.</summary>
     internal Func<string, bool>? TruncateWhen { get; set; }
@@ -78,6 +81,10 @@ internal sealed class FakeRazorpay : HttpMessageHandler
     }
     internal JsonObject Order(string id) { lock (gate) return orders[id]; }
 
+    /// <summary>Leaves a payment out of its order's payment collection while the order still counts its attempt.</summary>
+    internal void HideFromCollection(string paymentId) { lock (gate) hiddenFromCollection.Add(paymentId); }
+    internal void RevealInCollection(string paymentId) { lock (gate) hiddenFromCollection.Remove(paymentId); }
+
     internal string AddPayment(string orderId, string status, long? amount = null, string? currency = null, string? onOrder = null,
         string method = "upi", long? createdAt = null, bool withAmountCaptured = true)
     {
@@ -98,6 +105,13 @@ internal sealed class FakeRazorpay : HttpMessageHandler
             added["refund_status"] = null;
             if (status == "captured" && withAmountCaptured)
                 added["amount_captured"] = added["amount"]!.GetValue<long>();
+            if (onOrder is null)
+            {
+                // Razorpay counts every payment attempt on the order and marks a created order attempted.
+                order["attempts"] = (order["attempts"]?.GetValue<int>() ?? 0) + 1;
+                if (order["status"]?.GetValue<string>() == "created")
+                    order["status"] = "attempted";
+            }
             if (status == "captured" && onOrder is null)
             {
                 order["amount_paid"] = order["amount"]!.GetValue<long>();
@@ -225,7 +239,8 @@ internal sealed class FakeRazorpay : HttpMessageHandler
             ["v1", "orders", var id] when orders.ContainsKey(id) && FailOrderReads > 0 => FailOrderRead(),
             ["v1", "orders", var id] when orders.TryGetValue(id, out var order) => Json(HttpStatusCode.OK, Copy(order)),
             ["v1", "orders", var id, "payments"] when orders.ContainsKey(id) =>
-                Collection(payments.Where(p => p["order_id"]!.GetValue<string>() == id).Select(Patched)),
+                Collection(payments.Where(p => p["order_id"]!.GetValue<string>() == id &&
+                    !hiddenFromCollection.Contains(p["id"]!.GetValue<string>())).Select(Patched)),
             ["v1", "payments", var id] when payments.SingleOrDefault(p => p["id"]!.GetValue<string>() == id) is { } payment =>
                 Json(HttpStatusCode.OK, Copy(payment)),
             _ => Json(HttpStatusCode.NotFound, new JsonObject()),
@@ -258,7 +273,7 @@ internal sealed class FakeRazorpay : HttpMessageHandler
             ["id"] = id, ["entity"] = "order", ["amount"] = input["amount"]!.GetValue<long>(),
             ["currency"] = input["currency"]!.GetValue<string>(), ["receipt"] = input["receipt"]!.GetValue<string>(),
             ["partial_payment"] = input["partial_payment"]?.GetValue<bool>() ?? false, ["status"] = "created",
-            ["amount_paid"] = 0, ["amount_due"] = input["amount"]!.GetValue<long>(), ["notes"] = input["notes"]!.DeepClone(), ["created_at"] = Clock().ToUnixTimeSeconds(),
+            ["attempts"] = 0, ["amount_paid"] = 0, ["amount_due"] = input["amount"]!.GetValue<long>(), ["notes"] = input["notes"]!.DeepClone(), ["created_at"] = Clock().ToUnixTimeSeconds(),
         };
         orders[id] = order;
         if (LoseCreateResponse)
@@ -268,10 +283,11 @@ internal sealed class FakeRazorpay : HttpMessageHandler
 
     private static JsonObject Copy(JsonObject value) => (JsonObject)value.DeepClone();
 
-    private static HttpResponseMessage Collection(IEnumerable<JsonObject> items)
+    private HttpResponseMessage Collection(IEnumerable<JsonObject> items)
     {
         var array = new JsonArray([.. items.Select(Copy)]);
-        return Json(HttpStatusCode.OK, new JsonObject { ["entity"] = "collection", ["count"] = array.Count, ["items"] = array });
+        return Json(HttpStatusCode.OK, new JsonObject
+        { ["entity"] = "collection", ["count"] = array.Count + CollectionCountOffset, ["items"] = array });
     }
 
     private static HttpResponseMessage Json(HttpStatusCode status, JsonObject value) =>

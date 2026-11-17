@@ -25,6 +25,8 @@ export class RazorpayLauncherComponent {
   private readonly opener = inject(RAZORPAY_OPENER);
   readonly launch = input.required<RazorpayLaunch>();
   readonly busy = input(false);
+  /** Durably records that this checkout is being opened; the window opens only once that is saved. */
+  readonly prepare = input<(launch: RazorpayLaunch) => Promise<boolean>>(() => Promise.resolve(true));
   /** Fires synchronously on the click, so the owner can bind the eventual outcome to what was on screen. */
   readonly opened = output<RazorpayLaunch>();
   readonly outcome = output<RazorpayOutcome>();
@@ -42,6 +44,7 @@ export class RazorpayLauncherComponent {
     const launch = this.launch();
     this.opened.emit(launch);
     try {
+      if (!await this.prepare()(launch) || this.lifetime.signal.aborted) return;
       const result = await this.opener(launch, this.lifetime.signal);
       if (!this.lifetime.signal.aborted) this.outcome.emit(result);
     } catch {

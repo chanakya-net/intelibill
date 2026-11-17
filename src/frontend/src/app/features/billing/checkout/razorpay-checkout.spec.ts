@@ -55,11 +55,23 @@ describe('Razorpay checkout opener', () => {
       keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: '27000', currency: 'INR', methods } })).toBeNull();
   });
 
-  it('treats a callback for another order or a malformed callback as no proof', async () => {
+  it.each([
+    ['another order', { razorpay_payment_id: 'pay_abc', razorpay_order_id: 'order_other', razorpay_signature: 'f'.repeat(64) }],
+    ['a missing signature', { razorpay_payment_id: 'pay_abc', razorpay_order_id: 'order_abc123' }],
+    ['a malformed payment id', { razorpay_payment_id: 'pay abc', razorpay_order_id: 'order_abc123', razorpay_signature: 'f'.repeat(64) }],
+    ['no response', null],
+  ])('reports a success callback for %s as an unverified claim, distinct from a dismissal', async (_case, response) => {
     (window as unknown as { Razorpay: unknown }).Razorpay = class {
       constructor(private readonly o: Record<string, unknown>) {}
-      open() { (this.o['handler'] as (r: unknown) => void)({
-        razorpay_payment_id: 'pay_abc', razorpay_order_id: 'order_other', razorpay_signature: 'f'.repeat(64) }); }
+      open() { (this.o['handler'] as (r: unknown) => void)(response); }
+    };
+    expect(await openRazorpayCheckout(launch)).toEqual({ kind: 'unverified' });
+  });
+
+  it('reports a dismissed window as cancelled', async () => {
+    (window as unknown as { Razorpay: unknown }).Razorpay = class {
+      constructor(private readonly o: Record<string, unknown>) {}
+      open() { (this.o['modal'] as { ondismiss: () => void }).ondismiss(); }
     };
     expect(await openRazorpayCheckout(launch)).toEqual({ kind: 'cancelled' });
   });

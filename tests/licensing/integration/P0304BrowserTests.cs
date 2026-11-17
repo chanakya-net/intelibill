@@ -18,7 +18,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// Razorpay endpoint is contacted and the fixture proves launcher and server verification, not live acceptance.
 /// </summary>
 [Collection(MerchantBillingHosts.Name)]
-public sealed class P0304BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
+public sealed partial class P0304BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
     private const string Configuration = "../../tests/licensing/browser/playwright.p0304.config.ts";

@@ -6,7 +6,7 @@ const output = process.env['P0304_PLAYWRIGHT_OUTPUT'];
 if (!output) throw new Error('Set P0304_PLAYWRIGHT_OUTPUT.');
 
 export default defineConfig({
-  testMatch: 'p03-04-razorpay-purchase.spec.ts',
+  testMatch: /p03-04-razorpay-(purchase|callbacks)\.spec\.ts$/,
   outputDir: output,
   workers: 1,
   retries: 0,
