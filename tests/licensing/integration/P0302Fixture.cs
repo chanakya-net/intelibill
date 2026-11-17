@@ -31,7 +31,7 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
             public.payment_fulfilment_deliveries, public.development_gateway_sessions, public.development_gateway_payments,
             public.development_gateway_controls, public.manual_payment_receipts, public.checkout_trial_sources,
             public.paid_fresh_starts, public.payment_trial_conversions, public.payment_restoration_holds,
-            public.service_restoration_adjustments
+            public.service_restoration_adjustments, public.unmatched_payments, public.payment_review_decisions
             TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.receive_gateway_inbox_event(uuid,text,text,text,text,text,text,text,text,bytea,bytea,timestamptz) TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.claim_gateway_inbox_event(timestamptz,uuid) TO licensing_runtime;

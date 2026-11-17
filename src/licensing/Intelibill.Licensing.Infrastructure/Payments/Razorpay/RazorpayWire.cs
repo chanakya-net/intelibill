@@ -91,10 +91,16 @@ internal static class RazorpayWire
     /// either read may omit it independently; wherever it is stated it must be the full amount.
     /// </summary>
     internal static bool FullCapture(WirePayment entity, WirePayment entry, WireOrder order) =>
+        SameAvailableCapture(entity, entry) && PaidInFull(order) &&
+        entity.Amount == order.Amount && entity.Currency == order.Currency;
+
+    internal static bool SameAvailableCapture(WirePayment entity, WirePayment entry) =>
         entry with { AmountCaptured = null } == entity with { AmountCaptured = null } &&
-        CapturedInFull(entity) && CapturedInFull(entry) && PaidInFull(order) && entity.Captured &&
-        entity.Status == "captured" && entity.Amount == order.Amount && entity.Currency == order.Currency &&
-        entity.AmountRefunded == 0 && entity.RefundStatus is null or "";
+        AvailableCapture(entity) && AvailableCapture(entry);
+
+    internal static bool AvailableCapture(WirePayment payment) =>
+        payment is { Captured: true, Status: "captured", AmountRefunded: 0, RefundStatus: null or "" } &&
+        CapturedInFull(payment);
 
     private static bool CapturedInFull(WirePayment payment) => (payment.AmountCaptured ?? payment.Amount) == payment.Amount;
 

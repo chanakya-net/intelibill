@@ -113,7 +113,7 @@ export class CheckoutPaymentComponent {
 
   blocksNewQuote(): boolean {
     const status = this.payment();
-    return this.busy() || this.pending() || !status || status.payment === 'AwaitingPayment' || status.restorationHeld === true;
+    return this.busy() || this.pending() || !status || status.payment === 'AwaitingPayment' || status.fulfilment === 'NeedsReview';
   }
 
   canReviewNewQuote(): boolean {
@@ -236,6 +236,10 @@ export class CheckoutPaymentComponent {
       if (queued.proof) await this.verifyAttempt(invocation, attempt, 'Success', queued.proof);
       else await this.verifyAttempt(invocation, attempt, queued.claimed ? 'Success' : null);
     });
+  }
+
+  protected refreshReview() {
+    void this.run(invocation => this.read(invocation));
   }
 
   protected checkAgain() {

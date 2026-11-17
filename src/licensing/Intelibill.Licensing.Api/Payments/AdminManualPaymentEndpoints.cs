@@ -57,17 +57,17 @@ internal static class AdminManualPaymentEndpoints
             ? Respond(context, await handler.EvidenceAsync(caller, account, order, receipt, context.RequestAborted))
             : SessionEnded(context);
 
-    private static AdminSessionCaller? Caller(HttpContext context)
+    internal static AdminSessionCaller? Caller(HttpContext context)
     {
         var caller = ProviderSessions.ReadCaller(context.User);
         return !context.Request.Headers.TryGetValue("X-Admin-Session", out var header) ||
             Guid.TryParse(header.ToString(), out var id) && id == caller?.SessionId ? caller : null;
     }
 
-    private static IResult SessionEnded(HttpContext context) =>
+    internal static IResult SessionEnded(HttpContext context) =>
         CatalogueDraftEndpoints.Problem(context, AdminRefreshErrors.SessionEnded);
 
-    private static IResult Respond<T>(HttpContext context, ErrorOr<T> result, int status = 200)
+    internal static IResult Respond<T>(HttpContext context, ErrorOr<T> result, int status = 200)
     {
         context.Response.Headers.CacheControl = "no-store";
         return result.IsError ? CatalogueDraftEndpoints.Problem(context, result.FirstError) : Results.Json(result.Value, statusCode: status);

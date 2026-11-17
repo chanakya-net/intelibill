@@ -58,6 +58,8 @@ public sealed partial class P0302Tests
 
         probe.Tamper = null;
         AssertStatus(await VerifyAsync(payer.Client, quote, attempt), "Verified", "Fulfilled", "Applying");
+        Assert.Equal(1L, await fixture.CountAsync("verified_payments"));
+        Assert.Equal(1L, await fixture.CountAsync("payment_fulfilments"));
     }
 
     [Fact]

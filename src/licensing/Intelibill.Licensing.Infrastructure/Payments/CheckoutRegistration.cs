@@ -39,6 +39,9 @@ internal static class CheckoutRegistration
             .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(15));
         services.AddScoped<PaymentStore>();
         services.AddScoped<IPaymentStore>(provider => provider.GetRequiredService<PaymentStore>());
+        services.AddScoped<IPaymentReviewDecisionStore>(provider => provider.GetRequiredService<PaymentStore>());
+        services.AddScoped(provider => ActivatorUtilities.CreateInstance<ReviewUnmatchedPaymentHandler>(provider, CheckoutClock(provider)));
+        services.AddScoped<IPaymentReviewStore>(provider => provider.GetRequiredService<PaymentStore>());
         services.AddScoped<IManualPaymentStore>(provider => provider.GetRequiredService<PaymentStore>());
         services.AddOptions<ManualReceivingAccountOptions>().BindConfiguration("ManualPayments");
         services.AddScoped<IManualPaymentEvidence, ManualPaymentEvidenceProtector>();
@@ -68,11 +71,11 @@ internal static class CheckoutRegistration
             provider.GetRequiredService<Application.Status.IEntitlementSynchronizationReader>(),
             provider.GetRequiredService<IPaymentGatewayResolver>(), CheckoutClock(provider)));
         services.AddScoped(provider => new FulfilPaidOrderHandler(provider.GetRequiredService<IPaymentStore>(),
-            provider.GetRequiredService<ICheckoutOrderStore>(),
+            provider.GetRequiredService<ICheckoutOrderStore>(), provider.GetRequiredService<IPaymentReviewStore>(),
             provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey)));
         services.AddScoped(provider => new ReconcilePaymentHandler(provider.GetRequiredService<IPaymentStore>(),
             provider.GetRequiredService<IPaymentGatewayResolver>(), provider.GetRequiredService<FulfilPaidOrderHandler>(),
-            provider.GetRequiredService<IPendingPaymentAttemptStore>(), CheckoutClock(provider),
+            provider.GetRequiredService<IPendingPaymentAttemptStore>(), provider.GetRequiredService<IPaymentReviewStore>(), CheckoutClock(provider),
             provider.GetRequiredKeyedService<TimeProvider>(PendingPaymentAttemptWorker.ClockKey)));
         services.AddScoped(provider => ActivatorUtilities.CreateInstance<StartCheckoutPaymentHandler>(provider, CheckoutClock(provider)));
         services.AddScoped(provider => ActivatorUtilities.CreateInstance<VerifyCheckoutPaymentHandler>(provider, CheckoutClock(provider)));

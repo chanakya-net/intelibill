@@ -67,7 +67,7 @@ public sealed class P0306BrowserTests(LicensingPostgreSqlFixture database, ITest
         await RecordAsync(fixture, purchase, root, evidence, ct);
     }
 
-    private static async Task SetFixtureBrowserOriginAsync(P0302Fixture fixture, string origin, CancellationToken ct)
+    internal static async Task SetFixtureBrowserOriginAsync(P0302Fixture fixture, string origin, CancellationToken ct)
     {
         // Bind the disposable fixture's enrolled identities to the origin allocated by the shipping server.
         await using var connection = new NpgsqlConnection(fixture.Hosts.LicensingOwner.ConnectionString);

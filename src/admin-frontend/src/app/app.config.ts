@@ -50,6 +50,12 @@ export const appConfig: ApplicationConfig = {
         loadComponent: () => import('./features/audit/audit-page.component').then((m) => m.AuditPageComponent),
       },
       {
+        path: 'payments/review',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/payments/review/payment-review-page.component')
+          .then((m) => m.PaymentReviewPageComponent),
+      },
+      {
         path: 'payments',
         canActivate: [requireAdminSession],
         loadComponent: () => import('./features/payments/manual-payment-page.component')

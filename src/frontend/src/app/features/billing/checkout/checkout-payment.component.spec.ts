@@ -107,6 +107,7 @@ function mount() {
   const page = {
     text: (testId: string) => root.querySelector(`[data-testid="${testId}"]`)?.textContent?.trim() ?? null,
     click: (testId: string) => root.querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`)!.click(),
+    blocksNewQuote: () => fixture.componentInstance.blocksNewQuote(),
     update: async () => { await new Promise(done => setTimeout(done, 0)); await fixture.whenStable(); fixture.detectChanges(); },
     /** Unloads the page, as a reload or a closed tab does: its locks go with it. */
     close: () => fixture.destroy(),
@@ -115,6 +116,23 @@ function mount() {
 }
 
 describe('CheckoutPaymentComponent', () => {
+  it.each([false, true])('refreshes the original manual review without offering a new payment (restorationHeld=%s)',
+    async restorationHeld => {
+      const review = status({ attemptId: null, startedAt: null, verifiedAt: '2026-11-16T12:02:00Z',
+        payment: 'Verified', fulfilment: 'NeedsReview', launch: null, restorationHeld,
+        manualPayment: { payment: 'Verified', verifiedAt: '2026-11-16T12:02:00Z' } });
+      const page = await render(review);
+      const message = restorationHeld ? 'payment-restoration-hold' : 'payment-review';
+      const copy = restorationHeld ? t.restorationHeld : t.reviewPayment;
+      expect(page.text(message)).toBe(copy);
+      expect(page.blocksNewQuote()).toBe(true);
+      expect(page.text('payment-start')).toBeNull();
+      page.click('payment-review-check');
+      http.expectOne({ method: 'GET', url: path }).flush(review);
+      await page.update();
+      expect(page.text(message)).toBe(copy);
+    });
+
   it('checks restoration using the original attempt and displays paid dates separately from the adjustment', async () => {
     const page = await render(status({ payment: 'Verified', fulfilment: 'NeedsReview', restorationHeld: true,
       verifiedAt: '2026-11-16T12:02:00Z', launch: null }));

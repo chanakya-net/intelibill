@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "decisions": [
+    { "action": "RecordNoAccessDecision", "disposition": "NoAccessDecisionRecorded", "changesAccess": false },
+    { "action": "ReferForRefundReview", "disposition": "RefundReviewPending", "changesAccess": false },
+    { "action": "RecoverAcceptedTerms", "disposition": "AcceptedTermsRecovered", "changesAccess": true }
+  ],
+  "heldCheckout": {
+    "payment": "Verified",
+    "fulfilment": "NeedsReview",
+    "access": "NotApplicable",
+    "canStart": false,
+    "launch": null
+  },
+  "recoveredCheckout": {
+    "payment": "Verified",
+    "fulfilment": "Fulfilled",
+    "access": "Applying",
+    "canStart": false,
+    "launch": null
+  }
+}

@@ -4,6 +4,7 @@ using Intelibill.Licensing.Application.Payments;
 using Intelibill.Licensing.Infrastructure.Billing;
 using Intelibill.Licensing.Infrastructure.Data;
 using Intelibill.Licensing.Infrastructure.Entitlements;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -16,8 +17,8 @@ namespace Intelibill.Licensing.Infrastructure.Payments;
 /// An attempt-scoped transaction refuses to nest and never spans a gateway call.
 /// </summary>
 internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPublisher publisher, ILogger<PaymentStore> logger,
-    TimeProvider sessionClock, LicensingEntitlementTransport transport)
-    : IPaymentStore, IManualPaymentStore
+    TimeProvider sessionClock, LicensingEntitlementTransport transport, IDataProtectionProvider protection)
+    : IPaymentStore, IManualPaymentStore, IPaymentReviewStore, IPaymentReviewDecisionStore
 {
     public async Task<ErrorOr<T>> InAttemptScopeAsync<T>(Guid account, Guid attempt, bool lockAccount,
         Func<CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken ct)
@@ -80,9 +81,9 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
                        OR EXISTS (SELECT FROM public.verified_payments v WHERE v.attempt_id = a.attempt_id)))
                 OR EXISTS (SELECT FROM public.checkout_order_shops requested
                     JOIN public.checkout_order_shops covered USING (account_id, shop_id)
-                    JOIN public.payment_restoration_holds h ON h.account_id = covered.account_id AND h.order_id = covered.order_id
+                    JOIN public.manual_payment_receipts h ON h.account_id = covered.account_id AND h.order_id = covered.order_id
                     WHERE requested.account_id = {account} AND requested.order_id = {order} AND h.order_id <> {order}
-                        AND h.manual_receipt_id IS NOT NULL AND NOT EXISTS (SELECT FROM public.payment_fulfilments f
+                        AND h.review_reason IS NOT NULL AND NOT EXISTS (SELECT FROM public.payment_fulfilments f
                             WHERE f.account_id = h.account_id AND f.order_id = h.order_id)) AS "Value"
             """).SingleAsync(ct);
 

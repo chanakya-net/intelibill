@@ -7,20 +7,21 @@ public sealed partial class ReconcilePaymentHandler
     internal async Task<ErrorOr<GatewayInboxResolution?>> HandleInboxLeaseAsync(IGatewayInboxStore inbox,
         GatewayInboxLease lease, Guid account, Guid id, CancellationToken ct)
     {
-        var loaded = await store.InAttemptScopeAsync<(StoredPaymentAttempt Attempt, bool Verified)>(account, id, false, async token =>
+        var loaded = await store.InAttemptScopeAsync<(StoredPaymentAttempt Attempt, string? PaymentReference)>(account, id, false, async token =>
         {
             var attempt = await store.FindAttemptAsync(account, id, false, token);
             if (attempt is null || attempt.ProviderOrderReference != lease.OrderReference)
                 return CheckoutPaymentErrors.Missing;
-            return (attempt, await store.HasVerifiedPaymentAsync(id, token));
+            return (attempt, await store.FindVerifiedPaymentReferenceAsync(id, token));
         }, ct);
         if (loaded.IsError)
             return loaded.Errors;
 
-        var (original, verified) = loaded.Value;
-        var gateway = verified ? null : gateways.ForPin(original.Pin);
+        var (original, paymentReference) = loaded.Value;
+        var sameReceipt = paymentReference is not null && (lease.PaymentReference is null || lease.PaymentReference == paymentReference);
+        var gateway = sameReceipt ? null : gateways.ForPin(original.Pin);
         var available = gateway is not null && gateway.Pin == original.Pin;
-        var observed = available ? await ObserveAsync(original, Claim.None, ct, gateway) : null;
+        var observed = available ? await ObserveNotificationAsync(original, lease, paymentReference, gateway!, ct) : null;
 
         return await store.InAttemptScopeAsync<GatewayInboxResolution?>(account, id, true, async token =>
         {
@@ -28,7 +29,7 @@ public sealed partial class ReconcilePaymentHandler
             if (!await inbox.LockAsync(lease, now, token))
                 return (GatewayInboxResolution?)null;
 
-            var result = await ApplyCaptureNotificationAsync(original, lease, observed?.Payment, available, token);
+            var result = await ApplyCaptureNotificationAsync(original, lease, observed, available, token);
             if (result.IsError)
                 return result.Errors;
             if (!await inbox.FinishAsync(lease, result.Value, now, token))
@@ -41,14 +42,26 @@ public sealed partial class ReconcilePaymentHandler
     }
 
     private async Task<ErrorOr<GatewayInboxResolution>> ApplyCaptureNotificationAsync(StoredPaymentAttempt attempt,
-        GatewayInboxLease lease, PaymentObservation? payment, bool adapterAvailable, CancellationToken ct)
+        GatewayInboxLease lease, RecoveryObservation? observation, bool adapterAvailable, CancellationToken ct)
     {
-        if (await store.FindVerifiedPaymentReferenceAsync(attempt.AttemptId, ct) is { } existing)
+        var existing = await store.FindVerifiedPaymentReferenceAsync(attempt.AttemptId, ct);
+        if (observation is not null && await RecordReviewCapturesAsync(attempt, observation, existing, lease.InboxId, ct))
+        {
+            if (existing is null && !await store.IsUncertainAsync(attempt.AttemptId, ct))
+                await MarkUncertainAsync(attempt, ct);
+            return GatewayInboxResolution.Processed(GatewayInboxOutcome.VerifiedNeedsReview);
+        }
+        if (existing is not null)
+        {
+            if (lease.PaymentReference is { } received && received != existing &&
+                (!adapterAvailable || observation?.ReviewReadUnavailable == true))
+                return GatewayInboxResolution.Retry(GatewayInboxFailure.AdapterUnavailable);
             return VerifiedResolution(lease, existing, GatewayInboxOutcome.AlreadyVerified);
+        }
         if (!adapterAvailable)
             return GatewayInboxResolution.Retry(GatewayInboxFailure.AdapterUnavailable);
 
-        if (payment is { State: ObservedPaymentState.Captured })
+        if (observation?.Payment is { State: ObservedPaymentState.Captured } payment)
         {
             var settled = await fulfil.ApplyAsync(attempt, payment, ct);
             if (settled.IsError)
@@ -65,6 +78,16 @@ public sealed partial class ReconcilePaymentHandler
         if (!await store.IsUncertainAsync(attempt.AttemptId, ct) && !await store.HasDefinitiveFailureAsync(attempt.AttemptId, ct))
             await MarkUncertainAsync(attempt, ct);
         return GatewayInboxResolution.Retry(GatewayInboxFailure.CaptureUnproven);
+    }
+
+    private async Task<RecoveryObservation?> ObserveNotificationAsync(StoredPaymentAttempt attempt, GatewayInboxLease lease,
+        string? existing, IPaymentGateway gateway, CancellationToken ct)
+    {
+        if (existing is null)
+            return await ObserveAsync(attempt, Claim.None, ct, gateway);
+
+        var captures = await InspectAsync(gateway, attempt.ProviderOrderReference!, lease.PaymentReference, ct);
+        return new(null, null, captures.Value ?? [], captures.Outcome == GatewayOutcome.Unavailable);
     }
 
     private static GatewayInboxResolution VerifiedResolution(GatewayInboxLease lease, string reference, GatewayInboxOutcome outcome) =>

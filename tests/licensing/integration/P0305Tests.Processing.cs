@@ -39,7 +39,9 @@ public sealed partial class P0305Tests
         await AssertWorkAsync(rig, "Processed", "AlreadyVerified");
         await AssertWorkAsync(rig, "DeadLetter", "DifferentPayment", failure: true);
         Assert.Equal(3L, await rig.Fixture.CountAsync("gateway_inbox_work", "outcome = 'NoAction'"));
-        Assert.Equal(calls, rig.Fake.Calls.Count);
+        Assert.Equal(calls + 1, rig.Fake.Calls.Count);
+        Assert.Equal($"GET /v1/orders/{order}/payments", rig.Fake.Calls.Last());
+        Assert.Equal(0L, await rig.Fixture.CountAsync("unmatched_payments"));
         AssertStatus(await StatusAsync(rig.Payer.Client, rig.Quote), "Verified", "Fulfilled", "Applying");
         await P0302Tests.AssertSingleFulfilmentAsync(rig.Fixture, rig.Quote, 1);
         await RecordAsync("webhook-ingress-and-recovery.json", new
