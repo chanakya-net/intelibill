@@ -51,7 +51,7 @@ public sealed class WithdrawCancellationHandler(IBillingDelegationAccess access,
         var row = await store.ReadTermAsync(account, term, ct);
         if (row is null) return ScheduleCancellationHandler.Missing;
         var at = SubscriptionStatusProjection.EvaluationInstant(clock);
-        if (Scheduled(row) is not { } saved || saved.Version != request.CurrentVersion
+        if (row.RenewedAtEnd || Scheduled(row) is not { } saved || saved.Version != request.CurrentVersion
             || saved.ChangeId != request.ChangeId || saved.EffectiveAt != request.AcceptedEffectiveAt)
             return ScheduleCancellationHandler.Conflict;
         if (at >= saved.EffectiveAt) return Effective;

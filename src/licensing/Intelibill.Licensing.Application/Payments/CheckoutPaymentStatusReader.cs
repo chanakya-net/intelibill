@@ -27,11 +27,14 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         return Project(quote, row, synced, canStart, launchable);
     }
 
-    internal bool CanStart(CheckoutQuoteV1 quote) => Startable(quote) && gateways.ForNewAttempts() is not null &&
-        BillingAccountRules.StorageInstant(clock.GetUtcNow()) < quote.ExpiresAt;
+    internal bool CanStart(CheckoutQuoteV1 quote)
+    {
+        var now = BillingAccountRules.StorageInstant(clock.GetUtcNow());
+        return Startable(quote) && gateways.ForNewAttempts() is not null && now < quote.ExpiresAt &&
+            CheckoutRenewalPolicy.WindowOpen(quote, now);
+    }
 
-    internal static bool Startable(CheckoutQuoteV1 quote) =>
-        quote.Acceptance is not null && quote.TermId is null && quote.StartRule == "Fulfilment";
+    internal static bool Startable(CheckoutQuoteV1 quote) => CheckoutRenewalPolicy.Payable(quote);
 
     private static CheckoutPaymentV1 Project(CheckoutQuoteV1 quote, PaymentStatusRow row,
         IReadOnlyDictionary<Guid, EntitlementSynchronizationV1> synced, bool canStart, bool launchable)

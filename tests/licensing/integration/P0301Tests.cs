@@ -46,12 +46,19 @@ public sealed partial class P0301Tests(LicensingPostgreSqlFixture database) : IC
         Assert.Equal(0L, await fixture.CountAsync("subscription_coverage_terms"));
     }
 
-    internal static async Task<Guid> PublishPlanAsync(P0210Fixture fixture)
+    internal static async Task<Guid> PublishPlanAsync(P0210Fixture fixture, Guid? planId = null,
+        Guid? source = null, int membersPerShop = 5)
     {
         var manager = fixture.CatalogueManager!;
-        var plan = Guid.NewGuid();
+        var plan = planId ?? Guid.NewGuid();
         var input = P0207Tests.PlanFacts(0);
         input["monthlyPricePaise"] = 12000L;
+        input["membersPerShop"] = membersPerShop;
+        if (source is { } previous)
+        {
+            input["sourceVersionId"] = previous;
+            input["sourceExpectedVersion"] = 2;
+        }
         var draft = await P0207Tests.SavePlanAsync(manager, plan, input, HttpStatusCode.Created);
         var version = draft.GetProperty("versionId").GetGuid();
         var path = $"/api/admin/plans/{plan:D}/versions/{version:D}";

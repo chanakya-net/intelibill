@@ -30,7 +30,9 @@ public sealed class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderSt
         if (await orders.FindAsync(attempt.AccountId, attempt.OrderId, false, ct) is not { Quote: var quote })
             return FulfilmentOutcome.Rejected;
 
-        var decision = await DecideAsync(quote, ct);
+        // The provider-verified capture time is the payment's effective time; observation time never replaces it.
+        var effective = BillingAccountRules.StorageInstant(payment.CapturedAt!.Value);
+        var decision = await DecideAsync(quote, effective, ct, notBefore: attempt.CreatedAt);
         await store.RecordVerifiedAsync(attempt, payment, decision.At, ct);
         if (decision.Term is null)
         {
@@ -42,15 +44,25 @@ public sealed class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderSt
         return FulfilmentOutcome.Fulfilled;
     }
 
-    internal async Task<PaidOrderDecision> DecideAsync(CheckoutQuoteV1 quote, CancellationToken ct)
+    /// <summary>
+    /// Decides under the account lock. A renewal is judged against its accepted quote and the payment's verified
+    /// effective time: a stale or superseded source, or a period that no longer matches the quote, needs review.
+    /// </summary>
+    internal async Task<PaidOrderDecision> DecideAsync(CheckoutQuoteV1 quote, DateTimeOffset effectiveAt, CancellationToken ct,
+        DateTimeOffset? notBefore = null)
     {
         var now = BillingAccountRules.StorageInstant(lifecycle.GetUtcNow());
         if (await store.HasFulfilmentAsync(quote.AccountId, quote.OrderId, ct))
             return new(null, [], now, "DuplicateFunds");
         var ids = await orders.ShopIdsAsync(quote.AccountId, quote.OrderId, ct);
-        var source = await orders.SourceAsync(quote.AccountId, null, ids, ct);
+        var source = await CheckoutRenewalPolicy.SourceAsync(orders, quote, ct);
         if (source?.Hash() != quote.SourceHash || await store.AnyTrialAsync(quote.AccountId, ids, ct))
             return new(null, [], now, "CoverageChanged");
+        if (CheckoutRenewalPolicy.IsRenewal(quote))
+            return effectiveAt >= (notBefore ?? DateTimeOffset.MinValue) && source.Prior is { } prior &&
+                CheckoutRenewalPolicy.Successor(quote, prior, effectiveAt, now, out var grace) is { } successor
+                ? new(successor, ids, now, null, new(quote.TermId!.Value, effectiveAt, grace))
+                : new(null, [], now, "TermUnavailable");
 
         var period = quote.Period == "Month" ? BillingPeriod.Month : BillingPeriod.Year;
         if (RenewalPolicy.DetermineTerm(new(period, now)) is not { Anchor: { } anchor, Ordinal: { } ordinal,
@@ -64,9 +76,11 @@ public sealed class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderSt
     internal Task FulfilAsync(CheckoutQuoteV1 quote, PaidOrderDecision decision, StoredPaymentAttempt? attempt,
         Guid? manualReceipt, CancellationToken ct) =>
         store.FulfilAsync(new(quote.AccountId, quote.OrderId, attempt, manualReceipt, quote.AmountPaise, quote.Currency,
-            decision.Term!, quote.PlanVersionId, quote.MembersPerShop, quote.DevelopmentFixture, decision.Shops, decision.At), ct);
+            decision.Term!, quote.PlanVersionId, quote.MembersPerShop, quote.DevelopmentFixture, decision.Shops, decision.At,
+            decision.Renewal), ct);
 
-    internal sealed record PaidOrderDecision(PaidTerm? Term, Guid[] Shops, DateTimeOffset At, string? ReviewReason);
+    internal sealed record PaidOrderDecision(PaidTerm? Term, Guid[] Shops, DateTimeOffset At, string? ReviewReason,
+        RenewalProvenance? Renewal = null);
 }
 
 public static class PaymentFulfilmentPolicy

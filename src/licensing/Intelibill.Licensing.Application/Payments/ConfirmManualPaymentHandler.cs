@@ -28,7 +28,7 @@ public sealed class ConfirmManualPaymentHandler(IManualPaymentStore store, IChec
             var input = await ValidateAsync(account, order, command, token);
             if (input.IsError) return input.Errors;
             var (quote, receiving, _) = input.Value;
-            var decision = await fulfilment.DecideAsync(quote, token);
+            var decision = await fulfilment.DecideAsync(quote, BillingAccountRules.StorageInstant(command!.ReceivedAt), token);
             return new ManualPaymentPreview(await OrderViewAsync(quote, null, token), receiving,
                 command!.ReceivedAt, decision.ReviewReason, decision.Term?.StartsAt, decision.Term?.EndsAt);
         }, ct);
@@ -66,7 +66,7 @@ public sealed class ConfirmManualPaymentHandler(IManualPaymentStore store, IChec
         if (input.IsError) return input.Errors;
 
         var (quote, receiving, digest) = input.Value;
-        var decision = await fulfilment.DecideAsync(quote, ct);
+        var decision = await fulfilment.DecideAsync(quote, BillingAccountRules.StorageInstant(command.ReceivedAt), ct);
         var id = Guid.NewGuid();
         var receipt = new ManualPaymentReceipt(id, command.OperationKey, caller.AdminId, mfa,
             BillingAccountRules.StorageInstant(command.ReceivedAt), BillingAccountRules.StorageInstant(clock.GetUtcNow()),

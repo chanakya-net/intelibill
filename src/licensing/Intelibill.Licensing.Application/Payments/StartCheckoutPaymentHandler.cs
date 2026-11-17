@@ -48,7 +48,7 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
             return CheckoutPaymentErrors.Unavailable;
 
         var now = BillingAccountRules.StorageInstant(clock.GetUtcNow());
-        if (now >= quote.ExpiresAt)
+        if (now >= quote.ExpiresAt || !CheckoutRenewalPolicy.WindowOpen(quote, now))
             return CheckoutOrderErrors.Expired;
         var attempt = new NewPaymentAttempt(Guid.NewGuid(), account, order, request.OperationKey, hash, proof.ReplayId,
             gateway.Pin, quote.AmountPaise, quote.Currency, quote.SnapshotHash, now);
@@ -70,11 +70,11 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
             await store.FindOrderAttemptAsync(account, quote.OrderId, ct) is not null ||
             await store.HasOverlappingPaymentAsync(account, quote.OrderId, ct))
             return CheckoutPaymentErrors.AlreadyStarted;
-        // Renewals (#871), trial conversion and restored-access purchases (#872) are refused before any money moves.
+        // Trial conversion and restored-access purchases (#872) are refused before any money moves.
         if (!CheckoutPaymentStatusReader.Startable(quote))
             return CheckoutPaymentErrors.Unsupported;
         var ids = await orders.ShopIdsAsync(account, quote.OrderId, ct);
-        if ((await orders.SourceAsync(account, null, ids, ct))?.Hash() != quote.SourceHash)
+        if ((await CheckoutRenewalPolicy.SourceAsync(orders, quote, ct))?.Hash() != quote.SourceHash)
             return CheckoutOrderErrors.Changed;
         return await store.AnyTrialAsync(account, ids, ct) ? CheckoutPaymentErrors.Unsupported : null;
     }

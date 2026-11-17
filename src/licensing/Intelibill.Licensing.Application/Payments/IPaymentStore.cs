@@ -14,7 +14,8 @@ public sealed record PaidTerm(Guid TermId, string Mode, int Capacity, DateTimeOf
 
 public sealed record PaymentFulfilment(Guid AccountId, Guid OrderId, StoredPaymentAttempt? Attempt, Guid? ManualReceiptId,
     long AmountPaise, string Currency, PaidTerm Term,
-    Guid PlanVersionId, int MemberAllowance, bool DevelopmentFixture, Guid[] ShopIds, DateTimeOffset At);
+    Guid PlanVersionId, int MemberAllowance, bool DevelopmentFixture, Guid[] ShopIds, DateTimeOffset At,
+    RenewalProvenance? Renewal = null);
 
 public sealed record PaymentShopDelivery(Guid ShopId, long ShopRevision);
 
