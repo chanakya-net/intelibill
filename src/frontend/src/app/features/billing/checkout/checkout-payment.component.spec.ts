@@ -37,10 +37,12 @@ const verified = (access: CheckoutPayment['access'], applied: number) => status(
   termId: id(7), termStartsAt: '2026-11-16T12:02:00Z', termEndsAt: '2026-12-16T12:02:00Z',
 });
 
+const contextScope = signal<{ userId: string; shopId: string } | null>(owner);
 let http: HttpTestingController;
 let razorpayOpener: (launch: unknown) => Promise<RazorpayOutcome> = () => Promise.reject(new Error('unexpected checkout open'));
 
 beforeEach(() => {
+  contextScope.set(owner);
   const storage = new Map<string, string>();
   vi.stubGlobal('localStorage', { getItem: (key: string) => storage.get(key) ?? null,
     setItem: (key: string, value: string) => storage.set(key, value) });
@@ -53,7 +55,7 @@ beforeEach(() => {
     })],
     providers: [
       provideHttpClient(), provideHttpClientTesting(),
-      { provide: ShopContextService, useValue: { scope: signal(owner) } },
+      { provide: ShopContextService, useValue: { scope: contextScope } },
       { provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } },
       { provide: RAZORPAY_OPENER, useValue: (launch: unknown) => razorpayOpener(launch) },
     ],
@@ -244,6 +246,58 @@ describe('CheckoutPaymentComponent', () => {
       open({ kind: 'cancelled' });
       const page = await render(status({ launch }));
       page.click('payment-razorpay-pay');
+      await page.update();
+      expect(page.text('payment-razorpay-pay')).not.toBeNull();
+      expect(page.text('payment-pending')).toBeNull();
+    });
+    it('drops a callback that lands after the account scope changed', async () => {
+      let finish: (outcome: RazorpayOutcome) => void = () => undefined;
+      razorpayOpener = () => new Promise<RazorpayOutcome>(resolve => { finish = resolve; });
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      await page.update();
+
+      contextScope.set({ userId: id(8), shopId: id(9) });
+      await page.update();
+      http.expectOne({ method: 'GET', url: path }).flush(notStarted);
+      finish({ kind: 'success', proof });
+      await page.update();
+      http.expectNone({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+    });
+
+    it('holds a callback that arrives while another request runs and verifies the original attempt', async () => {
+      let finish: (outcome: RazorpayOutcome) => void = () => undefined;
+      razorpayOpener = () => new Promise<RazorpayOutcome>(resolve => { finish = resolve; });
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      await page.update();
+      page.click('payment-razorpay-check');
+      const again = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      finish({ kind: 'success', proof });
+      await page.update();
+      again.flush(status({ launch }));
+      await page.update();
+      const relayed = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      expect(relayed.request.body).toEqual({ launcherOutcome: 'Success', launcherProof: proof });
+      relayed.flush(status({ payment: 'PendingVerification', launch: null }));
+      await page.update();
+      expect(page.text('payment-pending')).toBe(t.pending);
+    });
+
+    it('rechecks the same attempt without a new checkout when the callback was lost', async () => {
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-check');
+      const check = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(check.request.body).toEqual({ launcherOutcome: null });
+      check.flush(verified('Applying', 0));
+      await page.update();
+      expect(page.text('payment-confirmed')).toBe(t.confirmed);
+    });
+
+    it('offers the launcher again once the server confirms the recovered order is still unpaid', async () => {
+      const page = await render(status({ payment: 'PendingVerification', launch: null }));
+      page.click('payment-check');
+      http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }).flush(status({ launch }));
       await page.update();
       expect(page.text('payment-razorpay-pay')).not.toBeNull();
       expect(page.text('payment-pending')).toBeNull();

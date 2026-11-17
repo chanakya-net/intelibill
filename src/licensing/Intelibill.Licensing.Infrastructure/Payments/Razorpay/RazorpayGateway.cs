@@ -13,10 +13,9 @@ namespace Intelibill.Licensing.Infrastructure.Payments.Razorpay;
 /// authenticated read of the order and its payments. A browser callback is at most an unverified hint. Refunds and
 /// webhooks are not part of this adapter yet and answer <see cref="GatewayOutcome.Unsupported"/>.
 /// </summary>
-internal sealed class RazorpayGateway(HttpClient http, RazorpayConfiguration config) : IPaymentGateway
+internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfiguration config) : IPaymentGateway
 {
     internal const string ClientName = "razorpay-gateway";
-    private const int MaxBodyBytes = 262_144;
 
     public PaymentProviderPin Pin => config.Pin;
     public PaymentGatewayCapabilities Capabilities { get; } = new(FullPaymentOnly: true, Refunds: false, Webhooks: false);
@@ -28,9 +27,12 @@ internal sealed class RazorpayGateway(HttpClient http, RazorpayConfiguration con
             ["amount"] = amountPaise.ToString(System.Globalization.CultureInfo.InvariantCulture), ["currency"] = currency,
         };
 
+    public bool SupportsAmount(long amountPaise, string currency) =>
+        currency == "INR" && amountPaise >= RazorpayConfiguration.MinAmountPaise && amountPaise <= config.MaxAmountPaise;
+
     public async Task<GatewayResult<CheckoutSession>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct)
     {
-        if (request.Currency != "INR" || request.AmountPaise <= 0)
+        if (!SupportsAmount(request.AmountPaise, request.Currency))
             return GatewayResult.Unsupported<CheckoutSession>();
         var body = JsonSerializer.Serialize(new
         {
@@ -86,23 +88,30 @@ internal sealed class RazorpayGateway(HttpClient http, RazorpayConfiguration con
                 : RazorpayWire.Observe(Pin, best));
         }
         // The independent read of the payment itself must agree with the collection entry before funds are trusted.
-        var single = await GetPaymentAsync(captured.Id, ct);
-        return single is { Outcome: GatewayOutcome.Succeeded, Value.ProviderOrderReference: var reference } &&
-            reference == request.ProviderOrderReference && single.Value.State == ObservedPaymentState.Captured
-            ? single : GatewayResult.Rejected<PaymentObservation>();
+        var single = await ReadPaymentAsync(captured.Id, ct);
+        return single.Payment is { } entity && entity.OrderId == request.ProviderOrderReference &&
+            RazorpayWire.FullCapture(entity, order.Order!) && config.Methods.Contains(entity.Method ?? "")
+            ? GatewayResult.Success(RazorpayWire.Observe(Pin, entity)) : GatewayResult.Rejected<PaymentObservation>();
     }
 
     public async Task<GatewayResult<PaymentObservation>> GetPaymentAsync(string providerPaymentReference, CancellationToken ct)
     {
-        if (!providerPaymentReference.StartsWith("pay_", StringComparison.Ordinal) || providerPaymentReference.Length > 120 ||
-            providerPaymentReference.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '_'))
-            return GatewayResult.Rejected<PaymentObservation>();
-        using var message = new HttpRequestMessage(HttpMethod.Get, $"v1/payments/{providerPaymentReference}");
+        var read = await ReadPaymentAsync(providerPaymentReference, ct);
+        return read.Failure is { } failure ? new(failure, null)
+            : read.Payment is { } payment ? GatewayResult.Success(RazorpayWire.Observe(Pin, payment))
+            : GatewayResult.Rejected<PaymentObservation>();
+    }
+
+    private async Task<(GatewayOutcome? Failure, WirePayment? Payment)> ReadPaymentAsync(string reference, CancellationToken ct)
+    {
+        if (!SafeReference(reference, "pay_"))
+            return (GatewayOutcome.Rejected, null);
+        using var message = new HttpRequestMessage(HttpMethod.Get, $"v1/payments/{reference}");
         var read = await SendAsync(message, ct);
         if (read.Failure is { } failure)
-            return new(failure, null);
-        return RazorpayWire.Payment(read.Root) is { } payment && payment.Id == providerPaymentReference
-            ? GatewayResult.Success(RazorpayWire.Observe(Pin, payment)) : GatewayResult.Rejected<PaymentObservation>();
+            return (failure, null);
+        return RazorpayWire.Payment(read.Root) is { } payment && payment.Id == reference
+            ? (null, payment) : (GatewayOutcome.Rejected, null);
     }
 
     public async Task<GatewayResult<IReadOnlyList<PaymentObservation>>> GetOrderPaymentsAsync(string providerOrderReference,
@@ -175,26 +184,4 @@ internal sealed class RazorpayGateway(HttpClient http, RazorpayConfiguration con
         value.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
 
     private static CheckoutSession Session(string order) => new(order, CheckoutPaymentsV1.RazorpayFlow, new Dictionary<string, string>());
-
-    private async Task<(GatewayOutcome? Failure, JsonElement Root)> SendAsync(HttpRequestMessage message, CancellationToken ct)
-    {
-        message.Headers.Authorization = new AuthenticationHeaderValue("Basic",
-            Convert.ToBase64String(Encoding.UTF8.GetBytes($"{config.KeyId}:{config.KeySecret}")));
-        using var response = await http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, ct);
-        if (response.StatusCode == HttpStatusCode.NotFound)
-            return (GatewayOutcome.NotFound, default);
-        if ((int)response.StatusCode >= 500 || response.StatusCode == HttpStatusCode.TooManyRequests)
-            return (GatewayOutcome.Unavailable, default);
-        if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength > MaxBodyBytes)
-            return (GatewayOutcome.Rejected, default);
-        var bytes = await response.Content.ReadAsByteArrayAsync(ct);
-        try
-        {
-            return bytes.Length > MaxBodyBytes ? (GatewayOutcome.Rejected, default) : (null, JsonDocument.Parse(bytes).RootElement.Clone());
-        }
-        catch (JsonException)
-        {
-            return (GatewayOutcome.Rejected, default);
-        }
-    }
 }

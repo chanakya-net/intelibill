@@ -26,7 +26,9 @@
         @if (launcher() === 'simulator') {
           <app-development-simulator-launcher [busy]="busy()" (simulate)="simulate($event)" (returnWithoutCapture)="verify('Success')" />
         } @else if (launcher() === 'razorpay' && razorpay(); as launch) {
-          <app-razorpay-launcher [launch]="launch" [busy]="busy()" (outcome)="razorpayOutcome($event)" />
+          <app-razorpay-launcher [launch]="launch" [busy]="busy()" (opened)="razorpayOpened($event)" (outcome)="razorpayOutcome($event)" />
+          <button pButton type="button" severity="secondary" data-testid="payment-razorpay-check" [disabled]="busy()"
+            [label]="'billing.checkout.payment.checkAgain' | transloco" (click)="checkAgain()"></button>
         } @else {
           <p data-testid="payment-launcher-unavailable">{{ 'billing.checkout.payment.launcherUnavailable' | transloco }}</p>
         }

@@ -84,6 +84,9 @@ public sealed class P0304BrowserTests(LicensingPostgreSqlFixture database, ITest
         start.Environment["P0304_OWNER"] = run.Owner;
         start.Environment["P0304_PASSWORD"] = P0201Tests.Password;
         start.Environment["P0304_EVIDENCE_DIR"] = run.Evidence;
+        var scratch = Path.Combine(Path.GetTempPath(), "intelibill-p0304-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(scratch);
+        start.Environment["P0304_PLAYWRIGHT_OUTPUT"] = scratch;
         start.Environment["P0304_ACCOUNT"] = run.Quote.AccountId.ToString("D");
         start.Environment["P0304_ORDER"] = run.Quote.OrderId.ToString("D");
         await using var browser = new OwnedProcess(start);
@@ -92,8 +95,7 @@ public sealed class P0304BrowserTests(LicensingPostgreSqlFixture database, ITest
         await browser.Process.WaitForExitAsync(ct);
         var report = await stdout;
         output.WriteLine(report);
-        var raw = Path.Combine(run.Evidence, "playwright");
-        if (Directory.Exists(raw)) Directory.Delete(raw, recursive: true);
+        Directory.Delete(scratch, recursive: true);
         await File.WriteAllTextAsync(Path.Combine(run.Evidence, phase + "-playwright.log"), report, ct);
         Assert.True(browser.Process.ExitCode == 0 && report.Contains("1 passed", StringComparison.Ordinal)
             && !report.Contains("skipped", StringComparison.OrdinalIgnoreCase), report + await stderr);

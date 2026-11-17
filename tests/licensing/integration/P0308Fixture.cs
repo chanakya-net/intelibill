@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Domain.Enums;
 using Intelibill.Shared.Contracts.V1;
+using Microsoft.Extensions.DependencyInjection;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
 namespace Intelibill.Licensing.Integration.Tests;
@@ -18,9 +19,9 @@ internal sealed class P0308Fixture(P0302Fixture checkout) : IAsyncDisposable
     internal P0209Fixture.Hosts Hosts => Checkout.Hosts;
 
     internal static async Task<P0308Fixture> StartAsync(LicensingPostgreSqlFixture database, DateTimeOffset at,
-        IReadOnlyDictionary<string, string?>? settings = null, bool browser = false)
+        IReadOnlyDictionary<string, string?>? settings = null, bool browser = false, Action<IServiceCollection>? services = null)
     {
-        var checkout = await P0302Fixture.StartAsync(database, new P0201Clock { Now = at }, settings, browser: browser);
+        var checkout = await P0302Fixture.StartAsync(database, new P0201Clock { Now = at }, settings, services, browser);
         var fixture = new P0308Fixture(checkout);
         fixture.At(at);
         return fixture;

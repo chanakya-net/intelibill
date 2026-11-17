@@ -22,6 +22,9 @@ internal sealed class FakeRazorpay : HttpMessageHandler
 
     internal Func<DateTimeOffset> Clock { get; set; } = () => DateTimeOffset.UnixEpoch.AddDays(1);
     internal bool LoseCreateResponse { get; set; }
+    internal bool Redirect { get; set; }
+    internal bool LengthlessOversize { get; set; }
+    internal int OversizeBytesServed { get; private set; }
     internal List<string> Calls { get; } = [];
     internal int Posts { get { lock (gate) return Calls.Count(c => c.StartsWith("POST ", StringComparison.Ordinal)); } }
 
@@ -34,15 +37,18 @@ internal sealed class FakeRazorpay : HttpMessageHandler
         ["Payments:Razorpay:AccountId"] = "fixture-account",
         ["Payments:Razorpay:Environment"] = "Test",
         ["Payments:Razorpay:ConfigurationVersion"] = "fixture/1",
-        ["Payments:Razorpay:BaseUrl"] = "https://razorpay.fixture.invalid/",
+        ["Payments:Razorpay:MaxAmountPaise"] = "50000000",
         ["Payments:Razorpay:Methods:0"] = methods ?? "card",
         ["Payments:Razorpay:Methods:1"] = "upi",
     };
 
+    internal JsonObject Payment(string id) { lock (gate) return payments.Single(p => p["id"]!.GetValue<string>() == id); }
+    internal string[] OrderIds() { lock (gate) return [.. orders.Keys.Order(StringComparer.Ordinal)]; }
     internal string OrderId() { lock (gate) return orders.Keys.Single(); }
     internal JsonObject Order(string id) { lock (gate) return orders[id]; }
 
-    internal string AddPayment(string orderId, string status, long? amount = null, string? currency = null, string? onOrder = null)
+    internal string AddPayment(string orderId, string status, long? amount = null, string? currency = null, string? onOrder = null,
+        string method = "upi", long? createdAt = null, bool documentedCaptureFields = true)
     {
         lock (gate)
         {
@@ -51,10 +57,24 @@ internal sealed class FakeRazorpay : HttpMessageHandler
             payments.Add(new JsonObject
             {
                 ["id"] = id, ["entity"] = "payment", ["order_id"] = onOrder ?? orderId, ["status"] = status,
-                ["captured"] = status == "captured", ["method"] = "upi",
+                ["captured"] = status == "captured", ["method"] = method,
                 ["amount"] = amount ?? order["amount"]!.GetValue<long>(), ["currency"] = currency ?? order["currency"]!.GetValue<string>(),
-                ["created_at"] = Clock().ToUnixTimeSeconds(),
+                ["created_at"] = createdAt ?? Clock().ToUnixTimeSeconds(),
             });
+            if (documentedCaptureFields)
+            {
+                var added = payments[^1];
+                added["amount_refunded"] = 0;
+                added["refund_status"] = null;
+                if (status == "captured")
+                    added["amount_captured"] = added["amount"]!.GetValue<long>();
+            }
+            if (status == "captured" && onOrder is null)
+            {
+                order["amount_paid"] = order["amount"]!.GetValue<long>();
+                order["amount_due"] = 0;
+                order["status"] = "paid";
+            }
             return id;
         }
     }
@@ -71,7 +91,42 @@ internal sealed class FakeRazorpay : HttpMessageHandler
         lock (gate)
         {
             Calls.Add($"{request.Method} {request.RequestUri!.PathAndQuery}");
+            if (LengthlessOversize)
+                return Oversize();
+            if (Redirect)
+                return new HttpResponseMessage(HttpStatusCode.Redirect) { Headers = { Location = new Uri("https://attacker.example/") } };
             return Route(request, body);
+        }
+    }
+
+    private HttpResponseMessage Oversize() => new(HttpStatusCode.OK)
+    {
+        Content = new StreamContent(new CountingEndlessStream(served => OversizeBytesServed = served)),
+    };
+
+    private sealed class CountingEndlessStream(Action<int> report) : Stream
+    {
+        private int served;
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => Fill(buffer.AsSpan(offset, count));
+        public override int Read(Span<byte> buffer) => Fill(buffer);
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default) => ValueTask.FromResult(Fill(buffer.Span));
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        private int Fill(Span<byte> buffer)
+        {
+            var count = Math.Min(buffer.Length, 4096);
+            buffer[..count].Fill((byte)' ');
+            served += count;
+            report(served);
+            return count;
         }
     }
 

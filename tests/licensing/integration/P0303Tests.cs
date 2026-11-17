@@ -63,7 +63,8 @@ public sealed partial class P0303Tests(LicensingPostgreSqlFixture database) : IC
         var original = await OtherAcceptedQuoteAsync(payer, quote, shops.Select(s => s.ShopId).ToArray());
         var disjoint = await OtherAcceptedQuoteAsync(payer, quote, another.ShopId);
         var attempt = (await StartAsync(payer.Client, original, HttpStatusCode.Created)).GetProperty("attemptId").GetGuid();
-        AssertStatus(await VerifyAsync(payer.Client, original, attempt), "PendingVerification", "NotFulfilled", "NotApplicable");
+        // A proof-free recheck that finds the order unpaid leaves it payable; the unresolved attempt still blocks overlap below.
+        AssertStatus(await VerifyAsync(payer.Client, original, attempt), "AwaitingPayment", "NotFulfilled", "NotApplicable");
 
         using var replacement = await payer.Client.PostAsJsonAsync(AttemptsPath(overlapping), Start(overlapping));
         Assert.Equal(HttpStatusCode.Conflict, replacement.StatusCode);

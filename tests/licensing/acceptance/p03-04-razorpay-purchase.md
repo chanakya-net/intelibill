@@ -22,6 +22,30 @@ a captured full payment confirms and shows applying access), `applied`
 
 Fixture limits: nothing here contacts Razorpay, validates the hosted checkout
 page, or proves account activation, enabled methods or webhook reachability.
-Those need the human-supplied test account described in the P03 PRD. Razorpay
-payments expose only `created_at`; the adapter uses it as the effective payment
-time, which equals the capture time for auto-captured payments.
+Those need the human-supplied test account described in the P03 PRD.
+
+Razorpay payments expose `created_at` as payment creation time, not capture time. A
+payment may be authorized and captured later, including with automatic capture
+([payment lookup](https://razorpay.com/docs/api/payments/fetch-with-id/),
+[payment timeout](https://razorpay.com/learn/payment-timeout/),
+[capture settings](https://razorpay.com/blog/capture-settings-manage-failed-transactions)).
+
+Time provenance: the adapter reports `created_at` only as the creation time and
+never as the capture instant. A first purchase starts at fulfilment and is
+unaffected. A renewal is granted only when classifying at the payment's creation
+time and at the verification instant gives the same early/grace result;
+otherwise the verified funds are kept as `PaidNeedsReview` and no term is
+granted. `verified_payments.capture_time_basis` is `ObservedAtVerification` for
+Razorpay (`captured_at` is the verification instant, a no-later-than bound) and
+`ProviderCapture` where the provider proves the instant (the simulator).
+Whole-second creation times are compared with the attempt time truncated to
+the second.
+
+Evidence rules: fulfilment needs one exact full capture. `amount_captured`
+(when present) must equal the amount, `amount_refunded` must be zero, the order's
+`amount_paid`/`amount_due` must agree, a present `partial_payment` must be a
+boolean, and the payment `method` must be one of the configured methods
+(`card`, `netbanking`, `wallet`, `upi`). Provider requests use only
+`https://api.razorpay.com/` with redirects disabled; `MaxAmountPaise` is the
+account's per-order maximum and must be configured. Dashboard-side method
+enablement and the saved checkout configuration remain a human gate.

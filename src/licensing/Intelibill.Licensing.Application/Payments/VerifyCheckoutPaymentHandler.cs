@@ -23,7 +23,8 @@ public sealed class VerifyCheckoutPaymentHandler(IBillingDelegationAccess access
                 return CheckoutPaymentErrors.Missing;
             await store.UseAttemptAsync(attemptId, token);
             var verified = await store.HasVerifiedPaymentAsync(attemptId, token);
-            if (!verified)
+            // A browser claim makes the attempt uncertain. A proof-free recheck does not: reconciliation records uncertainty only when it finds payment evidence, so an unpaid order stays payable.
+            if (!verified && (request.LauncherOutcome is not null || request.LauncherProof is not null))
                 await store.AppendEventAsync(attempt, PaymentEventKinds.VerificationRequested, proof.ActorId,
                     BillingAccountRules.StorageInstant(clock.GetUtcNow()), token);
             return (attempt, verified);

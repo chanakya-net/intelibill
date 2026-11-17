@@ -30,9 +30,13 @@ public sealed class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderSt
         if (await orders.FindAsync(attempt.AccountId, attempt.OrderId, false, ct) is not { Quote: var quote })
             return FulfilmentOutcome.Rejected;
 
-        // The provider-verified capture time is the payment's effective time; observation time never replaces it.
-        var effective = BillingAccountRules.StorageInstant(payment.CapturedAt!.Value);
-        var decision = await DecideAsync(quote, effective, ct, notBefore: attempt.CreatedAt);
+        // A proven capture time is the payment's effective time. A creation-only time proves just a lower bound, so the
+        // verification instant bounds it from above and a renewal needs both bounds to agree.
+        var proven = payment.CapturedAt is not null;
+        var effective = BillingAccountRules.StorageInstant(payment.CapturedAt ?? payment.CreatedAt!.Value);
+        var notBefore = proven ? attempt.CreatedAt : new DateTimeOffset(attempt.CreatedAt.Ticks / TimeSpan.TicksPerSecond *
+            TimeSpan.TicksPerSecond, attempt.CreatedAt.Offset);
+        var decision = await DecideAsync(quote, effective, ct, notBefore, upperBound: !proven);
         await store.RecordVerifiedAsync(attempt, payment, decision.At, ct);
         if (decision.Term is null)
         {
@@ -49,7 +53,7 @@ public sealed class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderSt
     /// effective time: a stale or superseded source, or a period that no longer matches the quote, needs review.
     /// </summary>
     internal async Task<PaidOrderDecision> DecideAsync(CheckoutQuoteV1 quote, DateTimeOffset effectiveAt, CancellationToken ct,
-        DateTimeOffset? notBefore = null)
+        DateTimeOffset? notBefore = null, bool upperBound = false)
     {
         var now = BillingAccountRules.StorageInstant(lifecycle.GetUtcNow());
         if (await store.HasFulfilmentAsync(quote.AccountId, quote.OrderId, ct))
@@ -59,10 +63,7 @@ public sealed class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderSt
         if (source?.Hash() != quote.SourceHash || await store.AnyTrialAsync(quote.AccountId, ids, ct))
             return new(null, [], now, "CoverageChanged");
         if (CheckoutRenewalPolicy.IsRenewal(quote))
-            return effectiveAt >= (notBefore ?? DateTimeOffset.MinValue) && source.Prior is { } prior &&
-                CheckoutRenewalPolicy.Successor(quote, prior, effectiveAt, now, out var grace) is { } successor
-                ? new(successor, ids, now, null, new(quote.TermId!.Value, effectiveAt, grace))
-                : new(null, [], now, "TermUnavailable");
+            return RenewalDecision(quote, source, effectiveAt, notBefore, upperBound, now, ids);
 
         var period = quote.Period == "Month" ? BillingPeriod.Month : BillingPeriod.Year;
         if (RenewalPolicy.DetermineTerm(new(period, now)) is not { Anchor: { } anchor, Ordinal: { } ordinal,
@@ -71,6 +72,18 @@ public sealed class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderSt
         var term = new PaidTerm(Guid.NewGuid(), quote.Capacity == 1 ? "Independent" : "Grouped", quote.Capacity,
             starts, ends, quote.Period, anchor.LocalStart, ordinal);
         return new(term, ids, now, null);
+    }
+
+    private static PaidOrderDecision RenewalDecision(CheckoutQuoteV1 quote, CheckoutSource source, DateTimeOffset effectiveAt,
+        DateTimeOffset? notBefore, bool upperBound, DateTimeOffset now, Guid[] ids)
+    {
+        if (effectiveAt < (notBefore ?? DateTimeOffset.MinValue) || source.Prior is not { } prior ||
+            CheckoutRenewalPolicy.Successor(quote, prior, effectiveAt, now, out var grace) is not { } successor)
+            return new(null, [], now, "TermUnavailable");
+        // Capture happened somewhere in [effectiveAt, now]; both ends must classify to the same renewal or it is unproved.
+        if (upperBound && (CheckoutRenewalPolicy.Successor(quote, prior, now, now, out var late) is null || late != grace))
+            return new(null, [], now, "CaptureTimeUnproven");
+        return new(successor, ids, now, null, new(quote.TermId!.Value, upperBound ? now : effectiveAt, grace));
     }
 
     internal Task FulfilAsync(CheckoutQuoteV1 quote, PaidOrderDecision decision, StoredPaymentAttempt? attempt,
@@ -92,5 +105,5 @@ public static class PaymentFulfilmentPolicy
         payment.State == ObservedPaymentState.Captured && payment.Pin == attempt.Pin &&
         payment.AmountPaise == attempt.AmountPaise && payment.Currency == attempt.Currency &&
         payment.ProviderOrderReference == attempt.ProviderOrderReference &&
-        payment.ProviderPaymentReference is { Length: > 0 and <= 120 } && payment.CapturedAt is not null;
+        payment.ProviderPaymentReference is { Length: > 0 and <= 120 } && (payment.CapturedAt ?? payment.CreatedAt) is not null;
 }

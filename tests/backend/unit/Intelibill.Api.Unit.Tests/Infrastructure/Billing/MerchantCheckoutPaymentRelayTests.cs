@@ -63,6 +63,25 @@ public sealed class MerchantCheckoutPaymentRelayTests
         Assert.Null(MerchantBillingClient.RelayPayment(withUrl, Account, Order, Host("Production")));
     }
 
+    [Theory]
+    [InlineData("keyId", null)]
+    [InlineData("keyId", "nonsense")]
+    [InlineData("orderId", "nonsense")]
+    [InlineData("amount", "99901")]
+    [InlineData("currency", "USD")]
+    public void InvalidLaunchParametersAreRefused(string key, string? value)
+    {
+        var parameters = new Dictionary<string, string>
+        { ["keyId"] = "rzp_test_fixture", ["orderId"] = "order_abc123", ["amount"] = "99900", ["currency"] = "INR" };
+        parameters[key] = value!;
+        var payment = SimulatorShaped() with { Launch = new(CheckoutPaymentsV1.RazorpayFlow, parameters) };
+        Assert.Null(MerchantBillingClient.RelayPayment(payment, Account, Order, Host("Production")));
+    }
+
+    [Fact]
+    public void NullProofValueIsInvalid() =>
+        Assert.False(new VerifyCheckoutPaymentV1("Success", new Dictionary<string, string> { ["proof"] = null! }).IsValid());
+
     private static CheckoutPaymentV1 SimulatorShaped() => new(Account, Order, Guid.Parse("8c2b3c5e-0d5e-4bb4-9a43-6f0f1f0e2a11"),
         "AwaitingPayment", "NotFulfilled", "NotApplicable", 99_900, "INR", DateTimeOffset.UnixEpoch, null, null, null,
         null, 1, 0, false, new(CheckoutPaymentsV1.SimulatorFlow, new Dictionary<string, string>()));

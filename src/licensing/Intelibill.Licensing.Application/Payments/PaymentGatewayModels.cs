@@ -34,10 +34,14 @@ public sealed record CheckoutVerification(string ProviderOrderReference, long Ex
 
 public enum ObservedPaymentState { Pending, Authorized, Captured, Failed }
 
-/// <summary>A server-side provider observation. Only <see cref="ObservedPaymentState.Captured"/> can fund an order.</summary>
+/// <summary>
+/// A server-side provider observation. Only <see cref="ObservedPaymentState.Captured"/> can fund an order.
+/// <see cref="CapturedAt"/> is set only when the provider proves the capture instant; a provider that exposes only the
+/// payment's creation time reports it as <see cref="CreatedAt"/> and leaves the capture instant unproven.
+/// </summary>
 public sealed record PaymentObservation(PaymentProviderPin Pin, string ProviderOrderReference, string? ProviderPaymentReference,
     ObservedPaymentState State, long AmountPaise, string Currency, DateTimeOffset? CapturedAt,
-    bool CheckoutDefinitivelyFailed = false);
+    bool CheckoutDefinitivelyFailed = false, DateTimeOffset? CreatedAt = null);
 
 public sealed record RefundRequest(PaymentProviderPin Pin, string ProviderPaymentReference, long AmountPaise, string Currency, Guid RefundId);
 

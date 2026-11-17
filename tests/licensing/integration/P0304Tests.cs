@@ -118,6 +118,17 @@ public sealed partial class P0304Tests(LicensingPostgreSqlFixture database) : IC
     }
 
     [Fact]
+    public async Task ProviderRedirectCannotSupplyPaymentEvidence()
+    {
+        await using var rig = await Rig.StartAsync(database);
+        var attempt = await rig.StartAttemptAsync();
+        rig.Fake.AddPayment(rig.Fake.OrderId(), "captured");
+        rig.Fake.Redirect = true;
+        Assert.NotEqual("Fulfilled", (await rig.VerifyAsync(attempt, null, null)).GetProperty("fulfilment").GetString());
+        Assert.Equal(0L, await rig.Fixture.CountAsync("verified_payments"));
+    }
+
+    [Fact]
     public async Task ConcurrentAndReplayedVerificationFulfilsAtMostOnce()
     {
         await using var rig = await Rig.StartAsync(database);
@@ -140,7 +151,14 @@ public sealed partial class P0304Tests(LicensingPostgreSqlFixture database) : IC
         AssertStatus(started, "PendingVerification", "NotFulfilled", "NotApplicable");
         Assert.Equal(1, rig.Fake.Posts);
 
+        // Check again recovers the unpaid original order; the customer can launch that same order, across a reload.
         rig.Fake.LoseCreateResponse = false;
+        var recovered = await rig.VerifyAsync(attempt, null, null);
+        AssertStatus(recovered, "AwaitingPayment", "NotFulfilled", "NotApplicable");
+        Assert.Equal(rig.Fake.OrderId(), recovered.GetProperty("launch").GetProperty("parameters").GetProperty("orderId").GetString());
+        AssertStatus(await StatusAsync(rig.Payer.Client, rig.Quote), "AwaitingPayment", "NotFulfilled", "NotApplicable");
+        Assert.Equal(1, rig.Fake.Posts);
+
         rig.Fake.AddPayment(rig.Fake.OrderId(), "captured");
         AssertStatus(await rig.VerifyAsync(attempt, null, null), "Verified", "Fulfilled", "Applying");
         Assert.Equal(1, rig.Fake.Posts);
@@ -150,9 +168,13 @@ public sealed partial class P0304Tests(LicensingPostgreSqlFixture database) : IC
     [Theory]
     [InlineData("Payments:Razorpay:Environment", "Live")]
     [InlineData("Payments:Razorpay:Methods:1", "emi")]
+    [InlineData("Payments:Razorpay:Methods:1", "bank_transfer")]
+    [InlineData("Payments:Razorpay:MaxAmountPaise", "99")]
+    [InlineData("Payments:Razorpay:MaxAmountPaise", "")]
     [InlineData("Payments:Razorpay:AllowPartialPayment", "true")]
     [InlineData("Payments:Razorpay:Currency", "USD")]
     [InlineData("Payments:Razorpay:KeySecret", "")]
+    [InlineData("Payments:Razorpay:BaseUrl", "https://attacker.example/")]
     public async Task UnsupportedConfigurationRefusesCheckoutBeforeAnyProviderCall(string key, string value)
     {
         var fake = new FakeRazorpay();
@@ -191,7 +213,8 @@ public sealed partial class P0304Tests(LicensingPostgreSqlFixture database) : IC
         internal required Merchant Payer { get; init; }
         internal required CheckoutQuoteV1 Quote { get; init; }
 
-        internal static async Task<Rig> StartAsync(LicensingPostgreSqlFixture database, string? account = null)
+        internal static async Task<Rig> StartAsync(LicensingPostgreSqlFixture database, string? account = null,
+            long monthlyPricePaise = 12000L, long? maxAmountPaise = null)
         {
             var fake = new FakeRazorpay();
             var clock = new P0201Clock { Now = P0210Fixture.Start };
@@ -199,9 +222,11 @@ public sealed partial class P0304Tests(LicensingPostgreSqlFixture database) : IC
             var settings = FakeRazorpay.Settings();
             if (account is not null)
                 settings["Payments:Razorpay:AccountId"] = account;
+            if (maxAmountPaise is { } max)
+                settings["Payments:Razorpay:MaxAmountPaise"] = max.ToString(System.Globalization.CultureInfo.InvariantCulture);
             var fixture = await P0302Fixture.StartAsync(database, clock, settings,
                 services => services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => fake));
-            var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1);
+            var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1, monthlyPricePaise: monthlyPricePaise);
             return new() { Fixture = fixture, Fake = fake, Payer = payer, Quote = quote };
         }
 

@@ -30,7 +30,7 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
     internal bool CanStart(CheckoutQuoteV1 quote)
     {
         var now = BillingAccountRules.StorageInstant(clock.GetUtcNow());
-        return Startable(quote) && gateways.ForNewAttempts() is not null && now < quote.ExpiresAt &&
+        return Startable(quote) && gateways.ForNewAttempts() is { } gateway && gateway.SupportsAmount(quote.AmountPaise, quote.Currency) && now < quote.ExpiresAt &&
             CheckoutRenewalPolicy.WindowOpen(quote, now);
     }
 

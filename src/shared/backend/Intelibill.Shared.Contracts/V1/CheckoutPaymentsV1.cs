@@ -58,7 +58,12 @@ public static class CheckoutPaymentsV1
     {
         SimulatorFlow => parameters is { Count: 0 },
         RazorpayFlow => parameters is { Count: 4 } && RazorpayLaunchKeys.All(key => parameters.TryGetValue(key, out var value) &&
-            value.Length is > 0 and <= 120 && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-')),
+            value is { Length: > 0 and <= 120 } && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-')) &&
+            (parameters["keyId"].StartsWith("rzp_test_", StringComparison.Ordinal) ||
+             parameters["keyId"].StartsWith("rzp_live_", StringComparison.Ordinal)) &&
+            parameters["keyId"].Length > 9 && parameters["orderId"].StartsWith("order_", StringComparison.Ordinal) &&
+            parameters["orderId"].Length > 6 && parameters["amount"].All(char.IsAsciiDigit) &&
+            long.TryParse(parameters["amount"], out var amount) && amount > 0 && parameters["currency"] == "INR",
         _ => false,
     };
 
@@ -90,7 +95,7 @@ public sealed record VerifyCheckoutPaymentV1([property: JsonPropertyName("launch
     public bool IsValid() => (LauncherOutcome is null || CheckoutPaymentsV1.LauncherOutcomes.Contains(LauncherOutcome)) &&
         (LauncherProof is null || (LauncherProof.Count is > 0 and <= CheckoutPaymentsV1.MaxProofEntries &&
             LauncherProof.All(entry => entry.Key.Length is > 0 and <= 40 &&
-                entry.Value.Length is > 0 and <= CheckoutPaymentsV1.MaxProofValueLength)));
+                entry.Value is { Length: > 0 and <= CheckoutPaymentsV1.MaxProofValueLength })));
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]

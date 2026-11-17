@@ -88,15 +88,19 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
             if (!await store.RecordSessionAsync(stored, found, now, ct))
                 return CheckoutPaymentErrors.Busy;
             await store.AppendEventAsync(stored, PaymentEventKinds.SessionRecorded, null, now, ct);
-            await store.AppendEventAsync(stored, PaymentEventKinds.VerificationRequested, null, now, ct);
             stored = stored with { ProviderOrderReference = found.ProviderOrderReference };
         }
 
+        // An unpaid order stays payable; payment evidence that does not fund it makes the outcome uncertain.
         if (observed.Payment is { State: ObservedPaymentState.Captured } payment)
         {
             var result = await fulfil.ApplyAsync(stored, payment, ct);
+            if (!result.IsError && result.Value == FulfilmentOutcome.Rejected)
+                await MarkUncertainAsync(stored, ct);
             return result.IsError ? result.Errors : result.Value != FulfilmentOutcome.Rejected;
         }
+        if (observed.Payment is not { State: ObservedPaymentState.Pending })
+            await MarkUncertainAsync(stored, ct);
         if (await store.HasDefinitiveFailureAsync(attempt.AttemptId, ct))
             return true;
         if (!DefinitivelyFailed(stored, observed.Payment))
@@ -105,6 +109,10 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
             BillingAccountRules.StorageInstant(clock.GetUtcNow()), ct);
         return true;
     }
+
+    private Task MarkUncertainAsync(StoredPaymentAttempt attempt, CancellationToken ct) =>
+        store.AppendEventAsync(attempt, PaymentEventKinds.VerificationRequested, null,
+            BillingAccountRules.StorageInstant(clock.GetUtcNow()), ct);
 
     private static bool DefinitivelyFailed(StoredPaymentAttempt attempt, PaymentObservation? observation) =>
         observation is { State: ObservedPaymentState.Failed, CheckoutDefinitivelyFailed: true,

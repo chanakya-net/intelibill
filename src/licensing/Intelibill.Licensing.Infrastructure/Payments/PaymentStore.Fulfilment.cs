@@ -10,10 +10,11 @@ internal sealed partial class PaymentStore
     public Task RecordVerifiedAsync(StoredPaymentAttempt attempt, PaymentObservation p, DateTimeOffset at, CancellationToken ct) =>
         db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.verified_payments (attempt_id, account_id, order_id, provider_id, provider_account_id,
-                environment, configuration_version, provider_payment_reference, amount_paise, currency, captured_at, verified_at)
+                environment, configuration_version, provider_payment_reference, amount_paise, currency, captured_at, verified_at,
+                capture_time_basis)
             VALUES ({attempt.AttemptId}, {attempt.AccountId}, {attempt.OrderId}, {p.Pin.ProviderId}, {p.Pin.ProviderAccountId},
                 {p.Pin.Environment}, {p.Pin.ConfigurationVersion}, {p.ProviderPaymentReference}, {p.AmountPaise}, {p.Currency},
-                {p.CapturedAt}, {at})
+                {p.CapturedAt ?? at}, {at}, {(p.CapturedAt is null ? "ObservedAtVerification" : "ProviderCapture")})
             """, ct);
 
     /// <summary>Fulfilment, paid term, frozen facts, shop links, audit and per-shop entitlement snapshots together.</summary>

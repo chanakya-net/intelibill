@@ -76,7 +76,10 @@ internal sealed partial class MerchantBillingClient : IMerchantCheckoutPayments
         p.ShopsTotal is > 0 and <= CheckoutOrdersV1.MaxShops && p.ShopsApplied >= 0 && p.ShopsApplied <= p.ShopsTotal &&
         (p.Fulfilment == "Fulfilled") == (p.TermId is not null && p.TermStartsAt < p.TermEndsAt) &&
         (p.Access == "NotApplicable") == (p.Fulfilment != "Fulfilled") &&
-        (p.Launch is null || p.Payment == "AwaitingPayment" && CheckoutPaymentsV1.ValidLaunch(p.Launch.Flow, p.Launch.Parameters));
+        (p.Launch is null || p.Payment == "AwaitingPayment" && CheckoutPaymentsV1.ValidLaunch(p.Launch.Flow, p.Launch.Parameters) &&
+            (p.Launch.Flow != CheckoutPaymentsV1.RazorpayFlow ||
+             p.Launch.Parameters["amount"] == p.AmountPaise.ToString(System.Globalization.CultureInfo.InvariantCulture) &&
+             p.Launch.Parameters["currency"] == p.Currency));
 
     private Error MapPaymentFailure(HttpStatusCode status, string? code) => (status, code) switch
     {

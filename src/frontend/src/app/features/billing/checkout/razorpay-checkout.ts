@@ -20,7 +20,8 @@ export type RazorpayOutcome =
   | { readonly kind: 'success'; readonly proof: Readonly<Record<string, string>> }
   | { readonly kind: 'cancelled' };
 
-export type RazorpayOpener = (launch: RazorpayLaunch) => Promise<RazorpayOutcome>;
+/** The signal closes the modal when its owner is torn down; a closed window reports `cancelled`, never success. */
+export type RazorpayOpener = (launch: RazorpayLaunch, signal?: AbortSignal) => Promise<RazorpayOutcome>;
 export const RAZORPAY_OPENER = new InjectionToken<RazorpayOpener>('RAZORPAY_OPENER', {
   providedIn: 'root',
   factory: () => openRazorpayCheckout,
@@ -39,7 +40,7 @@ export function razorpayLaunch(launch: CheckoutLaunch | null): RazorpayLaunch | 
 }
 
 interface RazorpayConstructor {
-  new (options: Record<string, unknown>): { open(): void };
+  new (options: Record<string, unknown>): { open(): void; close?(): void };
 }
 
 function loadScript(): Promise<RazorpayConstructor> {
@@ -73,10 +74,11 @@ function proofOf(response: unknown, orderId: string): Record<string, string> | n
  * Opens Razorpay Standard Checkout for the server-created order. The callback is only a claim: it is relayed to
  * the server, which verifies the signature against its own persisted order and reads the captured payment itself.
  */
-export async function openRazorpayCheckout(launch: RazorpayLaunch): Promise<RazorpayOutcome> {
+export async function openRazorpayCheckout(launch: RazorpayLaunch, signal?: AbortSignal): Promise<RazorpayOutcome> {
   const Razorpay = await loadScript();
+  if (signal?.aborted) return { kind: 'cancelled' };
   return new Promise<RazorpayOutcome>(resolve => {
-    new Razorpay({
+    const modal = new Razorpay({
       key: launch.keyId,
       order_id: launch.orderId,
       amount: launch.amount,
@@ -88,6 +90,8 @@ export async function openRazorpayCheckout(launch: RazorpayLaunch): Promise<Razo
         resolve(proof ? { kind: 'success', proof } : { kind: 'cancelled' });
       },
       modal: { ondismiss: () => resolve({ kind: 'cancelled' }) },
-    }).open();
+    });
+    signal?.addEventListener('abort', () => { modal.close?.(); resolve({ kind: 'cancelled' }); }, { once: true });
+    modal.open();
   });
 }

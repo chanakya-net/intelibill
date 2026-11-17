@@ -34,6 +34,7 @@ internal static class CheckoutRegistration
         services.AddOptions<PaymentOptions>().BindConfiguration(PaymentOptions.Section);
         services.AddOptions<RazorpayOptions>().BindConfiguration(RazorpayOptions.Section);
         services.AddHttpClient(RazorpayGateway.ClientName).RemoveAllLoggers()
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })
             .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(15));
         services.AddScoped<PaymentStore>();
         services.AddScoped<IPaymentStore>(provider => provider.GetRequiredService<PaymentStore>());

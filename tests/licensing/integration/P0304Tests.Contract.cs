@@ -37,6 +37,34 @@ public sealed partial class P0304Tests
 
     [Theory]
     [MemberData(nameof(Providers))]
+    public async Task ContractPendingCaptureGrantsNothingUntilTheFullCaptureIsObserved(string provider)
+    {
+        await using var run = await ContractRun.StartAsync(database, provider);
+        await run.PendAsync();
+
+        AssertStatus(await run.VerifyAsync("Success", null), "PendingVerification", "NotFulfilled", "NotApplicable");
+        Assert.Equal(0L, await run.Fixture.CountAsync("verified_payments"));
+        Assert.Equal(0L, await run.Fixture.CountAsync("payment_fulfilments"));
+
+        await run.CaptureAsync();
+        AssertStatus(await run.VerifyAsync(null, null), "Verified", "Fulfilled", "Applying");
+        await P0302Tests.AssertSingleFulfilmentAsync(run.Fixture, run.Quote, 1);
+    }
+
+    [Theory]
+    [MemberData(nameof(Providers))]
+    public async Task ContractWrongAmountCaptureGrantsNothing(string provider)
+    {
+        await using var run = await ContractRun.StartAsync(database, provider);
+        await run.CaptureWrongAmountAsync();
+
+        Assert.NotEqual("Fulfilled", (await run.VerifyAsync(null, null)).GetProperty("fulfilment").GetString());
+        Assert.Equal(0L, await run.Fixture.CountAsync("verified_payments"));
+        Assert.Equal(0L, await run.Fixture.CountAsync("payment_fulfilments"));
+    }
+
+    [Theory]
+    [MemberData(nameof(Providers))]
     public async Task ContractUnsupportedConfigurationRefusesCheckout(string provider)
     {
         var settings = provider == "razorpay" ? FakeRazorpay.Settings() : new Dictionary<string, string?> { ["Payments:Mode"] = "Off" };
@@ -87,6 +115,30 @@ public sealed partial class P0304Tests
                 rig.Fake.AddPayment(rig.Fake.OrderId(), "captured");
             else
                 await P0302Fixture.CaptureAsync(Payer.Client, Quote, attempt);
+        }
+
+        internal async Task PendAsync()
+        {
+            if (razorpay is { } rig)
+                rig.Fake.AddPayment(rig.Fake.OrderId(), "authorized");
+            else
+                await P0302Fixture.PostAsync(Payer.Client, CapturePath(Quote, attempt), new { outcome = "Delayed" });
+        }
+
+        internal async Task CaptureWrongAmountAsync()
+        {
+            if (razorpay is { } rig)
+            {
+                rig.Fake.AddPayment(rig.Fake.OrderId(), "captured", amount: Quote.AmountPaise - 1);
+                return;
+            }
+            await LicensingPostgreSqlFixture.ExecuteAsync(simulator!.Hosts.LicensingOwner, """
+                SELECT set_config('app.development_gateway', 'on', false);
+                INSERT INTO public.development_gateway_payments (provider_payment_reference, provider_order_reference,
+                    amount_paise, currency, state, captured_at)
+                SELECT 'dev_pay_wrong_amount', provider_order_reference, amount_paise - 1, 'INR', 'Captured', now()
+                FROM public.development_gateway_sessions;
+                """);
         }
 
         internal async Task<System.Text.Json.JsonElement> VerifyAsync(string? outcome, Dictionary<string, string>? proof)

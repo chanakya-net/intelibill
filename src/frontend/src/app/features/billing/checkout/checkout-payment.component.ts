@@ -25,6 +25,15 @@ type Invocation = {
   readonly current: () => boolean;
 };
 
+type LaunchTicket = {
+  readonly scope: CheckoutScope | null;
+  readonly order: string;
+  readonly generation: number;
+  readonly attempt: string | null | undefined;
+  readonly providerOrder: string;
+};
+type QueuedOutcome = { readonly ticket: LaunchTicket; readonly proof: Readonly<Record<string, string>> };
+
 const draftStates: Record<Exclude<CheckoutPayment['payment'], 'NotStarted'>, Exclude<PaymentDraftState, 'intent'>> = {
   AwaitingPayment: 'awaiting', PendingVerification: 'pending', Verified: 'verified', Failed: 'failed',
 };
@@ -44,6 +53,8 @@ export class CheckoutPaymentComponent {
   private generation = 0;
   private polls = 0;
   private ticks = 0;
+  private ticket: LaunchTicket | null = null;
+  private queued: QueuedOutcome | null = null;
 
   readonly quote = input.required<Quote>();
   protected readonly payment = signal<CheckoutPayment | null>(null);
@@ -118,15 +129,39 @@ export class CheckoutPaymentComponent {
     });
   }
 
-  /** Relays the browser's unverified report; the server alone decides whether funds were captured. */
+  protected razorpayOpened(launch: RazorpayLaunch) {
+    this.ticket = {
+      scope: this.scope(), order: this.quote().orderId, generation: this.generation,
+      attempt: this.payment()?.attemptId, providerOrder: launch.orderId,
+    };
+  }
+
+  /**
+   * Relays the browser's unverified report for the attempt that was on screen when the window opened. A report that
+   * outlives its scope or order is dropped, and one that lands while another request runs waits for it.
+   */
   protected razorpayOutcome(outcome: RazorpayOutcome) {
+    const ticket = this.ticket;
+    this.ticket = null;
+    // A dismissed window proves nothing and changes nothing: the order stays payable and no check is recorded.
+    if (!ticket || outcome.kind === 'cancelled' || !this.ticketCurrent(ticket) || !ticket.attempt) return;
+    this.queued = { ticket, proof: outcome.proof };
+    this.drainQueued();
+  }
+
+  private ticketCurrent(ticket: LaunchTicket) {
+    return ticket.generation === this.generation && ticket.scope === this.scope() && ticket.order === this.quote().orderId;
+  }
+
+  private drainQueued() {
+    const queued = this.queued;
+    if (!queued || this.busy()) return;
+    this.queued = null;
+    if (!this.ticketCurrent(queued.ticket) || !queued.ticket.attempt) return;
+    const attempt = queued.ticket.attempt;
     void this.run(async invocation => {
-      const attempt = this.payment()?.attemptId;
-      // A dismissed window proves nothing and changes nothing: the order stays payable and no check is recorded.
-      if (!attempt || outcome.kind === 'cancelled') return;
-      if (await this.rememberPending(invocation, attempt)) {
-        await this.verifyAttempt(invocation, attempt, 'Success', outcome.proof);
-      }
+      if (await this.rememberPending(invocation, attempt))
+        await this.verifyAttempt(invocation, attempt, 'Success', queued.proof);
     });
   }
 
@@ -158,6 +193,7 @@ export class CheckoutPaymentComponent {
 
   private restore() {
     this.generation++;
+    this.ticket = this.queued = null;
     this.polls = this.ticks = 0;
     this.busy.set(false);
     this.payment.set(null);
@@ -253,6 +289,7 @@ export class CheckoutPaymentComponent {
       if (current() && !quiet) this.problem.set(paymentFailure(error));
     } finally {
       if (current()) this.busy.set(false);
+      if (current()) queueMicrotask(() => this.drainQueued());
     }
   }
 }

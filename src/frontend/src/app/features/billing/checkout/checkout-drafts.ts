@@ -112,7 +112,9 @@ export class CheckoutDrafts {
     return navigator.locks.request(key, () => {
       const saved = this.readPayment(scope, order);
       if (saved?.attempt && saved.attempt !== attempt) throw new Error('Checkout attempt changed');
-      if (saved && paymentStates.indexOf(saved.state) >= paymentStates.indexOf(state)) return saved;
+      // The server reports a provider-confirmed unpaid order as awaiting again; that is the one state that may reopen.
+      const reopens = saved?.state === 'pending' && state === 'awaiting';
+      if (saved && !reopens && paymentStates.indexOf(saved.state) >= paymentStates.indexOf(state)) return saved;
       return this.write<PaymentDraft>(key, {
         schemaVersion: 1, userId: scope.userId, account: scope.account, order, attempt, state,
         command: saved?.command ?? null,
