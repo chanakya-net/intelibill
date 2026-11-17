@@ -144,7 +144,8 @@ public sealed partial class P0302Tests
             var original = services.Last(service => service.ServiceType == typeof(IPaymentGatewayResolver));
             services.Remove(original);
             services.AddScoped<IPaymentGatewayResolver>(provider => new Resolver(
-                (IPaymentGatewayResolver)ActivatorUtilities.CreateInstance(provider, original.ImplementationType!), this));
+                (IPaymentGatewayResolver)(original.ImplementationFactory is { } factory ? factory(provider)
+                    : ActivatorUtilities.CreateInstance(provider, original.ImplementationType!)), this));
         }
 
         internal async Task ObserveAsync(string call, Guid attempt)
@@ -170,9 +171,11 @@ public sealed partial class P0302Tests
             public IPaymentGateway? ForPin(PaymentProviderPin pin) => inner.ForPin(pin) is { } gateway ? new Gateway(gateway, probe) : null;
         }
 
-        private sealed class Gateway(IPaymentGateway inner, GatewayProbe probe) : IPaymentGateway
+        private sealed class Gateway(IPaymentGateway inner, GatewayProbe probe) : IPaymentGateway, IPaymentSimulator
         {
             private Guid _attempt;
+            public Task SimulateAsync(string reference, string outcome, CancellationToken ct) =>
+                ((IPaymentSimulator)inner).SimulateAsync(reference, outcome, ct);
             public PaymentProviderPin Pin => inner.Pin;
             public PaymentGatewayCapabilities Capabilities => inner.Capabilities;
 

@@ -116,6 +116,20 @@ function mount() {
 }
 
 describe('CheckoutPaymentComponent', () => {
+  it('shows unverified routing review without claiming recorded funds or offering a replacement payment', async () => {
+    const page = await render(status({ payment: 'PendingVerification', fulfilment: 'NeedsReview', launch: null }));
+    expect(page.text('payment-routing-review')).toContain('not yet verified');
+    expect(page.text('payment-review')).toBeNull();
+    expect(page.text('payment-confirmed')).toBeNull();
+    expect(page.text('payment-start')).toBeNull();
+    expect(page.blocksNewQuote()).toBe(true);
+    page.click('payment-check');
+    http.expectOne({ method: 'POST', url: path + '/attempts/' + attempt + '/verify' })
+      .flush(status({ payment: 'PendingVerification', fulfilment: 'NeedsReview', launch: null }));
+    await page.update();
+    expect(page.text('payment-routing-review')).toContain('not yet verified');
+  });
+
   it.each([false, true])('refreshes the original manual review without offering a new payment (restorationHeld=%s)',
     async restorationHeld => {
       const review = status({ attemptId: null, startedAt: null, verifiedAt: '2026-11-16T12:02:00Z',

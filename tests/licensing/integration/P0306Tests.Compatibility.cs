@@ -113,7 +113,7 @@ public sealed partial class P0306Tests
     public async Task PostgreSqlUpgradeRetainsOnlineEvidenceAndRejectsInvalidSources()
     {
         const string previous = "20261117100000_PendingPaymentReconciliation";
-        await using var fixture = await StartAsync(database, new P0201Clock { Now = P0210Fixture.Start }, Settings);
+        await using var fixture = await StartAsync(database, new P0201Clock { Now = P0210Fixture.Start }, Settings, services: P0310LegacyRouting.InstallLegacy);
         var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1, legacyQuote: true);
         var attempt = (await StartAsync(payer.Client, quote, HttpStatusCode.Created)).GetProperty("attemptId").GetGuid();
         await CaptureAsync(payer.Client, quote, attempt);
@@ -152,7 +152,7 @@ public sealed partial class P0306Tests
 
     private static Task<object?> ReadOnlineEvidenceAsync(P0302Fixture fixture) =>
         LicensingPostgreSqlFixture.ReadScalarAsync(fixture.Hosts.LicensingOwner, """
-            SELECT jsonb_build_object('attempt', to_jsonb(a), 'session', to_jsonb(s), 'payment', to_jsonb(v) - 'capture_time_basis',
+            SELECT jsonb_build_object('attempt', to_jsonb(a) - 'selection_revision', 'session', to_jsonb(s), 'payment', to_jsonb(v) - 'capture_time_basis',
                 'lease', to_jsonb(p), 'fulfilment', to_jsonb(f) - 'manual_receipt_id'
                     -- #871 adds nullable renewal provenance; a first purchase keeps it null and is otherwise unchanged.
                     - ARRAY['predecessor_term_id', 'payment_effective_at', 'grace_days_included', 'renewal_policy_version'])::text

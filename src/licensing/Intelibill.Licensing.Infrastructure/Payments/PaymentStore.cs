@@ -90,11 +90,11 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
     public Task InsertAttemptAsync(NewPaymentAttempt a, CancellationToken ct) => db.Database.ExecuteSqlInterpolatedAsync($"""
         INSERT INTO public.payment_attempts (attempt_id, account_id, order_id, operation_key, actor_id, request_hash,
             replay_id, provider_id, provider_account_id, environment, configuration_version, amount_paise, currency,
-            snapshot_hash, created_at)
+            snapshot_hash, created_at, selection_revision)
         SELECT {a.AttemptId}, {a.AccountId}, {a.OrderId}, {a.OperationKey},
             nullif(current_setting('app.billing_actor_id', true), '')::uuid, {a.RequestHash}, {a.ReplayId},
             {a.Pin.ProviderId}, {a.Pin.ProviderAccountId}, {a.Pin.Environment}, {a.Pin.ConfigurationVersion},
-            {a.AmountPaise}, {a.Currency}, {a.SnapshotHash}, {a.CreatedAt}
+            {a.AmountPaise}, {a.Currency}, {a.SnapshotHash}, {a.CreatedAt}, {a.SelectionRevision}
         """, ct);
 
     public async Task<bool> RecordSessionAsync(StoredPaymentAttempt attempt, CheckoutSession session, DateTimeOffset at, CancellationToken ct) =>

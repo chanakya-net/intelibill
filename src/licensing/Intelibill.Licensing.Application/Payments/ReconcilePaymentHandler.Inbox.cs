@@ -59,7 +59,12 @@ public sealed partial class ReconcilePaymentHandler
             return VerifiedResolution(lease, existing, GatewayInboxOutcome.AlreadyVerified);
         }
         if (!adapterAvailable)
+        {
+            await store.RecordRoutingAsync(attempt, PaymentRouting.Blocker(gateways, attempt.Pin), clock.GetUtcNow(), ct);
             return GatewayInboxResolution.Retry(GatewayInboxFailure.AdapterUnavailable);
+        }
+        if (observation is not null)
+            await store.RecordRoutingAsync(attempt, null, clock.GetUtcNow(), ct);
 
         if (observation?.Payment is { State: ObservedPaymentState.Captured } payment)
         {

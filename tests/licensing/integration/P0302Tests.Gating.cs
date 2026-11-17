@@ -15,7 +15,7 @@ public sealed partial class P0302Tests
     [Theory]
     [InlineData(null)]
     [InlineData("Disabled")]
-    public async Task SimulatorIsUnavailableOutsideLocalSimulatorMode(string? mode)
+    public async Task LegacyBootstrapIsUnavailableOutsideLocalSimulatorMode(string? mode)
     {
         await using var fixture = await P0302Fixture.StartAsync(database, new P0201Clock { Now = P0210Fixture.Start },
             settings: new Dictionary<string, string?> { ["Payments:Mode"] = mode });
@@ -61,13 +61,13 @@ public sealed partial class P0302Tests
     }
 
     /// <summary>
-    /// The attempt was started under the local simulator; the same database is then served by a licensing host that
-    /// no longer permits the simulator. The attempt and its neutral status survive, but no launcher is offered.
+    /// A local historical attempt survives a change of Mode. Production refuses simulator recovery and exposes
+    /// unpaid routing review without inventing verified funds or offering another attempt.
     /// </summary>
     [Theory]
     [InlineData("Testing", "Disabled")]
     [InlineData("Production", "LocalSimulator")]
-    public async Task PersistedSimulatorAttemptOffersNoLauncherOnceTheRuntimeRefusesIt(string environment, string mode)
+    public async Task PersistedSimulatorRecoveryFollowsItsPinAndLocalEnvironment(string environment, string mode)
     {
         await using var fixture = await P0302Fixture.StartAsync(database, new P0201Clock { Now = P0210Fixture.Start });
         var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1);
@@ -88,12 +88,13 @@ public sealed partial class P0302Tests
         reopened.DefaultRequestHeaders.Authorization = payer.Client.DefaultRequestHeaders.Authorization;
 
         var status = await StatusAsync(reopened, quote);
-        AssertStatus(status, "AwaitingPayment", "NotFulfilled", "NotApplicable");
+        AssertStatus(status, environment == "Production" ? "PendingVerification" : "AwaitingPayment",
+            environment == "Production" ? "NeedsReview" : "NotFulfilled", "NotApplicable");
         Assert.Equal(attempt, status.GetProperty("attemptId").GetGuid());
-        Assert.Equal(JsonValueKind.Null, status.GetProperty("launch").ValueKind);
+        Assert.Equal(environment == "Production" ? JsonValueKind.Null : JsonValueKind.Object, status.GetProperty("launch").ValueKind);
         Assert.False(status.GetProperty("canStart").GetBoolean());
         using var capture = await reopened.PostAsJsonAsync(CapturePath(quote, attempt), new { outcome = "Captured" });
-        Assert.Equal(HttpStatusCode.NotFound, capture.StatusCode);
+        Assert.Equal(environment == "Production" ? HttpStatusCode.NotFound : HttpStatusCode.OK, capture.StatusCode);
 
         Assert.Equal(1L, await fixture.CountAsync("payment_attempts"));
         Assert.Equal(1L, await fixture.CountAsync("payment_attempt_sessions", "provider_order_reference IS NOT NULL"));

@@ -45,6 +45,9 @@
     }
   }
   @if (payment(); as status) {
+    @if (status.fulfilment === 'NeedsReview' && status.payment !== 'Verified' && !status.manualPayment) {
+      <p role="status" data-testid="payment-routing-review">{{ 'billing.checkout.payment.reviewUnverified' | transloco }}</p>
+    }
     @if (status.manualPayment) {
       <p role="status" data-testid="payment-manual-confirmed">{{ 'billing.checkout.payment.manualConfirmed' | transloco }}</p>
     }

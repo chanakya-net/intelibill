@@ -3349,6 +3349,7 @@
         "checkRestoration": "Check restoration again",
         "restorationAdjustment": "Latest service-restoration adjustment ({{count}} recorded)",
         "restorationReference": "Grant reference",
+        "reviewUnverified": "Payment is not yet verified and needs support review. Keep checking this original payment; do not pay again.",
         "reviewPayment": "Your payment is recorded, but this order needs review before access is applied.",
         "term": "Paid term",
         "failed": "Payment failed. No funds were captured for this checkout.",

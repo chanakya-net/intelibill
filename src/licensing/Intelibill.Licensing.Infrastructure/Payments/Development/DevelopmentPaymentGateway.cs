@@ -12,14 +12,14 @@ namespace Intelibill.Licensing.Infrastructure.Payments.Development;
 /// transaction and therefore fails fast if a caller still holds one. Registered only in a local simulator runtime.
 /// </summary>
 internal sealed partial class DevelopmentPaymentGateway(LicensingDbContext db, TimeProvider clock,
-    DevelopmentWebhookOptions webhook) : IPaymentGateway, IPaymentSimulator
+    DevelopmentWebhookOptions webhook, PaymentProviderPin? configuredPin = null) : IPaymentGateway, IPaymentSimulator
 {
     internal const string ProviderId = "development-simulator";
 
     internal static readonly PaymentProviderPin LocalPin =
         new(ProviderId, "local-simulator", "Development", "development-simulator/1");
 
-    public PaymentProviderPin Pin => LocalPin;
+    public PaymentProviderPin Pin => configuredPin ?? LocalPin;
     public PaymentGatewayCapabilities Capabilities => new(FullPaymentOnly: true, Refunds: false, Webhooks: WebhookSignature.Secret(webhook.WebhookSecret));
 
     public async Task<GatewayResult<CheckoutSession>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct)
@@ -27,8 +27,8 @@ internal sealed partial class DevelopmentPaymentGateway(LicensingDbContext db, T
         var reference = "dev_order_" + Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(12));
         await InGatewayAsync(token => db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.development_gateway_sessions (provider_order_reference, account_id, attempt_id, order_id, amount_paise,
-                currency, created_at)
-            VALUES ({reference}, {request.AccountId}, {request.AttemptId}, {request.OrderId}, {request.AmountPaise}, {request.Currency}, {Now()})
+                currency, created_at, provider_account_id, environment, configuration_version)
+            VALUES ({reference}, {request.AccountId}, {request.AttemptId}, {request.OrderId}, {request.AmountPaise}, {request.Currency}, {Now()}, {Pin.ProviderAccountId}, {Pin.Environment}, {Pin.ConfigurationVersion})
             """, token), ct);
         return GatewayResult.Success<CheckoutSession>(new(reference, CheckoutPaymentsV1.SimulatorFlow, new Dictionary<string, string>()));
     }
@@ -39,6 +39,8 @@ internal sealed partial class DevelopmentPaymentGateway(LicensingDbContext db, T
             SELECT provider_order_reference, order_id, amount_paise, currency
             FROM public.development_gateway_sessions
             WHERE account_id = {request.AccountId} AND attempt_id = {request.AttemptId}
+                AND provider_account_id = {Pin.ProviderAccountId} AND environment = {Pin.Environment}
+                AND configuration_version = {Pin.ConfigurationVersion}
             """).ToListAsync(token), ct);
         if (rows is not [{ OrderId: { } order } row])
             return new(GatewayOutcome.NotFound, null);
@@ -58,7 +60,7 @@ internal sealed partial class DevelopmentPaymentGateway(LicensingDbContext db, T
             await MaterializeCaptureAsync(session, control, token);
             var captured = await Payments().SingleOrDefaultAsync(p => p.ProviderOrderReference == reference, token);
             if (captured is not null)
-                return GatewayResult.Success(captured.ToObservation());
+                return GatewayResult.Success(captured.ToObservation(Pin));
             if (control?.Outcome == "Timeout")
                 return GatewayResult.Unavailable<PaymentObservation>();
             var failed = control?.Outcome == "Failed";
@@ -71,7 +73,7 @@ internal sealed partial class DevelopmentPaymentGateway(LicensingDbContext db, T
     {
         var rows = await InGatewayAsync(token => Payments().Where(p => p.ProviderPaymentReference == providerPaymentReference)
             .ToListAsync(token), ct);
-        return rows is [var row] ? GatewayResult.Success<PaymentObservation>(row.ToObservation())
+        return rows is [var row] ? GatewayResult.Success<PaymentObservation>(row.ToObservation(Pin))
             : GatewayResult.Rejected<PaymentObservation>();
     }
 
@@ -80,7 +82,7 @@ internal sealed partial class DevelopmentPaymentGateway(LicensingDbContext db, T
     {
         var rows = await InGatewayAsync(token => Payments().Where(p => p.ProviderOrderReference == providerOrderReference)
             .ToListAsync(token), ct);
-        return GatewayResult.Success<IReadOnlyList<PaymentObservation>>([.. rows.Select(row => row.ToObservation())]);
+        return GatewayResult.Success<IReadOnlyList<PaymentObservation>>([.. rows.Select(row => row.ToObservation(Pin))]);
     }
 
     public Task<GatewayResult<RefundObservation>> RequestRefundAsync(RefundRequest request, CancellationToken ct) =>
@@ -109,6 +111,8 @@ internal sealed partial class DevelopmentPaymentGateway(LicensingDbContext db, T
         (await db.Database.SqlQuery<SessionRow>($"""
             SELECT provider_order_reference, order_id, amount_paise, currency
             FROM public.development_gateway_sessions WHERE provider_order_reference = {reference}
+                AND provider_account_id = {Pin.ProviderAccountId} AND environment = {Pin.Environment}
+                AND configuration_version = {Pin.ConfigurationVersion}
             FOR UPDATE
             """).ToListAsync(ct)).SingleOrDefault();
 
@@ -143,12 +147,20 @@ internal sealed partial class DevelopmentPaymentGateway(LicensingDbContext db, T
     private IQueryable<PaymentRow> Payments() => db.Database.SqlQuery<PaymentRow>($"""
         SELECT provider_payment_reference, provider_order_reference, amount_paise, currency, state, captured_at
         FROM public.development_gateway_payments
+        WHERE provider_order_reference IN (SELECT provider_order_reference FROM public.development_gateway_sessions
+            WHERE provider_account_id = {Pin.ProviderAccountId} AND environment = {Pin.Environment}
+                AND configuration_version = {Pin.ConfigurationVersion})
         """);
 
     private async Task<T> InGatewayAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        await db.Database.ExecuteSqlRawAsync("SELECT set_config('app.development_gateway', 'on', true)", ct);
+        await db.Database.ExecuteSqlInterpolatedAsync($"""
+            SELECT set_config('app.development_gateway', 'on', true),
+                set_config('app.gateway_account', {Pin.ProviderAccountId}, true),
+                set_config('app.gateway_environment', {Pin.Environment}, true),
+                set_config('app.gateway_configuration', {Pin.ConfigurationVersion}, true)
+            """, ct);
         var result = await work(ct);
         await transaction.CommitAsync(ct);
         return result;
@@ -166,7 +178,7 @@ internal sealed partial class DevelopmentPaymentGateway(LicensingDbContext db, T
     private sealed record PaymentRow(string ProviderPaymentReference, string ProviderOrderReference, long AmountPaise,
         string Currency, string State, DateTimeOffset CapturedAt)
     {
-        internal PaymentObservation ToObservation() => new(LocalPin, ProviderOrderReference, ProviderPaymentReference,
+        internal PaymentObservation ToObservation(PaymentProviderPin pin) => new(pin, ProviderOrderReference, ProviderPaymentReference,
             State == "Captured" ? ObservedPaymentState.Captured : ObservedPaymentState.Failed, AmountPaise, Currency,
             CapturedAt.ToUniversalTime());
     }

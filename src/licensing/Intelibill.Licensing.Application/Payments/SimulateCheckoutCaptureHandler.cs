@@ -7,7 +7,7 @@ namespace Intelibill.Licensing.Application.Payments;
 
 /// <summary>Local simulator only: records a full capture on the simulated provider. It grants nothing by itself.</summary>
 public sealed class SimulateCheckoutCaptureHandler(IBillingDelegationAccess access, IPaymentStore store,
-    IPaymentSimulator simulator, CheckoutPaymentStatusReader status, TimeProvider clock)
+    IPaymentGatewayResolver gateways, CheckoutPaymentStatusReader status, TimeProvider clock)
 {
     public async Task<ErrorOr<CheckoutPaymentV1>> HandleAsync(VerifiedBillingDelegation proof, Guid account, Guid order,
         Guid attemptId, SimulateCheckoutCaptureV1 request, CancellationToken ct)
@@ -29,6 +29,7 @@ public sealed class SimulateCheckoutCaptureHandler(IBillingDelegationAccess acce
         }, ct);
         if (found.IsError)
             return found.Errors;
+        if (gateways.ForPin(found.Value.Pin) is not IPaymentSimulator simulator) return CheckoutPaymentErrors.Unavailable;
         await simulator.SimulateAsync(found.Value.ProviderOrderReference!, request.Outcome, ct);
         return await store.InAttemptScopeAsync(account, attemptId, false, token => status.ReadAsync(account, order, token), ct);
     }

@@ -8,7 +8,7 @@ public sealed record StoredPaymentAttempt(Guid AttemptId, Guid AccountId, Guid O
     string? LauncherFlow);
 
 public sealed record NewPaymentAttempt(Guid AttemptId, Guid AccountId, Guid OrderId, Guid OperationKey, string RequestHash,
-    Guid ReplayId, PaymentProviderPin Pin, long AmountPaise, string Currency, string SnapshotHash, DateTimeOffset CreatedAt);
+    Guid ReplayId, PaymentProviderPin Pin, long AmountPaise, string Currency, string SnapshotHash, DateTimeOffset CreatedAt, long? SelectionRevision = null);
 
 public sealed record PaidTerm(Guid TermId, string Mode, int Capacity, DateTimeOffset StartsAt, DateTimeOffset EndsAt,
     string Period, DateTime AnchorLocal, int Ordinal);
@@ -45,6 +45,7 @@ public interface IPaymentStore
 {
     Task<ErrorOr<T>> InAttemptScopeAsync<T>(Guid account, Guid attempt, bool lockAccount,
         Func<CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken ct);
+    Task RecordRoutingAsync(StoredPaymentAttempt attempt, string? blocker, DateTimeOffset at, CancellationToken ct);
     Task UseAttemptAsync(Guid attempt, CancellationToken ct);
     Task<StoredPaymentAttempt?> FindAttemptAsync(Guid account, Guid id, bool byOperation, CancellationToken ct);
     Task<StoredPaymentAttempt?> FindOrderAttemptAsync(Guid account, Guid order, CancellationToken ct);

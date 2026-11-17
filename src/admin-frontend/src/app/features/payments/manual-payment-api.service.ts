@@ -84,6 +84,24 @@ export interface ManualPaymentPreview {
   readonly estimatedEnd: string | null;
 }
 
+export interface ProviderPin {
+  readonly providerId: string;
+  readonly providerAccountId: string;
+  readonly environment: string;
+  readonly configurationVersion: string;
+}
+
+export interface PaymentRoutingDetail {
+  readonly schemaVersion: 1;
+  readonly accountId: string;
+  readonly orderId: string;
+  readonly attemptId: string | null;
+  readonly original: ProviderPin | null;
+  readonly currentSelection: { readonly revision: number; readonly profileId: string | null; readonly pin: ProviderPin | null };
+  readonly recoveryAvailable: boolean;
+  readonly blocker: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ManualPaymentApi {
   private readonly http = inject(HttpClient);
@@ -92,6 +110,12 @@ export class ManualPaymentApi {
     return firstValueFrom(this.http.get<ManualPaymentView>(this.path(scope), {
       headers: { 'X-Admin-Session': session }, params: after ? { after } : {},
     }));
+  }
+
+  routing(scope: PaymentScope, session: string) {
+    return firstValueFrom(this.http.get<PaymentRoutingDetail>(
+      `/api/admin/accounts/${encodeURIComponent(scope.account)}/orders/${encodeURIComponent(scope.order)}/payment-routing`,
+      { headers: { 'X-Admin-Session': session } }));
   }
 
   preview(scope: PaymentScope, session: string, command: ManualPaymentCommand) {

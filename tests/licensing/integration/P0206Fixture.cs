@@ -40,6 +40,7 @@ internal sealed class P0206Fixture : IAsyncDisposable
     internal P0114Tests.FixtureMailer Mailer { get; }
     private string OwnerPassword { get; }
     private string OwnerSeed { get; }
+    internal (string Password, string Seed) OwnerCredentials => (OwnerPassword, OwnerSeed);
     internal NpgsqlConnectionStringBuilder Superuser => Database.Bootstrap(Runtime.Database);
 
     internal static async Task<P0206Fixture> StartAsync(LicensingPostgreSqlFixture database,

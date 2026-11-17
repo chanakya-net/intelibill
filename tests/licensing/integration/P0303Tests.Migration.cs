@@ -13,7 +13,7 @@ public sealed partial class P0303Tests
         const string previous = "20261117090000_PaymentFulfilment";
         var probe = new P0302Tests.GatewayProbe { LoseCreateResponse = true };
         var clock = new P0201Clock { Now = P0210Fixture.Start };
-        await using var fixture = await P0302Fixture.StartAsync(database, clock, services: probe.Install);
+        await using var fixture = await P0302Fixture.StartAsync(database, clock, services: services => { probe.Install(services); P0310LegacyRouting.InstallLegacy(services); });
         var (payer, account, _, quote) = await fixture.AcceptedQuoteAsync(1, legacyQuote: true);
         probe.Database = fixture.Hosts.LicensingOwner;
         probe.Account = account;

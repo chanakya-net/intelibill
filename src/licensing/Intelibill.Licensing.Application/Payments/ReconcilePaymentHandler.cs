@@ -43,12 +43,17 @@ public sealed partial class ReconcilePaymentHandler(IPaymentStore store, IPaymen
                 return counted.Errors;
             fence = counted.Value;
         }
-        var observed = verified ? null : await ObserveAsync(attempt, claim, ct);
+        var gateway = verified ? null : gateways.ForPin(attempt.Pin);
+        var missing = !verified && gateway is null;
+        var observed = verified || missing ? null : await ObserveAsync(attempt, claim, ct, gateway);
         return await store.InAttemptScopeAsync<bool>(attempt.AccountId, attempt.AttemptId, true, async token =>
         {
             var now = leaseClock.GetUtcNow();
             if (lease is not null && !await pending.LockAsync(lease, now, token))
                 return false;
+            if (missing || observed is not null)
+                await store.RecordRoutingAsync(attempt, missing ? PaymentRouting.Blocker(gateways, attempt.Pin) : null,
+                    BillingAccountRules.StorageInstant(clock.GetUtcNow()), token);
             var result = await ApplyAsync(attempt, observed, fence, token);
             if (result.IsError)
                 return result;

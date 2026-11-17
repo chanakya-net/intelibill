@@ -7,7 +7,7 @@ import { ButtonDirective } from 'primeng/button';
 import { AdminSessionService } from '../auth/admin-session.service';
 import { formatIstExact } from '../accounts/account-status-api.service';
 import { ManualPaymentApi, type ManualPaymentCommand, type ManualPaymentPreview,
-  type ManualPaymentEvidence, type ManualPaymentReceipt, type ManualPaymentView, type PaymentScope } from './manual-payment-api.service';
+  type ManualPaymentEvidence, type ManualPaymentReceipt, type ManualPaymentView, type PaymentRoutingDetail, type PaymentScope } from './manual-payment-api.service';
 import { ManualPaymentDrafts } from './manual-payment-drafts';
 
 const identifier = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
@@ -41,6 +41,7 @@ export class ManualPaymentPageComponent {
   protected readonly order = computed(() => this.params()?.get('order') ?? '');
   protected readonly allowed = computed(() => this.session.capabilities().includes('billing'));
   protected readonly view = signal<ManualPaymentView | null>(null);
+  protected readonly routing = signal<PaymentRoutingDetail | null>(null);
   protected readonly preview = signal<ManualPaymentPreview | null>(null);
   protected readonly pending = signal<ManualPaymentCommand | null>(null);
   protected readonly receipt = signal<ManualPaymentReceipt | null>(null);
@@ -190,14 +191,26 @@ export class ManualPaymentPageComponent {
     this.receipt.set(null);
     this.evidence.set(null);
     this.view.set(null);
+    this.routing.set(null);
     if (!this.allowed() || !identifier.test(this.account()) || !identifier.test(this.order())) return;
-    void this.run(async ({ scope, session, current }) => {
+    void this.run(async invocation => {
+      const { scope, session, current } = invocation;
       const saved = await this.drafts.read(scope);
       if (!current()) return;
       this.pending.set(saved.pending ?? null);
       const view = await this.api.read(scope, session);
-      if (current()) this.view.set(view);
+      if (!current()) return;
+      this.view.set(view);
+      if (view.status.attemptId) await this.loadRouting(invocation, view.status.attemptId);
     });
+  }
+
+  private async loadRouting({ scope, session, current }: Invocation, attempt: string) {
+    const detail = await this.api.routing(scope, session);
+    if (!current()) return;
+    if (detail.schemaVersion !== 1 || detail.accountId !== scope.account || detail.orderId !== scope.order || detail.attemptId !== attempt)
+      throw new Error('Unexpected payment routing identity');
+    this.routing.set(detail);
   }
 
   private async run(work: (invocation: Invocation) => Promise<void>) {

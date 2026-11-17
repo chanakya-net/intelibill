@@ -51,7 +51,7 @@ public sealed partial class P0309Tests
     public async Task UpgradeRetainsAcceptedV1OrderAndRejectsEvidenceLossAfterItsFulfilment()
     {
         const string baseline = "20261117120000_PaidRenewals";
-        await using var fixture = await StartAsync(database, March31);
+        await using var fixture = await StartAsync(database, March31, services: P0310LegacyRouting.InstallLegacy);
         var package = await fixture.PackageAsync(1);
         var pending = await FirstQuoteAsync(package, "Month");
         var legacy = await P0309Fixture.RepresentLegacyQuoteAsync(fixture.Hosts.LicensingOwner, pending);
