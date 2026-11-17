@@ -25,7 +25,12 @@ public sealed record CheckoutSession(string ProviderOrderReference, string Launc
 
 public sealed record CheckoutLookup(PaymentProviderPin Pin, CheckoutRequest Request, CheckoutSession Session);
 
-public sealed record CheckoutVerification(string ProviderOrderReference, long ExpectedAmountPaise, string ExpectedCurrency);
+/// <summary>
+/// What the server expects of one provider order. The ownership context lets an adapter prove the remote order was
+/// created for this attempt; the optional launcher proof is the browser's unverified claim.
+/// </summary>
+public sealed record CheckoutVerification(string ProviderOrderReference, long ExpectedAmountPaise, string ExpectedCurrency,
+    CheckoutRequest? Context = null, IReadOnlyDictionary<string, string>? LauncherProof = null);
 
 public enum ObservedPaymentState { Pending, Authorized, Captured, Failed }
 

@@ -11,6 +11,7 @@ import { LocalizationService } from '../../../core/i18n/localization.service';
 import { CheckoutPaymentComponent } from './checkout-payment.component';
 import type { CheckoutPayment } from './checkout-payment.models';
 import type { Quote } from './checkout.models';
+import { RAZORPAY_OPENER, type RazorpayOutcome } from './razorpay-checkout';
 
 const id = (value: number) => '00000000-0000-4000-8000-00000000000' + value;
 const owner = { userId: id(1), shopId: id(2) };
@@ -37,6 +38,7 @@ const verified = (access: CheckoutPayment['access'], applied: number) => status(
 });
 
 let http: HttpTestingController;
+let razorpayOpener: (launch: unknown) => Promise<RazorpayOutcome> = () => Promise.reject(new Error('unexpected checkout open'));
 
 beforeEach(() => {
   const storage = new Map<string, string>();
@@ -53,6 +55,7 @@ beforeEach(() => {
       provideHttpClient(), provideHttpClientTesting(),
       { provide: ShopContextService, useValue: { scope: signal(owner) } },
       { provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } },
+      { provide: RAZORPAY_OPENER, useValue: (launch: unknown) => razorpayOpener(launch) },
     ],
   });
   http = TestBed.inject(HttpTestingController);
@@ -210,5 +213,40 @@ describe('CheckoutPaymentComponent', () => {
     await page.update();
     expect(page.text('payment-awaiting')).toBe(t.awaiting);
     expect(page.text('payment-problem')).toBeNull();
+  });
+
+  describe('Razorpay launcher', () => {
+    const launch = { flow: 'razorpay-standard', parameters: { keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: '27000', currency: 'INR' } };
+    const proof = { razorpay_payment_id: 'pay_abc', razorpay_order_id: 'order_abc123', razorpay_signature: 'f'.repeat(64) };
+
+    function open(outcome: RazorpayOutcome) {
+      const opener = vi.fn((_launch: unknown) => Promise.resolve(outcome));
+      razorpayOpener = opener;
+      return opener;
+    }
+
+    it('relays a successful callback as an unverified claim and shows pending until the server verifies', async () => {
+      const opener = open({ kind: 'success', proof });
+      const page = await render(status({ launch }));
+      expect(page.text('payment-razorpay-notice')).toBe(t.razorpay.notice);
+      page.click('payment-razorpay-pay');
+      await page.update();
+      expect(opener).toHaveBeenCalledWith({ keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: 27000, currency: 'INR' });
+      const verify = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(verify.request.body).toEqual({ launcherOutcome: 'Success', launcherProof: proof });
+      verify.flush(status({ payment: 'PendingVerification', launch: null }));
+      await page.update();
+      expect(page.text('payment-pending')).toBe(t.pending);
+      expect(page.text('payment-confirmed')).toBeNull();
+    });
+
+    it('sends nothing when the checkout window is dismissed and keeps the order payable', async () => {
+      open({ kind: 'cancelled' });
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      await page.update();
+      expect(page.text('payment-razorpay-pay')).not.toBeNull();
+      expect(page.text('payment-pending')).toBeNull();
+    });
   });
 });

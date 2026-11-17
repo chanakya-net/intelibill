@@ -10,6 +10,8 @@ import type { CheckoutScope, Quote } from './checkout.models';
 import type { CheckoutPayment, SimulatorOutcome } from './checkout-payment.models';
 import { CheckoutPaymentService } from './checkout-payment.service';
 import { DevelopmentSimulatorLauncherComponent } from './development-simulator-launcher.component';
+import { razorpayLaunch, type RazorpayLaunch, type RazorpayOutcome } from './razorpay-checkout';
+import { RazorpayLauncherComponent } from './razorpay-launcher.component';
 import { resolvePaymentLauncher } from './payment-checkout-launcher';
 import { CheckoutDrafts, type PaymentDraft, type PaymentDraftState } from './checkout-drafts';
 
@@ -29,7 +31,7 @@ const draftStates: Record<Exclude<CheckoutPayment['payment'], 'NotStarted'>, Exc
 
 @Component({
   selector: 'app-checkout-payment',
-  imports: [ButtonDirective, TranslocoPipe, DevelopmentSimulatorLauncherComponent],
+  imports: [ButtonDirective, TranslocoPipe, DevelopmentSimulatorLauncherComponent, RazorpayLauncherComponent],
   templateUrl: './checkout-payment.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(window:storage)': 'onStorage($event)' },
@@ -55,6 +57,7 @@ export class CheckoutPaymentComponent {
       payment?.payment === 'PendingVerification' || (!!payment?.manualPayment && payment.payment === 'AwaitingPayment');
   });
   protected readonly launcher = computed(() => resolvePaymentLauncher(this.payment()?.launch ?? null));
+  protected readonly razorpay = computed<RazorpayLaunch | null>(() => razorpayLaunch(this.payment()?.launch ?? null));
   private readonly scope = computed<CheckoutScope | null>(() => {
     const owner = this.context.scope();
     return owner ? { ...owner, account: this.quote().accountId } : null;
@@ -112,6 +115,18 @@ export class CheckoutPaymentComponent {
       if (!attempt || !await this.rememberPending(invocation, attempt)) return;
       await this.api.simulateCapture(invocation.scope, invocation.order, attempt, outcome);
       if (invocation.current()) await this.verifyAttempt(invocation, attempt, outcome === 'Captured' ? 'Success' : null);
+    });
+  }
+
+  /** Relays the browser's unverified report; the server alone decides whether funds were captured. */
+  protected razorpayOutcome(outcome: RazorpayOutcome) {
+    void this.run(async invocation => {
+      const attempt = this.payment()?.attemptId;
+      // A dismissed window proves nothing and changes nothing: the order stays payable and no check is recorded.
+      if (!attempt || outcome.kind === 'cancelled') return;
+      if (await this.rememberPending(invocation, attempt)) {
+        await this.verifyAttempt(invocation, attempt, 'Success', outcome.proof);
+      }
     });
   }
 
@@ -203,8 +218,9 @@ export class CheckoutPaymentComponent {
     await this.show(invocation, await this.api.read(invocation.scope, invocation.order));
   }
 
-  private async verifyAttempt(invocation: Invocation, attempt: string, claim: 'Success' | null) {
-    await this.show(invocation, await this.api.verify(invocation.scope, invocation.order, attempt, claim));
+  private async verifyAttempt(invocation: Invocation, attempt: string, claim: 'Success' | 'Cancelled' | null,
+    proof?: Readonly<Record<string, string>>) {
+    await this.show(invocation, await this.api.verify(invocation.scope, invocation.order, attempt, claim, proof));
   }
 
   private async show(invocation: Invocation, status: CheckoutPayment) {

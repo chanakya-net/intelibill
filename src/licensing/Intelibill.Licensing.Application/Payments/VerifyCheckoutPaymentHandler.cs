@@ -34,7 +34,7 @@ public sealed class VerifyCheckoutPaymentHandler(IBillingDelegationAccess access
         var (stored, alreadyVerified) = claimed.Value;
         if (!alreadyVerified)
         {
-            var outcome = await reconcile.HandleAsync(stored, ct);
+            var outcome = await reconcile.HandleAsync(stored, ct, request.LauncherProof);
             if (outcome.IsError)
                 return outcome.Errors;
         }

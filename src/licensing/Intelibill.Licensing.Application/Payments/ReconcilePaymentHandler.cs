@@ -8,8 +8,9 @@ namespace Intelibill.Licensing.Application.Payments;
 public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGatewayResolver gateways,
     FulfilPaidOrderHandler fulfil, IPendingPaymentAttemptStore pending, TimeProvider clock, TimeProvider leaseClock)
 {
-    public Task<ErrorOr<bool>> HandleAsync(StoredPaymentAttempt attempt, CancellationToken ct) =>
-        ReconcileAsync(attempt, false, null, ct);
+    public Task<ErrorOr<bool>> HandleAsync(StoredPaymentAttempt attempt, CancellationToken ct,
+        IReadOnlyDictionary<string, string>? launcherProof = null) =>
+        ReconcileAsync(attempt, false, null, ct, launcherProof);
 
     public async Task<ErrorOr<bool>> HandleLeaseAsync(PendingPaymentLease lease, CancellationToken ct)
     {
@@ -25,9 +26,9 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
     }
 
     private async Task<ErrorOr<bool>> ReconcileAsync(StoredPaymentAttempt attempt, bool verified, PendingPaymentLease? lease,
-        CancellationToken ct)
+        CancellationToken ct, IReadOnlyDictionary<string, string>? launcherProof = null)
     {
-        var observed = verified ? null : await ObserveAsync(attempt, ct);
+        var observed = verified ? null : await ObserveAsync(attempt, launcherProof, ct);
         return await store.InAttemptScopeAsync<bool>(attempt.AccountId, attempt.AttemptId, true, async token =>
         {
             var now = leaseClock.GetUtcNow();
@@ -44,7 +45,8 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
         }, ct);
     }
 
-    private async Task<RecoveryObservation?> ObserveAsync(StoredPaymentAttempt attempt, CancellationToken ct)
+    private async Task<RecoveryObservation?> ObserveAsync(StoredPaymentAttempt attempt,
+        IReadOnlyDictionary<string, string>? launcherProof, CancellationToken ct)
     {
         if (gateways.ForPin(attempt.Pin) is not { } gateway || gateway.Pin != attempt.Pin)
             return null;
@@ -62,7 +64,8 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
             reference = session.ProviderOrderReference;
         }
 
-        var verification = new CheckoutVerification(reference, attempt.AmountPaise, attempt.Currency);
+        var verification = new CheckoutVerification(reference, attempt.AmountPaise, attempt.Currency,
+            Request(attempt), launcherProof);
         var result = await PaymentGatewayCall.RunAsync(token => gateway.VerifyCheckoutAsync(verification, token), ct);
         return new(session, result.Outcome == GatewayOutcome.Succeeded ? result.Value : null);
     }

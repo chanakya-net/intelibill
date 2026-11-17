@@ -19,9 +19,10 @@ export class CheckoutPaymentService {
   }
 
   /** The launcher's report is only a hint; the server verifies captured funds itself. */
-  verify(scope: CheckoutScope, order: string, attempt: string, launcherOutcome: 'Success' | 'Cancelled' | null) {
+  verify(scope: CheckoutScope, order: string, attempt: string, launcherOutcome: 'Success' | 'Cancelled' | null,
+    launcherProof?: Readonly<Record<string, string>>) {
     return this.checked(scope, order, this.http.post<unknown>(this.attempt(scope, order, attempt) + '/verify',
-      { launcherOutcome }, this.options(scope)), attempt);
+      launcherProof ? { launcherOutcome, launcherProof } : { launcherOutcome }, this.options(scope)), attempt);
   }
 
   /** Development simulator only; the server answers 404 outside a local simulator runtime. */

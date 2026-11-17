@@ -25,6 +25,8 @@
         <p data-testid="payment-awaiting">{{ 'billing.checkout.payment.awaiting' | transloco }}</p>
         @if (launcher() === 'simulator') {
           <app-development-simulator-launcher [busy]="busy()" (simulate)="simulate($event)" (returnWithoutCapture)="verify('Success')" />
+        } @else if (launcher() === 'razorpay' && razorpay(); as launch) {
+          <app-razorpay-launcher [launch]="launch" [busy]="busy()" (outcome)="razorpayOutcome($event)" />
         } @else {
           <p data-testid="payment-launcher-unavailable">{{ 'billing.checkout.payment.launcherUnavailable' | transloco }}</p>
         }

@@ -3347,6 +3347,13 @@
         "term": "Paid term",
         "failed": "Payment failed. No funds were captured for this checkout.",
         "launcherUnavailable": "This checkout method is not available.",
+        "razorpay": {
+          "title": "Pay securely online",
+          "notice": "You will pay the full amount in one payment. Access starts only after the payment is verified by our servers.",
+          "pay": "Pay the full amount",
+          "loading": "Opening secure checkout…",
+          "unavailable": "Secure checkout could not be opened. Your order is kept; try again."
+        },
         "simulator": {
           "title": "Development payment simulator",
           "notice": "Development only. No real money moves and no real payment provider is contacted.",

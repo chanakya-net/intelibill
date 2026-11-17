@@ -29,9 +29,12 @@ public static class CheckoutPaymentsV1
     public const string Verify = "billing.checkout.payment.verify";
     public const string Simulate = "billing.checkout.payment.simulate";
     public const int MaxStartBytes = 512;
-    public const int MaxVerifyBytes = 256;
+    public const int MaxVerifyBytes = 1024;
     public const int MaxStatusBytes = 2048;
     public const string SimulatorFlow = "development-simulator";
+    public const string RazorpayFlow = "razorpay-standard";
+    public const int MaxProofEntries = 3;
+    public const int MaxProofValueLength = 160;
 
     public const string Unavailable = "Billing.PaymentUnavailable";
     public const string Unsupported = "Billing.PaymentUnsupported";
@@ -42,8 +45,22 @@ public static class CheckoutPaymentsV1
     public static readonly string[] PaymentStates = ["NotStarted", "AwaitingPayment", "PendingVerification", "Verified", "Failed"];
     public static readonly string[] FulfilmentStates = ["NotFulfilled", "Fulfilled", "NeedsReview"];
     public static readonly string[] AccessStates = ["NotApplicable", "Applying", "Applied", "NeedsReview"];
-    public static readonly string[] LauncherFlows = [SimulatorFlow];
+    public static readonly string[] LauncherFlows = [SimulatorFlow, RazorpayFlow];
     public static readonly string[] LauncherOutcomes = ["Success", "Cancelled"];
+
+    public static readonly string[] RazorpayLaunchKeys = ["amount", "currency", "keyId", "orderId"];
+
+    /// <summary>
+    /// A launcher declares only safe public parameters: none for the simulator and exactly the allow-listed, bounded
+    /// text values for Razorpay Standard Checkout. Never a URL, script or secret.
+    /// </summary>
+    public static bool ValidLaunch(string flow, IReadOnlyDictionary<string, string>? parameters) => flow switch
+    {
+        SimulatorFlow => parameters is { Count: 0 },
+        RazorpayFlow => parameters is { Count: 4 } && RazorpayLaunchKeys.All(key => parameters.TryGetValue(key, out var value) &&
+            value.Length is > 0 and <= 120 && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-')),
+        _ => false,
+    };
 
     public static bool IsAction(string action) => action is Start or Read or Verify or Simulate;
     public static string PaymentPath(Guid account, Guid order) => $"{CheckoutOrdersV1.DetailPath(account, order)}/payment";
@@ -66,9 +83,14 @@ public sealed record StartCheckoutPaymentV1([property: JsonPropertyName("operati
 
 /// <summary>The browser launcher's own report. A hint recorded as a claim; it never proves payment.</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
-public sealed record VerifyCheckoutPaymentV1([property: JsonPropertyName("launcherOutcome")] string? LauncherOutcome = null)
+public sealed record VerifyCheckoutPaymentV1([property: JsonPropertyName("launcherOutcome")] string? LauncherOutcome = null,
+    [property: JsonPropertyName("launcherProof"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    IReadOnlyDictionary<string, string>? LauncherProof = null)
 {
-    public bool IsValid() => LauncherOutcome is null || CheckoutPaymentsV1.LauncherOutcomes.Contains(LauncherOutcome);
+    public bool IsValid() => (LauncherOutcome is null || CheckoutPaymentsV1.LauncherOutcomes.Contains(LauncherOutcome)) &&
+        (LauncherProof is null || (LauncherProof.Count is > 0 and <= CheckoutPaymentsV1.MaxProofEntries &&
+            LauncherProof.All(entry => entry.Key.Length is > 0 and <= 40 &&
+                entry.Value.Length is > 0 and <= CheckoutPaymentsV1.MaxProofValueLength)));
 }
 
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
