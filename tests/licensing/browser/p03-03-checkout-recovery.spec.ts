@@ -86,11 +86,13 @@ test('@uncertain reload, second tab and billing account navigation keep one unce
   const second = await page.context().newPage();
   await second.goto(primary);
   await expect(second.getByTestId('payment-simulator')).toBeVisible();
-  const verify = second.waitForResponse(r => r.url().endsWith(payment + '/attempts/' + originalAttempt + '/verify'));
-  await second.getByTestId('payment-simulator-timeout').click();
-  const observed = await verify;
-  expect(observed.status()).toBe(200);
-  expect((await observed.json()).payment).toBe('PendingVerification');
+  const [observed] = await Promise.all([
+    second.waitForResponse(r => r.url().endsWith(payment + '/attempts/' + originalAttempt + '/verify')).then(async r => ({
+      status: r.status(), payment: (await r.json()).payment,
+    })),
+    second.getByTestId('payment-simulator-timeout').click(),
+  ]);
+  expect(observed).toEqual({ status: 200, payment: 'PendingVerification' });
   await assertPending(second);
   await page.reload();
   await assertPending(page);

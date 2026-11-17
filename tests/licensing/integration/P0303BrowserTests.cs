@@ -24,7 +24,7 @@ public sealed class P0303BrowserTests(LicensingPostgreSqlFixture database, ITest
         var evidence = Environment.GetEnvironmentVariable("P0303_EVIDENCE_DIR");
         Assert.False(string.IsNullOrWhiteSpace(evidence), "Set P0303_EVIDENCE_DIR.");
         Directory.CreateDirectory(evidence);
-        var clock = new P0201Clock { Now = P0210Fixture.Start };
+        var clock = new P0201Clock { Now = P0302Fixture.WholeSecondStart };
         await using var fixture = await P0302Fixture.StartAsync(database, clock, browser: true);
         var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1);
         var other = await PrepareOtherAccountAsync(fixture, payer, quote);

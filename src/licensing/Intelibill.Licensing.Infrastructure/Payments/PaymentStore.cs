@@ -114,6 +114,19 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
             SELECT EXISTS (SELECT FROM public.payment_events WHERE attempt_id = {attempt} AND kind = 'CheckoutFailed') AS "Value"
             """).SingleAsync(ct);
 
+    /// <summary>Events are ordered by their insertion sequence, so fixed clocks and equal instants stay ordered.</summary>
+    public Task<bool> IsUncertainAsync(Guid attempt, CancellationToken ct) =>
+        db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = {attempt}
+                AND e.kind = 'VerificationRequested' AND e.sequence > coalesce((SELECT max(r.sequence)
+                    FROM public.payment_events r WHERE r.attempt_id = {attempt} AND r.kind = 'ResumeConfirmed'), 0)) AS "Value"
+            """).SingleAsync(ct);
+
+    public Task<long> CountVerificationRequestsAsync(Guid attempt, CancellationToken ct) =>
+        db.Database.SqlQuery<long>($"""
+            SELECT count(*) AS "Value" FROM public.payment_events WHERE attempt_id = {attempt} AND kind = 'VerificationRequested'
+            """).SingleAsync(ct);
+
     public Task<bool> HasVerifiedPaymentAsync(Guid attempt, CancellationToken ct) =>
         db.Database.SqlQuery<bool>($"""
             SELECT EXISTS (SELECT FROM public.verified_payments WHERE attempt_id = {attempt}) AS "Value"
@@ -124,7 +137,9 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
         var attempt = await FindOrderAttemptAsync(account, order, ct);
         var row = await db.Database.SqlQuery<StatusRow>($"""
             SELECT EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = {attempt?.AttemptId}
-                    AND e.kind = 'VerificationRequested') AS verification_requested,
+                    AND e.kind = 'VerificationRequested' AND e.sequence > coalesce((SELECT max(r.sequence)
+                        FROM public.payment_events r WHERE r.attempt_id = {attempt?.AttemptId}
+                            AND r.kind = 'ResumeConfirmed'), 0)) AS verification_requested,
                 EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = {attempt?.AttemptId}
                     AND e.kind = 'CheckoutFailed') AS definitively_failed,
                 v.verified_at, EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = {attempt?.AttemptId}

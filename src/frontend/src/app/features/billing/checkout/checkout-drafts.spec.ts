@@ -17,15 +17,27 @@ const accept: AcceptQuote = {
 
 let originalLocks: PropertyDescriptor | undefined;
 
-function stubLocks(locks: { request: (key: string, run: () => unknown) => Promise<unknown> } | undefined) {
+function stubLocks(locks: { request: (key: string, ...args: never[]) => Promise<unknown> } | undefined) {
   Object.defineProperty(navigator, 'locks', { configurable: true, value: locks });
 }
 
+/** One browser's lock manager: exclusive per name, and `ifAvailable` answers null while the name is held. */
 function sharedLocks() {
-  let queue: Promise<unknown> = Promise.resolve();
-  stubLocks({ request: (_: string, run: () => unknown) => {
-    const result = queue.then(run);
-    queue = result.catch(() => undefined);
+  const queues = new Map<string, Promise<unknown>>();
+  const held = new Set<string>();
+  stubLocks({ request: (name: string, ...args: unknown[]) => {
+    const run = args.pop() as (lock: { name: string } | null) => unknown;
+    if ((args[0] as { ifAvailable?: boolean } | undefined)?.ifAvailable && held.has(name))
+      return Promise.resolve().then(() => run(null));
+    const result = (queues.get(name) ?? Promise.resolve()).then(async () => {
+      held.add(name);
+      try {
+        return await run({ name });
+      } finally {
+        held.delete(name);
+      }
+    });
+    queues.set(name, result.catch(() => undefined));
     return result;
   } });
 }
@@ -91,6 +103,43 @@ describe('CheckoutDrafts', () => {
       attempt, command: original.command, state: 'verified',
     });
     await expect(first.recordPayment(owner, order, id(8), 'pending')).rejects.toThrow('Checkout attempt changed');
+  });
+
+  it('advances the fence for a new claim on a pending draft but not for a routine pending read', async () => {
+    stubMemoryStorage();
+    sharedLocks();
+    const first = new CheckoutDrafts();
+    const second = new CheckoutDrafts();
+    await first.preparePayment(owner, order, 1, 'a'.repeat(64));
+    const attempt = id(9);
+    await first.recordPayment(owner, order, attempt, 'pending');
+    const fence = first.paymentRevision(owner, order);
+
+    await second.recordPayment(owner, order, attempt, 'pending');
+    expect(second.paymentRevision(owner, order)).toBe(fence);
+    await second.recordPayment(owner, order, attempt, 'pending', undefined, true);
+    expect(second.paymentRevision(owner, order)).toBe(fence + 1);
+
+    await expect(first.recordPayment(owner, order, attempt, 'awaiting', fence)).resolves.toMatchObject({ state: 'pending' });
+    await expect(first.recordPayment(owner, order, attempt, 'awaiting', fence + 1)).resolves.toMatchObject({ state: 'awaiting' });
+  });
+
+  it('never reopens a pending attempt while a page holds its hosted window open', async () => {
+    stubMemoryStorage();
+    sharedLocks();
+    const opener = new CheckoutDrafts();
+    const other = new CheckoutDrafts();
+    await opener.preparePayment(owner, order, 1, 'a'.repeat(64));
+    const attempt = id(9);
+    const release = await opener.holdWindow(owner, order);
+    expect(release).toBeInstanceOf(Function);
+    expect(await other.holdWindow(owner, order)).toBeNull();
+    await opener.recordPayment(owner, order, attempt, 'pending', undefined, true);
+    const fence = other.paymentRevision(owner, order);
+
+    await expect(other.recordPayment(owner, order, attempt, 'awaiting', fence)).resolves.toMatchObject({ state: 'pending' });
+    release!();
+    await expect(other.recordPayment(owner, order, attempt, 'awaiting', fence)).resolves.toMatchObject({ state: 'awaiting' });
   });
 
   it('fails to prepare a request when durable storage or locking is unavailable', async () => {

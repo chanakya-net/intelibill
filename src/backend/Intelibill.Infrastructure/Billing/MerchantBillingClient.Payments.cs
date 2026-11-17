@@ -53,7 +53,7 @@ internal sealed partial class MerchantBillingClient : IMerchantCheckoutPayments
     }
 
     /// <summary>
-    /// A valid payment keeps its neutral state; its launcher is relayed without parameters, and a simulator launcher
+    /// A valid payment keeps its neutral state; its launcher is relayed with only its allow-listed public parameters, and a simulator launcher
     /// only by a Development or Testing merchant host, whatever the licensing service answered.
     /// </summary>
     internal static CheckoutPaymentV1? RelayPayment(CheckoutPaymentV1 payment, Guid account, Guid order,
@@ -63,11 +63,11 @@ internal sealed partial class MerchantBillingClient : IMerchantCheckoutPayments
             return null;
         var launch = payment.Launch is { } offered &&
             (offered.Flow != CheckoutPaymentsV1.SimulatorFlow || MerchantBillingDelegationOptions.AllowsLocalCredentials(environment))
-            ? new CheckoutLaunchV1(offered.Flow, new Dictionary<string, string>()) : null;
+            ? new CheckoutLaunchV1(offered.Flow, new Dictionary<string, string>(offered.Parameters)) : null;
         return payment with { Launch = launch };
     }
 
-    /// <summary>Only the neutral vocabulary, allow-listed launcher flows and no launcher parameters are relayed.</summary>
+    /// <summary>Only the neutral vocabulary, allow-listed launcher flows and their allow-listed public parameters are relayed.</summary>
     internal static bool IsPaymentValid(CheckoutPaymentV1 p, Guid account, Guid order) =>
         p.SchemaVersion == 1 && p.AccountId == account && p.OrderId == order && p.AttemptId != Guid.Empty &&
         CheckoutPaymentsV1.PaymentStates.Contains(p.Payment) && CheckoutPaymentsV1.FulfilmentStates.Contains(p.Fulfilment) &&
@@ -77,8 +77,10 @@ internal sealed partial class MerchantBillingClient : IMerchantCheckoutPayments
         p.ShopsTotal is > 0 and <= CheckoutOrdersV1.MaxShops && p.ShopsApplied >= 0 && p.ShopsApplied <= p.ShopsTotal &&
         (p.Fulfilment == "Fulfilled") == (p.TermId is not null && p.TermStartsAt < p.TermEndsAt) &&
         (p.Access == "NotApplicable") == (p.Fulfilment != "Fulfilled") &&
-        (p.Launch is null || p.Payment == "AwaitingPayment" && CheckoutPaymentsV1.LauncherFlows.Contains(p.Launch.Flow) &&
-            p.Launch.Parameters is { Count: 0 });
+        (p.Launch is null || p.Payment == "AwaitingPayment" && CheckoutPaymentsV1.ValidLaunch(p.Launch.Flow, p.Launch.Parameters) &&
+            (p.Launch.Flow != CheckoutPaymentsV1.RazorpayFlow ||
+             p.Launch.Parameters["amount"] == p.AmountPaise.ToString(System.Globalization.CultureInfo.InvariantCulture) &&
+             p.Launch.Parameters["currency"] == p.Currency));
 
     private Error MapPaymentFailure(HttpStatusCode status, string? code) => (status, code) switch
     {

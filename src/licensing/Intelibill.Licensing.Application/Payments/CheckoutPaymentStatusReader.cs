@@ -21,23 +21,23 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         var shops = row.Deliveries.Select(delivery => delivery.ShopId).ToArray();
         var synced = shops.Length == 0 ? new Dictionary<Guid, EntitlementSynchronizationV1>()
             : await synchronization.ReadAsync(account, shops, ct);
-        var launchable = row.Attempt is { } attempt && gateways.ForPin(attempt.Pin) is not null;
+        var gateway = row.Attempt is { } attempt ? gateways.ForPin(attempt.Pin) : null;
         var canStart = row.Attempt is null && row.ManualVerifiedAt is null && row.TermId is null &&
             CanStart(quote) && !await store.HasOverlappingPaymentAsync(account, order, ct);
-        return Project(quote, row, synced, canStart, launchable);
+        return Project(quote, row, synced, canStart, gateway);
     }
 
     internal bool CanStart(CheckoutQuoteV1 quote)
     {
         var now = BillingAccountRules.StorageInstant(clock.GetUtcNow());
-        return Startable(quote) && gateways.ForNewAttempts() is not null && now < quote.ExpiresAt &&
+        return Startable(quote) && gateways.ForNewAttempts() is { } gateway && gateway.SupportsAmount(quote.AmountPaise, quote.Currency) && now < quote.ExpiresAt &&
             CheckoutRenewalPolicy.WindowOpen(quote, now);
     }
 
     internal static bool Startable(CheckoutQuoteV1 quote) => CheckoutRenewalPolicy.Payable(quote);
 
     private static CheckoutPaymentV1 Project(CheckoutQuoteV1 quote, PaymentStatusRow row,
-        IReadOnlyDictionary<Guid, EntitlementSynchronizationV1> synced, bool canStart, bool launchable)
+        IReadOnlyDictionary<Guid, EntitlementSynchronizationV1> synced, bool canStart, IPaymentGateway? gateway)
     {
         var attempt = row.Attempt;
         var payment = attempt is null ? (row.ManualVerifiedAt is null ? "NotStarted" : "Verified") : row.VerifiedAt is not null ? "Verified"
@@ -49,8 +49,9 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         var access = row.TermId is null ? "NotApplicable"
             : applied == quote.ShopCount ? "Applied" : review ? "NeedsReview" : "Applying";
         // A persisted launcher is offered only while the runtime still permits the attempt's pinned adapter.
-        var launch = payment == "AwaitingPayment" && row.ManualVerifiedAt is null && launchable && attempt?.LauncherFlow is { } flow
-            ? new CheckoutLaunchV1(flow, new Dictionary<string, string>()) : null;
+        var launch = payment == "AwaitingPayment" && row.ManualVerifiedAt is null && gateway is not null &&
+            attempt is { LauncherFlow: { } flow, ProviderOrderReference: { } reference }
+            ? new CheckoutLaunchV1(flow, gateway.LauncherParameters(reference, attempt.AmountPaise, attempt.Currency)) : null;
         return new(quote.AccountId, quote.OrderId, attempt?.AttemptId, payment, fulfilment, access, quote.AmountPaise,
             quote.Currency, attempt?.CreatedAt, attempt is null ? row.ManualVerifiedAt : row.VerifiedAt, row.TermId, row.TermStartsAt, row.TermEndsAt,
             quote.ShopCount, applied, canStart, launch, row.ManualVerifiedAt is { } verified ? new("Verified", verified) : null,

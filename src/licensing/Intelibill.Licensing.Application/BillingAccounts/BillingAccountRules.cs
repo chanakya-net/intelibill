@@ -54,10 +54,12 @@ public static class BillingAccountRules
         _ => false,
     };
 
+    // Verify appends a browser claim: its insert and commit share the account lock a proof-free resume decides under,
+    // so a stale unpaid read can never commit ResumeConfirmed over a claim that is inserted but not yet committed.
     public static bool SerializesAccountMutation(string action) => action is BillingOwnershipTransfersV1.Issue
         or BillingInvitationsV1.Issue or BillingInvitationsV1.RemoveMember or ShopAffiliationsV1.Request or SubscriptionCancellationsV1.Schedule
         or SubscriptionCancellationsV1.Withdraw or CheckoutOrdersV1.Create or CheckoutOrdersV1.Accept
-        or CheckoutPaymentsV1.Start;
+        or CheckoutPaymentsV1.Start or CheckoutPaymentsV1.Verify;
 
     public static string RoleName(BillingAccountRole role) => role switch
     {

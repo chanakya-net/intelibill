@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using static Intelibill.Licensing.Integration.Tests.P0308Fixture;
 using static Intelibill.Licensing.Integration.Tests.P0308Tests;
 
@@ -56,14 +57,27 @@ public sealed partial class P0309Tests(LicensingPostgreSqlFixture database) : IC
         Assert.Equal(1L, await fixture.CountAsync("payment_fulfilments", $"order_id = '{quote.OrderId:D}'"));
     }
 
-    [Fact]
-    public async Task PaymentDuringTradingSuspensionRecordsMoneyWithoutStartingTerm()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PaymentDuringTradingSuspensionRecordsMoneyWithoutStartingTerm(bool razorpay)
     {
-        await using var fixture = await StartAsync(database, March31);
+        using var provider = razorpay ? new FakeRazorpay() : null;
+        await using var fixture = await StartAsync(database, March31, razorpay ? FakeRazorpay.Settings() : null,
+            services: provider is null ? null : services =>
+                services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => provider));
         var package = await fixture.PackageAsync(1);
         var quote = await AcceptAsync(package, await FirstQuoteAsync(package, "Month"));
+        var attemptAt = razorpay ? March31.AddMilliseconds(500) : March31;
+        fixture.At(attemptAt);
         var attempt = await StartPaymentAsync(package, quote);
-        await P0302Fixture.CaptureAsync(package.Payer.Client, quote, attempt);
+        if (provider is null)
+            await P0302Fixture.CaptureAsync(package.Payer.Client, quote, attempt);
+        else
+        {
+            provider.AddPayment(provider.OrderId(), "captured", createdAt: attemptAt.ToUnixTimeSeconds());
+            fixture.At(attemptAt.AddMilliseconds(250));
+        }
         await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, $"""
             UPDATE public.entitlement_account_heads SET revision = revision + 1, restriction = 'Trading'
             WHERE account_id = '{package.Account:D}'

@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { isUuid } from './checkout.models';
 
 export type PaymentState = 'NotStarted' | 'AwaitingPayment' | 'PendingVerification' | 'Verified' | 'Failed';
@@ -83,4 +84,17 @@ function hasValidSource(payment: CheckoutPayment): boolean {
     ? payment.payment === 'Verified' && payment.startedAt === null && payment.verifiedAt === manual.verifiedAt
     : isUuid(payment.attemptId) && payment.payment !== 'NotStarted' && typeof payment.startedAt === 'string' &&
       ((payment.payment === 'Verified') === (typeof payment.verifiedAt === 'string'));
+}
+
+export type PaymentProblem = 'unavailable' | 'unsupported' | 'expired' | 'changed' | 'denied';
+
+export function paymentFailure(error: unknown): PaymentProblem {
+  if (!(error instanceof HttpErrorResponse)) return 'unavailable';
+  if (error.status === 401 || error.status === 403) return 'denied';
+  switch (error.error?.code) {
+    case 'Billing.PaymentUnsupported': return 'unsupported';
+    case 'Billing.CheckoutExpired': return 'expired';
+    case 'Billing.CheckoutSourceChanged': return 'changed';
+    default: return 'unavailable';
+  }
 }

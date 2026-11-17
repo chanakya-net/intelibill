@@ -40,7 +40,7 @@ public sealed partial class P0306Tests
         var attempt = started.GetProperty("attemptId").GetGuid();
         Assert.False(started.TryGetProperty("manualPayment", out _));
         AssertStatus(started, "AwaitingPayment", "NotFulfilled", "NotApplicable");
-        AssertStatus(await VerifyAsync(payer.Client, quote, attempt), "PendingVerification", "NotFulfilled", "NotApplicable");
+        AssertStatus(await VerifyAsync(payer.Client, quote, attempt, "Success"), "PendingVerification", "NotFulfilled", "NotApplicable");
 
         using var billing = await SignInBillingAsync(fixture);
         var command = Receipt(quote, now);
@@ -125,6 +125,8 @@ public sealed partial class P0306Tests
         var before = Assert.IsType<string>(await ReadOnlineEvidenceAsync(fixture));
         await migrator.MigrateAsync();
         Assert.Equal(before, await ReadOnlineEvidenceAsync(fixture));
+        Assert.Equal("ProviderCapture", await fixture.Delivery.SourceScalarAsync(
+            "SELECT capture_time_basis FROM public.verified_payments"));
         var error = await Assert.ThrowsAsync<PostgresException>(() => LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner,
             """
             INSERT INTO public.payment_fulfilments (account_id, order_id, term_id, policy_version, fulfilled_at)
@@ -150,7 +152,7 @@ public sealed partial class P0306Tests
 
     private static Task<object?> ReadOnlineEvidenceAsync(P0302Fixture fixture) =>
         LicensingPostgreSqlFixture.ReadScalarAsync(fixture.Hosts.LicensingOwner, """
-            SELECT jsonb_build_object('attempt', to_jsonb(a), 'session', to_jsonb(s), 'payment', to_jsonb(v),
+            SELECT jsonb_build_object('attempt', to_jsonb(a), 'session', to_jsonb(s), 'payment', to_jsonb(v) - 'capture_time_basis',
                 'lease', to_jsonb(p), 'fulfilment', to_jsonb(f) - 'manual_receipt_id'
                     -- #871 adds nullable renewal provenance; a first purchase keeps it null and is otherwise unchanged.
                     - ARRAY['predecessor_term_id', 'payment_effective_at', 'grace_days_included', 'renewal_policy_version'])::text

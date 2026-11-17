@@ -57,7 +57,10 @@ test('@pending a browser success report alone stays pending verification', async
   expect((await started).status()).toBe(201);
   await expect(page.getByTestId('payment-simulator-notice')).toHaveText(/Development only/);
   await page.screenshot({ path: join(evidence, 'pending-simulator-desktop.png'), fullPage: true });
+  // Reloading mid-request would abort the claim; a proof-free recheck of an unpaid order stays payable by design.
+  const claim = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/verify'));
   await page.getByRole('button', { name: 'Return without capturing' }).click();
+  expect((await claim).status()).toBe(200);
   await expect(page.getByTestId('payment-pending')).toBeVisible();
   await expect(page.getByTestId('payment-confirmed')).toHaveCount(0);
   await page.reload();

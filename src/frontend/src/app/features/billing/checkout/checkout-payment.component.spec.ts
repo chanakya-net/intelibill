@@ -11,6 +11,8 @@ import { LocalizationService } from '../../../core/i18n/localization.service';
 import { CheckoutPaymentComponent } from './checkout-payment.component';
 import type { CheckoutPayment } from './checkout-payment.models';
 import type { Quote } from './checkout.models';
+import { RAZORPAY_OPENER, type RazorpayOutcome } from './razorpay-checkout';
+import { CheckoutDrafts } from './checkout-drafts';
 
 const id = (value: number) => '00000000-0000-4000-8000-00000000000' + value;
 const owner = { userId: id(1), shopId: id(2) };
@@ -36,13 +38,32 @@ const verified = (access: CheckoutPayment['access'], applied: number) => status(
   termId: id(7), termStartsAt: '2026-11-16T12:02:00Z', termEndsAt: '2026-12-16T12:02:00Z',
 });
 
+const contextScope = signal<{ userId: string; shopId: string } | null>(owner);
 let http: HttpTestingController;
+let razorpayOpener: (launch: unknown, signal?: AbortSignal) => Promise<RazorpayOutcome> = () => Promise.reject(new Error('unexpected checkout open'));
 
 beforeEach(() => {
+  contextScope.set(owner);
   const storage = new Map<string, string>();
   vi.stubGlobal('localStorage', { getItem: (key: string) => storage.get(key) ?? null,
     setItem: (key: string, value: string) => storage.set(key, value) });
-  const locks = { request: <T>(_key: string, run: () => T) => Promise.resolve().then(run) };
+  // Shared by every page in a test, as one browser's lock manager is: a held name answers `ifAvailable` with null.
+  const held = new Map<string, number>();
+  const locks = {
+    request: (name: string, ...args: unknown[]) => {
+      const run = args.pop() as (lock: { name: string } | null) => unknown;
+      const ifAvailable = (args[0] as { ifAvailable?: boolean } | undefined)?.ifAvailable;
+      return Promise.resolve().then(async () => {
+        if (ifAvailable && held.get(name)) return run(null);
+        held.set(name, (held.get(name) ?? 0) + 1);
+        try {
+          return await run({ name });
+        } finally {
+          held.set(name, held.get(name)! - 1);
+        }
+      });
+    },
+  };
   Object.defineProperty(navigator, 'locks', { configurable: true, value: locks });
   vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
   TestBed.configureTestingModule({
@@ -51,8 +72,9 @@ beforeEach(() => {
     })],
     providers: [
       provideHttpClient(), provideHttpClientTesting(),
-      { provide: ShopContextService, useValue: { scope: signal(owner) } },
+      { provide: ShopContextService, useValue: { scope: contextScope } },
       { provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } },
+      { provide: RAZORPAY_OPENER, useValue: (launch: unknown, signal?: AbortSignal) => razorpayOpener(launch, signal) },
     ],
   });
   http = TestBed.inject(HttpTestingController);
@@ -70,6 +92,14 @@ afterEach(() => {
 });
 
 async function render(first: CheckoutPayment) {
+  const page = mount();
+  http.expectOne({ method: 'GET', url: path }).flush(first);
+  await page.update();
+  return page;
+}
+
+/** A component instance whose first status read is left to the caller, as a second tab would issue it. */
+function mount() {
   const fixture = TestBed.createComponent(CheckoutPaymentComponent);
   fixture.componentRef.setInput('quote', quote);
   fixture.detectChanges();
@@ -78,9 +108,9 @@ async function render(first: CheckoutPayment) {
     text: (testId: string) => root.querySelector(`[data-testid="${testId}"]`)?.textContent?.trim() ?? null,
     click: (testId: string) => root.querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`)!.click(),
     update: async () => { await new Promise(done => setTimeout(done, 0)); await fixture.whenStable(); fixture.detectChanges(); },
+    /** Unloads the page, as a reload or a closed tab does: its locks go with it. */
+    close: () => fixture.destroy(),
   };
-  http.expectOne({ method: 'GET', url: path }).flush(first);
-  await page.update();
   return page;
 }
 
@@ -228,5 +258,568 @@ describe('CheckoutPaymentComponent', () => {
     await page.update();
     expect(page.text('payment-awaiting')).toBe(t.awaiting);
     expect(page.text('payment-problem')).toBeNull();
+  });
+
+  describe('Razorpay launcher', () => {
+    const launch = { flow: 'razorpay-standard', parameters: { keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: '27000', currency: 'INR', methods: 'upi' } };
+    const proof = { razorpay_payment_id: 'pay_abc', razorpay_order_id: 'order_abc123', razorpay_signature: 'f'.repeat(64) };
+
+    function open(outcome: RazorpayOutcome) {
+      const opener = vi.fn((_launch: unknown) => Promise.resolve(outcome));
+      razorpayOpener = opener;
+      return opener;
+    }
+
+    it('relays a successful callback as an unverified claim and shows pending until the server verifies', async () => {
+      const opener = open({ kind: 'success', proof });
+      const page = await render(status({ launch }));
+      expect(page.text('payment-razorpay-notice')).toBe(t.razorpay.notice);
+      page.click('payment-razorpay-pay');
+      await page.update();
+      expect(opener).toHaveBeenCalledWith({ keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: 27000, currency: 'INR', methods: ['upi'] }, expect.any(AbortSignal));
+      const verify = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(verify.request.body).toEqual({ launcherOutcome: 'Success', launcherProof: proof });
+      verify.flush(status({ payment: 'PendingVerification', launch: null }));
+      await page.update();
+      expect(page.text('payment-pending')).toBe(t.pending);
+      expect(page.text('payment-confirmed')).toBeNull();
+    });
+
+    it('rechecks the original order after a dismissed window and offers it again only once proven idle', async () => {
+      open({ kind: 'cancelled' });
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      const check = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      await page.update();
+      expect(check.request.body).toEqual({ launcherOutcome: null });
+      expect(page.text('payment-pending')).toBe(t.pending);
+      expect(page.text('payment-razorpay-pay')).toBeNull();
+      check.flush(status({ launch }));
+      await page.update();
+      expect(page.text('payment-razorpay-pay')).not.toBeNull();
+      expect(page.text('payment-pending')).toBeNull();
+      expect(TestBed.inject(CheckoutDrafts).readPayment({ ...owner, account }, order)?.state).toBe('awaiting');
+    });
+
+    it('keeps Pay hidden after a dismissed window while a provider payment is in flight, then verifies the same attempt', async () => {
+      open({ kind: 'cancelled' });
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      const check = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      check.flush(status({ payment: 'PendingVerification', launch: null }));
+      await page.update();
+      expect(page.text('payment-pending')).toBe(t.pending);
+      expect(page.text('payment-razorpay-pay')).toBeNull();
+
+      page.click('payment-check');
+      const again = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(again.request.body).toEqual({ launcherOutcome: null });
+      again.flush(verified('Applying', 0));
+      await page.update();
+      expect(page.text('payment-confirmed')).toBe(t.confirmed);
+    });
+
+    it('drops a dismissal that lands after the account scope changed', async () => {
+      let finish: (outcome: RazorpayOutcome) => void = () => undefined;
+      razorpayOpener = () => new Promise<RazorpayOutcome>(resolve => { finish = resolve; });
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      await page.update();
+      contextScope.set({ userId: id(8), shopId: id(9) });
+      await page.update();
+      http.expectOne({ method: 'GET', url: path }).flush(notStarted);
+      finish({ kind: 'cancelled' });
+      await page.update();
+      http.expectNone({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+    });
+
+    it('applies a pending claim another tab saved while its own recheck failed', async () => {
+      const drafts = TestBed.inject(CheckoutDrafts);
+      const scope = { ...owner, account };
+      const tabA = await render(status({ launch }));
+      const tabB = await render(status({ launch }));
+      expect(tabB.text('payment-razorpay-pay')).not.toBeNull();
+
+      tabB.click('payment-razorpay-check');
+      const held = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      open({ kind: 'success', proof });
+      tabA.click('payment-razorpay-pay');
+      const claim = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      expect(drafts.readPayment(scope, order)?.state).toBe('pending');
+      window.dispatchEvent(new StorageEvent('storage', { key: drafts.paymentKey(scope, order) }));
+      claim.flush(status({ payment: 'PendingVerification', launch: null }));
+      await tabA.update();
+
+      held.flush({ code: 'Billing.Unavailable' }, { status: 503, statusText: 'Service Unavailable' });
+      await tabB.update();
+      expect(tabB.text('payment-razorpay-pay')).toBeNull();
+      expect(tabB.text('payment-pending')).toBe(t.pending);
+
+      tabB.click('payment-check');
+      const again = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(again.request.body).toEqual({ launcherOutcome: null });
+      again.flush(status({ payment: 'PendingVerification', launch: null }));
+      await tabB.update();
+      expect(tabB.text('payment-razorpay-pay')).toBeNull();
+    });
+    it.each(['unavailable', 'stale'])(
+      'keeps Pay hidden when another tab verified the attempt while its own recheck was held (%s answer)', async answer => {
+        const drafts = TestBed.inject(CheckoutDrafts);
+        const scope = { ...owner, account };
+        const storage = () => window.dispatchEvent(new StorageEvent('storage', { key: drafts.paymentKey(scope, order) }));
+        const tabA = await render(status({ launch }));
+        const tabB = await render(status({ launch }));
+        tabB.click('payment-razorpay-check');
+        const held = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+
+        open({ kind: 'success', proof });
+        tabA.click('payment-razorpay-pay');
+        const claim = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+        expect(drafts.readPayment(scope, order)?.state).toBe('pending');
+        storage();
+        claim.flush(verified('Applying', 0));
+        await tabA.update();
+        expect(drafts.readPayment(scope, order)?.state).toBe('verified');
+        storage();
+
+        if (answer === 'stale') held.flush(status({ launch }));
+        else held.flush({ code: 'Billing.Unavailable' }, { status: 503, statusText: 'Service Unavailable' });
+        await tabB.update();
+        expect(tabB.text('payment-razorpay-pay')).toBeNull();
+        expect(tabB.text('payment-pending')).toBe(t.pending);
+
+        // Tab A rereads after its own storage event; tab B catches up on the terminal draft with its own status read.
+        const reads = http.match({ method: 'GET', url: path });
+        expect(reads).toHaveLength(2);
+        reads.forEach(read => read.flush(verified('Applying', 0)));
+        await tabA.update();
+        await tabB.update();
+        expect(tabB.text('payment-razorpay-pay')).toBeNull();
+        expect(tabB.text('payment-confirmed')).toBe(t.confirmed);
+        expect(drafts.readPayment(scope, order)?.state).toBe('verified');
+      });
+
+    it.each([
+      ['unavailable', 'a later bounded refresh'], ['unavailable', 'Check again'],
+      ['stale', 'a later bounded refresh'], ['stale', 'Check again'],
+    ])('reads once to catch up on another tab\'s result: a failed (%s) catch-up read waits for %s', async (answer, confirm) => {
+      const drafts = TestBed.inject(CheckoutDrafts);
+      const scope = { ...owner, account };
+      const storage = () => window.dispatchEvent(new StorageEvent('storage', { key: drafts.paymentKey(scope, order) }));
+      const tabA = await render(status({ launch }));
+      const tabB = await render(status({ launch }));
+      tabB.click('payment-razorpay-check');
+      const held = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+
+      open({ kind: 'success', proof });
+      tabA.click('payment-razorpay-pay');
+      const claim = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      storage();
+      claim.flush(verified('Applied', 3));
+      await tabA.update();
+      storage();
+      held.flush({ code: 'Billing.Unavailable' }, { status: 503, statusText: 'Service Unavailable' });
+      await tabB.update();
+
+      const reads = http.match({ method: 'GET', url: path });
+      expect(reads).toHaveLength(2);
+      reads[0].flush(verified('Applied', 3));
+      if (answer === 'stale') reads[1].flush(status({ launch }));
+      else reads[1].flush({ code: 'Billing.Unavailable' }, { status: 503, statusText: 'Service Unavailable' });
+      await tabA.update();
+      await tabB.update();
+      await tabB.update();
+      expect(http.match({ method: 'GET', url: path })).toHaveLength(0);
+      expect(tabB.text('payment-razorpay-pay')).toBeNull();
+      expect(tabB.text('payment-pending')).toBe(t.pending);
+
+      if (confirm === 'Check again') {
+        tabB.click('payment-check');
+        const again = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+        expect(again.request.body).toEqual({ launcherOutcome: null });
+        again.flush(verified('Applied', 3));
+      } else {
+        await vi.advanceTimersByTimeAsync(5000);
+        http.expectOne({ method: 'GET', url: path }).flush(verified('Applied', 3));
+      }
+      await tabB.update();
+      expect(tabB.text('payment-razorpay-pay')).toBeNull();
+      expect(tabB.text('payment-confirmed')).toBe(t.confirmed);
+    });
+
+    it('keeps a live window\'s hold against another tab\'s idle recheck, then rechecks the original order after a reload', async () => {
+      const drafts = TestBed.inject(CheckoutDrafts);
+      const saved = () => drafts.readPayment({ ...owner, account }, order)?.state;
+      const opener = vi.fn(() => new Promise<RazorpayOutcome>(() => undefined));
+      razorpayOpener = opener;
+      const tabA = await render(status({ launch }));
+      tabA.click('payment-razorpay-pay');
+      await vi.waitFor(() => expect(opener).toHaveBeenCalledTimes(1));
+      await tabA.update();
+      expect(saved()).toBe('pending');
+
+      // Tab B restores the pending draft while A's window is open and the provider order is still idle.
+      const tabB = mount();
+      http.expectOne({ method: 'GET', url: path }).flush(status({ launch }));
+      await tabB.update();
+      const idle = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      expect(idle.request.body).toEqual({ launcherOutcome: null });
+      idle.flush(status({ launch }));
+      await tabB.update();
+      expect(saved()).toBe('pending');
+      expect(tabB.text('payment-razorpay-pay')).toBeNull();
+      expect(tabB.text('payment-pending')).toBe(t.pending);
+
+      // The customer authorizes in A's window, then A reloads before any callback fires.
+      tabA.close();
+      const reloaded = mount();
+      http.expectOne({ method: 'GET', url: path }).flush(status({ launch }));
+      await reloaded.update();
+      expect(reloaded.text('payment-razorpay-pay')).toBeNull();
+      const recheck = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      expect(recheck.request.body).toEqual({ launcherOutcome: null });
+      recheck.flush(status({ payment: 'PendingVerification', launch: null }));
+      await reloaded.update();
+      await tabB.update();
+      for (const page of [reloaded, tabB]) {
+        expect(page.text('payment-razorpay-pay')).toBeNull();
+        expect(page.text('payment-pending')).toBe(t.pending);
+      }
+
+      reloaded.click('payment-check');
+      http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }).flush(verified('Applied', 3));
+      await reloaded.update();
+      expect(reloaded.text('payment-confirmed')).toBe(t.confirmed);
+      expect(opener).toHaveBeenCalledTimes(1);
+    });
+
+    it('releases the hosted window hold when a pending check unmounts the launcher', async () => {
+      const drafts = TestBed.inject(CheckoutDrafts);
+      const scope = { ...owner, account };
+      const aborted = vi.fn();
+      const opener = vi.fn((_launch: unknown, signal?: AbortSignal) => new Promise<RazorpayOutcome>(resolve => {
+        signal?.addEventListener('abort', () => { aborted(); resolve({ kind: 'cancelled' }); });
+      }));
+      razorpayOpener = opener;
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      await vi.waitFor(() => expect(opener).toHaveBeenCalledTimes(1));
+      await page.update();
+
+      page.click('payment-razorpay-check');
+      http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` })
+        .flush(status({ payment: 'PendingVerification', launch: null }));
+      await page.update();
+      expect(aborted).toHaveBeenCalledTimes(1);
+      expect(page.text('payment-pending')).toBe(t.pending);
+      expect(page.text('payment-razorpay-pay')).toBeNull();
+      expect(drafts.readPayment(scope, order)?.state).toBe('pending');
+
+      page.click('payment-check');
+      const fresh = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(fresh.request.body).toEqual({ launcherOutcome: null });
+      fresh.flush(status({ launch }));
+      await page.update();
+
+      const release = await drafts.holdWindow(scope, order);
+      const observed = { lockAvailable: release !== null, draftState: drafts.readPayment(scope, order)?.state,
+        payVisible: page.text('payment-razorpay-pay') !== null };
+      release?.();
+      expect(observed).toEqual({ lockAvailable: true, draftState: 'awaiting', payVisible: true });
+    });
+
+    it('reopens the order once the window that held it was dismissed', async () => {
+      let finish: (outcome: RazorpayOutcome) => void = () => undefined;
+      razorpayOpener = () => new Promise<RazorpayOutcome>(resolve => { finish = resolve; });
+      const tabA = await render(status({ launch }));
+      tabA.click('payment-razorpay-pay');
+      await tabA.update();
+      const tabB = mount();
+      http.expectOne({ method: 'GET', url: path }).flush(status({ launch }));
+      await tabB.update();
+      (await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }))).flush(status({ launch }));
+      await tabB.update();
+      expect(tabB.text('payment-razorpay-pay')).toBeNull();
+
+      finish({ kind: 'cancelled' });
+      const dismissed = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      expect(dismissed.request.body).toEqual({ launcherOutcome: null });
+      dismissed.flush(status({ launch }));
+      await tabA.update();
+      expect(tabA.text('payment-razorpay-pay')).not.toBeNull();
+      expect(TestBed.inject(CheckoutDrafts).readPayment({ ...owner, account }, order)?.state).toBe('awaiting');
+    });
+
+    it('saves the opened checkout before the window opens, so a reload that lost the callback rechecks first', async () => {
+      const drafts = TestBed.inject(CheckoutDrafts);
+      const saved = () => drafts.readPayment({ ...owner, account }, order)?.state;
+      const statesAtOpen: (string | undefined)[] = [];
+      razorpayOpener = () => { statesAtOpen.push(saved()); return new Promise<RazorpayOutcome>(() => undefined); };
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      await vi.waitFor(() => expect(statesAtOpen).toEqual(['pending']));
+      await page.update();
+      expect(page.text('payment-razorpay-pay')).not.toBeNull();
+
+      const reloaded = mount();
+      http.expectOne({ method: 'GET', url: path }).flush(status({ launch }));
+      await reloaded.update();
+      expect(reloaded.text('payment-razorpay-pay')).toBeNull();
+      expect(reloaded.text('payment-pending')).toBe(t.pending);
+      const recheck = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      expect(recheck.request.body).toEqual({ launcherOutcome: null });
+      recheck.flush(status({ payment: 'PendingVerification', launch: null }));
+      await reloaded.update();
+      expect(reloaded.text('payment-razorpay-pay')).toBeNull();
+
+      reloaded.click('payment-check');
+      http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }).flush(verified('Applying', 0));
+      await reloaded.update();
+      expect(reloaded.text('payment-confirmed')).toBe(t.confirmed);
+    });
+
+    it('relays a success callback without valid proof as an unverified claim, never as a dismissal', async () => {
+      open({ kind: 'unverified' });
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      const claim = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      expect(claim.request.body).toEqual({ launcherOutcome: 'Success' });
+      claim.flush(status({ payment: 'PendingVerification', launch: null }));
+      await page.update();
+      expect(page.text('payment-pending')).toBe(t.pending);
+      expect(page.text('payment-razorpay-pay')).toBeNull();
+
+      page.click('payment-check');
+      const again = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(again.request.body).toEqual({ launcherOutcome: null });
+      again.flush(verified('Applying', 0));
+      await page.update();
+      expect(page.text('payment-confirmed')).toBe(t.confirmed);
+    });
+
+    it('drops a callback that lands after the account scope changed', async () => {
+      let finish: (outcome: RazorpayOutcome) => void = () => undefined;
+      razorpayOpener = () => new Promise<RazorpayOutcome>(resolve => { finish = resolve; });
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      await page.update();
+
+      contextScope.set({ userId: id(8), shopId: id(9) });
+      await page.update();
+      http.expectOne({ method: 'GET', url: path }).flush(notStarted);
+      finish({ kind: 'success', proof });
+      await page.update();
+      http.expectNone({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+    });
+
+    it('holds a callback that arrives while another request runs and verifies the original attempt', async () => {
+      let finish: (outcome: RazorpayOutcome) => void = () => undefined;
+      razorpayOpener = () => new Promise<RazorpayOutcome>(resolve => { finish = resolve; });
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      await page.update();
+      page.click('payment-razorpay-check');
+      const again = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      finish({ kind: 'success', proof });
+      await page.update();
+      again.flush(status({ launch }));
+      await page.update();
+      const relayed = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      expect(relayed.request.body).toEqual({ launcherOutcome: 'Success', launcherProof: proof });
+      relayed.flush(status({ payment: 'PendingVerification', launch: null }));
+      await page.update();
+      expect(page.text('payment-pending')).toBe(t.pending);
+    });
+
+    it('rechecks the same attempt without a new checkout when the callback was lost', async () => {
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-check');
+      const check = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(check.request.body).toEqual({ launcherOutcome: null });
+      check.flush(verified('Applying', 0));
+      await page.update();
+      expect(page.text('payment-confirmed')).toBe(t.confirmed);
+    });
+
+    it('keeps a newer pending claim against an older awaiting read, then reopens only on a fresh recheck', async () => {
+      const opener = open({ kind: 'success', proof });
+      const drafts = TestBed.inject(CheckoutDrafts);
+      const saved = () => drafts.readPayment({ ...owner, account }, order)?.state;
+      const tabA = await render(status({ launch }));
+      expect(saved()).toBe('awaiting');
+
+      const tabB = mount();
+      const held = http.expectOne({ method: 'GET', url: path });
+      tabA.click('payment-razorpay-pay');
+      const claim = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      claim.flush(status({ payment: 'PendingVerification', launch: null }));
+      await tabA.update();
+      expect(saved()).toBe('pending');
+
+      held.flush(status({ launch }));
+      await tabB.update();
+      expect(saved()).toBe('pending');
+      expect(tabB.text('payment-pending')).toBe(t.pending);
+      expect(tabB.text('payment-razorpay-pay')).toBeNull();
+
+      tabB.click('payment-check');
+      const fresh = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(fresh.request.body).toEqual({ launcherOutcome: null });
+      fresh.flush(status({ launch }));
+      await tabB.update();
+      expect(saved()).toBe('awaiting');
+      expect(tabB.text('payment-pending')).toBeNull();
+      tabB.click('payment-razorpay-pay');
+      await tabB.update();
+      expect(opener).toHaveBeenLastCalledWith(expect.objectContaining({ orderId: 'order_abc123' }), expect.any(AbortSignal));
+      http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }).flush(status({ payment: 'PendingVerification', launch: null }));
+      await tabB.update();
+    });
+
+    it('keeps a newer callback on an already-pending draft against a recheck held across tabs', async () => {
+      let complete: (outcome: RazorpayOutcome) => void = () => undefined;
+      razorpayOpener = () => new Promise<RazorpayOutcome>(done => { complete = done; });
+      const drafts = TestBed.inject(CheckoutDrafts);
+      const saved = () => drafts.readPayment({ ...owner, account }, order);
+      const tabB = await render(status({ launch }));
+      tabB.click('payment-razorpay-pay');
+      await tabB.update();
+
+      const tabA = mount();
+      http.expectOne({ method: 'GET', url: path }).flush(status({ payment: 'PendingVerification', launch: null }));
+      await tabA.update();
+      expect(saved()?.state).toBe('pending');
+      const before = saved()?.revision;
+      tabA.click('payment-check');
+      const held = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(held.request.body).toEqual({ launcherOutcome: null });
+
+      complete({ kind: 'success', proof });
+      const claim = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      expect(claim.request.body).toEqual({ launcherOutcome: 'Success', launcherProof: proof });
+      expect(saved()?.revision).toBeGreaterThan(before!);
+      claim.flush(status({ payment: 'PendingVerification', launch: null }));
+      await tabB.update();
+
+      held.flush(status({ launch }));
+      await tabA.update();
+      expect(saved()?.state).toBe('pending');
+      expect(tabA.text('payment-pending')).toBe(t.pending);
+      expect(tabA.text('payment-razorpay-pay')).toBeNull();
+
+      tabA.click('payment-check');
+      http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }).flush(status({ launch }));
+      await tabA.update();
+      expect(saved()?.state).toBe('awaiting');
+      expect(tabA.text('payment-razorpay-pay')).not.toBeNull();
+    });
+
+    it('never reopens a pending attempt from a routine status read', async () => {
+      const page = await render(status({ payment: 'PendingVerification', launch: null }));
+      await vi.advanceTimersByTimeAsync(5000);
+      http.expectOne({ method: 'GET', url: path }).flush(status({ launch }));
+      await page.update();
+      expect(page.text('payment-pending')).toBe(t.pending);
+      expect(TestBed.inject(CheckoutDrafts).readPayment({ ...owner, account }, order)?.state).toBe('pending');
+    });
+
+    it('offers the launcher again once the server confirms the recovered order is still unpaid', async () => {
+      const page = await render(status({ payment: 'PendingVerification', launch: null }));
+      page.click('payment-check');
+      http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }).flush(status({ launch }));
+      await page.update();
+      expect(page.text('payment-razorpay-pay')).not.toBeNull();
+      expect(page.text('payment-pending')).toBeNull();
+    });
+
+    it.each([
+      ['idle', status({ launch }), true],
+      ['ambiguous or authorized', status({ payment: 'PendingVerification', launch: null }), false],
+    ])('releases the hold when the checkout fails to open, then rechecks the original order (%s)', async (_case, answer, payable) => {
+      const drafts = TestBed.inject(CheckoutDrafts);
+      const scope = { ...owner, account };
+      let fail: (error: Error) => void = () => undefined;
+      const opener = vi.fn(() => new Promise<RazorpayOutcome>((_, reject) => { fail = reject; }));
+      razorpayOpener = opener;
+      const tabA = await render(status({ launch }));
+      tabA.click('payment-razorpay-pay');
+      await vi.waitFor(() => expect(opener).toHaveBeenCalledTimes(1));
+
+      // Tab B restores the pending draft while A still holds the window: its idle recheck cannot reopen the order.
+      const tabB = mount();
+      http.expectOne({ method: 'GET', url: path }).flush(status({ launch }));
+      await tabB.update();
+      (await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }))).flush(status({ launch }));
+      await tabB.update();
+      expect(tabB.text('payment-razorpay-pay')).toBeNull();
+
+      // The hosted script never opens. Tab A stays open, lets go of the hold and checks the same order proof-free.
+      fail(new Error('checkout-unavailable'));
+      const recheck = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      expect(recheck.request.body).toEqual({ launcherOutcome: null });
+      const release = await drafts.holdWindow(scope, order);
+      expect(release).not.toBeNull();
+      release?.();
+      recheck.flush(answer);
+      await tabA.update();
+      expect(tabA.text('payment-razorpay-pay') !== null).toBe(payable);
+
+      tabB.click('payment-check');
+      const idle = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(idle.request.body).toEqual({ launcherOutcome: null });
+      idle.flush(answer);
+      await tabB.update();
+      expect(tabB.text('payment-razorpay-pay') !== null).toBe(payable);
+      expect(tabB.text('payment-pending') !== null).toBe(!payable);
+      expect(drafts.readPayment(scope, order)?.state).toBe(payable ? 'awaiting' : 'pending');
+      expect(opener).toHaveBeenCalledTimes(1);
+    });
+
+    it('never lets a stale scope\'s failed launch release a newer window hold', async () => {
+      const drafts = TestBed.inject(CheckoutDrafts);
+      let fail: (error: Error) => void = () => undefined;
+      razorpayOpener = () => new Promise<RazorpayOutcome>((_, reject) => { fail = reject; });
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      await page.update();
+
+      contextScope.set({ userId: id(8), shopId: id(9) });
+      await page.update();
+      http.expectOne({ method: 'GET', url: path }).flush(notStarted);
+      contextScope.set(owner);
+      await page.update();
+      http.expectOne({ method: 'GET', url: path }).flush(status({ launch }));
+      (await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }))).flush(status({ launch }));
+      await page.update();
+
+      const newer = vi.fn(() => new Promise<RazorpayOutcome>(() => undefined));
+      razorpayOpener = newer;
+      page.click('payment-razorpay-pay');
+      await vi.waitFor(() => expect(newer).toHaveBeenCalledTimes(1));
+      fail(new Error('checkout-unavailable'));
+      await page.update();
+      await page.update();
+      http.expectNone({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(await drafts.holdWindow({ ...owner, account }, order)).toBeNull();
+      expect(drafts.readPayment({ ...owner, account }, order)?.state).toBe('pending');
+    });
+
+    it('checks the original order proof-free after a hosted payment failure and keeps Pay hidden while funding is uncertain', async () => {
+      const opener = open({ kind: 'failed' });
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      const check = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      expect(check.request.body).toEqual({ launcherOutcome: null });
+      check.flush(status({ payment: 'PendingVerification', launch: null }));
+      await page.update();
+      expect(page.text('payment-pending')).toBe(t.pending);
+      expect(page.text('payment-razorpay-pay')).toBeNull();
+
+      page.click('payment-check');
+      http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }).flush(verified('Applying', 0));
+      await page.update();
+      expect(page.text('payment-confirmed')).toBe(t.confirmed);
+      expect(opener).toHaveBeenCalledTimes(1);
+    });
   });
 });

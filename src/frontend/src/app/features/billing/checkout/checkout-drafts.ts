@@ -13,6 +13,8 @@ export type PaymentDraft = {
   readonly command: StartPayment | null;
   readonly attempt: string | null;
   readonly state: PaymentDraftState;
+  /** Increments on every write; absent on drafts saved before it existed, which reads as 0. */
+  readonly revision?: number;
 };
 
 const paymentStates: readonly PaymentDraftState[] = ['intent', 'awaiting', 'pending', 'failed', 'verified'];
@@ -93,6 +95,7 @@ export class CheckoutDrafts {
     if (value === null && localStorage.getItem(key) === null) return null;
     if (!value || value.schemaVersion !== 1 || value.userId !== scope.userId || value.account !== scope.account ||
       value.order !== order || !paymentStates.includes(value.state) ||
+      (value.revision !== undefined && (!Number.isSafeInteger(value.revision) || value.revision < 0)) ||
       (value.state === 'intent' ? value.attempt !== null || !command : !isUuid(value.attempt)) ||
       (command !== null && (!command || !isUuid(command.operationKey) || !isHash(command.snapshotHash) ||
       !Number.isSafeInteger(command.expectedRevision) || command.expectedRevision < 1))) throw new Error('Invalid payment draft');
@@ -107,15 +110,54 @@ export class CheckoutDrafts {
     }));
   }
 
-  recordPayment(scope: CheckoutScope, order: string, attempt: string, state: Exclude<PaymentDraftState, 'intent'>) {
+  /** The saved revision, read before a request is sent, so its answer can later prove it is newer than the draft. */
+  paymentRevision(scope: CheckoutScope, order: string): number {
+    return this.readPayment(scope, order)?.revision ?? 0;
+  }
+
+  /**
+   * Holds the order's hosted-window lock for as long as one tab's provider window is open. The browser releases it
+   * when that page unloads, so a reload or closed tab ends the hold without a callback. Resolves to the release
+   * function, or null when another page already holds a window open for this order.
+   */
+  holdWindow(scope: CheckoutScope, order: string): Promise<(() => void) | null> {
+    return new Promise(resolve => {
+      void navigator.locks.request(this.windowKey(scope, order), { ifAvailable: true }, lock => {
+        if (!lock) return resolve(null);
+        return new Promise<void>(release => resolve(() => release()));
+      });
+    });
+  }
+
+  /** A page still holds a hosted window open for this order. */
+  private windowHeld(scope: CheckoutScope, order: string): Promise<boolean> {
+    return navigator.locks.request(this.windowKey(scope, order), { ifAvailable: true }, lock => lock === null);
+  }
+
+  private windowKey(scope: CheckoutScope, order: string) {
+    return this.paymentKey(scope, order) + ':window';
+  }
+
+  /**
+   * Advances the saved state; states never move backwards, with one exception. A pending attempt reopens to
+   * awaiting only for a server answer to a recheck sent after that pending state was saved (`freshSince` equals the
+   * revision still saved), so an older read from any tab can never reopen a newer pending claim, and never while a
+   * page holds a hosted window open for the order: a payment may be under way in it. A new `claim` (a launcher
+   * callback) advances the revision even on a draft already pending; a routine pending read does not.
+   */
+  recordPayment(scope: CheckoutScope, order: string, attempt: string, state: Exclude<PaymentDraftState, 'intent'>,
+    freshSince?: number, claim = false) {
     const key = this.paymentKey(scope, order);
-    return navigator.locks.request(key, () => {
+    return navigator.locks.request(key, async () => {
       const saved = this.readPayment(scope, order);
       if (saved?.attempt && saved.attempt !== attempt) throw new Error('Checkout attempt changed');
-      if (saved && paymentStates.indexOf(saved.state) >= paymentStates.indexOf(state)) return saved;
+      const reopens = saved?.state === 'pending' && state === 'awaiting' && freshSince === (saved.revision ?? 0) &&
+        !await this.windowHeld(scope, order);
+      const reclaims = claim && saved?.state === 'pending' && state === 'pending';
+      if (saved && !reopens && !reclaims && paymentStates.indexOf(saved.state) >= paymentStates.indexOf(state)) return saved;
       return this.write<PaymentDraft>(key, {
         schemaVersion: 1, userId: scope.userId, account: scope.account, order, attempt, state,
-        command: saved?.command ?? null,
+        command: saved?.command ?? null, revision: (saved?.revision ?? 0) + 1,
       });
     });
   }
