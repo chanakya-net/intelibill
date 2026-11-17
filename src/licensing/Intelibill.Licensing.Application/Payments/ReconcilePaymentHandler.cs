@@ -5,7 +5,7 @@ using Intelibill.Shared.Contracts.V1;
 namespace Intelibill.Licensing.Application.Payments;
 
 /// <summary>Recovers a pinned attempt through provider reads before opening the account-fenced apply transaction.</summary>
-public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGatewayResolver gateways,
+public sealed partial class ReconcilePaymentHandler(IPaymentStore store, IPaymentGatewayResolver gateways,
     FulfilPaidOrderHandler fulfil, IPendingPaymentAttemptStore pending, TimeProvider clock, TimeProvider leaseClock)
 {
     /// <summary>
@@ -60,9 +60,10 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
         }, ct);
     }
 
-    private async Task<RecoveryObservation?> ObserveAsync(StoredPaymentAttempt attempt, Claim claim, CancellationToken ct)
+    private async Task<RecoveryObservation?> ObserveAsync(StoredPaymentAttempt attempt, Claim claim, CancellationToken ct, IPaymentGateway? gateway = null)
     {
-        if (gateways.ForPin(attempt.Pin) is not { } gateway || gateway.Pin != attempt.Pin)
+        gateway ??= gateways.ForPin(attempt.Pin);
+        if (gateway is null || gateway.Pin != attempt.Pin)
             return null;
 
         CheckoutSession? session = null;

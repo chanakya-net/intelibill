@@ -11,13 +11,16 @@ namespace Intelibill.Licensing.Infrastructure.Payments.Development;
 /// <c>app.development_gateway</c> flag), so restarts and replicas never orphan a session. It opens its own short
 /// transaction and therefore fails fast if a caller still holds one. Registered only in a local simulator runtime.
 /// </summary>
-internal sealed class DevelopmentPaymentGateway(LicensingDbContext db, TimeProvider clock) : IPaymentGateway, IPaymentSimulator
+internal sealed partial class DevelopmentPaymentGateway(LicensingDbContext db, TimeProvider clock,
+    DevelopmentWebhookOptions webhook) : IPaymentGateway, IPaymentSimulator
 {
+    internal const string ProviderId = "development-simulator";
+
     internal static readonly PaymentProviderPin LocalPin =
-        new("development-simulator", "local-simulator", "Development", "development-simulator/1");
+        new(ProviderId, "local-simulator", "Development", "development-simulator/1");
 
     public PaymentProviderPin Pin => LocalPin;
-    public PaymentGatewayCapabilities Capabilities { get; } = new(FullPaymentOnly: true, Refunds: false, Webhooks: false);
+    public PaymentGatewayCapabilities Capabilities => new(FullPaymentOnly: true, Refunds: false, Webhooks: WebhookSignature.Secret(webhook.WebhookSecret));
 
     public async Task<GatewayResult<CheckoutSession>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct)
     {
@@ -85,9 +88,6 @@ internal sealed class DevelopmentPaymentGateway(LicensingDbContext db, TimeProvi
 
     public Task<GatewayResult<RefundObservation>> GetRefundAsync(string providerRefundReference, CancellationToken ct) =>
         Task.FromResult(GatewayResult.Unsupported<RefundObservation>());
-
-    public GatewayResult<VerifiedGatewayEvent> ValidateWebhook(ReadOnlySpan<byte> body, IReadOnlyDictionary<string, string> headers) =>
-        GatewayResult.Unsupported<VerifiedGatewayEvent>();
 
     public Task SimulateAsync(string providerOrderReference, string outcome, CancellationToken ct) =>
         InGatewayAsync(async token =>

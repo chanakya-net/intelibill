@@ -35,6 +35,17 @@ internal sealed class PaymentGatewayResolver(IServiceProvider services, IOptions
         pin == DevelopmentPaymentGateway.LocalPin ? Simulator()
             : pin.ProviderId == RazorpayConfiguration.ProviderId && Razorpay() is { } gateway && gateway.Pin == pin ? gateway : null;
 
+    public IReadOnlyList<IPaymentGateway> ForWebhooks(string providerId)
+    {
+        IPaymentGateway? candidate = providerId switch
+        {
+            RazorpayConfiguration.ProviderId => Razorpay(),
+            DevelopmentPaymentGateway.ProviderId => Simulator(),
+            _ => null
+        };
+        return candidate is { Capabilities.Webhooks: true } ? [candidate] : [];
+    }
+
     private RazorpayGateway? Razorpay()
     {
         if (RazorpayConfiguration.From(razorpay.Value) is not { } config)

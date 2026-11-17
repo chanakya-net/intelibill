@@ -216,7 +216,8 @@ public sealed partial class P0304Tests(LicensingPostgreSqlFixture database) : IC
         internal required CheckoutQuoteV1 Quote { get; init; }
 
         internal static async Task<Rig> StartAsync(LicensingPostgreSqlFixture database, string? account = null,
-            long monthlyPricePaise = 12000L, long? maxAmountPaise = null, string[]? methods = null)
+            long monthlyPricePaise = 12000L, long? maxAmountPaise = null, string[]? methods = null,
+            IReadOnlyDictionary<string, string?>? extraSettings = null, Action<IServiceCollection>? configure = null)
         {
             var fake = new FakeRazorpay();
             var clock = new P0201Clock { Now = P0210Fixture.Start };
@@ -233,8 +234,14 @@ public sealed partial class P0304Tests(LicensingPostgreSqlFixture database) : IC
             }
             if (maxAmountPaise is { } max)
                 settings["Payments:Razorpay:MaxAmountPaise"] = max.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (extraSettings is not null)
+                foreach (var (key, value) in extraSettings) settings[key] = value;
             var fixture = await P0302Fixture.StartAsync(database, clock, settings,
-                services => services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => fake));
+                services =>
+                {
+                    services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => fake);
+                    configure?.Invoke(services);
+                });
             var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1, monthlyPricePaise: monthlyPricePaise);
             return new() { Fixture = fixture, Fake = fake, Payer = payer, Quote = quote };
         }
