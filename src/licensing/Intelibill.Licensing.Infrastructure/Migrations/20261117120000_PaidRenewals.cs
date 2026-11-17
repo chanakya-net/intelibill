@@ -148,6 +148,10 @@ public sealed partial class PaidRenewals : Migration
 
         CREATE FUNCTION public.guard_payment_fulfilment_renewal() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         BEGIN
+            -- A row without exactly one money source is refused by payment_fulfilment_one_source itself.
+            IF (NEW.attempt_id IS NULL) = (NEW.manual_receipt_id IS NULL) THEN
+                RETURN NEW;
+            END IF;
             IF NOT EXISTS (SELECT FROM public.checkout_orders q WHERE q.account_id = NEW.account_id
                     AND q.order_id = NEW.order_id AND q.term_id IS NOT DISTINCT FROM NEW.predecessor_term_id) THEN
                 RAISE EXCEPTION 'A renewal fulfilment must extend exactly its quoted term' USING ERRCODE = '23514';
