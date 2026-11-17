@@ -32,6 +32,8 @@ public static class PaymentEventKinds
     public const string OrderFulfilled = "OrderFulfilled";
     public const string CheckoutFailed = "CheckoutFailed";
     public const string PaidNeedsReview = "PaidNeedsReview";
+    /// <summary>A fresh proof-free provider read proved the original order unpaid; earlier uncertainty is resolved.</summary>
+    public const string ResumeConfirmed = "ResumeConfirmed";
 }
 
 /// <summary>
@@ -55,6 +57,10 @@ public interface IPaymentStore
     Task<bool> RecordSessionAsync(StoredPaymentAttempt attempt, CheckoutSession session, DateTimeOffset at, CancellationToken ct);
     Task AppendEventAsync(StoredPaymentAttempt attempt, string kind, Guid? actor, DateTimeOffset at, CancellationToken ct);
     Task<bool> HasDefinitiveFailureAsync(Guid attempt, CancellationToken ct);
+    /// <summary>Whether a verification request is outstanding: recorded after the attempt's latest resume confirmation.</summary>
+    Task<bool> IsUncertainAsync(Guid attempt, CancellationToken ct);
+    /// <summary>How many verification requests the attempt has recorded; append-only, so a later count that grew proves newer uncertainty.</summary>
+    Task<long> CountVerificationRequestsAsync(Guid attempt, CancellationToken ct);
     Task<bool> HasVerifiedPaymentAsync(Guid attempt, CancellationToken ct);
     Task RecordVerifiedAsync(StoredPaymentAttempt attempt, PaymentObservation payment, DateTimeOffset at, CancellationToken ct);
     Task<bool> HasFulfilmentAsync(Guid account, Guid order, CancellationToken ct);

@@ -58,7 +58,8 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
     }
 
     /// <summary>One billing owner, <paramref name="count"/> really affiliated shops and an accepted monthly quote.</summary>
-    internal async Task<Purchase> AcceptedQuoteAsync(int count = 3, string[]? names = null, bool legacyQuote = false)
+    internal async Task<Purchase> AcceptedQuoteAsync(int count = 3, string[]? names = null, bool legacyQuote = false,
+        long monthlyPricePaise = 12000L)
     {
         var payer = await SignInAsync(Hosts, ShopRole.Owner);
         var account = await CreateAccountAsync(payer.Client);
@@ -71,7 +72,7 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
             await P0213Fixture.LinkAsync(account, payer, shop);
         await Delivery.DrainAsync(source: true);
         await Delivery.DrainAsync(source: false);
-        var plan = await P0301Tests.PublishPlanAsync(Trial);
+        var plan = await P0301Tests.PublishPlanAsync(Trial, monthlyPricePaise: monthlyPricePaise);
         var ids = shops.Select(shop => shop.ShopId).ToArray();
         var quote = await P0301Tests.CreateQuoteAsync(payer.Client, account,
             new(Guid.NewGuid(), plan, "Month", ids, Math.Max(0, count - 3), 1));

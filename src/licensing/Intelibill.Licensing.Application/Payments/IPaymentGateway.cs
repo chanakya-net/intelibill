@@ -9,6 +9,11 @@ public interface IPaymentGateway
 {
     PaymentProviderPin Pin { get; }
     PaymentGatewayCapabilities Capabilities { get; }
+    /// <summary>Safe public launcher parameters for an attempt the gateway already created a session for.</summary>
+    IReadOnlyDictionary<string, string> LauncherParameters(string providerOrderReference, long amountPaise, string currency) =>
+        new Dictionary<string, string>();
+    /// <summary>Whether the provider can take this full amount; checked before any attempt is persisted.</summary>
+    bool SupportsAmount(long amountPaise, string currency) => true;
     Task<GatewayResult<CheckoutSession>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct);
     Task<GatewayResult<CheckoutLookup>> LookupCheckoutAsync(CheckoutRequest request, CancellationToken ct) =>
         Task.FromResult(GatewayResult.Unsupported<CheckoutLookup>());

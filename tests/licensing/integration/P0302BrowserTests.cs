@@ -31,7 +31,7 @@ public sealed class P0302BrowserTests(LicensingPostgreSqlFixture database, ITest
         var evidence = Environment.GetEnvironmentVariable("P0302_EVIDENCE_DIR");
         Assert.False(string.IsNullOrWhiteSpace(evidence), "Set P0302_EVIDENCE_DIR.");
         Directory.CreateDirectory(evidence);
-        await using var fixture = await P0302Fixture.StartAsync(database, new P0201Clock { Now = P0210Fixture.Start }, browser: true);
+        await using var fixture = await P0302Fixture.StartAsync(database, new P0201Clock { Now = P0302Fixture.WholeSecondStart }, browser: true);
         var (payer, quote) = await PrepareAsync(fixture);
         var run = new Run(Path.Combine(ProjectPaths.Root, "src/frontend"), evidence, payer.Email, quote);
         using var staged = new MerchantWebBuild(run.Frontend);

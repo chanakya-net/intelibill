@@ -46,6 +46,9 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
             return error;
         if (gateways.ForNewAttempts() is not { } gateway)
             return CheckoutPaymentErrors.Unavailable;
+        // An amount the provider cannot take is refused before an attempt row would make the quote unrecoverable.
+        if (!gateway.SupportsAmount(quote.AmountPaise, quote.Currency))
+            return CheckoutPaymentErrors.Unsupported;
 
         var now = BillingAccountRules.StorageInstant(clock.GetUtcNow());
         if (now >= quote.ExpiresAt || !CheckoutRenewalPolicy.WindowOpen(quote, now))

@@ -47,12 +47,12 @@ public sealed partial class P0301Tests(LicensingPostgreSqlFixture database) : IC
     }
 
     internal static async Task<Guid> PublishPlanAsync(P0210Fixture fixture, Guid? planId = null,
-        Guid? source = null, int membersPerShop = 5)
+        Guid? source = null, int membersPerShop = 5, long monthlyPricePaise = 12000L)
     {
         var manager = fixture.CatalogueManager!;
         var plan = planId ?? Guid.NewGuid();
         var input = P0207Tests.PlanFacts(0);
-        input["monthlyPricePaise"] = 12000L;
+        input["monthlyPricePaise"] = monthlyPricePaise;
         input["membersPerShop"] = membersPerShop;
         if (source is { } previous)
         {

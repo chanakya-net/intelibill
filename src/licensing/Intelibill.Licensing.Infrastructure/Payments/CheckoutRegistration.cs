@@ -1,5 +1,6 @@
 using Intelibill.Licensing.Application.Payments;
 using Intelibill.Licensing.Infrastructure.Payments.Development;
+using Intelibill.Licensing.Infrastructure.Payments.Razorpay;
 using Intelibill.Licensing.Infrastructure.Status;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,10 @@ internal static class CheckoutRegistration
     private static void AddPayments(this IServiceCollection services)
     {
         services.AddOptions<PaymentOptions>().BindConfiguration(PaymentOptions.Section);
+        services.AddOptions<RazorpayOptions>().BindConfiguration(RazorpayOptions.Section);
+        services.AddHttpClient(RazorpayGateway.ClientName).RemoveAllLoggers()
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })
+            .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(15));
         services.AddScoped<PaymentStore>();
         services.AddScoped<IPaymentStore>(provider => provider.GetRequiredService<PaymentStore>());
         services.AddScoped<IManualPaymentStore>(provider => provider.GetRequiredService<PaymentStore>());
