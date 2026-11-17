@@ -119,6 +119,11 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
                     FROM public.payment_events r WHERE r.attempt_id = {attempt} AND r.kind = 'ResumeConfirmed'), 0)) AS "Value"
             """).SingleAsync(ct);
 
+    public Task<long> CountVerificationRequestsAsync(Guid attempt, CancellationToken ct) =>
+        db.Database.SqlQuery<long>($"""
+            SELECT count(*) AS "Value" FROM public.payment_events WHERE attempt_id = {attempt} AND kind = 'VerificationRequested'
+            """).SingleAsync(ct);
+
     public Task<bool> HasVerifiedPaymentAsync(Guid attempt, CancellationToken ct) =>
         db.Database.SqlQuery<bool>($"""
             SELECT EXISTS (SELECT FROM public.verified_payments WHERE attempt_id = {attempt}) AS "Value"

@@ -82,13 +82,16 @@ internal static class RazorpayWire
 
     /// <summary>
     /// One exact, unrefunded full capture, stated explicitly and identically by the paid order, the order's payment
-    /// collection entry and the payment's own read. Only <c>amount_captured</c> may be absent, as documented.
+    /// collection entry and the payment's own read. Only <c>amount_captured</c> may be absent, as documented, and
+    /// either read may omit it independently; wherever it is stated it must be the full amount.
     /// </summary>
     internal static bool FullCapture(WirePayment entity, WirePayment entry, WireOrder order) =>
-        entry == entity && PaidInFull(order) && entity.Captured && entity.Status == "captured" &&
-        entity.Amount == order.Amount && entity.Currency == order.Currency &&
-        (entity.AmountCaptured ?? entity.Amount) == entity.Amount && entity.AmountRefunded == 0 &&
-        entity.RefundStatus is null or "";
+        entry with { AmountCaptured = null } == entity with { AmountCaptured = null } &&
+        CapturedInFull(entity) && CapturedInFull(entry) && PaidInFull(order) && entity.Captured &&
+        entity.Status == "captured" && entity.Amount == order.Amount && entity.Currency == order.Currency &&
+        entity.AmountRefunded == 0 && entity.RefundStatus is null or "";
+
+    private static bool CapturedInFull(WirePayment payment) => (payment.AmountCaptured ?? payment.Amount) == payment.Amount;
 
     /// <summary>The order states it is paid with explicit totals: the full amount paid and nothing due.</summary>
     internal static bool PaidInFull(WireOrder order) =>

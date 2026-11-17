@@ -55,6 +55,8 @@ public interface IPaymentStore
     Task<bool> HasDefinitiveFailureAsync(Guid attempt, CancellationToken ct);
     /// <summary>Whether a verification request is outstanding: recorded after the attempt's latest resume confirmation.</summary>
     Task<bool> IsUncertainAsync(Guid attempt, CancellationToken ct);
+    /// <summary>How many verification requests the attempt has recorded; append-only, so a later count that grew proves newer uncertainty.</summary>
+    Task<long> CountVerificationRequestsAsync(Guid attempt, CancellationToken ct);
     Task<bool> HasVerifiedPaymentAsync(Guid attempt, CancellationToken ct);
     Task RecordVerifiedAsync(StoredPaymentAttempt attempt, PaymentObservation payment, DateTimeOffset at, CancellationToken ct);
     Task<bool> HasFulfilmentAsync(Guid account, Guid order, CancellationToken ct);

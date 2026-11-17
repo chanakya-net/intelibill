@@ -19,6 +19,7 @@ internal sealed class FakeRazorpay : HttpMessageHandler
     private readonly Dictionary<string, JsonObject> orders = [];
     private readonly List<JsonObject> payments = [];
     private readonly Dictionary<string, JsonObject> collectionPatches = [];
+    private readonly Dictionary<string, HashSet<string>> collectionOmissions = [];
     private int sequence;
 
     internal Func<DateTimeOffset> Clock { get; set; } = () => DateTimeOffset.UnixEpoch.AddDays(1);
@@ -28,6 +29,12 @@ internal sealed class FakeRazorpay : HttpMessageHandler
     /// <summary>The next <c>n</c> reads of an order entity answer 503, as a transient provider outage would.</summary>
     internal int FailOrderReads { get; set; }
     internal int OversizeBytesServed { get; private set; }
+    /// <summary>The first call matching this answers its headers, then the connection ends mid-body.</summary>
+    internal Func<string, bool>? TruncateWhen { get; set; }
+    /// <summary>The first call matching this computes its answer, then waits for <see cref="ReleaseHeld"/>.</summary>
+    internal Func<string, bool>? HoldWhen { get; set; }
+    internal TaskCompletionSource HoldReached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    internal TaskCompletionSource ReleaseHeld { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     internal List<string> Calls { get; } = [];
     internal int Posts { get { lock (gate) return Calls.Count(c => c.StartsWith("POST ", StringComparison.Ordinal)); } }
 
@@ -57,6 +64,16 @@ internal sealed class FakeRazorpay : HttpMessageHandler
             if (!collectionPatches.TryGetValue(paymentId, out var patch))
                 collectionPatches[paymentId] = patch = [];
             patch[field] = value;
+        }
+    }
+    /// <summary>Drops one field of a payment only from the order's payment collection entry.</summary>
+    internal void OmitFromCollectionEntry(string paymentId, string field)
+    {
+        lock (gate)
+        {
+            if (!collectionOmissions.TryGetValue(paymentId, out var omitted))
+                collectionOmissions[paymentId] = omitted = [];
+            omitted.Add(field);
         }
     }
     internal JsonObject Order(string id) { lock (gate) return orders[id]; }
@@ -100,15 +117,50 @@ internal sealed class FakeRazorpay : HttpMessageHandler
         if (request.Headers.Authorization is not { Scheme: "Basic", Parameter: { } given } || given != expected)
             return Json(HttpStatusCode.Unauthorized, new JsonObject());
         var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(ct);
+        HttpResponseMessage response;
+        bool hold;
         lock (gate)
         {
-            Calls.Add($"{request.Method} {request.RequestUri!.PathAndQuery}");
+            var call = $"{request.Method} {request.RequestUri!.PathAndQuery}";
+            Calls.Add(call);
             if (LengthlessOversize)
                 return Oversize();
             if (Redirect)
                 return new HttpResponseMessage(HttpStatusCode.Redirect) { Headers = { Location = new Uri("https://attacker.example/") } };
-            return Route(request, body);
+            response = Route(request, body);
+            if (TruncateWhen?.Invoke(call) == true)
+            {
+                TruncateWhen = null;
+                response.Content = new StreamContent(new EndedStream());
+            }
+            hold = HoldWhen?.Invoke(call) == true;
+            if (hold)
+                HoldWhen = null;
         }
+        if (hold)
+        {
+            HoldReached.TrySetResult();
+            await ReleaseHeld.Task.WaitAsync(ct);
+        }
+        return response;
+    }
+
+    /// <summary>A body whose connection closes early, as .NET reports a premature end of a response.</summary>
+    private sealed class EndedStream : Stream
+    {
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => throw Ended();
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default) =>
+            ValueTask.FromException<int>(Ended());
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        private static HttpIOException Ended() => new(HttpRequestError.ResponseEnded, "fixture: response ended prematurely");
     }
 
     private HttpResponseMessage Oversize() => new(HttpStatusCode.OK)
@@ -177,6 +229,9 @@ internal sealed class FakeRazorpay : HttpMessageHandler
         if (collectionPatches.TryGetValue(payment["id"]!.GetValue<string>(), out var patch))
             foreach (var (field, value) in patch)
                 copy[field] = value?.DeepClone();
+        if (collectionOmissions.TryGetValue(payment["id"]!.GetValue<string>(), out var omitted))
+            foreach (var field in omitted)
+                copy.Remove(field);
         return copy;
     }
 

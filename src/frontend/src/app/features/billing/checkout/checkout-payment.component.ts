@@ -244,7 +244,7 @@ export class CheckoutPaymentComponent {
   }
 
   private async rememberPending(invocation: Invocation, attempt: string) {
-    const saved = await this.drafts.recordPayment(invocation.scope, invocation.order, attempt, 'pending');
+    const saved = await this.drafts.recordPayment(invocation.scope, invocation.order, attempt, 'pending', undefined, true);
     if (!invocation.current()) return false;
     this.draft.set(saved);
     return saved.state === 'pending';

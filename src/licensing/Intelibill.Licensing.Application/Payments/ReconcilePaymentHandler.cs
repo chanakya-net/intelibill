@@ -32,13 +32,23 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
     private async Task<ErrorOr<bool>> ReconcileAsync(StoredPaymentAttempt attempt, bool verified, PendingPaymentLease? lease,
         CancellationToken ct, IReadOnlyDictionary<string, string>? launcherProof = null, bool launcherClaim = false)
     {
+        // A proof-free read may only resume what was uncertain before it began; the fence is taken before the network.
+        long? fence = null;
+        if (!verified && !launcherClaim)
+        {
+            var counted = await store.InAttemptScopeAsync<long>(attempt.AccountId, attempt.AttemptId, false,
+                async token => await store.CountVerificationRequestsAsync(attempt.AttemptId, token), ct);
+            if (counted.IsError)
+                return counted.Errors;
+            fence = counted.Value;
+        }
         var observed = verified ? null : await ObserveAsync(attempt, launcherProof, ct);
         return await store.InAttemptScopeAsync<bool>(attempt.AccountId, attempt.AttemptId, true, async token =>
         {
             var now = leaseClock.GetUtcNow();
             if (lease is not null && !await pending.LockAsync(lease, now, token))
                 return false;
-            var result = await ApplyAsync(attempt, observed, !launcherClaim, token);
+            var result = await ApplyAsync(attempt, observed, fence, token);
             if (result.IsError)
                 return result;
             if (lease is not null)
@@ -74,7 +84,7 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
         return new(session, result.Outcome == GatewayOutcome.Succeeded ? result.Value : null);
     }
 
-    private async Task<ErrorOr<bool>> ApplyAsync(StoredPaymentAttempt attempt, RecoveryObservation? observed, bool proofFree,
+    private async Task<ErrorOr<bool>> ApplyAsync(StoredPaymentAttempt attempt, RecoveryObservation? observed, long? fence,
         CancellationToken ct)
     {
         if (await store.HasVerifiedPaymentAsync(attempt.AttemptId, ct))
@@ -103,9 +113,9 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
                 await MarkUncertainAsync(stored, ct);
             return result.IsError ? result.Errors : result.Value != FulfilmentOutcome.Rejected;
         }
-        if (observed.Payment is not { State: ObservedPaymentState.Pending } pending)
+        if (observed.Payment is not { State: ObservedPaymentState.Pending, FundingAmbiguous: false } pending)
             await MarkUncertainAsync(stored, ct);
-        else if (proofFree && Resumable(stored, pending) && await store.IsUncertainAsync(stored.AttemptId, ct))
+        else if (fence is { } before && Resumable(stored, pending) && await ResumableSinceAsync(stored, before, ct))
             await store.AppendEventAsync(stored, PaymentEventKinds.ResumeConfirmed, null,
                 BillingAccountRules.StorageInstant(clock.GetUtcNow()), ct);
         if (await store.HasDefinitiveFailureAsync(attempt.AttemptId, ct))
@@ -116,6 +126,11 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
             BillingAccountRules.StorageInstant(clock.GetUtcNow()), ct);
         return true;
     }
+
+    /// <summary>Uncertainty is outstanding and none was recorded after the fence: the read is not older than the doubt.</summary>
+    private async Task<bool> ResumableSinceAsync(StoredPaymentAttempt attempt, long fence, CancellationToken ct) =>
+        await store.IsUncertainAsync(attempt.AttemptId, ct) &&
+        await store.CountVerificationRequestsAsync(attempt.AttemptId, ct) == fence;
 
     private Task MarkUncertainAsync(StoredPaymentAttempt attempt, CancellationToken ct) =>
         store.AppendEventAsync(attempt, PaymentEventKinds.VerificationRequested, null,

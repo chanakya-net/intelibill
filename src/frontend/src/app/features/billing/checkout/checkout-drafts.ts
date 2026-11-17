@@ -118,16 +118,18 @@ export class CheckoutDrafts {
   /**
    * Advances the saved state; states never move backwards, with one exception. A pending attempt reopens to
    * awaiting only for a server answer to a recheck sent after that pending state was saved (`freshSince` equals the
-   * revision still saved), so an older read from any tab can never reopen a newer pending claim.
+   * revision still saved), so an older read from any tab can never reopen a newer pending claim. A new `claim`
+   * (a launcher callback) advances the revision even on a draft already pending; a routine pending read does not.
    */
   recordPayment(scope: CheckoutScope, order: string, attempt: string, state: Exclude<PaymentDraftState, 'intent'>,
-    freshSince?: number) {
+    freshSince?: number, claim = false) {
     const key = this.paymentKey(scope, order);
     return navigator.locks.request(key, () => {
       const saved = this.readPayment(scope, order);
       if (saved?.attempt && saved.attempt !== attempt) throw new Error('Checkout attempt changed');
       const reopens = saved?.state === 'pending' && state === 'awaiting' && freshSince === (saved.revision ?? 0);
-      if (saved && !reopens && paymentStates.indexOf(saved.state) >= paymentStates.indexOf(state)) return saved;
+      const reclaims = claim && saved?.state === 'pending' && state === 'pending';
+      if (saved && !reopens && !reclaims && paymentStates.indexOf(saved.state) >= paymentStates.indexOf(state)) return saved;
       return this.write<PaymentDraft>(key, {
         schemaVersion: 1, userId: scope.userId, account: scope.account, order, attempt, state,
         command: saved?.command ?? null, revision: (saved?.revision ?? 0) + 1,

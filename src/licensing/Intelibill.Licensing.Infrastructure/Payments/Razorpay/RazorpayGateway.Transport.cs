@@ -21,7 +21,16 @@ internal sealed partial class RazorpayGateway
             return (GatewayOutcome.Unavailable, default);
         if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength > MaxBodyBytes)
             return (GatewayOutcome.Rejected, default);
-        var bytes = await ReadBoundedAsync(response.Content, ct);
+        byte[]? bytes;
+        try
+        {
+            bytes = await ReadBoundedAsync(response.Content, ct);
+        }
+        catch (IOException) when (!ct.IsCancellationRequested)
+        {
+            // The connection ended mid-body (HttpIOException): the provider may have acted, so the outcome is unknown.
+            return (GatewayOutcome.Unavailable, default);
+        }
         if (bytes is null)
             return (GatewayOutcome.Rejected, default);
         try

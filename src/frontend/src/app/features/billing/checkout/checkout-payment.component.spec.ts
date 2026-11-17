@@ -336,6 +336,44 @@ describe('CheckoutPaymentComponent', () => {
       await tabB.update();
     });
 
+    it('keeps a newer callback on an already-pending draft against a recheck held across tabs', async () => {
+      let complete: (outcome: RazorpayOutcome) => void = () => undefined;
+      razorpayOpener = () => new Promise<RazorpayOutcome>(done => { complete = done; });
+      const drafts = TestBed.inject(CheckoutDrafts);
+      const saved = () => drafts.readPayment({ ...owner, account }, order);
+      const tabB = await render(status({ launch }));
+      tabB.click('payment-razorpay-pay');
+      await tabB.update();
+
+      const tabA = mount();
+      http.expectOne({ method: 'GET', url: path }).flush(status({ payment: 'PendingVerification', launch: null }));
+      await tabA.update();
+      expect(saved()?.state).toBe('pending');
+      const before = saved()?.revision;
+      tabA.click('payment-check');
+      const held = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(held.request.body).toEqual({ launcherOutcome: null });
+
+      complete({ kind: 'success', proof });
+      const claim = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      expect(claim.request.body).toEqual({ launcherOutcome: 'Success', launcherProof: proof });
+      expect(saved()?.revision).toBeGreaterThan(before!);
+      claim.flush(status({ payment: 'PendingVerification', launch: null }));
+      await tabB.update();
+
+      held.flush(status({ launch }));
+      await tabA.update();
+      expect(saved()?.state).toBe('pending');
+      expect(tabA.text('payment-pending')).toBe(t.pending);
+      expect(tabA.text('payment-razorpay-pay')).toBeNull();
+
+      tabA.click('payment-check');
+      http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }).flush(status({ launch }));
+      await tabA.update();
+      expect(saved()?.state).toBe('awaiting');
+      expect(tabA.text('payment-razorpay-pay')).not.toBeNull();
+    });
+
     it('never reopens a pending attempt from a routine status read', async () => {
       const page = await render(status({ payment: 'PendingVerification', launch: null }));
       await vi.advanceTimersByTimeAsync(5000);

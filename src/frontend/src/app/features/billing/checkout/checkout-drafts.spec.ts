@@ -93,6 +93,25 @@ describe('CheckoutDrafts', () => {
     await expect(first.recordPayment(owner, order, id(8), 'pending')).rejects.toThrow('Checkout attempt changed');
   });
 
+  it('advances the fence for a new claim on a pending draft but not for a routine pending read', async () => {
+    stubMemoryStorage();
+    sharedLocks();
+    const first = new CheckoutDrafts();
+    const second = new CheckoutDrafts();
+    await first.preparePayment(owner, order, 1, 'a'.repeat(64));
+    const attempt = id(9);
+    await first.recordPayment(owner, order, attempt, 'pending');
+    const fence = first.paymentRevision(owner, order);
+
+    await second.recordPayment(owner, order, attempt, 'pending');
+    expect(second.paymentRevision(owner, order)).toBe(fence);
+    await second.recordPayment(owner, order, attempt, 'pending', undefined, true);
+    expect(second.paymentRevision(owner, order)).toBe(fence + 1);
+
+    await expect(first.recordPayment(owner, order, attempt, 'awaiting', fence)).resolves.toMatchObject({ state: 'pending' });
+    await expect(first.recordPayment(owner, order, attempt, 'awaiting', fence + 1)).resolves.toMatchObject({ state: 'awaiting' });
+  });
+
   it('fails to prepare a request when durable storage or locking is unavailable', async () => {
     const drafts = new CheckoutDrafts();
     stubMemoryStorage();

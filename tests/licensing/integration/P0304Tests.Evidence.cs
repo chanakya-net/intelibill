@@ -57,6 +57,49 @@ public sealed partial class P0304Tests
     }
 
     /// <summary>
+    /// Each read states <c>amount_captured</c> only optionally. One read omitting it while the other states the full
+    /// amount is still one full capture; any read stating less is not, whichever side states it.
+    /// </summary>
+    [Theory]
+    [InlineData("collection-omits", true)]
+    [InlineData("entity-omits", true)]
+    [InlineData("collection-short", false)]
+    [InlineData("entity-short", false)]
+    public async Task AmountCapturedIsJudgedOnEachReadIndependently(string variant, bool fulfils)
+    {
+        await using var rig = await Rig.StartAsync(database);
+        var attempt = await rig.StartAttemptAsync();
+        var order = rig.Fake.OrderId();
+        var payment = rig.Fake.AddPayment(order, "captured");
+        var full = rig.Quote.AmountPaise;
+        switch (variant)
+        {
+            case "collection-omits": rig.Fake.OmitFromCollectionEntry(payment, "amount_captured"); break;
+            case "entity-omits":
+                rig.Fake.Payment(payment).Remove("amount_captured");
+                rig.Fake.PatchCollectionEntry(payment, "amount_captured", full);
+                break;
+            case "collection-short": rig.Fake.PatchCollectionEntry(payment, "amount_captured", full - 1); break;
+            default:
+                rig.Fake.Payment(payment)["amount_captured"] = full - 1;
+                rig.Fake.PatchCollectionEntry(payment, "amount_captured", full);
+                break;
+        }
+
+        var status = await rig.VerifyAsync(attempt, null, null);
+        if (fulfils)
+        {
+            AssertStatus(status, "Verified", "Fulfilled", "Applying");
+            await P0302Tests.AssertSingleFulfilmentAsync(rig.Fixture, rig.Quote, 1);
+            return;
+        }
+        AssertStatus(status, "PendingVerification", "NotFulfilled", "NotApplicable");
+        Assert.Equal(0L, await rig.Fixture.CountAsync("verified_payments"));
+        Assert.Equal(0L, await rig.Fixture.CountAsync("payment_fulfilments"));
+        Assert.Equal(0L, await rig.Fixture.CountAsync("subscription_coverage_terms", "mode IS NOT NULL AND true"));
+    }
+
+    /// <summary>
     /// The order, the order's payment collection and the payment's own read must each state one exact, unrefunded
     /// capture; anything absent, null or disagreeing is held for reconciliation and grants no term.
     /// </summary>

@@ -104,9 +104,9 @@ internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfigura
             return GatewayResult.Rejected<PaymentObservation>();
         if (payments.FirstOrDefault(p => p.Status == "authorized") is { } authorized)
             return GatewayResult.Success(RazorpayWire.Observe(Pin, authorized));
+        var unpaid = RazorpayWire.ConfirmedUnpaid(order, payments);
         return GatewayResult.Success(new PaymentObservation(Pin, request.ProviderOrderReference, null, ObservedPaymentState.Pending,
-            request.ExpectedAmountPaise, request.ExpectedCurrency, null,
-            ConfirmedUnpaid: RazorpayWire.ConfirmedUnpaid(order, payments)));
+            request.ExpectedAmountPaise, request.ExpectedCurrency, null, ConfirmedUnpaid: unpaid, FundingAmbiguous: !unpaid));
     }
 
     public async Task<GatewayResult<PaymentObservation>> GetPaymentAsync(string providerPaymentReference, CancellationToken ct)
