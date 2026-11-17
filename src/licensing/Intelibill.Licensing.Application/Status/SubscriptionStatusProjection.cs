@@ -43,9 +43,12 @@ public static class SubscriptionStatusProjection
             return new SubscriptionAccessFacts(row.StartsAt, row.EndsAt, TermEvidenceState.NeedsReview);
 
         var anchor = new BillingAnchor(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), zone, period);
-        return new SubscriptionAccessFacts(row.StartsAt, row.EndsAt, Agrees(row, basis, anchor, ordinal)
+        // A renewed chain is continuous paid access from its first period to its latest end; grace follows only that end.
+        var starts = basis == SubscriptionBasis.Paid && row.PaidFrom is { } from && from < row.StartsAt ? from : row.StartsAt;
+        return new SubscriptionAccessFacts(starts, row.EndsAt, Agrees(row, basis, anchor, ordinal)
             ? TermEvidenceState.Complete : TermEvidenceState.NeedsReview, basis, anchor, ordinal,
-            row.Cancellation is { } saved ? new ScheduledCancellation(saved.EffectiveAt, saved.WithdrawnAt) : null);
+            row.Cancellation is { } saved ? new ScheduledCancellation(saved.EffectiveAt, saved.WithdrawnAt) : null,
+            RenewedAtEnd: row.RenewedAtEnd);
     }
 
     // A scheduled cancellation is an odd revision; a withdrawal is the next even one, recorded before the boundary.

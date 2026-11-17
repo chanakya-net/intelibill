@@ -150,7 +150,9 @@ public sealed partial class P0306Tests
     private static Task<object?> ReadOnlineEvidenceAsync(P0302Fixture fixture) =>
         LicensingPostgreSqlFixture.ReadScalarAsync(fixture.Hosts.LicensingOwner, """
             SELECT jsonb_build_object('attempt', to_jsonb(a), 'session', to_jsonb(s), 'payment', to_jsonb(v),
-                'lease', to_jsonb(p), 'fulfilment', to_jsonb(f) - 'manual_receipt_id')::text
+                'lease', to_jsonb(p), 'fulfilment', to_jsonb(f) - 'manual_receipt_id'
+                    -- #871 adds nullable renewal provenance; a first purchase keeps it null and is otherwise unchanged.
+                    - ARRAY['predecessor_term_id', 'payment_effective_at', 'grace_days_included', 'renewal_policy_version'])::text
             FROM public.payment_attempts a JOIN public.payment_attempt_sessions s USING (attempt_id)
             JOIN public.verified_payments v USING (attempt_id) JOIN public.pending_payment_attempts p USING (attempt_id)
             JOIN public.payment_fulfilments f USING (attempt_id)

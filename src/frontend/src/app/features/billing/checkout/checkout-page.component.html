@@ -33,9 +33,10 @@
         <dt>{{ 'billing.checkout.dates' | transloco }}</dt>
         <dd>{{ instant(review.previewStartsAt) }} – {{ instant(review.previewEndsAt) }} · {{ review.billingTimeZone }}</dd>
       </dl>
+      <app-subscription-renewal-preview [quote]="review" />
       <p>{{ 'billing.checkout.fullPayment' | transloco }}</p>
       <p>{{ 'billing.checkout.start.' + review.startRule | transloco }}</p>
-      @if (review.graceDaysIncluded) {
+      @if (review.graceDaysIncluded && review.startRule !== 'PriorPaidThrough') {
         <p>{{ 'billing.checkout.grace' | transloco: { days: review.graceDaysIncluded } }}</p>
       }
       <h3>{{ 'billing.checkout.covered' | transloco: { count: review.shopCount } }}</h3>

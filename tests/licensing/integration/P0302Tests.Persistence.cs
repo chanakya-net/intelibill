@@ -110,9 +110,11 @@ public sealed partial class P0302Tests
             new CreateCheckoutQuoteV1(Guid.NewGuid(), quote.PlanVersionId, "Month", [shops[0].ShopId], 0, 1));
         Assert.Equal(HttpStatusCode.BadRequest, again.StatusCode);
         Assert.Equal(CheckoutOrdersV1.Invalid, await P0206Fixture.CodeAsync(again));
-        using var renewal = await payer.Client.PostAsJsonAsync(P0301Tests.OrdersPath(account),
+        // P03-08: the paid term itself is renewed as a whole package from its paid-through end, never re-bought.
+        var renewal = await P0301Tests.CreateQuoteAsync(payer.Client, account,
             new CreateCheckoutQuoteV1(Guid.NewGuid(), quote.PlanVersionId, "Month", [], 0, 1, term));
-        Assert.Equal(HttpStatusCode.BadRequest, renewal.StatusCode);
+        Assert.Equal("PriorPaidThrough", renewal.StartRule);
+        Assert.Equal(term, renewal.TermId);
 
         var owner = await P0209Fixture.SignInAsync(fixture.Hosts, Intelibill.Domain.Enums.ShopRole.Owner);
         using var join = await payer.Client.PostAsJsonAsync($"/api/billing/accounts/{account:D}/affiliations",

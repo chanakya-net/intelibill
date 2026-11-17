@@ -1,0 +1,16 @@
+@if (renewal(); as review) {
+  <section class="ib-panel" data-testid="renewal-preview" aria-labelledby="renewal-preview-heading">
+    <h3 id="renewal-preview-heading">{{ 'billing.checkout.renewal.title' | transloco }}</h3>
+    <dl>
+      <dt>{{ 'billing.checkout.renewal.previousEnd' | transloco }}</dt>
+      <dd data-testid="renewal-previous-end">{{ instant(review.previewStartsAt) }}</dd>
+      <dt>{{ 'billing.checkout.renewal.newEnd' | transloco }}</dt>
+      <dd data-testid="renewal-new-end">{{ instant(review.previewEndsAt) }}</dd>
+    </dl>
+    @if (review.graceDaysIncluded > 0) {
+      <p data-testid="renewal-grace">{{ 'billing.checkout.renewal.graceIncluded' | transloco: { days: review.graceDaysIncluded } }}</p>
+    } @else {
+      <p data-testid="renewal-grace">{{ 'billing.checkout.renewal.noGrace' | transloco }}</p>
+    }
+  </section>
+}

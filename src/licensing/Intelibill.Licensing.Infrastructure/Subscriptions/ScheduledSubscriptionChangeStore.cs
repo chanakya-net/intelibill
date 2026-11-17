@@ -17,7 +17,8 @@ internal sealed class ScheduledSubscriptionChangeStore(LicensingDbContext db, Su
     public Task<CancellationShop[]> ReadAssignedShopsAsync(Guid account, Guid term, CancellationToken ct) =>
         db.Database.SqlQuery<CancellationShop>($"""
             SELECT shop_id, request_id, shop_name, applied_at, coverage_ends_at FROM public.shop_affiliations
-            WHERE account_id = {account} AND term_id = {term}
+            WHERE account_id = {account} AND term_id = {term} AND NOT EXISTS (SELECT FROM public.payment_fulfilments f
+                WHERE f.account_id = {account} AND f.predecessor_term_id = {term})
             ORDER BY shop_id
             """).ToArrayAsync(ct);
 

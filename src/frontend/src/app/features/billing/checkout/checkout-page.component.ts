@@ -14,10 +14,12 @@ import { isUuid, type CheckoutShop, type Period } from './checkout.models';
 import { CheckoutReview, DraftError, checkoutFailure, type Failure, type Invocation } from './checkout-review';
 import { CheckoutService } from './checkout.service';
 import { CheckoutPaymentComponent } from './checkout-payment.component';
+import { SubscriptionRenewalPreviewComponent } from '../subscriptions/subscription-renewal-preview.component';
 
 @Component({
   selector: 'app-checkout-page',
-  imports: [KeyValuePipe, ButtonDirective, RouterLink, TranslocoPipe, LocaleMoneyPipe, CheckoutPaymentComponent],
+  imports: [KeyValuePipe, ButtonDirective, RouterLink, TranslocoPipe, LocaleMoneyPipe, CheckoutPaymentComponent,
+    SubscriptionRenewalPreviewComponent],
   providers: [CheckoutReview],
   templateUrl: './checkout-page.component.html',
   styleUrl: './checkout-page.component.scss',

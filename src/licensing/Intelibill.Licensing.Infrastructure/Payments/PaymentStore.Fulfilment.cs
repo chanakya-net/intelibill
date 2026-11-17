@@ -21,9 +21,11 @@ internal sealed partial class PaymentStore
     {
         var term = f.Term;
         await db.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO public.payment_fulfilments (account_id, order_id, attempt_id, manual_receipt_id, term_id, policy_version, fulfilled_at)
+            INSERT INTO public.payment_fulfilments (account_id, order_id, attempt_id, manual_receipt_id, term_id, policy_version,
+                fulfilled_at, predecessor_term_id, payment_effective_at, grace_days_included, renewal_policy_version)
             VALUES ({f.AccountId}, {f.OrderId}, {f.Attempt?.AttemptId}, {f.ManualReceiptId}, {term.TermId},
-                {PaymentFulfilmentPolicy.Version}, {f.At})
+                {PaymentFulfilmentPolicy.Version}, {f.At}, {f.Renewal?.PredecessorTermId}, {f.Renewal?.PaymentEffectiveAt},
+                {f.Renewal?.GraceDaysIncluded}, {(f.Renewal is null ? null : RenewalPolicy.Version)})
             """, ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.subscription_coverage_terms (term_id, account_id, mode, capacity, starts_at, ends_at)

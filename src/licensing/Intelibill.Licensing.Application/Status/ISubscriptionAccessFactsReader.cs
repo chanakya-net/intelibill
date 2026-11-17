@@ -7,14 +7,16 @@ namespace Intelibill.Licensing.Application.Status;
 
 /// <summary>
 /// One persisted coverage term with its optional frozen supplement. Supplement fields are all null for a
-/// coverage-only row; the evaluation reports that as incomplete evidence rather than guessing.
+/// coverage-only row; the evaluation reports that as incomplete evidence rather than guessing. A paid renewal chain
+/// is read as its latest period with <c>PaidFrom</c>, the start of the contiguous same-anchor periods before it;
+/// <c>RenewedAtEnd</c> marks a period already extended by a paid successor.
 /// </summary>
 public sealed record TermFactsRow(Guid TermId, Guid AccountId, string Mode, int Capacity, DateTimeOffset StartsAt,
     DateTimeOffset EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal, string? TimeZone,
     int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency, Guid? PlanVersionId,
     string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion,
     TrialTermProvenance? Trial = null, ComplimentaryTermProvenance? Complimentary = null,
-    ScheduledSubscriptionChange? Cancellation = null);
+    ScheduledSubscriptionChange? Cancellation = null, DateTimeOffset? PaidFrom = null, bool RenewedAtEnd = false);
 
 public sealed record TrialTermProvenance(string ComputationVersion, int MemberCap, int ActiveMembers,
     int AccountTrialCap, bool DevelopmentFixture, bool ConflictingCoverage = false, DateTimeOffset? ExtendedEndsAt = null);

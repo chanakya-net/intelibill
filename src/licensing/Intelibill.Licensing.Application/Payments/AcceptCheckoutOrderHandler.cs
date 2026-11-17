@@ -36,7 +36,7 @@ public sealed class AcceptCheckoutOrderHandler(IBillingDelegationAccess access, 
             if (source?.Hash() != quote.SourceHash)
                 return CheckoutOrderErrors.Changed;
             var now = Now();
-            if (now >= quote.ExpiresAt)
+            if (now >= quote.ExpiresAt || !CheckoutRenewalPolicy.WindowOpen(quote, now))
                 return CheckoutOrderErrors.Expired;
             if (now < quote.CreatedAt)
                 return CheckoutOrderErrors.Changed;

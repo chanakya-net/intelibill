@@ -31,7 +31,7 @@ public sealed record RenewalDecision(
 /// Pure decision seam for the term a fulfilled payment produces. First purchase and trial conversion start at
 /// fulfilment with a fresh anchor. An on-time renewal (before the grace end, or verified as paid before it with
 /// an accepted quote) continues the old anchor from the old paid-through and discloses the grace days it
-/// includes. After restriction the term starts at restored access with a fresh anchor and no charge for the gap.
+/// includes, counted to the verified payment time when an accepted quote supplies one. After restriction the term starts at restored access with a fresh anchor and no charge for the gap.
 /// Missing or contradictory evidence is unresolved, never guessed. No payment is verified or written here.
 /// </summary>
 public static class RenewalPolicy
@@ -50,7 +50,8 @@ public static class RenewalPolicy
 
         var graceEnd = paidThrough + GracePolicy.EligiblePaidGrace;
         if (input.FulfilledAt < graceEnd)
-            return Continue(anchor, ordinal, paidThrough, input.FulfilledAt);
+            return Continue(anchor, ordinal, paidThrough, input.VerifiedPaymentAt is { } verified && input.AcceptedQuote
+                && verified <= input.FulfilledAt ? verified : input.FulfilledAt);
         if (input.VerifiedPaymentAt is { } paid && paid < graceEnd)
             return input.AcceptedQuote && paid <= input.FulfilledAt
                 ? Continue(anchor, ordinal, paidThrough, paid) : RenewalDecision.Unresolved;

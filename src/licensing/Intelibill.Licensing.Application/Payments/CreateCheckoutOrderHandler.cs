@@ -76,7 +76,7 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
             return RenewalPolicy.DetermineTerm(new(period, now));
         if (prior.Basis != "Paid" || prior.Period != request.Period || prior.Capacity != capacity ||
             prior.CalendarVersion != BillingCalendar.Version || prior.AccessPolicyVersion != GracePolicy.Version ||
-            prior.StartsAt > now || prior.CancellationRevision % 2 == 1 ||
+            (prior.StartsAt > now && !prior.Renewed) || prior.CancellationRevision % 2 == 1 ||
             source.Shops.Any(s => s.CoverageEndsAt != prior.EndsAt))
             return null;
 
