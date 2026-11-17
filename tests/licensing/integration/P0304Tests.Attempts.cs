@@ -56,4 +56,31 @@ public sealed partial class P0304Tests
         Assert.Equal(order, resumed.GetProperty("launch").GetProperty("parameters").GetProperty("orderId").GetString());
         Assert.Equal(1, rig.Fake.Posts);
     }
+
+    /// <summary>
+    /// A collection that repeats one old failed payment to reach the order's attempt count still leaves an attempt
+    /// unaccounted for; only distinct payments count.
+    /// </summary>
+    [Fact]
+    public async Task CollectionRepeatingOneFailedPaymentNeverStandsInForAMissingAttempt()
+    {
+        await using var rig = await Rig.StartAsync(database);
+        var attempt = await rig.StartAttemptAsync();
+        var order = rig.Fake.OrderId();
+        var failed = rig.Fake.AddPayment(order, "failed");
+        var missing = rig.Fake.AddPayment(order, "created");
+        rig.Fake.HideFromCollection(missing);
+        rig.Fake.DuplicateInCollection(failed);
+        Assert.Equal(2, rig.Fake.Order(order)["attempts"]!.GetValue<int>());
+
+        rig.Fixture.CheckoutClock.Now = rig.Fixture.CheckoutClock.Now.AddDays(4).AddSeconds(1);
+        await AssertHeldWithoutLauncherAsync(rig, await rig.VerifyAsync(attempt, null, null));
+
+        rig.Fake.RevealInCollection(missing);
+        rig.Fake.Transition(missing, "captured");
+        AssertStatus(await rig.VerifyAsync(attempt, null, null), "Verified", "Fulfilled", "Applying");
+        AssertStatus(await StatusAsync(rig.Payer.Client, rig.Quote), "Verified", "Fulfilled", "Applying");
+        Assert.Equal(1, rig.Fake.Posts);
+        await P0302Tests.AssertSingleFulfilmentAsync(rig.Fixture, rig.Quote, 1);
+    }
 }

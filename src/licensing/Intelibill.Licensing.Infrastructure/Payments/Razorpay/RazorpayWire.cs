@@ -122,11 +122,16 @@ internal static class RazorpayWire
             now - payment.CreatedAt > LateAuthorizationWindow);
 
     /// <summary>
-    /// The collection lists at least as many payments as the order states attempts, and an attempted order lists at
-    /// least one. An order that does not state its attempts cannot be shown complete.
+    /// The collection lists at least as many distinct payments as the order states attempts, and an attempted order
+    /// lists at least one. A payment listed twice is inconsistent evidence, never a stand-in for a missing attempt, and
+    /// an order that does not state its attempts cannot be shown complete.
     /// </summary>
-    private static bool AccountsForEveryAttempt(WireOrder order, IReadOnlyList<WirePayment> payments) =>
-        order.Attempts is { } attempts && payments.Count >= attempts && (order.Status != "attempted" || payments.Count > 0);
+    private static bool AccountsForEveryAttempt(WireOrder order, IReadOnlyList<WirePayment> payments)
+    {
+        var distinct = payments.Select(payment => payment.Id).Distinct(StringComparer.Ordinal).Count();
+        return order.Attempts is { } attempts && distinct == payments.Count && distinct >= attempts &&
+            (order.Status != "attempted" || distinct > 0);
+    }
 
     /// <summary>
     /// A late authorization Razorpay refunded on its own without capturing it, as it does for a duplicate payment on an

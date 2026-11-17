@@ -8,6 +8,7 @@ public sealed partial class P0304BrowserTests
 {
     private static readonly string[] ReloadPhases = ["reload-opened"];
     private static readonly string[] MalformedPhases = ["malformed-start", "malformed-callbacks", "malformed-recheck"];
+    private static readonly string[] WindowHoldPhases = ["window-hold"];
 
     /// <summary>
     /// R010: the hosted window is opened, the provider authorizes a payment and the page reloads before the handler or
@@ -37,6 +38,37 @@ public sealed partial class P0304BrowserTests
         Assert.Equal(1, fake.Posts);
         await P0302Tests.AssertSingleFulfilmentAsync(fixture, run.Quote, 1);
         await RecordAsync(fixture, run, fake, "reload-build-and-postgres.json", ReloadPhases, session.Timeout);
+    }
+
+    /// <summary>
+    /// R010: two pages of one browser context. Page A's hosted window stays open while page B's proof-free recheck
+    /// finds the order idle; the saved hold survives, the provider then authorizes and A reloads with no callback.
+    /// Neither page offers Pay while the window is live or the payment authorized; the capture fulfils once.
+    /// </summary>
+    [P0304BrowserFact]
+    [Trait("Category", "Browser")]
+    public async Task IdleRecheckInAnotherPageKeepsAnOpenWindowsHoldUntilTheOriginalOrderSettles()
+    {
+        await using var session = await Session.StartAsync(database);
+        var (fixture, fake, run) = (session.Fixture, session.Fake, session.Run);
+        Flags.Clear(run.Evidence, "window-hold-open", "window-hold-authorized", "window-hold-pending", "window-hold-captured");
+        var phase = RunAsync(run, session.Origin, "window-hold", session.Timeout);
+
+        await Flags.WaitAsync(run.Evidence, "window-hold-open", phase, session.Timeout);
+        Assert.Equal(1, fake.Posts);
+        var payment = fake.AddPayment(fake.OrderId(), "authorized");
+        Flags.Raise(run.Evidence, "window-hold-authorized");
+
+        await Flags.WaitAsync(run.Evidence, "window-hold-pending", phase, session.Timeout);
+        Assert.Equal(0L, await fixture.CountAsync("verified_payments"));
+        Assert.Equal(0L, await fixture.CountAsync("payment_fulfilments"));
+        fake.Transition(payment, "captured");
+        Flags.Raise(run.Evidence, "window-hold-captured");
+
+        await phase;
+        Assert.Equal(1, fake.Posts);
+        await P0302Tests.AssertSingleFulfilmentAsync(fixture, run.Quote, 1);
+        await RecordAsync(fixture, run, fake, "window-hold-build-and-postgres.json", WindowHoldPhases, session.Timeout);
     }
 
     /// <summary>

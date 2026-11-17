@@ -73,6 +73,10 @@ export class CheckoutPaymentComponent {
   private queued: QueuedOutcome | null = null;
   /** A cross-tab draft change that arrived while a request ran; reread before Pay can be offered again. */
   private storageDeferred = false;
+  /** Releases this page's hosted-window hold; held from before the pending claim until the outcome is saved. */
+  private releaseWindow: (() => void) | null = null;
+  /** The saved draft revision this page already read the authoritative status for to catch up; one read each. */
+  private caughtUp: number | null = null;
 
   readonly quote = input.required<Quote>();
   protected readonly payment = signal<CheckoutPayment | null>(null);
@@ -103,7 +107,7 @@ export class CheckoutPaymentComponent {
       untracked(() => this.restore());
     });
     const timer = window.setInterval(() => this.refresh(), REFRESH_MS);
-    inject(DestroyRef).onDestroy(() => { this.generation++; window.clearInterval(timer); });
+    inject(DestroyRef).onDestroy(() => { this.generation++; window.clearInterval(timer); this.endWindowHold(); });
   }
 
   blocksNewQuote(): boolean {
@@ -152,8 +156,9 @@ export class CheckoutPaymentComponent {
   }
 
   /**
-   * Saves the owner-bound pending claim before the hosted window opens. If the page then reloads or closes before
-   * the window reports anything, the restored draft is pending and the original order is verified before any Pay.
+   * Takes the cross-tab window hold, then saves the owner-bound pending claim before the hosted window opens. While
+   * the hold lasts no tab's idle recheck can reopen the order. If the page reloads or closes before the window
+   * reports anything, the browser drops the hold, and the restored pending draft rechecks the original order first.
    */
   protected readonly prepareOpen = async (launch: RazorpayLaunch) => {
     const ticket = this.ticket;
@@ -162,11 +167,22 @@ export class CheckoutPaymentComponent {
     let opened = false;
     await this.run(async invocation => {
       this.windowOpen.set(true);
-      opened = await this.rememberPending(invocation, attempt) && this.ticket === ticket;
+      this.releaseWindow ??= await this.drafts.holdWindow(invocation.scope, invocation.order);
+      opened = !!this.releaseWindow && invocation.current() && await this.rememberPending(invocation, attempt) &&
+        this.ticket === ticket;
     });
-    if (!opened) this.windowOpen.set(false);
+    if (!opened) {
+      this.windowOpen.set(false);
+      this.endWindowHold();
+    }
     return opened;
   };
+
+  private endWindowHold() {
+    const release = this.releaseWindow;
+    this.releaseWindow = null;
+    release?.();
+  }
 
   protected razorpayOpened(launch: RazorpayLaunch) {
     this.ticket = {
@@ -198,10 +214,13 @@ export class CheckoutPaymentComponent {
     const queued = this.queued;
     if (!queued || this.busy()) return;
     this.queued = null;
-    if (!this.ticketCurrent(queued.ticket) || !queued.ticket.attempt) return;
+    if (!this.ticketCurrent(queued.ticket) || !queued.ticket.attempt) return this.endWindowHold();
     const attempt = queued.ticket.attempt;
     void this.run(async invocation => {
-      if (!await this.rememberPending(invocation, attempt)) return;
+      const claimed = await this.rememberPending(invocation, attempt);
+      // The outcome is saved (and supersedes any recheck sent while the window was open): the hold can go.
+      this.endWindowHold();
+      if (!claimed) return;
       if (queued.proof) await this.verifyAttempt(invocation, attempt, 'Success', queued.proof);
       else await this.verifyAttempt(invocation, attempt, queued.claimed ? 'Success' : null);
     });
@@ -237,6 +256,8 @@ export class CheckoutPaymentComponent {
     this.generation++;
     this.ticket = this.queued = null;
     this.windowOpen.set(false);
+    this.endWindowHold();
+    this.caughtUp = null;
     this.storageDeferred = false;
     this.polls = this.ticks = 0;
     this.busy.set(false);
@@ -341,9 +362,17 @@ export class CheckoutPaymentComponent {
     }
   }
 
-  /** Reads the authoritative status once a deferred cross-tab change left the draft ahead of what is on screen. */
+  /**
+   * Reads the authoritative status once a deferred cross-tab change left the draft ahead of what is on screen: once
+   * per saved revision. A failed or stale answer keeps Pay hidden and leaves the rest to the bounded refresh or
+   * Check again.
+   */
   private catchUp() {
-    if (!this.busy() && draftAhead(this.draft()?.state, this.payment())) void this.run(invocation => this.read(invocation));
+    const draft = this.draft();
+    const revision = draft?.revision ?? 0;
+    if (this.busy() || !draftAhead(draft?.state, this.payment()) || this.caughtUp === revision) return;
+    this.caughtUp = revision;
+    void this.run(invocation => this.read(invocation));
   }
 
   /** Rereads the owner-bound draft another tab changed mid-request, so a newer pending claim keeps Pay hidden. */

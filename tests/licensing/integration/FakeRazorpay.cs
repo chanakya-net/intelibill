@@ -21,6 +21,7 @@ internal sealed class FakeRazorpay : HttpMessageHandler
     private readonly Dictionary<string, JsonObject> collectionPatches = [];
     private readonly Dictionary<string, HashSet<string>> collectionOmissions = [];
     private readonly HashSet<string> hiddenFromCollection = [];
+    private readonly HashSet<string> duplicatedInCollection = [];
     private int sequence;
 
     internal Func<DateTimeOffset> Clock { get; set; } = () => DateTimeOffset.UnixEpoch.AddDays(1);
@@ -84,6 +85,8 @@ internal sealed class FakeRazorpay : HttpMessageHandler
     /// <summary>Leaves a payment out of its order's payment collection while the order still counts its attempt.</summary>
     internal void HideFromCollection(string paymentId) { lock (gate) hiddenFromCollection.Add(paymentId); }
     internal void RevealInCollection(string paymentId) { lock (gate) hiddenFromCollection.Remove(paymentId); }
+    /// <summary>Lists a payment twice in its order's payment collection, as a repeated page entry would.</summary>
+    internal void DuplicateInCollection(string paymentId) { lock (gate) duplicatedInCollection.Add(paymentId); }
 
     internal string AddPayment(string orderId, string status, long? amount = null, string? currency = null, string? onOrder = null,
         string method = "upi", long? createdAt = null, bool withAmountCaptured = true)
@@ -239,13 +242,16 @@ internal sealed class FakeRazorpay : HttpMessageHandler
             ["v1", "orders", var id] when orders.ContainsKey(id) && FailOrderReads > 0 => FailOrderRead(),
             ["v1", "orders", var id] when orders.TryGetValue(id, out var order) => Json(HttpStatusCode.OK, Copy(order)),
             ["v1", "orders", var id, "payments"] when orders.ContainsKey(id) =>
-                Collection(payments.Where(p => p["order_id"]!.GetValue<string>() == id &&
-                    !hiddenFromCollection.Contains(p["id"]!.GetValue<string>())).Select(Patched)),
+                Collection(OrderPayments(id).Select(Patched)),
             ["v1", "payments", var id] when payments.SingleOrDefault(p => p["id"]!.GetValue<string>() == id) is { } payment =>
                 Json(HttpStatusCode.OK, Copy(payment)),
             _ => Json(HttpStatusCode.NotFound, new JsonObject()),
         };
     }
+
+    private IEnumerable<JsonObject> OrderPayments(string orderId) =>
+        payments.Where(p => p["order_id"]!.GetValue<string>() == orderId && !hiddenFromCollection.Contains(p["id"]!.GetValue<string>()))
+            .SelectMany(p => duplicatedInCollection.Contains(p["id"]!.GetValue<string>()) ? new[] { p, p } : [p]);
 
     private HttpResponseMessage FailOrderRead()
     {
