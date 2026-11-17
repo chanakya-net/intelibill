@@ -1396,3 +1396,16 @@ their balances use grouped SQL, but they are not a scalable replacement for the 
 No schema/index changes were required. Deploy API routes before/with the web client; rollback keeps
 legacy arrays available. Local verification is documented in
 [bounded reads verification](bounded-reads-verification.md), without a production capacity claim.
+
+## Licensing Payment Provider Resolution
+
+The licensing resolver's synchronous `ForPin` port calls `PaymentProviderBindings.Find` for
+immutable credential-reference metadata. Its first lookup per pin per dependency-injection
+scope performs a synchronous PostgreSQL `SingleOrDefault()` and blocks the calling thread,
+including request and worker threads. A scoped cache includes missing results, so repeated
+lookups of that pin in the same scope do not repeat the read; retained profile configuration
+is bounded to 32 entries. Binding writes remain asynchronous in the authorized transaction.
+
+Follow-up: when retiring the legacy synchronous `ForNewAttempts` bootstrap seam, make the
+resolver and binding reads asynchronous end to end, preserving exact historical pins and
+fail-closed routing. This slice retains the existing port and adds no refund workflow.

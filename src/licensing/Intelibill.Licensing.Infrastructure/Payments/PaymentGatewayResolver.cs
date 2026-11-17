@@ -57,10 +57,10 @@ internal sealed class PaymentGatewayResolver(IServiceProvider services, IOptions
         var profiles = registry.Profiles.Select(p => new PaymentProviderProfileStatus(p.Id, p.Pin,
             Failure(p) is null, Failure(p))).ToList();
         if (Simulator() is { } simulator)
-            profiles.Add(new("legacy-simulator", simulator.Pin, ForPin(simulator.Pin) is not null,
+            profiles.Add(new(PaymentProviderConfiguration.LegacySimulatorProfileId, simulator.Pin, ForPin(simulator.Pin) is not null,
                 ForPin(simulator.Pin) is null ? "InvalidProfile" : null));
         if (Razorpay() is { } razorpayGateway)
-            profiles.Add(new("legacy-razorpay", razorpayGateway.Pin, ForPin(razorpayGateway.Pin) is not null,
+            profiles.Add(new(PaymentProviderConfiguration.LegacyRazorpayProfileId, razorpayGateway.Pin, ForPin(razorpayGateway.Pin) is not null,
                 ForPin(razorpayGateway.Pin) is null ? "InvalidProfile" : null));
         return profiles;
     }

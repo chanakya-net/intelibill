@@ -5,6 +5,7 @@ using Intelibill.Licensing.Application.Payments;
 using Intelibill.Licensing.Domain.Entities;
 using Intelibill.Licensing.Infrastructure.AdminIdentities;
 using Intelibill.Licensing.Infrastructure.Data;
+using Intelibill.Licensing.Infrastructure.Payments.Razorpay;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -82,7 +83,8 @@ internal sealed partial class PaymentProviderRoutingStore(LicensingDbContext db,
     }
 
     private PaymentProviderSelection Bootstrap() => gateways.ForNewAttempts() is { } gateway
-        ? new(0, gateway.Pin.ProviderId == "razorpay" ? "legacy-razorpay" : "legacy-simulator", gateway.Pin) : new(0, null, null);
+        ? new(0, gateway.Pin.ProviderId == RazorpayConfiguration.ProviderId
+            ? PaymentProviderConfiguration.LegacyRazorpayProfileId : PaymentProviderConfiguration.LegacySimulatorProfileId, gateway.Pin) : new(0, null, null);
 
     public Task<PaymentProviderSelection> LockSelectionAsync(CancellationToken ct) => ReadAsync(true, ct);
 

@@ -43,7 +43,7 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         var attempt = row.Attempt;
         var payment = attempt is null ? (row.ManualVerifiedAt is null ? "NotStarted" : "Verified") : row.VerifiedAt is not null ? "Verified"
             : row.DefinitivelyFailed ? "Failed" : attempt.ProviderOrderReference is null || row.VerificationRequested ? "PendingVerification" : "AwaitingPayment";
-        var routingReview = attempt is not null && gateway is null && row.VerifiedAt is null && row.ManualVerifiedAt is null;
+        var routingReview = attempt is not null && gateway is null && row.VerifiedAt is null && row.ManualVerifiedAt is null && !row.DefinitivelyFailed;
         if (routingReview) payment = "PendingVerification";
         var fulfilment = row.TermId is not null ? "Fulfilled" : (row.NeedsReview || routingReview) ? "NeedsReview" : "NotFulfilled";
         var applied = row.Deliveries.Count(d => synced.TryGetValue(d.ShopId, out var s) && s.AppliedShopRevision >= d.ShopRevision);

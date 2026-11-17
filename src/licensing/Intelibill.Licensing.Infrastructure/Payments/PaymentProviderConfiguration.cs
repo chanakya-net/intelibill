@@ -21,6 +21,9 @@ internal sealed class PaymentProviderProfile
 
 internal sealed class PaymentProviderConfiguration(IConfiguration configuration, IHostEnvironment environment)
 {
+    internal const string LegacySimulatorProfileId = "legacy-simulator";
+    internal const string LegacyRazorpayProfileId = "legacy-razorpay";
+
     internal PaymentProviderProfile[] Profiles => configuration.GetSection("Payments:Profiles").Get<PaymentProviderProfile[]>() ?? [];
 
     internal string? Failure(PaymentProviderProfile profile)
@@ -29,7 +32,7 @@ internal sealed class PaymentProviderConfiguration(IConfiguration configuration,
         if (profiles.Length > 32 || !Identifier(profile.Id, 80) || !Identifier(profile.ProviderId, 40) ||
             !Identifier(profile.AccountId, 80) || !Identifier(profile.ConfigurationVersion, 80) ||
             profiles.Count(p => p.Id == profile.Id || p.Pin == profile.Pin) != 1 ||
-            profile.Id is "legacy-simulator" or "legacy-razorpay" || profile.Pin == DevelopmentPaymentGateway.LocalPin ||
+            profile.Id is LegacySimulatorProfileId or LegacyRazorpayProfileId || profile.Pin == DevelopmentPaymentGateway.LocalPin ||
             profile.CredentialReference?.Length > 512 || profile.WebhookSecretReference?.Length > 512)
             return "InvalidProfile";
         if (profile.ProviderId == DevelopmentPaymentGateway.ProviderId)

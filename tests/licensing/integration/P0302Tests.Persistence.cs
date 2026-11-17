@@ -144,7 +144,8 @@ public sealed partial class P0302Tests
             var original = services.Last(service => service.ServiceType == typeof(IPaymentGatewayResolver));
             services.Remove(original);
             services.AddScoped<IPaymentGatewayResolver>(provider => new Resolver(
-                (IPaymentGatewayResolver)ActivatorUtilities.CreateInstance(provider, original.ImplementationType!), this));
+                (IPaymentGatewayResolver)(original.ImplementationFactory is { } factory ? factory(provider)
+                    : ActivatorUtilities.CreateInstance(provider, original.ImplementationType!)), this));
         }
 
         internal async Task ObserveAsync(string call, Guid attempt)

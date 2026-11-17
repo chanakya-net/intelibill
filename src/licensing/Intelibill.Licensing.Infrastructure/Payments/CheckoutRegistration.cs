@@ -63,7 +63,7 @@ internal static class CheckoutRegistration
         services.AddScoped<PaymentProviderConfiguration>();
         services.AddScoped<PaymentProviderBindings>();
         services.AddScoped<PaymentGatewayResolver>();
-        services.AddScoped<IPaymentGatewayResolver, PaymentGatewayResolver>();
+        services.AddScoped<IPaymentGatewayResolver>(p => p.GetRequiredService<PaymentGatewayResolver>());
         services.AddScoped<IPaymentProviderRegistry>(p => p.GetRequiredService<PaymentGatewayResolver>());
         services.AddScoped<PaymentProviderRoutingStore>();
         services.AddScoped<IPaymentProviderRoutingStore>(p => p.GetRequiredService<PaymentProviderRoutingStore>());

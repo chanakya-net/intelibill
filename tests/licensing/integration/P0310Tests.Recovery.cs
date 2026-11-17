@@ -11,6 +11,38 @@ namespace Intelibill.Licensing.Integration.Tests;
 
 public sealed partial class P0310Tests
 {
+    [Fact]
+    public async Task DefinitivelyFailedAttemptKeepsItsOutcomeWhenHistoricalProfileIsMissing()
+    {
+        var clock = new P0201Clock { Now = WholeSecondStart };
+        await using var fixture = await P0302Fixture.StartAsync(database, clock, Settings());
+        using var owner = await fixture.Trial.Catalogue.SignInOwnerAsync();
+        using var selected = await P0212Fixture.PostAsync(owner, ProvidersPath + "/selection",
+            new { profileId = "a", operationKey = Guid.NewGuid(), expectedRevision = 0, reason = "Select original profile A" });
+        Assert.Equal(HttpStatusCode.OK, selected.StatusCode);
+        var purchase = await fixture.AcceptedQuoteAsync(1);
+        var started = await StartAsync(purchase.Payer.Client, purchase.Quote, HttpStatusCode.Created);
+        var attempt = started.GetProperty("attemptId").GetGuid();
+        await PostAsync(purchase.Payer.Client, CapturePath(purchase.Quote, attempt), new { outcome = "Failed" });
+        AssertStatus(await VerifyAsync(purchase.Payer.Client, purchase.Quote, attempt), "Failed", "NotFulfilled", "NotApplicable");
+        Assert.Equal(1L, await fixture.CountAsync("payment_events", "kind = 'CheckoutFailed'"));
+
+        await using var unavailable = fixture.Hosts.Licensing.WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, config) =>
+            config.AddInMemoryCollection(new Dictionary<string, string?> { ["Payments:Profiles:0:AccountId"] = "missing-a" })));
+        await using var merchant = fixture.Hosts.Merchant.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddHttpClient("MerchantBillingDelegation").ConfigurePrimaryHttpMessageHandler(() => unavailable.Server.CreateHandler())));
+        using var reopened = merchant.CreateClient();
+        reopened.DefaultRequestHeaders.Authorization = purchase.Payer.Client.DefaultRequestHeaders.Authorization;
+        var status = await StatusAsync(reopened, purchase.Quote);
+        AssertStatus(status, "Failed", "NotFulfilled", "NotApplicable");
+        Assert.Equal(attempt, status.GetProperty("attemptId").GetGuid());
+        Assert.False(status.GetProperty("canStart").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, status.GetProperty("launch").ValueKind);
+        Assert.Equal(0L, await fixture.CountAsync("payment_routing_events"));
+        Assert.Equal(1L, await fixture.CountAsync("development_gateway_sessions"));
+        Assert.Equal(0L, await fixture.CountAsync("verified_payments"));
+    }
+
     [Theory]
     [InlineData("ProviderId", "not-loaded", "MissingProfile")]
     [InlineData("AccountId", "missing-a", "MissingProfile")]
