@@ -57,4 +57,18 @@ public enum ObservedRefundState { Pending, Processed, Failed }
 public sealed record RefundObservation(PaymentProviderPin Pin, string ProviderRefundReference, ObservedRefundState State,
     long AmountPaise, string Currency);
 
-public sealed record VerifiedGatewayEvent(PaymentProviderPin Pin, string ProviderEventId, string Kind, PaymentObservation? Payment);
+public static class GatewayEventKinds
+{
+    public const string PaymentCaptured = "PaymentCaptured";
+    public const string PaymentAuthorized = "PaymentAuthorized";
+    public const string PaymentFailed = "PaymentFailed";
+    public const string Other = "Other";
+}
+
+/// <summary>References and optional claims from a signed notification. This evidence cannot fund an order.</summary>
+public sealed record GatewayEventPayment(string ProviderOrderReference, string? ProviderPaymentReference = null,
+    ObservedPaymentState? State = null, long? AmountPaise = null, string? Currency = null);
+
+public sealed record VerifiedGatewayEvent(PaymentProviderPin Pin, string ProviderEventId, string Kind,
+    GatewayEventPayment? Payment, string? ProviderKind = null, string? PayloadAccountId = null,
+    DateTimeOffset? OccurredAt = null);

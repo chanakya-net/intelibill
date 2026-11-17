@@ -18,7 +18,7 @@ internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfigura
     internal const string ClientName = "razorpay-gateway";
 
     public PaymentProviderPin Pin => config.Pin;
-    public PaymentGatewayCapabilities Capabilities { get; } = new(FullPaymentOnly: true, Refunds: false, Webhooks: false);
+    public PaymentGatewayCapabilities Capabilities => new(FullPaymentOnly: true, Refunds: false, Webhooks: config.Webhook is not null);
 
     public IReadOnlyDictionary<string, string> LauncherParameters(string providerOrderReference, long amountPaise, string currency) =>
         new Dictionary<string, string>
@@ -165,9 +165,6 @@ internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfigura
 
     public Task<GatewayResult<RefundObservation>> GetRefundAsync(string providerRefundReference, CancellationToken ct) =>
         Task.FromResult(GatewayResult.Unsupported<RefundObservation>());
-
-    public GatewayResult<VerifiedGatewayEvent> ValidateWebhook(ReadOnlySpan<byte> body, IReadOnlyDictionary<string, string> headers) =>
-        GatewayResult.Unsupported<VerifiedGatewayEvent>();
 
     private async Task<(GatewayOutcome? Failure, WireOrder? Order)> ReadOrderAsync(CheckoutVerification request, CancellationToken ct)
     {

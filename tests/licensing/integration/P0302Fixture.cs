@@ -33,6 +33,10 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
             public.paid_fresh_starts, public.payment_trial_conversions, public.payment_restoration_holds,
             public.service_restoration_adjustments
             TO licensing_runtime;
+        GRANT EXECUTE ON FUNCTION public.receive_gateway_inbox_event(uuid,text,text,text,text,text,text,text,text,bytea,bytea,timestamptz) TO licensing_runtime;
+        GRANT EXECUTE ON FUNCTION public.claim_gateway_inbox_event(timestamptz,uuid) TO licensing_runtime;
+        GRANT EXECUTE ON FUNCTION public.lock_gateway_inbox_event(uuid,uuid,timestamptz) TO licensing_runtime;
+        GRANT EXECUTE ON FUNCTION public.finish_gateway_inbox_event(uuid,uuid,timestamptz,text,text,boolean) TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.claim_pending_payment(timestamptz,uuid) TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.lock_pending_payment(uuid,timestamptz) TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.finish_pending_payment(uuid,timestamptz,boolean) TO licensing_runtime;

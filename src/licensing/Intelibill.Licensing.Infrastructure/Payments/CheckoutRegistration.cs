@@ -32,6 +32,7 @@ internal static class CheckoutRegistration
     private static void AddPayments(this IServiceCollection services)
     {
         services.AddOptions<PaymentOptions>().BindConfiguration(PaymentOptions.Section);
+        services.AddOptions<DevelopmentWebhookOptions>().BindConfiguration("Payments:Simulator");
         services.AddOptions<RazorpayOptions>().BindConfiguration(RazorpayOptions.Section);
         services.AddHttpClient(RazorpayGateway.ClientName).RemoveAllLoggers()
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })
@@ -43,11 +44,19 @@ internal static class CheckoutRegistration
         services.AddScoped<IManualPaymentEvidence, ManualPaymentEvidenceProtector>();
         services.AddScoped<FluentValidation.IValidator<ConfirmManualPayment>, ConfirmManualPaymentValidator>();
         services.AddScoped(provider => ActivatorUtilities.CreateInstance<ConfirmManualPaymentHandler>(provider, CheckoutClock(provider)));
+        services.AddScoped<IGatewayInboxStore, GatewayInboxStore>();
+        services.AddScoped<IGatewayInboxEvidence, GatewayInboxEvidenceProtector>();
+        services.AddScoped(provider => ActivatorUtilities.CreateInstance<ReceiveGatewayWebhookHandler>(provider,
+            CheckoutClock(provider)));
         services.AddScoped<IPendingPaymentAttemptStore, PendingPaymentAttemptStore>();
         services.TryAddKeyedSingleton<TimeProvider>(PendingPaymentAttemptWorker.ClockKey, (_, _) => TimeProvider.System);
         services.AddHostedService<PendingPaymentAttemptWorker>();
+        services.AddHostedService<GatewayInboxWorker>();
+        services.AddScoped(provider => ActivatorUtilities.CreateInstance<ProcessGatewayInboxHandler>(provider,
+            provider.GetRequiredKeyedService<TimeProvider>(PendingPaymentAttemptWorker.ClockKey)));
         services.AddScoped(provider => new DevelopmentPaymentGateway(
-            provider.GetRequiredService<Data.LicensingDbContext>(), CheckoutClock(provider)));
+            provider.GetRequiredService<Data.LicensingDbContext>(), CheckoutClock(provider),
+            provider.GetRequiredService<IOptions<DevelopmentWebhookOptions>>().Value));
         services.AddScoped<IPaymentGatewayResolver, PaymentGatewayResolver>();
         services.AddScoped<IPaymentSimulator>(provider =>
             PaymentGatewayResolver.SimulatorEnabled(provider.GetRequiredService<IOptions<PaymentOptions>>().Value,

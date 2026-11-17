@@ -8,6 +8,9 @@ internal sealed class RazorpayOptions
     public const string Section = "Payments:Razorpay";
     public string? KeyId { get; init; }
     public string? KeySecret { get; init; }
+    public string? WebhookSecret { get; init; }
+    public string? WebhookAccountId { get; init; }
+    public string[] RetiredWebhookSecrets { get; init; } = [];
     public string? AccountId { get; init; }
     public string? Environment { get; init; }
     public string? ConfigurationVersion { get; init; }
@@ -30,7 +33,7 @@ internal sealed class RazorpayOptions
 
 /// <summary>A validated, pinned Razorpay configuration. Absent when any capability or credential is unsupported.</summary>
 internal sealed record RazorpayConfiguration(string KeyId, string KeySecret, Uri BaseAddress, PaymentProviderPin Pin,
-    IReadOnlySet<string> Methods, long MaxAmountPaise)
+    IReadOnlySet<string> Methods, long MaxAmountPaise, RazorpayWebhookConfiguration? Webhook)
 {
     internal const string ProviderId = "razorpay";
     /// <summary>Razorpay's documented minimum order, 1 INR (100 paise).</summary>
@@ -53,8 +56,23 @@ internal sealed record RazorpayConfiguration(string KeyId, string KeySecret, Uri
             !Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseAddress) ||
             baseAddress != new Uri("https://api.razorpay.com/"))
             return null;
+        var webhook = RazorpayWebhookConfiguration.From(options);
+        if (webhook is null && (options.WebhookSecret is not null || options.WebhookAccountId is not null ||
+            options.RetiredWebhookSecrets.Length != 0))
+            return null;
         return new(keyId, options.KeySecret, baseAddress,
             new(ProviderId, options.AccountId, environment!, options.ConfigurationVersion),
-            options.Methods.ToHashSet(StringComparer.Ordinal), options.MaxAmountPaise.Value);
+            options.Methods.ToHashSet(StringComparer.Ordinal), options.MaxAmountPaise.Value, webhook);
     }
+}
+
+internal sealed record RazorpayWebhookConfiguration(string AccountId, IReadOnlyList<string> Secrets)
+{
+    internal static RazorpayWebhookConfiguration? From(RazorpayOptions options) =>
+        options.WebhookAccountId is { } account && account.StartsWith("acc_", StringComparison.Ordinal) &&
+        WebhookSignature.Identifier(account, 80) && account.Length > 4 &&
+        WebhookSignature.Secret(options.WebhookSecret) && options.RetiredWebhookSecrets.Length <= 3 &&
+        options.RetiredWebhookSecrets.All(WebhookSignature.Secret) &&
+        options.KeySecret != options.WebhookSecret && !options.RetiredWebhookSecrets.Contains(options.KeySecret)
+            ? new(account, [options.WebhookSecret!, .. options.RetiredWebhookSecrets]) : null;
 }

@@ -131,7 +131,7 @@ public sealed partial class P0304BrowserTests
         await RecordAsync(fixture, run, fake, "hosted-failure-build-and-postgres.json", HostedFailurePhases, session.Timeout);
     }
 
-    private static class Flags
+    internal static class Flags
     {
         internal static void Clear(string evidence, params string[] names)
         {

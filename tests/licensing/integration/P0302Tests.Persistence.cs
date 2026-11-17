@@ -164,6 +164,7 @@ public sealed partial class P0302Tests
         {
             public IPaymentGateway? ForNewAttempts() =>
                 !probe.DisableNewAttempts && inner.ForNewAttempts() is { } gateway ? new Gateway(gateway, probe) : null;
+            public IReadOnlyList<IPaymentGateway> ForWebhooks(string providerId) => inner.ForWebhooks(providerId);
             public IPaymentGateway? ForPin(PaymentProviderPin pin) => inner.ForPin(pin) is { } gateway ? new Gateway(gateway, probe) : null;
         }
 

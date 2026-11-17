@@ -109,7 +109,7 @@ public sealed partial class P0304BrowserTests(LicensingPostgreSqlFixture databas
         await RecordAsync(fixture, run, fake, "dismissal-build-and-postgres.json", DismissalPhases, session.Timeout);
     }
 
-    private sealed class Session : IAsyncDisposable
+    internal sealed class Session : IAsyncDisposable
     {
         private readonly CancellationTokenSource timeout = new(TimeSpan.FromMinutes(8));
         private MerchantWebBuild? staged;
@@ -121,15 +121,19 @@ public sealed partial class P0304BrowserTests(LicensingPostgreSqlFixture databas
         internal string Origin { get; private set; } = "";
         internal CancellationToken Timeout => timeout.Token;
 
-        internal static async Task<Session> StartAsync(LicensingPostgreSqlFixture database, bool withOtherAccount = false)
+        internal static async Task<Session> StartAsync(LicensingPostgreSqlFixture database, bool withOtherAccount = false,
+            string evidenceVariable = "P0304_EVIDENCE_DIR", IReadOnlyDictionary<string, string?>? extraSettings = null)
         {
-            var evidence = Environment.GetEnvironmentVariable("P0304_EVIDENCE_DIR");
-            Assert.False(string.IsNullOrWhiteSpace(evidence), "Set P0304_EVIDENCE_DIR.");
+            var evidence = Environment.GetEnvironmentVariable(evidenceVariable);
+            Assert.False(string.IsNullOrWhiteSpace(evidence), $"Set {evidenceVariable}.");
             Directory.CreateDirectory(evidence);
             var fake = new FakeRazorpay();
             var clock = new P0201Clock { Now = P0302Fixture.WholeSecondStart };
             fake.Clock = () => clock.Now;
-            var fixture = await P0302Fixture.StartAsync(database, clock, FakeRazorpay.Settings(),
+            var settings = FakeRazorpay.Settings();
+            if (extraSettings is not null)
+                foreach (var (key, value) in extraSettings) settings[key] = value;
+            var fixture = await P0302Fixture.StartAsync(database, clock, settings,
                 services => services.AddHttpClient("razorpay-gateway").ConfigurePrimaryHttpMessageHandler(() => fake), browser: true);
             var session = new Session { Fixture = fixture, Fake = fake };
             var (payer, quote) = await PrepareAsync(fixture);
@@ -180,10 +184,14 @@ public sealed partial class P0304BrowserTests(LicensingPostgreSqlFixture databas
         return (payer, quote);
     }
 
-    private async Task RunAsync(Run run, string origin, string phase, CancellationToken ct)
+    private Task RunAsync(Run run, string origin, string phase, CancellationToken ct) =>
+        RunAsync(output, run, origin, phase, Configuration, ct);
+
+    internal static async Task RunAsync(ITestOutputHelper output, Run run, string origin, string phase, string configuration,
+        CancellationToken ct)
     {
         var start = new ProcessStartInfo("bun") { WorkingDirectory = run.Frontend, RedirectStandardOutput = true, RedirectStandardError = true };
-        foreach (var arg in new[] { "x", "playwright", "test", "--config", Configuration, "--grep", "@" + phase })
+        foreach (var arg in new[] { "x", "playwright", "test", "--config", configuration, "--grep", "@" + phase })
             start.ArgumentList.Add(arg);
         start.Environment["NODE_PATH"] = Path.Combine(run.Frontend, "node_modules");
         start.Environment["P0304_MERCHANT_WEB"] = origin;
@@ -212,8 +220,8 @@ public sealed partial class P0304BrowserTests(LicensingPostgreSqlFixture databas
             && !report.Contains("skipped", StringComparison.OrdinalIgnoreCase), report + await stderr);
     }
 
-    private static async Task RecordAsync(P0302Fixture fixture, Run run, FakeRazorpay fake, string file, string[] phases,
-        CancellationToken ct)
+    internal static async Task RecordAsync(P0302Fixture fixture, Run run, FakeRazorpay fake, string file, string[] phases,
+        CancellationToken ct, string configuration = Configuration)
     {
         using var ngsw = JsonDocument.Parse(await File.ReadAllTextAsync(
             Path.Combine(run.Frontend, "dist/INVENTORY/browser/ngsw.json"), ct));
@@ -231,12 +239,12 @@ public sealed partial class P0304BrowserTests(LicensingPostgreSqlFixture databas
             fulfilments = await fixture.CountAsync("payment_fulfilments"),
             appliedOutbox = await fixture.CountAsync("entitlement_outbox", "status = 'Applied'"),
             providerCalls = fake.Calls.ToArray(),
-            command = "bun x playwright test --config " + Configuration, phases, passed = phases.Length, skipped = 0,
+            command = "bun x playwright test --config " + configuration, phases, passed = phases.Length, skipped = 0,
             boundary = "Fake Razorpay HTTP transport and fixture checkout script; no real provider contacted.",
         }), ct);
     }
 
-    private sealed record Run(string Frontend, string Evidence, string Owner, CheckoutQuoteV1 Quote, CheckoutQuoteV1? Other = null);
+    internal sealed record Run(string Frontend, string Evidence, string Owner, CheckoutQuoteV1 Quote, CheckoutQuoteV1? Other = null);
 }
 
 internal sealed class P0304BrowserFactAttribute : FactAttribute

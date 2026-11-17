@@ -7,6 +7,11 @@ namespace Intelibill.Licensing.Infrastructure.Payments;
 
 internal sealed partial class PaymentStore
 {
+    public Task<string?> FindVerifiedPaymentReferenceAsync(Guid attempt, CancellationToken ct) =>
+        db.Database.SqlQuery<string>($"""
+            SELECT provider_payment_reference AS "Value" FROM public.verified_payments WHERE attempt_id = {attempt}
+            """).SingleOrDefaultAsync(ct);
+
     public Task RecordVerifiedAsync(StoredPaymentAttempt attempt, PaymentObservation p, DateTimeOffset at, CancellationToken ct) =>
         db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.verified_payments (attempt_id, account_id, order_id, provider_id, provider_account_id,

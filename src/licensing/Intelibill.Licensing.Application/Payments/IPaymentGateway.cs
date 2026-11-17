@@ -30,6 +30,7 @@ public interface IPaymentGatewayResolver
 {
     IPaymentGateway? ForNewAttempts();
     IPaymentGateway? ForPin(PaymentProviderPin pin);
+    IReadOnlyList<IPaymentGateway> ForWebhooks(string providerId) => [];
 }
 
 /// <summary>Local-only capture control; registered only by the development simulator runtime.</summary>
