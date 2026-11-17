@@ -72,12 +72,13 @@ internal sealed partial class TrialExtensionStore(LicensingDbContext db, ILogger
 
     public async Task<IReadOnlyList<TrialExtensionOverlap>> ReadOverlapsAsync(Guid account, Guid shop, TrialInterval interval,
         CancellationToken ct) => await db.Database.SqlQuery<TrialExtensionOverlap>($"""
-            SELECT h.shop_id, h.starts_at, coalesce(e.ends_at, h.ends_at) AS ends_at
+            SELECT h.shop_id, h.starts_at, least(coalesce(e.ends_at, h.ends_at), x.paid_starts_at) AS ends_at
             FROM public.trial_history h
             LEFT JOIN LATERAL (SELECT ends_at FROM public.trial_extensions
                 WHERE shop_id = h.shop_id AND account_id = h.account_id ORDER BY revision DESC LIMIT 1) e ON true
+            LEFT JOIN public.payment_trial_conversions x ON x.account_id = h.account_id AND x.shop_id = h.shop_id
             WHERE h.account_id = {account} AND h.shop_id <> {shop}
-                AND h.starts_at < {interval.EndsAt} AND coalesce(e.ends_at, h.ends_at) > {interval.StartsAt}
+                AND h.starts_at < {interval.EndsAt} AND least(coalesce(e.ends_at, h.ends_at), x.paid_starts_at) > {interval.StartsAt}
             ORDER BY h.shop_id
             """).ToListAsync(ct);
 

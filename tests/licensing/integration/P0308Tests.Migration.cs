@@ -13,7 +13,12 @@ public sealed partial class P0308Tests
         const string previous = "20261117110000_ManualPaymentReceipts";
         await using var fixture = await StartAsync(database, March31);
         var package = await fixture.PackageAsync(1);
-        var (_, first) = await PurchaseAsync(package, "Month");
+        var fresh = await FirstQuoteAsync(package, "Month");
+        var firstQuote = await AcceptAsync(package, await P0309Fixture.RepresentLegacyQuoteAsync(fixture.Hosts.LicensingOwner, fresh));
+        var bought = await PayAsync(package, firstQuote);
+        P0302Fixture.AssertStatus(bought, "Verified", "Fulfilled", "Applying");
+        var first = bought.GetProperty("termId").GetGuid();
+        await P0309Fixture.RepresentLegacyFulfilmentAsync(fixture.Hosts.LicensingOwner, firstQuote.OrderId);
         fixture.At(Utc("2027-04-20T06:00:00Z"));
         var pending = await AcceptAsync(package, await RenewalQuoteAsync(package, first, "Month"));
         var before = await TermRowAsync(fixture, first);

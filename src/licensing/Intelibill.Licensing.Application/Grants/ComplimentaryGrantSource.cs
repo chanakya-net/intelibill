@@ -4,6 +4,7 @@ using System.Text.Json;
 using ErrorOr;
 using Intelibill.Licensing.Application.Status;
 using Intelibill.Licensing.Domain.Policies;
+using Intelibill.Shared.Contracts.V1;
 
 namespace Intelibill.Licensing.Application.Grants;
 
@@ -13,7 +14,7 @@ namespace Intelibill.Licensing.Application.Grants;
 /// consistency token binding a confirmation to the preview it was made from; it is never authorization.
 /// </summary>
 internal sealed record ComplimentaryGrantSource(long Revision, IReadOnlyList<GrantShopSource> Shops,
-    IReadOnlyList<ComplimentaryGrantShopV1> Baselines, string Hash, DateTimeOffset At)
+    IReadOnlyList<ComplimentaryGrantShopV1> Baselines, string Hash, DateTimeOffset At, Guid? PaidTermId = null)
 {
     internal static async Task<ErrorOr<ComplimentaryGrantSource>> ReadAsync(IComplimentaryGrantStore store,
         ISubscriptionAccessFactsReader reader, Guid account, ComplimentaryGrantFacts facts, DateTimeOffset at,
@@ -26,6 +27,13 @@ internal sealed record ComplimentaryGrantSource(long Revision, IReadOnlyList<Gra
         if (windows.Any(window => ComplimentaryAccessPolicy.Overlaps(facts.StartsAt, facts.EndsAt, window.StartsAt, window.EndsAt)))
             return ComplimentaryGrantErrors.Overlap;
 
+        Guid? paidTerm = null;
+        if (facts.PaymentOrderId is { } order)
+        {
+            paidTerm = await store.ReadPaidTermAsync(account, order, facts.ShopIds, ct);
+            if (paidTerm is null) return ComplimentaryGrantErrors.InvalidPaymentOrder;
+        }
+
         var revision = await store.ReadRevisionAsync(account, ct);
         var baselines = new List<ComplimentaryGrantShopV1>();
         var terms = new List<Guid?>();
@@ -36,7 +44,10 @@ internal sealed record ComplimentaryGrantSource(long Revision, IReadOnlyList<Gra
             baselines.Add(new(shop.ShopId, shop.ShopName, status.State, status.Term?.Basis, status.Term?.AccessEndsAt));
             terms.Add(coverage?.Term?.TermId);
         }
-        return new ComplimentaryGrantSource(revision, shops, baselines, SourceHash(account, revision, shops, windows, terms), at);
+        var hash = SourceHash(account, revision, shops, windows, terms);
+        if (paidTerm is not null)
+            hash = CheckoutOrdersV1.Digest("service-restoration/1", "source", hash, facts.PaymentOrderId, paidTerm);
+        return new ComplimentaryGrantSource(revision, shops, baselines, hash, at, paidTerm);
     }
 
     // Stable facts only (identities and revision), never the time-dependent evaluated state.
@@ -62,14 +73,16 @@ internal sealed record ComplimentaryGrantSource(long Revision, IReadOnlyList<Gra
             ComplimentaryGrantFacts.Format(facts.StartsAt), ComplimentaryGrantFacts.Format(facts.EndsAt),
             facts.MemberAllowance, facts.Reason, expectedVersion, sourceHash,
         });
-        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+        var digest = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(canonical)));
+        return facts.PaymentOrderId is { } order
+            ? CheckoutOrdersV1.Digest("service-restoration/1", "grant", digest, order) : digest;
     }
 
     internal ComplimentaryGrantPreviewV1 Preview(Guid account, ComplimentaryGrantFacts facts) =>
         new(ComplimentaryGrantFacts.SchemaVersion, account, ComplimentaryGrantFacts.Basis, facts.ShopIds, [.. Baselines],
             ComplimentaryGrantFacts.Format(facts.StartsAt), ComplimentaryGrantFacts.Format(facts.EndsAt),
             ComplimentaryGrantFacts.TimeZone, facts.CoverageMode, facts.ShopIds.Length, facts.MemberAllowance, facts.Reason,
-            Revision, Hash, At, PaymentRecorded: false, GraceEndsAt: null, ComplimentaryAccessPolicy.Version);
+            Revision, Hash, At, PaymentRecorded: false, GraceEndsAt: null, ComplimentaryAccessPolicy.Version, facts.PaymentOrderId);
 
     internal static ComplimentaryGrantResultV1 Result(StoredComplimentaryGrant grant) =>
         new(ComplimentaryGrantFacts.SchemaVersion, grant.OperationKey, grant.GrantId, grant.TermId, grant.AccountId,
@@ -77,7 +90,7 @@ internal sealed record ComplimentaryGrantSource(long Revision, IReadOnlyList<Gra
             ComplimentaryGrantFacts.Format(grant.Facts.EndsAt), ComplimentaryGrantFacts.TimeZone, grant.Facts.CoverageMode,
             grant.Facts.ShopIds.Length, grant.Facts.MemberAllowance, grant.Facts.Reason, grant.ExpectedVersion,
             grant.ExpectedVersion + 1, grant.SourceHash, grant.RecordedAt, PaymentRecorded: false, GraceEndsAt: null,
-            ComplimentaryAccessPolicy.Version);
+            ComplimentaryAccessPolicy.Version, grant.Facts.PaymentOrderId);
 
     internal static bool ValidHash(string? value) =>
         value is { Length: 64 } && value.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f');

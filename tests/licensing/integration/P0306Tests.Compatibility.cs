@@ -114,12 +114,13 @@ public sealed partial class P0306Tests
     {
         const string previous = "20261117100000_PendingPaymentReconciliation";
         await using var fixture = await StartAsync(database, new P0201Clock { Now = P0210Fixture.Start }, Settings);
-        var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1);
+        var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1, legacyQuote: true);
         var attempt = (await StartAsync(payer.Client, quote, HttpStatusCode.Created)).GetProperty("attemptId").GetGuid();
         await CaptureAsync(payer.Client, quote, attempt);
         AssertStatus(await VerifyAsync(payer.Client, quote, attempt), "Verified", "Fulfilled", "Applying");
         await using var context = fixture.Hosts.Fixture.OpenMigrationContext();
         var migrator = context.GetService<IMigrator>();
+        await P0309Fixture.RepresentLegacyFulfilmentAsync(fixture.Hosts.LicensingOwner, quote.OrderId);
         await migrator.MigrateAsync(previous);
         var before = Assert.IsType<string>(await ReadOnlineEvidenceAsync(fixture));
         await migrator.MigrateAsync();

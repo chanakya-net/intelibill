@@ -40,8 +40,17 @@ internal sealed class CheckoutOrderStore(LicensingDbContext db) : ICheckoutOrder
 
         var selected = await ReadSourceShopsAsync(account, requested, ct);
         return selected.Length == requested.Length && selected.All(shop => shop.TermId is null)
-            ? new(selected, null) : null;
+            ? new(selected, null, await ReadTrialSourcesAsync(account, requested, ct)) : null;
     }
+
+    private Task<CheckoutTrialSource[]> ReadTrialSourcesAsync(Guid account, Guid[] shops, CancellationToken ct) =>
+        db.Database.SqlQuery<CheckoutTrialSource>($"""
+            SELECT h.shop_id, h.term_id, coalesce(e.revision, 0) AS revision, coalesce(e.ends_at, h.ends_at) AS ends_at
+            FROM public.trial_history h
+            LEFT JOIN LATERAL (SELECT revision, ends_at FROM public.trial_extensions e
+                WHERE e.account_id = h.account_id AND e.shop_id = h.shop_id ORDER BY revision DESC LIMIT 1) e ON true
+            WHERE h.account_id = {account} AND h.shop_id = ANY({shops}) ORDER BY h.shop_id
+            """).ToArrayAsync(ct);
 
     // A shop's paid coverage is its latest paid link, else the term its affiliation assigned.
     private async Task<CheckoutSourceShop[]> ReadSourceShopsAsync(Guid account, Guid[] requested, CancellationToken ct) =>
@@ -84,7 +93,8 @@ internal sealed class CheckoutOrderStore(LicensingDbContext db) : ICheckoutOrder
                        SELECT max(c.revision) FROM public.scheduled_subscription_changes c
                        WHERE c.account_id = t.account_id AND c.term_id = t.term_id), 0) AS cancellation_revision,
                    t.mode AS mode, EXISTS (SELECT FROM public.payment_fulfilments r WHERE r.account_id = t.account_id
-                       AND r.term_id = t.term_id AND r.predecessor_term_id IS NOT NULL) AS renewed
+                       AND r.term_id = t.term_id AND (r.predecessor_term_id IS NOT NULL OR EXISTS (
+                           SELECT FROM public.paid_fresh_starts x WHERE x.account_id = r.account_id AND x.order_id = r.order_id))) AS renewed
             FROM public.subscription_coverage_terms t
             JOIN public.subscription_term_facts f USING (account_id, term_id)
             WHERE t.account_id = {account} AND t.term_id = {term} AND NOT EXISTS (SELECT FROM public.payment_fulfilments s
@@ -101,6 +111,8 @@ internal sealed class CheckoutOrderStore(LicensingDbContext db) : ICheckoutOrder
             SELECT account_id, {q.OrderId}, shop_id, shop_name, request_id, {replay}
             FROM public.shop_affiliations WHERE account_id = {q.AccountId} AND shop_id = ANY({ids})
             """, ct);
+        if (source.Trials is { Length: > 0 } trials)
+            await SaveTrialSourcesAsync(q, trials, ct);
         await db.Database.ExecuteSqlAsync($"""
             INSERT INTO public.checkout_orders
                 (account_id, order_id, actor_id, operation_key, request_hash, replay_id, term_id, quote_revision,
@@ -110,6 +122,15 @@ internal sealed class CheckoutOrderStore(LicensingDbContext db) : ICheckoutOrder
                 {JsonSerializer.Serialize(q, Json)}::jsonb)
             """, ct);
     }
+
+    private Task<int> SaveTrialSourcesAsync(CheckoutQuoteV1 quote, CheckoutTrialSource[] trials, CancellationToken ct) =>
+        db.Database.ExecuteSqlAsync($"""
+            INSERT INTO public.checkout_trial_sources (account_id, order_id, shop_id, trial_term_id, revision, ends_at)
+            SELECT {quote.AccountId}, {quote.OrderId}, shop_id, trial_term_id, revision, ends_at
+            FROM unnest({trials.Select(t => t.ShopId).ToArray()}, {trials.Select(t => t.TermId).ToArray()},
+                {trials.Select(t => t.Revision).ToArray()}, {trials.Select(t => t.EndsAt.ToUniversalTime()).ToArray()})
+                AS s(shop_id, trial_term_id, revision, ends_at)
+            """, ct);
 
     public async Task<CheckoutShopPageV1> PageAsync(Guid account, Guid? order, Guid? after, CancellationToken ct)
     {

@@ -14,7 +14,7 @@ public sealed partial class P0303Tests
         var probe = new P0302Tests.GatewayProbe { LoseCreateResponse = true };
         var clock = new P0201Clock { Now = P0210Fixture.Start };
         await using var fixture = await P0302Fixture.StartAsync(database, clock, services: probe.Install);
-        var (payer, account, _, quote) = await fixture.AcceptedQuoteAsync(1);
+        var (payer, account, _, quote) = await fixture.AcceptedQuoteAsync(1, legacyQuote: true);
         probe.Database = fixture.Hosts.LicensingOwner;
         probe.Account = account;
         var key = Guid.NewGuid();

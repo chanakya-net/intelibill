@@ -51,6 +51,7 @@ export interface Quote {
   readonly expiresAt: string;
   readonly startRule: 'Fulfilment' | 'PriorPaidThrough' | 'RestoredAccess';
   readonly graceDaysIncluded: number;
+  readonly freshStart?: { readonly policy: 'paid-fresh-start/1'; readonly trialShopCount: number; readonly trialSourceHash: string };
   readonly developmentFixture: boolean;
   readonly acceptance: { readonly operationKey: string; readonly snapshotHash: string; readonly acceptedAt: string } | null;
 }

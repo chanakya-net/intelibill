@@ -36,6 +36,7 @@ export class ComplimentaryGrantComponent {
   protected readonly endsAt = signal('');
   protected readonly memberAllowance = signal('');
   protected readonly reason = signal('');
+  protected readonly paymentOrderId = signal('');
   protected readonly confirmed = signal(false);
   protected readonly preview = signal<GrantPreview | null>(null);
   protected readonly pending = signal<PendingGrant | null>(null);
@@ -58,7 +59,7 @@ export class ComplimentaryGrantComponent {
     inject(DestroyRef).onDestroy(() => this.request?.unsubscribe());
   }
 
-  protected edit(field: 'shopIds' | 'startsAt' | 'endsAt' | 'memberAllowance' | 'reason', value: string) {
+  protected edit(field: 'shopIds' | 'startsAt' | 'endsAt' | 'memberAllowance' | 'reason' | 'paymentOrderId', value: string) {
     this[field].set(value);
     // A preview still in flight describes the old values: drop it too, so its late answer is never confirmable.
     if (this.phase() === 'edit' || this.phase() === 'previewing') this.invalidate();
@@ -89,6 +90,7 @@ export class ComplimentaryGrantComponent {
       operationKey: crypto.randomUUID(), shopIds: preview.shopIds, startsAt: preview.startsAt, endsAt: preview.endsAt,
       memberAllowance: preview.memberAllowance, reason: preview.reason, expectedVersion: preview.expectedVersion,
       sourceHash: preview.sourceHash, confirmed: true,
+      ...(preview.paymentOrderId ? { paymentOrderId: preview.paymentOrderId } : {}),
     };
     const pending: PendingGrant = { adminId, accountId: this.accountId(), command, createdAt: Date.now() };
     const owner = grantDrafts.acquire(pending);
@@ -188,10 +190,12 @@ export class ComplimentaryGrantComponent {
     const endsAt = istInstant(this.endsAt());
     const members = Number(this.memberAllowance());
     const reason = this.reason().trim();
+    const paymentOrderId = this.paymentOrderId().trim().toLowerCase();
     if (!shopIds.length || shopIds.length > 100 || !shopIds.every(id => uuid.test(id)) || new Set(shopIds).size !== shopIds.length
       || !startsAt || !endsAt || !Number.isInteger(members) || members < 1 || members > 100000 || !reason || reason.length > 500)
       return null;
-    return { shopIds, startsAt, endsAt, memberAllowance: members, reason };
+    if (paymentOrderId && !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(paymentOrderId)) return null;
+    return { shopIds, startsAt, endsAt, memberAllowance: members, reason, ...(paymentOrderId ? { paymentOrderId } : {}) };
   }
 
   /** Another tab already sent a grant for this account: show that original operation instead of sending a second. */
@@ -215,7 +219,7 @@ export class ComplimentaryGrantComponent {
   private restart(account: string, admin: string | null) {
     this.request?.unsubscribe();
     this.generation++;
-    for (const field of [this.shopIds, this.startsAt, this.endsAt, this.memberAllowance, this.reason]) field.set('');
+    for (const field of [this.shopIds, this.startsAt, this.endsAt, this.memberAllowance, this.reason, this.paymentOrderId]) field.set('');
     this.preview.set(null);
     this.result.set(null);
     this.confirmed.set(false);

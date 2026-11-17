@@ -122,6 +122,16 @@ async function submit(page: ReturnType<typeof render>) {
 }
 
 describe('CheckoutPageComponent', () => {
+  it('discloses forfeited trial time before the payment is accepted', async () => {
+    quote = { ...quote, freshStart: { policy: 'paid-fresh-start/1', trialShopCount: 1, trialSourceHash: 'a'.repeat(64) } };
+    const page = render();
+    await load(page);
+    await showCoverage(page);
+    expect(page.element('trial-forfeiture')?.textContent).toContain(en.billing.checkout.trialForfeiture);
+    expect(page.element('restricted-gap')).toBeNull();
+    expect(page.element('preview-dates')?.textContent).toContain('16 Dec 2026');
+  });
+
   it('shows frozen quote facts and requires every shop page plus explicit confirmation', async () => {
     const page = render();
     await load(page);

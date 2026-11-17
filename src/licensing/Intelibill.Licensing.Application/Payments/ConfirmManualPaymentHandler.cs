@@ -6,7 +6,7 @@ using Intelibill.Shared.Contracts.V1;
 
 namespace Intelibill.Licensing.Application.Payments;
 
-public sealed class ConfirmManualPaymentHandler(IManualPaymentStore store, ICheckoutOrderStore orders,
+public sealed class ConfirmManualPaymentHandler(IManualPaymentStore store, IPaymentStore payments, ICheckoutOrderStore orders,
     IManualPaymentEvidence evidence, IValidator<ConfirmManualPayment> validator, FulfilPaidOrderHandler fulfilment,
     CheckoutPaymentStatusReader status, TimeProvider clock)
 {
@@ -59,8 +59,16 @@ public sealed class ConfirmManualPaymentHandler(IManualPaymentStore store, IChec
     {
         if (command is null || command.OperationKey == Guid.Empty) return ManualPaymentErrors.Invalid;
         if (await store.FindManualAsync(account, command.OperationKey, true, ct) is { } prior)
-            return prior.OrderId == order && prior.Receipt.AdminId == caller.AdminId && evidence.Matches(account, prior, command)
-                ? new ManualPaymentOutcome(prior.Receipt, false) : ManualPaymentErrors.PayloadMismatch;
+        {
+            if (prior.OrderId != order || prior.Receipt.AdminId != caller.AdminId || !evidence.Matches(account, prior, command))
+                return ManualPaymentErrors.PayloadMismatch;
+            if (prior.Receipt.ReviewReason == "RestorationPending")
+            {
+                await store.UseManualReceiptAsync(prior.Receipt.ReceiptId, ct);
+                await fulfilment.RetryLockedAsync(account, order, null, prior.Receipt.ReceiptId, ct);
+            }
+            return new ManualPaymentOutcome(prior.Receipt, false);
+        }
         if (!command.Verified) return ManualPaymentErrors.Invalid;
         var input = await ValidateAsync(account, order, command, ct);
         if (input.IsError) return input.Errors;
@@ -74,6 +82,8 @@ public sealed class ConfirmManualPaymentHandler(IManualPaymentStore store, IChec
             receiving.Environment, decision.ReviewReason, decision.Term?.TermId);
         await store.SaveManualAsync(account, order, caller, command, receipt, digest,
             evidence.Protect(account, order, id, command), ct);
+        if (decision.Hold is { } hold)
+            await payments.RecordRestorationHoldAsync(account, order, null, id, receipt.ReceivedAt, hold, ct);
         if (decision.Term is not null)
             await fulfilment.FulfilAsync(quote, decision, null, id, ct);
         return new ManualPaymentOutcome(receipt, true);

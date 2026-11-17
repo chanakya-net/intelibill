@@ -79,10 +79,15 @@ internal sealed partial class MerchantBillingClient
         CheckoutOrdersV1.IsHash(q.ShopHash) && CheckoutOrdersV1.IsHash(q.SourceHash) &&
         q.AmountPaise is > 0 and <= CheckoutOrdersV1.MaxPaise && q.Currency == "INR" && q.PriceBasis == "TaxInclusiveFinal" &&
         q.CustomerTermsVersion is { Length: > 0 and <= 80 } && q.RefundPolicyVersion is { Length: > 0 and <= 80 } &&
-        HasCheckoutDates(q) && q.SnapshotHash == CheckoutOrdersV1.SnapshotHash(q) &&
+        HasCheckoutDates(q) && ValidFreshStart(q) && q.SnapshotHash == CheckoutOrdersV1.SnapshotHash(q) &&
         (q.Acceptance is null || q.Acceptance is { } a && a.OperationKey != Guid.Empty && a.QuoteRevision == q.Revision &&
             a.SnapshotHash == q.SnapshotHash && EntitlementSnapshotsV1.IsInstant(a.AcceptedAt) &&
             a.AcceptedAt >= q.CreatedAt && a.AcceptedAt < q.ExpiresAt);
+
+    private static bool ValidFreshStart(CheckoutQuoteV1 quote) =>
+        quote.FreshStart is null || quote.FreshStart is { Policy: CheckoutOrdersV1.FreshStartPolicy, TrialShopCount: >= 0 } fresh &&
+        fresh.TrialShopCount <= quote.ShopCount && CheckoutOrdersV1.IsHash(fresh.TrialSourceHash) &&
+        (quote.StartRule == "Fulfilment" || quote.StartRule == "RestoredAccess" && fresh.TrialShopCount == 0);
 
     private static bool HasCheckoutDates(CheckoutQuoteV1 q) =>
         q.BillingTimeZone == "Asia/Kolkata" && q.CalendarVersion == "calendar-month-year/1" && q.RenewalPolicyVersion == "renewal/1" &&

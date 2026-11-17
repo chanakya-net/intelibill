@@ -21,6 +21,13 @@ public sealed class LicensingEntitlementTransport(IOptionsMonitor<EntitlementTra
     private IEnumerable<string?> OtherKeys => OtherPurposes
         .SelectMany(purpose => configuration.GetSection($"{purpose}:PublicKeys").GetChildren().Select(child => child.Value));
 
+    internal bool HasPublicationRoute()
+    {
+        var settings = options.CurrentValue;
+        return settings.Origin(Local) is not null && (settings.KeyVaultKeyId is null
+            ? settings.CanSignLocally(Local, OtherKeys) : ReadVaultKeyId(settings) is not null);
+    }
+
     public VerifiedServiceAssertion? Verify(string path, string token, byte[] body) =>
         SignedServiceAssertion.Verify(token, SignedServiceAssertion.MerchantEvents, path, body, clock,
             key => options.CurrentValue.VerificationKey(key, OtherKeys));
@@ -36,13 +43,9 @@ public sealed class LicensingEntitlementTransport(IOptionsMonitor<EntitlementTra
 
     private async Task<string?> SignWithVaultAsync(EntitlementTransportOptions settings, byte[] body, CancellationToken ct)
     {
-        if (settings.LocalPrivateKeyPem is not null ||
-            !Uri.TryCreate(settings.KeyVaultKeyId, UriKind.Absolute, out var id) || !id.IsWellFormedOriginalString() ||
-            id.Scheme != Uri.UriSchemeHttps || id.UserInfo.Length != 0 || id.Query.Length != 0 || id.Fragment.Length != 0 ||
-            !id.IsDefaultPort || !id.Host.EndsWith(".vault.azure.net", StringComparison.OrdinalIgnoreCase) ||
-            id.AbsolutePath.Split('/') is not ["", "keys", var name, var version] ||
-            !MerchantBillingDelegationV1.IsKeyId(name) || !MerchantBillingDelegationV1.IsKeyId(version))
+        if (ReadVaultKeyId(settings) is not { } keyId)
             return null;
+        var (id, name, version) = keyId;
 
         var identity = Guid.TryParse(settings.ManagedIdentityClientId ?? configuration["AZURE_CLIENT_ID"], out var clientId)
             ? ManagedIdentityId.FromUserAssignedClientId(clientId.ToString("D"))
@@ -59,4 +62,13 @@ public sealed class LicensingEntitlementTransport(IOptionsMonitor<EntitlementTra
             EntitlementSnapshotsV1.SnapshotPath, body, clock, async (input, token) =>
                 (await client.SignDataAsync(SignatureAlgorithm.RS256, input, token)).Signature, ct);
     }
+
+    private static (Uri Uri, string Name, string Version)? ReadVaultKeyId(EntitlementTransportOptions settings) =>
+        settings.LocalPrivateKeyPem is null && Uri.TryCreate(settings.KeyVaultKeyId, UriKind.Absolute, out var id) &&
+        id.IsWellFormedOriginalString() && id.Scheme == Uri.UriSchemeHttps && id.UserInfo.Length == 0 &&
+        id.Query.Length == 0 && id.Fragment.Length == 0 && id.IsDefaultPort &&
+        id.Host.EndsWith(".vault.azure.net", StringComparison.OrdinalIgnoreCase) &&
+        id.AbsolutePath.Split('/') is ["", "keys", var name, var version] &&
+        MerchantBillingDelegationV1.IsKeyId(name) && MerchantBillingDelegationV1.IsKeyId(version)
+            ? (id, name, version) : null;
 }

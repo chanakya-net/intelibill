@@ -29,7 +29,7 @@ internal sealed class P0210Fixture(P0206Fixture catalogue, RSA deliveryKey, P020
         await database.PrepareMerchantAsync();
         await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase),
             "TRUNCATE public.rate_limit_buckets");
-        var businessClock = new P0201Clock { Now = Start };
+        var businessClock = setup?.BusinessClock ?? new P0201Clock { Now = Start };
         var prepareProvider = setup?.PrepareProvider != false;
         var catalogueSettings = P0207Tests.LocalSettings();
         if (setup?.UseDeliveryOnCatalogue == true)
@@ -146,4 +146,4 @@ internal sealed record P0210HostSetup(
     IReadOnlyDictionary<string, string?> MerchantSettings,
     Action<IServiceCollection> ConfigureLicensing,
     Action<IServiceCollection> ConfigureMerchant,
-    bool PrepareProvider = true, bool UseDeliveryOnCatalogue = false);
+    bool PrepareProvider = true, bool UseDeliveryOnCatalogue = false, P0201Clock? BusinessClock = null);

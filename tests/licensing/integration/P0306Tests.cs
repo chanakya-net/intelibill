@@ -57,12 +57,12 @@ public sealed partial class P0306Tests(LicensingPostgreSqlFixture database, ITes
 
     internal static string Path(CheckoutQuoteV1 quote) => $"/api/admin/accounts/{quote.AccountId:D}/orders/{quote.OrderId:D}/manual-payments";
 
-    private static ConfirmManualPayment Receipt(CheckoutQuoteV1 quote, DateTimeOffset now) =>
+    internal static ConfirmManualPayment Receipt(CheckoutQuoteV1 quote, DateTimeOffset now) =>
         new(Guid.NewGuid(), quote.Revision, quote.SnapshotHash, "fixture-bank", "fixture/1",
             $"BANK-{Guid.NewGuid():N}", "STATEMENT-LOCAL-TEST", now, quote.AmountPaise, quote.Currency,
             "Reconciled against local fixture statement", true);
 
-    private static async Task<P0110CookieBrowser> SignInBillingAsync(P0302Fixture fixture)
+    internal static async Task<P0110CookieBrowser> SignInBillingAsync(P0302Fixture fixture)
     {
         var seed = await EnrollBillingAsync(fixture, BillingEmail);
         return await fixture.Trial.Catalogue.SignInOperatorAsync(seed, BillingEmail);

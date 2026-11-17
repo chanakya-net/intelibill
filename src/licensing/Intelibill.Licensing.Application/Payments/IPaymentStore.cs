@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Shared.Contracts.V1;
 
 namespace Intelibill.Licensing.Application.Payments;
 
@@ -15,13 +16,13 @@ public sealed record PaidTerm(Guid TermId, string Mode, int Capacity, DateTimeOf
 public sealed record PaymentFulfilment(Guid AccountId, Guid OrderId, StoredPaymentAttempt? Attempt, Guid? ManualReceiptId,
     long AmountPaise, string Currency, PaidTerm Term,
     Guid PlanVersionId, int MemberAllowance, bool DevelopmentFixture, Guid[] ShopIds, DateTimeOffset At,
-    RenewalProvenance? Renewal = null);
+    RenewalProvenance? Renewal = null, FreshPaymentTerm? Fresh = null);
 
-public sealed record PaymentShopDelivery(Guid ShopId, long ShopRevision);
+public sealed record PaymentShopDelivery(Guid ShopId, long? ShopRevision);
 
 public sealed record PaymentStatusRow(StoredPaymentAttempt? Attempt, bool VerificationRequested, DateTimeOffset? VerifiedAt,
     bool DefinitivelyFailed, bool NeedsReview, Guid? TermId, DateTimeOffset? TermStartsAt, DateTimeOffset? TermEndsAt,
-    IReadOnlyList<PaymentShopDelivery> Deliveries, DateTimeOffset? ManualVerifiedAt);
+    IReadOnlyList<PaymentShopDelivery> Deliveries, DateTimeOffset? ManualVerifiedAt, bool RestorationHeld, ServiceRestorationAdjustmentV1? ServiceRestoration);
 
 public static class PaymentEventKinds
 {
@@ -46,7 +47,10 @@ public interface IPaymentStore
     Task<StoredPaymentAttempt?> FindAttemptAsync(Guid account, Guid id, bool byOperation, CancellationToken ct);
     Task<StoredPaymentAttempt?> FindOrderAttemptAsync(Guid account, Guid order, CancellationToken ct);
     Task<bool> HasOverlappingPaymentAsync(Guid account, Guid order, CancellationToken ct);
-    Task<bool> AnyTrialAsync(Guid account, Guid[] shops, CancellationToken ct);
+    Task<PaymentRestorationEvidence> ReadRestorationEvidenceAsync(Guid account, DateTimeOffset at, CancellationToken ct);
+    Task<PaymentRestorationHold?> FindRestorationHoldAsync(Guid account, Guid order, CancellationToken ct);
+    Task RecordRestorationHoldAsync(Guid account, Guid order, Guid? attempt, Guid? receipt,
+        DateTimeOffset effectiveAt, PaymentRestorationEvidence evidence, CancellationToken ct);
     Task InsertAttemptAsync(NewPaymentAttempt attempt, CancellationToken ct);
     Task<bool> RecordSessionAsync(StoredPaymentAttempt attempt, CheckoutSession session, DateTimeOffset at, CancellationToken ct);
     Task AppendEventAsync(StoredPaymentAttempt attempt, string kind, Guid? actor, DateTimeOffset at, CancellationToken ct);

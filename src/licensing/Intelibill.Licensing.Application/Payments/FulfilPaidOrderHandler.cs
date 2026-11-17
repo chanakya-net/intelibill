@@ -36,6 +36,8 @@ public sealed class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderSt
         await store.RecordVerifiedAsync(attempt, payment, decision.At, ct);
         if (decision.Term is null)
         {
+            if (decision.Hold is { } hold)
+                await store.RecordRestorationHoldAsync(quote.AccountId, quote.OrderId, attempt.AttemptId, null, effective, hold, ct);
             await store.AppendEventAsync(attempt, PaymentEventKinds.PaidNeedsReview, null, decision.At, ct);
             return FulfilmentOutcome.NeedsReview;
         }
@@ -49,38 +51,66 @@ public sealed class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderSt
     /// effective time: a stale or superseded source, or a period that no longer matches the quote, needs review.
     /// </summary>
     internal async Task<PaidOrderDecision> DecideAsync(CheckoutQuoteV1 quote, DateTimeOffset effectiveAt, CancellationToken ct,
-        DateTimeOffset? notBefore = null)
+        DateTimeOffset? notBefore = null, PaymentRestorationHold? retry = null)
     {
         var now = BillingAccountRules.StorageInstant(lifecycle.GetUtcNow());
-        if (await store.HasFulfilmentAsync(quote.AccountId, quote.OrderId, ct))
+        if (await store.HasFulfilmentAsync(quote.AccountId, quote.OrderId, ct) ||
+            retry is null && await store.FindRestorationHoldAsync(quote.AccountId, quote.OrderId, ct) is not null)
             return new(null, [], now, "DuplicateFunds");
         var ids = await orders.ShopIdsAsync(quote.AccountId, quote.OrderId, ct);
         var source = await CheckoutRenewalPolicy.SourceAsync(orders, quote, ct);
-        if (source?.Hash() != quote.SourceHash || await store.AnyTrialAsync(quote.AccountId, ids, ct))
+        if (source?.Matches(quote) != true)
             return new(null, [], now, "CoverageChanged");
+        if (effectiveAt < notBefore)
+            return new(null, [], now, "TermUnavailable");
         if (CheckoutRenewalPolicy.IsRenewal(quote))
-            return effectiveAt >= (notBefore ?? DateTimeOffset.MinValue) && source.Prior is { } prior &&
+            return source.Prior is { } prior &&
                 CheckoutRenewalPolicy.Successor(quote, prior, effectiveAt, now, out var grace) is { } successor
                 ? new(successor, ids, now, null, new(quote.TermId!.Value, effectiveAt, grace))
                 : new(null, [], now, "TermUnavailable");
 
-        var period = quote.Period == "Month" ? BillingPeriod.Month : BillingPeriod.Year;
-        if (RenewalPolicy.DetermineTerm(new(period, now)) is not { Anchor: { } anchor, Ordinal: { } ordinal,
-                StartsAt: { } starts, EndsAt: { } ends })
+        return await DecideFreshAsync(quote, source, ids, effectiveAt, now, retry, ct);
+    }
+
+    private async Task<PaidOrderDecision> DecideFreshAsync(CheckoutQuoteV1 quote, CheckoutSource source, Guid[] ids,
+        DateTimeOffset effectiveAt, DateTimeOffset now, PaymentRestorationHold? retry, CancellationToken ct)
+    {
+        if (CheckoutRenewalPolicy.FreshTerm(quote, source, effectiveAt, now) is not { } fresh)
             return new(null, [], now, "TermUnavailable");
-        var term = new PaidTerm(Guid.NewGuid(), quote.Capacity == 1 ? "Independent" : "Grouped", quote.Capacity,
-            starts, ends, quote.Period, anchor.LocalStart, ordinal);
-        return new(term, ids, now, null);
+        var evidence = await store.ReadRestorationEvidenceAsync(quote.AccountId, now, ct);
+        if (evidence.State != PaymentRestorationState.Ready || retry is not null && !evidence.Resolves(retry))
+            return new(null, [], now, "RestorationPending", Hold: evidence);
+        var renewal = quote.TermId is { } prior ? new RenewalProvenance(prior, effectiveAt, 0) : null;
+        return new(fresh.Term, ids, now, null, renewal, new(evidence, fresh.Kind, effectiveAt));
+    }
+
+    public Task<ErrorOr<FulfilmentOutcome>> RetryAsync(StoredPaymentAttempt attempt, CancellationToken ct) =>
+        store.InAttemptScopeAsync<FulfilmentOutcome>(attempt.AccountId, attempt.AttemptId, true, async token =>
+            await RetryLockedAsync(attempt.AccountId, attempt.OrderId, attempt, null, token)
+                ? FulfilmentOutcome.Fulfilled : FulfilmentOutcome.AlreadyRecorded, ct);
+
+    internal async Task<bool> RetryLockedAsync(Guid account, Guid order, StoredPaymentAttempt? attempt, Guid? receipt,
+        CancellationToken ct)
+    {
+        if (await store.FindRestorationHoldAsync(account, order, ct) is not { } hold ||
+            hold.AttemptId != attempt?.AttemptId || hold.ManualReceiptId != receipt ||
+            await orders.FindAsync(account, order, false, ct) is not { Quote: var quote })
+            return false;
+        var decision = await DecideAsync(quote, hold.EffectiveAt, ct, notBefore: attempt?.CreatedAt, retry: hold);
+        if (decision.Term is null)
+            return false;
+        await FulfilAsync(quote, decision, attempt, receipt, ct);
+        return true;
     }
 
     internal Task FulfilAsync(CheckoutQuoteV1 quote, PaidOrderDecision decision, StoredPaymentAttempt? attempt,
         Guid? manualReceipt, CancellationToken ct) =>
         store.FulfilAsync(new(quote.AccountId, quote.OrderId, attempt, manualReceipt, quote.AmountPaise, quote.Currency,
             decision.Term!, quote.PlanVersionId, quote.MembersPerShop, quote.DevelopmentFixture, decision.Shops, decision.At,
-            decision.Renewal), ct);
+            decision.Renewal, decision.Fresh), ct);
 
     internal sealed record PaidOrderDecision(PaidTerm? Term, Guid[] Shops, DateTimeOffset At, string? ReviewReason,
-        RenewalProvenance? Renewal = null);
+        RenewalProvenance? Renewal = null, FreshPaymentTerm? Fresh = null, PaymentRestorationEvidence? Hold = null);
 }
 
 public static class PaymentFulfilmentPolicy

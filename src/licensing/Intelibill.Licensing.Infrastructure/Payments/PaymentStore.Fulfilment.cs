@@ -20,6 +20,17 @@ internal sealed partial class PaymentStore
     public async Task FulfilAsync(PaymentFulfilment f, CancellationToken ct)
     {
         var term = f.Term;
+        if (f.Fresh is not null)
+            await RecordFreshStartAsync(f, ct);
+        await SavePaidTermAsync(f, ct);
+        if (f.Fresh?.Kind == "TrialConversion")
+            await RecordTrialConversionsAsync(f, ct);
+        await LinkAndPublishAsync(f, ct);
+    }
+
+    private async Task SavePaidTermAsync(PaymentFulfilment f, CancellationToken ct)
+    {
+        var term = f.Term;
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.payment_fulfilments (account_id, order_id, attempt_id, manual_receipt_id, term_id, policy_version,
                 fulfilled_at, predecessor_term_id, payment_effective_at, grace_days_included, renewal_policy_version)
@@ -40,16 +51,22 @@ internal sealed partial class PaymentStore
                 {f.AmountPaise}, {f.Currency}, {f.PlanVersionId}, {PaymentFulfilmentPolicy.Version},
                 {f.DevelopmentFixture}, {f.At})
             """, ct);
+    }
+
+    private async Task LinkAndPublishAsync(PaymentFulfilment f, CancellationToken ct)
+    {
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.payment_fulfilment_shops (account_id, order_id, term_id, shop_id, affiliation_request_id)
-            SELECT account_id, {f.OrderId}, {term.TermId}, shop_id, request_id FROM public.shop_affiliations
+            SELECT account_id, {f.OrderId}, {f.Term.TermId}, shop_id, request_id FROM public.shop_affiliations
             WHERE account_id = {f.AccountId} AND shop_id = ANY({f.ShopIds})
             """, ct);
         if (f.Attempt is { } attempt)
             await AppendEventAsync(attempt, PaymentEventKinds.OrderFulfilled, null, f.At, ct);
         await db.Database.ExecuteSqlRawAsync("SET CONSTRAINTS ALL IMMEDIATE", ct);
+        if (f.Fresh is not null)
+            await RefreshRestorationHeadAsync(f, ct);
         foreach (var shop in f.ShopIds.Order())
-            await publisher.PublishAsync(f.AccountId, shop, ct);
+            await publisher.PublishAsync(f.AccountId, shop, ct, evaluatedAt: f.At);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.payment_fulfilment_deliveries (account_id, order_id, shop_id, shop_revision)
             SELECT account_id, {f.OrderId}, shop_id, revision FROM public.entitlement_shop_heads

@@ -9,6 +9,7 @@ namespace Intelibill.Shared.Contracts.V1;
 public static class CheckoutOrdersV1
 {
     public const string Policy = "checkout-quote/1";
+    public const string FreshStartPolicy = "paid-fresh-start/1";
     public const string Create = "billing.checkout.create";
     public const string Read = "billing.checkout.read";
     public const string Accept = "billing.checkout.accept";
@@ -50,7 +51,14 @@ public static class CheckoutOrdersV1
     public static string ShopHash(IEnumerable<Guid> ids) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.ASCII.GetBytes(string.Join(',', ids.Order()))));
 
-    public static string SnapshotHash(CheckoutQuoteV1 q) => Digest(Policy, "snapshot", q.AccountId, q.OrderId,
+    public static string SnapshotHash(CheckoutQuoteV1 q)
+    {
+        var legacy = LegacySnapshotHash(q);
+        return q.FreshStart is { } fresh
+            ? Digest(Policy, "fresh-start", legacy, fresh.Policy, fresh.TrialShopCount, fresh.TrialSourceHash) : legacy;
+    }
+
+    private static string LegacySnapshotHash(CheckoutQuoteV1 q) => Digest(Policy, "snapshot", q.AccountId, q.OrderId,
         q.Revision, q.PlanId, q.PlanVersionId, q.PlanVersion, q.PlanName, q.Period, q.TermId, q.Capacity,
         q.MembersPerShop, q.ShopCount, q.ShopHash, q.SourceHash, q.AmountPaise, q.Currency, q.PriceBasis,
         q.CustomerTermsVersion, q.RefundPolicyVersion, q.BillingTimeZone, q.CalendarVersion, q.RenewalPolicyVersion,
@@ -102,11 +110,15 @@ public sealed record CheckoutQuoteV1(Guid AccountId, Guid OrderId, int Revision,
     string RefundPolicyVersion, string BillingTimeZone, string CalendarVersion, string RenewalPolicyVersion, string StartRule,
     DateTimeOffset PreviewStartsAt, DateTimeOffset PreviewEndsAt, int GraceDaysIncluded, string AnchorLocal, int Ordinal,
     DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt, [property: JsonRequired] bool DevelopmentFixture, string SnapshotHash,
-    CheckoutAcceptanceV1? Acceptance = null)
+    CheckoutAcceptanceV1? Acceptance = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CheckoutFreshStartV1? FreshStart = null)
 {
     [JsonRequired]
     public int SchemaVersion { get; init; } = 1;
 }
+
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record CheckoutFreshStartV1(string Policy, int TrialShopCount, string TrialSourceHash);
 
 public sealed record CheckoutAcceptanceV1(Guid OperationKey, int QuoteRevision, string SnapshotHash, DateTimeOffset AcceptedAt);
 public sealed record CheckoutShopV1(Guid ShopId, string Name, Guid? TermId);

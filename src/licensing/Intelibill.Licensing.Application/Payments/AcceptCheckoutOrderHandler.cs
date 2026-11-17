@@ -33,7 +33,7 @@ public sealed class AcceptCheckoutOrderHandler(IBillingDelegationAccess access, 
 
             var ids = quote.TermId is null ? await store.ShopIdsAsync(account, order, token) : [];
             var source = await store.SourceAsync(account, quote.TermId, ids, token);
-            if (source?.Hash() != quote.SourceHash)
+            if (source?.Matches(quote) != true)
                 return CheckoutOrderErrors.Changed;
             var now = Now();
             if (now >= quote.ExpiresAt || !CheckoutRenewalPolicy.WindowOpen(quote, now))

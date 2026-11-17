@@ -3,6 +3,7 @@ using Intelibill.Licensing.Application.Entitlements;
 using Intelibill.Licensing.Application.Payments;
 using Intelibill.Licensing.Infrastructure.Billing;
 using Intelibill.Licensing.Infrastructure.Data;
+using Intelibill.Licensing.Infrastructure.Entitlements;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -14,7 +15,8 @@ namespace Intelibill.Licensing.Infrastructure.Payments;
 /// scope. Manual evidence uses the authorized admin receipt scope. Both write fulfilment under the account lock.
 /// An attempt-scoped transaction refuses to nest and never spans a gateway call.
 /// </summary>
-internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPublisher publisher, ILogger<PaymentStore> logger, TimeProvider sessionClock)
+internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPublisher publisher, ILogger<PaymentStore> logger,
+    TimeProvider sessionClock, LicensingEntitlementTransport transport)
     : IPaymentStore, IManualPaymentStore
 {
     public async Task<ErrorOr<T>> InAttemptScopeAsync<T>(Guid account, Guid attempt, bool lockAccount,
@@ -75,12 +77,13 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
                 WHERE requested.account_id = {account} AND requested.order_id = {order} AND a.order_id <> {order}
                   AND NOT EXISTS (SELECT FROM public.payment_fulfilments f WHERE f.attempt_id = a.attempt_id)
                   AND (NOT EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = a.attempt_id AND e.kind = 'CheckoutFailed')
-                       OR EXISTS (SELECT FROM public.verified_payments v WHERE v.attempt_id = a.attempt_id))) AS "Value"
-            """).SingleAsync(ct);
-
-    public Task<bool> AnyTrialAsync(Guid account, Guid[] shops, CancellationToken ct) =>
-        db.Database.SqlQuery<bool>($"""
-            SELECT EXISTS (SELECT FROM public.trial_history WHERE account_id = {account} AND shop_id = ANY({shops})) AS "Value"
+                       OR EXISTS (SELECT FROM public.verified_payments v WHERE v.attempt_id = a.attempt_id)))
+                OR EXISTS (SELECT FROM public.checkout_order_shops requested
+                    JOIN public.checkout_order_shops covered USING (account_id, shop_id)
+                    JOIN public.payment_restoration_holds h ON h.account_id = covered.account_id AND h.order_id = covered.order_id
+                    WHERE requested.account_id = {account} AND requested.order_id = {order} AND h.order_id <> {order}
+                        AND h.manual_receipt_id IS NOT NULL AND NOT EXISTS (SELECT FROM public.payment_fulfilments f
+                            WHERE f.account_id = h.account_id AND f.order_id = h.order_id)) AS "Value"
             """).SingleAsync(ct);
 
     public Task InsertAttemptAsync(NewPaymentAttempt a, CancellationToken ct) => db.Database.ExecuteSqlInterpolatedAsync($"""
@@ -127,6 +130,8 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
                 v.verified_at, EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = {attempt?.AttemptId}
                     AND e.kind = 'PaidNeedsReview') AS needs_review,
                 f.term_id, t.starts_at AS term_starts_at, t.ends_at AS term_ends_at,
+                f.term_id IS NULL AND EXISTS (SELECT FROM public.payment_restoration_holds h
+                    WHERE h.account_id = q.account_id AND h.order_id = q.order_id) AS restoration_held,
                 (SELECT min(r.verified_at) FROM public.manual_payment_receipts r
                     WHERE r.account_id = q.account_id AND r.order_id = q.order_id) AS manual_verified_at
             FROM (SELECT {account} AS account_id, {order} AS order_id) q
@@ -135,12 +140,10 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
             LEFT JOIN public.subscription_coverage_terms t ON t.account_id = f.account_id AND t.term_id = f.term_id
             """).SingleAsync(ct);
         var manual = row.ManualVerifiedAt?.ToUniversalTime();
-        var deliveries = await db.Database.SqlQuery<PaymentShopDelivery>($"""
-            SELECT shop_id, shop_revision FROM public.payment_fulfilment_deliveries
-            WHERE account_id = {account} AND order_id = {order} ORDER BY shop_id
-            """).ToListAsync(ct);
+        var deliveries = await ReadRequiredDeliveriesAsync(account, order, row.TermStartsAt, ct);
+        var adjustment = row.TermId is null ? null : await ReadAdjustmentAsync(account, order, ct);
         return new(attempt, row.VerificationRequested, row.VerifiedAt?.ToUniversalTime(), row.DefinitivelyFailed, row.NeedsReview || manual is not null && row.TermId is null, row.TermId,
-            row.TermStartsAt?.ToUniversalTime(), row.TermEndsAt?.ToUniversalTime(), deliveries, manual);
+            row.TermStartsAt?.ToUniversalTime(), row.TermEndsAt?.ToUniversalTime(), deliveries, manual, row.RestorationHeld, adjustment);
     }
 
     public Task<bool> HasFulfilmentAsync(Guid account, Guid order, CancellationToken ct) =>
@@ -156,7 +159,7 @@ internal sealed partial class PaymentStore(LicensingDbContext db, IEntitlementPu
     private static partial void LogUnavailable(ILogger logger, string cause);
 
     private sealed record StatusRow(bool VerificationRequested, DateTimeOffset? VerifiedAt, bool DefinitivelyFailed, bool NeedsReview, Guid? TermId,
-        DateTimeOffset? TermStartsAt, DateTimeOffset? TermEndsAt, DateTimeOffset? ManualVerifiedAt);
+        DateTimeOffset? TermStartsAt, DateTimeOffset? TermEndsAt, DateTimeOffset? ManualVerifiedAt, bool RestorationHeld);
 
     private sealed record AttemptRow(Guid AttemptId, Guid AccountId, Guid OrderId, Guid OperationKey, Guid ActorId,
         string RequestHash, string ProviderId, string ProviderAccountId, string Environment, string ConfigurationVersion,
