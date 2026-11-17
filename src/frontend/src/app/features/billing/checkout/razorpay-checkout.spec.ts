@@ -27,6 +27,31 @@ describe('Razorpay checkout opener', () => {
       razorpay_payment_id: 'pay_abc', razorpay_order_id: 'order_abc123', razorpay_signature: 'f'.repeat(64) } });
     expect(options[0]).toMatchObject({ key: 'rzp_test_fixture', order_id: 'order_abc123', amount: 27000, currency: 'INR' });
     expect(JSON.stringify(options[0]['config'])).toContain('emi');
+    expect(options[0]['retry']).toEqual({ enabled: false });
+  });
+
+  it('closes the window and reports a hosted payment failure without offering a retry in it', async () => {
+    const close = vi.fn();
+    const handlers = new Map<string, (response: unknown) => void>();
+    (window as unknown as { Razorpay: unknown }).Razorpay = class {
+      on(event: string, handler: (response: unknown) => void) { handlers.set(event, handler); }
+      open() { handlers.get('payment.failed')?.({ error: { code: 'BAD_REQUEST_ERROR', metadata: { payment_id: 'pay_abc' } } }); }
+      close() { close(); }
+    };
+    expect(await openRazorpayCheckout(launch)).toEqual({ kind: 'failed' });
+    expect(close).toHaveBeenCalled();
+  });
+
+  it.each(['constructor', 'open'])('rejects and closes a partially opened window when %s throws', async stage => {
+    const close = vi.fn();
+    (window as unknown as { Razorpay: unknown }).Razorpay = class {
+      constructor() { if (stage === 'constructor') throw new Error('broken'); }
+      on() { /* registered */ }
+      open() { throw new Error('broken'); }
+      close() { close(); }
+    };
+    await expect(openRazorpayCheckout(launch)).rejects.toThrow('broken');
+    expect(close).toHaveBeenCalledTimes(stage === 'open' ? 1 : 0);
   });
 
   it.each([

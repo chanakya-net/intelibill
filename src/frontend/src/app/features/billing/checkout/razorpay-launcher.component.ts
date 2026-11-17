@@ -30,6 +30,8 @@ export class RazorpayLauncherComponent {
   /** Fires synchronously on the click, so the owner can bind the eventual outcome to what was on screen. */
   readonly opened = output<RazorpayLaunch>();
   readonly outcome = output<RazorpayOutcome>();
+  /** The window could not open after the checkout was saved as opened; names the launch the click captured. */
+  readonly launchFailed = output<RazorpayLaunch>();
   private readonly lifetime = new AbortController();
   constructor() {
     inject(DestroyRef).onDestroy(() => this.lifetime.abort());
@@ -43,12 +45,15 @@ export class RazorpayLauncherComponent {
     this.opening.set(true);
     const launch = this.launch();
     this.opened.emit(launch);
+    let prepared = false;
     try {
       if (!await this.prepare()(launch) || this.lifetime.signal.aborted) return;
+      prepared = true;
       const result = await this.opener(launch, this.lifetime.signal);
       if (!this.lifetime.signal.aborted) this.outcome.emit(result);
     } catch {
       this.failed.set(true);
+      if (prepared && !this.lifetime.signal.aborted) this.launchFailed.emit(launch);
     } finally {
       this.opening.set(false);
     }

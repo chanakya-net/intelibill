@@ -23,7 +23,9 @@ export type RazorpayOutcome =
   | { readonly kind: 'success'; readonly proof: Readonly<Record<string, string>> }
   /** The checkout reported success without a valid signature for this order: still a claim, never a dismissal. */
   | { readonly kind: 'unverified' }
-  | { readonly kind: 'cancelled' };
+  | { readonly kind: 'cancelled' }
+  /** The hosted checkout reported a failed payment. Never provider evidence: the original order is checked proof-free. */
+  | { readonly kind: 'failed' };
 
 /** The signal closes the modal when its owner is torn down; a closed window reports `cancelled`, never a claim. */
 export type RazorpayOpener = (launch: RazorpayLaunch, signal?: AbortSignal) => Promise<RazorpayOutcome>;
@@ -65,8 +67,14 @@ function displayConfig(methods: readonly string[]) {
   } };
 }
 
+interface RazorpayModal {
+  open(): void;
+  close?(): void;
+  on?(event: 'payment.failed', handler: (response: unknown) => void): void;
+}
+
 interface RazorpayConstructor {
-  new (options: Record<string, unknown>): { open(): void; close?(): void };
+  new (options: Record<string, unknown>): RazorpayModal;
 }
 
 function loadScript(): Promise<RazorpayConstructor> {
@@ -99,27 +107,50 @@ function proofOf(response: unknown, orderId: string): Record<string, string> | n
 /**
  * Opens Razorpay Standard Checkout for the server-created order. The callback is only a claim: it is relayed to
  * the server, which verifies the signature against its own persisted order and reads the captured payment itself.
+ * Hosted retries are off: after a failed payment the window closes, so no second debit can be offered on the order
+ * before the server has checked it. A window that fails to open is closed and the failure rejects.
  */
 export async function openRazorpayCheckout(launch: RazorpayLaunch, signal?: AbortSignal): Promise<RazorpayOutcome> {
   const Razorpay = await loadScript();
   if (signal?.aborted) return { kind: 'cancelled' };
-  return new Promise<RazorpayOutcome>(resolve => {
-    const modal = new Razorpay({
-      key: launch.keyId,
-      order_id: launch.orderId,
-      amount: launch.amount,
-      currency: launch.currency,
-      name: 'InteliBill',
-      config: displayConfig(launch.methods),
-      handler: (response: unknown) => {
-        const proof = proofOf(response, launch.orderId);
-        // A success callback stays a success claim even when its proof is missing or for another order: the server
-        // then refuses it, while only a genuine dismissal takes the proof-free recovery path.
-        resolve(proof ? { kind: 'success', proof } : { kind: 'unverified' });
-      },
-      modal: { ondismiss: () => resolve({ kind: 'cancelled' }) },
-    });
-    signal?.addEventListener('abort', () => { modal.close?.(); resolve({ kind: 'cancelled' }); }, { once: true });
-    modal.open();
+  return new Promise<RazorpayOutcome>((resolve, reject) => {
+    let modal: RazorpayModal | undefined;
+    try {
+      modal = new Razorpay(checkoutOptions(launch, resolve));
+      const opened = modal;
+      opened.on?.('payment.failed', () => { opened.close?.(); resolve({ kind: 'failed' }); });
+      signal?.addEventListener('abort', () => { opened.close?.(); resolve({ kind: 'cancelled' }); }, { once: true });
+      opened.open();
+    } catch (error) {
+      closeQuietly(modal);
+      reject(error instanceof Error ? error : new Error('checkout-unavailable'));
+    }
   });
+}
+
+function checkoutOptions(launch: RazorpayLaunch, resolve: (outcome: RazorpayOutcome) => void): Record<string, unknown> {
+  return {
+    key: launch.keyId,
+    order_id: launch.orderId,
+    amount: launch.amount,
+    currency: launch.currency,
+    name: 'InteliBill',
+    config: displayConfig(launch.methods),
+    retry: { enabled: false },
+    handler: (response: unknown) => {
+      const proof = proofOf(response, launch.orderId);
+      // A success callback stays a success claim even when its proof is missing or for another order: the server
+      // then refuses it, while only a genuine dismissal or failure takes the proof-free recovery path.
+      resolve(proof ? { kind: 'success', proof } : { kind: 'unverified' });
+    },
+    modal: { ondismiss: () => resolve({ kind: 'cancelled' }) },
+  };
+}
+
+function closeQuietly(modal: RazorpayModal | undefined) {
+  try {
+    modal?.close?.();
+  } catch {
+    // The window never opened far enough to close.
+  }
 }

@@ -7,7 +7,7 @@ import { ShopContextService } from '../../../core/context/shop-context.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { formatBillingInstant } from '../status/subscription-status.models';
 import type { CheckoutScope, Quote } from './checkout.models';
-import type { CheckoutPayment, SimulatorOutcome } from './checkout-payment.models';
+import { paymentFailure, type CheckoutPayment, type PaymentProblem, type SimulatorOutcome } from './checkout-payment.models';
 import { CheckoutPaymentService } from './checkout-payment.service';
 import { DevelopmentSimulatorLauncherComponent } from './development-simulator-launcher.component';
 import { razorpayLaunch, type RazorpayLaunch, type RazorpayOutcome } from './razorpay-checkout';
@@ -15,7 +15,6 @@ import { RazorpayLauncherComponent } from './razorpay-launcher.component';
 import { resolvePaymentLauncher } from './payment-checkout-launcher';
 import { CheckoutDrafts, type PaymentDraft, type PaymentDraftState } from './checkout-drafts';
 
-type PaymentProblem = 'unavailable' | 'unsupported' | 'expired' | 'changed' | 'denied';
 const REFRESH_MS = 5000;
 const POLL_LIMIT = 12;
 
@@ -31,6 +30,8 @@ type LaunchTicket = {
   readonly generation: number;
   readonly attempt: string | null | undefined;
   readonly providerOrder: string;
+  /** The launch the click captured: a failed open releases only its own invocation's hold. */
+  readonly launch: RazorpayLaunch;
 };
 /**
  * A signed success relays its proof; a success without valid proof is relayed as an unverified claim the server
@@ -187,7 +188,7 @@ export class CheckoutPaymentComponent {
   protected razorpayOpened(launch: RazorpayLaunch) {
     this.ticket = {
       scope: this.scope(), order: this.quote().orderId, generation: this.generation,
-      attempt: this.payment()?.attemptId, providerOrder: launch.orderId,
+      attempt: this.payment()?.attemptId, providerOrder: launch.orderId, launch,
     };
   }
 
@@ -202,8 +203,19 @@ export class CheckoutPaymentComponent {
     this.ticket = null;
     this.windowOpen.set(false);
     if (!ticket || !this.ticketCurrent(ticket) || !ticket.attempt) return;
-    this.queued = { ticket, proof: outcome.kind === 'success' ? outcome.proof : null, claimed: outcome.kind !== 'cancelled' };
+    this.queued = { ticket, proof: outcome.kind === 'success' ? outcome.proof : null,
+      claimed: outcome.kind === 'success' || outcome.kind === 'unverified' };
     this.drainQueued();
+  }
+
+  /**
+   * The hosted window failed to open after the pending claim was saved. Only the invocation that captured this
+   * launch is ended: its hold is released once the outcome is saved and the original order is checked proof-free,
+   * so Pay returns only on an authenticated idle answer.
+   */
+  protected razorpayLaunchFailed(launch: RazorpayLaunch) {
+    if (this.ticket?.launch !== launch) return;
+    this.razorpayOutcome({ kind: 'cancelled' });
   }
 
   private ticketCurrent(ticket: LaunchTicket) {
@@ -384,16 +396,5 @@ export class CheckoutPaymentComponent {
     } catch {
       this.problem.set('unavailable');
     }
-  }
-}
-
-function paymentFailure(error: unknown): PaymentProblem {
-  if (!(error instanceof HttpErrorResponse)) return 'unavailable';
-  if (error.status === 401 || error.status === 403) return 'denied';
-  switch (error.error?.code) {
-    case 'Billing.PaymentUnsupported': return 'unsupported';
-    case 'Billing.CheckoutExpired': return 'expired';
-    case 'Billing.CheckoutSourceChanged': return 'changed';
-    default: return 'unavailable';
   }
 }

@@ -38,6 +38,9 @@ internal sealed class FakeRazorpay : HttpMessageHandler
     /// <summary>The first call matching this computes its answer, then waits for <see cref="ReleaseHeld"/>.</summary>
     internal Func<string, bool>? HoldWhen { get; set; }
     internal TaskCompletionSource HoldReached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    /// <summary>Every call matching this never answers: it waits until its caller gives up or is interrupted.</summary>
+    internal Func<string, bool>? StallWhen { get; set; }
+    internal TaskCompletionSource StallReached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     internal TaskCompletionSource ReleaseHeld { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     internal List<string> Calls { get; } = [];
     internal int Posts { get { lock (gate) return Calls.Count(c => c.StartsWith("POST ", StringComparison.Ordinal)); } }
@@ -150,7 +153,7 @@ internal sealed class FakeRazorpay : HttpMessageHandler
             return Json(HttpStatusCode.Unauthorized, new JsonObject());
         var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(ct);
         HttpResponseMessage response;
-        bool hold;
+        bool hold, stall;
         lock (gate)
         {
             var call = $"{request.Method} {request.RequestUri!.PathAndQuery}";
@@ -168,6 +171,12 @@ internal sealed class FakeRazorpay : HttpMessageHandler
             hold = HoldWhen?.Invoke(call) == true;
             if (hold)
                 HoldWhen = null;
+            stall = StallWhen?.Invoke(call) == true;
+        }
+        if (stall)
+        {
+            StallReached.TrySetResult();
+            await Task.Delay(Timeout.Infinite, ct);
         }
         if (hold)
         {

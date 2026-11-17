@@ -23,13 +23,22 @@ export const SCRIPT = 'https://checkout.razorpay.com/v1/checkout.js';
  * `window.__razorpayHold` set, the callback stays outstanding until `window.__razorpayComplete()` fires it. With
  * `window.__razorpayDismiss` set, the customer closes the window instead, through the documented `modal.ondismiss`.
  * `window.__razorpayMalformed` makes the success handler fire with no signature (`unsigned`) or for another order
- * (`wrong-order`), as a tampered or broken checkout result would.
+ * (`wrong-order`), as a tampered or broken checkout result would. With `window.__razorpayFail` set, the window waits
+ * until `window.__razorpayFailNow()` reports a failed payment through the documented `payment.failed` event; the
+ * page's `close()` is recorded in `window.__razorpayClosed`.
  */
 export const FIXTURE_SCRIPT = `
 window.Razorpay = class {
-  constructor(options) { this.options = options; window.__razorpayOptions = options; }
+  constructor(options) { this.options = options; this.handlers = {}; window.__razorpayOptions = options; }
+  on(event, handler) { this.handlers[event] = handler; }
+  close() { window.__razorpayClosed = true; }
   open() {
     if (window.__razorpayDismiss) { this.options.modal.ondismiss(); return; }
+    if (window.__razorpayFail) {
+      window.__razorpayFailNow = () => this.handlers['payment.failed']({ error: {
+        code: 'BAD_REQUEST_ERROR', reason: 'payment_failed', metadata: { order_id: this.options.order_id } } });
+      return;
+    }
     const result = {
       razorpay_payment_id: 'pay_forged000001',
       razorpay_order_id: this.options.order_id,
@@ -45,6 +54,7 @@ window.Razorpay = class {
 export type FixtureWindow = {
   __razorpayOptions?: Record<string, unknown>; __razorpayHold?: boolean; __razorpayDismiss?: boolean; __razorpayComplete?: () => void;
   __razorpayMalformed?: 'unsigned' | 'wrong-order';
+  __razorpayFail?: boolean; __razorpayFailNow?: () => void; __razorpayClosed?: boolean;
 };
 
 export async function open(browser: Browser, target = route) {
