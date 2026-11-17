@@ -59,7 +59,8 @@ export interface ReviewDetail {
   readonly recoveryStartsAt: string | null;
   readonly recoveryEndsAt: string | null;
   readonly references: { readonly expectedOrder: string | null; readonly observedOrder: string | null;
-    readonly observedPayment: string | null };
+    readonly observedPayment: string | null; readonly verifiedAmountPaise: number | null;
+    readonly verifiedCurrency: string | null; readonly verifiedAt: string | null };
 }
 
 @Injectable({ providedIn: 'root' })

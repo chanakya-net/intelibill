@@ -85,8 +85,11 @@ public sealed partial class UnmatchedPaymentReviews : Migration
             FOREIGN KEY (account_id, attempt_id) REFERENCES public.payment_attempts(account_id, attempt_id),
             FOREIGN KEY (account_id, order_id, manual_receipt_id) REFERENCES public.manual_payment_receipts(account_id, order_id, receipt_id)
         );
+        -- Keep the first discrepancy even when a later exact observation opens a paid review.
         CREATE UNIQUE INDEX unmatched_gateway_identity ON public.unmatched_payments
-            (provider_id, receiving_account_id, environment, provider_payment_reference) WHERE attempt_id IS NOT NULL;
+            (provider_id, receiving_account_id, environment, provider_payment_reference,
+                (classification IN ('ReceivingPinMismatch', 'CurrencyMismatch', 'Underpayment', 'Overpayment')))
+            WHERE attempt_id IS NOT NULL;
         CREATE UNIQUE INDEX unmatched_manual_identity ON public.unmatched_payments (manual_receipt_id) WHERE manual_receipt_id IS NOT NULL;
         CREATE INDEX unmatched_account_queue ON public.unmatched_payments (account_id, case_id);
         """;

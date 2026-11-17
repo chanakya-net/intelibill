@@ -56,6 +56,52 @@ public sealed partial class P0307Tests
         Assert.Equal(1L, await fixture.Checkout.CountAsync("payment_fulfilments"));
     }
 
+    [Fact]
+    public async Task CoverageHoldRetainsVerifiedPaymentWithSlightProviderClockSkew()
+    {
+        var probe = new P0302Tests.GatewayProbe();
+        await using var fixture = await P0308Fixture.StartAsync(database, P0210Fixture.Start, P0306Tests.Settings,
+            services: probe.Install);
+        probe.Database = fixture.Hosts.LicensingOwner;
+        var held = await HoldRenewalAsync(fixture, manual: false);
+        probe.Account = held.Package.Account;
+        var attempt = held.Attempt!.Value;
+        await CaptureAsync(held.Package.Payer.Client, held.Quote, attempt);
+        var verifiedAt = fixture.Checkout.CheckoutClock.Now;
+        var future = verifiedAt.AddSeconds(1);
+        probe.Tamper = payment => payment with { AmountPaise = payment.AmountPaise - 1 };
+        AssertStatus(await VerifyAsync(held.Package.Payer.Client, held.Quote, attempt), "PendingVerification", "NotFulfilled", "NotApplicable");
+        probe.Tamper = payment => payment with { CapturedAt = future, CreatedAt = future };
+        AssertStatus(await VerifyAsync(held.Package.Payer.Client, held.Quote, attempt), "Verified", "NeedsReview", "NotApplicable");
+        Assert.Equal(1L, await fixture.Checkout.CountAsync("verified_payments"));
+        Assert.Equal(0L, await fixture.Checkout.CountAsync("payment_fulfilments"));
+        Assert.Equal(1L, await fixture.Checkout.CountAsync("unmatched_payments", "classification = 'Underpayment'"));
+        Assert.Equal(1L, await fixture.Checkout.CountAsync("unmatched_payments", "classification = 'CoverageChanged'"));
+
+        using var finance = await P0306Tests.SignInBillingAsync(fixture.Checkout);
+        using var cases = await finance.SendAsync(HttpMethod.Get, ReviewPath(held.Package.Account));
+        Assert.Equal(HttpStatusCode.OK, cases.StatusCode);
+        var rows = await cases.Content.ReadFromJsonAsync<JsonElement>();
+        var review = Assert.Single(rows.EnumerateArray(), row => row.GetProperty("classification").GetString() == "CoverageChanged");
+        Assert.Equal(future, review.GetProperty("capturedAt").GetDateTimeOffset());
+        Assert.Equal(future, review.GetProperty("createdAt").GetDateTimeOffset());
+        var path = $"{ReviewPath(held.Package.Account)}/{review.GetProperty("caseId").GetGuid():D}";
+        await WithdrawAsync(held);
+        using var blocked = await finance.SendAsync(HttpMethod.Get, path);
+        Assert.Equal(HttpStatusCode.OK, blocked.StatusCode);
+        var preview = await blocked.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("CaptureTimeUnproven", preview.GetProperty("recoveryBlocker").GetString());
+        Assert.Equal(verifiedAt.ToUnixTimeMilliseconds(),
+            preview.GetProperty("references").GetProperty("verifiedAt").GetDateTimeOffset().ToUnixTimeMilliseconds());
+
+        fixture.At(future);
+        var command = await RecoveryCommandAsync(finance, path);
+        using var accepted = await P0212Fixture.PostAsync(finance, path + "/decisions", command);
+        Assert.True(accepted.StatusCode == HttpStatusCode.Created, await accepted.Content.ReadAsStringAsync());
+        Assert.Equal(1L, await fixture.Checkout.CountAsync("verified_payments"));
+        Assert.Equal(1L, await fixture.Checkout.CountAsync("payment_fulfilments"));
+    }
+
     private static async Task<ReviewPaymentCommand> ExerciseRecoveryFencesAsync(P0308Fixture fixture, HeldRenewal held,
         P0110CookieBrowser finance, string path, ReviewPaymentCommand command)
     {

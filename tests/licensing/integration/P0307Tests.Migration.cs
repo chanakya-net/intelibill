@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -22,13 +24,19 @@ public sealed partial class P0307Tests
         using var paid = await P0212Fixture.PostAsync(finance, path, P0306Tests.Receipt(purchase.Quote, now));
         Assert.Equal(HttpStatusCode.Created, paid.StatusCode);
 
+        var online = await fixture.AcceptedQuoteAsync(1);
+        var start = await StartAsync(online.Payer.Client, online.Quote, HttpStatusCode.Created);
+        var attempt = start.GetProperty("attemptId").GetGuid();
+
         await using var context = fixture.Hosts.Fixture.OpenMigrationContext();
         var migrations = context.GetService<IMigrator>();
         await migrations.MigrateAsync(previous);
         var owner = fixture.Hosts.LicensingOwner;
         Assert.Equal(false, await ReadScalarAsync(owner, "SELECT to_regclass('public.unmatched_payments') IS NOT NULL"));
         await SeedLegacyDuplicateAsync(owner);
+        await SeedLegacyClockSkewAsync(owner, online.Account, attempt);
         var original = await ManualBytesAsync(owner);
+        var payment = await VerifiedBytesAsync(owner);
 
         await migrations.MigrateAsync();
         await ExecuteAsync(owner, RuntimeGrant);
@@ -36,6 +44,15 @@ public sealed partial class P0307Tests
         Assert.Equal(original, await ManualBytesAsync(owner));
         var review = await SingleCaseAsync(finance, purchase.Account);
         Assert.Equal("DuplicateFunds", review.GetProperty("classification").GetString());
+        Assert.Equal(payment, await VerifiedBytesAsync(owner));
+        var legacy = await SingleCaseAsync(finance, online.Account);
+        Assert.Equal("LegacyNeedsReview", legacy.GetProperty("classification").GetString());
+        using var response = await finance.SendAsync(HttpMethod.Get,
+            $"{ReviewPath(online.Account)}/{legacy.GetProperty("caseId").GetGuid():D}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var detail = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var verifiedAt = detail.GetProperty("references").GetProperty("verifiedAt").GetDateTimeOffset();
+        Assert.Equal(verifiedAt.AddSeconds(1), legacy.GetProperty("capturedAt").GetDateTimeOffset());
         Assert.Equal(1L, await fixture.CountAsync("payment_fulfilments"));
         var runtime = fixture.Trial.Catalogue.Runtime;
         Assert.Equal(0L, await ReadScalarAsync(runtime, "SELECT count(*) FROM public.unmatched_payments"));
@@ -51,6 +68,24 @@ public sealed partial class P0307Tests
     private static Task<object?> ManualBytesAsync(NpgsqlConnectionStringBuilder owner) => ReadScalarAsync(owner, """
         SELECT jsonb_agg(to_jsonb(r) ORDER BY receipt_id)::text FROM public.manual_payment_receipts r
         """);
+
+    private static Task<object?> VerifiedBytesAsync(NpgsqlConnectionStringBuilder owner) => ReadScalarAsync(owner, """
+        SELECT jsonb_agg(to_jsonb(v) ORDER BY attempt_id)::text FROM public.verified_payments v
+        """);
+
+    private static Task SeedLegacyClockSkewAsync(NpgsqlConnectionStringBuilder owner, Guid account, Guid attempt) =>
+        ExecuteAsync(owner, $"""
+            SELECT set_config('app.billing_account_id', '{account:D}', true),
+                set_config('app.payment_attempt_id', '{attempt:D}', true);
+            INSERT INTO public.verified_payments (attempt_id, account_id, order_id, provider_id, provider_account_id,
+                environment, configuration_version, provider_payment_reference, amount_paise, currency, captured_at, verified_at)
+            SELECT attempt_id, account_id, order_id, provider_id, provider_account_id, environment, configuration_version,
+                'legacy-fixture-clock-skew', amount_paise, currency, created_at + interval '1 second', created_at
+            FROM public.payment_attempts WHERE attempt_id = '{attempt:D}';
+            INSERT INTO public.payment_events (event_id, account_id, attempt_id, order_id, kind, recorded_at)
+            SELECT gen_random_uuid(), account_id, attempt_id, order_id, 'PaidNeedsReview', created_at
+            FROM public.payment_attempts WHERE attempt_id = '{attempt:D}';
+            """);
 
     // A second statement entry was retained by the old schema before the new reconciliation queue existed.
     private static Task SeedLegacyDuplicateAsync(NpgsqlConnectionStringBuilder owner) => ExecuteAsync(owner, """

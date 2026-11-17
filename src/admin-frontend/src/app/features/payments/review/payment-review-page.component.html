@@ -45,7 +45,11 @@
           <dt>Observed amount</dt><dd>{{ money(view.case.observedAmountPaise, view.case.observedCurrency) }}</dd>
           <dt>Expected receiving account</dt><dd>{{ view.expectedReceivingAccount }} · {{ view.expectedEnvironment }} · {{ view.expectedConfigurationVersion }}</dd>
           <dt>Observed receiving account</dt><dd>{{ view.case.providerId }} · {{ view.case.receivingAccountId }} · {{ view.case.environment }} · {{ view.case.configurationVersion }}</dd>
-          <dt>First observed</dt><dd>{{ instant(view.case.observedAt) }}</dd>
+          @if (view.references.verifiedAt; as verified) {
+            <dt>Verified receipt</dt><dd>{{ money(view.references.verifiedAmountPaise!, view.references.verifiedCurrency!) }}</dd>
+            <dt>Verified at</dt><dd>{{ instant(verified) }}</dd>
+          }
+          <dt>Evidence timestamp</dt><dd>{{ instant(view.case.observedAt) }}</dd>
           @if (view.case.capturedAt; as captured) { <dt>Received at</dt><dd>{{ instant(captured) }}</dd> }
           @if (view.case.createdAt; as created) { <dt>Provider payment created at</dt><dd>{{ instant(created) }}</dd> }
           @if (view.references.expectedOrder; as reference) { <dt>Expected provider order</dt><dd>{{ reference }}</dd> }

@@ -15,7 +15,8 @@ public sealed record PaymentReviewDetail(UnmatchedPayment Case, long Version, Pa
     string? ExpectedConfigurationVersion, string? RecoverySourceHash, string? RecoveryBlocker,
     DateTimeOffset? RecoveryStartsAt, DateTimeOffset? RecoveryEndsAt, PaymentReviewReferences References);
 
-public sealed record PaymentReviewReferences(string? ExpectedOrder, string? ObservedOrder, string? ObservedPayment);
+public sealed record PaymentReviewReferences(string? ExpectedOrder, string? ObservedOrder, string? ObservedPayment,
+    long? VerifiedAmountPaise, string? VerifiedCurrency, DateTimeOffset? VerifiedAt);
 
 public static class PaymentReviewErrors
 {

@@ -61,6 +61,7 @@ test('Finance recovers one held payment and merchant sees acknowledged access', 
   await page.getByTestId('payment-review-case').filter({ hasText: 'Coverage revision changed' }).click();
   await expect(page.getByTestId('review-blocker')).toContainText('Coverage revision changed');
   await expect(page.getByText('Expected amount', { exact: true })).toBeVisible();
+  await expect(page.getByText('Verified receipt', { exact: true })).toBeVisible();
   await expect(page.getByRole('option', { name: 'Recover original accepted terms' })).toHaveCount(0);
   writeFileSync(join(scratch, 'held'), '');
   await expect.poll(() => existsSync(join(scratch, 'withdrawn'))).toBe(true);

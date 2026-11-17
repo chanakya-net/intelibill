@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
 using ErrorOr;
 using Intelibill.Licensing.Application.Payments;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +36,38 @@ public sealed partial class P0307Tests
         using var finance = await P0306Tests.SignInBillingAsync(fixture);
         var diagnostic = await SingleCaseAsync(finance, account);
         Assert.Equal("ReceivingPinMismatch", diagnostic.GetProperty("classification").GetString());
+    }
+
+    [Fact]
+    public async Task LaterExactReadOfSamePaymentFulfilsAndRetainsOriginalDiscrepancy()
+    {
+        var probe = new P0302Tests.GatewayProbe();
+        await using var fixture = await StartAsync(database, new P0201Clock { Now = P0210Fixture.Start },
+            services: probe.Install);
+        probe.Database = fixture.Hosts.LicensingOwner;
+        var (payer, account, _, quote) = await fixture.AcceptedQuoteAsync(1);
+        probe.Account = account;
+        var attempt = (await StartAsync(payer.Client, quote, HttpStatusCode.Created)).GetProperty("attemptId").GetGuid();
+        await CaptureAsync(payer.Client, quote, attempt);
+        probe.Tamper = payment => payment with { AmountPaise = payment.AmountPaise - 1 };
+        AssertStatus(await VerifyAsync(payer.Client, quote, attempt), "PendingVerification", "NotFulfilled", "NotApplicable");
+        Assert.Equal(0L, await fixture.CountAsync("payment_fulfilments"));
+
+        probe.Tamper = null;
+        AssertStatus(await VerifyAsync(payer.Client, quote, attempt), "Verified", "Fulfilled", "Applying");
+        Assert.Equal(1L, await fixture.CountAsync("verified_payments"));
+        Assert.Equal(1L, await fixture.CountAsync("payment_fulfilments"));
+        using var finance = await P0306Tests.SignInBillingAsync(fixture);
+        var diagnostic = await SingleCaseAsync(finance, account);
+        Assert.Equal("Underpayment", diagnostic.GetProperty("classification").GetString());
+        Assert.Equal(quote.AmountPaise - 1, diagnostic.GetProperty("observedAmountPaise").GetInt64());
+        using var response = await finance.SendAsync(HttpMethod.Get,
+            $"{ReviewPath(account)}/{diagnostic.GetProperty("caseId").GetGuid():D}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var detail = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var references = detail.GetProperty("references");
+        Assert.Equal(quote.AmountPaise, references.GetProperty("verifiedAmountPaise").GetInt64());
+        Assert.Equal(quote.Currency, references.GetProperty("verifiedCurrency").GetString());
     }
 
     [Theory]

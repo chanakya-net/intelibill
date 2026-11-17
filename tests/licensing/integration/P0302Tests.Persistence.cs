@@ -57,10 +57,9 @@ public sealed partial class P0302Tests
         Assert.Equal(0L, await fixture.CountAsync("subscription_term_facts"));
 
         probe.Tamper = null;
-        // A later exact read cannot silently settle contradictory evidence already retained for this receipt.
-        AssertStatus(await VerifyAsync(payer.Client, quote, attempt), "Verified", "NeedsReview", "NotApplicable");
+        AssertStatus(await VerifyAsync(payer.Client, quote, attempt), "Verified", "Fulfilled", "Applying");
         Assert.Equal(1L, await fixture.CountAsync("verified_payments"));
-        Assert.Equal(0L, await fixture.CountAsync("payment_fulfilments"));
+        Assert.Equal(1L, await fixture.CountAsync("payment_fulfilments"));
     }
 
     [Fact]

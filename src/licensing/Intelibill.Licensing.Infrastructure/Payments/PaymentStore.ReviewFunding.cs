@@ -8,9 +8,14 @@ internal sealed partial class PaymentStore
     public Task<PaymentReviewReferences> FindReferencesAsync(Guid account, Guid id, CancellationToken ct) =>
         db.Database.SqlQuery<PaymentReviewReferences>($"""
             SELECT s.provider_order_reference AS expected_order, c.provider_order_reference AS observed_order,
-                c.provider_payment_reference AS observed_payment
+                c.provider_payment_reference AS observed_payment,
+                v.amount_paise AS verified_amount_paise, v.currency AS verified_currency, v.verified_at
             FROM public.unmatched_payments c LEFT JOIN public.payment_attempt_sessions s
                 ON s.account_id = c.account_id AND s.attempt_id = c.attempt_id
+            LEFT JOIN public.verified_payments v
+                ON v.account_id = c.account_id AND v.order_id = c.order_id AND v.attempt_id = c.attempt_id
+                AND v.provider_id = c.provider_id AND v.provider_account_id = c.receiving_account_id
+                AND v.environment = c.environment AND v.provider_payment_reference = c.provider_payment_reference
             WHERE c.account_id = {account} AND c.case_id = {id}
             """).SingleAsync(ct);
 
@@ -23,7 +28,8 @@ internal sealed partial class PaymentStore
                 AND v.provider_payment_reference = c.provider_payment_reference AND v.provider_id = c.provider_id
                 AND v.provider_account_id = c.receiving_account_id AND v.environment = c.environment
                 AND v.configuration_version = c.configuration_version
-                AND v.amount_paise = c.observed_amount_paise AND v.currency = c.observed_currency AND v.verified_at = c.observed_at
+                AND v.amount_paise = c.observed_amount_paise AND v.currency = c.observed_currency
+                AND c.observed_at = GREATEST(v.verified_at, c.captured_at, c.created_at)
             WHERE c.account_id = {account} AND c.case_id = {review.CaseId}
                 AND (v.capture_time_basis = 'ProviderCapture' AND v.captured_at = c.captured_at OR
                     v.capture_time_basis = 'ObservedAtVerification' AND c.captured_at IS NULL AND c.created_at <= v.captured_at)

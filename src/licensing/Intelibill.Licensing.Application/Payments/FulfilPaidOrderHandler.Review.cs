@@ -12,6 +12,8 @@ public sealed partial class FulfilPaidOrderHandler
         if (await reviews.HasCompetingFundsAsync(quote.AccountId, quote.OrderId, attempt?.AttemptId, review.ManualReceiptId,
                 review.CaseId, ct))
             return new(null, [], now, "DuplicateFunds");
+        if (timing.LatestPossibleCaptureAt > now)
+            return new(null, [], now, "CaptureTimeUnproven");
         if ((await store.ReadRestorationEvidenceAsync(quote.AccountId, now, ct)).State != PaymentRestorationState.Ready)
             return new(null, [], now, "RestorationPending");
         var hold = await store.FindRestorationHoldAsync(quote.AccountId, quote.OrderId, ct);

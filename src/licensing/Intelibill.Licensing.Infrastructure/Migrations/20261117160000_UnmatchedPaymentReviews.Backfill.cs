@@ -16,7 +16,8 @@ public sealed partial class UnmatchedPaymentReviews
         SELECT gen_random_uuid(), v.account_id, v.order_id, v.attempt_id, 'LegacyNeedsReview',
             v.amount_paise, v.currency, v.amount_paise, v.currency, v.provider_id, v.provider_account_id,
             v.environment, v.configuration_version, s.provider_order_reference, v.provider_payment_reference,
-            v.verified_at, CASE WHEN v.capture_time_basis = 'ProviderCapture' THEN v.captured_at END
+            GREATEST(v.verified_at, CASE WHEN v.capture_time_basis = 'ProviderCapture' THEN v.captured_at END),
+            CASE WHEN v.capture_time_basis = 'ProviderCapture' THEN v.captured_at END
         FROM public.verified_payments v JOIN public.payment_attempt_sessions s USING (account_id, attempt_id)
         WHERE EXISTS (SELECT FROM public.payment_events e WHERE e.attempt_id = v.attempt_id AND e.kind = 'PaidNeedsReview')
             AND NOT EXISTS (SELECT FROM public.payment_fulfilments f WHERE f.attempt_id = v.attempt_id);

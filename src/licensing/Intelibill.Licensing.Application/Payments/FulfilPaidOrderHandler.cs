@@ -42,13 +42,18 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
         var effective = BillingAccountRules.StorageInstant(payment.CapturedAt ?? payment.CreatedAt!.Value);
         var notBefore = proven ? attempt.CreatedAt : new DateTimeOffset(attempt.CreatedAt.Ticks / TimeSpan.TicksPerSecond *
             TimeSpan.TicksPerSecond, attempt.CreatedAt.Offset);
-        var decision = await DecideAsync(quote, effective, ct, notBefore, upperBound: !proven, attempt: attempt.AttemptId);
-        await store.RecordVerifiedAsync(attempt, payment, decision.At, ct);
+        // Give the account-fenced duplicate check the exact receipt identity before it counts competing funds.
+        var verifiedAt = BillingAccountRules.StorageInstant(lifecycle.GetUtcNow());
+        await store.RecordVerifiedAsync(attempt, payment, verifiedAt, ct);
+        var decision = await DecideAsync(quote, effective, ct, notBefore, upperBound: !proven, attempt: attempt.AttemptId,
+            verifiedAt: verifiedAt);
         if (decision.Term is null)
         {
             if (decision.Hold is { } hold)
                 await store.RecordRestorationHoldAsync(quote.AccountId, quote.OrderId, attempt.AttemptId, null, proven ? effective : decision.At, hold, ct);
-            await reviews.RecordCaptureAsync(attempt, payment, decision.ReviewReason!, decision.At, null, ct);
+            // Preserve both provider timestamps and the actual verification instant on their respective records.
+            var observedAt = new[] { decision.At, payment.CapturedAt ?? decision.At, payment.CreatedAt ?? decision.At }.Max();
+            await reviews.RecordCaptureAsync(attempt, payment, decision.ReviewReason!, observedAt, null, ct);
             await store.AppendEventAsync(attempt, PaymentEventKinds.PaidNeedsReview, null, decision.At, ct);
             return FulfilmentOutcome.NeedsReview;
         }
@@ -63,9 +68,9 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
     /// </summary>
     internal async Task<PaidOrderDecision> DecideAsync(CheckoutQuoteV1 quote, DateTimeOffset effectiveAt, CancellationToken ct,
         DateTimeOffset? notBefore = null, bool upperBound = false, PaymentRestorationHold? retry = null,
-        Guid? attempt = null, ReviewRecoverySource? recovery = null)
+        Guid? attempt = null, ReviewRecoverySource? recovery = null, DateTimeOffset? verifiedAt = null)
     {
-        var now = BillingAccountRules.StorageInstant(lifecycle.GetUtcNow());
+        var now = verifiedAt ?? BillingAccountRules.StorageInstant(lifecycle.GetUtcNow());
         if (await store.HasFulfilmentAsync(quote.AccountId, quote.OrderId, ct) ||
             retry is null && (await store.FindRestorationHoldAsync(quote.AccountId, quote.OrderId, ct) is not null ||
                 await reviews.HasCompetingFundsAsync(quote.AccountId, quote.OrderId, attempt, recovery?.ReceiptId, recovery?.CaseId, ct)))
