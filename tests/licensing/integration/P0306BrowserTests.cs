@@ -34,7 +34,7 @@ public sealed class P0306BrowserTests(LicensingPostgreSqlFixture database, ITest
 
     private async Task VerifyBrowserAsync(string evidence, string temporary)
     {
-        var clock = new P0201Clock { Now = P0210Fixture.Start };
+        var clock = new P0201Clock { Now = P0302Fixture.WholeSecondStart };
         await using var fixture = await P0302Fixture.StartAsync(database, clock, P0306Tests.Settings, browser: true);
         var purchase = await fixture.AcceptedQuoteAsync(names: ["Manual Central", "Manual East", "Manual North"]);
         var seed = await P0306Tests.EnrollBillingAsync(fixture, P0306Tests.BillingEmail);
@@ -56,7 +56,7 @@ public sealed class P0306BrowserTests(LicensingPostgreSqlFixture database, ITest
         await using var browser = new OwnedProcess(start);
         var stdout = browser.Process.StandardOutput.ReadToEndAsync(ct);
         var stderr = browser.Process.StandardError.ReadToEndAsync(ct);
-        await CoordinateAsync(browser.Process, fixture, temporary, ct);
+        await CoordinateAsync(browser.Process, fixture, purchase, temporary, ct);
         await browser.Process.WaitForExitAsync(ct);
         var report = await stdout;
         output.WriteLine(report);
@@ -101,7 +101,7 @@ public sealed class P0306BrowserTests(LicensingPostgreSqlFixture database, ITest
         return start;
     }
 
-    private static async Task CoordinateAsync(Process process, P0302Fixture fixture, string temporary, CancellationToken ct)
+    private static async Task CoordinateAsync(Process process, P0302Fixture fixture, P0302Fixture.Purchase purchase, string temporary, CancellationToken ct)
     {
         var auth = fixture.Hosts.Fixture.Clock;
         var normalFixtureTime = auth.Now;
@@ -116,6 +116,13 @@ public sealed class P0306BrowserTests(LicensingPostgreSqlFixture database, ITest
         if (!await AwaitMarkerAsync(process, temporary, "applying", ct)) return;
         await fixture.Delivery.DrainAsync(source: true);
         await fixture.Delivery.DrainAsync(source: false);
+        var paidOrder = await P0302Fixture.StatusAsync(purchase.Payer.Client, purchase.Quote);
+        var acknowledged = await CountAcknowledgedAsync(fixture, purchase.Quote.OrderId);
+        await File.WriteAllTextAsync(Path.Combine(Environment.GetEnvironmentVariable("P0306_EVIDENCE_DIR")!, "delivery-proof.json"),
+            JsonSerializer.Serialize(new { acknowledged, payment = paidOrder.GetProperty("payment").GetString(),
+                fulfilment = paidOrder.GetProperty("fulfilment").GetString(), access = paidOrder.GetProperty("access").GetString() }), ct);
+        Assert.Equal(3L, acknowledged);
+        P0302Fixture.AssertStatus(paidOrder, "Verified", "Fulfilled", "Applied");
         await SignalAsync("delivered");
     }
 
