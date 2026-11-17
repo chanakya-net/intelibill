@@ -60,7 +60,15 @@ internal static class CheckoutRegistration
         services.AddScoped(provider => new DevelopmentPaymentGateway(
             provider.GetRequiredService<Data.LicensingDbContext>(), CheckoutClock(provider),
             provider.GetRequiredService<IOptions<DevelopmentWebhookOptions>>().Value));
+        services.AddScoped<PaymentProviderConfiguration>();
+        services.AddScoped<PaymentProviderBindings>();
+        services.AddScoped<PaymentGatewayResolver>();
         services.AddScoped<IPaymentGatewayResolver, PaymentGatewayResolver>();
+        services.AddScoped<IPaymentProviderRegistry>(p => p.GetRequiredService<PaymentGatewayResolver>());
+        services.AddScoped<PaymentProviderRoutingStore>();
+        services.AddScoped<IPaymentProviderRoutingStore>(p => p.GetRequiredService<PaymentProviderRoutingStore>());
+        services.AddScoped<IPaymentProviderSelection>(p => p.GetRequiredService<PaymentProviderRoutingStore>());
+        services.AddScoped<SelectPaymentProviderHandler>();
         services.AddScoped<IPaymentSimulator>(provider =>
             PaymentGatewayResolver.SimulatorEnabled(provider.GetRequiredService<IOptions<PaymentOptions>>().Value,
                 provider.GetRequiredService<IHostEnvironment>())
@@ -69,7 +77,8 @@ internal static class CheckoutRegistration
         services.AddScoped(provider => new CheckoutPaymentStatusReader(provider.GetRequiredService<ICheckoutOrderStore>(),
             provider.GetRequiredService<IPaymentStore>(),
             provider.GetRequiredService<Application.Status.IEntitlementSynchronizationReader>(),
-            provider.GetRequiredService<IPaymentGatewayResolver>(), CheckoutClock(provider)));
+            provider.GetRequiredService<IPaymentGatewayResolver>(), CheckoutClock(provider),
+            provider.GetRequiredService<IPaymentProviderSelection>()));
         services.AddScoped(provider => new FulfilPaidOrderHandler(provider.GetRequiredService<IPaymentStore>(),
             provider.GetRequiredService<ICheckoutOrderStore>(), provider.GetRequiredService<IPaymentReviewStore>(),
             provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey)));

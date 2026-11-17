@@ -19,42 +19,84 @@ internal sealed class PaymentOptions
 
 /// <summary>
 /// Chooses the active adapter for new attempts and resolves the pinned adapter for older ones. The simulator is
-/// honoured only when <c>Payments:Mode = LocalSimulator</c> in a Development or Testing host; otherwise no adapter
-/// exists and online payment is unavailable.
+/// selected initially by <c>Payments:Mode = LocalSimulator</c> in a local host. Historical resolution is independent
+/// of the selected provider; a simulator is always refused outside Development/Testing.
 /// </summary>
 internal sealed class PaymentGatewayResolver(IServiceProvider services, IOptions<PaymentOptions> options,
-    IHostEnvironment environment, IOptions<RazorpayOptions> razorpay) : IPaymentGatewayResolver
+    IHostEnvironment environment, IOptions<RazorpayOptions> razorpay, PaymentProviderConfiguration registry, PaymentProviderBindings bindings) : IPaymentGatewayResolver, IPaymentProviderRegistry
 {
     internal static bool SimulatorEnabled(PaymentOptions options, IHostEnvironment environment) =>
         options.Mode == PaymentOptions.LocalSimulator && (environment.IsDevelopment() || environment.IsEnvironment("Testing"));
 
-    public IPaymentGateway? ForNewAttempts() => options.Value.Mode == PaymentOptions.RazorpayMode ? Razorpay() : Simulator();
+    public IPaymentGateway? ForNewAttempts() => options.Value.Mode == PaymentOptions.RazorpayMode ? Razorpay()
+        : SimulatorEnabled(options.Value, environment) ? Simulator() : null;
 
     /// <summary>An attempt is served only by the adapter whose exact account, environment and version it was pinned to.</summary>
-    public IPaymentGateway? ForPin(PaymentProviderPin pin) =>
-        pin == DevelopmentPaymentGateway.LocalPin ? Simulator()
+    public IPaymentGateway? ForPin(PaymentProviderPin pin)
+    {
+        var matches = registry.Profiles.Where(profile => profile.Pin == pin).ToArray();
+        if (matches.Length != 0)
+            return matches is [var profile] && Failure(profile) is null ? Create(profile) : null;
+        var legacy = pin == DevelopmentPaymentGateway.LocalPin ? (IPaymentGateway?)Simulator()
             : pin.ProviderId == RazorpayConfiguration.ProviderId && Razorpay() is { } gateway && gateway.Pin == pin ? gateway : null;
+        return legacy is not null && !bindings.IsRegistered(pin) ? legacy : null;
+    }
 
     public IReadOnlyList<IPaymentGateway> ForWebhooks(string providerId)
     {
-        IPaymentGateway? candidate = providerId switch
-        {
-            RazorpayConfiguration.ProviderId => Razorpay(),
-            DevelopmentPaymentGateway.ProviderId => Simulator(),
-            _ => null
-        };
-        return candidate is { Capabilities.Webhooks: true } ? [candidate] : [];
+        var configured = registry.Profiles.Where(p => p.ProviderId == providerId && Failure(p) is null)
+            .Select(Create).OfType<IPaymentGateway>().ToList();
+        var legacy = providerId == DevelopmentPaymentGateway.ProviderId ? (IPaymentGateway?)Simulator() : Razorpay();
+        if (legacy?.Pin.ProviderId == providerId && configured.All(g => g.Pin != legacy.Pin) && ForPin(legacy.Pin) is { } retained)
+            configured.Add(retained);
+        return configured.Where(g => g.Capabilities.Webhooks).ToArray();
+    }
+
+    public IReadOnlyList<PaymentProviderProfileStatus> Profiles()
+    {
+        var profiles = registry.Profiles.Select(p => new PaymentProviderProfileStatus(p.Id, p.Pin,
+            Failure(p) is null, Failure(p))).ToList();
+        if (Simulator() is { } simulator)
+            profiles.Add(new("legacy-simulator", simulator.Pin, ForPin(simulator.Pin) is not null,
+                ForPin(simulator.Pin) is null ? "InvalidProfile" : null));
+        if (Razorpay() is { } razorpayGateway)
+            profiles.Add(new("legacy-razorpay", razorpayGateway.Pin, ForPin(razorpayGateway.Pin) is not null,
+                ForPin(razorpayGateway.Pin) is null ? "InvalidProfile" : null));
+        return profiles;
+    }
+
+    private string? Failure(PaymentProviderProfile profile)
+    {
+        if (registry.Failure(profile) is { } invalid) return invalid;
+        if (profile.ProviderId == RazorpayConfiguration.ProviderId &&
+            RazorpayConfiguration.From(razorpay.Value) is { } legacy && legacy.Pin == profile.Pin &&
+            registry.Razorpay(profile) is { } retained && !legacy.SameConfiguration(retained))
+            return "InvalidProfile";
+        return bindings.Matches(profile) ? null : "ConfigurationReused";
+    }
+
+    private IPaymentGateway? Create(PaymentProviderProfile profile)
+    {
+        if (profile.ProviderId == DevelopmentPaymentGateway.ProviderId)
+            return new DevelopmentPaymentGateway(services.GetRequiredService<Data.LicensingDbContext>(),
+                services.GetRequiredKeyedService<TimeProvider>(CheckoutOrdersV1.Policy), registry.Webhook(profile), profile.Pin);
+        return registry.Razorpay(profile) is { } config && config.Pin == profile.Pin ? CreateRazorpay(config) : null;
     }
 
     private RazorpayGateway? Razorpay()
     {
         if (RazorpayConfiguration.From(razorpay.Value) is not { } config)
             return null;
+        return CreateRazorpay(config);
+    }
+
+    private RazorpayGateway CreateRazorpay(RazorpayConfiguration config)
+    {
         var client = services.GetRequiredService<IHttpClientFactory>().CreateClient(RazorpayGateway.ClientName);
         client.BaseAddress = config.BaseAddress;
         return new(client, config, services.GetRequiredKeyedService<TimeProvider>(CheckoutOrdersV1.Policy));
     }
 
-    private DevelopmentPaymentGateway? Simulator() => SimulatorEnabled(options.Value, environment)
+    private DevelopmentPaymentGateway? Simulator() => (environment.IsDevelopment() || environment.IsEnvironment("Testing"))
         ? services.GetRequiredService<DevelopmentPaymentGateway>() : null;
 }

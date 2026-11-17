@@ -3,11 +3,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Npgsql;
 
 namespace Intelibill.Licensing.Infrastructure.Payments;
 
-internal sealed partial class PendingPaymentAttemptWorker(IServiceScopeFactory scopes, IHostEnvironment environment,
+internal sealed partial class PendingPaymentAttemptWorker(IServiceScopeFactory scopes,
     IOptions<PaymentOptions> options, ILogger<PendingPaymentAttemptWorker> logger) : BackgroundService
 {
     internal const string ClockKey = "pending-payment-lease";
@@ -15,7 +14,7 @@ internal sealed partial class PendingPaymentAttemptWorker(IServiceScopeFactory s
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!options.Value.ReconcileInBackground || !PaymentGatewayResolver.SimulatorEnabled(options.Value, environment))
+        if (!options.Value.ReconcileInBackground)
             return;
 
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
@@ -25,7 +24,7 @@ internal sealed partial class PendingPaymentAttemptWorker(IServiceScopeFactory s
             {
                 await PumpAsync(scopes, stoppingToken);
             }
-            catch (Exception error) when (error is NpgsqlException or TimeoutException)
+            catch (Exception error) when (PaymentStorageFailure.IsUnavailable(error))
             {
                 stoppingToken.ThrowIfCancellationRequested();
                 LogUnavailable(logger, error.GetType().Name);

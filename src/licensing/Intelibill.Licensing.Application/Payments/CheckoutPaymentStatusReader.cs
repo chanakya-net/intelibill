@@ -11,7 +11,7 @@ namespace Intelibill.Licensing.Application.Payments;
 /// attempt keeps its status when its adapter is no longer enabled, but no launcher is offered for it.
 /// </summary>
 public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPaymentStore store,
-    IEntitlementSynchronizationReader synchronization, IPaymentGatewayResolver gateways, TimeProvider clock)
+    IEntitlementSynchronizationReader synchronization, IPaymentGatewayResolver gateways, TimeProvider clock, IPaymentProviderSelection selection)
 {
     public async Task<ErrorOr<CheckoutPaymentV1>> ReadAsync(Guid account, Guid order, CancellationToken ct)
     {
@@ -23,14 +23,15 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
             : await synchronization.ReadAsync(account, shops, ct);
         var gateway = row.Attempt is { } attempt ? gateways.ForPin(attempt.Pin) : null;
         var canStart = row.Attempt is null && row.ManualVerifiedAt is null && row.TermId is null &&
-            CanStart(quote) && !await store.HasOverlappingPaymentAsync(account, order, ct);
+            await CanStartAsync(quote, ct) && !await store.HasOverlappingPaymentAsync(account, order, ct);
         return Project(quote, row, synced, canStart, gateway);
     }
 
-    internal bool CanStart(CheckoutQuoteV1 quote)
+    internal async Task<bool> CanStartAsync(CheckoutQuoteV1 quote, CancellationToken ct)
     {
         var now = BillingAccountRules.StorageInstant(clock.GetUtcNow());
-        return Startable(quote) && gateways.ForNewAttempts() is { } gateway && gateway.SupportsAmount(quote.AmountPaise, quote.Currency) && now < quote.ExpiresAt &&
+        var selected = await selection.SelectedAsync(false, ct);
+        return Startable(quote) && selected.Pin is { } pin && gateways.ForPin(pin) is { } gateway && gateway.SupportsAmount(quote.AmountPaise, quote.Currency) && now < quote.ExpiresAt &&
             CheckoutRenewalPolicy.WindowOpen(quote, now);
     }
 
@@ -42,7 +43,9 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         var attempt = row.Attempt;
         var payment = attempt is null ? (row.ManualVerifiedAt is null ? "NotStarted" : "Verified") : row.VerifiedAt is not null ? "Verified"
             : row.DefinitivelyFailed ? "Failed" : attempt.ProviderOrderReference is null || row.VerificationRequested ? "PendingVerification" : "AwaitingPayment";
-        var fulfilment = row.TermId is not null ? "Fulfilled" : row.NeedsReview ? "NeedsReview" : "NotFulfilled";
+        var routingReview = attempt is not null && gateway is null && row.VerifiedAt is null && row.ManualVerifiedAt is null;
+        if (routingReview) payment = "PendingVerification";
+        var fulfilment = row.TermId is not null ? "Fulfilled" : (row.NeedsReview || routingReview) ? "NeedsReview" : "NotFulfilled";
         var applied = row.Deliveries.Count(d => synced.TryGetValue(d.ShopId, out var s) && s.AppliedShopRevision >= d.ShopRevision);
         var review = row.Deliveries.Any(d => d.ShopRevision is not null && synced.TryGetValue(d.ShopId, out var s) && s.State == "NeedsReview" &&
             !(s.AppliedShopRevision >= d.ShopRevision));

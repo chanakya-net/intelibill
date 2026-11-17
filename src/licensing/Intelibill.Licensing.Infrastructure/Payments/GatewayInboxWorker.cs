@@ -1,11 +1,8 @@
 using Intelibill.Licensing.Application.Payments;
-using Intelibill.Licensing.Infrastructure.Payments.Development;
-using Intelibill.Licensing.Infrastructure.Payments.Razorpay;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Npgsql;
 
 namespace Intelibill.Licensing.Infrastructure.Payments;
 
@@ -14,7 +11,7 @@ internal sealed partial class GatewayInboxWorker(IServiceScopeFactory scopes, IO
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!options.Value.ReconcileInBackground || !Enabled())
+        if (!options.Value.ReconcileInBackground)
             return;
 
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
@@ -24,20 +21,12 @@ internal sealed partial class GatewayInboxWorker(IServiceScopeFactory scopes, IO
             {
                 await PumpAsync(stoppingToken);
             }
-            catch (Exception error) when (error is NpgsqlException or TimeoutException)
+            catch (Exception error) when (PaymentStorageFailure.IsUnavailable(error))
             {
                 stoppingToken.ThrowIfCancellationRequested();
                 StorageUnavailable(logger);
             }
         }
-    }
-
-    private bool Enabled()
-    {
-        using var scope = scopes.CreateScope();
-        var resolver = scope.ServiceProvider.GetRequiredService<IPaymentGatewayResolver>();
-        return resolver.ForWebhooks(RazorpayConfiguration.ProviderId).Count != 0 ||
-            resolver.ForWebhooks(DevelopmentPaymentGateway.LocalPin.ProviderId).Count != 0;
     }
 
     private async Task PumpAsync(CancellationToken ct)

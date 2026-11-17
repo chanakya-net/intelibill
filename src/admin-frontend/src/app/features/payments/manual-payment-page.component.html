@@ -26,6 +26,29 @@
         <button pButton type="button" [disabled]="busy()" (click)="recover(true)">{{ view()?.status?.restorationHeld ? 'Check restoration again' : 'Retry original confirmation' }}</button>
       </section>
     }
+    @if (routing(); as route) {
+      <section class="ib-panel" aria-labelledby="routing-heading" data-testid="payment-routing">
+        <h2 id="routing-heading">Original payment routing</h2>
+        <p>Attempt · {{ route.attemptId }}</p>
+        @if (route.original; as original) {
+          <dl>
+            <dt>Original provider</dt><dd>{{ original.providerId }}</dd>
+            <dt>Original provider account</dt><dd>{{ original.providerAccountId }}</dd>
+            <dt>Original environment</dt><dd>{{ original.environment }}</dd>
+            <dt>Original configuration</dt><dd>{{ original.configurationVersion }}</dd>
+          </dl>
+        }
+        @if (route.currentSelection.pin; as selected) {
+          <p>Current selection for new payments · {{ route.currentSelection.profileId }} · revision {{ route.currentSelection.revision }}</p>
+          <p>{{ selected.providerId }} · {{ selected.providerAccountId }} · {{ selected.environment }} · {{ selected.configurationVersion }}</p>
+        }
+        @if (route.recoveryAvailable) {
+          <p data-testid="routing-available">Original configuration available for recovery.</p>
+        } @else {
+          <p role="status" data-testid="routing-blocker">Historical configuration needs review · {{ route.blocker }}. Restore the original configuration; do not replace the charge.</p>
+        }
+      </section>
+    }
     @if (view(); as item) {
       <section class="ib-panel" aria-labelledby="order-heading">
         <h2 id="order-heading">Accepted order</h2>

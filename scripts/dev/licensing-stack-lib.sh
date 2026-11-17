@@ -106,8 +106,8 @@ guard_project() {
 }
 
 validate_project_name() {
-  [[ "${project}" =~ ^intelibill-p01-05-[a-z0-9-]+$ ]] \
-    || fail "P0105_PROJECT must match intelibill-p01-05-*; got '${project}'"
+  [[ "${project}" =~ ^intelibill-p01-05-[a-z0-9-]+$ || "${project}" =~ ^intelibill-p0310(-[a-z0-9-]+)?$ ]] \
+    || fail "P0105_PROJECT must match intelibill-p01-05-* or intelibill-p0310[-*]; got '${project}'"
 }
 
 # Host ports for this project; refuses ports something else already listens on.

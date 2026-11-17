@@ -75,3 +75,34 @@ describe('manual payment restoration', () => {
     expect(page.querySelector('[data-testid="order-access"]')?.textContent).toContain('Applying');
   });
 });
+
+describe('original payment routing', () => {
+  it('distinguishes original identity A from current selection B and shows the recovery blocker', async () => {
+    TestBed.configureTestingModule({ providers: [
+      provideRouter([]),
+      { provide: ActivatedRoute, useValue: { queryParamMap: of(convertToParamMap({ account, order })) } },
+      { provide: AdminSessionService, useValue: {
+        adminId: signal(scope.admin), sessionId: signal('session'), capabilities: signal(['billing']),
+      } },
+      { provide: ManualPaymentApi, useValue: {
+        read: async () => ({ order: { planName: 'Plan', period: 'Month', shopCount: 1, amountPaise: 12000, shops: [] },
+          status: { payment: 'PendingVerification', attemptId: 'original-attempt', access: 'NotApplicable' }, receipts: [] }),
+        routing: async () => ({ schemaVersion: 1, accountId: account, orderId: order, attemptId: 'original-attempt',
+          original: { providerId: 'development-simulator', providerAccountId: 'simulator-a', environment: 'Development', configurationVersion: 'a/1' },
+          currentSelection: { revision: 2, profileId: 'b', pin: {
+            providerId: 'development-simulator', providerAccountId: 'simulator-b', environment: 'Development', configurationVersion: 'b/1' } },
+          recoveryAvailable: false, blocker: 'MissingProfile' }),
+      } },
+      { provide: ManualPaymentDrafts, useValue: { read: async () => ({ revision: 0 }) } },
+    ] });
+    const fixture = TestBed.createComponent(ManualPaymentPageComponent);
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      const routing = fixture.nativeElement.querySelector('[data-testid="payment-routing"]') as HTMLElement | null;
+      expect(routing?.textContent).toContain('simulator-a');
+      expect(routing?.textContent).toContain('simulator-b');
+      expect(routing?.textContent).toContain('a/1');
+      expect(routing?.textContent).toContain('MissingProfile');
+    });
+  });
+});

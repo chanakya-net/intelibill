@@ -17,9 +17,8 @@ internal static class CustomerPaymentEndpoints
         group.MapGet("", ReadAsync);
         group.MapPost("/attempts", StartAsync);
         group.MapPost("/attempts/{attempt:guid}/verify", VerifyAsync);
-        // The simulator route exists only in a local simulator runtime; elsewhere it is not mapped (404).
-        if ((app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing")) &&
-            app.Configuration["Payments:Mode"] == "LocalSimulator")
+        // Local-only controls resolve the original simulator pin, independently of the current provider selection.
+        if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
             group.MapPost("/attempts/{attempt:guid}/simulator/capture", CaptureAsync);
     }
 

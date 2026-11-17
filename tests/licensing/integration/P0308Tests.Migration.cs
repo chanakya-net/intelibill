@@ -11,7 +11,7 @@ public sealed partial class P0308Tests
     public async Task UpgradeRetainsPaidHistoryAndDowngradeRefusesRenewalEvidence()
     {
         const string previous = "20261117110000_ManualPaymentReceipts";
-        await using var fixture = await StartAsync(database, March31);
+        await using var fixture = await StartAsync(database, March31, services: P0310LegacyRouting.InstallLegacy);
         var package = await fixture.PackageAsync(1);
         var fresh = await FirstQuoteAsync(package, "Month");
         var firstQuote = await AcceptAsync(package, await P0309Fixture.RepresentLegacyQuoteAsync(fixture.Hosts.LicensingOwner, fresh));

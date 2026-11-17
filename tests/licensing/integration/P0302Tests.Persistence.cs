@@ -170,9 +170,11 @@ public sealed partial class P0302Tests
             public IPaymentGateway? ForPin(PaymentProviderPin pin) => inner.ForPin(pin) is { } gateway ? new Gateway(gateway, probe) : null;
         }
 
-        private sealed class Gateway(IPaymentGateway inner, GatewayProbe probe) : IPaymentGateway
+        private sealed class Gateway(IPaymentGateway inner, GatewayProbe probe) : IPaymentGateway, IPaymentSimulator
         {
             private Guid _attempt;
+            public Task SimulateAsync(string reference, string outcome, CancellationToken ct) =>
+                ((IPaymentSimulator)inner).SimulateAsync(reference, outcome, ct);
             public PaymentProviderPin Pin => inner.Pin;
             public PaymentGatewayCapabilities Capabilities => inner.Capabilities;
 

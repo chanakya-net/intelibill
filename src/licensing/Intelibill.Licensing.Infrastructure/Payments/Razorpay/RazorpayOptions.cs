@@ -41,6 +41,12 @@ internal sealed record RazorpayConfiguration(string KeyId, string KeySecret, Uri
     /// <summary>The only methods a full-price checkout may use; instalment and deferred methods are never listed.</summary>
     internal static readonly string[] Supported = ["card", "netbanking", "wallet", "upi"];
 
+    internal bool SameConfiguration(RazorpayConfiguration other) => Pin == other.Pin &&
+        KeyId == other.KeyId && KeySecret == other.KeySecret && BaseAddress == other.BaseAddress &&
+        MaxAmountPaise == other.MaxAmountPaise && Methods.SetEquals(other.Methods) &&
+        (Webhook is null ? other.Webhook is null : other.Webhook is { } incoming &&
+            Webhook.AccountId == incoming.AccountId && Webhook.Secrets.SequenceEqual(incoming.Secrets, StringComparer.Ordinal));
+
     /// <summary>The capability validator: pins account, environment and version, and refuses unsupported behaviour.</summary>
     internal static RazorpayConfiguration? From(RazorpayOptions options)
     {

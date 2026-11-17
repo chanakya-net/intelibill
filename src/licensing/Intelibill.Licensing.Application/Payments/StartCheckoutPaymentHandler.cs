@@ -13,7 +13,7 @@ public sealed record CheckoutPaymentStart(CheckoutPaymentV1 Payment, bool Create
 /// A replayed key never dispatches again.
 /// </summary>
 public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access, ICheckoutOrderStore orders,
-    IPaymentStore store, IPaymentGatewayResolver gateways, CheckoutPaymentStatusReader status, TimeProvider clock)
+    IPaymentStore store, IPaymentGatewayResolver gateways, CheckoutPaymentStatusReader status, TimeProvider clock, IPaymentProviderSelection selection)
 {
     public async Task<ErrorOr<CheckoutPaymentStart>> HandleAsync(VerifiedBillingDelegation proof, Guid account, Guid order,
         StartCheckoutPaymentV1 request, CancellationToken ct)
@@ -44,7 +44,8 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
         var refusal = await RefuseAsync(account, quote, request, ct);
         if (refusal is { } error)
             return error;
-        if (gateways.ForNewAttempts() is not { } gateway)
+        var selected = await selection.SelectedAsync(true, ct);
+        if (selected.Pin is not { } pin || gateways.ForPin(pin) is not { } gateway || gateway.Pin != pin)
             return CheckoutPaymentErrors.Unavailable;
         // An amount the provider cannot take is refused before an attempt row would make the quote unrecoverable.
         if (!gateway.SupportsAmount(quote.AmountPaise, quote.Currency))
@@ -54,7 +55,7 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
         if (now >= quote.ExpiresAt || !CheckoutRenewalPolicy.WindowOpen(quote, now))
             return CheckoutOrderErrors.Expired;
         var attempt = new NewPaymentAttempt(Guid.NewGuid(), account, order, request.OperationKey, hash, proof.ReplayId,
-            gateway.Pin, quote.AmountPaise, quote.Currency, quote.SnapshotHash, now);
+            gateway.Pin, quote.AmountPaise, quote.Currency, quote.SnapshotHash, now, selected.Revision > 0 ? selected.Revision : null);
         await store.InsertAttemptAsync(attempt, ct);
         var stored = (await store.FindAttemptAsync(account, attempt.AttemptId, false, ct))!;
         await store.UseAttemptAsync(stored.AttemptId, ct);
@@ -82,7 +83,15 @@ public sealed class StartCheckoutPaymentHandler(IBillingDelegationAccess access,
     private async Task DispatchAsync(StoredPaymentAttempt attempt, CancellationToken ct)
     {
         if (gateways.ForPin(attempt.Pin) is not { } gateway || gateway.Pin != attempt.Pin)
+        {
+            await store.InAttemptScopeAsync<Success>(attempt.AccountId, attempt.AttemptId, true, async token =>
+            {
+                await store.RecordRoutingAsync(attempt, PaymentRouting.Blocker(gateways, attempt.Pin),
+                    BillingAccountRules.StorageInstant(clock.GetUtcNow()), token);
+                return Result.Success;
+            }, ct);
             return;
+        }
         var session = await PaymentGatewayCall.RunAsync(token => gateway.CreateCheckoutAsync(
             ReconcilePaymentHandler.Request(attempt), token), ct);
         if (session is not { Outcome: GatewayOutcome.Succeeded, Value: { } value } ||

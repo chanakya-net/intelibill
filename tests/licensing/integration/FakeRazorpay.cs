@@ -10,7 +10,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// In-process stand-in for the documented Razorpay order and payment endpoints. It is the only transport the
 /// adapter sees in tests: nothing here reaches api.razorpay.com and every credential is a fixture value.
 /// </summary>
-internal sealed class FakeRazorpay : HttpMessageHandler
+internal sealed class FakeRazorpay(string fixtureKeyId = FakeRazorpay.KeyId, string fixtureKeySecret = FakeRazorpay.KeySecret, int sequenceStart = 0) : HttpMessageHandler
 {
     internal const string KeyId = "rzp_test_fixture";
     internal const string KeySecret = "fixture-secret";
@@ -22,7 +22,7 @@ internal sealed class FakeRazorpay : HttpMessageHandler
     private readonly Dictionary<string, HashSet<string>> collectionOmissions = [];
     private readonly HashSet<string> hiddenFromCollection = [];
     private readonly HashSet<string> duplicatedInCollection = [];
-    private int sequence;
+    private int sequence = sequenceStart;
 
     internal Func<DateTimeOffset> Clock { get; set; } = () => DateTimeOffset.UnixEpoch.AddDays(1);
     internal bool LoseCreateResponse { get; set; }
@@ -148,7 +148,7 @@ internal sealed class FakeRazorpay : HttpMessageHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
-        var expected = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{KeyId}:{KeySecret}"));
+        var expected = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{fixtureKeyId}:{fixtureKeySecret}"));
         if (request.Headers.Authorization is not { Scheme: "Basic", Parameter: { } given } || given != expected)
             return Json(HttpStatusCode.Unauthorized, new JsonObject());
         var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(ct);
