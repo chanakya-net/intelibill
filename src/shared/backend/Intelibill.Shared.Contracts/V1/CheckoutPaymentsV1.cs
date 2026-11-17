@@ -23,6 +23,14 @@ public static class CheckoutPaymentsV1
             : p.Payment != "NotStarted" && p.StartedAt is not null && (p.Payment == "Verified") == (p.VerifiedAt is not null);
     }
 
+    public static bool HasValidRestoration(CheckoutPaymentV1 payment) =>
+        (!payment.RestorationHeld || payment.Fulfilment == "NeedsReview" &&
+            (payment.Payment == "Verified" || payment.ManualPayment is not null)) &&
+        (payment.ServiceRestoration is null || payment.ServiceRestoration is { Count: > 0 } adjustment &&
+            adjustment.GrantId != Guid.Empty && EntitlementSnapshotsV1.IsInstant(adjustment.StartsAt) &&
+            EntitlementSnapshotsV1.IsInstant(adjustment.EndsAt) && adjustment.EndsAt > adjustment.StartsAt &&
+            payment.Fulfilment == "Fulfilled");
+
     public const string Policy = "checkout-payment/1";
     public const string Start = "billing.checkout.payment.start";
     public const string Read = "billing.checkout.payment.read";
@@ -85,6 +93,9 @@ public sealed record ManualCheckoutPaymentV1(
     [property: JsonPropertyName("payment")] string Payment,
     [property: JsonPropertyName("verifiedAt")] DateTimeOffset VerifiedAt);
 
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record ServiceRestorationAdjustmentV1(int Count, Guid GrantId, DateTimeOffset StartsAt, DateTimeOffset EndsAt);
+
 public sealed record CheckoutPaymentV1(
     [property: JsonPropertyName("accountId")] Guid AccountId,
     [property: JsonPropertyName("orderId")] Guid OrderId,
@@ -104,7 +115,11 @@ public sealed record CheckoutPaymentV1(
     [property: JsonPropertyName("canStart")] bool CanStart,
     [property: JsonPropertyName("launch")] CheckoutLaunchV1? Launch,
     [property: JsonPropertyName("manualPayment"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    ManualCheckoutPaymentV1? ManualPayment = null)
+    ManualCheckoutPaymentV1? ManualPayment = null,
+    [property: JsonPropertyName("restorationHeld"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    bool RestorationHeld = false,
+    [property: JsonPropertyName("serviceRestoration"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    ServiceRestorationAdjustmentV1? ServiceRestoration = null)
 {
     [JsonPropertyName("schemaVersion")]
     public int SchemaVersion { get; init; } = 1;

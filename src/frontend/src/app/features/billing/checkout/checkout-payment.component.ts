@@ -72,7 +72,8 @@ export class CheckoutPaymentComponent {
   }
 
   blocksNewQuote(): boolean {
-    return this.busy() || this.pending() || !this.payment() || this.payment()?.payment === 'AwaitingPayment';
+    const status = this.payment();
+    return this.busy() || this.pending() || !status || status.payment === 'AwaitingPayment' || status.restorationHeld === true;
   }
 
   canReviewNewQuote(): boolean {

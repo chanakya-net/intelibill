@@ -56,6 +56,7 @@ public sealed partial class P0301Tests
         await fixture.Catalogue.ExecuteAsync(P0302Fixture.RuntimeGrant);
         Assert.Equal(before, await ExistingFactsAsync(fixture));
         var quote = await CreateQuoteAsync(payer.Client, account, command);
+        quote = await P0309Fixture.RepresentLegacyQuoteAsync(fixture.LicensingOwner, quote);
         var failure = await Assert.ThrowsAsync<InvalidOperationException>(() => migrator.MigrateAsync(predecessor));
         Assert.Equal("55000", Assert.IsType<PostgresException>(failure.InnerException).SqlState);
         Assert.Equal(quote, await payer.Client.GetFromJsonAsync<CheckoutQuoteV1>($"{OrdersPath(account)}/{quote.OrderId:D}"));

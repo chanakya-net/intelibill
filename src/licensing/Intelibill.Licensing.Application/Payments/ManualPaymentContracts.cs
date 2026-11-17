@@ -44,6 +44,7 @@ public interface IManualPaymentStore
 {
     Task<ErrorOr<T>> InManualScopeAsync<T>(AdminSessionCaller caller, Guid account, Guid order, bool recentMfa,
         bool lockAccount, Func<DateTimeOffset, CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken ct);
+    Task UseManualReceiptAsync(Guid receipt, CancellationToken ct);
     Task<bool> OnlineFundsNeedReviewAsync(Guid account, Guid order, CancellationToken ct);
     Task<StoredManualReceipt?> FindManualAsync(Guid account, Guid key, bool byOperation, CancellationToken ct);
     Task<IReadOnlyList<ManualPaymentReceipt>> ListManualAsync(Guid account, Guid order, CancellationToken ct);

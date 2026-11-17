@@ -65,7 +65,8 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
             offer.PriceBasis, offer.CustomerTermsVersion, offer.RefundPolicyVersion, BillingCalendar.Zone, BillingCalendar.Version,
             RenewalPolicy.Version, dates.Start.ToString(), starts, ends, dates.IncludedGraceDays,
             anchor.LocalStart.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture),
-            ordinal, now, now + CheckoutQuotePolicy.Lifetime, offer.DevelopmentFixture, string.Empty);
+            ordinal, now, now + CheckoutQuotePolicy.Lifetime, offer.DevelopmentFixture, string.Empty,
+            FreshStart: dates.Start == RenewalStart.PriorPaidThrough ? null : source.FreshStart());
         return quote with { SnapshotHash = CheckoutOrdersV1.SnapshotHash(quote) };
     }
 
@@ -73,7 +74,7 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
     {
         var period = request.Period == "Month" ? BillingPeriod.Month : BillingPeriod.Year;
         if (source.Prior is not { } prior)
-            return RenewalPolicy.DetermineTerm(new(period, now));
+            return RenewalPolicy.DetermineTerm(new(period, now, RoundFreshStartUp: true));
         if (prior.Basis != "Paid" || prior.Period != request.Period || prior.Capacity != capacity ||
             prior.CalendarVersion != BillingCalendar.Version || prior.AccessPolicyVersion != GracePolicy.Version ||
             (prior.StartsAt > now && !prior.Renewed) || prior.CancellationRevision % 2 == 1 ||
@@ -86,6 +87,6 @@ public sealed class CreateCheckoutOrderHandler(IBillingDelegationAccess access, 
             BillingCalendar.TryBoundary(anchor, prior.Ordinal + 2) is null)
             return null;
         return RenewalPolicy.DetermineTerm(new(period, now, SubscriptionBasis.Paid, prior.EndsAt, anchor, prior.Ordinal,
-            RestoredAccessAt: now));
+            RestoredAccessAt: now, RoundFreshStartUp: true));
     }
 }

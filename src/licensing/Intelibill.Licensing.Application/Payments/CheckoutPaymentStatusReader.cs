@@ -44,7 +44,7 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
             : row.DefinitivelyFailed ? "Failed" : attempt.ProviderOrderReference is null || row.VerificationRequested ? "PendingVerification" : "AwaitingPayment";
         var fulfilment = row.TermId is not null ? "Fulfilled" : row.NeedsReview ? "NeedsReview" : "NotFulfilled";
         var applied = row.Deliveries.Count(d => synced.TryGetValue(d.ShopId, out var s) && s.AppliedShopRevision >= d.ShopRevision);
-        var review = row.Deliveries.Any(d => synced.TryGetValue(d.ShopId, out var s) && s.State == "NeedsReview" &&
+        var review = row.Deliveries.Any(d => d.ShopRevision is not null && synced.TryGetValue(d.ShopId, out var s) && s.State == "NeedsReview" &&
             !(s.AppliedShopRevision >= d.ShopRevision));
         var access = row.TermId is null ? "NotApplicable"
             : applied == quote.ShopCount ? "Applied" : review ? "NeedsReview" : "Applying";
@@ -53,6 +53,7 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
             ? new CheckoutLaunchV1(flow, new Dictionary<string, string>()) : null;
         return new(quote.AccountId, quote.OrderId, attempt?.AttemptId, payment, fulfilment, access, quote.AmountPaise,
             quote.Currency, attempt?.CreatedAt, attempt is null ? row.ManualVerifiedAt : row.VerifiedAt, row.TermId, row.TermStartsAt, row.TermEndsAt,
-            quote.ShopCount, applied, canStart, launch, row.ManualVerifiedAt is { } verified ? new("Verified", verified) : null);
+            quote.ShopCount, applied, canStart, launch, row.ManualVerifiedAt is { } verified ? new("Verified", verified) : null,
+            row.RestorationHeld, row.ServiceRestoration);
     }
 }

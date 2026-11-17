@@ -30,6 +30,13 @@ export interface CheckoutPayment {
   readonly shopsApplied: number;
   readonly canStart: boolean;
   readonly launch: CheckoutLaunch | null;
+  readonly restorationHeld?: boolean;
+  readonly serviceRestoration?: {
+    readonly count: number;
+    readonly grantId: string;
+    readonly startsAt: string;
+    readonly endsAt: string;
+  };
   readonly manualPayment?: { readonly payment: 'Verified'; readonly verifiedAt: string } | null;
 }
 
@@ -41,7 +48,7 @@ const ACCESS: readonly string[] = ['NotApplicable', 'Applying', 'Applied', 'Need
 export function isCheckoutPayment(value: unknown, account: string, order: string): value is CheckoutPayment {
   const p = value as CheckoutPayment | null;
   return !!p && typeof p === 'object' && p.schemaVersion === 1 && p.accountId === account && p.orderId === order &&
-    hasValidSource(p) && PAYMENTS.includes(p.payment) &&
+    hasValidSource(p) && hasValidRestoration(p) && PAYMENTS.includes(p.payment) &&
     FULFILMENTS.includes(p.fulfilment) && ACCESS.includes(p.access) && Number.isSafeInteger(p.amountPaise) &&
     p.amountPaise > 0 && p.currency === 'INR' && Number.isInteger(p.shopsTotal) && Number.isInteger(p.shopsApplied) &&
     p.shopsApplied >= 0 && p.shopsApplied <= p.shopsTotal && typeof p.canStart === 'boolean' &&
@@ -50,6 +57,16 @@ export function isCheckoutPayment(value: unknown, account: string, order: string
       p.verifiedAt === null && p.termId === null)) &&
     (p.launch === null || (p.payment === 'AwaitingPayment' && typeof p.launch?.flow === 'string' &&
       !!p.launch.parameters && typeof p.launch.parameters === 'object'));
+}
+
+function hasValidRestoration(payment: CheckoutPayment): boolean {
+  const { restorationHeld, serviceRestoration } = payment;
+  return (restorationHeld === undefined || restorationHeld === false || restorationHeld === true &&
+      payment.fulfilment === 'NeedsReview' && (payment.payment === 'Verified' || payment.manualPayment != null)) &&
+    (serviceRestoration === undefined || serviceRestoration !== null && payment.fulfilment === 'Fulfilled' &&
+      Number.isSafeInteger(serviceRestoration.count) && serviceRestoration.count > 0 && isUuid(serviceRestoration.grantId) &&
+      typeof serviceRestoration.startsAt === 'string' && typeof serviceRestoration.endsAt === 'string' &&
+      Date.parse(serviceRestoration.endsAt) > Date.parse(serviceRestoration.startsAt));
 }
 
 function hasValidSource(payment: CheckoutPayment): boolean {

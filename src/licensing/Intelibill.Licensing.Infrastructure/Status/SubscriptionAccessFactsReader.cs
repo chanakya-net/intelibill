@@ -5,6 +5,7 @@ using Intelibill.Licensing.Domain.Entities;
 using Intelibill.Licensing.Domain.ValueObjects;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Licensing.Infrastructure.Status;
 
@@ -14,10 +15,12 @@ namespace Intelibill.Licensing.Infrastructure.Status;
 /// Complimentary grants are read as separate candidates beside the baseline term, never in its place. A shop's
 /// latest paid fulfilment link (a renewal chain's tail) precedes an affiliation-assigned term it may have renewed.
 /// </summary>
-internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISubscriptionAccessFactsReader
+internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db,
+    [FromKeyedServices(SubscriptionStatusRegistration.ClockKey)] TimeProvider clock) : ISubscriptionAccessFactsReader
 {
-    public async Task<ShopCoverage?> ReadShopAsync(Guid shop, CancellationToken ct)
+    public async Task<ShopCoverage?> ReadShopAsync(Guid shop, CancellationToken ct, DateTimeOffset? evaluatedAt = null)
     {
+        var at = evaluatedAt ?? SubscriptionStatusProjection.EvaluationInstant(clock);
         var rows = await db.Database.SqlQuery<ShopRow>($"""
             SELECT a.account_id AS affiliation_account_id, t.term_id AS term_id, t.account_id AS account_id,
                 t.mode AS mode, t.capacity AS capacity, t.starts_at AS starts_at, t.ends_at AS ends_at,
@@ -26,7 +29,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
                 f.price_paise AS price_paise, f.currency AS currency, f.plan_version_id AS plan_version_id,
                 f.source_reference AS source_reference, f.development_fixture AS development_fixture,
                 f.calendar_version AS calendar_version, f.access_policy_version AS access_policy_version,
-                e.ends_at AS extended_ends_at,
+                e.ends_at AS extended_ends_at, x.paid_starts_at AS converted_paid_starts_at,
                 CASE WHEN c.change_id IS NOT NULL THEN jsonb_build_object(
                     'ChangeId', coalesce(c.withdraws_change_id, c.change_id), 'Version', c.revision, 'EffectiveAt', c.effective_at,
                     'PolicyVersion', c.policy_version, 'ShopHash', c.shop_hash, 'ShopCount', c.shop_count,
@@ -36,7 +39,9 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
                     'AccountTrialCap', h.account_trial_cap, 'DevelopmentFixture', h.development_fixture,
                     'ConflictingCoverage', a.term_id IS NOT NULL OR a.account_id <> h.account_id)::text END AS trial
             FROM public.shop_affiliations a
+            LEFT JOIN public.payment_trial_conversions x ON x.account_id = a.account_id AND x.shop_id = a.shop_id
             LEFT JOIN public.trial_history h ON h.shop_id = a.shop_id
+                AND (x.paid_starts_at IS NULL OR x.paid_starts_at > {at})
             LEFT JOIN LATERAL (SELECT l.term_id FROM public.payment_fulfilment_shops l
                 JOIN public.subscription_coverage_terms lt ON lt.account_id = l.account_id AND lt.term_id = l.term_id
                 WHERE l.shop_id = a.shop_id AND l.account_id = a.account_id AND l.affiliation_request_id = a.request_id
@@ -66,7 +71,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
         if (term is not null && predecessors.Count > 0)
             term = term with { PaidFrom = predecessors[^1].StartsAt };
         return new ShopCoverage(row.AffiliationAccountId, term, await ReadGrantsAsync(shop, row.AffiliationAccountId, ct),
-            predecessors);
+            predecessors, row.ConvertedPaidStartsAt?.ToUniversalTime());
     }
 
     private async Task<List<TermFactsRow>> ReadPaidPredecessorsAsync(Guid shop, TermFactsRow tail, CancellationToken ct)
@@ -170,7 +175,9 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
                     'MemberAllowance', g.member_allowance, 'ShopCount', g.shop_capacity,
                     'Consistent', g.starts_at = t.starts_at AND g.ends_at = t.ends_at)::text END AS complimentary,
                 EXISTS (SELECT FROM public.payment_fulfilments s WHERE s.account_id = t.account_id
-                    AND s.predecessor_term_id = t.term_id) AS renewed_at_end
+                    AND s.predecessor_term_id = t.term_id AND NOT EXISTS (
+                        SELECT FROM public.paid_fresh_starts f WHERE f.account_id = s.account_id AND f.order_id = s.order_id
+                            AND f.kind = 'RestoredAccess')) AS renewed_at_end
             FROM public.subscription_coverage_terms t
             LEFT JOIN public.trial_history h ON h.term_id = t.term_id AND h.account_id = t.account_id
             LEFT JOIN public.shop_affiliations a ON a.shop_id = h.shop_id AND a.account_id = h.account_id
@@ -194,7 +201,7 @@ internal sealed class SubscriptionAccessFactsReader(LicensingDbContext db) : ISu
         DateTimeOffset? StartsAt, DateTimeOffset? EndsAt, string? Basis, string? BillingPeriod, DateTime? AnchorLocal,
         string? TimeZone, int? PeriodOrdinal, int? MemberAllowance, long? PricePaise, string? Currency,
         Guid? PlanVersionId, string? SourceReference, bool? DevelopmentFixture, string? CalendarVersion, string? AccessPolicyVersion,
-        string? Trial, DateTimeOffset? ExtendedEndsAt, string? Cancellation)
+        string? Trial, DateTimeOffset? ExtendedEndsAt, string? Cancellation, DateTimeOffset? ConvertedPaidStartsAt)
     {
         internal TermFactsRow ToTerm() => new(TermId!.Value, AccountId!.Value, Mode!, Capacity!.Value, StartsAt!.Value,
             EndsAt!.Value, Basis, BillingPeriod, AnchorLocal, TimeZone, PeriodOrdinal, MemberAllowance, PricePaise,

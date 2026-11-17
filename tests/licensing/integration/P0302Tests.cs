@@ -11,7 +11,7 @@ public sealed partial class P0302Tests(LicensingPostgreSqlFixture database) : IC
     [Fact]
     public async Task SuccessfulLocalCaptureActivatesWholePackageOnceAndAppliesAfterAcknowledgement()
     {
-        await using var fixture = await P0302Fixture.StartAsync(database, new P0201Clock { Now = P0210Fixture.Start });
+        await using var fixture = await P0302Fixture.StartAsync(database, new P0201Clock { Now = P0302Fixture.WholeSecondStart });
         var (payer, account, shops, quote) = await fixture.AcceptedQuoteAsync(3);
 
         var before = await StatusAsync(payer.Client, quote);

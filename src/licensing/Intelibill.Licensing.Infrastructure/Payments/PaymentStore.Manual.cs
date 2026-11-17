@@ -77,8 +77,11 @@ internal sealed partial class PaymentStore
 
     public Task<bool> OnlineFundsNeedReviewAsync(Guid account, Guid order, CancellationToken ct) =>
         db.Database.SqlQuery<bool>($"""
-            SELECT EXISTS (SELECT FROM public.payment_events WHERE account_id = {account} AND order_id = {order}
-                AND kind = {PaymentEventKinds.PaidNeedsReview}) AS "Value"
+            SELECT EXISTS (SELECT FROM public.payment_events e WHERE e.account_id = {account} AND e.order_id = {order}
+                AND e.kind = {PaymentEventKinds.PaidNeedsReview} AND NOT EXISTS (
+                    SELECT FROM public.payment_restoration_holds h JOIN public.payment_fulfilments f USING (account_id, order_id)
+                    WHERE h.account_id = e.account_id AND h.order_id = e.order_id AND h.attempt_id = e.attempt_id
+                        AND f.attempt_id = e.attempt_id)) AS "Value"
             """).SingleAsync(ct);
 
     public async Task<StoredManualReceipt?> FindManualAsync(Guid account, Guid key, bool byOperation, CancellationToken ct)
@@ -104,12 +107,15 @@ internal sealed partial class PaymentStore
         return rows.Select(row => row.ToReceipt()).ToArray();
     }
 
+    public Task UseManualReceiptAsync(Guid receipt, CancellationToken ct) =>
+        db.Database.ExecuteSqlInterpolatedAsync($"""
+            SELECT set_config('app.manual_receipt_id', {receipt.ToString("D")}, true)
+            """, ct);
+
     public async Task SaveManualAsync(Guid account, Guid order, AdminSessionCaller caller, ConfirmManualPayment command,
         ManualPaymentReceipt receipt, string digest, string protectedPayload, CancellationToken ct)
     {
-        await db.Database.ExecuteSqlInterpolatedAsync($"""
-            SELECT set_config('app.manual_receipt_id', {receipt.ReceiptId.ToString("D")}, true)
-            """, ct);
+        await UseManualReceiptAsync(receipt.ReceiptId, ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.manual_payment_receipts (receipt_id, account_id, order_id, operation_key, admin_id, session_id,
                 mfa_verified_at, received_at, verified_at, amount_paise, currency, receiving_account_id, configuration_version,

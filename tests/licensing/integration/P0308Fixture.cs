@@ -8,8 +8,8 @@ using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 namespace Intelibill.Licensing.Integration.Tests;
 
 /// <summary>
-/// Renewal fixture over the real simulator purchase pipeline. Quote/acceptance/capture time (checkout clock) and
-/// fulfilment/status time (lifecycle clock) are moved together so every boundary is exact; identity, MFA and
+/// Renewal fixture over the real simulator purchase pipeline. Quote/acceptance/capture and fulfilment/status use the
+/// same fixed clock so every boundary is exact; identity, MFA and
 /// delivery signing keep their own clocks.
 /// </summary>
 internal sealed class P0308Fixture(P0302Fixture checkout) : IAsyncDisposable
@@ -26,11 +26,10 @@ internal sealed class P0308Fixture(P0302Fixture checkout) : IAsyncDisposable
         return fixture;
     }
 
-    /// <summary>Moves the checkout and lifecycle clocks to one instant.</summary>
+    /// <summary>Moves the shared checkout and lifecycle clock to one instant.</summary>
     internal void At(DateTimeOffset at)
     {
         Checkout.CheckoutClock.Now = at;
-        Hosts.StatusClock.Now = at;
     }
 
     internal async Task<Package> PackageAsync(int count, string[]? names = null)

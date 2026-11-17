@@ -20,9 +20,13 @@ public static class CheckoutRenewalPolicy
 
     public static bool IsRenewal(CheckoutQuoteV1 quote) => quote.TermId is not null && quote.StartRule == Renewal;
 
-    /// <summary>First purchase or prior-paid-through renewal; trial conversion and restored access (#872) are not.</summary>
+    public static bool IsRestoredAccess(CheckoutQuoteV1 quote) =>
+        quote.TermId is not null && quote.StartRule == nameof(RenewalStart.RestoredAccess) &&
+        quote.FreshStart?.Policy == CheckoutOrdersV1.FreshStartPolicy;
+
     public static bool Payable(CheckoutQuoteV1 quote) =>
-        quote.Acceptance is not null && (quote.TermId is null ? quote.StartRule == FirstPurchase : IsRenewal(quote));
+        quote.Acceptance is not null && (quote.TermId is null ? quote.StartRule == FirstPurchase
+            : IsRenewal(quote) || IsRestoredAccess(quote));
 
     public static bool WindowOpen(CheckoutQuoteV1 quote, DateTimeOffset now) =>
         !IsRenewal(quote) || now < quote.PreviewStartsAt + GracePolicy.EligiblePaidGrace;
@@ -52,5 +56,28 @@ public static class CheckoutRenewalPolicy
             return null;
         graceDays = decision.IncludedGraceDays;
         return new PaidTerm(Guid.NewGuid(), prior.Mode, prior.Capacity, starts, ends, quote.Period, prior.AnchorLocal, ordinal);
+    }
+
+    public static (PaidTerm Term, string Kind)? FreshTerm(CheckoutQuoteV1 quote, CheckoutSource source,
+        DateTimeOffset effectiveAt, DateTimeOffset now)
+    {
+        var period = quote.Period == "Month" ? BillingPeriod.Month : BillingPeriod.Year;
+        var prior = source.Prior;
+        var restored = IsRestoredAccess(quote);
+        if (!Payable(quote) || effectiveAt > now || restored != (prior is not null))
+            return null;
+        var input = prior is null
+            ? new RenewalInput(period, now, source.Trials is { Length: > 0 } ? SubscriptionBasis.Trial : null,
+                RoundFreshStartUp: quote.FreshStart is not null)
+            : new RenewalInput(period, now, SubscriptionBasis.Paid, prior.EndsAt,
+                new BillingAnchor(prior.AnchorLocal, BillingCalendar.Zone, period), prior.Ordinal,
+                VerifiedPaymentAt: effectiveAt, AcceptedQuote: true, RestoredAccessAt: now, RoundFreshStartUp: true);
+        var rule = restored ? RenewalStart.RestoredAccess : RenewalStart.Fulfilment;
+        if (RenewalPolicy.DetermineTerm(input) is not { Anchor: { } anchor, Ordinal: 0,
+            StartsAt: { } starts, EndsAt: { } ends } decision || decision.Start != rule)
+            return null;
+        var mode = prior?.Mode ?? (quote.Capacity == 1 ? "Independent" : "Grouped");
+        var kind = restored ? "RestoredAccess" : source.Trials is { Length: > 0 } ? "TrialConversion" : "FirstPurchase";
+        return (new(Guid.NewGuid(), mode, quote.Capacity, starts, ends, quote.Period, anchor.LocalStart, 0), kind);
     }
 }

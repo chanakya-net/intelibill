@@ -20,7 +20,7 @@
         <h2 id="pending-heading">Saved confirmation</h2>
         <p>Operation {{ saved.operationKey }}</p>
         <button pButton type="button" [disabled]="busy()" (click)="recover(false)">Check original confirmation</button>
-        <button pButton type="button" [disabled]="busy()" (click)="recover(true)">Retry original confirmation</button>
+        <button pButton type="button" [disabled]="busy()" (click)="recover(true)">{{ view()?.status?.restorationHeld ? 'Check restoration again' : 'Retry original confirmation' }}</button>
       </section>
     }
     @if (view(); as item) {
@@ -29,6 +29,9 @@
         <p>{{ item.order.planName }} · {{ item.order.period }} · {{ item.order.shopCount }} shops · {{ money(item.order.amountPaise) }}</p>
         @if (item.status.attemptId) {
           <p>Online payment · {{ item.status.payment }} @if (item.onlineFundsNeedReview) { · Funds need review }</p>
+        }
+        @if (item.status.restorationHeld) {
+          <p data-testid="manual-restoration-hold">Payment recorded. Access restoration is pending.</p>
         }
         <p data-testid="order-access">Access · {{ item.status.access }}</p>
         <button pButton type="button" [disabled]="busy()" (click)="reload()">Refresh order</button>

@@ -18,7 +18,7 @@ public sealed partial class P0302Tests
     [Fact]
     public async Task TrialWaitingBehindFulfilmentLosesToThePaidTerm()
     {
-        await using var fixture = await P0302Fixture.StartAsync(database, new P0201Clock { Now = P0210Fixture.Start });
+        await using var fixture = await P0302Fixture.StartAsync(database, new P0201Clock { Now = P0302Fixture.WholeSecondStart });
         var (payer, account, _, quote) = await fixture.AcceptedQuoteAsync(1);
         var attempt = (await StartAsync(payer.Client, quote, HttpStatusCode.Created)).GetProperty("attemptId").GetGuid();
         await CaptureAsync(payer.Client, quote, attempt);

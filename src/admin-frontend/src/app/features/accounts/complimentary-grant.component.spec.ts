@@ -95,6 +95,19 @@ describe('complimentary grant editor', () => {
     expect(text).toContain('Existing access stays in effect first.');
   });
 
+  it('binds an optional payment order to the approved grant payload', () => {
+    const order = '55555555-5555-4555-8555-555555555555';
+    const previewCall = vi.fn(() => of({ ...preview, paymentOrderId: order }));
+    const confirmCall = vi.fn(() => of({ ...granted, paymentOrderId: order }));
+    const { page, fill, type, confirm } = render({ preview: previewCall, confirm: confirmCall });
+    type('#grant-payment-order', order);
+    fill();
+    expect(previewCall).toHaveBeenCalledWith(account, expect.objectContaining({ paymentOrderId: order }), 'session-1');
+    expect(page.querySelector('[data-testid="grant-preview"]')?.textContent).toContain(order);
+    confirm();
+    expect(confirmCall).toHaveBeenCalledWith(account, expect.objectContaining({ paymentOrderId: order }), 'session-1');
+  });
+
   it('invalidates the preview on any edit and refuses incomplete facts locally', () => {
     const previewCall = vi.fn(() => of(preview));
     const { page, fill, type } = render({ preview: previewCall });

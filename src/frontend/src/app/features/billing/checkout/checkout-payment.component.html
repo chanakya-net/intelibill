@@ -57,12 +57,25 @@
           <p data-testid="payment-access-review">{{ 'billing.checkout.payment.reviewAccess' | transloco }}</p>
         }
       }
-      @if (status.fulfilment === 'NeedsReview') {
+      @if (status.restorationHeld) {
+        <p data-testid="payment-restoration-hold">{{ 'billing.checkout.payment.restorationHeld' | transloco }}</p>
+        @if (status.attemptId && status.payment === 'Verified') {
+          <button pButton type="button" data-testid="payment-check-restoration" [disabled]="busy()"
+            [label]="'billing.checkout.payment.checkRestoration' | transloco" (click)="checkAgain()"></button>
+        }
+      } @else if (status.fulfilment === 'NeedsReview') {
         <p data-testid="payment-review">{{ 'billing.checkout.payment.reviewPayment' | transloco }}</p>
       }
       @if (status.termStartsAt && status.termEndsAt) {
         <p data-testid="payment-term">{{ 'billing.checkout.payment.term' | transloco }}:
           {{ instant(status.termStartsAt) }} – {{ instant(status.termEndsAt) }} · {{ quote().billingTimeZone }}</p>
+      }
+      @if (status.serviceRestoration; as adjustment) {
+        <div data-testid="payment-restoration-adjustment">
+          <p>{{ 'billing.checkout.payment.restorationAdjustment' | transloco: { count: adjustment.count } }}</p>
+          <p>{{ instant(adjustment.startsAt) }} – {{ instant(adjustment.endsAt) }} · {{ quote().billingTimeZone }}</p>
+          <small>{{ 'billing.checkout.payment.restorationReference' | transloco }} {{ adjustment.grantId }}</small>
+        </div>
       }
     }
   }

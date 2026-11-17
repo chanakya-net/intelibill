@@ -299,3 +299,9 @@ recover that attempt. The simulator offers timeout, delayed full capture and
 definitive failure on an existing session. See
 [P03-03 checkout recovery](../../tests/licensing/acceptance/p03-03-checkout-recovery.md)
 for the PostgreSQL and browser fixtures.
+
+### Fresh paid periods and service restoration
+
+Apply `20261117130000_PaidFreshStarts` before deploying the checkout writers. First purchase and trial conversion start on a new anchor when licensing can publish the paid entitlement. A paid package bought after grace starts a fresh period at restoration readiness. Verified funds held by a restriction can use the same attempt or manual confirmation after an independent release. An accepted on-time renewal keeps its original anchor even when confirmation arrives late.
+
+The payment status distinguishes recorded funds, paid term fulfilment and merchant acknowledgement. A Licensing Manager can link a separately approved complimentary grant to a fulfilled payment order for covered shops. The adjustment preserves the original price and paid dates.

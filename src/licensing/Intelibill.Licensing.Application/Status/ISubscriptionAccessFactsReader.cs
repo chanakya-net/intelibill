@@ -33,7 +33,7 @@ public sealed record ComplimentaryTermProvenance(string PolicyVersion, int Membe
 /// are retained newest first so a future term's rules do not apply before its start.
 /// </summary>
 public sealed record ShopCoverage(Guid AccountId, TermFactsRow? Term, IReadOnlyList<TermFactsRow>? Grants = null,
-    IReadOnlyList<TermFactsRow>? PaidPredecessors = null);
+    IReadOnlyList<TermFactsRow>? PaidPredecessors = null, DateTimeOffset? ConvertedPaidStartsAt = null);
 
 public sealed record AccountTermRow(TermFactsRow Term, CoveredShopV1[] CoveredShops, int CoveredShopCount);
 
@@ -43,7 +43,7 @@ public sealed record AccountTermRow(TermFactsRow Term, CoveredShopV1[] CoveredSh
 /// </summary>
 public interface ISubscriptionAccessFactsReader
 {
-    Task<ShopCoverage?> ReadShopAsync(Guid shop, CancellationToken ct);
+    Task<ShopCoverage?> ReadShopAsync(Guid shop, CancellationToken ct, DateTimeOffset? evaluatedAt = null);
     Task<IReadOnlyList<AccountTermRow>> ReadAccountAsync(Guid account, Guid? after, int take, CancellationToken ct);
 }
 

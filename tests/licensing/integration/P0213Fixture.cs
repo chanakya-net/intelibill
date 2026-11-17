@@ -28,7 +28,7 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
 
     internal static async Task<P0213Fixture> StartAsync(LicensingPostgreSqlFixture db, bool browser = false,
         IReadOnlyDictionary<string, string?>? licensingExtras = null, Action<IServiceCollection>? licensingServices = null,
-        bool? prepareProvider = null)
+        bool? prepareProvider = null, P0201Clock? businessClock = null)
     {
         var transport = new P0213Transport();
         using var consent = RSA.Create(2048);
@@ -49,7 +49,7 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
                 licensingServices?.Invoke(services);
             },
             services => Configure(services, transport, merchantTraffic, licensing: false),
-            PrepareProvider: prepareProvider ?? !browser, UseDeliveryOnCatalogue: true);
+            PrepareProvider: prepareProvider ?? !browser, UseDeliveryOnCatalogue: true, BusinessClock: businessClock);
         var trial = await P0210Fixture.StartAsync(db, publish: prepareProvider ?? !browser, browser: browser, setup: setup);
         var licensing = trial.Hosts.Licensing.CreateClient();
         var merchant = trial.Hosts.Merchant.CreateClient();

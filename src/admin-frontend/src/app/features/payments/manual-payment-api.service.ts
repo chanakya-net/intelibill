@@ -64,7 +64,7 @@ export interface ManualPaymentReceipt {
 export interface ManualPaymentView {
   readonly order: FrozenOrder;
   readonly receivingAccount: ReceivingAccount | null;
-  readonly status: { payment: string; attemptId: string | null; fulfilment: string; access: string };
+  readonly status: { payment: string; attemptId: string | null; fulfilment: string; access: string; restorationHeld?: boolean };
   readonly onlineFundsNeedReview: boolean;
   readonly receipts: readonly ManualPaymentReceipt[];
 }

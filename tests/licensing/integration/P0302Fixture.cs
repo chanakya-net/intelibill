@@ -15,6 +15,8 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// </summary>
 internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) : IAsyncDisposable
 {
+    internal static readonly DateTimeOffset WholeSecondStart = Utc("2027-02-10T00:00:01Z");
+
     internal static readonly Dictionary<string, string?> SimulatorSettings = new()
     {
         ["Payments:Mode"] = "LocalSimulator",
@@ -27,7 +29,9 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
             public.checkout_order_acceptances, public.payment_attempts, public.payment_attempt_sessions,
             public.payment_events, public.verified_payments, public.payment_fulfilments, public.payment_fulfilment_shops,
             public.payment_fulfilment_deliveries, public.development_gateway_sessions, public.development_gateway_payments,
-            public.development_gateway_controls, public.manual_payment_receipts
+            public.development_gateway_controls, public.manual_payment_receipts, public.checkout_trial_sources,
+            public.paid_fresh_starts, public.payment_trial_conversions, public.payment_restoration_holds,
+            public.service_restoration_adjustments
             TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.claim_pending_payment(timestamptz,uuid) TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.lock_pending_payment(uuid,timestamptz) TO licensing_runtime;
@@ -48,13 +52,13 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
             collection.AddKeyedSingleton<TimeProvider>(CheckoutOrdersV1.Policy, checkout);
             collection.AddKeyedSingleton<TimeProvider>("pending-payment-lease", checkout);
             services?.Invoke(collection);
-        }, prepareProvider: true);
+        }, prepareProvider: true, businessClock: checkout);
         await LicensingPostgreSqlFixture.ExecuteAsync(delivery.Hosts.LicensingOwner, RuntimeGrant);
         return new(delivery, checkout);
     }
 
     /// <summary>One billing owner, <paramref name="count"/> really affiliated shops and an accepted monthly quote.</summary>
-    internal async Task<Purchase> AcceptedQuoteAsync(int count = 3, string[]? names = null)
+    internal async Task<Purchase> AcceptedQuoteAsync(int count = 3, string[]? names = null, bool legacyQuote = false)
     {
         var payer = await SignInAsync(Hosts, ShopRole.Owner);
         var account = await CreateAccountAsync(payer.Client);
@@ -71,6 +75,7 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
         var ids = shops.Select(shop => shop.ShopId).ToArray();
         var quote = await P0301Tests.CreateQuoteAsync(payer.Client, account,
             new(Guid.NewGuid(), plan, "Month", ids, Math.Max(0, count - 3), 1));
+        if (legacyQuote) quote = await P0309Fixture.RepresentLegacyQuoteAsync(Hosts.LicensingOwner, quote);
         using var accepted = await payer.Client.PostAsJsonAsync(P0301Tests.AcceptPath(quote), P0301Tests.Accept(quote));
         Assert.Equal(HttpStatusCode.OK, accepted.StatusCode);
         return new(payer, account, [.. shops], (await accepted.Content.ReadFromJsonAsync<CheckoutQuoteV1>())!);

@@ -169,11 +169,14 @@ export class ManualPaymentPageComponent {
       : await this.api.confirm(scope, session, command);
     if (receipt.operationKey !== command.operationKey || receipt.adminId !== scope.admin)
       throw new Error('Unexpected receipt identity');
-    await this.drafts.settle(scope, command.operationKey);
+    // A released hold leaves the historical receipt unchanged. Read the current order before clearing its draft.
+    const held = receipt.reviewReason === 'RestorationPending' ? await this.api.read(scope, session) : null;
+    if (!held?.status.restorationHeld)
+      await this.drafts.settle(scope, command.operationKey);
     if (!current()) return;
     this.receipt.set(receipt);
-    this.pending.set(null);
-    const view = await this.api.read(scope, session);
+    if (!held?.status.restorationHeld) this.pending.set(null);
+    const view = held ?? await this.api.read(scope, session);
     if (current()) this.view.set(view);
   }
 

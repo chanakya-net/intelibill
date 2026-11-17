@@ -60,7 +60,8 @@ internal sealed partial class TrialStore(LicensingDbContext db, TimeProvider aut
         return await db.Database.SqlQuery<TrialAffiliation>($"""
             SELECT a.account_id, coalesce(a.term_id, p.term_id) AS term_id, a.applied_at
             FROM public.shop_affiliations a
-            LEFT JOIN public.payment_fulfilment_shops p ON p.shop_id = a.shop_id AND p.account_id = a.account_id
+            LEFT JOIN LATERAL (SELECT p.term_id FROM public.payment_fulfilment_shops p
+                WHERE p.shop_id = a.shop_id AND p.account_id = a.account_id LIMIT 1) p ON true
             WHERE a.shop_id = {shop}
             """).SingleOrDefaultAsync(ct);
     }
@@ -95,11 +96,12 @@ internal sealed partial class TrialStore(LicensingDbContext db, TimeProvider aut
 
     public async Task<IReadOnlyList<TrialInterval>> ReadOverlapsAsync(Guid account, TrialInterval interval, CancellationToken ct) =>
         await db.Database.SqlQuery<TrialInterval>($"""
-            SELECT h.starts_at, coalesce(e.ends_at, h.ends_at) AS ends_at FROM public.trial_history h
+            SELECT h.starts_at, least(coalesce(e.ends_at, h.ends_at), x.paid_starts_at) AS ends_at FROM public.trial_history h
             LEFT JOIN LATERAL (SELECT ends_at FROM public.trial_extensions
                 WHERE shop_id = h.shop_id AND account_id = h.account_id ORDER BY revision DESC LIMIT 1) e ON true
+            LEFT JOIN public.payment_trial_conversions x ON x.account_id = h.account_id AND x.shop_id = h.shop_id
             WHERE h.account_id = {account} AND h.starts_at < {interval.EndsAt}
-                AND coalesce(e.ends_at, h.ends_at) > {interval.StartsAt}
+                AND least(coalesce(e.ends_at, h.ends_at), x.paid_starts_at) > {interval.StartsAt}
             """).ToListAsync(ct);
 
     public async Task SaveAsync(ShopTrialConsentV1 consent, TrialDeliveryProof proof, ShopTrialDeliveryResultV1 result,

@@ -31,11 +31,17 @@
         <dt>{{ 'billing.checkout.expiry' | transloco }}</dt>
         <dd data-testid="checkout-expiry">{{ instant(review.expiresAt) }} · {{ review.billingTimeZone }}</dd>
         <dt>{{ 'billing.checkout.dates' | transloco }}</dt>
-        <dd>{{ instant(review.previewStartsAt) }} – {{ instant(review.previewEndsAt) }} · {{ review.billingTimeZone }}</dd>
+        <dd data-testid="checkout-preview-dates">{{ instant(review.previewStartsAt) }} – {{ instant(review.previewEndsAt) }} · {{ review.billingTimeZone }}</dd>
       </dl>
       <app-subscription-renewal-preview [quote]="review" />
       <p>{{ 'billing.checkout.fullPayment' | transloco }}</p>
       <p>{{ 'billing.checkout.start.' + review.startRule | transloco }}</p>
+      @if (review.freshStart?.trialShopCount) {
+        <p data-testid="checkout-trial-forfeiture">{{ 'billing.checkout.trialForfeiture' | transloco }}</p>
+      }
+      @if (review.startRule === 'RestoredAccess') {
+        <p data-testid="checkout-restricted-gap">{{ 'billing.checkout.restrictedGap' | transloco }}</p>
+      }
       @if (review.graceDaysIncluded && review.startRule !== 'PriorPaidThrough') {
         <p>{{ 'billing.checkout.grace' | transloco: { days: review.graceDaysIncluded } }}</p>
       }

@@ -9,6 +9,7 @@ export interface GrantDraft {
   readonly endsAt: string;
   readonly memberAllowance: number;
   readonly reason: string;
+  readonly paymentOrderId?: string;
 }
 
 export interface GrantShop {

@@ -7,15 +7,26 @@ public sealed record CheckoutSourceShop(Guid ShopId, string Name, Guid RequestId
     DateTimeOffset AppliedAt, DateTimeOffset? CoverageEndsAt);
 
 /// <summary>
-/// The latest (unsuperseded) paid period a renewal extends. <c>Mode</c> and <c>Renewed</c> (itself a paid renewal
-/// successor, which may still start in the future) are deliberately outside the V1 source digest.
+/// The latest (unsuperseded) paid period a renewal extends. <c>Mode</c> and <c>Renewed</c> (a paid renewal
+/// successor or a recorded fresh start, which may still start in the future) are deliberately outside the V1 source digest.
 /// </summary>
 public sealed record CheckoutRenewalSource(DateTimeOffset StartsAt, DateTimeOffset EndsAt, int Capacity, string Basis,
     string Period, DateTime AnchorLocal, int Ordinal, string CalendarVersion, string AccessPolicyVersion, int CancellationRevision,
     string Mode = "Grouped", bool Renewed = false);
 
-public sealed record CheckoutSource(CheckoutSourceShop[] Shops, CheckoutRenewalSource? Prior)
+public sealed record CheckoutTrialSource(Guid ShopId, Guid TermId, int Revision, DateTimeOffset EndsAt);
+
+public sealed record CheckoutSource(CheckoutSourceShop[] Shops, CheckoutRenewalSource? Prior,
+    CheckoutTrialSource[]? Trials = null)
 {
+    public CheckoutFreshStartV1 FreshStart() => new(CheckoutOrdersV1.FreshStartPolicy, Trials?.Length ?? 0,
+        CheckoutOrdersV1.Digest(CheckoutOrdersV1.FreshStartPolicy, "trials",
+            Trials?.Select(t => new object[] { t.ShopId, t.TermId, t.Revision, CheckoutOrdersV1.Instant(t.EndsAt) }).ToArray()
+            ?? []));
+
+    public bool Matches(CheckoutQuoteV1 quote) => Hash() == quote.SourceHash &&
+        (quote.FreshStart is { } fresh ? fresh == FreshStart() : Trials is null or { Length: 0 });
+
     public string Hash() => CheckoutOrdersV1.Digest(CheckoutOrdersV1.Policy, "source",
         Shops.Select(s => new object?[] { s.ShopId, s.Name, s.RequestId, s.TermId, CheckoutOrdersV1.Instant(s.AppliedAt),
             s.CoverageEndsAt is { } end ? CheckoutOrdersV1.Instant(end) : null }).ToArray(),

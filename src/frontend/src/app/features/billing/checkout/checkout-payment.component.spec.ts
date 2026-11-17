@@ -85,6 +85,24 @@ async function render(first: CheckoutPayment) {
 }
 
 describe('CheckoutPaymentComponent', () => {
+  it('checks restoration using the original attempt and displays paid dates separately from the adjustment', async () => {
+    const page = await render(status({ payment: 'Verified', fulfilment: 'NeedsReview', restorationHeld: true,
+      verifiedAt: '2026-11-16T12:02:00Z', launch: null }));
+    expect(page.text('payment-confirmed')).toBe(t.confirmed);
+    expect(page.text('payment-restoration-hold')).toBe(t.restorationHeld);
+    expect(page.text('payment-term')).toBeNull();
+    page.click('payment-check-restoration');
+    http.expectOne({ method: 'POST', url: path + '/attempts/' + attempt + '/verify' }).flush({
+      ...verified('Applying', 0),
+      serviceRestoration: { count: 1, grantId: id(8), startsAt: '2026-12-16T12:02:00Z', endsAt: '2026-12-17T12:02:00Z' },
+    });
+    await page.update();
+    expect(page.text('payment-applying')).toContain('0');
+    expect(page.text('payment-term')).not.toContain('17 Dec 2026');
+    expect(page.text('payment-restoration-adjustment')).toContain('17 Dec 2026');
+    expect(page.text('payment-restoration-adjustment')).toContain(id(8));
+  });
+
   it('shows a manual settlement while retaining an uncertain online operation', async () => {
     const page = await render(notStarted);
     page.click('payment-start');
