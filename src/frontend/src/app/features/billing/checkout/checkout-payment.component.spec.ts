@@ -40,7 +40,7 @@ const verified = (access: CheckoutPayment['access'], applied: number) => status(
 
 const contextScope = signal<{ userId: string; shopId: string } | null>(owner);
 let http: HttpTestingController;
-let razorpayOpener: (launch: unknown) => Promise<RazorpayOutcome> = () => Promise.reject(new Error('unexpected checkout open'));
+let razorpayOpener: (launch: unknown, signal?: AbortSignal) => Promise<RazorpayOutcome> = () => Promise.reject(new Error('unexpected checkout open'));
 
 beforeEach(() => {
   contextScope.set(owner);
@@ -74,7 +74,7 @@ beforeEach(() => {
       provideHttpClient(), provideHttpClientTesting(),
       { provide: ShopContextService, useValue: { scope: contextScope } },
       { provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } },
-      { provide: RAZORPAY_OPENER, useValue: (launch: unknown) => razorpayOpener(launch) },
+      { provide: RAZORPAY_OPENER, useValue: (launch: unknown, signal?: AbortSignal) => razorpayOpener(launch, signal) },
     ],
   });
   http = TestBed.inject(HttpTestingController);
@@ -258,7 +258,7 @@ describe('CheckoutPaymentComponent', () => {
       expect(page.text('payment-razorpay-notice')).toBe(t.razorpay.notice);
       page.click('payment-razorpay-pay');
       await page.update();
-      expect(opener).toHaveBeenCalledWith({ keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: 27000, currency: 'INR', methods: ['upi'] });
+      expect(opener).toHaveBeenCalledWith({ keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: 27000, currency: 'INR', methods: ['upi'] }, expect.any(AbortSignal));
       const verify = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
       expect(verify.request.body).toEqual({ launcherOutcome: 'Success', launcherProof: proof });
       verify.flush(status({ payment: 'PendingVerification', launch: null }));
@@ -475,6 +475,41 @@ describe('CheckoutPaymentComponent', () => {
       expect(opener).toHaveBeenCalledTimes(1);
     });
 
+    it('releases the hosted window hold when a pending check unmounts the launcher', async () => {
+      const drafts = TestBed.inject(CheckoutDrafts);
+      const scope = { ...owner, account };
+      const aborted = vi.fn();
+      const opener = vi.fn((_launch: unknown, signal?: AbortSignal) => new Promise<RazorpayOutcome>(resolve => {
+        signal?.addEventListener('abort', () => { aborted(); resolve({ kind: 'cancelled' }); });
+      }));
+      razorpayOpener = opener;
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      await vi.waitFor(() => expect(opener).toHaveBeenCalledTimes(1));
+      await page.update();
+
+      page.click('payment-razorpay-check');
+      http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` })
+        .flush(status({ payment: 'PendingVerification', launch: null }));
+      await page.update();
+      expect(aborted).toHaveBeenCalledTimes(1);
+      expect(page.text('payment-pending')).toBe(t.pending);
+      expect(page.text('payment-razorpay-pay')).toBeNull();
+      expect(drafts.readPayment(scope, order)?.state).toBe('pending');
+
+      page.click('payment-check');
+      const fresh = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(fresh.request.body).toEqual({ launcherOutcome: null });
+      fresh.flush(status({ launch }));
+      await page.update();
+
+      const release = await drafts.holdWindow(scope, order);
+      const observed = { lockAvailable: release !== null, draftState: drafts.readPayment(scope, order)?.state,
+        payVisible: page.text('payment-razorpay-pay') !== null };
+      release?.();
+      expect(observed).toEqual({ lockAvailable: true, draftState: 'awaiting', payVisible: true });
+    });
+
     it('reopens the order once the window that held it was dismissed', async () => {
       let finish: (outcome: RazorpayOutcome) => void = () => undefined;
       razorpayOpener = () => new Promise<RazorpayOutcome>(resolve => { finish = resolve; });
@@ -618,7 +653,7 @@ describe('CheckoutPaymentComponent', () => {
       expect(tabB.text('payment-pending')).toBeNull();
       tabB.click('payment-razorpay-pay');
       await tabB.update();
-      expect(opener).toHaveBeenLastCalledWith(expect.objectContaining({ orderId: 'order_abc123' }));
+      expect(opener).toHaveBeenLastCalledWith(expect.objectContaining({ orderId: 'order_abc123' }), expect.any(AbortSignal));
       http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }).flush(status({ payment: 'PendingVerification', launch: null }));
       await tabB.update();
     });

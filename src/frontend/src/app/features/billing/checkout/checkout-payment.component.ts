@@ -156,23 +156,26 @@ export class CheckoutPaymentComponent {
     });
   }
 
-  /**
-   * Takes the cross-tab window hold, then saves the owner-bound pending claim before the hosted window opens. While
-   * the hold lasts no tab's idle recheck can reopen the order. If the page reloads or closes before the window
-   * reports anything, the browser drops the hold, and the restored pending draft rechecks the original order first.
-   */
-  protected readonly prepareOpen = async (launch: RazorpayLaunch) => {
+  /** Holds the order until its outcome is saved or this specific launcher is torn down; teardown keeps the draft. */
+  protected readonly prepareOpen = async (launch: RazorpayLaunch, lifetime: AbortSignal) => {
     const ticket = this.ticket;
-    if (!ticket?.attempt || ticket.providerOrder !== launch.orderId) return false;
+    if (!ticket?.attempt || ticket.launch !== launch || lifetime.aborted) return false;
     const attempt = ticket.attempt;
     let opened = false;
     await this.run(async invocation => {
       this.windowOpen.set(true);
-      this.releaseWindow ??= await this.drafts.holdWindow(invocation.scope, invocation.order);
-      opened = !!this.releaseWindow && invocation.current() && await this.rememberPending(invocation, attempt) &&
-        this.ticket === ticket;
+      const release = await this.drafts.holdWindow(invocation.scope, invocation.order);
+      if (!invocation.current() || this.ticket !== ticket || lifetime.aborted) { release?.(); return; }
+      this.releaseWindow = release;
+      lifetime.addEventListener('abort', () => {
+        if (this.ticket !== ticket) return;
+        this.ticket = null;
+        this.windowOpen.set(false);
+        this.endWindowHold();
+      }, { once: true });
+      opened = !!release && await this.rememberPending(invocation, attempt) && this.ticket === ticket;
     });
-    if (!opened) {
+    if (!opened && this.ticket === ticket) {
       this.windowOpen.set(false);
       this.endWindowHold();
     }
@@ -208,11 +211,7 @@ export class CheckoutPaymentComponent {
     this.drainQueued();
   }
 
-  /**
-   * The hosted window failed to open after the pending claim was saved. Only the invocation that captured this
-   * launch is ended: its hold is released once the outcome is saved and the original order is checked proof-free,
-   * so Pay returns only on an authenticated idle answer.
-   */
+  /** A failed open ends only its captured invocation, then checks the original order proof-free before offering Pay. */
   protected razorpayLaunchFailed(launch: RazorpayLaunch) {
     if (this.ticket?.launch !== launch) return;
     this.razorpayOutcome({ kind: 'cancelled' });
