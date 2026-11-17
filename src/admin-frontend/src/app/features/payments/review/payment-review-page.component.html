@@ -1,0 +1,109 @@
+<main>
+  <a routerLink="/">Provider console</a>
+  <h1 class="ib-page-title">Review payment funds</h1>
+  @if (!allowed()) {
+    <p>Billing access is required to review payment evidence.</p>
+  } @else {
+    <form class="ib-form-section" (submit)="search($event, accountInput.value)">
+      <label for="review-account">Billing account ID</label>
+      <input id="review-account" #accountInput [value]="account()" required />
+      <button pButton type="submit">Find payment cases</button>
+    </form>
+    @if (error()) { <p role="alert" class="ib-error-banner">{{ error() }}</p> }
+    @if (reauthenticate()) {
+      <a routerLink="/auth/sign-in" [queryParams]="{ reviewAccount: account(), reviewCase: id() || null }">
+        Sign in with MFA
+      </a>
+    }
+    @if (account() && !id()) {
+      <section class="ib-panel" aria-labelledby="queue-heading">
+        <h2 id="queue-heading">Payment cases</h2>
+        @if (order()) {
+          <p>Order {{ order() }} · <a [routerLink]="[]" [queryParams]="{ account: account() }">Show all cases</a></p>
+        }
+        @for (item of cases(); track item.caseId) {
+          <article>
+            <a data-testid="payment-review-case" [routerLink]="[]" [queryParams]="{ account: account(), order: order() || null, case: item.caseId }">
+              {{ label(item.classification) }} · {{ money(item.observedAmountPaise, item.observedCurrency) }}
+            </a>
+            <p>{{ item.disposition ? label(item.disposition) : 'Awaiting decision' }} · {{ instant(item.observedAt) }}</p>
+          </article>
+        } @empty {
+          @if (!busy() && !error()) { <p>No payment cases found.</p> }
+        }
+        @if (nextCase()) { <button pButton type="button" [disabled]="busy()" (click)="nextCases()">Load more cases</button> }
+      </section>
+    }
+    @if (detail(); as view) {
+      <a [routerLink]="[]" [queryParams]="{ account: account(), order: order() || null }">Back to payment cases</a>
+      <section class="ib-panel" aria-labelledby="evidence-heading">
+        <h2 id="evidence-heading">Payment evidence</h2>
+        <p data-testid="review-classification">{{ label(view.case.classification) }}</p>
+        <dl>
+          <dt>Accepted order</dt><dd>{{ view.case.orderId }} · {{ view.order.planName }} · {{ view.order.period }}</dd>
+          <dt>Expected amount</dt><dd>{{ money(view.case.expectedAmountPaise, view.case.expectedCurrency) }}</dd>
+          <dt>Observed amount</dt><dd>{{ money(view.case.observedAmountPaise, view.case.observedCurrency) }}</dd>
+          <dt>Expected receiving account</dt><dd>{{ view.expectedReceivingAccount }} · {{ view.expectedEnvironment }} · {{ view.expectedConfigurationVersion }}</dd>
+          <dt>Observed receiving account</dt><dd>{{ view.case.providerId }} · {{ view.case.receivingAccountId }} · {{ view.case.environment }} · {{ view.case.configurationVersion }}</dd>
+          <dt>First observed</dt><dd>{{ instant(view.case.observedAt) }}</dd>
+          @if (view.case.capturedAt; as captured) { <dt>Received at</dt><dd>{{ instant(captured) }}</dd> }
+          @if (view.case.createdAt; as created) { <dt>Provider payment created at</dt><dd>{{ instant(created) }}</dd> }
+          @if (view.references.expectedOrder; as reference) { <dt>Expected provider order</dt><dd>{{ reference }}</dd> }
+          @if (view.references.observedOrder; as reference) { <dt>Observed provider order</dt><dd>{{ reference }}</dd> }
+          @if (view.references.observedPayment; as reference) { <dt>Observed provider payment</dt><dd>{{ reference }}</dd> }
+          @if (view.case.inboxId; as event) { <dt>Gateway inbox evidence</dt><dd>{{ event }}</dd> }
+          @if (view.case.attemptId; as attempt) { <dt>Original attempt</dt><dd>{{ attempt }}</dd> }
+          @if (view.case.manualReceiptId; as receipt) {
+            <dt>Original manual receipt</dt>
+            <dd><a routerLink="/payments" [queryParams]="{ account: account(), order: view.case.orderId }">{{ receipt }}</a></dd>
+          }
+        </dl>
+        <h3>Accepted shops ({{ view.order.shopCount }})</h3>
+        <ul>
+          @for (shop of view.shops.items; track shop.shopId) { <li>{{ shop.name }}</li> }
+        </ul>
+        @if (view.shops.nextCursor) { <button pButton type="button" [disabled]="busy()" (click)="nextShops()">Load more shops</button> }
+      </section>
+      <section class="ib-panel" aria-labelledby="decision-heading">
+        <h2 id="decision-heading">Finance decision</h2>
+        @if (view.decision; as decision) {
+          <p role="status" data-testid="review-result">{{ label(decision.disposition) }}</p>
+          <dl>
+            <dt>Operator</dt><dd>{{ decision.adminId }}</dd>
+            <dt>Recorded at</dt><dd>{{ instant(decision.decidedAt) }}</dd>
+            <dt>Reason</dt><dd>{{ decision.reason }}</dd>
+            <dt>Decision evidence</dt><dd>{{ decision.evidence }}</dd>
+            @if (decision.termId; as term) { <dt>Fulfilled term</dt><dd>{{ term }}</dd> }
+          </dl>
+        }
+        @if (pending(); as original) {
+          <p data-testid="review-operation">Operation {{ original.operationKey }}</p>
+          <button pButton type="button" [disabled]="busy()" (click)="retry(true)">Check original decision</button>
+          <button pButton type="button" [disabled]="busy()" (click)="retry(false)">Retry original decision</button>
+        } @else if (!view.decision) {
+          @if (view.recoveryBlocker) { <p data-testid="review-blocker">Recovery pending · {{ label(view.recoveryBlocker) }}</p> }
+          @if (view.recoveryStartsAt && view.recoveryEndsAt) {
+            <p data-testid="review-term-preview">Original payment covers {{ instant(view.recoveryStartsAt) }} to {{ instant(view.recoveryEndsAt) }}.</p>
+          }
+          <form class="ib-form-section" #decisionForm (submit)="submit($event, decisionForm)">
+            <label for="review-action">Decision</label>
+            <select id="review-action" name="action" required>
+              <option value="" selected disabled>Choose a decision</option>
+              <option value="RecordNoAccessDecision">Record no-access decision</option>
+              <option value="ReferForRefundReview">Refer for refund review</option>
+              @if (view.recoverySourceHash && !view.shops.nextCursor) {
+                <option value="RecoverAcceptedTerms">Recover original accepted terms</option>
+              }
+            </select>
+            <label for="review-reason">Reason</label>
+            <textarea id="review-reason" name="reason" maxlength="400" required></textarea>
+            <label for="review-evidence">Evidence reference</label>
+            <input id="review-evidence" name="evidence" maxlength="400" required />
+            <button pButton type="submit" [disabled]="busy() || !ready()">Record finance decision</button>
+          </form>
+        }
+        <button pButton type="button" [disabled]="busy()" (click)="restore()">Refresh case</button>
+      </section>
+    }
+  }
+</main>

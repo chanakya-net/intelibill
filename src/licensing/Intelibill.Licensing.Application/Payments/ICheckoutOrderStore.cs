@@ -44,6 +44,8 @@ public interface ICheckoutOrderStore
     Task<CheckoutSource?> SourceAsync(Guid account, Guid? term, Guid[] requested, CancellationToken ct);
     Task SaveAsync(CheckoutQuoteV1 quote, CheckoutSource source, Guid actor, Guid key, string requestHash, Guid replay, CancellationToken ct);
     Task<CheckoutShopPageV1> PageAsync(Guid account, Guid? order, Guid? after, CancellationToken ct);
+    Task<ReviewSourceShop[]> ReviewShopsAsync(Guid account, Guid order, CancellationToken ct);
+    Task<ReviewCancellationWithdrawal[]> WithdrawnRevisionsAsync(Guid account, Guid term, CancellationToken ct);
     Task<Guid[]> ShopIdsAsync(Guid account, Guid order, CancellationToken ct);
     Task<StoredCheckoutAcceptance?> FindAcceptanceAsync(Guid account, Guid key, CancellationToken ct);
     Task<int> AcceptAsync(CheckoutQuoteV1 quote, CheckoutAcceptanceV1 acceptance, Guid actor, Guid request, Guid replay,

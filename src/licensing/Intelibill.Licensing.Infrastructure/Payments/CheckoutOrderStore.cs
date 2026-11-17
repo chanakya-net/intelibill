@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.Payments;
 
-internal sealed class CheckoutOrderStore(LicensingDbContext db) : ICheckoutOrderStore
+internal sealed partial class CheckoutOrderStore(LicensingDbContext db) : ICheckoutOrderStore
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 

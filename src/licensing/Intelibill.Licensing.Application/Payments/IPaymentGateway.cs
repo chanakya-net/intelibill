@@ -20,6 +20,9 @@ public interface IPaymentGateway
     Task<GatewayResult<PaymentObservation>> VerifyCheckoutAsync(CheckoutVerification request, CancellationToken ct);
     Task<GatewayResult<PaymentObservation>> GetPaymentAsync(string providerPaymentReference, CancellationToken ct);
     Task<GatewayResult<IReadOnlyList<PaymentObservation>>> GetOrderPaymentsAsync(string providerOrderReference, CancellationToken ct);
+    /// <summary>Independent authenticated receipt reads for finance. These observations cannot fund an order.</summary>
+    Task<GatewayResult<IReadOnlyList<PaymentObservation>>> InspectCapturesAsync(string orderReference, string? paymentReference, CancellationToken ct) =>
+        Task.FromResult(GatewayResult.Unsupported<IReadOnlyList<PaymentObservation>>());
     Task<GatewayResult<RefundObservation>> RequestRefundAsync(RefundRequest request, CancellationToken ct);
     Task<GatewayResult<RefundObservation>> GetRefundAsync(string providerRefundReference, CancellationToken ct);
     GatewayResult<VerifiedGatewayEvent> ValidateWebhook(ReadOnlySpan<byte> body, IReadOnlyDictionary<string, string> headers);

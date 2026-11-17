@@ -1,6 +1,9 @@
 <main>
   <a routerLink="/">Provider console</a>
   <h1 class="ib-page-title">Manual payments</h1>
+  @if (allowed()) {
+    <a routerLink="/payments/review" [queryParams]="{ account: account() || null, order: order() || null }">Review payment funds</a>
+  }
   @if (!allowed()) {
     <p>Billing capability is required.</p>
   } @else {

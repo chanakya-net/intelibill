@@ -69,7 +69,12 @@
             [label]="'billing.checkout.payment.checkRestoration' | transloco" (click)="checkAgain()"></button>
         }
       } @else if (status.fulfilment === 'NeedsReview') {
-        <p data-testid="payment-review">{{ 'billing.checkout.payment.reviewPayment' | transloco }}</p>
+        <p role="status" data-testid="payment-review">{{ 'billing.checkout.payment.reviewPayment' | transloco }}</p>
+      }
+      @if (status.fulfilment === 'NeedsReview' && !pending() &&
+          (!status.restorationHeld || !status.attemptId || status.payment !== 'Verified')) {
+        <button pButton type="button" data-testid="payment-review-check" [disabled]="busy()"
+          [label]="'billing.checkout.payment.checkAgain' | transloco" (click)="refreshReview()"></button>
       }
       @if (status.termStartsAt && status.termEndsAt) {
         <p data-testid="payment-term">{{ 'billing.checkout.payment.term' | transloco }}:

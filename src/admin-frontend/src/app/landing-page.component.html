@@ -21,6 +21,7 @@
                 <a routerLink="/admin-users">Manage administrator access</a>
               } @else if (capability === 'billing') {
                 <a routerLink="/payments">Manual payments</a>
+                <a routerLink="/payments/review">Review payment funds</a>
               } @else if (capability === licensingManager) {
                 <a routerLink="/catalogue">Plan catalogue drafts</a>
               } @else {

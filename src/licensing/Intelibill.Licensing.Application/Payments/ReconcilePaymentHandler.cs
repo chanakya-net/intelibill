@@ -6,7 +6,7 @@ namespace Intelibill.Licensing.Application.Payments;
 
 /// <summary>Recovers a pinned attempt through provider reads before opening the account-fenced apply transaction.</summary>
 public sealed partial class ReconcilePaymentHandler(IPaymentStore store, IPaymentGatewayResolver gateways,
-    FulfilPaidOrderHandler fulfil, IPendingPaymentAttemptStore pending, TimeProvider clock, TimeProvider leaseClock)
+    FulfilPaidOrderHandler fulfil, IPendingPaymentAttemptStore pending, IPaymentReviewStore reviews, TimeProvider clock, TimeProvider leaseClock)
 {
     /// <summary>
     /// Reconciles one attempt. A request carrying a browser claim never resolves uncertainty; only a proof-free check
@@ -82,16 +82,17 @@ public sealed partial class ReconcilePaymentHandler(IPaymentStore store, IPaymen
         var verification = new CheckoutVerification(reference, attempt.AmountPaise, attempt.Currency,
             Request(attempt), claim.Proof, claim.Success);
         var result = await PaymentGatewayCall.RunAsync(token => gateway.VerifyCheckoutAsync(verification, token), ct);
-        return new(session, result.Outcome == GatewayOutcome.Succeeded ? result.Value : null);
+        var captures = result.Outcome == GatewayOutcome.Rejected && !claim.Present
+            ? await InspectAsync(gateway, reference, null, ct) : null;
+        return new(session, result.Outcome == GatewayOutcome.Succeeded ? result.Value : null, captures?.Value ?? []);
     }
 
     private async Task<ErrorOr<bool>> ApplyAsync(StoredPaymentAttempt attempt, RecoveryObservation? observed, long? fence,
         CancellationToken ct)
     {
-        if (await store.HasVerifiedPaymentAsync(attempt.AttemptId, ct))
-            return true;
         if (observed is null)
-            return await store.HasDefinitiveFailureAsync(attempt.AttemptId, ct);
+            return await store.HasVerifiedPaymentAsync(attempt.AttemptId, ct) ||
+                await store.HasDefinitiveFailureAsync(attempt.AttemptId, ct);
 
         var stored = await store.FindAttemptAsync(attempt.AccountId, attempt.AttemptId, false, ct);
         if (stored is null)
@@ -106,6 +107,15 @@ public sealed partial class ReconcilePaymentHandler(IPaymentStore store, IPaymen
             stored = stored with { ProviderOrderReference = found.ProviderOrderReference };
         }
 
+        var existing = await store.FindVerifiedPaymentReferenceAsync(stored.AttemptId, ct);
+        var review = await RecordReviewCapturesAsync(stored, observed, existing, null, ct);
+        if (existing is not null)
+            return true;
+        if (review && (observed.Payment is null || observed.Captures.Count > 0))
+        {
+            await MarkUncertainAsync(stored, ct);
+            return false;
+        }
         // An unpaid order stays payable; payment evidence that does not fund it makes the outcome uncertain.
         if (observed.Payment is { State: ObservedPaymentState.Captured } payment)
         {
@@ -131,7 +141,8 @@ public sealed partial class ReconcilePaymentHandler(IPaymentStore store, IPaymen
     /// <summary>Uncertainty is outstanding and none was recorded after the fence: the read is not older than the doubt.</summary>
     private async Task<bool> ResumableSinceAsync(StoredPaymentAttempt attempt, long fence, CancellationToken ct) =>
         await store.IsUncertainAsync(attempt.AttemptId, ct) &&
-        await store.CountVerificationRequestsAsync(attempt.AttemptId, ct) == fence;
+        await store.CountVerificationRequestsAsync(attempt.AttemptId, ct) == fence &&
+        !await reviews.HasCompetingFundsAsync(attempt.AccountId, attempt.OrderId, attempt.AttemptId, null, null, ct);
 
     private Task MarkUncertainAsync(StoredPaymentAttempt attempt, CancellationToken ct) =>
         store.AppendEventAsync(attempt, PaymentEventKinds.VerificationRequested, null,
@@ -157,7 +168,12 @@ public sealed partial class ReconcilePaymentHandler(IPaymentStore store, IPaymen
         session.ProviderOrderReference is { Length: > 0 and <= 120 } &&
         CheckoutPaymentsV1.LauncherFlows.Contains(session.LauncherFlow);
 
-    private sealed record RecoveryObservation(CheckoutSession? Session, PaymentObservation? Payment);
+    private static Task<GatewayResult<IReadOnlyList<PaymentObservation>>> InspectAsync(IPaymentGateway gateway, string reference,
+        string? payment, CancellationToken ct) =>
+        PaymentGatewayCall.RunAsync(token => gateway.InspectCapturesAsync(reference, payment, token), ct);
+
+    private sealed record RecoveryObservation(CheckoutSession? Session, PaymentObservation? Payment,
+        IReadOnlyList<PaymentObservation> Captures, bool ReviewReadUnavailable = false);
 
     /// <summary>The browser's report, if any: its optional proof, and whether it reported success.</summary>
     private sealed record Claim(IReadOnlyDictionary<string, string>? Proof, bool Present, bool Success)

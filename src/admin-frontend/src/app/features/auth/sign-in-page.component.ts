@@ -72,8 +72,14 @@ export class SignInPageComponent {
     const params = this.route.snapshot.queryParamMap;
     const account = params.get('paymentAccount');
     const order = params.get('paymentOrder');
-    if (account && order) void this.router.navigate(['/payments'], { queryParams: { account, order } });
-    else void this.router.navigateByUrl('/');
+    const reviewAccount = params.get('reviewAccount');
+    if (reviewAccount) {
+      void this.router.navigate(['/payments/review'], { queryParams: { account: reviewAccount, case: params.get('reviewCase') } });
+    } else if (account && order) {
+      void this.router.navigate(['/payments'], { queryParams: { account, order } });
+    } else {
+      void this.router.navigateByUrl('/');
+    }
   }
 
   private signInFailed(error: HttpErrorResponse) {

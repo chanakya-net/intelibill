@@ -98,6 +98,7 @@ public sealed class Program
         app.MapComplimentaryGrants();
         app.MapTrialExtensions();
         app.MapAdminManualPayments();
+        app.MapAdminPaymentReviews();
         app.MapGatewayWebhooks();
         var business = app.MapGroup("/api/admin").RequireAuthorization(BootstrapAuthorization.BusinessPolicy);
         business.MapGet("/access", () => Results.NoContent());
