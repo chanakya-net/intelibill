@@ -12,6 +12,7 @@ import { CheckoutPaymentComponent } from './checkout-payment.component';
 import type { CheckoutPayment } from './checkout-payment.models';
 import type { Quote } from './checkout.models';
 import { RAZORPAY_OPENER, type RazorpayOutcome } from './razorpay-checkout';
+import { CheckoutDrafts } from './checkout-drafts';
 
 const id = (value: number) => '00000000-0000-4000-8000-00000000000' + value;
 const owner = { userId: id(1), shopId: id(2) };
@@ -75,6 +76,14 @@ afterEach(() => {
 });
 
 async function render(first: CheckoutPayment) {
+  const page = mount();
+  http.expectOne({ method: 'GET', url: path }).flush(first);
+  await page.update();
+  return page;
+}
+
+/** A component instance whose first status read is left to the caller, as a second tab would issue it. */
+function mount() {
   const fixture = TestBed.createComponent(CheckoutPaymentComponent);
   fixture.componentRef.setInput('quote', quote);
   fixture.detectChanges();
@@ -84,8 +93,6 @@ async function render(first: CheckoutPayment) {
     click: (testId: string) => root.querySelector<HTMLButtonElement>(`[data-testid="${testId}"]`)!.click(),
     update: async () => { await new Promise(done => setTimeout(done, 0)); await fixture.whenStable(); fixture.detectChanges(); },
   };
-  http.expectOne({ method: 'GET', url: path }).flush(first);
-  await page.update();
   return page;
 }
 
@@ -218,7 +225,7 @@ describe('CheckoutPaymentComponent', () => {
   });
 
   describe('Razorpay launcher', () => {
-    const launch = { flow: 'razorpay-standard', parameters: { keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: '27000', currency: 'INR' } };
+    const launch = { flow: 'razorpay-standard', parameters: { keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: '27000', currency: 'INR', methods: 'upi' } };
     const proof = { razorpay_payment_id: 'pay_abc', razorpay_order_id: 'order_abc123', razorpay_signature: 'f'.repeat(64) };
 
     function open(outcome: RazorpayOutcome) {
@@ -233,7 +240,7 @@ describe('CheckoutPaymentComponent', () => {
       expect(page.text('payment-razorpay-notice')).toBe(t.razorpay.notice);
       page.click('payment-razorpay-pay');
       await page.update();
-      expect(opener).toHaveBeenCalledWith({ keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: 27000, currency: 'INR' });
+      expect(opener).toHaveBeenCalledWith({ keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: 27000, currency: 'INR', methods: ['upi'] });
       const verify = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
       expect(verify.request.body).toEqual({ launcherOutcome: 'Success', launcherProof: proof });
       verify.flush(status({ payment: 'PendingVerification', launch: null }));
@@ -292,6 +299,50 @@ describe('CheckoutPaymentComponent', () => {
       check.flush(verified('Applying', 0));
       await page.update();
       expect(page.text('payment-confirmed')).toBe(t.confirmed);
+    });
+
+    it('keeps a newer pending claim against an older awaiting read, then reopens only on a fresh recheck', async () => {
+      const opener = open({ kind: 'success', proof });
+      const drafts = TestBed.inject(CheckoutDrafts);
+      const saved = () => drafts.readPayment({ ...owner, account }, order)?.state;
+      const tabA = await render(status({ launch }));
+      expect(saved()).toBe('awaiting');
+
+      const tabB = mount();
+      const held = http.expectOne({ method: 'GET', url: path });
+      tabA.click('payment-razorpay-pay');
+      const claim = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      claim.flush(status({ payment: 'PendingVerification', launch: null }));
+      await tabA.update();
+      expect(saved()).toBe('pending');
+
+      held.flush(status({ launch }));
+      await tabB.update();
+      expect(saved()).toBe('pending');
+      expect(tabB.text('payment-pending')).toBe(t.pending);
+      expect(tabB.text('payment-razorpay-pay')).toBeNull();
+
+      tabB.click('payment-check');
+      const fresh = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(fresh.request.body).toEqual({ launcherOutcome: null });
+      fresh.flush(status({ launch }));
+      await tabB.update();
+      expect(saved()).toBe('awaiting');
+      expect(tabB.text('payment-pending')).toBeNull();
+      tabB.click('payment-razorpay-pay');
+      await tabB.update();
+      expect(opener).toHaveBeenLastCalledWith(expect.objectContaining({ orderId: 'order_abc123' }));
+      http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }).flush(status({ payment: 'PendingVerification', launch: null }));
+      await tabB.update();
+    });
+
+    it('never reopens a pending attempt from a routine status read', async () => {
+      const page = await render(status({ payment: 'PendingVerification', launch: null }));
+      await vi.advanceTimersByTimeAsync(5000);
+      http.expectOne({ method: 'GET', url: path }).flush(status({ launch }));
+      await page.update();
+      expect(page.text('payment-pending')).toBe(t.pending);
+      expect(TestBed.inject(CheckoutDrafts).readPayment({ ...owner, account }, order)?.state).toBe('pending');
     });
 
     it('offers the launcher again once the server confirms the recovered order is still unpaid', async () => {

@@ -254,15 +254,18 @@ export class CheckoutPaymentComponent {
     await this.show(invocation, await this.api.read(invocation.scope, invocation.order));
   }
 
+  /** Only a proof-free recheck may reopen a pending attempt, and only if no tab saved anything since it was sent. */
   private async verifyAttempt(invocation: Invocation, attempt: string, claim: 'Success' | 'Cancelled' | null,
     proof?: Readonly<Record<string, string>>) {
-    await this.show(invocation, await this.api.verify(invocation.scope, invocation.order, attempt, claim, proof));
+    const fence = claim === null && !proof ? this.drafts.paymentRevision(invocation.scope, invocation.order) : undefined;
+    await this.show(invocation, await this.api.verify(invocation.scope, invocation.order, attempt, claim, proof), fence);
   }
 
-  private async show(invocation: Invocation, status: CheckoutPayment) {
+  private async show(invocation: Invocation, status: CheckoutPayment, freshSince?: number) {
     if (!invocation.current()) return;
     if (status.payment !== 'NotStarted' && status.attemptId) {
-      const saved = await this.drafts.recordPayment(invocation.scope, invocation.order, status.attemptId, draftStates[status.payment]);
+      const saved = await this.drafts.recordPayment(invocation.scope, invocation.order, status.attemptId,
+        draftStates[status.payment], freshSince);
       if (!invocation.current()) return;
       this.draft.set(saved);
       if (saved.state !== draftStates[status.payment]) return;

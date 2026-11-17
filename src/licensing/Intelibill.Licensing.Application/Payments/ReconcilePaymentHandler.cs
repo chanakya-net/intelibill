@@ -8,9 +8,13 @@ namespace Intelibill.Licensing.Application.Payments;
 public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGatewayResolver gateways,
     FulfilPaidOrderHandler fulfil, IPendingPaymentAttemptStore pending, TimeProvider clock, TimeProvider leaseClock)
 {
+    /// <summary>
+    /// Reconciles one attempt. A request carrying a browser claim never resolves uncertainty; only a proof-free check
+    /// may, and only on the adapter's fresh confirmation that the original order is unpaid.
+    /// </summary>
     public Task<ErrorOr<bool>> HandleAsync(StoredPaymentAttempt attempt, CancellationToken ct,
-        IReadOnlyDictionary<string, string>? launcherProof = null) =>
-        ReconcileAsync(attempt, false, null, ct, launcherProof);
+        IReadOnlyDictionary<string, string>? launcherProof = null, bool launcherClaim = false) =>
+        ReconcileAsync(attempt, false, null, ct, launcherProof, launcherClaim || launcherProof is not null);
 
     public async Task<ErrorOr<bool>> HandleLeaseAsync(PendingPaymentLease lease, CancellationToken ct)
     {
@@ -26,7 +30,7 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
     }
 
     private async Task<ErrorOr<bool>> ReconcileAsync(StoredPaymentAttempt attempt, bool verified, PendingPaymentLease? lease,
-        CancellationToken ct, IReadOnlyDictionary<string, string>? launcherProof = null)
+        CancellationToken ct, IReadOnlyDictionary<string, string>? launcherProof = null, bool launcherClaim = false)
     {
         var observed = verified ? null : await ObserveAsync(attempt, launcherProof, ct);
         return await store.InAttemptScopeAsync<bool>(attempt.AccountId, attempt.AttemptId, true, async token =>
@@ -34,7 +38,7 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
             var now = leaseClock.GetUtcNow();
             if (lease is not null && !await pending.LockAsync(lease, now, token))
                 return false;
-            var result = await ApplyAsync(attempt, observed, token);
+            var result = await ApplyAsync(attempt, observed, !launcherClaim, token);
             if (result.IsError)
                 return result;
             if (lease is not null)
@@ -70,7 +74,7 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
         return new(session, result.Outcome == GatewayOutcome.Succeeded ? result.Value : null);
     }
 
-    private async Task<ErrorOr<bool>> ApplyAsync(StoredPaymentAttempt attempt, RecoveryObservation? observed,
+    private async Task<ErrorOr<bool>> ApplyAsync(StoredPaymentAttempt attempt, RecoveryObservation? observed, bool proofFree,
         CancellationToken ct)
     {
         if (await store.HasVerifiedPaymentAsync(attempt.AttemptId, ct))
@@ -99,8 +103,11 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
                 await MarkUncertainAsync(stored, ct);
             return result.IsError ? result.Errors : result.Value != FulfilmentOutcome.Rejected;
         }
-        if (observed.Payment is not { State: ObservedPaymentState.Pending })
+        if (observed.Payment is not { State: ObservedPaymentState.Pending } pending)
             await MarkUncertainAsync(stored, ct);
+        else if (proofFree && Resumable(stored, pending) && await store.IsUncertainAsync(stored.AttemptId, ct))
+            await store.AppendEventAsync(stored, PaymentEventKinds.ResumeConfirmed, null,
+                BillingAccountRules.StorageInstant(clock.GetUtcNow()), ct);
         if (await store.HasDefinitiveFailureAsync(attempt.AttemptId, ct))
             return true;
         if (!DefinitivelyFailed(stored, observed.Payment))
@@ -117,6 +124,13 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
     private static bool DefinitivelyFailed(StoredPaymentAttempt attempt, PaymentObservation? observation) =>
         observation is { State: ObservedPaymentState.Failed, CheckoutDefinitivelyFailed: true,
             ProviderPaymentReference: null, CapturedAt: null } &&
+        observation.Pin == attempt.Pin && observation.ProviderOrderReference == attempt.ProviderOrderReference &&
+        observation.AmountPaise == attempt.AmountPaise && observation.Currency == attempt.Currency;
+
+    /// <summary>The adapter proved this attempt's own order open and unpaid, on its own pin, for the full amount.</summary>
+    private static bool Resumable(StoredPaymentAttempt attempt, PaymentObservation observation) =>
+        observation is { State: ObservedPaymentState.Pending, ConfirmedUnpaid: true, ProviderPaymentReference: null,
+            CapturedAt: null, CheckoutDefinitivelyFailed: false } &&
         observation.Pin == attempt.Pin && observation.ProviderOrderReference == attempt.ProviderOrderReference &&
         observation.AmountPaise == attempt.AmountPaise && observation.Currency == attempt.Currency;
 

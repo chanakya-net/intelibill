@@ -43,18 +43,79 @@ public sealed partial class P0304Tests
     }
 
     [Fact]
-    public async Task DocumentedShapeWithoutCaptureAndRefundFieldsStillFulfilsFromTheRemainingEvidence()
+    public async Task DocumentedShapeWithoutAmountCapturedOrPartialPaymentStillFulfils()
     {
         await using var rig = await Rig.StartAsync(database);
         var attempt = await rig.StartAttemptAsync();
         var order = rig.Fake.OrderId();
-        rig.Fake.AddPayment(order, "captured", documentedCaptureFields: false);
-        rig.Fake.Order(order).Remove("amount_paid");
+        rig.Fake.AddPayment(order, "captured", withAmountCaptured: false);
         rig.Fake.Order(order).Remove("partial_payment");
 
         AssertStatus(await rig.VerifyAsync(attempt, null, null), "Verified", "Fulfilled", "Applying");
         await P0302Tests.AssertSingleFulfilmentAsync(rig.Fixture, rig.Quote, 1);
         Assert.Equal(1L, await rig.Fixture.CountAsync("verified_payments", "capture_time_basis = 'ObservedAtVerification'"));
+    }
+
+    /// <summary>
+    /// The order, the order's payment collection and the payment's own read must each state one exact, unrefunded
+    /// capture; anything absent, null or disagreeing is held for reconciliation and grants no term.
+    /// </summary>
+    [Theory]
+    [InlineData("order-attempted")]
+    [InlineData("order-created")]
+    [InlineData("order-amount-paid-missing")]
+    [InlineData("order-amount-paid-null")]
+    [InlineData("order-amount-due-missing")]
+    [InlineData("order-amount-due-null")]
+    [InlineData("payment-amount-refunded-missing")]
+    [InlineData("payment-amount-refunded-null")]
+    [InlineData("collection-amount-differs")]
+    [InlineData("collection-currency-differs")]
+    [InlineData("collection-method-differs")]
+    [InlineData("collection-refunded")]
+    [InlineData("collection-created-at-differs")]
+    [InlineData("entity-authorized-only")]
+    [InlineData("two-captured-candidates")]
+    public async Task InconsistentOrAbsentSettlementEvidenceGrantsNothing(string defect)
+    {
+        await using var rig = await Rig.StartAsync(database);
+        var attempt = await rig.StartAttemptAsync();
+        var order = rig.Fake.OrderId();
+        var payment = rig.Fake.AddPayment(order, "captured");
+        Corrupt(rig.Fake, order, payment, defect, rig.Quote.AmountPaise);
+
+        var status = await rig.VerifyAsync(attempt, null, null);
+        AssertStatus(status, "PendingVerification", "NotFulfilled", "NotApplicable");
+        Assert.Equal(JsonValueKind.Null, status.GetProperty("launch").ValueKind);
+        Assert.Equal(0L, await rig.Fixture.CountAsync("verified_payments"));
+        Assert.Equal(0L, await rig.Fixture.CountAsync("payment_fulfilments"));
+        Assert.Equal(0L, await rig.Fixture.CountAsync("subscription_coverage_terms", "mode IS NOT NULL AND true"));
+    }
+
+    private static void Corrupt(FakeRazorpay fake, string order, string payment, string defect, long full)
+    {
+        var entity = fake.Order(order);
+        switch (defect)
+        {
+            case "order-attempted": entity["status"] = "attempted"; break;
+            case "order-created": entity["status"] = "created"; break;
+            case "order-amount-paid-missing": entity.Remove("amount_paid"); break;
+            case "order-amount-paid-null": entity["amount_paid"] = null; break;
+            case "order-amount-due-missing": entity.Remove("amount_due"); break;
+            case "order-amount-due-null": entity["amount_due"] = null; break;
+            case "payment-amount-refunded-missing": fake.Payment(payment).Remove("amount_refunded"); break;
+            case "payment-amount-refunded-null": fake.Payment(payment)["amount_refunded"] = null; break;
+            case "collection-amount-differs": fake.PatchCollectionEntry(payment, "amount", full + 100); break;
+            case "collection-currency-differs": fake.PatchCollectionEntry(payment, "currency", "USD"); break;
+            case "collection-method-differs": fake.PatchCollectionEntry(payment, "method", "card"); break;
+            case "collection-refunded": fake.PatchCollectionEntry(payment, "amount_refunded", 100); break;
+            case "collection-created-at-differs": fake.PatchCollectionEntry(payment, "created_at", 1); break;
+            case "entity-authorized-only":
+                (fake.Payment(payment)["status"], fake.Payment(payment)["captured"]) = ("authorized", false);
+                fake.Payment(payment).Remove("amount_captured");
+                break;
+            default: fake.AddPayment(order, "captured", method: "card"); break;
+        }
     }
 
     [Theory]

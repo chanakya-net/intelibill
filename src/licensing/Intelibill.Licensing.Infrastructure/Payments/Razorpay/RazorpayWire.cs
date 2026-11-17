@@ -80,12 +80,31 @@ internal static class RazorpayWire
             : payment.Status == "failed" ? ObservedPaymentState.Failed : ObservedPaymentState.Pending,
         payment.Amount, payment.Currency, null, CreatedAt: payment.CreatedAt);
 
-    /// <summary>One exact full capture: no short capture, no earlier refund, order totals that agree with it.</summary>
-    internal static bool FullCapture(WirePayment payment, WireOrder order) =>
-        payment.Captured && payment.Status == "captured" && payment.Amount == order.Amount &&
-        (payment.AmountCaptured ?? payment.Amount) == payment.Amount && (payment.AmountRefunded ?? 0) == 0 &&
-        payment.RefundStatus is null or "" && (order.AmountPaid ?? order.Amount) == order.Amount &&
-        (order.AmountDue ?? 0) == 0 && (order.AmountPaid is null || order.AmountDue is null || order.AmountPaid + order.AmountDue == order.Amount);
+    /// <summary>
+    /// One exact, unrefunded full capture, stated explicitly and identically by the paid order, the order's payment
+    /// collection entry and the payment's own read. Only <c>amount_captured</c> may be absent, as documented.
+    /// </summary>
+    internal static bool FullCapture(WirePayment entity, WirePayment entry, WireOrder order) =>
+        entry == entity && PaidInFull(order) && entity.Captured && entity.Status == "captured" &&
+        entity.Amount == order.Amount && entity.Currency == order.Currency &&
+        (entity.AmountCaptured ?? entity.Amount) == entity.Amount && entity.AmountRefunded == 0 &&
+        entity.RefundStatus is null or "";
+
+    /// <summary>The order states it is paid with explicit totals: the full amount paid and nothing due.</summary>
+    internal static bool PaidInFull(WireOrder order) =>
+        order.Status == "paid" && order.AmountPaid == order.Amount && order.AmountDue == 0;
+
+    /// <summary>
+    /// The order is provably unpaid and may be resumed: still open, explicitly nothing paid and the full amount due,
+    /// and every payment made against it failed.
+    /// </summary>
+    internal static bool ConfirmedUnpaid(WireOrder order, IReadOnlyList<WirePayment> payments) =>
+        order.Status is "created" or "attempted" && order.AmountPaid == 0 && order.AmountDue == order.Amount &&
+        payments.All(payment => payment is { Status: "failed", Captured: false });
+
+    /// <summary>Anything that says money may have moved: a paid status, a paid or reduced due total.</summary>
+    internal static bool ClaimsFunds(WireOrder order) =>
+        order.Status == "paid" || order.AmountPaid is > 0 || order.AmountDue is { } due && due != order.Amount;
 
     private static bool Text(JsonElement element, string name, out string value)
     {

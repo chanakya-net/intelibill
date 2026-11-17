@@ -11,7 +11,7 @@ describe('resolvePaymentLauncher', () => {
   });
 
   it('opens Razorpay only for its exact allow-listed public parameters', () => {
-    const parameters = { keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: '27000', currency: 'INR' };
+    const parameters = { keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: '27000', currency: 'INR', methods: 'card,upi' };
     expect(resolvePaymentLauncher({ flow: 'razorpay-standard', parameters })).toBe('razorpay');
     expect(resolvePaymentLauncher({ flow: 'razorpay-standard', parameters: { ...parameters, script: 'https://x.test/a.js' } }))
       .toBe('unsupported');

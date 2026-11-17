@@ -25,6 +25,8 @@ internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfigura
         {
             ["keyId"] = config.KeyId, ["orderId"] = providerOrderReference,
             ["amount"] = amountPaise.ToString(System.Globalization.CultureInfo.InvariantCulture), ["currency"] = currency,
+            // The pinned allowlist, applied by the launcher's documented display configuration before collection.
+            ["methods"] = string.Join(',', RazorpayConfiguration.Supported.Where(config.Methods.Contains)),
         };
 
     public bool SupportsAmount(long amountPaise, string currency) =>
@@ -77,21 +79,34 @@ internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfigura
         var payments = await ReadOrderPaymentsAsync(request.ProviderOrderReference, ct);
         if (payments.Outcome != GatewayOutcome.Succeeded)
             return new(payments.Outcome, null);
-        var captured = payments.Value!.Where(p => p.Captured && p.Status == "captured").OrderBy(p => p.CreatedAt).ThenBy(p => p.Id,
-            StringComparer.Ordinal).FirstOrDefault();
-        if (captured is null)
-        {
-            var best = payments.Value!.FirstOrDefault(p => p.Status == "authorized");
-            return GatewayResult.Success(best is null
-                ? new PaymentObservation(Pin, request.ProviderOrderReference, null, ObservedPaymentState.Pending,
-                    request.ExpectedAmountPaise, request.ExpectedCurrency, null)
-                : RazorpayWire.Observe(Pin, best));
-        }
+        var captured = payments.Value!.Where(p => p.Captured || p.Status is "captured" or "refunded").ToList();
+        if (captured.Count == 0)
+            return Uncaptured(request, order.Order!, payments.Value!);
+        if (captured is not [var entry])
+            return GatewayResult.Rejected<PaymentObservation>();
         // The independent read of the payment itself must agree with the collection entry before funds are trusted.
-        var single = await ReadPaymentAsync(captured.Id, ct);
+        var single = await ReadPaymentAsync(entry.Id, ct);
+        if (single.Failure is { } unavailable)
+            return new(unavailable, null);
         return single.Payment is { } entity && entity.OrderId == request.ProviderOrderReference &&
-            RazorpayWire.FullCapture(entity, order.Order!) && config.Methods.Contains(entity.Method ?? "")
+            RazorpayWire.FullCapture(entity, entry, order.Order!) && config.Methods.Contains(entity.Method ?? "")
             ? GatewayResult.Success(RazorpayWire.Observe(Pin, entity)) : GatewayResult.Rejected<PaymentObservation>();
+    }
+
+    /// <summary>
+    /// No capture in the collection. An order that nevertheless reports funds contradicts it and is rejected; an
+    /// authorization is reported as such; otherwise the order is pending, and confirmed unpaid only when provable.
+    /// </summary>
+    private GatewayResult<PaymentObservation> Uncaptured(CheckoutVerification request, WireOrder order,
+        IReadOnlyList<WirePayment> payments)
+    {
+        if (RazorpayWire.ClaimsFunds(order))
+            return GatewayResult.Rejected<PaymentObservation>();
+        if (payments.FirstOrDefault(p => p.Status == "authorized") is { } authorized)
+            return GatewayResult.Success(RazorpayWire.Observe(Pin, authorized));
+        return GatewayResult.Success(new PaymentObservation(Pin, request.ProviderOrderReference, null, ObservedPaymentState.Pending,
+            request.ExpectedAmountPaise, request.ExpectedCurrency, null,
+            ConfirmedUnpaid: RazorpayWire.ConfirmedUnpaid(order, payments)));
     }
 
     public async Task<GatewayResult<PaymentObservation>> GetPaymentAsync(string providerPaymentReference, CancellationToken ct)

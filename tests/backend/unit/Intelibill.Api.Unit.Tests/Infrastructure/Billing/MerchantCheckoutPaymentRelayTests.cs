@@ -51,7 +51,7 @@ public sealed class MerchantCheckoutPaymentRelayTests
     public void RazorpayLaunchRelaysOnlyItsAllowListedPublicParametersInEveryHost()
     {
         var parameters = new Dictionary<string, string>
-        { ["keyId"] = "rzp_test_fixture", ["orderId"] = "order_abc123", ["amount"] = "99900", ["currency"] = "INR" };
+        { ["keyId"] = "rzp_test_fixture", ["orderId"] = "order_abc123", ["amount"] = "99900", ["currency"] = "INR", ["methods"] = "card,upi" };
         var good = SimulatorShaped() with { Launch = new(CheckoutPaymentsV1.RazorpayFlow, parameters) };
         var withScript = SimulatorShaped() with
         { Launch = new(CheckoutPaymentsV1.RazorpayFlow, new Dictionary<string, string>(parameters) { ["script"] = "x" }) };
@@ -61,6 +61,9 @@ public sealed class MerchantCheckoutPaymentRelayTests
         Assert.Equal(parameters, MerchantBillingClient.RelayPayment(good, Account, Order, Host("Production"))?.Launch?.Parameters);
         Assert.Null(MerchantBillingClient.RelayPayment(withScript, Account, Order, Host("Production")));
         Assert.Null(MerchantBillingClient.RelayPayment(withUrl, Account, Order, Host("Production")));
+        var upiOnly = SimulatorShaped() with
+        { Launch = new(CheckoutPaymentsV1.RazorpayFlow, new Dictionary<string, string>(parameters) { ["methods"] = "upi" }) };
+        Assert.Equal("upi", MerchantBillingClient.RelayPayment(upiOnly, Account, Order, Host("Production"))?.Launch?.Parameters["methods"]);
     }
 
     [Theory]
@@ -69,10 +72,16 @@ public sealed class MerchantCheckoutPaymentRelayTests
     [InlineData("orderId", "nonsense")]
     [InlineData("amount", "99901")]
     [InlineData("currency", "USD")]
+    [InlineData("methods", null)]
+    [InlineData("methods", "")]
+    [InlineData("methods", "emi")]
+    [InlineData("methods", "upi,paylater")]
+    [InlineData("methods", "upi,upi")]
+    [InlineData("methods", "https://x.test/a.js")]
     public void InvalidLaunchParametersAreRefused(string key, string? value)
     {
         var parameters = new Dictionary<string, string>
-        { ["keyId"] = "rzp_test_fixture", ["orderId"] = "order_abc123", ["amount"] = "99900", ["currency"] = "INR" };
+        { ["keyId"] = "rzp_test_fixture", ["orderId"] = "order_abc123", ["amount"] = "99900", ["currency"] = "INR", ["methods"] = "card,upi" };
         parameters[key] = value!;
         var payment = SimulatorShaped() with { Launch = new(CheckoutPaymentsV1.RazorpayFlow, parameters) };
         Assert.Null(MerchantBillingClient.RelayPayment(payment, Account, Order, Host("Production")));

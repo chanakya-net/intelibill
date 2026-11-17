@@ -14,8 +14,12 @@ internal sealed class RazorpayOptions
     public string BaseUrl { get; init; } = "https://api.razorpay.com/";
     public string Currency { get; init; } = "INR";
 
-    /// <summary>Checkout methods the account offers. Instalment and deferred methods are never full payment.</summary>
-    public string[] Methods { get; init; } = ["card", "netbanking", "wallet", "upi"];
+    /// <summary>
+    /// Checkout methods the account offers, listed explicitly. No default: configuration binding merges a default
+    /// array with configured entries by index, so a default would silently widen a narrower configured allowlist.
+    /// Instalment and deferred methods are never full payment.
+    /// </summary>
+    public string[] Methods { get; init; } = [];
 
     /// <summary>The account's per-order maximum in paise. Required: Razorpay's limit is account-level and never assumed.</summary>
     public long? MaxAmountPaise { get; init; }
@@ -44,6 +48,7 @@ internal sealed record RazorpayConfiguration(string KeyId, string KeySecret, Uri
             string.IsNullOrWhiteSpace(options.ConfigurationVersion) || options.AllowPartialPayment ||
             options.Currency != "INR" || options.Methods.Length == 0 ||
             options.Methods.Any(method => !Supported.Contains(method, StringComparer.Ordinal)) ||
+            options.Methods.Distinct(StringComparer.Ordinal).Count() != options.Methods.Length ||
             options.MaxAmountPaise is not { } max || max < MinAmountPaise ||
             !Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseAddress) ||
             baseAddress != new Uri("https://api.razorpay.com/"))

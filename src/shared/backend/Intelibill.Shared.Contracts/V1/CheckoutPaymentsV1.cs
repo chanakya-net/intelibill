@@ -48,7 +48,10 @@ public static class CheckoutPaymentsV1
     public static readonly string[] LauncherFlows = [SimulatorFlow, RazorpayFlow];
     public static readonly string[] LauncherOutcomes = ["Success", "Cancelled"];
 
-    public static readonly string[] RazorpayLaunchKeys = ["amount", "currency", "keyId", "orderId"];
+    public static readonly string[] RazorpayLaunchKeys = ["amount", "currency", "keyId", "methods", "orderId"];
+
+    /// <summary>Full-payment methods a Razorpay launch may pin; instalment and deferred methods never appear.</summary>
+    public static readonly string[] RazorpayMethods = ["card", "netbanking", "wallet", "upi"];
 
     /// <summary>
     /// A launcher declares only safe public parameters: none for the simulator and exactly the allow-listed, bounded
@@ -57,15 +60,24 @@ public static class CheckoutPaymentsV1
     public static bool ValidLaunch(string flow, IReadOnlyDictionary<string, string>? parameters) => flow switch
     {
         SimulatorFlow => parameters is { Count: 0 },
-        RazorpayFlow => parameters is { Count: 4 } && RazorpayLaunchKeys.All(key => parameters.TryGetValue(key, out var value) &&
-            value is { Length: > 0 and <= 120 } && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-')) &&
+        RazorpayFlow => parameters is { Count: 5 } && RazorpayLaunchKeys.All(key => parameters.TryGetValue(key, out var value) &&
+            value is { Length: > 0 and <= 120 } && (key == "methods" || value.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-'))) &&
             (parameters["keyId"].StartsWith("rzp_test_", StringComparison.Ordinal) ||
              parameters["keyId"].StartsWith("rzp_live_", StringComparison.Ordinal)) &&
             parameters["keyId"].Length > 9 && parameters["orderId"].StartsWith("order_", StringComparison.Ordinal) &&
             parameters["orderId"].Length > 6 && parameters["amount"].All(char.IsAsciiDigit) &&
-            long.TryParse(parameters["amount"], out var amount) && amount > 0 && parameters["currency"] == "INR",
+            long.TryParse(parameters["amount"], out var amount) && amount > 0 && parameters["currency"] == "INR" &&
+            ValidMethods(parameters["methods"]),
         _ => false,
     };
+
+    /// <summary>A nonempty, duplicate-free, comma-separated subset of <see cref="RazorpayMethods"/>.</summary>
+    private static bool ValidMethods(string declared)
+    {
+        var methods = declared.Split(',');
+        return methods.All(method => RazorpayMethods.Contains(method, StringComparer.Ordinal)) &&
+            methods.Distinct(StringComparer.Ordinal).Count() == methods.Length;
+    }
 
     public static bool IsAction(string action) => action is Start or Read or Verify or Simulate;
     public static string PaymentPath(Guid account, Guid order) => $"{CheckoutOrdersV1.DetailPath(account, order)}/payment";

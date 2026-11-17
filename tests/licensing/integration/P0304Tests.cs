@@ -169,6 +169,7 @@ public sealed partial class P0304Tests(LicensingPostgreSqlFixture database) : IC
     [InlineData("Payments:Razorpay:Environment", "Live")]
     [InlineData("Payments:Razorpay:Methods:1", "emi")]
     [InlineData("Payments:Razorpay:Methods:1", "bank_transfer")]
+    [InlineData("Payments:Razorpay:Methods:0", "upi")]
     [InlineData("Payments:Razorpay:MaxAmountPaise", "99")]
     [InlineData("Payments:Razorpay:MaxAmountPaise", "")]
     [InlineData("Payments:Razorpay:AllowPartialPayment", "true")]
@@ -198,7 +199,8 @@ public sealed partial class P0304Tests(LicensingPostgreSqlFixture database) : IC
         rig.Fake.AddPayment(rig.Fake.OrderId(), "captured");
         AssertStatus(await rig.VerifyAsync(attempt, null, null), "Verified", "Fulfilled", "Applying");
 
-        const string pin = "provider_id = 'razorpay' AND provider_account_id = 'fixture-account' AND environment = 'Test'";
+        const string pin = "provider_id = 'razorpay' AND provider_account_id = 'fixture-account' AND environment = 'Test' " +
+            "AND configuration_version = 'fixture/1'";
         Assert.Equal(1L, await rig.Fixture.CountAsync("payment_attempts", pin));
         Assert.Equal(1L, await rig.Fixture.CountAsync("verified_payments", pin));
     }
@@ -214,7 +216,7 @@ public sealed partial class P0304Tests(LicensingPostgreSqlFixture database) : IC
         internal required CheckoutQuoteV1 Quote { get; init; }
 
         internal static async Task<Rig> StartAsync(LicensingPostgreSqlFixture database, string? account = null,
-            long monthlyPricePaise = 12000L, long? maxAmountPaise = null)
+            long monthlyPricePaise = 12000L, long? maxAmountPaise = null, string[]? methods = null)
         {
             var fake = new FakeRazorpay();
             var clock = new P0201Clock { Now = P0210Fixture.Start };
@@ -222,6 +224,13 @@ public sealed partial class P0304Tests(LicensingPostgreSqlFixture database) : IC
             var settings = FakeRazorpay.Settings();
             if (account is not null)
                 settings["Payments:Razorpay:AccountId"] = account;
+            if (methods is not null)
+            {
+                settings.Remove("Payments:Razorpay:Methods:0");
+                settings.Remove("Payments:Razorpay:Methods:1");
+                for (var index = 0; index < methods.Length; index++)
+                    settings[$"Payments:Razorpay:Methods:{index}"] = methods[index];
+            }
             if (maxAmountPaise is { } max)
                 settings["Payments:Razorpay:MaxAmountPaise"] = max.ToString(System.Globalization.CultureInfo.InvariantCulture);
             var fixture = await P0302Fixture.StartAsync(database, clock, settings,

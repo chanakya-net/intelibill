@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { openRazorpayCheckout, razorpayLaunch, RAZORPAY_SCRIPT_URL } from './razorpay-checkout';
 
-const launch = { keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: 27000, currency: 'INR' as const };
+const launch = { keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: 27000, currency: 'INR' as const, methods: ['card', 'upi'] };
 
 afterEach(() => {
   Reflect.deleteProperty(window, 'Razorpay');
@@ -29,6 +29,32 @@ describe('Razorpay checkout opener', () => {
     expect(JSON.stringify(options[0]['config'])).toContain('emi');
   });
 
+  it.each([
+    [['upi'], 'upi'],
+    [['card', 'netbanking'], 'card,netbanking'],
+  ])('shows only the pinned method set %j and suppresses every default block', async (methods, declared) => {
+    const options: Record<string, unknown>[] = [];
+    (window as unknown as { Razorpay: unknown }).Razorpay = class {
+      constructor(o: Record<string, unknown>) { options.push(o); }
+      open() { (options[0]['modal'] as { ondismiss: () => void }).ondismiss(); }
+    };
+    const parsed = razorpayLaunch({ flow: 'razorpay-standard', parameters: {
+      keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: '27000', currency: 'INR', methods: declared } });
+    expect(parsed?.methods).toEqual(methods);
+    await openRazorpayCheckout(parsed!);
+    expect(options[0]['config']).toEqual({ display: {
+      blocks: { pinned: { name: 'Pay the full amount', instruments: methods.map(method => ({ method })) } },
+      sequence: ['block.pinned'],
+      preferences: { show_default_blocks: false },
+      hide: [{ method: 'emi' }, { method: 'paylater' }, { method: 'cardless_emi' }],
+    } });
+  });
+
+  it.each(['', 'emi', 'upi,emi', 'upi,upi', 'UPI', 'upi;card', 'bank_transfer'])('refuses the declared method set %j', methods => {
+    expect(razorpayLaunch({ flow: 'razorpay-standard', parameters: {
+      keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: '27000', currency: 'INR', methods } })).toBeNull();
+  });
+
   it('treats a callback for another order or a malformed callback as no proof', async () => {
     (window as unknown as { Razorpay: unknown }).Razorpay = class {
       constructor(private readonly o: Record<string, unknown>) {}
@@ -39,6 +65,8 @@ describe('Razorpay checkout opener', () => {
   });
 
   it('rejects launch parameters outside the allow-list', () => {
+    expect(razorpayLaunch({ flow: 'razorpay-standard', parameters: {
+      keyId: 'rzp_test_fixture', orderId: 'order_abc123', amount: '27000', currency: 'INR' } })).toBeNull();
     expect(razorpayLaunch({ flow: 'development-simulator', parameters: {} })).toBeNull();
     expect(razorpayLaunch(null)).toBeNull();
   });

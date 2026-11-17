@@ -18,12 +18,15 @@ internal sealed class FakeRazorpay : HttpMessageHandler
     private readonly object gate = new();
     private readonly Dictionary<string, JsonObject> orders = [];
     private readonly List<JsonObject> payments = [];
+    private readonly Dictionary<string, JsonObject> collectionPatches = [];
     private int sequence;
 
     internal Func<DateTimeOffset> Clock { get; set; } = () => DateTimeOffset.UnixEpoch.AddDays(1);
     internal bool LoseCreateResponse { get; set; }
     internal bool Redirect { get; set; }
     internal bool LengthlessOversize { get; set; }
+    /// <summary>The next <c>n</c> reads of an order entity answer 503, as a transient provider outage would.</summary>
+    internal int FailOrderReads { get; set; }
     internal int OversizeBytesServed { get; private set; }
     internal List<string> Calls { get; } = [];
     internal int Posts { get { lock (gate) return Calls.Count(c => c.StartsWith("POST ", StringComparison.Ordinal)); } }
@@ -45,10 +48,21 @@ internal sealed class FakeRazorpay : HttpMessageHandler
     internal JsonObject Payment(string id) { lock (gate) return payments.Single(p => p["id"]!.GetValue<string>() == id); }
     internal string[] OrderIds() { lock (gate) return [.. orders.Keys.Order(StringComparer.Ordinal)]; }
     internal string OrderId() { lock (gate) return orders.Keys.Single(); }
+
+    /// <summary>Changes one field of a payment only as the order's payment collection reports it, not its own entity.</summary>
+    internal void PatchCollectionEntry(string paymentId, string field, JsonNode? value)
+    {
+        lock (gate)
+        {
+            if (!collectionPatches.TryGetValue(paymentId, out var patch))
+                collectionPatches[paymentId] = patch = [];
+            patch[field] = value;
+        }
+    }
     internal JsonObject Order(string id) { lock (gate) return orders[id]; }
 
     internal string AddPayment(string orderId, string status, long? amount = null, string? currency = null, string? onOrder = null,
-        string method = "upi", long? createdAt = null, bool documentedCaptureFields = true)
+        string method = "upi", long? createdAt = null, bool withAmountCaptured = true)
     {
         lock (gate)
         {
@@ -61,14 +75,12 @@ internal sealed class FakeRazorpay : HttpMessageHandler
                 ["amount"] = amount ?? order["amount"]!.GetValue<long>(), ["currency"] = currency ?? order["currency"]!.GetValue<string>(),
                 ["created_at"] = createdAt ?? Clock().ToUnixTimeSeconds(),
             });
-            if (documentedCaptureFields)
-            {
-                var added = payments[^1];
-                added["amount_refunded"] = 0;
-                added["refund_status"] = null;
-                if (status == "captured")
-                    added["amount_captured"] = added["amount"]!.GetValue<long>();
-            }
+            // Payment fetches document amount_refunded and refund_status; amount_captured is not always present.
+            var added = payments[^1];
+            added["amount_refunded"] = 0;
+            added["refund_status"] = null;
+            if (status == "captured" && withAmountCaptured)
+                added["amount_captured"] = added["amount"]!.GetValue<long>();
             if (status == "captured" && onOrder is null)
             {
                 order["amount_paid"] = order["amount"]!.GetValue<long>();
@@ -143,13 +155,29 @@ internal sealed class FakeRazorpay : HttpMessageHandler
         var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
         return parts switch
         {
+            ["v1", "orders", var id] when orders.ContainsKey(id) && FailOrderReads > 0 => FailOrderRead(),
             ["v1", "orders", var id] when orders.TryGetValue(id, out var order) => Json(HttpStatusCode.OK, Copy(order)),
             ["v1", "orders", var id, "payments"] when orders.ContainsKey(id) =>
-                Collection(payments.Where(p => p["order_id"]!.GetValue<string>() == id)),
+                Collection(payments.Where(p => p["order_id"]!.GetValue<string>() == id).Select(Patched)),
             ["v1", "payments", var id] when payments.SingleOrDefault(p => p["id"]!.GetValue<string>() == id) is { } payment =>
                 Json(HttpStatusCode.OK, Copy(payment)),
             _ => Json(HttpStatusCode.NotFound, new JsonObject()),
         };
+    }
+
+    private HttpResponseMessage FailOrderRead()
+    {
+        FailOrderReads--;
+        return Json(HttpStatusCode.ServiceUnavailable, new JsonObject());
+    }
+
+    private JsonObject Patched(JsonObject payment)
+    {
+        var copy = Copy(payment);
+        if (collectionPatches.TryGetValue(payment["id"]!.GetValue<string>(), out var patch))
+            foreach (var (field, value) in patch)
+                copy[field] = value?.DeepClone();
+        return copy;
     }
 
     private HttpResponseMessage Create(JsonObject input)
@@ -160,7 +188,7 @@ internal sealed class FakeRazorpay : HttpMessageHandler
             ["id"] = id, ["entity"] = "order", ["amount"] = input["amount"]!.GetValue<long>(),
             ["currency"] = input["currency"]!.GetValue<string>(), ["receipt"] = input["receipt"]!.GetValue<string>(),
             ["partial_payment"] = input["partial_payment"]?.GetValue<bool>() ?? false, ["status"] = "created",
-            ["amount_paid"] = 0, ["notes"] = input["notes"]!.DeepClone(), ["created_at"] = Clock().ToUnixTimeSeconds(),
+            ["amount_paid"] = 0, ["amount_due"] = input["amount"]!.GetValue<long>(), ["notes"] = input["notes"]!.DeepClone(), ["created_at"] = Clock().ToUnixTimeSeconds(),
         };
         orders[id] = order;
         if (LoseCreateResponse)

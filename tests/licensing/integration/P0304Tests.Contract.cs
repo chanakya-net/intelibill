@@ -88,6 +88,9 @@ public sealed partial class P0304Tests
             => (this.razorpay, this.simulator, Payer, Quote) = (razorpay, simulator, payer, quote);
 
         internal Merchant Payer { get; }
+        internal Guid Attempt => attempt;
+        internal FakeRazorpay? Fake => razorpay?.Fake;
+        internal string? CapturedPayment { get; private set; }
         internal Intelibill.Shared.Contracts.V1.CheckoutQuoteV1 Quote { get; }
         internal P0302Fixture Fixture => razorpay?.Fixture ?? simulator!;
 
@@ -112,7 +115,7 @@ public sealed partial class P0304Tests
         internal async Task CaptureAsync()
         {
             if (razorpay is { } rig)
-                rig.Fake.AddPayment(rig.Fake.OrderId(), "captured");
+                CapturedPayment = rig.Fake.AddPayment(rig.Fake.OrderId(), "captured");
             else
                 await P0302Fixture.CaptureAsync(Payer.Client, Quote, attempt);
         }

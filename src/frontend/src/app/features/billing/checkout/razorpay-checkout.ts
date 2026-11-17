@@ -4,16 +4,19 @@ import type { CheckoutLaunch } from './checkout-payment.models';
 /** The one script origin the merchant app will ever load for Razorpay; a gateway can never supply another. */
 export const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
 export const RAZORPAY_FLOW = 'razorpay-standard';
-const KEYS = ['amount', 'currency', 'keyId', 'orderId'] as const;
+const KEYS = ['amount', 'currency', 'keyId', 'methods', 'orderId'] as const;
 const SAFE = /^[A-Za-z0-9_-]{1,120}$/;
 /** Instalment and deferred methods can never fund a full-price order. */
 const HIDDEN_METHODS = ['emi', 'paylater', 'cardless_emi'];
+/** Full-payment methods the server may pin; the declared set is the only one the hosted checkout will show. */
+const FULL_PAYMENT_METHODS: readonly string[] = ['card', 'netbanking', 'wallet', 'upi'];
 
 export interface RazorpayLaunch {
   readonly keyId: string;
   readonly orderId: string;
   readonly amount: number;
   readonly currency: 'INR';
+  readonly methods: readonly string[];
 }
 
 export type RazorpayOutcome =
@@ -33,10 +36,31 @@ export function razorpayLaunch(launch: CheckoutLaunch | null): RazorpayLaunch | 
   const parameters = launch.parameters ?? {};
   const names = Object.keys(parameters).sort();
   if (names.length !== KEYS.length || names.some((name, index) => name !== KEYS[index])) return null;
-  if (KEYS.some(key => !SAFE.test(parameters[key]))) return null;
+  if (KEYS.some(key => key !== 'methods' && !SAFE.test(parameters[key]))) return null;
   const amount = Number(parameters['amount']);
   if (!/^[1-9][0-9]{0,14}$/.test(parameters['amount']) || !Number.isSafeInteger(amount) || parameters['currency'] !== 'INR') return null;
-  return { keyId: parameters['keyId'], orderId: parameters['orderId'], amount, currency: 'INR' };
+  const methods = pinnedMethods(parameters['methods']);
+  return methods ? { keyId: parameters['keyId'], orderId: parameters['orderId'], amount, currency: 'INR', methods } : null;
+}
+
+/** A nonempty, duplicate-free subset of the full-payment methods, declared as a comma-separated list. */
+function pinnedMethods(declared: string): string[] | null {
+  const methods = declared.split(',');
+  return methods.every(method => FULL_PAYMENT_METHODS.includes(method)) && new Set(methods).size === methods.length
+    ? methods : null;
+}
+
+/**
+ * Razorpay's documented display configuration: one block holding exactly the pinned methods, with every default
+ * block suppressed, so a method the server would refuse to fulfil is never offered.
+ */
+function displayConfig(methods: readonly string[]) {
+  return { display: {
+    blocks: { pinned: { name: 'Pay the full amount', instruments: methods.map(method => ({ method })) } },
+    sequence: ['block.pinned'],
+    preferences: { show_default_blocks: false },
+    hide: HIDDEN_METHODS.map(method => ({ method })),
+  } };
 }
 
 interface RazorpayConstructor {
@@ -84,7 +108,7 @@ export async function openRazorpayCheckout(launch: RazorpayLaunch, signal?: Abor
       amount: launch.amount,
       currency: launch.currency,
       name: 'InteliBill',
-      config: { display: { hide: HIDDEN_METHODS.map(method => ({ method })) } },
+      config: displayConfig(launch.methods),
       handler: (response: unknown) => {
         const proof = proofOf(response, launch.orderId);
         resolve(proof ? { kind: 'success', proof } : { kind: 'cancelled' });
