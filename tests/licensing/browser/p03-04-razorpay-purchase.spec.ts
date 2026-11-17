@@ -19,12 +19,14 @@ const SCRIPT = 'https://checkout.razorpay.com/v1/checkout.js';
 /**
  * Fixture stand-in for Razorpay's hosted script, served only for the fixed provider URL. Its checkout "pays" by
  * calling the page handler with a forged signature: the browser can only ever make a claim. With
- * `window.__razorpayHold` set, the callback stays outstanding until `window.__razorpayComplete()` fires it.
+ * `window.__razorpayHold` set, the callback stays outstanding until `window.__razorpayComplete()` fires it. With
+ * `window.__razorpayDismiss` set, the customer closes the window instead, through the documented `modal.ondismiss`.
  */
 const FIXTURE_SCRIPT = `
 window.Razorpay = class {
   constructor(options) { this.options = options; window.__razorpayOptions = options; }
   open() {
+    if (window.__razorpayDismiss) { this.options.modal.ondismiss(); return; }
     const complete = () => this.options.handler({
       razorpay_payment_id: 'pay_forged000001',
       razorpay_order_id: this.options.order_id,
@@ -34,7 +36,9 @@ window.Razorpay = class {
   }
 };`;
 
-type FixtureWindow = { __razorpayOptions?: Record<string, unknown>; __razorpayHold?: boolean; __razorpayComplete?: () => void };
+type FixtureWindow = {
+  __razorpayOptions?: Record<string, unknown>; __razorpayHold?: boolean; __razorpayDismiss?: boolean; __razorpayComplete?: () => void;
+};
 
 async function open(browser: Browser, target = route) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'en-IN', timezoneId: 'Asia/Kolkata' });
@@ -264,4 +268,56 @@ test('@recheck the original order fulfils through Check again after the account 
   await expect(page.getByTestId('payment-applying')).toContainText('Applying access to 0 of 1 shops');
   await page.screenshot({ path: join(evidence, 'recheck-confirmed-desktop.png'), fullPage: true });
   observe('recheck', { confirmed: true, originalOrder: true });
+});
+
+/** R016: a dismissed window is an unknown outcome; the original order is checked before Pay is offered again. */
+async function dismiss(page: Page) {
+  await page.evaluate(() => { (window as unknown as FixtureWindow).__razorpayDismiss = true; });
+  const check = verifyAnswer(page);
+  await page.getByTestId('payment-razorpay-pay').click();
+  const answer = await check;
+  expect(answer.status()).toBe(200);
+  expect(answer.request().postDataJSON()).toEqual({ launcherOutcome: null });
+  return { answer: await answer.json(), launched: await options(page) };
+}
+
+test('@dismiss-idle a window dismissed before any transaction resumes the same idle order', async ({ browser }) => {
+  const { page } = await open(browser);
+  const started = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/payment/attempts'));
+  await page.getByRole('button', { name: 'Continue to payment' }).click();
+  expect((await started).status()).toBe(201);
+  const { answer, launched } = await dismiss(page);
+  expect(answer.payment).toBe('AwaitingPayment');
+  expect(answer.launch.parameters.orderId).toBe(launched?.['order_id']);
+  await expect(page.getByTestId('payment-razorpay-pay')).toBeVisible();
+  await expect(page.getByTestId('payment-pending')).toHaveCount(0);
+  expect(await savedState(page)).toBe('awaiting');
+  await page.screenshot({ path: join(evidence, 'dismiss-idle-desktop.png'), fullPage: true });
+  observe('dismiss-idle', { recheck: answer.payment, sameOrder: answer.launch.parameters.orderId });
+});
+
+test('@dismiss-authorized a window dismissed with a provider payment authorized stays pending without Pay', async ({ browser }) => {
+  const { page } = await open(browser);
+  await expect(page.getByTestId('payment-razorpay-pay')).toBeVisible();
+  const { answer } = await dismiss(page);
+  expect([answer.payment, answer.launch]).toEqual(['PendingVerification', null]);
+  await expect(page.getByTestId('payment-pending')).toBeVisible();
+  await expect(page.getByTestId('payment-razorpay-pay')).toHaveCount(0);
+  expect(await savedState(page)).toBe('pending');
+  await page.reload();
+  await expect(page.getByTestId('payment-pending')).toBeVisible();
+  await expect(page.getByTestId('payment-razorpay-pay')).toHaveCount(0);
+  await page.screenshot({ path: join(evidence, 'dismiss-authorized-pending-desktop.png'), fullPage: true });
+  observe('dismiss-authorized', { recheck: answer.payment, launch: answer.launch, payOffered: false });
+});
+
+test('@dismiss-captured the same attempt is verified once its payment is captured', async ({ browser }) => {
+  const { page } = await open(browser);
+  const confirmed = page.getByTestId('payment-confirmed');
+  await expect(confirmed.or(page.getByTestId('payment-check'))).toBeVisible();
+  if (!await confirmed.isVisible()) await page.getByTestId('payment-check').click({ timeout: 3000 }).catch(() => undefined);
+  await expect(confirmed).toHaveText('Payment confirmed');
+  await expect(page.getByTestId('payment-applying')).toContainText('Applying access to 0 of 1 shops');
+  await page.screenshot({ path: join(evidence, 'dismiss-captured-desktop.png'), fullPage: true });
+  observe('dismiss-captured', { confirmed: true });
 });

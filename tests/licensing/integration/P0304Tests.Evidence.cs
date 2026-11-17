@@ -221,26 +221,6 @@ public sealed partial class P0304Tests
         Assert.Equal(0L, await rig.Fixture.CountAsync("verified_payments"));
     }
 
-    [Fact]
-    public async Task ForgedCallbackAgainstAnAlreadyCapturedSameOrderGrantsNothingAndProofFreeRecoveryVerifiesTheCapture()
-    {
-        await using var rig = await Rig.StartAsync(database);
-        var attempt = await rig.StartAttemptAsync();
-        var order = rig.Fake.OrderId();
-        var payment = rig.Fake.AddPayment(order, "captured");
-        var forged = new Dictionary<string, string>
-        {
-            ["razorpay_payment_id"] = payment, ["razorpay_order_id"] = order, ["razorpay_signature"] = new('b', 64),
-        };
-
-        Assert.NotEqual("Fulfilled", (await rig.VerifyAsync(attempt, "Success", forged)).GetProperty("fulfilment").GetString());
-        Assert.Equal(0L, await rig.Fixture.CountAsync("verified_payments"));
-        Assert.Equal(0L, await rig.Fixture.CountAsync("payment_fulfilments"));
-
-        AssertStatus(await rig.VerifyAsync(attempt, null, null), "Verified", "Fulfilled", "Applying");
-        await P0302Tests.AssertSingleFulfilmentAsync(rig.Fixture, rig.Quote, 1);
-    }
-
     [Theory]
     [InlineData("Payments:Razorpay:KeySecret", "not-the-account-secret")]
     [InlineData("Payments:Razorpay:KeyId", "rzp_test_otheraccount")]

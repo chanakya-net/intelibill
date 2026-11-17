@@ -24,6 +24,7 @@ public sealed class P0304BrowserTests(LicensingPostgreSqlFixture database, ITest
     private const string Configuration = "../../tests/licensing/browser/playwright.p0304.config.ts";
     private static readonly string[] Phases = ["forged", "authorized", "captured", "applied"];
     private static readonly string[] RecoveryPhases = ["lost", "tabs", "recheck"];
+    private static readonly string[] DismissalPhases = ["dismiss-idle", "dismiss-authorized", "dismiss-captured"];
 
     [P0304BrowserFact]
     [Trait("Category", "Browser")]
@@ -79,6 +80,33 @@ public sealed class P0304BrowserTests(LicensingPostgreSqlFixture database, ITest
         Assert.Equal(1, fake.Posts);
         await P0302Tests.AssertSingleFulfilmentAsync(fixture, run.Quote, 1);
         await RecordAsync(fixture, run, fake, "recovery-build-and-postgres.json", RecoveryPhases, session.Timeout);
+    }
+
+    /// <summary>
+    /// R016: closing the hosted window is an unknown outcome. Before any transaction the proof-free check proves the
+    /// original order idle and offers it again; with a payment already authorized it stays pending with no Pay, and
+    /// the same attempt is verified once that payment is captured. One provider order throughout.
+    /// </summary>
+    [P0304BrowserFact]
+    [Trait("Category", "Browser")]
+    public async Task DismissedRazorpayWindowIsCheckedServerSideBeforePayIsOfferedAgain()
+    {
+        await using var session = await Session.StartAsync(database);
+        var (fixture, fake, run) = (session.Fixture, session.Fake, session.Run);
+
+        await RunAsync(run, session.Origin, "dismiss-idle", session.Timeout);
+        Assert.Equal(1, fake.Posts);
+        var payment = fake.AddPayment(fake.OrderId(), "authorized");
+        await RunAsync(run, session.Origin, "dismiss-authorized", session.Timeout);
+        Assert.Equal(1, fake.Posts);
+        Assert.Equal(0L, await fixture.CountAsync("verified_payments"));
+        Assert.Equal(0L, await fixture.CountAsync("payment_fulfilments"));
+
+        fake.Transition(payment, "captured");
+        await RunAsync(run, session.Origin, "dismiss-captured", session.Timeout);
+        Assert.Equal(1, fake.Posts);
+        await P0302Tests.AssertSingleFulfilmentAsync(fixture, run.Quote, 1);
+        await RecordAsync(fixture, run, fake, "dismissal-build-and-postgres.json", DismissalPhases, session.Timeout);
     }
 
     private sealed class Session : IAsyncDisposable

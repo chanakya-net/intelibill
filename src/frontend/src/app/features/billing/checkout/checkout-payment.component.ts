@@ -32,7 +32,8 @@ type LaunchTicket = {
   readonly attempt: string | null | undefined;
   readonly providerOrder: string;
 };
-type QueuedOutcome = { readonly ticket: LaunchTicket; readonly proof: Readonly<Record<string, string>> };
+/** A signed success relays its proof; a dismissed window (`proof: null`) asks for a proof-free check of the order. */
+type QueuedOutcome = { readonly ticket: LaunchTicket; readonly proof: Readonly<Record<string, string>> | null };
 
 const draftStates: Record<Exclude<CheckoutPayment['payment'], 'NotStarted'>, Exclude<PaymentDraftState, 'intent'>> = {
   AwaitingPayment: 'awaiting', PendingVerification: 'pending', Verified: 'verified', Failed: 'failed',
@@ -55,6 +56,8 @@ export class CheckoutPaymentComponent {
   private ticks = 0;
   private ticket: LaunchTicket | null = null;
   private queued: QueuedOutcome | null = null;
+  /** A cross-tab draft change that arrived while a request ran; reread before Pay can be offered again. */
+  private storageDeferred = false;
 
   readonly quote = input.required<Quote>();
   protected readonly payment = signal<CheckoutPayment | null>(null);
@@ -103,8 +106,9 @@ export class CheckoutPaymentComponent {
 
   protected onStorage(event: StorageEvent) {
     const scope = this.scope();
-    if (scope && event.key === this.drafts.paymentKey(scope, this.quote().orderId) && !this.busy())
-      this.restore();
+    if (!scope || event.key !== this.drafts.paymentKey(scope, this.quote().orderId)) return;
+    if (this.busy()) this.storageDeferred = true;
+    else this.restore();
   }
 
   protected start() {
@@ -138,14 +142,15 @@ export class CheckoutPaymentComponent {
 
   /**
    * Relays the browser's unverified report for the attempt that was on screen when the window opened. A report that
-   * outlives its scope or order is dropped, and one that lands while another request runs waits for it.
+   * outlives its scope or order is dropped, and one that lands while another request runs waits for it. A dismissed
+   * window is an unknown outcome: a payment may already be in flight, so the original order is checked server-side,
+   * proof-free, and offered again only if that check proves it idle.
    */
   protected razorpayOutcome(outcome: RazorpayOutcome) {
     const ticket = this.ticket;
     this.ticket = null;
-    // A dismissed window proves nothing and changes nothing: the order stays payable and no check is recorded.
-    if (!ticket || outcome.kind === 'cancelled' || !this.ticketCurrent(ticket) || !ticket.attempt) return;
-    this.queued = { ticket, proof: outcome.proof };
+    if (!ticket || !this.ticketCurrent(ticket) || !ticket.attempt) return;
+    this.queued = { ticket, proof: outcome.kind === 'success' ? outcome.proof : null };
     this.drainQueued();
   }
 
@@ -160,8 +165,9 @@ export class CheckoutPaymentComponent {
     if (!this.ticketCurrent(queued.ticket) || !queued.ticket.attempt) return;
     const attempt = queued.ticket.attempt;
     void this.run(async invocation => {
-      if (await this.rememberPending(invocation, attempt))
-        await this.verifyAttempt(invocation, attempt, 'Success', queued.proof);
+      if (!await this.rememberPending(invocation, attempt)) return;
+      if (queued.proof) await this.verifyAttempt(invocation, attempt, 'Success', queued.proof);
+      else await this.verifyAttempt(invocation, attempt, null);
     });
   }
 
@@ -194,6 +200,7 @@ export class CheckoutPaymentComponent {
   private restore() {
     this.generation++;
     this.ticket = this.queued = null;
+    this.storageDeferred = false;
     this.polls = this.ticks = 0;
     this.busy.set(false);
     this.payment.set(null);
@@ -291,8 +298,20 @@ export class CheckoutPaymentComponent {
     } catch (error) {
       if (current() && !quiet) this.problem.set(paymentFailure(error));
     } finally {
+      if (current()) this.applyDeferredStorage(scope, order);
       if (current()) this.busy.set(false);
       if (current()) queueMicrotask(() => this.drainQueued());
+    }
+  }
+
+  /** Rereads the owner-bound draft another tab changed mid-request, so a newer pending claim keeps Pay hidden. */
+  private applyDeferredStorage(scope: CheckoutScope, order: string) {
+    if (!this.storageDeferred) return;
+    this.storageDeferred = false;
+    try {
+      this.draft.set(this.drafts.readPayment(scope, order));
+    } catch {
+      this.problem.set('unavailable');
     }
   }
 }

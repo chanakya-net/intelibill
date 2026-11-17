@@ -98,12 +98,29 @@ internal static class RazorpayWire
         order.Status == "paid" && order.AmountPaid == order.Amount && order.AmountDue == 0;
 
     /// <summary>
-    /// The order is provably unpaid and may be resumed: still open, explicitly nothing paid and the full amount due,
-    /// and every payment made against it failed.
+    /// How long after its creation a Failed payment may still turn Authorized. Razorpay marks a payment Failed when the
+    /// bank has not answered within minutes, then keeps polling for up to three days and moves it to Authorized if
+    /// the debit went through (late authorization). One extra day covers clock skew and delayed status propagation.
     /// </summary>
-    internal static bool ConfirmedUnpaid(WireOrder order, IReadOnlyList<WirePayment> payments) =>
+    internal static readonly TimeSpan LateAuthorizationWindow = TimeSpan.FromDays(4);
+
+    /// <summary>
+    /// The order is provably unpaid and may be resumed: still open, explicitly nothing paid and the full amount due,
+    /// and every payment made against it failed long enough ago that no late authorization can still arrive. A
+    /// timed-out or otherwise recent failure is indeterminate, whatever its stated reason.
+    /// </summary>
+    internal static bool ConfirmedUnpaid(WireOrder order, IReadOnlyList<WirePayment> payments, DateTimeOffset now) =>
         order.Status is "created" or "attempted" && order.AmountPaid == 0 && order.AmountDue == order.Amount &&
-        payments.All(payment => payment is { Status: "failed", Captured: false });
+        payments.All(payment => payment is { Status: "failed", Captured: false } &&
+            now - payment.CreatedAt > LateAuthorizationWindow);
+
+    /// <summary>
+    /// A late authorization Razorpay refunded on its own without capturing it, as it does for a duplicate payment on an
+    /// already paid order: refunded status, never captured, nothing captured and the whole amount refunded.
+    /// </summary>
+    internal static bool AutoRefundedAuthorization(WirePayment payment) =>
+        payment is { Status: "refunded", Captured: false, RefundStatus: "full" } &&
+        payment.AmountCaptured is null or 0 && payment.AmountRefunded == payment.Amount;
 
     /// <summary>Anything that says money may have moved: a paid status, a paid or reduced due total.</summary>
     internal static bool ClaimsFunds(WireOrder order) =>

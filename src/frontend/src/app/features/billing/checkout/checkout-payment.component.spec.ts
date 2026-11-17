@@ -249,13 +249,82 @@ describe('CheckoutPaymentComponent', () => {
       expect(page.text('payment-confirmed')).toBeNull();
     });
 
-    it('sends nothing when the checkout window is dismissed and keeps the order payable', async () => {
+    it('rechecks the original order after a dismissed window and offers it again only once proven idle', async () => {
       open({ kind: 'cancelled' });
       const page = await render(status({ launch }));
       page.click('payment-razorpay-pay');
+      const check = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      await page.update();
+      expect(check.request.body).toEqual({ launcherOutcome: null });
+      expect(page.text('payment-pending')).toBe(t.pending);
+      expect(page.text('payment-razorpay-pay')).toBeNull();
+      check.flush(status({ launch }));
       await page.update();
       expect(page.text('payment-razorpay-pay')).not.toBeNull();
       expect(page.text('payment-pending')).toBeNull();
+      expect(TestBed.inject(CheckoutDrafts).readPayment({ ...owner, account }, order)?.state).toBe('awaiting');
+    });
+
+    it('keeps Pay hidden after a dismissed window while a provider payment is in flight, then verifies the same attempt', async () => {
+      open({ kind: 'cancelled' });
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      const check = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      check.flush(status({ payment: 'PendingVerification', launch: null }));
+      await page.update();
+      expect(page.text('payment-pending')).toBe(t.pending);
+      expect(page.text('payment-razorpay-pay')).toBeNull();
+
+      page.click('payment-check');
+      const again = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(again.request.body).toEqual({ launcherOutcome: null });
+      again.flush(verified('Applying', 0));
+      await page.update();
+      expect(page.text('payment-confirmed')).toBe(t.confirmed);
+    });
+
+    it('drops a dismissal that lands after the account scope changed', async () => {
+      let finish: (outcome: RazorpayOutcome) => void = () => undefined;
+      razorpayOpener = () => new Promise<RazorpayOutcome>(resolve => { finish = resolve; });
+      const page = await render(status({ launch }));
+      page.click('payment-razorpay-pay');
+      await page.update();
+      contextScope.set({ userId: id(8), shopId: id(9) });
+      await page.update();
+      http.expectOne({ method: 'GET', url: path }).flush(notStarted);
+      finish({ kind: 'cancelled' });
+      await page.update();
+      http.expectNone({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+    });
+
+    it('applies a pending claim another tab saved while its own recheck failed', async () => {
+      const drafts = TestBed.inject(CheckoutDrafts);
+      const scope = { ...owner, account };
+      const tabA = await render(status({ launch }));
+      const tabB = await render(status({ launch }));
+      expect(tabB.text('payment-razorpay-pay')).not.toBeNull();
+
+      tabB.click('payment-razorpay-check');
+      const held = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      open({ kind: 'success', proof });
+      tabA.click('payment-razorpay-pay');
+      const claim = await vi.waitFor(() => http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` }));
+      expect(drafts.readPayment(scope, order)?.state).toBe('pending');
+      window.dispatchEvent(new StorageEvent('storage', { key: drafts.paymentKey(scope, order) }));
+      claim.flush(status({ payment: 'PendingVerification', launch: null }));
+      await tabA.update();
+
+      held.flush({ code: 'Billing.Unavailable' }, { status: 503, statusText: 'Service Unavailable' });
+      await tabB.update();
+      expect(tabB.text('payment-razorpay-pay')).toBeNull();
+      expect(tabB.text('payment-pending')).toBe(t.pending);
+
+      tabB.click('payment-check');
+      const again = http.expectOne({ method: 'POST', url: `${path}/attempts/${attempt}/verify` });
+      expect(again.request.body).toEqual({ launcherOutcome: null });
+      again.flush(status({ payment: 'PendingVerification', launch: null }));
+      await tabB.update();
+      expect(tabB.text('payment-razorpay-pay')).toBeNull();
     });
     it('drops a callback that lands after the account scope changed', async () => {
       let finish: (outcome: RazorpayOutcome) => void = () => undefined;

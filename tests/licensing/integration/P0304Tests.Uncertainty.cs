@@ -74,9 +74,13 @@ public sealed partial class P0304Tests
 
         await AssertHeldWithoutLauncherAsync(rig, await stale);
 
-        // A later genuinely unpaid recheck still resumes the same remote order.
+        // A later genuinely unpaid recheck still resumes the same remote order: a failed payment rules out the
+        // debit only once Razorpay's late-authorization window has passed (R004).
         if (authorized is not null)
+        {
             (rig.Fake.Payment(authorized)["status"], rig.Fake.Payment(authorized)["captured"]) = ("failed", false);
+            rig.Fixture.CheckoutClock.Now = rig.Fixture.CheckoutClock.Now.AddDays(4).AddSeconds(1);
+        }
         var resumed = await rig.VerifyAsync(attempt, null, null);
         AssertStatus(resumed, "AwaitingPayment", "NotFulfilled", "NotApplicable");
         Assert.Equal(order, resumed.GetProperty("launch").GetProperty("parameters").GetProperty("orderId").GetString());

@@ -13,7 +13,7 @@ namespace Intelibill.Licensing.Infrastructure.Payments.Razorpay;
 /// authenticated read of the order and its payments. A browser callback is at most an unverified hint. Refunds and
 /// webhooks are not part of this adapter yet and answer <see cref="GatewayOutcome.Unsupported"/>.
 /// </summary>
-internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfiguration config) : IPaymentGateway
+internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfiguration config, TimeProvider clock) : IPaymentGateway
 {
     internal const string ClientName = "razorpay-gateway";
 
@@ -71,7 +71,8 @@ internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfigura
 
     public async Task<GatewayResult<PaymentObservation>> VerifyCheckoutAsync(CheckoutVerification request, CancellationToken ct)
     {
-        if (request.LauncherProof is { } proof && !ProofMatches(proof, request.ProviderOrderReference))
+        // Razorpay signs every successful checkout callback: a reported success without a valid signature is refused.
+        if (request.LauncherProof is { } proof ? !ProofMatches(proof, request.ProviderOrderReference) : request.SuccessClaimed)
             return GatewayResult.Rejected<PaymentObservation>();
         var order = await ReadOrderAsync(request, ct);
         if (order.Failure is { } failure)
@@ -79,11 +80,15 @@ internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfigura
         var payments = await ReadOrderPaymentsAsync(request.ProviderOrderReference, ct);
         if (payments.Outcome != GatewayOutcome.Succeeded)
             return new(payments.Outcome, null);
-        var captured = payments.Value!.Where(p => p.Captured || p.Status is "captured" or "refunded").ToList();
+        var candidates = payments.Value!.Where(p => p.Captured || p.Status is "captured" or "refunded").ToList();
+        var autoRefunded = candidates.Where(RazorpayWire.AutoRefundedAuthorization).ToList();
+        var captured = candidates.Except(autoRefunded).ToList();
         if (captured.Count == 0)
             return Uncaptured(request, order.Order!, payments.Value!);
         if (captured is not [var entry])
             return GatewayResult.Rejected<PaymentObservation>();
+        if (await ConfirmAutoRefundsAsync(autoRefunded, ct) is { } refundsUnproven)
+            return new(refundsUnproven, null);
         // The independent read of the payment itself must agree with the collection entry before funds are trusted.
         var single = await ReadPaymentAsync(entry.Id, ct);
         if (single.Failure is { } unavailable)
@@ -104,9 +109,26 @@ internal sealed partial class RazorpayGateway(HttpClient http, RazorpayConfigura
             return GatewayResult.Rejected<PaymentObservation>();
         if (payments.FirstOrDefault(p => p.Status == "authorized") is { } authorized)
             return GatewayResult.Success(RazorpayWire.Observe(Pin, authorized));
-        var unpaid = RazorpayWire.ConfirmedUnpaid(order, payments);
+        var unpaid = RazorpayWire.ConfirmedUnpaid(order, payments, clock.GetUtcNow());
         return GatewayResult.Success(new PaymentObservation(Pin, request.ProviderOrderReference, null, ObservedPaymentState.Pending,
             request.ExpectedAmountPaise, request.ExpectedCurrency, null, ConfirmedUnpaid: unpaid, FundingAmbiguous: !unpaid));
+    }
+
+    /// <summary>
+    /// Each separately auto-refunded late authorization must read back, on its own, exactly as the collection listed it:
+    /// never captured and refunded in full. Anything else leaves the funding ambiguous.
+    /// </summary>
+    private async Task<GatewayOutcome?> ConfirmAutoRefundsAsync(IReadOnlyList<WirePayment> entries, CancellationToken ct)
+    {
+        foreach (var entry in entries)
+        {
+            var read = await ReadPaymentAsync(entry.Id, ct);
+            if (read.Failure is { } failure)
+                return failure;
+            if (read.Payment is not { } entity || entity != entry || !RazorpayWire.AutoRefundedAuthorization(entity))
+                return GatewayOutcome.Rejected;
+        }
+        return null;
     }
 
     public async Task<GatewayResult<PaymentObservation>> GetPaymentAsync(string providerPaymentReference, CancellationToken ct)

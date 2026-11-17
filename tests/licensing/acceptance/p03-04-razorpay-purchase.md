@@ -26,7 +26,13 @@ and reload recover the original unpaid order), `tabs` (a second tab's older
 awaiting read cannot reopen a newer pending claim; a fresh recheck reopens the
 same order; a checkout callback left outstanding across a change to a second
 billing account sends no verification), `recheck` (the original order fulfils
-through Check again with one provider order POST).
+through Check again with one provider order POST). Third run
+(`dismissal-build-and-postgres.json`): `dismiss-idle` (closing the window before
+any transaction sends a proof-free check, which proves the same order idle and
+offers it again), `dismiss-authorized` (closing it with a provider payment
+already authorized stays pending with no Pay, also after reload),
+`dismiss-captured` (the same attempt verifies once that payment is captured; one
+provider order POST throughout).
 
 Fixture limits: nothing here contacts Razorpay, validates the hosted checkout
 page, or proves account activation, enabled methods or webhook reachability.
@@ -55,7 +61,11 @@ identically by three authenticated reads. The order must be `paid` with explicit
 payment collection must hold exactly one captured candidate; the payment's own
 read must equal that collection entry field for field, state `captured`, carry
 an explicit `amount_refunded` of zero and no refund status, and use one of the
-configured methods. Only `amount_captured` (which must equal the amount when
+configured methods. A separate late authorization that Razorpay auto-refunded
+without capturing (status `refunded`, `captured` false, `refund_status` `full`,
+`amount_refunded` equal to the amount, nothing captured) is not a second
+candidate, but only when its own payment read agrees field for field; any
+partial, pending or contradictory refund keeps the order held. Only `amount_captured` (which must equal the amount when
 present) and `partial_payment` (which must be a boolean when present) may be
 absent. Anything absent, null, contradictory or ambiguous is held as pending
 verification and grants no term.
@@ -63,12 +73,24 @@ verification and grants no term.
 Recovery: a pending order is offered again only when a proof-free recheck (never
 a request carrying a browser claim) reads the original order as `created` or
 `attempted` with explicit `amount_paid` 0, `amount_due` equal to the amount and
-only failed payments. That appends `ResumeConfirmed` (migration
+only failed payments, each created more than four days before the check
+(Razorpay may move a timed-out Failed payment to Authorized during its three-day
+late-authorization polling; one day of margin). A recent failure, whatever its
+reason, keeps the order pending without a launcher. That appends `ResumeConfirmed` (migration
 `20261117140000_PaymentResumeConfirmation`, payment-event insertion sequence);
 later uncertainty is judged after the latest confirmation. A paid order with no
 captured payment, an authorization, an in-flight payment or absent totals keep
 the attempt pending without a launcher. The web draft reopens a saved pending
-attempt only for such a recheck sent after that pending state was saved.
+attempt only for such a recheck sent after that pending state was saved. A tab
+that receives another tab's draft change while its own request runs rereads the
+saved draft when that request ends, success or failure, before Pay can return.
+
+Callbacks: Razorpay signs every successful checkout callback, so a reported
+`Success` whose `launcherProof` is omitted, null or fails the HMAC check is held
+pending and never fulfils, even against an already captured order; a separate
+proof-free recheck still verifies such a capture independently. A dismissed
+window is an unknown outcome: the web app records it as pending and runs a
+proof-free check of the original order before offering Pay again.
 
 Methods: `Payments:Razorpay:Methods` must be listed explicitly (no default; a
 default array would merge with a narrower configured list), without duplicates,

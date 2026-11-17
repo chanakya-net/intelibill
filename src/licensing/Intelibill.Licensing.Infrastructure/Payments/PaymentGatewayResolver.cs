@@ -1,6 +1,7 @@
 using Intelibill.Licensing.Application.Payments;
 using Intelibill.Licensing.Infrastructure.Payments.Development;
 using Intelibill.Licensing.Infrastructure.Payments.Razorpay;
+using Intelibill.Shared.Contracts.V1;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -40,7 +41,7 @@ internal sealed class PaymentGatewayResolver(IServiceProvider services, IOptions
             return null;
         var client = services.GetRequiredService<IHttpClientFactory>().CreateClient(RazorpayGateway.ClientName);
         client.BaseAddress = config.BaseAddress;
-        return new(client, config);
+        return new(client, config, services.GetRequiredKeyedService<TimeProvider>(CheckoutOrdersV1.Policy));
     }
 
     private DevelopmentPaymentGateway? Simulator() => SimulatorEnabled(options.Value, environment)

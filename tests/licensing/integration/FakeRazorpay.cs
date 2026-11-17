@@ -108,6 +108,21 @@ internal sealed class FakeRazorpay : HttpMessageHandler
         }
     }
 
+    /// <summary>Moves an existing payment to a new status in place, as Razorpay's own state machine would.</summary>
+    internal void Transition(string paymentId, string status)
+    {
+        lock (gate)
+        {
+            var payment = payments.Single(p => p["id"]!.GetValue<string>() == paymentId);
+            (payment["status"], payment["captured"]) = (status, status == "captured");
+            if (status != "captured")
+                return;
+            var order = orders[payment["order_id"]!.GetValue<string>()];
+            payment["amount_captured"] = payment["amount"]!.GetValue<long>();
+            (order["amount_paid"], order["amount_due"], order["status"]) = (order["amount"]!.GetValue<long>(), 0, "paid");
+        }
+    }
+
     internal static string Sign(string orderId, string paymentId) => Convert.ToHexStringLower(
         HMACSHA256.HashData(Encoding.UTF8.GetBytes(KeySecret), Encoding.UTF8.GetBytes($"{orderId}|{paymentId}")));
 

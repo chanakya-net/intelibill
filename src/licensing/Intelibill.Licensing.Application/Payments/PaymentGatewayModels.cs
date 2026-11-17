@@ -28,9 +28,11 @@ public sealed record CheckoutLookup(PaymentProviderPin Pin, CheckoutRequest Requ
 /// <summary>
 /// What the server expects of one provider order. The ownership context lets an adapter prove the remote order was
 /// created for this attempt; the optional launcher proof is the browser's unverified claim.
+/// <see cref="SuccessClaimed"/> marks a browser report of success, which an adapter whose launcher signs its
+/// callback refuses without that proof; a proof-free recheck never sets it.
 /// </summary>
 public sealed record CheckoutVerification(string ProviderOrderReference, long ExpectedAmountPaise, string ExpectedCurrency,
-    CheckoutRequest? Context = null, IReadOnlyDictionary<string, string>? LauncherProof = null);
+    CheckoutRequest? Context = null, IReadOnlyDictionary<string, string>? LauncherProof = null, bool SuccessClaimed = false);
 
 public enum ObservedPaymentState { Pending, Authorized, Captured, Failed }
 

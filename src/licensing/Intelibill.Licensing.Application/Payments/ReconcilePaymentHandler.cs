@@ -13,8 +13,9 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
     /// may, and only on the adapter's fresh confirmation that the original order is unpaid.
     /// </summary>
     public Task<ErrorOr<bool>> HandleAsync(StoredPaymentAttempt attempt, CancellationToken ct,
-        IReadOnlyDictionary<string, string>? launcherProof = null, bool launcherClaim = false) =>
-        ReconcileAsync(attempt, false, null, ct, launcherProof, launcherClaim || launcherProof is not null);
+        IReadOnlyDictionary<string, string>? launcherProof = null, bool launcherClaim = false, bool successClaim = false) =>
+        ReconcileAsync(attempt, false, null, new(launcherProof, launcherClaim || launcherProof is not null || successClaim,
+            successClaim), ct);
 
     public async Task<ErrorOr<bool>> HandleLeaseAsync(PendingPaymentLease lease, CancellationToken ct)
     {
@@ -26,15 +27,15 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
                     return CheckoutPaymentErrors.Missing;
                 return (attempt, await store.HasVerifiedPaymentAsync(lease.AttemptId, token));
             }, ct);
-        return loaded.IsError ? loaded.Errors : await ReconcileAsync(loaded.Value.Attempt, loaded.Value.Verified, lease, ct);
+        return loaded.IsError ? loaded.Errors : await ReconcileAsync(loaded.Value.Attempt, loaded.Value.Verified, lease, Claim.None, ct);
     }
 
     private async Task<ErrorOr<bool>> ReconcileAsync(StoredPaymentAttempt attempt, bool verified, PendingPaymentLease? lease,
-        CancellationToken ct, IReadOnlyDictionary<string, string>? launcherProof = null, bool launcherClaim = false)
+        Claim claim, CancellationToken ct)
     {
         // A proof-free read may only resume what was uncertain before it began; the fence is taken before the network.
         long? fence = null;
-        if (!verified && !launcherClaim)
+        if (!verified && !claim.Present)
         {
             var counted = await store.InAttemptScopeAsync<long>(attempt.AccountId, attempt.AttemptId, false,
                 async token => await store.CountVerificationRequestsAsync(attempt.AttemptId, token), ct);
@@ -42,7 +43,7 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
                 return counted.Errors;
             fence = counted.Value;
         }
-        var observed = verified ? null : await ObserveAsync(attempt, launcherProof, ct);
+        var observed = verified ? null : await ObserveAsync(attempt, claim, ct);
         return await store.InAttemptScopeAsync<bool>(attempt.AccountId, attempt.AttemptId, true, async token =>
         {
             var now = leaseClock.GetUtcNow();
@@ -59,8 +60,7 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
         }, ct);
     }
 
-    private async Task<RecoveryObservation?> ObserveAsync(StoredPaymentAttempt attempt,
-        IReadOnlyDictionary<string, string>? launcherProof, CancellationToken ct)
+    private async Task<RecoveryObservation?> ObserveAsync(StoredPaymentAttempt attempt, Claim claim, CancellationToken ct)
     {
         if (gateways.ForPin(attempt.Pin) is not { } gateway || gateway.Pin != attempt.Pin)
             return null;
@@ -79,7 +79,7 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
         }
 
         var verification = new CheckoutVerification(reference, attempt.AmountPaise, attempt.Currency,
-            Request(attempt), launcherProof);
+            Request(attempt), claim.Proof, claim.Success);
         var result = await PaymentGatewayCall.RunAsync(token => gateway.VerifyCheckoutAsync(verification, token), ct);
         return new(session, result.Outcome == GatewayOutcome.Succeeded ? result.Value : null);
     }
@@ -157,4 +157,10 @@ public sealed class ReconcilePaymentHandler(IPaymentStore store, IPaymentGateway
         CheckoutPaymentsV1.LauncherFlows.Contains(session.LauncherFlow);
 
     private sealed record RecoveryObservation(CheckoutSession? Session, PaymentObservation? Payment);
+
+    /// <summary>The browser's report, if any: its optional proof, and whether it reported success.</summary>
+    private sealed record Claim(IReadOnlyDictionary<string, string>? Proof, bool Present, bool Success)
+    {
+        internal static readonly Claim None = new(null, false, false);
+    }
 }
