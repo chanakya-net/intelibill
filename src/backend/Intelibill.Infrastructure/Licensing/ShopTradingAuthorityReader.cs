@@ -36,7 +36,7 @@ internal sealed class ShopTradingAuthorityReader(ApplicationDbContext db, ILiveS
             await transaction.CommitAsync(ct);
             return decision is { Outcome: LicenceOutcome.Allowed, AuthorityVerifiedAt: { } verified, ValidUntil: { } until }
                 ? new ShopTradingAuthorityV1(1, shopId, verified, until, decision.Enforced)
-                : decision.Denial ?? LicenceErrors.VerificationUnavailable;
+                : WithEnforcement(decision.Denial ?? LicenceErrors.VerificationUnavailable, decision.Enforced);
         }
         catch (Exception error) when (error is NpgsqlException or TimeoutException)
         {
@@ -44,4 +44,7 @@ internal sealed class ShopTradingAuthorityReader(ApplicationDbContext db, ILiveS
             return LicenceErrors.VerificationUnavailable;
         }
     }
+
+    private static Error WithEnforcement(Error error, bool enforced) =>
+        Error.Custom(error.NumericType, error.Code, error.Description, new() { ["enforced"] = enforced });
 }

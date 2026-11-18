@@ -61,6 +61,9 @@ public sealed partial class P0402LicensingTests
             Assert.Equal(expected.GetProperty("status").GetInt32(), body.GetProperty("status").GetInt32());
         }
 
+        if (expected.TryGetProperty("enforced", out var enforced))
+            Assert.Equal(enforced.GetBoolean(), body.GetProperty("enforced").GetBoolean());
+
         return body;
     }
 }

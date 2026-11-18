@@ -676,6 +676,23 @@ describe('SalesEffects', () => {
       expect(checkoutIntents.markUncertain).not.toHaveBeenCalled();
     });
 
+    it.each([
+      [403, 'Licence.Expired', 'expired'],
+      [503, 'Licence.VerificationUnavailable', 'unavailable'],
+    ] as const)('records a definitive licence refusal for the stored key (HTTP %s)', async (status, code, message) => {
+      checkoutIntents.send.mockReturnValue(throwError(() => new HttpErrorResponse({
+        status, error: { code, title: 'Fixture licence refusal' },
+      })));
+      const output = firstValueFrom(effects.recordSale$.pipe(take(1)));
+      actions$.next(SalesActions.recordSaleRequested({ payload: intentPayload, intentId: 'intent-1' }));
+
+      await expect(output).resolves.toEqual(SalesActions.recordSaleFailed({
+        intentId: 'intent-1', errorMessage: `billing.status.tradingAuthority.${message}`,
+      }));
+      expect(checkoutIntents.reject).toHaveBeenCalledWith('intent-1', code);
+      expect(checkoutIntents.markUncertain).not.toHaveBeenCalled();
+    });
+
     it('explains a GST document refusal of a stored intent', async () => {
       checkoutIntents.send.mockReturnValue(
         throwError(

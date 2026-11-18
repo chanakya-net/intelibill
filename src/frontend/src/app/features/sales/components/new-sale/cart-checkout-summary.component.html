@@ -148,7 +148,7 @@
     <p-button
       [label]="'sales.newSale.recordSale' | transloco"
       icon="pi pi-check"
-      [disabled]="cartLength === 0 || isSubmitting"
+      [disabled]="cartLength === 0 || isSubmitting || tradingBlocked"
       [loading]="isSubmitting"
       (click)="onSubmit()"
       size="large"

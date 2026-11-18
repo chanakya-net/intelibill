@@ -90,7 +90,7 @@ test.describe('new-sale-pos', () => {
 
       const customerName = page.locator('app-sale-customer-section input').first();
       await customerName.fill('Alexandria');
-      await page.getByText('Alexandria Cassandra Long Customer Name', { exact: true }).click();
+      await page.getByRole('option', { name: /Alexandria Cassandra Long Customer Name/ }).click();
       await expect(page.locator('app-sale-payment-section .p-inputnumber-input')).toHaveCount(2);
       await page.locator('app-sale-payment-section .p-select').click();
       await page.getByRole('option', { name: 'UPI' }).click();

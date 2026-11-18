@@ -31,7 +31,21 @@
     <p class="error" role="alert">{{ 'sales.newSale.draftSaveFailed' | transloco }}</p>
   }
 
-  @if (vm.serverError()) {
+  @let licenceMessage = vm.saleLicenceMessage();
+  @if (licenceMessage) {
+    <div class="ib-error-banner flex flex-wrap items-center justify-between gap-3">
+      <p class="m-0" role="alert">{{ licenceMessage | transloco }}</p>
+      <p-button
+        [label]="'billing.status.refresh' | transloco"
+        severity="secondary"
+        [outlined]="true"
+        [loading]="vm.saleLicence.checking()"
+        (onClick)="vm.refreshSaleLicence()"
+      />
+    </div>
+  }
+
+  @if (vm.serverError() && vm.serverError() !== licenceMessage) {
     @let serverMessage = vm.serverErrorMessage();
     <p
       class="error"
@@ -379,6 +393,7 @@
           [balanceDue]="vm.paymentForm.controls.dueAmount.value"
           [paymentSplitError]="vm.paymentSplitError()"
           [isSubmitting]="vm.isOfflineMode() ? vm.isOfflineSubmitting() : vm.isSubmitting()"
+          [tradingBlocked]="!!licenceMessage"
           [cartLength]="vm.cart().length + vm.serviceCart().length"
           [customerForm]="vm.customerForm"
           [paymentForm]="vm.paymentForm"

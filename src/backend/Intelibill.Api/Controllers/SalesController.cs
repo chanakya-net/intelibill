@@ -6,6 +6,7 @@ using Intelibill.Shared.Web.Logging;
 using Intelibill.Shared.Web.PublicErrors;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
 using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
@@ -129,6 +130,8 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
+        var session = SessionClaims.TryRead(User);
+        if (session is null) return Unauthorized();
         var creditNoteRedemptions = (request.CreditNoteRedemptions ?? []).Select(redemption =>
             new RecordSaleCreditNoteRedemptionCommand(redemption.Code, redemption.Amount)).ToList();
         var creditNoteAppliedAmount = creditNoteRedemptions.Count > 0
@@ -137,8 +140,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
 
         var result = await Bus.InvokeAsync<ErrorOr<SaleDto>>(
             new RecordSaleCommand(
-                UserId!.Value,
-                ActiveShopId!.Value,
+                session,
                 request.IdempotencyKey,
                 request.CustomerId,
                 request.CustomerName,

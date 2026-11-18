@@ -8,6 +8,14 @@ import { SalePreviewDto } from '../services/sale.models';
 import { goodsSellableToBatch } from '../utils/sellable-goods.mapper';
 
 export abstract class NewSalePageLifecycleService extends NewSalePageStateService {
+  async refreshSaleLicence(): Promise<void> {
+    const previous = this.saleLicenceMessage();
+    const applied = await this.saleLicence.refresh();
+    if (applied && previous && this.saleLicenceMessage() !== previous && this.serverError() === previous) {
+      this.salesFacade.clearError();
+    }
+  }
+
   onInit(): void {
     if (this.initialized) {
       return;
@@ -104,6 +112,12 @@ export abstract class NewSalePageLifecycleService extends NewSalePageStateServic
     void this.shopUpdatesService.startConnection();
 
     runInInjectionContext(this.injector, () => {
+      effect(() => {
+        if (this.activeShopId() && !this.isOfflineMode()) {
+          void untracked(() => this.refreshSaleLicence());
+        }
+      });
+
       effect(() => {
         const total = this.totalAmount();
         if (untracked(() => this.appliedCreditNotes().length) > 0) {

@@ -19,7 +19,8 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
     IInvoiceLeaseRepository invoiceLeaseRepository,
     IInvoiceNumberAllocator invoiceNumberAllocator,
     IUnitOfWork unitOfWork,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    IShopLicenceFence licenceFence)
 {
     [LicenceAction(LicenceAction.NewTrading)]
     public async Task<ErrorOr<InvoiceLeaseDto>> HandleAsync(ReserveInvoiceLeaseCommand command, CancellationToken cancellationToken)
@@ -64,14 +65,15 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
 
         InvoiceLease lease;
         await unitOfWork.BeginTransactionAsync(cancellationToken);
+        var committed = false;
         try
         {
+            if (await licenceFence.ReadTradingDenialAsync(shop.Id, cancellationToken) is { } denied)
+                return denied;
+
             var range = await invoiceNumberAllocator.ReserveRangeAsync(series, blockSize, cancellationToken);
             if (range.IsError)
-            {
-                await unitOfWork.RollbackTransactionAsync(cancellationToken);
                 return range.Errors;
-            }
 
             lease = InvoiceLease.Create(
                 shop.Id,
@@ -91,11 +93,12 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
             await invoiceLeaseRepository.AddAsync(lease, cancellationToken);
             await unitOfWork.SaveChangesAsync(cancellationToken);
             await unitOfWork.CommitTransactionAsync(cancellationToken);
+            committed = true;
         }
-        catch
+        finally
         {
-            await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
-            throw;
+            if (!committed)
+                await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
         }
 
         return new InvoiceLeaseDto(

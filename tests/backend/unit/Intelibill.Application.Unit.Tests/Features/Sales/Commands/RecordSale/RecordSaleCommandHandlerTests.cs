@@ -6,6 +6,7 @@ using System.Text.Json;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.DTOs;
@@ -37,7 +38,9 @@ public class RecordSaleCommandHandlerTests
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
     private readonly ICreditNoteRedemptionRepository _creditNoteRedemptionRepository = Substitute.For<ICreditNoteRedemptionRepository>();
     private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
+    private readonly IShopLicenceFence _licenceFence = Substitute.For<IShopLicenceFence>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly ILiveSessionAuthority _sessionAuthority = Substitute.For<ILiveSessionAuthority>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IInvoiceNumberAllocator _invoiceNumberAllocator = Substitute.For<IInvoiceNumberAllocator>();
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
@@ -51,7 +54,7 @@ public class RecordSaleCommandHandlerTests
 
     public RecordSaleCommandHandlerTests()
     {
-        _shopRepository.GetActiveRoleAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(ShopRole.Owner);
+        _sessionAuthority.IsValidAsync(Arg.Any<SessionClaims>(), Arg.Any<CancellationToken>()).Returns(true);
         _tillPosting.AcquireAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<TillPostingContext?>(), Arg.Any<DateOnly>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<ErrorOr<TillSession?>>((TillSession?)null));
         _saleDtoBuilder = new SaleDtoBuilder(_itemRepository, Substitute.For<ISaleCancellationRepository>());
         _shopRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
@@ -98,7 +101,7 @@ public class RecordSaleCommandHandlerTests
     }
 
     private RecordSaleCommandHandler CreateHandler() =>
-        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork, _customerRepository, _userRepository, new BusinessClock(_time), _postingPeriods, _tillPosting, ExpiryTestDoubles.Fence(), ExpiryTestDoubles.Guard(), Substitute.For<IShopLicenceFence>());
+        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork, _customerRepository, _userRepository, new BusinessClock(_time), _postingPeriods, _tillPosting, ExpiryTestDoubles.Fence(), ExpiryTestDoubles.Guard(), _licenceFence, Substitute.For<ISuspensionAccessReader>(), _sessionAuthority);
 
     private readonly MutableTimeProvider _time = new();
 
@@ -109,7 +112,7 @@ public class RecordSaleCommandHandlerTests
         var item = MakeItem(shopId, "BC-001");
         var batch = MakeBatch(shopId, item.Id, "B-01");
         var inventory = MakeInventory(shopId, item.Id);
-        var command = new RecordSaleCommand(Guid.NewGuid(), shopId, $"sale-{Guid.NewGuid():N}", customer.Id, null, null,
+        var command = new RecordSaleCommand(TestSession(Guid.NewGuid(), shopId), $"sale-{Guid.NewGuid():N}", customer.Id, null, null,
             PaymentMethod.Credit, PaidAmount: 78m, DueAmount: 40m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id)]);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
@@ -134,7 +137,7 @@ public class RecordSaleCommandHandlerTests
     [Fact]
     public void LegacyHash_Unchanged()
     {
-        var command = new RecordSaleCommand(Guid.Parse("11111111-1111-1111-1111-111111111111"), Guid.Parse("22222222-2222-2222-2222-222222222222"), "legacy", null, null, null, PaymentMethod.Cash, 0m, 0m, []);
+        var command = new RecordSaleCommand(TestSession(Guid.Parse("11111111-1111-1111-1111-111111111111"), Guid.Parse("22222222-2222-2222-2222-222222222222")), "legacy", null, null, null, PaymentMethod.Cash, 0m, 0m, []);
         Assert.Equal("1F0E553A7AC41E7C2A7D5FFBE327A07347AD8FDC9579C6F10D5B06DE47454DA4", RecordSaleIdempotencyHasher.ComputeHash(command));
         Assert.Equal(RecordSaleIdempotencyHasher.ComputeHash(command), RecordSaleIdempotencyHasher.ComputeHash(command with { Till = null, TenderLines = null, ExpiryApprovals = null }));
         Assert.NotEqual(RecordSaleIdempotencyHasher.ComputeHash(command), RecordSaleIdempotencyHasher.ComputeHash(command with { TenderLines = [] }));
@@ -200,9 +203,9 @@ public class RecordSaleCommandHandlerTests
     public async Task Replay_StillRequiresLiveShopAuthority()
     {
         var (command, _, _) = ArrangeSingleLineSale();
-        _shopRepository.GetActiveRoleAsync(command.ActorUserId, command.ShopId, Arg.Any<CancellationToken>()).Returns((ShopRole?)null);
+        _sessionAuthority.IsValidAsync(command.Session, Arg.Any<CancellationToken>()).Returns(false);
         var result = await CreateHandler().HandleAsync(command, default);
-        Assert.Equal("Till.Forbidden", result.FirstError.Code);
+        Assert.Equal("Auth.SessionInvalidated", result.FirstError.Code);
         await _saleRepository.DidNotReceive().GetByIdempotencyKeyAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
@@ -292,6 +295,9 @@ public class RecordSaleCommandHandlerTests
         return result.Value;
     }
 
+    private static SessionClaims TestSession(Guid actorId, Guid shopId) =>
+        new(actorId, Guid.NewGuid(), 0, 0, shopId, "Owner");
+
     private static RecordSaleCommand MakeCommand(
         Guid shopId, Guid actorId,
         string barcode = "BC-001", string batchNumber = "B-01",
@@ -302,7 +308,7 @@ public class RecordSaleCommandHandlerTests
         decimal creditNoteAppliedAmount = 0m,
         IReadOnlyList<CreditNoteRedemptionCommand>? creditNoteRedemptions = null,
         bool creditNoteCustomerMismatchConfirmed = false) =>
-        new(actorId, shopId, idempotencyKey ?? $"sale-{Guid.NewGuid():N}", null, "Ravi Kumar", "+919876543210",
+        new(TestSession(actorId, shopId), idempotencyKey ?? $"sale-{Guid.NewGuid():N}", null, "Ravi Kumar", "+919876543210",
             PaymentMethod.Cash, quantity * 118m, 0m,
             [new RecordSaleItemCommand(barcode, batchNumber, "Rice", quantity, 80m, 100m, 120m, 18m, false, inventoryBatchId ?? Guid.NewGuid(), HsnCode: hsnCode)],
             CreditNoteAppliedAmount: creditNoteAppliedAmount,
@@ -403,6 +409,8 @@ public class RecordSaleCommandHandlerTests
         Received.InOrder(() =>
         {
             _unitOfWork.BeginTransactionAsync(Arg.Any<CancellationToken>());
+            _saleRepository.LockIdempotencyKeyAsync(command.ShopId, command.ActorUserId, command.IdempotencyKey, Arg.Any<CancellationToken>());
+            _licenceFence.EnterAsync(command.ShopId, LicenceAction.NewTrading, Arg.Any<CancellationToken>());
             _invoiceNumberAllocator.AllocateAsync(
                 Arg.Is<InvoiceSeriesKey>(key => key.SeriesCode == "A" && key.SellerRegistrationKey == "29AAPFU0939F1ZR"),
                 Arg.Any<CancellationToken>());
@@ -420,7 +428,8 @@ public class RecordSaleCommandHandlerTests
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
         Assert.Equal(Errors.Invoice.TaxProfileRequired.Code, result.FirstError.Code);
-        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+        await _licenceFence.DidNotReceive().EnterAsync(Arg.Any<Guid>(), Arg.Any<LicenceAction>(), Arg.Any<CancellationToken>());
         await _invoiceNumberAllocator.DidNotReceive().AllocateAsync(Arg.Any<InvoiceSeriesKey>(), Arg.Any<CancellationToken>());
         await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
         Assert.Equal(100m, batch.Quantity);
@@ -932,7 +941,7 @@ public class RecordSaleCommandHandlerTests
             global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow)).Value;
 
         _saleRepository.GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>())
-            .Returns((Sale?)null, concurrentSale);
+            .Returns((Sale?)null, (Sale?)null, concurrentSale);
         _itemRepository.GetByIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns([item]);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
@@ -945,7 +954,7 @@ public class RecordSaleCommandHandlerTests
         Assert.Single(result.Value.Items);
         Assert.Equal(item.Name, result.Value.Items[0].ItemName);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-        await _saleRepository.Received(2).GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>());
+        await _saleRepository.Received(3).GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -997,7 +1006,7 @@ public class RecordSaleCommandHandlerTests
             global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow)).Value;
 
         _saleRepository.GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>())
-            .Returns((Sale?)null, concurrentSale);
+            .Returns((Sale?)null, (Sale?)null, concurrentSale);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromException<int>(new DbUpdateException("Simulated failure")));
 
@@ -1067,7 +1076,7 @@ public class RecordSaleCommandHandlerTests
         var inv1 = MakeInventory(shopId, item1.Id);
         var inv2 = MakeInventory(shopId, item2.Id);
 
-        var command = new RecordSaleCommand(actorId, shopId, $"sale-{Guid.NewGuid():N}", null, null, null, PaymentMethod.UPI, 905m, 0m,
+        var command = new RecordSaleCommand(TestSession(actorId, shopId), $"sale-{Guid.NewGuid():N}", null, null, null, PaymentMethod.UPI, 905m, 0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, batch1.Id),
              new RecordSaleItemCommand("BC-002", "B-02", "Dal", 3m, 60m, 80m, 100m, 5m, false, batch2.Id)]);
 
@@ -1096,7 +1105,7 @@ public class RecordSaleCommandHandlerTests
         var item = MakeItem(shopId, "BC-001");
         var batch = MakeBatch(shopId, item.Id, "B-01");
         var inventory = MakeInventory(shopId, item.Id);
-        var command = new RecordSaleCommand(actorId, shopId, $"sale-{Guid.NewGuid():N}", null, "Guest Raj", "+919999999999", PaymentMethod.Cash, 590m, 0m,
+        var command = new RecordSaleCommand(TestSession(actorId, shopId), $"sale-{Guid.NewGuid():N}", null, "Guest Raj", "+919999999999", PaymentMethod.Cash, 590m, 0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, batch.Id)]);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
 
@@ -1129,7 +1138,7 @@ public class RecordSaleCommandHandlerTests
         var inv1 = MakeInventory(shopId, item1.Id);
         var inv2 = MakeInventory(shopId, item2.Id);
 
-        var command = new RecordSaleCommand(actorId, shopId, $"sale-{Guid.NewGuid():N}", null, "Guest", "+911111111111", PaymentMethod.Cash, 905m, 0m,
+        var command = new RecordSaleCommand(TestSession(actorId, shopId), $"sale-{Guid.NewGuid():N}", null, "Guest", "+911111111111", PaymentMethod.Cash, 905m, 0m,
             [
                 new RecordSaleItemCommand("BC-001", "B-01", "Rice", 5m, 80m, 100m, 120m, 18m, false, batch1.Id),
                 new RecordSaleItemCommand("BC-002", "B-02", "Dal", 3m, 60m, 80m, 100m, 5m, false, batch2.Id),
@@ -1160,7 +1169,7 @@ public class RecordSaleCommandHandlerTests
         var batch = MakeBatch(shopId, item.Id, "B-01");
         var inventory = MakeInventory(shopId, item.Id);
 
-        var command = new RecordSaleCommand(actorId, shopId, $"sale-{Guid.NewGuid():N}", null, "Walk In", "+919999999999", PaymentMethod.Credit, 78m, 40m,
+        var command = new RecordSaleCommand(TestSession(actorId, shopId), $"sale-{Guid.NewGuid():N}", null, "Walk In", "+919999999999", PaymentMethod.Credit, 78m, 40m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id)]);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
         var itemNameById = new Dictionary<Guid, string> { { item.Id, item.Name } };
@@ -1190,7 +1199,7 @@ public class RecordSaleCommandHandlerTests
         var inventory = MakeInventory(shopId, item.Id);
 
         // qty=1, price=100, tax=18% exclusive → total=118, but PaidAmount=999 → mismatch
-        var command = new RecordSaleCommand(actorId, shopId, $"sale-{Guid.NewGuid():N}", null, "Ravi", "+919876543210",
+        var command = new RecordSaleCommand(TestSession(actorId, shopId), $"sale-{Guid.NewGuid():N}", null, "Ravi", "+919876543210",
             PaymentMethod.Cash, PaidAmount: 999m, DueAmount: 0m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id)]);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
@@ -1218,7 +1227,7 @@ public class RecordSaleCommandHandlerTests
         var inventory = MakeInventory(shopId, item.Id);
 
         // qty=1, price=100, tax=18% → total=118, paidAmount=78, dueAmount=40
-        var command = new RecordSaleCommand(actorId, shopId, $"sale-{Guid.NewGuid():N}", customer.Id, null, null,
+        var command = new RecordSaleCommand(TestSession(actorId, shopId), $"sale-{Guid.NewGuid():N}", customer.Id, null, null,
             PaymentMethod.Credit, PaidAmount: 78m, DueAmount: 40m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id)]);
         var line = new ValidatedSaleLine(command.Items[0], item, batch, inventory, false);
@@ -1450,7 +1459,7 @@ public class RecordSaleCommandHandlerTests
         var inventory = MakeInventory(shopId, item.Id);
 
         // qty=1, price=100, tax=18% → total=118, paid=78, due=40
-        var command = new RecordSaleCommand(actorId ?? Guid.NewGuid(), shopId, $"sale-{Guid.NewGuid():N}", customer.Id, null, null,
+        var command = new RecordSaleCommand(TestSession(actorId ?? Guid.NewGuid(), shopId), $"sale-{Guid.NewGuid():N}", customer.Id, null, null,
             PaymentMethod.Credit, PaidAmount: 78m, DueAmount: 40m,
             [new RecordSaleItemCommand("BC-001", "B-01", "Rice", 1m, 80m, 100m, 120m, 18m, false, batch.Id)],
             CreditOverride: creditOverride);

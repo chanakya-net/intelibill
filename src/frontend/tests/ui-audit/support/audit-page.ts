@@ -309,13 +309,15 @@ export async function mockExternalRequests(
       ({ locale, localStorageEntries }) => {
         localStorage.clear();
         sessionStorage.clear();
+        // Keep proactive refresh within Chromium's timer range.
+        const now = Date.now();
         localStorage.setItem(
           'inventory.auth.session.local',
           JSON.stringify({
             accessToken: 'ui-audit-owner-access',
             refreshToken: 'ui-audit-owner-refresh',
-            accessTokenExpiresAt: '2099-01-01T00:00:00.000Z',
-            refreshTokenExpiresAt: '2099-02-01T00:00:00.000Z',
+            accessTokenExpiresAt: new Date(now + 60 * 60_000).toISOString(),
+            refreshTokenExpiresAt: new Date(now + 24 * 60 * 60_000).toISOString(),
             rememberMe: true,
             user: {
               id: 'ui-audit-owner',

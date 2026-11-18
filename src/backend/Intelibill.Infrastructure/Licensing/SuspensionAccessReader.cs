@@ -14,10 +14,13 @@ namespace Intelibill.Infrastructure.Licensing;
 internal sealed class SuspensionAccessReader(ApplicationDbContext db, ILicenceActionPolicy policy, TimeProvider clock,
     ITenantWriteScope scope, IServiceScopeFactory services) : ISuspensionAccessReader
 {
+    public Task<Error?> ReadActiveShopDenialAsync(Guid shopId, LicenceAction action, CancellationToken ct) =>
+        ReadScopedDenialAsync(db, shopId, action, ct);
+
     public async Task<Error?> ReadDenialAsync(SessionClaims session, Guid shopId, LicenceAction action, CancellationToken ct)
     {
         if (session.ActiveShopId == shopId)
-            return await ReadScopedDenialAsync(db, shopId, action, ct);
+            return await ReadActiveShopDenialAsync(shopId, action, ct);
 
         // Check the explicitly requested shop's live membership before changing RLS scope.
         var isMember = await db.ShopMemberships.AnyAsync(row => row.UserId == session.UserId && row.ShopId == shopId &&
@@ -26,7 +29,7 @@ internal sealed class SuspensionAccessReader(ApplicationDbContext db, ILicenceAc
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await scope.EnterAsync(shopId, ct);
-        return await ReadScopedDenialAsync(db, shopId, action, ct);
+        return await ReadActiveShopDenialAsync(shopId, action, ct);
     }
 
     public async Task<bool> CanReceiveRealtimeAsync(Guid shopId, CancellationToken ct)
