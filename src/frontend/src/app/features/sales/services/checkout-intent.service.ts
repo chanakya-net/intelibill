@@ -1,3 +1,4 @@
+import { problemCode } from '@intelibill/api';
 import { HttpErrorResponse } from '@angular/common/http';
 import { DestroyRef, Injectable, inject } from '@angular/core';
 import { Observable, Subject, catchError, from, map, of, switchMap } from 'rxjs';
@@ -221,6 +222,11 @@ export function classifyCheckoutSendFailure(error: unknown): CheckoutSendFailure
     return 'uncertain';
   }
   const status = error.status;
+  // This response was decided after the server serialized and checked for a committed sale.
+  const code = problemCode(error.error);
+  if (status === 503 && code === 'Licence.VerificationUnavailable') return 'rejected';
+  // A security suspension can prevent the server from disclosing a previously committed outcome.
+  if (status === 403 && code === 'Licence.SecuritySuspended') return 'uncertain';
   if (status === 0 || status === 408 || status === 429 || status >= 500) {
     return 'uncertain';
   }

@@ -96,6 +96,22 @@ internal sealed class SaleRepository : RepositoryBase<Sale>, ISaleRepository
         return RowLockOutcome.Acquired;
     }
 
+    public async Task LockIdempotencyKeyAsync(Guid shopId, Guid actorUserId, string idempotencyKey, CancellationToken cancellationToken)
+    {
+        if (!_context.Database.IsNpgsql())
+            return;
+
+        if (_context.Database.CurrentTransaction is null)
+            throw new InvalidOperationException("The sale idempotency lock requires a transaction.");
+
+        // Two-int advisory keys are separate from the licence fence's bigint key space.
+        // Let cancellation/command timeout surface as an unknown outcome while the prior attempt may commit.
+        const int checkoutLockNamespace = 1536740931;
+        var key = $"{shopId:D}:{actorUserId:D}:{idempotencyKey}";
+        await _context.Database.ExecuteSqlAsync(
+            $"SELECT pg_advisory_xact_lock({checkoutLockNamespace}, hashtext({key}))", cancellationToken);
+    }
+
     public async Task<Sale?> GetByIdempotencyKeyAsync(Guid shopId, Guid actorUserId, string idempotencyKey, CancellationToken cancellationToken = default) =>
         await DbSet
             .AsNoTracking()

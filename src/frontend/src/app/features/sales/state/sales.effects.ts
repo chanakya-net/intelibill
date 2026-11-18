@@ -1,3 +1,4 @@
+import { problemCode } from '@intelibill/api';
 import { saleQuantityErrorKey, saleReturnQuantityErrorKey } from '../utils/sale-quantity-error';
 import {
   ApiErrorMessageService,
@@ -23,6 +24,7 @@ import {
   CheckoutIntentService,
   classifyCheckoutSendFailure,
 } from '../services/checkout-intent.service';
+import { SALE_LICENCE_ERROR_KEYS, SaleLicenceGateService } from '../services/sale-licence-gate.service';
 import { SaleService } from '../services/sale.service';
 import type { CheckoutIntent } from '../../../core/storage/checkout-intent-indexeddb.service';
 import { INVOICE_ERROR_KEYS } from '../utils/invoice-error-keys';
@@ -34,6 +36,7 @@ export class SalesEffects {
   private readonly apiErrors = inject(ApiErrorMessageService);
   private readonly actions$ = inject(Actions);
   private readonly saleService = inject(SaleService);
+  private readonly saleLicence = inject(SaleLicenceGateService);
   private readonly checkoutIntents = inject(CheckoutIntentService);
   private readonly shopContext = inject(ShopContextService);
 
@@ -213,14 +216,16 @@ export class SalesEffects {
 
   private async settleIntent(intent: CheckoutIntent) {
     const intentId = intent.intentId;
+    const scope = this.shopContext.scope();
     try {
       const sale = await firstValueFrom(this.checkoutIntents.send(intent));
       await this.checkoutIntents.confirm(intentId, sale).catch(() => null);
       return SalesActions.recordSaleSucceeded({ sale, intentId });
     } catch (error) {
+      const code = problemCode((error as { error?: unknown } | null)?.error);
+      this.saleLicence.reportRefusal(error, scope);
       if (classifyCheckoutSendFailure(error) === 'rejected') {
-        const code = (error as { error?: { title?: string } }).error?.title ?? 'unknown';
-        await this.checkoutIntents.reject(intentId, code).catch(() => null);
+        await this.checkoutIntents.reject(intentId, code ?? 'unknown').catch(() => null);
         return SalesActions.recordSaleFailed({
           intentId,
           ...this.feedback(error, 'errors.sales.recordFailed'),
@@ -230,7 +235,9 @@ export class SalesEffects {
       await this.checkoutIntents.markUncertain(intentId).catch(() => null);
       return SalesActions.recordSaleUncertain({
         intentId,
-        errorMessage: 'sales.newSale.pendingCheckout.uncertain',
+        errorMessage: code === 'Licence.SecuritySuspended'
+          ? SALE_LICENCE_ERROR_KEYS[code]
+          : 'sales.newSale.pendingCheckout.uncertain',
       });
     }
   }
@@ -243,6 +250,7 @@ export class SalesEffects {
       fallbackKey,
       codeMap: {
         ...INVOICE_ERROR_KEYS,
+        ...SALE_LICENCE_ERROR_KEYS,
         ...CUSTOMER_CREDIT_ERROR_KEYS,
         ...(quantityKey ? { 'Validation.Failed': quantityKey } : {}),
         'Sale.QuantityPrecisionExceeded': 'sales.newSale.quantityPrecisionExceeded',

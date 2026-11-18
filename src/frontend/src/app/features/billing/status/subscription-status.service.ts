@@ -1,4 +1,5 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { problemCode } from '@intelibill/api';
 import { Injectable, inject } from '@angular/core';
 import { EMPTY, Observable, catchError, expand, reduce, throwError } from 'rxjs';
 import { API_BASE_URL } from '../../../core/auth/auth.constants';
@@ -11,7 +12,7 @@ export class StatusReadError extends Error {
 }
 
 export class TradingAuthorityReadError extends Error {
-  constructor(readonly failure: TradingAuthorityFailure) {
+  constructor(readonly failure: TradingAuthorityFailure, readonly enforced?: boolean) {
     super(failure);
   }
 }
@@ -28,7 +29,7 @@ export class SubscriptionStatusService {
 
   tradingAuthority(shopId: string): Observable<ShopTradingAuthority> {
     return this.http.get<ShopTradingAuthority>(`${API_BASE_URL}/licensing/shops/${encodeURIComponent(shopId)}/trading-authority`)
-      .pipe(catchError(error => throwError(() => new TradingAuthorityReadError(authorityFailure(error)))));
+      .pipe(catchError(error => throwError(() => new TradingAuthorityReadError(authorityFailure(error), readEnforcement(error)))));
   }
 
   /** Every page of the account's terms, in order: a list is never silently truncated. */
@@ -58,7 +59,7 @@ function statusFailure(error: unknown): StatusFailure {
 
 function authorityFailure(error: unknown): TradingAuthorityFailure {
   if (error instanceof HttpErrorResponse) {
-    const code = (error.error as { code?: string } | null)?.code;
+    const code = problemCode(error.error);
     if (error.status === 403) {
       if (code === 'Licence.Expired') return 'expired';
       if (code === 'Licence.TradingRestricted' || code === 'Licence.SecuritySuspended') return 'restricted';
@@ -67,4 +68,14 @@ function authorityFailure(error: unknown): TradingAuthorityFailure {
     if (error.status === 409 && code === 'Licence.Busy') return 'busy';
   }
   return statusFailure(error);
+}
+
+function readEnforcement(error: unknown): boolean | undefined {
+  if (!(error instanceof HttpErrorResponse)) return undefined;
+  const code = problemCode(error.error);
+  const isDecision = error.status === 503 && code === 'Licence.VerificationUnavailable' ||
+    error.status === 403 && (code === 'Licence.Expired' || code === 'Licence.TradingRestricted' ||
+      code === 'Licence.SecuritySuspended' || code === 'Licence.PendingActivation');
+  const enforced = (error.error as { enforced?: unknown } | null)?.enforced;
+  return isDecision && typeof enforced === 'boolean' ? enforced : undefined;
 }

@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Sales.Commands.ReserveInvoiceLease;
 using Intelibill.Domain.Common;
@@ -36,7 +37,7 @@ public class ReserveInvoiceLeaseCommandHandlerTests
     }
 
     private ReserveInvoiceLeaseCommandHandler CreateHandler(TimeProvider? clock = null) =>
-        new(_userRepository, _shopRepository, _invoiceLeaseRepository, _allocator, _unitOfWork, clock ?? TimeProvider.System);
+        new(_userRepository, _shopRepository, _invoiceLeaseRepository, _allocator, _unitOfWork, clock ?? TimeProvider.System, Substitute.For<IShopLicenceFence>());
 
     private (User Actor, Shop Shop) Arrange(ShopRole role = ShopRole.Owner, bool declared = true, EInvoiceStatus eInvoice = EInvoiceStatus.BelowThreshold)
     {

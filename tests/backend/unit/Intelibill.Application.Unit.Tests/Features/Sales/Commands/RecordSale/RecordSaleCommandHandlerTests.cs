@@ -37,6 +37,7 @@ public class RecordSaleCommandHandlerTests
     private readonly IStockTransactionRepository _stockTransactionRepository = Substitute.For<IStockTransactionRepository>();
     private readonly ICreditNoteRedemptionRepository _creditNoteRedemptionRepository = Substitute.For<ICreditNoteRedemptionRepository>();
     private readonly ICreditNoteRepository _creditNoteRepository = Substitute.For<ICreditNoteRepository>();
+    private readonly IShopLicenceFence _licenceFence = Substitute.For<IShopLicenceFence>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
     private readonly IInvoiceNumberAllocator _invoiceNumberAllocator = Substitute.For<IInvoiceNumberAllocator>();
@@ -98,7 +99,7 @@ public class RecordSaleCommandHandlerTests
     }
 
     private RecordSaleCommandHandler CreateHandler() =>
-        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork, _customerRepository, _userRepository, new BusinessClock(_time), _postingPeriods, _tillPosting, ExpiryTestDoubles.Fence(), ExpiryTestDoubles.Guard(), Substitute.For<IShopLicenceFence>());
+        new(_saleLineValidator, _salePricingCalculator, _customerResolver, _saleRepository, _creditNoteRepository, _saleDtoBuilder, _customerLedgerEntryRepository, _stockTransactionRepository, _shopRepository, _invoiceNumberAllocator, _unitOfWork, _customerRepository, _userRepository, new BusinessClock(_time), _postingPeriods, _tillPosting, ExpiryTestDoubles.Fence(), ExpiryTestDoubles.Guard(), _licenceFence, Substitute.For<ISuspensionAccessReader>());
 
     private readonly MutableTimeProvider _time = new();
 
@@ -403,6 +404,8 @@ public class RecordSaleCommandHandlerTests
         Received.InOrder(() =>
         {
             _unitOfWork.BeginTransactionAsync(Arg.Any<CancellationToken>());
+            _saleRepository.LockIdempotencyKeyAsync(command.ShopId, command.ActorUserId, command.IdempotencyKey, Arg.Any<CancellationToken>());
+            _licenceFence.EnterAsync(command.ShopId, LicenceAction.NewTrading, Arg.Any<CancellationToken>());
             _invoiceNumberAllocator.AllocateAsync(
                 Arg.Is<InvoiceSeriesKey>(key => key.SeriesCode == "A" && key.SellerRegistrationKey == "29AAPFU0939F1ZR"),
                 Arg.Any<CancellationToken>());
@@ -420,7 +423,8 @@ public class RecordSaleCommandHandlerTests
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 
         Assert.Equal(Errors.Invoice.TaxProfileRequired.Code, result.FirstError.Code);
-        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+        await _licenceFence.DidNotReceive().EnterAsync(Arg.Any<Guid>(), Arg.Any<LicenceAction>(), Arg.Any<CancellationToken>());
         await _invoiceNumberAllocator.DidNotReceive().AllocateAsync(Arg.Any<InvoiceSeriesKey>(), Arg.Any<CancellationToken>());
         await _saleRepository.DidNotReceive().AddAsync(Arg.Any<Sale>(), Arg.Any<CancellationToken>());
         Assert.Equal(100m, batch.Quantity);
@@ -932,7 +936,7 @@ public class RecordSaleCommandHandlerTests
             global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow)).Value;
 
         _saleRepository.GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>())
-            .Returns((Sale?)null, concurrentSale);
+            .Returns((Sale?)null, (Sale?)null, concurrentSale);
         _itemRepository.GetByIdsAsync(shopId, Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns([item]);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
@@ -945,7 +949,7 @@ public class RecordSaleCommandHandlerTests
         Assert.Single(result.Value.Items);
         Assert.Equal(item.Name, result.Value.Items[0].ItemName);
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
-        await _saleRepository.Received(2).GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>());
+        await _saleRepository.Received(3).GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -997,7 +1001,7 @@ public class RecordSaleCommandHandlerTests
             global::Intelibill.Domain.ValueObjects.BusinessDay.InDefaultZone(DateTimeOffset.UtcNow)).Value;
 
         _saleRepository.GetByIdempotencyKeyAsync(shopId, actorId, idempotencyKey, Arg.Any<CancellationToken>())
-            .Returns((Sale?)null, concurrentSale);
+            .Returns((Sale?)null, (Sale?)null, concurrentSale);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromException<int>(new DbUpdateException("Simulated failure")));
 

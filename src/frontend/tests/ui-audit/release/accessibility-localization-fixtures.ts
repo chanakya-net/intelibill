@@ -353,11 +353,12 @@ export async function accessibilityFixtures(page: Page) {
         lines: req.items.map((x: any) => ({
           ...x,
           itemId: 'item-1',
-          lineType: 'Goods',
+          lineType: x.lineType ?? 'Goods',
           barcode: 'A11Y',
           itemName: LONG_NAME,
           batchNumber: 'DUPLICATE-LOT',
-          costPrice: 40,
+          costPrice: x.lineType === 'Service' ? 0 : 40,
+          economics: { economicCost: x.lineType === 'Service' ? 0 : x.quantity * 40 },
           salesPrice: 50,
           mrp: 60,
           taxRatePercent: 0,
@@ -374,7 +375,7 @@ export async function accessibilityFixtures(page: Page) {
           configuredBatchRulePercentage: null,
           hasClientPriceMismatch: false,
         })),
-        expiryDecisions: req.items.map((x: any) => ({
+        expiryDecisions: req.items.filter((x: any) => x.lineType !== 'Service').map((x: any) => ({
           itemId: 'item-1',
           inventoryBatchId: x.inventoryBatchId,
           quantity: x.quantity,

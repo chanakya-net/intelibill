@@ -16,6 +16,7 @@ public interface ISaleRepository : IRepository<Sale>
     /// everything read afterwards is current. Also bounds every later lock wait in the transaction.
     /// </summary>
     Task<RowLockOutcome> LockForReturnMutationAsync(Guid shopId, Guid saleId, CancellationToken cancellationToken = default);
+    Task LockIdempotencyKeyAsync(Guid shopId, Guid actorUserId, string idempotencyKey, CancellationToken cancellationToken);
     Task<Sale?> GetByIdempotencyKeyAsync(Guid shopId, Guid actorUserId, string idempotencyKey, CancellationToken cancellationToken = default);
     Task<Sale?> GetByClientSaleIdAsync(Guid shopId, string deviceId, string clientSaleId, CancellationToken cancellationToken = default);
     Task<Sale?> GetByInvoiceNumberAsync(Guid shopId, string invoiceNumber, CancellationToken cancellationToken = default);

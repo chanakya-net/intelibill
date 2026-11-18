@@ -227,6 +227,19 @@ describe('classifyCheckoutSendFailure', () => {
     expect(classifyCheckoutSendFailure(new HttpErrorResponse({ status }))).toBe('rejected');
   });
 
+  it('settles a verification denial with the server code ahead of the title', () => {
+    const error = new HttpErrorResponse({
+      status: 503,
+      error: { code: 'Licence.VerificationUnavailable', title: 'Trading access could not be verified.' },
+    });
+    expect(classifyCheckoutSendFailure(error)).toBe('rejected');
+  });
+
+  it('preserves the intent when a security restriction blocks recovery itself', () => {
+    const error = new HttpErrorResponse({ status: 403, error: { code: 'Licence.SecuritySuspended' } });
+    expect(classifyCheckoutSendFailure(error)).toBe('uncertain');
+  });
+
   it('treats a non-HTTP failure as uncertain', () => {
     expect(classifyCheckoutSendFailure(new Error('timeout'))).toBe('uncertain');
   });

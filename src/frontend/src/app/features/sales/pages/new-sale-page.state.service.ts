@@ -50,6 +50,7 @@ import {
   CartItem,
   QuantityRefusal,
 } from '../services/sale-cart-state.service';
+import { SaleLicenceGateService } from '../services/sale-licence-gate.service';
 import { SaleService } from '../services/sale.service';
 import { CheckoutIntentService, CheckoutScope } from '../services/checkout-intent.service';
 import type { CheckoutIntent } from '../../../core/storage/checkout-intent-indexeddb.service';
@@ -98,6 +99,7 @@ export abstract class NewSalePageStateService {
   protected readonly catalogSync = inject(ProductCatalogSyncService);
   protected readonly inventoryService = inject(InventoryService);
   protected readonly partyContext = inject(ShopContextService);
+  readonly saleLicence = inject(SaleLicenceGateService);
   protected readonly salesFacade = inject(SalesFacade);
   protected readonly cartState = inject(SaleCartStateService);
   protected readonly salePreview = inject(SalePreviewService);
@@ -441,6 +443,7 @@ export abstract class NewSalePageStateService {
   readonly getCartItemDiscountErrorFn = (itemId: string) => this.getCartItemDiscountError(itemId);
 
   readonly isOfflineMode = computed(() => !this.networkStatus.canReachApi());
+  readonly saleLicenceMessage = computed(() => this.isOfflineMode() ? null : this.saleLicence.blockingMessage());
 
   readonly isOfflineEligible = computed(() => {
     const settings = this.deviceSettings();
