@@ -1,5 +1,6 @@
 using System.Data.Common;
 using ErrorOr;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Time;
@@ -98,9 +99,13 @@ public sealed class BatchDispositionService(IBatchDispositionRepository journal,
             string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length > 500)
             return Error.Validation("Expiry.DispositionInvalid", "Supply an operation key, version, root, positive quantity, action and 1 to 500 character reason.");
         var hash = FinancialOperationHasher.Compute(new { batchId, request.ExpectedVersion, request.QuarantineChangeId, request.Action, request.Quantity, Reason = request.Reason.Trim() });
+        var scope = new FinancialOperationScope(shopId, FinancialOperationType.BatchDisposition, request.OperationKey.Trim())
+        {
+            SuspensionAction = request.Action == "Release" ? LicenceAction.NewTrading : LicenceAction.SafetyDisposition,
+        };
         try
         {
-            return await executor.ExecuteAsync<BatchDispositionResponse>(new(shopId, FinancialOperationType.BatchDisposition, request.OperationKey.Trim()), actor, batchId, hash, async token =>
+            return await executor.ExecuteAsync<BatchDispositionResponse>(scope, actor, batchId, hash, async token =>
             {
                 if (await shops.GetActiveRoleAsync(actor, shopId, token) != ShopRole.Owner) return Error.Forbidden("Expiry.OwnerRequired", "Current owner required.");
                 var shop = await shops.GetByIdAsync(shopId, token); if (shop is null) return Error.NotFound("Shop.NotFound", "Shop not found.");

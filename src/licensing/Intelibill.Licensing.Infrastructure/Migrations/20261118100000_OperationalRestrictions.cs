@@ -47,6 +47,11 @@ public sealed class OperationalRestrictions : Migration
                 FOREIGN KEY (event_id, account_id, shop_id) REFERENCES public.entitlement_messages(event_id, account_id, shop_id)
             );
             """);
+        migrationBuilder.Sql(FreshStartGuard("""
+            OR EXISTS (SELECT FROM public.operational_restrictions r
+                WHERE r.account_id = h.account_id AND r.shop_id IS NULL AND r.mode = h.restriction
+                    AND r.recorded_at <= NEW.ready_at AND NEW.ready_at < r.effective_at)
+            """));
         foreach (var table in new[] { "operational_restrictions", "operational_restriction_deliveries" })
         {
             migrationBuilder.Sql(LeasedHttpOutboxSchema.Scope(table, AccountScope));
@@ -59,16 +64,38 @@ public sealed class OperationalRestrictions : Migration
         }
     }
 
-    protected override void Down(MigrationBuilder migrationBuilder) => migrationBuilder.Sql("""
-        LOCK TABLE public.operational_restrictions IN ACCESS EXCLUSIVE MODE;
-        ALTER TABLE public.operational_restrictions NO FORCE ROW LEVEL SECURITY;
-        DO $$
+    protected override void Down(MigrationBuilder migrationBuilder)
+    {
+        migrationBuilder.Sql("""
+            LOCK TABLE public.operational_restrictions IN ACCESS EXCLUSIVE MODE;
+            ALTER TABLE public.operational_restrictions NO FORCE ROW LEVEL SECURITY;
+            DO $$
+            BEGIN
+                IF EXISTS (SELECT FROM public.operational_restrictions) THEN
+                    RAISE EXCEPTION 'Operational restriction evidence must be retained' USING ERRCODE = '55000';
+                END IF;
+            END $$;
+            """);
+        migrationBuilder.Sql(FreshStartGuard(""));
+        migrationBuilder.Sql("""
+            DROP TABLE public.operational_restriction_deliveries, public.operational_restrictions;
+            DROP POLICY restriction_account_lookup ON public.billing_accounts;
+            """);
+    }
+
+    private static string FreshStartGuard(string allowScheduled) => $$"""
+        CREATE OR REPLACE FUNCTION public.guard_paid_fresh_start() RETURNS trigger
+        LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         BEGIN
-            IF EXISTS (SELECT FROM public.operational_restrictions) THEN
-                RAISE EXCEPTION 'Operational restriction evidence must be retained' USING ERRCODE = '55000';
+            IF EXISTS (SELECT FROM public.payment_fulfilments f WHERE f.account_id = NEW.account_id AND f.order_id = NEW.order_id)
+                OR NOT EXISTS (SELECT FROM public.entitlement_account_heads h
+                    WHERE h.account_id = NEW.account_id
+                        AND (h.restriction = 'Unrestricted' {{allowScheduled}})
+                        AND h.revision = NEW.account_revision AND h.upstream_verified_at = NEW.upstream_verified_at
+                        AND h.released_revision IS NOT DISTINCT FROM NEW.released_revision FOR SHARE) THEN
+                RAISE EXCEPTION 'Paid fresh start needs current unrestricted restoration evidence' USING ERRCODE = '23514';
             END IF;
+            RETURN NEW;
         END $$;
-        DROP TABLE public.operational_restriction_deliveries, public.operational_restrictions;
-        DROP POLICY restriction_account_lookup ON public.billing_accounts;
-        """);
+        """;
 }

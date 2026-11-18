@@ -1,6 +1,7 @@
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Users.DTOs;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -9,7 +10,10 @@ namespace Intelibill.Application.Features.Users.Commands.UpdateShopMembership;
 
 public sealed class UpdateShopMembershipCommandHandler(
     IMembershipAuthorityRepository authority,
-    TimeProvider clock)
+    TimeProvider clock,
+    IShopRepository shops,
+    ITenantWriteScope tenantScope,
+    IShopLicenceFence fence)
 {
     // Entry-point classification is conservative. MembershipLicenceActions classifies the
     // specific change using the live status and whether the requested role differs.
@@ -28,6 +32,19 @@ public sealed class UpdateShopMembershipCommandHandler(
             return Errors.Users.CannotModifyOwnMembership;
 
         await using var transaction = await authority.BeginAsync(cancellationToken);
+
+        // Establish live authority before entering a target that may differ from the active shop.
+        var roleAtEntry = await shops.GetActiveRoleAsync(command.ActorUserId, command.ShopId, cancellationToken);
+        if (roleAtEntry != ShopRole.Owner)
+        {
+            if (roleAtEntry is not null) return Errors.Shop.UserIsNotOwner;
+            return await shops.GetByIdAsync(command.ShopId, cancellationToken) is null
+                ? Errors.Shop.ShopNotFound : Errors.Shop.MembershipNotFound;
+        }
+
+        await tenantScope.EnterAsync(command.ShopId, cancellationToken);
+        var licence = await fence.EnterAsync(command.ShopId, LicenceAction.OperationalCapacity, cancellationToken);
+        if (licence.IsError) return licence.Errors;
 
         // Authority-lock protocol: accounts in ascending id order, then the shop root, then the
         // membership rows. Every decision below is re-read while those locks are held, so a token
@@ -57,6 +74,9 @@ public sealed class UpdateShopMembershipCommandHandler(
 
         if (target.AuthorityVersion != command.ExpectedVersion)
             return Errors.Users.MembershipVersionConflict;
+
+        var action = MembershipLicenceActions.For(target.Status, status, role != target.Role);
+        if (action != LicenceAction.MemberRemoval && licence.Value.SuspensionDenial() is { } denied) return denied;
 
         var now = clock.GetUtcNow();
         target.ChangeAuthority(role, status);

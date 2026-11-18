@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Data;
@@ -24,7 +25,7 @@ namespace Intelibill.Infrastructure.Services.Operations;
 /// transaction's committed receipt and never this attempt's tracked changes.
 /// </para>
 /// </remarks>
-internal sealed class FinancialOperationExecutor(ApplicationDbContext context) : IFinancialOperationExecutor
+internal sealed class FinancialOperationExecutor(ApplicationDbContext context, IShopLicenceFence fence) : IFinancialOperationExecutor
 {
     private const int ResponseVersion = 1;
 
@@ -43,6 +44,7 @@ internal sealed class FinancialOperationExecutor(ApplicationDbContext context) :
 
         var receiptId = Guid.NewGuid();
         var reservedAt = DateTimeOffset.UtcNow;
+        Error? replayDenied;
 
         await using (var transaction = await context.Database.BeginTransactionAsync(cancellationToken))
         {
@@ -64,7 +66,8 @@ internal sealed class FinancialOperationExecutor(ApplicationDbContext context) :
                 ErrorOr<T> result;
                 try
                 {
-                    result = await action(cancellationToken);
+                    var denied = await SuspensionDenialAsync(scope, replay: false, cancellationToken);
+                    result = denied is { } refusal ? refusal : await action(cancellationToken);
                 }
                 catch
                 {
@@ -95,12 +98,18 @@ internal sealed class FinancialOperationExecutor(ApplicationDbContext context) :
                 return result;
             }
 
+            replayDenied = await SuspensionDenialAsync(scope, replay: true, cancellationToken);
             await transaction.RollbackAsync(cancellationToken);
         }
 
         context.ChangeTracker.Clear();
-        return await ReplayAsync<T>(scope, requestHash, cancellationToken);
+        return replayDenied is { } replayRefusal ? replayRefusal : await ReplayAsync<T>(scope, requestHash, cancellationToken);
     }
+
+    private Task<Error?> SuspensionDenialAsync(FinancialOperationScope scope, bool replay, CancellationToken ct) =>
+        scope.SuspensionAction is { } action
+            ? fence.ReadDenialAsync(scope.ShopId, replay ? LicenceAction.Recovery : action, ct)
+            : Task.FromResult<Error?>(null);
 
     private async Task<ErrorOr<T>> ReplayAsync<T>(
         FinancialOperationScope scope,

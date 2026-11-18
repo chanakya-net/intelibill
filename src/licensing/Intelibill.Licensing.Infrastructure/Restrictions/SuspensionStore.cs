@@ -43,7 +43,14 @@ internal sealed class SuspensionStore(LicensingDbContext db, EntitlementPublishe
             SELECT max(version) AS "Value" FROM public.operational_restrictions
             WHERE account_id = {account} AND shop_id IS NOT DISTINCT FROM {shop}::uuid
             """).SingleAsync(ct);
-        return (version ?? 0, version is not null);
+        if (version is { } savedVersion) return (savedVersion, true);
+        if (shop is not null) return (0, false);
+
+        var legacyRevision = await db.Database.SqlQuery<long?>($"""
+            SELECT revision AS "Value" FROM public.entitlement_account_heads
+            WHERE account_id = {account} AND restriction IN ('Trading', 'Security')
+            """).SingleOrDefaultAsync(ct);
+        return (legacyRevision ?? 0, legacyRevision is not null);
     }
 
     public Task<SavedSuspension?> ReadOperationAsync(Guid account, Guid key, CancellationToken ct) =>
@@ -88,15 +95,33 @@ internal sealed class SuspensionStore(LicensingDbContext db, EntitlementPublishe
 
     public async Task<IReadOnlyList<SuspensionDelivery>> ReadDeliveryAsync(Guid id, CancellationToken ct) =>
         await db.Database.SqlQuery<SuspensionDelivery>($"""
-            SELECT d.shop_id, d.shop_name, s.account_revision, s.shop_revision,
-                CASE o.status WHEN 'Applied' THEN 'Acknowledged'
+            SELECT a.shop_id, a.shop_name, delivery.account_revision, delivery.shop_revision,
+                CASE delivery.status WHEN 'Applied' THEN 'Acknowledged'
                     WHEN 'NeedsReview' THEN 'NeedsReview' WHEN 'DeadLetter' THEN 'NeedsReview'
                     ELSE 'Pending' END AS status
-            FROM public.operational_restriction_deliveries d
-            JOIN public.entitlement_snapshots s USING (event_id, account_id, shop_id)
-            JOIN public.entitlement_outbox o USING (event_id)
-            WHERE d.restriction_id = {id}
-            ORDER BY d.shop_id
+            FROM public.operational_restrictions r
+            JOIN public.shop_affiliations a ON a.account_id = r.account_id
+                AND (r.shop_id IS NULL OR r.shop_id = a.shop_id)
+            LEFT JOIN LATERAL (
+                SELECT s.account_revision, s.shop_revision, o.status
+                FROM public.entitlement_snapshots s
+                JOIN public.entitlement_outbox o USING (event_id)
+                JOIN public.entitlement_messages m USING (event_id)
+                CROSS JOIN LATERAL (
+                    SELECT convert_from(m.payload, 'UTF8')::jsonb
+                        -> (CASE WHEN r.shop_id IS NULL THEN 'account' ELSE 'shop' END)
+                        -> 'suspension' AS facts
+                ) proof
+                WHERE s.account_id = a.account_id AND s.shop_id = a.shop_id
+                    AND s.affiliation_request_id = a.request_id
+                    AND proof.facts->>'mode' = r.mode
+                    AND (proof.facts->>'effectiveAt')::timestamptz = r.effective_at
+                    AND proof.facts->>'customerExplanation' = r.customer_explanation
+                ORDER BY (o.status = 'Applied') DESC, s.shop_revision DESC
+                LIMIT 1
+            ) delivery ON true
+            WHERE r.id = {id}
+            ORDER BY a.shop_id
             """).ToListAsync(ct);
 
     private Task<int> AdvanceAccountAsync(SavedSuspension saved, CancellationToken ct) => db.Database.ExecuteSqlInterpolatedAsync($"""

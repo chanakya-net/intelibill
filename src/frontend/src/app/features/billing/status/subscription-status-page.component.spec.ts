@@ -62,6 +62,15 @@ function render(api: Partial<SubscriptionStatusService>, params: Record<string, 
 afterEach(() => TestBed.resetTestingModule());
 
 describe('subscription status', () => {
+  it('shows the suspension enforced by the local merchant projection', () => {
+    const { page } = render({
+      shop: id => of(status(id, { observeOnly: false, enforcedSuspensionMode: 'Security',
+        suspension: { mode: 'Security', effectiveAt: '2027-02-10T00:00:00Z', customerExplanation: 'Contact support.' } })),
+    });
+    expect(page.querySelector('[data-testid="observe-only"]')).toBeNull();
+    expect(page.querySelector('[data-testid="enforced-suspension"]')?.textContent).toContain('enforced for this shop');
+  });
+
   it('shows the customer explanation and clears the suspension on a shop change', () => {
     const { fixture, page, session } = render({
       shop: id => of(status(id, id === shopA ? { suspension: { mode: 'Security',
@@ -69,7 +78,8 @@ describe('subscription status', () => {
     });
     expect(page.querySelector('[data-testid="shop-suspension"]')?.textContent).toContain('Contact support about shop access.');
     expect(page.querySelector('[data-testid="shop-suspension"]')?.textContent).toContain('05:30:00.123456 IST');
-    expect(page.querySelector('[data-testid="observe-only"]')).toBeNull();
+    expect(page.querySelector('[data-testid="observe-only"]')).toBeTruthy();
+    expect(page.querySelector('[data-testid="enforced-suspension"]')).toBeNull();
     session.set({ user: { id: 'u1' }, activeShopId: shopB });
     fixture.detectChanges();
     expect(page.querySelector('[data-testid="shop-suspension"]')).toBeNull();

@@ -34,7 +34,9 @@ public static class EntitlementConsumer
         if (StampConflicts(incoming.UpstreamVerifiedAt, issuedAt, saved.UpstreamVerifiedAt, previousIssuedAt))
             return true;
         if (incoming.Restriction != "Unrestricted")
-            return suspension is not null && incoming.Suspension != suspension;
+            return suspension is not null ? incoming.Suspension != suspension
+                : saved.Restriction is "Security" or "Trading" &&
+                    (incoming.Suspension is not null || saved.Restriction == "Security" && incoming.Restriction != "Security");
         if (saved.Restriction == "Unrestricted" && incoming.ReleasedRevision == saved.ReleasedRevision)
             return false;
         return incoming.ReleasedRevision is not { } release || release < saved.Revision;

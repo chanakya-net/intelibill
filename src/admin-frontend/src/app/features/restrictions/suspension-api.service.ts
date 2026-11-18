@@ -1,6 +1,6 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { switchMap } from 'rxjs';
+import { catchError, switchMap, throwError } from 'rxjs';
 
 export interface SuspensionSelection {
   readonly scope: 'Account' | 'Shop';
@@ -41,10 +41,27 @@ export interface SuspensionStatus {
   readonly customerExplanation: string;
   readonly propagation: 'Pending' | 'Acknowledged' | 'NeedsReview' | 'NoShops';
   readonly shops: readonly (SuspensionImpact['shops'][number] & {
-    readonly accountRevision: number;
-    readonly shopRevision: number;
+    readonly accountRevision: number | null;
+    readonly shopRevision: number | null;
     readonly status: 'Pending' | 'Acknowledged' | 'NeedsReview';
   })[];
+}
+
+export class SuspensionRefusal extends Error {
+  constructor(readonly response: HttpErrorResponse) {
+    super('The suspension endpoint refused the request.');
+  }
+}
+
+function definitiveRefusal(error: unknown): error is HttpErrorResponse {
+  if (!(error instanceof HttpErrorResponse)) return false;
+  switch (error.error?.code) {
+    case 'Suspension.Invalid': return error.status === 400;
+    case 'Suspension.NotFound': return error.status === 404;
+    case 'Suspension.VersionConflict':
+    case 'Suspension.AlreadySuspended': return error.status === 409;
+    default: return false;
+  }
 }
 
 @Injectable({ providedIn: 'root' })
@@ -56,7 +73,19 @@ export class SuspensionApi {
   }
 
   suspend(account: string, command: SuspensionCommand, session: string) {
-    return this.post<SuspensionStatus>(this.path(account), command, session);
+    // Drafts saved by an older client may contain fields from the preview.
+    const { scope, shopId, operationKey, mode, effectiveAt, customerExplanation, internalReason,
+      reviewReference, expectedVersion, impactDigest } = command;
+    const body: SuspensionCommand = { scope, shopId, operationKey, mode, effectiveAt, customerExplanation,
+      internalReason, reviewReference, expectedVersion, impactDigest };
+    return this.csrf().pipe(
+      catchError((cause: unknown) => throwError(() => new Error('Suspension context unavailable.', { cause }))),
+      switchMap(({ requestToken }) => this.http.post<SuspensionStatus>(this.path(account), body,
+        { headers: { ...this.headers(session), 'X-Admin-CSRF': requestToken } }).pipe(
+        catchError((error: unknown) => throwError(() =>
+          definitiveRefusal(error) ? new SuspensionRefusal(error) : error)),
+      )),
+    );
   }
 
   list(account: string, session: string) {
@@ -64,10 +93,14 @@ export class SuspensionApi {
   }
 
   private post<T>(url: string, body: SuspensionSelection, session: string) {
-    return this.http.get<{ requestToken: string }>('/api/admin/auth/sign-in/context').pipe(
+    return this.csrf().pipe(
       switchMap(({ requestToken }) => this.http.post<T>(url, body,
         { headers: { ...this.headers(session), 'X-Admin-CSRF': requestToken } })),
     );
+  }
+
+  private csrf() {
+    return this.http.get<{ requestToken: string }>('/api/admin/auth/sign-in/context');
   }
 
   private headers(session: string) {

@@ -43,6 +43,7 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
     }
     [HttpPost]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> Create(CreateTillRequest request, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;
@@ -68,6 +69,7 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
     }
     [HttpPost("{id:guid}/sessions")]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> Open(Guid id, OpenTillRequest request, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;
@@ -77,6 +79,7 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
     }
     [HttpPost("sessions/{id:guid}/cash-movements")]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> Move(Guid id, TillCashMovementRequest request, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;
@@ -86,6 +89,7 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
     }
     [HttpPost("sessions/{id:guid}/close")]
     [LicenceAction(LicenceAction.TillCompletion)]
+    [SuspensionAtSource]
     public async Task<IActionResult> Close(Guid id, CloseTillRequest request, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;
@@ -95,6 +99,7 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
     }
     [HttpPost("sessions/{id:guid}/review")]
     [LicenceAction(LicenceAction.TillCompletion)]
+    [SuspensionAtSource]
     public async Task<IActionResult> Review(Guid id, ReviewTillCloseRequest request, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;

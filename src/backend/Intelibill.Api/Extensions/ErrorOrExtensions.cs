@@ -58,6 +58,9 @@ public static class ErrorOrExtensions
             Extensions = { ["errors"] = errors.Select(e => new { e.Code, e.Description }) }
         };
 
+        if (first.Code.StartsWith("Licence.", StringComparison.Ordinal))
+            problemDetails.Extensions["code"] = first.Code;
+
         if (first.Type == ErrorType.Validation)
         {
             Log.Warning(

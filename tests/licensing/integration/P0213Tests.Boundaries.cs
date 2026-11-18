@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Intelibill.Domain.Enums;
@@ -108,7 +109,7 @@ public sealed partial class P0213Tests
     }
 
     [Fact]
-    public async Task ProjectionNeverEnablesEnforcementAndCommerceSurvivesOutage()
+    public async Task ProjectionPreservesObserveOnlyAndHonorsExplicitEnrollment()
     {
         await using var fixture = await P0213Fixture.StartAsync(database);
         var owner = await CreateTradingShopAsync(fixture.Hosts);
@@ -129,6 +130,13 @@ public sealed partial class P0213Tests
         var newer = restricted with { EventId = Guid.NewGuid(), Shop = restricted.Shop! with { Revision = 6 } };
         await ExpectAppliedAsync(fixture, newer);
         Assert.Equal(Utc("2027-02-09T00:00:00Z"), (await HeadsAsync(owner.ShopId, account)).Item1.EnforcementActivatedAt);
-        await P0209Tests.PostStockAsync(owner.Client, "Stock after newer entitlement");
+        using var refused = await owner.Client.PostAsJsonAsync("/api/inventory/inbound", new
+        {
+            itemName = "Stock after newer entitlement", barcode = Guid.NewGuid().ToString("N"), uom = "pcs",
+            batchNumber = "p0213", quantity = 5m, totalPurchaseCost = 50m, mrp = 12m, salesPrice = 12m,
+            taxRatePercent = 0m, taxIncluded = false, purchaseTaxIncluded = false,
+        });
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+        Assert.Equal("Licence.TradingRestricted", await P0206Fixture.CodeAsync(refused));
     }
 }

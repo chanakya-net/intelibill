@@ -40,7 +40,8 @@ export interface ShopSubscriptionStatus {
   readonly state: AccessState;
   readonly term: SubscriptionTermStatus | null;
   readonly accountId: string | null;
-  readonly observeOnly: true;
+  readonly observeOnly: boolean;
+  readonly enforcedSuspensionMode?: 'Trading' | 'Security';
   readonly entitlementSynchronization: string;
   readonly paymentVerification: string;
   readonly synchronization?: EntitlementSynchronization | null;

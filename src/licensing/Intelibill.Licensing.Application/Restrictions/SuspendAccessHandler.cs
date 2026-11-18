@@ -76,7 +76,9 @@ public sealed class SuspendAccessHandler(ISuspensionStore store, ISubscriptionSt
         var shops = await store.ReadShopsAsync(account, selection.ShopId, ct);
         if (selection.ShopId is not null && shops.Count != 1) return SuspensionErrors.Missing;
         var (version, active) = await store.ReadVersionAsync(account, selection.ShopId, ct);
-        var digest = Hash(new { account, name, selection, version, active, shops });
+        // Preserve the impact digest while keeping the validation property off the preview wire.
+        var digest = Hash(new { account, name, selection = new { selection.Scope, selection.ShopId, selection.IsValid },
+            version, active, shops });
         return new SuspensionImpact(account, name, selection, version, active, shops, digest);
     }
 

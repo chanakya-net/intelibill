@@ -54,8 +54,12 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
             ? await db.Set<AccountLicenseRestriction>().AsNoTracking().SingleOrDefaultAsync(row => row.AccountId == id, ct)
             : null;
         var proofs = shop is null ? null : await ReadProofIssuanceAsync(shopId, ct);
+        var now = clock.GetUtcNow();
         return new ShopLicenceLease(shopId, accountId, account?.Revision, shop?.Revision,
-            policy.Decide(action, shop, account, proofs, clock.GetUtcNow()));
+            policy.Decide(action, shop, account, proofs, now))
+        {
+            EffectiveSuspension = LicenseProjectionPolicy.EffectiveSuspension(shop, account, now),
+        };
     }
 
     // The account head may rest on a sibling shop's evidence, which row security rightly hides from this shop.

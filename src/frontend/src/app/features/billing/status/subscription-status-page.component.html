@@ -5,7 +5,7 @@
     <p class="ib-subtitle">{{ (accountId() ? 'billing.status.accountDescription' : 'billing.status.shopDescription') | transloco }}</p>
   </header>
   @let current = view();
-  @if (current.kind !== 'shop' || !current.status.suspension) {
+  @if (current.kind !== 'shop' || current.status.observeOnly) {
     <p class="ib-panel notice" data-testid="observe-only">{{ 'billing.status.observeOnly' | transloco }}</p>
   }
 
@@ -44,12 +44,19 @@
       }
     }
     @case ('shop') {
+      @if (current.status.enforcedSuspensionMode; as mode) {
+        <p class="ib-panel" role="status" data-testid="enforced-suspension">
+          {{ 'billing.status.suspension.enforced' + mode | transloco }}
+        </p>
+      }
       @if (current.status.suspension; as suspension) {
         <section class="ib-panel" data-testid="shop-suspension" aria-labelledby="suspension-heading">
           <h2 id="suspension-heading">{{ 'billing.status.suspension.' + suspension.mode | transloco }}</h2>
           <p>{{ suspension.customerExplanation }}</p>
           <p>{{ 'billing.status.suspension.effective' | transloco: { time: instant(suspension.effectiveAt, true) } }}</p>
-          <p>{{ 'billing.status.suspension.renewal' | transloco }}</p>
+          @if (!current.status.observeOnly) {
+            <p>{{ 'billing.status.suspension.renewal' | transloco }}</p>
+          }
         </section>
       }
       <p>{{ 'billing.status.evaluatedAt' | transloco: { time: instant(current.status.evaluatedAt) } }}</p>

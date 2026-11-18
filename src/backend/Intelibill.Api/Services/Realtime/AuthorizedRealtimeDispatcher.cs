@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Security;
 using Microsoft.AspNetCore.SignalR;
 
@@ -42,6 +43,7 @@ internal sealed partial class AuthorizedRealtimeDispatcher<THub>(
     IRealtimeConnectionRegistry registry,
     ILiveSessionAuthority authority,
     TimeProvider clock,
+    ISuspensionAccessReader suspensions,
     ILogger<AuthorizedRealtimeDispatcher<THub>> logger) : IAuthorizedRealtimeDispatcher<THub>
     where THub : Hub
 {
@@ -116,6 +118,17 @@ internal sealed partial class AuthorizedRealtimeDispatcher<THub>(
 
         if (authorized.Count == 0)
             return;
+
+        try
+        {
+            if (!await suspensions.CanReceiveRealtimeAsync(shopId, cancellationToken))
+                return;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogRecipientsUnresolvable(logger, eventName, HubName, ex);
+            return;
+        }
 
         await hubContext.Clients.Clients(authorized).SendAsync(eventName, payload, cancellationToken);
     }

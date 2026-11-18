@@ -8,7 +8,7 @@ import { firstValueFrom } from 'rxjs';
 import { formatIstExact } from '../accounts/account-status-api.service';
 import { exactIstInstant } from '../accounts/trial-extension-api.service';
 import { AdminSessionService } from '../auth/admin-session.service';
-import { SuspensionApi, type SuspensionCommand, type SuspensionImpact, type SuspensionSelection, type SuspensionStatus } from './suspension-api.service';
+import { SuspensionApi, SuspensionRefusal, type SuspensionCommand, type SuspensionImpact, type SuspensionSelection, type SuspensionStatus } from './suspension-api.service';
 import { SuspensionDrafts, type PendingSuspension } from './suspension-drafts';
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
@@ -100,7 +100,8 @@ export class SuspensionPageComponent {
       this.error.set('Complete the mode, customer explanation, internal reason and review reference. Check the effective time.');
       return;
     }
-    const command: SuspensionCommand = { ...impact.selection, operationKey: crypto.randomUUID(), mode: value.mode,
+    const command: SuspensionCommand = { scope: impact.selection.scope, shopId: impact.selection.shopId,
+      operationKey: crypto.randomUUID(), mode: value.mode,
       effectiveAt, customerExplanation, internalReason, reviewReference, expectedVersion: impact.version,
       impactDigest: impact.impactDigest };
     void this.run(async (account, admin, session) => {
@@ -140,7 +141,7 @@ export class SuspensionPageComponent {
         this.form.patchValue({ customerExplanation: '', internalReason: '', reviewReference: '' });
       }
     } catch (error) {
-      if (error instanceof HttpErrorResponse && [400, 404, 409].includes(error.status)) {
+      if (error instanceof SuspensionRefusal) {
         await this.drafts.clear(pending);
         if (this.current(accountId, adminId, session)) {
           this.pending.set(null);
@@ -184,7 +185,8 @@ export class SuspensionPageComponent {
   }
 
   private errorText(error: unknown): string {
-    const code = error instanceof HttpErrorResponse ? error.error?.code : null;
+    const response = error instanceof SuspensionRefusal ? error.response : error;
+    const code = response instanceof HttpErrorResponse ? response.error?.code : null;
     switch (code) {
       case 'Suspension.RecentMfaRequired': return 'Sign in again with MFA to apply or retry the suspension.';
       case 'Suspension.VersionConflict': return 'The scope or its impact changed. Preview it again.';

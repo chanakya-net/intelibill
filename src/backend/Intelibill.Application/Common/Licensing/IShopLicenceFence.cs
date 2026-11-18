@@ -13,4 +13,7 @@ public interface IShopLicenceFence
 }
 
 public readonly record struct ShopLicenceLease(Guid ShopId, Guid? AccountId, long? AccountRevision, long? ShopRevision,
-    LicenceDecision Decision);
+    LicenceDecision Decision)
+{
+    public string? EffectiveSuspension { get; init; }
+}

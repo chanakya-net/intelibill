@@ -13,6 +13,13 @@ internal sealed class SuspensionAccessFilter(ISuspensionAccessReader reader) : I
     {
         var http = context.HttpContext;
         var endpoint = http.GetEndpoint();
+        var source = endpoint?.Metadata.GetMetadata<SuspensionAtSourceAttribute>();
+        if (source is { CheckRecovery: false })
+        {
+            await next();
+            return;
+        }
+
         if (endpoint?.Metadata.GetMetadata<IAllowAnonymous>() is null &&
             endpoint?.Metadata.GetMetadata<LicenceActionAttribute>() is { Action: var action } &&
             action is not (LicenceAction.Authentication or LicenceAction.Health or LicenceAction.Billing or
@@ -20,7 +27,7 @@ internal sealed class SuspensionAccessFilter(ISuspensionAccessReader reader) : I
             http.User.Identity?.IsAuthenticated == true &&
             SessionClaims.TryRead(http.User) is { } session &&
             (ReadShop(context) ?? session.ActiveShopId) is { } shop &&
-            await reader.ReadDenialAsync(session, shop, action, http.RequestAborted) is { } denied)
+            await reader.ReadDenialAsync(session, shop, source is null ? action : LicenceAction.Recovery, http.RequestAborted) is { } denied)
         {
             context.Result = new ObjectResult(new PublicError(StatusCodes.Status403Forbidden, denied.Code,
                 denied.Description, SafeTraceId.Resolve(http)))

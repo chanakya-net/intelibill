@@ -63,7 +63,47 @@ public sealed partial class P0403Tests
         Assert.Equal("Unrestricted", latest.Account!.Restriction);
     }
 
-    private static async Task ApplySuspensionAsync(P0110CookieBrowser security, Guid account, string scope, Guid? shopId, string mode,
+    [Theory]
+    [InlineData(-1, false)]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(-1, true)]
+    [InlineData(0, true)]
+    [InlineData(1, true)]
+    public async Task FreshPaymentAtScheduledSuspensionBoundary(int microseconds, bool manual)
+    {
+        await using var fixture = await P0308Fixture.StartAsync(database, March31, P0306Tests.Settings);
+        var package = await fixture.PackageAsync(1);
+        var quote = await P0308Fixture.AcceptAsync(package, await P0308Fixture.FirstQuoteAsync(package, "Month"));
+        var delivery = fixture.Checkout.Delivery;
+        using var security = await SignInSecurityAsync(delivery, "billing");
+        var effectiveAt = March31.AddSeconds(5);
+        await ApplySuspensionAsync(security, package.Account, "Account", null, "Trading", effectiveAt);
+        var at = effectiveAt.AddMicroseconds(microseconds);
+        var attempt = manual ? (Guid?)null : await P0308Fixture.StartPaymentAsync(package, quote);
+        fixture.At(at);
+        if (attempt is { } id)
+        {
+            await CaptureAsync(package.Payer.Client, quote, id);
+            var verified = await VerifyAsync(package.Payer.Client, quote, id);
+            Assert.Equal("Verified", verified.GetProperty("payment").GetString());
+        }
+        else
+        {
+            using var receipt = await P0212Fixture.PostAsync(security, P0306Tests.Path(quote), P0306Tests.Receipt(quote, at));
+            Assert.True(receipt.StatusCode == HttpStatusCode.Created, await receipt.Content.ReadAsStringAsync());
+        }
+
+        var held = microseconds >= 0;
+        Assert.Equal(1L, await fixture.Checkout.CountAsync(manual ? "manual_payment_receipts" : "verified_payments"));
+        Assert.Equal(held ? 0L : 1L, await fixture.Checkout.CountAsync("payment_fulfilments"));
+        Assert.Equal(held ? 1L : 0L, await fixture.Checkout.CountAsync("payment_restoration_holds", "restriction = 'Trading'"));
+        var latest = await delivery.LatestSnapshotAsync(package.Payer.ShopId);
+        Assert.Equal("Trading", latest.Account!.Restriction);
+        Assert.Equal(effectiveAt, latest.Account.Suspension?.EffectiveAt);
+    }
+
+    private static async Task<Guid> ApplySuspensionAsync(P0110CookieBrowser security, Guid account, string scope, Guid? shopId, string mode,
         DateTimeOffset? effectiveAt = null)
     {
         var path = $"/api/admin/accounts/{account:D}/restrictions";
@@ -78,5 +118,6 @@ public sealed partial class P0403Tests
             internalReason = "Internal review detail.", reviewReference = "CASE-878", effectiveAt,
         });
         Assert.True(saved.StatusCode == HttpStatusCode.Created, await saved.Content.ReadAsStringAsync());
+        return (await saved.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
     }
 }

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Options;
@@ -42,7 +43,11 @@ public sealed partial class P0403Tests(LicensingPostgreSqlFixture database) : IC
         Guid? shopId = scope == "Shop" ? first.ShopId : null;
         using var preview = await P0212Fixture.PostAsync(security, path + "/preview", new { scope, shopId });
         Assert.True(preview.StatusCode == HttpStatusCode.OK, await preview.Content.ReadAsStringAsync());
-        var impact = await preview.Content.ReadFromJsonAsync<JsonElement>();
+        var previewBody = await preview.Content.ReadAsStringAsync();
+        if (Environment.GetEnvironmentVariable("P0403_PREVIEW_EVIDENCE_DIR") is { Length: > 0 } directory)
+            await File.WriteAllTextAsync(Path.Combine(directory, $"preview-{scope}.json"), previewBody);
+        using var previewDocument = JsonDocument.Parse(previewBody);
+        var impact = previewDocument.RootElement;
         var shops = impact.GetProperty("shops").EnumerateArray().ToArray();
         Assert.Equal(scope == "Shop" ? 1 : 2, shops.Length);
         Assert.All(shops, shop => Assert.Equal("Independent", shop.GetProperty("coverageMode").GetString()));
@@ -102,26 +107,40 @@ public sealed partial class P0403Tests(LicensingPostgreSqlFixture database) : IC
     private static async Task<Guid> SaveAsync(P0213Fixture fixture, P0110CookieBrowser security, string path, string scope,
         Guid? shopId, string mode, JsonElement impact, DateTimeOffset effectiveAt)
     {
-        var command = new { scope, shopId, mode, operationKey = Guid.NewGuid(), expectedVersion = 0,
-            impactDigest = impact.GetProperty("impactDigest").GetString(), customerExplanation = "Contact support about shop access.",
-            internalReason = "Internal review detail.", reviewReference = "CASE-878", effectiveAt };
+        var command = JsonNode.Parse(impact.GetProperty("selection").GetRawText())!.AsObject();
+        Assert.Equal(scope, (string?)command["scope"]);
+        Assert.Equal(shopId?.ToString(), (string?)command["shopId"]);
+        command["mode"] = mode;
+        command["operationKey"] = Guid.NewGuid();
+        command["expectedVersion"] = 0;
+        command["impactDigest"] = impact.GetProperty("impactDigest").GetString();
+        command["customerExplanation"] = "Contact support about shop access.";
+        const string internalReason = "Internal review detail.";
+        const string reviewReference = "CASE-878";
+        command["internalReason"] = internalReason;
+        command["reviewReference"] = reviewReference;
+        command["effectiveAt"] = effectiveAt;
         using var platform = await fixture.Trial.Catalogue.SignInOwnerAsync();
         using var denied = await P0212Fixture.PostAsync(platform, path, command);
         Assert.Equal(HttpStatusCode.Forbidden, denied.StatusCode);
         using var saved = await P0212Fixture.PostAsync(security, path, command);
         var body = await saved.Content.ReadAsStringAsync();
         Assert.True(saved.StatusCode == HttpStatusCode.Created, body);
-        Assert.DoesNotContain(command.internalReason, body);
-        Assert.DoesNotContain(command.reviewReference, body);
+        Assert.DoesNotContain(internalReason, body);
+        Assert.DoesNotContain(reviewReference, body);
         using var document = JsonDocument.Parse(body);
         var id = document.RootElement.GetProperty("id").GetGuid();
+        Assert.Equal(shopId?.ToString(), document.RootElement.GetProperty("shopId").GetString());
+        Assert.Equal(mode, document.RootElement.GetProperty("mode").GetString());
         using var repeated = await P0212Fixture.PostAsync(security, path, command);
         Assert.Equal(HttpStatusCode.OK, repeated.StatusCode);
         Assert.Equal(id, (await repeated.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid());
-        using var staleVersion = await P0212Fixture.PostAsync(security, path, command with { operationKey = Guid.NewGuid() });
+        var staleCommand = command.DeepClone().AsObject();
+        staleCommand["operationKey"] = Guid.NewGuid();
+        using var staleVersion = await P0212Fixture.PostAsync(security, path, staleCommand);
         Assert.Equal(HttpStatusCode.Conflict, staleVersion.StatusCode);
         Assert.Equal(1L, await fixture.Trial.CountAsync("operational_restrictions"));
-        Assert.Equal(command.internalReason, await fixture.SourceScalarAsync($"SELECT internal_reason FROM operational_restrictions WHERE id = '{id:D}'"));
+        Assert.Equal(internalReason, await fixture.SourceScalarAsync($"SELECT internal_reason FROM operational_restrictions WHERE id = '{id:D}'"));
         fixture.Trial.Catalogue.Clock.Advance(TimeSpan.FromMinutes(5));
         using var staleMfa = await P0212Fixture.PostAsync(security, path, command);
         Assert.Equal("Suspension.RecentMfaRequired", await P0206Fixture.CodeAsync(staleMfa));
@@ -248,27 +267,31 @@ public sealed partial class P0403Tests(LicensingPostgreSqlFixture database) : IC
         Assert.Equal(snapshot.Account!.Revision, ack?.AppliedAccountRevision);
     }
 
-    private static async Task AssertPropagationAsync(P0110CookieBrowser security, string path, Guid id, string expected)
+    private static async Task<JsonElement> AssertPropagationAsync(P0110CookieBrowser security, string path, Guid id, string expected)
     {
         using var response = await security.SendAsync(HttpMethod.Get, $"{path}/{id:D}");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True(response.Headers.CacheControl?.NoStore);
         var status = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(expected, status.GetProperty("propagation").GetString());
+        return status;
     }
 
     private static async Task<Guid> LinkAsync(P0213Fixture fixture, Merchant payer, params Merchant[] otherShops)
     {
         var account = await CreateAccountAsync(payer.Client);
         foreach (var shop in otherShops.Prepend(payer))
-        {
-            var now = fixture.Hosts.StatusClock.Now.ToOffset(TimeSpan.FromHours(5.5));
-            var anchor = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, now.Offset);
-            var term = await SeedTermAsync(fixture.Hosts, account, new TermSeed(anchor.ToUniversalTime(),
-                anchor.AddMonths(1).ToUniversalTime(), AnchorLocal: FormattableString.Invariant($"{anchor:yyyy-MM-dd HH:mm:ss}")));
-            await P0213Fixture.LinkAsync(account, payer, shop, term);
-        }
+            await LinkIndependentAsync(fixture, account, payer, shop);
         return account;
+    }
+
+    private static async Task LinkIndependentAsync(P0213Fixture fixture, Guid account, Merchant payer, Merchant shop)
+    {
+        var now = fixture.Hosts.StatusClock.Now.ToOffset(TimeSpan.FromHours(5.5));
+        var anchor = new DateTimeOffset(now.Year, now.Month, 1, 0, 0, 0, now.Offset);
+        var term = await SeedTermAsync(fixture.Hosts, account, new TermSeed(anchor.ToUniversalTime(),
+            anchor.AddMonths(1).ToUniversalTime(), AnchorLocal: FormattableString.Invariant($"{anchor:yyyy-MM-dd HH:mm:ss}")));
+        await P0213Fixture.LinkAsync(account, payer, shop, term);
     }
 
     private static async Task<P0110CookieBrowser> SignInSecurityAsync(P0213Fixture fixture, params string[] alsoGranted)

@@ -17,8 +17,12 @@
           <input id="restriction-shop" formControlName="shopId" autocomplete="off" />
         }
         <button pButton outlined type="button" [disabled]="busy()" (click)="preview()">Preview impact</button>
-        @if (pending()) {
-          <p role="status">A saved request is awaiting confirmation.</p>
+        @if (pending(); as draft) {
+          <p role="status" data-testid="pending-suspension">
+            Saved request awaiting confirmation for
+            {{ draft.command.scope === 'Account' ? 'Entire billing account ' + draft.accountId : 'Shop ' + draft.command.shopId }}.
+            {{ draft.command.mode }} suspension · {{ draft.command.effectiveAt ? format(draft.command.effectiveAt) : 'Apply immediately' }}
+          </p>
           <button pButton outlined type="button" [disabled]="busy()" (click)="retry()">Retry saved request</button>
         }
         @if (impact(); as preview) {
@@ -77,7 +81,12 @@
           <p role="status"><strong>{{ labels[restriction.propagation] }}</strong></p>
           <ul class="restriction-shops">
             @for (shop of restriction.shops; track shop.shopId) {
-              <li>{{ shop.shopName }} · Account revision {{ shop.accountRevision }}, shop revision {{ shop.shopRevision }} · {{ labels[shop.status] }}</li>
+              <li>
+                {{ shop.shopName }} · {{ labels[shop.status] }}
+                @if (shop.accountRevision !== null && shop.shopRevision !== null) {
+                  · Account revision {{ shop.accountRevision }}, shop revision {{ shop.shopRevision }}
+                }
+              </li>
             }
           </ul>
         </article>

@@ -6,7 +6,7 @@ namespace Intelibill.Infrastructure.Billing;
 internal static class SubscriptionStatusContract
 {
     internal static bool IsValidShop(ShopSubscriptionStatusV1 status, Guid shop) =>
-        status is { SchemaVersion: SubscriptionStatusV1.SchemaVersion, ObserveOnly: true }
+        status is { SchemaVersion: SubscriptionStatusV1.SchemaVersion, ObserveOnly: true, EnforcedSuspensionMode: null }
         && status.ShopId == shop && status.PaymentVerification == SubscriptionStatusV1.NotAvailable
         && status.EntitlementSynchronization == (status.Synchronization?.State ?? SubscriptionStatusV1.NotAvailable)
         && IsValidSynchronization(status.Synchronization)

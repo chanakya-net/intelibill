@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using ErrorOr;
 using Intelibill.Shared.Contracts.V1;
 
@@ -5,6 +6,7 @@ namespace Intelibill.Licensing.Application.Restrictions;
 
 public sealed record SuspensionSelection(string? Scope, Guid? ShopId)
 {
+    [JsonIgnore]
     public bool IsValid => Scope == "Account" && ShopId is null || Scope == "Shop" && ShopId is { } id && id != Guid.Empty;
 }
 
@@ -20,7 +22,7 @@ public sealed record SavedSuspension(Guid Id, Guid AccountId, Guid? ShopId, long
     DateTimeOffset EffectiveAt, string CustomerExplanation, string InternalReason, string ReviewReference,
     Guid ActorId, Guid SessionId, DateTimeOffset RecordedAt, Guid OperationKey, string PayloadDigest);
 
-public sealed record SuspensionDelivery(Guid ShopId, string ShopName, long AccountRevision, long ShopRevision, string Status);
+public sealed record SuspensionDelivery(Guid ShopId, string ShopName, long? AccountRevision, long? ShopRevision, string Status);
 
 public sealed record SuspensionStatus(Guid Id, Guid AccountId, Guid? ShopId, long Version, string Mode,
     DateTimeOffset EffectiveAt, string CustomerExplanation, DateTimeOffset RecordedAt, string Propagation,
