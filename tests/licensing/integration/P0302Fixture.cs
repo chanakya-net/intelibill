@@ -34,6 +34,7 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
             public.payment_provider_routing, public.payment_provider_selections, public.payment_routing_events, public.payment_provider_bindings,
             public.payment_confirmations, public.service_restoration_adjustments, public.unmatched_payments, public.payment_review_decisions
             TO licensing_runtime;
+        GRANT SELECT, INSERT ON public.operational_restrictions, public.operational_restriction_deliveries TO licensing_runtime;
         GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.receive_gateway_inbox_event(uuid,text,text,text,text,text,text,text,text,bytea,bytea,timestamptz) TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.claim_gateway_inbox_event(timestamptz,uuid) TO licensing_runtime;
