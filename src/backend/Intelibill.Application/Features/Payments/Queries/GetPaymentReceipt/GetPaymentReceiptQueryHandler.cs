@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Payments.DTOs;
@@ -11,6 +12,7 @@ public sealed class GetPaymentReceiptQueryHandler(
     IPaymentReceiptRepository receiptRepository,
     PaymentReceiptDtoBuilder dtoBuilder)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<PaymentReceiptDto>> HandleAsync(GetPaymentReceiptQuery query, CancellationToken cancellationToken)
     {
         var authorized = await PaymentAuthorization.RequireOwnerOrManagerAsync(

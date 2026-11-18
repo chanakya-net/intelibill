@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Normalization;
@@ -14,6 +15,7 @@ public sealed class GetCreditNoteByCodeQueryHandler(
     ISaleReturnRepository saleReturnRepository,
     ISaleRepository saleRepository)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<CreditNoteDto>> HandleAsync(
         GetCreditNoteByCodeQuery query,
         CancellationToken cancellationToken)

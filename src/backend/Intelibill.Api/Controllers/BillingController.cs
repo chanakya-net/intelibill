@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using Intelibill.Api.Middleware.RateLimiting;
@@ -22,6 +23,7 @@ public sealed partial class BillingController(IMerchantBillingAccess billing) : 
     public sealed record CreateBillingAccountRequest(Guid OperationKey, string? Name);
 
     [HttpGet]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> List([FromQuery] Guid? after, CancellationToken cancellationToken)
     {
         if (ReadCaller() is not { } caller)
@@ -34,6 +36,7 @@ public sealed partial class BillingController(IMerchantBillingAccess billing) : 
     // Creation checks no credential and sends no message, so the caller's own budget is enough.
     [HttpPost]
     [RateLimit(Limit = 10, PeriodInMinutes = 60, BackoffMinutes = 15)]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> Create([FromBody] CreateBillingAccountRequest request,
         CancellationToken cancellationToken)
     {
@@ -50,6 +53,7 @@ public sealed partial class BillingController(IMerchantBillingAccess billing) : 
     }
 
     [HttpGet("{accountId:guid}/access")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> GetAccess(Guid accountId, CancellationToken cancellationToken)
     {
         if (ReadCaller() is not { } caller)

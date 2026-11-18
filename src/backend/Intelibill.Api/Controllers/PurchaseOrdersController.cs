@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.PurchaseOrders.Commands.CancelPurchaseOrder;
@@ -27,6 +28,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
     }
 
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetPurchaseOrders(
         [FromQuery] string? search = null,
         [FromQuery] PurchaseOrderStatus? status = null,
@@ -55,6 +57,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
     }
 
     [HttpGet("{purchaseOrderId:guid}")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetPurchaseOrderDetail(
         Guid purchaseOrderId,
         CancellationToken cancellationToken = default)
@@ -70,6 +73,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
     }
 
     [HttpPost]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> CreatePurchaseOrderDraft(
         [FromBody] CreatePurchaseOrderDraftRequest request,
         CancellationToken cancellationToken = default)
@@ -99,6 +103,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
     }
 
     [HttpPut("{purchaseOrderId:guid}")]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> UpdatePurchaseOrderDraft(
         Guid purchaseOrderId,
         [FromBody] UpdatePurchaseOrderDraftRequest request,
@@ -125,6 +130,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
     }
 
     [HttpPost("{purchaseOrderId:guid}/place")]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> PlacePurchaseOrder(
         Guid purchaseOrderId,
         CancellationToken cancellationToken = default)
@@ -140,6 +146,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
     }
 
     [HttpDelete("{purchaseOrderId:guid}")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> DeletePurchaseOrderDraft(
         Guid purchaseOrderId,
         CancellationToken cancellationToken = default)
@@ -155,6 +162,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
     }
 
     [HttpPost("{purchaseOrderId:guid}/cancel")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> CancelPurchaseOrder(
         Guid purchaseOrderId,
         [FromBody] CancelPurchaseOrderRequest request,
@@ -171,6 +179,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
     }
 
     [HttpPost("{purchaseOrderId:guid}/close")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> ClosePurchaseOrder(
         Guid purchaseOrderId,
         [FromBody] ClosePurchaseOrderRequest request,
@@ -187,6 +196,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
     }
 
     [HttpPost("{purchaseOrderId:guid}/receipts")]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> ReceivePurchaseOrder(
         Guid purchaseOrderId,
         [FromBody] ReceivePurchaseOrderRequest? request,

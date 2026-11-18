@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Infrastructure.Data;
 using Intelibill.Infrastructure.Licensing;
 using Intelibill.Shared.Security;
@@ -27,6 +28,9 @@ internal static class MerchantBillingRegistration
         AddDeliveryKey(services, EntitlementSnapshotsV1.Section);
         services.AddOptions<EntitlementTransportOptions>().BindConfiguration(EntitlementSnapshotsV1.Section);
         services.AddScoped<MerchantEntitlementTransport>();
+        services.AddSingleton<ILicenceActionPolicy, LicenceActionPolicy>();
+        services.AddScoped<ShopLicenceFence>();
+        services.AddScoped<IShopLicenceFence>(provider => provider.GetRequiredService<ShopLicenceFence>());
         services.AddScoped<EntitlementProjectionStore>();
         services.AddScoped(provider => new LeasedHttpOutbox(provider.GetRequiredService<ApplicationDbContext>()));
         services.AddScoped<ILeasedHttpDestination, MerchantEntitlementDelivery>();

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Enums;
@@ -11,6 +12,7 @@ public sealed class UpdateServiceCommandHandler(
     IServiceRepository serviceRepository,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<Success>> HandleAsync(UpdateServiceCommand command, CancellationToken cancellationToken)
     {
         var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);

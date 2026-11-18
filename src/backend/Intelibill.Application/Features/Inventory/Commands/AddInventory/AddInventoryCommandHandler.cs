@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -28,6 +29,7 @@ public sealed class AddInventoryCommandHandler(
     IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock, IExpiryPolicyFence expiryFence, BatchExpiryRevisionService expiryDates)
 {
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<ErrorOr<AddInventoryResultDto>> HandleAsync(AddInventoryCommand command, CancellationToken cancellationToken)
     {
         var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);

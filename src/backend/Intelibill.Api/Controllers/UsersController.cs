@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Api.Middleware.RateLimiting;
@@ -24,6 +25,7 @@ public sealed class UsersController : AuthenticatedControllerBase
     }
 
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetShopUsers(CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -38,6 +40,7 @@ public sealed class UsersController : AuthenticatedControllerBase
 
     [HttpPost]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> AddShopUser([FromBody] AddShopUserRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -61,6 +64,7 @@ public sealed class UsersController : AuthenticatedControllerBase
 
     [HttpPut("{targetUserId:guid}")]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> EditShopUser(Guid targetUserId, [FromBody] EditShopUserRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -84,6 +88,7 @@ public sealed class UsersController : AuthenticatedControllerBase
     }
 
     [HttpPut("me")]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateMyProfileRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -100,6 +105,7 @@ public sealed class UsersController : AuthenticatedControllerBase
     // same budget as reauthentication, counted against the signed-in account.
     [HttpPost("me/change-password")]
     [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Account, FailClosed = true)]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> ChangeMyPassword([FromBody] ChangeMyPasswordRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();

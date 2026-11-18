@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Time;
@@ -15,6 +16,7 @@ public sealed class GetProfitLossReportQueryHandler(
     private const int DefaultPageSize = 20;
     private const int MaxPageSize = 100;
 
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<ProfitLossReportResultDto>> Handle(
         GetProfitLossReportQuery query,
         CancellationToken cancellationToken)

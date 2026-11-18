@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Api.Extensions;
 using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Application.Common.Interfaces;
@@ -23,6 +24,7 @@ public sealed class AuthController(IMessageBus bus) : ControllerBase
 
     [HttpPost("register/email")]
     [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3, Subject = RateLimitSubject.Destination, FailClosed = true)]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> RegisterWithEmail(
         [FromBody] RegisterWithEmailRequest request,
         CancellationToken cancellationToken)
@@ -35,6 +37,7 @@ public sealed class AuthController(IMessageBus bus) : ControllerBase
     }
 
     [HttpPost("register/phone")]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> RegisterWithPhone(
         [FromBody] RegisterWithPhoneRequest request,
         CancellationToken cancellationToken)
@@ -55,6 +58,7 @@ public sealed class AuthController(IMessageBus bus) : ControllerBase
 
     [HttpPost("login/email")]
     [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3, Subject = RateLimitSubject.Account, FailClosed = true)]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> LoginWithEmail(
         [FromBody] LoginWithEmailRequest request,
         CancellationToken cancellationToken)
@@ -68,6 +72,7 @@ public sealed class AuthController(IMessageBus bus) : ControllerBase
 
     [HttpPost("login")]
     [RateLimit(Limit = 10, PeriodInMinutes = 1, BackoffMinutes = 3, Subject = RateLimitSubject.Account, FailClosed = true)]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> Login(
         [FromBody] LoginRequest request,
         CancellationToken cancellationToken)
@@ -83,6 +88,7 @@ public sealed class AuthController(IMessageBus bus) : ControllerBase
 
     [HttpPost("password-reset/request")]
     [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Destination, FailClosed = true)]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> RequestPasswordReset(
         [FromBody] RequestPasswordResetRequest request,
         CancellationToken cancellationToken)
@@ -98,6 +104,7 @@ public sealed class AuthController(IMessageBus bus) : ControllerBase
 
     [HttpPost("password-reset/confirm")]
     [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Account, FailClosed = true)]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> ResetPassword(
         [FromBody] ResetPasswordRequest request,
         CancellationToken cancellationToken)
@@ -112,6 +119,7 @@ public sealed class AuthController(IMessageBus bus) : ControllerBase
     // ── Token management ──────────────────────────────────────────────────────
 
     [HttpPost("token/refresh")]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> RefreshToken(
         [FromBody] RefreshTokenRequest request,
         CancellationToken cancellationToken)
@@ -124,6 +132,7 @@ public sealed class AuthController(IMessageBus bus) : ControllerBase
     }
 
     [HttpPost("token/revoke")]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> RevokeToken(
         [FromBody] RevokeTokenRequest request,
         CancellationToken cancellationToken)

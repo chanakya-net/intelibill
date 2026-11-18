@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Time;
@@ -22,6 +23,7 @@ public sealed class ClosePostingPeriodCommandHandler(
 {
     private static readonly ClosePostingPeriodCommandValidator Validator = new();
 
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<PostingPeriodDto>> HandleAsync(
         ClosePostingPeriodCommand command,
         CancellationToken cancellationToken)

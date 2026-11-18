@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
@@ -16,6 +17,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
 {
     [HttpPost("invoice-leases/reserve")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> ReserveInvoiceLease(
         [FromBody] ReserveInvoiceLeaseRequest request,
         CancellationToken cancellationToken)
@@ -37,6 +39,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
 
     [HttpPost("offline-sync")]
     [Authorize(Policy = "OwnerManagerOrStaff")]
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<IActionResult> SyncOfflineSales(
         [FromBody] OfflineSalesSyncRequest? request,
         CancellationToken cancellationToken)
@@ -106,6 +109,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
 
     [HttpPost("preview")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> PreviewSale([FromBody] PreviewSaleRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();

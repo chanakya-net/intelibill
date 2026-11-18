@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Application.Features.Expiry;
@@ -23,6 +24,7 @@ public sealed class PreviewSaleQueryHandler(
     IBusinessClock businessClock,
     IExpiryPolicyFence expiryFence, IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<SalePreviewDto>> Handle(
         PreviewSaleQuery query,
         CancellationToken cancellationToken)

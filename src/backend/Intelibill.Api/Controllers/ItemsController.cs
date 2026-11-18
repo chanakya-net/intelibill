@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -31,6 +32,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
     }
 
     [HttpGet("stream")]
+    [LicenceAction(LicenceAction.History)]
     public async Task StreamItems(CancellationToken cancellationToken)
     {
         if (UserId is null)
@@ -75,6 +77,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
     }
 
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetItems(
         [FromQuery] string? search,
         [FromQuery] string? status,
@@ -93,6 +96,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
     }
 
     [HttpGet("details")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetProductDetails(
         [FromQuery] string? name,
         [FromQuery] string? barcode,
@@ -115,6 +119,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
 
     [HttpPost]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> AddItem([FromBody] AddItemRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -139,6 +144,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
 
     [HttpPost("barcodes/generate")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> GenerateItemBarcode(CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -155,6 +161,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
 
     [HttpPost("barcodes/labels")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> PrintBarcodeLabels(
         [FromBody] PrintBarcodeLabelsRequest request,
         CancellationToken cancellationToken)
@@ -174,6 +181,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
 
     [HttpPatch("{itemId:guid}")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> UpdateItem(Guid itemId, [FromBody] UpdateItemRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();

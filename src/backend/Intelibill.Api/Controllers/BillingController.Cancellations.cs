@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Shared.Contracts.V1;
@@ -10,6 +11,7 @@ public sealed partial class BillingController
     private const string CancellationRoute = "{accountId:guid}/subscriptions/{termId:guid}/cancellation";
 
     [HttpGet(CancellationRoute)]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> ReadCancellation(Guid accountId, Guid termId, [FromQuery] Guid? after,
         [FromServices] IMerchantSubscriptionCancellations service, CancellationToken ct) =>
         ReadCaller() is { } caller
@@ -18,6 +20,7 @@ public sealed partial class BillingController
 
     [HttpPost(CancellationRoute)]
     [RequestSizeLimit(SubscriptionCancellationsV1.MaximumBodyBytes)]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> ScheduleCancellation(Guid accountId, Guid termId,
         [FromBody] ScheduleSubscriptionCancellationV1 request, [FromServices] IMerchantSubscriptionCancellations service,
         CancellationToken ct) =>
@@ -26,6 +29,7 @@ public sealed partial class BillingController
             : SessionInvalid();
 
     [HttpGet(CancellationRoute + "/operations/{operation:guid}")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> RecoverCancellation(Guid accountId, Guid termId, Guid operation,
         [FromServices] IMerchantSubscriptionCancellations service, CancellationToken ct) =>
         ReadCaller() is { } caller
@@ -34,6 +38,7 @@ public sealed partial class BillingController
 
     [HttpPost(CancellationRoute + "/withdrawal")]
     [RequestSizeLimit(SubscriptionCancellationsV1.MaximumBodyBytes)]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> WithdrawCancellation(Guid accountId, Guid termId,
         [FromBody] WithdrawSubscriptionCancellationV1 request, [FromServices] IMerchantSubscriptionCancellations service,
         CancellationToken ct) =>
@@ -42,6 +47,7 @@ public sealed partial class BillingController
             : SessionInvalid();
 
     [HttpGet(CancellationRoute + "/withdrawal/operations/{operation:guid}")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> RecoverCancellationWithdrawal(Guid accountId, Guid termId, Guid operation,
         [FromServices] IMerchantSubscriptionCancellations service, CancellationToken ct) =>
         ReadCaller() is { } caller

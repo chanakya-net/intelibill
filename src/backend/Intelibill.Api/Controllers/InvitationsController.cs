@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Users.Commands.AcceptShopInvitation;
 using Intelibill.Application.Features.Users.DTOs;
@@ -21,6 +22,7 @@ public sealed class InvitationsController : AuthenticatedControllerBase
     }
 
     [HttpPost("{invitationId:guid}/accept")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> AcceptInvitation(
         Guid invitationId,
         [FromBody] AcceptInvitationRequest request,

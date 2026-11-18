@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Common.Time;
 using Intelibill.Application.Common.Posting;
@@ -15,6 +16,7 @@ public sealed class GetAvailableBatchesQueryHandler(
     IInventoryBatchRepository inventoryBatchRepository,
     SaleExpiryGuard expiryGuard, IBusinessClock clock, IExpiryPolicyFence expiryFence, IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<IReadOnlyList<AvailableBatchDto>>> Handle(
         GetAvailableBatchesQuery query,
         CancellationToken cancellationToken)

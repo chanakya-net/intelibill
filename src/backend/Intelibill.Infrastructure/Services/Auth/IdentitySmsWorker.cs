@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -14,6 +15,7 @@ namespace Intelibill.Infrastructure.Services.Auth;
 /// before the network call, so no database transaction is held across it, and a superseded or
 /// expired message is dropped rather than sent to someone who no longer needs it.
 /// </summary>
+[LicenceAction(LicenceAction.InternalService)]
 internal sealed partial class IdentitySmsWorker(IServiceScopeFactory scopes, ILogger<IdentitySmsWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

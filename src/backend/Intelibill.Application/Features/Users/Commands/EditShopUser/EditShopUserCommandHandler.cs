@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Users.DTOs;
@@ -19,6 +20,7 @@ namespace Intelibill.Application.Features.Users.Commands.EditShopUser;
 /// </remarks>
 public sealed class EditShopUserCommandHandler(IUserRepository userRepository)
 {
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<ShopUserDto>> HandleAsync(EditShopUserCommand command, CancellationToken cancellationToken)
     {
         var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);

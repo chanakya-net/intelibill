@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.BankAccounts.Commands.AddBankAccount;
@@ -21,6 +22,7 @@ public sealed class BankAccountsController : AuthenticatedControllerBase
     }
 
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetBankAccounts(CancellationToken cancellationToken)
     {
         var shop = CheckShop();
@@ -35,6 +37,7 @@ public sealed class BankAccountsController : AuthenticatedControllerBase
 
     [HttpPost]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> AddBankAccount([FromBody] AddBankAccountRequest request, CancellationToken cancellationToken)
     {
         var shop = CheckShop();
@@ -55,6 +58,7 @@ public sealed class BankAccountsController : AuthenticatedControllerBase
 
     [HttpPut("{id:guid}")]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> UpdateBankAccount(Guid id, [FromBody] UpdateBankAccountRequest request, CancellationToken cancellationToken)
     {
         var shop = CheckShop();
@@ -76,6 +80,7 @@ public sealed class BankAccountsController : AuthenticatedControllerBase
 
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> DeleteBankAccount(Guid id, CancellationToken cancellationToken)
     {
         var shop = CheckShop();

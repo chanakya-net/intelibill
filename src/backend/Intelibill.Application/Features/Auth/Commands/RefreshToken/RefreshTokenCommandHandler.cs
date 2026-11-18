@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.DTOs;
@@ -6,6 +7,7 @@ namespace Intelibill.Application.Features.Auth.Commands.RefreshToken;
 
 public sealed class RefreshTokenCommandHandler(IAuthSessionService sessions)
 {
+    [LicenceAction(LicenceAction.Authentication)]
     public Task<ErrorOr<AuthResult>> HandleAsync(
         RefreshTokenCommand command,
         CancellationToken cancellationToken) =>

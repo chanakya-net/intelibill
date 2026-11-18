@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -11,6 +12,7 @@ public sealed class DeletePurchaseOrderDraftCommandHandler(
     IPurchaseOrderRepository purchaseOrderRepository,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<Deleted>> HandleAsync(
         DeletePurchaseOrderDraftCommand command,
         CancellationToken cancellationToken)

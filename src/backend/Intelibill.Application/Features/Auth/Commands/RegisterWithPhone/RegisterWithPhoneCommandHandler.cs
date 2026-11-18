@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Auth.DTOs;
@@ -15,6 +16,7 @@ namespace Intelibill.Application.Features.Auth.Commands.RegisterWithPhone;
 /// </summary>
 public sealed class RegisterWithPhoneCommandHandler
 {
+    [LicenceAction(LicenceAction.Authentication)]
     public static Task<ErrorOr<AuthResult>> HandleAsync(
         RegisterWithPhoneCommand command,
         CancellationToken cancellationToken) =>

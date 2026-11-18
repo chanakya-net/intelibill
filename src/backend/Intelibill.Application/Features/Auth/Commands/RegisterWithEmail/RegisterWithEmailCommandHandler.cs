@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
@@ -15,6 +16,7 @@ public sealed class RegisterWithEmailCommandHandler(
     ITokenService tokenService,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.Authentication)]
     public Task<ErrorOr<AuthResult>> HandleAsync(RegisterWithEmailCommand command, CancellationToken cancellationToken)
     {
         _ = (userRepository, refreshTokenRepository, passwordHasher, tokenService, unitOfWork, command, cancellationToken);

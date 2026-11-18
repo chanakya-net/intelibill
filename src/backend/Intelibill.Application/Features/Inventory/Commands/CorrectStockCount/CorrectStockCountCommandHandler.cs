@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -47,6 +48,7 @@ public sealed class CorrectStockCountCommandHandler(
 {
     private static readonly CorrectStockCountCommandValidator Validator = new();
 
+    [LicenceAction(LicenceAction.GeneralStock)]
     public async Task<ErrorOr<StockCountResultDto>> HandleAsync(
         CorrectStockCountCommand command,
         CancellationToken cancellationToken)

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Customers.DTOs;
@@ -15,6 +16,7 @@ public sealed class GetCustomerCreditQueryHandler(
     ICustomerRepository customerRepository,
     ICustomerLedgerEntryRepository customerLedgerEntryRepository)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<CustomerCreditStatusDto>> HandleAsync(GetCustomerCreditQuery query, CancellationToken cancellationToken)
     {
         var customer = await customerRepository.GetByShopAndIdAsync(query.ShopId, query.CustomerId, cancellationToken);

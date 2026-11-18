@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Text.Json.Serialization;
 using Intelibill.Api.Extensions;
 using Intelibill.Api.Middleware.RateLimiting;
@@ -35,6 +36,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     }
 
     [HttpGet("{shopId:guid}/setup")]
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public async Task<IActionResult> GetSetup(Guid shopId, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -45,6 +47,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     }
 
     [HttpGet("{shopId:guid}/setup/sample")]
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public async Task<IActionResult> GetSetupSample(Guid shopId, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -55,6 +58,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     }
 
     [HttpGet("{shopId:guid}/setup/preferences")]
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public async Task<IActionResult> GetSetupPreferences(Guid shopId, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -65,6 +69,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     }
 
     [HttpPut("{shopId:guid}/setup/preferences")]
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public async Task<IActionResult> UpdateSetupPreferences(Guid shopId, [FromBody] UpdateShopSetupPreferencesRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -76,6 +81,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     }
 
     [HttpGet("{shopId:guid}/till-settings")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetTillSettings(Guid shopId, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -87,6 +93,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
 
     [HttpPut("{shopId:guid}/till-settings")]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> UpdateTillSettings(Guid shopId, [FromBody] UpdateShopTillSettingsRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -98,6 +105,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     }
 
     [HttpGet("me")]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> GetMyShops(CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -111,6 +119,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     }
 
     [HttpGet("{shopId:guid}")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetShopDetails(Guid shopId, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -124,6 +133,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     }
 
     [HttpPost]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> CreateShop([FromBody] CreateShopRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -156,6 +166,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     /// </summary>
     [HttpPut("{shopId:guid}/tax-profile")]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public async Task<IActionResult> DeclareTaxProfile(Guid shopId, [FromBody] DeclareShopTaxProfileRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -173,6 +184,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     /// the handler checks the caller holds a live membership in the requested shop.
     /// </summary>
     [HttpPost("switch")]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> SwitchActiveShop([FromBody] SwitchActiveShopRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -189,6 +201,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     }
 
     [HttpPost("default")]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> SetDefaultShop([FromBody] SetDefaultShopRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -203,6 +216,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
 
     [HttpPut("{shopId:guid}")]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public async Task<IActionResult> UpdateShop(Guid shopId, [FromBody] UpdateShopRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -231,6 +245,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     /// what authorizes the change and the shop need not be the caller's active one.
     /// </summary>
     [HttpPatch("{shopId:guid}/members/{targetUserId:guid}")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> UpdateShopMembership(
         Guid shopId,
         Guid targetUserId,
@@ -261,6 +276,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     // other message an address can be sent.
     [HttpPost("{shopId:guid}/invitations")]
     [RateLimit(Limit = 20, PeriodInMinutes = 60, BackoffMinutes = 15, Subject = RateLimitSubject.Destination, FailClosed = true)]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> InviteShopMember(
         Guid shopId,
         [FromBody] InviteShopMemberRequest request,
@@ -277,6 +293,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     }
 
     [HttpGet("{shopId:guid}/invitations")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetShopInvitations(Guid shopId, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -291,6 +308,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
 
     /// <summary>Withdraws a still-pending invitation, making its link unusable.</summary>
     [HttpDelete("{shopId:guid}/invitations/{invitationId:guid}")]
+    [LicenceAction(LicenceAction.MemberRemoval)]
     public async Task<IActionResult> RevokeShopInvitation(Guid shopId, Guid invitationId, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -304,6 +322,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     }
 
     [HttpPut("{shopId:guid}/bank-details")]
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public async Task<IActionResult> UpdateShopBankDetails(Guid shopId, [FromBody] UpdateShopBankDetailsRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();

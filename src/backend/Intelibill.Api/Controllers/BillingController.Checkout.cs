@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Application.Features.Billing;
@@ -13,6 +14,7 @@ public sealed partial class BillingController
     [HttpPost(OrdersRoute)]
     [RateLimit(Limit = 30, PeriodInMinutes = 60, BackoffMinutes = 5, FailClosed = true)]
     [RequestSizeLimit(CheckoutOrdersV1.MaxCreateBytes)]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> CreateQuote(Guid accountId, CreateCheckoutQuoteV1 request,
         [FromServices] IMerchantCheckoutOrders service, CancellationToken ct)
     {
@@ -24,26 +26,31 @@ public sealed partial class BillingController
 
     [HttpPost(OrdersRoute + "/{orderId:guid}/accept")]
     [RequestSizeLimit(CheckoutOrdersV1.MaxAcceptBytes)]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> AcceptQuote(Guid accountId, Guid orderId, AcceptCheckoutQuoteV1 request,
         [FromServices] IMerchantCheckoutOrders service, CancellationToken ct) =>
         ReadCaller() is { } caller ? CheckoutResponse(await service.AcceptQuoteAsync(caller, accountId, orderId, request, ct)) : SessionInvalid();
 
     [HttpGet(OrdersRoute + "/{orderId:guid}")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> ReadQuote(Guid accountId, Guid orderId,
         [FromServices] IMerchantCheckoutOrders service, CancellationToken ct) =>
         ReadCaller() is { } caller ? CheckoutResponse(await service.ReadQuoteAsync(caller, accountId, orderId, ct)) : SessionInvalid();
 
     [HttpGet(OrdersRoute + "/operations/{kind}/{key:guid}")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> RecoverQuote(Guid accountId, string kind, Guid key,
         [FromServices] IMerchantCheckoutOrders service, CancellationToken ct) =>
         ReadCaller() is { } caller ? CheckoutResponse(await service.RecoverQuoteAsync(caller, accountId, kind, key, ct)) : SessionInvalid();
 
     [HttpGet(OrdersRoute + "/eligible-shops")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> CheckoutCandidates(Guid accountId, [FromQuery] Guid? after,
         [FromServices] IMerchantCheckoutOrders service, CancellationToken ct) =>
         ReadCaller() is { } caller ? CheckoutResponse(await service.ReadCheckoutShopsAsync(caller, accountId, null, after, ct)) : SessionInvalid();
 
     [HttpGet(OrdersRoute + "/{orderId:guid}/shops")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> CheckoutShops(Guid accountId, Guid orderId, [FromQuery] Guid? after,
         [FromServices] IMerchantCheckoutOrders service, CancellationToken ct) =>
         ReadCaller() is { } caller ? CheckoutResponse(await service.ReadCheckoutShopsAsync(caller, accountId, orderId, after, ct)) : SessionInvalid();

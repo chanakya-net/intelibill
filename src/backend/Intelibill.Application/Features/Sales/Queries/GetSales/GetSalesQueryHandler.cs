@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Time;
@@ -16,6 +17,7 @@ public sealed class GetSalesQueryHandler(
     private const int MaxPageSize = 100;
     private const int DefaultLookbackDays = 30;
 
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<SalesHistoryResultDto>> Handle(
         GetSalesQuery query,
         CancellationToken cancellationToken)

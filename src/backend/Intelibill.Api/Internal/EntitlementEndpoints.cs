@@ -1,16 +1,19 @@
 using ErrorOr;
 using System.Text.Json;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Infrastructure.Licensing;
 using Intelibill.Shared.Contracts.V1;
 using Intelibill.Shared.Web.Http;
 using Npgsql;
+using LicenceErrors = Intelibill.Application.Common.Errors.Errors.Licence;
 
 namespace Intelibill.Api.Internal;
 
 internal static class EntitlementEndpoints
 {
     internal static void MapEntitlementReceiver(this IEndpointRouteBuilder endpoints) =>
-        endpoints.MapPost(EntitlementSnapshotsV1.SnapshotPath, ApplyAsync).AllowAnonymous();
+        endpoints.MapPost(EntitlementSnapshotsV1.SnapshotPath, ApplyAsync).AllowAnonymous()
+            .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
 
     private static async Task<IResult> ApplyAsync(HttpContext context, MerchantEntitlementTransport transport,
         EntitlementProjectionStore projection)
@@ -27,6 +30,8 @@ internal static class EntitlementEndpoints
             var result = await projection.ApplyAsync(snapshot, request.Body, proof, context.RequestAborted);
             if (!result.IsError)
                 return Results.Bytes(result.Value, "application/json");
+            if (result.FirstError.Code == LicenceErrors.BusyCode)
+                return Results.StatusCode(503);
             return result.FirstError.Type == ErrorType.Conflict ? Results.Conflict() : Results.Unauthorized();
         }
         catch (JsonException)

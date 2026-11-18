@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Services.Returns;
@@ -9,6 +10,7 @@ public sealed class PreviewSaleReturnQueryHandler(
     ISaleReturnValidator saleReturnValidator,
     IReturnAccountingPolicy returnAccountingPolicy)
 {
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<SaleReturnPreviewDto>> Handle(
         PreviewSaleReturnQuery query,
         CancellationToken cancellationToken)

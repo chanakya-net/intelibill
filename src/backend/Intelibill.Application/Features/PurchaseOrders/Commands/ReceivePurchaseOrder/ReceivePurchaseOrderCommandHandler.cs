@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -28,6 +29,7 @@ public sealed class ReceivePurchaseOrderCommandHandler(
     IItemRepository itemRepository,
     IFinancialOperationExecutor operationExecutor, IExpiryPolicyFence expiryFence)
 {
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<ErrorOr<PurchaseOrderDetailDto>> HandleAsync(
         ReceivePurchaseOrderCommand command,
         CancellationToken cancellationToken)

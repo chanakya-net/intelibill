@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Time;
@@ -15,6 +16,7 @@ public sealed class GetPostingPeriodsQueryHandler(
     IPostingPeriodRepository periodRepository,
     IBusinessClock businessClock)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<PostingPeriodListDto>> HandleAsync(
         GetPostingPeriodsQuery query,
         CancellationToken cancellationToken)

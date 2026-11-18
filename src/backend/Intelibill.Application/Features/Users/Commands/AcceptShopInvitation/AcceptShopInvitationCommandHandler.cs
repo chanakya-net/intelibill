@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Users.DTOs;
@@ -11,6 +12,7 @@ public sealed class AcceptShopInvitationCommandHandler(
     IMembershipAuthorityRepository authority,
     TimeProvider clock)
 {
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<MembershipDto>> HandleAsync(
         AcceptShopInvitationCommand command,
         CancellationToken cancellationToken)

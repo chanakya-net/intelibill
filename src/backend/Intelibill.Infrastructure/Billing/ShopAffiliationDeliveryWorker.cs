@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Azure;
@@ -9,6 +10,7 @@ using Npgsql;
 
 namespace Intelibill.Infrastructure.Billing;
 
+[LicenceAction(LicenceAction.InternalService)]
 internal sealed partial class ShopAffiliationDeliveryWorker(IServiceScopeFactory scopes,
     ILogger<ShopAffiliationDeliveryWorker> logger) : BackgroundService
 {

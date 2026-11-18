@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Common.Posting;
 using ErrorOr;
@@ -32,6 +33,7 @@ public sealed class UpdateBatchPricesCommandHandler(
 {
     private static readonly UpdateBatchPricesCommandValidator Validator = new();
 
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<BatchPriceUpdateResultDto>> HandleAsync(
         UpdateBatchPricesCommand command,
         CancellationToken cancellationToken)

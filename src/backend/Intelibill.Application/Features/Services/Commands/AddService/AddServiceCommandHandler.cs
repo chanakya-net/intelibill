@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Services.DTOs;
@@ -13,6 +14,7 @@ public sealed class AddServiceCommandHandler(
     IServiceRepository serviceRepository,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<ServiceDto>> HandleAsync(AddServiceCommand command, CancellationToken cancellationToken)
     {
         var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);

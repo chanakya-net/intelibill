@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
@@ -17,6 +18,7 @@ public sealed class GetPurchaseOrderDetailQueryHandler(
     ISupplierReturnRepository? supplierReturns = null,
     IPurchaseReceiptReversalRepository? receiptReversals = null)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<PurchaseOrderDetailDto>> HandleAsync(
         GetPurchaseOrderDetailQuery query,
         CancellationToken cancellationToken)

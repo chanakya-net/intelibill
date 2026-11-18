@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Auth.DTOs;
@@ -10,6 +11,7 @@ namespace Intelibill.Application.Features.Shops.Commands.SwitchActiveShop;
 /// </summary>
 public sealed class SwitchActiveShopCommandHandler(IAuthSessionService sessions)
 {
+    [LicenceAction(LicenceAction.Authentication)]
     public Task<ErrorOr<AccessScopeResult>> HandleAsync(SwitchActiveShopCommand command, CancellationToken cancellationToken) =>
         sessions.RescopeAsync(command.UserId, command.SessionId, command.ShopId, cancellationToken);
 }

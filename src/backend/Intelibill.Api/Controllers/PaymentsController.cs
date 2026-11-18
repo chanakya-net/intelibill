@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.ValueObjects;
 using ErrorOr;
@@ -26,6 +27,7 @@ public sealed class PaymentsController(IMessageBus bus) : AuthenticatedControlle
 {
     [HttpGet("balances")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetBalances(
         [FromQuery] PaymentPartyType partyType,
         [FromQuery] Guid partyId,
@@ -43,6 +45,7 @@ public sealed class PaymentsController(IMessageBus bus) : AuthenticatedControlle
 
     [HttpGet("{receiptId:guid}")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetReceipt(Guid receiptId, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -57,6 +60,7 @@ public sealed class PaymentsController(IMessageBus bus) : AuthenticatedControlle
 
     [HttpPost("{receiptId:guid}/allocations")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.ExistingPayment)]
     public async Task<IActionResult> Allocate(
         Guid receiptId,
         [FromBody] AllocatePaymentRequest request,
@@ -79,6 +83,7 @@ public sealed class PaymentsController(IMessageBus bus) : AuthenticatedControlle
 
     [HttpPost("{receiptId:guid}/reversal")]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.ExistingPayment)]
     public async Task<IActionResult> Reverse(
         Guid receiptId,
         [FromBody] ReversePaymentRequest request,

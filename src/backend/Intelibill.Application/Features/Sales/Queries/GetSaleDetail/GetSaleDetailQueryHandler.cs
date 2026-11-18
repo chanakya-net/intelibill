@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Sales.DTOs;
@@ -21,6 +22,7 @@ public sealed class GetSaleDetailQueryHandler(
     private const string PartiallyReturned = "PartiallyReturned";
     private const string FullyReturned = "FullyReturned";
 
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<SaleDto>> Handle(
         GetSaleDetailQuery query,
         CancellationToken cancellationToken)

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Posting;
@@ -27,6 +28,7 @@ public sealed class CreateAdjustmentCommandHandler(
 {
     private static readonly CreateAdjustmentCommandValidator Validator = new();
 
+    [LicenceAction(LicenceAction.GeneralStock)]
     public async Task<ErrorOr<InventoryAdjustmentResultDto>> HandleAsync(
         CreateAdjustmentCommand command,
         CancellationToken cancellationToken)

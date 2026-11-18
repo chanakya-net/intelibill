@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
@@ -22,6 +23,7 @@ public sealed partial class InventoryController
 {
     [HttpPost("batches/{batchId:guid}/void")]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> VoidBatch(Guid batchId, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -36,6 +38,7 @@ public sealed partial class InventoryController
 
     [HttpPost("adjustments/{adjustmentId:guid}/void")]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> VoidAdjustment(
         Guid adjustmentId,
         [FromBody] VoidAdjustmentRequest request,
@@ -53,6 +56,7 @@ public sealed partial class InventoryController
 
     [HttpPost("batches/{batchId:guid}/adjust")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.GeneralStock)]
     public async Task<IActionResult> CreateAdjustment(Guid batchId, [FromBody] CreateAdjustmentRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -75,6 +79,7 @@ public sealed partial class InventoryController
 
     [HttpPost("batches/{batchId:guid}/count")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.GeneralStock)]
     public async Task<IActionResult> CountStock(Guid batchId, [FromBody] CountStockRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -96,6 +101,7 @@ public sealed partial class InventoryController
 
     [HttpPut("batches/{batchId:guid}/prices")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> UpdateBatchPrices(Guid batchId, [FromBody] UpdateBatchPricesRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -126,6 +132,7 @@ public sealed partial class InventoryController
 
     [HttpPost("receipts/{receiptValueId:guid}/cost-corrections")]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> CorrectReceiptCost(Guid receiptValueId, [FromBody] CorrectReceiptCostRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -154,6 +161,7 @@ public sealed partial class InventoryController
     /// </summary>
     [HttpPut("batches/{batchId:guid}")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.GeneralStock)]
     public async Task<IActionResult> UpdateInventoryBatch(Guid batchId, [FromBody] UpdateInventoryBatchRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -187,6 +195,7 @@ public sealed partial class InventoryController
 
     [HttpPost("batches/{batchId:guid}/reassign-supplier")]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> ReassignBatchSupplier(Guid batchId, [FromBody] ReassignBatchSupplierRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -203,6 +212,7 @@ public sealed partial class InventoryController
     }
 
     [HttpGet("batches/available")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetAvailableBatches([FromQuery] string? searchTerm, [FromQuery] string? barcode, CancellationToken cancellationToken, [FromQuery] bool includeUnavailable = false)
     {
         var auth = CheckAuthAndShop();

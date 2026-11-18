@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -8,6 +9,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 namespace Intelibill.Infrastructure.Services.Auth;
 
+[LicenceAction(LicenceAction.InternalService)]
 internal sealed partial class IdentityMailWorker(IServiceScopeFactory scopes, ILogger<IdentityMailWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

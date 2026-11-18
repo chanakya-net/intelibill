@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Features.SupplierReturns.Services;
 using Intelibill.Application.Common.Errors;
@@ -24,6 +25,7 @@ public sealed class ReassignBatchSupplierCommandHandler(
     IUnitOfWork unitOfWork,
     ISupplierReturnMutationLock supplierReturnLock)
 {
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<Success>> HandleAsync(ReassignBatchSupplierCommand command, CancellationToken cancellationToken)
     {
         var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);

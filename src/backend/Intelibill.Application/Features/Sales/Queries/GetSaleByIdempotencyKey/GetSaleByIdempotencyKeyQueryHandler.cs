@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -15,6 +16,7 @@ public sealed class GetSaleByIdempotencyKeyQueryHandler(
     IShopRepository shopRepository,
     ISaleRepository saleRepository)
 {
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<ErrorOr<Guid>> Handle(
         GetSaleByIdempotencyKeyQuery query,
         CancellationToken cancellationToken)

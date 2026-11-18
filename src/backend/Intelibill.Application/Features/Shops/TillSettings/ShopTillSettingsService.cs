@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Normalization;
 using Intelibill.Application.Features.Tills;
@@ -70,9 +71,11 @@ public sealed class ShopTillSettingsService(ITillRepository tills, IShopReposito
 
 public sealed class GetShopTillSettingsQueryHandler(ShopTillSettingsService service)
 {
+    [LicenceAction(LicenceAction.History)]
     public Task<ErrorOr<ShopTillSettingsDto>> HandleAsync(GetShopTillSettingsQuery query, CancellationToken ct) => service.GetAsync(query, ct);
 }
 public sealed class UpdateShopTillSettingsCommandHandler(ShopTillSettingsService service)
 {
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public Task<ErrorOr<ShopTillSettingsDto>> HandleAsync(UpdateShopTillSettingsCommand command, CancellationToken ct) => service.UpdateAsync(command, ct);
 }

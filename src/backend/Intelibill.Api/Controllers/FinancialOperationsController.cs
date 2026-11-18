@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.FinancialOperations.Queries.GetFinancialOperation;
@@ -22,6 +23,7 @@ public sealed class FinancialOperationsController : AuthenticatedControllerBase
     /// </summary>
     [HttpGet("{operationType}/{operationKey}")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<IActionResult> GetFinancialOperation(string operationType, string operationKey, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();

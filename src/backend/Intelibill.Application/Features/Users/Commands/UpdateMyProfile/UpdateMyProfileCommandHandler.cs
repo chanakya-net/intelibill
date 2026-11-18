@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Auth.DTOs;
@@ -15,6 +16,7 @@ public sealed class UpdateMyProfileCommandHandler(
     IUserRepository userRepository,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<ErrorOr<UserDto>> HandleAsync(
         UpdateMyProfileCommand command,
         CancellationToken cancellationToken)

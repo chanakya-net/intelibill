@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -45,6 +46,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
         _diagnostics = diagnostics;
     }
     [HttpGet("offline-snapshot/stream")]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task StreamOfflineSnapshot(CancellationToken cancellationToken)
     {
         if (UserId is null)
@@ -121,6 +123,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
 
     [HttpPost]
     [Authorize(Policy = "OwnerManagerOrStaff")]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> RecordSale([FromBody] RecordSaleRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -174,6 +177,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     }
 
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetSales(
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
@@ -192,6 +196,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     }
 
     [HttpGet("sellables")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> SearchSellables(
         [FromQuery] string? searchTerm,
         [FromQuery] string? barcode,
@@ -216,6 +221,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
 
     [HttpGet("profit-loss")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetProfitLossReport(
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
@@ -234,6 +240,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     }
 
     [HttpGet("{saleId:guid}")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetSaleDetail(Guid saleId, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -246,6 +253,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
 
     [HttpGet("by-idempotency-key/{idempotencyKey}")]
     [Authorize(Policy = "OwnerManagerOrStaff")]
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<IActionResult> GetSaleByIdempotencyKey(string idempotencyKey, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -262,6 +270,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     }
 
     [HttpGet("returns/{returnNumber}")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetSaleByReturnNumber(string returnNumber, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Globalization;
 using System.Security.Claims;
 using ErrorOr;
@@ -23,34 +24,42 @@ public sealed class EmailOwnershipController(IEmailOwnershipService ownership) :
     }
     [HttpPost("enrollment/email/request")]
     [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Destination, FailClosed = true)]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> RequestEmail(EmailOwnershipRequest request, CancellationToken ct) => AcceptedRequest(await ownership.RequestAsync(request.Email, ct));
     [HttpPost("enrollment/email/confirm")]
     [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15, FailClosed = true)]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> ConfirmEnrollment(EmailEnrollmentConfirmation request, CancellationToken ct) =>
         (await ownership.ConfirmEnrollmentAsync(request.ChallengeId, request.Token, request.Password, request.FirstName, request.LastName, ct)).ToActionResult(Ok);
     [HttpPost("enrollment/email/claim/request")]
     [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Destination, FailClosed = true)]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> RequestClaim(EmailOwnershipRequest request, CancellationToken ct) => AcceptedRequest(await ownership.RequestClaimAsync(request.Email, ct));
     [HttpPost("enrollment/email/claim/confirm")]
     [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15, FailClosed = true)]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> ConfirmClaim(EmailEnrollmentConfirmation request, CancellationToken ct) =>
         (await ownership.ConfirmClaimAsync(request.ChallengeId, request.Token, request.Password, request.FirstName, request.LastName, ct)).ToActionResult(Ok);
     [Authorize]
     [HttpPost("reauthenticate")]
     [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Account, FailClosed = true)]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> Reauthenticate(ReauthenticationRequest request, CancellationToken ct) =>
         (await ownership.ReauthenticateAsync(Actor, Version, request.Password, ct)).ToActionResult(Ok);
     [Authorize]
     [HttpPost("email-change/request")]
     [RateLimit(Limit = 5, PeriodInMinutes = 15, BackoffMinutes = 15, Subject = RateLimitSubject.Destination, FailClosed = true)]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> RequestChange(EmailChangeRequest request, CancellationToken ct) => AcceptedRequest(await ownership.RequestEmailChangeAsync(Actor, Version, request.Email, request.ReauthProof, ct));
     [Authorize]
     [HttpPost("email-change/confirm")]
     [RateLimit(Limit = 10, PeriodInMinutes = 15, BackoffMinutes = 15, FailClosed = true)]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> ConfirmChange(EmailOwnershipConfirmation request, CancellationToken ct) =>
         (await ownership.ConfirmEmailChangeAsync(Actor, Version, request.ChallengeId, request.Token, ct)).ToActionResult(_ => Ok(new { message = "Email updated. Please sign in again." }));
     [Authorize]
     [HttpGet("sign-in-methods")]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> SignInMethods([FromServices] IUserRepository users, CancellationToken ct)
     {
         var user = await users.GetByIdWithDetailsAsync(Actor, ct);

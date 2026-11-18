@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Interfaces;
 
@@ -11,6 +12,7 @@ namespace Intelibill.Application.Features.Auth.Commands.RevokeToken;
 /// </summary>
 public sealed class RevokeTokenCommandHandler(IAuthSessionService sessions)
 {
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<ErrorOr<bool>> HandleAsync(
         RevokeTokenCommand command,
         CancellationToken cancellationToken)

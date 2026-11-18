@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Customers.DTOs;
@@ -18,6 +19,7 @@ public sealed class GetCustomerAccountQueryHandler(
     IShopRepository shopRepository,
     IBusinessClock businessClock)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<CustomerAccountDto>> HandleAsync(GetCustomerAccountQuery query, CancellationToken cancellationToken)
     {
         var actor = await userRepository.GetByIdWithDetailsAsync(query.UserId, cancellationToken);

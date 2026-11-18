@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Shared.Contracts.V1;
@@ -10,6 +11,7 @@ public sealed partial class BillingController
     [HttpPost("{accountId:guid}/ownership-transfers")]
     [RequestSizeLimit(6144)]
     [RateLimit(Limit = 20, PeriodInMinutes = 60, BackoffMinutes = 15, FailClosed = true)]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> InitiateOwnershipTransfer(Guid accountId, [FromBody] MerchantOwnershipTransferRequest request,
         [FromServices] IMerchantBillingOwnershipTransfers transfers, CancellationToken ct)
     {
@@ -20,6 +22,7 @@ public sealed partial class BillingController
     }
 
     [HttpGet("/api/billing/ownership-transfers")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> OwnershipInbox([FromQuery] Guid? after,
         [FromServices] IMerchantBillingOwnershipTransfers transfers, CancellationToken ct)
     {
@@ -30,6 +33,7 @@ public sealed partial class BillingController
     }
 
     [HttpGet("/api/billing/ownership-transfers/{transfer:guid}")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> OwnershipPreview(Guid transfer,
         [FromServices] IMerchantBillingOwnershipTransfers transfers, CancellationToken ct)
     {
@@ -42,6 +46,7 @@ public sealed partial class BillingController
     [HttpPost("/api/billing/ownership-transfers/{transfer:guid}/accept")]
     [RequestSizeLimit(1024)]
     [RateLimit(Limit = 30, PeriodInMinutes = 15, BackoffMinutes = 5, FailClosed = true)]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> AcceptOwnershipTransfer(Guid transfer, [FromBody] AcceptBillingOwnershipTransferV1 request,
         [FromServices] IMerchantBillingOwnershipTransfers transfers, CancellationToken ct)
     {
@@ -52,6 +57,7 @@ public sealed partial class BillingController
     }
 
     [HttpGet("/api/billing/ownership-transfer-operations/{operation}/{key:guid}")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> RecoverOwnershipTransfer(string operation, Guid key,
         [FromServices] IMerchantBillingOwnershipTransfers transfers, CancellationToken ct)
     {

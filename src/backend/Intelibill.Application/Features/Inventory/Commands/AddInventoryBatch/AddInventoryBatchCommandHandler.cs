@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Globalization;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -40,6 +41,7 @@ public sealed partial class AddInventoryBatchCommandHandler(
 
     private static readonly AddInventoryCommandValidator RowValidator = new();
 
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<ErrorOr<AddInventoryBatchResultDto>> HandleAsync(AddInventoryBatchCommand command, CancellationToken cancellationToken)
     {
         if (command.Items.Count == 0)

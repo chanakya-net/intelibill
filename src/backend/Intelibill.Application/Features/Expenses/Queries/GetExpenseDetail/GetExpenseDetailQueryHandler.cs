@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Expenses.DTOs;
@@ -7,6 +8,7 @@ namespace Intelibill.Application.Features.Expenses.Queries.GetExpenseDetail;
 
 public sealed class GetExpenseDetailQueryHandler(IExpenseRepository expenseRepository)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<ExpenseDto>> Handle(
         GetExpenseDetailQuery query,
         CancellationToken cancellationToken)
