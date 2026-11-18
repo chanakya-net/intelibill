@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Wolverine.Runtime.Handlers;
+using static Intelibill.Domain.Enums.MembershipStatus;
 
 namespace Intelibill.Integration.Tests;
 
@@ -43,6 +44,36 @@ public sealed class LicenceActionClassificationTests(PostgreSqlTestFixture fixtu
     {
         Assert.All(Enum.GetValues<ReconciliationAction>(), action =>
             Assert.Equal(LicenceAction.Recovery, ReconciliationLicenceActions.For(action)));
+    }
+
+    public static TheoryData<MembershipStatus, MembershipStatus, LicenceAction> MembershipTransitions => new()
+    {
+        { Active, Active, LicenceAction.OperationalCapacity },
+        { Active, Suspended, LicenceAction.MemberRemoval },
+        { Active, Removed, LicenceAction.MemberRemoval },
+        { Suspended, Active, LicenceAction.OperationalCapacity },
+        { Suspended, Suspended, LicenceAction.OperationalCapacity },
+        { Suspended, Removed, LicenceAction.MemberRemoval },
+        { Removed, Active, LicenceAction.OperationalCapacity },
+        { Removed, Suspended, LicenceAction.MemberRemoval },
+        { Removed, Removed, LicenceAction.OperationalCapacity },
+    };
+
+    [Theory]
+    [MemberData(nameof(MembershipTransitions))]
+    public void Membership_transition_classification_keeps_role_changes_under_operational_capacity(
+        MembershipStatus current, MembershipStatus requested, LicenceAction statusOnly)
+    {
+        Assert.Equal(statusOnly, MembershipLicenceActions.For(current, requested, roleChanged: false));
+        Assert.Equal(LicenceAction.OperationalCapacity, MembershipLicenceActions.For(current, requested, roleChanged: true));
+    }
+
+    [Fact]
+    public void Membership_transition_cases_cover_every_status_pair()
+    {
+        var statuses = Enum.GetValues<MembershipStatus>();
+        var pairs = from current in statuses from requested in statuses select (current, requested);
+        Assert.Equal(pairs, MembershipTransitions.Select(row => ((MembershipStatus)row[0], (MembershipStatus)row[1])));
     }
 
     [Fact]

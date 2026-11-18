@@ -49,12 +49,12 @@ public sealed class LicenceActionPolicy : ILicenceActionPolicy
 
     private static Row ForAction(LicenceAction action) => action switch
     {
-        // Conditional outcomes require the caller's existing owner or source checks.
+        // Conditional outcomes require the owning operation to verify the stated condition.
         // Pending activation, trial/active/grace, expired/trading restricted, security suspended.
         LicenceAction.Health              => new(Allowed, Allowed, Allowed, Allowed),
         LicenceAction.Authentication      => new(Allowed, Allowed, Allowed, Allowed),
         LicenceAction.Billing             => new(Allowed, Allowed, Allowed, Allowed),
-        LicenceAction.BasicShopSetup      => new(RequiresOwnerSetup, Allowed, Blocked, Blocked),
+        LicenceAction.BasicShopSetup      => new(RequiresOwnerSetup, Allowed, RequiresRecoveryNecessity, Blocked),
         LicenceAction.NewTrading          => new(Blocked, Allowed, Blocked, Blocked),
         LicenceAction.OperationalCapacity => new(Blocked, Allowed, Blocked, Blocked),
         LicenceAction.History             => new(Allowed, Allowed, Allowed, Blocked),

@@ -11,6 +11,8 @@ public sealed class UpdateShopMembershipCommandHandler(
     IMembershipAuthorityRepository authority,
     TimeProvider clock)
 {
+    // Entry-point classification is conservative. MembershipLicenceActions classifies the
+    // specific change using the live status and whether the requested role differs.
     [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<MembershipDto>> HandleAsync(
         UpdateShopMembershipCommand command,

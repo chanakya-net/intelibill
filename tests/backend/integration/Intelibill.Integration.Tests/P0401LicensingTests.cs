@@ -25,7 +25,7 @@ public sealed partial class P0401LicensingTests
         { LicenceAction.Health,              Allowed,            Allowed, Allowed,              Allowed },
         { LicenceAction.Authentication,      Allowed,            Allowed, Allowed,              Allowed },
         { LicenceAction.Billing,             Allowed,            Allowed, Allowed,              Allowed },
-        { LicenceAction.BasicShopSetup,       RequiresOwnerSetup, Allowed, Blocked,              Blocked },
+        { LicenceAction.BasicShopSetup,       RequiresOwnerSetup, Allowed, RequiresRecoveryNecessity, Blocked },
         { LicenceAction.NewTrading,           Blocked,            Allowed, Blocked,              Blocked },
         { LicenceAction.OperationalCapacity,  Blocked,            Allowed, Blocked,              Blocked },
         { LicenceAction.History,              Allowed,            Allowed, Allowed,              Blocked },

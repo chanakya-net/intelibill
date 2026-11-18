@@ -96,11 +96,7 @@ public sealed partial class P0401LicensingTests
 
             Assert.DoesNotContain(FenceMigration, await owner.Database.GetAppliedMigrationsAsync(Ct));
             Assert.False(await FenceExistsAsync(owner));
-            Assert.Equal(RetainedTables.Length, await owner.Database.SqlQuery<int>($"""
-                SELECT count(*)::int AS "Value" FROM pg_class
-                WHERE oid = ANY (ARRAY['public.license_grant_evidence', 'public.shop_license_states',
-                    'public.entitlement_messages']::regclass[]) AND relrowsecurity AND relforcerowsecurity
-                """).SingleAsync(Ct));
+            await AssertRetainedTablesForceRowSecurityAsync(owner);
 
             await migrator.MigrateAsync(TrialPredecessor, Ct);
             await owner.Database.MigrateAsync(Ct);
@@ -126,7 +122,17 @@ public sealed partial class P0401LicensingTests
             Assert.Contains(FenceMigration, await owner.Database.GetAppliedMigrationsAsync(Ct));
             Assert.Empty(await owner.Database.GetPendingMigrationsAsync(Ct));
             Assert.True(await FenceExistsAsync(owner), "A refused downgrade must leave the fence function in place.");
+            await AssertRetainedTablesForceRowSecurityAsync(owner);
             Assert.Equal(retainedBefore, await RetainedDigestAsync());
+        }
+
+        private static async Task AssertRetainedTablesForceRowSecurityAsync(ApplicationDbContext owner)
+        {
+            Assert.Equal(RetainedTables.Length, await owner.Database.SqlQuery<int>($"""
+                SELECT count(*)::int AS "Value" FROM pg_class
+                WHERE oid = ANY (ARRAY['public.license_grant_evidence', 'public.shop_license_states',
+                    'public.entitlement_messages']::regclass[]) AND relrowsecurity AND relforcerowsecurity
+                """).SingleAsync(Ct));
         }
 
         private async Task<ShopLicenceLease> EnterIsolatedAsync(Guid shop)

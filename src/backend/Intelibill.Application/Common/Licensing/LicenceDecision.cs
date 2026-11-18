@@ -8,6 +8,8 @@ public enum LicenceOutcome
     RequiresOwnerSetup,
     RequiresProvenSource,
     Blocked,
+    /// <summary>Only identity, contact and recovery necessities qualify.</summary>
+    RequiresRecoveryNecessity,
 }
 
 /// <summary>Matrix result. A result is advisory while the shop is observe-only.</summary>
