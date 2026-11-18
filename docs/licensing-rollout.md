@@ -4,6 +4,20 @@ One Docker Compose command starts the merchant and licensing systems for local
 development. CI validates both consumers of shared code. Production provider
 access and commercial flows require separate rollout gates.
 
+## Backend integration tests
+
+Use `scripts/dev/test-integration.sh --licensing` to run the licensing suite
+with pre-generated Wolverine handlers in the merchant test hosts, as CI does.
+Add `--filter 'FullyQualifiedName~P0217Tests'` to run the lifecycle checks alone.
+
+Up to four test classes run concurrently. Each class has its own PostgreSQL
+container, which isolates tests that change database roles or block connections.
+Routine licensing databases are cloned from a migrated template within that
+container. Tests that inspect merchant log capture or modify process-wide
+settings run alone. On a constrained machine, use
+`scripts/dev/test-integration.sh --licensing -- xUnit.MaxParallelThreads=1`
+to run classes serially. The local script builds Debug binaries.
+
 ## Start, restart, stop
 
 ```bash

@@ -6,7 +6,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
-[Collection(MerchantBillingHosts.Name)]
 public sealed partial class P0203Tests(LicensingPostgreSqlFixture database)
     : IClassFixture<LicensingPostgreSqlFixture>
 {

@@ -18,7 +18,6 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// Local fixture demonstration: both shipping web applications against real Kestrel hosts and PostgreSQL. The
 /// licensing status clock is fixed in this test host only; sessions, delegations and MFA use real time.
 /// </summary>
-[Collection(MerchantBillingHosts.Name)]
 public sealed class P0209BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {

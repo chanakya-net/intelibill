@@ -8,7 +8,6 @@ using static Intelibill.Licensing.Integration.Tests.P0308Tests;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
-[Collection(MerchantBillingHosts.Name)]
 public sealed class P0309BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {

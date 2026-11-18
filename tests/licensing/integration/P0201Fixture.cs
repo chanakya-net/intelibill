@@ -27,13 +27,7 @@ internal sealed class P0201Fixture(LicensingPostgreSqlFixture database, string n
         var fixture = new P0201Fixture(database, name);
         try
         {
-            await ExecuteAsync(database.Bootstrap(), $"CREATE DATABASE {name} OWNER licensing_migrator");
-            await ExecuteAsync(database.Bootstrap(), $"""
-                REVOKE ALL ON DATABASE {name} FROM PUBLIC;
-                GRANT CONNECT ON DATABASE {name} TO licensing_runtime;
-                """);
-            await using var context = fixture.OpenMigrationContext();
-            await context.Database.MigrateAsync();
+            await database.CreateMigratedLicensingDatabaseAsync(name);
             await fixture.PrepareMembershipFixtureAsync();
             return fixture;
         }

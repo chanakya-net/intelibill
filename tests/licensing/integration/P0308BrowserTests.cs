@@ -13,7 +13,6 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// anchored new end and the included grace days, accepts, pays through the local simulator and sees access applied.
 /// Simulator evidence only: no real provider is contacted.
 /// </summary>
-[Collection(MerchantBillingHosts.Name)]
 public sealed class P0308BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {

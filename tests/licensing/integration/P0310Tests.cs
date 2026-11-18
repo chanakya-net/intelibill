@@ -3,7 +3,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
-[Collection(MerchantBillingHosts.Name)]
 public sealed partial class P0310Tests(LicensingPostgreSqlFixture database) : IClassFixture<LicensingPostgreSqlFixture>
 {
     internal static readonly PaymentProviderPin A = new("development-simulator", "simulator-a", "Development", "a/1");

@@ -6,7 +6,6 @@ using static Intelibill.Licensing.Integration.Tests.P0302Fixture;
 namespace Intelibill.Licensing.Integration.Tests;
 
 /// <summary>Composed acceptance over real PostgreSQL and signed delivery. Simulator funds, never live-provider proof.</summary>
-[Collection(MerchantBillingHosts.Name)]
 public sealed partial class P0312Tests(LicensingPostgreSqlFixture database) : IClassFixture<LicensingPostgreSqlFixture>
 {
     [Fact]

@@ -13,7 +13,6 @@ using static Intelibill.Licensing.Integration.Tests.BillingBrowserHarness;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
-[Collection(MerchantBillingHosts.Name)]
 public sealed class P0207BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {

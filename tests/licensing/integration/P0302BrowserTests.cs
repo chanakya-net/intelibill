@@ -16,7 +16,6 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// its own PostgreSQL database, with the local payment simulator and the signed entitlement transport pumped by
 /// hand. Simulator evidence only: no real provider is contacted.
 /// </summary>
-[Collection(MerchantBillingHosts.Name)]
 public sealed class P0302BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {

@@ -10,7 +10,6 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// P03-08: a full renewal bought before expiry or inside eligible grace extends from the prior paid-through end on
 /// the original calendar anchor. Real PostgreSQL, the local simulator and fixed clocks; no real provider.
 /// </summary>
-[Collection(MerchantBillingHosts.Name)]
 public sealed partial class P0308Tests(LicensingPostgreSqlFixture database) : IClassFixture<LicensingPostgreSqlFixture>
 {
     // 31 March 2027, 10:00 IST: a month-end anchor that clips to 30 April and returns to 31 May.

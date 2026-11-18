@@ -1,3 +1,5 @@
+using JasperFx;
+using JasperFx.CodeGeneration;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -48,6 +50,15 @@ internal sealed class MerchantStartupProbeFactory(
                 && service.ImplementationType?.Name is "IdentityMailWorker" or "IdentitySmsWorker").ToArray();
             foreach (var worker in mailWorkers)
                 services.Remove(worker);
+            if (Environment.GetEnvironmentVariable("INTEGRATION_TEST_PREGENERATED_HANDLERS") == "1")
+            {
+                services.CritterStackDefaults(options =>
+                {
+                    options.Development.GeneratedCodeMode = TypeLoadMode.Static;
+                    options.Development.AssertAllPreGeneratedTypesExist = true;
+                });
+            }
+
             configure?.Invoke(services);
         });
     }

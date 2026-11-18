@@ -1,7 +1,5 @@
 using System.Net;
 using System.Text.Json;
-using Intelibill.Licensing.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
 namespace Intelibill.Licensing.Integration.Tests;
@@ -29,18 +27,8 @@ public sealed partial class P0106Tests(LicensingPostgreSqlFixture database) : IC
     private async Task<NpgsqlConnectionStringBuilder> NewFixtureAsync()
     {
         var name = "p0106_" + Guid.NewGuid().ToString("N");
-        await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(), $"""
-            CREATE DATABASE {name} OWNER licensing_migrator;
-            """);
-        await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(), $"""
-            REVOKE ALL ON DATABASE {name} FROM PUBLIC;
-            GRANT CONNECT ON DATABASE {name} TO licensing_runtime;
-            """);
+        await database.CreateMigratedLicensingDatabaseAsync(name);
         var migrator = database.Login(name, LicensingPostgreSqlFixture.MigratorRole);
-        var options = new DbContextOptionsBuilder<LicensingDbContext>()
-            .UseNpgsql(migrator.ConnectionString).UseSnakeCaseNamingConvention().Options;
-        await using var context = new LicensingDbContext(options);
-        await context.Database.MigrateAsync();
         await LicensingPostgreSqlFixture.ExecuteAsync(migrator, """
             REVOKE ALL ON SCHEMA public FROM PUBLIC;
             GRANT USAGE ON SCHEMA public TO licensing_runtime;

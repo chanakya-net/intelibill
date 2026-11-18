@@ -12,7 +12,6 @@ using static Intelibill.Licensing.Integration.Tests.P0213Tests;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
-[Collection(MerchantBillingHosts.Name)]
 public sealed class P0217Tests(LicensingPostgreSqlFixture database) : IClassFixture<LicensingPostgreSqlFixture>
 {
     [Fact]

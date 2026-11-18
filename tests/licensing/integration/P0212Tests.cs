@@ -8,7 +8,6 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// P02-12: a Licensing Manager issues an explicit, dated complimentary grant with named capacity and a reason.
 /// It records no money, creates no grace and never displaces existing access or restrictions.
 /// </summary>
-[Collection(MerchantBillingHosts.Name)]
 public sealed partial class P0212Tests(LicensingPostgreSqlFixture database) : IClassFixture<LicensingPostgreSqlFixture>
 {
     [Fact]

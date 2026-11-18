@@ -4,7 +4,8 @@
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);CA1707</NoWarn>
-
+    <!-- Leave threads available for async work while concurrent tests start or dispose API hosts. -->
+    <ThreadPoolMinThreads>64</ThreadPoolMinThreads>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,5 +21,8 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

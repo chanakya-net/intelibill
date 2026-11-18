@@ -2,8 +2,6 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Licensing.Application.Bootstrap;
-using Intelibill.Licensing.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
@@ -44,18 +42,8 @@ public sealed partial class P0108Tests(LicensingPostgreSqlFixture database) : IC
     private async Task<NpgsqlConnectionStringBuilder> NewDatabaseAsync()
     {
         var name = "p0108_" + Guid.NewGuid().ToString("N");
-        await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(), $"""
-            CREATE DATABASE {name} OWNER licensing_migrator;
-            """);
-        await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(), $"""
-            REVOKE ALL ON DATABASE {name} FROM PUBLIC;
-            GRANT CONNECT ON DATABASE {name} TO licensing_runtime;
-            """);
+        await database.CreateMigratedLicensingDatabaseAsync(name);
         var migrator = database.Login(name, LicensingPostgreSqlFixture.MigratorRole);
-        var options = new DbContextOptionsBuilder<LicensingDbContext>()
-            .UseNpgsql(migrator.ConnectionString).UseSnakeCaseNamingConvention().Options;
-        await using var context = new LicensingDbContext(options);
-        await context.Database.MigrateAsync();
         await LicensingPostgreSqlFixture.ExecuteAsync(migrator, """
             REVOKE ALL ON SCHEMA public FROM PUBLIC;
             GRANT USAGE ON SCHEMA public TO licensing_runtime;

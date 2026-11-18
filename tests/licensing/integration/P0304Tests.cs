@@ -9,7 +9,6 @@ using static Intelibill.Licensing.Integration.Tests.P0302Fixture;
 namespace Intelibill.Licensing.Integration.Tests;
 
 /// <summary>Razorpay behind the neutral checkout adapter, driven through the real API with a fake HTTP transport only.</summary>
-[Collection(MerchantBillingHosts.Name)]
 public sealed partial class P0304Tests(LicensingPostgreSqlFixture database) : IClassFixture<LicensingPostgreSqlFixture>
 {
     [Fact]

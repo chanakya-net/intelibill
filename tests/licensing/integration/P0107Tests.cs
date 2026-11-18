@@ -7,9 +7,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Intelibill.Licensing.Application.Bootstrap;
-using Intelibill.Licensing.Infrastructure.Data;
 using Microsoft.AspNetCore.Mvc.Testing.Handlers;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Serilog.Core;
@@ -135,16 +133,8 @@ public sealed partial class P0107Tests(LicensingPostgreSqlFixture database, Mail
     private async Task<NpgsqlConnectionStringBuilder> NewDatabaseAsync()
     {
         var name = "p0107_" + Guid.NewGuid().ToString("N");
-        await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(), $"CREATE DATABASE {name} OWNER licensing_migrator");
-        await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(), $"""
-            REVOKE ALL ON DATABASE {name} FROM PUBLIC;
-            GRANT CONNECT ON DATABASE {name} TO licensing_runtime;
-            """);
+        await database.CreateMigratedLicensingDatabaseAsync(name);
         var migrator = database.Login(name, LicensingPostgreSqlFixture.MigratorRole);
-        var options = new DbContextOptionsBuilder<LicensingDbContext>()
-            .UseNpgsql(migrator.ConnectionString).UseSnakeCaseNamingConvention().Options;
-        await using (var context = new LicensingDbContext(options))
-            await context.Database.MigrateAsync();
         await LicensingPostgreSqlFixture.ExecuteAsync(migrator, """
             REVOKE ALL ON SCHEMA public FROM PUBLIC;
             GRANT USAGE ON SCHEMA public TO licensing_runtime;

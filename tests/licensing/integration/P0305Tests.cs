@@ -6,7 +6,6 @@ using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
-[Collection(MerchantBillingHosts.Name)]
 public sealed partial class P0305Tests(LicensingPostgreSqlFixture database) : IClassFixture<LicensingPostgreSqlFixture>
 {
     internal const string Secret = "fixture-webhook-secret-868";

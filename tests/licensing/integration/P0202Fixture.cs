@@ -10,13 +10,13 @@ using Npgsql;
 namespace Intelibill.Licensing.Integration.Tests;
 
 /// <summary>
-/// Classes that host the merchant API and assert on its captured logs. The merchant host binds Serilog's
-/// static logger, so overlapping merchant hosts can take each other's sinks; these classes run one at a time.
+/// Tests that assert on captured merchant logs run alone. Merchant API hosts share Serilog's static logger,
+/// so starting another merchant host can replace the sink those tests observe.
 /// </summary>
-[CollectionDefinition(Name)]
-public sealed class MerchantBillingHosts
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class MerchantLogCaptureTests
 {
-    internal const string Name = "Merchant billing hosts";
+    internal const string Name = "Merchant log capture";
 }
 
 internal static class P0202Fixture

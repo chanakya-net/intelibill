@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
-[Collection(MerchantBillingHosts.Name)]
+[Collection(MerchantLogCaptureTests.Name)]
 public sealed partial class P0201Tests(LicensingPostgreSqlFixture database)
     : IClassFixture<LicensingPostgreSqlFixture>
 {

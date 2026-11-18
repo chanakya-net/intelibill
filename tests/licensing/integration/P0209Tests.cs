@@ -6,7 +6,6 @@ using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 namespace Intelibill.Licensing.Integration.Tests;
 
 /// <summary>P02-09: one computed access basis, exact zoned deadlines and observe-only status for merchant and provider.</summary>
-[Collection(MerchantBillingHosts.Name)]
 public sealed partial class P0209Tests(LicensingPostgreSqlFixture database) : IClassFixture<LicensingPostgreSqlFixture>
 {
     // 31 Jan 2027 10:00 IST: the month anchor whose February and March boundaries clip and then recover.

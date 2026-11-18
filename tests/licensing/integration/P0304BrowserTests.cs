@@ -17,7 +17,6 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// provider is the in-process fixture transport and the browser's provider script is served by the test: no real
 /// Razorpay endpoint is contacted and the fixture proves launcher and server verification, not live acceptance.
 /// </summary>
-[Collection(MerchantBillingHosts.Name)]
 public sealed partial class P0304BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {

@@ -19,7 +19,6 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// Local fixture demonstration of P02-12: both shipping web applications against real Kestrel hosts and PostgreSQL,
 /// real provider password + TOTP and real merchant sign-in. Only the licensing lifecycle clock is fixed.
 /// </summary>
-[Collection(MerchantBillingHosts.Name)]
 public sealed class P0212BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {
