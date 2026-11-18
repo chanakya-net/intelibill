@@ -23,6 +23,7 @@ public sealed class InvitationsController : AuthenticatedControllerBase
 
     [HttpPost("{invitationId:guid}/accept")]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> AcceptInvitation(
         Guid invitationId,
         [FromBody] AcceptInvitationRequest request,

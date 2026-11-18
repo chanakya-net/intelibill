@@ -13,6 +13,7 @@ public sealed class BatchDispositionsController(IMessageBus bus, BatchDispositio
 {
     [HttpPost]
     [LicenceAction(LicenceAction.SafetyDisposition)]
+    [SuspensionAtSource]
     public async Task<IActionResult> Post(Guid id, [FromBody] BatchDispositionRequest request, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;

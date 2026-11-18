@@ -90,7 +90,11 @@ public sealed record ShopSubscriptionStatusV1(
     [property: JsonPropertyName("observeOnly")] bool ObserveOnly,
     [property: JsonPropertyName("entitlementSynchronization")] string EntitlementSynchronization,
     [property: JsonPropertyName("paymentVerification")] string PaymentVerification,
-    [property: JsonPropertyName("synchronization")] EntitlementSynchronizationV1? Synchronization = null);
+    [property: JsonPropertyName("synchronization")] EntitlementSynchronizationV1? Synchronization = null,
+    [property: JsonPropertyName("suspension"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    CustomerSuspensionV1? Suspension = null,
+    [property: JsonPropertyName("enforcedSuspensionMode"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? EnforcedSuspensionMode = null);
 
 public sealed record EntitlementSynchronizationV1(
     [property: JsonPropertyName("state")] string State,

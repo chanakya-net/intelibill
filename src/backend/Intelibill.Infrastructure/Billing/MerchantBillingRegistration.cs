@@ -33,6 +33,7 @@ internal static class MerchantBillingRegistration
         services.AddScoped<IShopLicenceFence>(provider => provider.GetRequiredService<ShopLicenceFence>());
         services.AddScoped<EntitlementProjectionStore>();
         services.AddScoped<IShopTradingAuthorityReader, ShopTradingAuthorityReader>();
+        services.AddScoped<ISuspensionAccessReader, SuspensionAccessReader>();
         services.AddScoped(provider => new LeasedHttpOutbox(provider.GetRequiredService<ApplicationDbContext>()));
         services.AddScoped<EntitlementAcknowledgementMetrics>();
         services.AddScoped<ILeasedHttpDestination, MerchantEntitlementDelivery>();

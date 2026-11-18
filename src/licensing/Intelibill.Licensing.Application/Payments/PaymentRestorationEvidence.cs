@@ -9,7 +9,8 @@ public sealed record PaymentRestorationEvidence(DateTimeOffset At, AccountRestri
     public PaymentRestorationState State => Head switch
     {
         { Restriction: "Closed" } => PaymentRestorationState.Closed,
-        { } head when EntitlementSnapshotsV1.ReadRestrictionError(head) is null && head.Restriction != "Unrestricted" =>
+        { } head when EntitlementSnapshotsV1.ReadRestrictionError(head) is null && head.Restriction != "Unrestricted" &&
+            (head.Suspension is null || At >= head.Suspension.EffectiveAt) =>
             PaymentRestorationState.Suspended,
         { } head when EntitlementSnapshotsV1.ReadRestrictionError(head) is null && head.UpstreamVerifiedAt <= At && CanPublish =>
             PaymentRestorationState.Ready,

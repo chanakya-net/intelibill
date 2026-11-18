@@ -3623,6 +3623,14 @@
       "heading": "Access status",
       "link": "Access status for this shop",
       "accountLink": "Access status",
+      "suspension": {
+        "Trading": "Trading suspension saved",
+        "Security": "Security suspension saved",
+        "effective": "Recorded start time {{ time }}.",
+        "enforcedTrading": "Trading suspension is enforced for this shop.",
+        "enforcedSecurity": "Security suspension is enforced for this shop.",
+        "renewal": "A saved suspension stays in effect after renewal."
+      },
       "tradingAuthority": {
         "heading": "Local trading authority",
         "verified": "Trading access verified until {{ time }}.",

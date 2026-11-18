@@ -1,6 +1,7 @@
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Users.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -10,7 +11,9 @@ namespace Intelibill.Application.Features.Users.Commands.AcceptShopInvitation;
 
 public sealed class AcceptShopInvitationCommandHandler(
     IMembershipAuthorityRepository authority,
-    TimeProvider clock)
+    TimeProvider clock,
+    ITenantWriteScope tenantScope,
+    IShopLicenceFence fence)
 {
     [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<MembershipDto>> HandleAsync(
@@ -26,6 +29,12 @@ public sealed class AcceptShopInvitationCommandHandler(
         var offer = await authority.PeekInvitationAsync(command.InvitationId, cancellationToken);
         if (offer is null)
             return Errors.Users.InvitationNotFound;
+
+        // A valid invitation identifies the target independently of the device's selected shop.
+        if (!offer.IsPending(now) || !InvitationTokens.Matches(offer.TokenHash, command.Token))
+            return Errors.Users.InvitationNotAcceptable;
+        await tenantScope.EnterAsync(offer.ShopId, cancellationToken);
+        var licence = await fence.EnterAsync(offer.ShopId, LicenceAction.OperationalCapacity, cancellationToken);
 
         await authority.LockUsersAsync([command.ActorUserId, offer.InvitedByUserId], cancellationToken);
         if (!await authority.LockShopAsync(offer.ShopId, cancellationToken))
@@ -61,6 +70,9 @@ public sealed class AcceptShopInvitationCommandHandler(
             || inviter.Role != ShopRole.Owner
             || inviter.AuthorityVersion != invitation.InviterAuthorityVersion)
             return Errors.Users.InvitationNotAcceptable;
+
+        if (licence.IsError) return licence.Errors;
+        if (licence.Value.SuspensionDenial() is { } denied) return denied;
 
         var membership = await authority.LockMembershipAsync(invitation.ShopId, command.ActorUserId, cancellationToken);
         if (membership is null)

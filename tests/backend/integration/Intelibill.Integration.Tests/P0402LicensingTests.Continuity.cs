@@ -103,7 +103,8 @@ public sealed partial class P0402LicensingTests
         Assert.Equal(callsBefore, transport.Calls);
     }
 
-    private ApiWebApplicationFactory MerchantHost(RSA signer, FixtureTransport transport, RSA? merchantSigner = null)
+    private ApiWebApplicationFactory MerchantHost(RSA signer, FixtureTransport transport, RSA? merchantSigner = null,
+        Action<IServiceCollection>? configure = null)
     {
         using var billingSigner = RSA.Create(2048);
         var billingPrivatePem = billingSigner.ExportPkcs8PrivateKeyPem();
@@ -111,6 +112,7 @@ public sealed partial class P0402LicensingTests
         {
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(_clock);
+            configure?.Invoke(services);
             services.AddSingleton<IOptionsMonitor<EntitlementTransportOptions>>(
                 new FixtureOptionsMonitor<EntitlementTransportOptions>(new()
                 {
@@ -125,8 +127,11 @@ public sealed partial class P0402LicensingTests
                         LicensingOrigin = "https://licensing.fixture.test", LocalKeyId = "p0402-billing",
                         LocalPrivateKeyPem = billingPrivatePem,
                     }));
+            // Background delivery shares this transport; only request-path calls may be counted.
             foreach (var registration in services.Where(x => x.ServiceType == typeof(IHostedService) &&
-                x.ImplementationType == typeof(LeasedHttpDeliveryWorker)).ToList())
+                (x.ImplementationType == typeof(LeasedHttpDeliveryWorker) ||
+                 x.ImplementationType == typeof(ShopAffiliationDeliveryWorker) ||
+                 x.ImplementationType == typeof(TrialActivationDeliveryWorker))).ToList())
                 services.Remove(registration);
             foreach (var name in new[] { "MerchantBillingDelegation", LeasedHttpDeliveryPump.ClientName })
                 services.AddHttpClient(name).ConfigurePrimaryHttpMessageHandler(transport.CreateHandler);

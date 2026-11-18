@@ -27,13 +27,16 @@ public static class EntitlementConsumer
     {
         if (incoming.Revision < saved.Revision)
             return false;
+        var suspension = SavedSuspension(saved.Restriction, saved.SuspensionEffectiveAt, saved.SuspensionExplanation);
         if (incoming.Revision == saved.Revision)
             return incoming != new AccountRestrictionSnapshotV1(saved.Revision, saved.UpstreamVerifiedAt,
-                saved.Restriction, saved.ReleasedRevision);
+                saved.Restriction, saved.ReleasedRevision, suspension);
         if (StampConflicts(incoming.UpstreamVerifiedAt, issuedAt, saved.UpstreamVerifiedAt, previousIssuedAt))
             return true;
         if (incoming.Restriction != "Unrestricted")
-            return false;
+            return suspension is not null ? incoming.Suspension != suspension
+                : saved.Restriction is "Security" or "Trading" &&
+                    (incoming.Suspension is not null || saved.Restriction == "Security" && incoming.Restriction != "Security");
         if (saved.Restriction == "Unrestricted" && incoming.ReleasedRevision == saved.ReleasedRevision)
             return false;
         return incoming.ReleasedRevision is not { } release || release < saved.Revision;
@@ -44,12 +47,17 @@ public static class EntitlementConsumer
     {
         if (incoming.Revision < saved.Revision)
             return false;
+        var suspension = SavedSuspension(saved.SuspensionMode, saved.SuspensionEffectiveAt, saved.SuspensionExplanation);
         if (incoming.Revision > saved.Revision)
-            return StampConflicts(incoming.UpstreamVerifiedAt, issuedAt, saved.UpstreamVerifiedAt, previousIssuedAt);
+            return (suspension is not null && incoming.Suspension != suspension) ||
+                StampConflicts(incoming.UpstreamVerifiedAt, issuedAt, saved.UpstreamVerifiedAt, previousIssuedAt);
         return incoming != new ShopEntitlementSnapshotV1(saved.Revision, saved.UpstreamVerifiedAt, saved.State,
             saved.TermId, saved.Basis, saved.StartsAt, saved.AccessEndsAt, saved.NextBoundary, saved.ShopCapacity,
-            saved.MemberAllowance);
+            saved.MemberAllowance, suspension);
     }
+
+    private static CustomerSuspensionV1? SavedSuspension(string? mode, DateTimeOffset? effectiveAt, string? explanation) =>
+        effectiveAt is { } at ? new(mode!, at, explanation!) : null;
 
     // Only a proven signing-time error can remove the previous head's timestamp floor.
     private static bool StampConflicts(DateTimeOffset incoming, DateTimeOffset issuedAt,

@@ -246,6 +246,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
     /// </summary>
     [HttpPatch("{shopId:guid}/members/{targetUserId:guid}")]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> UpdateShopMembership(
         Guid shopId,
         Guid targetUserId,

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Api.Hubs;
 using Intelibill.Api.Services.Realtime;
 using Intelibill.Api.Unit.Tests.Hubs;
@@ -19,6 +20,15 @@ namespace Intelibill.Api.Unit.Tests.Services;
 public class AuthorizedRealtimeDispatcherTests
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 1, 9, 0, 0, TimeSpan.Zero);
+
+    private readonly ISuspensionAccessReader _suspensions = PermittedSuspensions();
+
+    private static ISuspensionAccessReader PermittedSuspensions()
+    {
+        var reader = Substitute.For<ISuspensionAccessReader>();
+        reader.CanReceiveRealtimeAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(true);
+        return reader;
+    }
 
     private readonly IHubContext<ProductHub> _hubContext = Substitute.For<IHubContext<ProductHub>>();
     private readonly IHubClients _hubClients = Substitute.For<IHubClients>();
@@ -219,6 +229,7 @@ public class AuthorizedRealtimeDispatcherTests
             _registry,
             _authority,
             _clock,
+            _suspensions,
             NullLogger<AuthorizedRealtimeDispatcher<ProductHub>>.Instance);
 
     private RealtimeConnection LeaseFor(string connectionId) =>

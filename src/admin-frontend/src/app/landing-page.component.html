@@ -5,6 +5,9 @@
     @if (canReadStatus()) {
       <div><a routerLink="/accounts">Account access status</a></div>
     }
+    @if (capabilities().includes('security-administrator') || capabilities().includes('support')) {
+      <div><a routerLink="/restrictions">Operational restrictions</a></div>
+    }
     <section class="ib-panel" aria-labelledby="access-heading">
       <h2 class="ib-panel__title" id="access-heading">Granted capabilities</h2>
       @if (capabilities().length) {

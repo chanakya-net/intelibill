@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Application.Features.Tills.Commands.CreateTill;
@@ -43,9 +44,15 @@ internal sealed class TillTestContext : IAsyncDisposable
         var builder = new TillDtoBuilder(Tills);
         Posting = new(Tills, shops, new BankAccountRepository(Db), policy, Clock);
         Periods = new(Db, new PostingPeriodRepository(Db));
-        Lifecycle = new(Tills, shops, new UserRepository(Db), receipts, policy, Posting, new FinancialOperationExecutor(Db), Periods,
+        Lifecycle = new(Tills, shops, new UserRepository(Db), receipts, policy, Posting, new FinancialOperationExecutor(Db, new UnenrolledLicenceFence()), Periods,
             new UnitOfWork(Db), Clock, builder);
         Reads = new(Tills, shops, receipts, policy, Clock, builder);
+    }
+
+    private sealed class UnenrolledLicenceFence : IShopLicenceFence
+    {
+        public Task<ErrorOr<ShopLicenceLease>> EnterAsync(Guid shopId, LicenceAction action, CancellationToken ct) =>
+            Task.FromResult<ErrorOr<ShopLicenceLease>>(new ShopLicenceLease(shopId, null, null, null, default));
     }
 
     public static async Task OptInAsync(string connection, Guid shopId)

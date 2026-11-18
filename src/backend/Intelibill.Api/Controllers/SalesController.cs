@@ -124,6 +124,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     [HttpPost]
     [Authorize(Policy = "OwnerManagerOrStaff")]
     [LicenceAction(LicenceAction.NewTrading)]
+    [SuspensionAtSource(CheckRecovery = true)]
     public async Task<IActionResult> RecordSale([FromBody] RecordSaleRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Claims;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Realtime;
 using Intelibill.Application.Common.Security;
 using Microsoft.AspNetCore.SignalR;
@@ -23,6 +24,7 @@ public sealed partial class RealtimeConnectionGate(
     RealtimeConnectionTracker tracker,
     RealtimeInstanceIdentity instance,
     TimeProvider clock,
+    ISuspensionAccessReader suspensions,
     ILogger<RealtimeConnectionGate> logger)
 {
     public async Task AdmitAsync(HubCallerContext context, string hubName)
@@ -53,7 +55,8 @@ public sealed partial class RealtimeConnectionGate(
         bool authorized;
         try
         {
-            authorized = await authority.IsValidAsync(claims, context.ConnectionAborted);
+            authorized = await authority.IsValidAsync(claims, context.ConnectionAborted) &&
+                await suspensions.CanReceiveRealtimeAsync(claims.ActiveShopId.Value, context.ConnectionAborted);
         }
         catch (OperationCanceledException)
         {

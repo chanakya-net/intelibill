@@ -28,13 +28,22 @@ public static class LicenseProjectionPolicy
     public static bool PrecedesIssuance(DateTimeOffset verifiedAt, DateTimeOffset? issuedAt) =>
         issuedAt.HasValue && verifiedAt - issuedAt.Value < AssertionPrecision;
 
+    public static string? EffectiveSuspension(ShopLicenseState? shop, AccountLicenseRestriction? account, DateTimeOffset now)
+    {
+        var shopMode = shop?.SuspensionEffectiveAt <= now ? shop.SuspensionMode : null;
+        var accountMode = account is not null && (account.SuspensionEffectiveAt is null || account.SuspensionEffectiveAt <= now)
+            ? account.Restriction : null;
+        if (shopMode == "Security" || accountMode == "Security") return "Security";
+        return shopMode == "Trading" || accountMode == "Trading" ? "Trading" : null;
+    }
+
     public static LicenseProjectionDecision Evaluate(ShopLicenseState? shop, AccountLicenseRestriction? account,
         DateTimeOffset now, TimeSpan freshness)
     {
         if (shop is null || account is null || shop.AccountId != account.AccountId ||
             now < shop.UpstreamVerifiedAt || now < account.UpstreamVerifiedAt)
             return LicenseProjectionDecision.Incomplete;
-        if (account.Restriction != "Unrestricted")
+        if (EffectiveSuspension(shop, account, now) is not null)
             return LicenseProjectionDecision.Restricted;
         if (shop.State == "Expired")
             return LicenseProjectionDecision.Expired;
@@ -62,6 +71,10 @@ public static class LicenseProjectionPolicy
         var deadline = VerifiedAt(shop, account) + freshness;
         if (shop.AccessEndsAt is { } end && end < deadline)
             deadline = end;
-        return shop.NextBoundary is { } boundary && boundary < deadline ? boundary : deadline;
+        if (shop.NextBoundary is { } boundary && boundary < deadline)
+            deadline = boundary;
+        if (shop.SuspensionEffectiveAt is { } shopSuspends && shopSuspends < deadline)
+            deadline = shopSuspends;
+        return account.SuspensionEffectiveAt is { } accountSuspends && accountSuspends < deadline ? accountSuspends : deadline;
     }
 }

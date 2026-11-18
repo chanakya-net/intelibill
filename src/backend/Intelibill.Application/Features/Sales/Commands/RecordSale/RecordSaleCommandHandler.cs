@@ -39,6 +39,7 @@ public sealed class RecordSaleCommandHandler
     private readonly ITillPostingService tillPosting;
     private readonly IExpiryPolicyFence expiryFence;
     private readonly SaleExpiryGuard expiryGuard;
+    private readonly IShopLicenceFence licenceFence;
 
     public RecordSaleCommandHandler(
         ISaleLineValidator saleLineValidator,
@@ -58,7 +59,8 @@ public sealed class RecordSaleCommandHandler
         IPostingPeriodPolicy postingPeriodPolicy,
         ITillPostingService tillPosting,
         IExpiryPolicyFence expiryFence,
-        SaleExpiryGuard expiryGuard)
+        SaleExpiryGuard expiryGuard,
+        IShopLicenceFence licenceFence)
     {
         this.saleLineValidator = saleLineValidator;
         this.salePricingCalculator = salePricingCalculator;
@@ -78,6 +80,7 @@ public sealed class RecordSaleCommandHandler
         this.tillPosting = tillPosting;
         this.expiryFence = expiryFence;
         this.expiryGuard = expiryGuard;
+        this.licenceFence = licenceFence;
     }
 
     [LicenceAction(LicenceAction.NewTrading)]
@@ -128,6 +131,8 @@ public sealed class RecordSaleCommandHandler
             // the sale commits, and any refusal below rolls the counter back with everything else.
             await unitOfWork.BeginTransactionAsync(cancellationToken);
             transactionStarted = true;
+            if (await licenceFence.ReadDenialAsync(command.ShopId, LicenceAction.NewTrading, cancellationToken) is { } denied)
+                return denied;
 
             // First statement of the posting: a closed month refuses the sale before the credit lock is
             // taken or an invoice number is drawn, and the shared lock it takes holds until commit.

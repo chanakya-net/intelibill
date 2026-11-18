@@ -4,7 +4,10 @@
     <h1 id="status-heading" class="ib-page-title">{{ 'billing.status.heading' | transloco }}</h1>
     <p class="ib-subtitle">{{ (accountId() ? 'billing.status.accountDescription' : 'billing.status.shopDescription') | transloco }}</p>
   </header>
-  <p class="ib-panel notice" data-testid="observe-only">{{ 'billing.status.observeOnly' | transloco }}</p>
+  @let current = view();
+  @if (accountId() || (current.kind === 'shop' && current.status.observeOnly === true)) {
+    <p class="ib-panel notice" data-testid="observe-only">{{ 'billing.status.observeOnly' | transloco }}</p>
+  }
 
   @if (trading(); as local) {
     <section class="ib-panel" aria-labelledby="trading-authority-heading">
@@ -30,7 +33,6 @@
     </section>
   }
 
-  @let current = view();
   @switch (current.kind) {
     @case ('loading') { <p role="status">{{ 'common.loading' | transloco }}</p> }
     @case ('noShop') { <p role="alert">{{ 'billing.status.noShop' | transloco }}</p> }
@@ -42,6 +44,21 @@
       }
     }
     @case ('shop') {
+      @if (current.status.enforcedSuspensionMode; as mode) {
+        <p class="ib-panel" role="status" data-testid="enforced-suspension">
+          {{ 'billing.status.suspension.enforced' + mode | transloco }}
+        </p>
+      }
+      @if (current.status.suspension; as suspension) {
+        <section class="ib-panel" data-testid="shop-suspension" aria-labelledby="suspension-heading">
+          <h2 id="suspension-heading">{{ 'billing.status.suspension.' + suspension.mode | transloco }}</h2>
+          <p>{{ suspension.customerExplanation }}</p>
+          <p>{{ 'billing.status.suspension.effective' | transloco: { time: instant(suspension.effectiveAt, true) } }}</p>
+          @if (!current.status.observeOnly) {
+            <p>{{ 'billing.status.suspension.renewal' | transloco }}</p>
+          }
+        </section>
+      }
       <p>{{ 'billing.status.evaluatedAt' | transloco: { time: instant(current.status.evaluatedAt) } }}</p>
       <p class="state" data-testid="status-state"><strong>{{ 'billing.status.states.' + current.status.state | transloco }}</strong></p>
       @if (current.status.term; as term) {

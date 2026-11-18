@@ -1,5 +1,6 @@
 using ErrorOr;
 using FluentValidation;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Time;
@@ -29,7 +30,7 @@ public sealed class TillLifecycleService(ITillRepository tills, IShopRepository 
         if (!IsManager(await shops.GetActiveRoleAsync(command.ActorUserId, command.ShopId, ct))) return TillErrors.Forbidden;
         var access = await ReceiptAccessAsync(command.ShopId, command.ActorUserId, FinancialOperationType.TillCreate, command.OperationKey, ct);
         if (access.IsError) return access.Errors;
-        return await executor.ExecuteAsync<TillDto>(new(command.ShopId, FinancialOperationType.TillCreate, command.OperationKey.Trim()),
+        return await executor.ExecuteAsync<TillDto>(new(command.ShopId, FinancialOperationType.TillCreate, command.OperationKey.Trim()) { SuspensionAction = LicenceAction.OperationalCapacity },
             command.ActorUserId, command.ShopId, FinancialOperationHasher.Compute(new { command.ActorUserId, Name = command.Name.Trim() }), async token =>
             {
                 var locked = await tills.LockCatalogAsync(command.ShopId, token);
@@ -56,7 +57,7 @@ public sealed class TillLifecycleService(ITillRepository tills, IShopRepository 
         if (till is null) return TillErrors.NotFound;
         var access = await ReceiptAccessAsync(command.ShopId, command.ActorUserId, FinancialOperationType.TillOpen, command.OperationKey, ct);
         if (access.IsError) return access.Errors;
-        return await executor.ExecuteAsync<TillSessionDto>(new(command.ShopId, FinancialOperationType.TillOpen, command.OperationKey.Trim()),
+        return await executor.ExecuteAsync<TillSessionDto>(new(command.ShopId, FinancialOperationType.TillOpen, command.OperationKey.Trim()) { SuspensionAction = LicenceAction.OperationalCapacity },
             command.ActorUserId, command.TillId, FinancialOperationHasher.Compute(new { command.ActorUserId, command.TillId, command.CashierId,
                 OpeningFloat = FinancialOperationHasher.NormalizeAmount(command.OpeningFloat), OverrideReason = command.OverrideReason?.Trim() }), async token =>
             {
@@ -94,7 +95,7 @@ public sealed class TillLifecycleService(ITillRepository tills, IShopRepository 
         if (authorized.IsError) return authorized.Errors;
         var access = await ReceiptAccessAsync(command.ShopId, command.ActorUserId, FinancialOperationType.TillCashMovement, command.OperationKey, ct);
         if (access.IsError) return access.Errors;
-        return await executor.ExecuteAsync<TillSessionDto>(new(command.ShopId, FinancialOperationType.TillCashMovement, command.OperationKey.Trim()),
+        return await executor.ExecuteAsync<TillSessionDto>(new(command.ShopId, FinancialOperationType.TillCashMovement, command.OperationKey.Trim()) { SuspensionAction = LicenceAction.OperationalCapacity },
             command.ActorUserId, command.SessionId, FinancialOperationHasher.Compute(new { command.ActorUserId, command.SessionId, command.Direction,
                 Amount = FinancialOperationHasher.NormalizeAmount(command.Amount), Reason = command.Reason.Trim(), command.ExpectedVersion,
                 OverrideReason = command.OverrideReason?.Trim() }), async token =>
@@ -127,7 +128,7 @@ public sealed class TillLifecycleService(ITillRepository tills, IShopRepository 
             return TillErrors.Forbidden;
         var access = await ReceiptAccessAsync(command.ShopId, command.ActorUserId, FinancialOperationType.TillClose, command.OperationKey, ct);
         if (access.IsError) return access.Errors;
-        return await executor.ExecuteAsync<TillSessionDto>(new(command.ShopId, FinancialOperationType.TillClose, command.OperationKey.Trim()),
+        return await executor.ExecuteAsync<TillSessionDto>(new(command.ShopId, FinancialOperationType.TillClose, command.OperationKey.Trim()) { SuspensionAction = LicenceAction.TillCompletion },
             command.ActorUserId, command.SessionId, FinancialOperationHasher.Compute(new { command.ActorUserId, command.SessionId,
                 CountedCash = FinancialOperationHasher.NormalizeAmount(command.CountedCash), Reason = command.Reason?.Trim(), command.ExpectedVersion,
                 OverrideReason = command.OverrideReason?.Trim(), command.FinalizeOverdue }), async token =>
@@ -168,7 +169,7 @@ public sealed class TillLifecycleService(ITillRepository tills, IShopRepository 
         if (session is null) return TillErrors.SessionNotFound;
         var access = await ReceiptAccessAsync(command.ShopId, command.ActorUserId, FinancialOperationType.TillCloseReview, command.OperationKey, ct);
         if (access.IsError) return access.Errors;
-        return await executor.ExecuteAsync<TillSessionDto>(new(command.ShopId, FinancialOperationType.TillCloseReview, command.OperationKey.Trim()),
+        return await executor.ExecuteAsync<TillSessionDto>(new(command.ShopId, FinancialOperationType.TillCloseReview, command.OperationKey.Trim()) { SuspensionAction = LicenceAction.TillCompletion },
             command.ActorUserId, command.SessionId, FinancialOperationHasher.Compute(new { command.ActorUserId, command.SessionId,
                 Reason = command.Reason.Trim(), command.ExpectedVersion }), async token =>
             {

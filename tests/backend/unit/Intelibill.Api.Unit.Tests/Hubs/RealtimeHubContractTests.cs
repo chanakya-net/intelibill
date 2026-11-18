@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Api.Services.Realtime;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Realtime;
@@ -17,6 +18,15 @@ public abstract class RealtimeHubContractTests<THub>
     where THub : Hub
 {
     private static readonly DateTimeOffset Now = new(2026, 11, 1, 9, 0, 0, TimeSpan.Zero);
+
+    private readonly ISuspensionAccessReader _suspensions = PermittedSuspensions();
+
+    private static ISuspensionAccessReader PermittedSuspensions()
+    {
+        var reader = Substitute.For<ISuspensionAccessReader>();
+        reader.CanReceiveRealtimeAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(true);
+        return reader;
+    }
 
     private readonly FakeSessionAuthority _authority = new();
     private readonly IRealtimeConnectionRegistry _registry = Substitute.For<IRealtimeConnectionRegistry>();
@@ -234,6 +244,7 @@ public abstract class RealtimeHubContractTests<THub>
             _tracker,
             new RealtimeInstanceIdentity(RealtimeTestHarness.InstanceId),
             _clock,
+            _suspensions,
             NullLogger<RealtimeConnectionGate>.Instance);
 
         var hub = CreateHub(gate);

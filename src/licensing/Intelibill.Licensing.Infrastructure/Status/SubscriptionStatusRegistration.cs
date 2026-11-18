@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.Restrictions;
 using Intelibill.Licensing.Application.Billing;
 using Intelibill.Licensing.Application.Entitlements;
 using Intelibill.Licensing.Application.Subscriptions;
@@ -32,7 +33,7 @@ internal static class SubscriptionStatusRegistration
         services.AddScoped(provider => new ReadSubscriptionStatusHandler(
             provider.GetRequiredService<IBillingDelegationAccess>(), provider.GetRequiredService<ISubscriptionStatusStore>(),
             provider.GetRequiredService<ISubscriptionAccessFactsReader>(), provider.GetRequiredKeyedService<TimeProvider>(ClockKey),
-            provider.GetRequiredService<IEntitlementSynchronizationReader>()));
+            provider.GetRequiredService<IEntitlementSynchronizationReader>(), provider.GetRequiredService<ISuspensionStore>()));
         services.AddScoped(provider => new ReadProviderStatusHandler(
             provider.GetRequiredService<ISubscriptionStatusStore>(), provider.GetRequiredService<ISubscriptionAccessFactsReader>(),
             provider.GetRequiredKeyedService<TimeProvider>(ClockKey), provider.GetRequiredService<TimeProvider>(),

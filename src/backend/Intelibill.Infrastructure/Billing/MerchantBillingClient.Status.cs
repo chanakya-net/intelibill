@@ -1,6 +1,8 @@
 using ErrorOr;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.Policies;
+using Intelibill.Infrastructure.Licensing;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,9 +25,17 @@ internal sealed partial class MerchantBillingClient
                     return status is not null && SubscriptionStatusContract.IsValidShop(status, shop)
                         ? status : Unavailable("InvalidStatusContract");
                 }, ct);
-            if (!result.IsError && !await IsLiveShopMemberAsync(caller, shop, ct))
+            if (result.IsError) return result;
+            var heads = await SuspensionAccessReader.ReadHeadsAsync(db, shop, ct);
+            if (!await IsLiveShopMemberAsync(caller, shop, ct))
                 return MerchantSubscriptionStatusErrors.ShopScope;
-            return result;
+            return heads is { Shop.EnforcementActivatedAt: not null }
+                ? result.Value with
+                {
+                    ObserveOnly = false,
+                    EnforcedSuspensionMode = LicenseProjectionPolicy.EffectiveSuspension(heads.Shop, heads.Account, clock.GetUtcNow()),
+                }
+                : result.Value;
         }
         catch (Exception error) when (error is Npgsql.NpgsqlException or TimeoutException)
         {
