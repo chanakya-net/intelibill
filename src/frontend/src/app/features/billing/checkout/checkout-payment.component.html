@@ -52,6 +52,7 @@
       <p role="status" data-testid="payment-manual-confirmed">{{ 'billing.checkout.payment.manualConfirmed' | transloco }}</p>
     }
     @if (status.manualPayment || status.payment === 'Verified') {
+      <app-payment-confirmation-links [account]="quote().accountId" [order]="quote().orderId" />
       @switch (status.access) {
         @case ('Applying') {
           <p data-testid="payment-applying">

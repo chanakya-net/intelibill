@@ -3333,6 +3333,12 @@
         "denied": "You no longer have access to this billing account."
       },
       "payment": {
+        "confirmation": {
+          "view": "View payment confirmations",
+          "download": "Download payment confirmation",
+          "disclaimer": "Verified receipt confirmation; not a tax invoice or merchant sale receipt. Access status is shown separately.",
+          "error": "Could not download the confirmation. Try again."
+        },
         "title": "Payment",
         "notStarted": "Pay the full amount in one payment to start this package.",
         "continue": "Continue to payment",

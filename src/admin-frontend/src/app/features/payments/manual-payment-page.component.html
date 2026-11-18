@@ -139,4 +139,7 @@
       </section>
     }
   }
+  @if (allowed() && view()) {
+    <adm-payment-confirmations [account]="account()" [order]="order()" />
+  }
 </main>

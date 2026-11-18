@@ -113,7 +113,7 @@ public sealed partial class P0306Tests
     public async Task PostgreSqlUpgradeRetainsOnlineEvidenceAndRejectsInvalidSources()
     {
         const string previous = "20261117100000_PendingPaymentReconciliation";
-        await using var fixture = await StartAsync(database, new P0201Clock { Now = P0210Fixture.Start }, Settings, services: P0310LegacyRouting.InstallLegacy);
+        await using var fixture = await StartAsync(database, new P0201Clock { Now = P0210Fixture.Start }, Settings, services: services => { P0310LegacyRouting.InstallLegacy(services); P0311LegacyIssuance.InstallLegacy(services); });
         var (payer, _, _, quote) = await fixture.AcceptedQuoteAsync(1, legacyQuote: true);
         var attempt = (await StartAsync(payer.Client, quote, HttpStatusCode.Created)).GetProperty("attemptId").GetGuid();
         await CaptureAsync(payer.Client, quote, attempt);

@@ -98,6 +98,7 @@ public sealed class Program
         app.MapComplimentaryGrants();
         app.MapTrialExtensions();
         app.MapAdminManualPayments();
+        app.MapAdminPaymentConfirmations();
         app.MapPaymentProviders();
         app.MapAdminPaymentReviews();
         app.MapGatewayWebhooks();

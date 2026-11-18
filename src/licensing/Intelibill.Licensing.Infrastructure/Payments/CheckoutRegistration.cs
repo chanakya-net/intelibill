@@ -38,6 +38,8 @@ internal static class CheckoutRegistration
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })
             .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(15));
         services.AddScoped<PaymentStore>();
+        services.AddScoped<IPaymentConfirmationStore>(p => p.GetRequiredService<PaymentStore>());
+        services.AddScoped<ReadPaymentConfirmationHandler>();
         services.AddScoped<IPaymentStore>(provider => provider.GetRequiredService<PaymentStore>());
         services.AddScoped<IPaymentReviewDecisionStore>(provider => provider.GetRequiredService<PaymentStore>());
         services.AddScoped(provider => ActivatorUtilities.CreateInstance<ReviewUnmatchedPaymentHandler>(provider, CheckoutClock(provider)));
@@ -81,6 +83,7 @@ internal static class CheckoutRegistration
             provider.GetRequiredService<IPaymentProviderSelection>()));
         services.AddScoped(provider => new FulfilPaidOrderHandler(provider.GetRequiredService<IPaymentStore>(),
             provider.GetRequiredService<ICheckoutOrderStore>(), provider.GetRequiredService<IPaymentReviewStore>(),
+            provider.GetRequiredService<IPaymentConfirmationStore>(),
             provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey)));
         services.AddScoped(provider => new ReconcilePaymentHandler(provider.GetRequiredService<IPaymentStore>(),
             provider.GetRequiredService<IPaymentGatewayResolver>(), provider.GetRequiredService<FulfilPaidOrderHandler>(),

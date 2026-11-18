@@ -103,6 +103,7 @@ describe('original payment routing', () => {
       expect(routing?.textContent).toContain('simulator-b');
       expect(routing?.textContent).toContain('a/1');
       expect(routing?.textContent).toContain('MissingProfile');
+      expect(fixture.nativeElement.querySelector('[data-testid="admin-confirmation-list"]')).not.toBeNull();
     });
   });
 });

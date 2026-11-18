@@ -17,7 +17,7 @@ public sealed partial class P0307Tests
     {
         const string previous = "20261117150000_GatewayInboxEvents";
         var now = P0210Fixture.Start;
-        await using var fixture = await StartAsync(database, new P0201Clock { Now = now }, P0306Tests.Settings, services: P0310LegacyRouting.InstallLegacy);
+        await using var fixture = await StartAsync(database, new P0201Clock { Now = now }, P0306Tests.Settings, services: services => { P0310LegacyRouting.InstallLegacy(services); P0311LegacyIssuance.InstallLegacy(services); });
         var purchase = await fixture.AcceptedQuoteAsync(1);
         using var finance = await P0306Tests.SignInBillingAsync(fixture);
         var path = P0306Tests.Path(purchase.Quote);

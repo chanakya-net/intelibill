@@ -33,6 +33,8 @@ public static class CheckoutPaymentsV1
 
     public const string Policy = "checkout-payment/1";
     public const string Start = "billing.checkout.payment.start";
+    public const string Confirmations = "billing.checkout.payment.confirmations";
+    public const string ConfirmationDocument = "billing.checkout.payment.confirmation-document";
     public const string Read = "billing.checkout.payment.read";
     public const string Verify = "billing.checkout.payment.verify";
     public const string Simulate = "billing.checkout.payment.simulate";
@@ -87,12 +89,15 @@ public static class CheckoutPaymentsV1
             methods.Distinct(StringComparer.Ordinal).Count() == methods.Length;
     }
 
-    public static bool IsAction(string action) => action is Start or Read or Verify or Simulate;
+    public static bool IsAction(string action) => action is Start or Read or Verify or Simulate or Confirmations or ConfirmationDocument;
     public static string PaymentPath(Guid account, Guid order) => $"{CheckoutOrdersV1.DetailPath(account, order)}/payment";
     public static string AttemptsPath(Guid account, Guid order) => $"{PaymentPath(account, order)}/attempts";
     public static string VerifyPath(Guid account, Guid order, Guid attempt) => $"{AttemptsPath(account, order)}/{attempt:D}/verify";
     public static string CapturePath(Guid account, Guid order, Guid attempt) =>
         $"{AttemptsPath(account, order)}/{attempt:D}/simulator/capture";
+
+    public static string ConfirmationsPath(Guid account, Guid order) => $"{PaymentPath(account, order)}/confirmations";
+    public static string ConfirmationDocumentPath(Guid account, Guid order, Guid id) => $"{ConfirmationsPath(account, order)}/{id:D}/document";
 
     public static string StartHash(Guid order, StartCheckoutPaymentV1 value) =>
         CheckoutOrdersV1.Digest(Policy, "start", order, value.ExpectedRevision, value.SnapshotHash);

@@ -15,7 +15,7 @@ public sealed partial class P0310Tests
     public async Task LegacyConfigurationAndEvidenceSurviveRoutingMigration()
     {
         var legacy = new P0310LegacyRouting();
-        await using var fixture = await P0302Fixture.StartAsync(database, new() { Now = WholeSecondStart }, Settings(), legacy.Install);
+        await using var fixture = await P0302Fixture.StartAsync(database, new() { Now = WholeSecondStart }, Settings(), services => { legacy.Install(services); P0311LegacyIssuance.InstallLegacy(services); });
         var purchase = await fixture.AcceptedQuoteAsync(1);
         var attempt = (await StartAsync(purchase.Payer.Client, purchase.Quote, HttpStatusCode.Created)).GetProperty("attemptId").GetGuid();
         await CaptureAsync(purchase.Payer.Client, purchase.Quote, attempt);

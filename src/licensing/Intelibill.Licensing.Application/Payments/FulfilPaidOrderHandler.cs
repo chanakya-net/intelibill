@@ -12,7 +12,7 @@ public enum FulfilmentOutcome { AlreadyRecorded, Rejected, NeedsReview, Fulfille
 /// one paid term for the complete frozen package, its shop links, audit event and entitlement outbox snapshots in
 /// one transaction. A payment already recorded for the attempt returns without writing again.
 /// </summary>
-public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderStore orders, IPaymentReviewStore reviews, TimeProvider lifecycle)
+public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckoutOrderStore orders, IPaymentReviewStore reviews, IPaymentConfirmationStore confirmations, TimeProvider lifecycle)
 {
     public Task<ErrorOr<FulfilmentOutcome>> HandleAsync(StoredPaymentAttempt attempt, PaymentObservation payment,
         CancellationToken ct) =>
@@ -55,10 +55,12 @@ public sealed partial class FulfilPaidOrderHandler(IPaymentStore store, ICheckou
             var observedAt = new[] { decision.At, payment.CapturedAt ?? decision.At, payment.CreatedAt ?? decision.At }.Max();
             await reviews.RecordCaptureAsync(attempt, payment, decision.ReviewReason!, observedAt, null, ct);
             await store.AppendEventAsync(attempt, PaymentEventKinds.PaidNeedsReview, null, decision.At, ct);
+            await confirmations.IssueAsync(quote.AccountId, quote.OrderId, attempt.AttemptId, null, verifiedAt, ct);
             return FulfilmentOutcome.NeedsReview;
         }
 
         await FulfilAsync(quote, decision, attempt, null, ct);
+        await confirmations.IssueAsync(quote.AccountId, quote.OrderId, attempt.AttemptId, null, verifiedAt, ct);
         return FulfilmentOutcome.Fulfilled;
     }
 
