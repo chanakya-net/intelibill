@@ -91,7 +91,7 @@ internal sealed partial class MerchantBillingClient(
 
     private async Task<ErrorOr<T>> RunAsync<T>(MerchantBillingCaller caller, BillingDelegationIntent intent,
         int responseLimit, Func<HttpResponseMessage, CancellationToken, Task<ErrorOr<T>>> read,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, string mediaType = "application/json")
     {
         var origin = options.CurrentValue.GetOrigin(environment);
         if (origin is null)
@@ -101,7 +101,7 @@ internal sealed partial class MerchantBillingClient(
         timeout.CancelAfter(TimeSpan.FromSeconds(5));
         try
         {
-            return await SendAsync(origin, caller, intent, responseLimit, read, timeout.Token);
+            return await SendAsync(origin, caller, intent, responseLimit, read, mediaType, timeout.Token);
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
@@ -118,7 +118,7 @@ internal sealed partial class MerchantBillingClient(
 
     private async Task<ErrorOr<T>> SendAsync<T>(Uri origin, MerchantBillingCaller caller, BillingDelegationIntent intent,
         int responseLimit, Func<HttpResponseMessage, CancellationToken, Task<ErrorOr<T>>> read,
-        CancellationToken cancellationToken)
+        string mediaType, CancellationToken cancellationToken)
     {
         var requestId = Guid.NewGuid();
         var token = await issuer.IssueAsync(caller, intent, requestId, cancellationToken);
@@ -139,7 +139,7 @@ internal sealed partial class MerchantBillingClient(
         var failure = await MapFailureAsync(response, intent.Action, cancellationToken);
         if (failure is { } error)
             return error;
-        if (response.Content.Headers.ContentType?.MediaType != "application/json")
+        if (response.Content.Headers.ContentType?.MediaType != mediaType)
             return Unavailable("InvalidResponseContentType");
         if (response.Content.Headers.ContentLength > responseLimit)
             return Unavailable("ResponseTooLarge");

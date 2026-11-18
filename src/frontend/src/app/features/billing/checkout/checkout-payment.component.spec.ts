@@ -855,3 +855,14 @@ describe('CheckoutPaymentComponent', () => {
     });
   });
 });
+
+describe('payment confirmation availability', () => {
+  it('offers confirmations only after verified receipt facts exist', async () => {
+    const before = await render(notStarted);
+    expect(before.text('confirmation-list')).toBeNull();
+    before.close();
+    const after = await render(verified('Applying', 0));
+    expect(after.text('confirmation-list')).toBe('View payment confirmations');
+    after.close();
+  });
+});

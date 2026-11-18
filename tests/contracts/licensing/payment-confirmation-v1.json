@@ -1,0 +1,56 @@
+{
+  "snapshot": {
+    "policy": "payment-confirmation/1",
+    "receipt": {
+      "confirmationId": "00000000-0000-4000-8000-000000000001",
+      "accountId": "00000000-0000-4000-8000-000000000002",
+      "orderId": "00000000-0000-4000-8000-000000000003",
+      "source": "Online",
+      "amountPaise": 12000,
+      "currency": "INR",
+      "verifiedAt": "2027-02-10T00:00:01Z",
+      "issuedAt": "2027-02-10T00:00:01Z",
+      "issuanceBasis": "Verification"
+    },
+    "party": {
+      "accountNameAtIssuance": "Fixture billing account",
+      "acceptedByMerchantUserId": "00000000-0000-4000-8000-000000000004"
+    },
+    "terms": {
+      "planVersionId": "00000000-0000-4000-8000-000000000005",
+      "planVersion": 2,
+      "planName": "Fixture plan",
+      "period": "Month",
+      "capacity": 3,
+      "membersPerShop": 5,
+      "shopCount": 1,
+      "customerTermsVersion": "terms/1",
+      "refundPolicyVersion": "refund/1",
+      "billingTimeZone": "Asia/Kolkata",
+      "calendarVersion": "calendar/1",
+      "renewalPolicyVersion": "renewal/1",
+      "startRule": "Fulfilment",
+      "acceptedAt": "2027-02-10T00:00:01Z",
+      "quoteRevision": 1,
+      "snapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "shops": [
+        {
+          "shopId": "00000000-0000-4000-8000-000000000006",
+          "name": "Original shop",
+          "termId": null
+        }
+      ]
+    },
+    "receiptReference": "00000000-0000-4000-8000-000000000007",
+    "providerId": "development-simulator",
+    "providerAccountId": "local-simulator",
+    "environment": "Development",
+    "configurationVersion": "development-simulator/1",
+    "providerOrderReference": "fixture_order",
+    "providerPaymentReference": "fixture_payment",
+    "effectiveAt": "2027-02-10T00:00:01Z",
+    "effectiveTimeBasis": "ProviderCapture",
+    "fulfilmentAtIssuance": "Fulfilled"
+  },
+  "rendered": "PAYMENT CONFIRMATION\nThis is not a tax invoice, not a GST document and not a merchant sale receipt.\nVerified receipt only; this document does not prove applied access.\nConfirmation: 00000000-0000-4000-8000-000000000001\nBilling account: 00000000-0000-4000-8000-000000000002\nOrder: 00000000-0000-4000-8000-000000000003\nSource: Online\nReceipt reference: 00000000-0000-4000-8000-000000000007\nGross amount: 120.00 INR\nGross amount (paise): 12000 INR\nVerified receipt: 2027-02-10T00:00:01.000000Z / 2027-02-10 05:30:01.000000 Asia/Kolkata\nEffective receipt: 2027-02-10T00:00:01.000000Z / 2027-02-10 05:30:01.000000 Asia/Kolkata\nEffective time basis: ProviderCapture\nIssued: 2027-02-10T00:00:01.000000Z / 2027-02-10 05:30:01.000000 Asia/Kolkata\nIssuance basis: Verification\nParty details below were recorded at confirmation issuance.\nBilling account name at issuance: Fixture billing account\nAccepted by merchant user ID: 00000000-0000-4000-8000-000000000004\nLegal party name, address and tax identity: not recorded by this confirmation.\nProvider: development-simulator / local-simulator / Development\nProvider configuration: development-simulator/1\nProvider order reference: fixture_order\nProvider payment reference: fixture_payment\nFulfilment at issuance (historical): Fulfilled\nPurchased plan: Fixture plan / version 2 / 00000000-0000-4000-8000-000000000005\nPurchased period: Month; start rule: Fulfilment\nCapacity: 3; named shops: 1; members per shop: 5\nAccepted: 2027-02-10T00:00:01.000000Z / 2027-02-10 05:30:01.000000 Asia/Kolkata; quote revision: 1\nAccepted snapshot: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nPolicies: terms terms/1; refund refund/1; calendar calendar/1; renewal renewal/1\nBilling time zone: Asia/Kolkata\nCovered shop: 00000000-0000-4000-8000-000000000006 / Original shop\n"
+}

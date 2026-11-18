@@ -102,6 +102,13 @@ export interface PaymentRoutingDetail {
   readonly blocker: string | null;
 }
 
+export interface ConfirmationReference {
+  readonly confirmationId: string;
+  readonly accountId: string;
+  readonly orderId: string;
+  readonly source: 'Online' | 'Manual';
+}
+
 @Injectable({ providedIn: 'root' })
 export class ManualPaymentApi {
   private readonly http = inject(HttpClient);
@@ -134,6 +141,26 @@ export class ManualPaymentApi {
   evidence(scope: PaymentScope, session: string, receipt: string) {
     return firstValueFrom(this.http.get<ManualPaymentEvidence>(
       this.path(scope) + '/receipts/' + encodeURIComponent(receipt) + '/evidence', { headers: { 'X-Admin-Session': session } }));
+  }
+
+  async confirmations(scope: PaymentScope, session: string, after?: string) {
+    const rows = await firstValueFrom(this.http.get<readonly ConfirmationReference[]>(this.confirmationsPath(scope) + (after ? '/after/' + encodeURIComponent(after) : ''),
+      { headers: { 'X-Admin-Session': session } }));
+    if (!Array.isArray(rows) || rows.length > 25 || !rows.every(row => row.accountId === scope.account && row.orderId === scope.order &&
+        /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(row.confirmationId) && ['Online', 'Manual'].includes(row.source)))
+      throw new Error('Invalid confirmation identity');
+    return rows;
+  }
+
+  async confirmationDocument(scope: PaymentScope, session: string, id: string) {
+    const blob = await firstValueFrom(this.http.get(this.confirmationsPath(scope) + '/' + encodeURIComponent(id) + '/document',
+      { headers: { 'X-Admin-Session': session }, responseType: 'blob' }));
+    if (blob.type.split(';')[0] !== 'text/plain' || blob.size > 8192 + 100_000 * (250 * 4 + 128)) throw new Error('Invalid confirmation document');
+    return blob;
+  }
+
+  private confirmationsPath(scope: PaymentScope) {
+    return `/api/admin/accounts/${encodeURIComponent(scope.account)}/orders/${encodeURIComponent(scope.order)}/payment-confirmations`;
   }
 
   private post<T>(path: string, session: string, body: ManualPaymentCommand) {

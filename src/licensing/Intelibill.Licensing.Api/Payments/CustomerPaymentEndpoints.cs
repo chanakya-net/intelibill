@@ -15,11 +15,31 @@ internal static class CustomerPaymentEndpoints
         var group = app.MapGroup(MerchantBillingDelegationV1.AccountsPath + "/{account:guid}/orders/{order:guid}/payment")
             .RequireAuthorization(policy);
         group.MapGet("", ReadAsync);
+        group.MapGet("/confirmations", ConfirmationsAsync);
+        group.MapGet("/confirmations/after/{after:guid}", ConfirmationsAsync);
+        group.MapGet("/confirmations/{id:guid}/document", DocumentAsync);
         group.MapPost("/attempts", StartAsync);
         group.MapPost("/attempts/{attempt:guid}/verify", VerifyAsync);
         // Local-only controls resolve the original simulator pin, independently of the current provider selection.
         if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"))
             group.MapPost("/attempts/{attempt:guid}/simulator/capture", CaptureAsync);
+    }
+
+    private static async Task<IResult> ConfirmationsAsync(HttpContext context, Guid account, Guid order, Guid? after,
+        ReadPaymentConfirmationHandler handler, CancellationToken ct) =>
+        CustomerSubscriptionStatusEndpoints.ReadProof(context, account, CheckoutPaymentsV1.Confirmations,
+            CheckoutPaymentsV1.ConfirmationsPath(account, order, after)) is { } proof
+            ? Respond(context, await handler.ListAsync(proof, account, order, after, ct)) : Invalid(context);
+
+    private static async Task<IResult> DocumentAsync(HttpContext context, Guid account, Guid order, Guid id,
+        ReadPaymentConfirmationHandler handler, CancellationToken ct)
+    {
+        var proof = CustomerSubscriptionStatusEndpoints.ReadProof(context, account, CheckoutPaymentsV1.ConfirmationDocument,
+            CheckoutPaymentsV1.ConfirmationDocumentPath(account, order, id));
+        if (proof is null) return Invalid(context);
+        var result = await handler.DocumentAsync(proof, account, order, id, ct);
+        return result.IsError ? CustomerBillingEndpoints.Failure(context, result.FirstError)
+            : AdminPaymentConfirmationEndpoints.Attachment(context, result.Value, id);
     }
 
     private static async Task<IResult> ReadAsync(HttpContext context, Guid account, Guid order,

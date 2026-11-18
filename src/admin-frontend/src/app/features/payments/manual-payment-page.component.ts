@@ -1,3 +1,4 @@
+import { PaymentConfirmationsComponent } from './payment-confirmations.component';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -19,7 +20,7 @@ interface Invocation {
 
 @Component({
   selector: 'adm-manual-payment-page',
-  imports: [ButtonDirective, RouterLink],
+  imports: [ButtonDirective, RouterLink, PaymentConfirmationsComponent],
   templateUrl: './manual-payment-page.component.html',
   styleUrl: '../form-page.css',
   styles: `

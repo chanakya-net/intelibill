@@ -8,7 +8,7 @@ namespace Intelibill.Licensing.Application.Payments;
 
 public sealed class ConfirmManualPaymentHandler(IManualPaymentStore store, IPaymentStore payments, ICheckoutOrderStore orders,
     IManualPaymentEvidence evidence, IValidator<ConfirmManualPayment> validator, FulfilPaidOrderHandler fulfilment,
-    CheckoutPaymentStatusReader status, IPaymentReviewStore reviews, TimeProvider clock)
+    CheckoutPaymentStatusReader status, IPaymentReviewStore reviews, IPaymentConfirmationStore confirmations, TimeProvider clock)
 {
     public Task<ErrorOr<ManualPaymentView>> ReadAsync(AdminSessionCaller caller, Guid account, Guid order,
         Guid? after, CancellationToken ct) => store.InManualScopeAsync<ManualPaymentView>(caller, account, order,
@@ -88,6 +88,7 @@ public sealed class ConfirmManualPaymentHandler(IManualPaymentStore store, IPaym
             await payments.RecordRestorationHoldAsync(account, order, null, id, receipt.ReceivedAt, hold, ct);
         if (decision.Term is not null)
             await fulfilment.FulfilAsync(quote, decision, null, id, ct);
+        await confirmations.IssueAsync(account, order, null, id, receipt.VerifiedAt, ct);
         return new ManualPaymentOutcome(receipt, true);
     }
 

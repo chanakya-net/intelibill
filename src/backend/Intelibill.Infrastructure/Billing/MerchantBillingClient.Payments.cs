@@ -88,6 +88,7 @@ internal sealed partial class MerchantBillingClient : IMerchantCheckoutPayments
         (HttpStatusCode.Conflict, CheckoutPaymentsV1.Unsupported) => Error.Conflict(code, "This order cannot be paid online yet."),
         (HttpStatusCode.Conflict, CheckoutPaymentsV1.NotAccepted) => Error.Conflict(code, "Accept the quote before paying."),
         (HttpStatusCode.Conflict, CheckoutPaymentsV1.AlreadyStarted) => Error.Conflict(code, "Payment for this order already started."),
+        (HttpStatusCode.NotFound, PaymentConfirmationsV1.NotFound) => Error.NotFound(code, "The payment confirmation was not found."),
         (HttpStatusCode.NotFound, CheckoutPaymentsV1.NotFound) => Error.NotFound(code, "The payment attempt was not found."),
         (HttpStatusCode.NotFound, null) => Error.NotFound(CheckoutPaymentsV1.NotFound, "The payment attempt was not found."),
         _ => MapCheckoutFailure(status, code),
