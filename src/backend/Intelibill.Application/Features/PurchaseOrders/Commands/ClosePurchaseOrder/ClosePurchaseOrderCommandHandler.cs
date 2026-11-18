@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
@@ -13,6 +14,7 @@ public sealed class ClosePurchaseOrderCommandHandler(
     IPurchaseOrderRepository purchaseOrderRepository,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<PurchaseOrderDetailDto>> HandleAsync(
         ClosePurchaseOrderCommand command,
         CancellationToken cancellationToken)

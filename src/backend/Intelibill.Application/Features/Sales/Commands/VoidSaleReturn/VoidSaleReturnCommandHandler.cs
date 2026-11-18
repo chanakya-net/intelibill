@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Application.Features.Tills.Services;
@@ -27,6 +28,7 @@ public sealed class VoidSaleReturnCommandHandler(
     IUnitOfWork unitOfWork,
     IBusinessClock businessClock, TillSourceSettlementService settlement, IFinancialOperationExecutor executor, Intelibill.Application.Features.Expiry.BatchDispositionService dispositions)
 {
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<Success>> HandleAsync(
         VoidSaleReturnCommand command,
         CancellationToken cancellationToken)

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
@@ -16,6 +17,7 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
     IExternalProductLookupService externalProductLookupService,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<ProductDetailsDto>> HandleAsync(
         GetProductDetailsByNameOrBarcodeQuery query,
         CancellationToken cancellationToken)

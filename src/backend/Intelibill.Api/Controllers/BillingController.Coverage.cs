@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Text.Json.Serialization;
 using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Application.Features.Billing;
@@ -12,6 +13,7 @@ public sealed partial class BillingController
     public sealed record AffiliationOperation(Guid OperationKey);
 
     [HttpGet("{accountId:guid}/affiliations")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> AffiliationList(Guid accountId, [FromServices] IMerchantShopAffiliations affiliations,
         CancellationToken ct)
     {
@@ -24,6 +26,7 @@ public sealed partial class BillingController
     [HttpPost("{accountId:guid}/affiliations")]
     [RequestSizeLimit(1024)]
     [RateLimit(Limit = 30, PeriodInMinutes = 60, BackoffMinutes = 5, FailClosed = true)]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> RequestAffiliation(Guid accountId, [FromBody] RequestShopAffiliationV1 request,
         [FromServices] IMerchantShopAffiliations affiliations, CancellationToken ct)
     {
@@ -34,6 +37,7 @@ public sealed partial class BillingController
     }
 
     [HttpGet("{accountId:guid}/affiliations/{shopId:guid}/{requestId:guid}/consent")]
+    [LicenceAction(LicenceAction.Billing)]
     public Task<IActionResult> ReadAffiliationConsent(Guid accountId, Guid shopId, Guid requestId,
         [FromServices] IMerchantShopAffiliations affiliations, CancellationToken ct) =>
         RunConsentAsync(accountId, shopId, requestId, ShopAffiliationConsentAction.Read, Guid.Empty, affiliations, ct);
@@ -41,6 +45,7 @@ public sealed partial class BillingController
     [HttpPost("{accountId:guid}/affiliations/{shopId:guid}/{requestId:guid}/consent/{decision}")]
     [RequestSizeLimit(1024)]
     [RateLimit(Limit = 30, PeriodInMinutes = 15, BackoffMinutes = 5, FailClosed = true)]
+    [LicenceAction(LicenceAction.Billing)]
     public Task<IActionResult> ChangeAffiliationConsent(Guid accountId, Guid shopId, Guid requestId, string decision,
         [FromBody] AffiliationOperation operation, [FromServices] IMerchantShopAffiliations affiliations, CancellationToken ct)
     {

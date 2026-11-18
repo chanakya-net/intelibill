@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Time;
@@ -17,6 +18,7 @@ public sealed class ExportProfitLossQueryHandler(
     IProfitLossExcelExportRenderer excelRenderer,
     IBusinessClock businessClock)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<ProfitLossExportResult>> Handle(
         ExportProfitLossQuery query,
         CancellationToken cancellationToken)

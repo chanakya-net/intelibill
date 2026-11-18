@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Exports.ProfitLoss;
@@ -21,6 +22,7 @@ public sealed class ExportsController : AuthenticatedControllerBase
 
     [HttpGet("sales")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> ExportSales(
         [FromQuery] string format = "xlsx",
         [FromQuery] string level = "summary",
@@ -47,6 +49,7 @@ public sealed class ExportsController : AuthenticatedControllerBase
 
     [HttpGet("profit-loss")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> ExportProfitLoss(
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,

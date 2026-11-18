@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Application.Common.Operations;
@@ -31,6 +32,7 @@ public sealed class RecordSaleReturnCommandHandler(
     IBusinessClock businessClock,
     IShopRepository shops, ISaleRepository sales, ITillPostingService tills, IFinancialOperationExecutor executor, Intelibill.Application.Features.Expiry.BatchDispositionService dispositions)
 {
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<Success>> HandleAsync(RecordSaleReturnCommand command, CancellationToken cancellationToken)
     {
         var key = FinancialOperationHasher.NormalizeKey(command.OperationKey);

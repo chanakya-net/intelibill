@@ -1,6 +1,7 @@
 using System.Net;
 using Intelibill.Api.HealthChecks;
 using Intelibill.Api.Options;
+using Intelibill.Application.Common.Licensing;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -126,12 +127,12 @@ internal static class EdgeExtensions
     public static WebApplication MapHealthEndpoints(this WebApplication app)
     {
         app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false })
-            .AllowAnonymous();
+            .AllowAnonymous().WithMetadata(new LicenceActionAttribute(LicenceAction.Health));
 
         app.MapHealthChecks("/health/ready", new HealthCheckOptions
         {
             Predicate = registration => registration.Tags.Contains(ReadinessTag),
-        }).AllowAnonymous();
+        }).AllowAnonymous().WithMetadata(new LicenceActionAttribute(LicenceAction.Health));
 
         return app;
     }

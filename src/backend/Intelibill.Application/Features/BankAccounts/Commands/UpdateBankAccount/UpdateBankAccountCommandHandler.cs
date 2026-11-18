@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.BankAccounts.DTOs;
@@ -12,6 +13,7 @@ public sealed class UpdateBankAccountCommandHandler(
     IBankAccountRepository bankAccountRepository,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<BankAccountDto>> HandleAsync(UpdateBankAccountCommand command, CancellationToken cancellationToken)
     {
         var bankAccount = await bankAccountRepository.GetByIdAsync(command.Id, cancellationToken);

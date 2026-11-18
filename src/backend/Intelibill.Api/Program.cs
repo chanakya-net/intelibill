@@ -12,6 +12,7 @@ using Intelibill.Api.Startup;
 using Intelibill.Application;
 using Intelibill.Application.Common.Behaviours;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Security;
 using Intelibill.Infrastructure;
 using Intelibill.Infrastructure.Extensions;
@@ -201,8 +202,9 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
-    app.MapScalarApiReference();
+    app.MapOpenApi().WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
+    app.MapGroup(string.Empty).WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService))
+        .MapScalarApiReference();
 }
 
 // Platform probes arrive over plain HTTP inside the environment. Redirecting
@@ -224,8 +226,10 @@ app.MapWolverineEndpoints();
 // CloseOnAuthenticationExpiration: without it a transport outlives the token that opened it,
 // because the handshake is the only time SignalR looks at authentication. The client reconnects
 // with whatever token it holds then, and that reconnect is admitted through the gate again.
-app.MapHub<ProductHub>("/hubs/products", options => options.CloseOnAuthenticationExpiration = true);
-app.MapHub<ShopUpdatesHub>("/hubs/shop-updates", options => options.CloseOnAuthenticationExpiration = true);
+app.MapHub<ProductHub>("/hubs/products", options => options.CloseOnAuthenticationExpiration = true)
+    .WithMetadata(new LicenceActionAttribute(LicenceAction.History));
+app.MapHub<ShopUpdatesHub>("/hubs/shop-updates", options => options.CloseOnAuthenticationExpiration = true)
+    .WithMetadata(new LicenceActionAttribute(LicenceAction.History));
 app.MapHealthEndpoints();
 
 return await app.RunJasperFxCommands(args);

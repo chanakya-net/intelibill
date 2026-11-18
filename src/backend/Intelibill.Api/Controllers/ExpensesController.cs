@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.ValueObjects;
 using Intelibill.Domain.Enums;
@@ -26,6 +27,7 @@ public sealed class ExpensesController : AuthenticatedControllerBase
 
     [HttpPost]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> RecordExpense([FromBody] RecordExpenseRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -47,6 +49,7 @@ public sealed class ExpensesController : AuthenticatedControllerBase
 
     [HttpPost("{id:guid}/correct")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> CorrectExpense(Guid id, [FromBody] CorrectExpenseRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -68,6 +71,7 @@ public sealed class ExpensesController : AuthenticatedControllerBase
     }
 
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetExpenses([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? status = null, CancellationToken cancellationToken = default)
     {
         var auth = CheckAuthAndShop();
@@ -89,6 +93,7 @@ public sealed class ExpensesController : AuthenticatedControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetExpense(Guid id, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -102,6 +107,7 @@ public sealed class ExpensesController : AuthenticatedControllerBase
     }
 
     [HttpGet("categories")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetCategories(CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Expiry;
 using Microsoft.AspNetCore.Authorization;
@@ -12,8 +13,10 @@ namespace Intelibill.Api.Controllers;
 public sealed class ExpiryPoliciesController(IMessageBus bus, ExpiryPolicyService policies) : AuthenticatedControllerBase(bus)
 {
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public Task<IActionResult> Get(CancellationToken ct) => Read(null, ct);
     [HttpGet("items/{id:guid}")]
+    [LicenceAction(LicenceAction.History)]
     public Task<IActionResult> GetItem(Guid id, CancellationToken ct) => Read(id, ct);
     private async Task<IActionResult> Read(Guid? id, CancellationToken ct)
     {
@@ -22,8 +25,10 @@ public sealed class ExpiryPoliciesController(IMessageBus bus, ExpiryPolicyServic
         return (await policies.ReadAsync(ActiveShopId!.Value, UserId!.Value, id, ct)).ToActionResult(Ok);
     }
     [HttpPut]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public Task<IActionResult> Put([FromBody] ExpiryPolicyUpdateRequest request, CancellationToken ct) => Update(null, request, ct);
     [HttpPut("items/{id:guid}")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public Task<IActionResult> PutItem(Guid id, [FromBody] ExpiryPolicyUpdateRequest request, CancellationToken ct) => Update(id, request, ct);
     private async Task<IActionResult> Update(Guid? id, ExpiryPolicyUpdateRequest request, CancellationToken ct)
     {
@@ -32,6 +37,7 @@ public sealed class ExpiryPoliciesController(IMessageBus bus, ExpiryPolicyServic
         return (await policies.UpdateAsync(ActiveShopId!.Value, UserId!.Value, id, request, ct)).ToActionResult(Ok);
     }
     [HttpGet("readiness")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> Readiness([FromQuery] int page = 1, [FromQuery] int pageSize = 50, CancellationToken ct = default)
     {
         var auth = CheckAuthAndShop();

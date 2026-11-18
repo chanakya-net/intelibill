@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
@@ -16,6 +17,7 @@ public sealed class GetShopDetailsQueryHandler(
     ITenantWriteScope tenantWriteScope,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<ShopDetailsDto>> HandleAsync(GetShopDetailsQuery query, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdWithDetailsAsync(query.UserId, cancellationToken);

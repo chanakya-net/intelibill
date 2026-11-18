@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Intelibill.Api.Controllers;
@@ -8,6 +9,7 @@ public sealed class ConnectivityController : ControllerBase
 {
     [HttpGet]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    [LicenceAction(LicenceAction.Health)]
     public IActionResult Ping() => Ok(new PingResponse(DateTimeOffset.UtcNow));
 }
 

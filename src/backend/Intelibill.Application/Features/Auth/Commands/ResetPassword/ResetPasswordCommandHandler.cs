@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Security.Cryptography;
 using System.Text;
 using ErrorOr;
@@ -16,6 +17,7 @@ public sealed class ResetPasswordCommandHandler(
     IIdentityMailOutbox mail,
     TimeProvider clock)
 {
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<ErrorOr<bool>> HandleAsync(
         ResetPasswordCommand command,
         CancellationToken cancellationToken)

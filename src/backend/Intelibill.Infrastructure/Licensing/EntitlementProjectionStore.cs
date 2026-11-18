@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Infrastructure.Licensing;
 
-public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProvider clock)
+public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProvider clock, ShopLicenceFence fence)
 {
     private static Error Replayed => Error.Unauthorized("Entitlement.Replayed");
     private static Error Conflict => Error.Conflict("Entitlement.EventMismatch");
@@ -19,7 +19,9 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
     {
         var received = EntitlementSnapshotsV1.Instant(clock);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        await EnterAsync(snapshot.AccountId, snapshot.ShopId, ct);
+        var entered = await EnterAsync(snapshot.AccountId, snapshot.ShopId, ct);
+        if (entered.IsError)
+            return entered.Errors;
         if (!await ConsumeAsync(proof, ct))
             return Replayed;
 
@@ -65,19 +67,15 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         return receipt;
     }
 
-    internal async Task EnterAsync(Guid account, Guid shop, CancellationToken ct)
+    internal async Task<ErrorOr<Success>> EnterAsync(Guid account, Guid shop, CancellationToken ct)
     {
-        await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
+        // These delivery transactions also bound their later inbox, evidence and outbox writes.
+        await db.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {ShopLicenceFence.LockTimeout}, true)", ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             SELECT set_config('app.active_shop_id', {shop.ToString("D")}, true),
                 set_config('app.entitlement_account_id', {account.ToString("D")}, true)
             """, ct);
-        await db.Database.ExecuteSqlInterpolatedAsync($"""
-            SELECT pg_advisory_xact_lock(hashtextextended({'a' + account.ToString("D")}, 859))
-            """, ct);
-        await db.Database.ExecuteSqlInterpolatedAsync($"""
-            SELECT pg_advisory_xact_lock(hashtextextended({'s' + shop.ToString("D")}, 859))
-            """, ct);
+        return await fence.EnterProjectionAsync(account, shop, ct);
     }
 
     private async Task<bool> ConsumeAsync(VerifiedServiceAssertion proof, CancellationToken ct)

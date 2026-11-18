@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Globalization;
 using Intelibill.Application.Features.Expiry;
 using ErrorOr;
@@ -15,6 +16,7 @@ using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 
+[LicenceAction(LicenceAction.Recovery)]
 internal sealed partial class OfflineSalePoster(
     ISaleLineValidator saleLineValidator,
     ICustomerResolver customerResolver,

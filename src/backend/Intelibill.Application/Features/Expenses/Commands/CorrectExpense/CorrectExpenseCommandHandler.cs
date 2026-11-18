@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Features.Payments.Services;
 using Intelibill.Application.Features.Tills.Services;
@@ -22,6 +23,7 @@ public sealed class CorrectExpenseCommandHandler(
     IPaymentTransactionRunner transactionRunner,
     TillSourceSettlementService settlement)
 {
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<ExpenseDto>> HandleAsync(
         CorrectExpenseCommand command,
         CancellationToken cancellationToken)

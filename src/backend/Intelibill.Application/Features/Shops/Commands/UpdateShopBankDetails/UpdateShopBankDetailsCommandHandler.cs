@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
@@ -23,6 +24,7 @@ public sealed class UpdateShopBankDetailsCommandHandler(
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
         TimeSpan.FromMilliseconds(250));
 
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public async Task<ErrorOr<ShopDetailsDto>> HandleAsync(UpdateShopBankDetailsCommand command, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);

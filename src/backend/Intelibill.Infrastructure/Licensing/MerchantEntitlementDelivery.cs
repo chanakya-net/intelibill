@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Net;
 using System.Text.Json;
 using Intelibill.Domain.Entities;
@@ -9,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Infrastructure.Licensing;
 
+[LicenceAction(LicenceAction.InternalService)]
 internal sealed class MerchantEntitlementDelivery(ApplicationDbContext db, EntitlementProjectionStore projection,
     MerchantEntitlementTransport transport, LeasedHttpOutbox outbox, IHttpClientFactory clients, TimeProvider clock)
     : ILeasedHttpDestination
@@ -46,7 +48,8 @@ internal sealed class MerchantEntitlementDelivery(ApplicationDbContext db, Entit
     private async Task QueueAsync(Binding binding, DateTimeOffset now, CancellationToken ct)
     {
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        await projection.EnterAsync(binding.AccountId, binding.ShopId, ct);
+        if ((await projection.EnterAsync(binding.AccountId, binding.ShopId, ct)).IsError)
+            return;
         if (!await StillDueAsync(binding.ShopId, now, ct))
             return;
         var shop = await db.Set<ShopLicenseState>().AsNoTracking().SingleOrDefaultAsync(row => row.ShopId == binding.ShopId, ct);

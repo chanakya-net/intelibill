@@ -1,7 +1,9 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Infrastructure.Data;
 
 namespace Intelibill.Api.Startup;
 
+[LicenceAction(LicenceAction.InternalService)]
 internal sealed class ApplicationModelWarmupService(
     IServiceScopeFactory scopeFactory) : IHostedService
 {

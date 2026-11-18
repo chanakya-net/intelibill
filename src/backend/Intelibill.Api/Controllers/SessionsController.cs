@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Users.DTOs;
@@ -19,6 +20,7 @@ public sealed class SessionsController(IMessageBus bus, IAuthSessionService sess
     : AuthenticatedControllerBase(bus)
 {
     [HttpGet]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> GetMySessions(CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -36,6 +38,7 @@ public sealed class SessionsController(IMessageBus bus, IAuthSessionService sess
     /// what someone sitting at a shared terminal wants.
     /// </summary>
     [HttpDelete("{sessionId:guid}")]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> RevokeSession(Guid sessionId, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -51,6 +54,7 @@ public sealed class SessionsController(IMessageBus bus, IAuthSessionService sess
     /// where they are signed in, so the one device it could spare is the one they cannot check.
     /// </summary>
     [HttpPost("revoke-all")]
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<IActionResult> RevokeAllSessions(CancellationToken cancellationToken)
     {
         var auth = CheckAuth();

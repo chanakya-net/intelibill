@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Sales.DTOs;
@@ -20,6 +21,7 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider)
 {
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<ErrorOr<InvoiceLeaseDto>> HandleAsync(ReserveInvoiceLeaseCommand command, CancellationToken cancellationToken)
     {
         var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);

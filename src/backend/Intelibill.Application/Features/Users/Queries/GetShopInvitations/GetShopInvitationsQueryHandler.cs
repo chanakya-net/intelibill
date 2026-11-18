@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Users.DTOs;
@@ -11,6 +12,7 @@ public sealed class GetShopInvitationsQueryHandler(
     IShopRepository shopRepository,
     TimeProvider clock)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<IReadOnlyList<ShopInvitationDto>>> HandleAsync(
         GetShopInvitationsQuery query,
         CancellationToken cancellationToken)

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Expenses.DTOs;
@@ -14,6 +15,7 @@ public sealed class GetAdjustmentHistoryQueryHandler(
     private const int DefaultPageSize = 25;
     private const int MaxPageSize = 100;
 
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<PaginatedList<InventoryAdjustmentHistoryDto>>> Handle(
         GetAdjustmentHistoryQuery query,
         CancellationToken cancellationToken)

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
@@ -12,6 +13,7 @@ public sealed class LookupHsnHandler(
     IExternalHsnLookupService externalHsnLookupService,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public async Task<ErrorOr<LookupHsnResult>> HandleAsync(LookupHsnQuery query, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(query.ProductName))

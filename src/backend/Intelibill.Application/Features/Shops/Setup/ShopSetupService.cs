@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Domain.Common;
@@ -117,15 +118,18 @@ public sealed class ShopSetupService(
 
 public sealed class GetShopSetupQueryHandler(ShopSetupService service)
 {
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public Task<ErrorOr<ShopSetupStatusDto>> HandleAsync(GetShopSetupQuery query, CancellationToken ct) => service.GetAsync(query, ct);
 }
 
 public sealed class GetShopSetupPreferencesQueryHandler(ShopSetupService service)
 {
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public Task<ErrorOr<ShopSetupPreferencesDto>> HandleAsync(GetShopSetupPreferencesQuery query, CancellationToken ct) => service.GetPreferencesAsync(query, ct);
 }
 
 public sealed class GetShopSetupSampleQueryHandler(ShopSetupService service)
 {
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public Task<ErrorOr<ShopSetupSampleDto>> HandleAsync(GetShopSetupSampleQuery query, CancellationToken ct) => service.GetSampleAsync(query, ct);
 }

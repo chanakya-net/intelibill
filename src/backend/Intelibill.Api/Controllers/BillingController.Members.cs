@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Shared.Contracts.V1;
@@ -10,6 +11,7 @@ public sealed partial class BillingController
     [HttpPost("{accountId:guid}/members/{memberId:guid}/remove")]
     [RequestSizeLimit(BillingInvitationsV1.MaximumRemovalBodyBytes)]
     [RateLimit(Limit = 20, PeriodInMinutes = 60, BackoffMinutes = 15, FailClosed = true)]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> RemoveManager(Guid accountId, Guid memberId,
         [FromBody] RemoveBillingManagerV1 request, [FromServices] IMerchantBillingInvitations invitations,
         CancellationToken cancellationToken)

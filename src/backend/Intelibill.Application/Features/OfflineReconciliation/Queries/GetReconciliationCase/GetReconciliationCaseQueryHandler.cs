@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.OfflineReconciliation.DTOs;
@@ -16,6 +17,7 @@ public sealed class GetReconciliationCaseQueryHandler(
     IOfflineSubmissionRepository submissionRepository,
     ReconciliationCaseMapper mapper)
 {
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<ErrorOr<ReconciliationCaseDto>> HandleAsync(
         GetReconciliationCaseQuery query,
         CancellationToken cancellationToken)

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
 using Intelibill.Application.Features.PurchaseOrders.Services;
@@ -35,6 +36,7 @@ public sealed class CreatePurchaseOrderDraftCommandHandler(
     IPurchaseOrderNumberGenerator numberGenerator,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<ErrorOr<PurchaseOrderDetailDto>> HandleAsync(
         CreatePurchaseOrderDraftCommand command,
         CancellationToken cancellationToken)

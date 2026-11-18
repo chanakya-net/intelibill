@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Text.Json;
 using Intelibill.Application.Features.Expiry;
 using ErrorOr;
@@ -58,6 +59,7 @@ public sealed class ResolveReconciliationCaseCommandHandler(
 
     private static readonly ResolveReconciliationCaseCommandValidator Validator = new();
 
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<ErrorOr<ReconciliationCaseDto>> HandleAsync(
         ResolveReconciliationCaseCommand command,
         CancellationToken cancellationToken)

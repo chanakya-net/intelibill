@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
@@ -21,6 +22,7 @@ public sealed class CreateShopCommandHandler(
     IExpiryPolicyRepository expiryPolicies,
     IShopSetupPreferencesRepository setupPreferences)
 {
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<AccessScopeResult>> HandleAsync(CreateShopCommand command, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);

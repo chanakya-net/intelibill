@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -28,6 +29,7 @@ public sealed class OfflineReconciliationController : AuthenticatedControllerBas
 
     /// <summary>One page of cases, newest first. Staff see only the cases they filed.</summary>
     [HttpGet]
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<IActionResult> GetCases(
         [FromQuery] string? status,
         [FromQuery] int page = 1,
@@ -45,6 +47,7 @@ public sealed class OfflineReconciliationController : AuthenticatedControllerBas
     }
 
     [HttpGet("{caseId:guid}")]
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<IActionResult> GetCase(Guid caseId, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -62,6 +65,7 @@ public sealed class OfflineReconciliationController : AuthenticatedControllerBas
     /// <c>operationId</c> replays that answer; a stale <c>expectedVersion</c> answers 409.
     /// </summary>
     [HttpPost("{caseId:guid}/resolve")]
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<IActionResult> ResolveCase(
         Guid caseId,
         [FromBody] ResolveReconciliationCaseRequest? request,
@@ -100,6 +104,7 @@ public sealed class OfflineReconciliationController : AuthenticatedControllerBas
     [HttpPost("recovery-submissions")]
     [Authorize(Policy = "OwnerOrManager")]
     [RequestSizeLimit(2_097_152)]
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<IActionResult> SubmitRecoveryBundle(
         [FromBody] SubmitRecoveryBundleRequest? request,
         CancellationToken cancellationToken)

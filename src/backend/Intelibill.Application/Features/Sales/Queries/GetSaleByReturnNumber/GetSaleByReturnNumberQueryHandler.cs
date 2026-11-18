@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -9,6 +10,7 @@ public sealed class GetSaleByReturnNumberQueryHandler(
     IShopRepository shopRepository,
     ISaleReturnRepository saleReturnRepository)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<Guid>> Handle(
         GetSaleByReturnNumberQuery query,
         CancellationToken cancellationToken)

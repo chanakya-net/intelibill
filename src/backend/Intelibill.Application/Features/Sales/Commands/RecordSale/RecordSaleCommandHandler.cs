@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -79,6 +80,7 @@ public sealed class RecordSaleCommandHandler
         this.expiryGuard = expiryGuard;
     }
 
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<ErrorOr<SaleDto>> HandleAsync(RecordSaleCommand command, CancellationToken cancellationToken)
     {
         // A saved outcome is recoverable after close/disablement, but never after losing shop authority.

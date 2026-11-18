@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.DTOs;
@@ -13,6 +14,7 @@ public sealed class AddItemCommandHandler(
     IItemRepository itemRepository,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<ItemDto>> HandleAsync(AddItemCommand command, CancellationToken cancellationToken)
     {
         var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);

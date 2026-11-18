@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Infrastructure.Options;
 using Microsoft.Extensions.Hosting;
@@ -11,6 +12,7 @@ namespace Intelibill.Infrastructure.Services.RateLimiting;
 /// one; the delete skips rows another replica or an acquisition holds, so they never contend.
 /// A bucket left behind only costs space: an acquisition resets an ended window itself.
 /// </summary>
+[LicenceAction(LicenceAction.InternalService)]
 internal sealed partial class RateLimitBucketCleanupWorker(
     IAtomicRateLimitStore store,
     IOptions<RateLimitStoreOptions> options,

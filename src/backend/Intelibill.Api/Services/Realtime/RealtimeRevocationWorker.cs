@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Interfaces;
 
 namespace Intelibill.Api.Services.Realtime;
@@ -21,6 +22,7 @@ namespace Intelibill.Api.Services.Realtime;
 /// every transient blip.
 /// </para>
 /// </remarks>
+[LicenceAction(LicenceAction.InternalService)]
 internal sealed partial class RealtimeRevocationWorker(
     IServiceScopeFactory scopes,
     RealtimeConnectionTracker tracker,

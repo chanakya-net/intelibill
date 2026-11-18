@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Enums;
@@ -13,6 +14,7 @@ public sealed class GenerateItemBarcodeCommandHandler(
 {
     private const int MaxCollisionRetries = 10;
 
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<GenerateItemBarcodeResultDto>> HandleAsync(
         GenerateItemBarcodeCommand command,
         CancellationToken cancellationToken)

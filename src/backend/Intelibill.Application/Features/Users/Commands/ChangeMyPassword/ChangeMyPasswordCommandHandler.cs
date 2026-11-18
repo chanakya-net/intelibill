@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
@@ -22,6 +23,7 @@ public sealed class ChangeMyPasswordCommandHandler(
     IIdentityMailOutbox mail,
     TimeProvider clock)
 {
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<ErrorOr<bool>> HandleAsync(ChangeMyPasswordCommand command, CancellationToken cancellationToken)
     {
         await using var transaction = await sessions.BeginAsync(cancellationToken);

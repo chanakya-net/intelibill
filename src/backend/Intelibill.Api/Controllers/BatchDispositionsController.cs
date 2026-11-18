@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Expiry;
 using Microsoft.AspNetCore.Authorization;
@@ -11,12 +12,14 @@ namespace Intelibill.Api.Controllers;
 public sealed class BatchDispositionsController(IMessageBus bus, BatchDispositionService dispositions) : AuthenticatedControllerBase(bus)
 {
     [HttpPost]
+    [LicenceAction(LicenceAction.SafetyDisposition)]
     public async Task<IActionResult> Post(Guid id, [FromBody] BatchDispositionRequest request, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;
         return (await dispositions.PostAsync(ActiveShopId!.Value, UserId!.Value, id, request, ct)).ToActionResult(Ok);
     }
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> Get(Guid id, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;

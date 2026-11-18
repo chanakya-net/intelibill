@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Application.Common.Time;
 using Intelibill.Domain.ValueObjects;
@@ -37,6 +38,7 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
     IBusinessClock businessClock,
     ILogger<MakeSupplierPaymentCommandHandler> logger)
 {
+    [LicenceAction(LicenceAction.DueSettlement)]
     public async Task<ErrorOr<SupplierLedgerEntryDto>> HandleAsync(
         MakeSupplierPaymentCommand command,
         CancellationToken cancellationToken)

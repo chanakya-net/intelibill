@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Discounts.DTOs;
@@ -15,6 +16,7 @@ public sealed class ReplaceDiscountRuleCommandHandler(
     DiscountRuleValidationService validationService,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<DiscountRuleDto>> HandleAsync(
         ReplaceDiscountRuleCommand command,
         CancellationToken cancellationToken)

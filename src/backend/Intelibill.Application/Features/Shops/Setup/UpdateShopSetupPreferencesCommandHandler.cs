@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using FluentValidation;
 using Intelibill.Domain.Entities;
@@ -24,6 +25,7 @@ public sealed class UpdateShopSetupPreferencesCommandHandler(
     IShopSetupPreferencesRepository repository,
     TimeProvider timeProvider)
 {
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public async Task<ErrorOr<ShopSetupPreferencesDto>> HandleAsync(UpdateShopSetupPreferencesCommand command, CancellationToken ct)
     {
         if (command.ShopId != command.ActiveShopId)

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using System.Security.Cryptography;
 using System.Text;
@@ -80,6 +81,7 @@ public sealed class SubmitRecoveryBundleCommandHandler(
         Converters = { new JsonStringEnumConverter() },
     };
 
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<ErrorOr<RecoverySubmissionResultDto>> HandleAsync(
         SubmitRecoveryBundleCommand command,
         CancellationToken cancellationToken)

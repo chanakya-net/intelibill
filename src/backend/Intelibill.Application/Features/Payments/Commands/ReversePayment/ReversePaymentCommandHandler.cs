@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Tills.Services;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -36,6 +37,7 @@ public sealed class ReversePaymentCommandHandler(
     IBusinessClock businessClock,
     TillSourceSettlementService settlement)
 {
+    [LicenceAction(LicenceAction.ExistingPayment)]
     public async Task<ErrorOr<PaymentReceiptDto>> HandleAsync(ReversePaymentCommand command, CancellationToken cancellationToken)
     {
         var role = await PaymentAuthorization.RoleAsync(userRepository, command.ActorUserId, command.ActiveShopId, cancellationToken);

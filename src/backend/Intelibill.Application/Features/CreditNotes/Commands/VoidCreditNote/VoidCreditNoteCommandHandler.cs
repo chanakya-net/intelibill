@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Normalization;
@@ -15,6 +16,7 @@ public sealed class VoidCreditNoteCommandHandler(
 {
     private static readonly VoidCreditNoteCommandValidator Validator = new();
 
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<Success>> HandleAsync(
         VoidCreditNoteCommand command,
         CancellationToken cancellationToken)

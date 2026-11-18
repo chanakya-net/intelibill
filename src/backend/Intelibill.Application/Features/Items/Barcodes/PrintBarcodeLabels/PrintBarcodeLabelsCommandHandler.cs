@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Barcodes;
@@ -11,6 +12,7 @@ public sealed class PrintBarcodeLabelsCommandHandler(
     IBarcodeLabelRepository barcodeLabelRepository,
     IBarcodeLabelPdfRenderer barcodeLabelPdfRenderer)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<BarcodeLabelPrintResult>> HandleAsync(
         PrintBarcodeLabelsCommand command,
         CancellationToken cancellationToken)

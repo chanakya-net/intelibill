@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Features.BankAccounts.DTOs;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -7,6 +8,7 @@ namespace Intelibill.Application.Features.BankAccounts.Queries.GetBankAccounts;
 public sealed class GetBankAccountsQueryHandler(
     IBankAccountRepository bankAccountRepository)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<IReadOnlyList<BankAccountDto>>> HandleAsync(GetBankAccountsQuery query, CancellationToken cancellationToken)
     {
         var bankAccounts = await bankAccountRepository.GetByShopIdAsync(query.ShopId, cancellationToken);

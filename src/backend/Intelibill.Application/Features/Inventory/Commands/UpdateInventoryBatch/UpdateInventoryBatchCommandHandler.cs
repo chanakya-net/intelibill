@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Common.Posting;
 using ErrorOr;
@@ -39,6 +40,7 @@ public sealed class UpdateInventoryBatchCommandHandler(
     /// </summary>
     public const string CorrectionReference = "Batch Correction";
 
+    [LicenceAction(LicenceAction.GeneralStock)]
     public async Task<ErrorOr<Success>> Handle(UpdateInventoryBatchCommand command, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdAsync(command.UserId, cancellationToken);

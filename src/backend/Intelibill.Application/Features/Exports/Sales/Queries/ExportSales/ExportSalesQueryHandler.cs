@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Exports.Sales.DTOs;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -45,6 +46,7 @@ public sealed class ExportSalesQueryHandler
         _readStore = readStore;
     }
 
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<SalesExportResult>> Handle(
         ExportSalesQuery query,
         CancellationToken cancellationToken)

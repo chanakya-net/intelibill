@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Auth.DTOs;
@@ -7,6 +8,7 @@ namespace Intelibill.Application.Features.Shops.Queries.GetMyShops;
 
 public sealed class GetMyShopsQueryHandler(IUserRepository userRepository)
 {
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<ErrorOr<IReadOnlyList<UserShopDto>>> HandleAsync(GetMyShopsQuery query, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdWithDetailsAsync(query.UserId, cancellationToken);

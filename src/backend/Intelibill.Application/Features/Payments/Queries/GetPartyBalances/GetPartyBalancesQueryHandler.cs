@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Payments.DTOs;
@@ -14,6 +15,7 @@ public sealed class GetPartyBalancesQueryHandler(
     ISupplierRepository supplierRepository,
     IInvoiceBalanceReader balanceReader)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<PartyBalancesDto>> HandleAsync(GetPartyBalancesQuery query, CancellationToken cancellationToken)
     {
         var authorized = await PaymentAuthorization.RequireOwnerOrManagerAsync(

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -21,6 +22,7 @@ public sealed class AllocatePaymentCommandHandler(
     PaymentReceiptDtoBuilder dtoBuilder,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.ExistingPayment)]
     public async Task<ErrorOr<PaymentReceiptDto>> HandleAsync(AllocatePaymentCommand command, CancellationToken cancellationToken)
     {
         var authorized = await PaymentAuthorization.RequireOwnerOrManagerAsync(

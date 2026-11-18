@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -28,6 +29,7 @@ namespace Intelibill.Infrastructure.Services.StockIntake;
 /// other scope in the request, so every row's connection carries the same RLS identity.
 /// </para>
 /// </remarks>
+[LicenceAction(LicenceAction.NewTrading)]
 internal sealed partial class InboundRowExecutor(
     IServiceScopeFactory scopeFactory,
     ILogger<InboundRowExecutor> logger) : IInboundRowExecutor

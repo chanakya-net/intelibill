@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -20,6 +21,7 @@ public sealed class GetFinancialOperationQueryHandler(
     IShopRepository shopRepository,
     IOperationReceiptRepository receiptRepository)
 {
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<ErrorOr<FinancialOperationDto>> Handle(
         GetFinancialOperationQuery query,
         CancellationToken cancellationToken)

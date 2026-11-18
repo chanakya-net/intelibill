@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Events;
@@ -15,6 +16,7 @@ public sealed class UpdateItemCommandHandler(
     IUnitOfWork unitOfWork,
     IMessageBus messageBus)
 {
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<Success>> HandleAsync(UpdateItemCommand command, CancellationToken cancellationToken)
     {
         var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);

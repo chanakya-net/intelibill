@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
@@ -17,6 +18,7 @@ public sealed class UpdateShopCommandHandler(
     ITenantWriteScope tenantWriteScope,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public async Task<ErrorOr<ShopDetailsDto>> HandleAsync(UpdateShopCommand command, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);

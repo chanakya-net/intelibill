@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
@@ -8,6 +9,7 @@ public sealed class DeleteBankAccountCommandHandler(
     IBankAccountRepository bankAccountRepository,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<Deleted>> HandleAsync(DeleteBankAccountCommand command, CancellationToken cancellationToken)
     {
         var bankAccount = await bankAccountRepository.GetByIdAsync(command.Id, cancellationToken);

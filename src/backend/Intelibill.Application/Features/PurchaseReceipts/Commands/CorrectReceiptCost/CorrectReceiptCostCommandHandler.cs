@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -49,6 +50,7 @@ public sealed class CorrectReceiptCostCommandHandler(
 {
     private static readonly CorrectReceiptCostCommandValidator Validator = new();
 
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<ReceiptCostCorrectionResultDto>> HandleAsync(
         CorrectReceiptCostCommand command,
         CancellationToken cancellationToken)

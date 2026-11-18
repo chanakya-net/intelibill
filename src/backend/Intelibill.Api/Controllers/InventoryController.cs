@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
@@ -24,6 +25,7 @@ public sealed partial class InventoryController : AuthenticatedControllerBase
     }
 
     [HttpGet("batches")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetInventoryBatches(CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -37,6 +39,7 @@ public sealed partial class InventoryController : AuthenticatedControllerBase
     }
 
     [HttpGet("adjustments")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetAdjustmentHistory(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 25,
@@ -72,6 +75,7 @@ public sealed partial class InventoryController : AuthenticatedControllerBase
 
     [HttpPost("inbound")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> AddInventory([FromBody] AddInventoryRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -107,6 +111,7 @@ public sealed partial class InventoryController : AuthenticatedControllerBase
 
     [HttpPost("inbound/batch")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> AddInventoryBatch([FromBody] AddInventoryBatchRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();

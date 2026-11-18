@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Posting;
@@ -23,6 +24,7 @@ public sealed class VoidAdjustmentCommandHandler(
 {
     private static readonly VoidAdjustmentCommandValidator Validator = new();
 
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<VoidAdjustmentResultDto>> HandleAsync(
         VoidAdjustmentCommand command,
         CancellationToken cancellationToken)
