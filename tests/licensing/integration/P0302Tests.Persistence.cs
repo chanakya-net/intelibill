@@ -136,6 +136,7 @@ public sealed partial class P0302Tests
         internal bool LookupNotFound { get; set; }
         internal bool DisableNewAttempts { get; set; }
         internal int LookupCalls;
+        internal ConcurrentQueue<PaymentProviderPin> LookupPins { get; } = new();
         internal string? OriginalReference { get; private set; }
         internal ConcurrentQueue<string> Observations { get; } = new();
 
@@ -211,6 +212,7 @@ public sealed partial class P0302Tests
             {
                 _attempt = request.AttemptId;
                 Interlocked.Increment(ref probe.LookupCalls);
+                probe.LookupPins.Enqueue(Pin);
                 return probe.LookupNotFound
                     ? Task.FromResult(new GatewayResult<CheckoutLookup>(GatewayOutcome.NotFound, null))
                     : inner.LookupCheckoutAsync(request, ct);
