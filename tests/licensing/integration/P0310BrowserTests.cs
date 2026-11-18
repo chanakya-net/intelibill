@@ -111,10 +111,14 @@ public sealed partial class P0310BrowserTests(LicensingPostgreSqlFixture databas
             Assert.Equal(HttpStatusCode.NoContent, receipt.StatusCode);
         }
         await P0305Tests.DrainAsync(fixture.Hosts.Licensing.Services, fixture.CheckoutClock);
+        await ReceiptCheckpointAsync(fixture, purchase, scratch, "applying", ct);
         await MarkAsync(scratch, "captured", "", ct);
         if (!await WaitAsync(process, scratch, "applying", ct)) return;
+        await CompareDownloadsAsync(fixture, purchase, "merchant-applying.txt", "admin-applying.txt");
         await fixture.Delivery.DrainAsync(source: true);
         await fixture.Delivery.DrainAsync(source: false);
+        await P0312Tests.AssertDeliveryAsync(fixture, purchase, 1);
+        await ReceiptCheckpointAsync(fixture, purchase, scratch, "applied", ct);
         await MarkAsync(scratch, "delivered", "", ct);
     }
 
@@ -169,6 +173,7 @@ public sealed partial class P0310BrowserTests(LicensingPostgreSqlFixture databas
         var selections = await fixture.CountAsync("payment_provider_selections");
         Assert.Equal((2L, 2L, 1L, 1L, 2L), (attempts, sessions, verified, fulfilments, selections));
         AssertStatus(await StatusAsync(purchase.Payer.Client, purchase.Quote), "Verified", "Fulfilled", "Applied");
+        await CompareDownloadsAsync(fixture, purchase, "merchant-applying.txt", "admin-applying.txt", "merchant-applied.txt", "admin-applied.txt");
         await File.WriteAllTextAsync(Path.Combine(evidence, "browser-postgres.json"), JsonSerializer.Serialize(new
         {
             attempts, sessions, verified, fulfilments, selections, restartedMissingHost = true, originalPin = P0310Tests.A, currentPin = P0310Tests.B,

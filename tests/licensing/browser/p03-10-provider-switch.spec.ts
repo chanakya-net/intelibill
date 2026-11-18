@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 import { fillSecret, otp } from './p01-12-fixture';
 
@@ -78,6 +79,39 @@ async function noReplacement(page: Page, unresolved = true) {
   if (unresolved) await expect(page.getByRole('button', { name: 'Review a new quote' })).toHaveCount(0);
 }
 
+async function confirmation(page: Page, adminView: boolean, name: string) {
+  const prefix = adminView ? 'admin-' : '';
+  await page.getByTestId(prefix + 'confirmation-list').click();
+  const response = page.waitForResponse(r => r.url().includes('/document') && r.request().method() === 'GET');
+  const downloaded = page.waitForEvent('download');
+  await page.getByTestId(prefix + 'confirmation-download').click();
+  const attachment = await downloaded;
+  const received = await response;
+  expect(received.status()).toBe(200);
+  expect(received.headers()['cache-control']).toContain('no-store');
+  expect(received.headers()['content-disposition']).toContain('attachment');
+  expect(received.headers()['x-content-type-options'].split(',').map(v => v.trim()).every(v => v === 'nosniff')).toBe(true);
+  expect(attachment.suggestedFilename()).toMatch(/^payment-confirmation-[\da-f-]+\.txt$/);
+  await attachment.saveAs(join(evidence, name + '.txt'));
+  const bytes = readFileSync(join(evidence, name + '.txt'));
+  const text = bytes.toString('utf8');
+  expect(text).toContain('Provider: development-simulator / simulator-a / Development');
+  expect(text).toContain('Provider configuration: a/1');
+  expect(text).toContain('not a tax invoice');
+  expect(text).toContain('does not prove applied access');
+  return bytes;
+}
+
+async function applyingConfirmations(page: Page, payer: Page) {
+  await expect(payer.getByTestId('payment-confirmed')).toBeVisible();
+  const original = await confirmation(payer, false, 'merchant-applying');
+  await capture(payer, 'merchant-applying');
+  await page.getByRole('button', { name: 'Refresh order', exact: true }).click();
+  expect(await confirmation(page, true, 'admin-applying')).toEqual(original);
+  await capture(page, 'admin-applying');
+  return original;
+}
+
 async function inspectRecovery(page: Page, payer: Page, context: import('@playwright/test').BrowserContext, originalKey: string) {
   await page.goto(details);
   const routing = page.getByTestId('payment-routing');
@@ -111,6 +145,31 @@ async function inspectRecovery(page: Page, payer: Page, context: import('@playwr
   await expect(payer.getByTestId('payment-routing-review')).toBeVisible();
   await noReplacement(payer);
   await capture(payer, 'merchant-unverified-review');
+}
+
+async function confirmBeforeAndAfterDelivery(page: Page, payer: Page) {
+  await mark('reviewed');
+  await wait('captured');
+  await payer.reload();
+  await expect(payer.getByTestId('payment-applying')).toBeVisible();
+  await noReplacement(payer, false);
+  const applyingState = await payer.getByTestId('payment-applying').textContent();
+  const original = await applyingConfirmations(page, payer);
+  await mark('applying');
+  await wait('delivered');
+  await payer.reload();
+  await expect(payer.getByTestId('payment-applied')).toBeVisible();
+  await noReplacement(payer, false);
+  expect(await confirmation(payer, false, 'merchant-applied')).toEqual(original);
+  const appliedState = await payer.getByTestId('payment-applied').textContent();
+  await capture(payer, 'merchant-applied');
+  await page.getByRole('button', { name: 'Refresh order', exact: true }).click();
+  await expect(page.getByTestId('payment-routing')).toContainText('simulator-a');
+  await expect(page.getByTestId('payment-routing')).toContainText('simulator-b');
+  await expect(page.getByTestId('routing-available')).toBeVisible();
+  expect(await confirmation(page, true, 'admin-applied')).toEqual(original);
+  await capture(page, 'admin-restored');
+  return { applyingState, appliedState, documentSha256: createHash('sha256').update(original).digest('hex') };
 }
 
 test('Switch preserves original identity, unknown intent and one delayed capture', async ({ browser, page }) => {
@@ -155,22 +214,10 @@ test('Switch preserves original identity, unknown intent and one delayed capture
   expect(denied.status()).toBe(403);
   await inspectRecovery(page, payer, merchantContext, originalKey!);
   expect(creates).toBe(1);
-  await mark('reviewed');
-  await wait('captured');
-  await payer.reload();
-  await expect(payer.getByTestId('payment-applying')).toBeVisible();
-  await noReplacement(payer, false);
-  await mark('applying');
-  await wait('delivered');
-  await payer.reload();
-  await expect(payer.getByTestId('payment-applied')).toBeVisible();
-  await noReplacement(payer, false);
-  await capture(payer, 'merchant-applied');
-  await page.getByRole('button', { name: 'Refresh order', exact: true }).click();
-  await expect(page.getByTestId('payment-routing')).toContainText('simulator-a');
-  await expect(page.getByTestId('payment-routing')).toContainText('simulator-b');
-  await expect(page.getByTestId('routing-available')).toBeVisible();
-  await capture(page, 'admin-restored');
+  const observations = await confirmBeforeAndAfterDelivery(page, payer);
   writeFileSync(join(evidence, 'safe-network-counts.json'), JSON.stringify({ calls, creates, originalKey, draftRetained: true }));
+  writeFileSync(join(evidence, 'confirmation-observations.json'), JSON.stringify({
+    provenance: 'development simulator, real services and PostgreSQL', ...observations, identicalDownloads: 4,
+  }, null, 2));
   await merchantContext.close();
 });

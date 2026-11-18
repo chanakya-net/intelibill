@@ -9,7 +9,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// <summary>The same neutral adapter expectations, run against the simulator and the Razorpay fixture transport.</summary>
 public sealed partial class P0304Tests
 {
-    public static TheoryData<string> Providers => ["simulator", "razorpay"];
+    public static TheoryData<string> Providers => new(Array.Empty<string>()) { "simulator", "razorpay" };
 
     [Theory]
     [MemberData(nameof(Providers))]
