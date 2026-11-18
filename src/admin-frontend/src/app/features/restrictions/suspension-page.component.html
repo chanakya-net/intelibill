@@ -20,8 +20,12 @@
         @if (pending(); as draft) {
           <p role="status" data-testid="pending-suspension">
             Saved request awaiting confirmation for
-            {{ draft.command.scope === 'Account' ? 'Entire billing account ' + draft.accountId : 'Shop ' + draft.command.shopId }}.
-            {{ draft.command.mode }} suspension · {{ draft.command.effectiveAt ? format(draft.command.effectiveAt) : 'Apply immediately' }}
+            @if (draft.restrictionId !== undefined) {
+              release of suspension {{ draft.restrictionId }}.
+            } @else {
+              {{ draft.command.scope === 'Account' ? 'Entire billing account ' + draft.accountId : 'Shop ' + draft.command.shopId }}.
+              {{ draft.command.mode }} suspension · {{ draft.command.effectiveAt ? format(draft.command.effectiveAt) : 'Apply immediately' }}
+            }
           </p>
           <button pButton outlined type="button" [disabled]="busy()" (click)="retry()">Retry saved request</button>
         }
@@ -89,6 +93,48 @@
               </li>
             }
           </ul>
+          @if (restriction.release; as release) {
+            <h4>Release saved {{ format(release.releasedAt) }}</h4>
+            <p role="status" data-testid="release-propagation">{{ labels[release.propagation] }}</p>
+            <ul class="restriction-shops">
+              @for (shop of release.shops; track shop.shopId) {
+                <li>{{ shop.shopName }} · {{ labels[shop.status] }}
+                  @if (shop.accountRevision !== null && shop.shopRevision !== null) {
+                    · Account revision {{ shop.accountRevision }}, shop revision {{ shop.shopRevision }}
+                  }
+                </li>
+              }
+            </ul>
+          } @else if (canSuspend()) {
+            <button pButton outlined type="button" [disabled]="busy() || !!pending()" (click)="previewRelease(restriction)">Preview release</button>
+            @if (releaseImpact(); as preview) {
+              @if (preview.restrictionId === restriction.id) {
+                <section class="restriction-release" aria-labelledby="release-impact">
+                  <h4 id="release-impact">Access after release</h4>
+                  <p>Existing subscription deadlines still apply.</p>
+                  <ul class="restriction-shops">
+                    @for (shop of preview.shops; track shop.shopId) {
+                      <li>
+                        <strong>{{ shop.shopName }}</strong> · {{ shop.state }} @if (shop.basis) { ({{ shop.basis }}) }
+                        @if (shop.paidThrough) { <br />Term end {{ format(shop.paidThrough) }} }
+                        @if (shop.graceEndsAt) { <br />Grace ends {{ format(shop.graceEndsAt) }} }
+                        @if (shop.survivingSuspension; as remaining) {
+                          <br />{{ remaining.mode }} suspension remains
+                          @if (remaining.effectiveAt) { · Effective {{ format(remaining.effectiveAt) }} }
+                        }
+                      </li>
+                    } @empty {
+                      <li>No currently affiliated shops</li>
+                    }
+                  </ul>
+                  <label for="restriction-release-reason">Release reason</label>
+                  <textarea id="restriction-release-reason" maxlength="1000" rows="3" [formControl]="releaseReason"></textarea>
+                  <button pButton type="button" [disabled]="busy() || !!pending() || releaseReason.invalid"
+                    (click)="confirmRelease()">Confirm release</button>
+                </section>
+              }
+            }
+          }
         </article>
       }
     </section>

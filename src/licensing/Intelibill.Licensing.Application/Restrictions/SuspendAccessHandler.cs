@@ -26,7 +26,8 @@ public sealed class SuspendAccessHandler(ISuspensionStore store, ISubscriptionSt
         {
             if (command is null || !SuspensionInput.Valid(command)) return SuspensionErrors.Invalid;
             await store.LockAccountAsync(account, token);
-            if (await AuthorizeAsync(caller, true, true, token) is { } expired) return expired;
+            var authority = await AuthorizeAsync(caller, true, true, token);
+            if (authority.IsError) return authority.Errors;
             return await SaveAsync(caller, account, command, token);
         }, ct);
 
@@ -65,7 +66,8 @@ public sealed class SuspendAccessHandler(ISuspensionStore store, ISubscriptionSt
             effective, command.CustomerExplanation!.Trim(), command.InternalReason!.Trim(), command.ReviewReference!.Trim(),
             caller.AdminId, caller.SessionId, now, command.OperationKey, digest);
         await store.SaveAsync(saved, impact.Value.Shops, ct);
-        if (await AuthorizeAsync(caller, true, true, ct) is { } expired) return expired;
+        var authority = await AuthorizeAsync(caller, true, true, ct);
+        if (authority.IsError) return authority.Errors;
         return new SuspensionOutcome(await StatusAsync(saved, ct), true);
     }
 
@@ -82,26 +84,35 @@ public sealed class SuspendAccessHandler(ISuspensionStore store, ISubscriptionSt
         return new SuspensionImpact(account, name, selection, version, active, shops, digest);
     }
 
-    private async Task<SuspensionStatus> StatusAsync(SavedSuspension saved, CancellationToken ct)
+    internal async Task<SuspensionStatus> StatusAsync(SavedSuspension saved, CancellationToken ct)
     {
         var shops = await store.ReadDeliveryAsync(saved.Id, ct);
-        var propagation = shops.Count == 0 ? "NoShops"
-            : shops.Any(shop => shop.Status == "NeedsReview") ? "NeedsReview"
-            : shops.All(shop => shop.Status == "Acknowledged") ? "Acknowledged" : "Pending";
+        SuspensionReleaseStatus? release = null;
+        if (await store.ReadReleaseAsync(saved.AccountId, saved.Id, ct) is { } evidence)
+        {
+            var deliveries = await store.ReadReleaseDeliveryAsync(evidence.Id, ct);
+            release = new(evidence.Id, evidence.Version, evidence.ReleasedAt, evidence.ReleasedBy,
+                Propagation(deliveries), deliveries);
+        }
         return new SuspensionStatus(saved.Id, saved.AccountId, saved.ShopId, saved.Version, saved.Mode,
-            saved.EffectiveAt, saved.CustomerExplanation, saved.RecordedAt, propagation, shops);
+            saved.EffectiveAt, saved.CustomerExplanation, saved.RecordedAt, Propagation(shops), shops, release);
     }
 
-    private Task<ErrorOr<T>> InScopeAsync<T>(AdminSessionCaller caller, Guid account, bool write, bool recentMfa,
+    private static string Propagation(IReadOnlyList<SuspensionDelivery> shops) => shops.Count == 0 ? "NoShops"
+        : shops.Any(shop => shop.Status == "NeedsReview") ? "NeedsReview"
+        : shops.All(shop => shop.Status == "Acknowledged") ? "Acknowledged" : "Pending";
+
+    internal Task<ErrorOr<T>> InScopeAsync<T>(AdminSessionCaller caller, Guid account, bool write, bool recentMfa,
         Func<CancellationToken, Task<ErrorOr<T>>> operation, CancellationToken ct) =>
         transactions.InProviderTransactionAsync<T>(async token =>
         {
-            if (await AuthorizeAsync(caller, write, recentMfa, token) is { } denied) return denied;
+            var authority = await AuthorizeAsync(caller, write, recentMfa, token);
+            if (authority.IsError) return authority.Errors;
             await transactions.UseAccountAsync(account, token);
             return await operation(token);
         }, ct);
 
-    private async Task<Error?> AuthorizeAsync(AdminSessionCaller caller, bool write, bool recentMfa, CancellationToken ct)
+    internal async Task<ErrorOr<DateTimeOffset>> AuthorizeAsync(AdminSessionCaller caller, bool write, bool recentMfa, CancellationToken ct)
     {
         var (actor, session) = await transactions.LockProviderAsync(caller, ct);
         var now = sessionClock.GetUtcNow();
@@ -113,8 +124,8 @@ public sealed class SuspendAccessHandler(ISuspensionStore store, ISubscriptionSt
             return SuspensionErrors.Denied;
         if (recentMfa && !new ProviderActor(caller.AdminId, session.MfaVerifiedAt).HasRecentMfa(now))
             return SuspensionErrors.RecentMfa;
-        return null;
+        return session.MfaVerifiedAt;
     }
 
-    private static string Hash<T>(T value) => Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(value)));
+    internal static string Hash<T>(T value) => Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(value)));
 }

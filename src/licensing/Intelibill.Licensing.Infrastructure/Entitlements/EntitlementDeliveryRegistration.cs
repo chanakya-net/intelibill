@@ -22,6 +22,10 @@ internal static class EntitlementDeliveryRegistration
             provider.GetRequiredService<ISubscriptionStatusStore>(),
             provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey),
             provider.GetRequiredService<TimeProvider>()));
+        services.AddScoped(provider => new ReleaseSuspensionHandler(provider.GetRequiredService<ISuspensionStore>(),
+            provider.GetRequiredService<SuspendAccessHandler>(), provider.GetRequiredService<ISubscriptionAccessFactsReader>(),
+            provider.GetRequiredService<ISubscriptionStatusStore>(),
+            provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey)));
         services.AddScoped<IEntitlementPublisher>(provider => provider.GetRequiredService<EntitlementPublisher>());
         services.AddScoped<LicensingEntitlementTransport>();
         services.AddScoped<IEntitlementSynchronizationReader, EntitlementSynchronizationReader>();

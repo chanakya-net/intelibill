@@ -83,7 +83,7 @@ public sealed class OperationalRestrictions : Migration
             """);
     }
 
-    private static string FreshStartGuard(string allowScheduled) => $$"""
+    internal static string FreshStartGuard(string allowScheduled) => $$"""
         CREATE OR REPLACE FUNCTION public.guard_paid_fresh_start() RETURNS trigger
         LANGUAGE plpgsql SET search_path = pg_catalog AS $$
         BEGIN

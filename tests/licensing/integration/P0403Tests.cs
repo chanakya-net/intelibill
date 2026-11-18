@@ -219,7 +219,7 @@ public sealed partial class P0403Tests(LicensingPostgreSqlFixture database) : IC
         }
     }
 
-    private static async Task<(Guid, uint)> OpenTillAsync(P0213Fixture fixture, Merchant shop)
+    internal static async Task<(Guid, uint)> OpenTillAsync(P0213Fixture fixture, Merchant shop)
     {
         var options = fixture.Hosts.Merchant.Services.GetRequiredService<IOptions<TillSessionOptions>>().Value;
         options.Enabled = true;

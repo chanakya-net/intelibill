@@ -12,7 +12,7 @@ internal sealed partial class PaymentStore
             SELECT h.revision, h.upstream_verified_at, h.restriction, h.released_revision,
                 r.effective_at, r.customer_explanation
             FROM public.entitlement_account_heads h
-            LEFT JOIN public.operational_restrictions r ON r.account_id = h.account_id AND r.shop_id IS NULL
+            LEFT JOIN public.active_operational_restrictions r ON r.account_id = h.account_id AND r.shop_id IS NULL
                 AND r.mode = h.restriction
             WHERE h.account_id = {account} FOR UPDATE OF h
             """).ToListAsync(ct);

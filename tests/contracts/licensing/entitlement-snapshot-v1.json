@@ -34,6 +34,11 @@
     { "accountRevision": 9, "restriction": "Security", "shopRevision": 5, "resultAccountRevision": 9, "resultShopRevision": 6 },
     { "accountRevision": 10, "restriction": "Unrestricted", "releasedRevision": 9, "shopRevision": 5, "resultAccountRevision": 10, "resultShopRevision": 6 }
   ],
+  "releaseProof": {
+    "releasedShop": { "revision": 6, "releasedRevision": 5 },
+    "replacementAccount": { "revision": 10, "previousReleaseRevision": 8 },
+    "invalidCutoffs": [0, -1, 10, 11]
+  },
   "acknowledgementFields": [
     "schemaVersion", "eventId", "digest", "accountId", "shopId", "affiliationRequestId",
     "accountRevision", "shopRevision", "appliedAccountRevision", "appliedShopRevision", "outcome", "disposition", "appliedAt"

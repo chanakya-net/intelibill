@@ -105,9 +105,11 @@ public sealed partial class P0402LicensingTests
         {
             base.Customize(builder, context);
             builder.Entity<AccountLicenseRestriction>()
-                .Ignore(row => row.SuspensionEffectiveAt).Ignore(row => row.SuspensionExplanation);
+                .Ignore(row => row.SuspensionEffectiveAt).Ignore(row => row.SuspensionExplanation)
+                .Ignore(row => row.PreviousReleaseRevision);
             builder.Entity<ShopLicenseState>()
-                .Ignore(row => row.SuspensionMode).Ignore(row => row.SuspensionEffectiveAt).Ignore(row => row.SuspensionExplanation);
+                .Ignore(row => row.SuspensionMode).Ignore(row => row.SuspensionEffectiveAt).Ignore(row => row.SuspensionExplanation)
+                .Ignore(row => row.ReleasedRevision);
         }
     }
 

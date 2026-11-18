@@ -25,7 +25,7 @@ public sealed class ReadSubscriptionStatusHandler(
         {
             var at = SubscriptionStatusProjection.EvaluationInstant(clock);
             await store.UseShopAsync(shop, token);
-            var coverage = await reader.ReadShopAsync(shop, token);
+            var coverage = await reader.ReadShopAsync(shop, token, at);
             if (coverage is null)
                 return SubscriptionStatusProjection.Shop(shop, at, null, commercial: false);
 

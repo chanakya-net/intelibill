@@ -16,6 +16,8 @@ internal static class SuspensionEndpoints
             .RequireAuthorization(ProviderSessions.DevicePolicy);
         group.MapPost("/preview", PreviewAsync);
         group.MapPost("", SuspendAsync);
+        group.MapPost("/{id:guid}/release/preview", PreviewReleaseAsync);
+        group.MapPost("/{id:guid}/release", ReleaseAsync);
         group.MapGet("", ListAsync);
         group.MapGet("/{id:guid}", ReadAsync);
     }
@@ -41,6 +43,30 @@ internal static class SuspensionEndpoints
         return result.IsError ? CatalogueDraftEndpoints.Problem(context, result.FirstError)
             : Respond<SuspensionStatus>(context, result.Value.Status, result.Value.Created ? 201 : 200);
     }
+
+    private static async Task<IResult> PreviewReleaseAsync(HttpContext context, Guid account, Guid id, AdminSignInHttp http,
+        ReleaseSuspensionHandler handler)
+    {
+        if (await CatalogueDraftEndpoints.AcceptAsync(context, http) is { } refused) return refused;
+        var body = await CatalogueDraftEndpoints.ReadAsync<ReleasePreviewRequest>(context, MaxRequestBytes);
+        if (body.Refusal is not null) return body.Refusal;
+        if (!MatchesSession(context, body.Caller!)) return InvalidSession(context);
+        return Respond(context, await handler.PreviewAsync(body.Caller!, account, id, context.RequestAborted));
+    }
+
+    private static async Task<IResult> ReleaseAsync(HttpContext context, Guid account, Guid id, AdminSignInHttp http,
+        ReleaseSuspensionHandler handler)
+    {
+        if (await CatalogueDraftEndpoints.AcceptAsync(context, http) is { } refused) return refused;
+        var body = await CatalogueDraftEndpoints.ReadAsync<ReleaseSuspensionCommand>(context, MaxRequestBytes);
+        if (body.Refusal is not null) return body.Refusal;
+        if (!MatchesSession(context, body.Caller!)) return InvalidSession(context);
+        var result = await handler.ReleaseAsync(body.Caller!, account, id, body.Value, CancellationToken.None);
+        return result.IsError ? CatalogueDraftEndpoints.Problem(context, result.FirstError)
+            : Respond<SuspensionStatus>(context, result.Value.Status, result.Value.Created ? 201 : 200);
+    }
+
+    private sealed record ReleasePreviewRequest;
 
     private static async Task<IResult> ListAsync(HttpContext context, Guid account, SuspendAccessHandler handler) =>
         ProviderSessions.ReadCaller(context.User) is { } caller && MatchesSession(context, caller)

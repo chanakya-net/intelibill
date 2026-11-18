@@ -9,10 +9,11 @@ public sealed class AccountLicenseRestriction
     public long? ReleasedRevision { get; private set; }
     public DateTimeOffset? SuspensionEffectiveAt { get; private set; }
     public string? SuspensionExplanation { get; private set; }
+    public long? PreviousReleaseRevision { get; private set; }
     public Guid EvidenceId { get; private set; }
 
     public void Apply(long revision, DateTimeOffset verifiedAt, string restriction, long? releasedRevision, Guid evidence,
-        DateTimeOffset? suspensionEffectiveAt = null, string? suspensionExplanation = null)
+        DateTimeOffset? suspensionEffectiveAt = null, string? suspensionExplanation = null, long? previousReleaseRevision = null)
     {
         Revision = revision;
         UpstreamVerifiedAt = verifiedAt;
@@ -20,6 +21,7 @@ public sealed class AccountLicenseRestriction
         ReleasedRevision = releasedRevision;
         SuspensionEffectiveAt = suspensionEffectiveAt;
         SuspensionExplanation = suspensionExplanation;
+        PreviousReleaseRevision = previousReleaseRevision;
         EvidenceId = evidence;
     }
 }

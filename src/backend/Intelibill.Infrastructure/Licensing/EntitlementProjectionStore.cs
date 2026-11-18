@@ -124,7 +124,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
             db.Add(account);
         }
         account.Apply(source.Revision, source.UpstreamVerifiedAt, source.Restriction, source.ReleasedRevision, snapshot.EventId,
-            source.Suspension?.EffectiveAt, source.Suspension?.CustomerExplanation);
+            source.Suspension?.EffectiveAt, source.Suspension?.CustomerExplanation, source.PreviousReleaseRevision);
     }
 
     private void UpdateShop(EntitlementSnapshotV1 snapshot, ShopLicenseState? shop)
@@ -137,7 +137,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         }
         shop.Apply(source.Revision, source.UpstreamVerifiedAt, source.State, source.TermId, source.Basis, source.StartsAt,
             source.AccessEndsAt, source.NextBoundary, source.ShopCapacity, source.MemberAllowance, snapshot.EventId,
-            source.Suspension?.Mode, source.Suspension?.EffectiveAt, source.Suspension?.CustomerExplanation);
+            source.Suspension?.Mode, source.Suspension?.EffectiveAt, source.Suspension?.CustomerExplanation, source.ReleasedRevision);
     }
 
     private static LicenseGrantEvidence Evidence(EntitlementSnapshotV1 snapshot, byte[] body, VerifiedServiceAssertion proof,

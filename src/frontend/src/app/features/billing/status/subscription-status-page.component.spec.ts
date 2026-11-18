@@ -103,6 +103,28 @@ describe('subscription status', () => {
     expect(page.textContent).toContain('Entitlement delivery to devices is not available yet.');
   });
 
+  it('refreshes local authority after a release and keeps the original paid and grace deadlines', () => {
+    const expired = status(shopA, { state: 'Expired', observeOnly: false, term: { ...term, state: 'Expired' } });
+    const shop = vi.fn()
+      .mockReturnValueOnce(of({ ...expired, enforcedSuspensionMode: 'Security' }))
+      .mockReturnValueOnce(of(expired));
+    const tradingAuthority = vi.fn()
+      .mockReturnValueOnce(throwError(() => new TradingAuthorityReadError('restricted')))
+      .mockReturnValueOnce(throwError(() => new TradingAuthorityReadError('expired')));
+    const { fixture, page } = render({ shop, tradingAuthority });
+    const dates = () => ['paid-through', 'grace-ends'].map(id => page.querySelector(`[data-testid="${id}"]`)?.textContent);
+    const before = dates();
+    expect(page.querySelector('[data-testid="trading-authority-restricted"]')).toBeTruthy();
+    (page.querySelector('[data-testid="status-retry"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(page.querySelector('[data-testid="trading-authority-restricted"]')).toBeNull();
+    expect(page.querySelector('[data-testid="trading-authority-expired"]')).toBeTruthy();
+    expect(page.querySelector('[data-testid="status-state"]')?.textContent).toContain('Expired');
+    expect(dates()).toEqual(before);
+    expect(shop).toHaveBeenCalledTimes(2);
+    expect(tradingAuthority).toHaveBeenCalledTimes(2);
+  });
+
   it('shows the verified local deadline even when commercial status cannot load', () => {
     const { page } = render({
       shop: () => throwError(() => new StatusReadError('unavailable')),

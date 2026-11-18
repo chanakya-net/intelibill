@@ -223,3 +223,75 @@ async function seedDraft(page: Page, draft: { adminId: string; accountId: string
     };
   }), draft);
 }
+
+for (const width of [1440, 390]) {
+  test(`P04-04 previews and recovers an explicit release at ${width}px`, async ({ page }, info) => {
+    const server = await startStaticServer(resolve('dist/ADMIN/browser'));
+    const id = 'e1111111-1111-4111-8111-111111111111';
+    const recordedAt = '2027-03-07T04:30:00Z';
+    const base = { id, accountId, shopId: null, mode: 'Security', version: 1, recordedAt,
+      effectiveAt: recordedAt, customerExplanation, propagation: 'Acknowledged', shops: [] };
+    const released = (propagation: string) => ({ ...base, release: { releasedAt: recordedAt, releasedBy: adminId, propagation,
+      shops: shops.map(shop => ({ ...shop, accountRevision: 9, shopRevision: 11, status: propagation })) } });
+    const writes: object[] = [];
+    let acknowledged = false;
+    try {
+      await page.setViewportSize({ width, height: 860 });
+      await page.route('**/api/admin/auth/session', route => route.fulfill({ json: {
+        adminId, sessionId, capabilities: ['security-administrator'],
+        accessExpiresAt: new Date(Date.now() + 300_000).toISOString(),
+      } }));
+      await page.route('**/api/admin/auth/sign-in/context', route => route.fulfill({ json: { requestToken: 'fixture-csrf' } }));
+      await page.route(`**/api/admin/accounts/${accountId}/restrictions**`, async route => {
+        const request = route.request();
+        expect(request.headers()['x-admin-session']).toBe(sessionId);
+        if (request.method() === 'GET') return route.fulfill({ json: writes.length
+          ? [released(acknowledged ? 'Acknowledged' : 'Pending')] : [base] });
+        expect(request.headers()['x-admin-csrf']).toBe('fixture-csrf');
+        if (request.url().endsWith(`/${id}/release/preview`)) return route.fulfill({ json: {
+          restrictionId: id, version: 1, evaluatedAt: recordedAt, impactDigest: '8'.repeat(64),
+          shops: [{ ...shops[0], state: 'Expired', basis: 'Paid', paidThrough: '2027-02-28T04:30:00Z',
+            graceEndsAt: recordedAt, accessEndsAt: recordedAt, survivingSuspension: null },
+          { ...shops[1], state: 'Active', basis: 'Paid', survivingSuspension: { mode: 'Trading', effectiveAt: recordedAt } }],
+        } });
+        expect(request.url()).toMatch(new RegExp(`/${id}/release$`));
+        writes.push(request.postDataJSON());
+        if (writes.length === 1) return route.abort('failed');
+        return route.fulfill({ json: released('Pending') });
+      });
+      const read = async () => {
+        await page.goto(server.origin + '/restrictions');
+        await page.getByLabel('Billing account ID').fill(accountId);
+        await page.getByRole('button', { name: 'Refresh saved restrictions' }).click();
+      };
+      await read();
+      await page.getByRole('button', { name: 'Preview release' }).click();
+      await expect(page.getByRole('heading', { name: 'Access after release' })).toBeVisible();
+      await expect(page.getByText(/Trading suspension remains/)).toBeVisible();
+      await expect(page.getByText(/Expired/)).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Confirm release' })).toBeDisabled();
+      expect(writes).toHaveLength(0);
+      await page.getByLabel('Release reason').fill('Security review completed.');
+      await page.screenshot({ path: info.outputPath('release-preview.png'), fullPage: true });
+      await page.getByRole('button', { name: 'Confirm release' }).click();
+      await expect(page.getByRole('alert')).toContainText('unconfirmed');
+      await read();
+      await expect(page.getByTestId('pending-suspension')).toContainText(id);
+      await page.getByRole('button', { name: 'Retry saved request' }).click();
+      await expect(page.getByTestId('pending-suspension')).toHaveCount(0);
+      await expect(page.getByTestId('release-propagation')).toContainText('Pending merchant acknowledgement');
+      await page.screenshot({ path: info.outputPath('release-pending.png'), fullPage: true });
+      acknowledged = true;
+      await page.getByRole('button', { name: 'Refresh saved restrictions' }).click();
+      await expect(page.getByTestId('release-propagation')).toContainText('Acknowledged by merchant service');
+      await expect(page.getByRole('heading', { name: 'Security · Entire account' })).toBeVisible();
+      expect(writes).toHaveLength(2);
+      expect(writes[0]).toMatchObject({ reason: 'Security review completed.', expectedVersion: 1, impactDigest: '8'.repeat(64) });
+      expect(writes[1]).toEqual(writes[0]);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      await page.screenshot({ path: info.outputPath('release-acknowledged.png'), fullPage: true });
+    } finally {
+      await server.close();
+    }
+  });
+}

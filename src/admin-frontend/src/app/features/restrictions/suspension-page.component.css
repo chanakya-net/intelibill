@@ -13,11 +13,11 @@
   overflow-wrap: anywhere;
 }
 
-.restriction-form label {
+.restriction-form label, .restriction-release label {
   font-weight: 600;
 }
 
-.restriction-form input, .restriction-form select, .restriction-form textarea {
+.restriction-form input, .restriction-form select, .restriction-form textarea, .restriction-release textarea {
   box-sizing: border-box;
   width: 100%;
   min-height: 2.75rem;
@@ -38,7 +38,7 @@
   padding-block-start: .65rem;
 }
 
-.restriction-form :is(select, textarea):focus-visible {
+.restriction-form :is(select, textarea):focus-visible, .restriction-release textarea:focus-visible {
   outline: 2px solid var(--app-brown-800);
   outline-offset: 2px;
 }
@@ -50,4 +50,10 @@
 
 .restriction-shops li + li {
   margin-block-start: .4rem;
+}
+
+.restriction-release {
+  display: grid;
+  gap: .65rem;
+  margin-block-start: .75rem;
 }

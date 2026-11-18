@@ -14,4 +14,9 @@ public interface ISuspensionStore
     Task<IReadOnlyList<SavedSuspension>> ListAsync(Guid account, CancellationToken ct);
     Task SaveAsync(SavedSuspension suspension, IReadOnlyList<SuspensionShop> shops, CancellationToken ct);
     Task<IReadOnlyList<SuspensionDelivery>> ReadDeliveryAsync(Guid id, CancellationToken ct);
+    Task<SurvivingRestriction?> ReadSurvivingAsync(Guid account, Guid shop, Guid excluded, DateTimeOffset at, CancellationToken ct);
+    Task<SavedRelease?> ReadReleaseAsync(Guid account, Guid restriction, CancellationToken ct);
+    Task<SavedRelease?> ReadReleaseOperationAsync(Guid account, Guid key, CancellationToken ct);
+    Task ReleaseAsync(SavedSuspension saved, SavedRelease release, IReadOnlyList<ReleaseShopImpact> shops, CancellationToken ct);
+    Task<IReadOnlyList<SuspensionDelivery>> ReadReleaseDeliveryAsync(Guid release, CancellationToken ct);
 }
