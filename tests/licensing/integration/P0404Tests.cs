@@ -45,6 +45,50 @@ public sealed partial class P0404Tests(LicensingPostgreSqlFixture database) : IC
         Assert.Equal("Suspension.RecentMfaRequired", await P0206Fixture.CodeAsync(stale));
     }
 
+    [Fact]
+    public async Task ReleaseRoutesRequireSecurityAuthorityAccountScopeAndMatchingSession()
+    {
+        await using var fixture = await StartAsync();
+        var shop = await CreateTradingShopAsync(fixture.Hosts);
+        var otherShop = await CreateTradingShopAsync(fixture.Hosts);
+        var account = await LinkAsync(fixture, shop);
+        var otherAccount = await LinkAsync(fixture, otherShop);
+        var catalogue = fixture.Trial.Catalogue;
+        using var owner = await catalogue.SignInOwnerAsync();
+        using var security = await SignInOperatorAsync(fixture, owner, "release.security@example.test", ["security-administrator"]);
+        using var support = await SignInOperatorAsync(fixture, owner, "release.support@example.test", ["support"]);
+        var path = $"/api/admin/accounts/{account:D}/restrictions";
+        var id = await SuspendAsync(security, path, "Account", null);
+        var releasePath = $"{path}/{id:D}/release";
+        var command = await PreviewReleaseAsync(security, releasePath);
+
+        await AssertReleaseRoutesDeniedAsync(fixture, support, releasePath, command,
+            HttpStatusCode.Forbidden, "Suspension.AccessDenied");
+        await AssertReleaseRoutesDeniedAsync(fixture, security,
+            $"/api/admin/accounts/{otherAccount:D}/restrictions/{id:D}/release", command,
+            HttpStatusCode.NotFound, "Suspension.NotFound");
+
+        var client = catalogue.Api.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Admin-Session", Guid.NewGuid().ToString("D"));
+        using var mismatched = security.Fork(client);
+        await AssertReleaseRoutesDeniedAsync(fixture, mismatched, releasePath, command,
+            HttpStatusCode.Unauthorized, "Admin.SessionEnded");
+    }
+
+    private static async Task AssertReleaseRoutesDeniedAsync(P0213Fixture fixture, P0110CookieBrowser admin, string path,
+        ReleaseRequest command, HttpStatusCode status, string code)
+    {
+        using var preview = await P0212Fixture.PostAsync(admin, path + "/preview", new { });
+        Assert.Equal(status, preview.StatusCode);
+        Assert.Equal(code, await P0206Fixture.CodeAsync(preview));
+        Assert.Equal(0L, await fixture.Trial.CountAsync("operational_restriction_releases"));
+
+        using var submit = await P0212Fixture.PostAsync(admin, path, command);
+        Assert.Equal(status, submit.StatusCode);
+        Assert.Equal(code, await P0206Fixture.CodeAsync(submit));
+        Assert.Equal(0L, await fixture.Trial.CountAsync("operational_restriction_releases"));
+    }
+
     private sealed record ReleaseRequest(long ExpectedVersion, string? ImpactDigest, Guid OperationKey, string Reason);
 
     private static async Task<ReleaseRequest> PreviewReleaseAsync(P0110CookieBrowser admin, string path)
@@ -95,11 +139,16 @@ public sealed partial class P0404Tests(LicensingPostgreSqlFixture database) : IC
 
     private static async Task<P0110CookieBrowser> SignInSecurityAsync(P0213Fixture fixture, params string[] alsoGranted)
     {
-        const string email = "release.security@example.test";
+        using var owner = await fixture.Trial.Catalogue.SignInOwnerAsync();
+        return await SignInOperatorAsync(fixture, owner, "release.security@example.test", ["security-administrator", .. alsoGranted]);
+    }
+
+    private static async Task<P0110CookieBrowser> SignInOperatorAsync(P0213Fixture fixture, P0110CookieBrowser owner,
+        string email, string[] capabilities)
+    {
         var catalogue = fixture.Trial.Catalogue;
-        using var owner = await catalogue.SignInOwnerAsync();
         var seed = await catalogue.EnrollOperatorAsync(owner, email);
-        await catalogue.GrantAsync(email, ["security-administrator", .. alsoGranted]);
+        await catalogue.GrantAsync(email, capabilities);
         return await catalogue.SignInOperatorAsync(seed, email);
     }
 }

@@ -106,16 +106,44 @@ public sealed partial class P0404Tests
     }
 
     [Fact]
+    public async Task LegacySignedAccountSuspensionAppliesAfterAnUnrestrictedRelease()
+    {
+        await using var fixture = await StartAsync();
+        var shop = await CreateTradingShopAsync(fixture.Hosts);
+        var account = await LinkAsync(fixture, shop);
+        var snapshot = await fixture.LatestSnapshotAsync(shop.ShopId);
+        var restricted = snapshot.Account! with
+        {
+            Revision = snapshot.Account!.Revision + 1, Restriction = "Security"
+        };
+        var released = restricted with
+        {
+            Revision = restricted.Revision + 1, Restriction = "Unrestricted", ReleasedRevision = restricted.Revision
+        };
+        var legacy = restricted with
+        {
+            Revision = released.Revision + 1,
+            Suspension = new("Security", fixture.Hosts.StatusClock.Now, "Contact support about shop access.")
+        };
+
+        Assert.Equal("Applied", await DispositionAsync(fixture, snapshot with { Account = restricted }));
+        Assert.Equal("Applied", await DispositionAsync(fixture, snapshot with { Account = released }));
+        Assert.Equal("Applied", await DispositionAsync(fixture, snapshot with { Account = legacy }));
+        Assert.Equal("Security", await fixture.MerchantScalarAsync(
+            $"SELECT restriction FROM account_license_restrictions WHERE account_id = '{account:D}'"));
+    }
+
+    [Fact]
     public async Task ReleaseAcknowledgementRequiresTheCorrespondingSignedRevisions()
     {
         await using var fixture = await StartAsync();
         var shop = await CreateTradingShopAsync(fixture.Hosts);
         var sibling = await CreateTradingShopAsync(fixture.Hosts);
         var account = await LinkAsync(fixture, shop);
-        await LinkAsync(fixture, sibling, existingAccount: account, payer: shop);
         using var admin = await SignInSecurityAsync(fixture);
         var path = $"/api/admin/accounts/{account:D}/restrictions";
         var id = await SuspendAsync(admin, path, "Account", null);
+        await LinkAsync(fixture, sibling, existingAccount: account, payer: shop);
         await fixture.DrainAsync(source: true);
         await fixture.DrainAsync(source: false);
         await EnrollAsync(fixture, shop);
@@ -136,14 +164,27 @@ public sealed partial class P0404Tests
         Assert.Equal("Pending", await ReleasePropagationAsync(admin, path, id));
         await fixture.DrainAsync(source: true);
         await fixture.DrainAsync(source: false);
-        Assert.Equal("Acknowledged", await ReleasePropagationAsync(admin, path, id));
+        var status = await ReadRestrictionStatusAsync(admin, path, id);
+        Assert.Equal("Acknowledged", status.GetProperty("propagation").GetString());
+        var applicationShops = status.GetProperty("shops").EnumerateArray().ToArray();
+        Assert.Equal(2, applicationShops.Length);
+        Assert.Contains(applicationShops, item => item.GetProperty("shopId").GetGuid() == sibling.ShopId);
+        Assert.DoesNotContain(applicationShops, item => item.GetProperty("shopId").GetGuid() == late.ShopId);
+        var release = status.GetProperty("release");
+        Assert.Equal("Acknowledged", release.GetProperty("propagation").GetString());
+        Assert.Contains(release.GetProperty("shops").EnumerateArray(),
+            item => item.GetProperty("shopId").GetGuid() == late.ShopId &&
+                item.GetProperty("status").GetString() == "Acknowledged");
     }
 
-    private static async Task<string?> ReleasePropagationAsync(P0110CookieBrowser admin, string path, Guid id)
+    private static async Task<string?> ReleasePropagationAsync(P0110CookieBrowser admin, string path, Guid id) =>
+        (await ReadRestrictionStatusAsync(admin, path, id)).GetProperty("release").GetProperty("propagation").GetString();
+
+    private static async Task<JsonElement> ReadRestrictionStatusAsync(P0110CookieBrowser admin, string path, Guid id)
     {
         using var response = await admin.SendAsync(HttpMethod.Get, $"{path}/{id:D}");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("release").GetProperty("propagation").GetString();
+        return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
     private static async Task<string?> DispositionAsync(P0213Fixture fixture, EntitlementSnapshotV1 snapshot)

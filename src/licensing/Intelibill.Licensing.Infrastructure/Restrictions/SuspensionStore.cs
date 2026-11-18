@@ -140,6 +140,13 @@ internal sealed partial class SuspensionStore(LicensingDbContext db, Entitlement
                 LIMIT 1
             ) delivery ON true
             WHERE r.id = {id}
+                AND (released.restriction_id IS NULL OR d.event_id IS NOT NULL OR EXISTS (
+                    SELECT FROM public.entitlement_snapshots s
+                    WHERE s.account_id = a.account_id AND s.shop_id = a.shop_id
+                        AND s.affiliation_request_id = a.request_id
+                        AND (CASE WHEN r.shop_id IS NULL THEN s.account_revision ELSE s.shop_revision END)
+                            <= released.prior_revision
+                ))
             ORDER BY a.shop_id
             """).ToListAsync(ct);
 

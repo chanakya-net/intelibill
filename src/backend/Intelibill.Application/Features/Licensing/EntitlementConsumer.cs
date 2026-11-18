@@ -33,8 +33,12 @@ public static class EntitlementConsumer
                 saved.Restriction, saved.ReleasedRevision, suspension, saved.PreviousReleaseRevision);
         var previous = saved.ReleasedRevision ?? saved.PreviousReleaseRevision;
         var release = incoming.ReleasedRevision ?? incoming.PreviousReleaseRevision;
-        if (StampConflicts(incoming.UpstreamVerifiedAt, issuedAt, saved.UpstreamVerifiedAt, previousIssuedAt) ||
-            ReleaseConflicts(release, previous, saved.Revision))
+        if (StampConflicts(incoming.UpstreamVerifiedAt, issuedAt, saved.UpstreamVerifiedAt, previousIssuedAt))
+            return true;
+        // Older publishers omit the cutoff when reinstating a restriction. This transition only adds a restriction.
+        if (release is null && saved.Restriction == "Unrestricted" && incoming.Restriction is "Trading" or "Security")
+            return false;
+        if (ReleaseConflicts(release, previous, saved.Revision))
             return true;
         if (release >= saved.Revision) return false;
         if (incoming.Restriction == "Unrestricted") return saved.Restriction != "Unrestricted";
