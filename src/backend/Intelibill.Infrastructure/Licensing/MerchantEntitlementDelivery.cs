@@ -12,7 +12,8 @@ namespace Intelibill.Infrastructure.Licensing;
 
 [LicenceAction(LicenceAction.InternalService)]
 internal sealed class MerchantEntitlementDelivery(ApplicationDbContext db, EntitlementProjectionStore projection,
-    MerchantEntitlementTransport transport, LeasedHttpOutbox outbox, IHttpClientFactory clients, TimeProvider clock)
+    MerchantEntitlementTransport transport, LeasedHttpOutbox outbox, IHttpClientFactory clients, TimeProvider clock,
+    EntitlementAcknowledgementMetrics acknowledgements)
     : ILeasedHttpDestination
 {
     public bool Enabled => transport.Origin is not null;
@@ -31,8 +32,14 @@ internal sealed class MerchantEntitlementDelivery(ApplicationDbContext db, Entit
 
         using var client = clients.CreateClient(LeasedHttpDeliveryPump.ClientName);
         using var response = await LeasedHttpDeliveryPump.PostAsync(client, origin, path, message.Payload, assertion, ct);
-        return response.StatusCode == HttpStatusCode.NoContent ? null :
-            response.IsSuccessStatusCode ? "InvalidResponse" : response.StatusCode is >= HttpStatusCode.InternalServerError
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            if (message.Kind == "Acknowledgement")
+                await acknowledgements.RecordAsync(message, ct);
+            return null;
+        }
+
+        return response.IsSuccessStatusCode ? "InvalidResponse" : response.StatusCode is >= HttpStatusCode.InternalServerError
             ? "Unavailable" : "Rejected";
     }
 
@@ -50,33 +57,40 @@ internal sealed class MerchantEntitlementDelivery(ApplicationDbContext db, Entit
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         if ((await projection.EnterAsync(binding.AccountId, binding.ShopId, ct)).IsError)
             return;
-        if (!await StillDueAsync(binding.ShopId, now, ct))
+        if (!await StillDueAsync(binding, now, ct))
             return;
         var shop = await db.Set<ShopLicenseState>().AsNoTracking().SingleOrDefaultAsync(row => row.ShopId == binding.ShopId, ct);
         var account = await db.Set<AccountLicenseRestriction>().AsNoTracking()
             .SingleOrDefaultAsync(row => row.AccountId == binding.AccountId, ct);
-        if (shop is not null && account is not null && now < shop.UpstreamVerifiedAt.AddHours(47) &&
-            now < account.UpstreamVerifiedAt.AddHours(47) && (shop.NextBoundary is null || now < shop.NextBoundary))
-            return;
-
         var request = new EntitlementReconciliationV1(1, Guid.NewGuid(), binding.AccountId, binding.ShopId,
             binding.AffiliationRequestId, account?.Revision, shop?.Revision);
         var bytes = JsonSerializer.SerializeToUtf8Bytes(request, EntitlementSnapshotsV1.Json);
         await outbox.AppendAsync(request.EventId, binding.AccountId, binding.ShopId, "Reconciliation",
             bytes, SignedServiceAssertion.Digest(bytes), now, ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO public.entitlement_reconciliation_requests (shop_id, event_id, next_check_at)
-            VALUES ({binding.ShopId}, {request.EventId}, {now.AddHours(1)})
-            ON CONFLICT (shop_id) DO UPDATE SET event_id = EXCLUDED.event_id, next_check_at = EXCLUDED.next_check_at
+            INSERT INTO public.entitlement_reconciliation_requests (shop_id, event_id, last_queued_at, next_check_at)
+            VALUES ({binding.ShopId}, {request.EventId}, {now}, {now.AddSeconds(50 + binding.ShopId.ToByteArray()[0] % 6)})
+            ON CONFLICT (shop_id) DO UPDATE SET event_id = EXCLUDED.event_id,
+                last_queued_at = EXCLUDED.last_queued_at, next_check_at = EXCLUDED.next_check_at
             """, ct);
         await transaction.CommitAsync(ct);
     }
 
-    private Task<bool> StillDueAsync(Guid shop, DateTimeOffset now, CancellationToken ct) =>
+    private Task<bool> StillDueAsync(Binding binding, DateTimeOffset now, CancellationToken ct) =>
         db.Database.SqlQuery<bool>($"""
-            SELECT NOT EXISTS (SELECT FROM public.entitlement_reconciliation_requests r
-                JOIN public.entitlement_outbox o ON o.event_id = r.event_id WHERE r.shop_id = {shop}
-                AND (r.next_check_at > {now} OR o.status NOT IN ('Delivered', 'DeadLetter'))) AS "Value"
+            SELECT EXISTS (
+                SELECT FROM public.shop_affiliation_consent_events e
+                LEFT JOIN public.shop_affiliation_delivery_receipts f ON f.event_id = e.id
+                LEFT JOIN public.entitlement_reconciliation_requests r ON r.shop_id = e.shop_id
+                LEFT JOIN public.entitlement_outbox o ON o.event_id = r.event_id
+                LEFT JOIN public.shop_license_states s ON s.shop_id = e.shop_id AND s.account_id = e.account_id
+                    AND s.affiliation_request_id = e.request_id
+                WHERE e.shop_id = {binding.ShopId} AND e.account_id = {binding.AccountId}
+                    AND e.request_id = {binding.AffiliationRequestId} AND e.kind = 'Accepted'
+                    AND f.status IS DISTINCT FROM 'NeedsReview'
+                    AND (r.shop_id IS NULL OR (o.status IN ('Delivered', 'DeadLetter') AND
+                        (r.next_check_at <= {now} OR s.next_boundary > r.last_queued_at AND s.next_boundary <= {now})))
+                ) AS "Value"
             """).SingleAsync(ct);
 
     private sealed record Binding(Guid AccountId, Guid ShopId, Guid AffiliationRequestId);

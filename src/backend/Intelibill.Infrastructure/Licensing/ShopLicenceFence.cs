@@ -2,6 +2,7 @@ using System.Data;
 using ErrorOr;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Policies;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -52,9 +53,15 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
         var account = accountId is { } id
             ? await db.Set<AccountLicenseRestriction>().AsNoTracking().SingleOrDefaultAsync(row => row.AccountId == id, ct)
             : null;
+        var proofs = shop is null ? null : await ReadProofIssuanceAsync(shopId, ct);
         return new ShopLicenceLease(shopId, accountId, account?.Revision, shop?.Revision,
-            policy.Decide(action, shop, account, clock.GetUtcNow()));
+            policy.Decide(action, shop, account, proofs, clock.GetUtcNow()));
     }
+
+    // The account head may rest on a sibling shop's evidence, which row security rightly hides from this shop.
+    internal async Task<LicenseProofIssuance?> ReadProofIssuanceAsync(Guid shopId, CancellationToken ct) =>
+        (await db.Database.SqlQuery<LicenseProofIssuance>(
+            $"SELECT * FROM public.merchant_licence_proof_issuance({shopId})").ToListAsync(ct)).SingleOrDefault();
 
     private async Task<ErrorOr<T>> WithinBudgetAsync<T>(Func<Task<ErrorOr<T>>> acquire, CancellationToken ct)
     {

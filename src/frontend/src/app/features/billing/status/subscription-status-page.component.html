@@ -6,6 +6,30 @@
   </header>
   <p class="ib-panel notice" data-testid="observe-only">{{ 'billing.status.observeOnly' | transloco }}</p>
 
+  @if (trading(); as local) {
+    <section class="ib-panel" aria-labelledby="trading-authority-heading">
+      <h2 id="trading-authority-heading">{{ 'billing.status.tradingAuthority.heading' | transloco }}</h2>
+      @switch (local.kind) {
+        @case ('loading') { <p role="status">{{ 'common.loading' | transloco }}</p> }
+        @case ('verified') {
+          <p role="status" data-testid="trading-authority-deadline">
+            {{ 'billing.status.tradingAuthority.verified' | transloco: { time: instant(local.authority.validUntil, true) } }}
+          </p>
+        }
+        @case ('failed') {
+          <p role="alert" [attr.data-testid]="'trading-authority-' + local.failure">
+            @switch (local.failure) {
+              @case ('scope') { {{ 'billing.status.scope' | transloco }} }
+              @case ('session') { {{ 'billing.status.session' | transloco }} }
+              @case ('denied') { {{ 'billing.status.denied' | transloco }} }
+              @default { {{ 'billing.status.tradingAuthority.' + local.failure | transloco }} }
+            }
+          </p>
+        }
+      }
+    </section>
+  }
+
   @let current = view();
   @switch (current.kind) {
     @case ('loading') { <p role="status">{{ 'common.loading' | transloco }}</p> }

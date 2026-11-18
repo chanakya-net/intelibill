@@ -3,15 +3,15 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { Subject, of, throwError } from 'rxjs';
+import { EMPTY, Subject, of, throwError } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import en from '../../../../../public/assets/i18n/en-IN.json';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { billingRoutes } from '../billing.routes';
 import { SubscriptionStatusPageComponent } from './subscription-status-page.component';
-import { formatBillingInstant, type ShopSubscriptionStatus, type SubscriptionTermStatus } from './subscription-status.models';
-import { StatusReadError, SubscriptionStatusService } from './subscription-status.service';
+import { formatBillingInstant, type ShopSubscriptionStatus, type ShopTradingAuthority, type SubscriptionTermStatus } from './subscription-status.models';
+import { StatusReadError, SubscriptionStatusService, TradingAuthorityReadError } from './subscription-status.service';
 
 const shopA = '11111111-1111-4111-8111-111111111111';
 const shopB = '22222222-2222-4222-8222-222222222222';
@@ -32,6 +32,13 @@ function status(shopId: string, overrides: Partial<ShopSubscriptionStatus> = {})
   };
 }
 
+function authority(shopId: string, overrides: Partial<ShopTradingAuthority> = {}): ShopTradingAuthority {
+  return { schemaVersion: 1, shopId, authorityVerifiedAt: '2027-02-08T00:00:00Z', validUntil: '2027-02-10T00:00:00Z', enforced: false, ...overrides };
+}
+
+const authorityDeadline = '[data-testid="trading-authority-deadline"]';
+const authorityOutage = '[data-testid="trading-authority-unavailable"]';
+
 function render(api: Partial<SubscriptionStatusService>, params: Record<string, string> = {}) {
   const session = signal<{ user: { id: string }; activeShopId: string | null } | null>({ user: { id: 'u1' }, activeShopId: shopA });
   TestBed.configureTestingModule({
@@ -44,7 +51,7 @@ function render(api: Partial<SubscriptionStatusService>, params: Record<string, 
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(params) }, paramMap: of(convertToParamMap(params)) } },
       { provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } },
       { provide: AuthService, useValue: { session } },
-      { provide: SubscriptionStatusService, useValue: api },
+      { provide: SubscriptionStatusService, useValue: { tradingAuthority: () => EMPTY, ...api } },
     ],
   });
   const fixture = TestBed.createComponent(SubscriptionStatusPageComponent);
@@ -71,6 +78,53 @@ describe('subscription status', () => {
     fixture.detectChanges();
     expect(page.querySelector('[data-testid="entitlement-sync"]')).toBeNull();
     expect(page.textContent).toContain('Entitlement delivery to devices is not available yet.');
+  });
+
+  it('shows the verified local deadline even when commercial status cannot load', () => {
+    const { page } = render({
+      shop: () => throwError(() => new StatusReadError('unavailable')),
+      tradingAuthority: () => of({ schemaVersion: 1, shopId: shopA,
+        authorityVerifiedAt: '2027-02-08T00:00:00Z', validUntil: '2027-02-10T00:00:00Z', enforced: false }),
+    });
+    expect(page.querySelector('[data-testid="trading-authority-deadline"]')?.textContent)
+      .toContain('10 Feb 2027, 05:30:00 IST');
+  });
+
+  it('shows a positive one-microsecond authority interval', () => {
+    const { page } = render({ tradingAuthority: () => of(authority(shopA, {
+      authorityVerifiedAt: '2027-02-10T00:00:00.000001Z', validUntil: '2027-02-10T00:00:00.000002Z',
+    })), shop: () => of(status(shopA)) });
+    expect(page.querySelector(authorityDeadline)?.textContent).toContain('05:30:00.000002 IST');
+  });
+
+  it.each([
+    ['an inverted microsecond interval', () => authority(shopA, {
+      authorityVerifiedAt: '2027-02-10T00:00:00.000002Z', validUntil: '2027-02-10T00:00:00.000001Z' })],
+    ['a zero interval', () => authority(shopA, { validUntil: '2027-02-08T00:00:00Z' })],
+    ['48 hours plus one microsecond', () => authority(shopA, { validUntil: '2027-02-10T00:00:00.000001Z' })],
+    ['an empty success', () => null],
+    ['no verification time', () => { const { authorityVerifiedAt: _omitted, ...rest } = authority(shopA); return rest; }],
+    ['an unparseable deadline', () => authority(shopA, { validUntil: 'soon' })],
+    ['an inverted verification interval', () => authority(shopA, { authorityVerifiedAt: '2027-02-11T00:00:00Z' })],
+  ])('treats %s as unavailable, clears the deadline and recovers on retry', (_name, body) => {
+    const tradingAuthority = vi.fn()
+      .mockReturnValueOnce(of(authority(shopA)))
+      .mockReturnValueOnce(of(body()))
+      .mockReturnValue(of(authority(shopA)));
+    const { fixture, page } = render({ shop: () => of(status(shopA)), tradingAuthority });
+    expect(page.querySelector(authorityDeadline)).toBeTruthy();
+
+    const retry = () => {
+      (page.querySelector('[data-testid="status-retry"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+    };
+    retry();
+    expect(page.querySelector(authorityOutage)).toBeTruthy();
+    expect(page.querySelector(authorityDeadline)).toBeNull();
+
+    retry();
+    expect(page.querySelector(authorityOutage)).toBeNull();
+    expect(page.querySelector(authorityDeadline)?.textContent).toContain('10 Feb 2027, 05:30:00 IST');
   });
 
   it('has shop and account destinations before the billing landing route', () => {
@@ -124,15 +178,28 @@ describe('subscription status', () => {
   it('rendersRoleAppropriateStatusAndClearsStaleScope', () => {
     const late = new Subject<ShopSubscriptionStatus>();
     const shop = vi.fn((id: string) => id === shopA ? late : of(status(shopB, { state: 'Expired', term: { ...term, state: 'Expired' } })));
-    const { fixture, page, session } = render({ shop });
+    const lateAuthority = new Subject<ShopTradingAuthority>();
+    const outageB = new Subject<ShopTradingAuthority>();
+    const tradingAuthority = vi.fn((id: string) => id === shopA ? lateAuthority : outageB);
+    const { fixture, page, session } = render({ shop, tradingAuthority });
     expect(shop).toHaveBeenCalledWith(shopA);
+    expect(tradingAuthority).toHaveBeenCalledWith(shopA);
 
     // The shop changes before shop A answers: A's late answer must never repopulate B's page.
     session.set({ user: { id: 'u1' }, activeShopId: shopB });
     fixture.detectChanges();
+    expect(tradingAuthority).toHaveBeenCalledWith(shopB);
+    expect(page.querySelector(authorityDeadline)).toBeNull();
+    outageB.error(new TradingAuthorityReadError('unavailable'));
+    fixture.detectChanges();
+    expect(page.querySelector(authorityOutage)).toBeTruthy();
+
     late.next(status(shopA, { term: { ...term, commercial: { pricePaise: 149900, currency: 'INR', planVersionId: null } }, accountId: account }));
+    lateAuthority.next(authority(shopA));
     fixture.detectChanges();
     expect(page.textContent).not.toContain('₹1,499.00');
+    expect(page.querySelector(authorityOutage)).toBeTruthy();
+    expect(page.querySelector(authorityDeadline)).toBeNull();
     expect(page.querySelector('[data-testid="status-state"]')?.textContent).toContain('Expired');
 
     const facts = page.querySelector('[data-testid="status-term"]')!.textContent!;

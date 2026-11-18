@@ -45,7 +45,11 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         var account = await db.Set<AccountLicenseRestriction>().SingleOrDefaultAsync(row => row.AccountId == snapshot.AccountId, ct);
         var shop = await db.Set<ShopLicenseState>().SingleOrDefaultAsync(row => row.ShopId == snapshot.ShopId, ct);
         var bound = await HasBindingAsync(snapshot, shop, ct);
-        var reason = bound ? EntitlementConsumer.ReviewReason(snapshot, account, shop) : "AffiliationUnresolved";
+        // Only a backward stamp needs the preceding head's immutable signing time.
+        var regresses = snapshot.Account?.UpstreamVerifiedAt < account?.UpstreamVerifiedAt ||
+            snapshot.Shop?.UpstreamVerifiedAt < shop?.UpstreamVerifiedAt;
+        var priorProofs = bound && regresses ? await fence.ReadProofIssuanceAsync(snapshot.ShopId, ct) : null;
+        var reason = bound ? EntitlementConsumer.ReviewReason(snapshot, account, shop, priorProofs, proof.IssuedAt) : "AffiliationUnresolved";
         var appliedAt = EntitlementSnapshotsV1.Instant(clock);
         var nextAccount = reason is null && (account is null || snapshot.Account!.Revision > account.Revision);
         var nextShop = reason is null && (shop is null || snapshot.Shop!.Revision > shop.Revision);

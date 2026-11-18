@@ -52,21 +52,21 @@ public sealed partial class P0401LicensingTests
         var active = ShopState("Active", "Paid");
         var grace = ShopState("Grace", "Paid");
 
-        Assert.Equal(pending, policy.Decide(action, ShopState("PendingActivation"), unrestricted, clock.GetUtcNow()).Outcome);
-        Assert.Equal(pending, policy.Decide(action, ShopState("Scheduled"), unrestricted, clock.GetUtcNow()).Outcome);
-        Assert.Equal(operating, policy.Decide(action, trial, unrestricted, clock.GetUtcNow()).Outcome);
-        Assert.Equal(operating, policy.Decide(action, active, unrestricted, clock.GetUtcNow()).Outcome);
-        Assert.Equal(operating, policy.Decide(action, grace, unrestricted, clock.GetUtcNow()).Outcome);
-        Assert.Equal(restricted, policy.Decide(action, active, Account("Trading"), clock.GetUtcNow()).Outcome);
+        Assert.Equal(pending, Decide(policy, action, ShopState("PendingActivation"), unrestricted, clock.GetUtcNow()).Outcome);
+        Assert.Equal(pending, Decide(policy, action, ShopState("Scheduled"), unrestricted, clock.GetUtcNow()).Outcome);
+        Assert.Equal(operating, Decide(policy, action, trial, unrestricted, clock.GetUtcNow()).Outcome);
+        Assert.Equal(operating, Decide(policy, action, active, unrestricted, clock.GetUtcNow()).Outcome);
+        Assert.Equal(operating, Decide(policy, action, grace, unrestricted, clock.GetUtcNow()).Outcome);
+        Assert.Equal(restricted, Decide(policy, action, active, Account("Trading"), clock.GetUtcNow()).Outcome);
         foreach (var state in new[] { "Expired", "Suspended", "Closed" })
-            Assert.Equal(restricted, policy.Decide(action, ShopState(state), unrestricted, clock.GetUtcNow()).Outcome);
+            Assert.Equal(restricted, Decide(policy, action, ShopState(state), unrestricted, clock.GetUtcNow()).Outcome);
         foreach (var shop in new[] { ShopState("PendingActivation"), active, ShopState("Expired") })
-            Assert.Equal(security, policy.Decide(action, shop, Account("Security"), clock.GetUtcNow()).Outcome);
+            Assert.Equal(security, Decide(policy, action, shop, Account("Security"), clock.GetUtcNow()).Outcome);
 
         clock.Now = Deadline;
-        Assert.Equal(restricted, policy.Decide(action, trial, unrestricted, clock.GetUtcNow()).Outcome);
-        Assert.Equal(restricted, policy.Decide(action, active, unrestricted, clock.GetUtcNow()).Outcome);
-        Assert.Equal(restricted, policy.Decide(action, grace, unrestricted, clock.GetUtcNow()).Outcome);
+        Assert.Equal(restricted, Decide(policy, action, trial, unrestricted, clock.GetUtcNow()).Outcome);
+        Assert.Equal(restricted, Decide(policy, action, active, unrestricted, clock.GetUtcNow()).Outcome);
+        Assert.Equal(restricted, Decide(policy, action, grace, unrestricted, clock.GetUtcNow()).Outcome);
     }
 
     [Fact]
@@ -76,11 +76,15 @@ public sealed partial class P0401LicensingTests
         var policy = new LicenceActionPolicy();
         var early = Deadline.AddMinutes(-1);
         var active = ShopState("Active", "Paid");
-        Assert.Equal(Blocked, policy.Decide(LicenceAction.NewTrading, active, null, early).Outcome);
-        Assert.Equal(Blocked, policy.Decide(LicenceAction.NewTrading, null, Account("Unrestricted"), early).Outcome);
-        Assert.Equal(Blocked, policy.Decide(LicenceAction.NewTrading, ShopState("EvidenceIncomplete"), Account("Unrestricted"), early).Outcome);
-        Assert.Equal(Blocked, policy.Decide(LicenceAction.NewTrading, ShopState("NeedsReview"), Account("Unrestricted"), early).Outcome);
+        Assert.Equal(Blocked, Decide(policy, LicenceAction.NewTrading, active, null, early).Outcome);
+        Assert.Equal(Blocked, Decide(policy, LicenceAction.NewTrading, null, Account("Unrestricted"), early).Outcome);
+        Assert.Equal(Blocked, Decide(policy, LicenceAction.NewTrading, ShopState("EvidenceIncomplete"), Account("Unrestricted"), early).Outcome);
+        Assert.Equal(Blocked, Decide(policy, LicenceAction.NewTrading, ShopState("NeedsReview"), Account("Unrestricted"), early).Outcome);
     }
+
+    private static LicenceDecision Decide(LicenceActionPolicy policy, LicenceAction action, ShopLicenseState? shop,
+        AccountLicenseRestriction? account, DateTimeOffset now) =>
+        policy.Decide(action, shop, account, new(shop?.UpstreamVerifiedAt, account?.UpstreamVerifiedAt), now);
 
     private static ShopLicenseState ShopState(string state, string? basis = null)
     {

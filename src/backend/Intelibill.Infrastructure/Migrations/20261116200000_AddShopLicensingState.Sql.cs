@@ -79,7 +79,19 @@ public partial class AddShopLicensingState
         );
         """;
 
-    private const string Guards = """
+    internal const string RevisionGuard = """
+        CREATE OR REPLACE FUNCTION public.guard_license_projection() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $$
+        BEGIN
+            IF NEW.revision < OLD.revision OR NEW.upstream_verified_at < OLD.upstream_verified_at
+                OR (NEW.revision = OLD.revision AND (to_jsonb(NEW) - 'enforcement_activated_at')
+                    IS DISTINCT FROM (to_jsonb(OLD) - 'enforcement_activated_at')) THEN
+                RAISE EXCEPTION 'Entitlement head cannot go backwards' USING ERRCODE = '23514';
+            END IF;
+            RETURN NEW;
+        END $$;
+        """;
+
+    private const string Guards = $$"""
         CREATE TRIGGER retain_license_grant_evidence BEFORE UPDATE OR DELETE ON public.license_grant_evidence
             FOR EACH ROW EXECUTE FUNCTION public.retain_entitlement_evidence();
         CREATE TRIGGER retain_license_grant_evidence_table BEFORE TRUNCATE ON public.license_grant_evidence
@@ -89,15 +101,7 @@ public partial class AddShopLicensingState
         CREATE TRIGGER retain_entitlement_inbox_table BEFORE TRUNCATE ON public.entitlement_snapshot_inbox
             FOR EACH STATEMENT EXECUTE FUNCTION public.retain_entitlement_evidence();
 
-        CREATE FUNCTION public.guard_license_projection() RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog AS $$
-        BEGIN
-            IF NEW.revision < OLD.revision OR NEW.upstream_verified_at < OLD.upstream_verified_at
-                OR (NEW.revision = OLD.revision AND (to_jsonb(NEW) - 'enforcement_activated_at')
-                    IS DISTINCT FROM (to_jsonb(OLD) - 'enforcement_activated_at')) THEN
-                RAISE EXCEPTION 'Entitlement head cannot go backwards' USING ERRCODE = '23514';
-            END IF;
-            RETURN NEW;
-        END $$;
+        {{RevisionGuard}}
         CREATE TRIGGER guard_account_license_revision BEFORE UPDATE ON public.account_license_restrictions
             FOR EACH ROW EXECUTE FUNCTION public.guard_license_projection();
         CREATE TRIGGER guard_shop_license_revision BEFORE UPDATE ON public.shop_license_states
@@ -131,8 +135,8 @@ public partial class AddShopLicensingState
             FOR EACH STATEMENT EXECUTE FUNCTION public.retain_entitlement_evidence();
         """;
 
-    private static string ReconciliationScan => $$"""
-        CREATE FUNCTION public.due_merchant_entitlement_reconciliation(p_now timestamptz)
+    internal static string ReconciliationScan => $$"""
+        CREATE OR REPLACE FUNCTION public.due_merchant_entitlement_reconciliation(p_now timestamptz)
         RETURNS TABLE (account_id uuid, shop_id uuid, affiliation_request_id uuid)
         LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
             SELECT e.account_id, e.shop_id, e.request_id FROM public.shop_affiliation_consent_events e

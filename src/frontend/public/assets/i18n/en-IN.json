@@ -3623,6 +3623,15 @@
       "heading": "Access status",
       "link": "Access status for this shop",
       "accountLink": "Access status",
+      "tradingAuthority": {
+        "heading": "Local trading authority",
+        "verified": "Trading access verified until {{ time }}.",
+        "unavailable": "Trading access could not be verified. Check again shortly or contact support if this continues.",
+        "expired": "This shop’s trading access has ended.",
+        "restricted": "Trading is restricted for this shop.",
+        "pending": "This shop is waiting for trading access.",
+        "busy": "The shop licence is busy. Check again shortly."
+      },
       "shopDescription": "How licensing currently evaluates access for your active shop.",
       "accountDescription": "How licensing currently evaluates each subscription term of this billing account.",
       "observeOnly": "Observe-only: this status is shown for information and does not block selling, stock or any other work.",

@@ -8,18 +8,24 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import {
-  formatBillingInstant, type AccountTermStatus, type ShopSubscriptionStatus, type StatusFailure, type SubscriptionTermStatus,
+  formatBillingInstant, isShopTradingAuthority, type AccountTermStatus, type ShopSubscriptionStatus, type ShopTradingAuthority, type StatusFailure, type SubscriptionTermStatus,
+  type TradingAuthorityFailure,
 } from './subscription-status.models';
 import { SubscriptionCancellationComponent } from '../subscriptions/subscription-cancellation.component';
 import { SubscriptionCancellationWithdrawalComponent } from '../subscriptions/subscription-cancellation-withdrawal.component';
 import { EntitlementSynchronizationComponent } from './entitlement-synchronization.component';
-import { StatusReadError, SubscriptionStatusService } from './subscription-status.service';
+import { StatusReadError, SubscriptionStatusService, TradingAuthorityReadError } from './subscription-status.service';
 
 type StatusView =
   | { readonly kind: 'loading' | 'noShop' }
   | { readonly kind: 'failed'; readonly failure: StatusFailure }
   | { readonly kind: 'shop'; readonly status: ShopSubscriptionStatus }
   | { readonly kind: 'account'; readonly evaluatedAt: string; readonly items: readonly AccountTermStatus[] };
+
+type TradingAuthorityView =
+  | { readonly kind: 'loading' }
+  | { readonly kind: 'verified'; readonly authority: ShopTradingAuthority }
+  | { readonly kind: 'failed'; readonly failure: TradingAuthorityFailure };
 
 /**
  * Read-only access status for the active shop or, for billing members, one account. Values are rendered
@@ -51,7 +57,9 @@ export class SubscriptionStatusPageComponent {
     return session ? `${session.user.id}|${session.activeShopId ?? ''}` : '';
   });
   protected readonly view = signal<StatusView>({ kind: 'loading' });
+  protected readonly trading = signal<TradingAuthorityView | null>(null);
   private request?: Subscription;
+  private authorityRequest?: Subscription;
   private generation = 0;
 
   constructor() {
@@ -60,11 +68,16 @@ export class SubscriptionStatusPageComponent {
       this.accountId();
       untracked(() => this.load());
     });
-    inject(DestroyRef).onDestroy(() => this.request?.unsubscribe());
+    inject(DestroyRef).onDestroy(() => {
+      this.request?.unsubscribe();
+      this.authorityRequest?.unsubscribe();
+    });
   }
 
   protected load() {
     this.request?.unsubscribe();
+    this.authorityRequest?.unsubscribe();
+    this.trading.set(null);
     const generation = ++this.generation;
     this.view.set({ kind: 'loading' });
     const settle = (view: StatusView) => generation === this.generation && this.view.set(view);
@@ -81,14 +94,26 @@ export class SubscriptionStatusPageComponent {
       this.view.set({ kind: 'noShop' });
       return;
     }
+    this.loadTradingAuthority(shopId, generation);
     this.request = this.api.shop(shopId).subscribe({
       next: status => settle(status.shopId === shopId ? { kind: 'shop', status } : { kind: 'failed', failure: 'unavailable' }),
       error: fail,
     });
   }
 
+  private loadTradingAuthority(shopId: string, generation: number) {
+    this.trading.set({ kind: 'loading' });
+    const settle = (view: TradingAuthorityView) => generation === this.generation && this.trading.set(view);
+    this.authorityRequest = this.api.tradingAuthority(shopId).subscribe({
+      next: authority => settle(isShopTradingAuthority(authority, shopId)
+        ? { kind: 'verified', authority } : { kind: 'failed', failure: 'unavailable' }),
+      error: (error: unknown) => settle({ kind: 'failed',
+        failure: error instanceof TradingAuthorityReadError ? error.failure : 'unavailable' }),
+    });
+  }
+
   protected revalidate() {
-    if (this.request && !this.request.closed) return;
+    if ((this.request && !this.request.closed) || (this.authorityRequest && !this.authorityRequest.closed)) return;
     if (document.visibilityState === 'visible') this.load();
   }
 

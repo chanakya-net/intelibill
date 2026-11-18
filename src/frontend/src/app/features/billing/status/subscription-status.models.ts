@@ -70,6 +70,39 @@ export interface AccountSubscriptionStatus {
 /** Why a status could not be shown. `unavailable` is a verification outage and never means expiry. */
 export type StatusFailure = 'denied' | 'scope' | 'unavailable' | 'session';
 
+export interface ShopTradingAuthority {
+  readonly schemaVersion: 1;
+  readonly shopId: string;
+  readonly authorityVerifiedAt: string;
+  readonly validUntil: string;
+  readonly enforced: boolean;
+}
+
+// The merchant projection uses PostgreSQL microseconds. Parse the zone at whole-second
+// precision and retain the fraction separately so comparisons never round a boundary.
+const INSTANT = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,7}))?(Z|[+-]\d{2}:\d{2})$/;
+const MAX_AUTHORITY_TICKS = 48n * 60n * 60n * 10_000_000n;
+
+function instantTicks(value: unknown): bigint | null {
+  const parts = typeof value === 'string' && INSTANT.exec(value);
+  if (!parts) return null;
+  const millis = Date.parse(parts[1] + parts[3]);
+  if (!Number.isFinite(millis)) return null;
+  return BigInt(millis) * 10_000n + BigInt((parts[2] ?? '').padEnd(7, '0'));
+}
+
+/** A complete v1 grant for this shop. Anything else, including an empty success, proves no authority. */
+export function isShopTradingAuthority(value: unknown, shopId: string): value is ShopTradingAuthority {
+  if (typeof value !== 'object' || value === null) return false;
+  const body = value as { readonly [K in keyof ShopTradingAuthority]?: unknown };
+  if (body.schemaVersion !== 1 || body.shopId !== shopId || typeof body.enforced !== 'boolean') return false;
+  const start = instantTicks(body.authorityVerifiedAt);
+  const end = instantTicks(body.validUntil);
+  return start !== null && end !== null && end > start && end - start <= MAX_AUTHORITY_TICKS;
+}
+
+export type TradingAuthorityFailure = StatusFailure | 'expired' | 'restricted' | 'pending' | 'busy';
+
 export const BILLING_TIME_ZONE = 'Asia/Kolkata';
 
 /**

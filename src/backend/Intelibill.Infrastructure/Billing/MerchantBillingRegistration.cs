@@ -32,7 +32,9 @@ internal static class MerchantBillingRegistration
         services.AddScoped<ShopLicenceFence>();
         services.AddScoped<IShopLicenceFence>(provider => provider.GetRequiredService<ShopLicenceFence>());
         services.AddScoped<EntitlementProjectionStore>();
+        services.AddScoped<IShopTradingAuthorityReader, ShopTradingAuthorityReader>();
         services.AddScoped(provider => new LeasedHttpOutbox(provider.GetRequiredService<ApplicationDbContext>()));
+        services.AddScoped<EntitlementAcknowledgementMetrics>();
         services.AddScoped<ILeasedHttpDestination, MerchantEntitlementDelivery>();
         LeasedHttpDeliveryPump.Register(services);
         services.TryAddKeyedSingleton<TimeProvider>(ShopTrialsV1.DeliverySection,
