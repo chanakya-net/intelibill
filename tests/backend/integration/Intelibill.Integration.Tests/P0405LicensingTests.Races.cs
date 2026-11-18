@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -108,6 +109,56 @@ public sealed partial class P0405LicensingTests
         await AssertProblemAsync(await client.PostAsJsonAsync("/api/sales", SaleRequest(service), Ct),
             HttpStatusCode.Forbidden, "Licence.Expired");
         await AssertSaleCountAsync(binding.Shop, 1);
+    }
+
+    [Fact]
+    public async Task Revoked_session_waiting_on_same_key_cannot_recover_the_sale()
+    {
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var owner = CreateClient(host);
+        using var waitingDevice = CreateClient(host);
+        var binding = await OpenTradingAsync(owner);
+        var waitingSession = await SignInOnSecondDeviceAsync(waitingDevice, binding.Shop, ReadUserId(owner));
+        var request = SaleRequest(await SeedServiceAsync(owner));
+        await using var barrier = await TillPostgresBarrier.CreateAsync(Migrator, "sales", binding.Shop);
+
+        var first = PostSaleAsync(owner, request);
+        var firstPid = await barrier.WaitForArrivalAsync();
+        var retry = waitingDevice.PostAsJsonAsync("/api/sales", request, Ct);
+        try
+        {
+            await AssertBlockedAsync(retry, firstPid);
+            using var revoked = await owner.DeleteAsync($"/api/users/me/sessions/{waitingSession}", Ct);
+            Assert.Equal(HttpStatusCode.NoContent, revoked.StatusCode);
+        }
+        finally
+        {
+            await barrier.ReleaseAsync();
+        }
+
+        var original = await first;
+        using var refused = await retry;
+        var body = await refused.Content.ReadAsStringAsync(Ct);
+        await AssertProblemAsync(refused, HttpStatusCode.Unauthorized, "Auth.SessionInvalidated");
+        Assert.DoesNotContain(original.GetProperty("saleId").GetString()!, body, StringComparison.Ordinal);
+        Assert.DoesNotContain(original.GetProperty("invoiceNumber").GetString()!, body, StringComparison.Ordinal);
+        AssertReplay(original, await PostSaleAsync(owner, request));
+        Assert.NotEqual(waitingSession, await SignInOnSecondDeviceAsync(waitingDevice, binding.Shop, ReadUserId(owner)));
+        AssertReplay(original, await PostSaleAsync(waitingDevice, request));
+        await AssertSaleCountAsync(binding.Shop, 1);
+    }
+
+    private async Task<Guid> SignInOnSecondDeviceAsync(HttpClient device, Guid shop, Guid userId)
+    {
+        await using var db = Open(Migrator);
+        var email = await db.Users.Where(x => x.Id == userId).Select(x => x.Email).SingleAsync(Ct);
+        using var login = await device.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "Pass123!Aa" }, Ct);
+        device.DefaultRequestHeaders.Authorization = new("Bearer", (await ReadSuccessAsync(login)).GetProperty("accessToken").GetString());
+        using var switched = await device.PostAsJsonAsync("/api/shops/switch", new { shopId = shop }, Ct);
+        var token = (await ReadSuccessAsync(switched)).GetProperty("accessToken").GetString()!;
+        device.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        return Guid.Parse(new JwtSecurityToken(token).Claims.Single(x => x.Type == "sid").Value);
     }
 
     private async Task<Binding> OpenTradingAsync(HttpClient client, DateTimeOffset? end = null)

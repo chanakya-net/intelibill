@@ -12,15 +12,18 @@ The merchant API evaluates `NewTrading` inside the source transaction for online
 | Sale reaches its insert before a restricting projection | The projection waits for the sale backend. The sale commits and subsequent new keys are refused. |
 | Projection holds its fence before the sale enters | The sale waits for the projection backend and evaluates the committed restriction. |
 | First attempt is inserting when its retry arrives after expiry | The retry waits for its own earlier attempt and returns the same sale and invoice. |
+| A second device loses its session while waiting for the same key | The waiting POST receives `401 Auth.SessionInvalidated` without invoice details. Valid sessions for the same actor still recover the original invoice and exactly one sale exists. |
 | Recovery after expiry or trading suspension | The same actor, shop, key and payload recover the committed invoice. Changed payloads conflict. Security suspension and membership removal prevent disclosure. |
 | Existing commerce, tax and role gates | Stock, no-credit, invoice tax and lease role refusals retain their own codes. A document refusal after allocation rolls back its invoice number. |
 | Previously issued offline invoice | It can still reach the existing historical sync path. New lease requests are subject to current trading access. |
 | Observe-only shop | Online checkout remains available. Trading-authority denials include `enforced: false`. |
 
-The same-key advisory wait uses the existing database command timeout and request cancellation. A lost response or server fault leaves the earlier outcome unknown to old checkout clients. A definitive licensing refusal is returned only after the sale path has checked for a committed key. A security suspension can refuse access before lookup, so current checkout clients retain the original intent in that case.
+The same-key advisory wait uses the existing database command timeout and request cancellation. The handler checks live device and shop authority again after the wait. A definitive trading refusal follows the committed-key lookup. Authentication, shop membership and security suspension can prevent disclosure before lookup, so checkout clients keep the original intent recoverable after these refusals.
 
 ## Production-build Chromium fixture
 
 The browser exercises the merchant checkout at desktop and mobile widths with routed API fixtures. It verifies retained carts and distinct expiry and verification-outage messages, owner-scoped IndexedDB recovery after reload, the same key and body on retry, and a single fixture sale when the first request committed. An early status lookup returning 404 leaves the checkout pending. Observe-only expiry leaves the submit button usable.
+
+After a successful POST loses its response, a membership refusal on retry leaves the checkout pending. With authority restored and the page reloaded, checking status recovers the original invoice by its key, with no replacement POST. An expired POST followed by a verification outage shows the outage alone. The next verified response clears the licence message, preserves the cart and enables checkout.
 
 The fixture validates the browser flow with service workers disabled for these cases. PostgreSQL scenarios provide the transaction, rollback and duplicate-sale evidence. Provider behavior was not live verified. Production enforcement enrollment remains disabled.

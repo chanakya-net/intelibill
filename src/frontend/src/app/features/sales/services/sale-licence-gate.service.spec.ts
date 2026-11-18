@@ -51,17 +51,17 @@ describe('SaleLicenceGateService', () => {
     const grant = { schemaVersion: 1, shopId: owner.shopId, enforced: true,
       authorityVerifiedAt: '2026-11-18T00:00:00Z', validUntil: '2026-11-19T00:00:00Z' };
     staleRequest.flush(grant);
-    await stale;
+    expect(await stale).toBe(false);
     expect(gate.blockingMessage()).toBe('billing.status.tradingAuthority.expired');
 
     const unavailable = gate.refresh();
     request(http).error(new ProgressEvent('network error'));
-    await unavailable;
+    expect(await unavailable).toBe(false);
     expect(gate.blockingMessage()).toBe('billing.status.tradingAuthority.expired');
 
     const renewed = gate.refresh();
     request(http).flush(grant);
-    await renewed;
+    expect(await renewed).toBe(true);
     expect(gate.blockingMessage()).toBeNull();
   });
 
@@ -72,7 +72,7 @@ describe('SaleLicenceGateService', () => {
     context.transition({ ...owner, shopId: 'shop-2' }, 'scope', () => {});
     context.transition(owner, 'scope', () => {});
     oldRequest.flush({ code: 'Licence.Expired', enforced: true }, { status: 403, statusText: 'Expired' });
-    await reading;
+    expect(await reading).toBe(false);
     gate.reportRefusal(new HttpErrorResponse({ status: 403, error: { code: 'Licence.Expired' } }), oldScope);
     expect(gate.blockingMessage()).toBeNull();
   });

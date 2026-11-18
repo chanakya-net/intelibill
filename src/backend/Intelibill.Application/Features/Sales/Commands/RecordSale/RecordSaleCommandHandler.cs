@@ -41,6 +41,7 @@ public sealed class RecordSaleCommandHandler
     private readonly SaleExpiryGuard expiryGuard;
     private readonly IShopLicenceFence licenceFence;
     private readonly ISuspensionAccessReader suspensionAccess;
+    private readonly ILiveSessionAuthority sessionAuthority;
 
     public RecordSaleCommandHandler(
         ISaleLineValidator saleLineValidator,
@@ -62,7 +63,8 @@ public sealed class RecordSaleCommandHandler
         IExpiryPolicyFence expiryFence,
         SaleExpiryGuard expiryGuard,
         IShopLicenceFence licenceFence,
-        ISuspensionAccessReader suspensionAccess)
+        ISuspensionAccessReader suspensionAccess,
+        ILiveSessionAuthority sessionAuthority)
     {
         this.saleLineValidator = saleLineValidator;
         this.salePricingCalculator = salePricingCalculator;
@@ -84,20 +86,21 @@ public sealed class RecordSaleCommandHandler
         this.expiryGuard = expiryGuard;
         this.licenceFence = licenceFence;
         this.suspensionAccess = suspensionAccess;
+        this.sessionAuthority = sessionAuthority;
     }
 
     [LicenceAction(LicenceAction.NewTrading)]
     public async Task<ErrorOr<SaleDto>> HandleAsync(RecordSaleCommand command, CancellationToken cancellationToken)
     {
         // A saved outcome is recoverable after close/disablement, but never after losing shop authority.
-        if (await shopRepository.GetActiveRoleAsync(command.ActorUserId, command.ShopId, cancellationToken) is null)
-            return Errors.Till.Forbidden;
+        if (command.ShopId == Guid.Empty || !await sessionAuthority.IsValidAsync(command.Session, cancellationToken))
+            return Errors.Auth.SessionInvalidated;
         var warnings = new List<string>();
         var normalizedIdempotencyKey = command.IdempotencyKey.Trim();
         var requestHash = RecordSaleIdempotencyHasher.ComputeHash(command);
 
         var existing = await TryGetReplayForIdempotentSaleAsync(
-            command.ShopId, command.ActorUserId, normalizedIdempotencyKey, requestHash, cancellationToken);
+            command, normalizedIdempotencyKey, requestHash, cancellationToken);
         if (existing.HasValue)
             return existing.Value;
 
@@ -112,11 +115,12 @@ public sealed class RecordSaleCommandHandler
             await unitOfWork.BeginTransactionAsync(cancellationToken);
             transactionStarted = true;
             await saleRepository.LockIdempotencyKeyAsync(command.ShopId, command.ActorUserId, normalizedIdempotencyKey, cancellationToken);
-            if (await shopRepository.GetActiveRoleAsync(command.ActorUserId, command.ShopId, cancellationToken) is null)
-                return Errors.Till.Forbidden;
+            // The prior attempt may have held this key while this device lost its authority.
+            if (!await sessionAuthority.IsValidAsync(command.Session, cancellationToken))
+                return Errors.Auth.SessionInvalidated;
 
             var committed = await TryGetReplayForIdempotentSaleAsync(
-                command.ShopId, command.ActorUserId, normalizedIdempotencyKey, requestHash, cancellationToken);
+                command, normalizedIdempotencyKey, requestHash, cancellationToken);
             if (committed.HasValue)
                 return committed.Value;
 
@@ -319,8 +323,7 @@ public sealed class RecordSaleCommandHandler
             if (creditNoteRedemptionsOrError.IsError)
             {
                 var replayResult = await TryGetReplayForIdempotentSaleAsync(
-                    command.ShopId,
-                    command.ActorUserId,
+                    command,
                     normalizedIdempotencyKey,
                     requestHash,
                     cancellationToken);
@@ -397,8 +400,7 @@ public sealed class RecordSaleCommandHandler
             }
 
             var replayResult = await TryGetReplayForIdempotentSaleAsync(
-                command.ShopId,
-                command.ActorUserId,
+                command,
                 normalizedIdempotencyKey,
                 requestHash,
                 cancellationToken);
@@ -441,8 +443,7 @@ public sealed class RecordSaleCommandHandler
 
         var normalizedKey = command.IdempotencyKey.Trim();
         var replay = await TryGetReplayForIdempotentSaleAsync(
-            command.ShopId,
-            command.ActorUserId,
+            command,
             normalizedKey,
             RecordSaleIdempotencyHasher.ComputeHash(command),
             cancellationToken);
@@ -532,17 +533,19 @@ public sealed class RecordSaleCommandHandler
     }
 
     private async Task<ErrorOr<SaleDto>?> TryGetReplayForIdempotentSaleAsync(
-        Guid shopId,
-        Guid actorUserId,
+        RecordSaleCommand command,
         string idempotencyKey,
         string requestHash,
         CancellationToken cancellationToken)
     {
-        var concurrentSale = await saleRepository.GetByIdempotencyKeyAsync(shopId, actorUserId, idempotencyKey, cancellationToken);
+        var concurrentSale = await saleRepository.GetByIdempotencyKeyAsync(command.ShopId, command.ActorUserId, idempotencyKey, cancellationToken);
         if (concurrentSale is null)
             return null;
 
-        if (await suspensionAccess.ReadActiveShopDenialAsync(shopId, LicenceAction.Recovery, cancellationToken) is { } denied)
+        if (!await sessionAuthority.IsValidAsync(command.Session, cancellationToken))
+            return Errors.Auth.SessionInvalidated;
+
+        if (await suspensionAccess.ReadActiveShopDenialAsync(command.ShopId, LicenceAction.Recovery, cancellationToken) is { } denied)
             return denied;
 
         if (!string.Equals(concurrentSale.RequestHash, requestHash, StringComparison.Ordinal))

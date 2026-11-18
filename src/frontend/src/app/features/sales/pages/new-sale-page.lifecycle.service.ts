@@ -10,8 +10,8 @@ import { goodsSellableToBatch } from '../utils/sellable-goods.mapper';
 export abstract class NewSalePageLifecycleService extends NewSalePageStateService {
   async refreshSaleLicence(): Promise<void> {
     const previous = this.saleLicenceMessage();
-    await this.saleLicence.refresh();
-    if (previous && !this.saleLicenceMessage() && this.serverError() === previous) {
+    const applied = await this.saleLicence.refresh();
+    if (applied && previous && this.saleLicenceMessage() !== previous && this.serverError() === previous) {
       this.salesFacade.clearError();
     }
   }

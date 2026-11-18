@@ -37,9 +37,9 @@ export class SaleLicenceGateService {
     return denial && denial.scope === this.context.scope() ? denial.key : null;
   });
 
-  async refresh(): Promise<void> {
+  async refresh(): Promise<boolean> {
     const scope = this.context.scope();
-    if (!scope?.shopId) return;
+    if (!scope?.shopId) return false;
     const version = ++this.version;
     this.checkingScope.set(scope);
     try {
@@ -49,11 +49,16 @@ export class SaleLicenceGateService {
           result.shopId === scope.shopId && typeof result.enforced === 'boolean' &&
           Number.isFinite(Date.parse(result.authorityVerifiedAt)) && Number.isFinite(Date.parse(result.validUntil))) {
         this.denial.set(null);
+        return true;
       }
+      return false;
     } catch (error) {
-      if (!this.isCurrent(scope, version) || !(error instanceof TradingAuthorityReadError)) return;
-      if (error.enforced === false) this.denial.set(null);
-      if (error.enforced === true) this.applyReadDenial(scope, error.failure);
+      if (!this.isCurrent(scope, version) || !(error instanceof TradingAuthorityReadError)) return false;
+      if (error.enforced === false) {
+        this.denial.set(null);
+        return true;
+      }
+      return error.enforced === true && this.applyReadDenial(scope, error.failure);
     } finally {
       if (version === this.version) this.checkingScope.set(null);
     }
@@ -71,10 +76,12 @@ export class SaleLicenceGateService {
     this.denial.set({ scope, key });
   }
 
-  private applyReadDenial(scope: ShopScope, failure: TradingAuthorityFailure): void {
+  private applyReadDenial(scope: ShopScope, failure: TradingAuthorityFailure): boolean {
     if (failure === 'expired' || failure === 'restricted' || failure === 'pending' || failure === 'unavailable') {
       this.denial.set({ scope, key: messagePrefix + failure });
+      return true;
     }
+    return false;
   }
 
   private isCurrent(scope: ShopScope, version: number): boolean {

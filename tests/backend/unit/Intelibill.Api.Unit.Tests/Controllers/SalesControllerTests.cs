@@ -181,6 +181,15 @@ public sealed class SalesControllerTests : IDisposable
         };
     }
 
+    private void SetScopedSession(Guid userId, Guid shopId, Guid sessionId) =>
+        SetUserClaims(
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim("sid", sessionId.ToString()),
+            new Claim("security_version", "1"),
+            new Claim("scope_version", "2"),
+            new Claim("active_shop_id", shopId.ToString()),
+            new Claim("active_shop_role", "Owner"));
+
     private static RecordSaleRequest CreateRequest(
         Guid? inventoryBatchId = null,
         IReadOnlyList<CreditNoteRedemptionRequest>? creditNoteRedemptions = null,
@@ -403,9 +412,8 @@ public sealed class SalesControllerTests : IDisposable
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
         var batchId = Guid.NewGuid();
-        SetUserClaims(
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim("active_shop_id", shopId.ToString()));
+        var sessionId = Guid.NewGuid();
+        SetScopedSession(userId, shopId, sessionId);
 
         var request = CreateRequest(batchId);
         var dto = CreateDto();
@@ -421,6 +429,7 @@ public sealed class SalesControllerTests : IDisposable
         await _bus.Received(1).InvokeAsync<ErrorOr<SaleDto>>(
             Arg.Is<RecordSaleCommand>(c =>
                 c.ActorUserId == userId
+                && c.Session.SessionId == sessionId
                 && c.ShopId == shopId
                 && !string.IsNullOrWhiteSpace(c.IdempotencyKey)
                 && c.PaymentMethod == PaymentMethod.Cash
@@ -438,9 +447,7 @@ public sealed class SalesControllerTests : IDisposable
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
         var batchId = Guid.NewGuid();
-        SetUserClaims(
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim("active_shop_id", shopId.ToString()));
+        SetScopedSession(userId, shopId, Guid.NewGuid());
 
         var request = CreateRequest(
             batchId,
@@ -471,9 +478,7 @@ public sealed class SalesControllerTests : IDisposable
     {
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
-        SetUserClaims(
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim("active_shop_id", shopId.ToString()));
+        SetScopedSession(userId, shopId, Guid.NewGuid());
 
         var request = CreateRequest(
             creditNoteRedemptions: [new CreditNoteRedemptionRequest("CN-001", 10m)],
@@ -568,9 +573,7 @@ public sealed class SalesControllerTests : IDisposable
     {
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
-        SetUserClaims(
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim("active_shop_id", shopId.ToString()));
+        SetScopedSession(userId, shopId, Guid.NewGuid());
 
         _bus.InvokeAsync<ErrorOr<SaleDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(Errors.Sale.ItemNotFound("BC-999"));
@@ -586,9 +589,7 @@ public sealed class SalesControllerTests : IDisposable
     {
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
-        SetUserClaims(
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim("active_shop_id", shopId.ToString()));
+        SetScopedSession(userId, shopId, Guid.NewGuid());
 
         _bus.InvokeAsync<ErrorOr<SaleDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(Errors.Sale.InsufficientStock("BC-001", "B-01"));

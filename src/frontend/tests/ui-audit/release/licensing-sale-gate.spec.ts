@@ -25,7 +25,7 @@ const json = (route: Route, body: unknown, status = 200) =>
 
 async function installFixture(page: Page) {
   await accessibilityFixtures(page);
-  const state = { phase: 'verified' as Phase, mode: 'normal' as PostMode };
+  const state = { phase: 'verified' as Phase, mode: 'normal' as PostMode, membershipDenied: false };
   const log: {
     method: string; status: number | 'lost'; key?: string; hash?: string; code?: string;
     lineTypes?: string[];
@@ -55,7 +55,7 @@ async function installFixture(page: Page) {
     const key = decodeURIComponent(new URL(route.request().url()).pathname.split('/').at(-1)!);
     const found = committed.has(key);
     log.push({ method: 'lookup', key, status: found ? 200 : 404 });
-    return json(route, found ? { saleId: SALE.saleId } : { code: 'Sale.IdempotencyKeyNotFound' }, found ? 200 : 404);
+    return json(route, found ? SALE : { code: 'Sale.IdempotencyKeyNotFound' }, found ? 200 : 404);
   });
   await page.route('**/api/sales', async (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
@@ -63,6 +63,11 @@ async function installFixture(page: Page) {
     const key = body.idempotencyKey;
     const hash = createHash('sha256').update(route.request().postData()!).digest('hex');
     const event = { method: 'sale', key, hash, lineTypes: body.items.map((line) => line.lineType) };
+    if (state.membershipDenied) {
+      const denied = { status: 403, code: 'Till.Forbidden' };
+      log.push({ ...event, ...denied });
+      return json(route, denied, denied.status);
+    }
     if (committed.has(key)) {
       expect(hash).toBe(committed.get(key));
       log.push({ ...event, status: 201 });
@@ -203,6 +208,37 @@ for (const committed of [true, false]) {
   });
 }
 
+test('P04-05 lost checkout stays recoverable after membership denial and reload', async ({ page }) => {
+  await page.goto(server.origin + '/sales/new');
+  await addLine(page, 'A11Y');
+  await expect(page.getByTestId('checkout-economics')).toContainText('50.00');
+  fixture.state.mode = 'drop-after-commit';
+  await submit(page).click();
+  await expect(pending(page)).toContainText('Unconfirmed');
+  expect(fixture.committed.size).toBe(1);
+
+  fixture.state.membershipDenied = true;
+  await pending(page).getByRole('button', { name: 'Retry same checkout' }).click();
+  await expect.poll(() => fixture.posts().at(-1)?.code).toBe('Till.Forbidden');
+  await expect(pending(page)).toContainText('Unconfirmed');
+
+  fixture.state.membershipDenied = false;
+  await page.reload();
+  await expect(pending(page)).toContainText('Unconfirmed');
+  await expect(pending(page).getByText('Current cart')).toBeVisible();
+  await submit(page).click();
+  await expect(page.getByText('This cart is already a checkout awaiting confirmation.', { exact: false })).toBeVisible();
+  await pending(page).getByRole('button', { name: 'Check status' }).click();
+  await expect(page.getByRole('dialog', { name: 'Sale Recorded' })).toContainText(SALE.invoiceNumber);
+
+  const [first, retry] = fixture.posts();
+  expect(fixture.posts()).toHaveLength(2);
+  expect(retry).toMatchObject({ key: first.key, hash: first.hash, status: 403 });
+  expect(fixture.log.filter((event) => event.method === 'lookup'))
+    .toEqual([{ method: 'lookup', key: first.key, status: 200 }]);
+  expect(fixture.committed.size).toBe(1);
+});
+
 test('P04-05 verification outage keeps the cart and gives its own recovery guidance', async ({ page }, info) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(server.origin + '/sales/new');
@@ -221,6 +257,38 @@ test('P04-05 verification outage keeps the cart and gives its own recovery guida
   await page.getByRole('button', { name: 'Check again', exact: true }).click();
   await expect(submit(page)).toBeEnabled();
   await expect(page.getByText(OUTAGE, { exact: false })).toHaveCount(0);
+});
+
+test('P04-05 refreshed authority replaces an expired POST message with the current decision', async ({ page }) => {
+  await page.goto(server.origin + '/sales/new');
+  await addLine(page, 'A11Y');
+  await expect(page.getByTestId('checkout-economics')).toContainText('50.00');
+  const checkAgain = page.getByRole('button', { name: 'Check again', exact: true });
+  const quantity = page.locator('app-cart-table app-quantity-field input');
+  const expired = page.getByText(EXPIRED, { exact: false });
+  const outage = page.getByText(OUTAGE, { exact: false });
+
+  fixture.state.phase = 'expired';
+  await submit(page).click();
+  await expect(expired).toHaveCount(1);
+  await expect(outage).toHaveCount(0);
+  await expect(quantity).toHaveValue('1');
+  await expect(submit(page)).toBeDisabled();
+
+  fixture.state.phase = 'outage';
+  await checkAgain.click();
+  await expect(outage).toHaveCount(1);
+  await expect(expired).toHaveCount(0);
+  await expect(quantity).toHaveValue('1');
+  await expect(submit(page)).toBeDisabled();
+
+  fixture.state.phase = 'verified';
+  await checkAgain.click();
+  await expect(submit(page)).toBeEnabled();
+  await expect(expired).toHaveCount(0);
+  await expect(outage).toHaveCount(0);
+  await expect(quantity).toHaveValue('1');
+  expect(fixture.posts().map(({ status }) => status)).toEqual([403]);
 });
 
 test('P04-05 observe-only expiry leaves checkout available', async ({ page }) => {
