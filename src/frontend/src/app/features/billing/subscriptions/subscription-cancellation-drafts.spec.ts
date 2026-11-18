@@ -10,6 +10,8 @@ const command: CancellationCommand = {
 };
 
 describe('SubscriptionCancellationDrafts', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it('retains the first accepted payload across concurrent preparation and reload', async () => {
     stubMemoryStorage();
     let queue: Promise<unknown> = Promise.resolve();
