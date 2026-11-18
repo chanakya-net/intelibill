@@ -16,7 +16,7 @@ using static Intelibill.Application.Common.Licensing.LicenceOutcome;
 
 namespace Intelibill.Integration.Tests;
 
-public sealed class P0401LicensingTests
+public sealed partial class P0401LicensingTests
 {
     private static readonly DateTimeOffset Deadline = new(2026, 11, 18, 12, 0, 0, TimeSpan.Zero);
 
@@ -104,9 +104,10 @@ public sealed class P0401LicensingTests
     }
 
     [Collection("Integration Tests")]
-    public sealed class PostgreSql(PostgreSqlTestFixture fixture)
+    public sealed partial class PostgreSql(PostgreSqlTestFixture fixture)
     {
         private readonly TestClock _clock = new(Deadline.AddMinutes(-1));
+        private string? _isolatedDatabase;
         private static CancellationToken Ct => CancellationToken.None;
 
         [Fact]
@@ -334,9 +335,15 @@ public sealed class P0401LicensingTests
             return binding;
         }
 
-        private ApplicationDbContext CreateDb(bool owner = false) => new(new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseNpgsql(owner ? fixture.MigratorConnectionString : fixture.RuntimeConnectionString)
-            .UseSnakeCaseNamingConvention().Options);
+        private string MigratorConnection => _isolatedDatabase is null
+            ? fixture.MigratorConnectionString
+            : SharedPostgres.ConnectionStringFor(_isolatedDatabase);
+
+        private ApplicationDbContext CreateDb(bool owner = false) =>
+            Open(owner ? MigratorConnection : RestrictedRuntimeRole.ConnectionStringFor(MigratorConnection));
+
+        private static ApplicationDbContext Open(string connection) => new(new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseNpgsql(connection).UseSnakeCaseNamingConvention().Options);
 
         private static async Task<IDbContextTransaction> BeginScopedAsync(ApplicationDbContext db, Guid shop)
         {
@@ -345,10 +352,10 @@ public sealed class P0401LicensingTests
             return tx;
         }
 
-        private async Task WaitForBlockAsync(Task operation, int waiter, int blocker, string message)
+        private async Task WaitForBlockAsync(Task operation, int waiter, int blocker, string message, int seconds = 2)
         {
             await using var observer = CreateDb(owner: true);
-            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(seconds));
             while (!await observer.Database.SqlQuery<bool>($"""
                 SELECT {blocker} = ANY(pg_blocking_pids({waiter})) AS "Value"
                 """).SingleAsync(deadline.Token))
