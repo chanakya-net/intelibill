@@ -59,7 +59,7 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
     }
 
     // The account head may rest on a sibling shop's evidence, which row security rightly hides from this shop.
-    private async Task<LicenseProofIssuance?> ReadProofIssuanceAsync(Guid shopId, CancellationToken ct) =>
+    internal async Task<LicenseProofIssuance?> ReadProofIssuanceAsync(Guid shopId, CancellationToken ct) =>
         (await db.Database.SqlQuery<LicenseProofIssuance>(
             $"SELECT * FROM public.merchant_licence_proof_issuance({shopId})").ToListAsync(ct)).SingleOrDefault();
 

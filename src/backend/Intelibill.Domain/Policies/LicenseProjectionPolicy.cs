@@ -25,10 +25,8 @@ public static class LicenseProjectionPolicy
     /// A verification cannot postdate the signature carrying it. Both instants come from the licensing clock,
     /// so a later stamp stays incoherent however far the merchant clock advances.
     /// </summary>
-    public static bool ProofsPrecedeIssuance(ShopLicenseState shop, AccountLicenseRestriction account, LicenseProofIssuance? proofs) =>
-        proofs is { ShopIssuedAt: { } shopIssued, AccountIssuedAt: { } accountIssued } &&
-        shop.UpstreamVerifiedAt < shopIssued + AssertionPrecision &&
-        account.UpstreamVerifiedAt < accountIssued + AssertionPrecision;
+    public static bool PrecedesIssuance(DateTimeOffset verifiedAt, DateTimeOffset? issuedAt) =>
+        issuedAt.HasValue && verifiedAt - issuedAt.Value < AssertionPrecision;
 
     public static LicenseProjectionDecision Evaluate(ShopLicenseState? shop, AccountLicenseRestriction? account,
         DateTimeOffset now, TimeSpan freshness)

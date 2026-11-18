@@ -137,11 +137,11 @@ public sealed partial class P0402LicensingTests
     private static HttpClient CreateClient(ApiWebApplicationFactory factory) =>
         factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new("https://localhost"), AllowAutoRedirect = false });
 
-    private async Task<Binding> BindShopAsync(Guid shop)
+    private async Task<Binding> BindShopAsync(Guid shop, Guid? account = null)
     {
         await using var owner = CreateDb(owner: true);
         var membership = await owner.ShopMemberships.SingleAsync(x => x.ShopId == shop, Ct);
-        return await BindAsync(owner, membership, "P04-02 merchant");
+        return await BindAsync(owner, membership, "P04-02 merchant", account);
     }
 
     private static async Task<(Guid Shop, string Token)> EnrollShopAsync(HttpClient client)
@@ -208,7 +208,7 @@ public sealed partial class P0402LicensingTests
             binding.AccountId, binding.ShopId, binding.RequestId, new(1, verified, "Unrestricted", null),
             new(1, verified, state, binding.TermId, "Paid", boundary, null, boundary, 2, 3)), EntitlementSnapshotsV1.Json);
 
-    private async Task<byte[]> PostSnapshotAsync(HttpClient client, RSA signer, byte[] body)
+    private async Task<byte[]> PostSnapshotAsync(HttpClient client, RSA signer, byte[] body, string expectedOutcome = "Applied")
     {
         var path = EntitlementSnapshotsV1.SnapshotPath;
         var token = await SignedServiceAssertion.SignAsync(SignedServiceAssertion.LicensingDelivery, "p0402-source", path, body,
@@ -216,7 +216,7 @@ public sealed partial class P0402LicensingTests
         using var response = await LeasedHttpDeliveryPump.PostAsync(client, client.BaseAddress!, path, body, token, Ct);
         Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync(Ct));
         var receipt = await response.Content.ReadAsByteArrayAsync(Ct);
-        Assert.Equal("Applied", JsonSerializer.Deserialize<EntitlementAcknowledgementV1>(receipt, EntitlementSnapshotsV1.Json)?.Outcome);
+        Assert.Equal(expectedOutcome, JsonSerializer.Deserialize<EntitlementAcknowledgementV1>(receipt, EntitlementSnapshotsV1.Json)?.Outcome);
         return receipt;
     }
 

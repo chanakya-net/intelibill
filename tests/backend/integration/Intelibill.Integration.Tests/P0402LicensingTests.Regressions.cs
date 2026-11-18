@@ -9,6 +9,8 @@ using Intelibill.Shared.Contracts.V1;
 using Intelibill.Shared.Security;
 using Intelibill.Shared.Web.Delivery;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using static Intelibill.Application.Common.Licensing.LicenceOutcome;
 
 namespace Intelibill.Integration.Tests;
@@ -47,6 +49,75 @@ public sealed partial class P0402LicensingTests
         _clock.Now = coherent;
         await PostSnapshotAsync(afterRestart, signer, SnapshotBody(binding, coherent, receivedAt.AddDays(10), revision: 2));
         await AssertTradingAsync(binding, coherent, Allowed);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Higher_revision_recovers_before_the_bad_stamp(bool firstGrantForSibling)
+    {
+        _clock.Now = EntitlementSnapshotsV1.Instant(TimeProvider.System);
+        using var signer = RSA.Create(2048);
+        using var host = MerchantHost(signer, new());
+        await host.InitializeAsync();
+        using var client = CreateClient(host);
+        var (shop, _) = await EnrollShopAsync(client);
+        var original = await BindShopAsync(shop);
+        var received = _clock.Now;
+        var end = received.AddDays(10);
+        var badBody = SnapshotBody(original, received.AddDays(1), end);
+        await using var migrator = CreateDb(owner: true);
+        await migrator.GetService<IMigrator>().MigrateAsync("20261118090000_BoundMerchantEntitlementReconciliation", Ct);
+        var receipt = await PostSnapshotAsync(client, signer, badBody);
+        await migrator.Database.MigrateAsync(Ct);
+        await AssertAuthorityCodeAsync(client, shop, HttpStatusCode.ServiceUnavailable, Unavailable);
+
+        var target = firstGrantForSibling ? await SeedAsync(original.AccountId) : original;
+        var corrected = received.AddMinutes(1);
+        _clock.Now = corrected;
+        // A less distant but still impossible stamp cannot repair the retained one.
+        await PostSnapshotAsync(client, signer, SnapshotBody(target, corrected.AddHours(1), end, revision: 2), "NeedsReview");
+        await PostSnapshotAsync(client, signer, SnapshotBody(target, corrected, end, revision: 2));
+        // A valid head once again provides a monotonic floor for later revisions.
+        await PostSnapshotAsync(client, signer, SnapshotBody(target, received, end, revision: 3), "NeedsReview");
+        Assert.Equal(receipt, await PostSnapshotAsync(client, signer, badBody));
+        var proof = await ReadProofAsync(target);
+        Assert.Equal(corrected, proof.AccountAt);
+        Assert.Equal(corrected, proof.ShopAt);
+        await AssertTradingAsync(target, corrected, Allowed);
+        if (firstGrantForSibling)
+            await AssertTradingAsync(original, corrected, Blocked, Unavailable);
+        await AssertTradingAsync(target, corrected.AddHours(48).AddMicroseconds(-1), Allowed);
+        await AssertTradingAsync(target, corrected.AddHours(48), Blocked, Unavailable);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Signed_expiry_survives_an_incoherent_sibling_account_head(bool coherentExpiry)
+    {
+        _clock.Now = EntitlementSnapshotsV1.Instant(TimeProvider.System);
+        using var signer = RSA.Create(2048);
+        using var host = MerchantHost(signer, new());
+        await host.InitializeAsync();
+        using var expiredClient = CreateClient(host);
+        using var activeClient = CreateClient(host);
+        var (expiredShop, _) = await EnrollShopAsync(expiredClient);
+        var (activeShop, _) = await EnrollShopAsync(activeClient);
+        var expired = await BindShopAsync(expiredShop);
+        var active = await BindShopAsync(activeShop, expired.AccountId);
+        var expiryStamp = coherentExpiry ? _clock.Now : _clock.Now.AddDays(1);
+        var expectedStatus = coherentExpiry ? HttpStatusCode.Forbidden : HttpStatusCode.ServiceUnavailable;
+        var expectedCode = coherentExpiry ? "Licence.Expired" : Unavailable;
+        await PostSnapshotAsync(expiredClient, signer, WaitingSnapshotBody(expired, expiryStamp, "Expired", null));
+        await AssertAuthorityCodeAsync(expiredClient, expiredShop, expectedStatus, expectedCode);
+
+        var snapshot = JsonSerializer.Deserialize<EntitlementSnapshotV1>(
+            SnapshotBody(active, _clock.Now, _clock.Now.AddDays(10)), EntitlementSnapshotsV1.Json)!;
+        var badAccount = snapshot with { Account = new(2, _clock.Now.AddDays(1), "Unrestricted", null) };
+        await PostSnapshotAsync(activeClient, signer, JsonSerializer.SerializeToUtf8Bytes(badAccount, EntitlementSnapshotsV1.Json));
+        await AssertAuthorityCodeAsync(activeClient, activeShop, HttpStatusCode.ServiceUnavailable, Unavailable);
+        await AssertAuthorityCodeAsync(expiredClient, expiredShop, expectedStatus, expectedCode);
     }
 
     [Theory]
@@ -131,6 +202,7 @@ public sealed partial class P0402LicensingTests
                 EXECUTE format('ALTER TABLE %s OWNER TO p0402_schema_owner', policy.relation);
             END LOOP;
         END $$;
+        GRANT SELECT ON public.shop_affiliation_consent_events TO p0402_schema_owner;
         ALTER FUNCTION public.merchant_licence_proof_issuance(uuid) OWNER TO p0402_schema_owner;
         """;
 

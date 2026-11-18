@@ -90,7 +90,18 @@ describe('subscription status', () => {
       .toContain('10 Feb 2027, 05:30:00 IST');
   });
 
+  it('shows a positive one-microsecond authority interval', () => {
+    const { page } = render({ tradingAuthority: () => of(authority(shopA, {
+      authorityVerifiedAt: '2027-02-10T00:00:00.000001Z', validUntil: '2027-02-10T00:00:00.000002Z',
+    })), shop: () => of(status(shopA)) });
+    expect(page.querySelector(authorityDeadline)?.textContent).toContain('05:30:00.000002 IST');
+  });
+
   it.each([
+    ['an inverted microsecond interval', () => authority(shopA, {
+      authorityVerifiedAt: '2027-02-10T00:00:00.000002Z', validUntil: '2027-02-10T00:00:00.000001Z' })],
+    ['a zero interval', () => authority(shopA, { validUntil: '2027-02-08T00:00:00Z' })],
+    ['48 hours plus one microsecond', () => authority(shopA, { validUntil: '2027-02-10T00:00:00.000001Z' })],
     ['an empty success', () => null],
     ['no verification time', () => { const { authorityVerifiedAt: _omitted, ...rest } = authority(shopA); return rest; }],
     ['an unparseable deadline', () => authority(shopA, { validUntil: 'soon' })],

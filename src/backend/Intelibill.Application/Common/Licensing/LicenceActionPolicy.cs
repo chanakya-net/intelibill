@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using LicenceErrors = Intelibill.Application.Common.Errors.Errors.Licence;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Policies;
@@ -48,12 +47,17 @@ public sealed class LicenceActionPolicy : ILicenceActionPolicy
             return Phase.AwaitingVerification;
 
         var waiting = shop.State is "PendingActivation" or "Scheduled";
-        if (!IsCoherent(shop, account, proofs, now))
+        var shopVerified = shop.UpstreamVerifiedAt <= now &&
+            LicenseProjectionPolicy.PrecedesIssuance(shop.UpstreamVerifiedAt, proofs?.ShopIssuedAt);
+        if (shopVerified && shop.State == "Expired")
+            return Phase.Expired;
+        if (!shopVerified || account is null || account.AccountId != shop.AccountId || account.UpstreamVerifiedAt > now ||
+            !LicenseProjectionPolicy.PrecedesIssuance(account.UpstreamVerifiedAt, proofs?.AccountIssuedAt))
             return waiting ? Phase.AwaitingVerification : Phase.Unverified;
         if (waiting)
             return now < LicenseProjectionPolicy.ValidUntil(shop, account, EntitlementSnapshotsV1.Freshness)
                 ? Phase.Pending : Phase.AwaitingVerification;
-        if (shop.State is not ("Active" or "Grace" or "Expired"))
+        if (shop.State is not ("Active" or "Grace"))
             return Phase.Unverified;
 
         return LicenseProjectionPolicy.Evaluate(shop, account, now, EntitlementSnapshotsV1.Freshness) switch
@@ -63,12 +67,6 @@ public sealed class LicenceActionPolicy : ILicenceActionPolicy
             _ => Phase.Unverified,
         };
     }
-
-    private static bool IsCoherent(ShopLicenseState shop, [NotNullWhen(true)] AccountLicenseRestriction? account,
-        LicenseProofIssuance? proofs, DateTimeOffset now) =>
-        account is not null && shop.AccountId == account.AccountId &&
-        shop.UpstreamVerifiedAt <= now && account.UpstreamVerifiedAt <= now &&
-        LicenseProjectionPolicy.ProofsPrecedeIssuance(shop, account, proofs);
 
     private static Row ForAction(LicenceAction action) => action switch
     {

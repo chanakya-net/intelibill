@@ -22,6 +22,7 @@ public sealed class BoundMerchantEntitlementReconciliation : Migration
             ALTER TABLE public.entitlement_reconciliation_requests ALTER COLUMN last_queued_at SET NOT NULL;
             """);
         migrationBuilder.Sql(BoundSchedule);
+        migrationBuilder.Sql(ProofAccess);
         migrationBuilder.Sql(ProofIssuance);
         migrationBuilder.Sql(MinuteScan);
     }
@@ -30,21 +31,8 @@ public sealed class BoundMerchantEntitlementReconciliation : Migration
     // predecessor's refusal. Refuse here first, exactly as that migration does.
     protected override void Down(MigrationBuilder migrationBuilder)
     {
+        migrationBuilder.Sql(RefusePopulatedDowngrade);
         migrationBuilder.Sql("""
-            LOCK TABLE public.shop_license_states, public.license_grant_evidence, public.entitlement_messages
-                IN ACCESS EXCLUSIVE MODE;
-            ALTER TABLE public.shop_license_states NO FORCE ROW LEVEL SECURITY;
-            ALTER TABLE public.license_grant_evidence NO FORCE ROW LEVEL SECURITY;
-            ALTER TABLE public.entitlement_messages NO FORCE ROW LEVEL SECURITY;
-            DO $$ BEGIN
-                IF EXISTS (SELECT FROM public.license_grant_evidence) OR EXISTS (SELECT FROM public.shop_license_states)
-                    OR EXISTS (SELECT FROM public.entitlement_messages) THEN
-                    RAISE EXCEPTION 'Retained entitlement evidence prevents downgrade' USING ERRCODE = '55000';
-                END IF;
-            END $$;
-            ALTER TABLE public.shop_license_states FORCE ROW LEVEL SECURITY;
-            ALTER TABLE public.license_grant_evidence FORCE ROW LEVEL SECURITY;
-            ALTER TABLE public.entitlement_messages FORCE ROW LEVEL SECURITY;
             DROP FUNCTION public.merchant_licence_proof_issuance(uuid);
             ALTER POLICY license_grant_evidence_shop_isolation ON public.license_grant_evidence
                 USING (shop_id = nullif(current_setting('app.active_shop_id', true), '')::uuid);
@@ -57,6 +45,23 @@ public sealed class BoundMerchantEntitlementReconciliation : Migration
             ALTER TABLE public.entitlement_outbox DROP COLUMN ack_confirmed_at;
             """);
     }
+
+    internal const string RefusePopulatedDowngrade = """
+        LOCK TABLE public.shop_license_states, public.license_grant_evidence, public.entitlement_messages
+            IN ACCESS EXCLUSIVE MODE;
+        ALTER TABLE public.shop_license_states NO FORCE ROW LEVEL SECURITY;
+        ALTER TABLE public.license_grant_evidence NO FORCE ROW LEVEL SECURITY;
+        ALTER TABLE public.entitlement_messages NO FORCE ROW LEVEL SECURITY;
+        DO $$ BEGIN
+            IF EXISTS (SELECT FROM public.license_grant_evidence) OR EXISTS (SELECT FROM public.shop_license_states)
+                OR EXISTS (SELECT FROM public.entitlement_messages) THEN
+                RAISE EXCEPTION 'Retained entitlement evidence prevents downgrade' USING ERRCODE = '55000';
+            END IF;
+        END $$;
+        ALTER TABLE public.shop_license_states FORCE ROW LEVEL SECURITY;
+        ALTER TABLE public.license_grant_evidence FORCE ROW LEVEL SECURITY;
+        ALTER TABLE public.entitlement_messages FORCE ROW LEVEL SECURITY;
+        """;
 
     // A previous-release worker still writes "queued + 1 hour" and knows nothing of last_queued_at. Its INSERT
     // leaves the column null. Its upsert keeps the old value, and EXCLUDED already carries the bounded time.
@@ -80,13 +85,16 @@ public sealed class BoundMerchantEntitlementReconciliation : Migration
     // Returns signing times only, for the active shop's own heads, so the runtime needs no separate grant.
     // The owner clause matches the head tables and lets this definer reach a sibling's evidence row without
     // exposing that row to any shop session.
-    private const string ProofIssuance = """
+    private const string ProofAccess = """
         DO $$ BEGIN
             EXECUTE format($policy$ALTER POLICY license_grant_evidence_shop_isolation ON public.license_grant_evidence
                 USING (shop_id = nullif(current_setting('app.active_shop_id', true), '')::uuid OR current_user = %L)$policy$,
                 current_user);
         END $$;
-        CREATE FUNCTION public.merchant_licence_proof_issuance(p_shop_id uuid)
+        """;
+
+    internal const string ProofIssuance = """
+        CREATE OR REPLACE FUNCTION public.merchant_licence_proof_issuance(p_shop_id uuid)
         RETURNS TABLE (shop_issued_at timestamptz, account_issued_at timestamptz)
         LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
             SELECT se.issued_at, ae.issued_at
