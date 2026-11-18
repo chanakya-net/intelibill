@@ -1,6 +1,8 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Licensing.Application.Payments;
+using Intelibill.Shared.Contracts.V1;
 using Microsoft.Extensions.DependencyInjection;
 using static Intelibill.Licensing.Integration.Tests.P0302Fixture;
 
@@ -23,11 +25,8 @@ public sealed partial class P0312Tests
         var key = Guid.NewGuid();
         var attempt = (await StartAsync(purchase.Payer.Client, purchase.Quote, HttpStatusCode.Created, key)).GetProperty("attemptId").GetGuid();
         var reference = Assert.IsType<string>(probe.OriginalReference);
-        await VerifyAsync(purchase.Payer.Client, purchase.Quote, attempt);
-        clock.Now += TimeSpan.FromSeconds(30);
-        var lease = Assert.IsType<PendingPaymentLease>(await P0303Tests.ClaimAsync(fixture.Hosts.Licensing.Services, clock));
-        Assert.Equal(attempt, lease.AttemptId);
-        Assert.False(await P0303Tests.ApplyLeaseAsync(fixture.Hosts.Licensing.Services, lease));
+        Assert.Single(probe.Observations, call => call.StartsWith("create:", StringComparison.Ordinal));
+        await RecoverUnknownAsync(fixture, purchase, probe, attempt);
         await AssertUnknownAsync(fixture, purchase, attempt, key);
         await SelectAsync(owner, "b", 1);
         var next = await fixture.AcceptedQuoteAsync(1);
@@ -35,8 +34,14 @@ public sealed partial class P0312Tests
         probe.LoseCreateResponse = false;
         await StartAsync(next.Payer.Client, next.Quote, HttpStatusCode.Created);
         probe.Account = purchase.Account;
+        await RecoverUnknownAsync(fixture, purchase, probe, attempt);
+        Assert.Equal(4, probe.LookupCalls);
+        Assert.All(probe.LookupPins, pin => Assert.Equal(P0310Tests.A, pin));
+        await RefuseReplacementAsync(fixture, purchase, attempt);
         await AssertUnknownAsync(fixture, purchase, attempt, key);
-        await ObserveAsync(fixture, purchase, "switch-unknown", new { key, attempt, reference, probe.LookupCalls });
+        var createCalls = probe.Observations.Count(call => call.StartsWith("create:", StringComparison.Ordinal));
+        Assert.Equal(2, createCalls);
+        await ObserveAsync(fixture, purchase, "switch-unknown", new { key, attempt, reference, probe.LookupCalls, probe.LookupPins, createCalls });
         await SettleOriginalAsync(fixture, purchase, probe, attempt, reference, settings["FixtureSecrets:A"]!);
         await AssertPackageAsync(fixture, purchase);
         var receipts = await ConfirmationsAsync(purchase);
@@ -50,7 +55,30 @@ public sealed partial class P0312Tests
         await AssertDeliveryAsync(fixture, purchase, 3);
         await VerifyAsync(purchase.Payer.Client, purchase.Quote, attempt);
         await AssertSameConfirmationsAsync(purchase, receipts);
-        await ObserveAsync(fixture, purchase, "switch-applied");
+        Assert.Equal(2, probe.Observations.Count(call => call.StartsWith("create:", StringComparison.Ordinal)));
+        await ObserveAsync(fixture, purchase, "switch-applied", new { createCalls });
+    }
+
+    private static async Task RecoverUnknownAsync(P0302Fixture fixture, Purchase purchase, P0302Tests.GatewayProbe probe, Guid attempt)
+    {
+        var lookups = probe.LookupCalls;
+        await VerifyAsync(purchase.Payer.Client, purchase.Quote, attempt);
+        Assert.Equal(lookups + 1, probe.LookupCalls);
+        fixture.CheckoutClock.Now += TimeSpan.FromSeconds(30);
+        var lease = Assert.IsType<PendingPaymentLease>(await P0303Tests.ClaimAsync(fixture.Hosts.Licensing.Services, fixture.CheckoutClock));
+        Assert.Equal(attempt, lease.AttemptId);
+        Assert.False(await P0303Tests.ApplyLeaseAsync(fixture.Hosts.Licensing.Services, lease));
+        Assert.Equal(lookups + 2, probe.LookupCalls);
+    }
+
+    private static async Task RefuseReplacementAsync(P0302Fixture fixture, Purchase purchase, Guid attempt)
+    {
+        using var replacement = await purchase.Payer.Client.PostAsJsonAsync(AttemptsPath(purchase.Quote), Start(purchase.Quote));
+        Assert.Equal(HttpStatusCode.Conflict, replacement.StatusCode);
+        Assert.Equal(CheckoutPaymentsV1.AlreadyStarted, await P0206Fixture.CodeAsync(replacement));
+        var original = $"attempt_id IN (SELECT attempt_id FROM payment_attempts WHERE order_id = '{purchase.Quote.OrderId:D}')";
+        Assert.Equal(1L, await fixture.CountAsync("development_gateway_sessions", original));
+        Assert.Equal(1L, await fixture.CountAsync("development_gateway_sessions", $"{original} AND attempt_id = '{attempt:D}' AND provider_account_id = 'simulator-a'"));
     }
 
     private static async Task SettleOriginalAsync(P0302Fixture fixture, Purchase purchase, P0302Tests.GatewayProbe probe,

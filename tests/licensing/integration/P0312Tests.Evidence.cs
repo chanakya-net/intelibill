@@ -115,7 +115,7 @@ public sealed partial class P0312Tests
         foreach (var table in new[] { "payment_attempts", "verified_payments", "manual_payment_receipts",
             "payment_fulfilments", "payment_fulfilment_shops", "payment_fulfilment_deliveries", "payment_confirmations", "unmatched_payments" })
             counts[table] = await fixture.CountAsync(table, order);
-        counts["providerCreates"] = await fixture.CountAsync("development_gateway_sessions", $"attempt_id IN (SELECT attempt_id FROM payment_attempts WHERE {order})");
+        counts["providerSessions"] = await fixture.CountAsync("development_gateway_sessions", $"attempt_id IN (SELECT attempt_id FROM payment_attempts WHERE {order})");
         counts["providerCaptures"] = await fixture.CountAsync("development_gateway_payments", $"provider_order_reference IN (SELECT provider_order_reference FROM development_gateway_sessions WHERE attempt_id IN (SELECT attempt_id FROM payment_attempts WHERE {order}))");
         var confirmations = await ConfirmationsAsync(purchase);
         var receipts = new List<object>();
