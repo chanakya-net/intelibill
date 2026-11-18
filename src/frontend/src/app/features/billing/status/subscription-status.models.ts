@@ -78,6 +78,20 @@ export interface ShopTradingAuthority {
   readonly enforced: boolean;
 }
 
+const INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
+
+function instantMillis(value: unknown): number {
+  return typeof value === 'string' && INSTANT.test(value) ? Date.parse(value) : Number.NaN;
+}
+
+/** A complete v1 grant for this shop. Anything else, including an empty success, proves no authority. */
+export function isShopTradingAuthority(value: unknown, shopId: string): value is ShopTradingAuthority {
+  if (typeof value !== 'object' || value === null) return false;
+  const body = value as { readonly [K in keyof ShopTradingAuthority]?: unknown };
+  return body.schemaVersion === 1 && body.shopId === shopId && typeof body.enforced === 'boolean'
+    && instantMillis(body.authorityVerifiedAt) <= instantMillis(body.validUntil);
+}
+
 export type TradingAuthorityFailure = StatusFailure | 'expired' | 'restricted' | 'pending' | 'busy';
 
 export const BILLING_TIME_ZONE = 'Asia/Kolkata';

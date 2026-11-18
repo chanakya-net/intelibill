@@ -12,9 +12,24 @@ public enum LicenseProjectionDecision
     VerificationRequired,
 }
 
+/// <summary>When licensing signed the retained evidence behind each head. Absent evidence proves nothing.</summary>
+public sealed record LicenseProofIssuance(DateTimeOffset? ShopIssuedAt, DateTimeOffset? AccountIssuedAt);
+
 /// <summary>Evaluates the retained account and shop proofs at a single instant.</summary>
 public static class LicenseProjectionPolicy
 {
+    // A v1 service assertion records its issue time in whole seconds, truncated.
+    private static readonly TimeSpan AssertionPrecision = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// A verification cannot postdate the signature carrying it. Both instants come from the licensing clock,
+    /// so a later stamp stays incoherent however far the merchant clock advances.
+    /// </summary>
+    public static bool ProofsPrecedeIssuance(ShopLicenseState shop, AccountLicenseRestriction account, LicenseProofIssuance? proofs) =>
+        proofs is { ShopIssuedAt: { } shopIssued, AccountIssuedAt: { } accountIssued } &&
+        shop.UpstreamVerifiedAt < shopIssued + AssertionPrecision &&
+        account.UpstreamVerifiedAt < accountIssued + AssertionPrecision;
+
     public static LicenseProjectionDecision Evaluate(ShopLicenseState? shop, AccountLicenseRestriction? account,
         DateTimeOffset now, TimeSpan freshness)
     {

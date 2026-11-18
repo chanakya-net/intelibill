@@ -8,7 +8,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import {
-  formatBillingInstant, type AccountTermStatus, type ShopSubscriptionStatus, type ShopTradingAuthority, type StatusFailure, type SubscriptionTermStatus,
+  formatBillingInstant, isShopTradingAuthority, type AccountTermStatus, type ShopSubscriptionStatus, type ShopTradingAuthority, type StatusFailure, type SubscriptionTermStatus,
   type TradingAuthorityFailure,
 } from './subscription-status.models';
 import { SubscriptionCancellationComponent } from '../subscriptions/subscription-cancellation.component';
@@ -105,8 +105,7 @@ export class SubscriptionStatusPageComponent {
     this.trading.set({ kind: 'loading' });
     const settle = (view: TradingAuthorityView) => generation === this.generation && this.trading.set(view);
     this.authorityRequest = this.api.tradingAuthority(shopId).subscribe({
-      next: authority => settle(authority.schemaVersion === 1 && authority.shopId === shopId &&
-        Number.isFinite(Date.parse(authority.validUntil))
+      next: authority => settle(isShopTradingAuthority(authority, shopId)
         ? { kind: 'verified', authority } : { kind: 'failed', failure: 'unavailable' }),
       error: (error: unknown) => settle({ kind: 'failed',
         failure: error instanceof TradingAuthorityReadError ? error.failure : 'unavailable' }),

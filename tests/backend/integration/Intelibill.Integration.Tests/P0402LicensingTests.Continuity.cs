@@ -198,10 +198,15 @@ public sealed partial class P0402LicensingTests
         return await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
     }
 
-    private static byte[] SnapshotBody(Binding binding, DateTimeOffset verified, DateTimeOffset end) =>
+    private static byte[] SnapshotBody(Binding binding, DateTimeOffset verified, DateTimeOffset end, long revision = 1) =>
+        JsonSerializer.SerializeToUtf8Bytes(new EntitlementSnapshotV1(1, EntitlementSnapshotsV1.PolicyVersion, Guid.NewGuid(),
+            binding.AccountId, binding.ShopId, binding.RequestId, new(revision, verified, "Unrestricted", null),
+            new(revision, verified, "Active", binding.TermId, "Paid", verified.AddDays(-1), end, end, 2, 3)), EntitlementSnapshotsV1.Json);
+
+    private static byte[] WaitingSnapshotBody(Binding binding, DateTimeOffset verified, string state, DateTimeOffset? boundary) =>
         JsonSerializer.SerializeToUtf8Bytes(new EntitlementSnapshotV1(1, EntitlementSnapshotsV1.PolicyVersion, Guid.NewGuid(),
             binding.AccountId, binding.ShopId, binding.RequestId, new(1, verified, "Unrestricted", null),
-            new(1, verified, "Active", binding.TermId, "Paid", verified.AddDays(-1), end, end, 2, 3)), EntitlementSnapshotsV1.Json);
+            new(1, verified, state, binding.TermId, "Paid", boundary, null, boundary, 2, 3)), EntitlementSnapshotsV1.Json);
 
     private async Task<byte[]> PostSnapshotAsync(HttpClient client, RSA signer, byte[] body)
     {

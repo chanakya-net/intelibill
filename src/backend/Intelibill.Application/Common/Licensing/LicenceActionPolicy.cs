@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using LicenceErrors = Intelibill.Application.Common.Errors.Errors.Licence;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Policies;
@@ -8,9 +9,10 @@ namespace Intelibill.Application.Common.Licensing;
 
 public sealed class LicenceActionPolicy : ILicenceActionPolicy
 {
-    public LicenceDecision Decide(LicenceAction action, ShopLicenseState? shop, AccountLicenseRestriction? account, DateTimeOffset now)
+    public LicenceDecision Decide(LicenceAction action, ShopLicenseState? shop, AccountLicenseRestriction? account,
+        LicenseProofIssuance? proofs, DateTimeOffset now)
     {
-        var phase = GetPhase(shop, account, now);
+        var phase = GetPhase(shop, account, proofs, now);
         var row = ForAction(action);
         var outcome = phase switch
         {
@@ -25,7 +27,7 @@ public sealed class LicenceActionPolicy : ILicenceActionPolicy
             Phase.Expired => LicenceErrors.Expired,
             Phase.TradingRestricted => LicenceErrors.TradingRestricted,
             Phase.SecuritySuspended => LicenceErrors.SecuritySuspended,
-            Phase.Unverified => LicenceErrors.VerificationUnavailable,
+            Phase.Unverified or Phase.AwaitingVerification => LicenceErrors.VerificationUnavailable,
             _ => LicenceErrors.PendingActivation,
         };
         return phase == Phase.Operating
@@ -35,17 +37,22 @@ public sealed class LicenceActionPolicy : ILicenceActionPolicy
             : new(outcome, shop?.EnforcementActivatedAt is not null, denial);
     }
 
-    private static Phase GetPhase(ShopLicenseState? shop, AccountLicenseRestriction? account, DateTimeOffset now)
+    private static Phase GetPhase(ShopLicenseState? shop, AccountLicenseRestriction? account,
+        LicenseProofIssuance? proofs, DateTimeOffset now)
     {
         if (account?.Restriction == "Security")
             return Phase.SecuritySuspended;
         if (account?.Restriction == "Trading" || shop?.State is "Suspended" or "Closed")
             return Phase.TradingRestricted;
-        if (shop is null || account is null || shop.AccountId != account.AccountId ||
-            shop.UpstreamVerifiedAt > now || account.UpstreamVerifiedAt > now)
-            return Phase.Unverified;
-        if (shop.State is "PendingActivation" or "Scheduled")
-            return shop.NextBoundary <= now ? Phase.Unverified : Phase.Pending;
+        if (shop is null)
+            return Phase.AwaitingVerification;
+
+        var waiting = shop.State is "PendingActivation" or "Scheduled";
+        if (!IsCoherent(shop, account, proofs, now))
+            return waiting ? Phase.AwaitingVerification : Phase.Unverified;
+        if (waiting)
+            return now < LicenseProjectionPolicy.ValidUntil(shop, account, EntitlementSnapshotsV1.Freshness)
+                ? Phase.Pending : Phase.AwaitingVerification;
         if (shop.State is not ("Active" or "Grace" or "Expired"))
             return Phase.Unverified;
 
@@ -56,6 +63,12 @@ public sealed class LicenceActionPolicy : ILicenceActionPolicy
             _ => Phase.Unverified,
         };
     }
+
+    private static bool IsCoherent(ShopLicenseState shop, [NotNullWhen(true)] AccountLicenseRestriction? account,
+        LicenseProofIssuance? proofs, DateTimeOffset now) =>
+        account is not null && shop.AccountId == account.AccountId &&
+        shop.UpstreamVerifiedAt <= now && account.UpstreamVerifiedAt <= now &&
+        LicenseProjectionPolicy.ProofsPrecedeIssuance(shop, account, proofs);
 
     private static Row ForAction(LicenceAction action) => action switch
     {
@@ -80,7 +93,8 @@ public sealed class LicenceActionPolicy : ILicenceActionPolicy
         _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Unclassified licence action."),
     };
 
-    private enum Phase { Pending, Unverified, Operating, Expired, TradingRestricted, SecuritySuspended }
+    // AwaitingVerification keeps the pending matrix row: only fresh authority can change a shop that has not started.
+    private enum Phase { Pending, AwaitingVerification, Unverified, Operating, Expired, TradingRestricted, SecuritySuspended }
 
     private readonly record struct Row(LicenceOutcome Pending, LicenceOutcome Operating, LicenceOutcome Restricted,
         LicenceOutcome SecuritySuspended);

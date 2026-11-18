@@ -37,12 +37,13 @@ public sealed partial class P0402LicensingTests(PostgreSqlTestFixture fixture)
         await AssertTradingAsync(binding, cap.AddMicroseconds(1), Blocked, "Licence.VerificationUnavailable");
     }
 
-    private async Task AssertTradingAsync(Binding binding, DateTimeOffset now, LicenceOutcome outcome, string? code = null)
+    private async Task AssertTradingAsync(Binding binding, DateTimeOffset now, LicenceOutcome outcome, string? code = null,
+        LicenceAction action = LicenceAction.NewTrading)
     {
         _clock.Now = now;
         await using var db = CreateDb();
         await using var transaction = await BeginScopedAsync(db, binding.ShopId);
-        var result = await EnterAsync(db, binding.ShopId);
+        var result = await EnterAsync(db, binding.ShopId, action);
         Assert.False(result.IsError, result.IsError ? result.FirstError.Code : null);
         Assert.Equal(outcome, result.Value.Decision.Outcome);
         Assert.Equal(code, result.Value.Decision.Denial?.Code);
@@ -53,12 +54,13 @@ public sealed partial class P0402LicensingTests(PostgreSqlTestFixture fixture)
         new ShopLicenceFence(db, new LicenceActionPolicy(), _clock).EnterAsync(shop, action, Ct);
 
     private async Task ApplyAsync(ApplicationDbContext db, Binding binding, DateTimeOffset accountVerified, DateTimeOffset shopVerified,
-        DateTimeOffset end, long shopRevision = 1, string restriction = "Unrestricted", long accountRevision = 1, DateTimeOffset? boundary = null)
+        DateTimeOffset end, long shopRevision = 1, string restriction = "Unrestricted", long accountRevision = 1, DateTimeOffset? boundary = null,
+        string state = "Active")
     {
         var now = _clock.GetUtcNow();
         var snapshot = new EntitlementSnapshotV1(1, EntitlementSnapshotsV1.PolicyVersion, Guid.NewGuid(),
             binding.AccountId, binding.ShopId, binding.RequestId, new(accountRevision, accountVerified, restriction, null),
-            new(shopRevision, shopVerified, "Active", binding.TermId, "Trial", VerifiedAt.AddDays(-1), end, boundary ?? end, 2, 3));
+            new(shopRevision, shopVerified, state, binding.TermId, "Trial", VerifiedAt.AddDays(-1), end, boundary ?? end, 2, 3));
         var body = JsonSerializer.SerializeToUtf8Bytes(snapshot, EntitlementSnapshotsV1.Json);
         var proof = new VerifiedServiceAssertion(Guid.NewGuid(), "test-key", "test-public-key", now, now.AddMinutes(1),
             SignedServiceAssertion.Digest(body), "fixture-verified-assertion");
