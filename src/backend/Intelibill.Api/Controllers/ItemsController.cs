@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Security;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -108,10 +109,12 @@ public sealed class ItemsController : AuthenticatedControllerBase
         if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(barcode))
             return BadRequest("Either name or barcode must be provided");
 
+        var session = SessionClaims.TryRead(User);
+        if (session is null) return Unauthorized();
         var authorizationHeader = HttpContext.Request.Headers.Authorization.ToString();
 
         var result = await Bus.InvokeAsync<ErrorOr<ProductDetailsDto>>(
-            new GetProductDetailsByNameOrBarcodeQuery(UserId!.Value, ActiveShopId!.Value, name, barcode, authorizationHeader),
+            new GetProductDetailsByNameOrBarcodeQuery(session, name, barcode, authorizationHeader),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -120,15 +123,18 @@ public sealed class ItemsController : AuthenticatedControllerBase
     [HttpPost]
     [Authorize(Policy = "OwnerOrManager")]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource(CheckRecovery = true)]
     public async Task<IActionResult> AddItem([FromBody] AddItemRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
+        var session = SessionClaims.TryRead(User);
+        if (session is null) return Unauthorized();
+
         var result = await Bus.InvokeAsync<ErrorOr<ItemDto>>(
             new AddItemCommand(
-                UserId!.Value,
-                ActiveShopId!.Value,
+                session,
                 request.Name,
                 request.Barcode,
                 request.Description,

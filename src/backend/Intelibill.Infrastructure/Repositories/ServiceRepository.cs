@@ -29,30 +29,16 @@ internal sealed class ServiceRepository(ApplicationDbContext context)
 
     public async Task<string> GetNextCodeAsync(Guid shopId, CancellationToken cancellationToken = default)
     {
+        if (_context.Database.CurrentTransaction is not null)
+            return await AllocateCodeAsync(shopId, cancellationToken);
+
         for (var attempt = 1; attempt <= MaxCodeGenerationAttempts; attempt++)
         {
             try
             {
                 await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
 
-                await _context.Database.ExecuteSqlRawAsync(
-                    """
-                    INSERT INTO service_code_sequences (id, shop_id, next_number, prefix, created_at)
-                    VALUES ({0}, {1}, {2}, {3}, {4})
-                    ON CONFLICT (shop_id) DO NOTHING;
-                    """,
-                    Guid.NewGuid(),
-                    shopId,
-                    1,
-                    ServiceCodeSequence.CodePrefix,
-                    DateTimeOffset.UtcNow);
-
-                var sequence = await _context.ServiceCodeSequences
-                    .FromSqlRaw("SELECT * FROM service_code_sequences WHERE shop_id = {0} FOR UPDATE", shopId)
-                    .SingleAsync(cancellationToken);
-
-                var code = sequence.NextCode();
-
+                var code = await AllocateCodeAsync(shopId, cancellationToken);
                 await _context.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
 
@@ -65,6 +51,21 @@ internal sealed class ServiceRepository(ApplicationDbContext context)
         }
 
         throw new InvalidOperationException("Service code generation failed after retries.");
+    }
+
+    private async Task<string> AllocateCodeAsync(Guid shopId, CancellationToken cancellationToken)
+    {
+        await _context.Database.ExecuteSqlAsync($"""
+            INSERT INTO service_code_sequences (id, shop_id, next_number, prefix, created_at)
+            VALUES ({Guid.NewGuid()}, {shopId}, 1, {ServiceCodeSequence.CodePrefix}, {DateTimeOffset.UtcNow})
+            ON CONFLICT (shop_id) DO NOTHING;
+            """, cancellationToken);
+
+        var sequence = await _context.ServiceCodeSequences
+            .FromSqlRaw("SELECT * FROM service_code_sequences WHERE shop_id = {0} FOR UPDATE", shopId)
+            .SingleAsync(cancellationToken);
+
+        return sequence.NextCode();
     }
 
     public async Task<IReadOnlyList<Service>> GetByShopIdAsync(

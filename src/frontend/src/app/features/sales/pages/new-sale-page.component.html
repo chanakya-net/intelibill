@@ -217,6 +217,12 @@
           />
         </div>
 
+        @if (vm.productLookupError(); as lookupError) {
+          @if (lookupError !== licenceMessage) {
+            <p class="error" role="status">{{ lookupError | transloco }}</p>
+          }
+        }
+
         <app-cart-table
           [cartItems]="vm.cart()"
           [serviceCartItems]="vm.serviceCart()"

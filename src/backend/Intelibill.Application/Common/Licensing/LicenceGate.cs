@@ -11,8 +11,11 @@ public static class LicenceGate
         if (result.IsError)
             return result.FirstError;
 
-        return result.Value.Decision is { Enforced: true, Outcome: LicenceOutcome.Blocked } decision
+        return result.Value.Decision.EnforcedDenial();
+    }
+
+    internal static Error? EnforcedDenial(this LicenceDecision decision) =>
+        decision is { Enforced: true, Outcome: LicenceOutcome.Blocked }
             ? decision.Denial ?? LicenceErrors.VerificationUnavailable
             : null;
-    }
 }

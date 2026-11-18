@@ -1,3 +1,6 @@
+import { computed, signal } from '@angular/core';
+import type { ShopScope } from '../../../core/context/shop-scope';
+import { operatingAccessErrorKey } from '../../billing/status/operating-access-hint.service';
 import { NewSalePageDiscountValidationService } from './new-sale-page.discount-validation.service';
 import {
   CreditNoteRedemptionRequest,
@@ -6,6 +9,15 @@ import {
 } from '../services/sale.models';
 
 export abstract class NewSalePagePaymentFlowService extends NewSalePageDiscountValidationService {
+  private readonly lookupRefusal = signal<{ scope: ShopScope | null; lineKey: string; key: string } | null>(null);
+  private readonly productLookupRequests = new Map<string, symbol>();
+  readonly productLookupError = computed(() => {
+    const refusal = this.lookupRefusal();
+    return refusal?.scope === this.partyContext.scope() &&
+      this.cart().some((item) => item.clientLineKey === refusal.lineKey)
+      ? refusal.key : null;
+  });
+
   syncPaymentSplitFromPaid(rawPaid: number | null, total = this.totalAmount()): void {
     const paidControl = this.paymentForm.controls.paidAmount;
     const dueControl = this.paymentForm.controls.dueAmount;
@@ -113,17 +125,30 @@ export abstract class NewSalePagePaymentFlowService extends NewSalePageDiscountV
       return;
     }
 
+    const scope = this.partyContext.scope();
+    const request = Symbol();
+    this.productLookupRequests.set(clientLineKey, request);
+    if (this.lookupRefusal()?.lineKey === clientLineKey) this.lookupRefusal.set(null);
+
+    const isCurrent = () => {
+      if (this.productLookupRequests.get(clientLineKey) !== request) return false;
+      this.productLookupRequests.delete(clientLineKey);
+      return scope === this.partyContext.scope();
+    };
+
     this.inventoryService
       .getProductDetailsByNameOrBarcode(normalizedName, normalizedBarcode)
       .subscribe({
         next: (details) => {
+          if (!isCurrent()) return;
           const resolvedHsn = this.normalizeHsnCode(details.hsnCode);
-          if (!resolvedHsn) {
-            return;
-          }
-          this.cartState.applyResolvedHsnCodeIfMissing(clientLineKey, resolvedHsn);
+          if (resolvedHsn) this.cartState.applyResolvedHsnCodeIfMissing(clientLineKey, resolvedHsn);
         },
-        error: () => undefined,
+        error: (error: unknown) => {
+          if (!isCurrent()) return;
+          const key = operatingAccessErrorKey(error);
+          if (key) this.lookupRefusal.set({ scope, lineKey: clientLineKey, key });
+        },
       });
   }
 

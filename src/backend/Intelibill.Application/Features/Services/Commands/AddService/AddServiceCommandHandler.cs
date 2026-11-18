@@ -4,7 +4,6 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Services.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
-using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Services.Commands.AddService;
@@ -12,7 +11,7 @@ namespace Intelibill.Application.Features.Services.Commands.AddService;
 public sealed class AddServiceCommandHandler(
     IUserRepository userRepository,
     IServiceRepository serviceRepository,
-    IUnitOfWork unitOfWork)
+    DefinitionCreationTransaction creation)
 {
     [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<ServiceDto>> HandleAsync(AddServiceCommand command, CancellationToken cancellationToken)
@@ -28,11 +27,19 @@ public sealed class AddServiceCommandHandler(
         if (actorMembership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Service.UserIsNotOwnerOrManager;
 
+        return await creation.RunAsync<ServiceDto>(command.Session, (lease, ct) =>
+            lease.Decision.EnforcedDenial() is { } denial
+                ? Task.FromResult<ErrorOr<ServiceDto>>(denial)
+                : AddDefinitionAsync(command, ct), cancellationToken);
+    }
+
+    private async Task<ErrorOr<ServiceDto>> AddDefinitionAsync(AddServiceCommand command, CancellationToken cancellationToken)
+    {
+        // The sequence row serializes shop-local creates. The name check sees the preceding commit.
+        var code = await serviceRepository.GetNextCodeAsync(command.ActiveShopId, cancellationToken);
         var normalizedName = command.Name.Trim();
         if (await serviceRepository.GetByNameAsync(command.ActiveShopId, normalizedName, cancellationToken) is not null)
             return Errors.Service.NameAlreadyExists;
-
-        var code = await serviceRepository.GetNextCodeAsync(command.ActiveShopId, cancellationToken);
 
         if (await serviceRepository.GetByCodeAsync(command.ActiveShopId, code, cancellationToken) is not null)
             return Errors.Service.CodeAlreadyExists;
@@ -50,7 +57,6 @@ public sealed class AddServiceCommandHandler(
             command.ActorUserId);
 
         await serviceRepository.AddAsync(service, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new ServiceDto(
             service.Id,

@@ -4,7 +4,8 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Items.DTOs;
 using Intelibill.Domain.Entities;
-using Intelibill.Domain.Interfaces;
+using Microsoft.EntityFrameworkCore;
+using System.Data.Common;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Items.Queries.GetProductDetails;
@@ -15,7 +16,8 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
     IInventoryBatchRepository inventoryBatchRepository,
     ISupplierRepository supplierRepository,
     IExternalProductLookupService externalProductLookupService,
-    IUnitOfWork unitOfWork)
+    DefinitionCreationTransaction creation,
+    ISuspensionAccessReader suspensionAccess)
 {
     [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<ProductDetailsDto>> HandleAsync(
@@ -37,49 +39,79 @@ public sealed class GetProductDetailsByNameOrBarcodeQueryHandler(
 
         if (item is null && !string.IsNullOrWhiteSpace(query.Barcode))
         {
-            var normalizedBarcode = query.Barcode.Trim();
-            item = await itemRepository.GetByBarcodeAsync(query.ActiveShopId, normalizedBarcode, cancellationToken);
-
-            if (item is null)
-            {
-                var externalLookupResult = await externalProductLookupService.LookupByBarcodeAsync(
-                    normalizedBarcode,
-                    query.AuthorizationHeader,
-                    cancellationToken);
-
-                if (externalLookupResult.IsError)
-                    return externalLookupResult.Errors;
-
-                if (externalLookupResult.Value is not null)
-                {
-                    var normalizedName = externalLookupResult.Value.ProductName.Trim();
-                    if (!string.IsNullOrWhiteSpace(normalizedName))
-                    {
-                        var normalizedUom = string.IsNullOrWhiteSpace(externalLookupResult.Value.Uom)
-                            ? "Unit"
-                            : externalLookupResult.Value.Uom.Trim();
-
-                        item = Item.Create(
-                            query.ActiveShopId,
-                            normalizedName,
-                            externalLookupResult.Value.Description,
-                            normalizedUom,
-                            normalizedBarcode,
-                            true,
-                            query.UserId);
-
-                        await itemRepository.AddAsync(item, cancellationToken);
-                        await unitOfWork.SaveChangesAsync(cancellationToken);
-                    }
-                }
-            }
+            var lookup = await FindOrImportAsync(query, query.Barcode.Trim(), cancellationToken);
+            if (lookup.IsError)
+                return lookup.Errors;
+            item = lookup.Value;
         }
 
-        if (item is null)
-            return Error.NotFound("product.not_found", "Product not found");
+        return item is null
+            ? Error.NotFound("product.not_found", "Product not found")
+            : await BuildDetailsAsync(query.ActiveShopId, item, cancellationToken);
+    }
 
+    private async Task<ErrorOr<Item?>> FindOrImportAsync(
+        GetProductDetailsByNameOrBarcodeQuery query, string barcode, CancellationToken ct)
+    {
+        var existing = await itemRepository.GetByBarcodeAsync(query.ActiveShopId, barcode, ct);
+        if (existing is not null)
+            return existing;
+
+        // The catalogue can be slow. Hold neither the database transaction nor the licence fence here.
+        var external = await externalProductLookupService.LookupByBarcodeAsync(barcode, query.AuthorizationHeader, ct);
+        if (external.IsError)
+            return external.Errors;
+        if (external.Value is not { } product || string.IsNullOrWhiteSpace(product.ProductName))
+            return (Item?)null;
+
+        return await ImportAsync(query, barcode, product, ct);
+    }
+
+    private async Task<ErrorOr<Item?>> ImportAsync(GetProductDetailsByNameOrBarcodeQuery query,
+        string barcode, ExternalProductLookupResult product, CancellationToken ct)
+    {
+        try
+        {
+            return await creation.RunAsync<Item?>(query.Session, (lease, token) =>
+                ReadOrStageImportAsync(query, barcode, product, lease, token), ct);
+        }
+        catch (DbUpdateException exception) when (exception.InnerException is DbException { SqlState: "23505" })
+        {
+            // The shop/barcode unique index resolves races with any other creator, including intake.
+            // The losing transaction has rolled back. Read the winner under current authority.
+            var winner = await creation.RunAsync<Item?>(query.Session, (lease, token) =>
+                ReadOrStageImportAsync(query, barcode, null, lease, token), ct);
+            if (winner.IsError || winner.Value is not null)
+                return winner;
+            throw;
+        }
+    }
+
+    private async Task<ErrorOr<Item?>> ReadOrStageImportAsync(GetProductDetailsByNameOrBarcodeQuery query,
+        string barcode, ExternalProductLookupResult? product, ShopLicenceLease lease, CancellationToken ct)
+    {
+        var existing = await itemRepository.GetByBarcodeAsync(query.ActiveShopId, barcode, ct);
+        if (existing is not null)
+        {
+            var denial = await suspensionAccess.ReadActiveShopDenialAsync(query.ActiveShopId, LicenceAction.History, ct);
+            return denial is { } error ? error : existing;
+        }
+        if (lease.Decision.EnforcedDenial() is { } blocked)
+            return blocked;
+        if (product is null)
+            return (Item?)null;
+
+        var uom = string.IsNullOrWhiteSpace(product.Uom) ? "Unit" : product.Uom.Trim();
+        var item = Item.Create(query.ActiveShopId, product.ProductName.Trim(), product.Description,
+            uom, barcode, true, query.UserId);
+        await itemRepository.AddAsync(item, ct);
+        return item;
+    }
+
+    private async Task<ProductDetailsDto> BuildDetailsAsync(Guid shopId, Item item, CancellationToken cancellationToken)
+    {
         // Get the latest batch for this item (ordered by earliest expiry date, then batch number)
-        var batches = await inventoryBatchRepository.GetByItemAsync(query.ActiveShopId, item.Id, cancellationToken);
+        var batches = await inventoryBatchRepository.GetByItemAsync(shopId, item.Id, cancellationToken);
 
         if (batches.Count == 0)
         {

@@ -1,6 +1,10 @@
 using System.Reflection;
+using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Inventory.Services;
+using Intelibill.Application.Features.Items.Commands.AddItem;
+using Intelibill.Application.Features.Items.Queries.GetProductDetails;
+using Intelibill.Application.Features.Services.Commands.AddService;
 using Intelibill.Application.Features.Sales.Commands.SyncOfflineSales;
 using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Data;
@@ -38,6 +42,16 @@ public sealed class LicenceActionClassificationTests(PostgreSqlTestFixture fixtu
         Assert.True(failures.Length == 0,
             $"{failures.Length} missing or ambiguous licence classifications:\n{string.Join("\n", failures)}");
     }
+
+    [Theory]
+    [InlineData(typeof(ItemsController), nameof(ItemsController.AddItem), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(ServicesController), nameof(ServicesController.AddService), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(ItemsController), nameof(ItemsController.GetProductDetails), LicenceAction.History)]
+    [InlineData(typeof(AddItemCommandHandler), nameof(AddItemCommandHandler.HandleAsync), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(AddServiceCommandHandler), nameof(AddServiceCommandHandler.HandleAsync), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(GetProductDetailsByNameOrBarcodeQueryHandler), nameof(GetProductDetailsByNameOrBarcodeQueryHandler.HandleAsync), LicenceAction.History)]
+    public void Definition_routes_and_messages_keep_their_classifications(Type type, string methodName, LicenceAction action) =>
+        Assert.Equal(action, type.GetMethod(methodName)?.GetCustomAttribute<LicenceActionAttribute>()?.Action);
 
     [Fact]
     public void Every_reconciliation_action_has_a_classification()

@@ -141,7 +141,13 @@ public class ApplicationDbContext(
         base.OnModelCreating(modelBuilder);
     }
 
-    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
+        SaveAndPublishAsync(commitTransaction: false, cancellationToken);
+
+    internal Task<int> SaveChangesAndCommitAsync(CancellationToken cancellationToken) =>
+        SaveAndPublishAsync(commitTransaction: true, cancellationToken);
+
+    private async Task<int> SaveAndPublishAsync(bool commitTransaction, CancellationToken cancellationToken)
     {
         UpdateAuditFields();
 
@@ -159,6 +165,8 @@ public class ApplicationDbContext(
         }
 
         var result = await base.SaveChangesAsync(cancellationToken);
+        if (commitTransaction)
+            await Database.CommitTransactionAsync(cancellationToken);
 
         if (_messageBus is not null)
         {

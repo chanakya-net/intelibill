@@ -1,3 +1,6 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Services.Commands.AddService;
 using Intelibill.Domain.Entities;
@@ -36,7 +39,7 @@ public class AddServiceCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _serviceRepository.GetByNameAsync(shop.Id, "Consulting", Arg.Any<CancellationToken>()).Returns(existing);
 
-        var handler = new AddServiceCommandHandler(_userRepository, _serviceRepository, _unitOfWork);
+        var handler = new AddServiceCommandHandler(_userRepository, _serviceRepository, CreateTransaction());
 
         var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
 
@@ -53,7 +56,7 @@ public class AddServiceCommandHandlerTests
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
-        var handler = new AddServiceCommandHandler(_userRepository, _serviceRepository, _unitOfWork);
+        var handler = new AddServiceCommandHandler(_userRepository, _serviceRepository, CreateTransaction());
 
         var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
 
@@ -73,7 +76,7 @@ public class AddServiceCommandHandlerTests
         _serviceRepository.GetNextCodeAsync(shop.Id, Arg.Any<CancellationToken>()).Returns("SRV-000001");
         _serviceRepository.GetByCodeAsync(shop.Id, "SRV-000001", Arg.Any<CancellationToken>()).Returns((Service?)null);
 
-        var handler = new AddServiceCommandHandler(_userRepository, _serviceRepository, _unitOfWork);
+        var handler = new AddServiceCommandHandler(_userRepository, _serviceRepository, CreateTransaction());
         var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -81,7 +84,7 @@ public class AddServiceCommandHandlerTests
         Assert.Equal("Consulting", result.Value.Name);
         Assert.Equal(120m, result.Value.Price);
 
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAndCommitAsync(Arg.Any<CancellationToken>());
         await _serviceRepository.Received(1).AddAsync(
             Arg.Is<Service>(s =>
                 s.Code == "SRV-000001" &&
@@ -91,10 +94,16 @@ public class AddServiceCommandHandlerTests
             Arg.Any<CancellationToken>());
     }
 
+    private DefinitionCreationTransaction CreateTransaction()
+    {
+        var authority = Substitute.For<ILiveSessionAuthority>();
+        authority.IsValidAsync(Arg.Any<SessionClaims>(), Arg.Any<CancellationToken>()).Returns(true);
+        return new(_unitOfWork, authority, Substitute.For<IShopLicenceFence>());
+    }
+
     private static AddServiceCommand CreateCommand(Guid actorId, Guid shopId) =>
         new(
-            actorId,
-            shopId,
+            new(actorId, Guid.NewGuid(), 0, 0, shopId, "Owner"),
             Name: "Consulting",
             Description: null,
             Price: 120m,

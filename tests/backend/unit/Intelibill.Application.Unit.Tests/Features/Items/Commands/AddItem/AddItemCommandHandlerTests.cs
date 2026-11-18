@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.AddItem;
 using Intelibill.Domain.Entities;
@@ -27,7 +29,7 @@ public class AddItemCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns(existing);
 
-        var handler = new AddItemCommandHandler(_userRepository, _itemRepository, _unitOfWork);
+        var handler = new AddItemCommandHandler(_userRepository, _itemRepository, CreateTransaction());
         var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -45,7 +47,7 @@ public class AddItemCommandHandlerTests
         _itemRepository.GetByBarcodeAsync(shop.Id, "111", Arg.Any<CancellationToken>()).Returns((Item?)null);
         _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns((Item?)null);
 
-        var handler = new AddItemCommandHandler(_userRepository, _itemRepository, _unitOfWork);
+        var handler = new AddItemCommandHandler(_userRepository, _itemRepository, CreateTransaction());
         var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -69,7 +71,7 @@ public class AddItemCommandHandlerTests
             i.HsnCode == "10063090" &&
             i.DefaultTaxRatePercent == 5m &&
             !i.DefaultTaxIncluded), Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAndCommitAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -85,7 +87,7 @@ public class AddItemCommandHandlerTests
         _itemRepository.GetByNameAsync(shop.Id, "Rice", Arg.Any<CancellationToken>()).Returns((Item?)null);
         await _itemRepository.AddAsync(Arg.Do<Item>(i => capturedItem = i), Arg.Any<CancellationToken>());
 
-        var handler = new AddItemCommandHandler(_userRepository, _itemRepository, _unitOfWork);
+        var handler = new AddItemCommandHandler(_userRepository, _itemRepository, CreateTransaction());
         await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
 
         Assert.NotNull(capturedItem);
@@ -97,10 +99,16 @@ public class AddItemCommandHandlerTests
         Assert.Equal(shop.Id, created.ShopId);
     }
 
+    private DefinitionCreationTransaction CreateTransaction()
+    {
+        var authority = Substitute.For<ILiveSessionAuthority>();
+        authority.IsValidAsync(Arg.Any<Intelibill.Application.Common.Security.SessionClaims>(), Arg.Any<CancellationToken>()).Returns(true);
+        return new(_unitOfWork, authority, Substitute.For<IShopLicenceFence>());
+    }
+
     private static AddItemCommand CreateCommand(Guid actorId, Guid shopId) =>
         new(
-            actorId,
-            shopId,
+            new(actorId, Guid.NewGuid(), 0, 0, shopId, "Owner"),
             Name: "Rice",
             Barcode: "111",
             Description: "Premium",

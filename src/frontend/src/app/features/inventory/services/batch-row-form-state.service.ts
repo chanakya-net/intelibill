@@ -1,3 +1,4 @@
+import { operatingAccessErrorKey } from '../../billing/status/operating-access-hint.service';
 import { Injector } from '@angular/core';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { RemotePartySearch } from '../../../shared/models/remote-party-search';
@@ -76,6 +77,8 @@ export class BatchRowFormStateService {
       },
     });
   }
+  private productLookupRevision = 0;
+  readonly productLookupError = signal<string | null>(null);
   readonly loadingProduct = signal(false);
   readonly isLoadingHsn = signal(false);
   readonly barcodeGenerating = signal(false);
@@ -152,6 +155,7 @@ export class BatchRowFormStateService {
     this.form.controls.itemName.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((value) => {
+        this.clearProductLookup();
         if (this.clearHsnSelectionOnNextItemNameChange && value.trim().length > 0) {
           this.clearHsnSelection();
         }
@@ -159,7 +163,10 @@ export class BatchRowFormStateService {
 
     this.form.controls.barcode.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => this.loadExpiryPolicy());
+      .subscribe(() => {
+        this.clearProductLookup();
+        this.loadExpiryPolicy();
+      });
     this.resetForm();
     this.loadExpiryPolicy();
     this.expiryPolicies.changed$
@@ -326,18 +333,22 @@ export class BatchRowFormStateService {
       return { error: true };
     }
 
+    const scope = this.partyContext.scope();
     this.barcodeGenerating.set(true);
     this.barcodeGenerateError.set('');
     try {
       const result = await firstValueFrom(this.inventoryService.generateItemBarcode());
+      if (scope !== this.partyContext.scope()) return { error: true };
       const currentBarcode = this.form.controls.barcode.value.trim();
       if (currentBarcode) {
         return { needsConfirm: true, barcode: result.barcode };
       }
       this.form.controls.barcode.setValue(result.barcode);
       return { needsConfirm: false, barcode: result.barcode };
-    } catch {
-      this.barcodeGenerateError.set('inventory.generateBarcodeError');
+    } catch (error) {
+      if (scope === this.partyContext.scope()) {
+        this.barcodeGenerateError.set(operatingAccessErrorKey(error) ?? 'inventory.generateBarcodeError');
+      }
       return { error: true };
     } finally {
       this.barcodeGenerating.set(false);
@@ -354,53 +365,61 @@ export class BatchRowFormStateService {
     readonly hsnApplied: boolean;
     readonly error: boolean;
   }> {
-    const lookupHsnIfMissing = options?.lookupHsnIfMissing ?? false;
+    this.clearProductLookup();
     const itemName = this.form.controls.itemName.value?.trim();
     const barcode = this.form.controls.barcode.value?.trim();
+    if (!barcode) return { patched: false, hsnApplied: false, error: false };
 
-    if (!barcode) {
-      return { patched: false, hsnApplied: false, error: false };
-    }
-
+    const revision = this.productLookupRevision;
     this.loadingProduct.set(true);
-
-    let hsnApplied = false;
-    let patched = false;
+    let outcome: { patched: boolean; hsnApplied: boolean };
     try {
       const details = await firstValueFrom(
         this.inventoryService.getProductDetailsByNameOrBarcode(itemName || undefined, barcode),
       );
-
-      this.loadExpiryPolicy();
-      const patch = this.buildProductDetailsPatch(details);
-      if (Object.keys(patch).length > 0) {
-        this.form.patchValue(patch);
-        if (patch.supplierName !== undefined) {
-          this.restoredSupplierId = details.supplierId;
-          this.restoredSupplierName = patch.supplierName;
-          this.selectedSupplier.set(null);
-        }
-        patched = true;
+      if (revision !== this.productLookupRevision) return { patched: false, hsnApplied: false, error: false };
+      outcome = this.applyProductDetails(details);
+    } catch (error) {
+      if (revision === this.productLookupRevision) {
+        this.productLookupError.set(operatingAccessErrorKey(error));
       }
-
-      if (details.hsnCode) {
-        this.hsnResult.set(null);
-        this.selectedHsnCode.set(details.hsnCode);
-        this.pickerOpen.set(false);
-        this.clearHsnSelectionOnNextItemNameChange = true;
-        hsnApplied = true;
-      }
-    } catch {
       return { patched: false, hsnApplied: false, error: true };
     } finally {
-      this.loadingProduct.set(false);
+      if (revision === this.productLookupRevision) this.loadingProduct.set(false);
     }
 
-    if (lookupHsnIfMissing && !hsnApplied && !this.selectedHsnCode()) {
+    if (options?.lookupHsnIfMissing && !outcome.hsnApplied && !this.selectedHsnCode()) {
       await this.onItemNameBlur();
     }
 
-    return { patched, hsnApplied, error: false };
+    return { ...outcome, error: false };
+  }
+
+  private applyProductDetails(details: ProductDetailsDto): { patched: boolean; hsnApplied: boolean } {
+    this.loadExpiryPolicy();
+    const patch = this.buildProductDetailsPatch(details);
+    const patched = Object.keys(patch).length > 0;
+    if (patched) {
+      this.form.patchValue(patch);
+      if (patch.supplierName !== undefined) {
+        this.restoredSupplierId = details.supplierId;
+        this.restoredSupplierName = patch.supplierName;
+        this.selectedSupplier.set(null);
+      }
+    }
+    if (details.hsnCode) {
+      this.hsnResult.set(null);
+      this.selectedHsnCode.set(details.hsnCode);
+      this.pickerOpen.set(false);
+      this.clearHsnSelectionOnNextItemNameChange = true;
+    }
+    return { patched, hsnApplied: !!details.hsnCode };
+  }
+
+  private clearProductLookup(): void {
+    ++this.productLookupRevision;
+    this.productLookupError.set(null);
+    this.loadingProduct.set(false);
   }
 
   canAutoAddScannedRow(): boolean {
@@ -559,6 +578,7 @@ export class BatchRowFormStateService {
   }
 
   resetForm(): void {
+    this.clearProductLookup();
     ++this.restoreRevision;
     this.restoreSubscription?.unsubscribe();
     this.selectedSupplier.set(null);

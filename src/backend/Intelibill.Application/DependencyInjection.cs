@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<Features.Tills.Services.TillSourceSettlementService>();
         services.AddScoped<Features.Tills.Services.TillReadService>();
 
+        services.AddScoped<Common.Licensing.DefinitionCreationTransaction>();
         services.AddScoped<IItemCatalogStreamingService, ItemCatalogStreamingService>();
         services.AddScoped<IOfflineSalesSnapshotStreamingService, OfflineSalesSnapshotStreamingService>();
 
