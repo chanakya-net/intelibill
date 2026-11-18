@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Items.Queries.GetProductDetails;
@@ -80,7 +82,7 @@ public class GetProductDetailsByNameOrBarcodeQueryHandlerTests
         Assert.Equal("1001", result.Value.HsnCode);
 
         await _itemRepository.DidNotReceive().AddAsync(Arg.Any<Item>(), Arg.Any<CancellationToken>());
-        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAndCommitAsync(Arg.Any<CancellationToken>());
         await _externalProductLookupService.DidNotReceive().LookupByBarcodeAsync(Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
 
@@ -157,7 +159,7 @@ public class GetProductDetailsByNameOrBarcodeQueryHandlerTests
 
         await _externalProductLookupService.Received(1).LookupByBarcodeAsync(barcode, authHeader, Arg.Any<CancellationToken>());
         await _itemRepository.Received(1).AddAsync(Arg.Any<Item>(), Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAndCommitAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -180,7 +182,7 @@ public class GetProductDetailsByNameOrBarcodeQueryHandlerTests
         Assert.Equal("product.not_found", result.FirstError.Code);
 
         await _itemRepository.DidNotReceive().AddAsync(Arg.Any<Item>(), Arg.Any<CancellationToken>());
-        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAndCommitAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -202,7 +204,7 @@ public class GetProductDetailsByNameOrBarcodeQueryHandlerTests
         Assert.True(result.IsError);
         Assert.Equal("product.lookup.failed", result.FirstError.Code);
         await _itemRepository.DidNotReceive().AddAsync(Arg.Any<Item>(), Arg.Any<CancellationToken>());
-        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAndCommitAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -240,6 +242,13 @@ public class GetProductDetailsByNameOrBarcodeQueryHandlerTests
     private static string CreateQrLikeBarcode() =>
         $"QR|01|{Guid.NewGuid():N}|TRACE|{Guid.NewGuid():N}|PAYLOAD|{new string('A', 24)}";
 
+    private DefinitionCreationTransaction CreateTransaction()
+    {
+        var authority = Substitute.For<ILiveSessionAuthority>();
+        authority.IsValidAsync(Arg.Any<SessionClaims>(), Arg.Any<CancellationToken>()).Returns(true);
+        return new(_unitOfWork, authority, Substitute.For<IShopLicenceFence>());
+    }
+
     private GetProductDetailsByNameOrBarcodeQueryHandler CreateSut() =>
         new(
             _userRepository,
@@ -247,7 +256,8 @@ public class GetProductDetailsByNameOrBarcodeQueryHandlerTests
             _inventoryBatchRepository,
             _supplierRepository,
             _externalProductLookupService,
-            _unitOfWork);
+            CreateTransaction(),
+            Substitute.For<ISuspensionAccessReader>());
 
     private static GetProductDetailsByNameOrBarcodeQuery CreateQuery(
         Guid userId,
@@ -255,7 +265,7 @@ public class GetProductDetailsByNameOrBarcodeQueryHandlerTests
         string? productName,
         string? barcode,
         string? authorizationHeader) =>
-        new(userId, shopId, productName, barcode, authorizationHeader);
+        new(new(userId, Guid.NewGuid(), 0, 0, shopId, "Owner"), productName, barcode, authorizationHeader);
 
     private static InventoryBatch CreateBatch(
         Guid shopId,

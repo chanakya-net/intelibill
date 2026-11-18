@@ -11,8 +11,7 @@ public class AddServiceCommandValidatorTests
     public void Validate_WhenNameIsEmpty_ReturnsError()
     {
         var command = new AddServiceCommand(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
+            new(Guid.NewGuid(), Guid.NewGuid(), 0, 0, Guid.NewGuid(), "Owner"),
             Name: string.Empty,
             Description: null,
             Price: 10m,
@@ -30,8 +29,7 @@ public class AddServiceCommandValidatorTests
     public void Validate_WhenPriceIsZero_ReturnsError()
     {
         var command = new AddServiceCommand(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
+            new(Guid.NewGuid(), Guid.NewGuid(), 0, 0, Guid.NewGuid(), "Owner"),
             Name: "Service",
             Description: null,
             Price: 0m,
@@ -71,8 +69,7 @@ public class AddServiceCommandValidatorTests
 
     private static AddServiceCommand CreateValidCommand() =>
         new(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
+            new(Guid.NewGuid(), Guid.NewGuid(), 0, 0, Guid.NewGuid(), "Owner"),
             Name: "Consulting",
             Description: "Professional support",
             Price: 120m,

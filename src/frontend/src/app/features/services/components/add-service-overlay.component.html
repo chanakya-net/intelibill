@@ -19,6 +19,7 @@
   </ng-template>
 
   <div class="editor-shell">
+    <app-definition-access-notice />
     @if (serverError()) {
       <div class="error-banner ib-error-banner" role="alert">{{ serverError() | transloco }}</div>
     }
@@ -225,6 +226,7 @@
         form="add-service-form"
         icon="pi pi-plus"
         [label]="'services.addService' | transloco"
+        [disabled]="!!definitionAccess.blockingMessage()"
         [loading]="isSubmitting()"
       ></button>
     </div>

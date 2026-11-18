@@ -1,8 +1,9 @@
+using Intelibill.Application.Common.Security;
+
 namespace Intelibill.Application.Features.Items.Commands.AddItem;
 
 public sealed record AddItemCommand(
-    Guid ActorUserId,
-    Guid ActiveShopId,
+    SessionClaims Session,
     string Name,
     string Barcode,
     string? Description,
@@ -10,4 +11,8 @@ public sealed record AddItemCommand(
     bool IsActive,
     string? HsnCode,
     decimal DefaultTaxRatePercent,
-    int? QuantityScale = null);
+    int? QuantityScale = null)
+{
+    public Guid ActorUserId => Session.UserId;
+    public Guid ActiveShopId => Session.ActiveShopId.GetValueOrDefault();
+}

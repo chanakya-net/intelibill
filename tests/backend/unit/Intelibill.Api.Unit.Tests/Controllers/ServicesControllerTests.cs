@@ -270,7 +270,14 @@ public class ServicesControllerTests
     {
         var identity = claims.Length == 0
             ? new ClaimsIdentity()
-            : new ClaimsIdentity(claims, "TestAuthType");
+            : new ClaimsIdentity(claims.Concat(new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, claims.FirstOrDefault(x => x.Type == JwtRegisteredClaimNames.Sub)?.Value ?? Guid.NewGuid().ToString()),
+                new Claim("sid", Guid.NewGuid().ToString()),
+                new Claim("security_version", "1"),
+                new Claim("scope_version", "1"),
+                new Claim("active_shop_role", "Owner"),
+            }), "TestAuthType");
 
         _controller.ControllerContext = new ControllerContext
         {

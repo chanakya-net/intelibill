@@ -1,8 +1,10 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import { PurchaseOrderLineFormComponent } from './purchase-order-line-form.component';
@@ -128,4 +130,58 @@ describe('PurchaseOrderLineFormComponent', () => {
     expect(emitted).toEqual([]);
     expect(component.quickCreateError()).toBe('purchaseOrders.builder.quickCreateFailed');
   });
+
+  it('shows the authoritative expiry without losing the pending line or upserting a catalog item', async () => {
+    const draft = { description: 'New Item', expectedQuantity: 3, unitCost: 12 };
+    const submitted = vi.fn();
+    component.lineSubmitted.subscribe(submitted);
+    TestBed.inject(ShopContextService).initialize({ userId: 'owner', shopId: 'shop' });
+    component.form.setValue(draft);
+    inventory.addItem.mockReturnValue(throwError(() => new HttpErrorResponse({
+      status: 403, error: { code: 'Licence.Expired' },
+    })));
+
+    await component.quickCreateProduct();
+
+    expect(component.definitionAccess.blockingMessage()).toBe('billing.status.tradingAuthority.expired');
+    expect(component.form.getRawValue()).toEqual(draft);
+    expect(catalog.upsertEntry).not.toHaveBeenCalled();
+    expect(submitted).not.toHaveBeenCalled();
+  });
+
+  it('avoids barcode allocation for known restrictions and still emits a selected item', async () => {
+    const submitted = vi.fn();
+    component.lineSubmitted.subscribe(submitted);
+    TestBed.inject(ShopContextService).initialize({ userId: 'owner', shopId: 'shop' });
+    component.definitionAccess.reportRefusal(new HttpErrorResponse({
+      status: 403, error: { code: 'Licence.PendingActivation' },
+    }), component.definitionAccess.scope());
+    component.form.setValue({ description: 'Widget', expectedQuantity: 2, unitCost: 10 });
+    await component.quickCreateProduct();
+    expect(inventory.generateItemBarcode).not.toHaveBeenCalled();
+    expect(inventory.addItem).not.toHaveBeenCalled();
+
+    component.submitLine();
+    expect(submitted).toHaveBeenCalledWith({
+      itemId: 'item-1', description: 'Widget', expectedQuantity: 2, unitCost: 10,
+    });
+  });
+
+  it('checks the restriction again after asynchronous barcode allocation', async () => {
+    const barcode = new Subject<{ barcode: string }>();
+    inventory.generateItemBarcode.mockReturnValue(barcode.asObservable());
+    TestBed.inject(ShopContextService).initialize({ userId: 'owner', shopId: 'shop' });
+    component.form.setValue({ description: 'New Item', expectedQuantity: 3, unitCost: 12 });
+    const quickCreate = component.quickCreateProduct();
+
+    component.definitionAccess.reportRefusal(new HttpErrorResponse({
+      status: 503, error: { code: 'Licence.VerificationUnavailable' },
+    }), component.definitionAccess.scope());
+    barcode.next({ barcode: 'IT-PO-000001' });
+    await quickCreate;
+    expect(inventory.addItem).not.toHaveBeenCalled();
+    expect(catalog.upsertEntry).not.toHaveBeenCalled();
+    expect(component.form.controls.description.value).toBe('New Item');
+  });
+
 });

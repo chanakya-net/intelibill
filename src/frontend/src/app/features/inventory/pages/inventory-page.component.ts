@@ -1,3 +1,5 @@
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { Component, computed, effect, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -51,6 +53,7 @@ import {
   selector: 'app-inventory-page',
   standalone: true,
   imports: [
+    DefinitionAccessNoticeComponent,
     FormsModule,
     BadgeModule,
     ButtonModule,
@@ -76,6 +79,7 @@ import {
   styleUrl: './inventory-page.component.scss',
 })
 export class InventoryPageComponent {
+  readonly definitionAccess = inject(OperatingAccessHintService);
   private readonly store = inject(Store<RootState>);
   private readonly authService = inject(AuthService);
   private readonly inventoryService = inject(InventoryService);
@@ -207,7 +211,7 @@ export class InventoryPageComponent {
   }
 
   onOpenAddProduct(): void {
-    if (!this.canManageInventory()) {
+    if (!this.canManageInventory() || this.definitionAccess.blockingMessage()) {
       return;
     }
 

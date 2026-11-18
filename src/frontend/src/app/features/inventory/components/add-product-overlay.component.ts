@@ -1,3 +1,5 @@
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { Component, DestroyRef, EventEmitter, OnInit, Output, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
@@ -35,6 +37,7 @@ import {
   selector: 'app-add-product-overlay',
   standalone: true,
   imports: [
+    DefinitionAccessNoticeComponent,
     ReactiveFormsModule,
     AutoCompleteModule,
     DialogModule,
@@ -51,6 +54,7 @@ import {
   styleUrl: './add-product-overlay.component.scss',
 })
 export class AddProductOverlayComponent implements OnInit {
+  readonly definitionAccess = inject(OperatingAccessHintService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly store = inject(Store<RootState>);
   private readonly catalogSync = inject(ProductCatalogSyncService);
@@ -141,28 +145,22 @@ export class AddProductOverlayComponent implements OnInit {
     }
 
     const currentBarcode = this.form.controls.barcode.value.trim();
-    if (currentBarcode) {
-      this.barcodeGenerating.set(true);
-      this.barcodeGenerateError.set('');
-      try {
-        const result = await firstValueFrom(this.inventoryService.generateItemBarcode());
-        this.pendingGeneratedBarcode = result.barcode;
-        this.barcodeReplaceConfirmVisible.set(true);
-      } catch {
-        this.barcodeGenerateError.set('inventory.generateBarcodeError');
-      } finally {
-        this.barcodeGenerating.set(false);
-      }
-      return;
-    }
-
+    const scope = this.definitionAccess.scope();
     this.barcodeGenerating.set(true);
     this.barcodeGenerateError.set('');
     try {
       const result = await firstValueFrom(this.inventoryService.generateItemBarcode());
-      this.form.controls.barcode.setValue(result.barcode);
-    } catch {
-      this.barcodeGenerateError.set('inventory.generateBarcodeError');
+      if (scope !== this.definitionAccess.scope()) return;
+      if (currentBarcode) {
+        this.pendingGeneratedBarcode = result.barcode;
+        this.barcodeReplaceConfirmVisible.set(true);
+      } else {
+        this.form.controls.barcode.setValue(result.barcode);
+      }
+    } catch (error) {
+      this.barcodeGenerateError.set(
+        this.definitionAccess.creationError(error, scope, 'inventory.generateBarcodeError') ?? '',
+      );
     } finally {
       this.barcodeGenerating.set(false);
     }
@@ -209,7 +207,7 @@ export class AddProductOverlayComponent implements OnInit {
   }
 
   onSubmit(): void {
-    if (this.isSubmitting()) {
+    if (this.isSubmitting() || this.definitionAccess.blockingMessage()) {
       return;
     }
 

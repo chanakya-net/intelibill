@@ -304,6 +304,9 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
             return Task.FromResult(1);
         }
 
+        public Task<int> SaveChangesAndCommitAsync(CancellationToken cancellationToken = default) =>
+            SaveChangesAsync(cancellationToken);
+
         public void ClearChanges() { }
 
         public Task BeginTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;

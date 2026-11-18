@@ -1,3 +1,5 @@
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -35,6 +37,7 @@ const STATUS_FILTER_KEYS: readonly { labelKey: string; value: ServiceStatusFilte
   selector: 'app-services-page',
   standalone: true,
   imports: [
+    DefinitionAccessNoticeComponent,
     CommonModule,
     FormsModule,
     ButtonModule,
@@ -54,6 +57,7 @@ const STATUS_FILTER_KEYS: readonly { labelKey: string; value: ServiceStatusFilte
   styleUrl: './services-page.component.scss',
 })
 export class ServicesPageComponent {
+  readonly definitionAccess = inject(OperatingAccessHintService);
   private readonly serviceService = inject(ServiceService);
   private readonly permissions = inject(ShopPermissionsService);
   private readonly transloco = inject(TranslocoService);
@@ -191,7 +195,7 @@ export class ServicesPageComponent {
   }
 
   onOpenAddService(): void {
-    if (!this.canManageServices()) {
+    if (!this.canManageServices() || this.definitionAccess.blockingMessage()) {
       return;
     }
 

@@ -1,3 +1,5 @@
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { Component, EventEmitter, OnInit, Output, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -19,6 +21,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
   selector: 'app-add-service-overlay',
   standalone: true,
   imports: [
+    DefinitionAccessNoticeComponent,
     ReactiveFormsModule,
     ButtonModule,
     CheckboxModule,
@@ -32,6 +35,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
   styleUrl: './add-service-overlay.component.scss',
 })
 export class AddServiceOverlayComponent implements OnInit {
+  readonly definitionAccess = inject(OperatingAccessHintService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly serviceService = inject(ServiceService);
   private readonly inventoryService = inject(InventoryService);
@@ -84,7 +88,7 @@ export class AddServiceOverlayComponent implements OnInit {
   }
 
   async onSubmit(): Promise<void> {
-    if (this.isSubmitting()) {
+    if (this.isSubmitting() || this.definitionAccess.blockingMessage()) {
       return;
     }
 
@@ -93,6 +97,7 @@ export class AddServiceOverlayComponent implements OnInit {
       return;
     }
 
+    const scope = this.definitionAccess.scope();
     this.isSubmitting.set(true);
     this.serverError.set('');
 
@@ -108,12 +113,13 @@ export class AddServiceOverlayComponent implements OnInit {
       })
       .subscribe({
         next: () => {
+          this.isSubmitting.set(false);
+          if (scope !== this.definitionAccess.scope()) return;
           this.saved.emit();
           this.closeRequested.emit();
-          this.isSubmitting.set(false);
         },
-        error: () => {
-          this.serverError.set('services.saveFailed');
+        error: (error: unknown) => {
+          this.serverError.set(this.definitionAccess.creationError(error, scope, 'services.saveFailed') ?? '');
           this.isSubmitting.set(false);
         },
       });

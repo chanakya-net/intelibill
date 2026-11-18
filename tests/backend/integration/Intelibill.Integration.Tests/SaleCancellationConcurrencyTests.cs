@@ -279,6 +279,9 @@ public sealed class SaleCancellationConcurrencyTests(PostgreSqlTestFixture fixtu
             return await inner.SaveChangesAsync(cancellationToken);
         }
 
+        public Task<int> SaveChangesAndCommitAsync(CancellationToken cancellationToken = default) =>
+            inner.SaveChangesAndCommitAsync(cancellationToken);
+
         public void ClearChanges() => inner.ClearChanges();
 
         public Task BeginTransactionAsync(CancellationToken cancellationToken = default) => inner.BeginTransactionAsync(cancellationToken);

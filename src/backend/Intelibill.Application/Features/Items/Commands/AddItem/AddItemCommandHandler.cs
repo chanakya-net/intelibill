@@ -4,7 +4,6 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
-using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Items.Commands.AddItem;
@@ -12,7 +11,7 @@ namespace Intelibill.Application.Features.Items.Commands.AddItem;
 public sealed class AddItemCommandHandler(
     IUserRepository userRepository,
     IItemRepository itemRepository,
-    IUnitOfWork unitOfWork)
+    DefinitionCreationTransaction creation)
 {
     [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<ItemDto>> HandleAsync(AddItemCommand command, CancellationToken cancellationToken)
@@ -28,6 +27,14 @@ public sealed class AddItemCommandHandler(
         if (actorMembership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Item.UserIsNotOwnerOrManager;
 
+        return await creation.RunAsync<ItemDto>(command.Session, (lease, ct) =>
+            lease.Decision.EnforcedDenial() is { } denial
+                ? Task.FromResult<ErrorOr<ItemDto>>(denial)
+                : AddDefinitionAsync(command, ct), cancellationToken);
+    }
+
+    private async Task<ErrorOr<ItemDto>> AddDefinitionAsync(AddItemCommand command, CancellationToken cancellationToken)
+    {
         var normalizedBarcode = command.Barcode.Trim();
         var existingBarcode = await itemRepository.GetByBarcodeAsync(command.ActiveShopId, normalizedBarcode, cancellationToken);
         if (existingBarcode is not null)
@@ -52,7 +59,6 @@ public sealed class AddItemCommandHandler(
             quantityScale: command.QuantityScale);
 
         await itemRepository.AddAsync(item, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new ItemDto(
             item.Id,
