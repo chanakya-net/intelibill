@@ -5,7 +5,7 @@
     <p class="ib-subtitle">{{ (accountId() ? 'billing.status.accountDescription' : 'billing.status.shopDescription') | transloco }}</p>
   </header>
   @let current = view();
-  @if (current.kind !== 'shop' || current.status.observeOnly) {
+  @if (accountId() || (current.kind === 'shop' && current.status.observeOnly === true)) {
     <p class="ib-panel notice" data-testid="observe-only">{{ 'billing.status.observeOnly' | transloco }}</p>
   }
 

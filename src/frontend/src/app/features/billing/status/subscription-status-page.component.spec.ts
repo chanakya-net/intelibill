@@ -113,6 +113,26 @@ describe('subscription status', () => {
       .toContain('10 Feb 2027, 05:30:00 IST');
   });
 
+  it('shows the local restriction without an observe-only notice when commercial status is unavailable', () => {
+    const commercialStatus = new Subject<ShopSubscriptionStatus>();
+    const { fixture, page } = render({
+      shop: () => commercialStatus,
+      tradingAuthority: () => throwError(() => new TradingAuthorityReadError('restricted')),
+    });
+    const observeOnly = '[data-testid="observe-only"]';
+    expect(page.querySelector('[role="status"]')?.textContent).toContain(en.common.loading);
+    expect.soft(page.querySelector(observeOnly)).toBeNull();
+
+    commercialStatus.error(new StatusReadError('unavailable'));
+    fixture.detectChanges();
+
+    expect(page.querySelector('[data-testid="verification-unavailable"]')?.textContent)
+      .toContain(en.billing.status.unavailable);
+    expect(page.querySelector('[data-testid="trading-authority-restricted"]')?.textContent)
+      .toContain(en.billing.status.tradingAuthority.restricted);
+    expect(page.querySelector(observeOnly)).toBeNull();
+  });
+
   it('shows a positive one-microsecond authority interval', () => {
     const { page } = render({ tradingAuthority: () => of(authority(shopA, {
       authorityVerifiedAt: '2027-02-10T00:00:00.000001Z', validUntil: '2027-02-10T00:00:00.000002Z',
