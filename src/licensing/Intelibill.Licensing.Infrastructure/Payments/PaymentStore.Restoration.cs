@@ -8,12 +8,17 @@ internal sealed partial class PaymentStore
 {
     public async Task<PaymentRestorationEvidence> ReadRestorationEvidenceAsync(Guid account, DateTimeOffset at, CancellationToken ct)
     {
-        var rows = await db.Database.SqlQuery<AccountRestrictionSnapshotV1>($"""
+        var rows = await db.Database.SqlQuery<RestorationHeadRow>($"""
             SELECT revision, upstream_verified_at, restriction, released_revision
             FROM public.entitlement_account_heads WHERE account_id = {account} FOR UPDATE
             """).ToListAsync(ct);
-        return new(at, rows.SingleOrDefault(), transport.HasPublicationRoute());
+        var head = rows.SingleOrDefault();
+        return new(at, head is null ? null : new AccountRestrictionSnapshotV1(head.Revision, head.UpstreamVerifiedAt,
+            head.Restriction, head.ReleasedRevision), transport.HasPublicationRoute());
     }
+
+    // The head row holds the restriction decision; customer wording stays with the publisher.
+    private sealed record RestorationHeadRow(long Revision, DateTimeOffset UpstreamVerifiedAt, string Restriction, long? ReleasedRevision);
 
     public Task<PaymentRestorationHold?> FindRestorationHoldAsync(Guid account, Guid order, CancellationToken ct) =>
         db.Database.SqlQuery<PaymentRestorationHold>($"""

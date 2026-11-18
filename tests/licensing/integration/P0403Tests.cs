@@ -13,7 +13,7 @@ using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
-public sealed class P0403Tests(LicensingPostgreSqlFixture database) : IClassFixture<LicensingPostgreSqlFixture>
+public sealed partial class P0403Tests(LicensingPostgreSqlFixture database) : IClassFixture<LicensingPostgreSqlFixture>
 {
     [Theory]
     [InlineData("Account", "Security")]
@@ -271,13 +271,13 @@ public sealed class P0403Tests(LicensingPostgreSqlFixture database) : IClassFixt
         return account;
     }
 
-    private static async Task<P0110CookieBrowser> SignInSecurityAsync(P0213Fixture fixture)
+    private static async Task<P0110CookieBrowser> SignInSecurityAsync(P0213Fixture fixture, params string[] alsoGranted)
     {
         const string email = "suspension.security@example.test";
         var catalogue = fixture.Trial.Catalogue;
         using var owner = await catalogue.SignInOwnerAsync();
         var seed = await catalogue.EnrollOperatorAsync(owner, email);
-        await catalogue.GrantAsync(email, "security-administrator");
+        await catalogue.GrantAsync(email, ["security-administrator", .. alsoGranted]);
         return await catalogue.SignInOperatorAsync(seed, email);
     }
 }

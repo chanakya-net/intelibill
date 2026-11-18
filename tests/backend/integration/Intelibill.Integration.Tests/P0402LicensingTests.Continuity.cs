@@ -127,8 +127,11 @@ public sealed partial class P0402LicensingTests
                         LicensingOrigin = "https://licensing.fixture.test", LocalKeyId = "p0402-billing",
                         LocalPrivateKeyPem = billingPrivatePem,
                     }));
+            // Background delivery shares this transport; only request-path calls may be counted.
             foreach (var registration in services.Where(x => x.ServiceType == typeof(IHostedService) &&
-                x.ImplementationType == typeof(LeasedHttpDeliveryWorker)).ToList())
+                (x.ImplementationType == typeof(LeasedHttpDeliveryWorker) ||
+                 x.ImplementationType == typeof(ShopAffiliationDeliveryWorker) ||
+                 x.ImplementationType == typeof(TrialActivationDeliveryWorker))).ToList())
                 services.Remove(registration);
             foreach (var name in new[] { "MerchantBillingDelegation", LeasedHttpDeliveryPump.ClientName })
                 services.AddHttpClient(name).ConfigurePrimaryHttpMessageHandler(transport.CreateHandler);
