@@ -24,7 +24,15 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
             throw new InvalidOperationException("A committed entitlement source requires an affiliation.");
     }
 
-    internal async Task<bool> PublishAsync(Guid account, Guid shop, bool reconcile, CancellationToken ct, DateTimeOffset? evaluatedAt = null)
+    internal async Task<bool> PublishAsync(Guid account, Guid shop, bool reconcile, CancellationToken ct,
+        DateTimeOffset? evaluatedAt = null) => await AppendSnapshotAsync(account, shop, reconcile, evaluatedAt, ct) is not null;
+
+    internal async Task<EntitlementSnapshotV1> PublishSuspensionAsync(Guid account, Guid shop, DateTimeOffset at, CancellationToken ct) =>
+        await AppendSnapshotAsync(account, shop, false, at, ct)
+        ?? throw new InvalidOperationException("A suspension delivery requires the selected affiliation.");
+
+    private async Task<EntitlementSnapshotV1?> AppendSnapshotAsync(Guid account, Guid shop, bool reconcile,
+        DateTimeOffset? evaluatedAt, CancellationToken ct)
     {
         if (db.Database.CurrentTransaction is null)
             throw new InvalidOperationException("Entitlement publication requires the owning transaction.");
@@ -36,25 +44,29 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
             SELECT request_id AS "Value" FROM public.shop_affiliations WHERE shop_id = {shop} AND account_id = {account}
             """).SingleOrDefaultAsync(ct);
         if (request == Guid.Empty || await reader.ReadShopAsync(shop, ct, now) is not { } coverage || coverage.AccountId != account)
-            return false;
+            return null;
 
         var accountHead = await ReadAccountAsync(account, reconcile, now, ct);
         var term = SubscriptionStatusProjection.Choose(coverage, now, commercial: false);
         var next = NextBoundary(coverage, now, term?.NextDeadline);
         var nextVerification = Earlier(next, Earlier(accountHead.UpstreamVerifiedAt.AddHours(47), now.AddHours(47)));
         var revision = await NextShopRevisionAsync(account, shop, nextVerification, ct);
+        var suspension = await db.Database.SqlQuery<CustomerSuspensionV1>($"""
+            SELECT mode, effective_at, customer_explanation FROM public.operational_restrictions
+            WHERE account_id = {account} AND shop_id = {shop}
+            """).SingleOrDefaultAsync(ct);
         var shopHead = new ShopEntitlementSnapshotV1(revision, now, term?.State ?? "PendingActivation", term?.TermId,
-            term?.Basis, term?.StartsAt, term?.AccessEndsAt, next, term?.PurchasedCapacity, term?.MemberAllowance);
-        await AppendAsync(new(1, EntitlementSnapshotsV1.PolicyVersion, Guid.NewGuid(), account,
-            shop, request, accountHead, shopHead), ct);
-        return true;
+            term?.Basis, term?.StartsAt, term?.AccessEndsAt, next, term?.PurchasedCapacity, term?.MemberAllowance, suspension);
+        var snapshot = new EntitlementSnapshotV1(1, EntitlementSnapshotsV1.PolicyVersion, Guid.NewGuid(), account,
+            shop, request, accountHead, shopHead);
+        await AppendAsync(snapshot, ct);
+        return snapshot;
     }
 
     private async Task<AccountRestrictionSnapshotV1> ReadAccountAsync(Guid account, bool reconcile,
         DateTimeOffset now, CancellationToken ct)
     {
-        // Phase 2 has no restriction writer. Reconciliation re-verifies the authoritative head in place,
-        // retaining any restriction/release facts supplied by a later authority.
+        // Refresh verification without replacing the restriction set by the provider writer.
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.entitlement_account_heads (account_id, revision, upstream_verified_at, restriction)
             VALUES ({account}, 1, {now}, 'Unrestricted')
@@ -62,10 +74,15 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
                 upstream_verified_at = EXCLUDED.upstream_verified_at
             WHERE {reconcile} AND entitlement_account_heads.upstream_verified_at < EXCLUDED.upstream_verified_at
             """, ct);
-        return await db.Database.SqlQuery<AccountRestrictionSnapshotV1>($"""
-            SELECT revision, upstream_verified_at, restriction, released_revision
-            FROM public.entitlement_account_heads WHERE account_id = {account}
+        var row = await db.Database.SqlQuery<AccountHead>($"""
+            SELECT h.revision, h.upstream_verified_at, h.restriction, h.released_revision,
+                r.effective_at, r.customer_explanation
+            FROM public.entitlement_account_heads h
+            LEFT JOIN public.operational_restrictions r ON r.account_id = h.account_id AND r.shop_id IS NULL
+            WHERE h.account_id = {account}
             """).SingleAsync(ct);
+        return new(row.Revision, row.UpstreamVerifiedAt, row.Restriction, row.ReleasedRevision,
+            row.EffectiveAt is { } at ? new(row.Restriction, at, row.CustomerExplanation!) : null);
     }
 
     private async Task<long> NextShopRevisionAsync(Guid account, Guid shop, DateTimeOffset due, CancellationToken ct)
@@ -104,6 +121,9 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
                 return new DateTimeOffset?[] { status.StartsAt, status.PaidThrough, status.GraceEndsAt, status.NextDeadline };
             }).Append(selectedDeadline).Append(coverage.ConvertedPaidStartsAt).Where(date => date > now).Min();
     }
+
+    private sealed record AccountHead(long Revision, DateTimeOffset UpstreamVerifiedAt, string Restriction,
+        long? ReleasedRevision, DateTimeOffset? EffectiveAt, string? CustomerExplanation);
 
     private static DateTimeOffset Earlier(DateTimeOffset? first, DateTimeOffset other) =>
         first is { } value && value < other ? value : other;

@@ -1,0 +1,89 @@
+<main class="restriction-page">
+  <a routerLink="/">Provider Console</a>
+  <h1 class="ib-page-title">Operational restrictions</h1>
+  @if (canRead()) {
+    <form [formGroup]="form" class="ib-panel restriction-form" (ngSubmit)="suspend()">
+      <label for="restriction-account">Billing account ID</label>
+      <input id="restriction-account" formControlName="accountId" autocomplete="off" />
+      @if (canSuspend()) {
+        <label for="restriction-scope">Suspension scope</label>
+        <select id="restriction-scope" formControlName="scope">
+          <option value="">Choose scope</option>
+          <option value="Shop">One shop</option>
+          <option value="Account">Entire billing account</option>
+        </select>
+        @if (form.controls.scope.value === 'Shop') {
+          <label for="restriction-shop">Shop ID</label>
+          <input id="restriction-shop" formControlName="shopId" autocomplete="off" />
+        }
+        <button pButton outlined type="button" [disabled]="busy()" (click)="preview()">Preview impact</button>
+        @if (pending()) {
+          <p role="status">A saved request is awaiting confirmation.</p>
+          <button pButton outlined type="button" [disabled]="busy()" (click)="retry()">Retry saved request</button>
+        }
+        @if (impact(); as preview) {
+          <section aria-labelledby="restriction-impact">
+            <h2 class="ib-panel__title" id="restriction-impact">Affected shops</h2>
+            <p><strong>{{ preview.accountName }}</strong> · {{ preview.selection.scope === 'Account' ? 'Entire account' : 'One shop' }}</p>
+            @if (preview.selection.scope === 'Account') {
+              <p>Applies to all current and future affiliated shops, including independent subscriptions.</p>
+            }
+            <ul class="restriction-shops">
+              @for (shop of preview.shops; track shop.shopId) {
+                <li>{{ shop.shopName }} @if (shop.coverageMode) { ({{ shop.coverageMode }}) }</li>
+              } @empty {
+                <li>No currently affiliated shops</li>
+              }
+            </ul>
+          </section>
+          @if (preview.alreadySuspended) {
+            <p role="status">This scope already has a saved suspension.</p>
+          } @else {
+            <label for="restriction-mode">Suspension mode</label>
+            <select id="restriction-mode" formControlName="mode">
+              <option value="">Choose mode</option>
+              <option value="Trading">Trading</option>
+              <option value="Security">Security</option>
+            </select>
+            @if (form.controls.mode.value === 'Security') {
+              <p>Blocks shop data, exports, trading and ordinary recovery.</p>
+            } @else if (form.controls.mode.value === 'Trading') {
+              <p>Blocks new trading and preserves eligible history and completion.</p>
+            }
+            <label for="restriction-effective">Effective time in IST (optional)</label>
+            <input id="restriction-effective" formControlName="effectiveAt" placeholder="YYYY-MM-DD HH:mm" autocomplete="off" />
+            <p>Leave blank to apply immediately after delivery.</p>
+            <label for="restriction-customer">Customer explanation</label>
+            <textarea id="restriction-customer" formControlName="customerExplanation" maxlength="500" rows="3"></textarea>
+            <label for="restriction-internal">Internal review reason</label>
+            <textarea id="restriction-internal" formControlName="internalReason" maxlength="1000" rows="3"></textarea>
+            <label for="restriction-reference">Review reference</label>
+            <input id="restriction-reference" formControlName="reviewReference" maxlength="120" />
+            <button pButton severity="danger" type="submit" [disabled]="busy() || !!pending()">Apply suspension</button>
+          }
+        }
+      }
+      @if (error(); as message) { <p class="ib-error-banner" role="alert">{{ message }}</p> }
+    </form>
+
+    <section class="ib-panel restriction-saved" aria-labelledby="restriction-saved">
+      <h2 class="ib-panel__title" id="restriction-saved">Saved restrictions</h2>
+      <button pButton outlined type="button" [disabled]="busy()" (click)="refresh()">Refresh saved restrictions</button>
+      @for (restriction of saved(); track restriction.id) {
+        <article class="restriction-status">
+          <h3>{{ restriction.mode }} · {{ restriction.shopId ? 'One shop' : 'Entire account' }}</h3>
+          <p>Saved {{ format(restriction.recordedAt) }} · Effective {{ format(restriction.effectiveAt) }}</p>
+          <p>{{ restriction.customerExplanation }}</p>
+          <p role="status"><strong>{{ labels[restriction.propagation] }}</strong></p>
+          <ul class="restriction-shops">
+            @for (shop of restriction.shops; track shop.shopId) {
+              <li>{{ shop.shopName }} · Account revision {{ shop.accountRevision }}, shop revision {{ shop.shopRevision }} · {{ labels[shop.status] }}</li>
+            }
+          </ul>
+        </article>
+      }
+    </section>
+  } @else {
+    <p role="alert">Your provider account does not have access to operational restrictions.</p>
+  }
+</main>

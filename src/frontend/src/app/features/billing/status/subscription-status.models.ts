@@ -44,6 +44,11 @@ export interface ShopSubscriptionStatus {
   readonly entitlementSynchronization: string;
   readonly paymentVerification: string;
   readonly synchronization?: EntitlementSynchronization | null;
+  readonly suspension?: {
+    readonly mode: 'Trading' | 'Security';
+    readonly effectiveAt: string;
+    readonly customerExplanation: string;
+  };
 }
 
 export interface AccountTermStatus {

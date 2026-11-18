@@ -207,6 +207,7 @@ public sealed partial class P0401LicensingTests
                 await ExecuteAsync(SharedPostgres.ConnectionStringFor(name), $"""
                     GRANT CREATE ON SCHEMA public TO {_role};
                     {tables}
+                    ALTER TABLE public.account_license_restrictions OWNER TO {_role};
                     ALTER TABLE public."__EFMigrationsHistory" OWNER TO {_role};
                     ALTER FUNCTION public.take_merchant_licence_fence(uuid, uuid, boolean) OWNER TO {_role};
                     """);

@@ -50,6 +50,14 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("upstream_verified_at");
 
+                    b.Property<DateTimeOffset?>("SuspensionEffectiveAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("suspension_effective_at");
+
+                    b.Property<string>("SuspensionExplanation")
+                        .HasColumnType("text")
+                        .HasColumnName("suspension_explanation");
+
                     b.HasKey("AccountId")
                         .HasName("pk_account_license_restrictions");
 
@@ -5585,6 +5593,18 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("UpstreamVerifiedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("upstream_verified_at");
+
+                    b.Property<DateTimeOffset?>("SuspensionEffectiveAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("suspension_effective_at");
+
+                    b.Property<string>("SuspensionExplanation")
+                        .HasColumnType("text")
+                        .HasColumnName("suspension_explanation");
+
+                    b.Property<string>("SuspensionMode")
+                        .HasColumnType("text")
+                        .HasColumnName("suspension_mode");
 
                     b.HasKey("ShopId")
                         .HasName("pk_shop_license_states");

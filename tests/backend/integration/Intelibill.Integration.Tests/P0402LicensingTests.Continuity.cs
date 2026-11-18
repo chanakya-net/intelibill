@@ -103,7 +103,8 @@ public sealed partial class P0402LicensingTests
         Assert.Equal(callsBefore, transport.Calls);
     }
 
-    private ApiWebApplicationFactory MerchantHost(RSA signer, FixtureTransport transport, RSA? merchantSigner = null)
+    private ApiWebApplicationFactory MerchantHost(RSA signer, FixtureTransport transport, RSA? merchantSigner = null,
+        Action<IServiceCollection>? configure = null)
     {
         using var billingSigner = RSA.Create(2048);
         var billingPrivatePem = billingSigner.ExportPkcs8PrivateKeyPem();
@@ -111,6 +112,7 @@ public sealed partial class P0402LicensingTests
         {
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(_clock);
+            configure?.Invoke(services);
             services.AddSingleton<IOptionsMonitor<EntitlementTransportOptions>>(
                 new FixtureOptionsMonitor<EntitlementTransportOptions>(new()
                 {

@@ -10,6 +10,7 @@ internal static class SubscriptionStatusContract
         && status.ShopId == shop && status.PaymentVerification == SubscriptionStatusV1.NotAvailable
         && status.EntitlementSynchronization == (status.Synchronization?.State ?? SubscriptionStatusV1.NotAvailable)
         && IsValidSynchronization(status.Synchronization)
+        && (status.Suspension is null || status.Suspension.IsValid())
         && SubscriptionStatusV1.States.Contains(status.State)
         && (status.Term is null ? status.State == "PendingActivation" : status.State == status.Term.State && IsValidTerm(status.Term))
         && (status.AccountId is null || status.AccountId != Guid.Empty)

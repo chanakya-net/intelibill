@@ -62,6 +62,19 @@ function render(api: Partial<SubscriptionStatusService>, params: Record<string, 
 afterEach(() => TestBed.resetTestingModule());
 
 describe('subscription status', () => {
+  it('shows the customer explanation and clears the suspension on a shop change', () => {
+    const { fixture, page, session } = render({
+      shop: id => of(status(id, id === shopA ? { suspension: { mode: 'Security',
+        effectiveAt: '2027-02-10T00:00:00.123456Z', customerExplanation: 'Contact support about shop access.' } } : {})),
+    });
+    expect(page.querySelector('[data-testid="shop-suspension"]')?.textContent).toContain('Contact support about shop access.');
+    expect(page.querySelector('[data-testid="shop-suspension"]')?.textContent).toContain('05:30:00.123456 IST');
+    expect(page.querySelector('[data-testid="observe-only"]')).toBeNull();
+    session.set({ user: { id: 'u1' }, activeShopId: shopB });
+    fixture.detectChanges();
+    expect(page.querySelector('[data-testid="shop-suspension"]')).toBeNull();
+  });
+
   it('shows the saved revision while merchant confirmation is pending, then clears it on a shop change', () => {
     const synchronization = {
       state: 'Pending' as const, delivery: 'AwaitingAcknowledgement' as const, savedAccountRevision: 2, savedShopRevision: 3,

@@ -1,0 +1,53 @@
+.restriction-page {
+  display: grid;
+  gap: 1rem;
+  max-width: 50rem;
+  margin-inline: auto;
+}
+
+.restriction-form, .restriction-saved {
+  display: grid;
+  gap: .65rem;
+  min-width: 0;
+  padding: clamp(.85rem, 3vw, 1.25rem);
+  overflow-wrap: anywhere;
+}
+
+.restriction-form label {
+  font-weight: 600;
+}
+
+.restriction-form input, .restriction-form select, .restriction-form textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: .55rem .75rem;
+  font: inherit;
+  border: 1px solid var(--app-sand-400);
+  border-radius: .35rem;
+  color: inherit;
+  background: var(--app-sand-50);
+}
+
+.restriction-form button, .restriction-saved button {
+  justify-self: start;
+}
+
+.restriction-status {
+  border-block-start: 1px solid var(--app-sand-400);
+  padding-block-start: .65rem;
+}
+
+.restriction-form :is(select, textarea):focus-visible {
+  outline: 2px solid var(--app-brown-800);
+  outline-offset: 2px;
+}
+
+.restriction-shops {
+  padding-inline-start: 1.25rem;
+  list-style: disc;
+}
+
+.restriction-shops li + li {
+  margin-block-start: .4rem;
+}

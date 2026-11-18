@@ -11,6 +11,7 @@ using Intelibill.Shared.Web.Delivery;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.Extensions.DependencyInjection;
 using static Intelibill.Application.Common.Licensing.LicenceOutcome;
 
 namespace Intelibill.Integration.Tests;
@@ -68,7 +69,12 @@ public sealed partial class P0402LicensingTests
         var badBody = SnapshotBody(original, received.AddDays(1), end);
         await using var migrator = CreateDb(owner: true);
         await migrator.GetService<IMigrator>().MigrateAsync("20261118090000_BoundMerchantEntitlementReconciliation", Ct);
-        var receipt = await PostSnapshotAsync(client, signer, badBody);
+        // The pre-upgrade API runs with the projection shape deployed on the older schema.
+        using var legacyHost = MerchantHost(signer, new(), configure: services =>
+            services.ConfigureDbContext<ApplicationDbContext>(options =>
+                options.ReplaceService<IModelCustomizer, LegacyProjectionModel>()));
+        using var legacyClient = CreateClient(legacyHost);
+        var receipt = await PostSnapshotAsync(legacyClient, signer, badBody);
         await migrator.Database.MigrateAsync(Ct);
         await AssertAuthorityCodeAsync(client, shop, HttpStatusCode.ServiceUnavailable, Unavailable);
 
@@ -89,6 +95,20 @@ public sealed partial class P0402LicensingTests
             await AssertTradingAsync(original, corrected, Blocked, Unavailable);
         await AssertTradingAsync(target, corrected.AddHours(48).AddMicroseconds(-1), Allowed);
         await AssertTradingAsync(target, corrected.AddHours(48), Blocked, Unavailable);
+    }
+
+    private sealed class LegacyProjectionModel : ModelCustomizer
+    {
+        public LegacyProjectionModel(ModelCustomizerDependencies dependencies) : base(dependencies) { }
+
+        public override void Customize(ModelBuilder builder, DbContext context)
+        {
+            base.Customize(builder, context);
+            builder.Entity<AccountLicenseRestriction>()
+                .Ignore(row => row.SuspensionEffectiveAt).Ignore(row => row.SuspensionExplanation);
+            builder.Entity<ShopLicenseState>()
+                .Ignore(row => row.SuspensionMode).Ignore(row => row.SuspensionEffectiveAt).Ignore(row => row.SuspensionExplanation);
+        }
     }
 
     [Theory]

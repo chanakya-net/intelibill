@@ -39,9 +39,10 @@ public sealed class LicenceActionPolicy : ILicenceActionPolicy
     private static Phase GetPhase(ShopLicenseState? shop, AccountLicenseRestriction? account,
         LicenseProofIssuance? proofs, DateTimeOffset now)
     {
-        if (account?.Restriction == "Security")
+        var suspension = LicenseProjectionPolicy.EffectiveSuspension(shop, account, now);
+        if (suspension == "Security")
             return Phase.SecuritySuspended;
-        if (account?.Restriction == "Trading" || shop?.State is "Suspended" or "Closed")
+        if (suspension == "Trading" || shop?.State is "Suspended" or "Closed")
             return Phase.TradingRestricted;
         if (shop is null)
             return Phase.AwaitingVerification;

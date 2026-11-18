@@ -26,6 +26,8 @@ public static class EntitlementSnapshotsV1
     public static string? ReadRestrictionError(AccountRestrictionSnapshotV1 account) =>
         account.Revision <= 0 || !IsInstant(account.UpstreamVerifiedAt) ||
         account.Restriction is not ("Unrestricted" or "Trading" or "Security") ||
+        (account.Restriction == "Unrestricted" ? account.Suspension is not null
+            : account.Suspension is { } suspension && (!suspension.IsValid() || suspension.Mode != account.Restriction)) ||
         (account.ReleasedRevision is { } released && (released <= 0 || released >= account.Revision ||
             account.Restriction != "Unrestricted")) ? "InvalidAccountScope" : null;
 
@@ -43,12 +45,21 @@ public static class EntitlementSnapshotsV1
 }
 
 public sealed record AccountRestrictionSnapshotV1(
-    long Revision, DateTimeOffset UpstreamVerifiedAt, string Restriction, long? ReleasedRevision);
+    long Revision, DateTimeOffset UpstreamVerifiedAt, string Restriction, long? ReleasedRevision,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CustomerSuspensionV1? Suspension = null);
+
+public sealed record CustomerSuspensionV1(string Mode, DateTimeOffset EffectiveAt, string CustomerExplanation)
+{
+    public bool IsValid() => Mode is "Trading" or "Security" && EntitlementSnapshotsV1.IsInstant(EffectiveAt)
+        && CustomerExplanation is { Length: > 0 and <= 500 } && !string.IsNullOrWhiteSpace(CustomerExplanation)
+        && !CustomerExplanation.Any(character => char.IsControl(character) && character != '\n');
+}
 
 public sealed record ShopEntitlementSnapshotV1(
     long Revision, DateTimeOffset UpstreamVerifiedAt, string State, Guid? TermId, string? Basis,
     DateTimeOffset? StartsAt, DateTimeOffset? AccessEndsAt, DateTimeOffset? NextBoundary,
-    int? ShopCapacity, int? MemberAllowance)
+    int? ShopCapacity, int? MemberAllowance,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CustomerSuspensionV1? Suspension = null)
 {
     public bool IsValid()
     {
@@ -57,7 +68,7 @@ public sealed record ShopEntitlementSnapshotV1(
             StartsAt is { } start && !EntitlementSnapshotsV1.IsInstant(start) ||
             AccessEndsAt is { } end && !EntitlementSnapshotsV1.IsInstant(end) ||
             NextBoundary is { } next && (!EntitlementSnapshotsV1.IsInstant(next) || next <= UpstreamVerifiedAt) ||
-            TermId == Guid.Empty || ShopCapacity is <= 0 || MemberAllowance is <= 0)
+            TermId == Guid.Empty || ShopCapacity is <= 0 || MemberAllowance is <= 0 || Suspension is { } suspension && !suspension.IsValid())
             return false;
         return State is not ("Active" or "Grace") || TermId is not null && Basis is not null &&
             StartsAt <= UpstreamVerifiedAt && AccessEndsAt > UpstreamVerifiedAt;
