@@ -11,5 +11,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="ErrorOr" />
+    <PackageReference Include="FluentValidation" />
   </ItemGroup>
 </Project>

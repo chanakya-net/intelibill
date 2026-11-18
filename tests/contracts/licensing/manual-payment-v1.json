@@ -1,0 +1,34 @@
+{
+  "online": {
+    "schemaVersion": 1,
+    "accountId": "7fab882e-bbd0-4b95-ae04-ff41d86baf37",
+    "orderId": "c612ed2b-af11-41bb-8b92-41173d6e1818",
+    "attemptId": "6fff8f7f-4760-4219-880f-545977a8f4b2",
+    "payment": "Verified",
+    "fulfilment": "Fulfilled",
+    "access": "Applying",
+    "amountPaise": 50000,
+    "currency": "INR",
+    "startedAt": "2027-02-10T00:00:00Z",
+    "verifiedAt": "2027-02-10T00:00:00Z",
+    "termId": "3ba55137-48a4-4005-86d6-3596b9f8e035",
+    "termStartsAt": "2027-02-10T00:00:00Z",
+    "termEndsAt": "2027-03-10T00:00:00Z",
+    "shopsTotal": 1,
+    "shopsApplied": 0,
+    "canStart": false,
+    "launch": null
+  },
+  "cases": [
+    { "name": "old online shape", "patch": {}, "valid": true },
+    { "name": "manual-only", "patch": { "attemptId": null, "startedAt": null, "manualPayment": { "payment": "Verified", "verifiedAt": "2027-02-10T00:00:00Z" } }, "valid": true },
+    { "name": "pending online and manual", "patch": { "payment": "PendingVerification", "verifiedAt": null, "manualPayment": { "payment": "Verified", "verifiedAt": "2027-02-10T00:00:00Z" } }, "valid": true },
+    { "name": "failed online and manual", "patch": { "payment": "Failed", "verifiedAt": null, "manualPayment": { "payment": "Verified", "verifiedAt": "2027-02-10T00:00:00Z" } }, "valid": true },
+    { "name": "verified online and manual", "patch": { "manualPayment": { "payment": "Verified", "verifiedAt": "2027-02-10T00:00:00Z" } }, "valid": true },
+    { "name": "manual amount needs review", "patch": { "attemptId": null, "startedAt": null, "fulfilment": "NeedsReview", "access": "NotApplicable", "termId": null, "termStartsAt": null, "termEndsAt": null, "manualPayment": { "payment": "Verified", "verifiedAt": "2027-02-10T00:00:00Z" } }, "valid": true },
+    { "name": "verified without a source", "patch": { "attemptId": null, "startedAt": null }, "valid": false },
+    { "name": "payable after manual receipt", "patch": { "canStart": true, "manualPayment": { "payment": "Verified", "verifiedAt": "2027-02-10T00:00:00Z" } }, "valid": false },
+    { "name": "manual receipt without disposition", "patch": { "fulfilment": "NotFulfilled", "access": "NotApplicable", "termId": null, "termStartsAt": null, "termEndsAt": null, "manualPayment": { "payment": "Verified", "verifiedAt": "2027-02-10T00:00:00Z" } }, "valid": false },
+    { "name": "unverified manual evidence", "patch": { "manualPayment": { "payment": "PendingVerification", "verifiedAt": "2027-02-10T00:00:00Z" } }, "valid": false }
+  ]
+}

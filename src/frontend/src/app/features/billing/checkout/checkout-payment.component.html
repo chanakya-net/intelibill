@@ -1,0 +1,96 @@
+<section class="checkout-payment" aria-labelledby="payment-heading" data-testid="checkout-payment">
+  <h3 id="payment-heading">{{ 'billing.checkout.payment.title' | transloco }}</h3>
+  @if (problem(); as issue) {
+    <p role="alert" class="checkout-alert" data-testid="payment-problem">{{ 'billing.checkout.payment.errors.' + issue | transloco }}</p>
+  }
+  @if (!pending() && (payment()?.payment ?? 'NotStarted') === 'NotStarted') {
+    <p role="status" data-testid="checkout-accepted">{{ 'billing.checkout.accepted' | transloco }}</p>
+  }
+  @if (pending()) {
+    <p role="status" data-testid="payment-pending">{{ 'billing.checkout.payment.pending' | transloco }}</p>
+    <button pButton type="button" data-testid="payment-check" [disabled]="busy()"
+      [label]="'billing.checkout.payment.checkAgain' | transloco" (click)="checkAgain()"></button>
+  } @else if (payment(); as status) {
+    @switch (status.payment) {
+      @case ('NotStarted') {
+        @if (status.canStart) {
+          <p>{{ 'billing.checkout.payment.notStarted' | transloco }}</p>
+          <button pButton type="button" data-testid="payment-start" [disabled]="busy()"
+            [label]="'billing.checkout.payment.continue' | transloco" (click)="start()"></button>
+        } @else {
+          <p data-testid="payment-unavailable">{{ 'billing.checkout.payment.unavailable' | transloco }}</p>
+        }
+      }
+      @case ('AwaitingPayment') {
+        <p data-testid="payment-awaiting">{{ 'billing.checkout.payment.awaiting' | transloco }}</p>
+        @if (launcher() === 'simulator') {
+          <app-development-simulator-launcher [busy]="busy()" (simulate)="simulate($event)" (returnWithoutCapture)="verify('Success')" />
+        } @else if (launcher() === 'razorpay' && razorpay(); as launch) {
+          <app-razorpay-launcher [launch]="launch" [busy]="busy()" [prepare]="prepareOpen" (opened)="razorpayOpened($event)" (outcome)="razorpayOutcome($event)"
+            (launchFailed)="razorpayLaunchFailed($event)" />
+          <button pButton type="button" severity="secondary" data-testid="payment-razorpay-check" [disabled]="busy()"
+            [label]="'billing.checkout.payment.checkAgain' | transloco" (click)="checkAgain()"></button>
+        } @else {
+          <p data-testid="payment-launcher-unavailable">{{ 'billing.checkout.payment.launcherUnavailable' | transloco }}</p>
+        }
+      }
+      @case ('Failed') {
+        <p role="status" data-testid="payment-failed">{{ 'billing.checkout.payment.failed' | transloco }}</p>
+      }
+      @case ('Verified') {
+        @if (status.attemptId || !status.manualPayment) {
+          <p role="status" data-testid="payment-confirmed">{{ 'billing.checkout.payment.confirmed' | transloco }}</p>
+        }
+      }
+    }
+  }
+  @if (payment(); as status) {
+    @if (status.fulfilment === 'NeedsReview' && status.payment !== 'Verified' && !status.manualPayment) {
+      <p role="status" data-testid="payment-routing-review">{{ 'billing.checkout.payment.reviewUnverified' | transloco }}</p>
+    }
+    @if (status.manualPayment) {
+      <p role="status" data-testid="payment-manual-confirmed">{{ 'billing.checkout.payment.manualConfirmed' | transloco }}</p>
+    }
+    @if (status.manualPayment || status.payment === 'Verified') {
+      <app-payment-confirmation-links [account]="quote().accountId" [order]="quote().orderId" />
+      @switch (status.access) {
+        @case ('Applying') {
+          <p data-testid="payment-applying">
+            {{ 'billing.checkout.payment.applying' | transloco: { applied: status.shopsApplied, total: status.shopsTotal } }}
+          </p>
+        }
+        @case ('Applied') {
+          <p data-testid="payment-applied">{{ 'billing.checkout.payment.applied' | transloco: { total: status.shopsTotal } }}</p>
+        }
+        @case ('NeedsReview') {
+          <p data-testid="payment-access-review">{{ 'billing.checkout.payment.reviewAccess' | transloco }}</p>
+        }
+      }
+      @if (status.restorationHeld) {
+        <p data-testid="payment-restoration-hold">{{ 'billing.checkout.payment.restorationHeld' | transloco }}</p>
+        @if (status.attemptId && status.payment === 'Verified') {
+          <button pButton type="button" data-testid="payment-check-restoration" [disabled]="busy()"
+            [label]="'billing.checkout.payment.checkRestoration' | transloco" (click)="checkAgain()"></button>
+        }
+      } @else if (status.fulfilment === 'NeedsReview') {
+        <p role="status" data-testid="payment-review">{{ 'billing.checkout.payment.reviewPayment' | transloco }}</p>
+      }
+      @if (status.fulfilment === 'NeedsReview' && !pending() &&
+          (!status.restorationHeld || !status.attemptId || status.payment !== 'Verified')) {
+        <button pButton type="button" data-testid="payment-review-check" [disabled]="busy()"
+          [label]="'billing.checkout.payment.checkAgain' | transloco" (click)="refreshReview()"></button>
+      }
+      @if (status.termStartsAt && status.termEndsAt) {
+        <p data-testid="payment-term">{{ 'billing.checkout.payment.term' | transloco }}:
+          {{ instant(status.termStartsAt) }} – {{ instant(status.termEndsAt) }} · {{ quote().billingTimeZone }}</p>
+      }
+      @if (status.serviceRestoration; as adjustment) {
+        <div data-testid="payment-restoration-adjustment">
+          <p>{{ 'billing.checkout.payment.restorationAdjustment' | transloco: { count: adjustment.count } }}</p>
+          <p>{{ instant(adjustment.startsAt) }} – {{ instant(adjustment.endsAt) }} · {{ quote().billingTimeZone }}</p>
+          <small>{{ 'billing.checkout.payment.restorationReference' | transloco }} {{ adjustment.grantId }}</small>
+        </div>
+      }
+    }
+  }
+</section>

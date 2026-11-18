@@ -49,12 +49,17 @@ public static class BillingAccountRules
         MerchantBillingDelegationV1.ReadAccount or BillingInvitationsV1.Roster or ShopAffiliationsV1.Read or ShopAffiliationsV1.Request or SubscriptionStatusV1.AccountRead
         or SubscriptionCancellationsV1.Read or SubscriptionCancellationsV1.Schedule or SubscriptionCancellationsV1.Recover
         or SubscriptionCancellationsV1.Withdraw or SubscriptionCancellationsV1.WithdrawRecover => role is BillingAccountRole.Owner or BillingAccountRole.Manager,
+        _ when CheckoutOrdersV1.IsAction(action) || CheckoutPaymentsV1.IsAction(action) =>
+            role is BillingAccountRole.Owner or BillingAccountRole.Manager,
         _ => false,
     };
 
+    // Verify appends a browser claim: its insert and commit share the account lock a proof-free resume decides under,
+    // so a stale unpaid read can never commit ResumeConfirmed over a claim that is inserted but not yet committed.
     public static bool SerializesAccountMutation(string action) => action is BillingOwnershipTransfersV1.Issue
         or BillingInvitationsV1.Issue or BillingInvitationsV1.RemoveMember or ShopAffiliationsV1.Request or SubscriptionCancellationsV1.Schedule
-        or SubscriptionCancellationsV1.Withdraw;
+        or SubscriptionCancellationsV1.Withdraw or CheckoutOrdersV1.Create or CheckoutOrdersV1.Accept
+        or CheckoutPaymentsV1.Start or CheckoutPaymentsV1.Verify;
 
     public static string RoleName(BillingAccountRole role) => role switch
     {

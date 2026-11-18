@@ -22,6 +22,7 @@ internal static class ProviderSessions
     internal const string CataloguePolicy = "ProviderCatalogueDrafts";
     internal const string StatusPolicy = "ProviderSubscriptionStatus";
     internal const string GrantPolicy = "ProviderComplimentaryGrants";
+    internal const string PaymentPolicy = "ProviderManualPayments";
     internal const string CapabilityClaim = "provider_capability";
     internal const string MfaVerifiedAtClaim = "provider_mfa_at";
 
@@ -82,6 +83,10 @@ internal static class ProviderSessions
                 .RequireClaim(BusinessClaim, "true"))
             // Complimentary grants: the Licensing Manager grant and recent MFA are re-checked against live authority.
             .AddPolicy(GrantPolicy, policy => policy
+                .AddAuthenticationSchemes(Scheme)
+                .RequireAuthenticatedUser()
+                .RequireClaim(BusinessClaim, "true"))
+            .AddPolicy(PaymentPolicy, policy => policy
                 .AddAuthenticationSchemes(Scheme)
                 .RequireAuthenticatedUser()
                 .RequireClaim(BusinessClaim, "true"))

@@ -39,6 +39,9 @@
       <label for="grant-members">Members per shop</label>
       <input id="grant-members" type="number" min="1" max="100000" step="1" [value]="memberAllowance()"
         (input)="edit('memberAllowance', $any($event.target).value)" />
+      <label for="grant-payment-order">Payment order ID for service restoration (optional)</label>
+      <input id="grant-payment-order" maxlength="36" [value]="paymentOrderId()"
+        (input)="edit('paymentOrderId', $any($event.target).value)" />
       <label for="grant-reason">Reason (kept in the provider record only)</label>
       <textarea id="grant-reason" maxlength="500" [value]="reason()" (input)="edit('reason', $any($event.target).value)"></textarea>
       <button pButton type="submit" [disabled]="busy()">Preview grant</button>
@@ -56,6 +59,9 @@
           <dt>Members per shop</dt><dd data-testid="grant-preview-members">{{ facts.memberAllowance }}</dd>
           <dt>Payment</dt><dd data-testid="grant-preview-payment">None recorded; this is not revenue</dd>
           <dt>Grace after the end</dt><dd data-testid="grant-preview-grace">No grace period</dd>
+          @if (facts.paymentOrderId) {
+            <dt>Service-restoration order</dt><dd>{{ facts.paymentOrderId }}</dd>
+          }
           <dt>Reason</dt><dd>{{ facts.reason }}</dd>
         </dl>
         <ul class="grant-shops">

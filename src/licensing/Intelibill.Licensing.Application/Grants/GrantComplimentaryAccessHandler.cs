@@ -19,7 +19,7 @@ public sealed class GrantComplimentaryAccessHandler(IComplimentaryGrantStore sto
     {
         if (await AuthorizeAsync(caller, recentMfa: false, token) is { } denied) return denied;
         var facts = draft is null ? null
-            : ComplimentaryGrantFacts.From(draft.ShopIds, draft.StartsAt, draft.EndsAt, draft.MemberAllowance, draft.Reason);
+            : ComplimentaryGrantFacts.From(draft.ShopIds, draft.StartsAt, draft.EndsAt, draft.MemberAllowance, draft.Reason, draft.PaymentOrderId);
         if (account == Guid.Empty || facts is null) return ComplimentaryGrantErrors.Invalid;
 
         await store.EnterAsync(caller.AdminId, account, token);
@@ -51,7 +51,7 @@ public sealed class GrantComplimentaryAccessHandler(IComplimentaryGrantStore sto
             return ComplimentaryGrantErrors.VersionConflict;
 
         var grant = new StoredComplimentaryGrant(Guid.NewGuid(), Guid.NewGuid(), account, request.OperationKey, caller.AdminId,
-            caller.SessionId, facts, request.ExpectedVersion, request.SourceHash!, digest, source.Value.At, source.Value.Shops);
+            caller.SessionId, facts, request.ExpectedVersion, request.SourceHash!, digest, source.Value.At, source.Value.Shops, source.Value.PaidTermId);
         await store.SaveAsync(grant, token);
         if (await AuthorizeAsync(caller, recentMfa: true, token) is { } lost) return lost;
         return new ComplimentaryGrantOutcome(ComplimentaryGrantSource.Result(grant), Created: true);
@@ -71,7 +71,7 @@ public sealed class GrantComplimentaryAccessHandler(IComplimentaryGrantStore sto
     private static ComplimentaryGrantFacts? Validate(Guid account, ConfirmComplimentaryGrantV1? request) =>
         request is { Confirmed: true, ExpectedVersion: >= 0 } && account != Guid.Empty && request.OperationKey != Guid.Empty
         && ComplimentaryGrantSource.ValidHash(request.SourceHash)
-            ? ComplimentaryGrantFacts.From(request.ShopIds, request.StartsAt, request.EndsAt, request.MemberAllowance, request.Reason)
+            ? ComplimentaryGrantFacts.From(request.ShopIds, request.StartsAt, request.EndsAt, request.MemberAllowance, request.Reason, request.PaymentOrderId)
             : null;
 
     private DateTimeOffset Instant() => SubscriptionStatusProjection.EvaluationInstant(lifecycleClock);

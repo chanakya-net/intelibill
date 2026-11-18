@@ -1,4 +1,5 @@
 using Intelibill.Infrastructure.Data;
+using Intelibill.Licensing.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Testcontainers.PostgreSql;
@@ -12,6 +13,7 @@ public sealed class LicensingPostgreSqlFixture : IAsyncLifetime
     internal const string RuntimeRole = "licensing_runtime";
     internal const string MigratorRole = "licensing_migrator";
     internal const string MerchantRole = "merchant_runtime";
+    private const string LicensingTemplate = "licensing_template";
     private const string Password = "integration;fixture=password";
 
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
@@ -19,8 +21,14 @@ public sealed class LicensingPostgreSqlFixture : IAsyncLifetime
         .WithDatabase("bootstrap")
         .WithUsername("bootstrap")
         .WithPassword(Password)
-        .WithCommand("-c", "log_statement=ddl", "-c", "log_line_prefix=%u@%d ")
+        .WithTmpfsMount("/var/lib/postgresql/data")
+        .WithCommand("-c", "log_statement=ddl", "-c", "log_line_prefix=%u@%d ",
+            "-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off")
         .Build();
+
+    private readonly Lazy<Task> _licensingTemplate;
+
+    public LicensingPostgreSqlFixture() => _licensingTemplate = new(PrepareLicensingTemplateAsync);
 
     public async Task InitializeAsync()
     {
@@ -58,6 +66,34 @@ public sealed class LicensingPostgreSqlFixture : IAsyncLifetime
 
     internal NpgsqlConnectionStringBuilder Login(string database, string role) =>
         new(Bootstrap(database).ConnectionString) { Username = role, Password = Password };
+
+    internal async Task CreateMigratedLicensingDatabaseAsync(string name)
+    {
+        await _licensingTemplate.Value;
+        using var commands = new NpgsqlCommandBuilder();
+        var identifier = commands.QuoteIdentifier(name);
+        await ExecuteAsync(Bootstrap(),
+            $"CREATE DATABASE {identifier} OWNER licensing_migrator TEMPLATE {LicensingTemplate}");
+        // PostgreSQL copies schema privileges from the template, while database privileges belong to the new database.
+        await ExecuteAsync(Bootstrap(), $"""
+            REVOKE ALL ON DATABASE {identifier} FROM PUBLIC;
+            GRANT CONNECT ON DATABASE {identifier} TO licensing_runtime;
+            """);
+    }
+
+    private async Task PrepareLicensingTemplateAsync()
+    {
+        await ExecuteAsync(Bootstrap(), $"CREATE DATABASE {LicensingTemplate} OWNER licensing_migrator");
+        await ExecuteAsync(Bootstrap(), $"REVOKE ALL ON DATABASE {LicensingTemplate} FROM PUBLIC");
+        var options = new DbContextOptionsBuilder<LicensingDbContext>()
+            .UseNpgsql(Login(LicensingTemplate, MigratorRole).ConnectionString)
+            .UseSnakeCaseNamingConvention()
+            .Options;
+        // Fixture connections are unpooled. Disposing the context leaves no session attached to the template.
+        await using (var context = new LicensingDbContext(options))
+            await context.Database.MigrateAsync();
+        await ExecuteAsync(Bootstrap(), $"ALTER DATABASE {LicensingTemplate} WITH ALLOW_CONNECTIONS false IS_TEMPLATE true");
+    }
 
     internal async Task PrepareMerchantAsync()
     {

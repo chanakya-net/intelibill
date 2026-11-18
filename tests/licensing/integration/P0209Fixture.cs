@@ -175,7 +175,7 @@ internal static class P0209Fixture
         AffiliateAsync(host.LicensingOwner, account, payer, shop, owner, term, appliedAt, endsAt);
 
     internal static async Task AffiliateAsync(NpgsqlConnectionStringBuilder settings, Guid account, Guid payer, Guid shop,
-        Guid owner, Guid? term, DateTimeOffset appliedAt, DateTimeOffset? endsAt)
+        Guid owner, Guid? term, DateTimeOffset appliedAt, DateTimeOffset? endsAt, string shopName = "Status Fixture Shop")
     {
         await using var connection = new NpgsqlConnection(settings.ConnectionString);
         await connection.OpenAsync();
@@ -192,10 +192,10 @@ internal static class P0209Fixture
             INSERT INTO public.shop_affiliations
                 (request_id, account_id, shop_id, term_id, event_id, actor_id, membership_id, authority_version,
                  shop_name, owner_name, accepted_at, applied_at, coverage_ends_at)
-            VALUES ($1, $2, $3, $4, gen_random_uuid(), $5, gen_random_uuid(), 1, 'Status Fixture Shop',
+            VALUES ($1, $2, $3, $4, gen_random_uuid(), $5, gen_random_uuid(), 1, $8,
                 'Fixture Owner', $6, $6, $7)
             """) { Parameters = { new() { Value = request }, new() { Value = account }, new() { Value = shop },
-                new() { Value = (object?)term ?? DBNull.Value }, new() { Value = owner }, new() { Value = appliedAt }, new() { Value = (object?)endsAt ?? DBNull.Value } } });
+                new() { Value = (object?)term ?? DBNull.Value }, new() { Value = owner }, new() { Value = appliedAt }, new() { Value = (object?)endsAt ?? DBNull.Value }, new() { Value = shopName } } });
         await sql.ExecuteNonQueryAsync();
     }
 

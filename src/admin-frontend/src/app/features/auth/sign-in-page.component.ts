@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ButtonDirective } from 'primeng/button';
 import { finalize, from } from 'rxjs';
 import { AdminRefreshCoordinator } from '../../core/auth/admin-refresh-coordinator';
@@ -21,6 +21,7 @@ export class SignInPageComponent {
   private readonly http = inject(HttpClient);
   private readonly coordinator = inject(AdminRefreshCoordinator);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   private readonly destroy = inject(DestroyRef);
   private requestToken = '';
 
@@ -62,9 +63,23 @@ export class SignInPageComponent {
       takeUntilDestroyed(this.destroy),
       finalize(() => this.busy.set(false)),
     ).subscribe({
-      next: () => void this.router.navigateByUrl('/'),
+      next: () => this.finishSignIn(),
       error: (error: HttpErrorResponse) => this.signInFailed(error),
     });
+  }
+
+  private finishSignIn() {
+    const params = this.route.snapshot.queryParamMap;
+    const account = params.get('paymentAccount');
+    const order = params.get('paymentOrder');
+    const reviewAccount = params.get('reviewAccount');
+    if (reviewAccount) {
+      void this.router.navigate(['/payments/review'], { queryParams: { account: reviewAccount, case: params.get('reviewCase') } });
+    } else if (account && order) {
+      void this.router.navigate(['/payments'], { queryParams: { account, order } });
+    } else {
+      void this.router.navigateByUrl('/');
+    }
   }
 
   private signInFailed(error: HttpErrorResponse) {

@@ -13,7 +13,7 @@ public sealed record GrantWindow(Guid ShopId, Guid GrantId, DateTimeOffset Start
 /// <summary>A committed grant with its provider receipt, enough to replay the original outcome exactly.</summary>
 public sealed record StoredComplimentaryGrant(Guid GrantId, Guid TermId, Guid AccountId, Guid OperationKey, Guid AdminId,
     Guid SessionId, ComplimentaryGrantFacts Facts, long ExpectedVersion, string SourceHash, string PayloadDigest,
-    DateTimeOffset RecordedAt, IReadOnlyList<GrantShopSource> Shops);
+    DateTimeOffset RecordedAt, IReadOnlyList<GrantShopSource> Shops, Guid? PaidTermId = null);
 
 /// <summary>
 /// Persistence for complimentary grants. Every call runs inside <see cref="InTransactionAsync{T}"/>; the provider
@@ -35,6 +35,8 @@ public interface IComplimentaryGrantStore
     Task<long> ReadRevisionAsync(Guid account, CancellationToken ct);
 
     Task<IReadOnlyList<GrantShopSource>> ReadShopsAsync(Guid account, Guid[] shops, CancellationToken ct);
+
+    Task<Guid?> ReadPaidTermAsync(Guid account, Guid order, Guid[] shops, CancellationToken ct);
 
     Task<IReadOnlyList<GrantWindow>> ReadWindowsAsync(Guid account, Guid[] shops, CancellationToken ct);
 

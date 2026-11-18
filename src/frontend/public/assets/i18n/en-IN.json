@@ -3289,6 +3289,110 @@
     "searchHint": "Up to 20 matches are shown. Refine your search to find another party."
   },
   "billing": {
+    "checkout": {
+      "link": "Review a quote",
+      "title": "Review a full-payment quote",
+      "planVersion": "Version {{version}}",
+      "total": "Total payable in INR",
+      "capacity": "Shop capacity",
+      "members": "Active members per shop",
+      "expiry": "Quote expires",
+      "dates": "Intended term",
+      "fullPayment": "One full payment covers every named shop. The displayed total includes tax and any charges.",
+      "grace": "The renewal includes {{days}} days already used in grace.",
+      "covered": "Covered shops ({{count}})",
+      "customerTerms": "Customer terms version",
+      "refundPolicy": "Refund policy version",
+      "accepted": "Quote accepted. Payment has not started. Access is unchanged.",
+      "confirm": "I accept the full amount, all listed shops and the policy versions shown.",
+      "accept": "Accept quote",
+      "newQuote": "Review a new quote",
+      "selection": "Choose a package",
+      "plan": "Plan",
+      "selectPlan": "Choose a plan",
+      "period": "Billing period",
+      "package": "Package to renew",
+      "newPackage": "New package",
+      "selectShops": "Select shops",
+      "create": "Create quote",
+      "retry": "Retry original request",
+      "trialForfeiture": "Unused trial time will not be added to the paid period.",
+      "restrictedGap": "The restricted gap is not charged.",
+      "start": {
+        "Fulfilment": "The term starts when the purchase can be fulfilled. These dates are a preview.",
+        "PriorPaidThrough": "The term extends from the previous paid-through date.",
+        "RestoredAccess": "The term starts when access is restored. These dates are a preview."
+      },
+      "errors": {
+        "unavailable": "The quote details could not be loaded.",
+        "storage": "This device could not save your request. Try again with site storage available.",
+        "unknown": "The quote outcome is unknown. Retry the original request to check its result.",
+        "invalid": "Choose a supported package or review the confirmation again.",
+        "changed": "The quote or its covered shops changed. Review a new quote.",
+        "expired": "This quote expired before acceptance.",
+        "denied": "You no longer have access to this billing account."
+      },
+      "payment": {
+        "confirmation": {
+          "more": "Load more confirmations",
+          "view": "View payment confirmations",
+          "download": "Download payment confirmation",
+          "disclaimer": "Verified receipt confirmation; not a tax invoice or merchant sale receipt. Access status is shown separately.",
+          "error": "Could not download the confirmation. Try again."
+        },
+        "title": "Payment",
+        "notStarted": "Pay the full amount in one payment to start this package.",
+        "continue": "Continue to payment",
+        "unavailable": "Online payment is not available here. Your accepted quote is kept.",
+        "awaiting": "Complete the full payment in the checkout window.",
+        "pending": "Payment pending verification. Do not pay again for this order; check again shortly.",
+        "checkAgain": "Check again",
+        "manualConfirmed": "Manual payment verified",
+        "confirmed": "Payment confirmed",
+        "applying": "Applying access to {{applied}} of {{total}} shops",
+        "applied": "Access applied to all {{total}} shops",
+        "reviewAccess": "Applying access needs support review. Your payment is recorded.",
+        "restorationHeld": "Payment is confirmed. Access restoration is pending.",
+        "checkRestoration": "Check restoration again",
+        "restorationAdjustment": "Latest service-restoration adjustment ({{count}} recorded)",
+        "restorationReference": "Grant reference",
+        "reviewUnverified": "Payment is not yet verified and needs support review. Keep checking this original payment; do not pay again.",
+        "reviewPayment": "Your payment is recorded, but this order needs review before access is applied.",
+        "term": "Paid term",
+        "failed": "Payment failed. No funds were captured for this checkout.",
+        "launcherUnavailable": "This checkout method is not available.",
+        "razorpay": {
+          "title": "Pay securely online",
+          "notice": "You will pay the full amount in one payment. Access starts only after the payment is verified by our servers.",
+          "pay": "Pay the full amount",
+          "loading": "Opening secure checkout…",
+          "unavailable": "Secure checkout could not be opened. Your order is kept; try again."
+        },
+        "simulator": {
+          "title": "Development payment simulator",
+          "notice": "Development only. No real money moves and no real payment provider is contacted.",
+          "capture": "Capture full payment (simulated)",
+          "return": "Return without capturing",
+          "timeout": "Simulate verification timeout",
+          "delayed": "Simulate delayed capture",
+          "failed": "Simulate payment failure"
+        },
+        "errors": {
+          "unavailable": "Payment could not be started or checked. Try again.",
+          "unsupported": "This order cannot be paid online yet.",
+          "expired": "This quote expired before payment started. Review a new quote.",
+          "changed": "The quote or its covered shops changed. Review a new quote.",
+          "denied": "You no longer have access to this billing account."
+        }
+      },
+      "renewal": {
+        "title": "Renewal from your original renewal date",
+        "previousEnd": "Previous paid-through",
+        "newEnd": "New paid-through",
+        "graceIncluded": "This renewal includes {{days}} grace days already elapsed since the previous paid-through. The new period still starts at the previous paid-through, so grace is not added again.",
+        "noGrace": "The new period starts at the previous paid-through, so no paid time is lost."
+      }
+    },
     "cancellation": {
       "review": "Review cancellation",
       "details": "View affected shops",

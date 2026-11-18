@@ -26,14 +26,17 @@ public sealed class EntitlementTransportOptions
     public async Task<string?> TrySignLocalAsync(ServiceAssertionPurpose purpose, string path, byte[] body,
         TimeProvider clock, bool local, IEnumerable<string?> otherPurposeKeys, CancellationToken ct)
     {
-        if (!local || !Enabled || KeyVaultKeyId is not null || LocalPrivateKeyPem is not { } pem ||
-            !MerchantBillingDelegationV1.IsKeyId(LocalKeyId) ||
-            !IsDistinct(pem, otherPurposeKeys.Concat(PublicKeys.Values).Concat(RetiredPublicKeys.Values)))
+        if (!CanSignLocally(local, otherPurposeKeys))
             return null;
-        using var rsa = ReadRsa(pem);
+        using var rsa = ReadRsa(LocalPrivateKeyPem!);
         return rsa is null ? null : await SignedServiceAssertion.SignAsync(purpose, LocalKeyId!, path, body, clock,
             (input, _) => ValueTask.FromResult(rsa.SignData(input, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1)), ct);
     }
+
+    public bool CanSignLocally(bool local, IEnumerable<string?> otherPurposeKeys) =>
+        local && Enabled && KeyVaultKeyId is null && LocalPrivateKeyPem is { } pem &&
+        MerchantBillingDelegationV1.IsKeyId(LocalKeyId) &&
+        IsDistinct(pem, otherPurposeKeys.Concat(PublicKeys.Values).Concat(RetiredPublicKeys.Values));
 
     public static bool IsDistinct(string pem, IEnumerable<string?> otherKeys)
     {

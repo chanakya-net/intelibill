@@ -1,0 +1,43 @@
+namespace Intelibill.Licensing.Application.Payments;
+
+/// <summary>
+/// Provider-neutral gateway port. Adapters own provider SDKs, statuses and identifiers; licensing sees only the
+/// neutral observations below. Unsupported behaviour answers <see cref="GatewayOutcome.Unsupported"/> rather than
+/// approximating it. Callers never hold a SQL transaction across any of these calls.
+/// </summary>
+public interface IPaymentGateway
+{
+    PaymentProviderPin Pin { get; }
+    PaymentGatewayCapabilities Capabilities { get; }
+    /// <summary>Safe public launcher parameters for an attempt the gateway already created a session for.</summary>
+    IReadOnlyDictionary<string, string> LauncherParameters(string providerOrderReference, long amountPaise, string currency) =>
+        new Dictionary<string, string>();
+    /// <summary>Whether the provider can take this full amount; checked before any attempt is persisted.</summary>
+    bool SupportsAmount(long amountPaise, string currency) => true;
+    Task<GatewayResult<CheckoutSession>> CreateCheckoutAsync(CheckoutRequest request, CancellationToken ct);
+    Task<GatewayResult<CheckoutLookup>> LookupCheckoutAsync(CheckoutRequest request, CancellationToken ct) =>
+        Task.FromResult(GatewayResult.Unsupported<CheckoutLookup>());
+    Task<GatewayResult<PaymentObservation>> VerifyCheckoutAsync(CheckoutVerification request, CancellationToken ct);
+    Task<GatewayResult<PaymentObservation>> GetPaymentAsync(string providerPaymentReference, CancellationToken ct);
+    Task<GatewayResult<IReadOnlyList<PaymentObservation>>> GetOrderPaymentsAsync(string providerOrderReference, CancellationToken ct);
+    /// <summary>Independent authenticated receipt reads for finance. These observations cannot fund an order.</summary>
+    Task<GatewayResult<IReadOnlyList<PaymentObservation>>> InspectCapturesAsync(string orderReference, string? paymentReference, CancellationToken ct) =>
+        Task.FromResult(GatewayResult.Unsupported<IReadOnlyList<PaymentObservation>>());
+    Task<GatewayResult<RefundObservation>> RequestRefundAsync(RefundRequest request, CancellationToken ct);
+    Task<GatewayResult<RefundObservation>> GetRefundAsync(string providerRefundReference, CancellationToken ct);
+    GatewayResult<VerifiedGatewayEvent> ValidateWebhook(ReadOnlySpan<byte> body, IReadOnlyDictionary<string, string> headers);
+}
+
+/// <summary>Chooses the adapter for new attempts and resolves the pinned adapter for every older attempt.</summary>
+public interface IPaymentGatewayResolver
+{
+    IPaymentGateway? ForNewAttempts();
+    IPaymentGateway? ForPin(PaymentProviderPin pin);
+    IReadOnlyList<IPaymentGateway> ForWebhooks(string providerId) => [];
+}
+
+/// <summary>Local-only capture control; registered only by the development simulator runtime.</summary>
+public interface IPaymentSimulator
+{
+    Task SimulateAsync(string providerOrderReference, string outcome, CancellationToken ct);
+}

@@ -16,7 +16,6 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// Local fixture verification: real Chromium against the built merchant web, both APIs on loopback with
 /// the production membership adapter, and disposable PostgreSQL. It shows no live provider or key vault.
 /// </summary>
-[Collection(MerchantBillingHosts.Name)]
 public sealed class P0202BrowserTests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
     : IClassFixture<LicensingPostgreSqlFixture>
 {

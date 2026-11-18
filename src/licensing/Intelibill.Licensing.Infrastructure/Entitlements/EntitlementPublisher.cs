@@ -18,29 +18,29 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
 {
     internal DateTimeOffset Now => EntitlementSnapshotsV1.Instant(lifecycle);
 
-    public async Task PublishAsync(Guid account, Guid shop, CancellationToken ct)
+    public async Task PublishAsync(Guid account, Guid shop, CancellationToken ct, DateTimeOffset? evaluatedAt = null)
     {
-        if (!await PublishAsync(account, shop, reconcile: false, ct))
+        if (!await PublishAsync(account, shop, reconcile: false, ct, evaluatedAt))
             throw new InvalidOperationException("A committed entitlement source requires an affiliation.");
     }
 
-    internal async Task<bool> PublishAsync(Guid account, Guid shop, bool reconcile, CancellationToken ct)
+    internal async Task<bool> PublishAsync(Guid account, Guid shop, bool reconcile, CancellationToken ct, DateTimeOffset? evaluatedAt = null)
     {
         if (db.Database.CurrentTransaction is null)
             throw new InvalidOperationException("Entitlement publication requires the owning transaction.");
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             SELECT set_config('app.status_shop_id', {shop.ToString("D")}, true)
             """, ct);
+        var now = evaluatedAt ?? Now;
         var request = await db.Database.SqlQuery<Guid>($"""
             SELECT request_id AS "Value" FROM public.shop_affiliations WHERE shop_id = {shop} AND account_id = {account}
             """).SingleOrDefaultAsync(ct);
-        if (request == Guid.Empty || await reader.ReadShopAsync(shop, ct) is not { } coverage || coverage.AccountId != account)
+        if (request == Guid.Empty || await reader.ReadShopAsync(shop, ct, now) is not { } coverage || coverage.AccountId != account)
             return false;
 
-        var now = Now;
         var accountHead = await ReadAccountAsync(account, reconcile, now, ct);
         var term = SubscriptionStatusProjection.Choose(coverage, now, commercial: false);
-        var next = NextBoundary(coverage, now);
+        var next = NextBoundary(coverage, now, term?.NextDeadline);
         var nextVerification = Earlier(next, Earlier(accountHead.UpstreamVerifiedAt.AddHours(47), now.AddHours(47)));
         var revision = await NextShopRevisionAsync(account, shop, nextVerification, ct);
         var shopHead = new ShopEntitlementSnapshotV1(revision, now, term?.State ?? "PendingActivation", term?.TermId,
@@ -94,7 +94,7 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
             """, ct);
     }
 
-    private static DateTimeOffset? NextBoundary(ShopCoverage coverage, DateTimeOffset now)
+    private static DateTimeOffset? NextBoundary(ShopCoverage coverage, DateTimeOffset now, DateTimeOffset? selectedDeadline)
     {
         IEnumerable<TermFactsRow> rows = coverage.Grants ?? [];
         if (coverage.Term is { } baseline) rows = rows.Prepend(baseline);
@@ -102,7 +102,7 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
             {
                 var status = SubscriptionStatusProjection.Project(row, now, commercial: false);
                 return new DateTimeOffset?[] { status.StartsAt, status.PaidThrough, status.GraceEndsAt, status.NextDeadline };
-            }).Where(date => date > now).Min();
+            }).Append(selectedDeadline).Append(coverage.ConvertedPaidStartsAt).Where(date => date > now).Min();
     }
 
     private static DateTimeOffset Earlier(DateTimeOffset? first, DateTimeOffset other) =>

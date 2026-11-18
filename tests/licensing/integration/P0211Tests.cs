@@ -6,7 +6,6 @@ using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
-[Collection(MerchantBillingHosts.Name)]
 public sealed partial class P0211Tests(LicensingPostgreSqlFixture database) : IClassFixture<LicensingPostgreSqlFixture>
 {
     private static readonly DateTimeOffset End = Utc("2027-03-10T13:15:30.123456Z");

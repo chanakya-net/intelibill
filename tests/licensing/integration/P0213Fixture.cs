@@ -26,7 +26,9 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
     internal TimeProvider AuthClock => Hosts.Fixture.Clock;
     internal NpgsqlConnectionStringBuilder MerchantDb => Hosts.Database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase);
 
-    internal static async Task<P0213Fixture> StartAsync(LicensingPostgreSqlFixture db, bool browser = false)
+    internal static async Task<P0213Fixture> StartAsync(LicensingPostgreSqlFixture db, bool browser = false,
+        IReadOnlyDictionary<string, string?>? licensingExtras = null, Action<IServiceCollection>? licensingServices = null,
+        bool? prepareProvider = null, P0201Clock? businessClock = null)
     {
         var transport = new P0213Transport();
         using var consent = RSA.Create(2048);
@@ -36,13 +38,19 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
             ["ShopAffiliationDelivery:PublicKeys:local-affiliation"] = consent.ExportSubjectPublicKeyInfoPem(),
         };
         transport.AddSettings(destination, licensing: true);
+        foreach (var (name, value) in licensingExtras ?? new Dictionary<string, string?>()) destination[name] = value;
         transport.AddSettings(source, licensing: false);
         var merchantTraffic = new P0213Traffic();
         var licensingTraffic = new P0213Traffic();
         var setup = new P0210HostSetup(destination, source,
-            services => Configure(services, transport, licensingTraffic, licensing: true),
-            services => Configure(services, transport, merchantTraffic, licensing: false), PrepareProvider: !browser, UseDeliveryOnCatalogue: true);
-        var trial = await P0210Fixture.StartAsync(db, publish: !browser, browser: browser, setup: setup);
+            services =>
+            {
+                Configure(services, transport, licensingTraffic, licensing: true);
+                licensingServices?.Invoke(services);
+            },
+            services => Configure(services, transport, merchantTraffic, licensing: false),
+            PrepareProvider: prepareProvider ?? !browser, UseDeliveryOnCatalogue: true, BusinessClock: businessClock);
+        var trial = await P0210Fixture.StartAsync(db, publish: prepareProvider ?? !browser, browser: browser, setup: setup);
         var licensing = trial.Hosts.Licensing.CreateClient();
         var merchant = trial.Hosts.Merchant.CreateClient();
         transport.Connect(trial.Hosts, merchant.BaseAddress!, licensing.BaseAddress!, browser);

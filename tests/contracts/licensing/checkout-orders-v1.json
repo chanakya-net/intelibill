@@ -1,0 +1,43 @@
+{
+  "policy": "checkout-quote/1",
+  "accountId": "00000000-0000-4000-8000-000000000001",
+  "orderId": "00000000-0000-4000-8000-000000000002",
+  "paths": {
+    "create": "/internal/licensing/v1/customer/accounts/00000000-0000-4000-8000-000000000001/orders",
+    "accept": "/internal/licensing/v1/customer/accounts/00000000-0000-4000-8000-000000000001/orders/00000000-0000-4000-8000-000000000002/accept",
+    "recover": "/internal/licensing/v1/customer/accounts/00000000-0000-4000-8000-000000000001/orders/operations/accept/00000000-0000-4000-8000-000000000004",
+    "shops": "/internal/licensing/v1/customer/accounts/00000000-0000-4000-8000-000000000001/orders/00000000-0000-4000-8000-000000000002/shops/after/00000000-0000-4000-8000-000000000006"
+  },
+  "create": {
+    "operationKey": "00000000-0000-4000-8000-000000000004",
+    "planVersionId": "00000000-0000-4000-8000-000000000003",
+    "period": "Month",
+    "shopIds": [
+      "00000000-0000-4000-8000-000000000006",
+      "00000000-0000-4000-8000-000000000005"
+    ],
+    "extraShops": 1,
+    "expectedRevision": 1,
+    "termId": null
+  },
+  "accept": {
+    "operationKey": "00000000-0000-4000-8000-000000000004",
+    "expectedRevision": 1,
+    "snapshotHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "customerTermsVersion": "customer-local-1",
+    "refundPolicyVersion": "refund-local-1",
+    "confirmed": true
+  },
+  "evaluation": {
+    "createdAt": "2027-02-10T00:00:00.123456Z",
+    "expiresAt": "2027-02-10T00:15:00.123456Z",
+    "latestAcceptedAt": "2027-02-10T00:15:00.123455Z",
+    "currency": "INR",
+    "amountPaise": 27000
+  },
+  "hashes": {
+    "create": "ab2a9c573d303bb9244f12b2c75345dacf71abcf22f24f12773d9527ca4eed31",
+    "accept": "2b8036328689bd116985cdc599eed1237a7671992323cdb1e9d42b6ee2685d60",
+    "shops": "6d514adc067e79de41612737aae881663300c092fac3176770571f0fd45621da"
+  }
+}

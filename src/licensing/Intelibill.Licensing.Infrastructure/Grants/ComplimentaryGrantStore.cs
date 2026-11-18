@@ -75,6 +75,15 @@ internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILo
             WHERE account_id = {account} AND shop_id = ANY({shops}) ORDER BY shop_id
             """).ToListAsync(ct);
 
+    public Task<Guid?> ReadPaidTermAsync(Guid account, Guid order, Guid[] shops, CancellationToken ct) =>
+        db.Database.SqlQuery<Guid?>($"""
+            SELECT f.term_id AS "Value" FROM public.payment_fulfilments f
+            WHERE f.account_id = {account} AND f.order_id = {order} AND cardinality({shops}) = (SELECT count(*)
+                FROM public.payment_fulfilment_shops p JOIN public.shop_affiliations a
+                    ON a.account_id = p.account_id AND a.request_id = p.affiliation_request_id AND a.shop_id = p.shop_id
+                WHERE p.account_id = f.account_id AND p.order_id = f.order_id AND p.shop_id = ANY({shops}))
+            """).SingleOrDefaultAsync(ct);
+
     public async Task<IReadOnlyList<GrantWindow>> ReadWindowsAsync(Guid account, Guid[] shops, CancellationToken ct) =>
         await db.Database.SqlQuery<GrantWindow>($"""
             SELECT shop_id, grant_id, starts_at, ends_at FROM public.complimentary_grant_shops
@@ -85,7 +94,7 @@ internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILo
     {
         var rows = await db.Database.SqlQuery<ReceiptRow>($"""
             SELECT g.grant_id, g.term_id, g.account_id, r.operation_key, r.admin_id, r.session_id, g.starts_at, g.ends_at,
-                g.member_allowance, r.reason, r.expected_version, r.source_hash, r.payload_digest, g.recorded_at
+                g.member_allowance, r.reason, r.expected_version, r.source_hash, r.payload_digest, g.recorded_at, r.payment_order_id
             FROM public.complimentary_grant_receipts r
             JOIN public.complimentary_grants g ON g.grant_id = r.grant_id AND g.account_id = r.account_id
             WHERE r.account_id = {account} AND r.operation_key = {operationKey}
@@ -97,7 +106,7 @@ internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILo
             WHERE l.grant_id = {row.GrantId} ORDER BY l.shop_id
             """).ToListAsync(ct);
         var facts = new ComplimentaryGrantFacts([.. shops.Select(shop => shop.ShopId)], row.StartsAt.ToUniversalTime(),
-            row.EndsAt.ToUniversalTime(), row.MemberAllowance, row.Reason);
+            row.EndsAt.ToUniversalTime(), row.MemberAllowance, row.Reason, row.PaymentOrderId);
         return new StoredComplimentaryGrant(row.GrantId, row.TermId, row.AccountId, row.OperationKey, row.AdminId, row.SessionId,
             facts, row.ExpectedVersion, row.SourceHash, row.PayloadDigest, row.RecordedAt.ToUniversalTime(), shops);
     }
@@ -127,9 +136,9 @@ internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILo
             """, ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.complimentary_grant_receipts (grant_id, account_id, operation_key, admin_id, session_id, reason,
-                payload_digest, source_hash, expected_version, recorded_at)
+                payload_digest, source_hash, expected_version, recorded_at, payment_order_id)
             VALUES ({grant.GrantId}, {grant.AccountId}, {grant.OperationKey}, {grant.AdminId}, {grant.SessionId}, {facts.Reason},
-                {grant.PayloadDigest}, {grant.SourceHash}, {grant.ExpectedVersion}, {grant.RecordedAt})
+                {grant.PayloadDigest}, {grant.SourceHash}, {grant.ExpectedVersion}, {grant.RecordedAt}, {facts.PaymentOrderId})
             """, ct);
         foreach (var shop in grant.Shops)
             await db.Database.ExecuteSqlInterpolatedAsync($"""
@@ -138,14 +147,22 @@ internal sealed partial class ComplimentaryGrantStore(LicensingDbContext db, ILo
                 VALUES ({grant.GrantId}, {grant.AccountId}, {grant.TermId}, {shop.ShopId}, {shop.AffiliationRequestId},
                     {facts.StartsAt}, {facts.EndsAt})
                 """, ct);
+        if (facts.PaymentOrderId is { } order)
+            await LinkAdjustmentAsync(grant, order, ct);
         await db.Database.ExecuteSqlRawAsync("SET CONSTRAINTS ALL IMMEDIATE", ct);
         foreach (var shop in grant.Shops.OrderBy(shop => shop.ShopId))
             await publisher.PublishAsync(grant.AccountId, shop.ShopId, ct);
     }
 
+    private Task<int> LinkAdjustmentAsync(StoredComplimentaryGrant grant, Guid order, CancellationToken ct) =>
+        db.Database.ExecuteSqlAsync($"""
+            INSERT INTO public.service_restoration_adjustments (account_id, order_id, grant_id, paid_term_id)
+            VALUES ({grant.AccountId}, {order}, {grant.GrantId}, {grant.PaidTermId})
+            """, ct);
+
     private sealed record ReceiptRow(Guid GrantId, Guid TermId, Guid AccountId, Guid OperationKey, Guid AdminId, Guid SessionId,
         DateTimeOffset StartsAt, DateTimeOffset EndsAt, int MemberAllowance, string Reason, long ExpectedVersion,
-        string SourceHash, string PayloadDigest, DateTimeOffset RecordedAt);
+        string SourceHash, string PayloadDigest, DateTimeOffset RecordedAt, Guid? PaymentOrderId);
 
     private static string? SqlState(Exception error) =>
         (error as PostgresException ?? error.InnerException as PostgresException)?.SqlState;

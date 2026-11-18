@@ -1,0 +1,15 @@
+{
+  "policy": "paid-fresh-start/1",
+  "trialSourceHashes": [
+    {
+      "name": "first purchase or restored access",
+      "canonical": "[\"paid-fresh-start/1\",\"trials\",[]]",
+      "sha256": "ce6a323a224599208fe284be7cb77fdb90071876ee105b4170d232b5ac071486"
+    },
+    {
+      "name": "one converted trial with an extension",
+      "canonical": "[\"paid-fresh-start/1\",\"trials\",[[\"00000000-0000-4000-8000-000000000001\",\"00000000-0000-4000-8000-000000000002\",2,\"2027-04-17T04:30:00.123456Z\"]]]",
+      "sha256": "64f089f52132098e8df1c5cae9b5d61e4fd324f85dcab6ab69c259ae883f6b53"
+    }
+  ]
+}

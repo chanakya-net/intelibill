@@ -81,6 +81,7 @@ public sealed partial class P0216Tests
     public async Task MigrationPreservesScheduledEvidenceAndRefusesDowngradeAfterWithdrawal()
     {
         const string previous = "20261116210000_AddScheduledSubscriptionCancellations";
+        const string withdrawals = "20261116220000_AddSubscriptionCancellationWithdrawals";
         await using var fixture = await P0213Fixture.StartAsync(database);
         var payer = await SignInAsync(fixture.Hosts, ShopRole.Owner);
         var other = await SignInAsync(fixture.Hosts, ShopRole.Owner);
@@ -96,8 +97,11 @@ public sealed partial class P0216Tests
         var migrator = context.GetService<IMigrator>();
         await migrator.MigrateAsync(previous);
         Assert.Equal(retained, await ChangeHistoryAsync(fixture));
-        await context.Database.MigrateAsync();
+        await migrator.MigrateAsync(withdrawals);
         Assert.Equal(retained, await ChangeHistoryAsync(fixture));
+        // The current binary reads the later checkout and payment schema; apply it and its runtime grants first.
+        await migrator.MigrateAsync();
+        await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, P0302Fixture.RuntimeGrant);
         Assert.Equal(cancellation.GetProperty("changeId").GetGuid(),
             (await StatusAsync(payer)).GetProperty("term").GetProperty("cancellation").GetProperty("changeId").GetGuid());
 
@@ -108,7 +112,7 @@ public sealed partial class P0216Tests
         var history = await ChangeHistoryAsync(fixture);
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(() => migrator.MigrateAsync(previous));
         Assert.Equal("55000", Assert.IsType<PostgresException>(refused.InnerException).SqlState);
-        Assert.Empty(await context.Database.GetPendingMigrationsAsync());
+        Assert.Equal(withdrawals, (await context.Database.GetAppliedMigrationsAsync()).Last());
         Assert.Equal(history, await ChangeHistoryAsync(fixture));
     }
 

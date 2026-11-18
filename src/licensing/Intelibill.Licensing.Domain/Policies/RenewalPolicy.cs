@@ -14,7 +14,8 @@ public sealed record RenewalInput(
     int? PriorOrdinal = null,
     DateTimeOffset? VerifiedPaymentAt = null,
     bool AcceptedQuote = false,
-    DateTimeOffset? RestoredAccessAt = null);
+    DateTimeOffset? RestoredAccessAt = null,
+    bool RoundFreshStartUp = false);
 
 public sealed record RenewalDecision(
     RenewalStart Start,
@@ -31,7 +32,7 @@ public sealed record RenewalDecision(
 /// Pure decision seam for the term a fulfilled payment produces. First purchase and trial conversion start at
 /// fulfilment with a fresh anchor. An on-time renewal (before the grace end, or verified as paid before it with
 /// an accepted quote) continues the old anchor from the old paid-through and discloses the grace days it
-/// includes. After restriction the term starts at restored access with a fresh anchor and no charge for the gap.
+/// includes, counted to the verified payment time when an accepted quote supplies one. After restriction the term starts at restored access with a fresh anchor and no charge for the gap.
 /// Missing or contradictory evidence is unresolved, never guessed. No payment is verified or written here.
 /// </summary>
 public static class RenewalPolicy
@@ -41,7 +42,7 @@ public static class RenewalPolicy
     public static RenewalDecision DetermineTerm(RenewalInput input)
     {
         if (input.PriorBasis is null or SubscriptionBasis.Trial)
-            return Fresh(input.Period, input.FulfilledAt);
+            return Fresh(input.Period, input.FulfilledAt, input.RoundFreshStartUp);
         if (input.PriorBasis != SubscriptionBasis.Paid || input.PriorPaidThrough is not { } paidThrough
             || input.PriorAnchor is not { } anchor || input.PriorOrdinal is not { } ordinal
             || !BillingCalendar.IsSupported(anchor) || anchor.Period != input.Period
@@ -50,17 +51,20 @@ public static class RenewalPolicy
 
         var graceEnd = paidThrough + GracePolicy.EligiblePaidGrace;
         if (input.FulfilledAt < graceEnd)
-            return Continue(anchor, ordinal, paidThrough, input.FulfilledAt);
+            return Continue(anchor, ordinal, paidThrough, input.VerifiedPaymentAt is { } verified && input.AcceptedQuote
+                && verified <= input.FulfilledAt ? verified : input.FulfilledAt);
         if (input.VerifiedPaymentAt is { } paid && paid < graceEnd)
             return input.AcceptedQuote && paid <= input.FulfilledAt
                 ? Continue(anchor, ordinal, paidThrough, paid) : RenewalDecision.Unresolved;
         return input.RestoredAccessAt is { } restored && restored >= graceEnd
-            ? Fresh(input.Period, restored) with { Start = RenewalStart.RestoredAccess }
+            ? Fresh(input.Period, restored, input.RoundFreshStartUp) with { Start = RenewalStart.RestoredAccess }
             : RenewalDecision.Unresolved;
     }
 
-    private static RenewalDecision Fresh(BillingPeriod period, DateTimeOffset startsAt)
+    private static RenewalDecision Fresh(BillingPeriod period, DateTimeOffset startsAt, bool roundUp)
     {
+        if (roundUp && startsAt.Ticks % TimeSpan.TicksPerSecond is var fraction and > 0)
+            startsAt = startsAt.AddTicks(TimeSpan.TicksPerSecond - fraction);
         var anchor = new BillingAnchor(BillingCalendar.LocalStart(startsAt), BillingCalendar.Zone, period);
         var (start, end) = BillingCalendar.Period(anchor, 0);
         return new RenewalDecision(RenewalStart.Fulfilment, anchor, 0, start, end, 0);

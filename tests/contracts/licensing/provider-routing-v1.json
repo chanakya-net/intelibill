@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "boundary": "Real APIs/PostgreSQL/browser with simulator and in-process Razorpay transport fixtures. No live provider or refund-processing claim.",
+  "pins": {
+    "original": { "providerId": "development-simulator", "providerAccountId": "simulator-a", "environment": "Development", "configurationVersion": "a/1" },
+    "selected": { "providerId": "development-simulator", "providerAccountId": "simulator-b", "environment": "Development", "configurationVersion": "b/1" }
+  },
+  "unverifiedReview": {
+    "schemaVersion": 1,
+    "accountId": "00000000-0000-4000-8000-000000000001",
+    "orderId": "00000000-0000-4000-8000-000000000002",
+    "attemptId": "00000000-0000-4000-8000-000000000003",
+    "payment": "PendingVerification", "fulfilment": "NeedsReview", "access": "NotApplicable",
+    "amountPaise": 12000, "currency": "INR", "startedAt": "2027-02-10T00:00:01Z", "verifiedAt": null,
+    "termId": null, "termStartsAt": null, "termEndsAt": null, "shopsTotal": 1, "shopsApplied": 0,
+    "canStart": false, "launch": null
+  },
+  "webhookRotation": "Authenticate every retained profile; reject different account/environment identities. For the same identity choose the ordinal-lowest validating configuration version. Deduplicate without configuration version; verify funds with the attempt's original pin.",
+  "refundContract": { "routing": "Persisted verified-payment pin", "requestOutcome": "Unsupported", "lookupOutcome": "Unsupported", "processingImplemented": false }
+}

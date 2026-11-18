@@ -20,7 +20,7 @@ internal sealed partial class MerchantBillingClient(
     IOptionsMonitor<MerchantBillingDelegationOptions> options, IHostEnvironment environment,
     ILogger<MerchantBillingClient> logger, ApplicationDbContext db, IPhoneAuthPolicy phones, ShopAffiliationConsentStore consents, TrialActivationConsentStore trials)
     : IMerchantBillingAccess, IMerchantBillingInvitations, IMerchantShopAffiliations, IMerchantBillingOwnershipTransfers,
-        IMerchantSubscriptionStatus, IMerchantShopTrials, IMerchantSubscriptionCancellations
+        IMerchantSubscriptionStatus, IMerchantShopTrials, IMerchantSubscriptionCancellations, IMerchantCheckoutOrders
 {
     private const int MaximumResponseBytes = 4096;
     // Sized for a full page of the longest valid names, so no account the actor holds can hide the list.
@@ -91,7 +91,7 @@ internal sealed partial class MerchantBillingClient(
 
     private async Task<ErrorOr<T>> RunAsync<T>(MerchantBillingCaller caller, BillingDelegationIntent intent,
         int responseLimit, Func<HttpResponseMessage, CancellationToken, Task<ErrorOr<T>>> read,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, string mediaType = "application/json")
     {
         var origin = options.CurrentValue.GetOrigin(environment);
         if (origin is null)
@@ -101,7 +101,7 @@ internal sealed partial class MerchantBillingClient(
         timeout.CancelAfter(TimeSpan.FromSeconds(5));
         try
         {
-            return await SendAsync(origin, caller, intent, responseLimit, read, timeout.Token);
+            return await SendAsync(origin, caller, intent, responseLimit, read, mediaType, timeout.Token);
         }
         catch (OperationCanceledException exception) when (!cancellationToken.IsCancellationRequested)
         {
@@ -118,7 +118,7 @@ internal sealed partial class MerchantBillingClient(
 
     private async Task<ErrorOr<T>> SendAsync<T>(Uri origin, MerchantBillingCaller caller, BillingDelegationIntent intent,
         int responseLimit, Func<HttpResponseMessage, CancellationToken, Task<ErrorOr<T>>> read,
-        CancellationToken cancellationToken)
+        string mediaType, CancellationToken cancellationToken)
     {
         var requestId = Guid.NewGuid();
         var token = await issuer.IssueAsync(caller, intent, requestId, cancellationToken);
@@ -139,7 +139,7 @@ internal sealed partial class MerchantBillingClient(
         var failure = await MapFailureAsync(response, intent.Action, cancellationToken);
         if (failure is { } error)
             return error;
-        if (response.Content.Headers.ContentType?.MediaType != "application/json")
+        if (response.Content.Headers.ContentType?.MediaType != mediaType)
             return Unavailable("InvalidResponseContentType");
         if (response.Content.Headers.ContentLength > responseLimit)
             return Unavailable("ResponseTooLarge");
@@ -155,7 +155,8 @@ internal sealed partial class MerchantBillingClient(
         switch (response.StatusCode)
         {
             case HttpStatusCode.OK:
-            case HttpStatusCode.Created when action is MerchantBillingDelegationV1.CreateAccount or ShopAffiliationsV1.Request:
+            case HttpStatusCode.Created when action is MerchantBillingDelegationV1.CreateAccount or ShopAffiliationsV1.Request or CheckoutOrdersV1.Create
+                or CheckoutPaymentsV1.Start:
             case HttpStatusCode.Accepted when action is BillingInvitationsV1.Issue or BillingOwnershipTransfersV1.Issue:
                 return null;
             case HttpStatusCode.Forbidden:
@@ -166,6 +167,10 @@ internal sealed partial class MerchantBillingClient(
                 return MapTransferFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when SubscriptionCancellationsV1.IsAction(action):
                 return MapCancellationFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CheckoutPaymentsV1.IsAction(action):
+                return MapPaymentFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
+            case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when CheckoutOrdersV1.IsAction(action):
+                return MapCheckoutFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.NotFound when action == PublishedCatalogueV1.Read:
                 return await ReadProblemCodeAsync(response, cancellationToken) == MerchantBillingErrors.PlanVersionNotFound.Code
                     ? MerchantBillingErrors.PlanVersionNotFound : Unavailable("UpstreamStatus");

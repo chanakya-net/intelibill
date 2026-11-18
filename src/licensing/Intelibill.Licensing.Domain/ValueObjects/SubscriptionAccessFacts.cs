@@ -27,6 +27,7 @@ public sealed record SuspensionInterval(DateTimeOffset StartsAt, DateTimeOffset?
 /// Immutable evaluation input for one coverage term. Dates and capacity come from the coverage row; basis,
 /// anchor and allowance from the frozen term facts (absent for coverage-only rows). Lifecycle inputs
 /// (cancellation, suspension) are supplied by their owning sources and default to none recorded.
+/// <c>RenewedAtEnd</c> marks a paid term already extended by a paid successor: its end is not an unpaid boundary.
 /// </summary>
 public sealed record SubscriptionAccessFacts(
     DateTimeOffset StartsAt,
@@ -36,7 +37,8 @@ public sealed record SubscriptionAccessFacts(
     BillingAnchor? Anchor = null,
     int? PeriodOrdinal = null,
     ScheduledCancellation? Cancellation = null,
-    IReadOnlyList<SuspensionInterval>? Suspensions = null);
+    IReadOnlyList<SuspensionInterval>? Suspensions = null,
+    bool RenewedAtEnd = false);
 
 /// <summary>The computed result. Every interval is end-exclusive; nothing is written back.</summary>
 public sealed record SubscriptionAccessEvaluation(
