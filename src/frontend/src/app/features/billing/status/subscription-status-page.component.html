@@ -46,7 +46,8 @@
     @case ('shop') {
       @if (current.status.enforcedSuspensionMode; as mode) {
         <p class="ib-panel" role="status" data-testid="enforced-suspension">
-          {{ 'billing.status.suspension.enforced' + mode | transloco }}
+          {{ (mode === 'Security' ? 'billing.status.suspension.enforcedSecurity'
+            : 'billing.status.suspension.enforcedTrading') | transloco }}
         </p>
       }
       @if (current.status.suspension; as suspension) {

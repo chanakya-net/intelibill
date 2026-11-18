@@ -42,6 +42,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("restriction");
 
+                    b.Property<long?>("PreviousReleaseRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("previous_release_revision");
+
                     b.Property<long>("Revision")
                         .HasColumnType("bigint")
                         .HasColumnName("revision");
@@ -5568,6 +5572,10 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("NextBoundary")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("next_boundary");
+
+                    b.Property<long?>("ReleasedRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("released_revision");
 
                     b.Property<long>("Revision")
                         .HasColumnType("bigint")

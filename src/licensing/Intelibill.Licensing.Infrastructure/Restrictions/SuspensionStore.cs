@@ -7,12 +7,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Licensing.Infrastructure.Restrictions;
 
-internal sealed class SuspensionStore(LicensingDbContext db, EntitlementPublisher publisher) : ISuspensionStore
+internal sealed partial class SuspensionStore(LicensingDbContext db, EntitlementPublisher publisher) : ISuspensionStore
 {
-    public Task<CustomerSuspensionV1?> ReadCustomerAsync(Guid account, Guid shop, DateTimeOffset at, CancellationToken ct) =>
-        db.Database.SqlQuery<CustomerSuspensionV1>($"""
-            SELECT mode, effective_at, customer_explanation FROM public.operational_restrictions
-            WHERE account_id = {account} AND (shop_id IS NULL OR shop_id = {shop})
+    public async Task<CustomerSuspensionV1?> ReadCustomerAsync(Guid account, Guid shop, DateTimeOffset at, CancellationToken ct) =>
+        await ReadCurrentAsync(account, shop, null, at, ct) is { EffectiveAt: { } effectiveAt } restriction
+            ? new(restriction.Mode, effectiveAt, restriction.CustomerExplanation) : null;
+
+    private Task<SurvivingRestriction?> ReadCurrentAsync(Guid account, Guid shop, Guid? excluded, DateTimeOffset at, CancellationToken ct) =>
+        db.Database.SqlQuery<SurvivingRestriction>($"""
+            SELECT id, mode, effective_at, customer_explanation FROM public.active_operational_restrictions
+            WHERE account_id = {account} AND (shop_id IS NULL OR shop_id = {shop}) AND id IS DISTINCT FROM {excluded}::uuid
             ORDER BY CASE WHEN effective_at > {at} THEN 2 WHEN mode = 'Security' THEN 0 ELSE 1 END,
                 effective_at, id LIMIT 1
             """).SingleOrDefaultAsync(ct);
@@ -39,11 +43,13 @@ internal sealed class SuspensionStore(LicensingDbContext db, EntitlementPublishe
 
     public async Task<(long Version, bool Active)> ReadVersionAsync(Guid account, Guid? shop, CancellationToken ct)
     {
-        var version = await db.Database.SqlQuery<long?>($"""
-            SELECT max(version) AS "Value" FROM public.operational_restrictions
-            WHERE account_id = {account} AND shop_id IS NOT DISTINCT FROM {shop}::uuid
-            """).SingleAsync(ct);
-        if (version is { } savedVersion) return (savedVersion, true);
+        var head = await db.Database.SqlQuery<ScopeVersion>($"""
+            SELECT COALESCE(l.version, r.version) AS version, l.id IS NULL AS active
+            FROM public.operational_restrictions r LEFT JOIN public.operational_restriction_releases l ON l.restriction_id = r.id
+            WHERE r.account_id = {account} AND r.shop_id IS NOT DISTINCT FROM {shop}::uuid
+            ORDER BY r.version DESC LIMIT 1
+            """).SingleOrDefaultAsync(ct);
+        if (head is not null) return (head.Version, head.Active);
         if (shop is not null) return (0, false);
 
         var legacyRevision = await db.Database.SqlQuery<long?>($"""
@@ -102,6 +108,14 @@ internal sealed class SuspensionStore(LicensingDbContext db, EntitlementPublishe
             FROM public.operational_restrictions r
             JOIN public.shop_affiliations a ON a.account_id = r.account_id
                 AND (r.shop_id IS NULL OR r.shop_id = a.shop_id)
+            LEFT JOIN public.operational_restriction_releases released ON released.restriction_id = r.id
+            LEFT JOIN public.operational_restriction_deliveries d ON d.restriction_id = r.id AND d.shop_id = a.shop_id
+            LEFT JOIN public.entitlement_snapshots original ON original.event_id = d.event_id
+            LEFT JOIN LATERAL (
+                SELECT max(l.prior_revision) AS revision
+                FROM public.operational_restriction_releases l JOIN public.operational_restrictions prior ON prior.id = l.restriction_id
+                WHERE prior.account_id = r.account_id AND prior.shop_id IS NOT DISTINCT FROM r.shop_id AND prior.version < r.version
+            ) previous ON true
             LEFT JOIN LATERAL (
                 SELECT s.account_revision, s.shop_revision, o.status
                 FROM public.entitlement_snapshots s
@@ -110,10 +124,15 @@ internal sealed class SuspensionStore(LicensingDbContext db, EntitlementPublishe
                 CROSS JOIN LATERAL (
                     SELECT convert_from(m.payload, 'UTF8')::jsonb
                         -> (CASE WHEN r.shop_id IS NULL THEN 'account' ELSE 'shop' END)
-                        -> 'suspension' AS facts
+                        -> 'suspension' AS facts,
+                        CASE WHEN r.shop_id IS NULL THEN s.account_revision ELSE s.shop_revision END AS revision
                 ) proof
                 WHERE s.account_id = a.account_id AND s.shop_id = a.shop_id
                     AND s.affiliation_request_id = a.request_id
+                    AND (original.affiliation_request_id IS DISTINCT FROM a.request_id OR
+                        (s.account_revision >= original.account_revision AND s.shop_revision >= original.shop_revision))
+                    AND (previous.revision IS NULL OR proof.revision > previous.revision + 1)
+                    AND (released.prior_revision IS NULL OR proof.revision <= released.prior_revision)
                     AND proof.facts->>'mode' = r.mode
                     AND (proof.facts->>'effectiveAt')::timestamptz = r.effective_at
                     AND proof.facts->>'customerExplanation' = r.customer_explanation
@@ -124,10 +143,14 @@ internal sealed class SuspensionStore(LicensingDbContext db, EntitlementPublishe
             ORDER BY a.shop_id
             """).ToListAsync(ct);
 
+    private sealed record ScopeVersion(long Version, bool Active);
+
     private Task<int> AdvanceAccountAsync(SavedSuspension saved, CancellationToken ct) => db.Database.ExecuteSqlInterpolatedAsync($"""
         INSERT INTO public.entitlement_account_heads (account_id, revision, upstream_verified_at, restriction)
         VALUES ({saved.AccountId}, 1, {saved.RecordedAt}, {saved.Mode})
         ON CONFLICT (account_id) DO UPDATE SET revision = entitlement_account_heads.revision + 1,
-            restriction = EXCLUDED.restriction, released_revision = NULL
+            restriction = EXCLUDED.restriction,
+            previous_release_revision = coalesce(entitlement_account_heads.released_revision, entitlement_account_heads.previous_release_revision),
+            released_revision = NULL
         """, ct);
 }

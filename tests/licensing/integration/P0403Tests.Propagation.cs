@@ -60,8 +60,7 @@ public sealed partial class P0403Tests
             businessClock: new P0201Clock { Now = P0202Fixture.WholeSecondNow() });
         await using (var licensing = fixture.Hosts.Fixture.OpenMigrationContext())
         {
-            var applied = (await licensing.Database.GetAppliedMigrationsAsync()).ToArray();
-            await licensing.GetService<IMigrator>().MigrateAsync(applied[^2]);
+            await licensing.GetService<IMigrator>().MigrateAsync("20261118090000_PaymentConfirmations");
         }
 
         var shop = await CreateTradingShopAsync(fixture.Hosts);
@@ -73,7 +72,9 @@ public sealed partial class P0403Tests
             await licensing.Database.MigrateAsync();
             await licensing.Database.ExecuteSqlRawAsync("""
                 GRANT SELECT, INSERT ON public.operational_restrictions,
-                    public.operational_restriction_deliveries TO licensing_runtime
+                    public.operational_restriction_deliveries, public.operational_restriction_releases,
+                    public.operational_restriction_release_deliveries TO licensing_runtime;
+                GRANT SELECT ON public.active_operational_restrictions TO licensing_runtime;
                 """);
         }
 

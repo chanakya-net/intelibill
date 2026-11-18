@@ -11,6 +11,11 @@ import { SuspensionPageComponent } from './suspension-page.component';
 const account = 'a0000000-0000-4000-8000-000000000000';
 const shopId = 'b0000000-0000-4000-8000-000000000000';
 const session = 'admin-session';
+const savedRestriction = {
+  id: 'f0000000-0000-4000-8000-000000000000', shopId, mode: 'Security',
+  effectiveAt: '2026-12-01T10:00:00Z', recordedAt: '2026-12-01T10:00:00Z',
+  customerExplanation: 'Contact support.', propagation: 'Acknowledged', shops: [],
+};
 
 function render(capabilities = ['security-administrator'], pending: PendingSuspension | null = null) {
   const impact: SuspensionImpact = {
@@ -20,13 +25,21 @@ function render(capabilities = ['security-administrator'], pending: PendingSuspe
   };
   const preview = vi.fn(() => of({ ...impact, selection: { ...impact.selection, isValid: true } }));
   const suspend = vi.fn();
+  const list = vi.fn(() => of([savedRestriction]));
+  const previewRelease = vi.fn(() => of({
+    restrictionId: savedRestriction.id, version: 1, evaluatedAt: savedRestriction.effectiveAt,
+    impactDigest: 'b'.repeat(64), shops: [{ shopId, shopName: 'Fixture shop', state: 'Expired',
+      survivingSuspension: { mode: 'Trading', effectiveAt: savedRestriction.effectiveAt } }],
+  }));
+  const release = vi.fn(() => of({ ...savedRestriction, release: { propagation: 'Pending', shops: [],
+    releasedAt: savedRestriction.effectiveAt } }));
   const sessionId = signal(session);
   const claim = vi.fn(async (draft: PendingSuspension) => draft);
   TestBed.configureTestingModule({ providers: [
     provideRouter([]),
     { provide: AdminSessionService, useValue: { capabilities: signal(capabilities), adminId: signal('admin'), sessionId } },
-    { provide: SuspensionApi, useValue: { preview, suspend } },
-    { provide: SuspensionDrafts, useValue: { read: async () => pending, claim } },
+    { provide: SuspensionApi, useValue: { preview, suspend, list, previewRelease, release } },
+    { provide: SuspensionDrafts, useValue: { read: async () => pending, claim, clear: async () => {} } },
   ] });
   const fixture = TestBed.createComponent(SuspensionPageComponent);
   fixture.detectChanges();
@@ -43,7 +56,7 @@ function render(capabilities = ['security-administrator'], pending: PendingSuspe
     await fixture.whenStable();
     fixture.detectChanges();
   };
-  return { fixture, page, set, click, preview, suspend, sessionId, settle, claim };
+  return { fixture, page, set, click, preview, suspend, sessionId, settle, claim, release };
 }
 
 afterEach(() => TestBed.resetTestingModule());
@@ -98,6 +111,24 @@ describe('restriction editor', () => {
     expect(draft).toContain(scope === 'Shop' ? shopId : 'Entire billing account');
     expect(draft).toContain('Security');
     expect(draft).toContain('15:30');
+  });
+
+  it('previews remaining access and submits only after the reasoned confirmation', async () => {
+    const view = render();
+    view.set('account', account);
+    view.click('Refresh saved restrictions');
+    await view.settle();
+    view.click('Preview release');
+    await view.settle();
+    expect(view.page.textContent).toContain('Expired');
+    expect(view.page.textContent).toContain('Trading suspension remains');
+    expect(view.release).not.toHaveBeenCalled();
+    view.set('release-reason', 'Review completed.');
+    view.click('Confirm release');
+    await view.settle();
+    expect(view.release).toHaveBeenCalledWith(account, savedRestriction.id,
+      expect.objectContaining({ expectedVersion: 1, reason: 'Review completed.' }), session);
+    expect(view.page.textContent).toContain('Pending merchant acknowledgement');
   });
 
   it('offers status without a write form for support', () => {

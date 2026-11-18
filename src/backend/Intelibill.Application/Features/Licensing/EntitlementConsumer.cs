@@ -30,16 +30,17 @@ public static class EntitlementConsumer
         var suspension = SavedSuspension(saved.Restriction, saved.SuspensionEffectiveAt, saved.SuspensionExplanation);
         if (incoming.Revision == saved.Revision)
             return incoming != new AccountRestrictionSnapshotV1(saved.Revision, saved.UpstreamVerifiedAt,
-                saved.Restriction, saved.ReleasedRevision, suspension);
-        if (StampConflicts(incoming.UpstreamVerifiedAt, issuedAt, saved.UpstreamVerifiedAt, previousIssuedAt))
+                saved.Restriction, saved.ReleasedRevision, suspension, saved.PreviousReleaseRevision);
+        var previous = saved.ReleasedRevision ?? saved.PreviousReleaseRevision;
+        var release = incoming.ReleasedRevision ?? incoming.PreviousReleaseRevision;
+        if (StampConflicts(incoming.UpstreamVerifiedAt, issuedAt, saved.UpstreamVerifiedAt, previousIssuedAt) ||
+            ReleaseConflicts(release, previous, saved.Revision))
             return true;
-        if (incoming.Restriction != "Unrestricted")
-            return suspension is not null ? incoming.Suspension != suspension
-                : saved.Restriction is "Security" or "Trading" &&
-                    (incoming.Suspension is not null || saved.Restriction == "Security" && incoming.Restriction != "Security");
-        if (saved.Restriction == "Unrestricted" && incoming.ReleasedRevision == saved.ReleasedRevision)
-            return false;
-        return incoming.ReleasedRevision is not { } release || release < saved.Revision;
+        if (release >= saved.Revision) return false;
+        if (incoming.Restriction == "Unrestricted") return saved.Restriction != "Unrestricted";
+        return suspension is not null ? incoming.Suspension != suspension
+            : saved.Restriction is "Security" or "Trading" &&
+                (incoming.Suspension is not null || saved.Restriction == "Security" && incoming.Restriction != "Security");
     }
 
     private static bool ShopConflicts(ShopEntitlementSnapshotV1 incoming, ShopLicenseState saved,
@@ -49,12 +50,17 @@ public static class EntitlementConsumer
             return false;
         var suspension = SavedSuspension(saved.SuspensionMode, saved.SuspensionEffectiveAt, saved.SuspensionExplanation);
         if (incoming.Revision > saved.Revision)
-            return (suspension is not null && incoming.Suspension != suspension) ||
+            return (suspension is not null && incoming.Suspension != suspension && !(incoming.ReleasedRevision >= saved.Revision)) ||
+                ReleaseConflicts(incoming.ReleasedRevision, saved.ReleasedRevision, saved.Revision) ||
                 StampConflicts(incoming.UpstreamVerifiedAt, issuedAt, saved.UpstreamVerifiedAt, previousIssuedAt);
         return incoming != new ShopEntitlementSnapshotV1(saved.Revision, saved.UpstreamVerifiedAt, saved.State,
             saved.TermId, saved.Basis, saved.StartsAt, saved.AccessEndsAt, saved.NextBoundary, saved.ShopCapacity,
-            saved.MemberAllowance, suspension);
+            saved.MemberAllowance, suspension, saved.ReleasedRevision);
     }
+
+    // A repeated cutoff preserves the previously accepted release. An advancing cutoff must cover the retained head.
+    private static bool ReleaseConflicts(long? incoming, long? saved, long revision) =>
+        incoming != saved && !(incoming >= revision);
 
     private static CustomerSuspensionV1? SavedSuspension(string? mode, DateTimeOffset? effectiveAt, string? explanation) =>
         effectiveAt is { } at ? new(mode!, at, explanation!) : null;

@@ -1,11 +1,15 @@
 import { Injectable } from '@angular/core';
-import type { SuspensionCommand } from './suspension-api.service';
+import type { ReleaseCommand, SuspensionCommand } from './suspension-api.service';
 
-export interface PendingSuspension {
+interface DraftOwner {
   readonly adminId: string;
   readonly accountId: string;
-  readonly command: SuspensionCommand;
 }
+
+export type PendingSuspension = DraftOwner & (
+  { readonly restrictionId?: never; readonly command: SuspensionCommand } |
+  { readonly restrictionId: string; readonly command: ReleaseCommand }
+);
 
 const storeName = 'pending';
 const scopeKey = (adminId: string, accountId: string) => `${adminId.toLowerCase()}.${accountId.toLowerCase()}`;

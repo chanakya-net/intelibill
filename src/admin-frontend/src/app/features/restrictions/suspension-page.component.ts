@@ -1,14 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ButtonDirective } from 'primeng/button';
 import { firstValueFrom } from 'rxjs';
 import { formatIstExact } from '../accounts/account-status-api.service';
 import { exactIstInstant } from '../accounts/trial-extension-api.service';
 import { AdminSessionService } from '../auth/admin-session.service';
-import { SuspensionApi, SuspensionRefusal, type SuspensionCommand, type SuspensionImpact, type SuspensionSelection, type SuspensionStatus } from './suspension-api.service';
+import { SuspensionApi, SuspensionRefusal, type ReleaseImpact, type SuspensionCommand, type SuspensionImpact, type SuspensionSelection, type SuspensionStatus } from './suspension-api.service';
 import { SuspensionDrafts, type PendingSuspension } from './suspension-drafts';
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
@@ -28,6 +28,10 @@ export class SuspensionPageComponent {
   protected readonly canSuspend = computed(() => this.admin.capabilities().includes('security-administrator'));
   protected readonly canRead = computed(() => this.canSuspend() || this.admin.capabilities().includes('support'));
   protected readonly impact = signal<SuspensionImpact | null>(null);
+  private generation = 0;
+  private requestGeneration = 0;
+  protected readonly releaseImpact = signal<ReleaseImpact | null>(null);
+  protected readonly releaseReason = new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.maxLength(1000)] });
   protected readonly saved = signal<readonly SuspensionStatus[]>([]);
   protected readonly pending = signal<PendingSuspension | null>(null);
   protected readonly busy = signal(false);
@@ -82,6 +86,7 @@ export class SuspensionPageComponent {
       const impact = await firstValueFrom(this.api.preview(account, selection, session));
       if (this.current(account, admin, session) && this.form.controls.scope.value === selection.scope &&
         (selection.scope === 'Account' || this.form.controls.shopId.value.toLowerCase() === selection.shopId)) {
+        this.clearRelease();
         this.impact.set(impact);
       }
     });
@@ -104,13 +109,38 @@ export class SuspensionPageComponent {
       operationKey: crypto.randomUUID(), mode: value.mode,
       effectiveAt, customerExplanation, internalReason, reviewReference, expectedVersion: impact.version,
       impactDigest: impact.impactDigest };
+    void this.run((account, admin, session) => this.claimAndSend({ adminId: admin, accountId: account, command }, session));
+  }
+
+  protected previewRelease(restriction: SuspensionStatus): void {
+    if (!this.canSuspend() || restriction.release || this.busy()) return;
+    this.clearRelease();
+    this.impact.set(null);
     void this.run(async (account, admin, session) => {
-      const pending = await this.drafts.claim({ adminId: admin, accountId: account, command });
-      if (this.current(account, admin, session)) {
-        this.pending.set(pending);
-        if (pending.command.operationKey === command.operationKey) await this.send(pending, session);
-      }
+      const pending = await this.drafts.read(admin, account);
+      if (!this.current(account, admin, session)) return;
+      this.pending.set(pending);
+      if (pending) return;
+      const impact = await firstValueFrom(this.api.previewRelease(account, restriction.id, session));
+      if (this.current(account, admin, session) && impact.restrictionId === restriction.id) this.releaseImpact.set(impact);
     });
+  }
+
+  protected confirmRelease(): void {
+    const impact = this.releaseImpact();
+    const reason = this.releaseReason.value.trim();
+    if (!impact || !reason || this.releaseReason.invalid || !this.canSuspend() || this.pending()) return;
+    const command = { reason, expectedVersion: impact.version, impactDigest: impact.impactDigest, operationKey: crypto.randomUUID() };
+    void this.run((account, admin, session) => this.claimAndSend({
+      adminId: admin, accountId: account, restrictionId: impact.restrictionId, command,
+    }, session));
+  }
+
+  private async claimAndSend(draft: PendingSuspension, session: string): Promise<void> {
+    const pending = await this.drafts.claim(draft);
+    if (!this.current(draft.accountId, draft.adminId, session)) return;
+    this.pending.set(pending);
+    if (pending.command.operationKey === draft.command.operationKey) await this.send(pending, session);
   }
 
   protected retry(): void {
@@ -130,13 +160,17 @@ export class SuspensionPageComponent {
   }
 
   private async send(pending: PendingSuspension, session: string): Promise<void> {
-    const { accountId, adminId, command } = pending;
+    const { accountId, adminId } = pending;
     try {
-      const saved = await firstValueFrom(this.api.suspend(accountId, command, session));
+      const operation = pending.restrictionId !== undefined
+        ? this.api.release(accountId, pending.restrictionId, pending.command, session)
+        : this.api.suspend(accountId, pending.command, session);
+      const saved = await firstValueFrom(operation);
       await this.drafts.clear(pending);
       if (this.current(accountId, adminId, session)) {
         this.pending.set(null);
         this.impact.set(null);
+        this.clearRelease();
         this.saved.update(items => [saved, ...items.filter(item => item.id !== saved.id)]);
         this.form.patchValue({ customerExplanation: '', internalReason: '', reviewReference: '' });
       }
@@ -146,6 +180,7 @@ export class SuspensionPageComponent {
         if (this.current(accountId, adminId, session)) {
           this.pending.set(null);
           this.impact.set(null);
+          this.clearRelease();
         }
       }
       throw error;
@@ -162,6 +197,7 @@ export class SuspensionPageComponent {
       return;
     }
     this.error.set(null);
+    this.requestGeneration = this.generation;
     this.busy.set(true);
     try {
       await work(account, admin, session);
@@ -173,11 +209,18 @@ export class SuspensionPageComponent {
   }
 
   private current(account: string, admin: string, session: string): boolean {
-    return !this.destroy.destroyed && this.form.controls.accountId.value.toLowerCase() === account &&
+    return !this.destroy.destroyed && this.requestGeneration === this.generation && this.form.controls.accountId.value.toLowerCase() === account &&
       this.admin.adminId() === admin && this.admin.sessionId() === session;
   }
 
+  private clearRelease(): void {
+    this.releaseImpact.set(null);
+    this.releaseReason.reset();
+  }
+
   private clearResults(): void {
+    this.generation++;
+    this.clearRelease();
     this.impact.set(null);
     this.saved.set([]);
     this.pending.set(null);
@@ -188,9 +231,10 @@ export class SuspensionPageComponent {
     const response = error instanceof SuspensionRefusal ? error.response : error;
     const code = response instanceof HttpErrorResponse ? response.error?.code : null;
     switch (code) {
-      case 'Suspension.RecentMfaRequired': return 'Sign in again with MFA to apply or retry the suspension.';
+      case 'Suspension.RecentMfaRequired': return 'Sign in again with MFA to change a suspension.';
       case 'Suspension.VersionConflict': return 'The scope or its impact changed. Preview it again.';
       case 'Suspension.NotFound': return 'The account or selected shop could not be found.';
+      case 'Suspension.InvalidRelease': return 'Enter a reason and confirm a current release preview.';
       case 'Suspension.Invalid': return 'Check the details and choose an effective time in the future or apply immediately.';
       default: return this.pending() ? 'The save outcome is unconfirmed. Retry the saved request.'
         : 'The request could not be completed. Try again.';

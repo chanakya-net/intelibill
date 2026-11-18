@@ -52,11 +52,17 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
         var nextVerification = Earlier(next, Earlier(accountHead.UpstreamVerifiedAt.AddHours(47), now.AddHours(47)));
         var revision = await NextShopRevisionAsync(account, shop, nextVerification, ct);
         var suspension = await db.Database.SqlQuery<CustomerSuspensionV1>($"""
-            SELECT mode, effective_at, customer_explanation FROM public.operational_restrictions
+            SELECT mode, effective_at, customer_explanation FROM public.active_operational_restrictions
             WHERE account_id = {account} AND shop_id = {shop}
             """).SingleOrDefaultAsync(ct);
+        var released = await db.Database.SqlQuery<long?>($"""
+            SELECT max(l.prior_revision) AS "Value"
+            FROM public.operational_restriction_releases l
+            JOIN public.operational_restrictions r ON r.id = l.restriction_id
+            WHERE l.account_id = {account} AND r.shop_id = {shop}
+            """).SingleAsync(ct);
         var shopHead = new ShopEntitlementSnapshotV1(revision, now, term?.State ?? "PendingActivation", term?.TermId,
-            term?.Basis, term?.StartsAt, term?.AccessEndsAt, next, term?.PurchasedCapacity, term?.MemberAllowance, suspension);
+            term?.Basis, term?.StartsAt, term?.AccessEndsAt, next, term?.PurchasedCapacity, term?.MemberAllowance, suspension, released);
         var snapshot = new EntitlementSnapshotV1(1, EntitlementSnapshotsV1.PolicyVersion, Guid.NewGuid(), account,
             shop, request, accountHead, shopHead);
         await AppendAsync(snapshot, ct);
@@ -76,13 +82,13 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
             """, ct);
         var row = await db.Database.SqlQuery<AccountHead>($"""
             SELECT h.revision, h.upstream_verified_at, h.restriction, h.released_revision,
-                r.effective_at, r.customer_explanation
+                r.effective_at, r.customer_explanation, h.previous_release_revision
             FROM public.entitlement_account_heads h
-            LEFT JOIN public.operational_restrictions r ON r.account_id = h.account_id AND r.shop_id IS NULL
+            LEFT JOIN public.active_operational_restrictions r ON r.account_id = h.account_id AND r.shop_id IS NULL
             WHERE h.account_id = {account}
             """).SingleAsync(ct);
         return new(row.Revision, row.UpstreamVerifiedAt, row.Restriction, row.ReleasedRevision,
-            row.EffectiveAt is { } at ? new(row.Restriction, at, row.CustomerExplanation!) : null);
+            row.EffectiveAt is { } at ? new(row.Restriction, at, row.CustomerExplanation!) : null, row.PreviousReleaseRevision);
     }
 
     private async Task<long> NextShopRevisionAsync(Guid account, Guid shop, DateTimeOffset due, CancellationToken ct)
@@ -123,7 +129,7 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
     }
 
     private sealed record AccountHead(long Revision, DateTimeOffset UpstreamVerifiedAt, string Restriction,
-        long? ReleasedRevision, DateTimeOffset? EffectiveAt, string? CustomerExplanation);
+        long? ReleasedRevision, DateTimeOffset? EffectiveAt, string? CustomerExplanation, long? PreviousReleaseRevision);
 
     private static DateTimeOffset Earlier(DateTimeOffset? first, DateTimeOffset other) =>
         first is { } value && value < other ? value : other;

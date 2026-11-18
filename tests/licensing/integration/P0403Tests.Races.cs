@@ -155,13 +155,13 @@ public sealed partial class P0403Tests
             """));
     }
 
-    private static Task<HttpResponseMessage> WriteTillAsync(Merchant shop, string key, string name) =>
+    internal static Task<HttpResponseMessage> WriteTillAsync(Merchant shop, string key, string name) =>
         shop.Client.PostAsJsonAsync("/api/tills", new { name, operationKey = key });
 
     private static Task<HttpResponseMessage> ReadAuthorityAsync(Merchant shop) =>
         shop.Client.GetAsync(new Uri($"/api/licensing/shops/{shop.ShopId:D}/trading-authority", UriKind.Relative));
 
-    private static async Task WaitForBlockedAsync(P0213Fixture fixture, int holder, long expected)
+    internal static async Task WaitForBlockedAsync(P0213Fixture fixture, int holder, long expected)
     {
         long blocked = 0;
         for (var attempt = 0; attempt < 80 && blocked < expected; attempt++)
