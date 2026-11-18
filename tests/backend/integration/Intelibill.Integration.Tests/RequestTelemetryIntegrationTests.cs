@@ -2,10 +2,10 @@ using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
 using System.Net;
 using System.Net.Http.Json;
-using Intelibill.Infrastructure.Extensions;
 using Intelibill.Infrastructure.Observability;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Integration.Tests;
 
@@ -32,8 +32,8 @@ public sealed class RequestTelemetryIntegrationTests(PostgreSqlTestFixture fixtu
     [Fact]
     public async Task EveryInboundRequest_RecordsDatabaseDurationAndCommandCount()
     {
-        using var capture = new MetricCapture(
-            OpenTelemetryServiceCollectionExtensions.ApplicationMeterName);
+        var hostMeter = _factory.Services.GetRequiredService<Meter>();
+        using var capture = new MetricCapture(hostMeter);
         using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
         {
             BaseAddress = new Uri("https://localhost"),
@@ -43,6 +43,12 @@ public sealed class RequestTelemetryIntegrationTests(PostgreSqlTestFixture fixtu
         var pingResponse = await client.GetAsync("/api/ping");
         var unauthorizedResponse = await client.GetAsync("/api/items");
         var notFoundResponse = await client.GetAsync("/api/not-a-real-route/private-value");
+
+        // Another API host in this process can emit the same measurement.
+        using var otherMeter = new Meter(hostMeter.Name);
+        new RequestTelemetryMetrics(otherMeter).RecordDatabaseTelemetry(
+            new RequestDatabaseTelemetry(), HttpMethods.Get, "<unmatched>", StatusCodes.Status404NotFound);
+
         var registrationResponse = await client.PostAsJsonAsync(
             "/api/auth/register/email",
             new
@@ -100,11 +106,11 @@ public sealed class RequestTelemetryIntegrationTests(PostgreSqlTestFixture fixtu
         private readonly ConcurrentDictionary<RequestKey, long> _commandCounts = new();
         private readonly MeterListener _listener = new();
 
-        public MetricCapture(string meterName)
+        public MetricCapture(Meter hostMeter)
         {
             _listener.InstrumentPublished = (instrument, listener) =>
             {
-                if (instrument.Meter.Name == meterName)
+                if (ReferenceEquals(instrument.Meter, hostMeter))
                 {
                     listener.EnableMeasurementEvents(instrument);
                 }
