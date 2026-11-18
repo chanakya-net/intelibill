@@ -13,4 +13,5 @@ public enum LicenceOutcome
 }
 
 /// <summary>Matrix result. A result is advisory while the shop is observe-only.</summary>
-public readonly record struct LicenceDecision(LicenceOutcome Outcome, bool Enforced, Error? Denial = null);
+public readonly record struct LicenceDecision(LicenceOutcome Outcome, bool Enforced, Error? Denial = null,
+    DateTimeOffset? AuthorityVerifiedAt = null, DateTimeOffset? ValidUntil = null);

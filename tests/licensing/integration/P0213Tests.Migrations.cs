@@ -66,6 +66,8 @@ public sealed partial class P0213Tests
         Assert.Contains("20261116200000_EntitlementDelivery", await licensing.Database.GetAppliedMigrationsAsync());
         await licensing.Database.MigrateAsync();
         Assert.Empty(await licensing.Database.GetPendingMigrationsAsync());
+        Assert.Contains("20261118080000_AddLicenceEnforcementFences", await merchant.Database.GetAppliedMigrationsAsync());
+        await merchant.Database.MigrateAsync();
         Assert.Empty(await merchant.Database.GetPendingMigrationsAsync());
     }
 }

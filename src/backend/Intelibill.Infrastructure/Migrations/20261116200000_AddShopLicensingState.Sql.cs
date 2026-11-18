@@ -131,8 +131,8 @@ public partial class AddShopLicensingState
             FOR EACH STATEMENT EXECUTE FUNCTION public.retain_entitlement_evidence();
         """;
 
-    private static string ReconciliationScan => $$"""
-        CREATE FUNCTION public.due_merchant_entitlement_reconciliation(p_now timestamptz)
+    internal static string ReconciliationScan => $$"""
+        CREATE OR REPLACE FUNCTION public.due_merchant_entitlement_reconciliation(p_now timestamptz)
         RETURNS TABLE (account_id uuid, shop_id uuid, affiliation_request_id uuid)
         LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog AS $$
             SELECT e.account_id, e.shop_id, e.request_id FROM public.shop_affiliation_consent_events e

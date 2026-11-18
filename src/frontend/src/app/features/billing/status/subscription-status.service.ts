@@ -2,10 +2,16 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { EMPTY, Observable, catchError, expand, reduce, throwError } from 'rxjs';
 import { API_BASE_URL } from '../../../core/auth/auth.constants';
-import type { AccountSubscriptionStatus, AccountTermStatus, ShopSubscriptionStatus, StatusFailure } from './subscription-status.models';
+import type { AccountSubscriptionStatus, AccountTermStatus, ShopSubscriptionStatus, ShopTradingAuthority, StatusFailure, TradingAuthorityFailure } from './subscription-status.models';
 
 export class StatusReadError extends Error {
   constructor(readonly failure: StatusFailure) {
+    super(failure);
+  }
+}
+
+export class TradingAuthorityReadError extends Error {
+  constructor(readonly failure: TradingAuthorityFailure) {
     super(failure);
   }
 }
@@ -18,6 +24,11 @@ export class SubscriptionStatusService {
   shop(shopId: string): Observable<ShopSubscriptionStatus> {
     return this.http.get<ShopSubscriptionStatus>(`${API_BASE_URL}/licensing/shops/${encodeURIComponent(shopId)}/status`)
       .pipe(catchError(classify));
+  }
+
+  tradingAuthority(shopId: string): Observable<ShopTradingAuthority> {
+    return this.http.get<ShopTradingAuthority>(`${API_BASE_URL}/licensing/shops/${encodeURIComponent(shopId)}/trading-authority`)
+      .pipe(catchError(error => throwError(() => new TradingAuthorityReadError(authorityFailure(error)))));
   }
 
   /** Every page of the account's terms, in order: a list is never silently truncated. */
@@ -34,10 +45,26 @@ export class SubscriptionStatusService {
 }
 
 function classify(error: unknown): Observable<never> {
+  return throwError(() => new StatusReadError(statusFailure(error)));
+}
+
+function statusFailure(error: unknown): StatusFailure {
   const status = error instanceof HttpErrorResponse ? error.status : 0;
   const code = error instanceof HttpErrorResponse ? (error.error as { code?: string } | null)?.code : undefined;
-  const failure: StatusFailure = status === 401 ? 'session'
+  return status === 401 ? 'session'
     : status === 403 && code === 'Licensing.ShopScopeRequired' ? 'scope'
     : status === 403 ? 'denied' : 'unavailable';
-  return throwError(() => new StatusReadError(failure));
+}
+
+function authorityFailure(error: unknown): TradingAuthorityFailure {
+  if (error instanceof HttpErrorResponse) {
+    const code = (error.error as { code?: string } | null)?.code;
+    if (error.status === 403) {
+      if (code === 'Licence.Expired') return 'expired';
+      if (code === 'Licence.TradingRestricted' || code === 'Licence.SecuritySuspended') return 'restricted';
+      if (code === 'Licence.PendingActivation') return 'pending';
+    }
+    if (error.status === 409 && code === 'Licence.Busy') return 'busy';
+  }
+  return statusFailure(error);
 }

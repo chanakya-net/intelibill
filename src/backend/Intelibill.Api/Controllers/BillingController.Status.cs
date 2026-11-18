@@ -21,6 +21,17 @@ public sealed partial class BillingController
         return result.IsError ? Failure(result.FirstError) : Ok(result.Value);
     }
 
+    [HttpGet("/api/licensing/shops/{shopId:guid}/trading-authority")]
+    [LicenceAction(LicenceAction.Billing)]
+    public async Task<IActionResult> TradingAuthority(Guid shopId, [FromServices] IShopTradingAuthorityReader reader,
+        CancellationToken ct)
+    {
+        if (ReadCaller() is not { } caller)
+            return SessionInvalid();
+        var result = await reader.ReadAsync(caller.Session, shopId, ct);
+        return result.IsError ? Failure(result.FirstError) : Ok(result.Value);
+    }
+
     [HttpGet("{accountId:guid}/subscriptions")]
     [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> AccountSubscriptions(Guid accountId, [FromQuery] Guid? after,

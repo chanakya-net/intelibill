@@ -99,10 +99,10 @@ public sealed partial class P0401LicensingTests
             await AssertRetainedTablesForceRowSecurityAsync(owner);
 
             await migrator.MigrateAsync(TrialPredecessor, Ct);
-            await owner.Database.MigrateAsync(Ct);
+            await migrator.MigrateAsync(FenceMigration, Ct);
             await RestrictedRuntimeRole.GrantAsync(MigratorConnection);
 
-            Assert.Empty(await owner.Database.GetPendingMigrationsAsync(Ct));
+            Assert.Equal(FenceMigration, (await owner.Database.GetAppliedMigrationsAsync(Ct)).Last());
             var binding = await SeedAsync();
             await using (var delivery = CreateDb())
                 await ApplyAsync(delivery, binding, 1, "Unrestricted");
@@ -119,8 +119,7 @@ public sealed partial class P0401LicensingTests
         private async Task AssertFenceMigrationKeptAsync(string retainedBefore)
         {
             await using var owner = CreateDb(owner: true);
-            Assert.Contains(FenceMigration, await owner.Database.GetAppliedMigrationsAsync(Ct));
-            Assert.Empty(await owner.Database.GetPendingMigrationsAsync(Ct));
+            Assert.Equal(FenceMigration, (await owner.Database.GetAppliedMigrationsAsync(Ct)).Last());
             Assert.True(await FenceExistsAsync(owner), "A refused downgrade must leave the fence function in place.");
             await AssertRetainedTablesForceRowSecurityAsync(owner);
             Assert.Equal(retainedBefore, await RetainedDigestAsync());
@@ -178,6 +177,9 @@ public sealed partial class P0401LicensingTests
             var name = "p0401_" + Guid.NewGuid().ToString("N");
             await SharedPostgres.StartAsync();
             await SharedPostgres.CreateFromTemplateAsync(name);
+            // Exercise #876 at its own migration boundary. Later migrations have separate ownership and rollback tests.
+            await using (var migrator = Open(SharedPostgres.ConnectionStringFor(name)))
+                await migrator.GetService<IMigrator>().MigrateAsync(FenceMigration, Ct);
             _isolatedDatabase = name;
             var isolated = new IsolatedDatabase(name);
             await isolated.CreateRestrictedOwnerAsync();

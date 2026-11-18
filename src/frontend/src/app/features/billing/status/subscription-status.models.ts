@@ -70,6 +70,16 @@ export interface AccountSubscriptionStatus {
 /** Why a status could not be shown. `unavailable` is a verification outage and never means expiry. */
 export type StatusFailure = 'denied' | 'scope' | 'unavailable' | 'session';
 
+export interface ShopTradingAuthority {
+  readonly schemaVersion: 1;
+  readonly shopId: string;
+  readonly authorityVerifiedAt: string;
+  readonly validUntil: string;
+  readonly enforced: boolean;
+}
+
+export type TradingAuthorityFailure = StatusFailure | 'expired' | 'restricted' | 'pending' | 'busy';
+
 export const BILLING_TIME_ZONE = 'Asia/Kolkata';
 
 /**

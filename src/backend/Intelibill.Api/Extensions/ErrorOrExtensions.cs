@@ -1,6 +1,7 @@
 using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
+using LicenceErrors = Intelibill.Application.Common.Errors.Errors.Licence;
 
 namespace Intelibill.Api.Extensions;
 
@@ -37,15 +38,17 @@ public static class ErrorOrExtensions
 
         var first = errors[0];
 
-        var statusCode = first.Type switch
-        {
-            ErrorType.Validation => StatusCodes.Status400BadRequest,
-            ErrorType.NotFound => StatusCodes.Status404NotFound,
-            ErrorType.Conflict => StatusCodes.Status409Conflict,
-            ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
-            ErrorType.Forbidden => StatusCodes.Status403Forbidden,
-            _ => StatusCodes.Status500InternalServerError
-        };
+        var statusCode = first.Code == LicenceErrors.VerificationUnavailableCode
+            ? StatusCodes.Status503ServiceUnavailable
+            : first.Type switch
+            {
+                ErrorType.Validation => StatusCodes.Status400BadRequest,
+                ErrorType.NotFound => StatusCodes.Status404NotFound,
+                ErrorType.Conflict => StatusCodes.Status409Conflict,
+                ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
+                ErrorType.Forbidden => StatusCodes.Status403Forbidden,
+                _ => StatusCodes.Status500InternalServerError
+            };
 
         var problemDetails = new ProblemDetails
         {

@@ -3,7 +3,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { Subject, of, throwError } from 'rxjs';
+import { EMPTY, Subject, of, throwError } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import en from '../../../../../public/assets/i18n/en-IN.json';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -44,7 +44,7 @@ function render(api: Partial<SubscriptionStatusService>, params: Record<string, 
       { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(params) }, paramMap: of(convertToParamMap(params)) } },
       { provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } },
       { provide: AuthService, useValue: { session } },
-      { provide: SubscriptionStatusService, useValue: api },
+      { provide: SubscriptionStatusService, useValue: { tradingAuthority: () => EMPTY, ...api } },
     ],
   });
   const fixture = TestBed.createComponent(SubscriptionStatusPageComponent);
@@ -71,6 +71,16 @@ describe('subscription status', () => {
     fixture.detectChanges();
     expect(page.querySelector('[data-testid="entitlement-sync"]')).toBeNull();
     expect(page.textContent).toContain('Entitlement delivery to devices is not available yet.');
+  });
+
+  it('shows the verified local deadline even when commercial status cannot load', () => {
+    const { page } = render({
+      shop: () => throwError(() => new StatusReadError('unavailable')),
+      tradingAuthority: () => of({ schemaVersion: 1, shopId: shopA,
+        authorityVerifiedAt: '2027-02-08T00:00:00Z', validUntil: '2027-02-10T00:00:00Z', enforced: false }),
+    });
+    expect(page.querySelector('[data-testid="trading-authority-deadline"]')?.textContent)
+      .toContain('10 Feb 2027, 05:30:00 IST');
   });
 
   it('has shop and account destinations before the billing landing route', () => {

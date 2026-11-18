@@ -1,5 +1,7 @@
 using LicenceErrors = Intelibill.Application.Common.Errors.Errors.Licence;
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Policies;
+using Intelibill.Shared.Contracts.V1;
 using static Intelibill.Application.Common.Licensing.LicenceOutcome;
 
 namespace Intelibill.Application.Common.Licensing;
@@ -13,19 +15,24 @@ public sealed class LicenceActionPolicy : ILicenceActionPolicy
         var outcome = phase switch
         {
             Phase.Operating => row.Operating,
-            Phase.Expired or Phase.TradingRestricted => row.Restricted,
+            Phase.Expired or Phase.TradingRestricted or Phase.Unverified => row.Restricted,
             Phase.SecuritySuspended => row.SecuritySuspended,
             _ => row.Pending,
         };
 
-        return new(outcome, shop?.EnforcementActivatedAt is not null, outcome != Blocked ? null : phase switch
+        var denial = outcome != Blocked ? (ErrorOr.Error?)null : phase switch
         {
             Phase.Expired => LicenceErrors.Expired,
             Phase.TradingRestricted => LicenceErrors.TradingRestricted,
             Phase.SecuritySuspended => LicenceErrors.SecuritySuspended,
-            Phase.Unverified => LicenceErrors.EvidenceRequired,
+            Phase.Unverified => LicenceErrors.VerificationUnavailable,
             _ => LicenceErrors.PendingActivation,
-        });
+        };
+        return phase == Phase.Operating
+            ? new(outcome, shop!.EnforcementActivatedAt is not null, denial,
+                LicenseProjectionPolicy.VerifiedAt(shop, account!),
+                LicenseProjectionPolicy.ValidUntil(shop, account!, EntitlementSnapshotsV1.Freshness))
+            : new(outcome, shop?.EnforcementActivatedAt is not null, denial);
     }
 
     private static Phase GetPhase(ShopLicenseState? shop, AccountLicenseRestriction? account, DateTimeOffset now)
@@ -34,17 +41,20 @@ public sealed class LicenceActionPolicy : ILicenceActionPolicy
             return Phase.SecuritySuspended;
         if (account?.Restriction == "Trading" || shop?.State is "Suspended" or "Closed")
             return Phase.TradingRestricted;
-        if (shop is null || shop.State is "PendingActivation" or "Scheduled")
-            return Phase.Pending;
-        if (shop.State == "Expired")
-            return Phase.Expired;
-        if (shop.State is not ("Active" or "Grace") || account?.Restriction != "Unrestricted" ||
-            shop.StartsAt is not { } start || shop.AccessEndsAt is not { } end || end <= start)
+        if (shop is null || account is null || shop.AccountId != account.AccountId ||
+            shop.UpstreamVerifiedAt > now || account.UpstreamVerifiedAt > now)
+            return Phase.Unverified;
+        if (shop.State is "PendingActivation" or "Scheduled")
+            return shop.NextBoundary <= now ? Phase.Unverified : Phase.Pending;
+        if (shop.State is not ("Active" or "Grace" or "Expired"))
             return Phase.Unverified;
 
-        if (now < start)
-            return Phase.Pending;
-        return now < end ? Phase.Operating : Phase.Expired;
+        return LicenseProjectionPolicy.Evaluate(shop, account, now, EntitlementSnapshotsV1.Freshness) switch
+        {
+            LicenseProjectionDecision.VerifiedPermission => Phase.Operating,
+            LicenseProjectionDecision.Expired => Phase.Expired,
+            _ => Phase.Unverified,
+        };
     }
 
     private static Row ForAction(LicenceAction action) => action switch

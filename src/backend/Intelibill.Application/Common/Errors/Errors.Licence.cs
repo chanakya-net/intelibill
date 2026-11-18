@@ -25,7 +25,9 @@ public static partial class Errors
         public static Error SecuritySuspended =>
             Error.Forbidden("Licence.SecuritySuspended", "Access to this shop is suspended.");
 
-        public static Error EvidenceRequired =>
-            Error.Forbidden("Licence.EvidenceRequired", "The shop's trading access could not be established.");
+        public const string VerificationUnavailableCode = "Licence.VerificationUnavailable";
+
+        public static Error VerificationUnavailable => Error.Failure(VerificationUnavailableCode,
+            "Trading access could not be verified. Try again shortly or contact support if the problem continues.");
     }
 }
