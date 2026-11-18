@@ -3334,6 +3334,7 @@
       },
       "payment": {
         "confirmation": {
+          "more": "Load more confirmations",
           "view": "View payment confirmations",
           "download": "Download payment confirmation",
           "disclaimer": "Verified receipt confirmation; not a tax invoice or merchant sale receipt. Access status is shown separately.",

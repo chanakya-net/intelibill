@@ -9,8 +9,8 @@ import { confirmations, MAX_CONFIRMATION_BYTES } from './payment-confirmation.mo
 @Injectable({ providedIn: 'root' })
 export class PaymentConfirmationService {
   private readonly http = inject(HttpClient);
-  async list(scope: CheckoutScope, order: string) {
-    const value = await firstValueFrom(this.http.get<unknown>(this.path(scope, order), { context: scopedRequestContext(scope) }));
+  async list(scope: CheckoutScope, order: string, after?: string) {
+    const value = await firstValueFrom(this.http.get<unknown>(this.path(scope, order) + (after ? '/after/' + encodeURIComponent(after) : ''), { context: scopedRequestContext(scope) }));
     return confirmations(value, scope.account, order);
   }
   async document(scope: CheckoutScope, order: string, id: string) {

@@ -15,7 +15,7 @@ internal sealed class P0311LegacyIssuance
     {
         public Task IssueAsync(Guid account, Guid order, Guid? attempt, Guid? receipt, DateTimeOffset issuedAt, CancellationToken ct) =>
             fixture.BeforeConfirmations ? Task.CompletedTask : current.IssueAsync(account, order, attempt, receipt, issuedAt, ct);
-        public Task<PaymentConfirmationV1[]> ListConfirmationsAsync(Guid account, Guid order, CancellationToken ct) => current.ListConfirmationsAsync(account, order, ct);
+        public Task<PaymentConfirmationV1[]> ListConfirmationsAsync(Guid account, Guid order, Guid? after, CancellationToken ct) => current.ListConfirmationsAsync(account, order, after, ct);
         public Task<PaymentConfirmationSnapshotV1?> FindConfirmationAsync(Guid account, Guid order, Guid id, CancellationToken ct) => current.FindConfirmationAsync(account, order, id, ct);
     }
 }

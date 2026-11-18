@@ -12,11 +12,12 @@ internal static class AdminPaymentConfirmationEndpoints
         var group = app.MapGroup("/api/admin/accounts/{account:guid}/orders/{order:guid}/payment-confirmations")
             .RequireAuthorization(ProviderSessions.PaymentPolicy);
         group.MapGet("", ListAsync);
+        group.MapGet("/after/{after:guid}", ListAsync);
         group.MapGet("/{id:guid}/document", DocumentAsync);
     }
-    private static async Task<IResult> ListAsync(HttpContext context, Guid account, Guid order, ReadPaymentConfirmationHandler handler) =>
+    private static async Task<IResult> ListAsync(HttpContext context, Guid account, Guid order, Guid? after, ReadPaymentConfirmationHandler handler) =>
         AdminManualPaymentEndpoints.Caller(context) is { } caller
-            ? AdminManualPaymentEndpoints.Respond(context, await handler.ListAsync(caller, account, order, context.RequestAborted))
+            ? AdminManualPaymentEndpoints.Respond(context, await handler.ListAsync(caller, account, order, after, context.RequestAborted))
             : AdminManualPaymentEndpoints.SessionEnded(context);
     private static async Task<IResult> DocumentAsync(HttpContext context, Guid account, Guid order, Guid id, ReadPaymentConfirmationHandler handler)
     {

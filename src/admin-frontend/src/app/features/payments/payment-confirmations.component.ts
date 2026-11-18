@@ -16,6 +16,10 @@ import { ManualPaymentApi, type ConfirmationReference } from './manual-payment-a
           label="Download payment confirmation" [disabled]="busy()" (click)="download(row)"></button>
         <small>{{ row.source }} · {{ row.confirmationId }}</small>
       }
+      @if (hasMore()) {
+        <button pButton type="button" data-testid="admin-confirmation-more" label="Load more confirmations"
+          [disabled]="busy()" (click)="load(true)"></button>
+      }
       @if (error()) { <p role="alert">Could not load the confirmation. Try again.</p> }
     </section>
   `,
@@ -28,16 +32,22 @@ export class PaymentConfirmationsComponent {
   private readonly scope = computed(() => ({ account: this.account(), order: this.order(), admin: this.session.adminId() ?? '', session: this.session.sessionId() ?? '' }));
   protected readonly rows = signal<readonly ConfirmationReference[]>([]);
   protected readonly busy = signal(false);
+  protected readonly hasMore = signal(false);
   protected readonly error = signal(false);
   private destroyed = false;
   constructor() {
     inject(DestroyRef).onDestroy(() => { this.destroyed = true; });
-    effect(() => { this.scope(); this.rows.set([]); this.busy.set(false); this.error.set(false); });
+    effect(() => { this.scope(); this.rows.set([]); this.hasMore.set(false); this.busy.set(false); this.error.set(false); });
   }
-  protected load() {
+  protected load(more = false) {
     void this.run(async scope => {
-      const rows = await this.api.confirmations(scope, scope.session);
-      if (!this.destroyed && this.scope() === scope) this.rows.set(rows);
+      const prior = more ? this.rows() : [];
+      const rows = await this.api.confirmations(scope, scope.session, prior.at(-1)?.confirmationId);
+      if (this.destroyed || this.scope() !== scope) return;
+      const combined = [...prior, ...rows];
+      if (new Set(combined.map(row => row.confirmationId)).size !== combined.length) throw new Error('Repeated confirmation page');
+      this.rows.set(combined);
+      this.hasMore.set(rows.length === 25);
     });
   }
   protected download(row: ConfirmationReference) {

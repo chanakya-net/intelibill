@@ -42,6 +42,18 @@ public sealed partial class P0311Tests
         }
     }
 
+    [Fact]
+    public void FullConfirmationPageFitsRelayBoundAtMaximumContractValues()
+    {
+        var account = Guid.NewGuid();
+        var order = Guid.NewGuid();
+        var rows = Enumerable.Range(0, PaymentConfirmationsV1.PageSize).Select(_ => new PaymentConfirmationV1(
+            Guid.NewGuid(), account, order, "Manual", CheckoutOrdersV1.MaxPaise, "INR",
+            P0209Fixture.Utc("9998-12-31T23:59:59.999999Z"), P0209Fixture.Utc("9998-12-31T23:59:59.999999Z"), "Verification")).ToArray();
+        Assert.All(rows, row => Assert.True(PaymentConfirmationsV1.IsValid(row, account, order)));
+        Assert.InRange(JsonSerializer.SerializeToUtf8Bytes(rows, JsonSerializerOptions.Web).Length, 1, PaymentConfirmationsV1.MaxListBytes);
+    }
+
     private static bool ValidDocument(HttpResponseMessage response, Guid id) =>
         (bool)typeof(ApplicationDbContext).Assembly.GetType("Intelibill.Infrastructure.Billing.MerchantBillingClient")!
             .GetMethod("IsValidDocument", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!

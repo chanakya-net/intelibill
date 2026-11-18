@@ -16,7 +16,7 @@ const row = { confirmationId: id, accountId: account, orderId: order, source: 'O
   amountPaise: 12000, currency: 'INR' as const, verifiedAt: '2027-02-10T00:00:01Z', issuedAt: '2027-02-10T00:00:01Z', issuanceBasis: 'Verification' as const };
 afterEach(() => TestBed.resetTestingModule());
 
-function setup(document: () => Promise<Blob>) {
+function setup(document: () => Promise<Blob>, list = async (_scope?: unknown, _order?: string, _after?: string) => [row]) {
   const scope = signal<{ userId: string; shopId: string } | null>({ userId: 'payer', shopId: 'shop' });
   const download = vi.fn();
   TestBed.configureTestingModule({
@@ -24,7 +24,7 @@ function setup(document: () => Promise<Blob>) {
       translocoConfig: { availableLangs: ['en-IN'], defaultLang: 'en-IN' }, preloadLangs: true })],
     providers: [
       { provide: ShopContextService, useValue: { scope } },
-      { provide: PaymentConfirmationService, useValue: { list: async () => [row], document } },
+      { provide: PaymentConfirmationService, useValue: { list, document } },
       { provide: BlobDownloadService, useValue: { download } },
     ],
   });
@@ -46,6 +46,29 @@ describe('immutable confirmation downloads', () => {
     page.click('confirmation-download');
     await page.settle();
     expect(page.download).toHaveBeenCalledExactlyOnceWith(blob, `payment-confirmation-${id}.txt`);
+  });
+
+  it('traverses bounded pages without hiding earlier downloads', async () => {
+    const rows = Array.from({ length: 51 }, (_, i) => ({ ...row,
+      confirmationId: `00000000-0000-4000-8000-${String(i + 10).padStart(12, '0')}` }));
+    const list = vi.fn(async (_scope?: unknown, _order?: string, after?: string) => {
+      const start = after ? rows.findIndex(row => row.confirmationId === after) + 1 : 0;
+      return rows.slice(start, start + 25);
+    });
+    const page = setup(async () => new Blob(['receipt']), list);
+    page.click('confirmation-list');
+    await page.settle();
+    expect(page.fixture.nativeElement.querySelectorAll('[data-testid="confirmation-download"]')).toHaveLength(25);
+    page.click('confirmation-more');
+    await page.settle();
+    page.click('confirmation-more');
+    await page.settle();
+    expect(page.fixture.nativeElement.querySelectorAll('[data-testid="confirmation-download"]')).toHaveLength(51);
+    expect(list.mock.calls.map(call => call[2])).toEqual([undefined, rows[24].confirmationId, rows[49].confirmationId]);
+    expect(page.fixture.nativeElement.querySelector('[data-testid="confirmation-more"]')).toBeNull();
+    page.click('confirmation-download');
+    await page.settle();
+    expect(page.download).toHaveBeenCalledWith(expect.any(Blob), `payment-confirmation-${rows[0].confirmationId}.txt`);
   });
 
   it('drops a download that completes after the owner scope changes', async () => {
@@ -77,6 +100,8 @@ describe('immutable confirmation downloads', () => {
 
   it('rejects cross-account, malformed and non-full-amount list records', () => {
     expect(confirmations([row], account, order)).toEqual([row]);
+    expect(() => confirmations(Array.from({ length: 26 }, (_, i) => ({ ...row,
+      confirmationId: `00000000-0000-4000-8000-${String(i + 10).padStart(12, '0')}` })), account, order)).toThrow();
     for (const patch of [{ accountId: id }, { orderId: id }, { amountPaise: 0 }, { amountPaise: 1.2 },
       { issuanceBasis: 'Invented' }, { verifiedAt: 'bad' }, { confirmationId: '../file' }])
       expect(() => confirmations([{ ...row, ...patch }], account, order)).toThrow();

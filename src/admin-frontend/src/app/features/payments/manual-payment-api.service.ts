@@ -143,10 +143,10 @@ export class ManualPaymentApi {
       this.path(scope) + '/receipts/' + encodeURIComponent(receipt) + '/evidence', { headers: { 'X-Admin-Session': session } }));
   }
 
-  async confirmations(scope: PaymentScope, session: string) {
-    const rows = await firstValueFrom(this.http.get<readonly ConfirmationReference[]>(this.confirmationsPath(scope),
+  async confirmations(scope: PaymentScope, session: string, after?: string) {
+    const rows = await firstValueFrom(this.http.get<readonly ConfirmationReference[]>(this.confirmationsPath(scope) + (after ? '/after/' + encodeURIComponent(after) : ''),
       { headers: { 'X-Admin-Session': session } }));
-    if (!Array.isArray(rows) || !rows.every(row => row.accountId === scope.account && row.orderId === scope.order &&
+    if (!Array.isArray(rows) || rows.length > 25 || !rows.every(row => row.accountId === scope.account && row.orderId === scope.order &&
         /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(row.confirmationId) && ['Online', 'Manual'].includes(row.source)))
       throw new Error('Invalid confirmation identity');
     return rows;

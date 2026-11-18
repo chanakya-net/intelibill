@@ -19,11 +19,15 @@ internal sealed partial class PaymentStore : IPaymentConfirmationStore
             """, ct);
     }
 
-    public async Task<PaymentConfirmationV1[]> ListConfirmationsAsync(Guid account, Guid order, CancellationToken ct)
+    public async Task<PaymentConfirmationV1[]> ListConfirmationsAsync(Guid account, Guid order, Guid? after, CancellationToken ct)
     {
         var rows = await db.Database.SqlQuery<string>($"""
             SELECT (facts->'receipt')::text AS "Value" FROM public.payment_confirmations
-            WHERE account_id = {account} AND order_id = {order} ORDER BY issued_at, confirmation_id
+            WHERE account_id = {account} AND order_id = {order}
+                AND ({after}::uuid IS NULL OR (issued_at, confirmation_id) > (
+                    SELECT issued_at, confirmation_id FROM public.payment_confirmations
+                    WHERE account_id = {account} AND order_id = {order} AND confirmation_id = {after}))
+            ORDER BY issued_at, confirmation_id LIMIT {PaymentConfirmationsV1.PageSize}
             """).ToArrayAsync(ct);
         return rows.Select(row => JsonSerializer.Deserialize<PaymentConfirmationV1>(row, ConfirmationJson)!).ToArray();
     }

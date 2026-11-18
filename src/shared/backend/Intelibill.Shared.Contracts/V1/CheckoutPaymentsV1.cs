@@ -96,7 +96,8 @@ public static class CheckoutPaymentsV1
     public static string CapturePath(Guid account, Guid order, Guid attempt) =>
         $"{AttemptsPath(account, order)}/{attempt:D}/simulator/capture";
 
-    public static string ConfirmationsPath(Guid account, Guid order) => $"{PaymentPath(account, order)}/confirmations";
+    public static string ConfirmationsPath(Guid account, Guid order, Guid? after = null) =>
+        $"{PaymentPath(account, order)}/confirmations" + (after is { } id ? $"/after/{id:D}" : "");
     public static string ConfirmationDocumentPath(Guid account, Guid order, Guid id) => $"{ConfirmationsPath(account, order)}/{id:D}/document";
 
     public static string StartHash(Guid order, StartCheckoutPaymentV1 value) =>

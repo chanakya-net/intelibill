@@ -4,7 +4,7 @@ import { ButtonDirective } from 'primeng/button';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { BlobDownloadService } from '../../../shared/utils/blob-download.service';
 import { PaymentConfirmationService } from './payment-confirmation.service';
-import type { PaymentConfirmation } from './payment-confirmation.models';
+import { CONFIRMATION_PAGE_SIZE, type PaymentConfirmation } from './payment-confirmation.models';
 
 @Component({
   selector: 'app-payment-confirmation-links',
@@ -22,6 +22,10 @@ import type { PaymentConfirmation } from './payment-confirmation.models';
           (click)="download(row)"></button>
         <small>{{ row.source }} · {{ row.confirmationId }}</small>
       }
+      @if (hasMore()) {
+        <button pButton type="button" data-testid="confirmation-more" [disabled]="busy()"
+          [label]="'billing.checkout.payment.confirmation.more' | transloco" (click)="load(true)"></button>
+      }
       @if (error()) { <p role="alert">{{ 'billing.checkout.payment.confirmation.error' | transloco }}</p> }
     </section>
   `,
@@ -38,16 +42,22 @@ export class PaymentConfirmationLinksComponent {
   });
   protected readonly rows = signal<readonly PaymentConfirmation[]>([]);
   protected readonly busy = signal(false);
+  protected readonly hasMore = signal(false);
   protected readonly error = signal(false);
   private destroyed = false;
   constructor() {
     inject(DestroyRef).onDestroy(() => { this.destroyed = true; });
-    effect(() => { this.scope(); this.rows.set([]); this.busy.set(false); this.error.set(false); });
+    effect(() => { this.scope(); this.rows.set([]); this.hasMore.set(false); this.busy.set(false); this.error.set(false); });
   }
-  protected load() {
+  protected load(more = false) {
     void this.run(async scope => {
-      const rows = await this.api.list(scope, scope.order);
-      if (!this.destroyed && this.scope() === scope) this.rows.set(rows);
+      const prior = more ? this.rows() : [];
+      const rows = await this.api.list(scope, scope.order, prior.at(-1)?.confirmationId);
+      if (this.destroyed || this.scope() !== scope) return;
+      const combined = [...prior, ...rows];
+      if (new Set(combined.map(row => row.confirmationId)).size !== combined.length) throw new Error('Repeated confirmation page');
+      this.rows.set(combined);
+      this.hasMore.set(rows.length === CONFIRMATION_PAGE_SIZE);
     });
   }
   protected download(row: PaymentConfirmation) {

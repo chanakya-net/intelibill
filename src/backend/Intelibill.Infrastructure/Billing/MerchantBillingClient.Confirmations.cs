@@ -6,13 +6,13 @@ namespace Intelibill.Infrastructure.Billing;
 
 internal sealed partial class MerchantBillingClient : IMerchantPaymentConfirmations
 {
-    public Task<ErrorOr<PaymentConfirmationV1[]>> ListConfirmationsAsync(MerchantBillingCaller caller, Guid account, Guid order, CancellationToken ct) =>
+    public Task<ErrorOr<PaymentConfirmationV1[]>> ListConfirmationsAsync(MerchantBillingCaller caller, Guid account, Guid order, Guid? after, CancellationToken ct) =>
         RunAsync<PaymentConfirmationV1[]>(caller, new(CheckoutPaymentsV1.Confirmations, HttpMethod.Get,
-            CheckoutPaymentsV1.ConfirmationsPath(account, order), account, []), PaymentConfirmationsV1.MaxListBytes,
+            CheckoutPaymentsV1.ConfirmationsPath(account, order, after), account, []), PaymentConfirmationsV1.MaxListBytes,
             async (response, token) =>
             {
                 var rows = await ReadJsonAsync<PaymentConfirmationV1[]>(response, token);
-                return rows is not null && rows.All(row => PaymentConfirmationsV1.IsValid(row, account, order)) &&
+                return rows is { Length: <= PaymentConfirmationsV1.PageSize } && rows.All(row => PaymentConfirmationsV1.IsValid(row, account, order)) &&
                     rows.Select(row => row.ConfirmationId).Distinct().Count() == rows.Length
                     ? rows : Unavailable("InvalidConfirmationList");
             }, ct);

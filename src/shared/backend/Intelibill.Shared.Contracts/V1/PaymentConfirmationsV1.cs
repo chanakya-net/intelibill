@@ -7,6 +7,8 @@ public static class PaymentConfirmationsV1
     public const string NotFound = "Billing.PaymentConfirmationNotFound";
     public const int MaxDocumentBytes = 8192 + CheckoutOrdersV1.MaxShops * (CheckoutOrdersV1.MaxShopName * 4 + 128);
     public const int MaxListBytes = 16384;
+    // Fixed contract-shaped rows are below 400 UTF-8 bytes each, including maximum UTC timestamps.
+    public const int PageSize = 25;
     public static string FileName(Guid id) => $"payment-confirmation-{id:D}.txt";
     public static bool IsValid(PaymentConfirmationV1? value, Guid account, Guid order) =>
         value is not null && value.ConfirmationId != Guid.Empty && value.AccountId == account && value.OrderId == order &&
