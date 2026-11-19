@@ -155,12 +155,13 @@ public sealed partial class P0408dLicensingTests
         Assert.Equal("7s", await LockTimeoutAsync(db));
     }
 
-    private async Task<(ApiWebApplicationFactory Host, HttpClient Client, Guid Shop, Binding Binding, DateTimeOffset End)> OpenStockedShopAsync()
+    private async Task<(ApiWebApplicationFactory Host, HttpClient Client, Guid Shop, Binding Binding, DateTimeOffset End)> OpenStockedShopAsync(string? email = null)
     {
         var host = CreateHost();
         await host.InitializeAsync();
         var client = CreateClient(host);
-        var shop = await CreateShopAsync(client);
+        if (email is not null) await RegisterAsync(client, email);
+        var shop = await CreateShopAsync(client, register: email is null);
         using var received = await client.PostAsJsonAsync("/api/inventory/inbound", new
         {
             itemName = "Setup goods", barcode = $"setup-{Guid.NewGuid():N}"[..20], uom = "pcs", batchNumber = "setup-lot", quantity = 5m,

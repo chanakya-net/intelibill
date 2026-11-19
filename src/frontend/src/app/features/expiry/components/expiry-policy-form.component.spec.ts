@@ -11,6 +11,7 @@ function setup(
   role: string,
   readiness = vi.fn<ExpiryPolicyService['readiness']>(() => EMPTY),
   translated = false,
+  read: ExpiryPolicyService['read'] = () => of(expiryPolicyState),
 ) {
   const scope = { id: 'scope-one' };
   const update = vi.fn(() => of({ ...expiryPolicyState, catalogVersion: 2 }));
@@ -28,7 +29,7 @@ function setup(
         provide: ExpiryPolicyService,
         useValue: {
           scopeIdentity: () => scope.id,
-          read: () => of(expiryPolicyState),
+          read,
           businessTimeZone: () => of('Asia/Kolkata'),
           readiness,
           role: () => role,
@@ -41,8 +42,10 @@ function setup(
   const fixture = TestBed.createComponent(ExpiryPolicyFormComponent);
   fixture.componentRef.setInput('shopId', 'shop');
   fixture.componentRef.setInput('canEdit', role === 'owner');
+  const refusals: unknown[] = [];
+  fixture.componentInstance.licenceRefused.subscribe((refusal) => refusals.push(refusal));
   fixture.detectChanges();
-  return { fixture, component: fixture.componentInstance, update, scope, readiness };
+  return { fixture, component: fixture.componentInstance, update, scope, readiness, refusals };
 }
 describe('expiry policy operator form', () => {
   it('describes all undated lots without claiming optional dates are required', () => {
@@ -231,4 +234,35 @@ describe('ExpiryPolicyFormComponent licence refusals', () => {
     expect(refusals).toEqual([]);
     expect(component.message()).toBe('expiry.saveFailed');
   });
+
+  const refused = (code: string) => throwError(() => new HttpErrorResponse({ status: 403, error: { code } }));
+
+  it('reports a security refusal from the policy read for its shop', () => {
+    const { component, refusals } = setup('owner', undefined, false, () => refused('Licence.SecuritySuspended'));
+
+    expect(refusals).toEqual([expect.objectContaining({ shopId: 'shop', securitySuspended: true })]);
+    expect(component.message()).toBe('billing.status.suspension.enforcedSecurity');
+    expect(component.state()).toBeNull();
+  });
+
+  it('reports a security refusal from the readiness read and withdraws the loaded policy', () => {
+    const { component, refusals } = setup('owner', vi.fn(() => refused('Licence.SecuritySuspended')));
+
+    expect(refusals).toEqual([expect.objectContaining({ shopId: 'shop', securitySuspended: true })]);
+    expect(component.state()).toBeNull();
+    expect(component.message()).toBe('billing.status.suspension.enforcedSecurity');
+  });
+
+  it.each(['Licence.TradingRestricted', 'Licence.Busy', 'Other.Failure'])(
+    'keeps a %s read failure local and retryable', (code) => {
+      const read = setup('owner', undefined, false, () => refused(code));
+      expect(read.refusals).toEqual([]);
+      expect(read.component.message()).toBe('expiry.loadFailed');
+      TestBed.resetTestingModule();
+
+      const readiness = setup('owner', vi.fn(() => refused(code)));
+      expect(readiness.refusals).toEqual([]);
+      expect(readiness.component.readinessError()).toBe('expiry.readinessFailed');
+      expect(readiness.component.state()).not.toBeNull();
+    });
 });

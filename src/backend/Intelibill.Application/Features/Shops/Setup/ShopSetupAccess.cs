@@ -117,11 +117,17 @@ public sealed class ShopSetupAccess(
     /// <summary>
     /// Runs a protected read inside the transaction that holds the shared licence fence, so a
     /// suspension either commits first and is refused here or waits until the read has finished.
+    /// The device, the member's role and the licence decision are read again once the data has
+    /// loaded: a result is released only under the authority that still holds at that point, and
+    /// the access it reports is the decision at the end of the read, not the one it started under.
     /// </summary>
-    internal async Task<ErrorOr<T>> ReadAsync<T>(SessionClaims? session, Guid actor, Guid shopId,
-        Func<ShopSetupAccessDto, CancellationToken, Task<ErrorOr<T>>> read, CancellationToken ct)
+    internal async Task<ErrorOr<T>> ReadAsync<TData, T>(SessionClaims? session, Guid actor, Guid shopId,
+        Func<ShopRole, CancellationToken, Task<ErrorOr<TData>>> load,
+        Func<TData, ShopSetupAccessDto, ErrorOr<T>> project, CancellationToken ct, bool activeShopOnly = false)
     {
         if (!await IsLiveAsync(session, actor, ct)) return Errors.Auth.SessionInvalidated;
+        // The validated session names the shop the device is in; a caller's own argument does not.
+        if (activeShopOnly && session!.ActiveShopId != shopId) return ShopSetupErrors.Forbidden;
         if (await shops.GetActiveRoleAsync(actor, shopId, ct) is null) return Errors.Shop.MembershipNotFound;
         await unitOfWork.BeginTransactionAsync(ct);
         try
@@ -130,14 +136,27 @@ public sealed class ShopSetupAccess(
             if (lease.IsError) return lease.Errors;
             if (!await IsLiveAsync(session, actor, ct)) return Errors.Auth.SessionInvalidated;
             if (await shops.GetActiveRoleAsync(actor, shopId, ct) is not { } role) return Errors.Shop.MembershipNotFound;
+            if (ReadDenial(lease.Value.CurrentDecision()) is { } denial) return denial;
+            var data = await load(role, ct);
+            if (data.IsError) return data.Errors;
+            if (await LostAuthorityAsync(session!, shopId, role, ct) is { } lost) return lost;
             var decision = lease.Value.CurrentDecision();
-            if (Denial(decision, allowSetup: true, allowRecovery: true) is { } denial) return denial;
-            var result = await read(Hint(shopId, role, decision), ct);
-            return Denial(lease.Value.CurrentDecision(), allowSetup: true, allowRecovery: true) is { } late ? late : result;
+            return ReadDenial(decision) is { } late ? late : project(data.Value, Hint(shopId, role, decision));
         }
         finally
         {
             await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
         }
+    }
+
+    private static Error? ReadDenial(LicenceDecision decision) => Denial(decision, allowSetup: true, allowRecovery: true);
+
+    private async Task<Error?> LostAuthorityAsync(SessionClaims session, Guid shopId, ShopRole role, CancellationToken ct)
+    {
+        if (!await sessions.IsValidAsync(session, ct)) return Errors.Auth.SessionInvalidated;
+        var current = await shops.GetActiveRoleAsync(session.UserId, shopId, ct);
+        if (current is null) return Errors.Shop.MembershipNotFound;
+        // The result was prepared for a role the member no longer holds. A retry reads under the current one.
+        return current == role ? null : Errors.Licence.Busy;
     }
 }

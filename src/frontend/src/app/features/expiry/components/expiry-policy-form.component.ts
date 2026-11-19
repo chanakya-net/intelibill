@@ -10,7 +10,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { Subscription, forkJoin } from 'rxjs';
 import { ExpiryPolicyService, type ExpiryReadiness } from '../services/expiry-policy.service';
 import type { ExpiryPolicySettings, ExpiryPolicyState } from '../services/expiry.models';
-import { shopLicenceRefusal, type ShopLicenceRefusal } from '../../shops/services/shop-setup-access';
+import { shopLicenceRefusal, shopSecurityRefusal, type ShopLicenceRefusal } from '../../shops/services/shop-setup-access';
 @Component({
   selector: 'app-expiry-policy-form',
   standalone: true,
@@ -85,13 +85,22 @@ export class ExpiryPolicyFormComponent implements OnChanges, OnDestroy {
         this.refreshReadiness();
         this.busy.set(false);
       },
-      error: () => {
-        if (this.isCurrent(generation)) {
-          this.message.set('expiry.loadFailed');
-          this.busy.set(false);
-        }
+      error: (error: unknown) => {
+        if (!this.isCurrent(generation)) return;
+        this.busy.set(false);
+        if (!this.withdrawOnSecurityRefusal(error)) this.message.set('expiry.loadFailed');
       },
     });
+  }
+  /** A security suspension reported by a read withdraws the policy on screen and tells the owning page. */
+  private withdrawOnSecurityRefusal(error: unknown): boolean {
+    const refusal = shopSecurityRefusal(this.shopId, error);
+    if (!refusal) return false;
+    this.state.set(null);
+    this.clearReadiness();
+    this.message.set(refusal.errorMessage);
+    this.licenceRefused.emit(refusal);
+    return true;
   }
   private isCurrent(generation: number): boolean {
     return (
@@ -126,8 +135,9 @@ export class ExpiryPolicyFormComponent implements OnChanges, OnDestroy {
         this.readiness.set(ready);
         this.readinessError.set('');
       },
-      error: () => {
+      error: (error: unknown) => {
         if (!this.isCurrent(generation) || request !== this.readinessGeneration) return;
+        if (this.withdrawOnSecurityRefusal(error)) return;
         this.readinessBusy.set(false);
         this.readinessError.set('expiry.readinessFailed');
       },

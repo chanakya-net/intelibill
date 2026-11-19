@@ -28,7 +28,7 @@ export const ShopsActions = createActionGroup({
 
     'Load Shop Details Requested': props<{ shopId: string }>(),
     'Load Shop Details Succeeded': props<{ details: ShopDetails }>(),
-    'Load Shop Details Failed': props<{ errorMessage: string; shopId?: string }>(),
+    'Load Shop Details Failed': props<{ errorMessage: string; shopId?: string; licenceRefused?: boolean; securitySuspended?: boolean }>(),
 
     'Create Shop Requested': props<{ payload: CreateShopRequest }>(),
     'Create Shop Succeeded': emptyProps(),

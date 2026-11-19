@@ -106,4 +106,38 @@ describe(ShopSetupPageComponent.name, () => {
     expect(element.textContent).not.toContain('Edit tax and numbering');
     http.verify();
   });
+
+  it('withdraws the checklist as soon as its preference save is refused for security', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    const view = TestBed.createComponent(ShopSetupPageComponent);
+    http.expectOne(url).flush(status);
+    view.componentInstance.settingsStep.set(1);
+    view.componentInstance.leave('/sales/new');
+
+    http.expectOne(`${url}/preferences`).flush({ code: 'Licence.SecuritySuspended' }, { status: 403, statusText: 'Forbidden' });
+    const refresh = http.expectOne(url);
+
+    expect(view.componentInstance.status()).toBeNull();
+    expect(view.componentInstance.settingsStep()).toBeNull();
+    expect(view.componentInstance.canStartSale()).toBe(false);
+    expect(view.componentInstance.saveError()).toBe('billing.status.suspension.enforcedSecurity');
+    expect(navigate).not.toHaveBeenCalled();
+
+    refresh.flush(status);
+    expect(view.componentInstance.status()).toEqual(status);
+    http.verify();
+  });
+
+  it('keeps the checklist through an ordinary trading refusal of its preference save', () => {
+    const view = TestBed.createComponent(ShopSetupPageComponent);
+    http.expectOne(url).flush(status);
+    view.componentInstance.leave('/dashboard');
+
+    http.expectOne(`${url}/preferences`).flush({ code: 'Licence.TradingRestricted' }, { status: 403, statusText: 'Forbidden' });
+    const refresh = http.expectOne(url);
+
+    expect(view.componentInstance.status()).toEqual(status);
+    refresh.flush(status);
+    http.verify();
+  });
 });

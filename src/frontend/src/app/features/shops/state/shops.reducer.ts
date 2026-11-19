@@ -6,6 +6,11 @@ import { ShopMutationType, ShopsActions } from './shops.actions';
 
 export const shopsFeatureKey = 'shops';
 
+interface DetailRequest {
+  readonly shopId: string;
+  readonly overtaken: boolean;
+}
+
 export interface ShopsState {
   readonly shops: readonly UserShop[];
   readonly selectedShopId: string | null;
@@ -13,7 +18,13 @@ export interface ShopsState {
   readonly loadingShops: boolean;
   readonly loadingDetails: boolean;
   /** The detail read in flight. The effect keeps at most one, so a newer request replaces it. */
-  readonly detailsRead: { readonly shopId: string; readonly overtaken: boolean } | null;
+  readonly detailsRead: DetailRequest | null;
+  /**
+   * The detail-bearing saves in flight, at most one of each kind. A licence refusal for the shop
+   * marks them overtaken, so a save that the server finished before the refusal cannot bring that
+   * shop's details or permissions back when its answer finally arrives.
+   */
+  readonly detailWrites: Readonly<Partial<Record<ShopMutationType, DetailRequest>>>;
   readonly submitting: boolean;
   readonly errorMessage: string;
   readonly lastMutationType: ShopMutationType | null;
@@ -27,6 +38,7 @@ const initialState: ShopsState = {
   loadingShops: false,
   loadingDetails: false,
   detailsRead: null,
+  detailWrites: {},
   submitting: false,
   errorMessage: '',
   lastMutationType: null,
@@ -75,11 +87,12 @@ export const shopsReducer = createReducer(
           [details.shopId]: details,
         },
       }),
-  on(ShopsActions.loadShopDetailsFailed, (state, { errorMessage, shopId }) => ({
+  on(ShopsActions.loadShopDetailsFailed, (state, { errorMessage, shopId, licenceRefused }) => ({
     ...state,
     loadingDetails: false,
     errorMessage: shopId && isOvertakenRead(state, shopId) ? state.errorMessage : errorMessage,
     detailsRead: !shopId || state.detailsRead?.shopId === shopId ? null : state.detailsRead,
+    detailWrites: shopId && licenceRefused ? overtakenWrites(state.detailWrites, shopId) : state.detailWrites,
     detailsById: shopId ? withoutDetails(state.detailsById, shopId) : state.detailsById,
   })),
   on(ShopsActions.shopLicenceRefused, (state, { shopId, securitySuspended, errorMessage }) => ({
@@ -110,8 +123,9 @@ export const shopsReducer = createReducer(
     lastMutationSucceeded: false,
   })),
 
-  on(ShopsActions.updateShopRequested, (state) => ({
+  on(ShopsActions.updateShopRequested, (state, { shopId }) => ({
     ...state,
+    detailWrites: { ...state.detailWrites, update: { shopId, overtaken: false } },
     submitting: true,
     errorMessage: '',
     lastMutationType: 'update',
@@ -120,19 +134,15 @@ export const shopsReducer = createReducer(
   on(ShopsActions.updateShopSucceeded, (state, { details }) => ({
     ...state,
     submitting: false,
-    errorMessage: '',
     lastMutationType: 'update',
     lastMutationSucceeded: true,
-    detailsById: {
-      ...state.detailsById,
-      [details.shopId]: details,
-    },
+    ...afterSave(state, 'update', details),
   })),
   on(ShopsActions.updateShopFailed, (state, { errorMessage, shopId, licenceRefused, securitySuspended }) => ({
     ...state,
     submitting: false,
     errorMessage,
-    ...afterLicenceRefusal(state, shopId, licenceRefused, securitySuspended),
+    ...afterLicenceRefusal(state, shopId, licenceRefused, securitySuspended, 'update'),
     lastMutationType: 'update',
     lastMutationSucceeded: false,
   })),
@@ -181,8 +191,9 @@ export const shopsReducer = createReducer(
     lastMutationSucceeded: false,
   })),
 
-  on(ShopsActions.updateShopBankDetailsRequested, (state) => ({
+  on(ShopsActions.updateShopBankDetailsRequested, (state, { shopId }) => ({
     ...state,
+    detailWrites: { ...state.detailWrites, 'update-bank-details': { shopId, overtaken: false } },
     submitting: true,
     errorMessage: '',
     lastMutationType: 'update-bank-details' as const,
@@ -191,25 +202,22 @@ export const shopsReducer = createReducer(
   on(ShopsActions.updateShopBankDetailsSucceeded, (state, { details }) => ({
     ...state,
     submitting: false,
-    errorMessage: '',
     lastMutationType: 'update-bank-details' as const,
     lastMutationSucceeded: true,
-    detailsById: {
-      ...state.detailsById,
-      [details.shopId]: details,
-    },
+    ...afterSave(state, 'update-bank-details', details),
   })),
   on(ShopsActions.updateShopBankDetailsFailed, (state, { errorMessage, shopId, licenceRefused, securitySuspended }) => ({
     ...state,
     submitting: false,
     errorMessage,
-    ...afterLicenceRefusal(state, shopId, licenceRefused, securitySuspended),
+    ...afterLicenceRefusal(state, shopId, licenceRefused, securitySuspended, 'update-bank-details'),
     lastMutationType: 'update-bank-details' as const,
     lastMutationSucceeded: false,
   })),
 
-  on(ShopsActions.updateShopTaxProfileRequested, (state) => ({
+  on(ShopsActions.updateShopTaxProfileRequested, (state, { shopId }) => ({
     ...state,
+    detailWrites: { ...state.detailWrites, 'update-tax-profile': { shopId, overtaken: false } },
     submitting: true,
     errorMessage: '',
     lastMutationType: 'update-tax-profile' as const,
@@ -218,19 +226,15 @@ export const shopsReducer = createReducer(
   on(ShopsActions.updateShopTaxProfileSucceeded, (state, { details }) => ({
     ...state,
     submitting: false,
-    errorMessage: '',
     lastMutationType: 'update-tax-profile' as const,
     lastMutationSucceeded: true,
-    detailsById: {
-      ...state.detailsById,
-      [details.shopId]: details,
-    },
+    ...afterSave(state, 'update-tax-profile', details),
   })),
   on(ShopsActions.updateShopTaxProfileFailed, (state, { errorMessage, shopId, licenceRefused, securitySuspended }) => ({
     ...state,
     submitting: false,
     errorMessage,
-    ...afterLicenceRefusal(state, shopId, licenceRefused, securitySuspended),
+    ...afterLicenceRefusal(state, shopId, licenceRefused, securitySuspended, 'update-tax-profile'),
     lastMutationType: 'update-tax-profile' as const,
     lastMutationSucceeded: false,
   })),
@@ -263,15 +267,43 @@ function isOvertakenRead(state: ShopsState, shopId: string): boolean {
   return state.detailsRead?.shopId === shopId && state.detailsRead.overtaken;
 }
 
-/** Drops what the refusal outdated, including whatever a read already in flight would bring back. */
-function afterLicenceRefusal(state: ShopsState, shopId?: string, refused?: boolean,
-  security?: boolean): Pick<ShopsState, 'detailsById' | 'detailsRead'> {
+/**
+ * Drops what the refusal outdated, including whatever a read or save already in flight would
+ * bring back. `finished` is the save that has just answered, when the refusal is its own.
+ */
+function afterLicenceRefusal(state: ShopsState, shopId?: string, refused?: boolean, security?: boolean,
+  finished?: ShopMutationType): Pick<ShopsState, 'detailsById' | 'detailsRead' | 'detailWrites'> {
   const { detailsById, detailsRead } = state;
-  if (!shopId || !refused) return { detailsById, detailsRead };
+  const detailWrites = withoutWrite(state.detailWrites, finished);
+  if (!shopId || !refused) return { detailsById, detailsRead, detailWrites };
   return {
     detailsById: invalidateSetupAccess(detailsById, shopId, security),
     detailsRead: detailsRead?.shopId === shopId ? { shopId, overtaken: true } : detailsRead,
+    detailWrites: overtakenWrites(detailWrites, shopId),
   };
+}
+
+/** A save completes either way. Only one that no refusal overtook publishes what it returned. */
+function afterSave(state: ShopsState, type: ShopMutationType,
+  details: ShopDetails): Pick<ShopsState, 'detailsById' | 'detailWrites' | 'errorMessage'> {
+  const write = state.detailWrites[type];
+  const detailWrites = withoutWrite(state.detailWrites, type);
+  if (write?.shopId === details.shopId && write.overtaken) {
+    return { detailsById: state.detailsById, detailWrites, errorMessage: state.errorMessage };
+  }
+  return { detailsById: { ...state.detailsById, [details.shopId]: details }, detailWrites, errorMessage: '' };
+}
+
+function withoutWrite(writes: ShopsState['detailWrites'], type?: ShopMutationType): ShopsState['detailWrites'] {
+  if (!type || !writes[type]) return writes;
+  const remaining = { ...writes };
+  delete remaining[type];
+  return remaining;
+}
+
+function overtakenWrites(writes: ShopsState['detailWrites'], shopId: string): ShopsState['detailWrites'] {
+  return Object.fromEntries(Object.entries(writes).map(([type, write]) =>
+    [type, write.shopId === shopId ? { shopId, overtaken: true } : write]));
 }
 
 function invalidateSetupAccess(details: ShopsState['detailsById'], shopId: string,

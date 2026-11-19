@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { problemCode } from '@intelibill/api';
 
 import type { UpdateShopRequest } from './shop.service';
@@ -41,6 +42,15 @@ export function shopLicenceRefusal(shopId: string, error: unknown): ShopLicenceR
   const errorMessage = setupLicenceError(error);
   if (!errorMessage || problemCode(error) === 'Licence.Busy') return null;
   return { shopId, securitySuspended: isSecuritySuspension(error), errorMessage };
+}
+
+/**
+ * What a failed settings read means for the shop on screen. Reads stay open under a trading
+ * restriction, so only a security suspension is a refusal; anything else is a failure to retry.
+ */
+export function shopSecurityRefusal(shopId: string, error: unknown): ShopLicenceRefusal | null {
+  const refusal = error instanceof HttpErrorResponse ? shopLicenceRefusal(shopId, error.error) : null;
+  return refusal?.securitySuspended ? refusal : null;
 }
 
 export function shopSetupAccessFor(shopId: string | null, access?: ShopSetupAccess | null): ShopSetupAccess | null {

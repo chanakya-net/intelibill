@@ -95,6 +95,17 @@ describe('ShopsEffects', () => {
     await expect(output).resolves.toEqual(ShopsActions.loadShopDetailsSucceeded({ details }));
   });
 
+  it('marks a details read refused for security as a licence refusal for that shop', async () => {
+    shopService.getShopDetails.mockReturnValue(throwError(() => ({ error: { code: 'Licence.SecuritySuspended' } })));
+
+    const output = firstValueFrom(effects.loadShopDetails$.pipe(take(1)));
+    actions$.next(ShopsActions.loadShopDetailsRequested({ shopId: 'sh1' }));
+
+    await expect(output).resolves.toEqual(ShopsActions.loadShopDetailsFailed({
+      errorMessage: 'billing.status.suspension.enforcedSecurity', shopId: 'sh1', licenceRefused: true, securitySuspended: true,
+    }));
+  });
+
   it('auto-loads details for default shop after loadShopsSucceeded', async () => {
     const output = firstValueFrom(effects.loadActiveShopDetailsAfterShopsLoad$.pipe(take(1)));
     actions$.next(ShopsActions.loadShopsSucceeded({ shops: [shopA] }));

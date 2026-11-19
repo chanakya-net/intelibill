@@ -198,4 +198,36 @@ describe('ShopTillSettingsComponent', () => {
 
     expect(refusals).toEqual([]);
   });
+
+  it('reports a security refusal from the settings read and shows no settings', () => {
+    api.read.mockReturnValue(throwError(() =>
+      new HttpErrorResponse({ status: 403, error: { code: 'Licence.SecuritySuspended' } })));
+    TestBed.configureTestingModule({
+      imports: [ShopTillSettingsComponent, TranslocoTestingModule.forRoot({
+        langs: { 'en-IN': en }, translocoConfig: { availableLangs: ['en-IN'], defaultLang: 'en-IN' }, preloadLangs: true,
+      })],
+      providers: [provideRouter([]), { provide: ShopTillSettingsService, useValue: api }],
+    });
+    const fixture = TestBed.createComponent(ShopTillSettingsComponent);
+    fixture.componentRef.setInput('shopId', 'shop-a');
+    const refusals: unknown[] = [];
+    fixture.componentInstance.licenceRefused.subscribe((refusal) => refusals.push(refusal));
+    fixture.detectChanges();
+
+    expect(refusals).toEqual([expect.objectContaining({ shopId: 'shop-a', securitySuspended: true })]);
+    expect(fixture.componentInstance.state()).toBeNull();
+    expect(fixture.componentInstance.error()).toBe('billing.status.suspension.enforcedSecurity');
+  });
+
+  it.each(['Licence.TradingRestricted', 'Licence.Busy'])('keeps a %s read failure local and retryable', (code) => {
+    const { component } = setup();
+    const refusals: unknown[] = [];
+    component.licenceRefused.subscribe((refusal) => refusals.push(refusal));
+    api.read.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 403, error: { code } })));
+
+    component.refresh();
+
+    expect(refusals).toEqual([]);
+    expect(component.error()).toBe('tills.settings.loadFailed');
+  });
 });

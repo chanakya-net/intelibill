@@ -12,7 +12,7 @@ const pendingStatus = 'This shop is waiting for trading access.';
 const restrictedStatus = 'Trading is restricted for this shop.';
 const securityStatus = 'Security suspension is enforced for this shop.';
 type Phase = 'Pending' | 'Active' | 'TradingRestricted' | 'ObserveOnly';
-type Refusals = Partial<Record<'acknowledge' | 'preferences' | 'expiry' | 'till', string>>;
+type Refusals = Partial<Record<'acknowledge' | 'preferences' | 'expiry' | 'till' | 'expiryRead' | 'readiness' | 'tillRead', string>>;
 type RequestEvidence = { method: string; path: string; status: number; fields: string[]; code?: string };
 
 function access(shopId: string, status: Phase, role: string) {
@@ -39,6 +39,8 @@ async function install(page: Page, role = 'Owner', first: Phase = 'Pending') {
   await accessibilityFixtures(page);
   const phases: Record<string, Phase> = { [SHOP_A]: first, [SHOP_B]: 'Active' };
   const refusals: Refusals = {};
+  /** The checklist read: what it reports, and a gate a test can close to keep a refresh unanswered. */
+  const setup: { showOnStartup: boolean; hold?: Promise<void>; waiting: number } = { showOnStartup: false, waiting: 0 };
   const members = shops.map(shop => ({ ...shop, role }));
   const saved = { [SHOP_A]: details(SHOP_A), [SHOP_B]: details(SHOP_B) };
   const requests: RequestEvidence[] = [];
@@ -58,13 +60,17 @@ async function install(page: Page, role = 'Owner', first: Phase = 'Pending') {
       version: 1, showOnStartup: false, sampleReceiptAcknowledgedAt: null, canSavePreferences: true,
     });
   });
-  await page.route('**/api/shops/*/till-settings', route => route.request().method() === 'PUT' && refusals.till
-    ? refuse(route, refusals.till)
-    : reply(route, { shopId: SHOP_A, available: true, enabled: false, version: 0, openSessionCount: 0,
-      awaitingReviewCount: 0, pendingOfflineCount: 0 }));
+  await page.route('**/api/shops/*/till-settings', (route) => {
+    const code = route.request().method() === 'PUT' ? refusals.till : refusals.tillRead;
+    return code ? refuse(route, code) : reply(route, { shopId: SHOP_A, available: true, enabled: false, version: 0,
+      openSessionCount: 0, awaitingReviewCount: 0, pendingOfflineCount: 0 });
+  });
   await page.route('**/api/expiry-policies**', (route) => {
     if (route.request().method() === 'PUT' && refusals.expiry) return refuse(route, refusals.expiry);
-    if (new URL(route.request().url()).pathname.endsWith('/readiness')) return reply(route, { catalogVersion: 1,
+    const readiness = new URL(route.request().url()).pathname.endsWith('/readiness');
+    const refused = readiness ? refusals.readiness : refusals.expiryRead;
+    if (refused) return refuse(route, refused);
+    if (readiness) return reply(route, { catalogVersion: 1,
       results: { missingDateLots: 0, expiredLots: 0, quarantineLots: 0, items: [], totalCount: 0, page: 1, pageSize: 50 } });
     const policy = { version: 1, mode: 'Ignore', expiryRequired: false, sellThroughExpiryDate: true, warningDays: 7, overrideAllowed: false };
     return reply(route, { defaultPolicy: policy, overridePolicy: null, effectivePolicy: policy, catalogVersion: 1 });
@@ -75,17 +81,21 @@ async function install(page: Page, role = 'Owner', first: Phase = 'Pending') {
     return reply(route, { code, status: 403 }, 403, Object.keys(route.request().postDataJSON()).sort(), code);
   });
   await page.route('**/api/billing/accounts', route => reply(route, { accounts: [], nextCursor: null }));
-  await page.route(/\/api\/shops\/[^/]+(?:\/(?:setup|tax-profile|bank-details))?$/, (route) => {
+  await page.route(/\/api\/shops\/[^/]+(?:\/(?:setup|tax-profile|bank-details))?$/, async (route) => {
     const [, shopId, entry] = new URL(route.request().url()).pathname.match(/\/api\/shops\/([^/]+)(?:\/(.*))?$/) ?? [];
     if (!saved[shopId]) return route.fallback();
     const hint = access(shopId, phases[shopId], role);
     if (route.request().method() === 'GET') {
+      if (entry === 'setup' && setup.hold) {
+        setup.waiting++;
+        await setup.hold;
+      }
       return entry === 'setup' ? reply(route, {
         shopId, contractVersion: 1, canTrade: true, setupAccess: hint,
         steps: ['business', 'tax', 'catalog', 'bank', 'sample'].map(id => ({ id, state: 'complete', reasons: [] })),
         blockingReasons: [], permissions: { canEditShop: true, canEditCatalog: hint.hasOperatingAccess,
           canSavePreferences: hint.canSavePreferences },
-        preferences: { version: 1, showOnStartup: false, sampleReceiptAcknowledgedAt: null },
+        preferences: { version: 1, showOnStartup: setup.showOnStartup, sampleReceiptAcknowledgedAt: null },
       }) : reply(route, { ...saved[shopId], setupAccess: hint });
     }
 
@@ -105,7 +115,7 @@ async function install(page: Page, role = 'Owner', first: Phase = 'Pending') {
   });
   await page.addInitScript(value => localStorage.setItem('inventory.auth.session.local', JSON.stringify(value)),
     { ...session(), shops: members });
-  return { phases, saved, requests, refusals, puts: () => requests.filter(entry => entry.method === 'PUT') };
+  return { phases, saved, requests, refusals, setup, puts: () => requests.filter(entry => entry.method === 'PUT') };
 }
 
 async function openManageShop(page: Page, origin: string) {
@@ -299,6 +309,54 @@ test.describe('licence refusals reach what is already on screen', () => {
       }
     });
   }
+
+  for (const read of ['expiryRead', 'readiness', 'tillRead'] as const) {
+    test(`a security refusal from the ${read} request withdraws the details already loaded`, async ({ page }) => {
+      const server = await startPurchaseReceivingServer(built);
+      const fixture = await install(page, 'Owner', 'Active');
+      try {
+        fixture.refusals[read] = 'Licence.SecuritySuspended';
+        const dialog = await openManageShop(page, server.origin);
+        await expect(dialog.getByRole('alert').filter({ hasText: securityStatus }).first()).toBeVisible();
+        await expect(dialog.locator('#shop-contact-person')).toHaveCount(0);
+        await expect(dialog.locator('app-shop-tax-profile-form')).toHaveCount(0);
+        await expect(dialog.locator('app-shop-till-settings')).toHaveCount(0);
+        await expect(dialog.locator('app-expiry-policy-form')).toHaveCount(0);
+        const loaded = fixture.requests.findIndex(({ path, status }) => path === `/api/shops/${SHOP_A}` && status === 200);
+        const refused = fixture.requests.findIndex(({ code }) => code === 'Licence.SecuritySuspended');
+        expect(loaded).toBeGreaterThanOrEqual(0);
+        expect(refused).toBeGreaterThan(loaded);
+      } finally {
+        await server.close();
+      }
+    });
+  }
+
+  test('a security refusal of the preference save withdraws the checklist before its refresh answers', async ({ page }) => {
+    const server = await startPurchaseReceivingServer(built);
+    const fixture = await install(page, 'Owner', 'Active');
+    let release = () => {};
+    try {
+      fixture.setup.showOnStartup = true;
+      await page.goto(server.origin + '/shops/setup');
+      const startBilling = page.getByRole('button', { name: 'Start billing', exact: true });
+      await expect(page.locator('.setup-steps')).toBeVisible();
+      await expect(startBilling).toBeVisible();
+      fixture.refusals.acknowledge = 'Licence.SecuritySuspended';
+      fixture.setup.hold = new Promise<void>((resolve) => { release = resolve; });
+      await page.getByRole('button', { name: 'Continue later', exact: true }).click();
+      await expect(page.getByRole('alert').filter({ hasText: securityStatus }).first()).toBeVisible();
+      await expect.poll(() => fixture.setup.waiting).toBe(1);
+      await expect(page.locator('.setup-steps')).toHaveCount(0);
+      await expect(startBilling).toHaveCount(0);
+      await expect(page).toHaveURL(/\/shops\/setup$/);
+      release();
+      await expect(page.locator('.setup-steps')).toBeVisible();
+    } finally {
+      release();
+      await server.close();
+    }
+  });
 
   for (const phase of ['Active', 'ObserveOnly'] as const) {
     test(`a manager reads the saved tax profile in a shop that is ${phase}`, async ({ page }) => {

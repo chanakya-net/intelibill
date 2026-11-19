@@ -22,7 +22,7 @@ import {
   type ShopTillSettings,
   type UpdateShopTillSettings,
 } from '../../services/shop-till-settings.service';
-import { shopLicenceRefusal, type ShopLicenceRefusal } from '../../services/shop-setup-access';
+import { shopLicenceRefusal, shopSecurityRefusal, type ShopLicenceRefusal } from '../../services/shop-setup-access';
 
 @Component({
   selector: 'app-shop-till-settings',
@@ -123,11 +123,15 @@ export class ShopTillSettingsComponent {
           this.attempted = null;
         }
       },
-      error: () => {
-        if (this.current(generation, shopId, scope)) {
-          this.loading.set(false);
-          this.error.set('tills.settings.loadFailed');
-        }
+      error: (error: unknown) => {
+        if (!this.current(generation, shopId, scope)) return;
+        this.loading.set(false);
+        const refusal = shopSecurityRefusal(shopId, error);
+        this.error.set(refusal?.errorMessage ?? 'tills.settings.loadFailed');
+        if (!refusal) return;
+        // A security suspension withdraws the settings already shown and tells the owning page.
+        this.state.set(null);
+        this.licenceRefused.emit(refusal);
       },
     });
   }

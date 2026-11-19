@@ -18,31 +18,27 @@ public sealed class ShopSetupService(
     ShopSetupAccess access)
 {
     public Task<ErrorOr<ShopSetupStatusDto>> GetAsync(GetShopSetupQuery query, CancellationToken ct) =>
-        ReadEvaluatedAsync<ShopSetupStatusDto>(query.ShopId, query.ActorUserId, query.ActiveShopId, query.Session,
-            async (result, token) => await ToStatusAsync(query.ShopId, result, token), ct);
+        ReadActiveAsync<StatusFacts, ShopSetupStatusDto>(query.ShopId, query.ActorUserId, query.ActiveShopId, query.Session,
+            async (shop, role, token) => new StatusFacts(await EvaluateAsync(shop, query.ActorUserId, role, token),
+                await preferenceRepository.GetAsync(query.ShopId, token)),
+            (facts, hint) => ToStatus(query.ShopId, facts, hint), ct);
 
-    public async Task<ErrorOr<ShopSetupPreferencesDto>> GetPreferencesAsync(GetShopSetupPreferencesQuery query, CancellationToken ct)
-    {
-        var member = await GetMemberAsync(query.ShopId, query.ActorUserId, query.ActiveShopId, ct);
-        if (member is not { Role: ShopRole.Owner })
-            return ShopSetupErrors.OwnerRequired;
-        return await access.ReadAsync<ShopSetupPreferencesDto>(query.Session, query.ActorUserId, query.ShopId,
-            async (hint, token) =>
-            {
-                var current = await GetMemberAsync(query.ShopId, query.ActorUserId, query.ActiveShopId, token);
-                if (current is not { Role: ShopRole.Owner }) return ShopSetupErrors.OwnerRequired;
-                return ShopSetupPreferencesDto.From(await preferenceRepository.GetAsync(query.ShopId, token), hint.CanSavePreferences);
-            }, ct);
-    }
+    public Task<ErrorOr<ShopSetupPreferencesDto>> GetPreferencesAsync(GetShopSetupPreferencesQuery query, CancellationToken ct) =>
+        ReadActiveAsync<PreferenceFacts, ShopSetupPreferencesDto>(query.ShopId, query.ActorUserId, query.ActiveShopId, query.Session,
+            async (_, role, token) => role == ShopRole.Owner
+                ? new PreferenceFacts(await preferenceRepository.GetAsync(query.ShopId, token))
+                : ShopSetupErrors.OwnerRequired,
+            (facts, hint) => ShopSetupPreferencesDto.From(facts.Saved, hint.CanSavePreferences), ct);
 
     public Task<ErrorOr<ShopSetupSampleDto>> GetSampleAsync(GetShopSetupSampleQuery query, CancellationToken ct) =>
-        ReadEvaluatedAsync<ShopSetupSampleDto>(query.ShopId, query.ActorUserId, query.ActiveShopId, query.Session,
-            (result, _) => Task.FromResult(ToSample(result)), ct);
+        ReadActiveAsync<Evaluation, ShopSetupSampleDto>(query.ShopId, query.ActorUserId, query.ActiveShopId, query.Session,
+            async (shop, role, token) => await EvaluateAsync(shop, query.ActorUserId, role, token),
+            (result, _) => ToSample(result), ct);
 
-    private async Task<ErrorOr<ShopSetupStatusDto>> ToStatusAsync(Guid shopId, Evaluation result, CancellationToken ct)
+    private static ErrorOr<ShopSetupStatusDto> ToStatus(Guid shopId, StatusFacts facts, ShopSetupAccessDto access)
     {
-        var preferences = ShopSetupPreferencesDto.From(await preferenceRepository.GetAsync(shopId, ct), result.Access.CanSavePreferences);
-        var owner = result.Role == ShopRole.Owner;
+        var result = facts.Evaluation;
+        var preferences = ShopSetupPreferencesDto.From(facts.Preferences, access.CanSavePreferences);
         return new ShopSetupStatusDto(shopId, 1, result.CanTrade,
             [
                 RequiredStep("identity", result.IdentityReason),
@@ -54,9 +50,9 @@ public sealed class ShopSetupService(
                 new("bank", result.HasBankDetails ? "complete" : "optional", [])
             ],
             result.BlockingReasons,
-            new(result.Access.WritableProfileFields.Count > 0,
-                result.Access.HasOperatingAccess && (owner || result.Role == ShopRole.Manager), result.Access.CanSavePreferences),
-            preferences) { SetupAccess = result.Access };
+            new(access.WritableProfileFields.Count > 0,
+                access.HasOperatingAccess && result.Role is ShopRole.Owner or ShopRole.Manager, access.CanSavePreferences),
+            preferences) { SetupAccess = access };
     }
 
     private static ErrorOr<ShopSetupSampleDto> ToSample(Evaluation result)
@@ -72,24 +68,29 @@ public sealed class ShopSetupService(
         return errors;
     }
 
-    private async Task<ErrorOr<T>> ReadEvaluatedAsync<T>(Guid shopId, Guid actor, Guid? activeShopId, SessionClaims? session,
-        Func<Evaluation, CancellationToken, Task<ErrorOr<T>>> project, CancellationToken ct)
+    /// <summary>
+    /// Setup status, sample and preferences describe the shop the calling device is in. The facts load
+    /// first; the access they are reported with is supplied afterwards, from the decision that holds then.
+    /// </summary>
+    private async Task<ErrorOr<T>> ReadActiveAsync<TData, T>(Guid shopId, Guid actor, Guid? activeShopId, SessionClaims? session,
+        Func<Shop, ShopRole, CancellationToken, Task<ErrorOr<TData>>> load,
+        Func<TData, ShopSetupAccessDto, ErrorOr<T>> project, CancellationToken ct)
     {
-        if (await GetMemberAsync(shopId, actor, activeShopId, ct) is null)
+        if (shopId != activeShopId)
             return ShopSetupErrors.Forbidden;
 
-        return await access.ReadAsync<T>(session, actor, shopId, async (hint, token) =>
+        var result = await access.ReadAsync(session, actor, shopId, async (role, token) =>
         {
-            if (await GetMemberAsync(shopId, actor, activeShopId, token) is not { } membership)
+            if (await readRepository.GetMemberAsync(shopId, actor, token) is not { } membership)
                 return ShopSetupErrors.Forbidden;
-            return await project(await EvaluateAsync(shopId, actor, membership, hint, token), token);
-        }, ct);
+            return await load(membership.Shop, role, token);
+        }, project, ct, activeShopOnly: true);
+        return result.IsError && result.FirstError.Code == "Shop.MembershipNotFound" ? ShopSetupErrors.Forbidden : result;
     }
 
-    private async Task<Evaluation> EvaluateAsync(Guid shopId, Guid actor, ShopSetupMember membership, ShopSetupAccessDto hint, CancellationToken ct)
+    private async Task<Evaluation> EvaluateAsync(Shop shop, Guid actor, ShopRole role, CancellationToken ct)
     {
-        var shop = membership.Shop;
-        var facts = await readRepository.GetFactsAsync(shopId, ct);
+        var facts = await readRepository.GetFactsAsync(shop.Id, ct);
         var seller = CaptureSellerProfile(shop);
         var candidates = await sampleBuilder.EvaluateAsync(shop, facts, seller.IsError ? null : seller.Value, actor, ct);
         var identityReason = facts.HasVerifiedOwner ? null : "ShopSetup.VerifiedOwnerRequired";
@@ -104,12 +105,9 @@ public sealed class ShopSetupService(
 
         var blocking = new[] { identityReason, businessReason, taxReason, catalogReason, candidates.Sample is null ? stockReason : null }
             .OfType<string>().Distinct(StringComparer.Ordinal).ToArray();
-        return new Evaluation(membership.Role, hint, facts.HasBankDetails, !facts.HasActiveGoods && facts.HasActiveServices,
+        return new Evaluation(role, facts.HasBankDetails, !facts.HasActiveGoods && facts.HasActiveServices,
             identityReason, businessReason, taxReason, catalogReason, stockReason, blocking, candidates.Sample);
     }
-
-    private Task<ShopSetupMember?> GetMemberAsync(Guid shopId, Guid actor, Guid? activeShopId, CancellationToken ct) =>
-        shopId == activeShopId ? readRepository.GetMemberAsync(shopId, actor, ct) : Task.FromResult<ShopSetupMember?>(null);
 
     private static ErrorOr<InvoiceSellerProfile> CaptureSellerProfile(Shop shop)
     {
@@ -127,7 +125,11 @@ public sealed class ShopSetupService(
     private static ShopSetupStepDto RequiredStep(string id, string? reason) =>
         reason is null ? new(id, "complete", []) : new(id, "incomplete", [reason]);
 
-    private sealed record Evaluation(ShopRole Role, ShopSetupAccessDto Access, bool HasBankDetails, bool ServiceOnly, string? IdentityReason,
+    private sealed record StatusFacts(Evaluation Evaluation, ShopSetupPreferences? Preferences);
+
+    private sealed record PreferenceFacts(ShopSetupPreferences? Saved);
+
+    private sealed record Evaluation(ShopRole Role, bool HasBankDetails, bool ServiceOnly, string? IdentityReason,
         string? BusinessReason, string? TaxReason, string? CatalogReason, string? StockReason,
         IReadOnlyList<string> BlockingReasons, ShopSetupSampleDto? Sample)
     {

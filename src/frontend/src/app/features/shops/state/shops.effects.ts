@@ -44,6 +44,7 @@ export class ShopsEffects {
             of(
               ShopsActions.loadShopDetailsFailed({
                 errorMessage: getShopDetailsErrorMessage(error.error), shopId,
+                ...setupMutationRefusal(shopId, error.error),
               })
             )
           )

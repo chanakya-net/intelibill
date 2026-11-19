@@ -9,7 +9,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import type { ShopScope } from '../../../core/context/shop-scope';
 import { ManageShopOverlayComponent } from '../components/manage-shop-overlay.component';
-import { setupLicenceError, shopSetupAccessFor, shopSetupStatusKey } from '../services/shop-setup-access';
+import { isSecuritySuspension, setupLicenceError, shopSetupAccessFor, shopSetupStatusKey } from '../services/shop-setup-access';
 import type { ShopSetupStatus } from '../services/shop-setup.models';
 import { setupReasonKey } from '../services/shop-setup-reason';
 import { ShopSetupService } from '../services/shop-setup.service';
@@ -118,6 +118,11 @@ export class ShopSetupPageComponent {
       error: (error: { status?: number; error?: unknown }) => {
         if (!this.isCurrent(scope)) return;
         this.saveError.set(setupLicenceError(error.error) ?? (error.status === 409 ? 'shopSetup.conflict' : 'shopSetup.saveFailed'));
+        // A security suspension withdraws the checklist at once. Only the fresh read below can bring it back.
+        if (isSecuritySuspension(error.error)) {
+          this.status.set(null);
+          this.settingsStep.set(null);
+        }
         this.refresh();
       },
     });

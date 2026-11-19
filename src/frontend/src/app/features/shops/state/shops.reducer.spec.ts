@@ -201,4 +201,88 @@ describe('shopsReducer', () => {
       expect(answered.detailsById['sh2']).toEqual(detailB);
     });
   });
+
+  describe('saves overtaken by a licence refusal', () => {
+    const detailB: ShopDetails = { ...detailA, shopId: 'sh2', name: 'Shop B' };
+    const access = { contractVersion: 1, shopId: 'sh1', enforced: true, status: 'Active', writableProfileFields: ['name'],
+      canPrepareTax: true, canSavePreferences: true, canEditOperatingSettings: true, hasOperatingAccess: true,
+      canCreateAdditionalShop: true } as const;
+    const saved: ShopDetails = { ...detailA, setupAccess: access };
+    const refusal = { shopId: 'sh1', securitySuspended: true, errorMessage: 'security' };
+    const opened = shopsReducer(initial, ShopsActions.loadShopDetailsSucceeded({ details: saved }));
+    const profile = { name: 'Shop A', address: '1 Main', city: 'City', state: 'State', pincode: '560001' };
+    const tax = { legalName: null, stateCode: '27', taxRegime: 'Unregistered' as const, gstNumber: null,
+      invoiceSeriesCode: null, eInvoiceStatus: null };
+    const bank = { bankName: 'Bank', accountNumber: '1', accountType: 'Current', ifscCode: 'ABCD0123456', accountHolderName: 'A' };
+    const saves = {
+      profile: (shopId: string, details: ShopDetails) => [
+        ShopsActions.updateShopRequested({ shopId, payload: profile }), ShopsActions.updateShopSucceeded({ details })] as const,
+      tax: (shopId: string, details: ShopDetails) => [
+        ShopsActions.updateShopTaxProfileRequested({ shopId, payload: tax }),
+        ShopsActions.updateShopTaxProfileSucceeded({ details })] as const,
+      bank: (shopId: string, details: ShopDetails) => [
+        ShopsActions.updateShopBankDetailsRequested({ shopId, payload: bank as never }),
+        ShopsActions.updateShopBankDetailsSucceeded({ details })] as const,
+    };
+    const kinds = ['profile', 'tax', 'bank'] as const;
+
+    it.each(kinds)('keeps a security-refused shop absent when its %s save answers late', (kind) => {
+      const [requested, succeeded] = saves[kind]('sh1', saved);
+      const refused = shopsReducer(shopsReducer(opened, requested), ShopsActions.shopLicenceRefused(refusal));
+      const late = shopsReducer(refused, succeeded);
+
+      expect(late.detailsById['sh1']).toBeUndefined();
+      expect(late.errorMessage).toBe('security');
+      expect(late.submitting).toBe(false);
+      expect(late.lastMutationSucceeded).toBe(true);
+    });
+
+    it.each(kinds)('does not let a late %s save restore permissions after a trading refusal', (kind) => {
+      const [requested, succeeded] = saves[kind]('sh1', saved);
+      const refused = shopsReducer(shopsReducer(opened, requested),
+        ShopsActions.shopLicenceRefused({ ...refusal, securitySuspended: false }));
+      const late = shopsReducer(refused, succeeded);
+
+      expect(late.detailsById['sh1']?.setupAccess).toBeNull();
+    });
+
+    it('treats a refused detail read as the same invalidation', () => {
+      const [requested, succeeded] = saves.profile('sh1', saved);
+      const refused = shopsReducer(shopsReducer(opened, requested), ShopsActions.loadShopDetailsFailed({
+        errorMessage: 'security', shopId: 'sh1', licenceRefused: true, securitySuspended: true,
+      }));
+      const late = shopsReducer(refused, succeeded);
+
+      expect(late.detailsById['sh1']).toBeUndefined();
+    });
+
+    it('lets a fresh authorized read restore the shop afterwards', () => {
+      const [requested, succeeded] = saves.tax('sh1', saved);
+      const refused = shopsReducer(shopsReducer(opened, requested), ShopsActions.shopLicenceRefused(refusal));
+      const late = shopsReducer(refused, succeeded);
+      const reading = shopsReducer(late, ShopsActions.loadShopDetailsRequested({ shopId: 'sh1' }));
+      const fresh = shopsReducer(reading, ShopsActions.loadShopDetailsSucceeded({ details: saved }));
+
+      expect(fresh.detailsById['sh1']).toEqual(saved);
+      expect(fresh.errorMessage).toBe('');
+    });
+
+    it('publishes a save requested after the refusal', () => {
+      const [requested, succeeded] = saves.profile('sh1', saved);
+      const refused = shopsReducer(opened, ShopsActions.shopLicenceRefused({ ...refusal, securitySuspended: false }));
+      const next = shopsReducer(shopsReducer(refused, requested), succeeded);
+
+      expect(next.detailsById['sh1']).toEqual(saved);
+    });
+
+    it('leaves a save for another shop unaffected', () => {
+      const [requested, succeeded] = saves.bank('sh2', detailB);
+      const refused = shopsReducer(shopsReducer(opened, requested), ShopsActions.shopLicenceRefused(refusal));
+      const answered = shopsReducer(refused, succeeded);
+
+      expect(answered.detailsById['sh2']).toEqual(detailB);
+      expect(answered.detailsById['sh1']).toBeUndefined();
+      expect(answered.errorMessage).toBe('');
+    });
+  });
 });

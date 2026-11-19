@@ -175,7 +175,7 @@ export class ManageShopOverlayComponent implements OnInit {
     effect(() => {
       if (this.isBankDetailsPending() && this.lastMutationType() === 'update-bank-details' && !this.isSubmitting()) {
         this.isBankDetailsPending.set(false);
-        if (this.lastMutationSucceeded()) this.activeStep.set(3);
+        if (this.lastMutationSucceeded() && this.canEditOperating()) this.activeStep.set(3);
       }
     });
     effect(() => {
