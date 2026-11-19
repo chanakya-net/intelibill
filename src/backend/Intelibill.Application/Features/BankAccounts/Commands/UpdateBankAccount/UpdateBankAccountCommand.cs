@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 namespace Intelibill.Application.Features.BankAccounts.Commands.UpdateBankAccount;
 
 public sealed record UpdateBankAccountCommand(
@@ -7,4 +9,7 @@ public sealed record UpdateBankAccountCommand(
     string? AccountNumber,
     string? AccountType,
     string? IfscCode,
-    string? AccountHolderName);
+    string? AccountHolderName)
+{
+    public SessionClaims? Session { get; init; }
+}

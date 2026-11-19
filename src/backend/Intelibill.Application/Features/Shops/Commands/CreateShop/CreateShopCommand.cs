@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 using Intelibill.Application.Features.Shops.Commands.DeclareShopTaxProfile;
 
 namespace Intelibill.Application.Features.Shops.Commands.CreateShop;
@@ -13,4 +15,7 @@ public sealed record CreateShopCommand(
 	string? ContactPerson,
 	string? MobileNumber,
 	string? GstNumber,
-	ShopTaxProfileInput? TaxProfile = null);
+	ShopTaxProfileInput? TaxProfile = null)
+{
+    public SessionClaims? Session { get; init; }
+}

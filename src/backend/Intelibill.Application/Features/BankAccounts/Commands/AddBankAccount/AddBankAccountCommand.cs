@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 namespace Intelibill.Application.Features.BankAccounts.Commands.AddBankAccount;
 
 public sealed record AddBankAccountCommand(
@@ -6,4 +8,7 @@ public sealed record AddBankAccountCommand(
     string? AccountNumber,
     string? AccountType,
     string? IfscCode,
-    string? AccountHolderName);
+    string? AccountHolderName)
+{
+    public SessionClaims? Session { get; init; }
+}

@@ -29,6 +29,19 @@ public interface IMembershipAuthorityRepository
     /// </summary>
     Task<ShopMembership?> LockMembershipAsync(Guid shopId, Guid userId, CancellationToken ct);
 
+    /// <summary>
+    /// Locks one account within a short budget, for callers already holding the shop licence fence.
+    /// A shared lock still blocks authority changes and leaves foreign-key checks free to proceed.
+    /// A timeout leaves the transaction usable with the caller's lock timeout in place.
+    /// </summary>
+    Task<RowLockOutcome> TryLockUserAsync(Guid userId, bool forShare, CancellationToken ct);
+
+    /// <summary>Locks the shop root within the same budget as <see cref="TryLockUserAsync"/>.</summary>
+    Task<RowLockOutcome> TryLockShopAsync(Guid shopId, CancellationToken ct);
+
+    /// <summary>Locks one membership row within the same budget as <see cref="TryLockUserAsync"/>.</summary>
+    Task<RowLockOutcome> TryLockMembershipAsync(Guid shopId, Guid userId, CancellationToken ct);
+
     Task<User?> FindUserAsync(Guid userId, CancellationToken ct);
 
     /// <summary>

@@ -1,9 +1,10 @@
-using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Auth.DTOs;
 using Intelibill.Application.Features.Shops.Commands.DeclareShopTaxProfile;
+using Intelibill.Application.Features.Shops.Setup;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
@@ -20,62 +21,102 @@ public sealed class CreateShopCommandHandler(
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider,
     IExpiryPolicyRepository expiryPolicies,
-    IShopSetupPreferencesRepository setupPreferences)
+    IShopSetupPreferencesRepository setupPreferences,
+    ShopSetupAccess access)
 {
     [LicenceAction(LicenceAction.OperationalCapacity)]
-    public async Task<ErrorOr<AccessScopeResult>> HandleAsync(CreateShopCommand command, CancellationToken cancellationToken)
+    public async Task<ErrorOr<AccessScopeResult>> HandleAsync(CreateShopCommand command, CancellationToken ct)
     {
-        var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
-        if (user is null)
-            return Errors.Shop.UserNotFound;
+        if (command.Session?.SessionId != command.SessionId || !await access.IsLiveAsync(command.Session, command.UserId, ct))
+            return Errors.Auth.SessionInvalidated;
 
-        var isFirstShop = user.ShopMemberships.Count == 0;
-        var shop = Shop.Create(
-            command.Name,
-            command.Address,
-            command.City,
-            command.State,
-            command.Pincode,
-            command.ContactPerson,
-            command.MobileNumber,
-            command.GstNumber);
-        if (command.TaxProfile is not null)
-        {
-            var declared = DeclareShopTaxProfileCommandHandler.Declare(shop, command.TaxProfile, command.GstNumber, user.Id, timeProvider.GetUtcNow());
-            if (declared.IsError)
-                return declared.Errors;
-        }
+        var created = await CreateAsync(command, ct);
+        if (created.IsError) return created.Errors;
 
-        var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, isFirstShop);
+        // The shop remains switchable if the requesting device loses its session after commit.
+        return await sessions.RescopeAsync(command.UserId, command.SessionId, created.Value, ct);
+    }
 
-        shop.AddMembership(membership);
-        user.AddShopMembership(membership);
-
-        // The system supplier is a tenant row for a shop that is not the caller's
-        // active one — the rescope that makes it active happens after the commit
-        // below. One transaction holds the shop, its membership and that supplier,
-        // and the scope it runs under reverts with it.
-        await unitOfWork.BeginTransactionAsync(cancellationToken);
+    private async Task<ErrorOr<Guid>> CreateAsync(CreateShopCommand command, CancellationToken ct)
+    {
+        await unitOfWork.BeginTransactionAsync(ct);
+        var committed = false;
         try
         {
-            await tenantWriteScope.EnterAsync(shop.Id, cancellationToken);
+            var authorized = await AuthorizeCreationAsync(command, ct);
+            if (authorized.IsError) return authorized.Errors;
+            var (user, source) = authorized.Value;
+            var first = command.Session!.ActiveShopId is null;
+            var shop = Shop.Create(command.Name, command.Address, command.City, command.State, command.Pincode,
+                command.ContactPerson, command.MobileNumber, command.GstNumber);
+            var now = timeProvider.GetUtcNow();
+            if (command.TaxProfile is { } profile)
+            {
+                var declared = DeclareShopTaxProfileCommandHandler.Declare(shop, profile, command.GstNumber, user.Id, now);
+                if (declared.IsError) return declared.Errors;
+            }
 
-            await shopRepository.AddAsync(shop, cancellationToken);
-            await supplierRepository.AddAsync(Supplier.CreateUnknownSystemSupplier(shop.Id), cancellationToken);
-            await expiryPolicies.InitializeAsync(shop.Id, user.Id, timeProvider.GetUtcNow(), cancellationToken);
-            setupPreferences.Add(ShopSetupPreferences.Create(shop.Id, showOnStartup: true));
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-
-            await unitOfWork.CommitTransactionAsync(cancellationToken);
+            await SeedAsync(shop, user, first, now, ct);
+            if (source is { } lease && ShopSetupAccess.Denial(lease.CurrentDecision()) is { } denied)
+                return denied;
+            await unitOfWork.SaveChangesAsync(ct);
+            await unitOfWork.CommitTransactionAsync(ct);
+            committed = true;
+            return shop.Id;
         }
-        catch
+        finally
         {
-            await unitOfWork.RollbackTransactionAsync(cancellationToken);
-            throw;
+            if (!committed)
+            {
+                await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+                unitOfWork.ClearChanges();
+            }
+        }
+    }
+
+    private async Task<ErrorOr<(User User, ShopLicenceLease? Source)>> AuthorizeCreationAsync(CreateShopCommand command, CancellationToken ct)
+    {
+        var session = command.Session!;
+        ShopLicenceLease? source = null;
+        if (session.ActiveShopId is { } sourceShop)
+        {
+            var licence = await access.EnterAsync(sourceShop, LicenceAction.OperationalCapacity, ct);
+            if (licence.IsError) return licence.Errors;
+            source = licence.Value;
         }
 
-        // The shop and its membership are committed before the scope moves, so a rescope that
-        // cannot complete leaves a usable shop the caller can switch into rather than losing it.
-        return await sessions.RescopeAsync(command.UserId, command.SessionId, shop.Id, cancellationToken);
+        if (await access.LockActorAsync(command.UserId, forShare: false, ct) is { } busy) return busy;
+        if (!await access.IsLiveAsync(session, command.UserId, ct)) return Errors.Auth.SessionInvalidated;
+        if (source is { } lease)
+        {
+            if (lease.Decision.Enforced)
+            {
+                var owner = await access.LockOwnerShopAsync(session, lease.ShopId, ct);
+                if (owner.IsError) return owner.Errors;
+            }
+        }
+        else if (await shopRepository.HasMembershipHistoryAsync(command.UserId, ct))
+        {
+            return Errors.Shop.SelectExistingShop;
+        }
+
+        var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, ct);
+        if (user is null) return Errors.Shop.UserNotFound;
+        if (source is null && user.RequiresOperatorRecovery) return Errors.Shop.SelectExistingShop;
+        if (source is { } current && ShopSetupAccess.Denial(current.CurrentDecision()) is { } denial)
+            return denial;
+        return (user, source);
+    }
+
+    private async Task SeedAsync(Shop shop, User user, bool first, DateTimeOffset now, CancellationToken ct)
+    {
+        await tenantWriteScope.EnterAsync(shop.Id, ct);
+        var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, first);
+        shop.AddMembership(membership);
+        user.AddShopMembership(membership);
+        await shopRepository.AddAsync(shop, ct);
+        await supplierRepository.AddAsync(Supplier.CreateUnknownSystemSupplier(shop.Id), ct);
+        await expiryPolicies.InitializeAsync(shop.Id, user.Id, now, ct);
+        setupPreferences.Add(ShopSetupPreferences.Create(shop.Id, showOnStartup: true));
     }
 }

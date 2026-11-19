@@ -10,6 +10,8 @@ import type { ShopScope } from '../../../core/context/shop-scope';
 import { SaleInvoiceA4Component } from '../../sales/components/sale-invoice-a4.component';
 import { SaleInvoiceThermalComponent } from '../../sales/components/sale-invoice-thermal.component';
 import type { ShopSetupPreferences, ShopSetupSample } from '../services/shop-setup.models';
+import { ShopSetupSecurityEvents } from '../services/shop-setup-security-events';
+import { SHOP_SECURITY_SUSPENDED_KEY, isSecuritySuspension, setupLicenceError } from '../services/shop-setup-access';
 import { setupReasonKey } from '../services/shop-setup-reason';
 import { ShopSetupService } from '../services/shop-setup.service';
 
@@ -24,6 +26,8 @@ export class ShopSetupSamplePageComponent {
   private readonly context = inject(ShopContextService);
   private readonly destroyRef = inject(DestroyRef);
   private reads: Subscription[] = [];
+  private acknowledgement?: Subscription;
+  private readGeneration = 0;
 
   readonly sample = signal<ShopSetupSample | null>(null);
   readonly format = signal<'a4' | 'thermal'>('a4');
@@ -43,6 +47,7 @@ export class ShopSetupSamplePageComponent {
       this.failureReasons.set([]);
       this.saveError.set(null);
     }));
+    inject(ShopSetupSecurityEvents).forMountedShop().pipe(takeUntilDestroyed()).subscribe(() => this.withdraw());
     this.refresh();
   }
 
@@ -59,6 +64,7 @@ export class ShopSetupSamplePageComponent {
     }
 
     this.loading.set(true);
+    const generation = this.readGeneration;
     const read = this.service.getSample(scope).pipe(
       takeUntilDestroyed(this.destroyRef),
       finalize(() => this.loading.set(false)),
@@ -73,6 +79,7 @@ export class ShopSetupSamplePageComponent {
       },
       error: (error: { status?: number; error?: { errors?: Array<{ code: string }> } }) => {
         if (!this.isCurrent(scope)) return;
+        if (this.withdrawIfSuspended(error.error)) return;
         this.failureKey.set(error.status === 409 ? 'shopSetup.sampleUnavailable' : 'shopSetup.loadFailed');
         if (error.status === 409) {
           this.failureReasons.set((error.error?.errors ?? [])
@@ -81,17 +88,17 @@ export class ShopSetupSamplePageComponent {
       },
     });
     this.reads.push(read);
-    this.loadPreferences(scope);
+    if (generation === this.readGeneration) this.loadPreferences(scope);
   }
 
   acknowledge(): void {
     const scope = this.context.scope();
     const preferences = this.preferences();
-    if (!scope?.shopId || !preferences || !this.sample() || this.saving()) return;
+    if (!scope?.shopId || !preferences || preferences.canSavePreferences === false || !this.sample() || this.saving()) return;
 
     this.saving.set(true);
     this.saveError.set(null);
-    this.service.save(scope, {
+    this.acknowledgement = this.service.save(scope, {
       expectedVersion: preferences.version,
       showOnStartup: preferences.showOnStartup,
       acknowledgeSample: true,
@@ -102,9 +109,9 @@ export class ShopSetupSamplePageComponent {
       next: (saved) => {
         if (this.isCurrent(scope)) this.preferences.set(saved);
       },
-      error: (error: { status?: number }) => {
-        if (!this.isCurrent(scope)) return;
-        this.saveError.set(error.status === 409 ? 'shopSetup.conflict' : 'shopSetup.saveFailed');
+      error: (error: { status?: number; error?: unknown }) => {
+        if (!this.isCurrent(scope) || this.withdrawIfSuspended(error.error)) return;
+        this.saveError.set(setupLicenceError(error.error) ?? (error.status === 409 ? 'shopSetup.conflict' : 'shopSetup.saveFailed'));
         this.loadPreferences(scope);
       },
     });
@@ -119,14 +126,33 @@ export class ShopSetupSamplePageComponent {
       next: (preferences) => {
         if (this.isCurrent(scope)) this.preferences.set(preferences);
       },
-      error: () => {
-        if (this.isCurrent(scope)) this.preferences.set(null);
+      error: (error: { error?: unknown }) => {
+        if (this.isCurrent(scope) && !this.withdrawIfSuspended(error.error)) this.preferences.set(null);
       },
     });
     this.reads.push(read);
   }
 
+  /** A security suspension withdraws the shop's data, so nothing already on the page may stay or arrive. */
+  private withdrawIfSuspended(error: unknown): boolean {
+    if (!isSecuritySuspension(error)) return false;
+    this.withdraw();
+    return true;
+  }
+
+  private withdraw(): void {
+    this.cancelReads();
+    this.acknowledgement?.unsubscribe();
+    this.loading.set(false);
+    this.sample.set(null);
+    this.preferences.set(null);
+    this.saveError.set(null);
+    this.failureReasons.set([]);
+    this.failureKey.set(SHOP_SECURITY_SUSPENDED_KEY);
+  }
+
   private cancelReads(): void {
+    this.readGeneration++;
     this.reads.forEach((read) => read.unsubscribe());
     this.reads = [];
   }

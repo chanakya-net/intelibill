@@ -1,7 +1,9 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { EMPTY, catchError, exhaustMap, from, map, of, switchMap } from 'rxjs';
+import { EMPTY, catchError, exhaustMap, from, map, of, switchMap, tap } from 'rxjs';
 
+import { ShopSetupSecurityEvents } from '../services/shop-setup-security-events';
+import { setupLicenceError, shopLicenceRefusal } from '../services/shop-setup-access';
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LeaveReadiness, ShopContextService } from '../../../core/context/shop-context.service';
@@ -14,6 +16,16 @@ export class ShopsEffects {
   private readonly shopService = inject(ShopService);
   private readonly authService = inject(AuthService);
   private readonly shopContext = inject(ShopContextService);
+
+  private readonly setupSecurity = inject(ShopSetupSecurityEvents);
+
+  readonly withdrawSuspendedSetup$ = createEffect(() => this.actions$.pipe(
+    ofType(ShopsActions.shopLicenceRefused, ShopsActions.loadShopDetailsFailed, ShopsActions.updateShopFailed,
+      ShopsActions.updateShopBankDetailsFailed, ShopsActions.updateShopTaxProfileFailed),
+    tap(({ shopId, securitySuspended }) => {
+      if (shopId && securitySuspended) this.setupSecurity.refuse(shopId);
+    }),
+  ), { dispatch: false });
 
   readonly loadShops$ = createEffect(() =>
     this.actions$.pipe(
@@ -42,7 +54,8 @@ export class ShopsEffects {
           catchError((error: { error?: ApiErrorPayload }) =>
             of(
               ShopsActions.loadShopDetailsFailed({
-                errorMessage: getShopDetailsErrorMessage(error.error),
+                errorMessage: getShopDetailsErrorMessage(error.error), shopId,
+                ...setupMutationRefusal(shopId, error.error),
               })
             )
           )
@@ -106,6 +119,7 @@ export class ShopsEffects {
             of(
               ShopsActions.updateShopFailed({
                 errorMessage: getShopMutationErrorMessage(error.error),
+                ...setupMutationRefusal(shopId, error.error),
               })
             )
           )
@@ -172,6 +186,7 @@ export class ShopsEffects {
             of(
               ShopsActions.updateShopBankDetailsFailed({
                 errorMessage: getBankDetailsErrorMessage(error.error),
+                ...setupMutationRefusal(shopId, error.error),
               })
             )
           )
@@ -190,6 +205,7 @@ export class ShopsEffects {
             of(
               ShopsActions.updateShopTaxProfileFailed({
                 errorMessage: getShopMutationErrorMessage(error.error, 'errors.shops.unableToUpdateTaxProfile'),
+                ...setupMutationRefusal(shopId, error.error),
               })
             )
           )
@@ -213,6 +229,8 @@ export class ShopsEffects {
 }
 
 function getShopDetailsErrorMessage(error: ApiErrorPayload | undefined): string {
+  const licence = setupLicenceError(error);
+  if (licence) return licence;
   const title = error?.title ?? '';
 
   if (title === 'Shop.MembershipNotFound') {
@@ -249,6 +267,8 @@ function getLeaveRefusalMessage(readiness: Exclude<LeaveReadiness, { ok: true }>
 }
 
 function getBankDetailsErrorMessage(error: ApiErrorPayload | undefined): string {
+  const licence = setupLicenceError(error);
+  if (licence) return licence;
   const title = error?.title ?? '';
 
   if (title === 'Unauthorized' || title === 'Auth.Unauthorized') {
@@ -288,8 +308,11 @@ function getShopMutationErrorMessage(
   error: ApiErrorPayload | undefined,
   fallback = 'errors.shops.unableToUpdateShop',
 ): string {
+  const licence = setupLicenceError(error);
+  if (licence) return licence;
   const title = error?.title ?? '';
 
+  if (title === 'Shop.SelectExistingShop') return 'shopSetup.selectExistingShop';
   if (TAX_PROFILE_ERROR_KEYS[title]) {
     return TAX_PROFILE_ERROR_KEYS[title];
   }
@@ -323,4 +346,10 @@ function getShopMutationErrorMessage(
   }
 
   return fallback;
+}
+
+
+function setupMutationRefusal(shopId: string, error?: ApiErrorPayload) {
+  const refusal = shopLicenceRefusal(shopId, error);
+  return refusal ? { shopId, licenceRefused: true, securitySuspended: refusal.securitySuspended } : {};
 }

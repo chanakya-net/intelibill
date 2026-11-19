@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 namespace Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
 
 public sealed record UpdateShopBankDetailsCommand(
@@ -7,4 +9,7 @@ public sealed record UpdateShopBankDetailsCommand(
     string? AccountNumber,
     string? AccountType,
     string? IfscCode,
-    string? AccountHolderName);
+    string? AccountHolderName)
+{
+    public SessionClaims? Session { get; init; }
+}

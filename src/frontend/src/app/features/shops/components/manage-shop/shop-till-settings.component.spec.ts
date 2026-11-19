@@ -165,4 +165,69 @@ describe('ShopTillSettingsComponent', () => {
     expect(component.error()).toBe('tills.settings.changed');
     expect(component.editing()).toBe(false);
   });
+
+  it.each([
+    ['Licence.SecuritySuspended', true],
+    ['Licence.TradingRestricted', false],
+  ])('reports %s from a save instead of a generic failure', (code, securitySuspended) => {
+    const { component } = setup();
+    const refusals: unknown[] = [];
+    component.licenceRefused.subscribe((refusal) => refusals.push(refusal));
+    api.update.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 403, error: { code } })));
+    component.beginChange();
+    component.reason = 'Change';
+    component.confirmed = true;
+
+    component.save();
+
+    expect(refusals).toEqual([expect.objectContaining({ shopId: 'shop-a', securitySuspended })]);
+    expect(component.error()).not.toBe('tills.settings.saveFailed');
+    expect(component.uncertain()).toBe(false);
+  });
+
+  it('keeps contention retryable without reporting a refusal', () => {
+    const { component } = setup();
+    const refusals: unknown[] = [];
+    component.licenceRefused.subscribe((refusal) => refusals.push(refusal));
+    api.update.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 409, error: { code: 'Licence.Busy' } })));
+    component.beginChange();
+    component.reason = 'Change';
+    component.confirmed = true;
+
+    component.save();
+
+    expect(refusals).toEqual([]);
+  });
+
+  it('reports a security refusal from the settings read and shows no settings', () => {
+    api.read.mockReturnValue(throwError(() =>
+      new HttpErrorResponse({ status: 403, error: { code: 'Licence.SecuritySuspended' } })));
+    TestBed.configureTestingModule({
+      imports: [ShopTillSettingsComponent, TranslocoTestingModule.forRoot({
+        langs: { 'en-IN': en }, translocoConfig: { availableLangs: ['en-IN'], defaultLang: 'en-IN' }, preloadLangs: true,
+      })],
+      providers: [provideRouter([]), { provide: ShopTillSettingsService, useValue: api }],
+    });
+    const fixture = TestBed.createComponent(ShopTillSettingsComponent);
+    fixture.componentRef.setInput('shopId', 'shop-a');
+    const refusals: unknown[] = [];
+    fixture.componentInstance.licenceRefused.subscribe((refusal) => refusals.push(refusal));
+    fixture.detectChanges();
+
+    expect(refusals).toEqual([expect.objectContaining({ shopId: 'shop-a', securitySuspended: true })]);
+    expect(fixture.componentInstance.state()).toBeNull();
+    expect(fixture.componentInstance.error()).toBe('billing.status.suspension.enforcedSecurity');
+  });
+
+  it.each(['Licence.TradingRestricted', 'Licence.Busy'])('keeps a %s read failure local and retryable', (code) => {
+    const { component } = setup();
+    const refusals: unknown[] = [];
+    component.licenceRefused.subscribe((refusal) => refusals.push(refusal));
+    api.read.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 403, error: { code } })));
+
+    component.refresh();
+
+    expect(refusals).toEqual([]);
+    expect(component.error()).toBe('tills.settings.loadFailed');
+  });
 });

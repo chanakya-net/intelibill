@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Common.Licensing;
 using System.Text.Json.Serialization;
 using Intelibill.Api.Extensions;
@@ -36,47 +37,48 @@ public sealed class ShopsController : AuthenticatedControllerBase
     }
 
     [HttpGet("{shopId:guid}/setup")]
-    [LicenceAction(LicenceAction.BasicShopSetup)]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetSetup(Guid shopId, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
         if (auth is not null) return auth;
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupStatusDto>>(
-            new GetShopSetupQuery(shopId, UserId!.Value, ActiveShopId), cancellationToken);
+            new GetShopSetupQuery(shopId, UserId!.Value, ActiveShopId) { Session = SessionClaims.TryRead(User) }, cancellationToken);
         return result.ToActionResult(Ok);
     }
 
     [HttpGet("{shopId:guid}/setup/sample")]
-    [LicenceAction(LicenceAction.BasicShopSetup)]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetSetupSample(Guid shopId, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
         if (auth is not null) return auth;
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupSampleDto>>(
-            new GetShopSetupSampleQuery(shopId, UserId!.Value, ActiveShopId), cancellationToken);
+            new GetShopSetupSampleQuery(shopId, UserId!.Value, ActiveShopId) { Session = SessionClaims.TryRead(User) }, cancellationToken);
         return result.ToActionResult(Ok);
     }
 
     [HttpGet("{shopId:guid}/setup/preferences")]
-    [LicenceAction(LicenceAction.BasicShopSetup)]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetSetupPreferences(Guid shopId, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
         if (auth is not null) return auth;
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupPreferencesDto>>(
-            new GetShopSetupPreferencesQuery(shopId, UserId!.Value, ActiveShopId), cancellationToken);
+            new GetShopSetupPreferencesQuery(shopId, UserId!.Value, ActiveShopId) { Session = SessionClaims.TryRead(User) }, cancellationToken);
         return result.ToActionResult(Ok);
     }
 
     [HttpPut("{shopId:guid}/setup/preferences")]
     [LicenceAction(LicenceAction.BasicShopSetup)]
+    [SuspensionAtSource]
     public async Task<IActionResult> UpdateSetupPreferences(Guid shopId, [FromBody] UpdateShopSetupPreferencesRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
         if (auth is not null) return auth;
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupPreferencesDto>>(
             new UpdateShopSetupPreferencesCommand(shopId, UserId!.Value, ActiveShopId,
-                request.ExpectedVersion, request.ShowOnStartup, request.AcknowledgeSample), cancellationToken);
+                request.ExpectedVersion, request.ShowOnStartup, request.AcknowledgeSample) { Session = SessionClaims.TryRead(User) }, cancellationToken);
         return result.ToActionResult(Ok);
     }
 
@@ -94,13 +96,14 @@ public sealed class ShopsController : AuthenticatedControllerBase
     [HttpPut("{shopId:guid}/till-settings")]
     [Authorize(Policy = "OwnerOnly")]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> UpdateTillSettings(Guid shopId, [FromBody] UpdateShopTillSettingsRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
         if (auth is not null) return auth;
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopTillSettingsDto>>(
             new UpdateShopTillSettingsCommand(shopId, UserId!.Value, ActiveShopId, request.Enabled,
-                request.ExpectedVersion, request.Reason, request.Confirmed), cancellationToken);
+                request.ExpectedVersion, request.Reason, request.Confirmed) { Session = SessionClaims.TryRead(User) }, cancellationToken);
         return result.ToActionResult(Ok);
     }
 
@@ -126,7 +129,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopDetailsDto>>(
-            new GetShopDetailsQuery(UserId!.Value, shopId),
+            new GetShopDetailsQuery(UserId!.Value, shopId) { Session = SessionClaims.TryRead(User) },
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -134,6 +137,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
 
     [HttpPost]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> CreateShop([FromBody] CreateShopRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -154,7 +158,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
                 request.ContactPerson,
                 request.MobileNumber,
                 request.GstNumber,
-                request.TaxProfile?.ToInput()),
+                request.TaxProfile?.ToInput()) { Session = SessionClaims.TryRead(User) },
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -165,15 +169,15 @@ public sealed class ShopsController : AuthenticatedControllerBase
     /// refused until a profile is declared.
     /// </summary>
     [HttpPut("{shopId:guid}/tax-profile")]
-    [Authorize(Policy = "OwnerOnly")]
     [LicenceAction(LicenceAction.BasicShopSetup)]
+    [SuspensionAtSource]
     public async Task<IActionResult> DeclareTaxProfile(Guid shopId, [FromBody] DeclareShopTaxProfileRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopDetailsDto>>(
-            new DeclareShopTaxProfileCommand(UserId!.Value, shopId, request.ToInput(), request.GstNumber),
+            new DeclareShopTaxProfileCommand(UserId!.Value, shopId, request.ToInput(), request.GstNumber) { Session = SessionClaims.TryRead(User) },
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -215,8 +219,8 @@ public sealed class ShopsController : AuthenticatedControllerBase
     }
 
     [HttpPut("{shopId:guid}")]
-    [Authorize(Policy = "OwnerOnly")]
     [LicenceAction(LicenceAction.BasicShopSetup)]
+    [SuspensionAtSource]
     public async Task<IActionResult> UpdateShop(Guid shopId, [FromBody] UpdateShopRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -233,7 +237,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
                 request.Pincode,
                 request.ContactPerson,
                 request.MobileNumber,
-                request.GstNumber),
+                request.GstNumber) { Session = SessionClaims.TryRead(User) },
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -323,7 +327,8 @@ public sealed class ShopsController : AuthenticatedControllerBase
     }
 
     [HttpPut("{shopId:guid}/bank-details")]
-    [LicenceAction(LicenceAction.BasicShopSetup)]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> UpdateShopBankDetails(Guid shopId, [FromBody] UpdateShopBankDetailsRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuth();
@@ -337,7 +342,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
                 request.AccountNumber,
                 request.AccountType,
                 request.IfscCode,
-                request.AccountHolderName),
+                request.AccountHolderName) { Session = SessionClaims.TryRead(User) },
             cancellationToken);
 
         return result.ToActionResult(Ok);

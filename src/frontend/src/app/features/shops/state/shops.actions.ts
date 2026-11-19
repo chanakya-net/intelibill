@@ -28,7 +28,7 @@ export const ShopsActions = createActionGroup({
 
     'Load Shop Details Requested': props<{ shopId: string }>(),
     'Load Shop Details Succeeded': props<{ details: ShopDetails }>(),
-    'Load Shop Details Failed': props<{ errorMessage: string }>(),
+    'Load Shop Details Failed': props<{ errorMessage: string; shopId?: string; licenceRefused?: boolean; securitySuspended?: boolean }>(),
 
     'Create Shop Requested': props<{ payload: CreateShopRequest }>(),
     'Create Shop Succeeded': emptyProps(),
@@ -36,7 +36,7 @@ export const ShopsActions = createActionGroup({
 
     'Update Shop Requested': props<{ shopId: string; payload: UpdateShopRequest }>(),
     'Update Shop Succeeded': props<{ details: ShopDetails }>(),
-    'Update Shop Failed': props<{ errorMessage: string }>(),
+    'Update Shop Failed': props<{ errorMessage: string; shopId?: string; licenceRefused?: boolean; securitySuspended?: boolean }>(),
 
     // Moves this device into another shop. 'Set Default Shop' below stores a preference and moves
     // no device, which is why the two are separate events.
@@ -50,11 +50,14 @@ export const ShopsActions = createActionGroup({
 
     'Update Shop Bank Details Requested': props<{ shopId: string; payload: UpdateBankDetailsRequest }>(),
     'Update Shop Bank Details Succeeded': props<{ details: ShopDetails }>(),
-    'Update Shop Bank Details Failed': props<{ errorMessage: string }>(),
+    'Update Shop Bank Details Failed': props<{ errorMessage: string; shopId?: string; licenceRefused?: boolean; securitySuspended?: boolean }>(),
 
     'Update Shop Tax Profile Requested': props<{ shopId: string; payload: UpdateShopTaxProfileRequest }>(),
     'Update Shop Tax Profile Succeeded': props<{ details: ShopDetails }>(),
-    'Update Shop Tax Profile Failed': props<{ errorMessage: string }>(),
+    'Update Shop Tax Profile Failed': props<{ errorMessage: string; shopId?: string; licenceRefused?: boolean; securitySuspended?: boolean }>(),
+
+    // A settings form that saves on its own learned that this shop's access has changed.
+    'Shop Licence Refused': props<{ shopId: string; securitySuspended: boolean; errorMessage: string }>(),
 
     'Clear Error': emptyProps(),
     'Clear Mutation Status': emptyProps(),

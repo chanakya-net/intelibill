@@ -21,19 +21,28 @@ public sealed class LicenceActionPolicy : ILicenceActionPolicy
             _ => row.Pending,
         };
 
-        var denial = outcome != Blocked ? (ErrorOr.Error?)null : phase switch
+        var refusal = phase switch
         {
+            Phase.Operating => (ErrorOr.Error?)null,
             Phase.Expired => LicenceErrors.Expired,
             Phase.TradingRestricted => LicenceErrors.TradingRestricted,
             Phase.SecuritySuspended => LicenceErrors.SecuritySuspended,
             Phase.Unverified or Phase.AwaitingVerification => LicenceErrors.VerificationUnavailable,
             _ => LicenceErrors.PendingActivation,
         };
-        return phase == Phase.Operating
-            ? new(outcome, shop!.EnforcementActivatedAt is not null, denial,
+        var denial = outcome == Blocked ? refusal : null;
+        var decision = phase == Phase.Operating
+            ? new LicenceDecision(outcome, shop!.EnforcementActivatedAt is not null, denial,
                 LicenseProjectionPolicy.VerifiedAt(shop, account!),
                 LicenseProjectionPolicy.ValidUntil(shop, account!, EntitlementSnapshotsV1.Freshness))
-            : new(outcome, shop?.EnforcementActivatedAt is not null, denial);
+            : new LicenceDecision(outcome, shop?.EnforcementActivatedAt is not null, denial);
+        return decision with
+        {
+            OperatingRefusal = refusal,
+            Status = phase != Phase.Operating ? phase.ToString()
+                : shop!.State == "Grace" ? "Grace"
+                : shop.Basis == "Trial" ? "Trial" : "Active",
+        };
     }
 
     private static Phase GetPhase(ShopLicenseState? shop, AccountLicenseRestriction? account,

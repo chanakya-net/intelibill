@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Features.Shops;
 using ErrorOr;
 using Intelibill.Application.Features.BankAccounts.Commands.AddBankAccount;
 using Intelibill.Application.Features.BankAccounts.DTOs;
@@ -12,13 +13,14 @@ namespace Intelibill.Application.Unit.Tests.Features.BankAccounts.Commands.AddBa
 public class AddBankAccountCommandHandlerTests
 {
     private readonly IBankAccountRepository _bankAccountRepository = Substitute.For<IBankAccountRepository>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly ShopSetupAccessFixture _setup = new();
+    private IUnitOfWork _unitOfWork => _setup.UnitOfWork;
 
     [Fact]
     public async Task HandleAsync_WithValidData_AddsBankAccount()
     {
         var shopId = Guid.NewGuid();
-        var handler = new AddBankAccountCommandHandler(_bankAccountRepository, _unitOfWork);
+        var handler = new AddBankAccountCommandHandler(_bankAccountRepository, _setup.Access);
 
         var result = await handler.HandleAsync(new AddBankAccountCommand(
             shopId,
@@ -26,7 +28,7 @@ public class AddBankAccountCommandHandlerTests
             "123456789012",
             "Savings",
             "SBIN0001234",
-            "Chandra Kumar"), CancellationToken.None);
+            "Chandra Kumar") { Session = _setup.Owner(shopId) }, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal("State Bank of India", result.Value.BankName);
@@ -48,10 +50,11 @@ public class AddBankAccountCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WithNullBankDetails_ReturnsValidationError()
     {
-        var handler = new AddBankAccountCommandHandler(_bankAccountRepository, _unitOfWork);
+        var shopId = Guid.NewGuid();
+        var handler = new AddBankAccountCommandHandler(_bankAccountRepository, _setup.Access);
 
         var result = await handler.HandleAsync(new AddBankAccountCommand(
-            Guid.NewGuid(), null, null, null, null, null), CancellationToken.None);
+            shopId, null, null, null, null, null) { Session = _setup.Owner(shopId) }, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("BankAccount.Required", result.FirstError.Code);

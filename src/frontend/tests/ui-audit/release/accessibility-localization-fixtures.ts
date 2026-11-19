@@ -1,3 +1,4 @@
+import { observeOnlyShopSetup } from '../support/shop-setup-mock';
 import { customerDirectoryResponse } from '../support/party-directory-mock';
 import type { Page, Route } from '@playwright/test';
 import { SHOP_A, USER } from './purchase-receiving-server';
@@ -247,6 +248,7 @@ export async function accessibilityFixtures(page: Page) {
     if (path === `/api/shops/${SHOP_A}`)
       return json(r, {
         shopId: SHOP_A,
+        setupAccess: observeOnlyShopSetup(SHOP_A),
         name: 'Live shop must not replace frozen seller',
         address: 'Market Road',
         city: 'Bengaluru',

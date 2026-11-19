@@ -38,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<Features.Tills.Services.TillDtoBuilder>();
         services.AddScoped<Features.Shops.TillSettings.ShopTillSettingsService>();
         services.AddScoped<Features.Shops.Setup.ShopSetupService>();
+        services.AddScoped<Features.Shops.Setup.ShopSetupAccess>();
         services.AddScoped<Features.Shops.Setup.ShopSetupSampleBuilder>();
         services.AddScoped<Features.Tills.Services.TillLifecycleService>();
         services.AddScoped<Features.Tills.Services.TillSourceSettlementService>();

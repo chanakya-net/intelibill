@@ -1,20 +1,29 @@
 using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Features.Shops.Setup;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.BankAccounts.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
-using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.BankAccounts.Commands.UpdateBankAccount;
 
 public sealed class UpdateBankAccountCommandHandler(
     IBankAccountRepository bankAccountRepository,
-    IUnitOfWork unitOfWork)
+    ShopSetupAccess access)
 {
     [LicenceAction(LicenceAction.OperationalCapacity)]
-    public async Task<ErrorOr<BankAccountDto>> HandleAsync(UpdateBankAccountCommand command, CancellationToken cancellationToken)
+    public Task<ErrorOr<BankAccountDto>> HandleAsync(UpdateBankAccountCommand command, CancellationToken ct)
+    {
+        if (command.Session is not { ActiveShopId: { } active } session || active != command.ShopId)
+            return Task.FromResult<ErrorOr<BankAccountDto>>(Errors.Auth.SessionInvalidated);
+
+        return access.WriteAsync<BankAccountDto>(session, session.UserId, command.ShopId, LicenceAction.OperationalCapacity,
+            (_, lease, token) => WriteAsync(command, lease, token), ct);
+    }
+
+    private async Task<ErrorOr<BankAccountDto>> WriteAsync(UpdateBankAccountCommand command, ShopLicenceLease lease, CancellationToken cancellationToken)
     {
         var bankAccount = await bankAccountRepository.GetByIdAsync(command.Id, cancellationToken);
         if (bankAccount is null || bankAccount.ShopId != command.ShopId)
@@ -31,6 +40,8 @@ public sealed class UpdateBankAccountCommandHandler(
             ? parsed
             : null;
 
+        if (ShopSetupAccess.Denial(lease.CurrentDecision()) is { } denied) return denied;
+
         bankAccount.Update(
             command.BankName,
             command.AccountNumber,
@@ -39,7 +50,6 @@ public sealed class UpdateBankAccountCommandHandler(
             command.AccountHolderName);
 
         bankAccountRepository.Update(bankAccount);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new BankAccountDto(
             bankAccount.Id,

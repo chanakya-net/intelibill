@@ -1,3 +1,12 @@
+using Intelibill.Application.Features.BankAccounts.Commands.AddBankAccount;
+using Intelibill.Application.Features.BankAccounts.Commands.DeleteBankAccount;
+using Intelibill.Application.Features.BankAccounts.Commands.UpdateBankAccount;
+using Intelibill.Application.Features.Shops.Commands.CreateShop;
+using Intelibill.Application.Features.Shops.Commands.DeclareShopTaxProfile;
+using Intelibill.Application.Features.Shops.Commands.UpdateShop;
+using Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
+using Intelibill.Application.Features.Shops.Setup;
+using Intelibill.Application.Features.Shops.TillSettings;
 using Intelibill.Application.Features.Suppliers.Commands.AddSupplier;
 using Intelibill.Application.Features.Suppliers.Commands.EditSupplier;
 using System.Reflection;
@@ -60,6 +69,32 @@ public sealed class LicenceActionClassificationTests(PostgreSqlTestFixture fixtu
     [InlineData(typeof(AddSupplierCommandHandler), nameof(AddSupplierCommandHandler.HandleAsync), LicenceAction.OperationalCapacity)]
     [InlineData(typeof(EditSupplierCommandHandler), nameof(EditSupplierCommandHandler.HandleAsync), LicenceAction.OperationalCapacity)]
     public void Definition_routes_and_messages_keep_their_classifications(Type type, string methodName, LicenceAction action) =>
+        Assert.Equal(action, type.GetMethod(methodName)?.GetCustomAttribute<LicenceActionAttribute>()?.Action);
+
+    [Theory]
+    [InlineData(typeof(ShopsController), nameof(ShopsController.GetSetup), LicenceAction.History)]
+    [InlineData(typeof(ShopsController), nameof(ShopsController.UpdateSetupPreferences), LicenceAction.BasicShopSetup)]
+    [InlineData(typeof(ShopsController), nameof(ShopsController.CreateShop), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(ShopsController), nameof(ShopsController.DeclareTaxProfile), LicenceAction.BasicShopSetup)]
+    [InlineData(typeof(ShopsController), nameof(ShopsController.UpdateShop), LicenceAction.BasicShopSetup)]
+    [InlineData(typeof(ShopsController), nameof(ShopsController.UpdateShopBankDetails), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(ShopsController), nameof(ShopsController.UpdateTillSettings), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(ExpiryPoliciesController), nameof(ExpiryPoliciesController.Put), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(ExpiryPoliciesController), nameof(ExpiryPoliciesController.PutItem), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(BankAccountsController), nameof(BankAccountsController.AddBankAccount), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(BankAccountsController), nameof(BankAccountsController.UpdateBankAccount), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(BankAccountsController), nameof(BankAccountsController.DeleteBankAccount), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(GetShopSetupQueryHandler), nameof(GetShopSetupQueryHandler.HandleAsync), LicenceAction.History)]
+    [InlineData(typeof(UpdateShopSetupPreferencesCommandHandler), nameof(UpdateShopSetupPreferencesCommandHandler.HandleAsync), LicenceAction.BasicShopSetup)]
+    [InlineData(typeof(CreateShopCommandHandler), nameof(CreateShopCommandHandler.HandleAsync), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(DeclareShopTaxProfileCommandHandler), nameof(DeclareShopTaxProfileCommandHandler.HandleAsync), LicenceAction.BasicShopSetup)]
+    [InlineData(typeof(UpdateShopCommandHandler), nameof(UpdateShopCommandHandler.HandleAsync), LicenceAction.BasicShopSetup)]
+    [InlineData(typeof(UpdateShopBankDetailsCommandHandler), nameof(UpdateShopBankDetailsCommandHandler.HandleAsync), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(UpdateShopTillSettingsCommandHandler), nameof(UpdateShopTillSettingsCommandHandler.HandleAsync), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(AddBankAccountCommandHandler), nameof(AddBankAccountCommandHandler.HandleAsync), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(UpdateBankAccountCommandHandler), nameof(UpdateBankAccountCommandHandler.HandleAsync), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(DeleteBankAccountCommandHandler), nameof(DeleteBankAccountCommandHandler.HandleAsync), LicenceAction.OperationalCapacity)]
+    public void Shop_setup_and_operating_settings_have_distinct_classifications(Type type, string methodName, LicenceAction action) =>
         Assert.Equal(action, type.GetMethod(methodName)?.GetCustomAttribute<LicenceActionAttribute>()?.Action);
 
     [Fact]

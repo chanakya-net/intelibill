@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 using Intelibill.Domain.Enums;
 
 namespace Intelibill.Application.Features.Shops.Commands.DeclareShopTaxProfile;
@@ -14,4 +16,7 @@ public sealed record DeclareShopTaxProfileCommand(
     Guid UserId,
     Guid ShopId,
     ShopTaxProfileInput Profile,
-    string? GstNumber);
+    string? GstNumber)
+{
+    public SessionClaims? Session { get; init; }
+}

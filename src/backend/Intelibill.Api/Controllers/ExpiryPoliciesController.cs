@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Expiry;
@@ -26,15 +27,17 @@ public sealed class ExpiryPoliciesController(IMessageBus bus, ExpiryPolicyServic
     }
     [HttpPut]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public Task<IActionResult> Put([FromBody] ExpiryPolicyUpdateRequest request, CancellationToken ct) => Update(null, request, ct);
     [HttpPut("items/{id:guid}")]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public Task<IActionResult> PutItem(Guid id, [FromBody] ExpiryPolicyUpdateRequest request, CancellationToken ct) => Update(id, request, ct);
     private async Task<IActionResult> Update(Guid? id, ExpiryPolicyUpdateRequest request, CancellationToken ct)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
-        return (await policies.UpdateAsync(ActiveShopId!.Value, UserId!.Value, id, request, ct)).ToActionResult(Ok);
+        return (await policies.UpdateAsync(ActiveShopId!.Value, UserId!.Value, id, request, SessionClaims.TryRead(User), ct)).ToActionResult(Ok);
     }
     [HttpGet("readiness")]
     [LicenceAction(LicenceAction.History)]
