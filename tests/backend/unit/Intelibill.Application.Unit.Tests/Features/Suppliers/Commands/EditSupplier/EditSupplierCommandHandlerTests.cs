@@ -1,3 +1,7 @@
+using Intelibill.Application.Features.SupplierReturns.Services;
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Suppliers.Commands.EditSupplier;
 using Intelibill.Domain.Entities;
@@ -14,6 +18,16 @@ public class EditSupplierCommandHandlerTests
     private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
+    private readonly ILiveSessionAuthority _authority = Substitute.For<ILiveSessionAuthority>();
+    private readonly IShopLicenceFence _fence = Substitute.For<IShopLicenceFence>();
+
+    public EditSupplierCommandHandlerTests()
+    {
+        _authority.IsValidAsync(Arg.Any<SessionClaims>(), Arg.Any<CancellationToken>()).Returns(true);
+        _fence.EnterAsync(Arg.Any<Guid>(), LicenceAction.OperationalCapacity, Arg.Any<CancellationToken>())
+            .Returns(call => new ShopLicenceLease(call.Arg<Guid>(), null, null, null, new(LicenceOutcome.Allowed, true)));
+    }
+
     [Fact]
     public async Task HandleAsync_WhenSupplierNotFound_ReturnsNotFound()
     {
@@ -24,9 +38,9 @@ public class EditSupplierCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _supplierRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((Supplier?)null);
 
-        var handler = new EditSupplierCommandHandler(_userRepository, _supplierRepository, _unitOfWork);
+        var handler = CreateHandler();
         var result = await handler.HandleAsync(new EditSupplierCommand(
-            actor.Id, shop.Id, Guid.NewGuid(),
+            new SessionClaims(actor.Id, Guid.NewGuid(), 0, 0, shop.Id, null), Guid.NewGuid(),
             "Updated", null, null, "Address", "City", "State", "560001", true, false), CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -46,9 +60,9 @@ public class EditSupplierCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
 
-        var handler = new EditSupplierCommandHandler(_userRepository, _supplierRepository, _unitOfWork);
+        var handler = CreateHandler();
         var result = await handler.HandleAsync(new EditSupplierCommand(
-            actor.Id, shop.Id, supplier.Id,
+            new SessionClaims(actor.Id, Guid.NewGuid(), 0, 0, shop.Id, null), supplier.Id,
             "Updated", null, null, "Address", "City", "State", "560001", true, false), CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -68,9 +82,9 @@ public class EditSupplierCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
 
-        var handler = new EditSupplierCommandHandler(_userRepository, _supplierRepository, _unitOfWork);
+        var handler = CreateHandler();
         var result = await handler.HandleAsync(new EditSupplierCommand(
-            actor.Id, shop.Id, supplier.Id,
+            new SessionClaims(actor.Id, Guid.NewGuid(), 0, 0, shop.Id, null), supplier.Id,
             "Updated", "New Person", "+918888888888", "42 MG Road", "Bengaluru", "Karnataka", "560002", false, true),
             CancellationToken.None);
 
@@ -79,7 +93,7 @@ public class EditSupplierCommandHandlerTests
         Assert.True(result.Value.IsPreferred);
         Assert.False(result.Value.IsActive);
         _supplierRepository.Received(1).Update(Arg.Is<Supplier>(s => s.Name == "Updated" && s.Pin == "560002"));
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAndCommitAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -94,14 +108,16 @@ public class EditSupplierCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _supplierRepository.GetByIdAsync(systemSupplier.Id, Arg.Any<CancellationToken>()).Returns(systemSupplier);
 
-        var handler = new EditSupplierCommandHandler(_userRepository, _supplierRepository, _unitOfWork);
+        var handler = CreateHandler();
         var result = await handler.HandleAsync(new EditSupplierCommand(
-            actor.Id, shop.Id, systemSupplier.Id,
+            new SessionClaims(actor.Id, Guid.NewGuid(), 0, 0, shop.Id, null), systemSupplier.Id,
             "Updated", null, null, string.Empty, string.Empty, string.Empty, string.Empty, true, false),
             CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Supplier.CannotModifySystemSupplier.Code, result.FirstError.Code);
-        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAndCommitAsync(Arg.Any<CancellationToken>());
     }
+    private EditSupplierCommandHandler CreateHandler() =>
+        new(_userRepository, _supplierRepository, new DefinitionCreationTransaction(_unitOfWork, _authority, _fence), Substitute.For<ISupplierReturnMutationLock>(), _authority);
 }

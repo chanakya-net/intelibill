@@ -1,7 +1,11 @@
+import { toSignal } from '@angular/core/rxjs-interop';
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import {
   Component,
+  computed,
   EventEmitter,
-  Input,
+  input,
   OnChanges,
   OnInit,
   Output,
@@ -30,6 +34,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
     ButtonModule,
     ProgressSpinnerModule,
     TranslocoPipe,
+    DefinitionAccessNoticeComponent,
   ],
   templateUrl: './edit-supplier-overlay.component.html',
   styleUrl: './edit-supplier-overlay.component.scss',
@@ -38,10 +43,11 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
   private readonly formBuilder = inject(FormBuilder);
   private readonly suppliersFacade = inject(SuppliersFacade);
 
+  readonly definitionAccess = inject(OperatingAccessHintService);
   readonly isSubmitting = this.suppliersFacade.isSubmitting;
   readonly serverError = this.suppliersFacade.errorMessage;
 
-  @Input({ required: true }) supplier!: Supplier;
+  readonly supplier = input.required<Supplier>();
   @Output() readonly closeRequested = new EventEmitter<void>();
 
   readonly form = this.formBuilder.nonNullable.group({
@@ -56,7 +62,10 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
     isPreferred: [false],
   });
 
-  constructor() {}
+  private readonly requestedActive = toSignal(this.form.controls.isActive.valueChanges, { initialValue: true });
+  readonly activationBlocked = computed(() =>
+    !this.supplier().isActive && this.requestedActive() && !!this.definitionAccess.blockingMessage(),
+  );
 
   ngOnInit(): void {
     this.patchForm();
@@ -79,7 +88,7 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
   }
 
   onSubmit(): void {
-    if (this.isSubmitting()) {
+    if (this.isSubmitting() || this.activationBlocked()) {
       return;
     }
     if (this.form.invalid) {
@@ -88,7 +97,7 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
     }
     this.suppliersFacade.clearError();
     this.suppliersFacade.clearMutationStatus();
-    this.suppliersFacade.editSupplier(this.supplier.supplierId, {
+    this.suppliersFacade.editSupplier(this.supplier().supplierId, {
       name: this.form.controls.name.value.trim(),
       contactPersonName: this.nullableTrimmed(this.form.controls.contactPersonName.value),
       contactPersonPhone: this.nullableTrimmed(this.form.controls.contactPersonPhone.value),
@@ -102,23 +111,18 @@ export class EditSupplierOverlayComponent implements OnInit, OnChanges {
   }
 
   private patchForm(): void {
-    if (!this.supplier) {
-      return;
-    }
-    this.form.patchValue(
-      {
-        name: this.supplier.name ?? '',
-        contactPersonName: this.supplier.contactPersonName ?? '',
-        contactPersonPhone: this.supplier.contactPersonPhone ?? '',
-        address: this.supplier.address ?? '',
-        city: this.supplier.city ?? '',
-        state: this.supplier.state ?? '',
-        pin: this.supplier.pin ?? '',
-        isActive: this.supplier.isActive,
-        isPreferred: this.supplier.isPreferred,
-      },
-      { emitEvent: false },
-    );
+    const supplier = this.supplier();
+    this.form.patchValue({
+      name: supplier.name ?? '',
+      contactPersonName: supplier.contactPersonName ?? '',
+      contactPersonPhone: supplier.contactPersonPhone ?? '',
+      address: supplier.address ?? '',
+      city: supplier.city ?? '',
+      state: supplier.state ?? '',
+      pin: supplier.pin ?? '',
+      isActive: supplier.isActive,
+      isPreferred: supplier.isPreferred,
+    });
   }
 
   private nullableTrimmed(value: string | null): string | null {

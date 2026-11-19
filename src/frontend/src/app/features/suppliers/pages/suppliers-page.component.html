@@ -24,10 +24,15 @@
         type="button"
         [label]="'suppliers.addSupplier' | transloco"
         icon="pi pi-plus"
+        [disabled]="!canAddSupplier()"
         (click)="onOpenAddSupplier()"
       ></button>
     }
   </header>
+
+  @if (canManageSuppliers() && !showAddSupplierOverlay() && !showEditSupplierOverlay()) {
+    <app-definition-access-notice class="contents" />
+  }
 
   <div class="summary-grid" [attr.aria-label]="'suppliers.summary.ariaLabel' | transloco">
     <article class="summary-card">

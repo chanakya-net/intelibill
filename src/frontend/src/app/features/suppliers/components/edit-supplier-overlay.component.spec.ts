@@ -1,3 +1,4 @@
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -7,6 +8,9 @@ import { EditSupplierOverlayComponent } from './edit-supplier-overlay.component'
 import { SuppliersFacade } from '../state/suppliers.facade';
 
 describe('EditSupplierOverlayComponent', () => {
+  const blockingMessage = signal<string | null>(null);
+  const access = { blockingMessage, scope: signal(null), checking: signal(false) };
+
   const isSubmittingSignal = signal(false);
   const errorSignal = signal('');
 
@@ -18,17 +22,20 @@ describe('EditSupplierOverlayComponent', () => {
     editSupplier: vi.fn(),
   };
 
-  function setup(): EditSupplierOverlayComponent {
+  function setup(isActive = true): EditSupplierOverlayComponent {
     TestBed.configureTestingModule({
       imports: [
         EditSupplierOverlayComponent,
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
-      providers: [{ provide: SuppliersFacade, useValue: suppliersFacade }],
+      providers: [
+        { provide: SuppliersFacade, useValue: suppliersFacade },
+        { provide: OperatingAccessHintService, useValue: access },
+      ],
     });
 
     const fixture = TestBed.createComponent(EditSupplierOverlayComponent);
-    fixture.componentInstance.supplier = {
+    fixture.componentRef.setInput('supplier', {
       supplierId: 's1',
       name: 'Fresh Foods',
       contactPersonName: 'Ramesh',
@@ -38,15 +45,16 @@ describe('EditSupplierOverlayComponent', () => {
       state: 'State',
       pin: '560001',
       isSystem: false,
-      isActive: true,
+      isActive,
       isPreferred: false,
       balanceDue: 1500,
-    };
+    });
     fixture.detectChanges();
     return fixture.componentInstance;
   }
 
   beforeEach(() => {
+    blockingMessage.set(null);
     suppliersFacade.clearError.mockReset();
     suppliersFacade.clearMutationStatus.mockReset();
     suppliersFacade.editSupplier.mockReset();
@@ -123,5 +131,21 @@ describe('EditSupplierOverlayComponent', () => {
       isActive: false,
       isPreferred: true,
     });
+  });
+
+  it('blocks reactivation while allowing contact edits to the inactive supplier', () => {
+    const component = setup(false);
+    blockingMessage.set('billing.status.tradingAuthority.expired');
+    component.form.patchValue({ name: 'Updated contact', isActive: true });
+
+    component.onSubmit();
+    expect(component.activationBlocked()).toBe(true);
+    expect(suppliersFacade.editSupplier).not.toHaveBeenCalled();
+
+    component.form.controls.isActive.setValue(false);
+    component.onSubmit();
+    expect(suppliersFacade.editSupplier).toHaveBeenCalledWith(
+      's1', expect.objectContaining({ name: 'Updated contact', isActive: false }),
+    );
   });
 });

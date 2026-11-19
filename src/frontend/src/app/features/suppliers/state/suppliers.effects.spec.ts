@@ -1,3 +1,5 @@
+import { signal } from '@angular/core';
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -17,6 +19,7 @@ import { SuppliersEffects } from './suppliers.effects';
 describe('SuppliersEffects', () => {
   let actions$: Subject<Action>;
   let effects: SuppliersEffects;
+  const scope = signal({ userId: 'user-1', shopId: 'shop-1', epoch: 1 });
 
   const supplierService = {
     getDirectory: vi.fn<SupplierService['getDirectory']>(),
@@ -32,6 +35,7 @@ describe('SuppliersEffects', () => {
   let originalLocalStorage: PropertyDescriptor | undefined;
 
   beforeEach(() => {
+    scope.set({ userId: 'user-1', shopId: 'shop-1', epoch: 1 });
     originalLocalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
     const values = new Map<string, string>();
     Object.defineProperty(globalThis, 'localStorage', {
@@ -53,6 +57,7 @@ describe('SuppliersEffects', () => {
     TestBed.configureTestingModule({
       providers: [
         SuppliersEffects,
+        { provide: ShopContextService, useValue: { scope } },
         {
           provide: Store,
           useValue: {

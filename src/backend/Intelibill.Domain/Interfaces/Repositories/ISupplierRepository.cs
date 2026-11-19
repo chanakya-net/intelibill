@@ -8,5 +8,6 @@ public interface ISupplierRepository : IRepository<Supplier>
     Task<PartyDirectoryPage<Supplier>> GetDirectoryAsync(Guid shopId, PartyDirectoryQuery query, bool includeSystem, CancellationToken cancellationToken = default);
     Task<SupplierDirectorySummary> GetDirectorySummaryAsync(Guid shopId, bool includeSystem, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Supplier>> GetByShopIdAsync(Guid shopId, bool includeSystem, CancellationToken cancellationToken = default);
+    Task<Supplier?> GetCurrentForEditAsync(Guid shopId, Guid supplierId, CancellationToken cancellationToken);
     Task<Supplier?> GetSystemByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default);
 }

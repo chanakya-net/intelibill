@@ -49,6 +49,18 @@ internal sealed class SupplierRepository(ApplicationDbContext context)
             .OrderBy(s => s.Name)
             .ToListAsync(cancellationToken);
 
+    public async Task<Supplier?> GetCurrentForEditAsync(Guid shopId, Guid supplierId, CancellationToken cancellationToken)
+    {
+        var tracked = DbSet.Local.FirstOrDefault(s => s.Id == supplierId && s.ShopId == shopId);
+        if (tracked is not null)
+        {
+            await Context.Entry(tracked).ReloadAsync(cancellationToken);
+            return Context.Entry(tracked).State == EntityState.Detached ? null : tracked;
+        }
+
+        return await DbSet.SingleOrDefaultAsync(s => s.Id == supplierId && s.ShopId == shopId, cancellationToken);
+    }
+
     public async Task<Supplier?> GetSystemByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default) =>
         await DbSet
             .Where(s => s.ShopId == shopId && s.IsSystem)
