@@ -11,6 +11,7 @@ import { SHOP_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { AppReloadService } from '../../../core/services/app-reload.service';
+import { ShopSetupSecurityEvents } from '../services/shop-setup-security-events';
 import type { ShopSetupStatus } from '../services/shop-setup.models';
 import { ShopSetupPageComponent } from './shop-setup-page.component';
 
@@ -126,6 +127,40 @@ describe(ShopSetupPageComponent.name, () => {
     refresh.flush(status);
     expect(view.componentInstance.status()).toEqual(status);
     http.verify();
+  });
+
+  it('discards an outstanding checklist read and preference response after a shell refusal', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    const page = TestBed.createComponent(ShopSetupPageComponent).componentInstance;
+    http.expectOne(url).flush(status);
+    page.leave('/sales/new');
+    const save = http.expectOne(`${url}/preferences`);
+    page.refresh();
+    const read = http.expectOne(url);
+
+    TestBed.inject(ShopSetupSecurityEvents).refuse(scope.shopId);
+    expect(read.cancelled).toBe(true);
+    save.flush({ ...status.preferences, version: 2 });
+    expect(page.status()).toBeNull();
+    expect(page.canStartSale()).toBe(false);
+    expect(navigate).not.toHaveBeenCalled();
+
+    page.refresh();
+    http.expectOne(url).flush(status);
+    expect(page.canStartSale()).toBe(true);
+    http.verify();
+  });
+
+  it('ignores a refusal after its mounted scope was left and the same owner returned', () => {
+    const context = TestBed.inject(ShopContextService);
+    const page = TestBed.createComponent(ShopSetupPageComponent).componentInstance;
+    http.expectOne(url).flush(status);
+    context.transition(null, 'sign-out', () => {});
+    context.transition(scope, 'sign-in', () => {});
+
+    TestBed.inject(ShopSetupSecurityEvents).refuse(scope.shopId);
+    expect(page.loadFailed()).toBe(false);
+    expect(page.loadError()).toBeNull();
   });
 
   it('keeps the checklist through an ordinary trading refusal of its preference save', () => {

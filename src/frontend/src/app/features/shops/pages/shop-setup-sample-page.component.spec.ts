@@ -6,6 +6,7 @@ import { of, Subject, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ShopContextService } from '../../../core/context/shop-context.service';
+import { ShopSetupSecurityEvents } from '../services/shop-setup-security-events';
 import type { ShopSetupPreferences, ShopSetupSample } from '../services/shop-setup.models';
 import { ShopSetupService } from '../services/shop-setup.service';
 import { ShopSetupSamplePageComponent } from './shop-setup-sample-page.component';
@@ -106,6 +107,26 @@ describe(ShopSetupSamplePageComponent.name, () => {
 
     expect(page.sample()).toEqual(sample);
     expect(page.failureKey()).toBeNull();
+  });
+
+  it('discards superseded receipt, preferences and acknowledgement when Manage Shop reports suspension', () => {
+    const page = setup();
+    const write = new Subject<ShopSetupPreferences>();
+    const read = new Subject<ShopSetupSample>();
+    const preferencesRead = new Subject<ShopSetupPreferences>();
+    service.save.mockReturnValue(write);
+    service.getSample.mockReturnValue(read);
+    service.getPreferences.mockReturnValue(preferencesRead);
+    page.acknowledge();
+    page.refresh();
+
+    TestBed.inject(ShopSetupSecurityEvents).refuse(scope.shopId);
+    read.next(sample);
+    preferencesRead.next(preferences);
+    write.next({ ...preferences, version: 2 });
+
+    expectWithdrawn(page);
+    expect(page.saving()).toBe(false);
   });
 
   it('keeps the sample readable after an ordinary trading refusal', () => {

@@ -10,7 +10,8 @@ import type { ShopScope } from '../../../core/context/shop-scope';
 import { SaleInvoiceA4Component } from '../../sales/components/sale-invoice-a4.component';
 import { SaleInvoiceThermalComponent } from '../../sales/components/sale-invoice-thermal.component';
 import type { ShopSetupPreferences, ShopSetupSample } from '../services/shop-setup.models';
-import { isSecuritySuspension, setupLicenceError } from '../services/shop-setup-access';
+import { ShopSetupSecurityEvents } from '../services/shop-setup-security-events';
+import { SHOP_SECURITY_SUSPENDED_KEY, isSecuritySuspension, setupLicenceError } from '../services/shop-setup-access';
 import { setupReasonKey } from '../services/shop-setup-reason';
 import { ShopSetupService } from '../services/shop-setup.service';
 
@@ -46,6 +47,7 @@ export class ShopSetupSamplePageComponent {
       this.failureReasons.set([]);
       this.saveError.set(null);
     }));
+    inject(ShopSetupSecurityEvents).forMountedShop().pipe(takeUntilDestroyed()).subscribe(() => this.withdraw());
     this.refresh();
   }
 
@@ -134,6 +136,11 @@ export class ShopSetupSamplePageComponent {
   /** A security suspension withdraws the shop's data, so nothing already on the page may stay or arrive. */
   private withdrawIfSuspended(error: unknown): boolean {
     if (!isSecuritySuspension(error)) return false;
+    this.withdraw();
+    return true;
+  }
+
+  private withdraw(): void {
     this.cancelReads();
     this.acknowledgement?.unsubscribe();
     this.loading.set(false);
@@ -141,8 +148,7 @@ export class ShopSetupSamplePageComponent {
     this.preferences.set(null);
     this.saveError.set(null);
     this.failureReasons.set([]);
-    this.failureKey.set(setupLicenceError(error) ?? 'shopSetup.loadFailed');
-    return true;
+    this.failureKey.set(SHOP_SECURITY_SUSPENDED_KEY);
   }
 
   private cancelReads(): void {

@@ -9,7 +9,10 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import type { ShopScope } from '../../../core/context/shop-scope';
 import { ManageShopOverlayComponent } from '../components/manage-shop-overlay.component';
-import { isSecuritySuspension, setupLicenceError, shopSetupAccessFor, shopSetupStatusKey } from '../services/shop-setup-access';
+import { ShopSetupSecurityEvents } from '../services/shop-setup-security-events';
+import {
+  SHOP_SECURITY_SUSPENDED_KEY, isSecuritySuspension, setupLicenceError, shopSetupAccessFor, shopSetupStatusKey,
+} from '../services/shop-setup-access';
 import type { ShopSetupStatus } from '../services/shop-setup.models';
 import { setupReasonKey } from '../services/shop-setup-reason';
 import { ShopSetupService } from '../services/shop-setup.service';
@@ -27,6 +30,7 @@ export class ShopSetupPageComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private read?: Subscription;
+  private preferenceSave?: Subscription;
 
   readonly status = signal<ShopSetupStatus | null>(null);
   readonly loading = signal(false);
@@ -51,6 +55,15 @@ export class ShopSetupPageComponent {
       this.loadFailed.set(false);
       this.saveError.set(null);
     }));
+    inject(ShopSetupSecurityEvents).forMountedShop().pipe(takeUntilDestroyed()).subscribe(() => {
+      this.read?.unsubscribe();
+      this.preferenceSave?.unsubscribe();
+      this.status.set(null);
+      this.settingsStep.set(null);
+      this.saveError.set(null);
+      this.loadError.set(SHOP_SECURITY_SUSPENDED_KEY);
+      this.loadFailed.set(true);
+    });
     this.refresh();
   }
 
@@ -104,7 +117,7 @@ export class ShopSetupPageComponent {
 
     this.saving.set(true);
     this.saveError.set(null);
-    this.service.save(scope, {
+    this.preferenceSave = this.service.save(scope, {
       expectedVersion: status.preferences.version,
       showOnStartup: false,
       acknowledgeSample: false,

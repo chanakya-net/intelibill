@@ -1,7 +1,8 @@
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { EMPTY, catchError, exhaustMap, from, map, of, switchMap } from 'rxjs';
+import { EMPTY, catchError, exhaustMap, from, map, of, switchMap, tap } from 'rxjs';
 
+import { ShopSetupSecurityEvents } from '../services/shop-setup-security-events';
 import { setupLicenceError, shopLicenceRefusal } from '../services/shop-setup-access';
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -15,6 +16,16 @@ export class ShopsEffects {
   private readonly shopService = inject(ShopService);
   private readonly authService = inject(AuthService);
   private readonly shopContext = inject(ShopContextService);
+
+  private readonly setupSecurity = inject(ShopSetupSecurityEvents);
+
+  readonly withdrawSuspendedSetup$ = createEffect(() => this.actions$.pipe(
+    ofType(ShopsActions.shopLicenceRefused, ShopsActions.loadShopDetailsFailed, ShopsActions.updateShopFailed,
+      ShopsActions.updateShopBankDetailsFailed, ShopsActions.updateShopTaxProfileFailed),
+    tap(({ shopId, securitySuspended }) => {
+      if (shopId && securitySuspended) this.setupSecurity.refuse(shopId);
+    }),
+  ), { dispatch: false });
 
   readonly loadShops$ = createEffect(() =>
     this.actions$.pipe(

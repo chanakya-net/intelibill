@@ -19,12 +19,12 @@ export interface ShopSetupAccess {
   readonly canCreateAdditionalShop: boolean;
 }
 
-const securityKey = 'billing.status.suspension.enforcedSecurity';
+export const SHOP_SECURITY_SUSPENDED_KEY = 'billing.status.suspension.enforcedSecurity';
 const unavailable = OPERATING_ACCESS_ERROR_KEYS['Licence.VerificationUnavailable'];
 
 export function setupLicenceError(error: unknown): string | undefined {
   const code = problemCode(error);
-  return code === 'Licence.SecuritySuspended' ? securityKey : code ? OPERATING_ACCESS_ERROR_KEYS[code] : undefined;
+  return code === 'Licence.SecuritySuspended' ? SHOP_SECURITY_SUSPENDED_KEY : code ? OPERATING_ACCESS_ERROR_KEYS[code] : undefined;
 }
 
 /** A definitive licence refusal for one shop. Contention is retryable and is not one. */
@@ -64,7 +64,7 @@ export function shopSetupStatusKey(access: ShopSetupAccess | null): string | nul
     case 'Pending': return OPERATING_ACCESS_ERROR_KEYS['Licence.PendingActivation'];
     case 'Expired': return OPERATING_ACCESS_ERROR_KEYS['Licence.Expired'];
     case 'TradingRestricted': return OPERATING_ACCESS_ERROR_KEYS['Licence.TradingRestricted'];
-    case 'SecuritySuspended': return securityKey;
+    case 'SecuritySuspended': return SHOP_SECURITY_SUSPENDED_KEY;
     case 'Trial': return 'billing.status.bases.Trial';
     case 'Grace': return 'billing.status.states.Grace';
     default: return access.hasOperatingAccess ? 'billing.status.states.Active' : unavailable;
