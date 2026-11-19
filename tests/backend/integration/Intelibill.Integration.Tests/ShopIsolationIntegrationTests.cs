@@ -254,6 +254,7 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
 
         public List<Supplier> AddedSuppliers { get; } = [];
         public Task<IReadOnlyList<Supplier>> GetByShopIdAsync(Guid shopId, bool includeSystem, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Supplier>>([]);
+        public Task<Supplier?> GetCurrentForEditAsync(Guid shopId, Guid supplierId, CancellationToken cancellationToken) => Task.FromResult<Supplier?>(null);
         public Task<Supplier?> GetSystemByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default) => Task.FromResult<Supplier?>(null);
         public Task<Supplier?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Supplier?>(null);
         public Task<IReadOnlyList<Supplier>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Supplier>>([]);

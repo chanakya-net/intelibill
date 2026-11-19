@@ -1,3 +1,6 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Suppliers.Commands.AddSupplier;
 using Intelibill.Domain.Entities;
@@ -14,6 +17,16 @@ public class AddSupplierCommandHandlerTests
     private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
+    private readonly ILiveSessionAuthority _authority = Substitute.For<ILiveSessionAuthority>();
+    private readonly IShopLicenceFence _fence = Substitute.For<IShopLicenceFence>();
+
+    public AddSupplierCommandHandlerTests()
+    {
+        _authority.IsValidAsync(Arg.Any<SessionClaims>(), Arg.Any<CancellationToken>()).Returns(true);
+        _fence.EnterAsync(Arg.Any<Guid>(), LicenceAction.OperationalCapacity, Arg.Any<CancellationToken>())
+            .Returns(call => new ShopLicenceLease(call.Arg<Guid>(), null, null, null, new(LicenceOutcome.Allowed, true)));
+    }
+
     [Fact]
     public async Task HandleAsync_WhenActorIsNotOwner_ReturnsForbidden()
     {
@@ -23,10 +36,9 @@ public class AddSupplierCommandHandlerTests
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
-        var handler = new AddSupplierCommandHandler(_userRepository, _supplierRepository, _unitOfWork);
+        var handler = CreateHandler();
         var result = await handler.HandleAsync(new AddSupplierCommand(
-            actor.Id,
-            shop.Id,
+            new SessionClaims(actor.Id, Guid.NewGuid(), 0, 0, shop.Id, null),
             "Supplier",
             "Contact",
             "+919999999999",
@@ -50,10 +62,9 @@ public class AddSupplierCommandHandlerTests
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
-        var handler = new AddSupplierCommandHandler(_userRepository, _supplierRepository, _unitOfWork);
+        var handler = CreateHandler();
         var result = await handler.HandleAsync(new AddSupplierCommand(
-            actor.Id,
-            shop.Id,
+            new SessionClaims(actor.Id, Guid.NewGuid(), 0, 0, shop.Id, null),
             "  Fresh Foods  ",
             "  Ramesh  ",
             "+919999999999",
@@ -73,6 +84,8 @@ public class AddSupplierCommandHandlerTests
             && s.Name == "Fresh Foods"
             && s.City == "Bengaluru"
             && s.IsPreferred), Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAndCommitAsync(Arg.Any<CancellationToken>());
     }
+    private AddSupplierCommandHandler CreateHandler() =>
+        new(_userRepository, _supplierRepository, new DefinitionCreationTransaction(_unitOfWork, _authority, _fence));
 }

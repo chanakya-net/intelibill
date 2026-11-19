@@ -1,3 +1,4 @@
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -7,6 +8,9 @@ import { AddSupplierOverlayComponent } from './add-supplier-overlay.component';
 import { SuppliersFacade } from '../state/suppliers.facade';
 
 describe('AddSupplierOverlayComponent', () => {
+  const blockingMessage = signal<string | null>(null);
+  const access = { blockingMessage, scope: signal(null), checking: signal(false) };
+
   const isSubmittingSignal = signal(false);
   const errorSignal = signal('');
 
@@ -24,7 +28,10 @@ describe('AddSupplierOverlayComponent', () => {
         AddSupplierOverlayComponent,
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
-      providers: [{ provide: SuppliersFacade, useValue: suppliersFacade }],
+      providers: [
+        { provide: SuppliersFacade, useValue: suppliersFacade },
+        { provide: OperatingAccessHintService, useValue: access },
+      ],
     });
 
     const fixture = TestBed.createComponent(AddSupplierOverlayComponent);
@@ -33,6 +40,7 @@ describe('AddSupplierOverlayComponent', () => {
   }
 
   beforeEach(() => {
+    blockingMessage.set(null);
     suppliersFacade.clearError.mockReset();
     suppliersFacade.clearMutationStatus.mockReset();
     suppliersFacade.addSupplier.mockReset();
@@ -123,5 +131,19 @@ describe('AddSupplierOverlayComponent', () => {
       isActive: true,
       isPreferred: true,
     });
+  });
+
+  it('retains valid draft values when access changes before submit', () => {
+    const component = setup();
+    component.form.patchValue({
+      name: 'Fresh Foods', address: '42 MG Road', city: 'Bengaluru', state: 'Karnataka', pin: '560001',
+    });
+    blockingMessage.set('billing.status.tradingAuthority.expired');
+
+    component.onSubmit();
+
+    expect(component.form.valid).toBe(true);
+    expect(component.form.controls.name.value).toBe('Fresh Foods');
+    expect(suppliersFacade.addSupplier).not.toHaveBeenCalled();
   });
 });

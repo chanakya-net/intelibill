@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using FluentValidation.TestHelper;
 using Intelibill.Application.Features.Suppliers.Commands.AddSupplier;
 using Intelibill.Application.Features.Suppliers.Commands.EditSupplier;
@@ -10,7 +11,7 @@ public class AddSupplierCommandValidatorTests
     private readonly AddSupplierCommandValidator _v = new();
 
     private static AddSupplierCommand Valid() =>
-        new(Guid.NewGuid(), Guid.NewGuid(), "Supplier Name", null, null, "123 Main St", "Mumbai", "Maharashtra", "400001", true, false);
+        new(new SessionClaims(Guid.NewGuid(), Guid.NewGuid(), 0, 0, Guid.NewGuid(), "Owner"), "Supplier Name", null, null, "123 Main St", "Mumbai", "Maharashtra", "400001", true, false);
 
     [Fact] public void Validate_WhenNameEmpty_ReturnsError() =>
         _v.TestValidate(Valid() with { Name = "" }).ShouldHaveValidationErrorFor(x => x.Name);
@@ -36,7 +37,7 @@ public class EditSupplierCommandValidatorTests
     private readonly EditSupplierCommandValidator _v = new();
 
     private static EditSupplierCommand Valid() =>
-        new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "Supplier Name", null, null, "123 Main St", "Mumbai", "Maharashtra", "400001", true, false);
+        new(new SessionClaims(Guid.NewGuid(), Guid.NewGuid(), 0, 0, Guid.NewGuid(), "Owner"), Guid.NewGuid(), "Supplier Name", null, null, "123 Main St", "Mumbai", "Maharashtra", "400001", true, false);
 
     [Fact] public void Validate_WhenNameEmpty_ReturnsError() =>
         _v.TestValidate(Valid() with { Name = "" }).ShouldHaveValidationErrorFor(x => x.Name);

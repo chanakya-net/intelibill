@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Domain.ReadModels;
 using Intelibill.Application.Features.Suppliers.Queries.GetSupplier;
@@ -85,15 +86,18 @@ public sealed class SuppliersController : AuthenticatedControllerBase
     [HttpPost]
     [Authorize(Policy = "OwnerOnly")]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource(CheckRecovery = true)]
     public async Task<IActionResult> AddSupplier([FromBody] AddSupplierRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
+        var session = SessionClaims.TryRead(User);
+        if (session is null) return Unauthorized();
+
         var result = await Bus.InvokeAsync<ErrorOr<SupplierDto>>(
             new AddSupplierCommand(
-                UserId!.Value,
-                ActiveShopId!.Value,
+                session,
                 request.Name,
                 request.ContactPersonName,
                 request.ContactPersonPhone,
@@ -116,10 +120,12 @@ public sealed class SuppliersController : AuthenticatedControllerBase
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
+        var session = SessionClaims.TryRead(User);
+        if (session is null) return Unauthorized();
+
         var result = await Bus.InvokeAsync<ErrorOr<SupplierDto>>(
             new EditSupplierCommand(
-                UserId!.Value,
-                ActiveShopId!.Value,
+                session,
                 supplierId,
                 request.Name,
                 request.ContactPersonName,
