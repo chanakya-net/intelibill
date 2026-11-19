@@ -2,6 +2,7 @@ using System.Reflection;
 using Intelibill.Api.Controllers;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Inventory.Services;
+using Intelibill.Application.Features.Customers.Commands.AddCustomer;
 using Intelibill.Application.Features.Items.Commands.AddItem;
 using Intelibill.Application.Features.Items.Queries.GetProductDetails;
 using Intelibill.Application.Features.Services.Commands.AddService;
@@ -50,6 +51,8 @@ public sealed class LicenceActionClassificationTests(PostgreSqlTestFixture fixtu
     [InlineData(typeof(AddItemCommandHandler), nameof(AddItemCommandHandler.HandleAsync), LicenceAction.OperationalCapacity)]
     [InlineData(typeof(AddServiceCommandHandler), nameof(AddServiceCommandHandler.HandleAsync), LicenceAction.OperationalCapacity)]
     [InlineData(typeof(GetProductDetailsByNameOrBarcodeQueryHandler), nameof(GetProductDetailsByNameOrBarcodeQueryHandler.HandleAsync), LicenceAction.History)]
+    [InlineData(typeof(CustomersController), nameof(CustomersController.AddCustomer), LicenceAction.OperationalCapacity)]
+    [InlineData(typeof(AddCustomerCommandHandler), nameof(AddCustomerCommandHandler.HandleAsync), LicenceAction.OperationalCapacity)]
     public void Definition_routes_and_messages_keep_their_classifications(Type type, string methodName, LicenceAction action) =>
         Assert.Equal(action, type.GetMethod(methodName)?.GetCustomAttribute<LicenceActionAttribute>()?.Action);
 

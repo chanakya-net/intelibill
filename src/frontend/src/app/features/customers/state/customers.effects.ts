@@ -1,3 +1,4 @@
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { Store } from '@ngrx/store';
 import { ShopContextActions } from '../../../core/context/shop-context.actions';
 import { selectDirectoryQuery } from './customers.selectors';
@@ -9,7 +10,7 @@ import {
 } from '../../../core/i18n/api-error-message.service';
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { catchError, map, of, switchMap } from 'rxjs';
+import { catchError, EMPTY, filter, map, of, switchMap } from 'rxjs';
 
 import { CustomerService } from '../services/customer.service';
 import { CustomersActions } from './customers.actions';
@@ -20,6 +21,7 @@ export class CustomersEffects {
   private readonly actions$ = inject(Actions);
   private readonly directoryStore = inject(Store, { optional: true });
   private readonly customerService = inject(CustomerService);
+  private readonly definitionAccess = inject(OperatingAccessHintService);
 
   readonly directory$ = createEffect(() =>
     this.actions$.pipe(
@@ -87,18 +89,24 @@ export class CustomersEffects {
   addCustomer$ = createEffect(() =>
     this.actions$.pipe(
       ofType(CustomersActions.addCustomerRequested),
-      switchMap(({ payload }) =>
-        this.customerService.addCustomer(payload).pipe(
+      switchMap(({ payload }) => {
+        const scope = this.definitionAccess.scope();
+        return this.customerService.addCustomer(payload).pipe(
+          filter(() => scope === this.definitionAccess.scope()),
           map((customer) => CustomersActions.addCustomerSucceeded({ customer })),
-          catchError((error) =>
-            of(
+          catchError((error) => {
+            if (scope !== this.definitionAccess.scope()) return EMPTY;
+            const feedback = this.feedback(error, 'errors.customers.addFailed');
+            return of(
               CustomersActions.addCustomerFailed({
-                ...this.feedback(error, 'errors.customers.addFailed'),
+                ...feedback,
+                errorMessage:
+                  this.definitionAccess.creationError(error, scope, feedback.errorMessage) ?? '',
               }),
-            ),
-          ),
-        ),
-      ),
+            );
+          }),
+        );
+      }),
     ),
   );
 

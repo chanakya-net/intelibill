@@ -1,3 +1,4 @@
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { readFileSync } from 'node:fs';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -11,7 +12,7 @@ import { CustomersFacade } from '../state/customers.facade';
 let overlayRole = 'Owner';
 
 describe('AddCustomerOverlayComponent', () => {
-  function setup() {
+  function setup(blockingMessage: string | null = null) {
     const facade = {
       submitting: signal(false),
       errorMessage: signal('errors.customers.addFailed'),
@@ -44,6 +45,9 @@ describe('AddCustomerOverlayComponent', () => {
       ],
       providers: [
         { provide: CustomersFacade, useValue: facade },
+        { provide: OperatingAccessHintService, useValue: {
+          blockingMessage: signal(blockingMessage), scope: signal(null), checking: signal(false),
+        } },
         {
           provide: AuthService,
           useValue: {
@@ -78,6 +82,19 @@ describe('AddCustomerOverlayComponent', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).not.toBe(english);
     expect(fixture.nativeElement.textContent).toContain('form-ref:123');
+  });
+
+  it('blocks submission and preserves the typed form after a refusal', () => {
+    const { component, fixture, facade } = setup('billing.status.tradingAuthority.expired');
+    const draft = { name: 'Prepared customer', phoneNumber: '+919812345678' };
+    component.form.patchValue(draft);
+    fixture.detectChanges();
+
+    const submit = fixture.nativeElement.querySelector('button[type="submit"]') as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    component.onSubmit();
+    expect(facade.addCustomer).not.toHaveBeenCalled();
+    expect(component.form.getRawValue()).toMatchObject(draft);
   });
 
   it('defaults creditLimit to 0', () => {

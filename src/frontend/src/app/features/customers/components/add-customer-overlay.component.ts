@@ -1,3 +1,5 @@
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { signal as errorSignal } from '@angular/core';
 import { Component, EventEmitter, OnInit, Output, computed, inject } from '@angular/core';
@@ -35,6 +37,7 @@ import {
   selector: 'app-add-customer-overlay',
   standalone: true,
   imports: [
+    DefinitionAccessNoticeComponent,
     ReactiveFormsModule,
     InputTextModule,
     CheckboxModule,
@@ -57,6 +60,7 @@ export class AddCustomerOverlayComponent implements OnInit {
   readonly currencyAddonPt = CURRENCY_ADDON_PT;
   readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
 
+  readonly definitionAccess = inject(OperatingAccessHintService);
   readonly isSubmitting = this.customersFacade.submitting;
   readonly localizedError =
     this.customersFacade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
@@ -140,7 +144,7 @@ export class AddCustomerOverlayComponent implements OnInit {
   }
 
   onSubmit(): void {
-    if (this.isSubmitting()) {
+    if (this.isSubmitting() || this.definitionAccess.blockingMessage()) {
       return;
     }
     if (this.form.invalid) {

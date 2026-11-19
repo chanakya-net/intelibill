@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Domain.ReadModels;
 using Intelibill.Application.Features.Customers.Queries.GetCustomer;
@@ -69,14 +70,18 @@ public sealed class CustomersController : AuthenticatedControllerBase
 
     [HttpPost]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource(CheckRecovery = true)]
     public async Task<IActionResult> AddCustomer([FromBody] AddCustomerRequest request, CancellationToken cancellationToken)
     {
         var shop = CheckShop();
         if (shop is not null) return shop;
 
+        var session = SessionClaims.TryRead(User);
+        if (session is null) return Unauthorized();
+
         var result = await Bus.InvokeAsync<ErrorOr<CustomerDto>>(
             new AddCustomerCommand(
-                ActiveShopId!.Value,
+                session,
                 request.Name,
                 request.PhoneNumber,
                 request.Address,
@@ -85,8 +90,7 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.Gstin,
                 request.StateCode,
                 request.CreditPolicyMode,
-                request.CreditTermsDays,
-                UserId),
+                request.CreditTermsDays),
             cancellationToken);
 
         return result.ToActionResult(customer => CreatedAtAction(nameof(GetCustomers), customer));
