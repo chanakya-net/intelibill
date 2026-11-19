@@ -24,6 +24,7 @@
     </header>
 
     <form id="add-customer-form" class="overlay-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <app-definition-access-notice class="contents" />
       <div class="editor-dialog-section ib-editor-dialog-section editor-dialog-grid ib-editor-dialog-grid">
         <label>
           <span>{{ 'customers.name' | transloco }}</span>
@@ -242,7 +243,7 @@
           form="add-customer-form"
           icon="pi pi-check"
           [label]="'customers.addCustomer' | transloco"
-          [disabled]="isSubmitting()"
+          [disabled]="isSubmitting() || !!definitionAccess.blockingMessage()"
         ></button>
       </div>
     </footer>

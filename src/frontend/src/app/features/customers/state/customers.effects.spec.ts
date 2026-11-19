@@ -1,3 +1,7 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { signal } from '@angular/core';
+import { ShopContextService } from '../../../core/context/shop-context.service';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { TestBed } from '@angular/core/testing';
 import { Action } from '@ngrx/store';
 import { Actions } from '@ngrx/effects';
@@ -12,6 +16,7 @@ import { CustomersEffects } from './customers.effects';
 describe('CustomersEffects', () => {
   let actions$: Subject<Action>;
   let effects: CustomersEffects;
+  const scope = signal({ userId: 'user-1', shopId: 'shop-1', epoch: 1 });
 
   const customerService = {
     getDirectory: vi.fn<CustomerService['getDirectory']>(),
@@ -21,6 +26,7 @@ describe('CustomersEffects', () => {
 
   beforeEach(() => {
     actions$ = new Subject<Action>();
+    scope.set({ userId: 'user-1', shopId: 'shop-1', epoch: 1 });
     customerService.getDirectory.mockReset();
     customerService.addCustomer.mockReset();
     customerService.editCustomer.mockReset();
@@ -28,6 +34,7 @@ describe('CustomersEffects', () => {
     TestBed.configureTestingModule({
       providers: [
         CustomersEffects,
+        { provide: ShopContextService, useValue: { scope } },
         { provide: CustomerService, useValue: customerService },
         {
           provide: Actions,
@@ -262,6 +269,35 @@ describe('CustomersEffects', () => {
     await expect(output).resolves.toEqual(
       CustomersActions.addCustomerFailed({ errorMessage: 'errors.customers.addFailed' }),
     );
+  });
+
+  it.each([
+    ['Licence.Expired', 403, '', 'billing.status.tradingAuthority.expired'],
+    ['Licence.Busy', 409, 'billing.status.tradingAuthority.busy', null],
+  ])('shows the server decision for %s on the right surface', async (code, status, errorMessage, notice) => {
+    customerService.addCustomer.mockReturnValue(throwError(() => new HttpErrorResponse({
+      status, error: { code },
+    })));
+    const output = firstValueFrom(effects.addCustomer$);
+    actions$.next(CustomersActions.addCustomerRequested({ payload: { ...customer, gstin: null, stateCode: null } }));
+
+    expect(await output).toMatchObject({ type: CustomersActions.addCustomerFailed.type, errorMessage });
+    expect(TestBed.inject(OperatingAccessHintService).blockingMessage()).toBe(notice);
+  });
+
+  it.each(['success', 'failure'])('ignores a late create %s after a shop epoch change', (result) => {
+    const response = new Subject<typeof customer>();
+    customerService.addCustomer.mockReturnValue(response);
+    const emitted = vi.fn();
+    const subscription = effects.addCustomer$.subscribe(emitted);
+    actions$.next(CustomersActions.addCustomerRequested({ payload: { ...customer, gstin: null, stateCode: null } }));
+    scope.set({ ...scope(), epoch: 2 });
+    if (result === 'success') response.next(customer);
+    else response.error(new HttpErrorResponse({ status: 403, error: { code: 'Licence.Expired' } }));
+
+    expect(emitted).not.toHaveBeenCalled();
+    expect(TestBed.inject(OperatingAccessHintService).blockingMessage()).toBeNull();
+    subscription.unsubscribe();
   });
 
   it('dispatches editCustomerSucceeded on edit success', async () => {

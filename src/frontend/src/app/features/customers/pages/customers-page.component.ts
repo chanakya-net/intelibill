@@ -1,3 +1,5 @@
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { DestroyRef } from '@angular/core';
 import {
   DEFAULT_DIRECTORY_QUERY,
@@ -141,6 +143,7 @@ interface CustomerDirectoryMetric {
     TagModule,
     TableModule,
     AddCustomerOverlayComponent,
+    DefinitionAccessNoticeComponent,
     CustomersFilterBarComponent,
     CustomersTableComponent,
     EditCustomerOverlayComponent,
@@ -287,6 +290,7 @@ export class CustomersPageComponent {
   readonly lastMutationType = this.customersFacade.lastMutationType;
   readonly lastMutationSucceeded = this.customersFacade.lastMutationSucceeded;
 
+  readonly definitionAccess = inject(OperatingAccessHintService);
   readonly showAddCustomerOverlay = signal(false);
   readonly showEditCustomerOverlay = signal(false);
   readonly editingCustomer = signal<Customer | null>(null);
@@ -476,6 +480,7 @@ export class CustomersPageComponent {
   }
 
   onOpenAddCustomer(): void {
+    if (this.definitionAccess.blockingMessage()) return;
     this.customersFacade.clearError();
     this.customersFacade.clearMutationStatus();
     this.showAddCustomerOverlay.set(true);
