@@ -43,7 +43,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
         var auth = CheckAuth();
         if (auth is not null) return auth;
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupStatusDto>>(
-            new GetShopSetupQuery(shopId, UserId!.Value, ActiveShopId), cancellationToken);
+            new GetShopSetupQuery(shopId, UserId!.Value, ActiveShopId) { Session = SessionClaims.TryRead(User) }, cancellationToken);
         return result.ToActionResult(Ok);
     }
 
@@ -54,7 +54,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
         var auth = CheckAuth();
         if (auth is not null) return auth;
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupSampleDto>>(
-            new GetShopSetupSampleQuery(shopId, UserId!.Value, ActiveShopId), cancellationToken);
+            new GetShopSetupSampleQuery(shopId, UserId!.Value, ActiveShopId) { Session = SessionClaims.TryRead(User) }, cancellationToken);
         return result.ToActionResult(Ok);
     }
 
@@ -65,7 +65,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
         var auth = CheckAuth();
         if (auth is not null) return auth;
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopSetupPreferencesDto>>(
-            new GetShopSetupPreferencesQuery(shopId, UserId!.Value, ActiveShopId), cancellationToken);
+            new GetShopSetupPreferencesQuery(shopId, UserId!.Value, ActiveShopId) { Session = SessionClaims.TryRead(User) }, cancellationToken);
         return result.ToActionResult(Ok);
     }
 
@@ -129,7 +129,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<ShopDetailsDto>>(
-            new GetShopDetailsQuery(UserId!.Value, shopId),
+            new GetShopDetailsQuery(UserId!.Value, shopId) { Session = SessionClaims.TryRead(User) },
             cancellationToken);
 
         return result.ToActionResult(Ok);

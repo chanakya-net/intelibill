@@ -1,6 +1,7 @@
 import enIN from '../../../../../public/assets/i18n/en-IN.json';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
+import { HttpErrorResponse } from '@angular/common/http';
 import { EMPTY, of, Subject, throwError } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { ExpiryPolicyFormComponent } from './expiry-policy-form.component';
@@ -200,3 +201,34 @@ function ready(catalogVersion: number, missingDateLots: number): ExpiryReadiness
     },
   };
 }
+
+describe('ExpiryPolicyFormComponent licence refusals', () => {
+  it.each([
+    ['Licence.SecuritySuspended', true],
+    ['Licence.TradingRestricted', false],
+  ])('reports %s from a save for its shop', (code, securitySuspended) => {
+    const { component, update } = setup('owner');
+    const refusals: unknown[] = [];
+    component.licenceRefused.subscribe((refusal) => refusals.push(refusal));
+    update.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 403, error: { code } })));
+    component.reason = 'Change';
+
+    component.save();
+
+    expect(refusals).toEqual([expect.objectContaining({ shopId: 'shop', securitySuspended })]);
+    expect(component.message()).not.toBe('expiry.saveFailed');
+  });
+
+  it('keeps an ordinary save failure local', () => {
+    const { component, update } = setup('owner');
+    const refusals: unknown[] = [];
+    component.licenceRefused.subscribe((refusal) => refusals.push(refusal));
+    update.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 500 })));
+    component.reason = 'Change';
+
+    component.save();
+
+    expect(refusals).toEqual([]);
+    expect(component.message()).toBe('expiry.saveFailed');
+  });
+});

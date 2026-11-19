@@ -26,6 +26,9 @@ internal sealed class ShopSetupAccessFixture
         fence.EnterAsync(Arg.Any<Guid>(), Arg.Any<LicenceAction>(), Arg.Any<CancellationToken>())
             .Returns(call => Task.FromResult<ErrorOr<ShopLicenceLease>>(
                 new ShopLicenceLease(call.Arg<Guid>(), null, null, null, new(LicenceOutcome.Allowed, false))));
+        Authority.TryLockUserAsync(Arg.Any<Guid>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(RowLockOutcome.Acquired);
+        Authority.TryLockMembershipAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(RowLockOutcome.Acquired);
+        Authority.TryLockShopAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(RowLockOutcome.NotFound);
         Access = new(UnitOfWork, Shops, Authority, Sessions, Scope, fence);
     }
 
@@ -43,7 +46,8 @@ internal sealed class ShopSetupAccessFixture
         Shops.GetActiveRoleAsync(user.Id, shopId, Arg.Any<CancellationToken>()).Returns(role);
         Shops.GetByIdAsync(shopId, Arg.Any<CancellationToken>()).Returns(shop);
         Shops.GetCurrentForSetupAsync(shopId, Arg.Any<CancellationToken>()).Returns(shop);
-        Authority.LockShopAsync(shopId, Arg.Any<CancellationToken>()).Returns(shop is not null);
+        Authority.TryLockShopAsync(shopId, Arg.Any<CancellationToken>())
+            .Returns(shop is not null ? RowLockOutcome.Acquired : RowLockOutcome.NotFound);
         Authority.LockMembershipAsync(shopId, user.Id, Arg.Any<CancellationToken>()).Returns(membership);
         return Session(user.Id, shopId);
     }

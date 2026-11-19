@@ -2,8 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { EMPTY, catchError, exhaustMap, from, map, of, switchMap } from 'rxjs';
 
-import { problemCode } from '@intelibill/api';
-import { setupLicenceError } from '../services/shop-setup-access';
+import { setupLicenceError, shopLicenceRefusal } from '../services/shop-setup-access';
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LeaveReadiness, ShopContextService } from '../../../core/context/shop-context.service';
@@ -339,7 +338,6 @@ function getShopMutationErrorMessage(
 
 
 function setupMutationRefusal(shopId: string, error?: ApiErrorPayload) {
-  const code = problemCode(error);
-  if (!setupLicenceError(error) || code === 'Licence.Busy') return {};
-  return { shopId, licenceRefused: true, securitySuspended: code === 'Licence.SecuritySuspended' };
+  const refusal = shopLicenceRefusal(shopId, error);
+  return refusal ? { shopId, licenceRefused: true, securitySuspended: refusal.securitySuspended } : {};
 }

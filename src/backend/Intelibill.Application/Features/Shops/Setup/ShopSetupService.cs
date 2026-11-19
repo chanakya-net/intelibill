@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Security;
 using ErrorOr;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Features.Shops.DTOs;
@@ -16,16 +17,33 @@ public sealed class ShopSetupService(
     ShopSetupSampleBuilder sampleBuilder,
     ShopSetupAccess access)
 {
-    public async Task<ErrorOr<ShopSetupStatusDto>> GetAsync(GetShopSetupQuery query, CancellationToken ct)
-    {
-        var evaluation = await EvaluateAsync(query.ShopId, query.ActorUserId, query.ActiveShopId, ct);
-        if (evaluation.IsError)
-            return evaluation.Errors;
+    public Task<ErrorOr<ShopSetupStatusDto>> GetAsync(GetShopSetupQuery query, CancellationToken ct) =>
+        ReadEvaluatedAsync<ShopSetupStatusDto>(query.ShopId, query.ActorUserId, query.ActiveShopId, query.Session,
+            async (result, token) => await ToStatusAsync(query.ShopId, result, token), ct);
 
-        var result = evaluation.Value;
-        var preferences = ShopSetupPreferencesDto.From(await preferenceRepository.GetAsync(query.ShopId, ct), result.Access.CanSavePreferences);
+    public async Task<ErrorOr<ShopSetupPreferencesDto>> GetPreferencesAsync(GetShopSetupPreferencesQuery query, CancellationToken ct)
+    {
+        var member = await GetMemberAsync(query.ShopId, query.ActorUserId, query.ActiveShopId, ct);
+        if (member is not { Role: ShopRole.Owner })
+            return ShopSetupErrors.OwnerRequired;
+        return await access.ReadAsync<ShopSetupPreferencesDto>(query.Session, query.ActorUserId, query.ShopId,
+            async (hint, token) =>
+            {
+                var current = await GetMemberAsync(query.ShopId, query.ActorUserId, query.ActiveShopId, token);
+                if (current is not { Role: ShopRole.Owner }) return ShopSetupErrors.OwnerRequired;
+                return ShopSetupPreferencesDto.From(await preferenceRepository.GetAsync(query.ShopId, token), hint.CanSavePreferences);
+            }, ct);
+    }
+
+    public Task<ErrorOr<ShopSetupSampleDto>> GetSampleAsync(GetShopSetupSampleQuery query, CancellationToken ct) =>
+        ReadEvaluatedAsync<ShopSetupSampleDto>(query.ShopId, query.ActorUserId, query.ActiveShopId, query.Session,
+            (result, _) => Task.FromResult(ToSample(result)), ct);
+
+    private async Task<ErrorOr<ShopSetupStatusDto>> ToStatusAsync(Guid shopId, Evaluation result, CancellationToken ct)
+    {
+        var preferences = ShopSetupPreferencesDto.From(await preferenceRepository.GetAsync(shopId, ct), result.Access.CanSavePreferences);
         var owner = result.Role == ShopRole.Owner;
-        return new ShopSetupStatusDto(query.ShopId, 1, result.CanTrade,
+        return new ShopSetupStatusDto(shopId, 1, result.CanTrade,
             [
                 RequiredStep("identity", result.IdentityReason),
                 RequiredStep("business", result.BusinessReason),
@@ -41,27 +59,8 @@ public sealed class ShopSetupService(
             preferences) { SetupAccess = result.Access };
     }
 
-    public async Task<ErrorOr<ShopSetupPreferencesDto>> GetPreferencesAsync(GetShopSetupPreferencesQuery query, CancellationToken ct)
+    private static ErrorOr<ShopSetupSampleDto> ToSample(Evaluation result)
     {
-        var member = await GetMemberAsync(query.ShopId, query.ActorUserId, query.ActiveShopId, ct);
-        if (member is not { Role: ShopRole.Owner })
-            return ShopSetupErrors.OwnerRequired;
-        return await access.ReadAsync<ShopSetupPreferencesDto>(query.ActorUserId, query.ShopId,
-            async (hint, token) =>
-            {
-                var current = await GetMemberAsync(query.ShopId, query.ActorUserId, query.ActiveShopId, token);
-                if (current is not { Role: ShopRole.Owner }) return ShopSetupErrors.OwnerRequired;
-                return ShopSetupPreferencesDto.From(await preferenceRepository.GetAsync(query.ShopId, token), hint.CanSavePreferences);
-            }, ct);
-    }
-
-    public async Task<ErrorOr<ShopSetupSampleDto>> GetSampleAsync(GetShopSetupSampleQuery query, CancellationToken ct)
-    {
-        var evaluation = await EvaluateAsync(query.ShopId, query.ActorUserId, query.ActiveShopId, ct);
-        if (evaluation.IsError)
-            return evaluation.Errors;
-
-        var result = evaluation.Value;
         if (result.CanTrade && result.Sample is { } sample)
             return sample;
 
@@ -73,15 +72,22 @@ public sealed class ShopSetupService(
         return errors;
     }
 
-    private async Task<ErrorOr<Evaluation>> EvaluateAsync(Guid shopId, Guid actor, Guid? activeShopId, CancellationToken ct)
+    private async Task<ErrorOr<T>> ReadEvaluatedAsync<T>(Guid shopId, Guid actor, Guid? activeShopId, SessionClaims? session,
+        Func<Evaluation, CancellationToken, Task<ErrorOr<T>>> project, CancellationToken ct)
     {
-        if (await GetMemberAsync(shopId, actor, activeShopId, ct) is not { } membership)
+        if (await GetMemberAsync(shopId, actor, activeShopId, ct) is null)
             return ShopSetupErrors.Forbidden;
 
-        var hint = await access.ReadAsync<ShopSetupAccessDto>(actor, shopId,
-            (value, _) => Task.FromResult<ErrorOr<ShopSetupAccessDto>>(value), ct);
-        if (hint.IsError) return hint.Errors;
+        return await access.ReadAsync<T>(session, actor, shopId, async (hint, token) =>
+        {
+            if (await GetMemberAsync(shopId, actor, activeShopId, token) is not { } membership)
+                return ShopSetupErrors.Forbidden;
+            return await project(await EvaluateAsync(shopId, actor, membership, hint, token), token);
+        }, ct);
+    }
 
+    private async Task<Evaluation> EvaluateAsync(Guid shopId, Guid actor, ShopSetupMember membership, ShopSetupAccessDto hint, CancellationToken ct)
+    {
         var shop = membership.Shop;
         var facts = await readRepository.GetFactsAsync(shopId, ct);
         var seller = CaptureSellerProfile(shop);
@@ -98,7 +104,7 @@ public sealed class ShopSetupService(
 
         var blocking = new[] { identityReason, businessReason, taxReason, catalogReason, candidates.Sample is null ? stockReason : null }
             .OfType<string>().Distinct(StringComparer.Ordinal).ToArray();
-        return new Evaluation(membership.Role, hint.Value, facts.HasBankDetails, !facts.HasActiveGoods && facts.HasActiveServices,
+        return new Evaluation(membership.Role, hint, facts.HasBankDetails, !facts.HasActiveGoods && facts.HasActiveServices,
             identityReason, businessReason, taxReason, catalogReason, stockReason, blocking, candidates.Sample);
     }
 

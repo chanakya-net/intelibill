@@ -142,4 +142,63 @@ describe('shopsReducer', () => {
     expect(next.lastMutationType).toBeNull();
     expect(next.lastMutationSucceeded).toBe(false);
   });
+
+  describe('detail reads overtaken by a licence refusal', () => {
+    const detailB: ShopDetails = { ...detailA, shopId: 'sh2', name: 'Shop B' };
+    const access = { contractVersion: 1, shopId: 'sh1', enforced: true, status: 'Active', writableProfileFields: ['name'],
+      canPrepareTax: true, canSavePreferences: true, canEditOperatingSettings: true, hasOperatingAccess: true,
+      canCreateAdditionalShop: true } as const;
+    const saved: ShopDetails = { ...detailA, setupAccess: access };
+    const refusal = { shopId: 'sh1', securitySuspended: true, errorMessage: 'security' };
+    const opened = shopsReducer(initial, ShopsActions.loadShopDetailsSucceeded({ details: saved }));
+    const pending = shopsReducer(opened, ShopsActions.loadShopDetailsRequested({ shopId: 'sh1' }));
+
+    it('keeps a security-refused shop absent when the earlier read answers late', () => {
+      const refused = shopsReducer(pending, ShopsActions.shopLicenceRefused(refusal));
+      expect(refused.detailsById['sh1']).toBeUndefined();
+
+      const late = shopsReducer(refused, ShopsActions.loadShopDetailsSucceeded({ details: saved }));
+      expect(late.detailsById['sh1']).toBeUndefined();
+      expect(late.errorMessage).toBe('security');
+      expect(late.loadingDetails).toBe(false);
+    });
+
+    it('applies the same rule to a refusal from a shop mutation', () => {
+      const refused = shopsReducer(pending, ShopsActions.updateShopFailed({
+        errorMessage: 'security', shopId: 'sh1', licenceRefused: true, securitySuspended: true,
+      }));
+      const late = shopsReducer(refused, ShopsActions.loadShopDetailsSucceeded({ details: saved }));
+      expect(late.detailsById['sh1']).toBeUndefined();
+    });
+
+    it('does not let an earlier read restore permissions after a trading refusal', () => {
+      const refused = shopsReducer(pending, ShopsActions.shopLicenceRefused({ ...refusal, securitySuspended: false }));
+      expect(refused.detailsById['sh1']?.setupAccess).toBeNull();
+
+      const late = shopsReducer(refused, ShopsActions.loadShopDetailsSucceeded({ details: saved }));
+      expect(late.detailsById['sh1']?.setupAccess).toBeNull();
+    });
+
+    it('accepts a read requested after the refusal', () => {
+      const refused = shopsReducer(pending, ShopsActions.shopLicenceRefused(refusal));
+      const requested = shopsReducer(refused, ShopsActions.loadShopDetailsRequested({ shopId: 'sh1' }));
+      const fresh = shopsReducer(requested, ShopsActions.loadShopDetailsSucceeded({ details: saved }));
+      expect(fresh.detailsById['sh1']).toEqual(saved);
+      expect(fresh.errorMessage).toBe('');
+    });
+
+    it('still accepts results for an unrelated shop', () => {
+      const refused = shopsReducer(pending, ShopsActions.shopLicenceRefused(refusal));
+      const other = shopsReducer(refused, ShopsActions.loadShopDetailsSucceeded({ details: detailB }));
+      expect(other.detailsById['sh2']).toEqual(detailB);
+      expect(other.detailsById['sh1']).toBeUndefined();
+    });
+
+    it('leaves a read for another shop untouched by the refusal', () => {
+      const other = shopsReducer(opened, ShopsActions.loadShopDetailsRequested({ shopId: 'sh2' }));
+      const refused = shopsReducer(other, ShopsActions.shopLicenceRefused(refusal));
+      const answered = shopsReducer(refused, ShopsActions.loadShopDetailsSucceeded({ details: detailB }));
+      expect(answered.detailsById['sh2']).toEqual(detailB);
+    });
+  });
 });

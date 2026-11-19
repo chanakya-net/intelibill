@@ -50,6 +50,7 @@ public sealed class ShopTillSettingsService(ITillRepository tills, IShopReposito
         if (actorLock != RowLockOutcome.Acquired) return actorLock == RowLockOutcome.TimedOut ? TillErrors.Busy : TillErrors.Forbidden;
         var locked = await tills.LockCatalogAsync(command.ShopId, ct);
         if (locked != RowLockOutcome.Acquired) return locked == RowLockOutcome.TimedOut ? TillErrors.Busy : TillErrors.NotFound;
+        if (await authority.TryLockMembershipAsync(command.ShopId, command.ActorUserId, ct) == RowLockOutcome.TimedOut) return TillErrors.Busy;
         var membership = await authority.LockMembershipAsync(command.ShopId, command.ActorUserId, ct);
         var actor = await authority.FindUserAsync(command.ActorUserId, ct);
         if (membership is not { IsActive: true, Role: ShopRole.Owner } || actor is not { IsLoginEnabled: true }) return TillErrors.Forbidden;

@@ -11,7 +11,7 @@ public sealed class GetShopDetailsQueryHandler(ShopSetupAccess access, IShopRepo
 {
     [LicenceAction(LicenceAction.History)]
     public Task<ErrorOr<ShopDetailsDto>> HandleAsync(GetShopDetailsQuery query, CancellationToken ct) =>
-        access.ReadAsync<ShopDetailsDto>(query.UserId, query.ShopId, async (hint, token) =>
+        access.ReadAsync<ShopDetailsDto>(query.Session, query.UserId, query.ShopId, async (hint, token) =>
         {
             var shop = await shops.GetByIdAsync(query.ShopId, token);
             if (shop is null) return Errors.Shop.ShopNotFound;

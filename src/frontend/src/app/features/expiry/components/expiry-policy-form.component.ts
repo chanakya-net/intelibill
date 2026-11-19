@@ -1,4 +1,5 @@
-import { Component, Input, OnChanges, OnDestroy, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
@@ -9,6 +10,7 @@ import { TextareaModule } from 'primeng/textarea';
 import { Subscription, forkJoin } from 'rxjs';
 import { ExpiryPolicyService, type ExpiryReadiness } from '../services/expiry-policy.service';
 import type { ExpiryPolicySettings, ExpiryPolicyState } from '../services/expiry.models';
+import { shopLicenceRefusal, type ShopLicenceRefusal } from '../../shops/services/shop-setup-access';
 @Component({
   selector: 'app-expiry-policy-form',
   standalone: true,
@@ -29,6 +31,7 @@ export class ExpiryPolicyFormComponent implements OnChanges, OnDestroy {
   @Input() shopId = '';
   @Input() itemId?: string;
   @Input() canEdit = false;
+  @Output() readonly licenceRefused = new EventEmitter<ShopLicenceRefusal>();
   readonly state = signal<ExpiryPolicyState | null>(null);
   readonly readiness = signal<ExpiryReadiness | null>(null);
   readonly readinessBusy = signal(false);
@@ -176,11 +179,13 @@ export class ExpiryPolicyFormComponent implements OnChanges, OnDestroy {
           this.busy.set(false);
           this.message.set('expiry.saved');
         },
-        error: () => {
+        error: (error: unknown) => {
           if (!this.isCurrent(generation)) return;
           this.busy.set(false);
-          this.message.set('expiry.saveFailed');
+          const refusal = error instanceof HttpErrorResponse ? shopLicenceRefusal(this.shopId, error.error) : null;
+          this.message.set(refusal?.errorMessage ?? 'expiry.saveFailed');
           if (!this.itemId) this.readinessError.set('expiry.readinessFailed');
+          if (refusal) this.licenceRefused.emit(refusal);
         },
       });
   }

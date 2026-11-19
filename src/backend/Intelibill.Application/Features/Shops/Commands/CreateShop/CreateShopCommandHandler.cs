@@ -22,7 +22,6 @@ public sealed class CreateShopCommandHandler(
     TimeProvider timeProvider,
     IExpiryPolicyRepository expiryPolicies,
     IShopSetupPreferencesRepository setupPreferences,
-    IMembershipAuthorityRepository authority,
     ShopSetupAccess access)
 {
     [LicenceAction(LicenceAction.OperationalCapacity)]
@@ -86,7 +85,7 @@ public sealed class CreateShopCommandHandler(
             source = licence.Value;
         }
 
-        await authority.LockUsersAsync([command.UserId], ct);
+        if (await access.LockActorAsync(command.UserId, forShare: false, ct) is { } busy) return busy;
         if (!await access.IsLiveAsync(session, command.UserId, ct)) return Errors.Auth.SessionInvalidated;
         if (source is { } lease)
         {

@@ -165,4 +165,37 @@ describe('ShopTillSettingsComponent', () => {
     expect(component.error()).toBe('tills.settings.changed');
     expect(component.editing()).toBe(false);
   });
+
+  it.each([
+    ['Licence.SecuritySuspended', true],
+    ['Licence.TradingRestricted', false],
+  ])('reports %s from a save instead of a generic failure', (code, securitySuspended) => {
+    const { component } = setup();
+    const refusals: unknown[] = [];
+    component.licenceRefused.subscribe((refusal) => refusals.push(refusal));
+    api.update.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 403, error: { code } })));
+    component.beginChange();
+    component.reason = 'Change';
+    component.confirmed = true;
+
+    component.save();
+
+    expect(refusals).toEqual([expect.objectContaining({ shopId: 'shop-a', securitySuspended })]);
+    expect(component.error()).not.toBe('tills.settings.saveFailed');
+    expect(component.uncertain()).toBe(false);
+  });
+
+  it('keeps contention retryable without reporting a refusal', () => {
+    const { component } = setup();
+    const refusals: unknown[] = [];
+    component.licenceRefused.subscribe((refusal) => refusals.push(refusal));
+    api.update.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 409, error: { code: 'Licence.Busy' } })));
+    component.beginChange();
+    component.reason = 'Change';
+    component.confirmed = true;
+
+    component.save();
+
+    expect(refusals).toEqual([]);
+  });
 });

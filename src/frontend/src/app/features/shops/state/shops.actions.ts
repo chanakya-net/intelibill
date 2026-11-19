@@ -56,6 +56,9 @@ export const ShopsActions = createActionGroup({
     'Update Shop Tax Profile Succeeded': props<{ details: ShopDetails }>(),
     'Update Shop Tax Profile Failed': props<{ errorMessage: string; shopId?: string; licenceRefused?: boolean; securitySuspended?: boolean }>(),
 
+    // A settings form that saves on its own learned that this shop's access has changed.
+    'Shop Licence Refused': props<{ shopId: string; securitySuspended: boolean; errorMessage: string }>(),
+
     'Clear Error': emptyProps(),
     'Clear Mutation Status': emptyProps(),
   },

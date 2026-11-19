@@ -3,6 +3,8 @@ import { ShopTillSettingsService } from '../services/shop-till-settings.service'
 import { knownExpiryPolicyProviders } from '../../../../tests/expiry/expiry-policy.providers';
 import { signal, Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { provideRouter } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
@@ -122,6 +124,7 @@ describe('ManageShopOverlayComponent', () => {
     TestBed.configureTestingModule({
       imports: [ManageShopOverlayComponent, TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true })],
       providers: [
+        provideRouter([]),
         ...knownExpiryPolicyProviders(),
         { provide: ShopTillSettingsService, useValue: { activeShopId: () => 'shop-1', scopeIdentity: () => 'owner:shop-1:1', role: () => 'owner', read: () => of({ shopId: 'shop-1', available: false, enabled: false, version: 0, openSessionCount: 0, awaitingReviewCount: 0, pendingOfflineCount: 0 }) } },
         { provide: Store, useValue: store },
@@ -306,6 +309,55 @@ describe('ManageShopOverlayComponent', () => {
     expect(fixture.nativeElement.querySelector('app-shop-tax-profile-form .tax-profile-warning')).not.toBeNull();
     // The GSTIN is edited with the tax profile, where it is checked against the state.
     expect(fixture.nativeElement.querySelector('app-shop-basic-info-form #shop-gst')).toBeNull();
+  });
+
+  function restrictedAccess(shopId: string, overrides: Partial<NonNullable<ShopDetailsDto['setupAccess']>>) {
+    return { ...baseDetails().setupAccess!, shopId, ...overrides };
+  }
+
+  function selectManagedShop(component: ManageShopOverlayComponent, shopId: string): void {
+    component.form.controls.shopId.setValue(shopId);
+    component.onShopSelectionChange();
+  }
+
+  it.each([
+    ['operating', { status: 'Active', enforced: true }],
+    ['observe-only', { status: 'ObserveOnly', enforced: false }],
+  ])('keeps the saved tax profile readable for a manager in an %s shop', (_name, phase) => {
+    const { component, fixture } = setup();
+    selectedDetailsSignal.set({
+      ...baseDetails(), shopId: 'shop-2',
+      taxProfile: { legalName: 'Branch', stateCode: '29', taxRegime: 'Regular', invoiceSeriesCode: 'B', eInvoiceStatus: 'NotAttested', eInvoiceAttestedAt: null },
+      setupAccess: restrictedAccess('shop-2', { ...phase, writableProfileFields: [], canPrepareTax: false,
+        canSavePreferences: false, canEditOperatingSettings: false }),
+    });
+    selectManagedShop(component, 'shop-2');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-shop-tax-profile-form')).not.toBeNull();
+    expect(component.canEditTax()).toBe(false);
+    dispatch.mockClear();
+    component.onSaveTaxProfile({ stateCode: '29', taxRegime: 'Regular', eInvoiceStatus: 'NotAttested' } as never);
+    expect(dispatch.mock.calls.map(([action]) => action.type)).not.toContain(ShopsActions.updateShopTaxProfileRequested.type);
+  });
+
+  it('keeps the narrow recovery layout for an owner', () => {
+    selectedDetailsSignal.set({ ...baseDetails(), setupAccess: restrictedAccess('shop-1', {
+      status: 'TradingRestricted', enforced: true, writableProfileFields: ['name', 'contactPerson', 'mobileNumber'],
+      canPrepareTax: false, canSavePreferences: false, canEditOperatingSettings: false, hasOperatingAccess: false }) });
+    const { fixture } = setup();
+
+    expect(fixture.nativeElement.querySelector('app-shop-tax-profile-form')).toBeNull();
+  });
+
+  it.each(['app-expiry-policy-form', 'app-shop-till-settings'])('reports a licence refusal from %s for its shop', (selector) => {
+    const { fixture } = setup();
+    const refusal = { shopId: 'shop-1', securitySuspended: true, errorMessage: 'security' };
+    dispatch.mockClear();
+
+    fixture.debugElement.query(By.css(selector)).triggerEventHandler('licenceRefused', refusal);
+
+    expectDispatched(ShopsActions.shopLicenceRefused(refusal));
   });
 
   it('saves bank details and advances to step 3', () => {

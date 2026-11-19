@@ -21,9 +21,20 @@ public sealed record ShopSetupPreferencesDto(int Version, bool ShowOnStartup, Da
         { CanSavePreferences = canSave };
 }
 
-public sealed record GetShopSetupQuery(Guid ShopId, Guid ActorUserId, Guid? ActiveShopId);
-public sealed record GetShopSetupPreferencesQuery(Guid ShopId, Guid ActorUserId, Guid? ActiveShopId);
-public sealed record GetShopSetupSampleQuery(Guid ShopId, Guid ActorUserId, Guid? ActiveShopId);
+public sealed record GetShopSetupQuery(Guid ShopId, Guid ActorUserId, Guid? ActiveShopId)
+{
+    public SessionClaims? Session { get; init; }
+}
+
+public sealed record GetShopSetupPreferencesQuery(Guid ShopId, Guid ActorUserId, Guid? ActiveShopId)
+{
+    public SessionClaims? Session { get; init; }
+}
+
+public sealed record GetShopSetupSampleQuery(Guid ShopId, Guid ActorUserId, Guid? ActiveShopId)
+{
+    public SessionClaims? Session { get; init; }
+}
 
 public sealed record ShopSetupStatusDto(Guid ShopId, int ContractVersion, bool CanTrade,
     IReadOnlyList<ShopSetupStepDto> Steps, IReadOnlyList<string> BlockingReasons,

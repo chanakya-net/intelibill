@@ -70,12 +70,12 @@
                 }
               </form>
 
-              @if (details() && setupAccess()?.canPrepareTax !== false) {
+              @if (showTaxProfile()) {
                 <app-shop-tax-profile-form [details]="details()" [canEdit]="canEditTax()" [disabled]="isSubmitting() || isLoadingDetails()" [submitting]="isTaxProfilePending()" [errorMessage]="taxProfileError()" [saved]="taxProfileSaved()" (saveRequested)="onSaveTaxProfile($event)"></app-shop-tax-profile-form>
               }
               @if (setupAccess()?.hasOperatingAccess && isSelectedShopOwnerOrManager()) {
-                <app-expiry-policy-form [shopId]="selectedShopId()" [canEdit]="canEditOperating()" />
-                <app-shop-till-settings [shopId]="selectedShopId()" [canEdit]="canEditOperating()" [disabled]="isSubmitting() || isLoadingDetails()" (navigateRequested)="onClose()" />
+                <app-expiry-policy-form [shopId]="selectedShopId()" [canEdit]="canEditOperating()" (licenceRefused)="onOperatingSettingsRefused($event)" />
+                <app-shop-till-settings [shopId]="selectedShopId()" [canEdit]="canEditOperating()" [disabled]="isSubmitting() || isLoadingDetails()" (navigateRequested)="onClose()" (licenceRefused)="onOperatingSettingsRefused($event)" />
               }
               <div class="overlay-actions flex pt-4 justify-end gap-2">
                 @if (!canEditOperating() && setupAccess() && isSelectedShopOwnerOrManager()) {

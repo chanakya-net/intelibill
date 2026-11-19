@@ -59,10 +59,12 @@ public sealed class ExpiryPolicyService(IExpiryPolicyRepository policies, IShopR
         {
             var lease = await access.EnterAsync(shopId, LicenceAction.OperationalCapacity, ct);
             if (lease.IsError) return lease.Errors;
-            var locked = await fence.AcquireAsync(shopId, true, ct);
-            if (locked.IsError) return locked.Errors;
+            // Sign-out, rescope, account and role changes all lock this row, so they serialize with the write.
+            if (await access.LockActorAsync(actor, forShare: true, ct) is not null) return Errors.Expiry.PolicyBusy;
             if (!await access.IsLiveAsync(session, actor, ct) ||
                 await shops.GetActiveRoleAsync(actor, shopId, ct) != ShopRole.Owner) return Errors.Expiry.OwnerRequired;
+            var locked = await fence.AcquireAsync(shopId, true, ct);
+            if (locked.IsError) return locked.Errors;
             if (ShopSetupAccess.Denial(lease.Value.CurrentDecision()) is { } denial) return denial;
 
             var result = await UpdateLockedAsync(shopId, actor, itemId, request, lease.Value, ct);

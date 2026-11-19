@@ -16,3 +16,9 @@ Profile PUT keeps its existing full-input contract. The server compares normaliz
 Security suspension blocks affected setup and profile access. Existing billing and identity endpoints continue to enforce their own authorities. The setup checklist's `canTrade` describes saved prerequisites. The setup UI also requires `hasOperatingAccess` before offering a new sale. Each source transaction makes the final decision. An owner can leave the checklist without saving a preference.
 
 The policy uses local merchant projections with existing enforcement enrollment. Setup writes create no coverage, activate no trials and confer no posting authority. The release browser spec uses local API fixtures, while `P0408dLicensingTests` exercises merchant HTTP and PostgreSQL separately.
+
+Detail, setup status, sample and preference reads require the caller's live session and an active membership in the requested shop. They load protected data inside the transaction that holds the shared licence fence, so a security suspension either commits first and refuses the read, or waits until the read finishes. Expiry policy writes hold the actor's account row through commit, so sign-out, rescope and role changes serialize with them.
+
+Setup writers and additional-shop creation wait at most three seconds for the actor, shop and membership rows while the licence fence is held. Contention answers 409 `Licence.Busy`, writes nothing and releases the fence, and the same request can be retried.
+
+In the merchant web app, a licence refusal from any shop setting or sample request applies to that shop. A security refusal removes its details, receipt and print action. A trading refusal withdraws operating permissions until a fresh read. A detail read that started before either refusal cannot restore them. Members other than the owner keep the read-only tax profile.

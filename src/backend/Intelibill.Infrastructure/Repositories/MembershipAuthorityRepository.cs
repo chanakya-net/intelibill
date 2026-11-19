@@ -10,6 +10,9 @@ namespace Intelibill.Infrastructure.Repositories;
 internal sealed class MembershipAuthorityRepository(ApplicationDbContext db, IUnitOfWork unitOfWork)
     : IMembershipAuthorityRepository
 {
+    private const string LockBudget = "3s";
+    private const string LockSavepoint = "membership_authority_lock";
+
     public async Task<IAsyncDisposable> BeginAsync(CancellationToken ct) =>
         await db.Database.BeginTransactionAsync(ct);
 
@@ -42,6 +45,41 @@ internal sealed class MembershipAuthorityRepository(ApplicationDbContext db, IUn
         return await db.ShopMemberships
             .Include(sm => sm.User)
             .FirstOrDefaultAsync(sm => sm.ShopId == shopId && sm.UserId == userId, ct);
+    }
+
+    public Task<RowLockOutcome> TryLockUserAsync(Guid userId, bool forShare, CancellationToken ct) =>
+        forShare
+            ? WithinBudgetAsync($"SELECT id AS \"Value\" FROM users WHERE id = {userId} FOR SHARE", ct)
+            : WithinBudgetAsync($"SELECT id AS \"Value\" FROM users WHERE id = {userId} FOR UPDATE", ct);
+
+    public Task<RowLockOutcome> TryLockShopAsync(Guid shopId, CancellationToken ct) =>
+        WithinBudgetAsync($"SELECT id AS \"Value\" FROM shops WHERE id = {shopId} FOR UPDATE", ct);
+
+    public Task<RowLockOutcome> TryLockMembershipAsync(Guid shopId, Guid userId, CancellationToken ct) =>
+        WithinBudgetAsync(
+            $"SELECT id AS \"Value\" FROM shop_memberships WHERE shop_id = {shopId} AND user_id = {userId} FOR UPDATE", ct);
+
+    private async Task<RowLockOutcome> WithinBudgetAsync(FormattableString lockQuery, CancellationToken ct)
+    {
+        var transaction = db.Database.CurrentTransaction
+            ?? throw new InvalidOperationException("Authority row locks require an open transaction.");
+        var previous = await db.Database.SqlQuery<string>($"SELECT current_setting('lock_timeout') AS \"Value\"").SingleAsync(ct);
+        await transaction.CreateSavepointAsync(LockSavepoint, ct);
+        try
+        {
+            await db.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {LockBudget}, true)", ct);
+            var rows = await db.Database.SqlQuery<Guid>(lockQuery).ToListAsync(ct);
+            await db.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {previous}, true)", ct);
+            await transaction.ReleaseSavepointAsync(LockSavepoint, ct);
+            return rows.Count == 0 ? RowLockOutcome.NotFound : RowLockOutcome.Acquired;
+        }
+        catch (Exception error) when (error.GetBaseException() is PostgresException { SqlState: PostgresErrorCodes.LockNotAvailable })
+        {
+            // Rolling back to the savepoint also restores the caller's lock timeout.
+            await transaction.RollbackToSavepointAsync(LockSavepoint, CancellationToken.None);
+            await transaction.ReleaseSavepointAsync(LockSavepoint, CancellationToken.None);
+            return RowLockOutcome.TimedOut;
+        }
     }
 
     public Task<User?> FindUserAsync(Guid userId, CancellationToken ct) =>

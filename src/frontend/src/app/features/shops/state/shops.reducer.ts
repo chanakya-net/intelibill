@@ -12,6 +12,8 @@ export interface ShopsState {
   readonly detailsById: Readonly<Record<string, ShopDetails>>;
   readonly loadingShops: boolean;
   readonly loadingDetails: boolean;
+  /** The detail read in flight. The effect keeps at most one, so a newer request replaces it. */
+  readonly detailsRead: { readonly shopId: string; readonly overtaken: boolean } | null;
   readonly submitting: boolean;
   readonly errorMessage: string;
   readonly lastMutationType: ShopMutationType | null;
@@ -24,6 +26,7 @@ const initialState: ShopsState = {
   detailsById: {},
   loadingShops: false,
   loadingDetails: false,
+  detailsRead: null,
   submitting: false,
   errorMessage: '',
   lastMutationType: null,
@@ -54,25 +57,35 @@ export const shopsReducer = createReducer(
     selectedShopId: shopId,
   })),
 
-  on(ShopsActions.loadShopDetailsRequested, (state) => ({
+  on(ShopsActions.loadShopDetailsRequested, (state, { shopId }) => ({
     ...state,
     loadingDetails: true,
     errorMessage: '',
+    detailsRead: { shopId, overtaken: false },
   })),
-  on(ShopsActions.loadShopDetailsSucceeded, (state, { details }) => ({
-    ...state,
-    loadingDetails: false,
-    errorMessage: '',
-    detailsById: {
-      ...state.detailsById,
-      [details.shopId]: details,
-    },
-  })),
+  on(ShopsActions.loadShopDetailsSucceeded, (state, { details }) => isOvertakenRead(state, details.shopId)
+    ? { ...state, loadingDetails: false, detailsRead: null }
+    : {
+        ...state,
+        loadingDetails: false,
+        errorMessage: '',
+        detailsRead: state.detailsRead?.shopId === details.shopId ? null : state.detailsRead,
+        detailsById: {
+          ...state.detailsById,
+          [details.shopId]: details,
+        },
+      }),
   on(ShopsActions.loadShopDetailsFailed, (state, { errorMessage, shopId }) => ({
     ...state,
     loadingDetails: false,
-    errorMessage,
+    errorMessage: shopId && isOvertakenRead(state, shopId) ? state.errorMessage : errorMessage,
+    detailsRead: !shopId || state.detailsRead?.shopId === shopId ? null : state.detailsRead,
     detailsById: shopId ? withoutDetails(state.detailsById, shopId) : state.detailsById,
+  })),
+  on(ShopsActions.shopLicenceRefused, (state, { shopId, securitySuspended, errorMessage }) => ({
+    ...state,
+    ...afterLicenceRefusal(state, shopId, true, securitySuspended),
+    errorMessage,
   })),
 
   on(ShopsActions.createShopRequested, (state) => ({
@@ -119,7 +132,7 @@ export const shopsReducer = createReducer(
     ...state,
     submitting: false,
     errorMessage,
-    detailsById: invalidateSetupAccess(state.detailsById, shopId, licenceRefused, securitySuspended),
+    ...afterLicenceRefusal(state, shopId, licenceRefused, securitySuspended),
     lastMutationType: 'update',
     lastMutationSucceeded: false,
   })),
@@ -190,7 +203,7 @@ export const shopsReducer = createReducer(
     ...state,
     submitting: false,
     errorMessage,
-    detailsById: invalidateSetupAccess(state.detailsById, shopId, licenceRefused, securitySuspended),
+    ...afterLicenceRefusal(state, shopId, licenceRefused, securitySuspended),
     lastMutationType: 'update-bank-details' as const,
     lastMutationSucceeded: false,
   })),
@@ -217,7 +230,7 @@ export const shopsReducer = createReducer(
     ...state,
     submitting: false,
     errorMessage,
-    detailsById: invalidateSetupAccess(state.detailsById, shopId, licenceRefused, securitySuspended),
+    ...afterLicenceRefusal(state, shopId, licenceRefused, securitySuspended),
     lastMutationType: 'update-tax-profile' as const,
     lastMutationSucceeded: false,
   })),
@@ -246,9 +259,24 @@ function withoutDetails(details: ShopsState['detailsById'], shopId: string): Sho
   return remaining;
 }
 
-function invalidateSetupAccess(details: ShopsState['detailsById'], shopId?: string,
-  refused?: boolean, security?: boolean): ShopsState['detailsById'] {
-  if (!shopId || !refused || !details[shopId]) return details;
+function isOvertakenRead(state: ShopsState, shopId: string): boolean {
+  return state.detailsRead?.shopId === shopId && state.detailsRead.overtaken;
+}
+
+/** Drops what the refusal outdated, including whatever a read already in flight would bring back. */
+function afterLicenceRefusal(state: ShopsState, shopId?: string, refused?: boolean,
+  security?: boolean): Pick<ShopsState, 'detailsById' | 'detailsRead'> {
+  const { detailsById, detailsRead } = state;
+  if (!shopId || !refused) return { detailsById, detailsRead };
+  return {
+    detailsById: invalidateSetupAccess(detailsById, shopId, security),
+    detailsRead: detailsRead?.shopId === shopId ? { shopId, overtaken: true } : detailsRead,
+  };
+}
+
+function invalidateSetupAccess(details: ShopsState['detailsById'], shopId: string,
+  security?: boolean): ShopsState['detailsById'] {
+  if (!details[shopId]) return details;
   if (security) return withoutDetails(details, shopId);
   return { ...details, [shopId]: { ...details[shopId], setupAccess: null } };
 }

@@ -28,10 +28,11 @@ public class GetShopDetailsQueryHandlerTests
     public async Task HandleAsync_WhenMembershipNotFound_ReturnsError()
     {
         var user = User.CreateWithEmail("user@test.com", "pass", "Test", "User");
+        var session = _setup.Session(user.Id);
 
-        var result = await Handler().HandleAsync(new GetShopDetailsQuery(user.Id, Guid.NewGuid()), CancellationToken.None);
+        var result = await Handler().HandleAsync(new GetShopDetailsQuery(user.Id, Guid.NewGuid()) { Session = session }, CancellationToken.None);
 
-        Assert.True(result.IsError);
+        Assert.Equal("Shop.MembershipNotFound", result.FirstError.Code);
     }
 
     [Fact]
@@ -44,9 +45,10 @@ public class GetShopDetailsQueryHandlerTests
         user.AddShopMembership(membership);
 
         _setup.Shops.GetActiveRoleAsync(userId, shopId, Arg.Any<CancellationToken>()).Returns(ShopRole.Owner);
+        var session = _setup.Session(userId, shopId);
 
-        var result = await Handler().HandleAsync(new GetShopDetailsQuery(userId, shopId), CancellationToken.None);
+        var result = await Handler().HandleAsync(new GetShopDetailsQuery(userId, shopId) { Session = session }, CancellationToken.None);
 
-        Assert.True(result.IsError);
+        Assert.Equal("Shop.ShopNotFound", result.FirstError.Code);
     }
 }

@@ -19,7 +19,7 @@ import { OfflineSalesDeviceEnablementService } from '../../sales/services/offlin
 import { OfflinePackService } from '../../../core/service-worker/offline-pack.service';
 import { LocaleInstantPipe } from '../../../shared/pipes/locale-instant.pipe';
 import { UpdateShopRequest, UpdateShopTaxProfileRequest } from '../services/shop.service';
-import { shopSetupAccessFor, shopSetupStatusKey } from '../services/shop-setup-access';
+import { shopSetupAccessFor, shopSetupStatusKey, type ShopLicenceRefusal } from '../services/shop-setup-access';
 import { ShopsActions } from '../state/shops.actions';
 import {
   selectSelectedShopDetails,
@@ -87,6 +87,9 @@ export class ManageShopOverlayComponent implements OnInit {
   readonly canEditProfile = computed(() => this.isSelectedShopOwner() &&
     !!this.setupAccess()?.writableProfileFields.length);
   readonly canEditTax = computed(() => this.isSelectedShopOwner() && this.setupAccess()?.canPrepareTax === true);
+  /** Other members keep their read-only view. An owner in recovery sees only what they may correct. */
+  readonly showTaxProfile = computed(() => !!this.details() &&
+    (!this.isSelectedShopOwner() || this.setupAccess()?.canPrepareTax !== false));
   readonly canEditOperating = computed(() => this.isSelectedShopOwner() &&
     this.setupAccess()?.canEditOperatingSettings === true);
   readonly activeStep = signal(1);
@@ -309,6 +312,11 @@ export class ManageShopOverlayComponent implements OnInit {
     this.store.dispatch(ShopsActions.clearMutationStatus());
     this.isTaxProfilePending.set(true);
     this.store.dispatch(ShopsActions.updateShopTaxProfileRequested({ shopId, payload }));
+  }
+
+  onOperatingSettingsRefused(refusal: ShopLicenceRefusal): void {
+    this.store.dispatch(ShopsActions.clearMutationStatus());
+    this.store.dispatch(ShopsActions.shopLicenceRefused({ ...refusal }));
   }
 
   onSkipBankDetails(): void {
