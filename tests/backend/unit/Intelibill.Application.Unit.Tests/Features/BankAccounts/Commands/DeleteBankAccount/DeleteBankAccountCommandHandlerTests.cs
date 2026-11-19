@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Features.Shops;
 using ErrorOr;
 using Intelibill.Application.Features.BankAccounts.Commands.DeleteBankAccount;
 using Intelibill.Domain.Entities;
@@ -11,7 +12,8 @@ namespace Intelibill.Application.Unit.Tests.Features.BankAccounts.Commands.Delet
 public class DeleteBankAccountCommandHandlerTests
 {
     private readonly IBankAccountRepository _bankAccountRepository = Substitute.For<IBankAccountRepository>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly ShopSetupAccessFixture _setup = new();
+    private IUnitOfWork _unitOfWork => _setup.UnitOfWork;
 
     [Fact]
     public async Task HandleAsync_WithValidId_DeletesBankAccount()
@@ -22,9 +24,9 @@ public class DeleteBankAccountCommandHandlerTests
         
         _bankAccountRepository.GetByIdAsync(accountId, Arg.Any<CancellationToken>()).Returns(existingAccount);
 
-        var handler = new DeleteBankAccountCommandHandler(_bankAccountRepository, _unitOfWork);
+        var handler = new DeleteBankAccountCommandHandler(_bankAccountRepository, _setup.Access);
 
-        var result = await handler.HandleAsync(new DeleteBankAccountCommand(accountId, shopId), CancellationToken.None);
+        var result = await handler.HandleAsync(new DeleteBankAccountCommand(accountId, shopId) { Session = _setup.Owner(shopId) }, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(Result.Deleted, result.Value);
@@ -36,12 +38,13 @@ public class DeleteBankAccountCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenAccountNotFound_ReturnsNotFoundError()
     {
+        var shopId = Guid.NewGuid();
         var accountId = Guid.NewGuid();
         _bankAccountRepository.GetByIdAsync(accountId, Arg.Any<CancellationToken>()).Returns((BankAccount?)null);
 
-        var handler = new DeleteBankAccountCommandHandler(_bankAccountRepository, _unitOfWork);
+        var handler = new DeleteBankAccountCommandHandler(_bankAccountRepository, _setup.Access);
 
-        var result = await handler.HandleAsync(new DeleteBankAccountCommand(accountId, Guid.NewGuid()), CancellationToken.None);
+        var result = await handler.HandleAsync(new DeleteBankAccountCommand(accountId, shopId) { Session = _setup.Owner(shopId) }, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("BankAccount.NotFound", result.FirstError.Code);
@@ -58,9 +61,9 @@ public class DeleteBankAccountCommandHandlerTests
 
         _bankAccountRepository.GetByIdAsync(accountId, Arg.Any<CancellationToken>()).Returns(existingAccount);
 
-        var handler = new DeleteBankAccountCommandHandler(_bankAccountRepository, _unitOfWork);
+        var handler = new DeleteBankAccountCommandHandler(_bankAccountRepository, _setup.Access);
 
-        var result = await handler.HandleAsync(new DeleteBankAccountCommand(accountId, wrongShopId), CancellationToken.None);
+        var result = await handler.HandleAsync(new DeleteBankAccountCommand(accountId, wrongShopId) { Session = _setup.Owner(wrongShopId) }, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("BankAccount.NotFound", result.FirstError.Code);

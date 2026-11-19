@@ -1,3 +1,4 @@
+using Intelibill.Application.Unit.Tests.Features.Shops;
 using ErrorOr;
 using Intelibill.Application.Features.BankAccounts.Commands.UpdateBankAccount;
 using Intelibill.Application.Features.BankAccounts.DTOs;
@@ -12,7 +13,8 @@ namespace Intelibill.Application.Unit.Tests.Features.BankAccounts.Commands.Updat
 public class UpdateBankAccountCommandHandlerTests
 {
     private readonly IBankAccountRepository _bankAccountRepository = Substitute.For<IBankAccountRepository>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly ShopSetupAccessFixture _setup = new();
+    private IUnitOfWork _unitOfWork => _setup.UnitOfWork;
 
     [Fact]
     public async Task HandleAsync_WithValidData_UpdatesBankAccount()
@@ -24,7 +26,7 @@ public class UpdateBankAccountCommandHandlerTests
 
         _bankAccountRepository.GetByIdAsync(accountId, Arg.Any<CancellationToken>()).Returns(existingAccount);
 
-        var handler = new UpdateBankAccountCommandHandler(_bankAccountRepository, _unitOfWork);
+        var handler = new UpdateBankAccountCommandHandler(_bankAccountRepository, _setup.Access);
 
         var result = await handler.HandleAsync(new UpdateBankAccountCommand(
             accountId,
@@ -33,7 +35,7 @@ public class UpdateBankAccountCommandHandlerTests
             "New Acc",
             "Current",
             "SBIN0002222",
-            "New Holder"), CancellationToken.None);
+            "New Holder") { Session = _setup.Owner(shopId) }, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal("New Bank", result.Value.BankName);
@@ -47,13 +49,14 @@ public class UpdateBankAccountCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenAccountNotFound_ReturnsNotFoundError()
     {
+        var shopId = Guid.NewGuid();
         var accountId = Guid.NewGuid();
         _bankAccountRepository.GetByIdAsync(accountId, Arg.Any<CancellationToken>()).Returns((BankAccount?)null);
 
-        var handler = new UpdateBankAccountCommandHandler(_bankAccountRepository, _unitOfWork);
+        var handler = new UpdateBankAccountCommandHandler(_bankAccountRepository, _setup.Access);
 
         var result = await handler.HandleAsync(new UpdateBankAccountCommand(
-            accountId, Guid.NewGuid(), "Bank", "Acc", "Savings", null, null), CancellationToken.None);
+            accountId, shopId, "Bank", "Acc", "Savings", null, null) { Session = _setup.Owner(shopId) }, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("BankAccount.NotFound", result.FirstError.Code);
@@ -70,10 +73,10 @@ public class UpdateBankAccountCommandHandlerTests
 
         _bankAccountRepository.GetByIdAsync(accountId, Arg.Any<CancellationToken>()).Returns(existingAccount);
 
-        var handler = new UpdateBankAccountCommandHandler(_bankAccountRepository, _unitOfWork);
+        var handler = new UpdateBankAccountCommandHandler(_bankAccountRepository, _setup.Access);
 
         var result = await handler.HandleAsync(new UpdateBankAccountCommand(
-            accountId, wrongShopId, "New Bank", "New Acc", "Savings", null, null), CancellationToken.None);
+            accountId, wrongShopId, "New Bank", "New Acc", "Savings", null, null) { Session = _setup.Owner(wrongShopId) }, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("BankAccount.NotFound", result.FirstError.Code);
@@ -87,10 +90,10 @@ public class UpdateBankAccountCommandHandlerTests
         var existingAccount = BankAccount.Create(shopId, "Bank", "Acc", BankAccountType.Savings, null, null);
         _bankAccountRepository.GetByIdAsync(accountId, Arg.Any<CancellationToken>()).Returns(existingAccount);
 
-        var handler = new UpdateBankAccountCommandHandler(_bankAccountRepository, _unitOfWork);
+        var handler = new UpdateBankAccountCommandHandler(_bankAccountRepository, _setup.Access);
 
         var result = await handler.HandleAsync(new UpdateBankAccountCommand(
-            accountId, shopId, "", " ", "Savings", null, null), CancellationToken.None);
+            accountId, shopId, "", " ", "Savings", null, null) { Session = _setup.Owner(shopId) }, CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("BankAccount.Required", result.FirstError.Code);

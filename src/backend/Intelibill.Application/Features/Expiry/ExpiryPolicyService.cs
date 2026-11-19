@@ -1,3 +1,6 @@
+using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Security;
+using Intelibill.Application.Features.Shops.Setup;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Time;
@@ -9,7 +12,7 @@ using Intelibill.Domain.Interfaces.Repositories;
 namespace Intelibill.Application.Features.Expiry;
 
 public sealed class ExpiryPolicyService(IExpiryPolicyRepository policies, IShopRepository shops, IExpiryPolicyFence fence,
-    IUnitOfWork unitOfWork, IBusinessClock clock)
+    IUnitOfWork unitOfWork, IBusinessClock clock, ShopSetupAccess access)
 {
     public async Task<ErrorOr<ExpiryPolicyStateDto>> ReadAsync(Guid shopId, Guid actor, Guid? itemId, CancellationToken ct)
     {
@@ -40,35 +43,58 @@ public sealed class ExpiryPolicyService(IExpiryPolicyRepository policies, IShopR
         return new ExpiryPolicyStateDto(defaults.Policy, item?.Policy, effective, state.CatalogVersion);
     }
 
-    public async Task<ErrorOr<ExpiryPolicyStateDto>> UpdateAsync(Guid shopId, Guid actor, Guid? itemId, ExpiryPolicyUpdateRequest request, CancellationToken ct)
+    public async Task<ErrorOr<ExpiryPolicyStateDto>> UpdateAsync(Guid shopId, Guid actor, Guid? itemId,
+        ExpiryPolicyUpdateRequest request, SessionClaims? session, CancellationToken ct)
     {
-        if (await shops.GetActiveRoleAsync(actor, shopId, ct) != ShopRole.Owner) return Errors.Expiry.OwnerRequired;
+        if (session?.ActiveShopId != shopId || !await access.IsLiveAsync(session, actor, ct) ||
+            await shops.GetActiveRoleAsync(actor, shopId, ct) != ShopRole.Owner) return Errors.Expiry.OwnerRequired;
         if (request.ExpectedCatalogVersion <= 0) return Errors.Expiry.PolicyVersionConflict;
         if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length > 500) return Errors.Expiry.ReasonRequired;
         if ((!itemId.HasValue && request.Policy is null) || request.Policy is not null && !request.Policy.ToPolicy(1).IsValid())
             return Errors.Expiry.PolicyInvalid;
+
         await unitOfWork.BeginTransactionAsync(ct);
+        var committed = false;
         try
         {
+            var lease = await access.EnterAsync(shopId, LicenceAction.OperationalCapacity, ct);
+            if (lease.IsError) return lease.Errors;
             var locked = await fence.AcquireAsync(shopId, true, ct);
-            if (locked.IsError) { await unitOfWork.RollbackTransactionAsync(ct); return locked.Errors; }
-            // Repeat live authority after waiting for the fence; request claims never authorize a policy change.
-            if (await shops.GetActiveRoleAsync(actor, shopId, ct) != ShopRole.Owner)
-            { await unitOfWork.RollbackTransactionAsync(ct); return Errors.Expiry.OwnerRequired; }
-            var before = await ReadLockedAsync(shopId, itemId, ct);
-            if (before.IsError) { await unitOfWork.RollbackTransactionAsync(ct); return before.Errors; }
-            var state = (await policies.GetStateAsync(shopId, ct))!;
-            if (state.CatalogVersion != request.ExpectedCatalogVersion)
-            { await unitOfWork.RollbackTransactionAsync(ct); return Errors.Expiry.PolicyVersionConflict; }
-            var version = state.Advance(!itemId.HasValue);
-            await policies.AddRevisionAsync(ExpiryPolicyRevision.Create(shopId, itemId, version, request.Policy?.ToPolicy(version), actor, request.Reason, clock.UtcNow), ct);
-            await unitOfWork.SaveChangesAsync(ct);
-            var result = await ReadLockedAsync(shopId, itemId, ct);
-            if (result.IsError) { await unitOfWork.RollbackTransactionAsync(ct); return result.Errors; }
+            if (locked.IsError) return locked.Errors;
+            if (!await access.IsLiveAsync(session, actor, ct) ||
+                await shops.GetActiveRoleAsync(actor, shopId, ct) != ShopRole.Owner) return Errors.Expiry.OwnerRequired;
+            if (ShopSetupAccess.Denial(lease.Value.CurrentDecision()) is { } denial) return denial;
+
+            var result = await UpdateLockedAsync(shopId, actor, itemId, request, lease.Value, ct);
+            if (result.IsError) return result;
             await unitOfWork.CommitTransactionAsync(ct);
+            committed = true;
             return result;
         }
-        catch { await unitOfWork.RollbackTransactionAsync(ct); throw; }
+        finally
+        {
+            if (!committed)
+            {
+                await unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+                unitOfWork.ClearChanges();
+            }
+        }
+    }
+
+    private async Task<ErrorOr<ExpiryPolicyStateDto>> UpdateLockedAsync(Guid shopId, Guid actor, Guid? itemId,
+        ExpiryPolicyUpdateRequest request, ShopLicenceLease lease, CancellationToken ct)
+    {
+        var before = await ReadLockedAsync(shopId, itemId, ct);
+        if (before.IsError) return before.Errors;
+        var state = (await policies.GetStateAsync(shopId, ct))!;
+        if (state.CatalogVersion != request.ExpectedCatalogVersion) return Errors.Expiry.PolicyVersionConflict;
+        if (ShopSetupAccess.Denial(lease.CurrentDecision()) is { } denial) return denial;
+
+        var version = state.Advance(!itemId.HasValue);
+        await policies.AddRevisionAsync(ExpiryPolicyRevision.Create(shopId, itemId, version, request.Policy?.ToPolicy(version),
+            actor, request.Reason, clock.UtcNow), ct);
+        await unitOfWork.SaveChangesAsync(ct);
+        return await ReadLockedAsync(shopId, itemId, ct);
     }
 
     public async Task<ErrorOr<ExpiryReadinessDto>> ReadinessAsync(Guid shopId, Guid actor, int page, int pageSize, CancellationToken ct)

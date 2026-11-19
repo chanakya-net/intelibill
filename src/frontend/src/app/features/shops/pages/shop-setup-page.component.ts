@@ -9,6 +9,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import type { ShopScope } from '../../../core/context/shop-scope';
 import { ManageShopOverlayComponent } from '../components/manage-shop-overlay.component';
+import { setupLicenceError, shopSetupAccessFor, shopSetupStatusKey } from '../services/shop-setup-access';
 import type { ShopSetupStatus } from '../services/shop-setup.models';
 import { setupReasonKey } from '../services/shop-setup-reason';
 import { ShopSetupService } from '../services/shop-setup.service';
@@ -30,6 +31,7 @@ export class ShopSetupPageComponent {
   readonly status = signal<ShopSetupStatus | null>(null);
   readonly loading = signal(false);
   readonly loadFailed = signal(false);
+  readonly loadError = signal<string | null>(null);
   readonly saving = signal(false);
   readonly saveError = signal<string | null>(null);
   readonly settingsStep = signal<1 | 2 | null>(null);
@@ -37,6 +39,9 @@ export class ShopSetupPageComponent {
     this.auth.session()?.shops.filter((shop) => shop.shopId === this.context.scope()?.shopId) ?? [],
   );
   readonly reasonKey = setupReasonKey;
+  readonly setupAccess = computed(() => shopSetupAccessFor(this.context.scope()?.shopId ?? null, this.status()?.setupAccess));
+  readonly licenceStatusKey = computed(() => shopSetupStatusKey(this.setupAccess()));
+  readonly canStartSale = computed(() => this.status()?.canTrade === true && this.setupAccess()?.hasOperatingAccess === true);
 
   constructor() {
     this.destroyRef.onDestroy(this.context.onDetach(() => {
@@ -53,6 +58,7 @@ export class ShopSetupPageComponent {
     const scope = this.context.scope();
     this.read?.unsubscribe();
     this.loadFailed.set(false);
+    this.loadError.set(null);
     if (!scope?.shopId) {
       this.loadFailed.set(true);
       return;
@@ -72,9 +78,10 @@ export class ShopSetupPageComponent {
           this.loadFailed.set(true);
         }
       },
-      error: () => {
+      error: (error: { error?: unknown }) => {
         if (!this.isCurrent(scope)) return;
         this.status.set(null);
+        this.loadError.set(setupLicenceError(error.error) ?? null);
         this.loadFailed.set(true);
       },
     });
@@ -86,7 +93,7 @@ export class ShopSetupPageComponent {
   }
 
   leave(path: '/dashboard' | '/sales/new'): void {
-    if (this.saving()) return;
+    if (this.saving() || (path === '/sales/new' && !this.canStartSale())) return;
     const status = this.status();
     const scope = this.context.scope();
     if (!status || !scope?.shopId || status.shopId !== scope.shopId ||
@@ -108,9 +115,9 @@ export class ShopSetupPageComponent {
       next: () => {
         if (this.isCurrent(scope)) void this.router.navigateByUrl(path);
       },
-      error: (error: { status?: number }) => {
+      error: (error: { status?: number; error?: unknown }) => {
         if (!this.isCurrent(scope)) return;
-        this.saveError.set(error.status === 409 ? 'shopSetup.conflict' : 'shopSetup.saveFailed');
+        this.saveError.set(setupLicenceError(error.error) ?? (error.status === 409 ? 'shopSetup.conflict' : 'shopSetup.saveFailed'));
         this.refresh();
       },
     });

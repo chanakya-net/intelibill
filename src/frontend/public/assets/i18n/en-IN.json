@@ -951,6 +951,11 @@
     }
   },
   "shopSetup": {
+    "checklistComplete": "Setup checklist complete",
+    "saveProfile": "Save shop profile",
+    "profileSaved": "Shop profile saved.",
+    "contactRecovery": "You can update the shop name and contact details.",
+    "selectExistingShop": "Select an existing shop or contact support before creating another shop.",
     "title": "Shop setup",
     "refresh": "Refresh setup",
     "loading": "Checking saved shop details…",

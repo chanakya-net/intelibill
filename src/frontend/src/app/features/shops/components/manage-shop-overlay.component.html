@@ -28,7 +28,7 @@
               <form id="manage-shop-details-form" [formGroup]="form" (ngSubmit)="onSubmit()" class="space-y-4">
                 <div class="field-wrap space-y-1.5">
                   <label for="manage-shop-id">{{ 'shops.selectShop' | transloco }}</label>
-                  <select id="manage-shop-id" formControlName="shopId" class="shop-select" [disabled]="isSubmitting() || isLoadingDetails()" (change)="onShopSelectionChange()">
+                  <select id="manage-shop-id" formControlName="shopId" class="shop-select" [attr.disabled]="isSubmitting() || isLoadingDetails() ? true : null" (change)="onShopSelectionChange()">
                     @for (shop of shops; track shop.shopId) {
                       <option [value]="shop.shopId">
                         {{ shop.shopName }} ({{ roleLabelKey(shop.role) | transloco }})
@@ -41,22 +41,47 @@
                   <p class="owner-hint">{{ 'shops.selectedShopRoleIs' | transloco }} {{ roleLabelKey(selectedShopRole()) | transloco }}. {{ 'shops.onlyOwnersCanSave' | transloco }}</p>
                 }
 
-                <app-shop-basic-info-form [initialValues]="selectedShopDetails()" [disabled]="isSubmitting() || isLoadingDetails()" [showGstNumber]="false" (formChange)="onBasicInfoFormChange($event)"></app-shop-basic-info-form>
+                @if (licenceStatusKey(); as key) {
+                  <p role="status">{{ key | transloco }}</p>
+                  @if (setupAccess()?.enforced && isSelectedShopOwner()) {
+                    <a class="underline" routerLink="/billing" (click)="onClose()">{{ 'billing.title' | transloco }}</a>
+                  }
+                }
+                @if (!setupAccess() && !isLoadingDetails()) {
+                  <button pButton type="button" severity="secondary" [text]="true"
+                    [label]="'billing.status.refresh' | transloco" (click)="refreshAccess()"></button>
+                }
 
-                @if (shopFormError()) {
-                  <p class="server-error">{{ shopFormError() | transloco }}</p>
+                @if (details(); as selected) {
+                  @if (canEditProfile() && setupAccess()?.canPrepareTax === false) {
+                    <p>{{ 'shopSetup.contactRecovery' | transloco }}</p>
+                  }
+                  <app-shop-basic-info-form [initialValues]="selected"
+                    [allowedFields]="canEditProfile() ? (setupAccess()?.writableProfileFields ?? []) : null"
+                    [disabled]="isSubmitting() || isLoadingDetails() || !canEditProfile()" [showGstNumber]="false"
+                    (formChange)="onBasicInfoFormChange($event)"></app-shop-basic-info-form>
+                }
+
+                @if (serverError() && (lastMutationType() !== 'update-tax-profile' || !setupAccess())) {
+                  <p class="server-error" role="alert">{{ serverError() | transloco }}</p>
+                }
+                @if (lastMutationType() === 'update' && lastMutationSucceeded() && !canEditOperating()) {
+                  <p role="status">{{ 'shopSetup.profileSaved' | transloco }}</p>
                 }
               </form>
 
-              <app-shop-tax-profile-form [details]="selectedShopDetails()" [canEdit]="isSelectedShopOwner()" [disabled]="isSubmitting() || isLoadingDetails()" [submitting]="isTaxProfilePending()" [errorMessage]="taxProfileError()" [saved]="taxProfileSaved()" (saveRequested)="onSaveTaxProfile($event)"></app-shop-tax-profile-form>
-
-              <app-expiry-policy-form [shopId]="form.controls.shopId.value" [canEdit]="isSelectedShopOwner()" />
-              <app-shop-till-settings [shopId]="form.controls.shopId.value" [canEdit]="isSelectedShopOwner()" [disabled]="isSubmitting() || isLoadingDetails()" (navigateRequested)="onClose()" />
+              @if (details() && setupAccess()?.canPrepareTax !== false) {
+                <app-shop-tax-profile-form [details]="details()" [canEdit]="canEditTax()" [disabled]="isSubmitting() || isLoadingDetails()" [submitting]="isTaxProfilePending()" [errorMessage]="taxProfileError()" [saved]="taxProfileSaved()" (saveRequested)="onSaveTaxProfile($event)"></app-shop-tax-profile-form>
+              }
+              @if (setupAccess()?.hasOperatingAccess && isSelectedShopOwnerOrManager()) {
+                <app-expiry-policy-form [shopId]="selectedShopId()" [canEdit]="canEditOperating()" />
+                <app-shop-till-settings [shopId]="selectedShopId()" [canEdit]="canEditOperating()" [disabled]="isSubmitting() || isLoadingDetails()" (navigateRequested)="onClose()" />
+              }
               <div class="overlay-actions flex pt-4 justify-end gap-2">
-                @if (!isSelectedShopOwner() && isSelectedShopOwnerOrManager()) {
-                  <button pButton type="button" [label]="'shops.nextStep' | transloco" icon="pi pi-arrow-right" iconPos="right" severity="secondary" [text]="true" [disabled]="isSubmitting() || isLoadingDetails()" (click)="onContinueToOfflineBilling()"></button>
+                @if (!canEditOperating() && setupAccess() && isSelectedShopOwnerOrManager()) {
+                  <button pButton type="button" [label]="'offlineSalesDevice.title' | transloco" severity="secondary" [text]="true" [disabled]="isSubmitting() || isLoadingDetails()" (click)="onContinueToOfflineBilling()"></button>
                 }
-                <button pButton type="submit" form="manage-shop-details-form" [label]="isSubmitting() && !isTaxProfilePending() ? ('shops.savingChanges' | transloco) : ('shops.nextStep' | transloco)" [loading]="isSubmitting() && !isTaxProfilePending()" [disabled]="form.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()" icon="pi pi-arrow-right" iconPos="right" class="save-button"></button>
+                <button pButton type="submit" form="manage-shop-details-form" [label]="isSubmitting() && !isTaxProfilePending() ? ('shops.savingChanges' | transloco) : ((canEditOperating() ? 'shops.nextStep' : 'shopSetup.saveProfile') | transloco)" [loading]="isSubmitting() && !isTaxProfilePending()" [disabled]="form.controls.name.invalid || isSubmitting() || isLoadingDetails() || !canEditProfile()" class="save-button"></button>
               </div>
             </div>
           </ng-template>
@@ -78,7 +103,7 @@
                   <p-button type="button" [label]="'shops.previousStep' | transloco" icon="pi pi-arrow-left" severity="secondary" [text]="true" [disabled]="isSubmitting() || isLoadingDetails()" (onClick)="onPreviousStep()" />
                   <p-button type="button" [label]="'shops.skipBankDetails' | transloco" severity="secondary" [text]="true" [disabled]="isSubmitting()" (onClick)="onSkipBankDetails()" />
                 </div>
-                <button pButton type="submit" [label]="isSubmitting() ? ('shops.savingBankDetails' | transloco) : ('shops.saveBankDetails' | transloco)" [loading]="isSubmitting()" [disabled]="bankForm.invalid || isSubmitting() || isLoadingDetails() || !isSelectedShopOwner()" class="save-button"></button>
+                <button pButton type="submit" [label]="isSubmitting() ? ('shops.savingBankDetails' | transloco) : ('shops.saveBankDetails' | transloco)" [loading]="isSubmitting()" [disabled]="bankForm.invalid || isSubmitting() || isLoadingDetails() || !canEditOperating()" class="save-button"></button>
               </div>
             </form>
           </ng-template>

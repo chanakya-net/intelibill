@@ -10,6 +10,7 @@
       [disabled]="disabled"
     />
   </div>
+  @if (isVisible('address')) {
   <div class="field-wrap space-y-1.5">
     <label for="shop-address">{{ 'shops.address' | transloco }}</label>
     <input
@@ -56,6 +57,7 @@
       [disabled]="disabled"
     />
   </div>
+  }
   <div class="field-grid">
     <div class="field-wrap space-y-1.5">
       <label for="shop-contact-person">{{ 'shops.contactPersonOptional' | transloco }}</label>
@@ -80,7 +82,7 @@
       />
     </div>
   </div>
-  @if (showGstNumber) {
+  @if (showGstNumber && isVisible('gstNumber')) {
     <div class="field-wrap space-y-1.5">
       <label for="shop-gst">{{ 'shops.gstNumberOptional' | transloco }}</label>
       <input

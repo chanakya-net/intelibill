@@ -20,6 +20,9 @@ const status: ShopSetupStatus = {
   shopId: scope.shopId,
   contractVersion: 1,
   canTrade: true,
+  setupAccess: { contractVersion: 1, shopId: scope.shopId, status: 'ObserveOnly', enforced: false,
+    writableProfileFields: ['name'], canPrepareTax: true, canSavePreferences: true,
+    canEditOperatingSettings: true, hasOperatingAccess: true, canCreateAdditionalShop: true },
   steps: [
     { id: 'catalog', state: 'complete', reasons: [] },
     { id: 'stock', state: 'notApplicable', reasons: [] },
@@ -93,6 +96,8 @@ describe(ShopSetupPageComponent.name, () => {
       canTrade: false,
       steps: [{ id: 'tax', state: 'incomplete', reasons: ['Unknown.FutureReason'] }],
       permissions: { canEditShop: false, canEditCatalog: false, canSavePreferences: false },
+      setupAccess: { ...status.setupAccess!, writableProfileFields: [], canPrepareTax: false,
+        canEditOperatingSettings: false, canSavePreferences: false },
     });
     view.detectChanges();
     const element = view.nativeElement as HTMLElement;

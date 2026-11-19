@@ -1,6 +1,7 @@
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Features.Sales.Services;
+using Intelibill.Application.Features.Shops.DTOs;
 using Intelibill.Domain.Common;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -12,7 +13,8 @@ namespace Intelibill.Application.Features.Shops.Setup;
 public sealed class ShopSetupService(
     IShopSetupReadRepository readRepository,
     IShopSetupPreferencesRepository preferenceRepository,
-    ShopSetupSampleBuilder sampleBuilder)
+    ShopSetupSampleBuilder sampleBuilder,
+    ShopSetupAccess access)
 {
     public async Task<ErrorOr<ShopSetupStatusDto>> GetAsync(GetShopSetupQuery query, CancellationToken ct)
     {
@@ -21,7 +23,7 @@ public sealed class ShopSetupService(
             return evaluation.Errors;
 
         var result = evaluation.Value;
-        var preferences = ShopSetupPreferencesDto.From(await preferenceRepository.GetAsync(query.ShopId, ct));
+        var preferences = ShopSetupPreferencesDto.From(await preferenceRepository.GetAsync(query.ShopId, ct), result.Access.CanSavePreferences);
         var owner = result.Role == ShopRole.Owner;
         return new ShopSetupStatusDto(query.ShopId, 1, result.CanTrade,
             [
@@ -34,8 +36,9 @@ public sealed class ShopSetupService(
                 new("bank", result.HasBankDetails ? "complete" : "optional", [])
             ],
             result.BlockingReasons,
-            new(owner, owner || result.Role == ShopRole.Manager, owner),
-            preferences);
+            new(result.Access.WritableProfileFields.Count > 0,
+                result.Access.HasOperatingAccess && (owner || result.Role == ShopRole.Manager), result.Access.CanSavePreferences),
+            preferences) { SetupAccess = result.Access };
     }
 
     public async Task<ErrorOr<ShopSetupPreferencesDto>> GetPreferencesAsync(GetShopSetupPreferencesQuery query, CancellationToken ct)
@@ -43,7 +46,13 @@ public sealed class ShopSetupService(
         var member = await GetMemberAsync(query.ShopId, query.ActorUserId, query.ActiveShopId, ct);
         if (member is not { Role: ShopRole.Owner })
             return ShopSetupErrors.OwnerRequired;
-        return ShopSetupPreferencesDto.From(await preferenceRepository.GetAsync(query.ShopId, ct));
+        return await access.ReadAsync<ShopSetupPreferencesDto>(query.ActorUserId, query.ShopId,
+            async (hint, token) =>
+            {
+                var current = await GetMemberAsync(query.ShopId, query.ActorUserId, query.ActiveShopId, token);
+                if (current is not { Role: ShopRole.Owner }) return ShopSetupErrors.OwnerRequired;
+                return ShopSetupPreferencesDto.From(await preferenceRepository.GetAsync(query.ShopId, token), hint.CanSavePreferences);
+            }, ct);
     }
 
     public async Task<ErrorOr<ShopSetupSampleDto>> GetSampleAsync(GetShopSetupSampleQuery query, CancellationToken ct)
@@ -69,6 +78,10 @@ public sealed class ShopSetupService(
         if (await GetMemberAsync(shopId, actor, activeShopId, ct) is not { } membership)
             return ShopSetupErrors.Forbidden;
 
+        var hint = await access.ReadAsync<ShopSetupAccessDto>(actor, shopId,
+            (value, _) => Task.FromResult<ErrorOr<ShopSetupAccessDto>>(value), ct);
+        if (hint.IsError) return hint.Errors;
+
         var shop = membership.Shop;
         var facts = await readRepository.GetFactsAsync(shopId, ct);
         var seller = CaptureSellerProfile(shop);
@@ -85,7 +98,7 @@ public sealed class ShopSetupService(
 
         var blocking = new[] { identityReason, businessReason, taxReason, catalogReason, candidates.Sample is null ? stockReason : null }
             .OfType<string>().Distinct(StringComparer.Ordinal).ToArray();
-        return new Evaluation(membership.Role, facts.HasBankDetails, !facts.HasActiveGoods && facts.HasActiveServices,
+        return new Evaluation(membership.Role, hint.Value, facts.HasBankDetails, !facts.HasActiveGoods && facts.HasActiveServices,
             identityReason, businessReason, taxReason, catalogReason, stockReason, blocking, candidates.Sample);
     }
 
@@ -108,7 +121,7 @@ public sealed class ShopSetupService(
     private static ShopSetupStepDto RequiredStep(string id, string? reason) =>
         reason is null ? new(id, "complete", []) : new(id, "incomplete", [reason]);
 
-    private sealed record Evaluation(ShopRole Role, bool HasBankDetails, bool ServiceOnly, string? IdentityReason,
+    private sealed record Evaluation(ShopRole Role, ShopSetupAccessDto Access, bool HasBankDetails, bool ServiceOnly, string? IdentityReason,
         string? BusinessReason, string? TaxReason, string? CatalogReason, string? StockReason,
         IReadOnlyList<string> BlockingReasons, ShopSetupSampleDto? Sample)
     {
@@ -118,18 +131,18 @@ public sealed class ShopSetupService(
 
 public sealed class GetShopSetupQueryHandler(ShopSetupService service)
 {
-    [LicenceAction(LicenceAction.BasicShopSetup)]
+    [LicenceAction(LicenceAction.History)]
     public Task<ErrorOr<ShopSetupStatusDto>> HandleAsync(GetShopSetupQuery query, CancellationToken ct) => service.GetAsync(query, ct);
 }
 
 public sealed class GetShopSetupPreferencesQueryHandler(ShopSetupService service)
 {
-    [LicenceAction(LicenceAction.BasicShopSetup)]
+    [LicenceAction(LicenceAction.History)]
     public Task<ErrorOr<ShopSetupPreferencesDto>> HandleAsync(GetShopSetupPreferencesQuery query, CancellationToken ct) => service.GetPreferencesAsync(query, ct);
 }
 
 public sealed class GetShopSetupSampleQueryHandler(ShopSetupService service)
 {
-    [LicenceAction(LicenceAction.BasicShopSetup)]
+    [LicenceAction(LicenceAction.History)]
     public Task<ErrorOr<ShopSetupSampleDto>> HandleAsync(GetShopSetupSampleQuery query, CancellationToken ct) => service.GetSampleAsync(query, ct);
 }

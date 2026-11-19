@@ -68,10 +68,11 @@ export const shopsReducer = createReducer(
       [details.shopId]: details,
     },
   })),
-  on(ShopsActions.loadShopDetailsFailed, (state, { errorMessage }) => ({
+  on(ShopsActions.loadShopDetailsFailed, (state, { errorMessage, shopId }) => ({
     ...state,
     loadingDetails: false,
     errorMessage,
+    detailsById: shopId ? withoutDetails(state.detailsById, shopId) : state.detailsById,
   })),
 
   on(ShopsActions.createShopRequested, (state) => ({
@@ -114,10 +115,11 @@ export const shopsReducer = createReducer(
       [details.shopId]: details,
     },
   })),
-  on(ShopsActions.updateShopFailed, (state, { errorMessage }) => ({
+  on(ShopsActions.updateShopFailed, (state, { errorMessage, shopId, licenceRefused, securitySuspended }) => ({
     ...state,
     submitting: false,
     errorMessage,
+    detailsById: invalidateSetupAccess(state.detailsById, shopId, licenceRefused, securitySuspended),
     lastMutationType: 'update',
     lastMutationSucceeded: false,
   })),
@@ -184,10 +186,11 @@ export const shopsReducer = createReducer(
       [details.shopId]: details,
     },
   })),
-  on(ShopsActions.updateShopBankDetailsFailed, (state, { errorMessage }) => ({
+  on(ShopsActions.updateShopBankDetailsFailed, (state, { errorMessage, shopId, licenceRefused, securitySuspended }) => ({
     ...state,
     submitting: false,
     errorMessage,
+    detailsById: invalidateSetupAccess(state.detailsById, shopId, licenceRefused, securitySuspended),
     lastMutationType: 'update-bank-details' as const,
     lastMutationSucceeded: false,
   })),
@@ -210,10 +213,11 @@ export const shopsReducer = createReducer(
       [details.shopId]: details,
     },
   })),
-  on(ShopsActions.updateShopTaxProfileFailed, (state, { errorMessage }) => ({
+  on(ShopsActions.updateShopTaxProfileFailed, (state, { errorMessage, shopId, licenceRefused, securitySuspended }) => ({
     ...state,
     submitting: false,
     errorMessage,
+    detailsById: invalidateSetupAccess(state.detailsById, shopId, licenceRefused, securitySuspended),
     lastMutationType: 'update-tax-profile' as const,
     lastMutationSucceeded: false,
   })),
@@ -233,3 +237,18 @@ export const shopsFeature = createFeature({
   name: shopsFeatureKey,
   reducer: shopsReducer,
 });
+
+
+function withoutDetails(details: ShopsState['detailsById'], shopId: string): ShopsState['detailsById'] {
+  if (!details[shopId]) return details;
+  const remaining = { ...details };
+  delete remaining[shopId];
+  return remaining;
+}
+
+function invalidateSetupAccess(details: ShopsState['detailsById'], shopId?: string,
+  refused?: boolean, security?: boolean): ShopsState['detailsById'] {
+  if (!shopId || !refused || !details[shopId]) return details;
+  if (security) return withoutDetails(details, shopId);
+  return { ...details, [shopId]: { ...details[shopId], setupAccess: null } };
+}

@@ -10,35 +10,20 @@ namespace Intelibill.Application.Unit.Tests.Features.Shops.Commands.UpdateShopBa
 
 public class UpdateShopBankDetailsCommandHandlerTests
 {
-    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
+    private readonly ShopSetupAccessFixture _setup = new();
     private readonly IBankAccountRepository _bankAccountRepository = Substitute.For<IBankAccountRepository>();
-    private readonly ITenantWriteScope _tenantWriteScope = Substitute.For<ITenantWriteScope>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     [Fact]
     public async Task HandleAsync_WhenPrimaryAccountExists_UpdatesAccount()
     {
         var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
         var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true);
         var account = BankAccount.Create(shop.Id, "Old Bank", "111", BankAccountType.Savings, "SBIN0001111", "Old Holder");
-        shop.AddMembership(membership);
-        user.AddShopMembership(membership);
-
-        _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
-            .Returns(user);
-        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>())
-            .Returns(shop);
+        var session = _setup.Member(shop.Id, user, ShopRole.Owner, shop);
         _bankAccountRepository.FindAsync(Arg.Any<System.Linq.Expressions.Expression<Func<BankAccount, bool>>>(), Arg.Any<CancellationToken>())
             .Returns([account]);
 
-        var handler = new UpdateShopBankDetailsCommandHandler(
-            _userRepository,
-            _shopRepository,
-            _bankAccountRepository,
-            _tenantWriteScope,
-            _unitOfWork);
+        var handler = new UpdateShopBankDetailsCommandHandler(_setup.Access, _bankAccountRepository);
 
         var result = await handler.HandleAsync(new UpdateShopBankDetailsCommand(
             user.Id,
@@ -47,7 +32,7 @@ public class UpdateShopBankDetailsCommandHandlerTests
             "222",
             "Current",
             "SBIN0002222",
-            "New Holder"), CancellationToken.None);
+            "New Holder") { Session = session }, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(shop.Id, result.Value.ShopId);
@@ -59,6 +44,6 @@ public class UpdateShopBankDetailsCommandHandlerTests
 
         _bankAccountRepository.Received(1).Update(account);
         await _bankAccountRepository.DidNotReceive().AddAsync(Arg.Any<BankAccount>(), Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _setup.UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

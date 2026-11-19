@@ -140,6 +140,10 @@ describe('ManageShopOverlayComponent', () => {
   function baseDetails(): ShopDetailsDto {
     return {
       shopId: 'shop-1',
+      setupAccess: { contractVersion: 1, shopId: 'shop-1', status: 'ObserveOnly', enforced: false,
+        writableProfileFields: ['name', 'address', 'city', 'state', 'pincode', 'contactPerson', 'mobileNumber', 'gstNumber'],
+        canPrepareTax: true, canSavePreferences: true, canEditOperatingSettings: true,
+        hasOperatingAccess: true, canCreateAdditionalShop: true },
       name: 'Main',
       address: '42 MG Road',
       city: 'Bengaluru',

@@ -1,3 +1,4 @@
+import { observeOnlyShopSetup } from '../support/shop-setup-mock';
 import type { Page, Request, Route } from '@playwright/test';
 
 import type { AuthSession, UserShop } from '../../../src/app/core/auth/auth.models';
@@ -223,6 +224,7 @@ function createShops(role: ShellRole, longLabels: boolean): readonly UserShop[] 
 function createShopDetails(shop: UserShop, index: number, userId: string): ShopDetails {
   return {
     shopId: shop.shopId,
+    setupAccess: observeOnlyShopSetup(shop.shopId, shop.role === 'Owner'),
     name: shop.shopName,
     address: '123 Deterministic Audit Avenue',
     city: 'Bengaluru',

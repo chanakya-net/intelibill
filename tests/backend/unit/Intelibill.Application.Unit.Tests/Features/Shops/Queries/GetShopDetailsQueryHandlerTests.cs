@@ -11,30 +11,15 @@ namespace Intelibill.Application.Unit.Tests.Features.Shops.Queries;
 
 public class GetShopDetailsQueryHandlerTests
 {
-    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
-    private readonly IBankAccountRepository _bankAccountRepository = Substitute.For<IBankAccountRepository>();
-    private readonly ITenantWriteScope _tenantWriteScope = Substitute.For<ITenantWriteScope>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
-    private readonly GetShopDetailsQueryHandler _handler;
+    private readonly ShopSetupAccessFixture _setup = new();
 
-    public GetShopDetailsQueryHandlerTests()
-    {
-        _handler = new GetShopDetailsQueryHandler(
-            _userRepository,
-            _shopRepository,
-            _bankAccountRepository,
-            _tenantWriteScope,
-            _unitOfWork);
-    }
+    private GetShopDetailsQueryHandler Handler() => new(_setup.Access, _setup.Shops, Substitute.For<IBankAccountRepository>());
 
     [Fact]
     public async Task HandleAsync_WhenUserNotFound_ReturnsError()
     {
-        _userRepository.GetByIdWithDetailsAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-            .Returns((User?)null);
 
-        var result = await _handler.HandleAsync(new GetShopDetailsQuery(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
+        var result = await Handler().HandleAsync(new GetShopDetailsQuery(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
 
         Assert.True(result.IsError);
     }
@@ -43,10 +28,8 @@ public class GetShopDetailsQueryHandlerTests
     public async Task HandleAsync_WhenMembershipNotFound_ReturnsError()
     {
         var user = User.CreateWithEmail("user@test.com", "pass", "Test", "User");
-        _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
-            .Returns(user);
 
-        var result = await _handler.HandleAsync(new GetShopDetailsQuery(user.Id, Guid.NewGuid()), CancellationToken.None);
+        var result = await Handler().HandleAsync(new GetShopDetailsQuery(user.Id, Guid.NewGuid()), CancellationToken.None);
 
         Assert.True(result.IsError);
     }
@@ -60,12 +43,9 @@ public class GetShopDetailsQueryHandlerTests
         var membership = ShopMembership.Create(shopId, userId, ShopRole.Owner, false);
         user.AddShopMembership(membership);
 
-        _userRepository.GetByIdWithDetailsAsync(userId, Arg.Any<CancellationToken>())
-            .Returns(user);
-        _shopRepository.GetByIdAsync(shopId, Arg.Any<CancellationToken>())
-            .Returns((Shop?)null);
+        _setup.Shops.GetActiveRoleAsync(userId, shopId, Arg.Any<CancellationToken>()).Returns(ShopRole.Owner);
 
-        var result = await _handler.HandleAsync(new GetShopDetailsQuery(userId, shopId), CancellationToken.None);
+        var result = await Handler().HandleAsync(new GetShopDetailsQuery(userId, shopId), CancellationToken.None);
 
         Assert.True(result.IsError);
     }

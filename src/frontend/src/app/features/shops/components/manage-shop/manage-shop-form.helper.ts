@@ -6,6 +6,7 @@ import {
   UpdateBankDetailsRequest,
   UpdateShopRequest,
 } from '../../services/shop.service';
+import type { ShopProfileField } from '../../services/shop-setup-access';
 import { InputValidators } from '../../../../shared/forms/input-validation';
 
 export type ManageShopFormGroup = FormGroup<{
@@ -94,6 +95,28 @@ export function mapManageShopFormToUpdateShopRequest(form: ManageShopFormGroup):
     contactPerson: toOptionalTrimmed(form.controls.contactPerson.value),
     mobileNumber: toOptionalTrimmed(form.controls.mobileNumber.value),
     gstNumber: toOptionalTrimmed(form.controls.gstNumber.value),
+  };
+}
+
+/** The full PUT still carries the protected values from the selected shop's latest saved profile. */
+export function mapSetupProfileRequest(
+  form: ManageShopFormGroup,
+  saved: Pick<ShopDetailsDto, ShopProfileField>,
+  fields: readonly ShopProfileField[],
+): UpdateShopRequest {
+  const draft = mapManageShopFormToUpdateShopRequest(form);
+  const read = <K extends ShopProfileField>(field: K) =>
+    fields.includes(field) ? draft[field] : saved[field];
+  return {
+    name: read('name'),
+    address: read('address'),
+    city: read('city'),
+    state: read('state'),
+    pincode: read('pincode'),
+    contactPerson: read('contactPerson') ?? undefined,
+    mobileNumber: read('mobileNumber') ?? undefined,
+    // GSTIN is edited through the tax section in this UI.
+    gstNumber: saved.gstNumber ?? undefined,
   };
 }
 

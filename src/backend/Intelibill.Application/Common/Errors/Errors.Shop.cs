@@ -42,6 +42,9 @@ public static partial class Errors
         public static Error ActiveShopNotSelected =>
             Error.Validation("Shop.ActiveShopNotSelected", "No active shop is selected for this session.");
 
+        public static Error SelectExistingShop =>
+            Error.Conflict("Shop.SelectExistingShop", "Select an existing shop or contact support before creating another shop.");
+
         public static Error IfscCodeInvalid =>
             Error.Validation("Shop.IfscCodeInvalid", "IFSC code must be a valid Indian bank IFSC code.");
 

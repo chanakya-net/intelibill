@@ -1,6 +1,8 @@
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Normalization;
+using Intelibill.Application.Common.Security;
+using Intelibill.Application.Features.Shops.Setup;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -13,10 +15,13 @@ public sealed record ShopTillSettingsDto(Guid ShopId, bool Available, bool Enabl
     int OpenSessionCount, int AwaitingReviewCount, int PendingOfflineCount);
 public sealed record GetShopTillSettingsQuery(Guid ShopId, Guid ActorUserId, Guid? ActiveShopId);
 public sealed record UpdateShopTillSettingsCommand(Guid ShopId, Guid ActorUserId, Guid? ActiveShopId,
-    bool Enabled, int ExpectedVersion, string Reason, bool Confirmed);
+    bool Enabled, int ExpectedVersion, string Reason, bool Confirmed)
+{
+    public SessionClaims? Session { get; init; }
+}
 
 public sealed class ShopTillSettingsService(ITillRepository tills, IShopRepository shops,
-    IMembershipAuthorityRepository authority, ITillSessionPolicy policy, TimeProvider clock)
+    IMembershipAuthorityRepository authority, ITillSessionPolicy policy, TimeProvider clock, ShopSetupAccess access)
 {
     public async Task<ErrorOr<ShopTillSettingsDto>> GetAsync(GetShopTillSettingsQuery query, CancellationToken ct)
     {
@@ -28,11 +33,16 @@ public sealed class ShopTillSettingsService(ITillRepository tills, IShopReposito
 
     public async Task<ErrorOr<ShopTillSettingsDto>> UpdateAsync(UpdateShopTillSettingsCommand command, CancellationToken ct)
     {
-        if (command.ShopId != command.ActiveShopId) return TillErrors.Forbidden;
+        if (command.ShopId != command.ActiveShopId || command.Session?.ActiveShopId != command.ShopId ||
+            !await access.IsLiveAsync(command.Session, command.ActorUserId, ct) ||
+            await shops.GetActiveRoleAsync(command.ActorUserId, command.ShopId, ct) != ShopRole.Owner)
+            return TillErrors.Forbidden;
         if (command.ExpectedVersion < 0 || !command.Confirmed || string.IsNullOrWhiteSpace(command.Reason) ||
             command.Reason.Trim().Length > 500 || !StorableText.IsStorable(command.Reason))
             return Error.Validation("Till.SettingsConfirmationRequired", "Confirm the change and provide a reason of 1 to 500 characters.");
         await using var transaction = await authority.BeginAsync(ct);
+        var lease = await access.EnterAsync(command.ShopId, LicenceAction.OperationalCapacity, ct);
+        if (lease.IsError) return lease.Errors;
         // Follow the authority protocol. The catalog shop lock is also held by opening and
         // conflicts with transaction-held source gate reads, including disabled legacy writers.
         // SHARE blocks account/authority changes but remains compatible with source FK reads.
@@ -43,12 +53,21 @@ public sealed class ShopTillSettingsService(ITillRepository tills, IShopReposito
         var membership = await authority.LockMembershipAsync(command.ShopId, command.ActorUserId, ct);
         var actor = await authority.FindUserAsync(command.ActorUserId, ct);
         if (membership is not { IsActive: true, Role: ShopRole.Owner } || actor is not { IsLoginEnabled: true }) return TillErrors.Forbidden;
+        if (!await access.IsLiveAsync(command.Session, command.ActorUserId, ct)) return TillErrors.Forbidden;
+        if (ShopSetupAccess.Denial(lease.Value.CurrentDecision()) is { } initialDenial) return initialDenial;
+        return await SaveSettingsAsync(command, lease.Value, ct);
+    }
+
+    private async Task<ErrorOr<ShopTillSettingsDto>> SaveSettingsAsync(UpdateShopTillSettingsCommand command,
+        ShopLicenceLease lease, CancellationToken ct)
+    {
         var settings = await tills.GetSettingsAsync(command.ShopId, ct) ?? ShopTillSetting.Create(command.ShopId);
         if (settings.Version != command.ExpectedVersion) return Error.Conflict("Till.SettingsVersionConflict", "Till setup changed. Refresh its current state before trying again.");
         if (!policy.IsAvailable(command.ShopId)) return Error.Conflict("Till.SettingsUnavailable", "Till tracking is not available for this shop's deployment.");
         var blockers = await tills.GetSettingsBlockersAsync(command.ShopId, ct);
         if (!command.Enabled && (blockers.Open != 0 || blockers.AwaitingReview != 0 || blockers.PendingOffline != 0))
             return Error.Conflict("Till.SettingsBlocked", "Close and review all sessions and resolve known offline submissions before disabling till tracking.");
+        if (ShopSetupAccess.Denial(lease.CurrentDecision()) is { } denial) return denial;
         if (settings.Enabled != command.Enabled)
         {
             var audit = settings.Change(command.Enabled, command.ActorUserId, command.Reason, clock.GetUtcNow());

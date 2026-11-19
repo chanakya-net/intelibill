@@ -10,6 +10,7 @@ import type { ShopScope } from '../../../core/context/shop-scope';
 import { SaleInvoiceA4Component } from '../../sales/components/sale-invoice-a4.component';
 import { SaleInvoiceThermalComponent } from '../../sales/components/sale-invoice-thermal.component';
 import type { ShopSetupPreferences, ShopSetupSample } from '../services/shop-setup.models';
+import { setupLicenceError } from '../services/shop-setup-access';
 import { setupReasonKey } from '../services/shop-setup-reason';
 import { ShopSetupService } from '../services/shop-setup.service';
 
@@ -87,7 +88,7 @@ export class ShopSetupSamplePageComponent {
   acknowledge(): void {
     const scope = this.context.scope();
     const preferences = this.preferences();
-    if (!scope?.shopId || !preferences || !this.sample() || this.saving()) return;
+    if (!scope?.shopId || !preferences || preferences.canSavePreferences === false || !this.sample() || this.saving()) return;
 
     this.saving.set(true);
     this.saveError.set(null);
@@ -102,9 +103,9 @@ export class ShopSetupSamplePageComponent {
       next: (saved) => {
         if (this.isCurrent(scope)) this.preferences.set(saved);
       },
-      error: (error: { status?: number }) => {
+      error: (error: { status?: number; error?: unknown }) => {
         if (!this.isCurrent(scope)) return;
-        this.saveError.set(error.status === 409 ? 'shopSetup.conflict' : 'shopSetup.saveFailed');
+        this.saveError.set(setupLicenceError(error.error) ?? (error.status === 409 ? 'shopSetup.conflict' : 'shopSetup.saveFailed'));
         this.loadPreferences(scope);
       },
     });

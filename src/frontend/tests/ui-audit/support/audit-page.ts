@@ -1,3 +1,4 @@
+import { observeOnlyShopSetup } from './shop-setup-mock';
 import { customerDirectoryResponse } from './party-directory-mock';
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -432,6 +433,7 @@ export async function mockExternalRequests(
     if (route.request().method() === 'GET' && requestUrl.pathname === '/api/shops/ui-audit-shop') {
       await fulfillJson(route, {
         shopId: 'ui-audit-shop',
+        setupAccess: observeOnlyShopSetup('ui-audit-shop'),
         name: 'UI Audit Shop',
         address: '123 Deterministic Audit Avenue',
         city: 'Bengaluru',

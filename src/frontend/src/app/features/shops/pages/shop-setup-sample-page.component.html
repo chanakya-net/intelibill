@@ -45,7 +45,7 @@
       <footer class="sample-controls">
         @if (saved.sampleReceiptAcknowledgedAt) {
           <p role="status">{{ 'shopSetup.sample.checked' | transloco }}</p>
-        } @else {
+        } @else if (saved.canSavePreferences !== false) {
           <button pButton type="button" severity="secondary" [disabled]="saving()"
             [label]="'shopSetup.sample.acknowledge' | transloco" (click)="acknowledge()"></button>
         }

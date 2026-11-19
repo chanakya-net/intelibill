@@ -48,7 +48,7 @@ public sealed class ExpirySchemaTests(PostgreSqlTestFixture fixture)
         var foreign = await SeedAsync();
         await using var db = Db();
         await QuarantineFixture.SeedAsync(db, own.Batch, 2m);
-        var service = new ExpiryPolicyService(new ExpiryPolicyRepository(db), new ShopRepository(db), new ExpiryPolicyFence(db), new UnitOfWork(db), new BusinessClock(TimeProvider.System));
+        var service = new ExpiryPolicyService(new ExpiryPolicyRepository(db), new ShopRepository(db), new ExpiryPolicyFence(db), new UnitOfWork(db), new BusinessClock(TimeProvider.System), ExpirySettingsFixture.Access(db));
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !Directory.Exists(Path.Combine(root.FullName, "scripts", "db"))) root = root.Parent;
         Assert.NotNull(root);
@@ -60,7 +60,7 @@ public sealed class ExpirySchemaTests(PostgreSqlTestFixture fixture)
         {
             var current = await service.ReadAsync(own.Shop, own.Actor, own.Item, default);
             var changed = await service.UpdateAsync(own.Shop, own.Actor, own.Item,
-                new(current.Value.CatalogVersion, inclusive ? null : new(ExpiryMode.Ignore, false, false, 7, false), "Boundary override then inherit"), default);
+                new(current.Value.CatalogVersion, inclusive ? null : new(ExpiryMode.Ignore, false, false, 7, false), "Boundary override then inherit"), ExpirySettingsFixture.Session(own.Actor, own.Shop), default);
             Assert.False(changed.IsError);
             var readiness = await service.ReadinessAsync(own.Shop, own.Actor, 1, 100, default);
             Assert.False(readiness.IsError);

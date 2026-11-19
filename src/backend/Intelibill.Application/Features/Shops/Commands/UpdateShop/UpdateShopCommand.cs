@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 namespace Intelibill.Application.Features.Shops.Commands.UpdateShop;
 
 public sealed record UpdateShopCommand(
@@ -10,4 +12,7 @@ public sealed record UpdateShopCommand(
     string Pincode,
     string? ContactPerson,
     string? MobileNumber,
-    string? GstNumber);
+    string? GstNumber)
+{
+    public SessionClaims? Session { get; init; }
+}

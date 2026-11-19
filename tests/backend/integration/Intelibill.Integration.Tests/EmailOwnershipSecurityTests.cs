@@ -5,6 +5,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Security;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Data;
@@ -26,6 +27,9 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
         services.AddSingleton<ReadBarrier>();
         services.AddScoped<IUserRepository>(sp => new BarrierUsers(
             (IUserRepository)ActivatorUtilities.CreateInstance(sp, original.ImplementationType!), sp.GetRequiredService<ReadBarrier>()));
+        services.RemoveAll<ILiveSessionAuthority>();
+        services.AddScoped<ILiveSessionAuthority>(sp => new BarrierSessions(
+            sp.GetRequiredService<LiveSessionValidator>(), sp.GetRequiredService<ReadBarrier>()));
         services.RemoveAll<IEmailService>();
         services.AddSingleton<FixtureEmailDelivery>();
         services.AddSingleton<IEmailService>(sp => sp.GetRequiredService<FixtureEmailDelivery>());
@@ -286,7 +290,11 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
         Assert.Equal(HttpStatusCode.OK, created.StatusCode);
         var auth = await created.Content.ReadFromJsonAsync<JsonElement>(); Authenticate(client, auth);
         var shopId = auth.GetProperty("activeShopId").GetGuid();
-        var barrier = _factory.Services.GetRequiredService<ReadBarrier>(); barrier.BeforeId = true;
+        var barrier = _factory.Services.GetRequiredService<ReadBarrier>();
+        // Create now loads the user under its write lock. Pause after bearer validation but
+        // before that lock, so the competing security-version update can commit first.
+        if (operation == "create") barrier.PauseBeforeCreateAuthorityCheck();
+        else barrier.BeforeId = true;
         var pending = operation switch
         {
             "profile" => client.PutAsJsonAsync("/api/users/me", new { email, firstName = "Updated", lastName = "Owner", language = "en-IN" }),
@@ -426,12 +434,26 @@ public sealed class EmailOwnershipSecurityTests(PostgreSqlTestFixture fixture) :
 
     public sealed class ReadBarrier
     {
+        private int _remainingAuthorityChecks;
+        public void PauseBeforeCreateAuthorityCheck() => Volatile.Write(ref _remainingAuthorityChecks, 2);
+        public bool ReachedCreateAuthorityCheck() => Volatile.Read(ref _remainingAuthorityChecks) > 0 &&
+            Interlocked.Decrement(ref _remainingAuthorityChecks) == 0;
+
         public bool BeforeId { get; set; }
         public bool AfterEmail { get; set; }
         public TaskCompletionSource Reached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public async Task PauseAsync() { Reached.TrySetResult(); await Release.Task.WaitAsync(TimeSpan.FromSeconds(30)); }
     }
+    private sealed class BarrierSessions(LiveSessionValidator inner, ReadBarrier barrier) : ILiveSessionAuthority
+    {
+        public async Task<bool> IsValidAsync(SessionClaims claims, CancellationToken cancellationToken = default)
+        {
+            if (barrier.ReachedCreateAuthorityCheck()) await barrier.PauseAsync();
+            return await inner.IsValidAsync(claims, cancellationToken);
+        }
+    }
+
     private sealed class BarrierUsers(IUserRepository inner, ReadBarrier barrier) : IUserRepository
     {
         public async Task<User?> GetByIdWithDetailsAsync(Guid id, CancellationToken ct = default)

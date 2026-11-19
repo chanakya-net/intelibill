@@ -2,6 +2,8 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { EMPTY, catchError, exhaustMap, from, map, of, switchMap } from 'rxjs';
 
+import { problemCode } from '@intelibill/api';
+import { setupLicenceError } from '../services/shop-setup-access';
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LeaveReadiness, ShopContextService } from '../../../core/context/shop-context.service';
@@ -42,7 +44,7 @@ export class ShopsEffects {
           catchError((error: { error?: ApiErrorPayload }) =>
             of(
               ShopsActions.loadShopDetailsFailed({
-                errorMessage: getShopDetailsErrorMessage(error.error),
+                errorMessage: getShopDetailsErrorMessage(error.error), shopId,
               })
             )
           )
@@ -106,6 +108,7 @@ export class ShopsEffects {
             of(
               ShopsActions.updateShopFailed({
                 errorMessage: getShopMutationErrorMessage(error.error),
+                ...setupMutationRefusal(shopId, error.error),
               })
             )
           )
@@ -172,6 +175,7 @@ export class ShopsEffects {
             of(
               ShopsActions.updateShopBankDetailsFailed({
                 errorMessage: getBankDetailsErrorMessage(error.error),
+                ...setupMutationRefusal(shopId, error.error),
               })
             )
           )
@@ -190,6 +194,7 @@ export class ShopsEffects {
             of(
               ShopsActions.updateShopTaxProfileFailed({
                 errorMessage: getShopMutationErrorMessage(error.error, 'errors.shops.unableToUpdateTaxProfile'),
+                ...setupMutationRefusal(shopId, error.error),
               })
             )
           )
@@ -213,6 +218,8 @@ export class ShopsEffects {
 }
 
 function getShopDetailsErrorMessage(error: ApiErrorPayload | undefined): string {
+  const licence = setupLicenceError(error);
+  if (licence) return licence;
   const title = error?.title ?? '';
 
   if (title === 'Shop.MembershipNotFound') {
@@ -249,6 +256,8 @@ function getLeaveRefusalMessage(readiness: Exclude<LeaveReadiness, { ok: true }>
 }
 
 function getBankDetailsErrorMessage(error: ApiErrorPayload | undefined): string {
+  const licence = setupLicenceError(error);
+  if (licence) return licence;
   const title = error?.title ?? '';
 
   if (title === 'Unauthorized' || title === 'Auth.Unauthorized') {
@@ -288,8 +297,11 @@ function getShopMutationErrorMessage(
   error: ApiErrorPayload | undefined,
   fallback = 'errors.shops.unableToUpdateShop',
 ): string {
+  const licence = setupLicenceError(error);
+  if (licence) return licence;
   const title = error?.title ?? '';
 
+  if (title === 'Shop.SelectExistingShop') return 'shopSetup.selectExistingShop';
   if (TAX_PROFILE_ERROR_KEYS[title]) {
     return TAX_PROFILE_ERROR_KEYS[title];
   }
@@ -323,4 +335,11 @@ function getShopMutationErrorMessage(
   }
 
   return fallback;
+}
+
+
+function setupMutationRefusal(shopId: string, error?: ApiErrorPayload) {
+  const code = problemCode(error);
+  if (!setupLicenceError(error) || code === 'Licence.Busy') return {};
+  return { shopId, licenceRefused: true, securitySuspended: code === 'Licence.SecuritySuspended' };
 }

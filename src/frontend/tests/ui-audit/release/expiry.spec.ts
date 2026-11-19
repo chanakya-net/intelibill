@@ -1,3 +1,4 @@
+import { observeOnlyShopSetup } from '../support/shop-setup-mock';
 import { customerDirectoryResponse } from '../support/party-directory-mock';
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { resolve } from 'node:path';
@@ -275,6 +276,7 @@ async function fixtures(page: Page) {
     if (path === `/api/shops/${SHOP_A}`)
       return json(r, {
         shopId: SHOP_A,
+        setupAccess: observeOnlyShopSetup(SHOP_A),
         name: 'Shop A',
         address: 'Market Road',
         city: 'Bengaluru',

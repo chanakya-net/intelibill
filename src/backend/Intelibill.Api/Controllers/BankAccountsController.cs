@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -38,6 +39,7 @@ public sealed class BankAccountsController : AuthenticatedControllerBase
     [HttpPost]
     [Authorize(Policy = "OwnerOnly")]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> AddBankAccount([FromBody] AddBankAccountRequest request, CancellationToken cancellationToken)
     {
         var shop = CheckShop();
@@ -50,7 +52,7 @@ public sealed class BankAccountsController : AuthenticatedControllerBase
                 request.AccountNumber,
                 request.AccountType,
                 request.IfscCode,
-                request.AccountHolderName),
+                request.AccountHolderName) { Session = SessionClaims.TryRead(User) },
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -59,6 +61,7 @@ public sealed class BankAccountsController : AuthenticatedControllerBase
     [HttpPut("{id:guid}")]
     [Authorize(Policy = "OwnerOnly")]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> UpdateBankAccount(Guid id, [FromBody] UpdateBankAccountRequest request, CancellationToken cancellationToken)
     {
         var shop = CheckShop();
@@ -72,7 +75,7 @@ public sealed class BankAccountsController : AuthenticatedControllerBase
                 request.AccountNumber,
                 request.AccountType,
                 request.IfscCode,
-                request.AccountHolderName),
+                request.AccountHolderName) { Session = SessionClaims.TryRead(User) },
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -81,13 +84,14 @@ public sealed class BankAccountsController : AuthenticatedControllerBase
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = "OwnerOnly")]
     [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> DeleteBankAccount(Guid id, CancellationToken cancellationToken)
     {
         var shop = CheckShop();
         if (shop is not null) return shop;
 
         var result = await Bus.InvokeAsync<ErrorOr<Deleted>>(
-            new DeleteBankAccountCommand(id, ActiveShopId!.Value),
+            new DeleteBankAccountCommand(id, ActiveShopId!.Value) { Session = SessionClaims.TryRead(User) },
             cancellationToken);
 
         return result.ToActionResult(_ => NoContent());
