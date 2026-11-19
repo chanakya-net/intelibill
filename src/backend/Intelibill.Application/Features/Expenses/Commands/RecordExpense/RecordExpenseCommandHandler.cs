@@ -21,7 +21,8 @@ public sealed class RecordExpenseCommandHandler(
     IPostingPeriodPolicy postingPeriodPolicy,
     IUnitOfWork unitOfWork,
     IPaymentTransactionRunner transactionRunner,
-    TillSourceSettlementService settlement)
+    TillSourceSettlementService settlement,
+    IShopLicenceFence licenceFence)
 {
     [LicenceAction(LicenceAction.NewTrading)]
     public async Task<ErrorOr<ExpenseDto>> HandleAsync(
@@ -43,12 +44,15 @@ public sealed class RecordExpenseCommandHandler(
             return Errors.Expense.Forbidden;
 
         var key = FinancialOperationHasher.NormalizeKey(command.OperationKey);
-        return await transactionRunner.RunAsync<ExpenseDto>(key is null ? null : new(command.ShopId, FinancialOperationType.ExpenseRecord, key),
+        return await transactionRunner.RunAsync<ExpenseDto>(key is null ? null : new(command.ShopId, FinancialOperationType.ExpenseRecord, key) { SuspensionAction = LicenceAction.NewTrading },
             command.UserId, command.ShopId, key is null ? null : ComputeRequestHash(command), ct => PostAsync(command, ct), cancellationToken);
     }
 
     private async Task<ErrorOr<ExpenseDto>> PostAsync(RecordExpenseCommand command, CancellationToken cancellationToken)
     {
+        if (await ExpenseLicenceGuard.DenyNewExpenseAsync(licenceFence, command.ShopId, cancellationToken) is { } denied)
+            return denied;
+
         var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(command.ShopId, command.ExpenseDate, cancellationToken);
         if (fence.IsError)
             return fence.Errors;

@@ -1,3 +1,4 @@
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { signal as errorSignal } from '@angular/core';
 import { TillPendingActionsComponent } from '../../tills/components/till-pending-actions.component';
@@ -64,6 +65,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
 export class CorrectExpenseOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly expensesFacade = inject(ExpensesFacade);
+  readonly access = inject(OperatingAccessHintService);
 
   readonly treatment = signal<ExpenseTreatment>('Unclassified');
   readonly treatmentChoices = EXPENSE_TREATMENT_CHOICES;

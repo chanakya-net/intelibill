@@ -2413,8 +2413,10 @@
     "ledgerMetrics": "Expense ledger metrics",
     "ledgerResults": "Expense ledger results",
     "errors": {
-      "unexpected": "Unable to record or correct this expense. Please try again."
+      "unexpected": "Unable to record or correct this expense. Please try again.",
+      "correctionSourceIneligible": "While trading access is restricted, a correction can only restate the original expense on its original date and for no more than its original amount."
     },
+    "restrictedCorrectionHint": "Trading access is restricted. You can still correct an existing expense, but only on its original date and for no more than the original amount. New expenses are unavailable.",
     "treatment": {
       "label": "Expense treatment",
       "Unclassified": "Unclassified",

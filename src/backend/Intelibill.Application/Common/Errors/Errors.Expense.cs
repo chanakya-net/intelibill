@@ -21,6 +21,10 @@ public static partial class Errors
         public static Error AlreadyVoided =>
             Error.Validation("Expense.AlreadyVoided", "Expense is already voided and cannot be corrected.");
 
+        public static Error CorrectionSourceIneligible(string reason) =>
+            ErrorOr.Error.Conflict("Expense.CorrectionSourceIneligible",
+                $"While operating access is restricted, a correction may only restate the original expense: {reason}");
+
         public static Error Forbidden =>
             Error.Forbidden("Expense.Forbidden", "Only owner or manager can record or correct expenses.");
     }

@@ -22,7 +22,7 @@ public class CorrectExpenseCommandHandlerTests
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private CorrectExpenseCommandHandler CreateHandler() =>
         new(_userRepository, _categoryRepository, _expenseRepository, _postingPeriods, _unitOfWork,
-            new PaymentTransactionRunner(Substitute.For<IFinancialOperationExecutor>(), _unitOfWork), BusinessTestDoubles.DisabledTillSettlement());
+            new PaymentTransactionRunner(Substitute.For<IFinancialOperationExecutor>(), _unitOfWork), BusinessTestDoubles.DisabledTillSettlement(), Substitute.For<Intelibill.Application.Common.Licensing.IShopLicenceFence>());
 
     private static CorrectExpenseCommand CreateCommand(Guid userId, Guid shopId, Guid originalId) =>
         new(userId, shopId, originalId, "Corrected Category", 300m, "Corrected Vendor", null, new DateOnly(2026, 4, 20));

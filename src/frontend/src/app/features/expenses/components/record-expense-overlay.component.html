@@ -174,7 +174,7 @@
           form="record-expense-form"
           icon="pi pi-check"
           [label]="'expenses.recordExpense' | transloco"
-          [disabled]="isSubmitting()"
+          [disabled]="isSubmitting() || !!access.blockingMessage()"
         ></button>
       </div>
     </footer>

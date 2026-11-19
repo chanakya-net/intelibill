@@ -1,3 +1,4 @@
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { signal as errorSignal } from '@angular/core';
 import { TillPendingActionsComponent } from '../../tills/components/till-pending-actions.component';
@@ -54,6 +55,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
 export class RecordExpenseOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly expensesFacade = inject(ExpensesFacade);
+  readonly access = inject(OperatingAccessHintService);
 
   private readonly intentId = crypto.randomUUID();
   readonly treatment = signal<ExpenseTreatment>('Unclassified');
@@ -142,7 +144,7 @@ export class RecordExpenseOverlayComponent implements OnInit {
   }
 
   onClose(): void {
-    if (this.tillLocked() || this.isSubmitting()) {
+    if (this.tillLocked() || this.isSubmitting() || this.access.blockingMessage()) {
       return;
     }
     this.closeRequested.emit();

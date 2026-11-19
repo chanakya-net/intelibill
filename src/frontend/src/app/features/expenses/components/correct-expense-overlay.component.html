@@ -125,6 +125,12 @@
         ></p-datePicker>
       </label>
 
+      @if (access.blockingMessage()) {
+        <p class="ib-overlay__hint" role="note" data-testid="restricted-correction-hint">
+          {{ 'expenses.restrictedCorrectionHint' | transloco }}
+        </p>
+      }
+
       @if (serverError()) {
         <p class="ib-overlay__error">{{ serverError() | transloco: localizedError()?.params ?? {} }}</p>
       }

@@ -21,7 +21,8 @@ public sealed class CorrectExpenseCommandHandler(
     IPostingPeriodPolicy postingPeriodPolicy,
     IUnitOfWork unitOfWork,
     IPaymentTransactionRunner transactionRunner,
-    TillSourceSettlementService settlement)
+    TillSourceSettlementService settlement,
+    IShopLicenceFence licenceFence)
 {
     [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<ExpenseDto>> HandleAsync(
@@ -52,7 +53,7 @@ public sealed class CorrectExpenseCommandHandler(
             return Error.Validation("Expense.SupplierSettlementCorrectionRefused", "Correct supplier settlement through its payment receipt.");
 
         var key = FinancialOperationHasher.NormalizeKey(command.OperationKey);
-        return await transactionRunner.RunAsync<ExpenseDto>(key is null ? null : new(command.ShopId, FinancialOperationType.ExpenseCorrection, key),
+        return await transactionRunner.RunAsync<ExpenseDto>(key is null ? null : new(command.ShopId, FinancialOperationType.ExpenseCorrection, key) { SuspensionAction = LicenceAction.SourceCorrection },
             command.UserId, command.OriginalExpenseId, key is null ? null : ComputeRequestHash(command),
             ct => CorrectAsync(command, original, ct), cancellationToken);
     }
@@ -62,6 +63,10 @@ public sealed class CorrectExpenseCommandHandler(
         Expense original,
         CancellationToken cancellationToken)
     {
+        var restricted = await ExpenseLicenceGuard.EnterCorrectionAsync(licenceFence, command.ShopId, cancellationToken);
+        if (restricted.IsError)
+            return restricted.Errors;
+
         // The original is voided in its own month and the replacement lands in the new one: both
         // must be open, taken lowest month first.
         var physical = command.SettlementEvidence is { Disposition: not TillSettlementDisposition.NoPhysicalMovement };
@@ -81,6 +86,8 @@ public sealed class CorrectExpenseCommandHandler(
         if (locked == RowLockOutcome.TimedOut) return Errors.Payment.Busy;
         if (locked == RowLockOutcome.NotFound) return Errors.Expense.NotFound;
         if (original.IsVoided) return Errors.Expense.AlreadyVoided;
+        if (restricted.Value && ExpenseLicenceGuard.ProveSource(original, command.Amount, command.ExpenseDate) is { } ineligible)
+            return ineligible;
 
         // Void original
         original.MarkVoided();
