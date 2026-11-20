@@ -164,51 +164,128 @@ async function inspect(page: Page) {
   await expect(page.getByRole('heading', { name: 'Immutable source audit' })).toBeVisible();
 }
 
+const EXPIRED = 'This shop’s trading access has ended.';
+const expiredAuthority = () => ({ code: 'Licence.Expired', enforced: true });
+const activeAuthority = () => ({
+  schemaVersion: 1,
+  shopId: session().activeShopId,
+  enforced: true,
+  authorityVerifiedAt: new Date().toISOString(),
+  validUntil: new Date(Date.now() + 60000).toISOString(),
+});
+const closeSession = (value: TillSession, countedCash: number) => {
+  const variance = countedCash - value.expectedCash;
+  value.state = 'Closed';
+  value.version += 1;
+  value.awaitingReview = variance !== 0;
+  value.close = {
+    id: 'real-close',
+    openingFloat: 1000,
+    lastMovementSequence: 2,
+    totals: {
+      recordedTenderTotals: { Cash: 300, Upi: 700 },
+      purposeTotals: { sale: 1000 },
+      storeCreditIssued: 0,
+      storeCreditRedeemed: 20,
+      receivableChange: 100,
+      movementCount: 2,
+    },
+    expectedCash: value.expectedCash,
+    countedCash,
+    variance,
+    closedBy: USER,
+    closedAt: new Date().toISOString(),
+    reason: null,
+    overrideReason: null,
+    isOverdue: false,
+    awaitingReview: variance !== 0,
+    businessDate: value.businessDate,
+    tillName: value.tillName,
+    cashierName: value.cashierName,
+    cashierId: USER,
+  } as TillSession['close'];
+};
+
 test('expired access preserves old draft and permits counted close', async ({ page }) => {
-  await fixture(page);
-  let expired = false;
-  const posts: string[] = [];
-  await page.route('**/api/licensing/shops/*/trading-authority', route => expired
-    ? json(route, { code: 'Licence.Expired', enforced: true }, 403)
-    : json(route, { schemaVersion: 1, shopId: session().activeShopId, enforced: true,
-      authorityVerifiedAt: new Date().toISOString(), validUntil: new Date(Date.now() + 60000).toISOString() }));
-  await page.route('**/api/tills/till-one/sessions', route => {
+  const { value } = await fixture(page);
+  const opens: { key: string; body: Record<string, unknown> }[] = [];
+  const closes: Record<string, unknown>[] = [];
+  let openMode: 'unknown' | 'expired' | 'ok' = 'unknown';
+  await page.route('**/api/licensing/shops/*/trading-authority', (route) =>
+    json(route, activeAuthority()),
+  );
+  await page.route('**/api/tills/till-one/sessions', (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
-    posts.push('open');
-    return expired ? json(route, { code: 'Licence.Expired' }, 403) : route.abort('failed');
+    const body = route.request().postDataJSON();
+    opens.push({ key: body.operationKey, body });
+    if (openMode === 'unknown') return route.abort('failed');
+    return openMode === 'expired' ? json(route, { code: 'Licence.Expired' }, 403) : json(route, value);
   });
-  await page.route('**/api/tills/sessions/session-one/close', route => {
-    posts.push('close');
-    return json(route, openSession());
+  await page.route('**/api/tills/sessions/session-one/close', (route) => {
+    closes.push(route.request().postDataJSON());
+    closeSession(value, 1300);
+    return json(route, value);
   });
   await page.goto(`${server.origin}/tills`);
   await page.getByRole('combobox', { name: 'Physical till', exact: true }).selectOption('till-one');
   await page.getByLabel('Counted opening float', { exact: true }).fill('1000');
   await page.getByRole('button', { name: 'Open session', exact: true }).click();
   await expect(page.getByText('An earlier request is unresolved.', { exact: false })).toBeVisible();
-  expired = true;
-  await page.reload();
-  await expect(page.getByText('This shop’s trading access has ended.').first()).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Open session', exact: true })).toBeDisabled();
+  // The page stays mounted: expiry is first learned through the frozen retry.
+  await expect(page.getByText(EXPIRED)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Open session', exact: true })).toBeEnabled();
+  openMode = 'expired';
   await page.getByRole('button', { name: 'Recover / retry frozen request' }).click();
-  await expect(page.getByText('This shop’s trading access has ended.').last()).toBeVisible();
+  await expect(page.getByText(EXPIRED)).toHaveCount(2); // shared access banner + retry alert
+  await expect(page.getByRole('button', { name: 'Open session', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Recover / retry frozen request' })).toBeVisible();
+  openMode = 'ok';
+  await page.getByRole('button', { name: 'Recover / retry frozen request' }).click();
+  await expect(page.getByText('The original frozen request was confirmed', { exact: false }).first()).toBeVisible();
+  await expect(page.getByText(EXPIRED)).toHaveCount(1); // retry alert cleared, banner stays
+  await expect(page.getByRole('button', { name: 'Open session', exact: true })).toBeDisabled();
+  expect(opens).toHaveLength(3);
+  expect(new Set(opens.map((x) => x.key)).size).toBe(1);
+  expect(opens[1].body).toEqual(opens[0].body);
+  expect(opens[2].body).toEqual(opens[0].body);
   await inspect(page);
   await page.getByLabel('Cash actually counted', { exact: true }).fill('1300');
   await page.getByRole('button', { name: 'Count & close', exact: true }).click();
-  await expect.poll(() => posts.filter(x => x === 'close').length).toBe(1);
-  expect(posts.filter(x => x === 'open')).toHaveLength(2);
+  await expect.poll(() => closes.length).toBe(1);
+  expect(closes[0]).toMatchObject({ countedCash: 1300, expectedVersion: 7 });
+  await expect(page.locator('.close-summary')).toContainText('₹1,300.00');
+  await expect(page.locator('.close-summary')).toContainText('Closed');
   await page.screenshot({ path: `${OUTPUT}/expired-till-completion.png`, fullPage: true });
 });
 
 test('manager can review a frozen close after expiry', async ({ page }) => {
-  const { posts } = await fixture(page, 'closed');
-  await page.route('**/api/licensing/shops/*/trading-authority', route =>
-    json(route, { code: 'Licence.Expired', enforced: true }, 403));
+  const { value } = await fixture(page, 'closed');
+  const reviews: Record<string, unknown>[] = [];
+  await page.route('**/api/licensing/shops/*/trading-authority', (route) =>
+    json(route, expiredAuthority(), 403),
+  );
+  await page.route('**/api/tills/sessions/session-one/review', (route) => {
+    reviews.push(route.request().postDataJSON());
+    value.version += 1;
+    value.awaitingReview = false;
+    value.review = {
+      id: 'real-review',
+      closeId: 'frozen-close',
+      reviewedBy: USER,
+      reviewedAt: new Date().toISOString(),
+      reason: 'Count checked',
+    };
+    return json(route, value);
+  });
   await page.goto(`${server.origin}/tills`);
-  await expect(page.getByText('This shop’s trading access has ended.').first()).toBeVisible();
+  await expect(page.getByText(EXPIRED).first()).toBeVisible();
   await inspect(page);
+  await expect(page.locator('.review-confirmed')).toHaveCount(0);
   await page.getByLabel('Manager review reason', { exact: true }).fill('Count checked');
   await page.getByRole('button', { name: 'Acknowledge frozen variance' }).click();
-  await expect.poll(() => posts.length).toBe(1);
+  await expect.poll(() => reviews.length).toBe(1);
+  expect(reviews[0]).toMatchObject({ reason: 'Count checked', expectedVersion: 7 });
+  await expect(page.locator('.review-confirmed')).toContainText('Count checked');
+  await expect(page.getByRole('button', { name: 'Acknowledge frozen variance' })).toHaveCount(0);
   await page.screenshot({ path: `${OUTPUT}/expired-till-review.png`, fullPage: true });
 });

@@ -22,7 +22,15 @@ namespace Intelibill.Integration.Tests;
 public sealed partial class P0410LicensingTests(PostgreSqlTestFixture fixture, ITestOutputHelper output)
 {
     private readonly ITestOutputHelper _output = output;
-    private readonly TestClock _clock = new(EntitlementSnapshotsV1.Instant(TimeProvider.System));
+    private readonly TestClock _clock = new(SameDayAnchor(EntitlementSnapshotsV1.Instant(TimeProvider.System)));
+
+    /// <summary>Keeps the opening instant and the one-minute expiry on one Asia/Kolkata business date.</summary>
+    private static DateTimeOffset SameDayAnchor(DateTimeOffset wall)
+    {
+        var ist = wall.ToOffset(TimeSpan.FromMinutes(330));
+        var minutesToMidnight = (24 * 60) - (ist.Hour * 60 + ist.Minute);
+        return minutesToMidnight <= 5 ? wall.AddMinutes(minutesToMidnight + 5) : wall;
+    }
     private string Migrator => fixture.MigratorConnectionString;
     private static CancellationToken Ct => CancellationToken.None;
 

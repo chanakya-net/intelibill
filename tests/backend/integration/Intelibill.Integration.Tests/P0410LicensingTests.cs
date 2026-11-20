@@ -86,9 +86,11 @@ public sealed partial class P0410LicensingTests
         await app.Db.Database.ExecuteSqlAsync($"SELECT set_config('app.active_shop_id', {shop.ToString("D")}, false)", Ct);
         var till = await app.CreateAsync(shop, owner);
         var session = await app.OpenAsync(shop, cashier, till.Id);
+        Assert.Equal(session.BusinessDate, BusinessDateOf(end));
         app.Time.Now = end.AddDays(1);
         var overdue = await app.Lifecycle.CloseAsync(new(shop, cashier, session.Id, 990m, "Counted", session.Version, "late"), Ct);
         Assert.Equal("Till.Overdue", overdue.FirstError.Code);
+        Assert.Equal(session.BusinessDate.AddDays(1), BusinessDateOf(app.Time.Now));
         app.Time.Now = end;
         var closed = TillTestContext.Success(await app.Lifecycle.CloseAsync(new(shop, cashier, session.Id, 990m, "Counted", session.Version, "close"), Ct));
         Assert.True(closed.AwaitingReview);
@@ -98,4 +100,7 @@ public sealed partial class P0410LicensingTests
         Assert.False(reviewed.AwaitingReview);
     }
 
+
+    private static DateOnly BusinessDateOf(DateTimeOffset instant) =>
+        DateOnly.FromDateTime(instant.ToOffset(TimeSpan.FromMinutes(330)).DateTime);
 }

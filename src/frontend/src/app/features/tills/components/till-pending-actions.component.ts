@@ -1,4 +1,7 @@
-import { operatingAccessErrorKey } from '../../billing/status/operating-access-hint.service';
+import {
+  OperatingAccessHintService,
+  operatingAccessErrorKey,
+} from '../../billing/status/operating-access-hint.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { Component, Input, Output, EventEmitter, inject, signal, OnInit } from '@angular/core';
@@ -106,6 +109,7 @@ export class TillPendingActionsComponent implements OnInit {
   private readonly drafts = inject(TillDraftService);
   private readonly api = inject(TillService);
   private readonly context = inject(TillContextService);
+  private readonly access = inject(OperatingAccessHintService);
   constructor() {
     this.drafts
       .watch()
@@ -177,6 +181,9 @@ export class TillPendingActionsComponent implements OnInit {
     const [action, target, ...cycle] = record.targetId.split(':');
     const path = record.pending.payload['__requestPath'];
     if (typeof path !== 'string') return;
+    const scope = this.access.scope();
+    this.error.set(false);
+    this.recovered.set('');
     this.busy.set(true);
     try {
       await firstValueFrom(
@@ -198,6 +205,7 @@ export class TillPendingActionsComponent implements OnInit {
         this.confirmed.emit();
       }
     } catch (error) {
+      this.access.reportRefusal(error, scope);
       this.errorMessage.set(operatingAccessErrorKey(error) ?? 'tills.unknown');
       this.error.set(true);
     } finally {
