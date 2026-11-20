@@ -18,8 +18,19 @@ export interface UsersState extends EntityState<ShopUser> {
   readonly lastMutationType: UserMutationType | null;
   readonly lastMutationSucceeded: boolean;
   readonly invitations: readonly ShopInvitation[];
-  /** Seat usage from the last refused reinstatement, for the owner's message; cleared with the error. */
-  readonly memberCapacityConflict: MemberCapacity | null;
+  /**
+   * The open membership edit's seat refusal. Kept apart from the shared error slot, so directory,
+   * invitation and account responses neither show nor erase it; cleared by a retry, a success,
+   * closing or moving the edit, and a scope change.
+   */
+  readonly membershipRefusal: MembershipRefusal | null;
+}
+
+/** A seat refusal and the edit it answered. `memberCapacity` is null when no usage was disclosed. */
+export interface MembershipRefusal {
+  readonly shopId: string;
+  readonly userId: string;
+  readonly memberCapacity: MemberCapacity | null;
 }
 
 const initialState: UsersState = usersAdapter.getInitialState({
@@ -29,7 +40,7 @@ const initialState: UsersState = usersAdapter.getInitialState({
   lastMutationType: null,
   lastMutationSucceeded: false,
   invitations: [] as readonly ShopInvitation[],
-  memberCapacityConflict: null,
+  membershipRefusal: null,
 });
 
 export const usersReducer = createReducer(
@@ -167,7 +178,7 @@ export const usersReducer = createReducer(
     ...state,
     submitting: true,
     errorMessage: '',
-    memberCapacityConflict: null,
+    membershipRefusal: null,
     lastMutationType: 'update-membership',
     lastMutationSucceeded: false,
   })),
@@ -176,6 +187,7 @@ export const usersReducer = createReducer(
       ...state,
       submitting: false,
       errorMessage: '',
+      membershipRefusal: null,
       lastMutationType: 'update-membership' as UserMutationType,
       lastMutationSucceeded: true,
     };
@@ -196,19 +208,28 @@ export const usersReducer = createReducer(
           next
         );
   }),
-  on(UsersActions.updateMembershipFailed, (state, { errorMessage, memberCapacity }) => ({
+  on(UsersActions.updateMembershipFailed, (state, { errorMessage }) => ({
     ...state,
     submitting: false,
     errorMessage,
-    memberCapacityConflict: memberCapacity ?? null,
     lastMutationType: 'update-membership',
     lastMutationSucceeded: false,
+  })),
+  on(UsersActions.updateMembershipCapacityRefused, (state, { shopId, userId, memberCapacity }) => ({
+    ...state,
+    submitting: false,
+    membershipRefusal: { shopId, userId, memberCapacity },
+    lastMutationType: 'update-membership',
+    lastMutationSucceeded: false,
+  })),
+  on(UsersActions.clearMembershipRefusal, (state) => ({
+    ...state,
+    membershipRefusal: null,
   })),
 
   on(UsersActions.clearError, (state) => ({
     ...state,
     errorMessage: '',
-    memberCapacityConflict: null,
   })),
   on(UsersActions.clearMutationStatus, (state) => ({
     ...state,

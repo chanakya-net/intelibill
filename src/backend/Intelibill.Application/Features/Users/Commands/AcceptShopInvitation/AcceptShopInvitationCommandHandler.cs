@@ -13,7 +13,8 @@ public sealed class AcceptShopInvitationCommandHandler(
     IMembershipAuthorityRepository authority,
     TimeProvider clock,
     ITenantWriteScope tenantScope,
-    IShopLicenceFence fence)
+    IShopLicenceFence fence,
+    ILiveSessionAuthority sessions)
 {
     [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<MembershipDto>> HandleAsync(
@@ -37,6 +38,10 @@ public sealed class AcceptShopInvitationCommandHandler(
         var licence = await fence.EnterAsync(offer.ShopId, LicenceAction.OperationalCapacity, cancellationToken);
 
         await authority.LockUsersAsync([command.ActorUserId, offer.InvitedByUserId], cancellationToken);
+        // Revocation takes the same account lock, so a device signed out while this request queued
+        // is refused here, before any seat detail or write.
+        if (!await IsLiveAsync(command, cancellationToken))
+            return Errors.Auth.SessionInvalidated;
         if (!await authority.LockShopAsync(offer.ShopId, cancellationToken))
             return Errors.Shop.ShopNotFound;
 
@@ -76,6 +81,12 @@ public sealed class AcceptShopInvitationCommandHandler(
 
         var membership = await authority.LockMembershipAsync(invitation.ShopId, command.ActorUserId, cancellationToken);
 
+        // The offer's deadline is judged when every lock is held, not when the request arrived:
+        // an offer that lapsed while queued neither seats anyone nor reports a full shop.
+        var decidedAt = clock.GetUtcNow();
+        if (!invitation.IsPending(decidedAt))
+            return Errors.Users.InvitationNotAcceptable;
+
         // Joining or rejoining takes a seat; the offer stays pending when none is free.
         if (membership is not { IsActive: true }
             && await SeatDenialAsync(licence.Value, invitation.ShopId, cancellationToken) is { } full)
@@ -96,7 +107,7 @@ public sealed class AcceptShopInvitationCommandHandler(
 
         // Already-active members get an idempotent result: the offer is consumed, the membership
         // is untouched, and no second row appears.
-        invitation.Accept(command.ActorUserId, now);
+        invitation.Accept(command.ActorUserId, decidedAt);
 
         if (!await authority.CommitAsync(cancellationToken))
             return Errors.Users.InvitationNotAcceptable;
@@ -109,6 +120,10 @@ public sealed class AcceptShopInvitationCommandHandler(
             membership.Status.ToString(),
             membership.AuthorityVersion);
     }
+
+    private async Task<bool> IsLiveAsync(AcceptShopInvitationCommand command, CancellationToken ct) =>
+        command.Session is { } session && session.UserId == command.ActorUserId
+        && await sessions.IsValidAsync(session, ct);
 
     // Counted under the shop root lock taken above, so a concurrent admission cannot share the seat.
     // The invitee is not yet an authority in the shop, so usage figures are withheld.

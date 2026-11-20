@@ -128,7 +128,7 @@ export class UsersEffects {
         this.userAccountService.updateMembership(shopId, userId, payload).pipe(
           map((membership) => UsersActions.updateMembershipSucceeded({ membership })),
           catchError((error: { error?: ApiErrorPayload }) =>
-            of(updateMembershipFailed(error.error))
+            of(updateMembershipFailed(shopId, userId, error.error))
           )
         )
       )
@@ -206,16 +206,13 @@ function getInviteMemberErrorMessage(error: ApiErrorPayload | undefined): string
   }
 }
 
-/** A seat refusal keeps the owner's usage figures when the API supplied them. */
-function updateMembershipFailed(error: ApiErrorPayload | undefined) {
+/** A seat refusal stays with the edit that was sent, with the owner's usage figures when supplied. */
+function updateMembershipFailed(shopId: string, userId: string, error: ApiErrorPayload | undefined) {
   if ((error?.code ?? error?.title) !== MEMBER_CAPACITY_REACHED) {
     return UsersActions.updateMembershipFailed({ errorMessage: getUpdateMembershipErrorMessage(error) });
   }
 
-  const memberCapacity = readMemberCapacity(error);
-  return memberCapacity
-    ? UsersActions.updateMembershipFailed({ errorMessage: 'errors.users.memberCapacityReached', memberCapacity })
-    : UsersActions.updateMembershipFailed({ errorMessage: 'errors.users.memberCapacityReachedNoDetail' });
+  return UsersActions.updateMembershipCapacityRefused({ shopId, userId, memberCapacity: readMemberCapacity(error) });
 }
 
 function getUpdateMembershipErrorMessage(error: ApiErrorPayload | undefined): string {

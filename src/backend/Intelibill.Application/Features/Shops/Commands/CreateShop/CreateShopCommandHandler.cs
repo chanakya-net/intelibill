@@ -111,10 +111,11 @@ public sealed class CreateShopCommandHandler(
     private async Task SeedAsync(Shop shop, User user, bool first, DateTimeOffset now, CancellationToken ct)
     {
         await tenantWriteScope.EnterAsync(shop.Id, ct);
-        // The initial Owner is seat one of a shop nobody else can reference before commit. The new
-        // shop has no licence projection yet, and a first projection always allows at least one
-        // member, so no member count applies here. The creator's seat in the source shop is
-        // untouched: an Active person is counted once in each shop (MemberSeatPolicy).
+        // Bootstrap: the initial Owner is the only seat of a shop nobody else can reference before
+        // commit, and no entitlement exists for it yet, so nothing is counted here. A later
+        // projection's allowance is positive when supplied; an unknown allowance blocks further
+        // enrolled admissions (MemberSeatPolicy). The creator's seat in the source shop is
+        // untouched: an Active person is counted once in each shop.
         var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, first);
         shop.AddMembership(membership);
         user.AddShopMembership(membership);

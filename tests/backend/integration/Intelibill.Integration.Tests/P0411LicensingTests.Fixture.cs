@@ -17,7 +17,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using Npgsql;
 using Xunit.Abstractions;
 
 namespace Intelibill.Integration.Tests;
@@ -230,40 +229,6 @@ public sealed partial class P0411LicensingTests(PostgreSqlTestFixture fixture, I
 
     private static ApplicationDbContext Open(string connection) => new(new DbContextOptionsBuilder<ApplicationDbContext>()
         .UseNpgsql(connection).UseSnakeCaseNamingConvention().Options);
-
-    /// <summary>Holds the shop root row so concurrent admissions queue behind it with their earlier locks held.</summary>
-    private async Task<NpgsqlConnection> HoldShopRowAsync(Guid shop)
-    {
-        var connection = new NpgsqlConnection(Migrator);
-        await connection.OpenAsync(Ct);
-        await using var command = new NpgsqlCommand($"BEGIN; SELECT 1 FROM shops WHERE id = '{shop}' FOR UPDATE;", connection);
-        await command.ExecuteNonQueryAsync(Ct);
-        return connection;
-    }
-
-    private static async Task ReleaseShopRowAsync(NpgsqlConnection holder)
-    {
-        await using (var command = new NpgsqlCommand("COMMIT", holder))
-            await command.ExecuteNonQueryAsync(Ct);
-        await holder.DisposeAsync();
-    }
-
-    /// <summary>Waits until <paramref name="count"/> backends of this database are waiting on a lock.</summary>
-    private async Task WaitForLockWaitersAsync(int count)
-    {
-        await using var connection = new NpgsqlConnection(Migrator);
-        await connection.OpenAsync(Ct);
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        while (true)
-        {
-            await using var command = new NpgsqlCommand("""
-                SELECT count(*)::int FROM pg_stat_activity
-                WHERE datname = current_database() AND wait_event_type = 'Lock' AND cardinality(pg_blocking_pids(pid)) > 0
-                """, connection);
-            if ((int)(await command.ExecuteScalarAsync(timeout.Token))! >= count) return;
-            await Task.Delay(10, timeout.Token);
-        }
-    }
 
     private sealed record Person(Guid UserId, string Email, string Token);
     private sealed record Merchant(Guid Shop, Person Owner, Binding Binding);

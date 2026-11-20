@@ -154,9 +154,15 @@ for (const [layout, viewport] of [['desktop', DESKTOP], ['mobile', MOBILE]] as c
     expect(fixture.state.members.find((member) => member.userId === 'member-sunil')?.status).toBe('Suspended');
     await page.screenshot({ path: info.outputPath(`owner-capacity-conflict-${layout}.png`) });
     await refused.getByRole('button', { name: 'Cancel' }).click();
+    // The refusal belongs to the cancelled edit: neither the directory nor the next editor shows it.
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByText(OWNER_FULL)).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath(`owner-refusal-cleared-on-cancel-${layout}.png`) });
 
     // No one is removed automatically: the owner suspends a member, then retries.
     await expect(await editMember(page, 'Ravi Active', { status: 'Suspended' })).toHaveCount(0);
+    await expect(page.getByText(OWNER_FULL)).toHaveCount(0);
+    // The same edit, sent again once a seat is free, succeeds.
     await expect(await editMember(page, 'Sunil Suspended', { status: 'Active' })).toHaveCount(0);
     expect(fixture.active()).toBe(3);
     await page.screenshot({ path: info.outputPath(`owner-reinstated-after-suspension-${layout}.png`) });

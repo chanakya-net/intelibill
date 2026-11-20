@@ -8,6 +8,7 @@ import {
   SimpleChanges,
   computed,
   inject,
+  signal,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Store } from '@ngrx/store';
@@ -23,7 +24,7 @@ import { MembershipRole, MembershipStatus, ShopUser } from '../services/user-acc
 import { UsersActions } from '../state/users.actions';
 import {
   selectUsersErrorMessage,
-  selectUsersMemberCapacityConflict,
+  selectUsersMembershipRefusal,
   selectUsersSubmitting,
 } from '../state/users.selectors';
 
@@ -55,12 +56,27 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
   private readonly authService = inject(AuthService);
 
   readonly isSubmitting = this.store.selectSignal(selectUsersSubmitting);
-  readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
-  /** Owner-only seat usage from a refused reinstatement; the row itself keeps its saved status. */
-  readonly memberCapacity = this.store.selectSignal(selectUsersMemberCapacityConflict);
-  readonly serverErrorParams = computed(() => this.memberCapacity() ?? {});
+  private readonly sharedError = this.store.selectSignal(selectUsersErrorMessage);
+  private readonly refusal = this.store.selectSignal(selectUsersMembershipRefusal);
+  private readonly editedUserId = signal<string | null>(null);
 
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? null);
+  /** A seat refusal is shown only by the edit it answered, in the shop it was sent for. */
+  private readonly ownRefusal = computed(() => {
+    const refusal = this.refusal();
+    return refusal && refusal.shopId === this.activeShopId() && refusal.userId === this.editedUserId()
+      ? refusal
+      : null;
+  });
+  readonly serverError = computed(() => {
+    const refusal = this.ownRefusal();
+    if (!refusal) return this.sharedError();
+    return refusal.memberCapacity
+      ? 'errors.users.memberCapacityReached'
+      : 'errors.users.memberCapacityReachedNoDetail';
+  });
+  /** Owner-only seat usage from a refused reinstatement; the row itself keeps its saved status. */
+  readonly serverErrorParams = computed(() => this.ownRefusal()?.memberCapacity ?? {});
   readonly activeShopName = computed(() => {
     const session = this.authService.session();
     return session?.shops.find((shop) => shop.shopId === session.activeShopId)?.shopName ?? '';
@@ -76,6 +92,7 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
   });
 
   ngOnInit(): void {
+    this.editedUserId.set(this.user?.userId ?? null);
     this.patchFormFromUser();
     this.store.dispatch(UsersActions.clearError());
     this.store.dispatch(UsersActions.clearMutationStatus());
@@ -86,6 +103,11 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
       return;
     }
 
+    const previous = this.editedUserId();
+    this.editedUserId.set(this.user?.userId ?? null);
+    if (previous !== null && previous !== this.editedUserId()) {
+      this.store.dispatch(UsersActions.clearMembershipRefusal());
+    }
     this.patchFormFromUser();
   }
 

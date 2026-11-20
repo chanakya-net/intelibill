@@ -20,7 +20,6 @@ import {
   selectShopInvitations,
   selectShopUsers,
   selectUsersErrorMessage,
-  selectUsersMemberCapacityConflict,
   selectUsersLastMutationSucceeded,
   selectUsersLastMutationType,
   selectUsersLoadingShopUsers,
@@ -85,8 +84,6 @@ export class UsersPageComponent {
   readonly tableUsers = computed(() => [...this.filteredUsers()]);
   readonly isLoading = this.store.selectSignal(selectUsersLoadingShopUsers);
   readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
-  private readonly memberCapacity = this.store.selectSignal(selectUsersMemberCapacityConflict);
-  readonly serverErrorParams = computed(() => this.memberCapacity() ?? {});
   readonly lastMutationType = this.store.selectSignal(selectUsersLastMutationType);
   readonly lastMutationSucceeded = this.store.selectSignal(selectUsersLastMutationSucceeded);
 
@@ -219,11 +216,14 @@ export class UsersPageComponent {
 
     this.store.dispatch(UsersActions.clearError());
     this.store.dispatch(UsersActions.clearMutationStatus());
+    this.store.dispatch(UsersActions.clearMembershipRefusal());
     this.editingUser.set(user);
     this.showEditUserOverlay.set(true);
   }
 
   onCloseEditUser(): void {
+    // A cancelled edit's seat refusal must not outlive it.
+    this.store.dispatch(UsersActions.clearMembershipRefusal());
     this.showEditUserOverlay.set(false);
     this.editingUser.set(null);
   }

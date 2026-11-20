@@ -42,11 +42,11 @@ public sealed partial class P0411LicensingTests
         var invitee = await EnrollAsync(client, "waiting");
         var offer = await InviteAsync(host, client, merchant, invitee.Email);
 
-        var holder = await HoldShopRowAsync(merchant.Shop);
+        await using var holder = await HoldShopRowAsync(merchant.Shop);
         var pending = AcceptAsync(client, invitee, offer);
-        await WaitForLockWaitersAsync(1);
+        await WaitForShopWaitersAsync(holder, 1);
         _clock.Now = end;
-        await ReleaseShopRowAsync(holder);
+        await holder.ReleaseAsync();
 
         await AssertProblemAsync(await pending, HttpStatusCode.Forbidden, "Licence.Expired");
         Assert.Null(await MembershipAsync(merchant.Shop, invitee.UserId));

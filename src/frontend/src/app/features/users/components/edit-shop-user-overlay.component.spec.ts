@@ -9,16 +9,16 @@ import { EditShopUserOverlayComponent } from './edit-shop-user-overlay.component
 import { UsersActions } from '../state/users.actions';
 import {
   selectUsersErrorMessage,
-  selectUsersMemberCapacityConflict,
+  selectUsersMembershipRefusal,
   selectUsersSubmitting,
 } from '../state/users.selectors';
-import { MemberCapacity } from '../services/member-capacity';
+import { MembershipRefusal } from '../state/users.reducer';
 
 describe('EditShopUserOverlayComponent', () => {
   const dispatch = vi.fn();
   const isSubmittingSignal = signal(false);
   const errorSignal = signal('');
-  const capacitySignal = signal<MemberCapacity | null>(null);
+  const refusalSignal = signal<MembershipRefusal | null>(null);
 
   const store = {
     dispatch,
@@ -31,8 +31,8 @@ describe('EditShopUserOverlayComponent', () => {
         return errorSignal;
       }
 
-      if (selector === selectUsersMemberCapacityConflict) {
-        return capacitySignal;
+      if (selector === selectUsersMembershipRefusal) {
+        return refusalSignal;
       }
 
       return signal(undefined);
@@ -107,7 +107,7 @@ describe('EditShopUserOverlayComponent', () => {
     store.selectSignal.mockClear();
     isSubmittingSignal.set(false);
     errorSignal.set('');
-    capacitySignal.set(null);
+    refusalSignal.set(null);
   });
 
   afterEach(() => {
@@ -162,25 +162,45 @@ describe('EditShopUserOverlayComponent', () => {
     expect(component.serverError()).toBe('errors.users.membershipVersionConflict');
   });
 
-  it('shows the seat usage beside a refused reinstatement', () => {
-    errorSignal.set('errors.users.memberCapacityReached');
-    capacitySignal.set({ memberAllowance: 3, activeMembers: 3 });
-    const fixture = render('Staff', 'Suspended', 1, {
-      'errors.users.memberCapacityReached': '{{activeMembers}} of {{memberAllowance}} seats are taken.',
-    });
+  const seatText = {
+    'errors.users.memberCapacityReached': '{{activeMembers}} of {{memberAllowance}} seats are taken.',
+    'errors.users.memberCapacityReachedNoDetail': 'No free seat.',
+  };
+  const errorText = (fixture: ComponentFixture<EditShopUserOverlayComponent>) =>
+    (fixture.nativeElement as HTMLElement).querySelector('.ib-overlay__error')?.textContent?.trim() ?? null;
 
-    const error = (fixture.nativeElement as HTMLElement).querySelector('.ib-overlay__error');
-    expect(error?.textContent?.trim()).toBe('3 of 3 seats are taken.');
+  it('shows the seat usage beside its own refused reinstatement', () => {
+    refusalSignal.set({ shopId: 's1', userId: 'u-staff', memberCapacity: { memberAllowance: 3, activeMembers: 3 } });
+    const fixture = render('Staff', 'Suspended', 1, seatText);
+
+    expect(errorText(fixture)).toBe('3 of 3 seats are taken.');
   });
 
   it('shows the plain seat message when the refusal carries no usage', () => {
-    errorSignal.set('errors.users.memberCapacityReachedNoDetail');
-    const fixture = render('Staff', 'Suspended', 1, {
-      'errors.users.memberCapacityReachedNoDetail': 'No free seat.',
-    });
+    refusalSignal.set({ shopId: 's1', userId: 'u-staff', memberCapacity: null });
+    const fixture = render('Staff', 'Suspended', 1, seatText);
 
-    const error = (fixture.nativeElement as HTMLElement).querySelector('.ib-overlay__error');
-    expect(error?.textContent?.trim()).toBe('No free seat.');
+    expect(errorText(fixture)).toBe('No free seat.');
+  });
+
+  it('ignores a refusal that belongs to another member or another shop', () => {
+    refusalSignal.set({ shopId: 's1', userId: 'u-other', memberCapacity: { memberAllowance: 3, activeMembers: 3 } });
+    const fixture = render('Staff', 'Suspended', 1, seatText);
+    expect(errorText(fixture)).toBeNull();
+
+    refusalSignal.set({ shopId: 's2', userId: 'u-staff', memberCapacity: null });
+    fixture.detectChanges();
+    expect(errorText(fixture)).toBeNull();
+  });
+
+  it('drops the refusal when the editor moves to another member', () => {
+    const fixture = render('Staff', 'Suspended', 1, seatText);
+    dispatch.mockClear();
+
+    fixture.componentRef.setInput('user', { ...fixture.componentInstance.user, userId: 'u-next' });
+    fixture.detectChanges();
+
+    expect(dispatch).toHaveBeenCalledWith(UsersActions.clearMembershipRefusal());
   });
 
   it('clears the previous error and mutation status before submitting', () => {

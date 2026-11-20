@@ -267,7 +267,7 @@ public sealed class ShopsController : AuthenticatedControllerBase
                 targetUserId,
                 request.Role,
                 request.Status,
-                request.ExpectedVersion),
+                request.ExpectedVersion) { Session = SessionClaims.TryRead(User) },
             cancellationToken);
 
         return result.ToActionResult(Ok);

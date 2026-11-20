@@ -14,9 +14,9 @@ export const selectUsersLastMutationSucceeded = createSelector(
   selectUsersState,
   (state) => state.lastMutationSucceeded
 );
-export const selectUsersMemberCapacityConflict = createSelector(
+export const selectUsersMembershipRefusal = createSelector(
   selectUsersState,
-  (state) => state.memberCapacityConflict
+  (state) => state.membershipRefusal
 );
 export const selectShopInvitations = createSelector(
   selectUsersState,

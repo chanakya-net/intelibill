@@ -48,14 +48,16 @@ public sealed partial class P0411LicensingTests
         var suspended = await PersonAsync(client, merchant.Shop, MembershipStatus.Suspended);
         var removed = await PersonAsync(client, merchant.Shop, MembershipStatus.Removed);
 
-        var holder = await HoldShopRowAsync(merchant.Shop);
+        await using var holder = await HoldShopRowAsync(merchant.Shop);
         var reinstatements = new[]
         {
             PatchAsync(client, merchant, suspended.UserId, "Active", 1),
             PatchAsync(client, merchant, removed.UserId, "Active", 1, "Manager"),
         };
+        // These contenders share the owner's account lock: one queues on the shop root, the other behind it.
+        await WaitForShopWaitersAsync(holder, 1);
         await WaitForLockWaitersAsync(2);
-        await ReleaseShopRowAsync(holder);
+        await holder.ReleaseAsync();
         var responses = await Task.WhenAll(reinstatements);
 
         _output.WriteLine("Final-seat reinstatements: {0}", string.Join(", ", responses.Select(x => (int)x.StatusCode)));
@@ -79,11 +81,13 @@ public sealed partial class P0411LicensingTests
         var invitee = await EnrollAsync(client, "racing");
         var offer = await InviteAsync(host, client, merchant, invitee.Email);
 
-        var holder = await HoldShopRowAsync(merchant.Shop);
+        await using var holder = await HoldShopRowAsync(merchant.Shop);
         var acceptance = AcceptAsync(client, invitee, offer);
         var reinstatement = PatchAsync(client, merchant, suspended.UserId, "Active", 1);
+        // These contenders share the owner's account lock: one queues on the shop root, the other behind it.
+        await WaitForShopWaitersAsync(holder, 1);
         await WaitForLockWaitersAsync(2);
-        await ReleaseShopRowAsync(holder);
+        await holder.ReleaseAsync();
         var responses = await Task.WhenAll(acceptance, reinstatement);
 
         _output.WriteLine("Accept vs reinstate: {0}", string.Join(", ", responses.Select(x => (int)x.StatusCode)));
@@ -91,6 +95,38 @@ public sealed partial class P0411LicensingTests
         Assert.Equal(3, await CountActiveAsync(merchant.Shop));
         if (!responses[0].IsSuccessStatusCode)
             Assert.Null(await AcceptedAtAsync(offer.Id));
+    }
+
+    [Fact]
+    public async Task FinalSeatReinstatementsWithDisjointAccountLocksSerializeOnTheShop()
+    {
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var client = CreateClient(host);
+        var merchant = await MerchantAsync(client, allowance: 3, active: 0);
+        // A second Active owner gives each contender its own account-lock set, so only the shop
+        // root can serialize the two seat decisions.
+        var coOwner = await PersonAsync(client, merchant.Shop, MembershipStatus.Active, ShopRole.Owner);
+        var suspended = await PersonAsync(client, merchant.Shop, MembershipStatus.Suspended);
+        var removed = await PersonAsync(client, merchant.Shop, MembershipStatus.Removed);
+        Assert.Equal(2, await CountActiveAsync(merchant.Shop));
+
+        HttpResponseMessage[] responses;
+        await using (var holder = await HoldShopRowAsync(merchant.Shop))
+        {
+            var reinstatements = new[]
+            {
+                PatchAsync(client, merchant, suspended.UserId, "Active", 1),
+                PatchAsync(client, merchant, removed.UserId, "Active", 1, token: coOwner.Token),
+            };
+            await WaitForShopWaitersAsync(holder, 2);
+            await holder.ReleaseAsync();
+            responses = await Task.WhenAll(reinstatements);
+        }
+
+        _output.WriteLine("Disjoint-lock reinstatements: {0}", string.Join(", ", responses.Select(x => (int)x.StatusCode)));
+        await AssertOneAdmittedAsync(responses);
+        Assert.Equal(3, await CountActiveAsync(merchant.Shop));
     }
 
     private static async Task AssertOneAdmittedAsync(HttpResponseMessage[] responses)

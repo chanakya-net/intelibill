@@ -51,7 +51,7 @@
   </div>
 
   @if (serverError()) {
-    <p class="error">{{ serverError() | transloco: serverErrorParams() }}</p>
+    <p class="error">{{ serverError() | transloco }}</p>
   }
 
   @if (isLoading()) {
