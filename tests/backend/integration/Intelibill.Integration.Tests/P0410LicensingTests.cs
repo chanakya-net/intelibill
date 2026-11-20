@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Intelibill.Infrastructure.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -10,6 +11,24 @@ namespace Intelibill.Integration.Tests;
 
 public sealed partial class P0410LicensingTests
 {
+    [Theory]
+    [InlineData(23, 54, 59)]
+    [InlineData(23, 58, 59)]
+    [InlineData(23, 59, 0)]
+    [InlineData(23, 59, 59)]
+    [InlineData(0, 0, 0)]
+    public void Same_day_anchor_keeps_bearer_issue_time_and_expiry_on_the_shop_date(int hour, int minute, int second)
+    {
+        var wall = new DateTimeOffset(2026, 11, 20, hour, minute, second, TimeSpan.FromMinutes(330)).ToUniversalTime();
+        var opening = SameDayAnchor(wall);
+        var expiry = opening.Add(ExpiryDelay);
+
+        Assert.InRange(opening, wall.AddMinutes(-1), wall);
+        Assert.Equal(BusinessDateOf(wall), BusinessDateOf(opening));
+        Assert.Equal(BusinessDateOf(opening), BusinessDateOf(expiry));
+        Assert.Equal(BusinessDateOf(opening).AddDays(1), BusinessDateOf(expiry.AddDays(1)));
+    }
+
     [Fact]
     public async Task Expiry_denies_old_open_draft_but_allows_counted_close()
     {
@@ -25,7 +44,7 @@ public sealed partial class P0410LicensingTests
         using var settings = await client.PutAsJsonAsync($"/api/shops/{shop}/till-settings", new { enabled = true, expectedVersion = 0, reason = "Daily counts", confirmed = true }, Ct);
         await ReadSuccessAsync(settings);
         var binding = await BindAsync(shop);
-        var end = _clock.Now.AddMinutes(1);
+        var end = _clock.Now.Add(ExpiryDelay);
         await ApplyAsync(binding, end);
         await EnforceAsync(shop);
         using var created = await client.PostAsJsonAsync("/api/tills", new { name = "Front", operationKey = "create" }, Ct);
@@ -33,6 +52,7 @@ public sealed partial class P0410LicensingTests
         var draft = new { cashierId = owner, openingFloat = 1000m, operationKey = "old-draft" };
         using var opened = await client.PostAsJsonAsync($"/api/tills/{till}/sessions", new { cashierId = owner, openingFloat = 1000m, operationKey = "open" }, Ct);
         var session = await ReadSuccessAsync(opened);
+        Assert.Equal(BusinessDateOf(end), session.GetProperty("businessDate").Deserialize<DateOnly>());
         _clock.Now = end;
         options.Enabled = false;
         await AssertProblemAsync(await client.PostAsJsonAsync($"/api/tills/sessions/{session.GetProperty("id").GetGuid()}/close", new { countedCash = 1000m, expectedVersion = session.GetProperty("version").GetUInt32(), operationKey = "disabled-close" }, Ct), HttpStatusCode.Conflict, "Till.Disabled");
@@ -77,7 +97,7 @@ public sealed partial class P0410LicensingTests
     public async Task Expired_staff_count_requires_manager_review_and_keeps_date_rules()
     {
         var (shop, owner, cashier, _) = await TillTestContext.SeedAsync(Migrator);
-        var end = _clock.Now.AddMinutes(1);
+        var end = _clock.Now.Add(ExpiryDelay);
         await ApplyAsync(await BindAsync(shop), end);
         await EnforceAsync(shop);
         await using var app = new TillTestContext(Migrator, shop, enforceLicence: true);
