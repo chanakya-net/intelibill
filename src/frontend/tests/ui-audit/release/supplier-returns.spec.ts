@@ -589,19 +589,10 @@ async function openUncertainReversal(page: Page, id: string) {
   await setup(page);
   const posts: string[] = [];
   let key = '';
-  await page.route('**/api/purchase-receipts/**', (route) => {
-    const path = new URL(route.request().url()).pathname;
-    if (route.request().method() === 'POST') {
-      posts.push(path);
-      key = route.request().postDataJSON().operationKey;
-      return route.abort('connectionfailed');
-    }
-    const target = path.split('/').pop()!.toLowerCase();
-    return json(route, {
-      ...receipt(target),
-      batchNumber: target === REVIEW_RECEIPT_A ? 'Review lot A' : 'Review lot B',
-      reversalEligibilityReasons: [],
-    });
+  await routeReviewReceipt(page, (route, path) => {
+    posts.push(path);
+    key = route.request().postDataJSON().operationKey;
+    return route.abort('connectionfailed');
   });
   await page.goto(`${server.origin}/purchase-receipts/${id}`);
   await chooseReversal(page);
@@ -613,6 +604,19 @@ async function openUncertainReversal(page: Page, id: string) {
   await expect(recover).toBeEnabled();
   await expect.poll(() => posts.length).toBe(1);
   return { recover, posts, key: () => key };
+}
+
+function routeReviewReceipt(page: Page, post: (route: Route, path: string) => Promise<void>) {
+  return page.route('**/api/purchase-receipts/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() === 'POST') return post(route, path);
+    const target = path.split('/').pop()!.toLowerCase();
+    return json(route, {
+      ...receipt(target),
+      batchNumber: target === REVIEW_RECEIPT_A ? 'Review lot A' : 'Review lot B',
+      reversalEligibilityReasons: [],
+    });
+  });
 }
 
 async function storedSupplierReturnIntent(page: Page, storageTarget: string) {
@@ -638,6 +642,164 @@ async function storedSupplierReturnDraft(page: Page, storageTarget: string) {
     }
   }, storageTarget);
 }
+
+const canonicalReversal = 'reversal:' + REVIEW_RECEIPT_A;
+const uppercaseReversal = 'reversal:' + REVIEW_RECEIPT_A.toUpperCase();
+
+async function seedLegacyReversal(page: Page, original: SupplierReturnDraftRecord) {
+  await page.evaluate(
+    async ({ original, canonicalReversal, uppercaseReversal }) => {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open('intelibill-supplier-returns', 2);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const tx = db.transaction('drafts', 'readwrite');
+          tx.oncomplete = () => resolve();
+          tx.onabort = () => reject(tx.error);
+          const drafts = tx.objectStore('drafts');
+          drafts.put({ ...original, targetId: uppercaseReversal });
+          drafts.put({
+            ...original,
+            targetId: canonicalReversal,
+            pending: null,
+            draft: {
+              ...original.draft,
+              payload: { ...original.draft.payload, reason: 'Editable shadow' },
+            },
+          });
+        });
+      } finally {
+        db.close();
+      }
+    },
+    { original, canonicalReversal, uppercaseReversal },
+  );
+}
+
+async function expectFrozenReversal(page: Page, reason: string) {
+  await expect(page.getByRole('button', { name: 'Check / retry saved operation' })).toBeEnabled();
+  const editor = page.getByRole('textbox', { name: 'Reason', exact: true });
+  await expect(editor).toHaveValue(reason);
+  await expect(editor).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Confirm full receipt reversal' })).toBeDisabled();
+}
+
+test('a lowercase receipt link recovers an operation dropped from the uppercase link', async ({
+  page,
+}, info) => {
+  const { posts, key } = await openUncertainReversal(page, REVIEW_RECEIPT_A.toUpperCase());
+  const before =
+    (await storedSupplierReturnIntent(page, canonicalReversal)) ??
+    (await storedSupplierReturnIntent(page, uppercaseReversal));
+  await page.goto(`${server.origin}/purchase-receipts/${REVIEW_RECEIPT_A}`);
+  await expectFrozenReversal(page, 'Incorrect delivery');
+  expect(before?.operationKey).toBe(key());
+  expect(await storedSupplierReturnIntent(page, canonicalReversal)).toEqual(before);
+  expect(posts).toHaveLength(1);
+  await page.screenshot({ path: info.outputPath('modify-2-lowercase-recovery.png') });
+});
+
+test('legacy noncanonical pending reversal beats an editable draft in both tabs', async ({
+  page,
+  context,
+}) => {
+  const { posts, key } = await openUncertainReversal(page, REVIEW_RECEIPT_A);
+  const original = (await storedSupplierReturnDraft(page, canonicalReversal))!;
+  await seedLegacyReversal(page, original);
+  const second = await context.newPage();
+  await setup(second);
+  await routeReviewReceipt(second, (route, path) => {
+    posts.push(path);
+    return route.abort('connectionfailed');
+  });
+  await Promise.all([
+    page.goto(`${server.origin}/purchase-receipts/${REVIEW_RECEIPT_A}`),
+    second.goto(`${server.origin}/purchase-receipts/${REVIEW_RECEIPT_A.toUpperCase()}`),
+  ]);
+  await Promise.all([
+    expectFrozenReversal(page, 'Incorrect delivery'),
+    expectFrozenReversal(second, 'Incorrect delivery'),
+  ]);
+  expect(original.pending?.operationKey).toBe(key());
+  const retryBodies: unknown[] = [];
+  await second.route('**/api/financial-operations/**', (route) => {
+    expect(route.request().url()).toContain(key());
+    return json(route, { code: 'Operation.NotFound' }, 404);
+  });
+  await second.route('**/api/purchase-receipts/*/reversal', (route) => {
+    retryBodies.push(route.request().postDataJSON());
+    return route.abort('connectionfailed');
+  });
+  await second.getByRole('button', { name: 'Check / retry saved operation' }).click();
+  await expect.poll(() => retryBodies.length).toBe(1);
+  await expectFrozenReversal(second, 'Incorrect delivery');
+  expect(retryBodies).toEqual([original.pending?.payload]);
+  expect(posts).toHaveLength(1);
+  expect(await storedSupplierReturnIntent(page, uppercaseReversal)).toEqual(original.pending);
+
+  await second.route('**/api/financial-operations/**', (route) =>
+    json(route, {
+      operationType: 'purchase-receipt-reversal',
+      operationKey: key(),
+      targetId: REVIEW_RECEIPT_A,
+      response: reversalOutcome(REVIEW_RECEIPT_A),
+    }),
+  );
+  await second.getByRole('button', { name: 'Check / retry saved operation' }).click();
+  await expect(second.getByText('Saved successfully')).toBeVisible();
+  let duplicateLookups = 0;
+  await page.route('**/api/financial-operations/**', (route) => {
+    duplicateLookups++;
+    return route.abort();
+  });
+  const recover = page.getByRole('button', { name: 'Check / retry saved operation' });
+  await recover.click();
+  await expect(recover).toHaveCount(0);
+  expect(duplicateLookups).toBe(0);
+  expect(posts).toHaveLength(1);
+  expect(await storedSupplierReturnIntent(page, uppercaseReversal)).toBeNull();
+});
+
+test('concurrent uppercase and lowercase submissions claim one reversal in shared IndexedDB', async ({
+  page,
+  context,
+}) => {
+  const second = await context.newPage();
+  const attempts: Array<{ operationKey: string; reason: string }> = [];
+  const tabs = [page, second];
+  await Promise.all(
+    tabs.map(async (tab, index) => {
+      await setup(tab);
+      await routeReviewReceipt(tab, (route) => {
+        attempts.push(route.request().postDataJSON());
+        return route.abort('connectionfailed');
+      });
+      const id = index === 0 ? REVIEW_RECEIPT_A : REVIEW_RECEIPT_A.toUpperCase();
+      await tab.goto(`${server.origin}/purchase-receipts/${id}`);
+      await chooseReversal(tab);
+      await tab.getByRole('textbox', { name: 'Reason', exact: true }).fill('Delivery tab ' + index);
+      await expect(
+        tab.getByRole('button', { name: 'Confirm full receipt reversal' }),
+      ).toBeEnabled();
+    }),
+  );
+  await Promise.all(
+    tabs.map((tab) =>
+      tab.locator('form').evaluate((form: HTMLFormElement) => form.requestSubmit()),
+    ),
+  );
+  const recover = 'Check / retry saved operation';
+  await Promise.all(
+    tabs.map((tab) => expect(tab.getByRole('button', { name: recover })).toBeEnabled()),
+  );
+  expect(attempts).toHaveLength(1);
+  await Promise.all(tabs.map((tab) => expectFrozenReversal(tab, attempts[0].reason)));
+  expect((await storedSupplierReturnIntent(page, canonicalReversal))?.payload).toEqual(attempts[0]);
+  expect(await storedSupplierReturnDraft(page, uppercaseReversal)).toBeNull();
+});
 
 test('same-route navigation cancels a delayed recovery retry and preserves its original intent', async ({
   page,
@@ -703,7 +865,7 @@ for (const matches of [true, false]) {
     }
     expect(reads).toBe(1);
     expect(posts).toHaveLength(1);
-    const stored = await storedSupplierReturnIntent(page, 'reversal:' + uppercase);
+    const stored = await storedSupplierReturnIntent(page, canonicalReversal);
     if (matches) expect(stored).toBeNull();
     else expect(stored?.operationKey).toBe(key());
   });

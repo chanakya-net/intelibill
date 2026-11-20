@@ -94,7 +94,7 @@ public sealed class SupplierReturnService(
                 var accepted=await creditPoster.PostAsync(document,document.Lines.Select(x=>new SupplierReturnCreditLineInput(x.Id,x.ProposedCreditAmount)).ToArray(),actor,request.Reason,request.SupplierReference,auth.Value,rows,token);
                 if(accepted.IsError) return accepted.Errors;
             }
-            if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, request.SupplierId, clock, document) is { } denied) return denied;
+            if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, request.SupplierId, clock, document.ShippedAt, document) is { } denied) return denied;
             try { await uow.SaveChangesAsync(token); } catch(DbUpdateConcurrencyException) { return VersionConflict; }
             return Map(document);
         },ct);
@@ -130,7 +130,7 @@ public sealed class SupplierReturnService(
             if (rows.Count != ids.Distinct().Count()) return Missing;
             var posted=await creditPoster.PostAsync(document,request.Lines,actor,request.Reason,request.SupplierReference,auth.Value,rows,token); if(posted.IsError) return posted.Errors;
             returns.Update(document); foreach(var receipt in rows) receipts.Update(receipt);
-            if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, document.SupplierId, clock, document) is { } denied) return denied;
+            if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, document.SupplierId, clock, document.ShippedAt, document) is { } denied) return denied;
             try { await uow.SaveChangesAsync(token); } catch(DbUpdateConcurrencyException) {return VersionConflict;}
             return Map(document);
         },ct);

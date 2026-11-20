@@ -70,7 +70,7 @@ public sealed class PurchaseReceiptReversalService(
                 var reversal=PurchaseReceiptReversal.Create(shopId,receipt.Id,group?targetId:null,actor,reason,now,clock.Today(auth.Value.BusinessTimeZoneId),auth.Value.BusinessTimeZoneId,receipt.ReceivedQuantity,receipt.EffectiveTotalCost!.Value,movement.Id,entry?.Id,reference).Value;
                 await movements.AddAsync(movement,token); await reversals.AddAsync(reversal,token); batch.Void(actor); batches.Update(batch); inventory.Update(stock); receipts.Update(receipt); results.Add(MapReversal(reversal));
             }
-            if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, supplierId.Value, clock) is { } denied) return denied;
+            if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, supplierId.Value, clock, now) is { } denied) return denied;
             try {await uow.SaveChangesAsync(token);} catch(DbUpdateConcurrencyException) {return VersionConflict;}
             return new PurchaseReceiptReversalResultDto(results);
         },ct);

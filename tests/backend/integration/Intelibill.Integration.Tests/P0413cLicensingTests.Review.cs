@@ -2,8 +2,10 @@ using System.Data.Common;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Intelibill.Domain.Entities;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -48,6 +50,83 @@ public sealed partial class P0413cLicensingTests
             Movements = before.Movements + 1, Ledger = before.Ledger + 1, Stock = 7 }, await FactsAsync(source.Shop));
         _output.WriteLine("Shipment {0:O}, receipt {1:O}, final clock {2:O}. No rejected facts. Equal-time shipment and later credit committed.",
             end, received, received.AddSeconds(1));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Reversal_uses_frozen_cutoff_for_every_lot_and_allows_equality(bool grouped)
+    {
+        var step = new ClockStep("FROM inventory_batches", _clock);
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var client = CreateClockClient(host, step);
+        var source = await SeedAsync(client);
+        var group = grouped ? await ReceiveGroupAsync(client, source) : null;
+        var end = _clock.Now.AddMinutes(1);
+        var received = end.AddSeconds(1);
+        var lot = group?.Lots.Max() ?? source.Receipt;
+        await using var db = Open(Migrator);
+        Assert.Equal(1, await db.Database.ExecuteSqlAsync(
+            $"UPDATE purchase_receipt_values SET received_at = {received} WHERE id = {lot}", Ct));
+        var (route, body) = group is null
+            ? await PrepareAsync(client, source, "receipt")
+            : (GroupRoute(group), await GroupPayloadAsync(client, group));
+        await ApplyAsync(source.Binding, end);
+        await EnforceAsync(source.Shop);
+        var before = await FactsAsync(source.Shop);
+
+        _clock.Now = end;
+        step.Arm(received.AddSeconds(1));
+        await AssertProblemAsync(await client.PostAsJsonAsync(route, body, Ct),
+            HttpStatusCode.Conflict, "SupplierReturn.SourceIneligible");
+        Assert.True(step.Stepped);
+        Assert.Equal(before, await FactsAsync(source.Shop));
+
+        _clock.Now = received;
+        var result = await PostAsync(client, route, body);
+        var lots = group?.Lots.Length ?? 1;
+        foreach (var reversed in result.GetProperty("lots").EnumerateArray())
+            Assert.Equal(received, reversed.GetProperty("reversedAt").GetDateTimeOffset());
+        Assert.Equal(before with { Operations = before.Operations + 1, Reversals = lots,
+            Movements = before.Movements + lots, Ledger = before.Ledger + lots, Stock = before.Stock - 10 },
+            await FactsAsync(source.Shop));
+        _output.WriteLine("Reversal {0:O}, receipt {1:O}, final clock {2:O}. No rejected facts; {3} lot(s) reversed at equality.",
+            end, received, received.AddSeconds(1), lots);
+    }
+
+    [Fact]
+    public async Task Credit_uses_frozen_cutoff_and_allows_shipment_at_equality()
+    {
+        var step = new ClockStep("FROM supplier_returns", _clock, whenTrackingCredit: true);
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var client = CreateClockClient(host, step);
+        var source = await SeedAsync(client);
+        var end = _clock.Now.AddMinutes(1);
+        var shipped = end.AddSeconds(1);
+        await ApplyAsync(source.Binding, end);
+        await EnforceAsync(source.Shop);
+        _clock.Now = shipped;
+        var (route, body) = await PrepareAsync(client, source, "credit");
+        var before = await FactsAsync(source.Shop);
+
+        _clock.Now = end;
+        step.Arm(shipped.AddSeconds(1));
+        await AssertProblemAsync(await client.PostAsJsonAsync(route, body, Ct),
+            HttpStatusCode.Conflict, "SupplierReturn.SourceIneligible");
+        Assert.True(step.Stepped);
+        Assert.Equal(before, await FactsAsync(source.Shop));
+        Assert.Equal("PendingSupplierCredit", (await GetAsync(client, route[..^"/credit".Length]))
+            .GetProperty("status").GetString());
+
+        _clock.Now = shipped;
+        var accepted = await PostAsync(client, route, body);
+        Assert.Equal(shipped, accepted.GetProperty("credit").GetProperty("acceptedAt").GetDateTimeOffset());
+        Assert.Equal(before with { Operations = before.Operations + 1, Credits = 1, Ledger = before.Ledger + 1 },
+            await FactsAsync(source.Shop));
+        _output.WriteLine("Credit {0:O}, shipment {1:O}, final clock {2:O}. No rejected facts; credit posted at equality.",
+            end, shipped, shipped.AddSeconds(1));
     }
 
     [Fact]
@@ -160,7 +239,7 @@ public sealed partial class P0413cLicensingTests
         return client;
     }
 
-    private sealed class ClockStep(string match, TestClock clock) : DbCommandInterceptor
+    private sealed class ClockStep(string match, TestClock clock, bool whenTrackingCredit = false) : DbCommandInterceptor
     {
         private long _next;
         public bool Stepped { get; private set; }
@@ -173,10 +252,27 @@ public sealed partial class P0413cLicensingTests
             if (command.CommandText.Contains(match, StringComparison.Ordinal) &&
                 Interlocked.Exchange(ref _next, 0) is > 0 and var ticks)
             {
-                clock.Now = new DateTimeOffset(ticks, TimeSpan.Zero);
-                Stepped = true;
+                if (whenTrackingCredit)
+                {
+                    var tracker = eventData.Context!.ChangeTracker;
+                    tracker.Tracked += OnTracked;
+
+                    void OnTracked(object? sender, EntityTrackedEventArgs args)
+                    {
+                        if (args.Entry.Entity is not SupplierReturnCredit || args.FromQuery) return;
+                        tracker.Tracked -= OnTracked;
+                        Advance(ticks);
+                    }
+                }
+                else Advance(ticks);
             }
             return ValueTask.FromResult(result);
+        }
+
+        private void Advance(long ticks)
+        {
+            clock.Now = new DateTimeOffset(ticks, TimeSpan.Zero);
+            Stepped = true;
         }
     }
 }

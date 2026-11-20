@@ -11,7 +11,7 @@ public static class SupplierReturnPolicy
         Math.Max(0, Math.Min(available, received - shipped));
 
     internal static Error? CheckCompletion(ShopLicenceLease lease, IReadOnlyList<PurchaseReceiptValue> receipts,
-        Guid supplierId, IBusinessClock clock, SupplierReturn? shipment = null)
+        Guid supplierId, IBusinessClock clock, DateTimeOffset receivedBy, SupplierReturn? shipment = null)
     {
         var decision = lease.CurrentDecision();
         if (decision.EnforcedDenial() is { } denied)
@@ -20,7 +20,7 @@ public static class SupplierReturnPolicy
             return null;
 
         var now = clock.UtcNow;
-        var latestReceipt = shipment?.ShippedAt ?? now;
+        var latestReceipt = receivedBy <= now ? receivedBy : now;
         if (receipts.Count == 0 || receipts.Any(receipt =>
             receipt.ShopId != lease.ShopId || receipt.SupplierId != supplierId ||
             !receipt.IsResolved || receipt.EffectiveTotalCost is null ||
@@ -29,6 +29,7 @@ public static class SupplierReturnPolicy
 
         if (shipment is not null && (shipment.ShopId != lease.ShopId || shipment.SupplierId != supplierId ||
             shipment.ShippedAt > now ||
+            (shipment.Credit is { } credit && shipment.ShippedAt > credit.AcceptedAt) ||
             shipment.BusinessDate != clock.GetBusinessDate(shipment.ShippedAt, shipment.BusinessTimeZoneId)))
             return SourceIneligible;
 

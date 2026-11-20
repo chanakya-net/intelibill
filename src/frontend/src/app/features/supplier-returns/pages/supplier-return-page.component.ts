@@ -182,13 +182,13 @@ export class SupplierReturnPageComponent implements OnInit {
   }
   private get key() {
     const saved = this.record();
-    return saved?.draft.actionKind === this.action
+    return saved?.pending && saved.draft.actionKind === this.action
       ? saved.targetId
       : this.draftKey(this.action, this.view);
   }
 
   private draftKey(action: SupplierReturnAction, view: SourceView) {
-    return `${action}:${view.group ?? view.id}`;
+    return `${action}:${guidIdentity(view.group ?? view.id)}`;
   }
 
   private readView(): SourceView {
@@ -425,9 +425,9 @@ export class SupplierReturnPageComponent implements OnInit {
         }
       }
       if (!this.current(view)) return;
-      if (saved?.confirmedOperationKey) {
+      while (saved?.confirmedOperationKey && this.current(view)) {
         await this.drafts.clearConfirmed(scope, saved.targetId, saved.confirmedOperationKey);
-        saved = null;
+        saved = await this.loadDraft(scope, view, action);
       }
       if (!this.current(view)) return;
       this.action = action;
@@ -444,11 +444,8 @@ export class SupplierReturnPageComponent implements OnInit {
     }
   }
 
-  private async loadDraft(scope: ShopScope, view: SourceView, action: SupplierReturnAction) {
-    const key = this.draftKey(action, view);
-    const saved = await this.drafts.load(scope, key);
-    const canonical = `${action}:${guidIdentity(view.group ?? view.id)}`;
-    return saved ?? (canonical !== key ? await this.drafts.load(scope, canonical) : null);
+  private loadDraft(scope: ShopScope, view: SourceView, action: SupplierReturnAction) {
+    return this.drafts.load(scope, this.draftKey(action, view));
   }
 
   async previewLot(lot: PurchaseReceiptDetail): Promise<void> {
@@ -791,7 +788,7 @@ export class SupplierReturnPageComponent implements OnInit {
     this.status.set('supplierReturns.saved');
     if ('returnId' in result && action === 'shipment') {
       await this.router.navigate(['/supplier-returns', result.returnId]);
-    } else await this.refresh(view);
+    } else await this.refreshAndRestore(view);
   }
   print() {
     window.print();
