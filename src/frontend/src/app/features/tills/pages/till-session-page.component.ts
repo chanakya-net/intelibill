@@ -1,3 +1,5 @@
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService, operatingAccessErrorKey } from '../../billing/status/operating-access-hint.service';
 import { tillEvidenceLabel, tillPurposeLabel } from '../services/till-labels';
 import { TillPendingActionsComponent } from '../components/till-pending-actions.component';
 import { CommonModule } from '@angular/common';
@@ -16,7 +18,7 @@ import { Till, TillSession, TillSessionDetail } from '../services/till.models';
 @Component({
   selector: 'app-till-session-page',
   standalone: true,
-  imports: [TillPendingActionsComponent, CommonModule, FormsModule, RouterLink, TranslocoPipe, ButtonModule],
+  imports: [DefinitionAccessNoticeComponent, TillPendingActionsComponent, CommonModule, FormsModule, RouterLink, TranslocoPipe, ButtonModule],
   templateUrl: './till-session-page.component.html',
   styleUrl: './till-session-page.component.scss',
 })
@@ -24,6 +26,7 @@ export class TillSessionPageComponent {
   readonly purposeLabel = tillPurposeLabel;
   readonly evidenceLabel = tillEvidenceLabel;
   readonly context = inject(TillContextService);
+  readonly access = inject(OperatingAccessHintService);
   private readonly api = inject(TillService);
   private readonly auth = inject(AuthService);
   private readonly drafts = inject(TillDraftService);
@@ -108,6 +111,8 @@ export class TillSessionPageComponent {
   ) {
     const owner = this.context.owner();
     if (!owner || this.busy()) return;
+    if (['create', 'open', 'cash-movement'].includes(action) && this.access.blockingMessage()) return;
+    const scope = this.access.scope();
     if (!navigator.onLine) {
       this.error.set('tills.onlineLifecycleRequired');
       return;
@@ -129,8 +134,11 @@ export class TillSessionPageComponent {
       await this.reload();
       const id = this.detail()?.session.id;
       if (id) await this.inspect(id);
-    } catch {
-      if (sameOwner(owner, this.context.owner())) this.error.set('tills.unknown');
+    } catch (error) {
+      if (sameOwner(owner, this.context.owner())) {
+        this.access.reportRefusal(error, scope);
+        this.error.set(operatingAccessErrorKey(error) ?? 'tills.unknown');
+      }
     } finally {
       this.busy.set(false);
     }

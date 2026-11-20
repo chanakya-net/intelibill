@@ -1,3 +1,7 @@
+import {
+  OperatingAccessHintService,
+  operatingAccessErrorKey,
+} from '../../billing/status/operating-access-hint.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { Component, Input, Output, EventEmitter, inject, signal, OnInit } from '@angular/core';
@@ -52,7 +56,7 @@ import { sameOwner } from '../../../core/context/shop-scope';
       <p role="status">{{ 'tills.frozenConfirmed' | transloco }} · {{ recovered() }}</p>
     }
     @if (error()) {
-      <p role="alert">{{ 'tills.unknown' | transloco }}</p>
+      <p role="alert">{{ errorMessage() | transloco }}</p>
     }`,
   styles: [
     `
@@ -100,10 +104,12 @@ export class TillPendingActionsComponent implements OnInit {
   readonly records = signal<TillDraftRecord[]>([]);
   readonly busy = signal(false);
   readonly error = signal(false);
+  readonly errorMessage = signal('tills.unknown');
   readonly recovered = signal('');
   private readonly drafts = inject(TillDraftService);
   private readonly api = inject(TillService);
   private readonly context = inject(TillContextService);
+  private readonly access = inject(OperatingAccessHintService);
   constructor() {
     this.drafts
       .watch()
@@ -175,6 +181,9 @@ export class TillPendingActionsComponent implements OnInit {
     const [action, target, ...cycle] = record.targetId.split(':');
     const path = record.pending.payload['__requestPath'];
     if (typeof path !== 'string') return;
+    const scope = this.access.scope();
+    this.error.set(false);
+    this.recovered.set('');
     this.busy.set(true);
     try {
       await firstValueFrom(
@@ -195,7 +204,9 @@ export class TillPendingActionsComponent implements OnInit {
         this.recovered.set(record.pending.operationKey);
         this.confirmed.emit();
       }
-    } catch {
+    } catch (error) {
+      this.access.reportRefusal(error, scope);
+      this.errorMessage.set(operatingAccessErrorKey(error) ?? 'tills.unknown');
       this.error.set(true);
     } finally {
       this.busy.set(false);
