@@ -1,3 +1,4 @@
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
@@ -15,6 +16,7 @@ const user = signal<any>({
   activeShopId: 's',
   shops: [{ shopId: 's', role: 'Owner' }],
 });
+const restriction = signal<string | null>(null);
 const cap = signal({ enabled: true, mixedTenderEnabled: false, businessDate: '2026-11-08' });
 const drawer = () =>
   ({
@@ -54,6 +56,7 @@ describe('TillSessionPageComponent lifecycle boundary', () => {
     user.set({ user: { id: 'u' }, activeShopId: 's', shops: [{ shopId: 's', role: 'Owner' }] });
     cap.set({ enabled: true, mixedTenderEnabled: false, businessDate: '2026-11-08' });
     api.execute.mockClear();
+    restriction.set(null);
     TestBed.configureTestingModule({
       imports: [
         TillSessionPageComponent,
@@ -61,6 +64,7 @@ describe('TillSessionPageComponent lifecycle boundary', () => {
       ],
       providers: [
         provideRouter([]),
+        { provide: OperatingAccessHintService, useValue: { blockingMessage: restriction, checking: () => false, scope: () => null, refresh: async () => true, reportRefusal: () => undefined } },
         { provide: AuthService, useValue: { session: user } },
         { provide: TillService, useValue: api },
         {
@@ -94,6 +98,15 @@ describe('TillSessionPageComponent lifecycle boundary', () => {
     });
     return { page, fixture };
   }
+  it('blocks new openings after restriction while preserving counted close', async () => {
+    const { page } = await setup();
+    restriction.set('billing.status.tradingAuthority.expired');
+    page.tillId = 't'; page.cashierId = 'u'; page.openingFloat = 0;
+    page.open();
+    expect(api.execute).not.toHaveBeenCalled();
+    page.countedCash = 120; page.close();
+    expect(api.execute).toHaveBeenCalledWith(expect.anything(), 'close', 'd', 'close', expect.anything(), expect.anything());
+  });
   it('requires an entered opening/count while allowing explicit zero', async () => {
     const { page } = await setup();
     expect(page.openingFloat).toBeNull();
