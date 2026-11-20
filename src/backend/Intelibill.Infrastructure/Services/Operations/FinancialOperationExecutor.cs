@@ -21,8 +21,9 @@ namespace Intelibill.Infrastructure.Services.Operations;
 /// ever raised, so no aborted transaction is ever continued.
 /// </para>
 /// <para>
-/// Replay reads only after this attempt's transaction is rolled back, so it sees the other
-/// transaction's committed receipt and never this attempt's tracked changes.
+/// After a reservation loses, the next Read Committed statement can see the winning receipt.
+/// Supplier-return and receipt-reversal replays read it under the recovery fence. Other replays
+/// keep their existing post-rollback read.
 /// </para>
 /// </remarks>
 internal sealed class FinancialOperationExecutor(ApplicationDbContext context, IShopLicenceFence fence) : IFinancialOperationExecutor
@@ -98,6 +99,15 @@ internal sealed class FinancialOperationExecutor(ApplicationDbContext context, I
                 return result;
             }
 
+            if (scope.OperationType is FinancialOperationType.SupplierReturn or FinancialOperationType.SupplierReturnCredit
+                or FinancialOperationType.PurchaseReceiptReversal)
+            {
+                var outcome = await ReplayUnderFenceAsync<T>(scope, requestHash, cancellationToken);
+                await transaction.RollbackAsync(cancellationToken);
+                context.ChangeTracker.Clear();
+                return outcome;
+            }
+
             replayDenied = await SuspensionDenialAsync(scope, replay: true, cancellationToken);
             await transaction.RollbackAsync(cancellationToken);
         }
@@ -110,6 +120,20 @@ internal sealed class FinancialOperationExecutor(ApplicationDbContext context, I
         scope.SuspensionAction is { } action
             ? fence.ReadDenialAsync(scope.ShopId, replay ? LicenceAction.Recovery : action, ct)
             : Task.FromResult<Error?>(null);
+
+    private async Task<ErrorOr<T>> ReplayUnderFenceAsync<T>(
+        FinancialOperationScope scope,
+        string requestHash,
+        CancellationToken ct)
+    {
+        var lease = await fence.EnterAsync(scope.ShopId, LicenceAction.Recovery, ct);
+        if (lease.IsError) return lease.Errors;
+        if (lease.Value.CurrentDecision().EnforcedDenial() is { } admissionDenial) return admissionDenial;
+
+        var outcome = await ReplayAsync<T>(scope, requestHash, ct);
+        if (lease.Value.CurrentDecision().EnforcedDenial() is { } readDenial) return readDenial;
+        return outcome;
+    }
 
     private async Task<ErrorOr<T>> ReplayAsync<T>(
         FinancialOperationScope scope,
@@ -124,7 +148,7 @@ internal sealed class FinancialOperationExecutor(ApplicationDbContext context, I
                     && r.OperationKey == scope.Key
                     && r.Status == OperationReceiptStatus.Completed,
                 cancellationToken)
-            ?? throw new InvalidOperationException("A conflicting operation receipt was not visible after its transaction ended.");
+            ?? throw new InvalidOperationException("A conflicting operation receipt was not visible after the reservation.");
 
         if (!string.Equals(receipt.RequestHash, requestHash, StringComparison.Ordinal))
             return Errors.Operation.PayloadMismatch;

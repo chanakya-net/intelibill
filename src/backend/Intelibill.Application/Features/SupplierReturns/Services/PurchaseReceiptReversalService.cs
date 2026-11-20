@@ -2,6 +2,7 @@ using Intelibill.Domain.Events;
 using Wolverine;
 using ErrorOr;
 using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.SupplierReturns.DTOs;
@@ -20,7 +21,7 @@ public sealed class PurchaseReceiptReversalService(
     IInventoryRepository inventory, IPurchaseReceiptValueRepository receipts, IPaymentReceiptRepository payments,
     IStockTransactionRepository movements, ISupplierLedgerEntryRepository ledger, IPurchaseReceiptReversalRepository reversals,
     ISupplierReturnMutationLock locks, IPostingPeriodPolicy periods, IBusinessClock clock,
-    IFinancialOperationExecutor executor, IUnitOfWork uow, IMessageBus messageBus, PurchaseReceiptReversalPolicy policy)
+    IFinancialOperationExecutor executor, IShopLicenceFence licence, IUnitOfWork uow, IMessageBus messageBus, PurchaseReceiptReversalPolicy policy)
 {
     private static Error Invalid(string code,string message) => Error.Validation($"SupplierReturn.{code}",message);
     private static Error Conflict(string code,string message) => Error.Conflict($"SupplierReturn.{code}",message);
@@ -38,8 +39,10 @@ public sealed class PurchaseReceiptReversalService(
         var valid=Validate(operationKey,reason); if(valid.IsError) return valid.Errors;
         if(lines is null || lines.Count is <1 or >100 || lines.Select(x=>x.ReceiptValueId).Distinct().Count()!=lines.Count) return Invalid("LinesInvalid","Select every distinct receipt lot.");
         var hash=FinancialOperationHasher.Compute(new{targetId,group,reason=reason.Trim(),lines=lines.OrderBy(x=>x.ReceiptValueId).ToArray()});
-        var outcome=await executor.ExecuteAsync<PurchaseReceiptReversalResultDto>(new(shopId,FinancialOperationType.PurchaseReceiptReversal,valid.Value),actor,targetId,hash,async token=>
+        var outcome=await executor.ExecuteAsync<PurchaseReceiptReversalResultDto>(new(shopId,FinancialOperationType.PurchaseReceiptReversal,valid.Value) { SuspensionAction = LicenceAction.SourceCorrection },actor,targetId,hash,async token=>
         {
+            var lease = await licence.EnterAsync(shopId, LicenceAction.SourceCorrection, token);
+            if (lease.IsError) return lease.Errors;
             var initial=group?await returns.GetGroupReceiptsAsync(shopId,targetId,token):await returns.GetReceiptsAsync(shopId,[targetId],token);
             if(initial.Count!=lines.Count || !initial.Select(x=>x.Id).Order().SequenceEqual(lines.Select(x=>x.ReceiptValueId).Order())) return Missing;
             var supplierId=initial[0].SupplierId; if(supplierId is null || initial.Any(x=>x.SupplierId!=supplierId)) return Invalid("SupplierInvalid","All lots must belong to one source supplier.");
@@ -47,7 +50,10 @@ public sealed class PurchaseReceiptReversalService(
             foreach(var date in initial.Select(x=>clock.GetBusinessDate(x.ReceivedAt,auth.Value.BusinessTimeZoneId)).Append(clock.Today(auth.Value.BusinessTimeZoneId)).Distinct().Order())
             { var fence=await periods.AuthorizeForWriteAsync(shopId,date,token); if(fence.IsError) return fence.Errors; }
             if(await locks.LockAsync(shopId,supplierId.Value,lines.Select(x=>x.ReceiptValueId).ToArray(),token)!=RowLockOutcome.Acquired) return Conflict("Busy","Receipt lots are busy. Retry this operation.");
+            if (lease.Value.CurrentDecision().EnforcedDenial() is { } lockDenial) return lockDenial;
             var rows=await returns.GetReceiptsAsync(shopId,lines.Select(x=>x.ReceiptValueId).ToArray(),token);
+            if (rows.Count != lines.Count) return Missing;
+            if (rows.Any(x => x.SupplierId != supplierId)) return VersionConflict;
             var allocated=await payments.GetActiveAllocatedByTargetAsync(shopId,PaymentAllocationTargetType.SupplierReceipt,rows.Select(x=>x.Id).ToArray(),token);
             var results=new List<PurchaseReceiptReversalLotDto>(); var now=clock.UtcNow;
             foreach(var receipt in rows.OrderBy(x=>x.Id))
@@ -64,6 +70,7 @@ public sealed class PurchaseReceiptReversalService(
                 var reversal=PurchaseReceiptReversal.Create(shopId,receipt.Id,group?targetId:null,actor,reason,now,clock.Today(auth.Value.BusinessTimeZoneId),auth.Value.BusinessTimeZoneId,receipt.ReceivedQuantity,receipt.EffectiveTotalCost!.Value,movement.Id,entry?.Id,reference).Value;
                 await movements.AddAsync(movement,token); await reversals.AddAsync(reversal,token); batch.Void(actor); batches.Update(batch); inventory.Update(stock); receipts.Update(receipt); results.Add(MapReversal(reversal));
             }
+            if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, supplierId.Value, clock, now) is { } denied) return denied;
             try {await uow.SaveChangesAsync(token);} catch(DbUpdateConcurrencyException) {return VersionConflict;}
             return new PurchaseReceiptReversalResultDto(results);
         },ct);

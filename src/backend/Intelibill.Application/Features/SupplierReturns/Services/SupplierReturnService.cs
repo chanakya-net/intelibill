@@ -2,6 +2,7 @@ using Intelibill.Domain.Events;
 using Wolverine;
 using ErrorOr;
 using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.SupplierReturns.DTOs;
@@ -21,7 +22,7 @@ public sealed class SupplierReturnService(
     IItemRepository items, IStockTransactionRepository movements,
     IPaymentReceiptRepository payments, ISupplierReturnRepository returns, IPurchaseReceiptReversalRepository reversals,
     ISupplierReturnMutationLock locks, IPostingPeriodPolicy periods, IBusinessClock clock,
-    IFinancialOperationExecutor executor, IUnitOfWork uow, IMessageBus messageBus, SupplierReturnCreditPoster creditPoster, PurchaseReceiptReversalPolicy reversalPolicy)
+    IFinancialOperationExecutor executor, IShopLicenceFence licence, IUnitOfWork uow, IMessageBus messageBus, SupplierReturnCreditPoster creditPoster, PurchaseReceiptReversalPolicy reversalPolicy)
 {
     private static readonly SupplierReturnRequestValidator ShipmentValidator = new();
     private static readonly SupplierReturnCreditRequestValidator CreditValidator = new();
@@ -53,9 +54,12 @@ public sealed class SupplierReturnService(
         if(request.Lines is null || request.Lines.Count is <1 or >100 || request.Lines.Select(x=>x.ReceiptValueId).Distinct().Count()!=request.Lines.Count) return Invalid("LinesInvalid","Select 1 to 100 distinct receipt lots.");
         if(request.SupplierReference?.Length>255) return Invalid("ReferenceInvalid","Supplier reference cannot exceed 255 characters.");
         var canonical=request with { OperationKey="", Reason=request.Reason.Trim(), SupplierReference=request.SupplierReference?.Trim(), Lines=request.Lines.OrderBy(x=>x.ReceiptValueId).Select(x=>x with {Quantity=FinancialOperationHasher.NormalizeAmount(x.Quantity),ProposedCreditAmount=FinancialOperationHasher.NormalizeAmount(x.ProposedCreditAmount)}).ToArray() };
-        var outcome=await executor.ExecuteAsync<SupplierReturnDetailDto>(new(shopId,FinancialOperationType.SupplierReturn,valid.Value),actor,request.SupplierId,FinancialOperationHasher.Compute(canonical),async token=>
+        var outcome=await executor.ExecuteAsync<SupplierReturnDetailDto>(new(shopId,FinancialOperationType.SupplierReturn,valid.Value) { SuspensionAction = LicenceAction.SourceCorrection },actor,request.SupplierId,FinancialOperationHasher.Compute(canonical),async token=>
         {
+            var lease = await licence.EnterAsync(shopId, LicenceAction.SourceCorrection, token);
+            if (lease.IsError) return lease.Errors;
             var locked=await FenceAndLock(auth.Value,request.SupplierId,request.Lines.Select(x=>x.ReceiptValueId).ToArray(),token); if(locked.IsError) return locked.Errors;
+            if (lease.Value.CurrentDecision().EnforcedDenial() is { } lockDenial) return lockDenial;
             var supplier=await suppliers.GetByIdAsync(request.SupplierId,token);
             if(supplier is null || supplier.ShopId!=shopId || supplier.IsSystem) return Invalid("SupplierInvalid","A real source supplier is required.");
             var rows=await returns.GetReceiptsAsync(shopId,request.Lines.Select(x=>x.ReceiptValueId).ToArray(),token);
@@ -90,6 +94,7 @@ public sealed class SupplierReturnService(
                 var accepted=await creditPoster.PostAsync(document,document.Lines.Select(x=>new SupplierReturnCreditLineInput(x.Id,x.ProposedCreditAmount)).ToArray(),actor,request.Reason,request.SupplierReference,auth.Value,rows,token);
                 if(accepted.IsError) return accepted.Errors;
             }
+            if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, request.SupplierId, clock, document.ShippedAt, document) is { } denied) return denied;
             try { await uow.SaveChangesAsync(token); } catch(DbUpdateConcurrencyException) { return VersionConflict; }
             return Map(document);
         },ct);
@@ -106,18 +111,26 @@ public sealed class SupplierReturnService(
         var validation=CreditValidator.Validate(request);
         if(!validation.IsValid) return validation.Errors.Select(x=>Error.Validation("SupplierReturn.InvalidRequest",x.ErrorMessage)).ToList();
         if(request.Lines is null || request.Lines.Count is <1 or >100) return Invalid("LinesInvalid","Every return line requires an agreed amount.");
-        var source=await returns.GetDetailAsync(shopId,id,ct); if(source is null) return Error.NotFound("SupplierReturn.NotFound","Supplier return was not found.");
         var canonical=request with {OperationKey="",Reason=request.Reason.Trim(),SupplierReference=request.SupplierReference?.Trim(),Lines=request.Lines.OrderBy(x=>x.ReturnLineId).Select(x=>x with{AcceptedAmount=FinancialOperationHasher.NormalizeAmount(x.AcceptedAmount)}).ToArray()};
-        return await executor.ExecuteAsync<SupplierReturnDetailDto>(new(shopId,FinancialOperationType.SupplierReturnCredit,valid.Value),actor,id,FinancialOperationHasher.Compute(new{id,request=canonical}),async token=>
+        return await executor.ExecuteAsync<SupplierReturnDetailDto>(new(shopId,FinancialOperationType.SupplierReturnCredit,valid.Value) { SuspensionAction = LicenceAction.SourceCorrection },actor,id,FinancialOperationHasher.Compute(new{id,request=canonical}),async token=>
         {
+            var lease = await licence.EnterAsync(shopId, LicenceAction.SourceCorrection, token);
+            if (lease.IsError) return lease.Errors;
+            if (lease.Value.CurrentDecision().EnforcedDenial() is { } admissionDenial) return admissionDenial;
+            var source = await returns.GetDetailAsync(shopId, id, token);
+            if (lease.Value.CurrentDecision().EnforcedDenial() is { } sourceDenial) return sourceDenial;
+            if (source is null) return Error.NotFound("SupplierReturn.NotFound", "Supplier return was not found.");
             var ids=source.Lines.Select(x=>x.ReceiptValueId).ToArray();
             var locked=await FenceAndLock(auth.Value,source.SupplierId,ids,token); if(locked.IsError) return locked.Errors;
             if(await locks.LockReturnAsync(shopId,id,token)!=RowLockOutcome.Acquired) return Conflict("Busy","Supplier return is busy. Retry this operation.");
+            if (lease.Value.CurrentDecision().EnforcedDenial() is { } lockDenial) return lockDenial;
             var document=await returns.GetDetailAsync(shopId,id,token); if(document is null) return Missing;
             if(document.Version!=request.ExpectedVersion || request.ExpectedVersion==0) return VersionConflict;
             var rows=await returns.GetReceiptsAsync(shopId,ids,token);
+            if (rows.Count != ids.Distinct().Count()) return Missing;
             var posted=await creditPoster.PostAsync(document,request.Lines,actor,request.Reason,request.SupplierReference,auth.Value,rows,token); if(posted.IsError) return posted.Errors;
             returns.Update(document); foreach(var receipt in rows) receipts.Update(receipt);
+            if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, document.SupplierId, clock, document.ShippedAt, document) is { } denied) return denied;
             try { await uow.SaveChangesAsync(token); } catch(DbUpdateConcurrencyException) {return VersionConflict;}
             return Map(document);
         },ct);
@@ -160,7 +173,8 @@ public sealed class SupplierReturnService(
         var net=batch.IsVoided || reversed.Count>0 ? 0m : Math.Max(0,(receipt.EffectiveTotalCost??0)-credited); var ceiling=SupplierReturnPolicy.ReturnableQuantity(batch.UnquarantinedQuantity,receipt.ReceivedQuantity,shipped);
         var reasons=await reversalPolicy.GetReasonsAsync(receipt,batch,allocated,ct);
         var supplier=receipt.SupplierId.HasValue?await suppliers.GetByIdAsync(receipt.SupplierId.Value,ct):null;
-        if(supplier is null || supplier.IsSystem) { reasons.Add("PurchaseReceipt.SupplierMissing"); ceiling=0; }
+        if (supplier is null) reasons.Add("PurchaseReceipt.SupplierMissing");
+        if (supplier is null || supplier.IsSystem) ceiling = 0;
         if(!receipt.IsResolved || batch.IsVoided) ceiling=0;
         return new(receipt.Id,batch.Id,item.Id,receipt.SupplierId,receipt.PurchaseOrderReceiptLineId,batch.BatchNumber,item.Name,item.DocumentUnit,item.QuantityScale,receipt.Version,batch.Version,receipt.ReceivedQuantity,batch.Quantity,shipped,reversed.Sum(x=>x.Quantity),receipt.ReceivedQuantity-shipped-reversed.Sum(x=>x.Quantity),ceiling,receipt.EffectiveTotalCost,credited,allocated,net,Math.Max(0,net-allocated),Math.Max(0,allocated-net),Math.Min(net,decimal.Round((receipt.EffectiveTotalCost??0)*ceiling/receipt.ReceivedQuantity,2,MidpointRounding.AwayFromZero)),batch.IsVoided,reasons,history.Select(Map).ToArray(),reversed.Select(MapReversal).ToArray());
     }
