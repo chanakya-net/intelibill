@@ -1,5 +1,5 @@
 import { signal, Signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
@@ -7,12 +7,18 @@ import { vi } from 'vitest';
 import { AuthService } from '../../../core/auth/auth.service';
 import { EditShopUserOverlayComponent } from './edit-shop-user-overlay.component';
 import { UsersActions } from '../state/users.actions';
-import { selectUsersErrorMessage, selectUsersSubmitting } from '../state/users.selectors';
+import {
+  selectUsersErrorMessage,
+  selectUsersMembershipRefusal,
+  selectUsersSubmitting,
+} from '../state/users.selectors';
+import { MembershipRefusal } from '../state/users.reducer';
 
 describe('EditShopUserOverlayComponent', () => {
   const dispatch = vi.fn();
   const isSubmittingSignal = signal(false);
   const errorSignal = signal('');
+  const refusalSignal = signal<MembershipRefusal | null>(null);
 
   const store = {
     dispatch,
@@ -23,6 +29,10 @@ describe('EditShopUserOverlayComponent', () => {
 
       if (selector === selectUsersErrorMessage) {
         return errorSignal;
+      }
+
+      if (selector === selectUsersMembershipRefusal) {
+        return refusalSignal;
       }
 
       return signal(undefined);
@@ -51,15 +61,20 @@ describe('EditShopUserOverlayComponent', () => {
     }),
   };
 
-  function setup(
+  function render(
     role = 'Staff',
     status = 'Active',
     membershipVersion = 4,
-  ): EditShopUserOverlayComponent {
+    en: Record<string, string> = {},
+  ): ComponentFixture<EditShopUserOverlayComponent> {
     TestBed.configureTestingModule({
       imports: [
         EditShopUserOverlayComponent,
-        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+        TranslocoTestingModule.forRoot({
+          langs: { en },
+          translocoConfig: { availableLangs: ['en'], defaultLang: 'en' },
+          preloadLangs: true,
+        }),
       ],
       providers: [
         { provide: Store, useValue: store },
@@ -80,7 +95,11 @@ describe('EditShopUserOverlayComponent', () => {
       shopIds: ['s1'],
     };
     fixture.detectChanges();
-    return fixture.componentInstance;
+    return fixture;
+  }
+
+  function setup(role = 'Staff', status = 'Active', membershipVersion = 4): EditShopUserOverlayComponent {
+    return render(role, status, membershipVersion).componentInstance;
   }
 
   beforeEach(() => {
@@ -88,6 +107,7 @@ describe('EditShopUserOverlayComponent', () => {
     store.selectSignal.mockClear();
     isSubmittingSignal.set(false);
     errorSignal.set('');
+    refusalSignal.set(null);
   });
 
   afterEach(() => {
@@ -140,6 +160,47 @@ describe('EditShopUserOverlayComponent', () => {
     errorSignal.set('errors.users.membershipVersionConflict');
 
     expect(component.serverError()).toBe('errors.users.membershipVersionConflict');
+  });
+
+  const seatText = {
+    'errors.users.memberCapacityReached': '{{activeMembers}} of {{memberAllowance}} seats are taken.',
+    'errors.users.memberCapacityReachedNoDetail': 'No free seat.',
+  };
+  const errorText = (fixture: ComponentFixture<EditShopUserOverlayComponent>) =>
+    (fixture.nativeElement as HTMLElement).querySelector('.ib-overlay__error')?.textContent?.trim() ?? null;
+
+  it('shows the seat usage beside its own refused reinstatement', () => {
+    refusalSignal.set({ shopId: 's1', userId: 'u-staff', memberCapacity: { memberAllowance: 3, activeMembers: 3 } });
+    const fixture = render('Staff', 'Suspended', 1, seatText);
+
+    expect(errorText(fixture)).toBe('3 of 3 seats are taken.');
+  });
+
+  it('shows the plain seat message when the refusal carries no usage', () => {
+    refusalSignal.set({ shopId: 's1', userId: 'u-staff', memberCapacity: null });
+    const fixture = render('Staff', 'Suspended', 1, seatText);
+
+    expect(errorText(fixture)).toBe('No free seat.');
+  });
+
+  it('ignores a refusal that belongs to another member or another shop', () => {
+    refusalSignal.set({ shopId: 's1', userId: 'u-other', memberCapacity: { memberAllowance: 3, activeMembers: 3 } });
+    const fixture = render('Staff', 'Suspended', 1, seatText);
+    expect(errorText(fixture)).toBeNull();
+
+    refusalSignal.set({ shopId: 's2', userId: 'u-staff', memberCapacity: null });
+    fixture.detectChanges();
+    expect(errorText(fixture)).toBeNull();
+  });
+
+  it('drops the refusal when the editor moves to another member', () => {
+    const fixture = render('Staff', 'Suspended', 1, seatText);
+    dispatch.mockClear();
+
+    fixture.componentRef.setInput('user', { ...fixture.componentInstance.user, userId: 'u-next' });
+    fixture.detectChanges();
+
+    expect(dispatch).toHaveBeenCalledWith(UsersActions.clearMembershipRefusal());
   });
 
   it('clears the previous error and mutation status before submitting', () => {

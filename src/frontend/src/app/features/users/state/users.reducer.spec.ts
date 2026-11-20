@@ -1,4 +1,7 @@
 import { usersReducer, UsersState } from './users.reducer';
+import { combineReducers } from '@ngrx/store';
+
+import { ShopContextActions, scopeResetMetaReducer } from '../../../core/context/shop-context.actions';
 import { UsersActions } from './users.actions';
 import { ShopInvitation, ShopUser } from '../services/user-account.service';
 
@@ -84,6 +87,7 @@ describe('usersReducer', () => {
       lastMutationType: 'update-profile',
       lastMutationSucceeded: false,
       invitations: [],
+      membershipRefusal: null,
     };
 
     const next = usersReducer(state, UsersActions.updateProfileSucceeded());
@@ -104,6 +108,7 @@ describe('usersReducer', () => {
       lastMutationType: 'update-profile',
       lastMutationSucceeded: false,
       invitations: [],
+      membershipRefusal: null,
     };
 
     const next = usersReducer(
@@ -149,6 +154,7 @@ describe('usersReducer', () => {
       lastMutationType: 'change-password',
       lastMutationSucceeded: false,
       invitations: [],
+      membershipRefusal: null,
     };
 
     const next = usersReducer(state, UsersActions.changePasswordSucceeded());
@@ -169,6 +175,7 @@ describe('usersReducer', () => {
       lastMutationType: 'change-password',
       lastMutationSucceeded: false,
       invitations: [],
+      membershipRefusal: null,
     };
 
     const next = usersReducer(
@@ -262,6 +269,54 @@ describe('usersReducer', () => {
     expect(next.entities['u2']?.membershipVersion).toBe(2);
   });
 
+  describe('seat refusal of a membership edit', () => {
+    const capacity = { memberAllowance: 3, activeMembers: 3 };
+    const refused = () =>
+      usersReducer(
+        { ...initialState, ids: ['u2'], entities: { u2: staffUser }, submitting: true },
+        UsersActions.updateMembershipCapacityRefused({ shopId: 'shop-1', userId: 'u2', memberCapacity: capacity })
+      );
+
+    it('belongs to the refused edit and stays out of the shared error slot', () => {
+      const failed = refused();
+
+      expect(failed.membershipRefusal).toEqual({ shopId: 'shop-1', userId: 'u2', memberCapacity: capacity });
+      expect(failed.errorMessage).toBe('');
+      expect(failed.submitting).toBe(false);
+      expect(failed.lastMutationType).toBe('update-membership');
+      // A refused reinstatement leaves the row as it was.
+      expect(failed.entities['u2']).toEqual(staffUser);
+    });
+
+    it('survives unrelated directory, invitation and account responses', () => {
+      let state = refused();
+      state = usersReducer(state, UsersActions.loadShopUsersSucceeded({ users: [staffUser] }));
+      state = usersReducer(state, UsersActions.loadInvitationsFailed({ errorMessage: 'errors.users.loadFailed' }));
+      state = usersReducer(state, UsersActions.clearError());
+      state = usersReducer(state, UsersActions.updateProfileFailed({ errorMessage: 'errors.users.updateFailed' }));
+
+      expect(state.membershipRefusal?.userId).toBe('u2');
+    });
+
+    it('is cleared by a retry, a success, closing the edit and a scope change', () => {
+      const request = UsersActions.updateMembershipRequested({
+        shopId: 'shop-1',
+        userId: 'u2',
+        payload: { role: 'Staff', status: 'Active', expectedVersion: 1 },
+      });
+      const success = UsersActions.updateMembershipSucceeded({
+        membership: { userId: 'u2', shopId: 'shop-1', displayName: 'S', role: 'Staff', status: 'Active', version: 2 },
+      });
+
+      expect(usersReducer(refused(), request).membershipRefusal).toBeNull();
+      expect(usersReducer(refused(), success).membershipRefusal).toBeNull();
+      expect(usersReducer(refused(), UsersActions.clearMembershipRefusal()).membershipRefusal).toBeNull();
+      const root = scopeResetMetaReducer(combineReducers({ users: usersReducer }));
+      const switched = root({ users: refused() }, ShopContextActions.scopeChanged({ epoch: 2, reason: 'scope' }));
+      expect(switched.users.membershipRefusal).toBeNull();
+    });
+  });
+
   it('drops a removed membership from the directory', () => {
     const next = usersReducer(
       { ...initialState, ids: ['u2'], entities: { u2: staffUser } },
@@ -290,6 +345,7 @@ describe('usersReducer', () => {
       lastMutationType: 'update-profile',
       lastMutationSucceeded: false,
       invitations: [],
+      membershipRefusal: null,
     };
 
     const next = usersReducer(state, UsersActions.clearError());
@@ -309,6 +365,7 @@ describe('usersReducer', () => {
       lastMutationType: 'change-password',
       lastMutationSucceeded: true,
       invitations: [],
+      membershipRefusal: null,
     };
 
     const next = usersReducer(state, UsersActions.clearMutationStatus());

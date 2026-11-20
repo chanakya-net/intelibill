@@ -188,6 +188,53 @@ describe('authInterceptor', () => {
     expect(attempts).toEqual(['Bearer expired-token', 'Bearer renewed-token']);
   });
 
+  it('reports a business refusal answered to the replay without ending the renewed session', () => {
+    mockAuthService.getAccessToken.mockReturnValue('expired-token');
+    mockAuthService.hasRefreshToken.mockReturnValue(true);
+    sessionSignal.set({ activeShopId: null, user: { id: 'user-1' } });
+    mockAuthService.refreshAccessToken.mockImplementation(() =>
+      of({ accessToken: 'renewed-token', activeShopId: null, user: { id: 'user-1' } }));
+
+    let attempts = 0;
+    const next = (): Observable<HttpEvent<unknown>> => {
+      attempts++;
+      return attempts === 1
+        ? throwError(() => new HttpErrorResponse({ status: 401 }))
+        : throwError(() => new HttpErrorResponse({ status: 409, error: { code: 'Licence.MemberCapacityReached' } }));
+    };
+
+    let failed: HttpErrorResponse | undefined;
+    runInterceptor(new HttpRequest('POST', `${API_BASE_URL}/invitations/offer-1/accept`, {}), next).subscribe({
+      error: (error: HttpErrorResponse) => (failed = error),
+    });
+
+    // The renewal succeeded; the refusal is the replay's own answer and reaches the page as is.
+    expect(attempts).toBe(2);
+    expect(failed?.status).toBe(409);
+    expect(failed?.error).toEqual({ code: 'Licence.MemberCapacityReached' });
+    expect(mockAuthService.clearSession).not.toHaveBeenCalled();
+    expect(mockRouter.navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  it('still ends the session when the replay is refused authentication again', () => {
+    mockAuthService.getAccessToken.mockReturnValue('expired-token');
+    mockAuthService.hasRefreshToken.mockReturnValue(true);
+    sessionSignal.set({ activeShopId: 'shop-a', user: { id: 'user-1' } });
+    mockAuthService.refreshAccessToken.mockImplementation(() =>
+      of({ accessToken: 'renewed-token', activeShopId: 'shop-a', user: { id: 'user-1' } }));
+
+    const next = (): Observable<HttpEvent<unknown>> => throwError(() => new HttpErrorResponse({ status: 401 }));
+
+    let failed: HttpErrorResponse | undefined;
+    runInterceptor(new HttpRequest('POST', `${API_BASE_URL}/sales`, {}), next).subscribe({
+      error: (error: HttpErrorResponse) => (failed = error),
+    });
+
+    expect(failed?.status).toBe(401);
+    expect(mockAuthService.clearSession).toHaveBeenCalledTimes(1);
+    expect(mockRouter.navigateByUrl).toHaveBeenCalledWith('/login');
+  });
+
   it('does not replay a request when refresh moved the session to another shop', () => {
     mockAuthService.getAccessToken.mockReturnValue('suspended-shop-token');
     mockAuthService.hasRefreshToken.mockReturnValue(true);

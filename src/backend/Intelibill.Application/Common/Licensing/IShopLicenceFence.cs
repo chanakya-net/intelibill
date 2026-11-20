@@ -17,6 +17,9 @@ public readonly record struct ShopLicenceLease(Guid ShopId, Guid? AccountId, lon
 {
     public string? EffectiveSuspension { get; init; }
 
+    /// <summary>Active-member seats per shop from the fenced projection; null when unknown or unprojected.</summary>
+    public int? MemberAllowance { get; init; }
+
     public Func<LicenceDecision>? Reevaluate { get; init; }
 
     // The same projection is fenced for the transaction, but time can advance while acquiring business locks.

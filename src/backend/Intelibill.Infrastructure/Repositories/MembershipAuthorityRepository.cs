@@ -1,4 +1,5 @@
 using Intelibill.Domain.Entities;
+using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Infrastructure.Data;
@@ -123,6 +124,9 @@ internal sealed class MembershipAuthorityRepository(ApplicationDbContext db, IUn
 
     public Task<int> CountRecentInvitationsAsync(Guid shopId, DateTimeOffset since, CancellationToken ct) =>
         db.Set<ShopInvitation>().CountAsync(x => x.ShopId == shopId && x.CreatedAt > since, ct);
+
+    public Task<int> CountActiveMembersAsync(Guid shopId, CancellationToken ct) =>
+        db.ShopMemberships.CountAsync(x => x.ShopId == shopId && x.Status == MembershipStatus.Active, ct);
 
     public void AddInvitation(ShopInvitation invitation) => db.Add(invitation);
 

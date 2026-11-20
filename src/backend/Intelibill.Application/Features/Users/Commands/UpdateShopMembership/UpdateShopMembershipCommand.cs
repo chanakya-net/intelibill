@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 namespace Intelibill.Application.Features.Users.Commands.UpdateShopMembership;
 
 /// <summary>
@@ -10,4 +12,8 @@ public sealed record UpdateShopMembershipCommand(
     Guid TargetUserId,
     string Role,
     string Status,
-    long ExpectedVersion);
+    long ExpectedVersion)
+{
+    /// <summary>The calling device session, revalidated under the actor's account lock.</summary>
+    public SessionClaims? Session { get; init; }
+}

@@ -6,6 +6,7 @@ import {
   selectUsersLastMutationSucceeded,
   selectUsersLastMutationType,
   selectUsersLoadingShopUsers,
+  selectUsersMembershipRefusal,
   selectUsersSubmitting,
 } from './users.selectors';
 import { UsersState } from './users.reducer';
@@ -65,6 +66,7 @@ describe('users selectors', () => {
     lastMutationType: 'update-membership',
     lastMutationSucceeded: true,
     invitations: [pendingInvitation, revokedInvitation],
+    membershipRefusal: { shopId: 'shop-1', userId: 'u2', memberCapacity: { memberAllowance: 3, activeMembers: 3 } },
   };
 
   const rootState = {
@@ -73,6 +75,14 @@ describe('users selectors', () => {
 
   it('selects shop users list', () => {
     expect(selectShopUsers(rootState as never)).toEqual([ownerUser, staffUser]);
+  });
+
+  it('selects the seat refusal with the edit it belongs to', () => {
+    expect(selectUsersMembershipRefusal(rootState as never)).toEqual({
+      shopId: 'shop-1',
+      userId: 'u2',
+      memberCapacity: { memberAllowance: 3, activeMembers: 3 },
+    });
   });
 
   it('selects loading users state', () => {

@@ -6,6 +6,7 @@ import { take } from 'rxjs/operators';
 import { vi } from 'vitest';
 
 import { UserAccountService } from '../services/user-account.service';
+import { ShopContextActions } from '../../../core/context/shop-context.actions';
 import { ShopsActions } from '../../shops/state/shops.actions';
 import { UsersActions } from './users.actions';
 import { UsersEffects } from './users.effects';
@@ -283,6 +284,82 @@ describe('UsersEffects', () => {
         errorMessage: 'errors.users.membershipVersionConflict',
       }),
     );
+  });
+
+  it('carries the owner seat usage when a reinstatement finds no free seat', async () => {
+    userAccountService.updateMembership.mockReturnValue(
+      throwError(() => ({
+        status: 409,
+        error: {
+          code: 'Licence.MemberCapacityReached',
+          memberCapacity: { memberAllowance: 3, activeMembers: 3 },
+        },
+      })),
+    );
+
+    const output = firstValueFrom(effects.updateMembership$.pipe(take(1)));
+    actions$.next(
+      UsersActions.updateMembershipRequested({
+        shopId: 'shop-1',
+        userId: 'u1',
+        payload: { role: 'Staff', status: 'Active', expectedVersion: 1 },
+      }),
+    );
+
+    await expect(output).resolves.toEqual(
+      UsersActions.updateMembershipCapacityRefused({
+        shopId: 'shop-1',
+        userId: 'u1',
+        memberCapacity: { memberAllowance: 3, activeMembers: 3 },
+      }),
+    );
+  });
+
+  it('falls back to a seat message without numbers when the refusal carries none', async () => {
+    userAccountService.updateMembership.mockReturnValue(
+      throwError(() => ({
+        error: {
+          code: 'Licence.MemberCapacityReached',
+          memberCapacity: { memberAllowance: '3', activeMembers: -1 },
+        },
+      })),
+    );
+
+    const output = firstValueFrom(effects.updateMembership$.pipe(take(1)));
+    actions$.next(
+      UsersActions.updateMembershipRequested({
+        shopId: 'shop-1',
+        userId: 'u1',
+        payload: { role: 'Staff', status: 'Active', expectedVersion: 1 },
+      }),
+    );
+
+    await expect(output).resolves.toEqual(
+      UsersActions.updateMembershipCapacityRefused({ shopId: 'shop-1', userId: 'u1', memberCapacity: null }),
+    );
+  });
+
+  it('attributes a delayed refusal to the edit that was sent, not to whatever is open now', async () => {
+    const refusal = new Subject<never>();
+    userAccountService.updateMembership.mockReturnValue(refusal.asObservable());
+    const emitted: Action[] = [];
+    const subscription = effects.updateMembership$.subscribe((action) => emitted.push(action));
+
+    actions$.next(
+      UsersActions.updateMembershipRequested({
+        shopId: 'shop-1',
+        userId: 'u1',
+        payload: { role: 'Staff', status: 'Active', expectedVersion: 1 },
+      }),
+    );
+    // The owner switches shop (or opens another member) while the request is still in flight.
+    actions$.next(ShopContextActions.scopeChanged({ epoch: 2, reason: 'scope' }));
+    refusal.error({ error: { code: 'Licence.MemberCapacityReached' } });
+    subscription.unsubscribe();
+
+    expect(emitted).toEqual([
+      UsersActions.updateMembershipCapacityRefused({ shopId: 'shop-1', userId: 'u1', memberCapacity: null }),
+    ]);
   });
 
   it('dispatches updateMembershipSucceeded with the new authority', async () => {

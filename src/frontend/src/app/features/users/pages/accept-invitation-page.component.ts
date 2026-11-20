@@ -139,6 +139,9 @@ function acceptInvitationError(error: ApiErrorPayload | undefined): string {
       return 'users.invitationNotAcceptable';
     case 'Users.InvitationNotFound':
       return 'users.invitationNotFound';
+    // The offer stays pending; the owner has to free a seat. Seat usage is the owner's to see.
+    case 'Licence.MemberCapacityReached':
+      return 'users.invitationShopFull';
     default:
       return 'users.invitationUnavailable';
   }

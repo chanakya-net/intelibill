@@ -408,6 +408,7 @@
     "invitationWrongAccount": "This invitation was sent to a different verified email address. Sign in to that account to accept it.",
     "invitationRequiresVerifiedEmail": "Verify your email address before accepting a shop invitation.",
     "invitationNotAcceptable": "This invitation is expired, already used, or has been withdrawn.",
+    "invitationShopFull": "This shop has no free member seat right now. Your invitation is still valid: ask the shop owner to free a seat, then accept again.",
     "invitationNotFound": "This invitation is no longer available.",
     "invitationLinkInvalid": "This invitation link is incomplete. Open the link from the invitation email again.",
     "invitationUnavailable": "This invitation cannot be accepted right now. Please try again later."
@@ -1186,6 +1187,8 @@
       "invitationNotAcceptable": "This invitation is expired, already used, or has been withdrawn.",
       "invitationNotFound": "This invitation is no longer available.",
       "membershipVersionConflict": "This membership changed while you were editing it. Reload and try again.",
+      "memberCapacityReached": "All member seats are in use: {{activeMembers}} of {{memberAllowance}} taken. Suspend or remove a member, or increase the shop's member allowance, then try again.",
+      "memberCapacityReachedNoDetail": "All member seats are in use. Suspend or remove a member, or increase the shop's member allowance, then try again.",
       "membershipOperationRequired": "Shop administration changes a membership, not an account. Update the role and status instead.",
       "membershipNotFound": "This person is not a member of this shop.",
       "membershipStatusNotSupported": "Status must be Active, Suspended or Removed.",

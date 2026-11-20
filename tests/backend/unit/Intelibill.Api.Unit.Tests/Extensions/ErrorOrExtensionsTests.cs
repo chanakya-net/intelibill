@@ -2,6 +2,7 @@ using ErrorOr;
 using Intelibill.Api.Extensions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using LicenceErrors = Intelibill.Application.Common.Errors.Errors.Licence;
 
 namespace Intelibill.Api.Unit.Tests.Extensions;
 
@@ -58,5 +59,29 @@ public class ErrorOrExtensionsTests
 
         var statusCodeResult = Assert.IsType<StatusCodeResult>(result);
         Assert.Equal(StatusCodes.Status500InternalServerError, statusCodeResult.StatusCode);
+    }
+
+    [Fact]
+    public void ToProblemResult_ProjectsMemberCapacityOnlyWhenAttached()
+    {
+        var disclosed = (ProblemDetails)((ObjectResult)new List<Error>
+            { LicenceErrors.MemberCapacityReached(3, 3) }.ToProblemResult()).Value!;
+        var withheld = (ObjectResult)new List<Error> { LicenceErrors.MemberCapacityReached() }.ToProblemResult();
+
+        Assert.Equal(StatusCodes.Status409Conflict, withheld.StatusCode);
+        Assert.Equal("Licence.MemberCapacityReached", disclosed.Extensions["code"]);
+        Assert.Equivalent(new { memberAllowance = 3, activeMembers = 3 }, disclosed.Extensions["memberCapacity"]);
+        Assert.False(((ProblemDetails)withheld.Value!).Extensions.ContainsKey("memberCapacity"));
+    }
+
+    [Fact]
+    public void ToProblemResult_IgnoresCapacityMetadataOnOtherErrors()
+    {
+        var error = Error.Conflict("Other.Code", "Other", new Dictionary<string, object>
+            { ["memberAllowance"] = 3, ["activeMembers"] = 3 });
+
+        var problem = (ProblemDetails)((ObjectResult)new List<Error> { error }.ToProblemResult()).Value!;
+
+        Assert.False(problem.Extensions.ContainsKey("memberCapacity"));
     }
 }

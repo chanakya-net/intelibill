@@ -13,7 +13,8 @@ public sealed class UpdateShopMembershipCommandHandler(
     TimeProvider clock,
     IShopRepository shops,
     ITenantWriteScope tenantScope,
-    IShopLicenceFence fence)
+    IShopLicenceFence fence,
+    ILiveSessionAuthority sessions)
 {
     // Entry-point classification is conservative. MembershipLicenceActions classifies the
     // specific change using the live status and whether the requested role differs.
@@ -50,6 +51,10 @@ public sealed class UpdateShopMembershipCommandHandler(
         // membership rows. Every decision below is re-read while those locks are held, so a token
         // claim that said "Owner" a minute ago cannot authorize this change.
         await authority.LockUsersAsync([command.ActorUserId, command.TargetUserId], cancellationToken);
+        // Revocation takes the same account lock. The session is judged in its own scope, which may
+        // be another shop the owner holds or none at all.
+        if (!await IsLiveAsync(command, cancellationToken))
+            return Errors.Auth.SessionInvalidated;
         if (!await authority.LockShopAsync(command.ShopId, cancellationToken))
             return Errors.Shop.ShopNotFound;
 
@@ -65,6 +70,11 @@ public sealed class UpdateShopMembershipCommandHandler(
             return Errors.Shop.MembershipNotFound;
 
         var target = await authority.LockMembershipAsync(command.ShopId, command.TargetUserId, cancellationToken);
+
+        // Every authority lock is now held. The device session is judged again at this instant: one
+        // that lapsed while queued behind the shop root neither changes the member nor sees seat usage.
+        if (!await IsLiveAsync(command, cancellationToken))
+            return Errors.Auth.SessionInvalidated;
         if (target is null)
             return Errors.Users.MembershipNotFound;
 
@@ -77,6 +87,11 @@ public sealed class UpdateShopMembershipCommandHandler(
 
         var action = MembershipLicenceActions.For(target.Status, status, role != target.Role);
         if (action != LicenceAction.MemberRemoval && licence.Value.SuspensionDenial() is { } denied) return denied;
+
+        // Reinstatement takes a seat; a role change of an Active member or any move out of Active does not.
+        if (target.Status != MembershipStatus.Active && status == MembershipStatus.Active
+            && await SeatDenialAsync(licence.Value, command.ShopId, cancellationToken) is { } full)
+            return full;
 
         var now = clock.GetUtcNow();
         target.ChangeAuthority(role, status);
@@ -97,6 +112,16 @@ public sealed class UpdateShopMembershipCommandHandler(
             target.Status.ToString(),
             target.AuthorityVersion);
     }
+
+    private async Task<bool> IsLiveAsync(UpdateShopMembershipCommand command, CancellationToken ct) =>
+        command.Session is { } session && session.UserId == command.ActorUserId
+        && await sessions.IsValidAsync(session, ct);
+
+    // Counted under the shop root lock taken above. The owner was re-read under lock, so it may see usage.
+    private async Task<Error?> SeatDenialAsync(ShopLicenceLease lease, Guid shopId, CancellationToken ct) =>
+        MemberSeatPolicy.Applies(lease)
+            ? MemberSeatPolicy.AdmissionDenial(lease, await authority.CountActiveMembersAsync(shopId, ct), discloseUsage: true)
+            : null;
 
     private static string DisplayName(string? firstName, string? lastName) =>
         $"{firstName} {lastName}".Trim();

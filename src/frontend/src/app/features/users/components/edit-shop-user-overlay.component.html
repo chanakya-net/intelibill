@@ -49,7 +49,7 @@
       <p class="ib-overlay__description">{{ 'users.membershipScopeNotice' | transloco }}</p>
 
       @if (serverError()) {
-        <p class="ib-overlay__error">{{ serverError() | transloco }}</p>
+        <p class="ib-overlay__error">{{ serverError() | transloco: serverErrorParams() }}</p>
       }
 
       <div class="ib-overlay__actions">

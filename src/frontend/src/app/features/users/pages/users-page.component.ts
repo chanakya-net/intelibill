@@ -216,11 +216,14 @@ export class UsersPageComponent {
 
     this.store.dispatch(UsersActions.clearError());
     this.store.dispatch(UsersActions.clearMutationStatus());
+    this.store.dispatch(UsersActions.clearMembershipRefusal());
     this.editingUser.set(user);
     this.showEditUserOverlay.set(true);
   }
 
   onCloseEditUser(): void {
+    // A cancelled edit's seat refusal must not outlive it.
+    this.store.dispatch(UsersActions.clearMembershipRefusal());
     this.showEditUserOverlay.set(false);
     this.editingUser.set(null);
   }

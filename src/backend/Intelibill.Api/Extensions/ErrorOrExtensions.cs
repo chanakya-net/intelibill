@@ -61,6 +61,9 @@ public static class ErrorOrExtensions
         if (first.Code.StartsWith("Licence.", StringComparison.Ordinal))
             problemDetails.Extensions["code"] = first.Code;
 
+        if (MemberCapacity(first) is { } capacity)
+            problemDetails.Extensions["memberCapacity"] = capacity;
+
         if (first.Type == ErrorType.Validation)
         {
             Log.Warning(
@@ -87,4 +90,12 @@ public static class ErrorOrExtensions
 
         return new ObjectResult(problemDetails) { StatusCode = statusCode };
     }
+
+    // Seat usage travels only when the application attached it for an entitled caller.
+    private static object? MemberCapacity(Error error) =>
+        error.Code == LicenceErrors.MemberCapacityReachedCode
+        && error.Metadata?.GetValueOrDefault("memberAllowance") is int allowance
+        && error.Metadata.GetValueOrDefault("activeMembers") is int active
+            ? new { memberAllowance = allowance, activeMembers = active }
+            : null;
 }
