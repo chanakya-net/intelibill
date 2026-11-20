@@ -126,6 +126,40 @@ describe('AcceptInvitationPageComponent', () => {
     expect(component.error()).toBe('users.invitationNotAcceptable');
   });
 
+  it('keeps the invitation redeemable when the shop has no free seat', () => {
+    const membership = {
+      userId: 'u9',
+      shopId: 's2',
+      displayName: 'Invited Person',
+      role: 'Staff',
+      status: 'Active',
+      version: 0,
+    };
+    acceptInvitation.mockReturnValueOnce(
+      throwError(() => ({
+        status: 409,
+        error: { code: 'Licence.MemberCapacityReached', title: 'Licence.MemberCapacityReached' },
+      })),
+    );
+    acceptInvitation.mockReturnValueOnce(of(membership));
+
+    const component = setup('invitationId=i1&token=SECRET');
+    component.onAccept();
+
+    // The invitee learns the shop is full, never its seat usage, and keeps the offer.
+    expect(component.error()).toBe('users.invitationShopFull');
+    expect(component.ready()).toBe(true);
+    expect(component.accepted()).toBeNull();
+    expect(readPendingInvitation()).toEqual({ invitationId: 'i1', token: 'SECRET' });
+
+    // Once the owner frees a seat the same link is accepted.
+    component.onAccept();
+    expect(acceptInvitation).toHaveBeenCalledTimes(2);
+    expect(acceptInvitation).toHaveBeenLastCalledWith('i1', 'SECRET');
+    expect(component.accepted()).toEqual(membership);
+    expect(component.error()).toBe('');
+  });
+
   it('keeps the link usable when it is opened before signing in', () => {
     authService.session.set(null);
 

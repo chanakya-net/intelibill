@@ -285,6 +285,60 @@ describe('UsersEffects', () => {
     );
   });
 
+  it('carries the owner seat usage when a reinstatement finds no free seat', async () => {
+    userAccountService.updateMembership.mockReturnValue(
+      throwError(() => ({
+        status: 409,
+        error: {
+          code: 'Licence.MemberCapacityReached',
+          memberCapacity: { memberAllowance: 3, activeMembers: 3 },
+        },
+      })),
+    );
+
+    const output = firstValueFrom(effects.updateMembership$.pipe(take(1)));
+    actions$.next(
+      UsersActions.updateMembershipRequested({
+        shopId: 'shop-1',
+        userId: 'u1',
+        payload: { role: 'Staff', status: 'Active', expectedVersion: 1 },
+      }),
+    );
+
+    await expect(output).resolves.toEqual(
+      UsersActions.updateMembershipFailed({
+        errorMessage: 'errors.users.memberCapacityReached',
+        memberCapacity: { memberAllowance: 3, activeMembers: 3 },
+      }),
+    );
+  });
+
+  it('falls back to a seat message without numbers when the refusal carries none', async () => {
+    userAccountService.updateMembership.mockReturnValue(
+      throwError(() => ({
+        error: {
+          code: 'Licence.MemberCapacityReached',
+          memberCapacity: { memberAllowance: '3', activeMembers: -1 },
+        },
+      })),
+    );
+
+    const output = firstValueFrom(effects.updateMembership$.pipe(take(1)));
+    actions$.next(
+      UsersActions.updateMembershipRequested({
+        shopId: 'shop-1',
+        userId: 'u1',
+        payload: { role: 'Staff', status: 'Active', expectedVersion: 1 },
+      }),
+    );
+
+    await expect(output).resolves.toEqual(
+      UsersActions.updateMembershipFailed({
+        errorMessage: 'errors.users.memberCapacityReachedNoDetail',
+      }),
+    );
+  });
+
   it('dispatches updateMembershipSucceeded with the new authority', async () => {
     const membership = {
       userId: 'u1',

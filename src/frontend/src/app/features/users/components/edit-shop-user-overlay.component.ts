@@ -21,7 +21,11 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { RootState } from '../../../core/state/app.state';
 import { MembershipRole, MembershipStatus, ShopUser } from '../services/user-account.service';
 import { UsersActions } from '../state/users.actions';
-import { selectUsersErrorMessage, selectUsersSubmitting } from '../state/users.selectors';
+import {
+  selectUsersErrorMessage,
+  selectUsersMemberCapacityConflict,
+  selectUsersSubmitting,
+} from '../state/users.selectors';
 
 /**
  * Edits one membership in the active shop: role and status, nothing else.
@@ -52,6 +56,9 @@ export class EditShopUserOverlayComponent implements OnInit, OnChanges {
 
   readonly isSubmitting = this.store.selectSignal(selectUsersSubmitting);
   readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
+  /** Owner-only seat usage from a refused reinstatement; the row itself keeps its saved status. */
+  readonly memberCapacity = this.store.selectSignal(selectUsersMemberCapacityConflict);
+  readonly serverErrorParams = computed(() => this.memberCapacity() ?? {});
 
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? null);
   readonly activeShopName = computed(() => {

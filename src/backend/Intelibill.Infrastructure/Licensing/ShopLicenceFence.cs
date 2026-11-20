@@ -60,6 +60,7 @@ public sealed class ShopLicenceFence(ApplicationDbContext db, ILicenceActionPoli
         {
             Reevaluate = () => policy.Decide(action, shop, account, proofs, clock.GetUtcNow()),
             EffectiveSuspension = LicenseProjectionPolicy.EffectiveSuspension(shop, account, now),
+            MemberAllowance = shop?.MemberAllowance,
         };
     }
 

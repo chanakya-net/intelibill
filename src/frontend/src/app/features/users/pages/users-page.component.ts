@@ -20,6 +20,7 @@ import {
   selectShopInvitations,
   selectShopUsers,
   selectUsersErrorMessage,
+  selectUsersMemberCapacityConflict,
   selectUsersLastMutationSucceeded,
   selectUsersLastMutationType,
   selectUsersLoadingShopUsers,
@@ -84,6 +85,8 @@ export class UsersPageComponent {
   readonly tableUsers = computed(() => [...this.filteredUsers()]);
   readonly isLoading = this.store.selectSignal(selectUsersLoadingShopUsers);
   readonly serverError = this.store.selectSignal(selectUsersErrorMessage);
+  private readonly memberCapacity = this.store.selectSignal(selectUsersMemberCapacityConflict);
+  readonly serverErrorParams = computed(() => this.memberCapacity() ?? {});
   readonly lastMutationType = this.store.selectSignal(selectUsersLastMutationType);
   readonly lastMutationSucceeded = this.store.selectSignal(selectUsersLastMutationSucceeded);
 

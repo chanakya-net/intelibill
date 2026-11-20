@@ -84,6 +84,7 @@ describe('usersReducer', () => {
       lastMutationType: 'update-profile',
       lastMutationSucceeded: false,
       invitations: [],
+      memberCapacityConflict: null,
     };
 
     const next = usersReducer(state, UsersActions.updateProfileSucceeded());
@@ -104,6 +105,7 @@ describe('usersReducer', () => {
       lastMutationType: 'update-profile',
       lastMutationSucceeded: false,
       invitations: [],
+      memberCapacityConflict: null,
     };
 
     const next = usersReducer(
@@ -149,6 +151,7 @@ describe('usersReducer', () => {
       lastMutationType: 'change-password',
       lastMutationSucceeded: false,
       invitations: [],
+      memberCapacityConflict: null,
     };
 
     const next = usersReducer(state, UsersActions.changePasswordSucceeded());
@@ -169,6 +172,7 @@ describe('usersReducer', () => {
       lastMutationType: 'change-password',
       lastMutationSucceeded: false,
       invitations: [],
+      memberCapacityConflict: null,
     };
 
     const next = usersReducer(
@@ -262,6 +266,35 @@ describe('usersReducer', () => {
     expect(next.entities['u2']?.membershipVersion).toBe(2);
   });
 
+  it('keeps the seat conflict until the next attempt or a cleared error', () => {
+    const capacity = { memberAllowance: 3, activeMembers: 3 };
+    const failed = usersReducer(
+      { ...initialState, ids: ['u2'], entities: { u2: staffUser }, submitting: true },
+      UsersActions.updateMembershipFailed({
+        errorMessage: 'errors.users.memberCapacityReached',
+        memberCapacity: capacity,
+      })
+    );
+
+    expect(failed.memberCapacityConflict).toEqual(capacity);
+    // A refused reinstatement leaves the row as it was.
+    expect(failed.entities['u2']).toEqual(staffUser);
+
+    const retried = usersReducer(
+      failed,
+      UsersActions.updateMembershipRequested({
+        shopId: 'shop-1',
+        userId: 'u2',
+        payload: { role: 'Staff', status: 'Active', expectedVersion: 1 },
+      })
+    );
+    expect(retried.memberCapacityConflict).toBeNull();
+    expect(usersReducer(failed, UsersActions.clearError()).memberCapacityConflict).toBeNull();
+    expect(
+      usersReducer(failed, UsersActions.updateMembershipFailed({ errorMessage: 'x' })).memberCapacityConflict
+    ).toBeNull();
+  });
+
   it('drops a removed membership from the directory', () => {
     const next = usersReducer(
       { ...initialState, ids: ['u2'], entities: { u2: staffUser } },
@@ -290,6 +323,7 @@ describe('usersReducer', () => {
       lastMutationType: 'update-profile',
       lastMutationSucceeded: false,
       invitations: [],
+      memberCapacityConflict: null,
     };
 
     const next = usersReducer(state, UsersActions.clearError());
@@ -309,6 +343,7 @@ describe('usersReducer', () => {
       lastMutationType: 'change-password',
       lastMutationSucceeded: true,
       invitations: [],
+      memberCapacityConflict: null,
     };
 
     const next = usersReducer(state, UsersActions.clearMutationStatus());

@@ -1,5 +1,5 @@
 import { signal, Signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { vi } from 'vitest';
@@ -7,12 +7,18 @@ import { vi } from 'vitest';
 import { AuthService } from '../../../core/auth/auth.service';
 import { EditShopUserOverlayComponent } from './edit-shop-user-overlay.component';
 import { UsersActions } from '../state/users.actions';
-import { selectUsersErrorMessage, selectUsersSubmitting } from '../state/users.selectors';
+import {
+  selectUsersErrorMessage,
+  selectUsersMemberCapacityConflict,
+  selectUsersSubmitting,
+} from '../state/users.selectors';
+import { MemberCapacity } from '../services/member-capacity';
 
 describe('EditShopUserOverlayComponent', () => {
   const dispatch = vi.fn();
   const isSubmittingSignal = signal(false);
   const errorSignal = signal('');
+  const capacitySignal = signal<MemberCapacity | null>(null);
 
   const store = {
     dispatch,
@@ -23,6 +29,10 @@ describe('EditShopUserOverlayComponent', () => {
 
       if (selector === selectUsersErrorMessage) {
         return errorSignal;
+      }
+
+      if (selector === selectUsersMemberCapacityConflict) {
+        return capacitySignal;
       }
 
       return signal(undefined);
@@ -51,15 +61,20 @@ describe('EditShopUserOverlayComponent', () => {
     }),
   };
 
-  function setup(
+  function render(
     role = 'Staff',
     status = 'Active',
     membershipVersion = 4,
-  ): EditShopUserOverlayComponent {
+    en: Record<string, string> = {},
+  ): ComponentFixture<EditShopUserOverlayComponent> {
     TestBed.configureTestingModule({
       imports: [
         EditShopUserOverlayComponent,
-        TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
+        TranslocoTestingModule.forRoot({
+          langs: { en },
+          translocoConfig: { availableLangs: ['en'], defaultLang: 'en' },
+          preloadLangs: true,
+        }),
       ],
       providers: [
         { provide: Store, useValue: store },
@@ -80,7 +95,11 @@ describe('EditShopUserOverlayComponent', () => {
       shopIds: ['s1'],
     };
     fixture.detectChanges();
-    return fixture.componentInstance;
+    return fixture;
+  }
+
+  function setup(role = 'Staff', status = 'Active', membershipVersion = 4): EditShopUserOverlayComponent {
+    return render(role, status, membershipVersion).componentInstance;
   }
 
   beforeEach(() => {
@@ -88,6 +107,7 @@ describe('EditShopUserOverlayComponent', () => {
     store.selectSignal.mockClear();
     isSubmittingSignal.set(false);
     errorSignal.set('');
+    capacitySignal.set(null);
   });
 
   afterEach(() => {
@@ -140,6 +160,27 @@ describe('EditShopUserOverlayComponent', () => {
     errorSignal.set('errors.users.membershipVersionConflict');
 
     expect(component.serverError()).toBe('errors.users.membershipVersionConflict');
+  });
+
+  it('shows the seat usage beside a refused reinstatement', () => {
+    errorSignal.set('errors.users.memberCapacityReached');
+    capacitySignal.set({ memberAllowance: 3, activeMembers: 3 });
+    const fixture = render('Staff', 'Suspended', 1, {
+      'errors.users.memberCapacityReached': '{{activeMembers}} of {{memberAllowance}} seats are taken.',
+    });
+
+    const error = (fixture.nativeElement as HTMLElement).querySelector('.ib-overlay__error');
+    expect(error?.textContent?.trim()).toBe('3 of 3 seats are taken.');
+  });
+
+  it('shows the plain seat message when the refusal carries no usage', () => {
+    errorSignal.set('errors.users.memberCapacityReachedNoDetail');
+    const fixture = render('Staff', 'Suspended', 1, {
+      'errors.users.memberCapacityReachedNoDetail': 'No free seat.',
+    });
+
+    const error = (fixture.nativeElement as HTMLElement).querySelector('.ib-overlay__error');
+    expect(error?.textContent?.trim()).toBe('No free seat.');
   });
 
   it('clears the previous error and mutation status before submitting', () => {

@@ -42,6 +42,12 @@ public interface IMembershipAuthorityRepository
     /// <summary>Locks one membership row within the same budget as <see cref="TryLockUserAsync"/>.</summary>
     Task<RowLockOutcome> TryLockMembershipAsync(Guid shopId, Guid userId, CancellationToken ct);
 
+    /// <summary>
+    /// Counts the shop's Active memberships (every role, one row per person). Serialized only when
+    /// read after <see cref="LockShopAsync"/>: every seat-consuming transition holds that lock.
+    /// </summary>
+    Task<int> CountActiveMembersAsync(Guid shopId, CancellationToken ct);
+
     Task<User?> FindUserAsync(Guid userId, CancellationToken ct);
 
     /// <summary>

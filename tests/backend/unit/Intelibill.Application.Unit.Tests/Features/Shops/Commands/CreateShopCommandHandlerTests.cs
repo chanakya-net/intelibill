@@ -101,4 +101,28 @@ public class CreateShopCommandHandlerTests
         await _sessions.DidNotReceive().StartAsync(
             Arg.Any<Application.Features.Auth.DTOs.AuthenticationProof>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
     }
+
+    /// <summary>
+    /// P04-11: shop creation seats only its initial Owner. It is the bootstrap seat of a shop that
+    /// has no licence projection yet, so it is never counted against a member allowance.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_SeatsExactlyOneActiveOwner()
+    {
+        var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
+        _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _sessions.RescopeAsync(user.Id, Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(call => AuthResults.Scope(call.ArgAt<Guid>(2)));
+
+        var session = _setup.Session(user.Id);
+        var result = await Handler().HandleAsync(
+            new CreateShopCommand(user.Id, session.SessionId, "Main", "A", "C", "S", "560001", null, null, null) { Session = session },
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var seat = Assert.Single(user.ShopMemberships);
+        Assert.Equal(Domain.Enums.ShopRole.Owner, seat.Role);
+        Assert.Equal(Domain.Enums.MembershipStatus.Active, seat.Status);
+        Assert.Equal(result.Value.ActiveShopId, seat.ShopId);
+    }
 }

@@ -9,6 +9,7 @@ import {
   UpdateMembershipRequest,
   UpdateMyProfileRequest,
 } from '../services/user-account.service';
+import { MemberCapacity } from '../services/member-capacity';
 
 export type UserMutationType =
   | 'update-profile'
@@ -50,7 +51,7 @@ export const UsersActions = createActionGroup({
       payload: UpdateMembershipRequest;
     }>(),
     'Update Membership Succeeded': props<{ membership: Membership }>(),
-    'Update Membership Failed': props<{ errorMessage: string }>(),
+    'Update Membership Failed': props<{ errorMessage: string; memberCapacity?: MemberCapacity }>(),
 
     'Clear Error': emptyProps(),
     'Clear Mutation Status': emptyProps(),

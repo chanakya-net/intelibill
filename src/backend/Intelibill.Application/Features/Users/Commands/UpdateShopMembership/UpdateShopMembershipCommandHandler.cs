@@ -78,6 +78,11 @@ public sealed class UpdateShopMembershipCommandHandler(
         var action = MembershipLicenceActions.For(target.Status, status, role != target.Role);
         if (action != LicenceAction.MemberRemoval && licence.Value.SuspensionDenial() is { } denied) return denied;
 
+        // Reinstatement takes a seat; a role change of an Active member or any move out of Active does not.
+        if (target.Status != MembershipStatus.Active && status == MembershipStatus.Active
+            && await SeatDenialAsync(licence.Value, command.ShopId, cancellationToken) is { } full)
+            return full;
+
         var now = clock.GetUtcNow();
         target.ChangeAuthority(role, status);
 
@@ -97,6 +102,12 @@ public sealed class UpdateShopMembershipCommandHandler(
             target.Status.ToString(),
             target.AuthorityVersion);
     }
+
+    // Counted under the shop root lock taken above. The owner was re-read under lock, so it may see usage.
+    private async Task<Error?> SeatDenialAsync(ShopLicenceLease lease, Guid shopId, CancellationToken ct) =>
+        MemberSeatPolicy.Applies(lease)
+            ? MemberSeatPolicy.AdmissionDenial(lease, await authority.CountActiveMembersAsync(shopId, ct), discloseUsage: true)
+            : null;
 
     private static string DisplayName(string? firstName, string? lastName) =>
         $"{firstName} {lastName}".Trim();

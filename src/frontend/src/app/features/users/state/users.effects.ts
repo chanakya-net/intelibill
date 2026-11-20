@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { catchError, map, of, switchMap } from 'rxjs';
 
+import { MEMBER_CAPACITY_REACHED, readMemberCapacity } from '../services/member-capacity';
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
 import { ShopsActions } from '../../shops/state/shops.actions';
 import { UserAccountService } from '../services/user-account.service';
@@ -127,11 +128,7 @@ export class UsersEffects {
         this.userAccountService.updateMembership(shopId, userId, payload).pipe(
           map((membership) => UsersActions.updateMembershipSucceeded({ membership })),
           catchError((error: { error?: ApiErrorPayload }) =>
-            of(
-              UsersActions.updateMembershipFailed({
-                errorMessage: getUpdateMembershipErrorMessage(error.error),
-              })
-            )
+            of(updateMembershipFailed(error.error))
           )
         )
       )
@@ -207,6 +204,18 @@ function getInviteMemberErrorMessage(error: ApiErrorPayload | undefined): string
     default:
       return 'errors.users.unableToInviteMember';
   }
+}
+
+/** A seat refusal keeps the owner's usage figures when the API supplied them. */
+function updateMembershipFailed(error: ApiErrorPayload | undefined) {
+  if ((error?.code ?? error?.title) !== MEMBER_CAPACITY_REACHED) {
+    return UsersActions.updateMembershipFailed({ errorMessage: getUpdateMembershipErrorMessage(error) });
+  }
+
+  const memberCapacity = readMemberCapacity(error);
+  return memberCapacity
+    ? UsersActions.updateMembershipFailed({ errorMessage: 'errors.users.memberCapacityReached', memberCapacity })
+    : UsersActions.updateMembershipFailed({ errorMessage: 'errors.users.memberCapacityReachedNoDetail' });
 }
 
 function getUpdateMembershipErrorMessage(error: ApiErrorPayload | undefined): string {

@@ -75,6 +75,12 @@ public sealed class AcceptShopInvitationCommandHandler(
         if (licence.Value.SuspensionDenial() is { } denied) return denied;
 
         var membership = await authority.LockMembershipAsync(invitation.ShopId, command.ActorUserId, cancellationToken);
+
+        // Joining or rejoining takes a seat; the offer stays pending when none is free.
+        if (membership is not { IsActive: true }
+            && await SeatDenialAsync(licence.Value, invitation.ShopId, cancellationToken) is { } full)
+            return full;
+
         if (membership is null)
         {
             membership = ShopMembership.Create(invitation.ShopId, command.ActorUserId, invitation.Role, isDefault: false);
@@ -103,4 +109,11 @@ public sealed class AcceptShopInvitationCommandHandler(
             membership.Status.ToString(),
             membership.AuthorityVersion);
     }
+
+    // Counted under the shop root lock taken above, so a concurrent admission cannot share the seat.
+    // The invitee is not yet an authority in the shop, so usage figures are withheld.
+    private async Task<Error?> SeatDenialAsync(ShopLicenceLease lease, Guid shopId, CancellationToken ct) =>
+        MemberSeatPolicy.Applies(lease)
+            ? MemberSeatPolicy.AdmissionDenial(lease, await authority.CountActiveMembersAsync(shopId, ct), discloseUsage: false)
+            : null;
 }

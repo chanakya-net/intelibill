@@ -1,6 +1,7 @@
 import { createEntityAdapter, EntityState } from '@ngrx/entity';
 import { createFeature, createReducer, on } from '@ngrx/store';
 
+import { MemberCapacity } from '../services/member-capacity';
 import { ShopInvitation, ShopUser } from '../services/user-account.service';
 import { UserMutationType, UsersActions } from './users.actions';
 
@@ -17,6 +18,8 @@ export interface UsersState extends EntityState<ShopUser> {
   readonly lastMutationType: UserMutationType | null;
   readonly lastMutationSucceeded: boolean;
   readonly invitations: readonly ShopInvitation[];
+  /** Seat usage from the last refused reinstatement, for the owner's message; cleared with the error. */
+  readonly memberCapacityConflict: MemberCapacity | null;
 }
 
 const initialState: UsersState = usersAdapter.getInitialState({
@@ -26,6 +29,7 @@ const initialState: UsersState = usersAdapter.getInitialState({
   lastMutationType: null,
   lastMutationSucceeded: false,
   invitations: [] as readonly ShopInvitation[],
+  memberCapacityConflict: null,
 });
 
 export const usersReducer = createReducer(
@@ -163,6 +167,7 @@ export const usersReducer = createReducer(
     ...state,
     submitting: true,
     errorMessage: '',
+    memberCapacityConflict: null,
     lastMutationType: 'update-membership',
     lastMutationSucceeded: false,
   })),
@@ -191,10 +196,11 @@ export const usersReducer = createReducer(
           next
         );
   }),
-  on(UsersActions.updateMembershipFailed, (state, { errorMessage }) => ({
+  on(UsersActions.updateMembershipFailed, (state, { errorMessage, memberCapacity }) => ({
     ...state,
     submitting: false,
     errorMessage,
+    memberCapacityConflict: memberCapacity ?? null,
     lastMutationType: 'update-membership',
     lastMutationSucceeded: false,
   })),
@@ -202,6 +208,7 @@ export const usersReducer = createReducer(
   on(UsersActions.clearError, (state) => ({
     ...state,
     errorMessage: '',
+    memberCapacityConflict: null,
   })),
   on(UsersActions.clearMutationStatus, (state) => ({
     ...state,
