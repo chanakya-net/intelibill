@@ -1,8 +1,9 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
-import { Observable, catchError, defer, map, of, tap, throwError } from 'rxjs';
+import { Observable, catchError, defer, map, of, switchMap, tap, throwError } from 'rxjs';
 
 import { FINANCIAL_OPERATION_ENDPOINTS } from '../auth/auth.constants';
+import { scopedRequestContext } from '../context/scoped-request';
 
 /** Route slugs shared with `api/financial-operations/{type}/{key}`. */
 export type FinancialOperationType = 'customer-payment' | 'supplier-payment';
@@ -31,7 +32,9 @@ export interface FinancialOperationIntent<TPayload = unknown> {
   readonly updatedAt: string;
 }
 
-interface FinancialOperationLookup<TResponse> {
+export interface FinancialOperationLookup<TResponse> {
+  readonly operationType: string;
+  readonly targetId: string;
   readonly operationKey: string;
   readonly response: TResponse;
 }
@@ -54,9 +57,9 @@ const STORAGE_KEY = 'intelibill.financial-operation-intents.v1';
  * `prepare` writes the frozen payload and a fresh operation key to storage before anything is
  * sent; if that write fails it throws and nothing is sent. Every retry replays that stored payload
  * under the same key, so the server's receipt scope (shop, type, key) converges duplicates to one
- * posting. A transport loss, timeout, 429 or 5xx leaves the intent `unknown`; only a matching
- * committed result (a 2xx answer or a found lookup) or a definitive refusal clears it. An intent
- * is only ever sent from the user and shop that created it.
+ * posting. A matching committed result or definitive refusal clears the intent. An uncertain
+ * failure leaves it `unknown`, and a later authorization refusal preserves it because access
+ * may have been denied before the receipt was checked. Only the original user and shop can send it.
  */
 @Injectable({ providedIn: 'root' })
 export class FinancialOperationIntentService {
@@ -141,13 +144,15 @@ export class FinancialOperationIntentService {
 
   /**
    * Sends the stored payload with its key. Refuses, without sending, an intent from another scope.
-   * Success clears the intent; a definitive refusal discards it (a corrected payment is a new
-   * action); anything else marks it `unknown`. The original error is always rethrown.
+   * Success or a definitive refusal clears the intent so a corrected payment can be entered.
+   * An uncertain failure or an authorization refusal during recovery keeps it `unknown`.
+   * The original error is always rethrown.
    */
   send<TPayload, TResponse>(
     scope: FinancialOperationScope,
     intent: FinancialOperationIntent<TPayload>,
     sender: (payload: TPayload, operationKey: string) => Observable<TResponse>,
+    recovering = false,
   ): Observable<TResponse> {
     return defer(() => {
       if (!isSameScope(scope, intent)) {
@@ -156,7 +161,12 @@ export class FinancialOperationIntentService {
       return sender(intent.payload, intent.operationKey).pipe(
         tap(() => this.remove(intent.operationKey)),
         catchError((error: unknown) => {
-          if (classifyFinancialOperationFailure(error) === 'rejected') {
+          const authorizationDenied =
+            error instanceof HttpErrorResponse &&
+            (error.status === 401 || error.status === 403);
+          const preserveAfterDenial =
+            authorizationDenied && (recovering || this.read()[intent.operationKey]?.status === 'unknown');
+          if (classifyFinancialOperationFailure(error) === 'rejected' && !preserveAfterDenial) {
             this.remove(intent.operationKey);
           } else {
             this.markUnknown(intent.operationKey);
@@ -165,6 +175,17 @@ export class FinancialOperationIntentService {
         }),
       );
     });
+  }
+
+  /** An explicit retry first checks the original key. Only a lookup miss permits a replay. */
+  retry<TPayload, TResponse>(
+    scope: FinancialOperationScope,
+    intent: FinancialOperationIntent<TPayload>,
+    sender: (payload: TPayload, operationKey: string) => Observable<TResponse>,
+  ): Observable<TResponse> {
+    return this.check<TResponse>(scope, intent).pipe(
+      switchMap((saved) => (saved === null ? this.send(scope, intent, sender, true) : of(saved))),
+    );
   }
 
   /**
@@ -182,11 +203,17 @@ export class FinancialOperationIntentService {
       return this.http
         .get<
           FinancialOperationLookup<TResponse>
-        >(FINANCIAL_OPERATION_ENDPOINTS.lookup(intent.operationType, intent.operationKey))
+        >(FINANCIAL_OPERATION_ENDPOINTS.lookup(intent.operationType, intent.operationKey), { context: scopedRequestContext(scope) })
         .pipe(
           map((lookup) => {
-            this.remove(intent.operationKey);
-            return lookup.response;
+            const response = requirePaymentOutcome(
+              lookup,
+              intent.operationType,
+              intent.operationKey,
+              intent.targetId,
+            );
+            this.confirmMatching(scope, intent.operationType, intent.targetId, intent.operationKey);
+            return response;
           }),
           catchError((error: unknown) =>
             error instanceof HttpErrorResponse && error.status === 404
@@ -239,6 +266,23 @@ export class FinancialOperationIntentService {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(intents));
     this.revisionSignal.update((revision) => revision + 1);
   }
+}
+
+export function requirePaymentOutcome<T>(
+  lookup: FinancialOperationLookup<T>,
+  type: string,
+  key: string,
+  target: string,
+): T {
+  if (
+    lookup.operationType !== type ||
+    lookup.operationKey !== key ||
+    lookup.targetId !== target ||
+    !lookup.response
+  ) {
+    throw new Error('Payment outcome does not match the stored operation.');
+  }
+  return lookup.response;
 }
 
 export function classifyFinancialOperationFailure(error: unknown): FinancialOperationSendFailure {

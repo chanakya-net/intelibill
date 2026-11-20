@@ -1,3 +1,5 @@
+import { signal } from '@angular/core';
+import { PaymentSettlementPreviewService } from '../../../core/services/payment-settlement-preview.service';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { provideRouter } from '@angular/router';
 import { CustomersPageComponent } from '../../customers/pages/customers-page.component';
@@ -39,9 +41,11 @@ const body = {
 describe('Real payment intent and IndexedDB recovery', () => {
   let http: HttpTestingController;
   let intents: FinancialOperationIntentService;
+  const preview = signal({ status: 'ready' as const, limit: null as number | null });
   let values: Map<string, string>;
   let storage: { getItem: (k: string) => string | null; setItem: (k: string, v: string) => void };
   beforeEach(() => {
+    preview.set({ status: 'ready', limit: null });
     vi.stubGlobal('indexedDB', new IDBFactory());
     values = new Map();
     storage = {
@@ -60,6 +64,7 @@ describe('Real payment intent and IndexedDB recovery', () => {
       ],
       providers: [
         provideHttpClient(),
+        { provide: PaymentSettlementPreviewService, useValue: { watch: () => preview } },
         provideHttpClientTesting(),
         provideRouter([]),
         provideStore({ suppliers: suppliersReducer, customers: customersReducer }),
@@ -144,7 +149,7 @@ describe('Real payment intent and IndexedDB recovery', () => {
       const lookup = await vi.waitFor(() => http.expectOne((r) => r.method === 'GET'));
       expect(lookup.request.url).toContain(original.operationKey);
       const response = { entryId: 'entry', receiptId: 'receipt', amount: 25 };
-      lookup.flush({ operationKey: original.operationKey, response });
+      lookup.flush({ operationType: type, targetId: 'party', operationKey: original.operationKey, response });
       await recovered;
       expect(panel.error()).toBe(false);
       expect(panel.recovered()).toBe(original.operationKey);
@@ -152,7 +157,7 @@ describe('Real payment intent and IndexedDB recovery', () => {
       const checked = firstValueFrom(intents.check(owner, original));
       const outerLookup = http.expectOne((r) => r.method === 'GET');
       expect(outerLookup.request.url).toContain(original.operationKey);
-      outerLookup.flush({ operationKey: original.operationKey, response });
+      outerLookup.flush({ operationType: type, targetId: 'party', operationKey: original.operationKey, response });
       expect(await checked).toEqual(response);
       // A stale outer editor can retry safely after panel confirmation/tombstone cleanup.
       await drafts.clearConfirmed(owner, pending.targetId, original.operationKey);
@@ -189,6 +194,8 @@ describe('Real payment intent and IndexedDB recovery', () => {
     const panel = TestBed.runInInjectionContext(() => new TillPendingActionsComponent());
     const recovered = panel.retry(pending);
     (await vi.waitFor(() => http.expectOne((r) => r.method === 'GET'))).flush({
+      operationType: 'customer-payment',
+      targetId: 'party',
       operationKey: intent.operationKey,
       response: { entryId: 'original-entry', receiptId: 'original-receipt' },
     });
@@ -230,7 +237,7 @@ describe('Real payment intent and IndexedDB recovery', () => {
       const panel = TestBed.runInInjectionContext(() => new TillPendingActionsComponent());
       const recovering = panel.retry(pending);
       const lookup = await vi.waitFor(() => http.expectOne((r) => r.method === 'GET'));
-      lookup.flush({ operationKey: original.operationKey, response: { id: 'entry', amount: 25 } });
+      lookup.flush({ operationType: 'supplier-payment', targetId: 'party', operationKey: original.operationKey, response: { id: 'entry', amount: 25 } });
       await recovering;
       expect(panel.error()).toBe(false);
       expect(intents.pending(owner, 'supplier-payment', 'party')).toBeNull();
@@ -277,6 +284,8 @@ describe('Real payment intent and IndexedDB recovery', () => {
     const recovering = panel.retry(pending);
     const response = { entryId: 'same-entry', receiptId: 'same-receipt', amount: 25 };
     (await vi.waitFor(() => http.expectOne((r) => r.method === 'GET'))).flush({
+      operationType: 'customer-payment',
+      targetId: 'party',
       operationKey: intent.operationKey,
       response,
     });
@@ -287,6 +296,52 @@ describe('Real payment intent and IndexedDB recovery', () => {
     expect(intents.pending(owner, 'customer-payment', 'party')).toBeNull();
     http.expectNone(() => true);
   });
+  it('retains a frozen payment at zero due when recovery authority is unavailable', async () => {
+    const intent = intents.prepare(owner, 'customer-payment', 'party', body);
+    const first = send('customer-payment', intent).catch((error) => error);
+    (await vi.waitFor(() => http.expectOne((r) => r.method === 'POST'))).error(new ProgressEvent('lost'));
+    await first;
+    preview.set({ status: 'ready', limit: 0 });
+
+    const drafts = new TillDraftService();
+    const pending = (await drafts.list(owner))[0];
+    const panel = TestBed.runInInjectionContext(() => new TillPendingActionsComponent());
+    const denied = panel.retry(pending);
+    (await vi.waitFor(() => http.expectOne((r) => r.url.endsWith(intent.operationKey))))
+      .flush({ code: 'Licence.SecuritySuspended' }, { status: 403, statusText: 'Forbidden' });
+    await denied;
+    http.expectNone((r) => r.method === 'POST');
+    expect((await drafts.list(owner))[0].pending?.operationKey).toBe(intent.operationKey);
+    expect(intents.pending(owner, 'customer-payment', 'party')?.operationKey).toBe(intent.operationKey);
+
+    const recovering = panel.retry((await drafts.list(owner))[0]);
+    (await vi.waitFor(() => http.expectOne((r) => r.url.endsWith(intent.operationKey)))).flush({
+      operationType: 'customer-payment', targetId: 'party', operationKey: intent.operationKey,
+      response: { entryId: 'original-entry', receiptId: 'original-receipt' },
+    });
+    await recovering;
+    expect(panel.recovered()).toBe(intent.operationKey);
+    expect(intents.pending(owner, 'customer-payment', 'party')).toBeNull();
+  });
+
+  it('replays the frozen off-till reversal after reopening the receipt', async () => {
+    const request = { tillOwner: owner, operationKey: 'reverse-original', reason: 'Duplicate payment' };
+    const first = firstValueFrom(TestBed.inject(CustomerService).reversePayment('receipt', request)).catch((error) => error);
+    const post = await vi.waitFor(() => http.expectOne((r) => r.method === 'POST'));
+    expect(post.request.body).toEqual({ reason: request.reason, operationKey: request.operationKey });
+    post.error(new ProgressEvent('lost'));
+    await first;
+
+    const pending = (await new TillDraftService().list(owner))[0];
+    const panel = TestBed.runInInjectionContext(() => new TillPendingActionsComponent());
+    const retry = panel.retry(pending);
+    const replay = await vi.waitFor(() => http.expectOne((r) => r.method === 'POST'));
+    expect(replay.request.body).toEqual(post.request.body);
+    replay.flush({ receiptId: 'receipt', reversal: { reversalId: 'original-reversal' } });
+    await retry;
+    expect(panel.recovered()).toBe(request.operationKey);
+  });
+
   it('does not send a different outer key against an unresolved equal-amount payment', async () => {
     const original = intents.prepare(owner, 'customer-payment', 'party', body);
     const lost = send('customer-payment', original).catch((e) => e);
@@ -353,6 +408,8 @@ describe('Real payment intent and IndexedDB recovery', () => {
         detail.onRetryPendingPayment();
         detail.currentSupplierId.set(null);
       }
+      http.expectOne((r) => r.url.endsWith(`/${type}/${intent.operationKey}`))
+        .flush({ code: 'Operation.NotFound' }, { status: 404, statusText: 'Not Found' });
       const post = await vi.waitFor(() => http.expectOne((r) => r.method === 'POST'));
       expect(post.request.body).toEqual({ ...legacy, operationKey: intent.operationKey });
       expect(post.request.body.till).toBeUndefined();

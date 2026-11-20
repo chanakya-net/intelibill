@@ -20,7 +20,9 @@ public sealed class AllocatePaymentCommandHandler(
     IPaymentAllocationPlanner allocationPlanner,
     IPaymentTransactionRunner transactionRunner,
     PaymentReceiptDtoBuilder dtoBuilder,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IShopLicenceFence licenceFence,
+    PaymentCompletionPolicy completionPolicy)
 {
     [LicenceAction(LicenceAction.ExistingPayment)]
     public async Task<ErrorOr<PaymentReceiptDto>> HandleAsync(AllocatePaymentCommand command, CancellationToken cancellationToken)
@@ -37,7 +39,8 @@ public sealed class AllocatePaymentCommandHandler(
         var operationKey = FinancialOperationHasher.NormalizeKey(command.OperationKey);
         var scope = operationKey is null
             ? null
-            : new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.PaymentAllocation, operationKey);
+            : new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.PaymentAllocation, operationKey)
+            { SuspensionAction = LicenceAction.ExistingPayment };
         var requestHash = operationKey is null
             ? null
             : FinancialOperationHasher.Compute(new AllocationPayload(
@@ -54,6 +57,10 @@ public sealed class AllocatePaymentCommandHandler(
             requestHash,
             async ct =>
             {
+                var licence = await licenceFence.EnterAsync(receipt.ShopId, LicenceAction.ExistingPayment, ct);
+                if (licence.IsError) return licence.Errors;
+                if (PaymentCompletionPolicy.Denial(licence.Value.CurrentDecision()) is { } denied) return denied;
+
                 var locked = PaymentAuthorization.LockOutcome(await receiptRepository.LockPartyAndTargetsAsync(
                     receipt.ShopId,
                     receipt.PartyType,
@@ -72,6 +79,9 @@ public sealed class AllocatePaymentCommandHandler(
                 var planned = await allocationPlanner.PlanAsync(receipt, alreadyAllocated, command.Allocations, command.ActorUserId, ct);
                 if (planned.IsError)
                     return planned.Errors;
+
+                var permitted = await completionPolicy.CheckReceiptAsync(licence.Value, receipt, ct);
+                if (permitted.IsError) return permitted.Errors;
 
                 foreach (var allocation in planned.Value)
                     await receiptRepository.AddAllocationAsync(allocation, ct);

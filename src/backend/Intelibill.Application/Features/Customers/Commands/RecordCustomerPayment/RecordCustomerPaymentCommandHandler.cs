@@ -34,6 +34,8 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
     IUnitOfWork unitOfWork,
     ITillPostingService tillPosting,
     IBusinessClock businessClock,
+    IShopLicenceFence licenceFence,
+    PaymentCompletionPolicy completionPolicy,
     ILogger<RecordCustomerPaymentCommandHandler> logger)
 {
     [LicenceAction(LicenceAction.DueSettlement)]
@@ -74,7 +76,8 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
         }
 
         return await transactionRunner.RunAsync(
-            new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.CustomerPayment, operationKey),
+            new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.CustomerPayment, operationKey)
+            { SuspensionAction = LicenceAction.DueSettlement },
             command.ActorUserId,
             command.CustomerId,
             ComputeRequestHash(command, allocations),
@@ -115,6 +118,10 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
         IReadOnlyList<PaymentAllocationRequest> allocationRequests,
         CancellationToken cancellationToken)
     {
+        var licence = await licenceFence.EnterAsync(command.ActiveShopId, LicenceAction.DueSettlement, cancellationToken);
+        if (licence.IsError) return licence.Errors;
+        if (PaymentCompletionPolicy.Denial(licence.Value.CurrentDecision()) is { } denied) return denied;
+
         // The payment is dated by the caller; its month must be open, and stays so until this commits.
         var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(command.ActiveShopId, command.PaymentDate, cancellationToken);
         if (fence.IsError)
@@ -171,7 +178,7 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
             command.BankAccountId,
             command.ExternalReference,
             command.PaymentDate,
-            DateTimeOffset.UtcNow,
+            businessClock.UtcNow,
             command.Notes,
             paymentEntry.Id,
             expenseId: null,
@@ -183,6 +190,9 @@ public sealed partial class RecordCustomerPaymentCommandHandler(
         var allocations = await allocationPlanner.PlanAsync(receipt, 0m, allocationRequests, command.ActorUserId, cancellationToken);
         if (allocations.IsError)
             return allocations.Errors;
+
+        var permitted = await completionPolicy.CheckSettlementAsync(licence.Value, receipt, allocationRequests, cancellationToken);
+        if (permitted.IsError) return permitted.Errors;
 
         await customerLedgerEntryRepository.AddAsync(paymentEntry, cancellationToken);
         await paymentReceiptRepository.AddAsync(receipt, cancellationToken);

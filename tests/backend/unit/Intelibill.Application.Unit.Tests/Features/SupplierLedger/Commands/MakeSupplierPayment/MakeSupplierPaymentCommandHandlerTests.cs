@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Application.Common.Posting;
 using ErrorOr;
@@ -42,6 +43,8 @@ public class MakeSupplierPaymentCommandHandlerTests
             _paymentReceiptRepository, _bankAccountRepository, new PaymentAllocationPlanner(_balanceReader),
             new PaymentTransactionRunner(_executor, _unitOfWork), _postingPeriods, _unitOfWork,
             BusinessTestDoubles.DisabledTillPosting(), BusinessTestDoubles.RealClock(),
+            Substitute.For<IShopLicenceFence>(), new PaymentCompletionPolicy(_balanceReader, Substitute.For<ICustomerLedgerEntryRepository>(),
+                Substitute.For<ISupplierLedgerEntryRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock()),
             NullLogger<MakeSupplierPaymentCommandHandler>.Instance);
 
     private static (User owner, Shop shop, Supplier supplier) BuildOwnerShopSupplier()
@@ -207,7 +210,8 @@ public class MakeSupplierPaymentCommandHandlerTests
 
         Assert.False(result.IsError);
         await _executor.Received(1).ExecuteAsync(
-            new FinancialOperationScope(shop.Id, FinancialOperationType.SupplierPayment, "supplier-pay-1"),
+            new FinancialOperationScope(shop.Id, FinancialOperationType.SupplierPayment, "supplier-pay-1")
+            { SuspensionAction = LicenceAction.DueSettlement },
             owner.Id,
             supplier.Id,
             Arg.Any<string>(),

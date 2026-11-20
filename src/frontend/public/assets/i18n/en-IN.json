@@ -2970,6 +2970,12 @@
     "phoneInvalid": "Enter a mobile number in international format, for example +919876543210.",
     "phoneChangeRequiresProof": "A verified number can only be changed by proving the new number."
   },
+  "paymentSettlement": {
+    "remainingDue": "Remaining eligible due",
+    "unavailable": "The remaining due could not be checked.",
+    "changed": "The remaining due changed. Check the updated limit and try again.",
+    "sourceIneligible": "This document is not eligible for settlement on the selected date."
+  },
   "financialOperations": {
     "pending": {
       "title": "Payment not confirmed",
@@ -2978,7 +2984,7 @@
       "retry": "Retry same payment"
     },
     "confirmed": "Payment confirmed. The ledger has been refreshed.",
-    "notYetRecorded": "Not recorded yet. Retry the same payment to finish it.",
+    "notYetRecorded": "No confirmed result yet. Check again or retry the same payment.",
     "checkFailed": "Could not check the payment status. Try again.",
     "outcomeUnknown": "The connection dropped before the server answered. The payment may already be recorded — check its status or retry the same payment.",
     "pendingBlocksNew": "Finish the unconfirmed payment before recording a new one.",

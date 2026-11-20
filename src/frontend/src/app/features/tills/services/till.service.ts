@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, defer, firstValueFrom } from 'rxjs';
 import { API_BASE_URL } from '../../../core/auth/auth.constants';
@@ -9,7 +9,11 @@ import {
 } from '../../../core/context/scoped-request';
 import { ScopeOwner, ShopScope } from '../../../core/context/shop-scope';
 import { ShopContextService } from '../../../core/context/shop-context.service';
-import { FinancialOperationIntentService } from '../../../core/services/financial-operation-intent.service';
+import {
+  FinancialOperationIntentService,
+  FinancialOperationLookup,
+  requirePaymentOutcome,
+} from '../../../core/services/financial-operation-intent.service';
 import { TillDraftService } from './till-draft.service';
 import {
   Till,
@@ -99,14 +103,13 @@ export class TillService {
         else {
           assertCurrentScope(this.context, owner, invocation);
           try {
-            response = (
-              await firstValueFrom(
-                this.http.get<{ response: T }>(
-                  `${API_BASE_URL}/financial-operations/${action}/${externalKey}`,
-                  { context: scopedRequestContext(owner) },
-                ),
-              )
-            ).response;
+            const saved = await firstValueFrom(
+              this.http.get<FinancialOperationLookup<T>>(
+                `${API_BASE_URL}/financial-operations/${action}/${externalKey}`,
+                { context: scopedRequestContext(owner) },
+              ),
+            );
+            response = requirePaymentOutcome(saved, action, externalKey, target);
           } catch (error) {
             if (isScopeChangeError(error)) throw error;
             // A missing response cannot turn a verified old proof into a refusal/new payment.
@@ -160,15 +163,24 @@ export class TillService {
           const lookup = source
             ? `${API_BASE_URL}/financial-operations/${action}/${pending.operationKey}`
             : `${this.base}/operations/${action}/${pending.operationKey}`;
-          let saved: { response: T } | null = null;
+          let saved: FinancialOperationLookup<T> | null = null;
           try {
             assertCurrentScope(this.context, owner, invocation);
-            saved = await firstValueFrom(this.http.get<{ response: T }>(lookup, { context }));
+            saved = await firstValueFrom(
+              this.http.get<FinancialOperationLookup<T>>(lookup, { context }),
+            );
           } catch (error) {
-            if (isScopeChangeError(error)) throw error; /* Missing lookup never proves failure. */
+            if (
+              isScopeChangeError(error) ||
+              (payment && !(error instanceof HttpErrorResponse && error.status === 404))
+            )
+              throw error;
           }
           if (saved) {
-            const proof = saved.response as { saleReturnId?: string; saleId?: string };
+            const outcome = payment
+              ? requirePaymentOutcome(saved, action, pending.operationKey, target)
+              : saved.response;
+            const proof = outcome as { saleReturnId?: string; saleId?: string };
             if (action === 'sale-return' && (!proof.saleReturnId || proof.saleId !== target))
               throw new Error('Return receipt identity mismatch.');
             if (
@@ -181,7 +193,7 @@ export class TillService {
               throw new Error('Return void receipt identity mismatch.');
             // A recovery adapter may itself perform an authorized source read.
             assertCurrentScope(this.context, owner, invocation);
-            const response = recover ? await recover(saved.response) : saved.response;
+            const response = recover ? await recover(outcome) : outcome;
             await this.drafts.settle(owner, identity, pending.operationKey, 'confirmed', {
               response,
             });
