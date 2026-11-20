@@ -29,6 +29,7 @@ import { SaleService } from '../services/sale.service';
 import type { CheckoutIntent } from '../../../core/storage/checkout-intent-indexeddb.service';
 import { INVOICE_ERROR_KEYS } from '../utils/invoice-error-keys';
 import { CUSTOMER_CREDIT_ERROR_KEYS } from '../utils/customer-credit-error-keys';
+import { saleReturnSourceErrorKey } from '../utils/sale-return-source-errors';
 import { SalesActions } from './sales.actions';
 
 @Injectable()
@@ -111,10 +112,14 @@ export class SalesEffects {
           catchError((error) =>
             of(
               SalesActions.previewSaleReturnFailed({
-                ...this.feedback(error, 'errors.sales.returnPreviewFailed'),
+                ...this.feedback(error, 'errors.sales.returnPreviewFailed', saleReturnSourceErrorKey(error)),
               }),
             ),
           ),
+          takeUntil(this.actions$.pipe(ofType(
+            SalesActions.clearSaleReturnPreview, SalesActions.clearSaleDetail, SalesActions.loadSaleDetailRequested,
+          ))),
+          takeUntil(this.shopContext.changes$),
         ),
       ),
     ),
@@ -131,7 +136,7 @@ export class SalesEffects {
               ? EMPTY
               : of(
                   SalesActions.recordSaleReturnFailed({
-                    ...this.feedback(error, 'errors.sales.returnRecordFailed'),
+                    ...this.feedback(error, 'errors.sales.returnRecordFailed', saleReturnSourceErrorKey(error)),
                   }),
                 ),
           ),
@@ -154,7 +159,7 @@ export class SalesEffects {
               ? EMPTY
               : of(
                   SalesActions.voidSaleReturnFailed({
-                    ...this.feedback(error, 'errors.sales.returnVoidFailed'),
+                    ...this.feedback(error, 'errors.sales.returnVoidFailed', saleReturnSourceErrorKey(error)),
                   }),
                 ),
           ),
@@ -244,9 +249,10 @@ export class SalesEffects {
   private feedback(
     error: unknown,
     fallbackKey: string,
+    sourceErrorKey?: string,
   ): { errorMessage: string; localizedError?: LocalizedError } {
     const quantityKey = saleReturnQuantityErrorKey(error) ?? saleQuantityErrorKey(error);
-    const localizedError = this.apiErrors.resolve(error, {
+    const resolvedError = this.apiErrors.resolve(error, {
       fallbackKey,
       codeMap: {
         ...INVOICE_ERROR_KEYS,
@@ -263,6 +269,7 @@ export class SalesEffects {
         PlaceOfSupplyStateCode: 'placeOfSupplyStateCode',
       },
     });
+    const localizedError = sourceErrorKey ? { ...resolvedError, messageKey: sourceErrorKey } : resolvedError;
     return {
       errorMessage: localizedError.messageKey,
       ...(localizedError.correlationId || localizedError.fieldErrors.length

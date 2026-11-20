@@ -47,14 +47,15 @@ public sealed class GetFinancialOperationQueryHandler(
         if (key.Length is 0 or > OperationReceipt.MaxKeyLength)
             return Errors.Operation.InvalidKey;
 
-        if (operationType is FinancialOperationType.CustomerPayment or FinancialOperationType.SupplierPayment)
+        if (operationType is FinancialOperationType.CustomerPayment or FinancialOperationType.SupplierPayment
+            or FinancialOperationType.SaleReturn or FinancialOperationType.SaleReturnVoid)
             return await transactions.RunAsync<FinancialOperationDto>(null, query.UserId, query.ShopId, null,
-                ct => RecoverPaymentAsync(query.ShopId, operationType.Value, key, ct), cancellationToken);
+                ct => RecoverFencedAsync(query.ShopId, operationType.Value, key, ct), cancellationToken);
 
         return await ReadOutcomeAsync(query.ShopId, operationType.Value, key, cancellationToken);
     }
 
-    private async Task<ErrorOr<FinancialOperationDto>> RecoverPaymentAsync(Guid shop, FinancialOperationType type,
+    private async Task<ErrorOr<FinancialOperationDto>> RecoverFencedAsync(Guid shop, FinancialOperationType type,
         string key, CancellationToken ct)
     {
         var lease = await fence.EnterAsync(shop, LicenceAction.Recovery, ct);

@@ -11,6 +11,8 @@ import type {
   SaleReturnPreviewDto,
   SalesHistorySummaryDto,
 } from '../services/sale.models';
+import { SALE_LICENCE_ERROR_KEYS } from '../services/sale-licence-gate.service';
+import { requiresSaleReturnSourceRefresh } from '../utils/sale-return-source-errors';
 import { SaleMutationType, SalesActions } from './sales.actions';
 
 export const salesFeatureKey = 'sales';
@@ -197,6 +199,8 @@ export const salesReducer = createReducer(
   on(SalesActions.recordSaleReturnFailed, (state, { errorMessage, localizedError }) => ({
     ...state,
     submitting: false,
+    returnPreview: requiresSaleReturnSourceRefresh(errorMessage) ||
+      errorMessage === SALE_LICENCE_ERROR_KEYS['Licence.SecuritySuspended'] ? null : state.returnPreview,
     returnPreviewLocalizedError: localizedError,
     returnPreviewErrorMessage: errorMessage,
     lastMutationType: 'record-return' as SaleMutationType,

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Unit.Tests.Common;
 using System.Data.Common;
@@ -22,10 +23,11 @@ public sealed class SaleReturnMutationCoordinatorTests
     private readonly Guid _saleId = Guid.NewGuid();
     private int _mutationRuns;
 
+    private readonly IShopLicenceFence _licenceFence = Substitute.For<IShopLicenceFence>();
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
 
     private SaleReturnMutationCoordinator CreateCoordinator() =>
-        new(_saleRepository, BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _unitOfWork, Substitute.For<IExpiryPolicyFence>());
+        new(_saleRepository, BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _unitOfWork, Substitute.For<IExpiryPolicyFence>(), _licenceFence);
 
     private void LockReturns(RowLockOutcome outcome) =>
         _saleRepository.LockForReturnMutationAsync(_shopId, _saleId, Arg.Any<CancellationToken>()).Returns(outcome);
@@ -70,6 +72,8 @@ public sealed class SaleReturnMutationCoordinatorTests
         Received.InOrder(() =>
         {
             _unitOfWork.BeginTransactionAsync(Arg.Any<CancellationToken>());
+            _licenceFence.EnterAsync(_shopId, LicenceAction.SourceCorrection, Arg.Any<CancellationToken>());
+            _postingPeriods.AuthorizeForWriteAsync(_shopId, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>());
             _saleRepository.LockForReturnMutationAsync(_shopId, _saleId, Arg.Any<CancellationToken>());
             _unitOfWork.CommitTransactionAsync(Arg.Any<CancellationToken>());
         });

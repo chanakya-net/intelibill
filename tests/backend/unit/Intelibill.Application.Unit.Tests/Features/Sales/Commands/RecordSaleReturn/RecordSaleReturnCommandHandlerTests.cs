@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Unit.Tests.Common;
 using Intelibill.Application.Features.Tills;
@@ -70,7 +71,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
             _saleReturnRepository,
             _customerLedgerEntryRepository,
             _accountingPolicy,
-            new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork, Substitute.For<IExpiryPolicyFence>()),
+            new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork, Substitute.For<IExpiryPolicyFence>(), Substitute.For<IShopLicenceFence>()),
             _unitOfWork,
             new BusinessClock(_time), _shopRepository, _saleRepository,
             BusinessTestDoubles.DisabledTillPosting(), _executor, ExpiryDispositionTestServices.Create(_inventoryBatchRepository, new BusinessClock(_time)));
@@ -585,6 +586,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
             .Returns(ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true));
+        _shopRepository.GetActiveRoleAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ShopRole.Owner);
         _saleRepository.GetByIdAsync(sale.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
         _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
         _customerLedgerEntryRepository.GetCustomerBalanceAsync(shop.Id, customerId, Arg.Any<CancellationToken>())
@@ -1162,6 +1164,7 @@ public sealed class RecordSaleReturnCommandHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
             .Returns(ShopMembership.Create(shop.Id, user.Id, role, true));
+        _shopRepository.GetActiveRoleAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(role);
         _saleRepository.GetByIdAsync(sale.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
         _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
         _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);

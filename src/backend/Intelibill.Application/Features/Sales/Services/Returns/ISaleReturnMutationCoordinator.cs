@@ -1,17 +1,16 @@
 using ErrorOr;
+using Intelibill.Application.Common.Licensing;
 
 namespace Intelibill.Application.Features.Sales.Services.Returns;
 
 /// <summary>
-/// Runs one return, return void or credit-note decision on a sale as a single transaction that
-/// holds the sale's row lock throughout. Every such decision takes the same lock first, so they
-/// queue behind one another and each one validates against what the previous one committed.
+/// Runs a return or void in a single transaction. Each decision serializes on the original sale
+/// and validates against what the previous transaction committed.
 /// </summary>
 /// <remarks>
-/// Lock order: posting-period fence; expiry policy fence; optional till/session; the sale's customer, if any; the
-/// sale; then the credit notes of
-/// its returns; then inventory batches and aggregates, locked by their updates at save. Credit-note
-/// redemption takes credit notes and then batches and never waits on the parent sale.
+/// Lock order: optional operation receipt, account/shop licence, posting period, expiry policy,
+/// optional till/session, customer, original sale, credit notes, then stock rows. Credit-note
+/// redemption takes credit notes and batches without waiting on the parent sale.
 /// </remarks>
 public interface ISaleReturnMutationCoordinator
 {
@@ -29,10 +28,11 @@ public interface ISaleReturnMutationCoordinator
     /// <summary>
     /// Runs the hook after the period fence and before customer/sale locks. When ownsTransaction is
     /// false the financial-operation executor must own rollback/commit; this path never nests one.
-    /// The hook and mutation must acquire/use their session within this one transaction attempt.
+    /// Resolve the original sale after taking the licence fence, before taking any business locks.
     /// </summary>
-    Task<ErrorOr<TResult>> ExecuteAsync<TResult>(Guid shopId, Guid saleId,
+    Task<ErrorOr<TResult>> ExecuteAsync<TResult>(Guid shopId,
+        Func<CancellationToken, Task<ErrorOr<Guid>>> resolveSale,
         Func<CancellationToken, Task<ErrorOr<Success>>> beforeBusinessLocks,
-        Func<CancellationToken, Task<ErrorOr<TResult>>> mutation,
+        Func<ShopLicenceLease, CancellationToken, Task<ErrorOr<TResult>>> mutation,
         bool ownsTransaction, CancellationToken cancellationToken);
 }

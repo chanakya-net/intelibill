@@ -1907,6 +1907,7 @@
         "calculatedEffects": "Calculated effects",
         "warnings": "Warnings",
         "previewBtn": "Preview",
+        "refreshSource": "Refresh sale",
         "recordBtn": "Record return",
         "successEyebrow": "Credit note issued",
         "successTitle": "Credit note created",
@@ -1967,6 +1968,10 @@
           "tooPreciseWhole": "{{ itemName }}: quantity is in {{ unit }} and must be a whole number.",
           "tooPreciseDecimals": "{{ itemName }}: quantity is in {{ unit }} and allows at most {{ decimals }} decimal places.",
           "unitFallback": "this unit",
+          "sourceIneligible": "This sale is not eligible for a return under the shop’s current restrictions.",
+          "sourceLineUnavailable": "This item does not belong to the original sale.",
+          "sourceCancelled": "This sale was cancelled and cannot be returned.",
+          "sourceQuantityChanged": "The remaining returnable quantity has changed. Refresh the sale and check the available quantity.",
           "serverQuantityPrecision": "A return quantity has more decimal places than its item's unit allows. Correct it and try again."
         }
       }
