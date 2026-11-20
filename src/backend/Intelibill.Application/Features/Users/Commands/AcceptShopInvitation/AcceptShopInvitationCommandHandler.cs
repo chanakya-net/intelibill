@@ -81,6 +81,11 @@ public sealed class AcceptShopInvitationCommandHandler(
 
         var membership = await authority.LockMembershipAsync(invitation.ShopId, command.ActorUserId, cancellationToken);
 
+        // Every authority lock is now held. The device session is judged again at this instant: one
+        // that lapsed while queued behind the shop root neither seats anyone nor learns the shop is full.
+        if (!await IsLiveAsync(command, cancellationToken))
+            return Errors.Auth.SessionInvalidated;
+
         // The offer's deadline is judged when every lock is held, not when the request arrived:
         // an offer that lapsed while queued neither seats anyone nor reports a full shop.
         var decidedAt = clock.GetUtcNow();

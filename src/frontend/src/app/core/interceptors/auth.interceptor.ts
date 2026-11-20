@@ -78,6 +78,10 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
       // is not this request's to clear — clearing it would sign every tab out.
       let tabMovedToAnotherAccount = false;
       let requestScopeLeft = false;
+      // Set when the renewed session's replay was answered with anything but another 401. That
+      // answer (a conflict, a validation failure) is the request's own outcome, not a sign the
+      // renewed session is bad, so it reaches the caller and the session stays.
+      let replayAnswered = false;
 
       return authService.refreshAccessToken().pipe(
         switchMap((session) => {
@@ -109,10 +113,15 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
             context: request.context.set(REFRESH_ATTEMPTED, true),
           });
 
-          return next(retryRequest);
+          return next(retryRequest).pipe(
+            catchError((replayError: unknown) => {
+              replayAnswered = !(replayError instanceof HttpErrorResponse && replayError.status === 401);
+              return throwError(() => replayError);
+            }),
+          );
         }),
         catchError((refreshError) => {
-          if (tabMovedToAnotherAccount || requestScopeLeft) {
+          if (tabMovedToAnotherAccount || requestScopeLeft || replayAnswered) {
             return throwError(() => refreshError);
           }
 

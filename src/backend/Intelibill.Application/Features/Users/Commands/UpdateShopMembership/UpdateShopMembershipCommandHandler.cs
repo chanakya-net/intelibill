@@ -70,6 +70,11 @@ public sealed class UpdateShopMembershipCommandHandler(
             return Errors.Shop.MembershipNotFound;
 
         var target = await authority.LockMembershipAsync(command.ShopId, command.TargetUserId, cancellationToken);
+
+        // Every authority lock is now held. The device session is judged again at this instant: one
+        // that lapsed while queued behind the shop root neither changes the member nor sees seat usage.
+        if (!await IsLiveAsync(command, cancellationToken))
+            return Errors.Auth.SessionInvalidated;
         if (target is null)
             return Errors.Users.MembershipNotFound;
 

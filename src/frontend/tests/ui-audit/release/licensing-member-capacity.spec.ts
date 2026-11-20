@@ -37,7 +37,7 @@ function initialMembers(): Member[] {
 
 async function installFixture(page: Page) {
   await accessibilityFixtures(page);
-  const state = { allowance: 3, inviteeSeatFree: false, members: initialMembers() };
+  const state = { allowance: 3, inviteeSeatFree: false, expireNextAccept: false, members: initialMembers() };
   const requests: Event[] = [];
   const respond = (route: Route, body: unknown, status: number, extra: Partial<Event> = {}) => {
     requests.push({ method: route.request().method(), path: new URL(route.request().url()).pathname, status, ...extra });
@@ -55,6 +55,12 @@ async function installFixture(page: Page) {
   await page.route(`**/api/shops/${SHOP_A}/invitations`, (route) => respond(route, [], 200));
   await page.route('**/api/auth/token/refresh', (route) => respond(route, session(), 200));
   await page.route(`**/api/invitations/${INVITATION.invitationId}/accept`, (route) => {
+    // The device's access token lapsed in flight: the first answer is a 401, then the renewed
+    // session's replay is judged on the seats like any other attempt.
+    if (state.expireNextAccept) {
+      state.expireNextAccept = false;
+      return respond(route, { status: 401, title: 'Unauthorized' }, 401);
+    }
     // The invitee is told the shop is full, never how many seats it has.
     if (!state.inviteeSeatFree) return respond(route, refusal(), 409, { code: CAPACITY });
     return respond(route, {
@@ -137,6 +143,38 @@ for (const [layout, viewport] of [['desktop', DESKTOP], ['mobile', MOBILE]] as c
     const accepts = fixture.requests.filter(({ path }) => path.endsWith('/accept'));
     expect(accepts).toMatchObject([{ status: 409, code: CAPACITY }, { status: 200 }]);
     expect(accepts[0].memberCapacity).toBeUndefined();
+  });
+
+  test(`P04-11 invitee keeps the renewed session when a refreshed acceptance finds the shop full on ${layout}`, async ({ page }, info) => {
+    await page.setViewportSize(viewport);
+    const acceptPath = `/invitations/accept`;
+    await page.goto(`${server.origin}${acceptPath}#invitationId=${INVITATION.invitationId}&token=${INVITATION.token}`);
+    const accept = page.getByRole('button', { name: 'Accept Invitation' });
+    await expect(accept).toBeEnabled();
+
+    fixture.state.expireNextAccept = true;
+    await accept.click();
+    await expect(page.getByText(SHOP_FULL)).toBeVisible();
+    await expect(page.getByText(/of \d+ taken/)).toHaveCount(0);
+    // Still on the acceptance page with the renewed session, not sent to sign in.
+    expect(new URL(page.url()).pathname).toBe(acceptPath);
+    expect(await page.evaluate(() => localStorage.getItem('inventory.auth.session.local'))).not.toBeNull();
+    await expect(accept).toBeEnabled();
+    await page.screenshot({ path: info.outputPath(`invitee-refreshed-shop-full-${layout}.png`) });
+
+    fixture.state.inviteeSeatFree = true;
+    await accept.click();
+    await expect(page.getByText('Invitation accepted')).toBeVisible();
+    await page.screenshot({ path: info.outputPath(`invitee-refreshed-accepted-after-seat-freed-${layout}.png`) });
+    const sequence = fixture.requests.filter(({ path }) => path.endsWith('/accept') || path.endsWith('/token/refresh'));
+    // The page renews the session once more after joining, to pick up the new membership.
+    expect(sequence.slice(0, 4)).toMatchObject([
+      { path: `/api/invitations/${INVITATION.invitationId}/accept`, status: 401 },
+      { path: '/api/auth/token/refresh', status: 200 },
+      { path: `/api/invitations/${INVITATION.invitationId}/accept`, status: 409, code: CAPACITY },
+      { path: `/api/invitations/${INVITATION.invitationId}/accept`, status: 200 },
+    ]);
+    expect(sequence[2].memberCapacity).toBeUndefined();
   });
 
   test(`P04-11 owner sees seat usage, frees a seat and reinstates on ${layout}`, async ({ page }, info) => {
