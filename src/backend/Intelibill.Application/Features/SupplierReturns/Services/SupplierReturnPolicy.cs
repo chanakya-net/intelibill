@@ -1,5 +1,40 @@
+using ErrorOr;
+using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Time;
+using Intelibill.Domain.Entities;
+
 namespace Intelibill.Application.Features.SupplierReturns.Services;
+
 public static class SupplierReturnPolicy
 {
-    public static decimal ReturnableQuantity(decimal available, decimal received, decimal shipped) => Math.Max(0, Math.Min(available,received-shipped));
+    public static decimal ReturnableQuantity(decimal available, decimal received, decimal shipped) =>
+        Math.Max(0, Math.Min(available, received - shipped));
+
+    internal static Error? CheckCompletion(ShopLicenceLease lease, IReadOnlyList<PurchaseReceiptValue> receipts,
+        Guid supplierId, IBusinessClock clock, SupplierReturn? shipment = null)
+    {
+        var decision = lease.CurrentDecision();
+        if (decision.EnforcedDenial() is { } denied)
+            return denied;
+        if (decision is not { Enforced: true, Outcome: LicenceOutcome.RequiresProvenSource })
+            return null;
+
+        var now = clock.UtcNow;
+        var latestReceipt = shipment?.ShippedAt ?? now;
+        if (receipts.Count == 0 || receipts.Any(receipt =>
+            receipt.ShopId != lease.ShopId || receipt.SupplierId != supplierId ||
+            !receipt.IsResolved || receipt.EffectiveTotalCost is null ||
+            receipt.ReceivedAt == default || receipt.ReceivedAt > latestReceipt))
+            return SourceIneligible;
+
+        if (shipment is not null && (shipment.ShopId != lease.ShopId || shipment.SupplierId != supplierId ||
+            shipment.ShippedAt > now ||
+            shipment.BusinessDate != clock.GetBusinessDate(shipment.ShippedAt, shipment.BusinessTimeZoneId)))
+            return SourceIneligible;
+
+        return null;
+    }
+
+    private static Error SourceIneligible => Error.Conflict("SupplierReturn.SourceIneligible",
+        "Completion requires an eligible receipt or shipment already recorded for this shop.");
 }

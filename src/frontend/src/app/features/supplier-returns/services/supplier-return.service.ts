@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { API_BASE_URL, SUPPLIER_RETURN_ENDPOINTS as E } from '../../../core/auth/auth.constants';
 import { scopedRequestContext } from '../../../core/context/scoped-request';
 import type { ScopeOwner } from '../../../core/context/shop-scope';
+import type { FinancialOperationLookup } from '../../../core/services/financial-operation-intent.service';
 import type {
   SupplierReturnRequest,
   SupplierReturnCreditRequest,
@@ -62,7 +63,7 @@ export class SupplierReturnService {
     kind: 'supplier-return' | 'supplier-return-credit' | 'purchase-receipt-reversal',
     key: string,
   ) {
-    return this.http.get<{ response: SupplierReturnDetail | ReceiptReversalResult }>(
+    return this.http.get<FinancialOperationLookup<SupplierReturnDetail | ReceiptReversalResult>>(
       `${API_BASE_URL}/financial-operations/${kind}/${encodeURIComponent(key)}`,
       { context: scopedRequestContext(owner) },
     );

@@ -210,9 +210,11 @@ test('uncertain reload and lookup404 retry the exact frozen payload', async ({ p
   let first = true;
   const payloads: string[] = [];
   await page.route('**/api/purchase-receipts/**', (r) => json(r, receipt()));
-  await page.route('**/api/financial-operations/**', (r) =>
-    json(r, { code: 'Operation.NotFound' }, 404),
-  );
+  let lookups = 0;
+  await page.route('**/api/financial-operations/**', (r) => {
+    lookups++;
+    return json(r, { code: 'Operation.NotFound' }, 404);
+  });
   await page.route('**/api/supplier-returns**', async (r) => {
     if (r.request().url().endsWith('/preview'))
       return json(r, {
@@ -245,6 +247,8 @@ test('uncertain reload and lookup404 retry the exact frozen payload', async ({ p
   await expect(page).toHaveURL(new RegExp('/supplier-returns/' + RETURN));
   expect(payloads).toHaveLength(2);
   expect(payloads[1]).toBe(payloads[0]);
+  expect(lookups).toBe(1);
+  console.log('Scoped 404 after reload: one outcome GET and two byte-identical POST bodies.');
 });
 test('manager sees pending-only controls at narrow width', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -293,9 +297,11 @@ test('a second tab confirms and cleans an uncertain operation without resurrecti
   const payloads: string[] = [];
   let first = true;
   await context.route('**/api/purchase-receipts/**', (r) => json(r, receipt()));
-  await context.route('**/api/financial-operations/**', (r) =>
-    json(r, { code: 'Operation.NotFound' }, 404),
-  );
+  let lookups = 0;
+  await context.route('**/api/financial-operations/**', (r) => {
+    lookups++;
+    return json(r, { code: 'Operation.NotFound' }, 404);
+  });
   await context.route('**/api/supplier-returns**', (r) => {
     if (r.request().method() === 'POST') {
       payloads.push(r.request().postData()!);
@@ -318,6 +324,9 @@ test('a second tab confirms and cleans an uncertain operation without resurrecti
   await page.getByRole('button', { name: 'Check / retry saved operation' }).click();
   await expect(page.getByRole('spinbutton', { name: /Quantity/ })).toBeEnabled();
   expect(payloads).toHaveLength(2);
+  expect(payloads[1]).toBe(payloads[0]);
+  expect(lookups).toBe(1);
+  console.log('Cross-tab confirmation: the original tab issued zero further GETs or POSTs.');
 });
 
 test('supplier history reaches older pending approvals with the same filters', async ({ page }) => {
@@ -409,4 +418,141 @@ test('historical references without a frozen lot label use the persisted receipt
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+});
+
+test('restricted detail actions follow source eligibility and shop role', async ({
+  page,
+  context,
+}, info) => {
+  await setup(page);
+  await page.route('**/api/licensing/shops/*/trading-authority', (route) =>
+    json(route, { code: 'Licence.TradingRestricted', enforced: true }, 403),
+  );
+  await page.route('**/api/purchase-receipts/**', (route) => {
+    const id = route.request().url().split('/').pop()!;
+    return json(
+      route,
+      id === RECEIPT
+        ? { ...receipt(id), reversalEligibilityReasons: [] }
+        : { ...receipt(id), batchNumber: 'Lot B', returnableQuantity: 0 },
+    );
+  });
+  await page.goto(
+    `${server.origin}/purchase-receipts/${RECEIPT}?group=group-one&lots=${RECEIPT},receipt-two`,
+  );
+  await expect(page.getByRole('spinbutton', { name: /Quantity.*≤ 0/ })).toBeDisabled();
+  await expect(page.getByRole('spinbutton', { name: /Quantity.*≤ 6/ })).toBeEnabled();
+  await page.getByRole('button', { name: 'Reverse entire receipt group' }).click();
+  await expect(page.getByText(/Lot B: Full reversal unavailable/)).toBeVisible();
+  await page.getByRole('textbox', { name: 'Reason', exact: true }).fill('Incorrect delivery');
+  await expect(page.getByRole('button', { name: 'Confirm full receipt reversal' })).toBeDisabled();
+
+  await page.screenshot({
+    path: info.outputPath('supplier-return-group-refused.png'),
+    fullPage: true,
+  });
+  const manager = await context.newPage();
+  await setup(manager, 'Manager');
+  await manager.route('**/api/licensing/shops/*/trading-authority', (route) =>
+    json(route, { code: 'Licence.TradingRestricted', enforced: true }, 403),
+  );
+  await manager.route('**/api/supplier-returns/**', (route) => json(route, returned()));
+  await manager.goto(`${server.origin}/supplier-returns/${RETURN}`);
+  await expect(manager.getByRole('heading', { name: 'Supplier return reference' })).toBeVisible();
+  await expect(manager.getByRole('button', { name: 'Accept supplier credit' })).toHaveCount(0);
+  await manager.screenshot({ path: info.outputPath('supplier-return-manager.png') });
+});
+
+async function mockFrozenShipmentOutcome(page: Page) {
+  await setup(page);
+  const requests: string[] = [];
+  let suspended = false;
+  let released = false;
+  let matched = false;
+  let key = '';
+  await page.route('**/api/licensing/shops/*/trading-authority', (route) =>
+    json(
+      route,
+      {
+        code: suspended && !released ? 'Licence.SecuritySuspended' : 'Licence.Expired',
+        enforced: true,
+      },
+      403,
+    ),
+  );
+  await page.route('**/api/purchase-receipts/**', (route) =>
+    json(
+      route,
+      suspended && !released
+        ? { code: 'Licence.SecuritySuspended' }
+        : { ...receipt(), returnableQuantity: released ? 0 : 6 },
+      suspended && !released ? 403 : 200,
+    ),
+  );
+  await page.route('**/api/supplier-returns', (route) => {
+    requests.push(route.request().method());
+    key = route.request().postDataJSON().operationKey;
+    return route.abort('connectionfailed');
+  });
+  await page.route('**/api/supplier-returns/' + RETURN, (route) => json(route, returned()));
+  await page.route('**/api/financial-operations/**', (route) => {
+    requests.push(route.request().method());
+    expect(route.request().url()).toContain('/supplier-return/' + key);
+    if (!released) {
+      suspended = true;
+      return json(route, { code: 'Licence.SecuritySuspended' }, 403);
+    }
+    return json(route, {
+      operationType: 'supplier-return',
+      operationKey: key,
+      targetId: matched ? 'supplier-one' : 'different-supplier',
+      response: returned(),
+    });
+  });
+  return {
+    requests,
+    release: () => {
+      released = true;
+    },
+    match: () => {
+      matched = true;
+    },
+  };
+}
+
+test('frozen completion survives denied lookup and recovers the matching outcome', async ({
+  page,
+}, info) => {
+  const outcome = await mockFrozenShipmentOutcome(page);
+  const { requests } = outcome;
+  await page.goto(`${server.origin}/purchase-receipts/${RECEIPT}`);
+  await page.getByRole('spinbutton', { name: /Quantity/ }).fill('3');
+  await page.getByRole('textbox', { name: 'Reason', exact: true }).fill('Damaged packaging');
+  await page.getByRole('button', { name: 'Record supplier shipment', exact: true }).last().click();
+  const recover = page.getByRole('button', { name: 'Check / retry saved operation' });
+  await expect(recover).toBeEnabled();
+  await recover.click();
+  await expect(
+    page.getByText('Security suspension is enforced for this shop.', { exact: true }).last(),
+  ).toBeVisible();
+  await expect(page.getByText('Frozen rice', { exact: true })).toHaveCount(0);
+  expect(requests).toEqual(['POST', 'GET']);
+  await page.reload();
+  await expect(recover).toBeEnabled();
+  await expect(page.getByText('Frozen rice', { exact: true })).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath('supplier-return-suspended.png') });
+
+  outcome.release();
+  await recover.click();
+  await expect.poll(() => requests).toEqual(['POST', 'GET', 'GET']);
+  await expect(recover).toBeEnabled();
+  outcome.match();
+  await recover.click();
+  await expect(page).toHaveURL(new RegExp('/supplier-returns/' + RETURN));
+  await expect(page.getByRole('heading', { name: 'Supplier return reference' })).toBeVisible();
+  expect(requests).toEqual(['POST', 'GET', 'GET', 'GET']);
+  console.log(
+    'Outcome requests: POST, GET denied, GET mismatched, GET matched. No additional POST.',
+  );
+  await page.screenshot({ path: info.outputPath('supplier-return-recovered.png') });
 });

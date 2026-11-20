@@ -1,4 +1,6 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, DestroyRef, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { problemCode } from '@intelibill/api';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -11,6 +13,12 @@ import { TextareaModule } from 'primeng/textarea';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import type { ShopScope } from '../../../core/context/shop-scope';
+import { requirePaymentOutcome } from '../../../core/services/financial-operation-intent.service';
+import {
+  OPERATING_ACCESS_ERROR_KEYS,
+  OperatingAccessHintService,
+  operatingAccessErrorKey,
+} from '../../billing/status/operating-access-hint.service';
 import { SupplierReturnService } from '../services/supplier-return.service';
 import { SupplierReturnDraftService } from '../services/supplier-return-draft.service';
 import type {
@@ -18,7 +26,6 @@ import type {
   SupplierReturnDetail,
   SupplierReturnDraftRecord,
   SupplierReturnEditableDraft,
-  SupplierReturnMutationPayload,
   SupplierReturnRequest,
   SupplierReturnCreditRequest,
   ReceiptReversalRequest,
@@ -67,6 +74,7 @@ export class SupplierReturnPageComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly context = inject(ShopContextService);
   private readonly auth = inject(AuthService);
+  private readonly access = inject(OperatingAccessHintService);
   readonly lots = signal<PurchaseReceiptDetail[]>([]);
   readonly document = signal<SupplierReturnDetail | null>(null);
   readonly history = signal<SupplierReturnDetail[]>([]);
@@ -87,6 +95,40 @@ export class SupplierReturnPageComponent implements OnInit {
     const session = this.auth.session();
     const role = session?.shops.find((x) => x.shopId === session.activeShopId)?.role.toLowerCase();
     return role === 'owner' || role === 'manager';
+  });
+  readonly securityNotice = computed(() => {
+    const message = this.access.blockingMessage();
+    return message === OPERATING_ACCESS_ERROR_KEYS['Licence.SecuritySuspended'] ? message : null;
+  });
+  readonly canRecordShipment = computed(
+    () =>
+      this.canShip() && !this.securityNotice() && this.lots().some((lot) => this.shippable(lot)),
+  );
+  readonly canReverse = computed(
+    () =>
+      this.owner() &&
+      !this.securityNotice() &&
+      this.lots().length > 0 &&
+      this.lots().every(
+        (lot) =>
+          !!lot.supplierId &&
+          lot.receiptVersion > 0 &&
+          lot.batchVersion > 0 &&
+          !lot.reversalEligibilityReasons.length,
+      ),
+  );
+  readonly canAcceptCredit = computed(() => {
+    const document = this.document();
+    return (
+      this.owner() &&
+      !this.securityNotice() &&
+      !this.printMode &&
+      document?.status === 'PendingSupplierCredit' &&
+      document.version > 0 &&
+      document.lines.length > 0 &&
+      document.lines.every((line) => !!line.returnLineId) &&
+      new Set(document.lines.map((line) => line.returnLineId)).size === document.lines.length
+    );
   });
   readonly frozen = computed(() => !!this.record()?.pending);
   readonly printMode = this.route.snapshot.queryParamMap.get('print') === '1';
@@ -118,6 +160,27 @@ export class SupplierReturnPageComponent implements OnInit {
     return `${this.action}:${this.group ?? this.id}`;
   }
   private storageReady = true;
+  constructor() {
+    effect(() => {
+      if (!this.securityNotice()) return;
+      this.lots.set([]);
+      this.document.set(null);
+      this.history.set([]);
+      this.hasMoreHistory.set(false);
+      this.status.set('');
+    });
+  }
+
+  shippable(lot: PurchaseReceiptDetail): boolean {
+    return (
+      !!lot.supplierId &&
+      !lot.isVoided &&
+      lot.returnableQuantity > 0 &&
+      lot.receiptVersion > 0 &&
+      lot.batchVersion > 0
+    );
+  }
+
   async ngOnInit() {
     this.scope = this.context.scope();
     if (!this.scope) return;
@@ -126,6 +189,8 @@ export class SupplierReturnPageComponent implements OnInit {
     this.route.queryParamMap.pipe(skip(1), takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       if (!this.id) void this.refresh();
     });
+    await this.access.refresh();
+    if (!this.current()) return;
     await this.refresh();
     this.ready.set(false);
     this.busy.set(true);
@@ -137,6 +202,7 @@ export class SupplierReturnPageComponent implements OnInit {
   }
   private current() {
     return (
+      !this.destroyRef.destroyed &&
       !!this.scope &&
       this.context.scope()?.epoch === this.scope.epoch &&
       this.context.isCurrent(this.scope)
@@ -145,9 +211,10 @@ export class SupplierReturnPageComponent implements OnInit {
   async refresh() {
     this.busy.set(true);
     try {
+      if (this.securityNotice()) return;
       if (this.route.snapshot.paramMap.has('returnId')) {
         const result = await firstValueFrom(this.api.getReturn(this.id));
-        if (this.current()) this.document.set(result);
+        if (this.current() && !this.securityNotice()) this.document.set(result);
       } else if (this.id) {
         const ids = [
           ...new Set([
@@ -156,19 +223,20 @@ export class SupplierReturnPageComponent implements OnInit {
           ]),
         ];
         const result = await Promise.all(ids.map((id) => firstValueFrom(this.api.getReceipt(id))));
-        if (this.current()) {
+        if (this.current() && !this.securityNotice()) {
           this.lots.set(result);
           for (const lot of result) {
             this.quantities[lot.receiptValueId] ??= 0;
             this.credits[lot.receiptValueId] ??= lot.suggestedCreditAmount;
-            this.selected[lot.receiptValueId] ??= true;
+            if (!this.shippable(lot)) this.selected[lot.receiptValueId] = false;
+            else this.selected[lot.receiptValueId] ??= true;
           }
         }
       } else {
         await this.loadHistory(false);
       }
-    } catch {
-      if (this.current()) this.error.set('supplierReturns.loadError');
+    } catch (error) {
+      this.reportFailure(error, 'supplierReturns.loadError');
     } finally {
       if (this.current()) {
         this.busy.set(false);
@@ -177,7 +245,8 @@ export class SupplierReturnPageComponent implements OnInit {
     }
   }
   async loadMoreHistory() {
-    if (!this.busy() && this.hasMoreHistory()) await this.loadHistory(true);
+    if (!this.busy() && !this.securityNotice() && this.hasMoreHistory())
+      await this.loadHistory(true);
   }
   private async loadHistory(append: boolean) {
     const revision = append ? this.historyRevision : ++this.historyRevision;
@@ -200,6 +269,7 @@ export class SupplierReturnPageComponent implements OnInit {
       );
       if (
         !this.current() ||
+        !!this.securityNotice() ||
         revision !== this.historyRevision ||
         status !== this.filter ||
         supplierId !== (this.route.snapshot.queryParamMap.get('supplierId') ?? '')
@@ -217,18 +287,25 @@ export class SupplierReturnPageComponent implements OnInit {
       this.historyPage = page;
       this.hasMoreHistory.set(result.length === 20);
       this.error.set('');
-    } catch {
-      if (this.current() && revision === this.historyRevision)
-        this.error.set('supplierReturns.loadError');
+    } catch (error) {
+      if (revision === this.historyRevision) this.reportFailure(error, 'supplierReturns.loadError');
     } finally {
       if (this.current() && revision === this.historyRevision) this.busy.set(false);
     }
   }
   async choose(action: 'shipment' | 'reversal') {
-    if (this.frozen() || this.busy()) return;
+    if (
+      this.frozen() ||
+      this.busy() ||
+      this.securityNotice() ||
+      !this.canShip() ||
+      (action === 'reversal' && !this.owner())
+    )
+      return;
     this.busy.set(true);
     try {
       await this.save();
+      if (!this.current() || this.securityNotice()) return;
       this.action = action;
       await this.restore();
     } finally {
@@ -248,14 +325,16 @@ export class SupplierReturnPageComponent implements OnInit {
         if ('quantity' in line) {
           this.quantities[line.receiptValueId] = line.quantity;
           this.credits[line.receiptValueId] = line.proposedCreditAmount;
-          this.selected[line.receiptValueId] = true;
+          this.selected[line.receiptValueId] = this.lots().some(
+            (lot) => lot.receiptValueId === line.receiptValueId && this.shippable(lot),
+          );
         } else if ('acceptedAmount' in line) this.credits[line.returnLineId] = line.acceptedAmount;
       }
   }
   private async restore() {
     if (!this.scope) return;
     try {
-      if (!this.document() && this.id) {
+      if (!this.route.snapshot.paramMap.has('returnId') && this.id) {
         for (const kind of ['shipment', 'reversal'] as const) {
           const saved = await this.drafts.load(this.scope, `${kind}:${this.target}`);
           if (saved?.pending) {
@@ -282,7 +361,14 @@ export class SupplierReturnPageComponent implements OnInit {
     }
   }
   async previewLot(lot: PurchaseReceiptDetail): Promise<void> {
-    if (!this.scope || this.frozen() || this.busy()) return;
+    if (
+      !this.scope ||
+      this.frozen() ||
+      this.busy() ||
+      !this.canRecordShipment() ||
+      !this.shippable(lot)
+    )
+      return;
     const quantity = this.quantities[lot.receiptValueId];
     if (
       !lot.supplierId ||
@@ -302,6 +388,7 @@ export class SupplierReturnPageComponent implements OnInit {
       );
       if (
         !this.current() ||
+        !!this.securityNotice() ||
         this.frozen() ||
         sequence !== this.previewSequence ||
         this.quantities[lot.receiptValueId] !== quantity
@@ -314,8 +401,8 @@ export class SupplierReturnPageComponent implements OnInit {
       if (this.credits[lot.receiptValueId] === priorCredit)
         this.credits[lot.receiptValueId] = fresh.suggestedCreditAmount;
       await this.save();
-    } catch {
-      if (this.current()) this.error.set('supplierReturns.loadError');
+    } catch (error) {
+      this.reportFailure(error, 'supplierReturns.loadError');
     } finally {
       if (this.current() && sequence === this.previewSequence) this.previewing.set(false);
     }
@@ -377,6 +464,7 @@ export class SupplierReturnPageComponent implements OnInit {
     if (
       !this.scope ||
       !this.ready() ||
+      !!this.securityNotice() ||
       this.frozen() ||
       !this.id ||
       (!this.lots().length && !this.document())
@@ -397,24 +485,22 @@ export class SupplierReturnPageComponent implements OnInit {
   }
 
   valid() {
-    if (this.previewing()) return false;
+    if (this.previewing() || this.frozen() || this.securityNotice()) return false;
     if (this.reason.trim().length < 3 || this.reason.trim().length > 255) return false;
     if (this.action === 'credit')
       return (
-        this.owner() &&
-        this.document()?.status === 'PendingSupplierCredit' &&
+        this.canAcceptCredit() &&
         this.document()!.lines.every((x) => validCreditAmount(this.credits[x.returnLineId]))
       );
-    if (this.action === 'reversal')
-      return this.owner() && this.lots().every((x) => !x.reversalEligibilityReasons.length);
+    if (this.action === 'reversal') return this.canReverse();
     const selected = this.lots().filter((x) => this.selected[x.receiptValueId]);
     return (
-      this.canShip() &&
+      this.canRecordShipment() &&
       selected.length > 0 &&
       new Set(selected.map((x) => x.supplierId)).size === 1 &&
       selected.every(
         (x) =>
-          !!x.supplierId &&
+          this.shippable(x) &&
           validShipmentQuantity(
             this.quantities[x.receiptValueId],
             x.returnableQuantity,
@@ -425,11 +511,12 @@ export class SupplierReturnPageComponent implements OnInit {
     );
   }
   async submit() {
-    if (!this.scope || this.busy() || !this.valid() || !this.ready()) return;
+    if (!this.scope || this.busy() || this.printMode || !this.valid() || !this.ready()) return;
     this.busy.set(true);
     this.error.set('');
     try {
       await this.saveQueue;
+      if (!this.current() || !this.valid()) return;
       const prepared = await this.drafts.prepare(
         this.scope,
         this.key,
@@ -439,7 +526,7 @@ export class SupplierReturnPageComponent implements OnInit {
       if (!this.current()) return;
       this.record.set(prepared);
       this.applyDraft(prepared.draft);
-      await this.send(prepared, false);
+      if (prepared.pending?.status === 'sending') await this.send(prepared, false);
     } catch {
       if (this.current()) this.error.set('supplierReturns.storageError');
     } finally {
@@ -455,56 +542,105 @@ export class SupplierReturnPageComponent implements OnInit {
   }
   async recover() {
     const pending = this.record()?.pending;
-    if (!pending || !this.scope || this.busy()) return;
+    const scope = this.scope;
+    const draftKey = this.key;
+    if (!pending || !scope || this.busy() || !this.canShip() || this.printMode) return;
     this.busy.set(true);
     this.error.set('');
     try {
-      if (await this.drafts.isConfirmed(this.scope, this.key, pending.operationKey)) {
-        if (this.current()) {
-          this.record.set(null);
-          await this.refresh();
-          await this.restore();
-        }
-        return;
-      }
+      if (this.securityNotice()) await this.access.refresh();
+      if (!this.current() || this.securityNotice() || !this.canShip()) return;
+      if (await this.restoreAfterConfirmation(scope, draftKey, pending.operationKey)) return;
+
       const claimed = await this.drafts.claimRecovery(
-        this.scope,
-        this.key,
+        scope,
+        draftKey,
         pending.operationKey,
         pending.payload,
       );
-      if (!this.current()) return;
+      if (!this.current() || this.securityNotice() || !this.canShip()) return;
       this.record.set(claimed);
-      try {
-        const result = await firstValueFrom(
-          this.api.getOperation(this.scope, this.slug(), pending.operationKey),
-        );
-        await this.confirm(pending.operationKey, result.response);
-        return;
-      } catch {}
-      if (await this.drafts.isConfirmed(this.scope, this.key, pending.operationKey)) {
-        if (this.current()) {
-          this.record.set(null);
-          await this.refresh();
-        }
+      const result = await this.lookup(claimed.pending!);
+      if (!this.current() || this.securityNotice() || !this.canShip()) return;
+      if (result) {
+        await this.confirm(pending.operationKey, result);
         return;
       }
+
+      if (
+        result === undefined ||
+        (await this.restoreAfterConfirmation(scope, draftKey, pending.operationKey))
+      )
+        return;
       await this.send(claimed, true);
     } catch {
-      if (await this.drafts.isConfirmed(this.scope!, this.key, pending.operationKey)) {
-        if (this.current()) {
-          this.record.set(null);
-          await this.refresh();
-          await this.restore();
-        }
-      } else if (this.current()) this.error.set('supplierReturns.storageError');
+      const confirmed = await this.restoreAfterConfirmation(
+        scope,
+        draftKey,
+        pending.operationKey,
+      ).catch(() => false);
+      if (!confirmed && this.current()) this.error.set('supplierReturns.storageError');
     } finally {
       if (this.current()) this.busy.set(false);
     }
   }
+
+  private async lookup(pending: NonNullable<SupplierReturnDraftRecord['pending']>) {
+    const slug = this.slug();
+    const target = 'supplierId' in pending.payload ? pending.payload.supplierId : this.target;
+    try {
+      const lookup = await firstValueFrom(
+        this.api.getOperation(this.scope!, slug, pending.operationKey),
+      );
+      return requirePaymentOutcome(lookup, slug, pending.operationKey, target);
+    } catch (error) {
+      if (
+        error instanceof HttpErrorResponse &&
+        error.status === 404 &&
+        problemCode(error.error) === 'Operation.NotFound'
+      )
+        return null;
+      this.reportFailure(error, 'supplierReturns.unknown');
+      return undefined;
+    }
+  }
+
+  private async restoreAfterConfirmation(scope: ShopScope, draftKey: string, key: string) {
+    if (!(await this.drafts.isConfirmed(scope, draftKey, key))) return false;
+    if (this.current()) {
+      this.record.set(null);
+      await this.refresh();
+      await this.restore();
+    }
+    return true;
+  }
+
+  private reportFailure(error: unknown, fallback: string) {
+    if (!this.current()) return;
+    const licenceError = operatingAccessErrorKey(error);
+    this.access.reportRefusal(error, this.scope);
+    this.error.set(this.securityNotice() ? '' : (licenceError ?? fallback));
+  }
+
+  async refreshAccess() {
+    if (this.busy()) return;
+    this.busy.set(true);
+    try {
+      await this.access.refresh();
+      if (this.current() && !this.securityNotice()) await this.refresh();
+    } finally {
+      if (this.current()) this.busy.set(false);
+    }
+  }
+
   private async send(record: SupplierReturnDraftRecord, recovery: boolean) {
     const scope = this.scope!;
     const pending = record.pending!;
+    if (!this.current() || this.securityNotice() || this.printMode || !this.canShip()) return;
+    const requiresOwner =
+      this.action !== 'shipment' ||
+      ('creditAccepted' in pending.payload && pending.payload.creditAccepted);
+    if (requiresOwner && !this.owner()) return;
     let request: Observable<SupplierReturnDetail | ReceiptReversalResult>;
     if (this.action === 'shipment')
       request = this.api.record(scope, pending.payload as SupplierReturnRequest);
@@ -535,7 +671,8 @@ export class SupplierReturnPageComponent implements OnInit {
       );
       if (this.current()) {
         this.record.set(settled.record);
-        this.error.set(
+        this.reportFailure(
+          error,
           settled.outcome === 'unknown' ? 'supplierReturns.unknown' : 'supplierReturns.rejected',
         );
         if (settled.outcome === 'rejected') await this.refresh();
