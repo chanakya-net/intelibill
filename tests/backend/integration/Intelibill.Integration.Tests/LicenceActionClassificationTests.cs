@@ -98,6 +98,18 @@ public sealed class LicenceActionClassificationTests(PostgreSqlTestFixture fixtu
         Assert.Equal(action, type.GetMethod(methodName)?.GetCustomAttribute<LicenceActionAttribute>()?.Action);
 
     [Fact]
+    public void Cancellation_routes_require_source_correction_with_recovery_on_the_keyed_write()
+    {
+        var preview = typeof(SalesController).GetMethod(nameof(SalesController.PreviewCancellation))!;
+        var post = typeof(SalesController).GetMethod(nameof(SalesController.CancelSale))!;
+        Assert.Equal(LicenceAction.SourceCorrection, preview.GetCustomAttribute<LicenceActionAttribute>()?.Action);
+        Assert.Equal(LicenceAction.SourceCorrection, post.GetCustomAttribute<LicenceActionAttribute>()?.Action);
+        Assert.Equal(true, post.GetCustomAttribute<SuspensionAtSourceAttribute>()?.CheckRecovery);
+        Assert.Equal("OwnerOrManager", preview.GetCustomAttribute<AuthorizeAttribute>()?.Policy);
+        Assert.Equal("OwnerOrManager", post.GetCustomAttribute<AuthorizeAttribute>()?.Policy);
+    }
+
+    [Fact]
     public void Every_reconciliation_action_has_a_classification()
     {
         Assert.All(Enum.GetValues<ReconciliationAction>(), action =>

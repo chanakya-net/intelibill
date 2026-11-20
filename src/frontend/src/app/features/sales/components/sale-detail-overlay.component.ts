@@ -56,6 +56,7 @@ export class SaleDetailOverlayComponent {
 
   readonly showReturnPreview = signal(false);
   readonly showCancellation = signal(false);
+  readonly cancellationSecurityRefused = signal(false);
   readonly canCancel = computed(
     () =>
       !!this.sale() &&
@@ -65,6 +66,7 @@ export class SaleDetailOverlayComponent {
       ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()),
   );
   cancellationSaved(): void {
+    this.cancellationSecurityRefused.set(false);
     const id = this.sale()?.saleId;
     if (id) this.salesFacade.loadSaleDetail(id);
     this.cancellationCompleted.emit();
@@ -155,6 +157,7 @@ export class SaleDetailOverlayComponent {
   onClose(): void {
     this.closeReturnPreview();
     this.showCancellation.set(false);
+    this.cancellationSecurityRefused.set(false);
     this.closeVoidReturn();
     this.visibleChange.emit(false);
   }

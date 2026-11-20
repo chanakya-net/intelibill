@@ -47,21 +47,27 @@ public sealed class GetFinancialOperationQueryHandler(
         if (key.Length is 0 or > OperationReceipt.MaxKeyLength)
             return Errors.Operation.InvalidKey;
 
-        if (operationType is FinancialOperationType.CustomerPayment or FinancialOperationType.SupplierPayment)
+        if (operationType is FinancialOperationType.CustomerPayment or FinancialOperationType.SupplierPayment or
+            FinancialOperationType.SaleCancellation)
             return await transactions.RunAsync<FinancialOperationDto>(null, query.UserId, query.ShopId, null,
-                ct => RecoverPaymentAsync(query.ShopId, operationType.Value, key, ct), cancellationToken);
+                ct => RecoverFencedAsync(query, operationType.Value, key, ct), cancellationToken);
 
         return await ReadOutcomeAsync(query.ShopId, operationType.Value, key, cancellationToken);
     }
 
-    private async Task<ErrorOr<FinancialOperationDto>> RecoverPaymentAsync(Guid shop, FinancialOperationType type,
+    private async Task<ErrorOr<FinancialOperationDto>> RecoverFencedAsync(GetFinancialOperationQuery query, FinancialOperationType type,
         string key, CancellationToken ct)
     {
-        var lease = await fence.EnterAsync(shop, LicenceAction.Recovery, ct);
+        var lease = await fence.EnterAsync(query.ShopId, LicenceAction.Recovery, ct);
         if (lease.IsError) return lease.Errors;
         if (PaymentCompletionPolicy.Denial(lease.Value.CurrentDecision()) is { } denied) return denied;
 
-        var outcome = await ReadOutcomeAsync(shop, type, key, ct);
+        if (type == FinancialOperationType.SaleCancellation)
+        {
+            var role = await shopRepository.GetActiveRoleAsync(query.UserId, query.ShopId, ct);
+            if (role is not (ShopRole.Owner or ShopRole.Manager)) return Errors.Operation.UserIsNotOwnerOrManager;
+        }
+        var outcome = await ReadOutcomeAsync(query.ShopId, type, key, ct);
         if (PaymentCompletionPolicy.Denial(lease.Value.CurrentDecision()) is { } readDenial) return readDenial;
         return outcome;
     }

@@ -14,6 +14,7 @@ import type {
   SaleCancellationDto,
 } from '../../services/sale-cancellation.models';
 import { SaleCancellationDialogComponent } from './sale-cancellation-dialog.component';
+const security = () => new HttpErrorResponse({ status: 403, error: { code: 'Licence.SecuritySuspended' } });
 const owner = { userId: 'u', shopId: 's', epoch: 0 };
 const preview: SaleCancellationPreviewDto = {
   saleId: 'sale',
@@ -121,6 +122,13 @@ describe('SaleCancellationDialogComponent', () => {
       cashRefundConfirmed: true,
     });
   });
+  it('explains a security refusal to load the preview without presenting it as a storage failure', async () => {
+    api.preview.mockReturnValue(throwError(security));
+    const f = await setup();
+    expect(f.componentInstance.error()).toBe('billing.status.suspension.enforcedSecurity');
+    expect(f.componentInstance.preview()).toBeNull();
+    expect(api.cancel).not.toHaveBeenCalled();
+  });
   it('storage failure blocks the HTTP write', async () => {
     const f = await setup();
     const c = f.componentInstance;
@@ -146,12 +154,15 @@ describe('SaleCancellationDialogComponent', () => {
       },
       0,
     );
-    api.cancel.mockReturnValue(throwError(() => new HttpErrorResponse({ status: 409 })));
+    api.cancel.mockReturnValue(throwError(security));
     const f = await setup();
     expect(api.preview).not.toHaveBeenCalled();
     expect(f.componentInstance.reason).toBe('Original reason');
     await f.componentInstance.checkStatus();
     await f.componentInstance.retry();
+    f.detectChanges();
+    expect(f.componentInstance.error()).toBe('billing.status.suspension.enforcedSecurity');
+    expect(f.nativeElement.textContent).not.toContain('Original reason');
     const r = await drafts.load(owner, 'sale');
     expect(r?.pending?.payload).toEqual(frozen.pending!.payload);
     expect(r?.pending?.status).toBe('unknown');
@@ -249,6 +260,7 @@ describe('SaleCancellationDialogComponent', () => {
     api.preview.mockReturnValue(
       of({
         ...preview,
+        sourceCompletionOnly: true,
         postingEnabled: false,
         eligible: false,
         reasons: [
@@ -265,6 +277,7 @@ describe('SaleCancellationDialogComponent', () => {
     c.reason = 'Duplicate sale';
     c.goodsConfirmed = c.cashConfirmed = true;
     expect(c.valid()).toBe(false);
+    expect(f.nativeElement.textContent).toContain('sales.cancellation.sourceCompletionOnly');
     expect(f.nativeElement.textContent).toContain('ExternalRefundWorkflowRequired');
     expect(f.nativeElement.textContent).toContain('CreditRestorationRequired');
     role.set('Staff');

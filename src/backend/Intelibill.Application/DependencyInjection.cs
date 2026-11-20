@@ -82,6 +82,7 @@ public static class DependencyInjection
         services.AddScoped<PaymentCompletionPolicy>();
 
         services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationPolicy>();
+        services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationCompletionPolicy>();
         services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationService>();
         services.AddScoped<SaleDtoBuilder>();
         services.AddScoped<RecordSaleCommandHandler>();
