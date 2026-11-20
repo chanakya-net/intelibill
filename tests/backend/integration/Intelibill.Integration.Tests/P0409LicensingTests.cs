@@ -59,4 +59,31 @@ public sealed partial class P0409LicensingTests
             categoryName = "Rent", amount = 100m, paidTo = "Landlord",
             expenseDate = DateOnly.FromDateTime(_clock.Now.UtcDateTime),
         }, Ct);
+
+    [Fact]
+    public async Task Committed_expense_replays_during_trading_suspension_but_not_security_suspension()
+    {
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var client = CreateClient(host);
+        var shop = await CreateShopAsync(client);
+        var binding = await BindAsync(shop);
+        var end = _clock.Now.AddDays(1);
+        await ApplyAsync(binding, end);
+        await EnforceAsync(shop);
+        var payload = new { categoryName = "Rent", amount = 100m, paidTo = "Landlord",
+            expenseDate = DateOnly.FromDateTime(_clock.Now.UtcDateTime), operationKey = Guid.NewGuid().ToString() };
+        using var created = await client.PostAsJsonAsync("/api/expenses", payload, Ct);
+        var id = (await ReadSuccessAsync(created)).GetProperty("id").GetGuid();
+        await ApplyAsync(binding, end, 2, "Trading");
+        using var replay = await client.PostAsJsonAsync("/api/expenses", payload, Ct);
+        Assert.Equal(id, (await ReadSuccessAsync(replay)).GetProperty("id").GetGuid());
+        await AssertProblemAsync(await client.PostAsJsonAsync("/api/expenses", payload with { operationKey = Guid.NewGuid().ToString() }, Ct),
+            HttpStatusCode.Forbidden, "Licence.TradingRestricted");
+        await ApplyAsync(binding, end, 3, "Security");
+        await AssertProblemAsync(await client.PostAsJsonAsync("/api/expenses", payload, Ct), HttpStatusCode.Forbidden, "Licence.SecuritySuspended");
+        await using var db = Open(Migrator);
+        Assert.Equal(1, await db.Expenses.CountAsync(x => x.ShopId == shop, Ct));
+        Assert.Equal(1, await db.OperationReceipts.CountAsync(x => x.ShopId == shop, Ct));
+    }
 }

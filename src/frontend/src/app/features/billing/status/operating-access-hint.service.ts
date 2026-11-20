@@ -17,7 +17,7 @@ export const OPERATING_ACCESS_ERROR_KEYS: Readonly<Record<string, string>> = {
   'Licence.Expired': messagePrefix + 'expired',
   'Licence.PendingActivation': messagePrefix + 'pending',
   'Licence.TradingRestricted': messagePrefix + 'restricted',
-  'Licence.SecuritySuspended': messagePrefix + 'restricted',
+  'Licence.SecuritySuspended': 'billing.status.suspension.enforcedSecurity',
   'Licence.VerificationUnavailable': messagePrefix + 'unavailable',
   'Licence.Busy': messagePrefix + 'busy',
 };

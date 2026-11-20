@@ -7,12 +7,12 @@ import { session, SHOP_A, startPurchaseReceivingServer } from './purchase-receiv
 
 const BUILD = resolve(__dirname, '../../../dist/INVENTORY/browser');
 const EXPIRED = 'This shop’s trading access has ended.';
-const INELIGIBLE = /a correction can only restate the original expense/;
+const INELIGIBLE = /must keep the original payee/;
 const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 390, height: 844 };
 const DATE = '2026-11-10';
 
-type Phase = 'verified' | 'expired';
+type Phase = 'verified' | 'expired' | 'security';
 type Event = { method: string; path: string; status: number; code?: string };
 
 test.use({ serviceWorkers: 'block', reducedMotion: 'reduce' });
@@ -57,6 +57,8 @@ async function installFixture(page: Page) {
   await page.route('**/api/expenses/expense-1', (route) => respond(route, original, 200));
   await page.route('**/api/expenses/expense-1/correct', (route) => {
     const body = route.request().postDataJSON();
+    if (state.phase === 'security')
+      return respond(route, { status: 403, code: 'Licence.SecuritySuspended' }, 403, 'Licence.SecuritySuspended');
     // Mirrors the server rule: same date, never above the original amount, while restricted.
     if (state.phase === 'expired' && (body.amount > original.amount || body.expenseDate !== original.expenseDate))
       return respond(route, { status: 409, code: 'Expense.CorrectionSourceIneligible', title: 'Expense.CorrectionSourceIneligible' }, 409, 'Expense.CorrectionSourceIneligible');
@@ -142,4 +144,34 @@ test('P04-09 stale form keeps its draft when the server refuses a new expense at
   await expect(dialog.locator('input[formcontrolname="paidTo"]')).toHaveValue('Landlord');
   expect(fixture.writes()).toBe(0);
   await page.screenshot({ path: info.outputPath('stale-record-form-desktop.png') });
+  await expect(dialog.locator('p-inputnumber[formcontrolname="amount"] input')).toHaveValue('90');
+  expect(fixture.posts()).toHaveLength(1);
+  await dialog.getByRole('button', { name: /Cancel/i }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Correct$/ }).first()).toBeEnabled();
+});
+
+test('security suspension refuses an open correction without offering a retry', async ({ page }) => {
+  await page.goto(server.origin + '/expenses');
+  await page.getByRole('button', { name: /Correct$/ }).first().click();
+  const dialog = page.getByRole('dialog');
+  fixture.state.phase = 'security';
+  const submit = dialog.getByRole('button', { name: /^Correct|Save|Submit/ }).last();
+  await submit.click();
+  await expect(dialog.getByText('Security suspension is enforced for this shop.')).toBeVisible();
+  await expect(dialog.getByTestId('restricted-correction-hint')).toHaveCount(0);
+  await expect(submit).toBeDisabled();
+  expect(fixture.posts()).toHaveLength(1);
+});
+
+test('Hindi guidance and correction conflict are readable', async ({ page }) => {
+  fixture.state.phase = 'expired';
+  await page.addInitScript(() => localStorage.setItem('inventory.preferences.language', 'hi-IN'));
+  await page.goto(server.origin + '/expenses');
+  await page.getByRole('button', { name: 'सुधारें' }).first().click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByTestId('restricted-correction-hint')).toContainText('मौजूदा खर्च');
+  await dialog.locator('p-inputnumber[formcontrolname="amount"] input').fill('150');
+  await dialog.getByRole('button', { name: 'खर्च सुधारें' }).click();
+  await expect(dialog.getByText(/मूल प्राप्तकर्ता/)).toBeVisible();
 });

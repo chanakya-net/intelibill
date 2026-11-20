@@ -86,7 +86,11 @@ public sealed class CorrectExpenseCommandHandler(
         if (locked == RowLockOutcome.TimedOut) return Errors.Payment.Busy;
         if (locked == RowLockOutcome.NotFound) return Errors.Expense.NotFound;
         if (original.IsVoided) return Errors.Expense.AlreadyVoided;
-        if (restricted.Value && ExpenseLicenceGuard.ProveSource(original, command.Amount, command.ExpenseDate) is { } ineligible)
+        var decision = restricted.Value.CurrentDecision();
+        if (decision is { Enforced: true, Outcome: LicenceOutcome.Blocked })
+            return decision.Denial ?? Errors.Licence.VerificationUnavailable;
+        if (decision is { Enforced: true, Outcome: LicenceOutcome.RequiresProvenSource } &&
+            ExpenseLicenceGuard.ProveSource(original, command.Amount, command.ExpenseDate, command.PaidTo, command.Description) is { } ineligible)
             return ineligible;
 
         // Void original

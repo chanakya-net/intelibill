@@ -66,6 +66,7 @@ export class CorrectExpenseOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly expensesFacade = inject(ExpensesFacade);
   readonly access = inject(OperatingAccessHintService);
+  readonly securityBlocked = computed(() => this.access.blockingMessage() === 'billing.status.suspension.enforcedSecurity');
 
   readonly treatment = signal<ExpenseTreatment>('Unclassified');
   readonly treatmentChoices = EXPENSE_TREATMENT_CHOICES;
@@ -175,7 +176,7 @@ export class CorrectExpenseOverlayComponent implements OnInit {
   }
 
   onSubmit(): void {
-    if (this.tillLocked() || this.isSubmitting()) {
+    if (this.tillLocked() || this.isSubmitting() || this.securityBlocked()) {
       return;
     }
     if (this.form.invalid) {

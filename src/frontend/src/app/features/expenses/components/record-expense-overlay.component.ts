@@ -144,14 +144,14 @@ export class RecordExpenseOverlayComponent implements OnInit {
   }
 
   onClose(): void {
-    if (this.tillLocked() || this.isSubmitting() || this.access.blockingMessage()) {
+    if (this.tillLocked() || this.isSubmitting()) {
       return;
     }
     this.closeRequested.emit();
   }
 
   onSubmit(): void {
-    if (this.tillLocked() || this.isSubmitting()) {
+    if (this.tillLocked() || this.isSubmitting() || this.access.blockingMessage()) {
       return;
     }
     if (this.form.invalid) {

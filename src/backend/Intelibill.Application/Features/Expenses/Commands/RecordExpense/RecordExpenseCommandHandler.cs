@@ -50,7 +50,9 @@ public sealed class RecordExpenseCommandHandler(
 
     private async Task<ErrorOr<ExpenseDto>> PostAsync(RecordExpenseCommand command, CancellationToken cancellationToken)
     {
-        if (await ExpenseLicenceGuard.DenyNewExpenseAsync(licenceFence, command.ShopId, cancellationToken) is { } denied)
+        var licence = await licenceFence.EnterAsync(command.ShopId, LicenceAction.NewTrading, cancellationToken);
+        if (licence.IsError) return licence.Errors;
+        if (ExpenseLicenceGuard.TradingDenial(licence.Value) is { } denied)
             return denied;
 
         var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(command.ShopId, command.ExpenseDate, cancellationToken);
@@ -67,6 +69,7 @@ public sealed class RecordExpenseCommandHandler(
         var acquired = await settlement.AcquireAsync(command.ShopId, command.UserId, command.Till, command.OperationKey,
             evidence, -command.Amount, command.ExpenseDate, cancellationToken);
         if (acquired.IsError) return acquired.Errors;
+        if (ExpenseLicenceGuard.TradingDenial(licence.Value) is { } currentDenial) return currentDenial;
 
         // Upsert category
         var categoryName = command.CategoryName.Trim();

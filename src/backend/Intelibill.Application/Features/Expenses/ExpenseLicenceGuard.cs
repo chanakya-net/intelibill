@@ -13,14 +13,12 @@ namespace Intelibill.Application.Features.Expenses;
 internal static class ExpenseLicenceGuard
 {
     /// <summary>A new independent expense needs operating access.</summary>
-    public static Task<Error?> DenyNewExpenseAsync(IShopLicenceFence fence, Guid shopId, CancellationToken ct) =>
-        fence.ReadTradingDenialAsync(shopId, ct);
+    public static Error? TradingDenial(ShopLicenceLease lease) => lease.CurrentDecision().EnforcedDenial();
 
     /// <summary>
-    /// Enters the fence for a correction. Returns a refusal, or whether the shop is restricted so the
-    /// caller must prove the source once it holds the expense row lock.
+    /// Enters the fence for a correction. The caller reevaluates the returned lease after business locks.
     /// </summary>
-    public static async Task<ErrorOr<bool>> EnterCorrectionAsync(IShopLicenceFence fence, Guid shopId, CancellationToken ct)
+    public static async Task<ErrorOr<ShopLicenceLease>> EnterCorrectionAsync(IShopLicenceFence fence, Guid shopId, CancellationToken ct)
     {
         var lease = await fence.EnterAsync(shopId, LicenceAction.SourceCorrection, ct);
         if (lease.IsError)
@@ -31,14 +29,13 @@ internal static class ExpenseLicenceGuard
         var decision = lease.Value.CurrentDecision();
         if (decision is { Enforced: true, Outcome: LicenceOutcome.Blocked })
             return decision.Denial ?? Errors.Licence.VerificationUnavailable;
-        return decision is { Enforced: true, Outcome: LicenceOutcome.RequiresProvenSource };
+        return lease.Value;
     }
 
     /// <summary>
-    /// Restricted shops may restate an eligible source only: same date, no higher amount, so a
-    /// correction (or a chain of them) can never carry a new or larger expense.
+    /// Restricted corrections retain the source identity and date and cannot increase its amount.
     /// </summary>
-    public static Error? ProveSource(Expense original, decimal amount, DateOnly expenseDate)
+    public static Error? ProveSource(Expense original, decimal amount, DateOnly expenseDate, string paidTo, string? description)
     {
         if (original.Treatment == ExpenseTreatment.SupplierSettlement || original.SupplierLedgerEntryId.HasValue)
             return Errors.Expense.CorrectionSourceIneligible("supplier settlements are corrected through their payment receipt.");
@@ -46,6 +43,11 @@ internal static class ExpenseLicenceGuard
             return Errors.Expense.CorrectionSourceIneligible("the expense date must stay the original date.");
         if (amount > original.Amount)
             return Errors.Expense.CorrectionSourceIneligible("the amount cannot exceed the original amount.");
+        if (!SameText(original.PaidTo, paidTo) || !SameText(original.Description, description))
+            return Errors.Expense.CorrectionSourceIneligible("the payee and obligation must match the original expense.");
         return null;
     }
+
+    private static bool SameText(string? left, string? right) =>
+        string.Equals(left?.Trim() ?? "", right?.Trim() ?? "", StringComparison.OrdinalIgnoreCase);
 }

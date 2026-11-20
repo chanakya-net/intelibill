@@ -2414,9 +2414,9 @@
     "ledgerResults": "Expense ledger results",
     "errors": {
       "unexpected": "Unable to record or correct this expense. Please try again.",
-      "correctionSourceIneligible": "While trading access is restricted, a correction can only restate the original expense on its original date and for no more than its original amount."
+      "correctionSourceIneligible": "A restricted correction must keep the original payee, description and date, and cannot increase the amount."
     },
-    "restrictedCorrectionHint": "Trading access is restricted. You can still correct an existing expense, but only on its original date and for no more than the original amount. New expenses are unavailable.",
+    "restrictedCorrectionHint": "Trading is restricted. An existing expense can be corrected only with the same payee, description and date, and no higher amount.",
     "treatment": {
       "label": "Expense treatment",
       "Unclassified": "Unclassified",
