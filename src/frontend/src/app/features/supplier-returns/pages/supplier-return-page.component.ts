@@ -3,8 +3,8 @@ import { Component, DestroyRef, OnInit, computed, effect, inject, signal } from 
 import { problemCode } from '@intelibill/api';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { firstValueFrom, Observable, skip } from 'rxjs';
+import { ActivatedRoute, NavigationEnd, Router, RouterLink } from '@angular/router';
+import { filter, firstValueFrom, Observable } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonModule } from 'primeng/button';
@@ -13,7 +13,6 @@ import { TextareaModule } from 'primeng/textarea';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import type { ShopScope } from '../../../core/context/shop-scope';
-import { requirePaymentOutcome } from '../../../core/services/financial-operation-intent.service';
 import {
   OPERATING_ACCESS_ERROR_KEYS,
   OperatingAccessHintService,
@@ -24,15 +23,40 @@ import { SupplierReturnDraftService } from '../services/supplier-return-draft.se
 import type {
   PurchaseReceiptDetail,
   SupplierReturnDetail,
+  SupplierReturnAction,
   SupplierReturnDraftRecord,
   SupplierReturnEditableDraft,
+  SupplierReturnMutationPayload,
   SupplierReturnRequest,
   SupplierReturnCreditRequest,
   ReceiptReversalRequest,
   GroupReceiptReversalRequest,
   ReceiptReversalResult,
 } from '../services/supplier-return.models';
+import {
+  completionOperationType,
+  guidIdentity,
+  requireCompletionOutcome,
+  requireCompletionResult,
+} from '../services/supplier-return-outcome';
 import { SupplierReturnPrintViewComponent } from '../components/supplier-return-print-view.component';
+interface SourceView {
+  id: string;
+  group: string | null;
+  lots: string;
+  supplierId: string;
+  credit: boolean;
+  print: boolean;
+}
+
+interface CompletionAttempt {
+  view: SourceView;
+  scope: ShopScope;
+  action: SupplierReturnAction;
+  draftKey: string;
+  target: string;
+}
+
 export function validShipmentQuantity(quantity: number, available: number, scale: number): boolean {
   return (
     Number.isFinite(quantity) &&
@@ -131,33 +155,59 @@ export class SupplierReturnPageComponent implements OnInit {
     );
   });
   readonly frozen = computed(() => !!this.record()?.pending);
-  readonly printMode = this.route.snapshot.queryParamMap.get('print') === '1';
+  get printMode() {
+    return this.view.print;
+  }
   reason = '';
   reference = '';
   accepted = false;
   quantities: Record<string, number> = {};
   credits: Record<string, number> = {};
   selected: Record<string, boolean> = {};
-  private readonly actionState = signal<'shipment' | 'credit' | 'reversal'>('shipment');
+  private readonly actionState = signal<SupplierReturnAction>('shipment');
   get action() {
     return this.actionState();
   }
-  set action(value: 'shipment' | 'credit' | 'reversal') {
+  set action(value: SupplierReturnAction) {
     this.actionState.set(value);
   }
   filter = '';
   private scope: ShopScope | null = null;
-  private target = '';
-  group = this.route.snapshot.queryParamMap.get('group');
+  private view = this.readView();
+  get group() {
+    return this.view.group;
+  }
   private get id() {
-    return (
-      this.route.snapshot.paramMap.get('receiptValueId') ??
-      this.route.snapshot.paramMap.get('returnId') ??
-      ''
-    );
+    return this.view.id;
   }
   private get key() {
-    return `${this.action}:${this.group ?? this.id}`;
+    const saved = this.record();
+    return saved?.draft.actionKind === this.action
+      ? saved.targetId
+      : this.draftKey(this.action, this.view);
+  }
+
+  private draftKey(action: SupplierReturnAction, view: SourceView) {
+    return `${action}:${view.group ?? view.id}`;
+  }
+
+  private readView(): SourceView {
+    const { paramMap, queryParamMap } = this.route.snapshot;
+    const returnId = paramMap.get('returnId');
+    const receiptId = paramMap.get('receiptValueId');
+    return {
+      id: receiptId ?? returnId ?? '',
+      group: receiptId ? queryParamMap.get('group') : null,
+      lots: receiptId ? (queryParamMap.get('lots') ?? '') : '',
+      supplierId: queryParamMap.get('supplierId') ?? '',
+      credit: returnId !== null,
+      print: queryParamMap.get('print') === '1',
+    };
+  }
+
+  private attempt(scope: ShopScope): CompletionAttempt {
+    const view = this.view;
+    return { view, scope, action: this.action, draftKey: this.key, target: view.group ?? view.id };
   }
   private storageReady = true;
   constructor() {
@@ -184,74 +234,103 @@ export class SupplierReturnPageComponent implements OnInit {
   async ngOnInit() {
     this.scope = this.context.scope();
     if (!this.scope) return;
-    this.action = this.route.snapshot.paramMap.has('returnId') ? 'credit' : 'shipment';
-    this.target = this.group ?? this.id;
-    this.route.queryParamMap.pipe(skip(1), takeUntilDestroyed(this.destroyRef)).subscribe(() => {
-      if (!this.id) void this.refresh();
-    });
-    await this.access.refresh();
-    if (!this.current()) return;
-    await this.refresh();
+    this.router.events
+      .pipe(
+        filter((event) => event instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => {
+        const next = this.readView();
+        const previous = this.view;
+        if (JSON.stringify(next) !== JSON.stringify(previous)) void this.openView(next);
+      });
+    await this.openView(this.readView());
+  }
+
+  private async openView(view: SourceView) {
+    this.view = view;
+    this.action = view.credit ? 'credit' : 'shipment';
     this.ready.set(false);
     this.busy.set(true);
-    await this.restore();
-    if (this.current()) {
-      this.ready.set(this.storageReady);
-      this.busy.set(false);
+    this.previewing.set(false);
+    this.record.set(null);
+    this.lots.set([]);
+    this.document.set(null);
+    this.history.set([]);
+    this.hasMoreHistory.set(false);
+    this.error.set('');
+    this.status.set('');
+    this.reason = this.reference = '';
+    this.accepted = false;
+    this.quantities = {};
+    this.credits = {};
+    this.selected = {};
+    this.storageReady = true;
+
+    try {
+      await this.access.refresh();
+      await this.refreshAndRestore(view);
+    } finally {
+      if (this.current(view)) {
+        this.ready.set(this.storageReady);
+        this.busy.set(false);
+      }
     }
   }
-  private current() {
+
+  private current(view: SourceView) {
     return (
+      view === this.view &&
       !this.destroyRef.destroyed &&
       !!this.scope &&
       this.context.scope()?.epoch === this.scope.epoch &&
       this.context.isCurrent(this.scope)
     );
   }
-  async refresh() {
-    this.busy.set(true);
+
+  private async refreshAndRestore(view: SourceView) {
+    if (!this.current(view)) return;
+    await this.refresh(view);
+    if (this.current(view)) await this.restore(view);
+  }
+
+  async refresh(view = this.view) {
+    if (!this.current(view) || this.securityNotice()) return;
     try {
-      if (this.securityNotice()) return;
-      if (this.route.snapshot.paramMap.has('returnId')) {
-        const result = await firstValueFrom(this.api.getReturn(this.id));
-        if (this.current() && !this.securityNotice()) this.document.set(result);
-      } else if (this.id) {
-        const ids = [
-          ...new Set([
-            this.id,
-            ...(this.route.snapshot.queryParamMap.get('lots') ?? '').split(',').filter(Boolean),
-          ]),
-        ];
+      if (view.credit) {
+        const result = await firstValueFrom(this.api.getReturn(view.id));
+        if (this.current(view) && !this.securityNotice()) this.document.set(result);
+      } else if (view.id) {
+        const ids = [...new Set([view.id, ...view.lots.split(',').filter(Boolean)])];
         const result = await Promise.all(ids.map((id) => firstValueFrom(this.api.getReceipt(id))));
-        if (this.current() && !this.securityNotice()) {
-          this.lots.set(result);
-          for (const lot of result) {
-            this.quantities[lot.receiptValueId] ??= 0;
-            this.credits[lot.receiptValueId] ??= lot.suggestedCreditAmount;
-            if (!this.shippable(lot)) this.selected[lot.receiptValueId] = false;
-            else this.selected[lot.receiptValueId] ??= true;
-          }
-        }
+        if (this.current(view) && !this.securityNotice()) this.applyLots(result);
       } else {
         await this.loadHistory(false);
       }
     } catch (error) {
-      this.reportFailure(error, 'supplierReturns.loadError');
-    } finally {
-      if (this.current()) {
-        this.busy.set(false);
-        this.ready.set(true);
-      }
+      this.reportFailure(error, 'supplierReturns.loadError', view);
     }
   }
+
+  private applyLots(lots: PurchaseReceiptDetail[]) {
+    this.lots.set(lots);
+    for (const lot of lots) {
+      this.quantities[lot.receiptValueId] ??= 0;
+      this.credits[lot.receiptValueId] ??= lot.suggestedCreditAmount;
+      if (!this.shippable(lot)) this.selected[lot.receiptValueId] = false;
+      else this.selected[lot.receiptValueId] ??= true;
+    }
+  }
+
   async loadMoreHistory() {
     if (!this.busy() && !this.securityNotice() && this.hasMoreHistory())
       await this.loadHistory(true);
   }
   private async loadHistory(append: boolean) {
+    const view = this.view;
     const revision = append ? this.historyRevision : ++this.historyRevision;
     const status = this.filter;
-    const supplierId = this.route.snapshot.queryParamMap.get('supplierId') ?? '';
+    const supplierId = view.supplierId;
     const page = append ? this.historyPage + 1 : 1;
     if (!append) {
       this.history.set([]);
@@ -268,11 +347,10 @@ export class SupplierReturnPageComponent implements OnInit {
         }),
       );
       if (
-        !this.current() ||
+        !this.current(view) ||
         !!this.securityNotice() ||
         revision !== this.historyRevision ||
-        status !== this.filter ||
-        supplierId !== (this.route.snapshot.queryParamMap.get('supplierId') ?? '')
+        status !== this.filter
       )
         return;
       this.history.set(
@@ -288,9 +366,10 @@ export class SupplierReturnPageComponent implements OnInit {
       this.hasMoreHistory.set(result.length === 20);
       this.error.set('');
     } catch (error) {
-      if (revision === this.historyRevision) this.reportFailure(error, 'supplierReturns.loadError');
+      if (revision === this.historyRevision)
+        this.reportFailure(error, 'supplierReturns.loadError', view);
     } finally {
-      if (this.current() && revision === this.historyRevision) this.busy.set(false);
+      if (this.current(view) && revision === this.historyRevision) this.busy.set(false);
     }
   }
   async choose(action: 'shipment' | 'reversal') {
@@ -302,14 +381,15 @@ export class SupplierReturnPageComponent implements OnInit {
       (action === 'reversal' && !this.owner())
     )
       return;
+    const view = this.view;
     this.busy.set(true);
     try {
       await this.save();
-      if (!this.current() || this.securityNotice()) return;
+      if (!this.current(view) || this.securityNotice()) return;
       this.action = action;
-      await this.restore();
+      await this.restore(view);
     } finally {
-      this.busy.set(false);
+      if (this.current(view)) this.busy.set(false);
     }
   }
   private applyDraft(draft: SupplierReturnEditableDraft) {
@@ -325,41 +405,52 @@ export class SupplierReturnPageComponent implements OnInit {
         if ('quantity' in line) {
           this.quantities[line.receiptValueId] = line.quantity;
           this.credits[line.receiptValueId] = line.proposedCreditAmount;
-          this.selected[line.receiptValueId] = this.lots().some(
-            (lot) => lot.receiptValueId === line.receiptValueId && this.shippable(lot),
-          );
+          const lot = this.lots().find((value) => value.receiptValueId === line.receiptValueId);
+          if (lot) this.selected[line.receiptValueId] = this.shippable(lot);
         } else if ('acceptedAmount' in line) this.credits[line.returnLineId] = line.acceptedAmount;
       }
   }
-  private async restore() {
-    if (!this.scope) return;
+  private async restore(view: SourceView) {
+    const scope = this.scope;
+    if (!scope || !view.id) return;
     try {
-      if (!this.route.snapshot.paramMap.has('returnId') && this.id) {
-        for (const kind of ['shipment', 'reversal'] as const) {
-          const saved = await this.drafts.load(this.scope, `${kind}:${this.target}`);
-          if (saved?.pending) {
-            this.action = kind;
-            break;
-          }
+      let action = this.action;
+      let saved = await this.loadDraft(scope, view, action);
+      if (!view.credit && !saved?.pending) {
+        const other = action === 'reversal' ? 'shipment' : 'reversal';
+        const alternate = await this.loadDraft(scope, view, other);
+        if (alternate?.pending) {
+          action = other;
+          saved = alternate;
         }
       }
-      let saved = await this.drafts.load(this.scope, this.key);
+      if (!this.current(view)) return;
       if (saved?.confirmedOperationKey) {
-        await this.drafts.clearConfirmed(this.scope, this.key, saved.confirmedOperationKey);
+        await this.drafts.clearConfirmed(scope, saved.targetId, saved.confirmedOperationKey);
         saved = null;
       }
-      if (!this.current()) return;
+      if (!this.current(view)) return;
+      this.action = action;
       this.record.set(saved);
       if (saved) this.applyDraft(saved.draft);
-      else if (this.document())
-        for (const line of this.document()!.lines)
-          this.credits[line.returnLineId] = line.proposedCreditAmount;
+      else
+        for (const line of this.document()?.lines ?? [])
+          this.credits[line.returnLineId] ??= line.proposedCreditAmount;
     } catch {
+      if (!this.current(view)) return;
       this.storageReady = false;
       this.error.set('supplierReturns.storageError');
       this.ready.set(false);
     }
   }
+
+  private async loadDraft(scope: ShopScope, view: SourceView, action: SupplierReturnAction) {
+    const key = this.draftKey(action, view);
+    const saved = await this.drafts.load(scope, key);
+    const canonical = `${action}:${guidIdentity(view.group ?? view.id)}`;
+    return saved ?? (canonical !== key ? await this.drafts.load(scope, canonical) : null);
+  }
+
   async previewLot(lot: PurchaseReceiptDetail): Promise<void> {
     if (
       !this.scope ||
@@ -377,6 +468,7 @@ export class SupplierReturnPageComponent implements OnInit {
       await this.save();
       return;
     }
+    const view = this.view;
     const sequence = ++this.previewSequence;
     const priorCredit = this.credits[lot.receiptValueId];
     this.previewing.set(true);
@@ -387,7 +479,7 @@ export class SupplierReturnPageComponent implements OnInit {
         ]),
       );
       if (
-        !this.current() ||
+        !this.current(view) ||
         !!this.securityNotice() ||
         this.frozen() ||
         sequence !== this.previewSequence ||
@@ -402,9 +494,9 @@ export class SupplierReturnPageComponent implements OnInit {
         this.credits[lot.receiptValueId] = fresh.suggestedCreditAmount;
       await this.save();
     } catch (error) {
-      this.reportFailure(error, 'supplierReturns.loadError');
+      this.reportFailure(error, 'supplierReturns.loadError', view);
     } finally {
-      if (this.current() && sequence === this.previewSequence) this.previewing.set(false);
+      if (this.current(view) && sequence === this.previewSequence) this.previewing.set(false);
     }
   }
 
@@ -470,15 +562,17 @@ export class SupplierReturnPageComponent implements OnInit {
       (!this.lots().length && !this.document())
     )
       return Promise.resolve();
+    const view = this.view;
     const scope = this.scope;
     const key = this.key;
     const draft = this.editable();
     this.saveQueue = this.saveQueue.then(async () => {
+      if (!this.current(view) || this.key !== key) return;
       try {
         const saved = await this.drafts.save(scope, key, draft, this.record()?.revision ?? 0);
-        if (this.current() && this.key === key) this.record.set(saved);
+        if (this.current(view) && this.key === key) this.record.set(saved);
       } catch {
-        if (this.current()) this.error.set('supplierReturns.storageError');
+        if (this.current(view)) this.error.set('supplierReturns.storageError');
       }
     });
     return this.saveQueue;
@@ -512,87 +606,79 @@ export class SupplierReturnPageComponent implements OnInit {
   }
   async submit() {
     if (!this.scope || this.busy() || this.printMode || !this.valid() || !this.ready()) return;
+    const attempt = this.attempt(this.scope);
+    const { view, scope, draftKey } = attempt;
     this.busy.set(true);
     this.error.set('');
     try {
       await this.saveQueue;
-      if (!this.current() || !this.valid()) return;
+      if (!this.current(view) || !this.valid()) return;
       const prepared = await this.drafts.prepare(
-        this.scope,
-        this.key,
+        scope,
+        draftKey,
         this.editable(),
         this.record()?.revision ?? 0,
       );
-      if (!this.current()) return;
+      if (!this.current(view)) return;
       this.record.set(prepared);
       this.applyDraft(prepared.draft);
-      if (prepared.pending?.status === 'sending') await this.send(prepared, false);
+      if (prepared.pending?.status === 'sending') await this.send(attempt, prepared, false);
     } catch {
-      if (this.current()) this.error.set('supplierReturns.storageError');
+      if (this.current(view)) this.error.set('supplierReturns.storageError');
     } finally {
-      if (this.current()) this.busy.set(false);
+      if (this.current(view)) this.busy.set(false);
     }
   }
-  private slug() {
-    return this.action === 'shipment'
-      ? 'supplier-return'
-      : this.action === 'credit'
-        ? 'supplier-return-credit'
-        : 'purchase-receipt-reversal';
-  }
+
   async recover() {
     const pending = this.record()?.pending;
     const scope = this.scope;
-    const draftKey = this.key;
     if (!pending || !scope || this.busy() || !this.canShip() || this.printMode) return;
+    const attempt = this.attempt(scope);
+    const { view, draftKey } = attempt;
+    const { operationKey, payload } = pending;
     this.busy.set(true);
     this.error.set('');
     try {
       if (this.securityNotice()) await this.access.refresh();
-      if (!this.current() || this.securityNotice() || !this.canShip()) return;
-      if (await this.restoreAfterConfirmation(scope, draftKey, pending.operationKey)) return;
+      if (!this.canRecover(view) || (await this.restoreAfterConfirmation(attempt, operationKey)))
+        return;
+      if (!this.canRecover(view)) return;
 
-      const claimed = await this.drafts.claimRecovery(
-        scope,
-        draftKey,
-        pending.operationKey,
-        pending.payload,
-      );
-      if (!this.current() || this.securityNotice() || !this.canShip()) return;
+      const claimed = await this.drafts.claimRecovery(scope, draftKey, operationKey, payload);
+      if (!this.canRecover(view)) return;
       this.record.set(claimed);
-      const result = await this.lookup(claimed.pending!);
-      if (!this.current() || this.securityNotice() || !this.canShip()) return;
+      const result = await this.lookup(attempt, claimed.pending!);
+      if (!this.canRecover(view)) return;
       if (result) {
-        await this.confirm(pending.operationKey, result);
-        return;
+        await this.confirm(attempt, operationKey, result);
+      } else if (result === null && !(await this.restoreAfterConfirmation(attempt, operationKey))) {
+        await this.send(attempt, claimed, true);
       }
-
-      if (
-        result === undefined ||
-        (await this.restoreAfterConfirmation(scope, draftKey, pending.operationKey))
-      )
-        return;
-      await this.send(claimed, true);
     } catch {
-      const confirmed = await this.restoreAfterConfirmation(
-        scope,
-        draftKey,
-        pending.operationKey,
-      ).catch(() => false);
-      if (!confirmed && this.current()) this.error.set('supplierReturns.storageError');
+      const confirmed = await this.restoreAfterConfirmation(attempt, operationKey).catch(
+        () => false,
+      );
+      if (!confirmed && this.current(view)) this.error.set('supplierReturns.storageError');
     } finally {
-      if (this.current()) this.busy.set(false);
+      if (this.current(view)) this.busy.set(false);
     }
   }
 
-  private async lookup(pending: NonNullable<SupplierReturnDraftRecord['pending']>) {
-    const slug = this.slug();
-    const target = 'supplierId' in pending.payload ? pending.payload.supplierId : this.target;
+  private canRecover(view: SourceView) {
+    return this.current(view) && !this.securityNotice() && this.canShip();
+  }
+
+  private async lookup(
+    attempt: CompletionAttempt,
+    pending: NonNullable<SupplierReturnDraftRecord['pending']>,
+  ) {
+    const { scope, action, target, view } = attempt;
     try {
       const lookup = await firstValueFrom(
-        this.api.getOperation(this.scope!, slug, pending.operationKey),
+        this.api.getOperation(scope, completionOperationType(action), pending.operationKey),
       );
-      return requirePaymentOutcome(lookup, slug, pending.operationKey, target);
+      return requireCompletionOutcome(lookup, action, target, pending.payload);
     } catch (error) {
       if (
         error instanceof HttpErrorResponse &&
@@ -600,94 +686,112 @@ export class SupplierReturnPageComponent implements OnInit {
         problemCode(error.error) === 'Operation.NotFound'
       )
         return null;
-      this.reportFailure(error, 'supplierReturns.unknown');
+      this.reportFailure(error, 'supplierReturns.unknown', view);
       return undefined;
     }
   }
 
-  private async restoreAfterConfirmation(scope: ShopScope, draftKey: string, key: string) {
+  private async restoreAfterConfirmation(attempt: CompletionAttempt, key: string) {
+    const { scope, draftKey, view } = attempt;
     if (!(await this.drafts.isConfirmed(scope, draftKey, key))) return false;
-    if (this.current()) {
+    if (this.current(view)) {
       this.record.set(null);
-      await this.refresh();
-      await this.restore();
+      await this.refreshAndRestore(view);
     }
     return true;
   }
 
-  private reportFailure(error: unknown, fallback: string) {
-    if (!this.current()) return;
+  private reportFailure(error: unknown, fallback: string, view: SourceView) {
+    if (!this.current(view)) return;
     const licenceError = operatingAccessErrorKey(error);
+    const sourceIneligible =
+      error instanceof HttpErrorResponse &&
+      problemCode(error.error) === 'SupplierReturn.SourceIneligible';
     this.access.reportRefusal(error, this.scope);
-    this.error.set(this.securityNotice() ? '' : (licenceError ?? fallback));
+    this.error.set(
+      this.securityNotice()
+        ? ''
+        : (licenceError ?? (sourceIneligible ? 'supplierReturns.sourceIneligible' : fallback)),
+    );
   }
 
   async refreshAccess() {
     if (this.busy()) return;
+    const view = this.view;
     this.busy.set(true);
     try {
       await this.access.refresh();
-      if (this.current() && !this.securityNotice()) await this.refresh();
+      if (this.current(view) && !this.securityNotice()) await this.refreshAndRestore(view);
     } finally {
-      if (this.current()) this.busy.set(false);
+      if (this.current(view)) this.busy.set(false);
     }
   }
 
-  private async send(record: SupplierReturnDraftRecord, recovery: boolean) {
-    const scope = this.scope!;
-    const pending = record.pending!;
-    if (!this.current() || this.securityNotice() || this.printMode || !this.canShip()) return;
+  private async send(
+    attempt: CompletionAttempt,
+    record: SupplierReturnDraftRecord,
+    recovery: boolean,
+  ) {
+    const { view, scope, action, draftKey, target } = attempt;
+    const { operationKey, payload } = record.pending!;
+    if (!this.canRecover(view) || view.print) return;
     const requiresOwner =
-      this.action !== 'shipment' ||
-      ('creditAccepted' in pending.payload && pending.payload.creditAccepted);
+      action !== 'shipment' || ('creditAccepted' in payload && payload.creditAccepted);
     if (requiresOwner && !this.owner()) return;
-    let request: Observable<SupplierReturnDetail | ReceiptReversalResult>;
-    if (this.action === 'shipment')
-      request = this.api.record(scope, pending.payload as SupplierReturnRequest);
-    else if (this.action === 'credit')
-      request = this.api.acceptCredit(
-        scope,
-        this.id,
-        pending.payload as SupplierReturnCreditRequest,
-      );
-    else
-      request = this.group
-        ? this.api.reversePurchaseOrderReceipt(
-            scope,
-            this.group,
-            pending.payload as GroupReceiptReversalRequest,
-          )
-        : this.api.reverseReceipt(scope, this.id, pending.payload as ReceiptReversalRequest);
     try {
-      const result = await firstValueFrom(request);
-      await this.confirm(pending.operationKey, result);
+      const result = await firstValueFrom(this.mutate(attempt, payload));
+      await this.confirm(
+        attempt,
+        operationKey,
+        requireCompletionResult(result, action, target, payload),
+      );
     } catch (error) {
       const settled = await this.drafts.settleFailure(
         scope,
-        this.key,
-        pending.operationKey,
+        draftKey,
+        operationKey,
         error,
         recovery,
       );
-      if (this.current()) {
+      if (this.current(view)) {
         this.record.set(settled.record);
         this.reportFailure(
           error,
           settled.outcome === 'unknown' ? 'supplierReturns.unknown' : 'supplierReturns.rejected',
+          view,
         );
-        if (settled.outcome === 'rejected') await this.refresh();
+        if (settled.outcome === 'rejected') await this.refresh(view);
       }
     }
   }
-  private async confirm(key: string, result: SupplierReturnDetail | ReceiptReversalResult) {
-    await this.drafts.settle(this.scope!, this.key, key, 'confirmed');
-    await this.drafts.clearConfirmed(this.scope!, this.key, key);
-    if (!this.current()) return;
+
+  private mutate(
+    attempt: CompletionAttempt,
+    payload: SupplierReturnMutationPayload,
+  ): Observable<SupplierReturnDetail | ReceiptReversalResult> {
+    const { scope, action, target, view } = attempt;
+    if (action === 'shipment') return this.api.record(scope, payload as SupplierReturnRequest);
+    if (action === 'credit')
+      return this.api.acceptCredit(scope, target, payload as SupplierReturnCreditRequest);
+    return view.group
+      ? this.api.reversePurchaseOrderReceipt(scope, target, payload as GroupReceiptReversalRequest)
+      : this.api.reverseReceipt(scope, target, payload as ReceiptReversalRequest);
+  }
+
+  private async confirm(
+    attempt: CompletionAttempt,
+    key: string,
+    result: SupplierReturnDetail | ReceiptReversalResult,
+  ) {
+    const { scope, draftKey, view, action } = attempt;
+    await this.drafts.settle(scope, draftKey, key, 'confirmed');
+    await this.drafts.clearConfirmed(scope, draftKey, key);
+    if (!this.current(view)) return;
     this.record.set(null);
     this.status.set('supplierReturns.saved');
-    if ('returnId' in result && this.action === 'shipment') {
+    if ('returnId' in result && action === 'shipment') {
       await this.router.navigate(['/supplier-returns', result.returnId]);
-    } else await this.refresh();
+    } else await this.refresh(view);
   }
   print() {
     window.print();

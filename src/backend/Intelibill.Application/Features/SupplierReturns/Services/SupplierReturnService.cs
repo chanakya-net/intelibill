@@ -94,7 +94,7 @@ public sealed class SupplierReturnService(
                 var accepted=await creditPoster.PostAsync(document,document.Lines.Select(x=>new SupplierReturnCreditLineInput(x.Id,x.ProposedCreditAmount)).ToArray(),actor,request.Reason,request.SupplierReference,auth.Value,rows,token);
                 if(accepted.IsError) return accepted.Errors;
             }
-            if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, request.SupplierId, clock) is { } denied) return denied;
+            if (SupplierReturnPolicy.CheckCompletion(lease.Value, rows, request.SupplierId, clock, document) is { } denied) return denied;
             try { await uow.SaveChangesAsync(token); } catch(DbUpdateConcurrencyException) { return VersionConflict; }
             return Map(document);
         },ct);
@@ -111,12 +111,15 @@ public sealed class SupplierReturnService(
         var validation=CreditValidator.Validate(request);
         if(!validation.IsValid) return validation.Errors.Select(x=>Error.Validation("SupplierReturn.InvalidRequest",x.ErrorMessage)).ToList();
         if(request.Lines is null || request.Lines.Count is <1 or >100) return Invalid("LinesInvalid","Every return line requires an agreed amount.");
-        var source=await returns.GetDetailAsync(shopId,id,ct); if(source is null) return Error.NotFound("SupplierReturn.NotFound","Supplier return was not found.");
         var canonical=request with {OperationKey="",Reason=request.Reason.Trim(),SupplierReference=request.SupplierReference?.Trim(),Lines=request.Lines.OrderBy(x=>x.ReturnLineId).Select(x=>x with{AcceptedAmount=FinancialOperationHasher.NormalizeAmount(x.AcceptedAmount)}).ToArray()};
         return await executor.ExecuteAsync<SupplierReturnDetailDto>(new(shopId,FinancialOperationType.SupplierReturnCredit,valid.Value) { SuspensionAction = LicenceAction.SourceCorrection },actor,id,FinancialOperationHasher.Compute(new{id,request=canonical}),async token=>
         {
             var lease = await licence.EnterAsync(shopId, LicenceAction.SourceCorrection, token);
             if (lease.IsError) return lease.Errors;
+            if (lease.Value.CurrentDecision().EnforcedDenial() is { } admissionDenial) return admissionDenial;
+            var source = await returns.GetDetailAsync(shopId, id, token);
+            if (lease.Value.CurrentDecision().EnforcedDenial() is { } sourceDenial) return sourceDenial;
+            if (source is null) return Error.NotFound("SupplierReturn.NotFound", "Supplier return was not found.");
             var ids=source.Lines.Select(x=>x.ReceiptValueId).ToArray();
             var locked=await FenceAndLock(auth.Value,source.SupplierId,ids,token); if(locked.IsError) return locked.Errors;
             if(await locks.LockReturnAsync(shopId,id,token)!=RowLockOutcome.Acquired) return Conflict("Busy","Supplier return is busy. Retry this operation.");

@@ -4,6 +4,7 @@ import { session, startPurchaseReceivingServer } from './purchase-receiving-serv
 import type {
   PurchaseReceiptDetail,
   SupplierReturnDetail,
+  SupplierReturnDraftRecord,
 } from '../../../src/app/features/supplier-returns/services/supplier-return.models';
 const RECEIPT = 'receipt-one';
 const RETURN = 'return-one';
@@ -97,6 +98,13 @@ async function setup(page: Page, role = 'Owner') {
     (value) => localStorage.setItem('inventory.auth.session.local', JSON.stringify(value)),
     value,
   );
+}
+
+async function chooseReversal(page: Page, name = 'Reverse receipt lot') {
+  const button = page.getByRole('button', { name, exact: true });
+  await button.click();
+  await expect(button).toHaveAttribute('aria-pressed', 'true');
+  await expect(button).toBeEnabled();
 }
 test(
   'pending shipment, acceptance, paid supplier credit and immutable print',
@@ -276,12 +284,14 @@ test('owner grouped reversal sends every lot version', async ({ page }) => {
   await page.route('**/api/purchase-order-receipts/group-one/reversal', (r) => {
     expect(r.request().postDataJSON().lines).toHaveLength(2);
     reversed = true;
-    return json(r, { lots: [] });
+    return json(r, {
+      lots: [reversalOutcome(RECEIPT).lots[0], reversalOutcome('receipt-two').lots[0]],
+    });
   });
   await page.goto(
     `${server.origin}/purchase-receipts/${RECEIPT}?group=group-one&lots=${RECEIPT},receipt-two`,
   );
-  await page.getByRole('button', { name: 'Reverse entire receipt group', exact: true }).click();
+  await chooseReversal(page, 'Reverse entire receipt group');
   await page.getByRole('textbox', { name: 'Reason', exact: true }).fill('Wrong entire delivery');
   await page.getByRole('textbox', { name: 'Reason', exact: true }).press('Tab');
   await page.getByRole('button', { name: 'Confirm full receipt reversal' }).click();
@@ -442,7 +452,7 @@ test('restricted detail actions follow source eligibility and shop role', async 
   );
   await expect(page.getByRole('spinbutton', { name: /Quantity.*≤ 0/ })).toBeDisabled();
   await expect(page.getByRole('spinbutton', { name: /Quantity.*≤ 6/ })).toBeEnabled();
-  await page.getByRole('button', { name: 'Reverse entire receipt group' }).click();
+  await chooseReversal(page, 'Reverse entire receipt group');
   await expect(page.getByText(/Lot B: Full reversal unavailable/)).toBeVisible();
   await page.getByRole('textbox', { name: 'Reason', exact: true }).fill('Incorrect delivery');
   await expect(page.getByRole('button', { name: 'Confirm full receipt reversal' })).toBeDisabled();
@@ -555,4 +565,292 @@ test('frozen completion survives denied lookup and recovers the matching outcome
     'Outcome requests: POST, GET denied, GET mismatched, GET matched. No additional POST.',
   );
   await page.screenshot({ path: info.outputPath('supplier-return-recovered.png') });
+});
+
+const REVIEW_RECEIPT_A = 'a1000000-0000-4000-8000-000000000001';
+const REVIEW_RECEIPT_B = 'b1000000-0000-4000-8000-000000000002';
+const reversalOutcome = (id: string) => ({
+  lots: [
+    {
+      reversalId: 'reversal-one',
+      receiptValueId: id,
+      quantity: 10,
+      effectiveAmount: 1000,
+      stockTransactionId: 'reversal-movement',
+      supplierLedgerEntryId: 'reversal-ledger',
+      reversedAt: '2026-11-07T13:00:00Z',
+      reason: 'Incorrect delivery',
+    },
+  ],
+});
+
+async function openUncertainReversal(page: Page, id: string) {
+  page.setDefaultTimeout(5000);
+  await setup(page);
+  const posts: string[] = [];
+  let key = '';
+  await page.route('**/api/purchase-receipts/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (route.request().method() === 'POST') {
+      posts.push(path);
+      key = route.request().postDataJSON().operationKey;
+      return route.abort('connectionfailed');
+    }
+    const target = path.split('/').pop()!.toLowerCase();
+    return json(route, {
+      ...receipt(target),
+      batchNumber: target === REVIEW_RECEIPT_A ? 'Review lot A' : 'Review lot B',
+      reversalEligibilityReasons: [],
+    });
+  });
+  await page.goto(`${server.origin}/purchase-receipts/${id}`);
+  await chooseReversal(page);
+  const reason = page.getByRole('textbox', { name: 'Reason', exact: true });
+  await reason.fill('Incorrect delivery');
+  await reason.press('Tab');
+  await page.getByRole('button', { name: 'Confirm full receipt reversal' }).click();
+  const recover = page.getByRole('button', { name: 'Check / retry saved operation' });
+  await expect(recover).toBeEnabled();
+  await expect.poll(() => posts.length).toBe(1);
+  return { recover, posts, key: () => key };
+}
+
+async function storedSupplierReturnIntent(page: Page, storageTarget: string) {
+  return (await storedSupplierReturnDraft(page, storageTarget))?.pending ?? null;
+}
+
+async function storedSupplierReturnDraft(page: Page, storageTarget: string) {
+  return page.evaluate(async (target) => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const open = indexedDB.open('intelibill-supplier-returns', 2);
+      open.onsuccess = () => resolve(open.result);
+      open.onerror = () => reject(open.error);
+    });
+    try {
+      return await new Promise<SupplierReturnDraftRecord | null>((resolve, reject) => {
+        const request = db.transaction('drafts').objectStore('drafts').getAll();
+        request.onsuccess = () =>
+          resolve(request.result.find((value) => value.targetId === target) ?? null);
+        request.onerror = () => reject(request.error);
+      });
+    } finally {
+      db.close();
+    }
+  }, storageTarget);
+}
+
+test('same-route navigation cancels a delayed recovery retry and preserves its original intent', async ({
+  page,
+}, info) => {
+  const { recover, posts, key } = await openUncertainReversal(page, REVIEW_RECEIPT_A);
+  const original = await storedSupplierReturnIntent(page, 'reversal:' + REVIEW_RECEIPT_A);
+  const lookupStarted = Promise.withResolvers<void>();
+  const releaseLookup = Promise.withResolvers<void>();
+  await page.route('**/api/financial-operations/**', async (route) => {
+    lookupStarted.resolve();
+    await releaseLookup.promise;
+    await json(route, { code: 'Operation.NotFound' }, 404);
+  });
+  await recover.click();
+  await lookupStarted.promise;
+  try {
+    await page.evaluate((target) => {
+      history.pushState(history.state, '', '/purchase-receipts/' + target);
+      dispatchEvent(new PopStateEvent('popstate', { state: history.state }));
+    }, REVIEW_RECEIPT_B);
+    const delivered = page.waitForResponse('**/api/financial-operations/**');
+    releaseLookup.resolve();
+    expect((await delivered).status()).toBe(404);
+    await expect(page.locator('tbody tr').first()).toContainText('Review lot B');
+    await expect(recover).toHaveCount(0);
+    expect(posts).toEqual(['/api/purchase-receipts/' + REVIEW_RECEIPT_A + '/reversal']);
+    const preserved = await storedSupplierReturnIntent(page, 'reversal:' + REVIEW_RECEIPT_A);
+    expect(preserved?.operationKey).toBe(key());
+    expect(preserved?.payload).toEqual(original?.payload);
+    expect(await storedSupplierReturnIntent(page, 'reversal:' + REVIEW_RECEIPT_B)).toBeNull();
+    await page.screenshot({ path: info.outputPath('modify-1-receipt-b-after-lookup.png') });
+  } finally {
+    releaseLookup.resolve();
+  }
+});
+
+for (const matches of [true, false]) {
+  test(`uppercase receipt link ${matches ? 'confirms the same GUID' : 'keeps a different GUID unresolved'}`, async ({
+    page,
+  }) => {
+    const uppercase = REVIEW_RECEIPT_A.toUpperCase();
+    const { recover, posts, key } = await openUncertainReversal(page, uppercase);
+    let reads = 0;
+    await page.route('**/api/financial-operations/**', (route) => {
+      reads++;
+      const targetId = matches ? REVIEW_RECEIPT_A : REVIEW_RECEIPT_B;
+      return json(route, {
+        operationType: 'purchase-receipt-reversal',
+        operationKey: key(),
+        targetId,
+        response: reversalOutcome(targetId),
+      });
+    });
+    const lookedUp = page.waitForResponse('**/api/financial-operations/**');
+    await recover.click();
+    expect((await lookedUp).status()).toBe(200);
+    if (matches) await expect(page.getByText('Saved successfully')).toBeVisible();
+    else {
+      await expect(recover).toBeEnabled();
+      await expect(
+        page.getByRole('alert').filter({ hasText: /outcome is uncertain/i }),
+      ).toBeVisible();
+    }
+    expect(reads).toBe(1);
+    expect(posts).toHaveLength(1);
+    const stored = await storedSupplierReturnIntent(page, 'reversal:' + uppercase);
+    if (matches) expect(stored).toBeNull();
+    else expect(stored?.operationKey).toBe(key());
+  });
+}
+
+test('matching recovery envelope requires a usable result for the frozen source', async ({
+  page,
+}) => {
+  const { recover, posts, key } = await openUncertainReversal(page, REVIEW_RECEIPT_A);
+  const responses = [{}, reversalOutcome(REVIEW_RECEIPT_B), reversalOutcome(REVIEW_RECEIPT_A)];
+  let reads = 0;
+  await page.route('**/api/financial-operations/**', (route) =>
+    json(route, {
+      operationType: 'purchase-receipt-reversal',
+      operationKey: key(),
+      targetId: REVIEW_RECEIPT_A,
+      response: responses[reads++],
+    }),
+  );
+  for (let index = 0; index < 2; index++) {
+    const lookedUp = page.waitForResponse('**/api/financial-operations/**');
+    await recover.click();
+    expect((await lookedUp).status()).toBe(200);
+    await expect(recover).toBeEnabled();
+    await expect(
+      page.getByRole('alert').filter({ hasText: /outcome is uncertain/i }),
+    ).toBeVisible();
+    expect(
+      (await storedSupplierReturnIntent(page, 'reversal:' + REVIEW_RECEIPT_A))?.operationKey,
+    ).toBe(key());
+    expect(posts).toHaveLength(1);
+  }
+  await recover.click();
+  await expect(page.getByText('Saved successfully')).toBeVisible();
+  expect(await storedSupplierReturnIntent(page, 'reversal:' + REVIEW_RECEIPT_A)).toBeNull();
+  expect(reads).toBe(3);
+  expect(posts).toHaveLength(1);
+});
+
+test('release restores the selected shipment lot and initializes pending credit amounts', async ({
+  page,
+}, info) => {
+  page.setDefaultTimeout(5000);
+  await setup(page);
+  let suspended = false;
+  const lot = (id: string) => ({
+    ...receipt(id),
+    batchNumber: id === RECEIPT ? 'Lot A' : 'Lot B',
+  });
+  await page.route('**/api/licensing/shops/*/trading-authority', (route) =>
+    json(
+      route,
+      { code: suspended ? 'Licence.SecuritySuspended' : 'Licence.Expired', enforced: true },
+      403,
+    ),
+  );
+  await page.route('**/api/purchase-receipts/**', (route) => {
+    const id = route.request().url().split('/').pop()!;
+    return json(route, lot(id));
+  });
+  await page.route('**/api/supplier-returns/preview', (route) =>
+    json(route, {
+      lines: route
+        .request()
+        .postDataJSON()
+        .lines.map((line: { receiptValueId: string; quantity: number }) => ({
+          ...lot(line.receiptValueId),
+          suggestedCreditAmount: line.quantity * 100,
+        })),
+    }),
+  );
+  await page.route('**/api/supplier-returns/' + RETURN, (route) => json(route, returned()));
+  await page.goto(
+    `${server.origin}/purchase-receipts/${RECEIPT}?group=group-one&lots=${RECEIPT},receipt-two`,
+  );
+  const first = page.getByRole('checkbox', { name: /Lot A/ });
+  const second = page.getByRole('checkbox', { name: /Lot B/ });
+  const secondLot = page.locator('.lot-inputs').filter({ has: second });
+  const quantity = secondLot.getByRole('spinbutton', { name: /Quantity/ });
+  const amount = secondLot.getByRole('spinbutton', { name: 'Proposed credit amount' });
+  await expect(first).toBeEnabled();
+  await first.uncheck({ timeout: 5000 });
+  await quantity.fill('2');
+  await quantity.press('Tab');
+  await expect(amount).toHaveValue('200');
+  await amount.fill('175.50');
+  const reason = page.getByRole('textbox', { name: 'Reason', exact: true });
+  await reason.fill('Return only the second lot');
+  await reason.press('Tab');
+  await expect
+    .poll(async () => (await storedSupplierReturnDraft(page, 'shipment:group-one'))?.draft.payload)
+    .toMatchObject({
+      reason: 'Return only the second lot',
+      lines: [
+        expect.objectContaining({
+          receiptValueId: 'receipt-two',
+          quantity: 2,
+          proposedCreditAmount: 175.5,
+        }),
+      ],
+    });
+
+  suspended = true;
+  await page.reload();
+  const reload = page.getByRole('button', { name: 'Try again', exact: true }).last();
+  await expect(reload).toBeEnabled();
+  await expect(second).toHaveCount(0);
+  suspended = false;
+  await reload.click();
+  await expect(second).toBeChecked();
+  await expect(first).not.toBeChecked();
+  await expect(quantity).toHaveValue('2');
+  await expect(amount).toHaveValue(/175\.5/);
+  await page.screenshot({ path: info.outputPath('modify-1-restored-second-lot.png') });
+
+  suspended = true;
+  await page.goto(`${server.origin}/supplier-returns/${RETURN}`);
+  await expect(reload).toBeEnabled();
+  suspended = false;
+  await reload.click();
+  await expect(page.getByRole('spinbutton', { name: 'Frozen rice', exact: true })).toHaveValue(
+    '300',
+  );
+});
+
+test('fresh source-ineligible refusal explains recorded chronology and retains fields', async ({
+  page,
+}, info) => {
+  await setup(page);
+  let posts = 0;
+  await page.route('**/api/purchase-receipts/**', (route) => json(route, receipt()));
+  await page.route('**/api/supplier-returns', (route) => {
+    posts++;
+    return json(route, { code: 'SupplierReturn.SourceIneligible' }, 409);
+  });
+  await page.goto(`${server.origin}/purchase-receipts/${RECEIPT}`);
+  const quantity = page.getByRole('spinbutton', { name: /Quantity/ });
+  const reason = page.getByRole('textbox', { name: 'Reason', exact: true });
+  await quantity.fill('3');
+  await reason.fill('Chronology correction');
+  await page.getByRole('button', { name: 'Record supplier shipment', exact: true }).last().click();
+  await expect(
+    page.getByRole('alert').filter({ hasText: /recorded receipt or shipment dates/i }),
+  ).toBeVisible();
+  await expect(quantity).toHaveValue('3');
+  await expect(reason).toHaveValue('Chronology correction');
+  expect(posts).toBe(1);
+  await expect(page.getByRole('button', { name: 'Check / retry saved operation' })).toHaveCount(0);
+  await page.screenshot({ path: info.outputPath('modify-1-source-refusal.png') });
 });

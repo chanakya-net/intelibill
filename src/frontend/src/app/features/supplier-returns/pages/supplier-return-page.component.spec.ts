@@ -70,7 +70,9 @@ describe('Supplier return completion eligibility', () => {
         { provide: OperatingAccessHintService, useValue: { blockingMessage: denial } },
         {
           provide: ActivatedRoute,
-          useValue: { snapshot: { queryParamMap: convertToParamMap({}) } },
+          useValue: {
+            snapshot: { paramMap: convertToParamMap({}), queryParamMap: convertToParamMap({}) },
+          },
         },
         { provide: Router, useValue: {} },
         { provide: ShopContextService, useValue: {} },
