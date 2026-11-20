@@ -275,6 +275,9 @@
           [attr.aria-label]="'customers.recordPayment' | transloco"
         >
           <h3>{{ 'customers.account.recordPayment' | transloco }}</h3>
+          @if (!pendingPayment() && pendingNotice() === 'financialOperations.confirmed') {
+            <p role="status">{{ 'financialOperations.confirmed' | transloco }}</p>
+          }
           @if (pendingPayment(); as pending) {
             <app-pending-financial-operation
               [intent]="pending"
@@ -284,25 +287,39 @@
               (retry)="onRetryPendingPayment()"
             />
           } @else {
-            <form [formGroup]="paymentForm" class="statement-payment-form">
-              <label>
-                <span>{{ 'customers.account.amount' | transloco }}</span>
-                <p-inputgroup [pt]="currencyGroupPt">
-                  <p-inputgroup-addon [pt]="currencyAddonPt">{{
-                    'common.currencySymbol' | transloco
-                  }}</p-inputgroup-addon>
-                  <p-inputNumber
-                    formControlName="amount"
-                    [ariaDescribedBy]="
-                      accountFieldError('amount') ? 'account-amount-error' : undefined
-                    "
-                    [invalid]="!!accountFieldError('amount')"
-                    mode="decimal"
-                    [min]="0.01"
-                    [pt]="accountAmountInputPt()"
-                  />
-                </p-inputgroup>
-              </label>
+            <form
+              [formGroup]="paymentForm"
+              class="statement-payment-form"
+              [class.statement-payment-form--with-limit]="settlementLimit() !== null || settlementPreview().status === 'unavailable'"
+            >
+              <div>
+                <label>
+                  <span>{{ 'customers.account.amount' | transloco }}</span>
+                  <p-inputgroup [pt]="currencyGroupPt">
+                    <p-inputgroup-addon [pt]="currencyAddonPt">{{
+                      'common.currencySymbol' | transloco
+                    }}</p-inputgroup-addon>
+                    <p-inputNumber
+                      formControlName="amount"
+                      [ariaDescribedBy]="
+                        accountFieldError('amount') ? 'account-amount-error' : settlementLimit() !== null ? 'account-payment-limit' : undefined
+                      "
+                      [invalid]="!!accountFieldError('amount')"
+                      mode="decimal"
+                      [min]="0.01"
+                      [pt]="accountAmountInputPt()"
+                    />
+                  </p-inputgroup>
+                </label>
+                @if (settlementLimit() !== null) {
+                  <p id="account-payment-limit" class="m-0 text-sm" role="status" data-testid="settlement-limit">
+                    {{ 'paymentSettlement.remainingDue' | transloco }} {{ settlementLimit() | localeMoney }}
+                  </p>
+                } @else if (settlementPreview().status === 'unavailable') {
+                  <p role="alert">{{ 'paymentSettlement.unavailable' | transloco }}</p>
+                  <button type="button" (click)="refreshSettlementPreview()">{{ 'financialOperations.pending.check' | transloco }}</button>
+                }
+              </div>
               <label>
                 <span>{{ 'customers.account.paymentDate' | transloco }}</span>
                 <input
@@ -394,7 +411,7 @@
               <p-button
                 [label]="'customers.account.submitPayment' | transloco"
                 icon="pi pi-check"
-                [disabled]="paymentForm.invalid || submittingPayment()"
+                [disabled]="paymentForm.invalid || submittingPayment() || !paymentAllowed()"
                 [loading]="submittingPayment()"
                 (click)="onRecordPayment()"
               />
@@ -473,6 +490,14 @@
           </section>
         }
 
+        @if (isOwner() && accountReceiptIds().length > 0) {
+          <app-till-pending-actions
+            action="payment-reversal"
+            [targets]="accountReceiptIds()"
+            (pendingTargetsChange)="lockedReversalIds.set($event)"
+            (confirmed)="onReversalRecovered()"
+          />
+        }
         @if (selectedAccountReceipts().length > 0) {
           <section
             class="statement-ledger"
@@ -537,7 +562,7 @@
                       </td>
                       @if (isOwner()) {
                         <td>
-                          @if (!receipt.isReversed && reversingReceiptId() !== receipt.receiptId) {
+                          @if (!receipt.isReversed && reversingReceiptId() !== receipt.receiptId && !lockedReversalIds().includes(receipt.receiptId)) {
                             <p-button
                               [label]="'customers.account.reverse' | transloco"
                               severity="danger"
@@ -553,13 +578,8 @@
                       <tr class="statement-reversal-row">
                         <td [attr.colspan]="isOwner() ? 7 : 6">
                           <div class="statement-reversal">
-                            <app-till-pending-actions
-                              action="payment-reversal"
-                              [target]="receipt.receiptId"
-                              (lockedChange)="tillReversalLocked.set($event)"
-                            />
                             <app-till-posting-fields
-                              [disabled]="tillReversalLocked()"
+                              [disabled]="lockedReversalIds().includes(receipt.receiptId)"
                               #reversalTill
                               [evidence]="true"
                               direction="MoneyPaid"
@@ -581,7 +601,7 @@
                               severity="danger"
                               size="small"
                               [loading]="submittingReversal()"
-                              [disabled]="submittingReversal()"
+                              [disabled]="submittingReversal() || lockedReversalIds().includes(receipt.receiptId)"
                               (click)="onConfirmReversal()"
                             />
                             <p-button

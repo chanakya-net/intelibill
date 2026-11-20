@@ -33,16 +33,15 @@
         (checkStatus)="onCheckPendingPayment()"
         (retry)="onRetryPendingPayment()"
       />
-    } @else {
-      <app-supplier-payment-form
-        [targetId]="supplier.supplierId"
-        class="ib-overlay__form"
-        [submitting]="isSubmitting()"
-        [serverError]="serverError()"
-        [maxDate]="today"
-        (paymentSubmitted)="onPaymentSubmitted($event)"
-        (cancelled)="onClose()"
-      />
     }
+    <app-supplier-payment-form
+      [hidden]="!!pendingPayment()"
+      [targetId]="supplier.supplierId"
+      class="ib-overlay__form"
+      [submitting]="isSubmitting()"
+      [serverError]="serverError()"
+      (paymentSubmitted)="onPaymentSubmitted($event)"
+      (cancelled)="onClose()"
+    />
   </div>
 </section>

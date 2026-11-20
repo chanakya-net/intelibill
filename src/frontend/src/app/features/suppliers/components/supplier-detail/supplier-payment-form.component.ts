@@ -1,5 +1,6 @@
 import { TillPendingActionsComponent } from '../../../tills/components/till-pending-actions.component';
-import { signal } from '@angular/core';
+import { computed, inject, input, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ViewChild } from '@angular/core';
 import { TillPostingFieldsComponent } from '../../../tills/components/till-posting-fields.component';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
@@ -19,7 +20,16 @@ import {
   CURRENCY_INPUT_GROUP_PT,
   CURRENCY_INPUT_NUMBER_PT,
 } from '../../../../shared/primeng-pt.config';
-import { formatLocalIsoDate } from '../../../../shared/utils/date-time.util';
+import {
+  PaymentSettlementPreviewService,
+  canSubmitPayment,
+  shopPaymentDate,
+} from '../../../../core/services/payment-settlement-preview.service';
+import { LocaleMoneyPipe } from '../../../../shared/pipes/locale-money.pipe';
+import {
+  parseDateOnlyAsLocalDate,
+  formatLocalIsoDate,
+} from '../../../../shared/utils/date-time.util';
 
 @Component({
   selector: 'app-supplier-payment-form',
@@ -33,6 +43,7 @@ import { formatLocalIsoDate } from '../../../../shared/utils/date-time.util';
     InputGroupModule,
     InputNumberModule,
     InputTextModule,
+    LocaleMoneyPipe,
     ProgressSpinnerModule,
     ReactiveFormsModule,
     TranslocoPipe,
@@ -45,10 +56,10 @@ export class SupplierPaymentFormComponent {
   readonly currencyAddonPt = CURRENCY_ADDON_PT;
   readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
 
-  @Input() targetId = '';
-  @Input() submitting = false;
-  @Input() serverError: string | null = null;
-  @Input() maxDate = new Date();
+  readonly targetId = input('');
+  readonly submitting = input(false);
+  readonly serverError = input<string | null>(null);
+  @Input() maxDate = parseDateOnlyAsLocalDate(shopPaymentDate());
 
   @Output() readonly paymentSubmitted = new EventEmitter<MakePaymentRequest>();
   @Output() readonly cancelled = new EventEmitter<void>();
@@ -63,7 +74,7 @@ export class SupplierPaymentFormComponent {
   }
   readonly form = new FormGroup({
     amount: new FormControl<number | null>(null, [Validators.required, Validators.min(0.01)]),
-    paymentDate: new FormControl<Date>(new Date(), {
+    paymentDate: new FormControl<Date>(parseDateOnlyAsLocalDate(shopPaymentDate()), {
       nonNullable: true,
       validators: [Validators.required],
     }),
@@ -73,21 +84,55 @@ export class SupplierPaymentFormComponent {
     }),
   });
 
+  private readonly amount = toSignal(this.form.controls.amount.valueChanges, {
+    initialValue: null,
+  });
+  private readonly paymentDate = toSignal(this.form.controls.paymentDate.valueChanges, {
+    initialValue: this.form.controls.paymentDate.value,
+  });
+  private readonly refresh = signal(0);
+  readonly settlementPreview = inject(PaymentSettlementPreviewService).watch(
+    'Supplier',
+    this.targetId,
+    computed(() => {
+      const date = this.paymentDate();
+      return date ? formatLocalIsoDate(date) : '';
+    }),
+    computed(() => ({
+      refresh: this.refresh(),
+      submitting: this.submitting(),
+      error: this.serverError(),
+    })),
+  );
+  readonly settlementLimit = computed(() => {
+    const preview = this.settlementPreview();
+    return preview.status === 'ready' ? preview.limit : null;
+  });
+  readonly paymentAllowed = computed(() =>
+    canSubmitPayment(this.settlementPreview(), this.amount() ?? 0),
+  );
+
+  refreshSettlementPreview(): void {
+    this.refresh.update((revision) => revision + 1);
+  }
+
   onCancel(): void {
-    if (this.tillLocked() || this.submitting) {
+    if (this.tillLocked() || this.submitting()) {
       return;
     }
     this.cancelled.emit();
   }
 
   onSubmit(): void {
-    if (this.tillLocked() || this.submitting) {
+    if (this.tillLocked() || this.submitting()) {
       return;
     }
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
     }
+
+    if (!this.paymentAllowed()) return;
 
     const paymentDate = this.form.controls.paymentDate.value;
 

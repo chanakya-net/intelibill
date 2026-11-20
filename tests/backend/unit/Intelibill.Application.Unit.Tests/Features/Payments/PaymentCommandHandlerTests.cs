@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Posting;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -46,10 +47,14 @@ public class PaymentCommandHandlerTests
 
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private readonly IExpenseRepository _expenses = Substitute.For<IExpenseRepository>();
+    private PaymentCompletionPolicy CompletionPolicy() => new PaymentCompletionPolicy(_balances, Substitute.For<ICustomerLedgerEntryRepository>(),
+                Substitute.For<ISupplierLedgerEntryRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock());
+
     private ReversePaymentCommandHandler ReverseHandler() => new(
         _users, _receipts, Substitute.For<ICustomerLedgerEntryRepository>(), Substitute.For<ISupplierLedgerEntryRepository>(),
         _expenses, new PaymentTransactionRunner(_executor, _unitOfWork), Builder(), _unitOfWork,
-        BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), BusinessTestDoubles.DisabledTillSettlement());
+        BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), BusinessTestDoubles.DisabledTillSettlement(),
+        Substitute.For<IShopLicenceFence>(), CompletionPolicy());
 
     [Fact]
     public async Task Reverse_SuspendedOwner_IsRefusedBeforeReplay()
@@ -98,7 +103,8 @@ public class PaymentCommandHandlerTests
         var staff = Member(ShopRole.Staff);
         var receipt = StoredReceipt();
         var handler = new AllocatePaymentCommandHandler(
-            _users, _receipts, new PaymentAllocationPlanner(_balances), new PaymentTransactionRunner(_executor, _unitOfWork), Builder(), _unitOfWork);
+            _users, _receipts, new PaymentAllocationPlanner(_balances), new PaymentTransactionRunner(_executor, _unitOfWork), Builder(), _unitOfWork,
+            Substitute.For<IShopLicenceFence>(), CompletionPolicy());
 
         var result = await handler.HandleAsync(
             new AllocatePaymentCommand(staff.Id, _shop.Id, receipt.Id, [new PaymentAllocationRequest(Guid.NewGuid(), 10m)]),

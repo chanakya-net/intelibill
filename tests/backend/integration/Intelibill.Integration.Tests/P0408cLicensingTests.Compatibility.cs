@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Intelibill.Domain.Common;
 using Intelibill.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,7 +29,7 @@ public sealed partial class P0408cLicensingTests
         var returnSource = await ReceiveStockAsync(owner, supplier, 1000m);
         var payment = new
         {
-            amount = 500m, paymentDate = DateOnly.FromDateTime(_clock.Now.UtcDateTime),
+            amount = 500m, paymentDate = BusinessCalendar.DateOf(_clock.Now),
             operationKey = $"supplier-test-{Guid.NewGuid():N}", method = "BankTransfer",
             allocations = new[] { new { targetId = payable, amount = 500m } },
         };

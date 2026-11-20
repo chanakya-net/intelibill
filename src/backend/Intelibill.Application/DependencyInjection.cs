@@ -79,6 +79,7 @@ public static class DependencyInjection
         services.AddScoped<IPaymentAllocationPlanner, PaymentAllocationPlanner>();
         services.AddScoped<IPaymentTransactionRunner, PaymentTransactionRunner>();
         services.AddScoped<PaymentReceiptDtoBuilder>();
+        services.AddScoped<PaymentCompletionPolicy>();
 
         services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationPolicy>();
         services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationService>();

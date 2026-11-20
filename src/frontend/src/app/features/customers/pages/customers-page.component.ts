@@ -39,6 +39,12 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { TagModule } from 'primeng/tag';
 import { TableModule } from 'primeng/table';
 
+import {
+  PaymentSettlementPreviewService,
+  SETTLEMENT_ERROR_KEYS,
+  canSubmitPayment,
+  shopPaymentDate,
+} from '../../../core/services/payment-settlement-preview.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import {
   FinancialOperationIntent,
@@ -78,7 +84,6 @@ import {
   CURRENCY_INPUT_GROUP_PT,
   CURRENCY_INPUT_NUMBER_PT,
 } from '../../../shared/primeng-pt.config';
-import { formatLocalIsoDate } from '../../../shared/utils/date-time.util';
 
 type CustomerStatusFilter = 'all' | 'active' | 'inactive';
 type AccountLedgerFilter = 'all' | 'purchases' | 'payments';
@@ -155,7 +160,6 @@ interface CustomerDirectoryMetric {
 })
 export class CustomersPageComponent {
   readonly tillPaymentLocked = signal(false);
-  readonly tillReversalLocked = signal(false);
   onTillPaymentLocked(locked: boolean) {
     this.tillPaymentLocked.set(locked);
     if (locked) this.paymentForm.disable({ emitEvent: false });
@@ -403,7 +407,7 @@ export class CustomersPageComponent {
 
   readonly paymentForm = this.fb.nonNullable.group({
     amount: [0, [Validators.required, Validators.min(0.01)]],
-    paymentDate: [formatLocalIsoDate(new Date()), Validators.required],
+    paymentDate: [shopPaymentDate(), Validators.required],
     method: ['Cash' as ReceiptTenderMethod, Validators.required],
     externalReference: ['', Validators.maxLength(80)],
     notes: ['', Validators.maxLength(255)],
@@ -414,6 +418,25 @@ export class CustomersPageComponent {
   private readonly paymentFormValue = toSignal(this.paymentForm.valueChanges, {
     initialValue: this.paymentForm.getRawValue(),
   });
+
+  private readonly settlementRefresh = signal(0);
+  readonly settlementPreview = inject(PaymentSettlementPreviewService).watch(
+    'Customer',
+    computed(() => this.selectedAccountCustomer()?.customerId ?? ''),
+    computed(() => this.paymentFormValue().paymentDate ?? ''),
+    this.settlementRefresh,
+  );
+  readonly settlementLimit = computed(() => {
+    const preview = this.settlementPreview();
+    return preview.status === 'ready' ? preview.limit : null;
+  });
+  readonly paymentAllowed = computed(() =>
+    canSubmitPayment(this.settlementPreview(), Number(this.paymentFormValue().amount ?? 0)),
+  );
+
+  refreshSettlementPreview(): void {
+    this.settlementRefresh.update((revision) => revision + 1);
+  }
 
   /** Invoices still owed today, oldest first, with what payments and returns already settled. */
   readonly selectedAccountOpenInvoices = computed(() =>
@@ -431,8 +454,11 @@ export class CustomersPageComponent {
   /** The oldest-first allocation the operator may accept; nothing is allocated unless they tick it. */
   readonly allocationSuggestion = computed(() => {
     const amount = Number(this.paymentFormValue().amount ?? 0);
-    const sales = this.selectedAccount()?.sales ?? [];
-    const allocations = amount > 0 ? suggestOldestFirstAllocations(sales, amount) : [];
+    const sales = (this.selectedAccount()?.sales ?? []).filter((sale) =>
+      this.settlementLimit() === null ||
+      shopPaymentDate(new Date(sale.soldAt)) <= (this.paymentFormValue().paymentDate ?? ''),
+    );
+    const allocations = amount > 0 && this.paymentAllowed() ? suggestOldestFirstAllocations(sales, amount) : [];
     const allocated = allocations.reduce((total, allocation) => total + allocation.amount, 0);
     const invoiceNumbers = new Map(sales.map((sale) => [sale.saleId, sale.invoiceNumber]));
     return {
@@ -453,8 +479,8 @@ export class CustomersPageComponent {
   readonly reversalReason = signal('');
   readonly submittingReversal = signal(false);
   readonly reversalError = signal('');
-  /** One key per receipt until a reversal is confirmed, so a retry after a timeout replays instead of conflicting. */
-  private readonly reversalKeys = new Map<string, string>();
+  readonly accountReceiptIds = computed(() => this.selectedAccountReceipts().map((receipt) => receipt.receiptId));
+  readonly lockedReversalIds = signal<readonly string[]>([]);
 
   constructor() {
     this.customersFacade.loadCustomers();
@@ -524,6 +550,7 @@ export class CustomersPageComponent {
   }
 
   onOpenCustomerAccount(customer: Customer): void {
+    this.pendingNotice.set(null);
     this.selectedAccountCustomer.set(customer);
     this.selectedAccount.set(null);
     this.accountError.set('');
@@ -532,11 +559,13 @@ export class CustomersPageComponent {
     this.showAccountOverlay.set(true);
     this.paymentForm.patchValue({
       amount: 0,
+      paymentDate: shopPaymentDate(),
       notes: '',
       externalReference: '',
       applyOldestFirst: false,
     });
     this.reversingReceiptId.set(null);
+    this.lockedReversalIds.set([]);
     this.loadCustomerAccount(customer.customerId);
   }
 
@@ -551,7 +580,7 @@ export class CustomersPageComponent {
   }
 
   onRecordPayment(): void {
-    if (this.tillPaymentLocked()) return;
+    if (this.tillPaymentLocked() || !this.paymentAllowed()) return;
     if (this.paymentForm.invalid) {
       this.paymentForm.markAllAsTouched();
       return;
@@ -569,6 +598,7 @@ export class CustomersPageComponent {
       return;
     }
 
+    this.pendingNotice.set(null);
     let intent: FinancialOperationIntent<RecordCustomerPaymentRequest>;
     try {
       const controls = this.paymentForm.controls;
@@ -598,7 +628,7 @@ export class CustomersPageComponent {
     this.accountError.set('');
     this.accountLocalizedError.set(undefined);
     this.pendingNotice.set(null);
-    this.sendPayment(customer, intent);
+    this.sendPayment(customer, intent, true);
   }
 
   onCheckPendingPayment(): void {
@@ -629,36 +659,36 @@ export class CustomersPageComponent {
   private sendPayment(
     customer: Customer,
     intent: FinancialOperationIntent<RecordCustomerPaymentRequest>,
+    retry = false,
   ): void {
     this.submittingPayment.set(true);
-    this.intents
-      .send(this.paymentScope(), intent, (payload, operationKey) =>
-        this.customerService.recordCustomerPayment(customer.customerId, {
-          ...payload,
-          operationKey,
-        }),
-      )
-      .subscribe({
-        next: () => {
-          this.paymentForm.patchValue({
-            amount: 0,
-            notes: '',
-            externalReference: '',
-            applyOldestFirst: false,
-          });
-          this.submittingPayment.set(false);
-          this.loadCustomerAccount(customer.customerId);
-          this.customersFacade.loadCustomers();
-        },
-        error: (error) => {
-          this.accountError.set(
-            classifyFinancialOperationFailure(error) === 'uncertain'
-              ? 'financialOperations.outcomeUnknown'
-              : this.accountFeedback(error, 'customers.account.paymentFailed'),
-          );
-          this.submittingPayment.set(false);
-        },
-      });
+    const send = (payload: RecordCustomerPaymentRequest, operationKey: string) =>
+      this.customerService.recordCustomerPayment(customer.customerId, { ...payload, operationKey });
+    const scope = this.paymentScope();
+    const response = retry ? this.intents.retry(scope, intent, send) : this.intents.send(scope, intent, send);
+    response.subscribe({
+      next: () => {
+        if (retry) this.pendingNotice.set('financialOperations.confirmed');
+        this.paymentForm.patchValue({
+          amount: 0,
+          notes: '',
+          externalReference: '',
+          applyOldestFirst: false,
+        });
+        this.submittingPayment.set(false);
+        this.loadCustomerAccount(customer.customerId);
+        this.customersFacade.loadCustomers();
+      },
+      error: (error) => {
+        this.accountError.set(
+          classifyFinancialOperationFailure(error) === 'uncertain'
+            ? 'financialOperations.outcomeUnknown'
+            : this.accountFeedback(error, 'customers.account.paymentFailed'),
+        );
+        this.submittingPayment.set(false);
+        this.refreshSettlementPreview();
+      },
+    });
   }
 
   onStartReversal(receipt: PaymentReceiptSummary): void {
@@ -676,11 +706,10 @@ export class CustomersPageComponent {
   }
 
   onConfirmReversal(): void {
-    if (this.tillReversalLocked()) return;
     const customer = this.selectedAccountCustomer();
     const receiptId = this.reversingReceiptId();
     const reason = this.reversalReason().trim();
-    if (!customer || !receiptId) {
+    if (!customer || !receiptId || this.lockedReversalIds().includes(receiptId)) {
       return;
     }
     if (reason.length < 3) {
@@ -688,8 +717,7 @@ export class CustomersPageComponent {
       return;
     }
 
-    const operationKey = this.reversalKeys.get(receiptId) ?? `reverse-${crypto.randomUUID()}`;
-    this.reversalKeys.set(receiptId, operationKey);
+    const operationKey = `reverse-${crypto.randomUUID()}`;
     let evidence;
     try {
       evidence = this.reversalTill.fields(
@@ -704,18 +732,11 @@ export class CustomersPageComponent {
       .reversePayment(receiptId, { reason, operationKey, ...evidence })
       .subscribe({
         next: () => {
-          this.reversalKeys.delete(receiptId);
           this.submittingReversal.set(false);
-          this.onCancelReversal();
-          this.loadCustomerAccount(customer.customerId);
-          this.customersFacade.loadCustomers();
+          this.onReversalRecovered();
         },
         error: (error) => {
           this.submittingReversal.set(false);
-          if (classifyFinancialOperationFailure(error) !== 'uncertain') {
-            // A definite refusal: a later attempt is a new decision with its own key.
-            this.reversalKeys.delete(receiptId);
-          }
           this.reversalError.set(
             classifyFinancialOperationFailure(error) === 'uncertain'
               ? 'financialOperations.outcomeUnknown'
@@ -723,6 +744,13 @@ export class CustomersPageComponent {
           );
         },
       });
+  }
+
+  onReversalRecovered(): void {
+    this.onCancelReversal();
+    const customer = this.selectedAccountCustomer();
+    if (customer) this.loadCustomerAccount(customer.customerId);
+    this.customersFacade.loadCustomers();
   }
 
   tenderLabelKey(method: ReceiptTenderMethod): string {
@@ -744,6 +772,7 @@ export class CustomersPageComponent {
     this.accountLocalizedError.set(undefined);
     this.accountLoading.set(true);
 
+    this.refreshSettlementPreview();
     this.customerService.getCustomerAccount(customerId).subscribe({
       next: (account) => {
         this.selectedAccount.set(account);
@@ -777,6 +806,7 @@ export class CustomersPageComponent {
   private accountFeedback(error: unknown, fallbackKey: string, reversal = false): string {
     const localized = this.apiErrors.resolve(error, {
       fallbackKey,
+      codeMap: SETTLEMENT_ERROR_KEYS,
       fieldMap: {
         Amount: 'amount',
         PaymentDate: 'paymentDate',

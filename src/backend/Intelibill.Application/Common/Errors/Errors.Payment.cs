@@ -18,6 +18,12 @@ public static partial class Errors
         public static Error Busy =>
             Error.Conflict("Payment.Busy", "Another payment or return for this account is in progress. Refresh and try again.");
 
+        public static Error SettlementLimitExceeded =>
+            Error.Conflict("Payment.SettlementLimitExceeded", "The payment exceeds the remaining eligible due.");
+
+        public static Error SettlementSourceIneligible =>
+            Error.Conflict("Payment.SettlementSourceIneligible", "The source is not eligible for settlement on this date.");
+
         public static Error AlreadyReversed =>
             Error.Conflict("Payment.AlreadyReversed", "This payment has already been reversed.");
 

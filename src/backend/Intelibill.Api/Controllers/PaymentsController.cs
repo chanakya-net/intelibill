@@ -31,13 +31,14 @@ public sealed class PaymentsController(IMessageBus bus) : AuthenticatedControlle
     public async Task<IActionResult> GetBalances(
         [FromQuery] PaymentPartyType partyType,
         [FromQuery] Guid partyId,
+        [FromQuery] DateOnly? paymentDate,
         CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<PartyBalancesDto>>(
-            new GetPartyBalancesQuery(UserId!.Value, ActiveShopId!.Value, partyType, partyId),
+            new GetPartyBalancesQuery(UserId!.Value, ActiveShopId!.Value, partyType, partyId, paymentDate),
             cancellationToken);
 
         return result.ToActionResult(Ok);

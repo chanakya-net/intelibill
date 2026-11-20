@@ -1,3 +1,4 @@
+import { HttpTestingController } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
@@ -347,6 +348,9 @@ describe('SuppliersEffects', () => {
     ledgerService.makePayment.mockReturnValueOnce(of(entry));
     const retried = firstValueFrom(effects.retryPayment$.pipe(take(1)));
     actions$.next(SuppliersActions.retryPaymentRequested({ supplierId: 's1' }));
+    TestBed.inject(HttpTestingController)
+      .expectOne((request) => request.url.endsWith(`/supplier-payment/${firstKey}`))
+      .flush({ code: 'Operation.NotFound' }, { status: 404, statusText: 'Not Found' });
 
     await expect(retried).resolves.toEqual(SuppliersActions.makePaymentSucceeded({ entry }));
     expect(ledgerService.makePayment.mock.calls[1][1]).toEqual({

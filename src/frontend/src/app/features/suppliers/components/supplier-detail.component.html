@@ -73,24 +73,22 @@
         @if (canMakePayment) {
           <section class="editor-dialog-section ib-editor-dialog-section payment-section">
             <h3 class="details-heading">{{ 'suppliers.recordPayment' | transloco }}</h3>
-            @if (paymentErrorMessage()) {
-              <div class="error">{{ paymentErrorMessage() | transloco }}</div>
-            }
             @if (pendingPayment(); as pending) {
               <app-pending-financial-operation
                 [intent]="pending"
                 [busy]="isSubmittingPayment() || isCheckingPayment()"
-                [notice]="pendingNotice()"
+                [notice]="pendingNotice() ?? (paymentErrorMessage() || null)"
                 (checkStatus)="onCheckPendingPayment()"
                 (retry)="onRetryPendingPayment()"
               />
-            } @else {
-              <app-supplier-payment-form
-                [targetId]="currentSupplierId() ?? ''"
-                [submitting]="isSubmittingPayment()"
-                (paymentSubmitted)="onPaymentSubmitted($event)"
-              />
             }
+            <app-supplier-payment-form
+              [hidden]="!!pendingPayment()"
+              [targetId]="currentSupplierId() ?? ''"
+              [submitting]="isSubmittingPayment()"
+              [serverError]="paymentErrorMessage()"
+              (paymentSubmitted)="onPaymentSubmitted($event)"
+            />
           </section>
         }
       </div>

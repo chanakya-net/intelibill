@@ -1,3 +1,4 @@
+import { PaymentSettlementPreviewService } from '../../../core/services/payment-settlement-preview.service';
 import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { disabledTillProviders } from '../../../../tests/tills/disabled-till.providers';
@@ -186,12 +187,14 @@ describe('CustomersPageComponent', () => {
     navigate: vi.fn().mockResolvedValue(true),
   };
 
+  const settlementPreview = signal({ status: 'ready' as const, limit: null as number | null });
   const blockingMessage = signal<string | null>(null);
   let fixture: ComponentFixture<CustomersPageComponent>;
   let component: CustomersPageComponent;
 
   beforeEach(async () => {
     blockingMessage.set(null);
+    settlementPreview.set({ status: 'ready', limit: null });
     facade.loadCustomers.mockClear();
     facade.loadDirectory.mockClear();
     facade.clearError.mockClear();
@@ -273,6 +276,7 @@ describe('CustomersPageComponent', () => {
       providers: [
         { provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } },
         ...disabledTillProviders(),
+        { provide: PaymentSettlementPreviewService, useValue: { watch: () => settlementPreview } },
         { provide: CustomersFacade, useValue: facade },
         { provide: OperatingAccessHintService, useValue: {
           blockingMessage, scope: signal(null), checking: signal(false),

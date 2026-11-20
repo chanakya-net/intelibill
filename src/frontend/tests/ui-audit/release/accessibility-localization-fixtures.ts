@@ -286,6 +286,7 @@ export async function accessibilityFixtures(page: Page) {
         overdueAmount: 0,
         requiresOverride: false,
       });
+    if (path === '/api/payments/balances') return json(r, { remainingSettlementDue: null });
     if (path.endsWith('/account'))
       return json(r, {
         ...CUSTOMER,

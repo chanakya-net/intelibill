@@ -256,7 +256,12 @@ describe('Till dispatch remains owned by its invocation epoch', () => {
             (r) => r.method === 'GET' && r.url.endsWith('/supplier-payment/original-k1'),
           ),
         )
-      ).flush({ response: { id: 'confirmed' } });
+      ).flush({
+        operationType: 'supplier-payment',
+        operationKey: 'original-k1',
+        targetId: 'party',
+        response: { id: 'confirmed' },
+      });
       expect(await recovered).toEqual({ id: 'confirmed' });
       http.expectNone((r) => r.method === 'POST');
     },

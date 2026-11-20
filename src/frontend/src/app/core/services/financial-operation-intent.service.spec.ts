@@ -139,6 +139,31 @@ describe('FinancialOperationIntentService', () => {
     expect(corrected.operationKey).not.toBe(intent.operationKey);
   });
 
+  it('preserves an unknown key when a later retry is denied', async () => {
+    const intent = service.prepare(shopA, 'customer-payment', 'customer-1', payload);
+    const lost = () => throwError(() => new HttpErrorResponse({ status: 0 }));
+    await expect(firstValueFrom(service.send(shopA, intent, lost))).rejects.toBeTruthy();
+
+    const reloaded = freshService();
+    const pending = reloaded.pending<PaymentPayload>(shopA, 'customer-payment', 'customer-1')!;
+    const denied = () => throwError(() => new HttpErrorResponse({ status: 403 }));
+    await expect(firstValueFrom(reloaded.send(shopA, pending, denied))).rejects.toBeTruthy();
+    expect(reloaded.pending(shopA, 'customer-payment', 'customer-1')?.operationKey).toBe(intent.operationKey);
+  });
+
+  it('retains the stored intent when a lookup answers for a different target', async () => {
+    const http = TestBed.inject(HttpTestingController);
+    const intent = service.prepare(shopA, 'customer-payment', 'customer-1', payload);
+    const outcome = firstValueFrom(service.check(shopA, intent));
+    http.expectOne((request) => request.url.endsWith(intent.operationKey)).flush({
+      operationType: 'customer-payment', operationKey: intent.operationKey, targetId: 'other',
+      response: { receiptId: 'other-receipt' },
+    });
+    await expect(outcome).rejects.toThrow('Payment outcome does not match the stored operation.');
+    expect(service.pending(shopA, 'customer-payment', 'customer-1')?.operationKey).toBe(intent.operationKey);
+    http.verify();
+  });
+
   it('check clears only after the matching committed receipt is found', async () => {
     const http = TestBed.inject(HttpTestingController);
     const intent = service.prepare(shopA, 'customer-payment', 'customer-1', payload);
@@ -153,7 +178,7 @@ describe('FinancialOperationIntentService', () => {
     const found = firstValueFrom(service.check<{ entryId: string }>(shopA, intent));
     http
       .expectOne((request) => request.url.endsWith(`/financial-operations/customer-payment/${intent.operationKey}`))
-      .flush({ operationKey: intent.operationKey, response: { entryId: 'entry-1' } });
+      .flush({ operationType: 'customer-payment', targetId: 'customer-1', operationKey: intent.operationKey, response: { entryId: 'entry-1' } });
     await expect(found).resolves.toEqual({ entryId: 'entry-1' });
     expect(service.pending(shopA, 'customer-payment', 'customer-1')).toBeNull();
     http.verify();
