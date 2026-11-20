@@ -22,7 +22,7 @@ public class RecordExpenseCommandHandlerTests
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private RecordExpenseCommandHandler CreateHandler() =>
         new(_userRepository, _categoryRepository, _expenseRepository, _postingPeriods, _unitOfWork,
-            new PaymentTransactionRunner(Substitute.For<IFinancialOperationExecutor>(), _unitOfWork), BusinessTestDoubles.DisabledTillSettlement());
+            new PaymentTransactionRunner(Substitute.For<IFinancialOperationExecutor>(), _unitOfWork), BusinessTestDoubles.DisabledTillSettlement(), Substitute.For<Intelibill.Application.Common.Licensing.IShopLicenceFence>());
 
     private static RecordExpenseCommand CreateCommand(Guid userId, Guid shopId) =>
         new(userId, shopId, "Office Supplies", 250m, "Stationery Store", "Printer paper", new DateOnly(2026, 4, 15));

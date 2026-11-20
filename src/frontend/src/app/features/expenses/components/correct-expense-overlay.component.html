@@ -125,7 +125,16 @@
         ></p-datePicker>
       </label>
 
-      @if (serverError()) {
+      @if (access.blockingMessage() && !securityBlocked()) {
+        <p class="ib-overlay__hint" role="note" data-testid="restricted-correction-hint">
+          {{ 'expenses.restrictedCorrectionHint' | transloco }}
+        </p>
+      }
+      @if (securityBlocked()) {
+        <p class="ib-overlay__error" role="alert">{{ 'billing.status.suspension.enforcedSecurity' | transloco }}</p>
+      }
+
+      @if (serverError() && !securityBlocked()) {
         <p class="ib-overlay__error">{{ serverError() | transloco: localizedError()?.params ?? {} }}</p>
       }
 
@@ -142,7 +151,7 @@
           pButton
           type="submit"
           [label]="'expenses.correctExpense' | transloco"
-          [disabled]="isSubmitting()"
+          [disabled]="isSubmitting() || securityBlocked()"
         ></button>
       </div>
       <app-till-pending-actions

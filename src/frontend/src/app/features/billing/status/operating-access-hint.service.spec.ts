@@ -68,6 +68,23 @@ describe('OperatingAccessHintService', () => {
     expect(gate.blockingMessage()).toBeNull();
   });
 
+  it.each([true, false])('uses the refreshed security decision when enforced is %s', async (enforced) => {
+    const code = 'Licence.SecuritySuspended';
+    const securityMessage = 'billing.status.suspension.enforcedSecurity';
+    gate.reportRefusal(new HttpErrorResponse({ status: 403, error: { code } }), context.scope());
+    expect(gate.blockingMessage()).toBe(securityMessage);
+
+    const refresh = gate.refresh();
+    request(http).flush({ code, enforced }, { status: 403, statusText: 'Forbidden' });
+    expect(await refresh).toBe(true);
+    expect(gate.blockingMessage()).toBe(enforced ? securityMessage : null);
+
+    const released = gate.refresh();
+    request(http).flush({ code: 'Licence.Expired', enforced: true }, { status: 403, statusText: 'Forbidden' });
+    expect(await released).toBe(true);
+    expect(gate.blockingMessage()).toBe('billing.status.tradingAuthority.expired');
+  });
+
   it('keeps definition decisions independent of checkout and exposes retryable Busy', () => {
     const checkout = TestBed.inject(SaleLicenceGateService);
     const busy = new HttpErrorResponse({ status: 409, error: { code: 'Licence.Busy' } });

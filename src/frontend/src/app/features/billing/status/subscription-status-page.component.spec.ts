@@ -135,11 +135,14 @@ describe('subscription status', () => {
       .toContain('10 Feb 2027, 05:30:00 IST');
   });
 
-  it('shows the local restriction without an observe-only notice when commercial status is unavailable', () => {
+  it.each([
+    ['restricted', en.billing.status.tradingAuthority.restricted],
+    ['securitySuspended', en.billing.status.suspension.enforcedSecurity],
+  ] as const)('shows the local %s restriction when commercial status is unavailable', (failure, message) => {
     const commercialStatus = new Subject<ShopSubscriptionStatus>();
     const { fixture, page } = render({
       shop: () => commercialStatus,
-      tradingAuthority: () => throwError(() => new TradingAuthorityReadError('restricted')),
+      tradingAuthority: () => throwError(() => new TradingAuthorityReadError(failure, true)),
     });
     const observeOnly = '[data-testid="observe-only"]';
     expect(page.querySelector('[role="status"]')?.textContent).toContain(en.common.loading);
@@ -150,8 +153,7 @@ describe('subscription status', () => {
 
     expect(page.querySelector('[data-testid="verification-unavailable"]')?.textContent)
       .toContain(en.billing.status.unavailable);
-    expect(page.querySelector('[data-testid="trading-authority-restricted"]')?.textContent)
-      .toContain(en.billing.status.tradingAuthority.restricted);
+    expect(page.querySelector(`[data-testid="trading-authority-${failure}"]`)?.textContent).toContain(message);
     expect(page.querySelector(observeOnly)).toBeNull();
   });
 

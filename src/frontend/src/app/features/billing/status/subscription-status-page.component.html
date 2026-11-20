@@ -25,6 +25,7 @@
               @case ('scope') { {{ 'billing.status.scope' | transloco }} }
               @case ('session') { {{ 'billing.status.session' | transloco }} }
               @case ('denied') { {{ 'billing.status.denied' | transloco }} }
+              @case ('securitySuspended') { {{ 'billing.status.suspension.enforcedSecurity' | transloco }} }
               @default { {{ 'billing.status.tradingAuthority.' + local.failure | transloco }} }
             }
           </p>

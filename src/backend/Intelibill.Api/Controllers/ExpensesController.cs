@@ -28,6 +28,7 @@ public sealed class ExpensesController : AuthenticatedControllerBase
     [HttpPost]
     [Authorize(Policy = "OwnerOrManager")]
     [LicenceAction(LicenceAction.NewTrading)]
+    [SuspensionAtSource(CheckRecovery = true)]
     public async Task<IActionResult> RecordExpense([FromBody] RecordExpenseRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
