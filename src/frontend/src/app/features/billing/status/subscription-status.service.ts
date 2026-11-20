@@ -29,7 +29,10 @@ export class SubscriptionStatusService {
 
   tradingAuthority(shopId: string): Observable<ShopTradingAuthority> {
     return this.http.get<ShopTradingAuthority>(`${API_BASE_URL}/licensing/shops/${encodeURIComponent(shopId)}/trading-authority`)
-      .pipe(catchError(error => throwError(() => new TradingAuthorityReadError(authorityFailure(error), readEnforcement(error)))));
+      .pipe(catchError((error: unknown) => {
+        const enforced = readEnforcement(error);
+        return throwError(() => new TradingAuthorityReadError(authorityFailure(error, enforced), enforced));
+      }));
   }
 
   /** Every page of the account's terms, in order: a list is never silently truncated. */
@@ -57,12 +60,13 @@ function statusFailure(error: unknown): StatusFailure {
     : status === 403 ? 'denied' : 'unavailable';
 }
 
-function authorityFailure(error: unknown): TradingAuthorityFailure {
+function authorityFailure(error: unknown, enforced?: boolean): TradingAuthorityFailure {
   if (error instanceof HttpErrorResponse) {
     const code = problemCode(error.error);
     if (error.status === 403) {
       if (code === 'Licence.Expired') return 'expired';
-      if (code === 'Licence.TradingRestricted' || code === 'Licence.SecuritySuspended') return 'restricted';
+      if (code === 'Licence.TradingRestricted') return 'restricted';
+      if (code === 'Licence.SecuritySuspended') return enforced === true ? 'securitySuspended' : 'restricted';
       if (code === 'Licence.PendingActivation') return 'pending';
     }
     if (error.status === 409 && code === 'Licence.Busy') return 'busy';

@@ -7,6 +7,7 @@ import { session, SHOP_A, startPurchaseReceivingServer } from './purchase-receiv
 
 const BUILD = resolve(__dirname, '../../../dist/INVENTORY/browser');
 const EXPIRED = 'This shop’s trading access has ended.';
+const SECURITY = 'Security suspension is enforced for this shop.';
 const INELIGIBLE = /must keep the original payee/;
 const DESKTOP = { width: 1440, height: 900 };
 const MOBILE = { width: 390, height: 844 };
@@ -35,12 +36,15 @@ async function installFixture(page: Page) {
     return json(route, body, status);
   };
 
-  await page.route('**/api/licensing/shops/*/trading-authority', (route) => state.phase === 'verified'
-    ? respond(route, {
+  await page.route('**/api/licensing/shops/*/trading-authority', (route) => {
+    if (state.phase === 'verified')
+      return respond(route, {
         schemaVersion: 1, shopId: SHOP_A, enforced: true, authorityVerifiedAt: new Date().toISOString(),
         validUntil: new Date(Date.now() + 3600_000).toISOString(),
-      }, 200)
-    : respond(route, { status: 403, code: 'Licence.Expired', enforced: true }, 403, 'Licence.Expired'));
+      }, 200);
+    const code = state.phase === 'security' ? 'Licence.SecuritySuspended' : 'Licence.Expired';
+    return respond(route, { status: 403, code, enforced: true }, 403, code);
+  });
   await page.route('**/api/expenses/categories', (route) => respond(route, [{ id: 'cat-1', name: 'Rent' }], 200));
   await page.route(/\/api\/expenses(?:\?.*)?$/, (route) => {
     if (route.request().method() === 'POST') {
@@ -151,17 +155,47 @@ test('P04-09 stale form keeps its draft when the server refuses a new expense at
   await expect(page.getByRole('button', { name: /Correct$/ }).first()).toBeEnabled();
 });
 
-test('security suspension refuses an open correction without offering a retry', async ({ page }) => {
+test('authority refresh keeps security suspension in force until release', async ({ page }, info) => {
   await page.goto(server.origin + '/expenses');
-  await page.getByRole('button', { name: /Correct$/ }).first().click();
+  const correct = page.getByRole('button', { name: /Correct$/ }).first();
+  await correct.click();
   const dialog = page.getByRole('dialog');
-  fixture.state.phase = 'security';
+  const cancel = dialog.getByRole('button', { name: /Cancel/i });
   const submit = dialog.getByRole('button', { name: /^Correct|Save|Submit/ }).last();
+  const eligibility = dialog.getByTestId('restricted-correction-hint');
+  const notice = page.locator('app-definition-access-notice');
+  const refresh = () => {
+    const response = page.waitForResponse((res) => res.url().endsWith('/trading-authority'));
+    return Promise.all([response, notice.getByRole('button', { name: 'Check again' }).click()]);
+  };
+
+  fixture.state.phase = 'security';
   await submit.click();
-  await expect(dialog.getByText('Security suspension is enforced for this shop.')).toBeVisible();
-  await expect(dialog.getByTestId('restricted-correction-hint')).toHaveCount(0);
+  await expect(dialog.getByText(SECURITY)).toBeVisible();
+  await expect(eligibility).toHaveCount(0);
+  await expect(submit).toBeDisabled();
+  await cancel.click();
+
+  const [suspended] = await refresh();
+  expect(await suspended.json()).toMatchObject({ code: 'Licence.SecuritySuspended', enforced: true });
+  await expect(notice.getByRole('alert')).toHaveText(SECURITY);
+  await correct.click();
+  await expect(dialog.getByText(SECURITY)).toBeVisible();
+  await expect(eligibility).toHaveCount(0);
   await expect(submit).toBeDisabled();
   expect(fixture.posts()).toHaveLength(1);
+  await page.screenshot({ path: info.outputPath('security-suspension-after-refresh.png') });
+  await cancel.click();
+
+  fixture.state.phase = 'expired';
+  const [released] = await refresh();
+  expect(await released.json()).toMatchObject({ code: 'Licence.Expired', enforced: true });
+  await expect(notice.getByRole('alert')).toHaveText(EXPIRED);
+  await expect(record(page)).toBeDisabled();
+  await correct.click();
+  await expect(dialog.getByText(SECURITY)).toHaveCount(0);
+  await expect(eligibility).toBeVisible();
+  await expect(submit).toBeEnabled();
 });
 
 test('Hindi guidance and correction conflict are readable', async ({ page }) => {

@@ -107,7 +107,7 @@ export function isShopTradingAuthority(value: unknown, shopId: string): value is
   return start !== null && end !== null && end > start && end - start <= MAX_AUTHORITY_TICKS;
 }
 
-export type TradingAuthorityFailure = StatusFailure | 'expired' | 'restricted' | 'pending' | 'busy';
+export type TradingAuthorityFailure = StatusFailure | 'expired' | 'restricted' | 'securitySuspended' | 'pending' | 'busy';
 
 export const BILLING_TIME_ZONE = 'Asia/Kolkata';
 

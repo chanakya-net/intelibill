@@ -82,6 +82,10 @@ export abstract class OperatingAccessHint {
   }
 
   private applyReadDenial(scope: ShopScope, failure: TradingAuthorityFailure): boolean {
+    if (failure === 'securitySuspended') {
+      this.denial.set({ scope, key: OPERATING_ACCESS_ERROR_KEYS['Licence.SecuritySuspended'] });
+      return true;
+    }
     if (failure === 'expired' || failure === 'restricted' || failure === 'pending' || failure === 'unavailable') {
       this.denial.set({ scope, key: messagePrefix + failure });
       return true;
