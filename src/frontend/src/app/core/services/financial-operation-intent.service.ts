@@ -57,9 +57,9 @@ const STORAGE_KEY = 'intelibill.financial-operation-intents.v1';
  * `prepare` writes the frozen payload and a fresh operation key to storage before anything is
  * sent; if that write fails it throws and nothing is sent. Every retry replays that stored payload
  * under the same key, so the server's receipt scope (shop, type, key) converges duplicates to one
- * posting. A transport loss, timeout, 429 or 5xx leaves the intent `unknown`; only a matching
- * committed result (a 2xx answer or a found lookup) or a definitive refusal clears it. An intent
- * is only ever sent from the user and shop that created it.
+ * posting. A matching committed result or definitive refusal clears the intent. An uncertain
+ * failure leaves it `unknown`, and a later authorization refusal preserves it because access
+ * may have been denied before the receipt was checked. Only the original user and shop can send it.
  */
 @Injectable({ providedIn: 'root' })
 export class FinancialOperationIntentService {
@@ -144,8 +144,9 @@ export class FinancialOperationIntentService {
 
   /**
    * Sends the stored payload with its key. Refuses, without sending, an intent from another scope.
-   * Success clears the intent; a definitive refusal discards it (a corrected payment is a new
-   * action); anything else marks it `unknown`. The original error is always rethrown.
+   * Success or a definitive refusal clears the intent so a corrected payment can be entered.
+   * An uncertain failure or an authorization refusal during recovery keeps it `unknown`.
+   * The original error is always rethrown.
    */
   send<TPayload, TResponse>(
     scope: FinancialOperationScope,
@@ -160,12 +161,12 @@ export class FinancialOperationIntentService {
       return sender(intent.payload, intent.operationKey).pipe(
         tap(() => this.remove(intent.operationKey)),
         catchError((error: unknown) => {
-          const prior = this.read()[intent.operationKey];
-          if (
-            !recovering &&
-            prior?.status !== 'unknown' &&
-            classifyFinancialOperationFailure(error) === 'rejected'
-          ) {
+          const authorizationDenied =
+            error instanceof HttpErrorResponse &&
+            (error.status === 401 || error.status === 403);
+          const preserveAfterDenial =
+            authorizationDenied && (recovering || this.read()[intent.operationKey]?.status === 'unknown');
+          if (classifyFinancialOperationFailure(error) === 'rejected' && !preserveAfterDenial) {
             this.remove(intent.operationKey);
           } else {
             this.markUnknown(intent.operationKey);

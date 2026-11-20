@@ -151,6 +151,30 @@ describe('FinancialOperationIntentService', () => {
     expect(reloaded.pending(shopA, 'customer-payment', 'customer-1')?.operationKey).toBe(intent.operationKey);
   });
 
+  it('clears an unknown intent when a same-key retry exceeds the remaining due', async () => {
+    const http = TestBed.inject(HttpTestingController);
+    const intent = service.prepare(shopA, 'customer-payment', 'customer-1', payload);
+    const lost = () => throwError(() => new HttpErrorResponse({ status: 0 }));
+    await expect(firstValueFrom(service.send(shopA, intent, lost))).rejects.toMatchObject({ status: 0 });
+
+    const pending = service.pending<PaymentPayload>(shopA, 'customer-payment', 'customer-1')!;
+    expect(pending.status).toBe('unknown');
+    const conflict = new HttpErrorResponse({
+      status: 409,
+      error: { code: 'Payment.SettlementLimitExceeded' },
+    });
+    const sender = vi.fn(() => throwError(() => conflict));
+    const retry = firstValueFrom(service.retry(shopA, pending, sender));
+    http
+      .expectOne((request) => request.url.endsWith(`/financial-operations/customer-payment/${intent.operationKey}`))
+      .flush({}, { status: 404, statusText: 'Not Found' });
+
+    await expect(retry).rejects.toBe(conflict);
+    expect(sender).toHaveBeenCalledExactlyOnceWith(payload, intent.operationKey);
+    expect(service.pending(shopA, 'customer-payment', 'customer-1')).toBeNull();
+    http.verify();
+  });
+
   it('retains the stored intent when a lookup answers for a different target', async () => {
     const http = TestBed.inject(HttpTestingController);
     const intent = service.prepare(shopA, 'customer-payment', 'customer-1', payload);

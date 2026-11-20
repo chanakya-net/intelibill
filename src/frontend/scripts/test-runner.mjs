@@ -22,14 +22,10 @@ if (runIndex !== -1) {
     command = 'bun';
     commandArgs = ['test', includePath, ...forwardedArgs];
   } else {
-    // Leading positional paths are includes. Leave Angular options and their values intact.
-    const includes = [includePath];
-    while (forwardedArgs.length && !forwardedArgs[0].startsWith('-')) {
-      includes.push(forwardedArgs.shift());
-    }
     commandArgs = [
       'test',
-      ...includes.flatMap((path) => ['--include', normalizeIncludePath(path)]),
+      '--include',
+      normalizeIncludePath(includePath),
       '--watch=false',
       ...forwardedArgs,
     ];
