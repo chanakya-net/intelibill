@@ -39,6 +39,8 @@ internal sealed class P0302Fixture(P0213Fixture delivery, P0201Clock checkout) :
         GRANT SELECT ON public.active_operational_restrictions TO licensing_runtime;
         GRANT SELECT, INSERT ON public.operational_closures, public.operational_closure_targets,
             public.operational_closure_proposals, public.operational_closure_consent_notices TO licensing_runtime;
+        GRANT SELECT, INSERT ON public.operational_closure_reopenings TO licensing_runtime;
+        GRANT SELECT ON public.active_operational_closure_targets, public.applied_entitlement_shop_receipts TO licensing_runtime;
         GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.receive_gateway_inbox_event(uuid,text,text,text,text,text,text,text,text,bytea,bytea,timestamptz) TO licensing_runtime;
         GRANT EXECUTE ON FUNCTION public.claim_gateway_inbox_event(timestamptz,uuid) TO licensing_runtime;

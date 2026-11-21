@@ -4,8 +4,7 @@ namespace Intelibill.Licensing.Application.Status;
 
 public interface IEntitlementSynchronizationReader
 {
-    Task<IReadOnlyDictionary<Guid, EntitlementSynchronizationV1>> ReadAsync(Guid account, Guid[] shops, CancellationToken ct,
-        Guid? closure = null);
+    Task<IReadOnlyDictionary<Guid, EntitlementSynchronizationV1>> ReadAsync(Guid account, Guid[] shops, CancellationToken ct);
 }
 
 internal static class EntitlementSynchronization

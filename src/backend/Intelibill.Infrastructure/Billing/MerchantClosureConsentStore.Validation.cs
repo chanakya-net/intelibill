@@ -129,7 +129,7 @@ internal sealed partial class MerchantClosureConsentStore
     private static bool ValidScope(ClosureValidationV1 request) =>
         request.AccountId != Guid.Empty && request.ProposalId != Guid.Empty && request.Challenge != Guid.Empty &&
         request.Targets is { Length: > 0 and <= ShopClosuresV1.MaxTargets } targets &&
-        targets.All(row => row.ShopId != Guid.Empty && row.AffiliationRequestId != Guid.Empty && row.ClosureVersion is 0 or 1) &&
+        targets.All(row => row.ShopId != Guid.Empty && row.AffiliationRequestId != Guid.Empty && row.ClosureVersion >= 0) &&
         targets.Select(row => row.ShopId).Distinct().Count() == targets.Length &&
         request.ScopeDigest == SignedServiceAssertion.Digest(JsonSerializer.SerializeToUtf8Bytes(targets, Json));
 

@@ -75,7 +75,8 @@ public sealed partial class P0403Tests
                     public.operational_restriction_deliveries, public.operational_restriction_releases,
                     public.operational_restriction_release_deliveries TO licensing_runtime;
                 GRANT SELECT ON public.active_operational_restrictions, public.operational_closures,
-                    public.operational_closure_targets TO licensing_runtime;
+                    public.operational_closure_targets, public.active_operational_closure_targets TO licensing_runtime;
+                GRANT SELECT, INSERT ON public.operational_closure_reopenings TO licensing_runtime;
                 """);
         }
 

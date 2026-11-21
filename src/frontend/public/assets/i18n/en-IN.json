@@ -3319,6 +3319,12 @@
     "searchHint": "Up to 20 matches are shown. Refine your search to find another party."
   },
   "billing": {
+    "reopening": {
+      "received": "Reopening decision received by the merchant service.",
+      "reopenedAt": "Reopening saved at {{time}}.",
+      "applied": "Reopening applied at this shop.",
+      "pending": "Awaiting confirmation from the merchant service."
+    },
     "closure": {
       "shopTitle": "Close this shop",
       "accountTitle": "Billing account closure",

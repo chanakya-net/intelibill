@@ -97,6 +97,11 @@ internal sealed class P0206Fixture : IAsyncDisposable
     internal async Task GrantAsync(string email, params string[] capabilities)
     {
         using var owner = await SignInOwnerAsync();
+        await GrantAsync(owner, email, capabilities);
+    }
+
+    internal static async Task GrantAsync(P0110CookieBrowser owner, string email, params string[] capabilities)
+    {
         using var list = await owner.SendAsync(HttpMethod.Get, Users);
         Assert.Equal(HttpStatusCode.OK, list.StatusCode);
         using var body = JsonDocument.Parse(await list.Content.ReadAsStringAsync());

@@ -33,10 +33,13 @@ public sealed class ReadSubscriptionStatusHandler(
             var commercial = await store.HoldsCommercialRoleAsync(coverage.AccountId, scope.ActorId, token);
             var sync = await synchronization.ReadAsync(coverage.AccountId, [shop], token);
             var suspension = await suspensions.ReadCustomerAsync(coverage.AccountId, shop, at, token);
+            var closure = await closures.ReadShopClosureStatusAsync(coverage.AccountId, shop, token);
             return SubscriptionStatusProjection.Shop(shop, at, coverage, commercial, sync.GetValueOrDefault(shop)) with
             {
                 Suspension = suspension,
-                ClosedAt = await closures.ClosedAtAsync(coverage.AccountId, shop, token),
+                ClosedAt = closure.ClosedAt,
+                ReopenedAt = closure.ReopenedAt,
+                ReopeningRequiredRevision = closure.ReopeningRevision,
             };
         }, ct);
     }

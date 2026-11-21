@@ -42,7 +42,7 @@ public sealed record ClosureDeviceV1(string Reference, DateTimeOffset LastContac
 public sealed record ShopClosureConfirmationV1(Guid OperationKey, long ExpectedVersion, long OwnerVersion, string WorkDigest,
     bool ReviewedKnownWork, bool ConsideredDeviceQueues, string FinancialTreatment)
 {
-    public bool IsValid() => OperationKey != Guid.Empty && ExpectedVersion is 0 or 1 && OwnerVersion >= 0 &&
+    public bool IsValid() => OperationKey != Guid.Empty && ExpectedVersion >= 0 && OwnerVersion >= 0 &&
         ShopClosuresV1.IsDigest(WorkDigest) && ReviewedKnownWork && ConsideredDeviceQueues &&
         FinancialTreatment == ShopClosuresV1.FinancialTreatment;
 }
@@ -106,4 +106,7 @@ public sealed record ProviderClosureV1(Guid Id, string Scope, DateTimeOffset Sav
     ProviderClosureShopV1[] Shops);
 
 public sealed record ProviderClosureShopV1(Guid ShopId, string ShopName, string Propagation,
-    long? SavedShopRevision, long? AppliedShopRevision, DateTimeOffset? AcknowledgedAt);
+    long? SavedShopRevision, long? AppliedShopRevision, DateTimeOffset? AcknowledgedAt,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ProviderReopeningV1? Reopening = null);
+
+public sealed record ProviderReopeningV1(Guid Id, DateTimeOffset ReopenedAt, string Propagation);

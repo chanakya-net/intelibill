@@ -54,13 +54,17 @@ public static class EntitlementConsumer
             return false;
         var suspension = SavedSuspension(saved.SuspensionMode, saved.SuspensionEffectiveAt, saved.SuspensionExplanation);
         if (incoming.Revision > saved.Revision)
-            return (saved.State == ShopClosuresV1.Closed && incoming.State != ShopClosuresV1.Closed) ||
+            return (saved.State == ShopClosuresV1.Closed && incoming.State != ShopClosuresV1.Closed
+                    && !(incoming.ReopenedRevision >= saved.Revision)) ||
+                (incoming.ClosureRevision != saved.ClosureRevision &&
+                    !(incoming.ClosureRevision > saved.Revision)) ||
+                ReleaseConflicts(incoming.ReopenedRevision, saved.ReopenedRevision, saved.Revision) ||
                 (suspension is not null && incoming.Suspension != suspension && !(incoming.ReleasedRevision >= saved.Revision)) ||
                 ReleaseConflicts(incoming.ReleasedRevision, saved.ReleasedRevision, saved.Revision) ||
                 StampConflicts(incoming.UpstreamVerifiedAt, issuedAt, saved.UpstreamVerifiedAt, previousIssuedAt);
         return incoming != new ShopEntitlementSnapshotV1(saved.Revision, saved.UpstreamVerifiedAt, saved.State,
             saved.TermId, saved.Basis, saved.StartsAt, saved.AccessEndsAt, saved.NextBoundary, saved.ShopCapacity,
-            saved.MemberAllowance, suspension, saved.ReleasedRevision);
+            saved.MemberAllowance, suspension, saved.ReleasedRevision, saved.ReopenedRevision, saved.ClosureRevision);
     }
 
     // A repeated cutoff preserves the previously accepted release. An advancing cutoff must cover the retained head.

@@ -559,3 +559,58 @@ P0311 backend tests and the gated Chromium acceptance harness use fixed-clock de
 ## P03 payment acceptance gate
 
 Use the [P03 acceptance index](../tests/licensing/acceptance/p03-payments.md) for the finite R01–R21 PostgreSQL, adapter, consumer and shipping Chromium checks, including original-provider recovery and immutable confirmations across Applying/Applied. Preserve every original provider pin, key and uncertain operation. Local simulator/HTTP/script fixtures do not establish provider credentials, supported hosted methods, receiving-account behavior or webhook reachability; those human launch inputs remain unexecuted. Passing this gate authorizes no live charge, production activation or enforcement. The P03-11 quiesced writer cutover, zero-missing-confirmation gate and rollback/retention restrictions above still apply.
+
+## Reviewed shop reopening
+
+Use a quiesced cutover for every licensing snapshot publisher. The new provider
+and merchant migrations may be installed before the cutover. They preserve
+existing signed payloads and the gate initially refuses new reopening reviews.
+
+1. Apply merchant migration `20261121120000_ProjectClosureReopenings` and deploy
+   current merchant API readers everywhere. Refresh their runtime grants. Earlier
+   merchant readers reject snapshots carrying reopening and closure revisions.
+2. Pause licensing ingress and stop all legacy licensing API replicas and workers
+   that publish snapshots, including payment fulfilment, affiliation and
+   reconciliation workloads. Drain their in-flight transactions. Confirm that
+   no old publisher remains in the deployment or can restart. Retain the outbox
+   and recorded receipts.
+3. Apply licensing migration `20261121120000_OperationalClosureReopenings`, refresh
+   the runtime grants and deploy the current licensing APIs and workers. Record
+   the deployed versions for every publisher.
+4. As the licensing schema owner, enable review and the database publisher fence
+   in one transaction. A timeout or SQL failure leaves the gate closed.
+
+   ```sql
+   BEGIN;
+   SET LOCAL lock_timeout = '5s';
+   UPDATE public.reopening_publisher_cutover SET enabled = true WHERE singleton;
+   COMMIT;
+   ```
+
+5. Resume licensing ingress and workers after the update commits. Verify a current
+   reconciliation delivery and its signed receipt. The compatibility check on
+   each legacy insert takes a shared row lock until its transaction ends. The
+   gate waits for those writes and then PostgreSQL rejects future legacy
+   snapshot inserts and rolls back their enclosing source writes. Retained
+   pre-cutover jobs can still deliver their original signed bytes.
+
+The gate is one-way for the installed migration. Once a decision exists, retain
+the migrations and a compatible fleet on rollback. If compatible binaries are
+unavailable, keep licensing publishers paused while restoring them. The licensing
+downgrade rejects retained decisions, and the merchant downgrade rejects applied
+reopening evidence. The cutover enables review only. Production enforcement
+enrollment is still controlled by its existing gates.
+
+A Licensing Manager reviews active coverage and records the current shop
+owner's explicit request for the specific shop and closure. Retain the source
+in the review system and enter the owner user ID, consent time, review reference,
+and evidence identifying the request. Provider audit retains this
+reviewer-verified evidence and the capability and MFA context. Reopening uses the
+existing term and preserves any suspension.
+
+Each reviewed target has its own receipt status. Reviewing one of several
+closures leaves the shop closed. Once the last closure is reviewed, the signed
+snapshot carries the cutoff authorizing the merchant projection to open. The
+merchant reports receipt separately from enforcement and allows a fresh closure
+review for the reopened cycle. A signed receipt confirms the provider history
+only when it proves the shop applied a snapshot in that decision's cycle.

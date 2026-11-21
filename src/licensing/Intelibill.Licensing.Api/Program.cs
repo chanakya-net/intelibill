@@ -99,6 +99,7 @@ public sealed class Program
         app.MapComplimentaryGrants();
         app.MapTrialExtensions();
         app.MapSuspensions();
+        app.MapReopenings();
         app.MapAdminManualPayments();
         app.MapAdminPaymentConfirmations();
         app.MapPaymentProviders();

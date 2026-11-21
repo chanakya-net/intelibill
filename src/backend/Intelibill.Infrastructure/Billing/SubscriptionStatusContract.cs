@@ -7,6 +7,10 @@ internal static class SubscriptionStatusContract
 {
     internal static bool IsValidShop(ShopSubscriptionStatusV1 status, Guid shop) =>
         status is { SchemaVersion: SubscriptionStatusV1.SchemaVersion, ObserveOnly: true, EnforcedSuspensionMode: null }
+        && status is { ReopeningEnforced: null, ReopeningReceived: null, ReopenedVersion: null }
+        && (status.ReopenedAt is { } reopened
+            ? EntitlementSnapshotsV1.IsInstant(reopened) && status.ReopeningRequiredRevision > 1
+            : status.ReopeningRequiredRevision is null)
         && status.ShopId == shop && status.PaymentVerification == SubscriptionStatusV1.NotAvailable
         && status.EntitlementSynchronization == (status.Synchronization?.State ?? SubscriptionStatusV1.NotAvailable)
         && IsValidSynchronization(status.Synchronization)

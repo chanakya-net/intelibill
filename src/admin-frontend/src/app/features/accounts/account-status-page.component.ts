@@ -40,6 +40,7 @@ export class AccountStatusPageComponent {
   protected readonly closures = signal<readonly ProviderClosure[] | null>(null);
   protected readonly closureUnavailable = signal(false);
   protected readonly closureStates = {
+    Superseded: 'Superseded without merchant acknowledgement',
     Pending: 'Pending merchant acknowledgement', Applied: 'Acknowledged by merchant service', NeedsReview: 'Needs review',
   };
   protected readonly outcome = signal<Outcome>('idle');

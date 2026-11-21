@@ -1,0 +1,98 @@
+<main class="admin-form-page">
+  <a routerLink="/accounts">Account access status</a>
+  <h1 class="ib-page-title">Shop reopening review</h1>
+  @if (canRead()) {
+    <form class="ib-panel" (submit)="lookup($event)">
+      <label for="reopening-account">Billing account ID</label>
+      <input id="reopening-account" type="text" [value]="account()" (input)="changeAccount($any($event.target).value)" />
+      <button pButton type="submit" [disabled]="busy()">Find closures</button>
+    </form>
+    @if (error(); as message) { <p class="ib-error-banner" role="alert">{{ message }}</p> }
+    @if (pending()) {
+      <section class="ib-panel" aria-label="Unconfirmed reopening">
+        <p>A reopening request is saved in this browser.</p>
+        <button pButton type="button" [disabled]="busy()" (click)="retry()">Retry the same request</button>
+      </section>
+    }
+    @if (saved()) { <p role="status">Reopening decision saved.</p> }
+    @if (rows(); as closures) {
+      <section class="ib-panel" aria-labelledby="reopening-closures">
+        <h2 id="reopening-closures" class="ib-panel__title">Operational closures</h2>
+        <button pButton type="button" [disabled]="busy()" (click)="refresh()">Refresh delivery status</button>
+        @for (closure of closures; track closure.id) {
+          <h3>{{ closure.scope === 'Account' ? 'Billing account closure' : 'Shop closure' }}</h3>
+          <p>Closed {{ format(closure.savedAt) }}</p>
+          <ul>
+            @for (shop of closure.shops; track shop.shopId) {
+              <li>
+                <strong>{{ shop.shopName }}</strong>
+                @if (shop.reopening; as reopening) {
+                  <p data-testid="reopening-propagation">{{ statusLabels[reopening.propagation] }}</p>
+                } @else if (canReview()) {
+                  <button pButton type="button" [disabled]="busy() || !!pending() || invalidDraft()" (click)="preview(closure.id, shop.shopId)">
+                    Review reopening
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        } @empty {
+          <p>No operational closures are recorded for this account.</p>
+        }
+      </section>
+    }
+    @if (impact(); as review) {
+      @if (canReview() && !pending()) {
+        <section class="ib-panel" aria-labelledby="reopening-shop">
+          <h2 id="reopening-shop" class="ib-panel__title">{{ review.shopName }}</h2>
+          <p>Closed {{ format(review.closedAt) }}</p>
+          @if (review.coverage; as coverage) {
+            <p>Current coverage: {{ states[coverage.state] ?? coverage.state }} · {{ bases[coverage.basis ?? ''] ?? 'Basis unavailable' }}</p>
+            <p>Term ends {{ format(coverage.paidThrough) }}</p>
+          }
+          @if (review.survivingSuspension; as suspension) {
+            <p><strong>{{ suspension.mode }} suspension remains in force according to its recorded terms.</strong></p>
+          }
+          @if (review.otherActiveClosures > 0) {
+            <p>The shop stays closed until the other closure has also been reviewed.</p>
+          }
+          <p>No trial is created. Existing subscription deadlines still apply.</p>
+          @if (!review.coverageAdequate) {
+            <p role="status">Reopening requires active coverage other than a trial.</p>
+          } @else {
+            <form [formGroup]="form" (ngSubmit)="confirm()">
+              <label for="reopening-reason">Review reason</label>
+              <textarea id="reopening-reason" formControlName="reason" maxlength="1000"></textarea>
+              @if (form.controls.reason.hasError('unsupportedText')) {
+                <p id="reopening-reason-unsupported" class="ib-error-banner" role="alert">Remove tabs and other control characters. Line breaks are allowed.</p>
+              }
+              <label for="reopening-owner">Current shop owner user ID</label>
+              <input id="reopening-owner" formControlName="ownerConsentUserId" />
+              <label for="reopening-consent-at">Owner consent date and time (IST)</label>
+              <input id="reopening-consent-at" type="datetime-local" step="1" formControlName="ownerConsentAt" />
+              <label for="reopening-reference">Owner consent review reference</label>
+              <input id="reopening-reference" formControlName="ownerConsentReference" maxlength="120" />
+              @if (form.controls.ownerConsentReference.hasError('unsupportedText')) {
+                <p id="reopening-reference-unsupported" class="ib-error-banner" role="alert">Remove tabs and other control characters.</p>
+              }
+              <label for="reopening-evidence">Owner consent evidence</label>
+              <textarea id="reopening-evidence" formControlName="ownerConsentEvidence" maxlength="2000"
+                aria-describedby="reopening-evidence-help"></textarea>
+              <p id="reopening-evidence-help">Record the source and the owner’s explicit request to reopen this shop.</p>
+              @if (form.controls.ownerConsentEvidence.hasError('unsupportedText')) {
+                <p id="reopening-evidence-unsupported" class="ib-error-banner" role="alert">Remove tabs and other control characters. Line breaks are allowed.</p>
+              }
+              <label>
+                <input type="checkbox" formControlName="ownerConsentConfirmed" />
+                I verified the current shop owner’s identity and explicit request to reopen {{ review.shopName }}.
+              </label>
+              <button pButton type="submit" [disabled]="busy() || invalidDraft() || form.invalid">Confirm reopening</button>
+            </form>
+          }
+        </section>
+      }
+    }
+  } @else {
+    <p>Account access status requires Support, Billing or Licensing Manager access.</p>
+  }
+</main>

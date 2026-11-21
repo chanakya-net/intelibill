@@ -14,10 +14,13 @@ internal sealed partial class ClosureStore(LicensingDbContext db, EntitlementPub
     public Task<ClosureTargetV1[]> TargetsAsync(Guid account, Guid? shop, CancellationToken ct) =>
         db.Database.SqlQuery<ClosureTargetV1>($"""
             SELECT a.shop_id, a.request_id AS affiliation_request_id, a.shop_name,
-                CASE WHEN EXISTS (SELECT FROM public.operational_closure_targets t
+                coalesce(s.closure_revision, CASE WHEN EXISTS (SELECT FROM public.active_operational_closure_targets t
                     WHERE t.account_id = a.account_id AND t.shop_id = a.shop_id AND t.affiliation_request_id = a.request_id)
-                    THEN 1::bigint ELSE 0::bigint END AS closure_version
+                    THEN 1::bigint ELSE 0::bigint END) AS closure_version
             FROM public.shop_affiliations a
+            LEFT JOIN public.entitlement_shop_heads h ON h.account_id = a.account_id AND h.shop_id = a.shop_id
+            LEFT JOIN public.entitlement_snapshots s ON s.shop_id = a.shop_id AND s.shop_revision = h.revision
+                AND s.affiliation_request_id = a.request_id AND s.account_id = a.account_id
             WHERE a.account_id = {account} AND ({shop}::uuid IS NULL OR a.shop_id = {shop})
             ORDER BY a.shop_id LIMIT {ShopClosuresV1.MaxTargets + 1}
             """).ToArrayAsync(ct);
@@ -30,9 +33,12 @@ internal sealed partial class ClosureStore(LicensingDbContext db, EntitlementPub
 
     public async Task<ClosureSavedV1> ReadSavedAsync(SavedClosure saved, CancellationToken ct)
     {
+        // Each target keeps the cycle its own publication signed. A publication without one is the first closure.
         var targets = await db.Database.SqlQuery<ClosureTargetV1>($"""
-            SELECT shop_id, affiliation_request_id, shop_name, 1::bigint AS closure_version
-            FROM public.operational_closure_targets WHERE closure_id = {saved.Id} ORDER BY shop_id
+            SELECT t.shop_id, t.affiliation_request_id, t.shop_name, coalesce(s.closure_revision, 1::bigint) AS closure_version
+            FROM public.operational_closure_targets t
+            LEFT JOIN public.entitlement_snapshots s ON s.event_id = t.event_id
+            WHERE t.closure_id = {saved.Id} ORDER BY t.shop_id
             """).ToArrayAsync(ct);
         return new(saved.Id, saved.AccountId, saved.OperationKey, saved.ShopId is null ? "Account" : "Shop", saved.RecordedAt,
             ShopClosuresV1.FinancialTreatment, targets);

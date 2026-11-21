@@ -27,6 +27,7 @@ export class ClosureConfirmationComponent {
   readonly shop = input.required<string>();
   readonly account = input.required<string | null>();
   readonly closed = input(false);
+  readonly reopenedVersion = input<number>();
   readonly mode = input.required<'shop' | 'account'>();
   private readonly api = inject(ClosureApi);
   private readonly auth = inject(AuthService);
@@ -43,11 +44,16 @@ export class ClosureConfirmationComponent {
   protected readonly queues = signal(false);
   protected readonly financial = signal(false);
   protected readonly busy = signal(false);
+  protected readonly canReviewShop = computed(() => {
+    const draft = this.draft();
+    return !this.closed() && (!draft || this.resolvedBeforeReopening(draft, this.scope()));
+  });
   protected readonly canConfirm = computed(() => {
     const draft = this.draft();
     const review = this.review();
     if (!review) return false;
-    if (this.mode() === 'shop') return !draft && !this.closed() && review.closureVersion === 0;
+    if (this.mode() === 'shop') return this.canReviewShop() &&
+      review.closureVersion === (this.reopenedVersion() ?? 0);
     return this.proposal() !== null && (!draft || (draft.settled && this.validIntent(draft, this.scope()) &&
       (draft.input.proposalId !== this.proposal()?.id
         || draft.input.command.ownerVersion !== review.ownerVersion
@@ -126,9 +132,11 @@ export class ClosureConfirmationComponent {
           workDigest: review.workDigest, reviewedKnownWork: true, consideredDeviceQueues: true,
           financialTreatment: 'NoFinancialChange',
         } satisfies ClosureCommand,
-      }, previous => this.mode() === 'account' && previous.settled && this.validIntent(previous, scope) &&
-        (previous.input.proposalId !== proposalId || previous.input.command.ownerVersion !== review.ownerVersion ||
-          previous.input.command.workDigest !== review.workDigest));
+      }, previous => this.mode() === 'shop'
+        ? this.resolvedBeforeReopening(previous, scope) && review.closureVersion === this.reopenedVersion()
+        : previous.settled && this.validIntent(previous, scope) &&
+          (previous.input.proposalId !== proposalId || previous.input.command.ownerVersion !== review.ownerVersion ||
+            previous.input.command.workDigest !== review.workDigest));
       if (!this.current(scope, generation)) return;
       this.draft.set(draft);
       this.busy.set(false);
@@ -168,6 +176,12 @@ export class ClosureConfirmationComponent {
     }
   }
 
+  protected resolvedBeforeReopening(draft: OwnerBoundClosureDraft<ShopIntent>, scope = this.scope()): boolean {
+    const version = this.reopenedVersion();
+    return this.mode() === 'shop' && draft.settled && this.validIntent(draft, scope) &&
+      version !== undefined && draft.input.command.expectedVersion < version;
+  }
+
   private validIntent(draft: OwnerBoundClosureDraft<ShopIntent>, scope: string | null) {
     const { input } = draft;
     const command = input.command;
@@ -175,7 +189,7 @@ export class ClosureConfirmationComponent {
     return (input.scope === undefined || input.scope === scope) && isClosureId(input.accountId) &&
       this.accountMatches(input.accountId) &&
       (this.mode() === 'shop' ? input.proposalId === null : isClosureId(input.proposalId)) &&
-      command?.operationKey === draft.operationKey && (command.expectedVersion === 0 || command.expectedVersion === 1) &&
+      command?.operationKey === draft.operationKey && Number.isSafeInteger(command.expectedVersion) && command.expectedVersion >= 0 &&
       Number.isSafeInteger(command.ownerVersion) && command.ownerVersion >= 0 && isClosureDigest(command.workDigest) &&
       command.reviewedKnownWork === true && command.consideredDeviceQueues === true &&
       command.financialTreatment === 'NoFinancialChange';

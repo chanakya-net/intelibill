@@ -5577,6 +5577,14 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("released_revision");
 
+                    b.Property<long?>("ClosureRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("closure_revision");
+
+                    b.Property<long?>("ReopenedRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("reopened_revision");
+
                     b.Property<long>("Revision")
                         .HasColumnType("bigint")
                         .HasColumnName("revision");

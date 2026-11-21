@@ -26,8 +26,8 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         var gateway = row.Attempt is { } attempt ? gateways.ForPin(attempt.Pin) : null;
         var canStart = row.Attempt is null && row.ManualVerifiedAt is null && row.TermId is null &&
             await CanStartAsync(quote, ct) && !await store.HasOverlappingPaymentAsync(account, order, ct);
-        var closed = shops.Length == 0 ? [] : await closures.ClosedShopIdsAsync(account, shops, ct);
-        return Project(quote, row, synced, closed, canStart, gateway);
+        var closureStatus = shops.Length == 0 ? [] : await closures.ReadCheckoutClosuresAsync(account, shops, ct);
+        return Project(quote, row, synced, closureStatus.ToDictionary(status => status.ShopId), canStart, gateway);
     }
 
     internal async Task<bool> CanStartAsync(CheckoutQuoteV1 quote, CancellationToken ct)
@@ -41,7 +41,8 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
     internal static bool Startable(CheckoutQuoteV1 quote) => CheckoutRenewalPolicy.Payable(quote);
 
     private static CheckoutPaymentV1 Project(CheckoutQuoteV1 quote, PaymentStatusRow row,
-        IReadOnlyDictionary<Guid, EntitlementSynchronizationV1> synced, Guid[] closed, bool canStart, IPaymentGateway? gateway)
+        IReadOnlyDictionary<Guid, EntitlementSynchronizationV1> synced,
+        IReadOnlyDictionary<Guid, CheckoutClosureStatus> closures, bool canStart, IPaymentGateway? gateway)
     {
         var attempt = row.Attempt;
         var payment = attempt is null ? (row.ManualVerifiedAt is null ? "NotStarted" : "Verified") : row.VerifiedAt is not null ? "Verified"
@@ -49,11 +50,12 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         var routingReview = attempt is not null && gateway is null && row.VerifiedAt is null && row.ManualVerifiedAt is null && !row.DefinitivelyFailed;
         if (routingReview) payment = "PendingVerification";
         var fulfilment = row.TermId is not null ? "Fulfilled" : (row.NeedsReview || routingReview) ? "NeedsReview" : "NotFulfilled";
-        var applied = row.Deliveries.Count(d => !closed.Contains(d.ShopId) && synced.TryGetValue(d.ShopId, out var s) && s.AppliedShopRevision >= d.ShopRevision);
-        var review = row.Deliveries.Any(d => d.ShopRevision is not null && synced.TryGetValue(d.ShopId, out var s) && s.State == "NeedsReview" &&
-            !(s.AppliedShopRevision >= d.ShopRevision));
+        var applied = row.Deliveries.Count(d => closures.GetValueOrDefault(d.ShopId)?.Closed != true &&
+            synced.TryGetValue(d.ShopId, out var s) && Applied(d.ShopRevision, s, closures.GetValueOrDefault(d.ShopId)));
+        var review = closures.Values.Any(s => s.Closed) || row.Deliveries.Any(d => d.ShopRevision is not null &&
+            synced.TryGetValue(d.ShopId, out var s) && s.State == "NeedsReview" && !Applied(d.ShopRevision, s, closures.GetValueOrDefault(d.ShopId)));
         var access = row.TermId is null ? "NotApplicable"
-            : applied == quote.ShopCount ? "Applied" : review || closed.Length != 0 ? "NeedsReview" : "Applying";
+            : applied == quote.ShopCount ? "Applied" : review ? "NeedsReview" : "Applying";
         // A persisted launcher is offered only while the runtime still permits the attempt's pinned adapter.
         var launch = payment == "AwaitingPayment" && row.ManualVerifiedAt is null && gateway is not null &&
             attempt is { LauncherFlow: { } flow, ProviderOrderReference: { } reference }
@@ -63,4 +65,9 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
             quote.ShopCount, applied, canStart, launch, row.ManualVerifiedAt is { } verified ? new("Verified", verified) : null,
             row.RestorationHeld, row.ServiceRestoration);
     }
+
+    private static bool Applied(long? fulfilmentRevision, EntitlementSynchronizationV1 synchronization,
+        CheckoutClosureStatus? closure) =>
+        fulfilmentRevision is { } revision && synchronization.AppliedShopRevision >= revision &&
+        (closure?.ReopeningRevision is null || closure.ReopeningAcknowledged);
 }
