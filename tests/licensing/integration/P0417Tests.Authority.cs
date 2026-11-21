@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
 using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
@@ -85,7 +87,11 @@ public sealed partial class P0417Tests
     {
         var clock = new P0201Clock { Now = P0202Fixture.WholeSecondNow() };
         await using var fixture = await P0213Fixture.StartAsync(database, businessClock: clock);
-        var (owner, account, route) = await CloseAsync(fixture, clock.Now);
+        var (owner, account) = await OpenShopAsync(fixture, clock.Now);
+        var first = await SaveClosureAsync(owner, await CloseCommandAsync(owner, ClosurePath(owner)));
+        var route = ReopeningRoute(owner, account, first);
+        Assert.Equal(1, SavedClosureVersion(first));
+        Assert.Null((await fixture.LatestSnapshotAsync(owner.ShopId)).Shop!.ClosureRevision);
         await fixture.DrainAsync(source: true);
         using var admin = await SignInAsync(fixture);
         var old = Command(await PreviewAsync(admin, route), owner);
@@ -93,7 +99,8 @@ public sealed partial class P0417Tests
         Assert.True(opened.StatusCode == HttpStatusCode.Created, await opened.Content.ReadAsStringAsync());
         await fixture.DrainAsync(source: true);
 
-        var reclosed = await CloseShopAsync(owner, account);
+        var (closeAgain, second) = await RecloseWithTheSignedCycleAsync(fixture, owner);
+        var reclosed = ReopeningRoute(owner, account, second);
         Assert.NotEqual(route, reclosed);
         var impact = await PreviewAsync(admin, reclosed);
         Assert.Equal(3, impact.GetProperty("version").GetInt64());
@@ -105,7 +112,29 @@ public sealed partial class P0417Tests
         Assert.True(fresh.StatusCode == HttpStatusCode.Created, await fresh.Content.ReadAsStringAsync());
         Assert.Equal(2L, await fixture.Trial.CountAsync("operational_closure_reopenings"));
         Assert.Equal(2L, await fixture.Trial.CountAsync("operational_closure_targets"));
+
+        // The receipt keeps the version of its own publication after the shop is open again.
+        Assert.Equal(second.GetRawText(), (await SaveClosureAsync(owner, closeAgain)).GetRawText());
+        Assert.Equal(2L, await fixture.Trial.CountAsync("operational_closure_targets"));
     }
+
+    private static async Task<(Intelibill.Shared.Contracts.V1.ShopClosureConfirmationV1 Command, JsonElement Saved)>
+        RecloseWithTheSignedCycleAsync(P0213Fixture fixture, Merchant owner)
+    {
+        var command = await CloseCommandAsync(owner, ClosurePath(owner));
+        var saved = await SaveClosureAsync(owner, command);
+        var signed = (await fixture.LatestSnapshotAsync(owner.ShopId)).Shop!;
+        Assert.Equal("Closed", signed.State);
+        Assert.True(signed.ClosureRevision > 1);
+        Assert.Equal(signed.ClosureRevision, SavedClosureVersion(saved));
+        await DrainBothAsync(fixture);
+        var delivered = await owner.Client.GetFromJsonAsync<JsonElement>(ClosurePath(owner) + "-preview");
+        Assert.Equal(SavedClosureVersion(saved), delivered.GetProperty("closureVersion").GetInt64());
+        return (command, saved);
+    }
+
+    private static long SavedClosureVersion(JsonElement saved) =>
+        Assert.Single(saved.GetProperty("shops").EnumerateArray()).GetProperty("closureVersion").GetInt64();
 
     private static async Task AssertAuditCannotBeChangedAsync(P0213Fixture fixture, string statement)
     {

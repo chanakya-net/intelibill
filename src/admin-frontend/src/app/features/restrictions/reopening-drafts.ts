@@ -6,9 +6,11 @@ export interface PendingReopening extends ReopeningTarget {
   readonly command: ReopeningCommand;
 }
 
+/** A record read from IndexedDB that cannot be trusted. Fresh form input raises InvalidReopeningInput instead. */
 export class InvalidReopeningDraft extends Error {}
+export class InvalidReopeningInput extends Error {}
 
-const uuid = /^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+export const reopeningId = /^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
 export function validateReopeningDraft(value: unknown, adminId: string, accountId: string): PendingReopening {
   const draft = value as PendingReopening | null;
@@ -21,19 +23,19 @@ export function validateReopeningDraft(value: unknown, adminId: string, accountI
 }
 
 function isId(value: unknown): value is string {
-  return typeof value === 'string' && uuid.test(value);
+  return typeof value === 'string' && reopeningId.test(value);
 }
 
 function validCommand(command: ReopeningCommand | null | undefined): boolean {
   return !!command && typeof command === 'object' && isId(command.operationKey) && isId(command.ownerConsentUserId) &&
     Number.isSafeInteger(command.expectedVersion) && command.expectedVersion > 0 &&
     typeof command.impactDigest === 'string' && /^[a-f0-9]{64}$/.test(command.impactDigest) &&
-    command.ownerConsentConfirmed === true && validInstant(command.ownerConsentAt) &&
+    command.ownerConsentConfirmed === true && validReopeningInstant(command.ownerConsentAt) &&
     validText(command.reason, 1000) && validText(command.ownerConsentReference, 120) &&
     validText(command.ownerConsentEvidence, 2000);
 }
 
-function validInstant(value: unknown): boolean {
+export function validReopeningInstant(value: unknown): boolean {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) return false;
   const instant = new Date(value);
   const year = instant.getUTCFullYear();
@@ -43,9 +45,13 @@ function validInstant(value: unknown): boolean {
 }
 
 function validText(value: unknown, max: number): boolean {
-  return typeof value === 'string' && value.length <= max && value.trim().length > 0 &&
-    [...value].every(character => character === '\n' || (character.charCodeAt(0) >= 32 &&
-      !(character.charCodeAt(0) >= 127 && character.charCodeAt(0) <= 159)));
+  return typeof value === 'string' && value.length <= max && value.trim().length > 0 && supportedReopeningText(value);
+}
+
+/** The API stores line breaks and refuses every other control character, tabs included. */
+export function supportedReopeningText(value: string): boolean {
+  return [...value].every(character => character === '\n' || (character.charCodeAt(0) >= 32 &&
+    !(character.charCodeAt(0) >= 127 && character.charCodeAt(0) <= 159)));
 }
 
 const storeName = 'pending';
@@ -59,7 +65,11 @@ export class ReopeningDrafts {
   }
 
   claim(pending: PendingReopening) {
-    validateReopeningDraft(pending, pending.adminId, pending.accountId);
+    try {
+      validateReopeningDraft(pending, pending.adminId, pending.accountId);
+    } catch {
+      throw new InvalidReopeningInput();
+    }
     return this.access(pending.adminId, pending.accountId, 'readwrite', (current, store, key) => {
       if (current) return current;
       store.add(pending, key);

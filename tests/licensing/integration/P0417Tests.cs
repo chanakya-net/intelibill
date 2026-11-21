@@ -73,14 +73,21 @@ public sealed partial class P0417Tests(LicensingPostgreSqlFixture database) : IC
         return new(local.Year, local.Month, 1, 0, 0, 0, local.Offset);
     }
 
-    private static async Task<string> CloseShopAsync(Merchant owner, Guid account)
+    private static string ClosurePath(Merchant owner) => $"/api/licensing/shops/{owner.ShopId:D}/closure";
+
+    private static async Task<string> CloseShopAsync(Merchant owner, Guid account) =>
+        ReopeningRoute(owner, account, await SaveClosureAsync(owner, await CloseCommandAsync(owner, ClosurePath(owner))));
+
+    private static async Task<JsonElement> SaveClosureAsync(Merchant owner,
+        Intelibill.Shared.Contracts.V1.ShopClosureConfirmationV1 command)
     {
-        var path = $"/api/licensing/shops/{owner.ShopId:D}/closure";
-        using var closed = await owner.Client.PostAsJsonAsync(path, await CloseCommandAsync(owner, path));
+        using var closed = await owner.Client.PostAsJsonAsync(ClosurePath(owner), command);
         Assert.True(closed.IsSuccessStatusCode, await closed.Content.ReadAsStringAsync());
-        var id = (await closed.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
-        return $"/api/admin/accounts/{account:D}/closures/{id:D}/shops/{owner.ShopId:D}/reopening";
+        return await closed.Content.ReadFromJsonAsync<JsonElement>();
     }
+
+    private static string ReopeningRoute(Merchant owner, Guid account, JsonElement closure) =>
+        $"/api/admin/accounts/{account:D}/closures/{closure.GetProperty("id").GetGuid():D}/shops/{owner.ShopId:D}/reopening";
 
     private static async Task<Intelibill.Shared.Contracts.V1.ShopClosureConfirmationV1> CloseCommandAsync(Merchant owner, string path)
     {

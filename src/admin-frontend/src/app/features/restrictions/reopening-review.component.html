@@ -63,16 +63,25 @@
             <form [formGroup]="form" (ngSubmit)="confirm()">
               <label for="reopening-reason">Review reason</label>
               <textarea id="reopening-reason" formControlName="reason" maxlength="1000"></textarea>
+              @if (form.controls.reason.hasError('unsupportedText')) {
+                <p id="reopening-reason-unsupported" class="ib-error-banner" role="alert">Remove tabs and other control characters. Line breaks are allowed.</p>
+              }
               <label for="reopening-owner">Current shop owner user ID</label>
               <input id="reopening-owner" formControlName="ownerConsentUserId" />
               <label for="reopening-consent-at">Owner consent date and time (IST)</label>
               <input id="reopening-consent-at" type="datetime-local" step="1" formControlName="ownerConsentAt" />
               <label for="reopening-reference">Owner consent review reference</label>
               <input id="reopening-reference" formControlName="ownerConsentReference" maxlength="120" />
+              @if (form.controls.ownerConsentReference.hasError('unsupportedText')) {
+                <p id="reopening-reference-unsupported" class="ib-error-banner" role="alert">Remove tabs and other control characters.</p>
+              }
               <label for="reopening-evidence">Owner consent evidence</label>
               <textarea id="reopening-evidence" formControlName="ownerConsentEvidence" maxlength="2000"
                 aria-describedby="reopening-evidence-help"></textarea>
               <p id="reopening-evidence-help">Record the source and the owner’s explicit request to reopen this shop.</p>
+              @if (form.controls.ownerConsentEvidence.hasError('unsupportedText')) {
+                <p id="reopening-evidence-unsupported" class="ib-error-banner" role="alert">Remove tabs and other control characters. Line breaks are allowed.</p>
+              }
               <label>
                 <input type="checkbox" formControlName="ownerConsentConfirmed" />
                 I verified the current shop owner’s identity and explicit request to reopen {{ review.shopName }}.

@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal, untracked } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ButtonDirective } from 'primeng/button';
 import { firstValueFrom } from 'rxjs';
@@ -8,9 +8,20 @@ import { basisLabels, formatIstExact, stateLabels, statusReaders, type ProviderC
 import { exactIstInstant } from '../accounts/trial-extension-api.service';
 import { AdminSessionService } from '../auth/admin-session.service';
 import { ReopeningApi, reopeningRefusal, type ReopeningImpact, type ReopeningTarget } from './reopening-api.service';
-import { InvalidReopeningDraft, ReopeningDrafts, validateReopeningDraft, type PendingReopening } from './reopening-drafts';
+import { InvalidReopeningDraft, InvalidReopeningInput, ReopeningDrafts, reopeningId, supportedReopeningText,
+  validReopeningInstant, validateReopeningDraft, type PendingReopening } from './reopening-drafts';
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+
+// The form applies the rules a saved draft must meet, so unsupported input stays editable in the review.
+const supportedText = (control: AbstractControl<string>): ValidationErrors | null =>
+  supportedReopeningText(control.value.trim()) ? null : { unsupportedText: true };
+const consentInstant = (control: AbstractControl<string>): ValidationErrors | null => {
+  const ist = exactIstInstant(control.value);
+  const at = ist ? new Date(ist) : null;
+  return at && Number.isFinite(at.valueOf()) && validReopeningInstant(at.toISOString()) ? null : { consentInstant: true };
+};
+const text = (max: number) => [Validators.required, Validators.pattern(/\S/), Validators.maxLength(max), supportedText];
 
 interface ReviewScope {
   readonly accountId: string;
@@ -55,11 +66,11 @@ export class ReopeningReviewComponent {
     Superseded: 'Superseded without merchant acknowledgement',
   };
   protected readonly form = inject(FormBuilder).nonNullable.group({
-    reason: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(1000)]],
-    ownerConsentUserId: ['', [Validators.required, Validators.pattern(uuid)]],
-    ownerConsentAt: ['', Validators.required],
-    ownerConsentReference: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(120)]],
-    ownerConsentEvidence: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(2000)]],
+    reason: ['', text(1000)],
+    ownerConsentUserId: ['', [Validators.required, Validators.pattern(reopeningId)]],
+    ownerConsentAt: ['', [Validators.required, consentInstant]],
+    ownerConsentReference: ['', text(120)],
+    ownerConsentEvidence: ['', text(2000)],
     ownerConsentConfirmed: [false, Validators.requiredTrue],
   });
 
@@ -232,6 +243,7 @@ export class ReopeningReviewComponent {
   private errorText(error: unknown): string {
     if (error instanceof InvalidReopeningDraft)
       return 'The saved draft could not be verified. Check the account history and contact support to recover the draft.';
+    if (error instanceof InvalidReopeningInput) return 'Check the review fields, correct them and confirm again.';
     const code = error instanceof HttpErrorResponse ? error.error?.code : null;
     if (code === 'Reopening.PublisherCutoverRequired') return 'Reopening is available after the provider delivery upgrade.';
     if (code === 'Reopening.RecentMfaRequired') return 'Sign in again with MFA to save the review.';

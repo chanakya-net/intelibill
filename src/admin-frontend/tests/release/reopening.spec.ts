@@ -123,6 +123,65 @@ for (const malformed of [false, true]) {
   });
 }
 
+test('corrects pasted evidence with an embedded tab and confirms once in the same review', async ({ page, context }, info) => {
+  const server = await startStaticServer(resolve('dist/ADMIN/browser'));
+  try {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: server.origin });
+    const facts = await install(page, ['licensing-manager'], false);
+    await page.goto(server.origin + route);
+    facts.enableCoverage();
+    await page.getByRole('button', { name: 'Review reopening' }).click();
+    expect(await savedDrafts(page)).toBe(0);
+    await fillEvidence(page);
+    await page.getByRole('checkbox', { name: /verified the current shop owner/ }).check();
+    const confirm = page.getByRole('button', { name: 'Confirm reopening' });
+    await expect(confirm).toBeEnabled();
+    const evidence = page.getByLabel('Owner consent evidence');
+    await evidence.fill('');
+    await page.evaluate(() => navigator.clipboard.writeText('Verified owner call.\tOwner asked to reopen Lake Shop.'));
+    await evidence.press('ControlOrMeta+V');
+    await expect(evidence).toHaveValue('Verified owner call.\tOwner asked to reopen Lake Shop.');
+    const unsupported = page.getByText('Remove tabs and other control characters.');
+    await expect(unsupported).toBeVisible();
+    await expect(confirm).toBeDisabled();
+    await expect(page.getByText('The saved draft could not be verified.')).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath('unsupported-evidence.png'), fullPage: true });
+    expect(facts.requests).toHaveLength(0);
+    expect(await savedDrafts(page)).toBe(0);
+
+    await evidence.fill('Verified owner call. Owner asked to reopen Lake Shop.');
+    await expect(unsupported).toHaveCount(0);
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+    await expect(page.getByText('Reopening decision saved.')).toBeVisible();
+    await expect(page.getByTestId('reopening-propagation')).toHaveText('Pending merchant acknowledgement');
+    expect(facts.requests).toHaveLength(1);
+    expect(await savedDrafts(page)).toBe(0);
+  } finally {
+    await server.close();
+  }
+});
+
+function savedDrafts(page: Page) {
+  return page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const open = indexedDB.open('intelibill.admin.reopenings', 1);
+      open.onupgradeneeded = () => open.result.createObjectStore('pending');
+      open.onsuccess = () => resolve(open.result);
+      open.onerror = () => reject(open.error);
+    });
+    try {
+      return await new Promise<number>((resolve, reject) => {
+        const count = db.transaction('pending').objectStore('pending').count();
+        count.onsuccess = () => resolve(count.result);
+        count.onerror = () => reject(count.error);
+      });
+    } finally {
+      db.close();
+    }
+  });
+}
+
 async function fillEvidence(page: Page) {
   await page.getByLabel('Review reason').fill('Verified current paid coverage');
   await page.getByLabel('Current shop owner user ID').fill(ownerId);
@@ -131,7 +190,7 @@ async function fillEvidence(page: Page) {
   await page.getByLabel('Owner consent evidence').fill('Verified owner call. Owner asked to reopen Lake Shop.');
 }
 
-async function install(page: Page, capabilities = ['licensing-manager']) {
+async function install(page: Page, capabilities = ['licensing-manager'], loseFirstResponse = true) {
   let covered = false;
   let propagation: string | undefined;
   const requests: unknown[] = [];
@@ -159,7 +218,7 @@ async function install(page: Page, capabilities = ['licensing-manager']) {
     });
     requests.push(body);
     propagation = 'Pending';
-    return requests.length === 1 ? route.abort('connectionreset')
+    return loseFirstResponse && requests.length === 1 ? route.abort('connectionreset')
       : route.fulfill({ json: { id: closureId, closureId, shopId, reopenedAt: at } });
   });
   return { requests, enableCoverage: () => { covered = true; }, acknowledge: () => { propagation = 'Acknowledged'; },

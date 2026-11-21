@@ -33,9 +33,12 @@ internal sealed partial class ClosureStore(LicensingDbContext db, EntitlementPub
 
     public async Task<ClosureSavedV1> ReadSavedAsync(SavedClosure saved, CancellationToken ct)
     {
+        // Each target keeps the cycle its own publication signed. A publication without one is the first closure.
         var targets = await db.Database.SqlQuery<ClosureTargetV1>($"""
-            SELECT shop_id, affiliation_request_id, shop_name, 1::bigint AS closure_version
-            FROM public.operational_closure_targets WHERE closure_id = {saved.Id} ORDER BY shop_id
+            SELECT t.shop_id, t.affiliation_request_id, t.shop_name, coalesce(s.closure_revision, 1::bigint) AS closure_version
+            FROM public.operational_closure_targets t
+            LEFT JOIN public.entitlement_snapshots s ON s.event_id = t.event_id
+            WHERE t.closure_id = {saved.Id} ORDER BY t.shop_id
             """).ToArrayAsync(ct);
         return new(saved.Id, saved.AccountId, saved.OperationKey, saved.ShopId is null ? "Account" : "Shop", saved.RecordedAt,
             ShopClosuresV1.FinancialTreatment, targets);
