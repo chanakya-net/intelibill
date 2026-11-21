@@ -16,7 +16,7 @@ public class PlacePurchaseOrderCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     private PlacePurchaseOrderCommandHandler CreateHandler() =>
-        new(_userRepository, _supplierRepository, _poRepository, _unitOfWork);
+        new(_supplierRepository, _poRepository, PurchaseOrderAccessTestDoubles.Trading(_userRepository, _unitOfWork));
 
     private static (User actor, Shop shop) MakeOwner()
     {
@@ -43,7 +43,7 @@ public class PlacePurchaseOrderCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
         var result = await CreateHandler().HandleAsync(
-            new PlacePurchaseOrderCommand(actor.Id, shop.Id, Guid.NewGuid()),
+            new PlacePurchaseOrderCommand(actor.Id, shop.Id, Guid.NewGuid(), Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -59,7 +59,7 @@ public class PlacePurchaseOrderCommandHandlerTests
             .Returns((PurchaseOrder)null!);
 
         var result = await CreateHandler().HandleAsync(
-            new PlacePurchaseOrderCommand(actor.Id, shop.Id, Guid.NewGuid()),
+            new PlacePurchaseOrderCommand(actor.Id, shop.Id, Guid.NewGuid(), Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -79,7 +79,7 @@ public class PlacePurchaseOrderCommandHandlerTests
         _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
 
         var result = await CreateHandler().HandleAsync(
-            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id),
+            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id, Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -97,7 +97,7 @@ public class PlacePurchaseOrderCommandHandlerTests
         _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
 
         var result = await CreateHandler().HandleAsync(
-            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id),
+            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id, Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -117,7 +117,7 @@ public class PlacePurchaseOrderCommandHandlerTests
         _supplierRepository.GetByIdAsync(systemSupplier.Id, Arg.Any<CancellationToken>()).Returns(systemSupplier);
 
         var result = await CreateHandler().HandleAsync(
-            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id),
+            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id, Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -137,7 +137,7 @@ public class PlacePurchaseOrderCommandHandlerTests
         _supplierRepository.GetByIdAsync(inactiveSupplier.Id, Arg.Any<CancellationToken>()).Returns(inactiveSupplier);
 
         var result = await CreateHandler().HandleAsync(
-            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id),
+            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id, Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -158,7 +158,7 @@ public class PlacePurchaseOrderCommandHandlerTests
         _supplierRepository.GetByIdAsync(otherSupplier.Id, Arg.Any<CancellationToken>()).Returns(otherSupplier);
 
         var result = await CreateHandler().HandleAsync(
-            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id),
+            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id, Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -177,7 +177,7 @@ public class PlacePurchaseOrderCommandHandlerTests
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
 
         var result = await CreateHandler().HandleAsync(
-            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id),
+            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id, Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -197,7 +197,7 @@ public class PlacePurchaseOrderCommandHandlerTests
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
 
         var result = await CreateHandler().HandleAsync(
-            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id),
+            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id, Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -222,7 +222,7 @@ public class PlacePurchaseOrderCommandHandlerTests
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
 
         var result = await CreateHandler().HandleAsync(
-            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id),
+            new PlacePurchaseOrderCommand(actor.Id, shop.Id, po.Id, Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.False(result.IsError);

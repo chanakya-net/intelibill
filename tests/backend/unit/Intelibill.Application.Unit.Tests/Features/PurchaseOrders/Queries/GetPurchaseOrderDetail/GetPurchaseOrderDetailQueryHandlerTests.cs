@@ -13,7 +13,7 @@ public class GetPurchaseOrderDetailQueryHandlerTests
     private readonly IPurchaseOrderRepository _poRepository = Substitute.For<IPurchaseOrderRepository>();
 
     private GetPurchaseOrderDetailQueryHandler CreateHandler() =>
-        new(_userRepository, _poRepository);
+        new(PurchaseOrderAccessTestDoubles.History(_userRepository), _poRepository);
 
     [Fact]
     public async Task HandleAsync_WhenPoNotFound_ReturnsNotFound()
@@ -30,7 +30,7 @@ public class GetPurchaseOrderDetailQueryHandlerTests
             .Returns((PurchaseOrder?)null);
 
         var result = await CreateHandler().HandleAsync(
-            new GetPurchaseOrderDetailQuery(actor.Id, shop.Id, Guid.NewGuid()),
+            new GetPurchaseOrderDetailQuery(actor.Id, shop.Id, Guid.NewGuid(), Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -63,7 +63,7 @@ public class GetPurchaseOrderDetailQueryHandlerTests
             .Returns(po);
 
         var result = await CreateHandler().HandleAsync(
-            new GetPurchaseOrderDetailQuery(actor.Id, shop.Id, po.Id),
+            new GetPurchaseOrderDetailQuery(actor.Id, shop.Id, po.Id, Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -88,7 +88,7 @@ public class GetPurchaseOrderDetailQueryHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
         var result = await CreateHandler().HandleAsync(
-            new GetPurchaseOrderDetailQuery(actor.Id, shop.Id, Guid.NewGuid()),
+            new GetPurchaseOrderDetailQuery(actor.Id, shop.Id, Guid.NewGuid(), Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -116,7 +116,7 @@ public class GetPurchaseOrderDetailQueryHandlerTests
             .Returns((PurchaseOrder?)null);
 
         var result = await CreateHandler().HandleAsync(
-            new GetPurchaseOrderDetailQuery(actor.Id, activeShop.Id, po.Id),
+            new GetPurchaseOrderDetailQuery(actor.Id, activeShop.Id, po.Id, Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, activeShop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);

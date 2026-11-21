@@ -16,7 +16,7 @@ public class GetPurchaseOrdersQueryHandlerTests
     private readonly IPurchaseOrderRepository _poRepository = Substitute.For<IPurchaseOrderRepository>();
 
     private GetPurchaseOrdersQueryHandler CreateHandler() =>
-        new(_userRepository, _poRepository, BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock());
+        new(PurchaseOrderAccessTestDoubles.History(_userRepository), _poRepository, BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock());
 
     [Fact]
     public async Task HandleAsync_ValidMember_ReturnsList()
@@ -35,7 +35,7 @@ public class GetPurchaseOrdersQueryHandlerTests
             .Returns((Array.Empty<PurchaseOrder>(), 0));
 
         var result = await CreateHandler().HandleAsync(
-            new GetPurchaseOrdersQuery(actor.Id, shop.Id),
+            new GetPurchaseOrdersQuery(actor.Id, shop.Id, Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -72,7 +72,7 @@ public class GetPurchaseOrdersQueryHandlerTests
                 new DateOnly(2026, 6, 1),
                 new DateOnly(2026, 6, 30),
                 0,
-                999),
+                999, Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -117,7 +117,7 @@ public class GetPurchaseOrdersQueryHandlerTests
             .Returns((new[] { order }, 1));
 
         var result = await CreateHandler().HandleAsync(
-            new GetPurchaseOrdersQuery(actor.Id, shop.Id),
+            new GetPurchaseOrdersQuery(actor.Id, shop.Id, Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.False(result.IsError);

@@ -1,5 +1,7 @@
 <section class="po-page po-detail-page">
   <p-confirmDialog />
+  <app-definition-access-notice />
+  @if (!receivingAccess.securityHidden()) {
 
   @if (facade.isLoadingDetail() && !facade.selectedOrder()) {
     <section class="directory-panel ib-panel directory-panel--loading" aria-busy="true">
@@ -77,6 +79,7 @@
             severity="success"
             icon="pi pi-send"
             [label]="'purchaseOrders.actions.placeOrder' | transloco"
+            [disabled]="!!receivingAccess.hint.blockingMessage()"
             (click)="placeOrder(order.purchaseOrderId)"
           ></button>
           <button
@@ -100,12 +103,8 @@
             pButton
             type="button"
             icon="pi pi-inbox"
-            [label]="
-              (order.status === 'Received' || order.status === 'Closed'
-                ? 'purchaseOrders.receiving.recover'
-                : 'purchaseOrders.actions.receive'
-              ) | transloco
-            "
+            [label]="receivingAccess.label(order.purchaseOrderId, order.status) | transloco"
+            [disabled]="receivingAccess.blocked(order.purchaseOrderId)"
             (click)="showReceiveDialog.set(true)"
           ></button>
         }
@@ -264,7 +263,7 @@
       <app-receive-purchase-order-dialog
         [order]="order"
         [visible]="showReceiveDialog()"
-        (visibleChange)="showReceiveDialog.set($event)"
+        (visibleChange)="onReceiveVisibilityChange($event)"
         (receive)="receiveOrder(order.purchaseOrderId, $event)"
       />
     }
@@ -286,9 +285,10 @@
       ></button>
     </section>
   }
+  }
 </section>
 
-@if (showEditOverlay()) {
+@if (showEditOverlay() && !receivingAccess.securityHidden()) {
   <app-purchase-order-builder-page
     [purchaseOrderId]="editingPoId()"
     (closeRequested)="closeEditOverlay()"

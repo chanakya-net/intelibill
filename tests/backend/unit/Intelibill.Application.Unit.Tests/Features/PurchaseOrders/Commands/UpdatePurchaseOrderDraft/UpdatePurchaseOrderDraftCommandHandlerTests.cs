@@ -23,7 +23,7 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     private UpdatePurchaseOrderDraftCommandHandler CreateHandler() =>
-        new(_userRepository, _itemRepository, _supplierRepository, _poRepository, _unitOfWork);
+        new(_itemRepository, _supplierRepository, _poRepository, PurchaseOrderAccessTestDoubles.Trading(_userRepository, _unitOfWork));
 
     private static (User actor, Shop shop) MakeOwner()
     {
@@ -47,7 +47,7 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
         var result = await CreateHandler().HandleAsync(
-            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), null, null, null, null, null, []),
+            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), null, null, null, null, null, [], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -63,7 +63,7 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
             .Returns((PurchaseOrder)null!);
 
         var result = await CreateHandler().HandleAsync(
-            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), null, null, null, null, null, []),
+            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), null, null, null, null, null, [], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -81,7 +81,7 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
         _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
 
         var result = await CreateHandler().HandleAsync(
-            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, po.Id, null, null, null, null, null, []),
+            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, po.Id, null, null, null, null, null, [], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -111,7 +111,7 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
                 DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(2)),
                 "SUP-1",
                 "new notes",
-                [new UpdatePurchaseOrderLineInput(item1.Id, "new line 1", 5, 20m), new UpdatePurchaseOrderLineInput(item2.Id, "new line 2", 2, 50m)]),
+                [new UpdatePurchaseOrderLineInput(item1.Id, "new line 1", 5, 20m), new UpdatePurchaseOrderLineInput(item2.Id, "new line 2", 2, 50m)], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -143,7 +143,7 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
                 null,
                 null,
                 null,
-                [new UpdatePurchaseOrderLineInput(itemId, "Widget", 2, 10m), new UpdatePurchaseOrderLineInput(itemId, "Other display", 3, 5m)]),
+                [new UpdatePurchaseOrderLineInput(itemId, "Widget", 2, 10m), new UpdatePurchaseOrderLineInput(itemId, "Other display", 3, 5m)], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -169,7 +169,7 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
                 null,
                 null,
                 null,
-                [new UpdatePurchaseOrderLineInput(Guid.Empty, "Widget", 2, 10m)]),
+                [new UpdatePurchaseOrderLineInput(Guid.Empty, "Widget", 2, 10m)], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -197,7 +197,7 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
                 null,
                 null,
                 null,
-                [new UpdatePurchaseOrderLineInput(itemId, "Widget", 2, 10m)]),
+                [new UpdatePurchaseOrderLineInput(itemId, "Widget", 2, 10m)], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -227,7 +227,7 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
                 null,
                 null,
                 null,
-                [new UpdatePurchaseOrderLineInput(item.Id, "Widget", 2, 10m)]),
+                [new UpdatePurchaseOrderLineInput(item.Id, "Widget", 2, 10m)], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -244,12 +244,12 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
         _supplierRepository.GetByIdAsync(supplierId, Arg.Any<CancellationToken>()).Returns((Supplier)null!);
 
         var result = await CreateHandler().HandleAsync(
-            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), supplierId, null, null, null, null, []),
+            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), supplierId, null, null, null, null, [], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Supplier.SupplierNotFound.Code, result.FirstError.Code);
-        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
         _poRepository.DidNotReceive().Update(Arg.Any<PurchaseOrder>());
     }
 
@@ -263,12 +263,12 @@ public class UpdatePurchaseOrderDraftCommandHandlerTests
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
 
         var result = await CreateHandler().HandleAsync(
-            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), supplier.Id, null, null, null, null, []),
+            new UpdatePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), supplier.Id, null, null, null, null, [], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Supplier.SupplierNotFound.Code, result.FirstError.Code);
-        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
         _poRepository.DidNotReceive().Update(Arg.Any<PurchaseOrder>());
     }
 }

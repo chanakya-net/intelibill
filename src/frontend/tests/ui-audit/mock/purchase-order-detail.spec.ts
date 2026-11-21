@@ -126,12 +126,14 @@ test.describe('purchase-order-detail', () => {
         await expect(dialog).toBeVisible();
         await expect(row).toHaveCount(1);
         await quantity.fill('26');
+        await quantity.press('Tab');
         await expect(dialog.getByRole('alert')).toHaveText(
           'Quantity cannot exceed remaining quantity.',
         );
         await expect(submit).toBeDisabled();
 
         await quantity.fill('25');
+        await quantity.press('Tab');
         await row.locator('.barcode-autocomplete input').fill('AUDIT-BARCODE-001');
         const received = page.waitForResponse(
           (response) =>
@@ -212,8 +214,9 @@ async function withDetailPage(
 }
 
 async function assertActions(page: Page, visibleActions: readonly RegExp[]): Promise<void> {
+  const detail = page.locator('.po-detail-page');
   for (const action of [/edit/i, /place order/i, /delete/i, /receive/i, /close/i]) {
-    const button = page.getByRole('button', { name: action });
+    const button = detail.getByRole('button', { name: action });
     if (visibleActions.some((visible) => visible.source === action.source)) {
       await expect(button).toBeVisible();
     } else {
@@ -257,6 +260,7 @@ async function assertResponsiveDetail(
   page: Page,
   viewport: (typeof VIEWPORTS)[number],
 ): Promise<void> {
+  await expect(page.locator('.po-detail-page .summary-grid')).toBeVisible();
   const metrics = await page.evaluate(() => {
     const lines = document.querySelector<HTMLElement>('.po-detail-page .directory-panel__surface');
     const table = lines?.querySelector<HTMLElement>('.p-datatable-table-container');

@@ -1,3 +1,5 @@
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { DialogFocusDirective } from '../../../shared/accessibility/dialog-focus';
 import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
@@ -56,6 +58,7 @@ let receivingInstance = 0;
   standalone: true,
   imports: [
     DialogFocusDirective,
+    DefinitionAccessNoticeComponent,
     CommonModule,
     ReactiveFormsModule,
     TranslocoPipe,
@@ -103,6 +106,7 @@ let receivingInstance = 0;
           ></button>
         </div>
       </ng-template>
+      @if (visible) { <app-definition-access-notice /> }
       @if (status() === 'unknown') {
         <p role="status">{{ 'purchaseOrders.receiving.unknown' | transloco }}</p>
         <button
@@ -604,6 +608,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
   private readonly drafts = inject(ReceivingDraftService);
   private readonly context = inject(ShopContextService);
   private readonly facade = inject(PurchaseOrdersFacade);
+  protected readonly access = inject(OperatingAccessHintService);
   protected readonly status = signal<'editing' | 'sending' | 'unknown' | 'confirmed'>('editing');
   protected readonly localizedError = signal<LocalizedError | undefined>(undefined);
   protected readonly errorMessage = signal('');
@@ -712,7 +717,8 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
     return this.closing || this.loading() || this.status() === 'sending';
   }
   protected frozen(): boolean {
-    return this.closing || this.loading() || this.status() !== 'editing' || !this.canReceiveNew();
+    return this.closing || this.loading() || this.status() !== 'editing' ||
+      !this.canReceiveNew() || !!this.access.blockingMessage();
   }
   protected canReceiveNew(): boolean {
     return this.order.status === 'Placed' || this.order.status === 'PartiallyReceived';
@@ -1310,6 +1316,9 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
       return;
     const candidate = this.editable();
     const policyGeneration = this.generation;
+    await this.access.refresh();
+    if (this.frozen() || policyGeneration !== this.generation || !this.current() ||
+        JSON.stringify(candidate) !== JSON.stringify(this.editable())) return;
     for (const line of candidate.lines) {
       if (line.expiryDate && line.manufacturingDate && line.manufacturingDate > line.expiryDate) {
         this.errorMessage.set('expiry.dateOrder');
@@ -1339,7 +1348,8 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
     this.form.disable({ emitEvent: false });
     const generation = this.generation;
     await this.saveQueue;
-    if (this.saveFailed) {
+    if (generation !== this.generation || !this.current()) return;
+    if (this.saveFailed || this.access.blockingMessage() || !this.canReceiveNew()) {
       this.loading.set(false);
       this.form.enable({ emitEvent: false });
       return;
@@ -1362,6 +1372,10 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
         operationId: record.pending.operationId,
       };
       this.handlingResult = '';
+      if (this.access.blockingMessage() || !this.canReceiveNew()) {
+        this.status.set('unknown');
+        return;
+      }
       this.status.set('sending');
       this.rowErrors.set([]);
       this.errorMessage.set('');

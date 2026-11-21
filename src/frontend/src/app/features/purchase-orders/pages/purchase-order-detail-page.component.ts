@@ -1,10 +1,12 @@
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { PurchaseReceivingAccess } from '../services/purchase-receiving-access';
 import { signal as errorSignal } from '@angular/core';
 import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { LocaleInstantPipe } from '../../../shared/pipes/locale-instant.pipe';
 import { LocaleBusinessDatePipe } from '../../../shared/pipes/locale-business-date.pipe';
 import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, effect, inject, signal, untracked } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -39,6 +41,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
     ButtonModule,
     InputTextModule,
     ConfirmDialogModule,
+    DefinitionAccessNoticeComponent,
     ReceivePurchaseOrderDialogComponent,
     PurchaseOrderReceiptHistoryComponent,
     PurchaseOrderBuilderPageComponent,
@@ -52,6 +55,10 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   readonly localizedError =
     this.facade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
   protected readonly permissions = inject(ShopPermissionsService);
+  protected readonly receivingAccess = new PurchaseReceivingAccess(() => {
+    const id = this.facade.selectedOrder()?.purchaseOrderId;
+    return id ? [id] : [];
+  });
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly confirmationService = inject(ConfirmationService);
@@ -62,6 +69,22 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   protected showReceiveDialog = signal(false);
   protected showEditOverlay = signal(false);
   protected editingPoId = signal<string | null>(null);
+
+  constructor() {
+    let wasHidden = false;
+    effect(() => {
+      const hidden = this.receivingAccess.securityHidden();
+      if (hidden === wasHidden) return;
+      wasHidden = hidden;
+      if (hidden) {
+        this.showReceiveDialog.set(false);
+        this.showEditOverlay.set(false);
+        untracked(() => this.facade.clearDetail());
+      } else {
+        untracked(() => this.ngOnInit());
+      }
+    });
+  }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('purchaseOrderId');
@@ -138,7 +161,7 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   }
 
   protected placeOrder(purchaseOrderId: string): void {
-    this.facade.placeOrder(purchaseOrderId);
+    if (!this.receivingAccess.hint.blockingMessage()) this.facade.placeOrder(purchaseOrderId);
   }
 
   protected openPrintView(purchaseOrderId: string): void {
@@ -170,6 +193,11 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
     if (!reason) return;
     this.facade.closeOrder(purchaseOrderId, { reason });
     this.closeReason = '';
+  }
+
+  protected onReceiveVisibilityChange(visible: boolean): void {
+    this.showReceiveDialog.set(visible);
+    if (!visible) this.receivingAccess.refreshPending();
   }
 
   protected receiveOrder(purchaseOrderId: string, payload: ReceivingCommand): void {

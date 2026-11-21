@@ -1,9 +1,11 @@
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { PurchaseReceivingAccess } from '../services/purchase-receiving-access';
 import { signal as errorSignal } from '@angular/core';
 import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { LocaleInstantPipe } from '../../../shared/pipes/locale-instant.pipe';
 import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal, untracked } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -60,12 +62,15 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
     TagModule,
     ButtonModule,
     MenuModule,
+    DefinitionAccessNoticeComponent,
     ReceivePurchaseOrderDialogComponent,
     PurchaseOrderBuilderPageComponent,
   ],
   providers: [ConfirmationService],
   template: `
     <section class="po-page">
+      <app-definition-access-notice />
+      @if (!receivingAccess.securityHidden()) {
       <p-confirmDialog />
       <p-menu
         #actionMenu
@@ -106,6 +111,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
               class="po-list-header__new-button"
               icon="pi pi-plus"
               [label]="'purchaseOrders.newPo' | transloco"
+              [disabled]="!!receivingAccess.hint.blockingMessage()"
               (click)="openNewOrder()"
             ></button>
           </div>
@@ -298,6 +304,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
                               severity="success"
                               icon="pi pi-send"
                               [label]="'purchaseOrders.actions.placeOrder' | transloco"
+                              [disabled]="!!receivingAccess.hint.blockingMessage()"
                               (click)="placeOrder(order.purchaseOrderId, $event)"
                             ></button>
                             <button
@@ -322,12 +329,8 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
                               type="button"
                               severity="success"
                               icon="pi pi-inbox"
-                              [label]="
-                                (order.status === 'Received' || order.status === 'Closed'
-                                  ? 'purchaseOrders.receiving.recover'
-                                  : 'purchaseOrders.actions.receive'
-                                ) | transloco
-                              "
+                              [label]="receivingAccess.label(order.purchaseOrderId, order.status) | transloco"
+                              [disabled]="receivingAccess.blocked(order.purchaseOrderId)"
                               (click)="openReceiveOrder(order.purchaseOrderId, $event)"
                             ></button>
                           </div>
@@ -366,16 +369,17 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
           }
         </section>
       }
+      }
     </section>
 
-    @if (showBuilderOverlay()) {
+    @if (showBuilderOverlay() && !receivingAccess.securityHidden()) {
       <app-purchase-order-builder-page
         [purchaseOrderId]="editingPoId()"
         (closeRequested)="closeBuilder()"
       />
     }
 
-    @if (receivingOrder; as order) {
+    @if (!receivingAccess.securityHidden() && permissions.canManagePurchaseOrders() && receivingOrder; as order) {
       <app-receive-purchase-order-dialog
         [order]="order"
         [visible]="showReceiveDialog()"
@@ -770,6 +774,9 @@ export class PurchaseOrdersListPageComponent implements OnInit {
   readonly localizedError =
     this.facade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
   protected readonly permissions = inject(ShopPermissionsService);
+  protected readonly receivingAccess = new PurchaseReceivingAccess(() =>
+    this.facade.orders().map(order => order.purchaseOrderId),
+  );
   private readonly router = inject(Router);
   private readonly confirmationService = inject(ConfirmationService);
   private readonly translocoService = inject(TranslocoService);
@@ -808,9 +815,11 @@ export class PurchaseOrdersListPageComponent implements OnInit {
         this.actionItem('purchaseOrders.editPo', 'pi pi-pencil', () =>
           this.openEditOrder(order.purchaseOrderId),
         ),
-        this.actionItem('purchaseOrders.actions.placeOrder', 'pi pi-send', () =>
-          this.placeOrder(order.purchaseOrderId),
-        ),
+        {
+          ...this.actionItem('purchaseOrders.actions.placeOrder', 'pi pi-send', () =>
+            this.placeOrder(order.purchaseOrderId)),
+          disabled: !!this.receivingAccess.hint.blockingMessage(),
+        },
         this.actionItem('purchaseOrders.actions.deleteDraft', 'pi pi-trash', () =>
           this.deleteDraft(order.purchaseOrderId),
         ),
@@ -824,13 +833,14 @@ export class PurchaseOrdersListPageComponent implements OnInit {
       order.status === 'Closed'
     ) {
       return [
-        this.actionItem(
-          order.status === 'Received' || order.status === 'Closed'
-            ? 'purchaseOrders.receiving.recover'
-            : 'purchaseOrders.actions.receive',
-          'pi pi-inbox',
-          () => this.openReceiveOrder(order.purchaseOrderId),
-        ),
+        {
+          ...this.actionItem(
+            this.receivingAccess.label(order.purchaseOrderId, order.status),
+            'pi pi-inbox',
+            () => this.openReceiveOrder(order.purchaseOrderId),
+          ),
+          disabled: this.receivingAccess.blocked(order.purchaseOrderId),
+        },
       ];
     }
 
@@ -912,11 +922,28 @@ export class PurchaseOrdersListPageComponent implements OnInit {
     ];
   }
 
+  constructor() {
+    let wasHidden = false;
+    effect(() => {
+      const hidden = this.receivingAccess.securityHidden();
+      if (hidden === wasHidden) return;
+      wasHidden = hidden;
+      if (hidden) {
+        this.showReceiveDialog.set(false);
+        this.receivingPoId.set(null);
+        this.showBuilderOverlay.set(false);
+      } else {
+        untracked(() => this.facade.loadOrders(this.facade.filters()));
+      }
+    });
+  }
+
   ngOnInit(): void {
     this.facade.loadOrders(DEFAULT_PURCHASE_ORDER_LIST_FILTERS);
   }
 
   protected openNewOrder(): void {
+    if (this.receivingAccess.hint.blockingMessage()) return;
     this.editingPoId.set(null);
     this.showBuilderOverlay.set(true);
   }
@@ -986,11 +1013,12 @@ export class PurchaseOrdersListPageComponent implements OnInit {
 
   protected placeOrder(purchaseOrderId: string, event?: Event): void {
     event?.stopPropagation();
-    this.facade.placeOrder(purchaseOrderId);
+    if (!this.receivingAccess.hint.blockingMessage()) this.facade.placeOrder(purchaseOrderId);
   }
 
   protected openReceiveOrder(purchaseOrderId: string, event?: Event): void {
     event?.stopPropagation();
+    if (this.receivingAccess.blocked(purchaseOrderId)) return;
     this.receivingPoId.set(purchaseOrderId);
     this.showReceiveDialog.set(true);
     this.facade.loadDetail(purchaseOrderId);
@@ -1010,6 +1038,7 @@ export class PurchaseOrdersListPageComponent implements OnInit {
   protected closeReceiveDialog(): void {
     this.showReceiveDialog.set(false);
     this.receivingPoId.set(null);
+    this.receivingAccess.refreshPending();
     this.facade.loadOrders(this.facade.filters());
   }
 

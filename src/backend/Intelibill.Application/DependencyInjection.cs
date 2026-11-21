@@ -34,6 +34,8 @@ public static class DependencyInjection
         services.AddScoped<Features.Sales.Commands.SyncOfflineSales.OfflineTillReconciliationEligibility>();
         services.AddScoped<Features.Expiry.BatchExpiryRevisionService>();
         services.AddScoped<Features.Inventory.Services.StockIntakeAccess>();
+        services.AddScoped<Features.PurchaseOrders.Services.PurchaseOrderTrading>();
+        services.AddScoped<Features.PurchaseOrders.Services.PurchaseOrderHistory>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();
         services.AddScoped<Features.Tills.ITillPostingService, Features.Tills.Services.TillPostingService>();
         services.AddScoped<Features.Tills.Services.TillDtoBuilder>();

@@ -248,7 +248,7 @@ async function assertReceiptStatusVisible(page: Page): Promise<void> {
   const receiptItems = page.locator('.receipt-status');
   await expect(receiptItems).toHaveCount(2);
   await expect(receiptItems.nth(0)).toContainText('REC-2026-001');
-  await expect(receiptItems.nth(0)).toContainText('7/15/26');
+  await expect(receiptItems.nth(0)).toContainText('15 Jul 2026');
   await expect(receiptItems.nth(0)).toContainText('John Doe');
 }
 

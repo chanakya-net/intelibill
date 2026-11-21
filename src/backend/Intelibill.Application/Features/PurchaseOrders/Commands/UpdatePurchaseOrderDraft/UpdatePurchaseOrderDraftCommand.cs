@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using System;
 using System.Collections.Generic;
 
@@ -18,4 +19,5 @@ public sealed record UpdatePurchaseOrderDraftCommand(
     DateOnly? ExpectedDeliveryDate,
     string? SupplierReferenceNumber,
     string? Notes,
-    IReadOnlyList<UpdatePurchaseOrderLineInput> Lines);
+    IReadOnlyList<UpdatePurchaseOrderLineInput> Lines,
+    SessionClaims? Session = null);
