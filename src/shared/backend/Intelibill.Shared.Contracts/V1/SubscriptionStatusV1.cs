@@ -104,7 +104,11 @@ public sealed record ShopSubscriptionStatusV1(
     [property: JsonPropertyName("reopeningEnforced"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     bool? ReopeningEnforced = null,
     [property: JsonPropertyName("reopeningRequiredRevision"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    long? ReopeningRequiredRevision = null);
+    long? ReopeningRequiredRevision = null,
+    [property: JsonPropertyName("reopeningReceived"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    bool? ReopeningReceived = null,
+    [property: JsonPropertyName("reopenedVersion"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    long? ReopenedVersion = null);
 
 public sealed record EntitlementSynchronizationV1(
     [property: JsonPropertyName("state")] string State,

@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Intelibill.Licensing.Infrastructure.Entitlements;
 
 /// <summary>Freezes source facts inside the writer's existing account-fenced transaction.</summary>
-internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionAccessFactsReader reader,
+internal sealed partial class EntitlementPublisher(LicensingDbContext db, ISubscriptionAccessFactsReader reader,
     [FromKeyedServices(SubscriptionStatusRegistration.ClockKey)] TimeProvider lifecycle, TimeProvider deliveryClock)
     : IEntitlementPublisher
 {
@@ -73,17 +73,11 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
             JOIN public.operational_restrictions r ON r.id = l.restriction_id
             WHERE l.account_id = {account} AND r.shop_id = {shop}
             """).SingleAsync(ct);
-        var closed = await db.Database.SqlQuery<bool>($"""
-            SELECT EXISTS (SELECT FROM public.active_operational_closure_targets WHERE account_id = {account}
-                AND shop_id = {shop} AND affiliation_request_id = {request}) AS "Value"
-            """).SingleAsync(ct);
-        var reopened = await db.Database.SqlQuery<long?>($"""
-            SELECT max(prior_revision) AS "Value" FROM public.operational_closure_reopenings
-            WHERE account_id = {account} AND shop_id = {shop} AND affiliation_request_id = {request}
-            """).SingleAsync(ct);
-        var state = closed ? ShopClosuresV1.Closed : term?.State ?? "PendingActivation";
+        var closure = await ReadClosureAsync(account, shop, request, eventId, revision, ct);
+        var state = closure.Closed ? ShopClosuresV1.Closed : term?.State ?? "PendingActivation";
         var shopHead = new ShopEntitlementSnapshotV1(revision, now, state, term?.TermId,
-            term?.Basis, term?.StartsAt, term?.AccessEndsAt, next, term?.PurchasedCapacity, term?.MemberAllowance, suspension, released, reopened);
+            term?.Basis, term?.StartsAt, term?.AccessEndsAt, next, term?.PurchasedCapacity, term?.MemberAllowance,
+            suspension, released, closure.OpeningCutoff, closure.Revision);
         var snapshot = new EntitlementSnapshotV1(1, EntitlementSnapshotsV1.PolicyVersion, eventId ?? Guid.NewGuid(), account,
             shop, request, accountHead, shopHead);
         await AppendAsync(snapshot, ct);
@@ -132,9 +126,10 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
             bytes, SignedServiceAssertion.Digest(bytes), EntitlementSnapshotsV1.Instant(deliveryClock), ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.entitlement_snapshots
-                (event_id, account_id, shop_id, affiliation_request_id, account_revision, shop_revision)
+                (event_id, account_id, shop_id, affiliation_request_id, account_revision, shop_revision,
+                 closure_revision, publisher_protocol)
             VALUES ({snapshot.EventId}, {snapshot.AccountId}, {snapshot.ShopId}, {snapshot.AffiliationRequestId},
-                {snapshot.Account!.Revision}, {snapshot.Shop!.Revision})
+                {snapshot.Account!.Revision}, {snapshot.Shop!.Revision}, {snapshot.Shop.ClosureRevision}, 2)
             """, ct);
     }
 

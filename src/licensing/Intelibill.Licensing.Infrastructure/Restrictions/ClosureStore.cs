@@ -14,10 +14,13 @@ internal sealed partial class ClosureStore(LicensingDbContext db, EntitlementPub
     public Task<ClosureTargetV1[]> TargetsAsync(Guid account, Guid? shop, CancellationToken ct) =>
         db.Database.SqlQuery<ClosureTargetV1>($"""
             SELECT a.shop_id, a.request_id AS affiliation_request_id, a.shop_name,
-                CASE WHEN EXISTS (SELECT FROM public.active_operational_closure_targets t
+                coalesce(s.closure_revision, CASE WHEN EXISTS (SELECT FROM public.active_operational_closure_targets t
                     WHERE t.account_id = a.account_id AND t.shop_id = a.shop_id AND t.affiliation_request_id = a.request_id)
-                    THEN 1::bigint ELSE 0::bigint END AS closure_version
+                    THEN 1::bigint ELSE 0::bigint END) AS closure_version
             FROM public.shop_affiliations a
+            LEFT JOIN public.entitlement_shop_heads h ON h.account_id = a.account_id AND h.shop_id = a.shop_id
+            LEFT JOIN public.entitlement_snapshots s ON s.shop_id = a.shop_id AND s.shop_revision = h.revision
+                AND s.affiliation_request_id = a.request_id AND s.account_id = a.account_id
             WHERE a.account_id = {account} AND ({shop}::uuid IS NULL OR a.shop_id = {shop})
             ORDER BY a.shop_id LIMIT {ShopClosuresV1.MaxTargets + 1}
             """).ToArrayAsync(ct);

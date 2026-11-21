@@ -145,7 +145,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         shop.Apply(source.Revision, source.UpstreamVerifiedAt, source.State, source.TermId, source.Basis, source.StartsAt,
             source.AccessEndsAt, source.NextBoundary, source.ShopCapacity, source.MemberAllowance, snapshot.EventId,
             source.Suspension?.Mode, source.Suspension?.EffectiveAt, source.Suspension?.CustomerExplanation,
-            source.ReleasedRevision, source.ReopenedRevision);
+            source.ReleasedRevision, source.ReopenedRevision, source.ClosureRevision);
     }
 
     private static LicenseGrantEvidence Evidence(EntitlementSnapshotV1 snapshot, byte[] body, VerifiedServiceAssertion proof,

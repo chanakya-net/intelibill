@@ -8,32 +8,29 @@ namespace Intelibill.Licensing.Integration.Tests;
 public sealed partial class P0417Tests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task MerchantAppliesOnlyAnExplicitReopeningAndAcknowledgesIt(bool reordered)
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public async Task MerchantAppliesOnlyAnExplicitReopeningAndAcknowledgesIt(bool reordered, bool activated)
     {
         var clock = new P0201Clock { Now = P0202Fixture.WholeSecondNow() };
         await using var fixture = await P0213Fixture.StartAsync(database, businessClock: clock);
         var (owner, account, route) = await CloseAsync(fixture, clock.Now, till: true);
         var closed = await fixture.LatestSnapshotAsync(owner.ShopId);
         await fixture.DrainAsync(source: false);
-        await fixture.MerchantScalarAsync($"""
-            UPDATE shop_license_states SET enforcement_activated_at = now() WHERE shop_id = '{owner.ShopId:D}'
-            RETURNING shop_id
-            """);
+        if (activated) await ActivateAsync(fixture, owner);
         if (!reordered)
         {
             await fixture.DrainAsync(source: true);
             await AssertUnprovedReopeningRejectedAsync(fixture, closed);
-            using var denied = await P0403Tests.WriteTillAsync(owner, "closed-till", "Still closed");
-            Assert.Equal("Licence.TradingRestricted", await P0206Fixture.CodeAsync(denied));
+            if (activated) await AssertTradingHeldAsync(owner);
         }
         using var admin = await SignInAsync(fixture);
         var impact = await PreviewAsync(admin, route);
         using var reopened = await P0212Fixture.PostAsync(admin, route, Command(impact, owner));
         Assert.True(reopened.StatusCode == HttpStatusCode.Created, await reopened.Content.ReadAsStringAsync());
         await AssertPropagationAsync(admin, account, "Pending");
-        await AssertMerchantStatusAsync(owner, false);
+        await AssertMerchantStatusAsync(owner, received: false, activated ? false : null);
 
         if (reordered)
         {
@@ -54,12 +51,15 @@ public sealed partial class P0417Tests
             """);
         Assert.True(Equals($"Active|{snapshot.Shop!.Revision}|{snapshot.Shop.ReopenedRevision}", projection),
             $"Expected current reopening projection; observed {projection}; provider delivery {delivery}.");
-        await AssertMerchantStatusAsync(owner, true);
+        await AssertMerchantStatusAsync(owner, received: true, activated ? true : null);
         await AssertPropagationAsync(admin, account, "Pending");
         await fixture.DrainAsync(source: false);
         await AssertPropagationAsync(admin, account, "Acknowledged");
-        using var till = await P0403Tests.WriteTillAsync(owner, "reopened-till", "Reopened till");
-        Assert.True(till.IsSuccessStatusCode, await till.Content.ReadAsStringAsync());
+        if (activated)
+        {
+            using var till = await P0403Tests.WriteTillAsync(owner, "reopened-till", "Reopened till");
+            Assert.True(till.IsSuccessStatusCode, await till.Content.ReadAsStringAsync());
+        }
     }
 
     private static async Task AssertUnprovedReopeningRejectedAsync(P0213Fixture fixture,
@@ -77,12 +77,31 @@ public sealed partial class P0417Tests
         }
     }
 
-    private static async Task AssertMerchantStatusAsync(Merchant owner, bool applied)
+    private static async Task ActivateAsync(P0213Fixture fixture, Merchant owner) =>
+        await fixture.MerchantScalarAsync($"""
+            UPDATE shop_license_states SET enforcement_activated_at = now() WHERE shop_id = '{owner.ShopId:D}'
+            RETURNING shop_id
+            """);
+
+    private static async Task AssertTradingHeldAsync(Merchant owner)
     {
-        var status = await owner.Client.GetFromJsonAsync<JsonElement>($"/api/licensing/shops/{owner.ShopId:D}/status");
+        using var denied = await P0403Tests.WriteTillAsync(owner, "closed-till", "Still closed");
+        Assert.Equal("Licence.TradingRestricted", await P0206Fixture.CodeAsync(denied));
+    }
+
+    private static async Task AssertMerchantStatusAsync(Merchant owner, bool received, bool? enforced, bool partial = false)
+    {
+        using var response = await owner.Client.GetAsync($"/api/licensing/shops/{owner.ShopId:D}/status");
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        var status = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(JsonValueKind.String, status.GetProperty("reopenedAt").ValueKind);
-        Assert.Equal(applied, status.GetProperty("reopeningEnforced").GetBoolean());
+        Assert.Equal(received, status.GetProperty("reopeningReceived").GetBoolean());
+        Assert.Equal(enforced, status.TryGetProperty("reopeningEnforced", out var local) ? local.GetBoolean() : null);
+        Assert.Equal(partial, status.TryGetProperty("closedAt", out _));
+        Assert.Equal(partial || enforced.HasValue ? false : true, status.GetProperty("observeOnly").GetBoolean());
+        Assert.Equal(received && !partial, status.TryGetProperty("reopenedVersion", out _));
         Assert.False(status.TryGetProperty("reopeningRequiredRevision", out _));
+        if (partial) Assert.True(status.GetProperty("closureEnforced").GetBoolean());
     }
 
     private static async Task AssertPropagationAsync(P0110CookieBrowser admin, Guid account, string expected)

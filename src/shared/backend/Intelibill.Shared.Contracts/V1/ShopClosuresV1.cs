@@ -42,7 +42,7 @@ public sealed record ClosureDeviceV1(string Reference, DateTimeOffset LastContac
 public sealed record ShopClosureConfirmationV1(Guid OperationKey, long ExpectedVersion, long OwnerVersion, string WorkDigest,
     bool ReviewedKnownWork, bool ConsideredDeviceQueues, string FinancialTreatment)
 {
-    public bool IsValid() => OperationKey != Guid.Empty && ExpectedVersion is 0 or 1 && OwnerVersion >= 0 &&
+    public bool IsValid() => OperationKey != Guid.Empty && ExpectedVersion >= 0 && OwnerVersion >= 0 &&
         ShopClosuresV1.IsDigest(WorkDigest) && ReviewedKnownWork && ConsideredDeviceQueues &&
         FinancialTreatment == ShopClosuresV1.FinancialTreatment;
 }

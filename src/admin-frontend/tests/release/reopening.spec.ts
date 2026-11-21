@@ -75,6 +75,54 @@ test('support reads reopening status without review controls', async ({ page }) 
   }
 });
 
+for (const malformed of [false, true]) {
+  test(`blocks ${malformed ? 'malformed' : 'other-account'} reopening drafts after reload`, async ({ page }) => {
+    const server = await startStaticServer(resolve('dist/ADMIN/browser'));
+    try {
+      const facts = await install(page);
+      await page.goto(server.origin + route);
+      facts.enableCoverage();
+      await page.getByRole('button', { name: 'Review reopening' }).click();
+      await fillEvidence(page);
+      await page.getByRole('checkbox', { name: /verified the current shop owner/ }).check();
+      await page.getByRole('button', { name: 'Confirm reopening' }).click();
+      const retry = page.getByRole('button', { name: 'Retry the same request' });
+      await expect(retry).toBeEnabled();
+      await page.evaluate(async ({ admin, account, malformed }) => {
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+          const open = indexedDB.open('intelibill.admin.reopenings', 1);
+          open.onsuccess = () => resolve(open.result);
+          open.onerror = () => reject(open.error);
+        });
+        await new Promise<void>((resolve, reject) => {
+          const tx = db.transaction('pending', 'readwrite');
+          const store = tx.objectStore('pending');
+          const key = `${admin}.${account}`;
+          const read = store.get(key);
+          read.onsuccess = () => store.put(malformed ? { ...read.result, command: null }
+            : { ...read.result, accountId: 'd0000000-0000-4000-8000-000000000000' }, key);
+          tx.oncomplete = () => resolve();
+          tx.onabort = () => reject(tx.error);
+        });
+        db.close();
+      }, { admin: adminId, account, malformed });
+      facts.clearPropagation();
+      const unexpected: string[] = [];
+      page.on('request', request => {
+        if (request.method() === 'POST' && request.url().endsWith('/reopening')) unexpected.push(request.url());
+      });
+      await page.reload();
+      await expect(page.getByText('The saved draft could not be verified.')).toBeVisible();
+      await expect(retry).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Review reopening' })).toBeDisabled();
+      expect(unexpected).toEqual([]);
+      expect(facts.requests).toHaveLength(1);
+    } finally {
+      await server.close();
+    }
+  });
+}
+
 async function fillEvidence(page: Page) {
   await page.getByLabel('Review reason').fill('Verified current paid coverage');
   await page.getByLabel('Current shop owner user ID').fill(ownerId);
@@ -114,5 +162,6 @@ async function install(page: Page, capabilities = ['licensing-manager']) {
     return requests.length === 1 ? route.abort('connectionreset')
       : route.fulfill({ json: { id: closureId, closureId, shopId, reopenedAt: at } });
   });
-  return { requests, enableCoverage: () => { covered = true; }, acknowledge: () => { propagation = 'Acknowledged'; } };
+  return { requests, enableCoverage: () => { covered = true; }, acknowledge: () => { propagation = 'Acknowledged'; },
+    clearPropagation: () => { propagation = undefined; } };
 }

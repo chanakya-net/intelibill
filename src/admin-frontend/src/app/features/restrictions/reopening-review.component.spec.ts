@@ -28,7 +28,7 @@ async function render(capabilities = ['licensing-manager'], coverageAdequate = t
     { provide: Router, useValue: { navigate: vi.fn().mockResolvedValue(true) } },
     { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({ account }) } } },
     { provide: AdminSessionService, useValue: {
-      state: signal('authenticated'), capabilities: signal(capabilities), adminId: signal('admin'), sessionId: signal('session'),
+      state: signal('authenticated'), capabilities: signal(capabilities), adminId: signal(ownerId), sessionId: signal('session'),
     } },
     { provide: ReopeningApi, useValue: { list, preview, save } },
     { provide: ReopeningDrafts, useValue: { read: async () => null, claim, clear: async () => {} } },

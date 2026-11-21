@@ -29,7 +29,7 @@
                 @if (shop.reopening; as reopening) {
                   <p data-testid="reopening-propagation">{{ statusLabels[reopening.propagation] }}</p>
                 } @else if (canReview()) {
-                  <button pButton type="button" [disabled]="busy() || !!pending()" (click)="preview(closure.id, shop.shopId)">
+                  <button pButton type="button" [disabled]="busy() || !!pending() || invalidDraft()" (click)="preview(closure.id, shop.shopId)">
                     Review reopening
                   </button>
                 }
@@ -77,7 +77,7 @@
                 <input type="checkbox" formControlName="ownerConsentConfirmed" />
                 I verified the current shop owner’s identity and explicit request to reopen {{ review.shopName }}.
               </label>
-              <button pButton type="submit" [disabled]="busy() || form.invalid">Confirm reopening</button>
+              <button pButton type="submit" [disabled]="busy() || invalidDraft() || form.invalid">Confirm reopening</button>
             </form>
           }
         </section>

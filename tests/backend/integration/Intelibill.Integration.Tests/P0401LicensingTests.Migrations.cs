@@ -160,7 +160,7 @@ public sealed partial class P0401LicensingTests
                     (SELECT string_agg(t::text, ',' ORDER BY t::text) FROM public.license_grant_evidence t),
                     (SELECT string_agg(legacy.head::text, ',' ORDER BY legacy.head::text)
                         FROM public.shop_license_states t CROSS JOIN LATERAL
-                            (SELECT to_jsonb(t) - 'reopened_revision' AS head) legacy),
+                            (SELECT to_jsonb(t) - 'reopened_revision' - 'closure_revision' AS head) legacy),
                     (SELECT string_agg(t::text, ',' ORDER BY t::text) FROM public.entitlement_messages t))) AS "Value"
                 """).SingleAsync(Ct);
         }

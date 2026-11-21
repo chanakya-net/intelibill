@@ -15,7 +15,7 @@ internal sealed partial class MerchantClosureConsentStore
         var row = await ReadEvidenceAsync(shop, ct);
         var devices = JsonSerializer.Deserialize<ClosureDeviceV1[]>(row.DeviceEvidence, Json)!;
         return new(shop, access.Owner.ShopName, access.Binding.AccountId, access.Binding.AffiliationRequestId,
-            access.Binding.State == ShopClosuresV1.Closed ? 1 : 0, access.Owner.Version, clock.GetUtcNow(),
+            access.Binding.ClosureRevision ?? (access.Binding.State == ShopClosuresV1.Closed ? 1 : 0), access.Owner.Version, clock.GetUtcNow(),
             SignedServiceAssertion.Digest(JsonSerializer.SerializeToUtf8Bytes(
                 new { access.Binding.AccountId, access.Binding.AffiliationRequestId, shop, access.Owner.MembershipId,
                     access.Owner.Version, row.Evidence }, Json)), row.OpenTills, row.UnresolvedCases,

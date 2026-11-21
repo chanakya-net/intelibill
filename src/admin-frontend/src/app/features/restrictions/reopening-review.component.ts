@@ -8,7 +8,7 @@ import { basisLabels, formatIstExact, stateLabels, statusReaders, type ProviderC
 import { exactIstInstant } from '../accounts/trial-extension-api.service';
 import { AdminSessionService } from '../auth/admin-session.service';
 import { ReopeningApi, reopeningRefusal, type ReopeningImpact, type ReopeningTarget } from './reopening-api.service';
-import { ReopeningDrafts, type PendingReopening } from './reopening-drafts';
+import { InvalidReopeningDraft, ReopeningDrafts, validateReopeningDraft, type PendingReopening } from './reopening-drafts';
 
 const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
@@ -42,6 +42,7 @@ export class ReopeningReviewComponent {
   protected readonly impact = signal<ReopeningImpact | null>(null);
   protected readonly pending = signal<PendingReopening | null>(null);
   protected readonly busy = signal(false);
+  protected readonly invalidDraft = signal(false);
   protected readonly saved = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly format = formatIstExact;
@@ -51,6 +52,7 @@ export class ReopeningReviewComponent {
     Pending: 'Pending merchant acknowledgement',
     Acknowledged: 'Acknowledged by merchant service',
     NeedsReview: 'Delivery needs review',
+    Superseded: 'Superseded without merchant acknowledgement',
   };
   protected readonly form = inject(FormBuilder).nonNullable.group({
     reason: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(1000)]],
@@ -94,7 +96,7 @@ export class ReopeningReviewComponent {
 
   protected preview(closureId: string, shopId: string): void {
     const scope = this.scope();
-    if (!scope || !this.canReview() || this.pending() || this.busy()) return;
+    if (!scope || !this.canReview() || this.pending() || this.invalidDraft() || this.busy()) return;
     this.form.reset();
     this.impact.set(null);
     this.saved.set(false);
@@ -110,7 +112,7 @@ export class ReopeningReviewComponent {
     const values = this.form.getRawValue();
     const ist = exactIstInstant(values.ownerConsentAt);
     const at = ist ? new Date(ist) : null;
-    if (this.busy() || !scope || !impact?.coverageAdequate || !this.canReview() || this.pending() ||
+    if (this.busy() || !scope || !impact?.coverageAdequate || !this.canReview() || this.pending() || this.invalidDraft() ||
       this.form.invalid || !at || !Number.isFinite(at.valueOf())) return;
     const reason = values.reason.trim();
     const ownerConsentReference = values.ownerConsentReference.trim();
@@ -126,7 +128,7 @@ export class ReopeningReviewComponent {
     void this.run(scope, async () => {
       const pending = await this.drafts.claim(draft);
       if (!this.current(scope) || !this.canReview()) return;
-      this.pending.set(pending);
+      this.pending.set(this.requireDraftTarget(scope, pending));
       if (pending.command.operationKey === draft.command.operationKey) await this.send(scope, pending);
     });
   }
@@ -145,16 +147,28 @@ export class ReopeningReviewComponent {
   }
 
   private async read(scope: ReviewScope): Promise<void> {
+    const closures = await firstValueFrom(this.api.list(scope.accountId, scope.sessionId));
+    if (!this.current(scope)) return;
+    this.rows.set(closures);
     if (this.canReview()) {
       const pending = await this.drafts.read(scope.adminId, scope.accountId);
       if (!this.current(scope)) return;
-      this.pending.set(pending);
+      this.pending.set(pending && this.requireDraftTarget(scope, pending));
+      this.invalidDraft.set(false);
     }
-    const closures = await firstValueFrom(this.api.list(scope.accountId, scope.sessionId));
-    if (this.current(scope)) this.rows.set(closures);
+  }
+
+  private requireDraftTarget(scope: ReviewScope, draft: PendingReopening): PendingReopening {
+    const validated = validateReopeningDraft(draft, scope.adminId, scope.accountId);
+    const listed = this.rows()?.some(closure => closure.id === validated.closureId &&
+      closure.shops.some(shop => shop.shopId === validated.shopId));
+    if (!listed) throw new InvalidReopeningDraft();
+    return validated;
   }
 
   private async send(scope: ReviewScope, draft: PendingReopening): Promise<void> {
+    if (!this.current(scope) || !this.canReview()) return;
+    this.requireDraftTarget(scope, draft);
     try {
       const decision = await firstValueFrom(this.api.save(draft, draft.command, scope.sessionId));
       if (decision.closureId !== draft.closureId || decision.shopId !== draft.shopId) {
@@ -191,7 +205,13 @@ export class ReopeningReviewComponent {
     try {
       await work();
     } catch (error) {
-      if (this.current(scope)) this.error.set(this.errorText(error));
+      if (this.current(scope)) {
+        if (error instanceof InvalidReopeningDraft) {
+          this.pending.set(null);
+          this.invalidDraft.set(true);
+        }
+        this.error.set(this.errorText(error));
+      }
     } finally {
       if (this.current(scope)) this.busy.set(false);
     }
@@ -203,13 +223,17 @@ export class ReopeningReviewComponent {
     this.impact.set(null);
     this.pending.set(null);
     this.saved.set(false);
+    this.invalidDraft.set(false);
     this.busy.set(false);
     this.error.set(null);
     this.form.reset();
   }
 
   private errorText(error: unknown): string {
+    if (error instanceof InvalidReopeningDraft)
+      return 'The saved draft could not be verified. Check the account history and contact support to recover the draft.';
     const code = error instanceof HttpErrorResponse ? error.error?.code : null;
+    if (code === 'Reopening.PublisherCutoverRequired') return 'Reopening is available after the provider delivery upgrade.';
     if (code === 'Reopening.RecentMfaRequired') return 'Sign in again with MFA to save the review.';
     if (this.pending()) return 'The save outcome is unconfirmed. Retry the same request.';
     if (reopeningRefusal(error)) return 'The review was refused. Check the current coverage and new owner consent before reviewing again.';

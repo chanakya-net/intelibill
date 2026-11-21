@@ -47,13 +47,16 @@ internal sealed partial class ClosureStore
         var publication = Guid.NewGuid();
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO public.operational_closure_reopenings
-                (id, closure_id, account_id, shop_id, affiliation_request_id, version, prior_revision, term_id, basis,
+                (id, closure_id, account_id, shop_id, affiliation_request_id, version, prior_revision, opens_shop, term_id, basis,
                  starts_at, paid_through, access_ends_at, impact_digest, owner_consent_action, owner_consent_user_id, owner_consent_at,
                  owner_consent_reference, owner_consent_evidence, reason, evaluated_at, reopened_at, reopened_by, session_id, mfa_verified_at,
                  operation_key, payload_digest, event_id)
             VALUES ({decision.Id}, {decision.ClosureId}, {reopening.AccountId}, {decision.ShopId}, {reopening.AffiliationRequestId},
                 {decision.Version}, (SELECT revision FROM public.entitlement_shop_heads
                     WHERE shop_id = {decision.ShopId} AND account_id = {reopening.AccountId}),
+                NOT EXISTS (SELECT FROM public.active_operational_closure_targets t
+                    WHERE t.account_id = {reopening.AccountId} AND t.shop_id = {decision.ShopId}
+                        AND t.affiliation_request_id = {reopening.AffiliationRequestId} AND t.closure_id <> {decision.ClosureId}),
                 {coverage.TermId}, {coverage.Basis}, {coverage.StartsAt}, {coverage.PaidThrough}, {coverage.AccessEndsAt},
                 {command.ImpactDigest}, 'ReopenShop', {command.OwnerConsentUserId}, {command.OwnerConsentAt},
                 {command.OwnerConsentReference!.Trim()}, {command.OwnerConsentEvidence!.Trim()}, {command.Reason!.Trim()},

@@ -20,6 +20,7 @@ public sealed class OperationalClosureReopenings : Migration
                 affiliation_request_id uuid NOT NULL,
                 version bigint NOT NULL CHECK (version > 1),
                 prior_revision bigint NOT NULL CHECK (prior_revision > 0),
+                opens_shop boolean NOT NULL,
                 term_id uuid NOT NULL,
                 basis text NOT NULL CHECK (basis IN ('Paid', 'Complimentary', 'Temporary', 'Transition')),
                 starts_at timestamptz NOT NULL CHECK (isfinite(starts_at)),
@@ -59,6 +60,7 @@ public sealed class OperationalClosureReopenings : Migration
             """);
         migrationBuilder.Sql(LeasedHttpOutboxSchema.Scope("operational_closure_reopenings",
             "account_id = nullif(current_setting('app.billing_account_id', true), '')::uuid"));
+        migrationBuilder.Sql(PublisherCutover);
         migrationBuilder.Sql(Guards);
     }
 
@@ -67,6 +69,9 @@ public sealed class OperationalClosureReopenings : Migration
         LANGUAGE plpgsql SET search_path = pg_catalog, public AS $$
         BEGIN
             PERFORM pg_advisory_xact_lock(hashtextextended('b' || NEW.account_id::text, 0));
+            IF NOT public.reopening_publishers_ready() THEN
+                RAISE EXCEPTION 'Reopening publisher cutover is required' USING ERRCODE = '55000';
+            END IF;
             IF NOT EXISTS (
                 SELECT FROM public.active_operational_closure_targets t
                 JOIN public.operational_closures c ON c.id = t.closure_id AND c.account_id = t.account_id
@@ -82,7 +87,11 @@ public sealed class OperationalClosureReopenings : Migration
             ) + (
                 SELECT count(*) FROM public.operational_closure_reopenings r
                 WHERE r.account_id = NEW.account_id AND r.shop_id = NEW.shop_id
-            ) THEN
+            ) OR NEW.opens_shop <> (NOT EXISTS (
+                SELECT FROM public.active_operational_closure_targets t
+                WHERE t.account_id = NEW.account_id AND t.shop_id = NEW.shop_id
+                    AND t.affiliation_request_id = NEW.affiliation_request_id AND t.closure_id <> NEW.closure_id
+            )) THEN
                 RAISE EXCEPTION 'Reopening requires the active closure and its current entitlement head' USING ERRCODE = '23514';
             END IF;
             RETURN NEW;
@@ -95,6 +104,60 @@ public sealed class OperationalClosureReopenings : Migration
             FOR EACH STATEMENT EXECUTE FUNCTION public.retain_entitlement_evidence();
         """;
 
+    private const string PublisherCutover = """
+        ALTER TABLE public.entitlement_snapshots
+            ADD COLUMN closure_revision bigint CHECK (closure_revision > 1 AND closure_revision <= shop_revision),
+            ADD COLUMN publisher_protocol smallint NOT NULL DEFAULT 1 CHECK (publisher_protocol IN (1, 2));
+        CREATE INDEX entitlement_snapshots_closure_cycle
+            ON public.entitlement_snapshots (shop_id, closure_revision, shop_revision DESC)
+            WHERE closure_revision IS NOT NULL;
+        CREATE VIEW public.applied_entitlement_shop_receipts WITH (security_invoker = true) AS
+            SELECT s.account_id, s.shop_id, s.affiliation_request_id, s.shop_revision, s.closure_revision,
+                (receipt.body->>'appliedAt')::timestamptz AS applied_at
+            FROM public.entitlement_snapshots s
+            JOIN public.entitlement_merchant_inbox ack ON ack.event_id = s.event_id
+                AND ack.account_id = s.account_id AND ack.kind = 'Acknowledgement'
+            CROSS JOIN LATERAL (SELECT convert_from(ack.payload, 'UTF8')::jsonb AS body) receipt
+            WHERE receipt.body->>'disposition' = 'Applied'
+                AND (receipt.body->>'appliedShopRevision')::bigint = s.shop_revision;
+        CREATE INDEX operational_closure_reopenings_shop_history
+            ON public.operational_closure_reopenings (account_id, shop_id, affiliation_request_id, version DESC);
+
+        CREATE TABLE public.reopening_publisher_cutover (
+            singleton boolean PRIMARY KEY CHECK (singleton),
+            enabled boolean NOT NULL
+        );
+        INSERT INTO public.reopening_publisher_cutover VALUES (true, false);
+        CREATE FUNCTION public.guard_reopening_cutover() RETURNS trigger
+        LANGUAGE plpgsql SET search_path = pg_catalog, public AS $$
+        BEGIN
+            IF TG_OP <> 'UPDATE' OR NOT NEW.enabled OR NOT pg_has_role(current_user,
+                (SELECT relowner FROM pg_class WHERE oid = 'public.reopening_publisher_cutover'::regclass), 'USAGE')
+            THEN RAISE EXCEPTION 'Reopening cutover requires the schema owner' USING ERRCODE = '42501';
+            END IF;
+            RETURN NEW;
+        END $$;
+        CREATE TRIGGER guard_cutover_row BEFORE INSERT OR UPDATE OR DELETE ON public.reopening_publisher_cutover
+            FOR EACH ROW EXECUTE FUNCTION public.guard_reopening_cutover();
+        CREATE TRIGGER retain_table BEFORE TRUNCATE ON public.reopening_publisher_cutover
+            FOR EACH STATEMENT EXECUTE FUNCTION public.retain_entitlement_evidence();
+
+        CREATE FUNCTION public.reopening_publishers_ready() RETURNS boolean
+        LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+            SELECT enabled FROM public.reopening_publisher_cutover WHERE singleton FOR SHARE
+        $$;
+        CREATE FUNCTION public.guard_entitlement_publisher() RETURNS trigger
+        LANGUAGE plpgsql SET search_path = pg_catalog, public AS $$
+        BEGIN
+            IF NEW.publisher_protocol <> 2 AND public.reopening_publishers_ready() THEN
+                RAISE EXCEPTION 'Retire the legacy entitlement publisher' USING ERRCODE = '55000';
+            END IF;
+            RETURN NEW;
+        END $$;
+        CREATE TRIGGER guard_publisher BEFORE INSERT ON public.entitlement_snapshots
+            FOR EACH ROW EXECUTE FUNCTION public.guard_entitlement_publisher();
+        """;
+
     protected override void Down(MigrationBuilder migrationBuilder) => migrationBuilder.Sql("""
         LOCK TABLE public.operational_closure_reopenings IN ACCESS EXCLUSIVE MODE;
         ALTER TABLE public.operational_closure_reopenings NO FORCE ROW LEVEL SECURITY;
@@ -103,6 +166,13 @@ public sealed class OperationalClosureReopenings : Migration
                 RAISE EXCEPTION 'Retained reopening evidence prevents downgrade' USING ERRCODE = '55000';
             END IF;
         END $$;
+        DROP TRIGGER guard_publisher ON public.entitlement_snapshots;
+        DROP FUNCTION public.guard_entitlement_publisher();
+        DROP FUNCTION public.reopening_publishers_ready();
+        DROP TABLE public.reopening_publisher_cutover;
+        DROP FUNCTION public.guard_reopening_cutover();
+        DROP VIEW public.applied_entitlement_shop_receipts;
+        ALTER TABLE public.entitlement_snapshots DROP COLUMN closure_revision, DROP COLUMN publisher_protocol;
         DROP VIEW public.active_operational_closure_targets;
         DROP TABLE public.operational_closure_reopenings;
         DROP FUNCTION public.guard_closure_reopening();

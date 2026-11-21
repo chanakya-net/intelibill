@@ -50,6 +50,13 @@ public sealed partial class P0417Tests(LicensingPostgreSqlFixture database) : IC
     internal static async Task<(Merchant Owner, Guid Account, string Route)> CloseAsync(
         P0213Fixture fixture, DateTimeOffset at, bool paid = true, bool till = false)
     {
+        var (owner, account) = await OpenShopAsync(fixture, at, paid);
+        if (till) await P0403Tests.OpenTillAsync(fixture, owner);
+        return (owner, account, await CloseShopAsync(owner, account));
+    }
+
+    private static async Task<(Merchant Owner, Guid Account)> OpenShopAsync(P0213Fixture fixture, DateTimeOffset at, bool paid = true)
+    {
         var owner = await CreateTradingShopAsync(fixture.Hosts);
         var account = await CreateAccountAsync(owner.Client);
         var anchor = FirstOfMonth(at);
@@ -57,8 +64,7 @@ public sealed partial class P0417Tests(LicensingPostgreSqlFixture database) : IC
             anchor.AddMonths(1).ToUniversalTime(), AnchorLocal: FormattableString.Invariant($"{anchor:yyyy-MM-dd HH:mm:ss}"))) : null;
         await P0213Fixture.LinkAsync(account, owner, owner, term);
         await fixture.DrainAsync(source: true);
-        if (till) await P0403Tests.OpenTillAsync(fixture, owner);
-        return (owner, account, await CloseShopAsync(owner, account));
+        return (owner, account);
     }
 
     private static DateTimeOffset FirstOfMonth(DateTimeOffset at)
@@ -70,16 +76,17 @@ public sealed partial class P0417Tests(LicensingPostgreSqlFixture database) : IC
     private static async Task<string> CloseShopAsync(Merchant owner, Guid account)
     {
         var path = $"/api/licensing/shops/{owner.ShopId:D}/closure";
-        var review = await owner.Client.GetFromJsonAsync<JsonElement>(path + "-preview");
-        using var closed = await owner.Client.PostAsJsonAsync(path, new
-        {
-            operationKey = Guid.NewGuid(), expectedVersion = review.GetProperty("closureVersion").GetInt64(),
-            ownerVersion = review.GetProperty("ownerVersion").GetInt64(), workDigest = review.GetProperty("workDigest").GetString(),
-            reviewedKnownWork = true, consideredDeviceQueues = true, financialTreatment = "NoFinancialChange",
-        });
+        using var closed = await owner.Client.PostAsJsonAsync(path, await CloseCommandAsync(owner, path));
         Assert.True(closed.IsSuccessStatusCode, await closed.Content.ReadAsStringAsync());
         var id = (await closed.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
         return $"/api/admin/accounts/{account:D}/closures/{id:D}/shops/{owner.ShopId:D}/reopening";
+    }
+
+    private static async Task<Intelibill.Shared.Contracts.V1.ShopClosureConfirmationV1> CloseCommandAsync(Merchant owner, string path)
+    {
+        var review = await owner.Client.GetFromJsonAsync<JsonElement>(path + "-preview");
+        return new(Guid.NewGuid(), review.GetProperty("closureVersion").GetInt64(), review.GetProperty("ownerVersion").GetInt64(),
+            review.GetProperty("workDigest").GetString()!, true, true, "NoFinancialChange");
     }
 
     internal static async Task<P0110CookieBrowser> SignInAsync(P0213Fixture fixture, string capability = "licensing-manager",

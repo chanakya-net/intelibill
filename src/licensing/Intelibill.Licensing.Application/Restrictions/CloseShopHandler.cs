@@ -29,7 +29,8 @@ public sealed partial class CloseShopHandler(IBillingDelegationAccess access, IC
         var saved = await store.ReadOperationAsync(input.AccountId, input.OperationKey, token);
         if (saved is not null && (saved.ActorId != scope.ActorId || saved.ShopId != shop || saved.RequestDigest != digest))
             return Stale;
-        if (saved is null && (actual.ClosureVersion != 0 || actual.ClosureVersion != input.Target.ClosureVersion))
+        if (saved is null && (actual.ClosureVersion != input.Target.ClosureVersion ||
+            await store.ClosedAtAsync(input.AccountId, shop, token) is not null))
             return Stale;
 
         var validation = await RequireConsentAsync(input.AccountId, input.OperationKey, [input.Target], scope.ActorId,

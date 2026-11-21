@@ -30,6 +30,7 @@ public sealed class P0417TestsMigrations(LicensingPostgreSqlFixture database) : 
         await source.Database.MigrateAsync();
         await merchant.Database.MigrateAsync();
         await source.Database.ExecuteSqlRawAsync(P0302Fixture.RuntimeGrant);
+        await P0213Fixture.EnableReopeningAsync(fixture.Hosts.LicensingOwner);
         Assert.Equal(closed, await fixture.LatestSnapshotAsync(owner.ShopId));
         Assert.Equal("Closed", await fixture.MerchantScalarAsync($"SELECT state FROM shop_license_states WHERE shop_id = '{owner.ShopId:D}'"));
 

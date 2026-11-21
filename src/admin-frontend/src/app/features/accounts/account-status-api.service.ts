@@ -67,14 +67,14 @@ export interface ProviderClosure {
   readonly shops: readonly {
     readonly shopId: string;
     readonly shopName: string;
-    readonly propagation: 'Pending' | 'Applied' | 'NeedsReview';
+    readonly propagation: 'Pending' | 'Applied' | 'NeedsReview' | 'Superseded';
     readonly savedShopRevision: number | null;
     readonly appliedShopRevision: number | null;
     readonly acknowledgedAt: string | null;
     readonly reopening?: {
       readonly id: string;
       readonly reopenedAt: string;
-      readonly propagation: 'Pending' | 'Acknowledged' | 'NeedsReview';
+      readonly propagation: 'Pending' | 'Acknowledged' | 'NeedsReview' | 'Superseded';
     };
   }[];
 }

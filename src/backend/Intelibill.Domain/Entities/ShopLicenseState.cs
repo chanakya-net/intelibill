@@ -21,12 +21,13 @@ public sealed class ShopLicenseState
     public string? SuspensionExplanation { get; private set; }
     public long? ReleasedRevision { get; private set; }
     public long? ReopenedRevision { get; private set; }
+    public long? ClosureRevision { get; private set; }
     public Guid EvidenceId { get; private set; }
 
     public void Apply(long revision, DateTimeOffset verifiedAt, string state, Guid? termId, string? basis,
         DateTimeOffset? startsAt, DateTimeOffset? endsAt, DateTimeOffset? nextBoundary, int? capacity, int? members, Guid evidence,
         string? suspensionMode = null, DateTimeOffset? suspensionEffectiveAt = null, string? suspensionExplanation = null,
-        long? releasedRevision = null, long? reopenedRevision = null)
+        long? releasedRevision = null, long? reopenedRevision = null, long? closureRevision = null)
     {
         Revision = revision;
         UpstreamVerifiedAt = verifiedAt;
@@ -43,6 +44,7 @@ public sealed class ShopLicenseState
         SuspensionExplanation = suspensionExplanation;
         ReleasedRevision = releasedRevision;
         ReopenedRevision = reopenedRevision;
+        ClosureRevision = closureRevision;
         EvidenceId = evidence;
     }
 }

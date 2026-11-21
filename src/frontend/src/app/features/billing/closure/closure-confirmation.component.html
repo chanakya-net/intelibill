@@ -1,14 +1,14 @@
 <section class="ib-panel closure" [attr.aria-label]="('billing.closure.' + mode() + 'Title') | transloco">
   <h2>{{ ('billing.closure.' + mode() + 'Title') | transloco }}</h2>
   @if (draft(); as accepted) {
-    @if (accepted.settled) {
+    @if (accepted.settled && !resolvedBeforeReopening(accepted)) {
       <p role="status" data-testid="closure-saved">{{ (mode() === 'shop' ? 'billing.closure.saved' : 'billing.closure.consentSaved') | transloco }}</p>
-    } @else {
+    } @else if (!accepted.settled) {
       <p role="status">{{ 'billing.closure.unknown' | transloco }}</p>
       <button pButton severity="secondary" size="small" type="button" [disabled]="busy()" (click)="retry()">{{ 'billing.closure.retry' | transloco }}</button>
     }
   }
-  @if ((!draft() && !closed()) || (mode() === 'account' && (!draft() || draft()?.settled))) {
+  @if (mode() === 'shop' ? canReviewShop() : (!draft() || draft()?.settled)) {
     <button pButton severity="secondary" size="small" type="button" [disabled]="busy()" (click)="openReview()">
       {{ (mode() === 'shop' ? 'billing.closure.review' : 'billing.closure.readProposal') | transloco }}
     </button>

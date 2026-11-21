@@ -65,7 +65,7 @@ describe('subscription status', () => {
   it.each([false, true])('shows reopening confirmation for the current shop when applied is %s', (applied) => {
     const { fixture, page, session } = render({
       shop: id => of(status(id, id === shopA ? { reopenedAt: '2027-02-10T00:00:00.123456Z',
-        reopeningEnforced: applied, enforcedSuspensionMode: 'Security' } : { closedAt: '2027-02-10T00:00:00Z' })),
+        reopeningEnforced: applied, reopeningReceived: applied, enforcedSuspensionMode: 'Security' } : { closedAt: '2027-02-10T00:00:00Z' })),
     });
     const result = '[data-testid="shop-reopening-status"]';
     expect(page.querySelector(result)?.textContent).toContain('05:30:00.123456 IST');

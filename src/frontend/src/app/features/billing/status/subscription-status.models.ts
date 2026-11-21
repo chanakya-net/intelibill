@@ -45,6 +45,8 @@ export interface ShopSubscriptionStatus {
   readonly closureEnforced?: boolean;
   readonly reopenedAt?: string;
   readonly reopeningEnforced?: boolean;
+  readonly reopeningReceived?: boolean;
+  readonly reopenedVersion?: number;
   readonly enforcedSuspensionMode?: 'Trading' | 'Security';
   readonly entitlementSynchronization: string;
   readonly paymentVerification: string;

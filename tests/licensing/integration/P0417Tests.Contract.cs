@@ -19,7 +19,7 @@ public sealed partial class P0417Tests
         var shop = previous.Shop! with
         {
             Revision = proof.GetProperty("revision").GetInt64(), ReopenedRevision = proof.GetProperty("reopenedRevision").GetInt64(),
-            Basis = "Paid",
+            Basis = "Paid", ClosureRevision = proof.GetProperty("closureRevision").GetInt64(),
         };
         var snapshot = previous with { Shop = shop };
         Assert.True(shop.IsValid());
@@ -27,6 +27,8 @@ public sealed partial class P0417Tests
             JsonSerializer.SerializeToUtf8Bytes(snapshot, EntitlementSnapshotsV1.Json), EntitlementSnapshotsV1.Json));
         foreach (var invalid in proof.GetProperty("invalidCutoffs").EnumerateArray())
             Assert.False((shop with { ReopenedRevision = invalid.GetInt64() }).IsValid());
+        foreach (var invalid in new[] { 0, 1, shop.ReopenedRevision!.Value, shop.Revision + 1 })
+            Assert.False((shop with { ClosureRevision = invalid }).IsValid());
     }
 
     [Fact]

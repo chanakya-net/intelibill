@@ -64,7 +64,8 @@ public sealed record ShopEntitlementSnapshotV1(
     int? ShopCapacity, int? MemberAllowance,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CustomerSuspensionV1? Suspension = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? ReleasedRevision = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? ReopenedRevision = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? ReopenedRevision = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] long? ClosureRevision = null)
 {
     public bool IsValid()
     {
@@ -75,6 +76,7 @@ public sealed record ShopEntitlementSnapshotV1(
             NextBoundary is { } next && (!EntitlementSnapshotsV1.IsInstant(next) || next <= UpstreamVerifiedAt) ||
             ReleasedRevision is { } release && (release <= 0 || release >= Revision) ||
             ReopenedRevision is { } reopening && (reopening <= 0 || reopening >= Revision) ||
+            ClosureRevision is { } closure && (closure <= 1 || closure > Revision || closure <= ReopenedRevision) ||
             TermId == Guid.Empty || ShopCapacity is <= 0 || MemberAllowance is <= 0 || Suspension is { } suspension && !suspension.IsValid())
             return false;
         return State is not ("Active" or "Grace") || TermId is not null && Basis is not null &&
