@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
 using Intelibill.Domain.Entities;
@@ -196,11 +198,25 @@ public sealed class SaleCancellationConcurrencyTests(PostgreSqlTestFixture fixtu
         var preLock = await db.Sales.Include(x => x.Items).SingleAsync();
         Assert.Equal(SaleStatus.Posted, preLock.Status);
         Assert.Equal(HttpStatusCode.OK, (await CancelAsync(s)).StatusCode);
-        var handler = ActivatorUtilities.CreateInstance<Intelibill.Application.Features.Sales.Commands.RecordSaleReturn.RecordSaleReturnCommandHandler>(scope.ServiceProvider);
-        var response = await handler.HandleAsync(new(s.ActorId, s.ShopId, s.Sale.Id, ReturnPayoutDestination.Refund, null, null, null, null, null,
-            [new(s.Sale.Items[0].Id, 2m, SaleLineType.Goods, SaleReturnCondition.Restockable, null, null)]), CancellationToken.None);
-        Assert.True(response.IsError);
-        Assert.Equal("SaleReturn.SaleCancelled", response.FirstError.Code);
+        var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
+        accessor.HttpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new(JwtRegisteredClaimNames.Sub, s.ActorId.ToString()), new("active_shop_id", s.ShopId.ToString())],
+                "Integration test")),
+        };
+        try
+        {
+            var handler = ActivatorUtilities.CreateInstance<Intelibill.Application.Features.Sales.Commands.RecordSaleReturn.RecordSaleReturnCommandHandler>(scope.ServiceProvider);
+            var response = await handler.HandleAsync(new(s.ActorId, s.ShopId, s.Sale.Id, ReturnPayoutDestination.Refund, null, null, null, null, null,
+                [new(s.Sale.Items[0].Id, 2m, SaleLineType.Goods, SaleReturnCondition.Restockable, null, null)]), CancellationToken.None);
+            Assert.True(response.IsError);
+            Assert.Equal("SaleReturn.SaleCancelled", response.FirstError.Code);
+        }
+        finally
+        {
+            accessor.HttpContext = null;
+        }
         await AssertEffectsAsync(s, true, 0m, 0, 0);
     }
 

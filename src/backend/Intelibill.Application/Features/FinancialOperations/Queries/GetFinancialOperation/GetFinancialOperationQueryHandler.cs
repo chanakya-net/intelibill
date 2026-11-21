@@ -55,7 +55,8 @@ public sealed class GetFinancialOperationQueryHandler(
 
         if (operationType is FinancialOperationType.CustomerPayment or FinancialOperationType.SupplierPayment
             or FinancialOperationType.SupplierReturn or FinancialOperationType.SupplierReturnCredit or FinancialOperationType.PurchaseReceiptReversal
-            or FinancialOperationType.ReceiptCostCorrection)
+            or FinancialOperationType.ReceiptCostCorrection
+            or FinancialOperationType.SaleReturn or FinancialOperationType.SaleReturnVoid)
             return await transactions.RunAsync<FinancialOperationDto>(null, query.UserId, query.ShopId, null,
                 ct => RecoverUnderFenceAsync(query, operationType.Value, key, ct), cancellationToken);
 

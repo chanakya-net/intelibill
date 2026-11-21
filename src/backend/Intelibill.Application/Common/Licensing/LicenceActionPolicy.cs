@@ -39,10 +39,31 @@ public sealed class LicenceActionPolicy : ILicenceActionPolicy
         return decision with
         {
             OperatingRefusal = refusal,
+            SourceCompletionCutoff = action == LicenceAction.SourceCorrection && outcome == RequiresProvenSource
+                ? SourceCompletionCutoff(shop, account, proofs, now)
+                : null,
             Status = phase != Phase.Operating ? phase.ToString()
                 : shop!.State == "Grace" ? "Grace"
                 : shop.Basis == "Trial" ? "Trial" : "Active",
         };
+    }
+
+    private static DateTimeOffset? SourceCompletionCutoff(ShopLicenseState? shop, AccountLicenseRestriction? account,
+        LicenseProofIssuance? proofs, DateTimeOffset now)
+    {
+        // A freshness or verification deadline cannot date the end of commercial access.
+        DateTimeOffset? cutoff = shop is { State: "Active" or "Grace" or "Expired", AccessEndsAt: { } end }
+            && end <= now && shop.UpstreamVerifiedAt <= now
+            && LicenseProjectionPolicy.PrecedesIssuance(shop.UpstreamVerifiedAt, proofs?.ShopIssuedAt)
+            ? end : null;
+
+        if (shop is { SuspensionMode: "Trading", SuspensionEffectiveAt: { } shopStart } && shopStart <= now
+            && (cutoff is null || shopStart < cutoff))
+            cutoff = shopStart;
+        if (account is { Restriction: "Trading", SuspensionEffectiveAt: { } accountStart } && accountStart <= now
+            && (cutoff is null || accountStart < cutoff))
+            cutoff = accountStart;
+        return cutoff;
     }
 
     private static Phase GetPhase(ShopLicenseState? shop, AccountLicenseRestriction? account,

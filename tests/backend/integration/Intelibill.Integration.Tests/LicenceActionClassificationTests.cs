@@ -4,6 +4,9 @@ using Intelibill.Application.Features.FinancialOperations.Queries.GetFinancialOp
 using Intelibill.Application.Features.Inventory.Commands.CorrectStockCount;
 using Intelibill.Application.Features.Inventory.Commands.CreateAdjustment;
 using Intelibill.Application.Features.PurchaseReceipts.Commands.CorrectReceiptCost;
+using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
+using Intelibill.Application.Features.Sales.Commands.VoidSaleReturn;
+using Intelibill.Application.Features.Sales.Queries.PreviewSaleReturn;
 using Intelibill.Application.Features.BankAccounts.Commands.AddBankAccount;
 using Intelibill.Application.Features.BankAccounts.Commands.DeleteBankAccount;
 using Intelibill.Application.Features.BankAccounts.Commands.UpdateBankAccount;
@@ -122,6 +125,21 @@ public sealed class LicenceActionClassificationTests(PostgreSqlTestFixture fixtu
     [InlineData(typeof(DeleteBankAccountCommandHandler), nameof(DeleteBankAccountCommandHandler.HandleAsync), LicenceAction.OperationalCapacity)]
     public void Shop_setup_and_operating_settings_have_distinct_classifications(Type type, string methodName, LicenceAction action) =>
         Assert.Equal(action, type.GetMethod(methodName)?.GetCustomAttribute<LicenceActionAttribute>()?.Action);
+
+    [Theory]
+    [InlineData(typeof(SalesController), nameof(SalesController.PreviewSaleReturn), false)]
+    [InlineData(typeof(SalesController), nameof(SalesController.RecordSaleReturn), true)]
+    [InlineData(typeof(SalesController), nameof(SalesController.VoidSaleReturn), true)]
+    [InlineData(typeof(PreviewSaleReturnQueryHandler), nameof(PreviewSaleReturnQueryHandler.Handle), false)]
+    [InlineData(typeof(RecordSaleReturnCommandHandler), nameof(RecordSaleReturnCommandHandler.HandleAsync), false)]
+    [InlineData(typeof(VoidSaleReturnCommandHandler), nameof(VoidSaleReturnCommandHandler.HandleAsync), false)]
+    public void Return_operations_preserve_source_correction_and_check_recovery_at_http_entry(
+        Type type, string methodName, bool checksRecovery)
+    {
+        var method = type.GetMethod(methodName)!;
+        Assert.Equal(LicenceAction.SourceCorrection, method.GetCustomAttribute<LicenceActionAttribute>()?.Action);
+        Assert.Equal(checksRecovery, method.GetCustomAttribute<SuspensionAtSourceAttribute>()?.CheckRecovery ?? false);
+    }
 
     [Fact]
     public void Every_reconciliation_action_has_a_classification()
