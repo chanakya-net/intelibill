@@ -35,6 +35,11 @@ internal sealed partial class MerchantBillingClient
     public async Task<ErrorOr<OwnerClosureProposalV1>> RecordConsentAsync(MerchantBillingCaller caller, Guid shop, Guid proposal,
         ShopClosureConfirmationV1 input, CancellationToken ct)
     {
+        var prior = await closures.FindRecordedNoticeAsync(caller, shop, proposal, input, ct);
+        if (prior.IsError) return prior.Errors;
+        if (prior.Value is { } recorded)
+            return await SendNoticeAsync(caller, shop, input.ExpectedVersion, recorded, ct);
+
         var context = await ReadOwnerProposalAsync(caller, shop, ct);
         if (context.IsError) return context.Errors;
         var pending = context.Value.Proposal;
@@ -43,13 +48,18 @@ internal sealed partial class MerchantBillingClient
         var record = await closures.ConfirmAsync(caller, shop, input, (pending.Id, pending.ScopeDigest, pending.Target), ct);
         if (record.IsError) return record.Errors;
 
-        var notice = new OwnerClosureNoticeV1(pending.AccountId, pending.Target.AffiliationRequestId, proposal, pending.ScopeDigest);
-        return await ReadClosureAsync<OwnerClosureProposalV1>(caller,
+        var notice = new OwnerClosureNoticeV1(pending.AccountId, pending.Target.AffiliationRequestId, proposal,
+            pending.ScopeDigest, input.OperationKey);
+        return await SendNoticeAsync(caller, shop, input.ExpectedVersion, notice, ct);
+    }
+
+    private Task<ErrorOr<OwnerClosureProposalV1>> SendNoticeAsync(MerchantBillingCaller caller, Guid shop, long version,
+        OwnerClosureNoticeV1 notice, CancellationToken ct) => ReadClosureAsync<OwnerClosureProposalV1>(caller,
             new(ShopClosuresV1.OwnerNotice, HttpMethod.Post, ShopClosuresV1.NoticePath(shop), null,
                 JsonSerializer.SerializeToUtf8Bytes(notice, Json)),
-            value => value.Id == proposal && value.AccountId == pending.AccountId && value.Target == pending.Target &&
-                value.ScopeDigest == pending.ScopeDigest && value.ConsentRecorded, ct);
-    }
+            value => value.Id == notice.ProposalId && value.AccountId == notice.AccountId && value.Target?.ShopId == shop &&
+                value.Target.AffiliationRequestId == notice.AffiliationRequestId && value.Target.ClosureVersion == version &&
+                value.ScopeDigest == notice.ScopeDigest && value.ConsentRecorded, ct);
 
     private Task<ErrorOr<OwnerClosureProposalV1>> ReadOwnerProposalAsync(MerchantBillingCaller caller, ShopClosureReviewV1 review,
         CancellationToken ct) => ReadClosureAsync<OwnerClosureProposalV1>(caller, new(ShopClosuresV1.OwnerProposal, HttpMethod.Get,

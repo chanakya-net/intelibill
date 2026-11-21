@@ -86,10 +86,27 @@ public sealed partial class CloseShopHandler
         if (notice.AccountId == Guid.Empty || notice.ProposalId == Guid.Empty) return Missing;
         await scope.UseAccountAsync(notice.AccountId, token);
         await store.LockAccountAsync(notice.AccountId, token);
+        if (clock.GetUtcNow() >= proof.ExpiresAt) return BillingDelegationErrors.Invalid;
+        var recorded = notice.OperationKey is { } key
+            ? await store.FindNoticeAsync(notice.AccountId, notice.ProposalId, shop, scope.ActorId, key, token) : null;
+        if (recorded == true)
+        {
+            var affiliated = await store.TargetsAsync(notice.AccountId, shop, token);
+            if (affiliated is not [var current] || current.AffiliationRequestId != notice.AffiliationRequestId)
+                return Missing;
+            var saved = await store.ProposalAsync(notice.AccountId, notice.ProposalId, clock.GetUtcNow(), token);
+            var target = saved?.Targets.SingleOrDefault(row => row.ShopId == shop && row.AffiliationRequestId == notice.AffiliationRequestId);
+            return saved is not null && target is not null && saved.ScopeDigest == notice.ScopeDigest
+                ? new OwnerClosureProposalV1(saved.Id, saved.AccountId, saved.ScopeDigest, saved.ExpiresAt, saved.Targets.Length, target, true)
+                : Stale;
+        }
+        // A legacy shop-level notice cannot establish which operation reached licensing.
+        if (notice.RecoverOnly) return recorded == false ? Stale : Missing;
         var proposal = await ReadOwnerProposalAsync(notice.AccountId, shop, notice.AffiliationRequestId, notice.ProposalId, token);
-        if (proposal.IsError) return proposal.Errors;
+        if (proposal.IsError)
+            return recorded == false && proposal.FirstError == Missing ? Stale : proposal.Errors;
         if (proposal.Value.ScopeDigest != notice.ScopeDigest) return Stale;
-        await store.RecordNoticeAsync(notice.AccountId, notice.ProposalId, shop, token);
+        await store.RecordNoticeAsync(notice.AccountId, notice.ProposalId, shop, scope.ActorId, notice.OperationKey, token);
         return proposal.Value with { ConsentRecorded = true };
     }, ct);
 

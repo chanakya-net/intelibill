@@ -55,14 +55,23 @@ internal sealed partial class ClosureStore
         """, ct);
 
     public Task<Guid[]> ReadNoticesAsync(Guid account, Guid proposal, CancellationToken ct) => db.Database.SqlQuery<Guid>($"""
-        SELECT shop_id AS "Value" FROM public.operational_closure_consent_notices
+        SELECT DISTINCT shop_id AS "Value" FROM public.operational_closure_consent_notices
         WHERE account_id = {account} AND proposal_id = {proposal}
         """).ToArrayAsync(ct);
 
-    public Task RecordNoticeAsync(Guid account, Guid proposal, Guid shop, CancellationToken ct) =>
+    public Task<bool?> FindNoticeAsync(Guid account, Guid proposal, Guid shop, Guid actor, Guid operation, CancellationToken ct) =>
+        db.Database.SqlQuery<bool?>($"""
+            SELECT CASE WHEN count(*) FILTER (WHERE actor_id = {actor} AND operation_key = {operation}) > 0 THEN true
+                        WHEN count(*) FILTER (WHERE operation_key IS NULL) > 0 THEN NULL
+                        ELSE false END AS "Value"
+            FROM public.operational_closure_consent_notices
+            WHERE account_id = {account} AND proposal_id = {proposal} AND shop_id = {shop}
+            """).SingleAsync(ct);
+
+    public Task RecordNoticeAsync(Guid account, Guid proposal, Guid shop, Guid actor, Guid? operation, CancellationToken ct) =>
         db.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO public.operational_closure_consent_notices (proposal_id, account_id, shop_id)
-            VALUES ({proposal}, {account}, {shop}) ON CONFLICT DO NOTHING
+            INSERT INTO public.operational_closure_consent_notices (proposal_id, account_id, shop_id, actor_id, operation_key)
+            VALUES ({proposal}, {account}, {shop}, {(operation.HasValue ? actor : (Guid?)null)}, {operation}) ON CONFLICT DO NOTHING
             """, ct);
 
     private sealed record ProposalRow(Guid Id, long Ordinal, Guid AccountId, Guid OperationKey, Guid ActorId, int BillingRevision,

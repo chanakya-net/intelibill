@@ -3358,7 +3358,7 @@
       "stale": "The review or owner confirmations changed. Review the current information again.",
       "storage": "The request could not be stored safely on this browser.",
       "saved": "Closure saved. Merchant enforcement may still be pending.",
-      "consentSaved": "Shop owner confirmation recorded. The Billing Owner must confirm account closure.",
+      "consentSaved": "Shop owner confirmation recorded.",
       "closedAt": "Closure saved at {{ time }}.",
       "enforced": "Closure is enforced for this shop.",
       "enforcementUnconfirmed": "Enforcement for this shop is not confirmed."

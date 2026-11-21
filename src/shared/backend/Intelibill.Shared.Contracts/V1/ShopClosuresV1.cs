@@ -97,7 +97,9 @@ public sealed record OwnerClosureNoticeV1(
     [property: JsonPropertyName("accountId")] Guid AccountId,
     [property: JsonPropertyName("affiliationRequestId")] Guid AffiliationRequestId,
     [property: JsonPropertyName("proposalId")] Guid ProposalId,
-    [property: JsonPropertyName("scopeDigest")] string ScopeDigest);
+    [property: JsonPropertyName("scopeDigest")] string ScopeDigest,
+    [property: JsonPropertyName("operationKey")] Guid? OperationKey = null,
+    [property: JsonPropertyName("recoverOnly")] bool RecoverOnly = false);
 
 public sealed record ProviderClosureV1(Guid Id, string Scope, DateTimeOffset SavedAt, string FinancialTreatment,
     ProviderClosureShopV1[] Shops);

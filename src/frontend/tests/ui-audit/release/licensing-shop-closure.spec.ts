@@ -116,27 +116,35 @@ test('affected owner consent and Billing Owner account request recover independe
   const server = await startPurchaseReceivingServer(resolve(__dirname, '../../../dist/INVENTORY/browser'));
   try {
     await mockSession(page);
-    await checkShopConsentRecovery(page, server.origin);
-    const account = accountFixture();
-    await account.install(page);
+    let consentRecorded = false;
+    const account = accountFixture(() => consentRecorded);
+    const billingOwner = await browser.newPage({ serviceWorkers: 'block' });
+    await mockSession(billingOwner, accountId, SHOP_B);
+    await account.install(billingOwner);
     const accountUrl = `${server.origin}/billing/accounts/${accountId}/status`;
-    const retry = page.getByRole('button', { name: 'Retry the same request' });
+    const retry = billingOwner.getByRole('button', { name: 'Retry the same request' });
 
-    await page.goto(accountUrl);
-    const start = page.getByRole('button', { name: 'Request owner confirmations' });
+    await billingOwner.goto(accountUrl);
+    const start = billingOwner.getByRole('button', { name: 'Request owner confirmations' });
     await expect(start).toBeEnabled();
     await start.click();
-    await expect(page.getByText('Jayanagar Shop · Owner confirmation recorded')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Confirm account closure' })).toBeDisabled();
-    await page.getByRole('checkbox', { name: /confirm operational closure for every listed shop/ }).check();
-    await page.getByRole('button', { name: 'Confirm account closure' }).click();
+    const recoverConsent = await loseShopConsentReply(page, server.origin, () => { consentRecorded = true; }, account.isClosed);
+    await billingOwner.reload();
+    await expect(billingOwner.getByText('Indiranagar Shop · Owner confirmation recorded')).toBeVisible();
+    await expect(billingOwner.getByText('Jayanagar Shop · Owner confirmation recorded')).toBeVisible();
+    await expect(billingOwner.getByRole('button', { name: 'Confirm account closure' })).toBeDisabled();
+    await billingOwner.getByRole('checkbox', { name: /confirm operational closure for every listed shop/ }).check();
+    await billingOwner.getByRole('button', { name: 'Confirm account closure' }).click();
     await expect(retry).toBeVisible();
-    await page.reload();
+    await billingOwner.reload();
     await retry.click();
     const saved = 'Closure saved. Merchant enforcement may still be pending.';
-    await expect(page.getByText(saved)).toBeVisible();
+    await expect(billingOwner.getByText(saved)).toBeVisible();
     expect(account.confirmations).toHaveLength(2);
     expect(account.confirmations[1]).toEqual(account.confirmations[0]);
+
+    await recoverConsent();
+    await billingOwner.close();
 
     const fresh = await browser.newPage({ serviceWorkers: 'block' });
     try {
@@ -155,14 +163,19 @@ test('affected owner consent and Billing Owner account request recover independe
   }
 });
 
-async function checkShopConsentRecovery(page: Page, origin: string) {
+async function loseShopConsentReply(page: Page, origin: string, record: () => void, isClosed: () => boolean) {
   const requests: unknown[] = [];
-  await page.route(`**/api/licensing/shops/${SHOP_A}/account-closure`, route => route.fulfill({ json: proposal }));
+  await page.route(`**/api/licensing/shops/${SHOP_A}/account-closure`, route => isClosed()
+    ? route.fulfill({ status: 404, json: { code: 'Closure.ProposalUnavailable' } }) : route.fulfill({ json: proposal }));
   await page.route(`**/api/licensing/shops/${SHOP_A}/account-closure/${proposalId}`, route => {
     const command = route.request().postDataJSON();
     expect(command).toMatchObject({ workDigest, consideredDeviceQueues: true });
     requests.push(command);
-    if (requests.length === 1) return route.abort('connectionreset');
+    if (requests.length === 1) {
+      record();
+      return route.abort('connectionreset');
+    }
+    expect(isClosed()).toBe(true);
     return route.fulfill({ json: { ...proposal, consentRecorded: true } });
   });
   await page.goto(`${origin}/billing/status`);
@@ -174,20 +187,23 @@ async function checkShopConsentRecovery(page: Page, origin: string) {
   await panel.getByRole('button', { name: 'Confirm this shop for account closure' }).click();
   const retry = page.getByRole('button', { name: 'Retry the same request' });
   await expect(retry).toBeVisible();
-  await page.reload();
-  await retry.click();
-  await expect(page.getByTestId('closure-saved')).toContainText('The Billing Owner must confirm');
-  expect(requests).toHaveLength(2);
-  expect(requests[1]).toEqual(requests[0]);
+  return async () => {
+    await page.reload();
+    await retry.click();
+    await expect(page.getByTestId('closure-saved')).toHaveText('Shop owner confirmation recorded.');
+    expect(requests).toHaveLength(2);
+    expect(requests[1]).toEqual(requests[0]);
+  };
 }
 
-function accountFixture() {
+function accountFixture(hasConsent = () => true) {
   const confirmations: unknown[] = [];
   const shops = [{ shopId: SHOP_A, shopName: 'Indiranagar Shop' }, { shopId: SHOP_B, shopName: 'Jayanagar Shop' }];
   const accountPath = `**/api/billing/accounts/${accountId}/closures`;
-  const accountProposal = { ...proposal, shops: shops.map(shop => ({ ...shop, consentRecorded: true })) };
+  const accountProposal = (operationKey: string) => ({ ...proposal, operationKey,
+    shops: shops.map(shop => ({ ...shop, consentRecorded: shop.shopId !== SHOP_A || hasConsent() })) });
   let closed: object | undefined;
-  let pending: object | undefined;
+  let pendingKey: string | undefined;
   let proposals = 0;
 
   const install = async (tab: Page) => {
@@ -197,11 +213,11 @@ function accountFixture() {
     await tab.route(accountPath, route => {
       if (route.request().method() === 'POST') {
         proposals++;
-        pending = { ...accountProposal, operationKey: route.request().postDataJSON().operationKey };
-        return route.fulfill({ json: pending });
+        pendingKey = route.request().postDataJSON().operationKey as string;
+        return route.fulfill({ json: accountProposal(pendingKey) });
       }
       if (closed) return route.fulfill({ json: { proposal: null, closed } });
-      if (pending) return route.fulfill({ json: { proposal: pending, closed: null } });
+      if (pendingKey) return route.fulfill({ json: { proposal: accountProposal(pendingKey), closed: null } });
       return route.fulfill({ status: 404, json: { code: 'Closure.ProposalUnavailable' } });
     });
     await tab.route(`${accountPath}/${proposalId}/confirm`, route => {
@@ -215,7 +231,7 @@ function accountFixture() {
     });
   };
 
-  return { install, confirmations, proposalCount: () => proposals };
+  return { install, confirmations, proposalCount: () => proposals, isClosed: () => Boolean(closed) };
 }
 
 test('an incomplete account-consent draft cannot send a shop closure', async ({ page }) => {
@@ -247,8 +263,84 @@ test('an incomplete account-consent draft cannot send a shop closure', async ({ 
   }
 });
 
-async function mockSession(page: Page, visibleAccount: string | null = accountId) {
-  await page.addInitScript(value => localStorage.setItem('inventory.auth.session.local', JSON.stringify(value)), session());
+test('proposal retry retires only the key rejected after a Billing Owner revision change', async ({ page }) => {
+  const server = await startPurchaseReceivingServer(resolve(__dirname, '../../../dist/INVENTORY/browser'));
+  try {
+    await mockSession(page);
+    await accountFixture().install(page);
+    const keys: string[] = [];
+    let reads = 0;
+    await page.route(`**/api/billing/accounts/${accountId}/closures`, route => {
+      if (route.request().method() === 'GET') {
+        reads++;
+        return route.fulfill({ status: 404, json: { code: 'Closure.ProposalUnavailable' } });
+      }
+      keys.push(route.request().postDataJSON().operationKey);
+      if (keys.length === 1) return route.abort('connectionreset');
+      if (keys.length === 2) return route.fulfill({ status: 409, json: { code: 'Closure.ReviewChanged' } });
+      return route.fulfill({ json: { ...proposal, operationKey: keys[2],
+        shops: [{ shopId: SHOP_A, shopName: review.shopName, consentRecorded: false }] } });
+    });
+    await page.goto(`${server.origin}/billing/accounts/${accountId}/status`);
+    const start = page.getByRole('button', { name: 'Request owner confirmations' });
+    await start.click();
+    await expect(page.getByText('The proposal could not be confirmed. Retry the same proposal.')).toBeVisible();
+    await page.reload();
+    const retry = page.getByRole('button', { name: 'Retry the same proposal' });
+    await expect(retry).toBeEnabled();
+    const before = reads;
+    await retry.click();
+    await expect(start).toBeEnabled();
+    expect(reads).toBeGreaterThan(before);
+    expect(keys).toEqual([keys[0], keys[0]]);
+    await start.click();
+    await expect(page.getByText(review.shopName + ' ·', { exact: false })).toBeVisible();
+    expect(keys[2]).not.toEqual(keys[0]);
+  } finally {
+    await server.close();
+  }
+});
+
+test('shop owner reviews again when licensing proves the old key has no decision', async ({ page }) => {
+  const server = await startPurchaseReceivingServer(resolve(__dirname, '../../../dist/INVENTORY/browser'));
+  try {
+    await mockSession(page);
+    const keys: string[] = [];
+    await page.route(`**/api/licensing/shops/${SHOP_A}/closure-preview`, route => route.fulfill({
+      json: { ...review, ownerVersion: keys.length ? 5 : 4 },
+    }));
+    await page.route(`**/api/licensing/shops/${SHOP_A}/closure`, route => {
+      const command = route.request().postDataJSON();
+      keys.push(command.operationKey);
+      expect(command.ownerVersion).toBe(keys.length <= 2 ? 4 : 5);
+      if (keys.length === 1) return route.abort('connectionreset');
+      if (keys.length === 2) return route.fulfill({ status: 409, json: { code: 'Closure.ReviewChanged' } });
+      return route.fulfill({ json: { id: proposalId, accountId, operationKey: command.operationKey, scope: 'Shop',
+        financialTreatment: 'NoFinancialChange', shops: [{ shopId: SHOP_A }] } });
+    });
+    await page.goto(`${server.origin}/billing/status`);
+    const confirm = async () => {
+      await page.getByRole('button', { name: 'Review shop closure' }).click();
+      const panel = page.getByTestId('closure-review');
+      await acknowledge(panel);
+      await panel.getByRole('button', { name: 'Confirm shop closure' }).click();
+    };
+    await confirm();
+    await expect(page.getByRole('button', { name: 'Retry the same request' })).toBeVisible();
+    await page.reload();
+    await page.getByRole('button', { name: 'Retry the same request' }).click();
+    await expect(page.getByText('The review or owner confirmations changed.', { exact: false })).toBeVisible();
+    await confirm();
+    await expect(page.getByTestId('closure-saved')).toBeVisible();
+    expect(keys[1]).toBe(keys[0]);
+    expect(keys[2]).not.toBe(keys[0]);
+  } finally {
+    await server.close();
+  }
+});
+
+async function mockSession(page: Page, visibleAccount: string | null = accountId, shop = SHOP_A) {
+  await page.addInitScript(value => localStorage.setItem('inventory.auth.session.local', JSON.stringify(value)), session(shop));
   await page.route(`**/api/licensing/shops/${SHOP_A}/status`, route => route.fulfill({ json: { ...fixtureStatus, accountId: visibleAccount } }));
   await page.route(`**/api/licensing/shops/${SHOP_A}/trading-authority`, route => route.fulfill({ status: 403, json: {
     code: 'Licence.PendingActivation', status: 403,

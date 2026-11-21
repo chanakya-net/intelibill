@@ -76,6 +76,14 @@ export class AccountClosureComponent {
     if (!scope || this.busy()) return;
     const generation = this.generation;
     this.begin();
+    try {
+      await this.refreshState(scope, generation);
+    } finally {
+      if (this.current(scope, generation)) this.busy.set(false);
+    }
+  }
+
+  private async refreshState(scope: string, generation: number) {
     this.ready.set(false);
     this.proposal.set(null);
     try {
@@ -86,8 +94,6 @@ export class AccountClosureComponent {
       if (error instanceof HttpErrorResponse && error.status === 404 && error.error?.code === 'Closure.ProposalUnavailable') {
         this.ready.set(true);
       } else this.message.set(error instanceof HttpErrorResponse && error.status === 403 ? 'billingOwner' : 'unavailable');
-    } finally {
-      if (this.current(scope, generation)) this.busy.set(false);
     }
   }
 
@@ -96,6 +102,7 @@ export class AccountClosureComponent {
     if (!scope || this.busy() || this.draft() || !this.ready() || this.closed()) return;
     const account = this.account();
     const generation = this.generation;
+    let submittedKey: string | undefined;
     this.begin();
     try {
       const key = crypto.randomUUID();
@@ -103,6 +110,7 @@ export class AccountClosureComponent {
       if (!this.current(scope, generation)) return;
       this.proposalDraft.set(draft);
       if (draft.input !== account) throw new Error('Unexpected closure proposal account');
+      submittedKey = draft.operationKey;
       const saved = await this.api.propose(account, draft.operationKey);
       if (saved.accountId !== account || saved.operationKey !== draft.operationKey) throw new Error('Unexpected closure proposal');
       await this.drafts.finish(scope + '/proposal', draft.operationKey, true);
@@ -112,19 +120,28 @@ export class AccountClosureComponent {
       }
     } catch (error) {
       if (!this.current(scope, generation)) return;
-      if (error instanceof HttpErrorResponse && error.status === 409 && error.error?.code === 'Closure.AccountClosed') {
-        this.ready.set(false);
-        try {
-          await this.readState(scope, generation);
-        } catch {
-          if (this.current(scope, generation)) this.message.set('unavailable');
-        }
-      } else {
-        this.message.set(error instanceof HttpErrorResponse && error.error?.code === 'Closure.ScopeTooLarge'
-          ? 'scopeTooLarge' : 'proposalUnknown');
-      }
+      await this.handleProposalFailure(error, scope, generation, submittedKey);
     } finally {
       if (this.current(scope, generation)) this.busy.set(false);
+    }
+  }
+
+  private async handleProposalFailure(error: unknown, scope: string, generation: number, submittedKey?: string) {
+    if (error instanceof HttpErrorResponse && error.status === 409 && error.error?.code === 'Closure.ReviewChanged' && submittedKey) {
+      try {
+        await this.drafts.finish(scope + '/proposal', submittedKey, false);
+        if (!this.current(scope, generation)) return;
+        this.restore();
+        this.message.set('stale');
+        await this.refreshState(scope, generation);
+      } catch {
+        if (this.current(scope, generation)) this.message.set('storage');
+      }
+    } else if (error instanceof HttpErrorResponse && error.status === 409 && error.error?.code === 'Closure.AccountClosed') {
+      await this.refreshState(scope, generation);
+    } else {
+      this.message.set(error instanceof HttpErrorResponse && error.error?.code === 'Closure.ScopeTooLarge'
+        ? 'scopeTooLarge' : 'proposalUnknown');
     }
   }
 

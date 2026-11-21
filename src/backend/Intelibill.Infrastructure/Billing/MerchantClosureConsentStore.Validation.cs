@@ -88,7 +88,7 @@ internal sealed partial class MerchantClosureConsentStore
             if (!await memberships.LockShopAsync(target.ShopId, ct)) return Stale;
             var owner = await memberships.LockMembershipAsync(target.ShopId, consent.ActorId, ct);
             if (owner is not { Role: ShopRole.Owner, Status: MembershipStatus.Active } ||
-                owner.Id != consent.MembershipId || owner.AuthorityVersion != consent.OwnerVersion ||
+                (!request.Recovering && (owner.Id != consent.MembershipId || owner.AuthorityVersion != consent.OwnerVersion)) ||
                 !owner.User.IsLoginEnabled || !(owner.User.IsEmailVerified || owner.User.IsPhoneVerified))
                 return Stale;
             var binding = await db.Set<ShopLicenseState>().AsNoTracking().SingleOrDefaultAsync(row => row.ShopId == target.ShopId, ct);

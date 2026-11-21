@@ -10,8 +10,12 @@ namespace Intelibill.Infrastructure.Billing;
 
 internal sealed partial class MerchantClosureConsentStore
 {
-    internal async Task<ErrorOr<ShopClosureRequestV1>> ConfirmAsync(MerchantBillingCaller caller, Guid shop,
-        ShopClosureConfirmationV1 input, (Guid Id, string Digest, ClosureTargetV1 Target)? proposal, CancellationToken ct)
+    internal Task<ErrorOr<ShopClosureRequestV1>> ConfirmAsync(MerchantBillingCaller caller, Guid shop,
+        ShopClosureConfirmationV1 input, (Guid Id, string Digest, ClosureTargetV1 Target)? proposal, CancellationToken ct) =>
+        WithConsentAccessAsync(caller, shop, input, access => RecordConsentAsync(access, input, proposal, ct), ct);
+
+    private async Task<ErrorOr<T>> WithConsentAccessAsync<T>(MerchantBillingCaller caller, Guid shop, ShopClosureConfirmationV1 input,
+        Func<ClosureAccess, Task<ErrorOr<T>>> action, CancellationToken ct)
     {
         if (!input.IsValid())
             return Error.Validation("Closure.AcknowledgementRequired", "Review the outstanding work and consider disconnected device queues.");
@@ -22,7 +26,7 @@ internal sealed partial class MerchantClosureConsentStore
             if (entered.IsError)
                 return entered.Errors;
 
-            var result = await RecordConsentAsync(entered.Value, input, proposal, ct);
+            var result = await action(entered.Value);
             if (!result.IsError)
                 await transaction.CommitAsync(ct);
             return result;
@@ -51,11 +55,8 @@ internal sealed partial class MerchantClosureConsentStore
         var currentBinding = target.ShopId == binding.ShopId && target.AffiliationRequestId == binding.AffiliationRequestId &&
             target.ClosureVersion == input.ExpectedVersion && owner.Version == input.OwnerVersion;
         if (prior is not null)
-            return currentBinding && prior.ActorId == owner.ActorId && prior.MembershipId == owner.MembershipId &&
-                prior.OwnerVersion == owner.Version && prior.IsAccountClosure == isAccountClosure &&
-                prior.AccountId == binding.AccountId && prior.AffiliationId == binding.AffiliationRequestId &&
-                prior.ProposalId == proposalId && prior.ClosureVersion == input.ExpectedVersion &&
-                prior.ScopeDigest == scopeDigest && prior.WorkDigest == input.WorkDigest
+            return MatchesRequest(prior, access, input, proposalId, isAccountClosure) &&
+                prior.ScopeDigest == scopeDigest
                 ? result : MerchantBillingErrors.PayloadMismatch;
         if (!currentBinding)
             return Stale;
@@ -67,6 +68,25 @@ internal sealed partial class MerchantClosureConsentStore
         await InsertConsentAsync(review, owner, proposalId, isAccountClosure, input.OperationKey, scopeDigest, ct);
         return result;
     }
+
+    private static bool MatchesRequest(ConsentRow row, ClosureAccess access, ShopClosureConfirmationV1 input,
+        Guid proposal, bool accountClosure) =>
+        row.ActorId == access.Owner.ActorId && row.AccountId == access.Binding.AccountId &&
+        row.AffiliationId == access.Binding.AffiliationRequestId && row.ProposalId == proposal &&
+        row.IsAccountClosure == accountClosure && row.ClosureVersion == input.ExpectedVersion &&
+        row.OwnerVersion == input.OwnerVersion && row.WorkDigest == input.WorkDigest;
+
+    internal Task<ErrorOr<OwnerClosureNoticeV1?>> FindRecordedNoticeAsync(MerchantBillingCaller caller, Guid shop,
+        Guid proposal, ShopClosureConfirmationV1 input, CancellationToken ct) =>
+        WithConsentAccessAsync<OwnerClosureNoticeV1?>(caller, shop, input, async access =>
+        {
+            var row = await ConsentRows(shop).SingleOrDefaultAsync(row => row.OperationKey == input.OperationKey, ct);
+            if (row is null) return (OwnerClosureNoticeV1?)null;
+            if (!MatchesRequest(row, access, input, proposal, true))
+                return MerchantBillingErrors.PayloadMismatch;
+            return new OwnerClosureNoticeV1(row.AccountId, row.AffiliationId, proposal, row.ScopeDigest, row.OperationKey,
+                row.OwnerVersion != access.Owner.Version || row.MembershipId != access.Owner.MembershipId);
+        }, ct);
 
     private Task<int> InsertConsentAsync(ShopClosureReviewV1 review, ShopAffiliationConsentStore.LiveOwner owner,
         Guid proposal, bool isAccountClosure, Guid operation, string digest, CancellationToken ct) => db.Database.ExecuteSqlInterpolatedAsync($"""
