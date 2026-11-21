@@ -7,15 +7,15 @@ namespace Intelibill.Infrastructure.Billing;
 
 internal sealed partial class MerchantBillingClient
 {
-    public Task<ErrorOr<AccountClosureProposalV1>> ReadProposalAsync(MerchantBillingCaller caller, Guid account, CancellationToken ct) =>
-        ReadClosureAsync<AccountClosureProposalV1>(caller, new(ShopClosuresV1.AccountRead, HttpMethod.Get,
-            ShopClosuresV1.AccountPath(account), account, []), value => ValidProposal(value, account), ct);
+    public Task<ErrorOr<AccountClosureStateV1>> ReadAccountStateAsync(MerchantBillingCaller caller, Guid account, CancellationToken ct) =>
+        ReadClosureAsync<AccountClosureStateV1>(caller, new(ShopClosuresV1.AccountRead, HttpMethod.Get,
+            ShopClosuresV1.AccountPath(account), account, []), value => ValidAccountState(value, account), ct);
 
     public Task<ErrorOr<AccountClosureProposalV1>> ProposeAsync(MerchantBillingCaller caller, Guid account,
         ProposeAccountClosureV1 input, CancellationToken ct) => ReadClosureAsync<AccountClosureProposalV1>(caller,
             new(ShopClosuresV1.Propose, HttpMethod.Post, ShopClosuresV1.AccountPath(account), account,
                 JsonSerializer.SerializeToUtf8Bytes(input, Json)),
-            value => value.Id == input.OperationKey && ValidProposal(value, account), ct);
+            value => value.OperationKey == input.OperationKey && ValidProposal(value, account), ct);
 
     public Task<ErrorOr<ClosureSavedV1>> ConfirmAccountAsync(MerchantBillingCaller caller, Guid account, Guid proposal,
         ConfirmAccountClosureV1 input, CancellationToken ct) => ReadClosureAsync<ClosureSavedV1>(caller,
@@ -58,8 +58,16 @@ internal sealed partial class MerchantBillingClient
                 value.Target?.ShopId == review.ShopId && value.Target.AffiliationRequestId == review.AffiliationRequestId &&
                 value.Target.ClosureVersion == review.ClosureVersion && ShopClosuresV1.IsDigest(value.ScopeDigest), ct);
 
+    private static bool ValidAccountState(AccountClosureStateV1 value, Guid account) =>
+        value.Closed is { } closed
+            ? value.Proposal is null && closed.AccountId == account && EntitlementSnapshotsV1.IsInstant(closed.SavedAt) &&
+                closed.FinancialTreatment == ShopClosuresV1.FinancialTreatment &&
+                closed.Shops is { Length: > 0 and <= ShopClosuresV1.MaxTargets }
+            : value.Proposal is { } proposal && ValidProposal(proposal, account);
+
     private static bool ValidProposal(AccountClosureProposalV1 value, Guid account) =>
-        value.Id != Guid.Empty && value.AccountId == account && ShopClosuresV1.IsDigest(value.ScopeDigest) &&
+        value.Id != Guid.Empty && value.OperationKey != Guid.Empty && value.AccountId == account &&
+        ShopClosuresV1.IsDigest(value.ScopeDigest) &&
         value.FinancialTreatment == ShopClosuresV1.FinancialTreatment &&
         value.Shops is { Length: > 0 and <= ShopClosuresV1.MaxTargets };
 }

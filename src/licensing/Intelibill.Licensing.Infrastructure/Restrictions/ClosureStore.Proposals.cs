@@ -26,22 +26,30 @@ internal sealed partial class ClosureStore
         return rows is [var revision] ? revision : null;
     }
 
-    public async Task<SavedClosureProposal?> ProposalAsync(Guid account, Guid? id, DateTimeOffset now, CancellationToken ct)
+    public Task<SavedClosureProposal?> ProposalAsync(Guid account, Guid? id, DateTimeOffset now, CancellationToken ct) =>
+        ReadProposalAsync(ProposalRows(account).Where(row => id == null ? row.ExpiresAt > now : row.Id == id)
+            .OrderByDescending(row => row.Ordinal), ct);
+
+    public Task<SavedClosureProposal?> ProposalByOperationAsync(Guid account, Guid operation, CancellationToken ct) =>
+        ReadProposalAsync(ProposalRows(account).Where(row => row.OperationKey == operation), ct);
+
+    private IQueryable<ProposalRow> ProposalRows(Guid account) => db.Database.SqlQuery<ProposalRow>($"""
+        SELECT id, ordinal, account_id, coalesce(operation_key, id) AS operation_key,
+            actor_id, billing_revision, scope_digest, scope::text, recorded_at, expires_at
+        FROM public.operational_closure_proposals WHERE account_id = {account}
+        """);
+
+    private static async Task<SavedClosureProposal?> ReadProposalAsync(IQueryable<ProposalRow> query, CancellationToken ct)
     {
-        var row = await db.Database.SqlQuery<ProposalRow>($"""
-            SELECT id, account_id, actor_id, billing_revision, scope_digest, scope::text, recorded_at, expires_at
-            FROM public.operational_closure_proposals WHERE account_id = {account}
-                AND (({id}::uuid IS NULL AND expires_at > {now}) OR id = {id})
-            ORDER BY ordinal DESC LIMIT 1
-            """).SingleOrDefaultAsync(ct);
-        return row is null ? null : new(row.Id, row.AccountId, row.ActorId, row.BillingRevision, row.ScopeDigest,
+        var row = await query.FirstOrDefaultAsync(ct);
+        return row is null ? null : new(row.Id, row.AccountId, row.OperationKey, row.ActorId, row.BillingRevision, row.ScopeDigest,
             JsonSerializer.Deserialize<ClosureTargetV1[]>(row.Scope, EntitlementSnapshotsV1.Json)!, row.RecordedAt, row.ExpiresAt);
     }
 
     public Task InsertProposalAsync(SavedClosureProposal item, CancellationToken ct) => db.Database.ExecuteSqlInterpolatedAsync($"""
         INSERT INTO public.operational_closure_proposals
-            (id, account_id, actor_id, billing_revision, financial_treatment, scope_digest, scope, recorded_at, expires_at)
-        VALUES ({item.Id}, {item.AccountId}, {item.ActorId}, {item.BillingRevision}, {ShopClosuresV1.FinancialTreatment},
+            (id, account_id, operation_key, actor_id, billing_revision, financial_treatment, scope_digest, scope, recorded_at, expires_at)
+        VALUES ({item.Id}, {item.AccountId}, {item.OperationKey}, {item.ActorId}, {item.BillingRevision}, {ShopClosuresV1.FinancialTreatment},
             {item.ScopeDigest}, {JsonSerializer.Serialize(item.Targets, EntitlementSnapshotsV1.Json)}::jsonb,
             {item.RecordedAt}, {item.ExpiresAt})
         """, ct);
@@ -57,6 +65,6 @@ internal sealed partial class ClosureStore
             VALUES ({proposal}, {account}, {shop}) ON CONFLICT DO NOTHING
             """, ct);
 
-    private sealed record ProposalRow(Guid Id, Guid AccountId, Guid ActorId, int BillingRevision,
+    private sealed record ProposalRow(Guid Id, long Ordinal, Guid AccountId, Guid OperationKey, Guid ActorId, int BillingRevision,
         string ScopeDigest, string Scope, DateTimeOffset RecordedAt, DateTimeOffset ExpiresAt);
 }

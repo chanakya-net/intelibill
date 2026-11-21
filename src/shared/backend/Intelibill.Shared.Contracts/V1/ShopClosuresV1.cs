@@ -5,6 +5,7 @@ namespace Intelibill.Shared.Contracts.V1;
 public static class ShopClosuresV1
 {
     public const string FinancialTreatment = "NoFinancialChange";
+    public const string ReviewChangedCode = "Closure.ReviewChanged";
     public const string Closed = "Closed";
     public const int MaxTargets = 100;
     public const int BodyLimit = 192 * 1024;
@@ -77,8 +78,15 @@ public sealed record ConfirmAccountClosureV1(
     [property: JsonPropertyName("scopeDigest")] string ScopeDigest,
     [property: JsonPropertyName("confirmed")] bool Confirmed);
 
-public sealed record AccountClosureProposalV1(Guid Id, Guid AccountId, string ScopeDigest, DateTimeOffset ExpiresAt,
+public sealed record AccountClosureProposalV1(Guid Id, Guid AccountId, Guid OperationKey, string ScopeDigest, DateTimeOffset ExpiresAt,
     string FinancialTreatment, ClosureProposalShopV1[] Shops);
+
+public sealed record AccountClosureStateV1(AccountClosureProposalV1? Proposal, ClosedBillingAccountV1? Closed);
+
+public sealed record ClosedBillingAccountV1(Guid AccountId, DateTimeOffset SavedAt, string FinancialTreatment,
+    ClosedBillingAccountShopV1[] Shops);
+
+public sealed record ClosedBillingAccountShopV1(Guid ShopId, string ShopName);
 
 public sealed record ClosureProposalShopV1(Guid ShopId, string ShopName, bool ConsentRecorded);
 

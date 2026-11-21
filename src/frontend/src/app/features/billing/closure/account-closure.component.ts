@@ -3,10 +3,11 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, injec
 import { TranslocoPipe } from '@ngneat/transloco';
 import { ButtonDirective } from 'primeng/button';
 import { AuthService } from '../../../core/auth/auth.service';
-import { ClosureApi, type AccountClosureCommand, type AccountClosureProposal } from './closure-api.service';
-import { ClosureDrafts, type OwnerBoundClosureDraft } from './closure-drafts';
+import { ClosureApi, type AccountClosureCommand, type AccountClosureProposal, type ClosedBillingAccount } from './closure-api.service';
+import { ClosureDrafts, isClosureDigest, isClosureId, type OwnerBoundClosureDraft } from './closure-drafts';
 
 interface AccountIntent {
+  readonly scope?: string;
   readonly proposalId: string;
   readonly shopIds: readonly string[];
   readonly command: AccountClosureCommand;
@@ -29,6 +30,7 @@ export class AccountClosureComponent {
     const session = this.auth.session();
     return session ? JSON.stringify([session.user.id, session.activeShopId, this.account(), 'billing-owner']) : null;
   });
+  protected readonly closed = signal<ClosedBillingAccount | null>(null);
   protected readonly proposal = signal<AccountClosureProposal | null>(null);
   protected readonly draft = signal<OwnerBoundClosureDraft<AccountIntent> | null>(null);
   protected readonly proposalDraft = signal<OwnerBoundClosureDraft<string> | null>(null);
@@ -45,11 +47,13 @@ export class AccountClosureComponent {
       untracked(() => {
         this.generation++;
         this.proposal.set(null);
+        this.closed.set(null);
         this.ready.set(false);
         this.confirmed.set(false);
         this.message.set(null);
         this.busy.set(false);
         this.restore();
+        if (!this.draft()) void this.read();
       });
     });
     inject(DestroyRef).onDestroy(() => this.generation++);
@@ -61,6 +65,8 @@ export class AccountClosureComponent {
       this.draft.set(scope ? this.drafts.read<AccountIntent>(scope) : null);
       this.proposalDraft.set(scope ? this.drafts.read<string>(scope + '/proposal') : null);
     } catch {
+      this.draft.set(null);
+      this.proposalDraft.set(null);
       this.message.set('storage');
     }
   }
@@ -70,14 +76,16 @@ export class AccountClosureComponent {
     if (!scope || this.busy()) return;
     const generation = this.generation;
     this.begin();
+    this.ready.set(false);
+    this.proposal.set(null);
     try {
-      const saved = await this.api.accountProposal(this.account());
-      if (this.current(scope, generation)) this.acceptProposal(saved);
+      await this.readState(scope, generation);
     } catch (error) {
       if (!this.current(scope, generation)) return;
       this.proposal.set(null);
-      if (error instanceof HttpErrorResponse && error.status === 404) this.ready.set(true);
-      else this.message.set(error instanceof HttpErrorResponse && error.status === 403 ? 'billingOwner' : 'unavailable');
+      if (error instanceof HttpErrorResponse && error.status === 404 && error.error?.code === 'Closure.ProposalUnavailable') {
+        this.ready.set(true);
+      } else this.message.set(error instanceof HttpErrorResponse && error.status === 403 ? 'billingOwner' : 'unavailable');
     } finally {
       if (this.current(scope, generation)) this.busy.set(false);
     }
@@ -85,7 +93,7 @@ export class AccountClosureComponent {
 
   protected async start() {
     const scope = this.scope();
-    if (!scope || this.busy() || this.draft()) return;
+    if (!scope || this.busy() || this.draft() || !this.ready() || this.closed()) return;
     const account = this.account();
     const generation = this.generation;
     this.begin();
@@ -96,15 +104,25 @@ export class AccountClosureComponent {
       this.proposalDraft.set(draft);
       if (draft.input !== account) throw new Error('Unexpected closure proposal account');
       const saved = await this.api.propose(account, draft.operationKey);
-      if (saved.accountId !== account || saved.id !== draft.operationKey) throw new Error('Unexpected closure proposal');
+      if (saved.accountId !== account || saved.operationKey !== draft.operationKey) throw new Error('Unexpected closure proposal');
       await this.drafts.finish(scope + '/proposal', draft.operationKey, true);
       if (this.current(scope, generation)) {
         this.acceptProposal(saved);
         this.restore();
       }
     } catch (error) {
-      if (this.current(scope, generation)) this.message.set(
-        error instanceof HttpErrorResponse && error.error?.code === 'Closure.ScopeTooLarge' ? 'scopeTooLarge' : 'proposalUnknown');
+      if (!this.current(scope, generation)) return;
+      if (error instanceof HttpErrorResponse && error.status === 409 && error.error?.code === 'Closure.AccountClosed') {
+        this.ready.set(false);
+        try {
+          await this.readState(scope, generation);
+        } catch {
+          if (this.current(scope, generation)) this.message.set('unavailable');
+        }
+      } else {
+        this.message.set(error instanceof HttpErrorResponse && error.error?.code === 'Closure.ScopeTooLarge'
+          ? 'scopeTooLarge' : 'proposalUnknown');
+      }
     } finally {
       if (this.current(scope, generation)) this.busy.set(false);
     }
@@ -113,14 +131,14 @@ export class AccountClosureComponent {
   protected async confirm() {
     const scope = this.scope();
     const proposal = this.proposal();
-    if (!scope || !proposal || this.busy() || !this.confirmed() || this.draft() ||
+    if (!scope || !proposal || this.closed() || this.busy() || !this.confirmed() || this.draft() ||
       proposal.shops.some(shop => !shop.consentRecorded)) return;
     const generation = this.generation;
     const operationKey = crypto.randomUUID();
     this.busy.set(true);
     try {
       const draft = await this.drafts.prepare(scope, operationKey, {
-        proposalId: proposal.id, shopIds: proposal.shops.map(shop => shop.shopId), command: { operationKey, scopeDigest: proposal.scopeDigest, confirmed: true } satisfies AccountClosureCommand,
+        scope, proposalId: proposal.id, shopIds: proposal.shops.map(shop => shop.shopId), command: { operationKey, scopeDigest: proposal.scopeDigest, confirmed: true } satisfies AccountClosureCommand,
       });
       if (!this.current(scope, generation)) return;
       this.draft.set(draft);
@@ -138,6 +156,14 @@ export class AccountClosureComponent {
     const scope = this.scope();
     const draft = this.draft();
     if (!scope || !draft || draft.settled || this.busy()) return;
+    const { input } = draft;
+    if ((input.scope !== undefined && input.scope !== scope) || !isClosureId(input.proposalId) ||
+      !Array.isArray(input.shopIds) || !input.shopIds.length || !input.shopIds.every(isClosureId) ||
+      input.command?.operationKey !== draft.operationKey || input.command.confirmed !== true ||
+      !isClosureDigest(input.command.scopeDigest)) {
+      this.message.set('storage');
+      return;
+    }
     const account = this.account();
     const generation = this.generation;
     this.begin();
@@ -175,6 +201,20 @@ export class AccountClosureComponent {
     this.busy.set(true);
     this.message.set(null);
     this.confirmed.set(false);
+  }
+
+  private async readState(scope: string, generation: number) {
+    const { proposal, closed } = await this.api.accountProposal(this.account());
+    if (!this.current(scope, generation)) return;
+    if (closed?.accountId === this.account() && !proposal) {
+      this.closed.set(closed);
+      this.proposal.set(null);
+      this.ready.set(false);
+    } else if (proposal && !closed) {
+      this.acceptProposal(proposal);
+    } else {
+      this.message.set('unavailable');
+    }
   }
 
   private acceptProposal(proposal: AccountClosureProposal) {

@@ -21,6 +21,8 @@ public sealed partial class P0416Tests
         await fixture.DrainAsync(source: true);
 
         var path = $"/api/billing/accounts/{account:D}/closures";
+        using var absent = await payer.Client.GetAsync(path);
+        Assert.Equal(HttpStatusCode.NotFound, absent.StatusCode);
         using var proposed = await payer.Client.PostAsJsonAsync(path,
             new { operationKey = Guid.NewGuid(), financialTreatment = "NoFinancialChange" });
         Assert.True(proposed.IsSuccessStatusCode, await proposed.Content.ReadAsStringAsync());
@@ -41,6 +43,16 @@ public sealed partial class P0416Tests
         Assert.True(saved.IsSuccessStatusCode, await saved.Content.ReadAsStringAsync());
         Assert.Equal("Closed", (await fixture.LatestSnapshotAsync(payer.ShopId)).Shop?.State);
         Assert.Equal("Closed", (await fixture.LatestSnapshotAsync(shopOwner.ShopId)).Shop?.State);
+
+        var decision = await saved.Content.ReadFromJsonAsync<JsonElement>();
+        var state = await payer.Client.GetFromJsonAsync<JsonElement>(path);
+        var closed = state.GetProperty("closed");
+        Assert.Equal(decision.GetProperty("savedAt").GetDateTimeOffset(), closed.GetProperty("savedAt").GetDateTimeOffset());
+        Assert.Equal(2, closed.GetProperty("shops").GetArrayLength());
+        using var repeat = await payer.Client.PostAsJsonAsync(path,
+            new { operationKey = Guid.NewGuid(), financialTreatment = "NoFinancialChange" });
+        Assert.Equal(HttpStatusCode.Conflict, repeat.StatusCode);
+        Assert.Equal("Closure.AccountClosed", await P0206Fixture.CodeAsync(repeat));
     }
 
     [Fact]

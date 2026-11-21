@@ -1,5 +1,14 @@
 import { Injectable } from '@angular/core';
 
+export function isClosureId(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value)
+    && value !== '00000000-0000-0000-0000-000000000000';
+}
+
+export function isClosureDigest(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{64}$/.test(value);
+}
+
 export interface OwnerBoundClosureDraft<T> {
   readonly input: T;
   readonly operationKey: string;
@@ -12,7 +21,7 @@ export class ClosureDrafts {
     const raw = localStorage.getItem(this.key(scope));
     if (raw === null) return null;
     const draft = JSON.parse(raw) as OwnerBoundClosureDraft<T> | null;
-    if (!draft?.input || !/^[0-9a-f-]{36}$/i.test(draft.operationKey) || typeof draft.settled !== 'boolean')
+    if (!draft?.input || !isClosureId(draft.operationKey) || typeof draft.settled !== 'boolean')
       throw new Error('Invalid closure draft');
     return draft;
   }

@@ -49,9 +49,11 @@ public sealed partial class CloseShopHandler(IBillingDelegationAccess access, IC
         if (proofExpiresAt < deadline) deadline = proofExpiresAt;
         var request = new ClosureValidationV1(account, proposal, Guid.NewGuid(), deadline, Digest(targets), targets, actor, recovering);
         var result = await merchant.CheckAsync(request, ct);
-        return clock.GetUtcNow() >= deadline ? Stale : result;
+        if (clock.GetUtcNow() >= deadline || (recovering && result.IsError && result.FirstError.Code == ShopClosuresV1.ReviewChangedCode))
+            return Error.Failure("Closure.MerchantUnavailable", "A current merchant confirmation could not be verified.");
+        return result;
     }
 
     private static string Digest<T>(T input) => Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(input, Json)));
-    private static Error Stale => Error.Conflict("Closure.ReviewChanged", "The closure scope or review changed.");
+    private static Error Stale => Error.Conflict(ShopClosuresV1.ReviewChangedCode, "The closure scope or review changed.");
 }

@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { API_BASE_URL } from '../../../core/auth/auth.constants';
 
 export interface ClosureReview {
   readonly shopId: string;
@@ -31,13 +32,14 @@ export interface ClosureReview {
 
 export interface AccountClosureProposal {
   readonly id: string;
+  readonly operationKey: string;
   readonly accountId: string;
   readonly scopeDigest: string;
   readonly expiresAt: string;
   readonly shops: readonly { readonly shopId: string; readonly shopName: string; readonly consentRecorded: boolean }[];
 }
 
-export interface OwnerClosureProposal extends Omit<AccountClosureProposal, 'shops'> {
+export interface OwnerClosureProposal extends Omit<AccountClosureProposal, 'shops' | 'operationKey'> {
   readonly shopCount: number;
   readonly target: { readonly shopId: string; readonly affiliationRequestId: string; readonly closureVersion: number };
   readonly consentRecorded: boolean;
@@ -50,6 +52,18 @@ export interface ClosureSaved {
   readonly scope: 'Shop' | 'Account';
   readonly financialTreatment: 'NoFinancialChange';
   readonly shops: readonly { readonly shopId: string }[];
+}
+
+export interface ClosedBillingAccount {
+  readonly accountId: string;
+  readonly savedAt: string;
+  readonly financialTreatment: 'NoFinancialChange';
+  readonly shops: readonly { readonly shopId: string; readonly shopName: string }[];
+}
+
+export interface AccountClosureState {
+  readonly proposal: AccountClosureProposal | null;
+  readonly closed: ClosedBillingAccount | null;
 }
 
 export interface ClosureCommand {
@@ -90,7 +104,7 @@ export class ClosureApi {
   }
 
   accountProposal(account: string) {
-    return firstValueFrom(this.http.get<AccountClosureProposal>(this.account(account)));
+    return firstValueFrom(this.http.get<AccountClosureState>(this.account(account)));
   }
 
   propose(account: string, operationKey: string) {
@@ -103,10 +117,10 @@ export class ClosureApi {
   }
 
   private shop(shop: string) {
-    return `/api/licensing/shops/${encodeURIComponent(shop)}`;
+    return `${API_BASE_URL}/licensing/shops/${encodeURIComponent(shop)}`;
   }
 
   private account(account: string) {
-    return `/api/billing/accounts/${encodeURIComponent(account)}/closures`;
+    return `${API_BASE_URL}/billing/accounts/${encodeURIComponent(account)}/closures`;
   }
 }

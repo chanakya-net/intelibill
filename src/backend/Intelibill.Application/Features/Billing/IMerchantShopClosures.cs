@@ -10,7 +10,7 @@ public interface IMerchantShopClosures
 
     Task<ErrorOr<ShopClosureReviewV1>> PreviewAsync(MerchantBillingCaller caller, Guid shop, CancellationToken ct);
 
-    Task<ErrorOr<AccountClosureProposalV1>> ReadProposalAsync(MerchantBillingCaller caller, Guid account, CancellationToken ct);
+    Task<ErrorOr<AccountClosureStateV1>> ReadAccountStateAsync(MerchantBillingCaller caller, Guid account, CancellationToken ct);
     Task<ErrorOr<AccountClosureProposalV1>> ProposeAsync(MerchantBillingCaller caller, Guid account,
         ProposeAccountClosureV1 input, CancellationToken ct);
     Task<ErrorOr<ClosureSavedV1>> ConfirmAccountAsync(MerchantBillingCaller caller, Guid account, Guid proposal,

@@ -15,29 +15,35 @@ public sealed partial class CloseShopHandler
             var revision = await store.BillingOwnerRevisionAsync(account, scope.ActorId, token);
             if (revision is null) return BillingDelegationErrors.Denied;
             var now = EntitlementSnapshotsV1.Instant(clock);
-            var prior = await store.ProposalAsync(account, input.OperationKey, now, token);
+            var prior = await store.ProposalByOperationAsync(account, input.OperationKey, token);
             if (prior is not null)
                 return prior.ActorId == scope.ActorId && prior.BillingRevision == revision
                     ? await ViewAsync(prior, token) : Stale;
 
+            if (await store.AccountClosedAsync(account, token))
+                return Error.Conflict("Closure.AccountClosed", "Operational closure is already saved for this billing account.");
             var targets = await store.TargetsAsync(account, null, token);
             if (targets.Length > ShopClosuresV1.MaxTargets)
                 return Error.Conflict("Closure.ScopeTooLarge", "The complete account scope exceeds the closure review limit.");
-            if (targets.Length == 0 || await store.AccountClosedAsync(account, token))
+            if (targets.Length == 0)
                 return Stale;
-            var proposal = new SavedClosureProposal(input.OperationKey, account, scope.ActorId, revision.Value,
+            var proposal = new SavedClosureProposal(Guid.NewGuid(), account, input.OperationKey, scope.ActorId, revision.Value,
                 Digest(targets), targets, now, now.AddDays(1));
             await store.InsertProposalAsync(proposal, token);
             return await ViewAsync(proposal, token);
         }, ct);
 
-    public Task<ErrorOr<AccountClosureProposalV1>> ReadProposalAsync(VerifiedBillingDelegation proof, Guid account,
-        CancellationToken ct) => access.ExecuteAsync<AccountClosureProposalV1>(proof, async (scope, token) =>
+    public Task<ErrorOr<AccountClosureStateV1>> ReadAccountStateAsync(VerifiedBillingDelegation proof, Guid account,
+        CancellationToken ct) => access.ExecuteAsync<AccountClosureStateV1>(proof, async (scope, token) =>
     {
         var revision = await store.BillingOwnerRevisionAsync(account, scope.ActorId, token);
+        if (revision is null) return BillingDelegationErrors.Denied;
+        var closed = await store.ReadAccountClosureAsync(account, token);
+        if (closed is not null)
+            return new AccountClosureStateV1(null, closed);
         var proposal = await store.ProposalAsync(account, null, clock.GetUtcNow(), token);
-        return proposal is not null && proposal.ActorId == scope.ActorId && proposal.BillingRevision == revision &&
-            !await store.AccountClosedAsync(account, token) ? await ViewAsync(proposal, token) : Missing;
+        return proposal is not null && proposal.ActorId == scope.ActorId && proposal.BillingRevision == revision
+            ? new AccountClosureStateV1(await ViewAsync(proposal, token), null) : Missing;
     }, ct);
 
     public Task<ErrorOr<ClosureSavedV1>> ConfirmAccountAsync(VerifiedBillingDelegation proof, Guid account, Guid proposalId,
@@ -105,7 +111,7 @@ public sealed partial class CloseShopHandler
     private async Task<AccountClosureProposalV1> ViewAsync(SavedClosureProposal item, CancellationToken ct)
     {
         var notices = await store.ReadNoticesAsync(item.AccountId, item.Id, ct);
-        return new(item.Id, item.AccountId, item.ScopeDigest, item.ExpiresAt, ShopClosuresV1.FinancialTreatment,
+        return new(item.Id, item.AccountId, item.OperationKey, item.ScopeDigest, item.ExpiresAt, ShopClosuresV1.FinancialTreatment,
             [.. item.Targets.Select(target => new ClosureProposalShopV1(target.ShopId, target.ShopName, notices.Contains(target.ShopId)))]);
     }
 

@@ -6,9 +6,10 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { formatBillingInstant } from '../status/subscription-status.models';
 import { ClosureApi, type ClosureCommand, type ClosureReview, type OwnerClosureProposal } from './closure-api.service';
-import { ClosureDrafts, type OwnerBoundClosureDraft } from './closure-drafts';
+import { ClosureDrafts, isClosureDigest, isClosureId, type OwnerBoundClosureDraft } from './closure-drafts';
 
 interface ShopIntent {
+  readonly scope?: string;
   readonly accountId: string;
   readonly proposalId: string | null;
   readonly command: ClosureCommand;
@@ -24,6 +25,7 @@ interface ShopIntent {
 })
 export class ClosureConfirmationComponent {
   readonly shop = input.required<string>();
+  readonly account = input.required<string | null>();
   readonly closed = input(false);
   readonly mode = input.required<'shop' | 'account'>();
   private readonly api = inject(ClosureApi);
@@ -46,7 +48,7 @@ export class ClosureConfirmationComponent {
     const review = this.review();
     if (!review) return false;
     if (this.mode() === 'shop') return !draft && !this.closed() && review.closureVersion === 0;
-    return this.proposal() !== null && (!draft || (draft.settled &&
+    return this.proposal() !== null && (!draft || (draft.settled && this.validIntent(draft, this.scope()) &&
       (draft.input.proposalId !== this.proposal()?.id
         || draft.input.command.ownerVersion !== review.ownerVersion
         || draft.input.command.workDigest !== review.workDigest)));
@@ -57,6 +59,7 @@ export class ClosureConfirmationComponent {
   constructor() {
     effect(() => {
       this.scope();
+      this.account();
       untracked(() => {
         this.generation++;
         this.clearReview();
@@ -90,7 +93,7 @@ export class ClosureConfirmationComponent {
       if (generation !== this.generation || shop !== this.shop()) return;
       const proposal = this.mode() === 'account' ? await this.api.ownerProposal(shop) : null;
       if (generation !== this.generation || shop !== this.shop()) return;
-      if (review.shopId !== shop || review.disconnectedQueuesUnknown !== true || review.financialTreatment !== 'NoFinancialChange'
+      if (review.shopId !== shop || !this.accountMatches(review.accountId) || review.disconnectedQueuesUnknown !== true || review.financialTreatment !== 'NoFinancialChange'
         || (proposal && (proposal.accountId !== review.accountId || proposal.target.shopId !== shop
           || proposal.target.affiliationRequestId !== review.affiliationRequestId
           || proposal.target.closureVersion !== review.closureVersion))) {
@@ -118,12 +121,12 @@ export class ClosureConfirmationComponent {
     this.busy.set(true);
     try {
       const draft = await this.drafts.prepare(scope, operationKey, {
-        accountId: review.accountId, proposalId, command: {
+        scope, accountId: review.accountId, proposalId, command: {
           operationKey, expectedVersion: review.closureVersion, ownerVersion: review.ownerVersion,
           workDigest: review.workDigest, reviewedKnownWork: true, consideredDeviceQueues: true,
           financialTreatment: 'NoFinancialChange',
         } satisfies ClosureCommand,
-      }, previous => this.mode() === 'account' && previous.settled &&
+      }, previous => this.mode() === 'account' && previous.settled && this.validIntent(previous, scope) &&
         (previous.input.proposalId !== proposalId || previous.input.command.ownerVersion !== review.ownerVersion ||
           previous.input.command.workDigest !== review.workDigest));
       if (!this.current(scope, generation)) return;
@@ -142,14 +145,19 @@ export class ClosureConfirmationComponent {
     const scope = this.scope();
     const draft = this.draft();
     if (!scope || !draft || draft.settled || this.busy()) return;
+    if (!this.validIntent(draft, scope)) {
+      this.message.set('storage');
+      return;
+    }
     const shop = this.shop();
+    const mode = this.mode();
     const generation = this.generation;
     const { accountId, proposalId, command } = draft.input;
     this.busy.set(true);
     this.message.set(null);
     try {
-      const matches = proposalId ? await this.submitConsent(shop, proposalId, accountId, command)
-        : await this.submitClosure(shop, accountId, command);
+      const matches = mode === 'shop' ? await this.submitClosure(shop, accountId, command)
+        : proposalId !== null && await this.submitConsent(shop, proposalId, accountId, command);
       if (!matches) throw new Error('Closure response did not match the accepted scope');
       await this.drafts.finish(scope, draft.operationKey, true);
       if (this.current(scope, generation)) this.restore();
@@ -158,6 +166,25 @@ export class ClosureConfirmationComponent {
     } finally {
       if (this.current(scope, generation)) this.busy.set(false);
     }
+  }
+
+  private validIntent(draft: OwnerBoundClosureDraft<ShopIntent>, scope: string | null) {
+    const { input } = draft;
+    const command = input.command;
+    // The original format binds the owner, shop and mode in the storage key. New records also carry that scope.
+    return (input.scope === undefined || input.scope === scope) && isClosureId(input.accountId) &&
+      this.accountMatches(input.accountId) &&
+      (this.mode() === 'shop' ? input.proposalId === null : isClosureId(input.proposalId)) &&
+      command?.operationKey === draft.operationKey && (command.expectedVersion === 0 || command.expectedVersion === 1) &&
+      Number.isSafeInteger(command.ownerVersion) && command.ownerVersion >= 0 && isClosureDigest(command.workDigest) &&
+      command.reviewedKnownWork === true && command.consideredDeviceQueues === true &&
+      command.financialTreatment === 'NoFinancialChange';
+  }
+
+  private accountMatches(accountId: string) {
+    const visibleAccount = this.account();
+    // Operational shop owners may not hold a commercial role. Their review supplies the account binding.
+    return !visibleAccount || visibleAccount === accountId;
   }
 
   private async submitConsent(shop: string, proposal: string, account: string, command: ClosureCommand) {

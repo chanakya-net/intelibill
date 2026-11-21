@@ -165,11 +165,18 @@ internal sealed partial class MerchantBillingClient(
             case HttpStatusCode.Unauthorized:
                 return Unavailable("UpstreamAuthentication");
             case HttpStatusCode.Conflict when ShopClosuresV1.IsAction(action):
-                return await ReadProblemCodeAsync(response, cancellationToken) == "Closure.ScopeTooLarge"
-                    ? Error.Conflict("Closure.ScopeTooLarge", "The complete account scope exceeds the closure review limit.")
-                    : Error.Conflict("Closure.ReviewChanged", "The closure review changed. Review the current scope and owner confirmations.");
+                return await ReadProblemCodeAsync(response, cancellationToken) switch
+                {
+                    "Closure.ScopeTooLarge" => Error.Conflict("Closure.ScopeTooLarge", "The complete account scope exceeds the closure review limit."),
+                    "Closure.AccountClosed" => Error.Conflict("Closure.AccountClosed", "Operational closure is already saved for this billing account."),
+                    ShopClosuresV1.ReviewChangedCode => Error.Conflict(ShopClosuresV1.ReviewChangedCode, "The closure review changed. Review the current scope and owner confirmations."),
+                    "Billing.OperationPayloadMismatch" => MerchantBillingErrors.PayloadMismatch,
+                    _ => Unavailable("UnrecognizedClosureConflict"),
+                };
             case HttpStatusCode.NotFound when ShopClosuresV1.IsAction(action):
-                return Error.NotFound("Closure.ProposalUnavailable", "No current closure proposal is available.");
+                return await ReadProblemCodeAsync(response, cancellationToken) == "Closure.ProposalUnavailable"
+                    ? Error.NotFound("Closure.ProposalUnavailable", "No current closure proposal is available.")
+                    : Unavailable("UnrecognizedClosureNotFound");
             case HttpStatusCode.BadRequest when ShopClosuresV1.IsAction(action):
                 return Error.Validation("Closure.AcknowledgementRequired", "Confirm the closure scope and acknowledgements.");
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when BillingOwnershipTransfersV1.IsAction(action):

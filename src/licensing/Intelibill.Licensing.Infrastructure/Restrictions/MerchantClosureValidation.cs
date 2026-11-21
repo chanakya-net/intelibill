@@ -43,8 +43,8 @@ internal sealed class MerchantClosureValidation(LicensingEntitlementTransport tr
         request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         using var client = clients.CreateClient(LeasedHttpDeliveryPump.ClientName);
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
-        if (response.StatusCode == HttpStatusCode.Conflict)
-            return Error.Conflict("Closure.ReviewChanged", "Each affected shop owner must confirm a current review.");
+        if (response.StatusCode == HttpStatusCode.Conflict && await IsStaleReviewAsync(response, ct))
+            return Error.Conflict(ShopClosuresV1.ReviewChangedCode, "Each affected shop owner must confirm a current review.");
         if (response.StatusCode != HttpStatusCode.OK || response.Content.Headers.ContentType?.MediaType != "application/json" ||
             !response.Headers.TryGetValues(ShopClosuresV1.ProofHeader, out var signatures) || signatures.ToArray() is not [var proof])
             return Unavailable;
@@ -56,6 +56,17 @@ internal sealed class MerchantClosureValidation(LicensingEntitlementTransport tr
             !Matches(validation, saved))
             return Unavailable;
         return saved;
+    }
+
+    private static async Task<bool> IsStaleReviewAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        if (response.Content.Headers.ContentType?.MediaType != "application/problem+json")
+            return false;
+        await response.Content.LoadIntoBufferAsync(ShopClosuresV1.BodyLimit, ct);
+        using var problem = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+        return problem.RootElement.ValueKind == JsonValueKind.Object &&
+            problem.RootElement.TryGetProperty("code", out var code) && code.ValueKind == JsonValueKind.String &&
+            code.GetString() == ShopClosuresV1.ReviewChangedCode;
     }
 
     private static bool Matches(ClosureValidationV1 expected, ClosureValidatedV1 actual) =>

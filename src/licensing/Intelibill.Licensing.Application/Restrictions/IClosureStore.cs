@@ -8,9 +8,11 @@ public interface IClosureStore
     Task<ClosureSavedV1[]> ListSavedAsync(Guid account, CancellationToken ct);
     Task<Guid[]> ClosedShopIdsAsync(Guid account, Guid[] shops, CancellationToken ct);
     Task<DateTimeOffset?> ClosedAtAsync(Guid account, Guid shop, CancellationToken ct);
+    Task<ClosedBillingAccountV1?> ReadAccountClosureAsync(Guid account, CancellationToken ct);
     Task<bool> AccountClosedAsync(Guid account, CancellationToken ct);
     Task<int?> BillingOwnerRevisionAsync(Guid account, Guid actor, CancellationToken ct);
     Task<SavedClosureProposal?> ProposalAsync(Guid account, Guid? id, DateTimeOffset now, CancellationToken ct);
+    Task<SavedClosureProposal?> ProposalByOperationAsync(Guid account, Guid operation, CancellationToken ct);
     Task InsertProposalAsync(SavedClosureProposal proposal, CancellationToken ct);
     Task<Guid[]> ReadNoticesAsync(Guid account, Guid proposal, CancellationToken ct);
     Task RecordNoticeAsync(Guid account, Guid proposal, Guid shop, CancellationToken ct);
@@ -31,5 +33,5 @@ public sealed record SavedClosure(Guid Id, Guid AccountId, Guid ActorId, Guid? S
     string RequestDigest, DateTimeOffset RecordedAt);
 
 
-public sealed record SavedClosureProposal(Guid Id, Guid AccountId, Guid ActorId, int BillingRevision,
+public sealed record SavedClosureProposal(Guid Id, Guid AccountId, Guid OperationKey, Guid ActorId, int BillingRevision,
     string ScopeDigest, ClosureTargetV1[] Targets, DateTimeOffset RecordedAt, DateTimeOffset ExpiresAt);

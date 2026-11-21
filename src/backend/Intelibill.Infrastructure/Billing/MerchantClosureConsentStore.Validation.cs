@@ -20,28 +20,34 @@ internal sealed partial class MerchantClosureConsentStore
     public async Task<ErrorOr<ClosureValidatedV1>> ValidateAsync(ClosureValidationV1 request,
         VerifiedServiceAssertion proof, CancellationToken ct)
     {
-        if (!ValidScope(request) || request.ExpiresAt > proof.ExpiresAt || request.ExpiresAt <= clock.GetUtcNow())
+        if (request.ExpiresAt <= clock.GetUtcNow() || request.ExpiresAt > proof.ExpiresAt)
+            return ValidationUnavailable;
+        if (!ValidScope(request))
             return Stale;
         try
         {
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
             await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
             var entries = await LockTargetsAsync(request, ct);
+            if (clock.GetUtcNow() >= request.ExpiresAt)
+                return ValidationUnavailable;
             if (entries.IsError)
                 return entries.Errors;
             await memberships.LockUsersAsync(entries.Value.Select(entry => entry.Consent.ActorId).ToArray(), ct);
             var results = await ValidateTargetsAsync(request, entries.Value, ct);
+            if (clock.GetUtcNow() >= request.ExpiresAt)
+                return ValidationUnavailable;
             if (results.IsError)
                 return results.Errors;
             if (!await ConsumeValidationAsync(proof, ct) || clock.GetUtcNow() >= request.ExpiresAt)
-                return Stale;
+                return ValidationUnavailable;
             await transaction.CommitAsync(ct);
             return new ClosureValidatedV1(request.AccountId, request.ProposalId, request.Challenge, request.ScopeDigest, results.Value);
         }
         catch (Exception error) when (error is NpgsqlException or TimeoutException)
         {
             ct.ThrowIfCancellationRequested();
-            return Error.Failure("Closure.MerchantUnavailable", "The merchant service could not validate closure.");
+            return ValidationUnavailable;
         }
     }
 
@@ -53,8 +59,9 @@ internal sealed partial class MerchantClosureConsentStore
             var locked = await fence.EnterProjectionAsync(request.AccountId, target.ShopId, ct);
             if (locked.IsError) return locked.Errors;
             await SetShopAsync(target.ShopId, ct);
-            var row = await ConsentRows(target.ShopId, request.AccountId, request.ProposalId)
-                .Where(row => row.AffiliationId == target.AffiliationRequestId && row.ScopeDigest == request.ScopeDigest &&
+            var row = await ConsentRows(target.ShopId)
+                .Where(row => row.AccountId == request.AccountId && row.ProposalId == request.ProposalId &&
+                    row.AffiliationId == target.AffiliationRequestId && row.ScopeDigest == request.ScopeDigest &&
                     row.ClosureVersion == target.ClosureVersion && row.IsAccountClosure == (request.RequiredActor == null) &&
                     (request.RequiredActor == null || row.ActorId == request.RequiredActor))
                 .OrderByDescending(row => row.RecordedAt).ThenByDescending(row => row.Id).FirstOrDefaultAsync(ct);
@@ -125,6 +132,9 @@ internal sealed partial class MerchantClosureConsentStore
         targets.All(row => row.ShopId != Guid.Empty && row.AffiliationRequestId != Guid.Empty && row.ClosureVersion is 0 or 1) &&
         targets.Select(row => row.ShopId).Distinct().Count() == targets.Length &&
         request.ScopeDigest == SignedServiceAssertion.Digest(JsonSerializer.SerializeToUtf8Bytes(targets, Json));
+
+    private static Error ValidationUnavailable =>
+        Error.Failure("Closure.MerchantUnavailable", "The merchant service could not validate closure.");
 
     private sealed record ValidationEntry(ClosureTargetV1 Target, ConsentRow Consent);
 }

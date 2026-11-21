@@ -13,7 +13,7 @@ internal sealed class EntitlementSynchronizationReader(LicensingDbContext db, Li
     public async Task<IReadOnlyDictionary<Guid, EntitlementSynchronizationV1>> ReadAsync(Guid account, Guid[] shops,
         CancellationToken ct, Guid? closure = null)
     {
-        if (shops.Length == 0 || transport.Origin is null)
+        if (shops.Length == 0 || (closure is null && transport.Origin is null))
             return new Dictionary<Guid, EntitlementSynchronizationV1>();
 
         var rows = await db.Database.SqlQuery<DeliveryRow>($"""

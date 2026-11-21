@@ -2,6 +2,10 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Intelibill.Shared.Contracts.V1;
+using Intelibill.Shared.Security;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
 namespace Intelibill.Licensing.Integration.Tests;
@@ -116,15 +120,38 @@ public sealed partial class P0416Tests
         await fixture.DrainAsync(source: true);
         await AssertProviderAsync(support, path, owner.ShopId, "Pending");
         await fixture.DrainAsync(source: false);
-        await AssertProviderAsync(support, path, owner.ShopId, "Applied");
+        var applied = await AssertProviderAsync(support, path, owner.ShopId, "Applied");
+
+        var pendingOwner = await CreateTradingShopAsync(fixture.Hosts);
+        await P0213Fixture.LinkAsync(account, owner, pendingOwner);
+        await fixture.DrainAsync(source: true);
+        using var pending = await ConfirmShopAsync(pendingOwner);
+        Assert.True(pending.IsSuccessStatusCode, await pending.Content.ReadAsStringAsync());
+
+        DisableDeliveryOrigin(catalogue.Api.Services);
+        var retained = await AssertProviderAsync(support, path, owner.ShopId, "Applied");
+        Assert.Equal(applied.GetProperty("appliedShopRevision").GetInt64(), retained.GetProperty("appliedShopRevision").GetInt64());
+        Assert.Equal(applied.GetProperty("acknowledgedAt").GetDateTimeOffset(),
+            retained.GetProperty("acknowledgedAt").GetDateTimeOffset());
+        var unacknowledged = await AssertProviderAsync(support, path, pendingOwner.ShopId, "Pending");
+        Assert.Equal(JsonValueKind.Null, unacknowledged.GetProperty("appliedShopRevision").ValueKind);
     }
 
-    private static async Task AssertProviderAsync(P0110CookieBrowser support, string path, Guid shop, string state)
+    private static void DisableDeliveryOrigin(IServiceProvider provider)
+    {
+        var configuration = provider.GetRequiredService<IConfiguration>();
+        configuration[$"{EntitlementSnapshotsV1.Section}:PeerOrigin"] = "invalid-origin";
+        provider.GetRequiredService<IOptionsMonitorCache<EntitlementTransportOptions>>().TryRemove(Options.DefaultName);
+        Assert.Null(provider.GetRequiredService<IOptionsMonitor<EntitlementTransportOptions>>().CurrentValue.Origin(local: true));
+    }
+
+    private static async Task<JsonElement> AssertProviderAsync(P0110CookieBrowser support, string path, Guid shop, string state)
     {
         using var response = await support.SendAsync(HttpMethod.Get, path);
         Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
         Assert.True(response.Headers.CacheControl?.NoStore);
-        var closure = Assert.Single((await response.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray());
+        var closure = Assert.Single((await response.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray(),
+            entry => entry.GetProperty("shops").EnumerateArray().Any(target => target.GetProperty("shopId").GetGuid() == shop));
         Assert.Equal("NoFinancialChange", closure.GetProperty("financialTreatment").GetString());
         var target = Assert.Single(closure.GetProperty("shops").EnumerateArray());
         Assert.Equal(shop, target.GetProperty("shopId").GetGuid());
@@ -132,6 +159,7 @@ public sealed partial class P0416Tests
         Assert.False(target.TryGetProperty("workDigest", out _));
         Assert.False(target.TryGetProperty("actorId", out _));
         Assert.False(target.TryGetProperty("deviceId", out _));
+        return target;
     }
 
     private static async Task<HttpResponseMessage> ConfirmShopAsync(Merchant owner)

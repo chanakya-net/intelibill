@@ -13,7 +13,7 @@ public sealed partial class BillingController
     [HttpGet("{accountId:guid}/closures")]
     [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> AccountClosure(Guid accountId, [FromServices] IMerchantShopClosures closures, CancellationToken ct) =>
-        ReadCaller() is { } caller ? ClosureResponse(await closures.ReadProposalAsync(caller, accountId, ct)) : SessionInvalid();
+        ReadCaller() is { } caller ? ClosureResponse(await closures.ReadAccountStateAsync(caller, accountId, ct)) : SessionInvalid();
 
     [HttpPost("{accountId:guid}/closures")]
     [RequestSizeLimit(ShopClosuresV1.BodyLimit)]

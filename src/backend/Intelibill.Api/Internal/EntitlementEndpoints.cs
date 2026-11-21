@@ -34,7 +34,10 @@ internal static class EntitlementEndpoints
             if (input is null) return Results.BadRequest();
             var validated = await consents.ValidateAsync(input, proof, ct);
             if (validated.IsError)
-                return validated.FirstError.Type == ErrorType.Conflict ? Results.Conflict() : Results.StatusCode(503);
+                return validated.FirstError.Code == ShopClosuresV1.ReviewChangedCode
+                    ? Results.Problem(statusCode: 409, extensions: new Dictionary<string, object?>
+                        { ["code"] = ShopClosuresV1.ReviewChangedCode })
+                    : Results.StatusCode(503);
             var bytes = JsonSerializer.SerializeToUtf8Bytes(validated.Value, EntitlementSnapshotsV1.Json);
             var signature = await transport.SignClosureValidationAsync(bytes, ct);
             if (signature is null) return Results.StatusCode(503);

@@ -26,7 +26,7 @@ internal static partial class ClosureEndpoints
     {
         var proof = CustomerSubscriptionStatusEndpoints.ReadProof(context, account, ShopClosuresV1.AccountRead,
             ShopClosuresV1.AccountPath(account));
-        return proof is null ? Invalid(context) : Respond(context, await handler.ReadProposalAsync(proof, account, ct));
+        return proof is null ? Invalid(context) : Respond(context, await handler.ReadAccountStateAsync(proof, account, ct));
     }
 
     private static async Task<IResult> ProposeAsync(HttpContext context, Guid account, CloseShopHandler handler, CancellationToken ct)

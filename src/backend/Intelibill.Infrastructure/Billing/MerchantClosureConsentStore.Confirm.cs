@@ -41,21 +41,24 @@ internal sealed partial class MerchantClosureConsentStore
         var owner = access.Owner;
         var proposalId = proposal?.Id ?? input.OperationKey;
         var isAccountClosure = proposal.HasValue;
-        var prior = await ConsentRows(binding.ShopId, binding.AccountId, proposalId)
+        var prior = await ConsentRows(binding.ShopId)
             .SingleOrDefaultAsync(row => row.OperationKey == input.OperationKey, ct);
         var target = proposal?.Target ?? new ClosureTargetV1(binding.ShopId, binding.AffiliationRequestId,
             input.ExpectedVersion, prior?.ShopName ?? owner.ShopName);
         var scopeDigest = proposal?.Digest ?? SignedServiceAssertion.Digest(JsonSerializer.SerializeToUtf8Bytes(new[] { target }, Json));
         var result = new ShopClosureRequestV1(binding.AccountId, target, input.OperationKey, input.WorkDigest);
 
-        if (target.ShopId != binding.ShopId || target.AffiliationRequestId != binding.AffiliationRequestId ||
-            target.ClosureVersion != input.ExpectedVersion || owner.Version != input.OwnerVersion)
-            return Stale;
+        var currentBinding = target.ShopId == binding.ShopId && target.AffiliationRequestId == binding.AffiliationRequestId &&
+            target.ClosureVersion == input.ExpectedVersion && owner.Version == input.OwnerVersion;
         if (prior is not null)
-            return prior.ActorId == owner.ActorId && prior.MembershipId == owner.MembershipId &&
+            return currentBinding && prior.ActorId == owner.ActorId && prior.MembershipId == owner.MembershipId &&
                 prior.OwnerVersion == owner.Version && prior.IsAccountClosure == isAccountClosure &&
+                prior.AccountId == binding.AccountId && prior.AffiliationId == binding.AffiliationRequestId &&
+                prior.ProposalId == proposalId && prior.ClosureVersion == input.ExpectedVersion &&
                 prior.ScopeDigest == scopeDigest && prior.WorkDigest == input.WorkDigest
                 ? result : MerchantBillingErrors.PayloadMismatch;
+        if (!currentBinding)
+            return Stale;
 
         var review = await ReadReviewAsync(access, ct);
         if (review.ClosureVersion != input.ExpectedVersion || review.WorkDigest != input.WorkDigest)
@@ -75,15 +78,15 @@ internal sealed partial class MerchantClosureConsentStore
             {digest}, {review.WorkDigest}, {JsonSerializer.Serialize(review, Json)}::jsonb, clock_timestamp())
         """, ct);
 
-    private IQueryable<ConsentRow> ConsentRows(Guid shop, Guid account, Guid proposal) => db.Database.SqlQuery<ConsentRow>($"""
-        SELECT id, affiliation_id, operation_key, actor_id, membership_id, owner_version, closure_version, is_account_closure,
+    private IQueryable<ConsentRow> ConsentRows(Guid shop) => db.Database.SqlQuery<ConsentRow>($"""
+        SELECT id, account_id, proposal_id, affiliation_id, operation_key, actor_id, membership_id, owner_version, closure_version, is_account_closure,
             scope_digest, work_digest, evidence->>'shopName' AS shop_name, recorded_at FROM public.shop_closure_consents
-        WHERE shop_id = {shop} AND account_id = {account} AND proposal_id = {proposal}
+        WHERE shop_id = {shop}
         """);
 
-    private static Error Stale => Error.Conflict("Closure.ReviewChanged", "The closure review changed. Review the shop again.");
+    private static Error Stale => Error.Conflict(ShopClosuresV1.ReviewChangedCode, "The closure review changed. Review the shop again.");
 
-    private sealed record ConsentRow(Guid Id, Guid AffiliationId, Guid OperationKey, Guid ActorId, Guid MembershipId,
+    private sealed record ConsentRow(Guid Id, Guid AccountId, Guid ProposalId, Guid AffiliationId, Guid OperationKey, Guid ActorId, Guid MembershipId,
         long OwnerVersion, long ClosureVersion, bool IsAccountClosure, string ScopeDigest, string WorkDigest,
         string ShopName, DateTimeOffset RecordedAt);
 }

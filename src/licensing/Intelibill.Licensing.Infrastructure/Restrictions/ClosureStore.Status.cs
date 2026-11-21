@@ -18,6 +18,19 @@ internal sealed partial class ClosureStore
         return result.ToArray();
     }
 
+    public async Task<ClosedBillingAccountV1?> ReadAccountClosureAsync(Guid account, CancellationToken ct)
+    {
+        var row = await db.Database.SqlQuery<SavedClosure>($"""
+            SELECT id, account_id, actor_id, shop_id, operation_key, request_digest, recorded_at
+            FROM public.operational_closures WHERE account_id = {account} AND shop_id IS NULL
+            """).SingleOrDefaultAsync(ct);
+        if (row is null) return null;
+
+        var saved = await ReadSavedAsync(row, ct);
+        return new(account, saved.SavedAt, saved.FinancialTreatment,
+            [.. saved.Shops.Select(shop => new ClosedBillingAccountShopV1(shop.ShopId, shop.ShopName))]);
+    }
+
     public Task<DateTimeOffset?> ClosedAtAsync(Guid account, Guid shop, CancellationToken ct) =>
         db.Database.SqlQuery<DateTimeOffset?>($"""
             SELECT min(c.recorded_at) AS "Value" FROM public.operational_closures c
