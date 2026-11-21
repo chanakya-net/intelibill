@@ -95,13 +95,21 @@ internal sealed class FinancialOperationExecutor(ApplicationDbContext context, I
                     """,
                     cancellationToken);
 
+                if (scope.RecheckBeforeCommit is { } recheck && await recheck(cancellationToken) is { } commitDenied)
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    context.ChangeTracker.Clear();
+                    return commitDenied;
+                }
+
                 await transaction.CommitAsync(cancellationToken);
                 return result;
             }
 
             if (scope.OperationType is FinancialOperationType.SupplierReturn or FinancialOperationType.SupplierReturnCredit
                 or FinancialOperationType.PurchaseReceiptReversal or FinancialOperationType.StockCount
-                or FinancialOperationType.ReceiptCostCorrection)
+                or FinancialOperationType.ReceiptCostCorrection
+                or FinancialOperationType.BulkIntakeManifest or FinancialOperationType.BulkIntakeRow)
             {
                 var outcome = await ReplayUnderFenceAsync<T>(scope, requestHash, cancellationToken);
                 await transaction.RollbackAsync(cancellationToken);

@@ -11,4 +11,7 @@ public sealed record FinancialOperationScope(Guid ShopId, FinancialOperationType
 
     /// <summary>Live caller authority for a duplicate read, independent of the request hash.</summary>
     public Func<CancellationToken, Task<Error?>>? RecheckReplayAuthority { get; init; }
+
+    /// <summary>Reevaluates write authority after completing the receipt while rollback is still possible.</summary>
+    public Func<CancellationToken, Task<Error?>>? RecheckBeforeCommit { get; init; }
 }

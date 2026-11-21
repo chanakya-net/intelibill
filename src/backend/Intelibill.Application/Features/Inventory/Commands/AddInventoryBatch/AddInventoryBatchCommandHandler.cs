@@ -28,6 +28,8 @@ public sealed partial class AddInventoryBatchCommandHandler(
     IUserRepository userRepository,
     IInboundRowExecutor inboundRowExecutor,
     IFinancialOperationExecutor operationExecutor,
+    StockIntakeAccess access,
+    ISuspensionAccessReader suspension,
     ILogger<AddInventoryBatchCommandHandler> logger)
 {
     private const int MaxBatchSize = 100;
@@ -58,6 +60,9 @@ public sealed partial class AddInventoryBatchCommandHandler(
         if (auth.IsError)
             return auth.Errors;
 
+        if (await CheckAuthorityAsync(command, cancellationToken) is { } denied)
+            return denied;
+
         var operationKey = FinancialOperationHasher.NormalizeKey(command.OperationKey);
         var rowHashes = command.Items.Select(row => FinancialOperationHasher.Compute(ToPayload(row))).ToArray();
 
@@ -72,6 +77,12 @@ public sealed partial class AddInventoryBatchCommandHandler(
                 return manifest.Errors;
         }
 
+        return await ReceiveRowsAsync(command, operationKey, rowHashes, cancellationToken);
+    }
+
+    private async Task<ErrorOr<AddInventoryBatchResultDto>> ReceiveRowsAsync(
+        AddInventoryBatchCommand command, string? operationKey, string[] rowHashes, CancellationToken cancellationToken)
+    {
         var succeeded = new List<AddInventoryBatchSucceededRowDto>();
         var failed = new List<AddInventoryBatchFailedRowDto>();
 
@@ -98,16 +109,24 @@ public sealed partial class AddInventoryBatchCommandHandler(
                 command.ActorUserId,
                 operation,
                 row.ToInboundInput(),
+                command.Session,
                 cancellationToken);
 
             if (rowResult.IsError)
             {
+                if (IsRecoveryRefusal(rowResult.FirstError, operation is not null))
+                    return rowResult.Errors;
                 failed.Add(ToFailedRow(row, rowResult.Errors));
                 continue;
             }
 
             succeeded.Add(new AddInventoryBatchSucceededRowDto(row.ClientRowId, rowResult.Value));
         }
+
+        if (await suspension.ReadActiveShopDenialAsync(command.ActiveShopId, LicenceAction.Recovery, cancellationToken) is { } restricted)
+            return restricted;
+        if (await CheckAuthorityAsync(command, cancellationToken) is { } revoked)
+            return revoked;
 
         return new AddInventoryBatchResultDto(
             command.Items.Count,
@@ -116,6 +135,16 @@ public sealed partial class AddInventoryBatchCommandHandler(
             succeeded,
             failed);
     }
+
+    private static bool IsRecoveryRefusal(Error error, bool keyed) =>
+        error.Type is ErrorType.Unauthorized || error.Code == Errors.Shop.MembershipNotFound.Code
+        || error.Code == Errors.Inventory.UserIsNotOwnerOrManager.Code || error.Code == Errors.Licence.ScopeMismatch.Code
+        || error.Code == Errors.Licence.SecuritySuspended.Code || error.Code == Errors.Operation.PayloadMismatch.Code
+        // A busy recovery fence may be hiding a committed outcome.
+        || (keyed && error.Code == Errors.Licence.BusyCode);
+
+    private Task<Error?> CheckAuthorityAsync(AddInventoryBatchCommand command, CancellationToken ct) =>
+        access.CheckAuthorityAsync(command.ActorUserId, command.ActiveShopId, command.Session, ct);
 
     /// <summary>Length-prefixed so no operation key and row id pair can spell another pair's key.</summary>
     internal static string RowKey(string operationKey, string clientRowId) =>
@@ -170,13 +199,28 @@ public sealed partial class AddInventoryBatchCommandHandler(
         var manifestHash = FinancialOperationHasher.Compute(
             command.Items.Select((row, index) => new ManifestRow(row.ClientRowId, rowHashes[index])).ToArray());
 
+        ShopLicenceLease lease = default;
         return operationExecutor.ExecuteAsync(
-            new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.BulkIntakeManifest, operationKey),
+            new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.BulkIntakeManifest, operationKey)
+            {
+                RecheckReplayAuthority = ct => CheckAuthorityAsync(command, ct),
+                RecheckBeforeCommit = ct => access.CheckWriteAsync(command.ActorUserId, command.ActiveShopId, command.Session, lease, ct),
+            },
             command.ActorUserId,
             command.ActiveShopId,
             manifestHash,
-            _ => Task.FromResult<ErrorOr<BulkIntakeManifestDto>>(new BulkIntakeManifestDto(command.Items.Count)),
+            ReserveAsync,
             cancellationToken);
+
+        async Task<ErrorOr<BulkIntakeManifestDto>> ReserveAsync(CancellationToken ct)
+        {
+            var admission = await access.EnterAsync(command.ActorUserId, command.ActiveShopId, command.Session, ct);
+            if (admission.IsError)
+                return admission.Errors;
+
+            lease = admission.Value;
+            return new BulkIntakeManifestDto(command.Items.Count);
+        }
     }
 
     private static List<Error> ValidateRow(AddInventoryBatchRowCommand row)
@@ -218,7 +262,9 @@ public sealed partial class AddInventoryBatchCommandHandler(
             errors.Select(error => new AddInventoryBatchRowErrorDto(error.Code, error.Description)).ToArray(),
             Retryable: errors.Any(error =>
                 error.Code == Errors.Inventory.RowRetryable.Code
-                || error.Code == Errors.PostingPeriod.Busy.Code));
+                || error.Code == Errors.PostingPeriod.Busy.Code
+                || error.Code == Errors.Licence.BusyCode
+                || error.Code == Errors.Licence.VerificationUnavailableCode));
 
     private static RowPayload ToPayload(AddInventoryBatchRowCommand row) =>
         new(

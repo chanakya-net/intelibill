@@ -1,3 +1,6 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Security;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -25,7 +28,7 @@ public class AddInventoryBatchCommandHandlerTests
         _owner.AddShopMembership(ShopMembership.Create(_shop.Id, _owner.Id, ShopRole.Owner, true));
         _userRepository.GetByIdWithDetailsAsync(_owner.Id, Arg.Any<CancellationToken>()).Returns(_owner);
 
-        _rowExecutor.ExecuteAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<InboundRowOperation?>(), Arg.Any<InboundInventoryLineInput>(), Arg.Any<CancellationToken>())
+        _rowExecutor.ExecuteAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<InboundRowOperation?>(), Arg.Any<InboundInventoryLineInput>(), Arg.Any<SessionClaims?>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => Task.FromResult<ErrorOr<AddInventoryResultDto>>(Received(callInfo.Arg<InboundInventoryLineInput>())));
     }
 
@@ -34,7 +37,7 @@ public class AddInventoryBatchCommandHandlerTests
     {
         var rows = Enumerable.Range(1, 101).Select(index => CreateRow($"row-{index}", $"Item-{index}", $"BC-{index}")).ToArray();
 
-        var result = await CreateHandler().HandleAsync(new AddInventoryBatchCommand(_owner.Id, _shop.Id, rows), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(Command(_owner.Id, _shop.Id, rows), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("Inventory.BatchLimitExceeded", result.FirstError.Code);
@@ -45,7 +48,7 @@ public class AddInventoryBatchCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenEmptyBatch_ReturnsValidationError()
     {
-        var result = await CreateHandler().HandleAsync(new AddInventoryBatchCommand(_owner.Id, _shop.Id, []), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(Command(_owner.Id, _shop.Id, []), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("Inventory.BatchEmpty", result.FirstError.Code);
@@ -59,7 +62,7 @@ public class AddInventoryBatchCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(staff.Id, Arg.Any<CancellationToken>()).Returns(staff);
 
         var result = await CreateHandler().HandleAsync(
-            new AddInventoryBatchCommand(staff.Id, _shop.Id, [CreateRow("row-1", "Rice", "111")], "intake-1"),
+            Command(staff.Id, _shop.Id, [CreateRow("row-1", "Rice", "111")], "intake-1"),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -72,7 +75,7 @@ public class AddInventoryBatchCommandHandlerTests
     public async Task HandleAsync_WhenClientRowIdRepeats_RejectsBeforeAuthorizingOrRunningRows()
     {
         var result = await CreateHandler().HandleAsync(
-            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-1", "Sugar", "222")], "intake-1"),
+            Command(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-1", "Sugar", "222")], "intake-1"),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -89,7 +92,7 @@ public class AddInventoryBatchCommandHandlerTests
     public async Task HandleAsync_WhenClientRowIdBlankOrTooLong_RejectsBatch(string clientRowId)
     {
         var result = await CreateHandler().HandleAsync(
-            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow(clientRowId, "Rice", "111")]),
+            Command(_owner.Id, _shop.Id, [CreateRow(clientRowId, "Rice", "111")]),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -103,7 +106,7 @@ public class AddInventoryBatchCommandHandlerTests
     public async Task HandleAsync_WhenOperationKeyBlankOrTooLong_RejectsBatch(string operationKey)
     {
         var result = await CreateHandler().HandleAsync(
-            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111")], operationKey),
+            Command(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111")], operationKey),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -114,11 +117,11 @@ public class AddInventoryBatchCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenOneRowFails_ReportsItAndKeepsTheOthers()
     {
-        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Any<InboundRowOperation?>(), Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "222"), Arg.Any<CancellationToken>())
+        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Any<InboundRowOperation?>(), Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "222"), Arg.Any<SessionClaims?>(), Arg.Any<CancellationToken>())
             .Returns(Errors.Inventory.ItemNameBarcodeMismatch);
 
         var result = await CreateHandler().HandleAsync(
-            new AddInventoryBatchCommand(_owner.Id, _shop.Id,
+            Command(_owner.Id, _shop.Id,
             [
                 CreateRow("row-1", "Rice", "111"),
                 CreateRow("row-2", "Different Name", "222"),
@@ -139,11 +142,11 @@ public class AddInventoryBatchCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenRowFailsTransiently_MarksItRetryable()
     {
-        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Any<InboundRowOperation?>(), Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "111"), Arg.Any<CancellationToken>())
+        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Any<InboundRowOperation?>(), Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "111"), Arg.Any<SessionClaims?>(), Arg.Any<CancellationToken>())
             .Returns(Errors.Inventory.RowRetryable);
 
         var result = await CreateHandler().HandleAsync(
-            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-2", "Sugar", "222")], "intake-1"),
+            Command(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-2", "Sugar", "222")], "intake-1"),
             CancellationToken.None);
 
         var failed = Assert.Single(result.Value.Failed);
@@ -154,11 +157,11 @@ public class AddInventoryBatchCommandHandlerTests
     [Fact]
     public async Task HandleAsync_WhenRowPeriodIsBusy_MarksItRetryable()
     {
-        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Any<InboundRowOperation?>(), Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "111"), Arg.Any<CancellationToken>())
+        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Any<InboundRowOperation?>(), Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "111"), Arg.Any<SessionClaims?>(), Arg.Any<CancellationToken>())
             .Returns(Errors.PostingPeriod.Busy);
 
         var result = await CreateHandler().HandleAsync(
-            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-2", "Sugar", "222")], "intake-1"),
+            Command(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-2", "Sugar", "222")], "intake-1"),
             CancellationToken.None);
 
         Assert.True(Assert.Single(result.Value.Failed).Retryable);
@@ -170,40 +173,44 @@ public class AddInventoryBatchCommandHandlerTests
         var invalid = CreateRow("row-1", "Rice", "111") with { Quantity = 0m };
 
         var result = await CreateHandler().HandleAsync(
-            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [invalid, CreateRow("row-2", "Sugar", "222")]),
+            Command(_owner.Id, _shop.Id, [invalid, CreateRow("row-2", "Sugar", "222")]),
             CancellationToken.None);
 
         Assert.Equal("row-1", Assert.Single(result.Value.Failed).ClientRowId);
         await _rowExecutor.DidNotReceive().ExecuteAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<InboundRowOperation?>(),
-            Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "111"), Arg.Any<CancellationToken>());
+            Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "111"), Arg.Any<SessionClaims?>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task HandleAsync_WhenUnkeyed_RunsRowsWithoutReceipts()
     {
         var result = await CreateHandler().HandleAsync(
-            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111")]),
+            Command(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111")]),
             CancellationToken.None);
 
         Assert.Equal(1, result.Value.SuccessCount);
         Assert.Empty(_operationExecutor.Scopes);
-        await _rowExecutor.Received(1).ExecuteAsync(_shop.Id, _owner.Id, null, Arg.Any<InboundInventoryLineInput>(), Arg.Any<CancellationToken>());
+        await _rowExecutor.Received(1).ExecuteAsync(_shop.Id, _owner.Id, null, Arg.Any<InboundInventoryLineInput>(), Arg.Any<SessionClaims?>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task HandleAsync_WhenKeyed_CommitsManifestThenKeysEveryRow()
     {
         var operations = new List<InboundRowOperation?>();
-        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Do<InboundRowOperation?>(operations.Add), Arg.Any<InboundInventoryLineInput>(), Arg.Any<CancellationToken>())
+        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Do<InboundRowOperation?>(operations.Add), Arg.Any<InboundInventoryLineInput>(), Arg.Any<SessionClaims?>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => Task.FromResult<ErrorOr<AddInventoryResultDto>>(Received(callInfo.Arg<InboundInventoryLineInput>())));
 
         var result = await CreateHandler().HandleAsync(
-            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-2", "Sugar", "222")], " intake-1 "),
+            Command(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-2", "Sugar", "222")], " intake-1 "),
             CancellationToken.None);
 
         Assert.Equal(2, result.Value.SuccessCount);
         var manifest = Assert.Single(_operationExecutor.Scopes);
-        Assert.Equal(new FinancialOperationScope(_shop.Id, FinancialOperationType.BulkIntakeManifest, "intake-1"), manifest);
+        Assert.Equal(_shop.Id, manifest.ShopId);
+        Assert.Equal(FinancialOperationType.BulkIntakeManifest, manifest.OperationType);
+        Assert.Equal("intake-1", manifest.Key);
+        Assert.NotNull(manifest.RecheckReplayAuthority);
+        Assert.NotNull(manifest.RecheckBeforeCommit);
         Assert.Equal(
             [AddInventoryBatchCommandHandler.RowKey("intake-1", "row-1"), AddInventoryBatchCommandHandler.RowKey("intake-1", "row-2")],
             operations.Select(o => o!.Key));
@@ -214,14 +221,14 @@ public class AddInventoryBatchCommandHandlerTests
     public async Task HandleAsync_WhenRowHashIsComputed_IgnoresFormattingButNotBusinessContent()
     {
         var hashes = new List<string>();
-        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Do<InboundRowOperation?>(o => hashes.Add(o!.RequestHash)), Arg.Any<InboundInventoryLineInput>(), Arg.Any<CancellationToken>())
+        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Do<InboundRowOperation?>(o => hashes.Add(o!.RequestHash)), Arg.Any<InboundInventoryLineInput>(), Arg.Any<SessionClaims?>(), Arg.Any<CancellationToken>())
             .Returns(callInfo => Task.FromResult<ErrorOr<AddInventoryResultDto>>(Received(callInfo.Arg<InboundInventoryLineInput>())));
         var handler = CreateHandler();
         var row = CreateRow("row-1", "Rice", "111");
 
-        await handler.HandleAsync(new AddInventoryBatchCommand(_owner.Id, _shop.Id, [row], "a"), CancellationToken.None);
-        await handler.HandleAsync(new AddInventoryBatchCommand(_owner.Id, _shop.Id, [row with { ItemName = " Rice ", Quantity = 10.000m }], "b"), CancellationToken.None);
-        await handler.HandleAsync(new AddInventoryBatchCommand(_owner.Id, _shop.Id, [row with { Quantity = 11m }], "c"), CancellationToken.None);
+        await handler.HandleAsync(Command(_owner.Id, _shop.Id, [row], "a"), CancellationToken.None);
+        await handler.HandleAsync(Command(_owner.Id, _shop.Id, [row with { ItemName = " Rice ", Quantity = 10.000m }], "b"), CancellationToken.None);
+        await handler.HandleAsync(Command(_owner.Id, _shop.Id, [row with { Quantity = 11m }], "c"), CancellationToken.None);
 
         Assert.Equal(hashes[0], hashes[1]);
         Assert.NotEqual(hashes[0], hashes[2]);
@@ -233,7 +240,7 @@ public class AddInventoryBatchCommandHandlerTests
         _operationExecutor.Result = Errors.Operation.PayloadMismatch;
 
         var result = await CreateHandler().HandleAsync(
-            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111")], "intake-1"),
+            Command(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111")], "intake-1"),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -245,7 +252,7 @@ public class AddInventoryBatchCommandHandlerTests
     public async Task HandleAsync_WhenCancelledMidBatch_ThrowsInsteadOfSummarising()
     {
         using var cancellation = new CancellationTokenSource();
-        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Any<InboundRowOperation?>(), Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "111"), Arg.Any<CancellationToken>())
+        _rowExecutor.ExecuteAsync(_shop.Id, _owner.Id, Arg.Any<InboundRowOperation?>(), Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "111"), Arg.Any<SessionClaims?>(), Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
                 cancellation.Cancel();
@@ -253,11 +260,11 @@ public class AddInventoryBatchCommandHandlerTests
             });
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CreateHandler().HandleAsync(
-            new AddInventoryBatchCommand(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-2", "Sugar", "222")], "intake-1"),
+            Command(_owner.Id, _shop.Id, [CreateRow("row-1", "Rice", "111"), CreateRow("row-2", "Sugar", "222")], "intake-1"),
             cancellation.Token));
 
         await _rowExecutor.DidNotReceive().ExecuteAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<InboundRowOperation?>(),
-            Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "222"), Arg.Any<CancellationToken>());
+            Arg.Is<InboundInventoryLineInput>(r => r.Barcode == "222"), Arg.Any<SessionClaims?>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -269,12 +276,26 @@ public class AddInventoryBatchCommandHandlerTests
         Assert.Equal(128, AddInventoryBatchCommandHandler.RowKey(new string('k', 60), new string('r', 64)).Length);
     }
 
-    private AddInventoryBatchCommandHandler CreateHandler() =>
-        new(_userRepository, _rowExecutor, _operationExecutor, NullLogger<AddInventoryBatchCommandHandler>.Instance);
+    private AddInventoryBatchCommandHandler CreateHandler()
+    {
+        var shops = Substitute.For<IShopRepository>();
+        shops.GetActiveRoleAsync(_owner.Id, _shop.Id, Arg.Any<CancellationToken>()).Returns(ShopRole.Owner);
+        var sessions = Substitute.For<ILiveSessionAuthority>();
+        sessions.IsValidAsync(Arg.Any<SessionClaims>(), Arg.Any<CancellationToken>()).Returns(true);
+        var fence = Substitute.For<IShopLicenceFence>();
+        fence.EnterAsync(_shop.Id, LicenceAction.NewTrading, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr<ShopLicenceLease>>(new ShopLicenceLease(_shop.Id, null, null, null, new(LicenceOutcome.Allowed, false))));
+        var access = new StockIntakeAccess(shops, sessions, fence);
+        return new(_userRepository, _rowExecutor, _operationExecutor, access, Substitute.For<ISuspensionAccessReader>(),
+            NullLogger<AddInventoryBatchCommandHandler>.Instance);
+    }
+
+    private static AddInventoryBatchCommand Command(Guid actor, Guid shop, AddInventoryBatchRowCommand[] rows, string? key = null) =>
+        new(actor, shop, rows, key, new(actor, Guid.NewGuid(), 1, 1, shop, null));
 
     private async Task AssertNoRowRanAsync() =>
         await _rowExecutor.DidNotReceive().ExecuteAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<InboundRowOperation?>(),
-            Arg.Any<InboundInventoryLineInput>(), Arg.Any<CancellationToken>());
+            Arg.Any<InboundInventoryLineInput>(), Arg.Any<SessionClaims?>(), Arg.Any<CancellationToken>());
 
     private static AddInventoryResultDto Received(InboundInventoryLineInput row) =>
         new(Guid.NewGuid(), row.ItemName, row.Barcode, Guid.NewGuid(), row.BatchNumber, row.Quantity, row.Quantity, null, Guid.NewGuid(), DateTimeOffset.UtcNow);

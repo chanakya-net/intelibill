@@ -509,6 +509,16 @@ describe('BatchRowFormStateService', () => {
       },
     );
 
+    it('restores a row that carries no sales mode instead of failing', () => {
+      const state = setup();
+      const { taxIncluded: _missing, ...row } = draftRow({ purchaseTaxIncluded: true });
+
+      state.loadDraftRow(row as InventoryInboundDraftRow);
+
+      expect(state.form.controls.itemName.value).toBe(row.itemName);
+      expect(state.form.controls.taxIncluded.value).toBe(true);
+    });
+
     it('requires the purchase mode to be confirmed for a draft stored without it', () => {
       const state = setup();
       const { purchaseTaxIncluded: _omitted, ...oldDraft } = draftRow({ taxIncluded: false });

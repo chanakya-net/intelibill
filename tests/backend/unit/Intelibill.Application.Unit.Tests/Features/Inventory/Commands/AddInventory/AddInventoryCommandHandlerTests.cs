@@ -1,3 +1,7 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Security;
+using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
@@ -508,7 +512,19 @@ public class AddInventoryCommandHandlerTests
 
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private AddInventoryCommandHandler CreateHandler() =>
-        new(_userRepository, _supplierRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _purchaseReceiptValueRepository, _inventoryRepository, _unitOfWork, BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), ExpiryTestDoubles.Fence(), ExpiryTestDoubles.Dates());
+        new(_userRepository, _supplierRepository, _itemRepository, _inventoryBatchRepository, _stockTransactionRepository, _supplierLedgerEntryRepository, _purchaseReceiptValueRepository, _inventoryRepository, _unitOfWork, BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), ExpiryTestDoubles.Fence(), ExpiryTestDoubles.Dates(), IntakeAccess());
+
+    private static StockIntakeAccess IntakeAccess()
+    {
+        var shops = BusinessTestDoubles.AnyShop();
+        shops.GetActiveRoleAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(ShopRole.Owner);
+        var sessions = Substitute.For<ILiveSessionAuthority>();
+        sessions.IsValidAsync(Arg.Any<SessionClaims>(), Arg.Any<CancellationToken>()).Returns(true);
+        var fence = Substitute.For<IShopLicenceFence>();
+        fence.EnterAsync(Arg.Any<Guid>(), LicenceAction.NewTrading, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<ErrorOr.ErrorOr<ShopLicenceLease>>(new ShopLicenceLease(Guid.Empty, null, null, null, new(LicenceOutcome.Allowed, false))));
+        return new(shops, sessions, fence);
+    }
 
     private void SetupSystemSupplierLookup()
     {
@@ -547,7 +563,8 @@ public class AddInventoryCommandHandlerTests
             SupplierId: supplierId,
             ReferenceNumber: "PO-123",
             Notes: "Initial stock",
-            PerformedAt: performedAt);
+            PerformedAt: performedAt,
+            Session: new(actorId, Guid.NewGuid(), 1, 1, shopId, null));
 
     [Fact]
     public async Task ClosedPeriod_RefusesIntake_OnTheBusinessDateOfItsPerformedTime()

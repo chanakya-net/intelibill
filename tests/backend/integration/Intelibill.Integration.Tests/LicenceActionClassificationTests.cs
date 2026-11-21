@@ -1,3 +1,5 @@
+using Intelibill.Application.Features.Inventory.Commands.AddInventory;
+using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 using Intelibill.Application.Features.FinancialOperations.Queries.GetFinancialOperation;
 using Intelibill.Application.Features.Inventory.Commands.CorrectStockCount;
 using Intelibill.Application.Features.Inventory.Commands.CreateAdjustment;
@@ -50,6 +52,14 @@ public sealed class LicenceActionClassificationTests(PostgreSqlTestFixture fixtu
     [InlineData(typeof(GetFinancialOperationQueryHandler), nameof(GetFinancialOperationQueryHandler.Handle), LicenceAction.Recovery)]
     public void Receipt_correction_and_general_stock_keep_distinct_classifications(Type type, string methodName, LicenceAction action) =>
         Assert.Equal(action, type.GetMethod(methodName)?.GetCustomAttribute<LicenceActionAttribute>()?.Action);
+
+    [Theory]
+    [InlineData(typeof(InventoryController), nameof(InventoryController.AddInventory))]
+    [InlineData(typeof(InventoryController), nameof(InventoryController.AddInventoryBatch))]
+    [InlineData(typeof(AddInventoryCommandHandler), nameof(AddInventoryCommandHandler.HandleAsync))]
+    [InlineData(typeof(AddInventoryBatchCommandHandler), nameof(AddInventoryBatchCommandHandler.HandleAsync))]
+    public void Intake_entry_points_require_new_trading_access(Type type, string methodName) =>
+        Assert.Equal(LicenceAction.NewTrading, type.GetMethod(methodName)?.GetCustomAttribute<LicenceActionAttribute>()?.Action);
 
     [Fact]
     public async Task Every_protected_entry_point_has_one_classification()
