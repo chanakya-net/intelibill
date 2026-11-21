@@ -12,7 +12,7 @@ internal sealed class TillPostgresBarrier : IAsyncDisposable
     private bool _released;
     private TillPostgresBarrier(NpgsqlConnection connection, string table) { _connection = connection; _table = table; }
 
-    public static async Task<TillPostgresBarrier> CreateAsync(string connection, string table, Guid shop)
+    public static async Task<TillPostgresBarrier> CreateAsync(string connection, string table, Guid shop, string condition = "TRUE", string timing = "AFTER INSERT")
     {
         // Table comes only from test literals; the random identifier isolates trigger cleanup.
         var result = new TillPostgresBarrier(new NpgsqlConnection(connection), table);
@@ -21,12 +21,14 @@ internal sealed class TillPostgresBarrier : IAsyncDisposable
             SELECT pg_advisory_lock({result._key});
             CREATE FUNCTION {result._name}() RETURNS trigger LANGUAGE plpgsql AS $$
             BEGIN PERFORM pg_advisory_xact_lock({result._key}); RETURN NEW; END $$;
-            CREATE TRIGGER {result._name} AFTER INSERT ON {table}
-            FOR EACH ROW WHEN (NEW.shop_id='{shop}') EXECUTE FUNCTION {result._name}();
+            CREATE TRIGGER {result._name} {timing} ON {table}
+            FOR EACH ROW WHEN (NEW.shop_id='{shop}' AND ({condition})) EXECUTE FUNCTION {result._name}();
             """, result._connection);
         await command.ExecuteNonQueryAsync();
         return result;
     }
+
+    public int BlockerPid => _connection.ProcessID;
 
     public Task<int> WaitForArrivalAsync() => WaitForBlockedByAsync(_connection.ProcessID);
 

@@ -52,8 +52,12 @@ public class InventoryControllerTests
     {
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
         SetUserClaims(
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim("sid", sessionId.ToString()),
+            new Claim("security_version", "3"),
+            new Claim("scope_version", "4"),
             new Claim("active_shop_id", shopId.ToString()));
 
         var request = CreateRequest();
@@ -81,6 +85,8 @@ public class InventoryControllerTests
             Arg.Is<AddInventoryCommand>(c =>
                 c.ActorUserId == userId
                 && c.ActiveShopId == shopId
+                && c.Session != null && c.Session.SessionId == sessionId && c.Session.UserId == userId
+                && c.Session.ActiveShopId == shopId && c.Session.SecurityVersion == 3 && c.Session.ScopeVersion == 4
                 && c.ItemName == request.ItemName
                 && c.Barcode == request.Barcode
                 && c.HsnCode == request.HsnCode

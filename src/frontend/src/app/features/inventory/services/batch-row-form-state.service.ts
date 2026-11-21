@@ -537,7 +537,8 @@ export class BatchRowFormStateService {
       mrp: row.mrp,
       salesPrice: row.salesPrice,
       taxRatePercent: row.taxRatePercent,
-      taxIncluded: row.taxIncluded,
+      // A row can reach here without a sales mode; the form cannot take a missing value.
+      taxIncluded: row.taxIncluded ?? true,
       // Drafts stored by earlier releases either lack the purchase mode or carry one silently copied
       // from the sales mode; both stay unconfirmed until the user chooses it here.
       purchaseTaxIncluded: isPurchaseTaxModeConfirmed(row)

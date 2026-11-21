@@ -4,6 +4,7 @@ import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { TableModule } from 'primeng/table';
 
+import { OPERATING_ACCESS_ERROR_KEYS } from '../../../billing/status/operating-access-hint.service';
 import { BatchDraftStateService } from '../../services/batch-draft-state.service';
 import type { AddInventoryBatchResponse, AddInventoryBatchSucceededRow } from '../../services/inventory.models';
 import {
@@ -23,6 +24,7 @@ export class BatchSaveResultsComponent {
 
   @Input() saveSummary: AddInventoryBatchResponse | null = null;
   @Input() isSaving = false;
+  @Input() saveDisabled = false;
   @Input() highlightedRowId: string | null = null;
 
   @Output() readonly editRow = new EventEmitter<string>();
@@ -30,6 +32,10 @@ export class BatchSaveResultsComponent {
   @Output() readonly clearAll = new EventEmitter<void>();
   @Output() readonly saveAll = new EventEmitter<void>();
   @Output() readonly printSuccessfulRows = new EventEmitter<readonly AddInventoryBatchSucceededRow[]>();
+
+  recoveryRequired(): boolean {
+    return this.draftState.hasInterruptedSubmission();
+  }
 
   failedClientRowIds(): Set<string> {
     if (!this.saveSummary) {
@@ -54,6 +60,8 @@ export class BatchSaveResultsComponent {
 
   /** The server's own text is English; a precision refusal is shown in the person's language. */
   private rowErrorText(error: { code: string; description: string }): string {
+    if (Object.hasOwn(OPERATING_ACCESS_ERROR_KEYS, error.code))
+      return this.transloco.translate(OPERATING_ACCESS_ERROR_KEYS[error.code]);
     return error.code === 'Inventory.QuantityPrecisionExceeded'
       ? this.transloco.translate('inventory.quantityPrecisionExceeded')
       : error.description;
