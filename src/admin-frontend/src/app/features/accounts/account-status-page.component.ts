@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { SESSION_PORT } from '@intelibill/api';
 import { ButtonDirective } from 'primeng/button';
 import type { Subscription } from 'rxjs';
-import { AccountStatusApi, type AccountStatus, basisLabels, formatIst, formatIstExact, stateLabels, statusReaders } from './account-status-api.service';
+import { AccountStatusApi, type AccountStatus, type ProviderClosure, basisLabels, formatIst, formatIstExact, stateLabels, statusReaders } from './account-status-api.service';
 import { AccountCancellationDetailComponent } from './account-cancellation-detail.component';
 import { ComplimentaryGrantComponent } from './complimentary-grant.component';
 import { TrialExtensionComponent } from './trial-extension.component';
@@ -37,6 +37,11 @@ export class AccountStatusPageComponent {
   protected readonly trialShops = computed(() => this.status()?.items
     .filter(item => item.status.basis === 'Trial')
     .flatMap(item => item.coveredShops) ?? []);
+  protected readonly closures = signal<readonly ProviderClosure[] | null>(null);
+  protected readonly closureUnavailable = signal(false);
+  protected readonly closureStates = {
+    Pending: 'Pending merchant acknowledgement', Applied: 'Acknowledged by merchant service', NeedsReview: 'Needs review',
+  };
   protected readonly outcome = signal<Outcome>('idle');
   protected readonly states = stateLabels;
   protected readonly bases = basisLabels;
@@ -48,6 +53,7 @@ export class AccountStatusPageComponent {
   protected readonly hasSynchronization = computed(() => this.status()?.items
     .some(item => item.coveredShops.some(shop => shop.synchronization)));
   private request?: Subscription;
+  private closureRequest?: Subscription;
   private selectedAccount?: string;
   private generation = 0;
 
@@ -61,7 +67,10 @@ export class AccountStatusPageComponent {
         this.reset();
       });
     });
-    inject(DestroyRef).onDestroy(() => this.request?.unsubscribe());
+    inject(DestroyRef).onDestroy(() => {
+      this.request?.unsubscribe();
+      this.closureRequest?.unsubscribe();
+    });
   }
 
   protected lookup(event: Event) {
@@ -90,6 +99,14 @@ export class AccountStatusPageComponent {
     this.reset();
     const generation = this.generation;
     this.outcome.set('loading');
+    this.closureRequest = this.api.closures(account).subscribe({
+      next: rows => {
+        if (generation === this.generation) this.closures.set(rows);
+      },
+      error: () => {
+        if (generation === this.generation) this.closureUnavailable.set(true);
+      },
+    });
     this.request = this.api.read(account).subscribe({
       next: status => {
         if (generation !== this.generation) return;
@@ -120,7 +137,10 @@ export class AccountStatusPageComponent {
 
   private reset() {
     this.request?.unsubscribe();
+    this.closureRequest?.unsubscribe();
     this.generation++;
+    this.closures.set(null);
+    this.closureUnavailable.set(false);
     this.status.set(null);
     this.outcome.set('idle');
   }

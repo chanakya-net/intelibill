@@ -15,8 +15,17 @@ internal static class AdminSubscriptionStatusEndpoints
     {
         var group = app.MapGroup("/api/admin/accounts/{account:guid}").RequireAuthorization(ProviderSessions.StatusPolicy);
         group.MapGet("/status", ReadAccountAsync);
+        group.MapGet("/closures", ReadClosuresAsync);
         group.MapGet("/subscriptions/{term:guid}/cancellation", ReadCancellationAsync);
         group.MapGet("/shops/{shop:guid}/status", ReadShopAsync);
+    }
+
+    private static async Task<IResult> ReadClosuresAsync(HttpContext context, Guid account, ReadProviderStatusHandler handler)
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        if (ProviderSessions.ReadCaller(context.User) is not { } caller)
+            return CatalogueDraftEndpoints.Problem(context, AdminRefreshErrors.SessionEnded);
+        return Respond(context, await handler.ReadClosuresAsync(caller, account, context.RequestAborted));
     }
 
     private static async Task<IResult> ReadAccountAsync(HttpContext context, Guid account, Guid? after,

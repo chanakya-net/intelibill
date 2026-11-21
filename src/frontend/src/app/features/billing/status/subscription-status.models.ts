@@ -41,6 +41,8 @@ export interface ShopSubscriptionStatus {
   readonly term: SubscriptionTermStatus | null;
   readonly accountId: string | null;
   readonly observeOnly: boolean;
+  readonly closedAt?: string;
+  readonly closureEnforced?: boolean;
   readonly enforcedSuspensionMode?: 'Trading' | 'Security';
   readonly entitlementSynchronization: string;
   readonly paymentVerification: string;

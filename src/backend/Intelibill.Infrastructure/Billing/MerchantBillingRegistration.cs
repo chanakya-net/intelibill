@@ -23,6 +23,8 @@ internal static class MerchantBillingRegistration
         services.AddSingleton<IMerchantBillingSigningKeys, MerchantBillingDelegationKeys>();
         services.AddScoped<MerchantBillingDelegationIssuer>();
         services.AddScoped<ShopAffiliationConsentStore>();
+        services.AddScoped<MerchantClosureConsentStore>();
+        services.AddScoped<IMerchantClosureValidationReceiver>(provider => provider.GetRequiredService<MerchantClosureConsentStore>());
         AddDeliveryKey(services, ShopAffiliationDeliveryV1.Section);
         AddDeliveryKey(services, ShopTrialsV1.DeliverySection);
         AddDeliveryKey(services, EntitlementSnapshotsV1.Section);
@@ -49,6 +51,7 @@ internal static class MerchantBillingRegistration
             .AddTypedClient<IMerchantBillingAccess, MerchantBillingClient>()
             .AddTypedClient<IMerchantBillingInvitations, MerchantBillingClient>()
             .AddTypedClient<IMerchantShopAffiliations, MerchantBillingClient>()
+            .AddTypedClient<IMerchantShopClosures, MerchantBillingClient>()
             .AddTypedClient<IMerchantBillingOwnershipTransfers, MerchantBillingClient>()
             .AddTypedClient<IMerchantSubscriptionStatus, MerchantBillingClient>()
             .AddTypedClient<IMerchantSubscriptionCancellations, MerchantBillingClient>()

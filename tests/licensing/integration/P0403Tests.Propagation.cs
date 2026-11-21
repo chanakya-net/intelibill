@@ -74,7 +74,8 @@ public sealed partial class P0403Tests
                 GRANT SELECT, INSERT ON public.operational_restrictions,
                     public.operational_restriction_deliveries, public.operational_restriction_releases,
                     public.operational_restriction_release_deliveries TO licensing_runtime;
-                GRANT SELECT ON public.active_operational_restrictions TO licensing_runtime;
+                GRANT SELECT ON public.active_operational_restrictions, public.operational_closures,
+                    public.operational_closure_targets TO licensing_runtime;
                 """);
         }
 
@@ -120,7 +121,7 @@ public sealed partial class P0403Tests
         await transaction.CommitAsync();
     }
 
-    private static async Task QueueReconciliationAsync(P0213Fixture fixture, Guid shop)
+    internal static async Task QueueReconciliationAsync(P0213Fixture fixture, Guid shop)
     {
         // Make this shop due without advancing the fixed identity or business clocks.
         await LicensingPostgreSqlFixture.ExecuteAsync(fixture.Hosts.LicensingOwner, $"""

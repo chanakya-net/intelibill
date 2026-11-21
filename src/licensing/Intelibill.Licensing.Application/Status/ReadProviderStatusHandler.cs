@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.Restrictions;
 using ErrorOr;
 using Intelibill.Licensing.Application.Subscriptions;
 using Intelibill.Licensing.Application.AdminIdentities;
@@ -11,9 +12,9 @@ namespace Intelibill.Licensing.Application.Status;
 /// Billing or Licensing Manager grant (re-read under lock); commercial facts need Billing or Licensing Manager.
 /// Platform Owner and Security Administrator alone grant nothing here. No merchant business data is read.
 /// </summary>
-public sealed class ReadProviderStatusHandler(ISubscriptionStatusStore store, ISubscriptionAccessFactsReader reader,
+public sealed partial class ReadProviderStatusHandler(ISubscriptionStatusStore store, ISubscriptionAccessFactsReader reader,
     TimeProvider statusClock, TimeProvider sessionClock, IEntitlementSynchronizationReader synchronization,
-    ScheduleCancellationHandler cancellation)
+    ScheduleCancellationHandler cancellation, IClosureStore closures)
 {
     private const AdminCapability Readers = AdminCapability.Support | AdminCapability.Billing | AdminCapability.LicensingManager;
     private const AdminCapability Commercial = AdminCapability.Billing | AdminCapability.LicensingManager;

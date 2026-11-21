@@ -274,7 +274,7 @@ describe('subscription status', () => {
     expect(facts).toContain('7 Mar 2027, 10:00 IST');
     expect(facts).toContain('3');
     expect(facts).toContain('5');
-    expect(page.querySelector('[data-testid="observe-only"]')?.textContent).toContain('does not block');
+    expect(page.querySelector('[data-testid="observe-only"]')?.textContent).toContain('Observe-only subscription dates and commercial terms');
     expect(page.querySelector('[data-testid="commercial-price"]')).toBeNull();
   });
 

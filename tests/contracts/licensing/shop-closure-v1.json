@@ -1,0 +1,30 @@
+{
+  "validationPath": "/internal/merchant/v1/closures/validate",
+  "financialTreatment": "NoFinancialChange",
+  "validation": {
+    "accountId": "20000000-0000-4000-8000-000000000001",
+    "proposalId": "50000000-0000-4000-8000-000000000001",
+    "challenge": "60000000-0000-4000-8000-000000000001",
+    "expiresAt": "2027-02-10T04:30:00+00:00",
+    "scopeDigest": "7c926230d24197907b8f0d7498fa6f24667ba5519d38b4b84294b14643b04cd5",
+    "targets": [
+      {
+        "shopId": "30000000-0000-4000-8000-000000000001",
+        "affiliationRequestId": "40000000-0000-4000-8000-000000000001",
+        "closureVersion": 0,
+        "shopName": "Fixture Shop"
+      }
+    ],
+    "requiredActor": null,
+    "recovering": false
+  },
+  "providerTargetFields": [
+    "shopId",
+    "shopName",
+    "propagation",
+    "savedShopRevision",
+    "appliedShopRevision",
+    "acknowledgedAt"
+  ],
+  "operationalState": "Closed"
+}

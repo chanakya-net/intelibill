@@ -7,6 +7,8 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.Policies;
 using Intelibill.Infrastructure.Data;
+using Intelibill.Infrastructure.Billing;
+using Intelibill.Application.Features.Billing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using LicenceErrors = Intelibill.Application.Common.Errors.Errors.Licence;
@@ -35,7 +37,8 @@ internal sealed class SuspensionAccessReader(ApplicationDbContext db, ILicenceAc
     }
 
     public async Task<Error?> DeliverAsync(Guid shopId, SessionClaims? session, Func<CancellationToken, Task> deliver, CancellationToken ct,
-        LicenceAction action = LicenceAction.History, Func<CancellationToken, Task>? prepare = null)
+        LicenceAction action = LicenceAction.History, Func<CancellationToken, Task>? prepare = null,
+        OwnerResponseAuthority? owner = null)
     {
         // Neither a source transaction nor a streaming query can share this connection.
         await using var reader = services.CreateAsyncScope();
@@ -55,6 +58,12 @@ internal sealed class SuspensionAccessReader(ApplicationDbContext db, ILicenceAc
         if (session is not null &&
             await ReadAuthorityDenialAsync(provider, context, session, shopId, budget.Token) is { } revoked)
             return revoked;
+
+        if (owner is not null && (session is null ||
+            await provider.GetRequiredService<ShopAffiliationConsentStore>().LockOwnerAsync(
+                new MerchantBillingCaller(session, owner.AccessExpiry), shopId, budget.Token) is not { } live ||
+            live.Version != owner.MembershipVersion))
+            return ShopAffiliationConsentErrors.OwnerRequired;
 
         if (lease.Value.CurrentDecision() is { Enforced: true, Denial: { } refusal })
             return refusal;

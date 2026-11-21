@@ -1,6 +1,7 @@
 using ErrorOr;
 using Intelibill.Licensing.Application.BillingAccounts;
 using Intelibill.Licensing.Application.Status;
+using Intelibill.Licensing.Application.Restrictions;
 using Intelibill.Shared.Contracts.V1;
 
 namespace Intelibill.Licensing.Application.Payments;
@@ -11,7 +12,8 @@ namespace Intelibill.Licensing.Application.Payments;
 /// attempt keeps its status when its adapter is no longer enabled, but no launcher is offered for it.
 /// </summary>
 public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPaymentStore store,
-    IEntitlementSynchronizationReader synchronization, IPaymentGatewayResolver gateways, TimeProvider clock, IPaymentProviderSelection selection)
+    IEntitlementSynchronizationReader synchronization, IPaymentGatewayResolver gateways, TimeProvider clock,
+    IPaymentProviderSelection selection, IClosureStore closures)
 {
     public async Task<ErrorOr<CheckoutPaymentV1>> ReadAsync(Guid account, Guid order, CancellationToken ct)
     {
@@ -24,7 +26,8 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         var gateway = row.Attempt is { } attempt ? gateways.ForPin(attempt.Pin) : null;
         var canStart = row.Attempt is null && row.ManualVerifiedAt is null && row.TermId is null &&
             await CanStartAsync(quote, ct) && !await store.HasOverlappingPaymentAsync(account, order, ct);
-        return Project(quote, row, synced, canStart, gateway);
+        var closed = shops.Length == 0 ? [] : await closures.ClosedShopIdsAsync(account, shops, ct);
+        return Project(quote, row, synced, closed, canStart, gateway);
     }
 
     internal async Task<bool> CanStartAsync(CheckoutQuoteV1 quote, CancellationToken ct)
@@ -38,7 +41,7 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
     internal static bool Startable(CheckoutQuoteV1 quote) => CheckoutRenewalPolicy.Payable(quote);
 
     private static CheckoutPaymentV1 Project(CheckoutQuoteV1 quote, PaymentStatusRow row,
-        IReadOnlyDictionary<Guid, EntitlementSynchronizationV1> synced, bool canStart, IPaymentGateway? gateway)
+        IReadOnlyDictionary<Guid, EntitlementSynchronizationV1> synced, Guid[] closed, bool canStart, IPaymentGateway? gateway)
     {
         var attempt = row.Attempt;
         var payment = attempt is null ? (row.ManualVerifiedAt is null ? "NotStarted" : "Verified") : row.VerifiedAt is not null ? "Verified"
@@ -46,11 +49,11 @@ public sealed class CheckoutPaymentStatusReader(ICheckoutOrderStore orders, IPay
         var routingReview = attempt is not null && gateway is null && row.VerifiedAt is null && row.ManualVerifiedAt is null && !row.DefinitivelyFailed;
         if (routingReview) payment = "PendingVerification";
         var fulfilment = row.TermId is not null ? "Fulfilled" : (row.NeedsReview || routingReview) ? "NeedsReview" : "NotFulfilled";
-        var applied = row.Deliveries.Count(d => synced.TryGetValue(d.ShopId, out var s) && s.AppliedShopRevision >= d.ShopRevision);
+        var applied = row.Deliveries.Count(d => !closed.Contains(d.ShopId) && synced.TryGetValue(d.ShopId, out var s) && s.AppliedShopRevision >= d.ShopRevision);
         var review = row.Deliveries.Any(d => d.ShopRevision is not null && synced.TryGetValue(d.ShopId, out var s) && s.State == "NeedsReview" &&
             !(s.AppliedShopRevision >= d.ShopRevision));
         var access = row.TermId is null ? "NotApplicable"
-            : applied == quote.ShopCount ? "Applied" : review ? "NeedsReview" : "Applying";
+            : applied == quote.ShopCount ? "Applied" : review || closed.Length != 0 ? "NeedsReview" : "Applying";
         // A persisted launcher is offered only while the runtime still permits the attempt's pinned adapter.
         var launch = payment == "AwaitingPayment" && row.ManualVerifiedAt is null && gateway is not null &&
             attempt is { LauncherFlow: { } flow, ProviderOrderReference: { } reference }

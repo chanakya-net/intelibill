@@ -23,9 +23,12 @@ internal sealed class SuspensionResponseBodyFeature(
     private ArrayBufferWriter<byte>? _json;
     private bool _dataFreeResult;
     private LicenceAction _action = LicenceAction.History;
+    private OwnerResponseAuthority? _owner;
     public bool Stopped { get; private set; }
 
     public void ConfirmDataFreeResult() => _dataFreeResult = true;
+
+    public void RequireOwner(long expiry, long version) => _owner = new(expiry, version);
 
     public void ConfirmMemberRemoval() => _action = LicenceAction.MemberRemoval;
 
@@ -132,7 +135,7 @@ internal sealed class SuspensionResponseBodyFeature(
         Error? refusal;
         try
         {
-            refusal = await reader.DeliverAsync(shop, session, send, lifetime.Token, _action);
+            refusal = await reader.DeliverAsync(shop, session, send, lifetime.Token, _action, owner: _owner);
         }
         catch (Exception error) when (error is NpgsqlException or TimeoutException)
         {

@@ -33,6 +33,7 @@ internal sealed partial class MerchantBillingClient
                 ? result.Value with
                 {
                     ObserveOnly = false,
+                    ClosureEnforced = result.Value.ClosedAt is null ? null : heads.Shop.State == ShopClosuresV1.Closed,
                     EnforcedSuspensionMode = LicenseProjectionPolicy.EffectiveSuspension(heads.Shop, heads.Account, clock.GetUtcNow()),
                 }
                 : result.Value;

@@ -5,7 +5,7 @@
     <p class="ib-subtitle">{{ (accountId() ? 'billing.status.accountDescription' : 'billing.status.shopDescription') | transloco }}</p>
   </header>
   @let current = view();
-  @if (accountId() || (current.kind === 'shop' && current.status.observeOnly === true)) {
+  @if (accountId() || (current.kind === 'shop' && current.status.observeOnly === true && !current.status.closedAt)) {
     <p class="ib-panel notice" data-testid="observe-only">{{ 'billing.status.observeOnly' | transloco }}</p>
   }
 
@@ -45,6 +45,16 @@
       }
     }
     @case ('shop') {
+      @if (current.status.closedAt; as closedAt) {
+        <p class="ib-panel" role="status" data-testid="shop-closure-status">
+          {{ 'billing.closure.closedAt' | transloco: {time: instant(closedAt, true)} }}
+          {{ (current.status.closureEnforced ? 'billing.closure.enforced' : 'billing.closure.enforcementUnconfirmed') | transloco }}
+        </p>
+      }
+      @if (isShopOwner() && current.status.enforcedSuspensionMode !== 'Security') {
+        <app-closure-confirmation mode="shop" [shop]="current.status.shopId" [account]="current.status.accountId" [closed]="!!current.status.closedAt" />
+        <app-closure-confirmation mode="account" [shop]="current.status.shopId" [account]="current.status.accountId" />
+      }
       @if (current.status.enforcedSuspensionMode; as mode) {
         <p class="ib-panel" role="status" data-testid="enforced-suspension">
           {{ (mode === 'Security' ? 'billing.status.suspension.enforcedSecurity'
@@ -72,11 +82,12 @@
         }
       } @else {
         <p>{{ 'billing.status.pending' | transloco }}</p>
-        @if (isShopOwner()) { <p><a routerLink="/billing/trial">{{ 'billing.trial.title' | transloco }}</a></p> }
+        @if (isShopOwner() && !current.status.closedAt) { <p><a routerLink="/billing/trial">{{ 'billing.trial.title' | transloco }}</a></p> }
       }
       <app-entitlement-synchronization [synchronization]="current.status.synchronization ?? null" />
     }
     @case ('account') {
+      @if (accountId(); as account) { <app-account-closure [account]="account" /> }
       <p>{{ 'billing.status.evaluatedAt' | transloco: { time: instant(current.evaluatedAt) } }}</p>
       @for (item of current.items; track item.status.termId) {
         <article class="ib-panel" data-testid="account-term">

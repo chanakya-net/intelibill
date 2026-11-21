@@ -11,19 +11,26 @@ internal sealed class EntitlementSynchronizationReader(LicensingDbContext db, Li
     : IEntitlementSynchronizationReader
 {
     public async Task<IReadOnlyDictionary<Guid, EntitlementSynchronizationV1>> ReadAsync(Guid account, Guid[] shops,
-        CancellationToken ct)
+        CancellationToken ct, Guid? closure = null)
     {
-        if (shops.Length == 0 || transport.Origin is null)
+        if (shops.Length == 0 || (closure is null && transport.Origin is null))
             return new Dictionary<Guid, EntitlementSynchronizationV1>();
 
         var rows = await db.Database.SqlQuery<DeliveryRow>($"""
             SELECT a.shop_id, saved.account_revision, saved.shop_revision, m.payload AS snapshot,
                 o.status, o.last_failure, ack.payload AS acknowledgement, confirmed.payload AS confirmation
             FROM public.shop_affiliations a
+            LEFT JOIN public.operational_closure_targets target ON target.closure_id = {closure}::uuid
+                AND target.account_id = a.account_id AND target.shop_id = a.shop_id
+                AND target.affiliation_request_id = a.request_id
+            LEFT JOIN public.entitlement_snapshots original ON original.event_id = target.event_id
             JOIN LATERAL (
                 SELECT s.event_id, s.account_revision, s.shop_revision
-                FROM public.entitlement_snapshots s
+                FROM public.entitlement_snapshots s JOIN public.entitlement_messages body ON body.event_id = s.event_id
                 WHERE s.account_id = a.account_id AND s.shop_id = a.shop_id AND s.affiliation_request_id = a.request_id
+                    AND ({closure}::uuid IS NULL OR (s.shop_revision >= original.shop_revision
+                        AND s.account_revision >= original.account_revision
+                        AND convert_from(body.payload, 'UTF8')::jsonb->'shop'->>'state' = 'Closed'))
                 ORDER BY s.shop_revision DESC LIMIT 1
             ) saved ON true
             JOIN public.entitlement_messages m ON m.event_id = saved.event_id
@@ -33,21 +40,27 @@ internal sealed class EntitlementSynchronizationReader(LicensingDbContext db, Li
             LEFT JOIN LATERAL (
                 SELECT i.payload FROM public.entitlement_snapshots s
                 JOIN public.entitlement_outbox prior ON prior.event_id = s.event_id AND prior.status = 'Applied'
+                JOIN public.entitlement_messages body ON body.event_id = s.event_id
                 JOIN public.entitlement_merchant_inbox i
                     ON i.event_id = s.event_id AND i.account_id = s.account_id AND i.kind = 'Acknowledgement'
                 WHERE s.account_id = a.account_id AND s.shop_id = a.shop_id AND s.affiliation_request_id = a.request_id
+                    AND ({closure}::uuid IS NULL OR (s.shop_revision >= original.shop_revision
+                        AND s.account_revision >= original.account_revision
+                        AND convert_from(body.payload, 'UTF8')::jsonb->'shop'->>'state' = 'Closed'
+                        AND convert_from(i.payload, 'UTF8')::jsonb->>'disposition' = 'Applied'))
                 ORDER BY s.shop_revision DESC LIMIT 1
             ) confirmed ON true
             WHERE a.account_id = {account} AND a.shop_id = ANY({shops})
             """).ToListAsync(ct);
-        return rows.ToDictionary(row => row.ShopId, Project);
+        return rows.ToDictionary(row => row.ShopId, row => Project(row, closure is not null));
     }
 
-    private static EntitlementSynchronizationV1 Project(DeliveryRow row)
+    private static EntitlementSynchronizationV1 Project(DeliveryRow row, bool closure)
     {
         var snapshot = JsonSerializer.Deserialize<EntitlementSnapshotV1>(row.Snapshot, EntitlementSnapshotsV1.Json)!;
         var current = ReadReceipt(row.Acknowledgement);
-        var confirmed = row.Status == "Applied" ? current : ReadReceipt(row.Confirmation);
+        var confirmed = row.Status == "Applied" && (!closure || current?.Disposition == "Applied")
+            ? current : ReadReceipt(row.Confirmation);
         if (confirmed is not { Outcome: "Applied", Disposition: "Applied" or "Superseded",
                 AccountRevision: > 0, ShopRevision: > 0, AppliedAccountRevision: > 0, AppliedShopRevision: > 0 } ||
             !EntitlementSnapshotsV1.IsInstant(confirmed.AppliedAt) ||

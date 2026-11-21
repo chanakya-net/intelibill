@@ -18,9 +18,12 @@ public sealed class MerchantEntitlementTransport(IOptionsMonitor<EntitlementTran
     internal Uri? Origin => options.CurrentValue.Origin(Local);
     private IEnumerable<string?> OtherKeys => OtherPurposes.Select(purpose => configuration[$"{purpose}:LocalPrivateKeyPem"]);
 
-    public VerifiedServiceAssertion? Verify(string token, byte[] body) =>
-        SignedServiceAssertion.Verify(token, SignedServiceAssertion.LicensingDelivery, EntitlementSnapshotsV1.SnapshotPath,
+    public VerifiedServiceAssertion? Verify(string token, byte[] body, string path = EntitlementSnapshotsV1.SnapshotPath) =>
+        SignedServiceAssertion.Verify(token, SignedServiceAssertion.LicensingDelivery, path,
             body, clock, key => options.CurrentValue.VerificationKey(key, OtherKeys));
+
+    public Task<string?> SignClosureValidationAsync(byte[] body, CancellationToken ct) =>
+        SignAsync(ShopClosuresV1.ValidationPath, body, ct);
 
     internal async Task<string?> SignAsync(string path, byte[] body, CancellationToken ct)
     {

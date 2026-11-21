@@ -13,7 +13,7 @@ namespace Intelibill.Licensing.Application.Status;
 /// </summary>
 public sealed class ReadSubscriptionStatusHandler(
     IBillingDelegationAccess access, ISubscriptionStatusStore store, ISubscriptionAccessFactsReader reader,
-    TimeProvider clock, IEntitlementSynchronizationReader synchronization, ISuspensionStore suspensions)
+    TimeProvider clock, IEntitlementSynchronizationReader synchronization, ISuspensionStore suspensions, IClosureStore closures)
 {
     public Task<ErrorOr<ShopSubscriptionStatusV1>> ReadShopAsync(VerifiedBillingDelegation delegation, Guid shop,
         CancellationToken ct)
@@ -36,6 +36,7 @@ public sealed class ReadSubscriptionStatusHandler(
             return SubscriptionStatusProjection.Shop(shop, at, coverage, commercial, sync.GetValueOrDefault(shop)) with
             {
                 Suspension = suspension,
+                ClosedAt = await closures.ClosedAtAsync(coverage.AccountId, shop, token),
             };
         }, ct);
     }

@@ -59,6 +59,21 @@ export interface AccountStatus {
   readonly items: readonly AccountTerm[];
 }
 
+export interface ProviderClosure {
+  readonly id: string;
+  readonly scope: 'Shop' | 'Account';
+  readonly savedAt: string;
+  readonly financialTreatment: 'NoFinancialChange';
+  readonly shops: readonly {
+    readonly shopId: string;
+    readonly shopName: string;
+    readonly propagation: 'Pending' | 'Applied' | 'NeedsReview';
+    readonly savedShopRevision: number | null;
+    readonly appliedShopRevision: number | null;
+    readonly acknowledgedAt: string | null;
+  }[];
+}
+
 interface AccountStatusPage extends AccountStatus {
   readonly nextCursor: string | null;
 }
@@ -66,6 +81,11 @@ interface AccountStatusPage extends AccountStatus {
 @Injectable({ providedIn: 'root' })
 export class AccountStatusApi {
   private readonly http = inject(HttpClient);
+
+  closures(account: string) {
+    return this.http.get<readonly ProviderClosure[]>(
+      `/api/admin/accounts/${encodeURIComponent(account)}/closures`);
+  }
 
   cancellation(account: string, term: string, after?: string) {
     return this.http.get<ProviderCancellationDetail>(

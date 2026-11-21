@@ -33,10 +33,12 @@ internal static class SubscriptionStatusRegistration
         services.AddScoped(provider => new ReadSubscriptionStatusHandler(
             provider.GetRequiredService<IBillingDelegationAccess>(), provider.GetRequiredService<ISubscriptionStatusStore>(),
             provider.GetRequiredService<ISubscriptionAccessFactsReader>(), provider.GetRequiredKeyedService<TimeProvider>(ClockKey),
-            provider.GetRequiredService<IEntitlementSynchronizationReader>(), provider.GetRequiredService<ISuspensionStore>()));
+            provider.GetRequiredService<IEntitlementSynchronizationReader>(), provider.GetRequiredService<ISuspensionStore>(),
+            provider.GetRequiredService<IClosureStore>()));
         services.AddScoped(provider => new ReadProviderStatusHandler(
             provider.GetRequiredService<ISubscriptionStatusStore>(), provider.GetRequiredService<ISubscriptionAccessFactsReader>(),
             provider.GetRequiredKeyedService<TimeProvider>(ClockKey), provider.GetRequiredService<TimeProvider>(),
-            provider.GetRequiredService<IEntitlementSynchronizationReader>(), provider.GetRequiredService<ScheduleCancellationHandler>()));
+            provider.GetRequiredService<IEntitlementSynchronizationReader>(), provider.GetRequiredService<ScheduleCancellationHandler>(),
+            provider.GetRequiredService<IClosureStore>()));
     }
 }
