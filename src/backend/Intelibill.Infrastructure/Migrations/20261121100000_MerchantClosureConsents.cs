@@ -43,17 +43,17 @@ public sealed class MerchantClosureConsents : Migration
 
     protected override void Down(MigrationBuilder migrationBuilder)
     {
+        // EF commits each downgrade separately. Keep the closure schema when retained
+        // entitlement evidence would prevent a later downgrade from completing.
+        migrationBuilder.Sql(BoundMerchantEntitlementReconciliation.RefusePopulatedDowngrade);
         migrationBuilder.Sql("""
-            LOCK TABLE public.shop_license_states, public.shop_closure_consents IN ACCESS EXCLUSIVE MODE;
-            ALTER TABLE public.shop_license_states NO FORCE ROW LEVEL SECURITY;
+            LOCK TABLE public.shop_closure_consents IN ACCESS EXCLUSIVE MODE;
             ALTER TABLE public.shop_closure_consents NO FORCE ROW LEVEL SECURITY;
             DO $$ BEGIN
-                IF EXISTS (SELECT FROM public.shop_closure_consents) OR
-                    EXISTS (SELECT FROM public.shop_license_states WHERE state = 'Closed') THEN
+                IF EXISTS (SELECT FROM public.shop_closure_consents) THEN
                     RAISE EXCEPTION 'Retained closure evidence prevents downgrade' USING ERRCODE = '55000';
                 END IF;
             END $$;
-            ALTER TABLE public.shop_license_states FORCE ROW LEVEL SECURITY;
             DROP TABLE public.shop_closure_consents;
             """);
         migrationBuilder.Sql(StateConstraint(""));
