@@ -19,6 +19,7 @@ public sealed partial class SalesController
     [HttpPost("{saleId:guid}/cancellations")]
     [Authorize(Policy = "OwnerOrManager")]
     [LicenceAction(LicenceAction.SourceCorrection)]
+    [SuspensionAtSource(CheckRecovery = true)]
     public async Task<IActionResult> CancelSale(Guid saleId, CancelSaleRequest request, [FromServices] SaleCancellationService service, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;

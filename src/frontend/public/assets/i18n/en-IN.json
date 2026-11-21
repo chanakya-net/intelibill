@@ -2365,6 +2365,8 @@
       "title": "Cancel sale",
       "cancelled": "Cancelled",
       "restricted": "Only an owner or manager can cancel a sale.",
+      "sourceCompletionOnly": "Only eligible prior receipts can be cancelled while trading is restricted.",
+      "previewError": "The cancellation preview could not be loaded. Close and reopen the dialog to try again.",
       "operation": "Operation reference",
       "reason": "Reason (3–255 characters)",
       "postingDate": "Cancellation posting date",

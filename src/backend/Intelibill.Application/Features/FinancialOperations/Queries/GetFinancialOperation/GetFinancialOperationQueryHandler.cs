@@ -56,7 +56,8 @@ public sealed class GetFinancialOperationQueryHandler(
         if (operationType is FinancialOperationType.CustomerPayment or FinancialOperationType.SupplierPayment
             or FinancialOperationType.SupplierReturn or FinancialOperationType.SupplierReturnCredit or FinancialOperationType.PurchaseReceiptReversal
             or FinancialOperationType.ReceiptCostCorrection
-            or FinancialOperationType.SaleReturn or FinancialOperationType.SaleReturnVoid)
+            or FinancialOperationType.SaleReturn or FinancialOperationType.SaleReturnVoid
+            or FinancialOperationType.SaleCancellation)
             return await transactions.RunAsync<FinancialOperationDto>(null, query.UserId, query.ShopId, null,
                 ct => RecoverUnderFenceAsync(query, operationType.Value, key, ct), cancellationToken);
 
@@ -73,6 +74,13 @@ public sealed class GetFinancialOperationQueryHandler(
         var receiptCorrection = type == FinancialOperationType.ReceiptCostCorrection;
         if (receiptCorrection && await CheckCorrectionAuthorityAsync(query, ct) is { } authorityDenied)
             return authorityDenied;
+
+        if (type == FinancialOperationType.SaleCancellation)
+        {
+            var role = await shopRepository.GetActiveRoleAsync(query.UserId, query.ShopId, ct);
+            if (role is not (ShopRole.Owner or ShopRole.Manager))
+                return Errors.Operation.UserIsNotOwnerOrManager;
+        }
 
         var outcome = await ReadOutcomeAsync(query.ShopId, type, key, ct);
         if (receiptCorrection && await CheckCorrectionAuthorityAsync(query, ct) is { } readAuthorityDenied)
