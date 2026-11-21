@@ -1,4 +1,4 @@
-import { Component, EventEmitter, inject, Output, signal } from '@angular/core';
+import { Component, EventEmitter, inject, Input, Output, signal } from '@angular/core';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { AutoCompleteCompleteEvent, AutoCompleteModule } from 'primeng/autocomplete';
@@ -46,6 +46,8 @@ export class BatchRowFormComponent {
   readonly barcodeReplaceConfirmVisible = signal(false);
   private pendingGeneratedBarcode: string | null = null;
 
+  @Input() canSubmit: () => boolean = () => true;
+
   @Output() readonly rowSubmitted = new EventEmitter<InventoryInboundDraftRow>();
   @Output() readonly rowAdded = new EventEmitter<InventoryInboundDraftRow>();
   @Output() readonly scannerRequested = new EventEmitter<void>();
@@ -89,6 +91,7 @@ export class BatchRowFormComponent {
   }
 
   tryAddRow(): boolean {
+    if (!this.canSubmit()) return false;
     if (this.hasMissingRequiredPricing()) {
       this.showPricingReviewRequired();
       return false;
@@ -121,7 +124,9 @@ export class BatchRowFormComponent {
   }
 
   async handleBarcode(barcode: string): Promise<'added' | 'review'> {
+    if (!this.canSubmit()) return 'review';
     const scanResult = await this.state.prepareScannedRow(barcode);
+    if (!this.canSubmit()) return 'review';
     if (scanResult.status !== 'added') {
       if (scanResult.status === 'missingPricing') {
         this.showPricingReviewRequired();

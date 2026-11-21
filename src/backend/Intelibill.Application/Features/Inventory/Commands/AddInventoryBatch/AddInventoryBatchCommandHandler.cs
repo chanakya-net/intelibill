@@ -114,7 +114,7 @@ public sealed partial class AddInventoryBatchCommandHandler(
 
             if (rowResult.IsError)
             {
-                if (IsRecoveryRefusal(rowResult.FirstError))
+                if (IsRecoveryRefusal(rowResult.FirstError, operation is not null))
                     return rowResult.Errors;
                 failed.Add(ToFailedRow(row, rowResult.Errors));
                 continue;
@@ -136,12 +136,12 @@ public sealed partial class AddInventoryBatchCommandHandler(
             failed);
     }
 
-    private static bool IsRecoveryRefusal(Error error) =>
+    private static bool IsRecoveryRefusal(Error error, bool keyed) =>
         error.Type is ErrorType.Unauthorized || error.Code == Errors.Shop.MembershipNotFound.Code
         || error.Code == Errors.Inventory.UserIsNotOwnerOrManager.Code || error.Code == Errors.Licence.ScopeMismatch.Code
         || error.Code == Errors.Licence.SecuritySuspended.Code || error.Code == Errors.Operation.PayloadMismatch.Code
         // A busy recovery fence may be hiding a committed outcome.
-        || error.Code == Errors.Licence.BusyCode;
+        || (keyed && error.Code == Errors.Licence.BusyCode);
 
     private Task<Error?> CheckAuthorityAsync(AddInventoryBatchCommand command, CancellationToken ct) =>
         access.CheckAuthorityAsync(command.ActorUserId, command.ActiveShopId, command.Session, ct);
@@ -263,6 +263,7 @@ public sealed partial class AddInventoryBatchCommandHandler(
             Retryable: errors.Any(error =>
                 error.Code == Errors.Inventory.RowRetryable.Code
                 || error.Code == Errors.PostingPeriod.Busy.Code
+                || error.Code == Errors.Licence.BusyCode
                 || error.Code == Errors.Licence.VerificationUnavailableCode));
 
     private static RowPayload ToPayload(AddInventoryBatchRowCommand row) =>

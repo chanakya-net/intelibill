@@ -16,15 +16,17 @@ import { ToastModule } from 'primeng/toast';
 import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../../../core/auth/auth.service';
-import { assertCurrentScope, isScopeChangeError } from '../../../core/context/scoped-request';
+import { assertCurrentScope, isScopeChangeError, ScopeMismatchError } from '../../../core/context/scoped-request';
 import { hasProblemCode } from '../../../shared/utils/problem-code.util';
 import { ShopContextService } from '../../../core/context/shop-context.service';
+import { ShopPermissionsService } from '../../../core/layout/shop-permissions.service';
 import type { ShopScope } from '../../../core/context/shop-scope';
 import { AudioService } from '../../../core/services/audio.service';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import {
   InventoryInboundDraftRow,
   InventoryInboundSubmission,
+  InventoryInboundSubmissionChunk,
   isPurchaseTaxModeConfirmed,
 } from '../../../core/storage/inventory-draft-indexeddb.service';
 import {
@@ -72,6 +74,7 @@ export class InventoryBatchPageComponent {
   private readonly expiryPolicies = inject(ExpiryPolicyService);
   private readonly authService = inject(AuthService);
   private readonly shopContext = inject(ShopContextService);
+  private readonly permissions = inject(ShopPermissionsService);
   readonly access = inject(OperatingAccessHintService);
   private readonly audioService = inject(AudioService);
   private readonly draftState = inject(BatchDraftStateService);
@@ -91,10 +94,18 @@ export class InventoryBatchPageComponent {
   readonly highlightedRowId = signal<string | null>(null);
 
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
-  readonly hideDraft = computed(() => this.shopContext.dataRestricted());
+  private readonly refusedScope = signal<ShopScope | null>(null);
+  readonly draftRoleDenied = computed(() => {
+    const scope = this.shopContext.scope();
+    return !!scope && (this.refusedScope() === scope || this.permissions.activeShopId() !== scope.shopId ||
+      !this.permissions.isOwnerOrManagerOfActiveShop());
+  });
+  readonly hideDraft = computed(() => this.shopContext.dataRestricted() || this.draftRoleDenied());
   readonly loadingDraft = this.draftState.loadingDraft;
   readonly pendingRows = this.draftState.pendingRows;
   readonly hasInterruptedSubmission = this.draftState.hasInterruptedSubmission;
+  readonly canChangeDraft = computed(() => !this.hideDraft() && !this.isSaving() &&
+    !this.loadingDraft() && !this.hasInterruptedSubmission());
 
   private highlightTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -104,6 +115,7 @@ export class InventoryBatchPageComponent {
       this.draftState.reset();
       this.rowFormState.resetForm();
       this.saveSummary.set(null);
+      this.isScannerOpen.set(false);
       this.barcodeLabelPrintDialogVisible.set(false);
       this.barcodeLabelPrintCandidates.set([]);
       if (!scope?.shopId || this.hideDraft()) return;
@@ -140,15 +152,15 @@ export class InventoryBatchPageComponent {
     void this.draftState.clearRows(this.activeShopId(), this.shopContext.scope() ?? undefined);
   }
 
-  onSaveAll(): void {
+  onSaveAll(recovering = this.hasInterruptedSubmission()): void {
     // An interrupted submission can be resent even when no draft rows remain on screen.
     const scope = this.shopContext.scope();
-    const recovering = this.hasInterruptedSubmission();
     if (!scope?.shopId || this.hideDraft() || this.isSaving() || this.loadingDraft() ||
+        recovering !== this.hasInterruptedSubmission() ||
         (!recovering && (!this.pendingRows().length || this.access.blockingMessage()))) return;
     // An interrupted submission resends its frozen rows unchanged, so it is never held back here.
     if (
-      !this.hasInterruptedSubmission() &&
+      !recovering &&
       this.pendingRows().some((row) => !isPurchaseTaxModeConfirmed(row))
     ) {
       // Drafts kept by earlier releases carry no purchase mode or one copied from the sales mode:
@@ -188,6 +200,7 @@ export class InventoryBatchPageComponent {
   }
 
   openScanner(): void {
+    if (this.refuseWhileInterrupted()) return;
     this.scannerLastAction.set('');
     this.scannerSessionCount.set(0);
     this.isScannerOpen.set(true);
@@ -215,7 +228,9 @@ export class InventoryBatchPageComponent {
     }
 
     const scanResult = await this.rowFormState.prepareScannedRow(barcode);
+    if (this.refuseWhileInterrupted()) return;
     if (scanResult.status === 'added') {
+      this.rowFormState.resetForm();
       await this.persistDraftRow(scanResult.row);
       this.flashRow(scanResult.row.clientRowId);
       this.scannerLastAction.set('inventory.scannerActionAdded');
@@ -248,11 +263,13 @@ export class InventoryBatchPageComponent {
 
     this.saveSummary.set(null);
     await this.draftState.addRow(shopId, row, this.shopContext.scope() ?? undefined);
-    this.rowFormState.resetForm();
   }
 
   private async saveRowsInChunks(scope: ShopScope, recovering: boolean): Promise<void> {
-    const assertScope = () => assertCurrentScope(this.shopContext, scope, scope);
+    const assertScope = () => {
+      assertCurrentScope(this.shopContext, scope, scope);
+      if (this.hideDraft()) throw new ScopeMismatchError();
+    };
     const succeeded: AddInventoryBatchSucceededRow[] = [];
     const failed: AddInventoryBatchFailedRow[] = [];
     const mutation = this.shopContext.beginMutation();
@@ -260,14 +277,17 @@ export class InventoryBatchPageComponent {
     let requested = 0;
 
     try {
-      submission = await this.draftState.prepareSubmission(scope.shopId, this.pendingRows(), scope, assertScope, recovering);
-      if (!submission) return;
+      submission = await this.draftState.prepareSubmission(scope, assertScope);
+      if (!submission) {
+        this.saveSummary.set(null);
+        return;
+      }
       requested = submission.chunks.reduce((count, chunk) => count + chunk.rows.length, 0);
+      // Retire the prior snapshot even if this tab closes before receiving a response.
+      void this.expiryPolicies.invalidate(scope.shopId).catch(() => undefined);
       for (const chunk of submission.chunks) {
         assertScope();
-        const response = await firstValueFrom(this.inventoryService.addInventoryBatch(
-          { items: this.mapRowsToRequest(chunk.rows), operationKey: chunk.operationKey }, scope,
-        ));
+        const response = await this.sendChunk(chunk, scope);
         assertScope();
         assertIntakeResponse(chunk, response);
         succeeded.push(...response.succeeded);
@@ -297,6 +317,17 @@ export class InventoryBatchPageComponent {
     }
   }
 
+  private async sendChunk(chunk: InventoryInboundSubmissionChunk, scope: ShopScope): Promise<AddInventoryBatchResponse> {
+    try {
+      return await firstValueFrom(this.inventoryService.addInventoryBatch(
+        { items: this.mapRowsToRequest(chunk.rows), operationKey: chunk.operationKey }, scope,
+      ));
+    } finally {
+      // Even a lost response or a late answer can follow a committed row in this shop.
+      void this.expiryPolicies.invalidate(scope.shopId).catch(() => undefined);
+    }
+  }
+
   private async handleSaveError(
     error: unknown, scope: ShopScope, recovering: boolean, submission: InventoryInboundSubmission | null,
     requested: number, succeeded: AddInventoryBatchSucceededRow[], failed: AddInventoryBatchFailedRow[],
@@ -304,8 +335,10 @@ export class InventoryBatchPageComponent {
   ): Promise<void> {
     const key = operatingAccessErrorKey(error);
     this.access.reportRefusal(error, scope);
-    const securityDenied = hasProblemCode(error, 'Licence.SecuritySuspended') ||
-      (error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403 && !key));
+    const authorityDenied = error instanceof HttpErrorResponse &&
+      (error.status === 401 || (error.status === 403 && !key));
+    if (authorityDenied) this.refusedScope.set(scope);
+    const securityDenied = authorityDenied || hasProblemCode(error, 'Licence.SecuritySuspended');
     if (securityDenied) {
       this.saveSummary.set(null);
       this.barcodeLabelPrintCandidates.set([]);
@@ -316,7 +349,7 @@ export class InventoryBatchPageComponent {
     const editable = !recovering && succeeded.length === 0 && failed.length === 0 &&
       error instanceof HttpErrorResponse && error.status === 400;
     if (submission) {
-      this.draftState.markSubmissionInterrupted();
+      this.draftState.markSubmissionInterrupted(submission);
       if (!securityDenied && (editable || succeeded.length)) {
         const settled = await this.settle(submission, succeeded, editable, scope, assertScope).catch(() => null);
         if (settled === false) return;
@@ -353,9 +386,8 @@ export class InventoryBatchPageComponent {
   }
 
   private refuseWhileInterrupted(): boolean {
-    if (this.hideDraft() || this.isSaving() || this.loadingDraft()) return true;
-    if (!this.hasInterruptedSubmission()) return false;
-    this.showWarn('inventory.saveInterruptedLocked');
+    if (this.canChangeDraft()) return false;
+    if (this.hasInterruptedSubmission() && !this.hideDraft()) this.showWarn('inventory.saveInterruptedLocked');
     return true;
   }
 

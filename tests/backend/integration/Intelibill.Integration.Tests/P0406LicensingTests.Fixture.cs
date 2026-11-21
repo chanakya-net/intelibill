@@ -26,7 +26,7 @@ public sealed partial class P0406LicensingTests(PostgreSqlTestFixture fixture, I
     private string Migrator => fixture.MigratorConnectionString;
     private static CancellationToken Ct => CancellationToken.None;
 
-    private ApiWebApplicationFactory CreateHost() => new(fixture, services =>
+    private ApiWebApplicationFactory CreateHost(Action<IServiceCollection>? configure = null) => new(fixture, services =>
     {
         services.RemoveAll<TimeProvider>();
         services.AddSingleton<TimeProvider>(_clock);
@@ -35,6 +35,7 @@ public sealed partial class P0406LicensingTests(PostgreSqlTestFixture fixture, I
              x.ImplementationType == typeof(ShopAffiliationDeliveryWorker) ||
              x.ImplementationType == typeof(TrialActivationDeliveryWorker))).ToList())
             services.Remove(worker);
+        configure?.Invoke(services);
     }, runtimeIdentityOutsideRequests: true);
 
     private static HttpClient CreateClient(ApiWebApplicationFactory host) =>

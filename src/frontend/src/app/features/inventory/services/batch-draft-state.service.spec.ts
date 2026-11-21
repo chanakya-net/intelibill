@@ -8,12 +8,14 @@ import {
 import { BatchDraftStateService } from './batch-draft-state.service';
 
 describe('BatchDraftStateService', () => {
+  const owner = { userId: 'owner-1', shopId: 'shop-1' };
+  const empty = { rows: [], submission: null };
+  const stored = { shopId: owner.shopId, chunks: [{ operationKey: 'intake-x-0', rows: [] }], createdAt: '2026-11-01T00:00:00Z' };
   const draftStorage = {
-    loadRows: vi.fn<InventoryDraftIndexedDbService['loadRows']>().mockResolvedValue([]),
+    loadDraft: vi.fn<InventoryDraftIndexedDbService['loadDraft']>().mockResolvedValue(empty),
     saveRows: vi.fn<InventoryDraftIndexedDbService['saveRows']>().mockResolvedValue(undefined),
     clearRows: vi.fn<InventoryDraftIndexedDbService['clearRows']>().mockResolvedValue(undefined),
-    loadSubmission: vi.fn<InventoryDraftIndexedDbService['loadSubmission']>().mockResolvedValue(null),
-    saveSubmission: vi.fn<InventoryDraftIndexedDbService['saveSubmission']>().mockImplementation(async submission => submission),
+    saveSubmission: vi.fn<InventoryDraftIndexedDbService['saveSubmission']>().mockImplementation(async (_owner, _rows, freeze) => freeze()),
   };
 
   function setup() {
@@ -25,20 +27,18 @@ describe('BatchDraftStateService', () => {
   }
 
   beforeEach(() => {
-    draftStorage.loadRows.mockReset();
-    draftStorage.loadRows.mockResolvedValue([]);
+    draftStorage.loadDraft.mockReset();
+    draftStorage.loadDraft.mockResolvedValue(empty);
     draftStorage.saveRows.mockReset();
     draftStorage.saveRows.mockResolvedValue(undefined);
     draftStorage.clearRows.mockReset();
     draftStorage.clearRows.mockResolvedValue(undefined);
-    draftStorage.loadSubmission.mockReset();
-    draftStorage.loadSubmission.mockResolvedValue(null);
     draftStorage.saveSubmission.mockReset();
-    draftStorage.saveSubmission.mockImplementation(async submission => submission);
+    draftStorage.saveSubmission.mockImplementation(async (_owner, _rows, freeze) => freeze());
   });
 
   it('flags an interrupted submission when one is stored for the shop', async () => {
-    draftStorage.loadSubmission.mockResolvedValueOnce({ shopId: 'shop-1', chunks: [], createdAt: '2026-11-01T00:00:00Z' });
+    draftStorage.loadDraft.mockResolvedValueOnce({ rows: [], submission: stored });
 
     const service = setup();
     await service.loadDraftRows('shop-1');
@@ -46,21 +46,21 @@ describe('BatchDraftStateService', () => {
     expect(service.hasInterruptedSubmission()).toBe(true);
   });
 
-  it('reuses a stored submission instead of freezing the current rows again', async () => {
-    const stored = { shopId: 'shop-1', chunks: [{ operationKey: 'intake-x-0', rows: [] }], createdAt: '2026-11-01T00:00:00Z' };
-    draftStorage.loadSubmission.mockResolvedValueOnce(stored);
+  it('reuses the displayed submission instead of freezing the current rows again', async () => {
+    draftStorage.loadDraft.mockResolvedValue({ rows: [], submission: stored });
+    const service = setup();
+    await service.loadDraftRows(owner.shopId, owner);
 
-    const submission = await setup().prepareSubmission('shop-1', []);
+    const submission = await service.prepareSubmission(owner, () => undefined);
 
     expect(submission).toBe(stored);
     expect(draftStorage.saveSubmission).not.toHaveBeenCalled();
   });
 
   it('does not create a new manifest when another tab already settled the recovery', async () => {
-    const owner = { userId: 'owner-1', shopId: 'shop-1' };
     const service = setup();
-    service.markSubmissionInterrupted();
-    const submission = await service.prepareSubmission(owner.shopId, [], owner, () => undefined, true);
+    service.markSubmissionInterrupted(stored);
+    const submission = await service.prepareSubmission(owner, () => undefined);
 
     expect(submission).toBeNull();
     expect(draftStorage.saveSubmission).not.toHaveBeenCalled();
@@ -68,7 +68,7 @@ describe('BatchDraftStateService', () => {
   });
 
   it('loads draft rows into state', async () => {
-    draftStorage.loadRows.mockResolvedValueOnce([
+    draftStorage.loadDraft.mockResolvedValueOnce({ rows: [
       {
         clientRowId: 'row-1',
         itemName: 'Milk',
@@ -91,12 +91,12 @@ describe('BatchDraftStateService', () => {
         notes: null,
         performedAt: new Date().toISOString(),
       } satisfies InventoryInboundDraftRow,
-    ]);
+    ], submission: null });
 
     const service = setup();
     const rows = await service.loadDraftRows('shop-1');
 
-    expect(draftStorage.loadRows).toHaveBeenCalledWith('shop-1');
+    expect(draftStorage.loadDraft).toHaveBeenCalledWith('shop-1', undefined);
     expect(rows).toHaveLength(1);
     expect(service.pendingRows()).toHaveLength(1);
     expect(service.loadingDraft()).toBe(false);

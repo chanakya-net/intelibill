@@ -1,10 +1,11 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import type { ScopeOwner } from '../../../core/context/shop-scope';
 
 import {
   InventoryDraftIndexedDbService,
   InventoryInboundDraftRow,
   InventoryInboundSubmission,
+  sameIntakeSubmission,
 } from '../../../core/storage/inventory-draft-indexeddb.service';
 
 /** The server's per-request row limit. */
@@ -17,24 +18,23 @@ export class BatchDraftStateService {
   readonly pendingRows = signal<readonly InventoryInboundDraftRow[]>([]);
   readonly loadingDraft = signal(false);
 
-  /** True while a save whose outcome is unknown waits to be resent unchanged. */
-  readonly hasInterruptedSubmission = signal(false);
+  private readonly displayedSubmission = signal<InventoryInboundSubmission | null>(null);
+  readonly hasInterruptedSubmission = computed(() => this.displayedSubmission() !== null);
 
   reset(): void {
     this.pendingRows.set([]);
-    this.hasInterruptedSubmission.set(false);
+    this.displayedSubmission.set(null);
     this.loadingDraft.set(false);
   }
 
   async loadDraftRows(shopId: string, owner?: ScopeOwner, current = () => true): Promise<readonly InventoryInboundDraftRow[]> {
     this.loadingDraft.set(true);
     try {
-      const rows = await (owner ? this.draftStorage.loadRows(shopId, owner) : this.draftStorage.loadRows(shopId));
-      const submission = await this.draftStorage.loadSubmission(shopId, owner);
+      const draft = await this.draftStorage.loadDraft(shopId, owner);
       if (!current()) return [];
-      this.pendingRows.set(rows);
-      this.hasInterruptedSubmission.set(submission !== null);
-      return rows;
+      this.pendingRows.set(draft.rows);
+      this.displayedSubmission.set(draft.submission);
+      return draft.rows;
     } finally {
       if (current()) this.loadingDraft.set(false);
     }
@@ -109,34 +109,29 @@ export class BatchDraftStateService {
     return nextRow;
   }
 
-  /**
-   * The submission to send: the interrupted one when it exists, otherwise the given rows frozen
-   * into chunks — `performedAt` stamped once — and stored before anything is sent. Rejects when
-   * the freeze cannot be stored, in which case nothing may be sent.
-   */
-  async prepareSubmission(
-    shopId: string,
-    rows: readonly InventoryInboundDraftRow[],
-    owner?: ScopeOwner,
-    assertScope: () => void = () => undefined,
-    allowRecovery = true,
-  ): Promise<InventoryInboundSubmission | null> {
-    const interrupted = await this.draftStorage.loadSubmission(shopId, owner);
-    assertScope();
-    if (interrupted) {
-      // Possibly stored by another tab; it is what will be sent, so the page must treat it as such.
-      this.hasInterruptedSubmission.set(true);
-      return allowRecovery ? interrupted : null;
-    }
-    if (allowRecovery && owner) {
-      // Another tab may have finished the save. A recovery click never creates a fresh key.
-      await this.refreshAfterConcurrentUpdate(owner, assertScope);
+  async prepareSubmission(owner: ScopeOwner, assertScope: () => void): Promise<InventoryInboundSubmission | null> {
+    const displayed = this.displayedSubmission();
+    if (displayed) {
+      const current = await this.draftStorage.loadDraft(owner.shopId, owner);
+      assertScope();
+      if (current.submission && sameIntakeSubmission(displayed, current.submission)) return displayed;
+      this.pendingRows.set(current.rows);
+      this.displayedSubmission.set(current.submission);
       return null;
     }
 
+    const rows = this.pendingRows();
+    const saved = await this.draftStorage.saveSubmission(owner, rows, () => this.freezeSubmission(owner, rows), assertScope);
+    assertScope();
+    if (saved) return saved;
+    await this.refreshAfterConcurrentUpdate(owner, assertScope);
+    return null;
+  }
+
+  private freezeSubmission(owner: ScopeOwner, rows: readonly InventoryInboundDraftRow[]) {
     const submissionId = crypto.randomUUID();
     const performedAt = new Date().toISOString();
-    const frozenRows = rows.map((row) => ({ ...row, performedAt: row.performedAt ?? performedAt }));
+    const frozenRows = rows.map(row => ({ ...row, performedAt: row.performedAt ?? performedAt }));
     const chunks = [];
     for (let index = 0; index < frozenRows.length; index += INBOUND_BATCH_CHUNK_SIZE) {
       chunks.push({
@@ -144,19 +139,11 @@ export class BatchDraftStateService {
         rows: frozenRows.slice(index, index + INBOUND_BATCH_CHUNK_SIZE),
       });
     }
-
-    const submission: InventoryInboundSubmission = { shopId, ownerUserId: owner?.userId, chunks, createdAt: performedAt };
-    const selected = await this.draftStorage.saveSubmission(submission, assertScope);
-    assertScope();
-    if (selected !== submission && !allowRecovery) {
-      this.hasInterruptedSubmission.set(true);
-      return null;
-    }
-    return selected;
+    return { shopId: owner.shopId, ownerUserId: owner.userId, chunks, createdAt: performedAt };
   }
 
-  markSubmissionInterrupted(): void {
-    this.hasInterruptedSubmission.set(true);
+  markSubmissionInterrupted(submission: InventoryInboundSubmission): void {
+    this.displayedSubmission.set(submission);
   }
 
   async settleSubmission(
@@ -173,7 +160,7 @@ export class BatchDraftStateService {
       return false;
     }
     this.pendingRows.set(rows);
-    this.hasInterruptedSubmission.set(!complete);
+    this.displayedSubmission.set(complete ? null : expected);
     return true;
   }
 

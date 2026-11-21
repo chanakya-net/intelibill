@@ -17,6 +17,7 @@ import { ProductCatalogSyncService } from '../../../core/services/product-catalo
 import {
   InventoryDraftIndexedDbService,
   type InventoryInboundDraftRow,
+  type InventoryInboundSubmission,
 } from '../../../core/storage/inventory-draft-indexeddb.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import { BatchDraftStateService } from '../services/batch-draft-state.service';
@@ -55,13 +56,12 @@ describe('InventoryBatchPageComponent', () => {
 
   let storedSubmission: any = null;
   const draftStorage = {
-    loadRows: vi.fn(async () => []),
+    loadDraft: vi.fn(async () => ({ rows: [] as InventoryInboundDraftRow[], submission: storedSubmission })),
     saveRows: vi.fn(async (_shop: string, _rows: readonly InventoryInboundDraftRow[]) => undefined),
     clearRows: vi.fn(async (_shop: string) => undefined),
-    loadSubmission: vi.fn(async () => storedSubmission),
-    saveSubmission: vi.fn(async (submission: unknown) => {
-      storedSubmission = submission;
-      return submission;
+    saveSubmission: vi.fn(async (_owner: unknown, _rows: unknown, freeze: () => InventoryInboundSubmission) => {
+      storedSubmission = freeze();
+      return storedSubmission;
     }),
     settleSubmission: vi.fn(async (_submission: unknown, _savedIds: ReadonlySet<string>, _complete: boolean) =>
       [] as readonly InventoryInboundDraftRow[]),
@@ -169,15 +169,14 @@ describe('InventoryBatchPageComponent', () => {
     inventoryService.lookupHsn.mockReset();
     inventoryService.lookupHsn.mockReturnValue(of(emptyLookupResult));
     inventoryService.printBarcodeLabels.mockReset();
-    draftStorage.loadRows.mockClear();
+    draftStorage.loadDraft.mockClear();
     draftStorage.saveRows.mockClear();
     draftStorage.clearRows.mockClear();
     storedSubmission = null;
-    draftStorage.loadSubmission.mockClear();
     draftStorage.saveSubmission.mockClear();
-    draftStorage.saveSubmission.mockImplementation(async (submission: unknown) => {
-      storedSubmission = submission;
-      return submission;
+    draftStorage.saveSubmission.mockImplementation(async (_owner: unknown, _rows: unknown, freeze: () => InventoryInboundSubmission) => {
+      storedSubmission = freeze();
+      return storedSubmission;
     });
     draftStorage.settleSubmission.mockClear();
     draftStorage.clearSubmission.mockClear();
@@ -750,7 +749,7 @@ describe('InventoryBatchPageComponent', () => {
       chunks: [{ operationKey: 'intake-legacy-0', rows: [copiedRow, missingRow] }],
       createdAt: '2026-11-01T00:00:00Z',
     };
-    draftStorage.loadRows.mockResolvedValueOnce([copiedRow, missingRow] as never);
+    draftStorage.loadDraft.mockResolvedValueOnce({ rows: [copiedRow, missingRow], submission: storedSubmission });
     const fixture = await setup();
     const component = fixture.componentInstance;
     inventoryService.addInventoryBatch.mockImplementation(
@@ -1050,6 +1049,21 @@ describe('InventoryBatchPageComponent', () => {
     } finally {
       authService.session.set(originalSession);
     }
+  });
+
+  it('keeps a valid form row when the draft is still loading', async () => {
+    const fixture = await setup();
+    const state = fixture.debugElement.injector.get(BatchRowFormStateService);
+    state.loadDraftRow(createDraftRow('untouched', 'Unsaved goods', 'BC-3'));
+    expect(state.buildDraftRow()).not.toBeNull();
+    fixture.componentInstance.loadingDraft.set(true);
+    fixture.detectChanges();
+
+    const form: HTMLFormElement = fixture.nativeElement.querySelector('.row-form');
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    expect(state.form.controls.itemName.value).toBe('Unsaved goods');
+    expect(form.querySelector<HTMLButtonElement>('[type="submit"]')?.disabled).toBe(true);
+    expect(draftStorage.saveRows).not.toHaveBeenCalled();
   });
 
   it('keeps a row added while the save was running', async () => {

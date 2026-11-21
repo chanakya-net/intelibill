@@ -21,8 +21,16 @@
     </section>
   }
 
+  @if (draftRoleDenied()) {
+    <p role="status">{{ 'shopSetup.catalogRole' | transloco }}</p>
+  }
+
   @if (!hideDraft()) {
-    <app-batch-row-form (rowSubmitted)="onRowSubmitted($event)" (scannerRequested)="openScanner()" />
+    <app-batch-row-form
+      [canSubmit]="canChangeDraft"
+      (rowSubmitted)="onRowSubmitted($event)"
+      (scannerRequested)="openScanner()"
+    />
 
     @if (hasInterruptedSubmission()) {
       <section class="inventory-interrupted-save" role="status" aria-labelledby="inventory-interrupted-save-title">
@@ -37,7 +45,7 @@
             [label]="'inventory.saveInterruptedResend' | transloco"
             [loading]="isSaving()"
             [disabled]="isSaving()"
-            (onClick)="onSaveAll()"
+            (onClick)="onSaveAll(true)"
           />
         </div>
       </section>
@@ -46,12 +54,12 @@
     <app-batch-save-results
       [saveSummary]="saveSummary()"
       [isSaving]="isSaving()"
-      [saveDisabled]="hasInterruptedSubmission() || !!access.blockingMessage()"
+      [saveDisabled]="loadingDraft() || hasInterruptedSubmission() || !!access.blockingMessage()"
       [highlightedRowId]="highlightedRowId()"
       (editRow)="onEditRow($event)"
       (removeRow)="onRemoveRow($event)"
       (clearAll)="onClearAll()"
-      (saveAll)="onSaveAll()"
+      (saveAll)="onSaveAll(false)"
       (printSuccessfulRows)="onPrintSuccessfulRows($event)"
     />
 

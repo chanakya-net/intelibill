@@ -53,6 +53,19 @@ export interface InventoryInboundSubmission {
   readonly createdAt: string;
 }
 
+export function sameIntakeSubmission(
+  left: InventoryInboundSubmission,
+  right: InventoryInboundSubmission,
+): boolean {
+  return left.shopId === right.shopId && left.ownerUserId === right.ownerUserId &&
+    left.createdAt === right.createdAt && left.chunks[0]?.operationKey === right.chunks[0]?.operationKey;
+}
+
+export interface InventoryInboundDraft {
+  readonly rows: readonly InventoryInboundDraftRow[];
+  readonly submission: InventoryInboundSubmission | null;
+}
+
 interface SubmissionRecord {
   readonly shopId: string;
   readonly submission: InventoryInboundSubmission;
@@ -71,10 +84,30 @@ export class InventoryDraftIndexedDbService {
   private readonly storeName = 'inventory-inbound-batch';
   private readonly submissionStoreName = 'inventory-inbound-submission';
 
-  async loadRows(shopId: string, owner?: ScopeOwner): Promise<readonly InventoryInboundDraftRow[]> {
-    if (!shopId || typeof indexedDB === 'undefined') return [];
-    return await this.read<DraftRecord>(this.storeName, owner ? ownerKey(owner) : shopId)
-      .then(async (record) => record?.rows ?? (owner ? await this.loadRows(shopId) : []));
+  async loadDraft(shopId: string, owner?: ScopeOwner): Promise<InventoryInboundDraft> {
+    if (!shopId || typeof indexedDB === 'undefined') return { rows: [], submission: null };
+
+    const database = await this.openDatabase();
+    try {
+      const tx = database.transaction([this.storeName, this.submissionStoreName]);
+      const drafts = tx.objectStore(this.storeName);
+      const submissions = tx.objectStore(this.submissionStoreName);
+      const key = owner ? ownerKey(owner) : null;
+      const [draft, legacyDraft, record, legacy] = await Promise.all([
+        key ? this.read<DraftRecord>(drafts, key) : undefined,
+        this.read<DraftRecord>(drafts, shopId),
+        key ? this.read<SubmissionRecord>(submissions, key) : undefined,
+        this.read<InventoryInboundSubmission>(submissions, shopId),
+      ]);
+      if (record && record.submission.ownerUserId === owner?.userId) {
+        return { rows: draft?.rows ?? [], submission: record.submission };
+      }
+      // Existing v2 submissions belong to the shop slot and retain their original payload.
+      if (!record && legacy) return { rows: legacyDraft?.rows ?? [], submission: legacy };
+      return { rows: (draft ?? legacyDraft)?.rows ?? [], submission: null };
+    } finally {
+      database.close();
+    }
   }
 
   async saveRows(shopId: string, rows: readonly InventoryInboundDraftRow[], owner?: ScopeOwner): Promise<void> {
@@ -90,49 +123,52 @@ export class InventoryDraftIndexedDbService {
     await this.saveRows(shopId, [], owner);
   }
 
-  async loadSubmission(shopId: string, owner?: ScopeOwner): Promise<InventoryInboundSubmission | null> {
-    if (!shopId || typeof indexedDB === 'undefined') return null;
-
-    if (owner) {
-      const scoped = await this.read<SubmissionRecord>(this.submissionStoreName, ownerKey(owner));
-      if (scoped) return scoped.submission.ownerUserId === owner.userId ? scoped.submission : null;
-    }
-
-    // Existing v2 submissions are keyed by shop. Their owner and frozen payload are left as stored.
-    return await this.read<InventoryInboundSubmission>(this.submissionStoreName, shopId) ?? null;
-  }
-
-  /** Atomically freezes the submission, or returns the exact operation that won in another tab. */
+  /** Freezes exactly the draft the operator saw, provided no tab has already changed it. */
   async saveSubmission(
-    submission: InventoryInboundSubmission,
-    assertScope: () => void = () => undefined,
-  ): Promise<InventoryInboundSubmission> {
-    const key = this.submissionKey(submission);
-    let selected = submission;
+    owner: ScopeOwner,
+    expectedRows: readonly InventoryInboundDraftRow[],
+    freeze: () => InventoryInboundSubmission,
+    assertScope: () => void,
+  ): Promise<InventoryInboundSubmission | null> {
+    const key = ownerKey(owner);
+    let saved: InventoryInboundSubmission | null = null;
     await this.write([this.submissionStoreName, this.storeName], (tx) => {
       const store = tx.objectStore(this.submissionStoreName);
-      if (!submission.ownerUserId) {
-        this.readWithin(tx, store, key, (legacy?: InventoryInboundSubmission) => {
-          assertScope();
-          selected = legacy ?? submission;
-          if (!legacy) store.add(submission);
-        });
-        return;
-      }
+      this.readWithin(tx, store, key, current => {
+        if (current) return;
+        this.readWithin(tx, store, owner.shopId, legacy => {
+          if (legacy) return;
+          this.readDraftForFreeze(tx, key, owner.shopId, rows => {
+            assertScope();
+            if (JSON.stringify(rows) !== JSON.stringify(expectedRows)) return;
 
-      this.readWithin(tx, store, key, (current?: SubmissionRecord) => {
-        this.readWithin(tx, store, submission.shopId, (legacy?: InventoryInboundSubmission) => {
-          assertScope();
-          selected = current?.submission ?? legacy ?? submission;
-          if (current || legacy) return;
-          store.add({ shopId: key, submission } satisfies SubmissionRecord);
-          const drafts = tx.objectStore(this.storeName);
-          drafts.put(this.draftRecord(key, submission.chunks.flatMap(chunk => chunk.rows)));
-          drafts.delete(submission.shopId);
+            const submission = freeze();
+            store.add({ shopId: key, submission } satisfies SubmissionRecord);
+            const drafts = tx.objectStore(this.storeName);
+            drafts.put(this.draftRecord(key, submission.chunks.flatMap(chunk => chunk.rows)));
+            drafts.delete(owner.shopId);
+            saved = submission;
+          });
         });
       });
     });
-    return selected;
+    return saved;
+  }
+
+  private readDraftForFreeze(
+    tx: IDBTransaction,
+    key: string,
+    shopId: string,
+    useRows: (rows: readonly InventoryInboundDraftRow[]) => void,
+  ): void {
+    const drafts = tx.objectStore(this.storeName);
+    this.readWithin<DraftRecord>(tx, drafts, key, draft => {
+      if (draft) {
+        useRows(draft.rows);
+        return;
+      }
+      this.readWithin<DraftRecord>(tx, drafts, shopId, legacy => useRows(legacy?.rows ?? []));
+    });
   }
 
   async settleSubmission(
@@ -148,8 +184,7 @@ export class InventoryDraftIndexedDbService {
       this.readWithin(tx, submissions, key, (record: SubmissionRecord | InventoryInboundSubmission | undefined) => {
         assertScope();
         const current = record && ('submission' in record ? record.submission : record);
-        if (!current || current.ownerUserId !== expected.ownerUserId || current.shopId !== expected.shopId ||
-            current.createdAt !== expected.createdAt || current.chunks[0]?.operationKey !== expected.chunks[0]?.operationKey) return;
+        if (!current || !sameIntakeSubmission(current, expected)) return;
         const drafts = tx.objectStore(this.storeName);
         this.readWithin(tx, drafts, key, (draft?: DraftRecord) => {
           assertScope();
@@ -170,17 +205,12 @@ export class InventoryDraftIndexedDbService {
     return ownerUserId ? ownerKey({ shopId, userId: ownerUserId }) : shopId;
   }
 
-  private async read<T>(name: string, key: string): Promise<T | undefined> {
-    const database = await this.openDatabase();
-    try {
-      return await new Promise((resolve, reject) => {
-        const request = database.transaction(name).objectStore(name).get(key);
-        request.onsuccess = () => resolve(request.result as T | undefined);
-        request.onerror = () => reject(request.error);
-      });
-    } finally {
-      database.close();
-    }
+  private read<T>(store: IDBObjectStore, key: string): Promise<T | undefined> {
+    return new Promise((resolve, reject) => {
+      const request = store.get(key);
+      request.onsuccess = () => resolve(request.result as T | undefined);
+      request.onerror = () => reject(request.error);
+    });
   }
 
   private readWithin<T>(tx: IDBTransaction, store: IDBObjectStore, key: string, apply: (record: T | undefined) => void): void {

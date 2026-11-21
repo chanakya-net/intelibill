@@ -1,51 +1,12 @@
 import { createHash } from 'node:crypto';
-import { resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 import { session, SHOP_A, startPurchaseReceivingServer } from './purchase-receiving-server';
 
-const STORAGE = 'inventory.auth.session.local';
-const DB = 'intelibill-offline-drafts';
-const DRAFT = 'inventory-inbound-batch';
-const SUBMISSION = 'inventory-inbound-submission';
-const BUILD = resolve(__dirname, '../../../dist/INVENTORY/browser');
+import { BUILD, STORAGE, frozen, seedRows } from './licensing-stock-intake-fixtures';
+import './licensing-stock-intake-races';
+
 test.use({ actionTimeout: 8000 });
 test.setTimeout(25000);
-
-async function seedRows(page: Page) {
-  await page.evaluate(({ db, store, shop }) => new Promise<void>((done, reject) => {
-    const opened = indexedDB.open(db, 2);
-    opened.onupgradeneeded = () => {
-      opened.result.createObjectStore(store, { keyPath: 'shopId' });
-      opened.result.createObjectStore('inventory-inbound-submission', { keyPath: 'shopId' });
-    };
-    opened.onerror = () => reject(opened.error);
-    opened.onsuccess = () => {
-      const tx = opened.result.transaction(store, 'readwrite');
-      tx.objectStore(store).put({
-        shopId: shop,
-        rows: ['A', 'B'].map(id => ({
-          clientRowId: id, itemName: 'Fixture goods ' + id, barcode: id, batchNumber: id, uom: 'pcs',
-          quantity: 2, totalPurchaseCost: 20, mrp: 20, salesPrice: 16, taxRatePercent: 0,
-          taxIncluded: false, purchaseTaxIncluded: false, purchaseTaxModeConfirmed: true,
-        })),
-      });
-      tx.oncomplete = () => { opened.result.close(); done(); };
-      tx.onerror = () => reject(tx.error);
-    };
-  }), { db: DB, store: DRAFT, shop: SHOP_A });
-}
-
-function frozen(page: Page) {
-  return page.evaluate(({ db, store }) => new Promise<unknown[]>((done, reject) => {
-    const opened = indexedDB.open(db);
-    opened.onerror = () => reject(opened.error);
-    opened.onsuccess = () => {
-      const read = opened.result.transaction(store).objectStore(store).getAll();
-      read.onsuccess = () => { opened.result.close(); done(read.result); };
-      read.onerror = () => reject(read.error);
-    };
-  }), { db: DB, store: SUBMISSION });
-}
 
 function switchOwner(page: Page, value: ReturnType<typeof session>) {
   return page.evaluate(value => {
@@ -73,7 +34,7 @@ for (const width of [1440, 390]) {
     const authorityReads: number[] = [];
     let release: (() => void) | undefined;
     let heldResponse: Promise<void> | undefined;
-    let phase: 'drop' | 'forbid' | 'expired' | 'verified' = 'drop';
+    let phase: 'drop' | 'unconfirmed' | 'expired' | 'verified' = 'drop';
     try {
       await page.setViewportSize({ width, height: 900 });
       await page.addInitScript(({ key, value }) => {
@@ -91,10 +52,10 @@ for (const width of [1440, 390]) {
       await page.route('**/api/inventory/inbound/batch', async route => {
         const raw = route.request().postData()!;
         const { operationKey, items } = JSON.parse(raw);
-        const status = { drop: 0, forbid: 403, expired: 207, verified: 200 }[phase];
+        const status = { drop: 0, unconfirmed: 503, expired: 207, verified: 200 }[phase];
         requests.push({ key: operationKey, hash: createHash('sha256').update(raw).digest('hex'), status });
-        if (phase === 'forbid') {
-          await route.fulfill({ status, json: { code: 'Inventory.UserIsNotOwnerOrManager' } });
+        if (phase === 'unconfirmed') {
+          await route.fulfill({ status, json: { code: 'Licence.DeliveryUnconfirmed' } });
           return;
         }
         for (const row of items) {
@@ -134,9 +95,9 @@ for (const width of [1440, 390]) {
 
       await page.reload();
       await expect(page.locator('.inventory-interrupted-save')).toBeVisible();
-      phase = 'forbid';
+      phase = 'unconfirmed';
       await finish.click();
-      await expect.poll(() => requests.at(-1)?.status).toBe(403);
+      await expect.poll(() => requests.at(-1)?.status).toBe(503);
       await expect(finish).toBeEnabled();
       expect(await frozen(page)).toEqual(original);
 
@@ -190,7 +151,7 @@ for (const width of [1440, 390]) {
       await finish.click();
       await expect.poll(() => (frozen(page)).then(rows => rows.length)).toBe(0);
       expect([...committed.keys()]).toEqual(['A', 'B']);
-      expect(requests.map(x => x.status)).toEqual(width === 1440 ? [0, 403, 207, 207, 200] : [0, 403, 207, 200]);
+      expect(requests.map(x => x.status)).toEqual(width === 1440 ? [0, 503, 207, 207, 200] : [0, 503, 207, 200]);
       expect(new Set(requests.map(x => x.hash)).size).toBe(1);
       expect(new Set(requests.map(x => x.key)).size).toBe(1);
     } finally {
