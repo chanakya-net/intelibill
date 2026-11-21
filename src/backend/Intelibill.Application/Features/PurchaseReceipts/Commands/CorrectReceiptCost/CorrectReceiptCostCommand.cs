@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 namespace Intelibill.Application.Features.PurchaseReceipts.Commands.CorrectReceiptCost;
 
 /// <summary>
@@ -10,4 +12,8 @@ public sealed record CorrectReceiptCostCommand(
     uint ExpectedVersion,
     decimal RevisedTotalCost,
     string Reason,
-    string? OperationKey);
+    string? OperationKey,
+    SessionClaims? Session)
+{
+    public override string ToString() => nameof(CorrectReceiptCostCommand);
+}

@@ -100,7 +100,8 @@ internal sealed class FinancialOperationExecutor(ApplicationDbContext context, I
             }
 
             if (scope.OperationType is FinancialOperationType.SupplierReturn or FinancialOperationType.SupplierReturnCredit
-                or FinancialOperationType.PurchaseReceiptReversal)
+                or FinancialOperationType.PurchaseReceiptReversal or FinancialOperationType.StockCount
+                or FinancialOperationType.ReceiptCostCorrection)
             {
                 var outcome = await ReplayUnderFenceAsync<T>(scope, requestHash, cancellationToken);
                 await transaction.RollbackAsync(cancellationToken);
@@ -130,7 +131,12 @@ internal sealed class FinancialOperationExecutor(ApplicationDbContext context, I
         if (lease.IsError) return lease.Errors;
         if (lease.Value.CurrentDecision().EnforcedDenial() is { } admissionDenial) return admissionDenial;
 
+        if (scope.RecheckReplayAuthority is { } authorize && await authorize(ct) is { } authorityDenied)
+            return authorityDenied;
+
         var outcome = await ReplayAsync<T>(scope, requestHash, ct);
+        if (scope.RecheckReplayAuthority is { } reauthorize && await reauthorize(ct) is { } readAuthorityDenied)
+            return readAuthorityDenied;
         if (lease.Value.CurrentDecision().EnforcedDenial() is { } readDenial) return readDenial;
         return outcome;
     }

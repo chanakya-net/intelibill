@@ -1,6 +1,6 @@
 import { ExpiryPolicyService } from '../../../expiry/services/expiry-policy.service';
-import { Component, LOCALE_ID, computed, inject, signal } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { Component, DestroyRef, LOCALE_ID, computed, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { DecimalPipe, formatNumber } from '@angular/common';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
@@ -21,7 +21,6 @@ import {
   AdjustInventoryBatchRequest,
   BatchFilters,
   BarcodeLabelPrintRequest,
-  CorrectReceiptCostRequest,
   CountInventoryBatchRequest,
   InventoryAdjustmentDirection,
   InventoryAdjustmentReason,
@@ -29,6 +28,20 @@ import {
   UpdateBatchPricesRequest,
 } from '../../services/inventory.models';
 import { InventoryService } from '../../services/inventory.service';
+import { problemCode } from '@intelibill/api';
+import { ShopContextService } from '../../../../core/context/shop-context.service';
+import type { ShopScope } from '../../../../core/context/shop-scope';
+import {
+  OPERATING_ACCESS_ERROR_KEYS, OperatingAccessHintService, operatingAccessErrorKey,
+} from '../../../billing/status/operating-access-hint.service';
+import {
+  ReceiptCostCorrectionDraftService, receiptCostPaise, type ReceiptCostDraftRecord,
+} from '../../services/receipt-cost-correction-draft.service';
+import {
+  RECEIPT_VERSION_CONFLICT,
+  ReceiptCostCorrectionService,
+  type ReceiptCostOutcome,
+} from '../../services/receipt-cost-correction.service';
 import { BatchesFilterBarComponent } from '../../components/batches-list/batches-filter-bar.component';
 import {
   BatchesTableComponent,
@@ -60,9 +73,13 @@ import {
 const BATCH_VERSION_CONFLICT = 'Inventory.BatchVersionConflict';
 const BATCH_CONSUMED = 'Inventory.BatchConsumed';
 const QUANTITY_PRECISION_EXCEEDED = 'Inventory.QuantityPrecisionExceeded';
-const RECEIPT_VERSION_CONFLICT = 'PurchaseReceipt.VersionConflict';
-const RECEIPT_EVIDENCE_MISSING = 'PurchaseReceipt.EvidenceMissing';
-const RECEIPT_COST_UNCHANGED = 'PurchaseReceipt.CostUnchanged';
+const RECEIPT_COST_ERRORS: Readonly<Record<string, string>> = {
+  'PurchaseReceipt.EvidenceMissing': 'inventory.receiptCostEvidenceMissing',
+  'PurchaseReceipt.CostUnchanged': 'inventory.receiptCostUnchanged',
+  'PurchaseReceipt.SourceIneligible': 'inventory.receiptCostSourceIneligible',
+  'PurchaseReceipt.Busy': 'inventory.receiptCostBusy',
+  'Payment.CorrectionBelowAllocated': 'inventory.receiptCostBelowAllocated',
+};
 const RECEIPT_BATCH_VOIDED = 'PurchaseReceipt.BatchVoided';
 /** Matches the server's money column (numeric(10,2)). */
 const MAX_RECEIPT_TOTAL_COST = 99_999_999.99;
@@ -106,6 +123,20 @@ export class InventoryBatchesListPageComponent {
   private readonly locale = inject(LOCALE_ID);
   /** Cost corrections move the supplier payable; the server accepts them from an owner only. */
   readonly canCorrectReceiptCost = inject(ShopPermissionsService).isOwnerOfActiveShop;
+  private readonly shopContext = inject(ShopContextService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly receiptCostService = inject(ReceiptCostCorrectionService);
+  private readonly receiptCostDrafts = inject(ReceiptCostCorrectionDraftService);
+  private readonly operatingAccess = inject(OperatingAccessHintService);
+  readonly costAccessNotice = this.operatingAccess.blockingMessage;
+  readonly costSecurityHidden = computed(() =>
+    this.operatingAccess.blockingMessage() === OPERATING_ACCESS_ERROR_KEYS['Licence.SecuritySuspended'],
+  );
+  readonly pendingCostCorrections = signal<readonly ReceiptCostDraftRecord[]>([]);
+  private costDraftRead = 0;
+  private batchRead = 0;
+  private readonly authorizedBatchScope = signal<ShopScope | null>(null);
+
   readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
   readonly currencyAddonPt = CURRENCY_ADDON_PT;
   readonly currencyInputPt = CURRENCY_INPUT_NUMBER_PT;
@@ -296,8 +327,9 @@ export class InventoryBatchesListPageComponent {
       !batch ||
       batch.receiptValueId === null ||
       batch.receiptStatus !== 'Resolved' ||
-      batch.receiptTotalCost === null ||
-      batch.receiptVersion === null
+      receiptCostPaise(batch.receiptOriginalTotalCost) === null ||
+      receiptCostPaise(batch.receiptTotalCost) === null ||
+      !batch.receiptVersion
     );
   });
   readonly costCorrectionPreview = computed(() => {
@@ -305,8 +337,9 @@ export class InventoryBatchesListPageComponent {
     if (!batch || this.costCorrectionBlocked()) return null;
     const currentTotal = batch.receiptTotalCost ?? 0;
     const revised = this.revisedTotalCostValue();
-    const hasRevised = revised !== null && `${revised}`.trim() !== '' && Number.isFinite(Number(revised));
-    const delta = hasRevised ? Number((Number(revised) - currentTotal).toFixed(2)) : null;
+    const revisedPaise = receiptCostPaise(revised);
+    const priorPaise = receiptCostPaise(currentTotal)!;
+    const delta = revisedPaise === null ? null : (revisedPaise - priorPaise) / 100;
     return {
       originalTotal: batch.receiptOriginalTotalCost,
       currentTotal,
@@ -314,12 +347,10 @@ export class InventoryBatchesListPageComponent {
       deltaText: delta === null ? null : this.formatSignedAmount(delta),
     };
   });
-  // Same rule as counts: an unchanged resend after a lost response replays the saved correction,
-  // a changed amount or reason is a new submission with a new key.
-  private costCorrectionSubmission: {
-    readonly signature: string;
-    readonly operationKey: string;
-  } | null = null;
+  readonly selectedCostDraft = computed(() => {
+    const receipt = this.selectedBatch()?.receiptValueId;
+    return this.pendingCostCorrections().find((entry) => entry.draft.receiptValueId === receipt);
+  });
   readonly adjustmentForm = this.formBuilder.nonNullable.group({
     direction: ['Decrease' as InventoryAdjustmentDirection, [Validators.required]],
     reason: ['Damaged' as InventoryAdjustmentReason, [Validators.required]],
@@ -349,6 +380,23 @@ export class InventoryBatchesListPageComponent {
     this.costCorrectionForm.controls.revisedTotalCost.valueChanges.subscribe((value) =>
       this.revisedTotalCostValue.set(value),
     );
+    this.receiptCostDrafts.watch().pipe(takeUntilDestroyed()).subscribe(() => void this.refreshCostDrafts());
+    effect(() => {
+      void this.refreshCostDrafts();
+      if (!this.canCorrectReceiptCost()) this.isCostCorrectionDialogOpen.set(false);
+    });
+    effect(() => {
+      if (!this.costSecurityHidden()) return;
+      this.authorizedBatchScope.set(null);
+      this.batches.set([]);
+      this.selectedBatch.set(null);
+      this.selectedBatchIds.set([]);
+      this.isCostCorrectionDialogOpen.set(false);
+      this.isAdjustmentDialogOpen.set(false);
+      this.isCountDialogOpen.set(false);
+      this.isEditDialogOpen.set(false);
+      this.onBarcodeLabelPrintDialogClosed();
+    });
     this.loadBatches();
   }
   onFiltersChange(filters: BatchFilters): void {
@@ -406,19 +454,39 @@ export class InventoryBatchesListPageComponent {
   }
 
   loadBatches(): void {
+    const scope = this.shopContext.scope();
+    const read = ++this.batchRead;
+    const isCurrent = () => read === this.batchRead && scope === this.shopContext.scope();
+    this.authorizedBatchScope.set(null);
     this.loading.set(true);
     this.loadError.set(false);
     this.inventoryService
       .getInventoryBatches()
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => {
+        if (isCurrent()) this.loading.set(false);
+      }))
       .subscribe({
-        next: (data) => this.batches.set([...data]),
-        error: () => {
+        next: (data) => {
+          if (!isCurrent() || this.costSecurityHidden()) return;
+          this.batches.set([...data]);
+          this.authorizedBatchScope.set(scope);
+        },
+        error: (error: HttpErrorResponse) => {
+          if (scope !== this.shopContext.scope()) return;
+          this.operatingAccess.reportRefusal(error, scope);
+          if (!isCurrent()) return;
           this.batches.set([]);
           this.loadError.set(true);
           this.showError('inventory.loadBatchesError');
         },
       });
+  }
+
+  costRecoveryBatchNumber({ draft }: ReceiptCostDraftRecord): string | undefined {
+    const scope = this.authorizedBatchScope();
+    if (!scope || scope !== this.shopContext.scope() || this.costSecurityHidden()) return undefined;
+    return this.batches().find((batch) =>
+      batch.id === draft.batchId && batch.receiptValueId === draft.receiptValueId)?.batchNumber;
   }
   onEditBatch(batch: InventoryBatchDto): void {
     this.selectedBatch.set(batch);
@@ -482,97 +550,131 @@ export class InventoryBatchesListPageComponent {
       });
   }
   onCorrectReceiptCost(batch: InventoryBatchDto): void {
-    if (batch.isVoided || !this.canCorrectReceiptCost()) return;
+    if (batch.isVoided || !this.canCorrectReceiptCost() || this.costSecurityHidden()) return;
     this.selectedBatch.set(batch);
-    this.costCorrectionSubmission = null;
     const currentTotal = batch.receiptTotalCost ?? 0;
     this.costCorrectionForm.reset({ revisedTotalCost: currentTotal, reason: '' });
-    this.revisedTotalCostValue.set(currentTotal);
     this.isCostCorrectionDialogOpen.set(true);
+    if (!this.costCorrectionBlocked()) void this.operatingAccess.refresh();
   }
-  onSaveCostCorrection(): void {
+
+  async onSaveCostCorrection(): Promise<void> {
+    const scope = this.shopContext.scope();
     const batch = this.selectedBatch();
     const preview = this.costCorrectionPreview();
-    if (
-      !batch ||
-      !preview ||
-      preview.delta === null ||
-      preview.delta === 0 ||
-      batch.receiptValueId === null ||
-      batch.receiptVersion === null ||
-      this.costCorrectionForm.invalid ||
-      this.isCostCorrectionSaving()
-    )
+    if (!scope?.shopId || !batch?.receiptValueId || batch.shopId !== scope.shopId || !batch.receiptVersion ||
+        !preview || preview.originalTotal === null || !preview.delta ||
+        this.costCorrectionForm.invalid || this.selectedCostDraft() || this.isCostCorrectionSaving())
       return;
-    const value = this.costCorrectionForm.getRawValue();
-    const reason = value.reason.trim();
-    const payload: CorrectReceiptCostRequest = {
-      expectedVersion: batch.receiptVersion,
-      revisedTotalCost: value.revisedTotalCost,
-      reason,
-      operationKey: this.costCorrectionOperationKey(
-        batch.receiptValueId,
-        batch.receiptVersion,
-        value.revisedTotalCost,
-        reason,
-      ),
-    };
-    this.isCostCorrectionSaving.set(true);
-    this.inventoryService
-      .correctReceiptCost(batch.receiptValueId, payload)
-      .pipe(finalize(() => this.isCostCorrectionSaving.set(false)))
-      .subscribe({
-        next: (result) => {
-          this.costCorrectionSubmission = null;
-          this.messageService.add({
-            severity: 'success',
-            summary: this.translocoService.translate('inventory.receiptCostCorrected', {
-              delta: this.formatSignedAmount(result.delta),
-            }),
-            life: 4000,
-          });
-          this.isCostCorrectionDialogOpen.set(false);
-          this.loadBatches();
-        },
-        error: (err: HttpErrorResponse) => {
-          const code = this.errorCode(err);
-          if (code === RECEIPT_VERSION_CONFLICT) {
-            // The receipt changed after this dialog opened; the correction is never resent against
-            // the refreshed total, the owner has to look at it again.
-            this.costCorrectionSubmission = null;
-            this.isCostCorrectionDialogOpen.set(false);
-            this.showError('inventory.receiptCostVersionConflict');
-            this.loadBatches();
-            return;
-          }
-          if (code === RECEIPT_EVIDENCE_MISSING) {
-            this.showError('inventory.receiptCostEvidenceMissing');
-            return;
-          }
-          if (code === RECEIPT_COST_UNCHANGED) {
-            this.showError('inventory.receiptCostUnchanged');
-            return;
-          }
-          if (code === RECEIPT_BATCH_VOIDED) {
-            // Nothing left to correct: the lot was voided elsewhere after this dialog opened.
-            this.costCorrectionSubmission = null;
-            this.isCostCorrectionDialogOpen.set(false);
-            this.loadBatches();
-          }
-          // Anything else (invalid total, forbidden, payload mismatch, ...) shows the server's own
-          // explanation when it gave one.
-          const detail: unknown = err.error?.detail;
-          this.messageService.add({
-            severity: 'error',
-            summary: this.translocoService.translate('common.error'),
-            detail:
-              typeof detail === 'string' && detail.trim().length > 0
-                ? detail
-                : this.translate('inventory.receiptCostError'),
-          });
-        },
-      });
+    const current = () => this.ownsCostCorrection(scope) && !this.costSecurityHidden() &&
+      this.isCostCorrectionDialogOpen() && this.selectedBatch() === batch && this.batches().some(
+        (row) => row.id === batch.id && row.receiptValueId === batch.receiptValueId &&
+          row.receiptVersion === batch.receiptVersion && !row.isVoided,
+      );
+    if (!current()) return;
+
+    const { revisedTotalCost, reason } = this.costCorrectionForm.getRawValue();
+    await this.runCostCorrection(scope, () => this.receiptCostService.submit(scope, {
+      receiptValueId: batch.receiptValueId!,
+      batchId: batch.id,
+      batchNumber: batch.batchNumber,
+      originalTotal: preview.originalTotal!,
+      priorTotal: preview.currentTotal,
+      request: { expectedVersion: batch.receiptVersion!, revisedTotalCost, reason: reason.trim() },
+    }, current));
   }
+
+  async onRecoverCostCorrection(draft: ReceiptCostDraftRecord): Promise<void> {
+    const scope = this.shopContext.scope();
+    if (!scope?.shopId || !draft.pending || this.isCostCorrectionSaving() ||
+        draft.userId !== scope.userId || draft.shopId !== scope.shopId || !this.ownsCostCorrection(scope))
+      return;
+    const current = () => this.ownsCostCorrection(scope) && this.pendingCostCorrections().some(
+      (entry) => entry.targetId === draft.targetId && entry.pending?.operationKey === draft.pending?.operationKey,
+    );
+    await this.runCostCorrection(scope, async () => {
+      if (this.costSecurityHidden()) await this.operatingAccess.refresh();
+      return this.receiptCostService.recover(scope, draft, current, () => !this.costSecurityHidden());
+    });
+  }
+
+  private ownsCostCorrection(scope: ShopScope): boolean {
+    return !this.destroyRef.destroyed && this.shopContext.scope() === scope && this.canCorrectReceiptCost();
+  }
+
+  private async refreshCostDrafts(): Promise<void> {
+    const scope = this.shopContext.scope();
+    const read = ++this.costDraftRead;
+    if (!scope?.shopId || !this.canCorrectReceiptCost()) {
+      this.pendingCostCorrections.set([]);
+      return;
+    }
+    try {
+      const records = await this.receiptCostDrafts.list(scope);
+      if (read === this.costDraftRead && this.ownsCostCorrection(scope))
+        this.pendingCostCorrections.set(records.filter((record) => record.pending !== null));
+    } catch {
+      // A send still requires a successful durable transaction.
+    }
+  }
+
+  private async runCostCorrection(scope: ShopScope, run: () => Promise<ReceiptCostOutcome>): Promise<void> {
+    this.isCostCorrectionSaving.set(true);
+    try {
+      const outcome = await run();
+      if (!this.ownsCostCorrection(scope) || outcome.kind === 'skipped') return;
+      if (outcome.kind === 'confirmed') {
+        this.messageService.add({
+          severity: 'success',
+          summary: this.translocoService.translate('inventory.receiptCostCorrected', {
+            delta: this.formatSignedAmount(outcome.response.delta),
+          }),
+          life: 4000,
+        });
+        this.isCostCorrectionDialogOpen.set(false);
+        this.loadBatches();
+      } else {
+        this.showCostCorrectionRefusal(outcome, scope);
+      }
+    } catch {
+      if (this.ownsCostCorrection(scope)) this.showError('inventory.receiptCostRecoveryUnavailable');
+    } finally {
+      await this.refreshCostDrafts();
+      this.isCostCorrectionSaving.set(false);
+    }
+  }
+
+  private showCostCorrectionRefusal(
+    outcome: Extract<ReceiptCostOutcome, { kind: 'pending' | 'rejected' }>, scope: ShopScope,
+  ): void {
+    const error = outcome.error;
+    const code = error instanceof HttpErrorResponse ? problemCode(error.error) : null;
+    if (code === 'Licence.SecuritySuspended') {
+      this.operatingAccess.reportRefusal(error, scope);
+      void this.operatingAccess.refresh();
+    }
+    if (outcome.kind === 'rejected' && (code === RECEIPT_VERSION_CONFLICT || code === RECEIPT_BATCH_VOIDED)) {
+      this.isCostCorrectionDialogOpen.set(false);
+      this.loadBatches();
+      if (code === RECEIPT_VERSION_CONFLICT) {
+        this.showError('inventory.receiptCostVersionConflict');
+        return;
+      }
+    }
+    const key = operatingAccessErrorKey(error) ?? (code ? RECEIPT_COST_ERRORS[code] : null);
+    if (key) {
+      this.showError(key);
+      return;
+    }
+    const detail: unknown = error instanceof HttpErrorResponse ? error.error?.detail : null;
+    this.messageService.add({
+      severity: 'error',
+      summary: this.translate('common.error'),
+      detail: typeof detail === 'string' && detail.trim() ? detail :
+        this.translate(outcome.kind === 'pending' ? 'inventory.receiptCostPending' : 'inventory.receiptCostError'),
+    });
+  }
+
   onAdjustBatch(batch: InventoryBatchDto): void {
     if (batch.isVoided) return;
     this.selectedBatch.set(batch);
@@ -705,20 +807,6 @@ export class InventoryBatchesListPageComponent {
     if (this.countSubmission?.signature !== signature)
       this.countSubmission = { signature, operationKey: `count-${crypto.randomUUID()}` };
     return this.countSubmission.operationKey;
-  }
-  private costCorrectionOperationKey(
-    receiptValueId: string,
-    receiptVersion: number,
-    revisedTotalCost: number,
-    reason: string,
-  ): string {
-    const signature = JSON.stringify([receiptValueId, receiptVersion, revisedTotalCost, reason]);
-    if (this.costCorrectionSubmission?.signature !== signature)
-      this.costCorrectionSubmission = {
-        signature,
-        operationKey: `receipt-cost-${crypto.randomUUID()}`,
-      };
-    return this.costCorrectionSubmission.operationKey;
   }
   private formatSignedAmount(value: number): string {
     const sign = value > 0 ? '+' : value < 0 ? '-' : '';

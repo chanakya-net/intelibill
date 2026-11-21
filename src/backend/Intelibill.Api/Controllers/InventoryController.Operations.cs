@@ -2,6 +2,7 @@ using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Features.Inventory.Commands.CorrectStockCount;
 using Intelibill.Application.Features.Inventory.Commands.CreateAdjustment;
 using Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
@@ -71,7 +72,8 @@ public sealed partial class InventoryController
                 request.Reason,
                 request.Quantity,
                 request.PerformedAt,
-                request.Notes),
+                request.Notes,
+                SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -80,6 +82,7 @@ public sealed partial class InventoryController
     [HttpPost("batches/{batchId:guid}/count")]
     [Authorize(Policy = "OwnerOrManager")]
     [LicenceAction(LicenceAction.GeneralStock)]
+    [SuspensionAtSource(CheckRecovery = true)]
     public async Task<IActionResult> CountStock(Guid batchId, [FromBody] CountStockRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -93,7 +96,8 @@ public sealed partial class InventoryController
                 request.ExpectedVersion,
                 request.CountedQuantity,
                 request.Reason,
-                request.OperationKey),
+                request.OperationKey,
+                SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -149,7 +153,8 @@ public sealed partial class InventoryController
                 expectedVersion,
                 request.RevisedTotalCost,
                 request.Reason,
-                request.OperationKey),
+                request.OperationKey,
+                SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);

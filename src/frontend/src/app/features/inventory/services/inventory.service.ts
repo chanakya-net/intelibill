@@ -5,12 +5,15 @@ import { Observable } from 'rxjs';
 
 import {
   API_BASE_URL,
+  FINANCIAL_OPERATION_ENDPOINTS,
   ITEM_BARCODE_ENDPOINTS,
   INVENTORY_ENDPOINTS,
   ITEM_ENDPOINTS,
 } from '../../../core/auth/auth.constants';
 import { scopedRequestContext } from '../../../core/context/scoped-request';
 import type { ScopeOwner } from '../../../core/context/shop-scope';
+import type { FinancialOperationLookup } from '../../../core/services/financial-operation-intent.service';
+import { RECEIPT_COST_CORRECTION } from './receipt-cost-correction-draft.service';
 import type {
   AddInventoryBatchRequest,
   AddInventoryBatchResponse,
@@ -119,10 +122,21 @@ export class InventoryService {
   correctReceiptCost(
     receiptValueId: string,
     payload: CorrectReceiptCostRequest,
+    owner: ScopeOwner,
   ): Observable<CorrectReceiptCostResponse> {
     return this.http.post<CorrectReceiptCostResponse>(
       `${API_BASE_URL}/inventory/receipts/${receiptValueId}/cost-corrections`,
       payload,
+      { context: scopedRequestContext(owner) },
+    );
+  }
+
+  lookupReceiptCostCorrection(
+    operationKey: string, owner: ScopeOwner,
+  ): Observable<FinancialOperationLookup<CorrectReceiptCostResponse>> {
+    return this.http.get<FinancialOperationLookup<CorrectReceiptCostResponse>>(
+      FINANCIAL_OPERATION_ENDPOINTS.lookup(RECEIPT_COST_CORRECTION, operationKey),
+      { context: scopedRequestContext(owner) },
     );
   }
 

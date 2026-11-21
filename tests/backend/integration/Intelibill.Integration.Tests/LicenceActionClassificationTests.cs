@@ -1,3 +1,7 @@
+using Intelibill.Application.Features.FinancialOperations.Queries.GetFinancialOperation;
+using Intelibill.Application.Features.Inventory.Commands.CorrectStockCount;
+using Intelibill.Application.Features.Inventory.Commands.CreateAdjustment;
+using Intelibill.Application.Features.PurchaseReceipts.Commands.CorrectReceiptCost;
 using Intelibill.Application.Features.BankAccounts.Commands.AddBankAccount;
 using Intelibill.Application.Features.BankAccounts.Commands.DeleteBankAccount;
 using Intelibill.Application.Features.BankAccounts.Commands.UpdateBankAccount;
@@ -35,6 +39,18 @@ namespace Intelibill.Integration.Tests;
 [Collection("Integration Tests")]
 public sealed class LicenceActionClassificationTests(PostgreSqlTestFixture fixture)
 {
+    [Theory]
+    [InlineData(typeof(InventoryController), nameof(InventoryController.CorrectReceiptCost), LicenceAction.SourceCorrection)]
+    [InlineData(typeof(CorrectReceiptCostCommandHandler), nameof(CorrectReceiptCostCommandHandler.HandleAsync), LicenceAction.SourceCorrection)]
+    [InlineData(typeof(InventoryController), nameof(InventoryController.CountStock), LicenceAction.GeneralStock)]
+    [InlineData(typeof(CorrectStockCountCommandHandler), nameof(CorrectStockCountCommandHandler.HandleAsync), LicenceAction.GeneralStock)]
+    [InlineData(typeof(InventoryController), nameof(InventoryController.CreateAdjustment), LicenceAction.GeneralStock)]
+    [InlineData(typeof(CreateAdjustmentCommandHandler), nameof(CreateAdjustmentCommandHandler.HandleAsync), LicenceAction.GeneralStock)]
+    [InlineData(typeof(FinancialOperationsController), nameof(FinancialOperationsController.GetFinancialOperation), LicenceAction.Recovery)]
+    [InlineData(typeof(GetFinancialOperationQueryHandler), nameof(GetFinancialOperationQueryHandler.Handle), LicenceAction.Recovery)]
+    public void Receipt_correction_and_general_stock_keep_distinct_classifications(Type type, string methodName, LicenceAction action) =>
+        Assert.Equal(action, type.GetMethod(methodName)?.GetCustomAttribute<LicenceActionAttribute>()?.Action);
+
     [Fact]
     public async Task Every_protected_entry_point_has_one_classification()
     {

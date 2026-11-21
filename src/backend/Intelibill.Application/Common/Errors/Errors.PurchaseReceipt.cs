@@ -6,6 +6,9 @@ public static partial class Errors
 {
     public static class PurchaseReceipt
     {
+        public static Error SourceIneligible =>
+            Error.Conflict("PurchaseReceipt.SourceIneligible", "The original receipt must be effective by the correction posting instant.");
+
         public static Error NotFound =>
             Error.NotFound("PurchaseReceipt.NotFound", "Purchase receipt was not found.");
 
