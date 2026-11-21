@@ -22,7 +22,18 @@
   }
 
   @if (draftRoleDenied()) {
-    <p role="status">{{ 'shopSetup.catalogRole' | transloco }}</p>
+    <section role="status" class="inventory-role-notice">
+      <p>{{ 'shopSetup.catalogRole' | transloco }}</p>
+      @if (roleRefused()) {
+        <p-button
+          size="small"
+          [label]="'billing.checkout.payment.checkAgain' | transloco"
+          [loading]="roleRefusal.checking()"
+          [disabled]="roleRefusal.checking()"
+          (onClick)="onRecheckRole()"
+        />
+      }
+    </section>
   }
 
   @if (!hideDraft()) {

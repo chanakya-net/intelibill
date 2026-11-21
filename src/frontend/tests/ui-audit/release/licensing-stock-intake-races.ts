@@ -1,60 +1,9 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
-import { BUILD, STORAGE, frozen, records, seedRows } from './licensing-stock-intake-fixtures';
-import { session, SHOP_A, SHOP_B, startPurchaseReceivingServer } from './purchase-receiving-server';
-
-const endpoint = '**/api/inventory/inbound/batch';
-const form = (page: Page) => page.locator('.row-form');
-const save = (page: Page) => page.getByRole('button', { name: 'Save', exact: true });
-const finish = (page: Page) => page.getByRole('button', { name: 'Finish save', exact: true });
-const add = (page: Page) => page.getByRole('button', { name: 'Add Row', exact: true });
-const count = (page: Page) => page.locator('.row-count');
-const name = (page: Page) => page.locator('.item-name-autocomplete input');
-
-async function withIntake(page: Page, run: (origin: string) => Promise<void>) {
-  const server = await startPurchaseReceivingServer(BUILD);
-  try {
-    await page.addInitScript(({ key, value }) => {
-      if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(value));
-    }, { key: STORAGE, value: session() });
-    await page.goto(server.origin);
-    await run(server.origin);
-  } finally {
-    await server.close();
-  }
-}
-
-function intakeResult(route: Route, successfulRows = Infinity) {
-  const { items } = route.request().postDataJSON();
-  const succeeded = items.slice(0, successfulRows).map((row: { clientRowId: string }) => ({
-    clientRowId: row.clientRowId,
-    result: { ...row, itemId: 'item-' + row.clientRowId, inventoryBatchId: 'lot-' + row.clientRowId,
-      stockTransactionId: 'movement-' + row.clientRowId, batchQuantity: 2, totalQuantity: 2 },
-  }));
-  return { requestedCount: items.length, successCount: succeeded.length, failedCount: 0, failed: [], succeeded };
-}
-
-async function openSibling(page: Page, origin: string) {
-  const sibling = await page.context().newPage();
-  await sibling.goto(origin + '/inventory/batch');
-  return sibling;
-}
-
-async function enterRow(page: Page, id: string) {
-  await name(page).fill('Fixture goods ' + id);
-  await page.locator('.barcode-autocomplete input').fill(id);
-  const details = page.getByRole('button', { name: 'Expand optional details' });
-  if (await details.isVisible()) await details.click();
-  await page.locator('[formcontrolname=batchNumber]').fill('lot-' + id);
-  await page.locator('[formcontrolname=mrp] input').fill('20');
-  const price = page.locator('[formcontrolname=salesPrice] input');
-  await price.fill('16');
-  await price.press('Tab');
-  const taxRate = page.locator('[formcontrolname=taxRatePercent] input');
-  await taxRate.fill('5');
-  await taxRate.press('Tab');
-  await expect.poll(() => form(page).locator('.ng-invalid[formcontrolname]')
-    .evaluateAll(elements => elements.map(element => element.getAttribute('formcontrolname')))).toEqual([]);
-}
+import { expect, test, type Page } from '@playwright/test';
+import {
+  add, count, endpoint, enterRow, finish, form, frozen, intakeResult, name, openSibling, records, save, seedRows,
+  withIntake,
+} from './licensing-stock-intake-fixtures';
+import { SHOP_A, SHOP_B } from './purchase-receiving-server';
 
 test('R001 Finish save cannot send a replacement manifest seen only in another tab', async ({ page }) => {
   await withIntake(page, async origin => {
@@ -196,73 +145,6 @@ test('R003 a dropped partial response invalidates the original shop snapshot acr
     await page.reload();
     await expect(finish(page)).toBeEnabled();
     expect(await frozen(sibling)).toEqual(original);
-  });
-});
-
-async function seedLegacySubmission(page: Page) {
-  const legacy = await records(page, 'inventory-inbound-batch') as { rows: unknown[] }[];
-  const createdAt = new Date().toISOString();
-  await page.evaluate(({ rows, createdAt, shopId }) => new Promise<void>((resolve, reject) => {
-    const db = indexedDB.open('intelibill-offline-drafts');
-    db.onerror = () => reject(db.error);
-    db.onsuccess = () => {
-      const tx = db.result.transaction('inventory-inbound-submission', 'readwrite');
-      tx.objectStore('inventory-inbound-submission').put({
-        shopId, createdAt, chunks: [{ operationKey: 'legacy-original-key', rows: rows.map(row => ({
-          ...(row as object), performedAt: createdAt,
-        })) }],
-      });
-      tx.oncomplete = () => { db.result.close(); resolve(); };
-      tx.onabort = () => reject(tx.error);
-    };
-  }), { rows: legacy[0].rows, createdAt, shopId: SHOP_A });
-}
-
-test('R005 Staff cannot see the legacy draft', async ({ page }) => {
-  await withIntake(page, async origin => {
-    await seedRows(page, ['A']);
-    await seedLegacySubmission(page);
-    const original = await frozen(page);
-    const ownerSession = session();
-    const staff = { ...ownerSession, shops: ownerSession.shops.map(shop => ({ ...shop, role: 'Staff' })) };
-    await page.evaluate(({ key, staff }) => localStorage.setItem(key, JSON.stringify(staff)), { key: STORAGE, staff });
-    await page.route('**/api/shops/me', route => route.fulfill({ json: staff.shops }));
-    await page.goto(origin + '/inventory/batch');
-    await expect(page.getByRole('heading', { level: 1, name: 'Add Inventory' })).toBeVisible();
-    await expect(page.getByText('Fixture goods A')).toHaveCount(0);
-    await expect(finish(page)).toHaveCount(0);
-    expect(await frozen(page)).toEqual(original);
-
-  });
-});
-
-test('R005 a role refusal hides the legacy draft until eligible recovery', async ({ page }) => {
-  await withIntake(page, async origin => {
-    await seedRows(page, ['A']);
-    await seedLegacySubmission(page);
-    const original = await frozen(page);
-    await page.goto(origin + '/inventory/batch');
-    await expect(finish(page)).toBeEnabled();
-    const posts: string[] = [];
-    let denied = true;
-    await page.route(endpoint, async route => {
-      posts.push(route.request().postData()!);
-      if (denied) await route.fulfill({ status: 403, json: { code: 'Inventory.UserIsNotOwnerOrManager' } });
-      else await route.fulfill({ json: intakeResult(route) });
-    });
-    await finish(page).click();
-    await expect(finish(page)).toHaveCount(0);
-    await expect(page.getByText('Fixture goods A')).toHaveCount(0);
-    expect(await frozen(page)).toEqual(original);
-    denied = false;
-    await page.reload();
-    await expect(finish(page)).toBeEnabled();
-    await finish(page).click();
-    await expect(count(page)).toHaveText('Rows: 0');
-    expect(posts).toHaveLength(2);
-    expect(posts[1]).toBe(posts[0]);
-    expect(JSON.parse(posts[0]).operationKey).toBe('legacy-original-key');
-    expect(await frozen(page)).toEqual([]);
   });
 });
 

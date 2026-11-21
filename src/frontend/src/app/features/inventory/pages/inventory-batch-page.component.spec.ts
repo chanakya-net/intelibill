@@ -5,7 +5,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TranslocoTestingModule } from '@ngneat/transloco';
-import { of, throwError } from 'rxjs';
+import { from, of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MessageService } from 'primeng/api';
 
@@ -16,12 +16,15 @@ import { CameraStreamService } from '../../../core/services/camera-stream.servic
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import {
   InventoryDraftIndexedDbService,
+  type InventoryInboundDraft,
   type InventoryInboundDraftRow,
   type InventoryInboundSubmission,
 } from '../../../core/storage/inventory-draft-indexeddb.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
 import { BatchDraftStateService } from '../services/batch-draft-state.service';
 import { BatchRowFormStateService } from '../services/batch-row-form-state.service';
+import { stubMemoryStorage } from '../../billing/billing.test-utils';
+import { ShopService } from '../../shops/services/shop.service';
 import { InventoryService } from '../services/inventory.service';
 import { InventoryBatchPageComponent } from './inventory-batch-page.component';
 import { ShopContextService } from '../../../core/context/shop-context.service';
@@ -57,7 +60,7 @@ describe('InventoryBatchPageComponent', () => {
   let storedSubmission: any = null;
   const draftStorage = {
     loadDraft: vi.fn(async () => ({ rows: [] as InventoryInboundDraftRow[], submission: storedSubmission })),
-    saveRows: vi.fn(async (_shop: string, _rows: readonly InventoryInboundDraftRow[]) => undefined),
+    saveRows: vi.fn(async (..._change: unknown[]): Promise<InventoryInboundDraft | undefined> => undefined),
     clearRows: vi.fn(async (_shop: string) => undefined),
     saveSubmission: vi.fn(async (_owner: unknown, _rows: unknown, freeze: () => InventoryInboundSubmission) => {
       storedSubmission = freeze();
@@ -68,6 +71,11 @@ describe('InventoryBatchPageComponent', () => {
     clearSubmission: vi.fn(async () => {
       storedSubmission = null;
     }),
+  };
+
+  const liveRole = { value: 'Owner' };
+  const shopService = {
+    getMyShops: vi.fn(() => of([{ shopId: 'shop-1', shopName: 'Main', role: liveRole.value, isDefault: true, lastUsedAt: null }])),
   };
 
   const productCatalogSync: any = {
@@ -130,6 +138,7 @@ describe('InventoryBatchPageComponent', () => {
         ...knownExpiryPolicyProviders(),
         { provide: AuthService, useValue: authService },
         { provide: InventoryService, useValue: inventoryService },
+        { provide: ShopService, useValue: shopService },
         { provide: InventoryDraftIndexedDbService, useValue: draftStorage },
         { provide: ProductCatalogSyncService, useValue: productCatalogSync },
         { provide: SuppliersFacade, useValue: suppliersFacade },
@@ -169,6 +178,8 @@ describe('InventoryBatchPageComponent', () => {
     inventoryService.lookupHsn.mockReset();
     inventoryService.lookupHsn.mockReturnValue(of(emptyLookupResult));
     inventoryService.printBarcodeLabels.mockReset();
+    liveRole.value = 'Owner';
+    shopService.getMyShops.mockClear();
     draftStorage.loadDraft.mockClear();
     draftStorage.saveRows.mockClear();
     draftStorage.clearRows.mockClear();
@@ -196,6 +207,7 @@ describe('InventoryBatchPageComponent', () => {
 
   afterEach(() => {
     TestBed.resetTestingModule();
+    vi.unstubAllGlobals();
   });
 
   it('opens scanner from embedded barcode camera button', async () => {
@@ -390,13 +402,14 @@ describe('InventoryBatchPageComponent', () => {
     component.onEditRow('row-edit-1');
 
     expect(component.pendingRows()).toHaveLength(0);
+    await fixture.whenStable();
     expect(component.batchRowForm.form.controls.itemName.value).toBe('Milk');
     expect(component.batchRowForm.form.controls.barcode.value).toBe('B010');
     expect(component.batchRowForm.form.controls.itemDescription.value).toBe('Fresh milk pack');
     expect(component.batchRowForm.form.controls.batchNumber.value).toBe('BN-EDIT-1');
     expect(component.batchRowForm.form.controls.quantity.value).toBe(3);
     expect(component.batchRowForm.form.controls.supplierName.value).toBe('Acme Foods');
-    expect(draftStorage.clearRows).toHaveBeenCalled();
+    expect(draftStorage.saveRows).toHaveBeenCalledWith('shop-1', [], expect.anything(), expect.anything());
   });
 
   it('closes scanner when scanned product cannot be added as a row', async () => {
@@ -983,6 +996,85 @@ describe('InventoryBatchPageComponent', () => {
     );
     expect(storedSubmission?.chunks[0].operationKey).toBe('intake-stored-0');
     expect(component.hasInterruptedSubmission()).toBe(true);
+  });
+
+  it('withholds the draft after a role refusal until live membership confirms the role again', async () => {
+    storedSubmission = {
+      shopId: 'shop-1',
+      chunks: [{ operationKey: 'intake-stored-0', rows: [createDraftRow('row-1', 'Milk', 'BC-1')] }],
+      createdAt: '2026-11-01T00:00:00Z',
+    };
+    liveRole.value = 'Staff';
+    // The refusal is kept on the device, so it is still there for the recreated page.
+    stubMemoryStorage();
+    let fixture = await setup();
+    inventoryService.addInventoryBatch.mockImplementation(
+      () => throwError(() => new HttpErrorResponse({ status: 403, error: { code: 'Inventory.UserIsNotOwnerOrManager' } })),
+    );
+    fixture.componentInstance.onSaveAll();
+    await fixture.whenStable();
+    expect(fixture.componentInstance.hideDraft()).toBe(true);
+
+    // A recreated page has no memory of the refusal, and the cached session still lists Owner.
+    TestBed.resetTestingModule();
+    draftStorage.loadDraft.mockClear();
+    let answer!: () => void;
+    const pending = new Promise<void>(resolve => { answer = resolve; });
+    shopService.getMyShops.mockImplementationOnce(() => from(pending.then(() => [])));
+    fixture = await setup();
+    const component = fixture.componentInstance;
+    expect(component.hideDraft()).toBe(true);
+    expect(component.roleRefusal.checking()).toBe(true);
+    expect(draftStorage.loadDraft).not.toHaveBeenCalled();
+    const answered = () => vi.waitFor(() => expect(component.roleRefusal.checking()).toBe(false));
+    answer();
+    await answered();
+    component.onRecheckRole();
+    await answered();
+    expect(shopService.getMyShops).toHaveBeenCalledTimes(3);
+    expect(component.hideDraft()).toBe(true);
+    expect(draftStorage.loadDraft).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('.inventory-interrupted-save')).toBeNull();
+
+    liveRole.value = 'Owner';
+    component.onRecheckRole();
+    await answered();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(component.hideDraft()).toBe(false);
+    expect(component.hasInterruptedSubmission()).toBe(true);
+    expect(storedSubmission.chunks[0].operationKey).toBe('intake-stored-0');
+    expect(inventoryService.addInventoryBatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns a submitted row to the form when another tab froze the draft', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const row = createDraftRow('row-new', 'Curd', 'BC-9');
+    const frozen = { shopId: 'shop-1', chunks: [{ operationKey: 'intake-other-0', rows: [] }], createdAt: '2026-11-01T00:00:00Z' };
+    draftStorage.saveRows.mockResolvedValueOnce({ rows: [], submission: frozen });
+
+    component.onRowSubmitted(row);
+    await fixture.whenStable();
+
+    expect(component.pendingRows()).toEqual([]);
+    expect(component.hasInterruptedSubmission()).toBe(true);
+    expect(component.batchRowForm.form.controls.itemName.value).toBe('Curd');
+    expect(draftStorage.saveRows).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the stored rows when an edit lost to another tab', async () => {
+    const kept = createDraftRow('row-2', 'Bread', 'BC-2');
+    draftStorage.loadDraft.mockResolvedValueOnce({ rows: [createDraftRow('row-1', 'Milk', 'BC-1'), kept], submission: null });
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    draftStorage.saveRows.mockResolvedValueOnce({ rows: [kept], submission: null });
+
+    component.onEditRow('row-1');
+    await fixture.whenStable();
+
+    expect(component.pendingRows()).toEqual([kept]);
+    expect(component.batchRowForm.form.controls.itemName.value).toBeFalsy();
   });
 
   it('resends an interrupted submission even when no draft rows remain', async () => {

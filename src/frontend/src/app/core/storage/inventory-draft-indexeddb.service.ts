@@ -77,6 +77,14 @@ interface DraftRecord {
   readonly updatedAt: string;
 }
 
+/** The owner slot and the older shop slot of both stores, as one transaction read them. */
+interface StoredDraft {
+  draft?: DraftRecord;
+  legacyDraft?: DraftRecord;
+  record?: SubmissionRecord;
+  legacy?: InventoryInboundSubmission;
+}
+
 @Injectable({ providedIn: 'root' })
 export class InventoryDraftIndexedDbService {
   private readonly databaseName = 'intelibill-offline-drafts';
@@ -90,37 +98,77 @@ export class InventoryDraftIndexedDbService {
     const database = await this.openDatabase();
     try {
       const tx = database.transaction([this.storeName, this.submissionStoreName]);
-      const drafts = tx.objectStore(this.storeName);
-      const submissions = tx.objectStore(this.submissionStoreName);
-      const key = owner ? ownerKey(owner) : null;
-      const [draft, legacyDraft, record, legacy] = await Promise.all([
-        key ? this.read<DraftRecord>(drafts, key) : undefined,
-        this.read<DraftRecord>(drafts, shopId),
-        key ? this.read<SubmissionRecord>(submissions, key) : undefined,
-        this.read<InventoryInboundSubmission>(submissions, shopId),
-      ]);
-      if (record && record.submission.ownerUserId === owner?.userId) {
-        return { rows: draft?.rows ?? [], submission: record.submission };
-      }
-      // Existing v2 submissions belong to the shop slot and retain their original payload.
-      if (!record && legacy) return { rows: legacyDraft?.rows ?? [], submission: legacy };
-      return { rows: (draft ?? legacyDraft)?.rows ?? [], submission: null };
+      return await new Promise<InventoryInboundDraft>((resolve, reject) => {
+        tx.onabort = () => reject(tx.error);
+        this.readDraftWithin(tx, shopId, owner, resolve);
+      });
     } finally {
       database.close();
     }
   }
 
-  async saveRows(shopId: string, rows: readonly InventoryInboundDraftRow[], owner?: ScopeOwner): Promise<void> {
-    if (!shopId || typeof indexedDB === 'undefined') return;
-    await this.write([this.storeName], (tx) => {
-      const store = tx.objectStore(this.storeName);
-      store.put(this.draftRecord(owner ? ownerKey(owner) : shopId, rows));
-      if (owner) store.delete(shopId);
+  /**
+   * Replaces the draft rows only while no save is frozen and the stored rows still equal
+   * `expectedRows`, the rows this tab last read or wrote. Resolves the stored draft that refused the
+   * change, so a stale tab shows it instead of overwriting another tab's rows.
+   */
+  async saveRows(
+    shopId: string,
+    rows: readonly InventoryInboundDraftRow[],
+    expectedRows: readonly InventoryInboundDraftRow[],
+    owner?: ScopeOwner,
+  ): Promise<InventoryInboundDraft | undefined> {
+    if (!shopId || typeof indexedDB === 'undefined') return undefined;
+    let refusedBy: InventoryInboundDraft | undefined;
+    await this.write([this.submissionStoreName, this.storeName], (tx) => {
+      this.readDraftWithin(tx, shopId, owner, current => {
+        if (current.submission || JSON.stringify(current.rows) !== JSON.stringify(expectedRows)) {
+          refusedBy = current;
+          return;
+        }
+        const store = tx.objectStore(this.storeName);
+        store.put(this.draftRecord(owner ? ownerKey(owner) : shopId, rows));
+        if (owner) store.delete(shopId);
+      });
     });
+    return refusedBy;
   }
 
-  async clearRows(shopId: string, owner?: ScopeOwner): Promise<void> {
-    await this.saveRows(shopId, [], owner);
+  /** Reads the draft and its frozen save, owner slot first, inside the caller's transaction. */
+  private readDraftWithin(
+    tx: IDBTransaction,
+    shopId: string,
+    owner: ScopeOwner | undefined,
+    apply: (draft: InventoryInboundDraft) => void,
+  ): void {
+    const drafts = tx.objectStore(this.storeName);
+    const submissions = tx.objectStore(this.submissionStoreName);
+    const key = owner ? ownerKey(owner) : null;
+    const found: StoredDraft = {};
+    let pending = 4;
+    const collect = <T>(store: IDBObjectStore, id: string | null, keep: (record: T | undefined) => void) => {
+      const done = (record: T | undefined) => {
+        keep(record);
+        if (--pending === 0) apply(this.currentDraft(found, owner));
+      };
+      // The shop slot is always read, so the last answer arrives inside a request callback.
+      if (id) this.readWithin<T>(tx, store, id, done);
+      else done(undefined);
+    };
+
+    collect<DraftRecord>(drafts, key, record => { found.draft = record; });
+    collect<SubmissionRecord>(submissions, key, record => { found.record = record; });
+    collect<DraftRecord>(drafts, shopId, record => { found.legacyDraft = record; });
+    collect<InventoryInboundSubmission>(submissions, shopId, record => { found.legacy = record; });
+  }
+
+  private currentDraft({ draft, legacyDraft, record, legacy }: StoredDraft, owner?: ScopeOwner): InventoryInboundDraft {
+    if (record && record.submission.ownerUserId === owner?.userId) {
+      return { rows: draft?.rows ?? [], submission: record.submission };
+    }
+    // Existing v2 submissions belong to the shop slot and retain their original payload.
+    if (!record && legacy) return { rows: legacyDraft?.rows ?? [], submission: legacy };
+    return { rows: (draft ?? legacyDraft)?.rows ?? [], submission: null };
   }
 
   /** Freezes exactly the draft the operator saw, provided no tab has already changed it. */
@@ -203,14 +251,6 @@ export class InventoryDraftIndexedDbService {
 
   private submissionKey({ shopId, ownerUserId }: InventoryInboundSubmission): string {
     return ownerUserId ? ownerKey({ shopId, userId: ownerUserId }) : shopId;
-  }
-
-  private read<T>(store: IDBObjectStore, key: string): Promise<T | undefined> {
-    return new Promise((resolve, reject) => {
-      const request = store.get(key);
-      request.onsuccess = () => resolve(request.result as T | undefined);
-      request.onerror = () => reject(request.error);
-    });
   }
 
   private readWithin<T>(tx: IDBTransaction, store: IDBObjectStore, key: string, apply: (record: T | undefined) => void): void {

@@ -4,6 +4,8 @@ import { session, SHOP_A, startPurchaseReceivingServer } from './purchase-receiv
 
 import { BUILD, STORAGE, frozen, seedRows } from './licensing-stock-intake-fixtures';
 import './licensing-stock-intake-races';
+import './licensing-stock-intake-roles';
+import './licensing-stock-intake-stale-edits';
 
 test.use({ actionTimeout: 8000 });
 test.setTimeout(25000);

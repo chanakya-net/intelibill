@@ -8,6 +8,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { TranslocoPipe, TranslocoService } from '@ngneat/transloco';
 import { MessageService } from 'primeng/api';
@@ -43,6 +44,7 @@ import {
 import { OPERATING_ACCESS_ERROR_KEYS, OperatingAccessHintService, operatingAccessErrorKey } from '../../billing/status/operating-access-hint.service';
 import { assertIntakeResponse, needsIntakeRecovery } from '../services/intake-response';
 import { BatchDraftStateService } from '../services/batch-draft-state.service';
+import { IntakeRoleRefusalService } from '../services/intake-role-refusal.service';
 import { BatchRowFormStateService } from '../services/batch-row-form-state.service';
 import { InventoryService } from '../services/inventory.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
@@ -76,6 +78,7 @@ export class InventoryBatchPageComponent {
   private readonly shopContext = inject(ShopContextService);
   private readonly permissions = inject(ShopPermissionsService);
   readonly access = inject(OperatingAccessHintService);
+  readonly roleRefusal = inject(IntakeRoleRefusalService);
   private readonly audioService = inject(AudioService);
   private readonly draftState = inject(BatchDraftStateService);
   private readonly inventoryService = inject(InventoryService);
@@ -94,10 +97,14 @@ export class InventoryBatchPageComponent {
   readonly highlightedRowId = signal<string | null>(null);
 
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
-  private readonly refusedScope = signal<ShopScope | null>(null);
+  /** A server refusal stays in force until live membership confirms the role again. */
+  readonly roleRefused = computed(() => {
+    const scope = this.shopContext.scope();
+    return !!scope && this.roleRefusal.isRefused(scope);
+  });
   readonly draftRoleDenied = computed(() => {
     const scope = this.shopContext.scope();
-    return !!scope && (this.refusedScope() === scope || this.permissions.activeShopId() !== scope.shopId ||
+    return !!scope && (this.roleRefused() || this.permissions.activeShopId() !== scope.shopId ||
       !this.permissions.isOwnerOrManagerOfActiveShop());
   });
   readonly hideDraft = computed(() => this.shopContext.dataRestricted() || this.draftRoleDenied());
@@ -118,6 +125,7 @@ export class InventoryBatchPageComponent {
       this.isScannerOpen.set(false);
       this.barcodeLabelPrintDialogVisible.set(false);
       this.barcodeLabelPrintCandidates.set([]);
+      if (scope && this.roleRefused()) untracked(() => void this.roleRefusal.revalidate(scope));
       if (!scope?.shopId || this.hideDraft()) return;
 
       void this.loadDraftRows(scope);
@@ -130,10 +138,16 @@ export class InventoryBatchPageComponent {
     void this.persistDraftRow(row);
   }
 
+  onRecheckRole(): void {
+    const scope = this.shopContext.scope();
+    if (scope) void this.roleRefusal.revalidate(scope);
+  }
+
   onRemoveRow(clientRowId: string): void {
     if (this.refuseWhileInterrupted()) return;
     this.saveSummary.set(null);
-    void this.draftState.removeRow(this.activeShopId(), clientRowId, this.shopContext.scope() ?? undefined);
+    void this.reportIfChangedElsewhere(
+      this.draftState.removeRow(this.activeShopId(), clientRowId, this.shopContext.scope() ?? undefined));
   }
 
   onEditRow(clientRowId: string): void {
@@ -143,13 +157,17 @@ export class InventoryBatchPageComponent {
 
     this.saveSummary.set(null);
     this.batchRowForm.populateFromRow(row);
-    void this.draftState.removeRow(this.activeShopId(), clientRowId, this.shopContext.scope() ?? undefined);
+    // The row moves into the form only if this tab's view of the draft was still current.
+    void this.reportIfChangedElsewhere(
+      this.draftState.removeRow(this.activeShopId(), clientRowId, this.shopContext.scope() ?? undefined),
+      () => this.batchRowForm.resetForm());
   }
 
   onClearAll(): void {
     if (this.refuseWhileInterrupted()) return;
     this.saveSummary.set(null);
-    void this.draftState.clearRows(this.activeShopId(), this.shopContext.scope() ?? undefined);
+    void this.reportIfChangedElsewhere(
+      this.draftState.clearRows(this.activeShopId(), this.shopContext.scope() ?? undefined));
   }
 
   onSaveAll(recovering = this.hasInterruptedSubmission()): void {
@@ -226,12 +244,13 @@ export class InventoryBatchPageComponent {
       void this.audioService.beep();
       return;
     }
+    if (this.refuseWhileInterrupted()) return;
 
     const scanResult = await this.rowFormState.prepareScannedRow(barcode);
     if (this.refuseWhileInterrupted()) return;
     if (scanResult.status === 'added') {
       this.rowFormState.resetForm();
-      await this.persistDraftRow(scanResult.row);
+      if (!await this.persistDraftRow(scanResult.row)) return;
       this.flashRow(scanResult.row.clientRowId);
       this.scannerLastAction.set('inventory.scannerActionAdded');
       this.showScannerToast('inventory.scannerAdded', barcode, 1);
@@ -257,12 +276,27 @@ export class InventoryBatchPageComponent {
     }
   }
 
-  private async persistDraftRow(row: InventoryInboundDraftRow): Promise<void> {
+  private async persistDraftRow(row: InventoryInboundDraftRow): Promise<boolean> {
     const shopId = this.activeShopId();
-    if (!shopId) return;
+    if (!shopId) return false;
 
     this.saveSummary.set(null);
-    await this.draftState.addRow(shopId, row, this.shopContext.scope() ?? undefined);
+    // A row another tab's frozen save cannot take goes back to the form instead of vanishing.
+    return this.reportIfChangedElsewhere(
+      this.draftState.addRow(shopId, row, this.shopContext.scope() ?? undefined),
+      () => this.batchRowForm.populateFromRow(row));
+  }
+
+  /** Another tab changed the stored draft first: the view already shows it; say why nothing moved. */
+  private async reportIfChangedElsewhere(change: Promise<boolean>, restore?: () => void): Promise<boolean> {
+    const scope = this.shopContext.scope();
+    const saved = await change;
+    if (saved || scope !== this.shopContext.scope() || this.hideDraft()) return saved;
+
+    restore?.();
+    if (this.hasInterruptedSubmission()) this.showWarn('inventory.saveInterruptedLocked');
+    else this.showInfo('inventory.draftLoaded');
+    return false;
   }
 
   private async saveRowsInChunks(scope: ShopScope, recovering: boolean): Promise<void> {
@@ -337,7 +371,7 @@ export class InventoryBatchPageComponent {
     this.access.reportRefusal(error, scope);
     const authorityDenied = error instanceof HttpErrorResponse &&
       (error.status === 401 || (error.status === 403 && !key));
-    if (authorityDenied) this.refusedScope.set(scope);
+    if (authorityDenied) this.roleRefusal.refuse(scope);
     const securityDenied = authorityDenied || hasProblemCode(error, 'Licence.SecuritySuspended');
     if (securityDenied) {
       this.saveSummary.set(null);

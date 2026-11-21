@@ -77,7 +77,7 @@ public sealed class CorrectStockCountCommandHandler(
 
         var operationKey = FinancialOperationHasher.NormalizeKey(command.OperationKey);
         if (operationKey is null)
-            return await PostingTransaction.RunAsync(unitOfWork, ct => CountAsync(command, ct), cancellationToken);
+            return await PostingTransaction.RunAsync(unitOfWork, ct => CountAsync(command, null, ct), cancellationToken);
 
         var requestHash = FinancialOperationHasher.Compute(new StockCountPayload(
             command.BatchId,
@@ -85,15 +85,20 @@ public sealed class CorrectStockCountCommandHandler(
             FinancialOperationHasher.NormalizeAmount(command.CountedQuantity),
             command.Reason.Trim()));
 
+        // The receipt is completed after the count is saved. The count's own lease is read once more
+        // after that write, while the executor can still roll the whole posting back.
+        ShopLicenceLease? posting = null;
         return await operationExecutor.ExecuteAsync(
             new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.StockCount, operationKey)
             {
                 RecheckReplayAuthority = ct => CheckAuthorityAsync(command, ct),
+                RecheckBeforeCommit = async ct =>
+                    await CheckAuthorityAsync(command, ct) ?? posting?.CurrentDecision().EnforcedDenial(),
             },
             command.ActorUserId,
             command.BatchId,
             requestHash,
-            ct => CountAsync(command, ct),
+            ct => CountAsync(command, lease => posting = lease, ct),
             cancellationToken);
     }
 
@@ -114,11 +119,13 @@ public sealed class CorrectStockCountCommandHandler(
 
     private async Task<ErrorOr<StockCountResultDto>> CountAsync(
         CorrectStockCountCommand command,
+        Action<ShopLicenceLease>? retainLease,
         CancellationToken cancellationToken)
     {
         var licence = await licenceFence.EnterAsync(command.ActiveShopId, LicenceAction.GeneralStock, cancellationToken);
         if (licence.IsError)
             return licence.Errors;
+        retainLease?.Invoke(licence.Value);
         if (licence.Value.CurrentDecision().EnforcedDenial() is { } denied)
             return denied;
         if (await CheckAuthorityAsync(command, cancellationToken) is { } admissionDenied)
