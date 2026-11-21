@@ -46,10 +46,19 @@ public sealed class LicenceActionClassificationTests(PostgreSqlTestFixture fixtu
     [InlineData(typeof(CorrectStockCountCommandHandler), nameof(CorrectStockCountCommandHandler.HandleAsync), LicenceAction.GeneralStock)]
     [InlineData(typeof(InventoryController), nameof(InventoryController.CreateAdjustment), LicenceAction.GeneralStock)]
     [InlineData(typeof(CreateAdjustmentCommandHandler), nameof(CreateAdjustmentCommandHandler.HandleAsync), LicenceAction.GeneralStock)]
+    [InlineData(typeof(BatchDispositionsController), nameof(BatchDispositionsController.Post), LicenceAction.SafetyDisposition)]
+    [InlineData(typeof(BatchDispositionsController), nameof(BatchDispositionsController.Get), LicenceAction.History)]
     [InlineData(typeof(FinancialOperationsController), nameof(FinancialOperationsController.GetFinancialOperation), LicenceAction.Recovery)]
     [InlineData(typeof(GetFinancialOperationQueryHandler), nameof(GetFinancialOperationQueryHandler.Handle), LicenceAction.Recovery)]
-    public void Receipt_correction_and_general_stock_keep_distinct_classifications(Type type, string methodName, LicenceAction action) =>
+    public void Source_correction_disposition_and_general_stock_keep_distinct_classifications(Type type, string methodName, LicenceAction action) =>
         Assert.Equal(action, type.GetMethod(methodName)?.GetCustomAttribute<LicenceActionAttribute>()?.Action);
+
+    [Fact]
+    public void Mixed_disposition_route_defers_suspension_to_source()
+    {
+        var post = typeof(BatchDispositionsController).GetMethod(nameof(BatchDispositionsController.Post));
+        Assert.False(post!.GetCustomAttribute<SuspensionAtSourceAttribute>()?.CheckRecovery);
+    }
 
     [Fact]
     public async Task Every_protected_entry_point_has_one_classification()

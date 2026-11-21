@@ -12,7 +12,7 @@ namespace Intelibill.Application.Features.FinancialOperations.Queries.GetFinanci
 
 /// <summary>
 /// Read-only recovery of a financial operation's committed outcome, for any active owner or
-/// manager of the shop — not only its initiator, so a colleague can reconcile it.
+/// manager of the shop within the operation’s authority rules. Batch disposition recovery requires a live owner.
 /// </summary>
 /// <remarks>
 /// Authorization runs before the lookup, so a caller without authority learns nothing about
@@ -32,8 +32,7 @@ public sealed class GetFinancialOperationQueryHandler(
         CancellationToken cancellationToken)
     {
         var operationType = FinancialOperationTypes.FromSlug(query.OperationType);
-        var receiptCorrection = operationType == FinancialOperationType.ReceiptCostCorrection;
-        if (receiptCorrection && await CheckCorrectionAuthorityAsync(query, cancellationToken) is { } denied)
+        if (operationType is { } type && await CheckRecoveryAuthorityAsync(query, type, cancellationToken) is { } denied)
             return denied;
 
         var membership = await shopRepository.GetMembershipAsync(query.UserId, query.ShopId, cancellationToken);
@@ -46,16 +45,13 @@ public sealed class GetFinancialOperationQueryHandler(
         if (operationType is null)
             return Errors.Operation.UnknownType;
 
-        if (operationType == FinancialOperationType.BatchDisposition && membership.Role != ShopRole.Owner)
-            return Error.Forbidden("Expiry.OwnerRequired", "Current owner required.");
-
         var key = query.OperationKey.Trim();
         if (key.Length is 0 or > OperationReceipt.MaxKeyLength)
             return Errors.Operation.InvalidKey;
 
         if (operationType is FinancialOperationType.CustomerPayment or FinancialOperationType.SupplierPayment
             or FinancialOperationType.SupplierReturn or FinancialOperationType.SupplierReturnCredit or FinancialOperationType.PurchaseReceiptReversal
-            or FinancialOperationType.ReceiptCostCorrection)
+            or FinancialOperationType.ReceiptCostCorrection or FinancialOperationType.BatchDisposition)
             return await transactions.RunAsync<FinancialOperationDto>(null, query.UserId, query.ShopId, null,
                 ct => RecoverUnderFenceAsync(query, operationType.Value, key, ct), cancellationToken);
 
@@ -69,22 +65,26 @@ public sealed class GetFinancialOperationQueryHandler(
         if (lease.IsError) return lease.Errors;
         if (lease.Value.CurrentDecision().EnforcedDenial() is { } denied) return denied;
 
-        var receiptCorrection = type == FinancialOperationType.ReceiptCostCorrection;
-        if (receiptCorrection && await CheckCorrectionAuthorityAsync(query, ct) is { } authorityDenied)
+        if (await CheckRecoveryAuthorityAsync(query, type, ct) is { } authorityDenied)
             return authorityDenied;
 
         var outcome = await ReadOutcomeAsync(query.ShopId, type, key, ct);
-        if (receiptCorrection && await CheckCorrectionAuthorityAsync(query, ct) is { } readAuthorityDenied)
+        if (await CheckRecoveryAuthorityAsync(query, type, ct) is { } readAuthorityDenied)
             return readAuthorityDenied;
         if (lease.Value.CurrentDecision().EnforcedDenial() is { } readDenial) return readDenial;
         return outcome;
     }
 
-    private async Task<Error?> CheckCorrectionAuthorityAsync(GetFinancialOperationQuery query, CancellationToken ct)
+    private async Task<Error?> CheckRecoveryAuthorityAsync(GetFinancialOperationQuery query,
+        FinancialOperationType type, CancellationToken ct)
     {
+        if (type is not (FinancialOperationType.ReceiptCostCorrection or FinancialOperationType.BatchDisposition))
+            return null;
         if (query.Session is not { } session || session.UserId != query.UserId ||
             session.ActiveShopId != query.ShopId || !await sessions.IsValidAsync(session, ct))
             return Errors.Auth.SessionInvalidated;
+        if (type == FinancialOperationType.BatchDisposition && session.ActiveShopRole != nameof(ShopRole.Owner))
+            return Error.Forbidden("Expiry.OwnerRequired", "Current owner required.");
         return session.ActiveShopRole is nameof(ShopRole.Owner) or nameof(ShopRole.Manager)
             ? null : Errors.Operation.UserIsNotOwnerOrManager;
     }

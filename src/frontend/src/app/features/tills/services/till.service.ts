@@ -170,8 +170,15 @@ export class TillService {
               this.http.get<FinancialOperationLookup<T>>(lookup, { context }),
             );
           } catch (error) {
+            // A disposition lookup can return a scoped authority refusal or a busy licence fence.
+            // Surface that decision and keep the original pending request.
+            const dispositionRefusal =
+              action === 'batch-disposition' &&
+              error instanceof HttpErrorResponse &&
+              [401, 403, 409].includes(error.status);
             if (
               isScopeChangeError(error) ||
+              dispositionRefusal ||
               (payment && !(error instanceof HttpErrorResponse && error.status === 404))
             )
               throw error;

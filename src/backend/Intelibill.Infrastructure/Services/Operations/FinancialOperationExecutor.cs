@@ -101,7 +101,7 @@ internal sealed class FinancialOperationExecutor(ApplicationDbContext context, I
 
             if (scope.OperationType is FinancialOperationType.SupplierReturn or FinancialOperationType.SupplierReturnCredit
                 or FinancialOperationType.PurchaseReceiptReversal or FinancialOperationType.StockCount
-                or FinancialOperationType.ReceiptCostCorrection)
+                or FinancialOperationType.ReceiptCostCorrection or FinancialOperationType.BatchDisposition)
             {
                 var outcome = await ReplayUnderFenceAsync<T>(scope, requestHash, cancellationToken);
                 await transaction.RollbackAsync(cancellationToken);
