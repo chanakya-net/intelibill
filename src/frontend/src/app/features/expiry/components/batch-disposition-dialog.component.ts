@@ -16,6 +16,12 @@ import { DialogModule } from 'primeng/dialog';
 import { SelectModule } from 'primeng/select';
 import { TextareaModule } from 'primeng/textarea';
 import { firstValueFrom, Subscription } from 'rxjs';
+import type { ShopScope } from '../../../core/context/shop-scope';
+import {
+  OPERATING_ACCESS_ERROR_KEYS,
+  OperatingAccessHintService,
+  operatingAccessErrorKey,
+} from '../../billing/status/operating-access-hint.service';
 import { InventoryService } from '../../inventory/services/inventory.service';
 import type { InventoryBatchDto } from '../../inventory/services/inventory.models';
 import { QuantityFieldComponent } from '../../../shared/quantity/quantity-field.component';
@@ -52,6 +58,8 @@ export class BatchDispositionDialogComponent implements OnChanges, OnDestroy {
   readonly policies = inject(ExpiryPolicyService);
   private readonly transloco = inject(TranslocoService);
   private readonly inventory = inject(InventoryService);
+  private readonly access = inject(OperatingAccessHintService);
+  private openingScope: ShopScope | null = null;
   @Input({ required: true }) batch!: InventoryBatchDto;
   @Output() closed = new EventEmitter<void>();
   @Output() changed = new EventEmitter<void>();
@@ -73,13 +81,30 @@ export class BatchDispositionDialogComponent implements OnChanges, OnDestroy {
     void this.refreshPending();
   });
   ngOnChanges(): void {
+    this.openingScope = this.access.scope();
+    this.current = null;
+    this.history.set([]);
+    this.pending.set([]);
+    this.selectedRoot = '';
     void this.load();
   }
   ngOnDestroy(): void {
+    this.openingScope = null;
     this.generation++;
     this.subscription.unsubscribe();
   }
+  releaseDenial(): string | null {
+    return this.isCurrent(this.generation) ? this.access.blockingMessage() : null;
+  }
+  securityDenial(): string | null {
+    const key = OPERATING_ACCESS_ERROR_KEYS['Licence.SecuritySuspended'];
+    return this.releaseDenial() === key ? key : null;
+  }
+  canSeeDetails(): boolean {
+    return this.isCurrent(this.generation) && !this.securityDenial();
+  }
   roots(): readonly BatchDispositionChange[] {
+    if (!this.canSeeDetails()) return [];
     return this.history().filter(
       (x) => !x.rootChangeId && remainingQuarantine(x, this.history()) > 0,
     );
@@ -99,8 +124,25 @@ export class BatchDispositionDialogComponent implements OnChanges, OnDestroy {
     this.reason = '';
     this.quantity = 1;
   }
-  canRelease(): boolean {
+  private eligibleRoot(): BatchDispositionChange | undefined {
     const root = this.roots().find((x) => x.id === this.selectedRoot);
+    const batch = this.current;
+    return root &&
+      batch &&
+      !batch.isVoided &&
+      fitsQuantityScale(this.quantity, batch.quantityScale ?? 0) &&
+      this.quantity > 0 &&
+      this.quantity <= (batch.quarantinedQuantity ?? 0) &&
+      this.quantity <= this.remaining(root)
+      ? root
+      : undefined;
+  }
+  canDispose(): boolean {
+    return !!this.eligibleRoot();
+  }
+  canRelease(): boolean {
+    if (this.releaseDenial()) return false;
+    const root = this.eligibleRoot();
     const batch = this.current;
     const decision = batch?.sellability;
     const policy = this.policy;
@@ -108,17 +150,13 @@ export class BatchDispositionDialogComponent implements OnChanges, OnDestroy {
       !root ||
       root.reasonCode === 'Expiry.Expired' ||
       !batch?.expiryDate ||
-      batch.isVoided ||
       !policy ||
       !decision ||
       !this.businessTimeZone ||
       decision.policyVersion !== policy.version ||
       decision.catalogVersion !== this.catalogVersion ||
       (!decision.allowed && decision.reasonCode !== 'InventoryBatch.InsufficientStock') ||
-      (batch.manufacturingDate && batch.manufacturingDate > batch.expiryDate) ||
-      !Number.isFinite(this.quantity) ||
-      this.quantity <= 0 ||
-      this.quantity > this.remaining(root)
+      (batch.manufacturingDate && batch.manufacturingDate > batch.expiryDate)
     )
       return false;
     const day = shopBusinessDate(Date.now(), this.businessTimeZone);
@@ -145,7 +183,15 @@ export class BatchDispositionDialogComponent implements OnChanges, OnDestroy {
       (policy.sellThroughExpiryDate ? batch.expiryDate >= day : batch.expiryDate > day)
     );
   }
+  private isCurrent(generation: number): boolean {
+    return (
+      generation === this.generation &&
+      !!this.openingScope &&
+      this.openingScope === this.access.scope()
+    );
+  }
   async load(): Promise<void> {
+    if (!this.isCurrent(this.generation)) return;
     const generation = ++this.generation;
     const batchId = this.batch.id;
     this.busy.set(true);
@@ -156,47 +202,51 @@ export class BatchDispositionDialogComponent implements OnChanges, OnDestroy {
         firstValueFrom(this.inventory.getInventoryBatches()),
         firstValueFrom(this.policies.read(this.batch.itemId)),
         firstValueFrom(this.policies.businessTimeZone()),
+        this.access.refresh(),
       ]);
-      if (generation !== this.generation) return;
+      if (!this.isCurrent(generation) || !this.canSeeDetails()) return;
       this.history.set(history);
       this.current = batches.find((x) => x.id === batchId) ?? null;
       this.policy = policy.effectivePolicy;
       this.catalogVersion = policy.catalogVersion;
       this.businessTimeZone = zone;
       await this.refreshPending();
-    } catch {
-      if (generation === this.generation) this.message.set('expiry.loadFailed');
+    } catch (error) {
+      if (this.isCurrent(generation)) {
+        this.access.reportRefusal(error, this.openingScope);
+        this.message.set(operatingAccessErrorKey(error) ?? 'expiry.loadFailed');
+      }
     } finally {
-      if (generation === this.generation) this.busy.set(false);
+      if (this.isCurrent(generation)) this.busy.set(false);
     }
   }
   private async refreshPending(): Promise<void> {
+    if (!this.canSeeDetails()) return;
     const generation = this.generation;
     try {
       const rows = await this.service.pending(this.batch.id);
-      if (generation === this.generation) this.pending.set(rows);
+      if (this.isCurrent(generation) && this.canSeeDetails()) this.pending.set(rows);
     } catch {
-      if (generation === this.generation) this.message.set('expiry.storageFailed');
+      if (this.isCurrent(generation)) this.message.set('expiry.storageFailed');
     }
   }
   async submit(recovery?: BatchDispositionPayload): Promise<void> {
-    if (this.busy() || this.policies.role() !== 'owner') return;
+    if (this.busy() || !this.canSeeDetails() || this.policies.role() !== 'owner') return;
     if (!recovery && this.quantityField()?.commit() === false) return;
     let payload = recovery;
     if (!payload) {
-      const root = this.roots().find((x) => x.id === this.selectedRoot);
+      const root = this.eligibleRoot();
       if (
         this.pending().length ||
         !root ||
         !this.current ||
         !this.reason.trim() ||
         this.reason.trim().length > 500 ||
-        !fitsQuantityScale(this.quantity, this.current.quantityScale ?? 0) ||
-        this.quantity <= 0 ||
-        this.quantity > this.remaining(root) ||
         (this.action === 'Release' && !this.canRelease())
       ) {
-        this.message.set('expiry.dispositionInvalid');
+        this.message.set(
+          (this.action === 'Release' && this.releaseDenial()) || 'expiry.dispositionInvalid',
+        );
         return;
       }
       payload = {
@@ -212,19 +262,23 @@ export class BatchDispositionDialogComponent implements OnChanges, OnDestroy {
     const generation = this.generation;
     try {
       await firstValueFrom(this.service.execute(this.batch.id, payload));
-      if (generation !== this.generation) return;
+      if (!this.isCurrent(generation)) return;
       this.selectedRoot = '';
       this.reason = '';
       this.message.set('expiry.dispositionSaved');
       this.changed.emit();
       await this.load();
-    } catch {
-      if (generation === this.generation) {
-        await this.refreshPending();
-        this.message.set(this.pending().length ? 'expiry.pending' : 'expiry.dispositionConflict');
-      }
+    } catch (error) {
+      if (!this.isCurrent(generation)) return;
+      this.access.reportRefusal(error, this.openingScope);
+      await this.refreshPending();
+      if (!this.isCurrent(generation)) return;
+      this.message.set(
+        operatingAccessErrorKey(error) ??
+          (this.pending().length ? 'expiry.pending' : 'expiry.dispositionConflict'),
+      );
     } finally {
-      if (generation === this.generation) this.busy.set(false);
+      if (this.isCurrent(generation)) this.busy.set(false);
     }
   }
   recoverPayload(value: unknown): BatchDispositionPayload {

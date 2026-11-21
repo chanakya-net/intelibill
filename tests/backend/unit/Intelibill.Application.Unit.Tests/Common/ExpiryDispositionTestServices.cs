@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Time;
@@ -21,6 +23,7 @@ internal static class ExpiryDispositionTestServices
             .Returns(new EffectiveExpiryPolicy(ExpiryPolicy.Default, 1, true, true, DateTimeOffset.MinValue));
         return new(journal, policies, Substitute.For<IExpiryPolicyFence>(), Substitute.For<IShopRepository>(), batches,
             Substitute.For<IInventoryRepository>(), Substitute.For<IStockTransactionRepository>(), Substitute.For<IInventoryAdjustmentRepository>(),
-            Substitute.For<IInventoryAdjustmentNumberGenerator>(), Substitute.For<IFinancialOperationExecutor>(), Substitute.For<IPostingPeriodPolicy>(), clock, Substitute.For<IUnitOfWork>());
+            Substitute.For<IInventoryAdjustmentNumberGenerator>(), Substitute.For<IFinancialOperationExecutor>(), Substitute.For<IPostingPeriodPolicy>(), clock,
+            Substitute.For<IUnitOfWork>(), Substitute.For<IShopLicenceFence>(), Substitute.For<ILiveSessionAuthority>());
     }
 }
