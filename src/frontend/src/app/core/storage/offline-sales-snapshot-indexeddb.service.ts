@@ -104,7 +104,7 @@ export class OfflineSalesSnapshotIndexedDbService {
     await this.writeEntity(OFFLINE_SALES_SNAPSHOT_SERVICES_STORE, snapshotId, shopId, service.serviceId, service);
   }
 
-  async markComplete(snapshotId: string, shopId: string, completedAt: string): Promise<void> {
+  async markComplete(snapshotId: string, shopId: string, completedAt: string, signal?: AbortSignal): Promise<void> {
     if (!snapshotId || !shopId || typeof indexedDB === 'undefined') {
       return;
     }
@@ -126,8 +126,11 @@ export class OfflineSalesSnapshotIndexedDbService {
       if (rows.filter(r => r.snapshotId === snapshotId && r.shopId === shopId).some(r => !hasOfflineExpiryAuthority(r.entity, attempt.catalogVersion!)))
         throw new Error('Incomplete snapshot lot authority.');
     }
+    signal?.throwIfAborted();
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction([OFFLINE_SALES_SNAPSHOT_ATTEMPTS_STORE, OFFLINE_SALES_SNAPSHOT_SHOP_POINTERS_STORE], 'readwrite');
+      const abort = () => transaction.abort();
+      signal?.addEventListener('abort', abort, { once: true });
       const attempts = transaction.objectStore(OFFLINE_SALES_SNAPSHOT_ATTEMPTS_STORE);
       const pointers = transaction.objectStore(OFFLINE_SALES_SNAPSHOT_SHOP_POINTERS_STORE);
 
@@ -160,8 +163,14 @@ export class OfflineSalesSnapshotIndexedDbService {
         putPointer.onerror = () => reject(putPointer.error);
       };
 
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
+      transaction.oncomplete = () => {
+        signal?.removeEventListener('abort', abort);
+        resolve();
+      };
+      transaction.onabort = () => {
+        signal?.removeEventListener('abort', abort);
+        reject(transaction.error ?? signal?.reason);
+      };
     });
   }
 

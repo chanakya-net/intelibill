@@ -1,5 +1,6 @@
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Realtime;
 using Intelibill.Application.Common.Security;
 using Microsoft.AspNetCore.SignalR;
 
@@ -55,7 +56,7 @@ internal sealed partial class AuthorizedRealtimeDispatcher<THub>(
         object payload,
         CancellationToken cancellationToken = default)
     {
-        IReadOnlyList<Application.Common.Realtime.RealtimeConnection> candidates;
+        IReadOnlyList<RealtimeConnection> candidates;
         try
         {
             candidates = await registry.ListShopConnectionsAsync(HubName, shopId, cancellationToken);
@@ -73,17 +74,30 @@ internal sealed partial class AuthorizedRealtimeDispatcher<THub>(
         if (candidates.Count == 0)
             return;
 
-        var now = clock.GetUtcNow();
-        var authorized = new List<string>(candidates.Count);
+        try
+        {
+            List<string> recipients = [];
+            await suspensions.DeliverAsync(shopId, null,
+                ct => recipients.Count == 0 ? Task.CompletedTask : hubContext.Clients.Clients(recipients).SendAsync(eventName, payload, ct),
+                cancellationToken,
+                prepare: async ct => recipients = await ResolveRecipientsAsync(candidates, eventName, ct));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            LogRecipientsUnresolvable(logger, eventName, HubName, ex);
+        }
+    }
 
-        // Several tabs on one device are several connections under one session, and they ask the
-        // authority the same question. SessionClaims is a record, so equality dedupes them and a
-        // mutation costs one lookup per distinct authority rather than one per socket.
+    private async Task<List<string>> ResolveRecipientsAsync(
+        IReadOnlyList<RealtimeConnection> candidates, string eventName, CancellationToken ct)
+    {
+        var authorized = new List<RealtimeConnection>(candidates.Count);
+        // Tabs on the same session share one live authority check per event.
         var decisions = new Dictionary<SessionClaims, bool>();
+        var now = clock.GetUtcNow();
 
         foreach (var candidate in candidates)
         {
-            // Decisive without a lookup, and true even for a lease the sweep has not reached yet.
             if (candidate.ExpiresAt <= now)
                 continue;
 
@@ -92,19 +106,11 @@ internal sealed partial class AuthorizedRealtimeDispatcher<THub>(
             {
                 try
                 {
-                    allowed = await authority.IsValidAsync(claims, cancellationToken);
+                    allowed = await authority.IsValidAsync(claims, ct);
                 }
-                catch (OperationCanceledException)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    // Stop checking, but still deliver to the recipients already confirmed. Each of
-                    // them passed a complete live check, so sending costs nothing in exposure, and
-                    // dropping the event for the whole shop would punish every proven recipient for
-                    // one failed lookup. Failing closed means never sending to an id that was not
-                    // validated - not refusing to send to the ones that were.
+                    // Keep already-confirmed recipients if a later authority lookup fails.
                     LogAuthorityUnavailable(logger, eventName, HubName, authorized.Count, ex);
                     break;
                 }
@@ -113,24 +119,12 @@ internal sealed partial class AuthorizedRealtimeDispatcher<THub>(
             }
 
             if (allowed)
-                authorized.Add(candidate.ConnectionId);
+                authorized.Add(candidate);
         }
 
-        if (authorized.Count == 0)
-            return;
-
-        try
-        {
-            if (!await suspensions.CanReceiveRealtimeAsync(shopId, cancellationToken))
-                return;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            LogRecipientsUnresolvable(logger, eventName, HubName, ex);
-            return;
-        }
-
-        await hubContext.Clients.Clients(authorized).SendAsync(eventName, payload, cancellationToken);
+        var handoffAt = clock.GetUtcNow();
+        return authorized.Where(candidate => candidate.ExpiresAt > handoffAt)
+            .Select(candidate => candidate.ConnectionId).ToList();
     }
 
     [LoggerMessage(

@@ -1,6 +1,7 @@
 using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
+using Errors = Intelibill.Application.Common.Errors.Errors;
 using LicenceErrors = Intelibill.Application.Common.Errors.Errors.Licence;
 
 namespace Intelibill.Api.Extensions;
@@ -50,13 +51,14 @@ public static class ErrorOrExtensions
                 _ => StatusCodes.Status500InternalServerError
             };
 
-        var problemDetails = new ProblemDetails
-        {
-            Status = statusCode,
-            Title = first.Code,
-            Detail = first.Description,
-            Extensions = { ["errors"] = errors.Select(e => new { e.Code, e.Description }) }
-        };
+        // Only these singleton, fixed-text problems can travel without shop authority.
+        var problemDetails = errors.Count == 1 && IsDataFreeDenial(first)
+            ? new DataFreeProblemDetails()
+            : new ProblemDetails();
+        problemDetails.Status = statusCode;
+        problemDetails.Title = first.Code;
+        problemDetails.Detail = first.Description;
+        problemDetails.Extensions["errors"] = errors.Select(e => new { e.Code, e.Description });
 
         if (first.Code.StartsWith("Licence.", StringComparison.Ordinal))
             problemDetails.Extensions["code"] = first.Code;
@@ -91,6 +93,11 @@ public static class ErrorOrExtensions
         return new ObjectResult(problemDetails) { StatusCode = statusCode };
     }
 
+    private static bool IsDataFreeDenial(Error error) => error.Metadata is null &&
+        (error == Errors.Shop.MembershipNotFound || error == Errors.Auth.SessionInvalidated || error == Errors.Expiry.OwnerRequired ||
+         error == LicenceErrors.Busy || error == LicenceErrors.VerificationUnavailable ||
+         error == LicenceErrors.SecuritySuspended);
+
     // Seat usage travels only when the application attached it for an entitled caller.
     private static object? MemberCapacity(Error error) =>
         error.Code == LicenceErrors.MemberCapacityReachedCode
@@ -99,3 +106,5 @@ public static class ErrorOrExtensions
             ? new { memberAllowance = allowance, activeMembers = active }
             : null;
 }
+
+internal sealed class DataFreeProblemDetails : ProblemDetails;

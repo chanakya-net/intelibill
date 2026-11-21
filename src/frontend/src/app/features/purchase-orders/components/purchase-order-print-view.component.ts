@@ -1,3 +1,4 @@
+import { injectScopedPrint } from '../../../core/context/scoped-print';
 import { LocaleBusinessDatePipe } from '../../../shared/pipes/locale-business-date.pipe';
 import {
   ApiErrorMessageService,
@@ -30,6 +31,7 @@ import { PurchaseOrderDetail, PurchaseOrderService } from '../services/purchase-
   styleUrl: './purchase-order-print-view.component.scss',
 })
 export class PurchaseOrderPrintViewComponent {
+  private readonly print = injectScopedPrint();
   private readonly route = inject(ActivatedRoute);
   private readonly purchaseOrderService = inject(PurchaseOrderService);
   private readonly shopService = inject(ShopService);
@@ -47,7 +49,7 @@ export class PurchaseOrderPrintViewComponent {
   }
 
   onPrintAgain(): void {
-    window.print();
+    this.print();
   }
 
   onClose(): void {
@@ -76,7 +78,7 @@ export class PurchaseOrderPrintViewComponent {
         this.order.set(order);
         this.shop.set(shop);
         this.isLoading.set(false);
-        setTimeout(() => window.print());
+        setTimeout(() => this.print());
       },
       error: (error) => {
         const localized = this.apiErrors.resolve(error, {

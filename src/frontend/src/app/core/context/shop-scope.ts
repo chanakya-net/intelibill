@@ -19,7 +19,7 @@ export interface ShopScope extends ScopeOwner {
 }
 
 /** What moved the tab: a credential check, a switch or new shop, a renewal, another tab, or sign-out. */
-export type ScopeChangeReason = 'sign-in' | 'scope' | 'refresh' | 'cross-tab' | 'sign-out';
+export type ScopeChangeReason = 'sign-in' | 'scope' | 'refresh' | 'cross-tab' | 'sign-out' | 'data-access';
 
 export interface ScopeChange {
   readonly previous: ShopScope | null;
@@ -47,4 +47,12 @@ export function sameOwner(left: ScopeOwner | null, right: ScopeOwner | null): bo
 /** A stable storage key for drafts kept per owner. */
 export function ownerKey(owner: ScopeOwner): string {
   return `${owner.userId}|${owner.shopId}`;
+}
+
+export function shopRestrictionKey(owner: ScopeOwner): string {
+  return `intelibill.shopDataRestricted.v1:${ownerKey(owner)}`;
+}
+
+export function shopRestrictionConfirmationKey(owner: ScopeOwner): string {
+  return `${shopRestrictionKey(owner)}:confirmed`;
 }

@@ -66,6 +66,8 @@ builder.Services.AddInfrastructure(configuration);
 builder.Services.AddApplicationModelWarmup();
 builder.Services.AddSignalR();
 builder.Services.AddRealtimeAuthorization();
+builder.Services.AddSingleton<LicenceAuthorityNotifications>();
+builder.Services.AddHostedService(services => services.GetRequiredService<LicenceAuthorityNotifications>());
 builder.Services.AddWolverineHttp();
 builder.Services.AddProductionWolverineCodeGeneration();
 

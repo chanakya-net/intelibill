@@ -65,7 +65,10 @@ const CONTENT_TYPES: Readonly<Record<string, string>> = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
-export async function startReleaseServer(root: string): Promise<ReleaseServer> {
+export async function startReleaseServer(
+  root: string,
+  handleApi?: (request: http.IncomingMessage, response: http.ServerResponse, url: URL) => Promise<boolean>,
+): Promise<ReleaseServer> {
   const requests: RecordedRequest[] = [];
   const timers = new Set<NodeJS.Timeout>();
   let legacyManifest: object | null = null;
@@ -126,6 +129,8 @@ export async function startReleaseServer(root: string): Promise<ReleaseServer> {
     if (url.pathname === '/api/ping') {
       return send(res, 200, JSON.stringify({ serverTime: new Date().toISOString() }), CONTENT_TYPES['.json'], 'no-store');
     }
+
+    if (url.pathname.startsWith('/api/') && handleApi && await handleApi(req, res, url)) return;
 
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/hubs/')) {
       return send(res, 401, JSON.stringify({ code: 'Auth.Unauthorized' }), 'application/problem+json', 'no-store');

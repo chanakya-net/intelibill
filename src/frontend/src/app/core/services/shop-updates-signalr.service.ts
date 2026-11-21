@@ -19,11 +19,10 @@ export class ShopUpdatesSignalRService extends RealtimeHubConnection<ShopUpdateP
 
   private readonly updateSubject = new Subject<ShopUpdatePayload>();
 
+  readonly authorityChanged$ = this.updateSubject.pipe(filter((event) => event.eventType === 'LicenceAuthorityChanged'));
+
   readonly updates$: Observable<ShopUpdatePayload> = this.updateSubject.asObservable().pipe(
-    filter(() => {
-      const session = this.authService.session();
-      return !!session?.activeShopId;
-    }),
+    filter((event) => event.eventType !== 'LicenceAuthorityChanged' && !!this.authService.session()?.activeShopId),
   );
 
   protected override handle(payload: ShopUpdatePayload): void {

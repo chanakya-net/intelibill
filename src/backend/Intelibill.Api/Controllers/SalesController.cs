@@ -76,7 +76,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
         Response.ContentType = "application/x-ndjson; charset=utf-8";
         Response.Headers.CacheControl = "no-store";
 
-        var count = 0;
+        var buffer = new NdjsonResponseBuffer(Response);
         try
         {
             await foreach (var record in _offlineSnapshotStreamingService.StreamAsync(
@@ -85,19 +85,17 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                                startedAt,
                                cancellationToken))
             {
-                var line = JsonSerializer.Serialize(record, record.GetType(), NdjsonOptions) + "\n";
-                await Response.WriteAsync(line, cancellationToken);
-                count++;
-                if (count == 1 || count % 50 == 0)
-                    await Response.Body.FlushAsync(cancellationToken);
+                var line = JsonSerializer.Serialize(record, record.GetType(), NdjsonOptions);
+                await buffer.WriteAsync(line, cancellationToken);
             }
-            await Response.Body.FlushAsync(cancellationToken);
+            await buffer.FlushAsync(cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // client cancelled
         }
-        catch (Exception exception) when ((count > 0 || Response.HasStarted) && !cancellationToken.IsCancellationRequested)
+        catch (Exception exception) when (exception is not SuspensionResponseStoppedException &&
+            (buffer.HasFlushed || Response.HasStarted) && !cancellationToken.IsCancellationRequested)
         {
             // Records are already on the wire, so the status can no longer say this failed. The
             // framed error record says it instead, and no complete record follows, so the client

@@ -1,3 +1,4 @@
+using System.Data;
 using ErrorOr;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
@@ -8,6 +9,7 @@ using Intelibill.Domain.Policies;
 using Intelibill.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using LicenceErrors = Intelibill.Application.Common.Errors.Errors.Licence;
 
 namespace Intelibill.Infrastructure.Licensing;
 
@@ -32,14 +34,52 @@ internal sealed class SuspensionAccessReader(ApplicationDbContext db, ILicenceAc
         return await ReadActiveShopDenialAsync(shopId, action, ct);
     }
 
-    public async Task<bool> CanReceiveRealtimeAsync(Guid shopId, CancellationToken ct)
+    public async Task<Error?> DeliverAsync(Guid shopId, SessionClaims? session, Func<CancellationToken, Task> deliver, CancellationToken ct,
+        LicenceAction action = LicenceAction.History, Func<CancellationToken, Task>? prepare = null)
     {
-        // A notifier can run outside a request or while its publisher owns a transaction.
+        // Neither a source transaction nor a streaming query can share this connection.
         await using var reader = services.CreateAsyncScope();
-        var context = reader.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        await using var transaction = await context.Database.BeginTransactionAsync(ct);
-        await reader.ServiceProvider.GetRequiredService<ITenantWriteScope>().EnterAsync(shopId, ct);
-        return await ReadScopedDenialAsync(context, shopId, LicenceAction.History, ct) is null;
+        var provider = reader.ServiceProvider;
+        var context = provider.GetRequiredService<ApplicationDbContext>();
+        await using var transaction = await context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+        if (session is not null && await ReadAuthorityDenialAsync(provider, context, session, shopId, ct) is { } denied)
+            return denied;
+
+        await provider.GetRequiredService<ITenantWriteScope>().EnterAsync(shopId, ct);
+        var lease = await provider.GetRequiredService<IShopLicenceFence>().EnterAsync(shopId, action, ct);
+        if (lease.IsError)
+            return lease.FirstError;
+
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        budget.CancelAfter(TimeSpan.FromSeconds(2));
+        if (session is not null &&
+            await ReadAuthorityDenialAsync(provider, context, session, shopId, budget.Token) is { } revoked)
+            return revoked;
+
+        if (lease.Value.CurrentDecision() is { Enforced: true, Denial: { } refusal })
+            return refusal;
+
+        if (prepare is not null)
+        {
+            await prepare(budget.Token);
+            // A scheduled restriction may become effective while live recipient authority is read.
+            if (lease.Value.CurrentDecision() is { Enforced: true, Denial: { } effective })
+                return effective;
+        }
+
+        await deliver(budget.Token);
+        return null;
+    }
+
+    private static async Task<Error?> ReadAuthorityDenialAsync(IServiceProvider provider,
+        ApplicationDbContext context, SessionClaims session, Guid shopId, CancellationToken ct)
+    {
+        if (!await provider.GetRequiredService<ILiveSessionAuthority>().IsValidAsync(session, ct))
+            return Error.Unauthorized("Auth.SessionInvalid", "The session is no longer valid.");
+        if (session.ActiveShopId == shopId || await context.ShopMemberships.AnyAsync(row =>
+            row.UserId == session.UserId && row.ShopId == shopId && row.Status == MembershipStatus.Active, ct))
+            return null;
+        return Error.Forbidden("Shop.AccessDenied", "You do not have access to this shop.");
     }
 
     private async Task<Error?> ReadScopedDenialAsync(ApplicationDbContext context, Guid shopId, LicenceAction action, CancellationToken ct)

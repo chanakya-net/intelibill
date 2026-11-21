@@ -81,7 +81,11 @@ public sealed partial class P0408dLicensingTests
         }
 
         using var written = await writing;
-        await ReadSuccessAsync(written);
+        // The update's transaction wins. Revocation may still commit before its separate response handoff.
+        if (written.StatusCode == HttpStatusCode.ServiceUnavailable)
+            await AssertProblemAsync(written, HttpStatusCode.ServiceUnavailable, "Licence.DeliveryUnconfirmed");
+        else
+            await ReadSuccessAsync(written);
         using var revoked = await revoking;
         Assert.True(revoked.IsSuccessStatusCode, $"Revocation answered {(int)revoked.StatusCode}.");
         Assert.Equal(new ExpiryFacts(before.Version + 1, before.Revisions + 1), await ExpiryFactsAsync(shop));

@@ -2,10 +2,11 @@ import { TestBed } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
+import { stubMemoryStorage } from '../../features/billing/billing.test-utils';
 import { AppReloadService } from '../services/app-reload.service';
 import { ShopContextActions, scopeResetMetaReducer } from './shop-context.actions';
 import { RESTART_SAVE_WAIT_MS, ShopContextService } from './shop-context.service';
-import { ScopeChange } from './shop-scope';
+import { ScopeChange, shopRestrictionConfirmationKey, shopRestrictionKey } from './shop-scope';
 
 const A = { userId: 'user-1', shopId: 'shop-a' };
 const B = { userId: 'user-1', shopId: 'shop-b' };
@@ -30,6 +31,76 @@ describe('ShopContextService', () => {
     service.initialize(initial);
     return service;
   }
+
+  it('invalidates the same owner once per observed access change and rejects stale decisions', () => {
+    const service = create({ ...A, shopId: 'restricted-shop' });
+    const initial = service.scope()!;
+    const detach = vi.fn();
+    service.onDetach(detach);
+
+    expect(service.setDataRestricted(initial, true)).toBe(true);
+    const restricted = service.scope()!;
+    expect(service.dataRestricted()).toBe(true);
+    expect(service.isCurrent(initial)).toBe(true);
+    expect(service.setDataRestricted(restricted, true)).toBe(false);
+    expect(service.setDataRestricted(initial, false)).toBe(false);
+    expect(service.setDataRestricted(restricted, false)).toBe(true);
+    expect(service.epoch()).toBe(2);
+    expect(detach).toHaveBeenCalledTimes(2);
+    expect(appReload.restartAtAppRoot).not.toHaveBeenCalled();
+  });
+
+  it('keeps newer shared denial evidence and waits for local confirmation of release', () => {
+    const owner = { ...A, shopId: 'shared-restriction' };
+    const marker = shopRestrictionKey(owner);
+    const storage = stubMemoryStorage();
+    try {
+      const service = create(owner);
+      service.setDataRestricted(service.scope()!, true);
+      const oldRead = service.observeDataAuthority(service.scope()!);
+
+      // A sibling received a newer denial. Its storage event has not reached this tab yet.
+      storage.set(marker, 'newer-denial');
+      oldRead(false);
+      expect(service.dataRestricted()).toBe(true);
+      expect(storage.get(marker)).toBe('newer-denial');
+
+      service.applyRestrictionNotice(service.scope()!);
+      const beforeRemoval = service.observeDataAuthority(service.scope()!);
+      storage.delete(marker);
+      beforeRemoval(false);
+      expect(service.dataRestricted()).toBe(true);
+
+      service.observeDataAuthority(service.scope()!)(false);
+      expect(service.dataRestricted()).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('confirms only the observed marker when a sibling denial races release', () => {
+    const owner = { ...A, shopId: 'release-race' };
+    const marker = shopRestrictionKey(owner);
+    const confirmation = shopRestrictionConfirmationKey(owner);
+    const storage = stubMemoryStorage();
+    try {
+      storage.set(marker, 'old-denial');
+      const service = create(owner);
+      const decision = service.observeDataAuthority(service.scope()!);
+      vi.spyOn(localStorage, 'setItem').mockImplementation((key, value) => {
+        storage.set(marker, 'new-denial');
+        storage.set(key, value);
+      });
+
+      decision(false);
+
+      expect(storage.get(confirmation)).toBe('old-denial');
+      expect(storage.get(marker)).toBe('new-denial');
+      expect(service.dataRestricted()).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 
   it('installs credentials without moving the epoch when the owner stays the same', () => {
     const service = create();

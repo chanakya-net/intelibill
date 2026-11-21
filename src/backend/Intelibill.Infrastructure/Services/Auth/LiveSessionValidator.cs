@@ -23,55 +23,27 @@ public sealed class LiveSessionValidator(
         var now = clock.GetUtcNow();
         var epoch = await recoveryEpochs.GetCurrentAsync(cancellationToken);
 
-        // A session whose account has moved to a new security version, or that was stamped under a
-        // different recovery epoch, is already gone without anything having had to find and rewrite
-        // the row.
-        var sessionIsLive = await db.AuthSessions
-            .AsNoTracking()
-            .AnyAsync(
-                s => s.Id == claims.SessionId
-                    && s.UserId == claims.UserId
-                    && s.RevokedAt == null
-                    && s.ExpiresAt > now
-                    && s.SecurityVersion == claims.SecurityVersion
-                    && s.RecoveryEpoch == epoch
-                    // The shop the token names must be the shop the device is in. Without this a
-                    // tab left open before a switch would go on recording sales against the
-                    // previous shop for the rest of the token's life, which in a billing system is
-                    // the wrong shop's books. The scope version is deliberately not compared, so a
-                    // client holding more than one token for the shop it is actually in keeps all
-                    // of them working.
-                    && s.ActiveShopId == claims.ActiveShopId,
-                cancellationToken);
+        // Judge the device, user and membership in one PostgreSQL statement. In addition to
+        // avoiding round trips during transport handoffs, all three facts use the same snapshot.
+        var sessions = db.AuthSessions.Where(session => session.Id == claims.SessionId &&
+            session.UserId == claims.UserId && session.RevokedAt == null && session.ExpiresAt > now &&
+            session.SecurityVersion == claims.SecurityVersion && session.RecoveryEpoch == epoch &&
+            session.ActiveShopId == claims.ActiveShopId &&
+            db.Users.Any(user => user.Id == session.UserId && user.SecurityVersion == claims.SecurityVersion &&
+                user.IsLoginEnabled && (user.Email == null || user.IsEmailVerified)));
 
-        if (!sessionIsLive)
-            return false;
+        // Scope version is deliberately omitted. Multiple valid tokens for the device's current
+        // shop remain usable, while a token for a previously active shop fails the check above.
+        if (claims.ActiveShopId is { } shopId)
+        {
+            if (!Enum.TryParse<ShopRole>(claims.ActiveShopRole, ignoreCase: true, out var role))
+                return false;
 
-        var accountIsLive = await db.Users.AsNoTracking().AnyAsync(
-            u => u.Id == claims.UserId
-                && u.SecurityVersion == claims.SecurityVersion
-                && u.IsLoginEnabled
-                && (u.Email == null || u.IsEmailVerified),
-            cancellationToken);
+            sessions = sessions.Where(session => db.ShopMemberships.Any(membership =>
+                membership.UserId == session.UserId && membership.ShopId == shopId &&
+                membership.Status == MembershipStatus.Active && membership.Role == role));
+        }
 
-        if (!accountIsLive)
-            return false;
-
-        if (claims.ActiveShopId is null)
-            return true;
-
-        if (!Enum.TryParse<ShopRole>(claims.ActiveShopRole, ignoreCase: true, out var claimedRole))
-            return false;
-
-        // The role is checked live rather than trusted from the claim. Suspending or removing one
-        // membership therefore ends access to that shop at once while the same account's sessions
-        // scoped to its other shops keep working, and an Owner or Manager role recorded in an older
-        // token cannot authorize anything after the membership that granted it changed.
-        return await db.ShopMemberships.AsNoTracking().AnyAsync(
-            sm => sm.UserId == claims.UserId
-                && sm.ShopId == claims.ActiveShopId.Value
-                && sm.Status == MembershipStatus.Active
-                && sm.Role == claimedRole,
-            cancellationToken);
+        return await sessions.AnyAsync(cancellationToken);
     }
 }

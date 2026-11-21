@@ -1,3 +1,4 @@
+import { injectScopedPrint } from '../../../core/context/scoped-print';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { problemCode } from '@intelibill/api';
@@ -88,6 +89,7 @@ export function validCreditAmount(amount: unknown): boolean {
   styleUrl: './supplier-return-page.component.scss',
 })
 export class SupplierReturnPageComponent implements OnInit {
+  private readonly printCurrent = injectScopedPrint();
   private readonly destroyRef = inject(DestroyRef);
   readonly hasMoreHistory = signal(false);
   private historyPage = 1;
@@ -791,6 +793,6 @@ export class SupplierReturnPageComponent implements OnInit {
     } else await this.refreshAndRestore(view);
   }
   print() {
-    window.print();
+    this.printCurrent();
   }
 }

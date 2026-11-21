@@ -1,3 +1,4 @@
+import { observeShopDataRefusal } from '../../../core/context/shop-data-response';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { isOfflineSalesSnapshotMetadata, hasOfflineExpiryAuthority } from '../utils/offline-sales-snapshot.schema';
 import { Injectable } from '@angular/core';
@@ -56,26 +57,35 @@ export class OfflineSalesSnapshotSyncService {
     let authority = false;
     let catalogVersion = 0;
     const invocation = this.context.scope();
-    if (!invocation || invocation.shopId !== shopId) return;
+    if (!invocation || invocation.shopId !== shopId || this.context.dataRestricted()) return;
     const epoch = this.context.epoch();
-    const ensureScope = () => { if (this.context.epoch() !== epoch || !this.context.isCurrent(invocation)) throw new Error('Snapshot scope changed.'); };
+    const abort = new AbortController();
+    const unregister = this.context.onDetach(() => abort.abort());
+    const ensureScope = () => {
+      if (this.context.epoch() !== epoch || !this.context.isCurrent(invocation) || this.context.dataRestricted())
+        throw new Error('Snapshot scope changed.');
+    };
     const received = { batchCount: 0, customerCount: 0, discountRuleCount: 0, activeLeaseCount: 0, serviceCount: 0 };
     const seen = new Set<string>();
     const promote = async (value: Extract<OfflineSnapshotStreamRecord, { type: 'complete' }>['complete']) => {
       ensureScope();
       if (!authority || value.snapshotId !== snapshotId || Object.entries(received).some(([key, count]) => value[key as keyof typeof received] !== count)) throw new Error('Incomplete snapshot record counts.');
-      await this.snapshotDb.markComplete(snapshotId!, shopId, value.completedAt);
+      await this.snapshotDb.markComplete(snapshotId!, shopId, value.completedAt, abort.signal);
     };
 
     try {
       const response = await fetch(withServiceWorkerBypassQuery(SALE_ENDPOINTS.offlineSnapshotStream), {
         cache: 'no-store',
+        signal: abort.signal,
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok || !response.body) {
+      ensureScope();
+      if (!response.ok) {
+        await observeShopDataRefusal(response, this.context, invocation);
         return;
       }
+      if (!response.body) return;
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -84,6 +94,7 @@ export class OfflineSalesSnapshotSyncService {
 
       while (true) {
         const { done, value } = await reader.read();
+        ensureScope();
 
         if (done) {
           buffer += decoder.decode();
@@ -193,11 +204,14 @@ export class OfflineSalesSnapshotSyncService {
           'Stream ended before complete record.'
         );
       }
-    } catch (error) {
+    } catch {
       if (snapshotId) {
         const message = 'Snapshot stream could not be verified. Refresh online.';
         await this.snapshotDb.markFailed(snapshotId, shopId, 'OfflineSnapshot.StreamFailed', message);
       }
+    } finally {
+      unregister();
+      abort.abort();
     }
   }
 }

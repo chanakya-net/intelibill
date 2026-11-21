@@ -24,7 +24,17 @@ public abstract class RealtimeHubContractTests<THub>
     private static ISuspensionAccessReader PermittedSuspensions()
     {
         var reader = Substitute.For<ISuspensionAccessReader>();
-        reader.CanReceiveRealtimeAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(true);
+        reader.DeliverAsync(Arg.Any<Guid>(), Arg.Any<Intelibill.Application.Common.Security.SessionClaims?>(),
+                Arg.Any<Func<CancellationToken, Task>>(), Arg.Any<CancellationToken>(),
+                Arg.Any<LicenceAction>(), Arg.Any<Func<CancellationToken, Task>?>())
+            .Returns(async call =>
+            {
+                var ct = call.Arg<CancellationToken>();
+                if (call.ArgAt<Func<CancellationToken, Task>?>(5) is { } prepare)
+                    await prepare(ct);
+                await call.ArgAt<Func<CancellationToken, Task>>(2)(ct);
+                return (ErrorOr.Error?)null;
+            });
         return reader;
     }
 

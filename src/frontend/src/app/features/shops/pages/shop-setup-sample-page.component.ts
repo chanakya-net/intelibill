@@ -1,3 +1,4 @@
+import { injectScopedPrint } from '../../../core/context/scoped-print';
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
@@ -22,6 +23,7 @@ import { ShopSetupService } from '../services/shop-setup.service';
   styleUrl: './shop-setup-sample-page.component.scss',
 })
 export class ShopSetupSamplePageComponent {
+  private readonly printCurrent = injectScopedPrint();
   private readonly service = inject(ShopSetupService);
   private readonly context = inject(ShopContextService);
   private readonly destroyRef = inject(DestroyRef);
@@ -118,7 +120,7 @@ export class ShopSetupSamplePageComponent {
   }
 
   print(): void {
-    if (this.sample()) window.print();
+    if (this.sample()) this.printCurrent();
   }
 
   private loadPreferences(scope: ShopScope): void {

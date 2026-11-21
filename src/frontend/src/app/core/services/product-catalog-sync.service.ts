@@ -3,6 +3,7 @@ import { Injectable, effect, inject, signal } from '@angular/core';
 import { AuthService } from '../auth/auth.service';
 import { ITEM_ENDPOINTS } from '../auth/auth.constants';
 import { ShopContextService } from '../context/shop-context.service';
+import { observeShopDataRefusal } from '../context/shop-data-response';
 import { withServiceWorkerBypassQuery } from '../service-worker/service-worker-bypass';
 import {
   ProductCatalogEntry,
@@ -17,40 +18,45 @@ export class ProductCatalogSyncService {
   private readonly catalogDb = inject(ProductCatalogIndexedDbService);
   private readonly shopContext = inject(ShopContextService);
 
+  private catalogEpoch = -1;
   readonly catalogEntries = signal<readonly ProductCatalogEntry[]>([]);
 
   constructor() {
     effect(() => {
       const shopId = this.authService.session()?.activeShopId ?? null;
-      if (!shopId) {
-        this.catalogEntries.set([]);
-        return;
-      }
-      void this.syncForShop(shopId);
+      this.shopContext.scope();
+      const restricted = this.shopContext.dataRestricted();
+      const epoch = this.shopContext.epoch();
+      if (epoch !== this.catalogEpoch || !shopId || restricted) this.catalogEntries.set([]);
+      this.catalogEpoch = epoch;
+      if (shopId && !restricted) void this.syncForShop(shopId);
     });
   }
 
   filterByName(query: string): ProductCatalogEntry[] {
-    if (!query) return [];
+    if (!query || this.shopContext.dataRestricted()) return [];
     const q = query.toLowerCase();
     return this.catalogEntries().filter((e) => e.name.toLowerCase().includes(q));
   }
 
   filterByBarcode(query: string): ProductCatalogEntry[] {
-    if (!query) return [];
+    if (!query || this.shopContext.dataRestricted()) return [];
     const q = query.toLowerCase();
     return this.catalogEntries().filter((e) => e.barcode.toLowerCase().startsWith(q));
   }
 
   findByName(name: string): ProductCatalogEntry | undefined {
+    if (this.shopContext.dataRestricted()) return undefined;
     return this.catalogEntries().find((e) => e.name === name);
   }
 
   findByBarcode(barcode: string): ProductCatalogEntry | undefined {
+    if (this.shopContext.dataRestricted()) return undefined;
     return this.catalogEntries().find((e) => e.barcode === barcode);
   }
 
   upsertEntry(entry: ProductCatalogEntry): void {
+    if (this.shopContext.dataRestricted()) return;
     const current = this.catalogEntries();
     const idx = current.findIndex((e) => e.barcode === entry.barcode);
     const updated =
@@ -72,7 +78,8 @@ export class ProductCatalogSyncService {
    */
   private async syncForShop(shopId: string): Promise<void> {
     const epoch = this.shopContext.epoch();
-    const scopeMoved = (): boolean => this.shopContext.epoch() !== epoch;
+    const invocation = this.shopContext.scope();
+    const scopeMoved = (): boolean => this.shopContext.epoch() !== epoch || this.shopContext.dataRestricted();
 
     try {
       // Load stale cache first so autocomplete works instantly while stream loads
@@ -96,7 +103,11 @@ export class ProductCatalogSyncService {
         void response.body?.cancel();
         return;
       }
-      if (!response.ok || !response.body) return;
+      if (!response.ok) {
+        await observeShopDataRefusal(response, this.shopContext, invocation);
+        return;
+      }
+      if (!response.body) return;
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
