@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -24,7 +25,9 @@ public sealed class CreateAdjustmentCommandHandler(
     IItemRepository itemRepository,
     IShopRepository shopRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
-    IBusinessClock businessClock)
+    IBusinessClock businessClock,
+    IShopLicenceFence licenceFence,
+    ILiveSessionAuthority sessions)
 {
     private static readonly CreateAdjustmentCommandValidator Validator = new();
 
@@ -46,7 +49,7 @@ public sealed class CreateAdjustmentCommandHandler(
             return Errors.Auth.UserNotFound;
 
         var actorMembership = actor.ShopMemberships.FirstOrDefault(sm => sm.ShopId == command.ActiveShopId);
-        if (actorMembership is null)
+        if (actorMembership is null || !actorMembership.IsActive)
             return Errors.Shop.MembershipNotFound;
 
         if (actorMembership.Role is not (ShopRole.Owner or ShopRole.Manager))
@@ -63,16 +66,41 @@ public sealed class CreateAdjustmentCommandHandler(
             cancellationToken);
     }
 
+    private async Task<Error?> CheckAuthorityAsync(CreateAdjustmentCommand command, CancellationToken ct)
+    {
+        if (command.Session is { } session &&
+            (session.UserId != command.ActorUserId || session.ActiveShopId != command.ActiveShopId ||
+             !await sessions.IsValidAsync(session, ct)))
+            return Errors.Auth.SessionInvalidated;
+
+        return await shopRepository.GetActiveRoleAsync(command.ActorUserId, command.ActiveShopId, ct) switch
+        {
+            ShopRole.Owner or ShopRole.Manager => null,
+            null => Errors.Shop.MembershipNotFound,
+            _ => Errors.Inventory.UserIsNotOwnerOrManager,
+        };
+    }
+
     private async Task<ErrorOr<InventoryAdjustmentResultDto>> CreateAsync(
         CreateAdjustmentCommand command,
         Shop shop,
         DateTimeOffset performedAt,
         CancellationToken cancellationToken)
     {
+        var licence = await licenceFence.EnterAsync(command.ActiveShopId, LicenceAction.GeneralStock, cancellationToken);
+        if (licence.IsError)
+            return licence.Errors;
+        if (licence.Value.CurrentDecision().EnforcedDenial() is { } denied)
+            return denied;
+        if (await CheckAuthorityAsync(command, cancellationToken) is { } admissionDenied)
+            return admissionDenied;
+
         var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
             command.ActiveShopId,
             businessClock.GetBusinessDate(performedAt, shop.BusinessTimeZoneId),
             cancellationToken);
+        if (licence.Value.CurrentDecision().EnforcedDenial() is { } periodDenial)
+            return periodDenial;
         if (fence.IsError)
             return fence.Errors;
 
@@ -156,6 +184,11 @@ public sealed class CreateAdjustmentCommandHandler(
         inventoryRepository.Update(inventory);
         await stockTransactionRepository.AddAsync(stockTransaction.Value, cancellationToken);
         await inventoryAdjustmentRepository.AddAsync(adjustment.Value, cancellationToken);
+        if (await CheckAuthorityAsync(command, cancellationToken) is { } authorityDenied)
+            return authorityDenied;
+        if (licence.Value.CurrentDecision().EnforcedDenial() is { } saveDenial)
+            return saveDenial;
+
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new InventoryAdjustmentResultDto(

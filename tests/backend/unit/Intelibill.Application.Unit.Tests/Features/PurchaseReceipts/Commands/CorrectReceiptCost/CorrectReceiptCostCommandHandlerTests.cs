@@ -1,3 +1,7 @@
+using System.Linq.Expressions;
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Security;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
@@ -18,7 +22,9 @@ namespace Intelibill.Application.Unit.Tests.Features.PurchaseReceipts.Commands.C
 public sealed class CorrectReceiptCostCommandHandlerTests
 {
     private readonly IPaymentReceiptRepository _paymentReceiptRepository = Substitute.For<IPaymentReceiptRepository>();
-    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
+    private readonly ILiveSessionAuthority _sessions = Substitute.For<ILiveSessionAuthority>();
+    private readonly ISupplierReturnRepository _supplierReturns = Substitute.For<ISupplierReturnRepository>();
+    private ShopRole _role;
     private readonly IPurchaseReceiptValueRepository _receiptRepository = Substitute.For<IPurchaseReceiptValueRepository>();
     private readonly IPurchaseReceiptCostAdjustmentRepository _adjustmentRepository = Substitute.For<IPurchaseReceiptCostAdjustmentRepository>();
     private readonly IInventoryBatchRepository _batchRepository = Substitute.For<IInventoryBatchRepository>();
@@ -37,9 +43,13 @@ public sealed class CorrectReceiptCostCommandHandlerTests
         _batch = InventoryBatch.Create(_shop.Id, Guid.NewGuid(), "B-1", 10m, 100m, 150m, 140m, 0m, false, null, null, _supplierId, _actor.Id).Value;
         _receipt = PurchaseReceiptValue.Create(_shop.Id, _batch.Id, _batch.ItemId, _supplierId, 10m, 1000m, null, DateTimeOffset.UtcNow, _actor.Id).Value;
         _batch.SubtractQuantity(4m, _actor.Id);
-        _userRepository.GetByIdWithDetailsAsync(_actor.Id, Arg.Any<CancellationToken>()).Returns(_actor);
-        _receiptRepository.GetByIdAsync(_receipt.Id, Arg.Any<CancellationToken>()).Returns(_receipt);
-        _batchRepository.GetByIdAsync(_batch.Id, Arg.Any<CancellationToken>()).Returns(_batch);
+        _sessions.IsValidAsync(Arg.Any<SessionClaims>(), Arg.Any<CancellationToken>()).Returns(true);
+        _receiptRepository.FindAsync(Arg.Any<Expression<Func<PurchaseReceiptValue, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(call => new[] { _receipt }.Where(call.Arg<Expression<Func<PurchaseReceiptValue, bool>>>().Compile()).ToArray());
+        _batchRepository.FindAsync(Arg.Any<Expression<Func<InventoryBatch, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(call => new[] { _batch }.Where(call.Arg<Expression<Func<InventoryBatch, bool>>>().Compile()).ToArray());
+        _supplierReturns.GetReceiptsAsync(_shop.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
+            .Returns(new[] { _receipt });
     }
 
     [Fact]
@@ -133,7 +143,8 @@ public sealed class CorrectReceiptCostCommandHandlerTests
         var result = await CreateHandler().HandleAsync(Command(revised) with { Reason = reason }, CancellationToken.None);
 
         Assert.True(result.IsError);
-        await _receiptRepository.DidNotReceive().GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>());
+        await _receiptRepository.DidNotReceive().FindAsync(Arg.Any<Expression<Func<PurchaseReceiptValue, bool>>>(),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -141,18 +152,19 @@ public sealed class CorrectReceiptCostCommandHandlerTests
     {
         UseRole(ShopRole.Owner);
         var foreign = PurchaseReceiptValue.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null, 1m, 10m, null, DateTimeOffset.UtcNow, _actor.Id).Value;
-        _receiptRepository.GetByIdAsync(foreign.Id, Arg.Any<CancellationToken>()).Returns(foreign);
+        _receiptRepository.FindAsync(Arg.Any<Expression<Func<PurchaseReceiptValue, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(call => new[] { foreign }.Where(call.Arg<Expression<Func<PurchaseReceiptValue, bool>>>().Compile()).ToArray());
 
         var result = await CreateHandler().HandleAsync(Command(1100m) with { ReceiptValueId = foreign.Id }, CancellationToken.None);
 
         Assert.Equal(Errors.PurchaseReceipt.NotFound.Code, result.FirstError.Code);
     }
 
-    private void UseRole(ShopRole role) =>
-        _actor.AddShopMembership(ShopMembership.Create(_shop.Id, _actor.Id, role, true));
+    private void UseRole(ShopRole role) => _role = role;
 
     private CorrectReceiptCostCommand Command(decimal revised, uint? expectedVersion = null) =>
-        new(_receipt.Id, _actor.Id, _shop.Id, expectedVersion ?? _receipt.Version, revised, "Supplier invoice", null);
+        new(_receipt.Id, _actor.Id, _shop.Id, expectedVersion ?? _receipt.Version, revised, "Supplier invoice", null,
+            new SessionClaims(_actor.Id, Guid.NewGuid(), 0, 0, _shop.Id, _role.ToString()));
 
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private readonly ISupplierReturnMutationLock _supplierLock = AcquiringSupplierLock();
@@ -212,7 +224,6 @@ public sealed class CorrectReceiptCostCommandHandlerTests
     }
     private CorrectReceiptCostCommandHandler CreateHandler() =>
         new(
-            _userRepository,
             _receiptRepository,
             _adjustmentRepository,
             _batchRepository,
@@ -223,7 +234,10 @@ public sealed class CorrectReceiptCostCommandHandlerTests
             BusinessTestDoubles.AnyShop(),
             _postingPeriods,
             BusinessTestDoubles.RealClock(),
-            _supplierLock);
+            _supplierLock,
+            _supplierReturns,
+            Substitute.For<IShopLicenceFence>(),
+            _sessions);
 
     [Fact]
     public async Task ClosedPeriod_RefusesCorrection_WithoutPostingTheDelta()

@@ -1,5 +1,6 @@
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
+using Intelibill.Application.Common.Security;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.FinancialOperations.Queries.GetFinancialOperation;
 using Microsoft.AspNetCore.Authorization;
@@ -30,7 +31,7 @@ public sealed class FinancialOperationsController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<FinancialOperationDto>>(
-            new GetFinancialOperationQuery(UserId!.Value, ActiveShopId!.Value, operationType, operationKey),
+            new GetFinancialOperationQuery(UserId!.Value, ActiveShopId!.Value, operationType, operationKey, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);

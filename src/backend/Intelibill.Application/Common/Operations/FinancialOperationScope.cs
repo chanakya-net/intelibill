@@ -1,3 +1,4 @@
+using ErrorOr;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Domain.Enums;
 
@@ -7,4 +8,7 @@ namespace Intelibill.Application.Common.Operations;
 public sealed record FinancialOperationScope(Guid ShopId, FinancialOperationType OperationType, string Key)
 {
     public LicenceAction? SuspensionAction { get; init; }
+
+    /// <summary>Live caller authority for a duplicate read, independent of the request hash.</summary>
+    public Func<CancellationToken, Task<Error?>>? RecheckReplayAuthority { get; init; }
 }

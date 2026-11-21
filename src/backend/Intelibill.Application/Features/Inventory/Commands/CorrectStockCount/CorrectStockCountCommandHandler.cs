@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -44,7 +45,9 @@ public sealed class CorrectStockCountCommandHandler(
     IItemRepository itemRepository,
     IShopRepository shopRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
-    IBusinessClock businessClock)
+    IBusinessClock businessClock,
+    IShopLicenceFence licenceFence,
+    ILiveSessionAuthority sessions)
 {
     private static readonly CorrectStockCountCommandValidator Validator = new();
 
@@ -66,19 +69,15 @@ public sealed class CorrectStockCountCommandHandler(
             return Errors.Auth.UserNotFound;
 
         var actorMembership = actor.ShopMemberships.FirstOrDefault(sm => sm.ShopId == command.ActiveShopId);
-        if (actorMembership is null)
+        if (actorMembership is null || !actorMembership.IsActive)
             return Errors.Shop.MembershipNotFound;
 
         if (actorMembership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Inventory.UserIsNotOwnerOrManager;
 
-        var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
-        if (batch is null || batch.ShopId != command.ActiveShopId)
-            return Errors.Inventory.BatchNotFound;
-
         var operationKey = FinancialOperationHasher.NormalizeKey(command.OperationKey);
         if (operationKey is null)
-            return await PostingTransaction.RunAsync(unitOfWork, ct => CountAsync(batch, command, ct), cancellationToken);
+            return await PostingTransaction.RunAsync(unitOfWork, ct => CountAsync(command, ct), cancellationToken);
 
         var requestHash = FinancialOperationHasher.Compute(new StockCountPayload(
             command.BatchId,
@@ -87,19 +86,48 @@ public sealed class CorrectStockCountCommandHandler(
             command.Reason.Trim()));
 
         return await operationExecutor.ExecuteAsync(
-            new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.StockCount, operationKey),
+            new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.StockCount, operationKey)
+            {
+                RecheckReplayAuthority = ct => CheckAuthorityAsync(command, ct),
+            },
             command.ActorUserId,
             command.BatchId,
             requestHash,
-            ct => CountAsync(batch, command, ct),
+            ct => CountAsync(command, ct),
             cancellationToken);
     }
 
+    private async Task<Error?> CheckAuthorityAsync(CorrectStockCountCommand command, CancellationToken ct)
+    {
+        if (command.Session is { } session &&
+            (session.UserId != command.ActorUserId || session.ActiveShopId != command.ActiveShopId ||
+             !await sessions.IsValidAsync(session, ct)))
+            return Errors.Auth.SessionInvalidated;
+
+        return await shopRepository.GetActiveRoleAsync(command.ActorUserId, command.ActiveShopId, ct) switch
+        {
+            ShopRole.Owner or ShopRole.Manager => null,
+            null => Errors.Shop.MembershipNotFound,
+            _ => Errors.Inventory.UserIsNotOwnerOrManager,
+        };
+    }
+
     private async Task<ErrorOr<StockCountResultDto>> CountAsync(
-        InventoryBatch batch,
         CorrectStockCountCommand command,
         CancellationToken cancellationToken)
     {
+        var licence = await licenceFence.EnterAsync(command.ActiveShopId, LicenceAction.GeneralStock, cancellationToken);
+        if (licence.IsError)
+            return licence.Errors;
+        if (licence.Value.CurrentDecision().EnforcedDenial() is { } denied)
+            return denied;
+        if (await CheckAuthorityAsync(command, cancellationToken) is { } admissionDenied)
+            return admissionDenied;
+
+        var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
+        if (batch is null || batch.ShopId != command.ActiveShopId)
+            return Errors.Inventory.BatchNotFound;
+
         var shop = await shopRepository.GetByIdAsync(command.ActiveShopId, cancellationToken);
         if (shop is null)
             return Errors.Shop.ShopNotFound;
@@ -108,6 +136,8 @@ public sealed class CorrectStockCountCommandHandler(
             command.ActiveShopId,
             businessClock.Today(shop.BusinessTimeZoneId),
             cancellationToken);
+        if (licence.Value.CurrentDecision().EnforcedDenial() is { } periodDenial)
+            return periodDenial;
         if (fence.IsError)
             return fence.Errors;
 
@@ -173,6 +203,11 @@ public sealed class CorrectStockCountCommandHandler(
         }
 
         await stockCountRepository.AddAsync(count.Value, cancellationToken);
+
+        if (await CheckAuthorityAsync(command, cancellationToken) is { } authorityDenied)
+            return authorityDenied;
+        if (licence.Value.CurrentDecision().EnforcedDenial() is { } saveDenial)
+            return saveDenial;
 
         try
         {

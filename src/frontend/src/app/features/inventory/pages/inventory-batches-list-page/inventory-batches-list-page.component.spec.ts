@@ -1,6 +1,10 @@
 import { knownExpiryPolicyProviders } from '../../../../../tests/expiry/expiry-policy.providers';
 import { provideRouter } from '@angular/router';
 import { signal } from '@angular/core';
+import { IDBFactory } from 'fake-indexeddb';
+import { HttpErrorResponse } from '@angular/common/http';
+import { ShopContextService } from '../../../../core/context/shop-context.service';
+import { OperatingAccessHintService } from '../../../billing/status/operating-access-hint.service';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
@@ -20,6 +24,7 @@ describe('InventoryBatchesListPageComponent', () => {
   let fixture: ComponentFixture<InventoryBatchesListPageComponent>;
   let httpMock: HttpTestingController;
   const isOwner = signal(true);
+  const scope = { userId: 'u1', shopId: 's1', epoch: 1 };
 
   const mockBatches: InventoryBatchDto[] = [
     {
@@ -53,6 +58,7 @@ describe('InventoryBatchesListPageComponent', () => {
   ];
 
   beforeEach(async () => {
+    vi.stubGlobal('indexedDB', new IDBFactory());
     const suppliersFacadeMock = {
       suppliers: () => [],
       load: vi.fn(),
@@ -72,10 +78,12 @@ describe('InventoryBatchesListPageComponent', () => {
         ...knownExpiryPolicyProviders(),provideRouter([]),
         MessageService,
         { provide: SuppliersFacade, useValue: suppliersFacadeMock },
+        { provide: ShopContextService, useValue: { scope: signal(scope) } },
         { provide: ShopPermissionsService, useValue: { isOwnerOfActiveShop: isOwner } },
       ],
     }).compileComponents();
 
+    vi.spyOn(TestBed.inject(OperatingAccessHintService), 'refresh').mockResolvedValue(false);
     isOwner.set(true);
     fixture = TestBed.createComponent(InventoryBatchesListPageComponent);
     component = fixture.componentInstance;
@@ -84,6 +92,7 @@ describe('InventoryBatchesListPageComponent', () => {
 
   afterEach(() => {
     httpMock.verify();
+    vi.unstubAllGlobals();
   });
 
   it('rejects tax rates above one hundred when editing a batch', () => {
@@ -542,11 +551,21 @@ describe('InventoryBatchesListPageComponent', () => {
 
   describe('receipt cost correction', () => {
     const correctionUrl = `${API_BASE_URL}/inventory/receipts/r1/cost-corrections`;
+    const nextCorrection = () => vi.waitFor(() => httpMock.expectOne(correctionUrl));
+    const response = {
+      adjustmentId: 'a0000000-0000-4000-8000-000000000001',
+      supplierLedgerEntryId: 'a0000000-0000-4000-8000-000000000002',
+      receiptValueId: 'r1', batchId: 'b1', priorTotalCost: 1000, revisedTotalCost: 1100,
+      delta: 100, receiptVersion: 8, performedAt: '2026-11-21T01:00:00Z',
+    };
 
-    it('posts the revised total against the receipt version with a keyed operation', () => {
+    it('posts the signed delta with a keyed operation under ordinary expiry', async () => {
       fixture.detectChanges();
       httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
       const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      TestBed.inject(OperatingAccessHintService).reportRefusal(
+        new HttpErrorResponse({ status: 403, error: { code: 'Licence.Expired' } }), scope,
+      );
 
       component.onBatchTableAction({ action: 'correctCost', batchId: 'b1' });
       expect(component.isCostCorrectionDialogOpen()).toBe(true);
@@ -561,9 +580,9 @@ describe('InventoryBatchesListPageComponent', () => {
       });
       expect(component.costCorrectionPreview()?.deltaText).toMatch(/^\+.*100\.00$/);
 
-      component.onSaveCostCorrection();
+      const saved = component.onSaveCostCorrection();
 
-      const req = httpMock.expectOne(correctionUrl);
+      const req = await nextCorrection();
       expect(req.request.method).toBe('POST');
       expect(req.request.body).toEqual(
         expect.objectContaining({ expectedVersion: 7, revisedTotalCost: 1100, reason: 'Invoice revised' }),
@@ -572,49 +591,71 @@ describe('InventoryBatchesListPageComponent', () => {
         ['expectedVersion', 'operationKey', 'reason', 'revisedTotalCost'],
       );
       expect(req.request.body.operationKey).toMatch(/^receipt-cost-/);
-      req.flush({ delta: 100, receiptVersion: 8 });
+      req.flush(response);
+      await saved;
 
-      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`);
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
       expect(component.isCostCorrectionDialogOpen()).toBe(false);
       expect(add).toHaveBeenCalledWith(
         expect.objectContaining({ summary: expect.stringContaining('inventory.receiptCostCorrected') }),
       );
     });
 
-    it('resends an unchanged correction with the same key and a changed one with a new key', () => {
+    it('shows a distinct source chronology refusal and keeps the entered fields', async () => {
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
+      component.onCorrectReceiptCost(mockBatches[0]);
+      component.costCorrectionForm.setValue({ revisedTotalCost: 1100, reason: 'Invoice revised' });
+      const saved = component.onSaveCostCorrection();
+      (await nextCorrection()).flush(
+        { code: 'PurchaseReceipt.SourceIneligible' }, { status: 409, statusText: 'Conflict' },
+      );
+      await saved;
+      expect(add).toHaveBeenCalledWith(expect.objectContaining({
+        summary: expect.stringContaining('inventory.receiptCostSourceIneligible'),
+      }));
+      expect(component.costCorrectionForm.getRawValue()).toEqual({ revisedTotalCost: 1100, reason: 'Invoice revised' });
+    });
+
+    it('recovers a lost response using the frozen key and body after an explicit miss', async () => {
       fixture.detectChanges();
       httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
       component.onCorrectReceiptCost(mockBatches[0]);
       component.costCorrectionForm.setValue({ revisedTotalCost: 1100, reason: 'Invoice revised' });
 
-      component.onSaveCostCorrection();
-      const first = httpMock.expectOne(correctionUrl);
-      const firstKey = first.request.body.operationKey;
+      const sending = component.onSaveCostCorrection();
+      const first = await nextCorrection();
+      const frozen = first.request.body;
       first.error(new ProgressEvent('error'));
-
-      component.onSaveCostCorrection();
-      const resend = httpMock.expectOne(correctionUrl);
-      expect(resend.request.body.operationKey).toBe(firstKey);
-      resend.error(new ProgressEvent('error'));
+      await sending;
 
       component.costCorrectionForm.controls.revisedTotalCost.setValue(1050);
-      component.onSaveCostCorrection();
-      const changed = httpMock.expectOne(correctionUrl);
-      expect(changed.request.body.operationKey).not.toBe(firstKey);
-      changed.error(new ProgressEvent('error'));
+      await component.onSaveCostCorrection();
+      httpMock.expectNone(correctionUrl);
+
+      const recovering = component.onRecoverCostCorrection(component.pendingCostCorrections()[0]);
+      const lookup = await vi.waitFor(() => httpMock.expectOne(
+        `${API_BASE_URL}/financial-operations/receipt-cost-correction/${frozen.operationKey}`,
+      ));
+      lookup.flush({ code: 'Operation.NotFound' }, { status: 404, statusText: 'Not Found' });
+      const resend = await nextCorrection();
+      expect(resend.request.body).toEqual(frozen);
+      resend.flush(response);
+      await recovering;
+      httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
+      await vi.waitFor(() => expect(component.pendingCostCorrections()).toEqual([]));
     });
 
-    it('on a receipt version conflict closes, refreshes and never resends', () => {
+    it('on a receipt version conflict closes, refreshes and never resends', async () => {
       fixture.detectChanges();
       httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
       const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
       component.onCorrectReceiptCost(mockBatches[0]);
       component.costCorrectionForm.setValue({ revisedTotalCost: 900, reason: 'Credit note' });
 
-      component.onSaveCostCorrection();
-      httpMock
-        .expectOne(correctionUrl)
-        .flush({ title: 'PurchaseReceipt.VersionConflict' }, { status: 409, statusText: 'Conflict' });
+      const saved = component.onSaveCostCorrection();
+      (await nextCorrection()).flush({ title: 'PurchaseReceipt.VersionConflict' }, { status: 409, statusText: 'Conflict' });
+      await saved;
 
       httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
       httpMock.expectNone(correctionUrl);
@@ -705,17 +746,16 @@ describe('InventoryBatchesListPageComponent', () => {
       { title: 'PurchaseReceipt.TotalCostInvalid', status: 400 },
       { title: 'Operation.PayloadMismatch', status: 409 },
       { title: 'Auth.Forbidden', status: 403 },
-    ])('shows the server detail for an unmapped refusal ($title)', ({ title, status }) => {
+    ])('shows the server detail for an unmapped refusal ($title)', async ({ title, status }) => {
       fixture.detectChanges();
       httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
       const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
       component.onCorrectReceiptCost(mockBatches[0]);
       component.costCorrectionForm.setValue({ revisedTotalCost: 1100, reason: 'Invoice revised' });
 
-      component.onSaveCostCorrection();
-      httpMock
-        .expectOne(correctionUrl)
-        .flush({ title, detail: 'Server explanation' }, { status, statusText: 'Refused' });
+      const saved = component.onSaveCostCorrection();
+      (await nextCorrection()).flush({ title, detail: 'Server explanation' }, { status, statusText: 'Refused' });
+      await saved;
 
       expect(add).toHaveBeenCalledWith(
         expect.objectContaining({ severity: 'error', detail: 'Server explanation' }),
@@ -724,35 +764,35 @@ describe('InventoryBatchesListPageComponent', () => {
       httpMock.expectNone(`${API_BASE_URL}/inventory/batches`);
     });
 
-    it('falls back to the generic message when an unmapped refusal has no detail', () => {
+    it('falls back to the generic message when an unmapped refusal has no detail', async () => {
       fixture.detectChanges();
       httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
       const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
       component.onCorrectReceiptCost(mockBatches[0]);
       component.costCorrectionForm.setValue({ revisedTotalCost: 1100, reason: 'Invoice revised' });
 
-      component.onSaveCostCorrection();
-      httpMock.expectOne(correctionUrl).flush({ title: 'Unknown' }, { status: 400, statusText: 'Bad Request' });
+      const saved = component.onSaveCostCorrection();
+      (await nextCorrection()).flush({ title: 'Unknown' }, { status: 400, statusText: 'Bad Request' });
+      await saved;
 
       expect(add).toHaveBeenCalledWith(
         expect.objectContaining({ detail: expect.stringContaining('inventory.receiptCostError') }),
       );
     });
 
-    it('on a voided batch shows the detail, closes and reloads', () => {
+    it('on a voided batch shows the detail, closes and reloads', async () => {
       fixture.detectChanges();
       httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
       const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
       component.onCorrectReceiptCost(mockBatches[0]);
       component.costCorrectionForm.setValue({ revisedTotalCost: 1100, reason: 'Invoice revised' });
 
-      component.onSaveCostCorrection();
-      httpMock
-        .expectOne(correctionUrl)
-        .flush(
+      const saved = component.onSaveCostCorrection();
+      (await nextCorrection()).flush(
           { title: 'PurchaseReceipt.BatchVoided', detail: 'The batch was voided.' },
           { status: 409, statusText: 'Conflict' },
         );
+      await saved;
 
       httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
       expect(component.isCostCorrectionDialogOpen()).toBe(false);

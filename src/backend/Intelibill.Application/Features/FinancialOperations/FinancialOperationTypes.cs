@@ -7,6 +7,7 @@ public static class FinancialOperationTypes
 {
     public const string SaleCancellation = "sale-cancellation";
     public const string PurchaseOrderReceipt = "purchase-order-receipt";
+    public const string ReceiptCostCorrection = "receipt-cost-correction";
     public const string CustomerPayment = "customer-payment";
     public const string SupplierPayment = "supplier-payment";
 
@@ -22,6 +23,7 @@ public static class FinancialOperationTypes
         "supplier-return-credit" => FinancialOperationType.SupplierReturnCredit,
         "purchase-receipt-reversal" => FinancialOperationType.PurchaseReceiptReversal,
         PurchaseOrderReceipt => FinancialOperationType.PurchaseOrderReceipt,
+        ReceiptCostCorrection => FinancialOperationType.ReceiptCostCorrection,
         CustomerPayment => FinancialOperationType.CustomerPayment,
         SupplierPayment => FinancialOperationType.SupplierPayment,
         _ => null,
@@ -39,6 +41,7 @@ public static class FinancialOperationTypes
         FinancialOperationType.SupplierReturnCredit => "supplier-return-credit",
         FinancialOperationType.PurchaseReceiptReversal => "purchase-receipt-reversal",
         FinancialOperationType.PurchaseOrderReceipt => PurchaseOrderReceipt,
+        FinancialOperationType.ReceiptCostCorrection => ReceiptCostCorrection,
         FinancialOperationType.CustomerPayment => CustomerPayment,
         FinancialOperationType.SupplierPayment => SupplierPayment,
         _ => throw new ArgumentOutOfRangeException(nameof(type), type, null),
