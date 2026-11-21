@@ -31,8 +31,14 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
         await AppendSnapshotAsync(account, shop, false, at, ct)
         ?? throw new InvalidOperationException("A suspension delivery requires the selected affiliation.");
 
+    internal async Task PublishClosureAsync(Guid account, Guid shop, Guid eventId, CancellationToken ct)
+    {
+        if (await AppendSnapshotAsync(account, shop, false, null, ct, eventId) is null)
+            throw new InvalidOperationException("Closure publication requires an affiliation.");
+    }
+
     private async Task<EntitlementSnapshotV1?> AppendSnapshotAsync(Guid account, Guid shop, bool reconcile,
-        DateTimeOffset? evaluatedAt, CancellationToken ct)
+        DateTimeOffset? evaluatedAt, CancellationToken ct, Guid? eventId = null)
     {
         if (db.Database.CurrentTransaction is null)
             throw new InvalidOperationException("Entitlement publication requires the owning transaction.");
@@ -61,9 +67,14 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
             JOIN public.operational_restrictions r ON r.id = l.restriction_id
             WHERE l.account_id = {account} AND r.shop_id = {shop}
             """).SingleAsync(ct);
-        var shopHead = new ShopEntitlementSnapshotV1(revision, now, term?.State ?? "PendingActivation", term?.TermId,
+        var closed = await db.Database.SqlQuery<bool>($"""
+            SELECT EXISTS (SELECT FROM public.operational_closure_targets WHERE account_id = {account}
+                AND shop_id = {shop} AND affiliation_request_id = {request}) AS "Value"
+            """).SingleAsync(ct);
+        var state = closed ? ShopClosuresV1.Closed : term?.State ?? "PendingActivation";
+        var shopHead = new ShopEntitlementSnapshotV1(revision, now, state, term?.TermId,
             term?.Basis, term?.StartsAt, term?.AccessEndsAt, next, term?.PurchasedCapacity, term?.MemberAllowance, suspension, released);
-        var snapshot = new EntitlementSnapshotV1(1, EntitlementSnapshotsV1.PolicyVersion, Guid.NewGuid(), account,
+        var snapshot = new EntitlementSnapshotV1(1, EntitlementSnapshotsV1.PolicyVersion, eventId ?? Guid.NewGuid(), account,
             shop, request, accountHead, shopHead);
         await AppendAsync(snapshot, ct);
         return snapshot;

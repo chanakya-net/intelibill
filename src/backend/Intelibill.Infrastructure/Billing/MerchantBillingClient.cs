@@ -19,9 +19,9 @@ internal sealed partial class MerchantBillingClient(
     HttpClient client, MerchantBillingDelegationIssuer issuer,
     IOptionsMonitor<MerchantBillingDelegationOptions> options, IHostEnvironment environment,
     ILogger<MerchantBillingClient> logger, ApplicationDbContext db, IPhoneAuthPolicy phones, ShopAffiliationConsentStore consents, TrialActivationConsentStore trials,
-    TimeProvider clock)
+    TimeProvider clock, MerchantClosureConsentStore closures)
     : IMerchantBillingAccess, IMerchantBillingInvitations, IMerchantShopAffiliations, IMerchantBillingOwnershipTransfers,
-        IMerchantSubscriptionStatus, IMerchantShopTrials, IMerchantSubscriptionCancellations, IMerchantCheckoutOrders
+        IMerchantSubscriptionStatus, IMerchantShopTrials, IMerchantSubscriptionCancellations, IMerchantCheckoutOrders, IMerchantShopClosures
 {
     private const int MaximumResponseBytes = 4096;
     // Sized for a full page of the longest valid names, so no account the actor holds can hide the list.
@@ -164,6 +164,14 @@ internal sealed partial class MerchantBillingClient(
                 return MerchantBillingErrors.Denied;
             case HttpStatusCode.Unauthorized:
                 return Unavailable("UpstreamAuthentication");
+            case HttpStatusCode.Conflict when ShopClosuresV1.IsAction(action):
+                return await ReadProblemCodeAsync(response, cancellationToken) == "Closure.ScopeTooLarge"
+                    ? Error.Conflict("Closure.ScopeTooLarge", "The complete account scope exceeds the closure review limit.")
+                    : Error.Conflict("Closure.ReviewChanged", "The closure review changed. Review the current scope and owner confirmations.");
+            case HttpStatusCode.NotFound when ShopClosuresV1.IsAction(action):
+                return Error.NotFound("Closure.ProposalUnavailable", "No current closure proposal is available.");
+            case HttpStatusCode.BadRequest when ShopClosuresV1.IsAction(action):
+                return Error.Validation("Closure.AcknowledgementRequired", "Confirm the closure scope and acknowledgements.");
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when BillingOwnershipTransfersV1.IsAction(action):
                 return MapTransferFailure(response.StatusCode, await ReadProblemCodeAsync(response, cancellationToken));
             case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.NotFound when SubscriptionCancellationsV1.IsAction(action):

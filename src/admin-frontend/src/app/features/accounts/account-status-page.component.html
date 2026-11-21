@@ -3,7 +3,7 @@
     <a routerLink="/">Provider Console</a>
     <h1 class="ib-page-title">Account access status</h1>
   </header>
-  <p class="ib-panel" data-testid="provider-observe-only">Observe-only: this evaluation is informational and does not block any merchant.</p>
+  <p class="ib-panel" data-testid="provider-observe-only">Observe-only subscription dates and commercial terms. Operational closure and its delivery are shown separately.</p>
 
   @if (!mayRead()) {
     <p class="ib-error-banner" role="alert">Only Support, Billing or Licensing Manager administrators can read access status.</p>
@@ -21,6 +21,41 @@
       @case ('missing') { <p class="ib-error-banner" role="alert">No access status exists for that account.</p> }
       @case ('session') { <p class="ib-error-banner" role="alert">Your provider session ended. Sign in again.</p> }
       @case ('unavailable') { <p class="ib-error-banner" role="alert">Access status could not be verified right now. This is not an expiry; try again.</p> }
+    }
+
+    @if (closureUnavailable()) {
+      <p role="status">Shop closure status is temporarily unavailable.</p>
+    }
+    @if (closures(); as saved) {
+      <section class="ib-panel" aria-labelledby="closure-heading" data-testid="provider-closure-detail">
+        <h2 id="closure-heading" class="ib-panel__title">Operational closures</h2>
+        @for (closure of saved; track closure.id) {
+          <article>
+            <h3>{{ closure.scope === 'Account' ? 'Billing account closure' : 'Single shop closure' }}</h3>
+            <p>Saved {{ exact(closure.savedAt) }}</p>
+            <p>Subscriptions, payments and refunds remain unchanged by closure.</p>
+            <ul>
+              @for (shop of closure.shops; track shop.shopId) {
+                <li data-testid="provider-closure-shop">
+                  <strong>{{ shop.shopName }}</strong>
+                  <p data-testid="provider-closure-propagation">{{ closureStates[shop.propagation] }}</p>
+                  @if (shop.savedShopRevision) {
+                    <p>Saved shop revision {{ shop.savedShopRevision }}</p>
+                  }
+                  @if (shop.appliedShopRevision && shop.acknowledgedAt) {
+                    <p>Shop revision {{ shop.appliedShopRevision }} acknowledged {{ exact(shop.acknowledgedAt) }}</p>
+                  }
+                </li>
+              }
+            </ul>
+          </article>
+        } @empty {
+          <p>No operational closures are recorded for this account.</p>
+        }
+        @if (saved.length) {
+          <p>Merchant acknowledgement confirms the service projection. It does not establish enforcement on disconnected devices.</p>
+        }
+      </section>
     }
 
     @if (status(); as current) {

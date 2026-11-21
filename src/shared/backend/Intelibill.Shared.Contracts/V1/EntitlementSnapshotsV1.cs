@@ -68,7 +68,7 @@ public sealed record ShopEntitlementSnapshotV1(
     public bool IsValid()
     {
         if (Revision <= 0 || !EntitlementSnapshotsV1.IsInstant(UpstreamVerifiedAt) ||
-            !SubscriptionStatusV1.States.Contains(State) || Basis is not null && !SubscriptionStatusV1.Bases.Contains(Basis) ||
+            (State != ShopClosuresV1.Closed && !SubscriptionStatusV1.States.Contains(State)) || Basis is not null && !SubscriptionStatusV1.Bases.Contains(Basis) ||
             StartsAt is { } start && !EntitlementSnapshotsV1.IsInstant(start) ||
             AccessEndsAt is { } end && !EntitlementSnapshotsV1.IsInstant(end) ||
             NextBoundary is { } next && (!EntitlementSnapshotsV1.IsInstant(next) || next <= UpstreamVerifiedAt) ||

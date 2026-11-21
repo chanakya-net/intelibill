@@ -94,7 +94,11 @@ public sealed record ShopSubscriptionStatusV1(
     [property: JsonPropertyName("suspension"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     CustomerSuspensionV1? Suspension = null,
     [property: JsonPropertyName("enforcedSuspensionMode"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? EnforcedSuspensionMode = null);
+    string? EnforcedSuspensionMode = null,
+    [property: JsonPropertyName("closedAt"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    DateTimeOffset? ClosedAt = null,
+    [property: JsonPropertyName("closureEnforced"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    bool? ClosureEnforced = null);
 
 public sealed record EntitlementSynchronizationV1(
     [property: JsonPropertyName("state")] string State,

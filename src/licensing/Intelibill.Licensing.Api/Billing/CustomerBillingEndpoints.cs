@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Licensing.Api.Restrictions;
 using Intelibill.Licensing.Api.Payments;
 using Intelibill.Licensing.Api.Subscriptions;
 using Intelibill.Licensing.Api.Catalogue;
@@ -43,6 +44,7 @@ internal static class CustomerBillingEndpoints
         app.MapShopAffiliations(policy);
         app.MapCustomerSubscriptionStatus(policy);
         app.MapCustomerSubscriptionCancellation(policy);
+        app.MapCustomerClosures(policy);
         app.MapAffiliationDelivery();
         app.MapShopTrials(policy);
         app.MapCustomerCheckout(policy);

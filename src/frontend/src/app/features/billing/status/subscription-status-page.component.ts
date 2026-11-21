@@ -4,6 +4,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { map, Subscription } from 'rxjs';
+import { AccountClosureComponent } from '../closure/account-closure.component';
+import { ClosureConfirmationComponent } from '../closure/closure-confirmation.component';
 import { AuthService } from '../../../core/auth/auth.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { LocaleMoneyPipe } from '../../../shared/pipes/locale-money.pipe';
@@ -35,7 +37,7 @@ type TradingAuthorityView =
 @Component({
   selector: 'app-subscription-status-page',
   imports: [NgTemplateOutlet, RouterLink, TranslocoPipe, LocaleMoneyPipe, EntitlementSynchronizationComponent, SubscriptionCancellationComponent,
-    SubscriptionCancellationWithdrawalComponent],
+    SubscriptionCancellationWithdrawalComponent, ClosureConfirmationComponent, AccountClosureComponent],
   templateUrl: './subscription-status-page.component.html',
   styleUrl: './subscription-status-page.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

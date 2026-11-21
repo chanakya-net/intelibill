@@ -32,16 +32,16 @@ public sealed class LicensingEntitlementTransport(IOptionsMonitor<EntitlementTra
         SignedServiceAssertion.Verify(token, SignedServiceAssertion.MerchantEvents, path, body, clock,
             key => options.CurrentValue.VerificationKey(key, OtherKeys));
 
-    internal async Task<string?> SignAsync(byte[] body, CancellationToken ct)
+    internal async Task<string?> SignAsync(byte[] body, CancellationToken ct, string path = EntitlementSnapshotsV1.SnapshotPath)
     {
         var settings = options.CurrentValue;
         if (settings.KeyVaultKeyId is null)
-            return await settings.TrySignLocalAsync(SignedServiceAssertion.LicensingDelivery, EntitlementSnapshotsV1.SnapshotPath,
+            return await settings.TrySignLocalAsync(SignedServiceAssertion.LicensingDelivery, path,
                 body, clock, Local, OtherKeys, ct);
-        return await SignWithVaultAsync(settings, body, ct);
+        return await SignWithVaultAsync(settings, body, path, ct);
     }
 
-    private async Task<string?> SignWithVaultAsync(EntitlementTransportOptions settings, byte[] body, CancellationToken ct)
+    private async Task<string?> SignWithVaultAsync(EntitlementTransportOptions settings, byte[] body, string path, CancellationToken ct)
     {
         if (ReadVaultKeyId(settings) is not { } keyId)
             return null;
@@ -59,7 +59,7 @@ public sealed class LicensingEntitlementTransport(IOptionsMonitor<EntitlementTra
             return null;
         var client = keys.GetCryptographyClient(name, version);
         return await SignedServiceAssertion.SignAsync(SignedServiceAssertion.LicensingDelivery, version,
-            EntitlementSnapshotsV1.SnapshotPath, body, clock, async (input, token) =>
+            path, body, clock, async (input, token) =>
                 (await client.SignDataAsync(SignatureAlgorithm.RS256, input, token)).Signature, ct);
     }
 

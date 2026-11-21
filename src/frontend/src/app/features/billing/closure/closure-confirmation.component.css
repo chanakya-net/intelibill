@@ -1,0 +1,7 @@
+.closure { display: grid; gap: 0.75rem; }
+.closure button { justify-self: start; margin-block: 0.25rem; }
+.closure label { display: flex; align-items: baseline; gap: 0.5rem; margin-block: 0.5rem; }
+.closure dl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.35rem 1rem; }
+.closure dd { margin: 0; }
+.closure h2, .closure h3, .closure p { margin: 0; }
+.closure h3, .closure div p { margin-block: 0.5rem; }

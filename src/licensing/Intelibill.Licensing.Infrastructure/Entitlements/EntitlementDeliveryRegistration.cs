@@ -18,6 +18,9 @@ internal static class EntitlementDeliveryRegistration
         services.AddOptions<EntitlementTransportOptions>().BindConfiguration(EntitlementSnapshotsV1.Section);
         services.AddScoped<EntitlementPublisher>();
         services.AddScoped<ISuspensionStore, SuspensionStore>();
+        services.AddScoped<IClosureStore, ClosureStore>();
+        services.AddScoped<IMerchantClosureValidation, MerchantClosureValidation>();
+        services.AddScoped<CloseShopHandler>();
         services.AddScoped(provider => new SuspendAccessHandler(provider.GetRequiredService<ISuspensionStore>(),
             provider.GetRequiredService<ISubscriptionStatusStore>(),
             provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey),

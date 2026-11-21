@@ -121,7 +121,7 @@ public sealed partial class P0404Tests(LicensingPostgreSqlFixture database) : IC
         return account;
     }
 
-    private static async Task<Guid> SuspendAsync(P0110CookieBrowser admin, string path, string scope, Guid? shopId, string mode = "Security")
+    internal static async Task<Guid> SuspendAsync(P0110CookieBrowser admin, string path, string scope, Guid? shopId, string mode = "Security")
     {
         using var preview = await P0212Fixture.PostAsync(admin, path + "/preview", new { scope, shopId });
         Assert.Equal(HttpStatusCode.OK, preview.StatusCode);

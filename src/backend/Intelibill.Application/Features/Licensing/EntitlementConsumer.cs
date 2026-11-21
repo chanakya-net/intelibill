@@ -54,7 +54,8 @@ public static class EntitlementConsumer
             return false;
         var suspension = SavedSuspension(saved.SuspensionMode, saved.SuspensionEffectiveAt, saved.SuspensionExplanation);
         if (incoming.Revision > saved.Revision)
-            return (suspension is not null && incoming.Suspension != suspension && !(incoming.ReleasedRevision >= saved.Revision)) ||
+            return (saved.State == ShopClosuresV1.Closed && incoming.State != ShopClosuresV1.Closed) ||
+                (suspension is not null && incoming.Suspension != suspension && !(incoming.ReleasedRevision >= saved.Revision)) ||
                 ReleaseConflicts(incoming.ReleasedRevision, saved.ReleasedRevision, saved.Revision) ||
                 StampConflicts(incoming.UpstreamVerifiedAt, issuedAt, saved.UpstreamVerifiedAt, previousIssuedAt);
         return incoming != new ShopEntitlementSnapshotV1(saved.Revision, saved.UpstreamVerifiedAt, saved.State,

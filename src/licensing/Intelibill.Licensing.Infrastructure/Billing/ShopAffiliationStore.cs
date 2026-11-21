@@ -1,5 +1,6 @@
 using Intelibill.Licensing.Application.Entitlements;
 using ErrorOr;
+using Intelibill.Licensing.Infrastructure.Restrictions;
 using Intelibill.Licensing.Application.Billing;
 using Intelibill.Licensing.Application.BillingAccounts;
 using Intelibill.Licensing.Application.Coverage;
@@ -26,7 +27,8 @@ internal sealed partial class ShopAffiliationStore(LicensingDbContext db, TimePr
         }
 
         var now = Now;
-        if (request.TermId is { } term && !await CanAssignAsync(account, term, now, ct))
+        if (await ClosureStore.AccountClosedAsync(db, account, ct) ||
+            request.TermId is { } term && !await CanAssignAsync(account, term, now, ct))
             return ShopAffiliationPolicy.Conflict;
 
         var id = Guid.NewGuid();

@@ -80,7 +80,8 @@ internal static class CheckoutRegistration
             provider.GetRequiredService<IPaymentStore>(),
             provider.GetRequiredService<Application.Status.IEntitlementSynchronizationReader>(),
             provider.GetRequiredService<IPaymentGatewayResolver>(), CheckoutClock(provider),
-            provider.GetRequiredService<IPaymentProviderSelection>()));
+            provider.GetRequiredService<IPaymentProviderSelection>(),
+            provider.GetRequiredService<Application.Restrictions.IClosureStore>()));
         services.AddScoped(provider => new FulfilPaidOrderHandler(provider.GetRequiredService<IPaymentStore>(),
             provider.GetRequiredService<ICheckoutOrderStore>(), provider.GetRequiredService<IPaymentReviewStore>(),
             provider.GetRequiredService<IPaymentConfirmationStore>(),

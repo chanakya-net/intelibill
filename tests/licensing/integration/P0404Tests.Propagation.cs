@@ -194,7 +194,7 @@ public sealed partial class P0404Tests
         return acknowledgement?.Disposition;
     }
 
-    private static async Task<JsonElement> SubmitReleaseAsync(P0110CookieBrowser admin, string path)
+    internal static async Task<JsonElement> SubmitReleaseAsync(P0110CookieBrowser admin, string path)
     {
         using var response = await P0212Fixture.PostAsync(admin, path, await PreviewReleaseAsync(admin, path));
         Assert.True(response.StatusCode == HttpStatusCode.Created, await response.Content.ReadAsStringAsync());

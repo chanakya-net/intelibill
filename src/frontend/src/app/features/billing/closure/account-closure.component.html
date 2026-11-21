@@ -1,0 +1,35 @@
+<section class="ib-panel closure" aria-labelledby="billing-account-closure">
+  <h2 id="billing-account-closure">{{ 'billing.closure.accountTitle' | transloco }}</h2>
+  @if (draft(); as accepted) {
+    @if (accepted.settled) {
+      <p role="status">{{ 'billing.closure.saved' | transloco }}</p>
+    } @else {
+      <p role="status">{{ 'billing.closure.unknown' | transloco }}</p>
+      <button pButton severity="secondary" size="small" type="button" [disabled]="busy()" (click)="retry()">{{ 'billing.closure.retry' | transloco }}</button>
+    }
+  } @else {
+    <button pButton severity="secondary" size="small" type="button" [disabled]="busy()" (click)="read()">{{ 'billing.closure.reviewAccount' | transloco }}</button>
+    @if (ready() || (proposalDraft() && !proposalDraft()?.settled)) {
+      <p>{{ 'billing.closure.accountScope' | transloco }}</p>
+      <p>{{ 'billing.closure.financial' | transloco }}</p>
+      <button pButton severity="secondary" size="small" type="button" [disabled]="busy()" (click)="start()">
+        {{ (proposalDraft() && !proposalDraft()?.settled ? 'billing.closure.retryProposal' : 'billing.closure.startProposal') | transloco }}
+      </button>
+    }
+    @if (proposal(); as current) {
+      <h3>{{ 'billing.closure.affectedShops' | transloco }}</h3>
+      <ul>
+        @for (shop of current.shops; track shop.shopId) {
+          <li>{{ shop.shopName }} · {{ (shop.consentRecorded ? 'billing.closure.recorded' : 'billing.closure.awaitingOwner') | transloco }}</li>
+        }
+      </ul>
+      <label><input type="checkbox" [checked]="confirmed()" (change)="confirmed.set($any($event.target).checked)" />
+        {{ 'billing.closure.confirmScope' | transloco }}</label>
+      <button pButton severity="danger" size="small" type="button" [disabled]="busy() || !confirmed() || !ownersReady()"
+        (click)="confirm()">{{ 'billing.closure.confirmAccount' | transloco }}</button>
+    }
+  }
+  @if (message(); as value) {
+    <p role="alert">{{ ('billing.closure.' + value) | transloco }}</p>
+  }
+</section>

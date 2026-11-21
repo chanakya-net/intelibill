@@ -1,0 +1,66 @@
+<section class="ib-panel closure" [attr.aria-label]="('billing.closure.' + mode() + 'Title') | transloco">
+  <h2>{{ ('billing.closure.' + mode() + 'Title') | transloco }}</h2>
+  @if (draft(); as accepted) {
+    @if (accepted.settled) {
+      <p role="status" data-testid="closure-saved">{{ (mode() === 'shop' ? 'billing.closure.saved' : 'billing.closure.consentSaved') | transloco }}</p>
+    } @else {
+      <p role="status">{{ 'billing.closure.unknown' | transloco }}</p>
+      <button pButton severity="secondary" size="small" type="button" [disabled]="busy()" (click)="retry()">{{ 'billing.closure.retry' | transloco }}</button>
+    }
+  }
+  @if ((!draft() && !closed()) || (mode() === 'account' && (!draft() || draft()?.settled))) {
+    <button pButton severity="secondary" size="small" type="button" [disabled]="busy()" (click)="openReview()">
+      {{ (mode() === 'shop' ? 'billing.closure.review' : 'billing.closure.readProposal') | transloco }}
+    </button>
+  }
+  @if (message(); as error) {
+    <p role="alert">{{ ('billing.closure.' + error) | transloco }}</p>
+  }
+  @if (review(); as work) {
+    <div data-testid="closure-review">
+      <h3>{{ work.shopName }}</h3>
+      @if (proposal(); as pending) {
+        <p>{{ 'billing.closure.ownerScope' | transloco: { count: pending.shopCount } }}</p>
+      } @else {
+        <p>{{ 'billing.closure.shopScope' | transloco }}</p>
+      }
+      <p>{{ 'billing.closure.observed' | transloco: { time: instant(work.observedAt) } }}</p>
+      <dl>
+        <dt>{{ 'billing.closure.tills' | transloco }}</dt><dd>{{ work.openTills }}</dd>
+        <dt>{{ 'billing.closure.cases' | transloco }}</dt><dd>{{ work.unresolvedCases }}</dd>
+        <dt>{{ 'billing.closure.submissions' | transloco }}</dt><dd>{{ work.observedSubmissions }}</dd>
+        <dt>{{ 'billing.closure.linked' | transloco }}</dt><dd>{{ work.linkedSubmissions }}</dd>
+        <dt>{{ 'billing.closure.intakes' | transloco }}</dt><dd>{{ work.incompleteIntakes }}</dd>
+        @if (work.unreadableIntakes > 0) {
+          <dt>{{ 'billing.closure.unreadable' | transloco }}</dt><dd>{{ work.unreadableIntakes }}</dd>
+        }
+        <dt>{{ 'billing.closure.devices' | transloco }}</dt><dd>{{ work.observedDevices }}</dd>
+      </dl>
+      @if (work.devices.length) {
+        <ul>
+          @for (device of work.devices; track device.reference) {
+            <li>{{ 'billing.closure.deviceContact' | transloco: { time: instant(device.lastContactAt) } }}
+              {{ 'billing.closure.leaseEnd' | transloco: { time: instant(device.recordedLeaseEndsAt) ?? ('billing.status.notRecorded' | transloco) } }}
+            </li>
+          }
+        </ul>
+      }
+      @if (work.devicesTruncated) { <p>{{ 'billing.closure.devicesTruncated' | transloco }}</p> }
+      <p>{{ 'billing.closure.permitsUnavailable' | transloco }}</p>
+      <p data-testid="closure-unknown-queues">{{ 'billing.closure.disconnected' | transloco }}</p>
+      <p>{{ 'billing.closure.retention' | transloco }}</p>
+      <p>{{ 'billing.closure.financial' | transloco }}</p>
+      @if (canConfirm()) {
+        <label><input type="checkbox" [checked]="known()" (change)="known.set($any($event.target).checked)" />
+          {{ 'billing.closure.knowWork' | transloco }}</label>
+        <label><input type="checkbox" [checked]="queues()" (change)="queues.set($any($event.target).checked)" />
+          {{ 'billing.closure.considerQueues' | transloco }}</label>
+        <label><input type="checkbox" [checked]="financial()" (change)="financial.set($any($event.target).checked)" />
+          {{ 'billing.closure.ackFinancial' | transloco }}</label>
+        <button pButton [severity]="mode() === 'shop' ? 'danger' : 'secondary'" size="small" type="button" [disabled]="busy() || !known() || !queues() || !financial()" (click)="confirm()">
+          {{ (mode() === 'shop' ? 'billing.closure.confirmShop' : 'billing.closure.confirmConsent') | transloco }}
+        </button>
+      }
+    </div>
+  }
+</section>
