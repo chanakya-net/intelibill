@@ -15,7 +15,7 @@ public interface IClosureStore
     Task<SavedClosureProposal?> ProposalByOperationAsync(Guid account, Guid operation, CancellationToken ct);
     Task InsertProposalAsync(SavedClosureProposal proposal, CancellationToken ct);
     Task<Guid[]> ReadNoticesAsync(Guid account, Guid proposal, CancellationToken ct);
-    Task<bool?> FindNoticeAsync(Guid account, Guid proposal, Guid shop, Guid actor, Guid operation, CancellationToken ct);
+    Task<bool?> FindConsentOutcomeAsync(OwnerClosureNoticeV1 notice, Guid shop, Guid actor, Guid operation, CancellationToken ct);
     Task RecordNoticeAsync(Guid account, Guid proposal, Guid shop, Guid actor, Guid? operation, CancellationToken ct);
     Task LockAccountAsync(Guid account, CancellationToken ct);
     Task<ClosureTargetV1[]> TargetsAsync(Guid account, Guid? shop, CancellationToken ct);

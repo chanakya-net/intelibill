@@ -49,7 +49,7 @@ internal sealed partial class MerchantBillingClient
         if (record.IsError) return record.Errors;
 
         var notice = new OwnerClosureNoticeV1(pending.AccountId, pending.Target.AffiliationRequestId, proposal,
-            pending.ScopeDigest, input.OperationKey);
+            pending.ScopeDigest, input.OperationKey, ConsentId: record.Value.Id);
         return await SendNoticeAsync(caller, shop, input.ExpectedVersion, notice, ct);
     }
 

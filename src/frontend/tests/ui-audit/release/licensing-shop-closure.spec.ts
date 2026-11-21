@@ -116,8 +116,10 @@ test('affected owner consent and Billing Owner account request recover independe
   const server = await startPurchaseReceivingServer(resolve(__dirname, '../../../dist/INVENTORY/browser'));
   try {
     await mockSession(page);
-    let consentRecorded = false;
-    const account = accountFixture(() => consentRecorded);
+    // The Billing Owner can see a prior notice. Finalization uses the latest merchant consent.
+    let latestConsentKey: string | undefined;
+    let finalizedConsentKey: string | undefined;
+    const account = accountFixture(() => { finalizedConsentKey = latestConsentKey; });
     const billingOwner = await browser.newPage({ serviceWorkers: 'block' });
     await mockSession(billingOwner, accountId, SHOP_B);
     await account.install(billingOwner);
@@ -128,7 +130,8 @@ test('affected owner consent and Billing Owner account request recover independe
     const start = billingOwner.getByRole('button', { name: 'Request owner confirmations' });
     await expect(start).toBeEnabled();
     await start.click();
-    const recoverConsent = await loseShopConsentReply(page, server.origin, () => { consentRecorded = true; }, account.isClosed);
+    const recoverConsent = await loseShopConsentReply(page, server.origin,
+      key => { latestConsentKey = key; }, () => finalizedConsentKey);
     await billingOwner.reload();
     await expect(billingOwner.getByText('Indiranagar Shop · Owner confirmation recorded')).toBeVisible();
     await expect(billingOwner.getByText('Jayanagar Shop · Owner confirmation recorded')).toBeVisible();
@@ -163,19 +166,19 @@ test('affected owner consent and Billing Owner account request recover independe
   }
 });
 
-async function loseShopConsentReply(page: Page, origin: string, record: () => void, isClosed: () => boolean) {
-  const requests: unknown[] = [];
-  await page.route(`**/api/licensing/shops/${SHOP_A}/account-closure`, route => isClosed()
+async function loseShopConsentReply(page: Page, origin: string, record: (key: string) => void, finalizedKey: () => string | undefined) {
+  const requests: { operationKey: string }[] = [];
+  await page.route(`**/api/licensing/shops/${SHOP_A}/account-closure`, route => finalizedKey()
     ? route.fulfill({ status: 404, json: { code: 'Closure.ProposalUnavailable' } }) : route.fulfill({ json: proposal }));
   await page.route(`**/api/licensing/shops/${SHOP_A}/account-closure/${proposalId}`, route => {
     const command = route.request().postDataJSON();
     expect(command).toMatchObject({ workDigest, consideredDeviceQueues: true });
     requests.push(command);
     if (requests.length === 1) {
-      record();
+      record(command.operationKey);
       return route.abort('connectionreset');
     }
-    expect(isClosed()).toBe(true);
+    expect(command.operationKey).toBe(finalizedKey());
     return route.fulfill({ json: { ...proposal, consentRecorded: true } });
   });
   await page.goto(`${origin}/billing/status`);
@@ -193,15 +196,18 @@ async function loseShopConsentReply(page: Page, origin: string, record: () => vo
     await expect(page.getByTestId('closure-saved')).toHaveText('Shop owner confirmation recorded.');
     expect(requests).toHaveLength(2);
     expect(requests[1]).toEqual(requests[0]);
+    const storageKey = 'intelibill.billing.closure.v1:' + JSON.stringify([USER, SHOP_A, 'account']);
+    const draft = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), storageKey);
+    expect(draft).toMatchObject({ operationKey: requests[0].operationKey, settled: true });
   };
 }
 
-function accountFixture(hasConsent = () => true) {
+function accountFixture(onConfirm?: () => void) {
   const confirmations: unknown[] = [];
   const shops = [{ shopId: SHOP_A, shopName: 'Indiranagar Shop' }, { shopId: SHOP_B, shopName: 'Jayanagar Shop' }];
   const accountPath = `**/api/billing/accounts/${accountId}/closures`;
   const accountProposal = (operationKey: string) => ({ ...proposal, operationKey,
-    shops: shops.map(shop => ({ ...shop, consentRecorded: shop.shopId !== SHOP_A || hasConsent() })) });
+    shops: shops.map(shop => ({ ...shop, consentRecorded: true })) });
   let closed: object | undefined;
   let pendingKey: string | undefined;
   let proposals = 0;
@@ -224,6 +230,7 @@ function accountFixture(hasConsent = () => true) {
       const command = route.request().postDataJSON();
       expect(command).toEqual({ confirmed: true, scopeDigest: proposal.scopeDigest, operationKey: expect.any(String) });
       confirmations.push(command);
+      if (!closed) onConfirm?.();
       closed = { accountId, id: proposalId, scope: 'Account', operationKey: command.operationKey, savedAt: observedAt,
         financialTreatment: 'NoFinancialChange', shops };
       if (confirmations.length === 1) return route.abort('connectionreset');
@@ -231,7 +238,7 @@ function accountFixture(hasConsent = () => true) {
     });
   };
 
-  return { install, confirmations, proposalCount: () => proposals, isClosed: () => Boolean(closed) };
+  return { install, confirmations, proposalCount: () => proposals };
 }
 
 test('an incomplete account-consent draft cannot send a shop closure', async ({ page }) => {

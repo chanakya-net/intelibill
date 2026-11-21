@@ -52,16 +52,17 @@ public sealed partial class CloseShopHandler
         if (!input.Confirmed || input.OperationKey == Guid.Empty || !ShopClosuresV1.IsDigest(input.ScopeDigest))
             return Error.Validation("Closure.AcknowledgementRequired", "Confirm the exact billing account closure scope.");
         var revision = await store.BillingOwnerRevisionAsync(account, scope.ActorId, token);
-        var proposal = await store.ProposalAsync(account, proposalId, clock.GetUtcNow(), token);
-        if (proposal is null || proposal.ActorId != scope.ActorId || proposal.BillingRevision != revision ||
-            proposal.ScopeDigest != input.ScopeDigest)
-            return Stale;
+        if (revision is null) return BillingDelegationErrors.Denied;
         var digest = Digest(new { proposalId, input });
         var saved = await store.ReadOperationAsync(account, input.OperationKey, token);
         if (saved is not null)
             return saved.ActorId == scope.ActorId && saved.ShopId is null && saved.RequestDigest == digest
                 ? await store.ReadSavedAsync(saved, token) : Stale;
 
+        var proposal = await store.ProposalAsync(account, proposalId, clock.GetUtcNow(), token);
+        if (proposal is null || proposal.ActorId != scope.ActorId || proposal.BillingRevision != revision ||
+            proposal.ScopeDigest != input.ScopeDigest)
+            return Stale;
         if (clock.GetUtcNow() >= proposal.ExpiresAt || await store.AccountClosedAsync(account, token) ||
             !(await store.TargetsAsync(account, null, token)).SequenceEqual(proposal.Targets))
             return Stale;
@@ -88,7 +89,7 @@ public sealed partial class CloseShopHandler
         await store.LockAccountAsync(notice.AccountId, token);
         if (clock.GetUtcNow() >= proof.ExpiresAt) return BillingDelegationErrors.Invalid;
         var recorded = notice.OperationKey is { } key
-            ? await store.FindNoticeAsync(notice.AccountId, notice.ProposalId, shop, scope.ActorId, key, token) : null;
+            ? await store.FindConsentOutcomeAsync(notice, shop, scope.ActorId, key, token) : null;
         if (recorded == true)
         {
             var affiliated = await store.TargetsAsync(notice.AccountId, shop, token);

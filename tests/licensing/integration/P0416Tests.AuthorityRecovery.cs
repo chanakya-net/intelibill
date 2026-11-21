@@ -69,33 +69,53 @@ public sealed partial class P0416Tests
         using var lost = await owner.Client.PostAsJsonAsync(path, command);
         Assert.Equal(HttpStatusCode.ServiceUnavailable, lost.StatusCode);
         fixture.Transport.AfterCommit = null;
-        var undelivered = command with { OperationKey = Guid.NewGuid() };
+        var unused = command with { OperationKey = Guid.NewGuid() };
+        var used = command with { OperationKey = Guid.NewGuid() };
         InterruptDelivery(fixture, notice);
-        using var unavailable = await owner.Client.PostAsJsonAsync(path, undelivered);
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, unavailable.StatusCode);
+        foreach (var consent in new[] { unused, used })
+        {
+            using var unavailable = await owner.Client.PostAsJsonAsync(path, consent);
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, unavailable.StatusCode);
+        }
         fixture.Transport.BeforeDispatch = null;
         using var saved = await ConfirmAccountAsync(payer, account, proposal);
         Assert.True(saved.IsSuccessStatusCode, await saved.Content.ReadAsStringAsync());
+        await AssertUsedConsentAsync(fixture, owner, account, used.OperationKey);
         await fixture.DrainAsync(source: true);
         using var hidden = await owner.Client.GetAsync(shop + "/account-closure");
         Assert.Equal(HttpStatusCode.NotFound, hidden.StatusCode);
-        using var replay = await owner.Client.PostAsJsonAsync(path, command);
-        Assert.True(replay.IsSuccessStatusCode, await replay.Content.ReadAsStringAsync());
-        Assert.True((await replay.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("consentRecorded").GetBoolean());
-        using var absent = await owner.Client.PostAsJsonAsync(path, undelivered);
+        foreach (var consent in new[] { command, used })
+        {
+            using var replay = await owner.Client.PostAsJsonAsync(path, consent);
+            Assert.True(replay.IsSuccessStatusCode, await replay.Content.ReadAsStringAsync());
+            Assert.True((await replay.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("consentRecorded").GetBoolean());
+        }
+        using var absent = await owner.Client.PostAsJsonAsync(path, unused);
         Assert.Equal(HttpStatusCode.Conflict, absent.StatusCode);
         Assert.Equal(ShopClosuresV1.ReviewChangedCode, await P0206Fixture.CodeAsync(absent));
         Assert.Equal(1L, await fixture.Trial.CountAsync("operational_closure_consent_notices"));
-        Assert.Equal(1L, await fixture.Trial.CountAsync("operational_closures"));
 
         // A legacy shop-level acknowledgement cannot prove which request arrived.
         await fixture.SourceScalarAsync($"""
             INSERT INTO public.operational_closure_consent_notices (proposal_id, account_id, shop_id)
             VALUES ('{proposal.GetProperty("id").GetGuid():D}', '{account:D}', '{owner.ShopId:D}') RETURNING shop_id
             """);
-        using var ambiguous = await owner.Client.PostAsJsonAsync(path, undelivered);
+        using var ambiguous = await owner.Client.PostAsJsonAsync(path, unused);
         Assert.Equal(HttpStatusCode.NotFound, ambiguous.StatusCode);
         Assert.Equal(2L, await fixture.Trial.CountAsync("operational_closure_consent_notices"));
+        Assert.Equal(1L, await fixture.Trial.CountAsync("operational_closures"));
+        Assert.Equal(1L, await fixture.Trial.CountAsync("operational_closure_targets"));
+    }
+
+    private static async Task AssertUsedConsentAsync(P0213Fixture fixture, Merchant owner, Guid account, Guid operation)
+    {
+        var consentId = await fixture.MerchantScalarAsync($"""
+            SELECT id FROM public.shop_closure_consents WHERE shop_id = '{owner.ShopId:D}' AND operation_key = '{operation:D}'
+            """);
+        Assert.IsType<Guid>(consentId);
+        Assert.Equal(consentId, await fixture.SourceScalarAsync($"""
+            SELECT consent_id FROM public.operational_closure_targets WHERE account_id = '{account:D}' AND shop_id = '{owner.ShopId:D}'
+            """));
     }
 
     [Fact]

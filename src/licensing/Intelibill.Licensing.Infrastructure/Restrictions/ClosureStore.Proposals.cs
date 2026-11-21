@@ -59,13 +59,23 @@ internal sealed partial class ClosureStore
         WHERE account_id = {account} AND proposal_id = {proposal}
         """).ToArrayAsync(ct);
 
-    public Task<bool?> FindNoticeAsync(Guid account, Guid proposal, Guid shop, Guid actor, Guid operation, CancellationToken ct) =>
+    public Task<bool?> FindConsentOutcomeAsync(OwnerClosureNoticeV1 notice, Guid shop, Guid actor, Guid operation, CancellationToken ct) =>
         db.Database.SqlQuery<bool?>($"""
-            SELECT CASE WHEN count(*) FILTER (WHERE actor_id = {actor} AND operation_key = {operation}) > 0 THEN true
-                        WHEN count(*) FILTER (WHERE operation_key IS NULL) > 0 THEN NULL
-                        ELSE false END AS "Value"
-            FROM public.operational_closure_consent_notices
-            WHERE account_id = {account} AND proposal_id = {proposal} AND shop_id = {shop}
+            WITH notices AS (
+                SELECT actor_id, operation_key FROM public.operational_closure_consent_notices
+                WHERE account_id = {notice.AccountId} AND proposal_id = {notice.ProposalId} AND shop_id = {shop}
+            ), finalized_target AS (
+                SELECT t.consent_id FROM public.operational_closure_targets t
+                JOIN public.operational_closures c ON c.id = t.closure_id AND c.account_id = t.account_id
+                WHERE c.shop_id IS NULL AND t.account_id = {notice.AccountId} AND t.shop_id = {shop}
+                    AND t.affiliation_request_id = {notice.AffiliationRequestId}
+            )
+            SELECT CASE
+                WHEN EXISTS (SELECT FROM notices WHERE actor_id = {actor} AND operation_key = {operation})
+                    OR EXISTS (SELECT FROM finalized_target WHERE consent_id = {notice.ConsentId}) THEN true
+                WHEN EXISTS (SELECT FROM notices WHERE operation_key IS NULL)
+                    OR ({notice.ConsentId}::uuid IS NULL AND EXISTS (SELECT FROM finalized_target)) THEN NULL
+                ELSE false END AS "Value"
             """).SingleAsync(ct);
 
     public Task RecordNoticeAsync(Guid account, Guid proposal, Guid shop, Guid actor, Guid? operation, CancellationToken ct) =>

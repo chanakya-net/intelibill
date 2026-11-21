@@ -16,8 +16,8 @@ internal sealed partial class MerchantBillingClient
         var recorded = await closures.ConfirmAsync(caller, shop, confirmation, null, ct);
         if (recorded.IsError) return recorded.Errors;
         return await ReadClosureAsync<ClosureSavedV1>(caller, new(ShopClosuresV1.ShopAction, HttpMethod.Post,
-            ShopClosuresV1.ShopPath(shop), null, JsonSerializer.SerializeToUtf8Bytes(recorded.Value, Json)),
-            saved => saved.Scope == "Shop" && saved.AccountId == recorded.Value.AccountId && saved.OperationKey == confirmation.OperationKey &&
+            ShopClosuresV1.ShopPath(shop), null, JsonSerializer.SerializeToUtf8Bytes(recorded.Value.Request, Json)),
+            saved => saved.Scope == "Shop" && saved.AccountId == recorded.Value.Request.AccountId && saved.OperationKey == confirmation.OperationKey &&
                 saved.Shops is [var target] && target.ShopId == shop &&
                 saved.FinancialTreatment == ShopClosuresV1.FinancialTreatment, ct);
     }
