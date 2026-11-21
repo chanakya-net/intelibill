@@ -1,4 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
+import type { ScopeOwner } from '../../../core/context/shop-scope';
 
 import {
   InventoryDraftIndexedDbService,
@@ -19,22 +20,30 @@ export class BatchDraftStateService {
   /** True while a save whose outcome is unknown waits to be resent unchanged. */
   readonly hasInterruptedSubmission = signal(false);
 
-  async loadDraftRows(shopId: string): Promise<readonly InventoryInboundDraftRow[]> {
-    this.loadingDraft.set(true);
+  reset(): void {
+    this.pendingRows.set([]);
+    this.hasInterruptedSubmission.set(false);
+    this.loadingDraft.set(false);
+  }
 
+  async loadDraftRows(shopId: string, owner?: ScopeOwner, current = () => true): Promise<readonly InventoryInboundDraftRow[]> {
+    this.loadingDraft.set(true);
     try {
-      const rows = await this.draftStorage.loadRows(shopId);
+      const rows = await (owner ? this.draftStorage.loadRows(shopId, owner) : this.draftStorage.loadRows(shopId));
+      const submission = await this.draftStorage.loadSubmission(shopId, owner);
+      if (!current()) return [];
       this.pendingRows.set(rows);
-      this.hasInterruptedSubmission.set((await this.draftStorage.loadSubmission(shopId)) !== null);
+      this.hasInterruptedSubmission.set(submission !== null);
       return rows;
     } finally {
-      this.loadingDraft.set(false);
+      if (current()) this.loadingDraft.set(false);
     }
   }
 
   async savePendingRows(
     shopId: string,
     rows: readonly InventoryInboundDraftRow[],
+    owner?: ScopeOwner,
   ): Promise<void> {
     this.pendingRows.set(rows);
     if (!shopId) {
@@ -42,29 +51,29 @@ export class BatchDraftStateService {
     }
 
     if (rows.length === 0) {
-      await this.draftStorage.clearRows(shopId);
+      await (owner ? this.draftStorage.clearRows(shopId, owner) : this.draftStorage.clearRows(shopId));
       return;
     }
 
-    await this.draftStorage.saveRows(shopId, rows);
+    await (owner ? this.draftStorage.saveRows(shopId, rows, owner) : this.draftStorage.saveRows(shopId, rows));
   }
 
-  async addRow(shopId: string, row: InventoryInboundDraftRow): Promise<void> {
-    await this.savePendingRows(shopId, [...this.pendingRows(), row]);
+  async addRow(shopId: string, row: InventoryInboundDraftRow, owner?: ScopeOwner): Promise<void> {
+    await this.savePendingRows(shopId, [...this.pendingRows(), row], owner);
   }
 
-  async removeRow(shopId: string, clientRowId: string): Promise<void> {
+  async removeRow(shopId: string, clientRowId: string, owner?: ScopeOwner): Promise<void> {
     const rows = this.pendingRows().filter((row) => row.clientRowId !== clientRowId);
-    await this.savePendingRows(shopId, rows);
+    await this.savePendingRows(shopId, rows, owner);
   }
 
-  async clearRows(shopId: string): Promise<void> {
+  async clearRows(shopId: string, owner?: ScopeOwner): Promise<void> {
     this.pendingRows.set([]);
     if (!shopId) {
       return;
     }
 
-    await this.draftStorage.clearRows(shopId);
+    await (owner ? this.draftStorage.clearRows(shopId, owner) : this.draftStorage.clearRows(shopId));
   }
 
   async updateRow(
@@ -84,7 +93,7 @@ export class BatchDraftStateService {
     return nextRow;
   }
 
-  async incrementRowQuantity(shopId: string, barcode: string): Promise<InventoryInboundDraftRow | null> {
+  async incrementRowQuantity(shopId: string, barcode: string, owner?: ScopeOwner): Promise<InventoryInboundDraftRow | null> {
     const currentRows = this.pendingRows();
     const currentRow = currentRows.find((row) => row.barcode === barcode);
     if (!currentRow) {
@@ -96,7 +105,7 @@ export class BatchDraftStateService {
       quantity: Number((currentRow.quantity + 1).toFixed(3)),
     } satisfies InventoryInboundDraftRow;
     const nextRows = currentRows.map((row) => (row.clientRowId === currentRow.clientRowId ? nextRow : row));
-    await this.savePendingRows(shopId, nextRows);
+    await this.savePendingRows(shopId, nextRows, owner);
     return nextRow;
   }
 
@@ -108,12 +117,21 @@ export class BatchDraftStateService {
   async prepareSubmission(
     shopId: string,
     rows: readonly InventoryInboundDraftRow[],
-  ): Promise<InventoryInboundSubmission> {
-    const interrupted = await this.draftStorage.loadSubmission(shopId);
+    owner?: ScopeOwner,
+    assertScope: () => void = () => undefined,
+    allowRecovery = true,
+  ): Promise<InventoryInboundSubmission | null> {
+    const interrupted = await this.draftStorage.loadSubmission(shopId, owner);
+    assertScope();
     if (interrupted) {
       // Possibly stored by another tab; it is what will be sent, so the page must treat it as such.
       this.hasInterruptedSubmission.set(true);
-      return interrupted;
+      return allowRecovery ? interrupted : null;
+    }
+    if (allowRecovery && owner) {
+      // Another tab may have finished the save. A recovery click never creates a fresh key.
+      await this.refreshAfterConcurrentUpdate(owner, assertScope);
+      return null;
     }
 
     const submissionId = crypto.randomUUID();
@@ -127,17 +145,42 @@ export class BatchDraftStateService {
       });
     }
 
-    const submission: InventoryInboundSubmission = { shopId, chunks, createdAt: performedAt };
-    await this.draftStorage.saveSubmission(submission);
-    return submission;
+    const submission: InventoryInboundSubmission = { shopId, ownerUserId: owner?.userId, chunks, createdAt: performedAt };
+    const selected = await this.draftStorage.saveSubmission(submission, assertScope);
+    assertScope();
+    if (selected !== submission && !allowRecovery) {
+      this.hasInterruptedSubmission.set(true);
+      return null;
+    }
+    return selected;
   }
 
   markSubmissionInterrupted(): void {
     this.hasInterruptedSubmission.set(true);
   }
 
-  async clearSubmission(shopId: string): Promise<void> {
-    this.hasInterruptedSubmission.set(false);
-    await this.draftStorage.clearSubmission(shopId);
+  async settleSubmission(
+    expected: InventoryInboundSubmission,
+    savedIds: ReadonlySet<string>,
+    complete: boolean,
+    owner: ScopeOwner,
+    assertScope: () => void,
+  ): Promise<boolean> {
+    const rows = await this.draftStorage.settleSubmission(expected, savedIds, complete, assertScope);
+    assertScope();
+    if (!rows) {
+      await this.refreshAfterConcurrentUpdate(owner, assertScope);
+      return false;
+    }
+    this.pendingRows.set(rows);
+    this.hasInterruptedSubmission.set(!complete);
+    return true;
+  }
+
+  private async refreshAfterConcurrentUpdate(owner: ScopeOwner, assertScope: () => void): Promise<void> {
+    await this.loadDraftRows(owner.shopId, owner, () => {
+      assertScope();
+      return true;
+    });
   }
 }

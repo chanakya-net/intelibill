@@ -71,9 +71,15 @@ export abstract class OperatingAccessHint {
   }
 
   reportRefusal(error: unknown, scope: ShopScope | null): void {
-    if (!scope || scope !== this.scope()) return;
-    const key = operatingAccessErrorKey(error);
-    if (!key || key === OPERATING_ACCESS_ERROR_KEYS['Licence.Busy']) return;
+    this.applyRefusal(operatingAccessErrorKey(error), scope);
+  }
+
+  reportRowRefusal(code: string, scope: ShopScope): void {
+    if (Object.hasOwn(OPERATING_ACCESS_ERROR_KEYS, code)) this.applyRefusal(OPERATING_ACCESS_ERROR_KEYS[code], scope);
+  }
+
+  private applyRefusal(key: string | null, scope: ShopScope | null): void {
+    if (!scope || scope !== this.scope() || !key || key === OPERATING_ACCESS_ERROR_KEYS['Licence.Busy']) return;
 
     // A read started before this POST's decision can contain an older grant.
     this.version++;

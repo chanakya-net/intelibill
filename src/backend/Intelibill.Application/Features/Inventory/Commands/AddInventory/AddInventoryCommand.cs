@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 namespace Intelibill.Application.Features.Inventory.Commands.AddInventory;
 
 public sealed record AddInventoryCommand(
@@ -21,4 +23,5 @@ public sealed record AddInventoryCommand(
     Guid? SupplierId,
     string? ReferenceNumber,
     string? Notes,
-    DateTimeOffset? PerformedAt);
+    DateTimeOffset? PerformedAt,
+    SessionClaims? Session = null);

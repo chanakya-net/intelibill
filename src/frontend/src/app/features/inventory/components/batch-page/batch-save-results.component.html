@@ -1,13 +1,15 @@
 <div class="table-card" [attr.aria-busy]="loadingDraft() || isSaving">
   @if (saveSummary) {
     <div class="save-summary" [class.save-summary--partial]="saveSummary.failedCount > 0">
-      <strong>
-        @if (saveSummary.failedCount === 0) {
-          {{ 'inventory.savedSuccess' | transloco }}
-        } @else {
-          {{ 'inventory.savedPartial' | transloco }}
-        }
-      </strong>
+      @if (!recoveryRequired()) {
+        <strong>
+          @if (saveSummary.failedCount === 0) {
+            {{ 'inventory.savedSuccess' | transloco }}
+          } @else {
+            {{ 'inventory.savedPartial' | transloco }}
+          }
+        </strong>
+      }
       <span>{{ saveSummary.successCount }}/{{ saveSummary.requestedCount }}</span>
     </div>
   }
@@ -67,7 +69,7 @@
               [rounded]="true"
               size="small"
               (click)="editRow.emit(row.clientRowId)"
-              [disabled]="isSaving"
+              [disabled]="isSaving || recoveryRequired()"
               [attr.aria-label]="'inventory.edit' | transloco"
             ></button>
             <button
@@ -79,7 +81,7 @@
               severity="danger"
               size="small"
               (click)="removeRow.emit(row.clientRowId)"
-              [disabled]="isSaving"
+              [disabled]="isSaving || recoveryRequired()"
               [attr.aria-label]="'inventory.remove' | transloco"
             ></button>
           </div>
@@ -135,7 +137,7 @@
                 [label]="'inventory.edit' | transloco"
                 icon="pi pi-pencil"
                 (click)="editRow.emit(row.clientRowId)"
-                [disabled]="isSaving"
+                [disabled]="isSaving || recoveryRequired()"
               ></button>
               <button
                 pButton
@@ -145,7 +147,7 @@
                 [label]="'inventory.remove' | transloco"
                 icon="pi pi-trash"
                 (click)="removeRow.emit(row.clientRowId)"
-                [disabled]="isSaving"
+                [disabled]="isSaving || recoveryRequired()"
               ></button>
             </div>
           </td>
@@ -183,7 +185,7 @@
       [label]="'inventory.clearAll' | transloco"
       icon="pi pi-times"
       (click)="clearAll.emit()"
-      [disabled]="pendingRows().length === 0 || isSaving"
+      [disabled]="pendingRows().length === 0 || isSaving || recoveryRequired()"
     ></button>
     <button
       pButton
@@ -191,7 +193,7 @@
       [label]="'inventory.saveAll' | transloco"
       icon="pi pi-save"
       (click)="saveAll.emit()"
-      [disabled]="pendingRows().length === 0 || isSaving"
+      [disabled]="pendingRows().length === 0 || isSaving || saveDisabled"
     ></button>
   </div>
 </div>

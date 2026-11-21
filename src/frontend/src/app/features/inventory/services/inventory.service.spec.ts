@@ -229,7 +229,7 @@ describe('InventoryService', () => {
             itemId: 'item-1',
             itemName: 'Premium Tea',
             barcode: 'ABC123',
-            batchId: 'batch-1',
+            inventoryBatchId: 'batch-1',
             batchNumber: 'BN-1',
             batchQuantity: 5,
             totalQuantity: 5,

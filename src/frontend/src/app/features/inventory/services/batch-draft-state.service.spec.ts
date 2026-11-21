@@ -13,8 +13,7 @@ describe('BatchDraftStateService', () => {
     saveRows: vi.fn<InventoryDraftIndexedDbService['saveRows']>().mockResolvedValue(undefined),
     clearRows: vi.fn<InventoryDraftIndexedDbService['clearRows']>().mockResolvedValue(undefined),
     loadSubmission: vi.fn<InventoryDraftIndexedDbService['loadSubmission']>().mockResolvedValue(null),
-    saveSubmission: vi.fn<InventoryDraftIndexedDbService['saveSubmission']>().mockResolvedValue(undefined),
-    clearSubmission: vi.fn<InventoryDraftIndexedDbService['clearSubmission']>().mockResolvedValue(undefined),
+    saveSubmission: vi.fn<InventoryDraftIndexedDbService['saveSubmission']>().mockImplementation(async submission => submission),
   };
 
   function setup() {
@@ -35,9 +34,7 @@ describe('BatchDraftStateService', () => {
     draftStorage.loadSubmission.mockReset();
     draftStorage.loadSubmission.mockResolvedValue(null);
     draftStorage.saveSubmission.mockReset();
-    draftStorage.saveSubmission.mockResolvedValue(undefined);
-    draftStorage.clearSubmission.mockReset();
-    draftStorage.clearSubmission.mockResolvedValue(undefined);
+    draftStorage.saveSubmission.mockImplementation(async submission => submission);
   });
 
   it('flags an interrupted submission when one is stored for the shop', async () => {
@@ -57,6 +54,17 @@ describe('BatchDraftStateService', () => {
 
     expect(submission).toBe(stored);
     expect(draftStorage.saveSubmission).not.toHaveBeenCalled();
+  });
+
+  it('does not create a new manifest when another tab already settled the recovery', async () => {
+    const owner = { userId: 'owner-1', shopId: 'shop-1' };
+    const service = setup();
+    service.markSubmissionInterrupted();
+    const submission = await service.prepareSubmission(owner.shopId, [], owner, () => undefined, true);
+
+    expect(submission).toBeNull();
+    expect(draftStorage.saveSubmission).not.toHaveBeenCalled();
+    expect(service.hasInterruptedSubmission()).toBe(false);
   });
 
   it('loads draft rows into state', async () => {

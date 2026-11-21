@@ -111,7 +111,7 @@ export interface AddInventoryBatchSucceededRow {
     readonly itemId: string;
     readonly itemName: string;
     readonly barcode: string;
-    readonly batchId: string;
+    readonly inventoryBatchId: string;
     readonly batchNumber: string;
     readonly batchQuantity: number;
     readonly totalQuantity: number;

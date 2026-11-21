@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
 import {
   Component,
@@ -15,15 +16,15 @@ import { ToastModule } from 'primeng/toast';
 import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from '../../../core/auth/auth.service';
-import { StaleScopeError, isScopeChangeError } from '../../../core/context/scoped-request';
+import { assertCurrentScope, isScopeChangeError } from '../../../core/context/scoped-request';
 import { hasProblemCode } from '../../../shared/utils/problem-code.util';
 import { ShopContextService } from '../../../core/context/shop-context.service';
-import type { ScopeOwner } from '../../../core/context/shop-scope';
+import type { ShopScope } from '../../../core/context/shop-scope';
 import { AudioService } from '../../../core/services/audio.service';
-import { classifyFinancialOperationFailure } from '../../../core/services/financial-operation-intent.service';
 import { BarcodeDetection } from '../../../core/services/barcode-detector.service';
 import {
   InventoryInboundDraftRow,
+  InventoryInboundSubmission,
   isPurchaseTaxModeConfirmed,
 } from '../../../core/storage/inventory-draft-indexeddb.service';
 import {
@@ -37,6 +38,8 @@ import {
   AddInventoryBatchSucceededRow,
   type BarcodeLabelPrintRequest,
 } from '../services/inventory.models';
+import { OPERATING_ACCESS_ERROR_KEYS, OperatingAccessHintService, operatingAccessErrorKey } from '../../billing/status/operating-access-hint.service';
+import { assertIntakeResponse, needsIntakeRecovery } from '../services/intake-response';
 import { BatchDraftStateService } from '../services/batch-draft-state.service';
 import { BatchRowFormStateService } from '../services/batch-row-form-state.service';
 import { InventoryService } from '../services/inventory.service';
@@ -58,7 +61,7 @@ import { BatchSaveResultsComponent } from '../components/batch-page/batch-save-r
     BatchRowFormComponent,
     BatchSaveResultsComponent,
   ],
-  providers: [MessageService, BatchRowFormStateService],
+  providers: [MessageService, BatchRowFormStateService, BatchDraftStateService],
   templateUrl: './inventory-batch-page.component.html',
   styleUrl: './inventory-batch-page.component.scss',
   encapsulation: ViewEncapsulation.None,
@@ -69,6 +72,7 @@ export class InventoryBatchPageComponent {
   private readonly expiryPolicies = inject(ExpiryPolicyService);
   private readonly authService = inject(AuthService);
   private readonly shopContext = inject(ShopContextService);
+  readonly access = inject(OperatingAccessHintService);
   private readonly audioService = inject(AudioService);
   private readonly draftState = inject(BatchDraftStateService);
   private readonly inventoryService = inject(InventoryService);
@@ -76,7 +80,8 @@ export class InventoryBatchPageComponent {
   private readonly rowFormState = inject(BatchRowFormStateService);
   private readonly translocoService = inject(TranslocoService);
 
-  readonly isSaving = signal(false);
+  private readonly savingScope = signal<ShopScope | null>(null);
+  readonly isSaving = computed(() => this.savingScope() === this.shopContext.scope() && this.savingScope() !== null);
   readonly isScannerOpen = signal(false);
   readonly saveSummary = signal<AddInventoryBatchResponse | null>(null);
   readonly barcodeLabelPrintDialogVisible = signal(false);
@@ -86,6 +91,7 @@ export class InventoryBatchPageComponent {
   readonly highlightedRowId = signal<string | null>(null);
 
   readonly activeShopId = computed(() => this.authService.session()?.activeShopId ?? '');
+  readonly hideDraft = computed(() => this.shopContext.dataRestricted());
   readonly loadingDraft = this.draftState.loadingDraft;
   readonly pendingRows = this.draftState.pendingRows;
   readonly hasInterruptedSubmission = this.draftState.hasInterruptedSubmission;
@@ -94,14 +100,16 @@ export class InventoryBatchPageComponent {
 
   constructor() {
     effect(() => {
-      const shopId = this.activeShopId();
-      if (!shopId) {
-        void this.draftState.clearRows('');
-        return;
-      }
-
+      const scope = this.shopContext.scope();
+      this.draftState.reset();
       this.rowFormState.resetForm();
-      void this.loadDraftRows(shopId);
+      this.saveSummary.set(null);
+      this.barcodeLabelPrintDialogVisible.set(false);
+      this.barcodeLabelPrintCandidates.set([]);
+      if (!scope?.shopId || this.hideDraft()) return;
+
+      void this.loadDraftRows(scope);
+      void this.access.refresh();
     });
   }
 
@@ -113,7 +121,7 @@ export class InventoryBatchPageComponent {
   onRemoveRow(clientRowId: string): void {
     if (this.refuseWhileInterrupted()) return;
     this.saveSummary.set(null);
-    void this.draftState.removeRow(this.activeShopId(), clientRowId);
+    void this.draftState.removeRow(this.activeShopId(), clientRowId, this.shopContext.scope() ?? undefined);
   }
 
   onEditRow(clientRowId: string): void {
@@ -123,19 +131,21 @@ export class InventoryBatchPageComponent {
 
     this.saveSummary.set(null);
     this.batchRowForm.populateFromRow(row);
-    void this.draftState.removeRow(this.activeShopId(), clientRowId);
+    void this.draftState.removeRow(this.activeShopId(), clientRowId, this.shopContext.scope() ?? undefined);
   }
 
   onClearAll(): void {
     if (this.refuseWhileInterrupted()) return;
     this.saveSummary.set(null);
-    void this.draftState.clearRows(this.activeShopId());
+    void this.draftState.clearRows(this.activeShopId(), this.shopContext.scope() ?? undefined);
   }
 
   onSaveAll(): void {
     // An interrupted submission can be resent even when no draft rows remain on screen.
-    if (this.isSaving() || (this.pendingRows().length === 0 && !this.hasInterruptedSubmission()))
-      return;
+    const scope = this.shopContext.scope();
+    const recovering = this.hasInterruptedSubmission();
+    if (!scope?.shopId || this.hideDraft() || this.isSaving() || this.loadingDraft() ||
+        (!recovering && (!this.pendingRows().length || this.access.blockingMessage()))) return;
     // An interrupted submission resends its frozen rows unchanged, so it is never held back here.
     if (
       !this.hasInterruptedSubmission() &&
@@ -147,8 +157,8 @@ export class InventoryBatchPageComponent {
       return;
     }
 
-    this.isSaving.set(true);
-    void this.saveRowsInChunks();
+    this.savingScope.set(scope);
+    void this.saveRowsInChunks(scope, recovering);
   }
 
   onPrintSuccessfulRows(rows: readonly AddInventoryBatchSucceededRow[]): void {
@@ -194,7 +204,7 @@ export class InventoryBatchPageComponent {
     if (this.refuseWhileInterrupted()) return;
 
     this.scannerSessionCount.update((count) => count + 1);
-    const mergedRow = await this.draftState.incrementRowQuantity(this.activeShopId(), barcode);
+    const mergedRow = await this.draftState.incrementRowQuantity(this.activeShopId(), barcode, this.shopContext.scope() ?? undefined);
     if (mergedRow) {
       this.saveSummary.set(null);
       this.flashRow(mergedRow.clientRowId);
@@ -222,9 +232,14 @@ export class InventoryBatchPageComponent {
     this.isScannerOpen.set(false);
   }
 
-  private async loadDraftRows(shopId: string): Promise<void> {
-    const rows = await this.draftState.loadDraftRows(shopId);
-    if (rows.length > 0) this.showInfo('inventory.draftLoaded');
+  private async loadDraftRows(scope: ShopScope): Promise<void> {
+    const current = () => this.shopContext.scope() === scope && !this.hideDraft();
+    try {
+      const rows = await this.draftState.loadDraftRows(scope.shopId, scope, current);
+      if (current() && rows.length > 0) this.showInfo('inventory.draftLoaded');
+    } catch {
+      if (current()) this.showError('inventory.saveFailed');
+    }
   }
 
   private async persistDraftRow(row: InventoryInboundDraftRow): Promise<void> {
@@ -232,140 +247,116 @@ export class InventoryBatchPageComponent {
     if (!shopId) return;
 
     this.saveSummary.set(null);
-    await this.draftState.addRow(shopId, row);
+    await this.draftState.addRow(shopId, row, this.shopContext.scope() ?? undefined);
     this.rowFormState.resetForm();
   }
 
-  private async saveRowsInChunks(): Promise<void> {
-    // Captured once: every chunk is sent as, and every draft write lands under, the user and shop
-    // that started the save, whatever this tab is working in when the answers arrive.
-    const owner: ScopeOwner = {
-      userId: this.authService.session()?.user?.id ?? '',
-      shopId: this.activeShopId(),
-    };
-    void this.expiryPolicies.invalidate(owner.shopId).catch(() => undefined);
+  private async saveRowsInChunks(scope: ShopScope, recovering: boolean): Promise<void> {
+    const assertScope = () => assertCurrentScope(this.shopContext, scope, scope);
     const succeeded: AddInventoryBatchSucceededRow[] = [];
     const failed: AddInventoryBatchFailedRow[] = [];
-    let requestedCount = 0;
-    // A switch waits for this save; a move it cannot stop (another tab) leaves the submission stored.
     const mutation = this.shopContext.beginMutation();
+    let submission: InventoryInboundSubmission | null = null;
+    let requested = 0;
 
     try {
-      // Frozen and stored before the first request: if the answer is lost, the next save resends
-      // these exact rows under the same keys and the server replays what it already committed.
-      const submission = await this.draftState.prepareSubmission(owner.shopId, this.pendingRows());
-      requestedCount = submission.chunks.reduce((count, chunk) => count + chunk.rows.length, 0);
-
+      submission = await this.draftState.prepareSubmission(scope.shopId, this.pendingRows(), scope, assertScope, recovering);
+      if (!submission) return;
+      requested = submission.chunks.reduce((count, chunk) => count + chunk.rows.length, 0);
       for (const chunk of submission.chunks) {
-        this.assertStillIn(owner);
-
-        const response = await firstValueFrom(
-          this.inventoryService.addInventoryBatch(
-            { items: this.mapRowsToRequest(chunk.rows), operationKey: chunk.operationKey },
-            owner,
-          ),
-        );
+        assertScope();
+        const response = await firstValueFrom(this.inventoryService.addInventoryBatch(
+          { items: this.mapRowsToRequest(chunk.rows), operationKey: chunk.operationKey }, scope,
+        ));
+        assertScope();
+        assertIntakeResponse(chunk, response);
         succeeded.push(...response.succeeded);
         failed.push(...response.failed);
       }
 
-      this.assertStillIn(owner);
-
-      // Saved rows leave the draft before the submission is discarded: if this write fails, the
-      // submission is still there and a resend only replays what is already committed.
-      await this.keepRowsNotSaved(owner.shopId, succeeded);
-      const summary = this.buildSaveSummary(requestedCount, succeeded, failed);
-      this.saveSummary.set(summary);
-
-      if (failed.some((row) => row.retryable)) {
-        // Nothing was saved for those rows; resending the same keys retries only them.
-        this.draftState.markSubmissionInterrupted();
-        this.showWarn('inventory.saveInterrupted');
+      const complete = !failed.some(needsIntakeRecovery);
+      if (!await this.settle(submission, succeeded, complete, scope, assertScope)) {
+        this.saveSummary.set(null);
         return;
       }
-
-      await this.draftState.clearSubmission(owner.shopId);
-      if (summary.failedCount === 0) {
-        this.showSuccess('inventory.savedSuccess', summary.successCount, summary.requestedCount);
-        return;
-      }
-
-      this.showWarn('inventory.savedPartial');
-    } catch (error) {
-      if (isScopeChangeError(error) || !this.shopContext.isCurrent(owner)) {
-        // The submission stays stored under the original shop, with its rows untouched, and
-        // resumes as an interrupted save when that shop is active again.
-        return;
-      }
-
-      await this.keepRowsNotSaved(owner.shopId, succeeded).catch(() => undefined);
-      if (succeeded.length > 0 || failed.length > 0) {
-        this.saveSummary.set(this.buildSaveSummary(requestedCount, succeeded, failed));
-      }
-
-      if (requestedCount > 0 && classifyFinancialOperationFailure(error) === 'uncertain') {
-        // The answer may have been lost after rows committed: keep the frozen submission.
-        this.draftState.markSubmissionInterrupted();
-        this.showWarn('inventory.saveInterrupted');
-        return;
-      }
-
-      if (requestedCount > 0) {
-        // A definitive refusal: the corrected rows will be a new submission with new keys.
-        await this.draftState.clearSubmission(owner.shopId);
-      }
-
-      const apiErrors = this.extractApiErrors(error);
-      if (
-        apiErrors.some((apiError) => this.getErrorCode(apiError) === 'Inventory.BatchLimitExceeded')
-      ) {
-        this.showWarn('inventory.batchLimitReached');
-      } else if (hasProblemCode(error, 'Inventory.QuantityPrecisionExceeded')) {
-        this.showError('inventory.quantityPrecisionExceeded');
+      const refusal = failed.flatMap(row => row.errors).find(error => Object.hasOwn(OPERATING_ACCESS_ERROR_KEYS, error.code));
+      if (refusal) this.access.reportRowRefusal(refusal.code, scope);
+      this.saveSummary.set(this.buildSaveSummary(requested, succeeded, failed));
+      if (failed.length === 0) {
+        this.showSuccess('inventory.savedSuccess', succeeded.length, requested);
       } else {
-        const detail = apiErrors
-          .map((apiError) => this.getErrorDescription(apiError))
-          .find(Boolean);
-        detail
-          ? this.showErrorWithDetail('inventory.saveFailed', detail)
-          : this.showError('inventory.saveFailed');
+        this.showWarn(refusal ? OPERATING_ACCESS_ERROR_KEYS[refusal.code] :
+          complete ? 'inventory.savedPartial' : 'inventory.saveInterrupted');
       }
+    } catch (error) {
+      if (isScopeChangeError(error) || scope !== this.shopContext.scope() || this.hideDraft()) return;
+      await this.handleSaveError(error, scope, recovering, submission, requested, succeeded, failed, assertScope);
     } finally {
       mutation.release();
-      this.isSaving.set(false);
+      if (this.savingScope() === scope) this.savingScope.set(null);
     }
   }
 
-  /** Each request carries the token current when it leaves; never send one owner's rows as another. */
-  private assertStillIn(owner: ScopeOwner): void {
-    if (!this.shopContext.isCurrent(owner)) {
-      throw new StaleScopeError();
+  private async handleSaveError(
+    error: unknown, scope: ShopScope, recovering: boolean, submission: InventoryInboundSubmission | null,
+    requested: number, succeeded: AddInventoryBatchSucceededRow[], failed: AddInventoryBatchFailedRow[],
+    assertScope: () => void,
+  ): Promise<void> {
+    const key = operatingAccessErrorKey(error);
+    this.access.reportRefusal(error, scope);
+    const securityDenied = hasProblemCode(error, 'Licence.SecuritySuspended') ||
+      (error instanceof HttpErrorResponse && (error.status === 401 || error.status === 403 && !key));
+    if (securityDenied) {
+      this.saveSummary.set(null);
+      this.barcodeLabelPrintCandidates.set([]);
+      this.barcodeLabelPrintDialogVisible.set(false);
+    }
+
+    // Only a first-request validation response can return frozen rows to editing.
+    const editable = !recovering && succeeded.length === 0 && failed.length === 0 &&
+      error instanceof HttpErrorResponse && error.status === 400;
+    if (submission) {
+      this.draftState.markSubmissionInterrupted();
+      if (!securityDenied && (editable || succeeded.length)) {
+        const settled = await this.settle(submission, succeeded, editable, scope, assertScope).catch(() => null);
+        if (settled === false) return;
+      }
+      if (scope !== this.shopContext.scope() || this.hideDraft()) return;
+      if (!securityDenied && (succeeded.length || failed.length)) {
+        this.saveSummary.set(this.buildSaveSummary(requested, succeeded, failed));
+      }
+      if (!editable) {
+        this.showWarn(key ?? 'inventory.saveInterrupted');
+        return;
+      }
+    }
+    this.showSaveError(error);
+  }
+
+  private showSaveError(error: unknown): void {
+    const apiErrors = this.extractApiErrors(error);
+    if (apiErrors.some((apiError) => this.getErrorCode(apiError) === 'Inventory.BatchLimitExceeded')) {
+      this.showWarn('inventory.batchLimitReached');
+    } else if (hasProblemCode(error, 'Inventory.QuantityPrecisionExceeded')) {
+      this.showError('inventory.quantityPrecisionExceeded');
+    } else {
+      const detail = apiErrors.map((apiError) => this.getErrorDescription(apiError)).find(Boolean);
+      detail ? this.showErrorWithDetail('inventory.saveFailed', detail) : this.showError('inventory.saveFailed');
     }
   }
 
-  /**
-   * While a submission is interrupted its rows are frozen: an edit, removal, scan or new row would
-   * either be overwritten by the resend or be posted a second time beside it.
-   */
+  private settle(
+    submission: InventoryInboundSubmission, succeeded: readonly AddInventoryBatchSucceededRow[],
+    complete: boolean, scope: ShopScope, assertScope: () => void,
+  ): Promise<boolean> {
+    return this.draftState.settleSubmission(submission, new Set(succeeded.map(row => row.clientRowId)), complete, scope, assertScope);
+  }
+
   private refuseWhileInterrupted(): boolean {
+    if (this.hideDraft() || this.isSaving() || this.loadingDraft()) return true;
     if (!this.hasInterruptedSubmission()) return false;
     this.showWarn('inventory.saveInterruptedLocked');
     return true;
-  }
-
-  /**
-   * Keeps every pending row the server has not confirmed, including rows added while the save ran.
-   * Called only while the save's owner is still current, so the rows in memory are that owner's.
-   */
-  private async keepRowsNotSaved(
-    shopId: string,
-    succeeded: readonly AddInventoryBatchSucceededRow[],
-  ): Promise<void> {
-    const savedIds = new Set(succeeded.map((row) => row.clientRowId));
-    await this.draftState.savePendingRows(
-      shopId,
-      this.pendingRows().filter((row) => !savedIds.has(row.clientRowId)),
-    );
   }
 
   private buildSaveSummary(
@@ -419,7 +410,7 @@ export class InventoryBatchPageComponent {
       itemId: row.result.itemId,
       itemName: row.result.itemName,
       barcode: row.result.barcode,
-      inventoryBatchId: row.result.batchId,
+      inventoryBatchId: row.result.inventoryBatchId,
       quantity: row.result.batchQuantity,
     }));
   }

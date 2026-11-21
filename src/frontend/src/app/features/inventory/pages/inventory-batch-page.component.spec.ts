@@ -19,6 +19,7 @@ import {
   type InventoryInboundDraftRow,
 } from '../../../core/storage/inventory-draft-indexeddb.service';
 import { SuppliersFacade } from '../../suppliers/state/suppliers.facade';
+import { BatchDraftStateService } from '../services/batch-draft-state.service';
 import { BatchRowFormStateService } from '../services/batch-row-form-state.service';
 import { InventoryService } from '../services/inventory.service';
 import { InventoryBatchPageComponent } from './inventory-batch-page.component';
@@ -55,12 +56,15 @@ describe('InventoryBatchPageComponent', () => {
   let storedSubmission: any = null;
   const draftStorage = {
     loadRows: vi.fn(async () => []),
-    saveRows: vi.fn(async () => undefined),
-    clearRows: vi.fn(async () => undefined),
+    saveRows: vi.fn(async (_shop: string, _rows: readonly InventoryInboundDraftRow[]) => undefined),
+    clearRows: vi.fn(async (_shop: string) => undefined),
     loadSubmission: vi.fn(async () => storedSubmission),
     saveSubmission: vi.fn(async (submission: unknown) => {
       storedSubmission = submission;
+      return submission;
     }),
+    settleSubmission: vi.fn(async (_submission: unknown, _savedIds: ReadonlySet<string>, _complete: boolean) =>
+      [] as readonly InventoryInboundDraftRow[]),
     clearSubmission: vi.fn(async () => {
       storedSubmission = null;
     }),
@@ -144,6 +148,14 @@ describe('InventoryBatchPageComponent', () => {
     TestBed.inject(ShopContextService).initialize({ userId: 'owner-1', shopId: 'shop-1' });
 
     const fixture = TestBed.createComponent(InventoryBatchPageComponent);
+    const state = fixture.debugElement.injector.get(BatchDraftStateService);
+    draftStorage.settleSubmission.mockImplementation(async (_submission, savedIds, complete) => {
+      const rows = state.pendingRows().filter(row => !savedIds.has(row.clientRowId));
+      if (rows.length) await draftStorage.saveRows('shop-1', rows);
+      else await draftStorage.clearRows('shop-1');
+      if (complete) await draftStorage.clearSubmission();
+      return rows;
+    });
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
@@ -165,7 +177,9 @@ describe('InventoryBatchPageComponent', () => {
     draftStorage.saveSubmission.mockClear();
     draftStorage.saveSubmission.mockImplementation(async (submission: unknown) => {
       storedSubmission = submission;
+      return submission;
     });
+    draftStorage.settleSubmission.mockClear();
     draftStorage.clearSubmission.mockClear();
     suppliersFacade.load.mockClear();
     productCatalogSync.filterByName.mockClear();
@@ -510,6 +524,7 @@ describe('InventoryBatchPageComponent', () => {
               itemName: rows[0].itemName,
               barcode: rows[0].barcode,
               errors: [{ code: 'Inventory.SomeRule', description: 'Row failed in chunk 1' }],
+              retryable: false,
             },
           ],
         }),
@@ -529,6 +544,7 @@ describe('InventoryBatchPageComponent', () => {
               itemName: rows[100].itemName,
               barcode: rows[100].barcode,
               errors: [{ code: 'Inventory.SomeRule', description: 'Row failed in chunk 2' }],
+              retryable: false,
             },
           ],
         }),
@@ -585,6 +601,7 @@ describe('InventoryBatchPageComponent', () => {
               itemName: rows[0].itemName,
               barcode: rows[0].barcode,
               errors: [{ code: 'Inventory.SomeRule', description: 'Row failed in chunk 1' }],
+              retryable: false,
             },
           ],
         }),
@@ -593,6 +610,7 @@ describe('InventoryBatchPageComponent', () => {
         throwError(() => ({
           error: {
             errors: [{ code: 'Inventory.ServerError', description: 'Chunk failed unexpectedly' }],
+              retryable: false,
           },
         })),
       );
@@ -873,6 +891,101 @@ describe('InventoryBatchPageComponent', () => {
     expect(component.pendingRows()).toHaveLength(0);
   });
 
+  it('keeps the frozen submission when a row is licence-blocked', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    const rows = [
+      createDraftRow('row-1', 'Milk', 'BC-1'),
+      createDraftRow('row-2', 'Bread', 'BC-2'),
+    ];
+    inventoryService.addInventoryBatch
+      .mockReturnValueOnce(
+        of({
+          requestedCount: 2,
+          successCount: 1,
+          failedCount: 1,
+          succeeded: [{ clientRowId: 'row-2', result: createResult('row-2') }],
+          failed: [
+            {
+              clientRowId: 'row-1',
+              itemName: 'Milk',
+              barcode: 'BC-1',
+              errors: [{ code: 'Licence.Expired', description: 'Temporary problem' }],
+              retryable: false,
+            },
+          ],
+        }),
+      )
+      .mockImplementationOnce((payload: { items: Array<{ clientRowId: string }> }) =>
+        of(allSucceeded(payload.items)),
+      );
+
+    component.pendingRows.set(rows);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(component.hasInterruptedSubmission()).toBe(true);
+    expect(draftStorage.clearSubmission).not.toHaveBeenCalled();
+    expect(component.pendingRows().map((row) => row.clientRowId)).toEqual(['row-1']);
+
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    const [first, retry] = inventoryService.addInventoryBatch.mock.calls.map((call) => call[0]);
+    expect(retry).toEqual(first);
+    expect(component.hasInterruptedSubmission()).toBe(false);
+    expect(component.pendingRows()).toHaveLength(0);
+  });
+
+  it('keeps the original key when a multi-status response omits a requested row', async () => {
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    component.pendingRows.set([createDraftRow('row-1', 'Milk', 'BC-1'), createDraftRow('row-2', 'Bread', 'BC-2')]);
+    inventoryService.addInventoryBatch
+      .mockReturnValueOnce(of({
+        requestedCount: 2, successCount: 1, failedCount: 0,
+        succeeded: [{ clientRowId: 'row-1', result: createResult('row-1') }], failed: [],
+      }))
+      .mockImplementationOnce((payload: { items: Array<{ clientRowId: string }> }) => of(allSucceeded(payload.items)));
+    component.onSaveAll();
+    await fixture.whenStable();
+    expect(component.hasInterruptedSubmission()).toBe(true);
+    expect(component.saveSummary()).toBeNull();
+    expect(draftStorage.clearSubmission).not.toHaveBeenCalled();
+
+    component.onSaveAll();
+    await fixture.whenStable();
+    const [first, retry] = inventoryService.addInventoryBatch.mock.calls.map(call => call[0]);
+    expect(retry).toEqual(first);
+    expect(component.hasInterruptedSubmission()).toBe(false);
+  });
+
+  it('keeps an interrupted submission when recovery is temporarily denied', async () => {
+    storedSubmission = {
+      shopId: 'shop-1',
+      chunks: [
+        { operationKey: 'intake-stored-0', rows: [createDraftRow('row-1', 'Milk', 'BC-1')] },
+      ],
+      createdAt: '2026-11-01T00:00:00Z',
+    };
+    const fixture = await setup();
+    const component = fixture.componentInstance;
+    inventoryService.addInventoryBatch.mockImplementation(
+      () => throwError(() => new HttpErrorResponse({ status: 403, error: { code: 'Licence.SecuritySuspended' } })),
+    );
+
+    expect(component.hasInterruptedSubmission()).toBe(true);
+    component.onSaveAll();
+    await fixture.whenStable();
+
+    expect(inventoryService.addInventoryBatch).toHaveBeenCalledTimes(1);
+    expect(inventoryService.addInventoryBatch.mock.calls[0][0].operationKey).toBe(
+      'intake-stored-0',
+    );
+    expect(storedSubmission?.chunks[0].operationKey).toBe('intake-stored-0');
+    expect(component.hasInterruptedSubmission()).toBe(true);
+  });
+
   it('resends an interrupted submission even when no draft rows remain', async () => {
     storedSubmission = {
       shopId: 'shop-1',
@@ -930,6 +1043,7 @@ describe('InventoryBatchPageComponent', () => {
       expect(inventoryService.addInventoryBatch.mock.calls[0][1]).toEqual({
         userId: 'owner-1',
         shopId: 'shop-1',
+        epoch: 0,
       });
       expect(draftStorage.clearSubmission).not.toHaveBeenCalled();
       expect(storedSubmission?.shopId).toBe('shop-1');
@@ -987,7 +1101,7 @@ describe('InventoryBatchPageComponent', () => {
     }
   });
 
-  it('discards the frozen submission after a definitive refusal', async () => {
+  it('retains the frozen submission after a key conflict', async () => {
     const fixture = await setup();
     const component = fixture.componentInstance;
     const rows = [createDraftRow('row-1', 'Milk', 'BC-1')];
@@ -1006,15 +1120,15 @@ describe('InventoryBatchPageComponent', () => {
     component.onSaveAll();
     await fixture.whenStable();
 
-    expect(draftStorage.clearSubmission).toHaveBeenCalled();
-    expect(component.hasInterruptedSubmission()).toBe(false);
+    expect(draftStorage.clearSubmission).not.toHaveBeenCalled();
+    expect(component.hasInterruptedSubmission()).toBe(true);
     expect(component.pendingRows()).toHaveLength(1);
 
     component.onSaveAll();
     await fixture.whenStable();
 
     const [refused, fresh] = inventoryService.addInventoryBatch.mock.calls.map((call) => call[0]);
-    expect(fresh.operationKey).not.toBe(refused.operationKey);
+    expect(fresh).toEqual(refused);
   });
 
   it('sends nothing when the submission cannot be stored first', async () => {
@@ -1041,7 +1155,7 @@ describe('InventoryBatchPageComponent', () => {
           itemId: 'item-1',
           itemName: 'Milk',
           barcode: 'B001',
-          batchId: 'batch-1',
+          inventoryBatchId: 'batch-1',
           batchNumber: 'BN-1',
           batchQuantity: 4,
           totalQuantity: 4,
@@ -1120,7 +1234,7 @@ describe('InventoryBatchPageComponent', () => {
       itemId: `item-${suffix}`,
       itemName: `Item ${suffix}`,
       barcode: `BC-${suffix}`,
-      batchId: `batch-${suffix}`,
+      inventoryBatchId: `batch-${suffix}`,
       batchNumber: 'BN-20260101-ABCDE',
       batchQuantity: 1,
       totalQuantity: 1,
