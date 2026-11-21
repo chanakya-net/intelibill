@@ -22,6 +22,7 @@ using Intelibill.Application.Features.Users.Queries.GetShopInvitations;
 using Intelibill.Application.Features.Users.DTOs;
 using Intelibill.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Wolverine;
 
@@ -269,6 +270,10 @@ public sealed class ShopsController : AuthenticatedControllerBase
                 request.Status,
                 request.ExpectedVersion) { Session = SessionClaims.TryRead(User) },
             cancellationToken);
+
+        if (!result.IsError && result.Value.IsSourceAuthorizedRemoval &&
+            HttpContext.Features.Get<IHttpResponseBodyFeature>() is SuspensionResponseBodyFeature response)
+            response.ConfirmMemberRemoval();
 
         return result.ToActionResult(Ok);
     }

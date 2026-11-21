@@ -17,6 +17,13 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
     public async Task<ErrorOr<byte[]>> ApplyAsync(EntitlementSnapshotV1 snapshot, byte[] body,
         VerifiedServiceAssertion proof, CancellationToken ct)
     {
+        var receipt = await ApplyWithChangeAsync(snapshot, body, proof, ct);
+        return receipt.IsError ? receipt.Errors : receipt.Value.Acknowledgement;
+    }
+
+    public async Task<ErrorOr<EntitlementProjectionReceipt>> ApplyWithChangeAsync(EntitlementSnapshotV1 snapshot, byte[] body,
+        VerifiedServiceAssertion proof, CancellationToken ct)
+    {
         var received = EntitlementSnapshotsV1.Instant(clock);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var entered = await EnterAsync(snapshot.AccountId, snapshot.ShopId, ct);
@@ -32,7 +39,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         return result;
     }
 
-    private async Task<ErrorOr<byte[]>> ApplyOnceAsync(EntitlementSnapshotV1 snapshot, byte[] body,
+    private async Task<ErrorOr<EntitlementProjectionReceipt>> ApplyOnceAsync(EntitlementSnapshotV1 snapshot, byte[] body,
         VerifiedServiceAssertion proof, DateTimeOffset received, CancellationToken ct)
     {
         var prior = await db.Database.SqlQuery<InboxRow>($"""
@@ -40,7 +47,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
             WHERE event_id = {snapshot.EventId}
             """).SingleOrDefaultAsync(ct);
         if (prior is not null)
-            return prior.Digest == proof.Digest ? prior.Acknowledgement : Conflict;
+            return prior.Digest == proof.Digest ? new EntitlementProjectionReceipt(prior.Acknowledgement, false) : Conflict;
 
         var account = await db.Set<AccountLicenseRestriction>().SingleOrDefaultAsync(row => row.AccountId == snapshot.AccountId, ct);
         var shop = await db.Set<ShopLicenseState>().SingleOrDefaultAsync(row => row.ShopId == snapshot.ShopId, ct);
@@ -68,7 +75,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         await db.SaveChangesAsync(ct);
         await new LeasedHttpOutbox(db).AppendAsync(snapshot.EventId, snapshot.AccountId, snapshot.ShopId,
             "Acknowledgement", receipt, SignedServiceAssertion.Digest(receipt), appliedAt, ct);
-        return receipt;
+        return new EntitlementProjectionReceipt(receipt, nextAccount || nextShop);
     }
 
     internal async Task<ErrorOr<Success>> EnterAsync(Guid account, Guid shop, CancellationToken ct)
@@ -156,3 +163,5 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
 
     private sealed record InboxRow(string Digest, byte[] Acknowledgement);
 }
+
+public sealed record EntitlementProjectionReceipt(byte[] Acknowledgement, bool Changed);

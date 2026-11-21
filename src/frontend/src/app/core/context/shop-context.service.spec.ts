@@ -31,6 +31,24 @@ describe('ShopContextService', () => {
     return service;
   }
 
+  it('invalidates the same owner once per observed access change and rejects stale decisions', () => {
+    const service = create({ ...A, shopId: 'restricted-shop' });
+    const initial = service.scope()!;
+    const detach = vi.fn();
+    service.onDetach(detach);
+
+    expect(service.setDataRestricted(initial, true)).toBe(true);
+    const restricted = service.scope()!;
+    expect(service.dataRestricted()).toBe(true);
+    expect(service.isCurrent(initial)).toBe(true);
+    expect(service.setDataRestricted(restricted, true)).toBe(false);
+    expect(service.setDataRestricted(initial, false)).toBe(false);
+    expect(service.setDataRestricted(restricted, false)).toBe(true);
+    expect(service.epoch()).toBe(2);
+    expect(detach).toHaveBeenCalledTimes(2);
+    expect(appReload.restartAtAppRoot).not.toHaveBeenCalled();
+  });
+
   it('installs credentials without moving the epoch when the owner stays the same', () => {
     const service = create();
     const install = vi.fn();

@@ -75,7 +75,10 @@ export class ShellComponent {
   private readonly appUpdate = inject(OfflinePackUpdateService);
   readonly menuService = inject(ShellMenuService);
   /** While the tab leaves a scope, nothing routed may show beneath the next scope's header. */
-  readonly isScopeTransitioning = inject(ShopContextService).transitioning;
+  private readonly shopContext = inject(ShopContextService);
+  readonly isScopeTransitioning = this.shopContext.transitioning;
+  readonly isShopDataRestricted = this.shopContext.dataRestricted;
+  readonly hideShopData = computed(() => this.isShopDataRestricted() && !this.isShopIndependentRoute());
   private readonly cacheSafety = inject(ProtectedCacheSafetyService);
   /** Shown only when a reload is what finishes the cleanup; requests never wait on it. */
   readonly cacheSafetyNoticeKey = computed(() => {
@@ -132,7 +135,8 @@ export class ShellComponent {
   readonly currentLanguage = this.localizationService.currentLanguage;
 
   readonly session = this.authService.session;
-  readonly shops = this.store.selectSignal(selectShops);
+  private readonly storedShops = this.store.selectSignal(selectShops);
+  readonly shops = computed(() => this.storedShops().length > 0 ? this.storedShops() : this.session()?.shops ?? []);
   readonly shopDetailsById = this.store.selectSignal(selectShopDetailsEntities);
   readonly isShopsSubmitting = this.store.selectSignal(selectShopsSubmitting);
   readonly activeShop = this.shopPermissionsService.activeShop;
@@ -160,7 +164,7 @@ export class ShellComponent {
       return null;
     }
 
-    const pincode = this.shopDetailsById()[activeShop.shopId]?.pincode?.trim();
+    const pincode = this.isShopDataRestricted() ? null : this.shopDetailsById()[activeShop.shopId]?.pincode?.trim();
     return pincode ? `${activeShop.shopName} - ${pincode}` : activeShop.shopName;
   });
   readonly profileMenuItems = computed(() =>
@@ -227,6 +231,9 @@ export class ShellComponent {
     });
 
     this.store.dispatch(ShopsActions.loadShopsRequested());
+    effect(() => {
+      if (this.isShopDataRestricted()) this.showManageShopOverlay.set(false);
+    });
   }
 
   onSignOut(): void {

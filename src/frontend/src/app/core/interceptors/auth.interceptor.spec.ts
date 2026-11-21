@@ -46,6 +46,76 @@ describe('authInterceptor', () => {
     return TestBed.runInInjectionContext(() => authInterceptor(req, nextFn as Parameters<typeof authInterceptor>[1]));
   }
 
+  it('discards an absolute API response after the same owner loses access', () => {
+    const context = TestBed.inject(ShopContextService);
+    context.initialize({ userId: 'owner', shopId: 'absolute-api-shop' });
+    const answer = new Subject<HttpEvent<unknown>>();
+    const received = vi.fn();
+    const url = new URL(`${API_BASE_URL}/shops`, document.baseURI).href;
+    runInterceptor(new HttpRequest('GET', url), () => answer).subscribe(received);
+
+    const previous = context.scope()!;
+    context.setDataRestricted(previous, true);
+    answer.next(new HttpResponse({ body: { id: 'protected' } }));
+    answer.complete();
+
+    expect(received).not.toHaveBeenCalled();
+    context.setDataRestricted(context.scope()!, false);
+  });
+
+  it('keeps a dispatched owner-bound result unknown after an enforced security refusal', () => {
+    const owner = { userId: 'owner', shopId: 'owner-bound-shop' };
+    const context = TestBed.inject(ShopContextService);
+    context.initialize(owner);
+    mockAuthService.getAccessToken.mockReturnValue('test-token');
+    const failure = vi.fn();
+    const request = new HttpRequest('POST', `${API_BASE_URL}/customers/id/payments`, {},
+      { context: scopedRequestContext(owner) });
+
+    runInterceptor(request, () => throwError(() => new HttpErrorResponse({
+      status: 403, error: { code: 'Licence.SecuritySuspended' },
+    }))).subscribe({ error: failure });
+
+    expect(failure).toHaveBeenCalledWith(expect.any(StaleScopeError));
+    expect(context.dataRestricted()).toBe(true);
+    expect(mockAuthService.clearSession).not.toHaveBeenCalled();
+    context.setDataRestricted(context.scope()!, false);
+  });
+
+  it('does not invalidate the active shop for an explicitly targeted shop refusal', () => {
+    const context = TestBed.inject(ShopContextService);
+    context.initialize({ userId: 'owner', shopId: 'shop-a' });
+    mockAuthService.getAccessToken.mockReturnValue('test-token');
+    const failed = vi.fn();
+    const url = new URL(`${API_BASE_URL}/shops/shop-b/setup?mode=history`, document.baseURI).href;
+    const error = new HttpErrorResponse({ status: 403, error: { code: 'Licence.SecuritySuspended' } });
+
+    runInterceptor(new HttpRequest('GET', url), () => throwError(() => error)).subscribe({ error: failed });
+
+    expect(failed).toHaveBeenCalledWith(error);
+    expect(context.dataRestricted()).toBe(false);
+  });
+
+  it('rejects an old Blob refusal after its shop epoch changes', async () => {
+    const context = TestBed.inject(ShopContextService);
+    context.initialize({ userId: 'owner', shopId: 'shop-a' });
+    mockAuthService.getAccessToken.mockReturnValue('test-token');
+    let decode!: (body: string) => void;
+    const blob = new Blob([], { type: 'application/problem+json' });
+    Object.defineProperty(blob, 'text', { value: () => new Promise<string>((resolve) => { decode = resolve; }) });
+
+    const completed = new Promise<void>((resolve, reject) => {
+      runInterceptor(new HttpRequest('GET', `${API_BASE_URL}/exports/sales`), () =>
+        throwError(() => new HttpErrorResponse({ status: 403, error: blob })))
+        .subscribe({ complete: resolve, error: reject });
+    });
+    context.transition({ userId: 'owner', shopId: 'shop-b' }, 'scope', () => undefined);
+    decode(JSON.stringify({ code: 'Licence.SecuritySuspended' }));
+    await completed;
+
+    expect(context.dataRestricted()).toBe(false);
+  });
+
   it('adds Authorization header when access token is present', () => {
     mockAuthService.getAccessToken.mockReturnValue('test-token');
 

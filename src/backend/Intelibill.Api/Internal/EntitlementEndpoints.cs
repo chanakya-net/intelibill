@@ -16,7 +16,7 @@ internal static class EntitlementEndpoints
             .WithMetadata(new LicenceActionAttribute(LicenceAction.InternalService));
 
     private static async Task<IResult> ApplyAsync(HttpContext context, MerchantEntitlementTransport transport,
-        EntitlementProjectionStore projection)
+        EntitlementProjectionStore projection, LicenceAuthorityNotifications notifications)
     {
         if (await PrivateIntegrationRequest.ReadAsync(context, EntitlementSnapshotsV1.SnapshotPath,
                 EntitlementSnapshotsV1.BodyLimit) is not { } request ||
@@ -27,9 +27,12 @@ internal static class EntitlementEndpoints
             var snapshot = JsonSerializer.Deserialize<EntitlementSnapshotV1>(request.Body, EntitlementSnapshotsV1.Json);
             if (snapshot is null || !snapshot.HasValidIdentity())
                 return Results.BadRequest();
-            var result = await projection.ApplyAsync(snapshot, request.Body, proof, context.RequestAborted);
+            var result = await projection.ApplyWithChangeAsync(snapshot, request.Body, proof, context.RequestAborted);
             if (!result.IsError)
-                return Results.Bytes(result.Value, "application/json");
+            {
+                if (result.Value.Changed) notifications.Schedule(snapshot.ShopId);
+                return Results.Bytes(result.Value.Acknowledgement, "application/json");
+            }
             if (result.FirstError.Code == LicenceErrors.BusyCode)
                 return Results.StatusCode(503);
             return result.FirstError.Type == ErrorType.Conflict ? Results.Conflict() : Results.Unauthorized();

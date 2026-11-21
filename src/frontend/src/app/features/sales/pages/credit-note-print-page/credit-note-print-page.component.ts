@@ -1,3 +1,4 @@
+import { injectScopedPrint } from '../../../../core/context/scoped-print';
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
@@ -17,6 +18,7 @@ import { SaleService } from '../../services/sale.service';
   styleUrl: './credit-note-print-page.component.scss',
 })
 export class CreditNotePrintPageComponent {
+  private readonly print = injectScopedPrint();
   private readonly route = inject(ActivatedRoute);
   private readonly saleService = inject(SaleService);
   private readonly shopService = inject(ShopService);
@@ -32,7 +34,7 @@ export class CreditNotePrintPageComponent {
   }
 
   onPrintAgain(): void {
-    window.print();
+    this.print();
   }
 
   onClose(): void {
@@ -76,7 +78,7 @@ export class CreditNotePrintPageComponent {
         this.creditNote.set(creditNote);
         this.shop.set(shop);
         this.isLoading.set(false);
-        setTimeout(() => window.print());
+        setTimeout(() => this.print());
       },
       error: (error) => {
         this.errorMessage.set(error.error?.detail || 'sales.creditNotes.print.errors.loadFailed');

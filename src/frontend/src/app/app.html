@@ -1,1 +1,8 @@
-<router-outlet></router-outlet>
+@if (hideStandaloneShopData()) {
+  <main>
+    <p role="alert" data-testid="shop-data-restricted">{{ 'billing.status.suspension.enforcedSecurity' | transloco }}</p>
+    <a routerLink="/">{{ 'shell.appName' | transloco }}</a>
+  </main>
+} @else {
+  <router-outlet></router-outlet>
+}

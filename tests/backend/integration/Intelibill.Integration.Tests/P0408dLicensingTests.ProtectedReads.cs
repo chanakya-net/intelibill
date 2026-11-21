@@ -14,7 +14,7 @@ public sealed partial class P0408dLicensingTests
     [Theory]
     [InlineData("setup")]
     [InlineData("setup/sample")]
-    public async Task SecuritySuspensionWaitsForAProtectedReadInProgress(string route)
+    public async Task SecuritySuspensionWaitsForTheSourceReadAndThenFencesItsDelivery(string route)
     {
         var (host, client, shop, binding, end) = await OpenStockedShopAsync();
         using (host)
@@ -40,8 +40,9 @@ public sealed partial class P0408dLicensingTests
                 await Task.WhenAll(new Task[] { reading }.Concat(suspending is null ? [] : [suspending]));
             }
 
-            using var served = await reading;
-            await ReadSuccessAsync(served);
+            // The read transaction acquired its source locks first. The queued projection
+            // then won the separate transport boundary while the protected result was prepared.
+            await AssertProblemAsync(await reading, HttpStatusCode.Forbidden, "Licence.SecuritySuspended");
             await AssertProblemAsync(await client.GetAsync($"/api/shops/{shop}/{route}", Ct),
                 HttpStatusCode.Forbidden, "Licence.SecuritySuspended");
         }

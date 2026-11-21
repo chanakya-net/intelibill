@@ -63,18 +63,10 @@ public sealed class ItemsController : AuthenticatedControllerBase
         Response.Headers.CacheControl = "no-store";
 
         var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-        var count = 0;
-
+        var buffer = new NdjsonResponseBuffer(Response);
         await foreach (var item in _itemCatalogStreamingService.StreamByShopAsync(ActiveShopId.Value, cancellationToken))
-        {
-            var line = JsonSerializer.Serialize(item, jsonOptions) + "\n";
-            await Response.WriteAsync(line, cancellationToken);
-            count++;
-            if (count % 50 == 0)
-                await Response.Body.FlushAsync(cancellationToken);
-        }
-
-        await Response.Body.FlushAsync(cancellationToken);
+            await buffer.WriteAsync(JsonSerializer.Serialize(item, jsonOptions), cancellationToken);
+        await buffer.FlushAsync(cancellationToken);
     }
 
     [HttpGet]

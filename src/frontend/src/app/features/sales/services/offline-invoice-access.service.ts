@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 
 import { AuthService } from '../../../core/auth/auth.service';
+import { ShopContextService } from '../../../core/context/shop-context.service';
 import { OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline-sales-device-settings.storage';
 import type { OfflineQueuedSaleRecord } from './offline-sale-core.types';
 import { OfflineSalesQueueIndexedDbService } from './offline-sales-queue-indexeddb.service';
@@ -25,6 +26,7 @@ export type OfflineInvoiceReadResult =
  */
 @Injectable({ providedIn: 'root' })
 export class OfflineInvoiceAccessService {
+  private readonly context = inject(ShopContextService);
   private readonly auth = inject(AuthService);
   private readonly deviceSettings = inject(OfflineSalesDeviceSettingsStorage);
   private readonly queueDb = inject(OfflineSalesQueueIndexedDbService);
@@ -34,6 +36,8 @@ export class OfflineInvoiceAccessService {
     const userId = session?.user.id ?? '';
     const shopId = session?.activeShopId ?? '';
     if (!userId || !shopId) return deny('NO_SESSION');
+    const epoch = this.context.epoch();
+    if (this.context.dataRestricted()) return deny('SCOPE_CHANGED');
 
     const deviceId = this.deviceSettings.loadSettings(shopId)?.deviceId ?? '';
     if (!deviceId) return deny('NO_DEVICE');
@@ -42,10 +46,11 @@ export class OfflineInvoiceAccessService {
       return deny('GRACE_UNAVAILABLE');
     }
 
+    if (this.context.epoch() !== epoch || this.context.dataRestricted()) return deny('SCOPE_CHANGED');
     const record = await this.queueDb.getQueuedSale(shopId, deviceId, clientSaleId);
     // The session can change while IndexedDB answers (sign-out, another account, a shop switch in another tab): a
     // read started for one scope is never handed to another.
-    if (!this.isSameScope(userId, shopId)) return deny('SCOPE_CHANGED');
+    if (this.context.epoch() !== epoch || !this.isSameScope(userId, shopId)) return deny('SCOPE_CHANGED');
     if (!record) return deny('NOT_FOUND');
 
     const payload = record.payload;

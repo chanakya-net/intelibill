@@ -75,7 +75,7 @@ describe('Supplier return completion eligibility', () => {
           },
         },
         { provide: Router, useValue: {} },
-        { provide: ShopContextService, useValue: {} },
+        { provide: ShopContextService, useValue: { epoch: () => 0, dataRestricted: () => false } },
         { provide: SupplierReturnService, useValue: {} },
       ],
     });

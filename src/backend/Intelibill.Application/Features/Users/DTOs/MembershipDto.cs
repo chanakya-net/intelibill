@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Intelibill.Application.Features.Users.DTOs;
 
 /// <summary>
@@ -11,4 +13,8 @@ public sealed record MembershipDto(
     string DisplayName,
     string Role,
     string Status,
-    long Version);
+    long Version)
+{
+    [JsonIgnore]
+    public bool IsSourceAuthorizedRemoval { get; init; }
+}

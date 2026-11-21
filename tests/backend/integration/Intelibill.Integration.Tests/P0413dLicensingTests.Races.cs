@@ -70,14 +70,16 @@ public sealed partial class P0413dLicensingTests
         var projection = ApplyAsync(source.Binding, _clock.Now.AddDays(1), 2, restriction: "Security", connection: delivery);
         var waiter = await ObserveWaitAsync(projection, blocker, barrier, projection);
         Assert.NotEqual(0, waiter);
-        using var first = await correction;
-        Assert.Equal(100m, (await ReadSuccessAsync(first)).GetProperty("delta").GetDecimal());
+        await AssertProblemAsync(await correction, HttpStatusCode.Forbidden, "Licence.SecuritySuspended");
+        var committed = await FactsAsync(source);
+        Assert.Equal(1100m, committed.Effective);
+        Assert.Equal(1, committed.Adjustments);
 
         await AssertProblemAsync(await CorrectAsync(client, source.Receipt, await ReceiptVersionAsync(source.Receipt), 1050, NewKey()),
             HttpStatusCode.Forbidden, "Licence.SecuritySuspended");
         using var allowed = await CorrectAsync(unrelated, other.Receipt, await ReceiptVersionAsync(other.Receipt), 1010, NewKey());
         Assert.Equal(10m, (await ReadSuccessAsync(allowed)).GetProperty("delta").GetDecimal());
-        _output.WriteLine("Account projection waiter PID {0}, posting blocker PID {1}. Posting committed before 403; unrelated shop completed.", waiter, blocker);
+        _output.WriteLine("Account projection waiter PID {0}, posting blocker PID {1}. The posting committed, its result was withheld, and the unrelated shop completed.", waiter, blocker);
     }
 
     private async Task<int> WaitForBlockedRequestAsync(Task request, int blocker)

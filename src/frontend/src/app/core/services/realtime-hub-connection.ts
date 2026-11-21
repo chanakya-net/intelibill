@@ -2,6 +2,7 @@ import { effect, inject } from '@angular/core';
 
 import { AuthService } from '../auth/auth.service';
 import { HUB_BASE_URL } from '../auth/auth.constants';
+import { ShopContextService } from '../context/shop-context.service';
 import { HubConnectionFactory, HubConnectionLike } from './hub-connection.factory';
 
 // Backoff for an ordinary network interruption, in milliseconds. It deliberately starts above
@@ -40,6 +41,7 @@ export interface ShopScopedPayload {
  */
 export abstract class RealtimeHubConnection<TPayload extends ShopScopedPayload> {
   protected readonly authService = inject(AuthService);
+  private readonly context = inject(ShopContextService);
   private readonly connections = inject(HubConnectionFactory);
 
   private connection: HubConnectionLike | null = null;
@@ -62,6 +64,8 @@ export abstract class RealtimeHubConnection<TPayload extends ShopScopedPayload> 
   constructor() {
     effect(() => {
       this.authService.session();
+      this.context.scope();
+      this.context.dataRestricted();
       void this.syncConnection();
     });
   }
@@ -105,7 +109,9 @@ export abstract class RealtimeHubConnection<TPayload extends ShopScopedPayload> 
     const session = this.authService.session();
     const activeShopId = session?.activeShopId ?? '';
     const accessToken = session?.accessToken ?? '';
-    const desiredKey = activeShopId && accessToken ? `${activeShopId}::${accessToken}` : '';
+    const epoch = this.context.epoch();
+    const desiredKey = activeShopId && accessToken && !this.context.dataRestricted()
+      ? `${activeShopId}::${accessToken}::${epoch}` : '';
 
     if (!desiredKey) {
       this.connectionKey = '';
@@ -129,7 +135,7 @@ export abstract class RealtimeHubConnection<TPayload extends ShopScopedPayload> 
       accessTokenFactory: () => this.authService.getAccessToken() ?? '',
       retryPolicy: {
         nextRetryDelayInMilliseconds: (context) => {
-          if (!this.hasUsableSession()) {
+          if (!this.hasUsableSession() || this.context.epoch() !== epoch || this.context.dataRestricted()) {
             return null;
           }
 
@@ -148,7 +154,7 @@ export abstract class RealtimeHubConnection<TPayload extends ShopScopedPayload> 
     });
 
     this.connection.on<TPayload>(this.eventName, (payload) => {
-      if (generation !== this.generation) {
+      if (generation !== this.generation || this.context.epoch() !== epoch || this.context.dataRestricted()) {
         return;
       }
 

@@ -4,7 +4,7 @@ import { Observable, Subject } from 'rxjs';
 
 import { AppReloadService } from '../services/app-reload.service';
 import { ShopContextActions } from './shop-context.actions';
-import { ScopeChange, ScopeChangeReason, ScopeOwner, ShopScope, sameOwner } from './shop-scope';
+import { ScopeChange, ScopeChangeReason, ScopeOwner, ShopScope, sameOwner, shopRestrictionKey } from './shop-scope';
 
 export type LeaveReadiness =
   | { readonly ok: true }
@@ -36,6 +36,7 @@ export class ShopContextService {
 
   private readonly scopeSignal = signal<ShopScope | null>(null);
   private readonly transitioningSignal = signal(false);
+  private readonly restrictedSignal = signal(false);
   private readonly changesSubject = new Subject<ScopeChange>();
   private readonly detachHooks = new Set<(change: ScopeChange) => void | Promise<unknown>>();
   private readonly leaveChecks = new Set<() => Promise<boolean>>();
@@ -47,7 +48,8 @@ export class ShopContextService {
   readonly scope = this.scopeSignal.asReadonly();
   /** True from the moment a scope is left until the app restarts or signs out. */
   readonly transitioning = this.transitioningSignal.asReadonly();
-  /** Emits after each completed change of owner. */
+  readonly dataRestricted = this.restrictedSignal.asReadonly();
+  /** Emits after an owner or data-access change. */
   readonly changes$: Observable<ScopeChange> = this.changesSubject.asObservable();
 
   epoch(): number {
@@ -60,6 +62,7 @@ export class ShopContextService {
 
   /** Adopts the session restored at startup; nothing was shown under another scope yet. */
   initialize(owner: ScopeOwner | null): void {
+    this.restrictedSignal.set(readRestriction(owner));
     this.scopeSignal.set(owner ? { userId: owner.userId, shopId: owner.shopId, epoch: this.currentEpoch } : null);
   }
 
@@ -84,6 +87,37 @@ export class ShopContextService {
     const restart = change.previous !== null && change.next !== null;
 
     this.transitioningSignal.set(change.previous !== null);
+    const saves = this.detach(change);
+    this.restrictedSignal.set(readRestriction(next));
+    this.scopeSignal.set(change.next);
+    install();
+    this.changesSubject.next(change);
+
+    if (restart) {
+      this.restartAfter(saves);
+    }
+
+    return change;
+  }
+
+  setDataRestricted(observed: ShopScope, restricted: boolean): boolean {
+    if (this.scopeSignal() !== observed || !observed.shopId || this.transitioning()) return false;
+    saveRestriction(observed, restricted);
+    if (this.restrictedSignal() === restricted) return false;
+
+    const change: ScopeChange = {
+      previous: observed,
+      next: { ...observed, epoch: ++this.currentEpoch },
+      reason: 'data-access',
+    };
+    this.restrictedSignal.set(restricted);
+    void Promise.allSettled(this.detach(change));
+    this.scopeSignal.set(change.next);
+    this.changesSubject.next(change);
+    return true;
+  }
+
+  private detach(change: ScopeChange): Promise<unknown>[] {
     const saves: Promise<unknown>[] = [];
     for (const hook of [...this.detachHooks]) {
       try {
@@ -95,16 +129,8 @@ export class ShopContextService {
         // A failing hook must not leave the old scope installed beside the new credentials.
       }
     }
-    this.store?.dispatch(ShopContextActions.scopeChanged({ epoch: this.currentEpoch, reason }));
-    this.scopeSignal.set(change.next);
-    install();
-    this.changesSubject.next(change);
-
-    if (restart) {
-      this.restartAfter(saves);
-    }
-
-    return change;
+    this.store?.dispatch(ShopContextActions.scopeChanged({ epoch: this.currentEpoch, reason: change.reason }));
+    return saves;
   }
 
   /**
@@ -167,5 +193,22 @@ export class ShopContextService {
     }
 
     return this.hasMutationsInFlight() ? { ok: false, reason: 'mutation-in-flight' } : { ok: true };
+  }
+}
+
+function readRestriction(owner: ScopeOwner | null): boolean {
+  try {
+    return !!owner?.shopId && localStorage.getItem(shopRestrictionKey(owner)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function saveRestriction(owner: ScopeOwner, restricted: boolean): void {
+  try {
+    if (restricted) localStorage.setItem(shopRestrictionKey(owner), '1');
+    else localStorage.removeItem(shopRestrictionKey(owner));
+  } catch {
+    // Restricted storage leaves the in-memory decision in effect for this tab.
   }
 }

@@ -110,7 +110,10 @@ public sealed class UpdateShopMembershipCommandHandler(
             DisplayName(target.User?.FirstName, target.User?.LastName),
             MembershipAuthority.ToRoleLabel(target.Role),
             target.Status.ToString(),
-            target.AuthorityVersion);
+            target.AuthorityVersion)
+        {
+            IsSourceAuthorizedRemoval = action == LicenceAction.MemberRemoval,
+        };
     }
 
     private async Task<bool> IsLiveAsync(UpdateShopMembershipCommand command, CancellationToken ct) =>
