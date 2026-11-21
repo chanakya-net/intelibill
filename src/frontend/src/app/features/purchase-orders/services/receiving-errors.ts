@@ -1,3 +1,4 @@
+import { OPERATING_ACCESS_ERROR_KEYS } from '../../billing/status/operating-access-hint.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { isScopeChangeError } from '../../../core/context/scoped-request';
 import { classifyFinancialOperationFailure } from '../../../core/services/financial-operation-intent.service';
@@ -23,18 +24,24 @@ export function classifyReceivingFailure(
   wasUnknown: boolean,
 ): 'rejected' | 'unknown' {
   const problem = receivingProblem(error);
+  const code = problem.code ?? problem.title;
   if (
-    problem.code === 'Operation.PayloadMismatch' ||
-    problem.title === 'Operation.PayloadMismatch' ||
+    code === 'Operation.PayloadMismatch' ||
+    code === 'Licence.Busy' ||
+    code === 'Licence.SecuritySuspended' ||
+    code === 'Auth.SessionInvalid' ||
     isScopeChangeError(error)
   )
     return 'unknown';
   // Replay authorization happens before receipt lookup. A denied recovery says nothing about its earlier commit.
   if (wasUnknown && error instanceof HttpErrorResponse && [401, 403, 404].includes(error.status))
     return 'unknown';
+  if (code && Object.hasOwn(OPERATING_ACCESS_ERROR_KEYS, code))
+    return wasUnknown ? 'unknown' : 'rejected';
   return classifyFinancialOperationFailure(error) === 'rejected' ? 'rejected' : 'unknown';
 }
 export function receivingMessage(code: string, field?: string): string {
+  if (Object.hasOwn(OPERATING_ACCESS_ERROR_KEYS, code)) return OPERATING_ACCESS_ERROR_KEYS[code];
   const messages: Record<string, string> = {
     'PurchaseOrder.UserCannotMutatePurchaseOrder': 'purchaseOrders.errors.forbidden',
     'PurchaseOrder.CannotReceiveInvalidStatus': 'purchaseOrders.errors.cannotReceiveInvalidStatus',

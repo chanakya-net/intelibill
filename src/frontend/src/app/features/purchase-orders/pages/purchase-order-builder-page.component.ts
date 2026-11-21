@@ -1,3 +1,5 @@
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { DestroyRef, Injector } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ShopContextService } from '../../../core/context/shop-context.service';
@@ -54,6 +56,7 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
     DatePickerModule,
     InputTextModule,
     TextareaModule,
+    DefinitionAccessNoticeComponent,
     PurchaseOrderLineFormComponent,
     PurchaseOrderLinesTableComponent,
   ],
@@ -87,6 +90,7 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
           </button>
         </header>
 
+        <app-definition-access-notice />
         <form class="po-builder__form" [formGroup]="form">
           <label>
             <span>{{ 'purchaseOrders.builder.supplier' | transloco }}</span>
@@ -192,7 +196,7 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
             type="button"
             icon="pi pi-save"
             [label]="'purchaseOrders.builder.saveDraft' | transloco"
-            [disabled]="form.invalid || facade.isSubmitting()"
+            [disabled]="form.invalid || facade.isSubmitting() || !!operatingAccess.blockingMessage()"
             (click)="saveDraft()"
           ></button>
           @if (purchaseOrderId) {
@@ -202,7 +206,7 @@ import { PurchaseOrdersFacade } from '../state/purchase-orders.facade';
               severity="success"
               icon="pi pi-send"
               [label]="'purchaseOrders.actions.placeOrder' | transloco"
-              [disabled]="facade.isSubmitting()"
+              [disabled]="facade.isSubmitting() || !!operatingAccess.blockingMessage()"
               (click)="placeOrder()"
             ></button>
           }
@@ -383,6 +387,7 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   protected readonly supplierSearchError = this.supplierSearch.error;
   private readonly permissions = inject(ShopPermissionsService);
 
+  protected readonly operatingAccess = inject(OperatingAccessHintService);
   protected readonly draftState = inject(PurchaseOrderDraftStateService);
   protected readonly facade = inject(PurchaseOrdersFacade);
   readonly localizedError =
@@ -540,6 +545,7 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   }
 
   saveDraft(): void {
+    if (!this.permissions.canManagePurchaseOrders() || this.operatingAccess.blockingMessage()) return;
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -555,7 +561,7 @@ export class PurchaseOrderBuilderPageComponent implements OnInit, OnDestroy {
   }
 
   placeOrder(): void {
-    if (!this.purchaseOrderId) {
+    if (!this.purchaseOrderId || !this.permissions.canManagePurchaseOrders() || this.operatingAccess.blockingMessage()) {
       return;
     }
 

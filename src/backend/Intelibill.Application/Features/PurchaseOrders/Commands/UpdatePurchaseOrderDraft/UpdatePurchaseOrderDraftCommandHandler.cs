@@ -4,35 +4,26 @@ using Intelibill.Application.Features.PurchaseOrders.DTOs;
 using Intelibill.Application.Features.PurchaseOrders.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
-using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using ErrorOr;
 
 namespace Intelibill.Application.Features.PurchaseOrders.Commands.UpdatePurchaseOrderDraft;
 
 public sealed class UpdatePurchaseOrderDraftCommandHandler(
-    IUserRepository userRepository,
     IItemRepository itemRepository,
     ISupplierRepository supplierRepository,
     IPurchaseOrderRepository purchaseOrderRepository,
-    IUnitOfWork unitOfWork)
+    PurchaseOrderTrading trading)
 {
     [LicenceAction(LicenceAction.NewTrading)]
-    public async Task<ErrorOr<PurchaseOrderDetailDto>> HandleAsync(
-        UpdatePurchaseOrderDraftCommand command,
-        CancellationToken cancellationToken)
+    public Task<ErrorOr<PurchaseOrderDetailDto>> HandleAsync(
+        UpdatePurchaseOrderDraftCommand command, CancellationToken cancellationToken) =>
+        trading.RunAsync(command.ActorUserId, command.ActiveShopId, command.Session,
+            Errors.PurchaseOrder.UserCannotCreatePurchaseOrder, ct => StageAsync(command, ct), cancellationToken);
+
+    private async Task<ErrorOr<PurchaseOrder>> StageAsync(
+        UpdatePurchaseOrderDraftCommand command, CancellationToken cancellationToken)
     {
-        var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);
-        if (actor is null)
-            return Errors.Auth.UserNotFound;
-
-        var membership = actor.ShopMemberships.FirstOrDefault(sm => sm.ShopId == command.ActiveShopId);
-        if (membership is null)
-            return Errors.Shop.MembershipNotFound;
-
-        if (membership.Role != ShopRole.Owner && membership.Role != ShopRole.Manager)
-            return Errors.PurchaseOrder.UserCannotCreatePurchaseOrder;
-
         Supplier? supplier = null;
         if (command.SupplierId is Guid supplierId)
         {
@@ -41,105 +32,36 @@ public sealed class UpdatePurchaseOrderDraftCommandHandler(
                 return Errors.Supplier.SupplierNotFound;
         }
 
-        await unitOfWork.BeginTransactionAsync(cancellationToken);
-        try
+        var po = await purchaseOrderRepository.GetByShopAndIdAsync(
+            command.ActiveShopId,
+            command.PurchaseOrderId,
+            cancellationToken);
+
+        if (po is null)
         {
-            var po = await purchaseOrderRepository.GetByShopAndIdAsync(
-                command.ActiveShopId,
-                command.PurchaseOrderId,
-                cancellationToken);
-
-            if (po is null)
-            {
-                await unitOfWork.RollbackTransactionAsync(cancellationToken);
-                return Errors.PurchaseOrder.NotFound;
-            }
-
-            if (po.Status != PurchaseOrderStatus.Draft)
-            {
-                await unitOfWork.RollbackTransactionAsync(cancellationToken);
-                return Errors.PurchaseOrder.CannotUpdateNonDraft;
-            }
-
-            var itemIds = new HashSet<Guid>();
-            var linesToUpdate = new List<(Guid ItemId, string Description, int ExpectedQuantity, decimal UnitCost)>();
-
-            foreach (var lineInput in command.Lines)
-            {
-                if (lineInput.ItemId == Guid.Empty)
-                {
-                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
-                    return Errors.PurchaseOrder.LineItemRequired;
-                }
-
-                var description = lineInput.Description?.Trim() ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(description))
-                {
-                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
-                    return Errors.PurchaseOrder.LineDescriptionRequired;
-                }
-
-                if (!itemIds.Add(lineInput.ItemId))
-                {
-                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
-                    return Errors.PurchaseOrder.DuplicateItem;
-                }
-
-                if (lineInput.ExpectedQuantity <= 0)
-                {
-                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
-                    return Errors.PurchaseOrder.InvalidLineQuantity;
-                }
-
-                if (lineInput.UnitCost < 0)
-                {
-                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
-                    return Errors.PurchaseOrder.InvalidLineUnitCost;
-                }
-
-                linesToUpdate.Add((lineInput.ItemId, description, lineInput.ExpectedQuantity, lineInput.UnitCost));
-            }
-
-            if (itemIds.Count > 0)
-            {
-                var items = await itemRepository.GetByIdsAsync(command.ActiveShopId, itemIds.ToList(), cancellationToken);
-                var returnedItemIds = items.Select(item => item.Id).ToHashSet();
-                if (items.Count != itemIds.Count ||
-                    items.Any(item => item.ShopId != command.ActiveShopId) ||
-                    itemIds.Any(itemId => !returnedItemIds.Contains(itemId)))
-                {
-                    await unitOfWork.RollbackTransactionAsync(cancellationToken);
-                    return Errors.PurchaseOrder.LineItemNotFound;
-                }
-            }
-
-            po.UpdateDraft(
-                command.SupplierId,
-                command.OrderDate,
-                command.ExpectedDeliveryDate,
-                command.SupplierReferenceNumber,
-                command.Notes,
-                linesToUpdate);
-
-            if (supplier is not null)
-            {
-                po.UpdateSupplierDetails(supplier.Name, po.SupplierReference);
-            }
-            else
-            {
-                po.UpdateSupplierDetails(null, null);
-            }
-
-            purchaseOrderRepository.Update(po);
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-            await unitOfWork.CommitTransactionAsync(cancellationToken);
-
-            return PurchaseOrderDtoMapper.ToDetail(po);
+            return Errors.PurchaseOrder.NotFound;
         }
-        catch
+
+        if (po.Status != PurchaseOrderStatus.Draft)
         {
-            await unitOfWork.RollbackTransactionAsync(cancellationToken);
-            throw;
+            return Errors.PurchaseOrder.CannotUpdateNonDraft;
         }
+
+        var lines = await PurchaseOrderDraftLines.ValidateAsync(command.ActiveShopId,
+            command.Lines.Select(line => (line.ItemId, line.Description, line.ExpectedQuantity, line.UnitCost)),
+            itemRepository, cancellationToken);
+        if (lines.IsError) return lines.Errors;
+
+        po.UpdateDraft(
+            command.SupplierId,
+            command.OrderDate,
+            command.ExpectedDeliveryDate,
+            command.SupplierReferenceNumber,
+            command.Notes,
+            lines.Value);
+
+        po.UpdateSupplierDetails(supplier?.Name, supplier is null ? null : po.SupplierReference);
+        purchaseOrderRepository.Update(po);
+        return po;
     }
 }

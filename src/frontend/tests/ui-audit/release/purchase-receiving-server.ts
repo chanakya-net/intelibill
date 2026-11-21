@@ -60,8 +60,11 @@ export async function startPurchaseReceivingServer(root: string) {
     authorization?: string;
   }[] = [];
   const lookups: string[] = [];
+  const purchaseWrites: string[] = [];
   const held: (() => void)[] = [];
   let mode: Mode = 'accept';
+  let access: 'active' | 'expired' | 'security' = 'active';
+  let missNextLookup = false;
   function order(id: string): PurchaseOrderDetail {
     let value = orders.get(id);
     if (!value) {
@@ -114,6 +117,8 @@ export async function startPurchaseReceivingServer(root: string) {
   }
   const server = http.createServer(async (req, res) => {
     const path = new URL(req.url!, 'http://fixture.test').pathname;
+    if (path.startsWith('/api/purchase-orders') && (req.method === 'POST' || req.method === 'PUT'))
+      purchaseWrites.push(`${req.method} ${path}`);
     if (!path.startsWith('/api/') && !path.startsWith('/hubs/')) {
       const upstream = http.request(
         `${assets.origin}${req.url}`,
@@ -139,6 +144,19 @@ export async function startPurchaseReceivingServer(root: string) {
       const { shopId } = JSON.parse(Buffer.concat(chunks).toString());
       return send(res, 200, { ...session(shopId), scopeVersion: 1 });
     }
+    if (/^\/api\/licensing\/shops\/[^/]+\/trading-authority$/.test(path)) {
+      if (access === 'expired')
+        return send(res, 403, { code: 'Licence.Expired', enforced: true });
+      if (access === 'security')
+        return send(res, 403, { code: 'Licence.SecuritySuspended', enforced: true });
+      return send(res, 200, {
+        schemaVersion: 1,
+        shopId: path.split('/')[4],
+        enforced: true,
+        authorityVerifiedAt: new Date().toISOString(),
+        validUntil: new Date(Date.now() + 60_000).toISOString(),
+      });
+    }
     if (path.startsWith('/api/shops/'))
       return send(res, 200, {
         id: path.split('/').pop(),
@@ -159,6 +177,11 @@ export async function startPurchaseReceivingServer(root: string) {
     const lookup = path.match(/^\/api\/financial-operations\/purchase-order-receipt\/(.+)$/);
     if (lookup) {
       lookups.push(lookup[1]);
+      if (access === 'security') return send(res, 403, { code: 'Licence.SecuritySuspended' });
+      if (missNextLookup) {
+        missNextLookup = false;
+        return send(res, 404, { code: 'Operation.NotFound' });
+      }
       const op = operations.get(lookup[1]);
       return op
         ? send(res, 200, {
@@ -194,11 +217,13 @@ export async function startPurchaseReceivingServer(root: string) {
       }
       if (mode === 'retry-404') return send(res, 404, { code: 'PurchaseOrder.NotFound' });
       const complete = () => {
+        if (access === 'security') return send(res, 403, { code: 'Licence.SecuritySuspended' });
         const existing = operations.get(payload.operationId!);
         if (existing)
           return existing.payload === raw
             ? send(res, 200, existing.response)
             : send(res, 409, { code: 'Operation.PayloadMismatch' });
+        if (access === 'expired') return send(res, 403, { code: 'Licence.Expired' });
         const original = order(poId);
         const quantity = payload.lines.reduce((a, l) => a + l.quantity, 0);
         const result: PurchaseOrderDetail = {
@@ -253,6 +278,13 @@ export async function startPurchaseReceivingServer(root: string) {
     posts,
     operations,
     lookups,
+    purchaseWrites,
+    setAccess(value: typeof access) {
+      access = value;
+    },
+    missNextLookup() {
+      missNextLookup = true;
+    },
     setMode(value: Mode) {
       mode = value;
     },

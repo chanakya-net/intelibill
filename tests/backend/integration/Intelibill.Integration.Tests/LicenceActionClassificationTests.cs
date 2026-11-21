@@ -1,3 +1,9 @@
+using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrders;
+using Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrderDetail;
+using Intelibill.Application.Features.PurchaseOrders.Commands.ReceivePurchaseOrder;
+using Intelibill.Application.Features.PurchaseOrders.Commands.PlacePurchaseOrder;
+using Intelibill.Application.Features.PurchaseOrders.Commands.UpdatePurchaseOrderDraft;
+using Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
 using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
 using Intelibill.Application.Features.FinancialOperations.Queries.GetFinancialOperation;
@@ -65,6 +71,33 @@ public sealed class LicenceActionClassificationTests(PostgreSqlTestFixture fixtu
     [InlineData(typeof(AddInventoryBatchCommandHandler), nameof(AddInventoryBatchCommandHandler.HandleAsync))]
     public void Intake_entry_points_require_new_trading_access(Type type, string methodName) =>
         Assert.Equal(LicenceAction.NewTrading, type.GetMethod(methodName)?.GetCustomAttribute<LicenceActionAttribute>()?.Action);
+
+    [Theory]
+    [InlineData(typeof(PurchaseOrdersController), nameof(PurchaseOrdersController.CreatePurchaseOrderDraft), LicenceAction.NewTrading)]
+    [InlineData(typeof(CreatePurchaseOrderDraftCommandHandler), nameof(CreatePurchaseOrderDraftCommandHandler.HandleAsync), LicenceAction.NewTrading)]
+    [InlineData(typeof(PurchaseOrdersController), nameof(PurchaseOrdersController.UpdatePurchaseOrderDraft), LicenceAction.NewTrading)]
+    [InlineData(typeof(UpdatePurchaseOrderDraftCommandHandler), nameof(UpdatePurchaseOrderDraftCommandHandler.HandleAsync), LicenceAction.NewTrading)]
+    [InlineData(typeof(PurchaseOrdersController), nameof(PurchaseOrdersController.PlacePurchaseOrder), LicenceAction.NewTrading)]
+    [InlineData(typeof(PlacePurchaseOrderCommandHandler), nameof(PlacePurchaseOrderCommandHandler.HandleAsync), LicenceAction.NewTrading)]
+    [InlineData(typeof(PurchaseOrdersController), nameof(PurchaseOrdersController.ReceivePurchaseOrder), LicenceAction.NewTrading)]
+    [InlineData(typeof(ReceivePurchaseOrderCommandHandler), nameof(ReceivePurchaseOrderCommandHandler.HandleAsync), LicenceAction.NewTrading)]
+    [InlineData(typeof(PurchaseOrdersController), nameof(PurchaseOrdersController.GetPurchaseOrderDetail), LicenceAction.History)]
+    [InlineData(typeof(GetPurchaseOrderDetailQueryHandler), nameof(GetPurchaseOrderDetailQueryHandler.HandleAsync), LicenceAction.History)]
+    [InlineData(typeof(PurchaseOrdersController), nameof(PurchaseOrdersController.GetPurchaseOrders), LicenceAction.History)]
+    [InlineData(typeof(GetPurchaseOrdersQueryHandler), nameof(GetPurchaseOrdersQueryHandler.HandleAsync), LicenceAction.History)]
+    [InlineData(typeof(PurchaseOrdersController), nameof(PurchaseOrdersController.DeletePurchaseOrderDraft), LicenceAction.SourceCorrection)]
+    [InlineData(typeof(PurchaseOrdersController), nameof(PurchaseOrdersController.ClosePurchaseOrder), LicenceAction.SourceCorrection)]
+    [InlineData(typeof(PurchaseOrdersController), nameof(PurchaseOrdersController.CancelPurchaseOrder), LicenceAction.SourceCorrection)]
+    public void Purchasing_routes_and_handlers_distinguish_new_work_from_history_and_corrections(
+        Type type, string methodName, LicenceAction action) =>
+        Assert.Equal(action, type.GetMethod(methodName)?.GetCustomAttribute<LicenceActionAttribute>()?.Action);
+
+    [Fact]
+    public void Keyed_receipt_endpoint_allows_recovery_to_reach_the_source_decision()
+    {
+        var post = typeof(PurchaseOrdersController).GetMethod(nameof(PurchaseOrdersController.ReceivePurchaseOrder));
+        Assert.True(post!.GetCustomAttribute<SuspensionAtSourceAttribute>()?.CheckRecovery);
+    }
 
     [Fact]
     public void Mixed_disposition_route_defers_suspension_to_source()

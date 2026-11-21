@@ -1,3 +1,5 @@
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import type { LocalizedError } from '../../../core/i18n/api-error-message.service';
 import { DialogFocusDirective } from '../../../shared/accessibility/dialog-focus';
 import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
@@ -56,6 +58,7 @@ let receivingInstance = 0;
   standalone: true,
   imports: [
     DialogFocusDirective,
+    DefinitionAccessNoticeComponent,
     CommonModule,
     ReactiveFormsModule,
     TranslocoPipe,
@@ -103,6 +106,7 @@ let receivingInstance = 0;
           ></button>
         </div>
       </ng-template>
+      @if (visible) { <app-definition-access-notice /> }
       @if (status() === 'unknown') {
         <p role="status">{{ 'purchaseOrders.receiving.unknown' | transloco }}</p>
         <button
@@ -134,7 +138,26 @@ let receivingInstance = 0;
           }
         </p>
       }
-      <form class="receive-form" [formGroup]="form" (ngSubmit)="submit()">
+      @if (recoveryOnly() && status() === 'editing') {
+        @if (!busy()) {
+          @if (!errorMessage()) {
+            <p role="status">{{ 'purchaseOrders.receiving.noPending' | transloco }}</p>
+          }
+          <button
+            pButton
+            type="button"
+            severity="secondary"
+            [label]="'purchaseOrders.receiving.lookForSaved' | transloco"
+            (click)="lookForSavedReceipt()"
+          ></button>
+        }
+      }
+      <form
+        class="receive-form"
+        [hidden]="recoveryOnly() && status() === 'editing'"
+        [formGroup]="form"
+        (ngSubmit)="submit()"
+      >
         <label>
           {{ 'purchaseOrders.receiveDialog.reference' | transloco }}
           <input pInputText formControlName="referenceNumber" />
@@ -543,6 +566,9 @@ let receivingInstance = 0;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.75rem;
       }
+      .receive-form[hidden] {
+        display: none;
+      }
       label {
         display: grid;
         gap: 0.25rem;
@@ -604,11 +630,13 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
   private readonly drafts = inject(ReceivingDraftService);
   private readonly context = inject(ShopContextService);
   private readonly facade = inject(PurchaseOrdersFacade);
+  protected readonly access = inject(OperatingAccessHintService);
   protected readonly status = signal<'editing' | 'sending' | 'unknown' | 'confirmed'>('editing');
   protected readonly localizedError = signal<LocalizedError | undefined>(undefined);
   protected readonly errorMessage = signal('');
   protected readonly rowErrors = signal<readonly ReceivingRowError[]>([]);
   protected readonly loading = signal(false);
+  protected readonly recoveryOnly = signal(false);
   private owner: ShopScope | null = null;
   private record: ReceivingDraftRecord | null = null;
   private readonly correlationSignal = signal<ReceivingCorrelation | null>(null);
@@ -688,7 +716,10 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
     if (!this.order) return;
     this.receivableLines = [...this.order.lines];
     if (!this.canReceiveNew()) this.form.disable({ emitEvent: false });
-    if (this.visible && this.initializedPo !== this.order.purchaseOrderId) void this.initialize();
+    if (this.visible && this.initializedPo !== this.order.purchaseOrderId) {
+      this.recoveryOnly.set(!!this.access.blockingMessage());
+      void this.initialize();
+    }
   }
 
   ngOnDestroy(): void {
@@ -712,7 +743,8 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
     return this.closing || this.loading() || this.status() === 'sending';
   }
   protected frozen(): boolean {
-    return this.closing || this.loading() || this.status() !== 'editing' || !this.canReceiveNew();
+    return this.closing || this.loading() || this.status() !== 'editing' ||
+      this.recoveryOnly() || !this.canReceiveNew() || !!this.access.blockingMessage();
   }
   protected canReceiveNew(): boolean {
     return this.order.status === 'Placed' || this.order.status === 'PartiallyReceived';
@@ -801,7 +833,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
           purchaseOrderId: poId,
           operationId: stored.pending.operationId,
         };
-      } else {
+      } else if (!this.recoveryOnly()) {
         if (this.canReceiveNew()) this.form.enable({ emitEvent: false });
         this.valueChanges = this.form.valueChanges.subscribe(() => this.queueSave());
         if (!stored)
@@ -811,8 +843,10 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
       }
     } catch {
       if (generation === this.generation) {
-        this.saveFailed = true;
-        this.errorMessage.set('purchaseOrders.receiving.storageError');
+        this.saveFailed = !this.recoveryOnly();
+        this.errorMessage.set(this.recoveryOnly()
+          ? 'purchaseOrders.receiving.loadError'
+          : 'purchaseOrders.receiving.storageError');
       }
     } finally {
       if (generation === this.generation) this.loading.set(false);
@@ -861,7 +895,7 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
     };
   }
   private queueSave(): void {
-    if (!this.owner || this.status() !== 'editing' || this.loading()) return;
+    if (!this.owner || this.recoveryOnly() || this.status() !== 'editing' || this.loading()) return;
     const draft = this.editable();
     const owner = this.owner;
     const poId = this.initializedPo;
@@ -904,7 +938,8 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
         await this.closeConfirmed();
         return;
       }
-      if (editable && !record?.pending && !record?.confirmedOperationId) {
+      if (editable && !this.recoveryOnly() && this.canReceiveNew() &&
+          !record?.pending && !record?.confirmedOperationId) {
         this.form.enable({ emitEvent: false });
         this.valueChanges?.unsubscribe();
         this.valueChanges = this.form.valueChanges.subscribe(() => this.queueSave());
@@ -1310,6 +1345,9 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
       return;
     const candidate = this.editable();
     const policyGeneration = this.generation;
+    await this.access.refresh();
+    if (this.frozen() || policyGeneration !== this.generation || !this.current() ||
+        JSON.stringify(candidate) !== JSON.stringify(this.editable())) return;
     for (const line of candidate.lines) {
       if (line.expiryDate && line.manufacturingDate && line.manufacturingDate > line.expiryDate) {
         this.errorMessage.set('expiry.dateOrder');
@@ -1339,29 +1377,29 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
     this.form.disable({ emitEvent: false });
     const generation = this.generation;
     await this.saveQueue;
-    if (this.saveFailed) {
+    if (generation !== this.generation || !this.current()) return;
+    if (this.saveFailed || this.access.blockingMessage() || !this.canReceiveNew()) {
       this.loading.set(false);
       this.form.enable({ emitEvent: false });
       return;
     }
+    await this.prepareReceipt(this.owner, this.initializedPo, generation);
+  }
+
+  private async prepareReceipt(owner: ShopScope, poId: string, generation: number): Promise<void> {
     try {
       const record = await this.drafts.prepare(
-        this.owner,
-        this.initializedPo,
+        owner,
+        poId,
         this.editable(),
         this.record?.revision ?? 0,
       );
-      if (generation !== this.generation || !this.current()) return;
-      this.record = record;
-      this.restore(record.draft);
-      this.form.disable({ emitEvent: false });
-      if (!record.pending) return;
-      this.correlation = {
-        scope: this.owner,
-        purchaseOrderId: this.initializedPo,
-        operationId: record.pending.operationId,
-      };
-      this.handlingResult = '';
+      if (!this.isCurrentDialog(generation) || this.access.blockingMessage() || !this.canReceiveNew()) {
+        await this.abandonPreparation(owner, poId, generation, record);
+        return;
+      }
+      this.adoptPreparedRecord(owner, poId, record);
+      if (!record.pending || !this.correlation) return;
       this.status.set('sending');
       this.rowErrors.set([]);
       this.errorMessage.set('');
@@ -1372,14 +1410,63 @@ export class ReceivePurchaseOrderDialogComponent implements OnChanges, OnDestroy
         recovery: record.pending.status === 'unknown',
       });
     } catch {
-      if (generation === this.generation && this.current()) {
+      if (this.isCurrentDialog(generation)) {
         this.errorMessage.set('purchaseOrders.receiving.storageError');
-        this.form.enable({ emitEvent: false });
+        if (this.canReceiveNew()) this.form.enable({ emitEvent: false });
       }
     } finally {
       if (generation === this.generation) this.loading.set(false);
     }
   }
+
+  private isCurrentDialog(generation: number): boolean {
+    return generation === this.generation && this.current();
+  }
+
+  private async abandonPreparation(
+    owner: ShopScope,
+    poId: string,
+    generation: number,
+    prepared: ReceivingDraftRecord,
+  ): Promise<void> {
+    let record: ReceivingDraftRecord | null = prepared;
+    let releaseFailed = false;
+    const pending = prepared.pending;
+    if (pending?.status === 'sending') {
+      try {
+        record = await this.drafts.releaseUnsent(owner, poId, pending.operationId, prepared.revision);
+      } catch {
+        releaseFailed = true;
+      }
+    }
+    if (!this.isCurrentDialog(generation)) return;
+    this.adoptPreparedRecord(owner, poId, record);
+    if (releaseFailed) this.errorMessage.set('purchaseOrders.receiving.storageError');
+  }
+
+  private adoptPreparedRecord(
+    owner: ShopScope,
+    poId: string,
+    record: ReceivingDraftRecord | null,
+  ): void {
+    this.record = record;
+    this.revisions.set(JSON.stringify([owner.userId, owner.shopId, poId]), record?.revision ?? 0);
+    this.correlation = record?.pending
+      ? { scope: owner, purchaseOrderId: poId, operationId: record.pending.operationId }
+      : null;
+    this.handlingResult = '';
+    if (record) this.restore(record.draft);
+    else this.recoveryOnly.set(true);
+    this.status.set(record?.confirmedOperationId ? 'confirmed' : record?.pending ? 'unknown' : 'editing');
+    if (this.status() === 'editing' && !this.recoveryOnly() && this.canReceiveNew())
+      this.form.enable({ emitEvent: false });
+    else this.form.disable({ emitEvent: false });
+  }
+
+  protected lookForSavedReceipt(): void {
+    if (this.recoveryOnly() && !this.busy() && this.current()) void this.initialize();
+  }
+
   protected retryReceipt(): void {
     if (this.busy() || !this.record?.pending || !this.correlation || !this.current()) return;
     this.status.set('sending');

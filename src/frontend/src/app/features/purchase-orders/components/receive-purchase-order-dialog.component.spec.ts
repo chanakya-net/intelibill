@@ -8,6 +8,7 @@ import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of } from 'rxjs';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { ReceivingDraftService } from '../services/receiving-draft.service';
 import { ReceivingOperationState, receivingKey } from '../services/receiving.models';
@@ -647,6 +648,62 @@ describe('ReceivePurchaseOrderDialogComponent', () => {
     expect(JSON.stringify(replay.mock.calls[0][0]!.payload)).toBe(JSON.stringify(command.payload));
     expect(replay.mock.calls[0][0]!.correlation.operationId).toBe(command.correlation.operationId);
   });
+
+  it.each([false, true])(
+    'handles a trading refusal during preparation (claimed by another tab: %s)',
+    async (claimed) => {
+      const c = fixture.componentInstance;
+      const scope = TestBed.inject(ShopContextService).scope()!;
+      const drafts = TestBed.inject(ReceivingDraftService);
+      const prepare = drafts.prepare.bind(drafts);
+      let recordPrepared!: (record: Awaited<ReturnType<typeof prepare>>) => void;
+      const prepared = new Promise<Awaited<ReturnType<typeof prepare>>>((resolve) => {
+        recordPrepared = resolve;
+      });
+      let resume!: () => void;
+      const paused = new Promise<void>((resolve) => {
+        resume = resolve;
+      });
+      vi.spyOn(drafts, 'prepare').mockImplementationOnce(async (...args) => {
+        const record = await prepare(...args);
+        recordPrepared(record);
+        await paused;
+        return record;
+      });
+
+      c['form'].patchValue({ referenceNumber: 'REF', notes: 'Keep this draft' });
+      c['lines'].at(0).patchValue({ quantity: 1, batchNumber: 'PRESERVED-LOT' });
+      const fields = c['form'].getRawValue();
+      const emit = vi.spyOn(c.receive, 'emit');
+      const submitting = c['submit']();
+      const reservation = (await prepared).pending!;
+      if (claimed) {
+        await new ReceivingDraftService().claimRecovery(
+          scope, order.purchaseOrderId, reservation.operationId, reservation.payload,
+        );
+      }
+      TestBed.inject(OperatingAccessHintService).reportRowRefusal('Licence.Expired', scope);
+      resume();
+      await submitting;
+
+      expect(emit).not.toHaveBeenCalled();
+      expect(c['form'].getRawValue()).toEqual(fields);
+      expect(c['status']()).toBe(claimed ? 'unknown' : 'editing');
+      await c['hide']();
+      expect(c.visible).toBe(false);
+      fixture.componentRef.setInput('visible', false);
+      fixture.detectChanges();
+      fixture.componentRef.setInput('visible', true);
+      fixture.detectChanges();
+      await vi.waitFor(() => expect(c['loading']()).toBe(false));
+
+      const record = await drafts.load(scope, order.purchaseOrderId);
+      expect(record?.draft.notes).toBe('Keep this draft');
+      expect(c['form'].getRawValue()).toEqual(fields);
+      expect(record?.pending).toEqual(claimed ? { ...reservation, status: 'unknown' } : null);
+      expect(c['status']()).toBe(claimed ? 'unknown' : 'editing');
+    },
+  );
 
   it('sends nothing when prepare storage fails and keeps the edited fields visible', async () => {
     const c = fixture.componentInstance;

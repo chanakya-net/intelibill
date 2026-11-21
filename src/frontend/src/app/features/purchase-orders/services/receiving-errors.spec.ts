@@ -1,7 +1,11 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { describe, expect, it } from 'vitest';
 import { ScopeMismatchError, StaleScopeError } from '../../../core/context/scoped-request';
-import { classifyReceivingFailure, normalizeReceivingErrors } from './receiving-errors';
+import {
+  classifyReceivingFailure,
+  normalizeReceivingErrors,
+  receivingMessage,
+} from './receiving-errors';
 const payload = { lines: [{ clientLineId: 'a' }, { clientLineId: 'b' }] };
 describe('receiving error adapter', () => {
   it('maps SafeErrorFactory field arrays to frozen receiving identities without descriptions', () => {
@@ -65,6 +69,30 @@ describe('receiving error adapter', () => {
     ])
       expect(classifyReceivingFailure(error, true)).toBe('unknown');
     expect(classifyReceivingFailure(new HttpErrorResponse({ status: 400 }), true)).toBe('rejected');
+  });
+  it.each([
+    ['Licence.Expired', 403, 'expired', 'rejected'],
+    ['Licence.VerificationUnavailable', 503, 'unavailable', 'rejected'],
+    ['Licence.Busy', 503, 'busy', 'unknown'],
+  ] as const)(
+    'maps %s safely and preserves a previously uncertain receipt',
+    (code, status, key, initial) => {
+      const error = new HttpErrorResponse({ status, error: { code, detail: 'Untrusted' } });
+      expect(receivingMessage(code)).toBe(`billing.status.tradingAuthority.${key}`);
+      expect(classifyReceivingFailure(error, false)).toBe(initial);
+      expect(classifyReceivingFailure(error, true)).toBe('unknown');
+    },
+  );
+
+  it('preserves a receipt when the guarded handoff answers with a security refusal', () => {
+    const error = new HttpErrorResponse({
+      status: 403,
+      error: { code: 'Licence.SecuritySuspended' },
+    });
+    expect(classifyReceivingFailure(error, false)).toBe('unknown');
+    expect(receivingMessage('Licence.SecuritySuspended')).toBe(
+      'billing.status.suspension.enforcedSecurity',
+    );
   });
   it('keeps a 404 retry unknown because it cannot disprove an earlier commit', () => {
     expect(classifyReceivingFailure(new HttpErrorResponse({ status: 404 }), true)).toBe('unknown');

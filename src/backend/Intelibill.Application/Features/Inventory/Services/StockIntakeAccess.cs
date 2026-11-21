@@ -13,7 +13,7 @@ public sealed class StockIntakeAccess(
     ILiveSessionAuthority sessions,
     IShopLicenceFence fence)
 {
-    public async Task<Error?> CheckAuthorityAsync(Guid actor, Guid shop, SessionClaims? session, CancellationToken ct)
+    public async Task<Error?> CheckAuthorityAsync(Guid actor, Guid shop, SessionClaims? session, CancellationToken ct, Error? roleRefusal = null)
     {
         if (session is null || session.UserId != actor || session.ActiveShopId != shop ||
             !await sessions.IsValidAsync(session, ct))
@@ -23,25 +23,25 @@ public sealed class StockIntakeAccess(
         {
             ShopRole.Owner or ShopRole.Manager => null,
             null => Errors.Shop.MembershipNotFound,
-            _ => Errors.Inventory.UserIsNotOwnerOrManager,
+            _ => roleRefusal ?? Errors.Inventory.UserIsNotOwnerOrManager,
         };
     }
 
-    public async Task<ErrorOr<ShopLicenceLease>> EnterAsync(Guid actor, Guid shop, SessionClaims? session, CancellationToken ct)
+    public async Task<ErrorOr<ShopLicenceLease>> EnterAsync(Guid actor, Guid shop, SessionClaims? session, CancellationToken ct, Error? roleRefusal = null)
     {
-        if (await CheckAuthorityAsync(actor, shop, session, ct) is { } denied)
+        if (await CheckAuthorityAsync(actor, shop, session, ct, roleRefusal) is { } denied)
             return denied;
 
         var lease = await fence.EnterAsync(shop, LicenceAction.NewTrading, ct);
         if (lease.IsError)
             return lease.Errors;
 
-        if (await CheckWriteAsync(actor, shop, session, lease.Value, ct) is { } refusal)
+        if (await CheckWriteAsync(actor, shop, session, lease.Value, ct, roleRefusal) is { } refusal)
             return refusal;
 
         return lease.Value;
     }
 
-    public async Task<Error?> CheckWriteAsync(Guid actor, Guid shop, SessionClaims? session, ShopLicenceLease lease, CancellationToken ct) =>
-        await CheckAuthorityAsync(actor, shop, session, ct) ?? lease.CurrentDecision().EnforcedDenial();
+    public async Task<Error?> CheckWriteAsync(Guid actor, Guid shop, SessionClaims? session, ShopLicenceLease lease, CancellationToken ct, Error? roleRefusal = null) =>
+        await CheckAuthorityAsync(actor, shop, session, ct, roleRefusal) ?? lease.CurrentDecision().EnforcedDenial();
 }

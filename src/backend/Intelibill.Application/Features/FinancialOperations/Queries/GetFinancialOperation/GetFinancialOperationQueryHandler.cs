@@ -53,7 +53,7 @@ public sealed class GetFinancialOperationQueryHandler(
             or FinancialOperationType.SupplierReturn or FinancialOperationType.SupplierReturnCredit or FinancialOperationType.PurchaseReceiptReversal
             or FinancialOperationType.ReceiptCostCorrection or FinancialOperationType.BatchDisposition
             or FinancialOperationType.SaleReturn or FinancialOperationType.SaleReturnVoid
-            or FinancialOperationType.SaleCancellation)
+            or FinancialOperationType.SaleCancellation or FinancialOperationType.PurchaseOrderReceipt)
             return await transactions.RunAsync<FinancialOperationDto>(null, query.UserId, query.ShopId, null,
                 ct => RecoverUnderFenceAsync(query, operationType.Value, key, ct), cancellationToken);
 
@@ -87,11 +87,15 @@ public sealed class GetFinancialOperationQueryHandler(
     private async Task<Error?> CheckRecoveryAuthorityAsync(GetFinancialOperationQuery query,
         FinancialOperationType type, CancellationToken ct)
     {
-        if (type is not (FinancialOperationType.ReceiptCostCorrection or FinancialOperationType.BatchDisposition))
+        if (type is not (FinancialOperationType.ReceiptCostCorrection or FinancialOperationType.BatchDisposition
+            or FinancialOperationType.PurchaseOrderReceipt))
             return null;
         if (query.Session is not { } session || session.UserId != query.UserId ||
             session.ActiveShopId != query.ShopId || !await sessions.IsValidAsync(session, ct))
             return Errors.Auth.SessionInvalidated;
+        if (type == FinancialOperationType.PurchaseOrderReceipt)
+            return await shopRepository.GetActiveRoleAsync(query.UserId, query.ShopId, ct) is ShopRole.Owner or ShopRole.Manager
+                ? null : Errors.Operation.UserIsNotOwnerOrManager;
         if (type == FinancialOperationType.BatchDisposition && session.ActiveShopRole != nameof(ShopRole.Owner))
             return Error.Forbidden("Expiry.OwnerRequired", "Current owner required.");
         return session.ActiveShopRole is nameof(ShopRole.Owner) or nameof(ShopRole.Manager)
