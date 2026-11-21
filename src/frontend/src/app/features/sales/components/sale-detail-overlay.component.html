@@ -9,13 +9,21 @@
   [closeOnEscape]="true"
   [showHeader]="false"
 >
-  @if (isLoading()) {
+  @if (cancellationSecurityRefused()) {
+    <div class="sale-detail-error" role="alert">
+      <p>{{ 'billing.status.suspension.enforcedSecurity' | transloco }}</p>
+      <p-button
+        [label]="'sales.invoice.close' | transloco"
+        severity="secondary"
+        (click)="onClose()"
+      />
+    </div>
+  } @else if (isLoading()) {
     <div class="sale-detail-loading" role="status" aria-live="polite" aria-busy="true">
       <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6" />
       <span>{{ 'common.loading' | transloco }}</span>
     </div>
-  }
-  @if (!isLoading() && !sale() && errorMessage()) {
+  } @else if (!sale() && errorMessage()) {
     <div class="sale-detail-error" role="alert">
       <p>{{ errorMessage() | transloco }}</p>
       <p-button
@@ -24,8 +32,7 @@
         (click)="onClose()"
       />
     </div>
-  }
-  @if (!isLoading() && sale()) {
+  } @else if (sale()) {
     <article class="sale-detail-shell">
       <header class="sale-detail-header">
         <div class="sale-detail-title-row">
@@ -209,6 +216,7 @@
     [saleId]="sale()!.saleId"
     [visible]="showCancellation()"
     (visibleChange)="showCancellation.set(false)"
+    (securityRefused)="cancellationSecurityRefused.set(true)"
     (completed)="cancellationSaved()"
   />
 }

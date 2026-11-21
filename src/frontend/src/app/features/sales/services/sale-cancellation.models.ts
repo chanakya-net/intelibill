@@ -15,6 +15,7 @@ export interface SaleCancellationPreviewDto {
   expectedVersion: number;
   eligible: boolean;
   postingEnabled: boolean;
+  sourceCompletionOnly?: boolean;
   businessDate: string;
   reasons: { code: string; message: string }[];
   lines: {
