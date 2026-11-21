@@ -16,6 +16,9 @@ public enum LicenceOutcome
 public readonly record struct LicenceDecision(LicenceOutcome Outcome, bool Enforced, Error? Denial = null,
     DateTimeOffset? AuthorityVerifiedAt = null, DateTimeOffset? ValidUntil = null)
 {
+    /// <summary>Earliest proven commercial or trading restriction already in effect, if known.</summary>
+    public DateTimeOffset? SourceCompletionCutoff { get; init; }
+
     public Error? OperatingRefusal { get; init; }
     public string Status { get; init; } = "Unknown";
 }

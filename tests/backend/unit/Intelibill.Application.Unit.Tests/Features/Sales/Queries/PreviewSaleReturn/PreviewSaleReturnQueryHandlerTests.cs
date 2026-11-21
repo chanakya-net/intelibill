@@ -1,3 +1,8 @@
+using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Operations;
+using Intelibill.Application.Features.Payments.Services;
+using Intelibill.Application.Unit.Tests.Common.Time;
+using Intelibill.Domain.Interfaces;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Unit.Tests.Common;
 using Intelibill.Application.Common.Errors;
@@ -36,7 +41,10 @@ public class PreviewSaleReturnQueryHandlerTests
             _calculator,
             _itemRepository,
             new Intelibill.Infrastructure.Services.Time.BusinessClock(TimeProvider.System), ExpiryDispositionTestServices.Create(_inventoryBatchRepository, new Intelibill.Infrastructure.Services.Time.BusinessClock(TimeProvider.System))),
-            _accountingPolicy);
+            _accountingPolicy,
+            _shopRepository,
+            new PaymentTransactionRunner(Substitute.For<IFinancialOperationExecutor>(), Substitute.For<IUnitOfWork>()),
+            Substitute.For<IShopLicenceFence>(), BusinessTestDoubles.RealClock());
 
     [Theory]
     [InlineData(ShopRole.Owner)]
@@ -157,6 +165,7 @@ public class PreviewSaleReturnQueryHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
             .Returns(ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true));
+        _shopRepository.GetActiveRoleAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ShopRole.Owner);
         _saleRepository.GetByIdAsync(Arg.Any<Guid>(), shop.Id, Arg.Any<CancellationToken>()).Returns((Sale?)null);
 
         var result = await CreateHandler().Handle(
@@ -309,6 +318,7 @@ public class PreviewSaleReturnQueryHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
             .Returns(ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true));
+        _shopRepository.GetActiveRoleAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ShopRole.Owner);
         _saleRepository.GetByIdAsync(sale.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
         _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
         _customerLedgerEntryRepository.GetCustomerBalanceAsync(shop.Id, sale.CustomerId!.Value, Arg.Any<CancellationToken>())
@@ -409,6 +419,7 @@ public class PreviewSaleReturnQueryHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
             .Returns(ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true));
+        _shopRepository.GetActiveRoleAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(ShopRole.Owner);
         _saleRepository.GetByIdAsync(sale.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
         _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
 
@@ -516,6 +527,7 @@ public class PreviewSaleReturnQueryHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
             .Returns(ShopMembership.Create(shop.Id, user.Id, role, true));
+        _shopRepository.GetActiveRoleAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(role);
         _saleRepository.GetByIdAsync(sale.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(sale);
         _saleReturnRepository.GetBySaleAsync(shop.Id, sale.Id, Arg.Any<CancellationToken>()).Returns([]);
         _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);

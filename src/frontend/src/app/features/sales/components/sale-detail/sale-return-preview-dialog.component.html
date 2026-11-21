@@ -279,7 +279,7 @@
                         }}</span
                       >
                       @if ((line.quarantinedQuantity ?? 0) > 0) { <p class="rounded bg-amber-50 p-2">{{ 'expiry.returnQuarantine' | transloco: { physical: line.physicalRestorationQuantity, quarantine: line.quarantinedQuantity } }}</p> }
-                      @if (getPreviewLineRefundAmount(line.saleItemId) !== null) {
+                      @if (hasFinancialAccess() && getPreviewLineRefundAmount(line.saleItemId) !== null) {
                         <b>
                           {{
                             getPreviewLineRefundAmount(line.saleItemId)
@@ -295,31 +295,33 @@
           </main>
 
           <aside class="return-preview-side">
-            <section class="return-preview-side-card return-preview-impact">
-              <h3>{{ 'sales.returns.preview.refundImpact' | transloco }}</h3>
-              <div class="return-preview-impact-row">
-                <span>{{ 'sales.returns.preview.selectedLines' | transloco }}</span>
-                <strong>{{ getSelectedStatusLabel() }}</strong>
-              </div>
-              <div class="return-preview-impact-row">
-                <span>{{ 'sales.returns.preview.itemRefund' | transloco }}</span>
-                <strong>{{
-                  displayedItemRefundTotal() | currency: currency : 'symbol' : '1.2-2'
-                }}</strong>
-              </div>
-              <div class="return-preview-impact-row">
-                <span>{{ 'sales.returns.preview.taxReversal' | transloco }}</span>
-                <strong>{{
-                  displayedTaxReversalTotal() | currency: currency : 'symbol' : '1.2-2'
-                }}</strong>
-              </div>
-              <div class="return-preview-impact-total">
-                <span>{{ 'sales.returns.preview.totalRefund' | transloco }}</span>
-                <strong>{{
-                  displayedRefundTotal() | currency: currency : 'symbol' : '1.2-2'
-                }}</strong>
-              </div>
-            </section>
+            @if (hasFinancialAccess()) {
+              <section class="return-preview-side-card return-preview-impact">
+                <h3>{{ 'sales.returns.preview.refundImpact' | transloco }}</h3>
+                <div class="return-preview-impact-row">
+                  <span>{{ 'sales.returns.preview.selectedLines' | transloco }}</span>
+                  <strong>{{ getSelectedStatusLabel() }}</strong>
+                </div>
+                <div class="return-preview-impact-row">
+                  <span>{{ 'sales.returns.preview.itemRefund' | transloco }}</span>
+                  <strong>{{
+                    displayedItemRefundTotal() | currency: currency : 'symbol' : '1.2-2'
+                  }}</strong>
+                </div>
+                <div class="return-preview-impact-row">
+                  <span>{{ 'sales.returns.preview.taxReversal' | transloco }}</span>
+                  <strong>{{
+                    displayedTaxReversalTotal() | currency: currency : 'symbol' : '1.2-2'
+                  }}</strong>
+                </div>
+                <div class="return-preview-impact-total">
+                  <span>{{ 'sales.returns.preview.totalRefund' | transloco }}</span>
+                  <strong>{{
+                    displayedRefundTotal() | currency: currency : 'symbol' : '1.2-2'
+                  }}</strong>
+                </div>
+              </section>
+            }
 
             <section class="return-preview-side-card">
               <h3>{{ 'sales.returns.preview.policyCheck' | transloco }}</h3>
@@ -338,6 +340,7 @@
             </section>
 
             @if (
+              hasFinancialAccess() &&
               returnPreview()?.financial?.payoutAmount &&
               returnPreview()!.financial!.payoutAmount > 0
             ) {
@@ -363,7 +366,7 @@
               </label>
             }
 
-            @if (payoutDestination() === 4) {
+            @if (hasFinancialAccess() && payoutDestination() === 4) {
               <div class="return-preview-credit-note-expiry return-preview-side-card">
                 <label>
                   <span>{{ 'sales.returns.preview.creditNoteExpiry' | transloco }}</span>
@@ -431,14 +434,23 @@
               severity="danger"
               [outlined]="true"
               [loading]="isPreviewLoading()"
+              [disabled]="!canPreviewReturns() || sourceNeedsRefresh()"
               (click)="previewReturn()"
             />
+            @if (sourceNeedsRefresh()) {
+              <p-button
+                [label]="'sales.returns.preview.refreshSource' | transloco"
+                icon="pi pi-refresh"
+                [outlined]="true"
+                (click)="refreshSource()"
+              />
+            }
             @if (canSubmitReturns()) {
               <p-button
                 [label]="'sales.returns.preview.recordBtn' | transloco"
                 icon="pi pi-check"
                 severity="success"
-                [disabled]="!returnPreview() || isSubmitting()"
+                [disabled]="!canRecordPreview()"
                 [loading]="isSubmitting()"
                 (click)="submitReturn()"
               />

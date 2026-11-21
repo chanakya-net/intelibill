@@ -417,6 +417,25 @@ describe('SalesEffects', () => {
     );
   });
 
+  it.each([
+    [{ title: 'SaleReturn.SourceIneligible' }, 'sourceIneligible'],
+    [{ code: 'SaleReturn.SaleCancelled' }, 'sourceCancelled'],
+    [{ code: 'Validation.Failed', errors: [{ code: 'SaleReturn.SaleItemNotFound' }] }, 'sourceLineUnavailable'],
+    [{ title: 'Validation.Failed', errors: [{ code: 'SaleReturn.QuantityExceedsRemaining' }] }, 'sourceQuantityChanged'],
+  ])('localizes an invalidated return source on preview and posting', async (body, key) => {
+    const payload = { payoutDestination: 2, dueReductionOverrideAmount: null, dueOverrideReason: null, notes: null, items: [] };
+    saleService.recordSaleReturn.mockReturnValue(throwError(() => ({ error: body })));
+    saleService.previewSaleReturn.mockReturnValue(throwError(() => ({ error: body })));
+
+    const recorded = firstValueFrom(effects.recordSaleReturn$.pipe(take(1)));
+    actions$.next(SalesActions.recordSaleReturnRequested({ saleId: 'sale-1', payload }));
+    await expect(recorded).resolves.toMatchObject({ errorMessage: 'sales.returns.preview.validation.' + key });
+
+    const previewed = firstValueFrom(effects.previewSaleReturn$.pipe(take(1)));
+    actions$.next(SalesActions.previewSaleReturnRequested({ saleId: 'sale-1', payload }));
+    await expect(previewed).resolves.toMatchObject({ errorMessage: 'sales.returns.preview.validation.' + key });
+  });
+
   it('dispatches voidSaleReturnSucceeded with refreshed sale detail on void success', async () => {
     const sale = makeSaleDto();
     const payload = { reason: 'Wrong return recorded' };

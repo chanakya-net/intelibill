@@ -34,7 +34,7 @@ internal sealed class SaleReturnValidator(
             return Errors.Shop.ShopNotFound;
 
         var membership = await shopRepository.GetMembershipAsync(request.ActorUserId, request.ShopId, cancellationToken);
-        if (membership is null)
+        if (membership is null || !membership.IsActive)
             return Errors.Shop.MembershipNotFound;
 
         var sale = await saleRepository.GetByIdAsync(request.SaleId, request.ShopId, cancellationToken);
@@ -43,6 +43,9 @@ internal sealed class SaleReturnValidator(
 
         if (sale.Status == SaleStatus.Cancelled)
             return Error.Conflict("SaleReturn.SaleCancelled", "A cancelled sale cannot be returned.");
+
+        if (request.Licence is { } licence && SaleReturnSourcePolicy.Check(licence, sale, businessClock) is { } refusal)
+            return refusal;
 
         var validationErrors = ValidateRequestShape(request);
         if (validationErrors.Count > 0)

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Unit.Tests.Common;
 using Intelibill.Application.Features.Tills;
@@ -44,7 +45,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
             _stockTransactionRepository,
             _customerLedgerEntryRepository,
             _creditNoteRepository,
-            new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork, Substitute.For<IExpiryPolicyFence>()),
+            new SaleReturnMutationCoordinator(_saleRepository, _shopRepository, _postingPeriods, new BusinessClock(_time), _unitOfWork, Substitute.For<IExpiryPolicyFence>(), Substitute.For<IShopLicenceFence>()),
             _unitOfWork,
             new BusinessClock(_time),
             new TillSourceSettlementService(Substitute.For<ITillSessionPolicy>(), BusinessTestDoubles.DisabledTillPosting(), _shopRepository, new BusinessClock(_time)),
@@ -153,7 +154,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
 
         Assert.Equal(Errors.Sale.ReturnNotFound(otherReturnId).Code, result.FirstError.Code);
         await _saleRepository.DidNotReceive().LockForReturnMutationAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>());
-        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received().RollbackTransactionAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -478,6 +479,7 @@ public sealed class VoidSaleReturnCommandHandlerTests
         _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>()).Returns(shop);
         _shopRepository.GetMembershipAsync(user.Id, shop.Id, Arg.Any<CancellationToken>())
             .Returns(ShopMembership.Create(shop.Id, user.Id, role, true));
+        _shopRepository.GetActiveRoleAsync(user.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(role);
         _saleReturnRepository.GetByIdWithItemsAsync(shop.Id, saleReturn.Id, Arg.Any<CancellationToken>())
             .Returns(saleReturn);
         _saleRepository.GetByIdAsync(sale.Id, shop.Id, Arg.Any<CancellationToken>()).Returns(sale);

@@ -44,6 +44,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     }
 
     [HttpPost("{saleId:guid}/returns")]
+    [SuspensionAtSource(CheckRecovery = true)]
     [Authorize(Policy = "OwnerOrManager")]
     [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> RecordSaleReturn(
@@ -85,6 +86,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     }
 
     [HttpPost("returns/{saleReturnId:guid}/void")]
+    [SuspensionAtSource(CheckRecovery = true)]
     [Authorize(Policy = "OwnerOrManager")]
     [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> VoidSaleReturn(

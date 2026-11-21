@@ -1,6 +1,7 @@
 using System.Data.Common;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Interfaces;
@@ -14,7 +15,8 @@ internal sealed class SaleReturnMutationCoordinator(
     IShopRepository shopRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock,
-    IUnitOfWork unitOfWork, Intelibill.Application.Features.Expiry.IExpiryPolicyFence expiryFence)
+    IUnitOfWork unitOfWork, Intelibill.Application.Features.Expiry.IExpiryPolicyFence expiryFence,
+    IShopLicenceFence licenceFence)
     : ISaleReturnMutationCoordinator
 {
     public DateTimeOffset? PostingInstant { get; private set; }
@@ -30,12 +32,15 @@ internal sealed class SaleReturnMutationCoordinator(
         Func<CancellationToken, Task<ErrorOr<TResult>>> mutation,
         CancellationToken cancellationToken)
     {
-        return ExecuteAsync(shopId, saleId, _ => Task.FromResult<ErrorOr<Success>>(Result.Success), mutation, true, cancellationToken);
+        return ExecuteAsync(shopId, _ => Task.FromResult<ErrorOr<Guid>>(saleId),
+            _ => Task.FromResult<ErrorOr<Success>>(Result.Success),
+            (_, ct) => mutation(ct), true, cancellationToken);
     }
 
-    public async Task<ErrorOr<TResult>> ExecuteAsync<TResult>(Guid shopId, Guid saleId,
+    public async Task<ErrorOr<TResult>> ExecuteAsync<TResult>(Guid shopId,
+        Func<CancellationToken, Task<ErrorOr<Guid>>> resolveSale,
         Func<CancellationToken, Task<ErrorOr<Success>>> beforeBusinessLocks,
-        Func<CancellationToken, Task<ErrorOr<TResult>>> mutation,
+        Func<ShopLicenceLease, CancellationToken, Task<ErrorOr<TResult>>> mutation,
         bool ownsTransaction, CancellationToken cancellationToken)
     {
         if (ownsTransaction) await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -43,41 +48,8 @@ internal sealed class SaleReturnMutationCoordinator(
         var failing = false;
         try
         {
-            // The fence comes first: before the sale lock, and so before any customer, credit note
-            // or batch lock the mutation takes after it.
-            var shop = await shopRepository.GetByIdAsync(shopId, cancellationToken);
-            if (shop is null)
-                return Errors.Shop.ShopNotFound;
-
-            PostingInstant = businessClock.UtcNow;
-            var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
-                shopId, businessClock.GetBusinessDate(PostingInstant.Value, shop.BusinessTimeZoneId), cancellationToken);
-            if (fence.IsError)
-                return fence.Errors;
-
-            var expiry = await expiryFence.AcquireAsync(shopId, false, cancellationToken);
-            if (expiry.IsError) return expiry.Errors;
-
-            var ready = await beforeBusinessLocks(cancellationToken);
-            if (ready.IsError) return ready.Errors;
-
-            var outcome = await saleRepository.LockForReturnMutationAsync(shopId, saleId, cancellationToken);
-            switch (outcome)
-            {
-                case RowLockOutcome.Acquired:
-                    break;
-                case RowLockOutcome.NotFound:
-                    return Errors.Sale.NotFound(saleId);
-                case RowLockOutcome.TimedOut:
-                    return Errors.Sale.ReturnSaleBusy;
-                default:
-                    throw new InvalidOperationException($"Unknown sale lock outcome '{outcome}'.");
-            }
-
-            var result = await mutation(cancellationToken);
-            if (result.IsError)
-                return result;
-
+            var result = await ExecuteUnderFenceAsync(shopId, resolveSale, beforeBusinessLocks, mutation, cancellationToken);
+            if (result.IsError) return result;
             if (ownsTransaction) await unitOfWork.CommitTransactionAsync(cancellationToken);
             committed = true;
             return result;
@@ -120,6 +92,47 @@ internal sealed class SaleReturnMutationCoordinator(
                 unitOfWork.ClearChanges();
             }
         }
+    }
+
+    private async Task<ErrorOr<TResult>> ExecuteUnderFenceAsync<TResult>(Guid shopId,
+        Func<CancellationToken, Task<ErrorOr<Guid>>> resolveSale,
+        Func<CancellationToken, Task<ErrorOr<Success>>> beforeBusinessLocks,
+        Func<ShopLicenceLease, CancellationToken, Task<ErrorOr<TResult>>> mutation,
+        CancellationToken ct)
+    {
+        var licence = await licenceFence.EnterAsync(shopId, LicenceAction.SourceCorrection, ct);
+        if (licence.IsError) return licence.Errors;
+        if (SaleReturnSourcePolicy.Denial(licence.Value.CurrentDecision()) is { } denied) return denied;
+
+        var sale = await resolveSale(ct);
+        if (sale.IsError) return sale.Errors;
+
+        var shop = await shopRepository.GetByIdAsync(shopId, ct);
+        if (shop is null) return Errors.Shop.ShopNotFound;
+        PostingInstant = businessClock.UtcNow;
+        var period = await postingPeriodPolicy.AuthorizeForWriteAsync(
+            shopId, businessClock.GetBusinessDate(PostingInstant.Value, shop.BusinessTimeZoneId), ct);
+        if (period.IsError) return period.Errors;
+
+        var expiry = await expiryFence.AcquireAsync(shopId, false, ct);
+        if (expiry.IsError) return expiry.Errors;
+
+        var ready = await beforeBusinessLocks(ct);
+        if (ready.IsError) return ready.Errors;
+
+        var outcome = await saleRepository.LockForReturnMutationAsync(shopId, sale.Value, ct);
+        if (outcome != RowLockOutcome.Acquired)
+            return outcome switch
+            {
+                RowLockOutcome.NotFound => Errors.Sale.NotFound(sale.Value),
+                RowLockOutcome.TimedOut => Errors.Sale.ReturnSaleBusy,
+                _ => throw new InvalidOperationException($"Unknown sale lock outcome '{outcome}'."),
+            };
+
+        if (SaleReturnSourcePolicy.Denial(licence.Value.CurrentDecision()) is { } lockDenial) return lockDenial;
+        var result = await mutation(licence.Value, ct);
+        return !result.IsError && SaleReturnSourcePolicy.Denial(licence.Value.CurrentDecision()) is { } writeDenial
+            ? writeDenial : result;
     }
 
     private static bool MarkFailing(ref bool failing)

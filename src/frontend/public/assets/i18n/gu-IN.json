@@ -1911,6 +1911,7 @@
         "calculatedEffects": "ગણતરી કરેલી અસરો",
         "warnings": "ચેતવણીઓ",
         "previewBtn": "પ્રીવ્યુ",
+        "refreshSource": "વેચાણ રિફ્રેશ કરો",
         "recordBtn": "રિટર્ન રેકોર્ડ કરો",
         "successEyebrow": "ક્રેડિટ નોટ જારી",
         "successTitle": "ક્રેડિટ નોટ બનાવી",
@@ -1973,6 +1974,10 @@
           "tooPreciseWhole": "{{ itemName }}: જથ્થો {{ unit }} માં છે અને પૂર્ણ સંખ્યા હોવો જોઈએ.",
           "tooPreciseDecimals": "{{ itemName }}: જથ્થો {{ unit }} માં છે અને વધુમાં વધુ {{ decimals }} દશાંશ સ્થાનની પરવાનગી છે.",
           "unitFallback": "આ એકમ",
+          "sourceIneligible": "દુકાનના હાલના પ્રતિબંધો હેઠળ આ વેચાણ પરત કરવા પાત્ર નથી.",
+          "sourceLineUnavailable": "આ વસ્તુ મૂળ વેચાણનો ભાગ નથી.",
+          "sourceCancelled": "આ વેચાણ રદ થયું છે અને તે પરત કરી શકાતું નથી.",
+          "sourceQuantityChanged": "પરત કરી શકાય તેવી બાકી માત્રા બદલાઈ છે. વેચાણ રિફ્રેશ કરો અને ઉપલબ્ધ માત્રા તપાસો.",
           "serverQuantityPrecision": "કોઈ પરત જથ્થામાં તેની વસ્તુના એકમ કરતાં વધુ દશાંશ સ્થાન છે. તેને સુધારીને ફરી પ્રયાસ કરો."
         }
       }

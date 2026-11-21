@@ -39,6 +39,17 @@ describe('salesReducer', () => {
     }
   });
 
+  it('discards an invalidated preview and retains the refusal for the open draft', () => {
+    const preview = { saleId: 's1', hasFinancialAccess: true, financial: null, lines: [], warnings: [] };
+    const errorMessage = 'sales.returns.preview.validation.sourceQuantityChanged';
+    const state = salesReducer(
+      { ...initialState, submitting: true, returnPreview: preview },
+      SalesActions.recordSaleReturnFailed({ errorMessage }),
+    );
+    expect(state.returnPreview).toBeNull();
+    expect(state.returnPreviewErrorMessage).toBe(errorMessage);
+  });
+
   it('sets loading state when load sales is requested', () => {
     const next = salesReducer(
       { ...initialState, errorMessage: 'existing error' },

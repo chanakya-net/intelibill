@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 
@@ -10,7 +11,8 @@ public sealed record SaleReturnValidationRequest(
     Guid SaleId,
     decimal? DueReductionOverrideAmount,
     string? DueOverrideReason,
-    IReadOnlyList<SaleReturnValidationLineRequest> Items, DateTimeOffset? RestorationAt = null);
+    IReadOnlyList<SaleReturnValidationLineRequest> Items, DateTimeOffset? RestorationAt = null,
+    ShopLicenceLease? Licence = null);
 
 public sealed record SaleReturnValidationLineRequest(
     Guid SaleItemId,
