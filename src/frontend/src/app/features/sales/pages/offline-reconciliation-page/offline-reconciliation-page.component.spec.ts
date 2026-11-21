@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthService } from '../../../../core/auth/auth.service';
 import type { AuthSession } from '../../../../core/auth/auth.models';
+import { ShopContextService } from '../../../../core/context/shop-context.service';
 import { NetworkStatusService } from '../../../../core/services/network-status.service';
 import { OfflineSalesDeviceSettingsStorage } from '../../../../core/storage/offline-sales-device-settings.storage';
 import { BlobDownloadService } from '../../../../shared/utils/blob-download.service';
@@ -157,6 +158,7 @@ describe('OfflineReconciliationPageComponent', () => {
         { provide: BlobDownloadService, useValue: downloads },
       ],
     });
+    TestBed.inject(ShopContextService).initialize({ userId: 'user-1', shopId: 'shop-1' });
   });
 
   afterEach(() => {
@@ -709,6 +711,49 @@ describe('OfflineReconciliationPageComponent', () => {
     await render();
     expect(el().querySelector('.handoff-notice.safe')).toBeTruthy();
   });
+
+  it.each(['same-owner restriction', 'restriction and release', 'page destruction'] as const)(
+    'withholds a pending support bundle after %s',
+    async (retirement) => {
+      const records = [record('pending-1', 'Pending', 'user-1')];
+      const originalRecords = structuredClone(records);
+      queueDb.getAllByShopDevice.mockResolvedValue(records);
+      await render();
+
+      const digest = crypto.subtle.digest.bind(crypto.subtle);
+      let finishDigest!: () => void;
+      const pendingDigest = new Promise<void>((resolve) => {
+        finishDigest = resolve;
+      });
+      const checksum = vi
+        .spyOn(crypto.subtle, 'digest')
+        .mockImplementationOnce(async (algorithm, data) => {
+          await pendingDigest;
+          return digest(algorithm, data);
+        });
+      const context = TestBed.inject(ShopContextService);
+      const scope = context.scope()!;
+
+      const exporting = component.exportBundle();
+      await vi.waitFor(() => expect(checksum).toHaveBeenCalledOnce());
+      if (retirement === 'page destruction') {
+        fixture.destroy();
+      } else {
+        expect(context.setDataRestricted(scope, true)).toBe(true);
+        if (retirement === 'restriction and release') {
+          expect(context.setDataRestricted(context.scope()!, false)).toBe(true);
+        }
+        expect(context.isCurrent(scope)).toBe(true);
+      }
+      finishDigest();
+      await exporting;
+
+      expect(downloads.download).not.toHaveBeenCalled();
+      expect(component.pendingExport()).toBeNull();
+      expect(localStorage.getItem(LAST_EXPORT_KEY)).toBeNull();
+      expect(await queueDb.getAllByShopDevice('shop-1', 'device-1')).toEqual(originalRecords);
+    },
+  );
 
   it('exports more than 100 invoices as several files and records them only when all are confirmed', async () => {
     const records = Array.from({ length: 101 }, (_, index) =>
