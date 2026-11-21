@@ -8,7 +8,8 @@ export const INVOICE_B = 'B/2627/000222';
 export const PAYMENT_INTENTS_KEY = 'intelibill.financial-operation-intents.v1';
 
 export async function startLicensingHistoryFixture(root: string) {
-  const state = { restricted: false, verificationUnavailable: false, holdExport: false };
+  const state = { restricted: false, verificationUnavailable: false, holdExport: false, holdPrintAuthority: false, printVerificationUnavailable: false };
+  const heldAuthority: (() => void)[] = [];
   const heldExports: (() => void)[] = [];
   const posts: Record<string, unknown>[] = [];
   const lookups: string[] = [];
@@ -35,10 +36,18 @@ export async function startLicensingHistoryFixture(root: string) {
       return json(session(String(target)));
     }
     if (path.endsWith('/trading-authority')) {
-      if (state.verificationUnavailable) return json({ code: 'Licence.VerificationUnavailable' }, 503);
+      const printTab = req.headers['x-fixture-print-tab'] === 'true';
+      const ordinaryExpiry = () => json({ code: 'Licence.Expired', enforced: true, status: 403 }, 403);
+      if (printTab && state.holdPrintAuthority) {
+        state.holdPrintAuthority = false;
+        heldAuthority.push(ordinaryExpiry);
+        return true;
+      }
+      if (state.verificationUnavailable || printTab && state.printVerificationUnavailable)
+        return json({ code: 'Licence.VerificationUnavailable' }, 503);
       return state.restricted && shopId === SHOP_A
         ? json({ ...security, enforced: true }, 403)
-        : json({ code: 'Licence.Expired', enforced: true, status: 403 }, 403);
+        : ordinaryExpiry();
     }
 
     const isBusiness = /^\/api\/(sales|exports|items|shops|customers|payments|financial-operations)(\/|$)/.test(path);
@@ -95,10 +104,7 @@ export async function startLicensingHistoryFixture(root: string) {
     if (path === '/api/payments/balances') return json({ remainingSettlementDue: outstandingDue });
     if (path.endsWith('/payments') && req.method === 'POST') {
       posts.push(await readJson(req));
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Content-Length': '2000' });
-      res.write('{');
-      setImmediate(() => res.destroy());
-      return true;
+      return json({ code: 'Licence.DeliveryUnconfirmed', status: 503 }, 503);
     }
     if (path.startsWith('/api/financial-operations/customer-payment/')) {
       const operationKey = path.split('/').at(-1)!;
@@ -110,7 +116,7 @@ export async function startLicensingHistoryFixture(root: string) {
     return json({ code: 'Fixture.NotFound' }, 404);
   }
 
-  return { server: await startReleaseServer(root, handle), state, heldExports, posts, lookups };
+  return { server: await startReleaseServer(root, handle), state, heldAuthority, heldExports, posts, lookups };
 }
 
 function respond(res: ServerResponse, status: number, body: unknown): true {

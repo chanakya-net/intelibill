@@ -1,15 +1,12 @@
 import { DOCUMENT } from '@angular/common';
 import { DestroyRef, Injectable, effect, inject, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Subscription, filter, fromEvent, interval, merge } from 'rxjs';
+import { Subscription, fromEvent, interval, merge } from 'rxjs';
 
-import {
-  SubscriptionStatusService,
-  TradingAuthorityReadError,
-} from '../../features/billing/status/subscription-status.service';
+import { SubscriptionStatusService } from '../../features/billing/status/subscription-status.service';
 import { ShopUpdatesSignalRService } from '../services/shop-updates-signalr.service';
 import { ShopContextService } from './shop-context.service';
-import { shopRestrictionKey } from './shop-scope';
+import { shopRestrictionConfirmationKey, shopRestrictionKey } from './shop-scope';
 
 const REFRESH_INTERVAL_MS = 60_000;
 
@@ -37,33 +34,22 @@ export class ShopDataAccessService {
       fromEvent(browser, 'online'),
       interval(REFRESH_INTERVAL_MS),
       this.updates.authorityChanged$,
-      fromEvent<StorageEvent>(browser, 'storage').pipe(filter((event) => {
-        const scope = this.context.scope();
-        return !!scope && event.key === shopRestrictionKey(scope);
-      })),
     ).pipe(takeUntilDestroyed(this.destroy)).subscribe(() => this.refresh());
+
+    fromEvent<StorageEvent>(browser, 'storage').pipe(takeUntilDestroyed(this.destroy)).subscribe((event) => {
+      const scope = this.context.scope();
+      if (!scope?.shopId || event.storageArea !== browser.localStorage) return;
+      if (event.key === shopRestrictionKey(scope) && event.newValue !== null) this.context.applyRestrictionNotice(scope);
+      else if (event.key === shopRestrictionKey(scope) || event.key === shopRestrictionConfirmationKey(scope)) this.refresh();
+    });
     this.destroy.onDestroy(() => this.pending?.unsubscribe());
   }
 
   private refresh(): void {
-    this.pending?.unsubscribe();
     const scope = this.context.scope();
     if (!scope?.shopId || this.context.transitioning() || this.document.visibilityState === 'hidden') return;
 
-    this.pending = this.status.tradingAuthority(scope.shopId).subscribe({
-      next: (decision) => {
-        if (decision?.schemaVersion === 1 && decision.shopId === scope.shopId &&
-            decision.enforced === true &&
-            Number.isFinite(Date.parse(decision.authorityVerifiedAt)) &&
-            Number.isFinite(Date.parse(decision.validUntil))) {
-          this.context.setDataRestricted(scope, false);
-        }
-      },
-      error: (error: unknown) => {
-        if (!(error instanceof TradingAuthorityReadError) || error.enforced !== true) return;
-        // An evaluated trading refusal still conveys the local security decision. An outage has no enforcement metadata.
-        this.context.setDataRestricted(scope, error.failure === 'securitySuspended');
-      },
-    });
+    this.pending?.unsubscribe();
+    this.pending = this.status.tradingAuthority(scope.shopId).subscribe({ error: () => undefined });
   }
 }

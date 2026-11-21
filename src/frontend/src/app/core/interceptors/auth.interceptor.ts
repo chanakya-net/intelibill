@@ -4,18 +4,20 @@ import {
   HttpEvent,
   HttpHandlerFn,
   HttpRequest,
+  HttpResponse,
   HttpInterceptorFn,
 } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { problemCode } from '@intelibill/api';
-import { EMPTY, MonoTypeOperatorFunction, Observable, catchError, from, mergeMap, of, switchMap, throwError } from 'rxjs';
+import { EMPTY, MonoTypeOperatorFunction, Observable, catchError, from, mergeMap, of, switchMap, tap, throwError } from 'rxjs';
 
 import { API_BASE_URL, AUTH_ENDPOINTS, SHOP_ENDPOINTS } from '../auth/auth.constants';
 import { AuthService } from '../auth/auth.service';
 import { REQUEST_SCOPE, ScopeMismatchError, StaleScopeError } from '../context/scoped-request';
 import { ShopContextService } from '../context/shop-context.service';
+import { readTradingAuthorityRestriction } from '../context/shop-data-response';
 import { SERVICE_WORKER_BYPASS_HEADER, classifyApiRequest } from '../service-worker/service-worker-bypass';
 
 const REFRESH_ATTEMPTED = new HttpContextToken<boolean>(() => false);
@@ -49,6 +51,21 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const answer = sendWithRefresh(request, next, authService, router, workerBypass, path, scopeMoved);
 
   if (!scoped) return answer;
+  const currentAnswer = ignoreAnswersFromLeftScope(scopeMoved, owner !== null);
+  if (invocation?.shopId && isTradingAuthorityRead(request.method, path, invocation.shopId)) {
+    const observe = shopContext.observeDataAuthority(invocation);
+    const report = (input: HttpResponse<unknown> | HttpErrorResponse) => {
+      if (!authService.getAccessToken()) return;
+      const restricted = readTradingAuthorityRestriction(input, invocation.shopId);
+      if (restricted !== undefined) observe(restricted);
+    };
+    // Filter stale responses before applying the decision. Its own caller also receives the decision.
+    return answer.pipe(currentAnswer, tap({
+      next: (event) => { if (event instanceof HttpResponse) report(event); },
+      error: (error: unknown) => { if (error instanceof HttpErrorResponse) report(error); },
+    }));
+  }
+
   return answer.pipe(
     catchError((error: unknown) => {
       if (!invocation || scopeMoved() || !authService.getAccessToken() || !canReportRefusal(path, invocation.shopId) ||
@@ -60,7 +77,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
         if (!scopeMoved()) shopContext.setDataRestricted(invocation, true);
       });
     }),
-    ignoreAnswersFromLeftScope(scopeMoved, owner !== null),
+    currentAnswer,
   );
 };
 
@@ -164,11 +181,16 @@ function isSessionInstalling(method: string, path: string): boolean {
   return method === 'POST' && SESSION_INSTALLING_ENDPOINTS.some((endpoint) => canonicalPath(endpoint) === path);
 }
 
+function isTradingAuthorityRead(method: string, path: string, shopId: string): boolean {
+  return method === 'GET' && path === canonicalPath(
+    `${API_BASE_URL}/licensing/shops/${encodeURIComponent(shopId)}/trading-authority`);
+}
+
 function canReportRefusal(path: string, activeShopId: string): boolean {
   const base = canonicalPath(API_BASE_URL);
   const route = path.slice(base.length + 1);
   const [resource, target] = route.split('/');
-  if (resource === 'licensing' || resource === 'billing' || resource === 'auth') return false;
+  if (resource === 'licensing' || resource === 'billing' || resource === 'auth' || resource === 'invitations') return false;
   if (resource !== 'shops' || !target || target === 'me' || target === 'default') return true;
   return target === activeShopId.toLowerCase();
 }

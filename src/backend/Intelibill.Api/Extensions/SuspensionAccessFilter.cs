@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Http.Features;
 
 namespace Intelibill.Api.Extensions;
 
-internal sealed class SuspensionAccessFilter(ISuspensionAccessReader reader) : IAsyncResourceFilter
+internal sealed class SuspensionAccessFilter(ISuspensionAccessReader reader) : IAsyncResourceFilter, IAlwaysRunResultFilter
 {
     public async Task OnResourceExecutionAsync(ResourceExecutingContext context, ResourceExecutionDelegate next)
     {
@@ -38,17 +38,25 @@ internal sealed class SuspensionAccessFilter(ISuspensionAccessReader reader) : I
                 return;
             }
 
-            // Request authentication already checked live authority in the active shop.
-            // An explicit target needs a separate membership check before entering its scope.
-            var deliverySession = shop != session.ActiveShopId ? session : null;
-            await GuardResponseAsync(http, deliverySession, shop, next);
+            await GuardResponseAsync(http, session, shop, next);
             return;
         }
 
         await next();
     }
 
-    private async Task GuardResponseAsync(HttpContext http, SessionClaims? session, Guid shop, ResourceExecutionDelegate next)
+    public void OnResultExecuting(ResultExecutingContext context)
+    {
+        if (context.Result is ObjectResult { Value: DataFreeProblemDetails } &&
+            context.HttpContext.Features.Get<IHttpResponseBodyFeature>() is SuspensionResponseBodyFeature guarded)
+        {
+            guarded.ConfirmDataFreeResult();
+        }
+    }
+
+    public void OnResultExecuted(ResultExecutedContext context) { }
+
+    private async Task GuardResponseAsync(HttpContext http, SessionClaims session, Guid shop, ResourceExecutionDelegate next)
     {
         var original = http.Features.GetRequiredFeature<IHttpResponseBodyFeature>();
         var guarded = new SuspensionResponseBodyFeature(http, original, reader, session, shop);

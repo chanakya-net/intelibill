@@ -52,3 +52,7 @@ export function ownerKey(owner: ScopeOwner): string {
 export function shopRestrictionKey(owner: ScopeOwner): string {
   return `intelibill.shopDataRestricted.v1:${ownerKey(owner)}`;
 }
+
+export function shopRestrictionConfirmationKey(owner: ScopeOwner): string {
+  return `${shopRestrictionKey(owner)}:confirmed`;
+}

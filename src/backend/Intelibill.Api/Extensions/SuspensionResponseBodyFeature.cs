@@ -12,7 +12,7 @@ using LicenceErrors = Intelibill.Application.Common.Errors.Errors.Licence;
 namespace Intelibill.Api.Extensions;
 
 internal sealed class SuspensionResponseBodyFeature(
-    HttpContext http, IHttpResponseBodyFeature inner, ISuspensionAccessReader reader, SessionClaims? session, Guid shop)
+    HttpContext http, IHttpResponseBodyFeature inner, ISuspensionAccessReader reader, SessionClaims session, Guid shop)
     : IHttpResponseBodyFeature
 {
     private const int ChunkSize = 64 * 1024;
@@ -21,8 +21,11 @@ internal sealed class SuspensionResponseBodyFeature(
     private Stream? _stream;
     private PipeWriter? _writer;
     private ArrayBufferWriter<byte>? _json;
+    private bool _dataFreeResult;
     private LicenceAction _action = LicenceAction.History;
     public bool Stopped { get; private set; }
+
+    public void ConfirmDataFreeResult() => _dataFreeResult = true;
 
     public void ConfirmMemberRemoval() => _action = LicenceAction.MemberRemoval;
 
@@ -119,10 +122,7 @@ internal sealed class SuspensionResponseBodyFeature(
         if (Stopped)
             throw new SuspensionResponseStoppedException();
 
-        // Preserve identity/permission refusals and safe infrastructure errors. Business conflicts
-        // can carry shop data (for example, current balances) and use the same delivery boundary.
-        if (http.Response.StatusCode is StatusCodes.Status401Unauthorized or StatusCodes.Status403Forbidden or
-            StatusCodes.Status404NotFound or >= StatusCodes.Status500InternalServerError)
+        if (_dataFreeResult)
         {
             await send(ct);
             return;
@@ -166,7 +166,28 @@ internal sealed class SuspensionResponseBodyFeature(
             response.Headers[name] = value;
 
         response.Headers.CacheControl = "no-store";
-        response.StatusCode = denied.Code == LicenceErrors.VerificationUnavailableCode
+        var (status, code, title) = DeliveryProblem(denied);
+        response.StatusCode = status;
+        response.ContentType = "application/problem+json";
+        var problem = new PublicError(status, code, title, SafeTraceId.Resolve(http));
+        await JsonSerializer.SerializeAsync(inner.Stream, problem, JsonSerializerOptions.Web, ct);
+        await inner.Stream.FlushAsync(ct);
+        throw new SuspensionResponseStoppedException();
+    }
+
+    private (int Status, string Code, string Title) DeliveryProblem(Error denied)
+    {
+        var method = http.Request.Method;
+        var isWrite = !HttpMethods.IsGet(method) && !HttpMethods.IsHead(method) && !HttpMethods.IsOptions(method);
+        if (isWrite && (denied.Type is ErrorType.Conflict or ErrorType.Unauthorized ||
+            denied.Code == LicenceErrors.VerificationUnavailableCode))
+        {
+            // The source may already have committed. A retry must recover the original operation.
+            return (StatusCodes.Status503ServiceUnavailable, "Licence.DeliveryUnconfirmed",
+                "The operation result could not be confirmed. Check its status before trying again.");
+        }
+
+        var status = denied.Code == LicenceErrors.VerificationUnavailableCode
             ? StatusCodes.Status503ServiceUnavailable
             : denied.Type switch
             {
@@ -174,11 +195,7 @@ internal sealed class SuspensionResponseBodyFeature(
                 ErrorType.Conflict => StatusCodes.Status409Conflict,
                 _ => StatusCodes.Status403Forbidden,
             };
-        response.ContentType = "application/problem+json";
-        var problem = new PublicError(response.StatusCode, denied.Code, denied.Description, SafeTraceId.Resolve(http));
-        await JsonSerializer.SerializeAsync(inner.Stream, problem, JsonSerializerOptions.Web, ct);
-        await inner.Stream.FlushAsync(ct);
-        throw new SuspensionResponseStoppedException();
+        return (status, denied.Code, denied.Description);
     }
 
     private sealed class GuardedStream(SuspensionResponseBodyFeature owner) : Stream

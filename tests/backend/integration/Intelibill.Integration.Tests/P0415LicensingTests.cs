@@ -3,7 +3,10 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Intelibill.Shared.Contracts.V1;
+using Intelibill.Api.Extensions;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using ErrorOr;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Integration.Tests;
@@ -18,10 +21,22 @@ public sealed partial class P0415LicensingTests
     public Task Prepared_export_is_withheld_after_applied_security() =>
         AssertPreparedResultWithheldAsync("ExportSales", _ => "/api/exports/sales?format=xlsx");
 
-    private async Task AssertPreparedResultWithheldAsync(string action, Func<Guid, string> path)
+    [Fact]
+    public Task Prepared_domain_problem_withholds_its_stored_identifier_after_applied_security()
+    {
+        var storedId = Guid.NewGuid();
+        var problem = new List<Error>
+        {
+            Error.NotFound("Fixture.StoredItemMissing", $"Missing inventory for stored item {storedId:D}."),
+        }.ToProblemResult();
+        return AssertPreparedResultWithheldAsync("GetSaleDetail", sale => $"/api/sales/{sale:D}", problem, storedId);
+    }
+
+    private async Task AssertPreparedResultWithheldAsync(string action, Func<Guid, string> path,
+        IActionResult? result = null, Guid? storedId = null)
     {
         using var key = RSA.Create(2048);
-        var pause = new PauseResult(action);
+        var pause = new PauseResult(action, result);
         using var host = CreateHost(key, services => services.AddControllers(options => options.Filters.Add(pause)));
         await host.InitializeAsync();
         using var client = CreateClient(host);
@@ -51,7 +66,10 @@ public sealed partial class P0415LicensingTests
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.True(response.Headers.CacheControl?.NoStore);
         Assert.Null(response.Content.Headers.ContentDisposition);
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        var raw = await response.Content.ReadAsStringAsync(Ct);
+        if (storedId is { } id)
+            Assert.DoesNotContain(id.ToString("D"), raw, StringComparison.OrdinalIgnoreCase);
+        var body = JsonSerializer.Deserialize<JsonElement>(raw);
         Assert.Equal("Licence.SecuritySuspended", body.GetProperty("code").GetString());
         Assert.False(body.TryGetProperty("document", out _));
         Assert.False(body.TryGetProperty("customerName", out _));
@@ -103,7 +121,9 @@ public sealed partial class P0415LicensingTests
         Assert.Equal(HttpStatusCode.OK, otherHistory.StatusCode);
         using var otherTarget = await unrelated.GetAsync($"/api/shops/{shop:D}", Ct);
         Assert.Equal(HttpStatusCode.Forbidden, otherTarget.StatusCode);
-        Assert.DoesNotContain("Licence.SecuritySuspended", await otherTarget.Content.ReadAsStringAsync(Ct), StringComparison.Ordinal);
+        var nonmember = await otherTarget.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        Assert.Equal("Shop.MembershipNotFound", nonmember.GetProperty("title").GetString());
+        Assert.Equal("You do not have access to this shop.", nonmember.GetProperty("detail").GetString());
 
         await DeliverAsync(delivery, key, security with
         {
@@ -185,7 +205,7 @@ public sealed partial class P0415LicensingTests
         Assert.Equal("Licence.SecuritySuspended", body.GetProperty("code").GetString());
     }
 
-    private sealed class PauseResult(string action) : IAsyncActionFilter
+    private sealed class PauseResult(string action, IActionResult? result = null) : IAsyncActionFilter
     {
         public TaskCompletionSource Ready { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Resume { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -195,6 +215,9 @@ public sealed partial class P0415LicensingTests
             var executed = await next();
             if (context.ActionDescriptor.RouteValues["action"] != action || executed.Exception is not null)
                 return;
+
+            if (result is not null)
+                executed.Result = result;
 
             Ready.TrySetResult();
             await Resume.Task.WaitAsync(context.HttpContext.RequestAborted);

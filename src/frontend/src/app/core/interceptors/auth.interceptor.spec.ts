@@ -96,6 +96,51 @@ describe('authInterceptor', () => {
     expect(context.dataRestricted()).toBe(false);
   });
 
+  it('delivers an invitation refusal to its caller and keeps the active shop history', () => {
+    const context = TestBed.inject(ShopContextService);
+    const owner = { userId: 'owner', shopId: 'invitation-active-shop' };
+    context.initialize(owner);
+    mockAuthService.getAccessToken.mockReturnValue('test-token');
+    const epoch = context.epoch();
+    const history = new Subject<HttpEvent<unknown>>();
+    const received = vi.fn();
+    runInterceptor(new HttpRequest('GET', `${API_BASE_URL}/sales`), () => history).subscribe(received);
+
+    const refusal = new HttpErrorResponse({ status: 403, error: { code: 'Licence.SecuritySuspended' } });
+    const failed = vi.fn();
+    const invitation = new HttpRequest('POST', `${API_BASE_URL}/invitations/shop-b-offer/accept`, {});
+    runInterceptor(invitation, () => throwError(() => refusal)).subscribe({ error: failed });
+
+    const response = new HttpResponse({ body: { invoiceNumber: 'A/0001' } });
+    history.next(response);
+    expect(failed).toHaveBeenCalledWith(refusal);
+    expect(context.epoch()).toBe(epoch);
+    expect(context.dataRestricted()).toBe(false);
+    expect(received).toHaveBeenCalledWith(response);
+  });
+
+  it.each([true, false])('observes feature trading authority immediately when enforced=%s', enforced => {
+    const context = TestBed.inject(ShopContextService);
+    const owner = { userId: 'owner', shopId: `feature-authority-shop-${enforced}` };
+    context.initialize(owner);
+    mockAuthService.getAccessToken.mockReturnValue('test-token');
+    const epoch = context.epoch();
+    const history = new Subject<HttpEvent<unknown>>();
+    const received = vi.fn();
+    runInterceptor(new HttpRequest('GET', `${API_BASE_URL}/sales`), () => history).subscribe(received);
+
+    const refusal = new HttpErrorResponse({ status: 403, error: { code: 'Licence.SecuritySuspended', enforced } });
+    const failed = vi.fn();
+    const request = new HttpRequest('GET', `${API_BASE_URL}/licensing/shops/${owner.shopId}/trading-authority`);
+    runInterceptor(request, () => throwError(() => refusal)).subscribe({ error: failed });
+
+    history.next(new HttpResponse({ body: { invoiceNumber: 'A/0001' } }));
+    expect(failed).toHaveBeenCalledWith(refusal);
+    expect(context.epoch()).toBe(epoch + Number(enforced));
+    expect(context.dataRestricted()).toBe(enforced);
+    expect(received).toHaveBeenCalledTimes(enforced ? 0 : 1);
+  });
+
   it('rejects an old Blob refusal after its shop epoch changes', async () => {
     const context = TestBed.inject(ShopContextService);
     context.initialize({ userId: 'owner', shopId: 'shop-a' });

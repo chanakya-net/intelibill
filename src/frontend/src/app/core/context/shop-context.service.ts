@@ -4,7 +4,7 @@ import { Observable, Subject } from 'rxjs';
 
 import { AppReloadService } from '../services/app-reload.service';
 import { ShopContextActions } from './shop-context.actions';
-import { ScopeChange, ScopeChangeReason, ScopeOwner, ShopScope, sameOwner, shopRestrictionKey } from './shop-scope';
+import { ScopeChange, ScopeChangeReason, ScopeOwner, ShopScope, sameOwner, shopRestrictionConfirmationKey, shopRestrictionKey } from './shop-scope';
 
 export type LeaveReadiness =
   | { readonly ok: true }
@@ -42,6 +42,7 @@ export class ShopContextService {
   private readonly leaveChecks = new Set<() => Promise<boolean>>();
   private readonly mutations = new Set<symbol>();
   private currentEpoch = 0;
+  private restrictionGeneration = 0;
   private leaving: Promise<LeaveReadiness> | null = null;
 
   /** The owner this tab works as, or null when signed out. */
@@ -62,7 +63,7 @@ export class ShopContextService {
 
   /** Adopts the session restored at startup; nothing was shown under another scope yet. */
   initialize(owner: ScopeOwner | null): void {
-    this.restrictedSignal.set(readRestriction(owner));
+    this.restrictedSignal.set(readRestriction(owner) !== null);
     this.scopeSignal.set(owner ? { userId: owner.userId, shopId: owner.shopId, epoch: this.currentEpoch } : null);
   }
 
@@ -88,7 +89,7 @@ export class ShopContextService {
 
     this.transitioningSignal.set(change.previous !== null);
     const saves = this.detach(change);
-    this.restrictedSignal.set(readRestriction(next));
+    this.restrictedSignal.set(readRestriction(next) !== null);
     this.scopeSignal.set(change.next);
     install();
     this.changesSubject.next(change);
@@ -100,9 +101,46 @@ export class ShopContextService {
     return change;
   }
 
+  /** Captures the local and shared restriction evidence at the start of an authority read. */
+  observeDataAuthority(observed: ShopScope): (restricted: boolean) => void {
+    const generation = this.restrictionGeneration;
+    const marker = readRestriction(observed);
+    return (restricted) => {
+      if (restricted) {
+        this.setDataRestricted(observed, true);
+      } else if (generation === this.restrictionGeneration && marker === readRestriction(observed)) {
+        this.confirmDataRelease(observed, marker);
+      }
+    };
+  }
+
+  /** Sibling tabs retire their data immediately. Release still needs a local authority read. */
+  applyRestrictionNotice(observed: ShopScope): void {
+    if (!this.canChangeDataAccess(observed)) return;
+    this.restrictionGeneration++;
+    this.changeDataRestriction(observed, true);
+  }
+
   setDataRestricted(observed: ShopScope, restricted: boolean): boolean {
-    if (this.scopeSignal() !== observed || !observed.shopId || this.transitioning()) return false;
-    saveRestriction(observed, restricted);
+    if (!this.canChangeDataAccess(observed)) return false;
+    if (!restricted) return this.confirmDataRelease(observed, readRestriction(observed));
+    this.restrictionGeneration++;
+    saveRestriction(observed);
+    return this.changeDataRestriction(observed, true);
+  }
+
+  private confirmDataRelease(observed: ShopScope, marker: string | null): boolean {
+    if (!this.canChangeDataAccess(observed) || !this.restrictedSignal()) return false;
+    if (marker) confirmRestriction(observed, marker);
+    if (readRestriction(observed) !== null) return false;
+    return this.changeDataRestriction(observed, false);
+  }
+
+  private canChangeDataAccess(observed: ShopScope): boolean {
+    return this.scopeSignal() === observed && !!observed.shopId && !this.transitioning();
+  }
+
+  private changeDataRestriction(observed: ShopScope, restricted: boolean): boolean {
     if (this.restrictedSignal() === restricted) return false;
 
     const change: ScopeChange = {
@@ -196,19 +234,30 @@ export class ShopContextService {
   }
 }
 
-function readRestriction(owner: ScopeOwner | null): boolean {
+function readRestriction(owner: ScopeOwner | null): string | null {
   try {
-    return !!owner?.shopId && localStorage.getItem(shopRestrictionKey(owner)) === '1';
+    if (!owner?.shopId) return null;
+    const marker = localStorage.getItem(shopRestrictionKey(owner));
+    return marker === localStorage.getItem(shopRestrictionConfirmationKey(owner)) ? null : marker;
   } catch {
-    return false;
+    return null;
   }
 }
 
-function saveRestriction(owner: ScopeOwner, restricted: boolean): void {
+function saveRestriction(owner: ScopeOwner): void {
   try {
-    if (restricted) localStorage.setItem(shopRestrictionKey(owner), '1');
-    else localStorage.removeItem(shopRestrictionKey(owner));
+    const marker = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+    localStorage.setItem(shopRestrictionKey(owner), marker);
   } catch {
     // Restricted storage leaves the in-memory decision in effect for this tab.
+  }
+}
+
+function confirmRestriction(owner: ScopeOwner, marker: string): void {
+  try {
+    // A release only confirms the marker this read observed. A sibling's newer denial survives.
+    localStorage.setItem(shopRestrictionConfirmationKey(owner), marker);
+  } catch {
+    // Leave persisted evidence in force until it can be confirmed.
   }
 }

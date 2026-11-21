@@ -4,6 +4,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { SALE } from './accessibility-localization-fixtures';
 import { INVOICE_A, INVOICE_B, PAYMENT_INTENTS_KEY, startLicensingHistoryFixture } from './licensing-history-security-fixture';
+import { shopRestrictionKey } from '../../../src/app/core/context/shop-scope';
 import { session, SHOP_A, USER } from './purchase-receiving-server';
 import { PROTECTED_WORKER_PROTOCOL, PROTECTED_WORKER_QUERY } from '../../../src/app/core/service-worker/service-worker-registration';
 
@@ -53,7 +54,6 @@ test('issued history, printing and downloads follow the observed shop restrictio
     api.state.restricted = true;
     await refreshAuthority(page);
     await expect(restricted(page)).toBeVisible();
-    await refreshAuthority(a4);
     await expect(restricted(a4)).toBeVisible();
     await expect(a4.locator('app-sale-invoice-a4')).toHaveCount(0);
     const delayed = page.waitForResponse((response) => response.url().includes('/api/exports/sales') && response.ok());
@@ -83,7 +83,7 @@ test('issued history, printing and downloads follow the observed shop restrictio
   }
 });
 
-test('a lost payment response remains bound to its original shop through restriction and release', async ({ page }, info) => {
+test('an unconfirmed payment delivery remains bound to its original shop through restriction and release', async ({ page }, info) => {
   const api = await startLicensingHistoryFixture(BUILD);
   const origin = api.server.origin;
   try {
@@ -99,9 +99,10 @@ test('a lost payment response remains bound to its original shop through restric
     await dialog.getByRole('button', { name: /Submit Payment$/ }).click();
     await expect(dialog.getByText('Payment not confirmed', { exact: true })).toBeVisible();
     const before = await paymentIntents(page);
+    const { operationKey, ...sentPayload } = api.posts[0];
     expect(Object.values(before)).toEqual([expect.objectContaining({
-      operationKey: api.posts[0]['operationKey'], status: 'unknown', shopId: SHOP_A,
-      userId: USER, payload: expect.objectContaining({ amount: 25 }),
+      operationKey, status: 'unknown', shopId: SHOP_A,
+      userId: USER, payload: { ...sentPayload, tillOwner: { shopId: SHOP_A, userId: USER } },
     })]);
 
     api.state.restricted = true;
@@ -134,6 +135,65 @@ test('a lost payment response remains bound to its original shop through restric
     expect(api.lookups).toEqual([api.posts[0]['operationKey']]);
     await page.screenshot({ path: info.outputPath('original-payment-confirmed.png') });
   } finally {
+    await api.server.close();
+  }
+});
+
+test('a sibling restriction retires queued printing until local authority confirms release', async ({ page, context }, info) => {
+  const api = await startLicensingHistoryFixture(BUILD);
+  const origin = api.server.origin;
+  const marker = shopRestrictionKey({ userId: USER, shopId: SHOP_A });
+  try {
+    await context.addInitScript((fixtureSession) => {
+      const key = 'inventory.auth.session.local';
+      if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(fixtureSession));
+      window.print = () => document.documentElement.setAttribute('data-printed', 'true');
+    }, session());
+
+    await page.goto(origin + '/sales');
+    await expect(page.getByText(INVOICE_A, { exact: true })).toBeVisible();
+    const print = await context.newPage();
+    await print.setExtraHTTPHeaders({ 'x-fixture-print-tab': 'true' });
+    await print.addInitScript(() => {
+      let allowFonts!: () => void;
+      Object.defineProperty(document.fonts, 'ready', {
+        value: new Promise<void>((resolve) => { allowFonts = resolve; }),
+      });
+      window.addEventListener('fixture-fonts-ready', allowFonts);
+    });
+    api.state.holdPrintAuthority = true;
+    await print.goto(`${origin}/sales/${SALE.saleId}/print?template=a4`);
+    await expect(print.locator('app-sale-invoice-a4')).toContainText(INVOICE_A);
+    await expect.poll(() => api.heldAuthority.length).toBe(1);
+    await expect(print.locator('html')).not.toHaveAttribute('data-printed');
+
+    api.state.printVerificationUnavailable = true;
+    api.state.restricted = true;
+    await page.bringToFront();
+    await page.reload();
+    await expect(restricted(page)).toBeVisible();
+    await expect(restricted(print)).toBeVisible();
+    await expect(print.locator('app-sale-invoice-a4')).toHaveCount(0);
+
+    api.heldAuthority.shift()!();
+    await print.evaluate(() => window.dispatchEvent(new Event('fixture-fonts-ready')));
+    await expect(print.locator('html')).not.toHaveAttribute('data-printed');
+    expect(await print.evaluate((key) => localStorage.getItem(key), marker)).toBeTruthy();
+    await print.screenshot({ path: info.outputPath('sibling-notice-print-retired.png') });
+
+    api.state.restricted = false;
+    await refreshAuthority(page);
+    await expect(restricted(page)).toHaveCount(0);
+    await refreshAuthority(print);
+    await expect(restricted(print)).toBeVisible();
+    await expect(print.locator('app-sale-invoice-a4')).toHaveCount(0);
+
+    api.state.printVerificationUnavailable = false;
+    await refreshAuthority(print);
+    await expect(print.locator('app-sale-invoice-a4')).toContainText(INVOICE_A);
+    await expect(print.locator('html')).toHaveAttribute('data-printed', 'true');
+  } finally {
+    for (const send of api.heldAuthority) send();
     await api.server.close();
   }
 });
