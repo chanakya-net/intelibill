@@ -221,8 +221,8 @@ public sealed class ExpiryDispositionTests(PostgreSqlTestFixture fixture) : Expi
         using var replay = await DisposeAsync(shop, sale.BatchId, held.Root, held.Batch.Version, key: key); Assert.False(replay.IsSuccessStatusCode);
         await using var scope = Factory.Services.CreateAsyncScope();
         var service = scope.ServiceProvider.GetRequiredService<Intelibill.Application.Features.Expiry.BatchDispositionService>();
-        var denied = await service.PostAsync(held.Batch.ShopId, held.Batch.CreatedBy, sale.BatchId, new(key, held.Batch.Version, held.Root, "Dispose", 2m, "Recovered goods disposal"), default);
-        Assert.Equal("Expiry.OwnerRequired", denied.FirstError.Code);
+        var denied = await service.PostAsync(held.Batch.ShopId, held.Batch.CreatedBy, sale.BatchId, new(key, held.Batch.Version, held.Root, "Dispose", 2m, "Recovered goods disposal"), null, default);
+        Assert.Equal("Auth.SessionInvalidated", denied.FirstError.Code);
     }
 
     [Fact]
