@@ -329,8 +329,7 @@ import { PurchaseOrderBuilderPageComponent } from './purchase-order-builder-page
                               type="button"
                               severity="success"
                               icon="pi pi-inbox"
-                              [label]="receivingAccess.label(order.purchaseOrderId, order.status) | transloco"
-                              [disabled]="receivingAccess.blocked(order.purchaseOrderId)"
+                              [label]="receivingAccess.label(order.status) | transloco"
                               (click)="openReceiveOrder(order.purchaseOrderId, $event)"
                             ></button>
                           </div>
@@ -774,9 +773,7 @@ export class PurchaseOrdersListPageComponent implements OnInit {
   readonly localizedError =
     this.facade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
   protected readonly permissions = inject(ShopPermissionsService);
-  protected readonly receivingAccess = new PurchaseReceivingAccess(() =>
-    this.facade.orders().map(order => order.purchaseOrderId),
-  );
+  protected readonly receivingAccess = new PurchaseReceivingAccess();
   private readonly router = inject(Router);
   private readonly confirmationService = inject(ConfirmationService);
   private readonly translocoService = inject(TranslocoService);
@@ -835,11 +832,10 @@ export class PurchaseOrdersListPageComponent implements OnInit {
       return [
         {
           ...this.actionItem(
-            this.receivingAccess.label(order.purchaseOrderId, order.status),
+            this.receivingAccess.label(order.status),
             'pi pi-inbox',
             () => this.openReceiveOrder(order.purchaseOrderId),
           ),
-          disabled: this.receivingAccess.blocked(order.purchaseOrderId),
         },
       ];
     }
@@ -1018,7 +1014,7 @@ export class PurchaseOrdersListPageComponent implements OnInit {
 
   protected openReceiveOrder(purchaseOrderId: string, event?: Event): void {
     event?.stopPropagation();
-    if (this.receivingAccess.blocked(purchaseOrderId)) return;
+    if (this.receivingAccess.securityHidden()) return;
     this.receivingPoId.set(purchaseOrderId);
     this.showReceiveDialog.set(true);
     this.facade.loadDetail(purchaseOrderId);
@@ -1038,7 +1034,6 @@ export class PurchaseOrdersListPageComponent implements OnInit {
   protected closeReceiveDialog(): void {
     this.showReceiveDialog.set(false);
     this.receivingPoId.set(null);
-    this.receivingAccess.refreshPending();
     this.facade.loadOrders(this.facade.filters());
   }
 

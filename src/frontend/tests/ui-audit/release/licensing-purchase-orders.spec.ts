@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import {
   OTHER_PO,
   PO,
@@ -49,7 +49,8 @@ for (const viewport of [
       await expect(draft.getByRole('button', { name: 'Place Order' })).toBeDisabled();
     }
     await page.goto(`${server.origin}${listPath}/${PO}`);
-    await expect(page.getByRole('button', { name: 'Receive', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Receive', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Recover receipt', exact: true })).toBeEnabled();
     expect(server.posts).toHaveLength(0);
     await page.goto(`${server.origin}${listPath}/${OTHER_PO}`);
     await expect(page.getByRole('button', { name: 'Place Order' })).toBeDisabled();
@@ -186,3 +187,86 @@ test('security suspension withholds pending receipt until recovery access return
   expect(server.posts).toHaveLength(1);
   expect(server.lookups).toEqual([original.operationId, original.operationId]);
 });
+
+test('retries a failed IndexedDB read on the expired detail page', async ({ page }, info) => {
+  const original = await beginReceipt(page);
+  server.setAccess('expired');
+  await page.addInitScript(() => {
+    const open = IDBFactory.prototype.open;
+    let failOnce = true;
+    IDBFactory.prototype.open = function (name, version) {
+      if (failOnce && name === 'intelibill-purchase-receiving') {
+        failOnce = false;
+        throw new DOMException('One-shot receiving fixture failure', 'UnknownError');
+      }
+      return open.call(this, name, version);
+    };
+  });
+  await page.reload();
+  const dialog = await openRestrictedRecovery(page);
+  await expect(dialog.getByRole('alert').filter({ hasText: 'Unable to load saved receiving work' }))
+    .toBeVisible();
+  await verifyOnPageRecovery(page, original.operationId!, info);
+});
+
+test('discovers a receipt saved later in another tab on the same expired detail page', async ({
+  page,
+}, info) => {
+  server.setAccess('expired');
+  await page.goto(server.origin + detailPath);
+  const dialog = await openRestrictedRecovery(page);
+  await expect(dialog.getByRole('status').filter({ hasText: 'No pending receipt is saved' }))
+    .toBeVisible();
+
+  // The second tab commits while trading is allowed. The first tab's scoped hint still refuses
+  // fresh work until refreshed, and its already-open recovery dialog stays available.
+  server.setAccess('active');
+  const otherTab = await page.context().newPage();
+  const original = await beginReceipt(otherTab);
+  await otherTab.close();
+  server.setAccess('expired');
+  expect(await pending(page)).toEqual(original);
+  await verifyOnPageRecovery(page, original.operationId!, info);
+});
+
+async function openRestrictedRecovery(page: Page) {
+  await expect(page.getByText(expired, { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Recover receipt', exact: true }).click({ timeout: 5_000 });
+  const dialog = receiptDialog(page);
+  await expect(dialog.getByRole('button', { name: 'Receive', exact: true })).toHaveCount(0);
+  return dialog;
+}
+
+async function verifyOnPageRecovery(
+  page: Page,
+  key: string,
+  info: TestInfo,
+) {
+  const navigations: string[] = [];
+  page.on('framenavigated', (frame) => {
+    if (frame === page.mainFrame()) navigations.push(frame.url());
+  });
+  const original = server.operations.get(key)!.response.receipts![0];
+  const dialog = receiptDialog(page);
+  await dialog.getByRole('button', { name: 'Look for saved receipt' }).click();
+  await dialog.getByRole('button', { name: 'Check receipt' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText(original.receiptNumber, { exact: true })).toBeVisible();
+  expect(server.lookups).toEqual([key]);
+  expect(server.posts).toHaveLength(1);
+  expect(await pending(page)).toBeNull();
+  expect(navigations).toEqual([]);
+  await info.attach('observed-on-page-recovery', {
+    contentType: 'application/json',
+    body: JSON.stringify({
+      fixture: 'Chromium with local HTTP fixture and real IndexedDB',
+      path: detailPath,
+      viewport: page.viewportSize(),
+      message: expired,
+      freshRequestsAfterRestriction: server.purchaseWrites.length - 1,
+      receiptId: original.receiptId,
+      operationKey: key,
+      navigations,
+    }),
+  });
+}

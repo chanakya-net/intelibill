@@ -55,10 +55,7 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
   readonly localizedError =
     this.facade.localizedError ?? errorSignal<LocalizedError | undefined>(undefined);
   protected readonly permissions = inject(ShopPermissionsService);
-  protected readonly receivingAccess = new PurchaseReceivingAccess(() => {
-    const id = this.facade.selectedOrder()?.purchaseOrderId;
-    return id ? [id] : [];
-  });
+  protected readonly receivingAccess = new PurchaseReceivingAccess();
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly confirmationService = inject(ConfirmationService);
@@ -193,11 +190,6 @@ export class PurchaseOrderDetailPageComponent implements OnInit, OnDestroy {
     if (!reason) return;
     this.facade.closeOrder(purchaseOrderId, { reason });
     this.closeReason = '';
-  }
-
-  protected onReceiveVisibilityChange(visible: boolean): void {
-    this.showReceiveDialog.set(visible);
-    if (!visible) this.receivingAccess.refreshPending();
   }
 
   protected receiveOrder(purchaseOrderId: string, payload: ReceivingCommand): void {

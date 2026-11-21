@@ -103,8 +103,7 @@
             pButton
             type="button"
             icon="pi pi-inbox"
-            [label]="receivingAccess.label(order.purchaseOrderId, order.status) | transloco"
-            [disabled]="receivingAccess.blocked(order.purchaseOrderId)"
+            [label]="receivingAccess.label(order.status) | transloco"
             (click)="showReceiveDialog.set(true)"
           ></button>
         }
@@ -263,7 +262,7 @@
       <app-receive-purchase-order-dialog
         [order]="order"
         [visible]="showReceiveDialog()"
-        (visibleChange)="onReceiveVisibilityChange($event)"
+        (visibleChange)="showReceiveDialog.set($event)"
         (receive)="receiveOrder(order.purchaseOrderId, $event)"
       />
     }
