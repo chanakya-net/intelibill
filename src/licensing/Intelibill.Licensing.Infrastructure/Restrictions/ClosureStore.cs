@@ -14,7 +14,7 @@ internal sealed partial class ClosureStore(LicensingDbContext db, EntitlementPub
     public Task<ClosureTargetV1[]> TargetsAsync(Guid account, Guid? shop, CancellationToken ct) =>
         db.Database.SqlQuery<ClosureTargetV1>($"""
             SELECT a.shop_id, a.request_id AS affiliation_request_id, a.shop_name,
-                CASE WHEN EXISTS (SELECT FROM public.operational_closure_targets t
+                CASE WHEN EXISTS (SELECT FROM public.active_operational_closure_targets t
                     WHERE t.account_id = a.account_id AND t.shop_id = a.shop_id AND t.affiliation_request_id = a.request_id)
                     THEN 1::bigint ELSE 0::bigint END AS closure_version
             FROM public.shop_affiliations a

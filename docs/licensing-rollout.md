@@ -559,3 +559,25 @@ P0311 backend tests and the gated Chromium acceptance harness use fixed-clock de
 ## P03 payment acceptance gate
 
 Use the [P03 acceptance index](../tests/licensing/acceptance/p03-payments.md) for the finite R01–R21 PostgreSQL, adapter, consumer and shipping Chromium checks, including original-provider recovery and immutable confirmations across Applying/Applied. Preserve every original provider pin, key and uncertain operation. Local simulator/HTTP/script fixtures do not establish provider credentials, supported hosted methods, receiving-account behavior or webhook reachability; those human launch inputs remain unexecuted. Passing this gate authorizes no live charge, production activation or enforcement. The P03-11 quiesced writer cutover, zero-missing-confirmation gate and rollback/retention restrictions above still apply.
+
+## Reviewed shop reopening
+
+Apply merchant migration `20261121120000_ProjectClosureReopenings` and deploy
+compatible merchant readers before enabling the updated provider writer. Apply
+licensing migration `20261121120000_OperationalClosureReopenings` before deploying
+that writer. Refresh the normal runtime role grants on both databases. A
+reader from an earlier release rejects the signed `reopenedRevision` field.
+
+A Licensing Manager reviews active coverage and records the current shop
+owner's explicit request for the specific shop and closure. Retain the source
+in the review system and enter the owner user ID, consent time, review reference,
+and evidence identifying the request. Provider audit retains this
+reviewer-verified evidence and the capability and MFA context. The reopening
+uses the existing term and does not release a suspension.
+
+The provider shows acknowledgement when a signed receipt confirms that
+the merchant service applied the reopening. A matching local projection confirms
+reopening to the merchant. Existing production enrollment gates still apply.
+After saving a decision, keep the compatible readers and schema in service.
+The licensing downgrade rejects retained decisions and the merchant downgrade
+rejects applied reopening evidence.

@@ -109,7 +109,7 @@ public sealed partial class P0402LicensingTests
                 .Ignore(row => row.PreviousReleaseRevision);
             builder.Entity<ShopLicenseState>()
                 .Ignore(row => row.SuspensionMode).Ignore(row => row.SuspensionEffectiveAt).Ignore(row => row.SuspensionExplanation)
-                .Ignore(row => row.ReleasedRevision);
+                .Ignore(row => row.ReleasedRevision).Ignore(row => row.ReopenedRevision);
         }
     }
 

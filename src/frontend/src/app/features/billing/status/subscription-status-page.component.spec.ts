@@ -62,6 +62,22 @@ function render(api: Partial<SubscriptionStatusService>, params: Record<string, 
 afterEach(() => TestBed.resetTestingModule());
 
 describe('subscription status', () => {
+  it.each([false, true])('shows reopening confirmation for the current shop when applied is %s', (applied) => {
+    const { fixture, page, session } = render({
+      shop: id => of(status(id, id === shopA ? { reopenedAt: '2027-02-10T00:00:00.123456Z',
+        reopeningEnforced: applied, enforcedSuspensionMode: 'Security' } : { closedAt: '2027-02-10T00:00:00Z' })),
+    });
+    const result = '[data-testid="shop-reopening-status"]';
+    expect(page.querySelector(result)?.textContent).toContain('05:30:00.123456 IST');
+    expect(page.querySelector(result)?.textContent).toContain(applied
+      ? 'Reopening applied at this shop.' : 'Awaiting confirmation from the merchant service.');
+    expect(page.querySelector('[data-testid="enforced-suspension"]')).not.toBeNull();
+    session.update(current => ({ ...current!, activeShopId: shopB }));
+    fixture.detectChanges();
+    expect(page.querySelector(result)).toBeNull();
+    expect(page.querySelector('[data-testid="shop-closure-status"]')).not.toBeNull();
+  });
+
   it('shows the suspension enforced by the local merchant projection', () => {
     const { page } = render({
       shop: id => of(status(id, { observeOnly: false, enforcedSuspensionMode: 'Security',

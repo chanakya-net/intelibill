@@ -37,6 +37,12 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
             throw new InvalidOperationException("Closure publication requires an affiliation.");
     }
 
+    internal async Task PublishReopeningAsync(Guid account, Guid shop, DateTimeOffset at, Guid eventId, CancellationToken ct)
+    {
+        if (await AppendSnapshotAsync(account, shop, false, at, ct, eventId) is null)
+            throw new InvalidOperationException("Reopening publication requires an affiliation.");
+    }
+
     private async Task<EntitlementSnapshotV1?> AppendSnapshotAsync(Guid account, Guid shop, bool reconcile,
         DateTimeOffset? evaluatedAt, CancellationToken ct, Guid? eventId = null)
     {
@@ -68,12 +74,16 @@ internal sealed class EntitlementPublisher(LicensingDbContext db, ISubscriptionA
             WHERE l.account_id = {account} AND r.shop_id = {shop}
             """).SingleAsync(ct);
         var closed = await db.Database.SqlQuery<bool>($"""
-            SELECT EXISTS (SELECT FROM public.operational_closure_targets WHERE account_id = {account}
+            SELECT EXISTS (SELECT FROM public.active_operational_closure_targets WHERE account_id = {account}
                 AND shop_id = {shop} AND affiliation_request_id = {request}) AS "Value"
+            """).SingleAsync(ct);
+        var reopened = await db.Database.SqlQuery<long?>($"""
+            SELECT max(prior_revision) AS "Value" FROM public.operational_closure_reopenings
+            WHERE account_id = {account} AND shop_id = {shop} AND affiliation_request_id = {request}
             """).SingleAsync(ct);
         var state = closed ? ShopClosuresV1.Closed : term?.State ?? "PendingActivation";
         var shopHead = new ShopEntitlementSnapshotV1(revision, now, state, term?.TermId,
-            term?.Basis, term?.StartsAt, term?.AccessEndsAt, next, term?.PurchasedCapacity, term?.MemberAllowance, suspension, released);
+            term?.Basis, term?.StartsAt, term?.AccessEndsAt, next, term?.PurchasedCapacity, term?.MemberAllowance, suspension, released, reopened);
         var snapshot = new EntitlementSnapshotV1(1, EntitlementSnapshotsV1.PolicyVersion, eventId ?? Guid.NewGuid(), account,
             shop, request, accountHead, shopHead);
         await AppendAsync(snapshot, ct);

@@ -5,6 +5,12 @@ namespace Intelibill.Licensing.Application.Restrictions;
 
 public interface IClosureStore
 {
+    Task<ReopeningTarget?> ReadReopeningTargetAsync(Guid account, Guid closure, Guid shop, CancellationToken ct);
+    Task<ReopeningOperation?> ReadReopeningOperationAsync(Guid account, Guid operation, CancellationToken ct);
+    Task<bool> UsedReopeningConsentAsync(Guid account, Guid shop, string reference, CancellationToken ct);
+    Task<ReopeningStamp?> ReadLatestReopeningAsync(Guid account, Guid shop, CancellationToken ct);
+    Task<ProviderReopeningV1?> ReadReopeningStatusAsync(Guid account, Guid closure, Guid shop, CancellationToken ct);
+    Task SaveReopeningAsync(NewReopening reopening, CancellationToken ct);
     Task<ClosureSavedV1[]> ListSavedAsync(Guid account, CancellationToken ct);
     Task<Guid[]> ClosedShopIdsAsync(Guid account, Guid[] shops, CancellationToken ct);
     Task<DateTimeOffset?> ClosedAtAsync(Guid account, Guid shop, CancellationToken ct);

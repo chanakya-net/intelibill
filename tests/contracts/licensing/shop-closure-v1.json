@@ -26,5 +26,6 @@
     "appliedShopRevision",
     "acknowledgedAt"
   ],
+  "providerReopeningFields": ["id", "reopenedAt", "propagation"],
   "operationalState": "Closed"
 }

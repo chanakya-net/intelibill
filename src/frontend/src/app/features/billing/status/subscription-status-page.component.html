@@ -52,8 +52,15 @@
         </p>
       }
       @if (isShopOwner() && current.status.enforcedSuspensionMode !== 'Security') {
-        <app-closure-confirmation mode="shop" [shop]="current.status.shopId" [account]="current.status.accountId" [closed]="!!current.status.closedAt" />
+        <app-closure-confirmation mode="shop" [shop]="current.status.shopId" [account]="current.status.accountId"
+          [closed]="!!current.status.closedAt || (!!current.status.reopenedAt && !current.status.reopeningEnforced)" />
         <app-closure-confirmation mode="account" [shop]="current.status.shopId" [account]="current.status.accountId" />
+      }
+      @if (current.status.reopenedAt; as reopenedAt) {
+        <p class="ib-panel" role="status" data-testid="shop-reopening-status">
+          {{ 'billing.reopening.reopenedAt' | transloco: { time: instant(reopenedAt, true) } }}
+          {{ (current.status.reopeningEnforced ? 'billing.reopening.applied' : 'billing.reopening.pending') | transloco }}
+        </p>
       }
       @if (current.status.enforcedSuspensionMode; as mode) {
         <p class="ib-panel" role="status" data-testid="enforced-suspension">

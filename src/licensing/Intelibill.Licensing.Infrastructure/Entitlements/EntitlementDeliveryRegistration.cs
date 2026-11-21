@@ -21,6 +21,11 @@ internal static class EntitlementDeliveryRegistration
         services.AddScoped<IClosureStore, ClosureStore>();
         services.AddScoped<IMerchantClosureValidation, MerchantClosureValidation>();
         services.AddScoped<CloseShopHandler>();
+        services.AddScoped(provider => new ReviewReopeningHandler(provider.GetRequiredService<IClosureStore>(),
+            provider.GetRequiredService<ISuspensionStore>(), provider.GetRequiredService<ISubscriptionAccessFactsReader>(),
+            provider.GetRequiredService<ISubscriptionStatusStore>(),
+            provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey),
+            provider.GetRequiredService<TimeProvider>()));
         services.AddScoped(provider => new SuspendAccessHandler(provider.GetRequiredService<ISuspensionStore>(),
             provider.GetRequiredService<ISubscriptionStatusStore>(),
             provider.GetRequiredKeyedService<TimeProvider>(SubscriptionStatusRegistration.ClockKey),

@@ -106,4 +106,7 @@ public sealed record ProviderClosureV1(Guid Id, string Scope, DateTimeOffset Sav
     ProviderClosureShopV1[] Shops);
 
 public sealed record ProviderClosureShopV1(Guid ShopId, string ShopName, string Propagation,
-    long? SavedShopRevision, long? AppliedShopRevision, DateTimeOffset? AcknowledgedAt);
+    long? SavedShopRevision, long? AppliedShopRevision, DateTimeOffset? AcknowledgedAt,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ProviderReopeningV1? Reopening = null);
+
+public sealed record ProviderReopeningV1(Guid Id, DateTimeOffset ReopenedAt, string Propagation);

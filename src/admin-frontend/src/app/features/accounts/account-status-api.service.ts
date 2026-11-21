@@ -71,6 +71,11 @@ export interface ProviderClosure {
     readonly savedShopRevision: number | null;
     readonly appliedShopRevision: number | null;
     readonly acknowledgedAt: string | null;
+    readonly reopening?: {
+      readonly id: string;
+      readonly reopenedAt: string;
+      readonly propagation: 'Pending' | 'Acknowledged' | 'NeedsReview';
+    };
   }[];
 }
 

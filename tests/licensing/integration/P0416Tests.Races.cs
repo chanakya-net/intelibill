@@ -136,7 +136,7 @@ public sealed partial class P0416Tests
         return false;
     }
 
-    private static async Task<JsonElement> ProposeAsync(Merchant payer, Guid account)
+    internal static async Task<JsonElement> ProposeAsync(Merchant payer, Guid account)
     {
         using var response = await payer.Client.PostAsJsonAsync($"/api/billing/accounts/{account:D}/closures",
             new { operationKey = Guid.NewGuid(), financialTreatment = "NoFinancialChange" });
@@ -144,7 +144,7 @@ public sealed partial class P0416Tests
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
-    private static Task<HttpResponseMessage> ConfirmAccountAsync(Merchant payer, Guid account, JsonElement proposal)
+    internal static Task<HttpResponseMessage> ConfirmAccountAsync(Merchant payer, Guid account, JsonElement proposal)
     {
         var id = proposal.GetProperty("id").GetGuid();
         return payer.Client.PostAsJsonAsync($"/api/billing/accounts/{account:D}/closures/{id:D}/confirm",

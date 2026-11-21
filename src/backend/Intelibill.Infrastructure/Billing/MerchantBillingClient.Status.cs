@@ -29,14 +29,21 @@ internal sealed partial class MerchantBillingClient
             var heads = await SuspensionAccessReader.ReadHeadsAsync(db, shop, ct);
             if (!await IsLiveShopMemberAsync(caller, shop, ct))
                 return MerchantSubscriptionStatusErrors.ShopScope;
+            var statusWithReopening = result.Value with
+            {
+                ReopeningEnforced = result.Value.ReopeningRequiredRevision is { } cutoff
+                    ? heads?.Shop is { State: not ShopClosuresV1.Closed } local && local.ReopenedRevision >= cutoff
+                    : null,
+                ReopeningRequiredRevision = null,
+            };
             return heads is { Shop.EnforcementActivatedAt: not null }
-                ? result.Value with
+                ? statusWithReopening with
                 {
                     ObserveOnly = false,
                     ClosureEnforced = result.Value.ClosedAt is null ? null : heads.Shop.State == ShopClosuresV1.Closed,
                     EnforcedSuspensionMode = LicenseProjectionPolicy.EffectiveSuspension(heads.Shop, heads.Account, clock.GetUtcNow()),
                 }
-                : result.Value;
+                : statusWithReopening;
         }
         catch (Exception error) when (error is Npgsql.NpgsqlException or TimeoutException)
         {

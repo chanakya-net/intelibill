@@ -17,8 +17,13 @@ public sealed partial class ReadProviderStatusHandler
             foreach (var row in saved)
             {
                 var sync = await synchronization.ReadAsync(account, [.. row.Shops.Select(shop => shop.ShopId)], token, row.Id);
-                details.Add(new(row.Id, row.Scope, row.SavedAt, row.FinancialTreatment,
-                    [.. row.Shops.Select(shop => ProjectClosure(shop, sync.GetValueOrDefault(shop.ShopId)))]));
+                var shops = new List<ProviderClosureShopV1>(row.Shops.Length);
+                foreach (var shop in row.Shops)
+                {
+                    var reopening = await closures.ReadReopeningStatusAsync(account, row.Id, shop.ShopId, token);
+                    shops.Add(ProjectClosure(shop, sync.GetValueOrDefault(shop.ShopId)) with { Reopening = reopening });
+                }
+                details.Add(new(row.Id, row.Scope, row.SavedAt, row.FinancialTreatment, [.. shops]));
             }
             return details.ToArray();
         }, ct);

@@ -131,7 +131,7 @@ public sealed partial class P0416Tests
         Assert.True(accepted.IsSuccessStatusCode, await accepted.Content.ReadAsStringAsync());
     }
 
-    private static async Task ConsentAsync(Merchant owner, Guid proposal)
+    internal static async Task ConsentAsync(Merchant owner, Guid proposal)
     {
         var path = $"/api/licensing/shops/{owner.ShopId:D}";
         var preview = await owner.Client.GetFromJsonAsync<JsonElement>(path + "/closure-preview");

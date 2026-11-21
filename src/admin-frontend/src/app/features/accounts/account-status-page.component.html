@@ -45,6 +45,14 @@
                   @if (shop.appliedShopRevision && shop.acknowledgedAt) {
                     <p>Shop revision {{ shop.appliedShopRevision }} acknowledged {{ exact(shop.acknowledgedAt) }}</p>
                   }
+                  @if (shop.reopening; as reopening) {
+                    <p data-testid="provider-reopening-propagation">
+                      Reopening reviewed {{ exact(reopening.reopenedAt) }} ·
+                      {{ closureStates[reopening.propagation === 'Acknowledged' ? 'Applied' : reopening.propagation] }}
+                    </p>
+                  } @else if (mayGrant()) {
+                    <a routerLink="/restrictions/reopening" [queryParams]="{ account: selected() }">Review reopening</a>
+                  }
                 </li>
               }
             </ul>
