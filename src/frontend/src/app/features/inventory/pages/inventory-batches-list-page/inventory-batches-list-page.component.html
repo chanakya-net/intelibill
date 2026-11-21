@@ -22,7 +22,7 @@
     @for (draft of pendingCostCorrections(); track draft.targetId) {
       <div class="batches-panel" data-testid="receipt-cost-recovery">
         <p role="status">{{ 'inventory.receiptCostPending' | transloco }}
-          @if (!costSecurityHidden()) { <strong>{{ draft.draft.batchNumber }}</strong> }
+          @if (costRecoveryBatchNumber(draft); as batchNumber) { <strong>{{ batchNumber }}</strong> }
         </p>
         <button pButton type="button"
           [label]="'inventory.receiptCostCheckOutcome' | transloco"

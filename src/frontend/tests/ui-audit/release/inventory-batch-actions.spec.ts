@@ -1,51 +1,12 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { resolve } from 'node:path';
-import { session, SHOP_A, shops, startPurchaseReceivingServer } from './purchase-receiving-server';
+import { session, SHOP_A, startPurchaseReceivingServer } from './purchase-receiving-server';
+import {
+  batch, targetBatch, json, receiptDrafts, installReceiptFixture, openReceiptCorrection,
+  enterReceiptCorrection, switchReceiptShop,
+} from './inventory-batch-actions-fixture';
 
 test.use({ serviceWorkers: 'block', trace: 'on' });
-
-const batch = {
-  id: 'batch-menu',
-  shopId: SHOP_A,
-  itemId: 'item-menu',
-  itemName: 'Menu test milk',
-  barcode: 'MENU-MILK',
-  batchNumber: 'MENU-LOT',
-  quantity: 10,
-  originalQuantity: 10,
-  costPrice: 40,
-  salesPrice: 50,
-  mrp: 60,
-  taxRatePercent: 0,
-  taxIncluded: false,
-  expiryDate: null,
-  manufacturingDate: null,
-  supplierId: 'supplier-menu',
-  supplierName: 'Menu supplier',
-  isVoided: false,
-  createdAt: '2026-11-09T08:00:00Z',
-  updatedAt: null,
-  version: 8,
-  quantityScale: 0,
-  uom: 'pcs',
-  receiptValueId: 'receipt-menu',
-  receiptStatus: 'Resolved',
-  receiptOriginalTotalCost: 400,
-  receiptTotalCost: 400,
-  receiptVersion: 3,
-};
-const targetBatch = {
-  ...batch,
-  id: 'batch-target',
-  itemName: 'Target yoghurt',
-  batchNumber: 'TARGET-LOT',
-  receiptValueId: 'receipt-target',
-};
-const json = (route: Route, value: unknown) =>
-  route.fulfill({
-    contentType: 'application/json',
-    body: JSON.stringify(value),
-  });
 
 for (const width of [1440, 390]) {
   test(`batch menu pointer actions at ${width}px`, async ({ page }) => {
@@ -126,123 +87,6 @@ for (const width of [1440, 390]) {
       await server.close();
     }
   });
-}
-
-type WireCorrection = {
-  expectedVersion: number;
-  revisedTotalCost: number;
-  reason: string;
-  operationKey: string;
-};
-type ReceiptDraftEvidence = {
-  shopId: string;
-  targetId: string;
-  pending: { status: string; operationKey: string; payload: WireCorrection } | null;
-};
-type LookupMode = 'denied' | 'mismatch' | 'match' | 'miss' | 'other-404';
-
-const correctionPath = '**/api/inventory/receipts/receipt-menu/cost-corrections';
-const lookupPath = '**/api/financial-operations/receipt-cost-correction/*';
-const savedCorrection = (body: WireCorrection) => ({
-  adjustmentId: 'a0000000-0000-4000-8000-000000000001',
-  supplierLedgerEntryId: 'a0000000-0000-4000-8000-000000000002',
-  batchId: batch.id,
-  receiptValueId: batch.receiptValueId,
-  priorTotalCost: body.expectedVersion === 3 ? 400 : 500,
-  revisedTotalCost: body.revisedTotalCost,
-  delta: body.revisedTotalCost - (body.expectedVersion === 3 ? 400 : 500),
-  receiptVersion: body.expectedVersion + 1,
-  performedAt: '2026-11-21T01:00:00Z',
-});
-
-function receiptDrafts(page: Page): Promise<ReceiptDraftEvidence[]> {
-  return page.evaluate(() => new Promise((resolve, reject) => {
-    const opening = indexedDB.open('intelibill-receipt-cost-corrections', 3);
-    opening.onerror = () => reject(opening.error);
-    opening.onsuccess = () => {
-      const db = opening.result;
-      const tx = db.transaction('drafts', 'readonly');
-      const records = tx.objectStore('drafts').getAll();
-      tx.oncomplete = () => { db.close(); resolve(records.result); };
-      tx.onerror = () => { db.close(); reject(tx.error); };
-    };
-  }));
-}
-
-async function installReceiptFixture(page: Page, role = 'Owner') {
-  const initial = session();
-  initial.shops = initial.shops.map((shop) => ({ ...shop, role }));
-  await page.addInitScript((value) => {
-    const key = 'inventory.auth.session.local';
-    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(value));
-  }, initial);
-  await page.route('**/api/shops/me', (route) => json(route, shops.map((shop) => ({ ...shop, role }))));
-  const state = {
-    rows: [batch],
-    security: false,
-    tradingCode: 'Licence.Expired',
-    dropNext: false,
-    lookup: 'match' as LookupMode,
-    posts: [] as WireCorrection[],
-    postBodies: [] as string[],
-    sequence: [] as string[],
-  };
-  await page.route('**/api/inventory/batches', (route) => state.security
-    ? route.fulfill({ status: 403, json: { code: 'Licence.SecuritySuspended' } })
-    : json(route, state.rows));
-  await page.route('**/api/licensing/shops/*/trading-authority', (route) =>
-    route.fulfill({ status: 403, json: {
-      code: state.security ? 'Licence.SecuritySuspended' : state.tradingCode,
-      enforced: true,
-    } }));
-  await page.route(correctionPath, (route) => {
-    const body = route.request().postDataJSON() as WireCorrection;
-    state.posts.push(body);
-    state.postBodies.push(route.request().postData()!);
-    state.sequence.push('POST');
-    if (state.dropNext) {
-      state.dropNext = false;
-      return route.abort('failed');
-    }
-    return json(route, savedCorrection(body));
-  });
-  await page.route(lookupPath, (route) => {
-    const key = new URL(route.request().url()).pathname.split('/').at(-1);
-    expect(key).toBe(state.posts[0].operationKey);
-    state.sequence.push(`GET ${state.lookup}`);
-    if (state.lookup === 'denied')
-      return route.fulfill({ status: 403, json: { code: 'Licence.SecuritySuspended' } });
-    if (state.lookup === 'miss' || state.lookup === 'other-404')
-      return route.fulfill({ status: 404, json: { code: state.lookup === 'miss' ? 'Operation.NotFound' : 'Other.NotFound' } });
-    return json(route, {
-      operationType: 'receipt-cost-correction',
-      operationKey: key,
-      targetId: state.lookup === 'mismatch' ? 'different-receipt' : batch.receiptValueId,
-      response: savedCorrection(state.posts[0]),
-    });
-  });
-  return state;
-}
-
-async function openReceiptCorrection(page: Page) {
-  await page.getByRole('button', { name: 'Actions', exact: true }).filter({ visible: true }).first().click();
-  await page.getByRole('menuitem', { name: 'Correct receipt cost', exact: true }).click();
-  return page.getByRole('dialog', { name: 'Correct receipt cost', exact: true });
-}
-
-async function enterReceiptCorrection(page: Page, amount: string) {
-  const dialog = await openReceiptCorrection(page);
-  await dialog.locator('#revisedTotalCost').fill(amount);
-  await dialog.locator('#receiptCostReason').fill('Fixture supplier invoice');
-  return dialog;
-}
-
-async function switchReceiptShop(page: Page, name: string) {
-  await page.locator('.active-shop-trigger-desktop').click();
-  await Promise.all([
-    page.waitForURL((url) => url.pathname === '/dashboard', { waitUntil: 'load' }),
-    page.locator('.shop-menu-item').filter({ hasText: name }).click(),
-  ]);
 }
 
 test.describe('P04-13d receipt correction recovery', () => {
@@ -361,6 +205,97 @@ test.describe('P04-13d receipt correction recovery', () => {
       await server.close();
     }
   });
+
+  test('P04-13d a definitive stale resend releases the old intent for a new correction', async ({ page }, info) => {
+    const server = await startPurchaseReceivingServer(build);
+    const state = await installReceiptFixture(page);
+    state.dropNext = true;
+    try {
+      await page.goto(`${server.origin}/inventory/batches`);
+      const first = await enterReceiptCorrection(page, '500');
+      await first.getByRole('button', { name: 'Post correction' }).click();
+      await expect(check(page)).toBeEnabled();
+      const frozen = state.posts[0];
+      await page.reload();
+      await expect(check(page)).toBeEnabled();
+
+      state.lookup = 'miss';
+      state.conflictNext = true;
+      state.rows = [{ ...batch, receiptVersion: 4, receiptTotalCost: 500 }];
+      await check(page).click();
+      await expect(check(page)).toHaveCount(0);
+      expect(state.sequence).toEqual(['POST', 'GET miss', 'POST']);
+      expect(state.postBodies[1]).toBe(state.postBodies[0]);
+      await page.screenshot({ path: info.outputPath('definitive-version-conflict.png') });
+
+      await page.reload();
+      await expect.poll(() => receiptDrafts(page)).toMatchObject([{ targetId: 'receipt-menu:3', pending: null }]);
+      await expect(check(page)).toHaveCount(0);
+      const later = await enterReceiptCorrection(page, '450');
+      await expect(later.getByTestId('receipt-cost-delta')).toContainText('-₹50.00');
+      await later.getByRole('button', { name: 'Post correction' }).click();
+      await expect(later).toBeHidden();
+      expect(state.posts).toHaveLength(3);
+      expect(state.posts[2].expectedVersion).toBe(4);
+      expect(state.posts[2].operationKey).not.toBe(frozen.operationKey);
+      console.log('Stale resend reused key suffix %s. Explicit version 4 correction used distinct key suffix %s.',
+        frozen.operationKey.slice(-8), state.posts[2].operationKey.slice(-8));
+    } finally {
+      await server.close();
+    }
+  });
+
+  for (const read of ['denied', 'failed', 'authorized'] as const) {
+    test(`P04-13d cached lot stays hidden pending the ${read} shop read`, async ({ page }, info) => {
+      const server = await startPurchaseReceivingServer(build);
+      const state = await installReceiptFixture(page);
+      state.dropNext = true;
+      const readGate = Promise.withResolvers<void>();
+      try {
+        await page.goto(`${server.origin}/inventory/batches`);
+        const dialog = await enterReceiptCorrection(page, '500');
+        await dialog.getByRole('button', { name: 'Post correction' }).click();
+        await expect(check(page)).toBeEnabled();
+        await page.route('**/api/inventory/batches', async (route) => {
+          await readGate.promise;
+          if (read === 'failed') return route.abort('failed');
+          if (read === 'denied') return route.fulfill({ status: 403, json: { code: 'Licence.SecuritySuspended' } });
+          return json(route, state.rows);
+        });
+        const loading = page.waitForRequest('**/api/inventory/batches');
+        await page.reload();
+        await loading;
+        const banner = page.getByTestId('receipt-cost-recovery');
+        await expect(banner).toBeVisible();
+        await expect(page.getByText(batch.batchNumber, { exact: true })).toHaveCount(0);
+        await page.screenshot({ path: info.outputPath('read-pending.png') });
+
+        const finished = read === 'failed'
+          ? page.waitForEvent('requestfailed', { predicate: (request) => request.url().endsWith('/api/inventory/batches') })
+          : page.waitForResponse('**/api/inventory/batches');
+        readGate.resolve();
+        await finished;
+        if (read === 'authorized') {
+          await expect(banner).toContainText(batch.batchNumber);
+        } else {
+          const notice = read === 'denied'
+            ? 'Security suspension is enforced for this shop.'
+            : 'Failed to load inventory batches';
+          await expect(page.locator('section.batches-page [role=alert]').filter({ hasText: notice })).toBeVisible();
+          await expect(page.getByText(batch.batchNumber, { exact: true })).toHaveCount(0);
+        }
+        await expect(check(page)).toBeEnabled();
+        await expect.poll(() => receiptDrafts(page)).toMatchObject([{
+          targetId: 'receipt-menu:3', pending: { status: 'unknown', payload: state.posts[0] },
+        }]);
+        expect(state.posts).toHaveLength(1);
+        await page.screenshot({ path: info.outputPath(`read-${read}.png`) });
+      } finally {
+        readGate.resolve();
+        await server.close();
+      }
+    });
+  }
 
   for (const role of ['Owner', 'Manager']) {
     test(`P04-13d ${role} sees the appropriate action for unresolved legacy evidence`, async ({ page }, info) => {

@@ -37,7 +37,11 @@ import {
 import {
   ReceiptCostCorrectionDraftService, receiptCostPaise, type ReceiptCostDraftRecord,
 } from '../../services/receipt-cost-correction-draft.service';
-import { ReceiptCostCorrectionService, type ReceiptCostOutcome } from '../../services/receipt-cost-correction.service';
+import {
+  RECEIPT_VERSION_CONFLICT,
+  ReceiptCostCorrectionService,
+  type ReceiptCostOutcome,
+} from '../../services/receipt-cost-correction.service';
 import { BatchesFilterBarComponent } from '../../components/batches-list/batches-filter-bar.component';
 import {
   BatchesTableComponent,
@@ -69,7 +73,6 @@ import {
 const BATCH_VERSION_CONFLICT = 'Inventory.BatchVersionConflict';
 const BATCH_CONSUMED = 'Inventory.BatchConsumed';
 const QUANTITY_PRECISION_EXCEEDED = 'Inventory.QuantityPrecisionExceeded';
-const RECEIPT_VERSION_CONFLICT = 'PurchaseReceipt.VersionConflict';
 const RECEIPT_COST_ERRORS: Readonly<Record<string, string>> = {
   'PurchaseReceipt.EvidenceMissing': 'inventory.receiptCostEvidenceMissing',
   'PurchaseReceipt.CostUnchanged': 'inventory.receiptCostUnchanged',
@@ -131,6 +134,8 @@ export class InventoryBatchesListPageComponent {
   );
   readonly pendingCostCorrections = signal<readonly ReceiptCostDraftRecord[]>([]);
   private costDraftRead = 0;
+  private batchRead = 0;
+  private readonly authorizedBatchScope = signal<ShopScope | null>(null);
 
   readonly currencyGroupPt = CURRENCY_INPUT_GROUP_PT;
   readonly currencyAddonPt = CURRENCY_ADDON_PT;
@@ -382,6 +387,7 @@ export class InventoryBatchesListPageComponent {
     });
     effect(() => {
       if (!this.costSecurityHidden()) return;
+      this.authorizedBatchScope.set(null);
       this.batches.set([]);
       this.selectedBatch.set(null);
       this.selectedBatchIds.set([]);
@@ -448,22 +454,39 @@ export class InventoryBatchesListPageComponent {
   }
 
   loadBatches(): void {
+    const scope = this.shopContext.scope();
+    const read = ++this.batchRead;
+    const isCurrent = () => read === this.batchRead && scope === this.shopContext.scope();
+    this.authorizedBatchScope.set(null);
     this.loading.set(true);
     this.loadError.set(false);
     this.inventoryService
       .getInventoryBatches()
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(takeUntilDestroyed(this.destroyRef), finalize(() => {
+        if (isCurrent()) this.loading.set(false);
+      }))
       .subscribe({
         next: (data) => {
-          if (!this.costSecurityHidden()) this.batches.set([...data]);
+          if (!isCurrent() || this.costSecurityHidden()) return;
+          this.batches.set([...data]);
+          this.authorizedBatchScope.set(scope);
         },
         error: (error: HttpErrorResponse) => {
-          this.operatingAccess.reportRefusal(error, this.shopContext.scope());
+          if (scope !== this.shopContext.scope()) return;
+          this.operatingAccess.reportRefusal(error, scope);
+          if (!isCurrent()) return;
           this.batches.set([]);
           this.loadError.set(true);
           this.showError('inventory.loadBatchesError');
         },
       });
+  }
+
+  costRecoveryBatchNumber({ draft }: ReceiptCostDraftRecord): string | undefined {
+    const scope = this.authorizedBatchScope();
+    if (!scope || scope !== this.shopContext.scope() || this.costSecurityHidden()) return undefined;
+    return this.batches().find((batch) =>
+      batch.id === draft.batchId && batch.receiptValueId === draft.receiptValueId)?.batchNumber;
   }
   onEditBatch(batch: InventoryBatchDto): void {
     this.selectedBatch.set(batch);

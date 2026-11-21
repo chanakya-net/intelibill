@@ -14,6 +14,8 @@ import {
   type ReceiptCostDraftRecord,
 } from './receipt-cost-correction-draft.service';
 
+export const RECEIPT_VERSION_CONFLICT = 'PurchaseReceipt.VersionConflict';
+
 export type ReceiptCostOutcome =
   | { kind: 'confirmed'; response: CorrectReceiptCostResponse }
   | { kind: 'pending' | 'rejected'; error?: unknown }
@@ -76,6 +78,13 @@ export class ReceiptCostCorrectionService {
     try {
       response = await firstValueFrom(this.inventory.correctReceiptCost(record.draft.receiptValueId, pending.payload, scope));
     } catch (error) {
+      if (recovery && error instanceof HttpErrorResponse && error.status === 409 &&
+          problemCode(error.error) === RECEIPT_VERSION_CONFLICT) {
+        // A matching committed key would replay before the fresh request checks its version.
+        await this.drafts.settle(scope, record.targetId, pending.operationKey, 'rejected');
+        return { kind: 'rejected', error };
+      }
+
       const preserve = recovery || !isCurrent() ||
         (error instanceof HttpErrorResponse && problemCode(error.error) === 'Licence.SecuritySuspended');
       const failure = await this.drafts.settleFailure(scope, record.targetId, pending.operationKey, error, preserve);

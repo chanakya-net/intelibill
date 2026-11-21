@@ -302,6 +302,8 @@ public sealed class CorrectReceiptCostCommandHandler(
             return Errors.PurchaseReceipt.VersionConflict;
         }
 
+        if (await CheckAuthorityAsync(command, cancellationToken) is { } postingAuthorityDenied)
+            return postingAuthorityDenied;
         if (CheckCompletion(lease, receipt, adjustment.PerformedAt) is { } postingDenial)
             return postingDenial;
 

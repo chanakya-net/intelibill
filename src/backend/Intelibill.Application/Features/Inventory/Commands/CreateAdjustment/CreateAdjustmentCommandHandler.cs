@@ -191,6 +191,11 @@ public sealed class CreateAdjustmentCommandHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
+        if (await CheckAuthorityAsync(command, cancellationToken) is { } postingAuthorityDenied)
+            return postingAuthorityDenied;
+        if (licence.Value.CurrentDecision().EnforcedDenial() is { } postingDenial)
+            return postingDenial;
+
         return new InventoryAdjustmentResultDto(
             adjustment.Value.Id,
             adjustment.Value.AdjustmentNumber,

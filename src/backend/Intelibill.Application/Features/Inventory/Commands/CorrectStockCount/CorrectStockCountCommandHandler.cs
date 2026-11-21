@@ -218,6 +218,11 @@ public sealed class CorrectStockCountCommandHandler(
             return Errors.Inventory.BatchVersionConflict;
         }
 
+        if (await CheckAuthorityAsync(command, cancellationToken) is { } postingAuthorityDenied)
+            return postingAuthorityDenied;
+        if (licence.Value.CurrentDecision().EnforcedDenial() is { } postingDenial)
+            return postingDenial;
+
         return new StockCountResultDto(
             count.Value.Id,
             batch.Id,
