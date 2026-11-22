@@ -3,9 +3,13 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
+using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
+using Intelibill.Infrastructure.Services.Time;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Intelibill.Integration.Tests;
 
@@ -15,7 +19,13 @@ public sealed partial class P0415LicensingTests
     public async Task Expired_history_and_committed_recovery_keep_original_records()
     {
         using var key = RSA.Create(2048);
-        using var host = CreateHost(key);
+        // Compare statements for the same business date even when licence expiry crosses shop midnight.
+        var statementClock = new BusinessClock(new TestClock(_clock.Now));
+        using var host = CreateHost(key, services =>
+        {
+            services.RemoveAll<IBusinessClock>();
+            services.AddSingleton<IBusinessClock>(statementClock);
+        });
         await host.InitializeAsync();
         using var client = CreateClient(host);
         using var delivery = CreateClient(host);
