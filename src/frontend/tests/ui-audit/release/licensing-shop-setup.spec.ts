@@ -174,10 +174,12 @@ test.describe('licence refusals reach what is already on screen', () => {
         await expect(dialog.locator('#shop-contact-person')).toBeVisible();
         fixture.refusals[key] = 'Licence.SecuritySuspended';
         await save(dialog);
-        await expect(dialog.getByRole('alert').filter({ hasText: securityStatus }).first()).toBeVisible();
-        await expect(dialog.locator('#shop-contact-person')).toHaveCount(0);
-        await expect(dialog.locator('app-shop-tax-profile-form')).toHaveCount(0);
-        await expect(dialog.locator('app-shop-till-settings')).toHaveCount(0);
+        // P04-15 withdraws the manage-shop overlay and displays the shell-level security restriction alert.
+        await expect(page.getByRole('alert').filter({ hasText: securityStatus }).first()).toBeVisible();
+        await expect(dialog).toHaveCount(0);
+        await expect(page.locator('#shop-contact-person')).toHaveCount(0);
+        await expect(page.locator('app-shop-tax-profile-form')).toHaveCount(0);
+        await expect(page.locator('app-shop-till-settings')).toHaveCount(0);
       } finally {
         await server.close();
       }
@@ -213,11 +215,13 @@ test.describe('licence refusals reach what is already on screen', () => {
       try {
         fixture.refusals[read] = 'Licence.SecuritySuspended';
         const dialog = await openManageShop(page, server.origin);
-        await expect(dialog.getByRole('alert').filter({ hasText: securityStatus }).first()).toBeVisible();
-        await expect(dialog.locator('#shop-contact-person')).toHaveCount(0);
-        await expect(dialog.locator('app-shop-tax-profile-form')).toHaveCount(0);
-        await expect(dialog.locator('app-shop-till-settings')).toHaveCount(0);
-        await expect(dialog.locator('app-expiry-policy-form')).toHaveCount(0);
+        // P04-15 withdraws the manage-shop overlay and displays the shell-level security restriction alert.
+        await expect(page.getByRole('alert').filter({ hasText: securityStatus }).first()).toBeVisible();
+        await expect(dialog).toHaveCount(0);
+        await expect(page.locator('#shop-contact-person')).toHaveCount(0);
+        await expect(page.locator('app-shop-tax-profile-form')).toHaveCount(0);
+        await expect(page.locator('app-shop-till-settings')).toHaveCount(0);
+        await expect(page.locator('app-expiry-policy-form')).toHaveCount(0);
         const loaded = fixture.requests.findIndex(({ path, status }) => path === `/api/shops/${SHOP_A}` && status === 200);
         const refused = fixture.requests.findIndex(({ code }) => code === 'Licence.SecuritySuspended');
         expect(loaded).toBeGreaterThanOrEqual(0);
@@ -231,7 +235,6 @@ test.describe('licence refusals reach what is already on screen', () => {
   test('a security refusal of the preference save withdraws the checklist before its refresh answers', async ({ page }) => {
     const server = await startPurchaseReceivingServer(built);
     const fixture = await installShopSetup(page, 'Owner', 'Active');
-    let release = () => {};
     try {
       fixture.setup.showOnStartup = true;
       await page.goto(server.origin + '/shops/setup');
@@ -239,17 +242,17 @@ test.describe('licence refusals reach what is already on screen', () => {
       await expect(page.locator('.setup-steps')).toBeVisible();
       await expect(startBilling).toBeVisible();
       fixture.refusals.acknowledge = 'Licence.SecuritySuspended';
-      fixture.setup.hold = new Promise<void>((resolve) => { release = resolve; });
       await page.getByRole('button', { name: 'Continue later', exact: true }).click();
+      // P04-15 immediately withdraws the checklist on security refusal until local authority confirms release.
       await expect(page.getByRole('alert').filter({ hasText: securityStatus }).first()).toBeVisible();
-      await expect.poll(() => fixture.setup.waiting).toBe(1);
       await expect(page.locator('.setup-steps')).toHaveCount(0);
       await expect(startBilling).toHaveCount(0);
       await expect(page).toHaveURL(/\/shops\/setup$/);
-      release();
+      const authorityRefresh = page.waitForResponse((res) => res.url().endsWith('/trading-authority'));
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+      await authorityRefresh;
       await expect(page.locator('.setup-steps')).toBeVisible();
     } finally {
-      release();
       await server.close();
     }
   });
@@ -304,19 +307,27 @@ for (const [view, route, content, action] of [
           await page.route(`**/api/shops/${SHOP_B}`, intercepted =>
             intercepted.fulfill({ status: 403, json: { code: 'Licence.SecuritySuspended' } }));
           await dialog.locator('#manage-shop-id').selectOption(SHOP_B);
+          await expect(dialog.getByRole('alert').filter({ hasText: securityStatus }).first()).toBeVisible();
+        } else {
+          // P04-15 withdraws the manage-shop overlay and the mounted view for the restricted active shop.
+          await expect(page.getByRole('alert').filter({ hasText: securityStatus }).first()).toBeVisible();
+          await expect(dialog).toHaveCount(0);
         }
-        await expect(dialog.getByRole('alert').filter({ hasText: securityStatus }).first()).toBeVisible();
         const count = target === 'current shop' ? 0 : 1;
         await expect(data).toHaveCount(count);
         await expect(button).toHaveCount(count);
-        await dialog.getByRole('button', { name: 'Close' }).click();
-        await expect(dialog).toHaveCount(0);
-        await expect(data).toHaveCount(count);
-        await expect(button).toHaveCount(count);
+        if (target === 'other shop') {
+          await dialog.getByRole('button', { name: 'Close' }).click();
+          await expect(dialog).toHaveCount(0);
+          await expect(data).toHaveCount(count);
+          await expect(button).toHaveCount(count);
+        }
         await mounted.screenshot({ path: info.outputPath('after-dialog-close.png') });
         if (target === 'current shop') {
           await expect(mounted.getByRole('alert')).toContainText(securityStatus);
-          await mounted.getByRole('button', { name: 'Refresh setup', exact: true }).click();
+          const authorityRefresh = mounted.waitForResponse((res) => res.url().endsWith('/trading-authority'));
+          await mounted.evaluate(() => window.dispatchEvent(new Event('focus')));
+          await authorityRefresh;
         }
         await expect(data).toBeVisible();
         await expect(button).toBeEnabled();

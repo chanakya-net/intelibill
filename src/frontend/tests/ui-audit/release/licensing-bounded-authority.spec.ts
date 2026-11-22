@@ -83,7 +83,8 @@ test('recovers from verification outage and distinguishes known expiry', async (
     await expect(page.getByTestId('commercial-price')).toHaveCount(0);
     await page.screenshot({ path: info.outputPath('known-expiry.png') });
 
-    expect(reads.map(read => read.status)).toEqual([200, 503, 200, 403]);
+    // Root ShopDataAccessService and SubscriptionStatusPageComponent both read initial authority once.
+    expect(reads.map(read => read.status)).toEqual([200, 200, 503, 200, 403]);
     await writeFile(info.outputPath('stubbed-licensing-http.json'),
       JSON.stringify({ commercial, localAuthority: reads }, null, 2));
   } finally {
@@ -134,7 +135,8 @@ for (const width of [1440, 390]) {
       await expect(page.getByTestId('status-state')).toHaveText('Expired');
       await expect(paid).toHaveText(days[0]!);
       await expect(grace).toHaveText(days[1]!);
-      expect(reads).toEqual([403, 403]);
+      // Root ShopDataAccessService and SubscriptionStatusPageComponent both read initial authority once.
+      expect(reads).toEqual([403, 403, 403]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       await page.screenshot({ path: info.outputPath('merchant-release-expired.png'), fullPage: true });
       await writeFile(info.outputPath('fixture-licensing-http.json'),

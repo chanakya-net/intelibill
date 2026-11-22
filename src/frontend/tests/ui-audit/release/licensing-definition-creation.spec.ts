@@ -166,13 +166,11 @@ test('P04-08a pending shops can read directories and select an existing purchase
   await expect(page.getByRole('row').getByText(SERVICE.name, { exact: true })).toBeVisible();
   await page.screenshot({ path: info.outputPath('pending-services-desktop.png'), animations: 'disabled' });
 
-  const description = await openPurchaseLine(page);
+  // P04-07 disables new purchase order creation while pending, keeping existing POs readable.
+  await page.goto(server.origin + '/inventory/purchase-orders');
   await expect(notice(page)).toContainText(MESSAGE.pending);
-  await description.pressSequentially('Fixture wid', { delay: 35 });
-  await page.getByRole('option', { name: ITEM.name }).click();
-  await expect(quickCreate(page)).toBeDisabled();
-  await page.getByRole('button', { name: 'Add line', exact: true }).click();
-  await expect(page.locator('app-purchase-order-lines-table')).toContainText(ITEM.name);
+  await expect(page.locator('.po-list-header__new-button')).toBeDisabled();
+  await expect(page.getByRole('cell', { name: 'PO-RECEIVING-1' })).toBeVisible();
   expect(fixture.posts()).toHaveLength(0);
   await page.screenshot({ path: info.outputPath('pending-existing-po-line.png'), animations: 'disabled' });
 });
@@ -248,10 +246,11 @@ test('P04-08a stale service refusal stays on the mobile form and observe-only al
 test('P04-08a quick-create honours the typed POST refusal and keeps the line draft', async ({ page }, info) => {
   await page.setViewportSize(DESKTOP);
   const description = await openPurchaseLine(page);
+  const lineForm = page.locator('app-purchase-order-line-form');
   await description.fill('Prepared purchase product');
   fixture.state.writeDenial = 'pending';
   await quickCreate(page).click();
-  await expect(notice(page)).toContainText(MESSAGE.pending);
+  await expect(notice(lineForm)).toContainText(MESSAGE.pending);
   await expect(quickCreate(page)).toBeDisabled();
   await expect(description).toHaveValue('Prepared purchase product');
   await expect(page.locator('app-purchase-order-lines-table')).not.toContainText('Prepared purchase product');
@@ -260,6 +259,13 @@ test('P04-08a quick-create honours the typed POST refusal and keeps the line dra
     { path: '/api/items', status: 403, code: 'Licence.PendingActivation' },
   ]);
   expect(fixture.counts()).toEqual({ newItems: 0, newServices: 0, barcodeAllocations: 1 });
+  // Even after pending refusal disables quick-create, an existing item can still be selected on the open line form.
+  await description.fill('');
+  await description.pressSequentially('Fixture wid', { delay: 35 });
+  await page.getByRole('option', { name: ITEM.name }).click();
+  await expect(quickCreate(page)).toBeDisabled();
+  await page.getByRole('button', { name: 'Add line', exact: true }).click();
+  await expect(page.locator('app-purchase-order-lines-table')).toContainText(ITEM.name);
   await page.screenshot({ path: info.outputPath('quick-create-refused-desktop.png'), animations: 'disabled' });
 });
 

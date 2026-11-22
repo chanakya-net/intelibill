@@ -548,11 +548,17 @@ test('frozen completion survives denied lookup and recovers the matching outcome
   await expect(page.getByText('Frozen rice', { exact: true })).toHaveCount(0);
   expect(requests).toEqual(['POST', 'GET']);
   await page.reload();
-  await expect(recover).toBeEnabled();
+  // P04-15 keeps the standalone shop-data route hidden while security suspension remains in force.
+  await expect(page.getByTestId('shop-data-restricted')).toHaveText('Security suspension is enforced for this shop.');
   await expect(page.getByText('Frozen rice', { exact: true })).toHaveCount(0);
+  await expect(recover).toHaveCount(0);
   await page.screenshot({ path: info.outputPath('supplier-return-suspended.png') });
 
   outcome.release();
+  const authorityRefresh = page.waitForResponse((res) => res.url().endsWith('/trading-authority'));
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await authorityRefresh;
+  await expect(recover).toBeEnabled();
   await recover.click();
   await expect.poll(() => requests).toEqual(['POST', 'GET', 'GET']);
   await expect(recover).toBeEnabled();
@@ -968,13 +974,21 @@ test('release restores the selected shipment lot and initializes pending credit 
       ],
     });
 
+  const refreshAuthority = async () => {
+    const response = page.waitForResponse((res) => res.url().endsWith('/trading-authority'));
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await response;
+  };
+  const restricted = page.getByTestId('shop-data-restricted');
+
   suspended = true;
   await page.reload();
-  const reload = page.getByRole('button', { name: 'Try again', exact: true }).last();
-  await expect(reload).toBeEnabled();
+  // P04-15 hides standalone shop-data routes until local authority confirms release.
+  await expect(restricted).toHaveText('Security suspension is enforced for this shop.');
   await expect(second).toHaveCount(0);
   suspended = false;
-  await reload.click();
+  await refreshAuthority();
+  await expect(restricted).toHaveCount(0);
   await expect(second).toBeChecked();
   await expect(first).not.toBeChecked();
   await expect(quantity).toHaveValue('2');
@@ -983,9 +997,10 @@ test('release restores the selected shipment lot and initializes pending credit 
 
   suspended = true;
   await page.goto(`${server.origin}/supplier-returns/${RETURN}`);
-  await expect(reload).toBeEnabled();
+  await expect(restricted).toHaveText('Security suspension is enforced for this shop.');
   suspended = false;
-  await reload.click();
+  await refreshAuthority();
+  await expect(restricted).toHaveCount(0);
   await expect(page.getByRole('spinbutton', { name: 'Frozen rice', exact: true })).toHaveValue(
     '300',
   );
