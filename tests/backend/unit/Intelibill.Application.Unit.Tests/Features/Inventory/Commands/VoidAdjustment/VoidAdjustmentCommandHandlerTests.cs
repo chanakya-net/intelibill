@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Unit.Tests.Common.Licensing;
 using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.Inventory.Commands.VoidAdjustment;
@@ -251,7 +253,7 @@ public sealed class VoidAdjustmentCommandHandlerTests
             BusinessTestDoubles.AnyShop(),
             _postingPeriods,
             BusinessTestDoubles.RealClock(),
-            _unitOfWork);
+            _unitOfWork, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 
     private static InventoryAdjustment CreateAdjustment(
         Guid shopId,

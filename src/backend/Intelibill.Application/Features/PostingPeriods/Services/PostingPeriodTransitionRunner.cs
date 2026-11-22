@@ -1,4 +1,7 @@
+using Intelibill.Application.Common.Security;
+using Intelibill.Application.Common.Interfaces;
 using ErrorOr;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Time;
@@ -16,7 +19,8 @@ internal sealed class PostingPeriodTransitionRunner(
     IPostingPeriodRepository periodRepository,
     IFinancialOperationExecutor operationExecutor,
     IUnitOfWork unitOfWork,
-    IBusinessClock businessClock)
+    IBusinessClock businessClock,
+    ILiveSessionAuthority authority)
 {
     public delegate ErrorOr<PostingPeriodEvent> Transition(PostingPeriod period, DateTimeOffset now, DateOnly today);
 
@@ -29,12 +33,13 @@ internal sealed class PostingPeriodTransitionRunner(
         DateOnly periodStart,
         string reason,
         string operationKey,
+        SessionClaims? session,
         Transition transition,
         CancellationToken cancellationToken)
     {
         // Authority is read live, not from the token, before anything is reserved or replayed.
-        if (!await IsOwnerAsync(shopId, actorUserId, cancellationToken))
-            return Errors.PostingPeriod.OwnerRequired;
+        if (await AuthorizeAsync(shopId, actorUserId, session, cancellationToken) is { } denial)
+            return denial;
 
         var shop = await shopRepository.GetByIdAsync(shopId, cancellationToken);
         if (shop is null)
@@ -46,11 +51,16 @@ internal sealed class PostingPeriodTransitionRunner(
         var hash = FinancialOperationHasher.Compute(new TransitionPayload(type.ToString(), periodStart, trimmedReason));
 
         return await operationExecutor.ExecuteAsync(
-            new FinancialOperationScope(shopId, type, key),
+            new FinancialOperationScope(shopId, type, key)
+            {
+                SuspensionAction = LicenceAction.SourceCorrection,
+                RecheckReplayAuthority = ct => AuthorizeAsync(shopId, actorUserId, session, ct),
+                RecheckBeforeCommit = ct => AuthorizeAsync(shopId, actorUserId, session, ct),
+            },
             actorUserId,
             shopId,
             hash,
-            ct => TransitionAsync(shop.BusinessTimeZoneId, shopId, actorUserId, periodStart, trimmedReason, transition, ct),
+            ct => TransitionAsync(shop.BusinessTimeZoneId, shopId, actorUserId, periodStart, trimmedReason, session, transition, ct),
             cancellationToken);
     }
 
@@ -60,6 +70,7 @@ internal sealed class PostingPeriodTransitionRunner(
         Guid actorUserId,
         DateOnly periodStart,
         string reason,
+        SessionClaims? session,
         Transition transition,
         CancellationToken cancellationToken)
     {
@@ -73,8 +84,8 @@ internal sealed class PostingPeriodTransitionRunner(
 
         // The period lock is held, so no posting commits meanwhile; authority is judged again against
         // the live membership because it may have changed since the first check.
-        if (!await IsOwnerAsync(shopId, actorUserId, cancellationToken))
-            return Errors.PostingPeriod.OwnerRequired;
+        if (await AuthorizeAsync(shopId, actorUserId, session, cancellationToken) is { } denial)
+            return denial;
 
         var applied = transition(period, businessClock.UtcNow, businessClock.Today(timeZoneId));
         if (applied.IsError)
@@ -87,6 +98,12 @@ internal sealed class PostingPeriodTransitionRunner(
         return PostingPeriodDtoMapper.Map(period, events);
     }
 
-    private async Task<bool> IsOwnerAsync(Guid shopId, Guid userId, CancellationToken cancellationToken) =>
-        await shopRepository.GetActiveRoleAsync(userId, shopId, cancellationToken) == ShopRole.Owner;
+    private async Task<Error?> AuthorizeAsync(Guid shopId, Guid userId, SessionClaims? session, CancellationToken ct)
+    {
+        if (await authority.SessionDenialAsync(session, userId, shopId, ct) is { } denied)
+            return denied;
+        return await shopRepository.GetActiveRoleAsync(userId, shopId, ct) == ShopRole.Owner
+            ? null
+            : Errors.PostingPeriod.OwnerRequired;
+    }
 }

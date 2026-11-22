@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Unit.Tests.Common.Licensing;
 using Intelibill.Application.Features.SupplierReturns.Services;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
@@ -393,7 +395,7 @@ public class VoidBatchCommandHandlerTests
             BusinessTestDoubles.RealClock(),
             new PurchaseReceiptReversalPolicy(_supplierReturns,_stockTransactionRepository,Substitute.For<IBatchDispositionRepository>()),
             _reversals,
-            _supplierLock);
+            _supplierLock, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 
     private readonly ISupplierReturnMutationLock _supplierLock = AcquiringSupplierLock();
 

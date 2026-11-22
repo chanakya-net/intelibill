@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
-internal sealed class P0213Traffic : IStartupFilter
+internal sealed class P0213Traffic(bool countAll = false) : IStartupFilter
 {
     private int _count;
     internal int Count => Volatile.Read(ref _count);
@@ -18,7 +18,7 @@ internal sealed class P0213Traffic : IStartupFilter
     {
         app.Use((context, pipeline) =>
         {
-            if (context.Request.Path == EntitlementSnapshotsV1.SnapshotPath ||
+            if (countAll || context.Request.Path == EntitlementSnapshotsV1.SnapshotPath ||
                 context.Request.Path == EntitlementSnapshotsV1.AcknowledgementPath ||
                 context.Request.Path == EntitlementSnapshotsV1.ReconciliationPath)
                 Interlocked.Increment(ref _count);

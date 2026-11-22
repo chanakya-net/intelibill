@@ -1,0 +1,403 @@
+# kind	entry point	licence action	parent matrix row	request classification
+handler	Intelibill.Application.Features.Auth.Commands.Login.LoginCommandHandler.HandleAsync	Authentication	M01	-
+handler	Intelibill.Application.Features.Auth.Commands.LoginWithEmail.LoginWithEmailCommandHandler.HandleAsync	Authentication	M01	-
+handler	Intelibill.Application.Features.Auth.Commands.RefreshToken.RefreshTokenCommandHandler.HandleAsync	Authentication	M01	-
+handler	Intelibill.Application.Features.Auth.Commands.RegisterWithEmail.RegisterWithEmailCommandHandler.HandleAsync	Authentication	M01	-
+handler	Intelibill.Application.Features.Auth.Commands.RegisterWithPhone.RegisterWithPhoneCommandHandler.HandleAsync	Authentication	M01	-
+handler	Intelibill.Application.Features.Auth.Commands.RequestPasswordReset.RequestPasswordResetCommandHandler.HandleAsync	Authentication	M01	-
+handler	Intelibill.Application.Features.Auth.Commands.ResetPassword.ResetPasswordCommandHandler.HandleAsync	Authentication	M01	-
+handler	Intelibill.Application.Features.Auth.Commands.RevokeToken.RevokeTokenCommandHandler.HandleAsync	Authentication	M01	-
+handler	Intelibill.Application.Features.BankAccounts.Commands.AddBankAccount.AddBankAccountCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.BankAccounts.Commands.DeleteBankAccount.DeleteBankAccountCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.BankAccounts.Commands.UpdateBankAccount.UpdateBankAccountCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.BankAccounts.Queries.GetBankAccounts.GetBankAccountsQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.CreditNotes.Commands.VoidCreditNote.VoidCreditNoteCommandHandler.HandleAsync	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.CreditNotes.Queries.GetCreditNoteByCode.GetCreditNoteByCodeQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.CreditNotes.Queries.GetCreditNotePrintByCode.GetCreditNotePrintByCodeQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.CreditNotes.Queries.GetCreditNotes.GetCreditNotesQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Customers.Commands.AddCustomer.AddCustomerCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Customers.Commands.EditCustomer.EditCustomerCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Customers.Commands.RecordCustomerPayment.RecordCustomerPaymentCommandHandler.HandleAsync	DueSettlement	M07	-
+handler	Intelibill.Application.Features.Customers.Queries.GetCustomer.GetCustomerQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Customers.Queries.GetCustomerAccount.GetCustomerAccountQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Customers.Queries.GetCustomerCredit.GetCustomerCreditQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Customers.Queries.GetCustomerDirectory.GetCustomerDirectoryQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Customers.Queries.GetCustomers.GetCustomersQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Dashboard.Queries.GetDashboard.GetDashboardQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Discounts.Commands.CreateDiscountRule.CreateDiscountRuleCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Discounts.Commands.DisableDiscountRule.DisableDiscountRuleCommandHandler.Handle	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.Discounts.Commands.ReplaceDiscountRule.ReplaceDiscountRuleCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Discounts.Events.DiscountRuleChangedDomainHandler.HandleAsync	InternalService	internal	-
+handler	Intelibill.Application.Features.Discounts.Queries.GetDiscountRuleDetail.GetDiscountRuleDetailQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Discounts.Queries.GetDiscountRules.GetDiscountRulesQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Discounts.Queries.PreviewDiscountRule.PreviewDiscountRuleQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Expenses.Commands.CorrectExpense.CorrectExpenseCommandHandler.HandleAsync	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.Expenses.Commands.RecordExpense.RecordExpenseCommandHandler.HandleAsync	NewTrading	M03	-
+handler	Intelibill.Application.Features.Expenses.Queries.GetExpenseCategories.GetExpenseCategoriesQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Expenses.Queries.GetExpenseDetail.GetExpenseDetailQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Expenses.Queries.GetExpenses.GetExpensesQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Exports.ProfitLoss.Queries.ExportProfitLoss.ExportProfitLossQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Exports.Sales.Queries.ExportSales.ExportSalesQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.FinancialOperations.Queries.GetFinancialOperation.GetFinancialOperationQueryHandler.Handle	Recovery	M12	-
+handler	Intelibill.Application.Features.Hsn.Queries.LookupHsn.LookupHsnHandler.HandleAsync	BasicShopSetup	M02	-
+handler	Intelibill.Application.Features.Inventory.Commands.AddInventory.AddInventoryCommandHandler.HandleAsync	NewTrading	M03	-
+handler	Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch.AddInventoryBatchCommandHandler.HandleAsync	NewTrading	M03	-
+handler	Intelibill.Application.Features.Inventory.Commands.CorrectStockCount.CorrectStockCountCommandHandler.HandleAsync	GeneralStock	M10	-
+handler	Intelibill.Application.Features.Inventory.Commands.CreateAdjustment.CreateAdjustmentCommandHandler.HandleAsync	GeneralStock	M10	-
+handler	Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier.ReassignBatchSupplierCommandHandler.HandleAsync	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.Inventory.Commands.UpdateBatchPrices.UpdateBatchPricesCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch.UpdateInventoryBatchCommandHandler.Handle	GeneralStock	M10	-
+handler	Intelibill.Application.Features.Inventory.Commands.VoidAdjustment.VoidAdjustmentCommandHandler.HandleAsync	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.Inventory.Commands.VoidBatch.VoidBatchCommandHandler.HandleAsync	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.Inventory.Events.InventoryBatchPricingChangedDomainHandler.HandleAsync	InternalService	internal	-
+handler	Intelibill.Application.Features.Inventory.Events.InventoryBatchVoidedDomainHandler.HandleAsync	InternalService	internal	-
+handler	Intelibill.Application.Features.Inventory.Events.InventoryStockChangedDomainHandler.HandleAsync	InternalService	internal	-
+handler	Intelibill.Application.Features.Inventory.Queries.GetAdjustmentHistory.GetAdjustmentHistoryQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Inventory.Queries.GetAvailableBatches.GetAvailableBatchesQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Inventory.Queries.GetInventoryBatches.GetInventoryBatchesQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Items.Barcodes.GenerateItemBarcode.GenerateItemBarcodeCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Items.Barcodes.PrintBarcodeLabels.PrintBarcodeLabelsCommandHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Items.Commands.AddItem.AddItemCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Items.Commands.UpdateItem.UpdateItemCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Items.Events.ItemApplicabilityChangedDomainHandler.HandleAsync	InternalService	internal	-
+handler	Intelibill.Application.Features.Items.Events.ItemCreatedDomainHandler.HandleAsync	InternalService	internal	-
+handler	Intelibill.Application.Features.Items.Queries.GetItems.GetItemsQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Items.Queries.GetProductDetails.GetProductDetailsByNameOrBarcodeQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.OfflineReconciliation.Commands.ResolveReconciliationCase.ResolveReconciliationCaseCommandHandler.HandleAsync	Recovery	M12	-
+handler	Intelibill.Application.Features.OfflineReconciliation.Commands.SubmitRecoveryBundle.SubmitRecoveryBundleCommandHandler.HandleAsync	Recovery	M12	-
+handler	Intelibill.Application.Features.OfflineReconciliation.Queries.GetReconciliationCase.GetReconciliationCaseQueryHandler.HandleAsync	Recovery	M12	-
+handler	Intelibill.Application.Features.OfflineReconciliation.Queries.GetReconciliationCases.GetReconciliationCasesQueryHandler.HandleAsync	Recovery	M12	-
+handler	Intelibill.Application.Features.Payments.Commands.AllocatePayment.AllocatePaymentCommandHandler.HandleAsync	ExistingPayment	M08	-
+handler	Intelibill.Application.Features.Payments.Commands.ReversePayment.ReversePaymentCommandHandler.HandleAsync	ExistingPayment	M08	-
+handler	Intelibill.Application.Features.Payments.Queries.GetPartyBalances.GetPartyBalancesQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Payments.Queries.GetPaymentReceipt.GetPaymentReceiptQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.PostingPeriods.Commands.ClosePostingPeriod.ClosePostingPeriodCommandHandler.HandleAsync	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.PostingPeriods.Commands.ReopenPostingPeriod.ReopenPostingPeriodCommandHandler.HandleAsync	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.PostingPeriods.Queries.GetPostingPeriods.GetPostingPeriodsQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.PurchaseOrders.Commands.CancelPurchaseOrder.CancelPurchaseOrderCommandHandler.HandleAsync	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.PurchaseOrders.Commands.ClosePurchaseOrder.ClosePurchaseOrderCommandHandler.HandleAsync	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.PurchaseOrders.Commands.CreatePurchaseOrderDraft.CreatePurchaseOrderDraftCommandHandler.HandleAsync	NewTrading	M03	-
+handler	Intelibill.Application.Features.PurchaseOrders.Commands.DeletePurchaseOrderDraft.DeletePurchaseOrderDraftCommandHandler.HandleAsync	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.PurchaseOrders.Commands.PlacePurchaseOrder.PlacePurchaseOrderCommandHandler.HandleAsync	NewTrading	M03	-
+handler	Intelibill.Application.Features.PurchaseOrders.Commands.ReceivePurchaseOrder.ReceivePurchaseOrderCommandHandler.HandleAsync	NewTrading	M03	-
+handler	Intelibill.Application.Features.PurchaseOrders.Commands.UpdatePurchaseOrderDraft.UpdatePurchaseOrderDraftCommandHandler.HandleAsync	NewTrading	M03	-
+handler	Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrderDetail.GetPurchaseOrderDetailQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrders.GetPurchaseOrdersQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.PurchaseReceipts.Commands.CorrectReceiptCost.CorrectReceiptCostCommandHandler.HandleAsync	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.Sales.Commands.RecordSale.RecordSaleCommandHandler.HandleAsync	NewTrading	M03	-
+handler	Intelibill.Application.Features.Sales.Commands.RecordSaleReturn.RecordSaleReturnCommandHandler.HandleAsync	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.Sales.Commands.ReserveInvoiceLease.ReserveInvoiceLeaseCommandHandler.HandleAsync	NewTrading	M03	-
+handler	Intelibill.Application.Features.Sales.Commands.SyncOfflineSales.SyncOfflineSalesCommandHandler.HandleAsync	Recovery	M12	-
+handler	Intelibill.Application.Features.Sales.Commands.VoidSaleReturn.VoidSaleReturnCommandHandler.HandleAsync	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.Sales.Queries.GetProfitLossReport.GetProfitLossReportQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Sales.Queries.GetSaleByIdempotencyKey.GetSaleByIdempotencyKeyQueryHandler.Handle	Recovery	M12	-
+handler	Intelibill.Application.Features.Sales.Queries.GetSaleByReturnNumber.GetSaleByReturnNumberQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Sales.Queries.GetSaleDetail.GetSaleDetailQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Sales.Queries.GetSales.GetSalesQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Sales.Queries.PreviewSale.PreviewSaleQueryHandler.Handle	History	M05	-
+handler	Intelibill.Application.Features.Sales.Queries.PreviewSaleReturn.PreviewSaleReturnQueryHandler.Handle	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.Sales.Queries.SearchSellables.SearchSellablesQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Services.Commands.ActivateService.ActivateServiceCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Services.Commands.AddService.AddServiceCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Services.Commands.DeactivateService.DeactivateServiceCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Services.Commands.UpdateService.UpdateServiceCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Services.Queries.GetServices.GetServicesQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Shops.Commands.CreateShop.CreateShopCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Shops.Commands.DeclareShopTaxProfile.DeclareShopTaxProfileCommandHandler.HandleAsync	BasicShopSetup	M02	-
+handler	Intelibill.Application.Features.Shops.Commands.SetDefaultShop.SetDefaultShopCommandHandler.HandleAsync	Authentication	M01	-
+handler	Intelibill.Application.Features.Shops.Commands.SwitchActiveShop.SwitchActiveShopCommandHandler.HandleAsync	Authentication	M01	-
+handler	Intelibill.Application.Features.Shops.Commands.UpdateShop.UpdateShopCommandHandler.HandleAsync	BasicShopSetup	M02	-
+handler	Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails.UpdateShopBankDetailsCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Shops.Queries.GetMyShops.GetMyShopsQueryHandler.HandleAsync	Authentication	M01	-
+handler	Intelibill.Application.Features.Shops.Queries.GetShopDetails.GetShopDetailsQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Shops.Setup.GetShopSetupPreferencesQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Shops.Setup.GetShopSetupQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Shops.Setup.GetShopSetupSampleQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Shops.Setup.UpdateShopSetupPreferencesCommandHandler.HandleAsync	BasicShopSetup	M02	-
+handler	Intelibill.Application.Features.Shops.TillSettings.GetShopTillSettingsQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Shops.TillSettings.UpdateShopTillSettingsCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.SupplierLedger.Commands.MakeSupplierPayment.MakeSupplierPaymentCommandHandler.HandleAsync	DueSettlement	M07	-
+handler	Intelibill.Application.Features.SupplierLedger.Queries.GetSupplierEntries.GetSupplierEntriesQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Suppliers.Commands.AddSupplier.AddSupplierCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Suppliers.Commands.DeleteSupplier.DeleteSupplierCommandHandler.HandleAsync	SourceCorrection	M09	-
+handler	Intelibill.Application.Features.Suppliers.Commands.EditSupplier.EditSupplierCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Suppliers.Queries.GetSupplier.GetSupplierQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Suppliers.Queries.GetSupplierDirectory.GetSupplierDirectoryQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Suppliers.Queries.GetSuppliers.GetSuppliersQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Tills.Commands.CloseTill.CloseTillCommandHandler.HandleAsync	TillCompletion	M06	-
+handler	Intelibill.Application.Features.Tills.Commands.CreateTill.CreateTillCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Tills.Commands.OpenTill.OpenTillCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Tills.Commands.RecordTillCashMovement.RecordTillCashMovementCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Tills.Commands.ReviewTillClose.ReviewTillCloseCommandHandler.HandleAsync	TillCompletion	M06	-
+handler	Intelibill.Application.Features.Tills.Queries.GetTillCapabilities.GetTillCapabilitiesQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Tills.Queries.GetTillOperation.GetTillOperationQueryHandler.HandleAsync	Recovery	M12	-
+handler	Intelibill.Application.Features.Tills.Queries.GetTillSession.GetTillSessionQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Tills.Queries.GetTillSessions.GetTillSessionsQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Tills.Queries.GetTills.GetTillsQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Users.Commands.AcceptShopInvitation.AcceptShopInvitationCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Users.Commands.AddShopUser.AddShopUserCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Users.Commands.ChangeMyPassword.ChangeMyPasswordCommandHandler.HandleAsync	Authentication	M01	-
+handler	Intelibill.Application.Features.Users.Commands.EditShopUser.EditShopUserCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Users.Commands.InviteShopMember.InviteShopMemberCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Users.Commands.RevokeShopInvitation.RevokeShopInvitationCommandHandler.HandleAsync	MemberRemoval	M13	-
+handler	Intelibill.Application.Features.Users.Commands.UpdateMyProfile.UpdateMyProfileCommandHandler.HandleAsync	Authentication	M01	-
+handler	Intelibill.Application.Features.Users.Commands.UpdateShopMembership.UpdateShopMembershipCommandHandler.HandleAsync	OperationalCapacity	M04	-
+handler	Intelibill.Application.Features.Users.Queries.GetShopInvitations.GetShopInvitationsQueryHandler.HandleAsync	History	M05	-
+handler	Intelibill.Application.Features.Users.Queries.GetShopUsers.GetShopUsersQueryHandler.HandleAsync	History	M05	-
+reconciliation	AcknowledgeVariance	Recovery	M12	-
+reconciliation	Escalate	Recovery	M12	-
+reconciliation	LinkExistingSale	Recovery	M12	-
+reconciliation	LinkStockCorrection	Recovery	M12	-
+reconciliation	ReconcileTillSale	Recovery	M12	-
+reconciliation	RetryHistoricalLease	Recovery	M12	-
+route	* /health/live	Health	health	anonymous/request
+route	* /health/ready	Health	health	anonymous/request
+route	* /hubs/products	History	M05	protected/request
+route	* /hubs/products/negotiate	History	M05	protected/request
+route	* /hubs/shop-updates	History	M05	protected/request
+route	* /hubs/shop-updates/negotiate	History	M05	protected/request
+route	DELETE api/bank-accounts/{id:guid}	OperationalCapacity	M04	protected/source
+route	DELETE api/purchase-orders/{purchaseOrderId:guid}	SourceCorrection	M09	protected/request
+route	DELETE api/shops/{shopId:guid}/invitations/{invitationId:guid}	MemberRemoval	M13	protected/request
+route	DELETE api/suppliers/{supplierId:guid}	SourceCorrection	M09	protected/request
+route	DELETE api/users/me/sessions/{sessionId:guid}	Authentication	M01	protected/request
+route	GET /openapi/{documentName}.json	InternalService	internal	protected/request
+route	GET /scalar/scalar.aspnetcore.js	InternalService	internal	anonymous/request
+route	GET /scalar/scalar.js	InternalService	internal	anonymous/request
+route	GET /scalar/{documentName?}	InternalService	internal	protected/request
+route	GET api/auth/phone/availability	Authentication	M01	protected/request
+route	GET api/auth/sign-in-methods	Authentication	M01	protected/request
+route	GET api/bank-accounts	History	M05	protected/request
+route	GET api/billing/accounts	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/access	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/affiliations	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/affiliations/{shopId:guid}/{requestId:guid}/consent	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/closures	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/members	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/orders/eligible-shops	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/orders/operations/{kind}/{key:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/confirmations	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/confirmations/after/{after:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/confirmations/{id:guid}/document	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/shops	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/operations/{operation:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/withdrawal/operations/{operation:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/invitations	Billing	M01/M13	protected/request
+route	GET api/billing/ownership-transfer-operations/{operation}/{key:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/ownership-transfers	Billing	M01/M13	protected/request
+route	GET api/billing/ownership-transfers/{transfer:guid}	Billing	M01/M13	protected/request
+route	GET api/billing/plans	Billing	M01/M13	protected/request
+route	GET api/billing/plans/versions/{versionId:guid}	Billing	M01/M13	protected/request
+route	GET api/credit-notes	History	M05	protected/request
+route	GET api/credit-notes/{code}	History	M05	protected/request
+route	GET api/credit-notes/{code}/print	History	M05	protected/request
+route	GET api/customers	History	M05	protected/request
+route	GET api/customers/directory	History	M05	protected/request
+route	GET api/customers/{customerId:guid}	History	M05	protected/request
+route	GET api/customers/{customerId:guid}/account	History	M05	protected/request
+route	GET api/customers/{customerId:guid}/credit	History	M05	protected/request
+route	GET api/dashboard	History	M05	protected/request
+route	GET api/discounts	History	M05	protected/request
+route	GET api/discounts/{id:guid}	History	M05	protected/request
+route	GET api/expenses	History	M05	protected/request
+route	GET api/expenses/categories	History	M05	protected/request
+route	GET api/expenses/{id:guid}	History	M05	protected/request
+route	GET api/expiry-policies	History	M05	protected/request
+route	GET api/expiry-policies/items/{id:guid}	History	M05	protected/request
+route	GET api/expiry-policies/readiness	History	M05	protected/request
+route	GET api/exports/profit-loss	History	M05	protected/request
+route	GET api/exports/sales	History	M05	protected/request
+route	GET api/financial-operations/{operationType}/{operationKey}	Recovery	M12	protected/request
+route	GET api/inventory/adjustments	History	M05	protected/request
+route	GET api/inventory/batches	History	M05	protected/request
+route	GET api/inventory/batches/available	History	M05	protected/request
+route	GET api/inventory/batches/{id:guid}/dispositions	History	M05	protected/request
+route	GET api/items	History	M05	protected/request
+route	GET api/items/details	History	M05	protected/request
+route	GET api/items/stream	History	M05	protected/request
+route	GET api/licensing/shops/{shopId:guid}/account-closure	History	M05	protected/request
+route	GET api/licensing/shops/{shopId:guid}/closure-preview	History	M05	protected/request
+route	GET api/licensing/shops/{shopId:guid}/status	Billing	M01/M13	protected/request
+route	GET api/licensing/shops/{shopId:guid}/trading-authority	Billing	M01/M13	protected/request
+route	GET api/licensing/shops/{shopId:guid}/trial	Billing	M01/M13	protected/request
+route	GET api/licensing/shops/{shopId:guid}/trial/operations/{operation:guid}	Billing	M01/M13	protected/request
+route	GET api/offline-reconciliation	Recovery	M12	protected/request
+route	GET api/offline-reconciliation/{caseId:guid}	Recovery	M12	protected/request
+route	GET api/payments/balances	History	M05	protected/request
+route	GET api/payments/{receiptId:guid}	History	M05	protected/request
+route	GET api/ping	Health	health	protected/request
+route	GET api/posting-periods	History	M05	protected/request
+route	GET api/purchase-orders	History	M05	protected/request
+route	GET api/purchase-orders/{purchaseOrderId:guid}	History	M05	protected/request
+route	GET api/purchase-receipts/{id:guid}	History	M05	protected/request
+route	GET api/sales	History	M05	protected/request
+route	GET api/sales/by-idempotency-key/{idempotencyKey}	Recovery	M12	protected/request
+route	GET api/sales/offline-snapshot/stream	NewTrading	M03	protected/request
+route	GET api/sales/profit-loss	History	M05	protected/request
+route	GET api/sales/returns/{returnNumber}	History	M05	protected/request
+route	GET api/sales/sellables	History	M05	protected/request
+route	GET api/sales/{saleId:guid}	History	M05	protected/request
+route	GET api/services	History	M05	protected/request
+route	GET api/shops/me	Authentication	M01	protected/request
+route	GET api/shops/{shopId:guid}	History	M05	protected/request
+route	GET api/shops/{shopId:guid}/invitations	History	M05	protected/request
+route	GET api/shops/{shopId:guid}/setup	History	M05	protected/request
+route	GET api/shops/{shopId:guid}/setup/preferences	History	M05	protected/request
+route	GET api/shops/{shopId:guid}/setup/sample	History	M05	protected/request
+route	GET api/shops/{shopId:guid}/till-settings	History	M05	protected/request
+route	GET api/supplier-returns	History	M05	protected/request
+route	GET api/supplier-returns/{id:guid}	History	M05	protected/request
+route	GET api/suppliers	History	M05	protected/request
+route	GET api/suppliers/directory	History	M05	protected/request
+route	GET api/suppliers/{supplierId:guid}	History	M05	protected/request
+route	GET api/suppliers/{supplierId:guid}/ledger	History	M05	protected/request
+route	GET api/tills	History	M05	protected/request
+route	GET api/tills/capabilities	History	M05	protected/request
+route	GET api/tills/operations/{type}/{key}	Recovery	M12	protected/request
+route	GET api/tills/sessions	History	M05	protected/request
+route	GET api/tills/sessions/{id:guid}	History	M05	protected/request
+route	GET api/users	History	M05	protected/request
+route	GET api/users/me/sessions	Authentication	M01	protected/request
+route	PATCH api/items/{itemId:guid}	OperationalCapacity	M04	protected/request
+route	PATCH api/services/{serviceId:guid}	OperationalCapacity	M04	protected/request
+route	PATCH api/shops/{shopId:guid}/members/{targetUserId:guid}	OperationalCapacity	M04	protected/source
+route	POST /internal/licensing/v1/entitlements	InternalService	internal	anonymous/request
+route	POST /internal/merchant/v1/closures/validate	InternalService	internal	anonymous/request
+route	POST api/auth/email-change/confirm	Authentication	M01	protected/request
+route	POST api/auth/email-change/request	Authentication	M01	protected/request
+route	POST api/auth/enrollment/email/claim/confirm	Authentication	M01	protected/request
+route	POST api/auth/enrollment/email/claim/request	Authentication	M01	protected/request
+route	POST api/auth/enrollment/email/confirm	Authentication	M01	protected/request
+route	POST api/auth/enrollment/email/request	Authentication	M01	protected/request
+route	POST api/auth/login	Authentication	M01	protected/request
+route	POST api/auth/login/email	Authentication	M01	protected/request
+route	POST api/auth/password-reset/confirm	Authentication	M01	protected/request
+route	POST api/auth/password-reset/request	Authentication	M01	protected/request
+route	POST api/auth/phone/change/confirm	Authentication	M01	protected/request
+route	POST api/auth/phone/change/request	Authentication	M01	protected/request
+route	POST api/auth/phone/enrollment/confirm	Authentication	M01	protected/request
+route	POST api/auth/phone/enrollment/request	Authentication	M01	protected/request
+route	POST api/auth/phone/login/confirm	Authentication	M01	protected/request
+route	POST api/auth/phone/login/request	Authentication	M01	protected/request
+route	POST api/auth/reauthenticate	Authentication	M01	protected/request
+route	POST api/auth/register/email	Authentication	M01	protected/request
+route	POST api/auth/register/phone	Authentication	M01	protected/request
+route	POST api/auth/token/refresh	Authentication	M01	protected/request
+route	POST api/auth/token/revoke	Authentication	M01	protected/request
+route	POST api/bank-accounts	OperationalCapacity	M04	protected/source
+route	POST api/billing/accounts	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/affiliations	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/affiliations/{shopId:guid}/{requestId:guid}/consent/{decision}	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/closures	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/closures/{proposal:guid}/confirm	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/invitations	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/members/{memberId:guid}/remove	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/orders	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/accept	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/attempts	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/attempts/{attemptId:guid}/simulator/capture	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/orders/{orderId:guid}/payment/attempts/{attemptId:guid}/verify	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/ownership-transfers	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation	Billing	M01/M13	protected/request
+route	POST api/billing/accounts/{accountId:guid}/subscriptions/{termId:guid}/cancellation/withdrawal	Billing	M01/M13	protected/request
+route	POST api/billing/invitations/{invitationId:guid}/accept	Billing	M01/M13	protected/request
+route	POST api/billing/ownership-transfers/{transfer:guid}/accept	Billing	M01/M13	protected/request
+route	POST api/credit-notes/{code}/void	SourceCorrection	M09	protected/request
+route	POST api/customers	OperationalCapacity	M04	protected/recover-then-source
+route	POST api/customers/{customerId:guid}/payments	DueSettlement	M07	protected/request
+route	POST api/discounts	OperationalCapacity	M04	protected/request
+route	POST api/discounts/preview	History	M05	protected/request
+route	POST api/discounts/{id:guid}/disable	SourceCorrection	M09	protected/request
+route	POST api/expenses	NewTrading	M03	protected/recover-then-source
+route	POST api/expenses/{id:guid}/correct	SourceCorrection	M09	protected/request
+route	POST api/hsn/lookup	BasicShopSetup	M02	protected/request
+route	POST api/inventory/adjustments/{adjustmentId:guid}/void	SourceCorrection	M09	protected/request
+route	POST api/inventory/batches/{batchId:guid}/adjust	GeneralStock	M10	protected/request
+route	POST api/inventory/batches/{batchId:guid}/count	GeneralStock	M10	protected/recover-then-source
+route	POST api/inventory/batches/{batchId:guid}/reassign-supplier	SourceCorrection	M09	protected/request
+route	POST api/inventory/batches/{batchId:guid}/void	SourceCorrection	M09	protected/request
+route	POST api/inventory/batches/{id:guid}/dispositions	SafetyDisposition	M11	protected/source
+route	POST api/inventory/inbound	NewTrading	M03	protected/request
+route	POST api/inventory/inbound/batch	NewTrading	M03	protected/recover-then-source
+route	POST api/inventory/receipts/{receiptValueId:guid}/cost-corrections	SourceCorrection	M09	protected/request
+route	POST api/invitations/{invitationId:guid}/accept	OperationalCapacity	M04	protected/source
+route	POST api/items	OperationalCapacity	M04	protected/recover-then-source
+route	POST api/items/barcodes/generate	OperationalCapacity	M04	protected/request
+route	POST api/items/barcodes/labels	History	M05	protected/request
+route	POST api/licensing/shops/{shopId:guid}/account-closure/{proposal:guid}	Billing	M01/M13	protected/request
+route	POST api/licensing/shops/{shopId:guid}/closure	Billing	M01/M13	protected/request
+route	POST api/licensing/shops/{shopId:guid}/trial	Billing	M01/M13	protected/request
+route	POST api/offline-reconciliation/recovery-submissions	Recovery	M12	protected/request
+route	POST api/offline-reconciliation/{caseId:guid}/resolve	Recovery	M12	protected/request
+route	POST api/payments/{receiptId:guid}/allocations	ExistingPayment	M08	protected/request
+route	POST api/payments/{receiptId:guid}/reversal	ExistingPayment	M08	protected/request
+route	POST api/posting-periods/{period}/close	SourceCorrection	M09	protected/request
+route	POST api/posting-periods/{period}/reopen	SourceCorrection	M09	protected/request
+route	POST api/purchase-order-receipts/{id:guid}/reversal	SourceCorrection	M09	protected/request
+route	POST api/purchase-orders	NewTrading	M03	protected/request
+route	POST api/purchase-orders/{purchaseOrderId:guid}/cancel	SourceCorrection	M09	protected/request
+route	POST api/purchase-orders/{purchaseOrderId:guid}/close	SourceCorrection	M09	protected/request
+route	POST api/purchase-orders/{purchaseOrderId:guid}/place	NewTrading	M03	protected/request
+route	POST api/purchase-orders/{purchaseOrderId:guid}/receipts	NewTrading	M03	protected/recover-then-source
+route	POST api/purchase-receipts/{id:guid}/reversal	SourceCorrection	M09	protected/request
+route	POST api/sales	NewTrading	M03	protected/recover-then-source
+route	POST api/sales/invoice-leases/reserve	NewTrading	M03	protected/request
+route	POST api/sales/offline-sync	Recovery	M12	protected/request
+route	POST api/sales/preview	History	M05	protected/request
+route	POST api/sales/returns/{saleReturnId:guid}/void	SourceCorrection	M09	protected/recover-then-source
+route	POST api/sales/{saleId:guid}/cancellation-preview	SourceCorrection	M09	protected/request
+route	POST api/sales/{saleId:guid}/cancellations	SourceCorrection	M09	protected/recover-then-source
+route	POST api/sales/{saleId:guid}/returns	SourceCorrection	M09	protected/recover-then-source
+route	POST api/sales/{saleId:guid}/returns/preview	SourceCorrection	M09	protected/request
+route	POST api/services	OperationalCapacity	M04	protected/recover-then-source
+route	POST api/services/{serviceId:guid}/activate	OperationalCapacity	M04	protected/request
+route	POST api/services/{serviceId:guid}/deactivate	OperationalCapacity	M04	protected/request
+route	POST api/shops	OperationalCapacity	M04	protected/source
+route	POST api/shops/default	Authentication	M01	protected/request
+route	POST api/shops/switch	Authentication	M01	protected/request
+route	POST api/shops/{shopId:guid}/invitations	OperationalCapacity	M04	protected/request
+route	POST api/supplier-returns	SourceCorrection	M09	protected/request
+route	POST api/supplier-returns/preview	SourceCorrection	M09	protected/request
+route	POST api/supplier-returns/{id:guid}/credit	SourceCorrection	M09	protected/request
+route	POST api/suppliers	OperationalCapacity	M04	protected/recover-then-source
+route	POST api/suppliers/{supplierId:guid}/payments	DueSettlement	M07	protected/request
+route	POST api/tills	OperationalCapacity	M04	protected/source
+route	POST api/tills/sessions/{id:guid}/cash-movements	OperationalCapacity	M04	protected/source
+route	POST api/tills/sessions/{id:guid}/close	TillCompletion	M06	protected/source
+route	POST api/tills/sessions/{id:guid}/review	TillCompletion	M06	protected/source
+route	POST api/tills/{id:guid}/sessions	OperationalCapacity	M04	protected/source
+route	POST api/users	OperationalCapacity	M04	protected/request
+route	POST api/users/me/change-password	Authentication	M01	protected/request
+route	POST api/users/me/sessions/revoke-all	Authentication	M01	protected/request
+route	PUT api/bank-accounts/{id:guid}	OperationalCapacity	M04	protected/source
+route	PUT api/customers/{customerId:guid}	OperationalCapacity	M04	protected/request
+route	PUT api/discounts/{id:guid}	OperationalCapacity	M04	protected/request
+route	PUT api/expiry-policies	OperationalCapacity	M04	protected/source
+route	PUT api/expiry-policies/items/{id:guid}	OperationalCapacity	M04	protected/source
+route	PUT api/inventory/batches/{batchId:guid}	GeneralStock	M10	protected/request
+route	PUT api/inventory/batches/{batchId:guid}/prices	OperationalCapacity	M04	protected/request
+route	PUT api/purchase-orders/{purchaseOrderId:guid}	NewTrading	M03	protected/request
+route	PUT api/shops/{shopId:guid}	BasicShopSetup	M02	protected/source
+route	PUT api/shops/{shopId:guid}/bank-details	OperationalCapacity	M04	protected/source
+route	PUT api/shops/{shopId:guid}/setup/preferences	BasicShopSetup	M02	protected/source
+route	PUT api/shops/{shopId:guid}/tax-profile	BasicShopSetup	M02	protected/source
+route	PUT api/shops/{shopId:guid}/till-settings	OperationalCapacity	M04	protected/source
+route	PUT api/suppliers/{supplierId:guid}	OperationalCapacity	M04	protected/request
+route	PUT api/users/me	Authentication	M01	protected/request
+route	PUT api/users/{targetUserId:guid}	OperationalCapacity	M04	protected/request
+writer	Intelibill.Api.Internal.LicenceAuthorityNotifications	InternalService	internal	-
+writer	Intelibill.Api.Services.Realtime.RealtimeRevocationWorker	InternalService	internal	-
+writer	Intelibill.Api.Startup.ApplicationModelWarmupService	InternalService	internal	-
+writer	Intelibill.Application.Features.Sales.Commands.SyncOfflineSales.OfflineSalePoster	Recovery	M12	-
+writer	Intelibill.Infrastructure.Billing.ShopAffiliationDeliveryWorker	InternalService	internal	-
+writer	Intelibill.Infrastructure.Billing.TrialActivationDeliveryWorker	InternalService	internal	-
+writer	Intelibill.Infrastructure.Data.RuntimeRoleGuard	InternalService	internal	-
+writer	Intelibill.Infrastructure.Licensing.MerchantEntitlementDelivery	InternalService	internal	-
+writer	Intelibill.Infrastructure.Services.Auth.IdentityMailWorker	InternalService	internal	-
+writer	Intelibill.Infrastructure.Services.Auth.IdentitySmsWorker	InternalService	internal	-
+writer	Intelibill.Infrastructure.Services.RateLimiting.RateLimitBucketCleanupWorker	InternalService	internal	-
+writer	Intelibill.Infrastructure.Services.StockIntake.InboundRowExecutor	NewTrading	M03	-

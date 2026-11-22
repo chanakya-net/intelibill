@@ -1,3 +1,5 @@
+using Intelibill.Application.Unit.Tests.Common.Licensing;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.SupplierReturns.Services;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.ReassignBatchSupplier;
@@ -102,7 +104,7 @@ public class ReassignBatchSupplierCommandHandlerTests
 
     private ReassignBatchSupplierCommandHandler CreateHandler() =>
         new(_userRepository, _inventoryBatchRepository, _supplierLedgerEntryRepository, _supplierRepository, _purchaseReceiptValueRepository, _paymentReceiptRepository,
-            BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _unitOfWork, _supplierLock);
+            BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _unitOfWork, _supplierLock, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 
     private readonly ISupplierReturnMutationLock _supplierLock = AcquiringSupplierLock();
 

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Common.Posting;
@@ -29,7 +30,9 @@ public sealed class UpdateBatchPricesCommandHandler(
     IBatchRetailTermsReviser retailTermsReviser,
     IUnitOfWork unitOfWork,
     IMessageBus messageBus,
-    IExpiryPolicyFence expiryFence)
+    IExpiryPolicyFence expiryFence,
+    IShopLicenceFence licenceFence,
+    ILiveSessionAuthority authority)
 {
     private static readonly UpdateBatchPricesCommandValidator Validator = new();
 
@@ -60,6 +63,11 @@ public sealed class UpdateBatchPricesCommandHandler(
         InventoryBatchPricingChangedDomainEvent? pricingChanged = null;
         var result = await PostingTransaction.RunAsync<BatchPriceUpdateResultDto>(unitOfWork, async ct =>
         {
+            var licence = await licenceFence.EnterForSessionAsync(authority, command.Session, command.ActorUserId,
+                command.ActiveShopId, LicenceAction.OperationalCapacity, ct);
+            if (licence.IsError) return licence.Errors;
+            if (licence.Value.SuspensionDenial() is { } suspension) return suspension;
+
             var expiryLock = await expiryFence.AcquireAsync(command.ActiveShopId, true, ct);
             if (expiryLock.IsError) return expiryLock.Errors;
             var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
@@ -71,6 +79,8 @@ public sealed class UpdateBatchPricesCommandHandler(
 
             if (batch.Version != command.ExpectedVersion)
                 return Errors.Inventory.BatchVersionConflict;
+
+            if (licence.Value.CurrentDecision().EnforcedDenial() is { } denial) return denial;
 
             var revision = await retailTermsReviser.ReviseAsync(
                 batch,

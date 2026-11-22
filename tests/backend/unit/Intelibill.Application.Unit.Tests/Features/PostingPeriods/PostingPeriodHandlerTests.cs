@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Interfaces;
 using ErrorOr;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Time;
@@ -41,9 +42,9 @@ public sealed class PostingPeriodHandlerTests
             .Returns(call => call.Arg<Func<CancellationToken, Task<ErrorOr<PostingPeriodDto>>>>()(CancellationToken.None));
     }
 
-    private ClosePostingPeriodCommandHandler CloseHandler() => new(_shops, _periods, _executor, _unitOfWork, _clock);
+    private ClosePostingPeriodCommandHandler CloseHandler() => new(_shops, _periods, _executor, _unitOfWork, _clock, Substitute.For<ILiveSessionAuthority>());
 
-    private ReopenPostingPeriodCommandHandler ReopenHandler() => new(_shops, _periods, _executor, _unitOfWork, _clock);
+    private ReopenPostingPeriodCommandHandler ReopenHandler() => new(_shops, _periods, _executor, _unitOfWork, _clock, Substitute.For<ILiveSessionAuthority>());
 
     [Fact]
     public async Task Close_ByNonOwner_IsForbiddenAndNeverReachesTheExecutor()

@@ -143,14 +143,14 @@ public sealed class SuppliersController : AuthenticatedControllerBase
 
     [HttpDelete("{supplierId:guid}")]
     [Authorize(Policy = "OwnerOnly")]
-    [LicenceAction(LicenceAction.OperationalCapacity)]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> DeleteSupplier(Guid supplierId, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<Success>>(
-            new DeleteSupplierCommand(UserId!.Value, ActiveShopId!.Value, supplierId),
+            new DeleteSupplierCommand(UserId!.Value, ActiveShopId!.Value, supplierId, SessionClaims.TryRead(User)),
             cancellationToken);
 
         if (result.IsError)

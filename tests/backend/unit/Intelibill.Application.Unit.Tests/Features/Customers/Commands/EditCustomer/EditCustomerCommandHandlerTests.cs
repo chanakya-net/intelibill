@@ -1,3 +1,5 @@
+using Intelibill.Application.Unit.Tests.Common.Licensing;
+using Intelibill.Application.Common.Interfaces;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Customers.Commands.EditCustomer;
@@ -18,7 +20,7 @@ public class EditCustomerCommandHandlerTests
 
     public EditCustomerCommandHandlerTests()
     {
-        _handler = new EditCustomerCommandHandler(_customerRepository, _unitOfWork, _userRepository);
+        _handler = new EditCustomerCommandHandler(_customerRepository, _unitOfWork, _userRepository, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
     }
 
     [Fact]

@@ -1,5 +1,8 @@
+using Intelibill.Domain.Enums;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
+using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Discounts.DTOs;
 using Intelibill.Application.Features.Discounts.Services;
@@ -14,7 +17,9 @@ public sealed class ReplaceDiscountRuleCommandHandler(
     IShopRepository shopRepository,
     IDiscountRuleRepository discountRuleRepository,
     DiscountRuleValidationService validationService,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IShopLicenceFence licenceFence,
+    ILiveSessionAuthority authority)
 {
     [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<DiscountRuleDto>> HandleAsync(
@@ -32,6 +37,19 @@ public sealed class ReplaceDiscountRuleCommandHandler(
         var membership = await shopRepository.GetMembershipAsync(command.UserId, command.ShopId, cancellationToken);
         if (membership is null)
             return Errors.Shop.MembershipNotFound;
+        if (membership.Role is not (ShopRole.Owner or ShopRole.Manager))
+            return Error.Forbidden("Shop.PermissionDenied", "Only owners or managers can change discount rules.");
+
+        return await PostingTransaction.RunAsync<DiscountRuleDto>(unitOfWork,
+            ct => WriteAsync(command, ct), cancellationToken);
+    }
+
+    private async Task<ErrorOr<DiscountRuleDto>> WriteAsync(ReplaceDiscountRuleCommand command, CancellationToken cancellationToken)
+    {
+        var lease = await licenceFence.EnterForSessionAsync(authority, command.Session, command.UserId,
+            command.ShopId, LicenceAction.OperationalCapacity, cancellationToken);
+        if (lease.IsError) return lease.Errors;
+        if (lease.Value.CurrentDecision().EnforcedDenial() is { } denial) return denial;
 
         var existing = await discountRuleRepository.GetByIdAsync(command.RuleId, cancellationToken);
         if (existing is null || existing.ShopId != command.ShopId)
@@ -57,6 +75,8 @@ public sealed class ReplaceDiscountRuleCommandHandler(
 
         if (preview.BelowCostSample.Count > 0 && command.BelowCostConfirmed && string.IsNullOrWhiteSpace(command.BelowCostConfirmationReason))
             return Errors.Discount.BelowCostConfirmationReasonRequired;
+
+        if (lease.Value.CurrentDecision().EnforcedDenial() is { } currentDenial) return currentDenial;
 
         var newRuleResult = DiscountRule.Create(
             command.ShopId,

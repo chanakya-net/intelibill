@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 namespace Intelibill.Application.Features.Items.Commands.UpdateItem;
 
 public sealed record UpdateItemCommand(
@@ -11,4 +12,5 @@ public sealed record UpdateItemCommand(
     string? HsnCode,
     decimal DefaultTaxRatePercent,
     bool? IsActive = null,
-    int? QuantityScale = null);
+    int? QuantityScale = null,
+    SessionClaims? Session = null);

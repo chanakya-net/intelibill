@@ -89,9 +89,9 @@ public sealed partial class P0404Tests(LicensingPostgreSqlFixture database) : IC
         Assert.Equal(0L, await fixture.Trial.CountAsync("operational_restriction_releases"));
     }
 
-    private sealed record ReleaseRequest(long ExpectedVersion, string? ImpactDigest, Guid OperationKey, string Reason);
+    internal sealed record ReleaseRequest(long ExpectedVersion, string? ImpactDigest, Guid OperationKey, string Reason);
 
-    private static async Task<ReleaseRequest> PreviewReleaseAsync(P0110CookieBrowser admin, string path)
+    internal static async Task<ReleaseRequest> PreviewReleaseAsync(P0110CookieBrowser admin, string path)
     {
         var impact = await ReadReleasePreviewAsync(admin, path);
         return Command(impact);

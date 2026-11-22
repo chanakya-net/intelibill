@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using ErrorOr;
 
 namespace Intelibill.Application.Features.Inventory.Commands.UpdateInventoryBatch;
@@ -18,4 +19,5 @@ public sealed record UpdateInventoryBatchCommand(
     Guid? SupplierId,
     string? Notes,
     DateOnly? EntryDate,
-    uint? ExpectedVersion = null);
+    uint? ExpectedVersion = null,
+    SessionClaims? Session = null);

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -20,7 +21,9 @@ public sealed class VoidAdjustmentCommandHandler(
     IShopRepository shopRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IShopLicenceFence licenceFence,
+    ILiveSessionAuthority authority)
 {
     private static readonly VoidAdjustmentCommandValidator Validator = new();
 
@@ -63,6 +66,11 @@ public sealed class VoidAdjustmentCommandHandler(
         Shop shop,
         CancellationToken cancellationToken)
     {
+        var licence = await licenceFence.EnterForSessionAsync(authority, command.Session, command.ActorUserId,
+            command.ActiveShopId, LicenceAction.SourceCorrection, cancellationToken);
+        if (licence.IsError) return licence.Errors;
+        if (licence.Value.CurrentDecision().EnforcedDenial() is { } denial) return denial;
+
         var adjustment = await inventoryAdjustmentRepository.GetByIdAsync(command.AdjustmentId, cancellationToken);
         if (adjustment is null || adjustment.ShopId != command.ActiveShopId)
             return Errors.Inventory.AdjustmentNotFound;
@@ -100,6 +108,9 @@ public sealed class VoidAdjustmentCommandHandler(
         var stockPrecheck = EnsureReversalWillNotMakeStockNegative(adjustment, batch, inventory);
         if (stockPrecheck.IsError)
             return stockPrecheck.Errors;
+
+        if (licence.Value.CurrentDecision().ExistingSourceDenial(adjustment.PerformedAt) is { } sourceDenial)
+            return sourceDenial;
 
         var stockUpdate = ApplyStockReversal(adjustment, batch, inventory, command.ActorUserId);
         if (stockUpdate.IsError)

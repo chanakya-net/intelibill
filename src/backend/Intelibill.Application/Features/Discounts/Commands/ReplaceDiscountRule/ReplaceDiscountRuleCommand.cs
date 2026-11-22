@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using Intelibill.Domain.Enums;
 
 namespace Intelibill.Application.Features.Discounts.Commands.ReplaceDiscountRule;
@@ -16,5 +17,6 @@ public sealed record ReplaceDiscountRuleCommand(
     DateTimeOffset? EndsAt,
     bool BelowCostConfirmed,
     string? BelowCostConfirmationReason,
-    string? DisabledReason);
+    string? DisabledReason,
+    SessionClaims? Session = null);
 

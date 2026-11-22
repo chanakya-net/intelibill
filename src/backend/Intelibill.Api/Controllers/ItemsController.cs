@@ -151,7 +151,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
         var result = await Bus.InvokeAsync<ErrorOr<GenerateItemBarcodeResultDto>>(
             new GenerateItemBarcodeCommand(
                 UserId!.Value,
-                ActiveShopId!.Value),
+                ActiveShopId!.Value, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -197,7 +197,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
                 request.HsnCode,
                 request.DefaultTaxRatePercent,
                 request.IsActive,
-                request.QuantityScale),
+                request.QuantityScale, SessionClaims.TryRead(User)),
             cancellationToken);
 
         if (result.IsError)

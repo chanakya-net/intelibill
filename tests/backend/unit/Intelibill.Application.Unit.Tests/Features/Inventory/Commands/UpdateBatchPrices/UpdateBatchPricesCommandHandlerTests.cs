@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Unit.Tests.Common.Licensing;
 using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.UpdateBatchPrices;
@@ -131,5 +133,5 @@ public sealed class UpdateBatchPricesCommandHandlerTests
             _batchRepository,
             new BatchRetailTermsReviser(_batchRepository, _revisionRepository, ExpiryTestDoubles.Dates()),
             _unitOfWork,
-            _messageBus, ExpiryTestDoubles.Fence());
+            _messageBus, ExpiryTestDoubles.Fence(), LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 }

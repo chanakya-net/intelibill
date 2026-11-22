@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 namespace Intelibill.Application.Features.PostingPeriods.Commands.ReopenPostingPeriod;
 
 public sealed record ReopenPostingPeriodCommand(
@@ -5,4 +6,5 @@ public sealed record ReopenPostingPeriodCommand(
     Guid ActorUserId,
     DateOnly PeriodStart,
     string Reason,
-    string OperationKey);
+    string OperationKey,
+    SessionClaims? Session = null);

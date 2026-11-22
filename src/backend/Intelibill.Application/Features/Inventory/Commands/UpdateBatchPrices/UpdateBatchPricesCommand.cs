@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 namespace Intelibill.Application.Features.Inventory.Commands.UpdateBatchPrices;
 
 /// <summary>
@@ -16,4 +17,5 @@ public sealed record UpdateBatchPricesCommand(
     string? BatchNumber,
     DateOnly? ExpiryDate,
     DateOnly? ManufacturingDate,
-    string? Reason);
+    string? Reason,
+    SessionClaims? Session = null);

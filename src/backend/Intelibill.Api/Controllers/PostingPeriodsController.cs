@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Common.Licensing;
 using System.Globalization;
 using ErrorOr;
@@ -57,7 +58,7 @@ public sealed class PostingPeriodsController(IMessageBus bus) : AuthenticatedCon
                 UserId!.Value,
                 start,
                 request.Reason ?? string.Empty,
-                request.OperationKey ?? string.Empty),
+                request.OperationKey ?? string.Empty, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -82,7 +83,7 @@ public sealed class PostingPeriodsController(IMessageBus bus) : AuthenticatedCon
                 UserId!.Value,
                 start,
                 request.Reason ?? string.Empty,
-                request.OperationKey ?? string.Empty),
+                request.OperationKey ?? string.Empty, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);

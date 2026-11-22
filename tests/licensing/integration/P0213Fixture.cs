@@ -29,7 +29,8 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
     internal static async Task<P0213Fixture> StartAsync(LicensingPostgreSqlFixture db, bool browser = false,
         IReadOnlyDictionary<string, string?>? licensingExtras = null, Action<IServiceCollection>? licensingServices = null,
         bool? prepareProvider = null, P0201Clock? businessClock = null, bool observeDelegation = false,
-        bool reopeningCutover = true)
+        bool reopeningCutover = true, Action<IServiceCollection>? merchantServices = null, bool liveDelivery = false,
+        bool countAllTraffic = false)
     {
         var transport = new P0213Transport();
         using var consent = RSA.Create(2048);
@@ -41,15 +42,19 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
         transport.AddSettings(destination, licensing: true);
         foreach (var (name, value) in licensingExtras ?? new Dictionary<string, string?>()) destination[name] = value;
         transport.AddSettings(source, licensing: false);
-        var merchantTraffic = new P0213Traffic();
-        var licensingTraffic = new P0213Traffic();
+        var merchantTraffic = new P0213Traffic(countAllTraffic);
+        var licensingTraffic = new P0213Traffic(countAllTraffic);
         var setup = new P0210HostSetup(destination, source,
             services =>
             {
-                Configure(services, transport, licensingTraffic, licensing: true);
+                Configure(services, transport, licensingTraffic, licensing: true, liveDelivery);
                 licensingServices?.Invoke(services);
             },
-            services => Configure(services, transport, merchantTraffic, licensing: false),
+            services =>
+            {
+                Configure(services, transport, merchantTraffic, licensing: false, liveDelivery);
+                merchantServices?.Invoke(services);
+            },
             PrepareProvider: prepareProvider ?? !browser, UseDeliveryOnCatalogue: true, BusinessClock: businessClock);
         var trial = await P0210Fixture.StartAsync(db, publish: prepareProvider ?? !browser, browser: browser,
             transport: observeDelegation ? _ => transport.Bridge(licensing: false) : null, setup: setup);
@@ -70,12 +75,15 @@ internal sealed class P0213Fixture(P0210Fixture trial, P0213Transport transport,
     internal static Task EnableReopeningAsync(NpgsqlConnectionStringBuilder owner) =>
         LicensingPostgreSqlFixture.ExecuteAsync(owner, "UPDATE public.reopening_publisher_cutover SET enabled = true");
 
-    private static void Configure(IServiceCollection services, P0213Transport transport, P0213Traffic traffic, bool licensing)
+    private static void Configure(IServiceCollection services, P0213Transport transport, P0213Traffic traffic, bool licensing, bool liveDelivery)
     {
         var worker = services.Single(service => service.ServiceType == typeof(IHostedService) &&
             service.ImplementationType == typeof(LeasedHttpDeliveryWorker));
-        services.Remove(worker);
-        services.AddKeyedSingleton<TimeProvider>(LeasedHttpDeliveryPump.LeaseClockKey, transport.LeaseClock);
+        if (!liveDelivery)
+        {
+            services.Remove(worker);
+            services.AddKeyedSingleton<TimeProvider>(LeasedHttpDeliveryPump.LeaseClockKey, transport.LeaseClock);
+        }
         services.AddHttpClient(LeasedHttpDeliveryPump.ClientName)
             .ConfigurePrimaryHttpMessageHandler(() => transport.Bridge(licensing));
         services.AddSingleton<IStartupFilter>(traffic);

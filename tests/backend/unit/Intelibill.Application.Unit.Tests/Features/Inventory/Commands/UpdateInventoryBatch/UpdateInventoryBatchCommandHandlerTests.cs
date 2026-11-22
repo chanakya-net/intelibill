@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Unit.Tests.Common.Licensing;
 using Intelibill.Application.Unit.Tests.Common.Time;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -29,7 +31,7 @@ public class UpdateInventoryBatchCommandHandlerTests
         _handler = new UpdateInventoryBatchCommandHandler(
             _userRepository, _shopRepository, _batchRepository,
             new BatchRetailTermsReviser(_batchRepository, _revisionRepository, ExpiryTestDoubles.Dates()),
-            _unitOfWork, _messageBus, ExpiryTestDoubles.Fence());
+            _unitOfWork, _messageBus, ExpiryTestDoubles.Fence(), LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
     }
 
     private static UpdateInventoryBatchCommand ValidCommand(Guid userId, Guid shopId, Guid batchId) =>

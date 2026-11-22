@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Common.Posting;
@@ -32,7 +33,9 @@ public sealed class UpdateInventoryBatchCommandHandler(
     IBatchRetailTermsReviser retailTermsReviser,
     IUnitOfWork unitOfWork,
     IMessageBus messageBus,
-    IExpiryPolicyFence expiryFence)
+    IExpiryPolicyFence expiryFence,
+    IShopLicenceFence licenceFence,
+    ILiveSessionAuthority authority)
 {
     /// <summary>
     /// Reference on the movement that carried a legacy correction's quantity delta. No longer
@@ -61,6 +64,11 @@ public sealed class UpdateInventoryBatchCommandHandler(
         InventoryBatchPricingChangedDomainEvent? pricingChanged = null;
         var result = await PostingTransaction.RunAsync<Success>(unitOfWork, async ct =>
         {
+            var licence = await licenceFence.EnterForSessionAsync(authority, command.Session, command.UserId,
+                command.ShopId, LicenceAction.GeneralStock, ct);
+            if (licence.IsError) return licence.Errors;
+            if (licence.Value.SuspensionDenial() is { } suspension) return suspension;
+
             var expiryLock = await expiryFence.AcquireAsync(command.ShopId, true, ct);
             if (expiryLock.IsError) return expiryLock.Errors;
             var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
@@ -86,6 +94,8 @@ public sealed class UpdateInventoryBatchCommandHandler(
                 return Errors.Inventory.BatchSupplierEditMoved;
 
             var batchNumber = string.IsNullOrWhiteSpace(command.NewBatchNumber) ? batch.BatchNumber : command.NewBatchNumber;
+            if (licence.Value.CurrentDecision().EnforcedDenial() is { } denial) return denial;
+
             var revision = await retailTermsReviser.ReviseAsync(
                 batch,
                 new BatchRetailTerms(

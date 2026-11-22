@@ -1,3 +1,5 @@
+using Intelibill.Application.Unit.Tests.Common.Licensing;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Normalization;
 using Intelibill.Application.Features.CreditNotes.Commands.VoidCreditNote;
@@ -132,7 +134,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
     }
 
     private VoidCreditNoteCommandHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _creditNoteRepository, _unitOfWork);
+        new(_userRepository, _shopRepository, _creditNoteRepository, _unitOfWork, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 
     private Fixture Arrange(ShopRole role, bool noteExists = true, bool redeemed = false, bool voided = false)
     {
