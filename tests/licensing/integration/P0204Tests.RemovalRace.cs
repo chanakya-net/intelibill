@@ -13,25 +13,29 @@ public sealed partial class P0204Tests
     [InlineData(true)]
     public async Task RemovalAndAcceptanceRespectTheFirstAuthorityChange(bool acceptFirst)
     {
-        await using var host = await StartAsync();
+        var removalArrival = new AccountFenceArrival();
+        var acceptanceArrival = new AccountFenceArrival();
+        await using var host = await StartAsync(removalArrival);
         var owner = await host.SignInAsync();
         var recipient = await host.SignInAsync();
         var account = await CreateAccountAsync(owner.Client);
         var manager = await InviteManagerAsync(owner.Client, account, recipient.Client, recipient.Email);
         var transfer = await ProposeAsync(owner.Client, account, recipient.Client, recipient.Email);
 
+        await using var replica = host.Replica(acceptanceArrival);
+        using var recipientApi = replica.CreateClient();
+        using var ownerApi = host.Licensing.CreateClient();
         await using var connection = new NpgsqlConnection(database.Bootstrap(host.Fixture.Owner.Database).ConnectionString);
         await connection.OpenAsync();
         await using var fence = await P0203bTests.HoldAccountFenceAsync(connection, account);
-        await using var replica = host.Replica();
-        using var recipientApi = replica.CreateClient();
-        using var ownerApi = host.Licensing.CreateClient();
+        removalArrival.Watch(account);
+        acceptanceArrival.Watch(account);
         Task<HttpResponseMessage> Accept() => SendAcceptanceAsync(recipientApi, host, recipient.Actor, transfer, Guid.NewGuid());
         Task<HttpResponseMessage> Remove() => RemoveManagerAsync(host, ownerApi, owner.Actor, account, manager);
         var first = acceptFirst ? Accept() : Remove();
-        await P0203bTests.WaitForLockAsync(connection, fence, "advisory");
         var second = acceptFirst ? Remove() : Accept();
-        await P0203bTests.WaitForLockAsync(connection, fence, "advisory", 2);
+        await QueueAtAccountFenceAsync(connection, fence, acceptFirst ? acceptanceArrival : removalArrival,
+            acceptFirst ? removalArrival : acceptanceArrival);
         await fence.CommitAsync();
 
         using var winner = await first;

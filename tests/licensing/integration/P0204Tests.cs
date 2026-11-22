@@ -25,7 +25,7 @@ public sealed partial class P0204Tests(LicensingPostgreSqlFixture database)
         Assert.Equal("Owner", current.GetProperty("role").GetString());
     }
 
-    private async Task<TransferHost> StartAsync()
+    private async Task<TransferHost> StartAsync(AccountFenceArrival? arrival = null)
     {
         await database.PrepareMerchantAsync();
         // Cases share a disposable merchant database and TestServer address, so start each case
@@ -37,7 +37,8 @@ public sealed partial class P0204Tests(LicensingPostgreSqlFixture database)
         var keys = Directory.CreateTempSubdirectory("intelibill-p0204-keys-");
         var settings = fixture.LicensingSettings();
         settings["AdminBootstrap:DataProtectionKeyDirectory"] = keys.FullName;
-        var licensing = P0202Fixture.LicensingApi(fixture, settings: settings);
+        var licensing = P0202Fixture.LicensingApi(fixture,
+            configure: arrival is null ? null : arrival.Configure, settings: settings);
         var merchant = fixture.MerchantApi(handler: () => licensing.Server.CreateHandler(),
             configure: services => services.AddSingleton<TimeProvider>(fixture.Clock));
         return new TransferHost(fixture, licensing, merchant, keys, settings);
@@ -65,7 +66,8 @@ public sealed partial class P0204Tests(LicensingPostgreSqlFixture database)
         private readonly List<HttpClient> _clients = [];
         public P0201Fixture Fixture => fixture;
         public LicensingApiFactory Licensing => licensing;
-        public LicensingApiFactory Replica() => P0202Fixture.LicensingApi(fixture, settings: settings);
+        public LicensingApiFactory Replica(AccountFenceArrival arrival) =>
+            P0202Fixture.LicensingApi(fixture, configure: arrival.Configure, settings: settings);
 
         public async Task<(Guid Actor, string Email, HttpClient Client)> SignInAsync()
         {
