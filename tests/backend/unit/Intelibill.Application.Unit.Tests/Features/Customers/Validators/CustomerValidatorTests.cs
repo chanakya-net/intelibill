@@ -56,38 +56,38 @@ public class EditCustomerCommandValidatorTests
     private readonly EditCustomerCommandValidator _v = new();
 
     [Fact] public void Validate_WhenCustomerIdEmpty_ReturnsError() =>
-        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.Empty, "Name", "+919876543210", null, true, 0m))
+        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.Empty, "Name", "+919876543210", null, true, 0m, Session: null))
             .ShouldHaveValidationErrorFor(x => x.CustomerId);
 
     [Fact] public void Validate_WhenNameEmpty_ReturnsError() =>
-        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "", "+919876543210", null, true, 0m))
+        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "", "+919876543210", null, true, 0m, Session: null))
             .ShouldHaveValidationErrorFor(x => x.Name);
 
     [Fact] public void Validate_WhenPhoneInvalid_ReturnsError() =>
-        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "notaphone", null, true, 0m))
+        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "notaphone", null, true, 0m, Session: null))
             .ShouldHaveValidationErrorFor(x => x.PhoneNumber);
 
     [Fact] public void Validate_WhenCreditLimitNegative_ReturnsError() =>
-        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, -0.01m))
+        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, -0.01m, Session: null))
             .ShouldHaveValidationErrorFor(x => x.CreditLimit);
 
     [Fact] public void Validate_WhenCreditLimitAboveMax_ReturnsError() =>
-        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 99999999.999m))
+        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 99999999.999m, Session: null))
             .ShouldHaveValidationErrorFor(x => x.CreditLimit);
 
     [Fact] public void Validate_WhenCreditLimitHasMoreThanTwoDecimalPlaces_ReturnsError() =>
-        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 10.999m))
+        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 10.999m, Session: null))
             .ShouldHaveValidationErrorFor(x => x.CreditLimit);
 
     [Fact] public void Validate_WhenCreditLimitIsZero_NoErrors() =>
-        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 0m))
+        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 0m, Session: null))
             .ShouldNotHaveAnyValidationErrors();
 
     [Fact] public void Validate_WhenCreditLimitAtMax_NoErrors() =>
-        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 99999999.99m))
+        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 99999999.99m, Session: null))
             .ShouldNotHaveAnyValidationErrors();
 
     [Fact] public void Validate_WhenValid_NoErrors() =>
-        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 0m))
+        _v.TestValidate(new EditCustomerCommand(Guid.NewGuid(), Guid.NewGuid(), "Name", "+919876543210", null, true, 0m, Session: null))
             .ShouldNotHaveAnyValidationErrors();
 }

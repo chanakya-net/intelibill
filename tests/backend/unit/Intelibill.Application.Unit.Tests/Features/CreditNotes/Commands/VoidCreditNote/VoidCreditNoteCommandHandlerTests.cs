@@ -1,3 +1,5 @@
+using Intelibill.Application.Unit.Tests.Common.Licensing;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Normalization;
 using Intelibill.Application.Features.CreditNotes.Commands.VoidCreditNote;
@@ -25,7 +27,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         var creditNote = fixture.CreditNote ?? throw new InvalidOperationException("Expected a credit note.");
 
         var result = await CreateHandler().HandleAsync(
-            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error"),
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error", Session: null),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -49,7 +51,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         var creditNote = fixture.CreditNote ?? throw new InvalidOperationException("Expected a credit note.");
 
         var result = await CreateHandler().HandleAsync(
-            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error"),
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -64,7 +66,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         var creditNote = fixture.CreditNote ?? throw new InvalidOperationException("Expected a credit note.");
 
         var result = await CreateHandler().HandleAsync(
-            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, " "),
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, " ", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -78,7 +80,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         var fixture = Arrange(ShopRole.Owner, noteExists: false);
 
         var result = await CreateHandler().HandleAsync(
-            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, "CN-404", "Issued in error"),
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, "CN-404", "Issued in error", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -93,7 +95,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         var creditNote = fixture.CreditNote ?? throw new InvalidOperationException("Expected a credit note.");
 
         var result = await CreateHandler().HandleAsync(
-            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error"),
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -108,7 +110,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         var creditNote = fixture.CreditNote ?? throw new InvalidOperationException("Expected a credit note.");
 
         var result = await CreateHandler().HandleAsync(
-            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error"),
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -123,7 +125,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         var creditNote = fixture.CreditNote ?? throw new InvalidOperationException("Expected a credit note.");
 
         var result = await CreateHandler().HandleAsync(
-            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error"),
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -132,7 +134,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
     }
 
     private VoidCreditNoteCommandHandler CreateHandler() =>
-        new(_userRepository, _shopRepository, _creditNoteRepository, _unitOfWork);
+        new(_userRepository, _shopRepository, _creditNoteRepository, _unitOfWork, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 
     private Fixture Arrange(ShopRole role, bool noteExists = true, bool redeemed = false, bool voided = false)
     {

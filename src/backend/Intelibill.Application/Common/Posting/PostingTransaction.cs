@@ -14,9 +14,23 @@ namespace Intelibill.Application.Common.Posting;
 /// </remarks>
 public static class PostingTransaction
 {
-    public static async Task<ErrorOr<T>> RunAsync<T>(
+    public static Task<ErrorOr<T>> RunAsync<T>(
         IUnitOfWork unitOfWork,
         Func<CancellationToken, Task<ErrorOr<T>>> action,
+        CancellationToken cancellationToken) =>
+        RunAsync(unitOfWork, action, unitOfWork.CommitTransactionAsync, cancellationToken);
+
+    /// <summary>Saves staged writes and commits before the unit of work publishes domain events.</summary>
+    public static Task<ErrorOr<T>> RunAndSaveAsync<T>(
+        IUnitOfWork unitOfWork,
+        Func<CancellationToken, Task<ErrorOr<T>>> action,
+        CancellationToken cancellationToken) =>
+        RunAsync(unitOfWork, action, unitOfWork.SaveChangesAndCommitAsync, cancellationToken);
+
+    private static async Task<ErrorOr<T>> RunAsync<T>(
+        IUnitOfWork unitOfWork,
+        Func<CancellationToken, Task<ErrorOr<T>>> action,
+        Func<CancellationToken, Task> commit,
         CancellationToken cancellationToken)
     {
         await unitOfWork.BeginTransactionAsync(cancellationToken);
@@ -27,7 +41,7 @@ public static class PostingTransaction
             if (result.IsError)
                 return result;
 
-            await unitOfWork.CommitTransactionAsync(cancellationToken);
+            await commit(cancellationToken);
             committed = true;
             return result;
         }

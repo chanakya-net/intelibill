@@ -1,5 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import { DestroyRef, Injectable, effect, inject, untracked } from '@angular/core';
+import { DestroyRef, Injectable, computed, effect, inject, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subscription, fromEvent, interval, merge } from 'rxjs';
 
@@ -18,12 +18,17 @@ export class ShopDataAccessService {
   private readonly updates = inject(ShopUpdatesSignalRService);
   private readonly destroy = inject(DestroyRef);
   private pending?: Subscription;
+  /** Track only owner identity and transition state; epoch bumps from data-access changes must not trigger a re-read. */
+  private readonly activeOwnerKey = computed(() => {
+    const scope = this.context.scope();
+    return scope?.shopId && !this.context.transitioning() ? `${scope.userId}:${scope.shopId}` : null;
+  });
 
   constructor() {
     effect(() => {
-      this.context.scope();
-      this.context.transitioning();
-      untracked(() => this.refresh());
+      if (this.activeOwnerKey()) {
+        untracked(() => this.refresh());
+      }
     });
 
     const browser = this.document.defaultView;

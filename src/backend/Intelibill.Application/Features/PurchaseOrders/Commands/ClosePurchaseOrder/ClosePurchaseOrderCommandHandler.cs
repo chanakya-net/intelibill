@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Posting;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -12,7 +14,9 @@ namespace Intelibill.Application.Features.PurchaseOrders.Commands.ClosePurchaseO
 public sealed class ClosePurchaseOrderCommandHandler(
     IUserRepository userRepository,
     IPurchaseOrderRepository purchaseOrderRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IShopLicenceFence licenceFence,
+    ILiveSessionAuthority authority)
 {
     [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<PurchaseOrderDetailDto>> HandleAsync(
@@ -30,16 +34,30 @@ public sealed class ClosePurchaseOrderCommandHandler(
         if (membership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.PurchaseOrder.UserCannotMutatePurchaseOrder;
 
+        return await PostingTransaction.RunAsync<PurchaseOrderDetailDto>(unitOfWork,
+            ct => CompleteAsync(command, ct), cancellationToken);
+    }
+
+    private async Task<ErrorOr<PurchaseOrderDetailDto>> CompleteAsync(ClosePurchaseOrderCommand command, CancellationToken cancellationToken)
+    {
+        var licence = await licenceFence.EnterForSessionAsync(authority, command.Session, command.ActorUserId,
+            command.ActiveShopId, LicenceAction.SourceCorrection, cancellationToken);
+        if (licence.IsError) return licence.Errors;
+        if (licence.Value.CurrentDecision().EnforcedDenial() is { } denial) return denial;
+
         if (string.IsNullOrWhiteSpace(command.Reason))
             return Errors.PurchaseOrder.CloseReasonRequired;
 
-        var po = await purchaseOrderRepository.GetByShopAndIdAsync(
+        var po = await purchaseOrderRepository.GetReceiptDetailForUpdateAsync(
             command.ActiveShopId,
             command.PurchaseOrderId,
             cancellationToken);
 
         if (po is null)
             return Errors.PurchaseOrder.NotFound;
+
+        if (licence.Value.CurrentDecision().ExistingSourceDenial(po.CreatedAt) is { } sourceDenial)
+            return sourceDenial;
 
         if (po.Status != PurchaseOrderStatus.PartiallyReceived)
             return Errors.PurchaseOrder.CannotCloseInvalidStatus;

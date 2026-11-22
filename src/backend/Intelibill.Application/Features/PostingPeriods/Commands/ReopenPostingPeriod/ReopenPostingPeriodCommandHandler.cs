@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Operations;
@@ -16,7 +17,8 @@ public sealed class ReopenPostingPeriodCommandHandler(
     IPostingPeriodRepository periodRepository,
     IFinancialOperationExecutor operationExecutor,
     IUnitOfWork unitOfWork,
-    IBusinessClock businessClock)
+    IBusinessClock businessClock,
+    ILiveSessionAuthority authority)
 {
     private static readonly ReopenPostingPeriodCommandValidator Validator = new();
 
@@ -29,7 +31,7 @@ public sealed class ReopenPostingPeriodCommandHandler(
         if (!validation.IsValid)
             return validation.Errors.Select(e => Error.Validation(e.ErrorCode, e.ErrorMessage)).ToList();
 
-        var runner = new PostingPeriodTransitionRunner(shopRepository, periodRepository, operationExecutor, unitOfWork, businessClock);
+        var runner = new PostingPeriodTransitionRunner(shopRepository, periodRepository, operationExecutor, unitOfWork, businessClock, authority);
         return await runner.RunAsync(
             FinancialOperationType.PostingPeriodReopen,
             command.ShopId,
@@ -37,6 +39,7 @@ public sealed class ReopenPostingPeriodCommandHandler(
             command.PeriodStart,
             command.Reason,
             command.OperationKey,
+            command.Session,
             (period, now, _) => period.Reopen(command.ActorUserId, now, command.Reason),
             cancellationToken);
     }

@@ -87,7 +87,7 @@ public sealed class ServicesController : AuthenticatedControllerBase
                 request.Price,
                 request.HsnCode,
                 request.TaxRatePercent,
-                request.TaxIncluded),
+                request.TaxIncluded, SessionClaims.TryRead(User)),
             cancellationToken);
 
         if (result.IsError)
@@ -105,7 +105,7 @@ public sealed class ServicesController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<Success>>(
-            new ActivateServiceCommand(UserId!.Value, ActiveShopId!.Value, serviceId),
+            new ActivateServiceCommand(UserId!.Value, ActiveShopId!.Value, serviceId, SessionClaims.TryRead(User)),
             cancellationToken);
 
         if (result.IsError)
@@ -123,7 +123,7 @@ public sealed class ServicesController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<Success>>(
-            new DeactivateServiceCommand(UserId!.Value, ActiveShopId!.Value, serviceId),
+            new DeactivateServiceCommand(UserId!.Value, ActiveShopId!.Value, serviceId, SessionClaims.TryRead(User)),
             cancellationToken);
 
         if (result.IsError)

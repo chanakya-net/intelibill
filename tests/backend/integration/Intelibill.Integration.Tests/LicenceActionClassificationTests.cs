@@ -48,7 +48,7 @@ using static Intelibill.Domain.Enums.MembershipStatus;
 namespace Intelibill.Integration.Tests;
 
 [Collection("Integration Tests")]
-public sealed class LicenceActionClassificationTests(PostgreSqlTestFixture fixture)
+public sealed partial class LicenceActionClassificationTests(PostgreSqlTestFixture fixture)
 {
     [Theory]
     [InlineData(typeof(InventoryController), nameof(InventoryController.CorrectReceiptCost), LicenceAction.SourceCorrection)]

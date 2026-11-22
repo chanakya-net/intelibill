@@ -42,7 +42,7 @@ public class UpdateInventoryBatchCommandValidatorTests
     private readonly UpdateInventoryBatchCommandValidator _v = new();
 
     private static UpdateInventoryBatchCommand Valid() =>
-        new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "BATCH-NEW", 10m, 80m, 120m, 100m, 18m, false, null, null, null, null, null);
+        new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "BATCH-NEW", 10m, 80m, 120m, 100m, 18m, false, null, null, null, null, null, Session: null);
 
     [Fact] public void Validate_WhenBatchIdEmpty_ReturnsError() =>
         _v.TestValidate(Valid() with { BatchId = Guid.Empty }).ShouldHaveValidationErrorFor(x => x.BatchId);

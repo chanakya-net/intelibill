@@ -159,7 +159,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<Deleted>>(
-            new DeletePurchaseOrderDraftCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId),
+            new DeletePurchaseOrderDraftCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(_ => NoContent());
@@ -176,7 +176,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
-            new CancelPurchaseOrderCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId, request.Reason),
+            new CancelPurchaseOrderCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId, request.Reason, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -193,7 +193,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
-            new ClosePurchaseOrderCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId, request.Reason),
+            new ClosePurchaseOrderCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId, request.Reason, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);

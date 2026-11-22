@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -82,7 +83,7 @@ public sealed class DiscountsController : AuthenticatedControllerBase
                 request.StartsAt,
                 request.EndsAt,
                 request.BelowCostConfirmed,
-                request.BelowCostConfirmationReason),
+                request.BelowCostConfirmationReason, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(rule => CreatedAtAction(nameof(GetDiscountRule), new { id = rule.Id }, rule));
@@ -114,7 +115,7 @@ public sealed class DiscountsController : AuthenticatedControllerBase
                 request.EndsAt,
                 request.BelowCostConfirmed,
                 request.BelowCostConfirmationReason,
-                request.DisabledReason),
+                request.DisabledReason, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -122,7 +123,7 @@ public sealed class DiscountsController : AuthenticatedControllerBase
 
     [HttpPost("{id:guid}/disable")]
     [Authorize(Policy = "OwnerOrManager")]
-    [LicenceAction(LicenceAction.OperationalCapacity)]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> DisableDiscountRule(
         Guid id,
         [FromBody] DisableDiscountRuleRequest request,
@@ -132,7 +133,7 @@ public sealed class DiscountsController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<DiscountRuleDto>>(
-            new DisableDiscountRuleCommand(UserId!.Value, ActiveShopId!.Value, id, request.Reason),
+            new DisableDiscountRuleCommand(UserId!.Value, ActiveShopId!.Value, id, request.Reason, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);

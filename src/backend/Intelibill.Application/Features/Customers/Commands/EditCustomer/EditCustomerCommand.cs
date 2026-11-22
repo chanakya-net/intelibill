@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using Intelibill.Domain.Enums;
 
 namespace Intelibill.Application.Features.Customers.Commands.EditCustomer;
@@ -13,6 +14,7 @@ public sealed record EditCustomerCommand(
     string? Address,
     bool IsActive,
     decimal CreditLimit,
+    SessionClaims? Session,
     string? Gstin = null,
     string? StateCode = null,
     CreditPolicyMode? CreditPolicyMode = null,

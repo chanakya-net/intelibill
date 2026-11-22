@@ -614,3 +614,16 @@ snapshot carries the cutoff authorizing the merchant projection to open. The
 merchant reports receipt separately from enforcement and allows a fresh closure
 review for the reopened cycle. A signed receipt confirms the provider history
 only when it proves the shop applied a snapshot in that decision's cycle.
+
+## P04 online enforcement acceptance
+
+Run the [P04 acceptance matrix](../tests/licensing/acceptance/p04-enforcement.md)
+against the combined branch with PostgreSQL, the shipping merchant build and
+local fixture credentials. Verify source and response fencing, expiry and
+suspension history, and measure provider-to-merchant acknowledgement under
+healthy loopback delivery.
+
+Keep production enrollment disabled until P05 historical permit and recovery
+compatibility and P08 legacy migration and enrollment approval are verified.
+The legacy deadline invoice recorded in the matrix remains a P05 rollout
+blocker. Local evidence and independent review authorize no production change.

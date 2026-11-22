@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -85,7 +86,7 @@ public sealed class CreditNotesController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<Success>>(
-            new VoidCreditNoteCommand(UserId!.Value, ActiveShopId!.Value, code, request.Reason),
+            new VoidCreditNoteCommand(UserId!.Value, ActiveShopId!.Value, code, request.Reason, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(_ => NoContent());

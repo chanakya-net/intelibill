@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Unit.Tests.Common.Licensing;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Barcodes.GenerateItemBarcode;
 using Intelibill.Domain.Entities;
@@ -20,7 +22,7 @@ public class GenerateItemBarcodeCommandHandlerTests
         var handler = new GenerateItemBarcodeCommandHandler(
             _userRepository,
             _itemBarcodeSequenceRepository,
-            _itemRepository);
+            _itemRepository, Substitute.For<IUnitOfWork>(), LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 
         var result = await handler.HandleAsync(CreateCommand(Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
 
@@ -38,7 +40,7 @@ public class GenerateItemBarcodeCommandHandlerTests
         var handler = new GenerateItemBarcodeCommandHandler(
             _userRepository,
             _itemBarcodeSequenceRepository,
-            _itemRepository);
+            _itemRepository, Substitute.For<IUnitOfWork>(), LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
@@ -57,7 +59,7 @@ public class GenerateItemBarcodeCommandHandlerTests
         var handler = new GenerateItemBarcodeCommandHandler(
             _userRepository,
             _itemBarcodeSequenceRepository,
-            _itemRepository);
+            _itemRepository, Substitute.For<IUnitOfWork>(), LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
@@ -78,7 +80,7 @@ public class GenerateItemBarcodeCommandHandlerTests
         var handler = new GenerateItemBarcodeCommandHandler(
             _userRepository,
             _itemBarcodeSequenceRepository,
-            _itemRepository);
+            _itemRepository, Substitute.For<IUnitOfWork>(), LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
@@ -103,7 +105,7 @@ public class GenerateItemBarcodeCommandHandlerTests
         var handler = new GenerateItemBarcodeCommandHandler(
             _userRepository,
             _itemBarcodeSequenceRepository,
-            _itemRepository);
+            _itemRepository, Substitute.For<IUnitOfWork>(), LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 
         var result = await handler.HandleAsync(command, CancellationToken.None);
 
@@ -129,7 +131,7 @@ public class GenerateItemBarcodeCommandHandlerTests
         var handler = new GenerateItemBarcodeCommandHandler(
             _userRepository,
             _itemBarcodeSequenceRepository,
-            _itemRepository);
+            _itemRepository, Substitute.For<IUnitOfWork>(), LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 
         var result = await Record.ExceptionAsync(() => handler.HandleAsync(command, CancellationToken.None));
 
@@ -153,7 +155,7 @@ public class GenerateItemBarcodeCommandHandlerTests
         var handler = new GenerateItemBarcodeCommandHandler(
             _userRepository,
             _itemBarcodeSequenceRepository,
-            _itemRepository);
+            _itemRepository, Substitute.For<IUnitOfWork>(), LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 
         var result = await Record.ExceptionAsync(() => handler.HandleAsync(command, cts.Token));
 
@@ -161,7 +163,7 @@ public class GenerateItemBarcodeCommandHandlerTests
     }
 
     private static GenerateItemBarcodeCommand CreateCommand(Guid actorId, Guid activeShopId) =>
-        new(actorId, activeShopId);
+        new(actorId, activeShopId, Session: null);
 
     private static User CreateActor(string email) =>
         User.CreateWithEmail(email, "hash", "First", "Last");

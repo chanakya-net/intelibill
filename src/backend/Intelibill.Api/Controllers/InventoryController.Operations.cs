@@ -31,7 +31,7 @@ public sealed partial class InventoryController
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<VoidBatchResultDto>>(
-            new VoidBatchCommand(batchId, UserId!.Value, ActiveShopId!.Value),
+            new VoidBatchCommand(batchId, UserId!.Value, ActiveShopId!.Value, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -49,7 +49,7 @@ public sealed partial class InventoryController
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<VoidAdjustmentResultDto>>(
-            new VoidAdjustmentCommand(adjustmentId, UserId!.Value, ActiveShopId!.Value, request.Reason),
+            new VoidAdjustmentCommand(adjustmentId, UserId!.Value, ActiveShopId!.Value, request.Reason, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -128,7 +128,7 @@ public sealed partial class InventoryController
                 request.BatchNumber,
                 request.ExpiryDate,
                 request.ManufacturingDate,
-                request.Reason),
+                request.Reason, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -189,6 +189,7 @@ public sealed partial class InventoryController
                 request.SupplierId,
                 request.Notes,
                 request.EntryDate,
+                SessionClaims.TryRead(User),
                 request.ExpectedVersion),
             cancellationToken);
 
@@ -207,7 +208,7 @@ public sealed partial class InventoryController
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<Success>>(
-            new ReassignBatchSupplierCommand(UserId!.Value, ActiveShopId!.Value, batchId, request.NewSupplierId),
+            new ReassignBatchSupplierCommand(UserId!.Value, ActiveShopId!.Value, batchId, request.NewSupplierId, SessionClaims.TryRead(User)),
             cancellationToken);
 
         if (result.IsError)

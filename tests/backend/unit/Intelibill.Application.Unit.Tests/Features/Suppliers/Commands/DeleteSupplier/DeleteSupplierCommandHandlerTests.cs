@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Unit.Tests.Common.Licensing;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Suppliers.Commands.DeleteSupplier;
 using Intelibill.Domain.Entities;
@@ -25,8 +27,8 @@ public class DeleteSupplierCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _supplierRepository.GetByIdAsync(systemSupplier.Id, Arg.Any<CancellationToken>()).Returns(systemSupplier);
 
-        var handler = new DeleteSupplierCommandHandler(_userRepository, _supplierRepository, _unitOfWork);
-        var result = await handler.HandleAsync(new DeleteSupplierCommand(actor.Id, shop.Id, systemSupplier.Id), CancellationToken.None);
+        var handler = new DeleteSupplierCommandHandler(_userRepository, _supplierRepository, _unitOfWork, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
+        var result = await handler.HandleAsync(new DeleteSupplierCommand(actor.Id, shop.Id, systemSupplier.Id, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Supplier.CannotModifySystemSupplier.Code, result.FirstError.Code);
@@ -46,8 +48,8 @@ public class DeleteSupplierCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
 
-        var handler = new DeleteSupplierCommandHandler(_userRepository, _supplierRepository, _unitOfWork);
-        var result = await handler.HandleAsync(new DeleteSupplierCommand(actor.Id, shop.Id, supplier.Id), CancellationToken.None);
+        var handler = new DeleteSupplierCommandHandler(_userRepository, _supplierRepository, _unitOfWork, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
+        var result = await handler.HandleAsync(new DeleteSupplierCommand(actor.Id, shop.Id, supplier.Id, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Supplier.SupplierNotFound.Code, result.FirstError.Code);

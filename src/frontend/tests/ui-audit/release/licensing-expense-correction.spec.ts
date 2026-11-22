@@ -160,36 +160,34 @@ test('authority refresh keeps security suspension in force until release', async
   const correct = page.getByRole('button', { name: /Correct$/ }).first();
   await correct.click();
   const dialog = page.getByRole('dialog');
-  const cancel = dialog.getByRole('button', { name: /Cancel/i });
   const submit = dialog.getByRole('button', { name: /^Correct|Save|Submit/ }).last();
   const eligibility = dialog.getByTestId('restricted-correction-hint');
   const notice = page.locator('app-definition-access-notice');
-  const refresh = () => {
+  const restricted = page.getByTestId('shop-data-restricted');
+  const refreshAuthority = async () => {
     const response = page.waitForResponse((res) => res.url().endsWith('/trading-authority'));
-    return Promise.all([response, notice.getByRole('button', { name: 'Check again' }).click()]);
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    return response;
   };
 
   fixture.state.phase = 'security';
   await submit.click();
-  await expect(dialog.getByText(SECURITY)).toBeVisible();
+  // P04-15 immediately hides shop data (including the expenses page and correction dialog) on security suspension.
+  await expect(restricted).toHaveText(SECURITY);
+  await expect(dialog).toHaveCount(0);
   await expect(eligibility).toHaveCount(0);
-  await expect(submit).toBeDisabled();
-  await cancel.click();
 
-  const [suspended] = await refresh();
+  const suspended = await refreshAuthority();
   expect(await suspended.json()).toMatchObject({ code: 'Licence.SecuritySuspended', enforced: true });
-  await expect(notice.getByRole('alert')).toHaveText(SECURITY);
-  await correct.click();
-  await expect(dialog.getByText(SECURITY)).toBeVisible();
-  await expect(eligibility).toHaveCount(0);
-  await expect(submit).toBeDisabled();
+  await expect(restricted).toHaveText(SECURITY);
+  await expect(dialog).toHaveCount(0);
   expect(fixture.posts()).toHaveLength(1);
   await page.screenshot({ path: info.outputPath('security-suspension-after-refresh.png') });
-  await cancel.click();
 
   fixture.state.phase = 'expired';
-  const [released] = await refresh();
+  const released = await refreshAuthority();
   expect(await released.json()).toMatchObject({ code: 'Licence.Expired', enforced: true });
+  await expect(restricted).toHaveCount(0);
   await expect(notice.getByRole('alert')).toHaveText(EXPIRED);
   await expect(record(page)).toBeDisabled();
   await correct.click();

@@ -61,7 +61,12 @@ public sealed partial class P0307Tests
         Assert.Equal("55000", deny.SqlState);
         var refused = await Assert.ThrowsAsync<InvalidOperationException>(() => migrations.MigrateAsync(previous));
         Assert.Equal("55000", Assert.IsType<PostgresException>(refused.InnerException).SqlState);
+        Assert.Contains("20261117160000_UnmatchedPaymentReviews", await context.Database.GetAppliedMigrationsAsync());
         Assert.Equal(original, await ManualBytesAsync(owner));
+        // Empty successor migrations may already have rolled back before the populated payment migration refuses.
+        await migrations.MigrateAsync();
+        Assert.Empty(await context.Database.GetPendingMigrationsAsync());
+        await ExecuteAsync(owner, RuntimeGrant);
         AssertStatus(await StatusAsync(purchase.Payer.Client, purchase.Quote), "Verified", "Fulfilled", "Applying");
     }
 

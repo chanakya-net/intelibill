@@ -176,7 +176,7 @@ public sealed partial class P0403Tests(LicensingPostgreSqlFixture database) : IC
         Assert.DoesNotContain("CASE-878", body);
     }
 
-    private static async Task EnrollAsync(P0213Fixture fixture, params Merchant[] shops)
+    internal static async Task EnrollAsync(P0213Fixture fixture, params Merchant[] shops)
     {
         foreach (var shop in shops)
         {
@@ -267,7 +267,7 @@ public sealed partial class P0403Tests(LicensingPostgreSqlFixture database) : IC
         Assert.Equal(snapshot.Account!.Revision, ack?.AppliedAccountRevision);
     }
 
-    private static async Task<JsonElement> AssertPropagationAsync(P0110CookieBrowser security, string path, Guid id, string expected)
+    internal static async Task<JsonElement> AssertPropagationAsync(P0110CookieBrowser security, string path, Guid id, string expected)
     {
         using var response = await security.SendAsync(HttpMethod.Get, $"{path}/{id:D}");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -277,7 +277,7 @@ public sealed partial class P0403Tests(LicensingPostgreSqlFixture database) : IC
         return status;
     }
 
-    private static async Task<Guid> LinkAsync(P0213Fixture fixture, Merchant payer, params Merchant[] otherShops)
+    internal static async Task<Guid> LinkAsync(P0213Fixture fixture, Merchant payer, params Merchant[] otherShops)
     {
         var account = await CreateAccountAsync(payer.Client);
         foreach (var shop in otherShops.Prepend(payer))
@@ -294,7 +294,7 @@ public sealed partial class P0403Tests(LicensingPostgreSqlFixture database) : IC
         await P0213Fixture.LinkAsync(account, payer, shop, term);
     }
 
-    private static async Task<P0110CookieBrowser> SignInSecurityAsync(P0213Fixture fixture, params string[] alsoGranted)
+    internal static async Task<P0110CookieBrowser> SignInSecurityAsync(P0213Fixture fixture, params string[] alsoGranted)
     {
         const string email = "suspension.security@example.test";
         var catalogue = fixture.Trial.Catalogue;
