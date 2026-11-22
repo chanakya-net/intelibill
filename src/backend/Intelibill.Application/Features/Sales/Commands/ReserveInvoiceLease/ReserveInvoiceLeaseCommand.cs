@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 namespace Intelibill.Application.Features.Sales.Commands.ReserveInvoiceLease;
 
 public sealed record ReserveInvoiceLeaseCommand(
@@ -6,4 +8,5 @@ public sealed record ReserveInvoiceLeaseCommand(
     string DeviceId,
     int? BlockSize,
     // The sign-in the range is reserved from; recorded as the lease's provenance.
-    Guid? SessionId = null);
+    Guid? SessionId = null,
+    SessionClaims? Session = null);

@@ -1,5 +1,16 @@
 import { Injectable } from '@angular/core';
 
+export interface OfflinePermitDisplaySummary {
+  readonly leaseId: string;
+  readonly grantId: string;
+  readonly permitId: string;
+  readonly snapshotId: string;
+  readonly issuedAt: string;
+  readonly notBefore: string;
+  readonly validUntil: string;
+  readonly limitingReason: string;
+}
+
 export interface OfflineSalesDeviceSettings {
   readonly shopId: string;
   readonly deviceId: string;
@@ -16,7 +27,9 @@ export interface OfflineSalesDeviceSettings {
     readonly fiscalYear: string;
     readonly remainingCount: number;
     readonly expiresAt: string;
+    readonly licenceGrantId?: string | null;
   } | null;
+  readonly lastOfflinePermit?: OfflinePermitDisplaySummary | null;
 }
 
 const DEVICE_ID_KEY_PREFIX = 'intelibill.offlineSales.deviceId.v1';
@@ -78,6 +91,7 @@ export class OfflineSalesDeviceSettingsStorage {
         lastApiVerifiedAt: null,
         lastSnapshotWarningMarker: null,
         lastReservedLease: null,
+        lastOfflinePermit: null,
       };
     }
 
@@ -93,6 +107,7 @@ export class OfflineSalesDeviceSettingsStorage {
       lastApiVerifiedAt: raw.lastApiVerifiedAt ?? null,
       lastSnapshotWarningMarker: raw.lastSnapshotWarningMarker ?? null,
       lastReservedLease: raw.lastReservedLease ?? null,
+      lastOfflinePermit: raw.lastOfflinePermit ?? null,
     };
   }
 

@@ -8,6 +8,7 @@ using Intelibill.Shared.Web.Logging;
 using Intelibill.Api.Unit.Tests.Logging;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing.Offline;
 using Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
@@ -38,6 +39,7 @@ public sealed class SalesControllerTests : IDisposable
     private readonly IMessageBus _bus = Substitute.For<IMessageBus>();
     private readonly IOfflineSalesSnapshotStreamingService _offlineSnapshotStreamingService =
         Substitute.For<IOfflineSalesSnapshotStreamingService>();
+    private readonly IOfflineLicencePermitIssuer _permitIssuer = Substitute.For<IOfflineLicencePermitIssuer>();
     private readonly CapturedLog _log = new();
     private readonly SalesController _controller;
 
@@ -46,6 +48,7 @@ public sealed class SalesControllerTests : IDisposable
         _controller = new SalesController(
             _bus,
             _offlineSnapshotStreamingService,
+            new OfflineSnapshotPermitStreamer(_permitIssuer),
             new SafeDiagnosticWriter(_log.CreateLogger<SafeDiagnosticWriter>()));
     }
 
@@ -59,7 +62,7 @@ public sealed class SalesControllerTests : IDisposable
             .StreamAsync(shopId, Arg.Any<Guid>(), Arg.Any<DateTimeOffset>(), Arg.Any<CancellationToken>())
             .Returns(call => StreamThenFail(shopId, call.ArgAt<Guid>(1), recordsBeforeFailure: 1));
 
-        await _controller.StreamOfflineSnapshot(CancellationToken.None);
+        await _controller.StreamOfflineSnapshot(cancellationToken: CancellationToken.None);
 
         var body = ReadBody();
         var lines = body.Split('\n', StringSplitOptions.RemoveEmptyEntries);
@@ -97,7 +100,7 @@ public sealed class SalesControllerTests : IDisposable
         // Nothing has been written, so the request can still be answered as an ordinary failure
         // by the exception middleware: a status the client checks, not a 200 with an error line.
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _controller.StreamOfflineSnapshot(CancellationToken.None));
+            () => _controller.StreamOfflineSnapshot(cancellationToken: CancellationToken.None));
 
         Assert.Equal(string.Empty, ReadBody());
         Assert.Empty(_log.Events);
@@ -114,10 +117,20 @@ public sealed class SalesControllerTests : IDisposable
 
         // The caller is gone: nothing is written for them and the middleware's cancellation path
         // decides what is logged.
-        await Assert.ThrowsAsync<IOException>(() => _controller.StreamOfflineSnapshot(disconnected.Token));
+        await Assert.ThrowsAsync<IOException>(() => _controller.StreamOfflineSnapshot(cancellationToken: disconnected.Token));
 
         Assert.Empty(_log.Events);
         Assert.Single(ReadBody().Split('\n', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    [Fact]
+    public async Task StreamOfflineSnapshot_WhenBindingIsPartial_ReturnsBadRequest()
+    {
+        ArrangeSnapshotCaller();
+
+        await _controller.StreamOfflineSnapshot(leaseId: Guid.NewGuid(), cancellationToken: CancellationToken.None);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, _controller.HttpContext.Response.StatusCode);
     }
 
     private static async IAsyncEnumerable<IOfflineSalesSnapshotStreamRecord> StreamThenDisconnect(
@@ -358,13 +371,25 @@ public sealed class SalesControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task ReserveInvoiceLease_WhenSessionClaimsMissing_ReturnsUnauthorized()
+    {
+        SetUserClaims(
+            new Claim(JwtRegisteredClaimNames.Sub, Guid.NewGuid().ToString()),
+            new Claim("active_shop_id", Guid.NewGuid().ToString()));
+
+        var result = await _controller.ReserveInvoiceLease(new ReserveInvoiceLeaseRequest("device-1", 200), CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(result);
+        await _bus.DidNotReceive().InvokeAsync<ErrorOr<InvoiceLeaseDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ReserveInvoiceLease_WhenValid_ReturnsOkAndDispatchesCommand()
     {
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
-        SetUserClaims(
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim("active_shop_id", shopId.ToString()));
+        var sessionId = Guid.NewGuid();
+        SetScopedSession(userId, shopId, sessionId);
 
         var dto = CreateLeaseDto(shopId, "device-1");
         _bus.InvokeAsync<ErrorOr<InvoiceLeaseDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
@@ -380,7 +405,10 @@ public sealed class SalesControllerTests : IDisposable
                 c.ActorUserId == userId
                 && c.ShopId == shopId
                 && c.DeviceId == "device-1"
-                && c.BlockSize == 200),
+                && c.BlockSize == 200
+                && c.SessionId == sessionId
+                && c.Session != null
+                && c.Session.SessionId == sessionId),
             Arg.Any<CancellationToken>());
     }
 

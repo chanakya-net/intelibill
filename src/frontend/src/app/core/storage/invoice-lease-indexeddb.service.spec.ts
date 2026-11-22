@@ -106,6 +106,63 @@ describe('InvoiceLeaseIndexedDbService', () => {
     expect(service.isBelowRenewalThreshold(lease, INVOICE_LEASE_RENEWAL_THRESHOLD)).toBe(true);
   });
 
+  it('attaches a permit only when leaseId and grant match and keeps the later issuedAt', async () => {
+    stubIndexedDb();
+    const grantSha256 = 'a'.repeat(64);
+    await service.saveLease(
+      makeLease({
+        licenceEvidence: { version: 1, grantId: 'grant-1', grantSha256, keyId: 'key-1' },
+      }),
+    );
+
+    const basePermit = {
+      version: 1 as const,
+      permitId: 'permit-1',
+      grantId: 'grant-1',
+      grantSha256,
+      leaseId: 'lease-1',
+      snapshotId: 'snap-1',
+      keyId: 'key-1',
+      signedPermit: 'h.p.s',
+      shopId: 'shop-1',
+      userId: 'user-1',
+      sessionId: 'session-1',
+      deviceId: 'device-1',
+      authorityVerifiedAt: '2026-11-20T12:00:00.000000Z',
+      deviceVerifiedAt: '2026-11-22T11:59:00.000000Z',
+      snapshotCompletedAt: '2026-11-22T11:59:30.000000Z',
+      issuedAt: '2026-11-22T11:59:30.000000Z',
+      notBefore: '2026-11-22T11:59:30.000000Z',
+      validUntil: '2026-11-22T12:00:00.000000Z',
+      limitingReason: 'AuthorityFreshness',
+      tillSessionId: null,
+    };
+
+    const first = await service.attachPermit('shop-1', 'device-1', '2025-26', basePermit);
+    expect(first).toEqual(basePermit);
+
+    // A permit for another lease or grant is refused without overwriting the stored permit.
+    expect(await service.attachPermit('shop-1', 'device-1', '2025-26', { ...basePermit, leaseId: 'lease-other' })).toBeNull();
+    expect(await service.attachPermit('shop-1', 'device-1', '2025-26', { ...basePermit, grantId: 'grant-other' })).toBeNull();
+
+    // An older issuedAt never replaces a newer stored permit.
+    const older = await service.attachPermit('shop-1', 'device-1', '2025-26', {
+      ...basePermit,
+      permitId: 'permit-old',
+      issuedAt: '2026-11-22T11:59:10.000000Z',
+    });
+    expect(older).toBeNull();
+
+    // A later issuedAt updates the stored permit.
+    const newerPermit = { ...basePermit, permitId: 'permit-2', issuedAt: '2026-11-22T11:59:45.000000Z' };
+    expect(await service.attachPermit('shop-1', 'device-1', '2025-26', newerPermit)).toEqual(newerPermit);
+    expect((await service.loadLease('shop-1', 'device-1', '2025-26'))?.offlinePermit).toEqual(newerPermit);
+
+    // Saving a fresh lease drops the previous lease's permit in the same write.
+    await service.saveLease(makeLease({ leaseId: 'lease-2' }));
+    expect((await service.loadLease('shop-1', 'device-1', '2025-26'))?.offlinePermit).toBeUndefined();
+  });
+
   function makeLease(overrides: Partial<InvoiceLeaseSnapshot> = {}): InvoiceLeaseSnapshot {
     const now = Date.now();
     return {

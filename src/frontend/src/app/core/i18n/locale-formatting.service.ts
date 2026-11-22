@@ -43,6 +43,23 @@ export class LocaleFormattingService {
   }
 
   formatInstant(value: string | null | undefined, timeZone = 'Asia/Kolkata'): string {
+    return this.formatDateTime(value, 'short', timeZone, false);
+  }
+
+  /**
+   * Formats an exact deadline with seconds in the requested zone (default IST). Sub-second parts
+   * are truncated by Intl, so the displayed instant is never later than the actual deadline.
+   */
+  formatExactInstant(value: string | null | undefined, timeZone = 'Asia/Kolkata'): string {
+    return this.formatDateTime(value, 'medium', timeZone, timeZone === 'Asia/Kolkata');
+  }
+
+  private formatDateTime(
+    value: string | null | undefined,
+    timeStyle: 'short' | 'medium',
+    timeZone: string,
+    appendIst: boolean,
+  ): string {
     if (
       !value ||
       typeof value !== 'string' ||
@@ -53,11 +70,12 @@ export class LocaleFormattingService {
     const date = new Date(value);
     if (!Number.isFinite(date.getTime())) return MISSING;
     try {
-      return new Intl.DateTimeFormat(this.localization.currentLanguage(), {
+      const formatted = new Intl.DateTimeFormat(this.localization.currentLanguage(), {
         dateStyle: 'medium',
-        timeStyle: 'short',
+        timeStyle,
         timeZone,
       }).format(date);
+      return appendIst ? `${formatted} IST` : formatted;
     } catch (error) {
       if (error instanceof RangeError) return MISSING;
       throw error;

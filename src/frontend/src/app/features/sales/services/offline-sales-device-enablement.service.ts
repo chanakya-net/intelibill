@@ -8,9 +8,11 @@ import { OfflineSalesDeviceSettings, OfflineSalesDeviceSettingsStorage } from '.
 import { InvoiceLeaseIndexedDbService, type InvoiceLeaseSnapshot } from '../../../core/storage/invoice-lease-indexeddb.service';
 import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { OfflineSalesQueueSyncService } from './offline-sales-queue-sync.service';
+import { OfflineLicencePermitService } from './offline-licence-permit.service';
 import { OfflineSalesSnapshotSyncService } from './offline-sales-snapshot-sync.service';
 import { SaleService } from './sale.service';
 import type { InvoiceLeaseDto } from './sale.models';
+import { isValidLeaseLicenceEvidence } from '../utils/offline-licence-permit';
 
 export type OfflineSalesEnablementResult =
   | {
@@ -52,6 +54,7 @@ export class OfflineSalesDeviceEnablementService {
   private readonly leaseDb = inject(InvoiceLeaseIndexedDbService);
   private readonly queueSync = inject(OfflineSalesQueueSyncService);
   private readonly offlinePack = inject(OfflinePackService);
+  private readonly licencePermit = inject(OfflineLicencePermitService, { optional: true });
 
   private readonly stepSignal = signal<OfflineSalesEnablementStep | null>(null);
   /** The step an enable in progress is on; null when none runs. */
@@ -104,9 +107,9 @@ export class OfflineSalesDeviceEnablementService {
       return { ok: false, reason: 'APP_PACK_INCOMPLETE', packFailure: pack.failure };
     }
 
-    // 2) Snapshot must complete.
+    // 2) Snapshot must complete before reserving a lease so incomplete snapshots do not burn ranges.
     this.stepSignal.set('snapshot');
-    await this.snapshotSync.syncForShop(shopId);
+    await this.snapshotSync.syncForShop(shopId, null);
     const usable = await this.snapshotDb.getUsableSnapshotInfo(shopId);
     if (!usable?.snapshotId || !usable?.completedAt) {
       return { ok: false, reason: 'SNAPSHOT_INCOMPLETE' };
@@ -138,6 +141,8 @@ export class OfflineSalesDeviceEnablementService {
       reservedAt: leaseDto.reservedAt,
       expiresAt: leaseDto.expiresAt,
       leaseId: leaseDto.leaseId,
+      licenceEvidence: isValidLeaseLicenceEvidence(leaseDto.licenceEvidence) ? leaseDto.licenceEvidence : null,
+      offlinePermit: null,
     };
 
     if (lease.remainingCount <= 0) {
@@ -151,7 +156,7 @@ export class OfflineSalesDeviceEnablementService {
     const enabledByUserName = `${session.user.firstName} ${session.user.lastName}`.trim();
     const lastVerifiedAt = this.networkStatus.lastVerifiedAt()?.toISOString() ?? new Date().toISOString();
 
-    const settings = this.settingsStorage.updateSettings(shopId, (current) => ({
+    const initialSettings = this.settingsStorage.updateSettings(shopId, (current) => ({
       ...current,
       label: label ?? current.label ?? '',
       enabled: true,
@@ -165,15 +170,40 @@ export class OfflineSalesDeviceEnablementService {
         fiscalYear: lease.fiscalYear,
         remainingCount: lease.remainingCount,
         expiresAt: lease.expiresAt,
+        ...(lease.licenceEvidence ? { licenceGrantId: lease.licenceEvidence.grantId } : {}),
       },
+      lastOfflinePermit: null,
     }));
 
-    if (!settings) {
+    if (!initialSettings) {
       return { ok: false, reason: 'UNAUTHENTICATED' };
     }
 
-    void this.queueSync.syncForShop(settings.shopId, settings.deviceId);
+    // 5) When the reserved lease carries licence evidence, fetch one bound snapshot for its permit.
+    // Permit refusal or network failure never blocks enablement in this slice.
+    let finalSettings = initialSettings;
+    let finalLease = lease;
+    const binding = this.licencePermit?.bindingForLease(lease, shopId, session.user.id, deviceId) ?? null;
+    if (binding) {
+      try {
+        await this.snapshotSync.syncForShop(shopId, binding);
+        const refreshed = await this.snapshotDb.getUsableSnapshotInfo(shopId);
+        if (refreshed?.completedAt && refreshed.completedAt !== finalSettings.lastCompleteSnapshotAt) {
+          const updated = this.settingsStorage.updateSettings(shopId, (current) => ({
+            ...current,
+            lastCompleteSnapshotAt: refreshed.completedAt,
+          }));
+          if (updated) finalSettings = updated;
+        }
+        finalSettings = this.settingsStorage.loadSettings(shopId) ?? finalSettings;
+        finalLease = (await this.leaseDb.loadLease(shopId, deviceId, lease.fiscalYear)) ?? finalLease;
+      } catch {
+        // Keep the enabled state and unpermitted anchored lease.
+      }
+    }
 
-    return { ok: true, settings, lease, reloadRequired: !pack.skipped && pack.reloadRequired };
+    void this.queueSync.syncForShop(finalSettings.shopId, finalSettings.deviceId);
+
+    return { ok: true, settings: finalSettings, lease: finalLease, reloadRequired: !pack.skipped && pack.reloadRequired };
   }
 }

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+using Intelibill.Application.Common.Licensing.Offline;
 using Intelibill.Domain.Enums;
 using Intelibill.Domain.ValueObjects;
 
@@ -148,5 +150,41 @@ public sealed record OfflineSellableServiceDto(
 public sealed record OfflineSalesSnapshotServiceRecord(OfflineSellableServiceDto Service) : IOfflineSalesSnapshotStreamRecord
 {
     public string Type => "service";
+}
+
+/// <summary>
+/// Permit evidence attached to a lease-bound snapshot stream, emitted immediately before the
+/// completion record. Unbound streams never emit this record.
+/// </summary>
+public sealed record OfflineSalesSnapshotLicencePermit(
+    int Version,
+    string Status,
+    Guid LeaseId,
+    Guid GrantId,
+    Guid SnapshotId,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? PermitId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? KeyId = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? SignedPermit = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? NotBefore = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? ValidUntil = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? LimitingReason = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? RefusalCode = null)
+{
+    public static OfflineSalesSnapshotLicencePermit Issued(
+        Guid leaseId, Guid grantId, Guid snapshotId, OfflinePermitEvidence evidence) =>
+        new(OfflinePermitContractV1.Version, "issued", leaseId, grantId, snapshotId,
+            evidence.PermitId, evidence.KeyId, evidence.SignedPermit,
+            evidence.NotBefore, evidence.ValidUntil, evidence.LimitingReason);
+
+    public static OfflineSalesSnapshotLicencePermit Refused(
+        Guid leaseId, Guid grantId, Guid snapshotId, string refusalCode) =>
+        new(OfflinePermitContractV1.Version, "refused", leaseId, grantId, snapshotId,
+            RefusalCode: refusalCode);
+}
+
+public sealed record OfflineSalesSnapshotLicencePermitRecord(OfflineSalesSnapshotLicencePermit LicencePermit)
+    : IOfflineSalesSnapshotStreamRecord
+{
+    public string Type => "licencePermit";
 }
 

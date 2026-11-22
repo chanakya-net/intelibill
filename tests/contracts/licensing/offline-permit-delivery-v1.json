@@ -1,0 +1,47 @@
+{
+  "contract": "offline-permit-delivery/1",
+  "description": "Wire shapes for versioned licence evidence attached to invoice leases and bound offline snapshot streams. Bound to tests/contracts/licensing/offline-permit-v1.json (throwaway fixture key; no live licensing provider or Key Vault).",
+  "query": {
+    "required": [
+      "leaseId",
+      "grantId",
+      "deviceId"
+    ],
+    "optional": [
+      "tillSessionId"
+    ]
+  },
+  "leaseEvidence": {
+    "version": 1,
+    "grantId": "0a6f3c52-7d1e-4b8a-9c55-1f2e3d4c5b6a",
+    "grantSha256": "6eceaedcda11fb4caa3d3bc4a9894ed5ebe33141ea01c3d2beee62c58094ba81",
+    "keyId": "fixture-permit-key-1"
+  },
+  "issuedRecord": {
+    "type": "licencePermit",
+    "licencePermit": {
+      "version": 1,
+      "status": "issued",
+      "leaseId": "fedcba98-7654-4321-8fed-cba987654321",
+      "grantId": "0a6f3c52-7d1e-4b8a-9c55-1f2e3d4c5b6a",
+      "snapshotId": "5a5a5a5a-1111-4222-8333-444444444444",
+      "permitId": "5e1ec7ed-0000-4000-8000-00000000abcd",
+      "keyId": "fixture-permit-key-1",
+      "signedPermit": "eyJhbGciOiJSUzI1NiIsInR5cCI6ImludGVsaWJpbGwtb2ZmbGluZS1wZXJtaXQrdjEiLCJraWQiOiJmaXh0dXJlLXBlcm1pdC1rZXktMSJ9.eyJ2IjoxLCJwZXJtaXRJZCI6IjVlMWVjN2VkLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwYWJjZCIsImdyYW50SWQiOiIwYTZmM2M1Mi03ZDFlLTRiOGEtOWM1NS0xZjJlM2Q0YzViNmEiLCJncmFudFNoYTI1NiI6IjZlY2VhZWRjZGExMWZiNGNhYTNkM2JjNGE5ODk0ZWQ1ZWJlMzMxNDFlYTAxYzNkMmJlZWU2MmM1ODA5NGJhODEiLCJzaG9wSWQiOiIxMTExMTExMS0yMjIyLTQzMzMtODQ0NC01NTU1NTU1NTU1NTUiLCJhY2NvdW50SWQiOiJhYWFhYWFhYS1iYmJiLTRjY2MtOGRkZC1lZWVlZWVlZWVlZWUiLCJ1c2VySWQiOiI5OTk5OTk5OS04ODg4LTQ3NzctODY2Ni01NTU1NTU1NTU1NTUiLCJzZXNzaW9uSWQiOiJhYmNkZWZhYi1jZGVmLTRhYmMtOGRlZi1hYmNkZWZhYmNkZWYiLCJkZXZpY2VJZCI6ImNvdW50ZXItMSIsImxlYXNlSWQiOiJmZWRjYmE5OC03NjU0LTQzMjEtOGZlZC1jYmE5ODc2NTQzMjEiLCJzbmFwc2hvdElkIjoiNWE1YTVhNWEtMTExMS00MjIyLTgzMzMtNDQ0NDQ0NDQ0NDQ0IiwiYWNjb3VudFJldmlzaW9uIjo3LCJzaG9wUmV2aXNpb24iOjEyLCJjdXJyZW50QWNjb3VudFJldmlzaW9uIjo4LCJjdXJyZW50U2hvcFJldmlzaW9uIjoxMywiYXV0aG9yaXR5VmVyaWZpZWRBdCI6IjIwMjYtMTEtMjBUMTI6MDA6MDAuMDAwMDAwWiIsImRldmljZVZlcmlmaWVkQXQiOiIyMDI2LTExLTIyVDExOjU5OjAwLjAwMDAwMFoiLCJzbmFwc2hvdENvbXBsZXRlZEF0IjoiMjAyNi0xMS0yMlQxMTo1OTozMC4xMjM0NTZaIiwiaXNzdWVkQXQiOiIyMDI2LTExLTIyVDExOjU5OjMwLjEyMzQ1NloiLCJub3RCZWZvcmUiOiIyMDI2LTExLTIyVDExOjU5OjMwLjEyMzQ1NloiLCJ2YWxpZFVudGlsIjoiMjAyNi0xMS0yMlQxMjowMDowMC4wMDAwMDBaIiwibGltaXRpbmdSZWFzb24iOiJBdXRob3JpdHlGcmVzaG5lc3MiLCJ0aWxsU2Vzc2lvbklkIjpudWxsfQ.GxqsPTgJYwrd0mUOyQAB-8dah4n9Zf1WLJ57Y48yuOUjGkpEWFJVb_22faMWjscMTR20XFtJIQE8g2y3CCY4HZAFVkiqqn-xhKuWy5cSFwKPMb5PhMCQ7P3pre9YoasX3iZ89MqjkrmCTnHpKWY7ZX-EVpxZ5-T4NGLCuV-2lpUxV_mvx095oaoRWMrvfENz_Th5I73cA4Fk5LVHCTrLqZFopP0Ar8mLT74S6vS_3rjlENr-mQZVU6gtPL4tp2A-zfRiK8KXU0tXeLywXwcXzo9tTPjw6cNZPvkh6tnVk60mUjx_Bh1Tm8X7DEYezLnUjz15LxPlUxN_-Euf8wVUIA",
+      "notBefore": "2026-11-22T11:59:30.123456Z",
+      "validUntil": "2026-11-22T12:00:00.000000Z",
+      "limitingReason": "AuthorityFreshness"
+    }
+  },
+  "refusedRecord": {
+    "type": "licencePermit",
+    "licencePermit": {
+      "version": 1,
+      "status": "refused",
+      "leaseId": "fedcba98-7654-4321-8fed-cba987654321",
+      "grantId": "0a6f3c52-7d1e-4b8a-9c55-1f2e3d4c5b6a",
+      "snapshotId": "5a5a5a5a-1111-4222-8333-444444444444",
+      "refusalCode": "OfflinePermit.GrantNotFound"
+    }
+  }
+}

@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Licensing.Offline;
 using ErrorOr;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Sales.DTOs;
@@ -20,7 +21,8 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
     IInvoiceNumberAllocator invoiceNumberAllocator,
     IUnitOfWork unitOfWork,
     TimeProvider timeProvider,
-    IShopLicenceFence licenceFence)
+    IShopLicenceFence licenceFence,
+    IOfflineLicencePermitIssuer permitIssuer)
 {
     [LicenceAction(LicenceAction.NewTrading)]
     public async Task<ErrorOr<InvoiceLeaseDto>> HandleAsync(ReserveInvoiceLeaseCommand command, CancellationToken cancellationToken)
@@ -52,7 +54,7 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
         if (profileOrError.IsError)
             return profileOrError.Errors;
 
-        var reservedAt = timeProvider.GetUtcNow();
+        var reservedAt = OfflinePermitContractV1.Instant(timeProvider.GetUtcNow());
         var fiscalYear = FiscalYear.ForDate(reservedAt);
 
         // A lease never straddles two fiscal years: its numbers carry this year's series, so it stops
@@ -64,6 +66,7 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
         var series = new InvoiceSeriesKey(shop.Id, shop.SellerRegistrationKey, profile.SeriesCode, fiscalYear);
 
         InvoiceLease lease;
+        InvoiceLeaseLicenceEvidenceDto? licenceEvidence = null;
         await unitOfWork.BeginTransactionAsync(cancellationToken);
         var committed = false;
         try
@@ -91,6 +94,24 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
                 profile);
 
             await invoiceLeaseRepository.AddAsync(lease, cancellationToken);
+            if (command.Session is not null)
+            {
+                var capture = await permitIssuer.CaptureGrantAsync(command.Session, lease, cancellationToken);
+                if (capture.IsError)
+                {
+                    if (await ClassifyCaptureErrorAsync(shop.Id, capture.FirstError, cancellationToken) is { } refusal)
+                        return refusal;
+                }
+                else
+                {
+                    licenceEvidence = new InvoiceLeaseLicenceEvidenceDto(
+                        OfflinePermitContractV1.Version,
+                        capture.Value.GrantId,
+                        OfflinePermitContractV1.Digest(capture.Value.SignedGrant),
+                        capture.Value.KeyId);
+                }
+            }
+
             await unitOfWork.SaveChangesAsync(cancellationToken);
             await unitOfWork.CommitTransactionAsync(cancellationToken);
             committed = true;
@@ -114,6 +135,24 @@ public sealed class ReserveInvoiceLeaseCommandHandler(
             lease.RemainingCount,
             lease.ReservedAt,
             lease.ExpiresAt,
-            lease.SellerProfile);
+            lease.SellerProfile,
+            licenceEvidence);
+    }
+
+    /// <summary>
+    /// Applies the P05-01 legacy-fallback contract: null lets the unanchored lease commit with no
+    /// licence evidence; a non-null error rolls the reservation back.
+    /// </summary>
+    private async Task<Error?> ClassifyCaptureErrorAsync(Guid shopId, Error error, CancellationToken cancellationToken)
+    {
+        if (error.Code == Errors.OfflinePermit.SigningUnavailable.Code ||
+            error.Code == Errors.OfflinePermit.AuthorityUnavailable.Code)
+            return null;
+
+        if (error.Code.StartsWith("Licence.", StringComparison.Ordinal) &&
+            error.Code != Errors.Licence.BusyCode)
+            return await licenceFence.ReadTradingDenialAsync(shopId, cancellationToken);
+
+        return error;
     }
 }

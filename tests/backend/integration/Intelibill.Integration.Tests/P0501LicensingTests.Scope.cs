@@ -22,9 +22,10 @@ public sealed partial class P0501LicensingTests
         using var client = CreateClient(host);
         using var otherClient = CreateClient(host);
         var other = await OpenShopAsync(otherClient, verified, verified.AddDays(30));
-        var actor = await OpenShopAsync(client, verified, verified.AddDays(30));
+        var actor = await OpenShopAsync(client, verified, verified.AddDays(30), licensed: false);
         using var legacy = await client.PostAsJsonAsync("/api/sales/invoice-leases/reserve", new { deviceId = Device, blockSize = 25 }, Ct);
         var legacyLease = (await ReadSuccessAsync(legacy)).GetProperty("leaseId").GetGuid();
+        actor = await LicenseAsync(actor, verified, verified.AddDays(30));
 
         _clock.Now = verified.AddHours(1);
         var (lease, captured) = await ReserveAsync(host, actor);
