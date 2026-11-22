@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Hosting;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
-internal sealed class P0213Traffic : IStartupFilter
+internal sealed class P0213Traffic(bool countAll = false) : IStartupFilter
 {
     private int _count;
     internal int Count => Volatile.Read(ref _count);
@@ -18,7 +18,7 @@ internal sealed class P0213Traffic : IStartupFilter
     {
         app.Use((context, pipeline) =>
         {
-            if (context.Request.Path == EntitlementSnapshotsV1.SnapshotPath ||
+            if (countAll || context.Request.Path == EntitlementSnapshotsV1.SnapshotPath ||
                 context.Request.Path == EntitlementSnapshotsV1.AcknowledgementPath ||
                 context.Request.Path == EntitlementSnapshotsV1.ReconciliationPath)
                 Interlocked.Increment(ref _count);
@@ -41,6 +41,7 @@ internal sealed class P0213Transport : IDisposable
 
     internal P0201Clock LeaseClock { get; } = new() { Now = P0202Fixture.WholeSecondNow().AddMinutes(1) };
     internal Action<HttpRequestMessage>? BeforeSend { get; set; }
+    internal Func<HttpRequestMessage, CancellationToken, Task>? BeforeDispatch { get; set; }
     internal Func<HttpRequestMessage, HttpResponseMessage, CancellationToken, Task>? AfterCommit { get; set; }
 
     internal void AddSettings(Dictionary<string, string?> settings, bool licensing)
@@ -76,6 +77,8 @@ internal sealed class P0213Transport : IDisposable
             Assert.NotNull(next);
             request.RequestUri = new Uri(origin!, request.RequestUri!.PathAndQuery);
             fixture.BeforeSend?.Invoke(request);
+            if (fixture.BeforeDispatch is { } dispatch)
+                await dispatch(request, cancellationToken);
             var response = await next.SendAsync(request, cancellationToken);
             try
             {

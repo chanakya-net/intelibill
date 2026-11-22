@@ -62,6 +62,18 @@ export const appConfig: ApplicationConfig = {
           .then((m) => m.ManualPaymentPageComponent),
       },
       {
+        path: 'restrictions/reopening',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/restrictions/reopening-review.component')
+          .then((m) => m.ReopeningReviewComponent),
+      },
+      {
+        path: 'restrictions',
+        canActivate: [requireAdminSession],
+        loadComponent: () => import('./features/restrictions/suspension-page.component')
+          .then((m) => m.SuspensionPageComponent),
+      },
+      {
         path: 'accounts',
         canActivate: [requireAdminSession],
         loadComponent: () => import('./features/accounts/account-status-page.component')

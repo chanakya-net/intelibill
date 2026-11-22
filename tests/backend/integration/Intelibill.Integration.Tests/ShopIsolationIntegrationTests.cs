@@ -1,20 +1,14 @@
-using System.IdentityModel.Tokens.Jwt;
-using ErrorOr;
-using FluentValidation;
-using FluentValidation.Results;
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using Intelibill.Infrastructure.Data;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Interfaces;
-using Intelibill.Application.Features.Shops.Commands.UpdateShop;
 using Intelibill.Application.Features.Shops.Queries.GetMyShops;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
-using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using Intelibill.Infrastructure;
-using Intelibill.Infrastructure.Options;
-using Intelibill.Infrastructure.Services.Auth;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Intelibill.Integration.Tests;
 
@@ -85,88 +79,71 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
     [Fact]
     public async Task UpdateShop_WhenOwner_UpdatesDetailsAndPersists()
     {
-        var user = User.CreateWithEmail("owner@test.com", "hash", "First", "Last");
-        var shop = CreateTestShop("Old Shop");
-        var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true);
-        shop.AddMembership(membership);
-        user.AddShopMembership(membership);
-
-        var userRepository = new InMemoryUserRepository(user);
-        var shopRepository = new InMemoryShopRepository(shop);
-        var bankAccountRepository = new InMemoryBankAccountRepository();
-        var unitOfWork = new InMemoryUnitOfWork();
-
-        var handler = new UpdateShopCommandHandler(
-            userRepository,
-            shopRepository,
-            bankAccountRepository,
-            new NoOpTenantWriteScope(),
-            unitOfWork);
-
-        var result = await handler.HandleAsync(
-            new UpdateShopCommand(
-                user.Id,
-                shop.Id,
-                "  Main Shop  ",
-                "  42 MG Road  ",
-                "  Bengaluru  ",
-                "  Karnataka  ",
-                "  560001  ",
-                "  Chandra  ",
-                "  9876543210  ",
-                "  27AAPFU0939F1ZV  "),
-            CancellationToken.None);
-
-        Assert.False(result.IsError);
-        Assert.Equal("Main Shop", shop.Name);
-        Assert.Equal("42 MG Road", shop.Address);
-        Assert.Equal("Bengaluru", shop.City);
-        Assert.Equal("Karnataka", shop.State);
-        Assert.Equal("560001", shop.Pincode);
-        Assert.Equal("Chandra", shop.ContactPerson);
-        Assert.Equal("9876543210", shop.MobileNumber);
-        Assert.Equal("27AAPFU0939F1ZV", shop.GstNumber);
-        Assert.True(unitOfWork.SaveChangesCalled);
+        using var client = CreateClient();
+        var shopId = await EnrollAndCreateShopAsync(client, $"owner-{Guid.NewGuid():N}@fixture.test");
+        using var response = await client.PutAsJsonAsync($"/api/shops/{shopId}", UpdateProfile);
+        response.EnsureSuccessStatusCode();
+        await using var db = Database();
+        var shop = await db.Shops.SingleAsync(x => x.Id == shopId);
+        Assert.Equal(("Main Shop", "42 MG Road", "Bengaluru", "Karnataka", "560001"),
+            (shop.Name, shop.Address, shop.City, shop.State, shop.Pincode));
+        Assert.Equal(("Chandra", "9876543210", "27AAPFU0939F1ZV"), (shop.ContactPerson, shop.MobileNumber, shop.GstNumber));
     }
 
     [Fact]
     public async Task UpdateShop_WhenUserIsNotOwner_ReturnsForbiddenError()
     {
-        var user = User.CreateWithEmail("manager@test.com", "hash", "First", "Last");
-        var shop = CreateTestShop("Main");
-        var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Manager, true);
-        shop.AddMembership(membership);
-        user.AddShopMembership(membership);
+        using var client = CreateClient();
+        var email = $"manager-{Guid.NewGuid():N}@fixture.test";
+        var shopId = await EnrollAndCreateShopAsync(client, email);
+        await using var db = Database();
+        var membership = await db.ShopMemberships.SingleAsync(x => x.ShopId == shopId);
+        membership.ChangeAuthority(ShopRole.Manager, MembershipStatus.Active);
+        await db.SaveChangesAsync();
+        using var login = await client.PostAsJsonAsync("/api/auth/login", new { identifier = email, password = "Pass123!Aa" });
+        Authenticate(client, await ReadAsync(login));
 
-        var userRepository = new InMemoryUserRepository(user);
-        var shopRepository = new InMemoryShopRepository();
-        var bankAccountRepository = new InMemoryBankAccountRepository();
-        var unitOfWork = new InMemoryUnitOfWork();
-
-        var handler = new UpdateShopCommandHandler(
-            userRepository,
-            shopRepository,
-            bankAccountRepository,
-            new NoOpTenantWriteScope(),
-            unitOfWork);
-
-        var result = await handler.HandleAsync(
-            new UpdateShopCommand(
-                user.Id,
-                shop.Id,
-                "Main Shop",
-                "Address",
-                "City",
-                "State",
-                "560001",
-                null,
-                null,
-                null),
-            CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Contains(result.Errors, e => e.Code == Errors.Shop.UserIsNotOwner.Code);
+        using var response = await client.PutAsJsonAsync($"/api/shops/{shopId}", UpdateProfile);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("Shop.UserIsNotOwner", problem.GetProperty("title").GetString());
+        Assert.Equal("Old Shop", await db.Shops.Where(x => x.Id == shopId).Select(x => x.Name).SingleAsync());
     }
+
+    private HttpClient CreateClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions
+        { BaseAddress = new Uri("https://localhost") });
+
+    private ApplicationDbContext Database() => new(new DbContextOptionsBuilder<ApplicationDbContext>()
+        .UseNpgsql(fixture.MigratorConnectionString).UseSnakeCaseNamingConvention().Options);
+
+    private static async Task<Guid> EnrollAndCreateShopAsync(HttpClient client, string email)
+    {
+        using var enrolled = await client.EnrollAsync(new
+        {
+            email, password = "Pass123!Aa", firstName = "Fixture", lastName = "Owner",
+        });
+        Authenticate(client, await ReadAsync(enrolled));
+        using var created = await client.PostAsJsonAsync("/api/shops", new
+            { name = "Old Shop", address = "Old Road", city = "City", state = "State", pincode = "560002" });
+        var result = await ReadAsync(created);
+        Authenticate(client, result);
+        return result.GetProperty("activeShopId").GetGuid();
+    }
+
+    private static object UpdateProfile => new
+    {
+        name = "  Main Shop  ", address = "  42 MG Road  ", city = "  Bengaluru  ", state = "  Karnataka  ",
+        pincode = "  560001  ", contactPerson = "  Chandra  ", mobileNumber = "  9876543210  ", gstNumber = "  27AAPFU0939F1ZV  ",
+    };
+
+    private static async Task<JsonElement> ReadAsync(HttpResponseMessage response)
+    {
+        Assert.True(response.IsSuccessStatusCode, await response.Content.ReadAsStringAsync());
+        return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private static void Authenticate(HttpClient client, JsonElement response) =>
+        client.DefaultRequestHeaders.Authorization = new("Bearer", response.GetProperty("accessToken").GetString());
 
     private sealed class InMemoryUserRepository(User? user) : IUserRepository
     {
@@ -185,129 +162,4 @@ public sealed class ShopIsolationIntegrationTests(PostgreSqlTestFixture fixture)
         public void Remove(User entity) { }
     }
 
-    private sealed class InMemoryShopRepository : IShopRepository
-    {
-        private readonly Shop? _existingShop;
-
-        public InMemoryShopRepository(Shop? existingShop = null)
-        {
-            _existingShop = existingShop;
-        }
-
-        public List<Shop> AddedShops { get; } = [];
-
-        public Task<Shop?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-            => Task.FromResult(_existingShop?.Id == id ? _existingShop : null);
-
-        public Task<IReadOnlyList<ShopMembership>> GetMembershipsForUserAsync(Guid userId, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<ShopMembership>>([]);
-
-        public Task<ShopMembership?> GetMembershipAsync(Guid userId, Guid shopId, CancellationToken cancellationToken = default)
-            => Task.FromResult<ShopMembership?>(null);
-
-        public Task<ShopMembership?> GetDefaultMembershipAsync(Guid userId, CancellationToken cancellationToken = default)
-            => Task.FromResult<ShopMembership?>(null);
-
-        public Task<ShopMembership?> GetMostRecentlyUsedMembershipAsync(Guid userId, CancellationToken cancellationToken = default)
-            => Task.FromResult<ShopMembership?>(null);
-
-        public Task<ShopRole?> GetActiveRoleAsync(Guid userId, Guid shopId, CancellationToken cancellationToken = default)
-            => Task.FromResult<ShopRole?>(null);
-
-        public Task<bool> UserHasMembershipAsync(Guid userId, Guid shopId, CancellationToken cancellationToken = default)
-            => Task.FromResult(false);
-
-        public Task ClearDefaultForUserAsync(Guid userId, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-
-        public Task<Shop?> GetByIdWithMembersAsync(Guid shopId, CancellationToken cancellationToken = default)
-            => Task.FromResult<Shop?>(null);
-
-        public Task<IReadOnlyList<ShopMembership>> GetMembershipsForUsersInShopsAsync(IReadOnlyList<Guid> userIds, IReadOnlyList<Guid> shopIds, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<ShopMembership>>([]);
-
-        public Task AddMembershipAsync(ShopMembership membership, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-
-        public void RemoveMembership(ShopMembership membership) { }
-
-        public Task<IReadOnlyList<Shop>> GetAllAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<Shop>>([]);
-
-        public Task<IReadOnlyList<Shop>> FindAsync(System.Linq.Expressions.Expression<Func<Shop, bool>> predicate, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<Shop>>([]);
-
-        public Task AddAsync(Shop entity, CancellationToken cancellationToken = default)
-        {
-            AddedShops.Add(entity);
-            return Task.CompletedTask;
-        }
-
-        public void Update(Shop entity) { }
-        public void Remove(Shop entity) { }
-    }
-
-    private sealed class InMemorySupplierRepository : ISupplierRepository
-    {
-        public Task<Intelibill.Domain.ReadModels.PartyDirectoryPage<Supplier>> GetDirectoryAsync(Guid shopId, Intelibill.Domain.ReadModels.PartyDirectoryQuery query, bool includeSystem, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<Intelibill.Domain.ReadModels.SupplierDirectorySummary> GetDirectorySummaryAsync(Guid shopId, bool includeSystem, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-
-        public List<Supplier> AddedSuppliers { get; } = [];
-        public Task<IReadOnlyList<Supplier>> GetByShopIdAsync(Guid shopId, bool includeSystem, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Supplier>>([]);
-        public Task<Supplier?> GetSystemByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default) => Task.FromResult<Supplier?>(null);
-        public Task<Supplier?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Supplier?>(null);
-        public Task<IReadOnlyList<Supplier>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Supplier>>([]);
-        public Task<IReadOnlyList<Supplier>> FindAsync(System.Linq.Expressions.Expression<Func<Supplier, bool>> predicate, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Supplier>>([]);
-        public Task AddAsync(Supplier entity, CancellationToken cancellationToken = default) { AddedSuppliers.Add(entity); return Task.CompletedTask; }
-        public void Update(Supplier entity) { }
-        public void Remove(Supplier entity) { }
-    }
-
-    private sealed class InMemoryBankAccountRepository : IBankAccountRepository
-    {
-        public Task<IReadOnlyList<BankAccount>> GetByShopIdAsync(Guid shopId, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<BankAccount>>([]);
-
-        public Task<BankAccount?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
-            => Task.FromResult<BankAccount?>(null);
-
-        public Task<IReadOnlyList<BankAccount>> GetAllAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<BankAccount>>([]);
-
-        public Task<IReadOnlyList<BankAccount>> FindAsync(System.Linq.Expressions.Expression<Func<BankAccount, bool>> predicate, CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<BankAccount>>([]);
-
-        public Task AddAsync(BankAccount entity, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-
-        public void Update(BankAccount entity) { }
-        public void Remove(BankAccount entity) { }
-    }
-
-    /// <summary>
-    /// These tests substitute in-memory repositories, so there is no database
-    /// session to narrow; the handler's contract with the scope is covered
-    /// against a real database in <see cref="TenantWriteScopeTests"/>.
-    /// </summary>
-    private sealed class NoOpTenantWriteScope : ITenantWriteScope
-    {
-        public Task EnterAsync(Guid shopId, CancellationToken cancellationToken = default) => Task.CompletedTask;
-    }
-
-    private sealed class InMemoryUnitOfWork : IUnitOfWork
-    {
-        public bool SaveChangesCalled { get; private set; }
-
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-        {
-            SaveChangesCalled = true;
-            return Task.FromResult(1);
-        }
-
-        public void ClearChanges() { }
-
-        public Task BeginTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task CommitTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-        public Task RollbackTransactionAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
-    }
 }

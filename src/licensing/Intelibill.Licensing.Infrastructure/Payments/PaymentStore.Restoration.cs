@@ -8,12 +8,22 @@ internal sealed partial class PaymentStore
 {
     public async Task<PaymentRestorationEvidence> ReadRestorationEvidenceAsync(Guid account, DateTimeOffset at, CancellationToken ct)
     {
-        var rows = await db.Database.SqlQuery<AccountRestrictionSnapshotV1>($"""
-            SELECT revision, upstream_verified_at, restriction, released_revision
-            FROM public.entitlement_account_heads WHERE account_id = {account} FOR UPDATE
+        var rows = await db.Database.SqlQuery<RestorationHeadRow>($"""
+            SELECT h.revision, h.upstream_verified_at, h.restriction, h.released_revision,
+                r.effective_at, r.customer_explanation
+            FROM public.entitlement_account_heads h
+            LEFT JOIN public.active_operational_restrictions r ON r.account_id = h.account_id AND r.shop_id IS NULL
+                AND r.mode = h.restriction
+            WHERE h.account_id = {account} FOR UPDATE OF h
             """).ToListAsync(ct);
-        return new(at, rows.SingleOrDefault(), transport.HasPublicationRoute());
+        var head = rows.SingleOrDefault();
+        return new(at, head is null ? null : new AccountRestrictionSnapshotV1(head.Revision, head.UpstreamVerifiedAt,
+            head.Restriction, head.ReleasedRevision, head.EffectiveAt is { } effectiveAt
+                ? new(head.Restriction, effectiveAt, head.CustomerExplanation!) : null), transport.HasPublicationRoute());
     }
+
+    private sealed record RestorationHeadRow(long Revision, DateTimeOffset UpstreamVerifiedAt, string Restriction, long? ReleasedRevision,
+        DateTimeOffset? EffectiveAt, string? CustomerExplanation);
 
     public Task<PaymentRestorationHold?> FindRestorationHoldAsync(Guid account, Guid order, CancellationToken ct) =>
         db.Database.SqlQuery<PaymentRestorationHold>($"""

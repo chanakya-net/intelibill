@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Domain.ReadModels;
 using Intelibill.Application.Features.Customers.Queries.GetCustomer;
 using Intelibill.Application.Features.Customers.Queries.GetCustomerDirectory;
@@ -29,6 +31,7 @@ public sealed class CustomersController : AuthenticatedControllerBase
     }
 
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetCustomers(CancellationToken cancellationToken)
     {
         var shop = CheckShop();
@@ -42,6 +45,7 @@ public sealed class CustomersController : AuthenticatedControllerBase
     }
 
     [HttpGet("directory")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetDirectory([FromQuery] string? search, [FromQuery] string status = "all",
         [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20,
         CancellationToken cancellationToken = default)
@@ -54,6 +58,7 @@ public sealed class CustomersController : AuthenticatedControllerBase
     }
 
     [HttpGet("{customerId:guid}")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetById(Guid customerId, CancellationToken cancellationToken)
     {
         var auth = CheckShop();
@@ -64,14 +69,19 @@ public sealed class CustomersController : AuthenticatedControllerBase
     }
 
     [HttpPost]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource(CheckRecovery = true)]
     public async Task<IActionResult> AddCustomer([FromBody] AddCustomerRequest request, CancellationToken cancellationToken)
     {
         var shop = CheckShop();
         if (shop is not null) return shop;
 
+        var session = SessionClaims.TryRead(User);
+        if (session is null) return Unauthorized();
+
         var result = await Bus.InvokeAsync<ErrorOr<CustomerDto>>(
             new AddCustomerCommand(
-                ActiveShopId!.Value,
+                session,
                 request.Name,
                 request.PhoneNumber,
                 request.Address,
@@ -80,14 +90,14 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.Gstin,
                 request.StateCode,
                 request.CreditPolicyMode,
-                request.CreditTermsDays,
-                UserId),
+                request.CreditTermsDays),
             cancellationToken);
 
         return result.ToActionResult(customer => CreatedAtAction(nameof(GetCustomers), customer));
     }
 
     [HttpPut("{customerId:guid}")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> EditCustomer(Guid customerId, [FromBody] EditCustomerRequest request, CancellationToken cancellationToken)
     {
         var shop = CheckShop();
@@ -102,6 +112,7 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.Address,
                 request.IsActive,
                 request.CreditLimit,
+                SessionClaims.TryRead(User),
                 request.Gstin,
                 request.StateCode,
                 request.CreditPolicyMode,
@@ -114,6 +125,7 @@ public sealed class CustomersController : AuthenticatedControllerBase
 
     [HttpGet("{customerId:guid}/account")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetCustomerAccount(
         Guid customerId,
         [FromQuery] DateOnly? from,
@@ -133,6 +145,7 @@ public sealed class CustomersController : AuthenticatedControllerBase
     /// <summary>The checkout's credit preview for a customer: policy, limit, balance and what is available.</summary>
     [HttpGet("{customerId:guid}/credit")]
     [Authorize(Policy = "OwnerManagerOrStaff")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetCustomerCredit(Guid customerId, CancellationToken cancellationToken)
     {
         var shop = CheckShop();
@@ -147,6 +160,7 @@ public sealed class CustomersController : AuthenticatedControllerBase
 
     [HttpPost("{customerId:guid}/payments")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.DueSettlement)]
     public async Task<IActionResult> RecordPayment(Guid customerId, [FromBody] RecordCustomerPaymentRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();

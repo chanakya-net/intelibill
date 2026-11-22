@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Services.DTOs;
@@ -10,6 +11,7 @@ public sealed class GetServicesQueryHandler(
     IUserRepository userRepository,
     IServiceRepository serviceRepository)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<IReadOnlyList<ServiceDto>>> HandleAsync(GetServicesQuery query, CancellationToken cancellationToken)
     {
         var caller = await userRepository.GetByIdWithDetailsAsync(query.UserId, cancellationToken);

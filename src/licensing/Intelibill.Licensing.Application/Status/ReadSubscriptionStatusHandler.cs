@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Application.Restrictions;
 using ErrorOr;
 using Intelibill.Licensing.Application.AdminIdentities;
 using Intelibill.Licensing.Application.Billing;
@@ -12,7 +13,7 @@ namespace Intelibill.Licensing.Application.Status;
 /// </summary>
 public sealed class ReadSubscriptionStatusHandler(
     IBillingDelegationAccess access, ISubscriptionStatusStore store, ISubscriptionAccessFactsReader reader,
-    TimeProvider clock, IEntitlementSynchronizationReader synchronization)
+    TimeProvider clock, IEntitlementSynchronizationReader synchronization, ISuspensionStore suspensions, IClosureStore closures)
 {
     public Task<ErrorOr<ShopSubscriptionStatusV1>> ReadShopAsync(VerifiedBillingDelegation delegation, Guid shop,
         CancellationToken ct)
@@ -24,14 +25,22 @@ public sealed class ReadSubscriptionStatusHandler(
         {
             var at = SubscriptionStatusProjection.EvaluationInstant(clock);
             await store.UseShopAsync(shop, token);
-            var coverage = await reader.ReadShopAsync(shop, token);
+            var coverage = await reader.ReadShopAsync(shop, token, at);
             if (coverage is null)
                 return SubscriptionStatusProjection.Shop(shop, at, null, commercial: false);
 
             await scope.UseAccountAsync(coverage.AccountId, token);
             var commercial = await store.HoldsCommercialRoleAsync(coverage.AccountId, scope.ActorId, token);
             var sync = await synchronization.ReadAsync(coverage.AccountId, [shop], token);
-            return SubscriptionStatusProjection.Shop(shop, at, coverage, commercial, sync.GetValueOrDefault(shop));
+            var suspension = await suspensions.ReadCustomerAsync(coverage.AccountId, shop, at, token);
+            var closure = await closures.ReadShopClosureStatusAsync(coverage.AccountId, shop, token);
+            return SubscriptionStatusProjection.Shop(shop, at, coverage, commercial, sync.GetValueOrDefault(shop)) with
+            {
+                Suspension = suspension,
+                ClosedAt = closure.ClosedAt,
+                ReopenedAt = closure.ReopenedAt,
+                ReopeningRequiredRevision = closure.ReopeningRevision,
+            };
         }, ct);
     }
 

@@ -18,28 +18,46 @@
     ></button>
   </header>
 
-  <div class="batches-panel">
-    <app-batches-filter-bar [filters]="batchFilters()" (filtersChange)="onFiltersChange($event)" />
-
-    @if (loading()) {
-      <div class="batches-table-loading" role="status" aria-live="polite">
-        {{ 'common.loading' | transloco }}
+  @if (canCorrectReceiptCost()) {
+    @for (draft of pendingCostCorrections(); track draft.targetId) {
+      <div class="batches-panel" data-testid="receipt-cost-recovery">
+        <p role="status">{{ 'inventory.receiptCostPending' | transloco }}
+          @if (costRecoveryBatchNumber(draft); as batchNumber) { <strong>{{ batchNumber }}</strong> }
+        </p>
+        <button pButton type="button"
+          [label]="'inventory.receiptCostCheckOutcome' | transloco"
+          [disabled]="isCostCorrectionSaving()"
+          (click)="onRecoverCostCorrection(draft)"></button>
       </div>
-    } @else if (loadError()) {
-      <div class="batches-error" role="alert">
-        {{ 'inventory.loadBatchesError' | transloco }}
-      </div>
-    } @else {
-      <app-batches-table
-        [batches]="filteredBatches()"
-        [selectedBatchIds]="selectedBatchIds()"
-        [canCorrectReceiptCost]="canCorrectReceiptCost()"
-        (batchClicked)="onBatchTableSelect($event)"
-        (batchAction)="onBatchTableAction($event)"
-        (selectionChange)="onBatchSelectionChange($event)"
-      />
     }
-  </div>
+  }
+
+  @if (costSecurityHidden()) {
+    <p role="alert">{{ 'billing.status.suspension.enforcedSecurity' | transloco }}</p>
+  } @else {
+    <div class="batches-panel">
+      <app-batches-filter-bar [filters]="batchFilters()" (filtersChange)="onFiltersChange($event)" />
+
+      @if (loading()) {
+        <div class="batches-table-loading" role="status" aria-live="polite">
+          {{ 'common.loading' | transloco }}
+        </div>
+      } @else if (loadError()) {
+        <div class="batches-error" role="alert">
+          {{ 'inventory.loadBatchesError' | transloco }}
+        </div>
+      } @else {
+        <app-batches-table
+          [batches]="filteredBatches()"
+          [selectedBatchIds]="selectedBatchIds()"
+          [canCorrectReceiptCost]="canCorrectReceiptCost()"
+          (batchClicked)="onBatchTableSelect($event)"
+          (batchAction)="onBatchTableAction($event)"
+          (selectionChange)="onBatchSelectionChange($event)"
+        />
+      }
+    </div>
+  }
 </section>
 
 <app-barcode-label-print-dialog
@@ -470,6 +488,8 @@
 <p-dialog
   [header]="'inventory.correctReceiptCost' | transloco"
   [(visible)]="isCostCorrectionDialogOpen"
+  [closable]="!isCostCorrectionSaving()"
+  [closeOnEscape]="!isCostCorrectionSaving()"
   [modal]="true"
   styleClass="editor-dialog"
   [style]="{ width: 'min(520px, 96vw)', maxHeight: 'calc(100dvh - 1rem)' }"
@@ -498,7 +518,12 @@
       <span class="editor-dialog-summary__name ib-editor-dialog-summary__name">{{ selectedBatch()?.itemName }}</span>
     </div>
     <section class="editor-dialog-section ib-editor-dialog-section">
-      @if (costCorrectionBlocked()) {
+      @if (costAccessNotice(); as accessNotice) {
+        <p class="text-sm m-0" role="status">{{ accessNotice | transloco }}</p>
+      }
+      @if (selectedCostDraft()) {
+        <p role="status">{{ 'inventory.receiptCostPending' | transloco }}</p>
+      } @else if (costCorrectionBlocked()) {
         <p class="text-sm text-slate-600 m-0" role="alert" data-testid="receipt-cost-unresolved">
           {{ 'inventory.receiptCostUnresolved' | transloco }}
         </p>
@@ -586,7 +611,12 @@
         [disabled]="isCostCorrectionSaving()"
         (click)="isCostCorrectionDialogOpen.set(false)"
       ></button>
-      @if (!costCorrectionBlocked()) {
+      @if (selectedCostDraft(); as draft) {
+        <button pButton type="button"
+          [label]="'inventory.receiptCostCheckOutcome' | transloco"
+          [disabled]="isCostCorrectionSaving()"
+          (click)="onRecoverCostCorrection(draft)"></button>
+      } @else if (!costCorrectionBlocked()) {
         <button
           pButton
           type="submit"

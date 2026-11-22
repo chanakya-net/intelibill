@@ -8,6 +8,8 @@ import { AccessScopeResult, ShopPreferenceResult, UserShop } from '../../../core
 import { AuthService } from '../../../core/auth/auth.service';
 import { ScopeMismatchError } from '../../../core/context/scoped-request';
 
+import type { ShopSetupAccess } from './shop-setup-access';
+
 export interface UpdateShopRequest {
   readonly name: string;
   readonly address: string;
@@ -84,6 +86,7 @@ export interface ShopDetails {
   readonly bankAccountType: string | null;
   readonly ifscCode: string | null;
   readonly accountHolderName: string | null;
+  readonly setupAccess?: ShopSetupAccess | null;
   readonly logoUrl?: string | null;
   readonly members?: readonly ShopMemberDto[] | null;
   /** Absent only from responses that predate tax profiles. */

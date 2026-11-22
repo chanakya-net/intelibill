@@ -17,6 +17,7 @@
       {{ 'tills.refresh' | transloco }}
     </button>
   </header>
+  <app-definition-access-notice />
   <app-till-pending-actions (confirmed)="reload()" />
   @if (context.error()) {
     <p class="notice notice--error" role="alert">{{ 'tills.capabilityUnknown' | transloco }}</p>
@@ -80,7 +81,7 @@
           /></label>
         </div>
         <div class="panel-actions">
-          <button pButton type="button" icon="pi pi-lock-open" (click)="open()" [disabled]="busy()">
+          <button pButton type="button" icon="pi pi-lock-open" (click)="open()" [disabled]="busy() || !!access.blockingMessage()">
             {{ 'tills.open' | transloco }}
           </button>
         </div>
@@ -100,7 +101,7 @@
             ><span>{{ 'tills.handover' | transloco }}</span>
           </p>
           <div class="panel-actions">
-            <button pButton type="button" icon="pi pi-plus" (click)="create()" [disabled]="busy()">
+            <button pButton type="button" icon="pi pi-plus" (click)="create()" [disabled]="busy() || !!access.blockingMessage()">
               {{ 'tills.create' | transloco }}
             </button>
           </div>
@@ -245,7 +246,7 @@
                   [outlined]="true"
                   icon="pi pi-arrow-down-left"
                   (click)="move(1)"
-                  [disabled]="busy()"
+                  [disabled]="busy() || !!access.blockingMessage()"
                 >
                   {{ 'tills.cashIn' | transloco }}</button
                 ><button
@@ -255,7 +256,7 @@
                   [outlined]="true"
                   icon="pi pi-arrow-up-right"
                   (click)="move(-1)"
-                  [disabled]="busy()"
+                  [disabled]="busy() || !!access.blockingMessage()"
                 >
                   {{ 'tills.cashOut' | transloco }}
                 </button>

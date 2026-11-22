@@ -188,6 +188,20 @@ describe('SaleReturnPreviewDialogComponent', () => {
     expect(voidFixture.nativeElement.textContent).not.toContain('Support reference:');
   });
 
+  it('requires a preview for the current sale before posting a return', async () => {
+    const { fixture, component, facade } = await createComponent();
+    component.sale = makeSale();
+    component.visible = true;
+    fixture.detectChanges();
+    component.toggleReturnLine(component.sale.items[0], true);
+
+    component.submitReturn();
+    facade.returnPreview.set({ saleId: 'another-sale', hasFinancialAccess: true, lines: [], financial: null, warnings: [] });
+    component.submitReturn();
+
+    expect(facade.recordSaleReturn).not.toHaveBeenCalled();
+  });
+
   it('allows selecting service line without condition input and sends null condition payload', async () => {
     const { fixture, component, facade } = await createComponent();
     component.sale = makeSale();
@@ -667,6 +681,7 @@ describe('SaleReturnPreviewDialogComponent', () => {
     const item = component.sale!.items[0];
     component.toggleReturnLine(item, true);
     component.updatePayoutDestination(4);
+    facade.returnPreview.set({ saleId: 'sale-1', hasFinancialAccess: true, lines: [], financial: null, warnings: [] });
     component.submitReturn();
 
     const updatedSale = {

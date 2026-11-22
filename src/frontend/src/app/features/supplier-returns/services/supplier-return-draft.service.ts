@@ -6,6 +6,27 @@ import type {
   SupplierReturnDraftRecord,
   SupplierReturnEditableDraft,
 } from './supplier-return.models';
+import { guidIdentity } from './supplier-return-outcome';
+
+function canonicalTarget(targetId: string): string {
+  const separator = targetId.indexOf(':') + 1;
+  return targetId.slice(0, separator) + guidIdentity(targetId.slice(separator));
+}
+
+function selectDraft(records: SupplierReturnDraftRecord[], targetId: string) {
+  const matches = records.filter((record) => canonicalTarget(record.targetId) === targetId);
+  const canonical = matches.find((record) => record.targetId === targetId);
+  // Older clients could leave a pending alias next to an editable canonical draft.
+  return (
+    (canonical?.pending ? canonical : matches.find((record) => record.pending)) ??
+    (canonical?.confirmedOperationKey
+      ? canonical
+      : matches.find((record) => record.confirmedOperationKey)) ??
+    canonical ??
+    matches[0] ??
+    null
+  );
+}
 
 export class SupplierReturnDraftConflictError extends Error {
   constructor() {
@@ -19,7 +40,7 @@ export class SupplierReturnDraftService {
   private readonly store = 'drafts';
   private readonly confirmations = 'confirmations';
   async load(scope: ScopeOwner, targetId: string): Promise<SupplierReturnDraftRecord | null> {
-    return this.transact(scope, targetId, 'readonly', (current) => current);
+    return this.transact(scope, canonicalTarget(targetId), 'readonly', (current) => current, true);
   }
   save(
     scope: ScopeOwner,
@@ -45,39 +66,46 @@ export class SupplierReturnDraftService {
     prepare: boolean,
   ): Promise<SupplierReturnDraftRecord> {
     const snapshot = structuredClone(draft);
-    const record = await this.transact(scope, targetId, 'readwrite', (current) => {
-      if (prepare && current?.pending)
+    const canonical = canonicalTarget(targetId);
+    const record = await this.transact(
+      scope,
+      canonical,
+      'readwrite',
+      (current) => {
+        if (prepare && current?.pending)
+          return {
+            ...current,
+            revision: current.revision + 1,
+            pending: { ...current.pending, status: 'unknown' },
+            updatedAt: new Date().toISOString(),
+          };
+        if (
+          current?.pending ||
+          current?.confirmedOperationKey ||
+          (current?.revision ?? 0) !== revision
+        )
+          throw new SupplierReturnDraftConflictError();
+        const operationKey = prepare ? crypto.randomUUID() : null;
         return {
-          ...current,
-          revision: current.revision + 1,
-          pending: { ...current.pending, status: 'unknown' },
+          schemaVersion: 1,
+          userId: scope.userId,
+          shopId: scope.shopId,
+          targetId: canonical,
+          revision: revision + 1,
+          draft: snapshot,
+          pending: operationKey
+            ? {
+                operationKey,
+                status: 'sending',
+                payload: this.payload(snapshot, operationKey),
+              }
+            : null,
+          confirmedOperationKey: null,
           updatedAt: new Date().toISOString(),
         };
-      if (
-        current?.pending ||
-        current?.confirmedOperationKey ||
-        (current?.revision ?? 0) !== revision
-      )
-        throw new SupplierReturnDraftConflictError();
-      const operationKey = prepare ? crypto.randomUUID() : null;
-      return {
-        schemaVersion: 1,
-        userId: scope.userId,
-        shopId: scope.shopId,
-        targetId: targetId,
-        revision: revision + 1,
-        draft: snapshot,
-        pending: operationKey
-          ? {
-              operationKey,
-              status: 'sending',
-              payload: this.payload(snapshot, operationKey),
-            }
-          : null,
-        confirmedOperationKey: null,
-        updatedAt: new Date().toISOString(),
-      };
-    });
+      },
+      true,
+    );
     return record!;
   }
   /** A reopened retry must establish its uncertainty durably before it may send. The identity
@@ -220,6 +248,7 @@ export class SupplierReturnDraftService {
       current: SupplierReturnDraftRecord | null,
       proofs: IDBObjectStore,
     ) => SupplierReturnDraftRecord | null,
+    includeAliases = false,
   ): Promise<SupplierReturnDraftRecord | null> {
     if (!scope.userId || !scope.shopId || !targetId)
       throw new Error('SupplierReturn owner is incomplete.');
@@ -234,10 +263,16 @@ export class SupplierReturnDraftService {
         tx.oncomplete = () => resolve(result);
         tx.onabort = tx.onerror = () =>
           reject(failure ?? tx.error ?? new Error('SupplierReturn storage transaction failed.'));
-        const request = store.get(key);
+        const request = includeAliases
+          ? store.getAll(
+              IDBKeyRange.bound([scope.userId, scope.shopId], [scope.userId, scope.shopId, []]),
+            )
+          : store.get(key);
         request.onsuccess = () => {
           try {
-            const current = (request.result as SupplierReturnDraftRecord | undefined) ?? null;
+            const current = includeAliases
+              ? selectDraft(request.result as SupplierReturnDraftRecord[], targetId)
+              : ((request.result as SupplierReturnDraftRecord | undefined) ?? null);
             result = update(current, tx.objectStore(this.confirmations));
             if (mode === 'readwrite') {
               const operationKey =
@@ -253,7 +288,8 @@ export class SupplierReturnDraftService {
             }
             if (mode === 'readwrite' && result !== current) {
               if (result) store.put(result);
-              else store.delete(key);
+              if (current && result?.targetId !== current.targetId)
+                store.delete([scope.userId, scope.shopId, current.targetId]);
             }
           } catch (error) {
             failure = error;

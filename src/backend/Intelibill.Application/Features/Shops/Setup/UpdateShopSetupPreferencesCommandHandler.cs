@@ -1,7 +1,7 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using FluentValidation;
 using Intelibill.Domain.Entities;
-using Intelibill.Domain.Enums;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Shops.Setup;
@@ -20,25 +20,27 @@ public sealed class UpdateShopSetupPreferencesCommandValidator : AbstractValidat
 }
 
 public sealed class UpdateShopSetupPreferencesCommandHandler(
-    IMembershipAuthorityRepository authority,
+    ShopSetupAccess access,
     IShopSetupPreferencesRepository repository,
     TimeProvider timeProvider)
 {
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public async Task<ErrorOr<ShopSetupPreferencesDto>> HandleAsync(UpdateShopSetupPreferencesCommand command, CancellationToken ct)
     {
-        if (command.ShopId != command.ActiveShopId)
+        if (command.ShopId != command.ActiveShopId || command.Session?.ActiveShopId != command.ShopId)
             return ShopSetupErrors.Forbidden;
+        var result = await access.WriteAsync<ShopSetupPreferencesDto>(command.Session, command.ActorUserId, command.ShopId,
+            LicenceAction.BasicShopSetup, (_, lease, token) => WriteAsync(command, lease, token), ct);
+        return result.IsError && result.FirstError.Code is "Shop.MembershipNotFound" or "Shop.UserIsNotOwner"
+            ? ShopSetupErrors.OwnerRequired : result;
+    }
 
-        await using var transaction = await authority.BeginAsync(ct);
-        await authority.LockUsersAsync([command.ActorUserId], ct);
-        if (!await authority.LockShopAsync(command.ShopId, ct))
-            return ShopSetupErrors.Forbidden;
-
-        var membership = await authority.LockMembershipAsync(command.ShopId, command.ActorUserId, ct);
-        if (membership is not { IsActive: true, Role: ShopRole.Owner, User.IsLoginEnabled: true })
-            return ShopSetupErrors.OwnerRequired;
-
+    private async Task<ErrorOr<ShopSetupPreferencesDto>> WriteAsync(UpdateShopSetupPreferencesCommand command,
+        ShopLicenceLease lease, CancellationToken ct)
+    {
         var saved = await repository.GetAsync(command.ShopId, ct);
+        if (ShopSetupAccess.Denial(lease.CurrentDecision(), allowSetup: true) is { } denial) return denial;
+
         var preferences = saved ?? ShopSetupPreferences.Create(command.ShopId);
         if (command.ExpectedVersion != preferences.Version)
             return ShopSetupErrors.VersionConflict;
@@ -46,14 +48,8 @@ public sealed class UpdateShopSetupPreferencesCommandHandler(
         var now = timeProvider.GetUtcNow();
         // Keep the first response identical to the timestamp persisted by PostgreSQL.
         now = now.AddTicks(-(now.Ticks % TimeSpan.TicksPerMicrosecond));
-        if (preferences.Change(command.ShowOnStartup, command.AcknowledgeSample, command.ActorUserId, now))
-        {
-            if (saved is null)
-                repository.Add(preferences);
-            if (!await authority.CommitAsync(ct))
-                return ShopSetupErrors.VersionConflict;
-        }
-
-        return ShopSetupPreferencesDto.From(preferences);
+        if (preferences.Change(command.ShowOnStartup, command.AcknowledgeSample, command.ActorUserId, now) && saved is null)
+            repository.Add(preferences);
+        return ShopSetupPreferencesDto.From(preferences, canSave: true);
     }
 }

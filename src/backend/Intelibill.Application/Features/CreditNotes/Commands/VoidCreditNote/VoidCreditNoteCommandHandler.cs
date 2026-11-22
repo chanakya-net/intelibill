@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Normalization;
@@ -11,10 +13,13 @@ public sealed class VoidCreditNoteCommandHandler(
     IUserRepository userRepository,
     IShopRepository shopRepository,
     ICreditNoteRepository creditNoteRepository,
-    IUnitOfWork unitOfWork)
+    IUnitOfWork unitOfWork,
+    IShopLicenceFence licenceFence,
+    ILiveSessionAuthority authority)
 {
     private static readonly VoidCreditNoteCommandValidator Validator = new();
 
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<Success>> HandleAsync(
         VoidCreditNoteCommand command,
         CancellationToken cancellationToken)
@@ -50,12 +55,19 @@ public sealed class VoidCreditNoteCommandHandler(
         var committed = false;
         try
         {
+            var licence = await licenceFence.EnterForSessionAsync(authority, command.Session, command.ActorUserId,
+                command.ActiveShopId, LicenceAction.SourceCorrection, cancellationToken);
+            if (licence.IsError) return licence.Errors;
+            if (licence.Value.CurrentDecision().EnforcedDenial() is { } denial) return denial;
+
             var creditNote = await creditNoteRepository.GetByCodeForUpdateWithRedemptionsAsync(
                 command.ActiveShopId,
                 code,
                 cancellationToken);
             if (creditNote is null)
                 return Errors.CreditNote.CreditNoteNotFound(command.Code);
+
+            if (licence.Value.CurrentDecision().EnforcedDenial() is { } currentDenial) return currentDenial;
 
             var voidResult = creditNote.Void(command.Reason);
             if (voidResult.IsError)

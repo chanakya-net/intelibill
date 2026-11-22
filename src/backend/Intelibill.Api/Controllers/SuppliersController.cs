@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Domain.ReadModels;
 using Intelibill.Application.Features.Suppliers.Queries.GetSupplier;
 using Intelibill.Application.Features.Suppliers.Queries.GetSupplierDirectory;
@@ -30,6 +32,7 @@ public sealed class SuppliersController : AuthenticatedControllerBase
     }
 
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetSuppliers([FromQuery(Name = "include_system")] bool includeSystem = true, CancellationToken cancellationToken = default)
     {
         var auth = CheckAuthAndShop();
@@ -43,6 +46,7 @@ public sealed class SuppliersController : AuthenticatedControllerBase
     }
 
     [HttpGet("{supplierId:guid}/ledger")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetSupplierLedger(Guid supplierId, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -56,6 +60,7 @@ public sealed class SuppliersController : AuthenticatedControllerBase
     }
 
     [HttpGet("directory")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetDirectory([FromQuery] string? search, [FromQuery] string status = "all",
         [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20, [FromQuery(Name = "include_system")] bool includeSystem = true,
         CancellationToken cancellationToken = default)
@@ -68,6 +73,7 @@ public sealed class SuppliersController : AuthenticatedControllerBase
     }
 
     [HttpGet("{supplierId:guid}")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetById(Guid supplierId, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -79,15 +85,19 @@ public sealed class SuppliersController : AuthenticatedControllerBase
 
     [HttpPost]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource(CheckRecovery = true)]
     public async Task<IActionResult> AddSupplier([FromBody] AddSupplierRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
+        var session = SessionClaims.TryRead(User);
+        if (session is null) return Unauthorized();
+
         var result = await Bus.InvokeAsync<ErrorOr<SupplierDto>>(
             new AddSupplierCommand(
-                UserId!.Value,
-                ActiveShopId!.Value,
+                session,
                 request.Name,
                 request.ContactPersonName,
                 request.ContactPersonPhone,
@@ -104,15 +114,18 @@ public sealed class SuppliersController : AuthenticatedControllerBase
 
     [HttpPut("{supplierId:guid}")]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> EditSupplier(Guid supplierId, [FromBody] EditSupplierRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
+        var session = SessionClaims.TryRead(User);
+        if (session is null) return Unauthorized();
+
         var result = await Bus.InvokeAsync<ErrorOr<SupplierDto>>(
             new EditSupplierCommand(
-                UserId!.Value,
-                ActiveShopId!.Value,
+                session,
                 supplierId,
                 request.Name,
                 request.ContactPersonName,
@@ -130,13 +143,14 @@ public sealed class SuppliersController : AuthenticatedControllerBase
 
     [HttpDelete("{supplierId:guid}")]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> DeleteSupplier(Guid supplierId, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<Success>>(
-            new DeleteSupplierCommand(UserId!.Value, ActiveShopId!.Value, supplierId),
+            new DeleteSupplierCommand(UserId!.Value, ActiveShopId!.Value, supplierId, SessionClaims.TryRead(User)),
             cancellationToken);
 
         if (result.IsError)
@@ -147,6 +161,7 @@ public sealed class SuppliersController : AuthenticatedControllerBase
 
     [HttpPost("{supplierId:guid}/payments")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.DueSettlement)]
     public async Task<IActionResult> MakePayment(Guid supplierId, [FromBody] MakePaymentRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();

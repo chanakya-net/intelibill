@@ -20,7 +20,7 @@ public sealed class ExpiryPolicyPersistenceTests(PostgreSqlTestFixture fixture)
         .UseNpgsql(runtime ? fixture.RuntimeConnectionString : fixture.MigratorConnectionString).UseSnakeCaseNamingConvention().Options);
 
     private static ExpiryPolicyService Service(ApplicationDbContext db) => new(new ExpiryPolicyRepository(db), new ShopRepository(db),
-        new ExpiryPolicyFence(db), new UnitOfWork(db), new BusinessClock(TimeProvider.System));
+        new ExpiryPolicyFence(db), new UnitOfWork(db), new BusinessClock(TimeProvider.System), ExpirySettingsFixture.Access(db));
 
     private async Task<(Guid Shop, Guid Owner, Guid Staff, Guid Manager, Guid Item)> SeedAsync()
     {
@@ -47,17 +47,17 @@ public sealed class ExpiryPolicyPersistenceTests(PostgreSqlTestFixture fixture)
         Assert.False(original.IsError);
         Assert.Equal(1, original.Value.CatalogVersion);
         Assert.Equal(ExpiryMode.Ignore, original.Value.EffectivePolicy.Mode);
-        var changed = await service.UpdateAsync(seed.Shop, seed.Owner, null, new(1, new(ExpiryMode.Block, true, true, 7, false), "required date"), default);
+        var changed = await service.UpdateAsync(seed.Shop, seed.Owner, null, new(1, new(ExpiryMode.Block, true, true, 7, false), "required date"), ExpirySettingsFixture.Session(seed.Owner, seed.Shop), default);
         Assert.False(changed.IsError);
-        var overridden = await service.UpdateAsync(seed.Shop, seed.Owner, seed.Item, new(2, new(ExpiryMode.Warn, false, false, 0, true), "item exception"), default);
+        var overridden = await service.UpdateAsync(seed.Shop, seed.Owner, seed.Item, new(2, new(ExpiryMode.Warn, false, false, 0, true), "item exception"), ExpirySettingsFixture.Session(seed.Owner, seed.Shop), default);
         Assert.False(overridden.IsError);
         Assert.Equal(3, overridden.Value.EffectivePolicy.Version);
-        var reset = await service.UpdateAsync(seed.Shop, seed.Owner, seed.Item, new(3, null, "inherit again"), default);
+        var reset = await service.UpdateAsync(seed.Shop, seed.Owner, seed.Item, new(3, null, "inherit again"), ExpirySettingsFixture.Session(seed.Owner, seed.Shop), default);
         Assert.False(reset.IsError);
         Assert.Equal(4, reset.Value.CatalogVersion);
         Assert.Null(reset.Value.OverridePolicy);
         Assert.Equal(2, reset.Value.EffectivePolicy.Version);
-        var stale = await service.UpdateAsync(seed.Shop, seed.Owner, null, new(2, new(ExpiryMode.Ignore, false, true, 7, false), "stale"), default);
+        var stale = await service.UpdateAsync(seed.Shop, seed.Owner, null, new(2, new(ExpiryMode.Ignore, false, true, 7, false), "stale"), ExpirySettingsFixture.Session(seed.Owner, seed.Shop), default);
         Assert.Equal("Expiry.PolicyVersionConflict", stale.FirstError.Code);
         Assert.Equal(4, await db.ExpiryPolicyRevisions.CountAsync(x => x.ShopId == seed.Shop));
         var at = await db.ExpiryPolicyRevisions.Where(x => x.ShopId == seed.Shop && x.CatalogVersion == 2).Select(x => x.EffectiveAt).SingleAsync();
@@ -74,10 +74,10 @@ public sealed class ExpiryPolicyPersistenceTests(PostgreSqlTestFixture fixture)
         await using var db = Db();
         foreach (var actor in new[] { seed.Staff, seed.Manager, other.Owner })
         {
-            var result = await Service(db).UpdateAsync(seed.Shop, actor, null, new(1, new(ExpiryMode.Block, true, true, 7, false), "forbidden"), default);
+            var result = await Service(db).UpdateAsync(seed.Shop, actor, null, new(1, new(ExpiryMode.Block, true, true, 7, false), "forbidden"), ExpirySettingsFixture.Session(actor, seed.Shop), default);
             Assert.Equal("Expiry.OwnerRequired", result.FirstError.Code);
         }
-        var cross = await Service(db).UpdateAsync(seed.Shop, seed.Owner, other.Item, new(1, new(ExpiryMode.Block, true, true, 7, false), "other item"), default);
+        var cross = await Service(db).UpdateAsync(seed.Shop, seed.Owner, other.Item, new(1, new(ExpiryMode.Block, true, true, 7, false), "other item"), ExpirySettingsFixture.Session(seed.Owner, seed.Shop), default);
         Assert.True(cross.IsError);
         Assert.Equal(1, await db.ExpiryPolicyRevisions.CountAsync(x => x.ShopId == seed.Shop));
     }
@@ -126,7 +126,7 @@ public sealed class ExpiryPolicyPersistenceTests(PostgreSqlTestFixture fixture)
         await using var db = Db();
         var baselineAt = await db.ExpiryPolicyRevisions.Where(x => x.ShopId == seed.Shop && x.CatalogVersion == 1).Select(x => x.EffectiveAt).SingleAsync();
         var changed = await Service(db).UpdateAsync(seed.Shop, seed.Owner, null,
-            new(1, new(ExpiryMode.Block, true, true, 7, false), "require dates"), default);
+            new(1, new(ExpiryMode.Block, true, true, 7, false), "require dates"), ExpirySettingsFixture.Session(seed.Owner, seed.Shop), default);
         Assert.False(changed.IsError);
         // Date revisions advance the catalog without creating a default-policy revision.
         await db.Database.ExecuteSqlAsync($"UPDATE shop_expiry_states SET catalog_version = 3 WHERE shop_id = {seed.Shop}");
@@ -270,7 +270,7 @@ public sealed class ExpiryPolicyPersistenceTests(PostgreSqlTestFixture fixture)
         async Task<string> ChangeAsync(string reason)
         {
             await using var db = Db();
-            var result = await Service(db).UpdateAsync(seed.Shop, seed.Owner, null, new(1, new(ExpiryMode.Block, true, true, 7, false), reason), default);
+            var result = await Service(db).UpdateAsync(seed.Shop, seed.Owner, null, new(1, new(ExpiryMode.Block, true, true, 7, false), reason), ExpirySettingsFixture.Session(seed.Owner, seed.Shop), default);
             return result.IsError ? result.FirstError.Code : "ok";
         }
         var outcomes = await Task.WhenAll(ChangeAsync("one"), ChangeAsync("two"));

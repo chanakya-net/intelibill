@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Features.Inventory.DTOs;
 
 namespace Intelibill.Application.Features.Inventory.Services;
@@ -36,5 +37,6 @@ public interface IInboundRowExecutor
         Guid actorUserId,
         InboundRowOperation? operation,
         InboundInventoryLineInput row,
+        SessionClaims? session,
         CancellationToken cancellationToken);
 }

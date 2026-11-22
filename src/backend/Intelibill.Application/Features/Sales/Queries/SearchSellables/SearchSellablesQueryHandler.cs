@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Common.Time;
 using Intelibill.Application.Common.Posting;
@@ -16,6 +17,7 @@ public sealed class SearchSellablesQueryHandler(
     IInventoryBatchRepository inventoryBatchRepository,
     IServiceRepository serviceRepository, SaleExpiryGuard expiryGuard, IBusinessClock clock, IExpiryPolicyFence expiryFence, IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<IReadOnlyList<SellableDto>>> HandleAsync(
         SearchSellablesQuery query,
         CancellationToken cancellationToken)

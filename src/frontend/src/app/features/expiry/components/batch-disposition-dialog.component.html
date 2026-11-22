@@ -12,155 +12,173 @@
     <div class="dialog-header">
       <p class="eyebrow">{{ 'inventory.title' | transloco }}</p>
       <h2 [id]="titleId">{{ 'expiry.historyTitle' | transloco }}</h2>
-      <p class="subtitle">{{ batch.itemName }} · {{ batch.batchNumber }}</p>
+      @if (canSeeDetails()) {
+        <p class="subtitle">{{ batch.itemName }} · {{ batch.batchNumber }}</p>
+      }
     </div>
   </ng-template>
   <div class="disposition-content">
-    <section class="form-section">
-      <div class="stock-summary">
-        <div>
-          <span>{{ 'expiry.physical' | transloco }}</span
-          ><strong>{{ current?.quantity ?? batch.quantity }}</strong>
-        </div>
-        <div>
-          <span>{{ 'expiry.quarantine' | transloco }}</span
-          ><strong>{{ current?.quarantinedQuantity ?? batch.quarantinedQuantity ?? 0 }}</strong>
-        </div>
-        <div>
-          <span>{{ 'expiry.available' | transloco }}</span
-          ><strong>{{ current?.availableQuantity ?? batch.availableQuantity ?? 0 }}</strong>
-        </div>
-      </div>
-      <p class="field-hint">{{ 'expiry.valuationNote' | transloco }}</p>
-    </section>
     @if (message()) {
       <p role="alert" class="feedback-banner">{{ message() | transloco }}</p>
     }
-    @if (!busy() && current && !roots().length && !pending().length && !message()) {
-      <section class="form-section" role="status">
-        <p class="field-hint">{{ 'expiry.noActiveHolds' | transloco }}</p>
-      </section>
+    @if (securityDenial(); as security) {
+      @if (message() !== security) {
+        <p role="alert" class="feedback-banner">{{ security | transloco }}</p>
+      }
     }
-    @for (record of pending(); track record.targetId) {
-      <section class="form-section pending-section">
-        <p>{{ 'expiry.pending' | transloco }}</p>
-        <p>
-          {{ 'expiry.action.' + record.pending!.payload['action'] | transloco }} ·
-          {{ record.pending!.payload['quantity'] }} · {{ record.pending!.payload['reason'] }}
-        </p>
-        @if (policies.role() === 'owner') {
-          <button
-            pButton
-            type="button"
-            icon="pi pi-refresh"
-            [disabled]="busy()"
-            (click)="submit(recoverPayload(record.pending!.payload))"
-          >
-            {{ 'expiry.retryOriginal' | transloco }}
-          </button>
-        }
-      </section>
-    }
-    @if (policies.role() === 'owner' && roots().length > 0 && !pending().length) {
-      <fieldset class="form-section disposition-fields" [disabled]="busy()">
-        <div class="field">
-          <label for="disposition-root">{{ 'expiry.sourceHold' | transloco }}</label>
-          <p-select
-            inputId="disposition-root"
-            [options]="rootOptions()"
-            optionLabel="label"
-            optionValue="value"
-            [ngModel]="selectedRoot"
-            (ngModelChange)="selectRoot($event)"
-            [placeholder]="'expiry.selectHold' | transloco"
-            [ariaLabel]="'expiry.sourceHold' | transloco"
-            [disabled]="busy()"
-            [fluid]="true"
-            appendTo="body"
-          />
+    @if (canSeeDetails()) {
+      <section class="form-section">
+        <div class="stock-summary">
+          <div>
+            <span>{{ 'expiry.physical' | transloco }}</span
+            ><strong>{{ current?.quantity ?? batch.quantity }}</strong>
+          </div>
+          <div>
+            <span>{{ 'expiry.quarantine' | transloco }}</span
+            ><strong>{{ current?.quarantinedQuantity ?? batch.quarantinedQuantity ?? 0 }}</strong>
+          </div>
+          <div>
+            <span>{{ 'expiry.available' | transloco }}</span
+            ><strong>{{ current?.availableQuantity ?? batch.availableQuantity ?? 0 }}</strong>
+          </div>
         </div>
-        <div class="editor-grid">
+        <p class="field-hint">{{ 'expiry.valuationNote' | transloco }}</p>
+      </section>
+      @if (!busy() && current && !roots().length && !pending().length && !message()) {
+        <section class="form-section" role="status">
+          <p class="field-hint">{{ 'expiry.noActiveHolds' | transloco }}</p>
+        </section>
+      }
+      @for (record of pending(); track record.targetId) {
+        <section class="form-section pending-section">
+          <p>{{ 'expiry.pending' | transloco }}</p>
+          <p>
+            {{ 'expiry.action.' + record.pending!.payload['action'] | transloco }} ·
+            {{ record.pending!.payload['quantity'] }} · {{ record.pending!.payload['reason'] }}
+          </p>
+          @if (policies.role() === 'owner') {
+            <button
+              pButton
+              type="button"
+              icon="pi pi-refresh"
+              [disabled]="busy()"
+              (click)="submit(recoverPayload(record.pending!.payload))"
+            >
+              {{ 'expiry.retryOriginal' | transloco }}
+            </button>
+          }
+        </section>
+      }
+      @if (policies.role() === 'owner' && roots().length > 0 && !pending().length) {
+        <fieldset class="form-section disposition-fields" [disabled]="busy()">
           <div class="field">
-            <label for="disposition-action">{{ 'expiry.actionLabel' | transloco }}</label>
+            <label for="disposition-root">{{ 'expiry.sourceHold' | transloco }}</label>
             <p-select
-              inputId="disposition-action"
-              [options]="[
-                { label: ('expiry.action.Dispose' | transloco), value: 'Dispose', disabled: false },
-                {
-                  label: ('expiry.action.Release' | transloco),
-                  value: 'Release',
-                  disabled: !canRelease(),
-                },
-              ]"
+              inputId="disposition-root"
+              [options]="rootOptions()"
               optionLabel="label"
               optionValue="value"
-              optionDisabled="disabled"
-              [(ngModel)]="action"
-              [ariaLabel]="'expiry.actionLabel' | transloco"
+              [ngModel]="selectedRoot"
+              (ngModelChange)="selectRoot($event)"
+              [placeholder]="'expiry.selectHold' | transloco"
+              [ariaLabel]="'expiry.sourceHold' | transloco"
               [disabled]="busy()"
               [fluid]="true"
               appendTo="body"
             />
           </div>
-          <div class="field">
-            <label for="disposition-quantity">{{ 'expiry.quantity' | transloco }}</label>
-            <app-quantity-field
-              inputId="disposition-quantity"
-              [value]="quantity"
-              [scale]="current?.quantityScale ?? 0"
-              [ariaLabel]="'expiry.quantity' | transloco"
-              [disabled]="busy()"
-              (committed)="quantity = $event"
-            />
+          <div class="editor-grid">
+            <div class="field">
+              <label for="disposition-action">{{ 'expiry.actionLabel' | transloco }}</label>
+              <p-select
+                inputId="disposition-action"
+                [options]="[
+                  {
+                    label: ('expiry.action.Dispose' | transloco),
+                    value: 'Dispose',
+                    disabled: !canDispose(),
+                  },
+                  {
+                    label: ('expiry.action.Release' | transloco),
+                    value: 'Release',
+                    disabled: !canRelease(),
+                  },
+                ]"
+                optionLabel="label"
+                optionValue="value"
+                optionDisabled="disabled"
+                [(ngModel)]="action"
+                [ariaLabel]="'expiry.actionLabel' | transloco"
+                [disabled]="busy()"
+                [fluid]="true"
+                appendTo="body"
+              />
+            </div>
+            <div class="field">
+              <label for="disposition-quantity">{{ 'expiry.quantity' | transloco }}</label>
+              <app-quantity-field
+                inputId="disposition-quantity"
+                [value]="quantity"
+                [scale]="current?.quantityScale ?? 0"
+                [ariaLabel]="'expiry.quantity' | transloco"
+                [disabled]="busy()"
+                (committed)="quantity = $event"
+              />
+            </div>
           </div>
-        </div>
-        <p class="field-hint">{{ 'expiry.releaseRule' | transloco }}</p>
-        <div class="field">
-          <label for="disposition-reason">{{ 'expiry.auditReason' | transloco }}</label>
-          <textarea
-            pTextarea
-            id="disposition-reason"
-            maxlength="500"
-            rows="3"
-            [(ngModel)]="reason"
-          ></textarea>
-        </div>
-      </fieldset>
-    }
-    @if (history().length) {
-      <section class="form-section history-section">
-        <h3 class="section-label">{{ 'expiry.historyTitle' | transloco }}</h3>
-        <ol class="history-list">
-          @for (event of history(); track event.id) {
-            <li>
-              <strong
-                >{{ 'expiry.action.' + event.action | transloco }} · {{ event.quantity }}</strong
-              >
-              <p>
-                {{ event.businessDate }} · {{ 'expiry.source.' + event.sourceKind | transloco }} ·
-                {{ event.expiryDate || ('expiry.undated' | transloco) }}
-              </p>
-              <p>
-                {{
-                  event.action === 'Quarantine'
-                    ? ((event.reasonCode === 'Expiry.RequiredDateMissing'
-                        ? 'expiry.status.required'
-                        : 'expiry.status.expired'
-                      ) | transloco)
-                    : event.reason
-                }}
-              </p>
-              <details>
-                <summary>{{ 'expiry.auditDetails' | transloco }}</summary>
-                <p>
-                  {{ event.id }} · {{ event.sourceId }} · {{ event.actorUserId }} ·
-                  {{ event.recordedAt }}
-                </p>
-              </details>
-            </li>
+          <p class="field-hint">{{ 'expiry.releaseRule' | transloco }}</p>
+          @if (releaseDenial(); as denial) {
+            @if (denial !== message()) {
+              <p class="field-hint" role="status">{{ denial | transloco }}</p>
+            }
           }
-        </ol>
-      </section>
+          <div class="field">
+            <label for="disposition-reason">{{ 'expiry.auditReason' | transloco }}</label>
+            <textarea
+              pTextarea
+              id="disposition-reason"
+              maxlength="500"
+              rows="3"
+              [(ngModel)]="reason"
+            ></textarea>
+          </div>
+        </fieldset>
+      }
+      @if (history().length) {
+        <section class="form-section history-section">
+          <h3 class="section-label">{{ 'expiry.historyTitle' | transloco }}</h3>
+          <ol class="history-list">
+            @for (event of history(); track event.id) {
+              <li>
+                <strong
+                  >{{ 'expiry.action.' + event.action | transloco }} · {{ event.quantity }}</strong
+                >
+                <p>
+                  {{ event.businessDate }} · {{ 'expiry.source.' + event.sourceKind | transloco }} ·
+                  {{ event.expiryDate || ('expiry.undated' | transloco) }}
+                </p>
+                <p>
+                  {{
+                    event.action === 'Quarantine'
+                      ? ((event.reasonCode === 'Expiry.RequiredDateMissing'
+                          ? 'expiry.status.required'
+                          : 'expiry.status.expired'
+                        ) | transloco)
+                      : event.reason
+                  }}
+                </p>
+                <details>
+                  <summary>{{ 'expiry.auditDetails' | transloco }}</summary>
+                  <p>
+                    {{ event.id }} · {{ event.sourceId }} · {{ event.actorUserId }} ·
+                    {{ event.recordedAt }}
+                  </p>
+                </details>
+              </li>
+            }
+          </ol>
+        </section>
+      }
     }
   </div>
   <ng-template #footer>
@@ -181,7 +199,9 @@
           pButton
           type="button"
           icon="pi pi-check"
-          [disabled]="busy() || !selectedRoot || !reason.trim()"
+          [disabled]="
+            busy() || !reason.trim() || (action === 'Release' ? !canRelease() : !canDispose())
+          "
           [loading]="busy()"
           (click)="submit()"
         >

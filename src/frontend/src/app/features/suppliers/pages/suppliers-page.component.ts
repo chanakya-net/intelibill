@@ -1,3 +1,5 @@
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { DestroyRef } from '@angular/core';
 import {
   DEFAULT_DIRECTORY_QUERY,
@@ -27,6 +29,7 @@ import { SuppliersTableComponent } from '../components/suppliers-table.component
     CommonModule,
     ButtonModule,
     SkeletonModule,
+    DefinitionAccessNoticeComponent,
     AddSupplierOverlayComponent,
     EditSupplierOverlayComponent,
     MakePaymentOverlayComponent,
@@ -112,6 +115,8 @@ export class SuppliersPageComponent {
     return activeShop?.role ?? '';
   });
   readonly canManageSuppliers = computed(() => this.activeShopRole().toLowerCase() === 'owner');
+  readonly definitionAccess = inject(OperatingAccessHintService);
+  readonly canAddSupplier = computed(() => this.canManageSuppliers() && !this.definitionAccess.blockingMessage());
   readonly canMakePayment = computed(() =>
     ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()),
   );
@@ -147,6 +152,7 @@ export class SuppliersPageComponent {
   }
 
   onOpenAddSupplier(): void {
+    if (!this.canAddSupplier()) return;
     this.suppliersFacade.clearError();
     this.suppliersFacade.clearMutationStatus();
     this.showAddSupplierOverlay.set(true);

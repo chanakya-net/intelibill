@@ -7,6 +7,8 @@ import { ButtonModule } from 'primeng/button';
 import { InputNumberModule } from 'primeng/inputnumber';
 import { firstValueFrom } from 'rxjs';
 
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { ProductCatalogSyncService } from '../../../core/services/product-catalog-sync.service';
 import { InputValidators } from '../../../shared/forms/input-validation';
 import { InventoryService } from '../../inventory/services/inventory.service';
@@ -24,8 +26,10 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
     AutoCompleteModule,
     ButtonModule,
     InputNumberModule,
+    DefinitionAccessNoticeComponent,
   ],
   template: `
+    <app-definition-access-notice />
     <form class="po-line-form" [formGroup]="form" (ngSubmit)="submitLine()">
       <label>
         <span>{{ 'purchaseOrders.builder.item' | transloco }}</span>
@@ -76,7 +80,8 @@ import type { CreatePurchaseOrderLineRequest } from '../services/purchase-order.
         icon="pi pi-bolt"
         [label]="'purchaseOrders.builder.quickCreateProduct' | transloco"
         (click)="quickCreateProduct()"
-        [disabled]="form.controls.description.invalid"
+        [disabled]="form.controls.description.invalid || !!definitionAccess.blockingMessage()"
+        [loading]="quickCreating()"
       ></button>
       @if (quickCreateError()) {
         <p class="po-line-form__error" aria-live="polite">{{ quickCreateError() | transloco }}</p>
@@ -180,6 +185,8 @@ export class PurchaseOrderLineFormComponent {
   private readonly catalogSync = inject(ProductCatalogSyncService);
 
   @Output() readonly lineSubmitted = new EventEmitter<CreatePurchaseOrderLineRequest>();
+  readonly definitionAccess = inject(OperatingAccessHintService);
+  readonly quickCreating = signal(false);
   readonly quickCreateError = signal('');
   readonly itemSuggestions = signal<string[]>([]);
 
@@ -202,7 +209,7 @@ export class PurchaseOrderLineFormComponent {
   }
 
   async quickCreateProduct(): Promise<void> {
-    if (this.form.controls.description.invalid) return;
+    if (this.form.controls.description.invalid || this.quickCreating() || this.definitionAccess.blockingMessage()) return;
 
     this.quickCreateError.set('');
     const line = this.buildLineValues();
@@ -211,10 +218,13 @@ export class PurchaseOrderLineFormComponent {
       return;
     }
 
+    const scope = this.definitionAccess.scope();
+    this.quickCreating.set(true);
     try {
       const barcode = (
         await firstValueFrom(this.inventoryService.generateItemBarcode())
       ).barcode.trim();
+      if (scope !== this.definitionAccess.scope() || this.definitionAccess.blockingMessage()) return;
       if (!barcode) {
         this.quickCreateError.set('purchaseOrders.builder.quickCreateFailed');
         return;
@@ -230,6 +240,7 @@ export class PurchaseOrderLineFormComponent {
         defaultTaxRatePercent: 0,
       };
       const item = await firstValueFrom(this.inventoryService.addItem(payload));
+      if (scope !== this.definitionAccess.scope()) return;
       this.catalogSync.upsertEntry({ itemId: item.id, name: item.name, barcode: item.barcode });
       this.lineSubmitted.emit({
         itemId: item.id,
@@ -238,8 +249,12 @@ export class PurchaseOrderLineFormComponent {
         unitCost: line.unitCost,
       });
       this.form.reset({ description: '', expectedQuantity: 1, unitCost: 0 });
-    } catch {
-      this.quickCreateError.set('purchaseOrders.builder.quickCreateFailed');
+    } catch (error) {
+      this.quickCreateError.set(
+        this.definitionAccess.creationError(error, scope, 'purchaseOrders.builder.quickCreateFailed') ?? '',
+      );
+    } finally {
+      this.quickCreating.set(false);
     }
   }
 

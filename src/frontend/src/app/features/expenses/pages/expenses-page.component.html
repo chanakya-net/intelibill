@@ -30,11 +30,14 @@
           type="button"
           [label]="'expenses.recordExpense' | transloco"
           icon="pi pi-plus"
+          [disabled]="!!access.blockingMessage()"
           (click)="openRecordOverlay()"
         />
       </div>
     }
   </header>
+
+  <app-definition-access-notice class="contents" />
 
   @if (!loading() && !listError()) {
     <div class="summary-grid ib-summary-grid" [attr.aria-label]="'expenses.summary.ariaLabel' | transloco">

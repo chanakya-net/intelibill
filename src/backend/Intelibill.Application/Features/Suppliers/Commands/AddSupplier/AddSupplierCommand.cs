@@ -1,10 +1,9 @@
 namespace Intelibill.Application.Features.Suppliers.Commands.AddSupplier;
 
-using Intelibill.Domain.Enums;
+using Intelibill.Application.Common.Security;
 
 public sealed record AddSupplierCommand(
-    Guid ActorUserId,
-    Guid ActiveShopId,
+    SessionClaims Session,
     string Name,
     string? ContactPersonName,
     string? ContactPersonPhone,
@@ -13,4 +12,8 @@ public sealed record AddSupplierCommand(
     string State,
     string Pin,
     bool IsActive,
-    bool IsPreferred);
+    bool IsPreferred)
+{
+    public Guid ActorUserId => Session.UserId;
+    public Guid ActiveShopId => Session.ActiveShopId.GetValueOrDefault();
+}

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using Intelibill.Domain.Enums;
 
 namespace Intelibill.Application.Features.Discounts.Commands.CreateDiscountRule;
@@ -14,5 +15,6 @@ public sealed record CreateDiscountRuleCommand(
     DateTimeOffset? StartsAt,
     DateTimeOffset? EndsAt,
     bool BelowCostConfirmed,
-    string? BelowCostConfirmationReason);
+    string? BelowCostConfirmationReason,
+    SessionClaims? Session);
 

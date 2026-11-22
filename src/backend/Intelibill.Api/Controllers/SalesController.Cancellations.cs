@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Services.Cancellations;
@@ -9,6 +10,7 @@ public sealed partial class SalesController
 {
     [HttpPost("{saleId:guid}/cancellation-preview")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> PreviewCancellation(Guid saleId, [FromServices] SaleCancellationService service, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;
@@ -16,6 +18,8 @@ public sealed partial class SalesController
     }
     [HttpPost("{saleId:guid}/cancellations")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
+    [SuspensionAtSource(CheckRecovery = true)]
     public async Task<IActionResult> CancelSale(Guid saleId, CancelSaleRequest request, [FromServices] SaleCancellationService service, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;

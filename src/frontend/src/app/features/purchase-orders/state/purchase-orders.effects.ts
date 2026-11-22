@@ -1,4 +1,10 @@
 import {
+  OPERATING_ACCESS_ERROR_KEYS,
+  OperatingAccessHintService,
+  operatingAccessErrorKey,
+} from '../../billing/status/operating-access-hint.service';
+import type { ShopScope } from '../../../core/context/shop-scope';
+import {
   ApiErrorMessageService,
   type LocalizedError,
 } from '../../../core/i18n/api-error-message.service';
@@ -34,96 +40,114 @@ export class PurchaseOrdersEffects {
   private readonly router = inject(Router);
   private readonly drafts = inject(ReceivingDraftService);
   private readonly context = inject(ShopContextService);
+  private readonly access = inject(OperatingAccessHintService);
   private readonly state = inject(Store).selectSignal(selectPurchaseOrdersState);
   private readonly receivingInFlight = new Set<string>();
 
   readonly loadOrders$ = createEffect(() =>
     this.actions$.pipe(
       ofType(PurchaseOrdersActions.loadPurchaseOrdersRequested),
-      switchMap(({ filters }) =>
-        this.service.getPurchaseOrders({ ...DEFAULT_PURCHASE_ORDER_LIST_FILTERS, ...filters }).pipe(
-          map((result) => PurchaseOrdersActions.loadPurchaseOrdersSucceeded({ result })),
-          catchError((error) =>
-            of(
-              PurchaseOrdersActions.loadPurchaseOrdersFailed({
-                ...this.feedback(error, 'purchaseOrders.errors.unableToLoad'),
-              }),
+      switchMap(({ filters }) => {
+        const scope = this.context.scope();
+        return this.service
+          .getPurchaseOrders({ ...DEFAULT_PURCHASE_ORDER_LIST_FILTERS, ...filters })
+          .pipe(
+            map((result) => PurchaseOrdersActions.loadPurchaseOrdersSucceeded({ result })),
+            catchError((error) =>
+              scope === this.context.scope()
+                ? of(
+                    PurchaseOrdersActions.loadPurchaseOrdersFailed(
+                      this.accessFeedback(error, 'purchaseOrders.errors.unableToLoad', scope),
+                    ),
+                  )
+                : EMPTY,
             ),
-          ),
-        ),
-      ),
+          );
+      }),
     ),
   );
 
   readonly loadDetail$ = createEffect(() =>
     this.actions$.pipe(
       ofType(PurchaseOrdersActions.loadPurchaseOrderDetailRequested),
-      switchMap(({ purchaseOrderId }) =>
-        this.service.getPurchaseOrderDetail(purchaseOrderId).pipe(
+      switchMap(({ purchaseOrderId }) => {
+        const scope = this.context.scope();
+        return this.service.getPurchaseOrderDetail(purchaseOrderId).pipe(
           map((order) => PurchaseOrdersActions.loadPurchaseOrderDetailSucceeded({ order })),
-          catchError((error: { error?: ApiErrorPayload }) =>
-            of(
-              PurchaseOrdersActions.loadPurchaseOrderDetailFailed({
-                ...this.feedback(error, 'purchaseOrders.errors.unableToLoadDetail'),
-              }),
-            ),
+          catchError((error) =>
+            scope === this.context.scope()
+              ? of(
+                  PurchaseOrdersActions.loadPurchaseOrderDetailFailed(
+                    this.accessFeedback(error, 'purchaseOrders.errors.unableToLoadDetail', scope),
+                  ),
+                )
+              : EMPTY,
           ),
-        ),
-      ),
+        );
+      }),
     ),
   );
 
   readonly createDraft$ = createEffect(() =>
     this.actions$.pipe(
       ofType(PurchaseOrdersActions.createDraftRequested),
-      switchMap(({ payload }) =>
-        this.service.createDraft(payload).pipe(
+      switchMap(({ payload }) => {
+        const scope = this.context.scope();
+        return this.service.createDraft(payload).pipe(
           map((order) => PurchaseOrdersActions.createDraftSucceeded({ order })),
-          catchError((error: { error?: ApiErrorPayload }) =>
-            of(
-              PurchaseOrdersActions.createDraftFailed({
-                ...this.feedback(error, 'purchaseOrders.errors.unableToCreate'),
-              }),
-            ),
+          catchError((error) =>
+            scope === this.context.scope()
+              ? of(
+                  PurchaseOrdersActions.createDraftFailed(
+                    this.accessFeedback(error, 'purchaseOrders.errors.unableToCreate', scope),
+                  ),
+                )
+              : EMPTY,
           ),
-        ),
-      ),
+        );
+      }),
     ),
   );
 
   readonly updateDraft$ = createEffect(() =>
     this.actions$.pipe(
       ofType(PurchaseOrdersActions.updateDraftRequested),
-      switchMap(({ purchaseOrderId, payload }) =>
-        this.service.updateDraft(purchaseOrderId, payload).pipe(
+      switchMap(({ purchaseOrderId, payload }) => {
+        const scope = this.context.scope();
+        return this.service.updateDraft(purchaseOrderId, payload).pipe(
           map((order) => PurchaseOrdersActions.updateDraftSucceeded({ order })),
-          catchError((error: { error?: ApiErrorPayload }) =>
-            of(
-              PurchaseOrdersActions.updateDraftFailed({
-                ...this.feedback(error, 'purchaseOrders.errors.unableToUpdate'),
-              }),
-            ),
+          catchError((error) =>
+            scope === this.context.scope()
+              ? of(
+                  PurchaseOrdersActions.updateDraftFailed(
+                    this.accessFeedback(error, 'purchaseOrders.errors.unableToUpdate', scope),
+                  ),
+                )
+              : EMPTY,
           ),
-        ),
-      ),
+        );
+      }),
     ),
   );
 
   readonly placeOrder$ = createEffect(() =>
     this.actions$.pipe(
       ofType(PurchaseOrdersActions.placeOrderRequested),
-      switchMap(({ purchaseOrderId }) =>
-        this.service.placePurchaseOrder(purchaseOrderId).pipe(
+      switchMap(({ purchaseOrderId }) => {
+        const scope = this.context.scope();
+        return this.service.placePurchaseOrder(purchaseOrderId).pipe(
           map((order) => PurchaseOrdersActions.placeOrderSucceeded({ order })),
-          catchError((error: { error?: ApiErrorPayload }) =>
-            of(
-              PurchaseOrdersActions.placeOrderFailed({
-                ...this.feedback(error, 'purchaseOrders.errors.unableToPlace'),
-              }),
-            ),
+          catchError((error) =>
+            scope === this.context.scope()
+              ? of(
+                  PurchaseOrdersActions.placeOrderFailed(
+                    this.accessFeedback(error, 'purchaseOrders.errors.unableToPlace', scope),
+                  ),
+                )
+              : EMPTY,
           ),
-        ),
-      ),
+        );
+      }),
     ),
   );
 
@@ -293,14 +317,15 @@ export class PurchaseOrdersEffects {
       } catch {
         storageFailed = true;
       }
-      const problemCode = receivingProblem(error).code ?? receivingProblem(error).title ?? '';
+      const code = receivingProblem(error).code ?? receivingProblem(error).title ?? '';
+      const licenceMessage = operatingAccessErrorKey(error);
+      if (this.isCurrent(correlation)) this.access.reportRefusal(error, correlation.scope);
       const errorMessage = storageFailed
         ? 'purchaseOrders.receiving.storageError'
-        : problemCode === 'Operation.PayloadMismatch'
-          ? receivingMessage(problemCode)
-          : outcome === 'unknown'
+        : (licenceMessage ??
+          (outcome === 'unknown' && code !== 'Operation.PayloadMismatch'
             ? 'purchaseOrders.receiving.unknown'
-            : receivingMessage(problemCode);
+            : receivingMessage(code)));
       return PurchaseOrdersActions.receiveOrderFailed({
         correlation,
         outcome,
@@ -364,8 +389,12 @@ export class PurchaseOrdersEffects {
         return PurchaseOrdersActions.checkReceiptMissing({ correlation });
       return PurchaseOrdersActions.checkReceiptFailed({
         correlation,
-        ...this.feedback(error, 'purchaseOrders.receiving.lookupFailed', true),
-        errorMessage: 'purchaseOrders.receiving.lookupFailed',
+        ...this.accessFeedback(
+          error,
+          'purchaseOrders.receiving.lookupFailed',
+          correlation.scope,
+          true,
+        ),
       });
     }
   }
@@ -387,6 +416,17 @@ export class PurchaseOrdersEffects {
       ),
     ),
   );
+  private accessFeedback(
+    error: unknown,
+    fallback: string,
+    scope: ShopScope | null,
+    preserveFallback = false,
+  ) {
+    this.access.reportRefusal(error, scope);
+    const message = operatingAccessErrorKey(error);
+    return this.feedback(error, message ?? fallback, !!message || preserveFallback);
+  }
+
   private feedback(
     error: unknown,
     fallbackKey: string,
@@ -414,6 +454,7 @@ export class PurchaseOrdersEffects {
 }
 
 const PURCHASE_ORDER_ERROR_KEYS: Readonly<Record<string, string>> = {
+  ...OPERATING_ACCESS_ERROR_KEYS,
   'PurchaseOrder.NotFound': 'purchaseOrders.errors.notFound',
   'PurchaseOrder.UserCannotCreatePurchaseOrder': 'purchaseOrders.errors.forbidden',
   'PurchaseOrder.InvalidLineQuantity': 'purchaseOrders.errors.invalidLineQuantity',

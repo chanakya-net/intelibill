@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Domain.Events;
 
@@ -5,6 +6,7 @@ namespace Intelibill.Application.Features.Items.Events;
 
 public sealed class ItemCreatedDomainHandler(IProductHubNotifier hubNotifier)
 {
+    [LicenceAction(LicenceAction.InternalService)]
     public async Task HandleAsync(ItemCreatedDomainEvent @event, CancellationToken cancellationToken)
     {
         await hubNotifier.NotifyProductCreatedAsync(

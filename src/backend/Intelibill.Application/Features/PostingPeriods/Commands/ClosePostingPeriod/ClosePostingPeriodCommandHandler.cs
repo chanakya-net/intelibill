@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Time;
@@ -18,10 +20,12 @@ public sealed class ClosePostingPeriodCommandHandler(
     IPostingPeriodRepository periodRepository,
     IFinancialOperationExecutor operationExecutor,
     IUnitOfWork unitOfWork,
-    IBusinessClock businessClock)
+    IBusinessClock businessClock,
+    ILiveSessionAuthority authority)
 {
     private static readonly ClosePostingPeriodCommandValidator Validator = new();
 
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<PostingPeriodDto>> HandleAsync(
         ClosePostingPeriodCommand command,
         CancellationToken cancellationToken)
@@ -30,7 +34,7 @@ public sealed class ClosePostingPeriodCommandHandler(
         if (!validation.IsValid)
             return validation.Errors.Select(e => Error.Validation(e.ErrorCode, e.ErrorMessage)).ToList();
 
-        var runner = new PostingPeriodTransitionRunner(shopRepository, periodRepository, operationExecutor, unitOfWork, businessClock);
+        var runner = new PostingPeriodTransitionRunner(shopRepository, periodRepository, operationExecutor, unitOfWork, businessClock, authority);
         return await runner.RunAsync(
             FinancialOperationType.PostingPeriodClose,
             command.ShopId,
@@ -38,6 +42,7 @@ public sealed class ClosePostingPeriodCommandHandler(
             command.PeriodStart,
             command.Reason,
             command.OperationKey,
+            command.Session,
             (period, now, today) => period.Close(command.ActorUserId, now, today, command.Reason),
             cancellationToken);
     }

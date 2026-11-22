@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Unit.Tests.Common.Licensing;
 using Intelibill.Application.Unit.Tests.Common.Time;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -29,11 +31,11 @@ public class UpdateInventoryBatchCommandHandlerTests
         _handler = new UpdateInventoryBatchCommandHandler(
             _userRepository, _shopRepository, _batchRepository,
             new BatchRetailTermsReviser(_batchRepository, _revisionRepository, ExpiryTestDoubles.Dates()),
-            _unitOfWork, _messageBus, ExpiryTestDoubles.Fence());
+            _unitOfWork, _messageBus, ExpiryTestDoubles.Fence(), LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
     }
 
     private static UpdateInventoryBatchCommand ValidCommand(Guid userId, Guid shopId, Guid batchId) =>
-        new(batchId, userId, shopId, null, 10m, 100m, 200m, 180m, 18m, false, null, null, null, null, null);
+        new(batchId, userId, shopId, null, 10m, 100m, 200m, 180m, 18m, false, null, null, null, null, null, Session: null);
 
     [Fact]
     public async Task Handle_WhenUserNotFound_ReturnsNotFoundError()

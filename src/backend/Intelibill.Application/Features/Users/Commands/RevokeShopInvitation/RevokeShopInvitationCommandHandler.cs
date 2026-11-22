@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Enums;
@@ -9,6 +10,7 @@ public sealed class RevokeShopInvitationCommandHandler(
     IMembershipAuthorityRepository authority,
     TimeProvider clock)
 {
+    [LicenceAction(LicenceAction.MemberRemoval)]
     public async Task<ErrorOr<bool>> HandleAsync(
         RevokeShopInvitationCommand command,
         CancellationToken cancellationToken)

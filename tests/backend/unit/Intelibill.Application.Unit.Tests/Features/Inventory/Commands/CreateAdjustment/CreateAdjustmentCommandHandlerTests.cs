@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.CreateAdjustment;
@@ -25,6 +27,7 @@ public sealed class CreateAdjustmentCommandHandlerTests
 
     public CreateAdjustmentCommandHandlerTests()
     {
+        _shops.GetActiveRoleAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((ShopRole?)ShopRole.Owner);
         _numberGenerator.Generate(Arg.Any<DateOnly>()).Returns("ADJ-20260505-ABCDEF12");
         _itemRepository.GetByIdsAsync(Arg.Any<Guid>(), Arg.Any<IReadOnlyList<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(ci => new List<Item> { Item.Create(ci.ArgAt<Guid>(0), "Rice", "d", "kg", "BC-0", true, Guid.NewGuid()) });
@@ -330,6 +333,7 @@ public sealed class CreateAdjustmentCommandHandlerTests
             Assert.Equal("Inventory.QuantityPrecisionExceeded", result.FirstError.Code);
     }
 
+    private readonly IShopRepository _shops = BusinessTestDoubles.AnyShop();
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private CreateAdjustmentCommandHandler CreateHandler() =>
         new(
@@ -341,9 +345,11 @@ public sealed class CreateAdjustmentCommandHandlerTests
             _numberGenerator,
             _unitOfWork,
             _itemRepository,
-            BusinessTestDoubles.AnyShop(),
+            _shops,
             _postingPeriods,
-            BusinessTestDoubles.RealClock());
+            BusinessTestDoubles.RealClock(),
+            Substitute.For<IShopLicenceFence>(),
+            Substitute.For<ILiveSessionAuthority>());
 
     [Fact]
     public async Task ClosedPeriod_RefusesAdjustment_OnItsPerformedDate_AndChangesNothing()

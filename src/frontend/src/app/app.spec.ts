@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 
 import { ProductCatalogSyncService } from './core/services/product-catalog-sync.service';
 import { App } from './app';
+import { ShopDataAccessService } from './core/context/shop-data-access.service';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -10,6 +11,7 @@ describe('App', () => {
       imports: [App],
       providers: [
         provideRouter([]),
+        { provide: ShopDataAccessService, useValue: {} },
         {
           provide: ProductCatalogSyncService,
           useValue: {

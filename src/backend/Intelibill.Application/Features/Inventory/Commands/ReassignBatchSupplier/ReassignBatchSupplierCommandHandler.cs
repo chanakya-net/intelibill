@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Features.SupplierReturns.Services;
 using Intelibill.Application.Common.Errors;
@@ -22,8 +24,11 @@ public sealed class ReassignBatchSupplierCommandHandler(
     IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock,
     IUnitOfWork unitOfWork,
-    ISupplierReturnMutationLock supplierReturnLock)
+    ISupplierReturnMutationLock supplierReturnLock,
+    IShopLicenceFence licenceFence,
+    ILiveSessionAuthority authority)
 {
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<Success>> HandleAsync(ReassignBatchSupplierCommand command, CancellationToken cancellationToken)
     {
         var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);
@@ -52,6 +57,11 @@ public sealed class ReassignBatchSupplierCommandHandler(
         Shop shop,
         CancellationToken cancellationToken)
     {
+        var licence = await licenceFence.EnterForSessionAsync(authority, command.Session, command.ActorUserId,
+            command.ActiveShopId, LicenceAction.SourceCorrection, cancellationToken);
+        if (licence.IsError) return licence.Errors;
+        if (licence.Value.CurrentDecision().EnforcedDenial() is { } denial) return denial;
+
         var batch = await inventoryBatchRepository.GetByIdAsync(command.BatchId, cancellationToken);
         if (batch is null || batch.ShopId != command.ActiveShopId)
             return Errors.Inventory.BatchNotFound;
@@ -116,6 +126,9 @@ public sealed class ReassignBatchSupplierCommandHandler(
             if (supplierLock.IsError)
                 return supplierLock.Errors;
         }
+
+        if (licence.Value.CurrentDecision().ExistingSourceDenial(receiptValue?.ReceivedAt ?? batch.CreatedAt) is { } sourceDenial)
+            return sourceDenial;
 
         if (goodsReceivedEntry is not null)
         {

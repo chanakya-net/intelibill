@@ -1,3 +1,5 @@
+import { PaymentSettlementPreviewService } from '../../../core/services/payment-settlement-preview.service';
+import { disabledTillProviders } from '../../../../tests/tills/disabled-till.providers';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -49,6 +51,8 @@ describe('MakePaymentOverlayComponent', () => {
         TranslocoTestingModule.forRoot({ langs: {}, preloadLangs: true }),
       ],
       providers: [
+        ...disabledTillProviders(),
+        { provide: PaymentSettlementPreviewService, useValue: { watch: () => signal({ status: 'ready', limit: null }) } },
         { provide: SuppliersFacade, useValue: suppliersFacade },
         { provide: AuthService, useValue: { session: () => ({ user: { id: 'user-1' }, activeShopId: 'shop-1' }) } },
         { provide: FinancialOperationIntentService, useValue: paymentIntents },
@@ -126,7 +130,7 @@ describe('MakePaymentOverlayComponent', () => {
     const element = fixture.nativeElement as HTMLElement;
 
     expect(element.querySelector('app-pending-financial-operation')).not.toBeNull();
-    expect(element.querySelector('app-supplier-payment-form')).toBeNull();
+    expect(element.querySelector('app-supplier-payment-form')?.hasAttribute('hidden')).toBe(true);
 
     component.onRetryPendingPayment();
     expect(retryPayment).toHaveBeenCalledWith('s1');

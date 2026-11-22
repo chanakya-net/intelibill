@@ -9,6 +9,7 @@ import {
   UpdateMembershipRequest,
   UpdateMyProfileRequest,
 } from '../services/user-account.service';
+import { MemberCapacity } from '../services/member-capacity';
 
 export type UserMutationType =
   | 'update-profile'
@@ -51,6 +52,13 @@ export const UsersActions = createActionGroup({
     }>(),
     'Update Membership Succeeded': props<{ membership: Membership }>(),
     'Update Membership Failed': props<{ errorMessage: string }>(),
+    /** No free seat for this edit: attributed to the shop and member that were sent, never to whatever is open now. */
+    'Update Membership Capacity Refused': props<{
+      shopId: string;
+      userId: string;
+      memberCapacity: MemberCapacity | null;
+    }>(),
+    'Clear Membership Refusal': emptyProps(),
 
     'Clear Error': emptyProps(),
     'Clear Mutation Status': emptyProps(),

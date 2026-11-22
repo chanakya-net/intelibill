@@ -11,6 +11,7 @@ describe('BatchSaveResultsComponent', () => {
   const draftState = {
     pendingRows: signal<any[]>([]),
     loadingDraft: signal(false),
+    hasInterruptedSubmission: signal(false),
   };
 
   function setup(isSaving = false) {
@@ -57,7 +58,7 @@ describe('BatchSaveResultsComponent', () => {
             itemId: 'item-1',
             itemName: 'Milk',
             barcode: 'B001',
-            batchId: 'batch-1',
+            inventoryBatchId: 'batch-1',
             batchNumber: 'BN-1',
             batchQuantity: 3,
             totalQuantity: 3,

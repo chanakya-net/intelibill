@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Security;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
@@ -24,6 +26,7 @@ public sealed class ServicesController : AuthenticatedControllerBase
 
     [HttpGet]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetServices(
         [FromQuery] bool includeInactive = true,
         [FromQuery] string? search = null,
@@ -41,15 +44,19 @@ public sealed class ServicesController : AuthenticatedControllerBase
 
     [HttpPost]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource(CheckRecovery = true)]
     public async Task<IActionResult> AddService([FromBody] AddServiceRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
+        var session = SessionClaims.TryRead(User);
+        if (session is null) return Unauthorized();
+
         var result = await Bus.InvokeAsync<ErrorOr<ServiceDto>>(
             new AddServiceCommand(
-                UserId!.Value,
-                ActiveShopId!.Value,
+                session,
                 request.Name,
                 request.Description,
                 request.Price,
@@ -64,6 +71,7 @@ public sealed class ServicesController : AuthenticatedControllerBase
 
     [HttpPatch("{serviceId:guid}")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> UpdateService(Guid serviceId, [FromBody] UpdateServiceRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -79,7 +87,7 @@ public sealed class ServicesController : AuthenticatedControllerBase
                 request.Price,
                 request.HsnCode,
                 request.TaxRatePercent,
-                request.TaxIncluded),
+                request.TaxIncluded, SessionClaims.TryRead(User)),
             cancellationToken);
 
         if (result.IsError)
@@ -90,13 +98,14 @@ public sealed class ServicesController : AuthenticatedControllerBase
 
     [HttpPost("{serviceId:guid}/activate")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> ActivateService(Guid serviceId, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<Success>>(
-            new ActivateServiceCommand(UserId!.Value, ActiveShopId!.Value, serviceId),
+            new ActivateServiceCommand(UserId!.Value, ActiveShopId!.Value, serviceId, SessionClaims.TryRead(User)),
             cancellationToken);
 
         if (result.IsError)
@@ -107,13 +116,14 @@ public sealed class ServicesController : AuthenticatedControllerBase
 
     [HttpPost("{serviceId:guid}/deactivate")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> DeactivateService(Guid serviceId, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<Success>>(
-            new DeactivateServiceCommand(UserId!.Value, ActiveShopId!.Value, serviceId),
+            new DeactivateServiceCommand(UserId!.Value, ActiveShopId!.Value, serviceId, SessionClaims.TryRead(User)),
             cancellationToken);
 
         if (result.IsError)

@@ -163,6 +163,8 @@ export abstract class NewSalePageCartSubmitService extends NewSalePageCartSelect
       return;
     }
 
+    if (this.saleLicenceMessage()) return;
+
     if (this.checkoutPreview() === null) {
       this.paymentSplitError.set(this.previewError() || 'sales.newSale.previewRequired');
       return;

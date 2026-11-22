@@ -108,7 +108,17 @@ export async function installPurchaseOrdersFixture(
   page: Page,
   scenario: PurchaseOrdersScenario,
 ): Promise<void> {
-  await installShellFixture(page, scenario.shell);
+  // Keep the proactive session refresh inside Chromium's setTimeout range.
+  const now = Date.now();
+  const expiresAt = new Date(now + 60 * 60_000).toISOString();
+  await installShellFixture(page, {
+    ...scenario.shell,
+    session: {
+      ...scenario.shell.session,
+      accessTokenExpiresAt: expiresAt,
+      refreshTokenExpiresAt: new Date(now + 24 * 60 * 60_000).toISOString(),
+    },
+  });
   const state: PurchaseOrdersFixtureState = {
     apiState: scenario.apiState,
     orders: [...scenario.orders],
@@ -125,6 +135,31 @@ export async function installPurchaseOrdersFixture(
       ]),
     ),
   };
+  await page.route(`${API_BASE}/licensing/shops/*/trading-authority`, (route) =>
+    fulfillJson(route, {
+      schemaVersion: 1,
+      shopId: new URL(route.request().url()).pathname.split('/')[4],
+      enforced: false,
+      authorityVerifiedAt: new Date(now).toISOString(),
+      validUntil: expiresAt,
+    }),
+  );
+  await page.route(`${API_BASE}/expiry-policies**`, (route) => {
+    const policy = {
+      version: 1,
+      mode: 'Ignore',
+      expiryRequired: false,
+      sellThroughExpiryDate: true,
+      warningDays: 7,
+      overrideAllowed: false,
+    };
+    return fulfillJson(route, {
+      defaultPolicy: policy,
+      overridePolicy: null,
+      effectivePolicy: policy,
+      catalogVersion: 1,
+    });
+  });
   await page.route(`${API_BASE}/hsn/lookup`, (route) =>
     fulfillJson(route, { hsnCodes: [], taxScenarios: [] }),
   );

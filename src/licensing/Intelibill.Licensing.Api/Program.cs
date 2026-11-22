@@ -1,3 +1,4 @@
+using Intelibill.Licensing.Api.Restrictions;
 using Intelibill.Licensing.Api.Entitlements;
 using Intelibill.Licensing.Api.Trials;
 using Intelibill.Licensing.Api.Payments;
@@ -97,6 +98,8 @@ public sealed class Program
         app.MapAdminSubscriptionStatus();
         app.MapComplimentaryGrants();
         app.MapTrialExtensions();
+        app.MapSuspensions();
+        app.MapReopenings();
         app.MapAdminManualPayments();
         app.MapAdminPaymentConfirmations();
         app.MapPaymentProviders();

@@ -14,7 +14,7 @@ describe('OfflineSalesSnapshotSyncService', () => {
     service = new OfflineSalesSnapshotSyncService(
       { getAccessToken: () => 'token' } as any,
       snapshotDb,
-      { scope: () => ({ userId: 'user-1', shopId, epoch: 1 }), epoch: () => 1, isCurrent: () => true } as any
+      { scope: () => ({ userId: 'user-1', shopId, epoch: 1 }), epoch: () => 1, isCurrent: () => true, dataRestricted: () => false, onDetach: () => () => undefined } as any
     );
 
     stubIndexedDb();

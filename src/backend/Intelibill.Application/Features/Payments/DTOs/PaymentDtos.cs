@@ -96,4 +96,5 @@ public sealed record PartyBalancesDto(
     decimal UnallocatedCredit,
     IReadOnlyList<CustomerInvoiceBalanceDto> Invoices,
     IReadOnlyList<SupplierReceiptBalanceDto> PurchaseReceipts,
-    IReadOnlyList<PaymentReceiptSummaryDto> Receipts);
+    IReadOnlyList<PaymentReceiptSummaryDto> Receipts,
+    decimal? RemainingSettlementDue = null);

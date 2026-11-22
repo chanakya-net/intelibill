@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { Actions } from '@ngrx/effects';
 import { Action } from '@ngrx/store';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Observable, Subject, firstValueFrom, of, throwError } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { vi } from 'vitest';
@@ -407,6 +408,40 @@ describe('ExpensesEffects', () => {
 
     await expect(output).resolves.toEqual(
       ExpensesActions.correctExpenseFailed({ errorMessage: 'expenses.errors.unexpected' }),
+    );
+  });
+
+  const problem = (status: number, code: string) =>
+    new HttpErrorResponse({ status, error: { status, code, title: code } });
+  const payload = {
+    categoryName: 'Rent',
+    amount: 500,
+    paidTo: 'Landlord',
+    description: null,
+    expenseDate: '2026-04-20',
+  };
+
+  it('explains an expired-licence refusal of a new expense with its licence message', async () => {
+    expenseService.recordExpense.mockReturnValue(throwError(() => problem(403, 'Licence.Expired')));
+    const output = firstValueFrom(effects.recordExpense$.pipe(take(1)));
+    actions$.next(ExpensesActions.recordExpenseRequested({ payload }));
+    await expect(output).resolves.toEqual(
+      ExpensesActions.recordExpenseFailed({
+        errorMessage: 'billing.status.tradingAuthority.expired',
+      }),
+    );
+  });
+
+  it('explains a refused disguised correction without blaming the licence', async () => {
+    expenseService.correctExpense.mockReturnValue(
+      throwError(() => problem(409, 'Expense.CorrectionSourceIneligible')),
+    );
+    const output = firstValueFrom(effects.correctExpense$.pipe(take(1)));
+    actions$.next(ExpensesActions.correctExpenseRequested({ expenseId: 'exp-1', payload }));
+    await expect(output).resolves.toEqual(
+      ExpensesActions.correctExpenseFailed({
+        errorMessage: 'expenses.errors.correctionSourceIneligible',
+      }),
     );
   });
 });

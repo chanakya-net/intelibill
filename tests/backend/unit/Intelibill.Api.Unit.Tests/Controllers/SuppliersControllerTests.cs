@@ -37,6 +37,14 @@ public class SuppliersControllerTests
         _controller.ControllerContext.HttpContext.User = principal;
     }
 
+    private void SetOwnerSession(Guid userId, Guid shopId) => SetUserClaims(
+        new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+        new Claim("sid", Guid.NewGuid().ToString()),
+        new Claim("security_version", "0"),
+        new Claim("scope_version", "0"),
+        new Claim("active_shop_id", shopId.ToString()),
+        new Claim("active_shop_role", "Owner"));
+
     [Fact]
     public async Task GetSuppliers_WhenNoUserClaim_ReturnsUnauthorized()
     {
@@ -83,9 +91,7 @@ public class SuppliersControllerTests
     {
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
-        SetUserClaims(
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim("active_shop_id", shopId.ToString()));
+        SetOwnerSession(userId, shopId);
 
         var request = new AddSupplierRequest(
             "Supplier",
@@ -117,9 +123,7 @@ public class SuppliersControllerTests
     {
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
-        SetUserClaims(
-            new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim("active_shop_id", shopId.ToString()));
+        SetOwnerSession(userId, shopId);
 
         _bus.InvokeAsync<ErrorOr<SupplierDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>())
             .Returns(Errors.Supplier.SupplierNotFound);
@@ -131,6 +135,24 @@ public class SuppliersControllerTests
 
         var objectResult = Assert.IsType<ObjectResult>(result);
         Assert.Equal(StatusCodes.Status404NotFound, objectResult.StatusCode);
+    }
+
+    [Fact]
+    public async Task Supplier_writes_require_current_session_claims_before_dispatch()
+    {
+        SetUserClaims(new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
+            new Claim("active_shop_id", Guid.NewGuid().ToString()));
+
+        var add = await _controller.AddSupplier(
+            new AddSupplierRequest("Name", null, null, "Road", "City", "State", "560001", true, false),
+            CancellationToken.None);
+        var edit = await _controller.EditSupplier(Guid.NewGuid(),
+            new EditSupplierRequest("Name", null, null, "Road", "City", "State", "560001", true, false),
+            CancellationToken.None);
+
+        Assert.IsType<UnauthorizedResult>(add);
+        Assert.IsType<UnauthorizedResult>(edit);
+        await _bus.DidNotReceive().InvokeAsync<ErrorOr<SupplierDto>>(Arg.Any<object>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

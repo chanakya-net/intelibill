@@ -8,6 +8,7 @@ import {
   INVENTORY_ENDPOINTS,
   ITEM_ENDPOINTS,
 } from '../../../core/auth/auth.constants';
+import { REQUEST_SCOPE } from '../../../core/context/scoped-request';
 import { InventoryService } from './inventory.service';
 
 describe('InventoryService', () => {
@@ -24,6 +25,25 @@ describe('InventoryService', () => {
 
   afterEach(() => {
     TestBed.resetTestingModule();
+  });
+
+  it('scopes receipt correction POST and recovery lookup to the frozen owner', () => {
+    const { service, http } = setup();
+    const owner = { userId: 'u', shopId: 's' };
+    const body = { expectedVersion: 7, revisedTotalCost: 1100, reason: 'Invoice', operationKey: 'key/?' };
+    service.correctReceiptCost('r', body, owner).subscribe();
+    const post = http.expectOne(`${API_BASE_URL}/inventory/receipts/r/cost-corrections`);
+    expect(post.request.method).toBe('POST');
+    expect(post.request.context.get(REQUEST_SCOPE)).toEqual(owner);
+    expect(post.request.body).toEqual(body);
+    post.flush({});
+
+    service.lookupReceiptCostCorrection(body.operationKey, owner).subscribe();
+    const get = http.expectOne(`${API_BASE_URL}/financial-operations/receipt-cost-correction/key%2F%3F`);
+    expect(get.request.method).toBe('GET');
+    expect(get.request.context.get(REQUEST_SCOPE)).toEqual(owner);
+    get.flush({});
+    http.verify();
   });
 
   it('sends add item request to items endpoint', () => {
@@ -209,7 +229,7 @@ describe('InventoryService', () => {
             itemId: 'item-1',
             itemName: 'Premium Tea',
             barcode: 'ABC123',
-            batchId: 'batch-1',
+            inventoryBatchId: 'batch-1',
             batchNumber: 'BN-1',
             batchQuantity: 5,
             totalQuantity: 5,

@@ -11,6 +11,7 @@ import { SHOP_ENDPOINTS } from '../../../core/auth/auth.constants';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { AppReloadService } from '../../../core/services/app-reload.service';
+import { ShopSetupSecurityEvents } from '../services/shop-setup-security-events';
 import type { ShopSetupStatus } from '../services/shop-setup.models';
 import { ShopSetupPageComponent } from './shop-setup-page.component';
 
@@ -20,6 +21,9 @@ const status: ShopSetupStatus = {
   shopId: scope.shopId,
   contractVersion: 1,
   canTrade: true,
+  setupAccess: { contractVersion: 1, shopId: scope.shopId, status: 'ObserveOnly', enforced: false,
+    writableProfileFields: ['name'], canPrepareTax: true, canSavePreferences: true,
+    canEditOperatingSettings: true, hasOperatingAccess: true, canCreateAdditionalShop: true },
   steps: [
     { id: 'catalog', state: 'complete', reasons: [] },
     { id: 'stock', state: 'notApplicable', reasons: [] },
@@ -93,12 +97,82 @@ describe(ShopSetupPageComponent.name, () => {
       canTrade: false,
       steps: [{ id: 'tax', state: 'incomplete', reasons: ['Unknown.FutureReason'] }],
       permissions: { canEditShop: false, canEditCatalog: false, canSavePreferences: false },
+      setupAccess: { ...status.setupAccess!, writableProfileFields: [], canPrepareTax: false,
+        canEditOperatingSettings: false, canSavePreferences: false },
     });
     view.detectChanges();
     const element = view.nativeElement as HTMLElement;
     expect(element.textContent).toContain('Review the saved product, stock and tax details, then refresh.');
     expect(element.textContent).toContain('A shop owner can change this setting.');
     expect(element.textContent).not.toContain('Edit tax and numbering');
+    http.verify();
+  });
+
+  it('withdraws the checklist as soon as its preference save is refused for security', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    const view = TestBed.createComponent(ShopSetupPageComponent);
+    http.expectOne(url).flush(status);
+    view.componentInstance.settingsStep.set(1);
+    view.componentInstance.leave('/sales/new');
+
+    http.expectOne(`${url}/preferences`).flush({ code: 'Licence.SecuritySuspended' }, { status: 403, statusText: 'Forbidden' });
+    const refresh = http.expectOne(url);
+
+    expect(view.componentInstance.status()).toBeNull();
+    expect(view.componentInstance.settingsStep()).toBeNull();
+    expect(view.componentInstance.canStartSale()).toBe(false);
+    expect(view.componentInstance.saveError()).toBe('billing.status.suspension.enforcedSecurity');
+    expect(navigate).not.toHaveBeenCalled();
+
+    refresh.flush(status);
+    expect(view.componentInstance.status()).toEqual(status);
+    http.verify();
+  });
+
+  it('discards an outstanding checklist read and preference response after a shell refusal', () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    const page = TestBed.createComponent(ShopSetupPageComponent).componentInstance;
+    http.expectOne(url).flush(status);
+    page.leave('/sales/new');
+    const save = http.expectOne(`${url}/preferences`);
+    page.refresh();
+    const read = http.expectOne(url);
+
+    TestBed.inject(ShopSetupSecurityEvents).refuse(scope.shopId);
+    expect(read.cancelled).toBe(true);
+    save.flush({ ...status.preferences, version: 2 });
+    expect(page.status()).toBeNull();
+    expect(page.canStartSale()).toBe(false);
+    expect(navigate).not.toHaveBeenCalled();
+
+    page.refresh();
+    http.expectOne(url).flush(status);
+    expect(page.canStartSale()).toBe(true);
+    http.verify();
+  });
+
+  it('ignores a refusal after its mounted scope was left and the same owner returned', () => {
+    const context = TestBed.inject(ShopContextService);
+    const page = TestBed.createComponent(ShopSetupPageComponent).componentInstance;
+    http.expectOne(url).flush(status);
+    context.transition(null, 'sign-out', () => {});
+    context.transition(scope, 'sign-in', () => {});
+
+    TestBed.inject(ShopSetupSecurityEvents).refuse(scope.shopId);
+    expect(page.loadFailed()).toBe(false);
+    expect(page.loadError()).toBeNull();
+  });
+
+  it('keeps the checklist through an ordinary trading refusal of its preference save', () => {
+    const view = TestBed.createComponent(ShopSetupPageComponent);
+    http.expectOne(url).flush(status);
+    view.componentInstance.leave('/dashboard');
+
+    http.expectOne(`${url}/preferences`).flush({ code: 'Licence.TradingRestricted' }, { status: 403, statusText: 'Forbidden' });
+    const refresh = http.expectOne(url);
+
+    expect(view.componentInstance.status()).toEqual(status);
+    refresh.flush(status);
     http.verify();
   });
 });

@@ -10,6 +10,8 @@ import { ButtonModule } from 'primeng/button';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { SkeletonModule } from 'primeng/skeleton';
 
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RecordExpenseOverlayComponent } from '../components/record-expense-overlay.component';
 import { CorrectExpenseOverlayComponent } from '../components/correct-expense-overlay.component';
@@ -50,6 +52,7 @@ interface ExpenseDirectoryMetric {
     CorrectExpenseOverlayComponent,
     ExpensesFilterBarComponent,
     ExpensesTableComponent,
+    DefinitionAccessNoticeComponent,
   ],
   templateUrl: './expenses-page.component.html',
   styleUrl: './expenses-page.component.scss',
@@ -57,6 +60,7 @@ interface ExpenseDirectoryMetric {
 export class ExpensesPageComponent {
   private readonly authService = inject(AuthService);
   private readonly expensesFacade = inject(ExpensesFacade);
+  readonly access = inject(OperatingAccessHintService);
 
   readonly expenses$ = this.expensesFacade.expenses$;
   readonly loading$ = this.expensesFacade.loading$;
@@ -184,6 +188,7 @@ export class ExpensesPageComponent {
   }
 
   openRecordOverlay(): void {
+    if (this.access.blockingMessage()) return;
     this.expensesFacade.clearError();
     this.expensesFacade.clearMutationStatus();
     this.showRecordOverlay.set(true);

@@ -12,10 +12,15 @@
         type="button"
         [label]="'inventory.addNewProduct' | transloco"
         icon="pi pi-plus"
+        [disabled]="!!definitionAccess.blockingMessage()"
         (click)="onOpenAddProduct()"
       ></button>
     }
   </header>
+
+  @if (canManageInventory() && !showAddProductOverlay()) {
+    <app-definition-access-notice />
+  }
 
   @if (loadError()) {
     <p class="error">{{ loadError() | transloco }}</p>

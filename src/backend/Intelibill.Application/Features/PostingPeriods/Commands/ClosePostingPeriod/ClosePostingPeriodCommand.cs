@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 namespace Intelibill.Application.Features.PostingPeriods.Commands.ClosePostingPeriod;
 
 public sealed record ClosePostingPeriodCommand(
@@ -5,4 +6,5 @@ public sealed record ClosePostingPeriodCommand(
     Guid ActorUserId,
     DateOnly PeriodStart,
     string Reason,
-    string OperationKey);
+    string OperationKey,
+    SessionClaims? Session);

@@ -19,6 +19,7 @@ import { SaleCartStateService } from '../services/sale-cart-state.service';
 import { SalePreviewService } from '../services/sale-preview.service';
 import { SaleService } from '../services/sale.service';
 import { SalesFacade } from '../state/sales.facade';
+import { SaleLicenceGateService } from '../services/sale-licence-gate.service';
 import { CheckoutIntentService } from '../services/checkout-intent.service';
 import { NewSalePageCartSubmitService } from './new-sale-page.cart-submit.service';
 
@@ -168,6 +169,7 @@ function buildService() {
     },
   ]);
   const recordSale = vi.fn();
+  const licenceDenial = signal<string | null>(null);
   const checkoutRecovered = vi.fn();
   const storedIntents = new Map<string, any>();
   const checkoutIntents = {
@@ -207,6 +209,7 @@ function buildService() {
       { provide: Router, useValue: router },
       { provide: AuthService, useValue: { session } },
       { provide: CheckoutIntentService, useValue: checkoutIntents },
+      { provide: SaleLicenceGateService, useValue: { blockingMessage: licenceDenial } },
       { provide: NetworkStatusService, useValue: { canReachApi: vi.fn(() => true) } },
       {
         provide: ProductCatalogSyncService,
@@ -302,7 +305,7 @@ function buildService() {
   });
 
   const service = TestBed.inject(TestCartSubmitService);
-  return { service, recordSale, checkoutIntents, storedIntents, session, cart, checkoutRecovered };
+  return { service, recordSale, checkoutIntents, storedIntents, session, cart, checkoutRecovered, licenceDenial };
 }
 
 describe('NewSalePageCartSubmitService', () => {
@@ -428,6 +431,17 @@ describe('NewSalePageCartSubmitService', () => {
       expect(service.paymentSplitError()).toBe('sales.newSale.pendingCheckout.persistFailed');
     });
 
+    it('does not prepare a new checkout for an enforced denial', async () => {
+      const { service, recordSale, checkoutIntents, licenceDenial } = buildService();
+      readyToSubmit(service);
+      licenceDenial.set('billing.status.tradingAuthority.pending');
+
+      await service.onSubmit();
+
+      expect(checkoutIntents.prepare).not.toHaveBeenCalled();
+      expect(recordSale).not.toHaveBeenCalled();
+    });
+
     it('blocks a replacement checkout while the cart checkout is unresolved', async () => {
       const { service, recordSale, checkoutIntents } = buildService();
       readyToSubmit(service);
@@ -455,13 +469,14 @@ describe('NewSalePageCartSubmitService', () => {
       expect(service.paymentSplitError()).toBe('sales.newSale.pendingCheckout.blocksSubmit');
     });
 
-    it('retries with the original stored request, not the edited cart', async () => {
-      const { service, recordSale } = buildService();
+    it('retries the original stored request while new online trading is blocked', async () => {
+      const { service, recordSale, licenceDenial } = buildService();
       readyToSubmit(service);
       await service.onSubmit();
       await service.refreshPendingCheckouts();
       const [originalRequest, intentId] = recordSale.mock.calls[0];
       service.paymentForm.controls.paidAmount.setValue(10);
+      licenceDenial.set('billing.status.tradingAuthority.expired');
 
       service.onRetryCheckout(intentId);
 

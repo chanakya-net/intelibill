@@ -22,6 +22,7 @@ namespace Intelibill.Api.Unit.Tests.Controllers;
 
 public class PurchaseOrdersControllerTests
 {
+    private readonly Guid _sessionId = Guid.NewGuid();
     private readonly IMessageBus _bus = Substitute.For<IMessageBus>();
     private readonly PurchaseOrdersController _controller;
 
@@ -46,7 +47,12 @@ public class PurchaseOrdersControllerTests
         shopId = Guid.NewGuid();
         SetUserClaims(
             new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new Claim("active_shop_id", shopId.ToString()));
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim("sid", _sessionId.ToString()),
+            new Claim("security_version", "2"),
+            new Claim("scope_version", "3"),
+            new Claim("active_shop_id", shopId.ToString()),
+            new Claim("active_shop_role", nameof(ShopRole.Owner)));
     }
 
     [Fact]
@@ -86,6 +92,8 @@ public class PurchaseOrdersControllerTests
         Assert.IsType<OkObjectResult>(result);
         await _bus.Received(1).InvokeAsync<ErrorOr<PurchaseOrderPagedResultDto>>(
             Arg.Is<GetPurchaseOrdersQuery>(q =>
+                q.Session != null && q.Session.SessionId == _sessionId &&
+                q.Session.UserId == userId && q.Session.ActiveShopId == shopId &&
                 q.ActorUserId == userId
                 && q.ActiveShopId == shopId
                 && q.Search == "rice"
@@ -390,6 +398,7 @@ public class PurchaseOrdersControllerTests
         Assert.Equal(dto, ok.Value);
         await _bus.Received(1).InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
             Arg.Is<ReceivePurchaseOrderCommand>(c =>
+                c.Session != null && c.Session.SessionId == _sessionId &&
                 c.ActorUserId == userId
                 && c.ActiveShopId == shopId
                 && c.PurchaseOrderId == poId

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Discounts.DTOs;
@@ -11,6 +12,7 @@ public sealed class GetDiscountRuleDetailQueryHandler(
     IShopRepository shopRepository,
     IDiscountRuleRepository discountRuleRepository)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<DiscountRuleDto>> Handle(
         GetDiscountRuleDetailQuery query,
         CancellationToken cancellationToken)

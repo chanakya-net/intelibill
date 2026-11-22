@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 namespace Intelibill.Application.Features.PurchaseOrders.Commands.ReceivePurchaseOrder;
 
 public sealed record ReceivePurchaseOrderLineInput(
@@ -23,4 +25,5 @@ public sealed record ReceivePurchaseOrderCommand(
     string? Notes,
     DateTimeOffset? ReceivedAt,
     IReadOnlyList<ReceivePurchaseOrderLineInput> Lines,
-    Guid? OperationId = null);
+    Guid? OperationId = null,
+    SessionClaims? Session = null);

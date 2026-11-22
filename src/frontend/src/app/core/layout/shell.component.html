@@ -84,7 +84,7 @@
         <div class="shell-header-spacer" aria-hidden="true"></div>
 
         <div class="shell-header-controls">
-          @if (canManageOfflineSales() && activeShopId()) {
+          @if (!isShopDataRestricted() && canManageOfflineSales() && activeShopId()) {
             <button
               type="button"
               class="offline-sales-toggle"
@@ -149,7 +149,7 @@
                     <span class="shop-menu-item-label">
                       {{ shop.shopName
                       }}{{
-                        shopDetailsById()[shop.shopId]?.pincode?.trim()
+                        !isShopDataRestricted() && shopDetailsById()[shop.shopId]?.pincode?.trim()
                           ? ` - ${shopDetailsById()[shop.shopId]?.pincode?.trim()}`
                           : ''
                       }}
@@ -233,6 +233,10 @@
         <p class="shell-scope-transition" role="status">
           {{ (session() ? 'shell.scopeTransition' : 'shell.signedOut') | transloco }}
         </p>
+      } @else if (hideShopData()) {
+        <p class="shell-scope-transition" role="alert" data-testid="shop-data-restricted">
+          {{ 'billing.status.suspension.enforcedSecurity' | transloco }}
+        </p>
       } @else {
         <router-outlet></router-outlet>
       }
@@ -248,7 +252,7 @@
     ></app-create-shop-overlay>
   }
 
-  @if (showManageShopOverlay()) {
+  @if (showManageShopOverlay() && !isShopDataRestricted()) {
     <app-manage-shop-overlay
       [shops]="shops()"
       (closeRequested)="onManageShopOverlayClose()"

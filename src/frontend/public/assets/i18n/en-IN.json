@@ -408,6 +408,7 @@
     "invitationWrongAccount": "This invitation was sent to a different verified email address. Sign in to that account to accept it.",
     "invitationRequiresVerifiedEmail": "Verify your email address before accepting a shop invitation.",
     "invitationNotAcceptable": "This invitation is expired, already used, or has been withdrawn.",
+    "invitationShopFull": "This shop has no free member seat right now. Your invitation is still valid: ask the shop owner to free a seat, then accept again.",
     "invitationNotFound": "This invitation is no longer available.",
     "invitationLinkInvalid": "This invitation link is incomplete. Open the link from the invitation email again.",
     "invitationUnavailable": "This invitation cannot be accepted right now. Please try again later."
@@ -900,6 +901,12 @@
     "submitReceiptCostCorrection": "Post correction",
     "receiptCostCorrected": "Receipt cost corrected. Supplier payable changed by {{delta}}.",
     "receiptCostVersionConflict": "This receipt changed after you opened it. The list is refreshed; open it again to make your correction.",
+    "receiptCostSourceIneligible": "The original receipt must be effective by the correction posting time.",
+    "receiptCostBusy": "This supplier receipt is busy. Try again shortly.",
+    "receiptCostBelowAllocated": "The corrected total must cover the payments already allocated to this receipt.",
+    "receiptCostPending": "The correction outcome is pending. Check it before making another correction to this receipt.",
+    "receiptCostCheckOutcome": "Check correction outcome",
+    "receiptCostRecoveryUnavailable": "The correction could not be saved or recovered on this device. Try again.",
     "receiptCostEvidenceMissing": "The original receipt amount for this batch is not on record, so its cost cannot be corrected.",
     "receiptCostUnchanged": "The revised total is the same as the current total; there is nothing to correct.",
     "receiptCostError": "Failed to correct the receipt cost",
@@ -951,6 +958,11 @@
     }
   },
   "shopSetup": {
+    "checklistComplete": "Setup checklist complete",
+    "saveProfile": "Save shop profile",
+    "profileSaved": "Shop profile saved.",
+    "contactRecovery": "You can update the shop name and contact details.",
+    "selectExistingShop": "Select an existing shop or contact support before creating another shop.",
     "title": "Shop setup",
     "refresh": "Refresh setup",
     "loading": "Checking saved shop details…",
@@ -1181,6 +1193,8 @@
       "invitationNotAcceptable": "This invitation is expired, already used, or has been withdrawn.",
       "invitationNotFound": "This invitation is no longer available.",
       "membershipVersionConflict": "This membership changed while you were editing it. Reload and try again.",
+      "memberCapacityReached": "All member seats are in use: {{activeMembers}} of {{memberAllowance}} taken. Suspend or remove a member, or increase the shop's member allowance, then try again.",
+      "memberCapacityReachedNoDetail": "All member seats are in use. Suspend or remove a member, or increase the shop's member allowance, then try again.",
       "membershipOperationRequired": "Shop administration changes a membership, not an account. Update the role and status instead.",
       "membershipNotFound": "This person is not a member of this shop.",
       "membershipStatusNotSupported": "Status must be Active, Suspended or Removed.",
@@ -1899,6 +1913,7 @@
         "calculatedEffects": "Calculated effects",
         "warnings": "Warnings",
         "previewBtn": "Preview",
+        "refreshSource": "Refresh sale",
         "recordBtn": "Record return",
         "successEyebrow": "Credit note issued",
         "successTitle": "Credit note created",
@@ -1959,6 +1974,10 @@
           "tooPreciseWhole": "{{ itemName }}: quantity is in {{ unit }} and must be a whole number.",
           "tooPreciseDecimals": "{{ itemName }}: quantity is in {{ unit }} and allows at most {{ decimals }} decimal places.",
           "unitFallback": "this unit",
+          "sourceIneligible": "This sale is not eligible for a return under the shop’s current restrictions.",
+          "sourceLineUnavailable": "This item does not belong to the original sale.",
+          "sourceCancelled": "This sale was cancelled and cannot be returned.",
+          "sourceQuantityChanged": "The remaining returnable quantity has changed. Refresh the sale and check the available quantity.",
           "serverQuantityPrecision": "A return quantity has more decimal places than its item's unit allows. Correct it and try again."
         }
       }
@@ -2346,6 +2365,8 @@
       "title": "Cancel sale",
       "cancelled": "Cancelled",
       "restricted": "Only an owner or manager can cancel a sale.",
+      "sourceCompletionOnly": "Only eligible prior receipts can be cancelled while trading is restricted.",
+      "previewError": "The cancellation preview could not be loaded. Close and reopen the dialog to try again.",
       "operation": "Operation reference",
       "reason": "Reason (3–255 characters)",
       "postingDate": "Cancellation posting date",
@@ -2408,8 +2429,10 @@
     "ledgerMetrics": "Expense ledger metrics",
     "ledgerResults": "Expense ledger results",
     "errors": {
-      "unexpected": "Unable to record or correct this expense. Please try again."
+      "unexpected": "Unable to record or correct this expense. Please try again.",
+      "correctionSourceIneligible": "A restricted correction must keep the original payee, description and date, and cannot increase the amount."
     },
+    "restrictedCorrectionHint": "Trading is restricted. An existing expense can be corrected only with the same payee, description and date, and no higher amount.",
     "treatment": {
       "label": "Expense treatment",
       "Unclassified": "Unclassified",
@@ -2876,6 +2899,9 @@
       "check": "Check receipt",
       "retry": "Retry same receipt",
       "storageError": "Unable to save receiving work. Keep this dialog open and try again.",
+      "loadError": "Unable to load saved receiving work. Try again.",
+      "noPending": "No pending receipt is saved on this device for this order.",
+      "lookForSaved": "Look for saved receipt",
       "scopeError": "Return to the user and shop that own this receipt.",
       "lookupMissing": "No committed receipt is visible yet. Keep the same receipt and check or retry.",
       "lookupFailed": "Unable to check this receipt. Sign in with the same account and shop, then check again.",
@@ -2960,6 +2986,12 @@
     "phoneInvalid": "Enter a mobile number in international format, for example +919876543210.",
     "phoneChangeRequiresProof": "A verified number can only be changed by proving the new number."
   },
+  "paymentSettlement": {
+    "remainingDue": "Remaining eligible due",
+    "unavailable": "The remaining due could not be checked.",
+    "changed": "The remaining due changed. Check the updated limit and try again.",
+    "sourceIneligible": "This document is not eligible for settlement on the selected date."
+  },
   "financialOperations": {
     "pending": {
       "title": "Payment not confirmed",
@@ -2968,7 +3000,7 @@
       "retry": "Retry same payment"
     },
     "confirmed": "Payment confirmed. The ledger has been refreshed.",
-    "notYetRecorded": "Not recorded yet. Retry the same payment to finish it.",
+    "notYetRecorded": "No confirmed result yet. Check again or retry the same payment.",
     "checkFailed": "Could not check the payment status. Try again.",
     "outcomeUnknown": "The connection dropped before the server answered. The payment may already be recorded — check its status or retry the same payment.",
     "pendingBlocksNew": "Finish the unconfirmed payment before recording a new one.",
@@ -3024,6 +3056,7 @@
     "storageError": "Cannot save the recovery draft. No new request was sent. Restore browser storage and try again.",
     "unknown": "The outcome is uncertain. Editing is locked. Check or retry the exact saved operation. A missing lookup does not prove failure.",
     "rejected": "The request was refused. Your fields were retained. Review the refreshed stock and receipt before submitting again.",
+    "sourceIneligible": "The recorded receipt or shipment dates do not support this operation, or the source record is incomplete. Your entries have been kept.",
     "checkRetry": "Check / retry saved operation",
     "loadMore": "Load more"
   },
@@ -3289,6 +3322,63 @@
     "searchHint": "Up to 20 matches are shown. Refine your search to find another party."
   },
   "billing": {
+    "reopening": {
+      "received": "Reopening decision received by the merchant service.",
+      "reopenedAt": "Reopening saved at {{time}}.",
+      "applied": "Reopening applied at this shop.",
+      "pending": "Awaiting confirmation from the merchant service."
+    },
+    "closure": {
+      "shopTitle": "Close this shop",
+      "accountTitle": "Billing account closure",
+      "review": "Review shop closure",
+      "readProposal": "Review my shop for account closure",
+      "reviewAccount": "Review billing account closure",
+      "startProposal": "Request owner confirmations",
+      "retryProposal": "Retry the same proposal",
+      "scopeTooLarge": "This account has too many affiliated shops for the online closure review. No proposal was recorded.",
+      "proposalUnknown": "The proposal could not be confirmed. Retry the same proposal.",
+      "billingOwner": "Only the current Billing Owner can request account closure.",
+      "accountScope": "Account closure covers every affiliated shop, including shops with their own subscriptions. Each shop owner must review their own outstanding work and confirm.",
+      "affectedShops": "Shops included in this proposal",
+      "recorded": "Owner confirmation recorded",
+      "awaitingOwner": "Waiting for owner confirmation",
+      "confirmScope": "I confirm operational closure for every listed shop and understand that financial terms stay in place.",
+      "confirmAccount": "Confirm account closure",
+      "shopScope": "This request closes this shop only. Other shops keep their current access.",
+      "ownerScope": "This account proposal covers {{ count }} shops. You are confirming only the shop shown here.",
+      "observed": "Server observations as of {{ time }}.",
+      "tills": "Open tills",
+      "cases": "Unresolved reconciliation cases",
+      "submissions": "Offline submissions received by the server",
+      "linked": "Submissions linked to a recorded sale",
+      "intakes": "Bulk intakes with missing row outcomes",
+      "unreadable": "Bulk intakes with unreadable evidence",
+      "devices": "Devices with recorded contact",
+      "deviceContact": "Last observed contact {{ time }}.",
+      "leaseEnd": "Recorded invoice lease end {{ time }}.",
+      "devicesTruncated": "Showing the 20 most recently observed devices.",
+      "permitsUnavailable": "Offline licence permit evidence is unavailable for this review.",
+      "disconnected": "Disconnected devices may still have unsent work. The server cannot tell what's in their queues.",
+      "retention": "Closure stops new trading when enforced. Authorized history and eligible completion or recovery remain available. Records and device queues are retained.",
+      "financial": "Closure leaves subscriptions, payments and refunds unchanged.",
+      "knowWork": "I reviewed the work the server knows about.",
+      "considerQueues": "I considered unsent work on disconnected devices.",
+      "ackFinancial": "I understand that financial changes require a separate decision.",
+      "confirmShop": "Confirm shop closure",
+      "confirmConsent": "Confirm this shop for account closure",
+      "unknown": "The outcome is unconfirmed. Retry the same request to recover it.",
+      "retry": "Retry the same request",
+      "unavailable": "Closure information could not be verified.",
+      "noProposal": "No current account closure proposal includes this shop.",
+      "stale": "The review or owner confirmations changed. Review the current information again.",
+      "storage": "The request could not be stored safely on this browser.",
+      "saved": "Closure saved. Merchant enforcement may still be pending.",
+      "consentSaved": "Shop owner confirmation recorded.",
+      "closedAt": "Closure saved at {{ time }}.",
+      "enforced": "Closure is enforced for this shop.",
+      "enforcementUnconfirmed": "Enforcement for this shop is not confirmed."
+    },
     "checkout": {
       "link": "Review a quote",
       "title": "Review a full-payment quote",
@@ -3623,9 +3713,26 @@
       "heading": "Access status",
       "link": "Access status for this shop",
       "accountLink": "Access status",
+      "suspension": {
+        "Trading": "Trading suspension saved",
+        "Security": "Security suspension saved",
+        "effective": "Recorded start time {{ time }}.",
+        "enforcedTrading": "Trading suspension is enforced for this shop.",
+        "enforcedSecurity": "Security suspension is enforced for this shop.",
+        "renewal": "A saved suspension stays in effect after renewal."
+      },
+      "tradingAuthority": {
+        "heading": "Local trading authority",
+        "verified": "Trading access verified until {{ time }}.",
+        "unavailable": "Trading access could not be verified. Check again shortly or contact support if this continues.",
+        "expired": "This shop’s trading access has ended.",
+        "restricted": "Trading is restricted for this shop.",
+        "pending": "This shop is waiting for trading access.",
+        "busy": "The shop licence is busy. Check again shortly."
+      },
       "shopDescription": "How licensing currently evaluates access for your active shop.",
       "accountDescription": "How licensing currently evaluates each subscription term of this billing account.",
-      "observeOnly": "Observe-only: this status is shown for information and does not block selling, stock or any other work.",
+      "observeOnly": "Observe-only subscription dates and commercial terms. Shop restrictions are shown separately.",
       "evaluatedAt": "Evaluated at {{time}}",
       "pending": "This shop has no subscription coverage recorded yet.",
       "noTerms": "This billing account has no subscription terms yet.",

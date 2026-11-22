@@ -47,7 +47,8 @@ internal sealed class EntitlementSynchronizationReader(LicensingDbContext db, Li
     {
         var snapshot = JsonSerializer.Deserialize<EntitlementSnapshotV1>(row.Snapshot, EntitlementSnapshotsV1.Json)!;
         var current = ReadReceipt(row.Acknowledgement);
-        var confirmed = row.Status == "Applied" ? current : ReadReceipt(row.Confirmation);
+        var confirmed = row.Status == "Applied"
+            ? current : ReadReceipt(row.Confirmation);
         if (confirmed is not { Outcome: "Applied", Disposition: "Applied" or "Superseded",
                 AccountRevision: > 0, ShopRevision: > 0, AppliedAccountRevision: > 0, AppliedShopRevision: > 0 } ||
             !EntitlementSnapshotsV1.IsInstant(confirmed.AppliedAt) ||

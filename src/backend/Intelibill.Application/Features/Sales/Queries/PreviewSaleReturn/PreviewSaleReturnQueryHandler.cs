@@ -1,4 +1,9 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
+using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Time;
+using Intelibill.Application.Features.Payments.Services;
+using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Sales.Services.Returns;
 using Intelibill.Domain.Enums;
@@ -7,12 +12,29 @@ namespace Intelibill.Application.Features.Sales.Queries.PreviewSaleReturn;
 
 public sealed class PreviewSaleReturnQueryHandler(
     ISaleReturnValidator saleReturnValidator,
-    IReturnAccountingPolicy returnAccountingPolicy)
+    IReturnAccountingPolicy returnAccountingPolicy,
+    IShopRepository shops,
+    IPaymentTransactionRunner transactions,
+    IShopLicenceFence fence,
+    IBusinessClock clock)
 {
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<SaleReturnPreviewDto>> Handle(
         PreviewSaleReturnQuery query,
         CancellationToken cancellationToken)
     {
+        var member = await shops.GetMembershipAsync(query.ActorUserId, query.ShopId, cancellationToken);
+        if (member is null || !member.IsActive) return Errors.Shop.MembershipNotFound;
+        return await transactions.RunAsync<SaleReturnPreviewDto>(null, query.ActorUserId, query.SaleId, null,
+            ct => PreviewAsync(query, ct), cancellationToken);
+    }
+
+    private async Task<ErrorOr<SaleReturnPreviewDto>> PreviewAsync(PreviewSaleReturnQuery query, CancellationToken cancellationToken)
+    {
+        var licence = await fence.EnterAsync(query.ShopId, LicenceAction.SourceCorrection, cancellationToken);
+        if (licence.IsError) return licence.Errors;
+        if (SaleReturnSourcePolicy.Denial(licence.Value.CurrentDecision()) is { } denied) return denied;
+
         var validation = await saleReturnValidator.ValidateAsync(
             new SaleReturnValidationRequest(
                 query.ActorUserId,
@@ -26,14 +48,21 @@ public sealed class PreviewSaleReturnQueryHandler(
                     i.LineType,
                     i.Condition,
                     i.ApprovedRefundAmount,
-                    i.Notes)).ToList()),
+                    i.Notes)).ToList(), Licence: licence.Value),
             cancellationToken);
 
         if (validation.IsError)
             return validation.Errors;
 
+        var role = await shops.GetActiveRoleAsync(query.ActorUserId, query.ShopId, cancellationToken);
+        if (role is null) return Errors.Shop.MembershipNotFound;
         var validated = validation.Value;
-        var hasFinancialAccess = validated.Membership.Role is ShopRole.Owner or ShopRole.Manager;
+        if (SaleReturnSourcePolicy.Check(licence.Value, validated.Sale, clock) is { } sourceDenied) return sourceDenied;
+        return BuildPreview(validated, role is ShopRole.Owner or ShopRole.Manager);
+    }
+
+    private SaleReturnPreviewDto BuildPreview(SaleReturnValidationResult validated, bool hasFinancialAccess)
+    {
         var calculationsBySaleItemId = validated.Calculation.Lines.ToDictionary(line => line.SaleItemId);
 
         return new SaleReturnPreviewDto(

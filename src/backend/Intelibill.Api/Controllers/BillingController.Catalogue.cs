@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Intelibill.Api.Controllers;
@@ -5,6 +6,7 @@ namespace Intelibill.Api.Controllers;
 public sealed partial class BillingController
 {
     [HttpGet("/api/billing/plans")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> ListPlans([FromQuery] Guid? after, CancellationToken cancellationToken)
     {
         if (ReadCaller() is not { } caller)
@@ -14,6 +16,7 @@ public sealed partial class BillingController
     }
 
     [HttpGet("/api/billing/plans/versions/{versionId:guid}")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> ReadPlanVersion(Guid versionId, CancellationToken cancellationToken)
     {
         if (ReadCaller() is not { } caller)

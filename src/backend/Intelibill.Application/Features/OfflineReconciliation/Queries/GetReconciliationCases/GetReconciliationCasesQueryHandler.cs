@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.OfflineReconciliation.DTOs;
@@ -17,6 +18,7 @@ public sealed class GetReconciliationCasesQueryHandler(
     private const int DefaultPageSize = 20;
     private const int MaxPageSize = 100;
 
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<ErrorOr<ReconciliationCasePageDto>> HandleAsync(
         GetReconciliationCasesQuery query,
         CancellationToken cancellationToken)

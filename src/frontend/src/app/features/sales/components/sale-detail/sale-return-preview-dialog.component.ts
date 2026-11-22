@@ -34,6 +34,7 @@ import type {
   SaleItemDto,
   SaleReturnCondition,
 } from '../../services/sale.models';
+import { requiresSaleReturnSourceRefresh } from '../../utils/sale-return-source-errors';
 import { SalesFacade } from '../../state/sales.facade';
 import {
   fitsQuantityScale,
@@ -98,7 +99,10 @@ export class SaleReturnPreviewDialogComponent {
   }
   @Input() currency = 'INR';
 
-  readonly returnPreview = this.salesFacade.returnPreview;
+  readonly returnPreview = computed(() => {
+    const preview = this.salesFacade.returnPreview();
+    return preview?.saleId === this.saleInput()?.saleId ? preview : null;
+  });
   readonly isPreviewLoading = this.salesFacade.loadingReturnPreview;
   readonly isSubmitting = this.salesFacade.submitting;
   readonly previewError = this.salesFacade.returnPreviewErrorMessage;
@@ -133,9 +137,7 @@ export class SaleReturnPreviewDialogComponent {
     const session = this.authService.session();
     if (!session) return '';
 
-    const activeShop =
-      session.shops.find((shop) => shop.shopId === session.activeShopId) ??
-      session.shops.find((shop) => shop.isDefault);
+    const activeShop = session.shops.find((shop) => shop.shopId === session.activeShopId);
 
     return activeShop?.role ?? '';
   });
@@ -146,13 +148,22 @@ export class SaleReturnPreviewDialogComponent {
 
   readonly canPreviewReturns = computed(() => {
     const role = this.activeShopRole().toLowerCase();
-    return ['owner', 'manager', 'staff'].includes(role) && this.returnableItems().length > 0;
+    return this.saleInput()?.status !== 'Cancelled' &&
+      ['owner', 'manager', 'staff'].includes(role) && this.returnableItems().length > 0;
   });
 
   readonly hasFinancialAccess = computed(() =>
     ['owner', 'manager'].includes(this.activeShopRole().toLowerCase()),
   );
-  readonly canSubmitReturns = this.hasFinancialAccess;
+  readonly canSubmitReturns = computed(() => this.canPreviewReturns() && this.hasFinancialAccess());
+  readonly sourceNeedsRefresh = computed(() => requiresSaleReturnSourceRefresh(this.previewError()));
+  readonly canRecordPreview = computed(() =>
+    this.canSubmitReturns() && this.returnPreview()?.hasFinancialAccess === true &&
+    !this.sourceNeedsRefresh() && !this.isSubmitting() && !this.tillLocked() &&
+    this.selectedLineCount() > 0 && this.selectedDrafts().every((draft) =>
+      this.returnableItems().some((line) => line.saleItemId === draft.saleItemId && draft.quantity <= line.returnableQuantity),
+    ),
+  );
 
   readonly selectedDrafts = computed(() => this.returnDrafts().filter((draft) => draft.selected));
 
@@ -248,7 +259,7 @@ export class SaleReturnPreviewDialogComponent {
       notes: selected ? draft.notes : '',
     }));
 
-    this.salesFacade.clearSaleReturnPreview();
+    this.clearEditablePreview();
   }
 
   updateReturnQuantity(item: SaleItemDto, quantity: number | string | null): void {
@@ -268,7 +279,7 @@ export class SaleReturnPreviewDialogComponent {
           : null,
     }));
 
-    this.salesFacade.clearSaleReturnPreview();
+    this.clearEditablePreview();
   }
 
   updateReturnCondition(item: SaleItemDto, condition: SaleReturnCondition | null): void {
@@ -277,7 +288,7 @@ export class SaleReturnPreviewDialogComponent {
       condition,
     }));
 
-    this.salesFacade.clearSaleReturnPreview();
+    this.clearEditablePreview();
   }
 
   updateRefundAmount(item: SaleItemDto, refundAmount: number | string | null): void {
@@ -289,7 +300,7 @@ export class SaleReturnPreviewDialogComponent {
       approvedRefundAmount: this.clampNumber(Number(refundAmount), 0, maxRefund),
     }));
 
-    this.salesFacade.clearSaleReturnPreview();
+    this.clearEditablePreview();
   }
 
   updateNotes(item: SaleItemDto, notes: string): void {
@@ -298,7 +309,7 @@ export class SaleReturnPreviewDialogComponent {
       notes,
     }));
 
-    this.salesFacade.clearSaleReturnPreview();
+    this.clearEditablePreview();
   }
 
   updateDueReductionOverride(value: number | string | null): void {
@@ -309,23 +320,34 @@ export class SaleReturnPreviewDialogComponent {
 
     this.dueReductionOverrideAmount.set(normalized);
     this.dueOverrideConfirmed.set(false);
-    this.salesFacade.clearSaleReturnPreview();
+    this.clearEditablePreview();
   }
 
   updateDueOverrideReason(value: string): void {
     this.dueOverrideReason.set(value);
-    this.salesFacade.clearSaleReturnPreview();
+    this.clearEditablePreview();
+  }
+
+  refreshSource(): void {
+    const sale = this.saleInput();
+    if (!sale || !this.sourceNeedsRefresh()) return;
+    this.close();
+    this.salesFacade.loadSaleDetail(sale.saleId);
+  }
+
+  private clearEditablePreview(): void {
+    if (!this.sourceNeedsRefresh()) this.salesFacade.clearSaleReturnPreview();
   }
 
   previewReturn(): void {
     const sale = this.saleInput();
-    if (!sale) return;
+    if (!sale || !this.canPreviewReturns() || this.sourceNeedsRefresh()) return;
 
     const errors = this.validateReturnDrafts();
     this.validationMessages.set(errors);
 
     if (errors.length > 0) {
-      this.salesFacade.clearSaleReturnPreview();
+      this.clearEditablePreview();
       return;
     }
 
@@ -376,9 +398,8 @@ export class SaleReturnPreviewDialogComponent {
   }
 
   submitReturn(): void {
-    if (this.tillLocked()) return;
     const sale = this.saleInput();
-    if (!sale) return;
+    if (!sale || !this.canRecordPreview()) return;
 
     const errors = this.validateSubmit();
     this.validationMessages.set(errors);
@@ -637,7 +658,7 @@ export class SaleReturnPreviewDialogComponent {
     this.payoutDestination.set(null);
     this.creditNoteExpiryMode.set('NoExpiry');
     this.creditNoteExpiryDate.set(null);
-    this.salesFacade.clearSaleReturnPreview();
+    this.clearEditablePreview();
   }
 
   private updateDraft(

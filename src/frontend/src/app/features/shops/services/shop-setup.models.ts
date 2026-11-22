@@ -1,3 +1,4 @@
+import type { ShopSetupAccess } from './shop-setup-access';
 import type { InvoiceDocument } from '../../sales/services/sale.models';
 
 export type ShopSetupStepId = 'identity' | 'business' | 'tax' | 'catalog' | 'stock' | 'sample' | 'bank';
@@ -12,12 +13,14 @@ export interface ShopSetupStep {
 export interface ShopSetupPreferences {
   readonly version: number;
   readonly showOnStartup: boolean;
+  readonly canSavePreferences?: boolean;
   readonly sampleReceiptAcknowledgedAt: string | null;
 }
 
 export interface ShopSetupStatus {
   readonly shopId: string;
   readonly contractVersion: 1;
+  readonly setupAccess?: ShopSetupAccess | null;
   readonly canTrade: boolean;
   readonly steps: readonly ShopSetupStep[];
   readonly blockingReasons: readonly string[];

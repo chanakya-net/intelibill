@@ -17,6 +17,7 @@ import { TranslocoPipe } from '@ngneat/transloco';
 import { InputTextModule } from 'primeng/inputtext';
 
 import { ShopDetailsDto, UpdateShopRequest } from '../../services/shop.service';
+import type { ShopProfileField } from '../../services/shop-setup-access';
 import { isAnotherShop, toOptionalTrimmed } from './manage-shop-form.helper';
 import { InputValidators } from '../../../../shared/forms/input-validation';
 
@@ -32,6 +33,7 @@ export class ShopBasicInfoFormComponent implements OnInit, OnChanges {
 
   @Input() initialValues: ShopDetailsDto | null = null;
   @Input() disabled = false;
+  @Input() allowedFields: readonly ShopProfileField[] | null = null;
   /** Off where the GSTIN is edited with the tax profile, which checks it against the registration state. */
   @Input() showGstNumber = true;
   @Output() readonly formChange = new EventEmitter<Partial<UpdateShopRequest>>();
@@ -55,15 +57,24 @@ export class ShopBasicInfoFormComponent implements OnInit, OnChanges {
 
   ngOnInit(): void {
     this.patchFromInitialValues();
-    if (this.disabled) this.form.disable({ emitEvent: false });
+    this.updateDisabledFields();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     // Details refreshed by a save elsewhere (the tax profile) keep edits the owner has not saved yet.
     if (changes['initialValues'] && (this.form.pristine || isAnotherShop(changes['initialValues']))) this.patchFromInitialValues();
-    if (changes['disabled']) {
-      if (this.disabled) this.form.disable({ emitEvent: false });
-      else this.form.enable({ emitEvent: false });
+    if (changes['disabled'] || changes['allowedFields']) this.updateDisabledFields();
+  }
+
+  isVisible(field: ShopProfileField): boolean {
+    return this.allowedFields === null || this.allowedFields.includes(field);
+  }
+
+  private updateDisabledFields(): void {
+    for (const name of Object.keys(this.form.controls) as ShopProfileField[]) {
+      const control = this.form.controls[name];
+      if (this.disabled || !this.isVisible(name)) control.disable({ emitEvent: false });
+      else control.enable({ emitEvent: false });
     }
   }
 

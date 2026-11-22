@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { SupplierService } from '../../suppliers/services/supplier.service';
 import { supplierOptionLabel } from '../../../shared/models/party-directory.models';
 import { ExpiryPolicyService } from '../../expiry/services/expiry-policy.service';
@@ -90,6 +91,39 @@ describe('BatchRowFormStateService', () => {
     catalogSync.findByBarcode.mockClear();
     suppliersFacade.suppliers.set([]);
     suppliersFacade.load.mockClear();
+  });
+
+  it('shows a typed import refusal without changing the entered row', async () => {
+    const state = setup();
+    state.form.patchValue({ barcode: 'NEW-1', itemName: 'Typed name', uom: 'pcs', quantity: 3 });
+    const draft = state.form.getRawValue();
+    inventoryService.getProductDetailsByNameOrBarcode.mockReturnValue(throwError(() =>
+      new HttpErrorResponse({ status: 503, error: { code: 'Licence.VerificationUnavailable' } }),
+    ));
+
+    expect((await state.fetchProductDetails()).error).toBe(true);
+    expect(state.productLookupError()).toBe('billing.status.tradingAuthority.unavailable');
+    expect(state.form.getRawValue()).toEqual(draft);
+    expect(inventoryService.lookupHsn).not.toHaveBeenCalled();
+  });
+
+  it('clears stale lookup messages after editing the barcode and leaves normal misses silent', async () => {
+    const state = setup();
+    const oldLookup = new Subject<ProductDetailsDto>();
+    state.form.controls.barcode.setValue('old');
+    inventoryService.getProductDetailsByNameOrBarcode.mockReturnValueOnce(oldLookup);
+    const late = state.fetchProductDetails();
+
+    state.form.controls.barcode.setValue('new');
+    oldLookup.error(new HttpErrorResponse({ status: 403, error: { code: 'Licence.Expired' } }));
+    await late;
+    expect(state.productLookupError()).toBeNull();
+
+    inventoryService.getProductDetailsByNameOrBarcode.mockReturnValueOnce(throwError(() =>
+      new HttpErrorResponse({ status: 404, error: { code: 'product.not_found' } }),
+    ));
+    await state.fetchProductDetails();
+    expect(state.productLookupError()).toBeNull();
   });
 
   it('preserves the supplier ID from product defaults without a complete directory', async () => {
@@ -474,6 +508,16 @@ describe('BatchRowFormStateService', () => {
         expect(row?.taxIncluded).toBe(taxIncluded);
       },
     );
+
+    it('restores a row that carries no sales mode instead of failing', () => {
+      const state = setup();
+      const { taxIncluded: _missing, ...row } = draftRow({ purchaseTaxIncluded: true });
+
+      state.loadDraftRow(row as InventoryInboundDraftRow);
+
+      expect(state.form.controls.itemName.value).toBe(row.itemName);
+      expect(state.form.controls.taxIncluded.value).toBe(true);
+    });
 
     it('requires the purchase mode to be confirmed for a draft stored without it', () => {
       const state = setup();

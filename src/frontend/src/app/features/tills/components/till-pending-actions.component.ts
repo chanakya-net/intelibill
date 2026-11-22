@@ -1,6 +1,10 @@
+import {
+  OperatingAccessHintService,
+  operatingAccessErrorKey,
+} from '../../billing/status/operating-access-hint.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { Component, Input, Output, EventEmitter, inject, signal, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, signal, OnChanges, OnInit, SimpleChanges } from '@angular/core';
 import { TranslocoPipe } from '@ngneat/transloco';
 import { firstValueFrom } from 'rxjs';
 import { TillContextService } from '../services/till-context.service';
@@ -52,7 +56,7 @@ import { sameOwner } from '../../../core/context/shop-scope';
       <p role="status">{{ 'tills.frozenConfirmed' | transloco }} · {{ recovered() }}</p>
     }
     @if (error()) {
-      <p role="alert">{{ 'tills.unknown' | transloco }}</p>
+      <p role="alert">{{ errorMessage() | transloco }}</p>
     }`,
   styles: [
     `
@@ -92,18 +96,23 @@ import { sameOwner } from '../../../core/context/shop-scope';
     `,
   ],
 })
-export class TillPendingActionsComponent implements OnInit {
+export class TillPendingActionsComponent implements OnChanges, OnInit {
   @Input() action = '';
   @Input() target = '';
+  @Input() targets: readonly string[] | null = null;
   @Output() readonly lockedChange = new EventEmitter<boolean>();
+  @Output() readonly pendingTargetsChange = new EventEmitter<readonly string[]>();
   @Output() readonly confirmed = new EventEmitter<void>();
   readonly records = signal<TillDraftRecord[]>([]);
   readonly busy = signal(false);
   readonly error = signal(false);
+  readonly errorMessage = signal('tills.unknown');
   readonly recovered = signal('');
+  private refreshRevision = 0;
   private readonly drafts = inject(TillDraftService);
   private readonly api = inject(TillService);
   private readonly context = inject(TillContextService);
+  private readonly access = inject(OperatingAccessHintService);
   constructor() {
     this.drafts
       .watch()
@@ -148,15 +157,20 @@ export class TillPendingActionsComponent implements OnInit {
   ngOnInit() {
     void this.refresh();
   }
+  ngOnChanges(changes: SimpleChanges) {
+    if (Object.values(changes).some((change) => !change.firstChange)) void this.refresh();
+  }
   async refresh() {
+    const revision = ++this.refreshRevision;
     const owner = this.context.owner();
     if (!owner) return;
     try {
       const all = await this.drafts.list(owner);
-      if (!sameOwner(owner, this.context.owner())) return;
+      if (revision !== this.refreshRevision || !sameOwner(owner, this.context.owner())) return;
       const records = all.filter(
         (x) =>
           x.pending &&
+          (!this.targets || this.targets.includes(x.targetId.split(':')[1])) &&
           (!this.action ||
             x.targetId.startsWith(
               this.target ? `${this.action}:${this.target}:` : `${this.action}:`,
@@ -164,9 +178,12 @@ export class TillPendingActionsComponent implements OnInit {
       );
       this.records.set(records);
       this.lockedChange.emit(records.length > 0);
+      this.pendingTargetsChange.emit(records.map((record) => record.targetId.split(':')[1]));
     } catch {
+      if (revision !== this.refreshRevision || !sameOwner(owner, this.context.owner())) return;
       this.error.set(true);
       this.lockedChange.emit(true);
+      this.pendingTargetsChange.emit(this.targets ?? []);
     }
   }
   async retry(record: TillDraftRecord) {
@@ -175,6 +192,9 @@ export class TillPendingActionsComponent implements OnInit {
     const [action, target, ...cycle] = record.targetId.split(':');
     const path = record.pending.payload['__requestPath'];
     if (typeof path !== 'string') return;
+    const scope = this.access.scope();
+    this.error.set(false);
+    this.recovered.set('');
     this.busy.set(true);
     try {
       await firstValueFrom(
@@ -195,7 +215,9 @@ export class TillPendingActionsComponent implements OnInit {
         this.recovered.set(record.pending.operationKey);
         this.confirmed.emit();
       }
-    } catch {
+    } catch (error) {
+      this.access.reportRefusal(error, scope);
+      this.errorMessage.set(operatingAccessErrorKey(error) ?? 'tills.unknown');
       this.error.set(true);
     } finally {
       this.busy.set(false);

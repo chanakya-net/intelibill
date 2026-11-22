@@ -2,18 +2,22 @@ import {
   HttpContextToken,
   HttpErrorResponse,
   HttpEvent,
-  HttpEventType,
+  HttpHandlerFn,
+  HttpRequest,
+  HttpResponse,
   HttpInterceptorFn,
 } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 
-import { EMPTY, MonoTypeOperatorFunction, Observable, catchError, mergeMap, of, switchMap, throwError } from 'rxjs';
+import { problemCode } from '@intelibill/api';
+import { EMPTY, MonoTypeOperatorFunction, Observable, catchError, from, mergeMap, of, switchMap, tap, throwError } from 'rxjs';
 
 import { API_BASE_URL, AUTH_ENDPOINTS, SHOP_ENDPOINTS } from '../auth/auth.constants';
 import { AuthService } from '../auth/auth.service';
 import { REQUEST_SCOPE, ScopeMismatchError, StaleScopeError } from '../context/scoped-request';
 import { ShopContextService } from '../context/shop-context.service';
+import { readTradingAuthorityRestriction } from '../context/shop-data-response';
 import { SERVICE_WORKER_BYPASS_HEADER, classifyApiRequest } from '../service-worker/service-worker-bypass';
 
 const REFRESH_ATTEMPTED = new HttpContextToken<boolean>(() => false);
@@ -36,103 +40,106 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   }
 
   const epochAtRequest = shopContext.epoch();
+  const invocation = shopContext.scope();
+  const path = canonicalPath(request.url);
+  const scoped = !isSessionInstalling(request.method, path);
+  const scopeMoved = () => shopContext.epoch() !== epochAtRequest;
 
-  const accessToken = authService.getAccessToken();
-  // The shop this request is about to be authorized for. If a refresh moves the session to a
-  // different shop, replaying the request there would act on the wrong shop's data.
-  const shopAtRequest = authService.session()?.activeShopId ?? null;
-  // Who the request was made as. A renewal can finish after this tab moved to another account;
-  // replaying the request then would act as someone who never made it.
-  const userAtRequest = authService.session()?.user?.id ?? null;
-  // A protected answer belongs to the identity that asked for it. The bypass keeps every service
-  // worker version, including one deployed before this build, from storing or replaying it.
   const workerBypass: Record<string, string> = routing.bypassServiceWorker
     ? { [SERVICE_WORKER_BYPASS_HEADER]: 'true' }
     : {};
-  const authorizedRequest = request.clone({
+  const answer = sendWithRefresh(request, next, authService, router, workerBypass, path, scopeMoved);
+
+  if (!scoped) return answer;
+  const currentAnswer = ignoreAnswersFromLeftScope(scopeMoved, owner !== null);
+  if (invocation?.shopId && isTradingAuthorityRead(request.method, path, invocation.shopId)) {
+    const observe = shopContext.observeDataAuthority(invocation);
+    const report = (input: HttpResponse<unknown> | HttpErrorResponse) => {
+      if (!authService.getAccessToken()) return;
+      const restricted = readTradingAuthorityRestriction(input, invocation.shopId);
+      if (restricted !== undefined) observe(restricted);
+    };
+    // Filter stale responses before applying the decision. Its own caller also receives the decision.
+    return answer.pipe(currentAnswer, tap({
+      next: (event) => { if (event instanceof HttpResponse) report(event); },
+      error: (error: unknown) => { if (error instanceof HttpErrorResponse) report(error); },
+    }));
+  }
+
+  return answer.pipe(
+    catchError((error: unknown) => {
+      if (!invocation || scopeMoved() || !authService.getAccessToken() || !canReportRefusal(path, invocation.shopId) ||
+          !(error instanceof HttpErrorResponse) || error.status !== 403) {
+        return throwError(() => error);
+      }
+
+      return observeSecurityRefusal(error, () => {
+        if (!scopeMoved()) shopContext.setDataRestricted(invocation, true);
+      });
+    }),
+    currentAnswer,
+  );
+};
+
+function sendWithRefresh(
+  request: HttpRequest<unknown>,
+  next: HttpHandlerFn,
+  auth: AuthService,
+  router: Router,
+  workerBypass: Record<string, string>,
+  path: string,
+  scopeMoved: () => boolean,
+): Observable<HttpEvent<unknown>> {
+  const sessionAtRequest = auth.session();
+  const accessToken = auth.getAccessToken();
+  const authorized = request.clone({
     setHeaders: accessToken ? { ...workerBypass, Authorization: `Bearer ${accessToken}` } : workerBypass,
   });
 
-  const answer = next(authorizedRequest).pipe(
-    catchError((error: unknown) => {
-      if (!(error instanceof HttpErrorResponse)) {
-        return throwError(() => error);
-      }
+  return next(authorized).pipe(catchError((error: unknown) => {
+    if (!(error instanceof HttpErrorResponse) || error.status !== 401 || scopeMoved() ||
+        request.context.get(REFRESH_ATTEMPTED) || isRefreshExcludedEndpointRequest(path) || !auth.hasRefreshToken()) {
+      return throwError(() => error);
+    }
 
-      const shouldRedirectOnAuthFailure = !isAuthRedirectSuppressedEndpoint(request.url);
+    let canClearSession = !isAuthRedirectSuppressedEndpoint(path);
+    return auth.refreshAccessToken().pipe(
+      switchMap((session) => {
+        if (scopeMoved() || !session) return throwError(() => error);
+        if ((session.user?.id ?? null) !== (sessionAtRequest?.user?.id ?? null) ||
+            (session.activeShopId ?? null) !== (sessionAtRequest?.activeShopId ?? null)) {
+          canClearSession = false;
+          return throwError(() => error);
+        }
 
-      // A 401 for a token this tab has already replaced (it left that scope while the request was
-      // out) says nothing about the session it holds now: neither renew nor clear it.
-      const shouldTryRefresh = error.status === 401
-        && shopContext.epoch() === epochAtRequest
-        && !request.context.get(REFRESH_ATTEMPTED)
-        && !isRefreshExcludedEndpointRequest(request.url)
-        && authService.hasRefreshToken();
+        const retry = request.clone({
+          setHeaders: { ...workerBypass, Authorization: `Bearer ${session.accessToken}` },
+          context: request.context.set(REFRESH_ATTEMPTED, true),
+        });
+        return next(retry).pipe(catchError((replayError: unknown) => {
+          canClearSession &&= replayError instanceof HttpErrorResponse && replayError.status === 401;
+          return throwError(() => replayError);
+        }));
+      }),
+      catchError((failure: unknown) => {
+        if (!canClearSession || scopeMoved()) return throwError(() => failure);
+        auth.clearSession();
+        return of(router.navigateByUrl('/login')).pipe(switchMap(() => throwError(() => failure)));
+      }),
+    );
+  }));
+}
 
-      if (!shouldTryRefresh) {
-        return throwError(() => error);
-      }
+function observeSecurityRefusal(error: HttpErrorResponse, observed: () => void): Observable<never> {
+  const finish = (problem: unknown): Observable<never> => {
+    if (problemCode(problem) === 'Licence.SecuritySuspended') observed();
+    return throwError(() => error);
+  };
+  if (!(error.error instanceof Blob)) return finish(error.error);
 
-      // Set when the renewed session is no longer the one this request was made in: another account,
-      // or the same account in another shop. The failure is reported, but that session is valid and
-      // is not this request's to clear — clearing it would sign every tab out.
-      let tabMovedToAnotherAccount = false;
-      let requestScopeLeft = false;
-
-      return authService.refreshAccessToken().pipe(
-        switchMap((session) => {
-          if (!session) {
-            if (shouldRedirectOnAuthFailure) {
-              authService.clearSession();
-              return of(router.navigateByUrl('/login')).pipe(
-                switchMap(() => throwError(() => error))
-              );
-            }
-
-            return throwError(() => error);
-          }
-
-          if ((session.user?.id ?? null) !== userAtRequest) {
-            tabMovedToAnotherAccount = true;
-            return throwError(() => error);
-          }
-
-          if ((session.activeShopId ?? null) !== shopAtRequest) {
-            // The renewed session is scoped elsewhere (the membership is gone, or another tab moved
-            // the device). Surface the failure instead of committing it against another shop.
-            requestScopeLeft = true;
-            return throwError(() => error);
-          }
-
-          const retryRequest = request.clone({
-            setHeaders: { ...workerBypass, Authorization: `Bearer ${session.accessToken}` },
-            context: request.context.set(REFRESH_ATTEMPTED, true),
-          });
-
-          return next(retryRequest);
-        }),
-        catchError((refreshError) => {
-          if (tabMovedToAnotherAccount || requestScopeLeft) {
-            return throwError(() => refreshError);
-          }
-
-          if (shouldRedirectOnAuthFailure) {
-            authService.clearSession();
-            return of(router.navigateByUrl('/login')).pipe(
-              switchMap(() => throwError(() => refreshError))
-            );
-          }
-
-          return throwError(() => refreshError);
-        })
-      );
-    })
-  );
-
-  return isScopedApiRequest(request.url)
-    ? answer.pipe(ignoreAnswersFromLeftScope(() => shopContext.epoch() !== epochAtRequest, owner !== null))
-    : answer;
-};
+  const decoded = (error.error as Blob).text().then((body) => JSON.parse(body) as unknown).catch(() => null);
+  return from(decoded).pipe(switchMap(finish));
+}
 
 /**
  * An answer that arrives after the tab moved to another user or shop belongs to the scope that was
@@ -149,7 +156,7 @@ function ignoreAnswersFromLeftScope(
   return (source) =>
     source.pipe(
       catchError((error: unknown) => (scopeMoved() ? leftScope() : throwError(() => error))),
-      mergeMap((event) => (event.type === HttpEventType.Response && scopeMoved() ? leftScope() : of(event))),
+      mergeMap((event) => (scopeMoved() ? leftScope() : of(event))),
     );
 }
 
@@ -166,18 +173,35 @@ const SESSION_INSTALLING_ENDPOINTS: readonly string[] = [
   SHOP_ENDPOINTS.create,
 ];
 
-/** API data belongs to the scope that asked for it; static assets and session answers do not. */
-function isScopedApiRequest(url: string): boolean {
-  return url.startsWith(`${API_BASE_URL}/`) && !SESSION_INSTALLING_ENDPOINTS.includes(url);
+function canonicalPath(url: string): string {
+  return new URL(url, document.baseURI).pathname.replace(/\/+$/, '').toLowerCase();
 }
 
-function isRefreshExcludedEndpointRequest(url: string): boolean {
-  return url.startsWith(AUTH_ENDPOINTS.loginWithEmail)
-    || url.startsWith(AUTH_ENDPOINTS.confirmPasswordReset)
-    || url.startsWith(AUTH_ENDPOINTS.refreshToken)
-    || url.startsWith(AUTH_ENDPOINTS.revokeToken);
+function isSessionInstalling(method: string, path: string): boolean {
+  return method === 'POST' && SESSION_INSTALLING_ENDPOINTS.some((endpoint) => canonicalPath(endpoint) === path);
 }
 
-function isAuthRedirectSuppressedEndpoint(url: string): boolean {
-  return url.startsWith(SHOP_ENDPOINTS.create);
+function isTradingAuthorityRead(method: string, path: string, shopId: string): boolean {
+  return method === 'GET' && path === canonicalPath(
+    `${API_BASE_URL}/licensing/shops/${encodeURIComponent(shopId)}/trading-authority`);
+}
+
+function canReportRefusal(path: string, activeShopId: string): boolean {
+  const base = canonicalPath(API_BASE_URL);
+  const route = path.slice(base.length + 1);
+  const [resource, target] = route.split('/');
+  if (resource === 'licensing' || resource === 'billing' || resource === 'auth' || resource === 'invitations') return false;
+  if (resource !== 'shops' || !target || target === 'me' || target === 'default') return true;
+  return target === activeShopId.toLowerCase();
+}
+
+function isRefreshExcludedEndpointRequest(path: string): boolean {
+  return [
+    AUTH_ENDPOINTS.loginWithEmail, AUTH_ENDPOINTS.confirmPasswordReset,
+    AUTH_ENDPOINTS.refreshToken, AUTH_ENDPOINTS.revokeToken,
+  ].some((endpoint) => path.startsWith(canonicalPath(endpoint)));
+}
+
+function isAuthRedirectSuppressedEndpoint(path: string): boolean {
+  return path.startsWith(canonicalPath(SHOP_ENDPOINTS.create));
 }

@@ -1,13 +1,11 @@
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Features.Sales.Services;
 using Intelibill.Application.Features.Sales.Services.Pricing;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
-using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using Intelibill.Domain.ValueObjects;
 
@@ -19,7 +17,6 @@ internal sealed record ShopSetupCandidates(ShopSetupSampleDto? Sample, bool HasU
 /// <summary>Evaluates a saved catalog line for a walk-in cash sale without posting a sale or taking a number.</summary>
 public sealed class ShopSetupSampleBuilder(
     IShopSetupReadRepository repository,
-    IUnitOfWork unitOfWork,
     IExpiryPolicyFence expiryFence,
     SaleExpiryGuard expiryGuard,
     IDiscountRuleRepository discountRules,
@@ -42,19 +39,14 @@ public sealed class ShopSetupSampleBuilder(
         if (!facts.HasActiveGoods)
             return services;
 
-        var goods = await PostingTransaction.RunAsync<ShopSetupCandidates>(unitOfWork, async token =>
-        {
-            var locked = await expiryFence.AcquireAsync(shop.Id, false, token);
-            if (locked.IsError)
-                return locked.Errors;
+        // The caller's transaction holds the licence fence, which is taken before the expiry fence.
+        var locked = await expiryFence.AcquireAsync(shop.Id, false, ct);
+        if (locked.IsError)
+            return services with { StockReason = locked.FirstError.Code };
 
-            return await FindGoodsAsync(context, services.Sample is null, token);
-        }, ct);
-        if (goods.IsError)
-            return services with { StockReason = goods.FirstError.Code };
-
-        return new(services.Sample ?? goods.Value.Sample, goods.Value.HasUsableStock, goods.Value.StockReason,
-            services.CatalogReason ?? goods.Value.CatalogReason);
+        var goods = await FindGoodsAsync(context, services.Sample is null, ct);
+        return new(services.Sample ?? goods.Sample, goods.HasUsableStock, goods.StockReason,
+            services.CatalogReason ?? goods.CatalogReason);
     }
 
     private async Task<ShopSetupCandidates> FindServiceAsync(SampleContext context, CancellationToken ct)

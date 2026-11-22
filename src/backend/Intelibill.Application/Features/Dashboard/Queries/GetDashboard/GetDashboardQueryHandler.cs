@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Time;
@@ -24,6 +25,7 @@ public sealed class GetDashboardQueryHandler(
     private const int MaxRangeDays = 90;
     private const int DefaultRangeDays = 29;
 
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<DashboardDto>> HandleAsync(GetDashboardQuery query, CancellationToken cancellationToken)
     {
         if (!IsAllowedRole(query.Role))

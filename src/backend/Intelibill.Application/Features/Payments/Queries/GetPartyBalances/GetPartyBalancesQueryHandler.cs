@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Payments.DTOs;
@@ -12,8 +13,11 @@ public sealed class GetPartyBalancesQueryHandler(
     IUserRepository userRepository,
     ICustomerRepository customerRepository,
     ISupplierRepository supplierRepository,
-    IInvoiceBalanceReader balanceReader)
+    IPaymentTransactionRunner transactions,
+    IShopLicenceFence fence,
+    PaymentCompletionPolicy completionPolicy)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<PartyBalancesDto>> HandleAsync(GetPartyBalancesQuery query, CancellationToken cancellationToken)
     {
         var authorized = await PaymentAuthorization.RequireOwnerOrManagerAsync(
@@ -30,20 +34,24 @@ public sealed class GetPartyBalancesQueryHandler(
         if (!exists)
             return Errors.Payment.PartyNotFound;
 
-        var receipts = await balanceReader.GetReceiptsAsync(query.ActiveShopId, query.PartyType, query.PartyId, cancellationToken);
-        IReadOnlyList<CustomerInvoiceBalanceDto> invoices = query.PartyType == PaymentPartyType.Customer
-            ? await balanceReader.GetForCustomerAsync(query.ActiveShopId, query.PartyId, null, cancellationToken)
-            : [];
-        IReadOnlyList<SupplierReceiptBalanceDto> purchaseReceipts = query.PartyType == PaymentPartyType.Supplier
-            ? await balanceReader.GetForSupplierAsync(query.ActiveShopId, query.PartyId, null, cancellationToken)
-            : [];
+        return await transactions.RunAsync<PartyBalancesDto>(null, query.ActorUserId, query.PartyId, null,
+            ct => PreviewAsync(query, ct), cancellationToken);
+    }
 
-        return new PartyBalancesDto(
-            query.PartyType,
-            query.PartyId,
-            receipts.Sum(r => r.UnallocatedAmount),
-            invoices,
-            purchaseReceipts,
-            receipts);
+    private async Task<ErrorOr<PartyBalancesDto>> PreviewAsync(GetPartyBalancesQuery query, CancellationToken ct)
+    {
+        var lease = await fence.EnterAsync(query.ActiveShopId, LicenceAction.DueSettlement, ct);
+        if (lease.IsError) return lease.Errors;
+        if (PaymentCompletionPolicy.Denial(lease.Value.CurrentDecision()) is { } denied) return denied;
+
+        var balances = await completionPolicy.ReadBalancesAsync(query.ActiveShopId, query.PartyType, query.PartyId, ct);
+        var decision = lease.Value.CurrentDecision();
+        if (PaymentCompletionPolicy.Denial(decision) is { } readDenial) return readDenial;
+        if (!PaymentCompletionPolicy.RequiresProof(decision)) return balances;
+
+        var limit = await completionPolicy.RemainingDueAsync(query.ActiveShopId, balances, query.PaymentDate, ct);
+        if (limit.IsError) return limit.Errors;
+        if (PaymentCompletionPolicy.Denial(lease.Value.CurrentDecision()) is { } limitDenial) return limitDenial;
+        return balances with { RemainingSettlementDue = limit.Value.Amount };
     }
 }

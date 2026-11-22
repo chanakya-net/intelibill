@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Unit.Tests.Common.Licensing;
 using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Inventory.Commands.UpdateBatchPrices;
@@ -123,7 +125,7 @@ public sealed class UpdateBatchPricesCommandHandlerTests
         _actor.AddShopMembership(ShopMembership.Create(_shop.Id, _actor.Id, role, true));
 
     private UpdateBatchPricesCommand Command(decimal salesPrice) =>
-        new(_batch.Id, _actor.Id, _shop.Id, _batch.Version, 150m, salesPrice, 0m, false, null, null, null, "Price change");
+        new(_batch.Id, _actor.Id, _shop.Id, _batch.Version, 150m, salesPrice, 0m, false, null, null, null, "Price change", Session: null);
 
     private UpdateBatchPricesCommandHandler CreateHandler() =>
         new(
@@ -131,5 +133,5 @@ public sealed class UpdateBatchPricesCommandHandlerTests
             _batchRepository,
             new BatchRetailTermsReviser(_batchRepository, _revisionRepository, ExpiryTestDoubles.Dates()),
             _unitOfWork,
-            _messageBus, ExpiryTestDoubles.Fence());
+            _messageBus, ExpiryTestDoubles.Fence(), LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 }

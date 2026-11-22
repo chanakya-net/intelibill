@@ -1,34 +1,28 @@
+using Intelibill.Domain.Entities;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
 using Intelibill.Application.Features.PurchaseOrders.Services;
 using Intelibill.Domain.Enums;
-using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using ErrorOr;
 
 namespace Intelibill.Application.Features.PurchaseOrders.Commands.PlacePurchaseOrder;
 
 public sealed class PlacePurchaseOrderCommandHandler(
-    IUserRepository userRepository,
     ISupplierRepository supplierRepository,
     IPurchaseOrderRepository purchaseOrderRepository,
-    IUnitOfWork unitOfWork)
+    PurchaseOrderTrading trading)
 {
-    public async Task<ErrorOr<PurchaseOrderDetailDto>> HandleAsync(
-        PlacePurchaseOrderCommand command,
-        CancellationToken cancellationToken)
+    [LicenceAction(LicenceAction.NewTrading)]
+    public Task<ErrorOr<PurchaseOrderDetailDto>> HandleAsync(
+        PlacePurchaseOrderCommand command, CancellationToken cancellationToken) =>
+        trading.RunAsync(command.ActorUserId, command.ActiveShopId, command.Session,
+            Errors.PurchaseOrder.UserCannotMutatePurchaseOrder, ct => StageAsync(command, ct), cancellationToken);
+
+    private async Task<ErrorOr<PurchaseOrder>> StageAsync(
+        PlacePurchaseOrderCommand command, CancellationToken cancellationToken)
     {
-        var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);
-        if (actor is null)
-            return Errors.Auth.UserNotFound;
-
-        var membership = actor.ShopMemberships.FirstOrDefault(sm => sm.ShopId == command.ActiveShopId);
-        if (membership is null)
-            return Errors.Shop.MembershipNotFound;
-
-        if (membership.Role != ShopRole.Owner && membership.Role != ShopRole.Manager)
-            return Errors.PurchaseOrder.UserCannotMutatePurchaseOrder;
-
         var po = await purchaseOrderRepository.GetByShopAndIdAsync(
             command.ActiveShopId,
             command.PurchaseOrderId,
@@ -54,8 +48,6 @@ public sealed class PlacePurchaseOrderCommandHandler(
         po.Place(po.SupplierId.Value);
 
         purchaseOrderRepository.Update(po);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return PurchaseOrderDtoMapper.ToDetail(po);
+        return po;
     }
 }

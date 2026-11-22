@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Application.Common.Operations;
@@ -31,16 +32,18 @@ public sealed class RecordSaleReturnCommandHandler(
     IBusinessClock businessClock,
     IShopRepository shops, ISaleRepository sales, ITillPostingService tills, IFinancialOperationExecutor executor, Intelibill.Application.Features.Expiry.BatchDispositionService dispositions)
 {
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<Success>> HandleAsync(RecordSaleReturnCommand command, CancellationToken cancellationToken)
     {
+        var member = await shops.GetMembershipAsync(command.ActorUserId, command.ShopId, cancellationToken);
+        if (member is null || !member.IsActive) return Errors.Shop.MembershipNotFound;
+        if (member.Role is not (ShopRole.Owner or ShopRole.Manager)) return Errors.Sale.ReturnForbidden;
+
         var key = FinancialOperationHasher.NormalizeKey(command.OperationKey);
         if (key is not null)
         {
-            var member = await shops.GetMembershipAsync(command.ActorUserId, command.ShopId, cancellationToken);
-            if (member is null || !member.IsActive) return Errors.Shop.MembershipNotFound;
-            if (member.Role is not (ShopRole.Owner or ShopRole.Manager)) return Errors.Sale.ReturnForbidden;
-            if (!await sales.ExistsAsync(command.ShopId, command.SaleId, cancellationToken)) return Errors.Sale.NotFound(command.SaleId);
-            var result = await executor.ExecuteAsync<SaleReturnOperationOutcome>(new(command.ShopId, FinancialOperationType.SaleReturn, key),
+            var result = await executor.ExecuteAsync<SaleReturnOperationOutcome>(new(command.ShopId, FinancialOperationType.SaleReturn, key)
+                { SuspensionAction = LicenceAction.SourceCorrection },
                 command.ActorUserId, command.SaleId, FinancialOperationHasher.Compute(command with { OperationKey = null }), async ct =>
                 {
                     Guid? sourceId = null;
@@ -57,7 +60,8 @@ public sealed class RecordSaleReturnCommandHandler(
     {
         // This closure belongs to exactly one transaction attempt; never retain a locked session on the handler.
         TillSession? session = null;
-        return mutationCoordinator.ExecuteAsync(command.ShopId, command.SaleId, async token =>
+        return mutationCoordinator.ExecuteAsync(command.ShopId,
+            token => ResolveSaleAsync(command, ownsTransaction, token), async token =>
         {
             var gate = await tills.GateAsync(command.ShopId, token);
             if (gate.IsError) return gate.Errors;
@@ -72,12 +76,17 @@ public sealed class RecordSaleReturnCommandHandler(
             if (acquired.IsError) return acquired.Errors;
             session = acquired.Value;
             return Result.Success;
-        }, token => RecordAsync(command, session, token, recorded), ownsTransaction, ct);
+        }, (licence, token) => RecordAsync(command, session, licence, token, recorded), ownsTransaction, ct);
     }
+
+    private async Task<ErrorOr<Guid>> ResolveSaleAsync(RecordSaleReturnCommand command, bool ownsTransaction, CancellationToken ct) =>
+        ownsTransaction || await sales.ExistsAsync(command.ShopId, command.SaleId, ct)
+            ? command.SaleId : Errors.Sale.NotFound(command.SaleId);
 
     private async Task<ErrorOr<Success>> RecordAsync(
         RecordSaleReturnCommand command,
         TillSession? session,
+        ShopLicenceLease licence,
         CancellationToken cancellationToken,
         Action<Guid>? recorded = null)
     {
@@ -95,7 +104,7 @@ public sealed class RecordSaleReturnCommandHandler(
                     i.LineType,
                     i.Condition,
                     i.ApprovedRefundAmount,
-                    i.Notes)).ToList(), processedAt),
+                    i.Notes)).ToList(), processedAt, licence),
             cancellationToken);
 
         if (validation.IsError)
@@ -297,7 +306,12 @@ public sealed class RecordSaleReturnCommandHandler(
                 ReceivableChange: -validated.Calculation.DueReductionAmount), command.ActorUserId, cancellationToken);
             if (appended.IsError) return appended.Errors;
         }
+        var currentRole = await shops.GetActiveRoleAsync(command.ActorUserId, command.ShopId, cancellationToken);
+        if (currentRole is null) return Errors.Shop.MembershipNotFound;
+        if (currentRole is not (ShopRole.Owner or ShopRole.Manager)) return Errors.Sale.ReturnForbidden;
+        if (SaleReturnSourcePolicy.Check(licence, validated.Sale, businessClock) is { } denied) return denied;
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        if (SaleReturnSourcePolicy.Check(licence, validated.Sale, businessClock) is { } saveDenied) return saveDenied;
         recorded?.Invoke(saleReturn.Value.Id);
 
         return Result.Success;

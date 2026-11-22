@@ -46,6 +46,121 @@ describe('authInterceptor', () => {
     return TestBed.runInInjectionContext(() => authInterceptor(req, nextFn as Parameters<typeof authInterceptor>[1]));
   }
 
+  it('discards an absolute API response after the same owner loses access', () => {
+    const context = TestBed.inject(ShopContextService);
+    context.initialize({ userId: 'owner', shopId: 'absolute-api-shop' });
+    const answer = new Subject<HttpEvent<unknown>>();
+    const received = vi.fn();
+    const url = new URL(`${API_BASE_URL}/shops`, document.baseURI).href;
+    runInterceptor(new HttpRequest('GET', url), () => answer).subscribe(received);
+
+    const previous = context.scope()!;
+    context.setDataRestricted(previous, true);
+    answer.next(new HttpResponse({ body: { id: 'protected' } }));
+    answer.complete();
+
+    expect(received).not.toHaveBeenCalled();
+    context.setDataRestricted(context.scope()!, false);
+  });
+
+  it('keeps a dispatched owner-bound result unknown after an enforced security refusal', () => {
+    const owner = { userId: 'owner', shopId: 'owner-bound-shop' };
+    const context = TestBed.inject(ShopContextService);
+    context.initialize(owner);
+    mockAuthService.getAccessToken.mockReturnValue('test-token');
+    const failure = vi.fn();
+    const request = new HttpRequest('POST', `${API_BASE_URL}/customers/id/payments`, {},
+      { context: scopedRequestContext(owner) });
+
+    runInterceptor(request, () => throwError(() => new HttpErrorResponse({
+      status: 403, error: { code: 'Licence.SecuritySuspended' },
+    }))).subscribe({ error: failure });
+
+    expect(failure).toHaveBeenCalledWith(expect.any(StaleScopeError));
+    expect(context.dataRestricted()).toBe(true);
+    expect(mockAuthService.clearSession).not.toHaveBeenCalled();
+    context.setDataRestricted(context.scope()!, false);
+  });
+
+  it('does not invalidate the active shop for an explicitly targeted shop refusal', () => {
+    const context = TestBed.inject(ShopContextService);
+    context.initialize({ userId: 'owner', shopId: 'shop-a' });
+    mockAuthService.getAccessToken.mockReturnValue('test-token');
+    const failed = vi.fn();
+    const url = new URL(`${API_BASE_URL}/shops/shop-b/setup?mode=history`, document.baseURI).href;
+    const error = new HttpErrorResponse({ status: 403, error: { code: 'Licence.SecuritySuspended' } });
+
+    runInterceptor(new HttpRequest('GET', url), () => throwError(() => error)).subscribe({ error: failed });
+
+    expect(failed).toHaveBeenCalledWith(error);
+    expect(context.dataRestricted()).toBe(false);
+  });
+
+  it('delivers an invitation refusal to its caller and keeps the active shop history', () => {
+    const context = TestBed.inject(ShopContextService);
+    const owner = { userId: 'owner', shopId: 'invitation-active-shop' };
+    context.initialize(owner);
+    mockAuthService.getAccessToken.mockReturnValue('test-token');
+    const epoch = context.epoch();
+    const history = new Subject<HttpEvent<unknown>>();
+    const received = vi.fn();
+    runInterceptor(new HttpRequest('GET', `${API_BASE_URL}/sales`), () => history).subscribe(received);
+
+    const refusal = new HttpErrorResponse({ status: 403, error: { code: 'Licence.SecuritySuspended' } });
+    const failed = vi.fn();
+    const invitation = new HttpRequest('POST', `${API_BASE_URL}/invitations/shop-b-offer/accept`, {});
+    runInterceptor(invitation, () => throwError(() => refusal)).subscribe({ error: failed });
+
+    const response = new HttpResponse({ body: { invoiceNumber: 'A/0001' } });
+    history.next(response);
+    expect(failed).toHaveBeenCalledWith(refusal);
+    expect(context.epoch()).toBe(epoch);
+    expect(context.dataRestricted()).toBe(false);
+    expect(received).toHaveBeenCalledWith(response);
+  });
+
+  it.each([true, false])('observes feature trading authority immediately when enforced=%s', enforced => {
+    const context = TestBed.inject(ShopContextService);
+    const owner = { userId: 'owner', shopId: `feature-authority-shop-${enforced}` };
+    context.initialize(owner);
+    mockAuthService.getAccessToken.mockReturnValue('test-token');
+    const epoch = context.epoch();
+    const history = new Subject<HttpEvent<unknown>>();
+    const received = vi.fn();
+    runInterceptor(new HttpRequest('GET', `${API_BASE_URL}/sales`), () => history).subscribe(received);
+
+    const refusal = new HttpErrorResponse({ status: 403, error: { code: 'Licence.SecuritySuspended', enforced } });
+    const failed = vi.fn();
+    const request = new HttpRequest('GET', `${API_BASE_URL}/licensing/shops/${owner.shopId}/trading-authority`);
+    runInterceptor(request, () => throwError(() => refusal)).subscribe({ error: failed });
+
+    history.next(new HttpResponse({ body: { invoiceNumber: 'A/0001' } }));
+    expect(failed).toHaveBeenCalledWith(refusal);
+    expect(context.epoch()).toBe(epoch + Number(enforced));
+    expect(context.dataRestricted()).toBe(enforced);
+    expect(received).toHaveBeenCalledTimes(enforced ? 0 : 1);
+  });
+
+  it('rejects an old Blob refusal after its shop epoch changes', async () => {
+    const context = TestBed.inject(ShopContextService);
+    context.initialize({ userId: 'owner', shopId: 'shop-a' });
+    mockAuthService.getAccessToken.mockReturnValue('test-token');
+    let decode!: (body: string) => void;
+    const blob = new Blob([], { type: 'application/problem+json' });
+    Object.defineProperty(blob, 'text', { value: () => new Promise<string>((resolve) => { decode = resolve; }) });
+
+    const completed = new Promise<void>((resolve, reject) => {
+      runInterceptor(new HttpRequest('GET', `${API_BASE_URL}/exports/sales`), () =>
+        throwError(() => new HttpErrorResponse({ status: 403, error: blob })))
+        .subscribe({ complete: resolve, error: reject });
+    });
+    context.transition({ userId: 'owner', shopId: 'shop-b' }, 'scope', () => undefined);
+    decode(JSON.stringify({ code: 'Licence.SecuritySuspended' }));
+    await completed;
+
+    expect(context.dataRestricted()).toBe(false);
+  });
+
   it('adds Authorization header when access token is present', () => {
     mockAuthService.getAccessToken.mockReturnValue('test-token');
 
@@ -186,6 +301,53 @@ describe('authInterceptor', () => {
 
     expect(status).toBe(200);
     expect(attempts).toEqual(['Bearer expired-token', 'Bearer renewed-token']);
+  });
+
+  it('reports a business refusal answered to the replay without ending the renewed session', () => {
+    mockAuthService.getAccessToken.mockReturnValue('expired-token');
+    mockAuthService.hasRefreshToken.mockReturnValue(true);
+    sessionSignal.set({ activeShopId: null, user: { id: 'user-1' } });
+    mockAuthService.refreshAccessToken.mockImplementation(() =>
+      of({ accessToken: 'renewed-token', activeShopId: null, user: { id: 'user-1' } }));
+
+    let attempts = 0;
+    const next = (): Observable<HttpEvent<unknown>> => {
+      attempts++;
+      return attempts === 1
+        ? throwError(() => new HttpErrorResponse({ status: 401 }))
+        : throwError(() => new HttpErrorResponse({ status: 409, error: { code: 'Licence.MemberCapacityReached' } }));
+    };
+
+    let failed: HttpErrorResponse | undefined;
+    runInterceptor(new HttpRequest('POST', `${API_BASE_URL}/invitations/offer-1/accept`, {}), next).subscribe({
+      error: (error: HttpErrorResponse) => (failed = error),
+    });
+
+    // The renewal succeeded; the refusal is the replay's own answer and reaches the page as is.
+    expect(attempts).toBe(2);
+    expect(failed?.status).toBe(409);
+    expect(failed?.error).toEqual({ code: 'Licence.MemberCapacityReached' });
+    expect(mockAuthService.clearSession).not.toHaveBeenCalled();
+    expect(mockRouter.navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  it('still ends the session when the replay is refused authentication again', () => {
+    mockAuthService.getAccessToken.mockReturnValue('expired-token');
+    mockAuthService.hasRefreshToken.mockReturnValue(true);
+    sessionSignal.set({ activeShopId: 'shop-a', user: { id: 'user-1' } });
+    mockAuthService.refreshAccessToken.mockImplementation(() =>
+      of({ accessToken: 'renewed-token', activeShopId: 'shop-a', user: { id: 'user-1' } }));
+
+    const next = (): Observable<HttpEvent<unknown>> => throwError(() => new HttpErrorResponse({ status: 401 }));
+
+    let failed: HttpErrorResponse | undefined;
+    runInterceptor(new HttpRequest('POST', `${API_BASE_URL}/sales`, {}), next).subscribe({
+      error: (error: HttpErrorResponse) => (failed = error),
+    });
+
+    expect(failed?.status).toBe(401);
+    expect(mockAuthService.clearSession).toHaveBeenCalledTimes(1);
+    expect(mockRouter.navigateByUrl).toHaveBeenCalledWith('/login');
   });
 
   it('does not replay a request when refresh moved the session to another shop', () => {

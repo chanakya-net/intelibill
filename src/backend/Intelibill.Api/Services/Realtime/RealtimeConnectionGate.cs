@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Claims;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Realtime;
 using Intelibill.Application.Common.Security;
 using Microsoft.AspNetCore.SignalR;
@@ -23,6 +24,7 @@ public sealed partial class RealtimeConnectionGate(
     RealtimeConnectionTracker tracker,
     RealtimeInstanceIdentity instance,
     TimeProvider clock,
+    ISuspensionAccessReader suspensions,
     ILogger<RealtimeConnectionGate> logger)
 {
     public async Task AdmitAsync(HubCallerContext context, string hubName)
@@ -50,31 +52,6 @@ public sealed partial class RealtimeConnectionGate(
             return;
         }
 
-        bool authorized;
-        try
-        {
-            authorized = await authority.IsValidAsync(claims, context.ConnectionAborted);
-        }
-        catch (OperationCanceledException)
-        {
-            context.Abort();
-            return;
-        }
-        catch (Exception ex)
-        {
-            // Fail closed. A store that cannot say whether this is still allowed has not said yes.
-            LogAuthorityUnavailable(logger, hubName, ex);
-            context.Abort();
-            return;
-        }
-
-        if (!authorized)
-        {
-            LogRefused(logger, hubName, "the session, account or membership is no longer live");
-            context.Abort();
-            return;
-        }
-
         var connection = new RealtimeConnection(
             context.ConnectionId,
             instance.Value,
@@ -87,26 +64,41 @@ public sealed partial class RealtimeConnectionGate(
             claims.ScopeVersion,
             expiresAt.Value);
 
-        // Tracked before the lease exists, not after. A sweep landing between the two would find the
-        // lease, fail the authority check, delete the row and have nothing to abort - leaving a
-        // socket open that neither dispatch nor any later sweep can see again.
-        tracker.Track(connection, context);
-
+        var registrationStarted = false;
         try
         {
-            // Not the connection's own token: a registration cancelled mid-insert can still commit,
-            // and the lease would then outlive a connect that nothing is going to release.
-            await registry.RegisterAsync(connection, CancellationToken.None);
+            if (!await authority.IsValidAsync(claims, context.ConnectionAborted))
+            {
+                context.Abort();
+                return;
+            }
+
+            var denied = await suspensions.DeliverAsync(connection.ShopId, claims, async ct =>
+            {
+                ct.ThrowIfCancellationRequested();
+                if (connection.ExpiresAt <= clock.GetUtcNow())
+                    return;
+
+                // Track before the lease becomes visible to the periodic sweep.
+                tracker.Track(connection, context);
+                registrationStarted = true;
+                await registry.RegisterAsync(connection, ct);
+            }, context.ConnectionAborted);
+            if (denied is null && connection.ExpiresAt > clock.GetUtcNow() && !context.ConnectionAborted.IsCancellationRequested)
+                return;
+            LogRefused(logger, hubName, "the session, licence or token no longer permits delivery");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // An unregistered transport is one no dispatcher can authorize and no sweep can find.
-            // Leaving it open would be an invisible subscription, so it is refused instead.
-            tracker.Forget(context.ConnectionId);
-            LogRegistrationFailed(logger, hubName, ex);
-            context.Abort();
-            return;
+            LogAuthorityUnavailable(logger, hubName, ex);
         }
+        catch (OperationCanceledException)
+        {
+        }
+
+        context.Abort();
+        if (registrationStarted)
+            await ReleaseAsync(context);
     }
 
     public async Task ReleaseAsync(HubCallerContext context)
@@ -149,11 +141,6 @@ public sealed partial class RealtimeConnectionGate(
         Level = LogLevel.Error,
         Message = "Refused a {HubName} connection: the live authority store could not be reached.")]
     private static partial void LogAuthorityUnavailable(ILogger logger, string hubName, Exception exception);
-
-    [LoggerMessage(
-        Level = LogLevel.Error,
-        Message = "Refused a {HubName} connection: its lease could not be recorded.")]
-    private static partial void LogRegistrationFailed(ILogger logger, string hubName, Exception exception);
 
     [LoggerMessage(
         Level = LogLevel.Warning,

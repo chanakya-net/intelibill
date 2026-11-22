@@ -49,6 +49,7 @@ export class CartCheckoutSummaryComponent implements OnChanges {
   @Input() balanceDue = 0;
   @Input() paymentSplitError = '';
   @Input() isSubmitting = false;
+  @Input() tradingBlocked = false;
   @Input() cartLength = 0;
   @Input() customerForm: AbstractControl | null = null;
   @Input() paymentForm: AbstractControl | null = null;

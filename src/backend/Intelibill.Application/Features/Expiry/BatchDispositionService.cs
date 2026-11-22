@@ -1,8 +1,12 @@
 using System.Data.Common;
 using ErrorOr;
+using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Common.Time;
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -16,7 +20,8 @@ namespace Intelibill.Application.Features.Expiry;
 public sealed class BatchDispositionService(IBatchDispositionRepository journal, IExpiryPolicyRepository policies,
     IExpiryPolicyFence fence, IShopRepository shops, IInventoryBatchRepository batches, IInventoryRepository inventory,
     IStockTransactionRepository movements, IInventoryAdjustmentRepository adjustments, IInventoryAdjustmentNumberGenerator numbers,
-    IFinancialOperationExecutor executor, IPostingPeriodPolicy periods, IBusinessClock clock, IUnitOfWork uow)
+    IFinancialOperationExecutor executor, IPostingPeriodPolicy periods, IBusinessClock clock, IUnitOfWork uow,
+    IShopLicenceFence licenceFence, ILiveSessionAuthority sessions)
 {
     private static Error Refused(string code, string message) => Error.Conflict("Expiry." + code, message);
     public static RestorationDisposition EvaluateRestoration(ExpiryBatchFacts batch, ExpiryPolicy policy, DateOnly date, decimal quantity)
@@ -90,74 +95,187 @@ public sealed class BatchDispositionService(IBatchDispositionRepository journal,
         if (batch is null) return Error.NotFound("Inventory.BatchNotFound", "Batch not found.");
         return ErrorOrFactory.From(await journal.GetHistoryAsync(shopId, batchId, ct));
     }
-    public async Task<ErrorOr<BatchDispositionResponse>> PostAsync(Guid shopId, Guid actor, Guid batchId, BatchDispositionRequest request, CancellationToken ct)
+    public async Task<ErrorOr<BatchDispositionResponse>> PostAsync(Guid shopId, Guid actor, Guid batchId,
+        BatchDispositionRequest request, SessionClaims? session, CancellationToken ct)
     {
-        if (await shops.GetActiveRoleAsync(actor, shopId, ct) != ShopRole.Owner) return Error.Forbidden("Expiry.OwnerRequired", "Only a current owner may dispose or release quarantine.");
+        if (await CheckOwnerAsync(shopId, actor, session, ct) is { } denied) return denied;
         if (string.IsNullOrWhiteSpace(request.OperationKey) || request.OperationKey.Trim().Length > 128 || request.ExpectedVersion == 0 ||
             request.QuarantineChangeId == Guid.Empty || request.Action is not ("Release" or "Dispose") || request.Quantity <= 0 ||
             string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length > 500)
             return Error.Validation("Expiry.DispositionInvalid", "Supply an operation key, version, root, positive quantity, action and 1 to 500 character reason.");
+
+        var posting = new DispositionPosting(shopId, actor, batchId, request, session!);
         var hash = FinancialOperationHasher.Compute(new { batchId, request.ExpectedVersion, request.QuarantineChangeId, request.Action, request.Quantity, Reason = request.Reason.Trim() });
+        var scope = new FinancialOperationScope(shopId, FinancialOperationType.BatchDisposition, request.OperationKey.Trim())
+        {
+            RecheckReplayAuthority = token => CheckOwnerAsync(shopId, actor, session, token),
+        };
         try
         {
-            return await executor.ExecuteAsync<BatchDispositionResponse>(new(shopId, FinancialOperationType.BatchDisposition, request.OperationKey.Trim()), actor, batchId, hash, async token =>
-            {
-                if (await shops.GetActiveRoleAsync(actor, shopId, token) != ShopRole.Owner) return Error.Forbidden("Expiry.OwnerRequired", "Current owner required.");
-                var shop = await shops.GetByIdAsync(shopId, token); if (shop is null) return Error.NotFound("Shop.NotFound", "Shop not found.");
-                var now = clock.UtcNow;
-                var day = clock.GetBusinessDate(now, shop.BusinessTimeZoneId);
-                var period = await periods.AuthorizeForWriteAsync(shopId, day, token); if (period.IsError) return period.Errors;
-                var acquired = await fence.AcquireAsync(shopId, false, token); if (acquired.IsError) return acquired.Errors;
-                var batch = await journal.LockBatchAsync(shopId, batchId, token);
-                if (batch is null || batch.IsVoided) return Error.NotFound("Inventory.BatchNotFound", "Batch not found.");
-                if (batch.Version != request.ExpectedVersion) return Refused("BatchVersionConflict", "Reload the batch version.");
-                var detailed = await batches.GetByIdWithItemAsync(batchId, shopId, token);
-                if (!QuantityPolicy.FitsScale(request.Quantity, detailed!.Item.QuantityScale)) return Error.Validation("Expiry.QuantityPrecisionExceeded", "Quantity exceeds the item's scale.");
-                var root = await journal.GetRootAsync(shopId, batchId, request.QuarantineChangeId, token);
-                if (root is null) return Refused("RootMismatch", "Quarantine root does not belong to this shop and batch.");
-                var remaining = await journal.GetRemainingAsync(shopId, root.Id, token);
-                if (remaining < request.Quantity) return Refused("RootInsufficient", "The original quarantine source has insufficient balance.");
-                Guid? movementId = null; InventoryAdjustment? adjustment = null;
-                if (request.Action == "Release")
-                {
-                    if (root.ReasonCode == "Expiry.Expired") return Refused("OriginallyExpired", "Originally expired recovered goods cannot be released.");
-                    var effective = await policies.GetEffectiveAsync(shopId, batch.ItemId, null, token);
-                    if (!effective.HistoryKnown || effective.Policy is null) return Refused("HistoryUnknown", "Retained policy unavailable.");
-                    var clean = EvaluateRestoration(Facts(batch), effective.Policy, day, request.Quantity);
-                    var eligible = ExpiryPolicyEvaluator.Evaluate(Facts(batch) with { PhysicalQuantity = request.Quantity, QuarantinedQuantity = 0 }, effective.Policy, effective.CatalogVersion, day);
-                    if (batch.ExpiryDate is null || (batch.ManufacturingDate.HasValue && batch.ManufacturingDate > batch.ExpiryDate) || clean.QuarantinedQuantity > 0 || !eligible.Allowed || eligible.RequiresApproval ||
-                        !await journal.HasDateCorrectionAsync(shopId, batch.Id, batch.ExpiryDate.Value, root.RecordedAt, token))
-                        return Refused("ReleaseIneligible", "A separately audited valid nonexpired date and clean current policy decision are required.");
-                    var released = batch.ReleaseQuarantine(request.Quantity, actor); if (released.IsError) return released.Errors;
-                }
-                else
-                {
-                    var stock = await inventory.GetByItemAsync(shopId, batch.ItemId, token);
-                    if (stock is null) return Refused("InventoryMissing", "Physical inventory aggregate is missing.");
-                    var before = batch.Quantity; var aggregate = stock.Quantity;
-                    var disposed = batch.DisposeQuarantine(request.Quantity, actor); if (disposed.IsError) return disposed.Errors;
-                    var reduced = stock.SubtractQuantity(request.Quantity, actor); if (reduced.IsError) return reduced.Errors;
-                    var number = numbers.Generate(day);
-                    var movement = StockTransaction.Create(shopId, batch.ItemId, batch.Id, StockTransactionType.Dmg, -request.Quantity, number, request.Reason.Trim(), now, actor, actor);
-                    if (movement.IsError) return movement.Errors;
-                    movementId = movement.Value.Id; await movements.AddAsync(movement.Value, token);
-                    var loss = InventoryAdjustment.Create(shopId, batch.ItemId, batch.Id, number, InventoryAdjustmentDirection.Decrease,
-                        root.ReasonCode == "Expiry.Expired" ? InventoryAdjustmentReason.Expired : InventoryAdjustmentReason.OtherLoss, request.Quantity, batch.CostPrice, decimal.Round(request.Quantity * batch.CostPrice, 2, MidpointRounding.AwayFromZero),
-                        before, batch.Quantity, aggregate, stock.Quantity, now, actor, request.Reason.Trim(), actor);
-                    if (loss.IsError) return loss.Errors;
-                    adjustment = loss.Value; inventory.Update(stock);
-                }
-                var change = BatchDispositionChange.Consume(root, request.Action, request.Quantity, request.Reason.Trim(), movementId, adjustment?.Id, day, actor, now);
-                if (adjustment is not null) { adjustment.LinkDisposition(change.Id); await adjustments.AddAsync(adjustment, token); }
-                await journal.AddAsync(change, token); batches.Update(batch);
-                await uow.SaveChangesAsync(token);
-                return new BatchDispositionResponse(change.Id, root.Id, batch.Id, request.Action, request.Quantity, batch.Quantity,
-                    batch.QuarantinedQuantity, remaining - request.Quantity, batch.Version, adjustment?.Id);
-            }, ct);
+            return await executor.ExecuteAsync<BatchDispositionResponse>(scope, actor, batchId, hash,
+                token => PostUnderFenceAsync(posting, token), ct);
         }
         catch (DbUpdateConcurrencyException) { uow.ClearChanges(); return Refused("BatchVersionConflict", "Concurrent stock change; reload."); }
         catch (Exception ex) when (SqlState(ex) is "55P03" or "40P01" or "40001") { uow.ClearChanges(); return Refused("DispositionBusy", "Stock is busy; retry the same operation."); }
     }
+
+    private async Task<Error?> CheckOwnerAsync(Guid shopId, Guid actor, SessionClaims? session, CancellationToken ct)
+    {
+        if (session is null || session.UserId != actor || session.ActiveShopId != shopId || !await sessions.IsValidAsync(session, ct))
+            return Errors.Auth.SessionInvalidated;
+        return session.ActiveShopRole == nameof(ShopRole.Owner) ? null
+            : Error.Forbidden("Expiry.OwnerRequired", "Only a current owner may dispose or release quarantine.");
+    }
+
+    private async Task<ErrorOr<BatchDispositionResponse>> PostUnderFenceAsync(DispositionPosting posting, CancellationToken ct)
+    {
+        var action = posting.Request.Action == "Release" ? LicenceAction.NewTrading : LicenceAction.SafetyDisposition;
+        var entered = await licenceFence.EnterAsync(posting.ShopId, action, ct);
+        if (entered.IsError) return entered.Errors;
+        var lease = entered.Value;
+        if (await CheckWriteAuthorityAsync(posting, lease, ct) is { } denied) return denied;
+
+        var shop = await shops.GetByIdAsync(posting.ShopId, ct);
+        if (shop is null) return Error.NotFound("Shop.NotFound", "Shop not found.");
+        var now = clock.UtcNow;
+        var day = clock.GetBusinessDate(now, shop.BusinessTimeZoneId);
+        var period = await periods.AuthorizeForWriteAsync(posting.ShopId, day, ct);
+        if (lease.CurrentDecision().EnforcedDenial() is { } periodDenial) return periodDenial;
+        if (period.IsError) return period.Errors;
+        var acquired = await fence.AcquireAsync(posting.ShopId, false, ct);
+        if (lease.CurrentDecision().EnforcedDenial() is { } policyDenial) return policyDenial;
+        if (acquired.IsError) return acquired.Errors;
+
+        var source = await LockDispositionSourceAsync(posting, lease, ct);
+        if (source.IsError) return source.Errors;
+        return await SaveDispositionAsync(posting, source.Value, lease, day, now, ct);
+    }
+
+    private async Task<ErrorOr<LockedDispositionSource>> LockDispositionSourceAsync(
+        DispositionPosting posting, ShopLicenceLease lease, CancellationToken ct)
+    {
+        var (shopId, _, batchId, request, _) = posting;
+        var batch = await journal.LockBatchAsync(shopId, batchId, ct);
+        if (await CheckWriteAuthorityAsync(posting, lease, ct) is { } denied) return denied;
+        if (batch is null || batch.IsVoided) return Error.NotFound("Inventory.BatchNotFound", "Batch not found.");
+        if (batch.Version != request.ExpectedVersion) return Refused("BatchVersionConflict", "Reload the batch version.");
+        var detailed = await batches.GetByIdWithItemAsync(batchId, shopId, ct);
+        if (!QuantityPolicy.FitsScale(request.Quantity, detailed!.Item.QuantityScale))
+            return Error.Validation("Expiry.QuantityPrecisionExceeded", "Quantity exceeds the item's scale.");
+
+        var root = await journal.GetRootAsync(shopId, batchId, request.QuarantineChangeId, ct);
+        if (root is null || root.ItemId != batch.ItemId || root.Action != "Quarantine")
+            return Refused("RootMismatch", "Quarantine root does not belong to this shop and batch.");
+        var remaining = await journal.GetRemainingAsync(shopId, root.Id, ct);
+        if (remaining < request.Quantity)
+            return Refused("RootInsufficient", "The original quarantine source has insufficient balance.");
+
+        return new LockedDispositionSource(batch, root, remaining);
+    }
+
+    private async Task<ErrorOr<BatchDispositionResponse>> SaveDispositionAsync(DispositionPosting posting,
+        LockedDispositionSource source, ShopLicenceLease lease, DateOnly day, DateTimeOffset now, CancellationToken ct)
+    {
+        var (_, actor, _, request, _) = posting;
+        var (batch, root, remaining) = source;
+        if (CheckSource(lease, root, now) is { } sourceDenial) return sourceDenial;
+
+        InventoryAdjustment? adjustment = null;
+        Guid? movementId = null;
+        if (request.Action == "Release")
+        {
+            var released = await ReleaseAsync(posting, source, day, ct);
+            if (released.IsError) return released.Errors;
+        }
+        else
+        {
+            var disposed = await StageDisposalAsync(posting, source, day, now, ct);
+            if (disposed.IsError) return disposed.Errors;
+            (adjustment, movementId) = disposed.Value;
+        }
+
+        var change = BatchDispositionChange.Consume(root, request.Action, request.Quantity, request.Reason.Trim(),
+            movementId, adjustment?.Id, day, actor, now);
+        if (adjustment is not null)
+        {
+            adjustment.LinkDisposition(change.Id);
+            await adjustments.AddAsync(adjustment, ct);
+        }
+        await journal.AddAsync(change, ct);
+        batches.Update(batch);
+
+        if (await CheckWriteAuthorityAsync(posting, lease, ct) is { } writeDenial) return writeDenial;
+        if (CheckSource(lease, root, now) is { } preSaveDenial) return preSaveDenial;
+        await uow.SaveChangesAsync(ct);
+        if (await CheckWriteAuthorityAsync(posting, lease, ct) is { } savedDenial) return savedDenial;
+        if (CheckSource(lease, root, now) is { } postSaveDenial) return postSaveDenial;
+        return new BatchDispositionResponse(change.Id, root.Id, batch.Id, request.Action, request.Quantity, batch.Quantity,
+            batch.QuarantinedQuantity, remaining - request.Quantity, batch.Version, adjustment?.Id);
+    }
+
+    private async Task<Error?> CheckWriteAuthorityAsync(DispositionPosting posting, ShopLicenceLease lease, CancellationToken ct) =>
+        await CheckOwnerAsync(posting.ShopId, posting.Actor, posting.Session, ct) ?? lease.CurrentDecision().EnforcedDenial();
+
+    private Error? CheckSource(ShopLicenceLease lease, BatchDispositionChange root, DateTimeOffset performedAt)
+    {
+        var decision = lease.CurrentDecision();
+        if (decision.EnforcedDenial() is { } denied) return denied;
+        return decision is { Enforced: true, Outcome: LicenceOutcome.RequiresProvenSource } &&
+            (root.RecordedAt == default || root.RecordedAt > performedAt || root.RecordedAt > clock.UtcNow)
+            ? Refused("RootIneligible", "An existing quarantine source is required.") : null;
+    }
+
+    private async Task<ErrorOr<Success>> ReleaseAsync(DispositionPosting posting, LockedDispositionSource source,
+        DateOnly day, CancellationToken ct)
+    {
+        var (shopId, actor, _, request, _) = posting;
+        var (batch, root, _) = source;
+        if (root.ReasonCode == "Expiry.Expired")
+            return Refused("OriginallyExpired", "Originally expired recovered goods cannot be released.");
+        var effective = await policies.GetEffectiveAsync(shopId, batch.ItemId, null, ct);
+        if (!effective.HistoryKnown || effective.Policy is null) return Refused("HistoryUnknown", "Retained policy unavailable.");
+        var clean = EvaluateRestoration(Facts(batch), effective.Policy, day, request.Quantity);
+        var eligible = ExpiryPolicyEvaluator.Evaluate(Facts(batch) with { PhysicalQuantity = request.Quantity, QuarantinedQuantity = 0 },
+            effective.Policy, effective.CatalogVersion, day);
+        if (batch.ExpiryDate is null || batch.ManufacturingDate > batch.ExpiryDate || clean.QuarantinedQuantity > 0 ||
+            !eligible.Allowed || eligible.RequiresApproval ||
+            !await journal.HasDateCorrectionAsync(shopId, batch.Id, batch.ExpiryDate.Value, root.RecordedAt, ct))
+            return Refused("ReleaseIneligible", "A separately audited valid nonexpired date and clean current policy decision are required.");
+
+        return batch.ReleaseQuarantine(request.Quantity, actor);
+    }
+
+    private async Task<ErrorOr<(InventoryAdjustment Adjustment, Guid MovementId)>> StageDisposalAsync(
+        DispositionPosting posting, LockedDispositionSource source, DateOnly day, DateTimeOffset now, CancellationToken ct)
+    {
+        var (shopId, actor, _, request, _) = posting;
+        var (batch, root, _) = source;
+        var stock = await inventory.GetByItemAsync(shopId, batch.ItemId, ct);
+        if (stock is null) return Refused("InventoryMissing", "Physical inventory aggregate is missing.");
+        var before = batch.Quantity;
+        var aggregate = stock.Quantity;
+        var disposed = batch.DisposeQuarantine(request.Quantity, actor);
+        if (disposed.IsError) return disposed.Errors;
+        var reduced = stock.SubtractQuantity(request.Quantity, actor);
+        if (reduced.IsError) return reduced.Errors;
+
+        var number = numbers.Generate(day);
+        var movement = StockTransaction.Create(shopId, batch.ItemId, batch.Id, StockTransactionType.Dmg, -request.Quantity,
+            number, request.Reason.Trim(), now, actor, actor);
+        if (movement.IsError) return movement.Errors;
+        var loss = InventoryAdjustment.Create(shopId, batch.ItemId, batch.Id, number, InventoryAdjustmentDirection.Decrease,
+            root.ReasonCode == "Expiry.Expired" ? InventoryAdjustmentReason.Expired : InventoryAdjustmentReason.OtherLoss,
+            request.Quantity, batch.CostPrice, decimal.Round(request.Quantity * batch.CostPrice, 2, MidpointRounding.AwayFromZero),
+            before, batch.Quantity, aggregate, stock.Quantity, now, actor, request.Reason.Trim(), actor);
+        if (loss.IsError) return loss.Errors;
+        await movements.AddAsync(movement.Value, ct);
+        inventory.Update(stock);
+        return (loss.Value, movement.Value.Id);
+    }
+
+    private sealed record DispositionPosting(Guid ShopId, Guid Actor, Guid BatchId, BatchDispositionRequest Request, SessionClaims Session);
+    private sealed record LockedDispositionSource(InventoryBatch Batch, BatchDispositionChange Root, decimal Remaining);
+
     private static string? SqlState(Exception ex)
     {
         for (Exception? current = ex; current is not null; current = current.InnerException) if (current is DbException { SqlState: { } state }) return state;

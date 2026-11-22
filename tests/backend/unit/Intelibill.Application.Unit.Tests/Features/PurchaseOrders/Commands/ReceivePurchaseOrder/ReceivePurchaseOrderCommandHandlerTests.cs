@@ -35,8 +35,8 @@ public class ReceivePurchaseOrderCommandHandlerTests
                 typeof(Item).GetProperty("Id")!.SetValue(item, id);
                 return item;
             }).ToList()));
-        return new(_userRepository, _poRepository, _receiptRepository, _inboundProcessor, _receiptNumberGenerator, _unitOfWork,
-            BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _items, _operations, ExpiryTestDoubles.Fence());
+        return new(_poRepository, _receiptRepository, _inboundProcessor, _receiptNumberGenerator, _unitOfWork,
+            BusinessTestDoubles.AnyShop(), _postingPeriods, BusinessTestDoubles.RealClock(), _items, _operations, ExpiryTestDoubles.Fence(), PurchaseOrderAccessTestDoubles.TradingAccess(_userRepository));
     }
 
     private static (User actor, Shop shop) MakeActor(ShopRole role = ShopRole.Owner)
@@ -86,7 +86,7 @@ public class ReceivePurchaseOrderCommandHandlerTests
                     false,
                     null,
                     null),
-            ]);
+            ], Session: PurchaseOrderAccessTestDoubles.Session(actorId, shopId));
 
     private static InboundInventoryLineResult MakeInboundResult(Guid shopId, Guid itemId, Guid supplierId, Guid actorId)
     {
@@ -121,7 +121,7 @@ public class ReceivePurchaseOrderCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
         var result = await CreateHandler().HandleAsync(
-            new ReceivePurchaseOrderCommand(actor.Id, shop.Id, Guid.NewGuid(), null, null, null, []),
+            new ReceivePurchaseOrderCommand(actor.Id, shop.Id, Guid.NewGuid(), null, null, null, [], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -275,7 +275,7 @@ public class ReceivePurchaseOrderCommandHandlerTests
                 false,
                 false,
                 null,
-                null)).ToList());
+                null)).ToList(), Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id));
 
         var result = await CreateHandler().HandleAsync(command, CancellationToken.None);
 

@@ -3,7 +3,7 @@ using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Suppliers.DTOs;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
-using Intelibill.Domain.Interfaces;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Suppliers.Commands.AddSupplier;
@@ -11,8 +11,9 @@ namespace Intelibill.Application.Features.Suppliers.Commands.AddSupplier;
 public sealed class AddSupplierCommandHandler(
     IUserRepository userRepository,
     ISupplierRepository supplierRepository,
-    IUnitOfWork unitOfWork)
+    DefinitionCreationTransaction transaction)
 {
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<SupplierDto>> HandleAsync(AddSupplierCommand command, CancellationToken cancellationToken)
     {
         var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);
@@ -25,6 +26,15 @@ public sealed class AddSupplierCommandHandler(
 
         if (actorMembership.Role != ShopRole.Owner)
             return Errors.Supplier.UserIsNotOwner;
+
+        return await transaction.RunAsync<SupplierDto>(command.Session,
+            (lease, ct) => CreateAsync(command, lease, ct), cancellationToken);
+    }
+
+    private async Task<ErrorOr<SupplierDto>> CreateAsync(AddSupplierCommand command, ShopLicenceLease lease, CancellationToken ct)
+    {
+        if (lease.Decision.EnforcedDenial() is { } denial)
+            return denial;
 
         var supplier = Supplier.Create(
             command.ActiveShopId,
@@ -39,8 +49,7 @@ public sealed class AddSupplierCommandHandler(
             command.IsPreferred,
             isSystem: false);
 
-        await supplierRepository.AddAsync(supplier, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await supplierRepository.AddAsync(supplier, ct);
 
         return ToDto(supplier);
     }

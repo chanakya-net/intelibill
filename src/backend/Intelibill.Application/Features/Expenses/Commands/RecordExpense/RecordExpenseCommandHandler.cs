@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Features.Payments.Services;
 using Intelibill.Application.Features.Tills.Services;
@@ -20,8 +21,10 @@ public sealed class RecordExpenseCommandHandler(
     IPostingPeriodPolicy postingPeriodPolicy,
     IUnitOfWork unitOfWork,
     IPaymentTransactionRunner transactionRunner,
-    TillSourceSettlementService settlement)
+    TillSourceSettlementService settlement,
+    IShopLicenceFence licenceFence)
 {
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<ErrorOr<ExpenseDto>> HandleAsync(
         RecordExpenseCommand command,
         CancellationToken cancellationToken)
@@ -41,12 +44,17 @@ public sealed class RecordExpenseCommandHandler(
             return Errors.Expense.Forbidden;
 
         var key = FinancialOperationHasher.NormalizeKey(command.OperationKey);
-        return await transactionRunner.RunAsync<ExpenseDto>(key is null ? null : new(command.ShopId, FinancialOperationType.ExpenseRecord, key),
+        return await transactionRunner.RunAsync<ExpenseDto>(key is null ? null : new(command.ShopId, FinancialOperationType.ExpenseRecord, key) { SuspensionAction = LicenceAction.NewTrading },
             command.UserId, command.ShopId, key is null ? null : ComputeRequestHash(command), ct => PostAsync(command, ct), cancellationToken);
     }
 
     private async Task<ErrorOr<ExpenseDto>> PostAsync(RecordExpenseCommand command, CancellationToken cancellationToken)
     {
+        var licence = await licenceFence.EnterAsync(command.ShopId, LicenceAction.NewTrading, cancellationToken);
+        if (licence.IsError) return licence.Errors;
+        if (ExpenseLicenceGuard.TradingDenial(licence.Value) is { } denied)
+            return denied;
+
         var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(command.ShopId, command.ExpenseDate, cancellationToken);
         if (fence.IsError)
             return fence.Errors;
@@ -61,6 +69,7 @@ public sealed class RecordExpenseCommandHandler(
         var acquired = await settlement.AcquireAsync(command.ShopId, command.UserId, command.Till, command.OperationKey,
             evidence, -command.Amount, command.ExpenseDate, cancellationToken);
         if (acquired.IsError) return acquired.Errors;
+        if (ExpenseLicenceGuard.TradingDenial(licence.Value) is { } currentDenial) return currentDenial;
 
         // Upsert category
         var categoryName = command.CategoryName.Trim();

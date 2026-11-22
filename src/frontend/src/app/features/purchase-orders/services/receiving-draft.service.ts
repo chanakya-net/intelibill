@@ -77,6 +77,29 @@ export class ReceivingDraftService {
     });
     return record!;
   }
+  /** Release only this tab's new reservation before dispatch, while its claim is still exclusive. */
+  releaseUnsent(
+    scope: ScopeOwner,
+    poId: string,
+    operationId: string,
+    expectedRevision: number,
+  ): Promise<ReceivingDraftRecord | null> {
+    return this.transact(scope, poId, 'readwrite', (current) => {
+      if (
+        current?.revision !== expectedRevision ||
+        current.pending?.operationId !== operationId ||
+        current.pending.status !== 'sending'
+      )
+        return current;
+      return {
+        ...current,
+        revision: current.revision + 1,
+        pending: null,
+        updatedAt: new Date().toISOString(),
+      };
+    });
+  }
+
   /** A reopened retry must establish its uncertainty durably before it may send. The identity
    * and frozen content are checked inside the same claim transaction, so a disappeared or
    * replaced operation cannot be sent from an earlier in-memory snapshot. */

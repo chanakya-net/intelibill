@@ -1,3 +1,6 @@
+import { SETTLEMENT_ERROR_KEYS } from '../../../core/services/payment-settlement-preview.service';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
+import { problemCode } from '@intelibill/api';
 import { Store } from '@ngrx/store';
 import { ShopContextActions } from '../../../core/context/shop-context.actions';
 import { selectDirectoryQuery } from './suppliers.selectors';
@@ -5,7 +8,7 @@ import { DEFAULT_DIRECTORY_QUERY } from '../../../shared/models/party-directory.
 import { takeUntil, mergeMap as directoryMergeMap } from 'rxjs';
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
-import { EMPTY, Observable, catchError, map, mergeMap, of, switchMap } from 'rxjs';
+import { EMPTY, Observable, catchError, filter, map, mergeMap, of, switchMap } from 'rxjs';
 
 import { isScopeChangeError } from '../../../core/context/scoped-request';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -23,6 +26,7 @@ import { SuppliersActions } from './suppliers.actions';
 
 @Injectable()
 export class SuppliersEffects {
+  private readonly definitionAccess = inject(OperatingAccessHintService);
   private readonly actions$ = inject(Actions);
   private readonly directoryStore = inject(Store, { optional: true });
   private readonly supplierService = inject(SupplierService);
@@ -100,36 +104,40 @@ export class SuppliersEffects {
   readonly addSupplier$ = createEffect(() =>
     this.actions$.pipe(
       ofType(SuppliersActions.addSupplierRequested),
-      switchMap(({ payload }) =>
-        this.supplierService.addSupplier(payload).pipe(
+      switchMap(({ payload }) => {
+        const scope = this.definitionAccess.scope();
+        return this.supplierService.addSupplier(payload).pipe(
+          filter(() => scope === this.definitionAccess.scope()),
           map((supplier) => SuppliersActions.addSupplierSucceeded({ supplier })),
-          catchError((error: { error?: ApiErrorPayload }) =>
-            of(
-              SuppliersActions.addSupplierFailed({
-                errorMessage: getSupplierMutationErrorMessage(error.error, true),
-              }),
-            ),
-          ),
-        ),
-      ),
+          catchError((error: { error?: ApiErrorPayload }) => {
+            if (scope !== this.definitionAccess.scope() || isScopeChangeError(error)) return EMPTY;
+            const fallback = getSupplierMutationErrorMessage(error.error, true);
+            return of(SuppliersActions.addSupplierFailed({
+              errorMessage: this.definitionAccess.creationError(error, scope, fallback) ?? '',
+            }));
+          }),
+        );
+      }),
     ),
   );
 
   readonly editSupplier$ = createEffect(() =>
     this.actions$.pipe(
       ofType(SuppliersActions.editSupplierRequested),
-      switchMap(({ supplierId, payload }) =>
-        this.supplierService.editSupplier(supplierId, payload).pipe(
+      switchMap(({ supplierId, payload }) => {
+        const scope = this.definitionAccess.scope();
+        return this.supplierService.editSupplier(supplierId, payload).pipe(
+          filter(() => scope === this.definitionAccess.scope()),
           map((supplier) => SuppliersActions.editSupplierSucceeded({ supplier })),
-          catchError((error: { error?: ApiErrorPayload }) =>
-            of(
-              SuppliersActions.editSupplierFailed({
-                errorMessage: getSupplierMutationErrorMessage(error.error, false),
-              }),
-            ),
-          ),
-        ),
-      ),
+          catchError((error: { error?: ApiErrorPayload }) => {
+            if (scope !== this.definitionAccess.scope() || isScopeChangeError(error)) return EMPTY;
+            const fallback = getSupplierMutationErrorMessage(error.error, false);
+            return of(SuppliersActions.editSupplierFailed({
+              errorMessage: this.definitionAccess.creationError(error, scope, fallback) ?? '',
+            }));
+          }),
+        );
+      }),
     ),
   );
 
@@ -193,7 +201,7 @@ export class SuppliersEffects {
           supplierId,
         );
         return intent
-          ? this.sendPayment(scope, supplierId, intent)
+          ? this.sendPayment(scope, supplierId, intent, true)
           : of(SuppliersActions.makePaymentFailed({ errorMessage: '' }));
       }),
     ),
@@ -220,16 +228,16 @@ export class SuppliersEffects {
     scope: FinancialOperationScope,
     supplierId: string,
     intent: FinancialOperationIntent<MakePaymentRequest>,
+    retry = false,
   ): Observable<
     ReturnType<
       typeof SuppliersActions.makePaymentSucceeded | typeof SuppliersActions.makePaymentFailed
     >
   > {
-    return this.intents
-      .send(scope, intent, (payload, operationKey) =>
-        this.ledgerService.makePayment(supplierId, { ...payload, operationKey }),
-      )
-      .pipe(
+    const send = (payload: MakePaymentRequest, operationKey: string) =>
+      this.ledgerService.makePayment(supplierId, { ...payload, operationKey });
+    const response = retry ? this.intents.retry(scope, intent, send) : this.intents.send(scope, intent, send);
+    return response.pipe(
         map((entry) => SuppliersActions.makePaymentSucceeded({ entry })),
         catchError((error: { error?: ApiErrorPayload }) =>
           isScopeChangeError(error)
@@ -252,7 +260,8 @@ function getLoadSuppliersErrorMessage(_: ApiErrorPayload | undefined): string {
 }
 
 function getPaymentErrorMessage(error: ApiErrorPayload | undefined): string {
-  const title = error?.title ?? '';
+  const title = error?.code ?? error?.title ?? '';
+  if (SETTLEMENT_ERROR_KEYS[title]) return SETTLEMENT_ERROR_KEYS[title];
   if (title === 'Supplier.UserIsNotOwnerOrManager')
     return 'errors.suppliers.onlyOwnerOrManagerCanMakePayment';
   if (title === 'Supplier.SupplierNotFound') return 'errors.suppliers.supplierNotFound';
@@ -265,7 +274,7 @@ function getSupplierMutationErrorMessage(
   error: ApiErrorPayload | undefined,
   isAdd: boolean,
 ): string {
-  const title = error?.title ?? '';
+  const title = problemCode(error) ?? '';
 
   if (title === 'Shop.UserIsNotOwner' || title === 'Supplier.UserIsNotOwner') {
     return 'errors.suppliers.onlyOwnerCanManageSuppliers';

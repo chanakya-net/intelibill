@@ -1,3 +1,4 @@
+import { problemCode } from '@intelibill/api';
 import { HttpErrorResponse } from '@angular/common/http';
 import { DestroyRef, Injectable, inject } from '@angular/core';
 import { Observable, Subject, catchError, from, map, of, switchMap } from 'rxjs';
@@ -212,15 +213,21 @@ export class CheckoutIntentService {
 }
 
 /**
- * Classifies a failed POST. Only a definitive client-side refusal (validation, conflict,
- * authorization) proves the sale was not committed; transport loss, timeouts, throttling and
- * server faults may have committed it and must be resolved by replay.
+ * Classifies a failed POST. A refusal before the committed lookup leaves any earlier attempt's
+ * outcome unknown, just like a lost response.
  */
 export function classifyCheckoutSendFailure(error: unknown): CheckoutSendFailure {
   if (!(error instanceof HttpErrorResponse)) {
     return 'uncertain';
   }
   const status = error.status;
+  // This response was decided after the server serialized and checked for a committed sale.
+  const code = problemCode(error.error);
+  if (status === 503 && code === 'Licence.VerificationUnavailable') return 'rejected';
+  if (status === 401) return 'uncertain';
+  if (status === 403 && (
+    code === null || code === 'Forbidden' || code === 'Till.Forbidden' || code === 'Licence.SecuritySuspended'
+  )) return 'uncertain';
   if (status === 0 || status === 408 || status === 429 || status >= 500) {
     return 'uncertain';
   }

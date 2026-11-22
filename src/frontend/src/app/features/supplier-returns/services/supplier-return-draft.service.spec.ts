@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { IDBFactory } from 'fake-indexeddb';
+import { IDBFactory, IDBKeyRange } from 'fake-indexeddb';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SupplierReturnDraftService } from './supplier-return-draft.service';
 const owner = { userId: 'u', shopId: 's' };
@@ -25,6 +25,7 @@ describe('SupplierReturnDraftService', () => {
   let service: SupplierReturnDraftService;
   beforeEach(() => {
     vi.stubGlobal('indexedDB', new IDBFactory());
+    vi.stubGlobal('IDBKeyRange', IDBKeyRange);
     service = new SupplierReturnDraftService();
   });
   afterEach(() => vi.unstubAllGlobals());

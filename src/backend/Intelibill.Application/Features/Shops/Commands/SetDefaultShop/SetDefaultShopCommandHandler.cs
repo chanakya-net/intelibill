@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Auth.DTOs;
@@ -11,6 +12,7 @@ public sealed class SetDefaultShopCommandHandler(
     IAuthSessionRepository sessions,
     IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<ErrorOr<ShopPreferenceResult>> HandleAsync(SetDefaultShopCommand command, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);

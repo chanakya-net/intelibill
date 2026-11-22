@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Data;
@@ -20,11 +21,12 @@ namespace Intelibill.Infrastructure.Services.Operations;
 /// ever raised, so no aborted transaction is ever continued.
 /// </para>
 /// <para>
-/// Replay reads only after this attempt's transaction is rolled back, so it sees the other
-/// transaction's committed receipt and never this attempt's tracked changes.
+/// After a reservation loses, the next Read Committed statement can see the winning receipt.
+/// Supplier-return and receipt-reversal replays read it under the recovery fence. Other replays
+/// keep their existing post-rollback read.
 /// </para>
 /// </remarks>
-internal sealed class FinancialOperationExecutor(ApplicationDbContext context) : IFinancialOperationExecutor
+internal sealed class FinancialOperationExecutor(ApplicationDbContext context, IShopLicenceFence fence) : IFinancialOperationExecutor
 {
     private const int ResponseVersion = 1;
 
@@ -43,6 +45,7 @@ internal sealed class FinancialOperationExecutor(ApplicationDbContext context) :
 
         var receiptId = Guid.NewGuid();
         var reservedAt = DateTimeOffset.UtcNow;
+        Error? replayDenied;
 
         await using (var transaction = await context.Database.BeginTransactionAsync(cancellationToken))
         {
@@ -64,7 +67,8 @@ internal sealed class FinancialOperationExecutor(ApplicationDbContext context) :
                 ErrorOr<T> result;
                 try
                 {
-                    result = await action(cancellationToken);
+                    var denied = await SuspensionDenialAsync(scope, replay: false, cancellationToken);
+                    result = denied is { } refusal ? refusal : await action(cancellationToken);
                 }
                 catch
                 {
@@ -91,15 +95,60 @@ internal sealed class FinancialOperationExecutor(ApplicationDbContext context) :
                     """,
                     cancellationToken);
 
+                if (scope.RecheckBeforeCommit is { } recheck && await recheck(cancellationToken) is { } commitDenied)
+                {
+                    await transaction.RollbackAsync(CancellationToken.None);
+                    context.ChangeTracker.Clear();
+                    return commitDenied;
+                }
+
                 await transaction.CommitAsync(cancellationToken);
                 return result;
             }
 
+            if (scope.OperationType is FinancialOperationType.SupplierReturn or FinancialOperationType.SupplierReturnCredit
+                or FinancialOperationType.PurchaseReceiptReversal or FinancialOperationType.StockCount
+                or FinancialOperationType.ReceiptCostCorrection or FinancialOperationType.BatchDisposition
+                or FinancialOperationType.BulkIntakeManifest or FinancialOperationType.BulkIntakeRow
+                or FinancialOperationType.PurchaseOrderReceipt or FinancialOperationType.PostingPeriodClose
+                or FinancialOperationType.PostingPeriodReopen)
+            {
+                var outcome = await ReplayUnderFenceAsync<T>(scope, requestHash, cancellationToken);
+                await transaction.RollbackAsync(cancellationToken);
+                context.ChangeTracker.Clear();
+                return outcome;
+            }
+
+            replayDenied = await SuspensionDenialAsync(scope, replay: true, cancellationToken);
             await transaction.RollbackAsync(cancellationToken);
         }
 
         context.ChangeTracker.Clear();
-        return await ReplayAsync<T>(scope, requestHash, cancellationToken);
+        return replayDenied is { } replayRefusal ? replayRefusal : await ReplayAsync<T>(scope, requestHash, cancellationToken);
+    }
+
+    private Task<Error?> SuspensionDenialAsync(FinancialOperationScope scope, bool replay, CancellationToken ct) =>
+        scope.SuspensionAction is { } action
+            ? fence.ReadDenialAsync(scope.ShopId, replay ? LicenceAction.Recovery : action, ct)
+            : Task.FromResult<Error?>(null);
+
+    private async Task<ErrorOr<T>> ReplayUnderFenceAsync<T>(
+        FinancialOperationScope scope,
+        string requestHash,
+        CancellationToken ct)
+    {
+        var lease = await fence.EnterAsync(scope.ShopId, LicenceAction.Recovery, ct);
+        if (lease.IsError) return lease.Errors;
+        if (lease.Value.CurrentDecision().EnforcedDenial() is { } admissionDenial) return admissionDenial;
+
+        if (scope.RecheckReplayAuthority is { } authorize && await authorize(ct) is { } authorityDenied)
+            return authorityDenied;
+
+        var outcome = await ReplayAsync<T>(scope, requestHash, ct);
+        if (scope.RecheckReplayAuthority is { } reauthorize && await reauthorize(ct) is { } readAuthorityDenied)
+            return readAuthorityDenied;
+        if (lease.Value.CurrentDecision().EnforcedDenial() is { } readDenial) return readDenial;
+        return outcome;
     }
 
     private async Task<ErrorOr<T>> ReplayAsync<T>(
@@ -115,7 +164,7 @@ internal sealed class FinancialOperationExecutor(ApplicationDbContext context) :
                     && r.OperationKey == scope.Key
                     && r.Status == OperationReceiptStatus.Completed,
                 cancellationToken)
-            ?? throw new InvalidOperationException("A conflicting operation receipt was not visible after its transaction ended.");
+            ?? throw new InvalidOperationException("A conflicting operation receipt was not visible after the reservation.");
 
         if (!string.Equals(receipt.RequestHash, requestHash, StringComparison.Ordinal))
             return Errors.Operation.PayloadMismatch;

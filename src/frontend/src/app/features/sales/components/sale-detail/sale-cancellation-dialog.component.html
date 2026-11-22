@@ -13,18 +13,19 @@
     }
     @if (!canManage()) {
       <p>{{ 'sales.cancellation.restricted' | transloco }}</p>
-    }
-    @if (record()?.pending; as pending) {
+    } @else if (record()?.pending; as pending) {
       <p role="status">{{ 'sales.cancellation.unknown' | transloco }}</p>
-      <dl>
-        <dt>{{ 'sales.cancellation.operation' | transloco }}</dt>
-        <dd class="break-all">{{ pending.operationKey }}</dd>
-        <dt>{{ 'sales.cancellation.reason' | transloco }}</dt>
-        <dd>{{ pending.payload.reason }}</dd>
-      </dl>
-      <p>✓ {{ 'sales.cancellation.goodsConfirmed' | transloco }}</p>
-      @if (pending.payload.cashRefundConfirmed) {
-        <p>✓ {{ 'sales.cancellation.cashConfirmed' | transloco }}</p>
+      @if (!securityBlocked()) {
+        <dl>
+          <dt>{{ 'sales.cancellation.operation' | transloco }}</dt>
+          <dd class="break-all">{{ pending.operationKey }}</dd>
+          <dt>{{ 'sales.cancellation.reason' | transloco }}</dt>
+          <dd>{{ pending.payload.reason }}</dd>
+        </dl>
+        <p>✓ {{ 'sales.cancellation.goodsConfirmed' | transloco }}</p>
+        @if (pending.payload.cashRefundConfirmed) {
+          <p>✓ {{ 'sales.cancellation.cashConfirmed' | transloco }}</p>
+        }
       }
       <div class="flex flex-wrap gap-3">
         <button
@@ -58,6 +59,11 @@
           >{{ 'sales.cancellation.original' | transloco }}</a
         >
       </div>
+      @if (p.sourceCompletionOnly) {
+        <p role="status" class="rounded bg-amber-50 p-3 text-amber-900">
+          {{ 'sales.cancellation.sourceCompletionOnly' | transloco }}
+        </p>
+      }
       @if (!p.postingEnabled) {
         <p role="status" class="rounded bg-amber-50 p-3 text-amber-900">
           {{ 'sales.cancellation.disabled' | transloco }}
@@ -136,5 +142,7 @@
       </button>
     }
   </div>
-  <app-till-posting-fields [sale]="true" [disabled]="busy() || !!record()?.pending" />
+  @if (!securityBlocked() && canManage()) {
+    <app-till-posting-fields [sale]="true" [disabled]="busy() || !!record()?.pending" />
+  }
 </p-dialog>

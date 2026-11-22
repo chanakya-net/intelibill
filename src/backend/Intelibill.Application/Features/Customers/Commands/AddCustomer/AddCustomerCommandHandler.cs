@@ -1,19 +1,20 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Customers.DTOs;
 using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
-using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 
 namespace Intelibill.Application.Features.Customers.Commands.AddCustomer;
 
 public sealed class AddCustomerCommandHandler(
     ICustomerRepository customerRepository,
-    IUnitOfWork unitOfWork,
+    DefinitionCreationTransaction creation,
     IUserRepository userRepository)
 {
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<CustomerDto>> HandleAsync(AddCustomerCommand command, CancellationToken cancellationToken)
     {
         var mayChangeCredit = await CustomerCreditSettingsAuthorization.CanChangeAsync(userRepository, command.ActorUserId, command.ShopId, cancellationToken);
@@ -34,6 +35,16 @@ public sealed class AddCustomerCommandHandler(
             mode = CreditPolicyMode.NoCredit;
         }
 
+        return await creation.RunAsync<CustomerDto>(command.Session,
+            (lease, ct) => CreateAsync(command, mode, lease, ct), cancellationToken);
+    }
+
+    private async Task<ErrorOr<CustomerDto>> CreateAsync(
+        AddCustomerCommand command, CreditPolicyMode mode, ShopLicenceLease lease, CancellationToken cancellationToken)
+    {
+        if (lease.Decision.EnforcedDenial() is { } denial)
+            return denial;
+
         var customer = Customer.Create(
             command.ShopId,
             command.Name,
@@ -49,7 +60,6 @@ public sealed class AddCustomerCommandHandler(
             return policy.Errors;
 
         await customerRepository.AddAsync(customer, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         return CustomerDto.Saved(customer);
     }

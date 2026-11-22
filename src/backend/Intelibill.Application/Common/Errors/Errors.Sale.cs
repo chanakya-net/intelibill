@@ -196,6 +196,9 @@ public static partial class Errors
         public static Error ReturnDuplicateSaleItem(Guid saleItemId) =>
             Error.Validation("SaleReturn.DuplicateSaleItem", $"Sale item '{saleItemId}' appears more than once in the return request.");
 
+        public static Error ReturnSourceIneligible =>
+            Error.Conflict("SaleReturn.SourceIneligible", "This sale is not eligible for a return under the current shop restrictions.");
+
         public static Error ReturnSaleItemNotFound(Guid saleItemId) =>
             Error.Validation("SaleReturn.SaleItemNotFound", $"Sale item '{saleItemId}' does not belong to this sale.");
 

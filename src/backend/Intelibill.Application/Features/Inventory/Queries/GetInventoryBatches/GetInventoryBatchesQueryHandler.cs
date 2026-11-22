@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Domain.Interfaces;
 using Intelibill.Application.Features.Expiry;
@@ -17,6 +18,7 @@ public sealed class GetInventoryBatchesQueryHandler(
     IInventoryBatchRepository inventoryBatchRepository,
     IPurchaseReceiptValueRepository purchaseReceiptValueRepository, SaleExpiryGuard expiryGuard, IBusinessClock clock, IExpiryPolicyFence expiryFence, IUnitOfWork unitOfWork)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<IReadOnlyList<InventoryBatchDto>>> Handle(GetInventoryBatchesQuery query, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdAsync(query.UserId, cancellationToken);

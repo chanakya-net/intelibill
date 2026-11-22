@@ -19,6 +19,14 @@
       >{{ 'supplierReturns.loading' | transloco }}
     </p>
   }
+  @if (securityNotice(); as notice) {
+    <p role="alert" class="error no-print">{{ notice | transloco }}</p>
+    @if (!frozen()) {
+      <button pButton type="button" [disabled]="busy()" (click)="refreshAccess()">
+        {{ 'billing.reload' | transloco }}
+      </button>
+    }
+  }
   @if (error()) {
     <p role="alert" class="error no-print">{{ error() | transloco }}</p>
   }
@@ -53,7 +61,7 @@
         </button>
       </p>
     </section>
-    @if (doc.status === 'PendingSupplierCredit' && owner() && !printMode) {
+    @if (canAcceptCredit()) {
       <form class="returns-form returns-panel" (ngSubmit)="submit()">
         <h2>{{ 'supplierReturns.acceptCredit' | transloco }}</h2>
         <fieldset [disabled]="busy() || frozen() || !ready()">
@@ -142,7 +150,7 @@
         </table>
       </div>
     </section>
-    @if (canShip()) {
+    @if (canShip() && !securityNotice()) {
       <nav
         class="returns-action-switch"
         [attr.aria-label]="'supplierReturns.receiptActions' | transloco"
@@ -191,6 +199,7 @@
                   ><input
                     type="checkbox"
                     [name]="'select-' + lot.receiptValueId"
+                    [disabled]="!shippable(lot)"
                     [(ngModel)]="selected[lot.receiptValueId]"
                     (change)="save()"
                   /><span class="lot-selection__copy"
@@ -214,6 +223,7 @@
                             ? 0.01
                             : 0.001
                     "
+                    [disabled]="!shippable(lot)"
                     [(ngModel)]="quantities[lot.receiptValueId]"
                     (change)="previewLot(lot)" /></label
                 ><label
@@ -224,6 +234,7 @@
                     [name]="'c-' + lot.receiptValueId"
                     min="0"
                     step="0.01"
+                    [disabled]="!shippable(lot)"
                     [(ngModel)]="credits[lot.receiptValueId]"
                     (blur)="save()"
                 /></label>
@@ -318,7 +329,7 @@
       }
     </section>
   }
-  @if (frozen()) {
+  @if (frozen() && canShip() && !printMode) {
     <aside class="returns-notice returns-notice--warning no-print" aria-live="polite">
       <p>{{ 'supplierReturns.unknown' | transloco }}</p>
       <button pButton icon="pi pi-refresh" type="button" [disabled]="busy()" (click)="recover()">
@@ -326,7 +337,7 @@
       </button>
     </aside>
   }
-  @if (!lots().length && !document() && ready()) {
+  @if (!lots().length && !document() && ready() && !securityNotice()) {
     <section class="returns-panel returns-history">
       <header class="returns-panel__header">
         <h2>{{ 'supplierReturns.history' | transloco }}</h2>

@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Unit.Tests.Common.Licensing;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.Commands.UpdateItem;
 using Intelibill.Domain.Entities;
@@ -26,9 +28,9 @@ public class UpdateItemCommandHandlerTests
         actor.AddShopMembership(ShopMembership.Create(shop.Id, actor.Id, ShopRole.Owner, true));
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByIdAsync(Guid.NewGuid(), Arg.Any<CancellationToken>()).Returns((Item?)null);
+        _itemRepository.LockForEditAsync(Arg.Any<Guid>(), Guid.NewGuid(), Arg.Any<CancellationToken>()).Returns((Item?)null);
 
-        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus);
+        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
         var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id), CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -45,9 +47,9 @@ public class UpdateItemCommandHandlerTests
         var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, actor.Id);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByIdAsync(item.Id, Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.LockForEditAsync(Arg.Any<Guid>(), item.Id, Arg.Any<CancellationToken>()).Returns(item);
 
-        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus);
+        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
         var result = await handler.HandleAsync(CreateCommand(actor.Id, shop.Id, item.Id), CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -65,10 +67,10 @@ public class UpdateItemCommandHandlerTests
         var existing = Item.Create(shop.Id, "Wheat", null, "kg", "222", true, actor.Id);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByIdAsync(item.Id, Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.LockForEditAsync(Arg.Any<Guid>(), item.Id, Arg.Any<CancellationToken>()).Returns(item);
         _itemRepository.GetByBarcodeAsync(shop.Id, "222", Arg.Any<CancellationToken>()).Returns(existing);
 
-        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus);
+        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
         var result = await handler.HandleAsync(
             CreateCommand(actor.Id, shop.Id, item.Id, barcode: "222"),
             CancellationToken.None);
@@ -87,9 +89,9 @@ public class UpdateItemCommandHandlerTests
         var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, actor.Id);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByIdAsync(item.Id, Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.LockForEditAsync(Arg.Any<Guid>(), item.Id, Arg.Any<CancellationToken>()).Returns(item);
 
-        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus);
+        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
         var result = await handler.HandleAsync(
             CreateCommand(actor.Id, shop.Id, item.Id, name: "Updated Rice", barcode: "111"),
             CancellationToken.None);
@@ -113,10 +115,10 @@ public class UpdateItemCommandHandlerTests
         var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, actor.Id);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByIdAsync(item.Id, Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.LockForEditAsync(Arg.Any<Guid>(), item.Id, Arg.Any<CancellationToken>()).Returns(item);
         _itemRepository.GetByBarcodeAsync(shop.Id, "222", Arg.Any<CancellationToken>()).Returns((Item?)null);
 
-        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus);
+        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
         var result = await handler.HandleAsync(
             CreateCommand(actor.Id, shop.Id, item.Id, name: "Premium Rice", description: "Best Quality", barcode: "222", uom: "kg"),
             CancellationToken.None);
@@ -148,9 +150,9 @@ public class UpdateItemCommandHandlerTests
         var item = Item.Create(shop2.Id, "Rice", null, "kg", "111", true, actor.Id);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByIdAsync(item.Id, Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.LockForEditAsync(Arg.Any<Guid>(), item.Id, Arg.Any<CancellationToken>()).Returns(item);
 
-        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus);
+        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
         var result = await handler.HandleAsync(CreateCommand(actor.Id, shop1.Id, item.Id), CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -167,9 +169,9 @@ public class UpdateItemCommandHandlerTests
         var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, actor.Id);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByIdAsync(item.Id, Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.LockForEditAsync(Arg.Any<Guid>(), item.Id, Arg.Any<CancellationToken>()).Returns(item);
 
-        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus);
+        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
         var result = await handler.HandleAsync(
             CreateCommand(
                 actor.Id,
@@ -199,9 +201,9 @@ public class UpdateItemCommandHandlerTests
         var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, actor.Id);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByIdAsync(item.Id, Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.LockForEditAsync(Arg.Any<Guid>(), item.Id, Arg.Any<CancellationToken>()).Returns(item);
 
-        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus);
+        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
         var result = await handler.HandleAsync(
             CreateCommand(
                 actor.Id,
@@ -226,11 +228,11 @@ public class UpdateItemCommandHandlerTests
         var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, actor.Id);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByIdAsync(item.Id, Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.LockForEditAsync(Arg.Any<Guid>(), item.Id, Arg.Any<CancellationToken>()).Returns(item);
         _itemRepository.GetStockHistoryAsync(shop.Id, item.Id, Arg.Any<CancellationToken>())
             .Returns(new ItemStockHistory(true, 3));
 
-        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus);
+        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
         var result = await handler.HandleAsync(
             CreateCommand(actor.Id, shop.Id, item.Id, name: "Renamed", barcode: "111", uom: "pcs"),
             CancellationToken.None);
@@ -252,9 +254,9 @@ public class UpdateItemCommandHandlerTests
         var item = Item.Create(shop.Id, "Rice", null, "kg", "111", true, actor.Id);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByIdAsync(item.Id, Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.LockForEditAsync(Arg.Any<Guid>(), item.Id, Arg.Any<CancellationToken>()).Returns(item);
 
-        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus);
+        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
         var result = await handler.HandleAsync(
             CreateCommand(actor.Id, shop.Id, item.Id, barcode: "111", uom: "KGS"),
             CancellationToken.None);
@@ -274,11 +276,11 @@ public class UpdateItemCommandHandlerTests
         item.MarkUnitReviewRequired();
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByIdAsync(item.Id, Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.LockForEditAsync(Arg.Any<Guid>(), item.Id, Arg.Any<CancellationToken>()).Returns(item);
         _itemRepository.GetStockHistoryAsync(shop.Id, item.Id, Arg.Any<CancellationToken>())
             .Returns(new ItemStockHistory(true, 0));
 
-        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus);
+        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
         var result = await handler.HandleAsync(
             CreateCommand(actor.Id, shop.Id, item.Id, barcode: "111", uom: "PCS"),
             CancellationToken.None);
@@ -299,11 +301,11 @@ public class UpdateItemCommandHandlerTests
         item.MarkUnitReviewRequired();
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _itemRepository.GetByIdAsync(item.Id, Arg.Any<CancellationToken>()).Returns(item);
+        _itemRepository.LockForEditAsync(Arg.Any<Guid>(), item.Id, Arg.Any<CancellationToken>()).Returns(item);
         _itemRepository.GetStockHistoryAsync(shop.Id, item.Id, Arg.Any<CancellationToken>())
             .Returns(new ItemStockHistory(true, 2));
 
-        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus);
+        var handler = new UpdateItemCommandHandler(_userRepository, _itemRepository, _unitOfWork, _messageBus, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
         var result = await handler.HandleAsync(
             CreateCommand(actor.Id, shop.Id, item.Id, name: "Renamed", barcode: "111", uom: "PCS"),
             CancellationToken.None);
@@ -332,5 +334,6 @@ public class UpdateItemCommandHandlerTests
             uom,
             "10063090",
             5m,
-            isActive);
+            Session: null,
+            IsActive: isActive);
 }

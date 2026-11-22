@@ -1,3 +1,5 @@
+using Intelibill.Application.Unit.Tests.Common.Licensing;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.PurchaseOrders.Commands.DeletePurchaseOrderDraft;
 using Intelibill.Domain.Entities;
@@ -15,7 +17,7 @@ public class DeletePurchaseOrderDraftCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     private DeletePurchaseOrderDraftCommandHandler CreateHandler() =>
-        new(_userRepository, _poRepository, _unitOfWork);
+        new(_userRepository, _poRepository, _unitOfWork, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 
     private static (User actor, Shop shop) MakeOwner()
     {
@@ -35,7 +37,7 @@ public class DeletePurchaseOrderDraftCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
         var result = await CreateHandler().HandleAsync(
-            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid()),
+            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -47,11 +49,11 @@ public class DeletePurchaseOrderDraftCommandHandlerTests
     {
         var (actor, shop) = MakeOwner();
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _poRepository.GetByShopAndIdAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+        _poRepository.GetReceiptDetailForUpdateAsync(shop.Id, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns((PurchaseOrder)null!);
 
         var result = await CreateHandler().HandleAsync(
-            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid()),
+            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -67,10 +69,10 @@ public class DeletePurchaseOrderDraftCommandHandlerTests
         po.Place(po.SupplierId!.Value);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
+        _poRepository.GetReceiptDetailForUpdateAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
 
         var result = await CreateHandler().HandleAsync(
-            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, po.Id),
+            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, po.Id, Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -84,10 +86,10 @@ public class DeletePurchaseOrderDraftCommandHandlerTests
         var po = PurchaseOrder.CreateDraft(shop.Id, "PO-2026-000001", null, null, null, null, null);
 
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
+        _poRepository.GetReceiptDetailForUpdateAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
 
         var result = await CreateHandler().HandleAsync(
-            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, po.Id),
+            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, po.Id, Session: null),
             CancellationToken.None);
 
         Assert.False(result.IsError);

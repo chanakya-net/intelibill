@@ -1,3 +1,5 @@
+import { PaymentSettlementPreviewService } from '../../../core/services/payment-settlement-preview.service';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { LocalizationService } from '../../../core/i18n/localization.service';
 import { disabledTillProviders } from '../../../../tests/tills/disabled-till.providers';
 import '@angular/compiler';
@@ -185,10 +187,14 @@ describe('CustomersPageComponent', () => {
     navigate: vi.fn().mockResolvedValue(true),
   };
 
+  const settlementPreview = signal({ status: 'ready' as const, limit: null as number | null });
+  const blockingMessage = signal<string | null>(null);
   let fixture: ComponentFixture<CustomersPageComponent>;
   let component: CustomersPageComponent;
 
   beforeEach(async () => {
+    blockingMessage.set(null);
+    settlementPreview.set({ status: 'ready', limit: null });
     facade.loadCustomers.mockClear();
     facade.loadDirectory.mockClear();
     facade.clearError.mockClear();
@@ -201,6 +207,7 @@ describe('CustomersPageComponent', () => {
         TranslocoTestingModule.forRoot({
           langs: {
             'en-IN': {
+              billing: { status: { tradingAuthority: { pending: 'Awaiting trading access' } } },
               apiErrors: { supportReference: 'Support reference: {{reference}}' },
               common: {
                 currencySymbol: '₹',
@@ -269,7 +276,11 @@ describe('CustomersPageComponent', () => {
       providers: [
         { provide: LocalizationService, useValue: { currentLanguage: signal('en-IN') } },
         ...disabledTillProviders(),
+        { provide: PaymentSettlementPreviewService, useValue: { watch: () => settlementPreview } },
         { provide: CustomersFacade, useValue: facade },
+        { provide: OperatingAccessHintService, useValue: {
+          blockingMessage, scope: signal(null), checking: signal(false),
+        } },
         { provide: CustomerService, useValue: customerService },
         { provide: Router, useValue: router },
         {
@@ -296,6 +307,18 @@ describe('CustomersPageComponent', () => {
 
     fixture = TestBed.createComponent(CustomersPageComponent);
     component = fixture.componentInstance;
+  });
+
+  it('shows the restriction and keeps the existing directory readable', () => {
+    blockingMessage.set('billing.status.tradingAuthority.pending');
+    fixture.detectChanges();
+
+    const page = fixture.nativeElement as HTMLElement;
+    expect(page.querySelector<HTMLButtonElement>('.customers-hero__actions button')?.disabled).toBe(true);
+    expect(page.querySelector('app-definition-access-notice [role="alert"]')?.textContent).toContain('Awaiting trading access');
+    expect(page.textContent).toContain('Alice Cooper');
+    component.onOpenAddCustomer();
+    expect(component.showAddCustomerOverlay()).toBe(false);
   });
 
   it('renders safe account fallback and support reference instead of server prose', () => {

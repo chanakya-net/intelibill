@@ -23,7 +23,7 @@ public sealed class TillSettingsTests(PostgreSqlTestFixture fixture)
 {
     private static ShopTillSettingsService Settings(TillTestContext app) => new(app.Tills, new ShopRepository(app.Db),
         new MembershipAuthorityRepository(app.Db, new UnitOfWork(app.Db)),
-        new Intelibill.Infrastructure.Services.Tills.TillSessionPolicy(Microsoft.Extensions.Options.Options.Create(app.Options), new ShopRepository(app.Db), app.Tills), app.Time);
+        new Intelibill.Infrastructure.Services.Tills.TillSessionPolicy(Microsoft.Extensions.Options.Options.Create(app.Options), new ShopRepository(app.Db), app.Tills), app.Time, ExpirySettingsFixture.Access(app.Db));
 
     [Fact]
     public async Task Migration_PreservesPriorTillUsers_LeavesUnconfiguredShopsOff_AndMatchesModel()
@@ -119,7 +119,7 @@ public sealed class TillSettingsTests(PostgreSqlTestFixture fixture)
         Task<ErrorOr.ErrorOr<Intelibill.Application.Features.Tills.TillSessionDto>> Open() =>
             opener.Lifecycle.OpenAsync(new(shop, cashier, till.Id, cashier, 0m, "settings-race-open"), default);
         Task<ErrorOr.ErrorOr<ShopTillSettingsDto>> Disable() =>
-            Settings(changer).UpdateAsync(new(shop, owner, shop, false, 0, "All device queues checked", true), default);
+            Settings(changer).UpdateAsync(new(shop, owner, shop, false, 0, "All device queues checked", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default);
         Task<ErrorOr.ErrorOr<Intelibill.Application.Features.Tills.TillSessionDto>> opening;
         Task<ErrorOr.ErrorOr<ShopTillSettingsDto>> disabling;
         if (openingWins)
@@ -163,7 +163,7 @@ public sealed class TillSettingsTests(PostgreSqlTestFixture fixture)
         await using var changer = new TillTestContext(fixture.MigratorConnectionString, shop);
         await changer.Db.Database.OpenConnectionAsync();
         var pid = ((Npgsql.NpgsqlConnection)source.Db.Database.GetDbConnection()).ProcessID;
-        var enabling = Settings(changer).UpdateAsync(new(shop, owner, shop, true, 0, "Start after older postings", true), default);
+        var enabling = Settings(changer).UpdateAsync(new(shop, owner, shop, true, 0, "Start after older postings", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         while (!await source.Db.Database.SqlQuery<bool>($"SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE {pid}=ANY(pg_blocking_pids(pid))) AS \"Value\"").SingleAsync(timeout.Token))
             await Task.Delay(10, timeout.Token);
@@ -184,11 +184,11 @@ public sealed class TillSettingsTests(PostgreSqlTestFixture fixture)
         var initial = Success(await service.GetAsync(new(shop, owner, shop), default));
         Assert.True(initial.Available); Assert.False(initial.Enabled); Assert.Equal(0, initial.Version);
         app.Options.Enabled = false;
-        Assert.Equal("Till.SettingsUnavailable", (await service.UpdateAsync(new(shop, owner, shop, true, 0, "Start tracking", true), default)).FirstError.Code);
+        Assert.Equal("Till.SettingsUnavailable", (await service.UpdateAsync(new(shop, owner, shop, true, 0, "Start tracking", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default)).FirstError.Code);
         app.Options.Enabled = true;
-        var saved = Success(await service.UpdateAsync(new(shop, owner, shop, true, 0, "Start tracking", true), default));
+        var saved = Success(await service.UpdateAsync(new(shop, owner, shop, true, 0, "Start tracking", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default));
         Assert.True(saved.Enabled); Assert.Equal(1, saved.Version);
-        Assert.Equal("Till.SettingsVersionConflict", (await service.UpdateAsync(new(shop, owner, shop, false, 0, "Disable", true), default)).FirstError.Code);
+        Assert.Equal("Till.SettingsVersionConflict", (await service.UpdateAsync(new(shop, owner, shop, false, 0, "Disable", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default)).FirstError.Code);
         var audit = Assert.Single(await app.Db.ShopTillSettingEvents.Where(x => x.ShopId == shop).ToArrayAsync());
         Assert.False(audit.PreviousEnabled); Assert.True(audit.Enabled); Assert.Equal(owner, audit.ActorUserId); Assert.Equal("Start tracking", audit.Reason);
         Assert.Equal(saved, Success(await service.GetAsync(new(shop, owner, shop), default)));
@@ -200,14 +200,14 @@ public sealed class TillSettingsTests(PostgreSqlTestFixture fixture)
         var (shop, owner, cashier, _) = await SeedAsync(fixture.MigratorConnectionString, enabled: false);
         await using var app = new TillTestContext(fixture.MigratorConnectionString, shop);
         var service = Settings(app);
-        Assert.Equal("Till.Forbidden", (await service.UpdateAsync(new(shop, cashier, shop, true, 0, "Enable", true), default)).FirstError.Code);
-        Assert.Equal("Till.Forbidden", (await service.UpdateAsync(new(shop, owner, Guid.NewGuid(), true, 0, "Enable", true), default)).FirstError.Code);
-        Assert.True((await service.UpdateAsync(new(shop, owner, shop, true, 0, "", true), default)).IsError);
-        Assert.True((await service.UpdateAsync(new(shop, owner, shop, true, 0, "Enable", false), default)).IsError);
+        Assert.Equal("Till.Forbidden", (await service.UpdateAsync(new(shop, cashier, shop, true, 0, "Enable", true) { Session = ExpirySettingsFixture.Session(cashier, shop) }, default)).FirstError.Code);
+        Assert.Equal("Till.Forbidden", (await service.UpdateAsync(new(shop, owner, Guid.NewGuid(), true, 0, "Enable", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default)).FirstError.Code);
+        Assert.True((await service.UpdateAsync(new(shop, owner, shop, true, 0, "", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default)).IsError);
+        Assert.True((await service.UpdateAsync(new(shop, owner, shop, true, 0, "Enable", false) { Session = ExpirySettingsFixture.Session(owner, shop) }, default)).IsError);
         var membership = await app.Db.ShopMemberships.SingleAsync(x => x.ShopId == shop && x.UserId == owner);
         membership.ChangeAuthority(ShopRole.Manager, MembershipStatus.Active);
         await app.Db.SaveChangesAsync();
-        Assert.Equal("Till.Forbidden", (await service.UpdateAsync(new(shop, owner, shop, true, 0, "Enable", true), default)).FirstError.Code);
+        Assert.Equal("Till.Forbidden", (await service.UpdateAsync(new(shop, owner, shop, true, 0, "Enable", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default)).FirstError.Code);
         Assert.Empty(await app.Db.ShopTillSettingEvents.Where(x => x.ShopId == shop).ToArrayAsync());
     }
 
@@ -220,15 +220,15 @@ public sealed class TillSettingsTests(PostgreSqlTestFixture fixture)
         var till = Success(await app.Lifecycle.CreateAsync(new(shop, owner, "Front", "original-create"), default));
         var opened = await app.OpenAsync(shop, cashier, till.Id);
         Assert.Equal(1, Success(await service.GetAsync(new(shop, owner, shop), default)).OpenSessionCount);
-        Assert.Equal("Till.SettingsBlocked", (await service.UpdateAsync(new(shop, owner, shop, false, 0, "Stop tracking", true), default)).FirstError.Code);
+        Assert.Equal("Till.SettingsBlocked", (await service.UpdateAsync(new(shop, owner, shop, false, 0, "Stop tracking", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default)).FirstError.Code);
         app.Time.Now = app.Time.Now.AddDays(1);
-        Assert.Equal("Till.SettingsBlocked", (await service.UpdateAsync(new(shop, owner, shop, false, 0, "Stop tracking", true), default)).FirstError.Code);
+        Assert.Equal("Till.SettingsBlocked", (await service.UpdateAsync(new(shop, owner, shop, false, 0, "Stop tracking", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default)).FirstError.Code);
         app.Time.Now = app.Time.Now.AddDays(-1);
         var closed = Success(await app.Lifecycle.CloseAsync(new(shop, cashier, opened.Id, 999m, "short one", opened.Version, "settings-close"), default));
         Assert.Equal(1, Success(await service.GetAsync(new(shop, owner, shop), default)).AwaitingReviewCount);
-        Assert.Equal("Till.SettingsBlocked", (await service.UpdateAsync(new(shop, owner, shop, false, 0, "Stop tracking", true), default)).FirstError.Code);
+        Assert.Equal("Till.SettingsBlocked", (await service.UpdateAsync(new(shop, owner, shop, false, 0, "Stop tracking", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default)).FirstError.Code);
         Success(await app.Lifecycle.ReviewAsync(new(shop, owner, opened.Id, "Count checked", closed.Version, "settings-review"), default));
-        var disabled = Success(await service.UpdateAsync(new(shop, owner, shop, false, 0, "Stop tracking", true), default));
+        var disabled = Success(await service.UpdateAsync(new(shop, owner, shop, false, 0, "Stop tracking", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default));
         Assert.False(disabled.Enabled);
         Assert.Equal("Till.Disabled", (await app.Lifecycle.OpenAsync(new(shop, cashier, till.Id, cashier, 0, "after-disable"), default)).FirstError.Code);
         Assert.Equal(opened.Id, Success(await app.Reads.SessionAsync(shop, owner, opened.Id, 1, 20, default)).Session.Id);
@@ -245,18 +245,18 @@ public sealed class TillSettingsTests(PostgreSqlTestFixture fixture)
             "ArithmeticConflict", "Unposted printed invoice", owner);
         app.Db.Add(prior); await app.Db.SaveChangesAsync();
         Assert.Equal(1, Success(await service.GetAsync(new(shop, owner, shop), default)).PendingOfflineCount);
-        Assert.Equal("Till.SettingsBlocked", (await service.UpdateAsync(new(shop, owner, shop, false, 0, "Stop", true), default)).FirstError.Code);
+        Assert.Equal("Till.SettingsBlocked", (await service.UpdateAsync(new(shop, owner, shop, false, 0, "Stop", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default)).FirstError.Code);
         prior.Resolve(owner, app.Clock.UtcNow); await app.Db.SaveChangesAsync();
         Assert.Equal(0, Success(await service.GetAsync(new(shop, owner, shop), default)).PendingOfflineCount);
         var envelope = OfflineSubmission.Record(shop, "device", "pending", "A/2627/000001", new string('a', 64), "{}", app.Clock.UtcNow, app.Clock.UtcNow, OfflineSubmissionSource.Sync, owner, null, null, null, null);
         app.Db.Add(envelope); await app.Db.SaveChangesAsync();
         Assert.Equal(1, Success(await service.GetAsync(new(shop, owner, shop), default)).PendingOfflineCount);
-        Assert.Equal("Till.SettingsBlocked", (await service.UpdateAsync(new(shop, owner, shop, false, 0, "Stop", true), default)).FirstError.Code);
+        Assert.Equal("Till.SettingsBlocked", (await service.UpdateAsync(new(shop, owner, shop, false, 0, "Stop", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default)).FirstError.Code);
         var issue = ReconciliationIssue.Create(shop, null, "pending", "device", ReconciliationIssueType.TillReview, "Till.ReviewRequired", "Review", owner, offlineSubmissionId: envelope.Id);
         app.Db.Add(issue); await app.Db.SaveChangesAsync();
         Assert.Equal(1, Success(await service.GetAsync(new(shop, owner, shop), default)).PendingOfflineCount);
         issue.Resolve(owner, app.Clock.UtcNow); await app.Db.SaveChangesAsync();
         Assert.Equal(0, Success(await service.GetAsync(new(shop, owner, shop), default)).PendingOfflineCount);
-        Assert.False(Success(await service.UpdateAsync(new(shop, owner, shop, false, 0, "All queues checked", true), default)).Enabled);
+        Assert.False(Success(await service.UpdateAsync(new(shop, owner, shop, false, 0, "All queues checked", true) { Session = ExpirySettingsFixture.Session(owner, shop) }, default)).Enabled);
     }
 }

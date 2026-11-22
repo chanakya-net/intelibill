@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Tills.Services;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -34,8 +35,11 @@ public sealed class ReversePaymentCommandHandler(
     IShopRepository shopRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
     IBusinessClock businessClock,
-    TillSourceSettlementService settlement)
+    TillSourceSettlementService settlement,
+    IShopLicenceFence licenceFence,
+    PaymentCompletionPolicy completionPolicy)
 {
+    [LicenceAction(LicenceAction.ExistingPayment)]
     public async Task<ErrorOr<PaymentReceiptDto>> HandleAsync(ReversePaymentCommand command, CancellationToken cancellationToken)
     {
         var role = await PaymentAuthorization.RoleAsync(userRepository, command.ActorUserId, command.ActiveShopId, cancellationToken);
@@ -53,7 +57,8 @@ public sealed class ReversePaymentCommandHandler(
         var reason = command.Reason.Trim();
 
         return await transactionRunner.RunAsync(
-            new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.PaymentReversal, operationKey),
+            new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.PaymentReversal, operationKey)
+            { SuspensionAction = LicenceAction.ExistingPayment },
             command.ActorUserId,
             receipt.Id,
             command.Till is null && command.SettlementEvidence is null
@@ -69,6 +74,10 @@ public sealed class ReversePaymentCommandHandler(
         ReversePaymentCommand command,
         CancellationToken cancellationToken)
     {
+        var licence = await licenceFence.EnterAsync(receipt.ShopId, LicenceAction.ExistingPayment, cancellationToken);
+        if (licence.IsError) return licence.Errors;
+        if (PaymentCompletionPolicy.Denial(licence.Value.CurrentDecision()) is { } denied) return denied;
+
         var actorUserId = command.ActorUserId;
         var shop = await shopRepository.GetByIdAsync(receipt.ShopId, cancellationToken);
         if (shop is null)
@@ -124,6 +133,9 @@ public sealed class ReversePaymentCommandHandler(
 
         if ((await receiptRepository.GetReversalsAsync(receipt.ShopId, ids, cancellationToken)).Count > 0)
             return Errors.Payment.AlreadyReversed;
+
+        var permitted = await completionPolicy.CheckReceiptAsync(licence.Value, receipt, cancellationToken);
+        if (permitted.IsError) return permitted.Errors;
 
         var notes = $"Reversal of payment {receipt.Id:N}: {reason}";
         if (notes.Length > 255)

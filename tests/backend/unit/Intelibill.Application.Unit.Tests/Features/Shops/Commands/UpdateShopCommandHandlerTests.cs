@@ -1,8 +1,6 @@
-using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Shops.Commands.UpdateShop;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
-using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
 using NSubstitute;
 
@@ -10,198 +8,47 @@ namespace Intelibill.Application.Unit.Tests.Features.Shops.Commands.UpdateShop;
 
 public class UpdateShopCommandHandlerTests
 {
-    private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
-    private readonly IBankAccountRepository _bankAccountRepository = Substitute.For<IBankAccountRepository>();
-    private readonly ITenantWriteScope _tenantWriteScope = Substitute.For<ITenantWriteScope>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly ShopSetupAccessFixture _fixture = new();
 
     [Fact]
-    public async Task HandleAsync_WhenUserIsOwner_UpdatesShopAndSaves()
+    public async Task Owner_updates_normalized_details_and_saves_once()
     {
-        var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
-        var shop = Shop.Create("Old", "Address", "City", "State", "560001", null, null, null);
-        var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Owner, true);
-        shop.AddMembership(membership);
-        user.AddShopMembership(membership);
-
-        var command = new UpdateShopCommand(
-            user.Id,
-            shop.Id,
-            "  Main Shop  ",
-            "  42 MG Road  ",
-            "  Bengaluru  ",
-            "  Karnataka  ",
-            "  560001  ",
-            "  Chandra  ",
-            "  9876543210  ",
-            "  27AAPFU0939F1ZV  ");
-
-        _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
-            .Returns(user);
-        _shopRepository.GetByIdAsync(shop.Id, Arg.Any<CancellationToken>())
-            .Returns(shop);
-
-        var handler = new UpdateShopCommandHandler(
-            _userRepository,
-            _shopRepository,
-            _bankAccountRepository,
-            _tenantWriteScope,
-            _unitOfWork);
-
-        var result = await handler.HandleAsync(command, CancellationToken.None);
+        var owner = NewUser();
+        var shop = Shop.Create("Old Shop", "Old Road", "City", "State", "560002", null, null, null);
+        var cmd = Command(owner.Id, shop.Id) with { Session = _fixture.Member(shop.Id, owner, ShopRole.Owner, shop) };
+        var result = await Handler().HandleAsync(cmd, default);
 
         Assert.False(result.IsError);
-        Assert.Equal(shop.Id, result.Value.ShopId);
-        Assert.Equal("Main Shop", result.Value.Name);
-        Assert.Equal("42 MG Road", result.Value.Address);
-        Assert.Equal("Bengaluru", result.Value.City);
-        Assert.Equal("Karnataka", result.Value.State);
-        Assert.Equal("560001", result.Value.Pincode);
-        Assert.Equal("Chandra", result.Value.ContactPerson);
-        Assert.Equal("9876543210", result.Value.MobileNumber);
-        Assert.Equal("27AAPFU0939F1ZV", result.Value.GstNumber);
-
-        _shopRepository.Received(1).Update(shop);
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        var details = result.Value;
+        Assert.Equal(("Main Shop", "42 MG Road", "Bengaluru", "Karnataka", "560001"),
+            (details.Name, details.Address, details.City, details.State, details.Pincode));
+        Assert.Equal(("Chandra", "9876543210", "27AAPFU0939F1ZV"), (details.ContactPerson, details.MobileNumber, details.GstNumber));
+        await _fixture.UnitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _fixture.UnitOfWork.Received(1).CommitTransactionAsync(Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task HandleAsync_WhenUserMissing_ReturnsUserNotFound()
+    [Theory]
+    [InlineData(null, false, "Auth.SessionInvalidated")]
+    [InlineData(null, true, "Shop.MembershipNotFound")]
+    [InlineData(ShopRole.Manager, true, "Shop.UserIsNotOwner")]
+    [InlineData(ShopRole.Owner, true, "Shop.ShopNotFound")]
+    public async Task Invalid_authority_or_target_cannot_save(ShopRole? role, bool validSession, string code)
     {
-        var command = new UpdateShopCommand(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
-            "Main",
-            "Address",
-            "City",
-            "State",
-            "560001",
-            null,
-            null,
-            null);
+        var actor = NewUser();
+        var shop = Guid.NewGuid();
+        var session = !validSession ? null : role is { } memberRole
+            ? _fixture.Member(shop, actor, memberRole) : _fixture.Session(actor.Id, shop);
+        var result = await Handler().HandleAsync(Command(actor.Id, shop) with { Session = session }, default);
 
-        _userRepository.GetByIdWithDetailsAsync(command.UserId, Arg.Any<CancellationToken>())
-            .Returns((User?)null);
-
-        var handler = new UpdateShopCommandHandler(
-            _userRepository,
-            _shopRepository,
-            _bankAccountRepository,
-            _tenantWriteScope,
-            _unitOfWork);
-
-        var result = await handler.HandleAsync(command, CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Equal("Shop.UserNotFound", result.FirstError.Code);
+        Assert.Equal(code, result.FirstError.Code);
+        await _fixture.UnitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task HandleAsync_WhenMembershipMissing_ReturnsMembershipNotFound()
-    {
-        var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
-        var command = new UpdateShopCommand(
-            user.Id,
-            Guid.NewGuid(),
-            "Main",
-            "Address",
-            "City",
-            "State",
-            "560001",
-            null,
-            null,
-            null);
+    private UpdateShopCommandHandler Handler() => new(_fixture.Access, Substitute.For<IBankAccountRepository>());
 
-        _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
-            .Returns(user);
+    private static User NewUser() => User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
 
-        var handler = new UpdateShopCommandHandler(
-            _userRepository,
-            _shopRepository,
-            _bankAccountRepository,
-            _tenantWriteScope,
-            _unitOfWork);
-
-        var result = await handler.HandleAsync(command, CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Equal("Shop.MembershipNotFound", result.FirstError.Code);
-    }
-
-    [Fact]
-    public async Task HandleAsync_WhenUserIsNotOwner_ReturnsForbidden()
-    {
-        var user = User.CreateWithEmail("manager@test.com", "hash", "Manager", "One");
-        var shop = Shop.Create("Main", "Address", "City", "State", "560001", null, null, null);
-        var membership = ShopMembership.Create(shop.Id, user.Id, ShopRole.Manager, false);
-        shop.AddMembership(membership);
-        user.AddShopMembership(membership);
-
-        var command = new UpdateShopCommand(
-            user.Id,
-            shop.Id,
-            "Main",
-            "Address",
-            "City",
-            "State",
-            "560001",
-            null,
-            null,
-            null);
-
-        _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
-            .Returns(user);
-
-        var handler = new UpdateShopCommandHandler(
-            _userRepository,
-            _shopRepository,
-            _bankAccountRepository,
-            _tenantWriteScope,
-            _unitOfWork);
-
-        var result = await handler.HandleAsync(command, CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Equal("Shop.UserIsNotOwner", result.FirstError.Code);
-    }
-
-    [Fact]
-    public async Task HandleAsync_WhenShopMissing_ReturnsShopNotFound()
-    {
-        var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
-        var shopId = Guid.NewGuid();
-        var membership = ShopMembership.Create(shopId, user.Id, ShopRole.Owner, true);
-        user.AddShopMembership(membership);
-
-        var command = new UpdateShopCommand(
-            user.Id,
-            shopId,
-            "Main",
-            "Address",
-            "City",
-            "State",
-            "560001",
-            null,
-            null,
-            null);
-
-        _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>())
-            .Returns(user);
-        _shopRepository.GetByIdAsync(shopId, Arg.Any<CancellationToken>())
-            .Returns((Shop?)null);
-
-        var handler = new UpdateShopCommandHandler(
-            _userRepository,
-            _shopRepository,
-            _bankAccountRepository,
-            _tenantWriteScope,
-            _unitOfWork);
-
-        var result = await handler.HandleAsync(command, CancellationToken.None);
-
-        Assert.True(result.IsError);
-        Assert.Equal("Shop.ShopNotFound", result.FirstError.Code);
-    }
-
+    private static UpdateShopCommand Command(Guid actor, Guid shop) =>
+        new(actor, shop, " Main Shop ", " 42 MG Road ", " Bengaluru ", " Karnataka ", " 560001 ",
+            " Chandra ", " 9876543210 ", " 27AAPFU0939F1ZV ");
 }

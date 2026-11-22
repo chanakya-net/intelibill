@@ -1,3 +1,4 @@
+import { observeOnlyShopSetup } from './shop-setup-mock';
 import { customerDirectoryResponse } from './party-directory-mock';
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
@@ -309,13 +310,15 @@ export async function mockExternalRequests(
       ({ locale, localStorageEntries }) => {
         localStorage.clear();
         sessionStorage.clear();
+        // Keep proactive refresh within Chromium's timer range.
+        const now = Date.now();
         localStorage.setItem(
           'inventory.auth.session.local',
           JSON.stringify({
             accessToken: 'ui-audit-owner-access',
             refreshToken: 'ui-audit-owner-refresh',
-            accessTokenExpiresAt: '2099-01-01T00:00:00.000Z',
-            refreshTokenExpiresAt: '2099-02-01T00:00:00.000Z',
+            accessTokenExpiresAt: new Date(now + 60 * 60_000).toISOString(),
+            refreshTokenExpiresAt: new Date(now + 24 * 60 * 60_000).toISOString(),
             rememberMe: true,
             user: {
               id: 'ui-audit-owner',
@@ -430,6 +433,7 @@ export async function mockExternalRequests(
     if (route.request().method() === 'GET' && requestUrl.pathname === '/api/shops/ui-audit-shop') {
       await fulfillJson(route, {
         shopId: 'ui-audit-shop',
+        setupAccess: observeOnlyShopSetup('ui-audit-shop'),
         name: 'UI Audit Shop',
         address: '123 Deterministic Audit Avenue',
         city: 'Bengaluru',

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Sales.DTOs;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Application.Features.Tills.Services;
@@ -27,6 +28,7 @@ public sealed class VoidSaleReturnCommandHandler(
     IUnitOfWork unitOfWork,
     IBusinessClock businessClock, TillSourceSettlementService settlement, IFinancialOperationExecutor executor, Intelibill.Application.Features.Expiry.BatchDispositionService dispositions)
 {
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<ErrorOr<Success>> HandleAsync(
         VoidSaleReturnCommand command,
         CancellationToken cancellationToken)
@@ -49,31 +51,20 @@ public sealed class VoidSaleReturnCommandHandler(
         if (membership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Errors.Sale.ReturnForbidden;
 
-        // Only the sale id is read before the lock; it never changes. Everything the void decides
-        // on is read after it.
-        var saleId = await saleReturnRepository.GetSaleIdAsync(command.ShopId, command.SaleReturnId, cancellationToken);
-        if (saleId is null)
-            return Errors.Sale.ReturnNotFound(command.SaleReturnId);
-
         var key = FinancialOperationHasher.NormalizeKey(command.OperationKey);
-        if (key is not null)
-        {
-            var result = await executor.ExecuteAsync<SaleReturnOperationOutcome>(new(command.ShopId, FinancialOperationType.SaleReturnVoid, key),
-                command.ActorUserId, command.SaleReturnId, FinancialOperationHasher.Compute(command with { OperationKey = null }), async token =>
-                {
-                    var posted = await ExecuteAsync(command, shop, saleId.Value, false, token);
-                    if (posted.IsError) return posted.Errors;
-                    return new SaleReturnOperationOutcome(command.SaleReturnId, saleId.Value);
-                }, cancellationToken);
-            return result.IsError ? result.Errors : Result.Success;
-        }
-        return await ExecuteAsync(command, shop, saleId.Value, true, cancellationToken);
+        var result = key is null
+            ? await ExecuteAsync(command, shop, true, cancellationToken)
+            : await executor.ExecuteAsync<SaleReturnOperationOutcome>(new(command.ShopId, FinancialOperationType.SaleReturnVoid, key)
+                { SuspensionAction = LicenceAction.SourceCorrection },
+                command.ActorUserId, command.SaleReturnId, FinancialOperationHasher.Compute(command with { OperationKey = null }),
+                token => ExecuteAsync(command, shop, false, token), cancellationToken);
+        return result.IsError ? result.Errors : Result.Success;
     }
 
-    private Task<ErrorOr<Success>> ExecuteAsync(VoidSaleReturnCommand command, Shop shop, Guid saleId, bool ownsTransaction, CancellationToken ct)
+    private Task<ErrorOr<SaleReturnOperationOutcome>> ExecuteAsync(VoidSaleReturnCommand command, Shop shop, bool ownsTransaction, CancellationToken ct)
     {
         TillSession? session = null;
-        return mutationCoordinator.ExecuteAsync(command.ShopId, saleId, async token =>
+        return mutationCoordinator.ExecuteAsync(command.ShopId, token => ResolveSaleAsync(command, token), async token =>
         {
             if (command.Till is not null && command.SettlementEvidence?.Disposition == TillSettlementDisposition.NoPhysicalMovement)
                 return Error.Validation("Till.SettlementEvidenceInvalid", "No physical movement must not select a drawer.");
@@ -83,13 +74,21 @@ public sealed class VoidSaleReturnCommandHandler(
             if (acquired.IsError) return acquired.Errors;
             session = acquired.Value;
             return Result.Success;
-        }, token => VoidAsync(command, shop, session, token), ownsTransaction, ct);
+        }, (licence, token) => VoidAsync(command, shop, session, licence, token), ownsTransaction, ct);
     }
 
-    private async Task<ErrorOr<Success>> VoidAsync(
+    private async Task<ErrorOr<Guid>> ResolveSaleAsync(VoidSaleReturnCommand command, CancellationToken ct)
+    {
+        // Only the immutable parent id is read before its lock. The return is reloaded under that lock.
+        var id = await saleReturnRepository.GetSaleIdAsync(command.ShopId, command.SaleReturnId, ct);
+        return id is { } saleId ? saleId : Errors.Sale.ReturnNotFound(command.SaleReturnId);
+    }
+
+    private async Task<ErrorOr<SaleReturnOperationOutcome>> VoidAsync(
         VoidSaleReturnCommand command,
         Shop shop,
         TillSession? session,
+        ShopLicenceLease licence,
         CancellationToken cancellationToken)
     {
         var saleReturn = await saleReturnRepository.GetByIdWithItemsAsync(
@@ -101,6 +100,12 @@ public sealed class VoidSaleReturnCommandHandler(
 
         if (saleReturn.IsVoided)
             return Errors.Sale.ReturnAlreadyVoided;
+
+        var sale = await saleRepository.GetByIdAsync(saleReturn.SaleId, command.ShopId, cancellationToken);
+        if (sale is null)
+            return Errors.Sale.NotFound(saleReturn.SaleId);
+
+        if (SaleReturnSourcePolicy.Check(licence, sale, businessClock, saleReturn) is { } denied) return denied;
 
         // Validate the source's immutable payout evidence before stock, credit or accounting changes.
         if (command.SettlementEvidence is { } evidence)
@@ -115,10 +120,6 @@ public sealed class VoidSaleReturnCommandHandler(
 
         if (creditNote is not null && creditNote.HasBeenRedeemed)
             return Errors.Sale.ReturnCreditNoteHasRedemptions;
-
-        var sale = await saleRepository.GetByIdAsync(saleReturn.SaleId, command.ShopId, cancellationToken);
-        if (sale is null)
-            return Errors.Sale.NotFound(saleReturn.SaleId);
 
         var saleItemsById = sale.Items.ToDictionary(item => item.Id);
         var processedAt = mutationCoordinator.PostingInstant ?? businessClock.UtcNow;
@@ -221,8 +222,12 @@ public sealed class VoidSaleReturnCommandHandler(
             command.ActorUserId, command.OperationKey, command.SettlementEvidence, cancellationToken);
         if (appended.IsError) return appended.Errors;
         saleReturnRepository.Update(saleReturn);
+        var currentRole = await shopRepository.GetActiveRoleAsync(command.ActorUserId, command.ShopId, cancellationToken);
+        if (currentRole is null) return Errors.Shop.MembershipNotFound;
+        if (currentRole is not (ShopRole.Owner or ShopRole.Manager)) return Errors.Sale.ReturnForbidden;
+        if (SaleReturnSourcePolicy.Check(licence, sale, businessClock, saleReturn) is { } writeDenied) return writeDenied;
         await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return Result.Success;
+        return SaleReturnSourcePolicy.Check(licence, sale, businessClock, saleReturn) is { } saveDenied
+            ? saveDenied : new SaleReturnOperationOutcome(saleReturn.Id, sale.Id);
     }
 }

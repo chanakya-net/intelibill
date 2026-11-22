@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Domain.Entities;
@@ -28,6 +29,7 @@ public sealed class SyncOfflineSalesCommandHandler(
     private const string StatusCreated = "created";
     private const string StatusSyncedWithWarnings = "SyncedWithWarnings";
 
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<ErrorOr<OfflineSalesSyncResponseDto>> HandleAsync(
         SyncOfflineSalesCommand command,
         CancellationToken cancellationToken)

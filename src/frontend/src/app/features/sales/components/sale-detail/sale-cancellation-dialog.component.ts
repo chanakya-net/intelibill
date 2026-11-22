@@ -1,4 +1,7 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { problemCode } from '@intelibill/api';
 import { ViewChild } from '@angular/core';
+import { operatingAccessErrorKey } from '../../../billing/status/operating-access-hint.service';
 import { TillPostingFieldsComponent } from '../../../tills/components/till-posting-fields.component';
 import { CommonModule } from '@angular/common';
 import {
@@ -48,12 +51,14 @@ export class SaleCancellationDialogComponent implements OnChanges {
   @Input() saleId = '';
   @Input() visible = false;
   @Output() readonly visibleChange = new EventEmitter<boolean>();
+  @Output() readonly securityRefused = new EventEmitter<void>();
   @Output() readonly completed = new EventEmitter<SaleCancellationDto>();
   readonly preview = signal<SaleCancellationPreviewDto | null>(null);
   readonly record = signal<SaleCancellationDraftRecord | null>(null);
   readonly busy = signal(false);
   readonly ready = signal(false);
   readonly error = signal('');
+  readonly securityBlocked = signal(false);
   readonly canManage = computed(() => {
     const s = this.auth.session();
     return ['owner', 'manager'].includes(
@@ -87,6 +92,7 @@ export class SaleCancellationDialogComponent implements OnChanges {
     this.owner = owner;
     this.target = target;
     this.ready.set(false);
+    this.securityBlocked.set(false);
     this.preview.set(null);
     this.record.set(null);
     this.error.set('');
@@ -114,14 +120,31 @@ export class SaleCancellationDialogComponent implements OnChanges {
         this.error.set('sales.cancellation.confirmed');
         return;
       }
-      const preview = await firstValueFrom(this.api.preview(target));
-      if (!this.current(owner, target, generation)) return;
-      this.preview.set(preview);
-      this.ready.set(true);
+      await this.loadPreview(owner, target, generation);
     } catch {
       if (this.current(owner, target, generation))
         this.error.set('sales.cancellation.storageError');
     }
+  }
+  private async loadPreview(owner: ShopScope, target: string, generation: number) {
+    try {
+      const preview = await firstValueFrom(this.api.preview(target));
+      if (!this.current(owner, target, generation)) return;
+      this.preview.set(preview);
+      this.ready.set(true);
+    } catch (error) {
+      if (this.current(owner, target, generation))
+        this.showRequestError(error, 'sales.cancellation.previewError');
+    }
+  }
+  private showRequestError(error: unknown, fallback: string) {
+    if (error instanceof HttpErrorResponse && problemCode(error.error) === 'Licence.SecuritySuspended') {
+      this.securityBlocked.set(true);
+      this.preview.set(null);
+      this.ready.set(false);
+      this.securityRefused.emit();
+    }
+    this.error.set(operatingAccessErrorKey(error) ?? fallback);
   }
   valid() {
     const p = this.preview();
@@ -256,7 +279,7 @@ export class SaleCancellationDialogComponent implements OnChanges {
         );
         if (this.current(owner, target, generation)) {
           this.record.set(settled.record);
-          this.error.set('sales.cancellation.unknown');
+          this.showRequestError(error, 'sales.cancellation.unknown');
         }
       }
     } catch {
@@ -292,7 +315,8 @@ export class SaleCancellationDialogComponent implements OnChanges {
       );
       if (this.current(owner, target, generation)) {
         this.record.set(settled.record);
-        this.error.set(
+        this.showRequestError(
+          error,
           settled.outcome === 'unknown'
             ? 'sales.cancellation.unknown'
             : 'sales.cancellation.rejected',

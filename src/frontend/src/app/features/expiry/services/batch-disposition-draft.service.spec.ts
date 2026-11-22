@@ -52,6 +52,21 @@ describe('durable batch disposition boundary', () => {
     request!.error(new ProgressEvent('error'));
     await first;
     expect((await service.pending('batch-a'))[0].pending?.payload).toMatchObject(frozen);
+    // Recovery must surface an authoritative refusal without submitting another request.
+    const restricted = firstValueFrom(service.execute('batch-a', original)).catch((x) => x);
+    await vi.waitFor(() => {
+      const found = http.match((x) => x.method === 'GET');
+      expect(found).toHaveLength(1);
+      request = found[0];
+    });
+    request!.flush({ code: 'Licence.SecuritySuspended' }, { status: 403, statusText: 'Forbidden' });
+    expect(await restricted).toMatchObject({
+      status: 403,
+      error: { code: 'Licence.SecuritySuspended' },
+    });
+    http.expectNone((x) => x.method === 'POST');
+    expect((await service.pending('batch-a'))[0].pending?.payload).toMatchObject(frozen);
+
     // A new adapter instance reads the same durable engine, without borrowing the edited form.
     const reloaded = TestBed.runInInjectionContext(() => new BatchDispositionDraftService());
     const second = TestBed.runInInjectionContext(() =>

@@ -1,0 +1,7 @@
+{
+  "verified": { "status": 200, "schemaVersion": 1, "enforced": false },
+  "unavailable": { "status": 503, "code": "Licence.VerificationUnavailable", "enforced": false },
+  "expired": { "status": 403, "code": "Licence.Expired", "enforced": false },
+  "foreignScope": { "status": 403, "code": "Licensing.ShopScopeRequired" },
+  "invalidSession": { "status": 401, "code": "Billing.SessionInvalid" }
+}

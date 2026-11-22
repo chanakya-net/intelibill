@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.CreditNotes.DTOs;
@@ -15,6 +16,7 @@ public sealed class GetCreditNotesQueryHandler(
     private const int DefaultPageSize = 20;
     private const int MaxPageSize = 100;
 
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<PaginatedList<CreditNoteListItemDto>>> Handle(
         GetCreditNotesQuery query,
         CancellationToken cancellationToken)

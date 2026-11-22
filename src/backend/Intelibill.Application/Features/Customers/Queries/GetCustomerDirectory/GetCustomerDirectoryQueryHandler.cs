@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Time;
@@ -9,6 +10,7 @@ namespace Intelibill.Application.Features.Customers.Queries.GetCustomerDirectory
 public sealed class GetCustomerDirectoryQueryHandler(ICustomerRepository customers, ICustomerLedgerEntryRepository ledger,
     ISaleRepository sales, IShopRepository shops, IBusinessClock clock)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<CustomerDirectoryDto>> HandleAsync(GetCustomerDirectoryQuery query, CancellationToken cancellationToken)
     {
         var shop = await shops.GetByIdAsync(query.ShopId, cancellationToken);

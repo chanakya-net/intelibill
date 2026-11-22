@@ -1,5 +1,6 @@
+using Intelibill.Application.Common.Security;
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
-using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
 using Intelibill.Application.Features.PurchaseOrders.Services;
@@ -17,10 +18,11 @@ public sealed record GetPurchaseOrdersQuery(
     DateOnly? OrderDateFrom = null,
     DateOnly? OrderDateTo = null,
     int Page = 1,
-    int PageSize = 20);
+    int PageSize = 20,
+    SessionClaims? Session = null);
 
 public sealed class GetPurchaseOrdersQueryHandler(
-    IUserRepository userRepository,
+    PurchaseOrderHistory history,
     IPurchaseOrderRepository purchaseOrderRepository,
     IShopRepository shopRepository,
     IBusinessClock businessClock)
@@ -28,18 +30,12 @@ public sealed class GetPurchaseOrdersQueryHandler(
     private const int DefaultPageSize = 20;
     private const int MaxPageSize = 100;
 
-    public async Task<ErrorOr<PurchaseOrderPagedResultDto>> HandleAsync(
-        GetPurchaseOrdersQuery query,
-        CancellationToken cancellationToken)
+    [LicenceAction(LicenceAction.History)]
+    public Task<ErrorOr<PurchaseOrderPagedResultDto>> HandleAsync(GetPurchaseOrdersQuery query, CancellationToken cancellationToken) =>
+        history.ReadAsync(query.ActorUserId, query.ActiveShopId, query.Session, ct => ReadAsync(query, ct), cancellationToken);
+
+    private async Task<ErrorOr<PurchaseOrderPagedResultDto>> ReadAsync(GetPurchaseOrdersQuery query, CancellationToken cancellationToken)
     {
-        var actor = await userRepository.GetByIdWithDetailsAsync(query.ActorUserId, cancellationToken);
-        if (actor is null)
-            return Errors.Auth.UserNotFound;
-
-        var membership = actor.ShopMemberships.FirstOrDefault(sm => sm.ShopId == query.ActiveShopId);
-        if (membership is null)
-            return Errors.Shop.MembershipNotFound;
-
         var window = query.OrderDateFrom is null && query.OrderDateTo is null
             ? (UtcDateWindow?)null
             : await ResolveWindowAsync(query, cancellationToken);

@@ -7,6 +7,7 @@
       }}</p-inputgroup-addon>
       <p-inputNumber
         formControlName="amount"
+        [ariaDescribedBy]="settlementLimit() !== null ? 'supplier-payment-limit' : undefined"
         mode="decimal"
         [min]="0.01"
         [minFractionDigits]="0"
@@ -16,6 +17,17 @@
       ></p-inputNumber>
     </p-inputgroup>
   </label>
+
+  @if (settlementLimit() !== null) {
+    <p id="supplier-payment-limit" class="m-0 text-sm" role="status" data-testid="settlement-limit">
+      {{ 'paymentSettlement.remainingDue' | transloco }} {{ settlementLimit() | localeMoney }}
+    </p>
+  } @else if (settlementPreview().status === 'unavailable') {
+    <p role="alert">{{ 'paymentSettlement.unavailable' | transloco }}</p>
+    <button type="button" (click)="refreshSettlementPreview()">
+      {{ 'financialOperations.pending.check' | transloco }}
+    </button>
+  }
 
   <label>
     <span>{{ 'suppliers.paymentDate' | transloco }}</span>
@@ -34,8 +46,8 @@
     <input pInputText type="text" formControlName="notes" />
   </label>
 
-  @if (serverError) {
-    <p class="error-message">{{ serverError | transloco }}</p>
+  @if (serverError()) {
+    <p class="error-message">{{ serverError() | transloco }}</p>
   }
 
   <div class="actions">
@@ -45,26 +57,27 @@
       [label]="'common.cancel' | transloco"
       severity="secondary"
       [outlined]="true"
-      [disabled]="submitting"
+      [disabled]="submitting()"
       (click)="onCancel()"
     ></button>
     <button
       pButton
       type="submit"
       [label]="'suppliers.recordPayment' | transloco"
-      [disabled]="submitting"
+      [disabled]="submitting() || form.invalid || !paymentAllowed()"
     ></button>
   </div>
 
-  @if (submitting) {
+  @if (submitting()) {
     <div class="submit-overlay">
       <p-progressSpinner styleClass="h-8 w-8" strokeWidth="6"></p-progressSpinner>
     </div>
   }
   <app-till-pending-actions
     (lockedChange)="onTillLocked($event)"
+    (confirmed)="refreshSettlementPreview()"
     action="supplier-payment"
-    [target]="targetId"
+    [target]="targetId()"
   />
   <app-till-posting-fields [disabled]="tillLocked()" />
   @if (tillError()) {

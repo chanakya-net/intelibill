@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Sales.Commands.RecordSaleReturn;
@@ -14,6 +15,7 @@ namespace Intelibill.Api.Controllers;
 public sealed partial class SalesController : AuthenticatedControllerBase
 {
     [HttpPost("{saleId:guid}/returns/preview")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> PreviewSaleReturn(
         Guid saleId,
         [FromBody] PreviewSaleReturnRequest request,
@@ -42,7 +44,9 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     }
 
     [HttpPost("{saleId:guid}/returns")]
+    [SuspensionAtSource(CheckRecovery = true)]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> RecordSaleReturn(
         Guid saleId,
         [FromBody] RecordSaleReturnRequest request,
@@ -82,7 +86,9 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     }
 
     [HttpPost("returns/{saleReturnId:guid}/void")]
+    [SuspensionAtSource(CheckRecovery = true)]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> VoidSaleReturn(
         Guid saleReturnId,
         [FromBody] VoidSaleReturnRequest request,

@@ -1,5 +1,6 @@
+import { observeOnlyShopSetup } from '../support/shop-setup-mock';
 import { customerDirectoryResponse } from '../support/party-directory-mock';
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { test, expect, type Locator, type Page, type Route } from '@playwright/test';
 import { resolve } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { session, SHOP_A, USER, startPurchaseReceivingServer } from './purchase-receiving-server';
@@ -223,17 +224,34 @@ async function capture(page: Page, options: { path: string; fullPage?: boolean }
 async function fixtures(page: Page) {
   const controls = {
     dispositionMode: 'conflict',
+    tradingAuthority: 'observeOnly' as 'observeOnly' | 'expired' | 'active',
     posts: [] as Record<string, unknown>[],
     policyState: structuredClone(state),
     readinessMode: 'ok',
     missingDateLots: 1,
     fullyQuarantined: false,
     released: false,
+    disposed: false,
     originallyExpired: false,
     noHolds: false,
   };
   await page.route('**/api/**', async (r) => {
     const path = new URL(r.request().url()).pathname;
+    if (path.endsWith('/trading-authority')) {
+      if (controls.tradingAuthority !== 'active')
+        return json(
+          r,
+          { code: 'Licence.Expired', enforced: controls.tradingAuthority === 'expired' },
+          403,
+        );
+      return json(r, {
+        schemaVersion: 1,
+        shopId: SHOP_A,
+        enforced: true,
+        authorityVerifiedAt: '2026-11-20T00:00:00Z',
+        validUntil: '2099-12-31T00:00:00Z',
+      });
+    }
     if (path === '/api/expiry-policies/readiness') {
       if (controls.readinessMode === 'error')
         return json(r, { code: 'Readiness.Unavailable' }, 503);
@@ -275,6 +293,7 @@ async function fixtures(page: Page) {
     if (path === `/api/shops/${SHOP_A}`)
       return json(r, {
         shopId: SHOP_A,
+        setupAccess: observeOnlyShopSetup(SHOP_A),
         name: 'Shop A',
         address: 'Market Road',
         city: 'Bengaluru',
@@ -307,17 +326,17 @@ async function fixtures(page: Page) {
                 ...batch,
                 expiryDate: '2099-12-31',
                 manufacturingDate: null,
-                quantity: 3,
-                quarantinedQuantity: controls.released ? 2 : 3,
+                quantity: controls.disposed ? 2 : 3,
+                quarantinedQuantity: controls.released || controls.disposed ? 2 : 3,
                 availableQuantity: controls.released ? 1 : 0,
-                version: controls.released ? 9 : 8,
+                version: controls.released || controls.disposed ? 9 : 8,
                 sellability: {
                   ...decision(),
                   allowed: controls.released,
                   requiresApproval: false,
                   reasonCode: controls.released ? null : 'InventoryBatch.InsufficientStock',
-                  physicalQuantity: 3,
-                  quarantinedQuantity: controls.released ? 2 : 3,
+                  physicalQuantity: controls.disposed ? 2 : 3,
+                  quarantinedQuantity: controls.released || controls.disposed ? 2 : 3,
                   availableQuantity: controls.released ? 1 : 0,
                 },
               }
@@ -338,14 +357,14 @@ async function fixtures(page: Page) {
           controls.fullyQuarantined
             ? [
                 sourceRoot,
-                ...(controls.released
+                ...(controls.released || controls.disposed
                   ? [
                       {
                         // Consume retains source facts; the corrected current lot date belongs only to the lot.
                         ...sourceRoot,
-                        id: 'released-one',
+                        id: controls.disposed ? 'disposed-one' : 'released-one',
                         rootChangeId: sourceRoot.id,
-                        action: 'Release',
+                        action: controls.disposed ? 'Dispose' : 'Release',
                         quantity: 1,
                         reason: String(controls.posts.at(-1)?.['reason'] ?? ''),
                       },
@@ -371,6 +390,23 @@ async function fixtures(page: Page) {
           adjustmentId: null,
         });
       }
+      if (controls.dispositionMode === 'dispose') {
+        controls.disposed = true;
+        return json(r, {
+          changeId: 'disposed-one',
+          quarantineChangeId: 'root-held',
+          batchId: batch.id,
+          action: 'Dispose',
+          quantity: 1,
+          physicalQuantity: 2,
+          quarantinedQuantity: 2,
+          rootRemainingQuantity: 2,
+          version: 9,
+          adjustmentId: 'loss-one',
+        });
+      }
+      if (controls.dispositionMode === 'licence-refusal')
+        return json(r, { code: 'Licence.Expired', title: 'INTERNAL_DO_NOT_DISPLAY' }, 403);
       return controls.dispositionMode === 'unknown'
         ? r.abort('failed')
         : json(r, { code: 'Inventory.BatchVersionConflict' }, 409);
@@ -831,6 +867,101 @@ for (const width of [1440, 390]) {
       );
       expect(controls.posts).toHaveLength(1);
       await capture(page, { path: `${OUTPUT}/${width}-release-originally-expired-refused.png` });
+    } finally {
+      await server.close();
+    }
+  });
+}
+
+async function openDisposition(page: Page): Promise<Locator> {
+  await page
+    .getByRole('button', { name: 'Quarantine and history', exact: true })
+    .filter({ visible: true })
+    .first()
+    .click();
+  return page.locator('app-batch-disposition-dialog');
+}
+
+async function selectDispositionHold(page: Page, dialog: Locator): Promise<void> {
+  await dialog.getByRole('combobox', { name: 'Original quarantine event', exact: true }).click();
+  await page.getByRole('option').filter({ hasText: 'Customer return' }).click();
+  await dialog.getByRole('combobox', { name: 'Action', exact: true }).click();
+}
+
+const tradingEndedMessage = 'This shop’s trading access has ended.';
+
+async function verifyRestrictedDisposal(
+  page: Page,
+  width: number,
+  posts: Record<string, unknown>[],
+) {
+  const dialog = await openDisposition(page);
+  await selectDispositionHold(page, dialog);
+  await expect(page.getByRole('option', { name: 'Release hold', exact: true })).toHaveAttribute(
+    'data-p-disabled',
+    'true',
+  );
+  await expect(dialog.getByRole('status')).toContainText(tradingEndedMessage);
+  expect(posts).toHaveLength(0);
+  await page.getByRole('option', { name: 'Dispose as stock loss', exact: true }).click();
+  await dialog.getByLabel('Reason (required, up to 500 characters)').fill('Discarded held stock');
+  const post = dialog.getByRole('button', { name: 'Record action', exact: true });
+  await expect(post).toBeEnabled();
+  await capture(page, { path: `${OUTPUT}/${width}-licence-disposal-eligible.png` });
+  await post.click();
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0]).toMatchObject({
+    action: 'Dispose',
+    quantity: 1,
+    expectedVersion: 8,
+    quarantineChangeId: 'root-held',
+    reason: 'Discarded held stock',
+  });
+  await openDisposition(page);
+  await expect(dialog.locator('li').filter({ hasText: 'Discarded held stock' })).toContainText(
+    'Dispose as stock loss · 1',
+  );
+  await expect(dialog.locator('.stock-summary strong')).toHaveText(['2', '2', '0']);
+  await capture(page, { path: `${OUTPUT}/${width}-licence-disposal-saved.png` });
+}
+
+async function verifyReleaseRefusal(page: Page, width: number, posts: Record<string, unknown>[]) {
+  const dialog = await openDisposition(page);
+  await selectDispositionHold(page, dialog);
+  await page.getByRole('option', { name: 'Release hold', exact: true }).click();
+  await dialog.getByLabel('Reason (required, up to 500 characters)').fill('Audited supplier date');
+  const post = dialog.getByRole('button', { name: 'Record action', exact: true });
+  await post.click();
+  await expect(dialog.getByRole('alert')).toContainText(tradingEndedMessage);
+  await expect(dialog).not.toContainText('INTERNAL_DO_NOT_DISPLAY');
+  await expect(post).toBeDisabled();
+  expect(posts.map((row) => row['action'])).toEqual(['Dispose', 'Release']);
+  await capture(page, { path: `${OUTPUT}/${width}-licence-release-refused.png` });
+}
+
+for (const width of [1440, 390]) {
+  test(`restricted quarantine disposition at ${width}px`, async ({ page }) => {
+    const server = await startPurchaseReceivingServer(
+      resolve(__dirname, '../../../dist/INVENTORY/browser'),
+    );
+    await mkdir(OUTPUT, { recursive: true });
+    await page.setViewportSize({ width, height: 1000 });
+    await page.addInitScript(
+      (value) => localStorage.setItem('inventory.auth.session.local', JSON.stringify(value)),
+      session(),
+    );
+    const controls = await fixtures(page);
+    controls.fullyQuarantined = true;
+    controls.dispositionMode = 'dispose';
+    controls.tradingAuthority = 'expired';
+    try {
+      await page.goto(`${server.origin}/inventory/batches`);
+      await verifyRestrictedDisposal(page, width, controls.posts);
+
+      controls.tradingAuthority = 'active';
+      controls.dispositionMode = 'licence-refusal';
+      await page.reload();
+      await verifyReleaseRefusal(page, width, controls.posts);
     } finally {
       await server.close();
     }

@@ -10,11 +10,12 @@ namespace Intelibill.Application.Unit.Tests.Features.Shops.Commands.CreateShop;
 public class CreateShopCommandHandlerTests
 {
     private readonly IUserRepository _userRepository = Substitute.For<IUserRepository>();
-    private readonly IShopRepository _shopRepository = Substitute.For<IShopRepository>();
+    private readonly ShopSetupAccessFixture _setup = new();
+    private IShopRepository _shopRepository => _setup.Shops;
     private readonly ISupplierRepository _supplierRepository = Substitute.For<ISupplierRepository>();
     private readonly IAuthSessionService _sessions = Substitute.For<IAuthSessionService>();
     private readonly ITenantWriteScope _tenantWriteScope = Substitute.For<ITenantWriteScope>();
-    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private IUnitOfWork _unitOfWork => _setup.UnitOfWork;
 
     private CreateShopCommandHandler Handler() => new(
         _userRepository,
@@ -25,7 +26,7 @@ public class CreateShopCommandHandlerTests
         _unitOfWork,
         TimeProvider.System,
         Substitute.For<IExpiryPolicyRepository>(),
-        Substitute.For<IShopSetupPreferencesRepository>());
+        Substitute.For<IShopSetupPreferencesRepository>(), _setup.Access);
 
     [Fact]
     public async Task HandleAsync_FirstShop_AssignsDefaultAndMovesTheRequestingSessionIntoIt()
@@ -48,7 +49,7 @@ public class CreateShopCommandHandlerTests
         _sessions.RescopeAsync(user.Id, sessionId, Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(call => AuthResults.Scope(call.ArgAt<Guid>(2)));
 
-        var result = await Handler().HandleAsync(command, CancellationToken.None);
+        var result = await Handler().HandleAsync(command with { Session = _setup.Session(command.UserId, sessionId: command.SessionId) }, CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.NotNull(result.Value.ActiveShopId);
@@ -90,13 +91,38 @@ public class CreateShopCommandHandlerTests
         _sessions.RescopeAsync(user.Id, Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
             .Returns(call => AuthResults.Scope(call.ArgAt<Guid>(2)));
 
+        var session = _setup.Session(user.Id);
         var result = await Handler().HandleAsync(
-            new CreateShopCommand(user.Id, Guid.NewGuid(), "Main", "A", "C", "S", "560001", null, null, null),
+            new CreateShopCommand(user.Id, session.SessionId, "Main", "A", "C", "S", "560001", null, null, null) { Session = session },
             CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.IsType<Application.Features.Auth.DTOs.AccessScopeResult>(result.Value);
         await _sessions.DidNotReceive().StartAsync(
             Arg.Any<Application.Features.Auth.DTOs.AuthenticationProof>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// P04-11: shop creation seats only its initial Owner. It is the bootstrap seat of a shop that
+    /// has no licence projection yet, so it is never counted against a member allowance.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_SeatsExactlyOneActiveOwner()
+    {
+        var user = User.CreateWithEmail("owner@test.com", "hash", "Owner", "One");
+        _userRepository.GetByIdWithDetailsAsync(user.Id, Arg.Any<CancellationToken>()).Returns(user);
+        _sessions.RescopeAsync(user.Id, Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .Returns(call => AuthResults.Scope(call.ArgAt<Guid>(2)));
+
+        var session = _setup.Session(user.Id);
+        var result = await Handler().HandleAsync(
+            new CreateShopCommand(user.Id, session.SessionId, "Main", "A", "C", "S", "560001", null, null, null) { Session = session },
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        var seat = Assert.Single(user.ShopMemberships);
+        Assert.Equal(Domain.Enums.ShopRole.Owner, seat.Role);
+        Assert.Equal(Domain.Enums.MembershipStatus.Active, seat.Status);
+        Assert.Equal(result.Value.ActiveShopId, seat.ShopId);
     }
 }

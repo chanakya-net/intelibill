@@ -144,7 +144,16 @@ public class CustomersControllerTests
 
     private void SetUserClaims(params Claim[] claims)
     {
-        var identity = claims.Length == 0 ? new ClaimsIdentity() : new ClaimsIdentity(claims, "test");
+        var identity = claims.Length == 0
+            ? new ClaimsIdentity()
+            : new ClaimsIdentity(claims.Concat(new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, _userId.ToString()),
+                new Claim("sid", Guid.NewGuid().ToString()),
+                new Claim("security_version", "1"),
+                new Claim("scope_version", "1"),
+                new Claim("active_shop_role", "Owner"),
+            }), "test");
         _controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext

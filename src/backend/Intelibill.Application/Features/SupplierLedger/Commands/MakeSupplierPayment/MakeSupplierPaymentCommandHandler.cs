@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Application.Common.Time;
 using Intelibill.Domain.ValueObjects;
@@ -35,8 +36,11 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
     IUnitOfWork unitOfWork,
     ITillPostingService tillPosting,
     IBusinessClock businessClock,
+    IShopLicenceFence licenceFence,
+    PaymentCompletionPolicy completionPolicy,
     ILogger<MakeSupplierPaymentCommandHandler> logger)
 {
+    [LicenceAction(LicenceAction.DueSettlement)]
     public async Task<ErrorOr<SupplierLedgerEntryDto>> HandleAsync(
         MakeSupplierPaymentCommand command,
         CancellationToken cancellationToken)
@@ -74,7 +78,8 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
         }
 
         return await transactionRunner.RunAsync(
-            new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.SupplierPayment, operationKey),
+            new FinancialOperationScope(command.ActiveShopId, FinancialOperationType.SupplierPayment, operationKey)
+            { SuspensionAction = LicenceAction.DueSettlement },
             command.ActorUserId,
             command.SupplierId,
             ComputeRequestHash(command, allocations),
@@ -112,6 +117,10 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
         IReadOnlyList<PaymentAllocationRequest> allocationRequests,
         CancellationToken cancellationToken)
     {
+        var licence = await licenceFence.EnterAsync(command.ActiveShopId, LicenceAction.DueSettlement, cancellationToken);
+        if (licence.IsError) return licence.Errors;
+        if (PaymentCompletionPolicy.Denial(licence.Value.CurrentDecision()) is { } denied) return denied;
+
         // The payment is dated by the caller; its month must be open, and stays so until this commits.
         var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(command.ActiveShopId, command.PaymentDate, cancellationToken);
         if (fence.IsError)
@@ -160,11 +169,8 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
 
         const string categoryName = "Supplier Payments";
         var category = await expenseCategoryRepository.GetByNameAsync(command.ActiveShopId, categoryName, cancellationToken);
-        if (category is null)
-        {
-            category = ExpenseCategory.Create(command.ActiveShopId, categoryName, DateTimeOffset.UtcNow);
-            await expenseCategoryRepository.AddAsync(category, cancellationToken);
-        }
+        var newCategory = category is null;
+        category ??= ExpenseCategory.Create(command.ActiveShopId, categoryName, businessClock.UtcNow);
 
         var entry = entryOrError.Value;
         var expense = Expense.CreateFromSupplierPayment(
@@ -186,7 +192,7 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
             command.BankAccountId,
             command.ExternalReference,
             command.PaymentDate,
-            DateTimeOffset.UtcNow,
+            businessClock.UtcNow,
             command.Notes,
             entry.Id,
             expense.Id,
@@ -199,6 +205,11 @@ public sealed partial class MakeSupplierPaymentCommandHandler(
         if (allocations.IsError)
             return allocations.Errors;
 
+        var permitted = await completionPolicy.CheckSettlementAsync(licence.Value, receipt, allocationRequests, cancellationToken);
+        if (permitted.IsError) return permitted.Errors;
+
+        if (newCategory)
+            await expenseCategoryRepository.AddAsync(category, cancellationToken);
         await ledgerRepository.AddAsync(entry, cancellationToken);
         await expenseRepository.AddAsync(expense, cancellationToken);
         await paymentReceiptRepository.AddAsync(receipt, cancellationToken);

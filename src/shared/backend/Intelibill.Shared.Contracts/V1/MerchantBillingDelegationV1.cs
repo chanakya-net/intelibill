@@ -40,7 +40,7 @@ public static class MerchantBillingDelegationV1
     public static bool IsActorScoped(string? action) => action is CreateAccount or ListAccounts or PublishedCatalogueV1.Read
         or BillingOwnershipTransfersV1.Inbox or BillingOwnershipTransfersV1.Preview
         or BillingOwnershipTransfersV1.Accept or BillingOwnershipTransfersV1.Recover
-        or ShopTrialsV1.PreviewAction or ShopAffiliationsV1.OwnerRead or SubscriptionStatusV1.ShopRead or BillingInvitationsV1.Inbox or BillingInvitationsV1.Proof or BillingInvitationsV1.Accept;
+        or ShopClosuresV1.ShopAction or ShopClosuresV1.OwnerProposal or ShopClosuresV1.OwnerNotice or ShopTrialsV1.PreviewAction or ShopAffiliationsV1.OwnerRead or SubscriptionStatusV1.ShopRead or BillingInvitationsV1.Inbox or BillingInvitationsV1.Proof or BillingInvitationsV1.Accept;
 
     /// <summary>Trimmed, 1 to 120 characters, NFC, no control characters; otherwise null. Both services apply it.</summary>
     public static string? NormalizeAccountName(string? name)

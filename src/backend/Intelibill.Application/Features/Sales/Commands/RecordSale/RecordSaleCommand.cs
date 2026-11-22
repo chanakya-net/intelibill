@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Features.Expiry;
 using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Tills;
@@ -7,8 +8,7 @@ using Intelibill.Domain.ValueObjects;
 namespace Intelibill.Application.Features.Sales.Commands.RecordSale;
 
 public sealed partial record RecordSaleCommand(
-    Guid ActorUserId,
-    Guid ShopId,
+    SessionClaims Session,
     string IdempotencyKey,
     Guid? CustomerId,
     string? CustomerName,
@@ -25,7 +25,11 @@ public sealed partial record RecordSaleCommand(
     CreditOverrideRequest? CreditOverride = null,
     TillPostingContext? Till = null,
     IReadOnlyList<TenderLine>? TenderLines = null,
-    IReadOnlyList<ExpiryApprovalRequest>? ExpiryApprovals = null);
+    IReadOnlyList<ExpiryApprovalRequest>? ExpiryApprovals = null)
+{
+    public Guid ActorUserId => Session.UserId;
+    public Guid ShopId => Session.ActiveShopId.GetValueOrDefault();
+}
 
 public sealed record RecordSaleItemCommand(
     string Barcode,

@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 namespace Intelibill.Application.Features.Services.Commands.UpdateService;
 
 public sealed record UpdateServiceCommand(
@@ -9,4 +10,5 @@ public sealed record UpdateServiceCommand(
     decimal Price,
     string? HsnCode,
     decimal TaxRatePercent,
-    bool TaxIncluded);
+    bool TaxIncluded,
+    SessionClaims? Session);

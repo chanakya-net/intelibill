@@ -1,3 +1,4 @@
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { TranslocoTestingModule } from '@ngneat/transloco';
@@ -9,6 +10,9 @@ import { SuppliersFacade } from '../state/suppliers.facade';
 import { SuppliersPageComponent } from './suppliers-page.component';
 
 describe('SuppliersPageComponent', () => {
+  const blockingMessage = signal<string | null>(null);
+  const access = { blockingMessage, scope: signal(null), checking: signal(false) };
+
   const suppliersSignal = signal<Supplier[]>([
     {
       supplierId: 's1',
@@ -76,6 +80,7 @@ describe('SuppliersPageComponent', () => {
   };
 
   beforeEach(() => {
+    blockingMessage.set(null);
     suppliersFacade.load.mockReset();
     suppliersFacade.clearError.mockReset();
     suppliersFacade.clearMutationStatus.mockReset();
@@ -108,6 +113,7 @@ describe('SuppliersPageComponent', () => {
       providers: [
         { provide: SuppliersFacade, useValue: suppliersFacade },
         { provide: AuthService, useValue: authService },
+        { provide: OperatingAccessHintService, useValue: access },
       ],
     });
   });
@@ -174,5 +180,16 @@ describe('SuppliersPageComponent', () => {
     });
 
     expect(component.canManageSuppliers()).toBe(false);
+  });
+
+  it('blocks opening an add draft while keeping directory and payment access', () => {
+    blockingMessage.set('billing.status.tradingAuthority.pending');
+    const component = TestBed.createComponent(SuppliersPageComponent).componentInstance;
+
+    component.onOpenAddSupplier();
+
+    expect(component.showAddSupplierOverlay()).toBe(false);
+    expect(component.userSuppliers()).toEqual(suppliersSignal());
+    expect(component.canMakePayment()).toBe(true);
   });
 });

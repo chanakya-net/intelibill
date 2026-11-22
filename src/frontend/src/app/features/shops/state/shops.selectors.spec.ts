@@ -18,6 +18,8 @@ const baseState: ShopsState = {
   detailsById: {},
   loadingShops: false,
   loadingDetails: false,
+  detailsRead: null,
+  detailWrites: {},
   submitting: false,
   errorMessage: '',
   lastMutationType: null,

@@ -11,21 +11,22 @@ let command = 'ng';
 let runsFullSuite = false;
 
 if (runIndex !== -1) {
-  const includePath = args[runIndex + 1];
-  if (!includePath || includePath.startsWith('--')) {
+  const firstOptionAfterRun = args.findIndex((arg, index) => index > runIndex && arg.startsWith('-'));
+  const endOfPaths = firstOptionAfterRun === -1 ? args.length : firstOptionAfterRun;
+  const includePaths = args.slice(runIndex + 1, endOfPaths);
+  if (includePaths.length === 0) {
     console.error('Expected a file path after --run.');
     process.exit(1);
   }
 
-  const forwardedArgs = args.filter((_, index) => index !== runIndex && index !== runIndex + 1);
-  if (includePath.startsWith('scripts/')) {
+  const forwardedArgs = [...args.slice(0, runIndex), ...args.slice(endOfPaths)];
+  if (includePaths.every((path) => path.startsWith('scripts/'))) {
     command = 'bun';
-    commandArgs = ['test', includePath, ...forwardedArgs];
+    commandArgs = ['test', ...includePaths, ...forwardedArgs];
   } else {
     commandArgs = [
       'test',
-      '--include',
-      normalizeIncludePath(includePath),
+      ...includePaths.flatMap((path) => ['--include', normalizeIncludePath(path)]),
       '--watch=false',
       ...forwardedArgs,
     ];

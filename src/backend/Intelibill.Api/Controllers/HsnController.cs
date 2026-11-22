@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Hsn.Queries.LookupHsn;
@@ -17,6 +18,7 @@ public sealed class HsnController : AuthenticatedControllerBase
     }
 
     [HttpPost("lookup")]
+    [LicenceAction(LicenceAction.BasicShopSetup)]
     public async Task<IActionResult> LookupHsn([FromBody] LookupHsnRequest request, CancellationToken cancellationToken)
     {
         var authCheck = CheckAuthAndShop();

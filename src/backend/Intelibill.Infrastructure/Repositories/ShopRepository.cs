@@ -58,6 +58,16 @@ internal sealed class ShopRepository(ApplicationDbContext context)
             .Select(sm => (ShopRole?)sm.Role)
             .FirstOrDefaultAsync(cancellationToken);
 
+    public async Task<Shop?> GetCurrentForSetupAsync(Guid shopId, CancellationToken cancellationToken = default)
+    {
+        var shop = await DbSet.SingleOrDefaultAsync(row => row.Id == shopId, cancellationToken);
+        if (shop is not null) await _context.Entry(shop).ReloadAsync(cancellationToken);
+        return shop;
+    }
+
+    public Task<bool> HasMembershipHistoryAsync(Guid userId, CancellationToken cancellationToken = default) =>
+        _context.ShopMemberships.AnyAsync(sm => sm.UserId == userId, cancellationToken);
+
     public async Task<bool> UserHasMembershipAsync(Guid userId, Guid shopId, CancellationToken cancellationToken = default) =>
         await _context.ShopMemberships.AnyAsync(
             sm => sm.UserId == userId && sm.ShopId == shopId && sm.Status == MembershipStatus.Active,

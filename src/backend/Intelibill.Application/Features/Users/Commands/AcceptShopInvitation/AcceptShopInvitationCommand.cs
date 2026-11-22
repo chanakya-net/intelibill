@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 namespace Intelibill.Application.Features.Users.Commands.AcceptShopInvitation;
 
 /// <summary>
@@ -6,4 +8,8 @@ namespace Intelibill.Application.Features.Users.Commands.AcceptShopInvitation;
 public sealed record AcceptShopInvitationCommand(
     Guid ActorUserId,
     Guid InvitationId,
-    string Token);
+    string Token)
+{
+    /// <summary>The calling device session, revalidated under the actor's account lock.</summary>
+    public SessionClaims? Session { get; init; }
+}

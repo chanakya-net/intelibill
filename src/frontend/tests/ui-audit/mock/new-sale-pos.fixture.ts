@@ -74,8 +74,28 @@ async function installPosRoutes(page: Page, options: PosScenarioOptions): Promis
       ),
     });
   });
+  await page.route('**/api/customers/customer-audit/credit', (route) =>
+    route.fulfill({ json: {
+      customerId: customer.customerId,
+      isActive: true,
+      creditPolicyMode: 'LegacyAdvisory',
+      creditLimit: 0,
+      creditTermsDays: null,
+      currentExposure: 0,
+      availableCredit: null,
+    } }),
+  );
   await page.route('**/api/items/details?**', async (route) =>
     route.fulfill({ contentType: 'application/json', body: JSON.stringify({ hsnCode: '1234' }) }),
+  );
+  await page.route('**/api/licensing/shops/*/trading-authority', async (route) =>
+    route.fulfill({ json: {
+      schemaVersion: 1,
+      shopId: 'ui-audit-shop',
+      authorityVerifiedAt: new Date().toISOString(),
+      validUntil: new Date(Date.now() + 60_000).toISOString(),
+      enforced: false,
+    } }),
   );
   await page.route('**/api/sales/sellables?**', async (route) =>
     fulfillSellables(route, options.sellables ?? 'ready'),

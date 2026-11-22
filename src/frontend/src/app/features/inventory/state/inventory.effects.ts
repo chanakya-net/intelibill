@@ -1,7 +1,8 @@
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { inject, Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
-import { catchError, map, of, switchMap, withLatestFrom } from 'rxjs';
+import { catchError, EMPTY, filter, map, of, switchMap, withLatestFrom } from 'rxjs';
 
 import { ApiErrorPayload } from '../../../core/auth/auth.models';
 import { hasProblemCode } from '../../../shared/utils/problem-code.util';
@@ -12,6 +13,7 @@ import { selectInventoryLatestQuery } from './inventory.selectors';
 
 @Injectable()
 export class InventoryEffects {
+  private readonly definitionAccess = inject(OperatingAccessHintService);
   private readonly actions$ = inject(Actions);
   private readonly store = inject(Store);
   private readonly inventoryService = inject(InventoryService);
@@ -46,18 +48,18 @@ export class InventoryEffects {
   readonly addItem$ = createEffect(() =>
     this.actions$.pipe(
       ofType(InventoryActions.addItemRequested),
-      switchMap(({ payload }) =>
-        this.inventoryService.addItem(payload).pipe(
+      switchMap(({ payload }) => {
+        const scope = this.definitionAccess.scope();
+        return this.inventoryService.addItem(payload).pipe(
+          filter(() => scope === this.definitionAccess.scope()),
           map((item) => InventoryActions.addItemSucceeded({ item })),
-          catchError((error: { error?: ApiErrorPayload }) =>
-            of(
-              InventoryActions.addItemFailed({
-                errorMessage: getAddItemErrorMessage(error),
-              })
-            )
-          )
-        )
-      )
+          catchError((error: unknown) => scope === this.definitionAccess.scope()
+            ? of(InventoryActions.addItemFailed({
+                errorMessage: this.definitionAccess.creationError(error, scope, getAddItemErrorMessage(error)) ?? '',
+              }))
+            : EMPTY),
+        );
+      })
     )
   );
 

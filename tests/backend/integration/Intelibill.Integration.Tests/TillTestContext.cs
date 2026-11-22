@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Time;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Application.Features.Tills.Commands.CreateTill;
@@ -8,6 +9,7 @@ using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
 using Intelibill.Infrastructure.Data;
 using Intelibill.Infrastructure.Options;
+using Intelibill.Infrastructure.Licensing;
 using Intelibill.Infrastructure.Repositories;
 using Intelibill.Infrastructure.Services.Operations;
 using Intelibill.Infrastructure.Services.Posting;
@@ -30,7 +32,7 @@ internal sealed class TillTestContext : IAsyncDisposable
     public TillTestClock Time { get; }
     public IBusinessClock Clock { get; }
 
-    public TillTestContext(string connection, Guid shopId, TillTestClock? time = null, TillSessionOptions? options = null)
+    public TillTestContext(string connection, Guid shopId, TillTestClock? time = null, TillSessionOptions? options = null, bool enforceLicence = false)
     {
         Time = time ?? new();
         Clock = new BusinessClock(Time);
@@ -43,9 +45,16 @@ internal sealed class TillTestContext : IAsyncDisposable
         var builder = new TillDtoBuilder(Tills);
         Posting = new(Tills, shops, new BankAccountRepository(Db), policy, Clock);
         Periods = new(Db, new PostingPeriodRepository(Db));
-        Lifecycle = new(Tills, shops, new UserRepository(Db), receipts, policy, Posting, new FinancialOperationExecutor(Db), Periods,
-            new UnitOfWork(Db), Clock, builder);
+        IShopLicenceFence fence = enforceLicence ? new ShopLicenceFence(Db, new LicenceActionPolicy(), Time) : new UnenrolledLicenceFence();
+        Lifecycle = new(Tills, shops, new UserRepository(Db), receipts, policy, Posting, new FinancialOperationExecutor(Db, fence), Periods,
+            new UnitOfWork(Db), Clock, builder, fence);
         Reads = new(Tills, shops, receipts, policy, Clock, builder);
+    }
+
+    private sealed class UnenrolledLicenceFence : IShopLicenceFence
+    {
+        public Task<ErrorOr<ShopLicenceLease>> EnterAsync(Guid shopId, LicenceAction action, CancellationToken ct) =>
+            Task.FromResult<ErrorOr<ShopLicenceLease>>(new ShopLicenceLease(shopId, null, null, null, default));
     }
 
     public static async Task OptInAsync(string connection, Guid shopId)

@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+using Intelibill.Application.Common.Licensing;
 using System.Globalization;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -24,6 +26,7 @@ public sealed class PostingPeriodsController(IMessageBus bus) : AuthenticatedCon
 {
     /// <param name="fiscalYear">The year the fiscal year starts in (2026 is April 2026 to March 2027); the current one when omitted.</param>
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> Get([FromQuery] int? fiscalYear, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -38,6 +41,7 @@ public sealed class PostingPeriodsController(IMessageBus bus) : AuthenticatedCon
 
     /// <param name="period">The month, written <c>yyyy-MM</c>.</param>
     [HttpPost("{period}/close")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> Close(
         string period,
         [FromBody] PostingPeriodTransitionRequest request,
@@ -54,7 +58,7 @@ public sealed class PostingPeriodsController(IMessageBus bus) : AuthenticatedCon
                 UserId!.Value,
                 start,
                 request.Reason ?? string.Empty,
-                request.OperationKey ?? string.Empty),
+                request.OperationKey ?? string.Empty, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -62,6 +66,7 @@ public sealed class PostingPeriodsController(IMessageBus bus) : AuthenticatedCon
 
     /// <param name="period">The month, written <c>yyyy-MM</c>.</param>
     [HttpPost("{period}/reopen")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> Reopen(
         string period,
         [FromBody] PostingPeriodTransitionRequest request,
@@ -78,7 +83,7 @@ public sealed class PostingPeriodsController(IMessageBus bus) : AuthenticatedCon
                 UserId!.Value,
                 start,
                 request.Reason ?? string.Empty,
-                request.OperationKey ?? string.Empty),
+                request.OperationKey ?? string.Empty, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);

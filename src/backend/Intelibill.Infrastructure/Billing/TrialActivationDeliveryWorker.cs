@@ -1,9 +1,11 @@
+using Intelibill.Application.Common.Licensing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Intelibill.Infrastructure.Billing;
 
+[LicenceAction(LicenceAction.InternalService)]
 internal sealed class TrialActivationDeliveryWorker(IServiceScopeFactory scopes,
     ILogger<TrialActivationDeliveryWorker> logger) : BackgroundService
 {

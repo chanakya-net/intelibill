@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Unit.Tests.Common.Time;
 using Intelibill.Application.Common.Posting;
 using ErrorOr;
@@ -41,6 +42,8 @@ public class RecordCustomerPaymentCommandHandlerTests
             _bankAccountRepository, new PaymentAllocationPlanner(_balanceReader),
             new PaymentTransactionRunner(_executor, _unitOfWork), _postingPeriods, _unitOfWork,
             BusinessTestDoubles.DisabledTillPosting(), BusinessTestDoubles.RealClock(),
+            Substitute.For<IShopLicenceFence>(), new PaymentCompletionPolicy(_balanceReader, Substitute.For<ICustomerLedgerEntryRepository>(),
+                Substitute.For<ISupplierLedgerEntryRepository>(), BusinessTestDoubles.AnyShop(), BusinessTestDoubles.RealClock()),
             NullLogger<RecordCustomerPaymentCommandHandler>.Instance);
 
     private void ExecutorRunsAction() =>
@@ -191,7 +194,8 @@ public class RecordCustomerPaymentCommandHandlerTests
 
         Assert.False(result.IsError);
         await _executor.Received(1).ExecuteAsync(
-            new FinancialOperationScope(fixture.shop.Id, FinancialOperationType.CustomerPayment, "pay-1"),
+            new FinancialOperationScope(fixture.shop.Id, FinancialOperationType.CustomerPayment, "pay-1")
+            { SuspensionAction = LicenceAction.DueSettlement },
             fixture.manager.Id,
             fixture.customer.Id,
             Arg.Is<string>(hash => hash.Length == 64),

@@ -15,13 +15,19 @@
     <p role="status">{{ 'shopSetup.loading' | transloco }}</p>
   }
   @if (loadFailed()) {
-    <p role="alert">{{ 'shopSetup.loadFailed' | transloco }}</p>
+    <p role="alert">{{ (loadError() ?? 'shopSetup.loadFailed') | transloco }}</p>
   }
 
   @if (status(); as setup) {
     <div class="setup-summary" aria-live="polite">
-      <h2>{{ (setup.canTrade ? 'shopSetup.ready' : 'shopSetup.inProgress') | transloco }}</h2>
-      @if (setup.canTrade) {
+      <h2>{{ (canStartSale() ? 'shopSetup.ready' : setup.canTrade ? 'shopSetup.checklistComplete' : 'shopSetup.inProgress') | transloco }}</h2>
+      @if (licenceStatusKey(); as key) {
+        <p>{{ key | transloco }}</p>
+        @if (setupAccess()?.enforced && setup.permissions.canEditShop) {
+          <a class="underline" routerLink="/billing">{{ 'billing.title' | transloco }}</a>
+        }
+      }
+      @if (canStartSale()) {
         <p>{{ 'shopSetup.checkoutChecks' | transloco }}</p>
       }
     </div>
@@ -61,7 +67,7 @@
                 }
               }
               @case ('tax') {
-                @if (setup.permissions.canEditShop) {
+                @if (setupAccess()?.canPrepareTax) {
                   <button pButton type="button" [text]="true" [label]="'shopSetup.editTax' | transloco"
                     (click)="settingsStep.set(1)"></button>
                 }
@@ -83,7 +89,7 @@
                 }
               }
               @case ('bank') {
-                @if (setup.permissions.canEditShop) {
+                @if (setupAccess()?.canEditOperatingSettings) {
                   <button pButton type="button" [text]="true" [label]="'shopSetup.editBank' | transloco"
                     (click)="settingsStep.set(2)"></button>
                 }
@@ -102,7 +108,7 @@
   <footer class="flex flex-wrap items-center justify-end gap-4">
     <button pButton type="button" severity="secondary" [disabled]="saving() || loading()"
       [label]="'shopSetup.continueLater' | transloco" (click)="leave('/dashboard')"></button>
-    @if (status()?.canTrade) {
+    @if (canStartSale()) {
       <button pButton type="button" [disabled]="saving() || loading() || loadFailed()"
         [label]="'shopSetup.startBilling' | transloco" (click)="leave('/sales/new')"></button>
     }

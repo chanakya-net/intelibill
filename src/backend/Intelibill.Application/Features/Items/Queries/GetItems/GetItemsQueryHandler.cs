@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Items.DTOs;
@@ -12,6 +13,7 @@ public sealed class GetItemsQueryHandler(
     private const int DefaultPageSize = 20;
     private const int MaxPageSize = 100;
 
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<ItemCatalogResultDto>> HandleAsync(GetItemsQuery query, CancellationToken cancellationToken)
     {
         var caller = await userRepository.GetByIdWithDetailsAsync(query.UserId, cancellationToken);

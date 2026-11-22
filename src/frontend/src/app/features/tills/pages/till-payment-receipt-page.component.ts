@@ -32,6 +32,14 @@ import { TillPendingActionsComponent } from '../components/till-pending-actions.
       </p>
       <code>{{ r.receiptId }}</code>
       <p>{{ r.externalReference }} · {{ r.notes }}</p>
+      @if (owner()) {
+        <app-till-pending-actions
+          action="payment-reversal"
+          [target]="r.receiptId"
+          (lockedChange)="reversalLocked.set($event)"
+          (confirmed)="load()"
+        />
+      }
       @if (r.reversal) {
         <h3>{{ 'tills.reversed' | transloco }}</h3>
         <p>{{ r.reversal.reason }} · {{ r.reversal.businessDate }}</p>
@@ -53,19 +61,15 @@ import { TillPendingActionsComponent } from '../components/till-pending-actions.
           }
         }
       } @else if (owner()) {
-        <app-till-pending-actions
-          action="payment-reversal"
-          [target]="r.receiptId"
-          (confirmed)="load()"
-        />
         <app-till-posting-fields
           [evidence]="true"
+          [disabled]="reversalLocked()"
           [direction]="r.partyType === 'Customer' ? 'MoneyPaid' : 'MoneyReceived'"
         />
         <label
           >{{ 'tills.reason' | transloco
           }}<textarea [(ngModel)]="reason" maxlength="255"></textarea></label
-        ><button (click)="reverse()" [disabled]="busy()">
+        ><button (click)="reverse()" [disabled]="busy() || reversalLocked()">
           {{ 'tills.reversePayment' | transloco }}
         </button>
       }
@@ -103,6 +107,7 @@ export class TillPaymentReceiptPageComponent {
   readonly receipt = signal<PaymentReceiptDetail | null>(null);
   readonly error = signal('');
   readonly busy = signal(false);
+  readonly reversalLocked = signal(false);
   readonly owner = computed(
     () =>
       this.auth
@@ -125,7 +130,7 @@ export class TillPaymentReceiptPageComponent {
   }
   reverse() {
     const r = this.receipt();
-    if (!r || !this.owner() || this.reason.trim().length < 3) return;
+    if (this.reversalLocked() || !r || !this.owner() || this.reason.trim().length < 3) return;
     let evidence;
     try {
       evidence = this.fields.fields(r.amount);

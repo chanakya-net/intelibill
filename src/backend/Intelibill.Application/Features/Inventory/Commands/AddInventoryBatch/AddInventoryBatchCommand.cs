@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Features.Inventory.DTOs;
 
 namespace Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
@@ -10,7 +11,8 @@ public sealed record AddInventoryBatchCommand(
     Guid ActorUserId,
     Guid ActiveShopId,
     IReadOnlyList<AddInventoryBatchRowCommand> Items,
-    string? OperationKey = null);
+    string? OperationKey = null,
+    SessionClaims? Session = null);
 
 public sealed record AddInventoryBatchRowCommand(
     string ClientRowId,

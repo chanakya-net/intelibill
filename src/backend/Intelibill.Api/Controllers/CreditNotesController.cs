@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.CreditNotes.Commands.VoidCreditNote;
@@ -24,6 +26,7 @@ public sealed class CreditNotesController : AuthenticatedControllerBase
 
     [HttpGet]
     [Authorize(Policy = "OwnerManagerOrStaff")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetCreditNotes(
         [FromQuery] string? search,
         [FromQuery] CreditNoteStatus? status,
@@ -43,6 +46,7 @@ public sealed class CreditNotesController : AuthenticatedControllerBase
 
     [HttpGet("{code}")]
     [Authorize(Policy = "OwnerManagerOrStaff")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetCreditNoteByCode(string code, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -57,6 +61,7 @@ public sealed class CreditNotesController : AuthenticatedControllerBase
 
     [HttpGet("{code}/print")]
     [Authorize(Policy = "OwnerManagerOrStaff")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetCreditNotePrintByCode(string code, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -71,6 +76,7 @@ public sealed class CreditNotesController : AuthenticatedControllerBase
 
     [HttpPost("{code}/void")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> VoidCreditNote(
         string code,
         [FromBody] VoidCreditNoteRequest request,
@@ -80,7 +86,7 @@ public sealed class CreditNotesController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<Success>>(
-            new VoidCreditNoteCommand(UserId!.Value, ActiveShopId!.Value, code, request.Reason),
+            new VoidCreditNoteCommand(UserId!.Value, ActiveShopId!.Value, code, request.Reason, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(_ => NoContent());

@@ -6,6 +6,7 @@ import { offlineInvoicePrintGuard } from './core/guards/offline-invoice-print.gu
 export const routes: Routes = [
   {
     path: 'shops/setup/sample',
+    data: { standaloneShopData: true },
     canActivate: [authGuard],
     loadComponent: () =>
       import('./features/shops/pages/shop-setup-sample-page.component').then(
@@ -14,6 +15,7 @@ export const routes: Routes = [
   },
   {
     path: 'tills/sessions/:id/print',
+    data: { standaloneShopData: true },
     canActivate: [authGuard],
     loadComponent: () =>
       import('./features/tills/pages/till-close-print-page.component').then(
@@ -22,6 +24,7 @@ export const routes: Routes = [
   },
   {
     path: 'purchase-receipts/:receiptValueId',
+    data: { standaloneShopData: true },
     canActivate: [authGuard],
     loadComponent: () =>
       import('./features/supplier-returns/pages/supplier-return-page.component').then(
@@ -30,6 +33,7 @@ export const routes: Routes = [
   },
   {
     path: 'supplier-returns/:returnId',
+    data: { standaloneShopData: true },
     canActivate: [authGuard],
     loadComponent: () =>
       import('./features/supplier-returns/pages/supplier-return-page.component').then(
@@ -38,6 +42,7 @@ export const routes: Routes = [
   },
   {
     path: 'supplier-returns',
+    data: { standaloneShopData: true },
     canActivate: [authGuard],
     loadComponent: () =>
       import('./features/supplier-returns/pages/supplier-return-page.component').then(
@@ -92,6 +97,7 @@ export const routes: Routes = [
   },
   {
     path: 'sales/:saleId/print',
+    data: { standaloneShopData: true },
     canActivate: [offlineInvoicePrintGuard],
     loadComponent: () =>
       import('./features/sales/pages/sale-invoice-print-page/sale-invoice-print-page.component').then(
@@ -100,6 +106,7 @@ export const routes: Routes = [
   },
   {
     path: 'sales/credit-notes/:code/print',
+    data: { standaloneShopData: true },
     canActivate: [authGuard],
     loadComponent: () =>
       import('./features/sales/pages/credit-note-print-page/credit-note-print-page.component').then(
@@ -108,6 +115,7 @@ export const routes: Routes = [
   },
   {
     path: 'inventory/purchase-orders/:purchaseOrderId/print',
+    data: { standaloneShopData: true },
     canActivate: [authGuard],
     loadComponent: () =>
       import('./features/purchase-orders/components/purchase-order-print-view.component').then(

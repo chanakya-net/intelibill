@@ -1,45 +1,30 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
-using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Features.Shops.DTOs;
+using Intelibill.Application.Features.Shops.Setup;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
-using Intelibill.Domain.Interfaces;
 using Intelibill.Domain.Interfaces.Repositories;
-using System.Linq;
 using System.Text.RegularExpressions;
 
 namespace Intelibill.Application.Features.Shops.Commands.UpdateShopBankDetails;
 
-public sealed class UpdateShopBankDetailsCommandHandler(
-    IUserRepository userRepository,
-    IShopRepository shopRepository,
-    IBankAccountRepository bankAccountRepository,
-    ITenantWriteScope tenantWriteScope,
-    IUnitOfWork unitOfWork)
+public sealed class UpdateShopBankDetailsCommandHandler(ShopSetupAccess access, IBankAccountRepository banks)
 {
     private static readonly Regex IfscRegex = new(
         "^[A-Z]{4}0[A-Z0-9]{6}$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
         TimeSpan.FromMilliseconds(250));
 
-    public async Task<ErrorOr<ShopDetailsDto>> HandleAsync(UpdateShopBankDetailsCommand command, CancellationToken cancellationToken)
+    [LicenceAction(LicenceAction.OperationalCapacity)]
+    public Task<ErrorOr<ShopDetailsDto>> HandleAsync(UpdateShopBankDetailsCommand command, CancellationToken ct) =>
+        access.WriteAsync<ShopDetailsDto>(command.Session, command.UserId, command.ShopId, LicenceAction.OperationalCapacity,
+            (shop, lease, token) => WriteAsync(command, shop, lease, token), ct);
+
+    private async Task<ErrorOr<ShopDetailsDto>> WriteAsync(UpdateShopBankDetailsCommand command, Shop shop,
+        ShopLicenceLease lease, CancellationToken ct)
     {
-        var user = await userRepository.GetByIdWithDetailsAsync(command.UserId, cancellationToken);
-        if (user is null)
-            return Errors.Shop.UserNotFound;
-
-        var membership = user.ShopMemberships.FirstOrDefault(sm => sm.ShopId == command.ShopId);
-        if (membership is null)
-            return Errors.Shop.MembershipNotFound;
-
-        if (membership.Role != ShopRole.Owner)
-            return Errors.Shop.UserIsNotOwner;
-
-        var shop = await shopRepository.GetByIdAsync(command.ShopId, cancellationToken);
-        if (shop is null)
-            return Errors.Shop.ShopNotFound;
-
         var bankName = ToOptional(command.BankName);
         var accountNumber = ToOptional(command.AccountNumber);
         if (bankName is null || accountNumber is null)
@@ -61,70 +46,23 @@ public sealed class UpdateShopBankDetailsCommandHandler(
 
         var accountHolderName = ToOptional(command.AccountHolderName);
 
-        // bank_accounts is tenant data, and the shop being administered need not be
-        // the caller's active one — the Owner membership re-read above is what
-        // authorizes it, so the scope is narrowed to that shop for this transaction
-        // only.
-        await unitOfWork.BeginTransactionAsync(cancellationToken);
-        BankAccount primaryAccount;
-        try
+        var accounts = await banks.FindAsync(x => x.ShopId == shop.Id, ct);
+        var decision = lease.CurrentDecision();
+        if (ShopSetupAccess.Denial(decision) is { } denied) return denied;
+
+        var account = accounts.Count > 0 ? accounts[0] : null;
+        if (account is null)
         {
-            await tenantWriteScope.EnterAsync(command.ShopId, cancellationToken);
-
-            var bankAccounts = await bankAccountRepository.FindAsync(x => x.ShopId == command.ShopId, cancellationToken);
-            var existingAccount = bankAccounts.Count > 0 ? bankAccounts[0] : null;
-
-            if (existingAccount is null)
-            {
-                primaryAccount = BankAccount.Create(
-                    shop.Id,
-                    bankName,
-                    accountNumber,
-                    accountType,
-                    ifscCode,
-                    accountHolderName);
-                await bankAccountRepository.AddAsync(primaryAccount, cancellationToken);
-            }
-            else
-            {
-                existingAccount.Update(
-                    bankName,
-                    accountNumber,
-                    accountType,
-                    ifscCode,
-                    accountHolderName);
-                bankAccountRepository.Update(existingAccount);
-                primaryAccount = existingAccount;
-            }
-
-            await unitOfWork.SaveChangesAsync(cancellationToken);
-            await unitOfWork.CommitTransactionAsync(cancellationToken);
+            account = BankAccount.Create(shop.Id, bankName, accountNumber, accountType, ifscCode, accountHolderName);
+            await banks.AddAsync(account, ct);
         }
-        catch
+        else
         {
-            await unitOfWork.RollbackTransactionAsync(cancellationToken);
-            throw;
+            account.Update(bankName, accountNumber, accountType, ifscCode, accountHolderName);
+            banks.Update(account);
         }
 
-        return new ShopDetailsDto(
-            shop.Id,
-            shop.Name,
-            shop.Address,
-            shop.City,
-            shop.State,
-            shop.Pincode,
-            shop.ContactPerson,
-            shop.MobileNumber,
-            shop.GstNumber,
-            primaryAccount.BankName,
-            primaryAccount.AccountNumber,
-            primaryAccount.AccountType?.ToString(),
-            primaryAccount.IfscCode,
-            primaryAccount.AccountHolderName)
-        {
-            TaxProfile = ShopTaxProfileDto.From(shop),
-            BusinessTimeZoneId = shop.BusinessTimeZoneId,
-        };
+        return ShopDetailsDto.From(shop, account, ShopSetupAccess.Hint(shop.Id, ShopRole.Owner, decision));
     }
 
     private static string? ToOptional(string? value)

@@ -68,6 +68,9 @@ import { ProgressSpinnerModule } from 'primeng/progressspinner';
           </div>
         }
       </div>
+      @if (productLookupError) {
+        <p class="error-message" role="status">{{ productLookupError | transloco }}</p>
+      }
       @if (barcodeGenerateError) {
         <p class="error-message">{{ barcodeGenerateError | transloco }}</p>
       }
@@ -144,6 +147,7 @@ export class InventoryBarcodeFieldComponent {
   @Input() loadingProduct = false;
   @Input() barcodeGenerating = false;
   @Input() barcodeGenerateError = '';
+  @Input() productLookupError: string | null = null;
   @Input() barcodeReplaceConfirmVisible = false;
   @Input() showScanner = true;
   @Input() replaceConfirmKey = 'inventory.generateBarcodeReplaceConfirm';

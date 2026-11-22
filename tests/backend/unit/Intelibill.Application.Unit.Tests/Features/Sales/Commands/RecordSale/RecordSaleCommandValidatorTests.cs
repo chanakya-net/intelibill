@@ -13,8 +13,7 @@ public class RecordSaleCommandValidatorTests
 
     private static RecordSaleCommand ValidCommand(IReadOnlyList<RecordSaleItemCommand>? items = null) =>
         new(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
+            new(Guid.NewGuid(), Guid.NewGuid(), 0, 0, Guid.NewGuid(), "Owner"),
             $"sale-{Guid.NewGuid():N}",
             null,
             "Ravi Kumar",

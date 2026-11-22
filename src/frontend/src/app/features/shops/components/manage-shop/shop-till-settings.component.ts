@@ -22,6 +22,7 @@ import {
   type ShopTillSettings,
   type UpdateShopTillSettings,
 } from '../../services/shop-till-settings.service';
+import { shopLicenceRefusal, shopSecurityRefusal, type ShopLicenceRefusal } from '../../services/shop-setup-access';
 
 @Component({
   selector: 'app-shop-till-settings',
@@ -36,6 +37,7 @@ export class ShopTillSettingsComponent {
   readonly canEdit = input(false);
   readonly disabled = input(false);
   readonly navigateRequested = output<void>();
+  readonly licenceRefused = output<ShopLicenceRefusal>();
   readonly state = signal<ShopTillSettings | null>(null);
   readonly loading = signal(false);
   readonly saving = signal(false);
@@ -121,11 +123,15 @@ export class ShopTillSettingsComponent {
           this.attempted = null;
         }
       },
-      error: () => {
-        if (this.current(generation, shopId, scope)) {
-          this.loading.set(false);
-          this.error.set('tills.settings.loadFailed');
-        }
+      error: (error: unknown) => {
+        if (!this.current(generation, shopId, scope)) return;
+        this.loading.set(false);
+        const refusal = shopSecurityRefusal(shopId, error);
+        this.error.set(refusal?.errorMessage ?? 'tills.settings.loadFailed');
+        if (!refusal) return;
+        // A security suspension withdraws the settings already shown and tells the owning page.
+        this.state.set(null);
+        this.licenceRefused.emit(refusal);
       },
     });
   }
@@ -214,6 +220,14 @@ export class ShopTillSettingsComponent {
         if (!this.current(generation, shopId, scope)) return;
         this.saving.set(false);
         this.editing.set(false);
+        const refusal = error instanceof HttpErrorResponse ? shopLicenceRefusal(shopId, error.error) : null;
+        if (refusal) {
+          this.uncertain.set(false);
+          this.attempted = null;
+          this.error.set(refusal.errorMessage);
+          this.licenceRefused.emit(refusal);
+          return;
+        }
         if (!(error instanceof HttpErrorResponse) || error.status === 0 || error.status >= 500) {
           this.uncertain.set(true);
           return;

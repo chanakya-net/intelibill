@@ -12,10 +12,15 @@
         type="button"
         [label]="'services.addService' | transloco"
         icon="pi pi-plus"
+        [disabled]="!!definitionAccess.blockingMessage()"
         (click)="onOpenAddService()"
       ></button>
     }
   </header>
+
+  @if (canManageServices() && !showAddOverlay()) {
+    <app-definition-access-notice />
+  }
 
   @if (loadErrorMessage()) {
     <p class="error" role="alert">{{ loadErrorMessage() | transloco }}</p>

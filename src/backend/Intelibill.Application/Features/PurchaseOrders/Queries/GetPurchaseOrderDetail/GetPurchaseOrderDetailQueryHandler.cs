@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.PurchaseOrders.DTOs;
@@ -9,26 +11,21 @@ namespace Intelibill.Application.Features.PurchaseOrders.Queries.GetPurchaseOrde
 public sealed record GetPurchaseOrderDetailQuery(
     Guid ActorUserId,
     Guid ActiveShopId,
-    Guid PurchaseOrderId);
+    Guid PurchaseOrderId,
+    SessionClaims? Session = null);
 
 public sealed class GetPurchaseOrderDetailQueryHandler(
-    IUserRepository userRepository,
+    PurchaseOrderHistory history,
     IPurchaseOrderRepository purchaseOrderRepository,
     ISupplierReturnRepository? supplierReturns = null,
     IPurchaseReceiptReversalRepository? receiptReversals = null)
 {
-    public async Task<ErrorOr<PurchaseOrderDetailDto>> HandleAsync(
-        GetPurchaseOrderDetailQuery query,
-        CancellationToken cancellationToken)
+    [LicenceAction(LicenceAction.History)]
+    public Task<ErrorOr<PurchaseOrderDetailDto>> HandleAsync(GetPurchaseOrderDetailQuery query, CancellationToken cancellationToken) =>
+        history.ReadAsync(query.ActorUserId, query.ActiveShopId, query.Session, ct => ReadAsync(query, ct), cancellationToken);
+
+    private async Task<ErrorOr<PurchaseOrderDetailDto>> ReadAsync(GetPurchaseOrderDetailQuery query, CancellationToken cancellationToken)
     {
-        var actor = await userRepository.GetByIdWithDetailsAsync(query.ActorUserId, cancellationToken);
-        if (actor is null)
-            return Errors.Auth.UserNotFound;
-
-        var membership = actor.ShopMemberships.FirstOrDefault(sm => sm.ShopId == query.ActiveShopId);
-        if (membership is null)
-            return Errors.Shop.MembershipNotFound;
-
         var po = await purchaseOrderRepository.GetByShopAndIdAsync(
             query.ActiveShopId,
             query.PurchaseOrderId,

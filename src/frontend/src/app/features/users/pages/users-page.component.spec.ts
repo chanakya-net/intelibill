@@ -179,6 +179,20 @@ describe('UsersPageComponent', () => {
     expect(store.dispatch).toHaveBeenCalledWith(UsersActions.clearMutationStatus());
   });
 
+  it('drops a refused edit when the owner cancels or opens another member', () => {
+    const fixture = TestBed.createComponent(UsersPageComponent);
+    const component = fixture.componentInstance;
+    const targetUser = { ...shopUsersSignal()[0], role: 'Manager' };
+
+    component.onOpenEditUser(targetUser);
+    expect(store.dispatch).toHaveBeenCalledWith(UsersActions.clearMembershipRefusal());
+    store.dispatch.mockClear();
+
+    component.onCloseEditUser();
+    expect(store.dispatch).toHaveBeenCalledWith(UsersActions.clearMembershipRefusal());
+    expect(component.showEditUserOverlay()).toBe(false);
+  });
+
   // Reloading the directory after a shop switch is owned by
   // UsersEffects.reloadShopUsersAfterShopSwitch$; the page must not dispatch a second, competing
   // load when the session changes.

@@ -1,8 +1,10 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Posting;
 using Intelibill.Application.Features.Inventory.DTOs;
+using Intelibill.Application.Features.Inventory.Services;
 using Intelibill.Application.Common.Time;
 using Intelibill.Domain.Entities;
 using Intelibill.Domain.Enums;
@@ -26,8 +28,10 @@ public sealed class AddInventoryCommandHandler(
     IUnitOfWork unitOfWork,
     IShopRepository shopRepository,
     IPostingPeriodPolicy postingPeriodPolicy,
-    IBusinessClock businessClock, IExpiryPolicyFence expiryFence, BatchExpiryRevisionService expiryDates)
+    IBusinessClock businessClock, IExpiryPolicyFence expiryFence, BatchExpiryRevisionService expiryDates,
+    StockIntakeAccess access)
 {
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<ErrorOr<AddInventoryResultDto>> HandleAsync(AddInventoryCommand command, CancellationToken cancellationToken)
     {
         var actor = await userRepository.GetByIdWithDetailsAsync(command.ActorUserId, cancellationToken);
@@ -58,6 +62,10 @@ public sealed class AddInventoryCommandHandler(
         DateTimeOffset performedAt,
         CancellationToken cancellationToken)
     {
+        var licence = await access.EnterAsync(command.ActorUserId, command.ActiveShopId, command.Session, cancellationToken);
+        if (licence.IsError)
+            return licence.Errors;
+
         // The payable is dated by the business day of the receipt's performed time.
         var fence = await postingPeriodPolicy.AuthorizeForWriteAsync(
             command.ActiveShopId,
@@ -68,6 +76,16 @@ public sealed class AddInventoryCommandHandler(
 
         var expiryLock = await expiryFence.AcquireAsync(command.ActiveShopId, false, cancellationToken);
         if (expiryLock.IsError) return expiryLock.Errors;
+        if (licence.Value.CurrentDecision().EnforcedDenial() is { } denied)
+            return denied;
+
+        return await StageReceiptAsync(command, shop, performedAt, licence.Value, cancellationToken);
+    }
+
+    private async Task<ErrorOr<AddInventoryResultDto>> StageReceiptAsync(
+        AddInventoryCommand command, Shop shop, DateTimeOffset performedAt, ShopLicenceLease licence,
+        CancellationToken cancellationToken)
+    {
         var normalizedName = command.ItemName.Trim();
         var normalizedBarcode = command.Barcode.Trim();
 
@@ -221,11 +239,7 @@ public sealed class AddInventoryCommandHandler(
         }
 
         var inventoryResult = await UpsertInventoryWithRetryAsync(
-            command.ActiveShopId,
-            item.Id,
-            command.Quantity,
-            command.ActorUserId,
-            cancellationToken);
+            command, item.Id, licence, cancellationToken);
 
         if (inventoryResult.IsError)
             return inventoryResult.Errors;
@@ -246,13 +260,13 @@ public sealed class AddInventoryCommandHandler(
     }
 
     private async Task<ErrorOr<DomainInventory>> UpsertInventoryWithRetryAsync(
-        Guid shopId,
+        AddInventoryCommand command,
         Guid itemId,
-        decimal quantityToAdd,
-        Guid createdBy,
+        ShopLicenceLease licence,
         CancellationToken ct,
         int maxRetries = 3)
     {
+        var (shopId, createdBy, quantityToAdd) = (command.ActiveShopId, command.ActorUserId, command.Quantity);
         for (var attempt = 0; attempt < maxRetries; attempt++)
         {
             try
@@ -277,7 +291,13 @@ public sealed class AddInventoryCommandHandler(
                     inventoryRepository.Update(inventory);
                 }
 
+                if (await access.CheckWriteAsync(createdBy, shopId, command.Session, licence, ct) is { } beforeSave)
+                    return beforeSave;
+
                 await unitOfWork.SaveChangesAsync(ct);
+                if (await access.CheckWriteAsync(createdBy, shopId, command.Session, licence, ct) is { } beforeCommit)
+                    return beforeCommit;
+
                 return inventory;
             }
             catch (DbUpdateConcurrencyException ex)

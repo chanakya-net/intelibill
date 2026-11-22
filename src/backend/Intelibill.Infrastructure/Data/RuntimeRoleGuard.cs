@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Data.Common;
 using Intelibill.Infrastructure.Options;
 using Microsoft.Extensions.Hosting;
@@ -17,6 +18,7 @@ namespace Intelibill.Infrastructure.Data;
 /// returned nothing. That is not a failure anything downstream can detect, so
 /// it is checked here, once, before the revision serves a request.
 /// </remarks>
+[LicenceAction(LicenceAction.InternalService)]
 public sealed partial class RuntimeRoleGuard(
     NpgsqlDataSource dataSource,
     IOptions<DatabaseOptions> options,

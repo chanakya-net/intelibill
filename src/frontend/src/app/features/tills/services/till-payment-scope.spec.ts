@@ -150,6 +150,8 @@ describe('Payment cached confirmation scope completion', () => {
         const action = SuppliersActions.retryPaymentRequested({ supplierId: 'party' });
         store.dispatch(action);
         actions.next(action);
+        http.expectOne((r) => r.url.endsWith(`/supplier-payment/${intent.operationKey}`))
+          .flush({ code: 'Operation.NotFound' }, { status: 404, statusText: 'Not Found' });
         await entered.promise;
         if (boundary === 'claim-fallback') {
           const anotherTab = new TillDraftService();

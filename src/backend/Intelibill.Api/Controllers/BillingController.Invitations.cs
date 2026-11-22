@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Text.Json.Serialization;
 using Intelibill.Api.Middleware.RateLimiting;
 using Intelibill.Application.Features.Billing;
@@ -22,6 +23,7 @@ public sealed partial class BillingController
     // In-app delivery sends no credential or message. Use the caller's budget so a billing request
     // cannot consume the recipient's sign-in or account-recovery destination budget.
     [RateLimit(Limit = 20, PeriodInMinutes = 60, BackoffMinutes = 15, FailClosed = true)]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> Invite(Guid accountId, [FromBody] IssueInvitationRequest request,
         [FromServices] IMerchantBillingInvitations invitations, CancellationToken cancellationToken)
     {
@@ -33,6 +35,7 @@ public sealed partial class BillingController
     }
 
     [HttpGet("{accountId:guid}/members")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> Members(Guid accountId, [FromQuery] Guid? after,
         [FromServices] IMerchantBillingInvitations invitations, CancellationToken cancellationToken)
     {
@@ -43,6 +46,7 @@ public sealed partial class BillingController
     }
 
     [HttpGet("/api/billing/invitations")]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> Inbox([FromQuery] Guid? after,
         [FromServices] IMerchantBillingInvitations invitations, CancellationToken cancellationToken)
     {
@@ -55,6 +59,7 @@ public sealed partial class BillingController
     [HttpPost("/api/billing/invitations/{invitationId:guid}/accept")]
     [RequestSizeLimit(2048)]
     [RateLimit(Limit = 30, PeriodInMinutes = 15, BackoffMinutes = 5, FailClosed = true)]
+    [LicenceAction(LicenceAction.Billing)]
     public async Task<IActionResult> Accept(Guid invitationId, [FromBody] AcceptInvitationRequest request,
         [FromServices] IMerchantBillingInvitations invitations, CancellationToken cancellationToken)
     {

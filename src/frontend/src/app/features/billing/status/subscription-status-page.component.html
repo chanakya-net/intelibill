@@ -4,9 +4,36 @@
     <h1 id="status-heading" class="ib-page-title">{{ 'billing.status.heading' | transloco }}</h1>
     <p class="ib-subtitle">{{ (accountId() ? 'billing.status.accountDescription' : 'billing.status.shopDescription') | transloco }}</p>
   </header>
-  <p class="ib-panel notice" data-testid="observe-only">{{ 'billing.status.observeOnly' | transloco }}</p>
-
   @let current = view();
+  @if (accountId() || (current.kind === 'shop' && current.status.observeOnly === true && !current.status.closedAt)) {
+    <p class="ib-panel notice" data-testid="observe-only">{{ 'billing.status.observeOnly' | transloco }}</p>
+  }
+
+  @if (trading(); as local) {
+    <section class="ib-panel" aria-labelledby="trading-authority-heading">
+      <h2 id="trading-authority-heading">{{ 'billing.status.tradingAuthority.heading' | transloco }}</h2>
+      @switch (local.kind) {
+        @case ('loading') { <p role="status">{{ 'common.loading' | transloco }}</p> }
+        @case ('verified') {
+          <p role="status" data-testid="trading-authority-deadline">
+            {{ 'billing.status.tradingAuthority.verified' | transloco: { time: instant(local.authority.validUntil, true) } }}
+          </p>
+        }
+        @case ('failed') {
+          <p role="alert" [attr.data-testid]="'trading-authority-' + local.failure">
+            @switch (local.failure) {
+              @case ('scope') { {{ 'billing.status.scope' | transloco }} }
+              @case ('session') { {{ 'billing.status.session' | transloco }} }
+              @case ('denied') { {{ 'billing.status.denied' | transloco }} }
+              @case ('securitySuspended') { {{ 'billing.status.suspension.enforcedSecurity' | transloco }} }
+              @default { {{ 'billing.status.tradingAuthority.' + local.failure | transloco }} }
+            }
+          </p>
+        }
+      }
+    </section>
+  }
+
   @switch (current.kind) {
     @case ('loading') { <p role="status">{{ 'common.loading' | transloco }}</p> }
     @case ('noShop') { <p role="alert">{{ 'billing.status.noShop' | transloco }}</p> }
@@ -18,6 +45,40 @@
       }
     }
     @case ('shop') {
+      @if (current.status.closedAt; as closedAt) {
+        <p class="ib-panel" role="status" data-testid="shop-closure-status">
+          {{ 'billing.closure.closedAt' | transloco: {time: instant(closedAt, true)} }}
+          {{ (current.status.closureEnforced ? 'billing.closure.enforced' : 'billing.closure.enforcementUnconfirmed') | transloco }}
+        </p>
+      }
+      @if (isShopOwner() && current.status.enforcedSuspensionMode !== 'Security') {
+        <app-closure-confirmation mode="shop" [shop]="current.status.shopId" [account]="current.status.accountId"
+          [closed]="!!current.status.closedAt || (!!current.status.reopenedAt && !current.status.reopeningReceived)"
+          [reopenedVersion]="current.status.reopenedVersion" />
+        <app-closure-confirmation mode="account" [shop]="current.status.shopId" [account]="current.status.accountId" />
+      }
+      @if (current.status.reopenedAt; as reopenedAt) {
+        <p class="ib-panel" role="status" data-testid="shop-reopening-status">
+          {{ 'billing.reopening.reopenedAt' | transloco: { time: instant(reopenedAt, true) } }}
+          {{ (current.status.reopeningEnforced ? 'billing.reopening.applied' : current.status.reopeningReceived ? 'billing.reopening.received' : 'billing.reopening.pending') | transloco }}
+        </p>
+      }
+      @if (current.status.enforcedSuspensionMode; as mode) {
+        <p class="ib-panel" role="status" data-testid="enforced-suspension">
+          {{ (mode === 'Security' ? 'billing.status.suspension.enforcedSecurity'
+            : 'billing.status.suspension.enforcedTrading') | transloco }}
+        </p>
+      }
+      @if (current.status.suspension; as suspension) {
+        <section class="ib-panel" data-testid="shop-suspension" aria-labelledby="suspension-heading">
+          <h2 id="suspension-heading">{{ 'billing.status.suspension.' + suspension.mode | transloco }}</h2>
+          <p>{{ suspension.customerExplanation }}</p>
+          <p>{{ 'billing.status.suspension.effective' | transloco: { time: instant(suspension.effectiveAt, true) } }}</p>
+          @if (!current.status.observeOnly) {
+            <p>{{ 'billing.status.suspension.renewal' | transloco }}</p>
+          }
+        </section>
+      }
       <p>{{ 'billing.status.evaluatedAt' | transloco: { time: instant(current.status.evaluatedAt) } }}</p>
       <p class="state" data-testid="status-state"><strong>{{ 'billing.status.states.' + current.status.state | transloco }}</strong></p>
       @if (current.status.term; as term) {
@@ -29,11 +90,12 @@
         }
       } @else {
         <p>{{ 'billing.status.pending' | transloco }}</p>
-        @if (isShopOwner()) { <p><a routerLink="/billing/trial">{{ 'billing.trial.title' | transloco }}</a></p> }
+        @if (isShopOwner() && !current.status.closedAt) { <p><a routerLink="/billing/trial">{{ 'billing.trial.title' | transloco }}</a></p> }
       }
       <app-entitlement-synchronization [synchronization]="current.status.synchronization ?? null" />
     }
     @case ('account') {
+      @if (accountId(); as account) { <app-account-closure [account]="account" /> }
       <p>{{ 'billing.status.evaluatedAt' | transloco: { time: instant(current.evaluatedAt) } }}</p>
       @for (item of current.items; track item.status.termId) {
         <article class="ib-panel" data-testid="account-term">

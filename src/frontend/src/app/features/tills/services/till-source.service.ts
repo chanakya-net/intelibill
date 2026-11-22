@@ -53,6 +53,7 @@ export class TillSourceService {
       assertCurrentScope(this.context, owner, invocation);
       if (
         prior ||
+        action === 'payment-reversal' ||
         frozen.till ||
         frozen.tenderLine ||
         frozen.tenderLines ||

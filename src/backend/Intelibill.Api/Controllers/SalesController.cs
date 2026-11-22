@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -5,6 +6,7 @@ using Intelibill.Shared.Web.Logging;
 using Intelibill.Shared.Web.PublicErrors;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Features.OfflineSalesSnapshot.DTOs;
 using Intelibill.Application.Features.Customers.Services;
 using Intelibill.Application.Features.Sales.Commands.RecordSale;
@@ -45,6 +47,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
         _diagnostics = diagnostics;
     }
     [HttpGet("offline-snapshot/stream")]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task StreamOfflineSnapshot(CancellationToken cancellationToken)
     {
         if (UserId is null)
@@ -73,7 +76,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
         Response.ContentType = "application/x-ndjson; charset=utf-8";
         Response.Headers.CacheControl = "no-store";
 
-        var count = 0;
+        var buffer = new NdjsonResponseBuffer(Response);
         try
         {
             await foreach (var record in _offlineSnapshotStreamingService.StreamAsync(
@@ -82,19 +85,17 @@ public sealed partial class SalesController : AuthenticatedControllerBase
                                startedAt,
                                cancellationToken))
             {
-                var line = JsonSerializer.Serialize(record, record.GetType(), NdjsonOptions) + "\n";
-                await Response.WriteAsync(line, cancellationToken);
-                count++;
-                if (count == 1 || count % 50 == 0)
-                    await Response.Body.FlushAsync(cancellationToken);
+                var line = JsonSerializer.Serialize(record, record.GetType(), NdjsonOptions);
+                await buffer.WriteAsync(line, cancellationToken);
             }
-            await Response.Body.FlushAsync(cancellationToken);
+            await buffer.FlushAsync(cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             // client cancelled
         }
-        catch (Exception exception) when ((count > 0 || Response.HasStarted) && !cancellationToken.IsCancellationRequested)
+        catch (Exception exception) when (exception is not SuspensionResponseStoppedException &&
+            (buffer.HasFlushed || Response.HasStarted) && !cancellationToken.IsCancellationRequested)
         {
             // Records are already on the wire, so the status can no longer say this failed. The
             // framed error record says it instead, and no complete record follows, so the client
@@ -121,10 +122,14 @@ public sealed partial class SalesController : AuthenticatedControllerBase
 
     [HttpPost]
     [Authorize(Policy = "OwnerManagerOrStaff")]
+    [LicenceAction(LicenceAction.NewTrading)]
+    [SuspensionAtSource(CheckRecovery = true)]
     public async Task<IActionResult> RecordSale([FromBody] RecordSaleRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
+        var session = SessionClaims.TryRead(User);
+        if (session is null) return Unauthorized();
         var creditNoteRedemptions = (request.CreditNoteRedemptions ?? []).Select(redemption =>
             new RecordSaleCreditNoteRedemptionCommand(redemption.Code, redemption.Amount)).ToList();
         var creditNoteAppliedAmount = creditNoteRedemptions.Count > 0
@@ -133,8 +138,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
 
         var result = await Bus.InvokeAsync<ErrorOr<SaleDto>>(
             new RecordSaleCommand(
-                UserId!.Value,
-                ActiveShopId!.Value,
+                session,
                 request.IdempotencyKey,
                 request.CustomerId,
                 request.CustomerName,
@@ -174,6 +178,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     }
 
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetSales(
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
@@ -192,6 +197,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     }
 
     [HttpGet("sellables")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> SearchSellables(
         [FromQuery] string? searchTerm,
         [FromQuery] string? barcode,
@@ -216,6 +222,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
 
     [HttpGet("profit-loss")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetProfitLossReport(
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
@@ -234,6 +241,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     }
 
     [HttpGet("{saleId:guid}")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetSaleDetail(Guid saleId, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -246,6 +254,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
 
     [HttpGet("by-idempotency-key/{idempotencyKey}")]
     [Authorize(Policy = "OwnerManagerOrStaff")]
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<IActionResult> GetSaleByIdempotencyKey(string idempotencyKey, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -262,6 +271,7 @@ public sealed partial class SalesController : AuthenticatedControllerBase
     }
 
     [HttpGet("returns/{returnNumber}")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetSaleByReturnNumber(string returnNumber, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();

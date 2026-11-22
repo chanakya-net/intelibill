@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Tills;
 using Intelibill.Domain.ValueObjects;
 using ErrorOr;
@@ -26,16 +27,18 @@ public sealed class PaymentsController(IMessageBus bus) : AuthenticatedControlle
 {
     [HttpGet("balances")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetBalances(
         [FromQuery] PaymentPartyType partyType,
         [FromQuery] Guid partyId,
+        [FromQuery] DateOnly? paymentDate,
         CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<PartyBalancesDto>>(
-            new GetPartyBalancesQuery(UserId!.Value, ActiveShopId!.Value, partyType, partyId),
+            new GetPartyBalancesQuery(UserId!.Value, ActiveShopId!.Value, partyType, partyId, paymentDate),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -43,6 +46,7 @@ public sealed class PaymentsController(IMessageBus bus) : AuthenticatedControlle
 
     [HttpGet("{receiptId:guid}")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetReceipt(Guid receiptId, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -57,6 +61,7 @@ public sealed class PaymentsController(IMessageBus bus) : AuthenticatedControlle
 
     [HttpPost("{receiptId:guid}/allocations")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.ExistingPayment)]
     public async Task<IActionResult> Allocate(
         Guid receiptId,
         [FromBody] AllocatePaymentRequest request,
@@ -79,6 +84,7 @@ public sealed class PaymentsController(IMessageBus bus) : AuthenticatedControlle
 
     [HttpPost("{receiptId:guid}/reversal")]
     [Authorize(Policy = "OwnerOnly")]
+    [LicenceAction(LicenceAction.ExistingPayment)]
     public async Task<IActionResult> Reverse(
         Guid receiptId,
         [FromBody] ReversePaymentRequest request,

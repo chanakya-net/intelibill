@@ -1,9 +1,19 @@
 import type { Page } from '@playwright/test';
+import type { InvoiceSellerProfile } from '../../../src/app/features/sales/services/sale.models';
 
 const SHOP_ID = 'ui-audit-shop';
 const DEVICE_ID = 'ui-audit-offline-device';
 const SNAPSHOT_ID = 'ui-audit-snapshot';
-const COMPLETED_AT = '2099-01-01T00:00:00.000Z';
+const COMPLETED_AT = new Date(Date.now() - 60_000).toISOString();
+const EXPIRES_AT = new Date(Date.now() + 3_600_000).toISOString();
+const SELLER_PROFILE: InvoiceSellerProfile = {
+  seller: {
+    legalName: 'UI Audit Shop', tradeName: 'UI Audit Shop', address: 'Audit Lane, Bengaluru',
+    stateCode: '29', stateName: 'Karnataka', gstin: null, taxRegime: 'Unregistered',
+  },
+  eInvoiceStatus: 'BelowThreshold',
+  seriesCode: 'A',
+};
 
 export function offlinePosLocalStorageEntries(): Readonly<Record<string, string>> {
   return {
@@ -23,7 +33,7 @@ export function offlinePosLocalStorageEntries(): Readonly<Record<string, string>
         leaseId: 'ui-audit-lease',
         fiscalYear: '2026-27',
         remainingCount: 5,
-        expiresAt: '2099-12-31T00:00:00.000Z',
+        expiresAt: EXPIRES_AT,
       },
     }),
   };
@@ -32,7 +42,7 @@ export function offlinePosLocalStorageEntries(): Readonly<Record<string, string>
 export async function seedOfflinePosSnapshot(page: Page): Promise<void> {
   await page.goto('/');
   await page.evaluate(
-    async ({ shopId, deviceId, snapshotId, completedAt }) => {
+    async ({ shopId, deviceId, snapshotId, completedAt, expiresAt, sellerProfile }) => {
       const openDatabase = (
         name: string,
         version: number,
@@ -67,7 +77,9 @@ export async function seedOfflinePosSnapshot(page: Page): Promise<void> {
         tx.objectStore('snapshot-attempts').put({
           snapshotId,
           shopId,
-          schemaVersion: 2,
+          schemaVersion: 4,
+          businessTimeZoneId: 'Asia/Kolkata',
+          catalogVersion: 1,
           startedAt: completedAt,
           completedAt,
           status: 'complete',
@@ -98,10 +110,22 @@ export async function seedOfflinePosSnapshot(page: Page): Promise<void> {
             costPrice: 75,
             mrp: 150,
             salesPrice: 125,
-            taxRatePercent: 18,
-            taxIncluded: true,
-            purchaseTaxIncluded: true,
-            expiryDate: '2027-12-31',
+            taxRatePercent: 0,
+            taxIncluded: false,
+            purchaseTaxIncluded: false,
+            expiryDate: null,
+            manufacturingDate: null,
+            expiryEvidenceId: 'offline-expiry-evidence',
+            effectivePolicy: {
+              version: 1, mode: 'Ignore', expiryRequired: false,
+              sellThroughExpiryDate: true, warningDays: 7, overrideAllowed: false,
+            },
+            physicalQuantity: 25,
+            quarantinedQuantity: 0,
+            availableQuantity: 25,
+            batchVersion: 1,
+            expiryCapturedAt: completedAt,
+            expiryEvidenceExpiresAt: expiresAt,
           },
         });
         tx.objectStore('customers').put({
@@ -143,14 +167,16 @@ export async function seedOfflinePosSnapshot(page: Page): Promise<void> {
             nextNumber: 1,
             remainingCount: 5,
             reservedAt: completedAt,
-            expiresAt: '2099-12-31T00:00:00.000Z',
+            expiresAt,
+            sellerProfile,
           },
         });
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
     },
-    { shopId: SHOP_ID, deviceId: DEVICE_ID, snapshotId: SNAPSHOT_ID, completedAt: COMPLETED_AT },
+    { shopId: SHOP_ID, deviceId: DEVICE_ID, snapshotId: SNAPSHOT_ID, completedAt: COMPLETED_AT,
+      expiresAt: EXPIRES_AT, sellerProfile: SELLER_PROFILE },
   );
   await page.reload();
 }

@@ -10,6 +10,10 @@ import { isScopeChangeError } from '../../../core/context/scoped-request';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { ShopContextActions } from '../../../core/context/shop-context.actions';
 
+import {
+  OPERATING_ACCESS_ERROR_KEYS,
+  OperatingAccessHintService,
+} from '../../billing/status/operating-access-hint.service';
 import { ExpenseService } from '../services/expense.service';
 import { ExpenseCategoryService } from '../services/expense-category.service';
 import { ExpensesActions } from './expenses.actions';
@@ -21,6 +25,7 @@ export class ExpensesEffects {
   private readonly shopContext = inject(ShopContextService);
   private readonly expenseService = inject(ExpenseService);
   private readonly categoryService = inject(ExpenseCategoryService);
+  private readonly access = inject(OperatingAccessHintService);
 
   loadExpenses$ = createEffect(() =>
     this.actions$.pipe(
@@ -96,44 +101,46 @@ export class ExpensesEffects {
   recordExpense$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ExpensesActions.recordExpenseRequested),
-      switchMap(({ payload }) =>
-        this.expenseService.recordExpense(payload).pipe(
+      switchMap(({ payload }) => {
+        const scope = this.access.scope();
+        return this.expenseService.recordExpense(payload).pipe(
           map((expense) => ExpensesActions.recordExpenseSucceeded({ expense })),
-          catchError((error) =>
-            isScopeChangeError(error)
-              ? EMPTY
-              : of(
-                  ExpensesActions.recordExpenseFailed({
-                    ...this.feedback(error, 'expenses.errors.unexpected'),
-                  }),
-                ),
-          ),
+          catchError((error) => {
+            if (isScopeChangeError(error)) return EMPTY;
+            this.access.reportRefusal(error, scope);
+            return of(
+              ExpensesActions.recordExpenseFailed({
+                ...this.feedback(error, 'expenses.errors.unexpected'),
+              }),
+            );
+          }),
           // Stop UI outcomes immediately; the durable async operation still settles under its owner.
           takeUntil(this.shopContext.changes$),
-        ),
-      ),
+        );
+      }),
     ),
   );
 
   correctExpense$ = createEffect(() =>
     this.actions$.pipe(
       ofType(ExpensesActions.correctExpenseRequested),
-      switchMap(({ expenseId, payload }) =>
-        this.expenseService.correctExpense(expenseId, payload).pipe(
+      switchMap(({ expenseId, payload }) => {
+        const scope = this.access.scope();
+        return this.expenseService.correctExpense(expenseId, payload).pipe(
           map((expense) => ExpensesActions.correctExpenseSucceeded({ expense })),
-          catchError((error) =>
-            isScopeChangeError(error)
-              ? EMPTY
-              : of(
-                  ExpensesActions.correctExpenseFailed({
-                    ...this.feedback(error, 'expenses.errors.unexpected'),
-                  }),
-                ),
-          ),
+          catchError((error) => {
+            if (isScopeChangeError(error)) return EMPTY;
+            this.access.reportRefusal(error, scope);
+            return of(
+              ExpensesActions.correctExpenseFailed({
+                ...this.feedback(error, 'expenses.errors.unexpected'),
+              }),
+            );
+          }),
           // Stop UI outcomes immediately; the durable async operation still settles under its owner.
           takeUntil(this.shopContext.changes$),
-        ),
-      ),
+        );
+      }),
     ),
   );
   private feedback(
@@ -142,7 +149,10 @@ export class ExpensesEffects {
   ): { errorMessage: string; localizedError?: LocalizedError } {
     const localizedError = this.apiErrors.resolve(error, {
       fallbackKey,
-      codeMap: {},
+      codeMap: {
+        ...OPERATING_ACCESS_ERROR_KEYS,
+        'Expense.CorrectionSourceIneligible': 'expenses.errors.correctionSourceIneligible',
+      },
       fieldMap: {
         Amount: 'amount',
         CategoryName: 'categoryName',

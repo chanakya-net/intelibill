@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Security;
 using System.Text.Json;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -31,6 +33,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
     }
 
     [HttpGet("stream")]
+    [LicenceAction(LicenceAction.History)]
     public async Task StreamItems(CancellationToken cancellationToken)
     {
         if (UserId is null)
@@ -60,21 +63,14 @@ public sealed class ItemsController : AuthenticatedControllerBase
         Response.Headers.CacheControl = "no-store";
 
         var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-        var count = 0;
-
+        var buffer = new NdjsonResponseBuffer(Response);
         await foreach (var item in _itemCatalogStreamingService.StreamByShopAsync(ActiveShopId.Value, cancellationToken))
-        {
-            var line = JsonSerializer.Serialize(item, jsonOptions) + "\n";
-            await Response.WriteAsync(line, cancellationToken);
-            count++;
-            if (count % 50 == 0)
-                await Response.Body.FlushAsync(cancellationToken);
-        }
-
-        await Response.Body.FlushAsync(cancellationToken);
+            await buffer.WriteAsync(JsonSerializer.Serialize(item, jsonOptions), cancellationToken);
+        await buffer.FlushAsync(cancellationToken);
     }
 
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetItems(
         [FromQuery] string? search,
         [FromQuery] string? status,
@@ -93,6 +89,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
     }
 
     [HttpGet("details")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetProductDetails(
         [FromQuery] string? name,
         [FromQuery] string? barcode,
@@ -104,10 +101,12 @@ public sealed class ItemsController : AuthenticatedControllerBase
         if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(barcode))
             return BadRequest("Either name or barcode must be provided");
 
+        var session = SessionClaims.TryRead(User);
+        if (session is null) return Unauthorized();
         var authorizationHeader = HttpContext.Request.Headers.Authorization.ToString();
 
         var result = await Bus.InvokeAsync<ErrorOr<ProductDetailsDto>>(
-            new GetProductDetailsByNameOrBarcodeQuery(UserId!.Value, ActiveShopId!.Value, name, barcode, authorizationHeader),
+            new GetProductDetailsByNameOrBarcodeQuery(session, name, barcode, authorizationHeader),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -115,15 +114,19 @@ public sealed class ItemsController : AuthenticatedControllerBase
 
     [HttpPost]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource(CheckRecovery = true)]
     public async Task<IActionResult> AddItem([FromBody] AddItemRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
         if (auth is not null) return auth;
 
+        var session = SessionClaims.TryRead(User);
+        if (session is null) return Unauthorized();
+
         var result = await Bus.InvokeAsync<ErrorOr<ItemDto>>(
             new AddItemCommand(
-                UserId!.Value,
-                ActiveShopId!.Value,
+                session,
                 request.Name,
                 request.Barcode,
                 request.Description,
@@ -139,6 +142,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
 
     [HttpPost("barcodes/generate")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> GenerateItemBarcode(CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -147,7 +151,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
         var result = await Bus.InvokeAsync<ErrorOr<GenerateItemBarcodeResultDto>>(
             new GenerateItemBarcodeCommand(
                 UserId!.Value,
-                ActiveShopId!.Value),
+                ActiveShopId!.Value, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
@@ -155,6 +159,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
 
     [HttpPost("barcodes/labels")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> PrintBarcodeLabels(
         [FromBody] PrintBarcodeLabelsRequest request,
         CancellationToken cancellationToken)
@@ -174,6 +179,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
 
     [HttpPatch("{itemId:guid}")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<IActionResult> UpdateItem(Guid itemId, [FromBody] UpdateItemRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -190,6 +196,7 @@ public sealed class ItemsController : AuthenticatedControllerBase
                 request.Uom,
                 request.HsnCode,
                 request.DefaultTaxRatePercent,
+                SessionClaims.TryRead(User),
                 request.IsActive,
                 request.QuantityScale),
             cancellationToken);

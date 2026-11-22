@@ -33,7 +33,7 @@ function render(read: AccountStatusApi['read'], grants: string[] = ['support']) 
     providers: [
       provideRouter([]),
       { provide: SESSION_PORT, useValue: { state, capabilities } },
-      { provide: AccountStatusApi, useValue: { read } },
+      { provide: AccountStatusApi, useValue: { read, closures: () => of([]) } },
       { provide: AdminSessionService, useValue: { adminId: signal('admin-1'), sessionId: signal('session-1') } },
       { provide: ComplimentaryGrantApi, useValue: {} },
       { provide: TrialExtensionApi, useValue: {} },

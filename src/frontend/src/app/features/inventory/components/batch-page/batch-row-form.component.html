@@ -31,6 +31,7 @@
       [loadingProduct]="state.loadingProduct()"
       [barcodeGenerating]="state.barcodeGenerating()"
       [barcodeGenerateError]="state.barcodeGenerateError()"
+      [productLookupError]="state.productLookupError()"
       [barcodeReplaceConfirmVisible]="barcodeReplaceConfirmVisible()"
       (filterRequested)="onBarcodeFilter($event)"
       (selected)="state.onBarcodeSelected($event)"
@@ -265,7 +266,7 @@
         [label]="'inventory.addRow' | transloco"
         icon="pi pi-plus"
         severity="success"
-        [disabled]="state.form.invalid"
+        [disabled]="state.form.invalid || !canSubmit()"
       ></button>
     </div>
   </form>

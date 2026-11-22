@@ -32,8 +32,8 @@ public sealed class SaleExpiryGuardTests(PostgreSqlTestFixture fixture)
         var repo = new ExpiryPolicyRepository(db);
         await repo.InitializeAsync(shop.Id, owner.Id, DateTimeOffset.UtcNow, default);
         await db.SaveChangesAsync();
-        var service = new ExpiryPolicyService(repo, new ShopRepository(db), new ExpiryPolicyFence(db), new UnitOfWork(db), new BusinessClock(TimeProvider.System));
-        var result = await service.UpdateAsync(shop.Id, owner.Id, null, new(1, new(mode, required, true, 7, overrides), "sale policy"), default);
+        var service = new ExpiryPolicyService(repo, new ShopRepository(db), new ExpiryPolicyFence(db), new UnitOfWork(db), new BusinessClock(TimeProvider.System), ExpirySettingsFixture.Access(db));
+        var result = await service.UpdateAsync(shop.Id, owner.Id, null, new(1, new(mode, required, true, 7, overrides), "sale policy"), ExpirySettingsFixture.Session(owner.Id, shop.Id), default);
         Assert.False(result.IsError);
         return (shop.Id, owner.Id, staff.Id, batch.Id);
     }
@@ -185,8 +185,8 @@ public sealed class SaleExpiryGuardTests(PostgreSqlTestFixture fixture)
             var overriddenLot = InventoryBatch.Create(seed.Shop, item.Id, "override-lot", 10, 1, 2, 2, 0, false, Date.AddDays(-1), null, null, seed.Owner).Value;
             overriddenItem = item.Id; seedDb.AddRange(item, overriddenLot); batches.Add(overriddenLot.Id);
             await seedDb.SaveChangesAsync();
-            var service = new ExpiryPolicyService(new ExpiryPolicyRepository(seedDb), new ShopRepository(seedDb), new ExpiryPolicyFence(seedDb), new UnitOfWork(seedDb), new BusinessClock(TimeProvider.System));
-            Assert.False((await service.UpdateAsync(seed.Shop, seed.Owner, item.Id, new(2, new(ExpiryMode.Ignore, false, true, 7, false), "different item policy"), default)).IsError);
+            var service = new ExpiryPolicyService(new ExpiryPolicyRepository(seedDb), new ShopRepository(seedDb), new ExpiryPolicyFence(seedDb), new UnitOfWork(seedDb), new BusinessClock(TimeProvider.System), ExpirySettingsFixture.Access(seedDb));
+            Assert.False((await service.UpdateAsync(seed.Shop, seed.Owner, item.Id, new(2, new(ExpiryMode.Ignore, false, true, 7, false), "different item policy"), ExpirySettingsFixture.Session(seed.Owner, seed.Shop), default)).IsError);
         }
         var counter = new PolicyReadCounter();
         await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>().UseNpgsql(fixture.MigratorConnectionString).UseSnakeCaseNamingConvention().AddInterceptors(counter).Options);
@@ -214,8 +214,8 @@ public sealed class SaleExpiryGuardTests(PostgreSqlTestFixture fixture)
         }
         await using (var editor = Db())
         {
-            var service = new ExpiryPolicyService(new ExpiryPolicyRepository(editor), new ShopRepository(editor), new ExpiryPolicyFence(editor), new UnitOfWork(editor), new BusinessClock(TimeProvider.System));
-            Assert.False((await service.UpdateAsync(seed.Shop, seed.Owner, null, new(3, new(ExpiryMode.Block, false, true, 7, false), "next operation"), default)).IsError);
+            var service = new ExpiryPolicyService(new ExpiryPolicyRepository(editor), new ShopRepository(editor), new ExpiryPolicyFence(editor), new UnitOfWork(editor), new BusinessClock(TimeProvider.System), ExpirySettingsFixture.Access(editor));
+            Assert.False((await service.UpdateAsync(seed.Shop, seed.Owner, null, new(3, new(ExpiryMode.Block, false, true, 7, false), "next operation"), ExpirySettingsFixture.Session(seed.Owner, seed.Shop), default)).IsError);
         }
         await using (var tx = await db.Database.BeginTransactionAsync())
         {

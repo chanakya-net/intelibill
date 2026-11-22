@@ -1,6 +1,8 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Common.Errors;
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Features.Expenses.DTOs;
 using Intelibill.Application.Features.Inventory.Commands.AddInventory;
 using Intelibill.Application.Features.Inventory.Commands.AddInventoryBatch;
@@ -24,6 +26,7 @@ public sealed partial class InventoryController : AuthenticatedControllerBase
     }
 
     [HttpGet("batches")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetInventoryBatches(CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -37,6 +40,7 @@ public sealed partial class InventoryController : AuthenticatedControllerBase
     }
 
     [HttpGet("adjustments")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetAdjustmentHistory(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 25,
@@ -72,6 +76,7 @@ public sealed partial class InventoryController : AuthenticatedControllerBase
 
     [HttpPost("inbound")]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> AddInventory([FromBody] AddInventoryRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -99,14 +104,17 @@ public sealed partial class InventoryController : AuthenticatedControllerBase
                 request.SupplierId,
                 request.ReferenceNumber,
                 request.Notes,
-                request.PerformedAt),
+                request.PerformedAt,
+                SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
     }
 
     [HttpPost("inbound/batch")]
+    [SuspensionAtSource(CheckRecovery = true)]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> AddInventoryBatch([FromBody] AddInventoryBatchRequest request, CancellationToken cancellationToken)
     {
         var auth = CheckAuthAndShop();
@@ -151,7 +159,8 @@ public sealed partial class InventoryController : AuthenticatedControllerBase
                         row.PerformedAt,
                         row.HsnCode))
                     .ToArray(),
-                request.OperationKey),
+                request.OperationKey,
+                SessionClaims.TryRead(User)),
             cancellationToken);
 
         if (result.IsError)

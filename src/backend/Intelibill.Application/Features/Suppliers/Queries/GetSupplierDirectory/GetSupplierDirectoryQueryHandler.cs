@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.Suppliers.DTOs;
@@ -7,6 +8,7 @@ namespace Intelibill.Application.Features.Suppliers.Queries.GetSupplierDirectory
 
 public sealed class GetSupplierDirectoryQueryHandler(IUserRepository users, ISupplierRepository suppliers, ISupplierLedgerEntryRepository ledger)
 {
+    [LicenceAction(LicenceAction.History)]
     public async Task<ErrorOr<SupplierDirectoryDto>> HandleAsync(GetSupplierDirectoryQuery query, CancellationToken cancellationToken)
     {
         var user = await users.GetByIdWithDetailsAsync(query.UserId, cancellationToken);

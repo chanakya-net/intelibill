@@ -42,6 +42,10 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("restriction");
 
+                    b.Property<long?>("PreviousReleaseRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("previous_release_revision");
+
                     b.Property<long>("Revision")
                         .HasColumnType("bigint")
                         .HasColumnName("revision");
@@ -49,6 +53,14 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("UpstreamVerifiedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("upstream_verified_at");
+
+                    b.Property<DateTimeOffset?>("SuspensionEffectiveAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("suspension_effective_at");
+
+                    b.Property<string>("SuspensionExplanation")
+                        .HasColumnType("text")
+                        .HasColumnName("suspension_explanation");
 
                     b.HasKey("AccountId")
                         .HasName("pk_account_license_restrictions");
@@ -5561,6 +5573,18 @@ namespace Intelibill.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("next_boundary");
 
+                    b.Property<long?>("ReleasedRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("released_revision");
+
+                    b.Property<long?>("ClosureRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("closure_revision");
+
+                    b.Property<long?>("ReopenedRevision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("reopened_revision");
+
                     b.Property<long>("Revision")
                         .HasColumnType("bigint")
                         .HasColumnName("revision");
@@ -5585,6 +5609,18 @@ namespace Intelibill.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("UpstreamVerifiedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("upstream_verified_at");
+
+                    b.Property<DateTimeOffset?>("SuspensionEffectiveAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("suspension_effective_at");
+
+                    b.Property<string>("SuspensionExplanation")
+                        .HasColumnType("text")
+                        .HasColumnName("suspension_explanation");
+
+                    b.Property<string>("SuspensionMode")
+                        .HasColumnType("text")
+                        .HasColumnName("suspension_mode");
 
                     b.HasKey("ShopId")
                         .HasName("pk_shop_license_states");

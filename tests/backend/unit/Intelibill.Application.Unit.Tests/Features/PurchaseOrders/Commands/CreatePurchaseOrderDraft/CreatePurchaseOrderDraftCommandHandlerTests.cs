@@ -19,7 +19,7 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     private CreatePurchaseOrderDraftCommandHandler CreateHandler() =>
-        new(_userRepository, _itemRepository, _supplierRepository, _poRepository, _numberGenerator, _unitOfWork);
+        new(_itemRepository, _supplierRepository, _poRepository, _numberGenerator, PurchaseOrderAccessTestDoubles.Trading(_userRepository, _unitOfWork));
 
     private static (User actor, Shop shop) MakeOwner()
     {
@@ -43,7 +43,7 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
         var result = await CreateHandler().HandleAsync(
-            new CreatePurchaseOrderDraftCommand(actor.Id, shop.Id, null, null, null, null, null, null, null, []),
+            new CreatePurchaseOrderDraftCommand(actor.Id, shop.Id, null, null, null, null, null, null, null, [], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -74,7 +74,7 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 "Test notes",
                 "Acme Traders",
                 "SUP-REF-001",
-                [new CreatePurchaseOrderLineInput(item.Id, "Widget", 5, 10m)]),
+                [new CreatePurchaseOrderLineInput(item.Id, "Widget", 5, 10m)], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -105,7 +105,7 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 null,
                 null,
                 null,
-                [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "Widget", 0, 10m)]),
+                [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "Widget", 0, 10m)], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -131,7 +131,7 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 null,
                 null,
                 null,
-                [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "Widget", 1, -1m)]),
+                [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "Widget", 1, -1m)], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -157,7 +157,7 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 null,
                 null,
                 null,
-                [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "   ", 1, 5m)]),
+                [new CreatePurchaseOrderLineInput(Guid.NewGuid(), "   ", 1, 5m)], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -183,7 +183,7 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 null,
                 null,
                 null,
-                [new CreatePurchaseOrderLineInput(Guid.Empty, "Widget", 1, 5m)]),
+                [new CreatePurchaseOrderLineInput(Guid.Empty, "Widget", 1, 5m)], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -211,7 +211,7 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 null,
                 " Acme Traders ",
                 " SUP-REF-001 ",
-                [new CreatePurchaseOrderLineInput(item.Id, "Item A", 2, 100m)]),
+                [new CreatePurchaseOrderLineInput(item.Id, "Item A", 2, 100m)], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -246,7 +246,7 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 null,
                 null,
                 null,
-                [new CreatePurchaseOrderLineInput(itemId, "Item A", 2, 100m)]),
+                [new CreatePurchaseOrderLineInput(itemId, "Item A", 2, 100m)], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -276,7 +276,7 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
                 null,
                 null,
                 null,
-                [new CreatePurchaseOrderLineInput(item.Id, "Item A", 2, 100m)]),
+                [new CreatePurchaseOrderLineInput(item.Id, "Item A", 2, 100m)], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -293,12 +293,12 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
         _supplierRepository.GetByIdAsync(supplierId, Arg.Any<CancellationToken>()).Returns((Supplier)null!);
 
         var result = await CreateHandler().HandleAsync(
-            new CreatePurchaseOrderDraftCommand(actor.Id, shop.Id, supplierId, null, null, null, null, null, null, []),
+            new CreatePurchaseOrderDraftCommand(actor.Id, shop.Id, supplierId, null, null, null, null, null, null, [], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Supplier.SupplierNotFound.Code, result.FirstError.Code);
-        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
         await _poRepository.DidNotReceive().AddAsync(Arg.Any<PurchaseOrder>(), Arg.Any<CancellationToken>());
     }
 
@@ -312,12 +312,12 @@ public class CreatePurchaseOrderDraftCommandHandlerTests
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
 
         var result = await CreateHandler().HandleAsync(
-            new CreatePurchaseOrderDraftCommand(actor.Id, shop.Id, supplier.Id, null, null, null, null, null, null, []),
+            new CreatePurchaseOrderDraftCommand(actor.Id, shop.Id, supplier.Id, null, null, null, null, null, null, [], Session: PurchaseOrderAccessTestDoubles.Session(actor.Id, shop.Id)),
             CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Supplier.SupplierNotFound.Code, result.FirstError.Code);
-        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
         await _poRepository.DidNotReceive().AddAsync(Arg.Any<PurchaseOrder>(), Arg.Any<CancellationToken>());
     }
 }

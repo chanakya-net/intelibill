@@ -32,6 +32,8 @@ import { TagModule } from 'primeng/tag';
 import { TextareaModule } from 'primeng/textarea';
 
 import { AuthService } from '../../../../core/auth/auth.service';
+import { ShopContextService } from '../../../../core/context/shop-context.service';
+import type { ShopScope } from '../../../../core/context/shop-scope';
 import { ShopPermissionsService } from '../../../../core/layout/shop-permissions.service';
 import { NetworkStatusService } from '../../../../core/services/network-status.service';
 import { OfflineSalesDeviceSettingsStorage } from '../../../../core/storage/offline-sales-device-settings.storage';
@@ -146,6 +148,7 @@ export class OfflineReconciliationPageComponent {
   private readonly deviceSettings = inject(OfflineSalesDeviceSettingsStorage);
   private readonly permissions = inject(ShopPermissionsService);
   private readonly auth = inject(AuthService);
+  private readonly context = inject(ShopContextService);
   private readonly network = inject(NetworkStatusService);
   private readonly downloads = inject(BlobDownloadService);
   private readonly destroyRef = inject(DestroyRef);
@@ -751,10 +754,11 @@ export class OfflineReconciliationPageComponent {
    * hand-off only after the user confirms saving every file (`confirmExportSaved`).
    */
   async exportBundle(): Promise<void> {
-    const shopId = this.shopId();
+    const scope = this.context.scope();
     const deviceId = this.deviceId();
-    if (!shopId || !deviceId || this.exporting()) return;
+    if (!scope?.shopId || !deviceId || this.exporting() || !this.canHandOffBundle(scope)) return;
 
+    const { shopId } = scope;
     this.exporting.set(true);
     this.exportErrorKey.set(null);
     this.pendingExport.set(null);
@@ -762,6 +766,7 @@ export class OfflineReconciliationPageComponent {
       const records = await this.queueDb.getAllByShopDevice(shopId, deviceId);
       const exportedAt = new Date().toISOString();
       const parts = await buildSupportBundle(records, { shopId, deviceId, exportedAt });
+      if (!this.canHandOffBundle(scope)) return;
       if (parts.length === 0) {
         this.exportErrorKey.set('sales.offlineReconciliation.bundle.exportEmpty');
         return;
@@ -769,6 +774,7 @@ export class OfflineReconciliationPageComponent {
 
       for (const part of parts) {
         this.downloads.download(new Blob([part.text], { type: 'application/json' }), part.fileName);
+        if (!this.canHandOffBundle(scope)) return;
       }
       this.pendingExport.set({
         exportedAt,
@@ -776,10 +782,22 @@ export class OfflineReconciliationPageComponent {
         clientSaleIds: parts.flatMap((part) => part.clientSaleIds),
       });
     } catch {
-      this.exportErrorKey.set('sales.offlineReconciliation.bundle.exportError');
+      if (this.canHandOffBundle(scope)) {
+        this.exportErrorKey.set('sales.offlineReconciliation.bundle.exportError');
+      }
     } finally {
       this.exporting.set(false);
     }
+  }
+
+  private canHandOffBundle(scope: ShopScope): boolean {
+    return (
+      !this.destroyRef.destroyed &&
+      !this.context.dataRestricted() &&
+      this.context.epoch() === scope.epoch &&
+      this.shopId() === scope.shopId &&
+      this.userId() === scope.userId
+    );
   }
 
   /** The user saw every file saved: from now on the hand-off counts these invoices as carried by the export. */

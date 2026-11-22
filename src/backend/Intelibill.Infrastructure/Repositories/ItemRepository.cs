@@ -12,6 +12,10 @@ internal sealed class ItemRepository(ApplicationDbContext context)
 {
     private readonly ApplicationDbContext _context = context;
 
+    public Task<Item?> LockForEditAsync(Guid shopId, Guid itemId, CancellationToken cancellationToken) =>
+        _context.LockTrackedAsync(DbSet.FromSqlInterpolated(
+            $"SELECT * FROM items WHERE shop_id = {shopId} AND id = {itemId} FOR UPDATE"), itemId, cancellationToken);
+
     public async Task<Item?> GetByBarcodeAsync(Guid shopId, string barcode, CancellationToken cancellationToken = default) =>
         await DbSet.FirstOrDefaultAsync(i => i.ShopId == shopId && i.Barcode == barcode, cancellationToken);
 

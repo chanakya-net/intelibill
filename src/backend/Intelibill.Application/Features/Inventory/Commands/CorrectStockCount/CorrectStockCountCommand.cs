@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+
 namespace Intelibill.Application.Features.Inventory.Commands.CorrectStockCount;
 
 /// <summary>
@@ -10,4 +12,8 @@ public sealed record CorrectStockCountCommand(
     uint ExpectedVersion,
     decimal CountedQuantity,
     string Reason,
-    string? OperationKey);
+    string? OperationKey,
+    SessionClaims? Session = null)
+{
+    public override string ToString() => nameof(CorrectStockCountCommand);
+}

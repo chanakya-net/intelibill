@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -38,6 +39,9 @@ public sealed class RecordSaleCommandHandler
     private readonly ITillPostingService tillPosting;
     private readonly IExpiryPolicyFence expiryFence;
     private readonly SaleExpiryGuard expiryGuard;
+    private readonly IShopLicenceFence licenceFence;
+    private readonly ISuspensionAccessReader suspensionAccess;
+    private readonly ILiveSessionAuthority sessionAuthority;
 
     public RecordSaleCommandHandler(
         ISaleLineValidator saleLineValidator,
@@ -57,7 +61,10 @@ public sealed class RecordSaleCommandHandler
         IPostingPeriodPolicy postingPeriodPolicy,
         ITillPostingService tillPosting,
         IExpiryPolicyFence expiryFence,
-        SaleExpiryGuard expiryGuard)
+        SaleExpiryGuard expiryGuard,
+        IShopLicenceFence licenceFence,
+        ISuspensionAccessReader suspensionAccess,
+        ILiveSessionAuthority sessionAuthority)
     {
         this.saleLineValidator = saleLineValidator;
         this.salePricingCalculator = salePricingCalculator;
@@ -77,44 +84,25 @@ public sealed class RecordSaleCommandHandler
         this.tillPosting = tillPosting;
         this.expiryFence = expiryFence;
         this.expiryGuard = expiryGuard;
+        this.licenceFence = licenceFence;
+        this.suspensionAccess = suspensionAccess;
+        this.sessionAuthority = sessionAuthority;
     }
 
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<ErrorOr<SaleDto>> HandleAsync(RecordSaleCommand command, CancellationToken cancellationToken)
     {
         // A saved outcome is recoverable after close/disablement, but never after losing shop authority.
-        if (await shopRepository.GetActiveRoleAsync(command.ActorUserId, command.ShopId, cancellationToken) is null)
-            return Errors.Till.Forbidden;
+        if (command.ShopId == Guid.Empty || !await sessionAuthority.IsValidAsync(command.Session, cancellationToken))
+            return Errors.Auth.SessionInvalidated;
         var warnings = new List<string>();
         var normalizedIdempotencyKey = command.IdempotencyKey.Trim();
         var requestHash = RecordSaleIdempotencyHasher.ComputeHash(command);
 
-        var existingSale = await saleRepository.GetByIdempotencyKeyAsync(command.ShopId, command.ActorUserId, normalizedIdempotencyKey, cancellationToken);
-        if (existingSale is not null)
-        {
-            if (!string.Equals(existingSale.RequestHash, requestHash, StringComparison.Ordinal))
-                return Errors.Sale.IdempotencyConflict;
-
-            var existingRedemptions = await LoadCreditNoteRedemptionsAsync(existingSale.ShopId, existingSale.Id, cancellationToken);
-            if (existingRedemptions.IsError)
-                return existingRedemptions.Errors;
-
-            return await saleDtoBuilder.BuildSaleDtoAsync(existingSale, existingSale.Warnings, existingRedemptions.Value, cancellationToken);
-        }
-
-        // Refused before a number is taken: an undeclared or unsupported profile issues nothing.
-        var shop = await shopRepository.GetByIdAsync(command.ShopId, cancellationToken);
-        if (shop is null)
-            return Errors.Shop.ShopNotFound;
-
-        var sellerProfileOrError = InvoiceDocumentBuilder.CaptureSellerProfile(shop);
-        if (sellerProfileOrError.IsError)
-            return sellerProfileOrError.Errors;
-
-        var sellerProfile = sellerProfileOrError.Value;
-        var soldAt = businessClock.UtcNow;
-        var businessDay = businessClock.GetBusinessDay(soldAt, shop.BusinessTimeZoneId);
-        var fiscalYear = FiscalYear.ForBusinessDate(businessDay.Date);
-        var series = new InvoiceSeriesKey(shop.Id, shop.SellerRegistrationKey, sellerProfile.SeriesCode, fiscalYear);
+        var existing = await TryGetReplayForIdempotentSaleAsync(
+            command, normalizedIdempotencyKey, requestHash, cancellationToken);
+        if (existing.HasValue)
+            return existing.Value;
 
         var transactionStarted = false;
         var transactionCommitted = false;
@@ -126,9 +114,36 @@ public sealed class RecordSaleCommandHandler
             // the sale commits, and any refusal below rolls the counter back with everything else.
             await unitOfWork.BeginTransactionAsync(cancellationToken);
             transactionStarted = true;
+            await saleRepository.LockIdempotencyKeyAsync(command.ShopId, command.ActorUserId, normalizedIdempotencyKey, cancellationToken);
+            // The prior attempt may have held this key while this device lost its authority.
+            if (!await sessionAuthority.IsValidAsync(command.Session, cancellationToken))
+                return Errors.Auth.SessionInvalidated;
 
-            // First statement of the posting: a closed month refuses the sale before the credit lock is
-            // taken or an invoice number is drawn, and the shared lock it takes holds until commit.
+            var committed = await TryGetReplayForIdempotentSaleAsync(
+                command, normalizedIdempotencyKey, requestHash, cancellationToken);
+            if (committed.HasValue)
+                return committed.Value;
+
+            // Refused before a number is taken: an undeclared or unsupported profile issues nothing.
+            var shop = await shopRepository.GetByIdAsync(command.ShopId, cancellationToken);
+            if (shop is null)
+                return Errors.Shop.ShopNotFound;
+
+            var sellerProfileOrError = InvoiceDocumentBuilder.CaptureSellerProfile(shop);
+            if (sellerProfileOrError.IsError)
+                return sellerProfileOrError.Errors;
+
+            var sellerProfile = sellerProfileOrError.Value;
+            var soldAt = businessClock.UtcNow;
+            var businessDay = businessClock.GetBusinessDay(soldAt, shop.BusinessTimeZoneId);
+            var fiscalYear = FiscalYear.ForBusinessDate(businessDay.Date);
+            var series = new InvoiceSeriesKey(shop.Id, shop.SellerRegistrationKey, sellerProfile.SeriesCode, fiscalYear);
+
+            if (await licenceFence.ReadTradingDenialAsync(command.ShopId, cancellationToken) is { } denied)
+                return denied;
+
+            // A closed month refuses posting before a credit lock or invoice number is taken.
+            // The period's shared lock is held until commit.
             var periodOrError = await postingPeriodPolicy.AuthorizeForWriteAsync(command.ShopId, businessDay.Date, cancellationToken);
             if (periodOrError.IsError)
                 return periodOrError.Errors;
@@ -308,8 +323,7 @@ public sealed class RecordSaleCommandHandler
             if (creditNoteRedemptionsOrError.IsError)
             {
                 var replayResult = await TryGetReplayForIdempotentSaleAsync(
-                    command.ShopId,
-                    command.ActorUserId,
+                    command,
                     normalizedIdempotencyKey,
                     requestHash,
                     cancellationToken);
@@ -386,8 +400,7 @@ public sealed class RecordSaleCommandHandler
             }
 
             var replayResult = await TryGetReplayForIdempotentSaleAsync(
-                command.ShopId,
-                command.ActorUserId,
+                command,
                 normalizedIdempotencyKey,
                 requestHash,
                 cancellationToken);
@@ -430,8 +443,7 @@ public sealed class RecordSaleCommandHandler
 
         var normalizedKey = command.IdempotencyKey.Trim();
         var replay = await TryGetReplayForIdempotentSaleAsync(
-            command.ShopId,
-            command.ActorUserId,
+            command,
             normalizedKey,
             RecordSaleIdempotencyHasher.ComputeHash(command),
             cancellationToken);
@@ -521,15 +533,20 @@ public sealed class RecordSaleCommandHandler
     }
 
     private async Task<ErrorOr<SaleDto>?> TryGetReplayForIdempotentSaleAsync(
-        Guid shopId,
-        Guid actorUserId,
+        RecordSaleCommand command,
         string idempotencyKey,
         string requestHash,
         CancellationToken cancellationToken)
     {
-        var concurrentSale = await saleRepository.GetByIdempotencyKeyAsync(shopId, actorUserId, idempotencyKey, cancellationToken);
+        var concurrentSale = await saleRepository.GetByIdempotencyKeyAsync(command.ShopId, command.ActorUserId, idempotencyKey, cancellationToken);
         if (concurrentSale is null)
             return null;
+
+        if (!await sessionAuthority.IsValidAsync(command.Session, cancellationToken))
+            return Errors.Auth.SessionInvalidated;
+
+        if (await suspensionAccess.ReadActiveShopDenialAsync(command.ShopId, LicenceAction.Recovery, cancellationToken) is { } denied)
+            return denied;
 
         if (!string.Equals(concurrentSale.RequestHash, requestHash, StringComparison.Ordinal))
             return Errors.Sale.IdempotencyConflict;

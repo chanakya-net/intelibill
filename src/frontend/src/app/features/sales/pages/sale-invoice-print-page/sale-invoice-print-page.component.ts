@@ -1,3 +1,4 @@
+import { injectScopedPrint } from '../../../../core/context/scoped-print';
 import {
   ApiErrorMessageService,
   type LocalizedError,
@@ -50,6 +51,7 @@ const DELIVERY_STATUS_KEYS: Readonly<Record<OfflineSaleQueueStatus, string>> = {
   styleUrl: './sale-invoice-print-page.component.scss',
 })
 export class SaleInvoicePrintPageComponent {
+  private readonly print = injectScopedPrint();
   private readonly route = inject(ActivatedRoute);
   private readonly saleService = inject(SaleService);
   private readonly shopService = inject(ShopService);
@@ -76,7 +78,7 @@ export class SaleInvoicePrintPageComponent {
   }
 
   onPrintAgain(): void {
-    window.print();
+    this.print();
   }
 
   onClose(): void {
@@ -170,7 +172,7 @@ export class SaleInvoicePrintPageComponent {
   private async printWhenFontsReady(): Promise<void> {
     const fonts = (document as { fonts?: { ready?: Promise<unknown> } }).fonts;
     await fonts?.ready;
-    window.print();
+    this.print();
   }
 
   private resolveTemplate(): InvoiceTemplate {

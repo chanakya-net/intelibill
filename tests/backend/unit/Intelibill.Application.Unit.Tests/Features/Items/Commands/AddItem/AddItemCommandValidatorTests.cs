@@ -11,8 +11,7 @@ public class AddItemCommandValidatorTests
     public void Validate_WhenBarcodeIsQrLikeString_ReturnsNoErrors()
     {
         var command = new AddItemCommand(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
+            new(Guid.NewGuid(), Guid.NewGuid(), 0, 0, Guid.NewGuid(), "Owner"),
             Name: "Rice",
             Barcode: CreateQrLikeBarcode(),
             Description: "Premium quality rice",
@@ -30,8 +29,7 @@ public class AddItemCommandValidatorTests
     public void Validate_WhenBarcodeIsEmpty_ReturnsError()
     {
         var command = new AddItemCommand(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
+            new(Guid.NewGuid(), Guid.NewGuid(), 0, 0, Guid.NewGuid(), "Owner"),
             Name: "Rice",
             Barcode: "",
             Description: null,
@@ -107,8 +105,7 @@ public class AddItemCommandValidatorTests
 
     private static AddItemCommand CreateValidCommand() =>
         new(
-            Guid.NewGuid(),
-            Guid.NewGuid(),
+            new(Guid.NewGuid(), Guid.NewGuid(), 0, 0, Guid.NewGuid(), "Owner"),
             Name: "Rice",
             Barcode: "123",
             Description: null,

@@ -1,5 +1,7 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Features.Expiry;
 using ErrorOr;
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Operations;
 using Intelibill.Application.Common.Posting;
@@ -20,14 +22,15 @@ namespace Intelibill.Infrastructure.Services.StockIntake;
 /// </summary>
 /// <remarks>
 /// <para>
-/// An unkeyed (legacy) row commits with its single <c>SaveChanges</c>; any exception there
-/// propagates as it always did, because a failed commit cannot prove that nothing was saved.
+/// An unkeyed row commits in its own posting transaction after the last authority check.
+/// Unplanned failures propagate because a failed commit cannot prove that nothing was saved.
 /// </para>
 /// <para>
 /// The scope resolves the request's session context through <c>IHttpContextAccessor</c> like any
 /// other scope in the request, so every row's connection carries the same RLS identity.
 /// </para>
 /// </remarks>
+[LicenceAction(LicenceAction.NewTrading)]
 internal sealed partial class InboundRowExecutor(
     IServiceScopeFactory scopeFactory,
     ILogger<InboundRowExecutor> logger) : IInboundRowExecutor
@@ -37,13 +40,18 @@ internal sealed partial class InboundRowExecutor(
         Guid actorUserId,
         InboundRowOperation? operation,
         InboundInventoryLineInput row,
+        SessionClaims? session,
         CancellationToken cancellationToken)
     {
         await using var scope = scopeFactory.CreateAsyncScope();
         var services = scope.ServiceProvider;
         var processor = services.GetRequiredService<IInboundInventoryLineProcessor>();
         var unitOfWork = services.GetRequiredService<IUnitOfWork>();
+        var access = services.GetRequiredService<StockIntakeAccess>();
+        if (await access.CheckAuthorityAsync(actorUserId, shopId, session, cancellationToken) is { } denied)
+            return denied;
 
+        ShopLicenceLease lease = default;
         if (operation is null)
             return await PostingTransaction.RunAsync(unitOfWork, ReceiveAsync, cancellationToken);
 
@@ -53,7 +61,11 @@ internal sealed partial class InboundRowExecutor(
         // resends the same keys instead of trusting a "nothing saved" it cannot rely on.
         var executor = services.GetRequiredService<IFinancialOperationExecutor>();
         return await executor.ExecuteAsync(
-            new FinancialOperationScope(shopId, FinancialOperationType.BulkIntakeRow, operation.Key),
+            new FinancialOperationScope(shopId, FinancialOperationType.BulkIntakeRow, operation.Key)
+            {
+                RecheckReplayAuthority = ct => access.CheckAuthorityAsync(actorUserId, shopId, session, ct),
+                RecheckBeforeCommit = CheckWriteAsync,
+            },
             actorUserId,
             shopId,
             operation.RequestHash,
@@ -75,8 +87,16 @@ internal sealed partial class InboundRowExecutor(
             }
         }
 
+        Task<Error?> CheckWriteAsync(CancellationToken ct) =>
+            access.CheckWriteAsync(actorUserId, shopId, session, lease, ct);
+
         async Task<ErrorOr<AddInventoryResultDto>> ReceiveAsync(CancellationToken ct)
         {
+            var admission = await access.EnterAsync(actorUserId, shopId, session, ct);
+            if (admission.IsError)
+                return admission.Errors;
+            lease = admission.Value;
+
             // The row's own transaction (the executor's, or the plain one for an unkeyed row) carries
             // the fence, so each row is authorized against its own business date, not once per manifest.
             var shop = await services.GetRequiredService<IShopRepository>().GetByIdAsync(shopId, ct);
@@ -92,6 +112,8 @@ internal sealed partial class InboundRowExecutor(
 
             var expiryLock = await services.GetRequiredService<IExpiryPolicyFence>().AcquireAsync(shopId, false, ct);
             if (expiryLock.IsError) return expiryLock.Errors;
+            if (lease.CurrentDecision().EnforcedDenial() is { } denied)
+                return denied;
             var result = await processor.ProcessAsync(
                 shopId,
                 row,
@@ -103,7 +125,13 @@ internal sealed partial class InboundRowExecutor(
             if (result.IsError)
                 return result.Errors;
 
+            if (await CheckWriteAsync(ct) is { } beforeSave)
+                return beforeSave;
+
             await unitOfWork.SaveChangesAsync(ct);
+            if (await CheckWriteAsync(ct) is { } beforeCommit)
+                return beforeCommit;
+
             return result.Value.ToResultDto();
         }
     }

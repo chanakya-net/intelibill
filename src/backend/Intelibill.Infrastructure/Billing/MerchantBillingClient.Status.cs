@@ -1,6 +1,8 @@
 using ErrorOr;
 using Intelibill.Application.Features.Billing;
 using Intelibill.Domain.Enums;
+using Intelibill.Domain.Policies;
+using Intelibill.Infrastructure.Licensing;
 using Intelibill.Shared.Contracts.V1;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,9 +25,31 @@ internal sealed partial class MerchantBillingClient
                     return status is not null && SubscriptionStatusContract.IsValidShop(status, shop)
                         ? status : Unavailable("InvalidStatusContract");
                 }, ct);
-            if (!result.IsError && !await IsLiveShopMemberAsync(caller, shop, ct))
+            if (result.IsError) return result;
+            var heads = await SuspensionAccessReader.ReadHeadsAsync(db, shop, ct);
+            if (!await IsLiveShopMemberAsync(caller, shop, ct))
                 return MerchantSubscriptionStatusErrors.ShopScope;
-            return result;
+            var local = heads?.Shop;
+            var activated = local?.EnforcementActivatedAt is not null;
+            var fullReopening = result.Value.ClosedAt is null;
+            var required = result.Value.ReopeningRequiredRevision;
+            bool? received = required.HasValue ? local is not null && local.ClosureRevision == required &&
+                (local.State != ShopClosuresV1.Closed) == fullReopening : null;
+            var statusWithReopening = result.Value with
+            {
+                ReopeningReceived = received,
+                ReopeningEnforced = activated && fullReopening ? received : null,
+                ReopenedVersion = received == true && fullReopening ? required : null,
+                ReopeningRequiredRevision = null,
+            };
+            return heads is not null && activated
+                ? statusWithReopening with
+                {
+                    ObserveOnly = false,
+                    ClosureEnforced = result.Value.ClosedAt is null ? null : heads.Shop.State == ShopClosuresV1.Closed,
+                    EnforcedSuspensionMode = LicenseProjectionPolicy.EffectiveSuspension(heads.Shop, heads.Account, clock.GetUtcNow()),
+                }
+                : statusWithReopening;
         }
         catch (Exception error) when (error is Npgsql.NpgsqlException or TimeoutException)
         {

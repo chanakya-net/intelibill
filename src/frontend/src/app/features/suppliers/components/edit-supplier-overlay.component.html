@@ -24,6 +24,7 @@
     </header>
 
     <form class="ib-overlay__form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      <app-definition-access-notice class="contents" />
       <label>
         <span>{{ 'suppliers.name' | transloco }}</span>
         <input pInputText type="text" formControlName="name" />
@@ -74,7 +75,7 @@
       </label>
 
       @if (serverError()) {
-        <p class="ib-overlay__error">{{ serverError() | transloco }}</p>
+        <p class="ib-overlay__error" role="alert">{{ serverError() | transloco }}</p>
       }
 
       <div class="ib-overlay__actions">
@@ -90,7 +91,7 @@
           pButton
           type="submit"
           [label]="'suppliers.editSupplier' | transloco"
-          [disabled]="isSubmitting()"
+          [disabled]="isSubmitting() || activationBlocked()"
         ></button>
       </div>
     </form>

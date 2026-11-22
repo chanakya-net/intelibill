@@ -27,7 +27,6 @@ export class MakePaymentOverlayComponent implements OnInit {
   @Input({ required: true }) supplier!: Supplier;
   @Output() readonly closeRequested = new EventEmitter<void>();
 
-  readonly today = new Date();
   readonly pendingNotice = signal<string | null>(null);
   readonly isCheckingPayment = signal(false);
   private readonly scope = computed(() => ({

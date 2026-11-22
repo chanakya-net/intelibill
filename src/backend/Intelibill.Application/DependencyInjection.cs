@@ -33,16 +33,21 @@ public static class DependencyInjection
         services.AddScoped<Features.Expiry.IOfflineExpiryAuthority, Features.Expiry.OfflineExpiryAuthority>();
         services.AddScoped<Features.Sales.Commands.SyncOfflineSales.OfflineTillReconciliationEligibility>();
         services.AddScoped<Features.Expiry.BatchExpiryRevisionService>();
+        services.AddScoped<Features.Inventory.Services.StockIntakeAccess>();
+        services.AddScoped<Features.PurchaseOrders.Services.PurchaseOrderTrading>();
+        services.AddScoped<Features.PurchaseOrders.Services.PurchaseOrderHistory>();
         services.AddScoped<IAuthSessionService, AuthSessionService>();
         services.AddScoped<Features.Tills.ITillPostingService, Features.Tills.Services.TillPostingService>();
         services.AddScoped<Features.Tills.Services.TillDtoBuilder>();
         services.AddScoped<Features.Shops.TillSettings.ShopTillSettingsService>();
         services.AddScoped<Features.Shops.Setup.ShopSetupService>();
+        services.AddScoped<Features.Shops.Setup.ShopSetupAccess>();
         services.AddScoped<Features.Shops.Setup.ShopSetupSampleBuilder>();
         services.AddScoped<Features.Tills.Services.TillLifecycleService>();
         services.AddScoped<Features.Tills.Services.TillSourceSettlementService>();
         services.AddScoped<Features.Tills.Services.TillReadService>();
 
+        services.AddScoped<Common.Licensing.DefinitionCreationTransaction>();
         services.AddScoped<IItemCatalogStreamingService, ItemCatalogStreamingService>();
         services.AddScoped<IOfflineSalesSnapshotStreamingService, OfflineSalesSnapshotStreamingService>();
 
@@ -77,8 +82,10 @@ public static class DependencyInjection
         services.AddScoped<IPaymentAllocationPlanner, PaymentAllocationPlanner>();
         services.AddScoped<IPaymentTransactionRunner, PaymentTransactionRunner>();
         services.AddScoped<PaymentReceiptDtoBuilder>();
+        services.AddScoped<PaymentCompletionPolicy>();
 
         services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationPolicy>();
+        services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationCompletionPolicy>();
         services.AddScoped<Features.Sales.Services.Cancellations.SaleCancellationService>();
         services.AddScoped<SaleDtoBuilder>();
         services.AddScoped<RecordSaleCommandHandler>();

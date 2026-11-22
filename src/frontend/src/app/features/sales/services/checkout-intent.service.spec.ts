@@ -219,12 +219,30 @@ describe('CheckoutIntentService', () => {
 });
 
 describe('classifyCheckoutSendFailure', () => {
-  it.each([0, 408, 429, 500, 502, 503, 504])('treats HTTP %s as uncertain', (status) => {
+  it.each([0, 401, 403, 408, 429, 500, 502, 503, 504])('treats bare HTTP %s as uncertain', (status) => {
     expect(classifyCheckoutSendFailure(new HttpErrorResponse({ status }))).toBe('uncertain');
   });
 
-  it.each([400, 401, 403, 404, 409, 422])('treats HTTP %s as a definitive rejection', (status) => {
+  it.each([400, 404, 409, 422])('treats HTTP %s as a definitive rejection', (status) => {
     expect(classifyCheckoutSendFailure(new HttpErrorResponse({ status }))).toBe('rejected');
+  });
+
+  it('settles a verification denial with the server code ahead of the title', () => {
+    const error = new HttpErrorResponse({
+      status: 503,
+      error: { code: 'Licence.VerificationUnavailable', title: 'Trading access could not be verified.' },
+    });
+    expect(classifyCheckoutSendFailure(error)).toBe('rejected');
+  });
+
+  it.each(['Licence.SecuritySuspended', 'Till.Forbidden'])('preserves the intent when %s blocks recovery', (code) => {
+    const error = new HttpErrorResponse({ status: 403, error: { code } });
+    expect(classifyCheckoutSendFailure(error)).toBe('uncertain');
+  });
+
+  it.each(['Licence.Expired', 'Till.CashierMismatch'])('settles post-lookup refusal %s', (code) => {
+    const error = new HttpErrorResponse({ status: 403, error: { code } });
+    expect(classifyCheckoutSendFailure(error)).toBe('rejected');
   });
 
   it('treats a non-HTTP failure as uncertain', () => {

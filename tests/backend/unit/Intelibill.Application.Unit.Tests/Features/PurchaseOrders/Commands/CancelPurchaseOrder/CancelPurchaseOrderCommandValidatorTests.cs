@@ -14,7 +14,8 @@ public class CancelPurchaseOrderCommandValidatorTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),
-            "   ");
+            "   ",
+            Session: null);
 
         var result = _validator.TestValidate(command);
 
@@ -28,7 +29,8 @@ public class CancelPurchaseOrderCommandValidatorTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),
-            new string('A', 501));
+            new string('A', 501),
+            Session: null);
 
         var result = _validator.TestValidate(command);
 
@@ -42,7 +44,8 @@ public class CancelPurchaseOrderCommandValidatorTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),
-            new string('A', 500));
+            new string('A', 500),
+            Session: null);
 
         var result = _validator.TestValidate(command);
 

@@ -1,4 +1,5 @@
 using ErrorOr;
+using Intelibill.Licensing.Infrastructure.Restrictions;
 using Intelibill.Licensing.Application.Billing;
 using Intelibill.Licensing.Application.Coverage;
 using Intelibill.Shared.Contracts.V1;
@@ -58,7 +59,7 @@ internal sealed partial class ShopAffiliationStore
                 : ShopAffiliationPolicy.Conflict;
 
         var now = Now;
-        var eligible = authorized && (decision.TermId is not { } term || await CanAssignAsync(decision.AccountId, term, now, ct));
+        var eligible = authorized && !await ClosureStore.AccountClosedAsync(db, decision.AccountId, ct) && (decision.TermId is not { } term || await CanAssignAsync(decision.AccountId, term, now, ct));
         var applied = eligible && await InsertAffiliationAsync(decision, now, ct);
         var status = applied ? "Applied" : "NeedsReview";
         var inserted = await db.Database.ExecuteSqlInterpolatedAsync($"""

@@ -34,6 +34,18 @@
     { "accountRevision": 9, "restriction": "Security", "shopRevision": 5, "resultAccountRevision": 9, "resultShopRevision": 6 },
     { "accountRevision": 10, "restriction": "Unrestricted", "releasedRevision": 9, "shopRevision": 5, "resultAccountRevision": 10, "resultShopRevision": 6 }
   ],
+  "releaseProof": {
+    "releasedShop": { "revision": 6, "releasedRevision": 5 },
+    "replacementAccount": { "revision": 10, "previousReleaseRevision": 8 },
+    "invalidCutoffs": [0, -1, 10, 11]
+  },
+  "reopenProof": {
+    "legacyPayloadSha256": "6aa2995a0fcec45f93be4cfeb9644e489eaa9ec44579519dd13a830369ac148f",
+    "revision": 6,
+    "reopenedRevision": 5,
+    "closureRevision": 6,
+    "invalidCutoffs": [0, -1, 6, 7]
+  },
   "acknowledgementFields": [
     "schemaVersion", "eventId", "digest", "accountId", "shopId", "affiliationRequestId",
     "accountRevision", "shopRevision", "appliedAccountRevision", "appliedShopRevision", "outcome", "disposition", "appliedAt"

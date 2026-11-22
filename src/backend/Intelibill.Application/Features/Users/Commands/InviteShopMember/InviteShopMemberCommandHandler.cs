@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
@@ -22,6 +23,7 @@ public sealed class InviteShopMemberCommandHandler(
     /// </summary>
     private const int InvitationsPerShopPerHour = 20;
 
+    [LicenceAction(LicenceAction.OperationalCapacity)]
     public async Task<ErrorOr<ShopInvitationDto>> HandleAsync(
         InviteShopMemberCommand command,
         CancellationToken cancellationToken)

@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.PurchaseOrders.Commands.CancelPurchaseOrder;
@@ -27,6 +29,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
     }
 
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetPurchaseOrders(
         [FromQuery] string? search = null,
         [FromQuery] PurchaseOrderStatus? status = null,
@@ -48,13 +51,15 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
                 orderDateFrom,
                 orderDateTo,
                 page,
-                pageSize),
+                pageSize,
+                SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
     }
 
     [HttpGet("{purchaseOrderId:guid}")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetPurchaseOrderDetail(
         Guid purchaseOrderId,
         CancellationToken cancellationToken = default)
@@ -63,13 +68,14 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
-            new GetPurchaseOrderDetailQuery(UserId!.Value, ActiveShopId!.Value, purchaseOrderId),
+            new GetPurchaseOrderDetailQuery(UserId!.Value, ActiveShopId!.Value, purchaseOrderId, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
     }
 
     [HttpPost]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> CreatePurchaseOrderDraft(
         [FromBody] CreatePurchaseOrderDraftRequest request,
         CancellationToken cancellationToken = default)
@@ -89,7 +95,8 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
                 request.SupplierName,
                 request.SupplierReference,
                 request.Lines.Select(l => new CreatePurchaseOrderLineInput(
-                    l.ItemId, l.Description, l.ExpectedQuantity, l.UnitCost)).ToList()),
+                    l.ItemId, l.Description, l.ExpectedQuantity, l.UnitCost)).ToList(),
+                SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(po => CreatedAtAction(
@@ -99,6 +106,7 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
     }
 
     [HttpPut("{purchaseOrderId:guid}")]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> UpdatePurchaseOrderDraft(
         Guid purchaseOrderId,
         [FromBody] UpdatePurchaseOrderDraftRequest request,
@@ -118,13 +126,15 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
                 request.SupplierReferenceNumber,
                 request.Notes,
                 request.Lines.Select(l => new UpdatePurchaseOrderLineInput(
-                    l.ItemId, l.Description, l.ExpectedQuantity, l.UnitCost)).ToList()),
+                    l.ItemId, l.Description, l.ExpectedQuantity, l.UnitCost)).ToList(),
+                SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
     }
 
     [HttpPost("{purchaseOrderId:guid}/place")]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> PlacePurchaseOrder(
         Guid purchaseOrderId,
         CancellationToken cancellationToken = default)
@@ -133,13 +143,14 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
-            new PlacePurchaseOrderCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId),
+            new PlacePurchaseOrderCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
     }
 
     [HttpDelete("{purchaseOrderId:guid}")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> DeletePurchaseOrderDraft(
         Guid purchaseOrderId,
         CancellationToken cancellationToken = default)
@@ -148,13 +159,14 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<Deleted>>(
-            new DeletePurchaseOrderDraftCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId),
+            new DeletePurchaseOrderDraftCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(_ => NoContent());
     }
 
     [HttpPost("{purchaseOrderId:guid}/cancel")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> CancelPurchaseOrder(
         Guid purchaseOrderId,
         [FromBody] CancelPurchaseOrderRequest request,
@@ -164,13 +176,14 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
-            new CancelPurchaseOrderCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId, request.Reason),
+            new CancelPurchaseOrderCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId, request.Reason, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
     }
 
     [HttpPost("{purchaseOrderId:guid}/close")]
+    [LicenceAction(LicenceAction.SourceCorrection)]
     public async Task<IActionResult> ClosePurchaseOrder(
         Guid purchaseOrderId,
         [FromBody] ClosePurchaseOrderRequest request,
@@ -180,13 +193,15 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr<PurchaseOrderDetailDto>>(
-            new ClosePurchaseOrderCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId, request.Reason),
+            new ClosePurchaseOrderCommand(UserId!.Value, ActiveShopId!.Value, purchaseOrderId, request.Reason, SessionClaims.TryRead(User)),
             cancellationToken);
 
         return result.ToActionResult(Ok);
     }
 
     [HttpPost("{purchaseOrderId:guid}/receipts")]
+    [SuspensionAtSource(CheckRecovery = true)]
+    [LicenceAction(LicenceAction.NewTrading)]
     public async Task<IActionResult> ReceivePurchaseOrder(
         Guid purchaseOrderId,
         [FromBody] ReceivePurchaseOrderRequest? request,
@@ -219,7 +234,8 @@ public sealed class PurchaseOrdersController : AuthenticatedControllerBase
                     l.ExpiryDate,
                     l.ManufacturingDate,
                     l.ClientLineId)).ToList(),
-                request?.OperationId),
+                request?.OperationId,
+                SessionClaims.TryRead(User)),
             cancellationToken);
 
         if (!result.IsError) return Ok(result.Value);

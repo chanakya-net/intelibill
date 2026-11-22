@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Application.Common.Posting;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
@@ -251,12 +253,16 @@ public sealed class CorrectStockCountCommandHandlerTests
         Assert.False(result.IsError);
     }
 
-    private void UseRole(ShopRole role) =>
+    private void UseRole(ShopRole role)
+    {
         _actor.AddShopMembership(ShopMembership.Create(_shop.Id, _actor.Id, role, true));
+        _shops.GetActiveRoleAsync(_actor.Id, _shop.Id, Arg.Any<CancellationToken>()).Returns((ShopRole?)role);
+    }
 
     private CorrectStockCountCommand Command(decimal counted, uint? expectedVersion = null) =>
         new(_batch.Id, _actor.Id, _shop.Id, expectedVersion ?? _batch.Version, counted, "Shelf count", null);
 
+    private readonly IShopRepository _shops = BusinessTestDoubles.AnyShop();
     private readonly IPostingPeriodPolicy _postingPeriods = Substitute.For<IPostingPeriodPolicy>();
     private CorrectStockCountCommandHandler CreateHandler() =>
         new(
@@ -270,9 +276,11 @@ public sealed class CorrectStockCountCommandHandlerTests
             _unitOfWork,
             _operationExecutor,
             _itemRepository,
-            BusinessTestDoubles.AnyShop(),
+            _shops,
             _postingPeriods,
-            BusinessTestDoubles.RealClock());
+            BusinessTestDoubles.RealClock(),
+            Substitute.For<IShopLicenceFence>(),
+            Substitute.For<ILiveSessionAuthority>());
 
     [Fact]
     public async Task ClosedPeriod_RefusesCount_UnkeyedAndKeyed_WithoutWriting()

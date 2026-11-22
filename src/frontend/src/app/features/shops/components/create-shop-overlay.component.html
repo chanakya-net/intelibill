@@ -29,13 +29,25 @@
         [label]="'identity.manageIdentity' | transloco"
         (click)="accountSecurityRequested.emit()"
       ></button>
-      @if (firstShop) {
+      @if (firstShop || sourceAccess()?.enforced) {
         <button pButton type="button" severity="secondary" [disabled]="isSubmitting()"
           [label]="'billing.title' | transloco" (click)="billingRequested.emit()"></button>
       }
+      @if (licenceStatusKey(); as key) {
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <p role="status">{{ key | transloco }}</p>
+          <button pButton type="button" [text]="true" [disabled]="isSubmitting() || checkingAccess()"
+            [label]="'billing.status.refresh' | transloco" (click)="refreshAccess()"></button>
+        </div>
+      }
+      @if (serverError()) {
+        <p class="server-error" role="alert">{{ serverError() | transloco }}</p>
+      }
+
     </header>
 
-    <form [formGroup]="shopForm" (ngSubmit)="submit()" class="overlay-form space-y-4">
+    <form [formGroup]="shopForm" (ngSubmit)="submit()" class="overlay-form space-y-4"
+      [attr.inert]="canCreate() ? null : ''">
       <div class="field-wrap space-y-1.5">
         <label for="shop-name">{{ 'shops.shopName' | transloco }}</label>
         <input
@@ -283,17 +295,13 @@
         </div>
       </fieldset>
 
-      @if (serverError()) {
-        <p class="server-error" role="alert">{{ serverError() | transloco }}</p>
-      }
-
       <div class="overlay-actions flex pt-4 justify-end">
         <button
           pButton
           type="submit"
           [label]="isSubmitting() ? ('shops.creatingShop' | transloco) : ('shops.createShop' | transloco)"
           [loading]="isSubmitting()"
-          [disabled]="shopForm.invalid || isSubmitting()"
+          [disabled]="shopForm.invalid || isSubmitting() || !canCreate()"
           icon="pi pi-arrow-right"
           iconPos="right"
           class="create-button"

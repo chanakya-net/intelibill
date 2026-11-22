@@ -10,16 +10,25 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Intelibill.Infrastructure.Licensing;
 
-public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProvider clock)
+public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProvider clock, ShopLicenceFence fence)
 {
     private static Error Replayed => Error.Unauthorized("Entitlement.Replayed");
     private static Error Conflict => Error.Conflict("Entitlement.EventMismatch");
     public async Task<ErrorOr<byte[]>> ApplyAsync(EntitlementSnapshotV1 snapshot, byte[] body,
         VerifiedServiceAssertion proof, CancellationToken ct)
     {
+        var receipt = await ApplyWithChangeAsync(snapshot, body, proof, ct);
+        return receipt.IsError ? receipt.Errors : receipt.Value.Acknowledgement;
+    }
+
+    public async Task<ErrorOr<EntitlementProjectionReceipt>> ApplyWithChangeAsync(EntitlementSnapshotV1 snapshot, byte[] body,
+        VerifiedServiceAssertion proof, CancellationToken ct)
+    {
         var received = EntitlementSnapshotsV1.Instant(clock);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        await EnterAsync(snapshot.AccountId, snapshot.ShopId, ct);
+        var entered = await EnterAsync(snapshot.AccountId, snapshot.ShopId, ct);
+        if (entered.IsError)
+            return entered.Errors;
         if (!await ConsumeAsync(proof, ct))
             return Replayed;
 
@@ -30,7 +39,7 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         return result;
     }
 
-    private async Task<ErrorOr<byte[]>> ApplyOnceAsync(EntitlementSnapshotV1 snapshot, byte[] body,
+    private async Task<ErrorOr<EntitlementProjectionReceipt>> ApplyOnceAsync(EntitlementSnapshotV1 snapshot, byte[] body,
         VerifiedServiceAssertion proof, DateTimeOffset received, CancellationToken ct)
     {
         var prior = await db.Database.SqlQuery<InboxRow>($"""
@@ -38,12 +47,16 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
             WHERE event_id = {snapshot.EventId}
             """).SingleOrDefaultAsync(ct);
         if (prior is not null)
-            return prior.Digest == proof.Digest ? prior.Acknowledgement : Conflict;
+            return prior.Digest == proof.Digest ? new EntitlementProjectionReceipt(prior.Acknowledgement, false) : Conflict;
 
         var account = await db.Set<AccountLicenseRestriction>().SingleOrDefaultAsync(row => row.AccountId == snapshot.AccountId, ct);
         var shop = await db.Set<ShopLicenseState>().SingleOrDefaultAsync(row => row.ShopId == snapshot.ShopId, ct);
         var bound = await HasBindingAsync(snapshot, shop, ct);
-        var reason = bound ? EntitlementConsumer.ReviewReason(snapshot, account, shop) : "AffiliationUnresolved";
+        // Only a backward stamp needs the preceding head's immutable signing time.
+        var regresses = snapshot.Account?.UpstreamVerifiedAt < account?.UpstreamVerifiedAt ||
+            snapshot.Shop?.UpstreamVerifiedAt < shop?.UpstreamVerifiedAt;
+        var priorProofs = bound && regresses ? await fence.ReadProofIssuanceAsync(snapshot.ShopId, ct) : null;
+        var reason = bound ? EntitlementConsumer.ReviewReason(snapshot, account, shop, priorProofs, proof.IssuedAt) : "AffiliationUnresolved";
         var appliedAt = EntitlementSnapshotsV1.Instant(clock);
         var nextAccount = reason is null && (account is null || snapshot.Account!.Revision > account.Revision);
         var nextShop = reason is null && (shop is null || snapshot.Shop!.Revision > shop.Revision);
@@ -62,22 +75,18 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
         await db.SaveChangesAsync(ct);
         await new LeasedHttpOutbox(db).AppendAsync(snapshot.EventId, snapshot.AccountId, snapshot.ShopId,
             "Acknowledgement", receipt, SignedServiceAssertion.Digest(receipt), appliedAt, ct);
-        return receipt;
+        return new EntitlementProjectionReceipt(receipt, nextAccount || nextShop);
     }
 
-    internal async Task EnterAsync(Guid account, Guid shop, CancellationToken ct)
+    internal async Task<ErrorOr<Success>> EnterAsync(Guid account, Guid shop, CancellationToken ct)
     {
-        await db.Database.ExecuteSqlRawAsync("SET LOCAL lock_timeout = '3s'", ct);
+        // These delivery transactions also bound their later inbox, evidence and outbox writes.
+        await db.Database.ExecuteSqlAsync($"SELECT set_config('lock_timeout', {ShopLicenceFence.LockTimeout}, true)", ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             SELECT set_config('app.active_shop_id', {shop.ToString("D")}, true),
                 set_config('app.entitlement_account_id', {account.ToString("D")}, true)
             """, ct);
-        await db.Database.ExecuteSqlInterpolatedAsync($"""
-            SELECT pg_advisory_xact_lock(hashtextextended({'a' + account.ToString("D")}, 859))
-            """, ct);
-        await db.Database.ExecuteSqlInterpolatedAsync($"""
-            SELECT pg_advisory_xact_lock(hashtextextended({'s' + shop.ToString("D")}, 859))
-            """, ct);
+        return await fence.EnterProjectionAsync(account, shop, ct);
     }
 
     private async Task<bool> ConsumeAsync(VerifiedServiceAssertion proof, CancellationToken ct)
@@ -121,7 +130,8 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
             account = new() { AccountId = snapshot.AccountId };
             db.Add(account);
         }
-        account.Apply(source.Revision, source.UpstreamVerifiedAt, source.Restriction, source.ReleasedRevision, snapshot.EventId);
+        account.Apply(source.Revision, source.UpstreamVerifiedAt, source.Restriction, source.ReleasedRevision, snapshot.EventId,
+            source.Suspension?.EffectiveAt, source.Suspension?.CustomerExplanation, source.PreviousReleaseRevision);
     }
 
     private void UpdateShop(EntitlementSnapshotV1 snapshot, ShopLicenseState? shop)
@@ -133,7 +143,9 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
             db.Add(shop);
         }
         shop.Apply(source.Revision, source.UpstreamVerifiedAt, source.State, source.TermId, source.Basis, source.StartsAt,
-            source.AccessEndsAt, source.NextBoundary, source.ShopCapacity, source.MemberAllowance, snapshot.EventId);
+            source.AccessEndsAt, source.NextBoundary, source.ShopCapacity, source.MemberAllowance, snapshot.EventId,
+            source.Suspension?.Mode, source.Suspension?.EffectiveAt, source.Suspension?.CustomerExplanation,
+            source.ReleasedRevision, source.ReopenedRevision, source.ClosureRevision);
     }
 
     private static LicenseGrantEvidence Evidence(EntitlementSnapshotV1 snapshot, byte[] body, VerifiedServiceAssertion proof,
@@ -152,3 +164,5 @@ public sealed class EntitlementProjectionStore(ApplicationDbContext db, TimeProv
 
     private sealed record InboxRow(string Digest, byte[] Acknowledgement);
 }
+
+public sealed record EntitlementProjectionReceipt(byte[] Acknowledgement, bool Changed);

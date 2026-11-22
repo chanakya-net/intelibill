@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Dashboard.DTOs;
@@ -19,6 +20,7 @@ public sealed class DashboardController : AuthenticatedControllerBase
 
     [HttpGet]
     [Authorize(Policy = "OwnerOrManager")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> GetDashboard(
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,

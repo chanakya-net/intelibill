@@ -1,3 +1,4 @@
+import { injectScopedPrint } from '../../../core/context/scoped-print';
 import { tillEvidenceLabel, tillPurposeLabel } from '../services/till-labels';
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
@@ -164,6 +165,7 @@ import { TillSession } from '../services/till.models';
   ],
 })
 export class TillClosePrintPageComponent {
+  private readonly printCurrent = injectScopedPrint();
   readonly purposeLabel = tillPurposeLabel;
   readonly evidenceLabel = tillEvidenceLabel;
   readonly session = signal<TillSession | null>(null);
@@ -178,6 +180,6 @@ export class TillClosePrintPageComponent {
         .subscribe({ next: (x) => this.session.set(x.session), error: () => this.error.set(true) });
   }
   print() {
-    window.print();
+    this.printCurrent();
   }
 }

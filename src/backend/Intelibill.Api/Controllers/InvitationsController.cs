@@ -1,3 +1,5 @@
+using Intelibill.Application.Common.Security;
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Api.Extensions;
 using Intelibill.Application.Features.Users.Commands.AcceptShopInvitation;
 using Intelibill.Application.Features.Users.DTOs;
@@ -21,6 +23,8 @@ public sealed class InvitationsController : AuthenticatedControllerBase
     }
 
     [HttpPost("{invitationId:guid}/accept")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> AcceptInvitation(
         Guid invitationId,
         [FromBody] AcceptInvitationRequest request,
@@ -30,7 +34,7 @@ public sealed class InvitationsController : AuthenticatedControllerBase
         if (auth is not null) return auth;
 
         var result = await Bus.InvokeAsync<ErrorOr.ErrorOr<MembershipDto>>(
-            new AcceptShopInvitationCommand(UserId!.Value, invitationId, request.Token),
+            new AcceptShopInvitationCommand(UserId!.Value, invitationId, request.Token) { Session = SessionClaims.TryRead(User) },
             cancellationToken);
 
         return result.ToActionResult(Ok);

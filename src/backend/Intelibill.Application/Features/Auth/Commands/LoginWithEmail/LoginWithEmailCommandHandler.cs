@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using ErrorOr;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Common.Interfaces;
@@ -12,6 +13,7 @@ public sealed class LoginWithEmailCommandHandler(
     IAuthSessionService sessions,
     TimeProvider clock)
 {
+    [LicenceAction(LicenceAction.Authentication)]
     public async Task<ErrorOr<AuthResult>> HandleAsync(
         LoginWithEmailCommand command,
         CancellationToken cancellationToken)

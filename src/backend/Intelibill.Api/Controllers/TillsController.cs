@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using System.Text.Json.Serialization;
 using ErrorOr;
 using Intelibill.Api.Extensions;
@@ -25,6 +26,7 @@ namespace Intelibill.Api.Controllers;
 public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBase(bus)
 {
     [HttpGet("capabilities")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> Capabilities(CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;
@@ -32,6 +34,7 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
         return result.ToActionResult(Ok);
     }
     [HttpGet]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> Get(CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;
@@ -39,6 +42,8 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
         return result.ToActionResult(Ok);
     }
     [HttpPost]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> Create(CreateTillRequest request, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;
@@ -46,6 +51,7 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
         return result.ToActionResult(Ok);
     }
     [HttpGet("sessions")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> Sessions([FromQuery] TillSessionState? state, [FromQuery] DateOnly? businessDate,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
     {
@@ -54,6 +60,7 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
         return result.ToActionResult(Ok);
     }
     [HttpGet("sessions/{id:guid}")]
+    [LicenceAction(LicenceAction.History)]
     public async Task<IActionResult> Session(Guid id, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;
@@ -61,6 +68,8 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
         return result.ToActionResult(Ok);
     }
     [HttpPost("{id:guid}/sessions")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> Open(Guid id, OpenTillRequest request, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;
@@ -69,6 +78,8 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
         return result.ToActionResult(Ok);
     }
     [HttpPost("sessions/{id:guid}/cash-movements")]
+    [LicenceAction(LicenceAction.OperationalCapacity)]
+    [SuspensionAtSource]
     public async Task<IActionResult> Move(Guid id, TillCashMovementRequest request, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;
@@ -77,6 +88,8 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
         return result.ToActionResult(Ok);
     }
     [HttpPost("sessions/{id:guid}/close")]
+    [LicenceAction(LicenceAction.TillCompletion)]
+    [SuspensionAtSource]
     public async Task<IActionResult> Close(Guid id, CloseTillRequest request, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;
@@ -85,6 +98,8 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
         return result.ToActionResult(Ok);
     }
     [HttpPost("sessions/{id:guid}/review")]
+    [LicenceAction(LicenceAction.TillCompletion)]
+    [SuspensionAtSource]
     public async Task<IActionResult> Review(Guid id, ReviewTillCloseRequest request, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;
@@ -93,6 +108,7 @@ public sealed class TillsController(IMessageBus bus) : AuthenticatedControllerBa
         return result.ToActionResult(Ok);
     }
     [HttpGet("operations/{type}/{key}")]
+    [LicenceAction(LicenceAction.Recovery)]
     public async Task<IActionResult> Operation(string type, string key, CancellationToken ct)
     {
         var auth = CheckAuthAndShop(); if (auth is not null) return auth;

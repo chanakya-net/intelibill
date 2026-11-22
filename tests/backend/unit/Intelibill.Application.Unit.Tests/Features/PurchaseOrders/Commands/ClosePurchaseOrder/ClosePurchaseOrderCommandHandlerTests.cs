@@ -1,3 +1,5 @@
+using Intelibill.Application.Unit.Tests.Common.Licensing;
+using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Errors;
 using Intelibill.Application.Features.PurchaseOrders.Commands.ClosePurchaseOrder;
 using Intelibill.Domain.Entities;
@@ -15,7 +17,7 @@ public class ClosePurchaseOrderCommandHandlerTests
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
 
     private ClosePurchaseOrderCommandHandler CreateHandler() =>
-        new(_userRepository, _poRepository, _unitOfWork);
+        new(_userRepository, _poRepository, _unitOfWork, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
 
     private static (User actor, Shop shop) MakeActor(ShopRole role = ShopRole.Owner)
     {
@@ -40,10 +42,10 @@ public class ClosePurchaseOrderCommandHandlerTests
         var (actor, shop) = MakeActor(ShopRole.Manager);
         var po = MakePartiallyReceivedPo(shop.Id, Guid.NewGuid());
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
+        _poRepository.GetReceiptDetailForUpdateAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
 
         var result = await CreateHandler().HandleAsync(
-            new ClosePurchaseOrderCommand(actor.Id, shop.Id, po.Id, "Supplier short shipped"),
+            new ClosePurchaseOrderCommand(actor.Id, shop.Id, po.Id, "Supplier short shipped", Session: null),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -62,10 +64,10 @@ public class ClosePurchaseOrderCommandHandlerTests
         po.AddLine(Guid.NewGuid(), "Widget", 2, 10m);
         po.Place(po.SupplierId!.Value);
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
-        _poRepository.GetByShopAndIdAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
+        _poRepository.GetReceiptDetailForUpdateAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
 
         var result = await CreateHandler().HandleAsync(
-            new ClosePurchaseOrderCommand(actor.Id, shop.Id, po.Id, "reason"),
+            new ClosePurchaseOrderCommand(actor.Id, shop.Id, po.Id, "reason", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -79,7 +81,7 @@ public class ClosePurchaseOrderCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
         var result = await CreateHandler().HandleAsync(
-            new ClosePurchaseOrderCommand(actor.Id, shop.Id, Guid.NewGuid(), " "),
+            new ClosePurchaseOrderCommand(actor.Id, shop.Id, Guid.NewGuid(), " ", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);

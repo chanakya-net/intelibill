@@ -1,3 +1,4 @@
+using Intelibill.Application.Common.Licensing;
 using Intelibill.Infrastructure.Data;
 using Intelibill.Infrastructure.Licensing;
 using Intelibill.Shared.Security;
@@ -22,13 +23,21 @@ internal static class MerchantBillingRegistration
         services.AddSingleton<IMerchantBillingSigningKeys, MerchantBillingDelegationKeys>();
         services.AddScoped<MerchantBillingDelegationIssuer>();
         services.AddScoped<ShopAffiliationConsentStore>();
+        services.AddScoped<MerchantClosureConsentStore>();
+        services.AddScoped<IMerchantClosureValidationReceiver>(provider => provider.GetRequiredService<MerchantClosureConsentStore>());
         AddDeliveryKey(services, ShopAffiliationDeliveryV1.Section);
         AddDeliveryKey(services, ShopTrialsV1.DeliverySection);
         AddDeliveryKey(services, EntitlementSnapshotsV1.Section);
         services.AddOptions<EntitlementTransportOptions>().BindConfiguration(EntitlementSnapshotsV1.Section);
         services.AddScoped<MerchantEntitlementTransport>();
+        services.AddSingleton<ILicenceActionPolicy, LicenceActionPolicy>();
+        services.AddScoped<ShopLicenceFence>();
+        services.AddScoped<IShopLicenceFence>(provider => provider.GetRequiredService<ShopLicenceFence>());
         services.AddScoped<EntitlementProjectionStore>();
+        services.AddScoped<IShopTradingAuthorityReader, ShopTradingAuthorityReader>();
+        services.AddScoped<ISuspensionAccessReader, SuspensionAccessReader>();
         services.AddScoped(provider => new LeasedHttpOutbox(provider.GetRequiredService<ApplicationDbContext>()));
+        services.AddScoped<EntitlementAcknowledgementMetrics>();
         services.AddScoped<ILeasedHttpDestination, MerchantEntitlementDelivery>();
         LeasedHttpDeliveryPump.Register(services);
         services.TryAddKeyedSingleton<TimeProvider>(ShopTrialsV1.DeliverySection,
@@ -42,6 +51,7 @@ internal static class MerchantBillingRegistration
             .AddTypedClient<IMerchantBillingAccess, MerchantBillingClient>()
             .AddTypedClient<IMerchantBillingInvitations, MerchantBillingClient>()
             .AddTypedClient<IMerchantShopAffiliations, MerchantBillingClient>()
+            .AddTypedClient<IMerchantShopClosures, MerchantBillingClient>()
             .AddTypedClient<IMerchantBillingOwnershipTransfers, MerchantBillingClient>()
             .AddTypedClient<IMerchantSubscriptionStatus, MerchantBillingClient>()
             .AddTypedClient<IMerchantSubscriptionCancellations, MerchantBillingClient>()

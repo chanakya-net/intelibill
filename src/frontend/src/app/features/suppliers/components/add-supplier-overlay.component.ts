@@ -1,3 +1,5 @@
+import { DefinitionAccessNoticeComponent } from '../../billing/status/definition-access-notice.component';
+import { OperatingAccessHintService } from '../../billing/status/operating-access-hint.service';
 import { Component, EventEmitter, OnInit, Output, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { TranslocoPipe } from '@ngneat/transloco';
@@ -12,7 +14,7 @@ import { InputValidators } from '../../../shared/forms/input-validation';
 @Component({
   selector: 'app-add-supplier-overlay',
   standalone: true,
-  imports: [ReactiveFormsModule, InputTextModule, CheckboxModule, ButtonModule, TranslocoPipe],
+  imports: [ReactiveFormsModule, InputTextModule, CheckboxModule, ButtonModule, TranslocoPipe, DefinitionAccessNoticeComponent],
   templateUrl: './add-supplier-overlay.component.html',
   styleUrl: './add-supplier-overlay.component.scss',
 })
@@ -20,6 +22,7 @@ export class AddSupplierOverlayComponent implements OnInit {
   private readonly formBuilder = inject(FormBuilder);
   private readonly suppliersFacade = inject(SuppliersFacade);
 
+  readonly definitionAccess = inject(OperatingAccessHintService);
   readonly isSubmitting = this.suppliersFacade.isSubmitting;
   readonly serverError = this.suppliersFacade.errorMessage;
 
@@ -52,7 +55,7 @@ export class AddSupplierOverlayComponent implements OnInit {
   }
 
   onSubmit(): void {
-    if (this.isSubmitting()) {
+    if (this.isSubmitting() || this.definitionAccess.blockingMessage()) {
       return;
     }
     if (this.form.invalid) {

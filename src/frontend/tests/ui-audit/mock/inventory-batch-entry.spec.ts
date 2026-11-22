@@ -302,7 +302,7 @@ async function installBatchRoutes(page: Page, scenario: BatchScenario): Promise<
         itemId: `item-${item.clientRowId}`,
         itemName: item.itemName,
         barcode: item.barcode,
-        batchId: `batch-${item.clientRowId}`,
+        inventoryBatchId: `batch-${item.clientRowId}`,
         batchNumber: 'AUDIT-BATCH',
         batchQuantity: 1,
         totalQuantity: 1,
