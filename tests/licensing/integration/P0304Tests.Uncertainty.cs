@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using static Intelibill.Licensing.Integration.Tests.P0302Fixture;
+using static Intelibill.Licensing.Integration.Tests.P0304Tests;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
@@ -8,7 +9,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// First ambiguous reads, stale resume observations and interrupted response bodies: each keeps the original order
 /// pending verification, with no launcher and no grant, until a genuine capture or a fresh proof of an unpaid order.
 /// </summary>
-public sealed partial class P0304Tests
+public sealed partial class P0304TestsRecovery
 {
     [Theory]
     [InlineData(false, "in-flight-payment")]

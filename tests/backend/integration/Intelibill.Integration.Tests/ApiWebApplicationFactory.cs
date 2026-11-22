@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Testcontainers.PostgreSql;
+using Intelibill.Tests.Integration;
 
 namespace Intelibill.Integration.Tests;
 
@@ -203,22 +204,6 @@ public sealed class ApiWebApplicationFactory(PostgreSqlTestFixture? fixture = nu
             _configureTestServices?.Invoke(services);
         });
     }
-}
-
-/// <summary>
-/// Whether the API under test loads pre-built Wolverine handler classes.
-/// </summary>
-/// <remarks>
-/// Off unless <c>INTEGRATION_TEST_PREGENERATED_HANDLERS=1</c>. Only the script that
-/// has just regenerated the handler code and rebuilt the API sets it, so the
-/// pre-built classes can never be older than the handlers they wrap. A plain
-/// <c>dotnet test</c> compiles handlers at run time, which is slower and always
-/// current.
-/// </remarks>
-internal static class PregeneratedHandlers
-{
-    public static bool Enabled { get; } =
-        Environment.GetEnvironmentVariable("INTEGRATION_TEST_PREGENERATED_HANDLERS") == "1";
 }
 
 internal sealed class NoOpOtlpHandler : HttpMessageHandler

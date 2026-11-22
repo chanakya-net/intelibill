@@ -3,11 +3,13 @@ using System.Net.Http.Json;
 using Microsoft.Extensions.DependencyInjection;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 using static Intelibill.Licensing.Integration.Tests.P0302Fixture;
+using static Intelibill.Licensing.Integration.Tests.P0304Tests;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
 /// <summary>The same neutral adapter expectations, run against the simulator and the Razorpay fixture transport.</summary>
-public sealed partial class P0304Tests
+public sealed partial class P0304TestsProviderContract(LicensingPostgreSqlFixture database)
+    : IClassFixture<LicensingPostgreSqlFixture>
 {
     public static TheoryData<string> Providers => new(Array.Empty<string>()) { "simulator", "razorpay" };
 

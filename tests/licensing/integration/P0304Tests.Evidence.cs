@@ -4,11 +4,13 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using static Intelibill.Licensing.Integration.Tests.P0302Fixture;
+using static Intelibill.Licensing.Integration.Tests.P0304Tests;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
 /// <summary>Razorpay evidence that contradicts one exact full capture, unsupported methods, amounts and oversize bodies.</summary>
-public sealed partial class P0304Tests
+public sealed class P0304TestsEvidence(LicensingPostgreSqlFixture database)
+    : IClassFixture<LicensingPostgreSqlFixture>
 {
     [Theory]
     [InlineData("short-capture")]

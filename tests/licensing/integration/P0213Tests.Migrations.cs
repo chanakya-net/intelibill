@@ -17,16 +17,9 @@ public sealed partial class P0213Tests
     [Fact]
     public async Task ExplicitMigrationsPreservePopulatedPredecessorsWithTransportDisabled()
     {
-        var isolated = new LicensingPostgreSqlFixture();
+        await using var isolated = new IsolatedLicensingPostgreSqlFixture();
         await isolated.InitializeAsync();
-        try
-        {
-            await VerifyPredecessorUpgradeAsync(isolated);
-        }
-        finally
-        {
-            await isolated.DisposeAsync();
-        }
+        await VerifyPredecessorUpgradeAsync(isolated);
     }
 
     private static async Task VerifyPredecessorUpgradeAsync(LicensingPostgreSqlFixture isolated)

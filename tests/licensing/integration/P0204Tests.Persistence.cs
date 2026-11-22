@@ -13,7 +13,9 @@ public sealed partial class P0204Tests
     [InlineData(true)]
     public async Task ConcurrentTransfers_AcrossReplicasCommitExactlyOneOwnerChange(bool sameProposal)
     {
-        await using var host = await StartAsync();
+        var primaryArrival = new AccountFenceArrival();
+        var replicaArrival = new AccountFenceArrival();
+        await using var host = await StartAsync(primaryArrival);
         var owner = await host.SignInAsync();
         var first = await host.SignInAsync();
         var second = sameProposal ? first : await host.SignInAsync();
@@ -23,16 +25,20 @@ public sealed partial class P0204Tests
         var firstKey = Guid.NewGuid();
         var secondKey = sameProposal ? firstKey : Guid.NewGuid();
 
+        await using var replica = host.Replica(replicaArrival);
+        using var clientA = host.Licensing.CreateClient();
+        using var clientB = replica.CreateClient();
         await using var connection = new NpgsqlConnection(database.Bootstrap(host.Fixture.Owner.Database).ConnectionString);
         await connection.OpenAsync();
         await using var fence = await P0203bTests.HoldAccountFenceAsync(connection, account);
-        await using var replica = host.Replica();
-        using var clientA = host.Licensing.CreateClient();
-        using var clientB = replica.CreateClient();
+        primaryArrival.Watch(account);
+        replicaArrival.Watch(account);
         var resultA = SendAcceptanceAsync(clientA, host, first.Actor, a, firstKey);
         var resultB = SendAcceptanceAsync(clientB, host, second.Actor, b, secondKey);
-        await P0203bTests.WaitForLockAsync(connection, fence, "advisory", 2);
-        Assert.Equal(1L, await CountAsync(host, "SELECT count(*) FROM billing_account_members WHERE role = 1 AND status = 1"));
+        await QueueAtAccountFenceAsync(connection, fence, primaryArrival, replicaArrival);
+        await using (var owners = new NpgsqlCommand(
+            "SELECT count(*) FROM billing_account_members WHERE role = 1 AND status = 1", connection, fence))
+            Assert.Equal(1L, await owners.ExecuteScalarAsync());
         await fence.CommitAsync();
 
         using var answerA = await resultA;

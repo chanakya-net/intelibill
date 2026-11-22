@@ -1,11 +1,13 @@
 using System.Net;
 using System.Text.Json;
 using static Intelibill.Licensing.Integration.Tests.P0302Fixture;
+using static Intelibill.Licensing.Integration.Tests.P0304Tests;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
 /// <summary>Original-order recovery: a transient read failure never strands an unpaid order, and nothing else reopens it.</summary>
-public sealed partial class P0304Tests
+public sealed partial class P0304TestsRecovery(LicensingPostgreSqlFixture database)
+    : IClassFixture<LicensingPostgreSqlFixture>
 {
     [Fact]
     public async Task LostCreateAndFailedFirstVerificationReadRecoverTheSameUnpaidOrderWithOnePost()

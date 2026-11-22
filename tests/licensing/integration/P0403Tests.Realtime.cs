@@ -1,6 +1,8 @@
-using System.Net.WebSockets;
-using System.Text;
+using System.Text.Json;
+using System.Threading.Channels;
 using Intelibill.Application.Common.Interfaces;
+using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
 using static Intelibill.Licensing.Integration.Tests.P0209Fixture;
 
@@ -29,74 +31,113 @@ public sealed partial class P0403Tests
         await fixture.DrainAsync(source: true);
 
         fixture.Hosts.Fixture.Clock.Now = effective.AddMicroseconds(-1);
-        using var existing = await ConnectRealtimeAsync(fixture, affected, path);
-        using var unrelated = await ConnectRealtimeAsync(fixture, unaffected, path);
+        await using var existing = new RealtimeProbe(fixture, affected, path, hub);
+        await existing.StartAsync();
+        await using var unrelated = new RealtimeProbe(fixture, unaffected, path, hub);
+        await unrelated.StartAsync();
         await WaitForLeasesAsync(fixture, hub, affected, 1);
         await WaitForLeasesAsync(fixture, hub, unaffected, 1);
+        // An advisory from projection delivery can already be queued on this connection.
+        if (hub == "ShopUpdatesHub")
+        {
+            await using var noticeScope = fixture.Hosts.Merchant.Services.CreateAsyncScope();
+            await noticeScope.ServiceProvider.GetRequiredService<IShopUpdatesNotifier>()
+                .NotifyShopUpdateAsync("LicenceAuthorityChanged", affected.ShopId, [], fixture.Hosts.Fixture.Clock.Now);
+        }
         var before = Guid.NewGuid();
         await NotifyAsync(fixture, affected, hub, before);
-        Assert.Contains(before.ToString(), await ReadFrameAsync(existing));
+        Assert.Equal(before, await existing.ReadChangeAsync());
 
         fixture.Hosts.Fixture.Clock.Now = effective;
-        using var fresh = await ConnectRealtimeAsync(fixture, affected, path);
+        await using var fresh = new RealtimeProbe(fixture, affected, path, hub);
+        await fresh.StartAsync();
         var after = Guid.NewGuid();
         var other = Guid.NewGuid();
         if (mode == "Security")
-            await AssertClosedAsync(fresh);
+            await fresh.AssertClosedAsync();
         else
             await WaitForLeasesAsync(fixture, hub, affected, 2);
         await Task.WhenAll(NotifyAsync(fixture, affected, hub, after), NotifyAsync(fixture, unaffected, hub, other));
-        Assert.Contains(other.ToString(), await ReadFrameAsync(unrelated));
+        Assert.Equal(other, await unrelated.ReadChangeAsync());
 
         if (mode == "Security")
         {
             using var noDelivery = new CancellationTokenSource(TimeSpan.FromMilliseconds(400));
-            var received = await Record.ExceptionAsync(() => ReadFrameAsync(existing, noDelivery.Token));
-            Assert.IsAssignableFrom<OperationCanceledException>(received);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => existing.ReadChangeAsync(noDelivery.Token));
             await WaitForLeasesAsync(fixture, hub, affected, 1);
         }
         else
         {
-            Assert.Contains(after.ToString(), await ReadFrameAsync(existing));
-            Assert.Contains(after.ToString(), await ReadFrameAsync(fresh));
+            Assert.Equal(after, await existing.ReadChangeAsync());
+            Assert.Equal(after, await fresh.ReadChangeAsync());
         }
     }
 
-    private static async Task<WebSocket> ConnectRealtimeAsync(P0213Fixture fixture, Merchant shop, string path)
+    private sealed class RealtimeProbe : IAsyncDisposable
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        var client = fixture.Hosts.Merchant.Server.CreateWebSocketClient();
-        client.ConfigureRequest = request => request.Headers.Authorization = shop.Client.DefaultRequestHeaders.Authorization!.ToString();
-        var socket = await client.ConnectAsync(new Uri($"wss://localhost{path}"), timeout.Token);
-        await socket.SendAsync(Encoding.UTF8.GetBytes("{\"protocol\":\"json\",\"version\":1}\u001e"),
-            WebSocketMessageType.Text, true, timeout.Token);
-        return socket;
-    }
+        private readonly HubConnection _connection;
+        private readonly Channel<JsonElement> _updates = Channel.CreateUnbounded<JsonElement>();
+        private readonly TaskCompletionSource _closed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly Guid _shopId;
+        private readonly bool _products;
 
-    private static async Task<string> ReadFrameAsync(WebSocket socket, CancellationToken ct = default)
-    {
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(TimeSpan.FromSeconds(5));
-        var bytes = new byte[4096];
-        while (true)
+        internal RealtimeProbe(P0213Fixture fixture, Merchant shop, string path, string hub)
         {
-            var frame = await socket.ReceiveAsync(bytes.AsMemory(), timeout.Token);
-            if (frame.MessageType == WebSocketMessageType.Close) return "";
-            var value = Encoding.UTF8.GetString(bytes, 0, frame.Count);
-            if (value.Contains("\"target\"", StringComparison.Ordinal)) return value;
+            _shopId = shop.ShopId;
+            _products = hub == "ProductHub";
+            var client = fixture.Hosts.Merchant.Server.CreateWebSocketClient();
+            client.ConfigureRequest = request => request.Headers.Authorization = shop.Client.DefaultRequestHeaders.Authorization!.ToString();
+            _connection = new HubConnectionBuilder().WithUrl(new Uri($"https://localhost{path}"), options =>
+            {
+                options.Transports = HttpTransportType.WebSockets;
+                options.SkipNegotiation = true;
+                options.WebSocketFactory = async (context, ct) => await client.ConnectAsync(context.Uri, ct);
+            }).Build();
+            _connection.On<JsonElement>(_products ? "ProductAdded" : "ShopUpdated",
+                payload => _updates.Writer.TryWrite(payload));
+            _connection.Closed += error =>
+            {
+                _updates.Writer.TryComplete(error);
+                _closed.TrySetResult();
+                return Task.CompletedTask;
+            };
         }
-    }
 
-    private static async Task AssertClosedAsync(WebSocket socket)
-    {
-        try
+        internal async Task StartAsync()
         {
-            Assert.Empty(await ReadFrameAsync(socket));
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            await _connection.StartAsync(timeout.Token);
         }
-        catch (WebSocketException)
+
+        internal async Task<Guid> ReadChangeAsync(CancellationToken ct = default)
         {
-            // TestServer may abort the WebSocket immediately after completing the SignalR handshake.
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(TimeSpan.FromSeconds(5));
+            while (true)
+            {
+                var payload = await _updates.Reader.ReadAsync(timeout.Token);
+                Assert.Equal(_shopId, payload.GetProperty("shopId").GetGuid());
+                if (_products) return payload.GetProperty("itemId").GetGuid();
+
+                var eventType = payload.GetProperty("eventType").GetString();
+                var ids = payload.GetProperty("changedIds").EnumerateArray();
+                if (eventType == "LicenceAuthorityChanged")
+                {
+                    Assert.Empty(ids);
+                    continue;
+                }
+                Assert.Equal("fixture", eventType);
+                return Assert.Single(ids).GetGuid();
+            }
         }
+
+        internal async Task AssertClosedAsync()
+        {
+            await _closed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(_updates.Reader.TryRead(out _), "The refused connection received a notification.");
+        }
+
+        public ValueTask DisposeAsync() => _connection.DisposeAsync();
     }
 
     private static async Task WaitForLeasesAsync(P0213Fixture fixture, string hub, Merchant shop, int count)

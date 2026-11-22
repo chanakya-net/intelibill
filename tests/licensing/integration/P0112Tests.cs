@@ -61,15 +61,26 @@ public sealed partial class P0112Tests(LicensingPostgreSqlFixture database) : IC
     public async Task ConcurrentRedemptionsOfOneRecoveryCodeAdmitExactlyOne()
     {
         await using var fixture = await StartAsync();
+        var request = new { email = OwnerEmail, password = fixture.Password, recoveryCode = fixture.Codes[2] };
         var browsers = Enumerable.Range(0, 4).Select(_ => fixture.Browser()).ToArray();
         var contexts = await Task.WhenAll(browsers.Select(ContextAsync));
         var responses = await Task.WhenAll(browsers.Select((browser, index) => browser.SendAsync(HttpMethod.Post,
-            RecoveryCode, new { email = OwnerEmail, password = fixture.Password, recoveryCode = fixture.Codes[2] },
-            contexts[index])));
+            RecoveryCode, request, contexts[index])));
         try
         {
             Assert.Single(responses, response => response.StatusCode == HttpStatusCode.OK);
-            Assert.Equal(3, responses.Count(response => response.StatusCode == HttpStatusCode.Unauthorized));
+            // A losing request can time out waiting for the owner fence before it can read the code.
+            foreach (var response in responses.Where(response => response.StatusCode != HttpStatusCode.OK))
+            {
+                Assert.Contains(response.StatusCode, new[] { HttpStatusCode.Unauthorized, HttpStatusCode.ServiceUnavailable });
+                Assert.Equal(response.StatusCode == HttpStatusCode.Unauthorized
+                    ? "Admin.RecoveryRefused" : "Bootstrap.StorageUnavailable", await CodeOfAsync(response));
+            }
+
+            using var replayBrowser = fixture.Browser();
+            using var replay = await PostAsync(replayBrowser, RecoveryCode, request);
+            Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
+            Assert.Equal("Admin.RecoveryRefused", await CodeOfAsync(replay));
             Assert.Equal(1L, await fixture.ScalarAsync("SELECT count(*) FROM admin_recoveries"));
             Assert.Equal(1L, await fixture.ScalarAsync("SELECT count(*) FROM bootstrap_enrollment_credentials WHERE revoked_at IS NULL"));
             Assert.Equal(1L, await fixture.ScalarAsync("SELECT count(*) FROM admin_recovery_codes WHERE consumed_at IS NOT NULL"));

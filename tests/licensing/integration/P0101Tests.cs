@@ -9,8 +9,8 @@ namespace Intelibill.Licensing.Integration.Tests;
 
 [Collection(LicensingDatabaseTests.Name)]
 
-public sealed partial class P0101Tests(LicensingPostgreSqlFixture database, ITestOutputHelper output)
-    : IClassFixture<LicensingPostgreSqlFixture>
+public sealed partial class P0101Tests(IsolatedLicensingPostgreSqlFixture database, ITestOutputHelper output)
+    : IClassFixture<IsolatedLicensingPostgreSqlFixture>
 {
     [Fact]
     public async Task FreshLicensingDatabase_ReportsOwnReadiness()

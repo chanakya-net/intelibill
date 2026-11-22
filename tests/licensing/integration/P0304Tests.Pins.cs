@@ -9,7 +9,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// really arise: Razorpay reports a foreign currency itself, while simulator persistence admits only INR, so its
 /// currency refusal is proven on the observation the adapter returns. A stored attempt on any other pin is never served.
 /// </summary>
-public sealed partial class P0304Tests
+public sealed partial class P0304TestsProviderContract
 {
     public static TheoryData<string, string> ProviderPinDimensions => new()
     {

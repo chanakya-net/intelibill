@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using static Intelibill.Licensing.Integration.Tests.P0302Fixture;
+using static Intelibill.Licensing.Integration.Tests.P0304Tests;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
@@ -8,7 +9,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// Late provider transitions: a timed-out failure that may still authorize, an unsigned success report and a paid
 /// order carrying a separately auto-refunded late authorization.
 /// </summary>
-public sealed partial class P0304Tests
+public sealed partial class P0304TestsRecovery
 {
     /// <summary>R004: Razorpay may move a timed-out Failed payment to Authorized during its late-authorization window.</summary>
     [Fact]

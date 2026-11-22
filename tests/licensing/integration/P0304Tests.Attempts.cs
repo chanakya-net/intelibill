@@ -1,4 +1,5 @@
 using static Intelibill.Licensing.Integration.Tests.P0302Fixture;
+using static Intelibill.Licensing.Integration.Tests.P0304Tests;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
@@ -6,7 +7,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// R004: the order's own attempt counter must be matched by its payment collection before an order counts as
 /// provably unpaid. A collection missing an attempted payment cannot rule out a debit already in flight.
 /// </summary>
-public sealed partial class P0304Tests
+public sealed partial class P0304TestsRecovery
 {
     [Theory]
     [InlineData(1, 0)]

@@ -177,16 +177,19 @@ public sealed partial class P0203bTests
         return transaction;
     }
 
-    internal static async Task WaitForLockAsync(NpgsqlConnection db, NpgsqlTransaction transaction, string type, int waiters = 1)
+    internal static async Task WaitForLockAsync(NpgsqlConnection db, NpgsqlTransaction transaction, string type, int waiters = 1,
+        params int[] backendPids)
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2.5));
         await using var wait = new NpgsqlCommand("""
             SELECT (SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a USING (pid)
-                WHERE NOT l.granted AND l.locktype = $1 AND a.datname = current_database()) >= $2
+                WHERE NOT l.granted AND l.locktype = $1 AND a.datname = current_database()
+                    AND (cardinality($3) = 0 OR l.pid = ANY($3))) >= $2
             FROM pg_stat_clear_snapshot()
             """, db, transaction);
         wait.Parameters.AddWithValue(type);
         wait.Parameters.AddWithValue(waiters);
+        wait.Parameters.AddWithValue(backendPids);
         while (!(bool)(await wait.ExecuteScalarAsync(deadline.Token))!)
             await Task.Delay(10, deadline.Token);
     }
