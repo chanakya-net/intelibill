@@ -1,4 +1,5 @@
 using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Licensing.Offline;
 using Intelibill.Infrastructure.Data;
 using Intelibill.Infrastructure.Licensing;
 using Intelibill.Shared.Security;
@@ -36,6 +37,15 @@ internal static class MerchantBillingRegistration
         services.AddScoped<EntitlementProjectionStore>();
         services.AddScoped<IShopTradingAuthorityReader, ShopTradingAuthorityReader>();
         services.AddScoped<ISuspensionAccessReader, SuspensionAccessReader>();
+        AddDeliveryKey(services, OfflinePermitContractV1.Section);
+        services.AddOptions<OfflinePermitKeyOptions>().BindConfiguration(OfflinePermitContractV1.Section);
+        services.AddSingleton<IOfflinePermitSigner>(provider => new OfflinePermitSigningKeys(
+            provider.GetRequiredKeyedService<IMerchantBillingSigningKeys>(OfflinePermitContractV1.Section),
+            provider.GetRequiredService<IOptionsMonitor<MerchantBillingDelegationOptions>>(),
+            provider.GetRequiredService<IOptionsMonitor<OfflinePermitKeyOptions>>()));
+        services.AddScoped<IOfflineLicenceEvidenceStore, OfflineLicenceEvidenceStore>();
+        services.AddScoped<OfflinePermitGates>();
+        services.AddScoped<IOfflineLicencePermitIssuer, OfflineLicencePermitIssuer>();
         services.AddScoped(provider => new LeasedHttpOutbox(provider.GetRequiredService<ApplicationDbContext>()));
         services.AddScoped<EntitlementAcknowledgementMetrics>();
         services.AddScoped<ILeasedHttpDestination, MerchantEntitlementDelivery>();
