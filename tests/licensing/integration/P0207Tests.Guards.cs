@@ -119,7 +119,7 @@ public sealed partial class P0207Tests
         var name = "p0207_upgrade_" + Guid.NewGuid().ToString("N");
         using var fixture = new P0201Fixture(database, name);
         var superuser = database.Bootstrap(name);
-        await LicensingPostgreSqlFixture.ExecuteAsync(database.Bootstrap(), $"CREATE DATABASE {name} OWNER licensing_migrator");
+        await database.CreateEmptyLicensingDatabaseAsync(name);
         await using var context = fixture.OpenMigrationContext();
         var migrator = context.GetService<IMigrator>();
         await migrator.MigrateAsync("20261116120000_AddBillingOwnershipTransfers");

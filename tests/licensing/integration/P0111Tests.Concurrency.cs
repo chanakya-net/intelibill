@@ -72,12 +72,12 @@ public sealed partial class P0111Tests
 
     private async Task WaitForIdentityLockAsync(Fixture fixture, long expected)
     {
-        var monitor = database.Bootstrap(LicensingPostgreSqlFixture.LicensingDatabase);
+        var monitor = database.Bootstrap(fixture.Runtime.Database);
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2));
         while (!deadline.IsCancellationRequested)
         {
             var current = await LicensingPostgreSqlFixture.ReadScalarAsync(monitor, """
-                SELECT count(*) FROM pg_stat_activity WHERE usename='licensing_runtime'
+                SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND usename='licensing_runtime'
                     AND wait_event_type='Lock' AND query LIKE '%admin_identities%FOR UPDATE%'
                 """);
             if (current is long count && count >= expected) return;

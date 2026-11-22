@@ -15,16 +15,9 @@ public sealed partial class P0403Tests
     [Fact]
     public async Task UpgradePreservesLegacyAccountRestrictionConsistentlyAcrossReadsAndFence()
     {
-        var isolated = new LicensingPostgreSqlFixture();
+        await using var isolated = new IsolatedLicensingPostgreSqlFixture();
         await isolated.InitializeAsync();
-        try
-        {
-            await VerifyLegacyUpgradeAsync(isolated);
-        }
-        finally
-        {
-            await isolated.DisposeAsync();
-        }
+        await VerifyLegacyUpgradeAsync(isolated);
     }
 
     private static async Task VerifyLegacyUpgradeAsync(LicensingPostgreSqlFixture isolated)

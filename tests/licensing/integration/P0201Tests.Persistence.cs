@@ -134,7 +134,7 @@ public sealed partial class P0201Tests
             "SELECT rolbypassrls OR rolsuper FROM pg_roles WHERE rolname = current_user"));
 
         var wrongDatabase = fixture.Runtime;
-        wrongDatabase.Database = LicensingPostgreSqlFixture.MerchantDatabase;
+        wrongDatabase.Database = database.Bootstrap(LicensingPostgreSqlFixture.MerchantDatabase).Database;
         await using var forbidden = new NpgsqlConnection(wrongDatabase.ConnectionString);
         var error = await Assert.ThrowsAsync<PostgresException>(async () => await forbidden.OpenAsync());
         Assert.Equal(PostgresErrorCodes.InsufficientPrivilege, error.SqlState);

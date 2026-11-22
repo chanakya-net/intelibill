@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Npgsql;
 using static Intelibill.Licensing.Integration.Tests.P0302Fixture;
+using static Intelibill.Licensing.Integration.Tests.P0304Tests;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
@@ -9,7 +10,7 @@ namespace Intelibill.Licensing.Integration.Tests;
 /// A browser claim whose event is inserted but not yet committed must still fence an older proof-free read: the
 /// stale unpaid answer cannot resume the order over a claim that commits after it.
 /// </summary>
-public sealed partial class P0304Tests
+public sealed partial class P0304TestsRecovery
 {
     private const long ClaimGateKey = 8_670_304;
 

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Npgsql;
+using Intelibill.Tests.Integration;
 
 namespace Intelibill.Licensing.Integration.Tests;
 
@@ -50,7 +51,7 @@ internal sealed class MerchantStartupProbeFactory(
                 && service.ImplementationType?.Name is "IdentityMailWorker" or "IdentitySmsWorker").ToArray();
             foreach (var worker in mailWorkers)
                 services.Remove(worker);
-            if (Environment.GetEnvironmentVariable("INTEGRATION_TEST_PREGENERATED_HANDLERS") == "1")
+            if (PregeneratedHandlers.Enabled)
             {
                 services.CritterStackDefaults(options =>
                 {

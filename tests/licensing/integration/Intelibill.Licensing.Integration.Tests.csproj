@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../../shared/IntegrationTestRuntime.cs" Link="IntegrationTestRuntime.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../../src/backend/Intelibill.Api/Intelibill.Api.csproj" />
     <ProjectReference Include="../../../src/licensing/Intelibill.Licensing.Api/Intelibill.Licensing.Api.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
