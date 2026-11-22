@@ -106,9 +106,22 @@ internal static class P0209Fixture
 
     internal static async Task<Guid> CreateAccountAsync(HttpClient payer, string name = "Status Fixture Payer")
     {
-        using var response = await payer.PostAsJsonAsync("/api/billing/accounts", new { operationKey = Guid.NewGuid(), name });
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("accountId").GetGuid();
+        var request = new { operationKey = Guid.NewGuid(), name };
+        using var first = await payer.PostAsJsonAsync("/api/billing/accounts", request);
+        var body = await first.Content.ReadFromJsonAsync<JsonElement>();
+        if (first.StatusCode == HttpStatusCode.ServiceUnavailable &&
+            body.TryGetProperty("code", out var code) && code.GetString() == "Billing.DelegationUnavailable")
+        {
+            // The original write may have committed. Replay the same operation once to learn its outcome.
+            using var replay = await payer.PostAsJsonAsync("/api/billing/accounts", request);
+            var result = await replay.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.True(replay.StatusCode is HttpStatusCode.Created or HttpStatusCode.OK,
+                $"Account setup replay returned {(int)replay.StatusCode}: {result}");
+            return result.GetProperty("accountId").GetGuid();
+        }
+
+        Assert.True(first.StatusCode == HttpStatusCode.Created, $"Account setup returned {(int)first.StatusCode}: {body}");
+        return body.GetProperty("accountId").GetGuid();
     }
 
     /// <summary>Explicit local term facts: the supplement row the reader evaluates. Null basis seeds coverage only.</summary>

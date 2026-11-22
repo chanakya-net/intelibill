@@ -105,7 +105,7 @@ public sealed partial class P0209Tests
     [Fact]
     public async Task ShopStatusDiscardsTheReplyWhenMembershipChangesInFlight()
     {
-        var transport = new AfterShopReadTransport();
+        var transport = new AfterSuccessfulRequestTransport();
         await using var host = await StartAsync(database, Utc("2027-02-10T00:00:00Z"), inner =>
         {
             transport.InnerHandler = inner;
@@ -119,7 +119,7 @@ public sealed partial class P0209Tests
         await AffiliateAsync(host, account, payer.UserId, owner.ShopId, owner.UserId, term, Jan31, Feb28);
 
         transport.Path = SubscriptionStatusV1.ShopPath(owner.ShopId);
-        transport.AfterRead = async () =>
+        transport.AfterSuccess = async () =>
         {
             await using var db = MerchantDb(database);
             var membership = await db.ShopMemberships.SingleAsync(row => row.ShopId == owner.ShopId && row.UserId == staff.UserId);
@@ -129,26 +129,48 @@ public sealed partial class P0209Tests
 
         using var response = await ShopStatusAsync(staff.Client, owner.ShopId);
         var body = await response.Content.ReadAsStringAsync();
-        Assert.True(transport.CompletedSuccessfulRead);
+        Assert.True(transport.ObservedSuccess);
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal("Licensing.ShopScopeRequired", JsonDocument.Parse(body).RootElement.GetProperty("code").GetString());
         Assert.DoesNotContain("paidThrough", body);
     }
 
-    private sealed class AfterShopReadTransport : DelegatingHandler
+    [Fact]
+    public async Task AccountSetupRecoversTheSameAccountWhenTheCreatedReplyIsLost()
+    {
+        var transport = new AfterSuccessfulRequestTransport { Path = MerchantBillingDelegationV1.AccountsPath };
+        transport.AfterSuccess = () =>
+        {
+            transport.AfterSuccess = null;
+            throw new HttpRequestException("Fixture lost the committed response.");
+        };
+        await using var host = await StartAsync(database, Jan31, inner =>
+        {
+            transport.InnerHandler = inner;
+            return transport;
+        });
+        var payer = await SignInAsync(host);
+        var account = await CreateAccountAsync(payer.Client);
+
+        Assert.True(transport.ObservedSuccess);
+        var rows = await P0202Fixture.ReadAccountRowsAsync(database, host.Fixture);
+        Assert.Equal(account, Assert.Single(rows).AccountId);
+    }
+
+    private sealed class AfterSuccessfulRequestTransport : DelegatingHandler
     {
         internal string? Path { get; set; }
-        internal Func<Task>? AfterRead { get; set; }
-        internal bool CompletedSuccessfulRead { get; private set; }
+        internal Func<Task>? AfterSuccess { get; set; }
+        internal bool ObservedSuccess { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             var response = await base.SendAsync(request, ct);
-            if (request.RequestUri?.AbsolutePath != Path || AfterRead is not { } after || !response.IsSuccessStatusCode)
+            if (request.RequestUri?.AbsolutePath != Path || AfterSuccess is not { } after || !response.IsSuccessStatusCode)
                 return response;
             try
             {
-                CompletedSuccessfulRead = true;
+                ObservedSuccess = true;
                 await after();
                 return response;
             }
