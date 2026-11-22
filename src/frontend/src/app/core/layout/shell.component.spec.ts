@@ -5,7 +5,7 @@ import { RouterTestingHarness, RouterTestingModule } from '@angular/router/testi
 import { Store } from '@ngrx/store';
 import { TranslocoTestingModule } from '@ngneat/transloco';
 import { of, filter, firstValueFrom } from 'rxjs';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthSession, UserShop } from '../auth/auth.models';
 import { AuthService } from '../auth/auth.service';
@@ -31,22 +31,6 @@ import { selectSidebarCollapsed, selectSidebarPinned } from '../state/app-shell.
 
 @Component({ standalone: true, template: '<p>Account content</p>' })
 class AccountRouteStub {}
-
-beforeAll(() => {
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  });
-});
 
 describe('ShellComponent', () => {
   const sessionSignal = signal<AuthSession>({
