@@ -1,22 +1,34 @@
 <main>
-  <header>
-    <a routerLink="/">Provider Console</a>
+  <header class="adm-page-head">
+    <a class="adm-back-link" routerLink="/">
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>Provider Console
+    </a>
+    <p class="ib-eyebrow">Merchant Licensing</p>
     <h1 class="ib-page-title">Account access status</h1>
+    <p class="ib-subtitle">Inspect subscription terms, entitlement synchronization, operational closures, and courtesy grants.</p>
   </header>
-  <p class="ib-panel" data-testid="provider-observe-only">Observe-only subscription dates and commercial terms. Operational closure and its delivery are shown separately.</p>
+
+  <p class="adm-callout adm-callout--info" data-testid="provider-observe-only">
+    Observe-only subscription dates and commercial terms. Operational closure and its delivery are shown separately.
+  </p>
 
   @if (!mayRead()) {
     <p class="ib-error-banner" role="alert">Only Support, Billing or Licensing Manager administrators can read access status.</p>
   } @else {
-    <form class="ib-form-section status-lookup" (submit)="lookup($event)">
-      <label for="status-account">Billing account ID</label>
-      <input id="status-account" autocomplete="off" spellcheck="false" [value]="accountId()"
-        (input)="accountId.set($any($event.target).value)" />
-      <button pButton type="submit" [disabled]="outcome() === 'loading'">Read access status</button>
+    <form class="ib-panel status-lookup" (submit)="lookup($event)">
+      <div class="adm-lookup-bar">
+        <div class="adm-field">
+          <label for="status-account">Billing account ID</label>
+          <input id="status-account" autocomplete="off" spellcheck="false"
+            placeholder="00000000-0000-0000-0000-000000000000"
+            [value]="accountId()" (input)="accountId.set($any($event.target).value)" />
+        </div>
+        <button pButton type="submit" [disabled]="outcome() === 'loading'">Read access status</button>
+      </div>
     </form>
 
     @switch (outcome()) {
-      @case ('loading') { <p role="status">Loading access status…</p> }
+      @case ('loading') { <p class="adm-callout adm-callout--info" role="status">Loading access status…</p> }
       @case ('denied') { <p class="ib-error-banner" role="alert">Only Support, Billing or Licensing Manager administrators can read access status.</p> }
       @case ('missing') { <p class="ib-error-banner" role="alert">No access status exists for that account.</p> }
       @case ('session') { <p class="ib-error-banner" role="alert">Your provider session ended. Sign in again.</p> }
@@ -24,57 +36,98 @@
     }
 
     @if (closureUnavailable()) {
-      <p role="status">Shop closure status is temporarily unavailable.</p>
+      <p class="adm-callout adm-callout--warn" role="status">Shop closure status is temporarily unavailable.</p>
     }
     @if (closures(); as saved) {
       <section class="ib-panel" aria-labelledby="closure-heading" data-testid="provider-closure-detail">
-        <h2 id="closure-heading" class="ib-panel__title">Operational closures</h2>
+        <div class="adm-panel-head">
+          <div class="adm-panel-head__copy">
+            <h2 id="closure-heading" class="ib-panel__title">Operational closures</h2>
+            <p class="adm-panel-sub">Recorded closure decisions and merchant acknowledgement state.</p>
+          </div>
+          @if (saved.length) {
+            <span class="adm-pill adm-pill--warn">{{ saved.length }} {{ saved.length === 1 ? 'record' : 'records' }}</span>
+          }
+        </div>
         @for (closure of saved; track closure.id) {
-          <article>
-            <h3>{{ closure.scope === 'Account' ? 'Billing account closure' : 'Single shop closure' }}</h3>
-            <p>Saved {{ exact(closure.savedAt) }}</p>
-            <p>Subscriptions, payments and refunds remain unchanged by closure.</p>
-            <ul>
+          <article class="adm-subcard closure-record">
+            <div class="closure-record__head">
+              <h3>{{ closure.scope === 'Account' ? 'Billing account closure' : 'Single shop closure' }}</h3>
+              <span class="adm-pill">Saved {{ exact(closure.savedAt) }}</span>
+            </div>
+            <p class="adm-panel-sub">Subscriptions, payments and refunds remain unchanged by closure.</p>
+            <ul class="closure-shops">
               @for (shop of closure.shops; track shop.shopId) {
-                <li data-testid="provider-closure-shop">
-                  <strong>{{ shop.shopName }}</strong>
-                  <p data-testid="provider-closure-propagation">{{ closureStates[shop.propagation] }}</p>
+                <li class="closure-shop-item" data-testid="provider-closure-shop">
+                  <div class="closure-shop-item__top">
+                    <strong>{{ shop.shopName }}</strong>
+                    <p
+                      class="adm-pill"
+                      [class.adm-pill--success]="shop.propagation === 'Applied'"
+                      [class.adm-pill--warn]="shop.propagation === 'Pending'"
+                      [class.adm-pill--danger]="shop.propagation === 'NeedsReview'"
+                      data-testid="provider-closure-propagation"
+                    >{{ closureStates[shop.propagation] }}</p>
+                  </div>
                   @if (shop.savedShopRevision) {
-                    <p>Saved shop revision {{ shop.savedShopRevision }}</p>
+                    <p class="closure-meta">Saved shop revision {{ shop.savedShopRevision }}</p>
                   }
                   @if (shop.appliedShopRevision && shop.acknowledgedAt) {
-                    <p>Shop revision {{ shop.appliedShopRevision }} acknowledged {{ exact(shop.acknowledgedAt) }}</p>
+                    <p class="closure-meta">Shop revision {{ shop.appliedShopRevision }} acknowledged {{ exact(shop.acknowledgedAt) }}</p>
                   }
                   @if (shop.reopening; as reopening) {
-                    <p data-testid="provider-reopening-propagation">
+                    <p class="closure-meta" data-testid="provider-reopening-propagation">
                       Reopening reviewed {{ exact(reopening.reopenedAt) }} ·
                       {{ closureStates[reopening.propagation === 'Acknowledged' ? 'Applied' : reopening.propagation] }}
                     </p>
                   } @else if (mayGrant()) {
-                    <a routerLink="/restrictions/reopening" [queryParams]="{ account: selected() }">Review reopening</a>
+                    <a class="closure-reopen-link" routerLink="/restrictions/reopening" [queryParams]="{ account: selected() }">Review reopening</a>
                   }
                 </li>
               }
             </ul>
           </article>
         } @empty {
-          <p>No operational closures are recorded for this account.</p>
+          <p class="adm-callout">No operational closures are recorded for this account.</p>
         }
         @if (saved.length) {
-          <p>Merchant acknowledgement confirms the service projection. It does not establish enforcement on disconnected devices.</p>
+          <p class="adm-field__hint">Merchant acknowledgement confirms the service projection. It does not establish enforcement on disconnected devices.</p>
         }
       </section>
     }
 
     @if (status(); as current) {
-      @if (!hasSynchronization()) { <p>Entitlement delivery to devices is not available yet.</p> }
-      <p>Evaluated at {{ instant(current.evaluatedAt) }}. Times are Asia/Kolkata (IST, UTC+05:30); each deadline is the exact end of access.</p>
+      @if (!hasSynchronization()) {
+        <p class="adm-callout adm-callout--warn">Entitlement delivery to devices is not available yet.</p>
+      }
+      <p class="adm-field__hint">Evaluated at {{ instant(current.evaluatedAt) }}. Times are Asia/Kolkata (IST, UTC+05:30); each deadline is the exact end of access.</p>
       @for (item of current.items; track item.status.termId) {
         <section class="ib-panel" data-testid="provider-term" [attr.aria-label]="'Term ' + item.status.termId">
-          <h2 class="ib-panel__title">{{ states[item.status.state] ?? item.status.state }}</h2>
-          @if (item.status.evidenceState === 'Incomplete') { <p>Some subscription facts are not recorded; no grace is assumed.</p> }
-          @if (item.status.evidenceState === 'NeedsReview') { <p>The recorded facts disagree and need review; no basis or grace is assumed.</p> }
-          @if (item.status.developmentFixture) { <p><strong>Development fixture</strong></p> }
+          <div class="adm-panel-head">
+            <div class="adm-panel-head__copy">
+              <h2 class="ib-panel__title">{{ states[item.status.state] ?? item.status.state }}</h2>
+              <p class="adm-panel-sub">{{ item.status.basis ? bases[item.status.basis] : 'Basis not recorded' }}</p>
+            </div>
+            <div class="adm-actions">
+              <span
+                class="adm-pill"
+                [class.adm-pill--success]="item.status.state === 'Active'"
+                [class.adm-pill--warn]="item.status.state === 'Grace'"
+                [class.adm-pill--danger]="item.status.state === 'Expired' || item.status.state === 'Suspended'"
+              >{{ states[item.status.state] ?? item.status.state }}</span>
+              @if (item.status.developmentFixture) {
+                <span class="adm-pill adm-pill--info"><strong>Development fixture</strong></span>
+              }
+            </div>
+          </div>
+
+          @if (item.status.evidenceState === 'Incomplete') {
+            <p class="adm-callout adm-callout--warn">Some subscription facts are not recorded; no grace is assumed.</p>
+          }
+          @if (item.status.evidenceState === 'NeedsReview') {
+            <p class="ib-error-banner">The recorded facts disagree and need review; no basis or grace is assumed.</p>
+          }
+
           <dl class="status-facts">
             <dt>Access basis</dt><dd>{{ item.status.basis ? bases[item.status.basis] : 'Not recorded' }}</dd>
             @if (item.status.basis === 'Complimentary') {
@@ -98,14 +151,18 @@
             @if (item.status.commercial; as commercial) {
               <dt>Subscription price</dt><dd data-testid="provider-price">{{ rupees(commercial.pricePaise) }}</dd>
             }
-            <dt>Covered shops ({{ item.coveredShopCount }})</dt>
+            <dt class="covered-shops-label">Covered shops ({{ item.coveredShopCount }})</dt>
             <dd class="covered-shops">
               @for (shop of item.coveredShops; track shop.shopId) {
                 <div class="shop">
-                  <strong>{{ shop.shopName }}</strong>
+                  <div class="shop__head">
+                    <strong>{{ shop.shopName }}</strong>
+                    @if (shop.synchronization; as sync) {
+                      <p class="adm-pill adm-pill--info"><strong data-testid="provider-sync-state">{{ syncStates[sync.state] }}</strong></p>
+                    }
+                  </div>
                   @if (shop.synchronization; as sync) {
-                    <p><strong data-testid="provider-sync-state">{{ syncStates[sync.state] }}</strong></p>
-                    <dl class="status-facts">
+                    <dl class="status-facts shop-sync-dl">
                       <dt>Saved in licensing</dt><dd data-testid="provider-sync-saved">Account {{ sync.savedAccountRevision }} · Shop {{ sync.savedShopRevision }}</dd>
                       <dt>Saved policy verified</dt><dd>{{ exact(sync.savedVerifiedAt) }}</dd>
                       <dt>Confirmed by merchant</dt>
@@ -118,7 +175,7 @@
                       }
                     </dl>
                   } @else if (hasSynchronization()) {
-                    <p>Entitlement synchronization is unavailable for this shop.</p>
+                    <p class="adm-field__hint">Entitlement synchronization is unavailable for this shop.</p>
                   }
                 </div>
               }
@@ -131,7 +188,9 @@
           }
         </section>
       } @empty {
-        <p>This account has no subscription terms.</p>
+        <section class="ib-panel">
+          <p class="adm-callout">This account has no subscription terms.</p>
+        </section>
       }
     }
     @if (mayGrant() && selected(); as account) {

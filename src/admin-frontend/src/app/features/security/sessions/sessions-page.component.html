@@ -1,64 +1,95 @@
 <main>
-  <a routerLink="/">Provider Console</a>
-  <h1 class="ib-page-title">Device sessions</h1>
+  <header class="adm-page-head">
+    <a class="adm-back-link" routerLink="/">
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>Provider Console
+    </a>
+    <p class="ib-eyebrow">Session Security</p>
+    <h1 class="ib-page-title">Device sessions</h1>
+    <p class="ib-subtitle">Review active signed-in devices for your account and revoke sessions you no longer use.</p>
+  </header>
+
   @if (session.sessionId(); as currentId) {
     @if (status()) {
-      <p role="status">{{ status() }}</p>
+      <p class="adm-callout adm-callout--success" role="status">{{ status() }}</p>
     }
     @if (error()) {
       <p class="ib-error-banner" role="alert">{{ error() }}</p>
       @if (!page()) {
-        <div><button pButton type="button" (click)="load(index())">Try again</button></div>
+        <div class="adm-actions"><button pButton type="button" (click)="load(index())">Try again</button></div>
       }
     }
     @if (loading()) {
-      <p role="status">Loading device sessions…</p>
+      <p class="adm-callout adm-callout--info" role="status">Loading device sessions…</p>
     }
     @if (page(); as results) {
       @for (device of results.items; track device.id) {
+        @let isCurrent = device.isCurrent && device.id === currentId;
         <section class="ib-panel" [attr.aria-labelledby]="'device-' + device.id">
-          <h2 class="ib-panel__title" [id]="'device-' + device.id">
-            {{ device.isCurrent && device.id === currentId ? 'This device' : 'Other device' }}
-          </h2>
+          <div class="adm-panel-head">
+            <div class="adm-panel-head__copy">
+              <h2 class="ib-panel__title" [id]="'device-' + device.id">
+                {{ isCurrent ? 'This device' : 'Other device' }}
+              </h2>
+            </div>
+            @if (isCurrent) {
+              <span class="adm-pill adm-pill--success">Current session</span>
+            } @else {
+              <span class="adm-pill">Active device</span>
+            }
+          </div>
+
           <dl>
             <dt>Signed in</dt><dd>{{ device.createdAt | date:'yyyy-MM-dd HH:mm:ss':'UTC' }} UTC</dd>
             <dt>Last active</dt><dd>{{ device.lastSeenAt | date:'yyyy-MM-dd HH:mm:ss':'UTC' }} UTC</dd>
             <dt>Expires</dt><dd>{{ device.absoluteExpiresAt | date:'yyyy-MM-dd HH:mm:ss':'UTC' }} UTC</dd>
           </dl>
-          @if (device.isCurrent && device.id === currentId) {
-            <div><button pButton type="button" (click)="session.signOut()">Sign out this device</button></div>
+
+          @if (isCurrent) {
+            <div class="adm-actions">
+              <button pButton severity="secondary" [outlined]="true" type="button" (click)="session.signOut()">Sign out this device</button>
+            </div>
           } @else if (selection()?.id === device.id) {
             <form class="ib-form-section" (submit)="revoke($event, reason.value)">
-              <label for="revoke-reason">Reason for revoking this device</label>
-              <select #reason id="revoke-reason" required [disabled]="saving()">
-                <option value="">Select a reason</option>
-                <option value="device-unused">I no longer use this device</option>
-                <option value="device-unrecognized">I do not recognize this device</option>
-              </select>
-              <div>
-                <button pButton type="submit" [disabled]="saving()">Confirm revoke</button>
-                <button pButton severity="secondary" type="button" [disabled]="saving()" (click)="selection.set(null)">Cancel</button>
+              <div class="adm-field">
+                <label for="revoke-reason">Reason for revoking this device</label>
+                <select #reason id="revoke-reason" required [disabled]="saving()">
+                  <option value="">Select a reason</option>
+                  <option value="device-unused">I no longer use this device</option>
+                  <option value="device-unrecognized">I do not recognize this device</option>
+                </select>
+              </div>
+              <div class="adm-actions">
+                <button pButton severity="danger" type="submit" [disabled]="saving()">Confirm revoke</button>
+                <button pButton severity="secondary" [outlined]="true" type="button" [disabled]="saving()" (click)="selection.set(null)">Cancel</button>
               </div>
             </form>
           } @else {
-            <div><button pButton type="button" [disabled]="saving()" (click)="select(device)">Revoke device</button></div>
+            <div class="adm-actions">
+              <button pButton severity="danger" [outlined]="true" type="button" [disabled]="saving()" (click)="select(device)">Revoke device</button>
+            </div>
           }
         </section>
       } @empty {
-        <p>No active devices on this page.</p>
+        <section class="ib-panel">
+          <p class="adm-callout">No active devices on this page.</p>
+        </section>
       }
       @if (index() > 0 || results.nextCursor) {
-        <nav aria-label="Device session pages">
-          <button pButton type="button" [disabled]="index() === 0 || saving()" (click)="load(index() - 1)">Previous</button>
-          <button pButton type="button" [disabled]="!results.nextCursor || saving()" (click)="next()">Next</button>
+        <nav class="adm-actions" aria-label="Device session pages">
+          <button pButton severity="secondary" [outlined]="true" type="button" [disabled]="index() === 0 || saving()" (click)="load(index() - 1)">Previous</button>
+          <button pButton severity="secondary" [outlined]="true" type="button" [disabled]="!results.nextCursor || saving()" (click)="next()">Next</button>
         </nav>
       }
     }
   } @else if (session.notice() === 'expired' || session.notice() === 'uncertain') {
-    <p>Confirm your provider session to view your devices.</p>
-    <div><button pButton type="button" (click)="resume()">Continue session</button></div>
+    <section class="ib-panel">
+      <p class="adm-callout adm-callout--warn">Confirm your provider session to view your devices.</p>
+      <div class="adm-actions"><button pButton type="button" (click)="resume()">Continue session</button></div>
+    </section>
   } @else {
-    <p>Your provider session ended.</p>
-    <a routerLink="/auth/sign-in">Sign in again</a>
+    <section class="ib-panel">
+      <p class="ib-error-banner">Your provider session ended.</p>
+      <div class="adm-actions"><a routerLink="/auth/sign-in">Sign in again</a></div>
+    </section>
   }
 </main>

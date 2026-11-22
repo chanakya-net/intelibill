@@ -1,20 +1,11 @@
 main {
-  max-width: 60rem;
-}
-
-.status-lookup {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.status-lookup input {
-  min-height: 2.75rem;
-  padding: 0.5rem;
+  max-width: 64rem;
 }
 
 .status-facts {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-  gap: 0.5rem;
+  grid-template-columns: minmax(0, 12.5rem) minmax(0, 1fr);
+  gap: 0.55rem 1.25rem;
   margin: 0;
 }
 
@@ -23,19 +14,97 @@ main {
   overflow-wrap: anywhere;
 }
 
+.status-facts .covered-shops-label,
 .status-facts .covered-shops {
   grid-column: 1 / -1;
 }
 
-.shop {
-  padding-block: 0.75rem;
+.status-facts .covered-shops-label {
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--app-sand-200);
 }
 
-.shop + .shop {
-  border-top: 1px solid var(--app-sand-300);
+.covered-shops {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.shop {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--adm-border);
+  border-radius: 0.75rem;
+  background: var(--adm-surface);
+}
+
+.shop__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.shop-sync-dl {
+  background: var(--adm-surface-subtle);
+}
+
+.closure-record__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.closure-shops {
+  display: grid;
+  gap: 0.65rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.closure-shop-item {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid var(--adm-border);
+  border-radius: 0.7rem;
+  background: var(--adm-surface);
+}
+
+.closure-shop-item__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.closure-meta {
+  font-size: 0.83rem;
+  color: var(--adm-ink-muted);
+}
+
+.closure-reopen-link {
+  width: fit-content;
+  font-size: 0.84rem;
 }
 
 .grant-shops {
-  margin: 0.75rem 0;
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
   padding-left: 1.25rem;
+  color: var(--adm-ink-secondary);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 720px) {
+  .status-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+  }
 }

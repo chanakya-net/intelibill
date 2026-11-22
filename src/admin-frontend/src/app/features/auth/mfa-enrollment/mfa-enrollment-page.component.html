@@ -1,41 +1,66 @@
-<main>
-  <h1 class="ib-page-title">Set up your authenticator</h1>
+<main class="adm-auth-main">
+  <header class="adm-page-head">
+    <p class="ib-eyebrow">Two-Factor Security</p>
+    <h1 class="ib-page-title">Set up your authenticator</h1>
+    <p class="ib-subtitle">Configure a time-based one-time password (TOTP) app to secure your provider access.</p>
+  </header>
+
   <section class="ib-panel" aria-label="Authenticator enrollment" [attr.aria-busy]="busy() || view() === 'loading'">
     @if (error()) {
       <p class="ib-error-banner" role="alert">{{ error() }}</p>
     }
     @switch (view()) {
       @case ('loading') {
-        <p role="status">Checking enrollment…</p>
+        <p class="adm-callout adm-callout--info" role="status">Checking enrollment…</p>
       }
       @case ('verify') {
         <p>Add a time-based account in your authenticator app, then enter this setup key for InteliBill Provider Console.</p>
-        <p><strong>Setup key</strong><br /><code data-testid="setup-key">{{ setupSecret() }}</code></p>
+        <div class="adm-field">
+          <span class="ib-section-label">Setup key</span>
+          <code class="adm-code-box" data-testid="setup-key">{{ setupSecret() }}</code>
+        </div>
         <form class="ib-form-section" (submit)="verify($event, otp)">
-          <label for="authenticator-code">Authenticator code</label>
-          <input #otp id="authenticator-code" type="text" inputmode="numeric" autocomplete="off"
-            pattern="[0-9]{6}" maxlength="6" required />
-          <div><button pButton type="submit" [disabled]="busy()">Verify authenticator</button></div>
+          <div class="adm-field">
+            <label for="authenticator-code">Authenticator code</label>
+            <input #otp id="authenticator-code" type="text" inputmode="numeric" autocomplete="off"
+              placeholder="000000" pattern="[0-9]{6}" maxlength="6" required />
+          </div>
+          <div class="adm-actions">
+            <button pButton type="submit" [disabled]="busy()">Verify authenticator</button>
+          </div>
         </form>
       }
       @case ('complete') {
-        <h2 class="ib-panel__title">Authenticator enrolled</h2>
+        <div class="adm-panel-head">
+          <div class="adm-panel-head__copy">
+            <h2 class="ib-panel__title">Authenticator enrolled</h2>
+          </div>
+          <span class="adm-pill adm-pill--success">Verified</span>
+        </div>
         @if (recoveryCodes().length) {
-          <p>Save these recovery codes somewhere safe. Each works once. This is your only chance to view them.</p>
-          <ul aria-label="Recovery codes">
+          <p class="adm-callout adm-callout--warn">
+            Save these recovery codes somewhere safe. Each works once. This is your only chance to view them.
+          </p>
+          <ul class="adm-code-grid" aria-label="Recovery codes">
             @for (code of recoveryCodes(); track code) {
               <li><code>{{ code }}</code></li>
             }
           </ul>
-          <div><button pButton type="button" (click)="dismissCodes()">I saved my codes</button></div>
+          <div class="adm-actions">
+            <button pButton type="button" (click)="dismissCodes()">I saved my codes</button>
+          </div>
         } @else {
-          <a routerLink="/auth/sign-in">Sign in to the Provider Console</a>
+          <div class="adm-actions">
+            <a routerLink="/auth/sign-in">Sign in to the Provider Console</a>
+          </div>
         }
       }
       @case ('closed') {
-        <p>There is no active enrollment. Recovery codes are available only when enrollment completes.</p>
-        <a routerLink="/auth/bootstrap/enrollment">Resume first owner setup</a>
-        <a routerLink="/">Return to the Provider Console</a>
+        <p class="adm-callout">There is no active enrollment. Recovery codes are available only when enrollment completes.</p>
+        <div class="adm-footer-links">
+          <a routerLink="/auth/bootstrap/enrollment">Resume first owner setup</a>
+          <a routerLink="/">Return to the Provider Console</a>
+        </div>
       }
     }
   </section>

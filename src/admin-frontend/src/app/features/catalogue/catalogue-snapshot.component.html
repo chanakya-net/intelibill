@@ -1,8 +1,10 @@
-<h3>{{ name() }} · version {{ version() }}</h3>
-@if (trial().developmentFixture) {
-  <p><strong>Development fixture</strong> · Local evaluation</p>
-}
-@if (plan()) { <p>Prices are final, tax-inclusive INR amounts.</p> }
+<div class="adm-field">
+  <h3>{{ name() }} · version {{ version() }}</h3>
+  @if (trial().developmentFixture) {
+    <span class="adm-pill adm-pill--info"><strong>Development fixture</strong> · Local evaluation</span>
+  }
+  @if (plan()) { <p class="adm-panel-sub">Prices are final, tax-inclusive INR amounts.</p> }
+</div>
 <dl class="terms">
   @if (plan(); as terms) {
     <dt>Plan type</dt><dd>{{ kinds[terms.kind] }}</dd>

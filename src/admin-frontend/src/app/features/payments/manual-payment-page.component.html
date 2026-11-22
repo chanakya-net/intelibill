@@ -1,35 +1,71 @@
-<main>
-  <a routerLink="/">Provider console</a>
-  <h1 class="ib-page-title">Manual payments</h1>
-  @if (allowed()) {
-    <a routerLink="/payments/review" [queryParams]="{ account: account() || null, order: order() || null }">Review payment funds</a>
-  }
+<main class="adm-wide-main">
+  <header class="adm-page-head">
+    <a class="adm-back-link" routerLink="/">
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>Provider console
+    </a>
+    <div class="adm-page-head__row">
+      <div>
+        <p class="ib-eyebrow">Billing Operations</p>
+        <h1 class="ib-page-title">Manual payments</h1>
+        <p class="ib-subtitle">Inspect accepted subscription orders, verify offline bank receipts, and confirm fulfilment.</p>
+      </div>
+      @if (allowed()) {
+        <a class="adm-pill adm-pill--accent" routerLink="/payments/review" [queryParams]="{ account: account() || null, order: order() || null }">Review payment funds</a>
+      }
+    </div>
+  </header>
+
   @if (!allowed()) {
-    <p>Billing capability is required.</p>
+    <section class="ib-panel">
+      <p class="ib-error-banner">Billing capability is required.</p>
+    </section>
   } @else {
-    <form class="ib-form-section" (submit)="search($event, accountId.value, orderId.value)">
-      <label>Billing account ID <input #accountId required [value]="account()"></label>
-      <label>Accepted order ID <input #orderId required [value]="order()"></label>
-      <button pButton type="submit" [disabled]="busy()">Load order</button>
+    <form class="ib-panel" (submit)="search($event, accountId.value, orderId.value)">
+      <div class="adm-grid-2">
+        <label>Billing account ID <input #accountId required [value]="account()"></label>
+        <label>Accepted order ID <input #orderId required [value]="order()"></label>
+      </div>
+      <div class="adm-actions">
+        <button pButton type="submit" [disabled]="busy()">Load order</button>
+      </div>
     </form>
+
     @if (error()) {
       <p role="alert" class="ib-error-banner">{{ error() }}</p>
     }
     @if (reauthenticate()) {
-      <a routerLink="/auth/sign-in" [queryParams]="{ paymentAccount: account(), paymentOrder: order() }">Sign in with MFA</a>
+      <div class="adm-subcard">
+        <a routerLink="/auth/sign-in" [queryParams]="{ paymentAccount: account(), paymentOrder: order() }">Sign in with MFA</a>
+      </div>
     }
     @if (pending(); as saved) {
       <section class="ib-panel" aria-labelledby="pending-heading">
-        <h2 id="pending-heading">Saved confirmation</h2>
-        <p>Operation {{ saved.operationKey }}</p>
-        <button pButton type="button" [disabled]="busy()" (click)="recover(false)">Check original confirmation</button>
-        <button pButton type="button" [disabled]="busy()" (click)="recover(true)">{{ view()?.status?.restorationHeld ? 'Check restoration again' : 'Retry original confirmation' }}</button>
+        <div class="adm-panel-head">
+          <div class="adm-panel-head__copy">
+            <h2 class="ib-panel__title" id="pending-heading">Saved confirmation</h2>
+            <p class="adm-panel-sub">Operation <code>{{ saved.operationKey }}</code></p>
+          </div>
+          <span class="adm-pill adm-pill--warn">Awaiting confirmation</span>
+        </div>
+        <div class="adm-actions">
+          <button pButton severity="secondary" [outlined]="true" type="button" [disabled]="busy()" (click)="recover(false)">Check original confirmation</button>
+          <button pButton type="button" [disabled]="busy()" (click)="recover(true)">{{ view()?.status?.restorationHeld ? 'Check restoration again' : 'Retry original confirmation' }}</button>
+        </div>
       </section>
     }
     @if (routing(); as route) {
       <section class="ib-panel" aria-labelledby="routing-heading" data-testid="payment-routing">
-        <h2 id="routing-heading">Original payment routing</h2>
-        <p>Attempt · {{ route.attemptId }}</p>
+        <div class="adm-panel-head">
+          <div class="adm-panel-head__copy">
+            <h2 class="ib-panel__title" id="routing-heading">Original payment routing</h2>
+            <p class="adm-panel-sub">Attempt · <code>{{ route.attemptId }}</code></p>
+          </div>
+          @if (route.recoveryAvailable) {
+            <span class="adm-pill adm-pill--success">Recovery available</span>
+          } @else {
+            <span class="adm-pill adm-pill--warn">Needs review</span>
+          }
+        </div>
         @if (route.original; as original) {
           <dl>
             <dt>Original provider</dt><dd>{{ original.providerId }}</dd>
@@ -39,46 +75,59 @@
           </dl>
         }
         @if (route.currentSelection.pin; as selected) {
-          <p>Current selection for new payments · {{ route.currentSelection.profileId }} · revision {{ route.currentSelection.revision }}</p>
-          <p>{{ selected.providerId }} · {{ selected.providerAccountId }} · {{ selected.environment }} · {{ selected.configurationVersion }}</p>
+          <div class="adm-subcard">
+            <p><strong>Current selection for new payments</strong> · {{ route.currentSelection.profileId }} · revision {{ route.currentSelection.revision }}</p>
+            <p>{{ selected.providerId }} · {{ selected.providerAccountId }} · {{ selected.environment }} · {{ selected.configurationVersion }}</p>
+          </div>
         }
         @if (route.recoveryAvailable) {
-          <p data-testid="routing-available">Original configuration available for recovery.</p>
+          <p class="adm-callout adm-callout--success" data-testid="routing-available">Original configuration available for recovery.</p>
         } @else {
-          <p role="status" data-testid="routing-blocker">Historical configuration needs review · {{ route.blocker }}. Restore the original configuration; do not replace the charge.</p>
+          <p class="adm-callout adm-callout--warn" role="status" data-testid="routing-blocker">Historical configuration needs review · {{ route.blocker }}. Restore the original configuration; do not replace the charge.</p>
         }
       </section>
     }
     @if (view(); as item) {
       <section class="ib-panel" aria-labelledby="order-heading">
-        <h2 id="order-heading">Accepted order</h2>
-        <p>{{ item.order.planName }} · {{ item.order.period }} · {{ item.order.shopCount }} shops · {{ money(item.order.amountPaise) }}</p>
+        <div class="adm-panel-head">
+          <div class="adm-panel-head__copy">
+            <h2 class="ib-panel__title" id="order-heading">Accepted order</h2>
+            <p class="adm-panel-sub">{{ item.order.planName }} · {{ item.order.period }} · {{ item.order.shopCount }} shops · <strong>{{ money(item.order.amountPaise) }}</strong></p>
+          </div>
+          <button pButton severity="secondary" [outlined]="true" type="button" [disabled]="busy()" (click)="reload()">Refresh order</button>
+        </div>
         @if (item.status.attemptId) {
-          <p>Online payment · {{ item.status.payment }} @if (item.onlineFundsNeedReview) { · Funds need review }</p>
+          <p class="adm-callout adm-callout--info">Online payment · {{ item.status.payment }} @if (item.onlineFundsNeedReview) { · Funds need review }</p>
         }
         @if (item.status.restorationHeld) {
-          <p data-testid="manual-restoration-hold">Payment recorded. Access restoration is pending.</p>
+          <p class="adm-callout adm-callout--warn" data-testid="manual-restoration-hold">Payment recorded. Access restoration is pending.</p>
         }
-        <p data-testid="order-access">Access · {{ item.status.access }}</p>
-        <button pButton type="button" [disabled]="busy()" (click)="reload()">Refresh order</button>
+        <p class="adm-pill adm-pill--accent" data-testid="order-access">Access · {{ item.status.access }}</p>
       </section>
       @if (receipt(); as completed) {
-        <p role="status" data-testid="receipt-result">{{ completed.source }} payment {{ completed.payment }} · {{ completed.fulfilment }}</p>
+        <p class="adm-callout adm-callout--success" role="status" data-testid="receipt-result">{{ completed.source }} payment {{ completed.payment }} · {{ completed.fulfilment }}</p>
       }
       @if (item.receipts.length > 0) {
         <section class="ib-panel" aria-labelledby="receipt-heading">
-          <h2 id="receipt-heading">Recorded manual receipts</h2>
-          <ul>
+          <div class="adm-panel-head">
+            <div class="adm-panel-head__copy">
+              <h2 class="ib-panel__title" id="receipt-heading">Recorded manual receipts</h2>
+            </div>
+            <span class="adm-pill">{{ item.receipts.length }} recorded</span>
+          </div>
+          <ul class="adm-list-stack">
             @for (record of item.receipts; track record.receiptId) {
-              <li data-testid="receipt-audit">
-                {{ record.source }} · {{ record.payment }} · {{ money(record.amountPaise) }} · {{ record.fulfilment }}
-                @if (record.reviewReason) { · {{ record.reviewReason }} }
-                <div>Received {{ instant(record.receivedAt) }} · Verified {{ instant(record.verifiedAt) }}</div>
-                <div>Receipt {{ record.receiptId }} · Administrator {{ record.adminId }}</div>
-                <div>MFA {{ instant(record.mfaVerifiedAt) }} · Policy {{ record.evidencePolicyVersion }} · Configuration {{ record.configurationVersion }}</div>
-                <button pButton type="button" [disabled]="busy()" (click)="inspect(record.receiptId)">
-                  {{ evidence()?.receipt === record.receiptId ? 'Hide receipt evidence' : 'View verified evidence' }}
-                </button>
+              <li class="adm-subcard" data-testid="receipt-audit">
+                <p><strong>{{ record.source }} · {{ record.payment }} · {{ money(record.amountPaise) }} · {{ record.fulfilment }}</strong>
+                  @if (record.reviewReason) { · {{ record.reviewReason }} }</p>
+                <div class="adm-panel-sub">Received {{ instant(record.receivedAt) }} · Verified {{ instant(record.verifiedAt) }}</div>
+                <div class="adm-panel-sub">Receipt <code>{{ record.receiptId }}</code> · Administrator {{ record.adminId }}</div>
+                <div class="adm-panel-sub">MFA {{ instant(record.mfaVerifiedAt) }} · Policy {{ record.evidencePolicyVersion }} · Configuration {{ record.configurationVersion }}</div>
+                <div class="adm-actions">
+                  <button pButton severity="secondary" [outlined]="true" type="button" [disabled]="busy()" (click)="inspect(record.receiptId)">
+                    {{ evidence()?.receipt === record.receiptId ? 'Hide receipt evidence' : 'View verified evidence' }}
+                  </button>
+                </div>
                 @if (evidence(); as audit) {
                   @if (audit.receipt === record.receiptId) {
                     <dl>
@@ -95,47 +144,69 @@
       }
       @if (item.receivingAccount; as receiving) {
         @if (!pending()) {
-          <form #draft class="ib-form-section" aria-labelledby="evidence-heading"
-          (submit)="requestPreview($event, draft)" (input)="invalidatePreview()">
-          <h2 id="evidence-heading">Receipt evidence</h2>
-          <p>{{ receiving.label }} · {{ receiving.environment }}</p>
-          <fieldset [disabled]="busy()">
-            <label>Received amount in paise <input type="number" name="amountPaise" min="1" step="1" required></label>
-            <label>Received at (IST) <input type="datetime-local" name="receivedAt" step="1" required></label>
-            <label>Bank payment reference <input name="reference" maxlength="120" required autocomplete="off"></label>
-            <label>Evidence reference <input name="evidence" maxlength="200" required autocomplete="off"></label>
-            <label>Reason <textarea name="reason" maxlength="400" required autocomplete="off"></textarea></label>
-          </fieldset>
-          <button pButton type="submit" [disabled]="busy()">Preview full receipt</button>
+          <form #draft class="ib-panel" aria-labelledby="evidence-heading"
+            (submit)="requestPreview($event, draft)" (input)="invalidatePreview()">
+            <div class="adm-panel-head">
+              <div class="adm-panel-head__copy">
+                <h2 class="ib-panel__title" id="evidence-heading">Receipt evidence</h2>
+                <p class="adm-panel-sub">{{ receiving.label }} · {{ receiving.environment }}</p>
+              </div>
+            </div>
+            <fieldset [disabled]="busy()">
+              <div class="adm-grid-2">
+                <label>Received amount in paise <input type="number" name="amountPaise" min="1" step="1" required></label>
+                <label>Received at (IST) <input type="datetime-local" name="receivedAt" step="1" required></label>
+                <label>Bank payment reference <input name="reference" maxlength="120" required autocomplete="off"></label>
+                <label>Evidence reference <input name="evidence" maxlength="200" required autocomplete="off"></label>
+                <label class="adm-span-2">Reason <textarea name="reason" maxlength="400" required autocomplete="off"></textarea></label>
+              </div>
+            </fieldset>
+            <div class="adm-actions">
+              <button pButton type="submit" [disabled]="busy()">Preview full receipt</button>
+            </div>
           </form>
         }
       } @else {
-        <p>Manual confirmation is unavailable for this environment.</p>
+        <section class="ib-panel">
+          <p class="adm-callout">Manual confirmation is unavailable for this environment.</p>
+        </section>
       }
     }
     @if (preview(); as review) {
       <section class="ib-panel" aria-labelledby="preview-heading">
-        <h2 id="preview-heading">Confirm the full receipt</h2>
-        <p>{{ money(review.order.amountPaise) }} for {{ review.order.shopCount }} shops · {{ review.order.planName }} · {{ review.order.period }}</p>
-        @if (review.estimatedStart && review.estimatedEnd) {
-          <p>Estimated term · {{ instant(review.estimatedStart) }} to {{ instant(review.estimatedEnd) }}</p>
-        }
-        <p>Received {{ instant(review.receivedAt) }} · {{ review.receivingAccount.label }}</p>
-        <ul>
-          @for (shop of review.order.shops; track shop.shopId) { <li data-testid="preview-shop">{{ shop.name }}</li> }
-        </ul>
-        @if (review.order.nextShop) {
-          <button pButton type="button" [disabled]="busy()" (click)="nextShops()">Review next shops</button>
-        }
+        <div class="adm-panel-head">
+          <div class="adm-panel-head__copy">
+            <h2 class="ib-panel__title" id="preview-heading">Confirm the full receipt</h2>
+            <p class="adm-panel-sub">{{ money(review.order.amountPaise) }} for {{ review.order.shopCount }} shops · {{ review.order.planName }} · {{ review.order.period }}</p>
+          </div>
+          <span class="adm-pill adm-pill--accent">Preview ready</span>
+        </div>
+        <div class="adm-subcard">
+          @if (review.estimatedStart && review.estimatedEnd) {
+            <p>Estimated term · <strong>{{ instant(review.estimatedStart) }} to {{ instant(review.estimatedEnd) }}</strong></p>
+          }
+          <p>Received {{ instant(review.receivedAt) }} · {{ review.receivingAccount.label }}</p>
+          <ul>
+            @for (shop of review.order.shops; track shop.shopId) { <li data-testid="preview-shop">{{ shop.name }}</li> }
+          </ul>
+          @if (review.order.nextShop) {
+            <div class="adm-actions">
+              <button pButton severity="secondary" [outlined]="true" type="button" [disabled]="busy()" (click)="nextShops()">Review next shops</button>
+            </div>
+          }
+        </div>
         @if (review.reviewReason) {
-          <p>This receipt will be recorded for review · {{ review.reviewReason }}.</p>
+          <p class="adm-callout adm-callout--warn">This receipt will be recorded for review · {{ review.reviewReason }}.</p>
         }
-        <label><input type="checkbox" #ack [checked]="confirmed()" (change)="confirmed.set(ack.checked)">
-          I verified one full receipt against the receiving account evidence.
+        <label class="adm-choice-card">
+          <input type="checkbox" #ack [checked]="confirmed()" (change)="confirmed.set(ack.checked)">
+          <span>I verified one full receipt against the receiving account evidence.</span>
         </label>
-        <button pButton type="button" [disabled]="busy() || !confirmed() || !!review.order.nextShop" (click)="confirm()">
-          Confirm verified receipt
-        </button>
+        <div class="adm-actions">
+          <button pButton type="button" [disabled]="busy() || !confirmed() || !!review.order.nextShop" (click)="confirm()">
+            Confirm verified receipt
+          </button>
+        </div>
       </section>
     }
   }

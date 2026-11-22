@@ -1,15 +1,35 @@
-<main>
-  <a routerLink="/">Provider Console</a>
-  <h1 class="ib-page-title">Plan catalogue drafts</h1>
+<main class="adm-wide-main">
+  <header class="adm-page-head">
+    <a class="adm-back-link" routerLink="/">
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>Provider Console
+    </a>
+    <p class="ib-eyebrow">Commercial Catalogue</p>
+    <h1 class="ib-page-title">Plan catalogue drafts</h1>
+    <p class="ib-subtitle">Author private pricing drafts, configure trial policies, publish verified versions, and retire plans.</p>
+  </header>
+
   @if (access()) {
     <section class="ib-panel" aria-labelledby="plans-heading">
-      <h2 class="ib-panel__title" id="plans-heading">Plans</h2>
-      <p>Drafts are private until a Licensing Manager confirms publication. Amounts are in INR.</p>
+      <div class="adm-panel-head">
+        <div class="adm-panel-head__copy">
+          <h2 class="ib-panel__title" id="plans-heading">Plans</h2>
+          <p class="adm-panel-sub">Drafts are private until a Licensing Manager confirms publication. Amounts are in INR.</p>
+        </div>
+        @if (loaded()) {
+          <div class="actions adm-actions">
+            <button pButton type="button" (click)="edit(null)" [disabled]="reloadRequired()">New plan draft</button>
+            @if (nextCursor()) {
+              <button pButton severity="secondary" [outlined]="true" type="button" (click)="more()" [disabled]="busy()">More plans</button>
+            }
+          </div>
+        }
+      </div>
+
       @if (error()) { <p class="ib-error-banner" role="alert">{{ error() }}</p> }
-      @if (busy()) { <p role="status">Working…</p> }
+      @if (busy()) { <p class="adm-callout adm-callout--info" role="status">Working…</p> }
       @if (reloadRequired()) {
         <p class="ib-error-banner" role="alert">A draft changed elsewhere. Reload before editing.</p>
-        <div><button pButton type="button" (click)="load()">Reload catalogue</button></div>
+        <div class="adm-actions"><button pButton type="button" (click)="load()">Reload catalogue</button></div>
       }
       @if (loaded()) {
         @if (plans().length) {
@@ -18,24 +38,23 @@
               <li>
                 <button type="button" class="plan" (click)="edit(item)" [disabled]="reloadRequired()"
                   [attr.aria-current]="selected()?.planId === item.planId">
-                  <strong>{{ item.draft.name }}</strong>
-                  <span>{{ kinds[item.kind] }} · {{ inr(item.draft.monthlyPricePaise) }} monthly</span>
-                  <span>Draft · not published · {{ item.draft.complete ? 'complete' : 'incomplete' }}</span>
+                  <div class="plan__top">
+                    <strong>{{ item.draft.name }}</strong>
+                    <span class="adm-pill" [class.adm-pill--success]="item.draft.complete" [class.adm-pill--warn]="!item.draft.complete">
+                      Draft · not published · {{ item.draft.complete ? 'complete' : 'incomplete' }}
+                    </span>
+                  </div>
+                  <span class="plan__meta">{{ kinds[item.kind] }} · {{ inr(item.draft.monthlyPricePaise) }} monthly</span>
                 </button>
               </li>
             }
           </ul>
         } @else {
-          <p>No plan drafts yet.</p>
+          <p class="adm-callout">No plan drafts yet.</p>
         }
-        <div class="actions">
-          <button pButton type="button" (click)="edit(null)" [disabled]="reloadRequired()">New plan draft</button>
-          @if (nextCursor()) {
-            <button pButton type="button" (click)="more()" [disabled]="busy()">More plans</button>
-          }
-        </div>
       }
     </section>
+
     @if (loaded() && !reloadRequired()) {
       @for (key of editorKey() ? [editorKey()!] : []; track key) {
         <adm-plan-draft-editor [plan]="selected()" (saved)="planSaved($event)" (conflict)="conflicted()" />
@@ -47,33 +66,47 @@
         (published)="publicationSaved($event)" (denied)="publicationDenied()" />
       <adm-catalogue-retirement #retirement [target]="retirementTarget()"
         (saved)="loadHistory()" (dismissed)="retirementTarget.set(null)" (denied)="publicationDenied()" />
+
       <section class="ib-panel" aria-labelledby="published-heading">
-        <h2 class="ib-panel__title" id="published-heading">Published versions</h2>
+        <div class="adm-panel-head">
+          <div class="adm-panel-head__copy">
+            <h2 class="ib-panel__title" id="published-heading">Published versions</h2>
+            <p class="adm-panel-sub">Immutable published catalogue snapshots and retirement records.</p>
+          </div>
+        </div>
         @if (historyError()) {
           <p class="ib-error-banner" role="alert">{{ historyError() }}</p>
-          <button pButton type="button" (click)="loadHistory()" [disabled]="historyBusy()">Reload history</button>
+          <div class="adm-actions">
+            <button pButton type="button" (click)="loadHistory()" [disabled]="historyBusy()">Reload history</button>
+          </div>
         }
         @for (row of history(); track row.versionId) {
           <details>
             <summary>{{ publishedName(row) }} · version {{ publishedNumber(row) }} · {{ row.status }}</summary>
             <adm-catalogue-snapshot [snapshot]="row.snapshot" />
             @if (row.retirement; as evidence) {
-              <p>Retired from new purchase on <time [attr.datetime]="evidence.retiredAt">{{ evidence.retiredAt }}</time></p>
-              <p>Retirement reason · {{ evidence.reason }}</p>
+              <p class="adm-callout adm-callout--warn">
+                Retired from new purchase on <time [attr.datetime]="evidence.retiredAt">{{ evidence.retiredAt }}</time><br />
+                Retirement reason · {{ evidence.reason }}
+              </p>
             }
-            @if (row.planId && row.status === 'published') {
-              <button pButton type="button" (click)="retirementTarget.set(row)"
-                [disabled]="historyBusy() || !!retirement.key()">Retire from new purchase</button>
-            }
-            <button pButton type="button" (click)="createSuccessor(row)" [disabled]="historyBusy()">
-              Create successor draft
-            </button>
+            <div class="adm-actions">
+              @if (row.planId && row.status === 'published') {
+                <button pButton severity="danger" [outlined]="true" type="button" (click)="retirementTarget.set(row)"
+                  [disabled]="historyBusy() || !!retirement.key()">Retire from new purchase</button>
+              }
+              <button pButton severity="secondary" [outlined]="true" type="button" (click)="createSuccessor(row)" [disabled]="historyBusy()">
+                Create successor draft
+              </button>
+            </div>
           </details>
         } @empty {
-          @if (!historyBusy() && !historyError()) { <p>No versions published yet.</p> }
+          @if (!historyBusy() && !historyError()) { <p class="adm-callout">No versions published yet.</p> }
         }
         @if (historyCursor(); as after) {
-          <button pButton type="button" (click)="loadHistory(after)" [disabled]="historyBusy()">More published versions</button>
+          <div class="adm-actions">
+            <button pButton severity="secondary" [outlined]="true" type="button" (click)="loadHistory(after)" [disabled]="historyBusy()">More published versions</button>
+          </div>
         }
       </section>
     }
@@ -81,12 +114,12 @@
     <section class="ib-panel" aria-label="Catalogue access status">
       @switch (notice()) {
         @case ('expired') {
-          <p role="alert">Your provider access paused.</p>
-          <div><button pButton type="button" (click)="reconfirm()">Continue session</button></div>
+          <p class="adm-callout adm-callout--warn" role="alert">Your provider access paused.</p>
+          <div class="adm-actions"><button pButton type="button" (click)="reconfirm()">Continue session</button></div>
         }
         @case ('ended') {
           <p class="ib-error-banner" role="alert">Your provider session ended.</p>
-          <a routerLink="/auth/sign-in">Sign in again</a>
+          <div class="adm-actions"><a routerLink="/auth/sign-in">Sign in again</a></div>
         }
         @default {
           <p class="ib-error-banner" role="alert">Only a Licensing Manager can draft plans and the trial policy.</p>

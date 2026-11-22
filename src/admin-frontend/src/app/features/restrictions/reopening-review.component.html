@@ -1,98 +1,166 @@
-<main class="admin-form-page">
-  <a routerLink="/accounts">Account access status</a>
-  <h1 class="ib-page-title">Shop reopening review</h1>
+<main class="admin-form-page adm-wide-main">
+  <header class="adm-page-head">
+    <a class="adm-back-link" routerLink="/accounts">
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>Account access status
+    </a>
+    <p class="ib-eyebrow">Closure Governance</p>
+    <h1 class="ib-page-title">Shop reopening review</h1>
+    <p class="ib-subtitle">Verify active paid coverage and documented shop-owner consent before reopening a closed shop.</p>
+  </header>
+
   @if (canRead()) {
     <form class="ib-panel" (submit)="lookup($event)">
-      <label for="reopening-account">Billing account ID</label>
-      <input id="reopening-account" type="text" [value]="account()" (input)="changeAccount($any($event.target).value)" />
-      <button pButton type="submit" [disabled]="busy()">Find closures</button>
+      <div class="adm-lookup-bar">
+        <div class="adm-field">
+          <label for="reopening-account">Billing account ID</label>
+          <input id="reopening-account" type="text" placeholder="00000000-0000-0000-0000-000000000000"
+            [value]="account()" (input)="changeAccount($any($event.target).value)" />
+        </div>
+        <button pButton type="submit" [disabled]="busy()">Find closures</button>
+      </div>
     </form>
+
     @if (error(); as message) { <p class="ib-error-banner" role="alert">{{ message }}</p> }
+
     @if (pending()) {
       <section class="ib-panel" aria-label="Unconfirmed reopening">
-        <p>A reopening request is saved in this browser.</p>
-        <button pButton type="button" [disabled]="busy()" (click)="retry()">Retry the same request</button>
+        <p class="adm-callout adm-callout--warn">A reopening request is saved in this browser.</p>
+        <div class="adm-actions">
+          <button pButton type="button" [disabled]="busy()" (click)="retry()">Retry the same request</button>
+        </div>
       </section>
     }
-    @if (saved()) { <p role="status">Reopening decision saved.</p> }
+
+    @if (saved()) { <p class="adm-callout adm-callout--success" role="status">Reopening decision saved.</p> }
+
     @if (rows(); as closures) {
       <section class="ib-panel" aria-labelledby="reopening-closures">
-        <h2 id="reopening-closures" class="ib-panel__title">Operational closures</h2>
-        <button pButton type="button" [disabled]="busy()" (click)="refresh()">Refresh delivery status</button>
+        <div class="adm-panel-head">
+          <div class="adm-panel-head__copy">
+            <h2 id="reopening-closures" class="ib-panel__title">Operational closures</h2>
+            <p class="adm-panel-sub">Select an eligible shop to review coverage and record reopening approval.</p>
+          </div>
+          <button pButton severity="secondary" [outlined]="true" type="button" [disabled]="busy()" (click)="refresh()">Refresh delivery status</button>
+        </div>
+
         @for (closure of closures; track closure.id) {
-          <h3>{{ closure.scope === 'Account' ? 'Billing account closure' : 'Shop closure' }}</h3>
-          <p>Closed {{ format(closure.savedAt) }}</p>
-          <ul>
-            @for (shop of closure.shops; track shop.shopId) {
-              <li>
-                <strong>{{ shop.shopName }}</strong>
-                @if (shop.reopening; as reopening) {
-                  <p data-testid="reopening-propagation">{{ statusLabels[reopening.propagation] }}</p>
-                } @else if (canReview()) {
-                  <button pButton type="button" [disabled]="busy() || !!pending() || invalidDraft()" (click)="preview(closure.id, shop.shopId)">
-                    Review reopening
-                  </button>
-                }
-              </li>
-            }
-          </ul>
+          <article class="adm-subcard">
+            <div class="reopen-head">
+              <h3>{{ closure.scope === 'Account' ? 'Billing account closure' : 'Shop closure' }}</h3>
+              <span class="adm-pill">Closed {{ format(closure.savedAt) }}</span>
+            </div>
+            <ul class="reopen-shop-list">
+              @for (shop of closure.shops; track shop.shopId) {
+                <li class="reopen-shop-row">
+                  <strong>{{ shop.shopName }}</strong>
+                  @if (shop.reopening; as reopening) {
+                    <p
+                      class="adm-pill"
+                      [class.adm-pill--success]="reopening.propagation === 'Acknowledged'"
+                      [class.adm-pill--warn]="reopening.propagation === 'Pending'"
+                      data-testid="reopening-propagation"
+                    >{{ statusLabels[reopening.propagation] }}</p>
+                  } @else if (canReview()) {
+                    <button pButton [outlined]="true" type="button" [disabled]="busy() || !!pending() || invalidDraft()" (click)="preview(closure.id, shop.shopId)">
+                      Review reopening
+                    </button>
+                  }
+                </li>
+              }
+            </ul>
+          </article>
         } @empty {
-          <p>No operational closures are recorded for this account.</p>
+          <p class="adm-callout">No operational closures are recorded for this account.</p>
         }
       </section>
     }
+
     @if (impact(); as review) {
       @if (canReview() && !pending()) {
         <section class="ib-panel" aria-labelledby="reopening-shop">
-          <h2 id="reopening-shop" class="ib-panel__title">{{ review.shopName }}</h2>
-          <p>Closed {{ format(review.closedAt) }}</p>
-          @if (review.coverage; as coverage) {
-            <p>Current coverage: {{ states[coverage.state] ?? coverage.state }} · {{ bases[coverage.basis ?? ''] ?? 'Basis unavailable' }}</p>
-            <p>Term ends {{ format(coverage.paidThrough) }}</p>
-          }
-          @if (review.survivingSuspension; as suspension) {
-            <p><strong>{{ suspension.mode }} suspension remains in force according to its recorded terms.</strong></p>
-          }
-          @if (review.otherActiveClosures > 0) {
-            <p>The shop stays closed until the other closure has also been reviewed.</p>
-          }
-          <p>No trial is created. Existing subscription deadlines still apply.</p>
+          <div class="adm-panel-head">
+            <div class="adm-panel-head__copy">
+              <h2 id="reopening-shop" class="ib-panel__title">{{ review.shopName }}</h2>
+              <p class="adm-panel-sub">Closed {{ format(review.closedAt) }}</p>
+            </div>
+            @if (review.coverageAdequate) {
+              <span class="adm-pill adm-pill--success">Coverage eligible</span>
+            } @else {
+              <span class="adm-pill adm-pill--danger">Coverage required</span>
+            }
+          </div>
+
+          <div class="adm-subcard">
+            @if (review.coverage; as coverage) {
+              <p><strong>Current coverage:</strong> {{ states[coverage.state] ?? coverage.state }} · {{ bases[coverage.basis ?? ''] ?? 'Basis unavailable' }}</p>
+              <p>Term ends {{ format(coverage.paidThrough) }}</p>
+            }
+            @if (review.survivingSuspension; as suspension) {
+              <p class="adm-callout adm-callout--warn"><strong>{{ suspension.mode }} suspension remains in force according to its recorded terms.</strong></p>
+            }
+            @if (review.otherActiveClosures > 0) {
+              <p class="adm-callout adm-callout--info">The shop stays closed until the other closure has also been reviewed.</p>
+            }
+            <p class="adm-field__hint">No trial is created. Existing subscription deadlines still apply.</p>
+          </div>
+
           @if (!review.coverageAdequate) {
-            <p role="status">Reopening requires active coverage other than a trial.</p>
+            <p class="adm-callout adm-callout--warn" role="status">Reopening requires active coverage other than a trial.</p>
           } @else {
-            <form [formGroup]="form" (ngSubmit)="confirm()">
-              <label for="reopening-reason">Review reason</label>
-              <textarea id="reopening-reason" formControlName="reason" maxlength="1000"></textarea>
-              @if (form.controls.reason.hasError('unsupportedText')) {
-                <p id="reopening-reason-unsupported" class="ib-error-banner" role="alert">Remove tabs and other control characters. Line breaks are allowed.</p>
-              }
-              <label for="reopening-owner">Current shop owner user ID</label>
-              <input id="reopening-owner" formControlName="ownerConsentUserId" />
-              <label for="reopening-consent-at">Owner consent date and time (IST)</label>
-              <input id="reopening-consent-at" type="datetime-local" step="1" formControlName="ownerConsentAt" />
-              <label for="reopening-reference">Owner consent review reference</label>
-              <input id="reopening-reference" formControlName="ownerConsentReference" maxlength="120" />
-              @if (form.controls.ownerConsentReference.hasError('unsupportedText')) {
-                <p id="reopening-reference-unsupported" class="ib-error-banner" role="alert">Remove tabs and other control characters.</p>
-              }
-              <label for="reopening-evidence">Owner consent evidence</label>
-              <textarea id="reopening-evidence" formControlName="ownerConsentEvidence" maxlength="2000"
-                aria-describedby="reopening-evidence-help"></textarea>
-              <p id="reopening-evidence-help">Record the source and the owner’s explicit request to reopen this shop.</p>
-              @if (form.controls.ownerConsentEvidence.hasError('unsupportedText')) {
-                <p id="reopening-evidence-unsupported" class="ib-error-banner" role="alert">Remove tabs and other control characters. Line breaks are allowed.</p>
-              }
-              <label>
+            <form class="ib-form-section" [formGroup]="form" (ngSubmit)="confirm()">
+              <div class="adm-field">
+                <label for="reopening-reason">Review reason</label>
+                <textarea id="reopening-reason" formControlName="reason" maxlength="1000"></textarea>
+                @if (form.controls.reason.hasError('unsupportedText')) {
+                  <p id="reopening-reason-unsupported" class="ib-error-banner" role="alert">Remove tabs and other control characters. Line breaks are allowed.</p>
+                }
+              </div>
+
+              <div class="adm-grid-2">
+                <div class="adm-field">
+                  <label for="reopening-owner">Current shop owner user ID</label>
+                  <input id="reopening-owner" formControlName="ownerConsentUserId" />
+                </div>
+                <div class="adm-field">
+                  <label for="reopening-consent-at">Owner consent date and time (IST)</label>
+                  <input id="reopening-consent-at" type="datetime-local" step="1" formControlName="ownerConsentAt" />
+                </div>
+              </div>
+
+              <div class="adm-field">
+                <label for="reopening-reference">Owner consent review reference</label>
+                <input id="reopening-reference" formControlName="ownerConsentReference" maxlength="120" />
+                @if (form.controls.ownerConsentReference.hasError('unsupportedText')) {
+                  <p id="reopening-reference-unsupported" class="ib-error-banner" role="alert">Remove tabs and other control characters.</p>
+                }
+              </div>
+
+              <div class="adm-field">
+                <label for="reopening-evidence">Owner consent evidence</label>
+                <textarea id="reopening-evidence" formControlName="ownerConsentEvidence" maxlength="2000"
+                  aria-describedby="reopening-evidence-help"></textarea>
+                <p class="adm-field__hint" id="reopening-evidence-help">Record the source and the owner’s explicit request to reopen this shop.</p>
+                @if (form.controls.ownerConsentEvidence.hasError('unsupportedText')) {
+                  <p id="reopening-evidence-unsupported" class="ib-error-banner" role="alert">Remove tabs and other control characters. Line breaks are allowed.</p>
+                }
+              </div>
+
+              <label class="adm-choice-card">
                 <input type="checkbox" formControlName="ownerConsentConfirmed" />
-                I verified the current shop owner’s identity and explicit request to reopen {{ review.shopName }}.
+                <span>I verified the current shop owner’s identity and explicit request to reopen {{ review.shopName }}.</span>
               </label>
-              <button pButton type="submit" [disabled]="busy() || invalidDraft() || form.invalid">Confirm reopening</button>
+
+              <div class="adm-actions">
+                <button pButton type="submit" [disabled]="busy() || invalidDraft() || form.invalid">Confirm reopening</button>
+              </div>
             </form>
           }
         </section>
       }
     }
   } @else {
-    <p>Account access status requires Support, Billing or Licensing Manager access.</p>
+    <section class="ib-panel">
+      <p class="ib-error-banner">Account access status requires Support, Billing or Licensing Manager access.</p>
+    </section>
   }
 </main>

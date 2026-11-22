@@ -5,22 +5,48 @@ import { ManualPaymentApi, type ConfirmationReference } from './manual-payment-a
 
 @Component({
   selector: 'adm-payment-confirmations', imports: [ButtonDirective], changeDetection: ChangeDetectionStrategy.OnPush,
-  styles: `section { display: grid; gap: 0.75rem; overflow-wrap: anywhere; }`,
+  styles: `
+    section { display: grid; gap: 0.9rem; overflow-wrap: anywhere; }
+    .confirmation-list { display: grid; gap: 0.65rem; }
+    .confirmation-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.65rem 1rem;
+      padding: 0.75rem 0.95rem;
+      border: 1px solid var(--adm-border);
+      border-radius: 0.7rem;
+      background: var(--adm-surface-subtle);
+    }
+  `,
   template: `
     <section class="ib-panel" aria-label="Payment confirmations">
-      <h2>Payment confirmations</h2>
-      <p>Verified receipt facts only; not a tax invoice or merchant sale receipt. Applied access is shown separately.</p>
-      <button pButton type="button" data-testid="admin-confirmation-list" label="View payment confirmations" [disabled]="busy()" (click)="load()"></button>
-      @for (row of rows(); track row.confirmationId) {
-        <button pButton type="button" data-testid="admin-confirmation-download"
-          label="Download payment confirmation" [disabled]="busy()" (click)="download(row)"></button>
-        <small>{{ row.source }} · {{ row.confirmationId }}</small>
+      <div class="adm-panel-head">
+        <div class="adm-panel-head__copy">
+          <h2 class="ib-panel__title">Payment confirmations</h2>
+          <p class="adm-panel-sub">Verified receipt facts only; not a tax invoice or merchant sale receipt. Applied access is shown separately.</p>
+        </div>
+        <button pButton severity="secondary" [outlined]="true" type="button" data-testid="admin-confirmation-list" label="View payment confirmations" [disabled]="busy()" (click)="load()"></button>
+      </div>
+      @if (rows().length) {
+        <div class="confirmation-list">
+          @for (row of rows(); track row.confirmationId) {
+            <div class="confirmation-row">
+              <small>{{ row.source }} · <code>{{ row.confirmationId }}</code></small>
+              <button pButton severity="secondary" [outlined]="true" size="small" type="button" data-testid="admin-confirmation-download"
+                label="Download payment confirmation" [disabled]="busy()" (click)="download(row)"></button>
+            </div>
+          }
+        </div>
       }
       @if (hasMore()) {
-        <button pButton type="button" data-testid="admin-confirmation-more" label="Load more confirmations"
-          [disabled]="busy()" (click)="load(true)"></button>
+        <div class="adm-actions">
+          <button pButton severity="secondary" [outlined]="true" type="button" data-testid="admin-confirmation-more" label="Load more confirmations"
+            [disabled]="busy()" (click)="load(true)"></button>
+        </div>
       }
-      @if (error()) { <p role="alert">Could not load the confirmation. Try again.</p> }
+      @if (error()) { <p class="ib-error-banner" role="alert">Could not load the confirmation. Try again.</p> }
     </section>
   `,
 })

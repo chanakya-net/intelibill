@@ -1,66 +1,100 @@
 <section class="ib-panel" aria-labelledby="plan-editor-heading">
-  <h2 class="ib-panel__title" id="plan-editor-heading">{{ draft() ? draft()!.name : 'New plan draft' }}</h2>
-  <p class="status" data-testid="draft-status">Draft · not published</p>
+  <div class="adm-panel-head">
+    <div class="adm-panel-head__copy">
+      <h2 class="ib-panel__title" id="plan-editor-heading">{{ draft() ? draft()!.name : 'New plan draft' }}</h2>
+      @if (draft(); as current) {
+        <p class="adm-panel-sub">{{ current.complete ? 'All required facts are recorded.' : 'Incomplete draft.' }} Version {{ current.versionNumber }},
+          revision {{ current.version }}. Prices in INR.</p>
+      }
+    </div>
+    <p class="status" data-testid="draft-status">Draft · not published</p>
+  </div>
+
   @if (draft(); as current) {
-    <p>{{ current.complete ? 'All required facts are recorded.' : 'Incomplete draft.' }} Version {{ current.versionNumber }},
-      revision {{ current.version }}. Prices in INR.</p>
     @if (current.missing.length) {
-      <ul aria-label="Missing facts" data-testid="missing-facts">
+      <ul class="missing-list" aria-label="Missing facts" data-testid="missing-facts">
         @for (fact of current.missing; track fact) { <li>{{ label(fact) }}</li> }
       </ul>
     }
   }
   @if (error()) { <p class="ib-error-banner" role="alert">{{ error() }}</p> }
-  @if (notice()) { <p role="status">{{ notice() }}</p> }
+  @if (notice()) { <p class="adm-callout adm-callout--success" role="status">{{ notice() }}</p> }
+
   @if (!cleared()) {
-    <form #editor (submit)="submit($event, editor)" [attr.aria-busy]="busy()">
+    <form class="ib-form-section" #editor (submit)="submit($event, editor)" [attr.aria-busy]="busy()">
       <fieldset [disabled]="busy()">
-        <label for="plan-kind">Plan kind</label>
-        <select id="plan-kind" #kindPicker [disabled]="!!draft()" (change)="chooseKind(kindPicker.value)">
-          @for (option of kinds; track option[0]) {
-            <option [value]="option[0]" [selected]="option[0] === kind()">{{ option[1] }}</option>
+        <div class="adm-grid-2">
+          <div class="adm-field">
+            <label for="plan-kind">Plan kind</label>
+            <select id="plan-kind" #kindPicker [disabled]="!!draft()" (change)="chooseKind(kindPicker.value)">
+              @for (option of kinds; track option[0]) {
+                <option [value]="option[0]" [selected]="option[0] === kind()">{{ option[1] }}</option>
+              }
+            </select>
+          </div>
+          <div class="adm-field">
+            <label for="plan-name">Plan name</label>
+            <input id="plan-name" name="name" maxlength="80" [value]="draft()?.name ?? ''" required />
+          </div>
+          <div class="adm-field">
+            <label for="monthly">Monthly base price (₹)</label>
+            <input id="monthly" name="monthlyPricePaise" inputmode="decimal"
+              [value]="rupees(draft()?.monthlyPricePaise ?? null)" placeholder="Not set" />
+          </div>
+          <div class="adm-field">
+            <label for="annual">Annual base price (₹)</label>
+            <input id="annual" name="annualPricePaise" inputmode="decimal"
+              [value]="rupees(draft()?.annualPricePaise ?? null)" placeholder="Not set" />
+          </div>
+          @if (kind() !== 'single-shop') {
+            <div class="adm-field">
+              <label for="shops">Purchased shop slots</label>
+              <input id="shops" name="includedShops" inputmode="numeric" [value]="draft()?.includedShops ?? ''" placeholder="Not set" />
+            </div>
+          } @else {
+            <p class="adm-callout adm-span-2">Single-shop plans cover exactly one shop and offer no extra shops.</p>
           }
-        </select>
-        <label for="plan-name">Plan name</label>
-        <input id="plan-name" name="name" maxlength="80" [value]="draft()?.name ?? ''" required />
-        <label for="monthly">Monthly base price (₹)</label>
-        <input id="monthly" name="monthlyPricePaise" inputmode="decimal"
-          [value]="rupees(draft()?.monthlyPricePaise ?? null)" placeholder="Not set" />
-        <label for="annual">Annual base price (₹)</label>
-        <input id="annual" name="annualPricePaise" inputmode="decimal"
-          [value]="rupees(draft()?.annualPricePaise ?? null)" placeholder="Not set" />
-        @if (kind() !== 'single-shop') {
-          <label for="shops">Purchased shop slots</label>
-          <input id="shops" name="includedShops" inputmode="numeric" [value]="draft()?.includedShops ?? ''" placeholder="Not set" />
-        } @else {
-          <p>Single-shop plans cover exactly one shop and offer no extra shops.</p>
-        }
-        <label for="members">Members per shop</label>
-        <input id="members" name="membersPerShop" inputmode="numeric" [value]="draft()?.membersPerShop ?? ''" placeholder="Not set" />
-        @if (kind() === 'multi-shop') {
-          <label for="offer">Extra shops</label>
-          <select id="offer" name="extraShopsOffered">
-            <option value="" [selected]="draft()?.extraShopsOffered == null">Not decided</option>
-            <option value="yes" [selected]="draft()?.extraShopsOffered === true">Offered at an explicit price</option>
-            <option value="no" [selected]="draft()?.extraShopsOffered === false">Not offered</option>
-          </select>
-          <label for="extra-monthly">Extra-shop monthly price (₹)</label>
-          <input id="extra-monthly" name="extraShopMonthlyPricePaise" inputmode="decimal"
-            [value]="rupees(draft()?.extraShopMonthlyPricePaise ?? null)" placeholder="Not set" />
-          <label for="extra-annual">Extra-shop annual price (₹)</label>
-          <input id="extra-annual" name="extraShopAnnualPricePaise" inputmode="decimal"
-            [value]="rupees(draft()?.extraShopAnnualPricePaise ?? null)" placeholder="Not set" />
-        }
-        <label for="customer-terms">Customer terms version</label>
-        <input id="customer-terms" name="customerTermsVersion" [value]="draft()?.customerTermsVersion ?? ''" placeholder="Not set" />
-        <label for="refund-policy">Refund policy version</label>
-        <input id="refund-policy" name="refundPolicyVersion" [value]="draft()?.refundPolicyVersion ?? ''" placeholder="Not set" />
-        @if (kind() === 'custom') {
-          <label for="reason">Reason for negotiated terms</label>
-          <textarea id="reason" name="reason" maxlength="500" [value]="draft()?.negotiationReason ?? ''"></textarea>
-        }
-        <p>Blank fields stay missing. Nothing here is unlimited, published or offered to customers.</p>
-        <div><button pButton type="submit">Save draft</button></div>
+          <div class="adm-field">
+            <label for="members">Members per shop</label>
+            <input id="members" name="membersPerShop" inputmode="numeric" [value]="draft()?.membersPerShop ?? ''" placeholder="Not set" />
+          </div>
+          @if (kind() === 'multi-shop') {
+            <div class="adm-field adm-span-2">
+              <label for="offer">Extra shops</label>
+              <select id="offer" name="extraShopsOffered">
+                <option value="" [selected]="draft()?.extraShopsOffered == null">Not decided</option>
+                <option value="yes" [selected]="draft()?.extraShopsOffered === true">Offered at an explicit price</option>
+                <option value="no" [selected]="draft()?.extraShopsOffered === false">Not offered</option>
+              </select>
+            </div>
+            <div class="adm-field">
+              <label for="extra-monthly">Extra-shop monthly price (₹)</label>
+              <input id="extra-monthly" name="extraShopMonthlyPricePaise" inputmode="decimal"
+                [value]="rupees(draft()?.extraShopMonthlyPricePaise ?? null)" placeholder="Not set" />
+            </div>
+            <div class="adm-field">
+              <label for="extra-annual">Extra-shop annual price (₹)</label>
+              <input id="extra-annual" name="extraShopAnnualPricePaise" inputmode="decimal"
+                [value]="rupees(draft()?.extraShopAnnualPricePaise ?? null)" placeholder="Not set" />
+            </div>
+          }
+          <div class="adm-field">
+            <label for="customer-terms">Customer terms version</label>
+            <input id="customer-terms" name="customerTermsVersion" [value]="draft()?.customerTermsVersion ?? ''" placeholder="Not set" />
+          </div>
+          <div class="adm-field">
+            <label for="refund-policy">Refund policy version</label>
+            <input id="refund-policy" name="refundPolicyVersion" [value]="draft()?.refundPolicyVersion ?? ''" placeholder="Not set" />
+          </div>
+          @if (kind() === 'custom') {
+            <div class="adm-field adm-span-2">
+              <label for="reason">Reason for negotiated terms</label>
+              <textarea id="reason" name="reason" maxlength="500" [value]="draft()?.negotiationReason ?? ''"></textarea>
+            </div>
+          }
+        </div>
+        <p class="adm-field__hint">Blank fields stay missing. Nothing here is unlimited, published or offered to customers.</p>
+        <div class="adm-actions"><button pButton type="submit">Save draft</button></div>
       </fieldset>
     </form>
   }

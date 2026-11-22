@@ -7,20 +7,27 @@ import { AccountStatusApi, type CancellationSummary, type ProviderCancellationDe
   selector: 'adm-account-cancellation-detail',
   imports: [ButtonDirective],
   styles: [`
-    :host { display: grid; gap: 0.5rem; }
+    :host {
+      display: grid;
+      gap: 0.65rem;
+      padding: 0.9rem 1rem;
+      border: 1px solid var(--adm-warn-border);
+      border-radius: 0.75rem;
+      background: var(--adm-warn-bg);
+    }
     button { justify-self: start; }
     p, ul { margin: 0; }
     ul { list-style: disc; padding-inline-start: 1.5rem; }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <p data-testid="provider-cancellation-end">Cancellation scheduled for {{ exact(change().effectiveAt) }}.</p>
+    <p data-testid="provider-cancellation-end"><strong>Cancellation scheduled for {{ exact(change().effectiveAt) }}.</strong></p>
     <button type="button" pButton severity="secondary" size="small" data-testid="provider-cancellation-review"
       [disabled]="waiting()" (click)="read()">View affected shops</button>
     @if (detail(); as saved) {
-      <div data-testid="provider-cancellation-detail">
+      <div class="adm-subcard" data-testid="provider-cancellation-detail">
         <p>No refund or grace period.</p>
-        <p>Affected shops ({{ saved.affectedShopCount }})</p>
+        <p><strong>Affected shops ({{ saved.affectedShopCount }})</strong></p>
         <ul>
           @for (shop of saved.affectedShops; track shop.shopId) {
             <li [attr.data-shop-id]="shop.shopId">{{ shop.shopName }}</li>
@@ -28,7 +35,7 @@ import { AccountStatusApi, type CancellationSummary, type ProviderCancellationDe
         </ul>
       </div>
     }
-    @if (failed()) { <p role="alert">Could not verify cancellation details.</p> }
+    @if (failed()) { <p class="ib-error-banner" role="alert">Could not verify cancellation details.</p> }
   `,
 })
 export class AccountCancellationDetailComponent {

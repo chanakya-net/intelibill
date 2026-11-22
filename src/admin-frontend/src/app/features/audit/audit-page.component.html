@@ -1,7 +1,11 @@
 <main>
-  <header>
-    <a routerLink="/">Provider Console</a>
+  <header class="adm-page-head">
+    <a class="adm-back-link" routerLink="/">
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>Provider Console
+    </a>
+    <p class="ib-eyebrow">Compliance &amp; Forensics</p>
     <h1 class="ib-page-title">Audit history</h1>
+    <p class="ib-subtitle">Inspect immutable provider identity, access-grant, and session security events in UTC.</p>
   </header>
 
   @if (mayRead()) {
@@ -32,27 +36,34 @@
             <option>100</option>
           </select>
         </div>
-        <div><button pButton type="submit">Apply filters</button></div>
+        <div class="audit-filter-submit">
+          <button pButton type="submit">Apply filters</button>
+        </div>
       </form>
+
       @if (loading()) {
-        <p role="status">Loading audit history…</p>
+        <p class="adm-callout adm-callout--info" role="status">Loading audit history…</p>
       } @else if (error()) {
         <p class="ib-error-banner" role="alert">{{ error() }}</p>
-        <div><button pButton type="button" (click)="retry()">Try again</button></div>
+        <div class="adm-actions"><button pButton type="button" (click)="retry()">Try again</button></div>
       } @else if (page(); as history) {
         @if (history.items.length) {
           <ul class="audit-events" aria-label="Audit events">
             @for (row of history.items; track row.id) {
-              <li>
+              <li class="audit-row">
                 <div class="event-summary">
-                  <strong>{{ actionTitles[row.action] }}</strong>
-                  <span>{{ row.outcome | titlecase }}</span>
-                  <time [attr.datetime]="row.occurredAt">{{ utcTime(row.occurredAt) }}</time>
+                  <strong class="event-title">{{ actionTitles[row.action] }}</strong>
+                  <span
+                    class="adm-pill"
+                    [class.adm-pill--success]="row.outcome === 'succeeded'"
+                    [class.adm-pill--danger]="row.outcome === 'denied' || row.outcome === 'failed'"
+                  >{{ row.outcome | titlecase }}</span>
+                  <time class="event-time" [attr.datetime]="row.occurredAt">{{ utcTime(row.occurredAt) }}</time>
                 </div>
                 <details>
                   <summary>Event details</summary>
                   <dl>
-                    <dt>Event ID</dt><dd>{{ row.id }}</dd>
+                    <dt>Event ID</dt><dd><code>{{ row.id }}</code></dd>
                     <dt>Scope</dt><dd>Provider identity</dd>
                     <dt>Actor</dt><dd>{{ row.actorKind ? (row.actorKind | titlecase) : 'Unavailable' }} @if (row.actorId) { {{ row.actorId }} }</dd>
                     <dt>Reason code</dt><dd>{{ row.reasonCode ?? 'Unavailable' }}</dd>
@@ -65,12 +76,12 @@
             }
           </ul>
         } @else {
-          <p role="status">No audit events match these filters.</p>
+          <p class="adm-callout" role="status">No audit events match these filters.</p>
         }
         <nav class="audit-paging" aria-label="Audit pages">
-          <button pButton type="button" (click)="previous()" [disabled]="pageIndex() === 0">Previous page</button>
-          <span aria-live="polite">Page {{ pageIndex() + 1 }}</span>
-          <button pButton type="button" (click)="next()" [disabled]="!history.nextCursor">Next page</button>
+          <button pButton severity="secondary" [outlined]="true" type="button" (click)="previous()" [disabled]="pageIndex() === 0">Previous page</button>
+          <span class="audit-page-label" aria-live="polite">Page {{ pageIndex() + 1 }}</span>
+          <button pButton severity="secondary" [outlined]="true" type="button" (click)="next()" [disabled]="!history.nextCursor">Next page</button>
         </nav>
       }
     </section>
@@ -78,16 +89,16 @@
     <section class="ib-panel" aria-label="Audit access">
       @switch (notice()) {
         @case ('expired') {
-          <p role="alert">Your provider access paused.</p>
-          <div><button pButton type="button" (click)="retry()">Continue session</button></div>
+          <p class="adm-callout adm-callout--warn" role="alert">Your provider access paused.</p>
+          <div class="adm-actions"><button pButton type="button" (click)="retry()">Continue session</button></div>
         }
         @case ('uncertain') {
           <p class="ib-error-banner" role="alert">We could not confirm your provider session.</p>
-          <div><button pButton type="button" (click)="retry()">Try again</button></div>
+          <div class="adm-actions"><button pButton type="button" (click)="retry()">Try again</button></div>
         }
         @case ('ended') {
           <p class="ib-error-banner" role="alert">Your provider session ended.</p>
-          <a routerLink="/auth/sign-in">Sign in again</a>
+          <div class="adm-actions"><a routerLink="/auth/sign-in">Sign in again</a></div>
         }
         @default {
           <p class="ib-error-banner" role="alert">You cannot inspect provider audit history.</p>

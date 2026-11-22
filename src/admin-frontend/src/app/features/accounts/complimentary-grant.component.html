@@ -1,55 +1,80 @@
 <section class="ib-panel" aria-labelledby="grant-heading" data-testid="grant-editor">
-  <h2 class="ib-panel__title" id="grant-heading">Grant complimentary access</h2>
-  <p>Courtesy access with explicit dates and capacity. No payment or revenue is recorded, no grace follows the end,
-    and existing paid or trial access, restrictions and suspensions are never displaced.</p>
+  <div class="adm-panel-head">
+    <div class="adm-panel-head__copy">
+      <h2 class="ib-panel__title" id="grant-heading">Grant complimentary access</h2>
+      <p class="adm-panel-sub">Courtesy access with explicit dates and capacity. No payment or revenue is recorded, no grace follows the end,
+        and existing paid or trial access, restrictions and suspensions are never displaced.</p>
+    </div>
+  </div>
+
   @if (error()) { <p class="ib-error-banner" role="alert" data-testid="grant-error">{{ error() }}</p> }
 
   @if (result(); as granted) {
-    <div role="status" data-testid="grant-result">
-      <p><strong>Complimentary access granted</strong> (account grant version {{ granted.grantedVersion }}).</p>
-      <p>Saved in licensing. Merchant confirmation is shown in the covered shop’s status.</p>
+    <div class="adm-subcard" role="status" data-testid="grant-result">
+      <p class="adm-callout adm-callout--success">
+        <strong>Complimentary access granted</strong> (account grant version {{ granted.grantedVersion }}).
+        Saved in licensing. Merchant confirmation is shown in the covered shop’s status.
+      </p>
       <dl class="status-facts">
         <dt>Courtesy access starts</dt><dd data-testid="grant-result-starts">{{ instant(granted.startsAt) }}</dd>
         <dt>Courtesy access ends</dt><dd data-testid="grant-result-ends">{{ instant(granted.endsAt) }}</dd>
         <dt>Included capacity</dt><dd>{{ granted.coverageMode }}, {{ granted.shopCapacity }} named shop(s)</dd>
         <dt>Members per shop</dt><dd>{{ granted.memberAllowance }}</dd>
-        <dt>Operation</dt><dd data-testid="grant-result-key">{{ granted.operationKey }}</dd>
+        <dt>Operation</dt><dd data-testid="grant-result-key"><code>{{ granted.operationKey }}</code></dd>
       </dl>
     </div>
   } @else if (pending(); as original) {
-    <div data-testid="grant-pending">
-      <p>Original operation <span data-testid="grant-pending-key">{{ original.command.operationKey }}</span>,
-        ending {{ instant(original.command.endsAt) }}.</p>
-      <div class="actions">
-        <button pButton type="button" (click)="checkOutcome()" [disabled]="busy()">Check grant outcome</button>
+    <div class="adm-subcard" data-testid="grant-pending">
+      <p class="adm-callout adm-callout--warn">
+        Original operation <span data-testid="grant-pending-key"><code>{{ original.command.operationKey }}</code></span>,
+        ending {{ instant(original.command.endsAt) }}.
+      </p>
+      <div class="adm-actions actions">
+        <button pButton severity="secondary" [outlined]="true" type="button" (click)="checkOutcome()" [disabled]="busy()">Check grant outcome</button>
         <button pButton type="button" (click)="retryOriginal()" [disabled]="busy()">Retry original grant</button>
       </div>
     </div>
   } @else {
     <form class="ib-form-section" (submit)="requestPreview($event)">
-      <label for="grant-shops">Named shop IDs (one per line, already affiliated with this account)</label>
-      <textarea id="grant-shops" rows="3" spellcheck="false" [value]="shopIds()"
-        (input)="edit('shopIds', $any($event.target).value)"></textarea>
-      <label for="grant-starts">Starts (IST)</label>
-      <input id="grant-starts" type="datetime-local" step="1" [value]="startsAt()"
-        (input)="edit('startsAt', $any($event.target).value)" />
-      <label for="grant-ends">Ends, exclusive (IST)</label>
-      <input id="grant-ends" type="datetime-local" step="1" [value]="endsAt()"
-        (input)="edit('endsAt', $any($event.target).value)" />
-      <label for="grant-members">Members per shop</label>
-      <input id="grant-members" type="number" min="1" max="100000" step="1" [value]="memberAllowance()"
-        (input)="edit('memberAllowance', $any($event.target).value)" />
-      <label for="grant-payment-order">Payment order ID for service restoration (optional)</label>
-      <input id="grant-payment-order" maxlength="36" [value]="paymentOrderId()"
-        (input)="edit('paymentOrderId', $any($event.target).value)" />
-      <label for="grant-reason">Reason (kept in the provider record only)</label>
-      <textarea id="grant-reason" maxlength="500" [value]="reason()" (input)="edit('reason', $any($event.target).value)"></textarea>
-      <button pButton type="submit" [disabled]="busy()">Preview grant</button>
+      <div class="adm-grid-2">
+        <div class="adm-field adm-span-2">
+          <label for="grant-shops">Named shop IDs (one per line, already affiliated with this account)</label>
+          <textarea id="grant-shops" rows="3" spellcheck="false" [value]="shopIds()"
+            (input)="edit('shopIds', $any($event.target).value)"></textarea>
+        </div>
+        <div class="adm-field">
+          <label for="grant-starts">Starts (IST)</label>
+          <input id="grant-starts" type="datetime-local" step="1" [value]="startsAt()"
+            (input)="edit('startsAt', $any($event.target).value)" />
+        </div>
+        <div class="adm-field">
+          <label for="grant-ends">Ends, exclusive (IST)</label>
+          <input id="grant-ends" type="datetime-local" step="1" [value]="endsAt()"
+            (input)="edit('endsAt', $any($event.target).value)" />
+        </div>
+        <div class="adm-field">
+          <label for="grant-members">Members per shop</label>
+          <input id="grant-members" type="number" min="1" max="100000" step="1" [value]="memberAllowance()"
+            (input)="edit('memberAllowance', $any($event.target).value)" />
+        </div>
+        <div class="adm-field">
+          <label for="grant-payment-order">Payment order ID for service restoration (optional)</label>
+          <input id="grant-payment-order" maxlength="36" [value]="paymentOrderId()"
+            (input)="edit('paymentOrderId', $any($event.target).value)" />
+        </div>
+        <div class="adm-field adm-span-2">
+          <label for="grant-reason">Reason (kept in the provider record only)</label>
+          <textarea id="grant-reason" maxlength="500" [value]="reason()" (input)="edit('reason', $any($event.target).value)"></textarea>
+        </div>
+      </div>
+      <div class="adm-actions">
+        <button pButton type="submit" [disabled]="busy()">Preview grant</button>
+      </div>
     </form>
 
-    @if (phase() === 'previewing') { <p role="status">Preparing preview…</p> }
+    @if (phase() === 'previewing') { <p class="adm-callout adm-callout--info" role="status">Preparing preview…</p> }
     @if (preview(); as facts) {
-      <div data-testid="grant-preview" aria-live="polite">
+      <div class="adm-subcard" data-testid="grant-preview" aria-live="polite">
         <h3>Preview</h3>
         <dl class="status-facts">
           <dt>Access basis</dt><dd>Courtesy access (complimentary)</dd>
@@ -66,19 +91,22 @@
         </dl>
         <ul class="grant-shops">
           @for (shop of facts.shops; track shop.shopId) {
-            <li data-testid="grant-preview-shop">{{ shop.shopName }}: currently {{ states[shop.baselineState] ?? shop.baselineState }}
+            <li data-testid="grant-preview-shop">
+              <strong>{{ shop.shopName }}</strong>: currently {{ states[shop.baselineState] ?? shop.baselineState }}
               @if (shop.baselineBasis) { ({{ bases[shop.baselineBasis] }}@if (shop.baselineAccessEndsAt) {, until {{ instant(shop.baselineAccessEndsAt) }}}) }
               @if (shop.baselineState === 'Active' || shop.baselineState === 'Grace') { <span> Existing access stays in effect first.</span> }
             </li>
           }
         </ul>
-        <label class="acknowledgement">
+        <label class="adm-choice-card acknowledgement">
           <input type="checkbox" [checked]="confirmed()" (change)="confirmed.set($any($event.target).checked)" />
-          I confirm these exact dates, shops and capacity, with no payment and no grace.
+          <span>I confirm these exact dates, shops and capacity, with no payment and no grace.</span>
         </label>
-        <button pButton type="button" (click)="confirm()" [disabled]="!confirmed() || busy()">Confirm grant</button>
+        <div class="adm-actions">
+          <button pButton type="button" (click)="confirm()" [disabled]="!confirmed() || busy()">Confirm grant</button>
+        </div>
       </div>
     }
   }
-  @if (phase() === 'sending') { <p role="status">Sending grant…</p> }
+  @if (phase() === 'sending') { <p class="adm-callout adm-callout--info" role="status">Sending grant…</p> }
 </section>

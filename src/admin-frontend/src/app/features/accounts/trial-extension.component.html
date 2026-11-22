@@ -1,40 +1,72 @@
 @if (trials().length || pending() || result()) {
   <section class="ib-panel" data-testid="trial-extension-editor" aria-labelledby="trial-extension-title">
-    <h2 class="ib-panel__title" id="trial-extension-title">Trial extension</h2>
+    <div class="adm-panel-head">
+      <div class="adm-panel-head__copy">
+        <h2 class="ib-panel__title" id="trial-extension-title">Trial extension</h2>
+        <p class="adm-panel-sub">Extend an active trial deadline with an auditable reason and review reference.</p>
+      </div>
+    </div>
+
     @if (error()) {
       <p class="ib-error-banner" role="alert" data-testid="trial-extension-error">{{ error() }}</p>
     }
     @if (pending(); as saved) {
-      <p data-testid="trial-extension-pending">Saved operation <code>{{ saved.command.operationKey }}</code></p>
-      <button pButton type="button" [disabled]="busy()" (click)="recover()">Check extension outcome</button>
-      <button pButton type="button" [disabled]="busy()" (click)="retry()">Retry original extension</button>
+      <div class="adm-subcard">
+        <p class="adm-callout adm-callout--warn" data-testid="trial-extension-pending">
+          Saved operation <code>{{ saved.command.operationKey }}</code>
+        </p>
+        <div class="adm-actions">
+          <button pButton severity="secondary" [outlined]="true" type="button" [disabled]="busy()" (click)="recover()">Check extension outcome</button>
+          <button pButton type="button" [disabled]="busy()" (click)="retry()">Retry original extension</button>
+        </div>
+      </div>
     } @else if (result(); as approved) {
-      <p role="status" data-testid="trial-extension-result">{{ approved.shopName }} trial extended to {{ instant(approved.endsAt) }}.</p>
-      <p>Saved in licensing. Merchant confirmation is shown in the covered shop’s status.</p>
-      <button pButton type="button" (click)="reset()">Review another extension</button>
+      <div class="adm-subcard">
+        <p class="adm-callout adm-callout--success" role="status" data-testid="trial-extension-result">
+          {{ approved.shopName }} trial extended to {{ instant(approved.endsAt) }}.
+        </p>
+        <p class="adm-panel-sub">Saved in licensing. Merchant confirmation is shown in the covered shop’s status.</p>
+        <div class="adm-actions">
+          <button pButton severity="secondary" [outlined]="true" type="button" (click)="reset()">Review another extension</button>
+        </div>
+      </div>
     } @else if (phase() === 'storage') {
-      <button pButton type="button" (click)="reset()">Check saved extensions</button>
+      <div class="adm-actions">
+        <button pButton type="button" (click)="reset()">Check saved extensions</button>
+      </div>
     } @else if (phase() === 'loading' || phase() === 'sending') {
-      <p role="status">Checking saved extension requests…</p>
+      <p class="adm-callout adm-callout--info" role="status">Checking saved extension requests…</p>
     } @else {
       <form class="ib-form-section status-lookup" (submit)="requestPreview($event)">
-        <label for="extension-shop">Trial shop</label>
-        <select id="extension-shop" [value]="shop()" (change)="edit('shop', $any($event.target).value)">
-          <option value="">Select a shop</option>
-          @for (trial of trials(); track trial.shopId) {
-            <option [value]="trial.shopId">{{ trial.shopName }}</option>
-          }
-        </select>
-        <label for="extension-end">New trial end (IST)</label>
-        <input id="extension-end" type="text" placeholder="YYYY-MM-DD HH:mm:ss" aria-describedby="extension-end-format"
-          [value]="endsAt()" (input)="edit('endsAt', $any($event.target).value)" />
-        <small id="extension-end-format">Enter a 24-hour time. Seconds may include up to six decimal places.</small>
-        <label for="extension-reason">Reason</label>
-        <textarea id="extension-reason" maxlength="500" [value]="reason()" (input)="edit('reason', $any($event.target).value)"></textarea>
-        <label for="extension-reference">Review reference</label>
-        <input id="extension-reference" type="text" maxlength="80" [value]="reviewReference()"
-          (input)="edit('reviewReference', $any($event.target).value)" />
-        <button pButton type="submit" [disabled]="busy()">Preview extension</button>
+        <div class="adm-grid-2">
+          <div class="adm-field">
+            <label for="extension-shop">Trial shop</label>
+            <select id="extension-shop" [value]="shop()" (change)="edit('shop', $any($event.target).value)">
+              <option value="">Select a shop</option>
+              @for (trial of trials(); track trial.shopId) {
+                <option [value]="trial.shopId">{{ trial.shopName }}</option>
+              }
+            </select>
+          </div>
+          <div class="adm-field">
+            <label for="extension-end">New trial end (IST)</label>
+            <input id="extension-end" type="text" placeholder="YYYY-MM-DD HH:mm:ss" aria-describedby="extension-end-format"
+              [value]="endsAt()" (input)="edit('endsAt', $any($event.target).value)" />
+            <small id="extension-end-format">Enter a 24-hour time. Seconds may include up to six decimal places.</small>
+          </div>
+          <div class="adm-field">
+            <label for="extension-reference">Review reference</label>
+            <input id="extension-reference" type="text" maxlength="80" [value]="reviewReference()"
+              (input)="edit('reviewReference', $any($event.target).value)" />
+          </div>
+          <div class="adm-field adm-span-2">
+            <label for="extension-reason">Reason</label>
+            <textarea id="extension-reason" maxlength="500" [value]="reason()" (input)="edit('reason', $any($event.target).value)"></textarea>
+          </div>
+        </div>
+        <div class="adm-actions">
+          <button pButton type="submit" [disabled]="busy()">Preview extension</button>
+        </div>
       </form>
       @if (preview(); as exact) {
         <section class="ib-form-section" data-testid="trial-extension-preview" aria-label="Extension preview">
@@ -49,13 +81,15 @@
             <dt>Grace</dt><dd>No grace period</dd>
           </dl>
           @if (exact.accountTrialCapReached) {
-            <p role="status">This exception exceeds the account’s cap of {{ exact.accountTrialCap }} concurrent trials.</p>
+            <p class="adm-callout adm-callout--warn" role="status">This exception exceeds the account’s cap of {{ exact.accountTrialCap }} concurrent trials.</p>
           }
-          <label class="acknowledgement">
+          <label class="adm-choice-card acknowledgement">
             <input type="checkbox" [checked]="confirmed()" (change)="confirmed.set($any($event.target).checked)" />
-            I approve this exact deadline and review reference.
+            <span>I approve this exact deadline and review reference.</span>
           </label>
-          <button pButton type="button" [disabled]="!confirmed() || busy()" (click)="approve()">Approve extension</button>
+          <div class="adm-actions">
+            <button pButton type="button" [disabled]="!confirmed() || busy()" (click)="approve()">Approve extension</button>
+          </div>
         </section>
       }
     }

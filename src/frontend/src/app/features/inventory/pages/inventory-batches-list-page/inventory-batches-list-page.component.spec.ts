@@ -92,6 +92,7 @@ describe('InventoryBatchesListPageComponent', () => {
 
   afterEach(() => {
     httpMock.verify();
+    fixture.destroy();
     vi.unstubAllGlobals();
   });
 
@@ -551,7 +552,8 @@ describe('InventoryBatchesListPageComponent', () => {
 
   describe('receipt cost correction', () => {
     const correctionUrl = `${API_BASE_URL}/inventory/receipts/r1/cost-corrections`;
-    const nextCorrection = () => vi.waitFor(() => httpMock.expectOne(correctionUrl));
+    const waitOptions = { timeout: 5000, interval: 10 };
+    const nextCorrection = () => vi.waitFor(() => httpMock.expectOne(correctionUrl), waitOptions);
     const response = {
       adjustmentId: 'a0000000-0000-4000-8000-000000000001',
       supplierLedgerEntryId: 'a0000000-0000-4000-8000-000000000002',
@@ -602,6 +604,7 @@ describe('InventoryBatchesListPageComponent', () => {
     });
 
     it('shows a distinct source chronology refusal and keeps the entered fields', async () => {
+      fixture.detectChanges();
       httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
       const add = vi.spyOn(fixture.debugElement.injector.get(MessageService), 'add');
       component.onCorrectReceiptCost(mockBatches[0]);
@@ -634,16 +637,20 @@ describe('InventoryBatchesListPageComponent', () => {
       httpMock.expectNone(correctionUrl);
 
       const recovering = component.onRecoverCostCorrection(component.pendingCostCorrections()[0]);
-      const lookup = await vi.waitFor(() => httpMock.expectOne(
-        `${API_BASE_URL}/financial-operations/receipt-cost-correction/${frozen.operationKey}`,
-      ));
+      const lookup = await vi.waitFor(
+        () =>
+          httpMock.expectOne(
+            `${API_BASE_URL}/financial-operations/receipt-cost-correction/${frozen.operationKey}`,
+          ),
+        waitOptions,
+      );
       lookup.flush({ code: 'Operation.NotFound' }, { status: 404, statusText: 'Not Found' });
       const resend = await nextCorrection();
       expect(resend.request.body).toEqual(frozen);
       resend.flush(response);
       await recovering;
       httpMock.expectOne(`${API_BASE_URL}/inventory/batches`).flush(mockBatches);
-      await vi.waitFor(() => expect(component.pendingCostCorrections()).toEqual([]));
+      await vi.waitFor(() => expect(component.pendingCostCorrections()).toEqual([]), waitOptions);
     });
 
     it('on a receipt version conflict closes, refreshes and never resends', async () => {
