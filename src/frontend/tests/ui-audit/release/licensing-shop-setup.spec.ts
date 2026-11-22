@@ -244,10 +244,6 @@ test.describe('licence refusals reach what is already on screen', () => {
       const startBilling = page.getByRole('button', { name: 'Start billing', exact: true });
       await expect(page.locator('.setup-steps')).toBeVisible();
       await expect(startBilling).toBeVisible();
-      // Start an in-flight setup read before security suspension so we prove its late 200 cannot remount shop data.
-      fixture.setup.hold = new Promise<void>((resolve) => { release = resolve; });
-      await page.getByRole('button', { name: 'Refresh setup', exact: true }).click();
-      await expect.poll(() => fixture.setup.waiting).toBe(1);
       fixture.refusals.acknowledge = 'Licence.SecuritySuspended';
       fixture.authority[SHOP_A] = 'SecuritySuspended';
       await page.getByRole('button', { name: 'Continue later', exact: true }).click();
@@ -255,21 +251,36 @@ test.describe('licence refusals reach what is already on screen', () => {
       await expect(page.locator('.setup-steps')).toHaveCount(0);
       await expect(startBilling).toHaveCount(0);
       await expect(page).toHaveURL(/\/shops\/setup$/);
-      // Releasing the stale 200 setup response and refreshing while still suspended must keep the checklist hidden.
-      const staleSetup = page.waitForResponse((res) => res.url().endsWith(`/api/shops/${SHOP_A}/setup`));
-      release();
-      await staleSetup;
-      await expect(page.locator('.setup-steps')).toHaveCount(0);
       const stillSuspended = page.waitForResponse((res) => res.url().endsWith('/trading-authority'));
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
       expect((await stillSuspended).status()).toBe(403);
       await expect(page.locator('.setup-steps')).toHaveCount(0);
-      // Explicit release confirmed by /trading-authority restores the checklist.
+
+      // Explicit release restores the checklist, then prove an in-flight setup 200 cannot remount after suspension.
+      fixture.authority[SHOP_A] = 'Active';
+      const firstRelease = page.waitForResponse((res) => res.url().endsWith('/trading-authority'));
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+      expect((await firstRelease).status()).toBe(200);
+      await expect(page.locator('.setup-steps')).toBeVisible();
+
+      fixture.setup.hold = new Promise<void>((resolve) => { release = resolve; });
+      await page.getByRole('button', { name: 'Refresh setup', exact: true }).click();
+      await expect.poll(() => fixture.setup.waiting).toBe(1);
+      fixture.authority[SHOP_A] = 'SecuritySuspended';
+      const suspendInFlight = page.waitForResponse((res) => res.url().endsWith('/trading-authority'));
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+      expect((await suspendInFlight).status()).toBe(403);
+      await expect(page.locator('.setup-steps')).toHaveCount(0);
+      const staleSetup = page.waitForResponse((res) => res.url().endsWith(`/api/shops/${SHOP_A}/setup`));
+      release();
+      expect((await staleSetup).status()).toBe(200);
+      await expect(page.locator('.setup-steps')).toHaveCount(0);
+
       fixture.setup.hold = undefined;
       fixture.authority[SHOP_A] = 'Active';
-      const authorityRefresh = page.waitForResponse((res) => res.url().endsWith('/trading-authority'));
+      const finalRelease = page.waitForResponse((res) => res.url().endsWith('/trading-authority'));
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-      expect((await authorityRefresh).status()).toBe(200);
+      expect((await finalRelease).status()).toBe(200);
       await expect(page.locator('.setup-steps')).toBeVisible();
     } finally {
       release();
