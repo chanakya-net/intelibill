@@ -29,13 +29,17 @@ public interface IOfflineLicencePermitIssuer
     /// <c>OfflinePermit.Busy</c>, <c>Licence.Busy</c>, <c>OfflinePermit.OutsideValidity</c>,
     /// <c>OfflinePermit.DeadlineReached</c>, and enforced <c>Licence.*</c> denials.</item>
     /// </list>
+    /// Auth, licence, lease and clock are checked again after the signer returns, with or without a
+    /// signature, so <c>OfflinePermit.SigningUnavailable</c> is only ever answered while those bounds
+    /// still hold; one that passed during the wait is answered as itself.
     /// </remarks>
     Task<ErrorOr<OfflineGrantEvidence>> CaptureGrantAsync(SessionClaims? session, InvoiceLease lease, CancellationToken ct);
 
     /// <summary>
     /// Starts a server-owned snapshot capture fixed at start to one authenticated grant and lease scope.
     /// Enumerating its stream to the matching completion record produces the immutable
-    /// <see cref="OfflineSnapshotCompletion"/> required by <see cref="IssueAsync"/>.
+    /// <see cref="OfflineSnapshotCompletion"/> required by <see cref="IssueAsync"/>. That object is
+    /// the proof, on this host only, for as long as the caller holds it.
     /// </summary>
     OfflineSnapshotCapture StartSnapshotCapture(SessionClaims? session, Guid grantId, Guid leaseId, string deviceId);
 

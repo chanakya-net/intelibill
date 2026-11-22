@@ -56,12 +56,15 @@ public sealed partial class OfflineLicencePermitIssuer(
             head.AffiliationRequestId, head.AccountRevision, head.ShopRevision, head.AccountEvidenceId, head.ShopEvidenceId,
             head.VerifiedAt, head.ValidUntil, session.UserId, session.SessionId, lease.DeviceId, lease.Id,
             auth.MembershipAuthorityVersion, auth.SessionScopeVersion, now, auth.AuthDeadline, now);
-        if (await signer.SignAsync(OfflinePermitContractV1.GrantType, OfflinePermitContractV1.Encode(grant), ct) is not { } signature)
-            return PermitErrors.SigningUnavailable;
+        var signature = await signer.SignAsync(OfflinePermitContractV1.GrantType, OfflinePermitContractV1.Encode(grant), ct);
 
-        // Signing can wait on a remote key; verify auth, licence, lease and clock before writing any key row.
+        // Signing can wait on a remote key, whether or not a signature comes back. Verify auth, licence,
+        // lease and clock before writing any key row, and before SigningUnavailable: a reservation may
+        // answer that one with a legacy lease, never a bound that passed during the wait.
         if (ValidateCaptureStillValid(licence, grant, auth, lease, Now()) is { } postSignFailure)
             return postSignFailure;
+        if (signature is null)
+            return PermitErrors.SigningUnavailable;
 
         // Isolate first-use key insertion in a savepoint so any late refusal rolls back cleanly inside
         // the caller's reservation transaction without preventing a permitted legacy lease commit.

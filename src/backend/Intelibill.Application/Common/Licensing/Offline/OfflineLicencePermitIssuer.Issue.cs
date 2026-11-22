@@ -42,7 +42,9 @@ public sealed partial class OfflineLicencePermitIssuer
 
         var stored = await SignAndStoreAsync(completion, tillGate.Value.TillSessionId, grant, head, caps, window.Value, ct);
         if (stored.IsError)
-            return stored.Errors;
+            return stored.FirstError.Code == PermitErrors.SigningUnavailable.Code
+                ? AfterSigningFailure(licence, window.Value, Now())
+                : stored.Errors;
 
         // Waits above (actor row, till, signing, a competing insert) may have outlasted the head or
         // the half-open window, or the clock may have stepped backward below NotBefore.
@@ -56,7 +58,8 @@ public sealed partial class OfflineLicencePermitIssuer
     private async Task<ErrorOr<(OfflineLicenseGrant Grant, InvoiceLease Lease, OfflineSnapshotFacts Snapshot)>> LoadEvidenceAsync(
         OfflineSnapshotCompletion completion, VerifiedHead head, OfflineAuthFacts auth, CancellationToken ct)
     {
-        if (!captures.TryVerifyCompleted(completion))
+        // Only this host's own completion object counts; its facts are then checked against stored rows.
+        if (!captures.IsGenuine(completion))
             return PermitErrors.SnapshotIncomplete;
 
         if (await store.FindGrantAsync(completion.ShopId, completion.GrantId, ct) is not { } grant)
@@ -165,6 +168,19 @@ public sealed partial class OfflineLicencePermitIssuer
         return await store.FindPermitAsync(row.ShopId, row.SnapshotId, ct) is { } winner
             ? Redeliver(winner, completion, verifiedTillSessionId, caps, Now())
             : PermitErrors.Busy;
+    }
+
+    /// <summary>
+    /// The signer gave up after a wait. A head or window bound that passed meanwhile is the answer;
+    /// <c>SigningUnavailable</c> is kept for a caller who is still entitled to the permit.
+    /// </summary>
+    private static Error AfterSigningFailure(ShopLicenceLease licence, OfflinePermitWindow window, DateTimeOffset now)
+    {
+        if (StillOperating(licence, now) is { } stale)
+            return stale;
+        if (now < window.NotBefore)
+            return PermitErrors.OutsideValidity;
+        return now < window.ValidUntil ? PermitErrors.SigningUnavailable : PermitErrors.DeadlineReached(window.LimitingReason);
     }
 
     private static ErrorOr<OfflinePermitEvidence> AdmitWindow(OfflinePermitEvidence permit, DateTimeOffset now)

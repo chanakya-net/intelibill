@@ -61,7 +61,7 @@ public sealed partial class P0501LicensingTests
         await RefusedAsync(actor.Shop, "OfflinePermit.ScopeMismatch", () => IssueAsync(host, actor, grant2, comp1));
         await RefusedAsync(actor.Shop, "OfflinePermit.ScopeMismatch", () => IssueAsync(host, actor, grant1, comp2));
         var relabeled = new OfflineSnapshotCompletion(comp1.SnapshotId, grant2, actor.Shop, actor.User, actor.Session,
-            "p0501-res-2", lease2, comp1.CatalogVersion, comp1.BatchCount, comp1.StartedAt, comp1.CompletedAt, Guid.NewGuid());
+            "p0501-res-2", lease2, comp1.CatalogVersion, comp1.BatchCount, comp1.StartedAt, comp1.CompletedAt);
         await RefusedAsync(actor.Shop, "OfflinePermit.SnapshotIncomplete", () => IssueAsync(host, actor, grant2, relabeled));
 
         // Only the originating completed capture creates and replays its permit, keeping t1/t2.
@@ -74,7 +74,7 @@ public sealed partial class P0501LicensingTests
         _clock.Now = issue1At.AddSeconds(30);
         Assert.Equal(permit1.SignedPermit, Issued(await IssueAsync(host, actor, grant1, comp1)).SignedPermit);
         var alteredTime = new OfflineSnapshotCompletion(comp1.SnapshotId, grant1, actor.Shop, actor.User, actor.Session,
-            "p0501-res-1", lease1, comp1.CatalogVersion, comp1.BatchCount, comp1.StartedAt, t1.AddSeconds(1), Guid.NewGuid());
+            "p0501-res-1", lease1, comp1.CatalogVersion, comp1.BatchCount, comp1.StartedAt, t1.AddSeconds(1));
         await RefusedAsync(actor.Shop, "OfflinePermit.SnapshotIncomplete", () => IssueAsync(host, actor, grant1, alteredTime));
 
         var permit2 = Issued(await IssueAsync(host, actor, grant2, comp2));
@@ -117,12 +117,12 @@ public sealed partial class P0501LicensingTests
             Assert.True(await db.OfflineExpiryEvidence.AnyAsync(x => x.SnapshotId == partialSnapshotId, Ct));
 
         var forgedPartial = new OfflineSnapshotCompletion(partialSnapshotId, grant, actor.Shop, actor.User, actor.Session,
-            "p0501-res-1", lease, partialCatalog, 1, partialStartedAt, _clock.Now, Guid.NewGuid());
+            "p0501-res-1", lease, partialCatalog, 1, partialStartedAt, _clock.Now);
         await RefusedAsync(actor.Shop, "OfflinePermit.SnapshotIncomplete", () => IssueAsync(host, actor, grant, forgedPartial));
 
         // Fabricated empty completion for a never-started snapshot ID -> refused.
         var forgedEmpty = new OfflineSnapshotCompletion(Guid.NewGuid(), grant, actor.Shop, actor.User, actor.Session,
-            "p0501-res-1", lease, partialCatalog, 0, _clock.Now, _clock.Now, Guid.NewGuid());
+            "p0501-res-1", lease, partialCatalog, 0, _clock.Now, _clock.Now);
         await RefusedAsync(actor.Shop, "OfflinePermit.SnapshotIncomplete", () => IssueAsync(host, actor, grant, forgedEmpty));
 
         // Completion recorded on another host is unknown to this host -> refused.
@@ -136,6 +136,65 @@ public sealed partial class P0501LicensingTests
         var preGrantDone = await SnapshotAsync(host, actor, grant, lease, "p0501-res-1");
         _clock.Now = savedNow;
         await RefusedAsync(actor.Shop, "OfflinePermit.SnapshotIncomplete", () => IssueAsync(host, actor, grant, preGrantDone));
+    }
+
+    /// <summary>
+    /// Proof of a genuine completion lasts as long as its caller holds it on the issuing host. With
+    /// time and authority fixed, more unrelated captures than any host-wide bound begin, some complete
+    /// and are dropped, and memory is collected: the held completion still issues for the first time
+    /// and the earlier one still replays its stored bytes without new evidence.
+    /// </summary>
+    [Fact]
+    public async Task Held_completion_survives_unrelated_capture_volume_and_collection()
+    {
+        var verified = At("2026-11-20T12:00:00Z");
+        using var host = CreateHost();
+        await host.InitializeAsync();
+        using var client = CreateClient(host);
+        var actor = await OpenShopAsync(client, verified, verified.AddDays(30));
+        _clock.Now = verified.AddHours(1);
+        var (lease, captured) = await ReserveAsync(host, actor);
+        var grant = Issued(captured).GrantId;
+        var held = await SnapshotAsync(host, actor, grant, lease);
+        var replayed = await SnapshotAsync(host, actor, grant, lease);
+        var stored = Issued(await IssueAsync(host, actor, grant, replayed));
+        Assert.Equal(new Evidence(1, 1, 1), await EvidenceAsync(actor.Shop));
+
+        await ChurnCapturesAsync(host, actor, grant, lease, started: 20_000, completed: 3);
+
+        var first = Issued(await IssueAsync(host, actor, grant, held));
+        var after = new Evidence(1, 2, 1);
+        Assert.Equal(after, await EvidenceAsync(actor.Shop));
+        Assert.Equal(stored.SignedPermit, Issued(await IssueAsync(host, actor, grant, replayed)).SignedPermit);
+        Assert.Equal(first.SignedPermit, Issued(await IssueAsync(host, actor, grant, held)).SignedPermit);
+        Assert.Equal(after, await EvidenceAsync(actor.Shop));
+        _output.WriteLine("After 20000 unrelated captures and a full collection: held completion {0} issued permit {1}; " +
+            "completion {2} replayed permit {3} byte-identically; evidence {4}", held.SnapshotId, first.PermitId,
+            replayed.SnapshotId, stored.PermitId, after);
+
+        // The proof is the host's own object, not its values: an equal copy of a genuine completion is refused.
+        var copy = new OfflineSnapshotCompletion(held.SnapshotId, held.GrantId, held.ShopId, held.UserId, held.SessionId,
+            held.DeviceId, held.LeaseId, held.CatalogVersion, held.BatchCount, held.StartedAt, held.CompletedAt);
+        await RefusedAsync(actor.Shop, "OfflinePermit.SnapshotIncomplete", () => IssueAsync(host, actor, grant, copy));
+    }
+
+    /// <summary>Other shops' captures begin and are abandoned, a few of this shop's complete and are dropped, then a full collection.</summary>
+    private static async Task ChurnCapturesAsync(ApiWebApplicationFactory host, Actor actor, Guid grant, Guid lease, int started,
+        int completed)
+    {
+        await using (var scope = host.Services.CreateAsyncScope())
+        {
+            var issuer = scope.ServiceProvider.GetRequiredService<IOfflineLicencePermitIssuer>();
+            for (var i = 0; i < started; i++)
+                issuer.StartSnapshotCapture(new(Guid.NewGuid(), Guid.NewGuid(), 1, 1, Guid.NewGuid(), "Owner"),
+                    Guid.NewGuid(), Guid.NewGuid(), "p0501-churn");
+        }
+
+        for (var i = 0; i < completed; i++)
+            await SnapshotAsync(host, actor, grant, lease);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
     }
 
     /// <summary>

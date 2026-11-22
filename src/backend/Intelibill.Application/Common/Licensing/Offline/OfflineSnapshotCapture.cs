@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Intelibill.Application.Common.Interfaces;
 using Intelibill.Application.Common.Security;
@@ -9,13 +8,14 @@ namespace Intelibill.Application.Common.Licensing.Offline;
 /// <summary>
 /// Immutable server-recorded completion of one snapshot stream. Produced only by
 /// <see cref="OfflineSnapshotCapture"/> when its matching stream emits its completion record;
-/// external callers cannot construct or mutate it.
+/// external callers cannot construct or mutate it. The object itself is the proof: the issuing host
+/// recognizes this instance, never an equal copy.
 /// </summary>
 public sealed class OfflineSnapshotCompletion
 {
     internal OfflineSnapshotCompletion(
         Guid snapshotId, Guid grantId, Guid shopId, Guid userId, Guid sessionId, string deviceId, Guid leaseId,
-        long catalogVersion, int batchCount, DateTimeOffset startedAt, DateTimeOffset completedAt, Guid proofToken)
+        long catalogVersion, int batchCount, DateTimeOffset startedAt, DateTimeOffset completedAt)
     {
         SnapshotId = snapshotId;
         GrantId = grantId;
@@ -28,7 +28,6 @@ public sealed class OfflineSnapshotCompletion
         BatchCount = batchCount;
         StartedAt = startedAt;
         CompletedAt = completedAt;
-        ProofToken = proofToken;
     }
 
     public Guid SnapshotId { get; }
@@ -42,14 +41,6 @@ public sealed class OfflineSnapshotCompletion
     public int BatchCount { get; }
     public DateTimeOffset StartedAt { get; }
     public DateTimeOffset CompletedAt { get; }
-    internal Guid ProofToken { get; }
-
-    internal bool Matches(OfflineSnapshotCompletion other) =>
-        SnapshotId == other.SnapshotId && GrantId == other.GrantId && ShopId == other.ShopId &&
-        UserId == other.UserId && SessionId == other.SessionId &&
-        string.Equals(DeviceId, other.DeviceId, StringComparison.Ordinal) && LeaseId == other.LeaseId &&
-        CatalogVersion == other.CatalogVersion && BatchCount == other.BatchCount &&
-        StartedAt == other.StartedAt && CompletedAt == other.CompletedAt && ProofToken == other.ProofToken;
 }
 
 /// <summary>
@@ -81,8 +72,6 @@ public sealed class OfflineSnapshotCapture
         StartedAt = OfflinePermitContractV1.Instant(clock.GetUtcNow());
         _validScope = ShopId != Guid.Empty && UserId != Guid.Empty && SessionId != Guid.Empty &&
             GrantId != Guid.Empty && LeaseId != Guid.Empty && !string.IsNullOrWhiteSpace(DeviceId);
-        if (_validScope)
-            _registry.Begin(ShopId, SnapshotId);
     }
 
     public Guid SnapshotId { get; }
@@ -172,47 +161,34 @@ public sealed class OfflineSnapshotCapture
 
     private void Invalidate()
     {
+        if (Completion is { } recorded)
+            _registry.Invalidate(recorded);
         Completion = null;
-        _registry.Abandon(ShopId, SnapshotId);
     }
 }
 
-/// <summary>Host-owned registry of server-started and completed snapshot captures.</summary>
+/// <summary>
+/// Host-owned proof of genuine completions, keyed by the completion object's identity and kept only
+/// while that object is alive. A caller holding its completion can issue and replay on this host for
+/// as long as it holds it, whatever other captures begin; a dropped completion costs nothing. A copy,
+/// a completion made on another host and an invalidated one are all unknown here.
+/// </summary>
 public sealed class OfflineSnapshotCaptureRegistry
 {
-    private const int MaxEntries = 16384;
-    private readonly ConcurrentDictionary<(Guid ShopId, Guid SnapshotId), Entry> _entries = new();
-    private long _sequence;
-
-    internal void Begin(Guid shopId, Guid snapshotId)
-    {
-        TrimIfNeeded();
-        _entries[(shopId, snapshotId)] = new(Interlocked.Increment(ref _sequence), null);
-    }
+    private static readonly object Recorded = new();
+    private readonly ConditionalWeakTable<OfflineSnapshotCompletion, object> _completed = new();
 
     internal OfflineSnapshotCompletion Complete(OfflineSnapshotCapture capture, long catalogVersion, int batchCount,
         DateTimeOffset completedAt)
     {
         var completion = new OfflineSnapshotCompletion(capture.SnapshotId, capture.GrantId, capture.ShopId,
             capture.UserId, capture.SessionId, capture.DeviceId, capture.LeaseId, catalogVersion, batchCount,
-            capture.StartedAt, completedAt, Guid.NewGuid());
-        _entries[(capture.ShopId, capture.SnapshotId)] = new(Interlocked.Increment(ref _sequence), completion);
+            capture.StartedAt, completedAt);
+        _completed.Add(completion, Recorded);
         return completion;
     }
 
-    internal void Abandon(Guid shopId, Guid snapshotId) => _entries.TryRemove((shopId, snapshotId), out _);
+    internal void Invalidate(OfflineSnapshotCompletion completion) => _completed.Remove(completion);
 
-    internal bool TryVerifyCompleted(OfflineSnapshotCompletion completion) =>
-        _entries.TryGetValue((completion.ShopId, completion.SnapshotId), out var entry) &&
-        entry.Completion is { } recorded && recorded.Matches(completion);
-
-    private void TrimIfNeeded()
-    {
-        if (_entries.Count < MaxEntries)
-            return;
-        foreach (var stale in _entries.OrderBy(pair => pair.Value.Order).Take(MaxEntries / 4).Select(pair => pair.Key))
-            _entries.TryRemove(stale, out _);
-    }
-
-    private sealed record Entry(long Order, OfflineSnapshotCompletion? Completion);
+    internal bool IsGenuine(OfflineSnapshotCompletion completion) => _completed.TryGetValue(completion, out _);
 }
