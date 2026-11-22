@@ -65,6 +65,7 @@ public sealed partial class P0307Tests
         Assert.Equal(original, await ManualBytesAsync(owner));
         // Empty successor migrations may already have rolled back before the populated payment migration refuses.
         await migrations.MigrateAsync();
+        Assert.Empty(await context.Database.GetPendingMigrationsAsync());
         await ExecuteAsync(owner, RuntimeGrant);
         AssertStatus(await StatusAsync(purchase.Payer.Client, purchase.Quote), "Verified", "Fulfilled", "Applying");
     }

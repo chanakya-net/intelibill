@@ -6,6 +6,7 @@ import { session, shops, SHOP_A, SHOP_B } from './purchase-receiving-server';
 const recovery = ['name', 'contactPerson', 'mobileNumber'];
 const allFields = [...recovery, 'address', 'city', 'state', 'pincode', 'gstNumber'];
 type Phase = 'Pending' | 'Active' | 'TradingRestricted' | 'ObserveOnly';
+type AuthorityPhase = 'Active' | 'SecuritySuspended';
 type Refusals = Partial<Record<'acknowledge' | 'preferences' | 'expiry' | 'till' | 'expiryRead' | 'readiness' | 'tillRead', string>>;
 type RequestEvidence = { method: string; path: string; status: number; fields: string[]; code?: string };
 
@@ -32,6 +33,7 @@ function details(shopId: string) {
 export async function installShopSetup(page: Page, role = 'Owner', first: Phase = 'Pending') {
   await accessibilityFixtures(page);
   const phases: Record<string, Phase> = { [SHOP_A]: first, [SHOP_B]: 'Active' };
+  const authority: Record<string, AuthorityPhase> = { [SHOP_A]: 'Active', [SHOP_B]: 'Active' };
   const refusals: Refusals = {};
   /** The checklist read: what it reports, and a gate a test can close to keep a refresh unanswered. */
   const setup: { showOnStartup: boolean; hold?: Promise<void>; waiting: number } = { showOnStartup: false, waiting: 0 };
@@ -44,6 +46,16 @@ export async function installShopSetup(page: Page, role = 'Owner', first: Phase 
   };
 
   const refuse = (route: Route, code: string) => reply(route, { code, status: 403 }, 403, [], code);
+  await page.route('**/api/licensing/shops/*/trading-authority', (route) => {
+    const [, shopId] = new URL(route.request().url()).pathname.match(/\/api\/licensing\/shops\/([^/]+)\/trading-authority$/) ?? [];
+    if (shopId && authority[shopId] === 'SecuritySuspended') {
+      return reply(route, { code: 'Licence.SecuritySuspended', enforced: true, status: 403 }, 403, [], 'Licence.SecuritySuspended');
+    }
+    return reply(route, {
+      schemaVersion: 1, shopId: shopId ?? SHOP_A, enforced: true,
+      authorityVerifiedAt: '2026-11-18T20:00:00Z', validUntil: '2026-11-20T20:00:00Z',
+    });
+  });
   await page.route('**/api/shops/me', route => reply(route, members));
   await page.route('**/api/shops/*/setup/sample', route => reply(route, {
     isSample: true, lineType: 'Goods', generatedAt: new Date().toISOString(), document: { ...SALE.document, number: '' },
@@ -109,5 +121,5 @@ export async function installShopSetup(page: Page, role = 'Owner', first: Phase 
   });
   await page.addInitScript(value => localStorage.setItem('inventory.auth.session.local', JSON.stringify(value)),
     { ...session(), shops: members });
-  return { phases, saved, requests, refusals, setup, puts: () => requests.filter(entry => entry.method === 'PUT') };
+  return { phases, authority, saved, requests, refusals, setup, puts: () => requests.filter(entry => entry.method === 'PUT') };
 }
