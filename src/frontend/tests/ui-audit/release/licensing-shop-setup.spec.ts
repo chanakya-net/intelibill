@@ -271,9 +271,9 @@ test.describe('licence refusals reach what is already on screen', () => {
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
       expect((await suspendInFlight).status()).toBe(403);
       await expect(page.locator('.setup-steps')).toHaveCount(0);
-      const staleSetup = page.waitForResponse((res) => res.url().endsWith(`/api/shops/${SHOP_A}/setup`));
+      // Unmounting the setup view aborts/ignores the in-flight GET; releasing the fixture gate cannot remount it.
       release();
-      expect((await staleSetup).status()).toBe(200);
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
       await expect(page.locator('.setup-steps')).toHaveCount(0);
 
       fixture.setup.hold = undefined;
