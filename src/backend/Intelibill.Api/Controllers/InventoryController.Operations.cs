@@ -189,7 +189,8 @@ public sealed partial class InventoryController
                 request.SupplierId,
                 request.Notes,
                 request.EntryDate,
-                request.ExpectedVersion, SessionClaims.TryRead(User)),
+                SessionClaims.TryRead(User),
+                request.ExpectedVersion),
             cancellationToken);
 
         if (result.IsError)

@@ -6,4 +6,4 @@ public sealed record ReassignBatchSupplierCommand(
     Guid ActiveShopId,
     Guid BatchId,
     Guid NewSupplierId,
-    SessionClaims? Session = null);
+    SessionClaims? Session);

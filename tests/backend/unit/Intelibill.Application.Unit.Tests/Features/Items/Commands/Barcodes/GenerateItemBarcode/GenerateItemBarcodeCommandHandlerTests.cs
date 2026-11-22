@@ -163,7 +163,7 @@ public class GenerateItemBarcodeCommandHandlerTests
     }
 
     private static GenerateItemBarcodeCommand CreateCommand(Guid actorId, Guid activeShopId) =>
-        new(actorId, activeShopId);
+        new(actorId, activeShopId, Session: null);
 
     private static User CreateActor(string email) =>
         User.CreateWithEmail(email, "hash", "First", "Last");

@@ -19,7 +19,8 @@ public class UpdateServiceCommandValidatorTests
             Price: 120m,
             HsnCode: null,
             TaxRatePercent: 18m,
-            TaxIncluded: false);
+            TaxIncluded: false,
+            Session: null);
 
         var result = _validator.TestValidate(command);
 
@@ -38,7 +39,8 @@ public class UpdateServiceCommandValidatorTests
             Price: 0m,
             HsnCode: null,
             TaxRatePercent: 18m,
-            TaxIncluded: false);
+            TaxIncluded: false,
+            Session: null);
 
         var result = _validator.TestValidate(command);
 
@@ -79,5 +81,6 @@ public class UpdateServiceCommandValidatorTests
             Price: 120m,
             HsnCode: "1001",
             TaxRatePercent: 18m,
-            TaxIncluded: false);
+            TaxIncluded: false,
+            Session: null);
 }

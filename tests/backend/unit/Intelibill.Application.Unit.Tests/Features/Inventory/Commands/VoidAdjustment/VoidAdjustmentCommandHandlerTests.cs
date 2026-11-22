@@ -60,7 +60,7 @@ public sealed class VoidAdjustmentCommandHandlerTests
 
         var handler = CreateHandler();
         var result = await handler.HandleAsync(
-            new VoidAdjustmentCommand(adjustment.Id, actor.Id, shop.Id, "Entered twice"),
+            new VoidAdjustmentCommand(adjustment.Id, actor.Id, shop.Id, "Entered twice", Session: null),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -112,7 +112,7 @@ public sealed class VoidAdjustmentCommandHandlerTests
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
 
         var result = await CreateHandler().HandleAsync(
-            new VoidAdjustmentCommand(adjustment.Id, actor.Id, shop.Id, "Found stock not valid"),
+            new VoidAdjustmentCommand(adjustment.Id, actor.Id, shop.Id, "Found stock not valid", Session: null),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -140,7 +140,7 @@ public sealed class VoidAdjustmentCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
         var result = await CreateHandler().HandleAsync(
-            new VoidAdjustmentCommand(Guid.NewGuid(), actor.Id, shop.Id, "No access"),
+            new VoidAdjustmentCommand(Guid.NewGuid(), actor.Id, shop.Id, "No access", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -162,7 +162,7 @@ public sealed class VoidAdjustmentCommandHandlerTests
         _adjustmentRepository.GetByIdAsync(adjustment.Id, Arg.Any<CancellationToken>()).Returns(adjustment);
 
         var result = await CreateHandler().HandleAsync(
-            new VoidAdjustmentCommand(adjustment.Id, actor.Id, shop.Id, "Try again"),
+            new VoidAdjustmentCommand(adjustment.Id, actor.Id, shop.Id, "Try again", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -185,7 +185,7 @@ public sealed class VoidAdjustmentCommandHandlerTests
         _adjustmentRepository.GetByIdAsync(adjustment.Id, Arg.Any<CancellationToken>()).Returns(adjustment);
 
         var result = await CreateHandler().HandleAsync(
-            new VoidAdjustmentCommand(adjustment.Id, actor.Id, activeShop.Id, "Wrong shop"),
+            new VoidAdjustmentCommand(adjustment.Id, actor.Id, activeShop.Id, "Wrong shop", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -197,7 +197,7 @@ public sealed class VoidAdjustmentCommandHandlerTests
     public async Task HandleAsync_WhenReasonIsBlank_ReturnsValidationError()
     {
         var result = await CreateHandler().HandleAsync(
-            new VoidAdjustmentCommand(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), " "),
+            new VoidAdjustmentCommand(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), " ", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -230,7 +230,7 @@ public sealed class VoidAdjustmentCommandHandlerTests
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
 
         var result = await CreateHandler().HandleAsync(
-            new VoidAdjustmentCommand(adjustment.Id, actor.Id, shop.Id, "Invalid found stock"),
+            new VoidAdjustmentCommand(adjustment.Id, actor.Id, shop.Id, "Invalid found stock", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -314,7 +314,7 @@ public sealed class VoidAdjustmentCommandHandlerTests
                 Errors.PostingPeriod.Closed(new DateOnly(2026, 5, 1))));
 
         var result = await CreateHandler().HandleAsync(
-            new VoidAdjustmentCommand(adjustment.Id, actor.Id, shop.Id, "Entered twice"), CancellationToken.None);
+            new VoidAdjustmentCommand(adjustment.Id, actor.Id, shop.Id, "Entered twice", Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);

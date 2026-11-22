@@ -19,5 +19,5 @@ public sealed record UpdateInventoryBatchCommand(
     Guid? SupplierId,
     string? Notes,
     DateOnly? EntryDate,
-    uint? ExpectedVersion = null,
-    SessionClaims? Session = null);
+    SessionClaims? Session,
+    uint? ExpectedVersion = null);

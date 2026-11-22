@@ -45,7 +45,7 @@ public class ClosePurchaseOrderCommandHandlerTests
         _poRepository.GetReceiptDetailForUpdateAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
 
         var result = await CreateHandler().HandleAsync(
-            new ClosePurchaseOrderCommand(actor.Id, shop.Id, po.Id, "Supplier short shipped"),
+            new ClosePurchaseOrderCommand(actor.Id, shop.Id, po.Id, "Supplier short shipped", Session: null),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -67,7 +67,7 @@ public class ClosePurchaseOrderCommandHandlerTests
         _poRepository.GetReceiptDetailForUpdateAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
 
         var result = await CreateHandler().HandleAsync(
-            new ClosePurchaseOrderCommand(actor.Id, shop.Id, po.Id, "reason"),
+            new ClosePurchaseOrderCommand(actor.Id, shop.Id, po.Id, "reason", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -81,7 +81,7 @@ public class ClosePurchaseOrderCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
         var result = await CreateHandler().HandleAsync(
-            new ClosePurchaseOrderCommand(actor.Id, shop.Id, Guid.NewGuid(), " "),
+            new ClosePurchaseOrderCommand(actor.Id, shop.Id, Guid.NewGuid(), " ", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);

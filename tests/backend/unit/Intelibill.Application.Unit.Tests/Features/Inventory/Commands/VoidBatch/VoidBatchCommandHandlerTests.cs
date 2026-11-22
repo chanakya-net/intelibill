@@ -62,7 +62,7 @@ public class VoidBatchCommandHandlerTests
         _inventoryBatchRepository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns((InventoryBatch?)null);
 
         var handler = CreateHandler();
-        var result = await handler.HandleAsync(new VoidBatchCommand(Guid.NewGuid(), actor.Id, shop.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(new VoidBatchCommand(Guid.NewGuid(), actor.Id, shop.Id, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Inventory.BatchNotFound.Code, result.FirstError.Code);
@@ -85,7 +85,7 @@ public class VoidBatchCommandHandlerTests
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
 
         var handler = CreateHandler();
-        var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("PurchaseReceipt.SupplierMissing",result.FirstError.Code);
@@ -109,7 +109,7 @@ public class VoidBatchCommandHandlerTests
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
         _supplierLedgerEntryRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns(Array.Empty<SupplierLedgerEntry>());
 
-        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id, Session: null), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Null(result.Value.LedgerReversalAmount);
@@ -137,7 +137,7 @@ public class VoidBatchCommandHandlerTests
             .Returns(DomainInventory.Create(shop.Id, itemId, 3m, 0m, 0m, actor.Id).Value);
 
         _purchaseReceiptValueRepository.GetByBatchAsync(shop.Id,batch.Id,Arg.Any<CancellationToken>()).Returns((PurchaseReceiptValue?)null);
-        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("PurchaseReceipt.EvidenceMissing", result.FirstError.Code);
@@ -160,7 +160,7 @@ public class VoidBatchCommandHandlerTests
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
 
         var handler = CreateHandler();
-        var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id, Session: null), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(10m, result.Value.RemainingQuantity);
@@ -183,7 +183,7 @@ public class VoidBatchCommandHandlerTests
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
 
         var handler = CreateHandler();
-        await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id, Session: null), CancellationToken.None);
 
         await _stockTransactionRepository.Received(1).AddAsync(
             Arg.Is<StockTransaction>(t => t.PerformedAt != default), 
@@ -204,7 +204,7 @@ public class VoidBatchCommandHandlerTests
         _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
 
         var handler = CreateHandler();
-        var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Inventory.BatchAlreadyVoided.Code, result.FirstError.Code);
@@ -226,7 +226,7 @@ public class VoidBatchCommandHandlerTests
         _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
 
-        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Inventory.BatchConsumed.Code, result.FirstError.Code);
@@ -253,7 +253,7 @@ public class VoidBatchCommandHandlerTests
         _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
         _stockTransactionRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns([sale, returned]);
 
-        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Inventory.BatchConsumed.Code, result.FirstError.Code);
@@ -278,7 +278,7 @@ public class VoidBatchCommandHandlerTests
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
         _stockTransactionRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns([receipt]);
 
-        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id, Session: null), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(10m, result.Value.OriginalQuantity);
@@ -315,7 +315,7 @@ public class VoidBatchCommandHandlerTests
         _inventoryRepository.GetByItemAsync(shop.Id, itemId, Arg.Any<CancellationToken>()).Returns(inventory);
 
         var handler = CreateHandler();
-        var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("Inventory.InsufficientStock", result.FirstError.Code);
@@ -338,7 +338,7 @@ public class VoidBatchCommandHandlerTests
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
             .ThrowsAsync(new DbUpdateConcurrencyException("conflict", new List<IUpdateEntry>()));
 
-        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Inventory.ConcurrentChange.Code, result.FirstError.Code);
@@ -368,7 +368,7 @@ public class VoidBatchCommandHandlerTests
         _stockTransactionRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns([movement]);
         _purchaseReceiptValueRepository.GetByBatchAsync(shop.Id, batch.Id, Arg.Any<CancellationToken>()).Returns(receiptValue);
 
-        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id, Session: null), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(-110m, result.Value.LedgerReversalAmount);
@@ -429,7 +429,7 @@ public class VoidBatchCommandHandlerTests
     {
         var x = ArrangeVoidableBatch();
 
-        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(x.Batch.Id, x.Actor.Id, x.Shop.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(x.Batch.Id, x.Actor.Id, x.Shop.Id, Session: null), CancellationToken.None);
 
         Assert.False(result.IsError);
         Received.InOrder(() =>
@@ -448,7 +448,7 @@ public class VoidBatchCommandHandlerTests
         _supplierLock.LockAsync(x.Shop.Id, x.SupplierId, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(RowLockOutcome.TimedOut);
 
-        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(x.Batch.Id, x.Actor.Id, x.Shop.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(x.Batch.Id, x.Actor.Id, x.Shop.Id, Session: null), CancellationToken.None);
 
         Assert.Equal(Errors.PurchaseReceipt.Busy.Code, result.FirstError.Code);
         Assert.Equal(ErrorOr.ErrorType.Conflict, result.FirstError.Type);
@@ -472,7 +472,7 @@ public class VoidBatchCommandHandlerTests
         _postingPeriods.AuthorizeForWriteAsync(shop.Id, Arg.Any<DateOnly>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr.ErrorOr<PostingPeriodLease>>(Errors.PostingPeriod.Closed(new DateOnly(2026, 7, 1))));
 
-        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new VoidBatchCommand(batch.Id, actor.Id, shop.Id, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal("PostingPeriod.Closed", result.FirstError.Code);

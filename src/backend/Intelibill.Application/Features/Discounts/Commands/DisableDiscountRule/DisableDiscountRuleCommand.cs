@@ -6,5 +6,5 @@ public sealed record DisableDiscountRuleCommand(
     Guid ShopId,
     Guid RuleId,
     string? Reason,
-    SessionClaims? Session = null);
+    SessionClaims? Session);
 

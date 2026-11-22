@@ -35,7 +35,7 @@ public class UpdateInventoryBatchCommandHandlerTests
     }
 
     private static UpdateInventoryBatchCommand ValidCommand(Guid userId, Guid shopId, Guid batchId) =>
-        new(batchId, userId, shopId, null, 10m, 100m, 200m, 180m, 18m, false, null, null, null, null, null);
+        new(batchId, userId, shopId, null, 10m, 100m, 200m, 180m, 18m, false, null, null, null, null, null, Session: null);
 
     [Fact]
     public async Task Handle_WhenUserNotFound_ReturnsNotFoundError()

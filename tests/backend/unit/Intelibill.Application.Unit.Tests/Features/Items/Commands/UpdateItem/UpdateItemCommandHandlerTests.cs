@@ -334,5 +334,6 @@ public class UpdateItemCommandHandlerTests
             uom,
             "10063090",
             5m,
-            isActive);
+            Session: null,
+            IsActive: isActive);
 }

@@ -6,4 +6,4 @@ public sealed record VoidCreditNoteCommand(
     Guid ActiveShopId,
     string Code,
     string Reason,
-    SessionClaims? Session = null);
+    SessionClaims? Session);

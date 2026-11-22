@@ -196,8 +196,9 @@ public sealed class ItemsController : AuthenticatedControllerBase
                 request.Uom,
                 request.HsnCode,
                 request.DefaultTaxRatePercent,
+                SessionClaims.TryRead(User),
                 request.IsActive,
-                request.QuantityScale, SessionClaims.TryRead(User)),
+                request.QuantityScale),
             cancellationToken);
 
         if (result.IsError)

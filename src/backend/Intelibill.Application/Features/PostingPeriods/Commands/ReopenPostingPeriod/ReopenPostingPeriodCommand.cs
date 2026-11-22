@@ -7,4 +7,4 @@ public sealed record ReopenPostingPeriodCommand(
     DateOnly PeriodStart,
     string Reason,
     string OperationKey,
-    SessionClaims? Session = null);
+    SessionClaims? Session);

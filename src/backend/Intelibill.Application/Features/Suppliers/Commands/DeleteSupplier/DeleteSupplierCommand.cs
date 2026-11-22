@@ -5,4 +5,4 @@ public sealed record DeleteSupplierCommand(
     Guid ActorUserId,
     Guid ActiveShopId,
     Guid SupplierId,
-    SessionClaims? Session = null);
+    SessionClaims? Session);

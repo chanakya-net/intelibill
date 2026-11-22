@@ -46,7 +46,7 @@ public class ReassignBatchSupplierCommandHandlerTests
 
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, realSupplier.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, realSupplier.Id, Session: null), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(realSupplier.Id, batch.SupplierId);
@@ -76,7 +76,7 @@ public class ReassignBatchSupplierCommandHandlerTests
         _supplierRepository.GetByIdAsync(systemSupplier.Id, Arg.Any<CancellationToken>()).Returns(systemSupplier);
         _supplierRepository.GetByIdAsync(realSupplier.Id, Arg.Any<CancellationToken>()).Returns(realSupplier);
 
-        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, realSupplier.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, realSupplier.Id, Session: null), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(realSupplier.Id, goods.SupplierId);
@@ -96,7 +96,7 @@ public class ReassignBatchSupplierCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(owner.Id, Arg.Any<CancellationToken>()).Returns(owner);
         _inventoryBatchRepository.GetByIdAsync(batch.Id, Arg.Any<CancellationToken>()).Returns(batch);
 
-        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, Guid.NewGuid()), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, Guid.NewGuid(), Session: null), CancellationToken.None);
 
         Assert.Equal(Errors.Inventory.BatchAlreadyVoided.Code, result.FirstError.Code);
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -140,7 +140,7 @@ public class ReassignBatchSupplierCommandHandlerTests
     {
         var x = ArrangeReceiptUnderPlaceholder();
 
-        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(x.Owner.Id, x.Shop.Id, x.Batch.Id, x.Target.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(x.Owner.Id, x.Shop.Id, x.Batch.Id, x.Target.Id, Session: null), CancellationToken.None);
 
         Assert.False(result.IsError);
         Received.InOrder(() =>
@@ -159,7 +159,7 @@ public class ReassignBatchSupplierCommandHandlerTests
         _supplierLock.LockAsync(x.Shop.Id, x.Placeholder.Id, Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>())
             .Returns(RowLockOutcome.TimedOut);
 
-        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(x.Owner.Id, x.Shop.Id, x.Batch.Id, x.Target.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(x.Owner.Id, x.Shop.Id, x.Batch.Id, x.Target.Id, Session: null), CancellationToken.None);
 
         Assert.Equal(Errors.PurchaseReceipt.Busy.Code, result.FirstError.Code);
         Assert.Equal(ErrorOr.ErrorType.Conflict, result.FirstError.Type);
@@ -176,7 +176,7 @@ public class ReassignBatchSupplierCommandHandlerTests
         var x = ArrangeReceiptUnderPlaceholder();
         _purchaseReceiptValueRepository.GetByBatchAsync(x.Shop.Id, x.Batch.Id, Arg.Any<CancellationToken>()).Returns((PurchaseReceiptValue?)null);
 
-        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(x.Owner.Id, x.Shop.Id, x.Batch.Id, x.Target.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(x.Owner.Id, x.Shop.Id, x.Batch.Id, x.Target.Id, Session: null), CancellationToken.None);
 
         Assert.False(result.IsError);
         await _supplierLock.DidNotReceive().LockAsync(Arg.Any<Guid>(), Arg.Any<Guid>(), Arg.Any<IReadOnlyCollection<Guid>>(), Arg.Any<CancellationToken>());
@@ -203,7 +203,7 @@ public class ReassignBatchSupplierCommandHandlerTests
 
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, realSupplier.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, realSupplier.Id, Session: null), CancellationToken.None);
 
         Assert.False(result.IsError);
         Assert.Equal(realSupplier.Id, batch.SupplierId);
@@ -228,7 +228,7 @@ public class ReassignBatchSupplierCommandHandlerTests
 
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, Guid.NewGuid()), CancellationToken.None);
+        var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, Guid.NewGuid(), Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Inventory.SupplierLedgerEntryInvalid.Code, result.FirstError.Code);
@@ -256,7 +256,7 @@ public class ReassignBatchSupplierCommandHandlerTests
 
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, newSupplier.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, newSupplier.Id, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Supplier.CannotReassignFromRealSupplier.Code, result.FirstError.Code);
@@ -273,7 +273,7 @@ public class ReassignBatchSupplierCommandHandlerTests
 
         var handler = CreateHandler();
 
-        var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(manager.Id, shop.Id, Guid.NewGuid(), Guid.NewGuid()), CancellationToken.None);
+        var result = await handler.HandleAsync(new ReassignBatchSupplierCommand(manager.Id, shop.Id, Guid.NewGuid(), Guid.NewGuid(), Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Supplier.UserIsNotOwner.Code, result.FirstError.Code);
@@ -302,7 +302,7 @@ public class ReassignBatchSupplierCommandHandlerTests
             .Returns(Task.FromResult<ErrorOr.ErrorOr<IReadOnlyList<PostingPeriodLease>>>(
                 Errors.PostingPeriod.Closed(new DateOnly(2026, 6, 1))));
 
-        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, realSupplier.Id), CancellationToken.None);
+        var result = await CreateHandler().HandleAsync(new ReassignBatchSupplierCommand(owner.Id, shop.Id, batch.Id, realSupplier.Id, Session: null), CancellationToken.None);
 
         Assert.Equal(Errors.PostingPeriod.ClosedCode, result.FirstError.Code);
         Assert.Equal(systemSupplier.Id, goods.SupplierId);

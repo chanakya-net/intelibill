@@ -37,7 +37,7 @@ public class DeletePurchaseOrderDraftCommandHandlerTests
         _userRepository.GetByIdWithDetailsAsync(actor.Id, Arg.Any<CancellationToken>()).Returns(actor);
 
         var result = await CreateHandler().HandleAsync(
-            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid()),
+            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -53,7 +53,7 @@ public class DeletePurchaseOrderDraftCommandHandlerTests
             .Returns((PurchaseOrder)null!);
 
         var result = await CreateHandler().HandleAsync(
-            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid()),
+            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, Guid.NewGuid(), Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -72,7 +72,7 @@ public class DeletePurchaseOrderDraftCommandHandlerTests
         _poRepository.GetReceiptDetailForUpdateAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
 
         var result = await CreateHandler().HandleAsync(
-            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, po.Id),
+            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, po.Id, Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -89,7 +89,7 @@ public class DeletePurchaseOrderDraftCommandHandlerTests
         _poRepository.GetReceiptDetailForUpdateAsync(shop.Id, po.Id, Arg.Any<CancellationToken>()).Returns(po);
 
         var result = await CreateHandler().HandleAsync(
-            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, po.Id),
+            new DeletePurchaseOrderDraftCommand(actor.Id, shop.Id, po.Id, Session: null),
             CancellationToken.None);
 
         Assert.False(result.IsError);

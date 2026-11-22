@@ -6,4 +6,4 @@ public sealed record ClosePurchaseOrderCommand(
     Guid ActiveShopId,
     Guid PurchaseOrderId,
     string? Reason,
-    SessionClaims? Session = null);
+    SessionClaims? Session);

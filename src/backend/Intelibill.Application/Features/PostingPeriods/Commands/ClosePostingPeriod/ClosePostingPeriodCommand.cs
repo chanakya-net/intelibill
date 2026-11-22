@@ -7,4 +7,4 @@ public sealed record ClosePostingPeriodCommand(
     DateOnly PeriodStart,
     string Reason,
     string OperationKey,
-    SessionClaims? Session = null);
+    SessionClaims? Session);

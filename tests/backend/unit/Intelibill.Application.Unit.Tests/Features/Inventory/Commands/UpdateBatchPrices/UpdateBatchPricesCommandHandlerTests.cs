@@ -125,7 +125,7 @@ public sealed class UpdateBatchPricesCommandHandlerTests
         _actor.AddShopMembership(ShopMembership.Create(_shop.Id, _actor.Id, role, true));
 
     private UpdateBatchPricesCommand Command(decimal salesPrice) =>
-        new(_batch.Id, _actor.Id, _shop.Id, _batch.Version, 150m, salesPrice, 0m, false, null, null, null, "Price change");
+        new(_batch.Id, _actor.Id, _shop.Id, _batch.Version, 150m, salesPrice, 0m, false, null, null, null, "Price change", Session: null);
 
     private UpdateBatchPricesCommandHandler CreateHandler() =>
         new(

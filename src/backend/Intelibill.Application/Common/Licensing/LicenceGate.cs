@@ -33,7 +33,8 @@ public static class LicenceGate
     public static async Task<Error?> SessionDenialAsync(this ILiveSessionAuthority authority,
         SessionClaims? session, Guid userId, Guid shopId, CancellationToken ct)
     {
-        if (session is null) return null; // Existing in-process callers supply independently checked actor authority.
+        // Non-HTTP callers can explicitly pass null after checking actor authority independently.
+        if (session is null) return null;
         return session.UserId == userId && session.ActiveShopId == shopId && await authority.IsValidAsync(session, ct)
             ? null
             : AuthErrors.SessionInvalidated;

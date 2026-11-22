@@ -11,4 +11,4 @@ public sealed record UpdateServiceCommand(
     string? HsnCode,
     decimal TaxRatePercent,
     bool TaxIncluded,
-    SessionClaims? Session = null);
+    SessionClaims? Session);

@@ -5,4 +5,4 @@ public sealed record DeactivateServiceCommand(
     Guid ActorUserId,
     Guid ActiveShopId,
     Guid ServiceId,
-    SessionClaims? Session = null);
+    SessionClaims? Session);

@@ -51,7 +51,7 @@ public sealed class PostingPeriodHandlerTests
     {
         _shops.GetActiveRoleAsync(_actor, _shop.Id, Arg.Any<CancellationToken>()).Returns(ShopRole.Manager);
 
-        var result = await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, "done", "k"), default);
+        var result = await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, "done", "k", Session: null), default);
 
         Assert.Equal("PostingPeriod.OwnerRequired", result.FirstError.Code);
         await _executor.DidNotReceiveWithAnyArgs().ExecuteAsync<PostingPeriodDto>(default!, default, default, default!, default!, default);
@@ -60,7 +60,7 @@ public sealed class PostingPeriodHandlerTests
     [Fact]
     public async Task Close_RunsUnderTheCloseScopeAndRecordsTheEvent()
     {
-        var result = await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, " done ", " k "), default);
+        var result = await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, " done ", " k ", Session: null), default);
 
         Assert.False(result.IsError);
         Assert.Equal("Closed", result.Value.State);
@@ -78,7 +78,7 @@ public sealed class PostingPeriodHandlerTests
     {
         _periods.LockForTransitionAsync(_shop.Id, June, Arg.Any<CancellationToken>()).Returns(new PostingPeriodLock(RowLockOutcome.TimedOut, null));
 
-        var result = await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, "done", "k"), default);
+        var result = await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, "done", "k", Session: null), default);
 
         Assert.Equal("PostingPeriod.Busy", result.FirstError.Code);
         Assert.Equal(ErrorType.Conflict, result.FirstError.Type);
@@ -90,7 +90,7 @@ public sealed class PostingPeriodHandlerTests
     {
         _shops.GetActiveRoleAsync(_actor, _shop.Id, Arg.Any<CancellationToken>()).Returns(ShopRole.Owner, ShopRole.Staff);
 
-        var result = await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, "done", "k"), default);
+        var result = await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, "done", "k", Session: null), default);
 
         Assert.Equal("PostingPeriod.OwnerRequired", result.FirstError.Code);
         Assert.Equal(PostingPeriodState.Open, _period.State);
@@ -104,7 +104,7 @@ public sealed class PostingPeriodHandlerTests
     public async Task Close_RejectsInvalidInputBeforeAnyWork(int year, int month, int day, string reason, string key)
     {
         var result = await CloseHandler().HandleAsync(
-            new ClosePostingPeriodCommand(_shop.Id, _actor, new DateOnly(year, month, day), reason, key), default);
+            new ClosePostingPeriodCommand(_shop.Id, _actor, new DateOnly(year, month, day), reason, key, Session: null), default);
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorType.Validation, result.FirstError.Type);
@@ -116,7 +116,7 @@ public sealed class PostingPeriodHandlerTests
     {
         Assert.False(_period.Close(_actor, _clock.UtcNow, new DateOnly(2026, 7, 5), "done").IsError);
 
-        var result = await ReopenHandler().HandleAsync(new ReopenPostingPeriodCommand(_shop.Id, _actor, June, "missed", "k2"), default);
+        var result = await ReopenHandler().HandleAsync(new ReopenPostingPeriodCommand(_shop.Id, _actor, June, "missed", "k2", Session: null), default);
 
         Assert.False(result.IsError);
         Assert.Equal("Open", result.Value.State);
@@ -135,11 +135,11 @@ public sealed class PostingPeriodHandlerTests
                 Arg.Any<Func<CancellationToken, Task<ErrorOr<PostingPeriodDto>>>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<ErrorOr<PostingPeriodDto>>(PostingPeriodDtoStub()));
 
-        await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, "done", "k"), default);
-        await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, "  done  ", "other-key"), default);
-        await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, "different", "k"), default);
-        await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June.AddMonths(1), "done", "k"), default);
-        await ReopenHandler().HandleAsync(new ReopenPostingPeriodCommand(_shop.Id, _actor, June, "done", "k"), default);
+        await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, "done", "k", Session: null), default);
+        await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, "  done  ", "other-key", Session: null), default);
+        await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June, "different", "k", Session: null), default);
+        await CloseHandler().HandleAsync(new ClosePostingPeriodCommand(_shop.Id, _actor, June.AddMonths(1), "done", "k", Session: null), default);
+        await ReopenHandler().HandleAsync(new ReopenPostingPeriodCommand(_shop.Id, _actor, June, "done", "k", Session: null), default);
 
         Assert.Equal(hashes[0], hashes[1]);
         Assert.Equal(4, hashes.Distinct().Count());

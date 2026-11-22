@@ -5,4 +5,4 @@ public sealed record ActivateServiceCommand(
     Guid ActorUserId,
     Guid ActiveShopId,
     Guid ServiceId,
-    SessionClaims? Session = null);
+    SessionClaims? Session);

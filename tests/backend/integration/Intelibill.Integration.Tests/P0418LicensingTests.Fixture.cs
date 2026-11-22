@@ -31,7 +31,8 @@ public sealed partial class P0418LicensingTests(PostgreSqlTestFixture fixture, I
     private string Migrator => fixture.MigratorConnectionString;
     private static CancellationToken Ct => CancellationToken.None;
 
-    private ApiWebApplicationFactory CreateHost(bool runtimeIdentityOutsideRequests = true) => new(fixture, services =>
+    private ApiWebApplicationFactory CreateHost(bool runtimeIdentityOutsideRequests = true, Action<IServiceCollection>? configure = null) =>
+        new(fixture, services =>
     {
         services.RemoveAll<TimeProvider>();
         services.AddSingleton<TimeProvider>(_clock);
@@ -40,6 +41,7 @@ public sealed partial class P0418LicensingTests(PostgreSqlTestFixture fixture, I
              x.ImplementationType == typeof(ShopAffiliationDeliveryWorker) ||
              x.ImplementationType == typeof(TrialActivationDeliveryWorker))).ToList())
             services.Remove(worker);
+        configure?.Invoke(services);
     }, runtimeIdentityOutsideRequests: runtimeIdentityOutsideRequests);
 
     private static HttpClient CreateClient(ApiWebApplicationFactory host) =>
@@ -99,12 +101,15 @@ public sealed partial class P0418LicensingTests(PostgreSqlTestFixture fixture, I
     }
 
     private async Task ApplyAsync(Binding binding, DateTimeOffset end, long revision = 1,
-        string restriction = "Unrestricted", string state = "Active")
+        string restriction = "Unrestricted", string state = "Active", DateTimeOffset? suspensionEffectiveAt = null)
     {
         await using var db = Open(RestrictedRuntimeRole.ConnectionStringFor(Migrator));
         var now = _clock.Now;
+        var suspension = suspensionEffectiveAt is { } effectiveAt
+            ? new CustomerSuspensionV1(restriction, effectiveAt, "Fixture suspension")
+            : null;
         var snapshot = new EntitlementSnapshotV1(1, EntitlementSnapshotsV1.PolicyVersion, Guid.NewGuid(),
-            binding.Account, binding.Shop, binding.Request, new(revision, now, restriction, null),
+            binding.Account, binding.Shop, binding.Request, new(revision, now, restriction, null, suspension),
             new(revision, now, state, binding.Term, "Paid", now.AddDays(-1), end, end, 2, 3));
         var body = JsonSerializer.SerializeToUtf8Bytes(snapshot, EntitlementSnapshotsV1.Json);
         var proof = new VerifiedServiceAssertion(Guid.NewGuid(), "test-key", "test-public-key", now, now.AddMinutes(1),

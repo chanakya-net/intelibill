@@ -18,4 +18,4 @@ public sealed record UpdateBatchPricesCommand(
     DateOnly? ExpiryDate,
     DateOnly? ManufacturingDate,
     string? Reason,
-    SessionClaims? Session = null);
+    SessionClaims? Session);

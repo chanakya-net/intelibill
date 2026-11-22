@@ -6,4 +6,4 @@ public sealed record VoidAdjustmentCommand(
     Guid ActorUserId,
     Guid ActiveShopId,
     string Reason,
-    SessionClaims? Session = null);
+    SessionClaims? Session);

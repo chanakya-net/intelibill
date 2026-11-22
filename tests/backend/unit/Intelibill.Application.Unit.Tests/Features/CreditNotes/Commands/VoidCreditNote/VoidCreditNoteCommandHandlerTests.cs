@@ -27,7 +27,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         var creditNote = fixture.CreditNote ?? throw new InvalidOperationException("Expected a credit note.");
 
         var result = await CreateHandler().HandleAsync(
-            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error"),
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error", Session: null),
             CancellationToken.None);
 
         Assert.False(result.IsError);
@@ -51,7 +51,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         var creditNote = fixture.CreditNote ?? throw new InvalidOperationException("Expected a credit note.");
 
         var result = await CreateHandler().HandleAsync(
-            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error"),
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -66,7 +66,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         var creditNote = fixture.CreditNote ?? throw new InvalidOperationException("Expected a credit note.");
 
         var result = await CreateHandler().HandleAsync(
-            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, " "),
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, " ", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -80,7 +80,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         var fixture = Arrange(ShopRole.Owner, noteExists: false);
 
         var result = await CreateHandler().HandleAsync(
-            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, "CN-404", "Issued in error"),
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, "CN-404", "Issued in error", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -95,7 +95,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         var creditNote = fixture.CreditNote ?? throw new InvalidOperationException("Expected a credit note.");
 
         var result = await CreateHandler().HandleAsync(
-            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error"),
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -110,7 +110,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         var creditNote = fixture.CreditNote ?? throw new InvalidOperationException("Expected a credit note.");
 
         var result = await CreateHandler().HandleAsync(
-            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error"),
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);
@@ -125,7 +125,7 @@ public sealed class VoidCreditNoteCommandHandlerTests
         var creditNote = fixture.CreditNote ?? throw new InvalidOperationException("Expected a credit note.");
 
         var result = await CreateHandler().HandleAsync(
-            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error"),
+            new VoidCreditNoteCommand(fixture.User.Id, fixture.Shop.Id, creditNote.Code, "Issued in error", Session: null),
             CancellationToken.None);
 
         Assert.True(result.IsError);

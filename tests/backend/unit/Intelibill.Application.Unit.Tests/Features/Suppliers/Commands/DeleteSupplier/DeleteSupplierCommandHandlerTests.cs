@@ -28,7 +28,7 @@ public class DeleteSupplierCommandHandlerTests
         _supplierRepository.GetByIdAsync(systemSupplier.Id, Arg.Any<CancellationToken>()).Returns(systemSupplier);
 
         var handler = new DeleteSupplierCommandHandler(_userRepository, _supplierRepository, _unitOfWork, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
-        var result = await handler.HandleAsync(new DeleteSupplierCommand(actor.Id, shop.Id, systemSupplier.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(new DeleteSupplierCommand(actor.Id, shop.Id, systemSupplier.Id, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Supplier.CannotModifySystemSupplier.Code, result.FirstError.Code);
@@ -49,7 +49,7 @@ public class DeleteSupplierCommandHandlerTests
         _supplierRepository.GetByIdAsync(supplier.Id, Arg.Any<CancellationToken>()).Returns(supplier);
 
         var handler = new DeleteSupplierCommandHandler(_userRepository, _supplierRepository, _unitOfWork, LicenceTestDoubles.ObserveOnly(), Substitute.For<ILiveSessionAuthority>());
-        var result = await handler.HandleAsync(new DeleteSupplierCommand(actor.Id, shop.Id, supplier.Id), CancellationToken.None);
+        var result = await handler.HandleAsync(new DeleteSupplierCommand(actor.Id, shop.Id, supplier.Id, Session: null), CancellationToken.None);
 
         Assert.True(result.IsError);
         Assert.Equal(Errors.Supplier.SupplierNotFound.Code, result.FirstError.Code);

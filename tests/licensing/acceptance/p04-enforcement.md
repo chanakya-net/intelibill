@@ -27,12 +27,14 @@ The merchant billing inventory includes orders, versioned payment confirmation d
 
 ## Source decisions from the fixed-clock retry
 
+- The PostgreSQL notification witness reads from a separate connection during discount create, replace and disable notifications. It sees committed rows and replacement links. A create denied at the exact trading deadline and a write rolled back before commit send no notification.
+- A delayed trading suspension with a known effective instant rejects batch void, purchase order cancellation, supplier deletion and discount disable when their original source is at or after that instant. The tests compare stock, movement, receipt, order, supplier and discount rows before and after the denial. The earlier expiry and lock tests exercise eligible sources.
 - Creating or replacing a discount schedules new trading terms. Reactivating a dormant item restores operational capacity. Generating a barcode advances a shop sequence for a new definition. Both batch repricing routes can set new retail terms for future trading. The operating setup succeeds and the same action at the deadline refuses without an additional rule, activation, sequence advance or price revision. The legacy batch route preserves its quantity, cost and supplier protocol checks.
 - An existing unused ordinary supplier can be removed before and at expiry. Removal requires an eligible in-shop supplier and owner authority. System suppliers and missing targets retain their original denials. Disabling an existing discount only stops its use. Both actions use the source-correction fence.
 - Receipt void, adjustment void, credit-note void, posting-period transitions, unused purchase-order draft deletion, cancel, close, and receipt supplier reassignment complete existing work under the established period, source and authority constraints. Existing service updates and customer edits retain their approved expiry behavior and serialize with suspension. A stock adjustment void restores only the original quantity from the original eligible source. While an exclusive projection fence was held, the historical probes observed committed movement or period rows behind a waiting response. The retry reads PostgreSQL facts while the fence is still held and again after release. Fenced customer creation remains the positive control.
 - At 48 hours minus one microsecond from the upstream verification stamp the enrolled sale still posts. At exactly 48 hours, redelivery of the signed snapshot leaves the new sale refused with `503 Licence.VerificationUnavailable`. The warm enrolled sale, committed replay, and sale history read produced zero outbound merchant HTTP calls and zero inbound licensing requests. The existing P04-02 restart regression covers persistence of the proof timestamps.
 - The shipping merchant browser preserves an existing cart across a real restriction and release in one signed-in Chromium context. The owner recorded invoice `A/2627/000001`, received a 403 on the next checkout, opened the sales list and original invoice print, then chose **Check again** and recorded `A/2627/000002`. PostgreSQL held two sales and an unchanged original invoice snapshot. The provider restriction passed through Pending and Acknowledged.
-- Five live-worker observations on loopback Kestrel and PostgreSQL measured enforcement at 1,836–2,002 ms and acknowledgement at 2,229–2,413 ms, median 2,345 ms. The delivery workers ticked every 2,000 ms and the test polled every 50 ms. Provider status was observed Pending in 5 of five samples.
+- One five-sample pre-commit run on loopback Kestrel and PostgreSQL with fixture keys measured enforcement at 1,836–2,002 ms and acknowledgement at 2,229–2,413 ms, median 2,345 ms. The delivery workers ticked every 2,000 ms and the test polled every 50 ms. Each sample observed Pending before acknowledgement. The target is 60 seconds under healthy connectivity.
 
 ## P05 and P08 enrollment prerequisites
 
@@ -63,7 +65,7 @@ Use the repository root unless a different working directory is listed. Add `/us
 
 Independent review and combined-branch verification are required before issue completion. The P04 gate authorizes local and test enrollment only.
 
-## User-fix candidate evidence
+## Historical user-fix candidate evidence
 
 The candidate based on `007c44b0` passed the backend, licensing and merchant builds. The Mac used .NET 10.0.300 as resolved by `global.json`, Bun 1.3.11, Docker PostgreSQL 17 and the repository's Playwright Chromium. The full merchant release audit passed 197 cases. Merchant and admin unit suites passed 3,386 and 138, and the admin release audit passed 15.
 

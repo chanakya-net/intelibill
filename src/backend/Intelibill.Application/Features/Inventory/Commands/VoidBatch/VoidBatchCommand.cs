@@ -5,4 +5,4 @@ public sealed record VoidBatchCommand(
     Guid BatchId,
     Guid ActorUserId,
     Guid ActiveShopId,
-    SessionClaims? Session = null);
+    SessionClaims? Session);

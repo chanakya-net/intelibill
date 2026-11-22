@@ -19,7 +19,8 @@ public class UpdateItemCommandValidatorTests
             Description: null,
             Uom: "kg",
             HsnCode: null,
-            DefaultTaxRatePercent: 0m);
+            DefaultTaxRatePercent: 0m,
+            Session: null);
 
         var result = _validator.TestValidate(command);
 
@@ -38,7 +39,8 @@ public class UpdateItemCommandValidatorTests
             Description: null,
             Uom: "kg",
             HsnCode: null,
-            DefaultTaxRatePercent: 0m);
+            DefaultTaxRatePercent: 0m,
+            Session: null);
 
         var result = _validator.TestValidate(command);
 
@@ -57,7 +59,8 @@ public class UpdateItemCommandValidatorTests
             Description: null,
             Uom: "",
             HsnCode: null,
-            DefaultTaxRatePercent: 0m);
+            DefaultTaxRatePercent: 0m,
+            Session: null);
 
         var result = _validator.TestValidate(command);
 
@@ -76,7 +79,8 @@ public class UpdateItemCommandValidatorTests
             Description: null,
             Uom: "kg",
             HsnCode: null,
-            DefaultTaxRatePercent: 0m);
+            DefaultTaxRatePercent: 0m,
+            Session: null);
 
         var result = _validator.TestValidate(command);
 
@@ -95,7 +99,8 @@ public class UpdateItemCommandValidatorTests
             Description: null,
             Uom: "kg",
             HsnCode: null,
-            DefaultTaxRatePercent: 0m);
+            DefaultTaxRatePercent: 0m,
+            Session: null);
 
         var result = _validator.TestValidate(command);
 
@@ -114,7 +119,8 @@ public class UpdateItemCommandValidatorTests
             Description: new string('a', 1001),
             Uom: "kg",
             HsnCode: null,
-            DefaultTaxRatePercent: 0m);
+            DefaultTaxRatePercent: 0m,
+            Session: null);
 
         var result = _validator.TestValidate(command);
 
@@ -133,7 +139,8 @@ public class UpdateItemCommandValidatorTests
             Description: null,
             Uom: new string('a', 33),
             HsnCode: null,
-            DefaultTaxRatePercent: 0m);
+            DefaultTaxRatePercent: 0m,
+            Session: null);
 
         var result = _validator.TestValidate(command);
 
@@ -152,7 +159,8 @@ public class UpdateItemCommandValidatorTests
             Description: "Premium quality rice",
             Uom: "kg",
             HsnCode: "10063090",
-            DefaultTaxRatePercent: 5m);
+            DefaultTaxRatePercent: 5m,
+            Session: null);
 
         var result = _validator.TestValidate(command);
 
@@ -226,5 +234,6 @@ public class UpdateItemCommandValidatorTests
             Description: "Premium quality rice",
             Uom: "kg",
             HsnCode: "10063090",
-            DefaultTaxRatePercent: 5m);
+            DefaultTaxRatePercent: 5m,
+            Session: null);
 }

@@ -16,5 +16,5 @@ public sealed record CreateDiscountRuleCommand(
     DateTimeOffset? EndsAt,
     bool BelowCostConfirmed,
     string? BelowCostConfirmationReason,
-    SessionClaims? Session = null);
+    SessionClaims? Session);
 

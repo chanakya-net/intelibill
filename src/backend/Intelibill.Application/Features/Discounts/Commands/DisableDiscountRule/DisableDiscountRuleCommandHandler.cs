@@ -38,11 +38,12 @@ public sealed class DisableDiscountRuleCommandHandler(
         if (membership.Role is not (ShopRole.Owner or ShopRole.Manager))
             return Error.Forbidden("Shop.PermissionDenied", "Only owners or managers can change discount rules.");
 
-        return await PostingTransaction.RunAsync<DiscountRuleDto>(unitOfWork,
+        var result = await PostingTransaction.RunAndSaveAsync<DiscountRule>(unitOfWork,
             ct => WriteAsync(command, ct), cancellationToken);
+        return result.IsError ? result.Errors : ToDto(result.Value);
     }
 
-    private async Task<ErrorOr<DiscountRuleDto>> WriteAsync(DisableDiscountRuleCommand command, CancellationToken cancellationToken)
+    private async Task<ErrorOr<DiscountRule>> WriteAsync(DisableDiscountRuleCommand command, CancellationToken cancellationToken)
     {
         var lease = await licenceFence.EnterForSessionAsync(authority, command.Session, command.UserId,
             command.ShopId, LicenceAction.SourceCorrection, cancellationToken);
@@ -61,9 +62,8 @@ public sealed class DisableDiscountRuleCommandHandler(
             return result.Errors;
 
         discountRuleRepository.Update(rule);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return ToDto(rule);
+        return rule;
     }
 
     private static DiscountRuleDto ToDto(DiscountRule rule) =>

@@ -18,5 +18,5 @@ public sealed record ReplaceDiscountRuleCommand(
     bool BelowCostConfirmed,
     string? BelowCostConfirmationReason,
     string? DisabledReason,
-    SessionClaims? Session = null);
+    SessionClaims? Session);
 

@@ -14,9 +14,9 @@ public sealed record EditCustomerCommand(
     string? Address,
     bool IsActive,
     decimal CreditLimit,
+    SessionClaims? Session,
     string? Gstin = null,
     string? StateCode = null,
     CreditPolicyMode? CreditPolicyMode = null,
     int? CreditTermsDays = null,
-    Guid? ActorUserId = null,
-    SessionClaims? Session = null);
+    Guid? ActorUserId = null);

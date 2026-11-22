@@ -112,11 +112,12 @@ public sealed class CustomersController : AuthenticatedControllerBase
                 request.Address,
                 request.IsActive,
                 request.CreditLimit,
+                SessionClaims.TryRead(User),
                 request.Gstin,
                 request.StateCode,
                 request.CreditPolicyMode,
                 request.CreditTermsDays,
-                UserId, SessionClaims.TryRead(User)),
+                UserId),
             cancellationToken);
 
         return result.ToActionResult(Ok);
