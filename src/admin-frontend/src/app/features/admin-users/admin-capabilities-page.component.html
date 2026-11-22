@@ -1,71 +1,115 @@
-<main>
-  <a routerLink="/">Provider Console</a>
-  <h1 class="ib-page-title">Administrator access</h1>
+<main class="adm-wide-main">
+  <header class="adm-page-head">
+    <a class="adm-back-link" routerLink="/">
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>Provider Console
+    </a>
+    <p class="ib-eyebrow">Access Control</p>
+    <h1 class="ib-page-title">Administrator access</h1>
+    <p class="ib-subtitle">Assign least-privilege capability grants or disable provider administrator accounts.</p>
+  </header>
+
   @if (access()) {
     <section class="ib-panel">
       @if (error()) {
         <p class="ib-error-banner" role="alert">{{ error() }}</p>
       }
       @if (reauthenticate()) {
-        <a routerLink="/auth/sign-in">Sign in again</a>
+        <div class="adm-actions">
+          <a routerLink="/auth/sign-in">Sign in again</a>
+        </div>
       }
       @if (saved()) {
-        <p role="status">{{ saved() }}</p>
+        <p class="adm-callout adm-callout--success" role="status">{{ saved() }}</p>
       }
       @if (busy()) {
-        <p role="status">Working…</p>
+        <p class="adm-callout adm-callout--info" role="status">Working…</p>
       }
-      <label for="administrator">Administrator</label>
-      <select id="administrator" #picker [value]="selected()?.id ?? ''" (change)="select(picker.value)"
-        [disabled]="busy() || reloadRequired() || reauthenticate()">
-        <option value="">Select an administrator</option>
-        @for (row of rows(); track row.id) {
-          <option [value]="row.id" [selected]="selected()?.id === row.id">{{ row.email }}</option>
-        }
-      </select>
+      <div class="adm-field">
+        <label for="administrator">Administrator</label>
+        <select id="administrator" #picker [value]="selected()?.id ?? ''" (change)="select(picker.value)"
+          [disabled]="busy() || reloadRequired() || reauthenticate()">
+          <option value="">Select an administrator</option>
+          @for (row of rows(); track row.id) {
+            <option [value]="row.id" [selected]="selected()?.id === row.id">{{ row.email }}</option>
+          }
+        </select>
+      </div>
       @if (hasPrevious() || nextCursor()) {
-        <nav class="actions" aria-label="Administrator pages">
-          <button pButton type="button" (click)="previous()" [disabled]="busy() || !hasPrevious()">Previous page</button>
-          <button pButton type="button" (click)="next()" [disabled]="busy() || !nextCursor()">Next page</button>
+        <nav class="adm-actions" aria-label="Administrator pages">
+          <button pButton severity="secondary" [outlined]="true" type="button" (click)="previous()" [disabled]="busy() || !hasPrevious()">Previous page</button>
+          <button pButton severity="secondary" [outlined]="true" type="button" (click)="next()" [disabled]="busy() || !nextCursor()">Next page</button>
         </nav>
       }
       @if (reloadRequired()) {
-        <div><button pButton type="button" (click)="reload()">Reload administrators</button></div>
+        <div class="adm-actions">
+          <button pButton type="button" (click)="reload()">Reload administrators</button>
+        </div>
       }
     </section>
 
     @for (row of selected() ? [selected()!] : []; track row.id) {
       <section class="ib-panel">
-        <h2 class="ib-panel__title">{{ row.email }}</h2>
-        @if (row.disabled) { <p>This administrator is disabled.</p> }
-        @else if (!row.mfaEnrolled) { <p>Authenticator enrollment is pending.</p> }
-        <form #editor (submit)="submit($event, editor)">
+        <div class="adm-panel-head">
+          <div class="adm-panel-head__copy">
+            <h2 class="ib-panel__title">{{ row.email }}</h2>
+          </div>
+          <div class="adm-actions">
+            @if (row.disabled) {
+              <span class="adm-pill adm-pill--danger">Disabled</span>
+            } @else if (!row.mfaEnrolled) {
+              <span class="adm-pill adm-pill--warn">MFA pending</span>
+            } @else {
+              <span class="adm-pill adm-pill--success">Active · MFA enrolled</span>
+            }
+          </div>
+        </div>
+
+        @if (row.disabled) {
+          <p class="adm-callout adm-callout--warn">This administrator is disabled.</p>
+        } @else if (!row.mfaEnrolled) {
+          <p class="adm-callout adm-callout--info">Authenticator enrollment is pending.</p>
+        }
+
+        <form #editor class="cap-form" (submit)="submit($event, editor)">
           <fieldset [disabled]="row.disabled || busy() || reauthenticate()">
             <legend>Capability grants</legend>
-            @for (grant of grants; track grant[0]) {
-              <label class="choice">
-                <input type="checkbox" name="grant" [value]="grant[0]" [checked]="row.capabilities.includes(grant[0])"
-                  [disabled]="grant[0] === 'platform-owner' && !row.mfaEnrolled && !row.capabilities.includes(grant[0])" />
-                {{ grant[1] }}
-              </label>
-            }
+            <div class="cap-grant-grid">
+              @for (grant of grants; track grant[0]) {
+                <label class="adm-choice-card choice">
+                  <input type="checkbox" name="grant" [value]="grant[0]" [checked]="row.capabilities.includes(grant[0])"
+                    [disabled]="grant[0] === 'platform-owner' && !row.mfaEnrolled && !row.capabilities.includes(grant[0])" />
+                  <span>{{ grant[1] }}</span>
+                </label>
+              }
+            </div>
           </fieldset>
+
           @if (!row.disabled) {
             <fieldset [disabled]="busy() || reauthenticate()">
               <legend>Confirm access change</legend>
-              <label class="choice"><input type="checkbox" name="disable" /> Disable this administrator</label>
+              <label class="adm-choice-card choice choice--danger">
+                <input type="checkbox" name="disable" />
+                <span>Disable this administrator</span>
+              </label>
               @if (row.isCurrent) {
-                <p>Saving changes to your own account ends your session.</p>
+                <p class="adm-callout adm-callout--warn">Saving changes to your own account ends your session.</p>
               }
-              <label for="reason">Reason</label>
-              <select id="reason" name="reason" required>
-                <option value="">Select a reason</option>
-                <option value="responsibilities-changed">Responsibilities changed</option>
-                <option value="access-review">Access review</option>
-                <option value="access-withdrawn">Access withdrawn</option>
-              </select>
-              <label class="choice"><input type="checkbox" name="confirmed" required /> I confirm these access changes.</label>
-              <div><button pButton type="submit">Save administrator access</button></div>
+              <div class="adm-field">
+                <label for="reason">Reason</label>
+                <select id="reason" name="reason" required>
+                  <option value="">Select a reason</option>
+                  <option value="responsibilities-changed">Responsibilities changed</option>
+                  <option value="access-review">Access review</option>
+                  <option value="access-withdrawn">Access withdrawn</option>
+                </select>
+              </div>
+              <label class="adm-choice-card choice">
+                <input type="checkbox" name="confirmed" required />
+                <span>I confirm these access changes.</span>
+              </label>
+              <div class="adm-actions">
+                <button pButton type="submit">Save administrator access</button>
+              </div>
             </fieldset>
           }
         </form>
@@ -75,16 +119,16 @@
     <section class="ib-panel" aria-label="Administrator access status">
       @switch (notice()) {
         @case ('expired') {
-          <p role="alert">Your provider access paused.</p>
-          <div><button pButton type="button" (click)="reconfirm()">Continue session</button></div>
+          <p class="adm-callout adm-callout--warn" role="alert">Your provider access paused.</p>
+          <div class="adm-actions"><button pButton type="button" (click)="reconfirm()">Continue session</button></div>
         }
         @case ('uncertain') {
           <p class="ib-error-banner" role="alert">We could not confirm your provider session.</p>
-          <div><button pButton type="button" (click)="reconfirm()">Try again</button></div>
+          <div class="adm-actions"><button pButton type="button" (click)="reconfirm()">Try again</button></div>
         }
         @case ('ended') {
           <p class="ib-error-banner" role="alert">Your provider session ended.</p>
-          <a routerLink="/auth/sign-in">Sign in again</a>
+          <div class="adm-actions"><a routerLink="/auth/sign-in">Sign in again</a></div>
         }
         @default {
           <p class="ib-error-banner" role="alert">You cannot manage administrator access.</p>

@@ -1,47 +1,71 @@
-<main>
-  <h1 class="ib-page-title">Recover provider access</h1>
+<main class="adm-auth-main">
+  <header class="adm-page-head">
+    <p class="ib-eyebrow">Account Recovery</p>
+    <h1 class="ib-page-title">Recover provider access</h1>
+    <p class="ib-subtitle">Verify your identity using a recovery proof to reset your authenticator.</p>
+  </header>
+
   <section class="ib-panel" aria-label="Recover provider access" [attr.aria-busy]="busy()">
     @if (error()) {
       <p class="ib-error-banner" role="alert">{{ error() }}</p>
     }
-    <p>
+    <p class="adm-callout adm-callout--warn">
       Recovery signs out every device on this account and removes your old authenticator.
       You must set up a new authenticator before you can use the Provider Console again.
     </p>
     @if (ready()) {
       <fieldset class="ib-form-section">
         <legend>Recovery proof</legend>
-        <label>
+        <label class="adm-choice-card">
           <input type="radio" name="recovery-method" value="code" [checked]="method() === 'code'" (change)="choose('code')" />
-          One of my recovery codes
+          <span>One of my recovery codes</span>
         </label>
-        <label>
+        <label class="adm-choice-card">
           <input type="radio" name="recovery-method" value="reset" [checked]="method() === 'reset'" (change)="choose('reset')" />
-          A reset issued by a platform owner
+          <span>A reset issued by a platform owner</span>
         </label>
-        <label>
+        <label class="adm-choice-card">
           <input type="radio" name="recovery-method" value="continue" [checked]="method() === 'continue'" (change)="choose('continue')" />
-          Continue enrollment with a saved key
+          <span>Continue enrollment with a saved key</span>
         </label>
       </fieldset>
       <form class="ib-form-section" (submit)="submit($event, email, password, proof)">
-        <label for="recovery-email">Email</label>
-        <input #email id="recovery-email" type="email" autocomplete="username" maxlength="254" required spellcheck="false" />
-        <label for="recovery-password">Password</label>
-        <input #password id="recovery-password" type="password" autocomplete="current-password" maxlength="72" required />
-        <label for="recovery-proof">{{ proofLabels[method()] }}</label>
-        <input #proof id="recovery-proof" type="text" autocomplete="off" spellcheck="false"
-          [attr.maxlength]="proofLengths[method()]" required />
+        <div class="adm-field">
+          <label for="recovery-email">Email</label>
+          <input #email id="recovery-email" type="email" autocomplete="username" maxlength="254" required spellcheck="false" />
+        </div>
+        <div class="adm-field">
+          <label for="recovery-password">Password</label>
+          <input #password id="recovery-password" type="password" autocomplete="current-password" maxlength="72" required />
+        </div>
+        <div class="adm-field">
+          <label for="recovery-proof">{{ proofLabels[method()] }}</label>
+          <input #proof id="recovery-proof" type="text" autocomplete="off" spellcheck="false"
+            [attr.maxlength]="proofLengths[method()]" required />
+        </div>
         @if (continuationKey(); as key) {
-          <p>Keep this key somewhere safe. You can use it with your password if enrollment expires or is interrupted.</p>
-          <p><code data-testid="continuation-key">{{ key }}</code></p>
-          <label><input type="checkbox" required /> I saved my enrollment continuation key.</label>
+          <div class="adm-subcard">
+            <p class="adm-callout adm-callout--warn">
+              Keep this key somewhere safe. You can use it with your password if enrollment expires or is interrupted.
+            </p>
+            <code class="adm-code-box" data-testid="continuation-key">{{ key }}</code>
+            <label class="adm-choice-card">
+              <input type="checkbox" required />
+              <span>I saved my enrollment continuation key.</span>
+            </label>
+          </div>
         }
-        <div><button pButton type="submit" [disabled]="busy()">Recover access</button></div>
+        <div class="adm-actions">
+          <button pButton type="submit" [disabled]="busy()">Recover access</button>
+        </div>
       </form>
     } @else {
-      <div><button pButton type="button" (click)="prepare()">Try again</button></div>
+      <div class="adm-actions">
+        <button pButton type="button" (click)="prepare()">Try again</button>
+      </div>
     }
-    <a routerLink="/auth/sign-in">Back to sign-in</a>
+    <div class="adm-footer-links">
+      <a routerLink="/auth/sign-in">Back to sign-in</a>
+    </div>
   </section>
 </main>

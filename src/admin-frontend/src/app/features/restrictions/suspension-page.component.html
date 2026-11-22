@@ -1,40 +1,80 @@
 <main class="restriction-page">
-  <a routerLink="/">Provider Console</a>
-  <h1 class="ib-page-title">Operational restrictions</h1>
+  <header class="adm-page-head">
+    <a class="adm-back-link" routerLink="/">
+      <i class="pi pi-arrow-left" aria-hidden="true"></i>Provider Console
+    </a>
+    <p class="ib-eyebrow">Trust &amp; Safety</p>
+    <h1 class="ib-page-title">Operational restrictions</h1>
+    <p class="ib-subtitle">Preview affected shops, apply trading or security suspensions, and track merchant delivery acknowledgement.</p>
+  </header>
+
   @if (canRead()) {
     <form [formGroup]="form" class="ib-panel restriction-form" (ngSubmit)="suspend()">
-      <label for="restriction-account">Billing account ID</label>
-      <input id="restriction-account" formControlName="accountId" autocomplete="off" />
+      <div class="adm-panel-head">
+        <div class="adm-panel-head__copy">
+          <h2 class="ib-panel__title">Target scope &amp; impact review</h2>
+          <p class="adm-panel-sub">Select a billing account and scope to preview impact before recording a suspension.</p>
+        </div>
+      </div>
+
+      <div class="adm-grid-2">
+        <div class="adm-field">
+          <label for="restriction-account">Billing account ID</label>
+          <input id="restriction-account" formControlName="accountId" autocomplete="off"
+            placeholder="00000000-0000-0000-0000-000000000000" />
+        </div>
+        @if (canSuspend()) {
+          <div class="adm-field">
+            <label for="restriction-scope">Suspension scope</label>
+            <select id="restriction-scope" formControlName="scope">
+              <option value="">Choose scope</option>
+              <option value="Shop">One shop</option>
+              <option value="Account">Entire billing account</option>
+            </select>
+          </div>
+          @if (form.controls.scope.value === 'Shop') {
+            <div class="adm-field adm-span-2">
+              <label for="restriction-shop">Shop ID</label>
+              <input id="restriction-shop" formControlName="shopId" autocomplete="off"
+                placeholder="00000000-0000-0000-0000-000000000000" />
+            </div>
+          }
+        }
+      </div>
+
       @if (canSuspend()) {
-        <label for="restriction-scope">Suspension scope</label>
-        <select id="restriction-scope" formControlName="scope">
-          <option value="">Choose scope</option>
-          <option value="Shop">One shop</option>
-          <option value="Account">Entire billing account</option>
-        </select>
-        @if (form.controls.scope.value === 'Shop') {
-          <label for="restriction-shop">Shop ID</label>
-          <input id="restriction-shop" formControlName="shopId" autocomplete="off" />
-        }
-        <button pButton outlined type="button" [disabled]="busy()" (click)="preview()">Preview impact</button>
+        <div class="adm-actions">
+          <button pButton [outlined]="true" type="button" [disabled]="busy()" (click)="preview()">Preview impact</button>
+        </div>
+
         @if (pending(); as draft) {
-          <p role="status" data-testid="pending-suspension">
-            Saved request awaiting confirmation for
-            @if (draft.restrictionId !== undefined) {
-              release of suspension {{ draft.restrictionId }}.
-            } @else {
-              {{ draft.command.scope === 'Account' ? 'Entire billing account ' + draft.accountId : 'Shop ' + draft.command.shopId }}.
-              {{ draft.command.mode }} suspension · {{ draft.command.effectiveAt ? format(draft.command.effectiveAt) : 'Apply immediately' }}
-            }
-          </p>
-          <button pButton outlined type="button" [disabled]="busy()" (click)="retry()">Retry saved request</button>
+          <div class="adm-subcard restriction-pending">
+            <p class="adm-callout adm-callout--warn" role="status" data-testid="pending-suspension">
+              Saved request awaiting confirmation for
+              @if (draft.restrictionId !== undefined) {
+                release of suspension {{ draft.restrictionId }}.
+              } @else {
+                {{ draft.command.scope === 'Account' ? 'Entire billing account ' + draft.accountId : 'Shop ' + draft.command.shopId }}.
+                {{ draft.command.mode }} suspension · {{ draft.command.effectiveAt ? format(draft.command.effectiveAt) : 'Apply immediately' }}
+              }
+            </p>
+            <div class="adm-actions">
+              <button pButton [outlined]="true" type="button" [disabled]="busy()" (click)="retry()">Retry saved request</button>
+            </div>
+          </div>
         }
+
         @if (impact(); as preview) {
-          <section aria-labelledby="restriction-impact">
-            <h2 class="ib-panel__title" id="restriction-impact">Affected shops</h2>
+          <section class="adm-subcard restriction-impact-box" aria-labelledby="restriction-impact">
+            <div class="restriction-impact-head">
+              <h2 class="ib-panel__title" id="restriction-impact">Affected shops</h2>
+              <span class="adm-pill adm-pill--accent">
+                {{ preview.selection.scope === 'Account' ? 'Entire account' : 'One shop' }}
+              </span>
+            </div>
             <p><strong>{{ preview.accountName }}</strong> · {{ preview.selection.scope === 'Account' ? 'Entire account' : 'One shop' }}</p>
             @if (preview.selection.scope === 'Account') {
-              <p>Applies to all current and future affiliated shops, including independent subscriptions.</p>
+              <p class="adm-callout adm-callout--warn">Applies to all current and future affiliated shops, including independent subscriptions.</p>
             }
             <ul class="restriction-shops">
               @for (shop of preview.shops; track shop.shopId) {
@@ -44,30 +84,49 @@
               }
             </ul>
           </section>
+
           @if (preview.alreadySuspended) {
-            <p role="status">This scope already has a saved suspension.</p>
+            <p class="adm-callout adm-callout--warn" role="status">This scope already has a saved suspension.</p>
           } @else {
-            <label for="restriction-mode">Suspension mode</label>
-            <select id="restriction-mode" formControlName="mode">
-              <option value="">Choose mode</option>
-              <option value="Trading">Trading</option>
-              <option value="Security">Security</option>
-            </select>
-            @if (form.controls.mode.value === 'Security') {
-              <p>Blocks shop data, exports, trading and ordinary recovery.</p>
-            } @else if (form.controls.mode.value === 'Trading') {
-              <p>Blocks new trading and preserves eligible history and completion.</p>
-            }
-            <label for="restriction-effective">Effective time in IST (optional)</label>
-            <input id="restriction-effective" formControlName="effectiveAt" placeholder="YYYY-MM-DD HH:mm" autocomplete="off" />
-            <p>Leave blank to apply immediately after delivery.</p>
-            <label for="restriction-customer">Customer explanation</label>
-            <textarea id="restriction-customer" formControlName="customerExplanation" maxlength="500" rows="3"></textarea>
-            <label for="restriction-internal">Internal review reason</label>
-            <textarea id="restriction-internal" formControlName="internalReason" maxlength="1000" rows="3"></textarea>
-            <label for="restriction-reference">Review reference</label>
-            <input id="restriction-reference" formControlName="reviewReference" maxlength="120" />
-            <button pButton severity="danger" type="submit" [disabled]="busy() || !!pending()">Apply suspension</button>
+            <div class="ib-form-section">
+              <div class="adm-grid-2">
+                <div class="adm-field">
+                  <label for="restriction-mode">Suspension mode</label>
+                  <select id="restriction-mode" formControlName="mode">
+                    <option value="">Choose mode</option>
+                    <option value="Trading">Trading</option>
+                    <option value="Security">Security</option>
+                  </select>
+                </div>
+                <div class="adm-field">
+                  <label for="restriction-effective">Effective time in IST (optional)</label>
+                  <input id="restriction-effective" formControlName="effectiveAt" placeholder="YYYY-MM-DD HH:mm" autocomplete="off" />
+                  <p class="adm-field__hint">Leave blank to apply immediately after delivery.</p>
+                </div>
+              </div>
+
+              @if (form.controls.mode.value === 'Security') {
+                <p class="adm-callout adm-callout--warn">Blocks shop data, exports, trading and ordinary recovery.</p>
+              } @else if (form.controls.mode.value === 'Trading') {
+                <p class="adm-callout adm-callout--info">Blocks new trading and preserves eligible history and completion.</p>
+              }
+
+              <div class="adm-field">
+                <label for="restriction-customer">Customer explanation</label>
+                <textarea id="restriction-customer" formControlName="customerExplanation" maxlength="500" rows="3"></textarea>
+              </div>
+              <div class="adm-field">
+                <label for="restriction-internal">Internal review reason</label>
+                <textarea id="restriction-internal" formControlName="internalReason" maxlength="1000" rows="3"></textarea>
+              </div>
+              <div class="adm-field">
+                <label for="restriction-reference">Review reference</label>
+                <input id="restriction-reference" formControlName="reviewReference" maxlength="120" placeholder="CASE-878" />
+              </div>
+              <div class="adm-actions">
+                <button pButton severity="danger" type="submit" [disabled]="busy() || !!pending()">Apply suspension</button>
+              </div>
+            </div>
           }
         }
       }
@@ -75,14 +134,29 @@
     </form>
 
     <section class="ib-panel restriction-saved" aria-labelledby="restriction-saved">
-      <h2 class="ib-panel__title" id="restriction-saved">Saved restrictions</h2>
-      <button pButton outlined type="button" [disabled]="busy()" (click)="refresh()">Refresh saved restrictions</button>
+      <div class="adm-panel-head">
+        <div class="adm-panel-head__copy">
+          <h2 class="ib-panel__title" id="restriction-saved">Saved restrictions</h2>
+          <p class="adm-panel-sub">Active and released restrictions recorded for this billing account.</p>
+        </div>
+        <button pButton severity="secondary" [outlined]="true" type="button" [disabled]="busy()" (click)="refresh()">Refresh saved restrictions</button>
+      </div>
+
       @for (restriction of saved(); track restriction.id) {
-        <article class="restriction-status">
-          <h3>{{ restriction.mode }} · {{ restriction.shopId ? 'One shop' : 'Entire account' }}</h3>
-          <p>Saved {{ format(restriction.recordedAt) }} · Effective {{ format(restriction.effectiveAt) }}</p>
-          <p>{{ restriction.customerExplanation }}</p>
-          <p role="status"><strong>{{ labels[restriction.propagation] }}</strong></p>
+        <article class="adm-subcard restriction-status">
+          <div class="restriction-status__head">
+            <h3>{{ restriction.mode }} · {{ restriction.shopId ? 'One shop' : 'Entire account' }}</h3>
+            <p
+              class="adm-pill"
+              [class.adm-pill--success]="restriction.propagation === 'Acknowledged'"
+              [class.adm-pill--warn]="restriction.propagation === 'Pending'"
+              [class.adm-pill--danger]="restriction.propagation !== 'Acknowledged' && restriction.propagation !== 'Pending'"
+              role="status"
+            ><strong>{{ labels[restriction.propagation] }}</strong></p>
+          </div>
+          <p class="adm-panel-sub">Saved {{ format(restriction.recordedAt) }} · Effective {{ format(restriction.effectiveAt) }}</p>
+          <p class="restriction-explanation">{{ restriction.customerExplanation }}</p>
+
           <ul class="restriction-shops">
             @for (shop of restriction.shops; track shop.shopId) {
               <li>
@@ -93,25 +167,38 @@
               </li>
             }
           </ul>
+
           @if (restriction.release; as release) {
-            <h4>Release saved {{ format(release.releasedAt) }}</h4>
-            <p role="status" data-testid="release-propagation">{{ labels[release.propagation] }}</p>
-            <ul class="restriction-shops">
-              @for (shop of release.shops; track shop.shopId) {
-                <li>{{ shop.shopName }} · {{ labels[shop.status] }}
-                  @if (shop.accountRevision !== null && shop.shopRevision !== null) {
-                    · Account revision {{ shop.accountRevision }}, shop revision {{ shop.shopRevision }}
-                  }
-                </li>
-              }
-            </ul>
+            <div class="restriction-release-record">
+              <div class="restriction-status__head">
+                <h4>Release saved {{ format(release.releasedAt) }}</h4>
+                <p
+                  class="adm-pill"
+                  [class.adm-pill--success]="release.propagation === 'Acknowledged'"
+                  [class.adm-pill--warn]="release.propagation === 'Pending'"
+                  role="status"
+                  data-testid="release-propagation"
+                >{{ labels[release.propagation] }}</p>
+              </div>
+              <ul class="restriction-shops">
+                @for (shop of release.shops; track shop.shopId) {
+                  <li>{{ shop.shopName }} · {{ labels[shop.status] }}
+                    @if (shop.accountRevision !== null && shop.shopRevision !== null) {
+                      · Account revision {{ shop.accountRevision }}, shop revision {{ shop.shopRevision }}
+                    }
+                  </li>
+                }
+              </ul>
+            </div>
           } @else if (canSuspend()) {
-            <button pButton outlined type="button" [disabled]="busy() || !!pending()" (click)="previewRelease(restriction)">Preview release</button>
+            <div class="adm-actions">
+              <button pButton severity="secondary" [outlined]="true" type="button" [disabled]="busy() || !!pending()" (click)="previewRelease(restriction)">Preview release</button>
+            </div>
             @if (releaseImpact(); as preview) {
               @if (preview.restrictionId === restriction.id) {
-                <section class="restriction-release" aria-labelledby="release-impact">
+                <section class="ib-form-section restriction-release" aria-labelledby="release-impact">
                   <h4 id="release-impact">Access after release</h4>
-                  <p>Existing subscription deadlines still apply.</p>
+                  <p class="adm-panel-sub">Existing subscription deadlines still apply.</p>
                   <ul class="restriction-shops">
                     @for (shop of preview.shops; track shop.shopId) {
                       <li>
@@ -127,10 +214,14 @@
                       <li>No currently affiliated shops</li>
                     }
                   </ul>
-                  <label for="restriction-release-reason">Release reason</label>
-                  <textarea id="restriction-release-reason" maxlength="1000" rows="3" [formControl]="releaseReason"></textarea>
-                  <button pButton type="button" [disabled]="busy() || !!pending() || releaseReason.invalid"
-                    (click)="confirmRelease()">Confirm release</button>
+                  <div class="adm-field">
+                    <label for="restriction-release-reason">Release reason</label>
+                    <textarea id="restriction-release-reason" maxlength="1000" rows="3" [formControl]="releaseReason"></textarea>
+                  </div>
+                  <div class="adm-actions">
+                    <button pButton type="button" [disabled]="busy() || !!pending() || releaseReason.invalid"
+                      (click)="confirmRelease()">Confirm release</button>
+                  </div>
                 </section>
               }
             }
@@ -139,6 +230,8 @@
       }
     </section>
   } @else {
-    <p role="alert">Your provider account does not have access to operational restrictions.</p>
+    <section class="ib-panel">
+      <p class="ib-error-banner" role="alert">Your provider account does not have access to operational restrictions.</p>
+    </section>
   }
 </main>

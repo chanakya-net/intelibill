@@ -1,54 +1,75 @@
-<main>
-  <h1 class="ib-page-title">First provider owner</h1>
+<main class="adm-auth-main">
+  <header class="adm-page-head">
+    <p class="ib-eyebrow">Initial Provisioning</p>
+    <h1 class="ib-page-title">First provider owner</h1>
+    <p class="ib-subtitle">Provision the founding platform owner account and complete authenticator enrollment.</p>
+  </header>
+
   <section class="ib-panel" aria-label="Provider owner setup" [attr.aria-busy]="busy() || view() === 'loading'">
     @if (error()) {
       <p class="ib-error-banner" role="alert">{{ error() }}</p>
     }
     @switch (view()) {
       @case ('loading') {
-        <p role="status">Checking setup status…</p>
+        <p class="adm-callout adm-callout--info" role="status">Checking setup status…</p>
       }
       @case ('pending') {
-        <h2 class="ib-panel__title">MFA setup required</h2>
-        <p>Your verified owner identity is ready for MFA enrollment.</p>
-        <p>No provider permissions</p>
-        <a routerLink="/auth/mfa-enrollment">Set up authenticator</a>
+        <div class="adm-panel-head">
+          <div class="adm-panel-head__copy">
+            <h2 class="ib-panel__title">MFA setup required</h2>
+            <p class="adm-panel-sub">Your verified owner identity is ready for MFA enrollment.</p>
+          </div>
+          <span class="adm-pill adm-pill--warn">No provider permissions</span>
+        </div>
+        <div class="adm-actions">
+          <a routerLink="/auth/mfa-enrollment">Set up authenticator</a>
+        </div>
       }
       @case ('closed') {
         @if (!error()) {
-          <p>First owner setup is unavailable.</p>
+          <p class="adm-callout">First owner setup is unavailable.</p>
         }
-        <a routerLink="/">Return to the Provider Console</a>
+        <div class="adm-footer-links">
+          <a routerLink="/">Return to the Provider Console</a>
+        </div>
       }
       @default {
         @let resume = view() === 'resume';
-        <h2 class="ib-panel__title">{{ resume ? 'Resume MFA enrollment' : 'Set up your account' }}</h2>
+        <div class="adm-panel-head">
+          <div class="adm-panel-head__copy">
+            <h2 class="ib-panel__title">{{ resume ? 'Resume MFA enrollment' : 'Set up your account' }}</h2>
+          </div>
+        </div>
         <form class="ib-form-section" (submit)="submit($event, identifier, password)">
-          <label for="bootstrap-identifier">{{ resume ? 'Verified email' : 'Setup proof' }}</label>
-          <input
-            #identifier
-            id="bootstrap-identifier"
-            [type]="resume ? 'email' : 'password'"
-            [attr.autocomplete]="resume ? 'username' : 'off'"
-            [maxLength]="resume ? 254 : 89"
-            required
-            spellcheck="false"
-          />
-          <label for="bootstrap-password">Password</label>
-          <input
-            #password
-            id="bootstrap-password"
-            type="password"
-            [attr.autocomplete]="resume ? 'current-password' : 'new-password'"
-            [attr.aria-describedby]="resume ? null : 'bootstrap-password-requirements'"
-            minlength="12"
-            maxlength="72"
-            required
-          />
-          @if (!resume) {
-            <p id="bootstrap-password-requirements">Use at least 12 characters.</p>
-          }
-          <div>
+          <div class="adm-field">
+            <label for="bootstrap-identifier">{{ resume ? 'Verified email' : 'Setup proof' }}</label>
+            <input
+              #identifier
+              id="bootstrap-identifier"
+              [type]="resume ? 'email' : 'password'"
+              [attr.autocomplete]="resume ? 'username' : 'off'"
+              [maxLength]="resume ? 254 : 89"
+              required
+              spellcheck="false"
+            />
+          </div>
+          <div class="adm-field">
+            <label for="bootstrap-password">Password</label>
+            <input
+              #password
+              id="bootstrap-password"
+              type="password"
+              [attr.autocomplete]="resume ? 'current-password' : 'new-password'"
+              [attr.aria-describedby]="resume ? null : 'bootstrap-password-requirements'"
+              minlength="12"
+              maxlength="72"
+              required
+            />
+            @if (!resume) {
+              <p class="adm-field__hint" id="bootstrap-password-requirements">Use at least 12 characters.</p>
+            }
+          </div>
+          <div class="adm-actions">
             <button pButton type="submit" [disabled]="busy()">
               {{ resume ? 'Resume enrollment' : 'Create owner account' }}
             </button>

@@ -1,52 +1,65 @@
 <section class="ib-panel" aria-labelledby="publication-heading">
-  <h2 class="ib-panel__title" id="publication-heading">Publish catalogue version</h2>
+  <div class="adm-panel-head">
+    <div class="adm-panel-head__copy">
+      <h2 class="ib-panel__title" id="publication-heading">Publish catalogue version</h2>
+      <p class="adm-panel-sub">Review exact immutable terms before publishing a new plan or trial policy version.</p>
+    </div>
+  </div>
+
   @if (error()) { <p class="ib-error-banner" role="alert">{{ error() }}</p> }
   @if (mfaNeeded()) {
-    <a routerLink="/auth/sign-in" target="_blank" rel="noopener">Sign in again</a>
+    <div class="adm-subcard">
+      <a routerLink="/auth/sign-in" target="_blank" rel="noopener">Sign in again</a>
+    </div>
   }
   @if (operation(); as result) {
-    <div data-testid="publication-snapshot">
+    <div class="adm-subcard" data-testid="publication-snapshot">
       <adm-catalogue-snapshot [snapshot]="result.snapshot" />
     </div>
     @if (result.publishedAt) {
-      <p role="status">Version published</p>
-      <button pButton type="button" (click)="close()">Close publication</button>
+      <p class="adm-callout adm-callout--success" role="status">Version published</p>
+      <div class="adm-actions">
+        <button pButton severity="secondary" [outlined]="true" type="button" (click)="close()">Close publication</button>
+      </div>
     } @else {
-      <p>Publication reason · {{ result.reason }}</p>
-      <p>Existing agreements retain their accepted prices, capacity and policy.</p>
-      <label class="acknowledgement">
+      <p class="adm-callout">Publication reason · <strong>{{ result.reason }}</strong><br />Existing agreements retain their accepted prices, capacity and policy.</p>
+      <label class="adm-choice-card acknowledgement">
         <input type="checkbox" [checked]="acknowledged()" [disabled]="busy() || stale() || mfaNeeded()"
           (change)="acknowledged.set($any($event.target).checked)" />
-        I approve publication of these exact terms.
+        <span>I approve publication of these exact terms.</span>
       </label>
-      <div class="actions">
+      <div class="actions adm-actions">
         <button pButton type="button" (click)="confirm()"
           [disabled]="!acknowledged() || busy() || stale() || mfaNeeded()">Confirm publication</button>
-        <button pButton type="button" (click)="recover()" [disabled]="busy()">Check publication outcome</button>
+        <button pButton severity="secondary" [outlined]="true" type="button" (click)="recover()" [disabled]="busy()">Check publication outcome</button>
         @if (!error() || stale()) {
-          <button pButton type="button" (click)="close()" [disabled]="busy()">Close preview</button>
+          <button pButton severity="secondary" [outlined]="true" type="button" (click)="close()" [disabled]="busy()">Close preview</button>
         }
       </div>
     }
   } @else if (key()) {
-    <p>Operation {{ key() }}</p>
-    <button pButton type="button" (click)="recover()" [disabled]="busy()">Check publication outcome</button>
+    <p class="adm-callout adm-callout--warn">Operation <code>{{ key() }}</code></p>
+    <div class="adm-actions">
+      <button pButton type="button" (click)="recover()" [disabled]="busy()">Check publication outcome</button>
+    </div>
   } @else if (target(); as draft) {
-    <form (submit)="prepare($event, reasonForm)" #reasonForm>
-      <label for="publication-reason">Publication reason</label>
-      <textarea id="publication-reason" name="publicationReason" required maxlength="500"></textarea>
-      <div class="actions">
+    <form class="ib-form-section" (submit)="prepare($event, reasonForm)" #reasonForm>
+      <div class="adm-field">
+        <label for="publication-reason">Publication reason</label>
+        <textarea id="publication-reason" name="publicationReason" required maxlength="500"></textarea>
+      </div>
+      <div class="actions adm-actions">
         <button pButton type="submit" [disabled]="busy()">Prepare {{ draft.planId ? 'plan' : 'trial policy' }} preview</button>
-        <button pButton type="button" (click)="close()" [disabled]="busy()">Cancel preview</button>
+        <button pButton severity="secondary" [outlined]="true" type="button" (click)="close()" [disabled]="busy()">Cancel preview</button>
       </div>
     </form>
   } @else {
-    <div class="actions">
-      <button pButton type="button" (click)="chooseTrial()" [disabled]="!trial()?.complete">Review trial policy draft</button>
+    <div class="actions adm-actions">
+      <button pButton severity="secondary" [outlined]="true" type="button" (click)="chooseTrial()" [disabled]="!trial()?.complete">Review trial policy draft</button>
       <button pButton type="button" (click)="choosePlan()" [disabled]="!planReady()">Review selected plan draft</button>
     </div>
     @if (plan()?.draft?.complete && !currentTrialVersionId()) {
-      <p>Publish a trial policy before preparing a plan.</p>
+      <p class="adm-callout adm-callout--info">Publish a trial policy before preparing a plan.</p>
     }
   }
 </section>

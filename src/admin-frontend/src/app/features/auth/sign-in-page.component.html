@@ -1,38 +1,61 @@
-<main>
-  <h1 class="ib-page-title">Sign in to the Provider Console</h1>
+<main class="adm-auth-main">
+  <header class="adm-page-head">
+    <p class="ib-eyebrow">Provider Access</p>
+    <h1 class="ib-page-title">Sign in to the Provider Console</h1>
+    <p class="ib-subtitle">Authenticate with your administrator credentials and 6-digit authenticator code.</p>
+  </header>
+
   @switch (session.signOutNotice()) {
     @case ('signing-out') {
-      <p role="status">Signing out…</p>
+      <p class="adm-callout adm-callout--info" role="status">Signing out…</p>
     }
     @case ('unconfirmed') {
-      <p class="ib-error-banner" role="alert">Local access ended. Server sign-out could not be confirmed.</p>
-      <div><button pButton type="button" (click)="session.retrySignOut()">Retry sign-out</button></div>
+      <div class="adm-subcard">
+        <p class="ib-error-banner" role="alert">Local access ended. Server sign-out could not be confirmed.</p>
+        <div class="adm-actions">
+          <button pButton type="button" (click)="session.retrySignOut()">Retry sign-out</button>
+        </div>
+      </div>
     }
     @case ('signed-out') {
-      <p role="status">Signed out.</p>
+      <p class="adm-callout adm-callout--success" role="status">Signed out.</p>
     }
   }
+
   <section class="ib-panel" aria-label="Provider sign-in" [attr.aria-busy]="loading() || busy()">
     @if (error()) {
       <p class="ib-error-banner" role="alert">{{ error() }}</p>
     }
     @if (loading()) {
-      <p role="status">Preparing sign-in…</p>
+      <p class="adm-callout adm-callout--info" role="status">Preparing sign-in…</p>
     } @else if (ready()) {
       <form class="ib-form-section" (submit)="submit($event, email, password, otp)">
-        <label for="sign-in-email">Email</label>
-        <input #email id="sign-in-email" type="email" autocomplete="username" maxlength="254" required />
-        <label for="sign-in-password">Password</label>
-        <input #password id="sign-in-password" type="password" autocomplete="current-password" maxlength="72" required />
-        <label for="sign-in-otp">Authenticator code</label>
-        <input #otp id="sign-in-otp" type="text" inputmode="numeric" autocomplete="one-time-code"
-          pattern="[0-9]{6}" maxlength="6" required />
-        <div><button pButton type="submit" [disabled]="busy()">Sign in</button></div>
+        <div class="adm-field">
+          <label for="sign-in-email">Email</label>
+          <input #email id="sign-in-email" type="email" autocomplete="username" maxlength="254"
+            placeholder="admin@company.com" required />
+        </div>
+        <div class="adm-field">
+          <label for="sign-in-password">Password</label>
+          <input #password id="sign-in-password" type="password" autocomplete="current-password" maxlength="72" required />
+        </div>
+        <div class="adm-field">
+          <label for="sign-in-otp">Authenticator code</label>
+          <input #otp id="sign-in-otp" type="text" inputmode="numeric" autocomplete="one-time-code"
+            placeholder="000000" pattern="[0-9]{6}" maxlength="6" required />
+        </div>
+        <div class="adm-actions">
+          <button pButton type="submit" [disabled]="busy()">Sign in</button>
+        </div>
       </form>
     } @else {
-      <div><button pButton type="button" (click)="prepare()">Try again</button></div>
+      <div class="adm-actions">
+        <button pButton type="button" (click)="prepare()">Try again</button>
+      </div>
     }
-    <a routerLink="/auth/recovery">Lost your authenticator? Recover access</a>
-    <a routerLink="/auth/bootstrap/enrollment">Resume first owner setup</a>
+    <div class="adm-footer-links">
+      <a routerLink="/auth/recovery">Lost your authenticator? Recover access</a>
+      <a routerLink="/auth/bootstrap/enrollment">Resume first owner setup</a>
+    </div>
   </section>
 </main>

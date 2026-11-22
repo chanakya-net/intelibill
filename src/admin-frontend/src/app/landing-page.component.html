@@ -1,59 +1,176 @@
-<main>
-  <h1 class="ib-page-title">Provider Console</h1>
+<main class="adm-page">
+  <header class="landing-hero">
+    <div class="landing-hero__copy">
+      <p class="ib-eyebrow">InteliBill Operations</p>
+      <h1 class="ib-page-title">Provider Console</h1>
+      <p class="ib-subtitle">
+        Access the provider tools and administrative workflows granted to your current session.
+      </p>
+    </div>
+    @if (authenticated()) {
+      <div class="landing-hero__meta">
+        <span class="adm-pill adm-pill--success">
+          <i class="pi pi-shield" aria-hidden="true"></i>
+          Authenticated session
+        </span>
+        <span class="adm-pill adm-pill--accent">
+          {{ capabilities().length }} {{ capabilities().length === 1 ? 'grant' : 'grants' }}
+        </span>
+      </div>
+    }
+  </header>
+
   @if (authenticated()) {
-    <div><a routerLink="/security/sessions">Device sessions</a></div>
-    @if (canReadStatus()) {
-      <div><a routerLink="/accounts">Account access status</a></div>
-    }
-    @if (capabilities().includes('security-administrator') || capabilities().includes('support')) {
-      <div><a routerLink="/restrictions">Operational restrictions</a></div>
-    }
-    @if (capabilities().includes(licensingManager)) {
-      <div><a routerLink="/restrictions/reopening">Shop reopening review</a></div>
-    }
+    <section aria-labelledby="workspaces-heading" class="landing-section">
+      <div class="landing-section__head">
+        <h2 id="workspaces-heading" class="landing-section__title">Operational workspaces</h2>
+        <p class="adm-panel-sub">Direct tools available under your current session and role grants.</p>
+      </div>
+
+      <div class="landing-card-grid">
+        <article class="adm-action-card">
+          <span class="adm-action-card__icon" aria-hidden="true">
+            <i class="pi pi-desktop"></i>
+          </span>
+          <div class="adm-action-card__body">
+            <a class="adm-action-card__link" routerLink="/security/sessions">Device sessions</a>
+            <p class="adm-action-card__desc">Inspect active sign-ins and revoke unrecognized administrator devices.</p>
+          </div>
+          <i class="pi pi-arrow-right adm-action-card__arrow" aria-hidden="true"></i>
+        </article>
+
+        @if (canReadStatus()) {
+          <article class="adm-action-card">
+            <span class="adm-action-card__icon" aria-hidden="true">
+              <i class="pi pi-building"></i>
+            </span>
+            <div class="adm-action-card__body">
+              <a class="adm-action-card__link" routerLink="/accounts">Account access status</a>
+              <p class="adm-action-card__desc">Inspect subscription dates, entitlement sync, closures, and courtesy grants.</p>
+            </div>
+            <i class="pi pi-arrow-right adm-action-card__arrow" aria-hidden="true"></i>
+          </article>
+        }
+
+        @if (capabilities().includes('security-administrator') || capabilities().includes('support')) {
+          <article class="adm-action-card">
+            <span class="adm-action-card__icon adm-action-card__icon--warn" aria-hidden="true">
+              <i class="pi pi-ban"></i>
+            </span>
+            <div class="adm-action-card__body">
+              <a class="adm-action-card__link" routerLink="/restrictions">Operational restrictions</a>
+              <p class="adm-action-card__desc">Preview impact, apply trading or security suspensions, and manage releases.</p>
+            </div>
+            <i class="pi pi-arrow-right adm-action-card__arrow" aria-hidden="true"></i>
+          </article>
+        }
+
+        @if (capabilities().includes(licensingManager)) {
+          <article class="adm-action-card">
+            <span class="adm-action-card__icon" aria-hidden="true">
+              <i class="pi pi-refresh"></i>
+            </span>
+            <div class="adm-action-card__body">
+              <a class="adm-action-card__link" routerLink="/restrictions/reopening">Shop reopening review</a>
+              <p class="adm-action-card__desc">Verify coverage and owner consent before reopening closed shops.</p>
+            </div>
+            <i class="pi pi-arrow-right adm-action-card__arrow" aria-hidden="true"></i>
+          </article>
+        }
+      </div>
+    </section>
+
     <section class="ib-panel" aria-labelledby="access-heading">
-      <h2 class="ib-panel__title" id="access-heading">Granted capabilities</h2>
+      <div class="adm-panel-head">
+        <div class="adm-panel-head__copy">
+          <h2 class="ib-panel__title" id="access-heading">Granted capabilities</h2>
+          <p class="adm-panel-sub">Privileged workflows authorized for your administrator account.</p>
+        </div>
+      </div>
+
       @if (capabilities().length) {
-        <ul aria-label="Granted capabilities">
+        <ul class="capability-grid" aria-label="Granted capabilities">
           @for (capability of capabilities(); track capability) {
-            <li>
-              @if (capability === invitationCapability) {
-                <a routerLink="/admin-users/invite">Manage administrator invitations</a>
-              } @else if (capability === auditCapability) {
-                <a routerLink="/audit">Audit history</a>
-              } @else if (capability === recoveryCapability) {
-                <a routerLink="/security/recovery">Review administrator recovery</a>
-              } @else if (capability === accessManagementCapability) {
-                <a routerLink="/admin-users">Manage administrator access</a>
-              } @else if (capability === 'billing') {
-                <a routerLink="/payments">Manual payments</a>
-                <a routerLink="/payments/review">Review payment funds</a>
-              } @else if (capability === licensingManager) {
-                <a routerLink="/catalogue">Plan catalogue drafts</a>
-              } @else {
-                {{ capabilityLabel(capability) }}
-              }
+            <li class="capability-card">
+              <div class="capability-card__head">
+                <span class="adm-pill adm-pill--accent">{{ capabilityLabel(capability) }}</span>
+              </div>
+              <div class="capability-card__links">
+                @if (capability === invitationCapability) {
+                  <a class="capability-link" routerLink="/admin-users/invite">
+                    <i class="pi pi-envelope" aria-hidden="true"></i>
+                    <span>Manage administrator invitations</span>
+                  </a>
+                } @else if (capability === auditCapability) {
+                  <a class="capability-link" routerLink="/audit">
+                    <i class="pi pi-history" aria-hidden="true"></i>
+                    <span>Audit history</span>
+                  </a>
+                } @else if (capability === recoveryCapability) {
+                  <a class="capability-link" routerLink="/security/recovery">
+                    <i class="pi pi-key" aria-hidden="true"></i>
+                    <span>Review administrator recovery</span>
+                  </a>
+                } @else if (capability === accessManagementCapability) {
+                  <a class="capability-link" routerLink="/admin-users">
+                    <i class="pi pi-users" aria-hidden="true"></i>
+                    <span>Manage administrator access</span>
+                  </a>
+                } @else if (capability === 'billing') {
+                  <a class="capability-link" routerLink="/payments">
+                    <i class="pi pi-wallet" aria-hidden="true"></i>
+                    <span>Manual payments</span>
+                  </a>
+                  <a class="capability-link" routerLink="/payments/review">
+                    <i class="pi pi-check-circle" aria-hidden="true"></i>
+                    <span>Review payment funds</span>
+                  </a>
+                } @else if (capability === licensingManager) {
+                  <a class="capability-link" routerLink="/catalogue">
+                    <i class="pi pi-tags" aria-hidden="true"></i>
+                    <span>Plan catalogue drafts</span>
+                  </a>
+                } @else {
+                  <span class="capability-static">{{ capabilityLabel(capability) }}</span>
+                }
+              </div>
             </li>
           }
         </ul>
       } @else {
-        <p>No provider capabilities are assigned to this account.</p>
+        <p class="adm-callout">No provider capabilities are assigned to this account.</p>
       }
     </section>
   } @else {
-    @switch (notice()) {
-      @case ('expired') {
-        <p>Your provider access paused.</p>
-        <button pButton type="button" (click)="resume()">Continue session</button>
+    <section class="ib-panel session-notice-card" aria-label="Session status">
+      @switch (notice()) {
+        @case ('expired') {
+          <div class="session-notice__head">
+            <span class="adm-action-card__icon adm-action-card__icon--warn" aria-hidden="true">
+              <i class="pi pi-clock"></i>
+            </span>
+            <div>
+              <h2 class="ib-panel__title">Session paused</h2>
+              <p>Your provider access paused.</p>
+            </div>
+          </div>
+          <div class="adm-actions">
+            <button pButton type="button" (click)="resume()">Continue session</button>
+          </div>
+        }
+        @case ('uncertain') {
+          <p class="ib-error-banner" role="alert">We could not confirm your provider session. Check your connection and try again.</p>
+          <div class="adm-actions">
+            <button pButton type="button" (click)="resume()">Try again</button>
+          </div>
+        }
+        @default {
+          <p class="ib-error-banner" role="alert">Your provider session ended.</p>
+          <div class="adm-actions">
+            <a routerLink="/auth/sign-in">Sign in again</a>
+          </div>
+        }
       }
-      @case ('uncertain') {
-        <p class="ib-error-banner" role="alert">We could not confirm your provider session. Check your connection and try again.</p>
-        <button pButton type="button" (click)="resume()">Try again</button>
-      }
-      @default {
-        <p class="ib-error-banner" role="alert">Your provider session ended.</p>
-        <a routerLink="/auth/sign-in">Sign in again</a>
-      }
-    }
+    </section>
   }
 </main>
