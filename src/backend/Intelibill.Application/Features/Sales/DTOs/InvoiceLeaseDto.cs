@@ -2,6 +2,12 @@ using Intelibill.Domain.ValueObjects;
 
 namespace Intelibill.Application.Features.Sales.DTOs;
 
+public sealed record InvoiceLeaseLicenceEvidenceDto(
+    int Version,
+    Guid GrantId,
+    string GrantSha256,
+    string KeyId);
+
 public sealed record InvoiceLeaseDto(
     Guid LeaseId,
     Guid ShopId,
@@ -15,4 +21,5 @@ public sealed record InvoiceLeaseDto(
     int RemainingCount,
     DateTimeOffset ReservedAt,
     DateTimeOffset ExpiresAt,
-    InvoiceSellerProfile? SellerProfile = null);
+    InvoiceSellerProfile? SellerProfile = null,
+    InvoiceLeaseLicenceEvidenceDto? LicenceEvidence = null);

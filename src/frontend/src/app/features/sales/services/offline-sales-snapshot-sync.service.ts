@@ -1,7 +1,7 @@
 import { observeShopDataRefusal } from '../../../core/context/shop-data-response';
 import { ShopContextService } from '../../../core/context/shop-context.service';
 import { isOfflineSalesSnapshotMetadata, hasOfflineExpiryAuthority } from '../utils/offline-sales-snapshot.schema';
-import { Injectable } from '@angular/core';
+import { Injectable, Optional } from '@angular/core';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { SALE_ENDPOINTS } from '../../../core/auth/auth.constants';
@@ -15,6 +15,8 @@ import {
   type OfflineSellableBatchSnapshot,
   type OfflineSellableServiceSnapshot,
 } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
+import type { OfflineLicencePermitBinding, OfflineSnapshotLicencePermitRecord } from '../utils/offline-licence-permit';
+import { OfflineLicencePermitService } from './offline-licence-permit.service';
 
 type OfflineSnapshotStreamRecord =
   | { readonly type: 'metadata'; readonly metadata: OfflineSalesSnapshotMetadata }
@@ -23,6 +25,7 @@ type OfflineSnapshotStreamRecord =
   | { readonly type: 'discountRule'; readonly discountRule: OfflineDiscountRuleSnapshot }
   | { readonly type: 'activeLease'; readonly activeLease: OfflineActiveLeaseSnapshot }
   | { readonly type: 'service'; readonly service: OfflineSellableServiceSnapshot }
+  | { readonly type: 'licencePermit'; readonly licencePermit: OfflineSnapshotLicencePermitRecord }
   | {
       readonly type: 'complete';
       readonly complete: {
@@ -41,23 +44,38 @@ type OfflineSnapshotStreamRecord =
       };
     };
 
+function buildSnapshotStreamUrl(binding: OfflineLicencePermitBinding | null): string {
+  if (!binding) return withServiceWorkerBypassQuery(SALE_ENDPOINTS.offlineSnapshotStream);
+  const params = new URLSearchParams({
+    leaseId: binding.leaseId,
+    grantId: binding.grantId,
+    deviceId: binding.deviceId,
+  });
+  if (binding.tillSessionId) params.set('tillSessionId', binding.tillSessionId);
+  return withServiceWorkerBypassQuery(`${SALE_ENDPOINTS.offlineSnapshotStream}?${params.toString()}`);
+}
+
 @Injectable({ providedIn: 'root' })
 export class OfflineSalesSnapshotSyncService {
   constructor(
     private readonly authService: AuthService,
     private readonly snapshotDb: OfflineSalesSnapshotIndexedDbService,
-    private readonly context: ShopContextService
+    private readonly context: ShopContextService,
+    @Optional() private readonly licencePermit?: OfflineLicencePermitService,
   ) {}
 
-  async syncForShop(shopId: string): Promise<void> {
+  async syncForShop(shopId: string, explicitBinding?: OfflineLicencePermitBinding | null): Promise<void> {
     const token = this.authService.getAccessToken();
     if (!token || !shopId) return;
 
     let snapshotId: string | null = null;
     let authority = false;
     let catalogVersion = 0;
+    let pendingPermitRecord: OfflineSnapshotLicencePermitRecord | null = null;
     const invocation = this.context.scope();
     if (!invocation || invocation.shopId !== shopId || this.context.dataRestricted()) return;
+    const binding =
+      explicitBinding === undefined ? ((await this.licencePermit?.resolveBinding(shopId)) ?? null) : explicitBinding;
     const epoch = this.context.epoch();
     const abort = new AbortController();
     const unregister = this.context.onDetach(() => abort.abort());
@@ -71,10 +89,18 @@ export class OfflineSalesSnapshotSyncService {
       ensureScope();
       if (!authority || value.snapshotId !== snapshotId || Object.entries(received).some(([key, count]) => value[key as keyof typeof received] !== count)) throw new Error('Incomplete snapshot record counts.');
       await this.snapshotDb.markComplete(snapshotId!, shopId, value.completedAt, abort.signal);
+      if (binding && pendingPermitRecord && this.licencePermit) {
+        try {
+          ensureScope();
+          await this.licencePermit.acceptDeliveredPermit(binding, pendingPermitRecord, snapshotId!, value.completedAt);
+        } catch {
+          // A failure to verify or persist the permit never revokes the already-promoted snapshot.
+        }
+      }
     };
 
     try {
-      const response = await fetch(withServiceWorkerBypassQuery(SALE_ENDPOINTS.offlineSnapshotStream), {
+      const response = await fetch(buildSnapshotStreamUrl(binding), {
         cache: 'no-store',
         signal: abort.signal,
         headers: { Authorization: `Bearer ${token}` },
@@ -133,7 +159,7 @@ export class OfflineSalesSnapshotSyncService {
           }
 
           const entityId = record.type === 'batch' ? record.batch.batchId : record.type === 'customer' ? record.customer.customerId : record.type === 'discountRule' ? record.discountRule.ruleId : record.type === 'activeLease' ? record.activeLease.leaseId : record.type === 'service' ? record.service.serviceId : null;
-          if (!['complete', 'error'].includes(record.type) && !entityId) throw new Error('Missing snapshot entity identity.');
+          if (!['complete', 'error', 'licencePermit'].includes(record.type) && !entityId) throw new Error('Missing snapshot entity identity.');
           if (entityId) { const key = `${record.type}:${entityId}`; if (seen.has(key)) throw new Error('Duplicate snapshot entity.'); seen.add(key); }
           switch (record.type) {
             case 'batch':
@@ -156,6 +182,9 @@ export class OfflineSalesSnapshotSyncService {
             case 'service':
               received.serviceCount++;
               await this.snapshotDb.writeService(snapshotId, shopId, record.service);
+              break;
+            case 'licencePermit':
+              pendingPermitRecord = record.licencePermit;
               break;
             case 'complete':
               await promote(record.complete);

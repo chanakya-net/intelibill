@@ -73,4 +73,27 @@ describe('LocaleFormattingService', () => {
       }).format(new Date(instant)),
     );
   });
+
+  it('formats exact reconnect instants with seconds in IST without rounding past the deadline', () => {
+    const exact = '2026-11-22T12:00:00.000000Z';
+    expect(service.formatExactInstant(exact)).toBe(
+      `${new Intl.DateTimeFormat('en-IN', {
+        dateStyle: 'medium',
+        timeStyle: 'medium',
+        timeZone: 'Asia/Kolkata',
+      }).format(new Date(exact))} IST`,
+    );
+
+    const microBefore = '2026-11-22T11:59:59.999999Z';
+    expect(service.formatExactInstant(microBefore)).toBe(
+      `${new Intl.DateTimeFormat('en-IN', {
+        dateStyle: 'medium',
+        timeStyle: 'medium',
+        timeZone: 'Asia/Kolkata',
+      }).format(new Date('2026-11-22T11:59:59.000Z'))} IST`,
+    );
+
+    expect(service.formatExactInstant('not-a-date')).toBe('—');
+    expect(service.formatExactInstant(null)).toBe('—');
+  });
 });

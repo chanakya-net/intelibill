@@ -1,6 +1,8 @@
 using ErrorOr;
 using Intelibill.Application.Common.Licensing;
+using Intelibill.Application.Common.Licensing.Offline;
 using Intelibill.Application.Common.Interfaces;
+using Intelibill.Application.Common.Security;
 using Intelibill.Application.Features.Sales.Commands.ReserveInvoiceLease;
 using Intelibill.Domain.Common;
 using Intelibill.Domain.Entities;
@@ -20,6 +22,8 @@ public class ReserveInvoiceLeaseCommandHandlerTests
     private readonly IInvoiceLeaseRepository _invoiceLeaseRepository = Substitute.For<IInvoiceLeaseRepository>();
     private readonly IInvoiceNumberAllocator _allocator = Substitute.For<IInvoiceNumberAllocator>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly IShopLicenceFence _licenceFence = Substitute.For<IShopLicenceFence>();
+    private readonly IOfflineLicencePermitIssuer _permitIssuer = Substitute.For<IOfflineLicencePermitIssuer>();
     private readonly Guid _sequenceId = Guid.NewGuid();
     private InvoiceSeriesKey? _reservedSeries;
     private int? _reservedCount;
@@ -37,7 +41,7 @@ public class ReserveInvoiceLeaseCommandHandlerTests
     }
 
     private ReserveInvoiceLeaseCommandHandler CreateHandler(TimeProvider? clock = null) =>
-        new(_userRepository, _shopRepository, _invoiceLeaseRepository, _allocator, _unitOfWork, clock ?? TimeProvider.System, Substitute.For<IShopLicenceFence>());
+        new(_userRepository, _shopRepository, _invoiceLeaseRepository, _allocator, _unitOfWork, clock ?? TimeProvider.System, _licenceFence, _permitIssuer);
 
     private (User Actor, Shop Shop) Arrange(ShopRole role = ShopRole.Owner, bool declared = true, EInvoiceStatus eInvoice = EInvoiceStatus.BelowThreshold)
     {
@@ -188,6 +192,115 @@ public class ReserveInvoiceLeaseCommandHandlerTests
         Assert.Equal(TimeSpan.Zero, added.ExpiresAt.Offset);
         Assert.Equal(fiscalYearStart, added.FiscalYearStart);
         Assert.Equal(fiscalYearStart, _reservedSeries!.FiscalYear.StartYear);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenSessionProvidedAndGrantCaptured_ReturnsVersionedLicenceEvidence()
+    {
+        var (actor, shop) = Arrange();
+        var session = new SessionClaims(actor.Id, Guid.NewGuid(), 1, 1, shop.Id, "Owner");
+        var grantId = Guid.NewGuid();
+        const string signedGrant = "hdr.payload.sig";
+        _permitIssuer.CaptureGrantAsync(session, Arg.Any<InvoiceLease>(), Arg.Any<CancellationToken>())
+            .Returns(new OfflineGrantEvidence(grantId, "key-1", signedGrant));
+
+        var result = await CreateHandler().HandleAsync(
+            new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null, session.SessionId, session),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(result.Value.LicenceEvidence);
+        Assert.Equal((1, grantId, OfflinePermitContractV1.Digest(signedGrant), "key-1"),
+            (result.Value.LicenceEvidence!.Version, result.Value.LicenceEvidence.GrantId,
+             result.Value.LicenceEvidence.GrantSha256, result.Value.LicenceEvidence.KeyId));
+        await _unitOfWork.Received(1).CommitTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("OfflinePermit.SigningUnavailable")]
+    [InlineData("OfflinePermit.AuthorityUnavailable")]
+    [InlineData("Licence.VerificationUnavailable")]
+    public async Task HandleAsync_WhenCaptureAllowsLegacyFallback_CommitsUnanchoredLease(string captureCode)
+    {
+        var (actor, shop) = Arrange();
+        var session = new SessionClaims(actor.Id, Guid.NewGuid(), 1, 1, shop.Id, "Owner");
+        var error = captureCode switch
+        {
+            "OfflinePermit.SigningUnavailable" => Errors.OfflinePermit.SigningUnavailable,
+            "OfflinePermit.AuthorityUnavailable" => Errors.OfflinePermit.AuthorityUnavailable,
+            _ => Errors.Licence.VerificationUnavailable,
+        };
+        _permitIssuer.CaptureGrantAsync(session, Arg.Any<InvoiceLease>(), Arg.Any<CancellationToken>())
+            .Returns(error);
+
+        var result = await CreateHandler().HandleAsync(
+            new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null, session.SessionId, session),
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Null(result.Value.LicenceEvidence);
+        await _unitOfWork.Received(1).CommitTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("Auth.SessionInvalidated")]
+    [InlineData("OfflinePermit.ScopeMismatch")]
+    [InlineData("OfflinePermit.LeaseNotNew")]
+    [InlineData("OfflinePermit.KeyRebound")]
+    [InlineData("OfflinePermit.Busy")]
+    [InlineData("Licence.Busy")]
+    [InlineData("OfflinePermit.OutsideValidity")]
+    [InlineData("OfflinePermit.DeadlineReached")]
+    public async Task HandleAsync_WhenCaptureMustRefuse_RollsBackReservation(string captureCode)
+    {
+        var (actor, shop) = Arrange();
+        var session = new SessionClaims(actor.Id, Guid.NewGuid(), 1, 1, shop.Id, "Owner");
+        var error = captureCode switch
+        {
+            "Auth.SessionInvalidated" => Errors.Auth.SessionInvalidated,
+            "OfflinePermit.ScopeMismatch" => Errors.OfflinePermit.ScopeMismatch,
+            "OfflinePermit.LeaseNotNew" => Errors.OfflinePermit.LeaseNotNew,
+            "OfflinePermit.KeyRebound" => Errors.OfflinePermit.KeyRebound,
+            "OfflinePermit.Busy" => Errors.OfflinePermit.Busy,
+            "Licence.Busy" => Errors.Licence.Busy,
+            "OfflinePermit.OutsideValidity" => Errors.OfflinePermit.OutsideValidity,
+            _ => Errors.OfflinePermit.DeadlineReached(OfflineLicencePermitPolicy.LeaseExpiry),
+        };
+        _permitIssuer.CaptureGrantAsync(session, Arg.Any<InvoiceLease>(), Arg.Any<CancellationToken>())
+            .Returns(error);
+
+        var result = await CreateHandler().HandleAsync(
+            new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null, session.SessionId, session),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(captureCode, result.FirstError.Code);
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WhenLicenceDenialBecomesEnforcedDuringCapture_RefusesAndRollsBack()
+    {
+        var (actor, shop) = Arrange();
+        var session = new SessionClaims(actor.Id, Guid.NewGuid(), 1, 1, shop.Id, "Owner");
+        var allowed = new ShopLicenceLease(shop.Id, Guid.NewGuid(), 1, 1,
+            new LicenceDecision(LicenceOutcome.Allowed, true));
+        var denied = new ShopLicenceLease(shop.Id, Guid.NewGuid(), 1, 1,
+            new LicenceDecision(LicenceOutcome.Blocked, true, Errors.Licence.VerificationUnavailable));
+        _licenceFence.EnterAsync(shop.Id, LicenceAction.NewTrading, Arg.Any<CancellationToken>())
+            .Returns(allowed, denied);
+        _permitIssuer.CaptureGrantAsync(session, Arg.Any<InvoiceLease>(), Arg.Any<CancellationToken>())
+            .Returns(Errors.Licence.VerificationUnavailable);
+
+        var result = await CreateHandler().HandleAsync(
+            new ReserveInvoiceLeaseCommand(actor.Id, shop.Id, "device-1", null, session.SessionId, session),
+            CancellationToken.None);
+
+        Assert.True(result.IsError);
+        Assert.Equal(Errors.Licence.VerificationUnavailableCode, result.FirstError.Code);
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
     }
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider

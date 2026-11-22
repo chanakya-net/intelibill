@@ -2656,6 +2656,10 @@
       "enableFailed": "Offline setup failed. Please retry.",
       "appPackIncomplete": "The app files for offline use could not be downloaded completely. Stay online and retry.",
       "appPackStorageLow": "Not enough free storage on this device for the offline files. Free some space and retry."
+    },
+    "permit": {
+      "reconnectBy": "Reconnect by",
+      "notReceived": "Not received yet — refresh while online"
     }
   },
   "purchaseOrders": {
@@ -3607,7 +3611,10 @@
       "consentInvalid": "This request requires current, unrevoked consent.",
       "reviewPending": "Saved operations changed in another tab. Review the current status before continuing.",
       "storageUnavailable": "The browser could not save or recover your request.",
-      "mode": { "Independent": "Independent", "Grouped": "Grouped" },
+      "mode": {
+        "Independent": "Independent",
+        "Grouped": "Grouped"
+      },
       "status": {
         "AwaitingConsent": "Awaiting shop owner consent",
         "Granted": "Consent granted",

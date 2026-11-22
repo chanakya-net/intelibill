@@ -10,6 +10,7 @@ import { OfflineSalesDeviceSettingsStorage } from '../../../core/storage/offline
 import { InvoiceLeaseIndexedDbService } from '../../../core/storage/invoice-lease-indexeddb.service';
 import { OfflineSalesSnapshotIndexedDbService } from '../../../core/storage/offline-sales-snapshot-indexeddb.service';
 import { OfflineSalesQueueSyncService } from './offline-sales-queue-sync.service';
+import { OfflineLicencePermitService } from './offline-licence-permit.service';
 import { OfflineSalesSnapshotSyncService } from './offline-sales-snapshot-sync.service';
 import { OfflineSalesDeviceEnablementService } from './offline-sales-device-enablement.service';
 import { SaleService } from './sale.service';
@@ -46,22 +47,30 @@ describe('OfflineSalesDeviceEnablementService', () => {
 
   const settingsStorage = {
     getOrCreateDeviceId: vi.fn((_shopId: string) => 'device-1'),
-    updateSettings: vi.fn((_shopId: string, update: (current: any) => any) => update({
-      shopId: 'shop-1',
-      deviceId: 'device-1',
-      label: '',
-      enabled: false,
-      enabledAt: null,
-      enabledByUserId: null,
-      enabledByUserName: null,
-      lastCompleteSnapshotAt: null,
-      lastApiVerifiedAt: null,
-      lastSnapshotWarningMarker: null,
-      lastReservedLease: null,
-    })),
+    loadSettings: vi.fn((_shopId: string) => lastSavedSettings),
+    updateSettings: vi.fn((_shopId: string, update: (current: any) => any) => {
+      lastSavedSettings = update(
+        lastSavedSettings ?? {
+          shopId: 'shop-1',
+          deviceId: 'device-1',
+          label: '',
+          enabled: false,
+          enabledAt: null,
+          enabledByUserId: null,
+          enabledByUserName: null,
+          lastCompleteSnapshotAt: null,
+          lastApiVerifiedAt: null,
+          lastSnapshotWarningMarker: null,
+          lastReservedLease: null,
+          lastOfflinePermit: null,
+        },
+      );
+      return lastSavedSettings;
+    }),
   } satisfies Partial<OfflineSalesDeviceSettingsStorage>;
+  let lastSavedSettings: any = null;
 
-  const snapshotSync = { syncForShop: vi.fn(async (_shopId: string) => {}) } satisfies Partial<OfflineSalesSnapshotSyncService>;
+  const snapshotSync = { syncForShop: vi.fn(async (_shopId: string, _binding?: any) => {}) } satisfies Partial<OfflineSalesSnapshotSyncService>;
   const snapshotDb = {
     getUsableSnapshotInfo: vi.fn(async (_shopId: string) => ({ snapshotId: 'snap-1', completedAt: '2026-05-21T00:00:00.000Z' })),
   } satisfies Partial<OfflineSalesSnapshotIndexedDbService>;
@@ -83,7 +92,30 @@ describe('OfflineSalesDeviceEnablementService', () => {
     })),
   } satisfies Partial<SaleService>;
 
-  const leaseDb = { saveLease: vi.fn(async (_lease: any) => {}) } satisfies Partial<InvoiceLeaseIndexedDbService>;
+  const leaseDb = {
+    saveLease: vi.fn(async (lease: any) => {
+      savedLease = lease;
+    }),
+    loadLease: vi.fn(async () => savedLease),
+  } satisfies Partial<InvoiceLeaseIndexedDbService>;
+  let savedLease: any = null;
+  const permitService = {
+    bindingForLease: vi.fn((lease: any, shopId: string, userId: string, deviceId: string) =>
+      lease?.licenceEvidence?.version === 1
+        ? {
+            shopId,
+            userId,
+            deviceId,
+            fiscalYear: lease.fiscalYear,
+            leaseId: lease.leaseId,
+            leaseExpiresAt: lease.expiresAt,
+            grantId: lease.licenceEvidence.grantId,
+            grantSha256: lease.licenceEvidence.grantSha256,
+            tillSessionId: null,
+          }
+        : null,
+    ),
+  };
   const queueSync = { syncForShop: vi.fn(async (_shopId: string, _deviceId: string) => ({
     attemptedCount: 0,
     syncedCount: 0,
@@ -104,6 +136,7 @@ describe('OfflineSalesDeviceEnablementService', () => {
         { provide: SaleService, useValue: saleService },
         { provide: InvoiceLeaseIndexedDbService, useValue: leaseDb },
         { provide: OfflineSalesQueueSyncService, useValue: queueSync },
+        { provide: OfflineLicencePermitService, useValue: permitService },
       ],
     });
 
@@ -112,14 +145,19 @@ describe('OfflineSalesDeviceEnablementService', () => {
 
   beforeEach(() => {
     TestBed.resetTestingModule();
+    lastSavedSettings = null;
+    savedLease = null;
     canReachApi.set(true);
     (network.checkConnectivity as ReturnType<typeof vi.fn>).mockClear();
     (snapshotSync.syncForShop as ReturnType<typeof vi.fn>).mockClear();
     (snapshotDb.getUsableSnapshotInfo as ReturnType<typeof vi.fn>).mockClear();
     (saleService.reserveInvoiceLease as ReturnType<typeof vi.fn>).mockClear();
     (leaseDb.saveLease as ReturnType<typeof vi.fn>).mockClear();
+    (leaseDb.loadLease as ReturnType<typeof vi.fn>).mockClear();
     (queueSync.syncForShop as ReturnType<typeof vi.fn>).mockClear();
+    (settingsStorage.loadSettings as ReturnType<typeof vi.fn>).mockClear();
     (settingsStorage.updateSettings as ReturnType<typeof vi.fn>).mockClear();
+    permitService.bindingForLease.mockClear();
   });
 
   it('blocks enablement when API is unreachable', async () => {
@@ -316,6 +354,48 @@ describe('OfflineSalesDeviceEnablementService', () => {
 
       expect(pack.prepare).not.toHaveBeenCalled();
       expect(pack.release).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('anchored lease bound snapshot', () => {
+    it('keeps legacy leases to a single unbound snapshot and clears any prior permit projection', async () => {
+      const service = setup();
+
+      const result = await service.enableForShop('shop-1', 'Counter 1');
+
+      expect(result.ok).toBe(true);
+      expect(snapshotSync.syncForShop).toHaveBeenCalledTimes(1);
+      expect(snapshotSync.syncForShop).toHaveBeenCalledWith('shop-1', null);
+      if (result.ok) {
+        expect(result.settings.lastOfflinePermit).toBeNull();
+        expect(result.settings.lastReservedLease?.licenceGrantId).toBeUndefined();
+      }
+    });
+
+    it('runs one bound snapshot after reserving an anchored lease and keeps enablement successful if permit delivery fails', async () => {
+      const licenceEvidence = { version: 1, grantId: 'grant-1', grantSha256: 'a'.repeat(64), keyId: 'key-1' };
+      const reserved = await firstValueFrom(saleService.reserveInvoiceLease());
+      (saleService.reserveInvoiceLease as ReturnType<typeof vi.fn>).mockReturnValueOnce(
+        of({ ...reserved, licenceEvidence }),
+      );
+      (snapshotSync.syncForShop as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error('network blip'));
+      const service = setup();
+
+      const result = await service.enableForShop('shop-1', 'Counter 1');
+
+      expect(result.ok).toBe(true);
+      expect(snapshotSync.syncForShop).toHaveBeenCalledTimes(2);
+      expect(snapshotSync.syncForShop.mock.calls[0]).toEqual(['shop-1', null]);
+      expect(snapshotSync.syncForShop.mock.calls[1]).toEqual([
+        'shop-1',
+        expect.objectContaining({ leaseId: 'lease-1', grantId: 'grant-1', grantSha256: 'a'.repeat(64), deviceId: 'device-1' }),
+      ]);
+      expect(leaseDb.saveLease.mock.calls[0][0].licenceEvidence).toEqual(licenceEvidence);
+      if (result.ok) {
+        expect(result.settings.lastReservedLease?.licenceGrantId).toBe('grant-1');
+      }
     });
   });
 });

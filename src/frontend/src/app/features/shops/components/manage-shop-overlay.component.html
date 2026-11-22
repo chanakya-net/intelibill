@@ -78,7 +78,7 @@
                 <app-shop-till-settings [shopId]="selectedShopId()" [canEdit]="canEditOperating()" [disabled]="isSubmitting() || isLoadingDetails()" (navigateRequested)="onClose()" (licenceRefused)="onOperatingSettingsRefused($event)" />
               }
               <div class="overlay-actions flex pt-4 justify-end gap-2">
-                @if (!canEditOperating() && setupAccess() && isSelectedShopOwnerOrManager()) {
+                @if (isSelectedShopOwnerOrManager() && (setupAccess() || !networkStatus.canReachApi())) {
                   <button pButton type="button" [label]="'offlineSalesDevice.title' | transloco" severity="secondary" [text]="true" [disabled]="isSubmitting() || isLoadingDetails()" (click)="onContinueToOfflineBilling()"></button>
                 }
                 <button pButton type="submit" form="manage-shop-details-form" [label]="isSubmitting() && !isTaxProfilePending() ? ('shops.savingChanges' | transloco) : ((canEditOperating() ? 'shops.nextStep' : 'shopSetup.saveProfile') | transloco)" [loading]="isSubmitting() && !isTaxProfilePending()" [disabled]="form.controls.name.invalid || isSubmitting() || isLoadingDetails() || !canEditProfile()" class="save-button"></button>
@@ -133,6 +133,11 @@
                     }
                     @if (offlineInvoiceRemainingCount() !== null) {
                       <div class="status-row"><span class="status-label">{{ 'offlineSalesDevice.invoiceRemaining' | transloco }}</span><span class="status-value">{{ offlineInvoiceRemainingCount() }}</span></div>
+                    }
+                    @if (offlinePermitDisplay().kind === 'deadline') {
+                      <div class="status-row offline-permit-row"><span class="status-label">{{ 'offlineSalesDevice.permit.reconnectBy' | transloco }}</span><span class="status-value">{{ offlinePermitDeadlineLabel() }}</span></div>
+                    } @else if (offlinePermitDisplay().kind === 'notReceived') {
+                      <div class="status-row offline-permit-row"><span class="status-label">{{ 'offlineSalesDevice.permit.reconnectBy' | transloco }}</span><span class="status-value">{{ 'offlineSalesDevice.permit.notReceived' | transloco }}</span></div>
                     }
                     @if (offlinePackStatus(); as pack) {
                       <div class="status-row offline-pack-row"><span class="status-label">{{ 'offlineSalesDevice.pack.title' | transloco }}</span><span class="status-value">{{ (pack.state === 'ready' ? 'offlineSalesDevice.pack.ready' : 'offlineSalesDevice.pack.incomplete') | transloco }}</span></div>

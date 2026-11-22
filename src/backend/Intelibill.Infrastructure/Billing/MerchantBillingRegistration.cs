@@ -47,6 +47,7 @@ internal static class MerchantBillingRegistration
         services.AddScoped<OfflinePermitGates>();
         services.AddSingleton<OfflineSnapshotCaptureRegistry>();
         services.AddScoped<IOfflineLicencePermitIssuer, OfflineLicencePermitIssuer>();
+        services.AddScoped<OfflineSnapshotPermitStreamer>();
         services.AddScoped(provider => new LeasedHttpOutbox(provider.GetRequiredService<ApplicationDbContext>()));
         services.AddScoped<EntitlementAcknowledgementMetrics>();
         services.AddScoped<ILeasedHttpDestination, MerchantEntitlementDelivery>();

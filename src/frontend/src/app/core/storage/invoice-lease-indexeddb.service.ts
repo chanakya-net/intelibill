@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 
-import type { InvoiceSellerProfile } from '../../features/sales/services/sale.models';
+import type { InvoiceLeaseLicenceEvidenceDto, InvoiceSellerProfile } from '../../features/sales/services/sale.models';
+import type { StoredOfflineLicencePermit } from '../../features/sales/utils/offline-licence-permit';
 
 export const INVOICE_LEASE_RENEWAL_THRESHOLD = 25;
 
@@ -22,6 +23,10 @@ export interface InvoiceLeaseSnapshot {
    * stored before documents were issued offline, which cannot issue until the device is enabled again.
    */
   readonly sellerProfile?: InvoiceSellerProfile | null;
+  /** Versioned reference to the server-side grant frozen when this lease was reserved. */
+  readonly licenceEvidence?: InvoiceLeaseLicenceEvidenceDto | null;
+  /** Latest verified offline licence permit bound to this lease. */
+  readonly offlinePermit?: StoredOfflineLicencePermit | null;
 }
 
 export interface InvoiceLeaseConsumptionResult {
@@ -105,6 +110,63 @@ export class InvoiceLeaseIndexedDbService {
     });
 
     return record ? this.normalizeLease(record.lease) : null;
+  }
+
+  /**
+   * Stores a verified permit inside its matching lease record in one read-modify-write transaction.
+   * Refuses mismatched lease/grant evidence and keeps the later issuedAt when a newer permit is already stored.
+   */
+  async attachPermit(
+    shopId: string,
+    deviceId: string,
+    fiscalYear: string,
+    permit: StoredOfflineLicencePermit,
+  ): Promise<StoredOfflineLicencePermit | null> {
+    if (!shopId || !deviceId || !fiscalYear || !permit || typeof indexedDB === 'undefined') {
+      return null;
+    }
+
+    const database = await this.openDatabase();
+    return await new Promise<StoredOfflineLicencePermit | null>((resolve, reject) => {
+      const transaction = database.transaction(this.storeName, 'readwrite');
+      const store = transaction.objectStore(this.storeName);
+      const request = store.get(this.buildKey(shopId, deviceId, fiscalYear));
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const record = request.result as InvoiceLeaseRecord | undefined;
+        if (!record) {
+          resolve(null);
+          return;
+        }
+
+        const lease = this.normalizeLease(record.lease);
+        if (
+          lease.leaseId !== permit.leaseId ||
+          lease.licenceEvidence?.version !== 1 ||
+          lease.licenceEvidence.grantId !== permit.grantId ||
+          lease.licenceEvidence.grantSha256 !== permit.grantSha256
+        ) {
+          resolve(null);
+          return;
+        }
+
+        // Canonical UTC microsecond strings sort identically to chronological order.
+        if (lease.offlinePermit && permit.issuedAt < lease.offlinePermit.issuedAt) {
+          resolve(null);
+          return;
+        }
+
+        const updatedRecord: InvoiceLeaseRecord = {
+          ...record,
+          lease: this.normalizeLease({ ...lease, offlinePermit: permit }),
+          updatedAt: new Date().toISOString(),
+        };
+        const putRequest = store.put(updatedRecord);
+        putRequest.onerror = () => reject(putRequest.error);
+        putRequest.onsuccess = () => resolve(permit);
+      };
+    });
   }
 
   async consumeNextInvoiceNumber(

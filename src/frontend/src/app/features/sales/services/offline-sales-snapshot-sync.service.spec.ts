@@ -216,6 +216,109 @@ describe('OfflineSalesSnapshotSyncService', () => {
     expect(await snapshotDb.getUsableSnapshotId(shopId)).toBeNull();
   });
 
+  it('sends lease binding query params and stores delivered permit only after snapshot promotion', async () => {
+    const binding = {
+      shopId,
+      userId: 'user-1',
+      deviceId: 'device-1',
+      fiscalYear: '2026-27',
+      leaseId: 'lease-1',
+      leaseExpiresAt: '2099-01-01T00:00:00Z',
+      grantId: 'grant-1',
+      grantSha256: 'a'.repeat(64),
+      tillSessionId: 'till-1',
+    };
+    const events: string[] = [];
+    const markCompleteSpy = vi.spyOn(snapshotDb, 'markComplete').mockImplementationOnce(async (...args) => {
+      events.push('markComplete');
+      return OfflineSalesSnapshotIndexedDbService.prototype.markComplete.apply(snapshotDb, args);
+    });
+    const permitService = {
+      resolveBinding: vi.fn(async () => binding),
+      acceptDeliveredPermit: vi.fn(async () => {
+        events.push('acceptPermit');
+        return null;
+      }),
+    };
+    const boundService = new OfflineSalesSnapshotSyncService(
+      { getAccessToken: () => 'token' } as any,
+      snapshotDb,
+      { scope: () => ({ userId: 'user-1', shopId, epoch: 1 }), epoch: () => 1, isCurrent: () => true, dataRestricted: () => false, onDetach: () => () => undefined } as any,
+      permitService as any,
+    );
+    const completedAt = '2026-11-22T11:59:30.123456Z';
+    const permitPayload = {
+      version: 1,
+      status: 'issued',
+      leaseId: 'lease-1',
+      grantId: 'grant-1',
+      snapshotId: 'attempt-permit',
+      permitId: 'permit-1',
+      keyId: 'key-1',
+      signedPermit: 'h.p.s',
+      notBefore: completedAt,
+      validUntil: '2026-11-22T12:00:00.000000Z',
+      limitingReason: 'AuthorityFreshness',
+    };
+    const fetchSpy = stubFetch(
+      [
+        JSON.stringify({ type: 'metadata', metadata: { snapshotId: 'attempt-permit', shopId, schemaVersion: 4, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 1, startedAt: completedAt } }),
+        JSON.stringify({ type: 'licencePermit', licencePermit: permitPayload }),
+        JSON.stringify({ type: 'complete', complete: { snapshotId: 'attempt-permit', completedAt, batchCount: 0, customerCount: 0, discountRuleCount: 0, activeLeaseCount: 0, serviceCount: 0 } }),
+      ].join('\n') + '\n',
+    );
+
+    await boundService.syncForShop(shopId);
+
+    const requestedUrl = String(fetchSpy.mock.calls[0][0]);
+    expect(requestedUrl).toContain('leaseId=lease-1');
+    expect(requestedUrl).toContain('grantId=grant-1');
+    expect(requestedUrl).toContain('deviceId=device-1');
+    expect(requestedUrl).toContain('tillSessionId=till-1');
+    expect(requestedUrl).toContain('ngsw-bypass=true');
+    expect(markCompleteSpy).toHaveBeenCalledTimes(1);
+    expect(permitService.acceptDeliveredPermit).toHaveBeenCalledWith(binding, permitPayload, 'attempt-permit', completedAt);
+    expect(events).toEqual(['markComplete', 'acceptPermit']);
+    expect(await snapshotDb.getUsableSnapshotId(shopId)).toBe('attempt-permit');
+  });
+
+  it('does not fail the promoted snapshot when storing a delivered permit throws or permit is absent', async () => {
+    const binding = {
+      shopId,
+      userId: 'user-1',
+      deviceId: 'device-1',
+      fiscalYear: '2026-27',
+      leaseId: 'lease-1',
+      leaseExpiresAt: '2099-01-01T00:00:00Z',
+      grantId: 'grant-1',
+      grantSha256: 'a'.repeat(64),
+    };
+    const permitService = {
+      resolveBinding: vi.fn(async () => binding),
+      acceptDeliveredPermit: vi.fn(async () => {
+        throw new Error('idb busy');
+      }),
+    };
+    const boundService = new OfflineSalesSnapshotSyncService(
+      { getAccessToken: () => 'token' } as any,
+      snapshotDb,
+      { scope: () => ({ userId: 'user-1', shopId, epoch: 1 }), epoch: () => 1, isCurrent: () => true, dataRestricted: () => false, onDetach: () => () => undefined } as any,
+      permitService as any,
+    );
+    const completedAt = '2026-11-22T11:59:30.123456Z';
+    stubFetch(
+      [
+        JSON.stringify({ type: 'metadata', metadata: { snapshotId: 'attempt-resilient', shopId, schemaVersion: 4, businessTimeZoneId: 'Asia/Kolkata', catalogVersion: 1, startedAt: completedAt } }),
+        JSON.stringify({ type: 'licencePermit', licencePermit: { version: 1, status: 'refused', leaseId: 'lease-1', grantId: 'grant-1', snapshotId: 'attempt-resilient', refusalCode: 'OfflinePermit.DeadlineReached' } }),
+        JSON.stringify({ type: 'complete', complete: { snapshotId: 'attempt-resilient', completedAt, batchCount: 0, customerCount: 0, discountRuleCount: 0, activeLeaseCount: 0, serviceCount: 0 } }),
+      ].join('\n') + '\n',
+    );
+
+    await boundService.syncForShop(shopId);
+
+    expect(await snapshotDb.getUsableSnapshotId(shopId)).toBe('attempt-resilient');
+  });
+
   function stubFetch(bodyText: string): ReturnType<typeof vi.fn> {
     const encoder = new TextEncoder();
     const bytes = encoder.encode(bodyText);

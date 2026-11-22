@@ -97,6 +97,7 @@ describe('OfflineSalesDeviceSettingsStorage', () => {
         remainingCount: 12,
         expiresAt: '2026-12-31T23:59:59.000Z',
       },
+      lastOfflinePermit: null,
     };
 
     storage.saveSettings(settings);
@@ -127,6 +128,7 @@ describe('OfflineSalesDeviceSettingsStorage', () => {
       lastApiVerifiedAt: null,
       lastSnapshotWarningMarker: null,
       lastReservedLease: null,
+      lastOfflinePermit: null,
     });
   });
 

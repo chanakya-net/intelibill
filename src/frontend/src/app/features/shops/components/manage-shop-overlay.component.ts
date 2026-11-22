@@ -17,6 +17,7 @@ import { OfflineSalesDeviceSettings, OfflineSalesDeviceSettingsStorage } from '.
 import { BankAccountFormComponent } from '../../../shared/components/bank-account-form/bank-account-form.component';
 import { OfflineSalesDeviceEnablementService } from '../../sales/services/offline-sales-device-enablement.service';
 import { OfflinePackService } from '../../../core/service-worker/offline-pack.service';
+import { LocaleFormattingService } from '../../../core/i18n/locale-formatting.service';
 import { LocaleInstantPipe } from '../../../shared/pipes/locale-instant.pipe';
 import { UpdateShopRequest, UpdateShopTaxProfileRequest } from '../services/shop.service';
 import { shopSetupAccessFor, shopSetupStatusKey, type ShopLicenceRefusal } from '../services/shop-setup-access';
@@ -30,7 +31,7 @@ import {
   selectShopsSubmitting,
 } from '../state/shops.selectors';
 import { createManageBankForm, createManageShopForm, mapManageBankFormToUpdateBankDetailsRequest, mapSetupProfileRequest, patchManageBankFormFromDetails, patchManageShopFormFromDetails } from './manage-shop/manage-shop-form.helper';
-import { formatOfflinePackVersion, formatOfflineSnapshotAgeLabel, getOfflineInvoiceRemainingCount, getOfflineReadinessState, offlineEnablementErrorKeyForReason, offlineEnablementProgressKey } from './manage-shop/manage-shop-offline.helper';
+import { formatOfflinePackVersion, formatOfflineSnapshotAgeLabel, getOfflineInvoiceRemainingCount, getOfflinePermitDisplayState, getOfflineReadinessState, offlineEnablementErrorKeyForReason, offlineEnablementProgressKey } from './manage-shop/manage-shop-offline.helper';
 import { ShopBasicInfoFormComponent } from './manage-shop/shop-basic-info-form.component';
 import { ShopLogoUploadComponent } from './manage-shop/shop-logo-upload.component';
 import { ShopMembersTableComponent } from './manage-shop/shop-members-table.component';
@@ -68,6 +69,7 @@ export class ManageShopOverlayComponent implements OnInit {
   private readonly offlineDeviceSettingsStorage = inject(OfflineSalesDeviceSettingsStorage);
   private readonly offlineDeviceEnablement = inject(OfflineSalesDeviceEnablementService);
   private readonly offlinePack = inject(OfflinePackService);
+  private readonly localeFormatting = inject(LocaleFormattingService);
 
   readonly isSubmitting = this.store.selectSignal(selectShopsSubmitting);
   readonly isLoadingDetails = this.store.selectSignal(selectShopsLoadingDetails);
@@ -115,6 +117,11 @@ export class ManageShopOverlayComponent implements OnInit {
   readonly offlinePackNeedsUpdate = this.offlinePack.reloadRequired;
   readonly offlinePackVersion = computed(() => formatOfflinePackVersion(this.offlinePackStatus()));
   readonly offlineEnablementProgressKey = computed(() => offlineEnablementProgressKey(this.offlineDeviceEnablement.step()));
+  readonly offlinePermitDisplay = computed(() => getOfflinePermitDisplayState(this.offlineDeviceSettings()));
+  readonly offlinePermitDeadlineLabel = computed(() => {
+    const display = this.offlinePermitDisplay();
+    return display.kind === 'deadline' ? this.localeFormatting.formatExactInstant(display.validUntil) : '';
+  });
   readonly stepIcons = [
     { value: 1, icon: 'pi pi-shop' },
     { value: 2, icon: 'pi pi-credit-card' },
