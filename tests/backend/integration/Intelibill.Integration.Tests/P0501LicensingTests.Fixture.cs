@@ -104,6 +104,7 @@ public sealed partial class P0501LicensingTests(PostgreSqlTestFixture fixture, I
         if (goods) await SeedGoodsAsync(client);
 
         await PinAuthEndAsync(session, verified.AddDays(400));
+        _clock.Now = verified;
         await using var db = Open(Migrator);
         var row = await db.AuthSessions.AsNoTracking().SingleAsync(x => x.Id == session, Ct);
         var actor = new Actor(user, shop, session, new SessionClaims(user, session, row.SecurityVersion, row.ScopeVersion, shop, "Owner"),
@@ -114,8 +115,8 @@ public sealed partial class P0501LicensingTests(PostgreSqlTestFixture fixture, I
     /// <summary>Binds the shop to an account and applies its first operating head, verified at <paramref name="verified"/>.</summary>
     private async Task<Actor> LicenseAsync(Actor actor, DateTimeOffset verified, DateTimeOffset end, Guid? account = null)
     {
-        var binding = await BindAsync(actor.Shop, account);
         _clock.Now = verified;
+        var binding = await BindAsync(actor.Shop, account);
         await ApplyAsync(binding, end);
         return actor with { Binding = binding };
     }

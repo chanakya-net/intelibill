@@ -23,10 +23,15 @@ public sealed partial class P0501LicensingTests
     /// tables isolate shops for the restricted runtime role, refuse every mutation, hold their
     /// constraints and refuse to be dropped once they retain evidence.
     /// </summary>
-    [Fact]
-    public async Task Upgrade_preserves_legacy_leases_and_isolates_immutable_evidence()
+    [Theory]
+    [InlineData("2026-11-20T12:00:00Z")]
+    [InlineData("2024-11-20T12:00:00Z")]
+    public async Task Upgrade_preserves_legacy_leases_and_isolates_immutable_evidence(string scenarioVerifiedAt)
     {
-        var verified = At("2026-11-20T12:00:00Z");
+        var verified = At(scenarioVerifiedAt);
+        var setupStartedAt = TimeProvider.System.GetUtcNow();
+        if (scenarioVerifiedAt == "2024-11-20T12:00:00Z")
+            Assert.True(setupStartedAt > verified.AddDays(400));
         using var host = CreateHost();
         await host.InitializeAsync();
         using var client = CreateClient(host);
@@ -35,7 +40,10 @@ public sealed partial class P0501LicensingTests
         var a = await OpenShopAsync(client, verified, verified.AddDays(30), licensed: false);
         var b = await OpenShopAsync(otherClient, verified, verified.AddDays(30), licensed: false);
         foreach (var device in new[] { "legacy-recorded", "legacy-unrecorded" })
-            await ReadSuccessAsync(await client.PostAsJsonAsync("/api/sales/invoice-leases/reserve", new { deviceId = device, blockSize = 25 }, Ct));
+        {
+            using var reserved = await client.PostAsJsonAsync("/api/sales/invoice-leases/reserve", new { deviceId = device, blockSize = 25 }, Ct);
+            await ReadSuccessAsync(reserved);
+        }
 
         await using var owner = Open(Migrator);
         var migrator = owner.GetService<IMigrator>();
@@ -68,23 +76,20 @@ public sealed partial class P0501LicensingTests
         {
             var (lease, captured) = await ReserveAsync(host, actor);
             var grant = Issued(captured).GrantId;
-            Issued(await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, grant, lease)));
+            var permit = Issued(await IssueAsync(host, actor, grant, await SnapshotAsync(host, actor, grant, lease)));
+            Assert.Equal((_clock.Now, verified.AddHours(48)), (permit.NotBefore, permit.ValidUntil));
         }
+        var storedGrant = await owner.Set<OfflineLicenseGrant>().AsNoTracking().SingleAsync(x => x.ShopId == a.Shop, Ct);
+        Assert.Equal((verified, verified.AddDays(400)), (storedGrant.AuthorityVerifiedAt, storedGrant.AuthDeadline));
         Assert.Equal(legacy, await LeaseDigestAsync(owner));
         Assert.Equal(new Evidence(1, 1, 1), await EvidenceAsync(a.Shop));
 
         await AssertIsolationAsync(a, b);
         await AssertAppendOnlyAsync(owner);
         await AssertConstraintsAsync(owner, a, b);
-
-        // Entitlement evidence is populated, so the predecessor guard refuses first and leaves everything intact.
-        var refusal = await Assert.ThrowsAnyAsync<Exception>(() => migrator.MigrateAsync(Predecessor, Ct));
-        var pg = Assert.IsType<PostgresException>(refusal.GetBaseException());
-        Assert.Equal("55000", pg.SqlState);
-        Assert.Equal("Retained entitlement evidence prevents downgrade", pg.MessageText);
-        await AssertEvidenceSchemaAsync(owner);
-        Assert.Equal(new Evidence(1, 1, 1), await EvidenceAsync(b.Shop));
-        Assert.Equal(legacy, await LeaseDigestAsync(owner));
+        await AssertRetainedEntitlementBlocksDowngradeAsync(migrator, owner, b.Shop, legacy);
+        _output.WriteLine("Upgrade scenario {0}: HTTP setup {1:O} vs cutoff {2:O}; 2 legacy leases, RLS and fixed bounds preserved",
+            scenarioVerifiedAt, setupStartedAt, verified.AddDays(400));
     }
 
     /// <summary>
@@ -134,6 +139,18 @@ public sealed partial class P0501LicensingTests
         Assert.Equal((0, 0), await AsShopAsync(null, "SELECT count(*)::int, 0 FROM offline_license_verification_keys"));
         _output.WriteLine("Isolated offline-evidence downgrade refused ({0}): {1}; key {2} and forced RLS preserved",
             pg.SqlState, pg.MessageText, retained.KeyId);
+    }
+
+    private async Task AssertRetainedEntitlementBlocksDowngradeAsync(IMigrator migrator, DbContext owner, Guid shop, string legacy)
+    {
+        // Entitlement evidence is populated, so the predecessor guard refuses first and leaves everything intact.
+        var refusal = await Assert.ThrowsAnyAsync<Exception>(() => migrator.MigrateAsync(Predecessor, Ct));
+        var pg = Assert.IsType<PostgresException>(refusal.GetBaseException());
+        Assert.Equal("55000", pg.SqlState);
+        Assert.Equal("Retained entitlement evidence prevents downgrade", pg.MessageText);
+        await AssertEvidenceSchemaAsync(owner);
+        Assert.Equal(new Evidence(1, 1, 1), await EvidenceAsync(shop));
+        Assert.Equal(legacy, await LeaseDigestAsync(owner));
     }
 
     private static async Task AssertEvidenceSchemaAsync(DbContext owner)
